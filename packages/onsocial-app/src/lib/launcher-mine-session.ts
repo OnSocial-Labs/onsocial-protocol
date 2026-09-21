@@ -3,7 +3,7 @@ import { accountIdsEqual } from '@/lib/account-match';
 /** In-tab memory only — hard refresh starts cold. */
 export const LAUNCHER_MINE_SESSION_TTL_MS = 30 * 60 * 1000;
 
-export type LauncherMineKind = 'guilds' | 'hubs';
+export type LauncherMineKind = 'guilds' | 'hubs' | 'daos';
 
 type LauncherMineSlot = {
   accountId: string;
@@ -14,6 +14,7 @@ type LauncherMineSlot = {
 const slots: Record<LauncherMineKind, LauncherMineSlot | null> = {
   guilds: null,
   hubs: null,
+  daos: null,
 };
 
 export function clearLauncherMineSession(kind?: LauncherMineKind): void {
@@ -23,6 +24,7 @@ export function clearLauncherMineSession(kind?: LauncherMineKind): void {
   }
   slots.guilds = null;
   slots.hubs = null;
+  slots.daos = null;
 }
 
 export function writeLauncherMineSession<T>(input: {

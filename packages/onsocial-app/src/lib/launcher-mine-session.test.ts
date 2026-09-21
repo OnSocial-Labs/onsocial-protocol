@@ -15,7 +15,7 @@ afterEach(() => {
 });
 
 describe('launcher mine session snapshot', () => {
-  it('round-trips guilds and hubs separately in memory', () => {
+  it('round-trips guilds, hubs, and daos separately in memory', () => {
     writeLauncherMineSession({
       kind: 'guilds',
       accountId: 'alice.near',
@@ -26,12 +26,20 @@ describe('launcher mine session snapshot', () => {
       accountId: 'alice.near',
       items: [{ appId: 'shop' }],
     });
+    writeLauncherMineSession({
+      kind: 'daos',
+      accountId: 'alice.near',
+      items: [{ daoAccountId: 'os-gov.near' }],
+    });
 
     expect(readLauncherMineSession('guilds', 'alice.near')).toEqual([
       { groupId: 'os' },
     ]);
     expect(readLauncherMineSession('hubs', 'ALICE.near')).toEqual([
       { appId: 'shop' },
+    ]);
+    expect(readLauncherMineSession('daos', 'alice.near')).toEqual([
+      { daoAccountId: 'os-gov.near' },
     ]);
     expect(readLauncherMineSession('guilds', 'bob.near')).toBeNull();
     expect(peekLauncherMineSession('guilds')?.items).not.toBe(
@@ -74,7 +82,7 @@ describe('launcher mine session snapshot', () => {
 });
 
 describe('launcher mine session wiring', () => {
-  it('restores Guilds and Hubs mine rails on remount without storage', () => {
+  it('restores Guilds, Hubs, and DAOs mine rails on remount without storage', () => {
     const libDir = dirname(fileURLToPath(import.meta.url));
     const guildsSrc = readFileSync(
       join(libDir, '../features/guilds/live-guilds-index-panel.tsx'),
@@ -84,11 +92,20 @@ describe('launcher mine session wiring', () => {
       join(libDir, '../features/scarces/hubs-index-panel.tsx'),
       'utf8'
     );
+    const daosSrc = readFileSync(
+      join(libDir, '../features/protocol/daos-index-panel.tsx'),
+      'utf8'
+    );
     expect(guildsSrc).toContain("readLauncherMineSession('guilds'");
     expect(guildsSrc).toContain('writeLauncherMineSession');
     expect(guildsSrc).not.toContain('sessionStorage.setItem');
     expect(hubsSrc).toContain("readLauncherMineSession('hubs'");
     expect(hubsSrc).toContain('writeLauncherMineSession');
     expect(hubsSrc).not.toContain('sessionStorage.setItem');
+    expect(daosSrc).toContain(
+      "readLauncherMineSession<MyDaoMembership>('daos'"
+    );
+    expect(daosSrc).toContain('writeLauncherMineSession');
+    expect(daosSrc).not.toContain('sessionStorage.setItem');
   });
 });

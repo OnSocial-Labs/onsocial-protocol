@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { LAUNCHER_HOME_PAGE_CLASS } from '@/lib/os-chrome-page';
@@ -26,10 +26,7 @@ import {
   type OptimisticMyDao,
 } from '@/features/protocol/my-daos-optimistic';
 import { displayName } from '@/lib/profile-display';
-import {
-  GOVERNANCE_DAO_ACCOUNT,
-  TREASURY_DAO_ACCOUNT,
-} from '@/lib/app-config';
+import { GOVERNANCE_DAO_ACCOUNT, TREASURY_DAO_ACCOUNT } from '@/lib/app-config';
 import {
   APP_DAOS_CREATE_PATH,
   DAOS_CREATE_QUERY,
@@ -37,6 +34,10 @@ import {
   daoPath,
 } from '@/lib/app-routes';
 import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
+import {
+  readLauncherMineSession,
+  writeLauncherMineSession,
+} from '@/lib/launcher-mine-session';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const MY_DAOS_SOFT_RETRY_MS = 2500;
@@ -65,6 +66,13 @@ function mergeMyDaosWithOptimistic(
   );
 }
 
+function seedMyDaos(accountId: string | null): MyDaoMembership[] | null {
+  const restored = readLauncherMineSession<MyDaoMembership>('daos', accountId);
+  const optimistic = readOptimisticMyDaos();
+  if (restored == null && optimistic.length === 0) return null;
+  return mergeMyDaosWithOptimistic(restored ?? [], optimistic);
+}
+
 /**
  * DAOs launcher — one Home: mine (horizontal) + proposals under a divider.
  * Network catalog find: header search → Discover → DAOs.
@@ -73,9 +81,28 @@ export function DaosIndexPanel() {
   const { accountId } = useAppWallet();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [myDaos, setMyDaos] = useState<MyDaoMembership[] | null>(null);
+  const [myDaos, setMyDaos] = useState<MyDaoMembership[] | null>(() =>
+    seedMyDaos(accountId)
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const accountIdRef = useRef(accountId);
+  const myDaosRef = useRef(myDaos);
+
+  useEffect(() => {
+    accountIdRef.current = accountId;
+    myDaosRef.current = myDaos;
+  }, [accountId, myDaos]);
+
+  useEffect(() => {
+    return () => {
+      writeLauncherMineSession({
+        kind: 'daos',
+        accountId: accountIdRef.current,
+        items: myDaosRef.current,
+      });
+    };
+  }, []);
 
   const discoverDaosHref = appDiscoverTabHref('daos');
 
@@ -106,9 +133,13 @@ export function DaosIndexPanel() {
     queueMicrotask(() => {
       if (cancelled) return;
       setLoadError(null);
+      const restored = readLauncherMineSession<MyDaoMembership>(
+        'daos',
+        accountId
+      );
       const optimistic = readOptimisticMyDaos();
-      if (optimistic.length > 0) {
-        setMyDaos(mergeMyDaosWithOptimistic([], optimistic));
+      if (restored != null || optimistic.length > 0) {
+        setMyDaos(mergeMyDaosWithOptimistic(restored ?? [], optimistic));
       } else if (retryKey > 0) {
         setMyDaos(null);
       }
@@ -123,6 +154,11 @@ export function DaosIndexPanel() {
             readOptimisticMyDaos()
           );
           setMyDaos(merged);
+          writeLauncherMineSession({
+            kind: 'daos',
+            accountId,
+            items: merged,
+          });
           setLoadError(null);
           const stillMissing = readOptimisticMyDaos().some(
             (hint) =>
@@ -142,12 +178,25 @@ export function DaosIndexPanel() {
         .catch((cause) => {
           if (cancelled) return;
           const optimistic = mergeMyDaosWithOptimistic(
-            [],
+            myDaosRef.current ?? [],
             readOptimisticMyDaos()
           );
           if (optimistic.length > 0) {
             setMyDaos(optimistic);
+            writeLauncherMineSession({
+              kind: 'daos',
+              accountId,
+              items: optimistic,
+            });
             setLoadError(null);
+            return;
+          }
+          if (myDaosRef.current != null) {
+            setLoadError(
+              cause instanceof Error
+                ? cause.message
+                : 'Couldn’t load your DAOs.'
+            );
             return;
           }
           setMyDaos(null);
@@ -179,7 +228,9 @@ export function DaosIndexPanel() {
   );
 
   const myDaosReady = myDaos !== null;
-  const showMineRail = Boolean(accountId && myDaosReady && myEntries.length > 0);
+  const showMineRail = Boolean(
+    accountId && myDaosReady && myEntries.length > 0
+  );
   /** Proposals only once you're in — no tutorial empty under the divider. */
   const showProposals = showMineRail;
 
