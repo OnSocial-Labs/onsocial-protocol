@@ -17,6 +17,9 @@ describe('home feed loading contract', () => {
   it('guards every async feed commit against stale generations', () => {
     const source = readFileSync(join(homeSrc, 'home-feed.tsx'), 'utf8');
 
+    expect(source).toContain('peekHomeFeedSession');
+    expect(source).toContain('writeHomeFeedSession');
+    expect(source).toContain('homeFeedSessionProbeDelayMs');
     expect(source).toContain('isCurrentLoadingRequest');
     expect(source).toContain('mergeHomeFeedHead');
     expect(source).toContain('growFeedWindow');
