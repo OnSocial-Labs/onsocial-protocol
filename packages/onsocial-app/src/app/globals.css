@@ -396,12 +396,12 @@
   overflow: hidden;
 }
 
-.glass-sheet-panel.guild-composer-sheet-panel .os-app-screen--embedded,
 .glass-sheet-root.post-thread-sheet-parked {
   visibility: hidden;
   pointer-events: none;
 }
 
+.glass-sheet-panel.guild-composer-sheet-panel .os-app-screen--embedded,
 .glass-sheet-panel.post-thread-sheet-panel .os-app-screen--embedded,
 .glass-sheet-panel.drop-sheet-panel .os-app-screen--embedded {
   flex: 1 1 auto;
