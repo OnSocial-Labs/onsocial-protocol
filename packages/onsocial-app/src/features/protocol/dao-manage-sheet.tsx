@@ -51,8 +51,17 @@ export function DaoManageSheet({
   onAction: (action: DaoManageAction) => void;
 }) {
   const [closing, setClosing] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
+  const [heldShowStake, setHeldShowStake] = useState(showStake);
   const sheetOpen = open && !closing;
   const showClaimSupport = Boolean(canProposeCall && claimSupportLabel);
+
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setHeldShowStake(showStake);
+  }
+
+  const stakeInMenu = open ? heldShowStake : showStake;
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -76,7 +85,7 @@ export function DaoManageSheet({
       description: 'Create a governance proposal',
       onSelect: () => run('propose'),
     },
-    ...(showStake
+    ...(stakeInMenu
       ? [
           {
             id: 'stake',

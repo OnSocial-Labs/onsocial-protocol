@@ -24,4 +24,10 @@ describe('DaoManageSheet chrome', () => {
     expect(src).toMatch(/canEdit[\s\S]*run\('edit'\)/);
     expect(src).toMatch(/canProposeCall[\s\S]*run\('publish-social'\)/);
   });
+
+  it('freezes Stake on the open sheet so a late path fetch cannot yank the row', () => {
+    expect(src).toContain('heldShowStake');
+    expect(src).toContain('stakeInMenu');
+    expect(src).toContain('if (open) setHeldShowStake(showStake)');
+  });
 });
