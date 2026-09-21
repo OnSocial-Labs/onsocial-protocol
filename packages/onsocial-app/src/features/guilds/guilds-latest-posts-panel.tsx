@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   LauncherHomeEmpty,
   LauncherHomeError,
@@ -17,13 +17,20 @@ import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useResolvedGroupPosts } from '@/hooks/use-quoted-posts';
 import { APP_HOME_PATH } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { resolveLauncherPostPeekDisplay, relationTargetAccountId } from '@/lib/launcher-post-peek';
+import {
+  resolveLauncherPostPeekDisplay,
+  relationTargetAccountId,
+} from '@/lib/launcher-post-peek';
 import {
   formatRelativePostTimestamp,
   postTimestampIso,
 } from '@/lib/post-display';
 import { isRepostRefType } from '@/lib/post-relation';
 import { postThreadPath } from '@/lib/post-routes';
+import {
+  readLauncherLatestSession,
+  writeLauncherLatestSession,
+} from '@/lib/launcher-latest-session';
 
 const GUILD_FEED_LIMIT = 24;
 const PEEK_FETCH_LIMIT = 24;
@@ -56,10 +63,29 @@ export function GuildsLatestPostsPanel({
   accountId: string | null;
   myGuilds: GuildSummaryCardModel[] | null;
 }) {
-  const [peeks, setPeeks] = useState<GuildPostPeek[] | null>(null);
-  const [pending, setPending] = useState(false);
+  const [peeks, setPeeks] = useState<GuildPostPeek[] | null>(() =>
+    readLauncherLatestSession('guilds', accountId)
+  );
+  const [pending, setPending] = useState(peeks == null);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const accountIdRef = useRef(accountId);
+  const peeksRef = useRef(peeks);
+
+  useEffect(() => {
+    accountIdRef.current = accountId;
+    peeksRef.current = peeks;
+  }, [accountId, peeks]);
+
+  useEffect(() => {
+    return () => {
+      writeLauncherLatestSession({
+        kind: 'guilds',
+        accountId: accountIdRef.current,
+        items: peeksRef.current,
+      });
+    };
+  }, []);
 
   const guildIds = useMemo(() => {
     if (!myGuilds) return [];
@@ -88,8 +114,12 @@ export function GuildsLatestPostsPanel({
     }
     if (myGuilds == null) {
       queueMicrotask(() => {
-        setPeeks(null);
-        setPending(true);
+        const restored = readLauncherLatestSession<GuildPostPeek>(
+          'guilds',
+          accountId
+        );
+        setPeeks(restored);
+        setPending(restored == null);
         setError(null);
       });
       return;
@@ -97,6 +127,11 @@ export function GuildsLatestPostsPanel({
     if (guildIds.length === 0) {
       queueMicrotask(() => {
         setPeeks([]);
+        writeLauncherLatestSession({
+          kind: 'guilds',
+          accountId,
+          items: [],
+        });
         setPending(false);
         setError(null);
       });
@@ -104,11 +139,15 @@ export function GuildsLatestPostsPanel({
     }
 
     let cancelled = false;
+    const restored = readLauncherLatestSession<GuildPostPeek>(
+      'guilds',
+      accountId
+    );
     queueMicrotask(() => {
-      if (!cancelled) {
-        setPending(true);
-        setError(null);
-      }
+      if (cancelled) return;
+      setPeeks(restored);
+      setPending(restored == null);
+      setError(null);
     });
 
     void (async () => {
@@ -145,11 +184,18 @@ export function GuildsLatestPostsPanel({
           });
         }
         setPeeks(mapped);
+        writeLauncherLatestSession({
+          kind: 'guilds',
+          accountId,
+          items: mapped,
+        });
         setPending(false);
+        setError(null);
       } catch (cause) {
         if (cancelled) return;
-        setPeeks(null);
         setPending(false);
+        if (peeksRef.current != null) return;
+        setPeeks(null);
         setError(
           cause instanceof Error ? cause.message : 'Could not load posts.'
         );
@@ -201,7 +247,7 @@ export function GuildsLatestPostsPanel({
     return null;
   }
 
-  if (error) {
+  if (error && peeks == null) {
     return (
       <LauncherHomeError
         message={error}
@@ -210,7 +256,7 @@ export function GuildsLatestPostsPanel({
     );
   }
 
-  if (myGuilds == null || pending) {
+  if (peeks == null && (myGuilds == null || pending)) {
     return <LauncherSocialPeekSkeleton count={5} />;
   }
 

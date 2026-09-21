@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   LauncherHomeEmpty,
   LauncherHomeError,
@@ -26,6 +26,10 @@ import {
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { daoPortfolioPath } from '@/lib/app-routes';
 import { formatRelativePostTimestamp } from '@/lib/post-display';
+import {
+  readLauncherLatestSession,
+  writeLauncherLatestSession,
+} from '@/lib/launcher-latest-session';
 
 const EXPLORE_DAO_LIMIT = PROTOCOL_PROPOSAL_PEEK_DAO_LIMIT;
 const EXPLORE_PEEK_LIMIT = PROTOCOL_PROPOSAL_PEEK_LIMIT;
@@ -62,7 +66,8 @@ function mapPeek(row: ProtocolProposalPeek): DaosExplorePeek {
 
 function daoContextLabel(peek: DaosExplorePeek): string {
   const named =
-    peek.daoName.trim().toLowerCase() !== peek.daoAccountId.trim().toLowerCase();
+    peek.daoName.trim().toLowerCase() !==
+    peek.daoAccountId.trim().toLowerCase();
   if (named) {
     return `${peek.daoName} · ${peek.statusLabel}`;
   }
@@ -80,10 +85,29 @@ export function DaosExplorePanel({
   accountId: string | null;
   myDaos: MyDaoMembership[] | null;
 }) {
-  const [peeks, setPeeks] = useState<DaosExplorePeek[] | null>(null);
-  const [pending, setPending] = useState(false);
+  const [peeks, setPeeks] = useState<DaosExplorePeek[] | null>(() =>
+    readLauncherLatestSession('daos', accountId)
+  );
+  const [pending, setPending] = useState(peeks == null);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const accountIdRef = useRef(accountId);
+  const peeksRef = useRef(peeks);
+
+  useEffect(() => {
+    accountIdRef.current = accountId;
+    peeksRef.current = peeks;
+  }, [accountId, peeks]);
+
+  useEffect(() => {
+    return () => {
+      writeLauncherLatestSession({
+        kind: 'daos',
+        accountId: accountIdRef.current,
+        items: peeksRef.current,
+      });
+    };
+  }, []);
 
   const daoIds = useMemo(() => {
     if (!myDaos) return [];
@@ -104,8 +128,12 @@ export function DaosExplorePanel({
     }
     if (myDaos == null) {
       queueMicrotask(() => {
-        setPeeks(null);
-        setPending(true);
+        const restored = readLauncherLatestSession<DaosExplorePeek>(
+          'daos',
+          accountId
+        );
+        setPeeks(restored);
+        setPending(restored == null);
         setError(null);
       });
       return;
@@ -113,6 +141,11 @@ export function DaosExplorePanel({
     if (daoIds.length === 0) {
       queueMicrotask(() => {
         setPeeks([]);
+        writeLauncherLatestSession({
+          kind: 'daos',
+          accountId,
+          items: [],
+        });
         setPending(false);
         setError(null);
       });
@@ -120,11 +153,15 @@ export function DaosExplorePanel({
     }
 
     let cancelled = false;
+    const restored = readLauncherLatestSession<DaosExplorePeek>(
+      'daos',
+      accountId
+    );
     queueMicrotask(() => {
-      if (!cancelled) {
-        setPending(true);
-        setError(null);
-      }
+      if (cancelled) return;
+      setPeeks(restored);
+      setPending(restored == null);
+      setError(null);
     });
 
     void (async () => {
@@ -134,13 +171,20 @@ export function DaosExplorePanel({
           EXPLORE_PEEK_LIMIT
         );
         if (cancelled) return;
-        setPeeks(rows.map(mapPeek));
+        const mapped = rows.map(mapPeek);
+        setPeeks(mapped);
+        writeLauncherLatestSession({
+          kind: 'daos',
+          accountId,
+          items: mapped,
+        });
         setError(null);
         setPending(false);
       } catch (cause) {
         if (cancelled) return;
-        setPeeks(null);
         setPending(false);
+        if (peeksRef.current != null) return;
+        setPeeks(null);
         setError(
           cause instanceof Error ? cause.message : 'Couldn’t load proposals.'
         );
@@ -173,7 +217,7 @@ export function DaosExplorePanel({
     return null;
   }
 
-  if (error) {
+  if (error && peeks == null) {
     return (
       <LauncherHomeError
         message={error}
@@ -182,7 +226,7 @@ export function DaosExplorePanel({
     );
   }
 
-  if (myDaos == null || pending) {
+  if (peeks == null && (myDaos == null || pending)) {
     return <LauncherSocialPeekSkeleton count={5} />;
   }
 

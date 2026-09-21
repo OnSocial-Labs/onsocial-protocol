@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   LauncherHomeEmpty,
   LauncherHomeError,
@@ -18,6 +18,10 @@ import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { collectionPath } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import {
+  readLauncherLatestSession,
+  writeLauncherLatestSession,
+} from '@/lib/launcher-latest-session';
 
 const HUB_DROP_LIMIT = 24;
 const PEEK_FETCH_LIMIT = 24;
@@ -43,10 +47,29 @@ export function HubsLatestDropsPanel({
   accountId: string | null;
   myHubs: AppView[] | null;
 }) {
-  const [peeks, setPeeks] = useState<HubDropPeek[] | null>(null);
-  const [pending, setPending] = useState(false);
+  const [peeks, setPeeks] = useState<HubDropPeek[] | null>(() =>
+    readLauncherLatestSession('hubs', accountId)
+  );
+  const [pending, setPending] = useState(peeks == null);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const accountIdRef = useRef(accountId);
+  const peeksRef = useRef(peeks);
+
+  useEffect(() => {
+    accountIdRef.current = accountId;
+    peeksRef.current = peeks;
+  }, [accountId, peeks]);
+
+  useEffect(() => {
+    return () => {
+      writeLauncherLatestSession({
+        kind: 'hubs',
+        accountId: accountIdRef.current,
+        items: peeksRef.current,
+      });
+    };
+  }, []);
 
   const hubIds = useMemo(() => {
     if (!myHubs) return [];
@@ -75,8 +98,12 @@ export function HubsLatestDropsPanel({
     }
     if (myHubs == null) {
       queueMicrotask(() => {
-        setPeeks(null);
-        setPending(true);
+        const restored = readLauncherLatestSession<HubDropPeek>(
+          'hubs',
+          accountId
+        );
+        setPeeks(restored);
+        setPending(restored == null);
         setError(null);
       });
       return;
@@ -84,6 +111,11 @@ export function HubsLatestDropsPanel({
     if (hubIds.length === 0) {
       queueMicrotask(() => {
         setPeeks([]);
+        writeLauncherLatestSession({
+          kind: 'hubs',
+          accountId,
+          items: [],
+        });
         setPending(false);
         setError(null);
       });
@@ -91,11 +123,12 @@ export function HubsLatestDropsPanel({
     }
 
     let cancelled = false;
+    const restored = readLauncherLatestSession<HubDropPeek>('hubs', accountId);
     queueMicrotask(() => {
-      if (!cancelled) {
-        setPending(true);
-        setError(null);
-      }
+      if (cancelled) return;
+      setPeeks(restored);
+      setPending(restored == null);
+      setError(null);
     });
 
     void (async () => {
@@ -126,11 +159,18 @@ export function HubsLatestDropsPanel({
           })
           .filter((row): row is HubDropPeek => row != null);
         setPeeks(mapped);
+        writeLauncherLatestSession({
+          kind: 'hubs',
+          accountId,
+          items: mapped,
+        });
         setPending(false);
+        setError(null);
       } catch (cause) {
         if (cancelled) return;
-        setPeeks(null);
         setPending(false);
+        if (peeksRef.current != null) return;
+        setPeeks(null);
         setError(
           cause instanceof Error ? cause.message : 'Could not load drops.'
         );
@@ -163,7 +203,7 @@ export function HubsLatestDropsPanel({
     return null;
   }
 
-  if (error) {
+  if (error && peeks == null) {
     return (
       <LauncherHomeError
         message={error}
@@ -172,7 +212,7 @@ export function HubsLatestDropsPanel({
     );
   }
 
-  if (myHubs == null || pending) {
+  if (peeks == null && (myHubs == null || pending)) {
     return <LauncherSocialPeekSkeleton count={5} />;
   }
 
