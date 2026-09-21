@@ -15,6 +15,7 @@ import {
   isAppCatalogQuery,
   isCollectionCurrentQuery,
   isCreatorCatalogQuery,
+  isE2eWritingShelfCookie,
   isGraphQueryRequest,
   isGroupsByIdsQuery,
   isMarketShopCatalogQuery,
@@ -106,6 +107,8 @@ describe('parseE2eGraphCookie', () => {
     expect(
       serializeE2eGraphCookie({ catalog: 'empty', writing: 'shelf' })
     ).toBe('catalog=empty&writing=shelf');
+    expect(isE2eWritingShelfCookie('writing=shelf')).toBe(true);
+    expect(isE2eWritingShelfCookie('catalog=empty')).toBe(false);
   });
 
   it('ignores missing or unknown values', () => {
