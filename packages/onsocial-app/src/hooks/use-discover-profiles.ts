@@ -46,6 +46,7 @@ import {
   readElementScrollTop,
   rememberDiscoverTabScroll,
   scheduleDiscoverTabScrollRestore,
+  writeElementScrollTop,
   type DiscoverTabScrollMap,
 } from '@/lib/discover-tab-scroll';
 import type { DiscoverFaceFilter } from '@onsocial/sdk';
@@ -68,6 +69,11 @@ import {
   readDiscoverListCache,
   writeDiscoverListCache,
 } from '@/lib/discover-list-cache';
+import {
+  discoverListSessionKey,
+  readDiscoverListSession,
+  writeDiscoverListSession,
+} from '@/lib/discover-list-session';
 import { replaceBrowserQueryUrl } from '@/lib/sync-browser-url-query';
 import { overlayViewerEndorsedOnAccounts } from '@/lib/viewer-endorsement-ledger';
 import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
@@ -200,14 +206,36 @@ export function useDiscoverProfiles(
         craft: searchParams.get('craft'),
       }).craft ?? ''
   );
+  const restoredSessionRef = useRef(
+    readDiscoverListSession(
+      discoverListSessionKey({
+        query,
+        face,
+        industry,
+        craft,
+      })
+    )
+  );
+  const restoredSession = restoredSessionRef.current;
+  const sessionRestoreReloadNonceRef = useRef(0);
+  const pendingScrollTopRef = useRef<number | null>(
+    restoredSession
+      ? readDiscoverTabScroll(restoredSession.tabScroll, tab) || null
+      : null
+  );
+  const restoredTabRef = useRef(tab);
   const [profiles, setProfiles] = useState<DiscoverProfileSummary[]>(
-    () => initialPage?.profiles ?? []
+    () => restoredSession?.profiles ?? initialPage?.profiles ?? []
   );
   const [pendingStandingIds, setPendingStandingIds] = useState<Set<string>>(
     () => new Set()
   );
-  const [hasMore, setHasMore] = useState(() => initialPage?.hasMore ?? false);
-  const [isLoading, setIsLoading] = useState(() => initialPage == null);
+  const [hasMore, setHasMore] = useState(
+    () => restoredSession?.hasMore ?? initialPage?.hasMore ?? false
+  );
+  const [isLoading, setIsLoading] = useState(
+    () => restoredSession == null && initialPage == null
+  );
   const [isListRefreshing, setIsListRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -215,7 +243,9 @@ export function useDiscoverProfiles(
   const [protocolPulseTotals, setProtocolPulseTotals] =
     useState<ProtocolPulseTotals | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
-  const [relationshipSynced, setRelationshipSynced] = useState(false);
+  const [relationshipSynced, setRelationshipSynced] = useState(
+    () => restoredSession != null
+  );
   const viewerKey = viewerAccountId ?? null;
 
   const loadIdRef = useRef(0);
@@ -223,12 +253,53 @@ export function useDiscoverProfiles(
   const pageAbortRef = useRef<AbortController | null>(null);
   const appendAbortRef = useRef<AbortController | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const profilesRef = useRef(profiles);
+  const hasMoreRef = useRef(hasMore);
+  const tabRef = useRef(tab);
+  const sessionKeyRef = useRef(
+    discoverListSessionKey({
+      query,
+      face,
+      industry,
+      craft,
+    })
+  );
 
   const normalizedQuery = discoverPeopleSearchQuery(query);
   const topicFilterPrefix = discoverTopicFilterPrefix(query, tab);
   const urlQueryValue = discoverUrlQueryValue(query, tab);
 
-  const tabScrollRef = useRef<DiscoverTabScrollMap>({});
+  const tabScrollRef = useRef<DiscoverTabScrollMap>(
+    restoredSession?.tabScroll ?? {}
+  );
+  useLayoutEffect(() => {
+    profilesRef.current = profiles;
+    hasMoreRef.current = hasMore;
+    tabRef.current = tab;
+    sessionKeyRef.current = discoverListSessionKey({
+      query: normalizedQuery,
+      face,
+      industry,
+      craft,
+    });
+  }, [craft, face, hasMore, industry, normalizedQuery, profiles, tab]);
+  useEffect(() => {
+    const scrollRoot = scrollRootRef?.current ?? null;
+    return () => {
+      const tabScroll = rememberDiscoverTabScroll(
+        tabScrollRef.current,
+        tabRef.current,
+        readElementScrollTop(scrollRoot)
+      );
+      writeDiscoverListSession({
+        sessionKey: sessionKeyRef.current,
+        tab: tabRef.current,
+        profiles: profilesRef.current,
+        hasMore: hasMoreRef.current,
+        tabScroll,
+      });
+    };
+  }, [scrollRootRef]);
   const commitTab = useCallback(
     (current: DiscoverTab, next: DiscoverTab): DiscoverTab => {
       if (current === next) return current;
@@ -249,13 +320,31 @@ export function useDiscoverProfiles(
   );
 
   useLayoutEffect(() => {
+    if (tab !== restoredTabRef.current) {
+      pendingScrollTopRef.current = null;
+    }
+    const pending = pendingScrollTopRef.current;
+    if (pending != null) {
+      const node = scrollRootRef?.current;
+      if (!node) return undefined;
+      writeElementScrollTop(node, pending);
+      if (node.scrollTop > 0 || node.scrollHeight > pending) {
+        pendingScrollTopRef.current = null;
+      }
+      return undefined;
+    }
     return scheduleDiscoverTabScrollRestore(
       scrollRootRef?.current,
       readDiscoverTabScroll(tabScrollRef.current, tab)
     );
-  }, [scrollRootRef, tab]);
+  }, [profiles.length, scrollRootRef, tab]);
 
+  const skipFilterScrollResetRef = useRef(true);
   useEffect(() => {
+    if (skipFilterScrollResetRef.current) {
+      skipFilterScrollResetRef.current = false;
+      return;
+    }
     tabScrollRef.current = {};
   }, [face, industry, craft, normalizedQuery]);
 
@@ -488,7 +577,20 @@ export function useDiscoverProfiles(
       industry,
       craft
     );
+    const sessionKey = discoverListSessionKey({
+      query: normalizedQuery,
+      face,
+      industry,
+      craft,
+    });
+    const restored = restoredSessionRef.current;
+    const canUseRestoredSession =
+      restored != null &&
+      restored.sessionKey === sessionKey &&
+      restored.profiles.length > 0 &&
+      reloadNonce === sessionRestoreReloadNonceRef.current;
     const canUseInitialPage =
+      !canUseRestoredSession &&
       initialPage != null &&
       normalizedQuery === normalizeProfileSearchQuery(initialPage.query) &&
       (initialPage.face ?? 'all') === face &&
@@ -505,6 +607,23 @@ export function useDiscoverProfiles(
     const cacheReady =
       cachedEntry != null &&
       isDiscoverListCacheDisplayReady(cachedEntry, viewerKey);
+
+    if (canUseRestoredSession) {
+      if (restored.profiles.length > 0) {
+        setProfiles(restored.profiles);
+        setHasMore(restored.hasMore);
+        writeDiscoverListCache(cacheKey, {
+          viewerAccountId: viewerKey,
+          profiles: restored.profiles,
+          hasMore: restored.hasMore,
+        });
+      }
+      setIsLoading(false);
+      setIsListRefreshing(false);
+      setLoadError(null);
+      setRelationshipSynced(true);
+      return;
+    }
 
     if (cachedEntry && cacheReady) {
       setProfiles(cachedEntry.profiles);
