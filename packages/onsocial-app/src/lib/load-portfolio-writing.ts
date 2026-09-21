@@ -3,14 +3,19 @@ import { notFound } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { isArticlePost } from '@/lib/article-post-payload';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
+import {
+  E2E_GRAPH_COOKIE,
+  e2eGraphStubsAllowed,
+  isE2eWritingShelfCookie,
+} from '@/lib/e2e-graph-stubs';
 import { fetchPersonalPost } from '@/lib/fetch-personal-post';
 import {
   hydrateWritingArticleCovers,
   type WritingArticleCoverHint,
 } from '@/lib/hydrate-writing-article-covers';
-import { fetchPublicPageData } from '@/lib/page-data';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
+import { fetchPublicPageData } from '@/lib/page-data';
 import { displayName } from '@/lib/profile-display';
 import { loadProfileShell } from '@/lib/profile-shell';
 import { resolveAccountId } from '@/lib/resolve-account';
@@ -49,8 +54,32 @@ export const fetchAccountArticles = cache(
   }
 );
 
+async function e2eWritingShelfChrome(
+  accountId: string
+): Promise<PortfolioWritingPageData | null> {
+  if (!e2eGraphStubsAllowed()) return null;
+  try {
+    const { cookies } = await import('next/headers');
+    const value = (await cookies()).get(E2E_GRAPH_COOKIE)?.value;
+    if (!isE2eWritingShelfCookie(value)) return null;
+  } catch {
+    return null;
+  }
+  return {
+    accountId,
+    titleLabel: displayName(accountId, 'Alice'),
+    avatarUrl: null,
+    mood: resolvePortfolioMood({}),
+    articles: [],
+    coverHints: {},
+  };
+}
+
 const loadPortfolioWritingChrome = cache(
   async (accountId: string): Promise<PortfolioWritingPageData> => {
+    const stubChrome = await e2eWritingShelfChrome(accountId);
+    if (stubChrome) return stubChrome;
+
     const data = await fetchPublicPageData(accountId);
     if (!data) {
       notFound();

@@ -116,6 +116,12 @@ export function parseE2eGraphCookie(
   return parsed;
 }
 
+export function isE2eWritingShelfCookie(
+  value: string | null | undefined
+): boolean {
+  return parseE2eGraphCookie(value).writing === 'shelf';
+}
+
 export function serializeE2eGraphCookie(opts: E2eGraphCookieValue): string {
   const params = new URLSearchParams();
   if (opts.catalog) params.set('catalog', opts.catalog);
