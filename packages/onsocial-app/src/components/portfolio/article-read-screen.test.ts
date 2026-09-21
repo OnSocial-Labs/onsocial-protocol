@@ -32,6 +32,7 @@ describe('writing list to article', () => {
   it('opens the overlay over the list instead of jumping to a solid page', () => {
     expect(list).toContain('ArticleReadOverlay');
     expect(list).toContain('onOpenArticle');
+    expect(list).toContain('onReturnToShelf');
     expect(list).toContain('consumeEssayReopen');
     expect(list).not.toContain('leaveGlass');
   });

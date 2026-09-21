@@ -168,6 +168,19 @@ export function OsSlideOverScreen({
     getServerMountedSnapshot
   );
   const registeredHost = useOsPortalHost();
+  /**
+   * Stay on the screen that opened this layer. A later screen (the author)
+   * must not pull an open article out of the hidden feed.
+   */
+  const portalHostRef = useRef<HTMLElement | null>(null);
+  if (!renderOpen || viewport) {
+    portalHostRef.current = null;
+  } else if (
+    portalHostRef.current == null ||
+    !portalHostRef.current.isConnected
+  ) {
+    portalHostRef.current = registeredHost;
+  }
   const viewerMood = useViewerDockMood();
   const resolvedMoodId = moodId !== undefined ? moodId : viewerMood.moodId;
   const resolvedMoodStyle =
@@ -189,7 +202,18 @@ export function OsSlideOverScreen({
 
   const layerOpen = renderOpen && !closing;
   const hasFooter = footer != null;
-  useScrollLock(renderOpen);
+  /**
+   * The article stays mounted under a covered Home feed. It must not lock
+   * the page in front, or take Escape, until that feed is on screen again.
+   */
+  const [parked, setParked] = useState(false);
+  useLayoutEffect(() => {
+    const next = Boolean(
+      portalHostRef.current?.closest('[data-feed-session="covered"]')
+    );
+    setParked((current) => (current === next ? current : next));
+  });
+  useScrollLock(renderOpen && !parked);
 
   const finishExit = useCallback(() => {
     setClosing(false);
@@ -218,7 +242,7 @@ export function OsSlideOverScreen({
   }, [layerOpen]);
 
   useEffect(() => {
-    if (!layerOpen) return;
+    if (!layerOpen || parked) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       if (event.defaultPrevented) return;
@@ -227,7 +251,7 @@ export function OsSlideOverScreen({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [layerOpen, requestClose]);
+  }, [layerOpen, parked, requestClose]);
 
   useOsScreenChromeHeightSync({ enabled: renderOpen, headerRef });
 
@@ -259,9 +283,9 @@ export function OsSlideOverScreen({
 
   const portalHost =
     typeof document !== 'undefined'
-      ? viewport || !registeredHost
+      ? viewport || !portalHostRef.current
         ? document.body
-        : registeredHost
+        : portalHostRef.current
       : null;
   if (!portalHost) return null;
 

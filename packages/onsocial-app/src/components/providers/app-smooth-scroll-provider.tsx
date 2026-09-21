@@ -33,7 +33,10 @@ function bindAppSmoothScroll(wrapper: HTMLElement): () => void {
   }
 
   const syncLock = () => {
-    if (isAppSmoothScrollLocked(wrapper.dataset)) {
+    if (
+      isAppSmoothScrollLocked(wrapper.dataset) ||
+      wrapper.closest('[data-feed-session="covered"]')
+    ) {
       lenis.stop();
     } else {
       lenis.start();
@@ -46,6 +49,13 @@ function bindAppSmoothScroll(wrapper: HTMLElement): () => void {
     attributes: true,
     attributeFilter: ['data-scroll-locked'],
   });
+  const coverHost = wrapper.closest('[data-feed-session]');
+  if (coverHost) {
+    lockObserver.observe(coverHost, {
+      attributes: true,
+      attributeFilter: ['data-feed-session'],
+    });
+  }
 
   return () => {
     lockObserver.disconnect();

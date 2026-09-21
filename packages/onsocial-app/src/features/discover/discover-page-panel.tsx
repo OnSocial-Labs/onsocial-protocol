@@ -1,7 +1,9 @@
 'use client';
 
-import { useRef, type RefObject } from 'react';
+import { useCallback, useRef, type RefObject } from 'react';
+import { useRouter } from 'next/navigation';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { useOsInAppPop } from '@/components/providers/os-face-leave-provider';
 import { DiscoverPanelContent } from '@/features/discover/discover-panel-content';
 import {
   DiscoverHeaderTabs,
@@ -18,9 +20,16 @@ function DiscoverPageScreen({
   backFallbackHref,
 }: {
   scrollRootRef: RefObject<HTMLElement | null>;
-  /** Parent place for dock leave — portfolio nested, or Home for `/discover`. */
+  /** Cold open only. In the tab, Back pops the screen you left. */
   backFallbackHref: string;
 }) {
+  const router = useRouter();
+  const popInApp = useOsInAppPop();
+  const onDockBack = useCallback(() => {
+    if (popInApp()) return;
+    router.push(backFallbackHref);
+  }, [backFallbackHref, popInApp, router]);
+
   return (
     <OsAppScreen
       title="Discover"
@@ -30,6 +39,7 @@ function DiscoverPageScreen({
       scrollRootRef={scrollRootRef}
       leading={null}
       dockBack
+      onDockBack={onDockBack}
       backFallbackHref={backFallbackHref}
       heading={<DiscoverNavSearch />}
       toolbar={<DiscoverHeaderTabs />}

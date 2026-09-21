@@ -10,7 +10,7 @@ import {
   type PointerEvent,
 } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import {
   BookmarkFillIcon,
@@ -128,6 +128,7 @@ import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { parsePostContentLabels } from '@/lib/post-content-labels';
 import { accountIdsEqual } from '@/lib/account-match';
 import { consumeEssayReopen } from '@/lib/essay-return';
+import { APP_HOME_PATH } from '@/lib/app-routes';
 import { portfolioPath, writingArticlePath } from '@/lib/overlay-routes';
 import {
   articleTeaseSource,
@@ -1614,6 +1615,7 @@ export function PostCard({
   const [photoThreadOpen, setPhotoThreadOpen] = useState(false);
   const enlargeWrite =
     articleOpen || (feedMediumOpen && feedMediumMode !== 'viewer');
+  const pathname = usePathname();
   const focusWriteDock = useFocusWriteDock();
   const openPhotoThread = useCallback(() => {
     setPhotoThreadOpen(true);
@@ -1623,7 +1625,7 @@ export function PostCard({
   }, []);
   useReplyWriteDock({
     target: post,
-    enabled: enlargeWrite,
+    enabled: enlargeWrite && pathname === APP_HOME_PATH,
     placeholder: 'Add a reply…',
     revision: enlargeWrite ? postKey(post) : '',
     draftKey: writeDockDraftKey('post', postKey(post)),

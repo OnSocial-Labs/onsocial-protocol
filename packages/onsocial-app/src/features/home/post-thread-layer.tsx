@@ -15,7 +15,7 @@ import {
   type ReactNode,
 } from 'react';
 import dynamic from 'next/dynamic';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { ChevronLeftIcon, OsIconAction, OsPageSheet } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -82,6 +82,16 @@ function getPostLayerPopGuard(): PostLayerPopGuard {
   return guard;
 }
 
+function ensurePostThreadParkedStyle(): void {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById('post-thread-sheet-parked-style')) return;
+  const style = document.createElement('style');
+  style.id = 'post-thread-sheet-parked-style';
+  style.textContent =
+    '.glass-sheet-root.post-thread-sheet-parked{visibility:hidden!important;pointer-events:none!important}';
+  document.head.appendChild(style);
+}
+
 function nativeHistoryPushState(state: object, url: string): void {
   History.prototype.pushState.call(window.history, state, '', url);
 }
@@ -139,6 +149,14 @@ function collectionIdsEqual(left: string, right: string): boolean {
   } catch {
     return left.trim() === right.trim();
   }
+}
+
+/** Portfolio face only — `/@id`, not a post, shelf, or standing URL. */
+export function isPortfolioFaceHref(href: string | null | undefined): boolean {
+  const raw = (href ?? '').trim();
+  if (!raw.startsWith('/@')) return false;
+  const path = raw.split(/[?#]/)[0] ?? '';
+  return /^\/@[^/]+$/.test(path);
 }
 
 function isOverlayPlacePathname(pathname: string): boolean {
@@ -235,25 +253,103 @@ export function usePostThreadLayer(): PostThreadLayerValue {
 function PostThreadSheet({
   layer,
   open,
+  parked,
   onClose,
   onClosed,
+  onOpenProfile,
   zIndex,
   moodId,
   moodStyle,
 }: {
   layer: PostThreadLayerTarget;
   open: boolean;
+  /** Portfolio is the screen. Keep this post mounted and quiet underneath. */
+  parked: boolean;
   onClose: () => void;
   onClosed: () => void;
+  onOpenProfile: (href: string) => void;
   zIndex: number;
   moodId?: string;
   moodStyle?: CSSProperties;
 }) {
   const titleId = useId();
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const resumeMediaRef = useRef<HTMLMediaElement[]>([]);
   const initial = useMemo(
     () => (layer.root ? seedEmbeddedThread(layer.root) : null),
     [layer]
   );
+
+  useLayoutEffect(() => {
+    if (!parked) return;
+    let hushed = false;
+    const quiet = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLMediaElement)) return;
+      if (!target.paused) resumeMediaRef.current.push(target);
+      target.pause();
+      window.setTimeout(() => target.pause(), 0);
+    };
+    const allowScroll = (event: Event) => {
+      event.stopPropagation();
+    };
+    const apply = () => {
+      const root = bodyRef.current?.closest('.glass-sheet-root');
+      if (!(root instanceof HTMLElement)) return;
+      if (root.style.visibility !== 'hidden') {
+        root.style.visibility = 'hidden';
+        root.style.pointerEvents = 'none';
+        root.setAttribute('aria-hidden', 'true');
+        root.inert = true;
+      }
+      if (hushed) return;
+      hushed = true;
+      const playing: HTMLMediaElement[] = [];
+      root.querySelectorAll('video, audio').forEach((node) => {
+        if (!(node instanceof HTMLMediaElement) || node.paused) return;
+        playing.push(node);
+        node.pause();
+        window.setTimeout(() => node.pause(), 0);
+      });
+      resumeMediaRef.current = playing;
+      root.addEventListener('play', quiet, true);
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('wheel', allowScroll, true);
+    window.addEventListener('touchmove', allowScroll, true);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('wheel', allowScroll, true);
+      window.removeEventListener('touchmove', allowScroll, true);
+      const root = bodyRef.current?.closest('.glass-sheet-root');
+      if (root instanceof HTMLElement) {
+        root.removeEventListener('play', quiet, true);
+        root.style.visibility = '';
+        root.style.pointerEvents = '';
+        root.removeAttribute('aria-hidden');
+        root.inert = false;
+      }
+      for (const node of resumeMediaRef.current) {
+        if (node.isConnected) void node.play().catch(() => undefined);
+      }
+      resumeMediaRef.current = [];
+    };
+  }, [parked]);
+
+  const openProfileFromPost = (event: ReactMouseEvent) => {
+    if (!isUnmodifiedPrimaryClick(event)) return;
+    const node = event.target;
+    if (!(node instanceof Element)) return;
+    const anchor = node.closest('a');
+    if (!(anchor instanceof HTMLAnchorElement)) return;
+    const href = anchor.getAttribute('href');
+    if (!href || !isPortfolioFaceHref(href)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onOpenProfile(href);
+  };
 
   return (
     <OsPageSheet
@@ -270,31 +366,40 @@ function PostThreadSheet({
       moodStyle={moodStyle}
       panelClassName="post-thread-sheet-panel"
       bodyClassName="post-thread-sheet-body"
+      rootClassName={parked ? 'post-thread-sheet-parked' : undefined}
+      lockScroll={!parked}
       header={null}
     >
-      <OsAppScreen
-        title="Post"
-        glassChrome
-        compactChrome
-        embedded
-        heading={
-          <span id={titleId} className="os-app-screen-title">
-            Post
-          </span>
-        }
-        leading={
-          <OsIconAction ariaLabel="Back" onClick={onClose}>
-            <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
-          </OsIconAction>
-        }
+      <div
+        ref={bodyRef}
+        className="post-thread-sheet-fill"
+        onClickCapture={openProfileFromPost}
       >
-        <LivePersonalPostPanel
-          author={layer.accountId}
-          postId={layer.postId}
-          initial={initial}
+        <OsAppScreen
+          title="Post"
+          glassChrome
+          compactChrome
           embedded
-        />
-      </OsAppScreen>
+          heading={
+            <span id={titleId} className="os-app-screen-title">
+              Post
+            </span>
+          }
+          leading={
+            <OsIconAction ariaLabel="Back" onClick={onClose}>
+              <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+            </OsIconAction>
+          }
+        >
+          <LivePersonalPostPanel
+            author={layer.accountId}
+            postId={layer.postId}
+            initial={initial}
+            embedded
+            replyDockEnabled={open && !parked}
+          />
+        </OsAppScreen>
+      </div>
     </OsPageSheet>
   );
 }
@@ -349,10 +454,14 @@ function DropLayerSheet({
 
 export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const viewerMood = useViewerDockMood();
   const [stack, setStack] = useState<PlaceLayerTarget[]>([]);
   const [closingId, setClosingId] = useState<string | null>(null);
   const [underlayPath, setUnderlayPath] = useState<string | null>(null);
+  /** Portfolio face opened from the post. The post stays mounted underneath. */
+  const [profileHop, setProfileHop] = useState<string | null>(null);
+  const sawProfileHopRef = useRef(false);
   const underlayPathRef = useRef<string | null>(null);
   const underlayScrollRef = useRef<{ el: HTMLElement; top: number } | null>(
     null
@@ -367,12 +476,29 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   }, [closingId, stack, underlayPath]);
 
   // Next left the page we opened over — drop the overlay without an effect.
+  // A profile opened from this post is the next screen, not a reason to drop it.
+  const onProfileHop =
+    profileHop != null &&
+    (pathname === profileHop || pathname.startsWith(`${profileHop}?`));
+  if (onProfileHop) sawProfileHopRef.current = true;
+  if (
+    profileHop &&
+    sawProfileHopRef.current &&
+    underlayPath != null &&
+    pathname === underlayPath
+  ) {
+    sawProfileHopRef.current = false;
+    setProfileHop(null);
+  }
   if (
     stack.length > 0 &&
     underlayPath != null &&
     pathname !== underlayPath &&
-    !isOverlayPlacePathname(pathname)
+    !isOverlayPlacePathname(pathname) &&
+    !onProfileHop
   ) {
+    sawProfileHopRef.current = false;
+    setProfileHop(null);
     setStack([]);
     setClosingId(null);
     setUnderlayPath(null);
@@ -533,7 +659,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const guard = getPostLayerPopGuard();
-    guard.depth = stack.length > 0 ? 1 : 0;
+    guard.depth = stack.length > 0 && !profileHop ? 1 : 0;
     guard.onPop = () => {
       const remaining = stackRef.current.slice(0, -1);
       const prev = remaining[remaining.length - 1];
@@ -545,7 +671,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       }
       beginCloseTop();
     };
-  }, [beginCloseTop, stack.length]);
+  }, [beginCloseTop, profileHop, stack.length]);
 
   const handleSheetClosed = useCallback((id: string) => {
     if (closingIdRef.current !== id) return;
@@ -567,6 +693,36 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       getPostLayerPopGuard().depth = next.length > 0 ? 1 : 0;
     }
   }, []);
+
+  const openProfileFromLayer = useCallback(
+    (href: string) => {
+      const path = href.split(/[?#]/)[0] ?? href;
+      const underlay = underlayPathRef.current;
+      ensurePostThreadParkedStyle();
+      setProfileHop(path);
+      // Keep the post mounted. Drop only its history flag so the portfolio
+      // sits on the feed entry; Back lands here and the post is shown again.
+      const guard = getPostLayerPopGuard();
+      guard.depth = 0;
+      if (typeof window !== 'undefined' && historyHasPostLayer()) {
+        nativeHistoryReplaceState(
+          withoutPostLayerHistoryState(),
+          underlay ?? path
+        );
+      }
+      if (path !== pathname) router.push(href);
+    },
+    [pathname, router]
+  );
+
+  useLayoutEffect(() => {
+    if (profileHop || stack.length === 0 || pathname !== underlayPath) return;
+    if (typeof window === 'undefined' || historyHasPostLayer()) return;
+    const top = stack[stack.length - 1];
+    if (!top || top.kind !== 'post') return;
+    nativeHistoryPushState(withPostLayerHistoryState(), placeLayerHref(top));
+    getPostLayerPopGuard().depth = 1;
+  }, [pathname, profileHop, stack, underlayPath]);
 
   const value = useMemo(
     () => ({
@@ -593,7 +749,15 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         if (layer.kind === 'drop') {
           return <DropLayerSheet key={layer.id} layer={layer} {...shared} />;
         }
-        return <PostThreadSheet key={layer.id} layer={layer} {...shared} />;
+        return (
+          <PostThreadSheet
+            key={layer.id}
+            layer={layer}
+            parked={onProfileHop}
+            onOpenProfile={openProfileFromLayer}
+            {...shared}
+          />
+        );
       })}
     </PostThreadLayerContext.Provider>
   );

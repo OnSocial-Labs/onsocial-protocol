@@ -4,6 +4,7 @@ import {
   memo,
   useDeferredValue,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -45,6 +46,7 @@ import type { ResolvedMood } from '@/lib/moods/types';
 import { withEssayReturnSearch } from '@/lib/essay-return-href';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { portfolioPath, writingArticlePath } from '@/lib/overlay-routes';
+import { endPortfolioShelfHop } from '@/lib/portfolio-shelf-hop';
 import { rememberWritingShelf } from '@/lib/writing-shelf-return';
 import { consumeEssayReopen } from '@/lib/essay-return';
 import {
@@ -325,6 +327,7 @@ function PortfolioWritingShelf({
           onOpenChange={(next) => {
             if (!next) setOpenPost(null);
           }}
+          onReturnToShelf={() => setOpenPost(null)}
           accountId={panel.accountId}
           titleLabel={panel.titleLabel}
           avatarUrl={panel.avatarUrl}
@@ -355,6 +358,17 @@ export function PortfolioWritingOverlay({
   ...panel
 }: PortfolioWritingPanelProps & { mood: ResolvedMood }) {
   const dismiss = useOverlayDismiss();
+
+  useLayoutEffect(() => {
+    const hideFaceMs = 320;
+    const id = window.setTimeout(() => endPortfolioShelfHop(), hideFaceMs);
+    return () => {
+      window.clearTimeout(id);
+      if (!window.location.pathname.includes('/writing')) {
+        endPortfolioShelfHop();
+      }
+    };
+  }, []);
 
   return (
     <>

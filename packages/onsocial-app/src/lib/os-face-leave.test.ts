@@ -117,6 +117,21 @@ describe('os face leave hop', () => {
     expect(peekOsFaceLeaveHref(onMarket)).toBe(APP_HOME_PATH);
   });
 
+  it('does not record Discover as the face origin on a pop back', () => {
+    const onDiscover = hop(
+      '/discover?tab=profiles',
+      hop('/@alice.near/standing/incoming', hop('/@alice.near', hop('/home')))
+    );
+    expect(onDiscover.stack).toEqual([]);
+    const back = hop('/@alice.near/standing/incoming', {
+      ...onDiscover,
+      popping: true,
+    });
+    expect(back.stack).toEqual([]);
+    expect(back.popping).toBe(false);
+    expect(peekOsFaceLeaveHref(back)).toBe(APP_HOME_PATH);
+  });
+
   it('opens Home from a face opened from Home', () => {
     const next = hop('/@alice.near', hop('/home'));
     expect(peekOsFaceLeaveHref(next)).toBe('/home');

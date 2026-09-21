@@ -118,6 +118,10 @@ export function usePostVideoPlayback(
       ([entry]) => {
         const video = videoRef.current;
         if (!video) return;
+        if (video.closest('[data-feed-session="covered"]')) {
+          video.pause();
+          return;
+        }
         const visibleEnough =
           Boolean(entry?.isIntersecting) && entry.intersectionRatio >= 0.5;
         if (visibleEnough) {
@@ -139,7 +143,13 @@ export function usePostVideoPlayback(
     if (!video) return;
 
     const muted = mode === 'detail-muted';
-    const begin = () => startDetailPlayback(video, muted, initialTime);
+    const begin = () => {
+      if (video.closest('[data-feed-session="covered"]')) {
+        video.pause();
+        return;
+      }
+      startDetailPlayback(video, muted, initialTime);
+    };
 
     if (video.readyState >= 1) {
       begin();

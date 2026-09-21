@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -17,6 +17,7 @@ import {
   writeDockExpandSeed,
   writeWriteDockDraft,
 } from '@/lib/os-write-dock-draft';
+import { APP_HOME_PATH } from '@/lib/app-routes';
 import { postKey } from '@/lib/post-display';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import {
@@ -94,6 +95,7 @@ export function usePersonalComposer({
   onUnreposted,
 }: UsePersonalComposerOptions) {
   const router = useRouter();
+  const pathname = usePathname();
   const { isConnected, connect, accountId, getSigningWallet } = useAppWallet();
   const { withClient } = useOnSocialWriter();
   const { trackTransaction } = useAppTransactionFeedback();
@@ -192,6 +194,7 @@ export function usePersonalComposer({
   );
 
   const { startReply, clearReply, replyTarget } = useFeedReplyWriteDock({
+    enabled: pathname === APP_HOME_PATH,
     sheetOpen: Boolean(composer),
     authorNameFor: (accountId) => authorProfiles?.[accountId]?.displayName,
     onExpand: openFullReply,

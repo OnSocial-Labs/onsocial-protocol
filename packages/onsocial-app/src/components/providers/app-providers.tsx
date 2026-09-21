@@ -36,6 +36,7 @@ import { OsFaceLeaveProvider } from '@/components/providers/os-face-leave-provid
 import { DmUnreadHost } from '@/components/providers/dm-unread-host';
 import { NotificationsHost } from '@/components/providers/notifications-host';
 import { AppSmoothScrollProvider } from '@/components/providers/app-smooth-scroll-provider';
+import { FeedSessionHost } from '@/components/providers/feed-session-host';
 import { PwaProvider } from '@/components/providers/pwa-provider';
 import { WebPushProvider } from '@/components/providers/web-push-provider';
 import { GlassSheetPortalProvider } from '@onsocial/ui';
@@ -85,7 +86,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                                             <DmUnreadHost>
                                               <NotificationsHost>
                                                 <WebPushProvider>
-                                                  {children}
+                                                  <FeedSessionHost>
+                                                    {children}
+                                                  </FeedSessionHost>
                                                   <ViewerMuteBlockHost />
                                                   <DropComposeHost />
                                                   <Suspense fallback={null}>

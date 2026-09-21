@@ -2,19 +2,40 @@
 
 import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useOsInAppPop } from '@/components/providers/os-face-leave-provider';
 import { portfolioPath } from '@/lib/overlay-routes';
 
 /**
  * Dismiss a portfolio overlay drawer.
- * Always replace to the portfolio URL so intercept overlays reset reliably —
- * `back()` can leave the pathname on `/standing/...` while the sheet is gone,
- * which blocks the next signal tap (same href, no navigation, stuck Rendering).
- * In-sheet view switches still use `replace` so one dismiss never steps tabs.
+ * Pop when this sheet was opened in the tab, so the face underneath is the
+ * same history entry the person was opened on. Replacing the sheet URL with
+ * the face leaves that face in history twice, and the next Back stays put.
+ * If the pop does not leave the overlay (no entry underneath), replace onto
+ * the face — a leftover `/standing/...` URL with the sheet gone blocks the
+ * next signal tap. In-sheet view switches still use `replace`.
  */
 export function useOverlayClose(accountId: string) {
   const router = useRouter();
+  const popInApp = useOsInAppPop();
 
   return useCallback(() => {
-    router.replace(portfolioPath(accountId), { scroll: false });
-  }, [accountId, router]);
+    const face = portfolioPath(accountId);
+    const before = window.location.pathname;
+    if (!popInApp()) {
+      router.replace(face, { scroll: false });
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      if (window.location.pathname === before) {
+        router.replace(face, { scroll: false });
+      }
+    }, 400);
+    window.addEventListener(
+      'popstate',
+      () => {
+        window.clearTimeout(timer);
+      },
+      { once: true }
+    );
+  }, [accountId, popInApp, router]);
 }

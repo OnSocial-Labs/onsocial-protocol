@@ -11,6 +11,7 @@ import {
   type MutableRefObject,
   type ReactNode,
 } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -168,6 +169,9 @@ export function FeedPhotoEnlargeScreen({
   const trackRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
+  const pathname = usePathname();
+  /** True when this film was playing before Home was covered. */
+  const wasPlayingBeforeCoverRef = useRef(false);
   const skipSnapRef = useRef(false);
   const prevOpenRef = useRef(open);
   const indexRef = useRef(index);
@@ -642,12 +646,53 @@ export function FeedPhotoEnlargeScreen({
     revealChrome,
   ]);
 
-  /* Play the active video; honor mute. Silent fallback if sound autoplay blocked. */
+  /* Play the active video; honor mute. Silent fallback if sound autoplay blocked.
+   * Home covered: stay quiet. Back onto this drawer: continue if it was playing.
+   * Closing the drawer leaves it stopped. */
+  useLayoutEffect(() => {
+    const parked = [...videoRefs.current.values()].some((video) => {
+      const session = video.closest('[data-feed-session]');
+      return (
+        session != null && session.getAttribute('data-feed-session') !== 'live'
+      );
+    });
+    if (!parked) return;
+    const active = videoRefs.current.get(index);
+    if (active && !active.paused) wasPlayingBeforeCoverRef.current = true;
+    videoRefs.current.forEach((video) => {
+      video.pause();
+    });
+  }, [index, open, pathname]);
+
   useEffect(() => {
-    if (!open) {
+    const parked = [...videoRefs.current.values()].some((video) => {
+      const session = video.closest('[data-feed-session]');
+      return (
+        session != null && session.getAttribute('data-feed-session') !== 'live'
+      );
+    });
+    if (!open || parked) {
+      if (parked) {
+        const active = videoRefs.current.get(index);
+        if (active && !active.paused) wasPlayingBeforeCoverRef.current = true;
+      } else {
+        wasPlayingBeforeCoverRef.current = false;
+      }
       videoRefs.current.forEach((video) => {
         video.pause();
       });
+      return;
+    }
+    if (wasPlayingBeforeCoverRef.current) {
+      wasPlayingBeforeCoverRef.current = false;
+      const active = videoRefs.current.get(index);
+      if (active) {
+        active.loop = true;
+        active.muted = videoMuted;
+        void active.play().catch(() => {
+          setVideoPaused(true);
+        });
+      }
       return;
     }
     videoRefs.current.forEach((video, videoIndex) => {
@@ -670,7 +715,7 @@ export function FeedPhotoEnlargeScreen({
       video.pause();
       video.muted = true;
     });
-  }, [open, index, videoMuted]);
+  }, [open, index, pathname, videoMuted]);
 
   /* Sync paused / buffering / ended; progress while idle. */
   useEffect(() => {

@@ -131,8 +131,8 @@ describe('home feed session wiring', () => {
       join(libDir, '../features/home/home-feed.tsx'),
       'utf8'
     );
-    const routeSrc = readFileSync(
-      join(libDir, '../app/(app)/home/page.tsx'),
+    const hostSrc = readFileSync(
+      join(libDir, '../components/providers/feed-session-host.tsx'),
       'utf8'
     );
     expect(pageSrc).toContain('peekHomeFeedSession');
@@ -140,9 +140,7 @@ describe('home feed session wiring', () => {
     expect(pageSrc).toContain('homeFeedSessionProbeDelayMs');
     expect(pageSrc).not.toContain('localStorage');
     expect(pageSrc).not.toContain('sessionStorage.setItem');
-    expect(routeSrc).toContain('HomePagePanel');
-    expect(routeSrc).not.toContain('loadHomeFeedPage');
-    expect(routeSrc).not.toContain('fallback={<HomeFeedClient />}');
-    expect(routeSrc).not.toContain("dynamic = 'force-dynamic'");
+    expect(hostSrc).toContain('HomePagePanel');
+    expect(hostSrc).not.toContain('loadHomeFeedPage');
   });
 });
