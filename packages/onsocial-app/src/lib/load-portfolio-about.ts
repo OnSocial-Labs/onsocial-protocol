@@ -1,10 +1,8 @@
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import type { PortfolioAboutPanelProps } from '@/components/portfolio/portfolio-about-panel';
-import {
-  loadPortfolioDaoContextWithProfile,
-  type PortfolioDaoEntity,
-} from '@/lib/load-dao-page';
+import type { PortfolioDaoEntity } from '@/lib/load-dao-page';
+import { loadPortfolioHeroDaoContext } from '@/lib/portfolio-hero-path';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { fetchPublicPageData } from '@/lib/page-data';
@@ -34,7 +32,7 @@ export const loadPortfolioAboutForAccount = cache(
     const [shell, daoContext] = await Promise.all([
       shellPromise,
       shellPromise.then((profileShell) =>
-        loadPortfolioDaoContextWithProfile(accountId, profileShell)
+        loadPortfolioHeroDaoContext(accountId, profileShell)
       ),
     ]);
     const { entity: daoEntity, page: daoPage } = daoContext;

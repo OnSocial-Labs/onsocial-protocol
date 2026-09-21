@@ -50,6 +50,11 @@ const EMPTY_ENTITY: PortfolioDaoEntity = {
   workspaceHref: null,
 };
 
+export const EMPTY_PORTFOLIO_DAO_CONTEXT: PortfolioDaoContext = {
+  entity: EMPTY_ENTITY,
+  page: null,
+};
+
 function configFromCatalogRow(
   row: DaoCatalogLookupRow | null | undefined
 ): SputnikConfigView | null {
