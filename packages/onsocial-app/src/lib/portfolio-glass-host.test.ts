@@ -81,14 +81,21 @@ describe('shouldMountPortfolioGlassHost', () => {
     ).toBe(false);
   });
 
-  it('mounts an article intercept over the hard Writing shelf', () => {
+  it('does not mount glass for the solid article reader', () => {
     expect(
       shouldMountPortfolioGlassHost({
         pathname: '/@alice.testnet/writing/42',
         layoutSegments: ['writing'],
         overlaySlotMode: 'intercept',
       })
-    ).toBe(true);
+    ).toBe(false);
+    expect(
+      shouldMountPortfolioGlassHost({
+        pathname: '/@alice.testnet/writing/42',
+        layoutSegments: [],
+        overlaySlotMode: 'intercept',
+      })
+    ).toBe(false);
   });
 
   it('does not mount on portfolio root', () => {

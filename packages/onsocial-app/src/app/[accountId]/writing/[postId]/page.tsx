@@ -51,7 +51,6 @@ export default async function PortfolioWritingArticlePage({
   }
   return (
     <PortfolioWritingArticleScreen
-      mood={mood}
       accountId={accountId}
       titleLabel={titleLabel}
       avatarUrl={avatarUrl}

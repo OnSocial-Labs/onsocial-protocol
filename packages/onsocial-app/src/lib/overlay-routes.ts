@@ -374,7 +374,14 @@ export function isPortfolioOverlayPath(pathname: string): boolean {
   if (panelKey == null) {
     return false;
   }
-  return !FULL_PAGE_PORTFOLIO_PANELS.has(panelKey);
+  if (FULL_PAGE_PORTFOLIO_PANELS.has(panelKey)) {
+    return false;
+  }
+  // Article is a solid reader — not a glass panel.
+  if (panelKey.startsWith('writing:')) {
+    return false;
+  }
+  return true;
 }
 
 /** Intercepting @overlay slot is active (soft nav). Empty on hard refresh / default slot. */
@@ -406,9 +413,9 @@ export function isFullPagePanelLayout(segments: readonly string[]): boolean {
  * Feed opens the portfolio page drawer (`#portfolio-feed` one-shot signal);
  * hard refresh on `/feed` redirects to that anchor.
  *
- * Discover, About, and an individual post stay real pages on hard refresh
- * (full-page `children`, no glass). Collectibles vault is always PanelPage —
- * drawer Collectibles tab is preview-only.
+ * Discover, About, and Writing list stay real pages on hard refresh
+ * (full-page `children`, no glass). Articles are always a solid reader.
+ * Collectibles vault is always PanelPage — drawer Collectibles tab is preview-only.
  */
 export function shouldOpenPortfolioGlassOverlay(
   pathname: string,
@@ -420,6 +427,10 @@ export function shouldOpenPortfolioGlassOverlay(
   }
 
   if (FULL_PAGE_PORTFOLIO_PANELS.has(panelKey)) {
+    return false;
+  }
+
+  if (panelKey.startsWith('writing:')) {
     return false;
   }
 
@@ -455,9 +466,6 @@ export function resolveOverlayPanelChrome(
   }
 
   if (panelKey === 'writing') {
-    return { ariaTitle: 'Writing', hideTitle: true, expectsToolbar: false };
-  }
-  if (panelKey.startsWith('writing:')) {
     return { ariaTitle: 'Writing', hideTitle: true, expectsToolbar: false };
   }
 

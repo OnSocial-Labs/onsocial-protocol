@@ -141,7 +141,7 @@ function PortfolioGlassSheetFrame({
       panelClassName={
         panelKey === 'about'
           ? 'portfolio-about-sheet-panel'
-          : panelKey === 'writing' || panelKey?.startsWith('writing:')
+          : panelKey === 'writing'
             ? 'portfolio-writing-sheet-panel'
             : undefined
       }

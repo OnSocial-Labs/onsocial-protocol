@@ -47,6 +47,15 @@ describe('article place stack', () => {
   });
 });
 
+describe('article wake reply', () => {
+  it('is Reply to the thread on the permalink footing', () => {
+    expect(panel).toContain('aria-label="Reply"');
+    expect(panel).toContain('personalPostPath');
+    expect(panel).toContain('onReply');
+    expect(panel).toContain('shareExtras');
+  });
+});
+
 describe('article cover expand', () => {
   it('opens the shared cover overlay from the print, not feed cinema', () => {
     expect(panel).toContain('DropArtOverlay');

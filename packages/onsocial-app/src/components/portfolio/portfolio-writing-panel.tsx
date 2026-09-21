@@ -7,11 +7,13 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent,
 } from 'react';
 import Link from 'next/link';
 import type { PostRow } from '@onsocial/sdk';
 import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { ArticleReadOverlay } from '@/components/portfolio/article-read-screen';
 import { PortfolioEssayLeave } from '@/components/portfolio/portfolio-essay-leave';
 import { PortfolioPersonalComposer } from '@/components/portfolio/portfolio-personal-composer';
 import {
@@ -43,6 +45,8 @@ import type { ResolvedMood } from '@/lib/moods/types';
 import { withEssayReturnSearch } from '@/lib/essay-return-href';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { portfolioPath, writingArticlePath } from '@/lib/overlay-routes';
+import { rememberWritingShelf } from '@/lib/writing-shelf-return';
+import { consumeEssayReopen } from '@/lib/essay-return';
 import {
   formatPostTimestamp,
   formatWritingShelfTimestamp,
@@ -75,9 +79,11 @@ const PortfolioWritingList = memo(function PortfolioWritingList({
   coverHints,
   query,
   showSearch,
+  onOpenArticle,
 }: PortfolioWritingPanelProps & {
   query: string;
   showSearch: boolean;
+  onOpenArticle: (post: PostRow) => void;
 }) {
   const { accountId: viewerId } = useAppWallet();
   const returnSearch = useEssayReturnSearch();
@@ -138,17 +144,31 @@ const PortfolioWritingList = memo(function PortfolioWritingList({
             const likeLabel = formatWritingLikeLabel(
               (engagement[postKey(post)] ?? EMPTY_POST_ENGAGEMENT).reactionCount
             );
+            const articleHref = withEssayReturnSearch(
+              writingArticlePath(post.accountId, post.postId),
+              returnSearch
+            );
+            const openArticle = (event: MouseEvent<HTMLAnchorElement>) => {
+              if (
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey
+              ) {
+                rememberWritingShelf(accountId);
+                return;
+              }
+              event.preventDefault();
+              onOpenArticle(post);
+            };
             return (
               <li key={`${post.accountId}:${post.postId}`}>
                 <Link
-                  href={withEssayReturnSearch(
-                    writingArticlePath(post.accountId, post.postId),
-                    returnSearch
-                  )}
+                  href={articleHref}
                   className="portfolio-writing-card"
-                  scroll={false}
                   prefetch
                   aria-label={article.title}
+                  onClick={openArticle}
                 >
                   <div className="portfolio-writing-cover" aria-hidden>
                     <PortfolioWritingCover
@@ -229,10 +249,25 @@ function PortfolioWritingShelf({
   const { query, setQuery, listQuery, showSearch, scrollRootRef } =
     useWritingShelfState(panel.articles.length);
 
+  const [openPost, setOpenPost] = useState<PostRow | null>(null);
+
   useEffect(() => {
     markPortfolioClientReady();
     return () => unmarkPortfolioClientReady();
   }, []);
+
+  useEffect(() => {
+    let match: PostRow | null = null;
+    for (const post of panel.articles) {
+      if (consumeEssayReopen(post.accountId, post.postId)) {
+        match = post;
+        break;
+      }
+    }
+    if (!match) return;
+    const id = window.setTimeout(() => setOpenPost(match), 0);
+    return () => window.clearTimeout(id);
+  }, [panel.articles]);
   /* Overlay: mood wash lives on the glass sheet — keep the screen clear. */
   const moodId = embedded ? null : mood.id;
   const moodStyle = embedded
@@ -251,37 +286,53 @@ function PortfolioWritingShelf({
   );
 
   return (
-    <OsAppScreen
-      title="Writing"
-      compactChrome
-      glassChrome
-      scrollTuck="search"
-      leading={null}
-      dockBack
-      onDockBack={onDockBack}
-      backFallbackHref={portfolioPath(panel.accountId)}
-      moodId={moodId}
-      moodStyle={moodStyle}
-      scrollRootRef={scrollRootRef}
-      embedded={embedded}
-      heading={<WritingSearchHeading query={query} onQueryChange={setQuery} />}
-      toolbar={
-        <WritingIdentityToolbar
+    <>
+      <OsAppScreen
+        title="Writing"
+        compactChrome
+        glassChrome
+        scrollTuck="search"
+        leading={null}
+        dockBack
+        onDockBack={onDockBack}
+        backFallbackHref={portfolioPath(panel.accountId)}
+        moodId={moodId}
+        moodStyle={moodStyle}
+        scrollRootRef={scrollRootRef}
+        embedded={embedded}
+        heading={<WritingSearchHeading query={query} onQueryChange={setQuery} />}
+        toolbar={
+          <WritingIdentityToolbar
+            accountId={panel.accountId}
+            titleLabel={panel.titleLabel}
+            avatarUrl={panel.avatarUrl}
+            articleCount={shelfCount}
+          />
+        }
+      >
+        <div aria-hidden className="os-chrome-glass" />
+        <PortfolioPersonalComposer pageAccountId={panel.accountId} />
+        <PortfolioWritingList
+          {...panel}
+          query={listQuery}
+          showSearch={showSearch}
+          onOpenArticle={setOpenPost}
+        />
+      </OsAppScreen>
+      {openPost ? (
+        <ArticleReadOverlay
+          open
+          onOpenChange={(next) => {
+            if (!next) setOpenPost(null);
+          }}
           accountId={panel.accountId}
           titleLabel={panel.titleLabel}
           avatarUrl={panel.avatarUrl}
-          articleCount={shelfCount}
+          post={openPost}
+          coverHint={panel.coverHints?.[postKey(openPost)] ?? null}
         />
-      }
-    >
-      <div aria-hidden className="os-chrome-glass" />
-      <PortfolioPersonalComposer pageAccountId={panel.accountId} />
-      <PortfolioWritingList
-        {...panel}
-        query={listQuery}
-        showSearch={showSearch}
-      />
-    </OsAppScreen>
+      ) : null}
+    </>
   );
 }
 

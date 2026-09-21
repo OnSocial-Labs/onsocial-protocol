@@ -344,7 +344,7 @@ describe('isPortfolioOverlayPath', () => {
     expect(isPortfolioOverlayPath('/@alice.testnet/discover')).toBe(true);
     expect(isPortfolioOverlayPath('/@alice.testnet/about')).toBe(true);
     expect(isPortfolioOverlayPath('/@alice.testnet/writing')).toBe(true);
-    expect(isPortfolioOverlayPath('/@alice.testnet/writing/42')).toBe(true);
+    expect(isPortfolioOverlayPath('/@alice.testnet/writing/42')).toBe(false);
   });
 
   it('does not match full-page panel routes', () => {
@@ -401,7 +401,7 @@ describe('shouldOpenPortfolioGlassOverlay', () => {
     );
     expect(
       shouldOpenPortfolioGlassOverlay('/@alice.testnet/writing/42', [])
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('does not open on hard refresh full-page panel URLs', () => {
@@ -473,11 +473,7 @@ describe('resolveOverlayPanelChrome', () => {
       hideTitle: true,
       expectsToolbar: false,
     });
-    expect(resolveOverlayPanelChrome('writing:42')).toEqual({
-      ariaTitle: 'Writing',
-      hideTitle: true,
-      expectsToolbar: false,
-    });
+    expect(resolveOverlayPanelChrome('writing:42')).toBeNull();
     expect(resolveOverlayPanelChrome('endorsements')).toEqual({
       ariaTitle: 'Endorsements',
       title: 'Endorsements',

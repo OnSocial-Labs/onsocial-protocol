@@ -13,8 +13,8 @@ export { resolveOverlaySlotMode, type OverlaySlotMode };
  * Single gate for mounting the persistent portfolio glass host.
  *
  * Invariants:
- * - Full-page panel routes (hard refresh) never mount glass, except an article
- *   intercept over the hard Writing shelf (first tap must paint).
+ * - Full-page panel routes (hard refresh) never mount glass.
+ * - Articles (`writing:`) are always a solid page — never glass.
  * - Soft intercepts mount when the @overlay slot is active or portfolio is still
  *   the main child (empty layout segments under [accountId]).
  */
@@ -28,19 +28,17 @@ export function shouldMountPortfolioGlassHost(input: {
     return false;
   }
 
-  // Feed drawer redirect and collectibles PanelPage vault — no glass host.
-  if (panelKey === 'feed' || panelKey === 'collectibles') {
+  // Feed drawer redirect, collectibles vault, and the article reader — no glass.
+  if (
+    panelKey === 'feed' ||
+    panelKey === 'collectibles' ||
+    panelKey.startsWith('writing:')
+  ) {
     return false;
   }
 
   if (isFullPagePanelLayout(input.layoutSegments)) {
-    // Hard Writing shelf + article intercept still needs the glass host.
-    return (
-      input.overlaySlotMode === 'intercept' &&
-      input.layoutSegments[0] === 'writing' &&
-      input.layoutSegments.length === 1 &&
-      Boolean(panelKey?.startsWith('writing:'))
-    );
+    return false;
   }
 
   if (input.overlaySlotMode === 'intercept') {

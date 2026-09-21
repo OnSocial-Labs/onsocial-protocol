@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import {
+  ActionDrawer,
   BookmarkFillIcon,
   BookmarkIcon,
   CheckIcon,
@@ -13,7 +14,9 @@ import {
   HeartIcon,
   MessageRoundIcon,
   ShareIcon,
+  type ActionDrawerItem,
 } from '@onsocial/ui';
+import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { PostLikesSheet } from '@/components/panels/post-likes-sheet';
 import { PortfolioBioBlocks } from '@/components/portfolio/portfolio-bio-blocks';
 import {
@@ -72,9 +75,15 @@ export type PortfolioWritingArticlePanelProps = {
 export function PortfolioWritingArticleActions({
   post,
   className,
+  onReply,
+  shareExtras,
 }: {
   post: PostRow;
   className?: string;
+  /** Feed — pin the write dock. Omit to open the thread. */
+  onReply?: () => void;
+  /** Feed — quote / repost / amplify live in Share. */
+  shareExtras?: ActionDrawerItem[];
 }) {
   const article = parseArticleSnapshot(post.value);
   const articleHref = writingArticlePath(post.accountId, post.postId);
@@ -92,6 +101,8 @@ export function PortfolioWritingArticleActions({
   const savePending = isSavePending(post);
   const likePending = isReactionPending(post);
   const [shareCopied, setShareCopied] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const extras = shareExtras ?? [];
 
   const shareArticle = () => {
     const url = absoluteArticleUrl(articleHref);
@@ -158,16 +169,28 @@ export function PortfolioWritingArticleActions({
           <BookmarkIcon className="portfolio-writing-article-action-icon" />
         )}
       </button>
-      <Link
-        href={personalPostPath(post.accountId, post.postId)}
-        className="portfolio-writing-article-action"
-        scroll={false}
-        prefetch={false}
-        aria-label="View thread"
-        title="Thread"
-      >
-        <MessageRoundIcon className="portfolio-writing-article-action-icon" />
-      </Link>
+      {onReply ? (
+        <button
+          type="button"
+          className="portfolio-writing-article-action"
+          aria-label="Reply"
+          title="Reply"
+          onClick={onReply}
+        >
+          <MessageRoundIcon className="portfolio-writing-article-action-icon" />
+        </button>
+      ) : (
+        <Link
+          href={personalPostPath(post.accountId, post.postId)}
+          className="portfolio-writing-article-action"
+          scroll={false}
+          prefetch={false}
+          aria-label="Reply"
+          title="Reply"
+        >
+          <MessageRoundIcon className="portfolio-writing-article-action-icon" />
+        </Link>
+      )}
       <button
         type="button"
         className={`portfolio-writing-article-action${
@@ -175,7 +198,13 @@ export function PortfolioWritingArticleActions({
         }`}
         aria-label={shareCopied ? 'Link copied' : 'Share this article'}
         title={shareCopied ? 'Link copied' : 'Share'}
-        onClick={shareArticle}
+        onClick={() => {
+          if (extras.length > 0) {
+            setShareOpen(true);
+            return;
+          }
+          shareArticle();
+        }}
       >
         {shareCopied ? (
           <CheckIcon className="portfolio-writing-article-action-icon" />
@@ -183,6 +212,31 @@ export function PortfolioWritingArticleActions({
           <ShareIcon className="portfolio-writing-article-action-icon" />
         )}
       </button>
+      {extras.length > 0 ? (
+        <ActionDrawer
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          label="Share"
+          zIndex={SCARCE_Z.commerceOverListen}
+          items={[
+            {
+              id: 'copy',
+              label: shareCopied ? 'Link copied' : 'Copy link',
+              onSelect: () => {
+                setShareOpen(false);
+                shareArticle();
+              },
+            },
+            ...extras.map((item) => ({
+              ...item,
+              onSelect: () => {
+                setShareOpen(false);
+                item.onSelect?.();
+              },
+            })),
+          ]}
+        />
+      ) : null}
     </div>
   );
 }
