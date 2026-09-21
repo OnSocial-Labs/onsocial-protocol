@@ -5,9 +5,14 @@
  * also check workspace dependents (e.g. rpc → backend/portal/gateway).
  * Also runs substreams SQL validate and/or schema-parity + golden_db when those
  * indexer paths change (mirrors the Substreams CI gaps SQL-only miss).
+ * Cloud agents (CURSOR_AGENT=1) also run App Playwright when App CI paths
+ * change — same gap this morning’s main red: husky/check:push is not e2e.
+ * Laptop husky stays lint/unit/build. Opt in with PRE_PUSH_E2E=1; skip with 0.
  * Invoked by .husky/pre-push and `pnpm check:push`.
  */
 import { execSync } from 'node:child_process';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Dependency order: libraries first, then services/apps that import them.
 // Keep @onsocial/sdk before @onsocial/ui — ui imports TipTap helpers from sdk.
@@ -218,6 +223,78 @@ function substreamsSinkChanged(changedFiles) {
   );
 }
 
+/** Same path filter as `.github/workflows/onsocial-app-ci.yml`. */
+export function appCiPlaywrightPathsChanged(changedFiles) {
+  return changedFiles.some(
+    (file) =>
+      file.startsWith('packages/onsocial-app/') ||
+      file.startsWith('packages/onsocial-ui/') ||
+      file.startsWith('packages/onsocial-sdk/') ||
+      file.startsWith('packages/onsocial-text-card/') ||
+      file.startsWith('packages/onsocial-rpc/') ||
+      file === 'pnpm-lock.yaml' ||
+      file === '.github/workflows/onsocial-app-ci.yml'
+  );
+}
+
+export function prePushGateChanged(changedFiles) {
+  return changedFiles.some(
+    (file) =>
+      file === 'scripts/pre-push-check.mjs' ||
+      file === 'scripts/pre-push-check.test.mjs'
+  );
+}
+
+function envFlagOn(value) {
+  return value === '1' || value === 'true' || value === 'yes';
+}
+
+function envFlagOff(value) {
+  return value === '0' || value === 'false' || value === 'no';
+}
+
+/**
+ * Playwright matches App CI in cloud. Laptop husky does not run it.
+ * PRE_PUSH_E2E=1 forces it; PRE_PUSH_E2E=0 skips it even on a cloud agent.
+ */
+export function shouldRunAppPlaywright(env = process.env) {
+  if (envFlagOff(env.PRE_PUSH_E2E)) return false;
+  if (envFlagOn(env.PRE_PUSH_E2E)) return true;
+  return env.CURSOR_AGENT === '1';
+}
+
+function runPrePushGateSelfTest() {
+  console.log('\n=== scripts/pre-push-check (helpers) ===');
+  run('node --test scripts/pre-push-check.test.mjs');
+}
+
+function runAppPlaywright() {
+  console.log('\n=== @onsocial/app Playwright (cloud gate = App CI e2e) ===');
+  try {
+    run(
+      'pnpm --filter @onsocial/app exec playwright install --with-deps chromium'
+    );
+  } catch {
+    console.log(
+      'playwright install --with-deps failed; falling back to chromium-only'
+    );
+    run('pnpm --filter @onsocial/app exec playwright install chromium');
+  }
+  run('pnpm --filter @onsocial/app test:e2e', {
+    env: {
+      ...process.env,
+      // Match OnSocial App CI: production next start, 1 worker, retries.
+      CI: 'true',
+      ONSOCIAL_API_KEY:
+        process.env.ONSOCIAL_API_KEY ?? 'cloud-check-placeholder',
+      NEXT_PUBLIC_NEAR_NETWORK:
+        process.env.NEXT_PUBLIC_NEAR_NETWORK ?? 'testnet',
+      E2E_GRAPH_STUBS: process.env.E2E_GRAPH_STUBS ?? '1',
+      NEXT_PUBLIC_E2E_WALLET: process.env.NEXT_PUBLIC_E2E_WALLET ?? '1',
+    },
+  });
+}
+
 function runSubstreamsSqlValidation() {
   console.log('\n=== indexers/substreams (SQL schema upgrade) ===');
   run('bash indexers/substreams/scripts/validate_sql.sh');
@@ -237,6 +314,8 @@ function main() {
   const affected = getAffectedPackages(changedFiles);
   const checkSubstreamsSql = substreamsSqlChanged(changedFiles);
   const checkSubstreamsSink = substreamsSinkChanged(changedFiles);
+  const checkAppPlaywright = appCiPlaywrightPathsChanged(changedFiles);
+  const checkPrePushGate = prePushGateChanged(changedFiles);
 
   console.log(`Pre-push checks (diff base: ${diffBase})`);
 
@@ -245,7 +324,13 @@ function main() {
     return;
   }
 
-  if (affected.length === 0 && !checkSubstreamsSql && !checkSubstreamsSink) {
+  if (
+    affected.length === 0 &&
+    !checkSubstreamsSql &&
+    !checkSubstreamsSink &&
+    !checkAppPlaywright &&
+    !checkPrePushGate
+  ) {
     console.log(
       'No monitored package or substreams changes detected; skipping checks.'
     );
@@ -277,6 +362,12 @@ function main() {
   if (checkSubstreamsSink) {
     console.log('Changed: indexers/substreams sink / golden fixtures');
   }
+  if (checkAppPlaywright) {
+    console.log('Changed: App CI Playwright paths');
+  }
+  if (checkPrePushGate) {
+    console.log('Changed: scripts/pre-push-check');
+  }
 
   for (const pkg of affected) {
     if (pkg.reason === 'dependency') {
@@ -290,6 +381,10 @@ function main() {
     run(pkg.command);
   }
 
+  if (checkPrePushGate) {
+    runPrePushGateSelfTest();
+  }
+
   if (checkSubstreamsSql) {
     runSubstreamsSqlValidation();
   }
@@ -297,7 +392,25 @@ function main() {
     runSubstreamsSinkValidation();
   }
 
+  if (checkAppPlaywright) {
+    if (shouldRunAppPlaywright()) {
+      runAppPlaywright();
+    } else {
+      console.log(
+        '\nSkipping Playwright (laptop husky). Cloud agents run App CI e2e via CURSOR_AGENT=1 or PRE_PUSH_E2E=1.'
+      );
+    }
+  }
+
   console.log('\nPre-push checks passed.');
 }
 
-main();
+function isExecutedDirectly() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  return fileURLToPath(import.meta.url) === resolve(entry);
+}
+
+if (isExecutedDirectly()) {
+  main();
+}

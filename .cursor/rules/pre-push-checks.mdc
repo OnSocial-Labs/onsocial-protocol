@@ -6,7 +6,7 @@ alwaysApply: true
 
 # Pre-push quality gates
 
-`pnpm check:push` (`scripts/pre-push-check.mjs`, also `.husky/pre-push`) runs lint/format/build/test for **directly changed** monitored packages, plus substreams checks when those paths change.
+`pnpm check:push` (`scripts/pre-push-check.mjs`, also `.husky/pre-push`) runs lint/format/build/test for **directly changed** monitored packages, plus substreams checks when those paths change. Cloud agents also run **App Playwright** when App CI paths change (`CURSOR_AGENT=1` or `PRE_PUSH_E2E=1`) — same production `next start` job as GitHub OnSocial App CI. Laptop husky does not — that suite is what painted `main` red when only `check` was green.
 
 **Agents:** follow [cloud-quality-gates.mdc](cloud-quality-gates.mdc) — run `check:push` in **cloud**, then push with `--no-verify` only after that gate is green. Do not thrash the laptop with a second full suite.
 
@@ -32,6 +32,7 @@ Skip for docs-only, contract-only, or infra-only changes outside those paths. Co
 ```bash
 pnpm check:push
 PRE_PUSH_DEPENDENTS=1 pnpm check:push   # after shared-lib changes
+PRE_PUSH_E2E=1 pnpm check:push          # force App Playwright (cloud already does this)
 ```
 
 Prefer cloud for substreams Docker + Rust golden checks.
@@ -42,4 +43,4 @@ Pre-commit: `lint-staged` on staged monitored-package files (prettier + eslint -
 
 ## CI
 
-Path-filtered workflows (portal, backend, gateway, pages, …) remain the merge safety net. Substreams CI still runs full cargo test + SQL + parity; cloud `check:push` should catch the same SQL + parity/golden failures before push.
+Path-filtered workflows (portal, backend, gateway, pages, …) remain the merge safety net. App CI Playwright is the e2e net; cloud `check:push` should catch the same Playwright failures before a `main` push. Substreams CI still runs full cargo test + SQL + parity; cloud `check:push` should catch the same SQL + parity/golden failures before push.
