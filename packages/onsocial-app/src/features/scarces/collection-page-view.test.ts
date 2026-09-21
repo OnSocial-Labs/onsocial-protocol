@@ -11,6 +11,7 @@ import {
   collectionOpensWritingReader,
   collectionChildLeaveHref,
   collectionDropBackHref,
+  collectionRouteYieldsLoadingSkeleton,
   collectionShowCommerceMeter,
   collectionShowInlineTracks,
   collectionUseFirst,
@@ -248,6 +249,27 @@ describe('collection page view', () => {
         clientSettled: false,
       })
     ).toBe('drop');
+  });
+
+  it('lets route loading.tsx own the SSR skeleton; overlay still paints', () => {
+    expect(
+      collectionRouteYieldsLoadingSkeleton({
+        embedded: false,
+        clientMounted: false,
+      })
+    ).toBe(true);
+    expect(
+      collectionRouteYieldsLoadingSkeleton({
+        embedded: false,
+        clientMounted: true,
+      })
+    ).toBe(false);
+    expect(
+      collectionRouteYieldsLoadingSkeleton({
+        embedded: true,
+        clientMounted: false,
+      })
+    ).toBe(false);
   });
 
   it('sends holders to Collectibles and visitors to Drops', () => {

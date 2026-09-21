@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type MouseEvent,
 } from 'react';
 import Link from 'next/link';
@@ -57,6 +58,7 @@ import {
   collectionCoverSquare,
   collectionDropBackHref,
   collectionOpensWritingReader,
+  collectionRouteYieldsLoadingSkeleton,
   collectionShowCommerceMeter,
   collectionShowInlineTracks,
   collectionUseFirst,
@@ -196,6 +198,10 @@ function collectionOverlayBack(onClose?: () => void) {
   );
 }
 
+const clientMountedSubscribe = () => () => {};
+const getClientMountedSnapshot = () => true;
+const getServerMountedSnapshot = () => false;
+
 export function CollectionPagePanel({
   collectionId,
   initial,
@@ -247,6 +253,11 @@ export function CollectionPagePanel({
   const [dropFansOpen, setDropFansOpen] = useState(false);
   const [clientSettled, setClientSettled] = useState(
     initial != null || (isNowPlayingThisDrop && Boolean(nowPlaying?.session))
+  );
+  const clientMounted = useSyncExternalStore(
+    clientMountedSubscribe,
+    getClientMountedSnapshot,
+    getServerMountedSnapshot
   );
   const [walletRemaining, setWalletRemaining] = useState<number | null>(null);
   /** null = not checked yet / N/A; number = remaining allowlist mints. */
@@ -818,6 +829,14 @@ export function CollectionPagePanel({
     viewerAccountId,
   });
   if (catalogShell === 'skeleton') {
+    if (
+      collectionRouteYieldsLoadingSkeleton({
+        embedded,
+        clientMounted,
+      })
+    ) {
+      return null;
+    }
     return (
       <OsAppScreen
         title="Drop"

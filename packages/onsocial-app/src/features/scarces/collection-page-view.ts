@@ -122,6 +122,18 @@ export function collectionCatalogShell(opts: {
   return 'unavailable';
 }
 
+/**
+ * Route `loading.tsx` already paints `CollectionPageSkeleton`. The panel
+ * must not SSR a second copy during that handoff. Overlay / post-hydrate
+ * miss still owns the skeleton (no loading.tsx there).
+ */
+export function collectionRouteYieldsLoadingSkeleton(opts: {
+  embedded: boolean;
+  clientMounted: boolean;
+}): boolean {
+  return !opts.embedded && !opts.clientMounted;
+}
+
 /** Holders go back to the vault; visitors stay on Drops. */
 export function collectionDropBackHref(opts: {
   useFirst: boolean;

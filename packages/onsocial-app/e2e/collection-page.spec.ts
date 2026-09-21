@@ -26,7 +26,7 @@ test.describe('collection drop page', () => {
   }) => {
     await stubCollectionPageGraph(page, { catalogDelayMs: 2500 });
     await gotoApp(page, '/collection/night-drive');
-    await expect(collectionPageSkeleton(page).first()).toBeVisible({
+    await expect(collectionPageSkeleton(page)).toBeVisible({
       timeout: 8_000,
     });
     await expect(page.getByText('This drop isn’t available.')).toHaveCount(0);
