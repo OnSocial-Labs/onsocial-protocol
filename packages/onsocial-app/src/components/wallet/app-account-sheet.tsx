@@ -160,15 +160,17 @@ export function AppAccountSheet({
 
   const handleSheetClosed = useCallback(() => {
     setClosing(false);
+    // The editor hides this sheet. Keep Account open so closing the editor
+    // returns to the menu instead of dismissing it.
+    if (editorOpenRef.current) {
+      return;
+    }
     setStorageOpen(false);
     setSwapOpen(false);
     setTokensOpen(false);
     setMuteBlockOpen(false);
     setAccessOpen(false);
     setAccountMenuOpen(false);
-    if (editorOpenRef.current) {
-      return;
-    }
     onClose();
 
     if (pendingCustomizeRef.current) {
