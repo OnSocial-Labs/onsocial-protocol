@@ -13112,6 +13112,35 @@ a.os-surface-row {
     display: none;
   }
 
+  /*
+   * Phone rails hide the scrollbar, so a clipped last chip looked broken
+   * (Auctions / Topics cut mid-word). Fade only the edge that still has chips.
+   */
+  .discover-tab-bar-scroller[data-chip-overflow-end] {
+    mask-image: linear-gradient(
+      to right,
+      #000 0,
+      #000 calc(100% - 1.35rem),
+      transparent 100%
+    );
+  }
+
+  .discover-tab-bar-scroller[data-chip-overflow-start]:not(
+      [data-chip-overflow-end]
+    ) {
+    mask-image: linear-gradient(to right, transparent 0, #000 1.35rem, #000 100%);
+  }
+
+  .discover-tab-bar-scroller[data-chip-overflow-start][data-chip-overflow-end] {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 1.35rem,
+      #000 calc(100% - 1.35rem),
+      transparent 100%
+    );
+  }
+
   .discover-tab-bar button {
     flex: 0 0 auto;
     margin: 0;
@@ -39812,6 +39841,14 @@ a.os-surface-row {
     font-size: 0.9rem;
     outline: none;
     padding: 0.75rem 0.85rem;
+  }
+
+  /* 16px — iOS zooms the page when a focused field is under 16px. */
+  @media (max-width: 639px) {
+    .guild-field input,
+    .guild-field textarea {
+      font-size: 16px;
+    }
   }
 
   /*

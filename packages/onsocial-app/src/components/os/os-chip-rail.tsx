@@ -1,6 +1,10 @@
 'use client';
 
 import type { ReactNode, Ref } from 'react';
+import {
+  assignDomRef,
+  useChipScrollerEdges,
+} from '@/hooks/use-chip-scroller-edges';
 
 export type OsChipRailItem<TId extends string | null = string> = {
   id: TId;
@@ -35,12 +39,13 @@ export type OsChipRailSingleProps<TId extends string | null = string> =
     ariaControls?: string | ((id: TId) => string | undefined);
   };
 
-export type OsChipRailMultiProps<TId extends string = string> = OsChipRailBase & {
-  selection: 'multi';
-  items: ReadonlyArray<OsChipRailItem<TId>>;
-  values: ReadonlyArray<TId>;
-  onToggle: (id: TId) => void;
-};
+export type OsChipRailMultiProps<TId extends string = string> =
+  OsChipRailBase & {
+    selection: 'multi';
+    items: ReadonlyArray<OsChipRailItem<TId>>;
+    values: ReadonlyArray<TId>;
+    onToggle: (id: TId) => void;
+  };
 
 export type OsChipRailOptionProps<TId extends string | null = string> =
   OsChipRailBase & {
@@ -96,6 +101,12 @@ export function OsChipRail<TId extends string | null = string>(
     items,
   } = props;
   const selection = props.selection ?? 'single';
+  const { setScrollerNode, edges } = useChipScrollerEdges(variant === 'chrome');
+
+  const setScroller = (node: HTMLDivElement | null) => {
+    setScrollerNode(node);
+    assignDomRef(scrollerRef, node);
+  };
 
   const rootRole =
     selection === 'multi'
@@ -115,8 +126,17 @@ export function OsChipRail<TId extends string | null = string>(
       aria-label={ariaLabel}
     >
       <div
-        className={joinClassNames('discover-tab-bar-scroller', scrollerClassName)}
-        ref={scrollerRef}
+        className={joinClassNames(
+          'discover-tab-bar-scroller',
+          scrollerClassName
+        )}
+        ref={setScroller}
+        data-chip-overflow-start={
+          variant === 'chrome' && edges.start ? '' : undefined
+        }
+        data-chip-overflow-end={
+          variant === 'chrome' && edges.end ? '' : undefined
+        }
       >
         {items.map((item, index) => {
           const key = itemKey(item, index);

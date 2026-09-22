@@ -32,6 +32,13 @@
     --os-field-soft-lip: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
     --os-field-soft-lip-focus: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
   }
+
+  /* 16px — iOS zooms the page when a focused field is under 16px. */
+  @media (max-width: 639px) {
+    :root {
+      --os-field-font-size: 16px;
+    }
+  }
 }
 
 .os-field {

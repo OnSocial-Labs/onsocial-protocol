@@ -326,6 +326,14 @@
   -webkit-text-size-adjust: 100%;
 }
 
+/* 16px — iOS zooms the OS screen when a focused field is under 16px. */
+@media (max-width: 639px) {
+  .search-field.sheet-control.os-app-screen-search .search-field-input,
+  .os-app-chrome-nav-search-input {
+    font-size: 16px;
+  }
+}
+
 .search-field.sheet-control.os-app-screen-search
   .search-field-input::placeholder,
 .os-app-chrome-nav-search-input::placeholder {

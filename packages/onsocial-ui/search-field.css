@@ -237,6 +237,14 @@
   font-size: 0.78rem;
 }
 
+/* 16px — iOS zooms the page when a focused field is under 16px. */
+@media (max-width: 639px) {
+  .search-field.sheet-control:not(.os-app-screen-search) .search-field-input,
+  .search-field.os-floating-panel-search .search-field-input {
+    font-size: 16px;
+  }
+}
+
 .search-field.sheet-control:not(.os-app-screen-search)
   .search-field-input::placeholder,
 .search-field.os-floating-panel-search .search-field-input::placeholder {

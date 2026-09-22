@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useChipScrollerEdges } from '@/hooks/use-chip-scroller-edges';
 import { MultiplyIcon, PlusIcon } from '@onsocial/ui';
 import {
   homeFeedLensLabel,
@@ -40,6 +41,7 @@ export function HomeFeedChipBar({
   onNewFeed: () => void;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const { setScrollerNode, edges } = useChipScrollerEdges(true);
   const activeChipRef = useRef<HTMLElement | null>(null);
   const activeFocusKey = homeFeedFocusKey(activeFocus);
   const activeSaved = savedFeeds.find(
@@ -71,7 +73,15 @@ export function HomeFeedChipBar({
       role="tablist"
       aria-label="Feed"
     >
-      <div className="discover-tab-bar-scroller" ref={scrollerRef}>
+      <div
+        className="discover-tab-bar-scroller"
+        ref={(node) => {
+          scrollerRef.current = node;
+          setScrollerNode(node);
+        }}
+        data-chip-overflow-start={edges.start ? '' : undefined}
+        data-chip-overflow-end={edges.end ? '' : undefined}
+      >
         {lenses.map((option) => {
           const selected = !activeFocus && option === lens;
           return (
