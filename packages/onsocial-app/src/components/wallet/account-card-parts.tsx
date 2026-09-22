@@ -17,7 +17,6 @@ import {
   APP_ACTIVITY_METRIC_LABEL,
   APP_COLLECT_ACTION_LABEL,
   APP_SOCIAL_EMPTY_HINT,
-  APP_SOCIAL_HELP_TITLE,
   APP_SOCIAL_WALLET_ARIA_LABEL,
   APP_REWARD_MIN_CLAIM_YOCTO,
 } from '@/lib/app-reward-constants';
@@ -27,7 +26,6 @@ import {
   formatClaimRatioLabel,
 } from '@/lib/rewards-claim-progress';
 import { AccountStorageStrip } from '@/components/wallet/account-storage-strip';
-import { AppSocialHelpCard } from '@/components/wallet/app-social-help-card';
 import { usePwa } from '@/components/providers/pwa-provider';
 import { useWebPush } from '@/components/providers/web-push-provider';
 import { useAppRewardsOptional } from '@/contexts/app-rewards-context';
@@ -134,10 +132,6 @@ export function AccountWalletZone({
   platformStorageError = null,
   platformStorageSummary = null,
 }: AccountWalletZoneProps) {
-  const [socialHelpOpen, setSocialHelpOpen] = useState(false);
-  const closeSocialHelp = useCallback(() => {
-    setSocialHelpOpen(false);
-  }, []);
   const rewards = useAppRewardsOptional();
   const refreshRewards = rewards?.refreshRewards;
   const {
@@ -154,12 +148,6 @@ export function AccountWalletZone({
     }
     void refreshRewards?.({ silent: true, fresh: true });
   }, [enabled, refreshRewards]);
-
-  useEffect(() => {
-    if (!enabled) {
-      setSocialHelpOpen(false);
-    }
-  }, [enabled]);
 
   const walletLabel = balanceError
     ? '—'
@@ -268,23 +256,6 @@ export function AccountWalletZone({
           onOpenManage={onOpenStorage}
         />
       ) : null}
-
-      <button
-        type="button"
-        className={`os-surface-row os-surface-row--navigate account-wallet-help${
-          socialHelpOpen ? ' is-active' : ''
-        }`}
-        onClick={() => setSocialHelpOpen(true)}
-        aria-haspopup="dialog"
-        aria-expanded={socialHelpOpen}
-      >
-        <span className="os-surface-row-copy">
-          <span className="os-surface-row-label">{APP_SOCIAL_HELP_TITLE}</span>
-        </span>
-        <ChevronRightIcon aria-hidden className="os-surface-row-arrow" />
-      </button>
-
-      <AppSocialHelpCard open={socialHelpOpen} onClose={closeSocialHelp} />
     </section>
   );
 }

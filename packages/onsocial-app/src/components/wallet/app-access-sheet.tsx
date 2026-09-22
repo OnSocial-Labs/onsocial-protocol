@@ -253,7 +253,7 @@ export function AppAccessSheet({
       copy={standingIdentityAccountCopy(accountId)}
       closeAriaLabel="Close app access"
       backdropLabel="Close app access"
-      zIndex={SHEET_Z.facts}
+      zIndex={SHEET_Z.nested}
       titleId="app-access-sheet-title"
       headerClassName="account-storage-header"
       panelClassName={`account-storage-panel os-sheet-cap-standard${pageMoodId ? ' account-storage-panel--page-mood' : ''}`}

@@ -41390,6 +41390,7 @@ body:has(.feed-photo-slide--thread) .portfolio-summon-dock .portfolio-summon {
 /* Account dock key — orange attention (logout uses is-danger). Unlayered twin. */
 .account-shortcut-dock .os-surface-tile.is-attention,
 .account-shortcut-dock .os-surface-row.is-attention,
+.account-card .account-menu-row.is-attention,
 .account-card .account-storage-row.is-attention {
   background: color-mix(in srgb, var(--protocol-amber) 8%, transparent);
   color: var(--protocol-amber-ink, var(--protocol-amber));
@@ -41401,6 +41402,8 @@ body:has(.feed-photo-slide--thread) .portfolio-summon-dock .portfolio-summon {
 .account-shortcut-dock .os-surface-row.is-attention:not(:disabled):hover,
 .account-shortcut-dock
   .os-surface-row.is-attention:not(:disabled):focus-visible,
+.account-card .account-menu-row.is-attention:not(:disabled):hover,
+.account-card .account-menu-row.is-attention:not(:disabled):focus-visible,
 .account-card .account-storage-row.is-attention:not(:disabled):hover,
 .account-card .account-storage-row.is-attention:not(:disabled):focus-visible {
   background: color-mix(in srgb, var(--protocol-amber) 14%, transparent);
