@@ -12,6 +12,8 @@ interface PostIdentityMetaProps {
   name: string;
   accountId: string;
   timestamp?: number | string;
+  /** Face beside the name. When `authorHref` is set, it joins that one profile link. */
+  avatar?: ReactNode;
   authorHref?: string;
   handleHref?: string;
   timeHref?: string;
@@ -34,6 +36,7 @@ export function PostIdentityMeta({
   name,
   accountId,
   timestamp,
+  avatar,
   authorHref,
   handleHref,
   timeHref,
@@ -50,8 +53,12 @@ export function PostIdentityMeta({
   const profileHandleHref = handleHref ?? authorHref;
   const roomLabel = channel?.trim().replace(/^#/, '') || null;
   const stacked = layout === 'stacked';
+  const sharedProfileHref =
+    authorHref && profileHandleHref === authorHref ? authorHref : null;
 
-  const nameNode = authorHref ? (
+  const nameNode = sharedProfileHref ? (
+    <span className="post-identity-name">{name}</span>
+  ) : authorHref ? (
     <Link href={authorHref} className="post-identity-name" scroll={false}>
       {name}
     </Link>
@@ -66,20 +73,21 @@ export function PostIdentityMeta({
   );
 
   const handleLabel = `@${accountId}`;
-  const handleNode = profileHandleHref ? (
-    <Link
-      href={profileHandleHref}
-      className="post-identity-handle"
-      title={handleLabel}
-      scroll={false}
-    >
-      {handleLabel}
-    </Link>
-  ) : (
-    <span className="post-identity-handle" title={handleLabel}>
-      {handleLabel}
-    </span>
-  );
+  const handleNode =
+    profileHandleHref && !sharedProfileHref ? (
+      <Link
+        href={profileHandleHref}
+        className="post-identity-handle"
+        title={handleLabel}
+        scroll={false}
+      >
+        {handleLabel}
+      </Link>
+    ) : (
+      <span className="post-identity-handle" title={handleLabel}>
+        {handleLabel}
+      </span>
+    );
 
   const timeNode = showTime ? (
     timeHref ? (
@@ -105,30 +113,49 @@ export function PostIdentityMeta({
     )
   ) : null;
 
-  const inlineCluster = (
+  const timeWithSep = timeNode ? (
+    <>
+      <span className="post-identity-sep" aria-hidden>
+        ·
+      </span>
+      {timeNode}
+    </>
+  ) : null;
+
+  const inlineNames = (
     <span className="post-identity-inline-cluster">
       {nameNode}
       {marksNode}
       {handleNode}
-      {timeNode ? (
-        <>
-          <span className="post-identity-sep" aria-hidden>
-            ·
-          </span>
-          {timeNode}
-        </>
-      ) : null}
+      {sharedProfileHref ? null : timeWithSep}
     </span>
   );
 
-  const stackedCluster = (
-    <>
+  const stackedNames = (
+    <span className="post-identity-main post-identity-main--stacked">
       <span className="post-identity-name-cluster">
         {nameNode}
         {marksNode}
       </span>
       {handleNode}
-    </>
+    </span>
+  );
+
+  const names = stacked ? stackedNames : inlineNames;
+  const profileCluster = sharedProfileHref ? (
+    <Link
+      href={sharedProfileHref}
+      className="post-card-identity"
+      scroll={false}
+      aria-label={`View ${name}'s profile`}
+    >
+      {avatar}
+      {names}
+    </Link>
+  ) : stacked ? (
+    names
+  ) : (
+    <div className="post-identity-main">{names}</div>
   );
 
   return (
@@ -138,15 +165,13 @@ export function PostIdentityMeta({
       }`}
     >
       <div className="post-identity-row">
-        <div
-          className={
-            stacked
-              ? 'post-identity-main post-identity-main--stacked'
-              : 'post-identity-main'
-          }
-        >
-          {stacked ? stackedCluster : inlineCluster}
-        </div>
+        {profileCluster}
+        {sharedProfileHref && timeWithSep ? (
+          <span className="post-identity-time-slot">{timeWithSep}</span>
+        ) : null}
+        {sharedProfileHref ? (
+          <span className="post-identity-spacer" aria-hidden />
+        ) : null}
         {trailing}
       </div>
       {roomLabel ? (

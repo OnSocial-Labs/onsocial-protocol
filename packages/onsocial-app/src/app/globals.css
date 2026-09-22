@@ -21656,6 +21656,7 @@ a.os-surface-row {
   }
 
   .post-card--openable .post-card-repost-line,
+  .post-card--openable .post-card-identity,
   .post-card--openable .post-card-avatar-link,
   .post-card--openable .post-identity-name,
   .post-card--openable .post-identity-handle,
@@ -21716,6 +21717,7 @@ a.os-surface-row {
    * name stay clickable even when the panel paints over them. Disable those
    * islands while the menu is open so clicks hit the menu, not the underlay.
    */
+  .post-card:has(.post-card-menu-panel) .post-card-identity,
   .post-card:has(.post-card-menu-panel) .post-identity-name,
   .post-card:has(.post-card-menu-panel) .post-identity-handle,
   .post-card:has(.post-card-menu-panel) .post-identity-time,
@@ -21751,6 +21753,59 @@ a.os-surface-row {
     margin-top: 0.05rem;
     color: inherit;
     text-decoration: none;
+  }
+
+  /*
+   * Avatar + name + @id — one profile control. Time and the menu stay outside.
+   * The face is taken out of this row and anchored to the header (below) so a
+   * guild label shares the avatar's height instead of sitting above it.
+   */
+  .post-card-identity {
+    display: flex;
+    align-items: flex-start;
+    min-width: 0;
+    flex: 0 1 auto;
+    max-width: 100%;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .post-card-identity:focus-visible {
+    outline: 1px solid var(--os-surface-ring);
+    outline-offset: 3px;
+    border-radius: 0.65rem;
+  }
+
+  .post-card-identity:focus-visible .post-card-avatar-link {
+    outline: 1px solid var(--os-surface-ring);
+    outline-offset: 3px;
+    border-radius: 9999px;
+  }
+
+  .post-card-identity .post-identity-inline-cluster,
+  .post-card-identity .post-identity-main {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .post-identity-time-slot {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    min-width: 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.5;
+  }
+
+  .post-identity-spacer {
+    flex: 1 1 auto;
+    min-width: 0.35rem;
+  }
+
+  .post-card:not(.post-card--skeleton) > .post-card-copy > :not(.post-card-header) {
+    margin-left: calc(2.25rem + 0.75rem);
   }
 
   .post-card-link {
@@ -21860,8 +21915,10 @@ a.os-surface-row {
   .post-identity--stacked .post-identity-handle {
     flex: 0 1 auto;
     max-width: 100%;
-    color: rgb(var(--fg-rgb) / 0.42);
+    font-size: 0.72rem;
+    color: var(--os-identity-handle);
     text-decoration: none;
+    transition: color 160ms ease;
   }
 
   .post-card-detail-time {
@@ -21923,11 +21980,23 @@ a.os-surface-row {
     font-size: 0.82em;
     font-weight: 550;
     line-height: inherit;
-    color: rgb(var(--fg-rgb) / 0.42);
+    color: var(--os-identity-handle);
     text-decoration: none;
+    transition: color 160ms ease;
   }
 
-  .post-identity-inline-cluster .post-identity-sep {
+  .post-card-identity:hover .post-identity-name,
+  .post-card-identity:focus-visible .post-identity-name {
+    color: var(--os-identity-name-hover);
+  }
+
+  .post-card-identity:hover .post-identity-handle,
+  .post-card-identity:focus-visible .post-identity-handle {
+    color: var(--os-identity-handle-hover);
+  }
+
+  .post-identity-inline-cluster .post-identity-sep,
+  .post-identity-time-slot .post-identity-sep {
     flex: 0 0 auto;
     overflow: visible;
     padding-inline: 0.12em;
@@ -21938,7 +22007,8 @@ a.os-surface-row {
     user-select: none;
   }
 
-  .post-identity-inline-cluster .post-identity-time {
+  .post-identity-inline-cluster .post-identity-time,
+  .post-identity-time-slot .post-identity-time {
     flex: 0 0 auto;
     overflow: visible;
     font-size: 0.82em;
@@ -21982,8 +22052,9 @@ a.os-surface-row {
     font-weight: 600;
     letter-spacing: -0.01em;
     line-height: 1.5;
-    color: rgb(var(--fg-rgb) / 0.96);
+    color: var(--os-identity-name);
     text-decoration: none;
+    transition: color 160ms ease;
   }
 
   .post-identity-handle,
@@ -22036,10 +22107,14 @@ a.os-surface-row {
     max-width: 100%;
   }
 
-  a.post-identity-name:hover,
-  a.post-identity-handle:hover,
-  a.post-identity-time:hover {
-    text-decoration: underline;
+  a.post-identity-time:hover,
+  a.post-identity-time:focus-visible {
+    text-decoration: none;
+  }
+
+  a.post-identity-time:focus-visible {
+    outline: 1px solid var(--os-surface-ring);
+    outline-offset: 2px;
   }
 
   .post-identity-channel {
@@ -22106,12 +22181,21 @@ a.os-surface-row {
   }
 
   .post-card-header-stack {
+    position: relative;
     display: flex;
     min-width: 0;
     flex: 1;
     flex-direction: column;
     align-items: stretch;
     gap: 0.12rem;
+    /* Text column. The avatar sits in this padding, top-aligned with the header. */
+    padding-left: calc(2.25rem + 0.75rem);
+  }
+
+  .post-card-header-stack .post-card-avatar-link {
+    position: absolute;
+    left: 0;
+    top: 0;
   }
 
   .post-card-guild {
@@ -28453,9 +28537,20 @@ a.os-surface-row {
     text-decoration: none;
   }
 
+  .os-media-face-identity:focus-visible {
+    outline: 1px solid var(--os-surface-ring);
+    outline-offset: 3px;
+    border-radius: 0.65rem;
+  }
+
   .os-media-face-identity:hover .os-media-face-identity-name,
   .os-media-face-identity:focus-visible .os-media-face-identity-name {
-    color: rgb(var(--fg-rgb) / 0.72);
+    color: var(--os-identity-name-hover);
+  }
+
+  .os-media-face-identity:hover .os-media-face-identity-handle,
+  .os-media-face-identity:focus-visible .os-media-face-identity-handle {
+    color: var(--os-identity-handle-hover);
   }
 
   .os-media-face-identity .profile-avatar {
@@ -28489,7 +28584,8 @@ a.os-surface-row {
     font-weight: 600;
     line-height: 1.5;
     letter-spacing: -0.01em;
-    color: rgb(var(--fg-rgb) / 0.96);
+    color: var(--os-identity-name);
+    transition: color 160ms ease;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -28501,7 +28597,8 @@ a.os-surface-row {
     font-size: 0.72rem;
     font-weight: 550;
     line-height: 1.5;
-    color: rgb(var(--fg-rgb) / 0.42);
+    color: var(--os-identity-handle);
+    transition: color 160ms ease;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
