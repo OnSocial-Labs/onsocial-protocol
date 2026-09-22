@@ -86,15 +86,10 @@ function UserStorageReadout({ summary }: { summary: UserStorageSummary }) {
     `${formatCompactBytes(summary.effectiveBytes)} used`,
     `${formatCompactBytes(freeCapacityBytes)} free`,
   ];
-  const secondaryMeta = [
-    `${formatNearCompact(summary.withdrawableYocto.toString())} NEAR withdrawable`,
-  ];
-
-  if (summary.lockedYocto > 0n) {
-    secondaryMeta.push(
-      `${formatNearCompact(summary.lockedYocto.toString())} NEAR reserved`
-    );
-  }
+  const reservedLabel =
+    summary.lockedYocto > 0n
+      ? `${formatNearCompact(summary.lockedYocto.toString())} NEAR reserved`
+      : null;
 
   return (
     <div className="app-storage-readout os-surface-panel">
@@ -112,9 +107,11 @@ function UserStorageReadout({ summary }: { summary: UserStorageSummary }) {
       <p className={`app-storage-meta${low ? ' is-low' : ''}`}>
         {primaryMeta.join(' · ')}
       </p>
-      <p className="app-storage-meta app-storage-meta--secondary">
-        {secondaryMeta.join(' · ')}
-      </p>
+      {reservedLabel ? (
+        <p className="app-storage-meta app-storage-meta--secondary">
+          {reservedLabel}
+        </p>
+      ) : null}
     </div>
   );
 }
