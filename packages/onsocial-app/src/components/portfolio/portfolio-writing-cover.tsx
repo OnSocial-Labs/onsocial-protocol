@@ -14,6 +14,7 @@ import {
   type MarkShape,
   type MoodKey,
 } from '@onsocial/text-card';
+import { displayName as accountDisplayName } from '@/lib/profile-display';
 
 function inlineSvgMarkup(svg: string): string {
   return svg.replace(/^<\?xml[^>]*>\s*/i, '');
@@ -66,7 +67,7 @@ export function previewWritingCoverSvg(
     format: resolveCardFormat(input.format),
     creator: {
       accountId: input.accountId,
-      displayName: input.displayName?.trim() || input.accountId,
+      displayName: accountDisplayName(input.accountId, input.displayName),
       ...(input.avatarUrl ? { avatar: input.avatarUrl } : {}),
     },
     theme: {
