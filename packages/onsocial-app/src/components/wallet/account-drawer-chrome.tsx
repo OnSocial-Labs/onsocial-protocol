@@ -12,7 +12,7 @@ import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { accountDrawerPrimaryLabel } from '@/lib/profile-display';
 
-function AccountDrawerHandleCopy({ accountId }: { accountId: string }) {
+function AccountDrawerAddressCopy({ accountId }: { accountId: string }) {
   const [copied, setCopied] = useState(false);
   const handleLabel = standingIdentityAccountCopy(accountId);
 
@@ -39,19 +39,20 @@ function AccountDrawerHandleCopy({ accountId }: { accountId: string }) {
   return (
     <button
       type="button"
-      className={`os-chrome-subject__handle account-drawer-handle-button${
-        copied ? ' is-copied' : ''
-      }`}
+      className={`account-drawer-address${copied ? ' is-copied' : ''}`}
       onClick={handleCopy}
       title={accountId}
       aria-label={copied ? 'Address copied' : `Copy ${handleLabel}`}
     >
-      {copied ? 'Copied' : handleLabel}
+      <span className="account-drawer-address-id">{handleLabel}</span>
+      <span className="account-drawer-address-action">
+        {copied ? 'Copied' : 'Copy'}
+      </span>
     </button>
   );
 }
 
-/** Identity row — tappable subject + full account id copy. */
+/** Identity row — page link and address copy are separate tap targets. */
 export function AccountDrawerChrome({
   titleId,
   srTitle,
@@ -85,23 +86,25 @@ export function AccountDrawerChrome({
       }
       toolbarClassName={null}
     >
-      <Link
-        href={portfolioPath(accountId)}
-        className={osChromeSubjectClassName}
-        aria-label={`${primaryLabel} portfolio`}
-        onClick={onClose}
-      >
-        <OsChromeSubject
-          accountId={accountId}
-          profileName={profileName}
-          avatarUrl={avatarUrl}
-          kind={kind}
-          primaryLabel={primaryLabel}
-          showHandle
-          handleSlot={<AccountDrawerHandleCopy accountId={accountId} />}
-          unstyled
-        />
-      </Link>
+      <div className="account-drawer-identity">
+        <Link
+          href={portfolioPath(accountId)}
+          className={osChromeSubjectClassName}
+          aria-label={`${primaryLabel} portfolio`}
+          onClick={onClose}
+        >
+          <OsChromeSubject
+            accountId={accountId}
+            profileName={profileName}
+            avatarUrl={avatarUrl}
+            kind={kind}
+            primaryLabel={primaryLabel}
+            showHandle={false}
+            unstyled
+          />
+        </Link>
+        <AccountDrawerAddressCopy accountId={accountId} />
+      </div>
     </SheetChromeHeader>
   );
 }

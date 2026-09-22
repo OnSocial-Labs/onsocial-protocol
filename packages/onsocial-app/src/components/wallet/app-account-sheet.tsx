@@ -1,8 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import type { ProfileKind } from '@onsocial/sdk';
-import { GlassSheet, osHugSheetBodyClassName, useScrollLock } from '@onsocial/ui';
+import {
+  GlassSheet,
+  osHugSheetBodyClassName,
+  useScrollLock,
+} from '@onsocial/ui';
 import {
   AccountActionList,
   AccountShortcutDock,
@@ -228,7 +238,11 @@ export function AppAccountSheet({
   }, []);
 
   const handleProfileSaved = useCallback(
-    (result: { name: string; avatarUrl: string | null; kind?: ProfileKind | null }) => {
+    (result: {
+      name: string;
+      avatarUrl: string | null;
+      kind?: ProfileKind | null;
+    }) => {
       if (!accountId) {
         return;
       }
@@ -335,7 +349,7 @@ export function AppAccountSheet({
             onOpenAccess={() => setAccessOpen(true)}
             accessNeeded={!hasSocialSession}
             onSwitchWallet={() => void handleSwitchWallet()}
-            onDisconnect={() => void handleDisconnect()}
+            onDisconnect={handleDisconnect}
           />
         </div>
       </GlassSheet>
