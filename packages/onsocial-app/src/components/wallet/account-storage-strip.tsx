@@ -2,8 +2,7 @@
 
 import { ChevronRightIcon } from '@onsocial/ui';
 import {
-  formatCompactBytes,
-  formatPlatformBufferRatioLabel,
+  formatPlatformStorageStatusLine,
   PLATFORM_STORAGE_MENU_LABEL,
   type PlatformStorageSummary,
 } from '@/lib/platform-storage-display';
@@ -29,20 +28,11 @@ export function AccountStorageStrip({
       ? ' is-attention'
       : '';
 
-  let description = 'Unavailable';
-  if (loading) {
-    description = 'Checking storage…';
-  } else if (error) {
-    description = 'Unavailable right now';
-  } else if (summary?.phase === 'inactive') {
-    description = 'Activates on your first save';
-  } else if (summary) {
-    const ratioLabel = formatPlatformBufferRatioLabel(
-      summary.availableBytes,
-      summary.maxBufferBytes
-    );
-    description = `${ratioLabel} free · ${formatCompactBytes(summary.storedBytes)} covered`;
-  }
+  const description = formatPlatformStorageStatusLine({
+    loading,
+    error,
+    summary,
+  });
 
   return (
     <button

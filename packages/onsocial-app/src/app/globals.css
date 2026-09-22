@@ -17673,7 +17673,7 @@ a.os-surface-row {
   }
 
   .app-storage-balance-value {
-    font-size: 0.85rem;
+    font-size: 1.35rem;
     font-weight: 600;
     letter-spacing: -0.03em;
     color: rgb(var(--fg-rgb) / 0.94);
@@ -17685,9 +17685,14 @@ a.os-surface-row {
     color: var(--protocol-amber);
   }
 
+  .app-storage-readout .account-wallet-metric-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+  }
+
   .app-storage-meta {
     margin: 0;
-    font-size: 0.62rem;
+    font-size: 0.75rem;
     line-height: 1.25;
     color: rgb(var(--fg-rgb) / 0.45);
   }
@@ -17703,7 +17708,7 @@ a.os-surface-row {
   .app-storage-hint {
     margin: 0;
     min-height: 0;
-    font-size: 0.62rem;
+    font-size: 0.75rem;
     line-height: 1.3;
     color: rgb(var(--fg-rgb) / 0.42);
   }
@@ -17712,9 +17717,54 @@ a.os-surface-row {
     min-height: 0;
   }
 
+  .app-storage-status-line {
+    cursor: default;
+  }
+
+  .app-storage-status-line.is-attention {
+    background: color-mix(in srgb, var(--protocol-amber) 8%, transparent);
+    color: var(--protocol-amber-ink, var(--protocol-amber));
+  }
+
+  .app-storage-sheet .os-surface-row-description {
+    white-space: normal;
+  }
+
+  .app-storage-choice-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .app-storage-choice,
+  .app-storage-back {
+    min-height: 2.75rem;
+  }
+
+  .app-storage-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    align-self: flex-start;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.72);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .app-storage-back-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+
   .app-storage-error {
     margin: 0;
-    font-size: 0.62rem;
+    font-size: 0.75rem;
     line-height: 1.25;
     color: var(--protocol-red);
   }
@@ -18137,8 +18187,12 @@ a.os-surface-row {
 
   .app-storage-share-available > span:last-child {
     color: rgb(var(--fg-rgb) / 0.42);
-    font-size: 0.58rem;
+    font-size: 0.75rem;
     font-weight: 600;
+  }
+
+  .app-storage-sheet .account-card-wallet-label {
+    font-size: 0.75rem;
   }
 
   .app-storage-share-ratio,
@@ -18147,7 +18201,7 @@ a.os-surface-row {
   .app-storage-recipient-status {
     flex-shrink: 0;
     color: rgb(var(--fg-rgb) / 0.52);
-    font-size: 0.62rem;
+    font-size: 0.75rem;
     line-height: 1;
     font-variant-numeric: tabular-nums;
   }
@@ -41391,9 +41445,14 @@ body:has(.feed-photo-slide--thread) .portfolio-summon-dock .portfolio-summon {
 .account-shortcut-dock .os-surface-tile.is-attention,
 .account-shortcut-dock .os-surface-row.is-attention,
 .account-card .account-menu-row.is-attention,
-.account-card .account-storage-row.is-attention {
+.account-card .account-storage-row.is-attention,
+.app-storage-status-line.is-attention {
   background: color-mix(in srgb, var(--protocol-amber) 8%, transparent);
   color: var(--protocol-amber-ink, var(--protocol-amber));
+}
+
+.app-storage-sheet .os-surface-row-description {
+  white-space: normal;
 }
 
 .account-shortcut-dock .os-surface-tile.is-attention:not(:disabled):hover,
