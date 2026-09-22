@@ -35460,10 +35460,9 @@ a.os-surface-row {
     line-height: 0;
   }
 
+  /* Size comes from profile-avatar--sm. Keep the face flat in the catalog row. */
   .drops-discovery-party-avatar.profile-avatar {
     flex-shrink: 0;
-    width: 1.25rem !important;
-    height: 1.25rem !important;
     border: 0;
     box-shadow: none;
   }
@@ -42102,11 +42101,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.98);
 }
 
-.protocol-account-chip-avatar.profile-avatar {
-  width: 1.35rem;
-  height: 1.35rem;
-}
-
+/* Size comes from profile-avatar--sm. Dense packs to the icon slot. */
 .protocol-account-chip-avatar.is-dense.profile-avatar {
   width: 1.2rem;
   height: 1.2rem;
