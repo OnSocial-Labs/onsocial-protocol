@@ -13,44 +13,57 @@ import { AppProviders } from '@/components/providers/app-providers';
 import { ThemeInitScript } from '@/components/theme-init-script';
 import './globals.css';
 
+// The woff2 is served by us. It is not installed on the device, so each
+// --font-* variable still carries one metric-adjusted stand-in. `optional`
+// never replaces a line that has already painted: the file is used when it is
+// ready for first paint (preload + cache), otherwise the stand-in stays for
+// that view. `swap` and `block` paint the stand-in and then swap — weight 300
+// has no Arial, and 550 is not a static weight — so glyphs change shape and
+// the line reflows. Variable wght on DM Sans: discrete weights deduped to one
+// woff2 and 300 painted as 400.
 const dmSans = DM_Sans({
   subsets: ['latin'],
   variable: '--font-dm-sans',
-  // block, not swap: with swap, rows that painted during the fallback window
-  // rendered Arial (no 300) and stayed thick until something re-rendered them
-  // (mid-feed rows had no reason to; a boost reorder did — hence “boost fixes
-  // it”). block holds text invisible for the instant the woff2 needs instead.
-  display: 'block',
-  // Variable wght axis — discrete weights were deduped to the same woff2, so
-  // font-weight: 300 painted as 400 glyphs.
+  display: 'optional',
+  adjustFontFallback: true,
   weight: 'variable',
 });
 
 const ibmPlexSans = IBM_Plex_Sans({
   subsets: ['latin'],
   variable: '--font-ibm-plex-sans',
+  display: 'optional',
+  adjustFontFallback: true,
   weight: ['400', '500', '600', '700'],
 });
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
   variable: '--font-space-grotesk',
+  display: 'optional',
+  adjustFontFallback: true,
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-jetbrains-mono',
+  display: 'optional',
+  adjustFontFallback: true,
 });
 
 const newsreader = Newsreader({
   subsets: ['latin'],
   variable: '--font-newsreader',
+  display: 'optional',
+  adjustFontFallback: true,
   weight: ['400', '500', '600'],
 });
 
 const caveat = Caveat({
   subsets: ['latin'],
   variable: '--font-caveat',
+  display: 'optional',
+  adjustFontFallback: true,
   weight: ['400', '500', '600', '700'],
 });
 
@@ -68,7 +81,8 @@ const ericaType = localFont({
     },
   ],
   variable: '--font-erica-type',
-  display: 'swap',
+  display: 'optional',
+  adjustFontFallback: 'Arial',
 });
 
 export const metadata: Metadata = {

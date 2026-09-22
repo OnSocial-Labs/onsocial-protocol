@@ -42,8 +42,8 @@
   src: url('/fonts/erica-type/erika_type-webfont.woff') format('woff');
   font-weight: 400;
   font-style: normal;
-  /* Avoid blank Letter glyphs while the face loads (list-sheet SVG fallback). */
-  font-display: block;
+  /* Same file next/font preloads. optional: no swap after paint. */
+  font-display: optional;
 }
 
 @font-face {
@@ -51,7 +51,7 @@
   src: url('/fonts/erica-type/erika_type_b-webfont.woff') format('woff');
   font-weight: 700;
   font-style: normal;
-  font-display: block;
+  font-display: optional;
 }
 
 @font-face {
@@ -59,7 +59,7 @@
   src: url('/fonts/erica-type/erika_type-webfont.woff') format('woff');
   font-weight: 400;
   font-style: normal;
-  font-display: block;
+  font-display: optional;
 }
 
 @font-face {
@@ -67,7 +67,7 @@
   src: url('/fonts/erica-type/erika_type_b-webfont.woff') format('woff');
   font-weight: 700;
   font-style: normal;
-  font-display: block;
+  font-display: optional;
 }
 
 /*
@@ -2347,7 +2347,9 @@ a.os-surface-row {
     --mood-text-base: rgb(var(--fg-rgb) / 0.96);
     --mood-muted-base: hsl(var(--muted-foreground));
 
-    /* OS / protocol chrome — Portal DM Sans. Portfolio moods override locally. */
+    /* OS chrome — DM Sans. The next/font variable already includes one
+       metric-adjusted stand-in. Generic names apply only if that stand-in
+       cannot load. Portfolio moods override locally. */
     --app-font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
 
     /* Frosted sheet material — tune top/body glass from this token group. */
