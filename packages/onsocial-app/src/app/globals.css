@@ -16762,7 +16762,7 @@ a.os-surface-row {
   .account-drawer-address-id {
     min-width: 0;
     overflow: hidden;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     line-height: 1.3;
     color: rgb(var(--fg-rgb) / 0.62);
     text-overflow: ellipsis;
@@ -16771,7 +16771,7 @@ a.os-surface-row {
 
   .account-drawer-address-action {
     flex-shrink: 0;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     font-weight: 650;
     color: rgb(var(--fg-rgb) / 0.88);
   }
@@ -16902,12 +16902,6 @@ a.os-surface-row {
     letter-spacing: 0;
   }
 
-  .account-card
-    .account-wallet-action.os-surface-chip:not(.is-ready):not(:disabled) {
-    background: rgb(var(--fg-rgb) / 0.1);
-    color: rgb(var(--fg-rgb) / 0.94);
-  }
-
   .account-card .account-wallet-action.os-surface-chip:disabled {
     opacity: 0.45;
     cursor: default;
@@ -16928,7 +16922,7 @@ a.os-surface-row {
 
   .account-wallet-activity-label,
   .account-wallet-activity-ratio {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
     line-height: 1.3;
     color: rgb(var(--fg-rgb) / 0.62);
@@ -17208,7 +17202,7 @@ a.os-surface-row {
 
   .account-wallet-caption {
     margin: 0;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     line-height: 1.35;
     color: rgb(var(--fg-rgb) / 0.62);
   }
@@ -17369,7 +17363,7 @@ a.os-surface-row {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 600;
   }
 
@@ -17377,7 +17371,7 @@ a.os-surface-row {
     min-width: 0;
     overflow: hidden;
     white-space: normal;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     line-height: 1.35;
     color: rgb(var(--fg-rgb) / 0.62);
   }
@@ -17425,13 +17419,7 @@ a.os-surface-row {
     transform: translateX(0.95rem);
   }
 
-  .account-card .os-surface-row-label {
-    font-size: 0.95rem;
-  }
-
   .account-card .os-surface-row-description {
-    font-size: 0.8rem;
-    line-height: 1.35;
     white-space: normal;
   }
 
@@ -45745,30 +45733,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
  * (that rule lives outside @layer and would otherwise stay ~10px).
  */
 .account-drawer-panel .account-wallet-action.os-surface-chip {
-  font-size: 0.95rem;
-  font-weight: 650;
-  letter-spacing: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   line-height: 1.2;
-}
-
-.account-drawer-panel
-  .account-wallet-action.os-surface-chip:not(.is-ready):not(:disabled) {
-  background: rgb(var(--fg-rgb) / 0.1);
-  color: rgb(var(--fg-rgb) / 0.94);
-}
-
-.account-drawer-panel .account-card .os-surface-row-label,
-.account-drawer-panel .account-action-toggle-label {
-  font-size: 0.95rem;
-}
-
-.account-drawer-panel .account-card .os-surface-row-description,
-.account-drawer-panel .account-action-toggle-hint,
-.account-drawer-panel .account-wallet-caption,
-.account-drawer-panel .account-wallet-activity-label,
-.account-drawer-panel .account-wallet-activity-ratio,
-.account-drawer-panel .account-drawer-address-id,
-.account-drawer-panel .account-drawer-address-action {
-  font-size: 0.8rem;
-  line-height: 1.35;
 }

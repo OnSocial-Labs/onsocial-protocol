@@ -209,13 +209,26 @@ export function AccountWalletZone({
 
       <div className="account-wallet-actions">
         {onOpenSwap ? (
-          <button
-            type="button"
-            className="account-wallet-action os-surface-chip"
-            onClick={onOpenSwap}
-          >
-            Get SOCIAL
-          </button>
+          canClaim || claiming ? (
+            <button
+              type="button"
+              className="account-wallet-action os-surface-chip"
+              onClick={onOpenSwap}
+            >
+              Get SOCIAL
+            </button>
+          ) : (
+            <OsSheetAction
+              type="button"
+              variant="primary"
+              ready={!rewardsLoading}
+              className="account-wallet-action"
+              disabled={rewardsLoading}
+              onClick={onOpenSwap}
+            >
+              Get SOCIAL
+            </OsSheetAction>
+          )
         ) : null}
         {claiming ? (
           <button
