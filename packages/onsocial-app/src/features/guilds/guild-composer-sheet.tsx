@@ -84,7 +84,7 @@ import {
   replaceComposerCoverPhoto,
 } from '@/lib/composer-article-cover-media';
 import { parsePostContentLabels } from '@/lib/post-content-labels';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { displayName } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
@@ -349,8 +349,7 @@ function ReplyTargetPreview({
 }) {
   const { safeMode } = useViewerSafeMode();
   const labels = parsePostContentLabels(post.value);
-  const name =
-    authorProfile?.displayName?.trim() || fallbackLabel(post.accountId);
+  const name = displayName(post.accountId, authorProfile?.displayName);
 
   return (
     <div className="guild-composer-reply-target">

@@ -22,6 +22,7 @@ import {
 } from '@/features/scarces/scarce-card-mood-picker';
 import { ScarceCoverIcon } from '@/features/scarces/scarce-choice-visuals';
 import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
+import { displayName as accountDisplayName } from '@/lib/profile-display';
 
 /** Formats available when pinning an article text-card (no photo layouts). */
 export const ARTICLE_COVER_FORMATS = [
@@ -77,7 +78,7 @@ export function ComposerArticleCoverPreview({
       format,
       creator: {
         accountId,
-        displayName: displayName?.trim() || accountId,
+        displayName: accountDisplayName(accountId, displayName),
         ...(avatarUrl ? { avatar: avatarUrl } : {}),
       },
       theme: {
