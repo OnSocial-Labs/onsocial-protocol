@@ -333,17 +333,13 @@ export function AppAccountSheet({
 
           <button
             type="button"
-            className={`os-surface-row os-surface-row--navigate account-menu-row${
-              hasSocialSession ? '' : ' is-attention'
-            }`}
+            className="os-surface-row os-surface-row--navigate account-menu-row"
             onClick={() => setAccountMenuOpen(true)}
           >
             <span className="os-surface-row-copy">
               <span className="os-surface-row-label">Account</span>
               <span className="os-surface-row-description">
-                {hasSocialSession
-                  ? 'Profile, alerts, log out'
-                  : 'Allow this device'}
+                Profile, alerts, log out
               </span>
             </span>
             <ChevronRightIcon aria-hidden className="os-surface-row-arrow" />
