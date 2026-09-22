@@ -1,13 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { ProfileKind } from '@onsocial/sdk';
-import { GlassSheet, osHugSheetBodyClassName, useScrollLock } from '@onsocial/ui';
 import {
-  AccountActionList,
-  AccountShortcutDock,
-  AccountWalletZone,
-} from '@/components/wallet/account-card-parts';
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
+import type { ProfileKind } from '@onsocial/sdk';
+import {
+  ChevronRightIcon,
+  GlassSheet,
+  osHugSheetBodyClassName,
+  useScrollLock,
+} from '@onsocial/ui';
+import { AccountWalletZone } from '@/components/wallet/account-card-parts';
+import { AppAccountMenuSheet } from '@/components/wallet/app-account-menu-sheet';
 import { AccountDrawerChrome } from '@/components/wallet/account-drawer-chrome';
 import { AppAccessSheet } from '@/components/wallet/app-access-sheet';
 import { AppProfileEditorSheet } from '@/components/wallet/app-profile-editor-sheet';
@@ -71,6 +79,7 @@ export function AppAccountSheet({
   const [tokensOpen, setTokensOpen] = useState(false);
   const [muteBlockOpen, setMuteBlockOpen] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [storageRefreshKey, setStorageRefreshKey] = useState(0);
   const [editorSession, setEditorSession] = useState(0);
   const [identityOverrides, setIdentityOverrides] = useState<
@@ -151,14 +160,17 @@ export function AppAccountSheet({
 
   const handleSheetClosed = useCallback(() => {
     setClosing(false);
+    // The editor hides this sheet. Keep Account open so closing the editor
+    // returns to the menu instead of dismissing it.
+    if (editorOpenRef.current) {
+      return;
+    }
     setStorageOpen(false);
     setSwapOpen(false);
     setTokensOpen(false);
     setMuteBlockOpen(false);
     setAccessOpen(false);
-    if (editorOpenRef.current) {
-      return;
-    }
+    setAccountMenuOpen(false);
     onClose();
 
     if (pendingCustomizeRef.current) {
@@ -228,7 +240,11 @@ export function AppAccountSheet({
   }, []);
 
   const handleProfileSaved = useCallback(
-    (result: { name: string; avatarUrl: string | null; kind?: ProfileKind | null }) => {
+    (result: {
+      name: string;
+      avatarUrl: string | null;
+      kind?: ProfileKind | null;
+    }) => {
       if (!accountId) {
         return;
       }
@@ -317,28 +333,41 @@ export function AppAccountSheet({
             platformStorageSummary={platformStorage.summary}
           />
 
-          <AccountActionList
-            accountId={accountId}
-            isOwnerOnPage={isOwnerOnPage}
-            onClose={requestClose}
-            onEditProfile={handleEditProfile}
-            onCustomize={isOwnerOnPage ? handleCustomize : undefined}
-            onMutedBlocked={handleMutedBlocked}
-            onOpenTokens={handleOpenTokens}
-            safeMode={safeMode}
-            onToggleSafeMode={toggleSafeMode}
-          />
-
-          <AccountShortcutDock
-            accountId={accountId}
-            onClose={requestClose}
-            onOpenAccess={() => setAccessOpen(true)}
-            accessNeeded={!hasSocialSession}
-            onSwitchWallet={() => void handleSwitchWallet()}
-            onDisconnect={() => void handleDisconnect()}
-          />
+          <button
+            type="button"
+            className="os-surface-row os-surface-row--navigate account-menu-row"
+            onClick={() => setAccountMenuOpen(true)}
+          >
+            <span className="os-surface-row-copy">
+              <span className="os-surface-row-label">Account</span>
+              <span className="os-surface-row-description">
+                Profile, alerts, log out
+              </span>
+            </span>
+            <ChevronRightIcon aria-hidden className="os-surface-row-arrow" />
+          </button>
         </div>
       </GlassSheet>
+
+      <AppAccountMenuSheet
+        open={accountMenuOpen && open}
+        onClose={() => setAccountMenuOpen(false)}
+        accountId={accountId}
+        pageMoodId={pageMoodId}
+        panelStyle={accountPanelStyle}
+        isOwnerOnPage={isOwnerOnPage}
+        onWalletClose={requestClose}
+        onEditProfile={handleEditProfile}
+        onCustomize={isOwnerOnPage ? handleCustomize : undefined}
+        onMutedBlocked={handleMutedBlocked}
+        onOpenTokens={handleOpenTokens}
+        safeMode={safeMode}
+        onToggleSafeMode={toggleSafeMode}
+        accessNeeded={!hasSocialSession}
+        onOpenAccess={() => setAccessOpen(true)}
+        onSwitchWallet={() => void handleSwitchWallet()}
+        onDisconnect={handleDisconnect}
+      />
 
       <AppProfileEditorSheet
         open={editorSheetOpen}

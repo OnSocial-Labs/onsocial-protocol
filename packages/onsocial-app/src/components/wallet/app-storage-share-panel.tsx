@@ -4,6 +4,8 @@ import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import {
   AmountField,
   AmountFieldMetaRow,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   OsFieldRemove,
   OsSheetAction,
   OsSheetActions,
@@ -254,10 +256,7 @@ function ShareRecipientRow({
         <span className="app-storage-recipient-status">Checking</span>
       ) : null}
       {canRemove ? (
-        <OsFieldRemove
-          aria-label="Remove recipient"
-          onClick={onRemove}
-        />
+        <OsFieldRemove aria-label="Remove recipient" onClick={onRemove} />
       ) : null}
       {issue ? <p className="app-storage-recipient-error">{issue}</p> : null}
     </div>
@@ -445,6 +444,7 @@ export function AppStorageSharePanel({
   const [sharePercent, setSharePercent] = useState<number>(100);
   const [fundAmountInput, setFundAmountInput] = useState('0.1');
   const [showAddCapacity, setShowAddCapacity] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
   const [pendingShareTargets, setPendingShareTargets] = useState<string[]>([]);
 
   const availableBytes = sharedPool?.availableBytes ?? 0;
@@ -458,8 +458,8 @@ export function AppStorageSharePanel({
   const poolUnavailable = Boolean(sharedPoolError);
   const needsFunding =
     !poolUnavailable && (!sharedPool || totalCapacityBytes <= 0);
-  const showFundPanel = needsFunding || showAddCapacity;
-  const showShareFlow = !poolUnavailable && !showFundPanel;
+  const showFundPanel = (needsFunding || showAddCapacity) && !composerOpen;
+  const showShareFlow = composerOpen && !poolUnavailable && !needsFunding;
   const activeShares = useStorageSharesGranted(
     accountId,
     true,
@@ -481,7 +481,7 @@ export function AppStorageSharePanel({
   const recipientValidation = useStorageShareRecipientsValidation(
     rows,
     accountId,
-    true
+    showShareFlow
   );
 
   const readyRecipients = recipientValidation.readyNormalizedIds;
@@ -643,16 +643,18 @@ export function AppStorageSharePanel({
 
   return (
     <div className="app-storage-share-panel">
-      <SharePoolReadout
-        summary={sharedPool}
-        loading={sharedPoolLoading}
-        error={sharedPoolError}
-        canAddCapacity={!needsFunding && !sharedPoolLoading}
-        showAddCapacity={showAddCapacity}
-        onToggleAddCapacity={() => {
-          setShowAddCapacity((open) => !open);
-        }}
-      />
+      {composerOpen ? null : (
+        <SharePoolReadout
+          summary={sharedPool}
+          loading={sharedPoolLoading}
+          error={sharedPoolError}
+          canAddCapacity={!needsFunding && !sharedPoolLoading}
+          showAddCapacity={showAddCapacity}
+          onToggleAddCapacity={() => {
+            setShowAddCapacity((open) => !open);
+          }}
+        />
+      )}
 
       {showFundPanel ? (
         <div className="app-storage-share-fund">
@@ -680,7 +682,10 @@ export function AppStorageSharePanel({
                   <>≈ {formatCompactBytes(fundPreviewCapacityBytes)} · </>
                 ) : null}
                 {walletNearYocto != null ? (
-                  <>Balance {formatNearCompact(walletNearYocto.toString())} · </>
+                  <>
+                    Balance {formatNearCompact(walletNearYocto.toString())}{' '}
+                    ·{' '}
+                  </>
                 ) : null}
                 Min {amountHint}
               </>
@@ -709,8 +714,38 @@ export function AppStorageSharePanel({
         </div>
       ) : null}
 
+      {!needsFunding &&
+      !poolUnavailable &&
+      !sharedPoolLoading &&
+      !composerOpen ? (
+        <button
+          type="button"
+          className="os-surface-row os-surface-row--navigate app-storage-choice"
+          onClick={() => {
+            setShowAddCapacity(false);
+            setComposerOpen(true);
+          }}
+        >
+          <span className="os-surface-row-copy">
+            <span className="os-surface-row-label">Share with accounts</span>
+            <span className="os-surface-row-description">
+              {USER_STORAGE_SHARE_HINT}
+            </span>
+          </span>
+          <ChevronRightIcon aria-hidden className="os-surface-row-arrow" />
+        </button>
+      ) : null}
+
       {showShareFlow ? (
         <div className="app-storage-share-flow">
+          <button
+            type="button"
+            className="app-storage-back"
+            onClick={() => setComposerOpen(false)}
+          >
+            <ChevronLeftIcon aria-hidden className="app-storage-back-icon" />
+            Share pool
+          </button>
           <div className="app-storage-share-recipients">
             <div className="app-storage-share-card-head">
               <span className="account-card-wallet-label">Recipients</span>
@@ -720,10 +755,7 @@ export function AppStorageSharePanel({
                 onClick={addRow}
                 disabled={rows.length >= MAX_STORAGE_SHARE_RECIPIENTS}
               >
-                <PlusIcon
-                  aria-hidden
-                  className="app-storage-share-add-icon"
-                />
+                <PlusIcon aria-hidden className="app-storage-share-add-icon" />
                 Add
               </button>
             </div>
@@ -795,13 +827,16 @@ export function AppStorageSharePanel({
           <p className="app-storage-hint app-storage-hint--compact">
             {USER_STORAGE_SHARE_HINT}
           </p>
-          <StorageSharesGrantedReadout
-            grants={activeShares.grants}
-            loading={activeShares.loading}
-            error={activeShares.error}
-          />
         </div>
       ) : null}
+
+      {composerOpen ? null : (
+        <StorageSharesGrantedReadout
+          grants={activeShares.grants}
+          loading={activeShares.loading}
+          error={activeShares.error}
+        />
+      )}
     </div>
   );
 }

@@ -154,7 +154,7 @@ export function AppTokensSheet({
         copy={standingIdentityAccountCopy(accountId)}
         closeAriaLabel="Close"
         listAriaLabel="Creator tokens"
-        zIndex={SHEET_Z.facts}
+        zIndex={SHEET_Z.nested}
         panelClassName={`account-storage-panel os-sheet-cap-standard${pageMoodId ? ' account-storage-panel--page-mood' : ''}`}
         items={items}
         hint={emptyHint}

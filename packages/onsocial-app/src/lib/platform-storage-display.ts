@@ -22,6 +22,32 @@ export function formatCompactBytes(bytes: number): string {
   return `${value.toFixed(digits)} ${units[unitIndex]}`;
 }
 
+/**
+ * Wallet row and storage sheet share one buffer line.
+ * Inactive matches the wallet promise; errors stay plain.
+ */
+export function formatPlatformStorageStatusLine(input: {
+  loading: boolean;
+  error: string | null;
+  summary: Pick<
+    PlatformStorageSummary,
+    'phase' | 'availableBytes' | 'maxBufferBytes' | 'storedBytes'
+  > | null;
+}): string {
+  if (input.loading) return 'Checking storage…';
+  if (input.error) return 'Unavailable right now';
+  if (!input.summary) return 'Unavailable';
+  if (input.summary.phase === 'inactive') {
+    return 'Activates on your first save';
+  }
+
+  const ratioLabel = formatPlatformBufferRatioLabel(
+    input.summary.availableBytes,
+    input.summary.maxBufferBytes
+  );
+  return `${ratioLabel} free · ${formatCompactBytes(input.summary.storedBytes)} covered`;
+}
+
 /** Compact available/cap readout — e.g. 6/6 KB instead of 6 KB / 6 KB. */
 export function formatPlatformBufferRatioLabel(
   availableBytes: number,
