@@ -20,6 +20,7 @@ import {
   Divider,
   DotsVerticalIcon,
   DownloadIcon,
+  EditPenIcon,
   FireBFillIcon,
   FireBIcon,
   GiftIcon,
@@ -27,15 +28,17 @@ import {
   HeartIcon,
   MessageRoundIcon,
   NoteTextIcon,
-  ProtocolMotionArrow,
-  MultiplyIcon,
   PulsingDots,
   RepeatIcon,
   ShareIcon,
   TrashIcon,
+  UserCheckIcon,
+  UserCrossIcon,
   UserIcon,
   UserMinusIcon,
   UserPlusIcon,
+  VolumeMuteIcon,
+  VolumeUpIcon,
   UsersFillIcon,
 } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
@@ -506,10 +509,10 @@ function PostCardMenu({
         id: 'endorse',
         label: endorseLabel,
         disabled: endorsePending || isLoading,
-        leading: (
-          <span className="signal-group signal-group-endorse" aria-hidden>
-            <ProtocolMotionArrow className="os-action-drawer-icon" />
-          </span>
+        leading: viewerEndorsed ? (
+          <EditPenIcon className="os-action-drawer-icon" aria-hidden />
+        ) : (
+          <UserCheckIcon className="os-action-drawer-icon" aria-hidden />
         ),
         onSelect: () => {
           if (isBlockEitherWay(accountId)) {
@@ -535,8 +538,10 @@ function PostCardMenu({
             : 'Mute',
         description: muted ? undefined : MUTE_ACTION_DESCRIPTION,
         disabled: mutePending,
-        leading: (
-          <UserMinusIcon className="os-action-drawer-icon" aria-hidden />
+        leading: muted ? (
+          <VolumeUpIcon className="os-action-drawer-icon" aria-hidden />
+        ) : (
+          <VolumeMuteIcon className="os-action-drawer-icon" aria-hidden />
         ),
         onSelect: () => void handleMuteToggle(),
       });
@@ -552,7 +557,7 @@ function PostCardMenu({
         description: blocked ? undefined : BLOCK_ACTION_DESCRIPTION,
         destructive: !blocked,
         disabled: blockPending,
-        leading: <MultiplyIcon className="os-action-drawer-icon" aria-hidden />,
+        leading: <UserCrossIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           if (blocked) {
             void handleBlockToggle(false);

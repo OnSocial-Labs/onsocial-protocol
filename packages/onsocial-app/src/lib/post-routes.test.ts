@@ -5,6 +5,7 @@ import {
   isInAppPostLayerHref,
   isOverlayPostLayerLocation,
   parseInAppPostLayerHref,
+  parseInAppPostQuotesHref,
   personalPostContentPath,
   personalPostPath,
   postThreadPath,
@@ -60,6 +61,24 @@ describe('parseInAppPostLayerHref', () => {
     ).toBeNull();
     expect(
       parseInAppPostLayerHref('/@alice.testnet/posts/123/quotes')
+    ).toBeNull();
+  });
+});
+
+describe('parseInAppPostQuotesHref', () => {
+  it('parses a personal quotes permalink', () => {
+    expect(parseInAppPostQuotesHref('/@alice.testnet/posts/123/quotes')).toEqual(
+      {
+        accountId: 'alice.testnet',
+        postId: '123',
+      }
+    );
+  });
+
+  it('ignores the post itself and guild quote pages', () => {
+    expect(parseInAppPostQuotesHref('/@alice.testnet/posts/123')).toBeNull();
+    expect(
+      parseInAppPostQuotesHref('/groups/dao/posts/alice.testnet/123/quotes')
     ).toBeNull();
   });
 });

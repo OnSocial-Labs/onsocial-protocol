@@ -30,7 +30,9 @@ import {
 import {
   canonicalizePostLayerHref,
   parseInAppPostLayerHref,
+  parseInAppPostQuotesHref,
   personalPostPath,
+  personalPostQuotesPath,
 } from '@/lib/post-routes';
 import {
   isOsMediaFaceOpen,
@@ -50,6 +52,14 @@ const CollectionPagePanel = dynamic(
   () =>
     import('@/features/scarces/collection-page-panel').then(
       (mod) => mod.CollectionPagePanel
+    ),
+  { ssr: false }
+);
+
+const PostQuotesPanel = dynamic(
+  () =>
+    import('@/features/home/post-quotes-panel').then(
+      (mod) => mod.PostQuotesPanel
     ),
   { ssr: false }
 );
@@ -131,10 +141,24 @@ type DropLayerTarget = {
   zIndex: number;
 };
 
-type PlaceLayerTarget = PostThreadLayerTarget | DropLayerTarget;
+type QuotesLayerTarget = {
+  id: string;
+  kind: 'quotes';
+  accountId: string;
+  postId: string;
+  zIndex: number;
+};
+
+type PlaceLayerTarget =
+  | PostThreadLayerTarget
+  | DropLayerTarget
+  | QuotesLayerTarget;
+
+type ReaderLayerTarget = PostThreadLayerTarget | QuotesLayerTarget;
 
 type PostThreadLayerValue = {
   openPostThread: (input: { href: string; root?: PostRow | null }) => boolean;
+  openPostQuotes: (input: { href: string }) => boolean;
   openDrop: (input: { href: string }) => boolean;
   closePostThread: () => void;
 };
@@ -143,6 +167,7 @@ const PostThreadLayerContext = createContext<PostThreadLayerValue | null>(null);
 
 const NOOP_LAYER: PostThreadLayerValue = {
   openPostThread: () => false,
+  openPostQuotes: () => false,
   openDrop: () => false,
   closePostThread: () => {},
 };
@@ -177,6 +202,9 @@ function nextStackedLayerZ(stack: PlaceLayerTarget[]): number {
 
 function placeLayerHref(layer: PlaceLayerTarget): string {
   if (layer.kind === 'drop') return collectionPath(layer.collectionId);
+  if (layer.kind === 'quotes') {
+    return personalPostQuotesPath(layer.accountId, layer.postId);
+  }
   return personalPostPath(layer.accountId, layer.postId);
 }
 
@@ -265,7 +293,7 @@ function PostThreadSheet({
   moodId,
   moodStyle,
 }: {
-  layer: PostThreadLayerTarget;
+  layer: ReaderLayerTarget;
   open: boolean;
   /** Portfolio is the screen. Keep this post mounted and quiet underneath. */
   parked: boolean;
@@ -279,8 +307,10 @@ function PostThreadSheet({
   const titleId = useId();
   const bodyRef = useRef<HTMLDivElement>(null);
   const resumeMediaRef = useRef<HTMLMediaElement[]>([]);
+  const quotes = layer.kind === 'quotes';
+  const title = quotes ? 'Quotes' : 'Post';
   const initial = useMemo(
-    () => (layer.root ? seedEmbeddedThread(layer.root) : null),
+    () => (layer.kind === 'post' && layer.root ? seedEmbeddedThread(layer.root) : null),
     [layer]
   );
 
@@ -344,6 +374,11 @@ function PostThreadSheet({
     };
   }, [parked]);
 
+  useLayoutEffect(() => {
+    const screen = bodyRef.current?.querySelector('.os-app-screen-body');
+    if (screen instanceof HTMLElement) screen.scrollTop = 0;
+  }, [layer.accountId, layer.kind, layer.postId]);
+
   const openProfileFromPost = (event: ReactMouseEvent) => {
     if (!isUnmodifiedPrimaryClick(event)) return;
     const node = event.target;
@@ -382,13 +417,13 @@ function PostThreadSheet({
         onClickCapture={openProfileFromPost}
       >
         <OsAppScreen
-          title="Post"
+          title={title}
           glassChrome
           compactChrome
           embedded
           heading={
             <span id={titleId} className="os-app-screen-title">
-              Post
+              {title}
             </span>
           }
           leading={
@@ -397,13 +432,22 @@ function PostThreadSheet({
             </OsIconAction>
           }
         >
-          <LivePersonalPostPanel
-            author={layer.accountId}
-            postId={layer.postId}
-            initial={initial}
-            embedded
-            replyDockEnabled={open && !parked}
-          />
+          {layer.kind === 'quotes' ? (
+            <PostQuotesPanel
+              author={layer.accountId}
+              postId={layer.postId}
+              embedded
+            />
+          ) : (
+            <LivePersonalPostPanel
+              key={`${layer.accountId}:${layer.postId}`}
+              author={layer.accountId}
+              postId={layer.postId}
+              initial={initial}
+              embedded
+              replyDockEnabled={open && !parked}
+            />
+          )}
         </OsAppScreen>
       </div>
     </OsPageSheet>
@@ -528,16 +572,23 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const closePostThread = useCallback(() => {
-    const remaining = stackRef.current.slice(0, -1);
-    if (!beginCloseTop()) return;
-    if (typeof window === 'undefined') return;
-    const prev = remaining[remaining.length - 1];
-    if (prev) {
-      // Stay on the single overlay history entry. Extra pushes made the
-      // second Back traverse into /@account/posts/:id and remount Home.
-      syncOverlayUrl(placeLayerHref(prev));
+    const current = stackRef.current;
+    const top = current[current.length - 1];
+    // Header back walks one step: a reply, then quotes, then the post.
+    // The sheet stays up until the last step.
+    if (
+      current.length > 1 &&
+      (top?.kind === 'post' || top?.kind === 'quotes')
+    ) {
+      const next = current.slice(0, -1);
+      const prev = next[next.length - 1];
+      stackRef.current = next;
+      setStack(next);
+      if (prev) syncOverlayUrl(placeLayerHref(prev));
       return;
     }
+    if (!beginCloseTop()) return;
+    if (typeof window === 'undefined') return;
     if (historyHasPostLayer()) {
       window.history.back();
       return;
@@ -574,8 +625,8 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         return true;
       }
 
-      // One post on screen. Another post replaces this reader so reply and
-      // sort drawers stay above the icons instead of opening under a pile.
+      // One sheet. Replies you open are a trail behind it, at the same
+      // height, so action drawers stay above the icons.
       if (stackRef.current.length > 0) {
         const next: PostThreadLayerTarget = {
           id: `post-layer-${++seqRef.current}`,
@@ -585,10 +636,11 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           root,
           zIndex: stackRef.current[0]?.zIndex ?? SHEET_Z.overlayHost,
         };
+        const trail = [...stackRef.current, next];
         closingIdRef.current = null;
         setClosingId(null);
-        stackRef.current = [next];
-        setStack([next]);
+        stackRef.current = trail;
+        setStack(trail);
         if (typeof window === 'undefined') return true;
         getPostLayerPopGuard().depth = 1;
         const currentUrl = `${window.location.pathname}${window.location.search}`;
@@ -627,6 +679,68 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       } else {
         nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
       }
+      return true;
+    },
+    [pathname]
+  );
+
+  const openPostQuotes = useCallback(
+    ({ href }: { href: string }) => {
+      const parsed = parseInAppPostQuotesHref(href);
+      if (!parsed) return false;
+      const canonical = personalPostQuotesPath(parsed.accountId, parsed.postId);
+
+      const top = stackRef.current[stackRef.current.length - 1];
+      if (
+        top?.kind === 'quotes' &&
+        accountIdsEqual(top.accountId, parsed.accountId) &&
+        top.postId === parsed.postId
+      ) {
+        return true;
+      }
+
+      const next: QuotesLayerTarget = {
+        id: `quotes-layer-${++seqRef.current}`,
+        kind: 'quotes',
+        accountId: parsed.accountId,
+        postId: parsed.postId,
+        zIndex:
+          stackRef.current[0]?.zIndex ??
+          nextStackedLayerZ(stackRef.current),
+      };
+
+      if (stackRef.current.length > 0) {
+        const trail = [...stackRef.current, next];
+        closingIdRef.current = null;
+        setClosingId(null);
+        stackRef.current = trail;
+        setStack(trail);
+        if (typeof window === 'undefined') return true;
+        getPostLayerPopGuard().depth = 1;
+        const currentUrl = `${window.location.pathname}${window.location.search}`;
+        if (currentUrl !== canonical) {
+          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
+        }
+        return true;
+      }
+
+      if (underlayPathRef.current == null) {
+        underlayPathRef.current = pathname;
+        setUnderlayPath(pathname);
+        if (typeof window !== 'undefined') {
+          underlayScrollRef.current = captureUnderlayScroll();
+        }
+      }
+      closingIdRef.current = null;
+      setClosingId(null);
+      stackRef.current = [next];
+      setStack([next]);
+
+      if (typeof window === 'undefined') return true;
+      getPostLayerPopGuard().depth = 1;
+      const currentUrl = `${window.location.pathname}${window.location.search}`;
+      if (currentUrl === canonical) return true;
+      nativeHistoryPushState(withPostLayerHistoryState(), canonical);
       return true;
     },
     [pathname]
@@ -713,13 +827,12 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     const guard = getPostLayerPopGuard();
     guard.depth = stack.length > 0 && !profileHop ? 1 : 0;
     guard.onPop = () => {
-      const remaining = stackRef.current.slice(0, -1);
-      const prev = remaining[remaining.length - 1];
-      if (prev) {
-        nativeHistoryPushState(
-          withPostLayerHistoryState(),
-          placeLayerHref(prev)
-        );
+      const top = stackRef.current[stackRef.current.length - 1];
+      if (!top) return;
+      // This history entry is the reader. Leaving it drops the reply trail.
+      if (stackRef.current.length > 1) {
+        stackRef.current = [top];
+        setStack([top]);
       }
       beginCloseTop();
     };
@@ -771,7 +884,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     if (profileHop || stack.length === 0 || pathname !== underlayPath) return;
     if (typeof window === 'undefined' || historyHasPostLayer()) return;
     const top = stack[stack.length - 1];
-    if (!top || top.kind !== 'post') return;
+    if (!top || (top.kind !== 'post' && top.kind !== 'quotes')) return;
     nativeHistoryPushState(withPostLayerHistoryState(), placeLayerHref(top));
     getPostLayerPopGuard().depth = 1;
   }, [pathname, profileHop, stack, underlayPath]);
@@ -779,38 +892,45 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       openPostThread,
+      openPostQuotes,
       openDrop,
       closePostThread,
     }),
-    [closePostThread, openDrop, openPostThread]
+    [closePostThread, openDrop, openPostQuotes, openPostThread]
   );
+
+  const topPlace = stack[stack.length - 1] ?? null;
+  const topOpen = topPlace != null && topPlace.id !== closingId;
 
   return (
     <PostThreadLayerContext.Provider value={value}>
       {children}
-      {stack.map((layer, index) => {
-        const isTop = index === stack.length - 1;
-        const shared = {
-          open: layer.id !== closingId,
-          onClose: isTop ? closePostThread : () => {},
-          onClosed: () => handleSheetClosed(layer.id),
-          zIndex: layer.zIndex,
-          moodId: viewerMood.moodId ?? undefined,
-          moodStyle: viewerMood.style,
-        };
-        if (layer.kind === 'drop') {
-          return <DropLayerSheet key={layer.id} layer={layer} {...shared} />;
-        }
-        return (
-          <PostThreadSheet
-            key={layer.id}
-            layer={layer}
-            parked={onProfileHop}
-            onOpenProfile={openProfileFromLayer}
-            {...shared}
-          />
-        );
-      })}
+      {topPlace?.kind === 'drop' ? (
+        <DropLayerSheet
+          key="drop-reader"
+          layer={topPlace}
+          open={topOpen}
+          onClose={closePostThread}
+          onClosed={() => handleSheetClosed(topPlace.id)}
+          zIndex={topPlace.zIndex}
+          moodId={viewerMood.moodId ?? undefined}
+          moodStyle={viewerMood.style}
+        />
+      ) : null}
+      {topPlace?.kind === 'post' || topPlace?.kind === 'quotes' ? (
+        <PostThreadSheet
+          key="post-reader"
+          layer={topPlace}
+          parked={onProfileHop}
+          onOpenProfile={openProfileFromLayer}
+          open={topOpen}
+          onClose={closePostThread}
+          onClosed={() => handleSheetClosed(topPlace.id)}
+          zIndex={topPlace.zIndex}
+          moodId={viewerMood.moodId ?? undefined}
+          moodStyle={viewerMood.style}
+        />
+      ) : null}
     </PostThreadLayerContext.Provider>
   );
 }

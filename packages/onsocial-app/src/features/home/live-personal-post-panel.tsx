@@ -1077,6 +1077,13 @@ export function LivePersonalPostPanel({
                   author={author}
                   excludePostId={postId}
                   authorProfiles={postAuthorProfiles}
+                  menuZIndex={nestMenuZ}
+                  onReply={replyHandler}
+                  onExpandReply={expandReply}
+                  onQuote={quoteHandler}
+                  onRepost={repostHandler}
+                  onUndoRepost={undoRepostHandler}
+                  onAmplifyConfirmed={confirmAmplify}
                 />
               ) : null}
 

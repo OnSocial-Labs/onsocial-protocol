@@ -703,9 +703,9 @@
 }
 
 .portfolio-writing-article-screen .portfolio-writing-article-actions {
-  width: 100%;
-  margin-left: 0;
-  justify-content: flex-start;
+  width: auto;
+  margin-left: auto;
+  justify-content: flex-end;
 }
 
 .feed-article-slide .os-slide-over-footer-inner,
@@ -21634,6 +21634,7 @@ a.os-surface-row {
   .post-card--openable .post-media-tile.is-activatable,
   .post-card--openable .post-media-unmute-gate,
   .post-card--openable .post-media-mute,
+  .post-card--openable .post-card-stat,
   .post-card--openable .post-card-stat-button,
   .post-card--openable .post-card-react,
   .post-card--openable .post-card-amplify,
@@ -21662,6 +21663,7 @@ a.os-surface-row {
     z-index: 2;
   }
 
+  .post-card--openable .post-card-stat,
   .post-card--openable .post-card-stat-button,
   .post-card--openable .post-card-react,
   .post-card--openable .post-card-amplify {

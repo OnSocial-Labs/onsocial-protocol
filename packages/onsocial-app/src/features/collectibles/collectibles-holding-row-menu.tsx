@@ -2,9 +2,10 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import {
+  ArrowUpRightIcon,
   DotsVerticalIcon,
-  MultiplyIcon,
   ShopIcon,
+  TrashIcon,
 } from '@onsocial/ui';
 import {
   ActionDrawer,
@@ -118,7 +119,7 @@ export function CollectiblesHoldingRowMenu({
           : 'Remove from Market',
         destructive: true,
         disabled: pending,
-        leading: <MultiplyIcon className="os-action-drawer-icon" aria-hidden />,
+        leading: <TrashIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           void handleDelist();
         },
@@ -130,7 +131,7 @@ export function CollectiblesHoldingRowMenu({
       section: 'Manage',
       label: 'Open in Market',
       description: 'Yours — sell, delist, offers',
-      leading: <ShopIcon className="os-action-drawer-icon" aria-hidden />,
+      leading: <ArrowUpRightIcon className="os-action-drawer-icon" aria-hidden />,
       href: APP_MARKET_PATH,
       onSelect: close,
     });

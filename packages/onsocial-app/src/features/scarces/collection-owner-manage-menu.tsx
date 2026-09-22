@@ -2,10 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  CancelIcon,
+  DownloadIcon,
+  InformationCircleIcon,
   OsSheetAction,
   OsSheetActions,
   PauseFillIcon,
   PlayFillIcon,
+  TimeIcon,
   TrashIcon,
 } from '@onsocial/ui';
 import {
@@ -367,6 +371,7 @@ export function CollectionOwnerManageMenu({
         label: 'Postpone entry',
         description: 'Extend when tickets can still be admitted',
         disabled: ownerPending,
+        leading: <TimeIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           setPanel('extend');
         },
@@ -420,6 +425,7 @@ export function CollectionOwnerManageMenu({
         description: 'Stop the drop and fund ticket refunds',
         destructive: true,
         disabled: ownerPending,
+        leading: <CancelIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           setPanel('cancel');
         },
@@ -432,6 +438,7 @@ export function CollectionOwnerManageMenu({
         label: 'Withdraw unclaimed',
         description: 'Reclaim leftover refund pool NEAR',
         disabled: ownerPending,
+        leading: <DownloadIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           setPanel('withdraw');
         },
@@ -443,6 +450,9 @@ export function CollectionOwnerManageMenu({
         label: 'Refunds open',
         description: 'Holders can claim until the window ends',
         disabled: true,
+        leading: (
+          <InformationCircleIcon className="os-action-drawer-icon" aria-hidden />
+        ),
         onSelect: () => {},
       });
     }

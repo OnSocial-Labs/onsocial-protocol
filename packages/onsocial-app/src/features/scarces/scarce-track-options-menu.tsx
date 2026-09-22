@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { DownloadIcon, DotsVerticalIcon, SaveIcon } from '@onsocial/ui';
+import { DownloadIcon, DotsVerticalIcon, SaveIcon, TrashIcon } from '@onsocial/ui';
 import {
   ActionDrawer,
   type ActionDrawerItem,
@@ -85,7 +85,7 @@ export function ScarceTrackOptionsMenu({
         id: 'remove',
         label: 'Remove from app',
         description: 'Stops offline playback for this track',
-        leading: <DownloadIcon className="os-action-drawer-icon" aria-hidden />,
+        leading: <TrashIcon className="os-action-drawer-icon" aria-hidden />,
         trailing: (
           <span className="scarce-clip-track-menu-status">On device</span>
         ),
