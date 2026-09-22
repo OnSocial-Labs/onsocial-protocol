@@ -21656,6 +21656,7 @@ a.os-surface-row {
   }
 
   .post-card--openable .post-card-repost-line,
+  .post-card--openable .post-card-identity,
   .post-card--openable .post-card-avatar-link,
   .post-card--openable .post-identity-name,
   .post-card--openable .post-identity-handle,
@@ -21716,6 +21717,7 @@ a.os-surface-row {
    * name stay clickable even when the panel paints over them. Disable those
    * islands while the menu is open so clicks hit the menu, not the underlay.
    */
+  .post-card:has(.post-card-menu-panel) .post-card-identity,
   .post-card:has(.post-card-menu-panel) .post-identity-name,
   .post-card:has(.post-card-menu-panel) .post-identity-handle,
   .post-card:has(.post-card-menu-panel) .post-identity-time,
@@ -21751,6 +21753,53 @@ a.os-surface-row {
     margin-top: 0.05rem;
     color: inherit;
     text-decoration: none;
+  }
+
+  /* Avatar + name + @id — one profile control. Time and the menu stay outside. */
+  .post-card-identity {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    min-width: 0;
+    flex: 0 1 auto;
+    max-width: 100%;
+    position: relative;
+    z-index: 1;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .post-card-identity:focus-visible {
+    outline: 1px solid var(--os-surface-ring);
+    outline-offset: 3px;
+    border-radius: 0.65rem;
+  }
+
+  .post-card-identity .post-identity-inline-cluster,
+  .post-card-identity .post-identity-main {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .post-identity-time-slot {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    min-width: 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.5;
+  }
+
+  .post-identity-spacer {
+    flex: 1 1 auto;
+    min-width: 0.35rem;
+  }
+
+  .post-card:not(.post-card--skeleton) > .post-card-copy > :not(.post-card-header),
+  .post-card-header-stack > .post-card-guild {
+    margin-left: calc(2.25rem + 0.75rem);
   }
 
   .post-card-link {
@@ -21825,6 +21874,18 @@ a.os-surface-row {
     min-width: 0;
   }
 
+  /*
+   * Avatar makes the profile link taller than the name line. Pin time and ···
+   * to that line. Explicit height keeps time and the menu on the name, not the avatar.
+   */
+  .post-identity:not(.post-identity--stacked) .post-identity-time-slot,
+  .post-identity:not(.post-identity--stacked)
+    > .post-identity-row
+    > .post-identity-trailing {
+    align-self: flex-start;
+    height: calc(0.875rem * 1.5);
+  }
+
   .post-identity-trailing {
     display: flex;
     flex-shrink: 0;
@@ -21860,8 +21921,7 @@ a.os-surface-row {
   .post-identity--stacked .post-identity-handle {
     flex: 0 1 auto;
     max-width: 100%;
-    color: rgb(var(--fg-rgb) / 0.42);
-    text-decoration: none;
+    font-size: 0.72rem;
   }
 
   .post-card-detail-time {
@@ -21917,17 +21977,30 @@ a.os-surface-row {
     line-height: inherit;
   }
 
-  .post-identity-inline-cluster .post-identity-handle {
+  .post-identity-inline-cluster .post-identity-handle,
+  .post-identity--stacked .post-identity-handle {
     flex: 0 999 auto;
     min-width: 3.5ch;
     font-size: 0.82em;
     font-weight: 550;
     line-height: inherit;
-    color: rgb(var(--fg-rgb) / 0.42);
+    color: var(--os-identity-handle);
     text-decoration: none;
+    transition: color 160ms ease;
   }
 
-  .post-identity-inline-cluster .post-identity-sep {
+  .post-card-identity:hover .post-identity-name,
+  .post-card-identity:focus-visible .post-identity-name {
+    color: var(--os-identity-name-hover);
+  }
+
+  .post-card-identity:hover .post-identity-handle,
+  .post-card-identity:focus-visible .post-identity-handle {
+    color: var(--os-identity-handle-hover);
+  }
+
+  .post-identity-inline-cluster .post-identity-sep,
+  .post-identity-time-slot .post-identity-sep {
     flex: 0 0 auto;
     overflow: visible;
     padding-inline: 0.12em;
@@ -21938,7 +22011,8 @@ a.os-surface-row {
     user-select: none;
   }
 
-  .post-identity-inline-cluster .post-identity-time {
+  .post-identity-inline-cluster .post-identity-time,
+  .post-identity-time-slot .post-identity-time {
     flex: 0 0 auto;
     overflow: visible;
     font-size: 0.82em;
@@ -21982,8 +22056,9 @@ a.os-surface-row {
     font-weight: 600;
     letter-spacing: -0.01em;
     line-height: 1.5;
-    color: rgb(var(--fg-rgb) / 0.96);
+    color: var(--os-identity-name);
     text-decoration: none;
+    transition: color 160ms ease;
   }
 
   .post-identity-handle,
@@ -22036,10 +22111,14 @@ a.os-surface-row {
     max-width: 100%;
   }
 
-  a.post-identity-name:hover,
-  a.post-identity-handle:hover,
-  a.post-identity-time:hover {
-    text-decoration: underline;
+  a.post-identity-time:hover,
+  a.post-identity-time:focus-visible {
+    text-decoration: none;
+  }
+
+  a.post-identity-time:focus-visible {
+    outline: 1px solid var(--os-surface-ring);
+    outline-offset: 2px;
   }
 
   .post-identity-channel {
@@ -22047,9 +22126,9 @@ a.os-surface-row {
     flex-direction: row;
     align-items: center;
     gap: 0.22rem;
-    max-width: 100%;
+    max-width: calc(100% - 2.25rem - 0.75rem);
     min-width: 0;
-    margin: 0.06rem 0 0;
+    margin: 0.06rem 0 0 calc(2.25rem + 0.75rem);
     padding: 0;
     color: rgb(var(--fg-rgb) / 0.4);
   }
@@ -28453,9 +28532,20 @@ a.os-surface-row {
     text-decoration: none;
   }
 
+  .os-media-face-identity:focus-visible {
+    outline: 1px solid var(--os-surface-ring);
+    outline-offset: 3px;
+    border-radius: 0.65rem;
+  }
+
   .os-media-face-identity:hover .os-media-face-identity-name,
   .os-media-face-identity:focus-visible .os-media-face-identity-name {
-    color: rgb(var(--fg-rgb) / 0.72);
+    color: var(--os-identity-name-hover);
+  }
+
+  .os-media-face-identity:hover .os-media-face-identity-handle,
+  .os-media-face-identity:focus-visible .os-media-face-identity-handle {
+    color: var(--os-identity-handle-hover);
   }
 
   .os-media-face-identity .profile-avatar {
@@ -28489,7 +28579,8 @@ a.os-surface-row {
     font-weight: 600;
     line-height: 1.5;
     letter-spacing: -0.01em;
-    color: rgb(var(--fg-rgb) / 0.96);
+    color: var(--os-identity-name);
+    transition: color 160ms ease;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -28501,7 +28592,8 @@ a.os-surface-row {
     font-size: 0.72rem;
     font-weight: 550;
     line-height: 1.5;
-    color: rgb(var(--fg-rgb) / 0.42);
+    color: var(--os-identity-handle);
+    transition: color 160ms ease;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

@@ -2052,21 +2052,6 @@ export function PostCard({
           {repostedByLabel}
         </Link>
       ) : null}
-      <Link
-        href={profileHref}
-        className="post-card-avatar-link"
-        scroll={false}
-        aria-label={`View ${name}'s profile`}
-      >
-        <AccountAvatar
-          accountId={post.accountId}
-          kind={authorProfile?.kind}
-          src={authorProfile?.avatarUrl ?? null}
-          fallbackInitial={name}
-          size="lg"
-          className="post-card-avatar"
-        />
-      </Link>
       <div className="post-card-copy">
         <header className="post-card-header">
           <div className="post-card-header-stack">
@@ -2084,6 +2069,18 @@ export function PostCard({
             <PostIdentityMeta
               name={name}
               accountId={post.accountId}
+              avatar={
+                <span className="post-card-avatar-link">
+                  <AccountAvatar
+                    accountId={post.accountId}
+                    kind={authorProfile?.kind}
+                    src={authorProfile?.avatarUrl ?? null}
+                    fallbackInitial={name}
+                    size="lg"
+                    className="post-card-avatar"
+                  />
+                </span>
+              }
               timestamp={detailLayout ? undefined : post.blockTimestamp}
               timeHref={detailLayout ? undefined : (openHref ?? undefined)}
               onTimeClick={
