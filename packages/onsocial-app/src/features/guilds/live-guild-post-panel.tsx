@@ -1248,6 +1248,12 @@ export function LiveGuildPostPanel({
                     author={author}
                     excludePostId={postId}
                     authorProfiles={postAuthorProfiles}
+                    onReply={replyHandler}
+                    onExpandReply={expandReply}
+                    onQuote={quoteHandler}
+                    onRepost={repostHandler}
+                    onUndoRepost={undoRepostHandler}
+                    onAmplifyConfirmed={confirmAmplify}
                   />
                 ) : null}
 

@@ -2,6 +2,10 @@
 
 import Link from 'next/link';
 import { ChevronRightIcon } from '@onsocial/ui';
+import {
+  isUnmodifiedPrimaryClick,
+  usePostThreadLayer,
+} from '@/features/home/post-thread-layer';
 
 interface ThreadViewQuotesRowProps {
   href: string;
@@ -16,8 +20,19 @@ export function ThreadViewQuotesRow({
   href,
   quoteCount,
 }: ThreadViewQuotesRowProps) {
+  const { openPostQuotes } = usePostThreadLayer();
+
   return (
-    <Link href={href} className="thread-view-quotes" scroll={false}>
+    <Link
+      href={href}
+      className="thread-view-quotes"
+      scroll={false}
+      onClick={(event) => {
+        if (!isUnmodifiedPrimaryClick(event)) return;
+        if (!openPostQuotes({ href })) return;
+        event.preventDefault();
+      }}
+    >
       <span className="thread-view-quotes-label">View quotes</span>
       <span className="thread-view-quotes-count">{quoteCount}</span>
       <ChevronRightIcon className="thread-view-quotes-chevron" aria-hidden />

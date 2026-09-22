@@ -10,10 +10,10 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Divider,
-  MultiplyIcon,
   PauseFillIcon,
   PlayFillIcon,
   ScaleUpIcon,
+  StopIcon,
 } from '@onsocial/ui';
 import {
   ActionDrawer,
@@ -78,7 +78,7 @@ export function CollectiblesNowPlayingDockChip() {
         id: 'stop',
         label: 'Stop',
         description: 'Clear now playing',
-        leading: <MultiplyIcon className="os-action-drawer-icon" aria-hidden />,
+        leading: <StopIcon className="os-action-drawer-icon" aria-hidden />,
         destructive: true,
         onSelect: stopPlayback,
       },

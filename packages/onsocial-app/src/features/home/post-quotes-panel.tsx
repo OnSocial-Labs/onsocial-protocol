@@ -38,6 +38,8 @@ interface PostQuotesPanelProps {
   author: string;
   postId: string;
   initial?: PostQuotesPageData | null;
+  /** Inside the post sheet — the sheet header owns Back. */
+  embedded?: boolean;
 }
 
 function contentPathFor(root: PostRow): string {
@@ -51,6 +53,7 @@ export function PostQuotesPanel({
   author,
   postId,
   initial = null,
+  embedded = false,
 }: PostQuotesPanelProps) {
   seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
   const { setTxResult } = useAppTransactionFeedback();
@@ -204,16 +207,9 @@ export function PostQuotesPanel({
     reposters.length
   );
 
-  return (
-    <OsAppScreen
-      title="Quotes"
-      compactChrome
-      dockBack
-      glassChrome
-      backFallbackHref={backHref}
-    >
-      <div className={GUILDS_PAGE_CLASS}>
-        {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
+  const body = (
+    <div className={GUILDS_PAGE_CLASS}>
+      {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
 
         {loadState === 'missing' ? (
           <section className="guild-state-card">
@@ -380,7 +376,20 @@ export function PostQuotesPanel({
             </div>
           </section>
         ) : null}
-      </div>
+    </div>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <OsAppScreen
+      title="Quotes"
+      compactChrome
+      dockBack
+      glassChrome
+      backFallbackHref={backHref}
+    >
+      {body}
     </OsAppScreen>
   );
 }

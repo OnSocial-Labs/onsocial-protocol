@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import { PostCard, postKey } from '@/features/home/post-card';
+import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
+import type { WriteDockSubmit } from '@/contexts/compose-launcher-context';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import {
@@ -32,6 +34,14 @@ interface ThreadDiscoverPeekProps {
   excludePostId: string;
   /** Profiles already loaded by the thread (avoids a duplicate author fetch). */
   authorProfiles?: Record<string, PostAuthorProfile | undefined>;
+  /** Keep ⋮ and share drawers above the open post sheet. */
+  menuZIndex?: number;
+  onReply?: (post: PostRow) => void;
+  onExpandReply?: (post: PostRow, draft: WriteDockSubmit) => void;
+  onQuote?: (post: PostRow) => void;
+  onRepost?: (post: PostRow) => void;
+  onUndoRepost?: (post: PostRow) => void;
+  onAmplifyConfirmed?: (post: PostRow, detail: PostAmplifySuccessDetail) => void;
 }
 
 /**
@@ -44,6 +54,13 @@ export function ThreadDiscoverPeek({
   author,
   excludePostId,
   authorProfiles,
+  menuZIndex,
+  onReply,
+  onExpandReply,
+  onQuote,
+  onRepost,
+  onUndoRepost,
+  onAmplifyConfirmed,
 }: ThreadDiscoverPeekProps) {
   const { setTxResult } = useAppTransactionFeedback();
   const [peek, setPeek] = useState<{ post: PostRow; own: boolean } | null>(
@@ -91,6 +108,7 @@ export function ThreadDiscoverPeek({
     toggleSave,
     isReactionPending,
     isSavePending,
+    isSharePending,
   } = usePostEngagement(peek ? [peek.post] : [], {
     onError: onEngagementError,
   });
@@ -117,11 +135,19 @@ export function ThreadDiscoverPeek({
         actionHref={postThreadPath(post)}
         preferActionHref
         showRelationBadge={false}
+        {...(menuZIndex != null ? { menuZIndex } : {})}
         engagement={engagement[postKey(post)] ?? EMPTY_POST_ENGAGEMENT}
         reactionPending={isReactionPending(post)}
         savePending={isSavePending(post)}
+        sharePending={isSharePending(post)}
         onToggleReaction={toggleReaction}
         onToggleSave={toggleSave}
+        onReply={onReply}
+        onExpandReply={onExpandReply}
+        onQuote={onQuote}
+        onRepost={onRepost}
+        onUndoRepost={onUndoRepost}
+        onAmplifyConfirmed={onAmplifyConfirmed}
         pollTally={pollTallyFor(post)}
         pollVotePending={isPollVotePending(post)}
         onPollVote={(row, optionIndex) => {

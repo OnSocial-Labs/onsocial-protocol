@@ -3,15 +3,17 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import type { GroupMemberRow } from '@onsocial/sdk';
 import {
+  Box3dIcon,
   CopyIcon,
   DotsVerticalIcon,
+  KeyIcon,
   OsActionDrawerConfirm,
   OsIconAction,
-  ShareIcon,
-  TrashIcon,
-  UserCircleFillIcon,
+  ShieldCheckIcon,
+  UserCheckIcon,
+  UserCrossIcon,
   UserIcon,
-  UsersFillIcon,
+  UserMinusIcon,
   osIconActionGlyphClassName,
 } from '@onsocial/ui';
 import {
@@ -57,18 +59,23 @@ function actionIcon(id: GuildMemberRowActionId): ReactNode {
     case 'copy-handle':
       return <CopyIcon className="os-action-drawer-icon" aria-hidden />;
     case 'add-storage':
-      return <ShareIcon className="os-action-drawer-icon" aria-hidden />;
+      return <Box3dIcon className="os-action-drawer-icon" aria-hidden />;
     case 'remove-from-guild':
-      return <TrashIcon className="os-action-drawer-icon" aria-hidden />;
+      return <UserMinusIcon className="os-action-drawer-icon" aria-hidden />;
     case 'ban-from-guild':
-      return <TrashIcon className="os-action-drawer-icon" aria-hidden />;
+      return <UserCrossIcon className="os-action-drawer-icon" aria-hidden />;
     case 'unban-from-guild':
-      return <UserIcon className="os-action-drawer-icon" aria-hidden />;
+      return <UserCheckIcon className="os-action-drawer-icon" aria-hidden />;
     case 'transfer-ownership':
-      return <UserCircleFillIcon className="os-action-drawer-icon" aria-hidden />;
+      return <KeyIcon className="os-action-drawer-icon" aria-hidden />;
     case 'make-mod':
     case 'make-admin':
-      return <UsersFillIcon className="os-action-drawer-icon" aria-hidden />;
+    case 'demote-to-mod':
+      return <ShieldCheckIcon className="os-action-drawer-icon" aria-hidden />;
+    case 'remove-mod':
+    case 'remove-admin':
+    case 'make-member':
+      return <UserIcon className="os-action-drawer-icon" aria-hidden />;
     default:
       return <UserIcon className="os-action-drawer-icon" aria-hidden />;
   }

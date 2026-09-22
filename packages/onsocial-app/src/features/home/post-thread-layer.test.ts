@@ -17,6 +17,16 @@ describe('article place layer', () => {
     expect(layer).not.toContain("kind: 'face'");
   });
 
+  it('keeps one post sheet and steps the header back through replies', () => {
+    expect(layer).toContain('key="post-reader"');
+    expect(layer).toContain('const trail = [...stackRef.current, next]');
+    expect(layer).toContain(
+      'Header back walks one step: a reply, then quotes, then the post.'
+    );
+    expect(layer).toContain("kind: 'quotes'");
+    expect(layer).toContain('openPostQuotes');
+  });
+
   it('treats only a portfolio face as leaving the post drawer', () => {
     expect(isPortfolioFaceHref('/@alice.testnet')).toBe(true);
     expect(isPortfolioFaceHref('/@alice.testnet?from=home')).toBe(true);

@@ -6,6 +6,7 @@ import {
   AlignJustifyIcon,
   AlignLeftIcon,
   CameraIcon,
+  CancelIcon,
   ChartVerticalIcon,
   CheckIcon,
   ChevronDownIcon,
@@ -56,9 +57,12 @@ import {
   ShopIcon,
   StarMovingIcon,
   StarsCIcon,
+  StopIcon,
   SlidersHorizontalIcon,
   TrashIcon,
   UnlockIcon,
+  UserCheckIcon,
+  UserCrossIcon,
   UserIcon,
   UserMinusIcon,
   UserPlusIcon,
@@ -75,6 +79,7 @@ describe('mage stroke icons', () => {
     expect(typeof AlignJustifyIcon).toBe('function');
     expect(typeof AlignLeftIcon).toBe('function');
     expect(typeof CameraIcon).toBe('function');
+    expect(typeof CancelIcon).toBe('function');
     expect(typeof ChartVerticalIcon).toBe('function');
     expect(typeof CheckIcon).toBe('function');
     expect(typeof ChevronDownIcon).toBe('function');
@@ -112,6 +117,8 @@ describe('mage stroke icons', () => {
     expect(typeof GlobeIcon).toBe('function');
     expect(typeof KeyIcon).toBe('function');
     expect(typeof LogoutIcon).toBe('function');
+    expect(typeof UserCheckIcon).toBe('function');
+    expect(typeof UserCrossIcon).toBe('function');
     expect(typeof UserIcon).toBe('function');
     expect(typeof UserMinusIcon).toBe('function');
     expect(typeof UserPlusIcon).toBe('function');
@@ -126,6 +133,7 @@ describe('mage stroke icons', () => {
     expect(typeof ShopIcon).toBe('function');
     expect(typeof StarMovingIcon).toBe('function');
     expect(typeof StarsCIcon).toBe('function');
+    expect(typeof StopIcon).toBe('function');
     expect(typeof DotsCircleIcon).toBe('function');
     expect(typeof DownloadIcon).toBe('function');
     expect(typeof DotsHorizontalIcon).toBe('function');

@@ -90,6 +90,39 @@ export function personalPostQuotesPath(author: string, postId: string): string {
   return `${personalPostPath(author, postId)}/quotes`;
 }
 
+/**
+ * In-app quotes sheet: `/@{author}/posts/{postId}/quotes`.
+ * Guild quote screens stay real pages.
+ */
+export function parseInAppPostQuotesHref(
+  href: string | null | undefined
+): { accountId: string; postId: string } | null {
+  if (!href) return null;
+  let pathname = href.trim();
+  if (!pathname) return null;
+  try {
+    if (/^https?:\/\//i.test(pathname)) {
+      pathname = new URL(pathname).pathname;
+    }
+  } catch {
+    return null;
+  }
+  const q = pathname.indexOf('?');
+  if (q !== -1) pathname = pathname.slice(0, q);
+  const hash = pathname.indexOf('#');
+  if (hash !== -1) pathname = pathname.slice(0, hash);
+  const match = pathname.match(/^\/@([^/]+)\/posts\/([^/]+)\/quotes\/?$/);
+  if (!match) return null;
+  try {
+    return {
+      accountId: decodeURIComponent(match[1]),
+      postId: decodeURIComponent(match[2]),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Quotes + reposts screen for any post row — guild or personal. */
 export function postQuotesPath(post: {
   accountId: string;
