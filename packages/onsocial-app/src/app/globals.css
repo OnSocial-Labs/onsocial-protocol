@@ -21916,6 +21916,9 @@ a.os-surface-row {
     flex: 0 1 auto;
     max-width: 100%;
     font-size: 0.72rem;
+    color: var(--os-identity-handle);
+    text-decoration: none;
+    transition: color 160ms ease;
   }
 
   .post-card-detail-time {
@@ -21971,8 +21974,7 @@ a.os-surface-row {
     line-height: inherit;
   }
 
-  .post-identity-inline-cluster .post-identity-handle,
-  .post-identity--stacked .post-identity-handle {
+  .post-identity-inline-cluster .post-identity-handle {
     flex: 0 999 auto;
     min-width: 3.5ch;
     font-size: 0.82em;
