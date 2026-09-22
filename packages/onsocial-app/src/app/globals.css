@@ -21755,16 +21755,17 @@ a.os-surface-row {
     text-decoration: none;
   }
 
-  /* Avatar + name + @id — one profile control. Time and the menu stay outside. */
+  /*
+   * Avatar + name + @id — one profile control. Time and the menu stay outside.
+   * The face is taken out of this row and anchored to the header (below) so a
+   * guild label shares the avatar's height instead of sitting above it.
+   */
   .post-card-identity {
     display: flex;
     align-items: flex-start;
-    gap: 0.75rem;
     min-width: 0;
     flex: 0 1 auto;
     max-width: 100%;
-    position: relative;
-    z-index: 1;
     color: inherit;
     text-decoration: none;
   }
@@ -21773,6 +21774,12 @@ a.os-surface-row {
     outline: 1px solid var(--os-surface-ring);
     outline-offset: 3px;
     border-radius: 0.65rem;
+  }
+
+  .post-card-identity:focus-visible .post-card-avatar-link {
+    outline: 1px solid var(--os-surface-ring);
+    outline-offset: 3px;
+    border-radius: 9999px;
   }
 
   .post-card-identity .post-identity-inline-cluster,
@@ -21797,8 +21804,7 @@ a.os-surface-row {
     min-width: 0.35rem;
   }
 
-  .post-card:not(.post-card--skeleton) > .post-card-copy > :not(.post-card-header),
-  .post-card-header-stack > .post-card-guild {
+  .post-card:not(.post-card--skeleton) > .post-card-copy > :not(.post-card-header) {
     margin-left: calc(2.25rem + 0.75rem);
   }
 
@@ -21872,18 +21878,6 @@ a.os-surface-row {
     gap: 0.35rem;
     width: 100%;
     min-width: 0;
-  }
-
-  /*
-   * Avatar makes the profile link taller than the name line. Pin time and ···
-   * to that line. Explicit height keeps time and the menu on the name, not the avatar.
-   */
-  .post-identity:not(.post-identity--stacked) .post-identity-time-slot,
-  .post-identity:not(.post-identity--stacked)
-    > .post-identity-row
-    > .post-identity-trailing {
-    align-self: flex-start;
-    height: calc(0.875rem * 1.5);
   }
 
   .post-identity-trailing {
@@ -22126,9 +22120,9 @@ a.os-surface-row {
     flex-direction: row;
     align-items: center;
     gap: 0.22rem;
-    max-width: calc(100% - 2.25rem - 0.75rem);
+    max-width: 100%;
     min-width: 0;
-    margin: 0.06rem 0 0 calc(2.25rem + 0.75rem);
+    margin: 0.06rem 0 0;
     padding: 0;
     color: rgb(var(--fg-rgb) / 0.4);
   }
@@ -22185,12 +22179,21 @@ a.os-surface-row {
   }
 
   .post-card-header-stack {
+    position: relative;
     display: flex;
     min-width: 0;
     flex: 1;
     flex-direction: column;
     align-items: stretch;
     gap: 0.12rem;
+    /* Text column. The avatar sits in this padding, top-aligned with the header. */
+    padding-left: calc(2.25rem + 0.75rem);
+  }
+
+  .post-card-header-stack .post-card-avatar-link {
+    position: absolute;
+    left: 0;
+    top: 0;
   }
 
   .post-card-guild {
