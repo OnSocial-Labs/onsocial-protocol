@@ -427,7 +427,7 @@ export function AccountShortcutDock({
             titleId={titleId}
             body="You’ll need to connect again to collect, post, or edit your page."
             footer={
-              <OsSheetActions layout="row">
+              <OsSheetActions layout="row" tone="frosted-primary" borderless>
                 <OsSheetAction
                   type="button"
                   variant="ghost"
