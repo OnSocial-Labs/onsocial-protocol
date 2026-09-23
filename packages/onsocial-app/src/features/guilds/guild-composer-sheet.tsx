@@ -100,6 +100,7 @@ import { composerToolbarToolShown } from '@/lib/composer-toolbar';
 import {
   canAddComposerThreadBeat,
   collapseTrailingEmptyComposerBeat,
+  composerBeatsForThread,
   composerBeatsToSubmit,
   composerThreadHasFilledExtras,
   emptyComposerBeat,
@@ -520,8 +521,9 @@ export function ComposerSheet({
     useState<HTMLDivElement | null>(null);
   const viewport = useVisualViewportSheetMetrics(open);
   const postingAsDao = authorTargets?.mode === 'dao';
-  const safeFocus = Math.min(focusedBeat, Math.max(0, beats.length - 1));
-  const beat = beats[safeFocus] ?? emptySheetBeat();
+  const threadBeats = composerBeatsForThread(beats);
+  const safeFocus = Math.min(focusedBeat, Math.max(0, threadBeats.length - 1));
+  const beat = threadBeats[safeFocus] ?? emptySheetBeat();
   const {
     text,
     pollEnabled,
@@ -543,6 +545,9 @@ export function ComposerSheet({
     pollEnabled,
     hasDrop: Boolean(dropDraft),
     hasMedia: mediaFiles.length > 0,
+    continuation: safeFocus > 0,
+    openingIsArticle: Boolean(threadBeats[0]?.articleMode),
+    soleBeat: threadBeats.length === 1,
   };
   const canComposeThread = mode === 'post' && !postingAsDao;
   const showThreadPlus = composerToolbarToolShown('thread', toolbarState);
@@ -551,7 +556,7 @@ export function ComposerSheet({
   const canUseMedia = composerToolbarToolShown('media', toolbarState);
   const canUseDrop = composerToolbarToolShown('drop', toolbarState);
   const canUsePlace = composerToolbarToolShown('place', toolbarState);
-  const canAddThread = canComposeThread && canAddComposerThreadBeat(beats);
+  const canAddThread = canComposeThread && canAddComposerThreadBeat(threadBeats);
 
   const patchBeat = (index: number, partial: Partial<SheetBeat>) => {
     setBeats((current) => {
@@ -567,9 +572,9 @@ export function ComposerSheet({
   };
 
   const focusBeat = (nextFocus: number) => {
-    const next = collapseTrailingEmptyComposerBeat(beats, nextFocus);
-    if (next.beats.length !== beats.length) {
-      const dropped = beats[beats.length - 1];
+    const next = collapseTrailingEmptyComposerBeat(threadBeats, nextFocus);
+    if (next.beats.length !== threadBeats.length) {
+      const dropped = threadBeats[threadBeats.length - 1];
       if (dropped) revokeSheetBeatPreviews(dropped);
     }
     setBeats(next.beats);
@@ -577,10 +582,10 @@ export function ComposerSheet({
   };
 
   const removeThreadBeat = (index: number) => {
-    if (pending || beats.length < 2) return;
-    const next = removeComposerThreadBeat(beats, index, safeFocus);
-    if (next.beats.length === beats.length) return;
-    const removed = beats[index];
+    if (pending || threadBeats.length < 2) return;
+    const next = removeComposerThreadBeat(threadBeats, index, safeFocus);
+    if (next.beats.length === threadBeats.length) return;
+    const removed = threadBeats[index];
     if (removed) revokeSheetBeatPreviews(removed);
     setBeats(next.beats);
     setFocusedBeat(next.focus);
@@ -598,11 +603,11 @@ export function ComposerSheet({
   const requestAuthorMode = (next: 'me' | 'dao') => {
     if (!authorTargets) return;
     if (next === authorTargets.mode) return;
-    if (next === 'dao' && composerThreadHasFilledExtras(beats)) {
+    if (next === 'dao' && composerThreadHasFilledExtras(threadBeats)) {
       setDaoThreadConfirmOpen(true);
       return;
     }
-    if (next === 'dao' && beats.length > 1) {
+    if (next === 'dao' && threadBeats.length > 1) {
       collapseThreadToFirst();
     }
     authorTargets.onModeChange(next);
@@ -721,7 +726,7 @@ export function ComposerSheet({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (pending) return;
-    const publishBeats = publishableComposerBeats(beats, canComposeThread);
+    const publishBeats = publishableComposerBeats(threadBeats, canComposeThread);
     if (publishBeats.length === 0) return;
     if (publishBeats.some((row) => row.text.length > POST_TEXT_MAX_LENGTH)) {
       setMediaError(
@@ -768,11 +773,11 @@ export function ComposerSheet({
   const requestClose = () => {
     if (pending) return;
     setArticleWriting(false);
-    const first = beats[0] ?? emptySheetBeat();
+    const first = threadBeats[0] ?? emptySheetBeat();
     onClose({
       text: first.text,
       files: first.files,
-      beats: beats.map(composerBeatFromSheet),
+      beats: threadBeats.map(composerBeatFromSheet),
     });
   };
 
@@ -910,8 +915,8 @@ export function ComposerSheet({
   };
 
   const addThreadBeat = () => {
-    if (!canAddThread || pending) return;
-    const nextIndex = beats.length;
+    if (!showThreadPlus || !canAddThread || pending) return;
+    const nextIndex = threadBeats.length;
     flushSync(() => {
       setBeats((current) => {
         if (!canAddComposerThreadBeat(current)) return current;
@@ -1003,7 +1008,7 @@ export function ComposerSheet({
   });
   const showProgress = progressLabel != null;
 
-  const publishBeats = publishableComposerBeats(beats, canComposeThread);
+  const publishBeats = publishableComposerBeats(threadBeats, canComposeThread);
   const threadPollReady = publishBeats.every((row) => {
     if (!row.pollEnabled) return true;
     const options = normalizePollOptions(row.pollOptions);
@@ -1195,8 +1200,9 @@ export function ComposerSheet({
     // steal back to title/textarea. Only muted-beat clicks request primary.
     if (!shouldForceComposerPrimaryFocus(options)) return;
 
-    const row = beats[index];
+    const row = threadBeats[index];
     const useTitle =
+      index === 0 &&
       mode === 'post' &&
       Boolean(row?.articleMode) &&
       !row?.drop &&
@@ -1213,11 +1219,11 @@ export function ComposerSheet({
         mode={mode}
         target={target}
         targetAuthorProfile={targetAuthorProfile}
-        muted={canComposeThread && beats.length > 1 && !focused}
+        muted={canComposeThread && threadBeats.length > 1 && !focused}
         focused={focused}
         pending={pending}
         canComposeThread={canComposeThread}
-        beatCount={beats.length}
+        beatCount={threadBeats.length}
         showDestinationMenus={showDestinationMenus}
         identitySlot={identitySlot}
         accountId={accountId}
@@ -1238,7 +1244,9 @@ export function ComposerSheet({
           setArticleWriting(false);
         }}
         onPatch={(patch) => patchBeat(index, patch)}
-        onRemove={beats.length > 1 ? () => removeThreadBeat(index) : undefined}
+        onRemove={
+          threadBeats.length > 1 ? () => removeThreadBeat(index) : undefined
+        }
         onFocusBeat={(options) => focusFieldOnBeat(index, options)}
         onScrollField={scrollFieldIntoView}
         onOpenLabels={() => setLabelsOpen(true)}
@@ -1652,7 +1660,7 @@ export function ComposerSheet({
                   post={target}
                   authorProfile={targetAuthorProfile}
                 />
-                {renderBeat(beats[0] ?? emptySheetBeat(), 0)}
+                {renderBeat(threadBeats[0] ?? emptySheetBeat(), 0)}
               </div>
             ) : canComposeThread ? (
               <div
@@ -1660,14 +1668,14 @@ export function ComposerSheet({
                 role="list"
                 aria-label="Thread"
               >
-                {beats.map((row, index) => (
+                {threadBeats.map((row, index) => (
                   <div
                     key={row.id}
                     role="listitem"
                     className={[
                       'guild-composer-thread-item',
-                      index < beats.length - 1 ||
-                      (showThreadPlus && index === beats.length - 1)
+                      index < threadBeats.length - 1 ||
+                      (showThreadPlus && index === threadBeats.length - 1)
                         ? 'is-down'
                         : '',
                       index > 0 ? 'is-up' : '',
@@ -1693,8 +1701,8 @@ export function ComposerSheet({
                         canAddThread && !pending ? ' is-ready' : ''
                       }${plusPressed ? ' is-active' : ''}`}
                       disabled={!canAddThread || pending}
-                      title={threadPlusHint(beats)}
-                      aria-label={threadPlusHint(beats)}
+                      title={threadPlusHint(threadBeats)}
+                      aria-label={threadPlusHint(threadBeats)}
                       onMouseDown={(event) => {
                         if (!canAddThread || pending) return;
                         event.preventDefault();
@@ -1718,7 +1726,7 @@ export function ComposerSheet({
                 </div>
               </div>
             ) : (
-              renderBeat(beats[0] ?? emptySheetBeat(), 0)
+              renderBeat(threadBeats[0] ?? emptySheetBeat(), 0)
             )}
 
             <input

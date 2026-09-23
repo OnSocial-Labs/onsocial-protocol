@@ -26,6 +26,9 @@ const freshPost: ComposerToolbarState = {
   pollEnabled: false,
   hasDrop: false,
   hasMedia: false,
+  continuation: false,
+  openingIsArticle: false,
+  soleBeat: true,
 };
 
 describe('composerToolbarToolShown', () => {
@@ -79,6 +82,45 @@ describe('composerToolbarToolShown', () => {
     for (const mode of ['reply', 'quote'] as const) {
       expect(shown({ ...freshPost, mode })).toEqual(['media', 'labels']);
     }
+  });
+
+  it('folds the article tool on a follow-up post', () => {
+    expect(
+      shown({ ...freshPost, continuation: true, soleBeat: false })
+    ).toEqual(['media', 'poll', 'drop', 'place', 'thread', 'labels']);
+  });
+
+  it('folds the article tool once a thread exists', () => {
+    expect(shown({ ...freshPost, soleBeat: false })).toEqual([
+      'media',
+      'poll',
+      'drop',
+      'place',
+      'thread',
+      'labels',
+    ]);
+  });
+
+  it('keeps the article tool available to turn off when a saved thread already starts with one', () => {
+    expect(
+      shown({
+        ...freshPost,
+        articleMode: true,
+        openingIsArticle: true,
+        soleBeat: false,
+      })
+    ).toEqual(['media', 'article', 'place', 'labels']);
+  });
+
+  it('keeps the thread plus folded while the opening post is an article', () => {
+    expect(
+      composerToolbarToolShown('thread', {
+        ...freshPost,
+        continuation: true,
+        openingIsArticle: true,
+        soleBeat: false,
+      })
+    ).toBe(false);
   });
 
   it('folds the thread plus on a DAO Call and keeps the other post tools', () => {

@@ -56,6 +56,26 @@ export function emptyComposerBeat(
   };
 }
 
+/** A follow-up in a thread is a post. Title and cover stay on the opening article. */
+export function composerBeatAsPost<T extends ComposerBeat>(beat: T): T {
+  if (!beat.articleMode && !beat.articleTitle.trim()) return beat;
+  return {
+    ...beat,
+    articleMode: false,
+    articleTitle: '',
+    articleAlign: 'left',
+    articleCoverTheme: defaultArticleCoverTheme(),
+  };
+}
+
+export function composerBeatsForThread<T extends ComposerBeat>(
+  beats: readonly T[]
+): T[] {
+  return beats.map((beat, index) =>
+    index === 0 ? beat : composerBeatAsPost(beat)
+  );
+}
+
 export function composerBeatHasContent(beat: ComposerBeat): boolean {
   return (
     Boolean(beat.text.trim()) ||
@@ -243,7 +263,7 @@ export function beatToComposerSubmit(beat: ComposerBeat): ComposerSubmit {
 export function composerBeatsToSubmit(
   beats: readonly ComposerBeat[]
 ): ComposerSubmit | null {
-  const filled = beats.filter(composerBeatHasContent);
+  const filled = composerBeatsForThread(beats).filter(composerBeatHasContent);
   if (filled.length === 0) return null;
   const [root, ...rest] = filled;
   const payload = beatToComposerSubmit(root!);
