@@ -171,7 +171,7 @@ export function dropCreateExtraRowLabel(
 
 /** One quiet line in the extra drawer — not a second InfoDrawer. */
 export function dropCreateExtraHint(
-  kind: DropCreateExtraSheetId | 'event' | 'allowlist',
+  kind: DropCreateExtraSheetId | 'event' | 'access' | 'allowlist',
   opts: { isTicket?: boolean } = {}
 ): string {
   switch (kind) {
@@ -199,6 +199,8 @@ export function dropCreateExtraHint(
       return 'Early mint. Needs Opens in Sale.';
     case 'event':
       return 'When the show runs — not the sale.';
+    case 'access':
+      return 'When the offer ends — not the sale.';
     case 'burnable':
       return 'No keeps the edition. Yes lets the holder destroy it.';
   }
@@ -233,7 +235,10 @@ export function dropCreateAllowlistSummary(
   return count === 1 ? '1 account' : `${count} accounts`;
 }
 
-/** Renewals / Postpone row — say the expiry when the kind needs one. */
+/**
+ * Renewals / Postpone row. Tickets and coupons keep the date on its own
+ * cell, so this row is only Yes or No. Membership can still name an optional end.
+ */
 export function dropCreateRenewalsSummary({
   on,
   isTicket = false,
@@ -246,10 +251,9 @@ export function dropCreateRenewalsSummary({
   requiresAccessEnd?: boolean;
 }): string {
   const choice = dropCreateRenewalsChoice(on);
-  if (isTicket) return choice;
+  if (isTicket || requiresAccessEnd) return choice;
   const end = accessEndsLabel.trim();
   if (end) return `${choice} · ${end}`;
-  if (requiresAccessEnd) return `${choice} · set an end`;
   return choice;
 }
 
