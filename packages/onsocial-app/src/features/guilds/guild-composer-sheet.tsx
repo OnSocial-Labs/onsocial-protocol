@@ -25,7 +25,7 @@ import {
   ImageIcon,
   MapMarkerFillIcon,
   MapMarkerIcon,
-  MultiplyIcon,
+  ChevronLeftIcon,
   NoteTextFillIcon,
   NoteTextIcon,
   OsHugSheet,
@@ -1546,11 +1546,11 @@ export function ComposerSheet({
           embedded
           leading={
             <OsIconAction
-              ariaLabel="Close"
+              ariaLabel="Back"
               disabled={pending}
               onClick={requestClose}
             >
-              <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
+              <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
             </OsIconAction>
           }
           heading={showModeRail ? modeChipRail : undefined}
@@ -1690,8 +1690,8 @@ export function ComposerSheet({
                     <button
                       type="button"
                       className={`guild-composer-thread-plus${
-                        plusPressed ? ' is-active' : ''
-                      }`}
+                        canAddThread && !pending ? ' is-ready' : ''
+                      }${plusPressed ? ' is-active' : ''}`}
                       disabled={!canAddThread || pending}
                       title={threadPlusHint(beats)}
                       aria-label={threadPlusHint(beats)}
@@ -1708,7 +1708,7 @@ export function ComposerSheet({
                       onPointerLeave={() => setPlusPressed(false)}
                       onClick={addThreadBeat}
                     >
-                      {plusPressed ? (
+                      {canAddThread && !pending ? (
                         <PlusCircleFillIcon className="guild-composer-tool-icon" />
                       ) : (
                         <PlusCircleIcon className="guild-composer-tool-icon" />
