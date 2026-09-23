@@ -45942,3 +45942,10 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   overflow-wrap: normal;
   word-break: normal;
 }
+
+/* Face bio shells cap at 20rem. An article uses the same shell and the full column. */
+.guild-composer-sheet-form[data-writing='article'] .guild-composer-article-body {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}
