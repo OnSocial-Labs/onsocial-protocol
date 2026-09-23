@@ -21990,8 +21990,8 @@ a.os-surface-row {
 
   /*
    * Avatar + name + @id — one profile control. Time and the menu stay outside.
-   * The face is taken out of this row and anchored to the header (below) so a
-   * guild label shares the avatar's height instead of sitting above it.
+   * The face sits in the copy column's left padding so a guild label shares
+   * the avatar's height, and full-width rows stay inside the card.
    */
   .post-card-identity {
     display: flex;
@@ -22037,10 +22037,10 @@ a.os-surface-row {
     min-width: 0.35rem;
   }
 
-  .post-card:not(.post-card--skeleton)
-    > .post-card-copy
-    > :not(.post-card-header) {
-    margin-left: calc(2.25rem + 0.75rem);
+  /* Avatar gutter. Padding keeps width:100% rows inside the card. */
+  .post-card:not(.post-card--skeleton) > .post-card-copy {
+    position: relative;
+    padding-left: calc(2.25rem + 0.75rem);
   }
 
   .post-card-link {
@@ -22416,17 +22416,15 @@ a.os-surface-row {
   }
 
   .post-card-header-stack {
-    position: relative;
     display: flex;
     min-width: 0;
     flex: 1;
     flex-direction: column;
     align-items: stretch;
     gap: 0.12rem;
-    /* Text column. The avatar sits in this padding, top-aligned with the header. */
-    padding-left: calc(2.25rem + 0.75rem);
   }
 
+  /* Containing block is the padded copy column, so the face sits in the gutter. */
   .post-card-header-stack .post-card-avatar-link {
     position: absolute;
     left: 0;
