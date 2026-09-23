@@ -74,6 +74,25 @@ export function dropCreateAttachAction(kind: DropCreateAttachAction): string {
   }
 }
 
+/** Empty attach line — the file you are about to add. Preview and reorder live on the list. */
+export type DropCreateAttachHintKind = 'single' | 'album' | 'issue' | 'book';
+
+export function dropCreateAttachHint(
+  kind: DropCreateAttachHintKind,
+  limits: { maxTracks?: number; maxChapters?: number } = {}
+): string {
+  switch (kind) {
+    case 'single':
+      return 'MP3, M4A, WAV, or similar · ≤20 MB';
+    case 'album':
+      return `2–${limits.maxTracks ?? 30} tracks · MP3, M4A, WAV, or similar · ≤20 MB each`;
+    case 'issue':
+      return '.md for the reader · PDF ok · ≤500 KB text / 20 MB PDF';
+    case 'book':
+      return `2–${limits.maxChapters ?? 100} chapters · .md for reading`;
+  }
+}
+
 /** Optional whole-book PDF waits in Advanced. Chapters stay on the piece. */
 export function dropCreateBookPdfPlacement(): 'advanced' {
   return 'advanced';
@@ -111,13 +130,13 @@ export function dropCreateAdvancedExtraAction(
     case 'saleRules':
       return 'Set sale rules';
     case 'renewals':
-      return opts.isTicket ? 'Allow date changes' : 'Set renewals';
+      return opts.isTicket ? 'Allow postpone' : 'Set renewable';
     case 'allowlist':
       return 'Add an allowlist';
     case 'place':
       return 'Add a place';
     case 'burnable':
-      return 'Allow destroy';
+      return 'Set burnable';
   }
 }
 
@@ -159,13 +178,13 @@ export function dropCreateExtraRowLabel(
     case 'transferable':
       return 'Transferable';
     case 'renewals':
-      return opts.isTicket ? 'Postpone' : 'Renewals';
+      return opts.isTicket ? 'Postpone' : 'Renewable';
     case 'allowlist':
       return 'Allowlist';
     case 'place':
       return 'Place';
     case 'burnable':
-      return 'Destroy';
+      return 'Burnable';
   }
 }
 
@@ -188,11 +207,11 @@ export function dropCreateExtraHint(
     case 'perWallet':
       return 'Cap how many one wallet can collect.';
     case 'transferable':
-      return 'Yes means they can resell. Soulbound stays with them.';
+      return 'Yes lets them transfer and resell. No keeps the edition with them.';
     case 'renewals':
       return opts.isTicket
         ? 'Push the event end later if the show moves.'
-        : 'Holders can renew after it expires.';
+        : 'Yes lets holders renew after it expires.';
     case 'place':
       return 'Optional venue — city, festival, or room.';
     case 'allowlist':
@@ -202,7 +221,7 @@ export function dropCreateExtraHint(
     case 'access':
       return 'When the offer ends — not the sale.';
     case 'burnable':
-      return 'No keeps the edition. Yes lets the holder destroy it.';
+      return 'Yes lets the holder destroy their edition. Gone for good, no refund.';
   }
 }
 
@@ -236,7 +255,7 @@ export function dropCreateAllowlistSummary(
 }
 
 /**
- * Renewals / Postpone row. Tickets and coupons keep the date on its own
+ * Renewable / Postpone row. Tickets and coupons keep the date on its own
  * cell, so this row is only Yes or No. Membership can still name an optional end.
  */
 export function dropCreateRenewalsSummary({
@@ -273,12 +292,31 @@ export function dropCreatePerWalletSummary(
 }
 
 export function dropCreateTransferableSummary(transferable: boolean): string {
-  return transferable ? 'Yes' : 'Soulbound';
+  return transferable ? 'Yes' : 'No';
 }
 
-/** Destroy row — No is the product default (editions stay). */
+/** Burnable row — No is the product default (editions stay). */
 export function dropCreateBurnableSummary(burnable: boolean): string {
   return burnable ? 'Yes' : 'No';
+}
+
+/** Drop-page rights line. Same words as the create rows. */
+export function dropRightsFacts({
+  transferable,
+  burnable,
+  renewable,
+  isTicket = false,
+}: {
+  transferable: boolean;
+  burnable?: boolean | null;
+  renewable: boolean;
+  isTicket?: boolean;
+}): string[] {
+  return [
+    transferable ? 'Transferable' : 'Not transferable',
+    burnable === true ? 'Burnable' : burnable === false ? 'Not burnable' : null,
+    renewable ? (isTicket ? 'Postpone' : 'Renewable') : null,
+  ].filter((part): part is string => part != null);
 }
 
 export const DROP_CREATE_DEFAULT_BURNABLE = false;

@@ -4,6 +4,7 @@ import {
   dropCreateAdvancedExtraAction,
   dropCreateAdvancedExtraOpen,
   dropCreateAttachAction,
+  dropCreateAttachHint,
   dropCreateDescriptionOpen,
   dropCreateDescriptionToggle,
   dropCreateBookPdfPlacement,
@@ -28,6 +29,7 @@ import {
   dropCreateSaleWindowSummary,
   dropCreateTransferableSummary,
   dropCreateBurnableSummary,
+  dropRightsFacts,
   dropCreateRoyaltyOpen,
   dropCreateSaleRulesOpen,
   dropCreateSaleWindowOpen,
@@ -103,6 +105,30 @@ describe('dropCreateAttachAction', () => {
   });
 });
 
+describe('dropCreateAttachHint', () => {
+  it('describes the file to add, and leaves preview and reorder for the list', () => {
+    expect(dropCreateAttachHint('single')).toBe(
+      'MP3, M4A, WAV, or similar · ≤20 MB'
+    );
+    expect(dropCreateAttachHint('album', { maxTracks: 30 })).toBe(
+      '2–30 tracks · MP3, M4A, WAV, or similar · ≤20 MB each'
+    );
+    expect(dropCreateAttachHint('issue')).toBe(
+      '.md for the reader · PDF ok · ≤500 KB text / 20 MB PDF'
+    );
+    expect(dropCreateAttachHint('book', { maxChapters: 100 })).toBe(
+      '2–100 chapters · .md for reading'
+    );
+    for (const hint of [
+      dropCreateAttachHint('single'),
+      dropCreateAttachHint('album', { maxTracks: 30 }),
+      dropCreateAttachHint('book', { maxChapters: 100 }),
+    ]) {
+      expect(hint.toLowerCase()).not.toMatch(/preview|reorder/);
+    }
+  });
+});
+
 describe('dropCreateBookPdfPlacement', () => {
   it('parks the optional PDF in Advanced, not on the first screen', () => {
     expect(dropCreateBookPdfPlacement()).toBe('advanced');
@@ -124,13 +150,13 @@ describe('dropCreateAdvancedExtraAction', () => {
     expect(dropCreateAdvancedExtraAction('series')).toBe('Add to a series');
     expect(dropCreateAdvancedExtraAction('royalty')).toBe('Set a royalty');
     expect(dropCreateAdvancedExtraAction('saleRules')).toBe('Set sale rules');
-    expect(dropCreateAdvancedExtraAction('renewals')).toBe('Set renewals');
+    expect(dropCreateAdvancedExtraAction('renewals')).toBe('Set renewable');
     expect(dropCreateAdvancedExtraAction('renewals', { isTicket: true })).toBe(
-      'Allow date changes'
+      'Allow postpone'
     );
     expect(dropCreateAdvancedExtraAction('allowlist')).toBe('Add an allowlist');
     expect(dropCreateAdvancedExtraAction('place')).toBe('Add a place');
-    expect(dropCreateAdvancedExtraAction('burnable')).toBe('Allow destroy');
+    expect(dropCreateAdvancedExtraAction('burnable')).toBe('Set burnable');
   });
 });
 
@@ -147,8 +173,8 @@ describe('dropCreateExtraRowLabel', () => {
     expect(dropCreateExtraRowLabel('saleRules')).toBe('Sale');
     expect(dropCreateExtraRowLabel('perWallet')).toBe('Per wallet');
     expect(dropCreateExtraRowLabel('transferable')).toBe('Transferable');
-    expect(dropCreateExtraRowLabel('burnable')).toBe('Destroy');
-    expect(dropCreateExtraRowLabel('renewals')).toBe('Renewals');
+    expect(dropCreateExtraRowLabel('burnable')).toBe('Burnable');
+    expect(dropCreateExtraRowLabel('renewals')).toBe('Renewable');
     expect(dropCreateExtraRowLabel('renewals', { isTicket: true })).toBe(
       'Postpone'
     );
@@ -177,8 +203,15 @@ describe('dropCreateExtraHint', () => {
       'When collectors can mint.'
     );
     expect(dropCreateExtraHint('perWallet')).toMatch(/one wallet/);
-    expect(dropCreateExtraHint('transferable')).toMatch(/Soulbound/);
-    expect(dropCreateExtraHint('burnable')).toMatch(/keeps the edition/);
+    expect(dropCreateExtraHint('transferable')).toBe(
+      'Yes lets them transfer and resell. No keeps the edition with them.'
+    );
+    expect(dropCreateExtraHint('burnable')).toBe(
+      'Yes lets the holder destroy their edition. Gone for good, no refund.'
+    );
+    expect(dropCreateExtraHint('renewals')).toBe(
+      'Yes lets holders renew after it expires.'
+    );
   });
 });
 
@@ -223,9 +256,31 @@ describe('dropCreate summaries', () => {
     expect(dropCreatePerWalletSummary('', 'editions')).toBe('No limit');
     expect(dropCreatePerWalletSummary('2', 'editions')).toBe('2 editions');
     expect(dropCreateTransferableSummary(true)).toBe('Yes');
-    expect(dropCreateTransferableSummary(false)).toBe('Soulbound');
+    expect(dropCreateTransferableSummary(false)).toBe('No');
     expect(dropCreateBurnableSummary(false)).toBe('No');
     expect(dropCreateBurnableSummary(true)).toBe('Yes');
+    expect(
+      dropRightsFacts({
+        transferable: true,
+        burnable: true,
+        renewable: true,
+        isTicket: true,
+      })
+    ).toEqual(['Transferable', 'Burnable', 'Postpone']);
+    expect(
+      dropRightsFacts({
+        transferable: false,
+        burnable: false,
+        renewable: true,
+      })
+    ).toEqual(['Not transferable', 'Not burnable', 'Renewable']);
+    expect(
+      dropRightsFacts({
+        transferable: true,
+        burnable: null,
+        renewable: false,
+      })
+    ).toEqual(['Transferable']);
     expect(
       dropCreateSaleRulesSummary({
         opensLabel: 'Now',

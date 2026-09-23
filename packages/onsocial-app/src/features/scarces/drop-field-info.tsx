@@ -100,13 +100,13 @@ const DROP_FIELD_INFO: Record<
     title: 'Transferable',
     summary: 'Whether collectors can move or resell their edition.',
     detail:
-      'Yes allows transfer and resale. Soulbound keeps the edition with the buyer.',
+      'Yes lets them transfer and resell. No keeps the edition with them.',
   },
   burnable: {
-    title: 'Destroy',
+    title: 'Burnable',
     summary: 'Whether the holder can destroy their edition.',
     detail:
-      'No keeps every edition on-chain. Yes lets the holder destroy theirs — gone for good, no refund.',
+      'Yes lets the holder destroy their edition. Gone for good, no refund. The drop stays.',
   },
   postpone: {
     title: 'Postpone',
@@ -115,10 +115,10 @@ const DROP_FIELD_INFO: Record<
       'On by default for tickets. Choose No if the end must stay fixed after mint. Event ends is the show — this only lets you push that end later.',
   },
   renewable: {
-    title: 'Renewals',
-    summary: 'Whether holders can renew this after it expires.',
+    title: 'Renewable',
+    summary: 'Whether holders can renew after it expires.',
     detail:
-      'Used for coupons and memberships. Optional Access ends sets a shared expiry on every edition.',
+      'Yes lets holders renew after it expires. Optional Access ends sets a shared expiry on every edition.',
   },
   accessEnds: {
     title: 'Access ends',

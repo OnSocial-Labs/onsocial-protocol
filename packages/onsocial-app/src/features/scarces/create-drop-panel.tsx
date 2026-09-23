@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -10,6 +11,7 @@ import {
   type CSSProperties,
   type FocusEvent,
   type FormEvent,
+  type RefObject,
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import './drop-create-spacing.css';
@@ -21,6 +23,8 @@ import {
   OsIconAction,
   OsAppChromeToolbarRail,
   QuestionMarkCircleFillIcon,
+  ChevronDownIcon,
+  useOsReveal,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { InfoDrawer } from '@onsocial/ui';
@@ -130,6 +134,7 @@ import {
 import {
   dropCreateAllowlistSummary,
   dropCreateAttachAction,
+  dropCreateAttachHint,
   dropCreateDescriptionOpen,
   dropCreateDescriptionToggle,
   dropCreateBookPdfPlacement,
@@ -239,6 +244,64 @@ function fieldId(name: string) {
   return `drop-create-${name}`;
 }
 
+/** Closed is 0. Open height is the measured section, animated by os-reveal. */
+function useDropCreateReveal(open: boolean) {
+  const { hostRef, clipRef, innerRef, measure } = useOsReveal<HTMLDivElement>();
+  const measureClosed = useCallback(() => {
+    measure({ closedPx: 0 });
+  }, [measure]);
+
+  useLayoutEffect(() => {
+    measureClosed();
+  }, [measureClosed, open]);
+
+  useEffect(() => {
+    const inner = innerRef.current;
+    if (!inner || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => measureClosed());
+    observer.observe(inner);
+    return () => observer.disconnect();
+  }, [innerRef, measureClosed]);
+
+  return {
+    hostRef,
+    clipRef: clipRef as RefObject<HTMLDivElement | null>,
+    innerRef: innerRef as RefObject<HTMLDivElement | null>,
+  };
+}
+
+function DropCreateDisclosure({
+  open,
+  label,
+  controlsId,
+  disabled,
+  className,
+  onClick,
+}: {
+  open: boolean;
+  label: string;
+  controlsId: string;
+  disabled?: boolean;
+  className?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`drop-create-disclosure${open ? ' is-open' : ''}${
+        className ? ` ${className}` : ''
+      }`}
+      disabled={disabled}
+      aria-expanded={open}
+      aria-controls={controlsId}
+      onClick={onClick}
+    >
+      <span>{label}</span>
+      <ChevronDownIcon className="drop-create-disclosure-chevron" aria-hidden />
+    </button>
+  );
+}
+
 function isFormFieldTarget(target: EventTarget | null): boolean {
   return (
     target instanceof HTMLInputElement ||
@@ -299,6 +362,8 @@ export function CreateDropPanel() {
   );
   const [createReady, setCreateReady] = useState(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const descriptionReveal = useDropCreateReveal(descriptionOpen);
+  const advancedReveal = useDropCreateReveal(showAdvanced);
   const dropIdRef = useRef<HTMLInputElement>(null);
   const seriesFieldRef = useRef<HTMLInputElement>(null);
   const placeFieldRef = useRef<HTMLInputElement>(null);
@@ -1569,15 +1634,15 @@ export function CreateDropPanel() {
       { label: 'Supply', value: `${supply} ${template.unit}` },
       { label: 'Price', value: price ? `${price} NEAR` : 'Free' },
       {
-        label: 'Transferable',
-        value: transferable ? 'Yes' : 'Soulbound',
+        label: dropCreateExtraRowLabel('transferable'),
+        value: dropCreateTransferableSummary(transferable),
       },
       {
-        label: 'Destroy',
+        label: dropCreateExtraRowLabel('burnable'),
         value: dropCreateBurnableSummary(burnable),
       },
       {
-        label: isTicket ? 'Postpone' : 'Renewals',
+        label: dropCreateExtraRowLabel('renewals', { isTicket }),
         value: dropCreateRenewalsChoice(renewable),
       },
       { label: 'Royalty', value: royaltyValue },
@@ -2612,7 +2677,7 @@ export function CreateDropPanel() {
         onBlurCapture={handleFormBlurCapture}
         onSubmit={handleSubmit}
       >
-        <p className="sr-only" aria-live="polite">
+        <p className="drop-kind-lede" aria-live="polite">
           {template.tagline}
         </p>
         {needsWalletConfirm ? (
@@ -3093,9 +3158,10 @@ export function CreateDropPanel() {
                       )}
                     </button>
                     <p className="drop-create-attach-hint">
-                      {musicFormat === 'single'
-                        ? 'Tap to preview · MP3, M4A, WAV, or similar · ≤20 MB'
-                        : `Drag to reorder · tap to preview · 2–${DROP_AUDIO_MAX_TRACKS} tracks · ≤20 MB each`}
+                      {dropCreateAttachHint(
+                        musicFormat === 'single' ? 'single' : 'album',
+                        { maxTracks: DROP_AUDIO_MAX_TRACKS }
+                      )}
                     </p>
                   </>
                 )}
@@ -3189,9 +3255,10 @@ export function CreateDropPanel() {
                       )}
                     </button>
                     <p className="drop-create-attach-hint">
-                      {writingFormat === 'issue'
-                        ? '.md for the reader · PDF ok · ≤500 KB text / 20 MB PDF'
-                        : `Drag title to reorder · 2–${DROP_WRITING_MAX_CHAPTERS} · .md for reading`}
+                      {dropCreateAttachHint(
+                        writingFormat === 'issue' ? 'issue' : 'book',
+                        { maxChapters: DROP_WRITING_MAX_CHAPTERS }
+                      )}
                     </p>
                   </>
                 )}
@@ -3354,56 +3421,71 @@ export function CreateDropPanel() {
           className="drop-create-section"
           data-drop-create-section="description"
         >
-          <button
-            type="button"
-            className="collection-allowlist-toggle drop-create-description-toggle"
-            disabled={pending}
-            aria-expanded={descriptionShown}
-            onClick={() => setDescriptionOpen((open) => !open)}
-          >
-            {dropCreateDescriptionToggle({
+          <DropCreateDisclosure
+            className="drop-create-description-toggle"
+            open={descriptionShown}
+            label={dropCreateDescriptionToggle({
               open: descriptionShown,
               hasText: descriptionHasText,
             })}
-          </button>
-          {descriptionShown ? (
-            <div className="guild-field">
-              <DropFieldLabel
-                label="Description"
-                infoKey="description"
-                onOpenInfo={openFieldInfo}
-              />
-              <textarea
-                id={fieldId('description')}
-                ref={descriptionRef}
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder={
-                  isWriting
-                    ? 'Short public description — the manuscript uploads separately.'
-                    : 'What fans get and why it matters — shown on the drop page.'
-                }
-                maxLength={MAX_DESCRIPTION}
-                className={osFieldBorderedClassName}
-              />
-              <small>
-                {description.length}/{MAX_DESCRIPTION}
-              </small>
+            controlsId={fieldId('description-panel')}
+            disabled={pending}
+            onClick={() => setDescriptionOpen((open) => !open)}
+          />
+          <div
+            ref={descriptionReveal.hostRef}
+            className={`drop-create-reveal os-reveal${
+              descriptionShown ? ' is-open' : ''
+            } drop-create-description-reveal`}
+          >
+            <div
+              ref={descriptionReveal.clipRef}
+              id={fieldId('description-panel')}
+              className="os-reveal-clip"
+            >
+              <div
+                ref={descriptionReveal.innerRef}
+                className="os-reveal-inner drop-create-reveal-body"
+                inert={descriptionShown ? undefined : true}
+                aria-hidden={descriptionShown ? undefined : true}
+              >
+                <div className="guild-field">
+                  <DropFieldLabel
+                    label="Description"
+                    infoKey="description"
+                    onOpenInfo={openFieldInfo}
+                  />
+                  <textarea
+                    id={fieldId('description')}
+                    ref={descriptionRef}
+                    value={description}
+                    onChange={(event) => setDescription(event.target.value)}
+                    placeholder={
+                      isWriting
+                        ? 'Short public description — the manuscript uploads separately.'
+                        : 'What fans get and why it matters — shown on the drop page.'
+                    }
+                    maxLength={MAX_DESCRIPTION}
+                    className={osFieldBorderedClassName}
+                  />
+                  <small>
+                    {description.length}/{MAX_DESCRIPTION}
+                  </small>
+                </div>
+              </div>
             </div>
-          ) : null}
+          </div>
         </div>
 
         <div className="drop-create-advanced">
           <div className="guild-field drop-advanced-toggle-row">
-          <button
-            type="button"
-            className="collection-allowlist-toggle"
+          <DropCreateDisclosure
+            open={showAdvanced}
+            label={showAdvanced ? 'Hide advanced' : 'Advanced'}
+            controlsId={fieldId('advanced-panel')}
             disabled={pending}
-            aria-expanded={showAdvanced}
             onClick={() => setShowAdvanced((open) => !open)}
-          >
-            {showAdvanced ? 'Hide advanced' : 'Advanced'}
-          </button>
+          />
           {hasDiscardableDraft ? (
             <button
               type="button"
@@ -3415,9 +3497,23 @@ export function CreateDropPanel() {
             </button>
           ) : null}
         </div>
-
-        {showAdvanced ? (
-          <>
+        <div
+          ref={advancedReveal.hostRef}
+          className={`drop-create-reveal os-reveal${
+            showAdvanced ? ' is-open' : ''
+          } drop-create-advanced-reveal`}
+        >
+          <div
+            ref={advancedReveal.clipRef}
+            id={fieldId('advanced-panel')}
+            className="os-reveal-clip"
+          >
+            <div
+              ref={advancedReveal.innerRef}
+              className="os-reveal-inner drop-create-reveal-body"
+              inert={showAdvanced ? undefined : true}
+              aria-hidden={showAdvanced ? undefined : true}
+            >
             {isWriting && writingFormat === 'book' && bookPdfInAdvanced ? (
               <div
                 className="drop-create-attach"
@@ -3706,8 +3802,9 @@ export function CreateDropPanel() {
                 }}
               />
             </DropCreateExtraList>
-          </>
-        ) : null}
+            </div>
+          </div>
+        </div>
         </div>
 
         {error ? (
@@ -3931,7 +4028,7 @@ export function CreateDropPanel() {
               disabled={pending}
               onClick={() => setTransferable(false)}
             >
-              Soulbound
+              No
             </button>
           </div>
         ) : null}
@@ -3939,7 +4036,7 @@ export function CreateDropPanel() {
           <div
             className="app-access-options"
             role="radiogroup"
-            aria-label="Destroy"
+            aria-label="Burnable"
           >
             <button
               type="button"
@@ -3991,11 +4088,13 @@ export function CreateDropPanel() {
         {extraSheet === 'renewals' ? (
           <div className="drop-create-renewals">
             <div className="guild-field">
-              <span>{isTicket ? 'Postpone' : 'Renewals'}</span>
+              <span>
+                {dropCreateExtraRowLabel('renewals', { isTicket })}
+              </span>
               <div
                 className="app-access-options"
                 role="radiogroup"
-                aria-label={isTicket ? 'Postpone' : 'Renewals'}
+                aria-label={dropCreateExtraRowLabel('renewals', { isTicket })}
               >
                 <button
                   type="button"

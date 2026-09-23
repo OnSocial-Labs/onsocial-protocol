@@ -61,6 +61,13 @@ describe('DROP_TEMPLATES', () => {
     }
   });
 
+  it('coupon example names the access date apart from the sale', () => {
+    const coupon = DROP_TEMPLATES.find((t) => t.id === 'coupon');
+    expect(coupon?.hint).toContain('until 30 Sep');
+    expect(coupon?.hint).toContain('The sale can close earlier.');
+    expect(coupon?.hint.toLowerCase()).not.toContain('when the offer does');
+  });
+
   it('tickets require an event end, not sale close', () => {
     const ticket = DROP_TEMPLATES.find((t) => t.id === 'ticket');
     expect(ticket?.requiresEventEnd).toBe(true);

@@ -14,6 +14,18 @@ const COVER_PNG = Buffer.from(
   'base64'
 );
 
+async function clickKindTab(page: Page, name: string): Promise<void> {
+  await page.evaluate((label) => {
+    const tab = [...document.querySelectorAll('[role="tab"]')].find(
+      (el) => el.textContent?.trim() === label
+    );
+    if (!(tab instanceof HTMLElement)) {
+      throw new Error(`Missing kind tab ${label}`);
+    }
+    tab.click();
+  }, name);
+}
+
 async function openCreateDrop(
   page: Page,
   path = '/drops/create'
@@ -130,7 +142,9 @@ test.describe('create drop', () => {
         .locator('[data-drop-create-section="work"]')
         .getByText('Artwork', { exact: true })
     ).toHaveCount(0);
-    await expect(page.locator('.drop-kind-lede')).toHaveCount(0);
+    await expect(page.locator('.drop-kind-lede')).toHaveText(
+      'Limited editions fans collect until they sell out.'
+    );
     await expect(
       page.locator('[data-drop-create-section="title"] #drop-create-title')
     ).toBeVisible();
@@ -146,6 +160,27 @@ test.describe('create drop', () => {
         .getByLabel('Price per edition in NEAR')
     ).toBeVisible();
     await expect(page.locator('.drop-create-deal-sep')).toHaveText('·');
+    const numberGap = await page.locator('.drop-create-deal-line').evaluate(
+      (line) => {
+        const input = line.querySelector('input');
+        const unit = line.querySelector('.suffix-field-unit');
+        if (!input || !unit) return 0;
+        const inputBox = input.getBoundingClientRect();
+        const unitBox = unit.getBoundingClientRect();
+        return unitBox.left - inputBox.right;
+      }
+    );
+    expect(numberGap).toBeGreaterThan(4);
+    const supply = page.getByLabel('Total supply');
+    const twoDigits = await supply.boundingBox();
+    await supply.fill('10000');
+    const fiveDigits = await supply.boundingBox();
+    expect(fiveDigits!.width).toBeGreaterThan(twoDigits!.width + 8);
+    const supplyFits = await supply.evaluate(
+      (el) => el.scrollWidth <= el.clientWidth + 1
+    );
+    expect(supplyFits).toBe(true);
+    await supply.fill('25');
     await expect(page.getByRole('group', { name: 'Quick prices' })).toHaveCount(
       0
     );
@@ -153,32 +188,62 @@ test.describe('create drop', () => {
       0
     );
 
-    await expect(page.locator('.drop-create-description-toggle')).toHaveText(
-      'Add a description'
+    const descriptionToggle = page.locator('.drop-create-description-toggle');
+    await expect(descriptionToggle).toHaveText('Add a description');
+    await expect(
+      descriptionToggle.locator('.drop-create-disclosure-chevron')
+    ).toBeVisible();
+    const descriptionDecoration = await descriptionToggle.evaluate(
+      (el) => getComputedStyle(el).textDecorationLine
     );
-    await expect(page.locator('#drop-create-description')).toHaveCount(0);
+    expect(descriptionDecoration).not.toContain('underline');
+    await expect(page.locator('.drop-create-description-reveal')).not.toHaveClass(
+      /\bis-open\b/
+    );
     await page.getByRole('button', { name: 'Add a description' }).click();
+    await expect(page.locator('.drop-create-description-reveal')).toHaveClass(
+      /\bis-open\b/
+    );
     await expect(page.locator('#drop-create-description')).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'About Description' })
     ).toBeVisible();
     await page.locator('#drop-create-description').fill('Short public line.');
     await page.getByRole('button', { name: 'Hide description' }).click();
-    await expect(page.locator('#drop-create-description')).toHaveCount(0);
+    await expect(page.locator('.drop-create-description-reveal')).not.toHaveClass(
+      /\bis-open\b/
+    );
     await expect(page.locator('.drop-create-description-toggle')).toHaveText(
       'Edit description'
     );
+    await expect
+      .poll(async () =>
+        page
+          .locator('.drop-create-description-reveal .os-reveal-clip')
+          .evaluate((el) => el.getBoundingClientRect().height)
+      )
+      .toBeLessThan(2);
   });
 
   test('keeps the artwork well square when a photo is picked', async ({
     page,
   }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await openCreateDrop(page);
     await expect(page.locator('.drop-create-piece')).toBeVisible();
-    const pieceBox = await page.locator('.drop-create-piece').boundingBox();
-    expect(pieceBox).toBeTruthy();
-    expect(pieceBox!.width / pieceBox!.height).toBeCloseTo(1, 1);
-    expect(pieceBox!.width).toBeLessThan(320);
+    const phoneBox = await page.locator('.drop-create-piece').boundingBox();
+    expect(phoneBox).toBeTruthy();
+    expect(phoneBox!.width / phoneBox!.height).toBeCloseTo(1, 1);
+    expect(phoneBox!.width).toBeLessThan(320);
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const wideBox = await page.locator('.drop-create-piece').boundingBox();
+    const titleBox = await page.locator('.drop-create-title').boundingBox();
+    expect(wideBox).toBeTruthy();
+    expect(titleBox).toBeTruthy();
+    expect(wideBox!.width / wideBox!.height).toBeCloseTo(1, 1);
+    expect(wideBox!.width).toBeGreaterThan(phoneBox!.width);
+    expect(wideBox!.width).toBeLessThan(titleBox!.width);
 
     await setLookPreviewFile(
       page,
@@ -195,7 +260,7 @@ test.describe('create drop', () => {
       .boundingBox();
     expect(filledBox).toBeTruthy();
     expect(filledBox!.width / filledBox!.height).toBeCloseTo(1, 1);
-    expect(filledBox!.width).toBeCloseTo(pieceBox!.width, 1);
+    expect(filledBox!.width).toBeCloseTo(wideBox!.width, 1);
     await expect(page.locator('.drop-cover-seat-grid')).toHaveCount(0);
   });
 
@@ -249,9 +314,12 @@ test.describe('create drop', () => {
     await expect(
       page.locator('[data-drop-create-attach="audio"]')
     ).toBeVisible();
-    await expect(page.locator('.drop-create-attach-action')).toHaveText(
-      'Add track'
-    );
+    await expect(
+      page.locator('[data-drop-create-attach="audio"] .drop-create-attach-action')
+    ).toHaveText('Add track');
+    await expect(
+      page.locator('[data-drop-create-attach="audio"] .drop-create-attach-hint')
+    ).toHaveText('MP3, M4A, WAV, or similar · ≤20 MB');
     await expect(
       page
         .locator('[data-drop-create-section="work"]')
@@ -261,27 +329,46 @@ test.describe('create drop', () => {
       page.getByRole('group', { name: 'Track actions' })
     ).toHaveCount(0);
     await page.getByRole('radio', { name: 'Album' }).click();
-    await expect(page.locator('.drop-create-attach-action')).toHaveText(
-      'Add tracks'
-    );
+    await expect(
+      page.locator('[data-drop-create-attach="audio"] .drop-create-attach-action')
+    ).toHaveText('Add tracks');
+    await expect(
+      page.locator('[data-drop-create-attach="audio"] .drop-create-attach-hint')
+    ).toHaveText('2–30 tracks · MP3, M4A, WAV, or similar · ≤20 MB each');
 
     await page.getByRole('tab', { name: 'Writing', exact: true }).click();
     await expect(
       page.locator('[data-drop-create-attach="writing"]')
     ).toBeVisible();
-    await expect(page.locator('.drop-create-attach-action')).toHaveText(
-      'Add file'
-    );
+    await expect(
+      page.locator(
+        '[data-drop-create-attach="writing"] .drop-create-attach-action'
+      )
+    ).toHaveText('Add file');
+    await expect(
+      page.locator(
+        '[data-drop-create-attach="writing"] .drop-create-attach-hint'
+      )
+    ).toHaveText('.md for the reader · PDF ok · ≤500 KB text / 20 MB PDF');
     await expect(
       page.getByRole('group', { name: 'Issue file actions' })
     ).toHaveCount(0);
 
     await page.getByRole('radio', { name: 'Book' }).click();
-    await expect(page.locator('.drop-create-attach-action')).toHaveText(
-      'Add files'
-    );
     await expect(
-      page.locator('[data-drop-create-attach="book-pdf"]')
+      page.locator(
+        '[data-drop-create-attach="writing"] .drop-create-attach-action'
+      )
+    ).toHaveText('Add files');
+    await expect(
+      page.locator(
+        '[data-drop-create-attach="writing"] .drop-create-attach-hint'
+      )
+    ).toHaveText('2–100 chapters · .md for reading');
+    await expect(
+      page.locator(
+        '.drop-create-advanced-reveal.is-open [data-drop-create-attach="book-pdf"]'
+      )
     ).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Add PDF', exact: true })
@@ -328,10 +415,10 @@ test.describe('create drop', () => {
       page.getByRole('button', { name: 'Transferable: Yes' })
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Destroy: No' })
+      page.getByRole('button', { name: 'Burnable: No' })
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Renewals: No' })
+      page.getByRole('button', { name: 'Renewable: No' })
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Allowlist: Connect' })
@@ -401,7 +488,7 @@ test.describe('create drop', () => {
     const transferable = page.getByRole('dialog', { name: 'Transferable' });
     await expect(
       transferable.getByText(
-        'Yes means they can resell. Soulbound stays with them.'
+        'Yes lets them transfer and resell. No keeps the edition with them.'
       )
     ).toBeVisible();
     await expect(
@@ -418,20 +505,22 @@ test.describe('create drop', () => {
     ).toBeVisible();
   });
 
-  test('Destroy defaults to No and can be turned on', async ({ page }) => {
+  test('Burnable defaults to No and can be turned on', async ({ page }) => {
     await openCreateDrop(page);
     await page.getByRole('button', { name: 'Advanced', exact: true }).click();
 
     await expect(
-      page.getByRole('button', { name: 'Destroy: No' })
+      page.getByRole('button', { name: 'Burnable: No' })
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Destroy: No' }).click();
-    const destroy = page.getByRole('dialog', { name: 'Destroy' });
+    await page.getByRole('button', { name: 'Burnable: No' }).click();
+    const destroy = page.getByRole('dialog', { name: 'Burnable' });
     await expect(
-      destroy.getByText('No keeps the edition. Yes lets the holder destroy it.')
+      destroy.getByText(
+        'Yes lets the holder destroy their edition. Gone for good, no refund.'
+      )
     ).toBeVisible();
     await expect(
-      destroy.getByRole('radiogroup', { name: 'Destroy' })
+      destroy.getByRole('radiogroup', { name: 'Burnable' })
     ).toBeVisible();
     await expect(
       destroy.getByRole('radio', { name: 'No', exact: true })
@@ -439,14 +528,16 @@ test.describe('create drop', () => {
     await destroy.getByRole('radio', { name: 'Yes', exact: true }).click();
     await destroy.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
-      page.getByRole('button', { name: 'Destroy: Yes' })
+      page.getByRole('button', { name: 'Burnable: Yes' })
     ).toBeVisible();
   });
 
   test('tickets show Event and Postpone in Advanced', async ({ page }) => {
     await openCreateDrop(page);
     await page.getByRole('tab', { name: 'Tickets', exact: true }).click();
-    await expect(page.locator('.drop-kind-lede')).toHaveCount(0);
+    await expect(page.locator('.drop-kind-lede')).toHaveText(
+      'Event entry — one redeem per ticket.'
+    );
     await expect(
       page.getByRole('button', { name: 'Hide advanced' })
     ).toBeVisible();
@@ -521,7 +612,7 @@ test.describe('create drop', () => {
   }) => {
     await openCreateDrop(page);
 
-    await page.getByRole('tab', { name: 'Coupons', exact: true }).click();
+    await clickKindTab(page, 'Coupons');
     const access = page.getByRole('group', { name: 'Access ends' });
     await expect(access).toBeVisible();
     await expect(
@@ -529,52 +620,52 @@ test.describe('create drop', () => {
     ).toBeVisible();
     await expect(access.getByText('Required', { exact: true })).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Renewals: Yes', exact: true })
+      page.getByRole('button', { name: 'Renewable: Yes', exact: true })
     ).toBeVisible();
     const accessBox = await access.boundingBox();
     const renewalsBox = await page
-      .getByRole('button', { name: 'Renewals: Yes', exact: true })
+      .getByRole('button', { name: 'Renewable: Yes', exact: true })
       .boundingBox();
     expect(accessBox!.y).toBeLessThan(renewalsBox!.y);
     await page
-      .getByRole('button', { name: 'Renewals: Yes', exact: true })
+      .getByRole('button', { name: 'Renewable: Yes', exact: true })
       .click();
-    const renewals = page.getByRole('dialog', { name: 'Renewals' });
+    const renewals = page.getByRole('dialog', { name: 'Renewable' });
     await expect(
-      renewals.getByRole('button', { name: 'About Renewals' })
+      renewals.getByRole('button', { name: 'About Renewable' })
     ).toHaveCount(0);
     await expect(
-      renewals.getByText('Holders can renew after it expires.')
+      renewals.getByText('Yes lets holders renew after it expires.')
     ).toBeVisible();
     await expect(renewals.getByText('Access ends', { exact: true })).toHaveCount(
       0
     );
     await renewals.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
-      page.getByRole('button', { name: 'Renewals: Yes', exact: true })
+      page.getByRole('button', { name: 'Renewable: Yes', exact: true })
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Transferable: Yes' })
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Destroy: No' })
+      page.getByRole('button', { name: 'Burnable: No' })
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Allowlist: Connect' })
     ).toBeVisible();
 
-    await page.getByRole('tab', { name: 'Membership', exact: true }).click();
+    await clickKindTab(page, 'Membership');
     await expect(
-      page.getByRole('button', { name: 'Transferable: Soulbound' })
+      page.getByRole('button', { name: 'Transferable: No' })
     ).toBeVisible();
     await expect(page.getByRole('group', { name: 'Access ends' })).toHaveCount(
       0
     );
     await expect(
-      page.getByRole('button', { name: 'Renewals: Yes' })
+      page.getByRole('button', { name: 'Renewable: Yes' })
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Renewals: Yes' }).click();
-    const membershipRenewals = page.getByRole('dialog', { name: 'Renewals' });
+    await page.getByRole('button', { name: 'Renewable: Yes' }).click();
+    const membershipRenewals = page.getByRole('dialog', { name: 'Renewable' });
     await expect(
       membershipRenewals.getByText('Access ends (optional)')
     ).toBeVisible();
