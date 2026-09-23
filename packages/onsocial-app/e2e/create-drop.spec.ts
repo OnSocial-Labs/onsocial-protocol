@@ -173,12 +173,22 @@ test.describe('create drop', () => {
   test('keeps the artwork well square when a photo is picked', async ({
     page,
   }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await openCreateDrop(page);
     await expect(page.locator('.drop-create-piece')).toBeVisible();
-    const pieceBox = await page.locator('.drop-create-piece').boundingBox();
-    expect(pieceBox).toBeTruthy();
-    expect(pieceBox!.width / pieceBox!.height).toBeCloseTo(1, 1);
-    expect(pieceBox!.width).toBeLessThan(320);
+    const phoneBox = await page.locator('.drop-create-piece').boundingBox();
+    expect(phoneBox).toBeTruthy();
+    expect(phoneBox!.width / phoneBox!.height).toBeCloseTo(1, 1);
+    expect(phoneBox!.width).toBeLessThan(320);
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const wideBox = await page.locator('.drop-create-piece').boundingBox();
+    const titleBox = await page.locator('.drop-create-title').boundingBox();
+    expect(wideBox).toBeTruthy();
+    expect(titleBox).toBeTruthy();
+    expect(wideBox!.width / wideBox!.height).toBeCloseTo(1, 1);
+    expect(wideBox!.width).toBeGreaterThan(phoneBox!.width);
+    expect(wideBox!.width).toBeLessThan(titleBox!.width);
 
     await setLookPreviewFile(
       page,
@@ -195,7 +205,7 @@ test.describe('create drop', () => {
       .boundingBox();
     expect(filledBox).toBeTruthy();
     expect(filledBox!.width / filledBox!.height).toBeCloseTo(1, 1);
-    expect(filledBox!.width).toBeCloseTo(pieceBox!.width, 1);
+    expect(filledBox!.width).toBeCloseTo(wideBox!.width, 1);
     await expect(page.locator('.drop-cover-seat-grid')).toHaveCount(0);
   });
 
