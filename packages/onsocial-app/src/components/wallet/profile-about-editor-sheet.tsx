@@ -18,7 +18,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react';
-import { Divider, MultiplyIcon, OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { Divider, MultiplyIcon } from '@onsocial/ui';
 import {
   PROFILE_ABOUT_ALIGN_OPTIONS,
   PROFILE_LEAD_MAX,
@@ -97,7 +97,10 @@ export function ProfileAboutEditorSheet({
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [formatChromeHost, setFormatChromeHost] =
     useState<HTMLDivElement | null>(null);
-  const [richTarget, setRichTarget] = useState<'lead' | 'more'>('more');
+  /** Format bar is on screen only while Lead or More has the caret. */
+  const [editingField, setEditingField] = useState<'lead' | 'more' | null>(
+    null
+  );
   const [leadOpen, setLeadOpen] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<number | null>(null);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
@@ -135,7 +138,7 @@ export function ProfileAboutEditorSheet({
   }, [leadOpen, showLeadEditor]);
 
   const handleClose = () => {
-    setRichTarget('more');
+    setEditingField(null);
     setLeadOpen(false);
     setSelectedPhoto(null);
     prevLeadOpenRef.current = false;
@@ -168,9 +171,22 @@ export function ProfileAboutEditorSheet({
     field: 'lead' | 'more'
   ) => {
     const next = event.relatedTarget;
-    if (next instanceof Node && formatChromeHost?.contains(next)) {
+    const stayingInFormat =
+      next instanceof Node &&
+      (formatChromeHost?.contains(next) ||
+        (next instanceof Element &&
+          Boolean(next.closest('.profile-about-edit-format-toolbar'))));
+    if (stayingInFormat) {
       return;
     }
+    const movingToRich =
+      next instanceof Element &&
+      Boolean(
+        next.closest(
+          '.account-editor-bio-shell--about, .account-editor-bio-shell--about-lead'
+        )
+      );
+    if (!movingToRich) setEditingField(null);
     const trimmed = value.trim();
     if (trimmed !== value) onChange(trimmed);
     if (field === 'lead' && !trimmed && !hasFilm) setLeadOpen(false);
@@ -305,59 +321,46 @@ export function ProfileAboutEditorSheet({
       className="profile-edit-slide profile-about-edit-slide"
       contentClassName="profile-edit-slide-body"
       toolbar={
-        <div
-          className="profile-about-edit-format-toolbar"
-          data-active="true"
-        >
+        editingField ? (
           <div
-            ref={setFormatChromeHost}
-            className="profile-about-edit-format-tools"
-            aria-label="Text formatting"
-          />
-          <div
-            className="profile-about-edit-align-tools"
-            role="group"
-            aria-label="Essay alignment"
+            className="profile-about-edit-format-toolbar"
+            data-active="true"
           >
-            {PROFILE_ABOUT_ALIGN_OPTIONS.map((option) => (
-              <button
-                key={option}
-                type="button"
-                className={`account-editor-bio-tool profile-about-edit-align-tool${
-                  aboutAlign === option ? ' is-active' : ''
-                }`}
-                aria-label={
-                  option === 'left'
-                    ? 'Align left'
-                    : option === 'center'
-                      ? 'Align center'
-                      : 'Justify'
-                }
-                aria-pressed={aboutAlign === option}
-                disabled={disabled}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => onAboutAlignChange(option)}
-              >
-                <ProfileAlignToolIcon option={option} />
-              </button>
-            ))}
-          </div>
-        </div>
-      }
-      footer={
-        <div className="profile-edit-sheet-footer">
-          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetAction
-              type="button"
-              variant="primary"
-              ready
-              disabled={disabled}
-              onClick={handleClose}
+            <div
+              ref={setFormatChromeHost}
+              className="profile-about-edit-format-tools"
+              aria-label="Text formatting"
+            />
+            <div
+              className="profile-about-edit-align-tools"
+              role="group"
+              aria-label="Essay alignment"
             >
-              Done
-            </OsSheetAction>
-          </OsSheetActions>
-        </div>
+              {PROFILE_ABOUT_ALIGN_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={`account-editor-bio-tool profile-about-edit-align-tool${
+                    aboutAlign === option ? ' is-active' : ''
+                  }`}
+                  aria-label={
+                    option === 'left'
+                      ? 'Align left'
+                      : option === 'center'
+                        ? 'Align center'
+                        : 'Justify'
+                  }
+                  aria-pressed={aboutAlign === option}
+                  disabled={disabled}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => onAboutAlignChange(option)}
+                >
+                  <ProfileAlignToolIcon option={option} />
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null
       }
     >
       <form
@@ -468,10 +471,10 @@ export function ProfileAboutEditorSheet({
                   placeholder="Lead"
                   disabled={disabled}
                   chromePortal={
-                    richTarget === 'lead' ? formatChromeHost : null
+                    editingField === 'lead' ? formatChromeHost : null
                   }
                   onFocus={(event) => {
-                    setRichTarget('lead');
+                    setEditingField('lead');
                     setLeadOpen(true);
                     scrollFieldIntoView(event);
                   }}
@@ -496,7 +499,7 @@ export function ProfileAboutEditorSheet({
                 disabled={disabled}
                 onClick={() => {
                   setLeadOpen(true);
-                  setRichTarget('lead');
+                  setEditingField('lead');
                 }}
               >
                 Lead
@@ -586,10 +589,10 @@ export function ProfileAboutEditorSheet({
                 placeholder="More for About"
                 disabled={disabled}
                 chromePortal={
-                  richTarget === 'more' ? formatChromeHost : null
+                  editingField === 'more' ? formatChromeHost : null
                 }
                 onFocus={(event) => {
-                  setRichTarget('more');
+                  setEditingField('more');
                   scrollFieldIntoView(event);
                 }}
                 onChange={onAboutBioChange}
