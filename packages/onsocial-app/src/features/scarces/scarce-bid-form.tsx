@@ -39,7 +39,10 @@ import {
 import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
-import { resolveScarcePartyIds } from '@/features/scarces/scarce-party-ids';
+import {
+  resolveScarcePartyIds,
+  scarceMakerPartyLabel,
+} from '@/features/scarces/scarce-party-ids';
 import { ScarcePostPreview } from '@/features/scarces/scarce-post-preview';
 import {
   ScarceProvenanceCopy,
@@ -827,7 +830,10 @@ export function ScarceBidForm({
           {parties.artistPending ? (
             <ScarcePartyLine pending />
           ) : artistId ? (
-            <ScarcePartyLine accountId={artistId} />
+            <ScarcePartyLine
+              label={scarceMakerPartyLabel(showDistinctSeller)}
+              accountId={artistId}
+            />
           ) : null}
           {showDistinctSeller && sellerId ? (
             <ScarcePartyLine label="Seller" accountId={sellerId} />
