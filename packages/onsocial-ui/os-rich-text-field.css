@@ -137,6 +137,29 @@
   line-height: inherit;
 }
 
+.account-editor-bio--wysiwyg pre {
+  margin: 0.7rem 0;
+  max-width: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.75rem;
+  background: rgb(var(--fg-rgb) / 0.05);
+  color: rgb(var(--fg-rgb) / 0.78);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.account-editor-bio--wysiwyg pre code {
+  font: inherit;
+  white-space: pre;
+}
+
 .account-editor-bio--wysiwyg p {
   margin: 0;
 }

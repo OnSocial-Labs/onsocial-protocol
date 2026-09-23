@@ -1,10 +1,7 @@
 'use client';
 
 import type { FocusEventHandler, Ref } from 'react';
-import {
-  OsRichTextField,
-  type OsRichTextTool,
-} from '@onsocial/ui';
+import { OsRichTextField, type OsRichTextTool } from '@onsocial/ui';
 
 export type ProfileBioRichTool = OsRichTextTool;
 
@@ -24,6 +21,8 @@ export function ProfileBioRichTextarea({
   maxLength,
   textareaRef,
   tools,
+  codeBlocks = false,
+  ariaLabel,
   chromePortal,
   rows = 1,
   className,
@@ -39,6 +38,9 @@ export function ProfileBioRichTextarea({
   /** @deprecated Prefer editor surface; kept for existing scroll-into-view refs. */
   textareaRef?: Ref<HTMLDivElement>;
   tools?: readonly ProfileBioRichTool[];
+  /** Article body — fenced and pasted snippets become a code block. */
+  codeBlocks?: boolean;
+  ariaLabel?: string;
   chromePortal?: HTMLElement | null;
   rows?: number;
   className?: string;
@@ -55,6 +57,8 @@ export function ProfileBioRichTextarea({
       maxLength={maxLength}
       editorRef={textareaRef}
       tools={tools}
+      codeBlocks={codeBlocks}
+      ariaLabel={ariaLabel}
       chromePortal={chromePortal}
       rows={rows}
       className={className}

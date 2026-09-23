@@ -100,6 +100,7 @@ export {
   isProfileBioRangeItalic,
   isProfileBioRangeList,
   profileAboutBlocks,
+  profileBioClipboardAsMarkdown,
   profileBioBoldRanges,
   profileBioHtmlToMarkdown,
   profileBioItalicRanges,

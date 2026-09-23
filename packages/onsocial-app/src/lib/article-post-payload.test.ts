@@ -305,6 +305,14 @@ describe('articleTeaseSource', () => {
       'Collecting #near tonight.'
     );
   });
+
+  it('drops a pasted snippet, including hash lines inside the fence', () => {
+    expect(
+      articleTeaseSource(
+        'Before\n```\n# include <stdio.h>\nint main() {}\n```\nAfter'
+      )
+    ).toBe('Before After');
+  });
 });
 
 describe('shouldShowWritingLink', () => {

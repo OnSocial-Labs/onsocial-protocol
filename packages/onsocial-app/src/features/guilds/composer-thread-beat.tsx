@@ -1,14 +1,10 @@
 'use client';
 
 import type { FocusEvent, ReactNode, RefObject } from 'react';
-import {
-  PROFILE_ABOUT_ALIGN_OPTIONS,
-  type PostRow,
-  type ProfileKind,
-} from '@onsocial/sdk';
+import { type PostRow, type ProfileKind } from '@onsocial/sdk';
 import { OsFieldRemove, osFieldBorderedClassName } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
-import { ProfileAlignToolIcon } from '@/components/profile/profile-align-tool-icon';
+import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { QuotedPostInset } from '@/features/home/post-card';
 import { PostMediaBlock } from '@/features/home/post-media';
 import { ComposerArticleCoverRow } from '@/features/guilds/composer-article-cover';
@@ -68,6 +64,9 @@ export function ComposerThreadBeat({
   mediaStripRef,
   placeInputRef,
   priorityMentionAccounts,
+  formatChromePortal,
+  onArticleBodyFocus,
+  onArticleBodyBlur,
   onPatch,
   onRemove,
   onFocusBeat,
@@ -97,6 +96,10 @@ export function ComposerThreadBeat({
   mediaStripRef?: RefObject<HTMLDivElement | null>;
   placeInputRef?: RefObject<HTMLInputElement | null>;
   priorityMentionAccounts?: MentionPriorityAccount[];
+  /** Header host for Bold / Italic / List / Heading while the article body is focused. */
+  formatChromePortal?: HTMLElement | null;
+  onArticleBodyFocus?: () => void;
+  onArticleBodyBlur?: (event: FocusEvent<HTMLDivElement>) => void;
   onPatch: (patch: Partial<ComposerSheetBeat>) => void;
   onRemove?: () => void;
   /**
@@ -205,56 +208,48 @@ export function ComposerThreadBeat({
             />
           ) : null}
           {rowCanArticle ? (
-            <div
-              className="guild-composer-article-align"
-              role="group"
-              aria-label="Article alignment"
-            >
-              {PROFILE_ABOUT_ALIGN_OPTIONS.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={`account-editor-bio-tool profile-about-edit-align-tool${
-                    row.articleAlign === option ? ' is-active' : ''
-                  }`}
-                  aria-label={
-                    option === 'left'
-                      ? 'Align left'
-                      : option === 'center'
-                        ? 'Align center'
-                        : 'Justify'
-                  }
-                  aria-pressed={row.articleAlign === option}
-                  disabled={pending}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => {
-                    onFocusBeat();
-                    onPatch({ articleAlign: option });
-                  }}
-                >
-                  <ProfileAlignToolIcon option={option} />
-                </button>
-              ))}
-            </div>
-          ) : null}
-          <ComposerHashtagTextarea
-            textareaRef={focused ? textareaRef : undefined}
-            placeholder={beatPlaceholder}
-            ariaLabel={
-              canComposeThread && beatCount > 1
-                ? `Post ${index + 1}`
-                : beatPlaceholder
-            }
-            value={row.text}
-            maxLength={POST_TEXT_MAX_LENGTH}
-            disabled={pending}
-            onChange={(value) => onPatch({ text: value })}
-            onFocus={(event) => {
-              onFocusBeat();
-              onScrollField(event);
-            }}
-            priorityMentionAccounts={priorityMentionAccounts}
-          />
+            <ProfileBioRichTextarea
+              className="guild-composer-article-body"
+              placeholder={COMPOSER_ARTICLE_PLACEHOLDER}
+              ariaLabel={
+                canComposeThread && beatCount > 1
+                  ? `Post ${index + 1}`
+                  : COMPOSER_ARTICLE_PLACEHOLDER
+              }
+              value={row.text}
+              maxLength={POST_TEXT_MAX_LENGTH}
+              disabled={pending}
+              rows={10}
+              codeBlocks
+              chromePortal={focused ? formatChromePortal : null}
+              onChange={(value) => onPatch({ text: value })}
+              onFocus={(event) => {
+                onFocusBeat();
+                onArticleBodyFocus?.();
+                onScrollField(event);
+              }}
+              onBlur={(event) => onArticleBodyBlur?.(event)}
+            />
+          ) : (
+            <ComposerHashtagTextarea
+              textareaRef={focused ? textareaRef : undefined}
+              placeholder={beatPlaceholder}
+              ariaLabel={
+                canComposeThread && beatCount > 1
+                  ? `Post ${index + 1}`
+                  : beatPlaceholder
+              }
+              value={row.text}
+              maxLength={POST_TEXT_MAX_LENGTH}
+              disabled={pending}
+              onChange={(value) => onPatch({ text: value })}
+              onFocus={(event) => {
+                onFocusBeat();
+                onScrollField(event);
+              }}
+              priorityMentionAccounts={priorityMentionAccounts}
+            />
+          )}
           {row.previews.length > 0 && !rowCanArticle ? (
             <div
               ref={focused ? mediaStripRef : undefined}

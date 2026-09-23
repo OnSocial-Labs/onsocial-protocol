@@ -9217,6 +9217,29 @@ a.os-surface-row {
     margin-top: 0.4em;
   }
 
+  .os-prose-code {
+    margin: 0.15rem 0;
+    max-width: 100%;
+    overflow: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 0.75rem 0.85rem;
+    border-radius: 0.75rem;
+    background: rgb(var(--fg-rgb) / 0.05);
+    color: rgb(var(--fg-rgb) / 0.78);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.84rem;
+    line-height: 1.45;
+    font-weight: 450;
+    white-space: pre;
+    text-align: left;
+  }
+
+  .os-prose-code code {
+    font: inherit;
+    white-space: pre;
+  }
+
   /* Film — inset gallery tiles, same radius as cards. */
   .portfolio-about-film {
     display: grid;
@@ -39105,12 +39128,6 @@ a.os-surface-row {
     font-weight: 650;
   }
 
-  .guild-composer-article-align {
-    display: flex;
-    gap: 0.2rem;
-    margin: 0 0 0.4rem;
-  }
-
   .guild-composer-cover {
     display: flex;
     align-items: center;
@@ -39217,7 +39234,8 @@ a.os-surface-row {
     .guild-composer-article-title,
   .guild-composer-beat-body[data-article-align='center'] .guild-composer-input,
   .guild-composer-beat-body[data-article-align='center']
-    .guild-composer-input-backdrop {
+    .guild-composer-input-backdrop,
+  .guild-composer-beat-body[data-article-align='center'] .ProseMirror {
     text-align: center;
   }
 
@@ -39225,9 +39243,20 @@ a.os-surface-row {
     .guild-composer-article-title,
   .guild-composer-beat-body[data-article-align='justify'] .guild-composer-input,
   .guild-composer-beat-body[data-article-align='justify']
-    .guild-composer-input-backdrop {
+    .guild-composer-input-backdrop,
+  .guild-composer-beat-body[data-article-align='justify'] .ProseMirror {
     text-align: justify;
     text-align-last: start;
+  }
+
+  /* Snippet lines scroll; TipTap's `.ProseMirror pre` would wrap them. */
+  .guild-composer-beat-body .ProseMirror pre,
+  .guild-composer-beat-body .ProseMirror pre code {
+    text-align: left;
+    text-align-last: auto;
+    white-space: pre;
+    overflow-wrap: normal;
+    word-break: normal;
   }
 
   /*
@@ -39256,13 +39285,25 @@ a.os-surface-row {
 
   .guild-composer-sheet-form[data-writing='article'] .guild-composer-input,
   .guild-composer-sheet-form[data-writing='article']
-    .guild-composer-input-backdrop {
+    .guild-composer-input-backdrop,
+  .guild-composer-sheet-form[data-writing='article'] .guild-composer-article-body,
+  .guild-composer-sheet-form[data-writing='article']
+    .guild-composer-article-body
+    .ProseMirror {
     font-size: 1.02rem;
     line-height: 1.62;
   }
 
-  .guild-composer-sheet-form[data-writing='article'] .guild-composer-input {
+  .guild-composer-sheet-form[data-writing='article'] .guild-composer-input,
+  .guild-composer-sheet-form[data-writing='article']
+    .guild-composer-article-body
+    .ProseMirror {
     min-height: 11.5rem;
+  }
+
+  .guild-composer-sheet-panel
+    .os-app-screen-toolbar:has(.profile-about-edit-format-toolbar) {
+    padding-block: 0.2rem 0.45rem;
   }
 
   .guild-composer-place-field {
@@ -45890,4 +45931,14 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.2;
+}
+
+/* Unlayered: TipTap injects `.ProseMirror pre { white-space: pre-wrap }`. */
+.guild-composer-beat-body .ProseMirror pre,
+.guild-composer-beat-body .ProseMirror pre code,
+.os-prose-code,
+.os-prose-code code {
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
 }

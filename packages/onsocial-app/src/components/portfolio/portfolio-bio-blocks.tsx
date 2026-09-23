@@ -37,6 +37,13 @@ export function PortfolioBioBlocks({
             </HeadingTag>
           );
         }
+        if (block.type === 'code') {
+          return (
+            <pre key={`${index}-code`} className="os-prose-code">
+              <code>{block.text}</code>
+            </pre>
+          );
+        }
         if (block.type === 'list') {
           return (
             <ul

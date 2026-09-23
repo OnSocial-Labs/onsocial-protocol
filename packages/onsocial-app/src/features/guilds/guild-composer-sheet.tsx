@@ -7,10 +7,15 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type FocusEvent,
   type FormEvent,
 } from 'react';
 import { flushSync } from 'react-dom';
-import { type PostRow, type ProfileAboutAlign } from '@onsocial/sdk';
+import {
+  PROFILE_ABOUT_ALIGN_OPTIONS,
+  type PostRow,
+  type ProfileAboutAlign,
+} from '@onsocial/sdk';
 import {
   ChartVerticalFillIcon,
   ChartVerticalIcon,
@@ -34,6 +39,7 @@ import {
 import { ChoiceDrawerMenu, type ChoiceOption } from '@onsocial/ui';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
+import { ProfileAlignToolIcon } from '@/components/profile/profile-align-tool-icon';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
 import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
@@ -392,6 +398,19 @@ function revokeComposerPreviewFiles(files: readonly File[]) {
   for (const file of files) postMediaRevokeLocalPreviewUrl(file);
 }
 
+function articleFormatFocusStays(
+  event: FocusEvent<HTMLElement>,
+  host: HTMLElement | null
+) {
+  const next = event.relatedTarget;
+  if (!(next instanceof Node)) return false;
+  if (host?.contains(next)) return true;
+  return (
+    next instanceof Element &&
+    Boolean(next.closest('.profile-about-edit-format-toolbar'))
+  );
+}
+
 /**
  * WYSIWYG composer in an OsPageSheet (`surface="page"` — same flat fill as the
  * old slide-over). Polls attach as an inline card on new posts only; replies/
@@ -472,6 +491,9 @@ export function ComposerSheet({
   const mediaStripRef = useRef<HTMLDivElement>(null);
   const [appliedMediaSeedKey, setAppliedMediaSeedKey] = useState('');
   const warningInputRef = useRef<HTMLInputElement>(null);
+  const [articleWriting, setArticleWriting] = useState(false);
+  const [articleFormatHost, setArticleFormatHost] =
+    useState<HTMLDivElement | null>(null);
   const viewport = useVisualViewportSheetMetrics(open);
   const postingAsDao = authorTargets?.mode === 'dao';
   const canComposeThread = mode === 'post' && !postingAsDao;
@@ -488,6 +510,7 @@ export function ComposerSheet({
     placeOpen,
     articleMode,
     articleTitle,
+    articleAlign,
   } = beat;
   const articleTitleTrimmed = Boolean(articleTitle.trim());
   const canUseArticle = mode === 'post' && !dropDraft && !pollEnabled;
@@ -628,6 +651,11 @@ export function ComposerSheet({
       ];
     });
   }
+
+  useEffect(() => {
+    if (open && articleMode) return;
+    setArticleWriting(false);
+  }, [open, articleMode]);
 
   useEffect(() => {
     if (!open) return;
@@ -1169,6 +1197,14 @@ export function ComposerSheet({
         mediaStripRef={focused ? mediaStripRef : undefined}
         placeInputRef={focused ? placeInputRef : undefined}
         priorityMentionAccounts={priorityMentionAccounts}
+        formatChromePortal={
+          articleWriting && focused ? articleFormatHost : null
+        }
+        onArticleBodyFocus={() => setArticleWriting(true)}
+        onArticleBodyBlur={(event) => {
+          if (articleFormatFocusStays(event, articleFormatHost)) return;
+          setArticleWriting(false);
+        }}
         onPatch={(patch) => patchBeat(index, patch)}
         onRemove={beats.length > 1 ? () => removeThreadBeat(index) : undefined}
         onFocusBeat={(options) => focusFieldOnBeat(index, options)}
@@ -1503,6 +1539,50 @@ export function ComposerSheet({
             </OsIconAction>
           }
           heading={showModeRail ? modeChipRail : undefined}
+          toolbar={
+            articleMode && articleWriting ? (
+              <div
+                className="profile-about-edit-format-toolbar"
+                data-active="true"
+              >
+                <div
+                  ref={setArticleFormatHost}
+                  className="profile-about-edit-format-tools"
+                  aria-label="Text formatting"
+                />
+                <div
+                  className="profile-about-edit-align-tools"
+                  role="group"
+                  aria-label="Article alignment"
+                >
+                  {PROFILE_ABOUT_ALIGN_OPTIONS.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      className={`account-editor-bio-tool profile-about-edit-align-tool${
+                        articleAlign === option ? ' is-active' : ''
+                      }`}
+                      aria-label={
+                        option === 'left'
+                          ? 'Align left'
+                          : option === 'center'
+                            ? 'Align center'
+                            : 'Justify'
+                      }
+                      aria-pressed={articleAlign === option}
+                      disabled={pending}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() =>
+                        patchBeat(safeFocus, { articleAlign: option })
+                      }
+                    >
+                      <ProfileAlignToolIcon option={option} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null
+          }
           actions={
             <OsSheetActions
               layout="row-compact"
