@@ -100,6 +100,23 @@ describe('composer thread draft', () => {
     clearComposerThreadDraft(key);
   });
 
+  it('restores a follow-up as a post', () => {
+    const key = composerNewPostDraftKey('follow-up');
+    writeComposerThreadDraft(key, [
+      emptyComposerBeat({ text: 'root' }),
+      emptyComposerBeat({
+        text: 'next',
+        articleMode: true,
+        articleTitle: 'Not a title',
+      }),
+    ]);
+    const draft = readComposerThreadDraft(key);
+    expect(draft[1]?.text).toBe('next');
+    expect(draft[1]?.articleMode).toBe(false);
+    expect(draft[1]?.articleTitle).toBe('');
+    clearComposerThreadDraft(key);
+  });
+
   it('treats any filled beat as dirty', () => {
     expect(composerThreadDraftIsDirty([emptyComposerBeat()])).toBe(false);
     expect(

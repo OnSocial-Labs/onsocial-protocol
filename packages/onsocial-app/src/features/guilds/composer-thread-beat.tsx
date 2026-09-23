@@ -114,7 +114,11 @@ export function ComposerThreadBeat({
   onMediaError: (message: string | null) => void;
 }) {
   const rowCanArticle =
-    mode === 'post' && row.articleMode && !row.drop && !row.pollEnabled;
+    index === 0 &&
+    mode === 'post' &&
+    row.articleMode &&
+    !row.drop &&
+    !row.pollEnabled;
   const rowCanPoll = mode === 'post' && !row.drop && !row.articleMode;
   const rowCanPlace = mode === 'post';
   const beatPlaceholder = row.pollEnabled

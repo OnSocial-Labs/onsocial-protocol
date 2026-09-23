@@ -9227,7 +9227,8 @@ a.os-surface-row {
     border-radius: 0.75rem;
     background: rgb(var(--fg-rgb) / 0.05);
     color: rgb(var(--fg-rgb) / 0.78);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 0.84rem;
     line-height: 1.45;
     font-weight: 450;
@@ -38350,13 +38351,66 @@ a.os-surface-row {
   .guild-composer-toolbar-tools {
     display: inline-flex;
     align-items: center;
-    gap: 0.15rem;
+    gap: 0;
     flex: 1;
     min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .guild-composer-toolbar-tools::-webkit-scrollbar {
+    display: none;
+  }
+
+  /*
+   * Unavailable tools collapse in place. The trailing gap lives inside the
+   * slot so a closed tool leaves no hole. Same chrome motion as rails.
+   */
+  .guild-composer-tool-slot {
+    display: grid;
+    grid-template-columns: minmax(0, 0fr);
+    min-width: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      grid-template-columns var(--os-motion-chrome, 220ms)
+        var(--os-motion-ease-soft, cubic-bezier(0.22, 1, 0.36, 1)),
+      opacity var(--os-motion-chip, 160ms) ease;
+  }
+
+  .guild-composer-tool-slot.is-open {
+    flex-shrink: 0;
+    grid-template-columns: minmax(0, 1fr);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .guild-composer-tool-slot-clip {
+    display: flex;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .guild-composer-tool-slot-gap {
+    flex: 0 0 0.15rem;
+    width: 0.15rem;
+  }
+
+  .guild-composer-tool-slot:last-child .guild-composer-tool-slot-gap {
+    flex-basis: 0;
+    width: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .guild-composer-tool-slot {
+      transition: none;
+    }
   }
 
   .guild-composer-tool {
     display: inline-flex;
+    flex: 0 0 2.35rem;
     align-items: center;
     justify-content: center;
     width: 2.35rem;
@@ -38489,6 +38543,80 @@ a.os-surface-row {
       var(--thread-pad-top) + var(--thread-avatar) + var(--thread-rail-gap)
     );
     bottom: 0;
+  }
+
+  .guild-composer-thread-item {
+    transition: padding-bottom var(--os-motion-chrome, 220ms)
+      var(--os-motion-ease-soft, cubic-bezier(0.22, 1, 0.36, 1));
+  }
+
+  /* Next post sits on the rail, under the writing. An article folds it away. */
+  .guild-composer-thread-add {
+    display: grid;
+    grid-template-rows: minmax(0, 0fr);
+    min-height: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      grid-template-rows var(--os-motion-chrome, 220ms)
+        var(--os-motion-ease-soft, cubic-bezier(0.22, 1, 0.36, 1)),
+      opacity var(--os-motion-chip, 160ms) ease;
+  }
+
+  .guild-composer-thread-add.is-open {
+    grid-template-rows: minmax(0, 1fr);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .guild-composer-thread-add-clip {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .guild-composer-thread-plus {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.52);
+    cursor: pointer;
+    transition: color var(--os-motion-chip, 160ms) ease;
+  }
+
+  .guild-composer-thread-plus:hover:not(:disabled),
+  .guild-composer-thread-plus:focus-visible:not(:disabled),
+  .guild-composer-thread-plus.is-active {
+    color: rgb(var(--fg-rgb) / 0.88);
+    outline: none;
+  }
+
+  .guild-composer-thread-plus.is-ready:not(:disabled) {
+    color: var(--os-action-solid);
+  }
+
+  .guild-composer-thread-plus.is-ready:hover:not(:disabled),
+  .guild-composer-thread-plus.is-ready:focus-visible:not(:disabled),
+  .guild-composer-thread-plus.is-ready.is-active {
+    color: var(--os-action-solid-hover);
+  }
+
+  .guild-composer-thread-plus:disabled {
+    color: rgb(var(--fg-rgb) / 0.26);
+    cursor: default;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .guild-composer-thread-item,
+    .guild-composer-thread-add {
+      transition: none;
+    }
   }
 
   .guild-composer-self.is-muted {
@@ -39134,22 +39262,18 @@ a.os-surface-row {
     gap: 0.55rem;
     width: 100%;
     margin: 0 0 0.55rem;
-    padding: 0.35rem 0.45rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.09);
-    border-radius: 0.65rem;
-    background: rgb(var(--fg-rgb) / 0.03);
+    padding: 0.15rem 0 0.35rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     font: inherit;
     color: inherit;
     text-align: left;
     cursor: pointer;
-    transition:
-      border-color 140ms ease,
-      background 140ms ease;
   }
 
-  .guild-composer-cover:hover:not(:disabled) {
-    border-color: rgb(var(--fg-rgb) / 0.16);
-    background: rgb(var(--fg-rgb) / 0.05);
+  .guild-composer-cover:hover:not(:disabled) .guild-composer-cover-value {
+    color: rgb(var(--fg-rgb) / 0.96);
   }
 
   .guild-composer-cover:disabled {
@@ -39286,7 +39410,8 @@ a.os-surface-row {
   .guild-composer-sheet-form[data-writing='article'] .guild-composer-input,
   .guild-composer-sheet-form[data-writing='article']
     .guild-composer-input-backdrop,
-  .guild-composer-sheet-form[data-writing='article'] .guild-composer-article-body,
+  .guild-composer-sheet-form[data-writing='article']
+    .guild-composer-article-body,
   .guild-composer-sheet-form[data-writing='article']
     .guild-composer-article-body
     .ProseMirror {
@@ -45944,7 +46069,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 }
 
 /* Face bio shells cap at 20rem. An article uses the same shell and the full column. */
-.guild-composer-sheet-form[data-writing='article'] .guild-composer-article-body {
+.guild-composer-sheet-form[data-writing='article']
+  .guild-composer-article-body {
   width: 100%;
   max-width: none;
   margin-inline: 0;

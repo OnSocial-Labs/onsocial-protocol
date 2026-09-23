@@ -9,6 +9,7 @@ import {
   type CSSProperties,
   type FocusEvent,
   type FormEvent,
+  type ReactNode,
 } from 'react';
 import { flushSync } from 'react-dom';
 import {
@@ -24,7 +25,7 @@ import {
   ImageIcon,
   MapMarkerFillIcon,
   MapMarkerIcon,
-  MultiplyIcon,
+  ChevronLeftIcon,
   NoteTextFillIcon,
   NoteTextIcon,
   OsHugSheet,
@@ -95,9 +96,11 @@ import { SHEET_Z } from '@/lib/sheet-z';
 import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import { composerProgressLabel } from '@/lib/composer-progress';
+import { composerToolbarToolShown } from '@/lib/composer-toolbar';
 import {
   canAddComposerThreadBeat,
   collapseTrailingEmptyComposerBeat,
+  composerBeatsForThread,
   composerBeatsToSubmit,
   composerThreadHasFilledExtras,
   emptyComposerBeat,
@@ -411,6 +414,28 @@ function articleFormatFocusStays(
   );
 }
 
+/** Collapses with the chrome motion. A closed slot leaves no gap in the row. */
+function ComposerToolSlot({
+  open,
+  children,
+}: {
+  open: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      className={`guild-composer-tool-slot${open ? ' is-open' : ''}`}
+      aria-hidden={open ? undefined : true}
+      inert={open ? undefined : true}
+    >
+      <span className="guild-composer-tool-slot-clip">
+        {children}
+        <span className="guild-composer-tool-slot-gap" aria-hidden />
+      </span>
+    </span>
+  );
+}
+
 /**
  * WYSIWYG composer in an OsPageSheet (`surface="page"` — same flat fill as the
  * old slide-over). Polls attach as an inline card on new posts only; replies/
@@ -496,9 +521,9 @@ export function ComposerSheet({
     useState<HTMLDivElement | null>(null);
   const viewport = useVisualViewportSheetMetrics(open);
   const postingAsDao = authorTargets?.mode === 'dao';
-  const canComposeThread = mode === 'post' && !postingAsDao;
-  const safeFocus = Math.min(focusedBeat, Math.max(0, beats.length - 1));
-  const beat = beats[safeFocus] ?? emptySheetBeat();
+  const threadBeats = composerBeatsForThread(beats);
+  const safeFocus = Math.min(focusedBeat, Math.max(0, threadBeats.length - 1));
+  const beat = threadBeats[safeFocus] ?? emptySheetBeat();
   const {
     text,
     pollEnabled,
@@ -513,13 +538,25 @@ export function ComposerSheet({
     articleAlign,
   } = beat;
   const articleTitleTrimmed = Boolean(articleTitle.trim());
-  const canUseArticle = mode === 'post' && !dropDraft && !pollEnabled;
-  const canUsePoll = mode === 'post' && !dropDraft && !articleMode;
-  const canUseMedia = !pollEnabled && !dropDraft;
-  const canUseDrop =
-    mode === 'post' && !pollEnabled && !articleMode && mediaFiles.length === 0;
-  const canUsePlace = mode === 'post';
-  const canAddThread = canComposeThread && canAddComposerThreadBeat(beats);
+  const toolbarState = {
+    mode,
+    postingAsDao,
+    articleMode,
+    pollEnabled,
+    hasDrop: Boolean(dropDraft),
+    hasMedia: mediaFiles.length > 0,
+    continuation: safeFocus > 0,
+    openingIsArticle: Boolean(threadBeats[0]?.articleMode),
+    soleBeat: threadBeats.length === 1,
+  };
+  const canComposeThread = mode === 'post' && !postingAsDao;
+  const showThreadPlus = composerToolbarToolShown('thread', toolbarState);
+  const canUseArticle = composerToolbarToolShown('article', toolbarState);
+  const canUsePoll = composerToolbarToolShown('poll', toolbarState);
+  const canUseMedia = composerToolbarToolShown('media', toolbarState);
+  const canUseDrop = composerToolbarToolShown('drop', toolbarState);
+  const canUsePlace = composerToolbarToolShown('place', toolbarState);
+  const canAddThread = canComposeThread && canAddComposerThreadBeat(threadBeats);
 
   const patchBeat = (index: number, partial: Partial<SheetBeat>) => {
     setBeats((current) => {
@@ -535,9 +572,9 @@ export function ComposerSheet({
   };
 
   const focusBeat = (nextFocus: number) => {
-    const next = collapseTrailingEmptyComposerBeat(beats, nextFocus);
-    if (next.beats.length !== beats.length) {
-      const dropped = beats[beats.length - 1];
+    const next = collapseTrailingEmptyComposerBeat(threadBeats, nextFocus);
+    if (next.beats.length !== threadBeats.length) {
+      const dropped = threadBeats[threadBeats.length - 1];
       if (dropped) revokeSheetBeatPreviews(dropped);
     }
     setBeats(next.beats);
@@ -545,10 +582,10 @@ export function ComposerSheet({
   };
 
   const removeThreadBeat = (index: number) => {
-    if (pending || beats.length < 2) return;
-    const next = removeComposerThreadBeat(beats, index, safeFocus);
-    if (next.beats.length === beats.length) return;
-    const removed = beats[index];
+    if (pending || threadBeats.length < 2) return;
+    const next = removeComposerThreadBeat(threadBeats, index, safeFocus);
+    if (next.beats.length === threadBeats.length) return;
+    const removed = threadBeats[index];
     if (removed) revokeSheetBeatPreviews(removed);
     setBeats(next.beats);
     setFocusedBeat(next.focus);
@@ -566,11 +603,11 @@ export function ComposerSheet({
   const requestAuthorMode = (next: 'me' | 'dao') => {
     if (!authorTargets) return;
     if (next === authorTargets.mode) return;
-    if (next === 'dao' && composerThreadHasFilledExtras(beats)) {
+    if (next === 'dao' && composerThreadHasFilledExtras(threadBeats)) {
       setDaoThreadConfirmOpen(true);
       return;
     }
-    if (next === 'dao' && beats.length > 1) {
+    if (next === 'dao' && threadBeats.length > 1) {
       collapseThreadToFirst();
     }
     authorTargets.onModeChange(next);
@@ -689,7 +726,7 @@ export function ComposerSheet({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (pending) return;
-    const publishBeats = publishableComposerBeats(beats, canComposeThread);
+    const publishBeats = publishableComposerBeats(threadBeats, canComposeThread);
     if (publishBeats.length === 0) return;
     if (publishBeats.some((row) => row.text.length > POST_TEXT_MAX_LENGTH)) {
       setMediaError(
@@ -736,11 +773,11 @@ export function ComposerSheet({
   const requestClose = () => {
     if (pending) return;
     setArticleWriting(false);
-    const first = beats[0] ?? emptySheetBeat();
+    const first = threadBeats[0] ?? emptySheetBeat();
     onClose({
       text: first.text,
       files: first.files,
-      beats: beats.map(composerBeatFromSheet),
+      beats: threadBeats.map(composerBeatFromSheet),
     });
   };
 
@@ -878,8 +915,8 @@ export function ComposerSheet({
   };
 
   const addThreadBeat = () => {
-    if (!canAddThread || pending) return;
-    const nextIndex = beats.length;
+    if (!showThreadPlus || !canAddThread || pending) return;
+    const nextIndex = threadBeats.length;
     flushSync(() => {
       setBeats((current) => {
         if (!canAddComposerThreadBeat(current)) return current;
@@ -971,7 +1008,7 @@ export function ComposerSheet({
   });
   const showProgress = progressLabel != null;
 
-  const publishBeats = publishableComposerBeats(beats, canComposeThread);
+  const publishBeats = publishableComposerBeats(threadBeats, canComposeThread);
   const threadPollReady = publishBeats.every((row) => {
     if (!row.pollEnabled) return true;
     const options = normalizePollOptions(row.pollOptions);
@@ -1163,8 +1200,9 @@ export function ComposerSheet({
     // steal back to title/textarea. Only muted-beat clicks request primary.
     if (!shouldForceComposerPrimaryFocus(options)) return;
 
-    const row = beats[index];
+    const row = threadBeats[index];
     const useTitle =
+      index === 0 &&
       mode === 'post' &&
       Boolean(row?.articleMode) &&
       !row?.drop &&
@@ -1181,11 +1219,11 @@ export function ComposerSheet({
         mode={mode}
         target={target}
         targetAuthorProfile={targetAuthorProfile}
-        muted={canComposeThread && beats.length > 1 && !focused}
+        muted={canComposeThread && threadBeats.length > 1 && !focused}
         focused={focused}
         pending={pending}
         canComposeThread={canComposeThread}
-        beatCount={beats.length}
+        beatCount={threadBeats.length}
         showDestinationMenus={showDestinationMenus}
         identitySlot={identitySlot}
         accountId={accountId}
@@ -1206,7 +1244,9 @@ export function ComposerSheet({
           setArticleWriting(false);
         }}
         onPatch={(patch) => patchBeat(index, patch)}
-        onRemove={beats.length > 1 ? () => removeThreadBeat(index) : undefined}
+        onRemove={
+          threadBeats.length > 1 ? () => removeThreadBeat(index) : undefined
+        }
         onFocusBeat={(options) => focusFieldOnBeat(index, options)}
         onScrollField={scrollFieldIntoView}
         onOpenLabels={() => setLabelsOpen(true)}
@@ -1253,229 +1293,212 @@ export function ComposerSheet({
           role="group"
           aria-label="Add to post"
         >
-          <button
-            type="button"
-            className={`guild-composer-tool${
-              (articleMode ? articleHasCoverPhoto : mediaFiles.length > 0)
-                ? ' is-active'
-                : ''
-            }`}
-            disabled={
-              !canUseMedia ||
-              pending ||
-              (!articleMode && mediaFiles.length >= POST_MEDIA_MAX_FILES)
-            }
-            title={
-              articleMode
-                ? articleHasCoverPhoto
-                  ? 'Change cover photo'
-                  : 'Add cover photo'
-                : 'Add photo or video'
-            }
-            aria-label={
-              articleMode
-                ? articleHasCoverPhoto
-                  ? 'Change cover photo'
-                  : 'Add cover photo'
-                : 'Add photo or video'
-            }
-            aria-pressed={
-              articleMode ? articleHasCoverPhoto : mediaFiles.length > 0
-            }
-            onClick={() => {
-              if (articleMode) {
-                setCoverOpen(true);
-                if (!articleHasCoverPhoto) pickArticleCoverPhoto();
-                return;
-              }
-              mediaInputRef.current?.click();
-            }}
-          >
-            {(articleMode ? articleHasCoverPhoto : mediaFiles.length > 0) ? (
-              <ImageFillIcon className="guild-composer-tool-icon" />
-            ) : (
-              <ImageIcon className="guild-composer-tool-icon" />
-            )}
-          </button>
-          <button
-            type="button"
-            className={`guild-composer-tool${articleMode ? ' is-active' : ''}`}
-            disabled={!canUseArticle || pending}
-            title={
-              canUseArticle
-                ? articleMode
-                  ? 'Switch to a regular post'
-                  : 'Write an article'
-                : 'Articles are for new posts'
-            }
-            aria-label={
-              canUseArticle
-                ? articleMode
-                  ? 'Switch to a regular post'
-                  : 'Write an article'
-                : 'Articles are for new posts'
-            }
-            aria-pressed={articleMode}
-            onClick={toggleArticle}
-          >
-            {articleMode ? (
-              <NoteTextFillIcon className="guild-composer-tool-icon" />
-            ) : (
-              <NoteTextIcon className="guild-composer-tool-icon" />
-            )}
-          </button>
-          <button
-            type="button"
-            className={`guild-composer-tool${pollEnabled ? ' is-active' : ''}`}
-            disabled={!canUsePoll || pending}
-            title={
-              canUsePoll
-                ? pollEnabled
-                  ? 'Remove poll'
-                  : 'Add poll'
-                : articleMode
-                  ? 'Turn off Article to add a poll'
-                  : 'Polls are for new posts'
-            }
-            aria-label={
-              canUsePoll
-                ? pollEnabled
-                  ? 'Remove poll'
-                  : 'Add poll'
-                : articleMode
-                  ? 'Turn off Article to add a poll'
-                  : 'Polls are for new posts'
-            }
-            aria-pressed={pollEnabled}
-            onClick={togglePoll}
-          >
-            {pollEnabled ? (
-              <ChartVerticalFillIcon className="guild-composer-tool-icon" />
-            ) : (
-              <ChartVerticalIcon className="guild-composer-tool-icon" />
-            )}
-          </button>
-          <button
-            type="button"
-            className={`guild-composer-tool${dropDraft ? ' is-active' : ''}`}
-            disabled={!canUseDrop || pending}
-            title={
-              canUseDrop
-                ? dropDraft
-                  ? 'Change Drop'
-                  : 'Post a Drop'
-                : pollEnabled
-                  ? 'Remove poll to post a Drop'
-                  : articleMode
-                    ? 'Turn off Article to post a Drop'
-                    : mediaFiles.length > 0
-                      ? 'Remove photos to post a Drop'
-                      : 'Drops are for new posts'
-            }
-            aria-label={
-              canUseDrop
-                ? dropDraft
-                  ? 'Change Drop'
-                  : 'Post a Drop'
-                : pollEnabled
-                  ? 'Remove poll to post a Drop'
-                  : articleMode
-                    ? 'Turn off Article to post a Drop'
-                    : mediaFiles.length > 0
-                      ? 'Remove photos to post a Drop'
-                      : 'Drops are for new posts'
-            }
-            aria-pressed={Boolean(dropDraft)}
-            onClick={() => {
-              if (!canUseDrop || pending) return;
-              setDropPickerOpen(true);
-            }}
-          >
-            {dropDraft ? (
-              <StarsCFillIcon className="guild-composer-tool-icon" />
-            ) : (
-              <StarsCIcon className="guild-composer-tool-icon" />
-            )}
-          </button>
-          <button
-            type="button"
-            className={`guild-composer-tool${placeOpen ? ' is-active' : ''}`}
-            disabled={!canUsePlace || pending}
-            title={
-              canUsePlace
-                ? placeOpen
-                  ? 'Remove place'
-                  : 'Add place'
-                : 'Place is for new posts'
-            }
-            aria-label={
-              canUsePlace
-                ? placeOpen
-                  ? 'Remove place'
-                  : 'Add place'
-                : 'Place is for new posts'
-            }
-            aria-pressed={placeOpen}
-            onClick={togglePlace}
-          >
-            {placeOpen ? (
-              <MapMarkerFillIcon className="guild-composer-tool-icon" />
-            ) : (
-              <MapMarkerIcon className="guild-composer-tool-icon" />
-            )}
-          </button>
-          {canComposeThread ? (
+          <ComposerToolSlot open={canUseMedia}>
             <button
               type="button"
               className={`guild-composer-tool${
-                plusPressed ? ' is-active' : ''
+                (articleMode ? articleHasCoverPhoto : mediaFiles.length > 0)
+                  ? ' is-active'
+                  : ''
               }`}
-              disabled={!canAddThread || pending}
-              title={threadPlusHint(beats)}
-              aria-label={threadPlusHint(beats)}
-              onMouseDown={(event) => {
-                if (!canAddThread || pending) return;
-                event.preventDefault();
+              disabled={
+                !canUseMedia ||
+                pending ||
+                (!articleMode && mediaFiles.length >= POST_MEDIA_MAX_FILES)
+              }
+              title={
+                articleMode
+                  ? articleHasCoverPhoto
+                    ? 'Change cover photo'
+                    : 'Add cover photo'
+                  : 'Add photo or video'
+              }
+              aria-label={
+                articleMode
+                  ? articleHasCoverPhoto
+                    ? 'Change cover photo'
+                    : 'Add cover photo'
+                  : 'Add photo or video'
+              }
+              aria-pressed={
+                articleMode ? articleHasCoverPhoto : mediaFiles.length > 0
+              }
+              onClick={() => {
+                if (articleMode) {
+                  setCoverOpen(true);
+                  if (!articleHasCoverPhoto) pickArticleCoverPhoto();
+                  return;
+                }
+                mediaInputRef.current?.click();
               }}
-              onPointerDown={() => {
-                if (!canAddThread || pending) return;
-                setPlusPressed(true);
-              }}
-              onPointerUp={() => setPlusPressed(false)}
-              onPointerCancel={() => setPlusPressed(false)}
-              onPointerLeave={() => setPlusPressed(false)}
-              onClick={addThreadBeat}
             >
-              {plusPressed ? (
-                <PlusCircleFillIcon className="guild-composer-tool-icon" />
+              {(articleMode ? articleHasCoverPhoto : mediaFiles.length > 0) ? (
+                <ImageFillIcon className="guild-composer-tool-icon" />
               ) : (
-                <PlusCircleIcon className="guild-composer-tool-icon" />
+                <ImageIcon className="guild-composer-tool-icon" />
               )}
             </button>
-          ) : null}
-          <button
-            type="button"
-            className={`guild-composer-tool guild-composer-tool--cw${
-              contentWarning.trim() || nsfw ? ' is-active' : ''
-            }`}
-            disabled={pending}
-            title={
-              contentWarning.trim() || nsfw
-                ? 'Edit content labels'
-                : 'Add content warning'
-            }
-            aria-label={
-              contentWarning.trim() || nsfw
-                ? 'Edit content labels'
-                : 'Add content warning'
-            }
-            aria-pressed={Boolean(contentWarning.trim() || nsfw)}
-            onClick={() => setLabelsOpen(true)}
-          >
-            <span className="guild-composer-tool-cw" aria-hidden>
-              CW
-            </span>
-          </button>
+          </ComposerToolSlot>
+          <ComposerToolSlot open={canUseArticle}>
+            <button
+              type="button"
+              className={`guild-composer-tool${articleMode ? ' is-active' : ''}`}
+              disabled={!canUseArticle || pending}
+              title={
+                canUseArticle
+                  ? articleMode
+                    ? 'Switch to a regular post'
+                    : 'Write an article'
+                  : 'Articles are for new posts'
+              }
+              aria-label={
+                canUseArticle
+                  ? articleMode
+                    ? 'Switch to a regular post'
+                    : 'Write an article'
+                  : 'Articles are for new posts'
+              }
+              aria-pressed={articleMode}
+              onClick={toggleArticle}
+            >
+              {articleMode ? (
+                <NoteTextFillIcon className="guild-composer-tool-icon" />
+              ) : (
+                <NoteTextIcon className="guild-composer-tool-icon" />
+              )}
+            </button>
+          </ComposerToolSlot>
+          <ComposerToolSlot open={canUsePoll}>
+            <button
+              type="button"
+              className={`guild-composer-tool${pollEnabled ? ' is-active' : ''}`}
+              disabled={!canUsePoll || pending}
+              title={
+                canUsePoll
+                  ? pollEnabled
+                    ? 'Remove poll'
+                    : 'Add poll'
+                  : articleMode
+                    ? 'Turn off Article to add a poll'
+                    : 'Polls are for new posts'
+              }
+              aria-label={
+                canUsePoll
+                  ? pollEnabled
+                    ? 'Remove poll'
+                    : 'Add poll'
+                  : articleMode
+                    ? 'Turn off Article to add a poll'
+                    : 'Polls are for new posts'
+              }
+              aria-pressed={pollEnabled}
+              onClick={togglePoll}
+            >
+              {pollEnabled ? (
+                <ChartVerticalFillIcon className="guild-composer-tool-icon" />
+              ) : (
+                <ChartVerticalIcon className="guild-composer-tool-icon" />
+              )}
+            </button>
+          </ComposerToolSlot>
+          <ComposerToolSlot open={canUseDrop}>
+            <button
+              type="button"
+              className={`guild-composer-tool${dropDraft ? ' is-active' : ''}`}
+              disabled={!canUseDrop || pending}
+              title={
+                canUseDrop
+                  ? dropDraft
+                    ? 'Change Drop'
+                    : 'Post a Drop'
+                  : pollEnabled
+                    ? 'Remove poll to post a Drop'
+                    : articleMode
+                      ? 'Turn off Article to post a Drop'
+                      : mediaFiles.length > 0
+                        ? 'Remove photos to post a Drop'
+                        : 'Drops are for new posts'
+              }
+              aria-label={
+                canUseDrop
+                  ? dropDraft
+                    ? 'Change Drop'
+                    : 'Post a Drop'
+                  : pollEnabled
+                    ? 'Remove poll to post a Drop'
+                    : articleMode
+                      ? 'Turn off Article to post a Drop'
+                      : mediaFiles.length > 0
+                        ? 'Remove photos to post a Drop'
+                        : 'Drops are for new posts'
+              }
+              aria-pressed={Boolean(dropDraft)}
+              onClick={() => {
+                if (!canUseDrop || pending) return;
+                setDropPickerOpen(true);
+              }}
+            >
+              {dropDraft ? (
+                <StarsCFillIcon className="guild-composer-tool-icon" />
+              ) : (
+                <StarsCIcon className="guild-composer-tool-icon" />
+              )}
+            </button>
+          </ComposerToolSlot>
+          <ComposerToolSlot open={canUsePlace}>
+            <button
+              type="button"
+              className={`guild-composer-tool${placeOpen ? ' is-active' : ''}`}
+              disabled={!canUsePlace || pending}
+              title={
+                canUsePlace
+                  ? placeOpen
+                    ? 'Remove place'
+                    : 'Add place'
+                  : 'Place is for new posts'
+              }
+              aria-label={
+                canUsePlace
+                  ? placeOpen
+                    ? 'Remove place'
+                    : 'Add place'
+                  : 'Place is for new posts'
+              }
+              aria-pressed={placeOpen}
+              onClick={togglePlace}
+            >
+              {placeOpen ? (
+                <MapMarkerFillIcon className="guild-composer-tool-icon" />
+              ) : (
+                <MapMarkerIcon className="guild-composer-tool-icon" />
+              )}
+            </button>
+          </ComposerToolSlot>
+          <ComposerToolSlot open>
+            <button
+              type="button"
+              className={`guild-composer-tool guild-composer-tool--cw${
+                contentWarning.trim() || nsfw ? ' is-active' : ''
+              }`}
+              disabled={pending}
+              title={
+                contentWarning.trim() || nsfw
+                  ? 'Edit content labels'
+                  : 'Add content warning'
+              }
+              aria-label={
+                contentWarning.trim() || nsfw
+                  ? 'Edit content labels'
+                  : 'Add content warning'
+              }
+              aria-pressed={Boolean(contentWarning.trim() || nsfw)}
+              onClick={() => setLabelsOpen(true)}
+            >
+              <span className="guild-composer-tool-cw" aria-hidden>
+                CW
+              </span>
+            </button>
+          </ComposerToolSlot>
         </div>
         <div className="guild-composer-toolbar-end">
           <span
@@ -1531,11 +1554,11 @@ export function ComposerSheet({
           embedded
           leading={
             <OsIconAction
-              ariaLabel="Close"
+              ariaLabel="Back"
               disabled={pending}
               onClick={requestClose}
             >
-              <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
+              <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
             </OsIconAction>
           }
           heading={showModeRail ? modeChipRail : undefined}
@@ -1637,21 +1660,24 @@ export function ComposerSheet({
                   post={target}
                   authorProfile={targetAuthorProfile}
                 />
-                {renderBeat(beats[0] ?? emptySheetBeat(), 0)}
+                {renderBeat(threadBeats[0] ?? emptySheetBeat(), 0)}
               </div>
-            ) : canComposeThread && beats.length > 1 ? (
+            ) : canComposeThread ? (
               <div
                 className="guild-composer-thread"
                 role="list"
                 aria-label="Thread"
               >
-                {beats.map((row, index) => (
+                {threadBeats.map((row, index) => (
                   <div
                     key={row.id}
                     role="listitem"
                     className={[
                       'guild-composer-thread-item',
-                      index < beats.length - 1 ? 'is-down' : '',
+                      index < threadBeats.length - 1 ||
+                      (showThreadPlus && index === threadBeats.length - 1)
+                        ? 'is-down'
+                        : '',
                       index > 0 ? 'is-up' : '',
                     ]
                       .filter(Boolean)
@@ -1660,9 +1686,47 @@ export function ComposerSheet({
                     {renderBeat(row, index)}
                   </div>
                 ))}
+                <div
+                  role="listitem"
+                  className={`guild-composer-thread-add${
+                    showThreadPlus ? ' is-open' : ''
+                  }`}
+                  aria-hidden={showThreadPlus ? undefined : true}
+                  inert={showThreadPlus ? undefined : true}
+                >
+                  <div className="guild-composer-thread-add-clip">
+                    <button
+                      type="button"
+                      className={`guild-composer-thread-plus${
+                        canAddThread && !pending ? ' is-ready' : ''
+                      }${plusPressed ? ' is-active' : ''}`}
+                      disabled={!canAddThread || pending}
+                      title={threadPlusHint(threadBeats)}
+                      aria-label={threadPlusHint(threadBeats)}
+                      onMouseDown={(event) => {
+                        if (!canAddThread || pending) return;
+                        event.preventDefault();
+                      }}
+                      onPointerDown={() => {
+                        if (!canAddThread || pending) return;
+                        setPlusPressed(true);
+                      }}
+                      onPointerUp={() => setPlusPressed(false)}
+                      onPointerCancel={() => setPlusPressed(false)}
+                      onPointerLeave={() => setPlusPressed(false)}
+                      onClick={addThreadBeat}
+                    >
+                      {canAddThread && !pending ? (
+                        <PlusCircleFillIcon className="guild-composer-tool-icon" />
+                      ) : (
+                        <PlusCircleIcon className="guild-composer-tool-icon" />
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
             ) : (
-              renderBeat(beats[0] ?? emptySheetBeat(), 0)
+              renderBeat(threadBeats[0] ?? emptySheetBeat(), 0)
             )}
 
             <input

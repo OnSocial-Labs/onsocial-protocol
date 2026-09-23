@@ -9,6 +9,7 @@ import {
 import type { ArticleCoverPin } from '@/lib/article-post-payload';
 import {
   composerBeatHasContent,
+  composerBeatsForThread,
   emptyComposerBeat,
   type ComposerBeat,
 } from '@/lib/composer-thread';
@@ -132,7 +133,9 @@ export function readComposerThreadDraft(key: string): ComposerBeat[] {
   const stored = readStored(key);
   if (stored.length === 0) return [];
   const files = memoryFiles.get(key) ?? [];
-  return stored.map((beat, index) => fromStored(beat, files[index] ?? []));
+  return composerBeatsForThread(
+    stored.map((beat, index) => fromStored(beat, files[index] ?? []))
+  );
 }
 
 export function writeComposerThreadDraft(

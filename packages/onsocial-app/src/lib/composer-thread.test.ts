@@ -10,6 +10,8 @@ import {
   keepUnsentComposerBeats,
   removeComposerThreadBeat,
   composerBeatHasContent,
+  composerBeatAsPost,
+  composerBeatsForThread,
   composerBeatsToSubmit,
   composerSubmitHasContent,
   emptyComposerBeat,
@@ -233,6 +235,34 @@ describe('composer thread', () => {
         markColor: 'amber',
       },
     });
+  });
+
+  it('publishes a follow-up as a post even if it was stored as an article', () => {
+    const payload = composerBeatsToSubmit([
+      emptyComposerBeat({ text: 'root' }),
+      emptyComposerBeat({
+        text: 'next',
+        articleMode: true,
+        articleTitle: 'Not a title',
+      }),
+    ]);
+    expect(payload?.article).toBeUndefined();
+    expect(payload?.thread).toEqual([{ text: 'next' }]);
+    expect(
+      composerBeatsForThread([
+        emptyComposerBeat({ text: 'root', articleMode: true, articleTitle: 'Piece' }),
+        emptyComposerBeat({
+          text: 'next',
+          articleMode: true,
+          articleTitle: 'Not a title',
+        }),
+      ]).map((beat) => beat.articleTitle)
+    ).toEqual(['Piece', '']);
+    expect(
+      composerBeatAsPost(
+        emptyComposerBeat({ text: 'next', articleTitle: 'Not a title' })
+      ).articleMode
+    ).toBe(false);
   });
 
   it('ignores articleMode without a title on submit', () => {
