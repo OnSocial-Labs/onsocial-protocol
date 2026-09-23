@@ -74,6 +74,25 @@ export function dropCreateAttachAction(kind: DropCreateAttachAction): string {
   }
 }
 
+/** Empty attach line — the file you are about to add. Preview and reorder live on the list. */
+export type DropCreateAttachHintKind = 'single' | 'album' | 'issue' | 'book';
+
+export function dropCreateAttachHint(
+  kind: DropCreateAttachHintKind,
+  limits: { maxTracks?: number; maxChapters?: number } = {}
+): string {
+  switch (kind) {
+    case 'single':
+      return 'MP3, M4A, WAV, or similar · ≤20 MB';
+    case 'album':
+      return `2–${limits.maxTracks ?? 30} tracks · MP3, M4A, WAV, or similar · ≤20 MB each`;
+    case 'issue':
+      return '.md for the reader · PDF ok · ≤500 KB text / 20 MB PDF';
+    case 'book':
+      return `2–${limits.maxChapters ?? 100} chapters · .md for reading`;
+  }
+}
+
 /** Optional whole-book PDF waits in Advanced. Chapters stay on the piece. */
 export function dropCreateBookPdfPlacement(): 'advanced' {
   return 'advanced';

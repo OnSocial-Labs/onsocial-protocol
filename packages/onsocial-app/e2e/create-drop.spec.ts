@@ -265,6 +265,9 @@ test.describe('create drop', () => {
       'Add track'
     );
     await expect(
+      page.locator('[data-drop-create-attach="audio"] .drop-create-attach-hint')
+    ).toHaveText('MP3, M4A, WAV, or similar · ≤20 MB');
+    await expect(
       page
         .locator('[data-drop-create-section="work"]')
         .getByText('Track', { exact: true })
@@ -276,6 +279,9 @@ test.describe('create drop', () => {
     await expect(page.locator('.drop-create-attach-action')).toHaveText(
       'Add tracks'
     );
+    await expect(
+      page.locator('[data-drop-create-attach="audio"] .drop-create-attach-hint')
+    ).toHaveText('2–30 tracks · MP3, M4A, WAV, or similar · ≤20 MB each');
 
     await page.getByRole('tab', { name: 'Writing', exact: true }).click();
     await expect(
@@ -285,6 +291,11 @@ test.describe('create drop', () => {
       'Add file'
     );
     await expect(
+      page.locator(
+        '[data-drop-create-attach="writing"] .drop-create-attach-hint'
+      )
+    ).toHaveText('.md for the reader · PDF ok · ≤500 KB text / 20 MB PDF');
+    await expect(
       page.getByRole('group', { name: 'Issue file actions' })
     ).toHaveCount(0);
 
@@ -292,6 +303,11 @@ test.describe('create drop', () => {
     await expect(page.locator('.drop-create-attach-action')).toHaveText(
       'Add files'
     );
+    await expect(
+      page.locator(
+        '[data-drop-create-attach="writing"] .drop-create-attach-hint'
+      )
+    ).toHaveText('2–100 chapters · .md for reading');
     await expect(
       page.locator('[data-drop-create-attach="book-pdf"]')
     ).toHaveCount(0);

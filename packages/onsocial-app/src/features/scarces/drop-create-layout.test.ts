@@ -4,6 +4,7 @@ import {
   dropCreateAdvancedExtraAction,
   dropCreateAdvancedExtraOpen,
   dropCreateAttachAction,
+  dropCreateAttachHint,
   dropCreateDescriptionOpen,
   dropCreateDescriptionToggle,
   dropCreateBookPdfPlacement,
@@ -100,6 +101,30 @@ describe('dropCreateAttachAction', () => {
     expect(dropCreateAttachAction('file')).toBe('Add file');
     expect(dropCreateAttachAction('files')).toBe('Add files');
     expect(dropCreateAttachAction('pdf')).toBe('Add PDF');
+  });
+});
+
+describe('dropCreateAttachHint', () => {
+  it('describes the file to add, and leaves preview and reorder for the list', () => {
+    expect(dropCreateAttachHint('single')).toBe(
+      'MP3, M4A, WAV, or similar · ≤20 MB'
+    );
+    expect(dropCreateAttachHint('album', { maxTracks: 30 })).toBe(
+      '2–30 tracks · MP3, M4A, WAV, or similar · ≤20 MB each'
+    );
+    expect(dropCreateAttachHint('issue')).toBe(
+      '.md for the reader · PDF ok · ≤500 KB text / 20 MB PDF'
+    );
+    expect(dropCreateAttachHint('book', { maxChapters: 100 })).toBe(
+      '2–100 chapters · .md for reading'
+    );
+    for (const hint of [
+      dropCreateAttachHint('single'),
+      dropCreateAttachHint('album', { maxTracks: 30 }),
+      dropCreateAttachHint('book', { maxChapters: 100 }),
+    ]) {
+      expect(hint.toLowerCase()).not.toMatch(/preview|reorder/);
+    }
   });
 });
 

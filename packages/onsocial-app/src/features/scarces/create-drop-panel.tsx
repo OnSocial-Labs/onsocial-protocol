@@ -130,6 +130,7 @@ import {
 import {
   dropCreateAllowlistSummary,
   dropCreateAttachAction,
+  dropCreateAttachHint,
   dropCreateDescriptionOpen,
   dropCreateDescriptionToggle,
   dropCreateBookPdfPlacement,
@@ -3093,9 +3094,10 @@ export function CreateDropPanel() {
                       )}
                     </button>
                     <p className="drop-create-attach-hint">
-                      {musicFormat === 'single'
-                        ? 'Tap to preview · MP3, M4A, WAV, or similar · ≤20 MB'
-                        : `Drag to reorder · tap to preview · 2–${DROP_AUDIO_MAX_TRACKS} tracks · ≤20 MB each`}
+                      {dropCreateAttachHint(
+                        musicFormat === 'single' ? 'single' : 'album',
+                        { maxTracks: DROP_AUDIO_MAX_TRACKS }
+                      )}
                     </p>
                   </>
                 )}
@@ -3189,9 +3191,10 @@ export function CreateDropPanel() {
                       )}
                     </button>
                     <p className="drop-create-attach-hint">
-                      {writingFormat === 'issue'
-                        ? '.md for the reader · PDF ok · ≤500 KB text / 20 MB PDF'
-                        : `Drag title to reorder · 2–${DROP_WRITING_MAX_CHAPTERS} · .md for reading`}
+                      {dropCreateAttachHint(
+                        writingFormat === 'issue' ? 'issue' : 'book',
+                        { maxChapters: DROP_WRITING_MAX_CHAPTERS }
+                      )}
                     </p>
                   </>
                 )}
