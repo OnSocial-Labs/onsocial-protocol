@@ -130,7 +130,9 @@ test.describe('create drop', () => {
         .locator('[data-drop-create-section="work"]')
         .getByText('Artwork', { exact: true })
     ).toHaveCount(0);
-    await expect(page.locator('.drop-kind-lede')).toHaveCount(0);
+    await expect(page.locator('.drop-kind-lede')).toHaveText(
+      'Limited editions fans collect until they sell out.'
+    );
     await expect(
       page.locator('[data-drop-create-section="title"] #drop-create-title')
     ).toBeVisible();
@@ -146,6 +148,16 @@ test.describe('create drop', () => {
         .getByLabel('Price per edition in NEAR')
     ).toBeVisible();
     await expect(page.locator('.drop-create-deal-sep')).toHaveText('·');
+    const supply = page.getByLabel('Total supply');
+    const twoDigits = await supply.boundingBox();
+    await supply.fill('10000');
+    const fiveDigits = await supply.boundingBox();
+    expect(fiveDigits!.width).toBeGreaterThan(twoDigits!.width + 8);
+    const supplyFits = await supply.evaluate(
+      (el) => el.scrollWidth <= el.clientWidth + 1
+    );
+    expect(supplyFits).toBe(true);
+    await supply.fill('25');
     await expect(page.getByRole('group', { name: 'Quick prices' })).toHaveCount(
       0
     );
@@ -401,7 +413,7 @@ test.describe('create drop', () => {
     const transferable = page.getByRole('dialog', { name: 'Transferable' });
     await expect(
       transferable.getByText(
-        'Yes means they can resell. Soulbound stays with them.'
+        'Yes means they can resell. No keeps the edition with them.'
       )
     ).toBeVisible();
     await expect(
@@ -446,7 +458,9 @@ test.describe('create drop', () => {
   test('tickets show Event and Postpone in Advanced', async ({ page }) => {
     await openCreateDrop(page);
     await page.getByRole('tab', { name: 'Tickets', exact: true }).click();
-    await expect(page.locator('.drop-kind-lede')).toHaveCount(0);
+    await expect(page.locator('.drop-kind-lede')).toHaveText(
+      'Event entry — one redeem per ticket.'
+    );
     await expect(
       page.getByRole('button', { name: 'Hide advanced' })
     ).toBeVisible();
@@ -565,7 +579,7 @@ test.describe('create drop', () => {
 
     await page.getByRole('tab', { name: 'Membership', exact: true }).click();
     await expect(
-      page.getByRole('button', { name: 'Transferable: Soulbound' })
+      page.getByRole('button', { name: 'Transferable: No' })
     ).toBeVisible();
     await expect(page.getByRole('group', { name: 'Access ends' })).toHaveCount(
       0

@@ -1570,7 +1570,7 @@ export function CreateDropPanel() {
       { label: 'Price', value: price ? `${price} NEAR` : 'Free' },
       {
         label: 'Transferable',
-        value: transferable ? 'Yes' : 'Soulbound',
+        value: transferable ? 'Yes' : 'No',
       },
       {
         label: 'Destroy',
@@ -2612,7 +2612,7 @@ export function CreateDropPanel() {
         onBlurCapture={handleFormBlurCapture}
         onSubmit={handleSubmit}
       >
-        <p className="sr-only" aria-live="polite">
+        <p className="drop-kind-lede" aria-live="polite">
           {template.tagline}
         </p>
         {needsWalletConfirm ? (
@@ -3931,7 +3931,7 @@ export function CreateDropPanel() {
               disabled={pending}
               onClick={() => setTransferable(false)}
             >
-              Soulbound
+              No
             </button>
           </div>
         ) : null}

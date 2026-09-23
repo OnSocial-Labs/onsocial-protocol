@@ -100,13 +100,13 @@ const DROP_FIELD_INFO: Record<
     title: 'Transferable',
     summary: 'Whether collectors can move or resell their edition.',
     detail:
-      'Yes allows transfer and resale. Soulbound keeps the edition with the buyer.',
+      'Yes allows transfer and resale. No keeps the edition with the buyer.',
   },
   burnable: {
     title: 'Destroy',
     summary: 'Whether the holder can destroy their edition.',
     detail:
-      'No keeps every edition on-chain. Yes lets the holder destroy theirs — gone for good, no refund.',
+      'No keeps every edition. Yes lets the holder destroy theirs — gone for good, no refund.',
   },
   postpone: {
     title: 'Postpone',

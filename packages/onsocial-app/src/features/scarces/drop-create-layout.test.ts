@@ -177,7 +177,7 @@ describe('dropCreateExtraHint', () => {
       'When collectors can mint.'
     );
     expect(dropCreateExtraHint('perWallet')).toMatch(/one wallet/);
-    expect(dropCreateExtraHint('transferable')).toMatch(/Soulbound/);
+    expect(dropCreateExtraHint('transferable')).toMatch(/keeps the edition/);
     expect(dropCreateExtraHint('burnable')).toMatch(/keeps the edition/);
   });
 });
@@ -223,7 +223,7 @@ describe('dropCreate summaries', () => {
     expect(dropCreatePerWalletSummary('', 'editions')).toBe('No limit');
     expect(dropCreatePerWalletSummary('2', 'editions')).toBe('2 editions');
     expect(dropCreateTransferableSummary(true)).toBe('Yes');
-    expect(dropCreateTransferableSummary(false)).toBe('Soulbound');
+    expect(dropCreateTransferableSummary(false)).toBe('No');
     expect(dropCreateBurnableSummary(false)).toBe('No');
     expect(dropCreateBurnableSummary(true)).toBe('Yes');
     expect(

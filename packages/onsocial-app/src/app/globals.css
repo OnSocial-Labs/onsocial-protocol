@@ -35242,7 +35242,10 @@ a.os-surface-row {
 
   .drop-create-form .drop-create-deal-line .suffix-field-input,
   .drop-create-form .drop-create-deal-line .os-amount-field-input {
-    width: 3.2ch !important;
+    width: auto !important;
+    min-width: 1ch !important;
+    max-width: 14ch !important;
+    field-sizing: content;
     flex: 0 0 auto !important;
     padding: 0 !important;
     font-size: 1.15rem !important;
@@ -35250,10 +35253,7 @@ a.os-surface-row {
     letter-spacing: -0.02em !important;
     line-height: 1.2 !important;
     font-family: inherit !important;
-  }
-
-  .drop-create-form .drop-create-deal-line .os-amount-field-input {
-    width: 4.2ch !important;
+    font-variant-numeric: tabular-nums;
   }
 
   .drop-create-form .drop-create-deal-line .suffix-field-input:focus,
@@ -35482,7 +35482,7 @@ a.os-surface-row {
 
   /* Kind one-liner under the tabs — updates on pick; detail stays in header ?. */
   .drop-kind-lede {
-    margin: 0 0 0.85rem;
+    margin: 0;
     font-size: 0.875rem;
     line-height: 1.35;
     color: rgb(var(--fg-rgb) / 0.62);

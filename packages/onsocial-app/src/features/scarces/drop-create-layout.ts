@@ -188,7 +188,7 @@ export function dropCreateExtraHint(
     case 'perWallet':
       return 'Cap how many one wallet can collect.';
     case 'transferable':
-      return 'Yes means they can resell. Soulbound stays with them.';
+      return 'Yes means they can resell. No keeps the edition with them.';
     case 'renewals':
       return opts.isTicket
         ? 'Push the event end later if the show moves.'
@@ -273,7 +273,7 @@ export function dropCreatePerWalletSummary(
 }
 
 export function dropCreateTransferableSummary(transferable: boolean): string {
-  return transferable ? 'Yes' : 'Soulbound';
+  return transferable ? 'Yes' : 'No';
 }
 
 /** Destroy row — No is the product default (editions stay). */
