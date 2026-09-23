@@ -6,9 +6,16 @@ import {
   dropCreateAttachAction,
   dropCreateAttachHint,
   dropCreateDescriptionOpen,
+  dropCreateDescriptionPlaceholder,
   dropCreateDescriptionToggle,
   dropCreateBookPdfPlacement,
+  dropCreateDealDraftDirty,
+  dropCreateDesignDraftDirty,
+  dropCreateMoreToggle,
+  dropCreateRoyaltyDraftDirty,
   dropCreateDealShowsSupplyField,
+  dropCreateSetDealCount,
+  dropCreateSetDealLabel,
   dropCreateFacetsAction,
   dropCreateFacetsOpen,
   dropCreatePiecePickerClass,
@@ -24,8 +31,11 @@ import {
   dropCreateRenewalsSummary,
   dropCreateRenewalsOpen,
   dropCreateRoyaltySummary,
+  dropCreatePerWalletInput,
   dropCreatePerWalletSummary,
+  dropSetReorderIntent,
   dropCreateSaleRulesSummary,
+  dropCreateSetSourceSummary,
   dropCreateSaleWindowSummary,
   dropCreateTransferableSummary,
   dropCreateBurnableSummary,
@@ -65,18 +75,18 @@ describe('dropCreateDescriptionOpen', () => {
 });
 
 describe('dropCreateDescriptionToggle', () => {
-  it('says Add, Edit, or Hide — one name, Description', () => {
-    expect(dropCreateDescriptionToggle({ open: false, hasText: false })).toBe(
-      'Add a description'
+  it('stays Description — the chevron opens and closes', () => {
+    expect(dropCreateDescriptionToggle()).toBe('Description');
+  });
+});
+
+describe('dropCreateDescriptionPlaceholder', () => {
+  it('says where the line shows, and where a manuscript goes', () => {
+    expect(dropCreateDescriptionPlaceholder(false)).toBe(
+      'Shown on the drop page.'
     );
-    expect(dropCreateDescriptionToggle({ open: false, hasText: true })).toBe(
-      'Edit description'
-    );
-    expect(dropCreateDescriptionToggle({ open: true, hasText: false })).toBe(
-      'Hide description'
-    );
-    expect(dropCreateDescriptionToggle({ open: true, hasText: true })).toBe(
-      'Hide description'
+    expect(dropCreateDescriptionPlaceholder(true)).toBe(
+      'Shown on the drop page. The manuscript uploads separately.'
     );
   });
 });
@@ -130,8 +140,71 @@ describe('dropCreateAttachHint', () => {
 });
 
 describe('dropCreateBookPdfPlacement', () => {
-  it('parks the optional PDF in Advanced, not on the first screen', () => {
-    expect(dropCreateBookPdfPlacement()).toBe('advanced');
+  it('parks the optional PDF in More, not on the first screen', () => {
+    expect(dropCreateBookPdfPlacement()).toBe('more');
+  });
+});
+
+describe('dropCreateMoreToggle', () => {
+  it('names the collapsed extras More', () => {
+    expect(dropCreateMoreToggle(false)).toBe('More');
+    expect(dropCreateMoreToggle(true)).toBe('Hide more');
+  });
+});
+
+describe('drop create draft dirtiness', () => {
+  it('treats a typed supply or price as a draft', () => {
+    expect(dropCreateDealDraftDirty('', '')).toBe(false);
+    expect(dropCreateDealDraftDirty('  ', '  ')).toBe(false);
+    expect(dropCreateDealDraftDirty('5', '')).toBe(true);
+    expect(dropCreateDealDraftDirty('', '1')).toBe(true);
+  });
+
+  it('treats a royalty change or split as a draft and leaves the 10% default', () => {
+    expect(
+      dropCreateRoyaltyDraftDirty({
+        royaltyBps: DEFAULT_ROYALTY_BPS,
+        isCustomRoyalty: false,
+        shareCount: 0,
+      })
+    ).toBe(false);
+    expect(
+      dropCreateRoyaltyDraftDirty({
+        royaltyBps: 500,
+        isCustomRoyalty: false,
+        shareCount: 0,
+      })
+    ).toBe(true);
+    expect(
+      dropCreateRoyaltyDraftDirty({
+        royaltyBps: DEFAULT_ROYALTY_BPS,
+        isCustomRoyalty: true,
+        shareCount: 0,
+      })
+    ).toBe(true);
+    expect(
+      dropCreateRoyaltyDraftDirty({
+        royaltyBps: DEFAULT_ROYALTY_BPS,
+        isCustomRoyalty: false,
+        shareCount: 2,
+      })
+    ).toBe(true);
+  });
+
+  it('treats layers or a running generate as a draft', () => {
+    expect(dropCreateDesignDraftDirty(null)).toBe(false);
+    expect(
+      dropCreateDesignDraftDirty({ layers: 0, traits: 0, working: false })
+    ).toBe(false);
+    expect(
+      dropCreateDesignDraftDirty({ layers: 2, traits: 0, working: false })
+    ).toBe(true);
+    expect(
+      dropCreateDesignDraftDirty({ layers: 0, traits: 4, working: false })
+    ).toBe(true);
+    expect(
+      dropCreateDesignDraftDirty({ layers: 0, traits: 0, working: true })
+    ).toBe(true);
   });
 });
 
@@ -181,6 +254,15 @@ describe('dropCreateExtraRowLabel', () => {
     expect(dropCreateExtraRowLabel('facets', { facetLabel: 'Style' })).toBe(
       'Style'
     );
+    expect(dropCreateExtraRowLabel('setSource')).toBe('Images');
+  });
+});
+
+describe('dropCreateSetSourceSummary', () => {
+  it('reads the full choice, and a pinned set stays Generate layers', () => {
+    expect(dropCreateSetSourceSummary('upload')).toBe('Upload images');
+    expect(dropCreateSetSourceSummary('generate')).toBe('Generate layers');
+    expect(dropCreateSetSourceSummary('cid')).toBe('Generate layers');
   });
 });
 
@@ -199,15 +281,16 @@ describe('dropCreateExtraHint', () => {
     expect(dropCreateExtraHint('renewals', { isTicket: true })).toBe(
       dropCreateRenewalsHint(true)
     );
-    expect(dropCreateExtraHint('saleRules')).toBe(
-      'When collectors can mint.'
-    );
+    expect(dropCreateExtraHint('saleRules')).toBe('When collectors can mint.');
     expect(dropCreateExtraHint('perWallet')).toMatch(/one wallet/);
     expect(dropCreateExtraHint('transferable')).toBe(
       'Yes lets them transfer and resell. No keeps the edition with them.'
     );
     expect(dropCreateExtraHint('burnable')).toBe(
       'Yes lets the holder destroy their edition. Gone for good, no refund.'
+    );
+    expect(dropCreateExtraHint('setSource')).toBe(
+      'Upload finished images, or generate a set from stacked layers.'
     );
     expect(dropCreateExtraHint('renewals')).toBe(
       'Yes lets holders renew after it expires.'
@@ -254,7 +337,19 @@ describe('dropCreate summaries', () => {
     ).toBe('Yes · 8 Sep');
     expect(dropCreateSaleWindowSummary('Now', 'no end')).toBe('Now · no end');
     expect(dropCreatePerWalletSummary('', 'editions')).toBe('No limit');
+    expect(dropCreatePerWalletSummary('0', 'editions')).toBe('No limit');
     expect(dropCreatePerWalletSummary('2', 'editions')).toBe('2 editions');
+    expect(dropCreatePerWalletInput('0', 10)).toBe('');
+    expect(dropCreatePerWalletInput('3', 10)).toBe('3');
+    expect(dropCreatePerWalletInput('50', 10)).toBe('10');
+    expect(dropCreatePerWalletInput('50', null)).toBe('50');
+    expect(dropCreatePerWalletInput('0008', 20)).toBe('8');
+    expect(dropSetReorderIntent('mouse', 2, 0, false)).toBe('wait');
+    expect(dropSetReorderIntent('mouse', 6, 0, false)).toBe('arm');
+    expect(dropSetReorderIntent('touch', 4, 0, false)).toBe('wait');
+    expect(dropSetReorderIntent('touch', 0, 0, true)).toBe('arm');
+    expect(dropSetReorderIntent('touch', 16, 2, false)).toBe('arm');
+    expect(dropSetReorderIntent('touch', 2, 16, false)).toBe('arm');
     expect(dropCreateTransferableSummary(true)).toBe('Yes');
     expect(dropCreateTransferableSummary(false)).toBe('No');
     expect(dropCreateBurnableSummary(false)).toBe('No');
@@ -476,6 +571,61 @@ describe('dropCreateFacetsAction', () => {
     expect(dropCreateFacetsAction('Offer')).toBe('Add an offer');
     expect(dropCreateFacetsAction('Access')).toBe('Add access');
     expect(dropCreateFacetsAction('Theme')).toBe('Add a theme');
+  });
+});
+
+describe('dropCreateSetDealCount', () => {
+  it('stays off the line until a set has a count', () => {
+    expect(
+      dropCreateSetDealCount({
+        isVariations: false,
+        fileCount: 5,
+        pinnedPieceCount: 0,
+        generatedCount: 0,
+      })
+    ).toBeNull();
+    expect(
+      dropCreateSetDealCount({
+        isVariations: true,
+        fileCount: 0,
+        pinnedPieceCount: 0,
+        generatedCount: 0,
+      })
+    ).toBeNull();
+  });
+
+  it('prefers the live upload, then a pinned set, then a generated count', () => {
+    expect(
+      dropCreateSetDealCount({
+        isVariations: true,
+        fileCount: 5,
+        pinnedPieceCount: 9,
+        generatedCount: 100,
+      })
+    ).toBe(5);
+    expect(
+      dropCreateSetDealCount({
+        isVariations: true,
+        fileCount: 0,
+        pinnedPieceCount: 40,
+        generatedCount: 0,
+      })
+    ).toBe(40);
+    expect(
+      dropCreateSetDealCount({
+        isVariations: true,
+        fileCount: 0,
+        pinnedPieceCount: 0,
+        generatedCount: 100,
+      })
+    ).toBe(100);
+  });
+});
+
+describe('dropCreateSetDealLabel', () => {
+  it('names one piece and many pieces', () => {
+    expect(dropCreateSetDealLabel(1)).toEqual({ value: '1', unit: 'piece' });
+    expect(dropCreateSetDealLabel(5).unit).toBe('pieces');
   });
 });
 

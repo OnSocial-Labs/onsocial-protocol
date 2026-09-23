@@ -12634,15 +12634,10 @@ a.os-surface-row {
     pointer-events: none;
   }
 
-  /* Overlay lock — hide the background rail without toggling overflow (shift). */
-  [data-scroll-locked='true'] {
-    scrollbar-width: none;
-  }
-
-  .os-app-screen-body[data-scroll-locked='true']::-webkit-scrollbar,
-  [data-scroll-locked='true']::-webkit-scrollbar {
-    width: 0;
-    height: 0;
+  /* Overlay lock — hide the thumb only. Keep the 3px rail.
+     Collapsing that rail gave the column 3px back and a wrapped line jumped up. */
+  [data-scroll-locked='true']::-webkit-scrollbar-thumb {
+    background: transparent;
   }
 
   /*
@@ -23859,10 +23854,10 @@ a.os-surface-row {
   }
 
   .drop-art-overlay-svg.drop-art-overlay-asset {
-    width: min(100%, 28rem);
-    height: auto;
+    width: 100%;
+    height: 100%;
     max-width: 100%;
-    max-height: min(100%, 28rem);
+    max-height: 100%;
     aspect-ratio: 1 / 1;
   }
 
@@ -23922,13 +23917,28 @@ a.os-surface-row {
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-    /* Same well as other screens: chrome top, 1rem sides, air above the dock. */
+    /* Chrome above, dock below. The stack is centered in what remains. */
     padding: var(
         --os-screen-chrome-height,
         var(--os-app-screen-chrome-height, var(--os-app-chrome-compact-height))
       )
-      var(--os-screen-body-pad-x, 1rem) 0.4rem;
+      var(--os-screen-body-pad-x, 1rem)
+      calc(var(--portfolio-dock-clearance, 4.75rem) + 0.4rem);
     cursor: zoom-out;
+  }
+
+  /* Cover, then the controls — one column, centered in the well. */
+  .drop-art-overlay-stack {
+    container-type: size;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
   }
 
   .drop-art-page-sheet-panel .drop-art-overlay-asset {
@@ -23943,24 +23953,51 @@ a.os-surface-row {
     z-index: 3;
   }
 
-  /* Stage: cover on top; style arrows sit under the art, never on it. */
+  /* Largest square that still leaves the controls under it. */
   .drop-art-overlay-stage {
     position: relative;
     z-index: 1;
     display: flex;
-    flex: 1 1 auto;
-    flex-direction: column;
+    flex: 0 0 auto;
     align-items: center;
     justify-content: center;
-    gap: 0.65rem;
-    width: 100%;
-    height: 100%;
+    width: min(100cqi, 100cqb);
+    max-width: 100%;
     min-width: 0;
     min-height: 0;
+    aspect-ratio: 1 / 1;
+  }
+
+  .drop-art-overlay-stack:has(.drop-art-overlay-nav-row)
+    .drop-art-overlay-stage:not(:has(.scarce-frame-overlay-stage)) {
+    width: min(100cqi, calc(100cqb - 3.6rem));
+  }
+
+  .drop-art-overlay-stack:has(.drop-art-overlay-footer)
+    .drop-art-overlay-stage:not(:has(.scarce-frame-overlay-stage)) {
+    width: min(100cqi, calc(100cqb - 4.2rem));
+  }
+
+  .drop-art-overlay-stack:has(.drop-art-overlay-nav-row):has(
+      .drop-art-overlay-footer
+    )
+    .drop-art-overlay-stage:not(:has(.scarce-frame-overlay-stage)) {
+    width: min(100cqi, calc(100cqb - 7.6rem));
+  }
+
+  /* Frame picker brings its own video + scrubber, not a square cover. */
+  .drop-art-overlay-stage:has(.scarce-frame-overlay-stage) {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: none;
+    aspect-ratio: auto;
+    flex-direction: column;
+    gap: 0.65rem;
   }
 
   .drop-art-overlay-nav-row {
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
     justify-content: center;
     gap: 0.85rem;
@@ -24009,15 +24046,26 @@ a.os-surface-row {
   }
 
   .drop-art-overlay-footer {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: calc(var(--portfolio-dock-clearance, 4.75rem) + 0.4rem);
-    z-index: 3;
+    position: relative;
+    z-index: 1;
     display: flex;
+    flex: 0 0 auto;
     justify-content: center;
-    padding: 0 1.25rem;
+    width: min(100cqi, 100cqb);
+    max-width: 100%;
+    padding: 0;
     pointer-events: none;
+  }
+
+  .drop-art-overlay-stack:has(.drop-art-overlay-footer) .drop-art-overlay-footer {
+    width: min(100cqi, calc(100cqb - 4.2rem));
+  }
+
+  .drop-art-overlay-stack:has(.drop-art-overlay-nav-row):has(
+      .drop-art-overlay-footer
+    )
+    .drop-art-overlay-footer {
+    width: min(100cqi, calc(100cqb - 7.6rem));
   }
 
   .drop-art-overlay-footer > * {
@@ -24051,35 +24099,24 @@ a.os-surface-row {
 
   .drop-art-overlay-asset {
     display: block;
-    /* Largest square in the stage — fills as the screen shrinks. */
-    width: auto;
-    height: auto;
-    max-width: min(100%, 28rem);
-    max-height: min(100%, 28rem);
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
     aspect-ratio: 1 / 1;
     object-fit: contain;
     border-radius: 0.75rem;
-    /*
-     * Best-in-class gallery presentation:
-     * Dark field: Zero drop shadow (no murky black puddles or white glow halos).
-     * 1px crisp hairline edge (8% ink) cleanly defines perimeter even for solid black art.
-     */
-    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
+    box-shadow: none;
     cursor: default;
   }
 
-  /* Light field: crisp 1px hairline + subtle soft ambient lift for white-on-white art. */
   :root[data-theme='light'] .drop-art-overlay-asset {
-    box-shadow:
-      0 0 0 1px rgb(var(--fg-rgb) / 0.08),
-      0 12px 32px rgb(0 0 0 / 0.08);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.08);
   }
 
   @media (prefers-color-scheme: light) {
     :root:not([data-theme]) .drop-art-overlay-asset {
-      box-shadow:
-        0 0 0 1px rgb(var(--fg-rgb) / 0.08),
-        0 12px 32px rgb(0 0 0 / 0.08);
+      box-shadow: 0 12px 32px rgb(0 0 0 / 0.08);
     }
   }
 
@@ -30848,6 +30885,15 @@ a.os-surface-row {
 
   .drop-cover-seat-shell.is-reorderable .drop-cover-seat--zoom {
     cursor: grab;
+    touch-action: none;
+    -webkit-user-drag: none;
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+
+  .drop-cover-seat-shell.is-reorderable .drop-cover-seat--zoom img {
+    -webkit-user-drag: none;
+    pointer-events: none;
   }
 
   .drop-cover-seat-shell.is-dragging .drop-cover-seat--zoom {
@@ -30859,13 +30905,20 @@ a.os-surface-row {
     gap: 0.55rem;
   }
 
-  .drop-variation-set-field > .app-storage-presets {
-    gap: 0.4rem;
+  .drop-variation-set-open {
+    align-self: flex-start;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
   }
 
-  .drop-variation-set-field > small {
-    margin: 0;
-    line-height: 1.35;
+  .drop-variation-set-open:disabled {
+    cursor: default;
   }
 
   .drop-variation-set-strip {
@@ -32960,6 +33013,12 @@ a.os-surface-row {
 
   .drop-variation-set-slide-grid.is-reordering {
     user-select: none;
+    touch-action: none;
+  }
+
+  .drop-variation-set-slide-grid.is-reordering .drop-cover-seat--zoom {
+    touch-action: none;
+    cursor: grabbing;
   }
 
   .drop-variation-set-slide-footer {
@@ -33311,7 +33370,7 @@ a.os-surface-row {
     flex-direction: column;
     align-items: center;
     gap: 0.4rem;
-    width: min(100%, 22rem);
+    width: 100%;
   }
 
   .drop-collage-overlay-controls-row {
@@ -35210,13 +35269,14 @@ a.os-surface-row {
     gap: 1.15rem;
   }
 
-  /* Supply · price as one spoken line. !important beats unlayered os-field. */
+  /* Supply · price as one spoken line. Baseline so units sit with the digits. */
   .drop-create-deal-line {
     display: flex;
     flex-wrap: nowrap;
     align-items: baseline;
     gap: 0.15rem 0.35rem;
     min-width: 0;
+    max-width: 100%;
   }
 
   .drop-create-deal-sep {
@@ -35227,13 +35287,35 @@ a.os-surface-row {
     padding-inline: 0.1rem;
   }
 
+  .drop-create-deal-count {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .drop-create-deal-count-value {
+    font-size: 1.15rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+
+  .drop-create-deal-count-unit {
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
   .drop-create-form .drop-create-deal-line .suffix-field,
   .drop-create-form .drop-create-deal-line .os-amount-field {
     flex: 0 0 auto !important;
     width: auto !important;
     min-width: 0 !important;
+    align-items: baseline !important;
     gap: 0.35rem !important;
-    padding: 0.05rem 0 0.2rem !important;
+    padding: 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
     background: transparent !important;
@@ -35252,7 +35334,15 @@ a.os-surface-row {
     max-width: 14ch !important;
     field-sizing: content;
     flex: 0 0 auto !important;
-    padding: 0 !important;
+    padding: 0 0 0.15rem !important;
+    height: calc(1.2em + 0.15rem) !important;
+    min-height: calc(1.2em + 0.15rem) !important;
+    box-sizing: border-box !important;
+    background-color: transparent !important;
+    background-image: var(--divider-h-detail) !important;
+    background-repeat: no-repeat !important;
+    background-position: center bottom !important;
+    background-size: max(100%, 8rem) 1px !important;
     font-size: 1.15rem !important;
     font-weight: 650 !important;
     letter-spacing: -0.02em !important;
@@ -35261,25 +35351,40 @@ a.os-surface-row {
     font-variant-numeric: tabular-nums;
   }
 
-  .drop-create-form .drop-create-deal-line .suffix-field-input:focus,
-  .drop-create-form .drop-create-deal-line .os-amount-field-input:focus {
-    outline: none !important;
-    box-shadow: inset 0 -1px 0 rgb(var(--fg-rgb) / 0.22) !important;
+  .drop-create-form .drop-create-deal-line .suffix-field-input::placeholder,
+  .drop-create-form .drop-create-deal-line .os-amount-field-input::placeholder {
+    color: rgb(var(--fg-rgb) / 0.32);
+    font-weight: 650;
   }
+
+.drop-create-form .drop-create-deal-line .suffix-field-input:focus,
+.drop-create-form .drop-create-deal-line .os-amount-field-input:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
 
   .drop-create-form .drop-create-deal-line .suffix-field-unit,
   .drop-create-form .drop-create-deal-line .os-amount-field-unit,
   .drop-create-form .drop-create-deal-line .account-card-balance-unit {
+    align-self: baseline !important;
     font-size: 1.05rem !important;
     font-weight: 600 !important;
+    line-height: 1.2 !important;
     color: rgb(var(--fg-rgb) / 0.48) !important;
   }
 
-  /* Mode pills sit on the piece — no Artwork/(i) form label. */
+  /* Mode pills sit on the piece — no Artwork/(i) form label.
+     The set's two ways stay on the next line, each name visible. */
   .drop-create-mode {
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
+  }
+
+  .app-access-options.drop-create-artwork-line,
+  .app-access-options.drop-create-set-source {
+    flex-wrap: nowrap;
+    align-items: center;
   }
 
   /* Empty artwork/cover is a stage, not a dashed form well.
@@ -35336,7 +35441,30 @@ a.os-surface-row {
 
   .drop-create-form .drop-create-title-input:focus {
     outline: none;
-    box-shadow: inset 0 -1px 0 rgb(var(--fg-rgb) / 0.22);
+    box-shadow: none;
+  }
+
+  .drop-create-field-rule {
+    opacity: 0;
+  }
+
+  .drop-create-title:focus-within > .drop-create-field-rule {
+    opacity: 1;
+  }
+
+  .drop-create-form .drop-create-title-input::selection {
+    background: rgb(var(--fg-rgb) / 0.16);
+    color: inherit;
+  }
+
+  .drop-create-form .drop-create-title-input:-webkit-autofill,
+  .drop-create-form .drop-create-title-input:-webkit-autofill:hover,
+  .drop-create-form .drop-create-title-input:-webkit-autofill:focus {
+    -webkit-text-fill-color: rgb(var(--fg-rgb) / 0.96);
+    caret-color: rgb(var(--fg-rgb) / 0.96);
+    -webkit-box-shadow: 0 0 0 1000px rgb(var(--bg-rgb)) inset;
+    box-shadow: 0 0 0 1000px rgb(var(--bg-rgb)) inset;
+    transition: background-color 99999s ease-out;
   }
 
   .drop-create-description-toggle {
@@ -35480,17 +35608,6 @@ a.os-surface-row {
     font-size: 0.875rem;
     line-height: 1.45;
     color: rgb(var(--fg-rgb) / 0.56);
-  }
-
-  /* Edge fade hints there are more template tabs off-screen (scrollbar is
-     hidden on the shared rail). */
-  .drop-template-toolbar .discover-tab-bar-scroller {
-    mask-image: linear-gradient(
-      to right,
-      #000 0%,
-      #000 calc(100% - 1.25rem),
-      transparent 100%
-    );
   }
 
   /* Kind one-liner under the tabs — updates on pick; detail stays in header ?. */
@@ -41380,7 +41497,8 @@ a.os-surface-row {
   flex: 0 0 auto;
   width: auto;
   min-width: 0;
-  padding: 0.05rem 0 0.2rem;
+  align-items: baseline;
+  padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -41394,9 +41512,20 @@ a.os-surface-row {
 
 .drop-create-form .drop-create-deal-line .suffix-field-input,
 .drop-create-form .drop-create-deal-line .os-amount-field-input {
-  width: 3.2ch;
+  width: auto;
+  min-width: 1ch;
+  max-width: 14ch;
+  field-sizing: content;
   flex: 0 0 auto;
-  padding: 0;
+  padding: 0 0 0.15rem;
+  height: calc(1.2em + 0.15rem);
+  min-height: calc(1.2em + 0.15rem);
+  box-sizing: border-box;
+  background-color: transparent;
+  background-image: var(--divider-h-detail);
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: max(100%, 8rem) 1px;
   font-size: 1.15rem;
   font-weight: 650;
   letter-spacing: -0.02em;
@@ -41404,21 +41533,25 @@ a.os-surface-row {
   font-family: inherit;
 }
 
-.drop-create-form .drop-create-deal-line .os-amount-field-input {
-  width: 4.2ch;
+.drop-create-form .drop-create-deal-line .suffix-field-input::placeholder,
+.drop-create-form .drop-create-deal-line .os-amount-field-input::placeholder {
+  color: rgb(var(--fg-rgb) / 0.32);
+  font-weight: 650;
 }
 
 .drop-create-form .drop-create-deal-line .suffix-field-input:focus,
 .drop-create-form .drop-create-deal-line .os-amount-field-input:focus {
   outline: none;
-  box-shadow: inset 0 -1px 0 rgb(var(--fg-rgb) / 0.22);
+  box-shadow: none;
 }
 
 .drop-create-form .drop-create-deal-line .suffix-field-unit,
 .drop-create-form .drop-create-deal-line .os-amount-field-unit,
 .drop-create-form .drop-create-deal-line .account-card-balance-unit {
+  align-self: baseline;
   font-size: 1.05rem;
   font-weight: 600;
+  line-height: 1.2;
   color: rgb(var(--fg-rgb) / 0.48);
 }
 
@@ -45499,9 +45632,15 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   )
   .os-app-screen-body {
   padding-bottom: calc(
-    var(--drop-create-keyboard-lift, 0px) + 3.25rem +
-      env(safe-area-inset-bottom, 0px)
+    var(--drop-create-keyboard-lift, 0px) + env(safe-area-inset-bottom, 0px)
   );
+}
+
+.os-app-screen:has(
+    .drop-create-form[data-keyboard='open']:not(.hub-create-form)
+  )
+  > .portfolio-summon-dock.is-scroll-hidden {
+  bottom: 0;
 }
 
 .dm-recovery-lead {
@@ -46087,4 +46226,25 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   width: 100%;
   max-width: none;
   margin-inline: 0;
+}
+
+/* Remembered drop titles stay plain. Browser autofill and the select-all
+   highlight otherwise paint a blue field. Unlayered so they beat UA paint. */
+.drop-create-form .drop-create-title-input::selection {
+  background-color: rgb(var(--fg-rgb) / 0.18) !important;
+  color: inherit !important;
+}
+
+.drop-create-form .drop-create-title-input:autofill,
+.drop-create-form .drop-create-title-input:-webkit-autofill,
+.drop-create-form .drop-create-title-input:-webkit-autofill:hover,
+.drop-create-form .drop-create-title-input:-webkit-autofill:focus,
+.drop-create-form .drop-create-title-input:-webkit-autofill:active {
+  -webkit-text-fill-color: rgb(var(--fg-rgb) / 0.96) !important;
+  caret-color: rgb(var(--fg-rgb) / 0.96);
+  background-color: transparent !important;
+  background-image: none !important;
+  -webkit-box-shadow: 0 0 0 1000px rgb(var(--bg-rgb)) inset !important;
+  box-shadow: 0 0 0 1000px rgb(var(--bg-rgb)) inset !important;
+  transition: background-color 99999s ease-out 0s !important;
 }

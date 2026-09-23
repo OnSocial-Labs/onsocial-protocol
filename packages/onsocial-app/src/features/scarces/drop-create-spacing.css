@@ -65,8 +65,61 @@
   transform: rotate(180deg);
 }
 
+/* One chip row, pinned. Same chips as the rest of the form. */
+.drop-variation-set-slide[data-screen-footer='true'] {
+  --os-screen-footer-band: 3.25rem;
+}
+
+.drop-variation-set-slide .os-app-screen-footer {
+  background: rgb(var(--bg-rgb));
+}
+
+.drop-variation-set-actions {
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .drop-create-disclosure-chevron {
     transition: none;
   }
+}
+
+/* Lifted piece follows the finger. The empty well is the landing slot. */
+.drop-set-drag-ghost {
+  position: fixed;
+  z-index: 80;
+  left: 0;
+  top: 0;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  pointer-events: none;
+  box-shadow: 0 14px 32px rgb(0 0 0 / 0.42);
+  transform: translate3d(-100vw, -100vw, 0);
+}
+
+.drop-set-drag-ghost img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  -webkit-user-drag: none;
+}
+
+.drop-variation-set-slide-grid .drop-cover-seat-shell.is-dragging {
+  opacity: 1;
+  border-radius: 0.75rem;
+  background: rgb(var(--fg-rgb) / 0.08);
+  box-shadow: inset 0 0 0 1.5px rgb(var(--fg-rgb) / 0.34);
+}
+
+.drop-variation-set-slide-grid
+  .drop-cover-seat-shell.is-dragging
+  .drop-cover-seat--zoom,
+.drop-variation-set-slide-grid
+  .drop-cover-seat-shell.is-dragging
+  .drop-cover-seat-remove {
+  opacity: 0;
 }
