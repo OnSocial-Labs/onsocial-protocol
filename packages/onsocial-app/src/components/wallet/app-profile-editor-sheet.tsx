@@ -762,36 +762,31 @@ export function AppProfileEditorSheet({
                             if (cleaned !== faceBio) setFaceBio(cleaned);
                           }}
                         />
-                        <p className="account-editor-about-hint">
-                          Short line on your page. Type @ to mention people,
-                          orgs, and DAOs; # $ and links highlight like the live
-                          face. Edit About separately.
-                        </p>
-                        <p
-                          className={`account-editor-limits${
-                            nameNearLimit || faceNearLimit
-                              ? ' is-near-limit'
-                              : ''
-                          }`}
-                          aria-live="polite"
-                        >
-                          {nameNearLimit ? (
-                            <span>
-                              {name.length}/{PROFILE_NAME_MAX}
-                            </span>
-                          ) : null}
-                          {nameNearLimit ? (
-                            <span
-                              className="account-editor-limits-sep"
-                              aria-hidden
-                            >
-                              ·
-                            </span>
-                          ) : null}
-                          <span>
-                            {faceBioLen}/{FACE_BIO_WRAP_CHARS}
-                          </span>
-                        </p>
+                        {nameNearLimit || faceNearLimit ? (
+                          <p
+                            className="account-editor-limits is-near-limit"
+                            aria-live="polite"
+                          >
+                            {nameNearLimit ? (
+                              <span>
+                                {name.length}/{PROFILE_NAME_MAX}
+                              </span>
+                            ) : null}
+                            {nameNearLimit && faceNearLimit ? (
+                              <span
+                                className="account-editor-limits-sep"
+                                aria-hidden
+                              >
+                                ·
+                              </span>
+                            ) : null}
+                            {faceNearLimit ? (
+                              <span>
+                                {faceBioLen}/{FACE_BIO_WRAP_CHARS}
+                              </span>
+                            ) : null}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                   </div>
