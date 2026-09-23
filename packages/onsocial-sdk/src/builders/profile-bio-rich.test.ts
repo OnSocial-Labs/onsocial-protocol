@@ -5,6 +5,7 @@ import {
   isProfileBioRangeItalic,
   isProfileBioRangeList,
   profileAboutBlocks,
+  profileBioClipboardAsMarkdown,
   profileBioHtmlToMarkdown,
   profileBioMarkdownToHtml,
   profileBioPlainPreview,
@@ -189,12 +190,61 @@ describe('profileAboutBlocks', () => {
       { type: 'paragraph', text: 'Only one.' },
     ]);
   });
+
+  it('keeps a fenced snippet as code, including hash lines', () => {
+    expect(
+      profileAboutBlocks('See\n```ts\n# not a heading\nconst x = 1\n```\nAfter')
+    ).toEqual([
+      { type: 'paragraph', text: 'See' },
+      {
+        type: 'code',
+        language: 'ts',
+        text: '# not a heading\nconst x = 1',
+      },
+      { type: 'paragraph', text: 'After' },
+    ]);
+  });
+
+  it('keeps an unclosed fence as code', () => {
+    expect(profileAboutBlocks('```\n# keep\nconst x = 1')).toEqual([
+      { type: 'code', text: '# keep\nconst x = 1' },
+    ]);
+  });
+});
+
+describe('profileBioClipboardAsMarkdown', () => {
+  it('passes an explicit fence through', () => {
+    const snippet = '```\n# include\nconst x = 1\n```';
+    expect(profileBioClipboardAsMarkdown(snippet)).toBe(snippet);
+  });
+
+  it('wraps a multi-line snippet so hash lines stay code', () => {
+    expect(
+      profileBioClipboardAsMarkdown(
+        '#include <stdio.h>\nint main() {\n  return 0;\n}'
+      )
+    ).toBe('```\n#include <stdio.h>\nint main() {\n  return 0;\n}\n```');
+  });
+
+  it('leaves prose alone', () => {
+    expect(
+      profileBioClipboardAsMarkdown(
+        'The highway empties.\nHeadlights pick the rail.'
+      )
+    ).toBeNull();
+  });
 });
 
 describe('profileBioPlainPreview', () => {
   it('strips marks and flattens lists for one-line teasers', () => {
     expect(profileBioPlainPreview('Ship **UI**.\n- React\n- *TS*')).toBe(
       'Ship UI. React TS'
+    );
+  });
+
+  it('skips code blocks in one-line teasers', () => {
+    expect(profileBioPlainPreview('Intro\n```\nconst x = 1\n```\nOutro')).toBe(
+      'Intro Outro'
     );
   });
 
@@ -232,6 +282,7 @@ type FakeNode = {
   textContent: string;
   childNodes: FakeNode[];
   children: FakeNode[];
+  getAttribute?: (name: string) => string | null;
 };
 
 function textNode(value: string): FakeNode {
@@ -245,7 +296,11 @@ function textNode(value: string): FakeNode {
   };
 }
 
-function element(tag: string, children: FakeNode[] = []): FakeNode {
+function element(
+  tag: string,
+  children: FakeNode[] = [],
+  attrs?: Record<string, string>
+): FakeNode {
   const upper = tag.toUpperCase();
   const node: FakeNode = {
     nodeType: 1,
@@ -254,6 +309,11 @@ function element(tag: string, children: FakeNode[] = []): FakeNode {
     textContent: '',
     childNodes: children,
     children: children.filter((child) => child.nodeType === 1),
+    ...(attrs
+      ? {
+          getAttribute: (name: string) => attrs[name] ?? null,
+        }
+      : {}),
   };
   node.textContent = children.map((child) => child.textContent).join('');
   return node;
@@ -320,6 +380,26 @@ function fragmentFromHtml(html: string): ParentNode {
       root.childNodes.push(element('p', parseInline('</p>')));
       continue;
     }
+    if (html.startsWith('<pre>', i)) {
+      i += 5;
+      let className: string | undefined;
+      if (html.startsWith('<code', i)) {
+        const openEnd = html.indexOf('>', i);
+        const open = html.slice(i, openEnd + 1);
+        i = openEnd + 1;
+        className = /class="([^"]*)"/.exec(open)?.[1];
+      }
+      const body = readUntil('</code>');
+      if (html.startsWith('</code>', i)) i += 7;
+      if (html.startsWith('</pre>', i)) i += 6;
+      const code = element(
+        'code',
+        body ? [textNode(body)] : [],
+        className ? { class: className } : undefined
+      );
+      root.childNodes.push(element('pre', [code]));
+      continue;
+    }
     if (html.startsWith('<ul>', i)) {
       i += 4;
       const items: FakeNode[] = [];
@@ -348,6 +428,15 @@ describe('profileBio markdown html roundtrip', () => {
     const html = profileBioMarkdownToHtml(markdown);
     expect(html).toBe(
       '<h3>Hello</h3><p>See <strong>bold</strong> and <em>italic</em>.</p><ul><li>one</li><li>two</li></ul>'
+    );
+    expect(profileBioHtmlToMarkdown(fragmentFromHtml(html))).toBe(markdown);
+  });
+
+  it('roundtrips a fenced snippet without turning hash lines into headings', () => {
+    const markdown = 'See\n```ts\n# not a heading\nconst x = 1\n```\nAfter';
+    const html = profileBioMarkdownToHtml(markdown);
+    expect(html).toBe(
+      '<p>See</p><pre><code class="language-ts"># not a heading\nconst x = 1</code></pre><p>After</p>'
     );
     expect(profileBioHtmlToMarkdown(fragmentFromHtml(html))).toBe(markdown);
   });

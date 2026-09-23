@@ -1,4 +1,4 @@
-/** Bio marks: `**bold**`, `*italic*`, `# heading`, `• list`. `#near` stays a hashtag. */
+/** Bio marks: `**bold**`, `*italic*`, `# heading`, `• list`, fenced code. `#near` stays a hashtag. */
 
 import { OS_RICH_CHIP_ATTR } from './rich-text-chips.js';
 
@@ -28,7 +28,8 @@ export type ProfileBioItalicRun = {
 export type ProfileAboutBlock =
   | { type: 'paragraph'; text: string }
   | { type: 'heading'; text: string }
-  | { type: 'list'; items: string[] };
+  | { type: 'list'; items: string[] }
+  | { type: 'code'; text: string; language?: string };
 
 export type ProfileBioInlineRun = {
   bold: boolean;
@@ -44,6 +45,7 @@ const BOLD_PAIR = /\*\*((?:(?!\*\*).)+?)\*\*/g;
 const ITALIC_PAIR = /(?<!\*)\*((?:(?!\*).)+?)\*(?!\*)/g;
 const HEADING_LINE_RE = /^#\s+\S/;
 const LIST_LINE_RE = /^[-•]\s+/;
+const FENCE_LINE_RE = /^```([A-Za-z0-9_+-]*)[ \t]*$/;
 const WORD_CHAR_RE = /[\p{L}\p{N}_]/u;
 const ELEMENT_NODE = 1;
 const TEXT_NODE = 3;
@@ -362,10 +364,45 @@ export function toggleProfileBioList(
   });
 }
 
+function fenceLanguage(line: string): string | null {
+  const match = FENCE_LINE_RE.exec(line);
+  if (!match) return null;
+  return match[1] ?? '';
+}
+
+function isFenceLine(line: string): boolean {
+  return fenceLanguage(line) != null;
+}
+
+function lineLooksLikeCode(line: string): boolean {
+  if (/^\t+\S/.test(line) || /^ {2,}\S/.test(line)) return true;
+  if (/[{}[\];]|=>|<\/?[A-Za-z]/.test(line)) return true;
+  return /^\s*(import|export|const|let|function|class|def|fn|pub|package)\b.*[({;=]/.test(
+    line
+  );
+}
+
+/**
+ * Paste that should become fenced code. Explicit fences pass through.
+ * A multi-line snippet without fences is wrapped so `#` lines stay code.
+ */
+export function profileBioClipboardAsMarkdown(text: string): string | null {
+  const normalized = text.replace(/\r\n/g, '\n').replace(/^\uFEFF/, '');
+  if (!normalized.trim()) return null;
+  if (normalized.split('\n').some((line) => isFenceLine(line))) {
+    return normalized;
+  }
+  const contentLines = normalized.split('\n').filter((line) => line.trim());
+  if (contentLines.length < 2) return null;
+  const signals = contentLines.filter((line) => lineLooksLikeCode(line)).length;
+  if (signals < 2 || signals / contentLines.length < 0.5) return null;
+  return `\`\`\`\n${normalized.replace(/\n+$/, '')}\n\`\`\``;
+}
+
 /**
  * About / face blocks — `# Title` is a heading, `• item` / `- item` is a list,
- * `#near` stays prose. Blank lines separate paragraphs; a heading or list
- * also breaks the block.
+ * `#near` stays prose. A ``` fence is a code block, including `#` lines inside.
+ * Blank lines separate paragraphs; a heading, list, or fence also breaks the block.
  */
 export function profileAboutBlocks(text: string): ProfileAboutBlock[] {
   const lines = text.replace(/\r\n/g, '\n').split('\n');
@@ -376,6 +413,25 @@ export function profileAboutBlocks(text: string): ProfileAboutBlock[] {
     const line = lines[index] ?? '';
     if (!line.trim()) {
       index += 1;
+      continue;
+    }
+
+    const language = fenceLanguage(line);
+    if (language != null) {
+      const codeLines: string[] = [];
+      index += 1;
+      while (index < lines.length && !isFenceLine(lines[index] ?? '')) {
+        codeLines.push(lines[index] ?? '');
+        index += 1;
+      }
+      if (index < lines.length && isFenceLine(lines[index] ?? '')) {
+        index += 1;
+      }
+      blocks.push({
+        type: 'code',
+        text: codeLines.join('\n').replace(/\n+$/, ''),
+        ...(language ? { language } : {}),
+      });
       continue;
     }
 
@@ -406,7 +462,8 @@ export function profileAboutBlocks(text: string): ProfileAboutBlock[] {
       index < lines.length &&
       (lines[index] ?? '').trim() &&
       !isProfileBioHeadingLine(lines[index] ?? '') &&
-      !isProfileBioListLine(lines[index] ?? '')
+      !isProfileBioListLine(lines[index] ?? '') &&
+      !isFenceLine(lines[index] ?? '')
     ) {
       paragraph.push(lines[index] ?? '');
       index += 1;
@@ -439,6 +496,7 @@ export function profileBioPlainPreview(
       }
       continue;
     }
+    if (block.type === 'code') continue;
     parts.push(
       splitProfileBioInlineDisplayRuns(block.text)
         .map((run) => run.value)
@@ -538,6 +596,12 @@ export function profileBioMarkdownToHtml(text: string): string {
     .map((block) => {
       if (block.type === 'heading') {
         return `<h3>${inlineRunsToHtml(block.text)}</h3>`;
+      }
+      if (block.type === 'code') {
+        const lang = block.language
+          ? ` class="language-${escapeHtml(block.language)}"`
+          : '';
+        return `<pre><code${lang}>${escapeHtml(block.text)}</code></pre>`;
       }
       if (block.type === 'list') {
         const items = block.items
@@ -668,6 +732,25 @@ export function profileBioHtmlToMarkdown(root: ParentNode): string {
 
     const el = node as Element;
     const tag = el.tagName.toLowerCase();
+
+    if (tag === 'pre') {
+      const codeChild = Array.from(el.children).find(
+        (child) => child.tagName.toLowerCase() === 'code'
+      );
+      const source = codeChild ?? el;
+      const className =
+        typeof source.getAttribute === 'function'
+          ? (source.getAttribute('class') ?? '')
+          : '';
+      const language =
+        /(?:^|\s)language-([A-Za-z0-9_+-]+)/.exec(className)?.[1] ?? '';
+      const body = (source.textContent ?? '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/\n$/, '');
+      const open = language ? `\`\`\`${language}` : '```';
+      pushMarkdownBlock(blocks, `${open}\n${body}\n\`\`\``);
+      continue;
+    }
 
     if (tag === 'ul' || tag === 'ol') {
       const lines: string[] = [];

@@ -235,8 +235,22 @@ export function isArticlePost(post: Pick<PostRow, 'value'>): boolean {
  * inline marks; drop heading and list chrome so `# After midnight` reads
  * as a sentence, not source.
  */
+function stripArticleCodeFences(text: string): string {
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  const kept: string[] = [];
+  let inFence = false;
+  for (const line of lines) {
+    if (/^```[A-Za-z0-9_+-]*[ \t]*$/.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (!inFence) kept.push(line);
+  }
+  return kept.join('\n');
+}
+
 export function articleTeaseSource(text: string): string {
-  return text
+  return stripArticleCodeFences(text)
     .split(/\r?\n/)
     .map((line) => {
       const trimmed = line.trim();

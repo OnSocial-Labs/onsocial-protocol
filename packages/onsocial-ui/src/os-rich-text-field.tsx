@@ -8,9 +8,15 @@ import {
   type Ref,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
+import {
+  EditorContent,
+  useEditor,
+  useEditorState,
+  type Editor,
+} from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import {
+  profileBioClipboardAsMarkdown,
   profileBioHtmlToMarkdown,
   profileBioMarkdownToHtml,
 } from '@onsocial/sdk';
@@ -62,6 +68,12 @@ export function OsRichTextField({
   editorRef,
   tools = DEFAULT_TOOLS,
   /**
+   * Fenced snippets become a code block. Paste of a multi-line snippet does
+   * the same, so a leading `#` stays code.
+   */
+  codeBlocks = false,
+  ariaLabel,
+  /**
    * Mount B / I / list / heading chrome into another node (e.g. sheet header
    * toolbar) so formatting stays reachable while the body scrolls.
    * `undefined` = inline chrome; `null` = waiting for host; element = portal.
@@ -80,6 +92,8 @@ export function OsRichTextField({
   maxLength?: number;
   editorRef?: Ref<HTMLDivElement>;
   tools?: readonly OsRichTextTool[];
+  codeBlocks?: boolean;
+  ariaLabel?: string;
   chromePortal?: HTMLElement | null;
   rows?: number;
   className?: string;
@@ -87,6 +101,7 @@ export function OsRichTextField({
 }) {
   const lastEmittedRef = useRef(value);
   const shellRef = useRef<HTMLDivElement>(null);
+  const editorApiRef = useRef<Editor | null>(null);
   const onChangeRef = useRef(onChange);
   const onFocusRef = useRef(onFocus);
   const onBlurRef = useRef(onBlur);
@@ -114,7 +129,7 @@ export function OsRichTextField({
         listItem: showList ? undefined : false,
         blockquote: false,
         code: false,
-        codeBlock: false,
+        codeBlock: codeBlocks ? undefined : false,
         horizontalRule: false,
         strike: false,
         // Marks stay on for paste / shortcuts even when the toolbar is hidden
@@ -131,6 +146,7 @@ export function OsRichTextField({
         role: 'textbox',
         'aria-multiline': 'true',
         ...(placeholder ? { 'data-placeholder': placeholder } : {}),
+        ...(ariaLabel ? { 'aria-label': ariaLabel } : {}),
         style: `min-height: calc(0.84rem * 1.45 * ${Math.max(1, rows)})`,
       },
       transformPastedHTML: (html) =>
@@ -141,6 +157,23 @@ export function OsRichTextField({
             /(?:<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>\s*){2,}/gi,
             '<p><br></p>'
           ),
+      handlePaste: (_view, event) => {
+        if (!codeBlocks) return false;
+        const current = editorApiRef.current;
+        if (!current || current.isActive('codeBlock')) return false;
+        const text = event.clipboardData?.getData('text/plain') ?? '';
+        const markdown = profileBioClipboardAsMarkdown(text);
+        if (!markdown) return false;
+        event.preventDefault();
+        current
+          .chain()
+          .focus()
+          .insertContent(profileBioMarkdownToHtml(markdown), {
+            parseOptions: { preserveWhitespace: 'full' },
+          })
+          .run();
+        return true;
+      },
       handleDOMEvents: {
         focus: (_view, event) => {
           onFocusRef.current?.(event as unknown as FocusEvent<HTMLDivElement>);
@@ -166,6 +199,7 @@ export function OsRichTextField({
       onChangeRef.current(md);
     },
   });
+  editorApiRef.current = editor;
 
   useEffect(() => {
     if (!editor) return;
