@@ -11,6 +11,7 @@ import {
   type CSSProperties,
   type FocusEvent,
   type FormEvent,
+  type RefObject,
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import './drop-create-spacing.css';
@@ -262,7 +263,11 @@ function useDropCreateReveal(open: boolean) {
     return () => observer.disconnect();
   }, [innerRef, measureClosed]);
 
-  return { hostRef, clipRef, innerRef };
+  return {
+    hostRef,
+    clipRef: clipRef as RefObject<HTMLDivElement | null>,
+    innerRef: innerRef as RefObject<HTMLDivElement | null>,
+  };
 }
 
 function DropCreateDisclosure({
