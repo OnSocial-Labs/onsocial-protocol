@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resolveScarcePartyIds } from '@/features/scarces/scarce-party-ids';
+import {
+  resolveScarcePartyIds,
+  scarceMakerPartyLabel,
+} from '@/features/scarces/scarce-party-ids';
 
 describe('resolveScarcePartyIds', () => {
   it('uses a known mint creator immediately', () => {
@@ -60,5 +63,10 @@ describe('resolveScarcePartyIds', () => {
       showDistinctSeller: false,
       artistPending: false,
     });
+  });
+
+  it('labels the maker Author only beside a distinct seller', () => {
+    expect(scarceMakerPartyLabel(true)).toBe('Author');
+    expect(scarceMakerPartyLabel(false)).toBeUndefined();
   });
 });

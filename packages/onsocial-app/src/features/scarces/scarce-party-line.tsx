@@ -39,7 +39,7 @@ export function ScarcePartyLine({
   avatarUrl,
   pending = false,
 }: {
-  /** Role above the face (Seller). Omit for the maker — title already owns them. */
+  /** Role above the face. Seller, or Author when a seller stands beside them. */
   label?: string | null;
   accountId?: string | null;
   displayNameValue?: string | null;

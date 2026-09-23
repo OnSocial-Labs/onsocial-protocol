@@ -42,3 +42,10 @@ export function resolveScarcePartyIds(input: {
     artistPending: false,
   };
 }
+
+/** Role above the maker face. Author only when Seller is a different account. */
+export function scarceMakerPartyLabel(
+  showDistinctSeller: boolean
+): 'Author' | undefined {
+  return showDistinctSeller ? 'Author' : undefined;
+}

@@ -19,7 +19,10 @@ import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-dat
 import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
-import { resolveScarcePartyIds } from '@/features/scarces/scarce-party-ids';
+import {
+  resolveScarcePartyIds,
+  scarceMakerPartyLabel,
+} from '@/features/scarces/scarce-party-ids';
 import { ScarceProvenanceCopy } from '@/features/scarces/scarce-provenance-copy';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
@@ -410,7 +413,10 @@ export function ScarceSellForm({
         {parties.artistPending ? (
           <ScarcePartyLine pending />
         ) : authorId ? (
-          <ScarcePartyLine accountId={authorId} />
+          <ScarcePartyLine
+            label={scarceMakerPartyLabel(showDistinctSeller)}
+            accountId={authorId}
+          />
         ) : null}
         {showDistinctSeller && sellerId ? (
           <ScarcePartyLine label="Seller" accountId={sellerId} />
