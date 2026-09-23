@@ -29,6 +29,7 @@ import {
   dropCreateSaleWindowSummary,
   dropCreateTransferableSummary,
   dropCreateBurnableSummary,
+  dropRightsFacts,
   dropCreateRoyaltyOpen,
   dropCreateSaleRulesOpen,
   dropCreateSaleWindowOpen,
@@ -149,13 +150,13 @@ describe('dropCreateAdvancedExtraAction', () => {
     expect(dropCreateAdvancedExtraAction('series')).toBe('Add to a series');
     expect(dropCreateAdvancedExtraAction('royalty')).toBe('Set a royalty');
     expect(dropCreateAdvancedExtraAction('saleRules')).toBe('Set sale rules');
-    expect(dropCreateAdvancedExtraAction('renewals')).toBe('Set renewals');
+    expect(dropCreateAdvancedExtraAction('renewals')).toBe('Set renewable');
     expect(dropCreateAdvancedExtraAction('renewals', { isTicket: true })).toBe(
-      'Allow date changes'
+      'Allow postpone'
     );
     expect(dropCreateAdvancedExtraAction('allowlist')).toBe('Add an allowlist');
     expect(dropCreateAdvancedExtraAction('place')).toBe('Add a place');
-    expect(dropCreateAdvancedExtraAction('burnable')).toBe('Allow destroy');
+    expect(dropCreateAdvancedExtraAction('burnable')).toBe('Set burnable');
   });
 });
 
@@ -172,8 +173,8 @@ describe('dropCreateExtraRowLabel', () => {
     expect(dropCreateExtraRowLabel('saleRules')).toBe('Sale');
     expect(dropCreateExtraRowLabel('perWallet')).toBe('Per wallet');
     expect(dropCreateExtraRowLabel('transferable')).toBe('Transferable');
-    expect(dropCreateExtraRowLabel('burnable')).toBe('Destroy');
-    expect(dropCreateExtraRowLabel('renewals')).toBe('Renewals');
+    expect(dropCreateExtraRowLabel('burnable')).toBe('Burnable');
+    expect(dropCreateExtraRowLabel('renewals')).toBe('Renewable');
     expect(dropCreateExtraRowLabel('renewals', { isTicket: true })).toBe(
       'Postpone'
     );
@@ -202,8 +203,15 @@ describe('dropCreateExtraHint', () => {
       'When collectors can mint.'
     );
     expect(dropCreateExtraHint('perWallet')).toMatch(/one wallet/);
-    expect(dropCreateExtraHint('transferable')).toMatch(/keeps the edition/);
-    expect(dropCreateExtraHint('burnable')).toMatch(/keeps the edition/);
+    expect(dropCreateExtraHint('transferable')).toBe(
+      'Yes lets them transfer and resell. No keeps the edition with them.'
+    );
+    expect(dropCreateExtraHint('burnable')).toBe(
+      'Yes lets the holder destroy their edition. Gone for good, no refund.'
+    );
+    expect(dropCreateExtraHint('renewals')).toBe(
+      'Yes lets holders renew after it expires.'
+    );
   });
 });
 
@@ -251,6 +259,28 @@ describe('dropCreate summaries', () => {
     expect(dropCreateTransferableSummary(false)).toBe('No');
     expect(dropCreateBurnableSummary(false)).toBe('No');
     expect(dropCreateBurnableSummary(true)).toBe('Yes');
+    expect(
+      dropRightsFacts({
+        transferable: true,
+        burnable: true,
+        renewable: true,
+        isTicket: true,
+      })
+    ).toEqual(['Transferable', 'Burnable', 'Postpone']);
+    expect(
+      dropRightsFacts({
+        transferable: false,
+        burnable: false,
+        renewable: true,
+      })
+    ).toEqual(['Not transferable', 'Not burnable', 'Renewable']);
+    expect(
+      dropRightsFacts({
+        transferable: true,
+        burnable: null,
+        renewable: false,
+      })
+    ).toEqual(['Transferable']);
     expect(
       dropCreateSaleRulesSummary({
         opensLabel: 'Now',

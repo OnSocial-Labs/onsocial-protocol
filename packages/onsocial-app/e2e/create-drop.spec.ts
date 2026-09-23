@@ -377,10 +377,10 @@ test.describe('create drop', () => {
       page.getByRole('button', { name: 'Transferable: Yes' })
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Destroy: No' })
+      page.getByRole('button', { name: 'Burnable: No' })
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Renewals: No' })
+      page.getByRole('button', { name: 'Renewable: No' })
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Allowlist: Connect' })
@@ -450,7 +450,7 @@ test.describe('create drop', () => {
     const transferable = page.getByRole('dialog', { name: 'Transferable' });
     await expect(
       transferable.getByText(
-        'Yes means they can resell. No keeps the edition with them.'
+        'Yes lets them transfer and resell. No keeps the edition with them.'
       )
     ).toBeVisible();
     await expect(
@@ -467,20 +467,22 @@ test.describe('create drop', () => {
     ).toBeVisible();
   });
 
-  test('Destroy defaults to No and can be turned on', async ({ page }) => {
+  test('Burnable defaults to No and can be turned on', async ({ page }) => {
     await openCreateDrop(page);
     await page.getByRole('button', { name: 'Advanced', exact: true }).click();
 
     await expect(
-      page.getByRole('button', { name: 'Destroy: No' })
+      page.getByRole('button', { name: 'Burnable: No' })
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Destroy: No' }).click();
-    const destroy = page.getByRole('dialog', { name: 'Destroy' });
+    await page.getByRole('button', { name: 'Burnable: No' }).click();
+    const destroy = page.getByRole('dialog', { name: 'Burnable' });
     await expect(
-      destroy.getByText('No keeps the edition. Yes lets the holder destroy it.')
+      destroy.getByText(
+        'Yes lets the holder destroy their edition. Gone for good, no refund.'
+      )
     ).toBeVisible();
     await expect(
-      destroy.getByRole('radiogroup', { name: 'Destroy' })
+      destroy.getByRole('radiogroup', { name: 'Burnable' })
     ).toBeVisible();
     await expect(
       destroy.getByRole('radio', { name: 'No', exact: true })
@@ -488,7 +490,7 @@ test.describe('create drop', () => {
     await destroy.getByRole('radio', { name: 'Yes', exact: true }).click();
     await destroy.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
-      page.getByRole('button', { name: 'Destroy: Yes' })
+      page.getByRole('button', { name: 'Burnable: Yes' })
     ).toBeVisible();
   });
 
@@ -580,35 +582,35 @@ test.describe('create drop', () => {
     ).toBeVisible();
     await expect(access.getByText('Required', { exact: true })).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Renewals: Yes', exact: true })
+      page.getByRole('button', { name: 'Renewable: Yes', exact: true })
     ).toBeVisible();
     const accessBox = await access.boundingBox();
     const renewalsBox = await page
-      .getByRole('button', { name: 'Renewals: Yes', exact: true })
+      .getByRole('button', { name: 'Renewable: Yes', exact: true })
       .boundingBox();
     expect(accessBox!.y).toBeLessThan(renewalsBox!.y);
     await page
-      .getByRole('button', { name: 'Renewals: Yes', exact: true })
+      .getByRole('button', { name: 'Renewable: Yes', exact: true })
       .click();
-    const renewals = page.getByRole('dialog', { name: 'Renewals' });
+    const renewals = page.getByRole('dialog', { name: 'Renewable' });
     await expect(
-      renewals.getByRole('button', { name: 'About Renewals' })
+      renewals.getByRole('button', { name: 'About Renewable' })
     ).toHaveCount(0);
     await expect(
-      renewals.getByText('Holders can renew after it expires.')
+      renewals.getByText('Yes lets holders renew after it expires.')
     ).toBeVisible();
     await expect(renewals.getByText('Access ends', { exact: true })).toHaveCount(
       0
     );
     await renewals.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
-      page.getByRole('button', { name: 'Renewals: Yes', exact: true })
+      page.getByRole('button', { name: 'Renewable: Yes', exact: true })
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Transferable: Yes' })
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Destroy: No' })
+      page.getByRole('button', { name: 'Burnable: No' })
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Allowlist: Connect' })
@@ -622,10 +624,10 @@ test.describe('create drop', () => {
       0
     );
     await expect(
-      page.getByRole('button', { name: 'Renewals: Yes' })
+      page.getByRole('button', { name: 'Renewable: Yes' })
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Renewals: Yes' }).click();
-    const membershipRenewals = page.getByRole('dialog', { name: 'Renewals' });
+    await page.getByRole('button', { name: 'Renewable: Yes' }).click();
+    const membershipRenewals = page.getByRole('dialog', { name: 'Renewable' });
     await expect(
       membershipRenewals.getByText('Access ends (optional)')
     ).toBeVisible();

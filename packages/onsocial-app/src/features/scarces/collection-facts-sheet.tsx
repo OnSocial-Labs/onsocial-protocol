@@ -13,6 +13,7 @@ import {
   dropFacetFieldLabel,
   dropFacetsLabel,
 } from '@/features/scarces/drop-facets';
+import { dropRightsFacts } from '@/features/scarces/drop-create-layout';
 import {
   collectionHasTicketEvent,
   ticketEventScheduleFacts,
@@ -151,17 +152,12 @@ export function CollectionFactsSheet({
       : 'Unique · sequential'
     : 'Shared artwork';
   const rightsParts = [
-    view.transferable ? 'Transferable' : 'Soulbound',
-    view.burnable === true
-      ? 'Can destroy'
-      : view.burnable === false
-        ? "Can't destroy"
-        : null,
-    view.renewable
-      ? view.kind === 'ticket'
-        ? 'Date changes'
-        : 'Renewable'
-      : null,
+    ...dropRightsFacts({
+      transferable: view.transferable,
+      burnable: view.burnable,
+      renewable: view.renewable,
+      isTicket: view.kind === 'ticket',
+    }),
     view.maxRedeems != null && view.maxRedeems > 0
       ? view.maxRedeems === 1
         ? '1 redeem'

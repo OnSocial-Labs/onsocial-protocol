@@ -1570,15 +1570,15 @@ export function CreateDropPanel() {
       { label: 'Supply', value: `${supply} ${template.unit}` },
       { label: 'Price', value: price ? `${price} NEAR` : 'Free' },
       {
-        label: 'Transferable',
-        value: transferable ? 'Yes' : 'No',
+        label: dropCreateExtraRowLabel('transferable'),
+        value: dropCreateTransferableSummary(transferable),
       },
       {
-        label: 'Destroy',
+        label: dropCreateExtraRowLabel('burnable'),
         value: dropCreateBurnableSummary(burnable),
       },
       {
-        label: isTicket ? 'Postpone' : 'Renewals',
+        label: dropCreateExtraRowLabel('renewals', { isTicket }),
         value: dropCreateRenewalsChoice(renewable),
       },
       { label: 'Royalty', value: royaltyValue },
@@ -3942,7 +3942,7 @@ export function CreateDropPanel() {
           <div
             className="app-access-options"
             role="radiogroup"
-            aria-label="Destroy"
+            aria-label="Burnable"
           >
             <button
               type="button"
@@ -3994,11 +3994,13 @@ export function CreateDropPanel() {
         {extraSheet === 'renewals' ? (
           <div className="drop-create-renewals">
             <div className="guild-field">
-              <span>{isTicket ? 'Postpone' : 'Renewals'}</span>
+              <span>
+                {dropCreateExtraRowLabel('renewals', { isTicket })}
+              </span>
               <div
                 className="app-access-options"
                 role="radiogroup"
-                aria-label={isTicket ? 'Postpone' : 'Renewals'}
+                aria-label={dropCreateExtraRowLabel('renewals', { isTicket })}
               >
                 <button
                   type="button"
