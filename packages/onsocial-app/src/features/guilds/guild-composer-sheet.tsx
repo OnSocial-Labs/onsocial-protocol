@@ -544,7 +544,8 @@ export function ComposerSheet({
     hasDrop: Boolean(dropDraft),
     hasMedia: mediaFiles.length > 0,
   };
-  const canComposeThread = composerToolbarToolShown('thread', toolbarState);
+  const canComposeThread = mode === 'post' && !postingAsDao;
+  const showThreadPlus = composerToolbarToolShown('thread', toolbarState);
   const canUseArticle = composerToolbarToolShown('article', toolbarState);
   const canUsePoll = composerToolbarToolShown('poll', toolbarState);
   const canUseMedia = composerToolbarToolShown('media', toolbarState);
@@ -1465,35 +1466,6 @@ export function ComposerSheet({
               )}
             </button>
           </ComposerToolSlot>
-          <ComposerToolSlot open={canComposeThread}>
-            <button
-              type="button"
-              className={`guild-composer-tool${
-                plusPressed ? ' is-active' : ''
-              }`}
-              disabled={!canAddThread || pending}
-              title={threadPlusHint(beats)}
-              aria-label={threadPlusHint(beats)}
-              onMouseDown={(event) => {
-                if (!canAddThread || pending) return;
-                event.preventDefault();
-              }}
-              onPointerDown={() => {
-                if (!canAddThread || pending) return;
-                setPlusPressed(true);
-              }}
-              onPointerUp={() => setPlusPressed(false)}
-              onPointerCancel={() => setPlusPressed(false)}
-              onPointerLeave={() => setPlusPressed(false)}
-              onClick={addThreadBeat}
-            >
-              {plusPressed ? (
-                <PlusCircleFillIcon className="guild-composer-tool-icon" />
-              ) : (
-                <PlusCircleIcon className="guild-composer-tool-icon" />
-              )}
-            </button>
-          </ComposerToolSlot>
           <ComposerToolSlot open>
             <button
               type="button"
@@ -1682,7 +1654,7 @@ export function ComposerSheet({
                 />
                 {renderBeat(beats[0] ?? emptySheetBeat(), 0)}
               </div>
-            ) : canComposeThread && beats.length > 1 ? (
+            ) : canComposeThread ? (
               <div
                 className="guild-composer-thread"
                 role="list"
@@ -1694,7 +1666,10 @@ export function ComposerSheet({
                     role="listitem"
                     className={[
                       'guild-composer-thread-item',
-                      index < beats.length - 1 ? 'is-down' : '',
+                      index < beats.length - 1 ||
+                      (showThreadPlus && index === beats.length - 1)
+                        ? 'is-down'
+                        : '',
                       index > 0 ? 'is-up' : '',
                     ]
                       .filter(Boolean)
@@ -1703,6 +1678,44 @@ export function ComposerSheet({
                     {renderBeat(row, index)}
                   </div>
                 ))}
+                <div
+                  role="listitem"
+                  className={`guild-composer-thread-add${
+                    showThreadPlus ? ' is-open' : ''
+                  }`}
+                  aria-hidden={showThreadPlus ? undefined : true}
+                  inert={showThreadPlus ? undefined : true}
+                >
+                  <div className="guild-composer-thread-add-clip">
+                    <button
+                      type="button"
+                      className={`guild-composer-thread-plus${
+                        plusPressed ? ' is-active' : ''
+                      }`}
+                      disabled={!canAddThread || pending}
+                      title={threadPlusHint(beats)}
+                      aria-label={threadPlusHint(beats)}
+                      onMouseDown={(event) => {
+                        if (!canAddThread || pending) return;
+                        event.preventDefault();
+                      }}
+                      onPointerDown={() => {
+                        if (!canAddThread || pending) return;
+                        setPlusPressed(true);
+                      }}
+                      onPointerUp={() => setPlusPressed(false)}
+                      onPointerCancel={() => setPlusPressed(false)}
+                      onPointerLeave={() => setPlusPressed(false)}
+                      onClick={addThreadBeat}
+                    >
+                      {plusPressed ? (
+                        <PlusCircleFillIcon className="guild-composer-tool-icon" />
+                      ) : (
+                        <PlusCircleIcon className="guild-composer-tool-icon" />
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
             ) : (
               renderBeat(beats[0] ?? emptySheetBeat(), 0)

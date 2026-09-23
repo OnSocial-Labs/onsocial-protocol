@@ -33,12 +33,11 @@ describe('composerToolbarToolShown', () => {
     expect(shown(freshPost)).toEqual(TOOLS);
   });
 
-  it('folds poll and Drop while an article is on', () => {
+  it('folds poll, Drop, and the thread plus while an article is on', () => {
     expect(shown({ ...freshPost, articleMode: true })).toEqual([
       'media',
       'article',
       'place',
-      'thread',
       'labels',
     ]);
   });

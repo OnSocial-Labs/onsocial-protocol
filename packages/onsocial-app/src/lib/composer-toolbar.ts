@@ -19,7 +19,7 @@ export type ComposerToolbarState = {
 /**
  * Tools that cannot apply fold out of the composer row.
  * The tool that is on stays, so it can be turned off.
- * Thread stays for any new post with content still optional — length does not gate it.
+ * The thread plus is a post control. An article is one piece, so the plus folds away.
  */
 export function composerToolbarToolShown(
   tool: ComposerToolbarTool,
@@ -40,7 +40,7 @@ export function composerToolbarToolShown(
     case 'place':
       return isPost;
     case 'thread':
-      return isPost && !state.postingAsDao;
+      return isPost && !state.postingAsDao && !state.articleMode;
     case 'labels':
       return true;
     default:

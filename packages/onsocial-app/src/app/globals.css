@@ -38545,6 +38545,70 @@ a.os-surface-row {
     bottom: 0;
   }
 
+  .guild-composer-thread-item {
+    transition: padding-bottom var(--os-motion-chrome, 220ms)
+      var(--os-motion-ease-soft, cubic-bezier(0.22, 1, 0.36, 1));
+  }
+
+  /* Next post sits on the rail, under the writing. An article folds it away. */
+  .guild-composer-thread-add {
+    display: grid;
+    grid-template-rows: minmax(0, 0fr);
+    min-height: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      grid-template-rows var(--os-motion-chrome, 220ms)
+        var(--os-motion-ease-soft, cubic-bezier(0.22, 1, 0.36, 1)),
+      opacity var(--os-motion-chip, 160ms) ease;
+  }
+
+  .guild-composer-thread-add.is-open {
+    grid-template-rows: minmax(0, 1fr);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .guild-composer-thread-add-clip {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .guild-composer-thread-plus {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.52);
+    cursor: pointer;
+    transition: color var(--os-motion-chip, 160ms) ease;
+  }
+
+  .guild-composer-thread-plus:hover:not(:disabled),
+  .guild-composer-thread-plus:focus-visible:not(:disabled),
+  .guild-composer-thread-plus.is-active {
+    color: rgb(var(--fg-rgb) / 0.88);
+    outline: none;
+  }
+
+  .guild-composer-thread-plus:disabled {
+    color: rgb(var(--fg-rgb) / 0.26);
+    cursor: default;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .guild-composer-thread-item,
+    .guild-composer-thread-add {
+      transition: none;
+    }
+  }
+
   .guild-composer-self.is-muted {
     cursor: pointer;
   }
