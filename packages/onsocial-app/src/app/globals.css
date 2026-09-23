@@ -35198,12 +35198,16 @@ a.os-surface-row {
     display: contents;
   }
 
-  /* Work + name are one object. Deal sits after. */
+  /* Chips stay with the piece. The name takes the same 1.15rem breath as the price. */
   .drop-create-stage,
   .drop-create-deal {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+  }
+
+  .drop-create-stage {
+    gap: 1.15rem;
   }
 
   /* Supply · price as one spoken line. !important beats unlayered os-field. */
@@ -35287,6 +35291,14 @@ a.os-surface-row {
     width: min(100%, 15rem);
     max-width: 15rem;
     margin-inline: auto;
+  }
+
+  /* Phone keeps the 15rem cap. A wide column lets the square grow, still short of the type. */
+  @media (min-width: 768px) {
+    .drop-create-form .drop-cover-picker.drop-create-piece {
+      width: min(100%, 22rem);
+      max-width: 22rem;
+    }
   }
 
   .drop-create-form .drop-cover-picker.drop-create-piece:hover:not(:disabled),
