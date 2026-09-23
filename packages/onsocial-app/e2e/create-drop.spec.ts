@@ -176,21 +176,41 @@ test.describe('create drop', () => {
       0
     );
 
-    await expect(page.locator('.drop-create-description-toggle')).toHaveText(
-      'Add a description'
+    const descriptionToggle = page.locator('.drop-create-description-toggle');
+    await expect(descriptionToggle).toHaveText('Add a description');
+    await expect(
+      descriptionToggle.locator('.drop-create-disclosure-chevron')
+    ).toBeVisible();
+    const descriptionDecoration = await descriptionToggle.evaluate(
+      (el) => getComputedStyle(el).textDecorationLine
     );
-    await expect(page.locator('#drop-create-description')).toHaveCount(0);
+    expect(descriptionDecoration).not.toContain('underline');
+    await expect(page.locator('.drop-create-description-reveal')).not.toHaveClass(
+      /\bis-open\b/
+    );
     await page.getByRole('button', { name: 'Add a description' }).click();
+    await expect(page.locator('.drop-create-description-reveal')).toHaveClass(
+      /\bis-open\b/
+    );
     await expect(page.locator('#drop-create-description')).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'About Description' })
     ).toBeVisible();
     await page.locator('#drop-create-description').fill('Short public line.');
     await page.getByRole('button', { name: 'Hide description' }).click();
-    await expect(page.locator('#drop-create-description')).toHaveCount(0);
+    await expect(page.locator('.drop-create-description-reveal')).not.toHaveClass(
+      /\bis-open\b/
+    );
     await expect(page.locator('.drop-create-description-toggle')).toHaveText(
       'Edit description'
     );
+    await expect
+      .poll(async () =>
+        page
+          .locator('.drop-create-description-reveal .os-reveal-clip')
+          .evaluate((el) => el.getBoundingClientRect().height)
+      )
+      .toBeLessThan(2);
   });
 
   test('keeps the artwork well square when a photo is picked', async ({
@@ -282,9 +302,9 @@ test.describe('create drop', () => {
     await expect(
       page.locator('[data-drop-create-attach="audio"]')
     ).toBeVisible();
-    await expect(page.locator('.drop-create-attach-action')).toHaveText(
-      'Add track'
-    );
+    await expect(
+      page.locator('[data-drop-create-attach="audio"] .drop-create-attach-action')
+    ).toHaveText('Add track');
     await expect(
       page.locator('[data-drop-create-attach="audio"] .drop-create-attach-hint')
     ).toHaveText('MP3, M4A, WAV, or similar · ≤20 MB');
@@ -297,9 +317,9 @@ test.describe('create drop', () => {
       page.getByRole('group', { name: 'Track actions' })
     ).toHaveCount(0);
     await page.getByRole('radio', { name: 'Album' }).click();
-    await expect(page.locator('.drop-create-attach-action')).toHaveText(
-      'Add tracks'
-    );
+    await expect(
+      page.locator('[data-drop-create-attach="audio"] .drop-create-attach-action')
+    ).toHaveText('Add tracks');
     await expect(
       page.locator('[data-drop-create-attach="audio"] .drop-create-attach-hint')
     ).toHaveText('2–30 tracks · MP3, M4A, WAV, or similar · ≤20 MB each');
@@ -308,9 +328,11 @@ test.describe('create drop', () => {
     await expect(
       page.locator('[data-drop-create-attach="writing"]')
     ).toBeVisible();
-    await expect(page.locator('.drop-create-attach-action')).toHaveText(
-      'Add file'
-    );
+    await expect(
+      page.locator(
+        '[data-drop-create-attach="writing"] .drop-create-attach-action'
+      )
+    ).toHaveText('Add file');
     await expect(
       page.locator(
         '[data-drop-create-attach="writing"] .drop-create-attach-hint'
@@ -321,16 +343,20 @@ test.describe('create drop', () => {
     ).toHaveCount(0);
 
     await page.getByRole('radio', { name: 'Book' }).click();
-    await expect(page.locator('.drop-create-attach-action')).toHaveText(
-      'Add files'
-    );
+    await expect(
+      page.locator(
+        '[data-drop-create-attach="writing"] .drop-create-attach-action'
+      )
+    ).toHaveText('Add files');
     await expect(
       page.locator(
         '[data-drop-create-attach="writing"] .drop-create-attach-hint'
       )
     ).toHaveText('2–100 chapters · .md for reading');
     await expect(
-      page.locator('[data-drop-create-attach="book-pdf"]')
+      page.locator(
+        '.drop-create-advanced-reveal.is-open [data-drop-create-attach="book-pdf"]'
+      )
     ).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Add PDF', exact: true })

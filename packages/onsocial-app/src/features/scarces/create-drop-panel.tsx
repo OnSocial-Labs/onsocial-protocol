@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -21,6 +22,8 @@ import {
   OsIconAction,
   OsAppChromeToolbarRail,
   QuestionMarkCircleFillIcon,
+  ChevronDownIcon,
+  useOsReveal,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { InfoDrawer } from '@onsocial/ui';
@@ -240,6 +243,60 @@ function fieldId(name: string) {
   return `drop-create-${name}`;
 }
 
+/** Closed is 0. Open height is the measured section, animated by os-reveal. */
+function useDropCreateReveal(open: boolean) {
+  const { hostRef, clipRef, innerRef, measure } = useOsReveal<HTMLDivElement>();
+  const measureClosed = useCallback(() => {
+    measure({ closedPx: 0 });
+  }, [measure]);
+
+  useLayoutEffect(() => {
+    measureClosed();
+  }, [measureClosed, open]);
+
+  useEffect(() => {
+    const inner = innerRef.current;
+    if (!inner || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => measureClosed());
+    observer.observe(inner);
+    return () => observer.disconnect();
+  }, [innerRef, measureClosed]);
+
+  return { hostRef, clipRef, innerRef };
+}
+
+function DropCreateDisclosure({
+  open,
+  label,
+  controlsId,
+  disabled,
+  className,
+  onClick,
+}: {
+  open: boolean;
+  label: string;
+  controlsId: string;
+  disabled?: boolean;
+  className?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`drop-create-disclosure${open ? ' is-open' : ''}${
+        className ? ` ${className}` : ''
+      }`}
+      disabled={disabled}
+      aria-expanded={open}
+      aria-controls={controlsId}
+      onClick={onClick}
+    >
+      <span>{label}</span>
+      <ChevronDownIcon className="drop-create-disclosure-chevron" aria-hidden />
+    </button>
+  );
+}
+
 function isFormFieldTarget(target: EventTarget | null): boolean {
   return (
     target instanceof HTMLInputElement ||
@@ -300,6 +357,8 @@ export function CreateDropPanel() {
   );
   const [createReady, setCreateReady] = useState(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const descriptionReveal = useDropCreateReveal(descriptionOpen);
+  const advancedReveal = useDropCreateReveal(showAdvanced);
   const dropIdRef = useRef<HTMLInputElement>(null);
   const seriesFieldRef = useRef<HTMLInputElement>(null);
   const placeFieldRef = useRef<HTMLInputElement>(null);
@@ -3357,56 +3416,71 @@ export function CreateDropPanel() {
           className="drop-create-section"
           data-drop-create-section="description"
         >
-          <button
-            type="button"
-            className="collection-allowlist-toggle drop-create-description-toggle"
-            disabled={pending}
-            aria-expanded={descriptionShown}
-            onClick={() => setDescriptionOpen((open) => !open)}
-          >
-            {dropCreateDescriptionToggle({
+          <DropCreateDisclosure
+            className="drop-create-description-toggle"
+            open={descriptionShown}
+            label={dropCreateDescriptionToggle({
               open: descriptionShown,
               hasText: descriptionHasText,
             })}
-          </button>
-          {descriptionShown ? (
-            <div className="guild-field">
-              <DropFieldLabel
-                label="Description"
-                infoKey="description"
-                onOpenInfo={openFieldInfo}
-              />
-              <textarea
-                id={fieldId('description')}
-                ref={descriptionRef}
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder={
-                  isWriting
-                    ? 'Short public description — the manuscript uploads separately.'
-                    : 'What fans get and why it matters — shown on the drop page.'
-                }
-                maxLength={MAX_DESCRIPTION}
-                className={osFieldBorderedClassName}
-              />
-              <small>
-                {description.length}/{MAX_DESCRIPTION}
-              </small>
+            controlsId={fieldId('description-panel')}
+            disabled={pending}
+            onClick={() => setDescriptionOpen((open) => !open)}
+          />
+          <div
+            ref={descriptionReveal.hostRef}
+            className={`drop-create-reveal os-reveal${
+              descriptionShown ? ' is-open' : ''
+            } drop-create-description-reveal`}
+          >
+            <div
+              ref={descriptionReveal.clipRef}
+              id={fieldId('description-panel')}
+              className="os-reveal-clip"
+            >
+              <div
+                ref={descriptionReveal.innerRef}
+                className="os-reveal-inner drop-create-reveal-body"
+                inert={descriptionShown ? undefined : true}
+                aria-hidden={descriptionShown ? undefined : true}
+              >
+                <div className="guild-field">
+                  <DropFieldLabel
+                    label="Description"
+                    infoKey="description"
+                    onOpenInfo={openFieldInfo}
+                  />
+                  <textarea
+                    id={fieldId('description')}
+                    ref={descriptionRef}
+                    value={description}
+                    onChange={(event) => setDescription(event.target.value)}
+                    placeholder={
+                      isWriting
+                        ? 'Short public description — the manuscript uploads separately.'
+                        : 'What fans get and why it matters — shown on the drop page.'
+                    }
+                    maxLength={MAX_DESCRIPTION}
+                    className={osFieldBorderedClassName}
+                  />
+                  <small>
+                    {description.length}/{MAX_DESCRIPTION}
+                  </small>
+                </div>
+              </div>
             </div>
-          ) : null}
+          </div>
         </div>
 
         <div className="drop-create-advanced">
           <div className="guild-field drop-advanced-toggle-row">
-          <button
-            type="button"
-            className="collection-allowlist-toggle"
+          <DropCreateDisclosure
+            open={showAdvanced}
+            label={showAdvanced ? 'Hide advanced' : 'Advanced'}
+            controlsId={fieldId('advanced-panel')}
             disabled={pending}
-            aria-expanded={showAdvanced}
             onClick={() => setShowAdvanced((open) => !open)}
-          >
-            {showAdvanced ? 'Hide advanced' : 'Advanced'}
-          </button>
+          />
           {hasDiscardableDraft ? (
             <button
               type="button"
@@ -3418,9 +3492,23 @@ export function CreateDropPanel() {
             </button>
           ) : null}
         </div>
-
-        {showAdvanced ? (
-          <>
+        <div
+          ref={advancedReveal.hostRef}
+          className={`drop-create-reveal os-reveal${
+            showAdvanced ? ' is-open' : ''
+          } drop-create-advanced-reveal`}
+        >
+          <div
+            ref={advancedReveal.clipRef}
+            id={fieldId('advanced-panel')}
+            className="os-reveal-clip"
+          >
+            <div
+              ref={advancedReveal.innerRef}
+              className="os-reveal-inner drop-create-reveal-body"
+              inert={showAdvanced ? undefined : true}
+              aria-hidden={showAdvanced ? undefined : true}
+            >
             {isWriting && writingFormat === 'book' && bookPdfInAdvanced ? (
               <div
                 className="drop-create-attach"
@@ -3709,8 +3797,9 @@ export function CreateDropPanel() {
                 }}
               />
             </DropCreateExtraList>
-          </>
-        ) : null}
+            </div>
+          </div>
+        </div>
         </div>
 
         {error ? (
