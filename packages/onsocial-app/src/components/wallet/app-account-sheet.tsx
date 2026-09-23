@@ -36,7 +36,7 @@ import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import { ACCOUNT_SHEET_PEEK_RATIO } from '@/lib/account-sheet-config';
 import { accountSheetPageMoodPanel } from '@/lib/account-sheet-page-mood';
 import { accountIdsEqual } from '@/lib/account-match';
-import { accountDrawerPrimaryLabel } from '@/lib/profile-display';
+import { accountDrawerPrimaryLabel, customDisplayName } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 interface AppAccountSheetProps {
@@ -283,7 +283,11 @@ export function AppAccountSheet({
     profileSeed && accountIdsEqual(profileSeed.accountId, accountId)
       ? profileSeed.avatarUrl
       : null;
-  const profileName = identityOverride?.displayName ?? seededName;
+  const profileName =
+    customDisplayName(accountId, identityOverride?.displayName) ||
+    customDisplayName(accountId, seededName) ||
+    customDisplayName(accountId, viewerShell?.displayName) ||
+    undefined;
   const avatarUrl =
     identityOverride?.avatarUrl ??
     seededAvatar ??

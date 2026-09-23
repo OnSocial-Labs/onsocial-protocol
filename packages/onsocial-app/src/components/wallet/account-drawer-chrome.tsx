@@ -2,17 +2,14 @@
 
 import { useCallback, useEffect, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
-import {
-  osChromeSubjectClassName,
-  standingIdentityAccountCopy,
-} from '@onsocial/ui';
+import { CheckIcon, CopyIcon, standingIdentityAccountCopy } from '@onsocial/ui';
 import type { ProfileKind } from '@onsocial/sdk';
-import { OsChromeSubject } from '@/components/profile/os-chrome-subject';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { accountDrawerPrimaryLabel } from '@/lib/profile-display';
 
-function AccountDrawerAddressCopy({ accountId }: { accountId: string }) {
+function AccountDrawerHandle({ accountId }: { accountId: string }) {
   const [copied, setCopied] = useState(false);
   const handleLabel = standingIdentityAccountCopy(accountId);
 
@@ -39,20 +36,22 @@ function AccountDrawerAddressCopy({ accountId }: { accountId: string }) {
   return (
     <button
       type="button"
-      className={`account-drawer-address${copied ? ' is-copied' : ''}`}
+      className={`account-drawer-handle${copied ? ' is-copied' : ''}`}
       onClick={handleCopy}
-      title={accountId}
       aria-label={copied ? 'Address copied' : `Copy ${handleLabel}`}
     >
-      <span className="account-drawer-address-id">{handleLabel}</span>
-      <span className="account-drawer-address-action">
-        {copied ? 'Copied' : 'Copy'}
+      <span className="account-drawer-handle-id" title={accountId}>
+        {handleLabel}
+      </span>
+      <span className="account-drawer-handle-copy" aria-hidden>
+        <CopyIcon className="account-drawer-handle-copy-icon" />
+        <CheckIcon className="account-drawer-handle-copy-icon account-drawer-handle-copy-tick" />
       </span>
     </button>
   );
 }
 
-/** Identity row — page link and address copy are separate tap targets. */
+/** Identity — name opens the page; @handle and the copy icon share the line under it. */
 export function AccountDrawerChrome({
   titleId,
   srTitle,
@@ -89,21 +88,21 @@ export function AccountDrawerChrome({
       <div className="account-drawer-identity">
         <Link
           href={portfolioPath(accountId)}
-          className={osChromeSubjectClassName}
+          className="account-drawer-face"
           aria-label={`${primaryLabel} portfolio`}
           onClick={onClose}
         >
-          <OsChromeSubject
+          <AccountAvatar
             accountId={accountId}
-            profileName={profileName}
-            avatarUrl={avatarUrl}
             kind={kind}
-            primaryLabel={primaryLabel}
-            showHandle={false}
-            unstyled
+            src={avatarUrl ?? null}
+            fallbackInitial={primaryLabel}
+            size="md"
+            className="account-drawer-avatar"
           />
+          <span className="account-drawer-name">{primaryLabel}</span>
         </Link>
-        <AccountDrawerAddressCopy accountId={accountId} />
+        <AccountDrawerHandle accountId={accountId} />
       </div>
     </SheetChromeHeader>
   );
