@@ -653,11 +653,6 @@ export function ComposerSheet({
   }
 
   useEffect(() => {
-    if (open && articleMode) return;
-    setArticleWriting(false);
-  }, [open, articleMode]);
-
-  useEffect(() => {
     if (!open) return;
     const focusTimer = window.setTimeout(() => {
       if (initialArticleMode && mode === 'post') {
@@ -740,6 +735,7 @@ export function ComposerSheet({
 
   const requestClose = () => {
     if (pending) return;
+    setArticleWriting(false);
     const first = beats[0] ?? emptySheetBeat();
     onClose({
       text: first.text,
@@ -769,6 +765,7 @@ export function ComposerSheet({
     }
     revokeComposerPreviewFiles(mediaFiles);
     setMediaError(null);
+    setArticleWriting(false);
     patchFocused({
       pollEnabled: true,
       drop: null,
@@ -782,6 +779,7 @@ export function ComposerSheet({
   };
 
   const clearArticleMode = () => {
+    setArticleWriting(false);
     patchFocused({
       articleMode: false,
       articleTitle: '',
@@ -804,6 +802,7 @@ export function ComposerSheet({
       return;
     }
     setMediaError(null);
+    setArticleWriting(false);
     const collapsed = collapseComposerMediaToCoverImage({
       files: beat.files,
       previews: beat.previews,
@@ -863,6 +862,7 @@ export function ComposerSheet({
     revokeComposerPreviewFiles(mediaFiles);
     setMediaError(null);
     setDropPickerOpen(false);
+    setArticleWriting(false);
     patchFocused({
       drop,
       pollEnabled: false,
