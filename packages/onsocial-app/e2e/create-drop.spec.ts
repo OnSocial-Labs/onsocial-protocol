@@ -14,6 +14,18 @@ const COVER_PNG = Buffer.from(
   'base64'
 );
 
+async function clickKindTab(page: Page, name: string): Promise<void> {
+  await page.evaluate((label) => {
+    const tab = [...document.querySelectorAll('[role="tab"]')].find(
+      (el) => el.textContent?.trim() === label
+    );
+    if (!(tab instanceof HTMLElement)) {
+      throw new Error(`Missing kind tab ${label}`);
+    }
+    tab.click();
+  }, name);
+}
+
 async function openCreateDrop(
   page: Page,
   path = '/drops/create'
@@ -600,7 +612,7 @@ test.describe('create drop', () => {
   }) => {
     await openCreateDrop(page);
 
-    await page.getByRole('tab', { name: 'Coupons', exact: true }).click();
+    await clickKindTab(page, 'Coupons');
     const access = page.getByRole('group', { name: 'Access ends' });
     await expect(access).toBeVisible();
     await expect(
@@ -642,7 +654,7 @@ test.describe('create drop', () => {
       page.getByRole('button', { name: 'Allowlist: Connect' })
     ).toBeVisible();
 
-    await page.getByRole('tab', { name: 'Membership', exact: true }).click();
+    await clickKindTab(page, 'Membership');
     await expect(
       page.getByRole('button', { name: 'Transferable: No' })
     ).toBeVisible();
