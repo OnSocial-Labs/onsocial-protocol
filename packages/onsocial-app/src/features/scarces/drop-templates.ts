@@ -107,7 +107,7 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     helpTitle: 'Coupon drop',
     tagline: 'Redeemable perks with an expiry date.',
     hint:
-      'Good for merch discounts, early access, and partner offers. e.g. “20% off studio gear” — one redeem per coupon, access ends when the offer does. Set the expiry in Advanced.',
+      'Good for merch discounts, early access, and partner offers. e.g. “20% off studio gear” until 30 Sep. One redeem. The sale can close earlier.',
     kind: 'coupon',
     unit: 'coupons',
     unitSingular: 'coupon',
