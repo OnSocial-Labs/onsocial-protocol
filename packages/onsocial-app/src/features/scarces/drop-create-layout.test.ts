@@ -169,6 +169,7 @@ describe('dropCreateExtraHint', () => {
   it('is one line in the drawer, not a question', () => {
     expect(dropCreateExtraHint('dropId')).toMatch(/from your title/);
     expect(dropCreateExtraHint('event')).toMatch(/not the sale/);
+    expect(dropCreateExtraHint('access')).toMatch(/offer ends/);
     expect(dropCreateExtraHint('renewals', { isTicket: true })).toBe(
       dropCreateRenewalsHint(true)
     );
@@ -204,11 +205,17 @@ describe('dropCreate summaries', () => {
         on: true,
         requiresAccessEnd: true,
       })
-    ).toBe('Yes · set an end');
+    ).toBe('Yes');
     expect(
       dropCreateRenewalsSummary({
         on: true,
         requiresAccessEnd: true,
+        accessEndsLabel: '8 Sep',
+      })
+    ).toBe('Yes');
+    expect(
+      dropCreateRenewalsSummary({
+        on: true,
         accessEndsLabel: '8 Sep',
       })
     ).toBe('Yes · 8 Sep');

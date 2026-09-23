@@ -336,6 +336,12 @@ test.describe('create drop', () => {
     await expect(
       page.getByRole('button', { name: 'Allowlist: Connect' })
     ).toBeVisible();
+    await page.getByRole('button', { name: 'Allowlist: Connect' }).click();
+    const wallet = page.locator('.hot-connector-popup');
+    await expect(wallet).toBeAttached();
+    await expect(wallet).toContainText('Select wallet');
+    await expect(page.getByRole('dialog', { name: 'Allowlist' })).toHaveCount(0);
+    await wallet.evaluate((el) => el.remove());
     await expect(
       page.getByRole('button', { name: 'About Allowlist' })
     ).toHaveCount(0);
@@ -462,6 +468,30 @@ test.describe('create drop', () => {
     await expect(
       page.getByRole('button', { name: 'Postpone: Yes' })
     ).toBeVisible();
+    const eventBox = await page
+      .getByRole('group', { name: 'Event' })
+      .boundingBox();
+    const placeBox = await page
+      .getByRole('button', { name: 'Place: None' })
+      .boundingBox();
+    const dropIdBox = await page
+      .getByRole('button', { name: 'Drop ID: From title' })
+      .boundingBox();
+    expect(eventBox!.y).toBeLessThan(placeBox!.y);
+    expect(placeBox!.y).toBeLessThan(dropIdBox!.y);
+
+    const cells = page.locator('.drop-create-extra-event .drop-schedule-cell');
+    await page.setViewportSize({ width: 390, height: 844 });
+    const startsPhone = await cells.nth(0).boundingBox();
+    const endsPhone = await cells.nth(1).boundingBox();
+    expect(endsPhone!.y).toBeGreaterThan(
+      startsPhone!.y + startsPhone!.height - 4
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const startsWide = await cells.nth(0).boundingBox();
+    const endsWide = await cells.nth(1).boundingBox();
+    expect(Math.abs(startsWide!.y - endsWide!.y)).toBeLessThan(8);
+    expect(endsWide!.x).toBeGreaterThan(startsWide!.x);
     await expect(
       page.getByRole('radio', { name: 'Flexible dates', exact: true })
     ).toHaveCount(0);
@@ -492,11 +522,22 @@ test.describe('create drop', () => {
     await openCreateDrop(page);
 
     await page.getByRole('tab', { name: 'Coupons', exact: true }).click();
+    const access = page.getByRole('group', { name: 'Access ends' });
+    await expect(access).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Renewals: Yes · set an end' })
+      access.getByText('When the offer ends — not the sale.')
     ).toBeVisible();
+    await expect(access.getByText('Required', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Renewals: Yes', exact: true })
+    ).toBeVisible();
+    const accessBox = await access.boundingBox();
+    const renewalsBox = await page
+      .getByRole('button', { name: 'Renewals: Yes', exact: true })
+      .boundingBox();
+    expect(accessBox!.y).toBeLessThan(renewalsBox!.y);
     await page
-      .getByRole('button', { name: 'Renewals: Yes · set an end' })
+      .getByRole('button', { name: 'Renewals: Yes', exact: true })
       .click();
     const renewals = page.getByRole('dialog', { name: 'Renewals' });
     await expect(
@@ -505,9 +546,12 @@ test.describe('create drop', () => {
     await expect(
       renewals.getByText('Holders can renew after it expires.')
     ).toBeVisible();
+    await expect(renewals.getByText('Access ends', { exact: true })).toHaveCount(
+      0
+    );
     await renewals.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
-      page.getByRole('button', { name: 'Renewals: Yes · set an end' })
+      page.getByRole('button', { name: 'Renewals: Yes', exact: true })
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Transferable: Yes' })
@@ -523,9 +567,20 @@ test.describe('create drop', () => {
     await expect(
       page.getByRole('button', { name: 'Transferable: Soulbound' })
     ).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Access ends' })).toHaveCount(
+      0
+    );
     await expect(
       page.getByRole('button', { name: 'Renewals: Yes' })
     ).toBeVisible();
+    await page.getByRole('button', { name: 'Renewals: Yes' }).click();
+    const membershipRenewals = page.getByRole('dialog', { name: 'Renewals' });
+    await expect(
+      membershipRenewals.getByText('Access ends (optional)')
+    ).toBeVisible();
+    await membershipRenewals
+      .getByRole('button', { name: 'Done', exact: true })
+      .click();
   });
 
   test('hub bind leaves to that hub; series query still prefills', async ({

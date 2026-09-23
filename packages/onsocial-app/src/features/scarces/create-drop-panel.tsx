@@ -3486,58 +3486,6 @@ export function CreateDropPanel() {
               </div>
             ) : null}
             <DropCreateExtraList>
-              <DropCreateExtraRow
-                label={dropCreateExtraRowLabel('dropId')}
-                value={dropCreateDropIdSummary(slug)}
-                disabled={pending}
-                onClick={() => setExtraSheet('dropId')}
-              />
-              <DropCreateExtraRow
-                label={dropCreateExtraRowLabel('series')}
-                value={dropCreateOptionalSummary(seriesName)}
-                disabled={pending}
-                onClick={() => setExtraSheet('series')}
-              />
-              {createFacetMedium ? (
-                <DropCreateExtraRow
-                  label={dropCreateExtraRowLabel('facets', {
-                    facetLabel: facetRowLabel,
-                  })}
-                  value={dropCreateFacetsSummary(facets, dropFacetLabel)}
-                  disabled={pending}
-                  onClick={() => setExtraSheet('facets')}
-                />
-              ) : null}
-              <DropCreateExtraRow
-                label={dropCreateExtraRowLabel('royalty')}
-                value={royaltyRowValue}
-                disabled={pending}
-                onClick={() => setExtraSheet('royalty')}
-              />
-              <DropCreateExtraRow
-                label={dropCreateExtraRowLabel('saleRules')}
-                value={saleRowValue}
-                disabled={pending}
-                onClick={() => setExtraSheet('saleRules')}
-              />
-              <DropCreateExtraRow
-                label={dropCreateExtraRowLabel('perWallet')}
-                value={perWalletRowValue}
-                disabled={pending}
-                onClick={() => setExtraSheet('perWallet')}
-              />
-              <DropCreateExtraRow
-                label={dropCreateExtraRowLabel('transferable')}
-                value={transferableRowValue}
-                disabled={pending}
-                onClick={() => setExtraSheet('transferable')}
-              />
-              <DropCreateExtraRow
-                label={dropCreateExtraRowLabel('burnable')}
-                value={burnableRowValue}
-                disabled={pending}
-                onClick={() => setExtraSheet('burnable')}
-              />
               {isTicket ? (
                 <div
                   className="drop-create-extra-event"
@@ -3620,19 +3568,128 @@ export function CreateDropPanel() {
                   onClick={() => setExtraSheet('place')}
                 />
               ) : null}
+              {isTicket ? (
+                <DropCreateExtraRow
+                  label={dropCreateExtraRowLabel('renewals', { isTicket })}
+                  value={dropCreateRenewalsSummary({
+                    on: renewable,
+                    isTicket,
+                  })}
+                  disabled={pending}
+                  onClick={() => setExtraSheet('renewals')}
+                />
+              ) : null}
+              {template.requiresAccessEnd ? (
+                <div
+                  className="drop-create-extra-event"
+                  role="group"
+                  aria-label="Access ends"
+                >
+                  <span className="drop-create-extra-row-label">
+                    Access ends
+                  </span>
+                  <p className="drop-create-advanced-hint">
+                    {dropCreateExtraHint('access')}
+                  </p>
+                  <div
+                    className={`drop-schedule-cell${
+                      accessEnds ? ' has-value' : ''
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      className="drop-schedule-cell-main"
+                      disabled={pending}
+                      onClick={() => setScheduleField('access')}
+                    >
+                      <span className="drop-schedule-cell-label">Ends</span>
+                      <span className="drop-schedule-cell-value">
+                        {accessEnds
+                          ? formatScheduleLabel(accessEnds)
+                          : 'Required'}
+                      </span>
+                    </button>
+                    {accessEnds ? (
+                      <button
+                        type="button"
+                        className="drop-schedule-cell-clear"
+                        disabled={pending}
+                        aria-label="Clear access end"
+                        onClick={() => setAccessEnds('')}
+                      >
+                        ✕
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
               <DropCreateExtraRow
-                label={dropCreateExtraRowLabel('renewals', { isTicket })}
-                value={dropCreateRenewalsSummary({
-                  on: renewable,
-                  isTicket,
-                  accessEndsLabel: accessEnds
-                    ? formatScheduleLabel(accessEnds)
-                    : '',
-                  requiresAccessEnd: Boolean(template.requiresAccessEnd),
-                })}
+                label={dropCreateExtraRowLabel('dropId')}
+                value={dropCreateDropIdSummary(slug)}
                 disabled={pending}
-                onClick={() => setExtraSheet('renewals')}
+                onClick={() => setExtraSheet('dropId')}
               />
+              <DropCreateExtraRow
+                label={dropCreateExtraRowLabel('series')}
+                value={dropCreateOptionalSummary(seriesName)}
+                disabled={pending}
+                onClick={() => setExtraSheet('series')}
+              />
+              {createFacetMedium ? (
+                <DropCreateExtraRow
+                  label={dropCreateExtraRowLabel('facets', {
+                    facetLabel: facetRowLabel,
+                  })}
+                  value={dropCreateFacetsSummary(facets, dropFacetLabel)}
+                  disabled={pending}
+                  onClick={() => setExtraSheet('facets')}
+                />
+              ) : null}
+              <DropCreateExtraRow
+                label={dropCreateExtraRowLabel('royalty')}
+                value={royaltyRowValue}
+                disabled={pending}
+                onClick={() => setExtraSheet('royalty')}
+              />
+              <DropCreateExtraRow
+                label={dropCreateExtraRowLabel('saleRules')}
+                value={saleRowValue}
+                disabled={pending}
+                onClick={() => setExtraSheet('saleRules')}
+              />
+              <DropCreateExtraRow
+                label={dropCreateExtraRowLabel('perWallet')}
+                value={perWalletRowValue}
+                disabled={pending}
+                onClick={() => setExtraSheet('perWallet')}
+              />
+              <DropCreateExtraRow
+                label={dropCreateExtraRowLabel('transferable')}
+                value={transferableRowValue}
+                disabled={pending}
+                onClick={() => setExtraSheet('transferable')}
+              />
+              <DropCreateExtraRow
+                label={dropCreateExtraRowLabel('burnable')}
+                value={burnableRowValue}
+                disabled={pending}
+                onClick={() => setExtraSheet('burnable')}
+              />
+              {!isTicket ? (
+                <DropCreateExtraRow
+                  label={dropCreateExtraRowLabel('renewals', { isTicket })}
+                  value={dropCreateRenewalsSummary({
+                    on: renewable,
+                    isTicket,
+                    accessEndsLabel: accessEnds
+                      ? formatScheduleLabel(accessEnds)
+                      : '',
+                    requiresAccessEnd: Boolean(template.requiresAccessEnd),
+                  })}
+                  disabled={pending}
+                  onClick={() => setExtraSheet('renewals')}
+                />
+              ) : null}
               <DropCreateExtraRow
                 label={dropCreateExtraRowLabel('allowlist')}
                 value={dropCreateAllowlistSummary(
@@ -3641,7 +3698,10 @@ export function CreateDropPanel() {
                 )}
                 disabled={pending}
                 onClick={() => {
-                  if (!accountId) return;
+                  if (!accountId) {
+                    void connect();
+                    return;
+                  }
                   setAllowlistSheetOpen(true);
                 }}
               />
@@ -3959,20 +4019,18 @@ export function CreateDropPanel() {
                   disabled={pending}
                   onClick={() => {
                     setRenewable(false);
-                    if (!isTicket) setAccessEnds('');
+                    if (!isTicket && !template.requiresAccessEnd) {
+                      setAccessEnds('');
+                    }
                   }}
                 >
                   {dropCreateRenewalsChoice(false)}
                 </button>
               </div>
             </div>
-            {!isTicket && (renewable || template.requiresAccessEnd) ? (
+            {!isTicket && renewable && !template.requiresAccessEnd ? (
               <div className="guild-field">
-                <span>
-                  {template.requiresAccessEnd
-                    ? 'Access ends'
-                    : 'Access ends (optional)'}
-                </span>
+                <span>Access ends (optional)</span>
                 <div
                   className={`drop-schedule-cell${
                     accessEnds ? ' has-value' : ''
@@ -3988,11 +4046,7 @@ export function CreateDropPanel() {
                       Access ends
                     </span>
                     <span className="drop-schedule-cell-value">
-                      {accessEnds
-                        ? formatScheduleLabel(accessEnds)
-                        : template.requiresAccessEnd
-                          ? 'Required'
-                          : 'No end'}
+                      {accessEnds ? formatScheduleLabel(accessEnds) : 'No end'}
                     </span>
                   </button>
                   {accessEnds ? (

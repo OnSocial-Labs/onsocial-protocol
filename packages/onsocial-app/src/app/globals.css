@@ -33421,17 +33421,17 @@ a.os-surface-row {
     overflow-wrap: anywhere;
   }
 
-  /* Sale window — one row, two cells; picker lives in DropSaleWindowSheet. */
+  /* Sale window — one row on a wide column; picker lives in DropSaleWindowSheet.
+     Phone stacks so a full date ("Sep 23, 2026, 3:00 PM") fits the row. */
   .drop-schedule-pair {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 0.55rem;
   }
 
-  /* Tiny phones: full dates ("Aug 23, 2026, 3:00 PM") need the whole row. */
-  @media (max-width: 380px) {
+  @media (min-width: 768px) {
     .drop-schedule-pair {
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr 1fr;
     }
   }
 
