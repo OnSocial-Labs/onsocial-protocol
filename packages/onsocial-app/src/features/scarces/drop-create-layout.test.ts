@@ -37,6 +37,8 @@ import {
   dropCreateSaleRulesSummary,
   dropCreateSetSourceSummary,
   dropCreateSaleWindowSummary,
+  dropCreateSaleCloseDisplay,
+  dropCreateTicketSaleWindow,
   dropCreateTransferableSummary,
   dropCreateBurnableSummary,
   dropRightsFacts,
@@ -336,6 +338,59 @@ describe('dropCreate summaries', () => {
       })
     ).toBe('Yes · 8 Sep');
     expect(dropCreateSaleWindowSummary('Now', 'no end')).toBe('Now · no end');
+    const eventEndsMs = Date.parse('2026-09-25T21:54:00');
+    const afterEvent = Date.parse('2026-09-30T21:49:00');
+    expect(
+      dropCreateTicketSaleWindow({
+        saleOpensMs: afterEvent,
+        saleClosesMs: null,
+        eventEndsMs,
+      }).error
+    ).toBe('The open time must be before the event ends.');
+    expect(
+      dropCreateTicketSaleWindow({
+        saleOpensMs: null,
+        saleClosesMs: null,
+        eventEndsMs,
+      })
+    ).toEqual({ error: null, closesMs: eventEndsMs });
+    expect(
+      dropCreateTicketSaleWindow({
+        saleOpensMs: Date.parse('2026-09-24T18:00:00'),
+        saleClosesMs: Date.parse('2026-09-26T18:00:00'),
+        eventEndsMs,
+      }).error
+    ).toBe('The close time must be on or before the event end.');
+    expect(
+      dropCreateTicketSaleWindow({
+        saleOpensMs: null,
+        saleClosesMs: eventEndsMs,
+        eventEndsMs,
+      })
+    ).toEqual({ error: null, closesMs: eventEndsMs });
+    expect(
+      dropCreateTicketSaleWindow({
+        saleOpensMs: afterEvent,
+        saleClosesMs: null,
+        eventEndsMs: null,
+      })
+    ).toEqual({ error: null, closesMs: null });
+    expect(
+      dropCreateSaleCloseDisplay({
+        isTicket: true,
+        endTimeLabel: '',
+        eventEndsLabel: 'Sep 25, 2026, 9:54 PM',
+        emptyLabel: 'no end',
+      })
+    ).toBe('Sep 25, 2026, 9:54 PM');
+    expect(
+      dropCreateSaleCloseDisplay({
+        isTicket: false,
+        endTimeLabel: '',
+        eventEndsLabel: 'Sep 25, 2026, 9:54 PM',
+        emptyLabel: 'no end',
+      })
+    ).toBe('no end');
     expect(dropCreatePerWalletSummary('', 'editions')).toBe('No limit');
     expect(dropCreatePerWalletSummary('0', 'editions')).toBe('No limit');
     expect(dropCreatePerWalletSummary('2', 'editions')).toBe('2 editions');

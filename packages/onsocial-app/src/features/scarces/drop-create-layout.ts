@@ -363,6 +363,49 @@ export function dropCreateSaleWindowSummary(
 }
 
 /**
+ * A ticket sale has to be open while the event is still ahead.
+ * No scheduled close means the sale ends when the event ends.
+ * Times are milliseconds. A null open means Now.
+ */
+export function dropCreateTicketSaleWindow(input: {
+  saleOpensMs: number | null;
+  saleClosesMs: number | null;
+  eventEndsMs: number | null;
+}): { error: string | null; closesMs: number | null } {
+  const { saleOpensMs, saleClosesMs, eventEndsMs } = input;
+  if (eventEndsMs == null) {
+    return { error: null, closesMs: saleClosesMs };
+  }
+  if (saleOpensMs != null && saleOpensMs >= eventEndsMs) {
+    return {
+      error: 'The open time must be before the event ends.',
+      closesMs: saleClosesMs,
+    };
+  }
+  if (saleClosesMs != null && saleClosesMs > eventEndsMs) {
+    return {
+      error: 'The close time must be on or before the event end.',
+      closesMs: saleClosesMs,
+    };
+  }
+  return { error: null, closesMs: saleClosesMs ?? eventEndsMs };
+}
+
+/** Shown close. A ticket with no sale close uses the event end. */
+export function dropCreateSaleCloseDisplay(input: {
+  isTicket: boolean;
+  endTimeLabel: string;
+  eventEndsLabel: string;
+  emptyLabel: string;
+}): string {
+  if (input.endTimeLabel.trim()) return input.endTimeLabel.trim();
+  if (input.isTicket && input.eventEndsLabel.trim()) {
+    return input.eventEndsLabel.trim();
+  }
+  return input.emptyLabel;
+}
+
+/**
  * Stored per-wallet cap. Empty and 0 mean no limit.
  * When the edition count is known, the cap cannot rise above it.
  */
