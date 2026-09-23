@@ -19946,8 +19946,11 @@ a.os-surface-row {
   .profile-about-edit-studio
     .account-editor-bio-shell--about-lead
     .ProseMirror {
-    width: 100% !important;
-    max-width: 34ch !important;
+    /* Definite width so an empty Lead line does not collapse. */
+    width: min(34ch, 20rem) !important;
+    box-sizing: border-box !important;
+    max-width: none !important;
+    min-width: min(34ch, 20rem) !important;
     margin-inline: auto !important;
     text-align: center !important;
     font-size: clamp(0.84rem, 3.4cqi, 1.05rem) !important;
