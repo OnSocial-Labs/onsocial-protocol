@@ -75,7 +75,10 @@ import {
 import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet';
 import { VariationSetPeek } from '@/features/scarces/variation-set-peek';
-import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
+import {
+  postponeNotice,
+  ticketEventScheduleFacts,
+} from '@/features/scarces/ticket-event-facts';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import {
@@ -997,6 +1000,10 @@ export function CollectionPagePanel({
   };
   const description = view.description?.trim() ?? '';
   const aboutEvent = ticketEventScheduleFacts(view, nowMs);
+  const movedNotice = postponeNotice(
+    view.eventEndsAtPreviousMs,
+    view.eventEndsAtMs
+  );
   const aboutHasMore =
     !aboutEvent.empty ||
     (view.accessEndsAtMs != null && view.accessEndsAtMs > 0) ||
@@ -1531,6 +1538,9 @@ export function CollectionPagePanel({
                 hasMore={aboutHasMore}
                 onReadMore={() => setAboutOpen(true)}
               />
+            ) : null}
+            {movedNotice ? (
+              <p className="collection-mint-hint">{movedNotice}</p>
             ) : null}
           </header>
         </section>

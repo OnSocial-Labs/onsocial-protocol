@@ -148,6 +148,8 @@ export interface CollectionView {
   eventStartsAtMs: number | null;
   /** Event validity end (ms) from metadata.extra — tickets. */
   eventEndsAtMs: number | null;
+  /** End this postpone replaced. Null when the show has not moved. */
+  eventEndsAtPreviousMs: number | null;
   /** Intentional place slug from metadata.extra — tickets. */
   place: string | null;
   /**
@@ -722,6 +724,7 @@ export function toCollectionView(
       eventOverride.eventEndsAtMs ??
       template.eventEndsAtMs ??
       null,
+    eventEndsAtPreviousMs: eventOverride.eventEndsAtPreviousMs ?? null,
     place: eventOverride.place ?? template.place ?? null,
     accessEndsAtMs: template.accessEndsAtMs ?? null,
     royalty: parseRoyalty(record.royalty),

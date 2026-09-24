@@ -8,6 +8,7 @@ import { normalizePlaceSlug, placeLabel } from '@/lib/post-place';
 export type TicketEventMeta = {
   eventStartsAtMs: number | null;
   eventEndsAtMs: number | null;
+  eventEndsAtPreviousMs: number | null;
   place: string | null;
 };
 
@@ -27,11 +28,17 @@ export function parseTicketEventFromExtra(
   extra: Record<string, unknown> | null | undefined
 ): TicketEventMeta {
   if (!extra) {
-    return { eventStartsAtMs: null, eventEndsAtMs: null, place: null };
+    return {
+      eventStartsAtMs: null,
+      eventEndsAtMs: null,
+      eventEndsAtPreviousMs: null,
+      place: null,
+    };
   }
   return {
     eventStartsAtMs: asPositiveMs(extra.eventStartsAt),
     eventEndsAtMs: asPositiveMs(extra.eventEndsAt),
+    eventEndsAtPreviousMs: asPositiveMs(extra.eventEndsAtPrevious),
     place: normalizePlaceSlug(extra.place),
   };
 }
@@ -82,10 +89,12 @@ export function parseTicketEventFromCollectionMetadata(
     if (!meta || typeof meta !== 'object') return {};
     const eventStartsAtMs = asPositiveMs(meta.eventStartsAt);
     const eventEndsAtMs = asPositiveMs(meta.eventEndsAt);
+    const eventEndsAtPreviousMs = asPositiveMs(meta.eventEndsAtPrevious);
     const place = normalizePlaceSlug(meta.place);
     return {
       ...(eventStartsAtMs != null ? { eventStartsAtMs } : {}),
       ...(eventEndsAtMs != null ? { eventEndsAtMs } : {}),
+      ...(eventEndsAtPreviousMs != null ? { eventEndsAtPreviousMs } : {}),
       ...(place ? { place } : {}),
     };
   } catch {

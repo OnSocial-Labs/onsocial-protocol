@@ -113,6 +113,7 @@ function collectionViewFromOfflineAlbum(
     seriesTitle: album.seriesTitle?.trim() || null,
     eventStartsAtMs: null,
     eventEndsAtMs: null,
+    eventEndsAtPreviousMs: null,
     place: null,
     accessEndsAtMs: null,
     royalty: null,

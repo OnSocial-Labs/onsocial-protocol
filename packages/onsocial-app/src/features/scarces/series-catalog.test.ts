@@ -47,6 +47,7 @@ function drop(
     seriesTitle: 'Ink',
     eventStartsAtMs: null,
     eventEndsAtMs: null,
+    eventEndsAtPreviousMs: null,
     place: null,
     accessEndsAtMs: null,
     royalty: null,

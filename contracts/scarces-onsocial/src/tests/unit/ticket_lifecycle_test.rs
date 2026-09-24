@@ -158,6 +158,17 @@ fn guest_ticket_rain_day_postpone_cancel_and_refunds() {
         contract.collections.get(COL).unwrap().event_ends_at,
         Some(postponed_end_ms())
     );
+    let meta: near_sdk::serde_json::Value = near_sdk::serde_json::from_str(
+        contract
+            .collections
+            .get(COL)
+            .unwrap()
+            .metadata
+            .as_deref()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(meta["eventEndsAtPrevious"], original_end_ms());
     assert_eq!(
         contract
             .scarces_by_id

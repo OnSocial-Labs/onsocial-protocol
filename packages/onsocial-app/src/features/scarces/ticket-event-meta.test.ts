@@ -4,7 +4,10 @@ import {
   parseTicketEventFromCollectionMetadata,
   parseTicketEventFromExtra,
 } from './ticket-event-meta';
-import { ticketEventScheduleFacts } from './ticket-event-facts';
+import {
+  postponeNotice,
+  ticketEventScheduleFacts,
+} from './ticket-event-facts';
 import { canExtendTicketEntry } from './drop-owner-actions';
 
 describe('ticket event metadata', () => {
@@ -18,8 +21,19 @@ describe('ticket event metadata', () => {
     ).toEqual({
       eventStartsAtMs: 1_700_000_000_000,
       eventEndsAtMs: 1_700_003_600_000,
+      eventEndsAtPreviousMs: null,
       place: 'lisbon',
     });
+  });
+
+  it('names the previous end and the end doors use now', () => {
+    expect(postponeNotice(1_700_000_000_000, 1_700_000_000_000)).toBeNull();
+    expect(postponeNotice(1_700_000_000_000, 1_800_000_000_000)).toContain(
+      'Doors were set for'
+    );
+    expect(postponeNotice(1_700_000_000_000, 1_800_000_000_000)).toContain(
+      'They stay open until'
+    );
   });
 
   it('prefers collection metadata rain-day override', () => {
