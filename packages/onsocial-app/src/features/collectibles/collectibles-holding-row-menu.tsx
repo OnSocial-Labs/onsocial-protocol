@@ -58,7 +58,7 @@ export function CollectiblesHoldingRowMenu({
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
-  const [confirmBurn, setConfirmBurn] = useState(false);
+  const [confirm, setConfirm] = useState<'burn' | 'delist' | null>(null);
   const [burnable, setBurnable] = useState<boolean | null>(
     typeof item.burnable === 'boolean' ? item.burnable : null
   );
@@ -69,7 +69,7 @@ export function CollectiblesHoldingRowMenu({
   const auctionHasBids = auction && (item.bidCount ?? 0) > 0;
 
   const close = useCallback(() => {
-    setConfirmBurn(false);
+    setConfirm(null);
     setOpen(false);
   }, []);
 
@@ -98,7 +98,6 @@ export function CollectiblesHoldingRowMenu({
 
   const handleDelist = useCallback(async () => {
     if (pending || !listed || auctionHasBids) return;
-    close();
     setPending(true);
     try {
       const { accountId, wallet } = await getSigningWallet();
@@ -114,6 +113,7 @@ export function CollectiblesHoldingRowMenu({
         failureMessage: txToastError.cancelScarceListingFailed,
       });
       if (!confirmed) return;
+      close();
       onDelisted?.();
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
@@ -233,9 +233,7 @@ export function CollectiblesHoldingRowMenu({
         destructive: true,
         disabled: pending,
         leading: <TrashIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => {
-          void handleDelist();
-        },
+        onSelect: () => setConfirm('delist'),
       });
     }
 
@@ -250,7 +248,7 @@ export function CollectiblesHoldingRowMenu({
         destructive: true,
         disabled: pending,
         leading: <FireIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => setConfirmBurn(true),
+        onSelect: () => setConfirm('burn'),
       });
     }
 
@@ -270,7 +268,6 @@ export function CollectiblesHoldingRowMenu({
     auctionHasBids,
     canBurn,
     close,
-    handleDelist,
     item,
     listed,
     onList,
@@ -322,14 +319,14 @@ export function CollectiblesHoldingRowMenu({
 
       <ActionDrawer
         open={open}
-        onClose={confirmBurn ? () => setConfirmBurn(false) : close}
-        label={confirmBurn ? 'Burn' : title}
-        copy={confirmBurn ? title : 'Your holding'}
+        onClose={confirm ? () => setConfirm(null) : close}
+        label={confirm === 'burn' ? 'Burn' : confirm === 'delist' ? (auction ? 'Cancel auction' : 'Delist') : title}
+        copy={confirm ? title : 'Your holding'}
         listAriaLabel={`Manage ${title}`}
-        closeAriaLabel={confirmBurn ? 'Back' : 'Close'}
-        items={confirmBurn ? undefined : items}
+        closeAriaLabel={confirm ? 'Back' : 'Close'}
+        items={confirm ? undefined : items}
       >
-        {confirmBurn ? (
+        {confirm === 'burn' ? (
           <OsActionDrawerConfirm
             variant="danger"
             body={
@@ -341,7 +338,21 @@ export function CollectiblesHoldingRowMenu({
             pending={pending}
             pendingLabel="Burning…"
             onConfirm={() => void handleBurn()}
-            onCancel={() => setConfirmBurn(false)}
+            onCancel={() => setConfirm(null)}
+          />
+        ) : confirm === 'delist' ? (
+          <OsActionDrawerConfirm
+            variant="danger"
+            body={
+              auction
+                ? 'This auction comes off Market.'
+                : 'This listing comes off Market.'
+            }
+            confirmLabel={auction ? 'Cancel auction' : 'Delist'}
+            pending={pending}
+            pendingLabel={auction ? 'Canceling…' : 'Delisting…'}
+            onConfirm={() => void handleDelist()}
+            onCancel={() => setConfirm(null)}
           />
         ) : undefined}
       </ActionDrawer>
