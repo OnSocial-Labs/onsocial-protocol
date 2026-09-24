@@ -188,10 +188,10 @@ export const OS_LEAVE_MAP = [
     id: 'drop-create',
     place: 'New drop',
     route: APP_DROP_CREATE_PATH,
-    dockBack: true,
+    dockBack: false,
     parent: APP_DROPS_PATH,
     verdict: 'matches',
-    note: 'Hub-bound leave is that hub. Studio × is Close studio only.',
+    note: 'Header chevron leaves to Drops, or to the hub when the drop is hub-bound. The dock stays off this screen. In the studio the same chevron steps back to the form.',
   },
   {
     id: 'drop',

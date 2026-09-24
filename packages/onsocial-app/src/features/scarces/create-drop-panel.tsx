@@ -17,9 +17,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import './drop-create-spacing.css';
 import {
   DiscardConfirmSheet,
+  ChevronLeftIcon,
   OsSheetAction,
   OsSheetActions,
-  MultiplyIcon,
   OsIconAction,
   OsAppChromeToolbarRail,
   QuestionMarkCircleFillIcon,
@@ -29,15 +29,12 @@ import {
 } from '@onsocial/ui';
 import { InfoDrawer } from '@onsocial/ui';
 import { AmountField } from '@onsocial/ui';
+import { Divider } from '@onsocial/ui';
 import { SuffixField } from '@onsocial/ui';
-import {
-  DropFieldInfoDrawer,
-  DropFieldLabel,
-  type DropFieldInfoKey,
-} from '@/features/scarces/drop-field-info';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
+import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -136,20 +133,30 @@ import {
   dropCreateAttachAction,
   dropCreateAttachHint,
   dropCreateDescriptionOpen,
+  dropCreateDescriptionPlaceholder,
   dropCreateDescriptionToggle,
   dropCreateBookPdfPlacement,
+  dropCreateDealDraftDirty,
   dropCreateDealShowsSupplyField,
+  dropCreateDesignDraftDirty,
+  dropCreateMoreToggle,
+  dropCreateRoyaltyDraftDirty,
+  dropCreateSetDealCount,
+  dropCreateSetDealLabel,
   dropCreateDropIdSummary,
   dropCreateExtraRowLabel,
   dropCreateFacetsSummary,
   dropCreateOptionalSummary,
   dropCreateExtraHint,
+  dropCreatePerWalletInput,
   dropCreatePerWalletSummary,
   dropCreatePiecePickerClass,
   dropCreateRenewalsChoice,
   dropCreateRenewalsSummary,
   dropCreateRoyaltySummary,
   dropCreateSaleWindowSummary,
+  dropCreateSaleCloseDisplay,
+  dropCreateTicketSaleWindow,
   dropCreateScreenTitle,
   dropCreateTransferableSummary,
   dropCreateBurnableSummary,
@@ -310,6 +317,15 @@ function isFormFieldTarget(target: EventTarget | null): boolean {
   );
 }
 
+/** Earlier datetime-local bound, when either side is set. */
+function earlierScheduleBound(a: string, b: string): string | undefined {
+  const left = a.trim();
+  const right = b.trim();
+  if (!left) return right || undefined;
+  if (!right) return left;
+  return left < right ? left : right;
+}
+
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -333,8 +349,8 @@ export function CreateDropPanel() {
   /** Fixed for this form session — keeps the public-link preview honest. */
   const [idSuffix, setIdSuffix] = useState(() => randomDropIdSuffix());
   const [description, setDescription] = useState('');
-  const [supplyInput, setSupplyInput] = useState('25');
-  const [priceInput, setPriceInput] = useState('1');
+  const [supplyInput, setSupplyInput] = useState('');
+  const [priceInput, setPriceInput] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [eventStarts, setEventStarts] = useState('');
@@ -393,7 +409,7 @@ export function CreateDropPanel() {
     emptyCollageSelection()
   );
   const [traitsCid, setTraitsCid] = useState('');
-  const [randomAssign, setRandomAssign] = useState(false);
+  const [randomAssign, setRandomAssign] = useState(true);
   const [generatedNote, setGeneratedNote] = useState<string | null>(null);
   const [generatedPreviews, setGeneratedPreviews] = useState<string[]>([]);
   const [generatedRarity, setGeneratedRarity] =
@@ -438,9 +454,6 @@ export function CreateDropPanel() {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [fieldInfoKey, setFieldInfoKey] = useState<DropFieldInfoKey | null>(
-    null
-  );
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmPhase, setConfirmPhase] =
     useState<DropStartConfirmPhase>('review');
@@ -466,6 +479,7 @@ export function CreateDropPanel() {
   const errorRef = useRef<HTMLParagraphElement>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const toolbarHidden = useDockAutoHide(false, scrollRootRef);
+  useRegisterImmersiveChromeQuiet(true);
   const [formFieldFocused, setFormFieldFocused] = useState(false);
   const formKeyboardActive = formFieldFocused && !studioOpen;
   const formViewport = useVisualViewportSheetMetrics(formKeyboardActive);
@@ -521,8 +535,8 @@ export function CreateDropPanel() {
     setSlug('');
     setIdSuffix(randomDropIdSuffix());
     setDescription('');
-    setSupplyInput('25');
-    setPriceInput('1');
+    setSupplyInput('');
+    setPriceInput('');
     setStartTime('');
     setEndTime('');
     setEventStarts('');
@@ -566,7 +580,7 @@ export function CreateDropPanel() {
     setCoverSeatInput('1');
     setCollage(emptyCollageSelection());
     setTraitsCid('');
-    setRandomAssign(false);
+    setRandomAssign(true);
     setGeneratedNote(null);
     setGeneratedPreviews((prev) => {
       prev.forEach((url) => URL.revokeObjectURL(url));
@@ -914,8 +928,8 @@ export function CreateDropPanel() {
         setEventEnds('');
         setPlaceDraft('');
       }
-      // Art / Writing / Audio close Advanced; ticket-like kinds keep essentials open.
-      setShowAdvanced(Boolean(next.openAdvanced));
+      // Required event and access fields sit on the page. More stays closed.
+      setShowAdvanced(false);
       setExtraSheet(null);
       setStudioOpen(false);
       if (next.id === 'audio') {
@@ -969,7 +983,9 @@ export function CreateDropPanel() {
         ? variationFiles.length
         : (pinnedLargeSet?.pieceCount ?? 0)
       : editionSupply;
-  const price = finalizeAmountInput(priceInput, NEAR_INPUT_DECIMALS);
+  const priceAmount = finalizeAmountInput(priceInput, NEAR_INPUT_DECIMALS);
+  const priceIsFree = !priceAmount || Number(priceAmount) === 0;
+  const price = priceIsFree ? '' : priceAmount;
   const supplyValid =
     isVariations && !usePinnedCids
       ? pinnedLargeSet != null
@@ -983,6 +999,10 @@ export function CreateDropPanel() {
   const maxRedeemsValid =
     !maxRedeemsInput.trim() ||
     (Number.isSafeInteger(maxRedeems) && maxRedeems >= 1);
+  const perWalletInput = dropCreatePerWalletInput(
+    maxPerWallet,
+    supplyValid ? supply : null
+  );
   const coverSeat = Number.parseInt(coverSeatInput, 10);
   const coverSeatValid =
     !isVariations ||
@@ -1551,7 +1571,15 @@ export function CreateDropPanel() {
     Boolean(imageFile) ||
     trackFiles.length > 0 ||
     chapterFiles.length > 0 ||
-    variationFiles.length > 0;
+    variationFiles.length > 0 ||
+    dropCreateDealDraftDirty(supplyInput, priceInput) ||
+    dropCreateRoyaltyDraftDirty({
+      royaltyBps,
+      isCustomRoyalty,
+      shareCount: royaltyShares.length,
+    }) ||
+    dropCreateDesignDraftDirty(design) ||
+    generatedSetReady;
 
   const leaveToParent = useCallback(() => {
     router.push(dropCreateBackHref(appId));
@@ -1649,11 +1677,20 @@ export function CreateDropPanel() {
       {
         label: 'Sale',
         value:
-          startTime || endTime
-            ? `${startTime ? formatScheduleLabel(startTime) : 'Now'} → ${
-                endTime ? formatScheduleLabel(endTime) : 'Sold out'
-              }`
-            : 'Now → sold out',
+          isTicket && eventEnds.trim()
+            ? `${startTime ? formatScheduleLabel(startTime) : 'Now'} → ${dropCreateSaleCloseDisplay(
+                {
+                  isTicket: true,
+                  endTimeLabel: endTime ? formatScheduleLabel(endTime) : '',
+                  eventEndsLabel: formatScheduleLabel(eventEnds),
+                  emptyLabel: 'Sold out',
+                }
+              )}`
+            : startTime || endTime
+              ? `${startTime ? formatScheduleLabel(startTime) : 'Now'} → ${
+                  endTime ? formatScheduleLabel(endTime) : 'Sold out'
+                }`
+              : 'Now → sold out',
       },
     ];
 
@@ -1697,7 +1734,7 @@ export function CreateDropPanel() {
         value: String(maxRedeems),
       });
     }
-    const perWallet = Number.parseInt(maxPerWallet, 10);
+    const perWallet = Number.parseInt(perWalletInput, 10);
     if (Number.isSafeInteger(perWallet) && perWallet > 0) {
       rows.push({
         label: 'Max per wallet',
@@ -1755,7 +1792,7 @@ export function CreateDropPanel() {
     accessEnds,
     maxRedeemsInput,
     maxRedeems,
-    maxPerWallet,
+    perWalletInput,
     draftAllowlist.length,
     facets,
     createFacetMedium,
@@ -1910,6 +1947,21 @@ export function CreateDropPanel() {
     ) {
       setError('Event end must be after event start.');
       return;
+    }
+    if (isTicket && eventEndsMs != null) {
+      const ticketSale = dropCreateTicketSaleWindow({
+        saleOpensMs: startTime.trim()
+          ? (localDateTimeToMs(startTime) ?? null)
+          : null,
+        saleClosesMs: endTime.trim()
+          ? (localDateTimeToMs(endTime) ?? null)
+          : null,
+        eventEndsMs,
+      });
+      if (ticketSale.error) {
+        setError(ticketSale.error);
+        return;
+      }
     }
     if (expiresAtMs != null && expiresAtMs <= nowMs) {
       setError(
@@ -2193,17 +2245,31 @@ export function CreateDropPanel() {
       }
 
       const startNs = localDateTimeToNs(startTime);
-      const endNs = localDateTimeToNs(endTime);
       const eventStartsMs = eventStarts
         ? localDateTimeToMs(eventStarts)
         : undefined;
       const eventEndsMs = eventEnds ? localDateTimeToMs(eventEnds) : undefined;
+      const ticketSale = isTicket
+        ? dropCreateTicketSaleWindow({
+            saleOpensMs: startTime.trim()
+              ? (localDateTimeToMs(startTime) ?? null)
+              : null,
+            saleClosesMs: endTime.trim()
+              ? (localDateTimeToMs(endTime) ?? null)
+              : null,
+            eventEndsMs: eventEndsMs ?? null,
+          })
+        : null;
+      const endNs =
+        ticketSale != null && ticketSale.closesMs != null && !endTime.trim()
+          ? (BigInt(ticketSale.closesMs) * 1_000_000n).toString()
+          : localDateTimeToNs(endTime);
       const expiresAtMs = isTicket
         ? eventEndsMs
         : (renewable || template.requiresAccessEnd) && accessEnds
           ? localDateTimeToMs(accessEnds)
           : undefined;
-      const perWallet = Number.parseInt(maxPerWallet, 10);
+      const perWallet = Number.parseInt(perWalletInput, 10);
 
       const trimmedSeries = seriesName.trim();
 
@@ -2429,7 +2495,7 @@ export function CreateDropPanel() {
     isTicket,
     renewable,
     accessEnds,
-    maxPerWallet,
+    perWalletInput,
     seriesName,
     isVariations,
     coverSeat,
@@ -2463,15 +2529,6 @@ export function CreateDropPanel() {
     void openStartConfirm();
   };
 
-  const openFieldInfo = useCallback((key: DropFieldInfoKey) => {
-    setFieldInfoKey(key);
-  }, []);
-
-  const closeFieldInfo = useCallback(() => {
-    setFieldInfoKey(null);
-  }, []);
-
-  const descriptionHasText = Boolean(description.trim());
   const descriptionShown = descriptionOpen;
   const facetRowLabel = createFacetMedium
     ? dropFacetFieldLabel(createFacetMedium)
@@ -2483,10 +2540,15 @@ export function CreateDropPanel() {
   });
   const saleRowValue = dropCreateSaleWindowSummary(
     startTime ? formatScheduleLabel(startTime) : 'Now',
-    endTime ? formatScheduleLabel(endTime) : 'no end'
+    dropCreateSaleCloseDisplay({
+      isTicket,
+      endTimeLabel: endTime ? formatScheduleLabel(endTime) : '',
+      eventEndsLabel: eventEnds ? formatScheduleLabel(eventEnds) : '',
+      emptyLabel: 'no end',
+    })
   );
   const perWalletRowValue = dropCreatePerWalletSummary(
-    maxPerWallet,
+    perWalletInput,
     template.unit
   );
   const transferableRowValue = dropCreateTransferableSummary(transferable);
@@ -2495,11 +2557,23 @@ export function CreateDropPanel() {
     isGeneratedSet,
     isVariations,
   });
-  const bookPdfInAdvanced = dropCreateBookPdfPlacement() === 'advanced';
+  const setDealCount = dropCreateSetDealCount({
+    isVariations,
+    fileCount: variationFiles.length,
+    pinnedPieceCount: pinnedLargeSet?.pieceCount ?? 0,
+    generatedCount: isGeneratedSet && generatedSetReady ? editionSupply : 0,
+  });
+  const setDealLabel =
+    setDealCount == null ? null : dropCreateSetDealLabel(setDealCount);
+  const bookPdfInMore = dropCreateBookPdfPlacement() === 'more';
 
   useEffect(() => {
     setCreateReady(true);
   }, []);
+
+  useEffect(() => {
+    if (perWalletInput !== maxPerWallet) setMaxPerWallet(perWalletInput);
+  }, [perWalletInput, maxPerWallet]);
 
   useEffect(() => {
     if (!descriptionOpen) return;
@@ -2524,10 +2598,7 @@ export function CreateDropPanel() {
   return (
     <OsAppScreen
       title={dropCreateScreenTitle(studioOpen)}
-      dockBack={!studioOpen}
       headerOwnsConnect={!studioOpen}
-      backFallbackHref={dropCreateBackHref(appId)}
-      onDockBack={handleDockBack}
       compactChrome
       glassChrome
       scrollRootRef={scrollRootRef}
@@ -2632,16 +2703,19 @@ export function CreateDropPanel() {
         )
       }
       leading={
-        studioOpen ? (
-          <OsIconAction
-            ariaLabel="Close studio"
-            onClick={() => {
+        <OsIconAction
+          ariaLabel="Back"
+          disabled={pending && !studioOpen}
+          onClick={() => {
+            if (studioOpen) {
               setStudioOpen(false);
-            }}
-          >
-            <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
-          </OsIconAction>
-        ) : undefined
+              return;
+            }
+            handleDockBack();
+          }}
+        >
+          <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+        </OsIconAction>
       }
     >
       {/* The studio is hidden (not unmounted) when closed so uploaded layers
@@ -2757,7 +2831,7 @@ export function CreateDropPanel() {
             ) : (
               <div className="drop-create-mode">
                 <div
-                  className="app-access-options"
+                  className="app-access-options drop-create-artwork-line"
                   role="radiogroup"
                   aria-label="Artwork mode"
                 >
@@ -2786,46 +2860,40 @@ export function CreateDropPanel() {
                     Set of variations
                   </button>
                 </div>
+                {isVariations ? (
+                  <div
+                    className="app-access-options drop-create-set-source"
+                    role="radiogroup"
+                    aria-label="How the set is made"
+                  >
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={variationSource === 'upload'}
+                      className={`app-access-option${
+                        variationSource === 'upload' ? ' is-selected' : ''
+                      }`}
+                      disabled={pending}
+                      onClick={() => setVariationSource('upload')}
+                    >
+                      Upload images
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={isGeneratedSet || isPinnedSet}
+                      className={`app-access-option${
+                        isGeneratedSet || isPinnedSet ? ' is-selected' : ''
+                      }`}
+                      disabled={pending}
+                      onClick={() => setVariationSource('generate')}
+                    >
+                      Generate layers
+                    </button>
+                  </div>
+                ) : null}
               </div>
             )}
-
-            {isVariations ? (
-              <div className="drop-create-mode">
-                <div
-                  className="app-access-options"
-                  role="radiogroup"
-                  aria-label="Variation set source"
-                >
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={variationSource === 'upload'}
-                    className={`app-access-option${
-                      variationSource === 'upload' ? ' is-selected' : ''
-                    }`}
-                    disabled={pending}
-                    onClick={() => setVariationSource('upload')}
-                  >
-                    Upload images
-                  </button>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={isGeneratedSet || isPinnedSet}
-                    className={`app-access-option${
-                      isGeneratedSet || isPinnedSet ? ' is-selected' : ''
-                    }`}
-                    disabled={pending}
-                    onClick={() => {
-                      setVariationSource('generate');
-                      if (!generatedSetReady) setStudioOpen(true);
-                    }}
-                  >
-                    Generate layers
-                  </button>
-                </div>
-              </div>
-            ) : null}
 
             {isGeneratedSet && !generatedSetReady ? (
               <button
@@ -3006,7 +3074,10 @@ export function CreateDropPanel() {
               />
             ) : null}
 
-            {isVariations && !isGeneratedSet && !traitsCid.trim() ? (
+            {isVariations &&
+            !isGeneratedSet &&
+            !traitsCid.trim() &&
+            (variationFiles.length > 0 || pinnedLargeSet != null) ? (
               <div className="guild-field">
                 <span>Mint order</span>
                 <div
@@ -3014,18 +3085,6 @@ export function CreateDropPanel() {
                   role="radiogroup"
                   aria-label="Mint order"
                 >
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={!randomAssign}
-                    className={`app-access-option${
-                      !randomAssign ? ' is-selected' : ''
-                    }`}
-                    disabled={pending}
-                    onClick={() => setRandomAssign(false)}
-                  >
-                    In order
-                  </button>
                   <button
                     type="button"
                     role="radio"
@@ -3037,6 +3096,18 @@ export function CreateDropPanel() {
                     onClick={() => setRandomAssign(true)}
                   >
                     Random
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={!randomAssign}
+                    className={`app-access-option${
+                      !randomAssign ? ' is-selected' : ''
+                    }`}
+                    disabled={pending}
+                    onClick={() => setRandomAssign(false)}
+                  >
+                    In order
                   </button>
                 </div>
                 <small>
@@ -3346,39 +3417,16 @@ export function CreateDropPanel() {
                 id={fieldId('title')}
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                placeholder={
-                  isWriting
-                    ? 'The Quiet Hours'
-                    : isAudio
-                      ? 'Night Drive'
-                      : 'Genesis Prints'
-                }
+                placeholder="Title"
                 maxLength={MAX_TITLE}
                 className="drop-create-title-input"
               />
+              <Divider variant="detail" className="drop-create-field-rule" />
             </label>
           </div>
         </div>
 
         <div className="drop-create-deal" data-drop-create-section="deal">
-          {isGeneratedSet ? (
-            <small>
-              Set in the studio — the piece count you generate becomes the
-              supply, 1 of each.
-            </small>
-          ) : isVariations ? (
-            <small>
-              {variationFiles.length >= MIN_VARIATIONS
-                ? `${variationFiles.length} pieces · 1 of each`
-                : 'One piece per image — set by your upload.'}
-            </small>
-          ) : isPinnedSet ? (
-            <DropFieldLabel
-              label="Supply"
-              infoKey="supplyPinned"
-              onOpenInfo={openFieldInfo}
-            />
-          ) : null}
           <div className="drop-create-deal-line">
             {dealShowsSupply ? (
               <>
@@ -3388,16 +3436,26 @@ export function CreateDropPanel() {
                   onValueChange={(value) =>
                     setSupplyInput(value.replace(/[^\d]/g, ''))
                   }
-                  placeholder={isPinnedSet ? '1000' : '25'}
-                  aria-label={
-                    isPinnedSet
-                      ? 'Total pieces in the pinned set'
-                      : 'Total supply'
-                  }
-                  suffix={isPinnedSet ? 'pieces' : template.unit}
+                  placeholder="0"
+                  aria-label="Total supply"
+                  suffix={template.unit}
                   chrome="soft"
                   disabled={pending}
                 />
+                <span className="drop-create-deal-sep" aria-hidden>
+                  ·
+                </span>
+              </>
+            ) : setDealLabel ? (
+              <>
+                <span className="drop-create-deal-count">
+                  <span className="drop-create-deal-count-value">
+                    {setDealLabel.value}
+                  </span>
+                  <span className="drop-create-deal-count-unit">
+                    {setDealLabel.unit}
+                  </span>
+                </span>
                 <span className="drop-create-deal-sep" aria-hidden>
                   ·
                 </span>
@@ -3408,7 +3466,7 @@ export function CreateDropPanel() {
               value={priceInput}
               onValueChange={setPriceInput}
               maxDecimals={NEAR_INPUT_DECIMALS}
-              placeholder="1"
+              placeholder="0"
               aria-label={`Price per ${template.unitSingular} in NEAR`}
               unit="NEAR"
               chrome="soft"
@@ -3424,10 +3482,7 @@ export function CreateDropPanel() {
           <DropCreateDisclosure
             className="drop-create-description-toggle"
             open={descriptionShown}
-            label={dropCreateDescriptionToggle({
-              open: descriptionShown,
-              hasText: descriptionHasText,
-            })}
+            label={dropCreateDescriptionToggle()}
             controlsId={fieldId('description-panel')}
             disabled={pending}
             onClick={() => setDescriptionOpen((open) => !open)}
@@ -3450,21 +3505,13 @@ export function CreateDropPanel() {
                 aria-hidden={descriptionShown ? undefined : true}
               >
                 <div className="guild-field">
-                  <DropFieldLabel
-                    label="Description"
-                    infoKey="description"
-                    onOpenInfo={openFieldInfo}
-                  />
                   <textarea
                     id={fieldId('description')}
                     ref={descriptionRef}
                     value={description}
                     onChange={(event) => setDescription(event.target.value)}
-                    placeholder={
-                      isWriting
-                        ? 'Short public description — the manuscript uploads separately.'
-                        : 'What fans get and why it matters — shown on the drop page.'
-                    }
+                    placeholder={dropCreateDescriptionPlaceholder(isWriting)}
+                    aria-label="Description"
                     maxLength={MAX_DESCRIPTION}
                     className={osFieldBorderedClassName}
                   />
@@ -3477,334 +3524,329 @@ export function CreateDropPanel() {
           </div>
         </div>
 
-        <div className="drop-create-advanced">
-          <div className="guild-field drop-advanced-toggle-row">
-          <DropCreateDisclosure
-            open={showAdvanced}
-            label={showAdvanced ? 'Hide advanced' : 'Advanced'}
-            controlsId={fieldId('advanced-panel')}
-            disabled={pending}
-            onClick={() => setShowAdvanced((open) => !open)}
-          />
-          {hasDiscardableDraft ? (
-            <button
-              type="button"
-              className="collection-allowlist-toggle drop-discard-draft"
-              disabled={pending}
-              onClick={() => setDiscardDraftOpen(true)}
-            >
-              Discard draft
-            </button>
-          ) : null}
-        </div>
-        <div
-          ref={advancedReveal.hostRef}
-          className={`drop-create-reveal os-reveal${
-            showAdvanced ? ' is-open' : ''
-          } drop-create-advanced-reveal`}
-        >
-          <div
-            ref={advancedReveal.clipRef}
-            id={fieldId('advanced-panel')}
-            className="os-reveal-clip"
-          >
-            <div
-              ref={advancedReveal.innerRef}
-              className="os-reveal-inner drop-create-reveal-body"
-              inert={showAdvanced ? undefined : true}
-              aria-hidden={showAdvanced ? undefined : true}
-            >
-            {isWriting && writingFormat === 'book' && bookPdfInAdvanced ? (
+        <div className="drop-create-terms">
+          <DropCreateExtraList>
+            {isTicket ? (
               <div
-                className="drop-create-attach"
-                data-drop-create-attach="book-pdf"
+                className="drop-create-extra-event"
+                role="group"
+                aria-label="Event"
               >
-                {bookPdfFile ? (
-                  <p className="drop-create-attach-hint">{bookPdfFile.name}</p>
-                ) : pinnedWriting?.hasBookPdf ? (
-                  <p className="drop-pin-resume-detail">
-                    PDF pinned · ready to sign
-                  </p>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="collection-allowlist-toggle drop-create-attach-action"
-                      disabled={pending}
-                      onClick={() => bookPdfInputRef.current?.click()}
-                    >
-                      {dropCreateAttachAction('pdf')}
-                    </button>
-                    <p className="drop-create-attach-hint">
-                      Optional · holders download the full book · ≤20 MB
-                    </p>
-                  </>
-                )}
-                {bookPdfFile || pinnedWriting?.hasBookPdf ? (
-                  <div
-                    className="app-storage-presets"
-                    role="group"
-                    aria-label="Book PDF actions"
-                  >
-                    <button
-                      type="button"
-                      className="os-surface-chip"
-                      disabled={pending}
-                      onClick={() => bookPdfInputRef.current?.click()}
-                    >
-                      {bookPdfFile ? 'Replace' : dropCreateAttachAction('pdf')}
-                    </button>
-                    {bookPdfFile ? (
-                      <button
-                        type="button"
-                        className="os-surface-chip"
-                        disabled={pending}
-                        onClick={() => {
-                          setBookPdfFile(null);
-                          setError(null);
-                        }}
-                      >
-                        Clear
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-                <input
-                  ref={bookPdfInputRef}
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  className="scarce-cover-file-input"
-                  tabIndex={-1}
-                  aria-hidden
-                  disabled={pending}
-                  onChange={onBookPdfChange}
-                />
-              </div>
-            ) : null}
-            <DropCreateExtraList>
-              {isTicket ? (
-                <div
-                  className="drop-create-extra-event"
-                  role="group"
-                  aria-label="Event"
-                >
-                  <span className="drop-create-extra-row-label">Event</span>
-                  <p className="drop-create-advanced-hint">
-                    {dropCreateExtraHint('event')}
-                  </p>
-                  <div className="drop-schedule-pair">
-                    <div
-                      className={`drop-schedule-cell${
-                        eventStarts ? ' has-value' : ''
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        className="drop-schedule-cell-main"
-                        disabled={pending}
-                        onClick={() => setScheduleField('eventStarts')}
-                      >
-                        <span className="drop-schedule-cell-label">Starts</span>
-                        <span className="drop-schedule-cell-value">
-                          {eventStarts
-                            ? formatScheduleLabel(eventStarts)
-                            : 'Optional'}
-                        </span>
-                      </button>
-                      {eventStarts ? (
-                        <button
-                          type="button"
-                          className="drop-schedule-cell-clear"
-                          disabled={pending}
-                          aria-label="Clear event start"
-                          onClick={() => setEventStarts('')}
-                        >
-                          ✕
-                        </button>
-                      ) : null}
-                    </div>
-                    <div
-                      className={`drop-schedule-cell${
-                        eventEnds ? ' has-value' : ''
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        className="drop-schedule-cell-main"
-                        disabled={pending}
-                        onClick={() => setScheduleField('eventEnds')}
-                      >
-                        <span className="drop-schedule-cell-label">Ends</span>
-                        <span className="drop-schedule-cell-value">
-                          {eventEnds
-                            ? formatScheduleLabel(eventEnds)
-                            : 'Required'}
-                        </span>
-                      </button>
-                      {eventEnds ? (
-                        <button
-                          type="button"
-                          className="drop-schedule-cell-clear"
-                          disabled={pending}
-                          aria-label="Clear event end"
-                          onClick={() => setEventEnds('')}
-                        >
-                          ✕
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-              {isTicket ? (
-                <DropCreateExtraRow
-                  label={dropCreateExtraRowLabel('place')}
-                  value={dropCreateOptionalSummary(placeDraft)}
-                  disabled={pending}
-                  onClick={() => setExtraSheet('place')}
-                />
-              ) : null}
-              {isTicket ? (
-                <DropCreateExtraRow
-                  label={dropCreateExtraRowLabel('renewals', { isTicket })}
-                  value={dropCreateRenewalsSummary({
-                    on: renewable,
-                    isTicket,
-                  })}
-                  disabled={pending}
-                  onClick={() => setExtraSheet('renewals')}
-                />
-              ) : null}
-              {template.requiresAccessEnd ? (
-                <div
-                  className="drop-create-extra-event"
-                  role="group"
-                  aria-label="Access ends"
-                >
-                  <span className="drop-create-extra-row-label">
-                    Access ends
-                  </span>
-                  <p className="drop-create-advanced-hint">
-                    {dropCreateExtraHint('access')}
-                  </p>
+                <span className="drop-create-extra-row-label">Event</span>
+                <p className="drop-create-advanced-hint">
+                  {dropCreateExtraHint('event')}
+                </p>
+                <div className="drop-schedule-pair">
                   <div
                     className={`drop-schedule-cell${
-                      accessEnds ? ' has-value' : ''
+                      eventStarts ? ' has-value' : ''
                     }`}
                   >
                     <button
                       type="button"
                       className="drop-schedule-cell-main"
                       disabled={pending}
-                      onClick={() => setScheduleField('access')}
+                      onClick={() => setScheduleField('eventStarts')}
                     >
-                      <span className="drop-schedule-cell-label">Ends</span>
+                      <span className="drop-schedule-cell-label">Starts</span>
                       <span className="drop-schedule-cell-value">
-                        {accessEnds
-                          ? formatScheduleLabel(accessEnds)
-                          : 'Required'}
+                        {eventStarts
+                          ? formatScheduleLabel(eventStarts)
+                          : 'Optional'}
                       </span>
                     </button>
-                    {accessEnds ? (
+                    {eventStarts ? (
                       <button
                         type="button"
                         className="drop-schedule-cell-clear"
                         disabled={pending}
-                        aria-label="Clear access end"
-                        onClick={() => setAccessEnds('')}
+                        aria-label="Clear event start"
+                        onClick={() => setEventStarts('')}
+                      >
+                        ✕
+                      </button>
+                    ) : null}
+                  </div>
+                  <div
+                    className={`drop-schedule-cell${
+                      eventEnds ? ' has-value' : ''
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      className="drop-schedule-cell-main"
+                      disabled={pending}
+                      onClick={() => setScheduleField('eventEnds')}
+                    >
+                      <span className="drop-schedule-cell-label">Ends</span>
+                      <span className="drop-schedule-cell-value">
+                        {eventEnds
+                          ? formatScheduleLabel(eventEnds)
+                          : 'Required'}
+                      </span>
+                    </button>
+                    {eventEnds ? (
+                      <button
+                        type="button"
+                        className="drop-schedule-cell-clear"
+                        disabled={pending}
+                        aria-label="Clear event end"
+                        onClick={() => setEventEnds('')}
                       >
                         ✕
                       </button>
                     ) : null}
                   </div>
                 </div>
-              ) : null}
-              <DropCreateExtraRow
-                label={dropCreateExtraRowLabel('dropId')}
-                value={dropCreateDropIdSummary(slug)}
-                disabled={pending}
-                onClick={() => setExtraSheet('dropId')}
-              />
-              <DropCreateExtraRow
-                label={dropCreateExtraRowLabel('series')}
-                value={dropCreateOptionalSummary(seriesName)}
-                disabled={pending}
-                onClick={() => setExtraSheet('series')}
-              />
-              {createFacetMedium ? (
-                <DropCreateExtraRow
-                  label={dropCreateExtraRowLabel('facets', {
-                    facetLabel: facetRowLabel,
-                  })}
-                  value={dropCreateFacetsSummary(facets, dropFacetLabel)}
-                  disabled={pending}
-                  onClick={() => setExtraSheet('facets')}
-                />
-              ) : null}
-              <DropCreateExtraRow
-                label={dropCreateExtraRowLabel('royalty')}
-                value={royaltyRowValue}
-                disabled={pending}
-                onClick={() => setExtraSheet('royalty')}
-              />
-              <DropCreateExtraRow
-                label={dropCreateExtraRowLabel('saleRules')}
-                value={saleRowValue}
-                disabled={pending}
-                onClick={() => setExtraSheet('saleRules')}
-              />
-              <DropCreateExtraRow
-                label={dropCreateExtraRowLabel('perWallet')}
-                value={perWalletRowValue}
-                disabled={pending}
-                onClick={() => setExtraSheet('perWallet')}
-              />
-              <DropCreateExtraRow
-                label={dropCreateExtraRowLabel('transferable')}
-                value={transferableRowValue}
-                disabled={pending}
-                onClick={() => setExtraSheet('transferable')}
-              />
-              <DropCreateExtraRow
-                label={dropCreateExtraRowLabel('burnable')}
-                value={burnableRowValue}
-                disabled={pending}
-                onClick={() => setExtraSheet('burnable')}
-              />
-              {!isTicket ? (
-                <DropCreateExtraRow
-                  label={dropCreateExtraRowLabel('renewals', { isTicket })}
-                  value={dropCreateRenewalsSummary({
-                    on: renewable,
-                    isTicket,
-                    accessEndsLabel: accessEnds
-                      ? formatScheduleLabel(accessEnds)
-                      : '',
-                    requiresAccessEnd: Boolean(template.requiresAccessEnd),
-                  })}
-                  disabled={pending}
-                  onClick={() => setExtraSheet('renewals')}
-                />
-              ) : null}
-              <DropCreateExtraRow
-                label={dropCreateExtraRowLabel('allowlist')}
-                value={dropCreateAllowlistSummary(
-                  draftAllowlist.length,
-                  Boolean(accountId)
-                )}
-                disabled={pending}
-                onClick={() => {
-                  if (!accountId) {
-                    void connect();
-                    return;
-                  }
-                  setAllowlistSheetOpen(true);
-                }}
-              />
-            </DropCreateExtraList>
+              </div>
+            ) : null}
+            {template.requiresAccessEnd ? (
+              <div
+                className="drop-create-extra-event"
+                role="group"
+                aria-label="Access ends"
+              >
+                <span className="drop-create-extra-row-label">Access ends</span>
+                <p className="drop-create-advanced-hint">
+                  {dropCreateExtraHint('access')}
+                </p>
+                <div
+                  className={`drop-schedule-cell${
+                    accessEnds ? ' has-value' : ''
+                  }`}
+                >
+                  <button
+                    type="button"
+                    className="drop-schedule-cell-main"
+                    disabled={pending}
+                    onClick={() => setScheduleField('access')}
+                  >
+                    <span className="drop-schedule-cell-label">Ends</span>
+                    <span className="drop-schedule-cell-value">
+                      {accessEnds
+                        ? formatScheduleLabel(accessEnds)
+                        : 'Required'}
+                    </span>
+                  </button>
+                  {accessEnds ? (
+                    <button
+                      type="button"
+                      className="drop-schedule-cell-clear"
+                      disabled={pending}
+                      aria-label="Clear access end"
+                      onClick={() => setAccessEnds('')}
+                    >
+                      ✕
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+            <DropCreateExtraRow
+              label={dropCreateExtraRowLabel('royalty')}
+              value={royaltyRowValue}
+              disabled={pending}
+              onClick={() => setExtraSheet('royalty')}
+            />
+            <DropCreateExtraRow
+              label={dropCreateExtraRowLabel('saleRules')}
+              value={saleRowValue}
+              disabled={pending}
+              onClick={() => setExtraSheet('saleRules')}
+            />
+            <DropCreateExtraRow
+              label={dropCreateExtraRowLabel('transferable')}
+              value={transferableRowValue}
+              disabled={pending}
+              onClick={() => setExtraSheet('transferable')}
+            />
+          </DropCreateExtraList>
+        </div>
+
+        <div className="drop-create-advanced">
+          <DropCreateDisclosure
+            open={showAdvanced}
+            label={dropCreateMoreToggle(showAdvanced)}
+            controlsId={fieldId('advanced-panel')}
+            disabled={pending}
+            onClick={() => setShowAdvanced((open) => !open)}
+          />
+          <div
+            ref={advancedReveal.hostRef}
+            className={`drop-create-reveal os-reveal${
+              showAdvanced ? ' is-open' : ''
+            } drop-create-advanced-reveal`}
+          >
+            <div
+              ref={advancedReveal.clipRef}
+              id={fieldId('advanced-panel')}
+              className="os-reveal-clip"
+            >
+              <div
+                ref={advancedReveal.innerRef}
+                className="os-reveal-inner drop-create-reveal-body"
+                inert={showAdvanced ? undefined : true}
+                aria-hidden={showAdvanced ? undefined : true}
+              >
+                {isWriting && writingFormat === 'book' && bookPdfInMore ? (
+                  <div
+                    className="drop-create-attach"
+                    data-drop-create-attach="book-pdf"
+                  >
+                    {bookPdfFile ? (
+                      <p className="drop-create-attach-hint">
+                        {bookPdfFile.name}
+                      </p>
+                    ) : pinnedWriting?.hasBookPdf ? (
+                      <p className="drop-pin-resume-detail">
+                        PDF pinned · ready to sign
+                      </p>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="collection-allowlist-toggle drop-create-attach-action"
+                          disabled={pending}
+                          onClick={() => bookPdfInputRef.current?.click()}
+                        >
+                          {dropCreateAttachAction('pdf')}
+                        </button>
+                        <p className="drop-create-attach-hint">
+                          Optional · holders download the full book · ≤20 MB
+                        </p>
+                      </>
+                    )}
+                    {bookPdfFile || pinnedWriting?.hasBookPdf ? (
+                      <div
+                        className="app-storage-presets"
+                        role="group"
+                        aria-label="Book PDF actions"
+                      >
+                        <button
+                          type="button"
+                          className="os-surface-chip"
+                          disabled={pending}
+                          onClick={() => bookPdfInputRef.current?.click()}
+                        >
+                          {bookPdfFile
+                            ? 'Replace'
+                            : dropCreateAttachAction('pdf')}
+                        </button>
+                        {bookPdfFile ? (
+                          <button
+                            type="button"
+                            className="os-surface-chip"
+                            disabled={pending}
+                            onClick={() => {
+                              setBookPdfFile(null);
+                              setError(null);
+                            }}
+                          >
+                            Clear
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <input
+                      ref={bookPdfInputRef}
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      className="scarce-cover-file-input"
+                      tabIndex={-1}
+                      aria-hidden
+                      disabled={pending}
+                      onChange={onBookPdfChange}
+                    />
+                  </div>
+                ) : null}
+                <DropCreateExtraList>
+                  {isTicket ? (
+                    <DropCreateExtraRow
+                      label={dropCreateExtraRowLabel('place')}
+                      value={dropCreateOptionalSummary(placeDraft)}
+                      disabled={pending}
+                      onClick={() => setExtraSheet('place')}
+                    />
+                  ) : null}
+                  {isTicket ? (
+                    <DropCreateExtraRow
+                      label={dropCreateExtraRowLabel('renewals', { isTicket })}
+                      value={dropCreateRenewalsSummary({
+                        on: renewable,
+                        isTicket,
+                      })}
+                      disabled={pending}
+                      onClick={() => setExtraSheet('renewals')}
+                    />
+                  ) : null}
+                  <DropCreateExtraRow
+                    label={dropCreateExtraRowLabel('dropId')}
+                    value={dropCreateDropIdSummary(slug)}
+                    disabled={pending}
+                    onClick={() => setExtraSheet('dropId')}
+                  />
+                  <DropCreateExtraRow
+                    label={dropCreateExtraRowLabel('series')}
+                    value={dropCreateOptionalSummary(seriesName)}
+                    disabled={pending}
+                    onClick={() => setExtraSheet('series')}
+                  />
+                  {createFacetMedium ? (
+                    <DropCreateExtraRow
+                      label={dropCreateExtraRowLabel('facets', {
+                        facetLabel: facetRowLabel,
+                      })}
+                      value={dropCreateFacetsSummary(facets, dropFacetLabel)}
+                      disabled={pending}
+                      onClick={() => setExtraSheet('facets')}
+                    />
+                  ) : null}
+                  <DropCreateExtraRow
+                    label={dropCreateExtraRowLabel('perWallet')}
+                    value={perWalletRowValue}
+                    disabled={pending}
+                    onClick={() => setExtraSheet('perWallet')}
+                  />
+                  <DropCreateExtraRow
+                    label={dropCreateExtraRowLabel('burnable')}
+                    value={burnableRowValue}
+                    disabled={pending}
+                    onClick={() => setExtraSheet('burnable')}
+                  />
+                  {!isTicket ? (
+                    <DropCreateExtraRow
+                      label={dropCreateExtraRowLabel('renewals', { isTicket })}
+                      value={dropCreateRenewalsSummary({
+                        on: renewable,
+                        isTicket,
+                        accessEndsLabel: accessEnds
+                          ? formatScheduleLabel(accessEnds)
+                          : '',
+                        requiresAccessEnd: Boolean(template.requiresAccessEnd),
+                      })}
+                      disabled={pending}
+                      onClick={() => setExtraSheet('renewals')}
+                    />
+                  ) : null}
+                  <DropCreateExtraRow
+                    label={dropCreateExtraRowLabel('allowlist')}
+                    value={dropCreateAllowlistSummary(
+                      draftAllowlist.length,
+                      Boolean(accountId)
+                    )}
+                    disabled={pending}
+                    onClick={() => {
+                      if (!accountId) {
+                        void connect();
+                        return;
+                      }
+                      setAllowlistSheetOpen(true);
+                    }}
+                  />
+                </DropCreateExtraList>
+              </div>
             </div>
           </div>
-        </div>
         </div>
 
         {error ? (
@@ -3833,13 +3875,6 @@ export function CreateDropPanel() {
         body="Clears this drop form and any pinned media for it."
         discardLabel="Discard draft"
         keepEditingLabel="Keep editing"
-      />
-
-      <DropFieldInfoDrawer
-        infoKey={fieldInfoKey}
-        open={fieldInfoKey != null}
-        onClose={closeFieldInfo}
-        zIndex={extraSheet != null ? SHEET_Z.nested : undefined}
       />
 
       <GenerativeStudioHelpDrawer
@@ -3989,9 +4024,11 @@ export function CreateDropPanel() {
             <span>Max per wallet</span>
             <SuffixField
               id={fieldId('per-wallet')}
-              value={maxPerWallet}
+              value={perWalletInput}
               onValueChange={(value) =>
-                setMaxPerWallet(value.replace(/[^\d]/g, ''))
+                setMaxPerWallet(
+                  dropCreatePerWalletInput(value, supplyValid ? supply : null)
+                )
               }
               placeholder="No limit"
               aria-label={`Max ${template.unit} per wallet`}
@@ -4042,9 +4079,7 @@ export function CreateDropPanel() {
               type="button"
               role="radio"
               aria-checked={!burnable}
-              className={`app-access-option${
-                !burnable ? ' is-selected' : ''
-              }`}
+              className={`app-access-option${!burnable ? ' is-selected' : ''}`}
               disabled={pending}
               onClick={() => setBurnable(false)}
             >
@@ -4054,9 +4089,7 @@ export function CreateDropPanel() {
               type="button"
               role="radio"
               aria-checked={burnable}
-              className={`app-access-option${
-                burnable ? ' is-selected' : ''
-              }`}
+              className={`app-access-option${burnable ? ' is-selected' : ''}`}
               disabled={pending}
               onClick={() => setBurnable(true)}
             >
@@ -4088,9 +4121,7 @@ export function CreateDropPanel() {
         {extraSheet === 'renewals' ? (
           <div className="drop-create-renewals">
             <div className="guild-field">
-              <span>
-                {dropCreateExtraRowLabel('renewals', { isTicket })}
-              </span>
+              <span>{dropCreateExtraRowLabel('renewals', { isTicket })}</span>
               <div
                 className="app-access-options"
                 role="radiogroup"
@@ -4202,8 +4233,8 @@ export function CreateDropPanel() {
               : undefined
         }
         maxValue={
-          scheduleField === 'opens' && endTime
-            ? endTime
+          scheduleField === 'opens'
+            ? earlierScheduleBound(endTime, isTicket ? eventEnds : '')
             : scheduleField === 'eventStarts' && eventEnds
               ? eventEnds
               : undefined
@@ -4245,7 +4276,7 @@ export function CreateDropPanel() {
           open={allowlistSheetOpen}
           creatorId={accountId}
           maxPerWallet={(() => {
-            const perWallet = Number.parseInt(maxPerWallet, 10);
+            const perWallet = Number.parseInt(perWalletInput, 10);
             return Number.isSafeInteger(perWallet) && perWallet > 0
               ? perWallet
               : null;

@@ -11,7 +11,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type DragEvent as ReactDragEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
 import {
@@ -21,7 +21,11 @@ import {
   OsSheetActions,
   SheetCloseButton,
 } from '@onsocial/ui';
-import { dropCreatePiecePickerClass } from '@/features/scarces/drop-create-layout';
+import {
+  DROP_SET_REORDER_HOLD_MS,
+  dropCreatePiecePickerClass,
+  dropSetReorderIntent,
+} from '@/features/scarces/drop-create-layout';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
 interface DropArtOverlayProps {
@@ -124,74 +128,67 @@ export function DropArtOverlay({
           />
         </div>
       }
-      footer={
-        footer ? (
-          <div className="drop-art-overlay-footer" onClick={stopSheetClick}>
-            {footer}
-          </div>
-        ) : null
-      }
     >
       <div className="drop-art-page-sheet-content" onClick={onClose}>
         <p id={titleId} className="sr-only">
           {label}
         </p>
-        {children ? (
-          <div className="drop-art-overlay-stage" onClick={stopSheetClick}>
-            {children}
-          </div>
-        ) : (
-          <div
-            className={`drop-art-overlay-stage${hasNav ? ' has-nav' : ''}`}
-            onClick={stopSheetClick}
-          >
-            {inlineSvg ? (
-              <div
-                className="drop-art-overlay-asset drop-art-overlay-svg"
-                dangerouslySetInnerHTML={{ __html: inlineSvg }}
-              />
-            ) : rasterSrc ? (
-              <img
-                key={rasterSrc}
-                className="drop-art-overlay-asset"
-                src={rasterSrc}
-                alt=""
-              />
-            ) : null}
-            {hasNav ? (
-              <div
-                className="drop-art-overlay-nav-row"
-                role="group"
-                aria-label="Cover style"
-              >
-                {onPrev ? (
-                  <button
-                    type="button"
-                    className="drop-art-overlay-nav drop-art-overlay-nav--prev"
-                    aria-label="Previous"
-                    onClick={onPrev}
-                  >
-                    ‹
-                  </button>
-                ) : (
-                  <span className="drop-art-overlay-nav-spacer" aria-hidden />
-                )}
-                {onNext ? (
-                  <button
-                    type="button"
-                    className="drop-art-overlay-nav drop-art-overlay-nav--next"
-                    aria-label="Next"
-                    onClick={onNext}
-                  >
-                    ›
-                  </button>
-                ) : (
-                  <span className="drop-art-overlay-nav-spacer" aria-hidden />
-                )}
-              </div>
-            ) : null}
-          </div>
-        )}
+        <div className="drop-art-overlay-stack" onClick={stopSheetClick}>
+          {children ? (
+            <div className="drop-art-overlay-stage">{children}</div>
+          ) : (
+            <div className="drop-art-overlay-stage">
+              {inlineSvg ? (
+                <div
+                  className="drop-art-overlay-asset drop-art-overlay-svg"
+                  dangerouslySetInnerHTML={{ __html: inlineSvg }}
+                />
+              ) : rasterSrc ? (
+                <img
+                  key={rasterSrc}
+                  className="drop-art-overlay-asset"
+                  src={rasterSrc}
+                  alt=""
+                />
+              ) : null}
+            </div>
+          )}
+          {hasNav && !children ? (
+            <div
+              className="drop-art-overlay-nav-row"
+              role="group"
+              aria-label="Cover style"
+            >
+              {onPrev ? (
+                <button
+                  type="button"
+                  className="drop-art-overlay-nav drop-art-overlay-nav--prev"
+                  aria-label="Previous"
+                  onClick={onPrev}
+                >
+                  ‹
+                </button>
+              ) : (
+                <span className="drop-art-overlay-nav-spacer" aria-hidden />
+              )}
+              {onNext ? (
+                <button
+                  type="button"
+                  className="drop-art-overlay-nav drop-art-overlay-nav--next"
+                  aria-label="Next"
+                  onClick={onNext}
+                >
+                  ›
+                </button>
+              ) : (
+                <span className="drop-art-overlay-nav-spacer" aria-hidden />
+              )}
+            </div>
+          ) : null}
+          {footer ? (
+            <div className="drop-art-overlay-footer">{footer}</div>
+          ) : null}
+        </div>
       </div>
     </OsPageSheet>
   );
@@ -206,20 +203,19 @@ interface DropSeatTileProps {
   onRemove?: () => void;
   /** When set, zoom footer offers “Use in cover” for non-main pieces. */
   onSetCover?: () => void;
-  /**
-   * HTML5 drag reorder (manage-set sheet). Drag starts on the art button;
-   * a completed drag suppresses the following click-to-zoom.
-   */
+  /** Press-and-move reorder. A short move lifts the piece; a tap still zooms. */
   reorderable?: boolean;
   isDragging?: boolean;
-  /** Insert-before highlight while another tile is dragged over this one. */
+  /** Kept for callers that still mark a gap. The set page uses a moving slot. */
   isInsertTarget?: boolean;
-  /** Insert-after highlight on the last tile when dropping at the end. */
+  /** Kept for callers that still mark a gap. The set page uses a moving slot. */
   isInsertAfter?: boolean;
-  onReorderDragStart?: (event: ReactDragEvent<HTMLElement>) => void;
-  onReorderDragEnd?: () => void;
-  onReorderDragOver?: (event: ReactDragEvent<HTMLElement>) => void;
-  onReorderDrop?: (event: ReactDragEvent<HTMLElement>) => void;
+  onReorderArm?: () => void;
+  onReorderMove?: (clientX: number, clientY: number) => void;
+  onReorderEnd?: (clientX: number, clientY: number) => void;
+  onReorderCancel?: () => void;
+  /** Stable seat index for the set grid, used while a drag reorders the DOM. */
+  tileIndex?: number;
 }
 
 /** One seat tile — Mage × to remove, tap to zoom. */
@@ -234,26 +230,162 @@ export function DropSeatTile({
   isDragging = false,
   isInsertTarget = false,
   isInsertAfter = false,
-  onReorderDragStart,
-  onReorderDragEnd,
-  onReorderDragOver,
-  onReorderDrop,
+  onReorderArm,
+  onReorderMove,
+  onReorderEnd,
+  onReorderCancel,
+  tileIndex,
 }: DropSeatTileProps) {
   const [zoomOpen, setZoomOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const suppressZoomClickRef = useRef(false);
+  const armedRef = useRef(false);
+  const holdTimerRef = useRef<number | null>(null);
+  const originRef = useRef({
+    x: 0,
+    y: 0,
+    pointerId: -1,
+    type: 'mouse',
+    at: 0,
+  });
+
+  const listenersRef = useRef<(() => void) | null>(null);
+
+  const touchBlockRef = useRef<(() => void) | null>(null);
+
+  function clearHold() {
+    if (holdTimerRef.current == null) return;
+    window.clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = null;
+  }
+
+  function stopListening() {
+    clearHold();
+    touchBlockRef.current?.();
+    touchBlockRef.current = null;
+    listenersRef.current?.();
+    listenersRef.current = null;
+  }
+
+  function blockTouchScroll() {
+    if (touchBlockRef.current) return;
+    const stop = (event: TouchEvent) => {
+      event.preventDefault();
+    };
+    document.addEventListener('touchmove', stop, { passive: false });
+    touchBlockRef.current = () => {
+      document.removeEventListener('touchmove', stop);
+    };
+  }
+
+  function arm(pointerId: number) {
+    if (armedRef.current) return;
+    const button = buttonRef.current;
+    if (!button) return;
+    armedRef.current = true;
+    suppressZoomClickRef.current = true;
+    clearHold();
+    blockTouchScroll();
+    try {
+      button.setPointerCapture(pointerId);
+    } catch {
+      // Capture can fail if the pointer already ended.
+    }
+    onReorderArm?.();
+  }
+
+  useEffect(() => {
+    if (!isDragging) return;
+    const stopScroll = (event: TouchEvent) => {
+      event.preventDefault();
+    };
+    document.addEventListener('touchmove', stopScroll, { passive: false });
+    return () => document.removeEventListener('touchmove', stopScroll);
+  }, [isDragging]);
+
+  useEffect(() => () => stopListening(), []);
+
+  function onPointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (!reorderable || disabled || event.button !== 0) return;
+    const pointerId = event.pointerId;
+    originRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      pointerId,
+      type: event.pointerType,
+      at: performance.now(),
+    };
+    armedRef.current = false;
+    stopListening();
+
+    const onMove = (move: PointerEvent) => {
+      if (move.pointerId !== pointerId) return;
+      const origin = originRef.current;
+      const dx = move.clientX - origin.x;
+      const dy = move.clientY - origin.y;
+      const held = performance.now() - origin.at >= DROP_SET_REORDER_HOLD_MS;
+      const intent = dropSetReorderIntent(origin.type, dx, dy, held);
+      if (!armedRef.current) {
+        if (intent === 'cancel') {
+          originRef.current.pointerId = -1;
+          stopListening();
+          return;
+        }
+        if (intent === 'arm') {
+          arm(pointerId);
+          move.preventDefault();
+          onReorderMove?.(move.clientX, move.clientY);
+        }
+        return;
+      }
+      move.preventDefault();
+      onReorderMove?.(move.clientX, move.clientY);
+    };
+    const onUp = (up: PointerEvent) => {
+      if (up.pointerId !== pointerId) return;
+      const wasArmed = armedRef.current;
+      armedRef.current = false;
+      stopListening();
+      if (!wasArmed) return;
+      if (up.type === 'pointercancel') onReorderCancel?.();
+      else onReorderEnd?.(up.clientX, up.clientY);
+      window.setTimeout(() => {
+        suppressZoomClickRef.current = false;
+      }, 0);
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    listenersRef.current = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+
+    if (event.pointerType === 'mouse') return;
+    holdTimerRef.current = window.setTimeout(() => {
+      holdTimerRef.current = null;
+      const origin = originRef.current;
+      if (origin.pointerId !== pointerId || armedRef.current) return;
+      if (dropSetReorderIntent(origin.type, 0, 0, true) === 'arm') {
+        arm(pointerId);
+      }
+    }, DROP_SET_REORDER_HOLD_MS);
+  }
 
   return (
     <div
       data-set-tile
+      data-seat-index={tileIndex}
       className={`drop-cover-seat-shell${selected ? ' is-selected' : ''}${
         isDragging ? ' is-dragging' : ''
       }${isInsertTarget ? ' is-insert-target' : ''}${
         isInsertAfter ? ' is-insert-after' : ''
       }${reorderable ? ' is-reorderable' : ''}`}
-      onDragOver={reorderable ? onReorderDragOver : undefined}
-      onDrop={reorderable ? onReorderDrop : undefined}
     >
       <button
+        ref={buttonRef}
         type="button"
         className={`drop-cover-seat drop-cover-seat--zoom${
           selected ? ' is-selected' : ''
@@ -268,26 +400,19 @@ export function DropSeatTile({
         aria-haspopup="dialog"
         aria-expanded={zoomOpen}
         disabled={disabled}
-        draggable={reorderable && !disabled}
+        draggable={false}
         onDragStart={
           reorderable
             ? (event) => {
-                suppressZoomClickRef.current = false;
-                onReorderDragStart?.(event);
+                event.preventDefault();
               }
             : undefined
         }
-        onDrag={() => {
-          if (reorderable) suppressZoomClickRef.current = true;
-        }}
-        onDragEnd={
+        onPointerDown={reorderable ? onPointerDown : undefined}
+        onContextMenu={
           reorderable
-            ? () => {
-                onReorderDragEnd?.();
-                // Click can fire after dragend — swallow one zoom open.
-                window.setTimeout(() => {
-                  suppressZoomClickRef.current = false;
-                }, 0);
+            ? (event) => {
+                event.preventDefault();
               }
             : undefined
         }
@@ -299,7 +424,7 @@ export function DropSeatTile({
           setZoomOpen(true);
         }}
       >
-        <img src={src} alt="" />
+        <img src={src} alt="" draggable={false} />
         {selected ? <span className="drop-cover-seat-badge">Main</span> : null}
       </button>
       {onRemove ? (

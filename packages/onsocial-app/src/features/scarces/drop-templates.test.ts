@@ -53,11 +53,9 @@ describe('DROP_TEMPLATES', () => {
     expect(ticket?.requiresAccessEnd).toBeUndefined();
   });
 
-  it('templates with required Advanced fields open Advanced', () => {
+  it('keeps More closed so required event and access fields stay on the page', () => {
     for (const template of DROP_TEMPLATES) {
-      if (template.requiresAccessEnd || template.requiresEventEnd) {
-        expect(template.openAdvanced).toBe(true);
-      }
+      expect(template.openAdvanced).toBe(false);
     }
   });
 

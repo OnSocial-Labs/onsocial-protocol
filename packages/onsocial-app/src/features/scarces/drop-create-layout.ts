@@ -22,13 +22,16 @@ export function dropCreateDescriptionOpen(
   return forcedOpen || Boolean(description.trim());
 }
 
-/** Same toggle voice as Advanced — Add / Edit / Hide. */
-export function dropCreateDescriptionToggle(opts: {
-  open: boolean;
-  hasText: boolean;
-}): string {
-  if (opts.open) return 'Hide description';
-  return opts.hasText ? 'Edit description' : 'Add a description';
+/** Disclosure stays Description. The chevron is the open and close. */
+export function dropCreateDescriptionToggle(): 'Description' {
+  return 'Description';
+}
+
+/** Placeholder in the open field. Writing adds where the manuscript goes. */
+export function dropCreateDescriptionPlaceholder(isWriting: boolean): string {
+  return isWriting
+    ? 'Shown on the drop page. The manuscript uploads separately.'
+    : 'Shown on the drop page.';
 }
 
 /** Empty artwork/cover sits on the piece. Studio stay a launch card. */
@@ -49,6 +52,36 @@ export function dropCreateDealShowsSupplyField({
   isVariations: boolean;
 }): boolean {
   return !isGeneratedSet && !isVariations;
+}
+
+/** Piece count already fixed by the set. Null until that set exists. */
+export function dropCreateSetDealCount({
+  isVariations,
+  fileCount,
+  pinnedPieceCount,
+  generatedCount,
+}: {
+  isVariations: boolean;
+  fileCount: number;
+  pinnedPieceCount: number;
+  generatedCount: number;
+}): number | null {
+  if (!isVariations) return null;
+  const known = [fileCount, pinnedPieceCount, generatedCount].find(
+    (count) => Number.isSafeInteger(count) && count > 0
+  );
+  return known ?? null;
+}
+
+/** Read-only half of a set deal line: "5" + "pieces". */
+export function dropCreateSetDealLabel(count: number): {
+  value: string;
+  unit: string;
+} {
+  return {
+    value: count.toLocaleString(),
+    unit: count === 1 ? 'piece' : 'pieces',
+  };
 }
 
 /** Empty track / writing files sit on the piece — same voice as Add a description. */
@@ -93,9 +126,43 @@ export function dropCreateAttachHint(
   }
 }
 
-/** Optional whole-book PDF waits in Advanced. Chapters stay on the piece. */
-export function dropCreateBookPdfPlacement(): 'advanced' {
-  return 'advanced';
+/** Optional whole-book PDF waits in More. Chapters stay on the piece. */
+export function dropCreateBookPdfPlacement(): 'more' {
+  return 'more';
+}
+
+/** Collapsed extras. Royalty, sale, and transfer stay on the page. */
+export function dropCreateMoreToggle(open: boolean): string {
+  return open ? 'Hide more' : 'More';
+}
+
+/** A typed supply or price is a draft. Empty fields still submit as free. */
+export function dropCreateDealDraftDirty(
+  supply: string,
+  price: string
+): boolean {
+  return Boolean(supply.trim() || price.trim());
+}
+
+/** Default 10% with no split is not a draft. A change or a split is. */
+export function dropCreateRoyaltyDraftDirty(opts: {
+  royaltyBps: number;
+  isCustomRoyalty: boolean;
+  shareCount: number;
+}): boolean {
+  return dropCreateRoyaltyOpen({
+    royaltyBps: opts.royaltyBps,
+    isCustomRoyalty: opts.isCustomRoyalty,
+    isSplit: opts.shareCount > 0,
+  });
+}
+
+/** Layers, trait images, or a generate in progress. Opening the studio is not. */
+export function dropCreateDesignDraftDirty(
+  design: { layers: number; traits: number; working: boolean } | null
+): boolean {
+  if (!design) return false;
+  return design.working || design.layers > 0 || design.traits > 0;
 }
 
 /** Optional Advanced extras wait — open when the maker asks, or a draft already has one. */
@@ -155,7 +222,8 @@ export type DropCreateExtraSheetId =
   | 'transferable'
   | 'renewals'
   | 'place'
-  | 'burnable';
+  | 'burnable'
+  | 'setSource';
 
 /** Short row label — the value on the right is what they picked. */
 export function dropCreateExtraRowLabel(
@@ -185,6 +253,8 @@ export function dropCreateExtraRowLabel(
       return 'Place';
     case 'burnable':
       return 'Burnable';
+    case 'setSource':
+      return 'Images';
   }
 }
 
@@ -205,7 +275,7 @@ export function dropCreateExtraHint(
     case 'saleRules':
       return 'When collectors can mint.';
     case 'perWallet':
-      return 'Cap how many one wallet can collect.';
+      return 'Cap how many one wallet can collect, up to the edition count.';
     case 'transferable':
       return 'Yes lets them transfer and resell. No keeps the edition with them.';
     case 'renewals':
@@ -222,7 +292,16 @@ export function dropCreateExtraHint(
       return 'When the offer ends — not the sale.';
     case 'burnable':
       return 'Yes lets the holder destroy their edition. Gone for good, no refund.';
+    case 'setSource':
+      return 'Upload finished images, or generate a set from stacked layers.';
   }
+}
+
+/** Closed set-source line. A pinned set stays on Generate layers. */
+export function dropCreateSetSourceSummary(
+  source: 'upload' | 'generate' | 'cid'
+): 'Upload images' | 'Generate layers' {
+  return source === 'upload' ? 'Upload images' : 'Generate layers';
 }
 
 export function dropCreateRenewalsHint(isTicket: boolean): string {
@@ -283,11 +362,98 @@ export function dropCreateSaleWindowSummary(
   return `${opensLabel} · ${closesLabel}`;
 }
 
+/**
+ * A ticket sale has to be open while the event is still ahead.
+ * No scheduled close means the sale ends when the event ends.
+ * Times are milliseconds. A null open means Now.
+ */
+export function dropCreateTicketSaleWindow(input: {
+  saleOpensMs: number | null;
+  saleClosesMs: number | null;
+  eventEndsMs: number | null;
+}): { error: string | null; closesMs: number | null } {
+  const { saleOpensMs, saleClosesMs, eventEndsMs } = input;
+  if (eventEndsMs == null) {
+    return { error: null, closesMs: saleClosesMs };
+  }
+  if (saleOpensMs != null && saleOpensMs >= eventEndsMs) {
+    return {
+      error: 'The open time must be before the event ends.',
+      closesMs: saleClosesMs,
+    };
+  }
+  if (saleClosesMs != null && saleClosesMs > eventEndsMs) {
+    return {
+      error: 'The close time must be on or before the event end.',
+      closesMs: saleClosesMs,
+    };
+  }
+  return { error: null, closesMs: saleClosesMs ?? eventEndsMs };
+}
+
+/** Shown close. A ticket with no sale close uses the event end. */
+export function dropCreateSaleCloseDisplay(input: {
+  isTicket: boolean;
+  endTimeLabel: string;
+  eventEndsLabel: string;
+  emptyLabel: string;
+}): string {
+  if (input.endTimeLabel.trim()) return input.endTimeLabel.trim();
+  if (input.isTicket && input.eventEndsLabel.trim()) {
+    return input.eventEndsLabel.trim();
+  }
+  return input.emptyLabel;
+}
+
+/**
+ * Stored per-wallet cap. Empty and 0 mean no limit.
+ * When the edition count is known, the cap cannot rise above it.
+ */
+export function dropCreatePerWalletInput(
+  raw: string,
+  supply: number | null
+): string {
+  const digits = raw.replace(/\D/g, '').replace(/^0+/, '');
+  if (!digits) return '';
+  const count = Number.parseInt(digits, 10);
+  const knownSupply =
+    supply != null && Number.isSafeInteger(supply) && supply >= 1
+      ? supply
+      : null;
+  if (!Number.isSafeInteger(count)) {
+    return knownSupply == null ? '' : String(knownSupply);
+  }
+  if (knownSupply != null && count > knownSupply) return String(knownSupply);
+  return String(count);
+}
+
+/** How far a finger moves before the piece lifts. A shorter move stays a tap. */
+export const DROP_SET_REORDER_SLOP_PX = 8;
+/** Still press lifts the piece in place, then a move reorders it. */
+export const DROP_SET_REORDER_HOLD_MS = 180;
+
+/**
+ * A short move lifts the piece. Mouse is a few pixels; a finger needs
+ * a little more so a tap still opens the piece. Holding still also lifts.
+ */
+export function dropSetReorderIntent(
+  pointerType: string,
+  dx: number,
+  dy: number,
+  held: boolean
+): 'arm' | 'cancel' | 'wait' {
+  const distance = Math.hypot(dx, dy);
+  if (held && distance < DROP_SET_REORDER_SLOP_PX) return 'arm';
+  if (pointerType === 'mouse') return distance >= 4 ? 'arm' : 'wait';
+  if (distance >= DROP_SET_REORDER_SLOP_PX) return 'arm';
+  return 'wait';
+}
+
 export function dropCreatePerWalletSummary(
   maxPerWallet: string,
   unit: string
 ): string {
-  const count = maxPerWallet.trim();
+  const count = dropCreatePerWalletInput(maxPerWallet, null);
   return count ? `${count} ${unit}` : 'No limit';
 }
 
@@ -333,8 +499,9 @@ export function dropCreateSaleRulesSummary({
   transferable: boolean;
 }): string {
   const parts = [dropCreateSaleWindowSummary(opensLabel, closesLabel)];
-  if (maxPerWallet.trim()) {
-    parts.push(dropCreatePerWalletSummary(maxPerWallet, 'each'));
+  const perWallet = dropCreatePerWalletInput(maxPerWallet, null);
+  if (perWallet) {
+    parts.push(dropCreatePerWalletSummary(perWallet, 'each'));
   }
   if (!transferable) parts.push(dropCreateTransferableSummary(false));
   return parts.join(' · ');

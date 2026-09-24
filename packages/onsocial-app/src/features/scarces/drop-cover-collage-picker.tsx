@@ -114,8 +114,8 @@ function inkHexFor(paper: CollagePaper): string | null {
 }
 
 /**
- * Variation Drop packaging cover — thumb + arrows + choice chips
- * (Style / Paper / Title / Label). Tap thumb opens DropArtOverlay.
+ * Variation Drop packaging cover — thumb and arrows on the form.
+ * Tap the cover to style it.
  */
 export function DropCoverCollagePicker({
   images,
@@ -323,7 +323,7 @@ export function DropCoverCollagePicker({
               type="button"
               className="drop-cover-seat drop-cover-seat--zoom"
               disabled={disabled || !value.previewUrl}
-              aria-label="Zoom drop cover"
+              aria-label="Open drop cover"
               aria-haspopup="dialog"
               aria-expanded={zoomOpen}
               onClick={() => {
@@ -352,141 +352,6 @@ export function DropCoverCollagePicker({
         </button>
       </div>
 
-      <div
-        className="app-storage-presets os-choice-chip-row"
-        role="group"
-        aria-label="Cover options"
-      >
-        <ScarceChoiceField
-          label="Style"
-          value={value.style}
-          options={styleOptions}
-          disabled={disabled || rendering}
-          copy="Packaging collage layout."
-          chipLeading={
-            <StyleSwatch
-              style={value.style}
-              size="chip"
-              paperHex={chipPaperHex}
-            />
-          }
-          onChange={(style) =>
-            void renderCommitted({
-              style,
-              showTitle: value.showTitle,
-              showLabel: value.showLabel,
-              paper: value.paper,
-              font: value.font,
-            })
-          }
-        />
-        <ScarceChoiceField
-          label="Paper"
-          value={value.paper}
-          options={paperOptions}
-          disabled={disabled || rendering}
-          copy="Background finish — same papers as mint-from-post cards."
-          chipLeading={
-            <ScarceFinishSwatch
-              bgFrom={chipPaperHex}
-              bgTo={activePaper?.bgTo ?? chipPaperHex}
-              textPrimary={
-                activePaper?.textPrimary ??
-                (chipPaperHex === STYLE_PAPER.mosaic ||
-                chipPaperHex === STYLE_PAPER.film
-                  ? '#F5F0E8'
-                  : '#0B0B0F')
-              }
-              size="chip"
-            />
-          }
-          onChange={(paper) =>
-            void renderCommitted({
-              style: value.style,
-              showTitle: value.showTitle,
-              showLabel: value.showLabel,
-              paper,
-              font: value.font,
-            })
-          }
-        />
-        <ScarceChoiceField
-          label="Font"
-          value={value.font}
-          options={fontOptions}
-          disabled={disabled || rendering}
-          copy="Title voice — same Formats as mint-from-post cards."
-          chipLeading={<CollageFontSwatch font={value.font} size="chip" />}
-          onChange={(font) =>
-            void renderCommitted({
-              style: value.style,
-              showTitle: value.showTitle,
-              showLabel: value.showLabel,
-              paper: value.paper,
-              font,
-            })
-          }
-        />
-        {/* Binary chrome — tap toggles; no two-option sheet. */}
-        <button
-          type="button"
-          className={`os-surface-chip os-choice-chip${
-            value.showTitle ? ' is-selected' : ''
-          }`}
-          disabled={titleDisabled}
-          aria-pressed={value.showTitle}
-          aria-label={`Title: ${value.showTitle ? 'On' : 'Off'}`}
-          onClick={() => {
-            if (titleDisabled) return;
-            void renderCommitted({
-              style: value.style,
-              showTitle: !value.showTitle,
-              showLabel: value.showLabel,
-              paper: value.paper,
-              font: value.font,
-            });
-          }}
-        >
-          <span className="os-choice-chip-label">Title</span>
-          <span className="os-choice-chip-value">
-            {value.showTitle ? 'On' : 'Off'}
-          </span>
-        </button>
-        <button
-          type="button"
-          className={`os-surface-chip os-choice-chip${
-            value.showLabel ? ' is-selected' : ''
-          }`}
-          disabled={chromeDisabled}
-          aria-pressed={value.showLabel}
-          aria-label={`Label: ${value.showLabel ? 'On' : 'Off'}`}
-          onClick={() => {
-            if (chromeDisabled) return;
-            void renderCommitted({
-              style: value.style,
-              showTitle: value.showTitle,
-              showLabel: !value.showLabel,
-              paper: value.paper,
-              font: value.font,
-            });
-          }}
-        >
-          <span className="os-choice-chip-label">Label</span>
-          <span className="os-choice-chip-value">
-            {value.showLabel ? 'On' : 'Off'}
-          </span>
-        </button>
-      </div>
-
-      <small>
-        {COLLAGE_STYLE_LABELS[value.style]}
-        {value.paper !== 'auto'
-          ? ` · ${activePaper?.label ?? value.paper}`
-          : ''}
-        {uniqueCount > 0 ? ` · ${uniqueCount.toLocaleString()} unique` : ''}
-        {' — '}
-        tap cover to zoom · arrows flip style.
-      </small>
       {error ? <small className="drop-collage-error">{error}</small> : null}
 
       {value.previewUrl ? (

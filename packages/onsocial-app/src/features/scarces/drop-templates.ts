@@ -1,7 +1,7 @@
 /**
  * Drop templates — pick what you're selling and the create form configures
  * itself. Templates preset rights toggles and surface the fields that
- * matter, but never lock anything: Advanced stays editable, so every
+ * matter, but never lock anything: More stays editable, so every
  * template is a starting point rather than a straitjacket.
  *
  * Copy bar (hub-create style):
@@ -39,7 +39,7 @@ export interface DropTemplate {
     renewable: boolean;
     maxRedeems: string;
   } | null;
-  /** Open Advanced on selection because it holds essential fields. */
+  /** More stays closed. Required event and access fields render on the page. */
   openAdvanced: boolean;
   /** Event end required (tickets) — separate from sale close. */
   requiresEventEnd?: boolean;
@@ -54,7 +54,7 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     helpTitle: 'Art drop',
     tagline: 'Limited editions fans collect until they sell out.',
     hint:
-      'Good for prints, photography, digital art, and posters. e.g. “Genesis Prints” — 25 editions at 1 NEAR. Tradable by default; optional sale window in Advanced.',
+      'Good for prints, photography, digital art, and posters. e.g. “Genesis Prints” — 25 editions at 1 NEAR. Tradable by default. Sale starts now.',
     kind: 'art',
     unit: 'editions',
     unitSingular: 'edition',
@@ -67,7 +67,7 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     helpTitle: 'Writing drop',
     tagline: 'Capped copies of a book or issue.',
     hint:
-      'Good for books, zines, and ebooks. Write a single essay on your Writing shelf and list it. e.g. “Field Notes Vol. 1” — 100 copies with a cover image. Tradable by default; lock to holder in Advanced if you want.',
+      'Good for books, zines, and ebooks. Write a single essay on your Writing shelf and list it. e.g. “Field Notes Vol. 1” — 100 copies with a cover image. Tradable by default.',
     kind: 'writing',
     unit: 'copies',
     unitSingular: 'copy',
@@ -80,7 +80,7 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     helpTitle: 'Audio drop',
     tagline: 'One release — same tracks on every edition.',
     hint:
-      'Good for singles, EPs, and albums. e.g. “Midnight EP” — cover art plus playable tracks in every edition. Fans play in OnSocial; optional sale window in Advanced.',
+      'Good for singles, EPs, and albums. e.g. “Midnight EP” — cover art plus playable tracks in every edition. Fans play in OnSocial. Sale starts now.',
     kind: 'audio',
     unit: 'editions',
     unitSingular: 'edition',
@@ -98,7 +98,7 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     unit: 'tickets',
     unitSingular: 'ticket',
     presets: { transferable: true, renewable: true, maxRedeems: '1' },
-    openAdvanced: true,
+    openAdvanced: false,
     requiresEventEnd: true,
   },
   {
@@ -112,7 +112,7 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     unit: 'coupons',
     unitSingular: 'coupon',
     presets: { transferable: true, renewable: true, maxRedeems: '1' },
-    openAdvanced: true,
+    openAdvanced: false,
     requiresAccessEnd: true,
   },
   {
@@ -121,12 +121,12 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     helpTitle: 'Membership drop',
     tagline: 'Renewable passes that stay with the member.',
     hint:
-      'Good for fan clubs, seasons, and creator subscriptions. e.g. “Season Two Pass” — non-transferable, renewable each season. Optional access end in Advanced.',
+      'Good for fan clubs, seasons, and creator subscriptions. e.g. “Season Two Pass” — non-transferable, renewable each season.',
     kind: 'membership',
     unit: 'passes',
     unitSingular: 'pass',
     presets: { transferable: false, renewable: true, maxRedeems: '' },
-    openAdvanced: true,
+    openAdvanced: false,
   },
   {
     id: 'custom',
@@ -134,12 +134,12 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     helpTitle: 'Custom drop',
     tagline: 'Start from scratch — you set the rules.',
     hint:
-      'Good when no preset fits — bundles, experiments, or mixed media. e.g. combine transfer rules, renewals, redeem limits, allowlists, and sale windows yourself. Advanced opens by default.',
+      'Good when no preset fits — bundles, experiments, or mixed media. e.g. combine transfer rules, renewals, redeem limits, allowlists, and sale windows yourself. Royalty, sale, and transfer sit on the page.',
     kind: 'custom',
     unit: 'editions',
     unitSingular: 'edition',
     presets: null,
-    openAdvanced: true,
+    openAdvanced: false,
   },
 ];
 
