@@ -6,14 +6,14 @@ import { describe, expect, it } from 'vitest';
 const appSrc = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const sellHubSites = [
-  'features/collectibles/collectibles-play-panel.tsx',
+  'features/collectibles/collectibles-holding-row-menu.tsx',
   'features/scarces/collection-owner-manage-menu.tsx',
   'features/scarces/hub-publish-requests-sheet.tsx',
   'features/scarces/app-page-panel.tsx',
 ] as const;
 
 describe('sell / hub publish polish', () => {
-  it('uses size="sm" on Sell, Manage, Approve, and hero Request', () => {
+  it('uses size="sm" on Manage, Approve, and hero Request', () => {
     for (const file of sellHubSites) {
       const source = readFileSync(join(appSrc, file), 'utf8');
       expect(source).toContain('size="sm"');
