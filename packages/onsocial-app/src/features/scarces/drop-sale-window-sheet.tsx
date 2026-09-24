@@ -345,6 +345,17 @@ function buildMonthWeeks(
   return weeks;
 }
 
+/**
+ * Clear / No end stays highlighted only while that empty value is still the
+ * choice. Picking a day or a time drops it.
+ */
+export function saleWindowClearSelected(
+  initialValue: string,
+  picked: boolean
+): boolean {
+  return initialValue.trim() === '' && !picked;
+}
+
 function initialDraft(_field: SaleWindowField, value: string) {
   let next = splitLocal(value || toDatetimeLocalValue(new Date()));
   // Any set schedule time must be in the future — clamp past days to today.
@@ -657,6 +668,8 @@ function DropSaleWindowDraftBody({
   const seed = initialDraft(field, initialValue);
   const [draftDate, setDraftDate] = useState(seed.date);
   const [draftTime, setDraftTime] = useState(seed.time);
+  const [pickedSchedule, setPickedSchedule] = useState(false);
+  const keepingClear = saleWindowClearSelected(initialValue, pickedSchedule);
   const [viewYear, setViewYear] = useState(seed.viewYear);
   const [viewMonth, setViewMonth] = useState(seed.viewMonth);
   const [focusDate, setFocusDate] = useState(seed.date);
@@ -750,9 +763,9 @@ function DropSaleWindowDraftBody({
   );
 
   const draft = joinLocal(draftDate, draftTime);
-  const pastInvalid = isPastDateTime(draftDate, draftTime);
-  const belowMin = Boolean(minValue && draft <= minValue);
-  const aboveMax = Boolean(maxValue && draft >= maxValue);
+  const pastInvalid = !keepingClear && isPastDateTime(draftDate, draftTime);
+  const belowMin = !keepingClear && Boolean(minValue && draft <= minValue);
+  const aboveMax = !keepingClear && Boolean(maxValue && draft >= maxValue);
   const draftInvalid = pastInvalid || belowMin || aboveMax;
   const pastError =
     field === 'access'
@@ -859,9 +872,11 @@ function DropSaleWindowDraftBody({
       onClosed={onClosed}
       label={title}
       copy={
-        draftDate && draftTime
-          ? formatScheduleLabel(joinLocal(draftDate, draftTime))
-          : clearLabel
+        keepingClear
+          ? clearLabel
+          : draftDate && draftTime
+            ? formatScheduleLabel(joinLocal(draftDate, draftTime))
+            : clearLabel
       }
       closeAriaLabel="Close"
       backdropLabel={`Close ${title.toLowerCase()} picker`}
@@ -879,7 +894,7 @@ function DropSaleWindowDraftBody({
               disabled={draftInvalid}
               onClick={() => {
                 if (draftInvalid) return;
-                onApply(joinLocal(draftDate, draftTime));
+                onApply(keepingClear ? '' : joinLocal(draftDate, draftTime));
               }}
             >
               Set {title.toLowerCase()}
@@ -904,7 +919,7 @@ function DropSaleWindowDraftBody({
               <button
                 type="button"
                 className={`os-surface-chip${
-                  !initialValue ? ' is-selected' : ''
+                  keepingClear ? ' is-selected' : ''
                 }`}
                 onClick={() => onApply('')}
               >
@@ -1052,7 +1067,7 @@ function DropSaleWindowDraftBody({
                     className="drop-cal-week"
                   >
                     {week.map((cell) => {
-                      const selected = cell.date === draftDate;
+                      const selected = !keepingClear && cell.date === draftDate;
                       const blocked = isDayBlocked(cell.date);
                       const isToday = cell.date === today;
                       return (
@@ -1071,6 +1086,7 @@ function DropSaleWindowDraftBody({
                           }${blocked ? ' is-disabled' : ''}`}
                           onClick={() => {
                             if (blocked) return;
+                            setPickedSchedule(true);
                             setDraftDate(cell.date);
                             setFocusDate(cell.date);
                             // Jump the header into the month you tapped.
@@ -1128,7 +1144,10 @@ function DropSaleWindowDraftBody({
         isBlocked={timeBlocked}
         onClose={closeTimeSheet}
         onClosed={handleTimeSheetClosed}
-        onChange={setDraftTime}
+        onChange={(time) => {
+          setPickedSchedule(true);
+          setDraftTime(time);
+        }}
         zIndex={zIndex + 2}
       />
     ) : null}
