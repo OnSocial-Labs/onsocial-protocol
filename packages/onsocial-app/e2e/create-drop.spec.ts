@@ -641,6 +641,7 @@ test.describe('create drop', () => {
       access.getByText('When the offer ends — not the sale.')
     ).toBeVisible();
     await expect(access.getByText('Required', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'More', exact: true }).click();
     await expect(
       page.getByRole('button', { name: 'Renewable: Yes', exact: true })
     ).toBeVisible();
@@ -683,6 +684,7 @@ test.describe('create drop', () => {
     await expect(page.getByRole('group', { name: 'Access ends' })).toHaveCount(
       0
     );
+    await page.getByRole('button', { name: 'More', exact: true }).click();
     await expect(
       page.getByRole('button', { name: 'Renewable: Yes' })
     ).toBeVisible();
