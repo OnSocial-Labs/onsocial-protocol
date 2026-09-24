@@ -24,6 +24,18 @@
   --os-reveal-closed: 0px;
 }
 
+.drop-create-sale-row.is-required .drop-create-extra-row-value {
+  color: rgb(var(--fg-rgb) / 0.92);
+}
+
+.drop-create-sale-row.is-required .drop-create-advanced-hint {
+  margin: -0.2rem 0 0.45rem;
+}
+
+.drop-create-sale-open-hint {
+  margin: 0 0 0.65rem;
+}
+
 .drop-create-disclosure {
   display: inline-flex;
   align-items: center;

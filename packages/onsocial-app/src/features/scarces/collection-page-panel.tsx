@@ -1636,7 +1636,6 @@ export function CollectionPagePanel({
                 open={doorLogOpen}
                 onClose={() => setDoorLogOpen(false)}
                 collectionId={view.collectionId}
-                dropTitle={view.title}
                 voice={staffVoice}
               />
             ) : null}

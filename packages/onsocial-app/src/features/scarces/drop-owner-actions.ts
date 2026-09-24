@@ -154,7 +154,7 @@ async function listCollectionTokenIds(collectionId: string): Promise<string[]> {
       Array<{ token_id?: string; tokenId?: string }>
     >(SCARCES_CONTRACT, 'nft_tokens_for_collection', {
       collection_id: collectionId,
-      from_index: fromIndex,
+      from_index: String(fromIndex),
       limit: pageSize,
     });
     const rows = Array.isArray(page) ? page : [];
@@ -200,15 +200,6 @@ export async function extendTicketEntryAccess(
     responses.push(...renewResponses);
   }
 
-  // Also move the mint template expiry so tickets bought after the
-  // postponement are born with the new event end (not the old one).
-  responses.push(
-    await client.scarces.collections.updateTemplateExpiry(
-      input.collectionId,
-      eventEndsAtMs
-    )
-  );
-
   const record = await viewNearContract<{
     metadata?: string | null;
   } | null>(SCARCES_CONTRACT, 'get_collection', {
@@ -218,9 +209,12 @@ export async function extendTicketEntryAccess(
     record?.metadata ?? null,
     eventEndsAtMs
   );
+
+  // One signature: future tickets and the drop facts share the new end.
   responses.push(
-    await client.scarces.collections.setMetadata(
+    await client.scarces.collections.postponeEntry(
       input.collectionId,
+      eventEndsAtMs,
       nextMetadata
     )
   );

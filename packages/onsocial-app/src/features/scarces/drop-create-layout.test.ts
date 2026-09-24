@@ -36,6 +36,7 @@ import {
   dropSetReorderIntent,
   dropCreateSaleRulesSummary,
   dropCreateSetSourceSummary,
+  dropCreateAllowlistNeedsSaleOpen,
   dropCreateSaleWindowSummary,
   dropCreateSaleCloseDisplay,
   dropCreateTicketSaleWindow,
@@ -338,6 +339,11 @@ describe('dropCreate summaries', () => {
       })
     ).toBe('Yes · 8 Sep');
     expect(dropCreateSaleWindowSummary('Now', 'no end')).toBe('Now · no end');
+    expect(dropCreateAllowlistNeedsSaleOpen(0, '')).toBe(false);
+    expect(dropCreateAllowlistNeedsSaleOpen(2, '')).toBe(true);
+    expect(dropCreateAllowlistNeedsSaleOpen(2, '2026-09-30T21:49')).toBe(
+      false
+    );
     const eventEndsMs = Date.parse('2026-09-25T21:54:00');
     const afterEvent = Date.parse('2026-09-30T21:49:00');
     expect(
