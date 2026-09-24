@@ -79,6 +79,7 @@ import {
   GuildFacepile,
 } from '@/features/guilds/guild-facepile';
 import {
+  GuildMembershipConfirmDrawer,
   GuildMembershipJoinButton,
   guildMembershipJoinLabel,
   guildMembershipJoinPendingLabel,
@@ -575,7 +576,6 @@ export function LiveGuildPanel({
     ? Boolean(viewer?.isBlacklisted)
     : false;
   // Mutations require ACL; hint is label-only until viewerAccessResolved.
-  // Keep ready through Leave?/Transfer? confirm — danger mutes when !ready.
   const membershipActionReady = !viewerAccessResolved
     ? !isConnected
     : effectiveIsMember
@@ -629,9 +629,10 @@ export function LiveGuildPanel({
   }, [openManageSheet]);
 
   const {
-    confirmingLeave,
+    confirmKind,
     actionPending,
-    clearConfirmLeave,
+    dismissConfirm,
+    confirmMembership,
     handleMembershipClick: runMembershipClick,
   } = useGuildMembershipAction({
     groupId,
@@ -657,9 +658,7 @@ export function LiveGuildPanel({
         joinPending: effectiveJoinPending,
         joinCancelReady,
         isMember: effectiveIsMember,
-        isOwner: effectiveIsOwner,
         isBlacklisted: effectiveIsBlacklisted,
-        confirmingLeave,
         needsStorage: needsCollaborativeStorage,
         loadGuild: !config,
         hintMember: !viewerAccessResolved && Boolean(membershipHint?.isMember),
@@ -668,7 +667,6 @@ export function LiveGuildPanel({
       }),
     [
       config,
-      confirmingLeave,
       effectiveIsBlacklisted,
       effectiveIsMember,
       effectiveIsOwner,
@@ -1162,11 +1160,11 @@ export function LiveGuildPanel({
                     />
                   </span>
                 ) : (
+                  <>
                   <GuildMembershipJoinButton
                     className="guild-hero-membership"
                     label={actionLabel}
-                    variant={confirmingLeave ? 'danger' : 'primary'}
-                    active={effectiveIsMember && !confirmingLeave}
+                    active={effectiveIsMember}
                     ready={
                       membershipActionReady && !needsCollaborativeStorage
                     }
@@ -1184,8 +1182,19 @@ export function LiveGuildPanel({
                         !effectiveIsMember)
                     }
                     onClick={handleMembershipClick}
-                    onBlur={confirmingLeave ? clearConfirmLeave : undefined}
                   />
+                  <GuildMembershipConfirmDrawer
+                    kind={confirmKind}
+                    guildName={
+                      config
+                        ? guildDisplayName(config.name, groupId)
+                        : undefined
+                    }
+                    pending={actionPending}
+                    onConfirm={confirmMembership}
+                    onCancel={dismissConfirm}
+                  />
+                  </>
                 )
               }
             />

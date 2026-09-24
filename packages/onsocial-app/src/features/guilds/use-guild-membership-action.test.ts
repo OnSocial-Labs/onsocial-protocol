@@ -1,9 +1,62 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  guildMembershipConfirmCopy,
+  guildMembershipConfirmKind,
   guildMembershipOutcome,
   nextGuildMembershipCache,
   requestGuildMembershipChange,
 } from '@/features/guilds/guild-membership-action';
+
+const snapshot = {
+  isMember: false,
+  joinPending: false,
+  isOwner: false,
+  isBlacklisted: false,
+  accessGated: false,
+  memberDriven: false,
+  pendingJoinProposalId: null,
+  joinCancelReady: false,
+};
+
+describe('guildMembershipConfirmKind', () => {
+  it('opens join, request, cancel, or leave before a wallet step', () => {
+    expect(guildMembershipConfirmKind(snapshot)).toBe('join');
+    expect(
+      guildMembershipConfirmKind({ ...snapshot, accessGated: true })
+    ).toBe('request');
+    expect(
+      guildMembershipConfirmKind({
+        ...snapshot,
+        joinPending: true,
+        joinCancelReady: true,
+      })
+    ).toBe('cancel');
+    expect(guildMembershipConfirmKind({ ...snapshot, isMember: true })).toBe(
+      'leave'
+    );
+    expect(
+      guildMembershipConfirmKind({
+        ...snapshot,
+        isMember: true,
+        isOwner: true,
+      })
+    ).toBe('owner');
+    expect(
+      guildMembershipConfirmKind({ ...snapshot, isBlacklisted: true })
+    ).toBeNull();
+  });
+});
+
+describe('guildMembershipConfirmCopy', () => {
+  it('uses one sentence and a matching confirm label', () => {
+    expect(guildMembershipConfirmCopy('join')).toMatchObject({
+      body: 'You join this guild.',
+      confirmLabel: 'Join',
+      variant: 'primary',
+    });
+    expect(guildMembershipConfirmCopy('leave').variant).toBe('danger');
+  });
+});
 
 describe('guildMembershipOutcome', () => {
   it('maps leave / cancel / request / join', () => {

@@ -46,6 +46,7 @@ import {
   type GuildComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
 import {
+  GuildMembershipConfirmDrawer,
   GuildMembershipJoinButton,
   guildMembershipJoinLabel,
   guildMembershipJoinPendingLabel,
@@ -747,7 +748,6 @@ export function LiveGuildPostPanel({
     joinPending: effectiveJoinPending,
     availableYocto: userStorage.summary?.availableYocto,
   });
-  // Keep ready through Leave?/Transfer? confirm — danger mutes when !ready.
   const membershipActionReady = effectiveIsMember
     ? true
     : effectiveIsBlacklisted
@@ -792,9 +792,10 @@ export function LiveGuildPostPanel({
   }, [groupId, router]);
 
   const {
-    confirmingLeave,
+    confirmKind,
     actionPending: joinActionPending,
-    clearConfirmLeave,
+    dismissConfirm,
+    confirmMembership,
     handleMembershipClick: runMembershipClick,
   } = useGuildMembershipAction({
     groupId,
@@ -817,9 +818,7 @@ export function LiveGuildPostPanel({
     joinPending: effectiveJoinPending,
     joinCancelReady,
     isMember: effectiveIsMember,
-    isOwner: effectiveIsOwner,
     isBlacklisted: effectiveIsBlacklisted,
-    confirmingLeave,
     needsStorage: needsCollaborativeStorage,
   });
 
@@ -833,26 +832,33 @@ export function LiveGuildPostPanel({
           />
         </span>
       ) : (
+        <>
         <GuildMembershipJoinButton
           className="guild-hero-membership guild-thread-nav-membership"
           label={membershipActionLabel}
           ready={membershipActionReady}
-          active={effectiveIsMember && !confirmingLeave}
+          active={effectiveIsMember}
           pending={joinActionPending}
           pendingLabel={guildMembershipJoinPendingLabel({
             accessGated,
             canceling: effectiveJoinPending,
             leaving: effectiveIsMember,
           })}
-          variant={confirmingLeave ? 'danger' : 'primary'}
           disabled={
             effectiveIsBlacklisted ||
             (effectiveJoinPending && !joinCancelReady) ||
             (!viewerAccessResolved && Boolean(membershipHint))
           }
           onClick={handleMembershipClick}
-          onBlur={confirmingLeave ? clearConfirmLeave : undefined}
         />
+        <GuildMembershipConfirmDrawer
+          kind={confirmKind}
+          guildName={guildDisplayName(guildName, groupId)}
+          pending={joinActionPending}
+          onConfirm={confirmMembership}
+          onCancel={dismissConfirm}
+        />
+        </>
       )}
     </div>
   );

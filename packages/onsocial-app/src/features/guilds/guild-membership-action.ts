@@ -1,7 +1,5 @@
 import type { OnSocial } from '@onsocial/sdk';
 
-export const GUILD_MEMBERSHIP_CONFIRM_LEAVE_MS = 4_000;
-
 export type GuildMembershipOutcome =
   | 'left'
   | 'canceled'
@@ -64,4 +62,61 @@ export async function requestGuildMembershipChange(
     return client.groups.cancelJoin(input.groupId);
   }
   return client.groups.join(input.groupId);
+}
+
+/** Wallet membership actions that confirm in the action drawer first. */
+export type GuildMembershipConfirmKind = 'join' | 'request' | 'cancel' | 'leave';
+
+export function guildMembershipConfirmKind(
+  snapshot: GuildMembershipActionSnapshot
+): GuildMembershipConfirmKind | 'owner' | null {
+  if (snapshot.isBlacklisted) return null;
+  if (snapshot.joinPending && !snapshot.joinCancelReady) return null;
+  if (snapshot.isMember && snapshot.isOwner) return 'owner';
+  if (snapshot.isMember) return 'leave';
+  if (snapshot.joinPending) return 'cancel';
+  return snapshot.accessGated ? 'request' : 'join';
+}
+
+export function guildMembershipConfirmCopy(kind: GuildMembershipConfirmKind): {
+  label: string;
+  body: string;
+  confirmLabel: string;
+  pendingLabel: string;
+  variant: 'primary' | 'danger';
+} {
+  switch (kind) {
+    case 'leave':
+      return {
+        label: 'Leave',
+        body: 'You leave this guild.',
+        confirmLabel: 'Leave',
+        pendingLabel: 'Leaving…',
+        variant: 'danger',
+      };
+    case 'cancel':
+      return {
+        label: 'Cancel request',
+        body: 'This join request is canceled.',
+        confirmLabel: 'Cancel request',
+        pendingLabel: 'Canceling…',
+        variant: 'danger',
+      };
+    case 'request':
+      return {
+        label: 'Request',
+        body: 'You request to join this guild.',
+        confirmLabel: 'Request',
+        pendingLabel: 'Requesting…',
+        variant: 'primary',
+      };
+    case 'join':
+      return {
+        label: 'Join',
+        body: 'You join this guild.',
+        confirmLabel: 'Join',
+        pendingLabel: 'Joining…',
+        variant: 'primary',
+      };
+  }
 }
