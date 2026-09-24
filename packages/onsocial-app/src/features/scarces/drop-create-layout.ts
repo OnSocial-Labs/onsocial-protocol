@@ -362,6 +362,18 @@ export function dropCreateSaleWindowSummary(
   return `${opensLabel} · ${closesLabel}`;
 }
 
+/** An allowlist can mint early only after Sale has an open time. */
+export function dropCreateAllowlistNeedsSaleOpen(
+  allowlistCount: number,
+  startTime: string
+): boolean {
+  return allowlistCount > 0 && !startTime.trim();
+}
+
+export const DROP_CREATE_OPENS_REQUIRED = 'Opens required';
+export const DROP_CREATE_ALLOWLIST_OPEN_HINT =
+  'The allowlist needs an open time.';
+
 /**
  * A ticket sale has to be open while the event is still ahead.
  * No scheduled close means the sale ends when the event ends.

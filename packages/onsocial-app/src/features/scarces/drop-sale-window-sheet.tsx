@@ -45,6 +45,14 @@ interface DropSaleWindowSheetProps {
   maxValue?: string;
   onClose: () => void;
   onChange: (value: string) => void;
+  /** Shown above the calendar when this open time is still required. */
+  note?: string;
+  /** Hide Clear / No end. Postpone must pick a later time. */
+  allowClear?: boolean;
+  /** Replaces the default “too early” line when a minimum is set. */
+  minError?: string;
+  /** Above the sheet that opened this picker. Manage sits at 60. */
+  zIndex?: number;
 }
 
 interface SheetSession {
@@ -363,6 +371,7 @@ interface DropTimePickerSheetProps {
   onClose: () => void;
   onClosed: () => void;
   onChange: (time: string) => void;
+  zIndex?: number;
 }
 
 /**
@@ -377,6 +386,7 @@ function DropTimePickerSheet({
   onClose,
   onClosed,
   onChange,
+  zIndex = SHEET_Z.nested,
 }: DropTimePickerSheetProps) {
   const titleId = useId();
   const hourListRef = useRef<HTMLDivElement>(null);
@@ -494,7 +504,7 @@ function DropTimePickerSheet({
       copy={`${formatTimeChip(draft)} · local`}
       closeAriaLabel="Close time"
       backdropLabel="Close time picker"
-      zIndex={SHEET_Z.nested}
+      zIndex={zIndex}
       titleId={titleId}
       panelClassName="drop-time-sheet-panel os-sheet-cap-short"
       bodyClassName="drop-time-sheet-body"
@@ -618,6 +628,10 @@ interface DraftBodyProps {
   onRequestClose: () => void;
   onClosed: () => void;
   onApply: (value: string) => void;
+  note?: string;
+  allowClear?: boolean;
+  minError?: string;
+  zIndex?: number;
 }
 
 /**
@@ -635,6 +649,10 @@ function DropSaleWindowDraftBody({
   onRequestClose,
   onClosed,
   onApply,
+  note,
+  allowClear = true,
+  minError,
+  zIndex = SHEET_Z.list,
 }: DraftBodyProps) {
   const seed = initialDraft(field, initialValue);
   const [draftDate, setDraftDate] = useState(seed.date);
@@ -699,6 +717,15 @@ function DropSaleWindowDraftBody({
             { label: '24h', value: () => fromNow({ hours: 24 }) },
           ] as const);
 
+  const quickChips = presets
+    .map((preset) => ({ label: preset.label, value: preset.value() }))
+    .filter((preset) => {
+      if (!preset.value) return false;
+      if (minValue && preset.value <= minValue) return false;
+      if (maxValue && preset.value >= maxValue) return false;
+      return true;
+    });
+
   const today = todayDateString();
 
   const isDayBlocked = useCallback(
@@ -738,9 +765,10 @@ function DropSaleWindowDraftBody({
             ? 'Event start must be in the future.'
             : 'Open time must be in the future. Use Now to start immediately.';
   const draftError = belowMin
-    ? field === 'eventEnds'
-      ? 'Must be after the event start.'
-      : 'Must be after the open time.'
+    ? (minError ??
+      (field === 'eventEnds'
+        ? 'Must be after the event start.'
+        : 'Must be after the open time.'))
     : aboveMax
       ? field === 'eventStarts'
         ? 'Must be before the event end.'
@@ -837,7 +865,7 @@ function DropSaleWindowDraftBody({
       }
       closeAriaLabel="Close"
       backdropLabel={`Close ${title.toLowerCase()} picker`}
-      zIndex={SHEET_Z.list}
+      zIndex={zIndex}
       presentation="enter"
       titleId={titleId}
       panelClassName="drop-schedule-sheet-panel os-sheet-cap-tall"
@@ -861,29 +889,40 @@ function DropSaleWindowDraftBody({
       }
     >
       <div className="drop-schedule-sheet">
-        <div
-          className="app-storage-presets"
-          role="group"
-          aria-label="Quick times"
-        >
-          <button
-            type="button"
-            className={`os-surface-chip${!initialValue ? ' is-selected' : ''}`}
-            onClick={() => onApply('')}
+        {note ? (
+          <p className="drop-create-advanced-hint drop-create-sale-open-hint">
+            {note}
+          </p>
+        ) : null}
+        {allowClear || quickChips.length > 0 ? (
+          <div
+            className="app-storage-presets"
+            role="group"
+            aria-label="Quick times"
           >
-            {clearLabel}
-          </button>
-          {presets.map((preset) => (
-            <button
-              key={preset.label}
-              type="button"
-              className="os-surface-chip"
-              onClick={() => onApply(preset.value())}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
+            {allowClear ? (
+              <button
+                type="button"
+                className={`os-surface-chip${
+                  !initialValue ? ' is-selected' : ''
+                }`}
+                onClick={() => onApply('')}
+              >
+                {clearLabel}
+              </button>
+            ) : null}
+            {quickChips.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                className="os-surface-chip"
+                onClick={() => onApply(preset.value)}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         <div className="drop-cal">
           <div className="drop-cal-nav">
@@ -1090,6 +1129,7 @@ function DropSaleWindowDraftBody({
         onClose={closeTimeSheet}
         onClosed={handleTimeSheetClosed}
         onChange={setDraftTime}
+        zIndex={zIndex + 2}
       />
     ) : null}
     </>
@@ -1104,6 +1144,10 @@ export function DropSaleWindowSheet({
   maxValue,
   onClose,
   onChange,
+  note,
+  allowClear = true,
+  minError,
+  zIndex = SHEET_Z.list,
 }: DropSaleWindowSheetProps) {
   const titleId = useId();
   const [closing, setClosing] = useState(false);
@@ -1176,6 +1220,10 @@ export function DropSaleWindowSheet({
       onRequestClose={requestClose}
       onClosed={handleClosed}
       onApply={applyAndClose}
+      note={note}
+      allowClear={allowClear}
+      minError={minError}
+      zIndex={zIndex}
     />
   );
 }

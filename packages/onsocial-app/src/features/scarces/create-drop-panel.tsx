@@ -154,6 +154,9 @@ import {
   dropCreateRenewalsChoice,
   dropCreateRenewalsSummary,
   dropCreateRoyaltySummary,
+  DROP_CREATE_ALLOWLIST_OPEN_HINT,
+  DROP_CREATE_OPENS_REQUIRED,
+  dropCreateAllowlistNeedsSaleOpen,
   dropCreateSaleWindowSummary,
   dropCreateSaleCloseDisplay,
   dropCreateTicketSaleWindow,
@@ -477,6 +480,7 @@ export function CreateDropPanel() {
   const variationFilesRef = useRef(variationFiles);
   variationFilesRef.current = variationFiles;
   const errorRef = useRef<HTMLParagraphElement>(null);
+  const saleRowRef = useRef<HTMLDivElement>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const toolbarHidden = useDockAutoHide(false, scrollRootRef);
   useRegisterImmersiveChromeQuiet(true);
@@ -1982,10 +1986,14 @@ export function CreateDropPanel() {
         return;
       }
     }
-    if (draftAllowlist.length > 0 && !startTime.trim()) {
-      setError(
-        'Set Opens in Sale window so the allowlist can mint early — or clear the list.'
-      );
+    if (dropCreateAllowlistNeedsSaleOpen(draftAllowlist.length, startTime)) {
+      setError(null);
+      setExtraSheet('saleRules');
+      setScheduleField('opens');
+      saleRowRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
       return;
     }
 
@@ -2538,15 +2546,21 @@ export function CreateDropPanel() {
     isNone: (resolvedRoyaltyBps ?? royaltyBps) <= 0,
     splitCount: resolvedRoyaltyShares.length,
   });
-  const saleRowValue = dropCreateSaleWindowSummary(
-    startTime ? formatScheduleLabel(startTime) : 'Now',
-    dropCreateSaleCloseDisplay({
-      isTicket,
-      endTimeLabel: endTime ? formatScheduleLabel(endTime) : '',
-      eventEndsLabel: eventEnds ? formatScheduleLabel(eventEnds) : '',
-      emptyLabel: 'no end',
-    })
+  const allowlistNeedsOpen = dropCreateAllowlistNeedsSaleOpen(
+    draftAllowlist.length,
+    startTime
   );
+  const saleRowValue = allowlistNeedsOpen
+    ? DROP_CREATE_OPENS_REQUIRED
+    : dropCreateSaleWindowSummary(
+        startTime ? formatScheduleLabel(startTime) : 'Now',
+        dropCreateSaleCloseDisplay({
+          isTicket,
+          endTimeLabel: endTime ? formatScheduleLabel(endTime) : '',
+          eventEndsLabel: eventEnds ? formatScheduleLabel(eventEnds) : '',
+          emptyLabel: 'no end',
+        })
+      );
   const perWalletRowValue = dropCreatePerWalletSummary(
     perWalletInput,
     template.unit
@@ -3648,12 +3662,24 @@ export function CreateDropPanel() {
               disabled={pending}
               onClick={() => setExtraSheet('royalty')}
             />
-            <DropCreateExtraRow
-              label={dropCreateExtraRowLabel('saleRules')}
-              value={saleRowValue}
-              disabled={pending}
-              onClick={() => setExtraSheet('saleRules')}
-            />
+            <div
+              ref={saleRowRef}
+              className={`drop-create-sale-row${
+                allowlistNeedsOpen ? ' is-required' : ''
+              }`}
+            >
+              <DropCreateExtraRow
+                label={dropCreateExtraRowLabel('saleRules')}
+                value={saleRowValue}
+                disabled={pending}
+                onClick={() => setExtraSheet('saleRules')}
+              />
+              {allowlistNeedsOpen ? (
+                <p className="drop-create-advanced-hint">
+                  {DROP_CREATE_ALLOWLIST_OPEN_HINT}
+                </p>
+              ) : null}
+            </div>
             <DropCreateExtraRow
               label={dropCreateExtraRowLabel('transferable')}
               value={transferableRowValue}
@@ -3962,11 +3988,17 @@ export function CreateDropPanel() {
           />
         ) : null}
         {extraSheet === 'saleRules' ? (
-          <div
-            className="drop-schedule-pair"
-            role="group"
-            aria-label="Sale window"
-          >
+          <>
+            {allowlistNeedsOpen ? (
+              <p className="drop-create-advanced-hint drop-create-sale-open-hint">
+                {DROP_CREATE_ALLOWLIST_OPEN_HINT}
+              </p>
+            ) : null}
+            <div
+              className="drop-schedule-pair"
+              role="group"
+              aria-label="Sale window"
+            >
             <div
               className={`drop-schedule-cell${startTime ? ' has-value' : ''}`}
             >
@@ -3978,7 +4010,11 @@ export function CreateDropPanel() {
               >
                 <span className="drop-schedule-cell-label">Opens</span>
                 <span className="drop-schedule-cell-value">
-                  {startTime ? formatScheduleLabel(startTime) : 'Now'}
+                  {startTime
+                    ? formatScheduleLabel(startTime)
+                    : allowlistNeedsOpen
+                      ? 'Required'
+                      : 'Now'}
                 </span>
               </button>
               {startTime ? (
@@ -4018,6 +4054,7 @@ export function CreateDropPanel() {
               ) : null}
             </div>
           </div>
+          </>
         ) : null}
         {extraSheet === 'perWallet' ? (
           <label className="guild-field" htmlFor={fieldId('per-wallet')}>
@@ -4214,6 +4251,11 @@ export function CreateDropPanel() {
       <DropSaleWindowSheet
         open={scheduleField != null}
         field={scheduleField}
+        note={
+          allowlistNeedsOpen && scheduleField === 'opens'
+            ? DROP_CREATE_ALLOWLIST_OPEN_HINT
+            : undefined
+        }
         value={
           scheduleField === 'closes'
             ? endTime

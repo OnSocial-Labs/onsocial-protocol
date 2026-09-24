@@ -130,6 +130,20 @@
   box-sizing: border-box;
 }
 
+/* Door log search — same press as nav search: drop the fill, keep the box. */
+.search-field.sheet-control.collection-door-log-search {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.search-field.sheet-control.collection-door-log-search:focus-within,
+.search-field.sheet-control.collection-door-log-search:active {
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transform: none;
+}
+
 /*
  * Discover omni wrappers — `display: contents` so the SearchField is a direct
  * heading flex item (same box as Market). Extra form/div was lofting the pill.

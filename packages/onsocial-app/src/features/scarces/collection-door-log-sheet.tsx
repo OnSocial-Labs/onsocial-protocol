@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
+  ChevronLeftIcon,
   Divider,
   OsIconAction,
   RefreshIcon,
@@ -23,6 +24,7 @@ import {
 import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { osChromePageClassName } from '@/lib/os-chrome-page';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 const DOOR_LOG_Z = SHEET_Z.overShell;
@@ -35,7 +37,6 @@ export function CollectionDoorLogSheet({
   open,
   onClose,
   collectionId,
-  dropTitle,
   voice = 'admit',
   attendanceLine = null,
   /** Bump after a successful admit so an open log (or next open) refetches. */
@@ -44,9 +45,8 @@ export function CollectionDoorLogSheet({
   open: boolean;
   onClose: () => void;
   collectionId: string;
-  dropTitle: string;
   voice?: PassStaffVoice;
-  /** Optional totals line under the title (e.g. `47 of 200 in`). */
+  /** Totals line under the title (e.g. `47 of 200 in`). */
   attendanceLine?: string | null;
   revision?: number;
 }) {
@@ -128,8 +128,22 @@ export function CollectionDoorLogSheet({
 
   const redeemVoice = voice === 'redeem';
   const title = redeemVoice ? 'Redeem log' : 'Door log';
-  const subtitle =
-    attendanceLine?.trim() || (dropTitle.trim() ? dropTitle.trim() : undefined);
+  const attendance = attendanceLine?.trim() || '';
+  const subtitle = attendance
+    ? attendance
+    : !loaded || entries == null
+      ? undefined
+      : entries.length === 0
+        ? redeemVoice
+          ? 'No redeems yet'
+          : 'No check-ins yet'
+        : entries.length === 1
+          ? redeemVoice
+            ? '1 redeem'
+            : '1 check-in'
+          : redeemVoice
+            ? `${entries.length} redeems`
+            : `${entries.length} check-ins`;
   const staffVerb = doorLogStaffVerb(voice);
 
   return (
@@ -139,12 +153,13 @@ export function CollectionDoorLogSheet({
       onClosed={handleClosed}
       title={title}
       subtitle={subtitle}
-      closeAriaLabel={
-        redeemVoice ? 'Back from redeem log' : 'Back from door log'
+      closeAriaLabel="Back"
+      closeIcon={
+        <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
       }
       zIndex={DOOR_LOG_Z}
       className="collection-door-log-slide"
-      contentClassName="collection-door-log"
+      contentClassName={osChromePageClassName('collection-door-log')}
       actions={
         <OsIconAction
           ariaLabel={redeemVoice ? 'Refresh redeem log' : 'Refresh door log'}

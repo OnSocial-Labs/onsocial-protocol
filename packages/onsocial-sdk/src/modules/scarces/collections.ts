@@ -650,6 +650,55 @@ export class ScarcesCollectionsApi {
     );
   }
 
+  /**
+   * One wallet confirmation: move the mint template expiry and stamp the
+   * drop metadata. Two separate signs leave the second popup unopened.
+   */
+  async postponeEntry(
+    collectionId: string,
+    expiresAtMs: number,
+    metadata: string
+  ): Promise<RelayResponse> {
+    const broadcast = this._getBroadcast?.();
+    if (typeof broadcast !== 'object' || broadcast.kind !== 'wallet') {
+      await this.updateTemplateExpiry(collectionId, expiresAtMs);
+      return this.setMetadata(collectionId, metadata);
+    }
+
+    const [expiry, meta] = await Promise.all([
+      prepareCompose(
+        this._http,
+        SCARCES_VERBS.UPDATE_COLLECTION_TEMPLATE_EXPIRY,
+        { collectionId, expiresAtMs }
+      ),
+      prepareCompose(this._http, SCARCES_VERBS.SET_COLLECTION_METADATA, {
+        collectionId,
+        metadata,
+      }),
+    ]);
+    const expiryTarget = expiry.target_account || this._scarcesContract;
+    const metaTarget = meta.target_account || this._scarcesContract;
+    if (expiryTarget !== metaTarget) {
+      throw new Error('Postpone actions must target the same contract');
+    }
+
+    return broadcastViaWalletBatch(
+      [
+        {
+          action: expiry.action,
+          targetContract: expiryTarget,
+          depositYocto: ONE_YOCTO_NEAR,
+        },
+        {
+          action: meta.action,
+          targetContract: metaTarget,
+          depositYocto: ONE_YOCTO_NEAR,
+        },
+      ],
+      broadcast
+    );
+  }
+
   /** Set or clear the per-app metadata for a collection (app owner). */
   async setAppMetadata(
     appId: string,

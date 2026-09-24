@@ -136,6 +136,24 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'POST', path: 'compose/prepare/pause-collection', body: 'json' },
   { method: 'POST', path: 'compose/prepare/resume-collection', body: 'json' },
   { method: 'POST', path: 'compose/prepare/delete-collection', body: 'json' },
+  // Scarces — postpone entry, cancel, and reclaim leftover refunds.
+  { method: 'POST', path: 'compose/prepare/renew-token', body: 'json' },
+  {
+    method: 'POST',
+    path: 'compose/prepare/update-collection-template-expiry',
+    body: 'json',
+  },
+  {
+    method: 'POST',
+    path: 'compose/prepare/set-collection-metadata',
+    body: 'json',
+  },
+  { method: 'POST', path: 'compose/prepare/cancel-collection', body: 'json' },
+  {
+    method: 'POST',
+    path: 'compose/prepare/withdraw-unclaimed-refunds',
+    body: 'json',
+  },
 
   // Hubs (apps) — register / config / creators / ownership.
   { method: 'POST', path: 'compose/prepare/register-app', body: 'json' },

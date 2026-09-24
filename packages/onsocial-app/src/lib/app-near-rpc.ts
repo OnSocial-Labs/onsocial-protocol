@@ -228,7 +228,10 @@ export async function viewNearContract<T>(
   methodName: string,
   args: Record<string, unknown> = {}
 ): Promise<T> {
-  const result = await nearRpcCall<{ result: number[] }>('query', {
+  const result = await nearRpcCall<{
+    result?: number[] | string;
+    error?: string;
+  }>('query', {
     request_type: 'call_function',
     finality: 'final',
     account_id: contractId,
@@ -236,12 +239,31 @@ export async function viewNearContract<T>(
     args_base64: btoa(JSON.stringify(args)),
   });
 
-  if (!result.result?.length) {
+  if (typeof result.error === 'string' && result.error.trim()) {
+    throw new Error(result.error);
+  }
+
+  const bytes = decodeViewResultBytes(result.result);
+  if (!bytes.length) {
     throw new Error('Contract view returned no result');
   }
 
-  const decoded = new TextDecoder().decode(new Uint8Array(result.result));
+  const decoded = new TextDecoder().decode(bytes);
   return JSON.parse(decoded) as T;
+}
+
+function decodeViewResultBytes(result: number[] | string | undefined): Uint8Array {
+  if (typeof result === 'string') {
+    if (!result) return new Uint8Array();
+    const binary = atob(result);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+  if (!result?.length) return new Uint8Array();
+  return new Uint8Array(result);
 }
 
 /** On-chain SOCIAL (NEP-141) wallet balance for an account. */

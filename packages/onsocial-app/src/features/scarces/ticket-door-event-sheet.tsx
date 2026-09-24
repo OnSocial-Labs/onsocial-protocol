@@ -235,7 +235,6 @@ export function TicketDoorEventSheet({
         open={doorLogOpen}
         onClose={() => setDoorLogOpen(false)}
         collectionId={view.collectionId}
-        dropTitle={view.title}
         voice={voice}
         attendanceLine={attendanceSuffix}
         revision={logRevision}
