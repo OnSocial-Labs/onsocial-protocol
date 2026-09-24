@@ -8,5 +8,6 @@ describe('saleWindowClearSelected', () => {
     expect(saleWindowClearSelected('', true)).toBe(false);
     expect(saleWindowClearSelected('2026-09-24T18:00', false)).toBe(false);
     expect(saleWindowClearSelected('2026-09-24T18:00', true)).toBe(false);
+    expect(saleWindowClearSelected('', false, false)).toBe(false);
   });
 });

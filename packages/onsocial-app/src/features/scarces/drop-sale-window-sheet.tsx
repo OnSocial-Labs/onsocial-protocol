@@ -351,9 +351,10 @@ function buildMonthWeeks(
  */
 export function saleWindowClearSelected(
   initialValue: string,
-  picked: boolean
+  picked: boolean,
+  allowClear = true
 ): boolean {
-  return initialValue.trim() === '' && !picked;
+  return allowClear && initialValue.trim() === '' && !picked;
 }
 
 function initialDraft(_field: SaleWindowField, value: string) {
@@ -669,7 +670,11 @@ function DropSaleWindowDraftBody({
   const [draftDate, setDraftDate] = useState(seed.date);
   const [draftTime, setDraftTime] = useState(seed.time);
   const [pickedSchedule, setPickedSchedule] = useState(false);
-  const keepingClear = saleWindowClearSelected(initialValue, pickedSchedule);
+  const keepingClear = saleWindowClearSelected(
+    initialValue,
+    pickedSchedule,
+    allowClear
+  );
   const [viewYear, setViewYear] = useState(seed.viewYear);
   const [viewMonth, setViewMonth] = useState(seed.viewMonth);
   const [focusDate, setFocusDate] = useState(seed.date);
