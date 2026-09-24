@@ -12,6 +12,7 @@ import {
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
+import { ownedScarceCanTransfer } from '@/features/scarces/scarce-transfer';
 import {
   holdingsActionLabel,
   holdingsHrefForOwned,
@@ -28,6 +29,7 @@ interface MarketOwnedRowProps {
   /** Clock for ended-auction settle CTA. */
   nowMs?: number;
   onSell: (item: OwnedScarceItem) => void;
+  onTransfer?: (item: OwnedScarceItem) => void;
   onDelist: (item: OwnedScarceItem) => void;
   onSettle?: (item: OwnedScarceItem) => void;
   onOffers?: (item: OwnedScarceItem) => void;
@@ -50,6 +52,7 @@ export function MarketOwnedRow({
   offerCount = 0,
   nowMs,
   onSell,
+  onTransfer,
   onDelist,
   onSettle,
   onOffers,
@@ -99,6 +102,7 @@ export function MarketOwnedRow({
   const showPostCompose =
     listed &&
     Boolean(item.collectionId?.trim() || item.tokenId?.trim());
+  const canTransfer = Boolean(onTransfer) && ownedScarceCanTransfer(item);
   const showListedAction = needsSettle || !listed || !auctionHasBids;
   const [brokenMediaUrl, setBrokenMediaUrl] = useState<string | null>(null);
   const showThumb = Boolean(item.mediaUrl) && brokenMediaUrl !== item.mediaUrl;
@@ -247,6 +251,18 @@ export function MarketOwnedRow({
                 Complete
               </OsSheetAction>
             ) : listed ? (
+              <>
+                {canTransfer ? (
+                  <OsSheetAction
+                    type="button"
+                    variant="ghost"
+                    ready={!delistPending}
+                    disabled={delistPending}
+                    onClick={() => onTransfer?.(item)}
+                  >
+                    Transfer
+                  </OsSheetAction>
+                ) : null}
               <OsSheetAction
                 type="button"
                 variant={
@@ -279,15 +295,28 @@ export function MarketOwnedRow({
                     ? 'Cancel auction'
                     : 'Delist'}
               </OsSheetAction>
+              </>
             ) : (
-              <OsSheetAction
-                type="button"
-                variant={showOffers ? 'ghost' : 'primary'}
-                ready
-                onClick={() => onSell(item)}
-              >
-                Sell
-              </OsSheetAction>
+              <>
+                {canTransfer ? (
+                  <OsSheetAction
+                    type="button"
+                    variant="ghost"
+                    ready
+                    onClick={() => onTransfer?.(item)}
+                  >
+                    Transfer
+                  </OsSheetAction>
+                ) : null}
+                <OsSheetAction
+                  type="button"
+                  variant={showOffers ? 'ghost' : 'primary'}
+                  ready
+                  onClick={() => onSell(item)}
+                >
+                  Sell
+                </OsSheetAction>
+              </>
             )}
           </OsSheetActions>
         ) : null}

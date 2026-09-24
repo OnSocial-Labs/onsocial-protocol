@@ -12,6 +12,7 @@ import {
 } from '@/features/market/market-listings';
 import { invalidateOwnedVaultCache } from '@/features/market/owned-vault-cache';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
+import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { accountIdsEqual } from '@/lib/account-match';
 import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
@@ -72,6 +73,10 @@ export function PageDrawerCollectionList({
   const [loadedAccountId, setLoadedAccountId] = useState<string | null>(null);
   const [sellItem, setSellItem] = useState<OwnedScarceItem | null>(null);
   const [sellOpen, setSellOpen] = useState(false);
+  const [transferItem, setTransferItem] = useState<OwnedScarceItem | null>(
+    null
+  );
+  const [transferOpen, setTransferOpen] = useState(false);
 
   const refreshOwned = useCallback(() => {
     void fetchOwnedScarcesPage(pageAccountId, {
@@ -177,6 +182,10 @@ export function PageDrawerCollectionList({
                           setSellItem(owned);
                           setSellOpen(true);
                         }}
+                        onTransfer={() => {
+                          setTransferItem(owned);
+                          setTransferOpen(true);
+                        }}
                         onDelisted={refreshOwned}
                       />
                     )
@@ -204,6 +213,21 @@ export function PageDrawerCollectionList({
         onListed={() => {
           setSellOpen(false);
           setSellItem(null);
+          refreshOwned();
+        }}
+      />
+
+      <ScarceTransferSheet
+        open={transferOpen && transferItem != null}
+        item={transferItem}
+        ownerAccountId={viewerAccountId}
+        onOpenChange={(open) => {
+          setTransferOpen(open);
+          if (!open) setTransferItem(null);
+        }}
+        onTransferred={() => {
+          setTransferOpen(false);
+          setTransferItem(null);
           refreshOwned();
         }}
       />

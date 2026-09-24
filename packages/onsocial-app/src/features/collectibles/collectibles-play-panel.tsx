@@ -39,6 +39,8 @@ import {
 } from '@/features/scarces/collection-creator-face';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
+import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
+import { ownedScarceCanTransfer } from '@/features/scarces/scarce-transfer';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_COLLECTIBLES_PATH,
@@ -174,6 +176,7 @@ export function CollectiblesPlayPanel({
     item: OwnedScarceItem | null;
   } | null>(null);
   const [sellOpen, setSellOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
   const [headerElevated, setHeaderElevated] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
@@ -365,6 +368,8 @@ export function CollectiblesPlayPanel({
     };
   }, [ownedItem, view]);
   const canSell = ownedItem != null && ownedItem.listingKind == null;
+  const canTransfer =
+    ownedItem != null && ownedScarceCanTransfer(ownedItem);
   const isListed = ownedItem != null && ownedItem.listingKind != null;
   const dropIsLive =
     view != null && deriveCollectionStatus(view, nowMs) === 'live';
@@ -531,7 +536,7 @@ export function CollectiblesPlayPanel({
               <h1 className="collectibles-play-title" ref={heroTitleRef}>
                 {view.title}
               </h1>
-              {canSell ? (
+              {canSell || canTransfer ? (
                 <OsSheetActions
                   layout="row-compact"
                   tone="frosted-primary"
@@ -539,14 +544,26 @@ export function CollectiblesPlayPanel({
                   borderless
                   className="collectibles-play-sell-action"
                 >
-                  <OsSheetAction
-                    type="button"
-                    variant="primary"
-                    ready
-                    onClick={() => setSellOpen(true)}
-                  >
-                    Sell
-                  </OsSheetAction>
+                  {canTransfer ? (
+                    <OsSheetAction
+                      type="button"
+                      variant="ghost"
+                      ready
+                      onClick={() => setTransferOpen(true)}
+                    >
+                      Transfer
+                    </OsSheetAction>
+                  ) : null}
+                  {canSell ? (
+                    <OsSheetAction
+                      type="button"
+                      variant="primary"
+                      ready
+                      onClick={() => setSellOpen(true)}
+                    >
+                      Sell
+                    </OsSheetAction>
+                  ) : null}
                 </OsSheetActions>
               ) : isListed ? (
                 <span className="collectibles-play-listed">Listed</span>
@@ -657,6 +674,25 @@ export function CollectiblesPlayPanel({
         </>
       ) : null}
 
+      <ScarceTransferSheet
+        open={transferOpen && sellItem != null}
+        item={sellItem}
+        ownerAccountId={viewerAccountId}
+        onOpenChange={setTransferOpen}
+        onTransferred={() => {
+          setTransferOpen(false);
+          if (!ownershipKey || !viewerAccountId || !collectionId) return;
+          void (async () => {
+            const item = tokenIdParam
+              ? await fetchOwnedScarceByTokenId(viewerAccountId, tokenIdParam)
+              : await fetchOwnedScarceForCollection(
+                  viewerAccountId,
+                  collectionId
+                );
+            setOwnedByKey({ key: ownershipKey, item });
+          })();
+        }}
+      />
       <ScarceSellSheet
         open={sellOpen && sellItem != null}
         item={sellItem}

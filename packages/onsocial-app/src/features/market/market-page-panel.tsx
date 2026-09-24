@@ -119,6 +119,7 @@ import {
 import { ScarceOffersSheet } from '@/features/scarces/scarce-offers-sheet';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
+import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { fetchCollectionsByCreator } from '@/features/scarces/collections-data';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
@@ -306,6 +307,9 @@ export function MarketPagePanel({
     null
   );
   const [sellItem, setSellItem] = useState<OwnedScarceItem | null>(null);
+  const [transferItem, setTransferItem] = useState<OwnedScarceItem | null>(
+    null
+  );
   const [offersItem, setOffersItem] = useState<OwnedScarceItem | null>(null);
   const [cancelRowKey, setCancelRowKey] = useState<string | null>(null);
   const [delistTokenId, setDelistTokenId] = useState<string | null>(null);
@@ -2100,6 +2104,7 @@ export function MarketPagePanel({
                     delistPending={delistTokenId === item.tokenId}
                     settlePending={settleTokenId === item.tokenId}
                     onSell={setSellItem}
+                    onTransfer={setTransferItem}
                     onOffers={setOffersItem}
                     onSettle={(row) => {
                       void handleSettleOwned(row);
@@ -2233,6 +2238,16 @@ export function MarketPagePanel({
           if (!open) setSellItem(null);
         }}
         onListed={handleListed}
+      />
+
+      <ScarceTransferSheet
+        open={transferItem != null}
+        item={transferItem}
+        ownerAccountId={viewerAccountId}
+        onOpenChange={(open) => {
+          if (!open) setTransferItem(null);
+        }}
+        onTransferred={handleListed}
       />
 
       <ScarceOffersSheet

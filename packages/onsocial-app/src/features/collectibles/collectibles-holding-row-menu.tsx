@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   ArrowUpRightIcon,
   DotsVerticalIcon,
+  GiftIcon,
   ShopIcon,
   TrashIcon,
 } from '@onsocial/ui';
@@ -15,6 +16,7 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
+import { ownedScarceCanTransfer } from '@/features/scarces/scarce-transfer';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { APP_MARKET_PATH } from '@/lib/app-routes';
 import {
@@ -27,6 +29,7 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 interface CollectiblesHoldingRowMenuProps {
   item: OwnedScarceItem;
   onList: () => void;
+  onTransfer?: () => void;
   onDelisted?: () => void;
 }
 
@@ -34,6 +37,7 @@ interface CollectiblesHoldingRowMenuProps {
 export function CollectiblesHoldingRowMenu({
   item,
   onList,
+  onTransfer,
   onDelisted,
 }: CollectiblesHoldingRowMenuProps) {
   const { getSigningWallet } = useAppWallet();
@@ -97,6 +101,22 @@ export function CollectiblesHoldingRowMenu({
   const items = useMemo<ActionDrawerItem[]>(() => {
     const list: ActionDrawerItem[] = [];
 
+    if (onTransfer && ownedScarceCanTransfer(item)) {
+      list.push({
+        id: 'transfer',
+        section: 'Manage',
+        label: 'Transfer',
+        description: listed
+          ? 'Send it on. This comes off sale.'
+          : 'Send this scarce to another account',
+        leading: <GiftIcon className="os-action-drawer-icon" aria-hidden />,
+        onSelect: () => {
+          close();
+          onTransfer();
+        },
+      });
+    }
+
     if (!listed) {
       list.push({
         id: 'list',
@@ -142,8 +162,10 @@ export function CollectiblesHoldingRowMenu({
     auctionHasBids,
     close,
     handleDelist,
+    item,
     listed,
     onList,
+    onTransfer,
     pending,
   ]);
 

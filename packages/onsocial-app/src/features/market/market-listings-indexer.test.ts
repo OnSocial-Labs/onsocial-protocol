@@ -314,6 +314,7 @@ describe('indexer-first market listings', () => {
       collectionId: 'drop-1',
       mediumKind: 'audio',
       listingKind: null,
+      transferable: true,
     });
     expect(page.items[0]?.mediaUrl).toBeTruthy();
     expect(page.hasMore).toBe(false);
