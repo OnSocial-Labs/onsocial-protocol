@@ -211,7 +211,6 @@ export function gateOsApps(): OsAppLink[] {
     },
     { id: 'discover', label: 'Discover', kind: 'app', href: APP_DISCOVER_PATH },
     { id: 'page', label: 'OnPage', kind: 'open-page' },
-    { id: 'feed', label: 'Feed', kind: 'app', href: APP_HOME_PATH },
     {
       id: 'market',
       label: 'Market',

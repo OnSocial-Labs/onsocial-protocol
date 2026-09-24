@@ -14213,9 +14213,15 @@ a.os-surface-row {
     color: var(--protocol-green);
   }
 
-  /* DAO propose — same pen as post; aria says Propose. */
+  /* DAO propose — same pen as a post, protocol blue. */
   .portfolio-summon-compose.is-propose {
-    color: rgb(var(--fg-rgb) / 0.88);
+    color: color-mix(in srgb, var(--protocol-blue) 88%, rgb(var(--fg-rgb)));
+  }
+
+  .portfolio-summon-compose.is-propose:hover,
+  .portfolio-summon-compose.is-propose:focus-visible {
+    background: color-mix(in srgb, var(--protocol-blue) 12%, transparent);
+    color: var(--protocol-blue);
   }
 
   .portfolio-summon-compose-icon {

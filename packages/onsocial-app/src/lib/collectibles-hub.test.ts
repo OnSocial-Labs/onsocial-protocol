@@ -142,6 +142,10 @@ describe('collectibles os apps', () => {
     );
   });
 
+  it('keeps Feed off the signed-out launcher — Home is that place', () => {
+    expect(gateOsApps().some((app) => app.id === 'feed')).toBe(false);
+  });
+
   it('keeps Boost off the launcher — the owner face opens it', () => {
     const rails = [
       gateOsApps(),
