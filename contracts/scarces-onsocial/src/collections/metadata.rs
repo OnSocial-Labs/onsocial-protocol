@@ -153,6 +153,7 @@ impl Contract {
             )));
         }
         collection.metadata_template = next_template;
+        collection.event_ends_at = Some(expires_at_ms);
 
         let before = self.storage_usage_flushed();
         self.collections

@@ -77,6 +77,23 @@ describe('toCollectionView cover seat', () => {
     expect(view?.title).toBe('Egg');
   });
 
+  it('prefers the collection postpone end over template and metadata', () => {
+    const view = toCollectionView(
+      variationRecord({
+        event_ends_at: 1_900_000_000_000,
+        metadata: JSON.stringify({ eventEndsAt: 1_800_000_000_000 }),
+        metadata_template: JSON.stringify({
+          title: 'Show',
+          extra: JSON.stringify({
+            kind: 'ticket',
+            eventEndsAt: 1_700_000_000_000,
+          }),
+        }),
+      })
+    );
+    expect(view?.eventEndsAtMs).toBe(1_900_000_000_000);
+  });
+
   it('reads the series pointer alongside the cover', () => {
     const view = toCollectionView(
       variationRecord({

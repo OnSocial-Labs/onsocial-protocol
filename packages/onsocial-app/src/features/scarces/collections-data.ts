@@ -70,6 +70,8 @@ export interface LazyCollectionRecord {
   max_redeems?: number | null;
   metadata?: string | null;
   random_assignment?: boolean;
+  /** Collection postpone end (NEP-177 ms). Later sales still copy the template. */
+  event_ends_at?: number | null;
   royalty?: Record<string, number> | null;
 }
 
@@ -631,6 +633,12 @@ export function toCollectionView(
   const packagingUrl = resolveScarceMediaUrl(coverMeta.url);
   const series = parseSeries(record.metadata);
   const eventOverride = parseTicketEventFromCollectionMetadata(record.metadata);
+  const chainEventEnd =
+    typeof record.event_ends_at === 'number' &&
+    Number.isFinite(record.event_ends_at) &&
+    record.event_ends_at > 0
+      ? Math.floor(record.event_ends_at)
+      : null;
   const maxRedeems =
     record.max_redeems != null && record.max_redeems > 0
       ? Math.floor(record.max_redeems)
@@ -710,7 +718,10 @@ export function toCollectionView(
     eventStartsAtMs:
       eventOverride.eventStartsAtMs ?? template.eventStartsAtMs ?? null,
     eventEndsAtMs:
-      eventOverride.eventEndsAtMs ?? template.eventEndsAtMs ?? null,
+      chainEventEnd ??
+      eventOverride.eventEndsAtMs ??
+      template.eventEndsAtMs ??
+      null,
     place: eventOverride.place ?? template.place ?? null,
     accessEndsAtMs: template.accessEndsAtMs ?? null,
     royalty: parseRoyalty(record.royalty),

@@ -301,6 +301,40 @@ pub fn deserialize_trailing_creator_access<R: near_sdk::borsh::io::Read>(
     }
 }
 
+/// Append-compatible Borsh read for trailing `Option<u64>` (EOF or map key index → None).
+pub fn deserialize_trailing_option_u64<R: near_sdk::borsh::io::Read>(
+    reader: &mut R,
+) -> Result<Option<u64>, near_sdk::borsh::io::Error> {
+    if iterable_map_key_index_only(reader) {
+        return Ok(None);
+    }
+    let mut tag = [0u8; 1];
+    match near_sdk::borsh::io::Read::read(reader, &mut tag)? {
+        0 => Ok(None),
+        1 => match tag[0] {
+            0 => Ok(None),
+            1 => {
+                let mut buf = [0u8; 8];
+                match near_sdk::borsh::io::Read::read(reader, &mut buf)? {
+                    8 => Ok(Some(u64::from_le_bytes(buf))),
+                    n => Err(near_sdk::borsh::io::Error::new(
+                        near_sdk::borsh::io::ErrorKind::InvalidData,
+                        format!("unexpected trailing u64 length {n}"),
+                    )),
+                }
+            }
+            other => Err(near_sdk::borsh::io::Error::new(
+                near_sdk::borsh::io::ErrorKind::InvalidData,
+                format!("unexpected Option discriminant {other}"),
+            )),
+        },
+        n => Err(near_sdk::borsh::io::Error::new(
+            near_sdk::borsh::io::ErrorKind::InvalidData,
+            format!("unexpected trailing Option tag length {n}"),
+        )),
+    }
+}
+
 /// Append-compatible Borsh read for trailing `Option<AccountId>` (EOF → None).
 pub fn deserialize_trailing_option_account_id<R: near_sdk::borsh::io::Read>(
     reader: &mut R,

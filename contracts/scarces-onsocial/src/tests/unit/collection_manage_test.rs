@@ -455,6 +455,7 @@ fn update_template_expiry_happy_syncs_extra_event_end() {
         near_sdk::serde_json::from_str(template["extra"].as_str().unwrap()).unwrap();
     assert_eq!(extra["eventEndsAt"], 1_800_000_000_000u64);
     assert_eq!(extra["kind"], "ticket");
+    assert_eq!(col.event_ends_at, Some(1_800_000_000_000));
 }
 
 #[test]
