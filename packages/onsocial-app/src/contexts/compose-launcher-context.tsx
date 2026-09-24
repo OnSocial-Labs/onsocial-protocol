@@ -196,7 +196,7 @@ export function useWriteDockChrome() {
  * Register the dock action while the calling surface is mounted.
  * Pass null when the viewer cannot compose here (button stays hidden).
  * `kind` picks the glyph: pen for posts (default), purple stars for drops,
- * green stars for mint, pen for propose.
+ * green stars for mint, blue pen for propose.
  */
 export function useRegisterComposeAction(
   action: ComposeAction | null,
