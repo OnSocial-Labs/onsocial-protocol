@@ -111,6 +111,10 @@ describe('collectibles os apps', () => {
     ).toBe(true);
   });
 
+  it('keeps the signed-out gate to real apps', () => {
+    expect(gateOsApps().some((app) => app.id === 'feed')).toBe(false);
+  });
+
   it('exposes Collectibles for gate and owner, not visitors', () => {
     expect(gateOsApps().some((app) => app.id === 'collectibles')).toBe(true);
     const owner = ownerPortfolioOsApps('alice.near');

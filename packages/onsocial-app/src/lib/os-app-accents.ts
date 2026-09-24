@@ -3,10 +3,17 @@ import type { OsLauncherIconAccent } from '@onsocial/ui';
 /** Portal-aligned launcher icon accents (season rail / nav group hues). */
 const OS_APP_ACCENT_BY_ID: Record<string, OsLauncherIconAccent> = {
   home: 'blue',
-  feed: 'purple',
+  activity: 'gold',
+  messages: 'blue',
   discover: 'blue',
   market: 'amber',
+  drops: 'purple',
+  collectibles: 'green',
+  hubs: 'purple',
+  /** @deprecated alias — prefer `hubs` */
+  stores: 'purple',
   groups: 'purple',
+  daos: 'blue',
   boost: 'gold',
   protocol: 'blue',
   page: 'green',
