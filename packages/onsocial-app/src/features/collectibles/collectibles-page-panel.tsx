@@ -1045,6 +1045,7 @@ export function CollectiblesPagePanel({
         {body}
       </OsAppScreen>
       {isSelf ? (
+        <>
         <ScarceSellSheet
           open={sellOpen && sellItem != null}
           item={sellItem}
@@ -1073,6 +1074,7 @@ export function CollectiblesPagePanel({
             refreshOwned();
           }}
         />
+        </>
       ) : null}
     </>
   );
