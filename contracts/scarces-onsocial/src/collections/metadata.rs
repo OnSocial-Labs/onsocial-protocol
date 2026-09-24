@@ -1,6 +1,37 @@
 use crate::*;
 use near_sdk::serde_json;
 
+fn template_event_ends_at(template: &serde_json::Value) -> Option<u64> {
+    let extra_str = template.get("extra")?.as_str()?;
+    let extra: serde_json::Value = serde_json::from_str(extra_str).ok()?;
+    extra.get("eventEndsAt")?.as_u64()
+}
+
+/// Keep series, cover, and the rest of freeform metadata. Record the end
+/// this postpone replaced so the drop can say what moved.
+fn merge_event_end_previous(
+    existing: Option<&str>,
+    previous_ms: u64,
+) -> Result<String, MarketplaceError> {
+    let mut meta = match existing.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(raw) => serde_json::from_str::<serde_json::Value>(raw).unwrap_or(serde_json::json!({})),
+        None => serde_json::json!({}),
+    };
+    if !meta.is_object() {
+        meta = serde_json::json!({});
+    }
+    let obj = meta.as_object_mut().ok_or_else(|| {
+        MarketplaceError::InternalError("Collection metadata is not a JSON object".into())
+    })?;
+    obj.insert(
+        "eventEndsAtPrevious".into(),
+        serde_json::Value::from(previous_ms),
+    );
+    serde_json::to_string(&meta).map_err(|_| {
+        MarketplaceError::InternalError("Failed to serialize collection metadata".into())
+    })
+}
+
 impl Contract {
     fn collection_browse_meta<'a>(
         collection: &'a LazyCollection,
@@ -122,9 +153,23 @@ impl Contract {
             .map_err(|_| {
             MarketplaceError::InvalidState("Collection template is not valid JSON".into())
         })?;
+        let prior_end = collection
+            .event_ends_at
+            .or_else(|| template_event_ends_at(&template));
+        if let Some(prior) = prior_end {
+            if prior != expires_at_ms {
+                let next_meta = merge_event_end_previous(
+                    collection.metadata.as_deref(),
+                    prior,
+                )?;
+                crate::validation::validate_metadata_json(&next_meta)?;
+                collection.metadata = Some(next_meta);
+            }
+        }
         let obj = template.as_object_mut().ok_or_else(|| {
             MarketplaceError::InvalidState("Collection template is not a JSON object".into())
         })?;
+
         obj.insert("expires_at".into(), expires_at_ms.into());
 
         // `extra` is a JSON string field; sync eventEndsAt when it exists.

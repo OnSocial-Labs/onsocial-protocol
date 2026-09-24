@@ -257,6 +257,7 @@ export function seedCollectionViewFromNowPlaying(
     seriesTitle: null,
     eventStartsAtMs: null,
     eventEndsAtMs: null,
+    eventEndsAtPreviousMs: null,
     place: null,
     accessEndsAtMs: null,
     royalty: null,

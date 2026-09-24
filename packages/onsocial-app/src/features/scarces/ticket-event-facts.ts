@@ -10,6 +10,25 @@ import {
 } from '@/features/market/market-listings';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
 
+/** One line for a postpone: the end that moved, and the end doors use now. */
+export function postponeNotice(
+  previousMs: number | null | undefined,
+  nextMs: number | null | undefined
+): string | null {
+  if (
+    previousMs == null ||
+    nextMs == null ||
+    !Number.isFinite(previousMs) ||
+    !Number.isFinite(nextMs) ||
+    previousMs <= 0 ||
+    nextMs <= 0 ||
+    previousMs === nextMs
+  ) {
+    return null;
+  }
+  return `Doors were set for ${formatPageDrawerJoinedFullLabel(previousMs)}. They stay open until ${formatPageDrawerJoinedFullLabel(nextMs)}.`;
+}
+
 export function ticketEventScheduleFacts(
   view: Pick<
     CollectionView,

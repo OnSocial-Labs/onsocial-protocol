@@ -22,7 +22,10 @@ import {
   accessEndsScheduleFacts,
   collectionShouldShowAccessEnds,
 } from '@/features/scarces/access-ends-facts';
-import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
+import {
+  postponeNotice,
+  ticketEventScheduleFacts,
+} from '@/features/scarces/ticket-event-facts';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { seriesPagePath } from '@/lib/app-routes';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
@@ -125,6 +128,10 @@ export function CollectionAboutSheet({
     view.createdAtMs > 0 ? formatMarketRelativeTime(view.createdAtMs) : null;
   const [nowMs] = useState(() => Date.now());
   const event = ticketEventScheduleFacts(view, nowMs);
+  const movedNotice = postponeNotice(
+    view.eventEndsAtPreviousMs,
+    view.eventEndsAtMs
+  );
   const showEvent = !event.empty;
   const access = accessEndsScheduleFacts(view.accessEndsAtMs, nowMs);
   const showAccess = collectionShouldShowAccessEnds(view, nowMs) && !access.empty;
@@ -163,6 +170,7 @@ export function CollectionAboutSheet({
                 <SheetFactRow label="Ends" value={event.ends} />
               ) : null}
               {event.next ? <SheetFactCopy>{event.next}</SheetFactCopy> : null}
+              {movedNotice ? <SheetFactCopy>{movedNotice}</SheetFactCopy> : null}
             </SheetFactSection>
           </>
         ) : null}
