@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  AmountField,
   ArrowUpRightIcon,
   DotsVerticalIcon,
+  EditIcon,
   FireIcon,
   GiftIcon,
   OsActionDrawerConfirm,
@@ -11,6 +13,7 @@ import {
   OsSheetActions,
   ShopIcon,
   TrashIcon,
+  osActionDrawerConfirmBodyClassName,
 } from '@onsocial/ui';
 import {
   ActionDrawer,
@@ -23,11 +26,17 @@ import {
   collectionIdFromTokenId,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
+import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { fetchCollection } from '@/features/scarces/collections-data';
+import {
+  scarcePriceChangeHint,
+  scarcePriceChangeReady,
+} from '@/features/scarces/scarce-price';
 import {
   ownedScarceCanBurn,
   ownedScarceCanTransfer,
 } from '@/features/scarces/scarce-transfer';
+import { scarcesContractIdForNetwork } from '@/features/scarces/drop-compose-draft';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { APP_MARKET_PATH } from '@/lib/app-routes';
 import {
@@ -58,7 +67,11 @@ export function CollectiblesHoldingRowMenu({
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
-  const [confirm, setConfirm] = useState<'burn' | 'delist' | null>(null);
+  const [confirm, setConfirm] = useState<'burn' | 'delist' | 'price' | null>(
+    null
+  );
+  const [priceInput, setPriceInput] = useState('');
+  const [priceDirty, setPriceDirty] = useState(false);
   const [burnable, setBurnable] = useState<boolean | null>(
     typeof item.burnable === 'boolean' ? item.burnable : null
   );
@@ -67,6 +80,17 @@ export function CollectiblesHoldingRowMenu({
   const listed = item.listingKind != null;
   const auction = item.listingKind === 'auction';
   const auctionHasBids = auction && (item.bidCount ?? 0) > 0;
+  const fixedListing = item.listingKind === 'fixed';
+  const priceReady = scarcePriceChangeReady({
+    listingKind: item.listingKind,
+    currentPriceNear: item.listedPriceNear,
+    nextPriceNear: priceInput,
+  });
+  const priceHint = scarcePriceChangeHint({
+    currentPriceNear: item.listedPriceNear,
+    nextPriceNear: priceInput,
+    revealUnchanged: priceDirty,
+  });
 
   const close = useCallback(() => {
     setConfirm(null);
@@ -136,6 +160,59 @@ export function CollectiblesHoldingRowMenu({
     listed,
     onDelisted,
     pending,
+    setTxResult,
+    trackTransaction,
+  ]);
+
+  const openPriceConfirm = useCallback(() => {
+    const current = item.listedPriceNear?.trim() ?? '';
+    setPriceInput(current === '—' ? '' : current);
+    setPriceDirty(false);
+    setConfirm('price');
+  }, [item.listedPriceNear]);
+
+  const handleChangePrice = useCallback(async () => {
+    if (pending || !priceReady) return;
+    const nextPrice = finalizeAmountInput(priceInput, 5);
+    if (!nextPrice) return;
+    setPending(true);
+    try {
+      const { accountId, wallet } = await getSigningWallet();
+      const client = createAppScarcesWalletClient(accountId, wallet);
+      const response = await client.scarces.market.updateSalePrice(
+        scarcesContractIdForNetwork(),
+        item.tokenId,
+        nextPrice
+      );
+      const confirmed = await trackTransaction({
+        txHashes: collectRelayTxHashes(response),
+        submittedMessage: txToastConfirming.changingScarcePrice,
+        successMessage: txToastSuccess.scarcePriceChanged,
+        failureMessage: txToastError.changeScarcePriceFailed,
+      });
+      if (!confirmed) return;
+      close();
+      onDelisted?.();
+    } catch (cause) {
+      if (isWalletUserCancellation(cause)) return;
+      setTxResult({
+        type: 'error',
+        msg:
+          cause instanceof Error
+            ? cause.message
+            : txToastError.changeScarcePriceFailed,
+      });
+    } finally {
+      setPending(false);
+    }
+  }, [
+    close,
+    getSigningWallet,
+    item.tokenId,
+    onDelisted,
+    pending,
+    priceInput,
+    priceReady,
     setTxResult,
     trackTransaction,
   ]);
@@ -210,6 +287,17 @@ export function CollectiblesHoldingRowMenu({
       });
     }
 
+    if (fixedListing) {
+      list.push({
+        id: 'price',
+        section: 'Manage',
+        label: 'Change price',
+        description: 'New asking price, same listing',
+        leading: <EditIcon className="os-action-drawer-icon" aria-hidden />,
+        onSelect: openPriceConfirm,
+      });
+    }
+
     if (!listed) {
       list.push({
         id: 'list',
@@ -266,6 +354,8 @@ export function CollectiblesHoldingRowMenu({
   }, [
     auction,
     auctionHasBids,
+    fixedListing,
+    openPriceConfirm,
     canBurn,
     close,
     item,
@@ -320,7 +410,17 @@ export function CollectiblesHoldingRowMenu({
       <ActionDrawer
         open={open}
         onClose={confirm ? () => setConfirm(null) : close}
-        label={confirm === 'burn' ? 'Burn' : confirm === 'delist' ? (auction ? 'Cancel auction' : 'Delist') : title}
+        label={
+          confirm === 'burn'
+            ? 'Burn'
+            : confirm === 'delist'
+              ? auction
+                ? 'Cancel auction'
+                : 'Delist'
+              : confirm === 'price'
+                ? 'Change price'
+                : title
+        }
         copy={confirm ? title : 'Your holding'}
         listAriaLabel={`Manage ${title}`}
         closeAriaLabel={confirm ? 'Back' : 'Close'}
@@ -354,6 +454,33 @@ export function CollectiblesHoldingRowMenu({
             onConfirm={() => void handleDelist()}
             onCancel={() => setConfirm(null)}
           />
+        ) : confirm === 'price' ? (
+          <OsActionDrawerConfirm
+            body="This price replaces the current listing."
+            confirmLabel="Change price"
+            confirmDisabled={!priceReady}
+            pending={pending}
+            pendingLabel="Changing…"
+            onConfirm={() => void handleChangePrice()}
+            onCancel={() => setConfirm(null)}
+          >
+            <AmountField
+              value={priceInput}
+              onValueChange={(raw) => {
+                setPriceDirty(true);
+                setPriceInput(normalizeAmountInput(raw, 5));
+              }}
+              maxDecimals={5}
+              placeholder="0.01"
+              aria-label="Price in NEAR"
+              unit="NEAR"
+              disabled={pending}
+              invalid={Boolean(priceHint)}
+            />
+            {priceHint ? (
+              <p className={osActionDrawerConfirmBodyClassName}>{priceHint}</p>
+            ) : null}
+          </OsActionDrawerConfirm>
         ) : undefined}
       </ActionDrawer>
     </div>
