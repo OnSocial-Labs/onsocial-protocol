@@ -46,8 +46,8 @@ export function DropExtendEntryPanel({
   return (
     <div className={osActionDrawerConfirmClassName}>
       <p className={osActionDrawerConfirmBodyClassName}>
-        Push the time people can still be admitted. Passes already sold move
-        with it.
+        Push the time people can still be admitted. Passes already sold and
+        later sales use this end, and Facts updates too.
       </p>
       {currentEndsAtMs != null && currentLocal ? (
         <p className={osActionDrawerConfirmBodyClassName}>

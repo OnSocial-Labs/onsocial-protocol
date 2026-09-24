@@ -216,11 +216,12 @@ async fn test_short_event_postpone_then_cancel_refunds() -> Result<()> {
     let original_end_ms = now_ns(&worker).await? / 1_000_000 + 8_000;
     create_ticket_show(&contract, &creator, original_end_ms).await?;
 
-    let seats = buy_seats(&contract, &buyer, 3).await?;
-    assert_eq!(seats.len(), 3);
+    let seats = buy_seats(&contract, &buyer, 4).await?;
+    assert_eq!(seats.len(), 4);
     let walked_in = &seats[0];
-    let refund_before = &seats[1];
-    let refund_after = &seats[2];
+    let door_proof = &seats[1];
+    let refund_before = &seats[2];
+    let refund_after = &seats[3];
 
     redeem_token(&contract, &creator, walked_in, COL, ONE_YOCTO)
         .await?
@@ -228,7 +229,7 @@ async fn test_short_event_postpone_then_cancel_refunds() -> Result<()> {
 
     // Original short date passes — unused seats cannot enter.
     fast_forward_past(&worker, original_end_ms * 1_000_000).await?;
-    let expired = redeem_token(&contract, &creator, refund_before, COL, ONE_YOCTO).await?;
+    let expired = redeem_token(&contract, &creator, door_proof, COL, ONE_YOCTO).await?;
     assert!(
         expired.into_result().is_err(),
         "cannot redeem after original short date"
@@ -236,12 +237,10 @@ async fn test_short_event_postpone_then_cancel_refunds() -> Result<()> {
 
     let postponed_end_ms = now_ns(&worker).await? / 1_000_000 + 15_000;
     let postponed_end_ns = postponed_end_ms * 1_000_000;
-    for seat in [refund_before, refund_after] {
-        renew_token(&contract, &creator, seat, COL, postponed_end_ns, ONE_YOCTO)
-            .await?
-            .into_result()?;
-    }
     update_collection_template_expiry(&contract, &creator, COL, postponed_end_ms, ONE_YOCTO)
+        .await?
+        .into_result()?;
+    redeem_token(&contract, &creator, door_proof, COL, ONE_YOCTO)
         .await?
         .into_result()?;
 
@@ -257,7 +256,8 @@ async fn test_short_event_postpone_then_cancel_refunds() -> Result<()> {
         .await?
         .into_result()?;
 
-    // Unused after cancel: refund_before + refund_after (walked_in + extra redeemed).
+    // Unused after cancel: refund_before + refund_after
+    // (walked_in, door_proof, and extra redeemed).
     cancel_collection(
         &contract,
         &creator,

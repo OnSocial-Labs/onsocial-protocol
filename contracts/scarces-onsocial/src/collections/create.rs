@@ -203,6 +203,7 @@ impl Contract {
             app_commission_bps,
             random_assignment,
             redeemers: Vec::new(),
+            event_ends_at: None,
         };
 
         let before = self.storage_usage_flushed();

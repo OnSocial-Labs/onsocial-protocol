@@ -404,11 +404,12 @@ fn lazy_collection_borsh_append_defaults_commission_sentinel() {
         app_commission_bps: 500,
         random_assignment: false,
         redeemers: vec![],
+        event_ends_at: None,
     };
 
     let mut bytes = near_sdk::borsh::to_vec(&col).unwrap();
-    // Drop trailing redeemers (empty vec = 4) + random_assignment (1) + app_commission_bps (2).
-    bytes.truncate(bytes.len() - 7);
+    // Drop event_ends_at (1) + redeemers (4) + random_assignment (1) + app_commission_bps (2).
+    bytes.truncate(bytes.len() - 8);
     // IterableMap appends key_index after the value — include it so trailing
     // helpers leave those 4 bytes alone.
     0u32.serialize(&mut bytes).unwrap();
@@ -425,6 +426,7 @@ fn lazy_collection_borsh_append_defaults_commission_sentinel() {
     assert_eq!(loaded.max_per_purchase, 10);
     assert!(!loaded.random_assignment);
     assert!(loaded.redeemers.is_empty());
+    assert_eq!(loaded.event_ends_at, None);
 }
 
 /// IterableMap stores `{ value: LazyCollection, key_index: u32 }`. Pre-redeemers
@@ -470,10 +472,11 @@ fn lazy_collection_pre_redeemers_survives_iterable_map_key_index() {
         app_commission_bps: 500,
         random_assignment: false,
         redeemers: vec![],
+        event_ends_at: None,
     };
-    // Pre-redeemers value blob: collection without redeemers + key_index.
+    // Pre-redeemers value blob: collection without event end or redeemers + key_index.
     let mut value_bytes = near_sdk::borsh::to_vec(&col).unwrap();
-    value_bytes.truncate(value_bytes.len() - 4); // drop empty redeemers
+    value_bytes.truncate(value_bytes.len() - 5); // drop event_ends_at (1) + empty redeemers (4)
     let key_index = 0u32;
     key_index.serialize(&mut value_bytes).unwrap();
 
@@ -485,7 +488,76 @@ fn lazy_collection_pre_redeemers_survives_iterable_map_key_index() {
     }
     let wrapped = ValueAndIndex::try_from_slice(&value_bytes).unwrap();
     assert!(wrapped.value.redeemers.is_empty());
+    assert_eq!(wrapped.value.event_ends_at, None);
     assert_eq!(wrapped.key_index, 0);
     assert_eq!(wrapped.value.max_per_purchase, 10);
     assert_eq!(wrapped.value.app_commission_bps, 500);
+}
+
+/// A drop written before `event_ends_at` still loads, and a postpone round-trips.
+#[test]
+fn lazy_collection_event_ends_at_is_trailing() {
+    use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+
+    let mut col = LazyCollection {
+        creator_id: creator(),
+        collection_id: "show".into(),
+        total_supply: 5,
+        minted_count: 1,
+        metadata_template: "{}".into(),
+        price_near: U128(0),
+        start_price: None,
+        start_time: None,
+        end_time: None,
+        created_at: 1,
+        app_id: None,
+        royalty: None,
+        renewable: true,
+        revocation_mode: collections::RevocationMode::None,
+        max_redeems: Some(1),
+        redeemed_count: 0,
+        fully_redeemed_count: 0,
+        burnable: false,
+        mint_mode: collections::MintMode::Open,
+        max_per_wallet: None,
+        transferable: true,
+        paused: false,
+        cancelled: false,
+        refund_pool: U128(0),
+        refund_per_token: U128(0),
+        refunded_count: 0,
+        refund_deadline: None,
+        total_revenue: U128(0),
+        allowlist_price: None,
+        banned: false,
+        metadata: None,
+        app_metadata: None,
+        max_per_purchase: 10,
+        app_commission_bps: 0,
+        random_assignment: false,
+        redeemers: vec![creator()],
+        event_ends_at: None,
+    };
+
+    #[derive(BorshSerialize, BorshDeserialize)]
+    #[borsh(crate = "near_sdk::borsh")]
+    struct ValueAndIndex {
+        value: LazyCollection,
+        key_index: u32,
+    }
+
+    let mut legacy = near_sdk::borsh::to_vec(&col).unwrap();
+    legacy.truncate(legacy.len() - 1); // drop Option::None tag
+    7u32.serialize(&mut legacy).unwrap();
+    let loaded = ValueAndIndex::try_from_slice(&legacy).unwrap();
+    assert_eq!(loaded.value.event_ends_at, None);
+    assert_eq!(loaded.value.redeemers, vec![creator()]);
+    assert_eq!(loaded.key_index, 7);
+
+    col.event_ends_at = Some(1_800_000_000_000);
+    let mut current = near_sdk::borsh::to_vec(&col).unwrap();
+    3u32.serialize(&mut current).unwrap();
+    let postponed = ValueAndIndex::try_from_slice(&current).unwrap();
+    assert_eq!(postponed.value.event_ends_at, Some(1_800_000_000_000));
+    assert_eq!(postponed.key_index, 3);
 }

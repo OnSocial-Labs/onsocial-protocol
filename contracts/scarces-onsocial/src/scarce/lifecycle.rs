@@ -1,5 +1,19 @@
 use crate::*;
 
+/// Closed when the token has an expiry and both that expiry and any
+/// collection postpone are already in the past. A token with no expiry
+/// stays open.
+fn admission_closed(
+    token_expires_at: Option<u64>,
+    event_ends_at: Option<u64>,
+    now_ms: u64,
+) -> bool {
+    match token_expires_at {
+        None => false,
+        Some(token_exp) => now_ms >= token_exp.max(event_ends_at.unwrap_or(0)),
+    }
+}
+
 impl Contract {
     pub(crate) fn renew_token(
         &mut self,
@@ -192,13 +206,13 @@ impl Contract {
             ));
         }
 
-        // Event/access end (NEP-177 ms) gates the door; organisers postpone
-        // via renew + template expiry update when dates change.
-        if token
-            .metadata
-            .expires_at
-            .is_some_and(|exp| crate::time::now_ms() >= exp)
-        {
+        // Door uses the later of the token expiry and the collection postpone.
+        // One template update extends every sold seat without rewriting it.
+        if admission_closed(
+            token.metadata.expires_at,
+            collection.event_ends_at,
+            crate::time::now_ms(),
+        ) {
             return Err(MarketplaceError::InvalidState("Token has expired".into()));
         }
 

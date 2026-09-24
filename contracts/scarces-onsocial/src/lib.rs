@@ -61,8 +61,8 @@ pub use validation::{
     deserialize_minted_count, deserialize_trailing_account_vec,
     deserialize_trailing_account_vec_before_map_index, deserialize_trailing_bool,
     deserialize_trailing_commission_bps, deserialize_trailing_creator_access,
-    deserialize_trailing_option_account_id, deserialize_trailing_u16_or,
-    deserialize_trailing_u32_or,
+    deserialize_trailing_option_account_id, deserialize_trailing_option_u64,
+    deserialize_trailing_u16_or, deserialize_trailing_u32_or,
 };
 
 #[near(

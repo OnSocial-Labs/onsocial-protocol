@@ -112,6 +112,11 @@ pub struct LazyCollection {
     #[serde(default)]
     #[borsh(deserialize_with = "crate::deserialize_trailing_account_vec_before_map_index")]
     pub redeemers: Vec<AccountId>,
+    /// Rain-day door end (NEP-177 ms). Later than a sold token's own
+    /// `expires_at` when the organiser postponed. Absent on pre-upgrade drops.
+    #[serde(default)]
+    #[borsh(deserialize_with = "crate::deserialize_trailing_option_u64")]
+    pub event_ends_at: Option<u64>,
 }
 
 #[near(serializers = [json])]

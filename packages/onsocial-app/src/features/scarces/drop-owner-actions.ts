@@ -8,14 +8,6 @@ import {
   refundClaimDaysToNs,
   refundPoolDepositYocto,
 } from '@/features/scarces/drop-refund';
-import { mergeEventEndsIntoCollectionMetadata } from '@/features/scarces/ticket-event-meta';
-import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
-import { viewNearContract } from '@/lib/app-near-rpc';
-
-const SCARCES_CONTRACT =
-  ACTIVE_NEAR_NETWORK === 'mainnet'
-    ? 'scarces.onsocial.near'
-    : 'scarces.onsocial.testnet';
 
 /** Pause minting on a live / upcoming drop. */
 export function canPauseDrop(
@@ -145,33 +137,11 @@ export async function claimDropTokenRefund(
   return client.scarces.tokens.claimRefund(tokenId, collectionId);
 }
 
-async function listCollectionTokenIds(collectionId: string): Promise<string[]> {
-  const ids: string[] = [];
-  const pageSize = 64;
-  let fromIndex = 0;
-  for (;;) {
-    const page = await viewNearContract<
-      Array<{ token_id?: string; tokenId?: string }>
-    >(SCARCES_CONTRACT, 'nft_tokens_for_collection', {
-      collection_id: collectionId,
-      from_index: String(fromIndex),
-      limit: pageSize,
-    });
-    const rows = Array.isArray(page) ? page : [];
-    if (rows.length === 0) break;
-    for (const row of rows) {
-      const id = (row.token_id ?? row.tokenId ?? '').trim();
-      if (id) ids.push(id);
-    }
-    if (rows.length < pageSize) break;
-    fromIndex += rows.length;
-  }
-  return ids;
-}
-
 /**
- * Postpone ticket entry: renew minted tokens + stamp collection metadata
- * so Facts/Door show the new event end. `newExpiresAtMs` is wall-clock ms.
+ * Postpone ticket entry with one wallet confirmation.
+ * The contract stores the new end on the collection (door + Facts) and
+ * on the mint template (tickets bought after this). `newExpiresAtMs` is
+ * wall-clock ms.
  */
 export async function extendTicketEntryAccess(
   accountId: string,
@@ -187,37 +157,10 @@ export async function extendTicketEntryAccess(
   }
 
   const client = createAppScarcesWalletClient(accountId, wallet);
-  const responses: RelayResponse[] = [];
-
-  const tokenIds = await listCollectionTokenIds(input.collectionId);
-  if (tokenIds.length > 0) {
-    const newExpiresAtNs = eventEndsAtMs * 1_000_000;
-    const renewResponses = await client.scarces.tokens.renewMany(
-      input.collectionId,
-      tokenIds,
-      newExpiresAtNs
-    );
-    responses.push(...renewResponses);
-  }
-
-  const record = await viewNearContract<{
-    metadata?: string | null;
-  } | null>(SCARCES_CONTRACT, 'get_collection', {
-    collection_id: input.collectionId,
-  });
-  const nextMetadata = mergeEventEndsIntoCollectionMetadata(
-    record?.metadata ?? null,
+  const response = await client.scarces.collections.updateTemplateExpiry(
+    input.collectionId,
     eventEndsAtMs
   );
 
-  // One signature: future tickets and the drop facts share the new end.
-  responses.push(
-    await client.scarces.collections.postponeEntry(
-      input.collectionId,
-      eventEndsAtMs,
-      nextMetadata
-    )
-  );
-
-  return { responses, eventEndsAtMs };
+  return { responses: [response], eventEndsAtMs };
 }

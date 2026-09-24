@@ -2,7 +2,7 @@
 //!
 //! Three clocks:
 //! - sale window (`start_time` / `end_time`, ns)
-//! - door access (`metadata.expires_at`, ms) — postpone renews this
+//! - door access (`metadata.expires_at`, ms) — postpone extends it via the collection end
 //! - refund claim window (starts only after `cancel_collection`)
 //!
 //! Postpone never refunds. Refunds are holder claims against the cancel pool.
@@ -149,16 +149,24 @@ fn guest_ticket_rain_day_postpone_cancel_and_refunds() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 
-    // --- Rain-day postpone: renew held seats + mint template ---
+    // --- Rain-day postpone: one collection write covers every sold seat ---
     testing_env!(at(creator(), after_original).build());
-    for n in 2..=4 {
-        contract
-            .renew_token(&creator(), &seat(n), COL, postponed_end_ns())
-            .unwrap();
-    }
     contract
         .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
         .unwrap();
+    assert_eq!(
+        contract.collections.get(COL).unwrap().event_ends_at,
+        Some(postponed_end_ms())
+    );
+    assert_eq!(
+        contract
+            .scarces_by_id
+            .get(&seat(2))
+            .unwrap()
+            .metadata
+            .expires_at,
+        Some(original_end_ms())
+    );
 
     let template: near_sdk::serde_json::Value =
         near_sdk::serde_json::from_str(&contract.collections.get(COL).unwrap().metadata_template)
@@ -290,7 +298,7 @@ fn postpone_does_not_open_refunds() {
 
     testing_env!(at(creator(), T0_NS).build());
     contract
-        .renew_token(&creator(), &seat(1), COL, postponed_end_ns())
+        .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
         .unwrap();
 
     testing_env!(at(buyer(), T0_NS).build());
