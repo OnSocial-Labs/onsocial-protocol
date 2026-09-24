@@ -80,7 +80,6 @@ export function guildMembershipConfirmKind(
 
 export function guildMembershipConfirmCopy(kind: GuildMembershipConfirmKind): {
   label: string;
-  body: string;
   confirmLabel: string;
   pendingLabel: string;
   variant: 'primary' | 'danger';
@@ -89,7 +88,6 @@ export function guildMembershipConfirmCopy(kind: GuildMembershipConfirmKind): {
     case 'leave':
       return {
         label: 'Leave',
-        body: 'You leave this guild.',
         confirmLabel: 'Leave',
         pendingLabel: 'Leaving…',
         variant: 'danger',
@@ -97,7 +95,6 @@ export function guildMembershipConfirmCopy(kind: GuildMembershipConfirmKind): {
     case 'cancel':
       return {
         label: 'Cancel request',
-        body: 'This join request is canceled.',
         confirmLabel: 'Cancel request',
         pendingLabel: 'Canceling…',
         variant: 'danger',
@@ -105,7 +102,6 @@ export function guildMembershipConfirmCopy(kind: GuildMembershipConfirmKind): {
     case 'request':
       return {
         label: 'Request',
-        body: 'You request to join this guild.',
         confirmLabel: 'Request',
         pendingLabel: 'Requesting…',
         variant: 'primary',
@@ -113,7 +109,6 @@ export function guildMembershipConfirmCopy(kind: GuildMembershipConfirmKind): {
     case 'join':
       return {
         label: 'Join',
-        body: 'You join this guild.',
         confirmLabel: 'Join',
         pendingLabel: 'Joining…',
         variant: 'primary',

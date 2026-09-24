@@ -126,7 +126,6 @@ export function GuildMembershipConfirmDrawer({
       {copy ? (
         <OsActionDrawerConfirm
           variant={copy.variant}
-          body={copy.body}
           confirmLabel={copy.confirmLabel}
           pending={pending}
           pendingLabel={copy.pendingLabel}

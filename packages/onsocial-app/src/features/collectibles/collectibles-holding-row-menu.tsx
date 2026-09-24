@@ -331,8 +331,8 @@ export function CollectiblesHoldingRowMenu({
             variant="danger"
             body={
               listed
-                ? 'This scarce is burned and comes off sale. This cannot be undone.'
-                : 'This scarce is burned. This cannot be undone.'
+                ? 'This comes off sale. This cannot be undone.'
+                : 'This cannot be undone.'
             }
             confirmLabel="Burn"
             pending={pending}

@@ -48,13 +48,15 @@ describe('guildMembershipConfirmKind', () => {
 });
 
 describe('guildMembershipConfirmCopy', () => {
-  it('uses one sentence and a matching confirm label', () => {
-    expect(guildMembershipConfirmCopy('join')).toMatchObject({
-      body: 'You join this guild.',
+  it('names the action in the title and leaves the body to consequences elsewhere', () => {
+    expect(guildMembershipConfirmCopy('join')).toEqual({
+      label: 'Join',
       confirmLabel: 'Join',
+      pendingLabel: 'Joining…',
       variant: 'primary',
     });
     expect(guildMembershipConfirmCopy('leave').variant).toBe('danger');
+    expect(guildMembershipConfirmCopy('request')).not.toHaveProperty('body');
   });
 });
 
