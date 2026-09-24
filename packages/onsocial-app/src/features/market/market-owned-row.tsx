@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -11,8 +11,8 @@ import {
   auctionExpiresAtMs,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
+import { CollectiblesHoldingRowMenu } from '@/features/collectibles/collectibles-holding-row-menu';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
-import { ownedScarceCanTransfer } from '@/features/scarces/scarce-transfer';
 import {
   holdingsActionLabel,
   holdingsHrefForOwned,
@@ -21,7 +21,6 @@ import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
 
 interface MarketOwnedRowProps {
   item: OwnedScarceItem;
-  delistPending?: boolean;
   settlePending?: boolean;
   /** Highest open offer (NEAR), when known from the offers catalog. */
   highestOfferNear?: string | null;
@@ -30,7 +29,8 @@ interface MarketOwnedRowProps {
   nowMs?: number;
   onSell: (item: OwnedScarceItem) => void;
   onTransfer?: (item: OwnedScarceItem) => void;
-  onDelist: (item: OwnedScarceItem) => void;
+  /** Refresh after the manage drawer delists or burns. */
+  onChanged?: () => void;
   onSettle?: (item: OwnedScarceItem) => void;
   onOffers?: (item: OwnedScarceItem) => void;
 }
@@ -41,19 +41,16 @@ function formatPriceNear(priceNear: string): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
 
-const CONFIRM_LEAVE_MS = 4_000;
-
-/** Owned scarce in Market “Yours” — Sell/Delist; Post when listed (Drop or resale). */
+/** Owned scarce in Market “Yours” — Manage; Post when listed (Drop or resale). */
 export function MarketOwnedRow({
   item,
-  delistPending = false,
   settlePending = false,
   highestOfferNear = null,
   offerCount = 0,
   nowMs,
   onSell,
   onTransfer,
-  onDelist,
+  onChanged,
   onSettle,
   onOffers,
 }: MarketOwnedRowProps) {
@@ -79,11 +76,6 @@ export function MarketOwnedRow({
       ? `Offers, top ${formatPriceNear(highestOfferNear)} NEAR`
       : `Offer ${formatPriceNear(highestOfferNear)} NEAR`
     : offersLabel;
-  const [confirmTokenId, setConfirmTokenId] = useState<string | null>(null);
-  const confirmTimerRef = useRef<number | null>(null);
-  const confirmingDelist =
-    confirmTokenId === item.tokenId && listed && !delistPending && !needsSettle;
-
   const useHref = holdingsHrefForOwned({
     tokenId: item.tokenId,
     collectionId: item.collectionId,
@@ -102,40 +94,8 @@ export function MarketOwnedRow({
   const showPostCompose =
     listed &&
     Boolean(item.collectionId?.trim() || item.tokenId?.trim());
-  const canTransfer = Boolean(onTransfer) && ownedScarceCanTransfer(item);
-  const showListedAction = needsSettle || !listed || !auctionHasBids;
   const [brokenMediaUrl, setBrokenMediaUrl] = useState<string | null>(null);
   const showThumb = Boolean(item.mediaUrl) && brokenMediaUrl !== item.mediaUrl;
-
-  useEffect(() => {
-    return () => {
-      if (confirmTimerRef.current !== null) {
-        window.clearTimeout(confirmTimerRef.current);
-      }
-    };
-  }, []);
-
-  const clearConfirm = () => {
-    if (confirmTimerRef.current !== null) {
-      window.clearTimeout(confirmTimerRef.current);
-      confirmTimerRef.current = null;
-    }
-    setConfirmTokenId(null);
-  };
-
-  const handleDelistClick = () => {
-    if (delistPending || settlePending) return;
-    if (!confirmingDelist) {
-      setConfirmTokenId(item.tokenId);
-      confirmTimerRef.current = window.setTimeout(() => {
-        confirmTimerRef.current = null;
-        setConfirmTokenId(null);
-      }, CONFIRM_LEAVE_MS);
-      return;
-    }
-    clearConfirm();
-    onDelist(item);
-  };
 
   const thumb = showThumb ? (
     <img
@@ -231,7 +191,7 @@ export function MarketOwnedRow({
             </OsSheetAction>
           </OsSheetActions>
         ) : null}
-        {showListedAction ? (
+        {needsSettle ? (
           <OsSheetActions
             layout="row-compact"
             tone="frosted-primary"
@@ -239,87 +199,26 @@ export function MarketOwnedRow({
             borderless
             className="market-listing-action"
           >
-            {needsSettle ? (
-              <OsSheetAction
-                type="button"
-                variant={showOffers ? 'ghost' : 'primary'}
-                ready={!settlePending}
-                pending={settlePending}
-                pendingLabel="Settling…"
-                onClick={() => onSettle?.(item)}
-              >
-                Complete
-              </OsSheetAction>
-            ) : listed ? (
-              <>
-                {canTransfer ? (
-                  <OsSheetAction
-                    type="button"
-                    variant="ghost"
-                    ready={!delistPending}
-                    disabled={delistPending}
-                    onClick={() => onTransfer?.(item)}
-                  >
-                    Transfer
-                  </OsSheetAction>
-                ) : null}
-              <OsSheetAction
-                type="button"
-                variant={
-                  confirmingDelist ? 'danger' : showOffers ? 'ghost' : 'primary'
-                }
-                ready={!delistPending}
-                pending={delistPending}
-                pendingLabel={auction ? 'Canceling…' : 'Delisting…'}
-                aria-label={
-                  delistPending
-                    ? auction
-                      ? 'Canceling auction'
-                      : 'Delisting'
-                    : confirmingDelist
-                      ? auction
-                        ? 'Confirm cancel auction'
-                        : 'Confirm delist'
-                      : auction
-                        ? 'Cancel auction'
-                        : 'Delist'
-                }
-                onClick={handleDelistClick}
-                onBlur={confirmingDelist ? clearConfirm : undefined}
-              >
-                {confirmingDelist
-                  ? auction
-                    ? 'Cancel?'
-                    : 'Delist?'
-                  : auction
-                    ? 'Cancel auction'
-                    : 'Delist'}
-              </OsSheetAction>
-              </>
-            ) : (
-              <>
-                {canTransfer ? (
-                  <OsSheetAction
-                    type="button"
-                    variant="ghost"
-                    ready
-                    onClick={() => onTransfer?.(item)}
-                  >
-                    Transfer
-                  </OsSheetAction>
-                ) : null}
-                <OsSheetAction
-                  type="button"
-                  variant={showOffers ? 'ghost' : 'primary'}
-                  ready
-                  onClick={() => onSell(item)}
-                >
-                  Sell
-                </OsSheetAction>
-              </>
-            )}
+            <OsSheetAction
+              type="button"
+              variant={showOffers ? 'ghost' : 'primary'}
+              ready={!settlePending}
+              pending={settlePending}
+              pendingLabel="Settling…"
+              onClick={() => onSettle?.(item)}
+            >
+              Complete
+            </OsSheetAction>
           </OsSheetActions>
-        ) : null}
+        ) : (
+          <CollectiblesHoldingRowMenu
+            item={item}
+            trigger="label"
+            onList={() => onSell(item)}
+            onTransfer={onTransfer ? () => onTransfer(item) : undefined}
+            onDelisted={onChanged}
+          />
+        )}
         {showPostCompose ? (
           <OsSheetActions
             layout="row-compact"

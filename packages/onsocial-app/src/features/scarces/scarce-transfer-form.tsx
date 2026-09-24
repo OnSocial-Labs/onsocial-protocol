@@ -272,17 +272,15 @@ export function ScarceTransferForm({
             </div>
           ) : null}
         </div>
-      ) : (
+      ) : listed || isSelf || accountStatus === 'missing' ? (
         <p className="profile-support-hint">
-          {listed
-            ? 'OnSocial profiles appear as you type. This comes off sale.'
-            : 'OnSocial profiles appear as you type.'}
+          {listed ? 'This comes off sale.' : ''}
           {isSelf ? ' Choose another account.' : ''}
           {accountStatus === 'missing'
             ? ` No NEAR account found for ${fallbackLabel(normalized)}.`
             : ''}
         </p>
-      )}
+      ) : null}
     </form>
   );
 }

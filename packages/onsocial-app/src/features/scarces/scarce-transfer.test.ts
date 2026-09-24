@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ownedScarceCanBurn,
   ownedScarceCanTransfer,
   scarceTransferReady,
 } from '@/features/scarces/scarce-transfer';
@@ -40,6 +41,28 @@ describe('ownedScarceCanTransfer', () => {
         transferable: true,
         listingKind: 'auction',
         bidCount: 1,
+      })
+    ).toBe(false);
+  });
+});
+
+describe('ownedScarceCanBurn', () => {
+  it('shows burn only when the drop allows it', () => {
+    expect(
+      ownedScarceCanBurn({ burnable: true, listingKind: null })
+    ).toBe(true);
+    expect(
+      ownedScarceCanBurn({ burnable: false, listingKind: null })
+    ).toBe(false);
+    expect(ownedScarceCanBurn({ listingKind: null })).toBe(false);
+  });
+
+  it('hides burn while an auction has a bid', () => {
+    expect(
+      ownedScarceCanBurn({
+        burnable: true,
+        listingKind: 'auction',
+        bidCount: 2,
       })
     ).toBe(false);
   });

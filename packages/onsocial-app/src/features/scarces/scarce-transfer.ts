@@ -3,6 +3,15 @@ import type { NearAccountStatus } from '@/hooks/use-near-account-status';
 import { accountIdsEqual } from '@/lib/account-match';
 import { normalizeNearAccountId } from '@/lib/app-near-account';
 
+/** Explicitly burnable drops only. Unknown stays hidden until the collection says yes. */
+export function ownedScarceCanBurn(
+  item: Pick<OwnedScarceItem, 'burnable' | 'listingKind' | 'bidCount'>
+): boolean {
+  if (item.burnable !== true) return false;
+  if (item.listingKind === 'auction' && (item.bidCount ?? 0) > 0) return false;
+  return true;
+}
+
 /** Soulbound drops stay put. Live auctions with bids stay until they settle. */
 export function ownedScarceCanTransfer(
   item: Pick<OwnedScarceItem, 'transferable' | 'listingKind' | 'bidCount'>
