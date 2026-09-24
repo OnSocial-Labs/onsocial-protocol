@@ -3,11 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import {
-  InformationCircleIcon,
-  OsSheetAction,
-  OsSheetActions,
-} from '@onsocial/ui';
+import { InformationCircleIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
@@ -38,7 +34,9 @@ import {
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
+import { CollectiblesHoldingRowMenu } from '@/features/collectibles/collectibles-holding-row-menu';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
+import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_COLLECTIBLES_PATH,
@@ -174,6 +172,7 @@ export function CollectiblesPlayPanel({
     item: OwnedScarceItem | null;
   } | null>(null);
   const [sellOpen, setSellOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
   const [headerElevated, setHeaderElevated] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
@@ -364,7 +363,6 @@ export function CollectiblesPlayPanel({
         : {}),
     };
   }, [ownedItem, view]);
-  const canSell = ownedItem != null && ownedItem.listingKind == null;
   const isListed = ownedItem != null && ownedItem.listingKind != null;
   const dropIsLive =
     view != null && deriveCollectionStatus(view, nowMs) === 'live';
@@ -531,23 +529,34 @@ export function CollectiblesPlayPanel({
               <h1 className="collectibles-play-title" ref={heroTitleRef}>
                 {view.title}
               </h1>
-              {canSell ? (
-                <OsSheetActions
-                  layout="row-compact"
-                  tone="frosted-primary"
-                  size="sm"
-                  borderless
-                  className="collectibles-play-sell-action"
-                >
-                  <OsSheetAction
-                    type="button"
-                    variant="primary"
-                    ready
-                    onClick={() => setSellOpen(true)}
-                  >
-                    Sell
-                  </OsSheetAction>
-                </OsSheetActions>
+              {sellItem ? (
+                <CollectiblesHoldingRowMenu
+                  item={
+                    view?.burnable === true
+                      ? { ...sellItem, burnable: true }
+                      : view?.burnable === false
+                        ? { ...sellItem, burnable: false }
+                        : sellItem
+                  }
+                  trigger="label"
+                  onList={() => setSellOpen(true)}
+                  onTransfer={() => setTransferOpen(true)}
+                  onDelisted={() => {
+                    if (!ownershipKey || !viewerAccountId || !collectionId) return;
+                    void (async () => {
+                      const next = tokenIdParam
+                        ? await fetchOwnedScarceByTokenId(
+                            viewerAccountId,
+                            tokenIdParam
+                          )
+                        : await fetchOwnedScarceForCollection(
+                            viewerAccountId,
+                            collectionId
+                          );
+                      setOwnedByKey({ key: ownershipKey, item: next });
+                    })();
+                  }}
+                />
               ) : isListed ? (
                 <span className="collectibles-play-listed">Listed</span>
               ) : null}
@@ -657,6 +666,25 @@ export function CollectiblesPlayPanel({
         </>
       ) : null}
 
+      <ScarceTransferSheet
+        open={transferOpen && sellItem != null}
+        item={sellItem}
+        ownerAccountId={viewerAccountId}
+        onOpenChange={setTransferOpen}
+        onTransferred={() => {
+          setTransferOpen(false);
+          if (!ownershipKey || !viewerAccountId || !collectionId) return;
+          void (async () => {
+            const item = tokenIdParam
+              ? await fetchOwnedScarceByTokenId(viewerAccountId, tokenIdParam)
+              : await fetchOwnedScarceForCollection(
+                  viewerAccountId,
+                  collectionId
+                );
+            setOwnedByKey({ key: ownershipKey, item });
+          })();
+        }}
+      />
       <ScarceSellSheet
         open={sellOpen && sellItem != null}
         item={sellItem}

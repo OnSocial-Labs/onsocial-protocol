@@ -1,14 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
-  GUILD_MEMBERSHIP_CONFIRM_LEAVE_MS,
+  guildMembershipConfirmKind,
   guildMembershipOutcome,
   nextGuildMembershipCache,
   requestGuildMembershipChange,
   type GuildMembershipActionSnapshot,
+  type GuildMembershipConfirmKind,
   type GuildMembershipOutcome,
 } from '@/features/guilds/guild-membership-action';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -30,11 +31,13 @@ export type {
   GuildMembershipOutcome,
 } from '@/features/guilds/guild-membership-action';
 export {
-  GUILD_MEMBERSHIP_CONFIRM_LEAVE_MS,
+  guildMembershipConfirmCopy,
+  guildMembershipConfirmKind,
   guildMembershipOutcome,
   nextGuildMembershipCache,
   requestGuildMembershipChange,
 } from '@/features/guilds/guild-membership-action';
+export type { GuildMembershipConfirmKind } from '@/features/guilds/guild-membership-action';
 
 function membershipToastCopy(input: {
   outcome: GuildMembershipOutcome;
@@ -69,7 +72,7 @@ function membershipToastCopy(input: {
 
 /**
  * Shared Join / Leave / Cancel for the guild page and guild thread.
- * Callers own ACL + labels; this owns confirm-leave, toast, and cache write.
+ * Callers own ACL + labels; this owns the confirm drawer, toast, and cache write.
  */
 export function useGuildMembershipAction({
   groupId,
@@ -85,9 +88,10 @@ export function useGuildMembershipAction({
   onOwnerManage: () => void;
   onConfirmed: (outcome: GuildMembershipOutcome) => void | Promise<void>;
 }): {
-  confirmingLeave: boolean;
+  confirmKind: GuildMembershipConfirmKind | null;
   actionPending: boolean;
-  clearConfirmLeave: () => void;
+  dismissConfirm: () => void;
+  confirmMembership: () => void;
   handleMembershipClick: (opts?: {
     needsStorage?: boolean;
     onNeedsStorage?: () => void;
@@ -100,27 +104,15 @@ export function useGuildMembershipAction({
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const sharedPending = useGuildMembershipActionPending(accountId, groupId);
   const [localPending, setLocalPending] = useState(false);
-  const [confirmingLeave, setConfirmingLeave] = useState(false);
-  const confirmLeaveTimerRef = useRef<number | null>(null);
+  const [confirmKind, setConfirmKind] =
+    useState<GuildMembershipConfirmKind | null>(null);
   const snapshotRef = useRef(snapshot);
   snapshotRef.current = snapshot;
   const canMutateRef = useRef(canMutate);
   canMutateRef.current = canMutate;
 
-  const clearConfirmLeave = useCallback(() => {
-    if (confirmLeaveTimerRef.current !== null) {
-      window.clearTimeout(confirmLeaveTimerRef.current);
-      confirmLeaveTimerRef.current = null;
-    }
-    setConfirmingLeave(false);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (confirmLeaveTimerRef.current !== null) {
-        window.clearTimeout(confirmLeaveTimerRef.current);
-      }
-    };
+  const dismissConfirm = useCallback(() => {
+    setConfirmKind(null);
   }, []);
 
   const runMembershipAction = useCallback(async () => {
@@ -166,6 +158,7 @@ export function useGuildMembershipAction({
       });
 
       if (confirmed) {
+        setConfirmKind(null);
         if (accountId) {
           writeGuildMembershipCache(
             accountId,
@@ -222,34 +215,26 @@ export function useGuildMembershipAction({
       ) {
         return;
       }
-      if (current.isMember && !confirmingLeave) {
-        setConfirmingLeave(true);
-        confirmLeaveTimerRef.current = window.setTimeout(() => {
-          confirmLeaveTimerRef.current = null;
-          setConfirmingLeave(false);
-        }, GUILD_MEMBERSHIP_CONFIRM_LEAVE_MS);
+      if (!isConnected) {
+        void connect();
         return;
       }
-      clearConfirmLeave();
-      if (current.isMember && current.isOwner) {
+      const kind = guildMembershipConfirmKind(current);
+      if (kind === 'owner') {
         onOwnerManage();
         return;
       }
-      void runMembershipAction();
+      if (!kind) return;
+      setConfirmKind(kind);
     },
-    [
-      clearConfirmLeave,
-      confirmingLeave,
-      isConnected,
-      onOwnerManage,
-      runMembershipAction,
-    ]
+    [connect, isConnected, onOwnerManage]
   );
 
   return {
-    confirmingLeave,
+    confirmKind,
     actionPending: localPending || sharedPending,
-    clearConfirmLeave,
+    dismissConfirm,
+    confirmMembership: () => void runMembershipAction(),
     handleMembershipClick,
   };
 }

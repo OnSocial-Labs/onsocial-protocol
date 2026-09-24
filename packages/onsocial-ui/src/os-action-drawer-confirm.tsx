@@ -13,7 +13,8 @@ import { cn } from './cn.js';
 export type OsActionDrawerConfirmVariant = 'primary' | 'danger';
 
 export interface OsActionDrawerConfirmProps {
-  body: ReactNode;
+  /** Consequence the title does not already say. Omit when the title is enough. */
+  body?: ReactNode;
   confirmLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
@@ -53,7 +54,9 @@ export function OsActionDrawerConfirm({
 }: OsActionDrawerConfirmProps) {
   return (
     <div className={cn(osActionDrawerConfirmClassName, className)}>
-      <p className={osActionDrawerConfirmBodyClassName}>{body}</p>
+      {body ? (
+        <p className={osActionDrawerConfirmBodyClassName}>{body}</p>
+      ) : null}
       {children}
       <OsSheetActions layout="stack" tone="frosted-primary" borderless>
         <OsSheetAction

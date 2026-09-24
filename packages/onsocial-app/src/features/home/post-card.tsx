@@ -101,6 +101,8 @@ import { ScarceBidSheet } from '@/features/scarces/scarce-bid-sheet';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceListSheet } from '@/features/scarces/scarce-list-sheet';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
+import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
+import { ownedScarceCanTransfer } from '@/features/scarces/scarce-transfer';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import {
   postScarceAudio,
@@ -1598,6 +1600,7 @@ export function PostCard({
   const [buyScarceOpen, setBuyScarceOpen] = useState(false);
   const [bidScarceOpen, setBidScarceOpen] = useState(false);
   const [sellScarceOpen, setSellScarceOpen] = useState(false);
+  const [transferScarceOpen, setTransferScarceOpen] = useState(false);
   const [ownedScarceByKey, setOwnedScarceByKey] = useState<{
     key: string;
     item: OwnedScarceItem | null;
@@ -1760,6 +1763,10 @@ export function PostCard({
     isConnected &&
     ownedScarceItem != null &&
     ownedScarceItem.listingKind == null;
+  const canTransferScarce =
+    isConnected &&
+    ownedScarceItem != null &&
+    ownedScarceCanTransfer(ownedScarceItem);
   const sellListedScarce =
     isConnected &&
     ownedScarceItem != null &&
@@ -2282,6 +2289,8 @@ export function PostCard({
               onList={() => setListScarceOpen(true)}
               canSell={canSellScarce}
               onSell={() => setSellScarceOpen(true)}
+              canTransfer={canTransferScarce}
+              onTransfer={() => setTransferScarceOpen(true)}
               sellListed={sellListedScarce}
               alreadyOwnsEdition={Boolean(ownedScarceItem)}
               onBuy={() => setBuyScarceOpen(true)}
@@ -2406,6 +2415,17 @@ export function PostCard({
         onOpenChange={setBidScarceOpen}
         onBid={() => retryScarceEmbed()}
         zIndex={SCARCE_Z.commerceOverListen}
+      />
+      <ScarceTransferSheet
+        open={transferScarceOpen && ownedScarceItem != null}
+        item={ownedScarceItem}
+        ownerAccountId={viewerAccountId}
+        onOpenChange={setTransferScarceOpen}
+        onTransferred={() => {
+          setTransferScarceOpen(false);
+          retryScarceEmbed();
+          refreshOwnedScarce();
+        }}
       />
       <ScarceSellSheet
         open={sellScarceOpen && ownedScarceItem != null}
@@ -2568,6 +2588,8 @@ export function PostCard({
               onList={() => setListScarceOpen(true)}
               canSell={canSellScarce}
               onSell={() => setSellScarceOpen(true)}
+              canTransfer={canTransferScarce}
+              onTransfer={() => setTransferScarceOpen(true)}
               sellListed={sellListedScarce}
               alreadyOwnsEdition={Boolean(ownedScarceItem)}
               onBuy={() => setBuyScarceOpen(true)}
@@ -2715,6 +2737,8 @@ export function PostCard({
               onSell={() => {
                 setSellScarceOpen(true);
               }}
+              canTransfer={canTransferScarce}
+              onTransfer={() => setTransferScarceOpen(true)}
               sellListed={sellListedScarce}
               alreadyOwnsEdition={Boolean(ownedScarceItem)}
               onBuy={() => {

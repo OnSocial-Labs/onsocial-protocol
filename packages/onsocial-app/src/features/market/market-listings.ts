@@ -182,6 +182,13 @@ export interface OwnedScarceItem {
   listedPriceNear?: string | null;
   /** Auction bids on the current listing — cancel is blocked when > 0. */
   bidCount?: number;
+  /**
+   * Drop transfer flag. `false` is soulbound. Missing means the catalog
+   * did not say otherwise, so the holder may still transfer.
+   */
+  transferable?: boolean;
+  /** `true` only when the drop allows burn. Missing means unknown. */
+  burnable?: boolean;
   /** Auction clock (`Sale.expires_at`, ns) when listed as auction. */
   expiresAtNs?: number | null;
   /** Original post path from token `metadata.extra` when present. */
@@ -1671,6 +1678,7 @@ async function fetchOwnedScarcesPageFromIndexer(
       ...discovery,
       listingKind: listed?.kind ?? null,
       listedPriceNear: listed?.priceNear ?? null,
+      transferable: catalog ? catalog.transferable !== false : true,
       ...(listed?.kind === 'auction' && listed.bidCount != null
         ? { bidCount: listed.bidCount }
         : {}),

@@ -1,11 +1,16 @@
 'use client';
 
-import type { FocusEventHandler } from 'react';
 import {
+  OsActionDrawerConfirm,
   OsSheetAction,
   OsSheetActions,
   type OsSheetActionVariant,
 } from '@onsocial/ui';
+import { ActionDrawer } from '@/components/ui/action-drawer';
+import {
+  guildMembershipConfirmCopy,
+  type GuildMembershipConfirmKind,
+} from '@/features/guilds/guild-membership-action';
 
 /**
  * Shared Join / Request / Joined / Leave control for guild page + guild post nav.
@@ -21,7 +26,6 @@ export function GuildMembershipJoinButton({
   className,
   variant = 'primary',
   onClick,
-  onBlur,
 }: {
   label: string;
   ready: boolean;
@@ -33,7 +37,6 @@ export function GuildMembershipJoinButton({
   className?: string;
   variant?: OsSheetActionVariant;
   onClick: () => void;
-  onBlur?: FocusEventHandler<HTMLButtonElement>;
 }) {
   return (
     <OsSheetActions
@@ -53,7 +56,6 @@ export function GuildMembershipJoinButton({
         pendingLabel={pendingLabel}
         disabled={disabled}
         onClick={onClick}
-        onBlur={onBlur}
       >
         {label}
       </OsSheetAction>
@@ -67,9 +69,7 @@ export function guildMembershipJoinLabel(args: {
   joinPending: boolean;
   joinCancelReady?: boolean;
   isMember?: boolean;
-  isOwner?: boolean;
   isBlacklisted?: boolean;
-  confirmingLeave?: boolean;
   needsStorage?: boolean;
   loadGuild?: boolean;
   hintMember?: boolean;
@@ -77,10 +77,7 @@ export function guildMembershipJoinLabel(args: {
 }): string {
   if (!args.isConnected) return 'Connect';
   if (args.loadGuild) return 'Load';
-  if (args.isMember) {
-    if (!args.confirmingLeave) return 'Joined';
-    return args.isOwner ? 'Transfer?' : 'Leave?';
-  }
+  if (args.isMember) return 'Joined';
   if (args.hintMember) return 'Joined';
   if (args.isBlacklisted) return 'Banned';
   if (args.hintJoinPending || (args.joinPending && !args.joinCancelReady)) {
@@ -99,4 +96,43 @@ export function guildMembershipJoinPendingLabel(args: {
   if (args.leaving) return 'Leaving…';
   if (args.canceling) return 'Cancel…';
   return args.accessGated ? 'Request…' : 'Joining…';
+}
+
+/** Join, request, cancel, and leave confirm — same drawer as Delist. */
+export function GuildMembershipConfirmDrawer({
+  kind,
+  guildName,
+  pending,
+  onConfirm,
+  onCancel,
+}: {
+  kind: GuildMembershipConfirmKind | null;
+  guildName?: string;
+  pending: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const copy = kind ? guildMembershipConfirmCopy(kind) : null;
+
+  return (
+    <ActionDrawer
+      open={kind !== null}
+      onClose={pending ? () => undefined : onCancel}
+      label={copy?.label ?? 'Guild'}
+      copy={guildName}
+      closeAriaLabel="Cancel"
+      showClose={!pending}
+    >
+      {copy ? (
+        <OsActionDrawerConfirm
+          variant={copy.variant}
+          confirmLabel={copy.confirmLabel}
+          pending={pending}
+          pendingLabel={copy.pendingLabel}
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+        />
+      ) : null}
+    </ActionDrawer>
+  );
 }

@@ -33,6 +33,7 @@ import {
   resolveCollectiblesHeldKinds,
 } from '@/lib/collectibles-held-kinds';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
+import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 import {
   CollectiblesLibraryAppendSkeleton,
@@ -201,6 +202,10 @@ export function CollectiblesPagePanel({
   >(() => (ownerAccountId ? peekOwnedVaultFaces(ownerAccountId) : new Map()));
   const [sellItem, setSellItem] = useState<OwnedScarceItem | null>(null);
   const [sellOpen, setSellOpen] = useState(false);
+  const [transferItem, setTransferItem] = useState<OwnedScarceItem | null>(
+    null
+  );
+  const [transferOpen, setTransferOpen] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const [scrollTuckPinned, setScrollTuckPinned] = useState(false);
@@ -950,6 +955,10 @@ export function CollectiblesPagePanel({
                       setSellItem(owned);
                       setSellOpen(true);
                     }}
+                    onTransfer={() => {
+                      setTransferItem(owned);
+                      setTransferOpen(true);
+                    }}
                     onDelisted={refreshOwned}
                   />
                 )
@@ -1036,6 +1045,7 @@ export function CollectiblesPagePanel({
         {body}
       </OsAppScreen>
       {isSelf ? (
+        <>
         <ScarceSellSheet
           open={sellOpen && sellItem != null}
           item={sellItem}
@@ -1050,6 +1060,21 @@ export function CollectiblesPagePanel({
             refreshOwned();
           }}
         />
+        <ScarceTransferSheet
+          open={transferOpen && transferItem != null}
+          item={transferItem}
+          ownerAccountId={viewerAccountId}
+          onOpenChange={(open) => {
+            setTransferOpen(open);
+            if (!open) setTransferItem(null);
+          }}
+          onTransferred={() => {
+            setTransferOpen(false);
+            setTransferItem(null);
+            refreshOwned();
+          }}
+        />
+        </>
       ) : null}
     </>
   );

@@ -119,6 +119,7 @@ import {
 import { ScarceOffersSheet } from '@/features/scarces/scarce-offers-sheet';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
+import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { fetchCollectionsByCreator } from '@/features/scarces/collections-data';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
@@ -306,9 +307,11 @@ export function MarketPagePanel({
     null
   );
   const [sellItem, setSellItem] = useState<OwnedScarceItem | null>(null);
+  const [transferItem, setTransferItem] = useState<OwnedScarceItem | null>(
+    null
+  );
   const [offersItem, setOffersItem] = useState<OwnedScarceItem | null>(null);
   const [cancelRowKey, setCancelRowKey] = useState<string | null>(null);
-  const [delistTokenId, setDelistTokenId] = useState<string | null>(null);
   const [settleTokenId, setSettleTokenId] = useState<string | null>(null);
   const [listingFilter, setListingFilter] = useState<MarketListingFilter>(() =>
     listingFilterFromSort(urlSort)
@@ -1466,59 +1469,9 @@ export function MarketPagePanel({
     [cancelRowKey, getSigningWallet, setTxResult, trackTransaction]
   );
 
-  const handleManageOwned = useCallback(
-    async (item: OwnedScarceItem) => {
-      if (delistTokenId || settleTokenId) return;
-      if (item.listingKind === 'auction' && (item.bidCount ?? 0) > 0) {
-        setTxResult({
-          type: 'error',
-          msg: 'This auction already has bids — wait for it to end, then complete the sale.',
-        });
-        return;
-      }
-      setDelistTokenId(item.tokenId);
-      try {
-        const { accountId, wallet } = await getSigningWallet();
-        const client = createAppScarcesWalletClient(accountId, wallet);
-        const response =
-          item.listingKind === 'auction'
-            ? await client.scarces.auctions.cancel(item.tokenId)
-            : await client.scarces.market.delist(item.tokenId);
-        const confirmed = await trackTransaction({
-          txHashes: collectRelayTxHashes(response),
-          submittedMessage: txToastConfirming.cancelingScarceListing,
-          successMessage: txToastSuccess.scarceListingCanceled,
-          failureMessage: txToastError.cancelScarceListingFailed,
-        });
-        if (!confirmed) return;
-        if (viewerAccountId) invalidateOwnedVaultCache(viewerAccountId);
-        setRetryKey((value) => value + 1);
-      } catch (cause) {
-        if (isWalletUserCancellation(cause)) return;
-        setTxResult({
-          type: 'error',
-          msg:
-            cause instanceof Error
-              ? cause.message
-              : txToastError.cancelScarceListingFailed,
-        });
-      } finally {
-        setDelistTokenId(null);
-      }
-    },
-    [
-      delistTokenId,
-      getSigningWallet,
-      setTxResult,
-      settleTokenId,
-      trackTransaction,
-      viewerAccountId,
-    ]
-  );
-
   const handleSettleOwned = useCallback(
     async (item: OwnedScarceItem) => {
-      if (settleTokenId || delistTokenId) return;
+      if (settleTokenId) return;
       const endsAtMs = auctionExpiresAtMs(item.expiresAtNs);
       if (
         item.listingKind !== 'auction' ||
@@ -1582,7 +1535,6 @@ export function MarketPagePanel({
       }
     },
     [
-      delistTokenId,
       getSigningWallet,
       setTxResult,
       settleTokenId,
@@ -2097,15 +2049,13 @@ export function MarketPagePanel({
                     nowMs={nowMs}
                     highestOfferNear={offerSummary?.highestAmountNear ?? null}
                     offerCount={offerSummary?.offerCount ?? 0}
-                    delistPending={delistTokenId === item.tokenId}
                     settlePending={settleTokenId === item.tokenId}
                     onSell={setSellItem}
+                    onTransfer={setTransferItem}
+                    onChanged={handleListed}
                     onOffers={setOffersItem}
                     onSettle={(row) => {
                       void handleSettleOwned(row);
-                    }}
-                    onDelist={(row) => {
-                      void handleManageOwned(row);
                     }}
                   />
                 );
@@ -2233,6 +2183,16 @@ export function MarketPagePanel({
           if (!open) setSellItem(null);
         }}
         onListed={handleListed}
+      />
+
+      <ScarceTransferSheet
+        open={transferItem != null}
+        item={transferItem}
+        ownerAccountId={viewerAccountId}
+        onOpenChange={(open) => {
+          if (!open) setTransferItem(null);
+        }}
+        onTransferred={handleListed}
       />
 
       <ScarceOffersSheet

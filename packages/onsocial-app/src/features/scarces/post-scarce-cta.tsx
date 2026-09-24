@@ -28,6 +28,9 @@ interface PostScarceCtaProps {
   /** Viewer owns an edition of this post’s scarce (unlisted). */
   canSell?: boolean;
   onSell?: () => void;
+  /** Viewer can send this edition to another account. */
+  canTransfer?: boolean;
+  onTransfer?: () => void;
   /** Viewer owns an edition and it is already listed for resale. */
   sellListed?: boolean;
   /**
@@ -197,6 +200,8 @@ export function PostScarceCta({
   onList,
   canSell = false,
   onSell,
+  canTransfer = false,
+  onTransfer,
   sellListed = false,
   onBuy,
   onBid,
@@ -242,6 +247,19 @@ export function PostScarceCta({
   if (!primaryLive && canSell && onSell) {
     return (
       <div className="post-card-scarce-cta">
+        {canTransfer && onTransfer ? (
+          <button
+            type="button"
+            className="post-card-scarce-buy post-card-scarce-buy--secondary"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onTransfer();
+            }}
+          >
+            <span className="post-card-scarce-buy-main">Transfer</span>
+          </button>
+        ) : null}
         <button
           type="button"
           className="post-card-scarce-buy post-card-scarce-buy--secondary"
@@ -253,6 +271,27 @@ export function PostScarceCta({
         >
           <span className="post-card-scarce-buy-main">Sell</span>
         </button>
+        {listenSlot}
+        <CommerceLinkRow links={links} />
+      </div>
+    );
+  }
+
+  if (!primaryLive && sellListed && canTransfer && onTransfer) {
+    return (
+      <div className="post-card-scarce-cta">
+        <button
+          type="button"
+          className="post-card-scarce-buy post-card-scarce-buy--secondary"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onTransfer();
+          }}
+        >
+          <span className="post-card-scarce-buy-main">Transfer</span>
+        </button>
+        <span className="post-card-scarce-cta-main">Listed</span>
         {listenSlot}
         <CommerceLinkRow links={links} />
       </div>
