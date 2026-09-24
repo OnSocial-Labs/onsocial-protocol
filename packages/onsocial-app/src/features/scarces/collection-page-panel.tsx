@@ -669,7 +669,7 @@ export function CollectionPagePanel({
       : showMintCompose
         ? openMintSheet
         : null,
-    isOwner ? 'post' : 'mint'
+    isOwner ? 'announce' : 'mint'
   );
 
   const handleShare = useCallback(async () => {
