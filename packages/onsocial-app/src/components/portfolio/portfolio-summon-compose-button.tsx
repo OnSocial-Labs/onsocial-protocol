@@ -1,7 +1,25 @@
 'use client';
 
 import { PenFillIcon, StarsCFillIcon } from '@onsocial/ui';
-import type { ComposeLauncherEntry } from '@/contexts/compose-launcher-context';
+import type {
+  ComposeKind,
+  ComposeLauncherEntry,
+} from '@/contexts/compose-launcher-context';
+
+export function composeDockAriaLabel(kind: ComposeKind): string {
+  switch (kind) {
+    case 'drop':
+      return 'Start a drop';
+    case 'mint':
+      return 'Mint';
+    case 'propose':
+      return 'Create a proposal';
+    case 'announce':
+      return 'Post this drop';
+    default:
+      return 'Compose a post';
+  }
+}
 
 export function PortfolioSummonComposeButton({
   compose,
@@ -9,14 +27,7 @@ export function PortfolioSummonComposeButton({
   compose: ComposeLauncherEntry;
 }) {
   const kind = compose.kind;
-  const ariaLabel =
-    kind === 'drop'
-      ? 'Start a drop'
-      : kind === 'mint'
-        ? 'Mint'
-        : kind === 'propose'
-          ? 'Create a proposal'
-          : 'Compose a post';
+  const ariaLabel = composeDockAriaLabel(kind);
 
   return (
     <button

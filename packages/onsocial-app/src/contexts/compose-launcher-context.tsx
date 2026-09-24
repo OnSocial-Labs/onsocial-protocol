@@ -20,8 +20,8 @@ import {
 
 type ComposeAction = () => void;
 
-/** What the dock action button creates — picks the glyph (pen / stars / mint). */
-export type ComposeKind = 'post' | 'drop' | 'mint' | 'propose';
+/** What the dock action button creates — picks the glyph (pen / stars). */
+export type ComposeKind = 'post' | 'announce' | 'drop' | 'mint' | 'propose';
 
 export interface ComposeLauncherEntry {
   action: ComposeAction;
@@ -195,8 +195,8 @@ export function useWriteDockChrome() {
 /**
  * Register the dock action while the calling surface is mounted.
  * Pass null when the viewer cannot compose here (button stays hidden).
- * `kind` picks the glyph: pen for posts (default), purple stars for drops,
- * green stars for mint, pen for propose.
+ * `kind` picks the glyph: pen for posts (default), pen for announcing a drop,
+ * purple stars for drops, green stars for mint, pen for propose.
  */
 export function useRegisterComposeAction(
   action: ComposeAction | null,

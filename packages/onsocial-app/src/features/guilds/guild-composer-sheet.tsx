@@ -256,6 +256,16 @@ const TITLE: Record<ComposerMode, string> = {
   quote: 'Quote',
 };
 
+function composerSheetTitle(
+  mode: ComposerMode,
+  articleMode: boolean,
+  hasDrop: boolean
+): string {
+  if (mode === 'post' && articleMode) return 'New article';
+  if (mode === 'post' && hasDrop) return 'Post this drop';
+  return TITLE[mode];
+}
+
 /** Where a new post lands — guild room or personal public feed. */
 export type ComposerDestination =
   | {
@@ -1548,7 +1558,7 @@ export function ComposerSheet({
         footer={composerFooter}
       >
         <OsAppScreen
-          title={mode === 'post' && articleMode ? 'New article' : TITLE[mode]}
+          title={composerSheetTitle(mode, articleMode, beats.some((beat) => beat.drop))}
           glassChrome
           compactChrome
           embedded
@@ -1652,7 +1662,11 @@ export function ComposerSheet({
             onSubmit={handleSubmit}
           >
             <span id={titleId} className="sr-only">
-              {mode === 'post' && articleMode ? 'New article' : TITLE[mode]}
+              {composerSheetTitle(
+                mode,
+                articleMode,
+                beats.some((beat) => beat.drop)
+              )}
             </span>
             {mode === 'reply' && target ? (
               <div className="guild-composer-reply-flow">
