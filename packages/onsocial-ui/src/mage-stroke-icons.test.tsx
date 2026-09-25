@@ -26,6 +26,10 @@ import {
   FireIcon,
   GiftIcon,
   GlobeIcon,
+  HomeIcon,
+  NotificationBellIcon,
+  UsersIcon,
+  UserCircleIcon,
   HeartIcon,
   BookmarkIcon,
   Box3dIcon,
@@ -115,6 +119,10 @@ describe('mage stroke icons', () => {
     expect(typeof ScaleUpIcon).toBe('function');
     expect(typeof GiftIcon).toBe('function');
     expect(typeof GlobeIcon).toBe('function');
+    expect(typeof HomeIcon).toBe('function');
+    expect(typeof NotificationBellIcon).toBe('function');
+    expect(typeof UsersIcon).toBe('function');
+    expect(typeof UserCircleIcon).toBe('function');
     expect(typeof KeyIcon).toBe('function');
     expect(typeof LogoutIcon).toBe('function');
     expect(typeof UserCheckIcon).toBe('function');

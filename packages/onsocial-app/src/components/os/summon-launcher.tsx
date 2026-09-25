@@ -157,6 +157,7 @@ function LauncherAppTile({
         <OsAppIcon
           appId={app.id}
           iconUrl={app.iconUrl}
+          filled={active}
           className={osLauncherItemIconClassName}
         />
         {app.soon ? (
