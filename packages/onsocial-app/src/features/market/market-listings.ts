@@ -191,6 +191,8 @@ export interface OwnedScarceItem {
   burnable?: boolean;
   /** Auction clock (`Sale.expires_at`, ns) when listed as auction. */
   expiresAtNs?: number | null;
+  /** Mint time (ms or indexer ns). Absent when the catalog has no mint clock. */
+  mintedAtMs?: number | null;
   /** Original post path from token `metadata.extra` when present. */
   sourcePostPath?: string;
   /** Resolved app thread href for `sourcePostPath` (personal or guild). */
@@ -339,6 +341,7 @@ interface ContractTokenRecord {
     description?: string | null;
     media?: string | null;
     extra?: string | null;
+    issued_at?: number | string | null;
   } | null;
 }
 
@@ -1472,6 +1475,9 @@ function ownedItemsFromTokens(
       const playable = playables[0];
       const discovery = discoveryFieldsFromExtra(extra, playables.length);
       const listed = listedByToken.get(tokenId);
+      const issuedRaw = token.metadata?.issued_at;
+      const issuedAt =
+        typeof issuedRaw === 'string' ? Number(issuedRaw) : issuedRaw;
       return {
         tokenId,
         title: displayTitle,
@@ -1484,6 +1490,9 @@ function ownedItemsFromTokens(
         ...discovery,
         listingKind: listed?.kind ?? null,
         listedPriceNear: listed?.priceNear ?? null,
+        ...(issuedAt != null && Number.isFinite(issuedAt) && issuedAt > 0
+          ? { mintedAtMs: issuedAt }
+          : {}),
         ...(listed?.kind === 'auction' && listed.bidCount != null
           ? { bidCount: listed.bidCount }
           : {}),
@@ -1678,6 +1687,9 @@ async function fetchOwnedScarcesPageFromIndexer(
       ...discovery,
       listingKind: listed?.kind ?? null,
       listedPriceNear: listed?.priceNear ?? null,
+      ...(row.mintedBlockTimestamp != null && row.mintedBlockTimestamp > 0
+        ? { mintedAtMs: row.mintedBlockTimestamp }
+        : {}),
       transferable: catalog ? catalog.transferable !== false : true,
       ...(listed?.kind === 'auction' && listed.bidCount != null
         ? { bidCount: listed.bidCount }

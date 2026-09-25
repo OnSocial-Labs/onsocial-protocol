@@ -17,6 +17,10 @@ import {
 } from '@/features/scarces/scarce-embed-ledger';
 import { collectionPath } from '@/lib/app-routes';
 import { personalPostPath } from '@/lib/post-routes';
+import {
+  marketPostLayerLinkHandlers,
+  useMarketPostLayer,
+} from '@/features/market/market-post-layer';
 
 interface MarketListingRowProps {
   item: MarketListingItem;
@@ -83,6 +87,7 @@ export function MarketListingRow({
   onBuy,
   onCancel,
 }: MarketListingRowProps) {
+  const openMarketPost = useMarketPostLayer();
   const rowKey = marketListingRowKey(item);
   const sellerId = item.creatorId;
   // Provenance: distinct mint creator when set, else the seller is the creator.
@@ -159,9 +164,11 @@ export function MarketListingRow({
       href={detailHref}
       scroll={false}
       className="market-listing-title-link"
-      onClick={() => {
-        if (postHref) seedListedEmbed(item);
-      }}
+      {...(postHref
+        ? marketPostLayerLinkHandlers(postHref, openMarketPost, () =>
+            seedListedEmbed(item)
+          )
+        : {})}
     >
       {item.title}
     </Link>
@@ -207,9 +214,11 @@ export function MarketListingRow({
               ? `Open post for ${item.title}`
               : `Open drop for ${item.title}`
           }
-          onClick={() => {
-            if (postHref) seedListedEmbed(item);
-          }}
+          {...(postHref
+            ? marketPostLayerLinkHandlers(postHref, openMarketPost, () =>
+                seedListedEmbed(item)
+              )
+            : {})}
         >
           {item.mediaUrl ? (
             <img src={item.mediaUrl} alt="" />

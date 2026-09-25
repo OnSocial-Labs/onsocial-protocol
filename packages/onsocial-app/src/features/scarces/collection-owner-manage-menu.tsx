@@ -38,7 +38,6 @@ import {
   withdrawUnclaimedDropRefunds,
 } from '@/features/scarces/drop-owner-actions';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
-import { postponeNotice } from '@/features/scarces/ticket-event-facts';
 import { dropDeleteConfirmCopy } from '@/lib/drop-delete-confirm-copy';
 import {
   txToastConfirming,
@@ -331,9 +330,7 @@ export function CollectionOwnerManageMenu({
         const confirmed = await trackTransaction({
           txHashes: responses.flatMap((r) => collectRelayTxHashes(r)),
           submittedMessage: txToastConfirming.extendingTicketEntry,
-          successMessage:
-            postponeNotice(eventEndsAtMs, newExpiresAtMs) ??
-            txToastSuccess.ticketEntryExtended,
+          successMessage: txToastSuccess.ticketEntryExtended,
           failureMessage: txToastError.extendTicketEntryFailed,
         });
         if (confirmed) {
@@ -356,7 +353,6 @@ export function CollectionOwnerManageMenu({
     [
       close,
       collectionId,
-      eventEndsAtMs,
       getSigningWallet,
       isConnected,
       onManaged,

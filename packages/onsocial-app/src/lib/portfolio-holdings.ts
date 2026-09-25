@@ -51,6 +51,8 @@ export interface PortfolioHoldingPeek {
   actionLabel: string;
   /** Short medium label for the badge. */
   kindLabel: string;
+  /** Mint time (ms or indexer ns) when the owned row carried one. */
+  mintedAtMs?: number | null;
   /** Resale listing state when this token is on Market. */
   listingKind?: 'fixed' | 'auction' | null;
   listedPriceNear?: string | null;
@@ -181,6 +183,9 @@ export function toPortfolioHoldingPeek(
       }) ?? APP_COLLECTIBLES_PATH,
     actionLabel: holdingsActionLabel(mediumKind),
     kindLabel: displayKindLabelForOwned(mediumKind, item.tokenId, collectionId),
+    ...(item.mintedAtMs != null && item.mintedAtMs > 0
+      ? { mintedAtMs: item.mintedAtMs }
+      : {}),
   };
 }
 

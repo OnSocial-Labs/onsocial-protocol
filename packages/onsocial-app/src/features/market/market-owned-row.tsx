@@ -4,6 +4,10 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  marketPostLayerLinkHandlers,
+  useMarketPostLayer,
+} from '@/features/market/market-post-layer';
+import {
   OsSheetAction,
   OsSheetActions,
 } from '@onsocial/ui';
@@ -55,6 +59,7 @@ export function MarketOwnedRow({
   onOffers,
 }: MarketOwnedRowProps) {
   const router = useRouter();
+  const openMarketPost = useMarketPostLayer();
   const listed = item.listingKind != null;
   const auction = item.listingKind === 'auction';
   const auctionHasBids = auction && (item.bidCount ?? 0) > 0;
@@ -108,7 +113,12 @@ export function MarketOwnedRow({
   );
 
   const title = useHref ? (
-    <Link href={useHref} scroll={false} className="market-listing-title-link">
+    <Link
+      href={useHref}
+      scroll={false}
+      className="market-listing-title-link"
+      {...marketPostLayerLinkHandlers(useHref, openMarketPost)}
+    >
       {item.title}
     </Link>
   ) : (
@@ -123,6 +133,7 @@ export function MarketOwnedRow({
           scroll={false}
           className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
           aria-label={`${useAction} ${item.title}`}
+          {...marketPostLayerLinkHandlers(useHref, openMarketPost)}
         >
           {thumb}
         </Link>
@@ -214,6 +225,7 @@ export function MarketOwnedRow({
           <CollectiblesHoldingRowMenu
             item={item}
             trigger="label"
+            showOpenInMarket={false}
             onList={() => onSell(item)}
             onTransfer={onTransfer ? () => onTransfer(item) : undefined}
             onDelisted={onChanged}
@@ -263,6 +275,7 @@ export function MarketOwnedRow({
               variant="ghost"
               ready
               onClick={() => {
+                if (openMarketPost(sourcePostHref)) return;
                 router.push(sourcePostHref);
               }}
             >

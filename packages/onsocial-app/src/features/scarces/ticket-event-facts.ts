@@ -8,7 +8,10 @@ import {
   formatFutureRelativeTime,
   formatMarketRelativeTime,
 } from '@/features/market/market-listings';
-import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
+import {
+  formatPageDrawerJoinedDateTimeLabel,
+  formatPageDrawerJoinedFullLabel,
+} from '@/lib/page-drawer-meta';
 
 /** One line for a postpone: the end that moved, and the end doors use now. */
 export function postponeNotice(
@@ -49,7 +52,7 @@ export function ticketEventScheduleFacts(
       : null;
   const ends =
     view.eventEndsAtMs != null
-      ? formatPageDrawerJoinedFullLabel(view.eventEndsAtMs)
+      ? formatPageDrawerJoinedDateTimeLabel(view.eventEndsAtMs)
       : null;
 
   let next: string | null = null;
