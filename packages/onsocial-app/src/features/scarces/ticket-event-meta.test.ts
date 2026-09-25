@@ -84,10 +84,14 @@ describe('ticket event metadata', () => {
     const nextMorning = new Date(2026, 9, 3, 1, 0).getTime();
     const same = eventScheduleLine(start, sameNight);
     const over = eventScheduleLine(start, nextMorning);
+    const zone = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' })
+      .formatToParts(new Date(start))
+      .find((part) => part.type === 'timeZoneName')?.value;
     expect(same).toContain('Fri, Oct 2');
     expect(same).toContain('8:00');
     expect(same).toContain('11:00');
     expect(same).toContain('–');
+    if (zone) expect(same).toContain(zone);
     expect(over).toContain('8:00');
     expect(over).toContain('1:00');
     expect(over).toContain('–');
@@ -101,6 +105,7 @@ describe('ticket event metadata', () => {
     );
     expect(eventScheduleHint(now + 10 * 24 * 60 * 60 * 1000, now + 11 * 24 * 60 * 60 * 1000, now)).toBeNull();
     expect(eventScheduleHint(now - 60 * 60 * 1000, now + 2 * 60 * 60 * 1000, now)).toBe('On now');
+    expect(eventScheduleHint(null, now + 10 * 24 * 60 * 60 * 1000, now)).toBeNull();
   });
 
   it('uses a day on the list and a relative line only when the show is soon', () => {
@@ -109,6 +114,7 @@ describe('ticket event metadata', () => {
       /^Starts in /
     );
     expect(eventListWhenLabel(now - 60 * 60 * 1000, now + 2 * 60 * 60 * 1000, now)).toBe('On now');
+    expect(eventListWhenLabel(null, now + 3 * 60 * 60 * 1000, now)).not.toBe('On now');
     const later = eventListWhenLabel(
       now + 10 * 24 * 60 * 60 * 1000,
       now + 11 * 24 * 60 * 60 * 1000,

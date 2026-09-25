@@ -6,6 +6,7 @@ import { Divider, OsHugSheet, ProtocolMotionArrow } from '@onsocial/ui';
 import { SheetFactCopy, SheetFactRow, SheetFactSection } from '@onsocial/ui';
 import {
   collectionStatusLabel,
+  ticketSaleStatusLabel,
   deriveCollectionStatus,
   type CollectionView,
 } from '@/features/scarces/collections-data';
@@ -217,7 +218,14 @@ export function CollectionFactsSheet({
         ) : null}
 
         <SheetFactSection title="Mint">
-          <SheetFactRow label="Status" value={collectionStatusLabel(status)} />
+          <SheetFactRow
+            label="Status"
+            value={
+              view.kind === 'ticket'
+                ? ticketSaleStatusLabel(status)
+                : collectionStatusLabel(status)
+            }
+          />
           {schedule.empty ? (
             <SheetFactRow label="Schedule" value="No timed window" />
           ) : (

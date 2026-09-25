@@ -10,6 +10,7 @@ import {
 } from '@onsocial/ui';
 import {
   collectionStatusLabel,
+  ticketSaleStatusLabel,
   deriveCollectionStatus,
   type CollectionView,
 } from '@/features/scarces/collections-data';
@@ -203,7 +204,11 @@ export function TicketDoorEventSheet({
           <SheetFactSection title="Sale">
             <SheetFactRow
               label="Status"
-              value={collectionStatusLabel(status)}
+              value={
+                view.kind === 'ticket'
+                  ? ticketSaleStatusLabel(status)
+                  : collectionStatusLabel(status)
+              }
             />
             {sale.opens ? (
               <SheetFactRow label="Opens" value={sale.opens} />

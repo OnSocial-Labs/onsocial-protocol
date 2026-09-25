@@ -49,6 +49,20 @@ function formatEventClock(ms: number): string {
   }).format(new Date(ms));
 }
 
+function formatEventZone(ms: number): string {
+  const zone = new Intl.DateTimeFormat('en-US', {
+    timeZoneName: 'short',
+  })
+    .formatToParts(new Date(ms))
+    .find((part) => part.type === 'timeZoneName')?.value;
+  return zone?.trim() ?? '';
+}
+
+function withEventZone(label: string, ms: number): string {
+  const zone = formatEventZone(ms);
+  return zone ? `${label} ${zone}` : label;
+}
+
 function sameLocalDay(a: number, b: number): boolean {
   const left = new Date(a);
   const right = new Date(b);
@@ -67,13 +81,33 @@ export function eventScheduleLine(
   const start = eventInstant(startMs);
   const end = eventInstant(endMs);
   if (start && end && sameLocalDay(start, end)) {
-    return `${formatEventWeekday(start)} · ${formatEventClock(start)} – ${formatEventClock(end)}`;
+    return withEventZone(
+      `${formatEventWeekday(start)} · ${formatEventClock(start)} – ${formatEventClock(end)}`,
+      start
+    );
   }
   if (start && end) {
-    return `${formatEventMonthDay(start)} – ${formatEventMonthDay(end)}`;
+    const startZone = formatEventZone(start);
+    const endZone = formatEventZone(end);
+    if (startZone && startZone === endZone) {
+      return `${formatEventMonthDay(start)} – ${formatEventMonthDay(end)} ${startZone}`;
+    }
+    return [formatEventMonthDay(start), formatEventMonthDay(end)]
+      .map((label, index) => withEventZone(label, index === 0 ? start : end))
+      .join(' – ');
   }
-  if (start) return `${formatEventWeekday(start)} · ${formatEventClock(start)}`;
-  if (end) return `Until ${formatEventWeekday(end)} · ${formatEventClock(end)}`;
+  if (start) {
+    return withEventZone(
+      `${formatEventWeekday(start)} · ${formatEventClock(start)}`,
+      start
+    );
+  }
+  if (end) {
+    return withEventZone(
+      `Until ${formatEventWeekday(end)} · ${formatEventClock(end)}`,
+      end
+    );
+  }
   return null;
 }
 
@@ -92,7 +126,7 @@ export function eventScheduleHint(
     return rel ? `Starts ${rel}` : null;
   }
   if (end != null && end <= now) return null;
-  if (start != null || end != null) return 'On now';
+  if (start != null && start <= now) return 'On now';
   return null;
 }
 
@@ -114,10 +148,7 @@ export function eventListWhenLabel(
     return formatEventWeekday(start);
   }
   if (start != null && start <= now && (end == null || end > now)) return 'On now';
-  if (end != null && end > now) {
-    if (end - now < SOON_MS) return 'On now';
-    return formatEventWeekday(end);
-  }
+  if (end != null && end > now) return formatEventWeekday(end);
   return 'Time to be set';
 }
 
@@ -155,13 +186,15 @@ export function ticketEventScheduleFacts(
   empty: boolean;
 } {
   const place = ticketEventPlaceLabel(view.place);
+  const startMs = eventInstant(view.eventStartsAtMs);
+  const endMs = eventInstant(view.eventEndsAtMs);
   const starts =
-    view.eventStartsAtMs != null
-      ? formatPageDrawerJoinedDateTimeLabel(view.eventStartsAtMs)
+    startMs != null
+      ? withEventZone(formatPageDrawerJoinedDateTimeLabel(startMs) ?? '', startMs)
       : null;
   const ends =
-    view.eventEndsAtMs != null
-      ? formatPageDrawerJoinedDateTimeLabel(view.eventEndsAtMs)
+    endMs != null
+      ? withEventZone(formatPageDrawerJoinedDateTimeLabel(endMs) ?? '', endMs)
       : null;
   const when = eventScheduleLine(view.eventStartsAtMs, view.eventEndsAtMs);
   const next = eventScheduleHint(
