@@ -16,7 +16,6 @@ import {
   APP_MESSAGES_PATH,
   APP_NOTIFICATIONS_PATH,
   APP_PROTOCOL_PATH,
-  daoPath,
 } from '@/lib/app-routes';
 import {
   portfolioCollectiblesPath,
@@ -94,23 +93,10 @@ export function resolveActiveOsAppId(
     return 'daos';
   }
   if (path === APP_DAO_PATH || path.startsWith(`${APP_DAO_PATH}/`)) {
-    const daoSegment = path.slice(APP_DAO_PATH.length + 1).split('/')[0] ?? '';
-    let daoAccountId = '';
-    try {
-      daoAccountId = decodeURIComponent(daoSegment).trim().toLowerCase();
-    } catch {
-      daoAccountId = daoSegment.trim().toLowerCase();
-    }
-    if (
-      daoAccountId === GOVERNANCE_DAO_ACCOUNT.trim().toLowerCase() ||
-      daoAccountId === TREASURY_DAO_ACCOUNT.trim().toLowerCase()
-    ) {
-      return 'protocol';
-    }
     return 'daos';
   }
   if (path === APP_PROTOCOL_PATH || path.startsWith(`${APP_PROTOCOL_PATH}/`)) {
-    return 'protocol';
+    return 'daos';
   }
 
   const portfolio = path.match(/^\/@([^/]+)(?:\/([^/]+))?/);
@@ -129,7 +115,7 @@ export function resolveActiveOsAppId(
     (accountLower === GOVERNANCE_DAO_ACCOUNT.trim().toLowerCase() ||
       accountLower === TREASURY_DAO_ACCOUNT.trim().toLowerCase())
   ) {
-    return 'protocol';
+    return 'daos';
   }
   if (!panel && isHeuristicDaoAccountId(accountLower)) {
     return 'daos';
@@ -166,174 +152,18 @@ export function osAppOpensWithWallet(app: OsAppLink): boolean {
   return app.kind === 'open-page';
 }
 
-const PROTOCOL_APP: OsAppLink = {
-  id: 'protocol',
-  label: 'Protocol',
-  kind: 'app',
-  href: daoPath(GOVERNANCE_DAO_ACCOUNT),
+const PAGE_APP: OsAppLink = {
+  id: 'page',
+  label: 'Page',
+  kind: 'open-page',
 };
 
-const DAOS_APP: OsAppLink = {
-  id: 'daos',
-  label: 'DAOs',
-  kind: 'app',
-  href: APP_DAOS_PATH,
-};
-
-const HUBS_APP: OsAppLink = {
-  id: 'hubs',
-  label: 'Hubs',
-  kind: 'app',
-  href: APP_APPS_PATH,
-};
-
-const COLLECTIBLES_APP: OsAppLink = {
-  id: 'collectibles',
-  label: 'Collectibles',
-  kind: 'app',
-  href: APP_COLLECTIBLES_PATH,
-};
-
-export function gateOsApps(): OsAppLink[] {
-  return [
-    { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
-    {
-      id: 'activity',
-      label: 'Activity',
-      kind: 'app',
-      href: APP_NOTIFICATIONS_PATH,
-    },
-    {
-      id: 'messages',
-      label: 'Messages',
-      kind: 'app',
-      href: APP_MESSAGES_PATH,
-    },
-    { id: 'discover', label: 'Discover', kind: 'app', href: APP_DISCOVER_PATH },
-    { id: 'page', label: 'OnPage', kind: 'open-page' },
-    { id: 'feed', label: 'Feed', kind: 'app', href: APP_HOME_PATH },
-    {
-      id: 'market',
-      label: 'Market',
-      kind: 'app',
-      href: APP_MARKET_PATH,
-    },
-    {
-      id: 'drops',
-      label: 'Drops',
-      kind: 'app',
-      href: APP_DROPS_PATH,
-    },
-    COLLECTIBLES_APP,
-    HUBS_APP,
-    {
-      id: 'groups',
-      label: 'Guilds',
-      kind: 'app',
-      href: APP_GROUPS_PATH,
-    },
-    DAOS_APP,
-    PROTOCOL_APP,
-  ];
-}
-
-export function ownerPortfolioOsApps(accountId: string): OsAppLink[] {
-  return [
-    { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
-    {
-      id: 'activity',
-      label: 'Activity',
-      kind: 'app',
-      href: APP_NOTIFICATIONS_PATH,
-    },
-    {
-      id: 'messages',
-      label: 'Messages',
-      kind: 'app',
-      href: APP_MESSAGES_PATH,
-    },
-    {
-      id: 'discover',
-      label: 'Discover',
-      kind: 'app',
-      href: discoverPath(accountId),
-    },
-    {
-      id: 'market',
-      label: 'Market',
-      kind: 'app',
-      href: APP_MARKET_PATH,
-    },
-    {
-      id: 'drops',
-      label: 'Drops',
-      kind: 'app',
-      href: APP_DROPS_PATH,
-    },
-    {
-      id: 'collectibles',
-      label: 'Collectibles',
-      kind: 'app',
-      href: portfolioCollectiblesPath(accountId),
-    },
-    HUBS_APP,
-    {
-      id: 'groups',
-      label: 'Guilds',
-      kind: 'app',
-      href: APP_GROUPS_PATH,
-    },
-    DAOS_APP,
-    PROTOCOL_APP,
-  ];
-}
-
-export function visitorPortfolioOsApps(accountId: string): OsAppLink[] {
-  return [
-    { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
-    {
-      id: 'activity',
-      label: 'Activity',
-      kind: 'app',
-      href: APP_NOTIFICATIONS_PATH,
-    },
-    {
-      id: 'messages',
-      label: 'Messages',
-      kind: 'app',
-      href: APP_MESSAGES_PATH,
-    },
-    {
-      id: 'discover',
-      label: 'Discover',
-      kind: 'app',
-      href: discoverPath(accountId),
-    },
-    {
-      id: 'market',
-      label: 'Market',
-      kind: 'app',
-      href: APP_MARKET_PATH,
-    },
-    {
-      id: 'drops',
-      label: 'Drops',
-      kind: 'app',
-      href: APP_DROPS_PATH,
-    },
-    HUBS_APP,
-    {
-      id: 'groups',
-      label: 'Guilds',
-      kind: 'app',
-      href: APP_GROUPS_PATH,
-    },
-    DAOS_APP,
-    PROTOCOL_APP,
-  ];
-}
-
-export function appShellOsApps(accountId: string | null): OsAppLink[] {
+/** People, then what you trade, then where you belong. Page is last when signed in. */
+function launcherApps(options: {
+  discoverHref: string;
+  collectiblesHref?: string;
+  page?: boolean;
+}): OsAppLink[] {
   const apps: OsAppLink[] = [
     { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
     {
@@ -348,41 +178,54 @@ export function appShellOsApps(accountId: string | null): OsAppLink[] {
       kind: 'app',
       href: APP_MESSAGES_PATH,
     },
-    { id: 'discover', label: 'Discover', kind: 'app', href: APP_DISCOVER_PATH },
-    {
-      id: 'market',
-      label: 'Market',
-      kind: 'app',
-      href: APP_MARKET_PATH,
-    },
-    {
-      id: 'drops',
-      label: 'Drops',
-      kind: 'app',
-      href: APP_DROPS_PATH,
-    },
-    HUBS_APP,
-    {
-      id: 'groups',
-      label: 'Guilds',
-      kind: 'app',
-      href: APP_GROUPS_PATH,
-    },
-    DAOS_APP,
-    PROTOCOL_APP,
+    { id: 'discover', label: 'Discover', kind: 'app', href: options.discoverHref },
+    { id: 'market', label: 'Market', kind: 'app', href: APP_MARKET_PATH },
+    { id: 'drops', label: 'Drops', kind: 'app', href: APP_DROPS_PATH },
   ];
-
-  if (accountId) {
-    // Vault sits after Market — own & use, separate from create/sell.
-    // Point at `/@you/collectibles` so Market → Collectibles skips the OS bounce.
-    const marketIdx = apps.findIndex((app) => app.id === 'market');
-    const insertAt = marketIdx >= 0 ? marketIdx + 1 : apps.length;
-    apps.splice(insertAt, 0, {
-      ...COLLECTIBLES_APP,
-      href: portfolioCollectiblesPath(accountId),
+  if (options.collectiblesHref) {
+    apps.push({
+      id: 'collectibles',
+      label: 'Collectibles',
+      kind: 'app',
+      href: options.collectiblesHref,
     });
-    apps.push({ id: 'page', label: 'Page', kind: 'open-page' });
   }
-
+  apps.push(
+    { id: 'groups', label: 'Guilds', kind: 'app', href: APP_GROUPS_PATH },
+    { id: 'hubs', label: 'Hubs', kind: 'app', href: APP_APPS_PATH },
+    { id: 'daos', label: 'DAOs', kind: 'app', href: APP_DAOS_PATH }
+  );
+  if (options.page) apps.push(PAGE_APP);
   return apps;
+}
+
+export function gateOsApps(): OsAppLink[] {
+  return launcherApps({
+    discoverHref: APP_DISCOVER_PATH,
+    collectiblesHref: APP_COLLECTIBLES_PATH,
+  });
+}
+
+export function ownerPortfolioOsApps(accountId: string): OsAppLink[] {
+  return launcherApps({
+    discoverHref: discoverPath(accountId),
+    collectiblesHref: portfolioCollectiblesPath(accountId),
+    page: true,
+  });
+}
+
+export function visitorPortfolioOsApps(accountId: string): OsAppLink[] {
+  return launcherApps({
+    discoverHref: discoverPath(accountId),
+  });
+}
+
+export function appShellOsApps(accountId: string | null): OsAppLink[] {
+  return launcherApps({
+    discoverHref: APP_DISCOVER_PATH,
+    collectiblesHref: accountId
+      ? portfolioCollectiblesPath(accountId)
+      : APP_COLLECTIBLES_PATH,
+    page: Boolean(accountId),
+  });
 }

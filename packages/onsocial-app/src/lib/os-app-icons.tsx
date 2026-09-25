@@ -1,8 +1,8 @@
 import type { ComponentType } from 'react';
 import {
   ChartFillIcon,
-  DotsCircleFillIcon,
   FireFillIcon,
+  GiftFillIcon,
   GlobeFillIcon,
   HomeFillIcon,
   MessageFillIcon,
@@ -11,6 +11,7 @@ import {
   SearchFillIcon,
   ShopFillIcon,
   StarMovingFillIcon,
+  StarsCFillIcon,
   UserCircleFillIcon,
   UsersFillIcon,
   type MageFillIconProps,
@@ -18,11 +19,12 @@ import {
 
 const OS_APP_ICON_BY_ID: Record<string, ComponentType<MageFillIconProps>> = {
   home: HomeFillIcon,
-  feed: DotsCircleFillIcon,
   activity: NotificationBellFillIcon,
   messages: MessageFillIcon,
   discover: SearchFillIcon,
   market: ShopFillIcon,
+  drops: StarsCFillIcon,
+  collectibles: GiftFillIcon,
   hubs: StarMovingFillIcon,
   /** @deprecated alias — prefer `hubs` */
   stores: StarMovingFillIcon,

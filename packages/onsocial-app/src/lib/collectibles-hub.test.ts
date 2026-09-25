@@ -82,33 +82,42 @@ describe('collectibles os apps', () => {
     );
   });
 
-  it('exposes Protocol as an in-app launcher destination', () => {
+  it('treats Protocol as part of DAOs in the launcher', () => {
     expect(isAppRoutePath('/protocol')).toBe(true);
-    expect(resolveActiveOsAppId('/protocol')).toBe('protocol');
-    expect(resolveActiveOsAppId('/protocol?dao=treasury')).toBe('protocol');
-    expect(resolveActiveOsAppId('/protocol?dao=community')).toBe('protocol');
-    expect(
-      resolveActiveOsAppId(
-        '/protocol?dao=community&account=example.sputnik-dao.near'
-      )
-    ).toBe('protocol');
-    expect(resolveActiveOsAppId(daoPath(GOVERNANCE_DAO_ACCOUNT))).toBe(
-      'protocol'
-    );
-    expect(resolveActiveOsAppId(daoPath(TREASURY_DAO_ACCOUNT))).toBe(
-      'protocol'
-    );
+    expect(resolveActiveOsAppId('/protocol')).toBe('daos');
+    expect(resolveActiveOsAppId('/protocol?dao=treasury')).toBe('daos');
+    expect(resolveActiveOsAppId(daoPath(GOVERNANCE_DAO_ACCOUNT))).toBe('daos');
+    expect(resolveActiveOsAppId(daoPath(TREASURY_DAO_ACCOUNT))).toBe('daos');
     expect(
       resolveActiveOsAppId(
         `/dao/${encodeURIComponent('example.sputnik-dao.near')}`
       )
     ).toBe('daos');
-    const protocol = gateOsApps().find((app) => app.id === 'protocol');
-    expect(protocol?.kind).toBe('app');
-    expect(protocol?.href).toBe(daoPath(GOVERNANCE_DAO_ACCOUNT));
-    expect(
-      appShellOsApps('alice.near').some((app) => app.id === 'protocol')
-    ).toBe(true);
+    const rails = [
+      gateOsApps(),
+      ownerPortfolioOsApps('alice.near'),
+      visitorPortfolioOsApps('alice.near'),
+      appShellOsApps('alice.near'),
+      appShellOsApps(null),
+    ];
+    for (const apps of rails) {
+      expect(apps.some((app) => app.id === 'protocol')).toBe(false);
+    }
+  });
+
+  it('keeps the signed-out gate to real apps', () => {
+    expect(gateOsApps().map((app) => app.id)).toEqual([
+      'home',
+      'activity',
+      'messages',
+      'discover',
+      'market',
+      'drops',
+      'collectibles',
+      'groups',
+      'hubs',
+      'daos',
+    ]);
   });
 
   it('exposes Collectibles for gate and owner, not visitors', () => {
@@ -155,13 +164,22 @@ describe('collectibles os apps', () => {
     }
   });
 
-  it('inserts Collectibles after Market when the wallet is connected', () => {
-    const disconnected = appShellOsApps(null).map((app) => app.id);
-    expect(disconnected).not.toContain('collectibles');
+  it('keeps Collectibles after Market and Page last once signed in', () => {
+    const disconnected = appShellOsApps(null);
+    const marketIdx = disconnected.findIndex((app) => app.id === 'market');
+    expect(disconnected[marketIdx + 1]?.id).toBe('drops');
+    expect(disconnected[marketIdx + 2]?.id).toBe('collectibles');
+    expect(disconnected[marketIdx + 2]?.href).toBe('/collectibles');
+    expect(disconnected.at(-1)?.id).toBe('daos');
 
     const connected = appShellOsApps('alice.near');
-    const marketIdx = connected.findIndex((app) => app.id === 'market');
-    expect(connected[marketIdx + 1]?.id).toBe('collectibles');
-    expect(connected[marketIdx + 1]?.href).toBe('/@alice.near/collectibles');
+    const connectedMarket = connected.findIndex((app) => app.id === 'market');
+    expect(connected[connectedMarket + 1]?.id).toBe('drops');
+    expect(connected[connectedMarket + 2]?.id).toBe('collectibles');
+    expect(connected[connectedMarket + 2]?.href).toBe(
+      '/@alice.near/collectibles'
+    );
+    expect(connected.at(-1)?.id).toBe('page');
+    expect(ownerPortfolioOsApps('alice.near').at(-1)?.id).toBe('page');
   });
 });
