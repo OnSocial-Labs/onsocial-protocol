@@ -117,7 +117,7 @@ export const DROP_TEMPLATES: DropTemplate[] = [
   },
   {
     id: 'membership',
-    label: 'Membership',
+    label: 'Memberships',
     helpTitle: 'Membership drop',
     tagline: 'Renewable passes that stay with the member.',
     hint:

@@ -68,6 +68,7 @@ describe('drop-facets', () => {
     expect(dropFacetLabel('generative')).toBe('Generative');
     expect(dropFacetFieldLabel('art')).toBe('Style');
     expect(dropFacetFieldLabel('ticket')).toBe('Occasion');
+    expect(dropFacetFieldLabel('membership')).toBe('Tier');
     expect(dropFacetFieldLabel('custom')).toBe('Theme');
   });
 

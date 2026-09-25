@@ -630,7 +630,7 @@ describe('dropCreateFacetsAction', () => {
     expect(dropCreateFacetsAction('Subject')).toBe('Add a subject');
     expect(dropCreateFacetsAction('Occasion')).toBe('Add an occasion');
     expect(dropCreateFacetsAction('Offer')).toBe('Add an offer');
-    expect(dropCreateFacetsAction('Access')).toBe('Add access');
+    expect(dropCreateFacetsAction('Tier')).toBe('Add a tier');
     expect(dropCreateFacetsAction('Theme')).toBe('Add a theme');
   });
 });
