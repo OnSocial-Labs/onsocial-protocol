@@ -130,6 +130,19 @@ describe('toPortfolioHoldingPeek', () => {
     expect(peek.editionSeat).toBe(3);
   });
 
+  it('keeps the mint time for the vault subtitle', () => {
+    const peek = toPortfolioHoldingPeek({
+      tokenId: 'album:3',
+      title: 'Night Drive',
+      ownerId: 'bob.near',
+      collectionId: 'album',
+      mediumKind: 'audio',
+      listingKind: null,
+      mintedAtMs: 1_700_000_000_000,
+    });
+    expect(peek.mintedAtMs).toBe(1_700_000_000_000);
+  });
+
   it('surfaces listed resale state in the peek', () => {
     const peek = toPortfolioHoldingPeek({
       tokenId: 'album:1',

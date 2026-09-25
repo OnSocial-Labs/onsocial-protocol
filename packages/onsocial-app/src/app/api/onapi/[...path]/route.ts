@@ -94,6 +94,7 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
     path: 'compose/prepare/delist-native-scarce',
     body: 'json',
   },
+  { method: 'POST', path: 'compose/prepare/update-sale-price', body: 'json' },
 
   // Scarces — auctions (Market Sell / Bid / cancel / settle).
   { method: 'POST', path: 'compose/prepare/list-auction', body: 'json' },
@@ -154,6 +155,10 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
     path: 'compose/prepare/withdraw-unclaimed-refunds',
     body: 'json',
   },
+  // Scarces — send or burn a scarce.
+  { method: 'POST', path: 'compose/prepare/transfer', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/batch-transfer', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/burn', body: 'json' },
 
   // Hubs (apps) — register / config / creators / ownership.
   { method: 'POST', path: 'compose/prepare/register-app', body: 'json' },

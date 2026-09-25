@@ -53,6 +53,8 @@ interface CollectiblesHoldingRowMenuProps {
   onDelisted?: () => void;
   /** Text Manage control. Vault rows keep the dots trigger. */
   trigger?: 'icon' | 'label';
+  /** Hide when this menu is already open on Market. */
+  showOpenInMarket?: boolean;
 }
 
 /** Owner-only overflow — list, delist, open Market Yours. */
@@ -62,6 +64,7 @@ export function CollectiblesHoldingRowMenu({
   onTransfer,
   onDelisted,
   trigger = 'icon',
+  showOpenInMarket = true,
 }: CollectiblesHoldingRowMenuProps) {
   const { getSigningWallet } = useAppWallet();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
@@ -340,15 +343,19 @@ export function CollectiblesHoldingRowMenu({
       });
     }
 
-    list.push({
-      id: 'market',
-      section: 'Manage',
-      label: 'Open in Market',
-      description: 'Yours — sell, delist, offers',
-      leading: <ArrowUpRightIcon className="os-action-drawer-icon" aria-hidden />,
-      href: APP_MARKET_PATH,
-      onSelect: close,
-    });
+    if (showOpenInMarket) {
+      list.push({
+        id: 'market',
+        section: 'Manage',
+        label: 'Open in Market',
+        description: 'Yours — sell, delist, offers',
+        leading: (
+          <ArrowUpRightIcon className="os-action-drawer-icon" aria-hidden />
+        ),
+        href: APP_MARKET_PATH,
+        onSelect: close,
+      });
+    }
 
     return list;
   }, [
@@ -363,6 +370,7 @@ export function CollectiblesHoldingRowMenu({
     onList,
     onTransfer,
     pending,
+    showOpenInMarket,
   ]);
 
   return (
@@ -381,7 +389,7 @@ export function CollectiblesHoldingRowMenu({
         >
           <OsSheetAction
             type="button"
-            variant="ghost"
+            variant="primary"
             ready
             aria-haspopup="dialog"
             aria-expanded={open}
