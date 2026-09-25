@@ -346,7 +346,9 @@
   --os-launcher-frost: var(--glass-surface, rgb(var(--bg-rgb) / 0.32));
   background: var(--os-launcher-frost);
   box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.1);
-  transition: background 160ms ease;
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
 }
 
 .os-launcher-item-icon {
@@ -420,15 +422,6 @@
 }
 
 .os-launcher-item:not(.is-soon):not(.is-current):is(:hover, :focus-visible)
-  .os-launcher-item-icon-shell[data-accent] {
-  background: color-mix(
-    in srgb,
-    var(--os-launcher-hue) 8%,
-    var(--os-launcher-frost)
-  );
-}
-
-.os-launcher-item:not(.is-soon):not(.is-current):is(:hover, :focus-visible)
   .os-launcher-item-icon-shell[data-accent]::after {
   box-shadow: inset 0 1px 0
     color-mix(in srgb, var(--os-launcher-hue) 55%, transparent);
@@ -448,15 +441,7 @@
   color: rgb(var(--fg-rgb) / 0.84);
 }
 
-/* Current app — ink glyph and a top lip, same shape as the rest. */
-.os-launcher-item.is-current .os-launcher-item-icon-shell[data-accent] {
-  background: color-mix(
-    in srgb,
-    var(--os-launcher-hue) 14%,
-    var(--os-launcher-frost)
-  );
-}
-
+/* Current app — same frost, stronger ink, color only in the top lip. */
 .os-launcher-item.is-current .os-launcher-item-icon-shell[data-accent]::after {
   box-shadow: inset 0 1px 0
     color-mix(in srgb, var(--os-launcher-hue) 88%, white 12%);
@@ -472,11 +457,7 @@
 }
 
 .os-launcher-item:not(.is-soon):active .os-launcher-item-icon-shell {
-  background: color-mix(
-    in srgb,
-    rgb(var(--fg-rgb)) 8%,
-    var(--os-launcher-frost)
-  );
+  transform: scale(0.96);
 }
 
 .os-launcher-item.is-soon {
@@ -601,9 +582,27 @@
   }
 }
 
+@keyframes os-launcher-tiles-in {
+  from {
+    transform: translateY(6px);
+    opacity: 0.72;
+  }
+
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.os-launcher-sheet.is-enter .os-launcher-item {
+  animation: os-launcher-tiles-in 280ms
+    var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1)) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .os-launcher-sheet,
-  .os-launcher-backdrop {
+  .os-launcher-backdrop,
+  .os-launcher-sheet.is-enter .os-launcher-item {
     animation: none;
   }
 
