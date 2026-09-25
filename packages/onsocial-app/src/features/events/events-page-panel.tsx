@@ -37,7 +37,10 @@ import {
   eventWindowLabel,
   groupEvents,
 } from '@/features/events/events-catalog';
-import { TICKET_EVENT_SUGGESTIONS } from '@/features/scarces/drop-facets';
+import {
+  dropFacetFieldLabel,
+  TICKET_EVENT_SUGGESTIONS,
+} from '@/features/scarces/drop-facets';
 import {
   APP_EVENTS_NEW_PATH,
   APP_HOME_PATH,
@@ -358,9 +361,9 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
           </div>
         }
       >
-        <p className="market-section-title">Style</p>
+        <p className="market-section-title">{dropFacetFieldLabel('ticket')}</p>
         <OsChipRail
-          ariaLabel="Event style"
+          ariaLabel={dropFacetFieldLabel('ticket')}
           value={styleId ?? 'all'}
           onValueChange={(next) => setStyleId(next === 'all' ? null : next)}
           items={[
