@@ -120,18 +120,17 @@ describe('collectibles os apps', () => {
     ]);
   });
 
-  it('exposes Collectibles for gate and owner, not visitors', () => {
+  it('keeps Collectibles in the same slot on every rail', () => {
     expect(gateOsApps().some((app) => app.id === 'collectibles')).toBe(true);
     const owner = ownerPortfolioOsApps('alice.near');
-    expect(owner.some((app) => app.id === 'collectibles')).toBe(true);
     expect(owner.find((app) => app.id === 'collectibles')?.href).toBe(
       '/@alice.near/collectibles'
     );
-    expect(
-      visitorPortfolioOsApps('alice.near').some(
-        (app) => app.id === 'collectibles'
-      )
-    ).toBe(false);
+    const visitor = visitorPortfolioOsApps('bob.near');
+    const dropsIdx = visitor.findIndex((app) => app.id === 'drops');
+    expect(visitor[dropsIdx + 1]?.id).toBe('collectibles');
+    expect(visitor[dropsIdx + 1]?.href).toBe('/@bob.near/collectibles');
+    expect(visitor[dropsIdx + 2]?.id).toBe('groups');
   });
 
   it('opens Discover nested under the portfolio so leave returns there', () => {
