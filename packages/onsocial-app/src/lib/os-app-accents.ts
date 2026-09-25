@@ -8,6 +8,7 @@ const OS_APP_ACCENT_BY_ID: Record<string, OsLauncherIconAccent> = {
   discover: 'blue',
   market: 'amber',
   drops: 'purple',
+  events: 'gold',
   collectibles: 'green',
   hubs: 'purple',
   /** @deprecated alias — prefer `hubs` */

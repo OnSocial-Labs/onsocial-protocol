@@ -1,6 +1,8 @@
 import type { DropDiscoveryItem } from '@/features/drops/drops-data';
+import { TICKET_EVENT_SUGGESTIONS } from '@/features/scarces/drop-facets';
 import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
 import { ticketEventPlaceLabel } from '@/features/scarces/ticket-event-meta';
+import { accountIdsEqual } from '@/lib/account-match';
 
 export type EventWindow = 'now' | 'upcoming' | 'past';
 
@@ -94,4 +96,66 @@ export function eventRowPrice(item: DropDiscoveryItem): string {
   const price = item.priceNear?.trim();
   if (!price || price === '0') return 'Free';
   return `${price} NEAR`;
+}
+
+export function eventStyleLabel(id: string): string {
+  return (
+    TICKET_EVENT_SUGGESTIONS.find((entry) => entry.id === id)?.label ?? id
+  );
+}
+
+export function eventMatchesQuery(
+  item: DropDiscoveryItem,
+  needle: string
+): boolean {
+  const q = needle.trim().toLowerCase();
+  if (!q) return true;
+  const place = eventRowPlace(item)?.toLowerCase() ?? '';
+  const styles = (item.view?.facets ?? [])
+    .map((id) => `${id} ${eventStyleLabel(id)}`.toLowerCase())
+    .join(' ');
+  return (
+    item.title.toLowerCase().includes(q) ||
+    place.includes(q) ||
+    styles.includes(q)
+  );
+}
+
+export function eventMatchesStyle(
+  item: DropDiscoveryItem,
+  styleId: string | null
+): boolean {
+  if (!styleId) return true;
+  return (item.view?.facets ?? []).includes(styleId);
+}
+
+export function eventMatchesPlace(
+  item: DropDiscoveryItem,
+  place: string | null
+): boolean {
+  if (!place) return true;
+  return item.view?.place === place;
+}
+
+export function eventMatchesHost(
+  item: DropDiscoveryItem,
+  hostId: string | null
+): boolean {
+  if (!hostId) return true;
+  return accountIdsEqual(item.creatorId, hostId);
+}
+
+export function eventPlaceChoices(
+  items: DropDiscoveryItem[]
+): Array<{ id: string; label: string }> {
+  const seen = new Set<string>();
+  const out: Array<{ id: string; label: string }> = [];
+  for (const item of items) {
+    const id = item.view?.place?.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, label: eventRowPlace(item) ?? id });
+  }
+  out.sort((a, b) => a.label.localeCompare(b.label));
+  return out;
 }

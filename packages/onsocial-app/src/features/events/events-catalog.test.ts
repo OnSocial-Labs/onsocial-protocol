@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DropDiscoveryItem } from '@/features/drops/drops-data';
 import {
+  eventMatchesQuery,
   eventRowPrice,
   eventWindowFor,
   groupEvents,
@@ -73,5 +74,19 @@ describe('event windows', () => {
 
   it('treats a blank price as free', () => {
     expect(eventRowPrice(item('free', {}))).toBe('Free');
+  });
+
+  it('matches a place or a style in one search', () => {
+    const show = item('night', {});
+    show.title = 'Neartopia Night';
+    show.view = {
+      ...show.view!,
+      place: 'lisbon',
+      facets: ['music'],
+    } as DropDiscoveryItem['view'];
+    expect(eventMatchesQuery(show, 'lisbon')).toBe(true);
+    expect(eventMatchesQuery(show, 'music')).toBe(true);
+    expect(eventMatchesQuery(show, 'neartopia')).toBe(true);
+    expect(eventMatchesQuery(show, 'sports')).toBe(false);
   });
 });

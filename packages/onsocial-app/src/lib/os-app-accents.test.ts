@@ -9,6 +9,7 @@ describe('osAppAccent', () => {
     expect(osAppAccent('discover')).toBe('blue');
     expect(osAppAccent('market')).toBe('amber');
     expect(osAppAccent('drops')).toBe('purple');
+    expect(osAppAccent('events')).toBe('gold');
     expect(osAppAccent('collectibles')).toBe('green');
     expect(osAppAccent('hubs')).toBe('purple');
     expect(osAppAccent('groups')).toBe('purple');

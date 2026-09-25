@@ -185,6 +185,7 @@ function launcherApps(options: {
     { id: 'discover', label: 'Discover', kind: 'app', href: options.discoverHref },
     { id: 'market', label: 'Market', kind: 'app', href: APP_MARKET_PATH },
     { id: 'drops', label: 'Drops', kind: 'app', href: APP_DROPS_PATH },
+    { id: 'events', label: 'Events', kind: 'app', href: APP_EVENTS_PATH },
   ];
   if (options.collectiblesHref) {
     apps.push({

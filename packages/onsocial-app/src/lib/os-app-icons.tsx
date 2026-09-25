@@ -1,5 +1,7 @@
 import type { ComponentType } from 'react';
 import {
+  CalendarFillIcon,
+  CalendarIcon,
   DashboardFillIcon,
   DashboardIcon,
   FireFillIcon,
@@ -37,6 +39,7 @@ const OS_APP_ICON_BY_ID: Record<string, ComponentType<MageFillIconProps>> = {
   discover: SearchFillIcon,
   market: ShopFillIcon,
   drops: StarsCFillIcon,
+  events: CalendarFillIcon,
   collectibles: GiftFillIcon,
   hubs: StarMovingFillIcon,
   /** @deprecated alias — prefer `hubs` */
@@ -57,6 +60,7 @@ const OS_APP_STROKE_ICON_BY_ID: Record<string, ComponentType<MageFillIconProps>>
   discover: SearchIcon,
   market: ShopIcon,
   drops: StarsCIcon,
+  events: CalendarIcon,
   collectibles: GiftIcon,
   hubs: StarMovingIcon,
   stores: StarMovingIcon,
