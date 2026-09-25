@@ -677,7 +677,7 @@ test.describe('create drop', () => {
       page.getByRole('button', { name: 'Allowlist: Connect' })
     ).toBeVisible();
 
-    await clickKindTab(page, 'Membership');
+    await clickKindTab(page, 'Memberships');
     await expect(
       page.getByRole('button', { name: 'Transferable: No' })
     ).toBeVisible();
@@ -685,6 +685,9 @@ test.describe('create drop', () => {
       0
     );
     await page.getByRole('button', { name: 'More', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Tier: None' })
+    ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Renewable: Yes' })
     ).toBeVisible();

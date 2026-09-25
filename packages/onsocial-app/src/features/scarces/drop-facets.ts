@@ -221,7 +221,7 @@ export function dropFacetFieldLabel(
     case 'coupon':
       return 'Offer';
     case 'membership':
-      return 'Access';
+      return 'Tier';
     case 'custom':
       return 'Theme';
     default:

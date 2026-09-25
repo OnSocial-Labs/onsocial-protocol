@@ -36,6 +36,16 @@ describe('DROP_TEMPLATES', () => {
     }
   });
 
+  it('uses the same shelf name as Market', () => {
+    for (const template of DROP_TEMPLATES) {
+      if (template.kind == null) continue;
+      const market = MARKET_MEDIUM_FILTERS.find(
+        (entry) => entry.id === template.kind
+      );
+      expect(template.label).toBe(market?.label);
+    }
+  });
+
   it('templates that require an access end preset renewable on', () => {
     // The access-end field only submits when renewable is enabled, so a
     // template demanding an expiry must switch renewals on for the creator.

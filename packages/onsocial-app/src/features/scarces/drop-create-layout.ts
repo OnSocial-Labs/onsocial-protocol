@@ -629,7 +629,6 @@ export function dropCreateFacetsOpen(
 export function dropCreateFacetsAction(fieldLabel: string): string {
   const word = fieldLabel.trim().toLowerCase();
   if (!word) return 'Add a category';
-  if (word === 'access') return 'Add access';
   if (word === 'occasion' || word === 'offer') return `Add an ${word}`;
   return `Add a ${word}`;
 }
