@@ -91,7 +91,9 @@ export function PortfolioShell({
           ) : null}
         </div>
 
-        {hero && songId ? <PortfolioHeroPlay collectionId={songId} /> : null}
+        {hero && songId ? (
+          <PortfolioHeroPlay key={songId} collectionId={songId} />
+        ) : null}
 
         <div className="portfolio-hero portfolio-hero--strip-overlap">
           {children}

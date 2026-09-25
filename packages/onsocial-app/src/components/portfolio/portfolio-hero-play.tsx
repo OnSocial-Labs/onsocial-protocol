@@ -16,7 +16,6 @@ export function PortfolioHeroPlay({ collectionId }: { collectionId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    setView(null);
     void fetchCollectionPreferIndexer(collectionId).then((next) => {
       if (!cancelled) setView(next);
     });

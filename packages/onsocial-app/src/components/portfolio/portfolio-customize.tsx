@@ -468,6 +468,7 @@ export function PortfolioCustomize({
 
         {canCustomizeFace ? (
           <PortfolioCustomizeSong
+            key={pageAccountId}
             accountId={pageAccountId}
             songId={readPinnedSongId(config)}
             disabled={controlsDisabled}
