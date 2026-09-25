@@ -5,6 +5,9 @@ import {
   parseTicketEventFromExtra,
 } from './ticket-event-meta';
 import {
+  eventListWhenLabel,
+  eventScheduleHint,
+  eventScheduleLine,
   postponeNotice,
   ticketEventScheduleFacts,
 } from './ticket-event-facts';
@@ -69,8 +72,52 @@ describe('ticket event metadata', () => {
       Date.now()
     );
     expect(facts.place).toBeTruthy();
+    expect(facts.starts).toBeNull();
     expect(facts.ends).toMatch(/\d:\d{2}/);
+    expect(facts.when).toMatch(/Until .+\d:\d{2}/);
     expect(facts.empty).toBe(false);
+  });
+
+  it('puts the clock on the same day and both dates when the show runs over', () => {
+    const start = new Date(2026, 9, 2, 20, 0).getTime();
+    const sameNight = new Date(2026, 9, 2, 23, 0).getTime();
+    const nextMorning = new Date(2026, 9, 3, 1, 0).getTime();
+    const same = eventScheduleLine(start, sameNight);
+    const over = eventScheduleLine(start, nextMorning);
+    expect(same).toContain('Fri, Oct 2');
+    expect(same).toContain('8:00');
+    expect(same).toContain('11:00');
+    expect(same).toContain('–');
+    expect(over).toContain('8:00');
+    expect(over).toContain('1:00');
+    expect(over).toContain('–');
+    expect(over).not.toContain('·');
+  });
+
+  it('keeps a relative hint for a show that is soon or on now', () => {
+    const now = 1_700_000_000_000;
+    expect(eventScheduleHint(now + 3 * 60 * 60 * 1000, now + 6 * 60 * 60 * 1000, now)).toMatch(
+      /^Starts in /
+    );
+    expect(eventScheduleHint(now + 10 * 24 * 60 * 60 * 1000, now + 11 * 24 * 60 * 60 * 1000, now)).toBeNull();
+    expect(eventScheduleHint(now - 60 * 60 * 1000, now + 2 * 60 * 60 * 1000, now)).toBe('On now');
+  });
+
+  it('uses a day on the list and a relative line only when the show is soon', () => {
+    const now = 1_700_000_000_000;
+    expect(eventListWhenLabel(now + 3 * 60 * 60 * 1000, now + 6 * 60 * 60 * 1000, now)).toMatch(
+      /^Starts in /
+    );
+    expect(eventListWhenLabel(now - 60 * 60 * 1000, now + 2 * 60 * 60 * 1000, now)).toBe('On now');
+    const later = eventListWhenLabel(
+      now + 10 * 24 * 60 * 60 * 1000,
+      now + 11 * 24 * 60 * 60 * 1000,
+      now
+    );
+    expect(later).not.toMatch(/Ends in|Starts in|:/);
+    expect(eventListWhenLabel(now - 10 * 24 * 60 * 60 * 1000, now - 9 * 24 * 60 * 60 * 1000, now)).not.toMatch(
+      /:/
+    );
   });
 });
 

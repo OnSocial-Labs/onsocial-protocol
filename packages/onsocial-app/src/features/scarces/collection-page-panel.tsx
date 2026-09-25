@@ -1351,10 +1351,19 @@ export function CollectionPagePanel({
                 )}
               </div>
             ) : null}
-            {view.kind === 'ticket' && !aboutEvent.empty ? (
-              <p className="collection-product-line">
-                {[aboutEvent.next, aboutEvent.place].filter(Boolean).join(' · ')}
-              </p>
+            {view.kind === 'ticket' &&
+            (aboutEvent.when || aboutEvent.place || aboutEvent.next) ? (
+              <div className="collection-event-lines">
+                {aboutEvent.when ? (
+                  <p className="collection-product-line">{aboutEvent.when}</p>
+                ) : null}
+                {aboutEvent.place ? (
+                  <p className="collection-product-line">{aboutEvent.place}</p>
+                ) : null}
+                {aboutEvent.next ? (
+                  <p className="collection-product-line">{aboutEvent.next}</p>
+                ) : null}
+              </div>
             ) : null}
             <div className="collection-product-row">
               {showCommerceMeter ? (

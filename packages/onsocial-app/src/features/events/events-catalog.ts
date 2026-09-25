@@ -1,6 +1,6 @@
 import type { DropDiscoveryItem } from '@/features/drops/drops-data';
 import { TICKET_EVENT_SUGGESTIONS } from '@/features/scarces/drop-facets';
-import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
+import { eventListWhenLabel } from '@/features/scarces/ticket-event-facts';
 import { ticketEventPlaceLabel } from '@/features/scarces/ticket-event-meta';
 import { accountIdsEqual } from '@/lib/account-match';
 
@@ -77,15 +77,11 @@ export function groupEvents(
 }
 
 export function eventRowWhen(item: DropDiscoveryItem, nowMs: number): string {
-  const facts = ticketEventScheduleFacts(
-    {
-      eventStartsAtMs: item.view?.eventStartsAtMs ?? null,
-      eventEndsAtMs: item.view?.eventEndsAtMs ?? null,
-      place: item.view?.place ?? null,
-    },
+  return eventListWhenLabel(
+    item.view?.eventStartsAtMs ?? null,
+    item.view?.eventEndsAtMs ?? null,
     nowMs
   );
-  return facts.next ?? facts.starts ?? 'Time to be set';
 }
 
 export function eventRowPlace(item: DropDiscoveryItem): string | null {
