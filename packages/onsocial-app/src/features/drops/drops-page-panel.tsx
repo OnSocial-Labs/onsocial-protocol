@@ -51,6 +51,7 @@ import {
 } from '@/features/scarces/scarce-feed-medium-sheet';
 import {
   APP_DROP_CREATE_PATH,
+  APP_EVENTS_PATH,
   APP_MARKET_PATH,
   collectionPath,
   dropsPath,
@@ -641,16 +642,26 @@ export function DropsPagePanel({
     [connect, isConnected, pageQuery, replacePageQuery]
   );
 
+  useEffect(() => {
+    if (pageQuery.kind === 'ticket') {
+      router.replace(APP_EVENTS_PATH);
+    }
+  }, [pageQuery.kind, router]);
+
   const selectMedium = useCallback(
     (next: MarketMediumFilter) => {
       const kind = parseDropsMediumParam(next);
+      if (kind === 'ticket') {
+        router.push(APP_EVENTS_PATH);
+        return;
+      }
       replacePageQuery({
         ...pageQuery,
         kind,
         audioFormat: kind === 'audio' ? pageQuery.audioFormat : null,
       });
     },
-    [pageQuery, replacePageQuery]
+    [pageQuery, replacePageQuery, router]
   );
 
   const selectAudioFormat = useCallback(

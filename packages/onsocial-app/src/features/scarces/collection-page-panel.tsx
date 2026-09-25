@@ -1351,6 +1351,11 @@ export function CollectionPagePanel({
                 )}
               </div>
             ) : null}
+            {view.kind === 'ticket' && !aboutEvent.empty ? (
+              <p className="collection-product-line">
+                {[aboutEvent.next, aboutEvent.place].filter(Boolean).join(' · ')}
+              </p>
+            ) : null}
             <div className="collection-product-row">
               {showCommerceMeter ? (
                 <div className="collection-product-line">
@@ -1375,6 +1380,13 @@ export function CollectionPagePanel({
                       <span className="collection-product-price">
                         {view.priceNear} NEAR
                       </span>
+                    </>
+                  ) : view.kind === 'ticket' ? (
+                    <>
+                      <span className="collection-meta-sep" aria-hidden>
+                        ·
+                      </span>
+                      <span className="collection-product-price">Free</span>
                     </>
                   ) : null}
                   {personalAllowlistLeft != null ? (

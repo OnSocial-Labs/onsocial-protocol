@@ -9,6 +9,7 @@ import {
   APP_DAOS_PATH,
   APP_DISCOVER_PATH,
   APP_DROPS_PATH,
+  APP_EVENTS_PATH,
   APP_GROUPS_PATH,
   APP_HOME_PATH,
   APP_MARKET_CREATE_PATH,
@@ -78,6 +79,9 @@ export function resolveActiveOsAppId(
     return 'market';
   }
   if (path === APP_DROPS_PATH || path.startsWith(`${APP_DROPS_PATH}/`)) {
+    return 'drops';
+  }
+  if (path === APP_EVENTS_PATH || path.startsWith(`${APP_EVENTS_PATH}/`)) {
     return 'drops';
   }
   if (

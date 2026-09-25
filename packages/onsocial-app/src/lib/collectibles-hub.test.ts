@@ -52,6 +52,7 @@ describe('collectibles routes', () => {
 describe('collectibles os apps', () => {
   it('marks New drop as Drops, not Market', () => {
     expect(resolveActiveOsAppId('/drops')).toBe('drops');
+    expect(resolveActiveOsAppId('/events')).toBe('drops');
     expect(resolveActiveOsAppId('/drops/create')).toBe('drops');
     expect(resolveActiveOsAppId('/market/create')).toBe('drops');
     expect(resolveActiveOsAppId('/market')).toBe('market');
