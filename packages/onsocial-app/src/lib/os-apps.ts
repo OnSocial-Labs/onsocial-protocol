@@ -217,6 +217,7 @@ export function ownerPortfolioOsApps(accountId: string): OsAppLink[] {
 export function visitorPortfolioOsApps(accountId: string): OsAppLink[] {
   return launcherApps({
     discoverHref: discoverPath(accountId),
+    collectiblesHref: portfolioCollectiblesPath(accountId),
   });
 }
 
