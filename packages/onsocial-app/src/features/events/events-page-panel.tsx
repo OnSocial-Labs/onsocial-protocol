@@ -88,7 +88,7 @@ function EventRow({
 }
 
 export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
-  const { accountId, isConnected, connect } = useAppWallet();
+  const { accountId, isConnected } = useAppWallet();
   const [items, setItems] = useState<DropDiscoveryItem[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -234,13 +234,7 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
           <OsChipRail
             ariaLabel="Event list"
             value={scope}
-            onValueChange={(next) => {
-              if (next === 'mine' && !isConnected) {
-                void connect();
-                return;
-              }
-              setScope(next);
-            }}
+            onValueChange={setScope}
             items={[
               { id: 'all', label: 'All' },
               { id: 'mine', label: 'My events' },
@@ -284,6 +278,8 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
             <MarketListSkeleton rows={6} variant="drops" />
           ) : needsConnect ? (
             <p className="market-section-title">Connect to see your events.</p>
+          ) : empty && narrowed ? (
+            <p className="market-section-title">No events match.</p>
           ) : empty ? (
             <p className="market-section-title">
               No events yet.{' '}
