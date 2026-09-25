@@ -65,14 +65,30 @@ export function resolvePageFace(input: {
   };
 }
 
+const PINNED_SONG_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+
+/** Collection id pinned on the portfolio hero, or null. */
+export function readPinnedSongId(config: PublicPageConfig): string | null {
+  return normalizePinnedSongId(config.face?.songId);
+}
+
+export function normalizePinnedSongId(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const id = raw.trim();
+  if (!PINNED_SONG_ID.test(id)) return null;
+  return id;
+}
+
 /** Strip legacy `face.heroMedia` URLs from page config when persisting layout. */
 export function sanitizePageFace(face: PublicPageConfig['face'] | undefined) {
   if (!face) {
     return face;
   }
 
-  const { heroMedia: _legacy, ...rest } = face as PublicPageConfig['face'] & {
-    heroMedia?: unknown;
-  };
-  return rest;
+  const { heroMedia: _legacy, songId: rawSongId, ...rest } =
+    face as PublicPageConfig['face'] & {
+      heroMedia?: unknown;
+    };
+  const songId = normalizePinnedSongId(rawSongId);
+  return songId ? { ...rest, songId } : rest;
 }
