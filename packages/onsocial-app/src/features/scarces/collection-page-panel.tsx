@@ -83,7 +83,6 @@ import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import {
   collectionStatusLabel,
-  ticketSaleStatusLabel,
   deriveCollectionStatus,
   fetchAllowlistRemaining,
   fetchCollectionPreferIndexer,
@@ -1067,9 +1066,7 @@ export function CollectionPagePanel({
       actions={
         <>
           <span className={`collection-header-status ${statusTone(status)}`}>
-            {view.kind === 'ticket'
-              ? ticketSaleStatusLabel(status)
-              : collectionStatusLabel(status)}
+            {collectionStatusLabel(status)}
           </span>
           <OsIconAction asChild ariaLabel="Shop this creator">
             <Link href={marketCreatorPath(view.creatorId)} scroll={false}>
@@ -1378,10 +1375,7 @@ export function CollectionPagePanel({
                   <span
                     className={`collection-product-status ${statusTone(status)}`}
                   >
-                    {schedule ??
-                      (view.kind === 'ticket'
-                        ? ticketSaleStatusLabel(status)
-                        : collectionStatusLabel(status))}
+                    {schedule ?? collectionStatusLabel(status)}
                   </span>
                   <span className="collection-meta-sep" aria-hidden>
                     ·

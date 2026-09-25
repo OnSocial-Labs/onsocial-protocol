@@ -765,24 +765,6 @@ export function collectionStatusLabel(status: CollectionStatus): string {
   }
 }
 
-/** Sale word for a ticket. The show uses its own clock, so the header does not say Live. */
-export function ticketSaleStatusLabel(status: CollectionStatus): string {
-  switch (status) {
-    case 'upcoming':
-      return 'Opens soon';
-    case 'live':
-      return 'On sale';
-    case 'sold_out':
-      return 'Sold out';
-    case 'ended':
-      return 'Sale ended';
-    case 'paused':
-      return 'Paused';
-    case 'cancelled':
-      return 'Cancelled';
-  }
-}
-
 /** True when anyone can mint / purchase from the drop right now. */
 export function isCollectionMintable(status: CollectionStatus): boolean {
   return status === 'live';
