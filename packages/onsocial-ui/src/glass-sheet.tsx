@@ -242,6 +242,21 @@ export function glassSheetBackdropFilterStyle(
   };
 }
 
+/**
+ * A listen / read / photo face sits at z 80. Sheets opened from the dock
+ * (wallet, mint, composer, facts) use lower bands, so they render under it.
+ * Lift every glass sheet by that same amount while a face is open. Relative
+ * order stays: wallet under storage, both above the player.
+ */
+function zIndexAboveMediaFace(zIndex: number): number {
+  if (typeof document === 'undefined') return zIndex;
+  const faceOpen = document.querySelector(
+    '[data-os-slide-over="true"]:not(.is-closing)'
+  );
+  if (!faceOpen) return zIndex;
+  return zIndex + 80;
+}
+
 /** Highest visible glass sheet — nested Escape should not dismiss the parent. */
 export function isTopmostVisibleGlassSheet(root: HTMLElement): boolean {
   const roots = Array.from(
@@ -972,7 +987,7 @@ export function GlassSheet({
       data-surface={surface}
       data-presentation={presentation}
       data-keep-dock={keepDock ? 'true' : undefined}
-      style={{ zIndex }}
+      style={{ zIndex: zIndexAboveMediaFace(zIndex) }}
       role="presentation"
     >
       {opaquePage ? null : (

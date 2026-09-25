@@ -790,6 +790,39 @@
 }
 
 /*
+ * Show pass and the listen player use the shared screen header. An immersive
+ * drop ancestor would otherwise hide the title via --title-handoff.
+ */
+body:has([data-os-slide-over='true']:not(.is-closing)) .os-launcher-root {
+  z-index: 131;
+}
+
+.ticket-pass-slide .os-app-screen-heading,
+.scarce-listen-slide .os-app-screen-heading {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.scarce-listen-slide .os-app-screen-title {
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  filter: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.scarce-listen-slide .scarce-clip-listen-art {
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+/*
  * Immersive guild chrome — unlayered so white icons beat glass-sheet.css
  * (imported outside @layer). Light-mode --fg is dark; without this, back /
  * manage / settings vanish on dark banners.
@@ -23711,8 +23744,7 @@ a.os-surface-row {
     width: 100%;
   }
 
-  .scarce-clip-listen:has(.scarce-clip-listen-footer),
-  .scarce-read-slide.scarce-listen-slide .scarce-clip-listen {
+  .scarce-clip-listen:has(.scarce-clip-listen-footer) {
     overflow-y: auto;
     overscroll-behavior: contain;
   }
@@ -25599,7 +25631,7 @@ a.os-surface-row {
     }
 
     .scarce-clip-listen-actions {
-      margin-top: 0;
+      margin-top: 0.85rem;
     }
   }
 
@@ -25648,6 +25680,7 @@ a.os-surface-row {
 
   .scarce-clip-listen-album {
     margin: 0;
+    text-align: center;
     font-size: 0.82rem;
     font-weight: 500;
     color: var(--os-surface-muted);
@@ -25661,7 +25694,7 @@ a.os-surface-row {
     gap: 0.15rem 0.35rem;
     width: min(100%, 26rem);
     margin-inline: auto;
-    margin-top: -0.2rem;
+    margin-top: 1.35rem;
   }
 
   .scarce-clip-listen-love {
@@ -29013,69 +29046,28 @@ a.os-surface-row {
     flex-direction: column;
     align-items: center;
     width: min(100%, 20rem);
-    max-height: 100%;
+    max-height: none;
     min-height: 0;
     margin: 0;
     padding: 0.35rem 0.15rem 0.55rem;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: visible;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
   }
 
-  .ticket-show-pass-header {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--pass-gap-header, 0.35rem);
-    width: 100%;
+  .ticket-show-pass-body > .ticket-show-pass-status {
+    text-align: center;
+    margin: 0.35rem 0 0;
   }
 
   .ticket-show-pass-mark-btn {
-    position: relative;
-    border: 0;
+    margin: 0;
     padding: 0;
-    margin: 0 0 0.2rem;
+    border: 0;
     background: transparent;
     cursor: pointer;
-    border-radius: 0.85rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    touch-action: manipulation;
-    transition: transform 120ms cubic-bezier(0.2, 0, 0, 1);
-  }
-
-  .ticket-show-pass-mark-btn--jacket {
-    margin: 0;
-    flex-shrink: 0;
-    border-radius: 0.55rem;
-  }
-
-  .ticket-show-pass-mark-btn--jacket .ticket-show-pass-mark {
-    width: 2.35rem;
-    height: 2.35rem;
-    border-radius: 0.55rem;
-    box-shadow: none;
-  }
-
-  .ticket-show-pass-mark-btn--jacket .ticket-show-pass-mark-expand {
-    width: 1rem;
-    height: 1rem;
-  }
-
-  .ticket-show-pass-mark-btn--jacket .ticket-show-pass-mark-expand-icon {
-    width: 0.65rem;
-    height: 0.65rem;
-  }
-
-  .ticket-show-pass-body > .ticket-show-pass-status {
-    text-align: center;
-    margin: 0 0 0.35rem;
-  }
-
-  .ticket-show-pass-mark-btn:active {
-    transform: scale(0.96);
+    border-radius: 0.7rem;
+    line-height: 0;
   }
 
   .ticket-show-pass-mark-btn:focus-visible {
@@ -29084,74 +29076,15 @@ a.os-surface-row {
   }
 
   .ticket-show-pass-mark {
-    width: clamp(3.75rem, 15vw, 4.75rem);
-    height: clamp(3.75rem, 15vw, 4.75rem);
+    display: block;
+    width: 4.5rem;
+    height: 4.5rem;
     margin: 0;
-    border-radius: 0.85rem;
+    border-radius: 0.7rem;
     object-fit: cover;
     flex-shrink: 0;
     background: rgb(var(--fg-rgb) / 0.08);
-    box-shadow: 0 3px 10px rgb(0 0 0 / 0.14);
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    transition:
-      box-shadow 180ms ease,
-      border-color 180ms ease;
-  }
-
-  .ticket-show-pass-mark-btn:hover .ticket-show-pass-mark {
-    box-shadow:
-      0 8px 22px rgb(0 0 0 / 0.24),
-      0 0 0 1px rgb(var(--fg-rgb) / 0.16);
-    border-color: rgb(var(--fg-rgb) / 0.25);
-  }
-
-  .ticket-show-pass-mark-btn:active .ticket-show-pass-mark {
-    box-shadow: 0 2px 6px rgb(0 0 0 / 0.16);
-  }
-
-  .ticket-show-pass-mark-expand {
-    position: absolute;
-    bottom: 0.25rem;
-    right: 0.25rem;
-    width: 1.25rem;
-    height: 1.25rem;
-    border-radius: 9999px;
-    background: rgb(0 0 0 / 0.72);
-    box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.82;
-    transform: scale(0.94);
-    transition:
-      opacity 160ms ease,
-      transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
-      background-color 160ms ease;
-    pointer-events: none;
-  }
-
-  .ticket-show-pass-mark-btn:hover .ticket-show-pass-mark-expand {
-    opacity: 1;
-    transform: scale(1);
-    background: rgb(0 0 0 / 0.9);
-  }
-
-  .ticket-show-pass-mark-expand-icon {
-    width: 0.75rem;
-    height: 0.75rem;
-  }
-
-  .ticket-show-pass-title {
-    margin: 0;
-    max-width: 100%;
-    text-align: center;
-    font-size: clamp(1.12rem, 4.4vw, 1.28rem);
-    font-weight: 750;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
-    color: rgb(var(--fg-rgb) / 0.96);
-    overflow-wrap: anywhere;
+    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.1);
   }
 
   .ticket-show-pass-status {
@@ -29359,9 +29292,9 @@ a.os-surface-row {
     }
 
     .ticket-show-pass-mark {
-      width: 2.75rem;
-      height: 2.75rem;
-      border-radius: 0.65rem;
+      width: 3.25rem;
+      height: 3.25rem;
+      border-radius: 0.55rem;
     }
   }
 
@@ -29373,17 +29306,10 @@ a.os-surface-row {
     }
 
     .ticket-show-pass-mark {
-      width: 2.25rem;
-      height: 2.25rem;
-      border-radius: 0.55rem;
-    }
-
-    .ticket-show-pass-mark-expand {
-      display: none;
-    }
-
-    .ticket-show-pass-title {
-      font-size: 1.05rem;
+      width: 2.5rem;
+      height: 2.5rem;
+      margin-bottom: 0;
+      border-radius: 0.45rem;
     }
 
     .ticket-show-pass-status {
@@ -29415,8 +29341,8 @@ a.os-surface-row {
     }
 
     .ticket-show-pass-mark {
-      width: 4.75rem;
-      height: 4.75rem;
+      width: 5rem;
+      height: 5rem;
     }
   }
 
@@ -31583,11 +31509,11 @@ a.os-surface-row {
 
   .scarce-listen-slide .os-slide-over-content.scarce-listen-slide-body,
   .ticket-pass-slide .os-slide-over-content.ticket-pass-slide-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    height: 100%;
+    flex: 0 0 auto;
+    min-height: 100%;
+    height: auto;
     padding: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   /*
@@ -31621,16 +31547,9 @@ a.os-surface-row {
     max-height: 100%;
   }
 
-  /* Extended Listen — phone-tall columns may scroll so transport stays reachable. */
-  @media (max-height: 56rem) {
-    .scarce-listen-slide .os-slide-over-content.scarce-listen-slide-body {
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      -webkit-overflow-scrolling: touch;
-    }
-  }
-
   .scarce-listen-slide .scarce-clip-listen {
+    height: auto;
+    overflow: visible;
     padding-top: 0.75rem;
     padding-bottom: 1.1rem;
   }
@@ -32871,7 +32790,7 @@ a.os-surface-row {
 
   .ticket-pass-slide .ticket-show-pass {
     --pass-pad-t: 0.55rem;
-    height: 100%;
+    height: auto;
   }
 
   .hub-manage-slide .os-slide-over-footer-inner {

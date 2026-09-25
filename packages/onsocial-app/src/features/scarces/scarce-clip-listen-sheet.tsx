@@ -106,21 +106,20 @@ export function ScarceClipListenSheet({
   const showShare = Boolean(shareTitle?.trim());
   const showSave = Boolean(onToggleSave);
   const showActions = showLove || showShare || showSave;
-  const screenTitle = albumTitle.trim() || trackTitle.trim() || 'Listen';
-  const screenSubtitle =
-    trackTitle.trim() && trackTitle.trim() !== screenTitle
-      ? trackTitle.trim()
-      : undefined;
+  const track = trackTitle.trim();
+  const album = albumTitle.trim();
+  const screenTitle = track || album || 'Listen';
+  const albumLine = album && album !== screenTitle ? album : '';
 
   return (
     <OsMediaFaceShell
       open={open}
       onClose={onClose}
       title={screenTitle}
-      subtitle={screenSubtitle}
       closeAriaLabel="Back from listen"
       zIndex={SCARCE_Z.listenShell}
       keepDock
+      screenHeader
       footer={footer}
       className="scarce-listen-slide"
       contentClassName="scarce-listen-slide-body"
@@ -135,80 +134,10 @@ export function ScarceClipListenSheet({
               aria-hidden
             />
           )}
+          {albumLine ? (
+            <p className="scarce-clip-listen-album">{albumLine}</p>
+          ) : null}
         </div>
-
-        {showActions ? (
-          <div className="scarce-clip-listen-actions">
-            {showLove ? (
-              <button
-                type="button"
-                className={`scarce-clip-listen-love${
-                  loved ? ' is-loved' : ''
-                }${lovePending ? ' is-pending' : ''}`}
-                aria-label={
-                  loved ? `Unlove ${trackTitle}` : `Love ${trackTitle}`
-                }
-                aria-pressed={loved}
-                disabled={lovePending}
-                onClick={() => onToggleLove?.()}
-              >
-                {loved ? (
-                  <HeartFillIcon
-                    className="scarce-clip-listen-love-icon"
-                    aria-hidden
-                  />
-                ) : (
-                  <HeartIcon
-                    className="scarce-clip-listen-love-icon"
-                    aria-hidden
-                  />
-                )}
-                {loveCount > 0 ? (
-                  <span className="scarce-clip-listen-love-count">
-                    {loveCount}
-                  </span>
-                ) : null}
-              </button>
-            ) : null}
-            {showShare ? (
-              <ScarceClipShareButton
-                title={shareTitle!.trim()}
-                className="scarce-clip-listen-share"
-                collectionId={shareCollectionId}
-                mediaUrl={shareMediaUrl}
-                mediumKind="audio"
-              />
-            ) : null}
-            {showSave ? (
-              <button
-                type="button"
-                className={`scarce-clip-listen-save${
-                  saved ? ' is-saved' : ''
-                }${savePending ? ' is-pending' : ''}`}
-                aria-label={
-                  saved
-                    ? `Remove ${albumTitle} bookmark`
-                    : `Bookmark ${albumTitle}`
-                }
-                aria-pressed={saved}
-                disabled={savePending}
-                onClick={() => onToggleSave?.()}
-              >
-                {saved ? (
-                  <BookmarkFillIcon
-                    className="scarce-clip-listen-save-icon"
-                    aria-hidden
-                  />
-                ) : (
-                  <BookmarkIcon
-                    className="scarce-clip-listen-save-icon"
-                    aria-hidden
-                  />
-                )}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
 
         {hasLyrics && lyricsOpen ? (
           <pre id={lyricsId} className="scarce-clip-listen-lyrics">
@@ -339,6 +268,80 @@ export function ScarceClipListenSheet({
               />
             </button>
           </div>
+
+          {showActions ? (
+            <div className="scarce-clip-listen-actions">
+              {showLove ? (
+                <button
+                  type="button"
+                  className={`scarce-clip-listen-love${
+                    loved ? ' is-loved' : ''
+                  }${lovePending ? ' is-pending' : ''}`}
+                  aria-label={
+                    loved ? `Unlove ${trackTitle}` : `Love ${trackTitle}`
+                  }
+                  aria-pressed={loved}
+                  disabled={lovePending}
+                  onClick={() => onToggleLove?.()}
+                >
+                  {loved ? (
+                    <HeartFillIcon
+                      className="scarce-clip-listen-love-icon"
+                      aria-hidden
+                    />
+                  ) : (
+                    <HeartIcon
+                      className="scarce-clip-listen-love-icon"
+                      aria-hidden
+                    />
+                  )}
+                  {loveCount > 0 ? (
+                    <span className="scarce-clip-listen-love-count">
+                      {loveCount}
+                    </span>
+                  ) : null}
+                </button>
+              ) : null}
+              {showSave ? (
+                <button
+                  type="button"
+                  className={`scarce-clip-listen-save${
+                    saved ? ' is-saved' : ''
+                  }${savePending ? ' is-pending' : ''}`}
+                  aria-label={
+                    saved
+                      ? `Remove ${albumTitle} bookmark`
+                      : `Bookmark ${albumTitle}`
+                  }
+                  aria-pressed={saved}
+                  disabled={savePending}
+                  onClick={() => onToggleSave?.()}
+                >
+                  {saved ? (
+                    <BookmarkFillIcon
+                      className="scarce-clip-listen-save-icon"
+                      aria-hidden
+                    />
+                  ) : (
+                    <BookmarkIcon
+                      className="scarce-clip-listen-save-icon"
+                      aria-hidden
+                    />
+                  )}
+                </button>
+              ) : null}
+              {showShare ? (
+                <ScarceClipShareButton
+                  title={shareTitle!.trim()}
+                  className="scarce-clip-listen-share"
+                  collectionId={shareCollectionId}
+                  mediaUrl={shareMediaUrl}
+                  mediumKind="audio"
+                  postAfterShare
+                />
+              ) : null}
+            </div>
+          ) : null}
 
           {hasLyrics ? (
             <button

@@ -61,6 +61,11 @@ export type OsMediaFaceShellProps = {
   /** Keep summon dock above this face (video transport / reply write). */
   keepDock?: boolean;
   /**
+   * Use the shared OS screen header (same row as Post) instead of the
+   * media jacket.
+   */
+  screenHeader?: boolean;
+  /**
    * `fixed` — photo/thought/mood: stage fills the face; reply keyboard does
    * not reflow media. `scroll` — writing/listen: page can scroll; keyboard
    * lifts the body pad (default).
@@ -98,6 +103,7 @@ export function OsMediaFaceShell({
   quietTitle = false,
   chromeQuiet = false,
   keepDock = false,
+  screenHeader = false,
   stageLayout = 'scroll',
   className,
   contentClassName = 'scarce-read-slide-body',
@@ -159,10 +165,16 @@ export function OsMediaFaceShell({
       open={open}
       onClose={onClose}
       title={dialogName}
-      hideNav
-      elevateChrome={false}
+      hideNav={!screenHeader}
+      elevateChrome={screenHeader}
+      compactChrome={screenHeader}
       keepDock={keepDock}
       closeAriaLabel={closeAriaLabel}
+      closeIcon={
+        screenHeader ? (
+          <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+        ) : undefined
+      }
       zIndex={zIndex}
       className={slideClass}
       contentClassName={contentClassName}
@@ -170,6 +182,7 @@ export function OsMediaFaceShell({
     >
       <div className={faceBodyClass} style={bodyStyle}>
         {progress}
+        {screenHeader ? null : (
         <div className="os-media-face-hero">
           <div
             className="os-media-face-hero-glass"
@@ -199,6 +212,7 @@ export function OsMediaFaceShell({
             <div className="os-media-face-trailing">{trailing}</div>
           ) : null}
         </div>
+        )}
         {children}
       </div>
     </OsSlideOverScreen>
