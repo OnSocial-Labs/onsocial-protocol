@@ -343,8 +343,9 @@
   flex-shrink: 0;
   border: 0;
   border-radius: var(--os-launcher-icon-radius);
-  background: rgb(var(--fg-rgb) / 0.03);
-  box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+  --os-launcher-frost: var(--glass-surface, rgb(var(--bg-rgb) / 0.32));
+  background: var(--os-launcher-frost);
+  box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.1);
   transition: background 160ms ease;
 }
 
@@ -423,7 +424,7 @@
   background: color-mix(
     in srgb,
     var(--os-launcher-hue) 8%,
-    rgb(var(--fg-rgb) / 0.03)
+    var(--os-launcher-frost)
   );
 }
 
@@ -454,7 +455,7 @@
   background: color-mix(
     in srgb,
     var(--os-launcher-hue) 14%,
-    rgb(var(--fg-rgb) / 0.03)
+    var(--os-launcher-frost)
   );
 }
 
@@ -475,7 +476,11 @@
 }
 
 .os-launcher-item:not(.is-soon):active .os-launcher-item-icon-shell {
-  background: rgb(var(--fg-rgb) / 0.07);
+  background: color-mix(
+    in srgb,
+    rgb(var(--fg-rgb)) 8%,
+    var(--os-launcher-frost)
+  );
 }
 
 .os-launcher-item.is-soon {
@@ -486,7 +491,7 @@
 .os-launcher-item.is-soon:hover .os-launcher-item-icon-shell,
 .os-launcher-item.is-soon:focus-visible .os-launcher-item-icon-shell,
 .os-launcher-item.is-soon:active .os-launcher-item-icon-shell {
-  background: rgb(var(--fg-rgb) / 0.03);
+  background: var(--os-launcher-frost);
 }
 
 .os-launcher-item.is-soon .os-launcher-item-icon,
