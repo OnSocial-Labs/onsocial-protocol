@@ -315,7 +315,7 @@
   background: rgb(var(--fg-rgb) / 0.72);
 }
 
-/* App icons — wallet neutral tile + protocol hue glyph (iPhone-style). */
+/* App icons — quiet glyph. Color lives on the tile lip, not the icon. */
 .os-launcher-item {
   position: relative;
   display: flex;
@@ -365,37 +365,43 @@
 }
 
 /*
- * Accents: muted at rest; protocol hue on current + hover/focus.
- * `data-accent` stays on every tile so hover can reveal colour.
+ * Accents: quiet at rest. Current and hover put a glass lip and a faint wash
+ * on the square. The glyph stays ink.
  */
-.os-launcher-item.is-current
-  .os-launcher-item-icon-shell[data-accent='blue']
-  .os-launcher-item-icon {
-  color: var(--protocol-blue);
+.os-launcher-item-icon-shell[data-accent='blue'] {
+  --os-launcher-hue: var(--protocol-blue);
 }
 
-.os-launcher-item.is-current
-  .os-launcher-item-icon-shell[data-accent='purple']
-  .os-launcher-item-icon {
-  color: var(--protocol-purple);
+.os-launcher-item-icon-shell[data-accent='purple'] {
+  --os-launcher-hue: var(--protocol-purple);
 }
 
-.os-launcher-item.is-current
-  .os-launcher-item-icon-shell[data-accent='gold']
-  .os-launcher-item-icon {
-  color: var(--protocol-gold);
+.os-launcher-item-icon-shell[data-accent='gold'] {
+  --os-launcher-hue: var(--protocol-gold);
 }
 
-.os-launcher-item.is-current
-  .os-launcher-item-icon-shell[data-accent='green']
-  .os-launcher-item-icon {
-  color: var(--protocol-green);
+.os-launcher-item-icon-shell[data-accent='green'] {
+  --os-launcher-hue: var(--protocol-green);
 }
 
-.os-launcher-item.is-current
-  .os-launcher-item-icon-shell[data-accent='amber']
-  .os-launcher-item-icon {
-  color: var(--protocol-amber);
+.os-launcher-item-icon-shell[data-accent='amber'] {
+  --os-launcher-hue: var(--protocol-amber);
+}
+
+.os-launcher-item-icon-shell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: box-shadow 160ms ease;
+}
+
+.os-launcher-item-badge,
+.os-launcher-item-soon {
+  z-index: 2;
 }
 
 .os-launcher-item-label {
@@ -412,54 +418,19 @@
   white-space: nowrap;
 }
 
-.os-launcher-item:not(.is-soon):hover .os-launcher-item-icon-shell,
-.os-launcher-item:not(.is-soon):focus-visible .os-launcher-item-icon-shell {
-  background: rgb(var(--fg-rgb) / 0.05);
+.os-launcher-item:not(.is-soon):not(.is-current):is(:hover, :focus-visible)
+  .os-launcher-item-icon-shell[data-accent] {
+  background: color-mix(
+    in srgb,
+    var(--os-launcher-hue) 8%,
+    rgb(var(--fg-rgb) / 0.03)
+  );
 }
 
-.os-launcher-item:not(.is-soon):hover
-  .os-launcher-item-icon-shell[data-accent='blue']
-  .os-launcher-item-icon,
-.os-launcher-item:not(.is-soon):focus-visible
-  .os-launcher-item-icon-shell[data-accent='blue']
-  .os-launcher-item-icon {
-  color: var(--protocol-blue-hover);
-}
-
-.os-launcher-item:not(.is-soon):hover
-  .os-launcher-item-icon-shell[data-accent='purple']
-  .os-launcher-item-icon,
-.os-launcher-item:not(.is-soon):focus-visible
-  .os-launcher-item-icon-shell[data-accent='purple']
-  .os-launcher-item-icon {
-  color: color-mix(in srgb, var(--protocol-purple) 88%, white 12%);
-}
-
-.os-launcher-item:not(.is-soon):hover
-  .os-launcher-item-icon-shell[data-accent='gold']
-  .os-launcher-item-icon,
-.os-launcher-item:not(.is-soon):focus-visible
-  .os-launcher-item-icon-shell[data-accent='gold']
-  .os-launcher-item-icon {
-  color: color-mix(in srgb, var(--protocol-gold) 88%, white 12%);
-}
-
-.os-launcher-item:not(.is-soon):hover
-  .os-launcher-item-icon-shell[data-accent='green']
-  .os-launcher-item-icon,
-.os-launcher-item:not(.is-soon):focus-visible
-  .os-launcher-item-icon-shell[data-accent='green']
-  .os-launcher-item-icon {
-  color: color-mix(in srgb, var(--protocol-green) 88%, white 12%);
-}
-
-.os-launcher-item:not(.is-soon):hover
-  .os-launcher-item-icon-shell[data-accent='amber']
-  .os-launcher-item-icon,
-.os-launcher-item:not(.is-soon):focus-visible
-  .os-launcher-item-icon-shell[data-accent='amber']
-  .os-launcher-item-icon {
-  color: color-mix(in srgb, var(--protocol-amber) 88%, white 12%);
+.os-launcher-item:not(.is-soon):not(.is-current):is(:hover, :focus-visible)
+  .os-launcher-item-icon-shell[data-accent]::after {
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--os-launcher-hue) 42%, transparent);
 }
 
 .os-launcher-item:focus-visible {
@@ -471,9 +442,18 @@
   color: rgb(var(--fg-rgb) / 0.84);
 }
 
-/* Current app — accent glyph only; rest of grid stays muted. */
-.os-launcher-item.is-current .os-launcher-item-icon-shell {
-  background: rgb(var(--fg-rgb) / 0.055);
+/* Current app — colored lip and a faint wash. The glyph stays quiet. */
+.os-launcher-item.is-current .os-launcher-item-icon-shell[data-accent] {
+  background: color-mix(
+    in srgb,
+    var(--os-launcher-hue) 14%,
+    rgb(var(--fg-rgb) / 0.03)
+  );
+}
+
+.os-launcher-item.is-current .os-launcher-item-icon-shell[data-accent]::after {
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--os-launcher-hue) 72%, transparent);
 }
 
 .os-launcher-item.is-current .os-launcher-item-label {
