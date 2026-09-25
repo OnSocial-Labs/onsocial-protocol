@@ -8,6 +8,7 @@ import {
   CameraIcon,
   CancelIcon,
   ChartVerticalIcon,
+  DashboardIcon,
   CheckIcon,
   ChevronDownIcon,
   TimeIcon,
@@ -85,6 +86,7 @@ describe('mage stroke icons', () => {
     expect(typeof CameraIcon).toBe('function');
     expect(typeof CancelIcon).toBe('function');
     expect(typeof ChartVerticalIcon).toBe('function');
+    expect(typeof DashboardIcon).toBe('function');
     expect(typeof CheckIcon).toBe('function');
     expect(typeof ChevronDownIcon).toBe('function');
     expect(typeof TimeIcon).toBe('function');

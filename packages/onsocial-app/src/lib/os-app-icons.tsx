@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react';
 import {
-  ChartFillIcon,
-  ChartVerticalIcon,
+  DashboardFillIcon,
+  DashboardIcon,
   FireFillIcon,
   FireIcon,
   GiftFillIcon,
@@ -42,8 +42,8 @@ const OS_APP_ICON_BY_ID: Record<string, ComponentType<MageFillIconProps>> = {
   /** @deprecated alias — prefer `hubs` */
   stores: StarMovingFillIcon,
   groups: UsersFillIcon,
-  /** Orgs — distinct from Guilds (`UsersFillIcon`). */
-  daos: ChartFillIcon,
+  /** Orgs — four panes, distinct from Guilds (`UsersFillIcon`). */
+  daos: DashboardFillIcon,
   boost: FireFillIcon,
   protocol: GlobeFillIcon,
   page: UserCircleFillIcon,
@@ -61,7 +61,7 @@ const OS_APP_STROKE_ICON_BY_ID: Record<string, ComponentType<MageFillIconProps>>
   hubs: StarMovingIcon,
   stores: StarMovingIcon,
   groups: UsersIcon,
-  daos: ChartVerticalIcon,
+  daos: DashboardIcon,
   boost: FireIcon,
   protocol: GlobeIcon,
   page: UserCircleIcon,
