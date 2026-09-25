@@ -47,19 +47,21 @@ export function PortfolioHeroPlay({ collectionId }: { collectionId: string }) {
           void nowPlaying.toggle();
           return;
         }
-        nowPlaying.ensureSession({
+        nowPlaying.playSession({
           collectionId: view.collectionId,
           title: view.title,
           poster: view.mediaUrl,
           tracks: view.playables,
         });
-        nowPlaying.setTrack(0, true);
       }}
     >
       {playingThis ? (
-        <PauseFillIcon className="portfolio-hero-play-icon" />
+        <PauseFillIcon className="portfolio-hero-play-icon" aria-hidden />
       ) : (
-        <PlayFillIcon className="portfolio-hero-play-icon" />
+        <PlayFillIcon
+          className="portfolio-hero-play-icon portfolio-hero-play-icon--play"
+          aria-hidden
+        />
       )}
     </button>
   );

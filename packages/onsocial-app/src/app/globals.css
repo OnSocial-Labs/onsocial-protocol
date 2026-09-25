@@ -3958,11 +3958,12 @@ a.os-surface-row {
     }
   }
 
-  /* Hero band — absolute so height can vary per face without moving the name. */
+  /* Hero band — absolute so height can vary per face without moving the name.
+     Same Mage play/pause glyphs and scrim disc as the cover player. */
   .portfolio-hero-play {
     position: absolute;
     top: calc(env(safe-area-inset-top, 0px) + 0.85rem);
-    right: 0.85rem;
+    right: max(0.85rem, env(safe-area-inset-right, 0px));
     z-index: 4;
     display: grid;
     width: 2.75rem;
@@ -3971,19 +3972,67 @@ a.os-surface-row {
     padding: 0;
     border: 0;
     border-radius: 999px;
-    color: #fff;
-    background: rgb(0 0 0 / 0.42);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.28);
+    cursor: pointer;
+    pointer-events: auto;
+    color: var(--app-on-media-ink);
+    background: var(--app-scrim-media);
     backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
+  }
+
+  .portfolio-hero-play:hover,
+  .portfolio-hero-play:focus-visible {
+    background: var(--app-scrim-media-hover);
+    outline: none;
   }
 
   .portfolio-hero-play-icon {
-    width: 1rem;
-    height: 1rem;
+    width: 1.15rem;
+    height: 1.15rem;
+    display: block;
+  }
+
+  .portfolio-hero-play-icon--play {
+    transform: translateX(0.08rem);
   }
 
   .portfolio-hero-play:active {
     transform: scale(0.96);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .portfolio-hero-play:active {
+      transform: none;
+    }
+  }
+
+  .customize-song-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .customize-song-clear {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    font-size: 0.78rem;
+    color: rgb(var(--fg-rgb) / 0.62);
+    cursor: pointer;
+  }
+
+  .customize-song-clear:hover,
+  .customize-song-clear:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.92);
+    outline: none;
+  }
+
+  .customize-song-clear:disabled {
+    opacity: 0.4;
+    cursor: default;
   }
 
   .customize-song-list {
