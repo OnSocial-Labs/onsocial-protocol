@@ -365,8 +365,8 @@
 }
 
 /*
- * Accents: quiet at rest. Current and hover put a glass lip and a faint wash
- * on the square. The glyph stays ink.
+ * Accents: quiet at rest. Current and hover keep the resting shape —
+ * a bright top lip, a thinner edge on the other sides — and light the glyph.
  */
 .os-launcher-item-icon-shell[data-accent='blue'] {
   --os-launcher-hue: var(--protocol-blue);
@@ -429,8 +429,15 @@
 
 .os-launcher-item:not(.is-soon):not(.is-current):is(:hover, :focus-visible)
   .os-launcher-item-icon-shell[data-accent]::after {
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--os-launcher-hue) 42%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--os-launcher-hue) 55%, transparent),
+    inset 0 0 0 0.5px color-mix(in srgb, var(--os-launcher-hue) 18%, transparent);
+}
+
+.os-launcher-item:not(.is-soon):not(.is-current):is(:hover, :focus-visible)
+  .os-launcher-item-icon-shell[data-accent]
+  .os-launcher-item-icon {
+  color: var(--os-launcher-hue);
 }
 
 .os-launcher-item:focus-visible {
@@ -442,7 +449,7 @@
   color: rgb(var(--fg-rgb) / 0.84);
 }
 
-/* Current app — colored lip and a faint wash. The glyph stays quiet. */
+/* Current app — accent glyph, a bright top lip, thinner sides. */
 .os-launcher-item.is-current .os-launcher-item-icon-shell[data-accent] {
   background: color-mix(
     in srgb,
@@ -452,8 +459,15 @@
 }
 
 .os-launcher-item.is-current .os-launcher-item-icon-shell[data-accent]::after {
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--os-launcher-hue) 72%, transparent);
+  box-shadow:
+    inset 0 1.5px 0 color-mix(in srgb, var(--os-launcher-hue) 88%, white 12%),
+    inset 0 0 0 0.5px color-mix(in srgb, var(--os-launcher-hue) 28%, transparent);
+}
+
+.os-launcher-item.is-current
+  .os-launcher-item-icon-shell[data-accent]
+  .os-launcher-item-icon {
+  color: var(--os-launcher-hue);
 }
 
 .os-launcher-item.is-current .os-launcher-item-label {
