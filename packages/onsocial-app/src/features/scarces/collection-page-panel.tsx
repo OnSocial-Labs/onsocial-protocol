@@ -108,6 +108,7 @@ import {
   writingReadingSectionLabel,
 } from '@/features/scarces/drop-writing';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
+import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
 import {
@@ -1820,6 +1821,9 @@ export function CollectionPagePanel({
         alreadyOwnsEdition={holdsEdition === true}
         onOpenChange={setMintOpen}
         onPurchased={handleMintPurchased}
+        zIndex={
+          coverListenOpen ? SCARCE_Z.commerceOverListen : SCARCE_Z.sheet
+        }
       />
 
       {showDropLove ? (

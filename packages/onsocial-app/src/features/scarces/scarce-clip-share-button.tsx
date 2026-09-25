@@ -14,6 +14,8 @@ export function ScarceClipShareButton({
   mediumKind = 'audio',
   /** Drop page uses dock Post — hide the on-page Post control. */
   showFeedPost = true,
+  /** Listen row matches the Drop: Share, then Post. */
+  postAfterShare = false,
 }: {
   title: string;
   className?: string;
@@ -22,17 +24,14 @@ export function ScarceClipShareButton({
   mediaUrl?: string | null;
   mediumKind?: string | null;
   showFeedPost?: boolean;
+  postAfterShare?: boolean;
 }) {
   const { setTxResult } = useAppTransactionFeedback();
   const [copied, setCopied] = useState(false);
   const name = title.trim() || 'Drop';
   const dropId = collectionId?.trim() || '';
-
-  return (
-    <div
-      className={`scarce-clip-share-cluster${className ? ` ${className}` : ''}`}
-    >
-      {dropId && showFeedPost ? (
+  const postButton =
+    dropId && showFeedPost ? (
         <button
           type="button"
           className="media-download-control scarce-clip-post-feed"
@@ -50,7 +49,13 @@ export function ScarceClipShareButton({
         >
           <span className="scarce-clip-post-feed-label">Post</span>
         </button>
-      ) : null}
+    ) : null;
+
+  return (
+    <div
+      className={`scarce-clip-share-cluster${className ? ` ${className}` : ''}`}
+    >
+      {postAfterShare ? null : postButton}
       <button
         type="button"
         className={`media-download-control${copied ? ' is-done' : ''}`}
@@ -84,6 +89,7 @@ export function ScarceClipShareButton({
           <ShareIcon className="media-download-glyph" aria-hidden />
         )}
       </button>
+      {postAfterShare ? postButton : null}
     </div>
   );
 }

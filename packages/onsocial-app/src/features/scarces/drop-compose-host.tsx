@@ -35,6 +35,7 @@ import {
 } from '@/features/scarces/submit-guild-drop-post';
 import { useOnSocialWriter } from '@/hooks/use-onsocial-writer';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 function draftToComposer(draft: DropComposeDraft): ComposerDropDraft {
   return {
@@ -223,6 +224,7 @@ export function DropComposeHost() {
     <ComposerSheet
       open
       mode="post"
+      zIndex={SHEET_Z.overShell}
       initialDrop={draftToComposer(openDraft)}
       initialText={openDraft.text ?? ''}
       destination={destination}

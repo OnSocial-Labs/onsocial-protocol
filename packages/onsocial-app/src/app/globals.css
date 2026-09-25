@@ -790,12 +790,36 @@
 }
 
 /*
- * Show pass uses the shared screen header. Pin the row to the compact
- * Post band so the default 2.75rem icon does not loft it.
+ * Show pass and the listen player use the shared screen header. An immersive
+ * drop ancestor would otherwise hide the title via --title-handoff.
  */
-.ticket-pass-slide .os-app-screen-heading {
+body:has([data-os-slide-over='true']:not(.is-closing)) .os-launcher-root {
+  z-index: 131;
+}
+
+.ticket-pass-slide .os-app-screen-heading,
+.scarce-listen-slide .os-app-screen-heading {
   opacity: 1;
   pointer-events: auto;
+}
+
+.scarce-listen-slide .os-app-screen-title {
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  filter: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.scarce-listen-slide .scarce-clip-listen-art {
+  flex-direction: column;
+  gap: 0.65rem;
 }
 
 /*
@@ -23720,8 +23744,7 @@ a.os-surface-row {
     width: 100%;
   }
 
-  .scarce-clip-listen:has(.scarce-clip-listen-footer),
-  .scarce-read-slide.scarce-listen-slide .scarce-clip-listen {
+  .scarce-clip-listen:has(.scarce-clip-listen-footer) {
     overflow-y: auto;
     overscroll-behavior: contain;
   }
@@ -25608,7 +25631,7 @@ a.os-surface-row {
     }
 
     .scarce-clip-listen-actions {
-      margin-top: 0;
+      margin-top: 0.85rem;
     }
   }
 
@@ -25657,6 +25680,7 @@ a.os-surface-row {
 
   .scarce-clip-listen-album {
     margin: 0;
+    text-align: center;
     font-size: 0.82rem;
     font-weight: 500;
     color: var(--os-surface-muted);
@@ -25670,7 +25694,7 @@ a.os-surface-row {
     gap: 0.15rem 0.35rem;
     width: min(100%, 26rem);
     margin-inline: auto;
-    margin-top: -0.2rem;
+    margin-top: 1.35rem;
   }
 
   .scarce-clip-listen-love {
@@ -31523,16 +31547,9 @@ a.os-surface-row {
     max-height: 100%;
   }
 
-  /* Extended Listen — phone-tall columns may scroll so transport stays reachable. */
-  @media (max-height: 56rem) {
-    .scarce-listen-slide .os-slide-over-content.scarce-listen-slide-body {
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      -webkit-overflow-scrolling: touch;
-    }
-  }
-
   .scarce-listen-slide .scarce-clip-listen {
+    height: auto;
+    overflow: visible;
     padding-top: 0.75rem;
     padding-bottom: 1.1rem;
   }
