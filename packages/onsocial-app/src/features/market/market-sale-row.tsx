@@ -5,6 +5,10 @@ import {
   formatMarketRelativeTime,
   type MarketSaleItem,
 } from '@/features/market/market-listings';
+import {
+  marketPostLayerLinkHandlers,
+  useMarketPostLayer,
+} from '@/features/market/market-post-layer';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 
@@ -19,6 +23,7 @@ interface MarketSaleRowProps {
 
 /** Recent-sales list row — shared so Market panel stays lean. */
 export function MarketSaleRow({ sale, soldTo = false }: MarketSaleRowProps) {
+  const openMarketPost = useMarketPostLayer();
   const seller = sale.sellerId?.trim() || sale.creatorId?.trim() || '';
   const buyer = sale.buyerId?.trim() || '';
   const counterpart = soldTo ? buyer : seller;
@@ -28,6 +33,7 @@ export function MarketSaleRow({ sale, soldTo = false }: MarketSaleRowProps) {
       href={sale.postHref}
       scroll={false}
       className="market-listing-title-link"
+      {...marketPostLayerLinkHandlers(sale.postHref, openMarketPost)}
     >
       {sale.title}
     </Link>

@@ -37,7 +37,10 @@ import {
 } from '@/lib/app-config';
 import { appPath, seriesPagePath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
+import {
+  formatPageDrawerJoinedDateTimeLabel,
+  formatPageDrawerJoinedFullLabel,
+} from '@/lib/page-drawer-meta';
 import { fallbackLabel } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 
@@ -71,7 +74,7 @@ function scheduleFacts(
       : null;
   const closes =
     view.endTimeMs != null
-      ? formatPageDrawerJoinedFullLabel(view.endTimeMs)
+      ? formatPageDrawerJoinedDateTimeLabel(view.endTimeMs)
       : null;
 
   let next: string | null = null;

@@ -3,6 +3,7 @@ import {
   formatCompactCount,
   formatDaoRoleLabel,
   formatPageDrawerCredentialsLine,
+  formatPageDrawerJoinedDateTimeLabel,
   formatPageDrawerJoinedFullLabel,
   formatPageDrawerJoinedLabel,
   formatPageDrawerUpdatedFieldsLine,
@@ -20,6 +21,19 @@ describe('formatPageDrawerJoinedLabel', () => {
   it('formats full calendar date', () => {
     expect(formatPageDrawerJoinedFullLabel(Date.UTC(2025, 2, 15))).toBe(
       'Mar 15, 2025'
+    );
+  });
+
+  it('formats a date with the clock', () => {
+    const ms = Date.UTC(2026, 8, 26, 12, 33);
+    expect(formatPageDrawerJoinedDateTimeLabel(ms)).toBe(
+      new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      }).format(new Date(ms))
     );
   });
 

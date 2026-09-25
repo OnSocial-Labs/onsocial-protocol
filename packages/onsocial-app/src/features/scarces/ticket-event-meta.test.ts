@@ -69,7 +69,7 @@ describe('ticket event metadata', () => {
       Date.now()
     );
     expect(facts.place).toBeTruthy();
-    expect(facts.ends).toBeTruthy();
+    expect(facts.ends).toMatch(/\d:\d{2}/);
     expect(facts.empty).toBe(false);
   });
 });

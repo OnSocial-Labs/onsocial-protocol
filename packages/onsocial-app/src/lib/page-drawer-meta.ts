@@ -48,6 +48,24 @@ export function formatPageDrawerJoinedFullLabel(
   }).format(new Date(ms));
 }
 
+/** Calendar date plus clock, for an end that can share a day with another deadline. */
+export function formatPageDrawerJoinedDateTimeLabel(
+  timestamp?: number | null
+): string | null {
+  const ms = normalizeSocialTimestamp(timestamp);
+  if (!ms) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(ms));
+}
+
 export function formatCompactCount(count: number): string {
   const n = Math.floor(count);
   if (!Number.isFinite(n) || n <= 0) {
