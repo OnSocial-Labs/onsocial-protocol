@@ -8,6 +8,7 @@ import {
   CameraIcon,
   CancelIcon,
   ChartVerticalIcon,
+  DashboardIcon,
   CheckIcon,
   ChevronDownIcon,
   TimeIcon,
@@ -26,6 +27,10 @@ import {
   FireIcon,
   GiftIcon,
   GlobeIcon,
+  HomeIcon,
+  NotificationBellIcon,
+  UsersIcon,
+  UserCircleIcon,
   HeartIcon,
   BookmarkIcon,
   Box3dIcon,
@@ -81,6 +86,7 @@ describe('mage stroke icons', () => {
     expect(typeof CameraIcon).toBe('function');
     expect(typeof CancelIcon).toBe('function');
     expect(typeof ChartVerticalIcon).toBe('function');
+    expect(typeof DashboardIcon).toBe('function');
     expect(typeof CheckIcon).toBe('function');
     expect(typeof ChevronDownIcon).toBe('function');
     expect(typeof TimeIcon).toBe('function');
@@ -115,6 +121,10 @@ describe('mage stroke icons', () => {
     expect(typeof ScaleUpIcon).toBe('function');
     expect(typeof GiftIcon).toBe('function');
     expect(typeof GlobeIcon).toBe('function');
+    expect(typeof HomeIcon).toBe('function');
+    expect(typeof NotificationBellIcon).toBe('function');
+    expect(typeof UsersIcon).toBe('function');
+    expect(typeof UserCircleIcon).toBe('function');
     expect(typeof KeyIcon).toBe('function');
     expect(typeof LogoutIcon).toBe('function');
     expect(typeof UserCheckIcon).toBe('function');
