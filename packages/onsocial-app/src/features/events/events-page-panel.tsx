@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   CalendarFillIcon,
@@ -25,11 +25,11 @@ import {
 } from '@/features/drops/drops-data';
 import {
   EVENT_WINDOW_ORDER,
-  eventMatchesHost,
-  eventMatchesPlace,
-  eventMatchesQuery,
-  eventMatchesStyle,
+  eventMatchesScan,
   eventPlaceChoices,
+  eventScanActive,
+  scanTicketEvents,
+  type EventScan,
   eventRowPlace,
   eventRowPrice,
   eventRowWhen,
@@ -96,51 +96,110 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
   const [reloadKey, setReloadKey] = useState(0);
   const [nowMs, setNowMs] = useState(initialNowMs);
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [scope, setScope] = useState<'all' | 'mine'>('all');
   const [styleId, setStyleId] = useState<string | null>(null);
   const [placeId, setPlaceId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [nextOffset, setNextOffset] = useState(0);
+  const [seen, setSeen] = useState<DropDiscoveryItem[]>([]);
+  const reloadGenRef = useRef(0);
 
-  const load = useCallback(async (offset: number, replace: boolean) => {
-    setFailed(false);
-    if (replace) setLoading(true);
-    try {
-      const page = await fetchDropsPage({
+  const scan = useMemo<EventScan>(
+    () => ({
+      query: debouncedQuery,
+      styleId,
+      placeId,
+      hostId: scope === 'mine' && accountId ? accountId : null,
+    }),
+    [accountId, debouncedQuery, placeId, scope, styleId]
+  );
+  const narrowed = eventScanActive(scan);
+
+  const fetchTicketPage = useCallback(
+    (offset: number) =>
+      fetchDropsPage({
         sort: 'new',
         mediumKind: 'ticket',
         limit: PAGE_SIZE,
         offset,
-      });
-      setItems((prev) => (replace ? page.items : [...prev, ...page.items]));
-      setHasMore(page.hasMore);
-      setNowMs(Date.now());
-    } catch {
-      setFailed(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      }),
+    []
+  );
+
+  const load = useCallback(
+    async (offset: number, replace: boolean) => {
+      const gen = replace ? ++reloadGenRef.current : reloadGenRef.current;
+      setFailed(false);
+      if (replace) {
+        setItems([]);
+        setHasMore(false);
+        setLoading(true);
+      }
+      if (scope === 'mine' && !accountId) {
+        if (gen !== reloadGenRef.current) return;
+        setItems([]);
+        setSeen([]);
+        setNextOffset(0);
+        setHasMore(false);
+        setLoading(false);
+        return;
+      }
+      try {
+        if (!narrowed) {
+          const page = await fetchTicketPage(offset);
+          if (gen !== reloadGenRef.current) return;
+          setItems((prev) => (replace ? page.items : [...prev, ...page.items]));
+          setSeen((prev) => (replace ? page.items : [...prev, ...page.items]));
+          setNextOffset(offset + page.items.length);
+          setHasMore(page.hasMore);
+        } else {
+          const result = await scanTicketEvents({
+            fetchPage: fetchTicketPage,
+            startOffset: offset,
+            need: PAGE_SIZE,
+            match: (item) => eventMatchesScan(item, scan),
+          });
+          if (gen !== reloadGenRef.current) return;
+          setItems((prev) =>
+            replace ? result.matches : [...prev, ...result.matches]
+          );
+          setSeen((prev) => (replace ? result.seen : [...prev, ...result.seen]));
+          setNextOffset(result.nextOffset);
+          setHasMore(result.hasMore);
+        }
+        setNowMs(Date.now());
+      } catch {
+        if (gen !== reloadGenRef.current) return;
+        setFailed(true);
+      } finally {
+        if (gen === reloadGenRef.current) setLoading(false);
+      }
+    },
+    [accountId, fetchTicketPage, narrowed, scan, scope]
+  );
+
+  useEffect(() => {
+    const handle = window.setTimeout(
+      () => setDebouncedQuery(query.trim()),
+      200
+    );
+    return () => window.clearTimeout(handle);
+  }, [query]);
 
   useEffect(() => {
     void load(0, true);
   }, [load, reloadKey]);
 
-  const places = useMemo(() => eventPlaceChoices(items), [items]);
-  const filtered = items.filter(
-    (item) =>
-      eventMatchesQuery(item, query) &&
-      eventMatchesStyle(item, styleId) &&
-      eventMatchesPlace(item, placeId) &&
-      eventMatchesHost(item, scope === 'mine' ? accountId : null)
-  );
-  const grouped = groupEvents(filtered, nowMs);
+  const places = useMemo(() => eventPlaceChoices(seen), [seen]);
+  const grouped = groupEvents(items, nowMs);
   const filterLabel = [
     styleId ? eventStyleLabel(styleId) : null,
     placeId ? places.find((place) => place.id === placeId)?.label : null,
   ]
     .filter(Boolean)
     .join(' · ');
-  const empty = !loading && !failed && filtered.length === 0;
+  const empty = !loading && !failed && items.length === 0;
   const needsConnect = scope === 'mine' && !isConnected;
 
   return (
@@ -259,7 +318,7 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
               type="button"
               className="os-surface-chip"
               disabled={loading}
-              onClick={() => void load(items.length, false)}
+              onClick={() => void load(nextOffset, false)}
             >
               More
             </button>

@@ -145,6 +145,85 @@ export function eventMatchesHost(
   return accountIdsEqual(item.creatorId, hostId);
 }
 
+export type EventScan = {
+  query: string;
+  styleId: string | null;
+  placeId: string | null;
+  hostId: string | null;
+};
+
+/** True when the list must walk the ticket catalog, not the first page. */
+export function eventScanActive(scan: EventScan): boolean {
+  return (
+    scan.query.trim().length > 0 ||
+    scan.styleId != null ||
+    scan.placeId != null ||
+    scan.hostId != null
+  );
+}
+
+export function eventMatchesScan(
+  item: DropDiscoveryItem,
+  scan: EventScan
+): boolean {
+  return (
+    eventMatchesQuery(item, scan.query) &&
+    eventMatchesStyle(item, scan.styleId) &&
+    eventMatchesPlace(item, scan.placeId) &&
+    eventMatchesHost(item, scan.hostId)
+  );
+}
+
+/**
+ * Walk ticket pages until `need` matches, or the catalog (or round cap) ends.
+ * `nextOffset` is the next unread catalog row so More does not skip a match.
+ */
+export async function scanTicketEvents(opts: {
+  fetchPage: (
+    offset: number
+  ) => Promise<{ items: DropDiscoveryItem[]; hasMore: boolean }>;
+  startOffset?: number;
+  need: number;
+  match: (item: DropDiscoveryItem) => boolean;
+  maxRounds?: number;
+}): Promise<{
+  matches: DropDiscoveryItem[];
+  seen: DropDiscoveryItem[];
+  nextOffset: number;
+  hasMore: boolean;
+}> {
+  const maxRounds = opts.maxRounds ?? 20;
+  const matches: DropDiscoveryItem[] = [];
+  const seen: DropDiscoveryItem[] = [];
+  let offset = opts.startOffset ?? 0;
+  let hasMore = true;
+  let rounds = 0;
+  while (matches.length < opts.need && hasMore && rounds < maxRounds) {
+    const page = await opts.fetchPage(offset);
+    rounds += 1;
+    if (page.items.length === 0) {
+      hasMore = false;
+      break;
+    }
+    for (let i = 0; i < page.items.length; i += 1) {
+      const item = page.items[i]!;
+      seen.push(item);
+      if (opts.match(item)) matches.push(item);
+      if (matches.length >= opts.need) {
+        return {
+          matches,
+          seen,
+          nextOffset: offset + i + 1,
+          hasMore: i + 1 < page.items.length || page.hasMore,
+        };
+      }
+    }
+    offset += page.items.length;
+    hasMore = page.hasMore;
+  }
+  return { matches, seen, nextOffset: offset, hasMore };
+}
+
 export function eventPlaceChoices(
   items: DropDiscoveryItem[]
 ): Array<{ id: string; label: string }> {

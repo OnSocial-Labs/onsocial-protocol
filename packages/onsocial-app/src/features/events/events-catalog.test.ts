@@ -3,8 +3,10 @@ import type { DropDiscoveryItem } from '@/features/drops/drops-data';
 import {
   eventMatchesQuery,
   eventRowPrice,
+  eventScanActive,
   eventWindowFor,
   groupEvents,
+  scanTicketEvents,
 } from '@/features/events/events-catalog';
 
 function item(
@@ -88,5 +90,49 @@ describe('event windows', () => {
     expect(eventMatchesQuery(show, 'music')).toBe(true);
     expect(eventMatchesQuery(show, 'neartopia')).toBe(true);
     expect(eventMatchesQuery(show, 'sports')).toBe(false);
+  });
+});
+
+describe('scanTicketEvents', () => {
+  it('returns a match past the first page and keeps the next unread row', async () => {
+    const pages = [
+      [item('a', {}), item('b', {})],
+      [item('night', {}), item('c', {})],
+    ];
+    pages[1]![0]!.title = 'Neartopia Night';
+    const result = await scanTicketEvents({
+      fetchPage: async (offset) => {
+        const page = pages[offset / 2];
+        return { items: page ?? [], hasMore: Boolean(page) && offset + 2 < 4 };
+      },
+      need: 1,
+      match: (row) => eventMatchesQuery(row, 'neartopia'),
+    });
+    expect(result.matches.map((row) => row.collectionId)).toEqual(['night']);
+    expect(result.seen.map((row) => row.collectionId)).toEqual([
+      'a',
+      'b',
+      'night',
+    ]);
+    expect(result.nextOffset).toBe(3);
+    expect(result.hasMore).toBe(true);
+  });
+
+  it('stops when the catalog ends with no match', async () => {
+    const result = await scanTicketEvents({
+      fetchPage: async () => ({ items: [item('a', {})], hasMore: false }),
+      need: 48,
+      match: () => false,
+    });
+    expect(result.matches).toEqual([]);
+    expect(result.hasMore).toBe(false);
+    expect(result.nextOffset).toBe(1);
+  });
+
+  it('is active for a search, a chip, or a host', () => {
+    const idle = { query: '', styleId: null, placeId: null, hostId: null };
+    expect(eventScanActive(idle)).toBe(false);
+    expect(eventScanActive({ ...idle, query: 'lisbon' })).toBe(true);
+    expect(eventScanActive({ ...idle, hostId: 'alice.near' })).toBe(true);
   });
 });
