@@ -3556,9 +3556,6 @@ export function CreateDropPanel() {
                 aria-label="Event"
               >
                 <span className="drop-create-extra-row-label">Event</span>
-                <p className="drop-create-advanced-hint">
-                  {dropCreateExtraHint('event')}
-                </p>
                 <div className="drop-schedule-pair">
                   <div
                     className={`drop-schedule-cell${

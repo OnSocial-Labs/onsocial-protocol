@@ -279,7 +279,7 @@ describe('dropCreateRenewalsHint', () => {
 describe('dropCreateExtraHint', () => {
   it('is one line in the drawer, not a question', () => {
     expect(dropCreateExtraHint('dropId')).toMatch(/from your title/);
-    expect(dropCreateExtraHint('event')).toMatch(/not the sale/);
+    expect(dropCreateExtraHint('event')).toBe('');
     expect(dropCreateExtraHint('access')).toMatch(/offer ends/);
     expect(dropCreateExtraHint('renewals', { isTicket: true })).toBe(
       dropCreateRenewalsHint(true)
