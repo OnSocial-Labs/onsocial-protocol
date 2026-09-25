@@ -234,7 +234,14 @@ export function CollectionFactsSheet({
             </>
           )}
           {schedule.next ? (
-            <SheetFactCopy>{schedule.next}</SheetFactCopy>
+            <SheetFactCopy>
+              {view.kind === 'ticket'
+                ? schedule.next
+                    .replace(/^Opens /, 'Sale opens ')
+                    .replace(/^Closes /, 'Sale closes ')
+                    .replace(/^Closed /, 'Sale closed ')
+                : schedule.next}
+            </SheetFactCopy>
           ) : null}
           <SheetFactRow label="Price" value={priceLabel} />
           <SheetFactRow

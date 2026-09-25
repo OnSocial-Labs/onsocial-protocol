@@ -27592,6 +27592,17 @@ a.os-surface-row {
     min-height: 1.35rem;
   }
 
+  .collection-event-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    margin-top: 0.35rem;
+  }
+
+  .collection-event-lines .collection-product-line:first-child {
+    color: rgb(var(--fg-rgb) / 0.88);
+  }
+
   .collection-product-line {
     display: flex;
     flex-wrap: wrap;

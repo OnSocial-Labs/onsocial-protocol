@@ -43,6 +43,10 @@ export const LEADERBOARD_TRACK_PARAM = 'track';
 export const APP_DAO_PATH = '/dao';
 /** Social drop discovery — Live / Closing / Upcoming / New / Loved / Traded / Finished / Saved. */
 export const APP_DROPS_PATH = '/drops';
+/** Ticket drops ordered by show time. Same catalog as Drops → Tickets. */
+export const APP_EVENTS_PATH = '/events';
+/** Opens the ticket composer. */
+export const APP_EVENTS_NEW_PATH = '/drops/create?template=ticket';
 /** Query key for Drops catalog sort. */
 export const DROPS_SORT_PARAM = 'sort';
 

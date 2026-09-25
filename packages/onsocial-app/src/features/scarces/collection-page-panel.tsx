@@ -179,17 +179,18 @@ function scheduleLine(
   status: CollectionStatus,
   nowMs: number
 ): string | null {
+  const sale = view.kind === 'ticket';
   if (status === 'upcoming' && view.startTimeMs) {
     const rel = formatFutureRelativeTime(view.startTimeMs, nowMs);
-    return rel ? `Opens ${rel}` : null;
+    return rel ? `${sale ? 'Sale opens' : 'Opens'} ${rel}` : null;
   }
   if (status === 'live' && view.endTimeMs) {
     const rel = formatFutureRelativeTime(view.endTimeMs, nowMs);
-    return rel ? `Closes ${rel}` : null;
+    return rel ? `${sale ? 'Sale closes' : 'Closes'} ${rel}` : null;
   }
   if (status === 'ended' && view.endTimeMs) {
     const rel = formatMarketRelativeTime(view.endTimeMs, nowMs);
-    return rel ? `Closed ${rel}` : null;
+    return rel ? `${sale ? 'Sale closed' : 'Closed'} ${rel}` : null;
   }
   return null;
 }
@@ -1025,8 +1026,11 @@ export function CollectionPagePanel({
         : `${view.totalSupply} unique`
     );
   }
-  // Schedule lives in the product status slot — don’t repeat it here.
-  if (view.hasAllowlist) chipParts.push('Early access');
+  // Schedule lives in the product status slot. Early access only matters
+  // before the public sale opens; after that it stays in Info.
+  if (view.hasAllowlist && status === 'upcoming') {
+    chipParts.push('Early access');
+  }
   const personalAllowlistLeft =
     needsAllowlist &&
     isConnected &&
@@ -1351,6 +1355,20 @@ export function CollectionPagePanel({
                 )}
               </div>
             ) : null}
+            {view.kind === 'ticket' &&
+            (aboutEvent.when || aboutEvent.place || aboutEvent.next) ? (
+              <div className="collection-event-lines">
+                {aboutEvent.when ? (
+                  <p className="collection-product-line">{aboutEvent.when}</p>
+                ) : null}
+                {aboutEvent.place ? (
+                  <p className="collection-product-line">{aboutEvent.place}</p>
+                ) : null}
+                {aboutEvent.next ? (
+                  <p className="collection-product-line">{aboutEvent.next}</p>
+                ) : null}
+              </div>
+            ) : null}
             <div className="collection-product-row">
               {showCommerceMeter ? (
                 <div className="collection-product-line">
@@ -1375,6 +1393,13 @@ export function CollectionPagePanel({
                       <span className="collection-product-price">
                         {view.priceNear} NEAR
                       </span>
+                    </>
+                  ) : view.kind === 'ticket' ? (
+                    <>
+                      <span className="collection-meta-sep" aria-hidden>
+                        ·
+                      </span>
+                      <span className="collection-product-price">Free</span>
                     </>
                   ) : null}
                   {personalAllowlistLeft != null ? (

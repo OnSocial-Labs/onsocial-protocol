@@ -346,7 +346,10 @@ export function CreateDropPanel() {
   const { accountId, isConnected, isLoading, connect, getSigningWallet } =
     useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
-  const [templateId, setTemplateId] = useState<DropTemplateId>('art');
+  const templateQuery = searchParams.get('template')?.trim() ?? '';
+  const [templateId, setTemplateId] = useState<DropTemplateId>(
+    templateQuery === 'ticket' ? 'ticket' : 'art'
+  );
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   /** Fixed for this form session — keeps the public-link preview honest. */
@@ -807,6 +810,10 @@ export function CreateDropPanel() {
     }, 0);
     return () => window.clearTimeout(t);
   }, [accountId, clearPins]);
+
+  useEffect(() => {
+    if (templateQuery === 'ticket') setTemplateId('ticket');
+  }, [templateQuery]);
 
   // Optional `?series=` prefill when nothing else set the series field.
   useEffect(() => {
@@ -3190,7 +3197,9 @@ export function CreateDropPanel() {
                 >
                   <span className="drop-cover-placeholder">
                     <strong>
-                      {isAudio || isWriting ? 'Add cover' : 'Add artwork'}
+                      {isAudio || isWriting || isTicket
+                        ? 'Add cover'
+                        : 'Add artwork'}
                     </strong>
                     <small>JPG, PNG, or WebP · ≤5 MB</small>
                   </span>
@@ -3547,9 +3556,6 @@ export function CreateDropPanel() {
                 aria-label="Event"
               >
                 <span className="drop-create-extra-row-label">Event</span>
-                <p className="drop-create-advanced-hint">
-                  {dropCreateExtraHint('event')}
-                </p>
                 <div className="drop-schedule-pair">
                   <div
                     className={`drop-schedule-cell${
@@ -3612,6 +3618,12 @@ export function CreateDropPanel() {
                     ) : null}
                   </div>
                 </div>
+                <DropCreateExtraRow
+                  label={dropCreateExtraRowLabel('place')}
+                  value={dropCreateOptionalSummary(placeDraft)}
+                  disabled={pending}
+                  onClick={() => setExtraSheet('place')}
+                />
               </div>
             ) : null}
             {template.requiresAccessEnd ? (
@@ -3786,14 +3798,6 @@ export function CreateDropPanel() {
                   </div>
                 ) : null}
                 <DropCreateExtraList>
-                  {isTicket ? (
-                    <DropCreateExtraRow
-                      label={dropCreateExtraRowLabel('place')}
-                      value={dropCreateOptionalSummary(placeDraft)}
-                      disabled={pending}
-                      onClick={() => setExtraSheet('place')}
-                    />
-                  ) : null}
                   {isTicket ? (
                     <DropCreateExtraRow
                       label={dropCreateExtraRowLabel('renewals', { isTicket })}

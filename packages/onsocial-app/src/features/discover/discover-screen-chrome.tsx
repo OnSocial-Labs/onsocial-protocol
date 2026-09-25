@@ -3,7 +3,9 @@
 import { DiscoverOmniSearchField } from '@/features/discover/discover-omni-search-field';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { DiscoverTabBar } from '@/features/discover/discover-tab-bar';
+import Link from 'next/link';
 import { OsAppChromeToolbarRail } from '@onsocial/ui';
+import { APP_EVENTS_PATH } from '@/lib/app-routes';
 
 export function DiscoverNavSearch({ className }: { className?: string }) {
   return <DiscoverOmniSearchField className={className} />;
@@ -20,6 +22,9 @@ export function DiscoverHeaderTabs() {
         onTabChange={setTab}
         className="discover-tab-bar--header"
       />
+      <Link href={APP_EVENTS_PATH} scroll={false} className="os-surface-chip">
+        Events
+      </Link>
     </OsAppChromeToolbarRail>
   );
 }

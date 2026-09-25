@@ -52,6 +52,7 @@ describe('collectibles routes', () => {
 describe('collectibles os apps', () => {
   it('marks New drop as Drops, not Market', () => {
     expect(resolveActiveOsAppId('/drops')).toBe('drops');
+    expect(resolveActiveOsAppId('/events')).toBe('drops');
     expect(resolveActiveOsAppId('/drops/create')).toBe('drops');
     expect(resolveActiveOsAppId('/market/create')).toBe('drops');
     expect(resolveActiveOsAppId('/market')).toBe('market');
@@ -113,6 +114,7 @@ describe('collectibles os apps', () => {
       'discover',
       'market',
       'drops',
+      'events',
       'collectibles',
       'groups',
       'hubs',
@@ -128,9 +130,10 @@ describe('collectibles os apps', () => {
     );
     const visitor = visitorPortfolioOsApps('bob.near');
     const dropsIdx = visitor.findIndex((app) => app.id === 'drops');
-    expect(visitor[dropsIdx + 1]?.id).toBe('collectibles');
-    expect(visitor[dropsIdx + 1]?.href).toBe('/@bob.near/collectibles');
-    expect(visitor[dropsIdx + 2]?.id).toBe('groups');
+    expect(visitor[dropsIdx + 1]?.id).toBe('events');
+    expect(visitor[dropsIdx + 2]?.id).toBe('collectibles');
+    expect(visitor[dropsIdx + 2]?.href).toBe('/@bob.near/collectibles');
+    expect(visitor[dropsIdx + 3]?.id).toBe('groups');
   });
 
   it('opens Discover nested under the portfolio so leave returns there', () => {
@@ -167,15 +170,17 @@ describe('collectibles os apps', () => {
     const disconnected = appShellOsApps(null);
     const marketIdx = disconnected.findIndex((app) => app.id === 'market');
     expect(disconnected[marketIdx + 1]?.id).toBe('drops');
-    expect(disconnected[marketIdx + 2]?.id).toBe('collectibles');
-    expect(disconnected[marketIdx + 2]?.href).toBe('/collectibles');
+    expect(disconnected[marketIdx + 2]?.id).toBe('events');
+    expect(disconnected[marketIdx + 3]?.id).toBe('collectibles');
+    expect(disconnected[marketIdx + 3]?.href).toBe('/collectibles');
     expect(disconnected.at(-1)?.id).toBe('daos');
 
     const connected = appShellOsApps('alice.near');
     const connectedMarket = connected.findIndex((app) => app.id === 'market');
     expect(connected[connectedMarket + 1]?.id).toBe('drops');
-    expect(connected[connectedMarket + 2]?.id).toBe('collectibles');
-    expect(connected[connectedMarket + 2]?.href).toBe(
+    expect(connected[connectedMarket + 2]?.id).toBe('events');
+    expect(connected[connectedMarket + 3]?.id).toBe('collectibles');
+    expect(connected[connectedMarket + 3]?.href).toBe(
       '/@alice.near/collectibles'
     );
     expect(connected.at(-1)?.id).toBe('page');

@@ -19,6 +19,7 @@ import {
   NotificationBellPendingFillIcon,
   ChartFillIcon,
   DashboardFillIcon,
+  CalendarFillIcon,
   MapMarkerFillIcon,
   FireBFillIcon,
   FireFillIcon,
@@ -60,6 +61,7 @@ describe('mage fill icons', () => {
     expect(typeof NotificationBellPendingFillIcon).toBe('function');
     expect(typeof ChartFillIcon).toBe('function');
     expect(typeof DashboardFillIcon).toBe('function');
+    expect(typeof CalendarFillIcon).toBe('function');
     expect(typeof MapMarkerFillIcon).toBe('function');
     expect(typeof FireBFillIcon).toBe('function');
     expect(typeof FireFillIcon).toBe('function');

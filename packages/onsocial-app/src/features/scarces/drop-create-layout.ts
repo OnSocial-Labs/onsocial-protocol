@@ -287,7 +287,7 @@ export function dropCreateExtraHint(
     case 'allowlist':
       return 'Early mint. Needs Opens in Sale.';
     case 'event':
-      return 'When the show runs — not the sale.';
+      return '';
     case 'access':
       return 'When the offer ends — not the sale.';
     case 'burnable':

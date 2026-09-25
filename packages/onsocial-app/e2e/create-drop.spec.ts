@@ -571,7 +571,7 @@ test.describe('create drop', () => {
     );
     await expect(
       page.getByText('When the show runs — not the sale.')
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(page.getByText('Event window', { exact: true })).toHaveCount(
       0
     );

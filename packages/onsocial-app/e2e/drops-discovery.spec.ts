@@ -72,11 +72,10 @@ test.describe('drops discovery', () => {
     await expect(page.locator('[data-drops-loading]')).toHaveCount(0);
   });
 
-  test('deep-links sort and medium from the URL', async ({ page }) => {
+  test('ticket medium opens the Events list', async ({ page }) => {
     await gotoApp(page, '/drops?sort=closing&kind=ticket');
-    await expectDropsChrome(page);
-    await expectTabSelected(page, 'Drop sort', 'Closing');
-    await expectMarketFilterSummary(page, 'Tickets');
+    await expect(page).toHaveURL(/\/events(?:\?|$)/);
+    await expect(page.getByRole('link', { name: 'New event' })).toBeVisible();
   });
 
   test('deep-links audio format under Audio medium', async ({ page }) => {
