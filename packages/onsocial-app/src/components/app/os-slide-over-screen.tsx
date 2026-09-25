@@ -89,6 +89,8 @@ export interface OsSlideOverScreenProps {
    * hug drawers (theme `--fg`, no frost chip).
    */
   elevateChrome?: boolean;
+  /** Same compact nav band as Post (`data-compact-chrome`). */
+  compactChrome?: boolean;
   zIndex?: number;
   closeAriaLabel?: string;
   /** When true, close + Escape do nothing (e.g. post pending). */
@@ -141,6 +143,7 @@ export function OsSlideOverScreen({
   immersiveHeader = false,
   headerElevated = false,
   elevateChrome = true,
+  compactChrome = false,
   zIndex = 70,
   closeAriaLabel = 'Close',
   closeDisabled = false,
@@ -303,6 +306,7 @@ export function OsSlideOverScreen({
         data-tone="os"
         data-immersive-header={immersiveHeader ? 'true' : undefined}
         data-glass-chrome={useGlassChrome ? 'true' : undefined}
+        data-compact-chrome={compactChrome ? 'true' : undefined}
         data-screen-footer={hasFooter ? 'true' : undefined}
         data-os-slide-over="true"
         data-keep-dock={keepDock ? 'true' : undefined}

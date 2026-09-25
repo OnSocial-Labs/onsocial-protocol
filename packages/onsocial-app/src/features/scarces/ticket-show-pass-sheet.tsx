@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { CopyIcon, Divider, ScaleUpIcon } from '@onsocial/ui';
+import { CopyIcon, Divider } from '@onsocial/ui';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import { AccountAvatar } from '@/components/profile/account-avatar';
@@ -38,7 +38,7 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
 /**
- * Show pass — shared media-face jacket; QR + door chrome in the body.
+ * Show pass — event name in the jacket; cover, then QR, in the body.
  */
 export function TicketShowPassSheet({
   open,
@@ -81,6 +81,7 @@ export function TicketShowPassSheet({
       setStatusError(null);
       setStatusReady(false);
       setThumbFailed(false);
+      setArtEnlargeOpen(false);
       setCodeCopied(false);
       setLivePayload(null);
       setLiveError(null);
@@ -272,31 +273,27 @@ export function TicketShowPassSheet({
       closeAriaLabel="Back from pass"
       zIndex={SCARCE_Z.nestedOverCommerce}
       keepDock
+      screenHeader
       className="ticket-pass-slide"
       contentClassName="ticket-pass-slide-body"
-      mast={
-        media ? (
-          <button
-            type="button"
-            className="ticket-show-pass-mark-btn ticket-show-pass-mark-btn--jacket"
-            onClick={() => setArtEnlargeOpen(true)}
-            aria-label="View full artwork"
-          >
-            <img
-              src={media}
-              alt=""
-              className="ticket-show-pass-mark"
-              onError={() => setThumbFailed(true)}
-            />
-            <span className="ticket-show-pass-mark-expand" aria-hidden>
-              <ScaleUpIcon className="ticket-show-pass-mark-expand-icon" />
-            </span>
-          </button>
-        ) : null
-      }
     >
       <div className="ticket-show-pass">
         <div className="ticket-show-pass-body">
+          {media ? (
+            <button
+              type="button"
+              className="ticket-show-pass-mark-btn"
+              onClick={() => setArtEnlargeOpen(true)}
+              aria-label={`View artwork for ${name}`}
+            >
+              <img
+                src={media}
+                alt=""
+                className="ticket-show-pass-mark"
+                onError={() => setThumbFailed(true)}
+              />
+            </button>
+          ) : null}
           <p className={`ticket-show-pass-status${toneClass}`}>{statusLine}</p>
 
           {livePayload ? (
@@ -390,7 +387,6 @@ export function TicketShowPassSheet({
           </div>
         </div>
       </div>
-
       {media && artEnlargeOpen ? (
         <DropArtOverlay
           open={artEnlargeOpen}
