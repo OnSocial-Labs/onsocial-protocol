@@ -20,6 +20,8 @@ import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
+import { DropsDiscoveryRowMenu } from '@/features/drops/drops-discovery-row-menu';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
   fetchDropsPage,
@@ -94,12 +96,20 @@ function EventRow({
   window,
   guestCount,
   onGuests,
+  saved,
+  savePending,
+  onToggleSave,
+  onOwnerManaged,
 }: {
   item: DropDiscoveryItem;
   nowMs: number;
   window: EventWindow;
   guestCount: number | null;
   onGuests: (item: DropDiscoveryItem, kind: EventGuestKind) => void;
+  saved: boolean;
+  savePending: boolean;
+  onToggleSave: () => void;
+  onOwnerManaged: (change: 'paused' | 'resumed' | 'deleted') => void;
 }) {
   const href = collectionPath(item.collectionId);
   const meta = [
@@ -165,6 +175,18 @@ function EventRow({
           </div>
         ) : null}
       </div>
+      <div className="market-listing-action-col events-row-menu-col">
+        <div className="drops-discovery-head-trail">
+          <DropsDiscoveryRowMenu
+            item={item}
+            saved={saved}
+            savePending={savePending}
+            onToggleSave={onToggleSave}
+            onOwnerManaged={onOwnerManaged}
+            voice="event"
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -178,6 +200,9 @@ export function EventsPagePanel({
   initialQuery?: string;
 }) {
   const { accountId, isConnected } = useAppWallet();
+  const { viewerSaved, isSavePending, toggleSave } = useScarceCollectionSaves(
+    {}
+  );
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [items, setItems] = useState<DropDiscoveryItem[]>([]);
@@ -325,6 +350,24 @@ export function EventsPagePanel({
       attended: attendedRosters,
     }),
     [attendedRosters, holderRosters, inRosters]
+  );
+
+  const onOwnerManaged = useCallback(
+    (id: string, change: 'paused' | 'resumed' | 'deleted') => {
+      if (change === 'deleted' || change === 'paused') {
+        setItems((current) =>
+          current.filter((row) => row.collectionId !== id)
+        );
+        setSeen((current) => current.filter((row) => row.collectionId !== id));
+        return;
+      }
+      setItems((current) =>
+        current.map((row) =>
+          row.collectionId === id ? { ...row, status: 'live' as const } : row
+        )
+      );
+    },
+    []
   );
 
   const openGuests = useCallback(
@@ -505,6 +548,14 @@ export function EventsPagePanel({
                             ),
                           })}
                           onGuests={openGuests}
+                          saved={viewerSaved(item.collectionId)}
+                          savePending={isSavePending(item.collectionId)}
+                          onToggleSave={() => {
+                            void toggleSave(item.collectionId);
+                          }}
+                          onOwnerManaged={(change) =>
+                            onOwnerManaged(item.collectionId, change)
+                          }
                         />
                       );
                     })}
