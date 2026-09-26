@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   APP_DROPS_PATH,
+  APP_EVENTS_PATH,
   DROPS_SORT_PARAM,
   MARKET_AUDIO_FORMAT_PARAM,
   MARKET_KIND_PARAM,
   dropsPath,
+  eventsPath,
   parseDropsMediumParam,
   parseDropsSortParam,
 } from '@/lib/app-routes';
@@ -56,6 +58,14 @@ describe('dropsPath', () => {
     expect(dropsPath({ kind: 'ticket', audioFormat: 'album' })).toBe(
       `${APP_DROPS_PATH}?${MARKET_KIND_PARAM}=ticket`
     );
+  });
+
+  it('carries a search into drops and events', () => {
+    expect(dropsPath({ kind: 'writing', q: 'forest' })).toBe(
+      `${APP_DROPS_PATH}?${MARKET_KIND_PARAM}=writing&q=forest`
+    );
+    expect(eventsPath()).toBe(APP_EVENTS_PATH);
+    expect(eventsPath({ q: ' forest ' })).toBe(`${APP_EVENTS_PATH}?q=forest`);
   });
 });
 

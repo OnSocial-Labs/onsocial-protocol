@@ -9601,6 +9601,18 @@ a.os-surface-row {
     list-style: none;
   }
 
+  .portfolio-writing-pending {
+    display: grid;
+    gap: 0.85rem;
+    margin-top: 0.85rem;
+  }
+
+  .portfolio-writing-pending-row {
+    display: block;
+    height: 4.6rem;
+    border-radius: 0.85rem;
+  }
+
   .portfolio-writing-card {
     display: grid;
     grid-template-columns: 7.2rem minmax(0, 1fr);

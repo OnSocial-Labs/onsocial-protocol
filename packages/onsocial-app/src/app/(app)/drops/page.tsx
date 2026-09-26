@@ -20,6 +20,7 @@ type DropsPageProps = {
     [DROPS_SORT_PARAM]?: string | string[];
     [MARKET_KIND_PARAM]?: string | string[];
     [MARKET_AUDIO_FORMAT_PARAM]?: string | string[];
+    q?: string | string[];
   }>;
 };
 
@@ -45,6 +46,7 @@ export default async function DropsPage({ searchParams }: DropsPageProps) {
       seedQuery={query}
       seedPromise={seedPromise}
       initialNowMs={initialNowMs}
+      initialSearch={firstParam(resolved.q)}
     />
   );
 }

@@ -44,6 +44,7 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
       creatorAvatarUrl={data.profile?.avatarUrl ?? null}
       creatorDisplayName={data.profile?.name ?? null}
       drops={data.drops}
+      creatorHasMore={data.creatorHasMore}
     />
   );
 }

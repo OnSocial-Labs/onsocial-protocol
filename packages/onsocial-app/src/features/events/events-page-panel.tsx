@@ -18,6 +18,7 @@ import { OsChipRail } from '@/components/os/os-chip-rail';
 import { ActionDrawer } from '@/components/ui/action-drawer';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
   fetchDropsPage,
@@ -167,16 +168,25 @@ function EventRow({
   );
 }
 
-export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
+export function EventsPagePanel({
+  initialNowMs,
+  initialQuery = '',
+}: {
+  initialNowMs: number;
+  /** URL `q` — grouped search hands the same words here. */
+  initialQuery?: string;
+}) {
   const { accountId, isConnected } = useAppWallet();
+  const scrollRootRef = useRef<HTMLElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [items, setItems] = useState<DropDiscoveryItem[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [nowMs, setNowMs] = useState(initialNowMs);
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [scope, setScope] = useState<'all' | 'mine'>('all');
   const [styleId, setStyleId] = useState<string | null>(null);
   const [placeId, setPlaceId] = useState<string | null>(null);
@@ -282,6 +292,10 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
     void load(0, true);
   }, [load, reloadKey]);
 
+  const loadNext = useCallback(() => {
+    void load(nextOffset, false);
+  }, [load, nextOffset]);
+
   const places = useMemo(() => eventPlaceChoices(seen), [seen]);
   const grouped = groupEvents(items, nowMs);
   const goingIds = grouped.upcoming
@@ -348,6 +362,14 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
     .join(' · ');
   const empty = !loading && !failed && items.length === 0;
   const needsConnect = scope === 'mine' && !isConnected;
+  const showAppendSkeleton = loading && items.length > 0 && !failed;
+
+  useInfiniteScrollSentinel({
+    scrollRootRef,
+    sentinelRef: loadMoreRef,
+    enabled: hasMore && !loading && !failed && !needsConnect,
+    onIntersect: loadNext,
+  });
 
   return (
     <OsAppScreen
@@ -358,6 +380,7 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
       dockBack
       leading={null}
       backFallbackHref={APP_HOME_PATH}
+      scrollRootRef={scrollRootRef}
       heading={
         <OsAppChromeNavSearch
           value={query}
@@ -477,15 +500,15 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
               );
             })
           )}
+          {showAppendSkeleton ? (
+            <MarketListSkeleton rows={2} variant="drops" />
+          ) : null}
           {hasMore ? (
-            <button
-              type="button"
-              className="os-surface-chip"
-              disabled={loading}
-              onClick={() => void load(nextOffset, false)}
-            >
-              More
-            </button>
+            <div
+              ref={loadMoreRef}
+              className="standing-panel-sentinel"
+              aria-hidden
+            />
           ) : null}
         </div>
       </div>

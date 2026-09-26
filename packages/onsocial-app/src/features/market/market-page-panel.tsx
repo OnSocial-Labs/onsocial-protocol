@@ -121,7 +121,7 @@ import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
-import { fetchCollectionsByCreator } from '@/features/scarces/collections-data';
+import { fetchCollectionsByCreatorPage } from '@/features/scarces/collections-data';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
 import { accountIdsEqual } from '@/lib/account-match';
 import { collectionToProfileStoreDrop } from '@/lib/profile-store-map';
@@ -152,8 +152,10 @@ type LoadStatus = 'loading' | 'ready' | 'error';
 /** Initial Recent sales rows; expand shows the rest of the fetched window. */
 const RECENT_SALES_PREVIEW = 8;
 
-/** Catalog page size for infinite scroll / Show more. */
+/** Catalog page size for infinite scroll. */
 const LISTINGS_PAGE_SIZE = 40;
+/** Creator shop drops. A full page means older drops still exist. */
+const CREATOR_DROPS_PAGE = 48;
 /** Debounce before a search keystroke becomes an indexer query. */
 const SEARCH_DEBOUNCE_MS = 300;
 /** Mute last rows only if the live check is still in flight — skip flicker on fast hits. */
@@ -287,6 +289,9 @@ export function MarketPagePanel({
   const [listingsState, setListingsState] =
     useState<ListingsState>(EMPTY_LISTINGS);
   const [creatorDrops, setCreatorDrops] = useState<ProfileStoreDrop[]>([]);
+  const [creatorDropsHasMore, setCreatorDropsHasMore] = useState(false);
+  const [creatorDropOffset, setCreatorDropOffset] = useState(0);
+  const [creatorDropsLoadingMore, setCreatorDropsLoadingMore] = useState(false);
   const [creatorDropsSettled, setCreatorDropsSettled] = useState(
     !seedQuery.creator
   );
@@ -347,6 +352,8 @@ export function MarketPagePanel({
   >(() => new Map());
   const [offersRevision, setOffersRevision] = useState(0);
   const listingsSentinelRef = useRef<HTMLDivElement | null>(null);
+  const ownedSentinelRef = useRef<HTMLDivElement | null>(null);
+  const creatorDropsSentinelRef = useRef<HTMLDivElement | null>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   /** Bumped on each first-page fetch so in-flight loadMore cannot append stale pages. */
   const listingsFetchGenRef = useRef(0);
@@ -896,29 +903,35 @@ export function MarketPagePanel({
   useEffect(() => {
     if (!creatorFilter) {
       setCreatorDrops([]);
+      setCreatorDropsHasMore(false);
+      setCreatorDropOffset(0);
       setCreatorDropsSettled(true);
       setCreatorFace(null);
       return;
     }
     let cancelled = false;
     setCreatorDropsSettled(false);
-    const apply = (drops: ProfileStoreDrop[]) => {
+    const apply = (drops: ProfileStoreDrop[], fetched: number) => {
       if (cancelled) return;
       setCreatorDrops(drops);
+      setCreatorDropOffset(fetched);
+      setCreatorDropsHasMore(fetched >= CREATOR_DROPS_PAGE);
       setCreatorDropsSettled(true);
     };
     const fetchClient = () =>
-      fetchCollectionsByCreator(creatorFilter, { limit: 48 })
-        .then((collections) =>
-          apply(collections.map(collectionToProfileStoreDrop))
+      fetchCollectionsByCreatorPage(creatorFilter, {
+        limit: CREATOR_DROPS_PAGE,
+      })
+        .then((page) =>
+          apply(page.views.map(collectionToProfileStoreDrop), page.fetched)
         )
-        .catch(() => apply([]));
+        .catch(() => apply([], 0));
 
     if (retryKey === 0 && seedPromise && seedQuery.creator === creatorFilter) {
       void seedPromise.then((data) => {
         if (cancelled) return;
         if (data?.drops && data.drops.length > 0) {
-          apply(data.drops);
+          apply(data.drops, data.drops.length);
           return;
         }
         void fetchClient();
@@ -930,6 +943,45 @@ export function MarketPagePanel({
       cancelled = true;
     };
   }, [creatorFilter, retryKey, seedPromise, seedQuery.creator]);
+
+  const loadMoreCreatorDrops = useCallback(() => {
+    if (
+      !creatorFilter ||
+      !creatorDropsHasMore ||
+      creatorDropsLoadingMore ||
+      creatorDropOffset <= 0
+    ) {
+      return;
+    }
+    const offset = creatorDropOffset;
+    setCreatorDropsLoadingMore(true);
+    void fetchCollectionsByCreatorPage(creatorFilter, {
+      limit: CREATOR_DROPS_PAGE,
+      offset,
+    })
+      .then((page) => {
+        setCreatorDrops((current) => {
+          const seen = new Set(current.map((drop) => drop.collectionId));
+          const next = page.views
+            .map(collectionToProfileStoreDrop)
+            .filter((drop) => !seen.has(drop.collectionId));
+          return next.length > 0 ? [...current, ...next] : current;
+        });
+        setCreatorDropOffset(offset + page.fetched);
+        setCreatorDropsHasMore(page.fetched >= CREATOR_DROPS_PAGE);
+      })
+      .catch(() => {
+        setCreatorDropsHasMore(false);
+      })
+      .finally(() => {
+        setCreatorDropsLoadingMore(false);
+      });
+  }, [
+    creatorDropOffset,
+    creatorDropsHasMore,
+    creatorDropsLoadingMore,
+    creatorFilter,
+  ]);
 
   useEffect(() => {
     if (!creatorFilter) return;
@@ -1030,6 +1082,25 @@ export function MarketPagePanel({
     ownedState.nextFromEnd,
     ownedLoadingMore,
   ]);
+
+  useInfiniteScrollSentinel({
+    scrollRootRef,
+    sentinelRef: ownedSentinelRef,
+    enabled:
+      Boolean(viewerAccountId) && ownedState.hasMore && !ownedLoadingMore,
+    onIntersect: loadMoreOwned,
+  });
+
+  useInfiniteScrollSentinel({
+    scrollRootRef,
+    sentinelRef: creatorDropsSentinelRef,
+    enabled:
+      Boolean(creatorFilter) &&
+      creatorDropsHasMore &&
+      !creatorDropsLoadingMore &&
+      creatorDropsSettled,
+    onIntersect: loadMoreCreatorDrops,
+  });
 
   const status: LoadStatus =
     listingsState.paramsKey === null
@@ -1781,17 +1852,27 @@ export function MarketPagePanel({
         data-market-creator-shop={creatorFilter ? '' : undefined}
       >
         {creatorFilter ? (
-          <MarketCreatorShop
-            creatorId={creatorFilter}
-            displayName={creatorFace?.displayName}
-            avatarUrl={creatorFace?.avatarUrl}
-            drops={shopDrops}
-            listingCount={discoveryFilteredListings.length}
-            showDropLabel={
-              shopDrops.length > 0 && discoveryFilteredListings.length > 0
-            }
-            onMintDrop={handleMintDrop}
-          />
+          <>
+            <MarketCreatorShop
+              creatorId={creatorFilter}
+              displayName={creatorFace?.displayName}
+              avatarUrl={creatorFace?.avatarUrl}
+              drops={shopDrops}
+              listingCount={discoveryFilteredListings.length}
+              showDropLabel={
+                shopDrops.length > 0 && discoveryFilteredListings.length > 0
+              }
+              onMintDrop={handleMintDrop}
+            />
+            {creatorDropsLoadingMore ? <MarketListSkeleton rows={2} /> : null}
+            {creatorDropsHasMore ? (
+              <div
+                ref={creatorDropsSentinelRef}
+                className="standing-panel-sentinel"
+                aria-hidden
+              />
+            ) : null}
+          </>
         ) : null}
 
         {appFilter ? (
@@ -2016,13 +2097,6 @@ export function MarketPagePanel({
               className="market-listing-sentinel"
               aria-hidden
             />
-            <OsLoadMore
-              onClick={loadMoreListings}
-              pending={loadingMore}
-              disabled={loadingMore}
-            >
-              {loadingMore ? 'Loading…' : 'Show more'}
-            </OsLoadMore>
           </>
         ) : null}
 
@@ -2061,14 +2135,13 @@ export function MarketPagePanel({
                 );
               })}
             </div>
+            {ownedLoadingMore ? <MarketListSkeleton rows={2} /> : null}
             {ownedState.hasMore ? (
-              <OsLoadMore
-                onClick={loadMoreOwned}
-                pending={ownedLoadingMore}
-                disabled={ownedLoadingMore}
-              >
-                {ownedLoadingMore ? 'Loading…' : 'Show more'}
-              </OsLoadMore>
+              <div
+                ref={ownedSentinelRef}
+                className="standing-panel-sentinel"
+                aria-hidden
+              />
             ) : null}
           </section>
         ) : null}
