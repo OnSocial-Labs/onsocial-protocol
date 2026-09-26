@@ -95,9 +95,7 @@ export function eventRowPrice(item: DropDiscoveryItem): string {
 }
 
 export function eventStyleLabel(id: string): string {
-  return (
-    TICKET_EVENT_SUGGESTIONS.find((entry) => entry.id === id)?.label ?? id
-  );
+  return TICKET_EVENT_SUGGESTIONS.find((entry) => entry.id === id)?.label ?? id;
 }
 
 export function eventMatchesQuery(
@@ -145,8 +143,25 @@ export type EventScan = {
   query: string;
   styleId: string | null;
   placeId: string | null;
+  /** Set on My events. Null on All. */
   hostId: string | null;
+  /**
+   * Ticket collections the viewer still holds. Null on All.
+   * Empty set means they hold none; hosted events can still match.
+   */
+  heldCollectionIds: ReadonlySet<string> | null;
 };
+
+/** Hosted by the viewer, or a ticket they still hold. */
+export function eventMatchesMine(
+  item: DropDiscoveryItem,
+  hostId: string | null,
+  heldCollectionIds: ReadonlySet<string> | null
+): boolean {
+  if (hostId == null && heldCollectionIds == null) return true;
+  if (hostId && accountIdsEqual(item.creatorId, hostId)) return true;
+  return heldCollectionIds?.has(item.collectionId) ?? false;
+}
 
 /** True when the list must walk the ticket catalog, not the first page. */
 export function eventScanActive(scan: EventScan): boolean {
@@ -154,7 +169,8 @@ export function eventScanActive(scan: EventScan): boolean {
     scan.query.trim().length > 0 ||
     scan.styleId != null ||
     scan.placeId != null ||
-    scan.hostId != null
+    scan.hostId != null ||
+    scan.heldCollectionIds != null
   );
 }
 
@@ -166,7 +182,7 @@ export function eventMatchesScan(
     eventMatchesQuery(item, scan.query) &&
     eventMatchesStyle(item, scan.styleId) &&
     eventMatchesPlace(item, scan.placeId) &&
-    eventMatchesHost(item, scan.hostId)
+    eventMatchesMine(item, scan.hostId, scan.heldCollectionIds)
   );
 }
 

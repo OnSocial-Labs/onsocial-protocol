@@ -45,6 +45,7 @@ import {
   eventGuestSheetCopy,
   loadEventCheckInIds,
   loadEventHolderIds,
+  loadHeldCollectionIds,
   resolveEventGuestCount,
   showEventGuestCount,
   type EventGuestKind,
@@ -183,6 +184,8 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [nextOffset, setNextOffset] = useState(0);
   const [seen, setSeen] = useState<DropDiscoveryItem[]>([]);
+  const [heldIds, setHeldIds] = useState<Set<string> | null>(null);
+  const [heldFor, setHeldFor] = useState<string | null>(null);
   const [guestOpen, setGuestOpen] = useState(false);
   const [guestSheet, setGuestSheet] = useState<{
     collectionId: string;
@@ -194,16 +197,24 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
   } | null>(null);
   const reloadGenRef = useRef(0);
 
+  const mineAccount = scope === 'mine' && accountId ? accountId : null;
+  if (heldFor !== mineAccount) {
+    setHeldFor(mineAccount);
+    setHeldIds(null);
+  }
+  const holdingsReady = scope !== 'mine' || !accountId || heldIds !== null;
   const scan = useMemo<EventScan>(
     () => ({
       query: debouncedQuery,
       styleId,
       placeId,
       hostId: scope === 'mine' && accountId ? accountId : null,
+      heldCollectionIds: scope === 'mine' ? heldIds : null,
     }),
-    [accountId, debouncedQuery, placeId, scope, styleId]
+    [accountId, debouncedQuery, heldIds, placeId, scope, styleId]
   );
   const narrowed = eventScanActive(scan);
+  const listFiltered = Boolean(debouncedQuery || styleId || placeId);
 
   const fetchTicketPage = useCallback(
     (offset: number) =>
@@ -219,6 +230,17 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
   const load = useCallback(
     async (offset: number, replace: boolean) => {
       const gen = replace ? ++reloadGenRef.current : reloadGenRef.current;
+      if (!holdingsReady) {
+        if (replace && gen === reloadGenRef.current) {
+          setItems([]);
+          setSeen([]);
+          setNextOffset(0);
+          setHasMore(false);
+          setFailed(false);
+          setLoading(true);
+        }
+        return;
+      }
       setFailed(false);
       if (replace) {
         setItems([]);
@@ -267,8 +289,23 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
         if (gen === reloadGenRef.current) setLoading(false);
       }
     },
-    [accountId, fetchTicketPage, narrowed, scan, scope]
+    [accountId, fetchTicketPage, holdingsReady, narrowed, scan, scope]
   );
+
+  useEffect(() => {
+    if (scope !== 'mine' || !accountId) return;
+    let cancelled = false;
+    void loadHeldCollectionIds(accountId)
+      .then((ids) => {
+        if (!cancelled) setHeldIds(ids);
+      })
+      .catch(() => {
+        if (!cancelled) setHeldIds(new Set());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, scope]);
 
   useEffect(() => {
     const handle = window.setTimeout(
@@ -429,7 +466,7 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
             <MarketListSkeleton rows={6} variant="drops" />
           ) : needsConnect ? (
             <p className="market-section-title">Connect to see your events.</p>
-          ) : empty && narrowed ? (
+          ) : empty && listFiltered ? (
             <p className="market-section-title">No events match.</p>
           ) : empty ? (
             <p className="market-section-title">

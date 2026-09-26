@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DropDiscoveryItem } from '@/features/drops/drops-data';
 import {
+  eventMatchesMine,
   eventMatchesQuery,
   eventRowPrice,
   eventScanActive,
@@ -43,15 +44,15 @@ const now = 1_000_000;
 
 describe('event windows', () => {
   it('buckets by show time', () => {
-    expect(eventWindowFor(item('soon', { start: now + 10, end: now + 20 }), now)).toBe(
-      'upcoming'
-    );
-    expect(eventWindowFor(item('live', { start: now - 10, end: now + 20 }), now)).toBe(
-      'now'
-    );
-    expect(eventWindowFor(item('done', { start: now - 20, end: now - 1 }), now)).toBe(
-      'past'
-    );
+    expect(
+      eventWindowFor(item('soon', { start: now + 10, end: now + 20 }), now)
+    ).toBe('upcoming');
+    expect(
+      eventWindowFor(item('live', { start: now - 10, end: now + 20 }), now)
+    ).toBe('now');
+    expect(
+      eventWindowFor(item('done', { start: now - 20, end: now - 1 }), now)
+    ).toBe('past');
   });
 
   it('orders upcoming soonest first and past latest first', () => {
@@ -129,10 +130,36 @@ describe('scanTicketEvents', () => {
     expect(result.nextOffset).toBe(1);
   });
 
-  it('is active for a search, a chip, or a host', () => {
-    const idle = { query: '', styleId: null, placeId: null, hostId: null };
+  it('is active for a search, a chip, or My events', () => {
+    const idle = {
+      query: '',
+      styleId: null,
+      placeId: null,
+      hostId: null,
+      heldCollectionIds: null,
+    };
     expect(eventScanActive(idle)).toBe(false);
     expect(eventScanActive({ ...idle, query: 'lisbon' })).toBe(true);
     expect(eventScanActive({ ...idle, hostId: 'alice.near' })).toBe(true);
+    expect(
+      eventScanActive({ ...idle, heldCollectionIds: new Set(['night']) })
+    ).toBe(true);
+  });
+});
+
+describe('My events', () => {
+  it('includes events you host and tickets you still hold', () => {
+    const hosted = item('hosted', {});
+    const held = item('held', {});
+    held.creatorId = 'bob.near';
+    const other = item('other', {});
+    other.creatorId = 'bob.near';
+    const heldIds = new Set(['held']);
+    expect(eventMatchesMine(hosted, 'alice.near', heldIds)).toBe(true);
+    expect(eventMatchesMine(held, 'alice.near', heldIds)).toBe(true);
+    expect(eventMatchesMine(other, 'alice.near', heldIds)).toBe(false);
+    expect(eventMatchesMine(hosted, 'alice.near', new Set())).toBe(true);
+    expect(eventMatchesMine(held, 'alice.near', new Set())).toBe(false);
+    expect(eventMatchesMine(other, null, null)).toBe(true);
   });
 });
