@@ -33853,8 +33853,8 @@ a.os-surface-row {
   }
 
   .drop-cal-nav-btn {
-    width: 1.9rem;
-    height: 1.9rem;
+    width: 2.75rem;
+    height: 2.75rem;
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
@@ -33964,7 +33964,10 @@ a.os-surface-row {
   }
 
   .drop-cal-day {
-    min-height: 1.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
     border: 0;
     border-radius: 999px;
     background: transparent;
