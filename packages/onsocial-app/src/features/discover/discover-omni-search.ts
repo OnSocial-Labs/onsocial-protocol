@@ -83,6 +83,7 @@ export function discoverSearchFocusHint(
   if (tab === 'daos') return 'DAOs';
   if (tab === 'guilds') return 'Guilds';
   if (tab === 'hubs') return 'Hubs';
+  if (tab === 'trending') return 'People, articles, books, music, events';
   return 'People, #topics, $tickers';
 }
 
@@ -94,5 +95,8 @@ export function discoverSearchAriaLabel(
   if (tab === 'daos') return 'Search DAOs';
   if (tab === 'guilds') return 'Search Guilds';
   if (tab === 'hubs') return 'Search Hubs';
+  if (tab === 'trending') {
+    return 'Search people, articles, books, music, and events';
+  }
   return 'Search people, topics, and tickers';
 }

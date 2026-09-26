@@ -83,7 +83,8 @@ export function appDiscoverTabHref(tab: DiscoverTab): string {
 
 /**
  * One search box, one destination:
- * `#` → Topics, `$` → Tickers, bare text on Moving → Profiles.
+ * `#` → Topics, `$` → Tickers.
+ * A plain word on Moving stays there and opens grouped results.
  * Other tabs keep the typed query and filter in place.
  */
 export function discoverTabForQueryDraft(
@@ -93,7 +94,6 @@ export function discoverTabForQueryDraft(
   const trimmed = raw.trim();
   if (trimmed.startsWith('$')) return 'tickers';
   if (trimmed.startsWith('#')) return 'topics';
-  if (trimmed && current === 'trending') return 'profiles';
   return current;
 }
 

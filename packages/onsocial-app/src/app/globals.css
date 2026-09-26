@@ -35878,6 +35878,18 @@ a.os-surface-row {
     color: var(--os-surface-muted);
   }
 
+  .discover-catalog {
+    display: flex;
+    flex-direction: column;
+    gap: 1.35rem;
+  }
+
+  .discover-catalog-row {
+    text-decoration: none;
+    color: inherit;
+    align-items: center;
+  }
+
   .market-listing-list,
   .market-sales-list {
     display: flex;
