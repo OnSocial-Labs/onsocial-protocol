@@ -32,7 +32,10 @@ import {
   type CollectionView,
 } from '@/features/scarces/collections-data';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
-import { groupSeriesDrops } from '@/features/scarces/series-catalog';
+import {
+  groupSeriesDrops,
+  walkCreatorSeriesMatches,
+} from '@/features/scarces/series-catalog';
 import { SeriesEditSheet } from '@/features/scarces/series-edit-sheet';
 import {
   fetchSeriesBrandingCached,
@@ -242,33 +245,25 @@ export function SeriesPagePanel({
     setSeriesLoadingMore(true);
     setSeriesLoadMoreFailed(false);
     void (async () => {
-      let offset = seriesOffset;
-      const found: CollectionView[] = [];
-      let more = true;
-      let rounds = 0;
-      while (found.length === 0 && more && rounds < 6) {
-        const page = await fetchCollectionsByCreatorPage(creatorId, {
-          limit: SERIES_CREATOR_PAGE,
-          offset,
-        });
-        found.push(
-          ...page.views.filter((view) => view.seriesId === seriesId)
-        );
-        offset += page.fetched;
-        more = page.fetched >= SERIES_CREATOR_PAGE;
-        rounds += 1;
-        if (page.fetched === 0) {
-          more = false;
-          break;
-        }
-      }
+      const walked = await walkCreatorSeriesMatches({
+        seriesId,
+        startOffset: seriesOffset,
+        pageSize: SERIES_CREATOR_PAGE,
+        fetchPage: (offset) =>
+          fetchCollectionsByCreatorPage(creatorId, {
+            limit: SERIES_CREATOR_PAGE,
+            offset,
+          }),
+      });
       setCatalog((current) => {
         const seen = new Set(current.map((drop) => drop.collectionId));
-        const next = found.filter((drop) => !seen.has(drop.collectionId));
+        const next = walked.matches.filter(
+          (drop) => !seen.has(drop.collectionId)
+        );
         return next.length > 0 ? [...current, ...next] : current;
       });
-      setSeriesOffset(offset);
-      setSeriesHasMore(more);
+      setSeriesOffset(walked.nextOffset);
+      setSeriesHasMore(walked.hasMore);
     })()
       .catch(() => {
         setSeriesLoadMoreFailed(true);
@@ -277,6 +272,25 @@ export function SeriesPagePanel({
         setSeriesLoadingMore(false);
       });
   }, [creatorId, seriesHasMore, seriesId, seriesLoadingMore, seriesOffset]);
+
+  useEffect(() => {
+    if (!catalogSettled || catalogShell === 'skeleton') return;
+    if (storeDrops.length > 0 || heldRows.length > 0) return;
+    if (!seriesHasMore || seriesLoadingMore || seriesLoadMoreFailed) return;
+    const id = window.setTimeout(() => {
+      loadMoreSeries();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [
+    catalogSettled,
+    catalogShell,
+    heldRows.length,
+    loadMoreSeries,
+    seriesHasMore,
+    seriesLoadingMore,
+    seriesLoadMoreFailed,
+    storeDrops.length,
+  ]);
 
   useInfiniteScrollSentinel({
     scrollRootRef,
@@ -467,11 +481,7 @@ export function SeriesPagePanel({
         heldRows.length === 0 &&
         seriesHasMore &&
         !seriesLoadMoreFailed ? (
-          <div
-            ref={seriesSentinelRef}
-            className="standing-panel-sentinel"
-            aria-hidden
-          />
+          <MarketListSkeleton rows={2} variant="drops" />
         ) : null}
 
         {storeDrops.length === 0 && heldRows.length === 0 && !seriesHasMore ? (

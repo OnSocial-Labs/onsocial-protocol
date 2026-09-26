@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  appCatalogCursor,
   toCollectionView,
   type LazyCollectionRecord,
 } from './collections-data';
@@ -19,6 +20,21 @@ function variationRecord(
     ...overrides,
   };
 }
+
+describe('app catalog cursor', () => {
+  it('keeps the raw page size when a hub filter drops rows', () => {
+    const page = appCatalogCursor(48, 'hub', [
+      { appId: 'hub', collectionId: 'keep' },
+      { appId: 'other', collectionId: 'drop' },
+      { appId: null, collectionId: 'open' },
+    ]);
+    expect(page.fetched).toBe(48);
+    expect(page.views.map((view) => view.collectionId)).toEqual([
+      'keep',
+      'open',
+    ]);
+  });
+});
 
 describe('toCollectionView cover seat', () => {
   it('fronts the drop with seat 1 by default', () => {
@@ -287,12 +303,12 @@ describe('toCollectionView cover seat', () => {
   });
 
   it('reads burnable from the collection record and leaves catalog rows unknown', () => {
-    expect(toCollectionView(variationRecord({ burnable: false }))?.burnable).toBe(
-      false
-    );
-    expect(toCollectionView(variationRecord({ burnable: true }))?.burnable).toBe(
-      true
-    );
+    expect(
+      toCollectionView(variationRecord({ burnable: false }))?.burnable
+    ).toBe(false);
+    expect(
+      toCollectionView(variationRecord({ burnable: true }))?.burnable
+    ).toBe(true);
     expect(toCollectionView(variationRecord())?.burnable).toBeNull();
   });
 });

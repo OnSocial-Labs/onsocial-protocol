@@ -222,6 +222,10 @@ export function EventsPagePanel({
   const [nextOffset, setNextOffset] = useState(0);
   const [seen, setSeen] = useState<DropDiscoveryItem[]>([]);
   const [heldIds, setHeldIds] = useState<Set<string> | null>(null);
+  const [heldComplete, setHeldComplete] = useState(true);
+  const [holdingsFailed, setHoldingsFailed] = useState(false);
+  const [heldNextPage, setHeldNextPage] = useState(0);
+  const [holdingsAttempt, setHoldingsAttempt] = useState(0);
   const [heldFor, setHeldFor] = useState<string | null>(null);
   const [guestOpen, setGuestOpen] = useState(false);
   const [guestSheet, setGuestSheet] = useState<{
@@ -234,22 +238,35 @@ export function EventsPagePanel({
   } | null>(null);
   const reloadGenRef = useRef(0);
   const loadingMoreRef = useRef(false);
+  const holdingsGenRef = useRef(0);
 
   const mineAccount = scope === 'mine' && accountId ? accountId : null;
   if (heldFor !== mineAccount) {
     setHeldFor(mineAccount);
     setHeldIds(null);
+    setHeldComplete(true);
+    setHoldingsFailed(false);
+    setHeldNextPage(0);
   }
-  const holdingsReady = scope !== 'mine' || !accountId || heldIds !== null;
+  const holdingsReady =
+    scope !== 'mine' || !accountId || heldIds !== null || holdingsFailed;
   const scan = useMemo<EventScan>(
     () => ({
       query: debouncedQuery,
       styleId,
       placeId,
       hostId: scope === 'mine' && accountId ? accountId : null,
-      heldCollectionIds: scope === 'mine' ? heldIds : null,
+      heldCollectionIds: scope === 'mine' && !holdingsFailed ? heldIds : null,
     }),
-    [accountId, debouncedQuery, heldIds, placeId, scope, styleId]
+    [
+      accountId,
+      debouncedQuery,
+      heldIds,
+      holdingsFailed,
+      placeId,
+      scope,
+      styleId,
+    ]
   );
   const narrowed = eventScanActive(scan);
   const listFiltered = Boolean(debouncedQuery || styleId || placeId);
@@ -312,6 +329,7 @@ export function EventsPagePanel({
             fetchPage: fetchTicketPage,
             startOffset: offset,
             need: PAGE_SIZE,
+            pageSize: PAGE_SIZE,
             match: (item) => eventMatchesScan(item, scan),
           });
           if (gen !== reloadGenRef.current) return;
@@ -338,18 +356,41 @@ export function EventsPagePanel({
 
   useEffect(() => {
     if (scope !== 'mine' || !accountId) return;
-    let cancelled = false;
+    const gen = ++holdingsGenRef.current;
+    setHoldingsFailed(false);
     void loadHeldCollectionIds(accountId)
-      .then((ids) => {
-        if (!cancelled) setHeldIds(ids);
+      .then((result) => {
+        if (gen !== holdingsGenRef.current) return;
+        setHeldIds(result.ids);
+        setHeldComplete(result.complete);
+        setHeldNextPage(result.nextPage);
       })
       .catch(() => {
-        if (!cancelled) setHeldIds(new Set());
+        if (gen !== holdingsGenRef.current) return;
+        setHoldingsFailed(true);
       });
     return () => {
-      cancelled = true;
+      holdingsGenRef.current += 1;
     };
-  }, [accountId, scope]);
+  }, [accountId, holdingsAttempt, scope]);
+
+  const loadRestOfHoldings = useCallback(() => {
+    if (!accountId) return;
+    const gen = holdingsGenRef.current;
+    const into = new Set(heldIds ?? []);
+    setHoldingsFailed(false);
+    void loadHeldCollectionIds(accountId, { startPage: heldNextPage, into })
+      .then((result) => {
+        if (gen !== holdingsGenRef.current) return;
+        setHeldIds(result.ids);
+        setHeldComplete(result.complete);
+        setHeldNextPage(result.nextPage);
+      })
+      .catch(() => {
+        if (gen !== holdingsGenRef.current) return;
+        setHoldingsFailed(true);
+      });
+  }, [accountId, heldIds, heldNextPage]);
 
   useEffect(() => {
     const handle = window.setTimeout(
@@ -393,9 +434,7 @@ export function EventsPagePanel({
   const onOwnerManaged = useCallback(
     (id: string, change: 'paused' | 'resumed' | 'deleted') => {
       if (change === 'deleted' || change === 'paused') {
-        setItems((current) =>
-          current.filter((row) => row.collectionId !== id)
-        );
+        setItems((current) => current.filter((row) => row.collectionId !== id));
         setSeen((current) => current.filter((row) => row.collectionId !== id));
         return;
       }
@@ -455,13 +494,28 @@ export function EventsPagePanel({
     .join(' · ');
   const empty = !loading && !failed && items.length === 0;
   const needsConnect = scope === 'mine' && !isConnected;
+  const catalogPending =
+    hasMore && items.length === 0 && !failed && !needsConnect;
   const showAppendSkeleton = loading && items.length > 0 && !failed;
+
+  useEffect(() => {
+    if (!catalogPending || loading || loadMoreFailed || failed) return;
+    const id = window.setTimeout(() => {
+      loadNext();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [catalogPending, failed, loadMoreFailed, loadNext, loading]);
 
   useInfiniteScrollSentinel({
     scrollRootRef,
     sentinelRef: loadMoreRef,
     enabled:
-      hasMore && !loading && !failed && !loadMoreFailed && !needsConnect,
+      hasMore &&
+      items.length > 0 &&
+      !loading &&
+      !failed &&
+      !loadMoreFailed &&
+      !needsConnect,
     onIntersect: loadNext,
   });
 
@@ -536,13 +590,30 @@ export function EventsPagePanel({
       <div className="drops-screen-body">
         <div aria-hidden className="os-chrome-glass" />
         <div className={DROPS_INDEX_PAGE_CLASS}>
+          {scope === 'mine' && holdingsFailed ? (
+            <OsChromeListAlert
+              message="Couldn’t load your tickets."
+              retryLabel="Retry"
+              onRetry={() => setHoldingsAttempt((value) => value + 1)}
+            />
+          ) : null}
+          {scope === 'mine' &&
+          !holdingsFailed &&
+          heldIds !== null &&
+          !heldComplete ? (
+            <OsChromeListAlert
+              message="Some tickets didn’t load."
+              retryLabel="Load the rest"
+              onRetry={loadRestOfHoldings}
+            />
+          ) : null}
           {failed ? (
             <ListLoadError
               message="Couldn’t load events."
               retryLabel="Retry"
               onRetry={() => setReloadKey((value) => value + 1)}
             />
-          ) : loading && items.length === 0 ? (
+          ) : (loading && items.length === 0) || catalogPending ? (
             <MarketListSkeleton rows={6} variant="drops" />
           ) : needsConnect ? (
             <p className="market-section-title">Connect to see your events.</p>

@@ -1063,8 +1063,36 @@ export async function fetchCollectionsByCreatorPage(
 }
 
 /**
+ * `fetched` is the raw indexer page. Rows dropped for another hub still
+ * advance the cursor, so a short filtered page does not end the catalog.
+ */
+export function appCatalogCursor<T extends { appId?: string | null }>(
+  rawCount: number,
+  appId: string,
+  views: readonly T[]
+): { views: T[]; fetched: number } {
+  const id = appId.trim();
+  return {
+    views: views.filter((view) => !view.appId || view.appId === id),
+    fetched: rawCount,
+  };
+}
+
+function mapAppIndexerPage(
+  catalog: Parameters<typeof collectionCurrentRowToView>[0][],
+  appId: string
+): { views: CollectionView[]; fetched: number } {
+  const mapped = catalog
+    .map((row) => collectionCurrentRowToView(row))
+    .filter((view): view is CollectionView => view != null)
+    .sort((a, b) => b.createdAtMs - a.createdAtMs);
+  return appCatalogCursor(catalog.length, appId, mapped);
+}
+
+/**
  * Drops published under a store. Prefer live catalog (`collectionsCurrent`),
  * then create-event ids + RPC, then contract scan.
+ * `fetched` counts indexer rows before the hub filter.
  */
 export async function fetchCollectionsByAppPage(
   appId: string,
@@ -1074,24 +1102,8 @@ export async function fetchCollectionsByAppPage(
     client?: import('@onsocial/sdk').OnSocial;
   } = {}
 ): Promise<{ views: CollectionView[]; fetched: number }> {
-  const views = await fetchCollectionsByApp(appId, opts);
-  const offset = Math.max(0, Math.floor(opts.offset ?? 0));
-  return {
-    views,
-    fetched: offset > 0 || views.length > 0 ? views.length : 0,
-  };
-}
-
-export async function fetchCollectionsByApp(
-  appId: string,
-  opts: {
-    limit?: number;
-    offset?: number;
-    client?: import('@onsocial/sdk').OnSocial;
-  } = {}
-): Promise<CollectionView[]> {
   const id = appId.trim();
-  if (!id) return [];
+  if (!id) return { views: [], fetched: 0 };
   const limit = opts.limit ?? 40;
   const offset = Math.max(0, Math.floor(opts.offset ?? 0));
 
@@ -1106,20 +1118,13 @@ export async function fetchCollectionsByApp(
       limit,
       offset,
     });
-    if (offset > 0) {
-      return catalog
-        .map((row) => collectionCurrentRowToView(row))
-        .filter((view): view is CollectionView => view != null)
-        .filter((view) => !view.appId || view.appId === id)
-        .sort((a, b) => b.createdAtMs - a.createdAtMs);
-    }
-    if (catalog.length > 0) {
-      const views = catalog
-        .map((row) => collectionCurrentRowToView(row))
-        .filter((view): view is CollectionView => view != null)
-        .filter((view) => !view.appId || view.appId === id)
-        .sort((a, b) => b.createdAtMs - a.createdAtMs);
-      if (views.length > 0) return views;
+    const page = mapAppIndexerPage(catalog, id);
+    if (offset > 0) return page;
+    if (
+      catalog.length > 0 &&
+      (page.views.length > 0 || catalog.length >= limit)
+    ) {
+      return page;
     }
 
     const events = await client.query.scarces.events({
@@ -1135,15 +1140,17 @@ export async function fetchCollectionsByApp(
           .filter((value): value is string => Boolean(value))
       ),
     ];
-    if (collectionIds.length === 0) return [];
+    if (collectionIds.length === 0) return { views: [], fetched: 0 };
 
-    const views = await Promise.all(
-      collectionIds.map((collectionId) => fetchCollection(collectionId))
-    );
-    return views
+    const views = (
+      await Promise.all(
+        collectionIds.map((collectionId) => fetchCollection(collectionId))
+      )
+    )
       .filter((view): view is CollectionView => view != null)
       .filter((view) => !view.appId || view.appId === id)
       .sort((a, b) => b.createdAtMs - a.createdAtMs);
+    return { views, fetched: views.length };
   } catch {
     // Fall through to contract scan only when indexer is unavailable.
   }
@@ -1154,16 +1161,29 @@ export async function fetchCollectionsByApp(
       'get_all_collections',
       { from_index: 0, limit: Math.min(100, Math.max(limit, 40)) }
     );
-    if (!Array.isArray(records)) return [];
-    return records
+    if (!Array.isArray(records)) return { views: [], fetched: 0 };
+    const views = records
       .map(toCollectionView)
       .filter((view): view is CollectionView => view != null)
       .filter((view) => view.appId === id)
       .sort((a, b) => b.createdAtMs - a.createdAtMs)
       .slice(0, limit);
+    return { views, fetched: views.length };
   } catch {
-    return [];
+    return { views: [], fetched: 0 };
   }
+}
+
+export async function fetchCollectionsByApp(
+  appId: string,
+  opts: {
+    limit?: number;
+    offset?: number;
+    client?: import('@onsocial/sdk').OnSocial;
+  } = {}
+): Promise<CollectionView[]> {
+  const page = await fetchCollectionsByAppPage(appId, opts);
+  return page.views;
 }
 
 /** Wallet's remaining mint allowance, or null when uncapped. */

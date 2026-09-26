@@ -119,11 +119,14 @@ export function AppPagePanel({
   initial,
   initialStats = null,
   initialDrops = null,
+  initialDropsFetched,
 }: {
   appId: string;
   initial: AppView | null;
   initialStats?: AppStatsView | null;
   initialDrops?: CollectionView[] | null;
+  /** Raw rows behind `initialDrops`. Falls back to the filtered length. */
+  initialDropsFetched?: number;
 }) {
   const router = useRouter();
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
@@ -135,18 +138,16 @@ export function AppPagePanel({
   const [app, setApp] = useState<AppView | null>(initial);
   const [notFound, setNotFound] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [stats, setStats] = useState<AppStatsView | null>(
-    () => initialStats
-  );
+  const [stats, setStats] = useState<AppStatsView | null>(() => initialStats);
   const [nowMs] = useState(() => Date.now());
   const ssrMiss = initialDrops == null || initialDrops.length === 0;
   const [drops, setDrops] = useState<CollectionView[]>(
     () => initialDrops ?? []
   );
-  const [dropsHasMore, setDropsHasMore] = useState(
-    (initialDrops?.length ?? 0) >= 48
-  );
-  const [dropsOffset, setDropsOffset] = useState(initialDrops?.length ?? 0);
+  const seededFetched =
+    initialDrops == null ? 0 : (initialDropsFetched ?? initialDrops.length);
+  const [dropsHasMore, setDropsHasMore] = useState(seededFetched >= 48);
+  const [dropsOffset, setDropsOffset] = useState(seededFetched);
   const [dropsLoadingMore, setDropsLoadingMore] = useState(false);
   const [dropsLoadMoreFailed, setDropsLoadMoreFailed] = useState(false);
   const dropsSentinelRef = useRef<HTMLDivElement | null>(null);
@@ -165,9 +166,7 @@ export function AppPagePanel({
     appId: string;
     count: number;
   } | null>(null);
-  const [manageSheet, setManageSheet] = useState<HubManageSheetId | null>(
-    null
-  );
+  const [manageSheet, setManageSheet] = useState<HubManageSheetId | null>(null);
   const settingsNextRef = useRef<HubManageSheetId | null>(null);
   const creatorsNextRef = useRef(false);
   const [headerElevated, setHeaderElevated] = useState(false);
@@ -359,10 +358,10 @@ export function AppPagePanel({
 
   const onManaged = useCallback(() => setRefreshKey((k) => k + 1), []);
 
-  const canReviewRequests =
-    Boolean(authority && app?.creatorAccess === 'approval');
-  const reviewAppId =
-    canReviewRequests && app ? app.appId : null;
+  const canReviewRequests = Boolean(
+    authority && app?.creatorAccess === 'approval'
+  );
+  const reviewAppId = canReviewRequests && app ? app.appId : null;
   const approvedCreatorsKey = useMemo(
     () =>
       (app?.approvedCreators ?? [])
@@ -381,9 +380,7 @@ export function AppPagePanel({
   useEffect(() => {
     if (!reviewAppId) return;
     let cancelled = false;
-    const approved = approvedCreatorsKey
-      ? approvedCreatorsKey.split('|')
-      : [];
+    const approved = approvedCreatorsKey ? approvedCreatorsKey.split('|') : [];
     void Promise.all([
       fetchStorePublishRequests(reviewAppId),
       fetchStorePublishDecisions(reviewAppId),
@@ -435,12 +432,7 @@ export function AppPagePanel({
     return () => {
       cancelled = true;
     };
-  }, [
-    canRequestPublish,
-    viewerAccountId,
-    app,
-    publishAccessRefreshKey,
-  ]);
+  }, [canRequestPublish, viewerAccountId, app, publishAccessRefreshKey]);
 
   useEffect(() => {
     if (!viewerAccountId) return;
@@ -475,10 +467,7 @@ export function AppPagePanel({
   const vaultHref = viewerAccountId
     ? portfolioCollectiblesPath(viewerAccountId)
     : null;
-  const heldIds = useMemo(
-    () => heldCollectionIdSet(ownedInHub),
-    [ownedInHub]
-  );
+  const heldIds = useMemo(() => heldCollectionIdSet(ownedInHub), [ownedInHub]);
   const heldRows = useMemo(
     () => groupHoldingsForRail(ownedInHub.map(toPortfolioHoldingPeek)),
     [ownedInHub]
@@ -511,7 +500,9 @@ export function AppPagePanel({
       .then((page) => {
         setDrops((current) => {
           const seen = new Set(current.map((drop) => drop.collectionId));
-          const next = page.views.filter((drop) => !seen.has(drop.collectionId));
+          const next = page.views.filter(
+            (drop) => !seen.has(drop.collectionId)
+          );
           return next.length > 0 ? [...current, ...next] : current;
         });
         setDropsOffset(offset + page.fetched);
@@ -525,11 +516,33 @@ export function AppPagePanel({
       });
   }, [appId, dropsHasMore, dropsLoadingMore, dropsOffset]);
 
+  useEffect(() => {
+    if (!catalogSettled || storeDrops.length > 0) return;
+    if (!dropsHasMore || dropsLoadingMore || dropsLoadMoreFailed || !app)
+      return;
+    const id = window.setTimeout(() => {
+      loadMoreDrops();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [
+    app,
+    catalogSettled,
+    dropsHasMore,
+    dropsLoadMoreFailed,
+    dropsLoadingMore,
+    loadMoreDrops,
+    storeDrops.length,
+  ]);
+
   useInfiniteScrollSentinel({
     scrollRootRef,
     sentinelRef: dropsSentinelRef,
     enabled:
-      dropsHasMore && !dropsLoadingMore && !dropsLoadMoreFailed && Boolean(app),
+      dropsHasMore &&
+      storeDrops.length > 0 &&
+      !dropsLoadingMore &&
+      !dropsLoadMoreFailed &&
+      Boolean(app),
     onIntersect: loadMoreDrops,
   });
 
@@ -614,7 +627,10 @@ export function AppPagePanel({
         className={`os-chrome-glass${headerElevated ? ' is-frosted' : ''}`}
       />
       <div
-        className={osChromePageClassName('app-page', useFirst && 'is-use-first')}
+        className={osChromePageClassName(
+          'app-page',
+          useFirst && 'is-use-first'
+        )}
         data-hub-use-first={useFirst ? '' : undefined}
         data-hub-back={hubBackHref}
       >
@@ -637,9 +653,7 @@ export function AppPagePanel({
               {app.mediaUrl ? (
                 <img src={app.mediaUrl} alt="" />
               ) : (
-                <span className="app-page-monogram">
-                  {monogram(app.title)}
-                </span>
+                <span className="app-page-monogram">{monogram(app.title)}</span>
               )}
             </span>
             <div className="app-page-headings">
@@ -732,7 +746,6 @@ export function AppPagePanel({
               <OsRowAction href={vaultHref}>Open Collectibles</OsRowAction>
             </div>
           ) : null}
-
         </section>
 
         {catalogShell === 'skeleton' &&
@@ -811,15 +824,11 @@ export function AppPagePanel({
           />
         ) : null}
 
-        {catalogShell === 'ready' &&
+        {(catalogShell === 'ready' || catalogShell === 'empty') &&
         storeDrops.length === 0 &&
         dropsHasMore &&
         !dropsLoadMoreFailed ? (
-          <div
-            ref={dropsSentinelRef}
-            className="standing-panel-sentinel"
-            aria-hidden
-          />
+          <MarketListSkeleton rows={2} variant="drops" />
         ) : null}
 
         {catalogShell === 'empty' && !dropsHasMore ? (
@@ -844,7 +853,6 @@ export function AppPagePanel({
             </div>
           </div>
         ) : null}
-
       </div>
 
       {canRequestPublish ? (

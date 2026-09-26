@@ -186,9 +186,14 @@ export function eventMatchesScan(
   );
 }
 
+/** One scroll tick. Further pages stay available when `hasMore` is still true. */
+const EVENT_SCAN_ROUNDS = 4;
+
 /**
- * Walk ticket pages until `need` matches, or the catalog (or round cap) ends.
- * `nextOffset` is the next unread catalog row so More does not skip a match.
+ * Walk ticket pages until `need` matches, or the catalog (or this tick) ends.
+ * `nextOffset` is the next unread catalog row. A round cap keeps `hasMore`
+ * when the last page was full, so the next tick continues.
+ * With `pageSize`, the tick fetches its rounds together.
  */
 export async function scanTicketEvents(opts: {
   fetchPage: (
@@ -198,40 +203,69 @@ export async function scanTicketEvents(opts: {
   need: number;
   match: (item: DropDiscoveryItem) => boolean;
   maxRounds?: number;
+  /** When set, one tick requests this many fixed-size pages at once. */
+  pageSize?: number;
 }): Promise<{
   matches: DropDiscoveryItem[];
   seen: DropDiscoveryItem[];
   nextOffset: number;
   hasMore: boolean;
 }> {
-  const maxRounds = opts.maxRounds ?? 20;
+  const maxRounds = opts.maxRounds ?? EVENT_SCAN_ROUNDS;
   const matches: DropDiscoveryItem[] = [];
   const seen: DropDiscoveryItem[] = [];
   let offset = opts.startOffset ?? 0;
   let hasMore = true;
-  let rounds = 0;
-  while (matches.length < opts.need && hasMore && rounds < maxRounds) {
-    const page = await opts.fetchPage(offset);
-    rounds += 1;
+  const pageSize = opts.pageSize;
+  const parallel = pageSize != null && pageSize > 0;
+
+  const take = (
+    page: { items: DropDiscoveryItem[]; hasMore: boolean },
+    pageOffset: number
+  ): { done: boolean } | null => {
     if (page.items.length === 0) {
       hasMore = false;
-      break;
+      offset = pageOffset;
+      return { done: true };
     }
     for (let i = 0; i < page.items.length; i += 1) {
       const item = page.items[i]!;
       seen.push(item);
       if (opts.match(item)) matches.push(item);
       if (matches.length >= opts.need) {
-        return {
-          matches,
-          seen,
-          nextOffset: offset + i + 1,
-          hasMore: i + 1 < page.items.length || page.hasMore,
-        };
+        offset = pageOffset + i + 1;
+        hasMore = i + 1 < page.items.length || page.hasMore;
+        return { done: true };
       }
     }
-    offset += page.items.length;
+    offset = pageOffset + page.items.length;
     hasMore = page.hasMore;
+    return null;
+  };
+
+  if (parallel) {
+    const width = pageSize;
+    while (matches.length < opts.need && hasMore) {
+      const offsets: number[] = [];
+      for (let i = 0; i < maxRounds; i += 1) offsets.push(offset + i * width);
+      const pages = await Promise.all(
+        offsets.map((pageOffset) => opts.fetchPage(pageOffset))
+      );
+      for (let p = 0; p < pages.length; p += 1) {
+        const finished = take(pages[p]!, offsets[p]!);
+        if (finished || !hasMore) break;
+      }
+      break;
+    }
+    return { matches, seen, nextOffset: offset, hasMore };
+  }
+
+  let rounds = 0;
+  while (matches.length < opts.need && hasMore && rounds < maxRounds) {
+    const pageOffset = offset;
+    const page = await opts.fetchPage(pageOffset);
+    rounds += 1;
+    if (take(page, pageOffset)) break;
   }
   return { matches, seen, nextOffset: offset, hasMore };
 }

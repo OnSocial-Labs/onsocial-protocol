@@ -1,8 +1,13 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  collectHeldCollectionIds,
   eventGuestCountAria,
   eventGuestCountLabel,
   eventGuestKind,
+  loadHeldCollectionIdsFrom,
   resolveEventGuestCount,
   showEventGuestCount,
   uniqueAccountIds,
@@ -56,6 +61,70 @@ describe('event guest counts', () => {
     expect(
       uniqueAccountIds([' ada.near ', 'ada.near', '', null, 'bo.near'])
     ).toEqual(['ada.near', 'bo.near']);
+  });
+
+  it('pages a vault until a short page', async () => {
+    const ids = await collectHeldCollectionIds(async (offset, limit) => {
+      if (offset === 0) {
+        return { ids: ['a', 'a', ' ', null, 'b'], fetched: limit };
+      }
+      return { ids: ['c'], fetched: 1 };
+    });
+    expect([...ids.ids]).toEqual(['a', 'b', 'c']);
+    expect(ids.complete).toBe(true);
+    expect(ids.nextPage).toBe(2);
+  });
+
+  it('marks a full safety cap incomplete and resumes from the next page', async () => {
+    const first = await collectHeldCollectionIds(
+      async (offset) => ({ ids: [`c${offset}`], fetched: 2 }),
+      { pageSize: 2, maxPages: 2 }
+    );
+    expect(first.complete).toBe(false);
+    expect(first.nextPage).toBe(2);
+    expect([...first.ids]).toEqual(['c0', 'c2']);
+    const rest = await collectHeldCollectionIds(
+      async (offset, limit) => ({ ids: [`c${offset}`], fetched: limit - 1 }),
+      { pageSize: 2, maxPages: 2, startPage: first.nextPage, into: first.ids }
+    );
+    expect(rest.complete).toBe(true);
+    expect([...rest.ids]).toEqual(['c0', 'c2', 'c4']);
+  });
+
+  it('asks for distinct collections and falls back when the indexer rejects that', async () => {
+    const queries: string[] = [];
+    const ids = await loadHeldCollectionIdsFrom(async (req) => {
+      queries.push(req.query);
+      if (req.query.includes('distinctOn')) {
+        const error = new Error('field "distinctOn" not found');
+        error.name = 'GraphQLValidationError';
+        throw error;
+      }
+      return {
+        data: {
+          scarcesTokenOwners: [
+            { collectionId: 'ticket' },
+            { collectionId: '' },
+          ],
+        },
+      };
+    }, 'ada.near');
+    expect(queries.some((query) => query.includes('distinctOn'))).toBe(true);
+    expect(
+      queries.some((query) => query.includes('updatedBlockTimestamp'))
+    ).toBe(true);
+    expect([...ids.ids]).toEqual(['ticket']);
+    expect(ids.complete).toBe(true);
+  });
+
+  it('does not treat a failed ticket read as an empty vault', () => {
+    const panel = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), 'events-page-panel.tsx'),
+      'utf8'
+    );
+    expect(panel).toContain('setHoldingsFailed(true)');
+    expect(panel).toContain('Couldn’t load your tickets.');
+    expect(panel).not.toContain('setHeldIds(new Set())');
   });
 
   it('names the count button for the sheet it opens', () => {
