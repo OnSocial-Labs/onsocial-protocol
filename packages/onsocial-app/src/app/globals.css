@@ -35962,6 +35962,12 @@ a.os-surface-row {
     line-height: 1;
   }
 
+  /* Events trail is only the ⋮ — no publish time, no shop button. */
+  .events-row-menu-col.market-listing-action-col {
+    min-width: 0;
+    align-items: flex-end;
+  }
+
   /* Post-sized ⋮ after time — not the larger guild row control. */
   .drops-discovery-row-menu.post-card-menu {
     flex-shrink: 0;

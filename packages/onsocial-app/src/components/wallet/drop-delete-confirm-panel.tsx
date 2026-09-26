@@ -5,6 +5,7 @@ import { dropDeleteConfirmCopy } from '@/lib/drop-delete-confirm-copy';
 
 interface DropDeleteConfirmPanelProps {
   title?: string | null;
+  noun?: 'drop' | 'event';
   pending?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -13,11 +14,12 @@ interface DropDeleteConfirmPanelProps {
 /** Two-step confirm body for ActionDrawer / Drop Manage (Delete only). */
 export function DropDeleteConfirmPanel({
   title,
+  noun = 'drop',
   pending = false,
   onConfirm,
   onCancel,
 }: DropDeleteConfirmPanelProps) {
-  const copy = dropDeleteConfirmCopy({ title });
+  const copy = dropDeleteConfirmCopy({ title, noun });
 
   return (
     <OsActionDrawerConfirm

@@ -54,12 +54,48 @@ import {
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
+function discoveryMenuCopy(voice: 'drop' | 'event') {
+  const event = voice === 'event';
+  const noun = event ? 'event' : 'drop';
+  const Noun = event ? 'Event' : 'Drop';
+  return {
+    noun,
+    fallbackTitle: Noun,
+    save: `Save ${noun}`,
+    share: `Share ${noun}`,
+    shareToPost: `Open composer with this ${noun}`,
+    facts: `${Noun} facts`,
+    factsDescription: event
+      ? 'Schedule, place, ticket rules'
+      : 'Mint rules, schedule, provenance',
+    factsError: `Couldn’t load ${noun} facts.`,
+    shareText: (title: string) =>
+      event ? `Join ${title} on OnSocial` : `Mint ${title} on OnSocial`,
+    shareError: `Couldn’t share this ${noun}.`,
+    pause: `Pause ${noun}`,
+    pauseDescription: event
+      ? 'Stop ticket sales for now'
+      : 'Stop minting for now',
+    resume: `Resume ${noun}`,
+    resumeDescription: event
+      ? 'Open ticket sales again'
+      : 'Open minting again',
+    delete: `Delete ${noun}`,
+    deleteDescription: event
+      ? 'Only if no tickets were minted — confirms first'
+      : 'Only if nothing was minted — confirms first',
+    back: `Back to ${noun} options`,
+    section: Noun,
+  };
+}
+
 export function DropsDiscoveryRowMenu({
   item,
   saved,
   savePending,
   onToggleSave,
   onOwnerManaged,
+  voice = 'drop',
 }: {
   item: DropDiscoveryItem;
   saved: boolean;
@@ -67,7 +103,10 @@ export function DropsDiscoveryRowMenu({
   onToggleSave: () => void;
   /** After pause / resume / delete succeeds — refresh or remove the row. */
   onOwnerManaged?: (change: 'paused' | 'resumed' | 'deleted') => void;
+  /** Events use the same drawer with event wording. */
+  voice?: 'drop' | 'event';
 }) {
+  const copy = useMemo(() => discoveryMenuCopy(voice), [voice]);
   const { accountId, isConnected, connect, getSigningWallet } = useAppWallet();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const creatorId = item.creatorId.trim();
@@ -91,7 +130,7 @@ export function DropsDiscoveryRowMenu({
     creatorId,
     item.creatorDisplayName ?? undefined
   );
-  const dropTitle = item.title.trim() || 'Drop';
+  const dropTitle = item.title.trim() || copy.fallbackTitle;
   // Visible sheet title = drop name (no “options”). ⋮ keeps a short a11y label.
   const triggerAriaLabel = `More for ${dropTitle}`;
 
@@ -119,7 +158,7 @@ export function DropsDiscoveryRowMenu({
       if (!view) {
         setTxResult({
           type: 'error',
-          msg: 'Couldn’t load drop facts.',
+          msg: copy.factsError,
         });
         return;
       }
@@ -128,10 +167,7 @@ export function DropsDiscoveryRowMenu({
     } catch (error) {
       setTxResult({
         type: 'error',
-        msg:
-          error instanceof Error
-            ? error.message
-            : 'Couldn’t load drop facts.',
+        msg: error instanceof Error ? error.message : copy.factsError,
       });
     } finally {
       setFactsPending(false);
@@ -140,6 +176,7 @@ export function DropsDiscoveryRowMenu({
     close,
     factsPending,
     factsView,
+    copy.factsError,
     item.collectionId,
     item.view,
     setTxResult,
@@ -152,19 +189,19 @@ export function DropsDiscoveryRowMenu({
 
   const handleShare = useCallback(async () => {
     const url = dropAbsoluteUrl();
-    const title = item.title.trim() || 'Drop';
+    const title = item.title.trim() || copy.fallbackTitle;
     const result = await shareUrl({
       url,
       title,
-      text: `Mint ${title} on OnSocial`,
+      text: copy.shareText(title),
     });
     close();
     if (result === 'copied') {
       setTxResult({ type: 'success', msg: 'Link copied.' });
     } else if (result === 'failed') {
-      setTxResult({ type: 'error', msg: 'Couldn’t share this drop.' });
+      setTxResult({ type: 'error', msg: copy.shareError });
     }
-  }, [close, dropAbsoluteUrl, item.title, setTxResult]);
+  }, [close, copy, dropAbsoluteUrl, item.title, setTxResult]);
 
   const handleShareToPost = useCallback(() => {
     if (!isConnected) {
@@ -201,26 +238,45 @@ export function DropsDiscoveryRowMenu({
             : kind === 'resumed'
               ? await resumeDropCollection(signerId, wallet, item.collectionId)
               : await deleteDropCollection(signerId, wallet, item.collectionId);
+        const event = voice === 'event';
         const confirmed = await trackTransaction({
           txHashes: collectRelayTxHashes(response),
           submittedMessage:
             kind === 'paused'
-              ? txToastConfirming.pausingCollection
+              ? event
+                ? txToastConfirming.pausingEvent
+                : txToastConfirming.pausingCollection
               : kind === 'resumed'
-                ? txToastConfirming.resumingCollection
-                : txToastConfirming.deletingCollection,
+                ? event
+                  ? txToastConfirming.resumingEvent
+                  : txToastConfirming.resumingCollection
+                : event
+                  ? txToastConfirming.deletingEvent
+                  : txToastConfirming.deletingCollection,
           successMessage:
             kind === 'paused'
-              ? txToastSuccess.collectionPaused
+              ? event
+                ? txToastSuccess.eventPaused
+                : txToastSuccess.collectionPaused
               : kind === 'resumed'
-                ? txToastSuccess.collectionResumed
-                : txToastSuccess.collectionDeleted,
+                ? event
+                  ? txToastSuccess.eventResumed
+                  : txToastSuccess.collectionResumed
+                : event
+                  ? txToastSuccess.eventDeleted
+                  : txToastSuccess.collectionDeleted,
           failureMessage:
             kind === 'paused'
-              ? txToastError.pauseCollectionFailed
+              ? event
+                ? txToastError.pauseEventFailed
+                : txToastError.pauseCollectionFailed
               : kind === 'resumed'
-                ? txToastError.resumeCollectionFailed
-                : txToastError.deleteCollectionFailed,
+                ? event
+                  ? txToastError.resumeEventFailed
+                  : txToastError.resumeCollectionFailed
+                : event
+                  ? txToastError.deleteEventFailed
+                  : txToastError.deleteCollectionFailed,
         });
         if (confirmed) {
           close();
@@ -234,10 +290,16 @@ export function DropsDiscoveryRowMenu({
             error instanceof Error
               ? error.message
               : kind === 'paused'
-                ? txToastError.pauseCollectionFailed
+                ? voice === 'event'
+                  ? txToastError.pauseEventFailed
+                  : txToastError.pauseCollectionFailed
                 : kind === 'resumed'
-                  ? txToastError.resumeCollectionFailed
-                  : txToastError.deleteCollectionFailed,
+                  ? voice === 'event'
+                    ? txToastError.resumeEventFailed
+                    : txToastError.resumeCollectionFailed
+                  : voice === 'event'
+                    ? txToastError.deleteEventFailed
+                    : txToastError.deleteCollectionFailed,
         });
       } finally {
         setOwnerPending(false);
@@ -252,6 +314,7 @@ export function DropsDiscoveryRowMenu({
       ownerPending,
       setTxResult,
       trackTransaction,
+      voice,
     ]
   );
 
@@ -302,14 +365,14 @@ export function DropsDiscoveryRowMenu({
     const list: ActionDrawerItem[] = [
       {
         id: 'save',
-        section: 'Drop',
+        section: copy.section,
         label: savePending
           ? saved
             ? 'Removing…'
             : 'Saving…'
           : saved
             ? 'Remove bookmark'
-            : 'Save drop',
+            : copy.save,
         description: saved ? undefined : 'Bookmark for later',
         disabled: savePending,
         leading: saved ? (
@@ -324,8 +387,8 @@ export function DropsDiscoveryRowMenu({
       },
       {
         id: 'share',
-        section: 'Drop',
-        label: 'Share drop',
+        section: copy.section,
+        label: copy.share,
         description: 'Copy or send the link',
         leading: <ShareIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
@@ -334,17 +397,17 @@ export function DropsDiscoveryRowMenu({
       },
       {
         id: 'share-to-post',
-        section: 'Drop',
+        section: copy.section,
         label: 'Share to post',
-        description: 'Open composer with this drop',
+        description: copy.shareToPost,
         leading: <EditPenIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: handleShareToPost,
       },
       {
         id: 'facts',
-        section: 'Drop',
-        label: factsPending ? 'Loading facts…' : 'Drop facts',
-        description: 'Mint rules, schedule, provenance',
+        section: copy.section,
+        label: factsPending ? 'Loading facts…' : copy.facts,
+        description: copy.factsDescription,
         disabled: factsPending,
         leading: (
           <InformationCircleIcon className="os-action-drawer-icon" aria-hidden />
@@ -359,8 +422,8 @@ export function DropsDiscoveryRowMenu({
       list.push({
         id: 'pause',
         section: 'Manage',
-        label: ownerPending ? 'Pausing…' : 'Pause drop',
-        description: 'Stop minting for now',
+        label: ownerPending ? 'Pausing…' : copy.pause,
+        description: copy.pauseDescription,
         disabled: ownerPending,
         leading: <PauseFillIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
@@ -372,8 +435,8 @@ export function DropsDiscoveryRowMenu({
       list.push({
         id: 'resume',
         section: 'Manage',
-        label: ownerPending ? 'Resuming…' : 'Resume drop',
-        description: 'Open minting again',
+        label: ownerPending ? 'Resuming…' : copy.resume,
+        description: copy.resumeDescription,
         disabled: ownerPending,
         leading: <PlayFillIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
@@ -385,8 +448,8 @@ export function DropsDiscoveryRowMenu({
       list.push({
         id: 'delete',
         section: 'Manage',
-        label: 'Delete drop',
-        description: 'Only if nothing was minted — confirms first',
+        label: copy.delete,
+        description: copy.deleteDescription,
         destructive: true,
         disabled: ownerPending,
         leading: <TrashIcon className="os-action-drawer-icon" aria-hidden />,
@@ -457,11 +520,15 @@ export function DropsDiscoveryRowMenu({
     showPause,
     showResume,
     standPending,
+    copy,
     standingLoading,
     viewerStanding,
   ]);
 
-  const deleteConfirm = dropDeleteConfirmCopy({ title: dropTitle });
+  const deleteConfirm = dropDeleteConfirmCopy({
+    title: dropTitle,
+    noun: voice === 'event' ? 'event' : 'drop',
+  });
   const factsNowMs = Date.now();
   const sheetView = factsView ?? item.view;
 
@@ -497,12 +564,13 @@ export function DropsDiscoveryRowMenu({
             ? `Confirm delete ${dropTitle}`
             : `Actions for ${dropTitle}`
         }
-        closeAriaLabel={confirmDelete ? 'Back to drop options' : 'Close'}
+        closeAriaLabel={confirmDelete ? copy.back : 'Close'}
         items={confirmDelete ? undefined : items}
       >
         {confirmDelete ? (
           <DropDeleteConfirmPanel
             title={dropTitle}
+            noun={voice === 'event' ? 'event' : 'drop'}
             pending={ownerPending}
             onConfirm={() => {
               void runOwnerAction('deleted');
