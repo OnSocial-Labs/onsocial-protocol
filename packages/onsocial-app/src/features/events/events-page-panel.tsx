@@ -17,6 +17,7 @@ import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search'
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { ActionDrawer } from '@/components/ui/action-drawer';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
+import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
@@ -142,9 +143,16 @@ function EventRow({
         )}
       </Link>
       <div className="market-listing-copy drops-discovery-copy">
-        <Link href={href} scroll={false} className="market-listing-title">
-          {item.title}
-        </Link>
+        <div className="market-listing-head drops-discovery-head">
+          <Link href={href} scroll={false} className="market-listing-title">
+            {item.title}
+          </Link>
+        </div>
+        <DiscoveryPartyStack
+          accountId={item.creatorId}
+          displayName={item.creatorDisplayName}
+          avatarUrl={item.creatorAvatarUrl}
+        />
         {meta || guestLabel ? (
           <div className="drops-discovery-deal">
             {meta ? (
