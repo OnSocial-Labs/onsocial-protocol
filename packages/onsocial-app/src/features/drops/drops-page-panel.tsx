@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsRowAction } from '@/lib/os-row-action';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
-import { DropRowFans } from '@/components/drops/drop-row-fans';
+import { DropFansButton } from '@/components/drops/drop-row-fans';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
@@ -350,25 +350,15 @@ function DropRow({
           avatarUrl={item.creatorAvatarUrl}
         />
         {dealBits.length > 0 || fanCount != null ? (
-          <Link
-            href={href}
-            scroll={false}
-            className="drops-discovery-deal"
-            aria-label={[
-              ...dealBits,
-              fanCount != null
-                ? fanCount === 1
-                  ? '1 fan'
-                  : `${fanCount} fans`
-                : null,
-            ]
-              .filter(Boolean)
-              .join(', ')}
-          >
+          <div className="drops-discovery-deal">
             {dealBits.length > 0 ? (
-              <span className="drops-discovery-deal-bits">
+              <Link
+                href={href}
+                scroll={false}
+                className="drops-discovery-deal-bits"
+              >
                 {dealBits.join(' · ')}
-              </span>
+              </Link>
             ) : null}
             {fanCount != null ? (
               <>
@@ -377,10 +367,16 @@ function DropRow({
                     {' · '}
                   </span>
                 ) : null}
-                <DropRowFans fanIds={item.fanIds} fanCount={fanCount} />
+                <DropFansButton
+                  creatorId={item.creatorId}
+                  collectionId={item.collectionId}
+                  title={item.title}
+                  fanIds={item.fanIds}
+                  fanCount={fanCount}
+                />
               </>
             ) : null}
-          </Link>
+          </div>
         ) : null}
       </div>
       <div className="market-listing-action-col drops-discovery-action-col">

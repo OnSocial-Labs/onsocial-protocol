@@ -36056,6 +36056,7 @@ a.os-surface-row {
     white-space: nowrap;
     color: rgb(var(--fg-rgb) / 0.68);
     font-weight: 550;
+    text-decoration: none;
   }
 
   .drops-discovery-deal-bit {
@@ -36094,6 +36095,30 @@ a.os-surface-row {
   }
 
   .events-guest-count:focus-visible {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+    border-radius: 0.2rem;
+  }
+
+  .drops-discovery-fans-button {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    line-height: inherit;
+    cursor: pointer;
+    pointer-events: auto;
+  }
+
+  .drops-discovery-fans-button:focus-visible {
     outline: none;
     box-shadow: var(
       --os-focus-ring,

@@ -37,6 +37,7 @@ export type ScarceFansSheetProps = {
   closeAriaLabel?: string;
   backdropLabel?: string;
   zIndex?: number;
+  onClosed?: () => void;
 };
 
 /**
@@ -59,6 +60,7 @@ export function ScarceFansSheet({
   closeAriaLabel = 'Close fans',
   backdropLabel = 'Close fans',
   zIndex = SHEET_Z.list,
+  onClosed,
 }: ScarceFansSheetProps) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { setTxResult } = useAppTransactionFeedback();
@@ -173,6 +175,7 @@ export function ScarceFansSheet({
       closeAriaLabel={closeAriaLabel}
       backdropLabel={backdropLabel}
       zIndex={zIndex}
+      onClosed={onClosed}
       panelClassName="scarce-fans-sheet-panel os-sheet-cap-standard"
       bodyClassName="scarce-fans-sheet-body"
     >
