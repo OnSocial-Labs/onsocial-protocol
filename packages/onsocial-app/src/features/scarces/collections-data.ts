@@ -1066,13 +1066,34 @@ export async function fetchCollectionsByCreatorPage(
  * Drops published under a store. Prefer live catalog (`collectionsCurrent`),
  * then create-event ids + RPC, then contract scan.
  */
+export async function fetchCollectionsByAppPage(
+  appId: string,
+  opts: {
+    limit?: number;
+    offset?: number;
+    client?: import('@onsocial/sdk').OnSocial;
+  } = {}
+): Promise<{ views: CollectionView[]; fetched: number }> {
+  const views = await fetchCollectionsByApp(appId, opts);
+  const offset = Math.max(0, Math.floor(opts.offset ?? 0));
+  return {
+    views,
+    fetched: offset > 0 || views.length > 0 ? views.length : 0,
+  };
+}
+
 export async function fetchCollectionsByApp(
   appId: string,
-  opts: { limit?: number; client?: import('@onsocial/sdk').OnSocial } = {}
+  opts: {
+    limit?: number;
+    offset?: number;
+    client?: import('@onsocial/sdk').OnSocial;
+  } = {}
 ): Promise<CollectionView[]> {
   const id = appId.trim();
   if (!id) return [];
   const limit = opts.limit ?? 40;
+  const offset = Math.max(0, Math.floor(opts.offset ?? 0));
 
   try {
     const client =
@@ -1083,7 +1104,15 @@ export async function fetchCollectionsByApp(
     const catalog = await client.query.scarces.collectionsCurrent({
       appId: id,
       limit,
+      offset,
     });
+    if (offset > 0) {
+      return catalog
+        .map((row) => collectionCurrentRowToView(row))
+        .filter((view): view is CollectionView => view != null)
+        .filter((view) => !view.appId || view.appId === id)
+        .sort((a, b) => b.createdAtMs - a.createdAtMs);
+    }
     if (catalog.length > 0) {
       const views = catalog
         .map((row) => collectionCurrentRowToView(row))

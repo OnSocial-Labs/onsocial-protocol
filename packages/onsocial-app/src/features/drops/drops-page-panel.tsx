@@ -12,6 +12,7 @@ import { ListLoadError } from '@/components/panels/list-load-error';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
   DropsHeadingActions,
   DropsSearchHeading,
@@ -59,7 +60,6 @@ import {
 } from '@/lib/app-routes';
 import { DROPS_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OsEmptyAction } from '@/lib/os-empty-action';
-import { OsLoadMore } from '@/lib/os-load-more';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
 import {
@@ -540,11 +540,14 @@ export function DropsPagePanel({
   seedQuery = EMPTY_DROPS_PAGE_QUERY,
   seedPromise = null,
   initialNowMs,
+  initialSearch = '',
 }: {
   seedQuery?: DropsPageQuery;
   seedPromise?: Promise<DropsPageData | null> | null;
   /** SSR clock — keeps relative times / Featured stable across hydrate. */
   initialNowMs?: number;
+  /** URL `q` — grouped search hands the same words here. */
+  initialSearch?: string;
 } = {}) {
   const { accountId, isConnected, connect } = useAppWallet();
   const router = useRouter();
@@ -561,6 +564,7 @@ export function DropsPagePanel({
   const medium: MarketMediumFilter = pageQuery.kind;
   const audioFormat: MarketAudioFormatFilter = pageQuery.audioFormat;
   const scrollRootRef = useRef<HTMLElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [nowMs, setNowMs] = useState(() => initialNowMs ?? Date.now());
 
@@ -577,8 +581,8 @@ export function DropsPagePanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- seedKey gates URL sync
   }, [seedKey]);
 
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [query, setQuery] = useState(initialSearch);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialSearch);
   const [items, setItems] = useState<DropDiscoveryItem[]>([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -948,7 +952,7 @@ export function DropsPagePanel({
     };
   }, [items]);
 
-  const loadMore = () => {
+  const loadMore = useCallback(() => {
     if (!hasMore || loading || refreshing) return;
     const gen = reloadGenRef.current;
     const catalogKey = activeCatalogKey;
@@ -986,7 +990,19 @@ export function DropsPagePanel({
       .finally(() => {
         if (gen === reloadGenRef.current) setLoading(false);
       });
-  };
+  }, [
+    accountId,
+    activeCatalogKey,
+    audioFormat,
+    debouncedQuery,
+    hasMore,
+    loading,
+    medium,
+    offset,
+    patchCatalogCache,
+    refreshing,
+    sort,
+  ]);
 
   const needle = query.trim().toLowerCase();
   const searching = needle.length > 0;
@@ -1020,6 +1036,22 @@ export function DropsPagePanel({
   const showCatalogSkeleton = !failed && loadingPresentation === 'skeleton';
   const catalogRefreshing = loadingPresentation === 'preserve';
   const showAppendSkeleton = loadingPresentation === 'append-skeleton';
+  const searchSettled =
+    !searching || needle === debouncedQuery.toLowerCase();
+
+  useInfiniteScrollSentinel({
+    scrollRootRef,
+    sentinelRef: loadMoreRef,
+    enabled:
+      hasMore &&
+      items.length > 0 &&
+      searchSettled &&
+      !loading &&
+      !refreshing &&
+      !failed &&
+      !loadMoreFailed,
+    onIntersect: loadMore,
+  });
   const errorPresentation = failed
     ? resolveAppLoadingPresentation('error', { hasPaintedRows })
     : null;
@@ -1192,18 +1224,12 @@ export function DropsPagePanel({
                 onRetry={loadMore}
               />
             ) : null}
-            {hasMore &&
-            items.length > 0 &&
-            (!searching || needle === debouncedQuery.toLowerCase()) &&
-            !failed &&
-            !refreshing ? (
-              <OsLoadMore
-                onClick={loadMore}
-                pending={loading}
-                disabled={loading}
-              >
-                {loading ? 'Loading…' : 'Show more'}
-              </OsLoadMore>
+            {hasMore && items.length > 0 && searchSettled && !failed ? (
+              <div
+                ref={loadMoreRef}
+                className="standing-panel-sentinel"
+                aria-hidden
+              />
             ) : null}
           </section>
 

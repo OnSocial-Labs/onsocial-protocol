@@ -1,6 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import Link from 'next/link';
 import {
   Divider,
@@ -12,16 +19,19 @@ import {
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
 import {
   fetchOwnedScarcesPage,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import {
-  fetchCollectionsByCreator,
+  fetchCollectionsByCreatorPage,
   type CollectionView,
 } from '@/features/scarces/collections-data';
+import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { groupSeriesDrops } from '@/features/scarces/series-catalog';
 import { SeriesEditSheet } from '@/features/scarces/series-edit-sheet';
 import {
@@ -66,7 +76,11 @@ interface SeriesPagePanelProps {
   creatorDisplayName?: string | null;
   /** The creator's drops in this series, newest first (SSR). */
   drops: CollectionView[];
+  /** Creator catalog continues past the first page. */
+  creatorHasMore?: boolean;
 }
+
+const SERIES_CREATOR_PAGE = 48;
 
 /** Public series page — use-first when held, shop catalog for visitors. */
 export function SeriesPagePanel({
@@ -76,6 +90,7 @@ export function SeriesPagePanel({
   creatorAvatarUrl,
   creatorDisplayName = null,
   drops,
+  creatorHasMore = false,
 }: SeriesPagePanelProps) {
   const { accountId } = useAppWallet();
   const clientMounted = useSyncExternalStore(
@@ -89,6 +104,14 @@ export function SeriesPagePanel({
   const ssrMiss = drops.length === 0;
   const [catalog, setCatalog] = useState(drops);
   const [catalogSettled, setCatalogSettled] = useState(!ssrMiss);
+  const [seriesHasMore, setSeriesHasMore] = useState(creatorHasMore);
+  const [seriesOffset, setSeriesOffset] = useState(
+    creatorHasMore ? SERIES_CREATOR_PAGE : 0
+  );
+  const [seriesLoadingMore, setSeriesLoadingMore] = useState(false);
+  const [seriesLoadMoreFailed, setSeriesLoadMoreFailed] = useState(false);
+  const scrollRootRef = useRef<HTMLElement | null>(null);
+  const seriesSentinelRef = useRef<HTMLDivElement | null>(null);
   const collectionIds = useMemo(
     () => catalog.map((drop) => drop.collectionId).filter(Boolean),
     [catalog]
@@ -141,12 +164,14 @@ export function SeriesPagePanel({
   useEffect(() => {
     if (!ssrMiss) return;
     let cancelled = false;
-    void fetchCollectionsByCreator(creatorId, { limit: 48 })
-      .then((collections) => {
+    void fetchCollectionsByCreatorPage(creatorId, {
+      limit: SERIES_CREATOR_PAGE,
+    })
+      .then((page) => {
         if (cancelled) return;
-        setCatalog(
-          collections.filter((view) => view.seriesId === seriesId)
-        );
+        setCatalog(page.views.filter((view) => view.seriesId === seriesId));
+        setSeriesOffset(page.fetched);
+        setSeriesHasMore(page.fetched >= SERIES_CREATOR_PAGE);
       })
       .finally(() => {
         if (!cancelled) setCatalogSettled(true);
@@ -212,6 +237,58 @@ export function SeriesPagePanel({
     clientSettled: catalogSettled,
   });
 
+  const loadMoreSeries = useCallback(() => {
+    if (!seriesHasMore || seriesLoadingMore) return;
+    setSeriesLoadingMore(true);
+    setSeriesLoadMoreFailed(false);
+    void (async () => {
+      let offset = seriesOffset;
+      const found: CollectionView[] = [];
+      let more = true;
+      let rounds = 0;
+      while (found.length === 0 && more && rounds < 6) {
+        const page = await fetchCollectionsByCreatorPage(creatorId, {
+          limit: SERIES_CREATOR_PAGE,
+          offset,
+        });
+        found.push(
+          ...page.views.filter((view) => view.seriesId === seriesId)
+        );
+        offset += page.fetched;
+        more = page.fetched >= SERIES_CREATOR_PAGE;
+        rounds += 1;
+        if (page.fetched === 0) {
+          more = false;
+          break;
+        }
+      }
+      setCatalog((current) => {
+        const seen = new Set(current.map((drop) => drop.collectionId));
+        const next = found.filter((drop) => !seen.has(drop.collectionId));
+        return next.length > 0 ? [...current, ...next] : current;
+      });
+      setSeriesOffset(offset);
+      setSeriesHasMore(more);
+    })()
+      .catch(() => {
+        setSeriesLoadMoreFailed(true);
+      })
+      .finally(() => {
+        setSeriesLoadingMore(false);
+      });
+  }, [creatorId, seriesHasMore, seriesId, seriesLoadingMore, seriesOffset]);
+
+  useInfiniteScrollSentinel({
+    scrollRootRef,
+    sentinelRef: seriesSentinelRef,
+    enabled:
+      seriesHasMore &&
+      !seriesLoadingMore &&
+      !seriesLoadMoreFailed &&
+      catalogShell !== 'skeleton',
+    onIntersect: loadMoreSeries,
+  });
+
   if (catalogShell === 'skeleton') {
     if (seriesRouteYieldsLoadingSkeleton(clientMounted)) {
       return null;
@@ -237,6 +314,7 @@ export function SeriesPagePanel({
       dockBack
       backFallbackHref={seriesBackHref}
       glassChrome
+      scrollRootRef={scrollRootRef}
       actions={
         <>
           <OsIconAction asChild ariaLabel="Shop this creator">
@@ -355,10 +433,48 @@ export function SeriesPagePanel({
                 </section>
               ))}
             </div>
+            {seriesLoadingMore ? (
+              <MarketListSkeleton rows={2} variant="drops" />
+            ) : null}
+            {seriesLoadMoreFailed ? (
+              <OsChromeListAlert
+                message="Couldn’t load more."
+                retryLabel="Retry"
+                onRetry={loadMoreSeries}
+              />
+            ) : null}
+            {seriesHasMore && !seriesLoadMoreFailed ? (
+              <div
+                ref={seriesSentinelRef}
+                className="standing-panel-sentinel"
+                aria-hidden
+              />
+            ) : null}
           </>
         ) : null}
 
-        {storeDrops.length === 0 && heldRows.length === 0 ? (
+        {storeDrops.length === 0 &&
+        heldRows.length === 0 &&
+        seriesLoadMoreFailed ? (
+          <OsChromeListAlert
+            message="Couldn’t load more."
+            retryLabel="Retry"
+            onRetry={loadMoreSeries}
+          />
+        ) : null}
+
+        {storeDrops.length === 0 &&
+        heldRows.length === 0 &&
+        seriesHasMore &&
+        !seriesLoadMoreFailed ? (
+          <div
+            ref={seriesSentinelRef}
+            className="standing-panel-sentinel"
+            aria-hidden
+          />
+        ) : null}
+
+        {storeDrops.length === 0 && heldRows.length === 0 && !seriesHasMore ? (
           <div className="standing-panel-empty-block is-centered">
             <div className="standing-panel-empty-state">
               <p className="standing-panel-empty-primary">

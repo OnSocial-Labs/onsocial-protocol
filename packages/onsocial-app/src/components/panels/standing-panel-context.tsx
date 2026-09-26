@@ -834,7 +834,7 @@ export function StandingPanelProvider({
       (!listBootstrapReady && isLoading) ||
       (!listBootstrapReady && !relationshipSynced));
   const showLoadMoreSentinel =
-    hasMore && !query.trim() && filteredAccounts.length > 0;
+    hasMore && searchSettled && filteredAccounts.length > 0;
 
   useInfiniteScrollSentinel({
     scrollRootRef,

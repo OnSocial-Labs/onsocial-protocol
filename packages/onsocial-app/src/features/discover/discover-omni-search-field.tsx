@@ -15,10 +15,10 @@ import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 const IDLE_PLACEHOLDER = 'Search';
 
 /**
- * Discover omni search — typing filters the active tab. Bare text on
- * Moving opens Profiles. `#topic` / `$ticker` switch those tabs
- * (Enter opens the Home focus feed). Idle hint is short; focused hint
- * names what you can search.
+ * Discover omni search — typing filters the active tab. A plain word on
+ * Moving stays there and opens grouped results. `#topic` / `$ticker`
+ * switch those tabs (Enter opens the Home focus feed). Idle hint is
+ * short; focused hint names what you can search.
  */
 export function DiscoverOmniSearchField({ className }: { className?: string }) {
   const router = useRouter();

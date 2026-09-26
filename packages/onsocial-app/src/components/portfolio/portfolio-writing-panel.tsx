@@ -5,6 +5,7 @@ import {
   useDeferredValue,
   useEffect,
   useLayoutEffect,
+  useCallback,
   useMemo,
   useRef,
   useState,
@@ -14,6 +15,7 @@ import Link from 'next/link';
 import type { PostRow } from '@onsocial/sdk';
 import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ArticleReadOverlay } from '@/components/portfolio/article-read-screen';
 import { PortfolioEssayLeave } from '@/components/portfolio/portfolio-essay-leave';
 import { PortfolioPersonalComposer } from '@/components/portfolio/portfolio-personal-composer';
@@ -64,6 +66,13 @@ import {
   markPortfolioClientReady,
   unmarkPortfolioClientReady,
 } from '@/lib/e2e-portfolio-ready';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { hydrateWritingArticleCovers } from '@/lib/hydrate-writing-article-covers';
+import {
+  fetchAuthorArticleWindow,
+  WRITING_SHELF_FETCH_LIMIT,
+} from '@/lib/load-portfolio-writing';
 
 export type PortfolioWritingPanelProps = {
   accountId: string;
@@ -71,6 +80,8 @@ export type PortfolioWritingPanelProps = {
   avatarUrl?: string | null;
   articles: PostRow[];
   coverHints?: Record<string, WritingArticleCoverHint>;
+  /** Next post offset. Null when the shelf has the last page. */
+  articleNextOffset?: number | null;
 };
 
 const PortfolioWritingList = memo(function PortfolioWritingList({
@@ -248,10 +259,45 @@ function PortfolioWritingShelf({
   embedded?: boolean;
   onDockBack?: () => void;
 }) {
+  const [moreArticles, setMoreArticles] = useState<PostRow[]>([]);
+  const [moreHints, setMoreHints] = useState<
+    Record<string, WritingArticleCoverHint>
+  >({});
+  const [nextOffset, setNextOffset] = useState<number | null>(
+    panel.articleNextOffset ?? null
+  );
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreFailed, setMoreFailed] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  const articles = useMemo(() => {
+    if (moreArticles.length === 0) return panel.articles;
+    const seen = new Set(
+      panel.articles.map((post) => `${post.accountId}:${post.postId}`)
+    );
+    return [
+      ...panel.articles,
+      ...moreArticles.filter(
+        (post) => !seen.has(`${post.accountId}:${post.postId}`)
+      ),
+    ];
+  }, [moreArticles, panel.articles]);
+  const coverHints = useMemo(
+    () => ({ ...panel.coverHints, ...moreHints }),
+    [moreHints, panel.coverHints]
+  );
+
   const { query, setQuery, listQuery, showSearch, scrollRootRef } =
-    useWritingShelfState(panel.articles.length);
+    useWritingShelfState(articles.length);
 
   const [openPost, setOpenPost] = useState<PostRow | null>(null);
+
+  useEffect(() => {
+    setMoreArticles([]);
+    setMoreHints({});
+    setNextOffset(panel.articleNextOffset ?? null);
+    setMoreFailed(false);
+  }, [panel.accountId, panel.articleNextOffset]);
 
   useEffect(() => {
     markPortfolioClientReady();
@@ -277,15 +323,50 @@ function PortfolioWritingShelf({
     : portfolioMoodShellStyle(mood.cssVars);
   const matchCount = useMemo(
     () =>
-      panel.articles.filter((post) => articleMatchesQuery(post, listQuery))
-        .length,
-    [panel.articles, listQuery]
+      articles.filter((post) => articleMatchesQuery(post, listQuery)).length,
+    [articles, listQuery]
   );
   const shelfCount = resolveWritingShelfCount(
-    panel.articles.length,
+    articles.length,
     matchCount,
     listQuery
   );
+
+  const loadMoreArticles = useCallback(() => {
+    if (nextOffset == null || loadingMore) return;
+    const offset = nextOffset;
+    setLoadingMore(true);
+    setMoreFailed(false);
+    void (async () => {
+      try {
+        const os = createReadOnlyOnSocialClient();
+        const page = await fetchAuthorArticleWindow(
+          os,
+          panel.accountId,
+          offset,
+          WRITING_SHELF_FETCH_LIMIT
+        );
+        const hints =
+          page.articles.length > 0
+            ? await hydrateWritingArticleCovers(page.articles, os)
+            : {};
+        setMoreArticles((current) => [...current, ...page.articles]);
+        setMoreHints((current) => ({ ...current, ...hints }));
+        setNextOffset(page.nextOffset);
+      } catch {
+        setMoreFailed(true);
+      } finally {
+        setLoadingMore(false);
+      }
+    })();
+  }, [loadingMore, nextOffset, panel.accountId]);
+
+  useInfiniteScrollSentinel({
+    scrollRootRef,
+    sentinelRef: loadMoreRef,
+    enabled: nextOffset != null && !loadingMore && !moreFailed,
+    onIntersect: loadMoreArticles,
+  });
 
   return (
     <>
@@ -318,10 +399,32 @@ function PortfolioWritingShelf({
         <PortfolioPersonalComposer pageAccountId={panel.accountId} />
         <PortfolioWritingList
           {...panel}
+          articles={articles}
+          coverHints={coverHints}
           query={listQuery}
           showSearch={showSearch}
           onOpenArticle={setOpenPost}
         />
+        {loadingMore ? (
+          <div className="portfolio-writing-pending" aria-hidden>
+            <span className="standing-row-shimmer portfolio-writing-pending-row" />
+            <span className="standing-row-shimmer portfolio-writing-pending-row" />
+          </div>
+        ) : null}
+        {moreFailed ? (
+          <OsChromeListAlert
+            message="Couldn’t load more."
+            retryLabel="Retry"
+            onRetry={loadMoreArticles}
+          />
+        ) : null}
+        {nextOffset != null ? (
+          <div
+            ref={loadMoreRef}
+            className="standing-panel-sentinel"
+            aria-hidden
+          />
+        ) : null}
       </OsAppScreen>
       {openPost ? (
         <ArticleReadOverlay
@@ -334,9 +437,9 @@ function PortfolioWritingShelf({
           titleLabel={panel.titleLabel}
           avatarUrl={panel.avatarUrl}
           post={openPost}
-          coverHint={panel.coverHints?.[postKey(openPost)] ?? null}
-          articles={panel.articles}
-          coverHints={panel.coverHints}
+          coverHint={coverHints[postKey(openPost)] ?? null}
+          articles={articles}
+          coverHints={coverHints}
           onOpenArticle={setOpenPost}
         />
       ) : null}

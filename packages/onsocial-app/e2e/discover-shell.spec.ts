@@ -16,7 +16,10 @@ test.describe('discover shell', () => {
   test('loads search and Discover tabs', async ({ page }) => {
     await gotoApp(page, '/discover');
 
-    await expectSearchVisible(page, 'Search people, topics, and tickers');
+    await expectSearchVisible(
+      page,
+      'Search people, articles, books, music, and events'
+    );
 
     await expectTabVisible(page, 'Discover', 'Moving');
     await expectTabVisible(page, 'Discover', 'Profiles');
@@ -42,13 +45,17 @@ test.describe('discover shell', () => {
     await expectTabSelected(page, 'Discover', 'Topics');
   });
 
-  test('routes a people search from Moving to Profiles', async ({ page }) => {
+  test('keeps a plain search on Moving and shows grouped results', async ({
+    page,
+  }) => {
     await gotoApp(page, '/discover');
     await expectTabSelected(page, 'Discover', 'Moving');
     await typeDiscoverPeopleSearch(page, 'alice');
-    await expect(page).toHaveURL(/tab=profiles/);
-    await expectTabSelected(page, 'Discover', 'Profiles');
-    await expectTabVisible(page, 'Filter profiles', 'All');
+    await expect(page).not.toHaveURL(/tab=profiles/);
+    await expectTabSelected(page, 'Discover', 'Moving');
+    await expect(
+      page.getByRole('region', { name: 'Search results' })
+    ).toBeVisible();
   });
 
   test('keeps face chips off the Moving landing', async ({ page }) => {

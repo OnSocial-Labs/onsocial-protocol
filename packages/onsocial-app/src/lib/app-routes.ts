@@ -188,6 +188,8 @@ export function dropsPath(opts?: {
   sort?: DropsSortParam | null;
   kind?: DropsMediumParam | string | null;
   audioFormat?: string | null;
+  /** Carry a Discover search into the catalog. */
+  q?: string | null;
 }): string {
   const params = new URLSearchParams();
   const sort = opts?.sort?.trim().toLowerCase() ?? '';
@@ -205,8 +207,19 @@ export function dropsPath(opts?: {
   ) {
     params.set(MARKET_AUDIO_FORMAT_PARAM, format);
   }
+  const q = opts?.q?.trim() ?? '';
+  if (q) params.set('q', q);
   const qs = params.toString();
   return qs ? `${APP_DROPS_PATH}?${qs}` : APP_DROPS_PATH;
+}
+
+/** Events catalog. `q` continues a Discover search. */
+export function eventsPath(opts?: { q?: string | null }): string {
+  const q = opts?.q?.trim() ?? '';
+  if (!q) return APP_EVENTS_PATH;
+  const params = new URLSearchParams();
+  params.set('q', q);
+  return `${APP_EVENTS_PATH}?${params.toString()}`;
 }
 
 /** Owner vault — use holdings (Read / Play / Show pass). Create stays on Market. */

@@ -1,6 +1,6 @@
 import { cache } from 'react';
 import {
-  fetchCollectionsByCreator,
+  fetchCollectionsByCreatorPage,
   type CollectionView,
 } from '@/features/scarces/collections-data';
 import {
@@ -11,16 +11,29 @@ import { seriesDisplayTitle } from '@/features/scarces/series-page-view';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import { loadProfileShell, type AppProfileShell } from '@/lib/profile-shell';
 
-async function fetchSeriesPageCollections(
-  creator: string
-): Promise<CollectionView[]> {
+const SERIES_CREATOR_PAGE = 48;
+
+async function fetchSeriesPageCollections(creator: string): Promise<{
+  views: CollectionView[];
+  hasMore: boolean;
+}> {
   try {
-    return await fetchCollectionsByCreator(creator, {
-      limit: 48,
+    const page = await fetchCollectionsByCreatorPage(creator, {
+      limit: SERIES_CREATOR_PAGE,
       client: createServerOnSocialClient(),
     });
+    return {
+      views: page.views,
+      hasMore: page.fetched >= SERIES_CREATOR_PAGE,
+    };
   } catch {
-    return fetchCollectionsByCreator(creator, { limit: 48 });
+    const page = await fetchCollectionsByCreatorPage(creator, {
+      limit: SERIES_CREATOR_PAGE,
+    });
+    return {
+      views: page.views,
+      hasMore: page.fetched >= SERIES_CREATOR_PAGE,
+    };
   }
 }
 
@@ -29,6 +42,8 @@ export type SeriesPageData = {
   seriesId: string;
   branding: SeriesBranding | null;
   drops: CollectionView[];
+  /** The creator catalog continues past the first page. */
+  creatorHasMore: boolean;
   profile: AppProfileShell | null;
 };
 
@@ -46,6 +61,7 @@ export const loadSeriesPageData = cache(
         seriesId: id,
         branding: null,
         drops: [],
+        creatorHasMore: false,
         profile: null,
       };
     }
@@ -60,7 +76,8 @@ export const loadSeriesPageData = cache(
       creatorId: creator,
       seriesId: id,
       branding,
-      drops: collections.filter((view) => view.seriesId === id),
+      drops: collections.views.filter((view) => view.seriesId === id),
+      creatorHasMore: collections.hasMore,
       profile,
     };
   }

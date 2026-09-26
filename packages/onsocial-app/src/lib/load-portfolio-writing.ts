@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import type { PostRow } from '@onsocial/sdk';
+import type { OnSocial, PostRow } from '@onsocial/sdk';
 import { isArticlePost } from '@/lib/article-post-payload';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import {
@@ -29,7 +29,36 @@ export type PortfolioWritingPageData = {
   mood: ResolvedMood;
   articles: PostRow[];
   coverHints: Record<string, WritingArticleCoverHint>;
+  /** Next `feed.recent` offset. Null when this page was the last. */
+  articleNextOffset: number | null;
 };
+
+/**
+ * One shelf window. Skips post pages that contain no articles so a scroll
+ * still reveals the next piece.
+ */
+export async function fetchAuthorArticleWindow(
+  os: OnSocial,
+  accountId: string,
+  offset: number,
+  limit = WRITING_SHELF_FETCH_LIMIT
+): Promise<{ articles: PostRow[]; nextOffset: number | null }> {
+  const found: PostRow[] = [];
+  let cursor: number | null = offset;
+  let rounds = 0;
+  while (cursor != null && found.length === 0 && rounds < 6) {
+    const page = await os.query.feed.recent({
+      author: accountId,
+      limit,
+      offset: cursor,
+      section: 'posts',
+    });
+    found.push(...page.items.filter(isArticlePost));
+    cursor = page.nextOffset ?? null;
+    rounds += 1;
+  }
+  return { articles: found, nextOffset: cursor };
+}
 
 export type PortfolioWritingArticlePageData = PortfolioWritingPageData & {
   post: PostRow | null;
@@ -39,17 +68,12 @@ export const fetchAccountArticles = cache(
   async (
     accountId: string,
     limit = WRITING_SHELF_FETCH_LIMIT
-  ): Promise<PostRow[]> => {
+  ): Promise<{ articles: PostRow[]; nextOffset: number | null }> => {
     try {
       const os = createServerOnSocialClient();
-      const page = await os.query.feed.recent({
-        author: accountId,
-        limit,
-        section: 'posts',
-      });
-      return page.items.filter(isArticlePost);
+      return await fetchAuthorArticleWindow(os, accountId, 0, limit);
     } catch {
-      return [];
+      return { articles: [], nextOffset: null };
     }
   }
 );
@@ -72,6 +96,7 @@ async function e2eWritingShelfChrome(
     mood: resolvePortfolioMood({}),
     articles: [],
     coverHints: {},
+    articleNextOffset: null,
   };
 }
 
@@ -103,16 +128,18 @@ const loadPortfolioWritingChrome = cache(
       mood: resolvePortfolioMood(config),
       articles: [],
       coverHints: {},
+      articleNextOffset: null,
     };
   }
 );
 
 export const loadPortfolioWritingForAccount = cache(
   async (accountId: string): Promise<PortfolioWritingPageData> => {
-    const [chrome, articles] = await Promise.all([
+    const [chrome, feed] = await Promise.all([
       loadPortfolioWritingChrome(accountId),
       fetchAccountArticles(accountId),
     ]);
+    const articles = feed.articles;
 
     let coverHints: Record<string, WritingArticleCoverHint> = {};
     try {
@@ -126,6 +153,7 @@ export const loadPortfolioWritingForAccount = cache(
       ...chrome,
       articles,
       coverHints,
+      articleNextOffset: feed.nextOffset,
     };
   }
 );

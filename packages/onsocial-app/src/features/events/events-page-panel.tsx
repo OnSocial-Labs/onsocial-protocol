@@ -16,8 +16,12 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { ActionDrawer } from '@/components/ui/action-drawer';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
+import { DropsDiscoveryRowMenu } from '@/features/drops/drops-discovery-row-menu';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
   fetchDropsPage,
@@ -93,12 +97,20 @@ function EventRow({
   window,
   guestCount,
   onGuests,
+  saved,
+  savePending,
+  onToggleSave,
+  onOwnerManaged,
 }: {
   item: DropDiscoveryItem;
   nowMs: number;
   window: EventWindow;
   guestCount: number | null;
   onGuests: (item: DropDiscoveryItem, kind: EventGuestKind) => void;
+  saved: boolean;
+  savePending: boolean;
+  onToggleSave: () => void;
+  onOwnerManaged: (change: 'paused' | 'resumed' | 'deleted') => void;
 }) {
   const href = collectionPath(item.collectionId);
   const meta = [
@@ -164,20 +176,45 @@ function EventRow({
           </div>
         ) : null}
       </div>
+      <div className="market-listing-action-col events-row-menu-col">
+        <div className="drops-discovery-head-trail">
+          <DropsDiscoveryRowMenu
+            item={item}
+            saved={saved}
+            savePending={savePending}
+            onToggleSave={onToggleSave}
+            onOwnerManaged={onOwnerManaged}
+            voice="event"
+          />
+        </div>
+      </div>
     </div>
   );
 }
 
-export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
+export function EventsPagePanel({
+  initialNowMs,
+  initialQuery = '',
+}: {
+  initialNowMs: number;
+  /** URL `q` — grouped search hands the same words here. */
+  initialQuery?: string;
+}) {
   const { accountId, isConnected } = useAppWallet();
+  const { viewerSaved, isSavePending, toggleSave } = useScarceCollectionSaves(
+    {}
+  );
+  const scrollRootRef = useRef<HTMLElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [items, setItems] = useState<DropDiscoveryItem[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [nowMs, setNowMs] = useState(initialNowMs);
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [scope, setScope] = useState<'all' | 'mine'>('all');
   const [styleId, setStyleId] = useState<string | null>(null);
   const [placeId, setPlaceId] = useState<string | null>(null);
@@ -196,6 +233,7 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
     error: boolean;
   } | null>(null);
   const reloadGenRef = useRef(0);
+  const loadingMoreRef = useRef(false);
 
   const mineAccount = scope === 'mine' && accountId ? accountId : null;
   if (heldFor !== mineAccount) {
@@ -237,14 +275,19 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
           setNextOffset(0);
           setHasMore(false);
           setFailed(false);
+          setLoadMoreFailed(false);
           setLoading(true);
         }
         return;
       }
-      setFailed(false);
       if (replace) {
+        setFailed(false);
+        setLoadMoreFailed(false);
         setItems([]);
         setHasMore(false);
+        setLoading(true);
+      } else {
+        setLoadMoreFailed(false);
         setLoading(true);
       }
       if (scope === 'mine' && !accountId) {
@@ -284,7 +327,8 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
         setNowMs(Date.now());
       } catch {
         if (gen !== reloadGenRef.current) return;
-        setFailed(true);
+        if (replace) setFailed(true);
+        else setLoadMoreFailed(true);
       } finally {
         if (gen === reloadGenRef.current) setLoading(false);
       }
@@ -319,6 +363,14 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
     void load(0, true);
   }, [load, reloadKey]);
 
+  const loadNext = useCallback(() => {
+    if (loadingMoreRef.current || loading) return;
+    loadingMoreRef.current = true;
+    void load(nextOffset, false).finally(() => {
+      loadingMoreRef.current = false;
+    });
+  }, [load, loading, nextOffset]);
+
   const places = useMemo(() => eventPlaceChoices(seen), [seen]);
   const grouped = groupEvents(items, nowMs);
   const goingIds = grouped.upcoming
@@ -336,6 +388,24 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
       attended: attendedRosters,
     }),
     [attendedRosters, holderRosters, inRosters]
+  );
+
+  const onOwnerManaged = useCallback(
+    (id: string, change: 'paused' | 'resumed' | 'deleted') => {
+      if (change === 'deleted' || change === 'paused') {
+        setItems((current) =>
+          current.filter((row) => row.collectionId !== id)
+        );
+        setSeen((current) => current.filter((row) => row.collectionId !== id));
+        return;
+      }
+      setItems((current) =>
+        current.map((row) =>
+          row.collectionId === id ? { ...row, status: 'live' as const } : row
+        )
+      );
+    },
+    []
   );
 
   const openGuests = useCallback(
@@ -385,6 +455,15 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
     .join(' · ');
   const empty = !loading && !failed && items.length === 0;
   const needsConnect = scope === 'mine' && !isConnected;
+  const showAppendSkeleton = loading && items.length > 0 && !failed;
+
+  useInfiniteScrollSentinel({
+    scrollRootRef,
+    sentinelRef: loadMoreRef,
+    enabled:
+      hasMore && !loading && !failed && !loadMoreFailed && !needsConnect,
+    onIntersect: loadNext,
+  });
 
   return (
     <OsAppScreen
@@ -395,6 +474,7 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
       dockBack
       leading={null}
       backFallbackHref={APP_HOME_PATH}
+      scrollRootRef={scrollRootRef}
       heading={
         <OsAppChromeNavSearch
           value={query}
@@ -506,6 +586,14 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
                             ),
                           })}
                           onGuests={openGuests}
+                          saved={viewerSaved(item.collectionId)}
+                          savePending={isSavePending(item.collectionId)}
+                          onToggleSave={() => {
+                            void toggleSave(item.collectionId);
+                          }}
+                          onOwnerManaged={(change) =>
+                            onOwnerManaged(item.collectionId, change)
+                          }
                         />
                       );
                     })}
@@ -514,15 +602,22 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
               );
             })
           )}
-          {hasMore ? (
-            <button
-              type="button"
-              className="os-surface-chip"
-              disabled={loading}
-              onClick={() => void load(nextOffset, false)}
-            >
-              More
-            </button>
+          {showAppendSkeleton ? (
+            <MarketListSkeleton rows={2} variant="drops" />
+          ) : null}
+          {loadMoreFailed ? (
+            <OsChromeListAlert
+              message="Couldn’t load more."
+              retryLabel="Retry"
+              onRetry={loadNext}
+            />
+          ) : null}
+          {hasMore && !loadMoreFailed ? (
+            <div
+              ref={loadMoreRef}
+              className="standing-panel-sentinel"
+              aria-hidden
+            />
           ) : null}
         </div>
       </div>
