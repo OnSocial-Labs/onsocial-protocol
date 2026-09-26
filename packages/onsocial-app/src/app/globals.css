@@ -36074,6 +36074,34 @@ a.os-surface-row {
     user-select: none;
   }
 
+  .events-guest-count {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 550;
+    line-height: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .events-guest-count:hover,
+  .events-guest-count:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .events-guest-count:focus-visible {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+    border-radius: 0.2rem;
+  }
+
   .drops-discovery-deal-fans {
     display: inline-flex;
     flex: 0 0 auto;
