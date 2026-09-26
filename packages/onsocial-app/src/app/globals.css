@@ -27687,7 +27687,9 @@ a.os-surface-row {
     color: var(--os-identity-name-hover);
   }
 
-  .collection-meta-creator-name:hover + .collection-meta-sub .collection-meta-handle,
+  .collection-meta-creator-name:hover
+    + .collection-meta-sub
+    .collection-meta-handle,
   .collection-meta-creator-name:focus-visible
     + .collection-meta-sub
     .collection-meta-handle {
@@ -46671,13 +46673,16 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 }
 
 .customize-song-list > button.customize-pin-none:not(.is-selected),
-.customize-song-list > .customize-pin-album > button.customize-pin-row:not(.is-selected),
+.customize-song-list
+  > .customize-pin-album
+  > button.customize-pin-row:not(.is-selected),
 .customize-pin-tracks > button.customize-pin-track:not(.is-selected) {
   background: transparent;
 }
 
 .customize-song-list > button.customize-pin-none:not(.is-selected):hover,
-.customize-song-list > button.customize-pin-none:not(.is-selected):focus-visible,
+.customize-song-list
+  > button.customize-pin-none:not(.is-selected):focus-visible,
 .customize-song-list
   > .customize-pin-album
   > button.customize-pin-row:not(.is-selected):hover,
@@ -46692,7 +46697,9 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 }
 
 .customize-song-list > button.customize-pin-none.is-selected,
-.customize-song-list > .customize-pin-album > button.customize-pin-row.is-selected,
+.customize-song-list
+  > .customize-pin-album
+  > button.customize-pin-row.is-selected,
 .customize-pin-tracks > button.customize-pin-track.is-selected {
   background: var(--os-surface-fill);
 }
