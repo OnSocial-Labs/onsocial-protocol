@@ -1482,6 +1482,7 @@ export function MessagesPanel() {
         title="Messages"
         compactChrome
         glassChrome
+        glassChromeAlwaysElevated
         dockBack
         backFallbackHref={APP_HOME_PATH}
         leading={null}
@@ -1519,6 +1520,7 @@ export function MessagesPanel() {
         title="Messages"
         compactChrome
         glassChrome
+        glassChromeAlwaysElevated
         dockBack
         backFallbackHref={APP_HOME_PATH}
         leading={null}
@@ -1669,6 +1671,7 @@ export function MessagesPanel() {
       }
       compactChrome
       glassChrome
+      glassChromeAlwaysElevated
       scrollRootRef={scrollRootRef}
       moodId={threadOpen && peerMood ? peerMood.id : undefined}
       moodStyle={threadMoodStyle}

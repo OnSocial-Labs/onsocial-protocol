@@ -222,6 +222,32 @@ test.describe('authenticated messages loading', () => {
     await seedAuthenticatedMessages(page);
   });
 
+  test('thread header is one profile link on frosted chrome', async ({
+    page,
+  }) => {
+    await stubMessages(page);
+    await page.goto(
+      `/messages?thread=${encodeURIComponent(MESSAGES_E2E_THREAD)}`,
+      { waitUntil: 'domcontentloaded' }
+    );
+    const identity = page.locator('a.messages-thread-chrome-subject');
+    await expect(identity).toBeVisible({ timeout: 30_000 });
+    await expect(identity).toHaveAttribute('href', '/@bob.testnet');
+    await expect(identity.locator('.os-chrome-subject__name')).toHaveText(
+      'Bob'
+    );
+    await expect(identity.locator('.os-chrome-subject__handle')).toHaveText(
+      '@bob.testnet'
+    );
+    await expect(identity.locator('.os-chrome-subject__avatar')).toBeVisible();
+    await expect(
+      page.locator('.os-app-screen[data-glass-chrome="true"]')
+    ).toHaveCount(1);
+    await expect(
+      page.locator('.os-app-screen-header.is-elevated')
+    ).toBeVisible();
+  });
+
   test('states an empty inbox without a how-to', async ({ page }) => {
     await stubMessages(page, { emptyThreads: true });
     await page.goto('/messages', { waitUntil: 'domcontentloaded' });

@@ -4,11 +4,8 @@ import Link from 'next/link';
 import { osChromeSubjectClassName } from '@onsocial/ui';
 import { OsChromeSubject } from '@/components/profile/os-chrome-subject';
 import { messagesThreadChromeTitle } from '@/features/messages/messages-thread-chrome';
-import {
-  customDisplayName,
-  displayName,
-  fallbackLabel,
-} from '@/lib/profile-display';
+import { portfolioPath } from '@/lib/overlay-routes';
+import { displayName, fallbackLabel } from '@/lib/profile-display';
 
 /** Peer identity in the compact glass nav (`2.35rem` band via `OsAppScreen`). */
 export function MessagesThreadChromeHeading({
@@ -22,14 +19,12 @@ export function MessagesThreadChromeHeading({
 }) {
   const name = displayName(accountId, profileName ?? undefined);
   const handle = fallbackLabel(accountId);
-  const customName = customDisplayName(accountId, profileName);
-  const primaryLabel = customName || name;
   const title = messagesThreadChromeTitle(name, handle);
 
   return (
     <Link
-      href={`/${accountId}`}
-      className={osChromeSubjectClassName}
+      href={portfolioPath(accountId)}
+      className={`${osChromeSubjectClassName} messages-thread-chrome-subject`}
       scroll={false}
       title={title}
     >
@@ -37,9 +32,8 @@ export function MessagesThreadChromeHeading({
         accountId={accountId}
         profileName={profileName}
         avatarUrl={avatarUrl}
-        primaryLabel={primaryLabel}
-        handleLabel={handle}
-        showHandle={Boolean(customName)}
+        showHandle
+        avatarSize="sm"
         unstyled
       />
     </Link>

@@ -12605,11 +12605,21 @@ a.os-surface-row {
     width: 100%;
   }
 
-  /* DM thread peer — compact nav band; identity via @onsocial/ui OsChromeSubject. */
+  /* DM thread peer — avatar, name, and @id in the compact nav band. */
   .os-app-screen-heading .os-chrome-subject {
     height: var(--os-app-screen-nav-row-height);
     min-height: var(--os-app-screen-nav-row-height);
     max-height: var(--os-app-screen-nav-row-height);
+  }
+
+  .os-app-screen-heading .messages-thread-chrome-subject .os-chrome-subject__name {
+    font-size: 0.84rem;
+    line-height: 1.1;
+  }
+
+  .os-app-screen-heading .messages-thread-chrome-subject .os-chrome-subject__handle {
+    font-size: 0.68rem;
+    line-height: 1.1;
   }
 
   .os-app-screen[data-compact-chrome='true'] .home-feed-compact-chrome {
