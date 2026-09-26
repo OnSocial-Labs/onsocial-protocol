@@ -3,6 +3,7 @@ import {
   eventGuestCountAria,
   eventGuestCountLabel,
   eventGuestKind,
+  resolveEventGuestCount,
   showEventGuestCount,
   uniqueAccountIds,
 } from '@/features/events/event-guests';
@@ -19,6 +20,27 @@ describe('event guest counts', () => {
     expect(eventGuestCountLabel('going', 128)).toBe('128 going');
     expect(eventGuestCountLabel('attended', 1)).toBe('1 attended');
     expect(eventGuestCountLabel('attended', 186)).toBe('186 attended');
+  });
+
+  it('uses a resolved roster, and minted passes only while holders load', () => {
+    expect(
+      resolveEventGuestCount('going', { mintedCount: 4, roster: undefined })
+    ).toBe(4);
+    expect(
+      resolveEventGuestCount('going', { mintedCount: 4, roster: ['a.near'] })
+    ).toBe(1);
+    expect(
+      resolveEventGuestCount('going', { mintedCount: 4, roster: [] })
+    ).toBe(0);
+    expect(
+      resolveEventGuestCount('in', { mintedCount: 4, roster: undefined })
+    ).toBeNull();
+    expect(resolveEventGuestCount('in', { mintedCount: 4, roster: [] })).toBe(
+      0
+    );
+    expect(
+      resolveEventGuestCount('attended', { mintedCount: 2, roster: ['a.near'] })
+    ).toBe(1);
   });
 
   it('keeps a live zero and hides empty upcoming and past counts', () => {

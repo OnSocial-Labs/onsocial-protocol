@@ -45,12 +45,13 @@ import {
   eventGuestSheetCopy,
   loadEventCheckInIds,
   loadEventHolderIds,
+  resolveEventGuestCount,
   showEventGuestCount,
   type EventGuestKind,
 } from '@/features/events/event-guests';
 import {
-  useEventCheckInCounts,
-  useEventHolderCounts,
+  useEventCheckInRosters,
+  useEventHolderRosters,
 } from '@/features/events/use-event-guest-counts';
 import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import {
@@ -67,24 +68,22 @@ import { SHEET_Z } from '@/lib/sheet-z';
 
 const PAGE_SIZE = 48;
 
-function eventGuestCount(
-  item: DropDiscoveryItem,
-  window: EventWindow,
-  counts: {
-    holderCounts: Record<string, number>;
-    inCounts: Record<string, number>;
-    attendedCounts: Record<string, number>;
+function eventGuestRoster(
+  kind: EventGuestKind,
+  collectionId: string,
+  rosters: {
+    holders: Record<string, string[]>;
+    inNow: Record<string, string[]>;
+    attended: Record<string, string[]>;
   }
-): number | null {
-  const kind = eventGuestKind(window);
-  if (kind === 'going') {
-    const unique = counts.holderCounts[item.collectionId];
-    if (unique != null && unique > 0) return unique;
-    return item.mintedCount > 0 ? item.mintedCount : null;
-  }
-  const source = kind === 'in' ? counts.inCounts : counts.attendedCounts;
-  const count = source[item.collectionId];
-  return count == null ? null : count;
+): string[] | undefined {
+  const source =
+    kind === 'going'
+      ? rosters.holders
+      : kind === 'in'
+        ? rosters.inNow
+        : rosters.attended;
+  return source[collectionId];
 }
 
 function EventRow({
@@ -290,19 +289,28 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
     .map((item) => item.collectionId);
   const nowIds = grouped.now.map((item) => item.collectionId);
   const pastIds = grouped.past.map((item) => item.collectionId);
-  const holderCounts = useEventHolderCounts(goingIds);
-  const inCounts = useEventCheckInCounts(nowIds, 20_000);
-  const attendedCounts = useEventCheckInCounts(pastIds);
+  const holderRosters = useEventHolderRosters(goingIds);
+  const inRosters = useEventCheckInRosters(nowIds, 20_000);
+  const attendedRosters = useEventCheckInRosters(pastIds);
+  const guestRosters = useMemo(
+    () => ({
+      holders: holderRosters,
+      inNow: inRosters,
+      attended: attendedRosters,
+    }),
+    [attendedRosters, holderRosters, inRosters]
+  );
 
   const openGuests = useCallback(
     (item: DropDiscoveryItem, kind: EventGuestKind) => {
+      const cached = eventGuestRoster(kind, item.collectionId, guestRosters);
       setGuestOpen(true);
       setGuestSheet({
         collectionId: item.collectionId,
         title: item.title,
         kind,
-        ids: [],
-        loading: true,
+        ids: cached ?? [],
+        loading: cached === undefined,
         error: false,
       });
       const loadGuests =
@@ -310,20 +318,27 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
       void loadGuests(item.collectionId)
         .then((ids) => {
           setGuestSheet((current) =>
-            current?.collectionId === item.collectionId
+            current?.collectionId === item.collectionId && current.kind === kind
               ? { ...current, ids, loading: false, error: false }
               : current
           );
         })
         .catch(() => {
-          setGuestSheet((current) =>
-            current?.collectionId === item.collectionId
-              ? { ...current, ids: [], loading: false, error: true }
-              : current
-          );
+          setGuestSheet((current) => {
+            if (
+              current?.collectionId !== item.collectionId ||
+              current.kind !== kind
+            ) {
+              return current;
+            }
+            if (cached !== undefined) {
+              return { ...current, loading: false, error: false };
+            }
+            return { ...current, ids: [], loading: false, error: true };
+          });
         });
     },
-    []
+    [guestRosters]
   );
   const filterLabel = [
     styleId ? eventStyleLabel(styleId) : null,
@@ -437,20 +452,26 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
                     {eventWindowLabel(window)}
                   </h2>
                   <div role="list">
-                    {rows.map((item) => (
-                      <EventRow
-                        key={item.collectionId}
-                        item={item}
-                        nowMs={nowMs}
-                        window={window}
-                        guestCount={eventGuestCount(item, window, {
-                          holderCounts,
-                          inCounts,
-                          attendedCounts,
-                        })}
-                        onGuests={openGuests}
-                      />
-                    ))}
+                    {rows.map((item) => {
+                      const kind = eventGuestKind(window);
+                      return (
+                        <EventRow
+                          key={item.collectionId}
+                          item={item}
+                          nowMs={nowMs}
+                          window={window}
+                          guestCount={resolveEventGuestCount(kind, {
+                            mintedCount: item.mintedCount,
+                            roster: eventGuestRoster(
+                              kind,
+                              item.collectionId,
+                              guestRosters
+                            ),
+                          })}
+                          onGuests={openGuests}
+                        />
+                      );
+                    })}
                   </div>
                 </section>
               );

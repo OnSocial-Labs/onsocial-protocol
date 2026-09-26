@@ -13,6 +13,19 @@ export function eventGuestKind(window: EventWindow): EventGuestKind {
   return 'going';
 }
 
+/**
+ * Row count. Upcoming may show passes minted until holders resolve.
+ * A resolved roster wins, including zero. On now keeps a live zero.
+ */
+export function resolveEventGuestCount(
+  kind: EventGuestKind,
+  opts: { mintedCount: number; roster: string[] | undefined }
+): number | null {
+  if (opts.roster !== undefined) return opts.roster.length;
+  if (kind === 'going' && opts.mintedCount > 0) return opts.mintedCount;
+  return null;
+}
+
 /** Row count. On now keeps a live zero; the other windows stay quiet at zero. */
 export function showEventGuestCount(
   kind: EventGuestKind,

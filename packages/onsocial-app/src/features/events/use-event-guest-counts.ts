@@ -30,9 +30,9 @@ function useRosterCounts(
   collectionIds: string[],
   load: (collectionId: string) => Promise<string[]>,
   refreshMs: number
-): Record<string, number> {
+): Record<string, string[]> {
   const key = collectionIds.join('\n');
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [rosters, setRosters] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     const ids = key ? key.split('\n') : [];
@@ -40,17 +40,16 @@ function useRosterCounts(
     let cancelled = false;
 
     const loadCounts = async () => {
-      const next: Record<string, number> = {};
+      const next: Record<string, string[]> = {};
       await mapPool(ids, 4, async (id) => {
         try {
-          const guests = await load(id);
-          next[id] = guests.length;
+          next[id] = await load(id);
         } catch {
-          // Leave the previous number. A failed read is not zero guests.
+          // Leave the previous roster. A failed read is not zero guests.
         }
       });
       if (cancelled) return;
-      setCounts((prev) => ({ ...prev, ...next }));
+      setRosters((prev) => ({ ...prev, ...next }));
     };
 
     void loadCounts();
@@ -68,20 +67,20 @@ function useRosterCounts(
     };
   }, [key, load, refreshMs]);
 
-  return counts;
+  return rosters;
 }
 
 /** Unique pass holders. Missing keys are still loading. */
-export function useEventHolderCounts(
+export function useEventHolderRosters(
   collectionIds: string[]
-): Record<string, number> {
+): Record<string, string[]> {
   return useRosterCounts(collectionIds, loadEventHolderIds, 0);
 }
 
 /** Unique check-ins. `refreshMs` keeps On now live. */
-export function useEventCheckInCounts(
+export function useEventCheckInRosters(
   collectionIds: string[],
   refreshMs = 0
-): Record<string, number> {
+): Record<string, string[]> {
   return useRosterCounts(collectionIds, loadEventCheckInIds, refreshMs);
 }
