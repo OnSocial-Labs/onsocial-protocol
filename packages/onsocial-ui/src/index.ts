@@ -66,6 +66,7 @@ export {
   CalendarFillIcon,
   ChartVerticalFillIcon,
   ImageFillIcon,
+  BookTextFillIcon,
   NoteTextFillIcon,
   MapMarkerFillIcon,
   FireFillIcon,

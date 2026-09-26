@@ -8788,7 +8788,8 @@ a.os-surface-row {
    * The hit box is wide enough to fill the middots; its height matches
    * the words so it does not cover the bio or the gestures.
    */
-  .portfolio-song-mark {
+  .portfolio-song-mark,
+  .portfolio-book-mark {
     display: inline-grid;
     width: 2.75rem;
     height: 1.05rem;
@@ -8798,11 +8799,13 @@ a.os-surface-row {
     border: 0;
     background: transparent;
     color: rgb(var(--fg-rgb) / 0.62);
+    text-decoration: none;
     cursor: pointer;
     flex-shrink: 0;
   }
 
-  .portfolio-song-mark-icon {
+  .portfolio-song-mark-icon,
+  .portfolio-book-mark-icon {
     width: 0.72rem;
     height: 0.72rem;
     display: block;
@@ -8813,12 +8816,15 @@ a.os-surface-row {
   }
 
   .portfolio-song-mark:hover,
-  .portfolio-song-mark:focus-visible {
+  .portfolio-song-mark:focus-visible,
+  .portfolio-book-mark:hover,
+  .portfolio-book-mark:focus-visible {
     color: rgb(var(--fg-rgb) / 0.88);
     outline: none;
   }
 
-  .portfolio-song-mark:focus-visible {
+  .portfolio-song-mark:focus-visible,
+  .portfolio-book-mark:focus-visible {
     box-shadow: var(
       --os-focus-ring,
       0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
@@ -8826,12 +8832,14 @@ a.os-surface-row {
     border-radius: 999px;
   }
 
-  .portfolio-song-mark:active {
+  .portfolio-song-mark:active,
+  .portfolio-book-mark:active {
     transform: scale(0.96);
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .portfolio-song-mark:active {
+    .portfolio-song-mark:active,
+    .portfolio-book-mark:active {
       transform: none;
     }
   }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   normalizePinnedSongId,
   readPageHeroSourceExplicit,
+  readPinnedBookId,
   readPinnedSongId,
   resolvePageFace,
   resolvePageHeroSource,
@@ -15,9 +16,9 @@ describe('readPageHeroSourceExplicit', () => {
   });
 
   it('returns explicit heroSource when set', () => {
-    expect(
-      readPageHeroSourceExplicit({ face: { heroSource: 'none' } })
-    ).toBe('none');
+    expect(readPageHeroSourceExplicit({ face: { heroSource: 'none' } })).toBe(
+      'none'
+    );
   });
 });
 
@@ -28,10 +29,37 @@ describe('readPinnedSongId', () => {
     );
     expect(readPinnedSongId({})).toBeNull();
     expect(normalizePinnedSongId('  bad id  ')).toBeNull();
-    expect(sanitizePageFace({ songId: 'midnight-ep', heroSource: 'banner' })).toEqual(
-      { songId: 'midnight-ep', heroSource: 'banner' }
-    );
+    expect(
+      sanitizePageFace({ songId: 'midnight-ep', heroSource: 'banner' })
+    ).toEqual({ songId: 'midnight-ep', heroSource: 'banner' });
     expect(sanitizePageFace({ songId: '' })).toEqual({});
+  });
+});
+
+describe('readPinnedBookId', () => {
+  it('reads a book or issue id and keeps the song when the book is cleared', () => {
+    expect(readPinnedBookId({ face: { bookId: 'field-notes' } })).toBe(
+      'field-notes'
+    );
+    expect(readPinnedBookId({})).toBeNull();
+    expect(normalizePinnedSongId('field-notes')).toBe('field-notes');
+    expect(
+      sanitizePageFace({
+        songId: 'midnight-ep',
+        bookId: 'field-notes',
+        heroSource: 'banner',
+      })
+    ).toEqual({
+      songId: 'midnight-ep',
+      bookId: 'field-notes',
+      heroSource: 'banner',
+    });
+    expect(sanitizePageFace({ songId: 'midnight-ep', bookId: '' })).toEqual({
+      songId: 'midnight-ep',
+    });
+    expect(sanitizePageFace({ songId: '', bookId: 'field-notes' })).toEqual({
+      bookId: 'field-notes',
+    });
   });
 });
 

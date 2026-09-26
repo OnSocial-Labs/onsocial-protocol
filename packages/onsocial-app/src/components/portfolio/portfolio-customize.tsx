@@ -37,8 +37,9 @@ import type {
 import { SHEET_Z } from '@/lib/sheet-z';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { useApplyPageFace } from '@/hooks/use-apply-page-face';
+import { PortfolioCustomizeBook } from '@/components/portfolio/portfolio-customize-book';
 import { PortfolioCustomizeSong } from '@/components/portfolio/portfolio-customize-song';
-import { readPinnedSongId } from '@/lib/page-face';
+import { readPinnedBookId, readPinnedSongId } from '@/lib/page-face';
 import { useApplyPageMoodTint } from '@/hooks/use-apply-page-mood-tint';
 import { useApplyProfileMedia } from '@/hooks/use-apply-profile-media';
 import { useDaoPageCapability } from '@/hooks/use-dao-page-capability';
@@ -100,6 +101,7 @@ export function PortfolioCustomize({
     isOwner: isAccountOwner,
     needsConnect,
     walletAccountId,
+    applyPinnedBook,
     applyPinnedSong,
   } = useApplyPageFace(pageAccountId, config);
   const { canPropose } = useDaoPageCapability(pageAccountId, isDao);
@@ -474,6 +476,18 @@ export function PortfolioCustomize({
             disabled={controlsDisabled}
             onChange={(next) => {
               void applyPinnedSong(next);
+            }}
+          />
+        ) : null}
+
+        {canCustomizeFace ? (
+          <PortfolioCustomizeBook
+            key={`${pageAccountId}-book`}
+            accountId={pageAccountId}
+            bookId={readPinnedBookId(config)}
+            disabled={controlsDisabled}
+            onChange={(next) => {
+              void applyPinnedBook(next);
             }}
           />
         ) : null}

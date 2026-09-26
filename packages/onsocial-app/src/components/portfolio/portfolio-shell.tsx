@@ -10,7 +10,12 @@ import type {
   PublicPageConfig,
   ResolvedPageHero,
 } from '@/lib/page-data';
-import { readPinnedSongId, resolvePageFace } from '@/lib/page-face';
+import {
+  readPinnedBookId,
+  readPinnedSongId,
+  resolvePageFace,
+} from '@/lib/page-face';
+import { PortfolioBookMarkProvider } from '@/components/portfolio/portfolio-book-mark';
 import { PortfolioSongMarkProvider } from '@/components/portfolio/portfolio-song-mark';
 import type { ResolvedMood } from '@/lib/moods/types';
 
@@ -44,6 +49,7 @@ export function PortfolioShell({
 }: PortfolioShellProps) {
   const portalHostRef = useRegisterOsPortalHost<HTMLElement>();
   const songId = readPinnedSongId(config);
+  const bookId = readPinnedBookId(config);
   const { hero, isCoverLayout } = resolvePageFace({
     config,
     avatarMode,
@@ -95,9 +101,14 @@ export function PortfolioShell({
           collectionId={hero && songId ? songId : null}
           pageAccountId={pageAccountId}
         >
-          <div className="portfolio-hero portfolio-hero--strip-overlap">
-            {children}
-          </div>
+          <PortfolioBookMarkProvider
+            collectionId={hero && bookId ? bookId : null}
+            pageAccountId={pageAccountId}
+          >
+            <div className="portfolio-hero portfolio-hero--strip-overlap">
+              {children}
+            </div>
+          </PortfolioBookMarkProvider>
         </PortfolioSongMarkProvider>
       </div>
     </main>

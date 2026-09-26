@@ -1,6 +1,11 @@
 'use client';
 
+import { Fragment, type ReactNode } from 'react';
 import { PortfolioAboutLink } from '@/components/portfolio/portfolio-about-link';
+import {
+  PortfolioBookMarkLink,
+  usePortfolioBookMark,
+} from '@/components/portfolio/portfolio-book-mark';
 import {
   PortfolioSongMarkButton,
   usePortfolioSongMark,
@@ -10,7 +15,7 @@ import {
   useShowPortfolioWritingLink,
 } from '@/components/portfolio/portfolio-writing-link';
 
-/** Face depth doors — one quiet line: About · play · Writing. */
+/** Face depth doors — one quiet line: About · play · book · Writing. */
 export function PortfolioDepthLinks({
   accountId,
   showAbout = false,
@@ -20,18 +25,44 @@ export function PortfolioDepthLinks({
 }) {
   const showWriting = useShowPortfolioWritingLink(accountId);
   const song = usePortfolioSongMark();
+  const book = usePortfolioBookMark();
+  const slots: Array<{ key: string; node: ReactNode }> = [];
 
-  if (!showAbout && !showWriting && !song) return null;
+  if (showAbout) {
+    slots.push({
+      key: 'about',
+      node: <PortfolioAboutLink accountId={accountId} />,
+    });
+  }
+  if (song) {
+    slots.push({
+      key: 'song',
+      node: <PortfolioSongMarkButton title={song.title} onPlay={song.play} />,
+    });
+  }
+  if (book) {
+    slots.push({
+      key: 'book',
+      node: <PortfolioBookMarkLink title={book.title} href={book.href} />,
+    });
+  }
+  if (showWriting) {
+    slots.push({
+      key: 'writing',
+      node: <PortfolioWritingAnchor accountId={accountId} />,
+    });
+  }
+
+  if (slots.length === 0) return null;
 
   return (
     <nav className="portfolio-depth-links" aria-label="More">
-      {showAbout ? <PortfolioAboutLink accountId={accountId} /> : null}
-      {showAbout && (song || showWriting) ? <DepthSep /> : null}
-      {song ? (
-        <PortfolioSongMarkButton title={song.title} onPlay={song.play} />
-      ) : null}
-      {song && showWriting ? <DepthSep /> : null}
-      {showWriting ? <PortfolioWritingAnchor accountId={accountId} /> : null}
+      {slots.map((slot, index) => (
+        <Fragment key={slot.key}>
+          {index > 0 ? <DepthSep /> : null}
+          {slot.node}
+        </Fragment>
+      ))}
     </nav>
   );
 }
