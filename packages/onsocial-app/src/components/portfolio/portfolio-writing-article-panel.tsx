@@ -58,6 +58,7 @@ import {
   EMPTY_POST_ENGAGEMENT,
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
+import { WritingMoreByAuthor } from '@/components/portfolio/writing-more-by-author';
 
 export type PortfolioWritingArticlePanelProps = {
   accountId: string;
@@ -76,6 +77,14 @@ export type PortfolioWritingArticlePanelProps = {
    * Writing closes back onto that list instead of pushing another one.
    */
   onReturnToShelf?: () => void;
+  /**
+   * This author's articles, newest first. Pass the shelf list (including
+   * empty) so the reader does not fetch again. Omit on the feed.
+   */
+  articles?: readonly PostRow[];
+  coverHints?: Record<string, WritingArticleCoverHint>;
+  /** Shelf reader swaps the open piece instead of leaving the list. */
+  onOpenArticle?: (post: PostRow) => void;
 };
 
 export function PortfolioWritingArticleActions({
@@ -266,6 +275,9 @@ export function PortfolioWritingArticlePanel({
   showAuthor = true,
   titleRef,
   onReturnToShelf,
+  articles,
+  coverHints,
+  onOpenArticle,
 }: PortfolioWritingArticlePanelProps) {
   const article = parseArticleSnapshot(post.value);
   const cover = resolveArticleCover({
@@ -482,6 +494,17 @@ export function PortfolioWritingArticlePanel({
       {showActions ? (
         <PortfolioWritingArticleActions post={post} className="is-afterword" />
       ) : null}
+
+      <WritingMoreByAuthor
+        accountId={post.accountId}
+        name={authorName}
+        avatarUrl={avatarUrl}
+        postId={post.postId}
+        articles={articles}
+        coverHints={coverHints}
+        onOpenArticle={onOpenArticle}
+        onReturnToShelf={onReturnToShelf}
+      />
 
       {coverOpen ? (
         <DropArtOverlay

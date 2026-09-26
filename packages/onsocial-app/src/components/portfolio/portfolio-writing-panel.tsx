@@ -302,7 +302,9 @@ function PortfolioWritingShelf({
         moodStyle={moodStyle}
         scrollRootRef={scrollRootRef}
         embedded={embedded}
-        heading={<WritingSearchHeading query={query} onQueryChange={setQuery} />}
+        heading={
+          <WritingSearchHeading query={query} onQueryChange={setQuery} />
+        }
         toolbar={
           <WritingIdentityToolbar
             accountId={panel.accountId}
@@ -333,6 +335,9 @@ function PortfolioWritingShelf({
           avatarUrl={panel.avatarUrl}
           post={openPost}
           coverHint={panel.coverHints?.[postKey(openPost)] ?? null}
+          articles={panel.articles}
+          coverHints={panel.coverHints}
+          onOpenArticle={setOpenPost}
         />
       ) : null}
     </>

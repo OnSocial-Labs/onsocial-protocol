@@ -3,7 +3,11 @@
 import { useRef, type MouseEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronLeftIcon, OsIconAction, type ActionDrawerItem } from '@onsocial/ui';
+import {
+  ChevronLeftIcon,
+  OsIconAction,
+  type ActionDrawerItem,
+} from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { ArticleReadProgress } from '@/components/portfolio/article-read-progress';
@@ -50,6 +54,9 @@ function ArticleReadBody(
           showActions={false}
           showAuthor
           onReturnToShelf={panel.onReturnToShelf}
+          articles={panel.articles}
+          coverHints={panel.coverHints}
+          onOpenArticle={panel.onOpenArticle}
         />
       </div>
     </>
