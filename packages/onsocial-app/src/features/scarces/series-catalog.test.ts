@@ -3,6 +3,7 @@ import type { CollectionView } from '@/features/scarces/collections-data';
 import {
   groupSeriesDrops,
   seriesDropBucket,
+  walkCreatorSeriesMatches,
 } from '@/features/scarces/series-catalog';
 
 function drop(
@@ -143,5 +144,64 @@ describe('series-catalog', () => {
       'upcoming-soon',
       'upcoming-later',
     ]);
+  });
+});
+
+describe('walkCreatorSeriesMatches', () => {
+  it('stops on the first matching page and leaves the rest unread', async () => {
+    const seen: number[] = [];
+    const result = await walkCreatorSeriesMatches({
+      seriesId: 'ink',
+      startOffset: 0,
+      pageSize: 2,
+      maxRounds: 3,
+      fetchPage: async (offset) => {
+        seen.push(offset);
+        await Promise.resolve();
+        return {
+          views: [
+            drop({
+              collectionId: `a${offset}`,
+              seriesId: offset === 2 ? 'ink' : 'other',
+            }),
+          ],
+          fetched: 2,
+        };
+      },
+    });
+    expect(seen).toEqual([0, 2, 4]);
+    expect(result.matches.map((row) => row.collectionId)).toEqual(['a2']);
+    expect(result.nextOffset).toBe(4);
+    expect(result.hasMore).toBe(true);
+  });
+
+  it('keeps a full tick open when none of the pages match', async () => {
+    const result = await walkCreatorSeriesMatches({
+      seriesId: 'ink',
+      startOffset: 6,
+      pageSize: 2,
+      maxRounds: 2,
+      fetchPage: async () => ({
+        views: [drop({ collectionId: 'other', seriesId: 'other' })],
+        fetched: 2,
+      }),
+    });
+    expect(result.matches).toEqual([]);
+    expect(result.nextOffset).toBe(10);
+    expect(result.hasMore).toBe(true);
+  });
+
+  it('ends the catalog on a short page', async () => {
+    const result = await walkCreatorSeriesMatches({
+      seriesId: 'ink',
+      startOffset: 0,
+      pageSize: 4,
+      fetchPage: async () => ({
+        views: [drop({ collectionId: 'other', seriesId: 'other' })],
+        fetched: 1,
+      }),
+    });
+    expect(result.hasMore).toBe(false);
+    expect(result.nextOffset).toBe(1);
   });
 });

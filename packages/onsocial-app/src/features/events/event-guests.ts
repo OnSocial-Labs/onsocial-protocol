@@ -127,48 +127,137 @@ async function pageAccountIds(
 }
 
 const HELD_PAGE_SIZE = 80;
-const HELD_MAX_PAGES = 5;
+/**
+ * Pages read in one pass. A short page ends the vault. A full page at this
+ * cap is incomplete — the caller can continue from `nextPage`.
+ */
+const HELD_MAX_PAGES = 8;
+
+export type HeldCollectionPage = {
+  ids: readonly (string | null | undefined)[];
+  /** Raw rows, including blanks. A short page is the end of the vault. */
+  fetched: number;
+};
+
+export type HeldCollections = {
+  ids: Set<string>;
+  /** False when the safety cap stopped on a full page. */
+  complete: boolean;
+  nextPage: number;
+};
+
+/**
+ * Distinct collections the account still holds. Pages until a short page, or
+ * `maxPages`. Duplicate token rows collapse into the set.
+ */
+export async function collectHeldCollectionIds(
+  loadPage: (offset: number, limit: number) => Promise<HeldCollectionPage>,
+  opts?: {
+    pageSize?: number;
+    maxPages?: number;
+    startPage?: number;
+    into?: Set<string>;
+  }
+): Promise<HeldCollections> {
+  const pageSize = opts?.pageSize ?? HELD_PAGE_SIZE;
+  const maxPages = opts?.maxPages ?? HELD_MAX_PAGES;
+  const startPage = Math.max(0, Math.floor(opts?.startPage ?? 0));
+  const ids = opts?.into ?? new Set<string>();
+  let page = startPage;
+  for (; page < startPage + maxPages; page += 1) {
+    const rows = await loadPage(page * pageSize, pageSize);
+    for (const raw of rows.ids) {
+      const id = raw?.trim();
+      if (id) ids.add(id);
+    }
+    if (rows.fetched < pageSize) {
+      return { ids, complete: true, nextPage: page + 1 };
+    }
+  }
+  return { ids, complete: false, nextPage: page };
+}
+
+type HeldGraphql = (req: {
+  query: string;
+  variables: Record<string, unknown>;
+}) => Promise<{
+  data?: {
+    scarcesTokenOwners?: Array<{ collectionId?: string | null }>;
+  } | null;
+}>;
+
+function heldCollectionsQuery(distinct: boolean): string {
+  const order = distinct
+    ? 'distinctOn: collectionId, orderBy: [{ collectionId: ASC }]'
+    : 'orderBy: [{ updatedBlockTimestamp: DESC }]';
+  return `
+    query HeldCollections($ownerId: String!, $limit: Int!, $offset: Int!) {
+      scarcesTokenOwners(
+        where: {
+          ownerId: { _eq: $ownerId }
+          burned: { _eq: false }
+        }
+        limit: $limit
+        offset: $offset
+        ${order}
+      ) {
+        collectionId
+      }
+    }
+  `;
+}
+
+function distinctCollectionsUnsupported(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.name === 'GraphQLValidationError') return true;
+  return /distinct/i.test(error.message);
+}
+
+/** Collections whose pass the account still holds. Sold or burned passes are absent. */
+export async function loadHeldCollectionIdsFrom(
+  graphql: HeldGraphql,
+  accountId: string,
+  opts?: { startPage?: number; into?: Set<string> }
+): Promise<HeldCollections> {
+  const ownerId = accountId.trim();
+  const ids = opts?.into ?? new Set<string>();
+  if (!ownerId) return { ids, complete: true, nextPage: 0 };
+
+  const run = (distinct: boolean) =>
+    collectHeldCollectionIds(
+      async (offset, limit) => {
+        const res = await graphql({
+          query: heldCollectionsQuery(distinct),
+          variables: { ownerId, limit, offset },
+        });
+        const rows = res.data?.scarcesTokenOwners ?? [];
+        return {
+          ids: rows.map((row) => row.collectionId),
+          fetched: rows.length,
+        };
+      },
+      { startPage: opts?.startPage, into: ids }
+    );
+
+  try {
+    return await run(true);
+  } catch (error) {
+    if (!distinctCollectionsUnsupported(error)) throw error;
+    return run(false);
+  }
+}
 
 /** Collections whose pass the account still holds. Sold or burned passes are absent. */
 export async function loadHeldCollectionIds(
-  accountId: string
-): Promise<Set<string>> {
-  const ownerId = accountId.trim();
-  const ids = new Set<string>();
-  if (!ownerId) return ids;
+  accountId: string,
+  opts?: { startPage?: number; into?: Set<string> }
+): Promise<HeldCollections> {
   const client = createReadOnlyOnSocialClient();
-  for (let page = 0; page < HELD_MAX_PAGES; page += 1) {
-    const res = await client.query.graphql<{
-      scarcesTokenOwners: Array<{ collectionId?: string | null }>;
-    }>({
-      query: `
-        query HeldCollections($ownerId: String!, $limit: Int!, $offset: Int!) {
-          scarcesTokenOwners(
-            where: {
-              ownerId: { _eq: $ownerId }
-              burned: { _eq: false }
-            }
-            limit: $limit
-            offset: $offset
-          ) {
-            collectionId
-          }
-        }
-      `,
-      variables: {
-        ownerId,
-        limit: HELD_PAGE_SIZE,
-        offset: page * HELD_PAGE_SIZE,
-      },
-    });
-    const rows = res.data?.scarcesTokenOwners ?? [];
-    for (const row of rows) {
-      const id = row.collectionId?.trim();
-      if (id) ids.add(id);
-    }
-    if (rows.length < HELD_PAGE_SIZE) break;
-  }
-  return ids;
+  return loadHeldCollectionIdsFrom(
+    (req) => client.query.graphql(req),
+    accountId,
+    opts
+  );
 }
 
 /** People who still hold a pass. */

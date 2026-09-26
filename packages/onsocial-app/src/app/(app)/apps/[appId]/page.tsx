@@ -24,13 +24,14 @@ export async function generateMetadata({
 export default async function AppPage({ params }: AppPageProps) {
   const { appId } = await params;
   const id = decodeURIComponent(appId);
-  const { app, stats, drops } = await loadAppPageData(id);
+  const { app, stats, drops, dropsFetched } = await loadAppPageData(id);
   return (
     <AppPagePanel
       appId={id}
       initial={app}
       initialStats={stats}
       initialDrops={drops}
+      initialDropsFetched={dropsFetched}
     />
   );
 }

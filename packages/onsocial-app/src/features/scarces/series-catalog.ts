@@ -88,3 +88,49 @@ export function groupSeriesDrops(
     })
   );
 }
+
+/** One scroll tick. A full page with no match keeps `hasMore` for the next tick. */
+const SERIES_WALK_ROUNDS = 4;
+
+/**
+ * Read a few creator pages together until this series has a match, or the
+ * tick ends. `nextOffset` stays on the first matching page so later drops
+ * in the burst are not skipped.
+ */
+export async function walkCreatorSeriesMatches(opts: {
+  seriesId: string;
+  startOffset: number;
+  pageSize: number;
+  maxRounds?: number;
+  fetchPage: (
+    offset: number
+  ) => Promise<{ views: CollectionView[]; fetched: number }>;
+}): Promise<{
+  matches: CollectionView[];
+  nextOffset: number;
+  hasMore: boolean;
+}> {
+  const maxRounds = opts.maxRounds ?? SERIES_WALK_ROUNDS;
+  const width = opts.pageSize;
+  const offsets: number[] = [];
+  for (let i = 0; i < maxRounds; i += 1) {
+    offsets.push(opts.startOffset + i * width);
+  }
+  const pages = await Promise.all(
+    offsets.map((offset) => opts.fetchPage(offset))
+  );
+  const matches: CollectionView[] = [];
+  let offset = opts.startOffset;
+  let hasMore = true;
+  for (let i = 0; i < pages.length; i += 1) {
+    const page = pages[i]!;
+    const pageOffset = offsets[i]!;
+    matches.push(
+      ...page.views.filter((view) => view.seriesId === opts.seriesId)
+    );
+    offset = pageOffset + page.fetched;
+    hasMore = page.fetched >= width && page.fetched > 0;
+    if (page.fetched === 0 || !hasMore || matches.length > 0) break;
+  }
+  return { matches, nextOffset: offset, hasMore };
+}

@@ -119,6 +119,34 @@ describe('scanTicketEvents', () => {
     expect(result.hasMore).toBe(true);
   });
 
+  it('keeps going when a tick fills its rounds on a full catalog', async () => {
+    const calls: number[] = [];
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const result = await scanTicketEvents({
+      pageSize: 2,
+      maxRounds: 2,
+      need: 4,
+      fetchPage: async (offset) => {
+        calls.push(offset);
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await Promise.resolve();
+        inFlight -= 1;
+        return {
+          items: [item(`a${offset}`, {}), item(`b${offset}`, {})],
+          hasMore: true,
+        };
+      },
+      match: () => false,
+    });
+    expect(calls).toEqual([0, 2]);
+    expect(maxInFlight).toBe(2);
+    expect(result.matches).toEqual([]);
+    expect(result.nextOffset).toBe(4);
+    expect(result.hasMore).toBe(true);
+  });
+
   it('stops when the catalog ends with no match', async () => {
     const result = await scanTicketEvents({
       fetchPage: async () => ({ items: [item('a', {})], hasMore: false }),
