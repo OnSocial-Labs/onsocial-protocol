@@ -6,6 +6,8 @@ import {
   isMessagesPeopleSearchActive,
   messagingBlockedCopy,
   normalizeMessagesSearchQuery,
+  showMessagesPeopleSection,
+  showMessagesSearchEmpty,
   threadMatchesQuery,
 } from './messages-inbox-search';
 
@@ -90,6 +92,57 @@ describe('buildDmThreadId', () => {
   it('sorts lowercase account ids', () => {
     expect(buildDmThreadId('Bob.near', 'ada.near')).toBe('ada.near::bob.near');
     expect(buildDmThreadId('ada.near', 'bob.near')).toBe('ada.near::bob.near');
+  });
+});
+
+describe('messages search empty state', () => {
+  it('hides No matches while people are on screen or still loading', () => {
+    expect(
+      showMessagesSearchEmpty({
+        threadCount: 0,
+        peopleActive: true,
+        peopleCount: 2,
+        peoplePending: false,
+        peopleFailed: false,
+      })
+    ).toBe(false);
+    expect(
+      showMessagesSearchEmpty({
+        threadCount: 0,
+        peopleActive: true,
+        peopleCount: 0,
+        peoplePending: true,
+        peopleFailed: false,
+      })
+    ).toBe(false);
+    expect(
+      showMessagesPeopleSection({
+        peopleActive: true,
+        peopleCount: 2,
+        peoplePending: false,
+        peopleFailed: false,
+      })
+    ).toBe(true);
+  });
+
+  it('says No matches only when chats and people are both empty', () => {
+    expect(
+      showMessagesSearchEmpty({
+        threadCount: 0,
+        peopleActive: true,
+        peopleCount: 0,
+        peoplePending: false,
+        peopleFailed: false,
+      })
+    ).toBe(true);
+    expect(
+      showMessagesPeopleSection({
+        peopleActive: true,
+        peopleCount: 0,
+        peoplePending: false,
+        peopleFailed: false,
+      })
+    ).toBe(false);
   });
 });
 

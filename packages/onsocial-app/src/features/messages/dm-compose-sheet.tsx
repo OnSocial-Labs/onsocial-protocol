@@ -24,6 +24,10 @@ import {
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
+import {
+  DM_MESSAGING_UNAVAILABLE,
+  DM_UNMUTE_TO_MESSAGE,
+} from '@/lib/dm/copy';
 import { sendEncryptedDm } from '@/lib/dm/send';
 import { acknowledgeDmRecoveryCode, hasUnlockedDmKey } from '@/lib/dm/keys';
 import { messagesPath } from '@/lib/app-routes';
@@ -166,15 +170,15 @@ export function DmComposeSheet({
       return;
     }
     if (!isUnlocked) {
-      setError('Unlock private messages on this device first.');
+      setError('Unlock messages.');
       return;
     }
     if (isBlockEitherWay(peerAccountId)) {
-      setError('Messaging is unavailable while a block is in place.');
+      setError(DM_MESSAGING_UNAVAILABLE);
       return;
     }
     if (isViewerMuting(peerAccountId)) {
-      setError('You muted them. Unmute to send a message.');
+      setError(DM_UNMUTE_TO_MESSAGE);
       return;
     }
     if (!hasSocialSession) {
@@ -269,7 +273,7 @@ export function DmComposeSheet({
                 className={osFieldBorderedClassName}
                 value={text}
                 onChange={(event) => setText(event.target.value)}
-                placeholder="Write something private…"
+                placeholder="Message"
                 rows={5}
                 disabled={pending || discardConfirmOpen}
               />
