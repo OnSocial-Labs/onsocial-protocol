@@ -242,6 +242,12 @@
   max-height: min(88dvh, 36rem);
 }
 
+/* Same trim as choice drawers: the shared footer owns the resting inset. */
+.glass-sheet-panel:has(> .glass-sheet-footer:not(:empty))
+  > .glass-sheet-body.portfolio-book-hug-body {
+  padding-bottom: 0.35rem;
+}
+
 /* Portaled hug — same centered face type. Unlayered so it beats About essay. */
 .glass-sheet-panel .portfolio-bio-hug-body {
   display: flex;

@@ -1,7 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { OsHugSheet, OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import {
+  OsHugSheet,
+  OsSheetAction,
+  OsSheetActions,
+  OsSheetFooter,
+} from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
 import type { CollectionView } from '@/features/scarces/collections-data';
@@ -49,14 +54,22 @@ export function PortfolioBookSheet({
       title={book.title}
       closeAriaLabel={`Close ${book.title}`}
       backdropLabel={`Close ${book.title}`}
-      zIndex={SHEET_Z.gesture}
+      zIndex={SHEET_Z.facts}
       panelClassName="os-sheet-cap-standard"
+      bodyClassName="portfolio-book-hug-body"
       footer={
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction type="button" ready onClick={onRead}>
-            Read
-          </OsSheetAction>
-        </OsSheetActions>
+        <OsSheetFooter>
+          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+            <OsSheetAction
+              type="button"
+              variant="primary"
+              ready
+              onClick={onRead}
+            >
+              Read
+            </OsSheetAction>
+          </OsSheetActions>
+        </OsSheetFooter>
       }
     >
       <div className="collection-hero">
