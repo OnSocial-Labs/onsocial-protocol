@@ -126,8 +126,8 @@
   gap: 0.3em;
   min-width: 0;
   max-width: 100%;
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: var(--os-identity-name-size, 0.875rem);
+  font-weight: var(--os-identity-name-weight, 600);
   letter-spacing: -0.01em;
   line-height: 1.5;
 }
@@ -144,7 +144,13 @@
   font-weight: inherit;
   letter-spacing: inherit;
   line-height: inherit;
-  color: rgb(var(--fg-rgb) / 0.96);
+  color: var(--os-identity-name);
+  transition: color 160ms ease;
+}
+
+.standing-row:hover .standing-row-name,
+.standing-row:focus-within .standing-row-name {
+  color: var(--os-identity-name-hover);
 }
 
 .standing-row-handle {
@@ -155,7 +161,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.72rem;
+  font-size: var(--os-identity-handle-size, 0.72rem);
+  font-weight: var(--os-identity-handle-weight, 400);
   line-height: 1.45;
-  color: color-mix(in srgb, hsl(var(--muted-foreground)) 55%, transparent);
+  color: var(--os-identity-handle);
+  transition: color 160ms ease;
+}
+
+.standing-row:hover .standing-row-handle,
+.standing-row:focus-within .standing-row-handle {
+  color: var(--os-identity-handle-hover);
 }

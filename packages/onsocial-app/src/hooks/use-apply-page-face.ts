@@ -106,8 +106,14 @@ export function useApplyPageFace(
   );
 
   const applyPinnedSong = useCallback(
-    async (songId: string | null): Promise<string | null> =>
-      applyFacePatch({ songId: songId ?? '' }),
+    async (
+      songId: string | null,
+      songStart?: number | null
+    ): Promise<string | null> =>
+      applyFacePatch({
+        songId: songId ?? '',
+        songStart: songId && songStart && songStart > 0 ? songStart : undefined,
+      }),
     [applyFacePatch]
   );
 

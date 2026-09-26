@@ -4,6 +4,7 @@ import {
   readPageHeroSourceExplicit,
   readPinnedBookId,
   readPinnedSongId,
+  readPinnedSongStart,
   resolvePageFace,
   resolvePageHeroSource,
   sanitizePageFace,
@@ -33,6 +34,18 @@ describe('readPinnedSongId', () => {
       sanitizePageFace({ songId: 'midnight-ep', heroSource: 'banner' })
     ).toEqual({ songId: 'midnight-ep', heroSource: 'banner' });
     expect(sanitizePageFace({ songId: '' })).toEqual({});
+    expect(sanitizePageFace({ songId: 'midnight-ep', songStart: 2 })).toEqual({
+      songId: 'midnight-ep',
+      songStart: 2,
+    });
+    expect(sanitizePageFace({ songId: 'midnight-ep', songStart: 0 })).toEqual({
+      songId: 'midnight-ep',
+    });
+    expect(sanitizePageFace({ songId: '', songStart: 2 })).toEqual({});
+    expect(
+      readPinnedSongStart({ face: { songId: 'midnight-ep', songStart: 3 } })
+    ).toBe(3);
+    expect(readPinnedSongStart({ face: { songId: 'midnight-ep' } })).toBeNull();
   });
 });
 

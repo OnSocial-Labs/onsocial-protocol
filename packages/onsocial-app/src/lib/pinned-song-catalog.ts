@@ -79,6 +79,7 @@ async function viewsForIds(
         kind: view.kind,
         playables: view.playables,
         creatorId: view.creatorId,
+        mediaUrl: view.mediaUrl,
         writingFormat: view.writingFormat,
         readables: view.readables,
         writingManifestCid: view.writingManifestCid,

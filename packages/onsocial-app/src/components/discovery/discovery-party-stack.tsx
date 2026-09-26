@@ -24,28 +24,18 @@ export function DiscoveryPartyStack({
   const name = collectionCreatorNameLine(accountId, profileDisplayName);
 
   return (
-    <div className="drops-discovery-party">
-      <Link
-        href={href}
-        scroll={false}
-        className="drops-discovery-party-avatar-link"
-        tabIndex={-1}
-        aria-hidden
-      >
-        <AccountAvatar
-          accountId={accountId}
-          src={avatarUrl}
-          size="sm"
-          fallbackInitial={name.slice(0, 1)}
-          className="drops-discovery-party-avatar"
-        />
-      </Link>
-      <div className="drops-discovery-party-stack">
-        <Link href={href} scroll={false} className="drops-discovery-by">
-          by {name}
-        </Link>
+    <Link href={href} scroll={false} className="drops-discovery-party">
+      <AccountAvatar
+        accountId={accountId}
+        src={avatarUrl}
+        size="sm"
+        fallbackInitial={name.slice(0, 1)}
+        className="drops-discovery-party-avatar"
+      />
+      <span className="drops-discovery-party-stack">
+        <span className="drops-discovery-by">by {name}</span>
         <span className="drops-discovery-sub">@{handle}</span>
-      </div>
-    </div>
+      </span>
+    </Link>
   );
 }

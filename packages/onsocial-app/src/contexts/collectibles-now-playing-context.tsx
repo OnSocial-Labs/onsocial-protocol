@@ -32,6 +32,8 @@ export interface CollectiblesNowPlayingSession {
   title: string;
   poster: string | null;
   tracks: ScarcePlayableMedia[];
+  /** Track that starts playback, counting from 0. Omitted starts at the first. */
+  startIndex?: number;
   /** Restored offline library — skip uncached tracks. */
   localOnly?: boolean;
 }
@@ -44,7 +46,7 @@ interface CollectiblesNowPlayingContextValue {
   getAudio: () => HTMLAudioElement;
   /** Register / refresh album session (does not autoplay). */
   ensureSession: (session: CollectiblesNowPlayingSession) => void;
-  /** Replace the dock with this release and start track 1. One source load. */
+  /** Replace the dock with this release and start the opening track. One source load. */
   playSession: (session: CollectiblesNowPlayingSession) => void;
   setTrack: (index: number, autoplay?: boolean) => void;
   toggle: () => Promise<void>;
@@ -58,6 +60,16 @@ const CollectiblesNowPlayingContext =
 
 function tracksSignature(tracks: ScarcePlayableMedia[]): string {
   return tracks.map((t) => t.url).join('\0');
+}
+
+function openingTrackIndex(
+  startIndex: number | undefined,
+  trackCount: number
+): number {
+  if (!trackCount) return 0;
+  if (typeof startIndex !== 'number' || !Number.isInteger(startIndex)) return 0;
+  if (startIndex < 0 || startIndex >= trackCount) return 0;
+  return startIndex;
 }
 
 export function CollectiblesNowPlayingProvider({
@@ -137,7 +149,8 @@ export function CollectiblesNowPlayingProvider({
         return;
       }
       void (async () => {
-        const restrict = Boolean(current.localOnly) || navigator.onLine === false;
+        const restrict =
+          Boolean(current.localOnly) || navigator.onLine === false;
         let next = index + 1;
         while (next < current.tracks.length) {
           const track = current.tracks[next];
@@ -215,7 +228,9 @@ export function CollectiblesNowPlayingProvider({
       // playables than the album page) — keep playback; prefer the richer list.
       if (sameCollection) {
         const tracks =
-          next.tracks.length >= prev!.tracks.length ? next.tracks : prev!.tracks;
+          next.tracks.length >= prev!.tracks.length
+            ? next.tracks
+            : prev!.tracks;
         const live = { ...next, tracks, localOnly: false };
         sessionRef.current = live;
         setSession(live);
@@ -253,12 +268,13 @@ export function CollectiblesNowPlayingProvider({
       const audio = getAudio();
       const live = { ...next, localOnly: false };
       const switching = sessionRef.current?.collectionId !== live.collectionId;
+      const startIndex = openingTrackIndex(live.startIndex, live.tracks.length);
       sessionRef.current = live;
       setSession(live);
-      activeIndexRef.current = 0;
-      setActiveIndex(0);
-      persistNowPlayingSession({ ...live, activeIndex: 0 });
-      const track = live.tracks[0];
+      activeIndexRef.current = startIndex;
+      setActiveIndex(startIndex);
+      persistNowPlayingSession({ ...live, activeIndex: startIndex });
+      const track = live.tracks[startIndex];
       if (!track || !isRenderablePostAudioMime(track.mime)) return;
       if (switching && !audio.paused) audio.pause();
       const issued = issueLoad();

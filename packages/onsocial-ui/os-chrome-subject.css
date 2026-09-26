@@ -58,7 +58,7 @@ a.os-chrome-subject:focus-visible .os-chrome-subject__handle {
   min-width: 0;
   overflow: hidden;
   font-size: 1.05rem;
-  font-weight: 600;
+  font-weight: var(--os-identity-name-weight, 600);
   letter-spacing: -0.02em;
   line-height: 1.2;
   color: var(--os-identity-name);
@@ -70,8 +70,8 @@ a.os-chrome-subject:focus-visible .os-chrome-subject__handle {
 .os-chrome-subject__handle {
   min-width: 0;
   overflow: hidden;
-  font-size: 0.72rem;
-  font-weight: 400;
+  font-size: var(--os-identity-handle-size, 0.72rem);
+  font-weight: var(--os-identity-handle-weight, 400);
   letter-spacing: 0.02em;
   line-height: 1.25;
   color: var(--os-identity-handle);

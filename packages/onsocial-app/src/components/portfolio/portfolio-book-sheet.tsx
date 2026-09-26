@@ -103,7 +103,13 @@ export function PortfolioBookSheet({
               by {name}
             </Link>
             <div className="collection-meta-sub">
-              <span className="collection-meta-handle">@{handle}</span>
+              <Link
+                href={creatorHref}
+                scroll={false}
+                className="collection-meta-handle"
+              >
+                @{handle}
+              </Link>
             </div>
           </div>
         </div>

@@ -237,6 +237,8 @@
  * Choice panels still trim body when any GlassSheet footer is present.
  */
 .glass-sheet-panel.os-choice-sheet-panel:has(> .glass-sheet-footer:not(:empty))
+  .os-hug-sheet-body,
+.glass-sheet-panel.os-hug-sheet--with-footer:has(> .glass-sheet-footer:not(:empty))
   .os-hug-sheet-body {
   padding-bottom: 0.35rem;
 }

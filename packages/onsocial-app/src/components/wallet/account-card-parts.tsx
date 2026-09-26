@@ -491,7 +491,7 @@ export function AccountActionList({
       ? [
           {
             label: 'Customize page',
-            hint: 'Mood, layout, media',
+            hint: 'Mood, layout, song',
             onClick: onCustomize,
           },
         ]

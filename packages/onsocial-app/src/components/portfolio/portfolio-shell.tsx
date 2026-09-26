@@ -13,6 +13,7 @@ import type {
 import {
   readPinnedBookId,
   readPinnedSongId,
+  readPinnedSongStart,
   resolvePageFace,
 } from '@/lib/page-face';
 import { PortfolioBookMarkProvider } from '@/components/portfolio/portfolio-book-mark';
@@ -100,6 +101,7 @@ export function PortfolioShell({
         <PortfolioSongMarkProvider
           collectionId={hero && songId ? songId : null}
           pageAccountId={pageAccountId}
+          songStart={readPinnedSongStart(config)}
         >
           <PortfolioBookMarkProvider
             collectionId={hero && bookId ? bookId : null}

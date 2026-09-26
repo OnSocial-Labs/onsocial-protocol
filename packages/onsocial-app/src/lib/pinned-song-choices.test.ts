@@ -5,6 +5,7 @@ import {
   loadHeldCollectionIds,
   loadPinnedSongChoices,
   mergePinnedSongChoices,
+  pinnedSongChoicesFromViews,
   type PinnedSongCatalogView,
   type PinnedSongChoice,
 } from './pinned-song-choices';
@@ -116,5 +117,28 @@ describe('loadHeldCollectionIds', () => {
       { pageSize: 2 }
     );
     expect(ids).toEqual(['album', 'single']);
+  });
+});
+
+describe('pinnedSongChoicesFromViews', () => {
+  it('keeps track titles only when the release has more than one', () => {
+    const single = pinnedSongChoicesFromViews([
+      {
+        ...view('single', 'audio', 1),
+        playables: [{ title: 'Only' }],
+      },
+    ]);
+    const album = pinnedSongChoicesFromViews([
+      {
+        ...view('album', 'audio', 2),
+        playables: [{ title: 'Opener' }, { title: '  ' }, {}],
+      },
+    ]);
+    expect(single[0]?.tracks).toBeUndefined();
+    expect(album[0]?.tracks).toEqual([
+      { title: 'Opener' },
+      { title: 'Track 2' },
+      { title: 'Track 3' },
+    ]);
   });
 });

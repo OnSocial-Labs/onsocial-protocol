@@ -1188,19 +1188,13 @@ export function CollectionPagePanel({
                   </Link>
                 )}
                 <div className="collection-meta-sub">
-                  {creatorShellLoading ? (
-                    <Link
-                      href={portfolioPath(view.creatorId)}
-                      scroll={false}
-                      className="collection-meta-handle"
-                    >
-                      @{fallbackLabel(view.creatorId)}
-                    </Link>
-                  ) : (
-                    <span className="collection-meta-handle">
-                      @{fallbackLabel(view.creatorId)}
-                    </span>
-                  )}
+                  <Link
+                    href={portfolioPath(view.creatorId)}
+                    scroll={false}
+                    className="collection-meta-handle"
+                  >
+                    @{fallbackLabel(view.creatorId)}
+                  </Link>
                   {view.seriesId ? (
                     <>
                       <span className="collection-meta-sep" aria-hidden>

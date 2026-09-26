@@ -75,6 +75,13 @@ export function normalizePinnedDropId(raw: unknown): string | null {
   return id;
 }
 
+/** Track index that plays first. Track one is stored as omitted. */
+export function normalizeSongStart(raw: unknown): number | null {
+  if (typeof raw !== 'number' || !Number.isInteger(raw)) return null;
+  if (raw < 1 || raw > 98) return null;
+  return raw;
+}
+
 export function normalizePinnedSongId(raw: unknown): string | null {
   return normalizePinnedDropId(raw);
 }
@@ -82,6 +89,12 @@ export function normalizePinnedSongId(raw: unknown): string | null {
 /** Audio collection pinned on the portfolio, or null. */
 export function readPinnedSongId(config: PublicPageConfig): string | null {
   return normalizePinnedDropId(config.face?.songId);
+}
+
+/** Opening track for the pinned song. Null means the first track. */
+export function readPinnedSongStart(config: PublicPageConfig): number | null {
+  if (!readPinnedSongId(config)) return null;
+  return normalizeSongStart(config.face?.songStart);
 }
 
 /** Book or issue collection pinned on the portfolio, or null. */
@@ -99,15 +112,18 @@ export function sanitizePageFace(face: PublicPageConfig['face'] | undefined) {
     heroMedia: _legacy,
     songId: rawSongId,
     bookId: rawBookId,
+    songStart: rawSongStart,
     ...rest
   } = face as PublicPageConfig['face'] & {
     heroMedia?: unknown;
   };
   const songId = normalizePinnedDropId(rawSongId);
   const bookId = normalizePinnedDropId(rawBookId);
+  const songStart = songId ? normalizeSongStart(rawSongStart) : null;
   return {
     ...rest,
     ...(songId ? { songId } : {}),
     ...(bookId ? { bookId } : {}),
+    ...(songStart != null ? { songStart } : {}),
   };
 }

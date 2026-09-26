@@ -6,6 +6,7 @@ export interface PinnedSongCatalogView {
   kind: string | null;
   playables: readonly unknown[];
   creatorId?: string | null;
+  mediaUrl?: string | null;
   writingFormat?: 'book' | 'issue' | null;
   readables?: readonly unknown[];
   writingManifestCid?: string | null;
@@ -19,10 +20,31 @@ export interface PinnedSongChoice {
   title: string;
   source: PinnedSongSource;
   creatorId: string | null;
+  mediaUrl?: string | null;
+  /** Present only when the release has more than one track. */
+  tracks?: readonly { title: string }[];
 }
 
 const DEFAULT_PAGE_SIZE = 80;
 const DEFAULT_MAX = 2000;
+
+/** Album tracks, only when there is more than one. */
+function openingTracks(playables: readonly unknown[]): {
+  tracks: { title: string }[];
+} | null {
+  if (playables.length < 2) return null;
+  const tracks = playables.map((raw, index) => {
+    const title =
+      raw &&
+      typeof raw === 'object' &&
+      'title' in raw &&
+      typeof raw.title === 'string'
+        ? raw.title.trim()
+        : '';
+    return { title: title || `Track ${index + 1}` };
+  });
+  return tracks.length > 1 ? { tracks } : null;
+}
 
 /** Vault row → drop id. Token ids look like `collection:seat`. */
 export function heldCollectionId(row: {
@@ -54,6 +76,8 @@ export function pinnedSongChoicesFromViews(
       title: view.title,
       source,
       creatorId: view.creatorId?.trim() || null,
+      mediaUrl: view.mediaUrl?.trim() || null,
+      ...(openingTracks(view.playables) ?? {}),
     });
   }
   return choices;

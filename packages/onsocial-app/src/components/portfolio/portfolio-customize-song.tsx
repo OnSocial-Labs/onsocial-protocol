@@ -1,29 +1,38 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Divider } from '@onsocial/ui';
+import { txToastSuccess } from '@/lib/transaction-toast-copy';
 import { loadPortfolioSongChoices } from '@/lib/pinned-song-catalog';
+import type { PinnedSongChoice } from '@/lib/pinned-song-choices';
 import {
-  filterPinnedSongChoices,
-  type PinnedSongChoice,
-} from '@/lib/pinned-song-choices';
+  PortfolioCustomizePin,
+  type CustomizePinChoice,
+} from '@/components/portfolio/portfolio-customize-pin';
 
-const FIND_AFTER = 6;
+function songByline(entry: PinnedSongChoice): string | null {
+  return entry.creatorId ? `@${entry.creatorId}` : null;
+}
 
 export function PortfolioCustomizeSong({
   accountId,
   songId,
+  songStart = null,
   disabled,
-  onChange,
+  note,
+  onSave,
 }: {
   accountId: string;
   songId: string | null;
+  songStart?: number | null;
   disabled: boolean;
-  onChange: (songId: string | null) => void;
+  note?: string | null;
+  onSave: (
+    songId: string | null,
+    songStart?: number | null
+  ) => Promise<string | null>;
 }) {
   const [choices, setChoices] = useState<PinnedSongChoice[]>([]);
   const [ready, setReady] = useState(false);
-  const [query, setQuery] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -41,110 +50,39 @@ export function PortfolioCustomizeSong({
     };
   }, [accountId]);
 
-  const visible = useMemo(
-    () => filterPinnedSongChoices(choices, query, songId),
-    [choices, query, songId]
+  const pins = useMemo<CustomizePinChoice[]>(
+    () =>
+      choices.map((entry) => ({
+        id: entry.id,
+        title: entry.title,
+        source: entry.source,
+        byline: songByline(entry),
+        search: [
+          entry.creatorId,
+          ...(entry.tracks ?? []).map((track) => track.title),
+        ]
+          .filter(Boolean)
+          .join(' '),
+        mediaUrl: entry.mediaUrl ?? null,
+        ...(entry.tracks ? { tracks: entry.tracks } : {}),
+      })),
+    [choices]
   );
-  const released = visible.filter((entry) => entry.source === 'released');
-  const collected = visible.filter((entry) => entry.source === 'collected');
-  const showGroups =
-    choices.some((entry) => entry.source === 'released') &&
-    choices.some((entry) => entry.source === 'collected');
-
-  if (!ready || (choices.length === 0 && !songId)) return null;
 
   return (
-    <>
-      <Divider variant="section" className="customize-sheet-divider" />
-      <div className="customize-sheet-section">
-        <div className="customize-song-head">
-          <p className="customize-sheet-label">Song</p>
-          {songId ? (
-            <button
-              type="button"
-              className="customize-song-clear"
-              disabled={disabled}
-              onClick={() => onChange(null)}
-            >
-              Clear
-            </button>
-          ) : null}
-        </div>
-        {choices.length > FIND_AFTER ? (
-          <input
-            className="customize-song-find"
-            type="search"
-            value={query}
-            placeholder="Find"
-            aria-label="Find a song"
-            disabled={disabled}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        ) : null}
-        {visible.length > 0 ? (
-          <div className="customize-song-list">
-            <SongGroup
-              label="Released"
-              showLabel={showGroups && released.length > 0}
-              entries={released}
-              songId={songId}
-              disabled={disabled}
-              onChange={onChange}
-            />
-            <SongGroup
-              label="Collected"
-              showLabel={showGroups && collected.length > 0}
-              entries={collected}
-              songId={songId}
-              disabled={disabled}
-              onChange={onChange}
-            />
-          </div>
-        ) : (
-          <p className="customize-song-empty">Nothing matches.</p>
-        )}
-      </div>
-    </>
-  );
-}
-
-function SongGroup({
-  label,
-  showLabel,
-  entries,
-  songId,
-  disabled,
-  onChange,
-}: {
-  label: string;
-  showLabel: boolean;
-  entries: readonly PinnedSongChoice[];
-  songId: string | null;
-  disabled: boolean;
-  onChange: (songId: string | null) => void;
-}) {
-  if (entries.length === 0) return null;
-  return (
-    <>
-      {showLabel ? <p className="customize-song-group">{label}</p> : null}
-      {entries.map((entry) => {
-        const selected = entry.id === songId;
-        return (
-          <button
-            key={entry.id}
-            type="button"
-            className={`customize-song-row${selected ? ' is-selected' : ''}`}
-            disabled={disabled}
-            aria-pressed={selected}
-            onClick={() => onChange(selected ? null : entry.id)}
-          >
-            <span className="customize-song-title">{entry.title}</span>
-            {entry.source === 'collected' && entry.creatorId ? (
-              <span className="customize-song-by">{entry.creatorId}</span>
-            ) : null}
-          </button>
-        );
-      })}
-    </>
+    <PortfolioCustomizePin
+      label="Song"
+      sheetTitle="Song"
+      noneLabel="No song"
+      findLabel="Find a song"
+      pinnedId={songId}
+      pinnedStart={songStart}
+      savedMessage={txToastSuccess.songSaved}
+      choices={pins}
+      ready={ready}
+      disabled={disabled}
+      note={note}
+      onSave={onSave}
+    />
   );
 }

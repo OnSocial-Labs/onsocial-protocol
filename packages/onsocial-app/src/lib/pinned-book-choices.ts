@@ -77,6 +77,7 @@ export function pinnedBookChoicesFromViews(
       title: view.title,
       source,
       creatorId: view.creatorId?.trim() || null,
+      mediaUrl: view.mediaUrl?.trim() || null,
       format,
     });
   }

@@ -170,6 +170,8 @@ export const txToastSuccess = {
   profileSaved: 'Profile saved.',
   moodSaved: 'Mood saved.',
   pageLookSaved: 'Page look saved.',
+  songSaved: 'Song saved.',
+  bookSaved: 'Book saved.',
   storageAdded: 'Storage added.',
   storageWithdrawn: 'Storage withdrawn to wallet.',
   sharePoolFunded: 'Share pool funded.',

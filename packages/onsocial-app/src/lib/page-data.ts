@@ -40,6 +40,11 @@ export interface PublicPageFace {
   heroSource?: PageHeroSource;
   /** One audio drop pinned on the portfolio. */
   songId?: string;
+  /**
+   * Track that plays first, counting from 0. Omitted starts at the first track.
+   * Only stored when it is later than the first.
+   */
+  songStart?: number;
   /** One book or issue pinned on the portfolio. */
   bookId?: string;
 }

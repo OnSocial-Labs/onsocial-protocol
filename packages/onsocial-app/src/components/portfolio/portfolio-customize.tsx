@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  Divider,
-  GlassSheet,
-  ProfileEditorMediaToolbar,
-  SheetHeader,
-  useScrollLock,
-} from '@onsocial/ui';
+import { Divider, GlassSheet, SheetHeader, useScrollLock } from '@onsocial/ui';
 import {
   useRef,
   useState,
@@ -32,16 +26,18 @@ import type {
   PageAvatarMode,
   PageHeroSource,
   PublicPageConfig,
-  ResolvedPageHeroKind,
 } from '@/lib/page-data';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { useApplyPageFace } from '@/hooks/use-apply-page-face';
 import { PortfolioCustomizeBook } from '@/components/portfolio/portfolio-customize-book';
 import { PortfolioCustomizeSong } from '@/components/portfolio/portfolio-customize-song';
-import { readPinnedBookId, readPinnedSongId } from '@/lib/page-face';
+import {
+  readPinnedBookId,
+  readPinnedSongId,
+  readPinnedSongStart,
+} from '@/lib/page-face';
 import { useApplyPageMoodTint } from '@/hooks/use-apply-page-mood-tint';
-import { useApplyProfileMedia } from '@/hooks/use-apply-profile-media';
 import { useDaoPageCapability } from '@/hooks/use-dao-page-capability';
 import { usePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
 import { usePortfolioCustomize } from '@/contexts/portfolio-customize-context';
@@ -52,9 +48,6 @@ interface PortfolioCustomizeProps {
   config: PublicPageConfig;
   mood: ResolvedMood;
   isDao?: boolean;
-  avatarUrl?: string | null;
-  bannerUrl?: string | null;
-  bannerKind?: ResolvedPageHeroKind | null;
 }
 
 const AVATAR_OPTIONS: Array<{
@@ -79,14 +72,9 @@ export function PortfolioCustomize({
   config,
   mood,
   isDao = false,
-  avatarUrl = null,
-  bannerUrl = null,
-  bannerKind = null,
 }: PortfolioCustomizeProps) {
   const [open, setOpen] = useState(false);
   const [moodOpen, setMoodOpen] = useState(false);
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const bannerInputRef = useRef<HTMLInputElement>(null);
   const {
     effectiveAvatarMode,
     effectiveHeroSource,
@@ -107,12 +95,6 @@ export function PortfolioCustomize({
   const { canPropose } = useDaoPageCapability(pageAccountId, isDao);
   const canEditMood = isAccountOwner || canPropose;
   const canCustomizeFace = isAccountOwner;
-  const {
-    applyProfileAvatar,
-    applyProfileBanner,
-    error: mediaError,
-    isApplying: isApplyingMedia,
-  } = useApplyProfileMedia(pageAccountId);
 
   const {
     applyMoodTint,
@@ -121,8 +103,8 @@ export function PortfolioCustomize({
     isOwner: isTintOwner,
   } = useApplyPageMoodTint(pageAccountId);
 
-  const isApplying = isApplyingFace || isApplyingMedia || isApplyingTint;
-  const error = faceError ?? mediaError ?? tintError;
+  const isApplying = isApplyingFace || isApplyingTint;
+  const error = faceError ?? tintError;
   const isCoverLayout = effectiveAvatarMode === 'cover';
   const controlsLocked =
     needsConnect ||
@@ -228,42 +210,6 @@ export function PortfolioCustomize({
 
     setPreviewAvatarMode(avatarMode);
     setOpen(false);
-  }
-
-  async function handleAvatarUpload(file: File | null) {
-    if (!file) {
-      return;
-    }
-
-    const saved = await applyProfileAvatar(file);
-    if (saved) {
-      setOpen(false);
-    }
-  }
-
-  async function handleBannerUpload(file: File | null) {
-    if (!file) {
-      return;
-    }
-
-    const saved = await applyProfileBanner(file);
-    if (saved) {
-      setOpen(false);
-    }
-  }
-
-  async function handleAvatarRemove() {
-    const saved = await applyProfileAvatar(null);
-    if (saved) {
-      setOpen(false);
-    }
-  }
-
-  async function handleBannerRemove() {
-    const saved = await applyProfileBanner(null);
-    if (saved) {
-      setOpen(false);
-    }
   }
 
   function handleHeroSourcePreview(next: PageHeroSource) {
@@ -473,10 +419,10 @@ export function PortfolioCustomize({
             key={pageAccountId}
             accountId={pageAccountId}
             songId={readPinnedSongId(config)}
+            songStart={readPinnedSongStart(config)}
             disabled={controlsDisabled}
-            onChange={(next) => {
-              void applyPinnedSong(next);
-            }}
+            note={faceError}
+            onSave={(next, start) => applyPinnedSong(next, start)}
           />
         ) : null}
 
@@ -486,128 +432,10 @@ export function PortfolioCustomize({
             accountId={pageAccountId}
             bookId={readPinnedBookId(config)}
             disabled={controlsDisabled}
-            onChange={(next) => {
-              void applyPinnedBook(next);
-            }}
+            note={faceError}
+            onSave={(next) => applyPinnedBook(next)}
           />
         ) : null}
-
-        <Divider variant="section" className="customize-sheet-divider" />
-        <div className="customize-sheet-section">
-          <p className="customize-sheet-label">Media</p>
-          <div className="profile-editor-media-compact-row">
-            <div
-              className={`profile-editor-media-host profile-editor-media-host--compact-avatar profile-editor-media-host--circle${avatarUrl ? ' has-media' : ''}`}
-            >
-              <button
-                type="button"
-                className="profile-editor-media-backdrop"
-                disabled={controlsDisabled}
-                aria-label="Upload avatar"
-                onClick={() => avatarInputRef.current?.click()}
-              >
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <span
-                    className="profile-editor-media-empty-fill"
-                    aria-hidden
-                  />
-                )}
-                <span
-                  className={`profile-editor-media-overlay${avatarUrl ? ' has-media' : ''}`}
-                  aria-hidden
-                />
-              </button>
-              <ProfileEditorMediaToolbar
-                layout="avatar"
-                removeLabel={avatarUrl ? 'Remove avatar' : undefined}
-                onRemove={
-                  avatarUrl ? () => void handleAvatarRemove() : undefined
-                }
-              />
-            </div>
-            <div className="profile-editor-media-compact-copy">
-              <p className="profile-editor-media-compact-label">Avatar</p>
-              <div
-                className={`profile-editor-media-host profile-editor-media-host--compact-banner${bannerUrl ? ' has-media' : ''}`}
-              >
-                <button
-                  type="button"
-                  className="profile-editor-media-backdrop"
-                  disabled={controlsDisabled}
-                  aria-label="Upload banner"
-                  onClick={() => bannerInputRef.current?.click()}
-                >
-                  {bannerUrl && bannerKind === 'video' ? (
-                    <video
-                      src={bannerUrl}
-                      className="h-full w-full object-cover"
-                      muted
-                      loop
-                      playsInline
-                      autoPlay
-                      aria-hidden
-                    />
-                  ) : bannerUrl ? (
-                    <img
-                      src={bannerUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span
-                      className="profile-editor-media-empty-fill"
-                      aria-hidden
-                    />
-                  )}
-                  <span
-                    className={`profile-editor-media-overlay${bannerUrl ? ' has-media' : ''}`}
-                    aria-hidden
-                  />
-                </button>
-                <ProfileEditorMediaToolbar
-                  layout="banner"
-                  removeLabel={bannerUrl ? 'Remove banner' : undefined}
-                  onRemove={
-                    bannerUrl ? () => void handleBannerRemove() : undefined
-                  }
-                />
-              </div>
-              <p className="profile-editor-media-compact-hint">
-                Photo or video
-              </p>
-            </div>
-          </div>
-          <input
-            ref={avatarInputRef}
-            type="file"
-            accept="image/*"
-            className="customize-media-input"
-            disabled={controlsDisabled}
-            onChange={(event) => {
-              const file = event.target.files?.[0] ?? null;
-              void handleAvatarUpload(file);
-              event.target.value = '';
-            }}
-          />
-          <input
-            ref={bannerInputRef}
-            type="file"
-            accept="image/*,video/mp4,video/webm"
-            className="customize-media-input"
-            disabled={controlsDisabled}
-            onChange={(event) => {
-              const file = event.target.files?.[0] ?? null;
-              void handleBannerUpload(file);
-              event.target.value = '';
-            }}
-          />
-        </div>
       </GlassSheet>
 
       <MoodSheet

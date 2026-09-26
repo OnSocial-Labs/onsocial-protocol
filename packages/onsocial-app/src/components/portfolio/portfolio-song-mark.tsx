@@ -24,19 +24,24 @@ import {
 const PortfolioSongMarkContext = createContext<{
   collectionId: string | null;
   pageAccountId: string;
-}>({ collectionId: null, pageAccountId: '' });
+  songStart: number | null;
+}>({ collectionId: null, pageAccountId: '', songStart: null });
 
 export function PortfolioSongMarkProvider({
   collectionId,
   pageAccountId,
+  songStart = null,
   children,
 }: {
   collectionId: string | null;
   pageAccountId: string;
+  songStart?: number | null;
   children: ReactNode;
 }) {
   return (
-    <PortfolioSongMarkContext.Provider value={{ collectionId, pageAccountId }}>
+    <PortfolioSongMarkContext.Provider
+      value={{ collectionId, pageAccountId, songStart }}
+    >
       {children}
     </PortfolioSongMarkContext.Provider>
   );
@@ -47,7 +52,9 @@ export function usePortfolioSongMark(): {
   title: string;
   play: () => void;
 } | null {
-  const { collectionId, pageAccountId } = useContext(PortfolioSongMarkContext);
+  const { collectionId, pageAccountId, songStart } = useContext(
+    PortfolioSongMarkContext
+  );
   const nowPlaying = useCollectiblesNowPlayingOptional();
   const [view, setView] = useState<CollectionView | null>(null);
   const [hold, setHold] = useState<{
@@ -115,6 +122,7 @@ export function usePortfolioSongMark(): {
     title: view.title,
     poster: view.mediaUrl,
     tracks: view.playables,
+    ...(songStart != null && songStart > 0 ? { startIndex: songStart } : {}),
   };
 
   return {

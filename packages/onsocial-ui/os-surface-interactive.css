@@ -17,8 +17,12 @@
  *   --os-surface-muted            normal muted text / placeholders
  *   --os-surface-muted-strong     tiny metadata that needs more contrast
  *   --os-identity-name            account display name
+ *   --os-identity-name-size       row-cluster name size (headers stay larger)
+ *   --os-identity-name-weight     row-cluster name weight
  *   --os-identity-name-hover      name when the profile cluster is hovered
  *   --os-identity-handle          @id resting ink
+ *   --os-identity-handle-size     @id size (profile hero stays larger)
+ *   --os-identity-handle-weight   @id weight — secondary to the name
  *   --os-identity-handle-hover    @id when the profile cluster is hovered
  *   --os-catalog-cover            Market / Drops / apps catalog cover (mobile)
  *   --os-catalog-cover-sm         catalog cover on sm+ viewports
@@ -55,11 +59,16 @@
     --os-surface-muted-strong: rgb(var(--fg-rgb) / 0.62);
     --os-surface-emphasis: rgb(var(--fg-rgb) / 0.88);
     /* Account cluster — name is the label, @id is the secondary line.
-       Hover lifts both; it does not underline or mute the name. */
+       Hover lifts both slightly; it does not underline or mute the name.
+       Layout (id under the name, or beside it) stays on each surface. */
     --os-identity-name: rgb(var(--fg-rgb) / 0.96);
+    --os-identity-name-size: 0.875rem;
+    --os-identity-name-weight: 600;
     --os-identity-name-hover: rgb(var(--fg-rgb) / 1);
     --os-identity-handle: rgb(var(--fg-rgb) / 0.42);
-    --os-identity-handle-hover: var(--os-surface-emphasis);
+    --os-identity-handle-size: 0.72rem;
+    --os-identity-handle-weight: 400;
+    --os-identity-handle-hover: var(--os-surface-muted-strong);
     --os-surface-radius-row: 0.85rem;
     --os-surface-radius-tile: 0.85rem;
     /* Guild-search / Market / Drops catalog cover scale. */

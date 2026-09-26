@@ -588,9 +588,13 @@ export function CollectiblesPlayPanel({
                   by {creatorNameLine}
                 </Link>
                 <div className="collection-meta-sub">
-                  <span className="collection-meta-handle">
+                  <Link
+                    href={portfolioPath(view.creatorId)}
+                    scroll={false}
+                    className="collection-meta-handle"
+                  >
                     @{fallbackLabel(view.creatorId)}
-                  </span>
+                  </Link>
                   {kindLabel ? (
                     <>
                       <span className="collection-meta-sep" aria-hidden>

@@ -125,10 +125,10 @@
 
 .gesture-sheet-handle {
   margin: 0;
-  font-size: 0.72rem;
-  font-weight: 400;
+  font-size: var(--os-identity-handle-size, 0.72rem);
+  font-weight: var(--os-identity-handle-weight, 400);
   letter-spacing: 0.02em;
-  color: rgb(var(--fg-rgb) / 0.42);
+  color: var(--os-identity-handle);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

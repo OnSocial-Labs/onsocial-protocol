@@ -159,9 +159,6 @@ function PortfolioShellPreviewBridge({
               isDao={isDao}
               config={config}
               mood={committedMood}
-              avatarUrl={avatarMedia?.url ?? null}
-              bannerUrl={bannerMedia?.url ?? null}
-              bannerKind={bannerMedia?.kind ?? null}
             />
             <PortfolioPersonalComposer pageAccountId={pageAccountId} />
             <PortfolioDrawerScrollTrigger />
