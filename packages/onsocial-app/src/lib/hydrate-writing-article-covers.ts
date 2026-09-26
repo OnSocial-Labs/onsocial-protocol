@@ -33,13 +33,13 @@ export async function hydrateWritingArticleCovers(
   await Promise.all(
     articles.map(async (post) => {
       const key = postKey(post);
+      if (parseArticleSnapshot(post.value)?.cover?.mood) {
+        out[key] = { mediaUrl: null, cardBg: null };
+        return;
+      }
       const local = articleCoverUrl(post.value);
       if (local) {
         out[key] = { mediaUrl: local, cardBg: null };
-        return;
-      }
-      if (parseArticleSnapshot(post.value)?.cover?.mood) {
-        out[key] = { mediaUrl: null, cardBg: null };
         return;
       }
 

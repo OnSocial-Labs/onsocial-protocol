@@ -525,7 +525,7 @@ describe('formatWritingLikeLabel', () => {
 });
 
 describe('resolveArticleCover', () => {
-  it('pins the photo cover from post media', () => {
+  it('keeps the pinned writing cover when a photo was also stored', () => {
     const value = postValue({
       media: ['https://cdn.example/photo.jpg'],
       x: {
@@ -534,8 +534,21 @@ describe('resolveArticleCover', () => {
         },
       },
     });
-    // A still always wins — post media is immutable, so the photo stays the
-    // cover even though a card mood was pinned alongside it.
+    expect(resolveArticleCover({ value })).toEqual({
+      coverUrl: null,
+      cardBg: 'poster-noir',
+      format: 'poster',
+      markShape: 'rule',
+      markColor: 'auto',
+      pinned: true,
+    });
+  });
+
+  it('uses a still when the article has no writing cover', () => {
+    const value = postValue({
+      media: ['https://cdn.example/photo.jpg'],
+      x: { onsocial: { article: { title: 'Night' } } },
+    });
     expect(resolveArticleCover({ value })).toEqual({
       coverUrl: 'https://cdn.example/photo.jpg',
       cardBg: null,

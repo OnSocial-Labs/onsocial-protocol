@@ -237,6 +237,19 @@ describe('composer thread', () => {
     });
   });
 
+  it('leaves the writing cover off when a photo is the cover', () => {
+    const submit = beatToComposerSubmit(
+      emptyComposerBeat({
+        text: 'body',
+        articleMode: true,
+        articleTitle: 'Hello',
+        files: [new File(['x'], 'cover.jpg', { type: 'image/jpeg' })],
+      })
+    );
+    expect(submit.article).toEqual({ title: 'Hello' });
+    expect(submit.files).toHaveLength(1);
+  });
+
   it('publishes a follow-up as a post even if it was stored as an article', () => {
     const payload = composerBeatsToSubmit([
       emptyComposerBeat({ text: 'root' }),
@@ -250,7 +263,11 @@ describe('composer thread', () => {
     expect(payload?.thread).toEqual([{ text: 'next' }]);
     expect(
       composerBeatsForThread([
-        emptyComposerBeat({ text: 'root', articleMode: true, articleTitle: 'Piece' }),
+        emptyComposerBeat({
+          text: 'root',
+          articleMode: true,
+          articleTitle: 'Piece',
+        }),
         emptyComposerBeat({
           text: 'next',
           articleMode: true,
