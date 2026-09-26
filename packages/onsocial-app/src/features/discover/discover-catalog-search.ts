@@ -1,3 +1,4 @@
+import { resolveScarceMediaUrl } from '@/features/market/market-listings';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fetchDiscoverProfiles } from '@/lib/discover-profiles';
 import {
@@ -22,6 +23,7 @@ const ARTICLE_SCAN_LIMIT = 40;
 export type DiscoverCatalogPerson = {
   accountId: string;
   name: string;
+  avatarUrl: string | null;
 };
 
 export type DiscoverCatalogArticle = {
@@ -34,6 +36,7 @@ export type DiscoverCatalogDrop = {
   collectionId: string;
   title: string;
   meta: string;
+  imageUrl: string | null;
 };
 
 export type DiscoverCatalogResults = {
@@ -93,6 +96,7 @@ async function searchPeople(query: string): Promise<{
   const people = page.profiles.map((profile) => ({
     accountId: profile.accountId,
     name: profile.name?.trim() || profile.accountId,
+    avatarUrl: profile.avatarUrl,
   }));
   const preview = takePreview(people);
   return {
@@ -174,7 +178,7 @@ async function searchDrops(
   if (facetId) or.push('{ extraJson: { _ilike: $facet } }');
   const res = await client.query.graphql<{
     scarcesCollectionsCurrent: Array<
-      CatalogDropMatchRow & { collectionId: string }
+      CatalogDropMatchRow & { collectionId: string; media: string | null }
     >;
   }>({
     query: `
@@ -197,6 +201,7 @@ async function searchDrops(
           mediumKind
           kind
           extraJson
+          media
         }
       }
     `,
@@ -215,6 +220,7 @@ async function searchDrops(
       collectionId: row.collectionId,
       title: row.title?.trim() || row.collectionId,
       meta: catalogDropMeta(row),
+      imageUrl: resolveScarceMediaUrl(row.media),
     }));
   return takePreview(drops);
 }

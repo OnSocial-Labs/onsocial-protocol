@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
   isDiscoverCatalogQuery,
@@ -24,22 +25,77 @@ const SECTION_LABEL: Record<DiscoverCatalogSectionId, string> = {
   events: 'Events',
 };
 
+function faceInitial(label: string): string {
+  const trimmed = label.trim();
+  return trimmed ? trimmed.slice(0, 1).toUpperCase() : '?';
+}
+
+function CatalogFace({
+  accountId,
+  name,
+  avatarUrl,
+}: {
+  accountId: string;
+  name: string;
+  avatarUrl?: string | null;
+}) {
+  return (
+    <AccountAvatar
+      accountId={accountId}
+      src={avatarUrl}
+      fallbackInitial={faceInitial(name)}
+      size="lg"
+    />
+  );
+}
+
+function CatalogCover({ src }: { src: string | null }) {
+  return (
+    <span
+      className={`market-listing-thumb drops-discovery-thumb${
+        src ? ' has-media' : ''
+      }`}
+    >
+      {src ? (
+        <img src={src} alt="" />
+      ) : (
+        <span className="market-listing-thumb-fallback" />
+      )}
+    </span>
+  );
+}
+
 function CatalogRow({
   href,
   title,
   meta,
+  face,
+  coverUrl,
 }: {
   href: string;
   title: string;
   meta?: string;
+  face?: { accountId: string; avatarUrl?: string | null };
+  coverUrl?: string | null;
 }) {
   return (
     <Link
       href={href}
       scroll={false}
-      className="market-listing-row discover-catalog-row"
+      className={`market-listing-row discover-catalog-row${
+        face ? ' discover-catalog-row--face' : ''
+      }`}
       role="listitem"
     >
+      {face ? (
+        <CatalogFace
+          accountId={face.accountId}
+          name={title}
+          avatarUrl={face.avatarUrl}
+        />
+      ) : (
+        <CatalogCover src={coverUrl ?? null} />
+      )}
       <div className="market-listing-copy">
         <span className="market-listing-title">{title}</span>
         {meta ? <p className="drops-discovery-deal">{meta}</p> : null}
@@ -134,6 +190,10 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
                             ? undefined
                             : person.accountId
                         }
+                        face={{
+                          accountId: person.accountId,
+                          avatarUrl: person.avatarUrl,
+                        }}
                       />
                     ))
                   : null}
@@ -147,6 +207,7 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
                         )}
                         title={article.title}
                         meta={article.accountId}
+                        face={{ accountId: article.accountId }}
                       />
                     ))
                   : null}
@@ -157,6 +218,7 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
                         href={collectionPath(drop.collectionId)}
                         title={drop.title}
                         meta={drop.meta}
+                        coverUrl={drop.imageUrl}
                       />
                     ))
                   : null}
@@ -167,6 +229,7 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
                         href={collectionPath(drop.collectionId)}
                         title={drop.title}
                         meta={drop.meta}
+                        coverUrl={drop.imageUrl}
                       />
                     ))
                   : null}
@@ -177,6 +240,7 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
                         href={collectionPath(drop.collectionId)}
                         title={drop.title}
                         meta={drop.meta}
+                        coverUrl={drop.imageUrl}
                       />
                     ))
                   : null}

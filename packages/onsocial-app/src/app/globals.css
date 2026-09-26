@@ -35887,6 +35887,7 @@ a.os-surface-row {
   .discover-catalog-row {
     text-decoration: none;
     color: inherit;
+    align-items: center;
   }
 
   .market-listing-list,
