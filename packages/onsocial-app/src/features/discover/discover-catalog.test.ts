@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  catalogCreatorIlike,
   catalogDropMatches,
   catalogDropMeta,
   catalogFacetContainsPattern,
@@ -22,6 +23,7 @@ describe('discover catalog search', () => {
     expect(catalogFacetIdForQuery('sci', 'writing')).toBe('scifi');
     expect(catalogFacetIdForQuery('jazz', 'audio')).toBe('jazz');
     expect(catalogFacetIdForQuery('night', 'writing')).toBeNull();
+    expect(catalogFacetIdForQuery('r', 'audio')).toBeNull();
   });
 
   it('matches a drop by title, creator, or stamped subject', () => {
@@ -38,6 +40,17 @@ describe('discover catalog search', () => {
     };
     expect(catalogDropMatches(book, 'night', 'fiction')).toBe(true);
     expect(catalogDropMatches(book, 'ada.testnet', null)).toBe(true);
+    expect(catalogDropMatches(book, 'ada', null)).toBe(true);
+    expect(catalogDropMatches({ ...book, title: 'Other' }, 'test', null)).toBe(
+      false
+    );
+    expect(
+      catalogDropMatches(
+        { ...book, title: 'Other', creatorId: 'ada.near' },
+        'near',
+        null
+      )
+    ).toBe(false);
     expect(catalogDropMatches(book, 'fiction', 'fiction')).toBe(true);
     expect(
       catalogDropMatches(
@@ -52,6 +65,10 @@ describe('discover catalog search', () => {
     ).toBe(false);
     expect(catalogDropMeta(book)).toBe('Book · ada.testnet');
     expect(catalogFacetContainsPattern('fiction')).toBe('%"fiction"%');
+    expect(catalogCreatorIlike('Test')).toEqual({
+      prefix: 'test%',
+      label: '%.test.%',
+    });
     expect(
       catalogDropMeta({
         title: 'Night',

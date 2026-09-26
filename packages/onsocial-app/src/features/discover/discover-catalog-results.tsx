@@ -103,6 +103,9 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
       {results?.failed && sections.length === 0 ? (
         <p className="market-section-title">Couldn’t search.</p>
       ) : null}
+      {results?.partial ? (
+        <p className="market-section-title">Some results didn’t load.</p>
+      ) : null}
       {empty && !results?.failed ? (
         <p className="market-section-title">Nothing matches.</p>
       ) : null}

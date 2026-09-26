@@ -5,6 +5,8 @@ import {
   parseArticleSnapshot,
 } from '@/lib/article-post-payload';
 import {
+  catalogArticleMatches,
+  catalogCreatorIlike,
   catalogDropMatches,
   catalogDropMeta,
   catalogFacetContainsPattern,
@@ -45,11 +47,19 @@ export type DiscoverCatalogResults = {
   musicHasMore: boolean;
   eventsHasMore: boolean;
   failed: boolean;
+  /** At least one section failed and at least one succeeded. */
+  partial: boolean;
 };
 
 function ilikeContains(query: string): string {
   const cleaned = query.trim().replace(/[%_\\]/g, '');
   return `%${cleaned}%`;
+}
+
+/** JSON key as stored by `JSON.stringify` (`"title":"…"`). */
+function fieldIlike(field: 'title' | 'excerpt', query: string): string {
+  const cleaned = query.trim().replace(/[%_\\"]/g, '');
+  return `%"${field}":"%${cleaned}%`;
 }
 
 function wait(ms: number): Promise<void> {
@@ -94,18 +104,23 @@ async function searchPeople(query: string): Promise<{
 async function searchArticles(
   query: string
 ): Promise<DiscoverCatalogArticle[]> {
+  const creator = catalogCreatorIlike(query);
+  if (!creator) return [];
   const client = createReadOnlyOnSocialClient();
   const res = await client.query.graphql<{
     postsCurrent: Array<{ accountId: string; postId: string; value: string }>;
   }>({
     query: `
-      query DiscoverArticles($search: String!, $article: String!, $limit: Int!) {
+      query DiscoverArticles($title: String!, $excerpt: String!, $article: String!, $creatorPrefix: String!, $creatorLabel: String!, $limit: Int!) {
         postsCurrent(
           where: {
             isGroupContent: { _eq: false }
-            _and: [
-              { value: { _ilike: $search } }
-              { value: { _ilike: $article } }
+            value: { _ilike: $article }
+            _or: [
+              { value: { _ilike: $title } }
+              { value: { _ilike: $excerpt } }
+              { accountId: { _ilike: $creatorPrefix } }
+              { accountId: { _ilike: $creatorLabel } }
             ]
           }
           orderBy: [{ blockHeight: DESC }]
@@ -118,8 +133,11 @@ async function searchArticles(
       }
     `,
     variables: {
-      search: ilikeContains(query),
+      title: fieldIlike('title', query),
+      excerpt: fieldIlike('excerpt', query),
       article: '%"article":%',
+      creatorPrefix: creator.prefix,
+      creatorLabel: creator.label,
       limit: ARTICLE_SCAN_LIMIT,
     },
   });
@@ -127,7 +145,9 @@ async function searchArticles(
   for (const row of res.data?.postsCurrent ?? []) {
     if (!isArticlePost(row)) continue;
     const article = parseArticleSnapshot(row.value);
-    if (!article) continue;
+    if (!article || !catalogArticleMatches(article, row.accountId, query)) {
+      continue;
+    }
     articles.push({
       accountId: row.accountId,
       postId: row.postId,
@@ -142,11 +162,14 @@ async function searchDrops(
   medium: 'writing' | 'audio' | 'ticket',
   query: string
 ): Promise<{ items: DiscoverCatalogDrop[]; hasMore: boolean }> {
+  const creator = catalogCreatorIlike(query);
+  if (!creator) return { items: [], hasMore: false };
   const client = createReadOnlyOnSocialClient();
   const facetId = catalogFacetIdForQuery(query, medium);
   const or = [
     '{ title: { _ilike: $search } }',
-    '{ creatorId: { _ilike: $search } }',
+    '{ creatorId: { _ilike: $creatorPrefix } }',
+    '{ creatorId: { _ilike: $creatorLabel } }',
   ];
   if (facetId) or.push('{ extraJson: { _ilike: $facet } }');
   const res = await client.query.graphql<{
@@ -155,7 +178,7 @@ async function searchDrops(
     >;
   }>({
     query: `
-      query DiscoverDrops($search: String!, $medium: String!, $limit: Int!${
+      query DiscoverDrops($search: String!, $creatorPrefix: String!, $creatorLabel: String!, $medium: String!, $limit: Int!${
         facetId ? ', $facet: String!' : ''
       }) {
         scarcesCollectionsCurrent(
@@ -179,6 +202,8 @@ async function searchDrops(
     `,
     variables: {
       search: ilikeContains(query),
+      creatorPrefix: creator.prefix,
+      creatorLabel: creator.label,
       medium,
       limit: DROP_FETCH_LIMIT,
       ...(facetId ? { facet: catalogFacetContainsPattern(facetId) } : {}),
@@ -219,9 +244,9 @@ export async function loadDiscoverCatalog(
       () => ({ ok: false as const })
     ),
   ]);
-  const failed = [people, articles, books, music, events].every(
-    (entry) => !entry.ok
-  );
+  const statuses = [people, articles, books, music, events];
+  const failed = statuses.every((entry) => !entry.ok);
+  const partial = !failed && statuses.some((entry) => !entry.ok);
   return {
     people: people.ok ? people.result.items : [],
     articles: articles.ok ? articles.items : [],
@@ -233,5 +258,6 @@ export async function loadDiscoverCatalog(
     musicHasMore: music.ok ? music.result.hasMore : false,
     eventsHasMore: events.ok ? events.result.hasMore : false,
     failed,
+    partial,
   };
 }

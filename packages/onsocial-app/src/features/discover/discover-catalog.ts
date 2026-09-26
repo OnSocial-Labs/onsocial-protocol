@@ -37,10 +37,48 @@ export function catalogFacetIdForQuery(
     (entry) => entry.id === needle || entry.label.toLowerCase() === needle
   );
   if (exact) return exact.id;
-  const partial = suggestions.find((entry) =>
-    entry.label.toLowerCase().includes(needle)
-  );
+  if (needle.length < 3) return null;
+  const partial = suggestions.find((entry) => {
+    const label = entry.label.toLowerCase();
+    return entry.id.startsWith(needle) || label.startsWith(needle);
+  });
   return partial?.id ?? null;
+}
+
+const NETWORK_ACCOUNT_LABELS = new Set(['near', 'testnet']);
+
+/**
+ * Creator hit on a name label. `.near` and `.testnet` are not a match,
+ * so “near” and “test” do not return the whole catalog.
+ */
+export function catalogCreatorMatches(
+  accountId: string,
+  query: string
+): boolean {
+  const needle = query.trim().toLowerCase();
+  const id = accountId.trim().toLowerCase();
+  if (!needle || !id) return false;
+  if (id === needle || id.startsWith(needle)) return true;
+  const labels = id.split('.').filter(Boolean);
+  return labels.some((label, index) => {
+    const isNetwork =
+      index === labels.length - 1 && NETWORK_ACCOUNT_LABELS.has(label);
+    if (isNetwork) return false;
+    return label.includes(needle);
+  });
+}
+
+/** Prefix and middle-label patterns. Neither treats `.testnet` / `.near` as the word. */
+export function catalogCreatorIlike(query: string): {
+  prefix: string;
+  label: string;
+} | null {
+  const cleaned = query
+    .trim()
+    .toLowerCase()
+    .replace(/[%_\\]/g, '');
+  if (!cleaned) return null;
+  return { prefix: `${cleaned}%`, label: `%.${cleaned}.%` };
 }
 
 /** Hasura `_ilike` needle for a facet id stored inside collection `extraJson`. */
@@ -84,6 +122,19 @@ export function catalogDropFacetIds(row: CatalogDropMatchRow): string[] {
   );
 }
 
+/** Title, excerpt, or the author’s name — not a network suffix inside the post. */
+export function catalogArticleMatches(
+  article: { title: string; excerpt?: string },
+  accountId: string,
+  query: string
+): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return false;
+  if (article.title.toLowerCase().includes(needle)) return true;
+  if (article.excerpt?.toLowerCase().includes(needle)) return true;
+  return catalogCreatorMatches(accountId, needle);
+}
+
 /** Title, creator, or a closed-list subject/genre on the drop. */
 export function catalogDropMatches(
   row: CatalogDropMatchRow,
@@ -93,8 +144,9 @@ export function catalogDropMatches(
   const needle = query.trim().toLowerCase();
   if (!needle) return false;
   const title = row.title?.toLowerCase() ?? '';
-  const creator = row.creatorId.toLowerCase();
-  if (title.includes(needle) || creator.includes(needle)) return true;
+  if (title.includes(needle) || catalogCreatorMatches(row.creatorId, needle)) {
+    return true;
+  }
   if (!facetId) return false;
   return catalogDropFacetIds(row).includes(facetId);
 }
