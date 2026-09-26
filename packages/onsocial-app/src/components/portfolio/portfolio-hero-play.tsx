@@ -16,83 +16,91 @@ import {
 import { isAudioMediumKind } from '@/features/market/market-medium';
 import { portfolioSongMarkVisible } from '@/lib/portfolio-hero-play';
 
-export type PortfolioSongMarkPlacement = 'above' | 'beside';
-
-const PortfolioSongMarkContext = createContext<{
-  collectionId: string | null;
-  placement: PortfolioSongMarkPlacement;
-}>({ collectionId: null, placement: 'beside' });
+const PortfolioSongMarkContext = createContext<string | null>(null);
 
 export function PortfolioSongMarkProvider({
   collectionId,
-  placement,
   children,
 }: {
   collectionId: string | null;
-  placement: PortfolioSongMarkPlacement;
   children: ReactNode;
 }) {
   return (
-    <PortfolioSongMarkContext.Provider value={{ collectionId, placement }}>
+    <PortfolioSongMarkContext.Provider value={collectionId}>
       {children}
     </PortfolioSongMarkContext.Provider>
   );
 }
 
-/** Play mark for one slot. Hidden when this release is already the dock's song. */
-export function PortfolioSongMark({ slot }: { slot: PortfolioSongMarkPlacement }) {
-  const { collectionId, placement } = useContext(PortfolioSongMarkContext);
-  if (!collectionId || placement !== slot) return null;
-  return (
-    <PortfolioSongMarkButton key={collectionId} collectionId={collectionId} />
-  );
-}
-
-function PortfolioSongMarkButton({ collectionId }: { collectionId: string }) {
+/** Play control for the About · Writing line, or null while the dock owns the song. */
+export function usePortfolioSongMark(): {
+  title: string;
+  play: () => void;
+} | null {
+  const collectionId = useContext(PortfolioSongMarkContext);
   const nowPlaying = useCollectiblesNowPlayingOptional();
   const [view, setView] = useState<CollectionView | null>(null);
 
   useEffect(() => {
+    if (!collectionId) return;
     let cancelled = false;
-    void fetchCollectionPreferIndexer(collectionId).then((next) => {
-      if (!cancelled) setView(next);
-    });
+    void fetchCollectionPreferIndexer(collectionId)
+      .then((next) => {
+        if (!cancelled) setView(next);
+      })
+      .catch(() => {
+        if (!cancelled) setView(null);
+      });
     return () => {
       cancelled = true;
     };
   }, [collectionId]);
 
-  if (!view || !isAudioMediumKind(view.kind) || view.playables.length === 0) {
+  if (!collectionId || !view || view.collectionId !== collectionId) return null;
+  if (!isAudioMediumKind(view.kind) || view.playables.length === 0) return null;
+  if (
+    !portfolioSongMarkVisible({
+      pinnedId: view.collectionId,
+      sessionId: nowPlaying?.session?.collectionId ?? null,
+    })
+  ) {
     return null;
   }
+  if (!nowPlaying) return null;
 
-  const visible = portfolioSongMarkVisible({
-    pinnedId: view.collectionId,
-    sessionId: nowPlaying?.session?.collectionId ?? null,
-  });
-  if (!visible) return null;
+  const session = {
+    collectionId: view.collectionId,
+    title: view.title,
+    poster: view.mediaUrl,
+    tracks: view.playables,
+  };
 
+  return {
+    title: view.title,
+    play: () => {
+      nowPlaying.playSession(session);
+    },
+  };
+}
+
+export function PortfolioSongMarkButton({
+  title,
+  onPlay,
+}: {
+  title: string;
+  onPlay: () => void;
+}) {
   return (
     <button
       type="button"
       className="portfolio-song-mark"
-      aria-label={`Play ${view.title}`}
-      onClick={() => {
-        if (!nowPlaying) return;
-        nowPlaying.playSession({
-          collectionId: view.collectionId,
-          title: view.title,
-          poster: view.mediaUrl,
-          tracks: view.playables,
-        });
-      }}
+      aria-label={`Play ${title}`}
+      onClick={onPlay}
     >
-      <span className="portfolio-song-mark-face">
-        <PlayFillIcon
-          className="portfolio-song-mark-icon portfolio-song-mark-icon--play"
-          aria-hidden
-        />
-      </span>
+      <PlayFillIcon
+        className="portfolio-song-mark-icon portfolio-song-mark-icon--play"
+        aria-hidden
+      />
     </button>
   );
 }

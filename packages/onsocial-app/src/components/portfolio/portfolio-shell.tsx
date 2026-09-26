@@ -93,7 +93,6 @@ export function PortfolioShell({
 
         <PortfolioSongMarkProvider
           collectionId={hero && songId ? songId : null}
-          placement={isCoverLayout ? 'above' : 'beside'}
         >
           <div className="portfolio-hero portfolio-hero--strip-overlap">
             {children}

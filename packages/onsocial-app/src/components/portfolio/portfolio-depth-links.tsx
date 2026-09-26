@@ -2,13 +2,17 @@
 
 import { PortfolioAboutLink } from '@/components/portfolio/portfolio-about-link';
 import {
+  PortfolioSongMarkButton,
+  usePortfolioSongMark,
+} from '@/components/portfolio/portfolio-hero-play';
+import {
   PortfolioWritingAnchor,
   useShowPortfolioWritingLink,
 } from '@/components/portfolio/portfolio-writing-link';
 
 /**
- * Face depth doors — one quiet line: About · Writing.
- * Matches Stand · Endorse · Support separator language.
+ * Face depth doors — one quiet line: About · play · Writing.
+ * The play mark is the same on every face. It does not move the name.
  */
 export function PortfolioDepthLinks({
   accountId,
@@ -18,18 +22,27 @@ export function PortfolioDepthLinks({
   showAbout?: boolean;
 }) {
   const showWriting = useShowPortfolioWritingLink(accountId);
+  const song = usePortfolioSongMark();
 
-  if (!showAbout && !showWriting) return null;
+  if (!showAbout && !showWriting && !song) return null;
 
   return (
     <nav className="portfolio-depth-links" aria-label="More">
       {showAbout ? <PortfolioAboutLink accountId={accountId} /> : null}
-      {showAbout && showWriting ? (
-        <span className="portfolio-depth-sep" aria-hidden>
-          ·
-        </span>
+      {showAbout && (song || showWriting) ? <DepthSep /> : null}
+      {song ? (
+        <PortfolioSongMarkButton title={song.title} onPlay={song.play} />
       ) : null}
+      {song && showWriting ? <DepthSep /> : null}
       {showWriting ? <PortfolioWritingAnchor accountId={accountId} /> : null}
     </nav>
+  );
+}
+
+function DepthSep() {
+  return (
+    <span className="portfolio-depth-sep" aria-hidden>
+      ·
+    </span>
   );
 }
