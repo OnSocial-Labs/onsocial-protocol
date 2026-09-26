@@ -16,6 +16,7 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { ActionDrawer } from '@/components/ui/action-drawer';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
@@ -183,6 +184,7 @@ export function EventsPagePanel({
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [nowMs, setNowMs] = useState(initialNowMs);
   const [query, setQuery] = useState(initialQuery);
@@ -203,6 +205,7 @@ export function EventsPagePanel({
     error: boolean;
   } | null>(null);
   const reloadGenRef = useRef(0);
+  const loadingMoreRef = useRef(false);
 
   const scan = useMemo<EventScan>(
     () => ({
@@ -229,10 +232,14 @@ export function EventsPagePanel({
   const load = useCallback(
     async (offset: number, replace: boolean) => {
       const gen = replace ? ++reloadGenRef.current : reloadGenRef.current;
-      setFailed(false);
       if (replace) {
+        setFailed(false);
+        setLoadMoreFailed(false);
         setItems([]);
         setHasMore(false);
+        setLoading(true);
+      } else {
+        setLoadMoreFailed(false);
         setLoading(true);
       }
       if (scope === 'mine' && !accountId) {
@@ -272,7 +279,8 @@ export function EventsPagePanel({
         setNowMs(Date.now());
       } catch {
         if (gen !== reloadGenRef.current) return;
-        setFailed(true);
+        if (replace) setFailed(true);
+        else setLoadMoreFailed(true);
       } finally {
         if (gen === reloadGenRef.current) setLoading(false);
       }
@@ -293,8 +301,12 @@ export function EventsPagePanel({
   }, [load, reloadKey]);
 
   const loadNext = useCallback(() => {
-    void load(nextOffset, false);
-  }, [load, nextOffset]);
+    if (loadingMoreRef.current || loading) return;
+    loadingMoreRef.current = true;
+    void load(nextOffset, false).finally(() => {
+      loadingMoreRef.current = false;
+    });
+  }, [load, loading, nextOffset]);
 
   const places = useMemo(() => eventPlaceChoices(seen), [seen]);
   const grouped = groupEvents(items, nowMs);
@@ -367,7 +379,8 @@ export function EventsPagePanel({
   useInfiniteScrollSentinel({
     scrollRootRef,
     sentinelRef: loadMoreRef,
-    enabled: hasMore && !loading && !failed && !needsConnect,
+    enabled:
+      hasMore && !loading && !failed && !loadMoreFailed && !needsConnect,
     onIntersect: loadNext,
   });
 
@@ -503,7 +516,14 @@ export function EventsPagePanel({
           {showAppendSkeleton ? (
             <MarketListSkeleton rows={2} variant="drops" />
           ) : null}
-          {hasMore ? (
+          {loadMoreFailed ? (
+            <OsChromeListAlert
+              message="Couldn’t load more."
+              retryLabel="Retry"
+              onRetry={loadNext}
+            />
+          ) : null}
+          {hasMore && !loadMoreFailed ? (
             <div
               ref={loadMoreRef}
               className="standing-panel-sentinel"

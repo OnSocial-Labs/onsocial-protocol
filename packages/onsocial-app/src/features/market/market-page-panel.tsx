@@ -292,6 +292,8 @@ export function MarketPagePanel({
   const [creatorDropsHasMore, setCreatorDropsHasMore] = useState(false);
   const [creatorDropOffset, setCreatorDropOffset] = useState(0);
   const [creatorDropsLoadingMore, setCreatorDropsLoadingMore] = useState(false);
+  const [creatorDropsLoadMoreFailed, setCreatorDropsLoadMoreFailed] =
+    useState(false);
   const [creatorDropsSettled, setCreatorDropsSettled] = useState(
     !seedQuery.creator
   );
@@ -306,6 +308,7 @@ export function MarketPagePanel({
   const [sales, setSales] = useState<MarketSaleItem[] | null>(null);
   const [ownedState, setOwnedState] = useState<OwnedState>(EMPTY_OWNED);
   const [ownedLoadingMore, setOwnedLoadingMore] = useState(false);
+  const [ownedLoadMoreFailed, setOwnedLoadMoreFailed] = useState(false);
   const [buyListing, setBuyListing] = useState<ScarceBuyListing | null>(null);
   const [bidListing, setBidListing] = useState<ScarceBidListing | null>(null);
   const [offerListing, setOfferListing] = useState<ScarceOfferListing | null>(
@@ -905,6 +908,7 @@ export function MarketPagePanel({
       setCreatorDrops([]);
       setCreatorDropsHasMore(false);
       setCreatorDropOffset(0);
+      setCreatorDropsLoadMoreFailed(false);
       setCreatorDropsSettled(true);
       setCreatorFace(null);
       return;
@@ -955,6 +959,7 @@ export function MarketPagePanel({
     }
     const offset = creatorDropOffset;
     setCreatorDropsLoadingMore(true);
+    setCreatorDropsLoadMoreFailed(false);
     void fetchCollectionsByCreatorPage(creatorFilter, {
       limit: CREATOR_DROPS_PAGE,
       offset,
@@ -971,7 +976,7 @@ export function MarketPagePanel({
         setCreatorDropsHasMore(page.fetched >= CREATOR_DROPS_PAGE);
       })
       .catch(() => {
-        setCreatorDropsHasMore(false);
+        setCreatorDropsLoadMoreFailed(true);
       })
       .finally(() => {
         setCreatorDropsLoadingMore(false);
@@ -1059,6 +1064,7 @@ export function MarketPagePanel({
   const loadMoreOwned = useCallback(() => {
     if (!viewerAccountId || !ownedState.hasMore || ownedLoadingMore) return;
     setOwnedLoadingMore(true);
+    setOwnedLoadMoreFailed(false);
     fetchOwnedScarcesPage(viewerAccountId, {
       fromEnd: ownedState.nextFromEnd,
     })
@@ -1071,23 +1077,26 @@ export function MarketPagePanel({
         }));
       })
       .catch(() => {
-        setOwnedState((current) => ({ ...current, hasMore: false }));
+        setOwnedLoadMoreFailed(true);
       })
       .finally(() => {
         setOwnedLoadingMore(false);
       });
   }, [
-    viewerAccountId,
+    ownedLoadingMore,
     ownedState.hasMore,
     ownedState.nextFromEnd,
-    ownedLoadingMore,
+    viewerAccountId,
   ]);
 
   useInfiniteScrollSentinel({
     scrollRootRef,
     sentinelRef: ownedSentinelRef,
     enabled:
-      Boolean(viewerAccountId) && ownedState.hasMore && !ownedLoadingMore,
+      Boolean(viewerAccountId) &&
+      ownedState.hasMore &&
+      !ownedLoadingMore &&
+      !ownedLoadMoreFailed,
     onIntersect: loadMoreOwned,
   });
 
@@ -1098,6 +1107,7 @@ export function MarketPagePanel({
       Boolean(creatorFilter) &&
       creatorDropsHasMore &&
       !creatorDropsLoadingMore &&
+      !creatorDropsLoadMoreFailed &&
       creatorDropsSettled,
     onIntersect: loadMoreCreatorDrops,
   });
@@ -1865,7 +1875,14 @@ export function MarketPagePanel({
               onMintDrop={handleMintDrop}
             />
             {creatorDropsLoadingMore ? <MarketListSkeleton rows={2} /> : null}
-            {creatorDropsHasMore ? (
+            {creatorDropsLoadMoreFailed ? (
+              <OsChromeListAlert
+                message="Couldn’t load more."
+                retryLabel="Retry"
+                onRetry={loadMoreCreatorDrops}
+              />
+            ) : null}
+            {creatorDropsHasMore && !creatorDropsLoadMoreFailed ? (
               <div
                 ref={creatorDropsSentinelRef}
                 className="standing-panel-sentinel"
@@ -2136,7 +2153,14 @@ export function MarketPagePanel({
               })}
             </div>
             {ownedLoadingMore ? <MarketListSkeleton rows={2} /> : null}
-            {ownedState.hasMore ? (
+            {ownedLoadMoreFailed ? (
+              <OsChromeListAlert
+                message="Couldn’t load more."
+                retryLabel="Retry"
+                onRetry={loadMoreOwned}
+              />
+            ) : null}
+            {ownedState.hasMore && !ownedLoadMoreFailed ? (
               <div
                 ref={ownedSentinelRef}
                 className="standing-panel-sentinel"

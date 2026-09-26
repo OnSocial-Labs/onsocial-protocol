@@ -19,6 +19,7 @@ import {
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
@@ -108,6 +109,7 @@ export function SeriesPagePanel({
     creatorHasMore ? SERIES_CREATOR_PAGE : 0
   );
   const [seriesLoadingMore, setSeriesLoadingMore] = useState(false);
+  const [seriesLoadMoreFailed, setSeriesLoadMoreFailed] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const seriesSentinelRef = useRef<HTMLDivElement | null>(null);
   const collectionIds = useMemo(
@@ -238,6 +240,7 @@ export function SeriesPagePanel({
   const loadMoreSeries = useCallback(() => {
     if (!seriesHasMore || seriesLoadingMore) return;
     setSeriesLoadingMore(true);
+    setSeriesLoadMoreFailed(false);
     void (async () => {
       let offset = seriesOffset;
       const found: CollectionView[] = [];
@@ -268,7 +271,7 @@ export function SeriesPagePanel({
       setSeriesHasMore(more);
     })()
       .catch(() => {
-        setSeriesHasMore(false);
+        setSeriesLoadMoreFailed(true);
       })
       .finally(() => {
         setSeriesLoadingMore(false);
@@ -278,7 +281,11 @@ export function SeriesPagePanel({
   useInfiniteScrollSentinel({
     scrollRootRef,
     sentinelRef: seriesSentinelRef,
-    enabled: seriesHasMore && !seriesLoadingMore && catalogShell !== 'skeleton',
+    enabled:
+      seriesHasMore &&
+      !seriesLoadingMore &&
+      !seriesLoadMoreFailed &&
+      catalogShell !== 'skeleton',
     onIntersect: loadMoreSeries,
   });
 
@@ -429,7 +436,14 @@ export function SeriesPagePanel({
             {seriesLoadingMore ? (
               <MarketListSkeleton rows={2} variant="drops" />
             ) : null}
-            {seriesHasMore ? (
+            {seriesLoadMoreFailed ? (
+              <OsChromeListAlert
+                message="Couldn’t load more."
+                retryLabel="Retry"
+                onRetry={loadMoreSeries}
+              />
+            ) : null}
+            {seriesHasMore && !seriesLoadMoreFailed ? (
               <div
                 ref={seriesSentinelRef}
                 className="standing-panel-sentinel"
@@ -439,7 +453,20 @@ export function SeriesPagePanel({
           </>
         ) : null}
 
-        {storeDrops.length === 0 && heldRows.length === 0 && seriesHasMore ? (
+        {storeDrops.length === 0 &&
+        heldRows.length === 0 &&
+        seriesLoadMoreFailed ? (
+          <OsChromeListAlert
+            message="Couldn’t load more."
+            retryLabel="Retry"
+            onRetry={loadMoreSeries}
+          />
+        ) : null}
+
+        {storeDrops.length === 0 &&
+        heldRows.length === 0 &&
+        seriesHasMore &&
+        !seriesLoadMoreFailed ? (
           <div
             ref={seriesSentinelRef}
             className="standing-panel-sentinel"

@@ -38,6 +38,7 @@ describe('os load more', () => {
     ]) {
       const source = readFileSync(join(appSrc, file), 'utf8');
       expect(source).toContain('useInfiniteScrollSentinel');
+      expect(source).toContain('Couldn’t load more.');
       expect(source).not.toContain('OsLoadMore');
       expect(source).not.toContain('>More<');
       expect(source).not.toContain('Show more');

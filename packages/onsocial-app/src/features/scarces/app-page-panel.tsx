@@ -19,6 +19,7 @@ import {
   SettingsIcon,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
@@ -147,6 +148,7 @@ export function AppPagePanel({
   );
   const [dropsOffset, setDropsOffset] = useState(initialDrops?.length ?? 0);
   const [dropsLoadingMore, setDropsLoadingMore] = useState(false);
+  const [dropsLoadMoreFailed, setDropsLoadMoreFailed] = useState(false);
   const dropsSentinelRef = useRef<HTMLDivElement | null>(null);
   const [catalogSettled, setCatalogSettled] = useState(!ssrMiss);
   const [fetchedOwned, setFetchedOwned] = useState<{
@@ -504,6 +506,7 @@ export function AppPagePanel({
     if (!dropsHasMore || dropsLoadingMore) return;
     const offset = dropsOffset;
     setDropsLoadingMore(true);
+    setDropsLoadMoreFailed(false);
     void fetchCollectionsByAppPage(appId, { limit: 48, offset })
       .then((page) => {
         setDrops((current) => {
@@ -515,7 +518,7 @@ export function AppPagePanel({
         setDropsHasMore(page.fetched >= 48);
       })
       .catch(() => {
-        setDropsHasMore(false);
+        setDropsLoadMoreFailed(true);
       })
       .finally(() => {
         setDropsLoadingMore(false);
@@ -525,7 +528,8 @@ export function AppPagePanel({
   useInfiniteScrollSentinel({
     scrollRootRef,
     sentinelRef: dropsSentinelRef,
-    enabled: dropsHasMore && !dropsLoadingMore && Boolean(app),
+    enabled:
+      dropsHasMore && !dropsLoadingMore && !dropsLoadMoreFailed && Boolean(app),
     onIntersect: loadMoreDrops,
   });
 
@@ -780,7 +784,14 @@ export function AppPagePanel({
             {dropsLoadingMore ? (
               <MarketListSkeleton rows={2} variant="drops" />
             ) : null}
-            {dropsHasMore ? (
+            {dropsLoadMoreFailed ? (
+              <OsChromeListAlert
+                message="Couldn’t load more."
+                retryLabel="Retry"
+                onRetry={loadMoreDrops}
+              />
+            ) : null}
+            {dropsHasMore && !dropsLoadMoreFailed ? (
               <div
                 ref={dropsSentinelRef}
                 className="standing-panel-sentinel"
@@ -792,7 +803,18 @@ export function AppPagePanel({
 
         {catalogShell === 'ready' &&
         storeDrops.length === 0 &&
-        dropsHasMore ? (
+        dropsLoadMoreFailed ? (
+          <OsChromeListAlert
+            message="Couldn’t load more."
+            retryLabel="Retry"
+            onRetry={loadMoreDrops}
+          />
+        ) : null}
+
+        {catalogShell === 'ready' &&
+        storeDrops.length === 0 &&
+        dropsHasMore &&
+        !dropsLoadMoreFailed ? (
           <div
             ref={dropsSentinelRef}
             className="standing-panel-sentinel"
