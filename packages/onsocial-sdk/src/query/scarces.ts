@@ -1610,27 +1610,33 @@ export class ScarcesQuery {
    */
   async ownedBy(
     ownerId: string,
-    opts: { limit?: number; offset?: number } = {}
+    opts: { limit?: number; offset?: number; collectionId?: string } = {}
   ): Promise<{ items: ScarcesOwnedTokenRow[]; nextOffset?: number }> {
     const owner = ownerId.trim();
     if (!owner) return { items: [] };
     const limit = opts.limit ?? 24;
     const offset = opts.offset ?? 0;
+    const collectionId = opts.collectionId?.trim() ?? '';
+    const params = ['$ownerId: String!', '$limit: Int!', '$offset: Int!'];
+    const where = ['ownerId: {_eq: $ownerId}', 'burned: {_eq: false}'];
+    const variables: Record<string, unknown> = { ownerId: owner, limit, offset };
+    if (collectionId) {
+      params.push('$collectionId: String!');
+      where.push('collectionId: {_eq: $collectionId}');
+      variables.collectionId = collectionId;
+    }
     const res = await this._q.graphql<{
       scarcesTokenOwners: ScarcesOwnedTokenRow[];
     }>({
-      query: `query ScarcesOwnedBy($ownerId: String!, $limit: Int!, $offset: Int!) {
+      query: `query ScarcesOwnedBy(${params.join(', ')}) {
         scarcesTokenOwners(
-          where: {
-            ownerId: {_eq: $ownerId},
-            burned: {_eq: false}
-          },
+          where: { ${where.join(', ')} },
           limit: $limit,
           offset: $offset,
           orderBy: [{updatedBlockTimestamp: DESC}]
         ) { ${SCARCES_OWNED_TOKEN_FIELDS} }
       }`,
-      variables: { ownerId: owner, limit, offset },
+      variables,
     });
     const items = res.data?.scarcesTokenOwners ?? [];
     return {

@@ -4241,6 +4241,25 @@ describe('QueryModule', () => {
       });
     });
 
+    it('ownedBy can ask whether one collection is still held', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesTokenOwners: [] } });
+      await os.query.scarces.ownedBy('alice.near', {
+        collectionId: 'midnight-ep',
+        limit: 1,
+      });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/collectionId: \{_eq: \$collectionId\}/);
+      expect(body.variables).toEqual({
+        ownerId: 'alice.near',
+        limit: 1,
+        offset: 0,
+        collectionId: 'midnight-ep',
+      });
+    });
+
     it('tokensByIds queries scarcesTokenOwners by token id', async () => {
       const { os, fetch } = makeOs({ data: { scarcesTokenOwners: [] } });
       await os.query.scarces.tokensByIds(['s:1', 's:1', '']);

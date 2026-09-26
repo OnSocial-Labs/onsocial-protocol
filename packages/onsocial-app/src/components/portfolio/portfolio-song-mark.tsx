@@ -14,19 +14,29 @@ import {
   type CollectionView,
 } from '@/features/scarces/collections-data';
 import { isAudioMediumKind } from '@/features/market/market-medium';
-import { portfolioSongMarkVisible } from '@/lib/portfolio-song-mark';
+import { accountIdsEqual } from '@/lib/account-match';
+import { accountHoldsCollection } from '@/lib/pinned-song-catalog';
+import {
+  portfolioSongMarkVisible,
+  portfolioSongPinEligible,
+} from '@/lib/portfolio-song-mark';
 
-const PortfolioSongMarkContext = createContext<string | null>(null);
+const PortfolioSongMarkContext = createContext<{
+  collectionId: string | null;
+  pageAccountId: string;
+}>({ collectionId: null, pageAccountId: '' });
 
 export function PortfolioSongMarkProvider({
   collectionId,
+  pageAccountId,
   children,
 }: {
   collectionId: string | null;
+  pageAccountId: string;
   children: ReactNode;
 }) {
   return (
-    <PortfolioSongMarkContext.Provider value={collectionId}>
+    <PortfolioSongMarkContext.Provider value={{ collectionId, pageAccountId }}>
       {children}
     </PortfolioSongMarkContext.Provider>
   );
@@ -37,9 +47,13 @@ export function usePortfolioSongMark(): {
   title: string;
   play: () => void;
 } | null {
-  const collectionId = useContext(PortfolioSongMarkContext);
+  const { collectionId, pageAccountId } = useContext(PortfolioSongMarkContext);
   const nowPlaying = useCollectiblesNowPlayingOptional();
   const [view, setView] = useState<CollectionView | null>(null);
+  const [hold, setHold] = useState<{
+    collectionId: string;
+    holds: boolean;
+  } | null>(null);
 
   useEffect(() => {
     if (!collectionId) return;
@@ -56,8 +70,36 @@ export function usePortfolioSongMark(): {
     };
   }, [collectionId]);
 
+  useEffect(() => {
+    if (!collectionId || !pageAccountId) return;
+    if (!view || view.collectionId !== collectionId) return;
+    if (accountIdsEqual(pageAccountId, view.creatorId)) return;
+    let cancelled = false;
+    void accountHoldsCollection(pageAccountId, collectionId)
+      .then((holds) => {
+        if (!cancelled) setHold({ collectionId, holds });
+      })
+      .catch(() => {
+        if (!cancelled) setHold({ collectionId, holds: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [collectionId, pageAccountId, view]);
+
   if (!collectionId || !view || view.collectionId !== collectionId) return null;
   if (!isAudioMediumKind(view.kind) || view.playables.length === 0) return null;
+  const releasedHere = accountIdsEqual(pageAccountId, view.creatorId);
+  const heldHere = hold?.collectionId === view.collectionId ? hold.holds : null;
+  if (
+    !portfolioSongPinEligible({
+      pageAccountId,
+      creatorId: view.creatorId,
+      holdsCopy: releasedHere || heldHere === true,
+    })
+  ) {
+    return null;
+  }
   if (
     !portfolioSongMarkVisible({
       pinnedId: view.collectionId,

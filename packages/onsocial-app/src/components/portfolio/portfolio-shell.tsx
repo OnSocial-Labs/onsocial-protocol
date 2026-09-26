@@ -93,6 +93,7 @@ export function PortfolioShell({
 
         <PortfolioSongMarkProvider
           collectionId={hero && songId ? songId : null}
+          pageAccountId={pageAccountId}
         >
           <div className="portfolio-hero portfolio-hero--strip-overlap">
             {children}

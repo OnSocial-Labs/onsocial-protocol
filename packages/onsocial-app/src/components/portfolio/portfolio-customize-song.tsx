@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Divider } from '@onsocial/ui';
-import { fetchCollectionsByCreatorPage } from '@/features/scarces/collections-data';
+import { loadPortfolioSongChoices } from '@/lib/pinned-song-catalog';
 import {
-  loadPinnedSongChoices,
+  filterPinnedSongChoices,
   type PinnedSongChoice,
 } from '@/lib/pinned-song-choices';
+
+const FIND_AFTER = 6;
 
 export function PortfolioCustomizeSong({
   accountId,
@@ -19,17 +21,16 @@ export function PortfolioCustomizeSong({
   disabled: boolean;
   onChange: (songId: string | null) => void;
 }) {
-  const [titles, setTitles] = useState<PinnedSongChoice[]>([]);
+  const [choices, setChoices] = useState<PinnedSongChoice[]>([]);
   const [ready, setReady] = useState(false);
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
     let cancelled = false;
-    void loadPinnedSongChoices((offset, limit) =>
-      fetchCollectionsByCreatorPage(accountId, { offset, limit })
-    )
+    void loadPortfolioSongChoices(accountId)
       .then((next) => {
         if (cancelled) return;
-        setTitles(next);
+        setChoices(next);
         setReady(true);
       })
       .catch(() => {
@@ -40,7 +41,17 @@ export function PortfolioCustomizeSong({
     };
   }, [accountId]);
 
-  if (!ready || (titles.length === 0 && !songId)) return null;
+  const visible = useMemo(
+    () => filterPinnedSongChoices(choices, query, songId),
+    [choices, query, songId]
+  );
+  const released = visible.filter((entry) => entry.source === 'released');
+  const collected = visible.filter((entry) => entry.source === 'collected');
+  const showGroups =
+    choices.some((entry) => entry.source === 'released') &&
+    choices.some((entry) => entry.source === 'collected');
+
+  if (!ready || (choices.length === 0 && !songId)) return null;
 
   return (
     <>
@@ -59,26 +70,81 @@ export function PortfolioCustomizeSong({
             </button>
           ) : null}
         </div>
-        {titles.length > 0 ? (
-          <div className="customize-song-list">
-            {titles.map((entry) => {
-              const selected = entry.id === songId;
-              return (
-                <button
-                  key={entry.id}
-                  type="button"
-                  className={`customize-song-row${selected ? ' is-selected' : ''}`}
-                  disabled={disabled}
-                  aria-pressed={selected}
-                  onClick={() => onChange(selected ? null : entry.id)}
-                >
-                  {entry.title}
-                </button>
-              );
-            })}
-          </div>
+        {choices.length > FIND_AFTER ? (
+          <input
+            className="customize-song-find"
+            type="search"
+            value={query}
+            placeholder="Find"
+            aria-label="Find a song"
+            disabled={disabled}
+            onChange={(event) => setQuery(event.target.value)}
+          />
         ) : null}
+        {visible.length > 0 ? (
+          <div className="customize-song-list">
+            <SongGroup
+              label="Released"
+              showLabel={showGroups && released.length > 0}
+              entries={released}
+              songId={songId}
+              disabled={disabled}
+              onChange={onChange}
+            />
+            <SongGroup
+              label="Collected"
+              showLabel={showGroups && collected.length > 0}
+              entries={collected}
+              songId={songId}
+              disabled={disabled}
+              onChange={onChange}
+            />
+          </div>
+        ) : (
+          <p className="customize-song-empty">Nothing matches.</p>
+        )}
       </div>
+    </>
+  );
+}
+
+function SongGroup({
+  label,
+  showLabel,
+  entries,
+  songId,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  showLabel: boolean;
+  entries: readonly PinnedSongChoice[];
+  songId: string | null;
+  disabled: boolean;
+  onChange: (songId: string | null) => void;
+}) {
+  if (entries.length === 0) return null;
+  return (
+    <>
+      {showLabel ? <p className="customize-song-group">{label}</p> : null}
+      {entries.map((entry) => {
+        const selected = entry.id === songId;
+        return (
+          <button
+            key={entry.id}
+            type="button"
+            className={`customize-song-row${selected ? ' is-selected' : ''}`}
+            disabled={disabled}
+            aria-pressed={selected}
+            onClick={() => onChange(selected ? null : entry.id)}
+          >
+            <span className="customize-song-title">{entry.title}</span>
+            {entry.source === 'collected' && entry.creatorId ? (
+              <span className="customize-song-by">{entry.creatorId}</span>
+            ) : null}
+          </button>
+        );
+      })}
     </>
   );
 }
