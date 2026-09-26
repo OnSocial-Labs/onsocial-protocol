@@ -19,7 +19,9 @@ import {
   SettingsIcon,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import {
   appVolumeNearLabel,
@@ -67,9 +69,10 @@ import { HubPublishAccessSheet } from '@/features/scarces/hub-publish-access-she
 import { HubPublishRequestsSheet } from '@/features/scarces/hub-publish-requests-sheet';
 import { HubSettingsSheet } from '@/features/scarces/hub-settings-sheet';
 import {
-  fetchCollectionsByApp,
+  fetchCollectionsByAppPage,
   type CollectionView,
 } from '@/features/scarces/collections-data';
+import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { groupSeriesDrops } from '@/features/scarces/series-catalog';
 import { heldCollectionIdSet } from '@/features/scarces/series-page-view';
 import { SeriesShopRow } from '@/features/scarces/series-shop-row';
@@ -140,6 +143,13 @@ export function AppPagePanel({
   const [drops, setDrops] = useState<CollectionView[]>(
     () => initialDrops ?? []
   );
+  const [dropsHasMore, setDropsHasMore] = useState(
+    (initialDrops?.length ?? 0) >= 48
+  );
+  const [dropsOffset, setDropsOffset] = useState(initialDrops?.length ?? 0);
+  const [dropsLoadingMore, setDropsLoadingMore] = useState(false);
+  const [dropsLoadMoreFailed, setDropsLoadMoreFailed] = useState(false);
+  const dropsSentinelRef = useRef<HTMLDivElement | null>(null);
   const [catalogSettled, setCatalogSettled] = useState(!ssrMiss);
   const [fetchedOwned, setFetchedOwned] = useState<{
     key: string;
@@ -232,10 +242,15 @@ export function AppPagePanel({
 
     async function load(): Promise<CollectionView[]> {
       try {
-        const next = await fetchCollectionsByApp(appId, { limit: 48 });
+        const page = await fetchCollectionsByAppPage(appId, {
+          limit: 48,
+          offset: 0,
+        });
         if (cancelled) return [];
-        setDrops(next);
-        return next;
+        setDrops(page.views);
+        setDropsOffset(page.fetched);
+        setDropsHasMore(page.fetched >= 48);
+        return page.views;
       } catch {
         if (cancelled) return [];
         setDrops([]);
@@ -487,6 +502,37 @@ export function AppPagePanel({
   const showSettingsGear =
     authority && (owner || app?.creatorAccess === 'approval');
 
+  const loadMoreDrops = useCallback(() => {
+    if (!dropsHasMore || dropsLoadingMore) return;
+    const offset = dropsOffset;
+    setDropsLoadingMore(true);
+    setDropsLoadMoreFailed(false);
+    void fetchCollectionsByAppPage(appId, { limit: 48, offset })
+      .then((page) => {
+        setDrops((current) => {
+          const seen = new Set(current.map((drop) => drop.collectionId));
+          const next = page.views.filter((drop) => !seen.has(drop.collectionId));
+          return next.length > 0 ? [...current, ...next] : current;
+        });
+        setDropsOffset(offset + page.fetched);
+        setDropsHasMore(page.fetched >= 48);
+      })
+      .catch(() => {
+        setDropsLoadMoreFailed(true);
+      })
+      .finally(() => {
+        setDropsLoadingMore(false);
+      });
+  }, [appId, dropsHasMore, dropsLoadingMore, dropsOffset]);
+
+  useInfiniteScrollSentinel({
+    scrollRootRef,
+    sentinelRef: dropsSentinelRef,
+    enabled:
+      dropsHasMore && !dropsLoadingMore && !dropsLoadMoreFailed && Boolean(app),
+    onIntersect: loadMoreDrops,
+  });
+
   if (notFound && !app) {
     return (
       <OsAppScreen title="Hub" dockBack backFallbackHref={hubBackHref}>
@@ -735,10 +781,48 @@ export function AppPagePanel({
                 </section>
               ))}
             </div>
+            {dropsLoadingMore ? (
+              <MarketListSkeleton rows={2} variant="drops" />
+            ) : null}
+            {dropsLoadMoreFailed ? (
+              <OsChromeListAlert
+                message="Couldn’t load more."
+                retryLabel="Retry"
+                onRetry={loadMoreDrops}
+              />
+            ) : null}
+            {dropsHasMore && !dropsLoadMoreFailed ? (
+              <div
+                ref={dropsSentinelRef}
+                className="standing-panel-sentinel"
+                aria-hidden
+              />
+            ) : null}
           </>
         ) : null}
 
-        {catalogShell === 'empty' ? (
+        {catalogShell === 'ready' &&
+        storeDrops.length === 0 &&
+        dropsLoadMoreFailed ? (
+          <OsChromeListAlert
+            message="Couldn’t load more."
+            retryLabel="Retry"
+            onRetry={loadMoreDrops}
+          />
+        ) : null}
+
+        {catalogShell === 'ready' &&
+        storeDrops.length === 0 &&
+        dropsHasMore &&
+        !dropsLoadMoreFailed ? (
+          <div
+            ref={dropsSentinelRef}
+            className="standing-panel-sentinel"
+            aria-hidden
+          />
+        ) : null}
+
+        {catalogShell === 'empty' && !dropsHasMore ? (
           <div className="standing-panel-empty-block is-centered">
             <div className="standing-panel-empty-state">
               <p className="standing-panel-empty-primary">

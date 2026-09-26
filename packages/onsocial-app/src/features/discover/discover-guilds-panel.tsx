@@ -98,6 +98,7 @@ export function DiscoverGuildsPanel() {
   const [hasMore, setHasMore] = useState(
     () => (initialGuilds?.length ?? 0) >= BROWSE_LIMIT
   );
+  const [searchHasMore, setSearchHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -186,7 +187,38 @@ export function DiscoverGuildsPanel() {
   }, []);
 
   const loadMore = useCallback(async () => {
-    if (moreLoadingRef.current || !hasMore || searchQuery) return;
+    if (moreLoadingRef.current) return;
+    if (searchQuery) {
+      if (!searchHasMore) return;
+      const offset = searchResults?.length ?? 0;
+      if (offset === 0) return;
+      moreLoadingRef.current = true;
+      setMoreLoading(true);
+      setLoadMoreError(null);
+      try {
+        const client = createReadOnlyOnSocialClient();
+        const { items, nextOffset } = await client.query.groups.browse({
+          query: searchQuery,
+          publicOnly: !accountId,
+          sort: 'members',
+          limit: BROWSE_LIMIT,
+          offset,
+        });
+        const cards = await enrichIndexedGuildSummaryCards(
+          client,
+          items.map((row) => guildSummaryCardFromBrowse(row))
+        );
+        setSearchResults((prev) => mergeGuildCards(prev ?? [], cards));
+        setSearchHasMore(nextOffset != null);
+      } catch (cause) {
+        setLoadMoreError(discoverGuildsLoadMoreError(cause));
+      } finally {
+        moreLoadingRef.current = false;
+        setMoreLoading(false);
+      }
+      return;
+    }
+    if (!hasMore) return;
     const offset = browseGuilds?.length ?? 0;
     if (offset === 0) return;
     moreLoadingRef.current = true;
@@ -217,13 +249,21 @@ export function DiscoverGuildsPanel() {
       moreLoadingRef.current = false;
       setMoreLoading(false);
     }
-  }, [accountId, browseGuilds?.length, hasMore, searchQuery]);
+  }, [
+    accountId,
+    browseGuilds?.length,
+    hasMore,
+    searchHasMore,
+    searchQuery,
+    searchResults?.length,
+  ]);
+
+  const paging = searchQuery ? searchHasMore : hasMore;
 
   useInfiniteScrollSentinel({
     scrollRootRef,
     sentinelRef: loadMoreRef,
-    enabled:
-      !searchQuery && hasMore && !moreLoading && !pending && !loadMoreError,
+    enabled: paging && !moreLoading && !pending && !searchPending && !loadMoreError,
     onIntersect: loadMore,
   });
 
@@ -232,6 +272,7 @@ export function DiscoverGuildsPanel() {
       queueMicrotask(() => {
         setSearchError(null);
         setSearchResults(null);
+        setSearchHasMore(false);
         setSearchPending(false);
       });
       return;
@@ -247,7 +288,7 @@ export function DiscoverGuildsPanel() {
       void (async () => {
         try {
           const client = createReadOnlyOnSocialClient();
-          const { items } = await client.query.groups.browse({
+          const { items, nextOffset } = await client.query.groups.browse({
             query: searchQuery,
             publicOnly: !accountId,
             sort: 'members',
@@ -256,6 +297,7 @@ export function DiscoverGuildsPanel() {
           if (searchRequestRef.current !== requestId) return;
           const cards = items.map((row) => guildSummaryCardFromBrowse(row));
           setSearchResults(await enrichIndexedGuildSummaryCards(client, cards));
+          setSearchHasMore(nextOffset != null);
           setSearchPending(false);
           setSearchError(null);
         } catch (cause) {
@@ -412,12 +454,12 @@ export function DiscoverGuildsPanel() {
         </div>
       ) : null}
 
-      {!searchQuery && loadMoreError ? (
+      {loadMoreError ? (
         <OsChromeListAlert
           message={loadMoreError}
           onRetry={() => void loadMore()}
         />
-      ) : !searchQuery && (hasMore || moreLoading) ? (
+      ) : paging || moreLoading ? (
         <div className="dao-discover-load-more">
           <div
             ref={loadMoreRef}

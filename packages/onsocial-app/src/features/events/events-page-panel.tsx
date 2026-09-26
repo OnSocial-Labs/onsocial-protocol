@@ -16,8 +16,10 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { ActionDrawer } from '@/components/ui/action-drawer';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
   fetchDropsPage,
@@ -167,16 +169,26 @@ function EventRow({
   );
 }
 
-export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
+export function EventsPagePanel({
+  initialNowMs,
+  initialQuery = '',
+}: {
+  initialNowMs: number;
+  /** URL `q` — grouped search hands the same words here. */
+  initialQuery?: string;
+}) {
   const { accountId, isConnected } = useAppWallet();
+  const scrollRootRef = useRef<HTMLElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [items, setItems] = useState<DropDiscoveryItem[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [nowMs, setNowMs] = useState(initialNowMs);
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [scope, setScope] = useState<'all' | 'mine'>('all');
   const [styleId, setStyleId] = useState<string | null>(null);
   const [placeId, setPlaceId] = useState<string | null>(null);
@@ -193,6 +205,7 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
     error: boolean;
   } | null>(null);
   const reloadGenRef = useRef(0);
+  const loadingMoreRef = useRef(false);
 
   const scan = useMemo<EventScan>(
     () => ({
@@ -219,10 +232,14 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
   const load = useCallback(
     async (offset: number, replace: boolean) => {
       const gen = replace ? ++reloadGenRef.current : reloadGenRef.current;
-      setFailed(false);
       if (replace) {
+        setFailed(false);
+        setLoadMoreFailed(false);
         setItems([]);
         setHasMore(false);
+        setLoading(true);
+      } else {
+        setLoadMoreFailed(false);
         setLoading(true);
       }
       if (scope === 'mine' && !accountId) {
@@ -262,7 +279,8 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
         setNowMs(Date.now());
       } catch {
         if (gen !== reloadGenRef.current) return;
-        setFailed(true);
+        if (replace) setFailed(true);
+        else setLoadMoreFailed(true);
       } finally {
         if (gen === reloadGenRef.current) setLoading(false);
       }
@@ -281,6 +299,14 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
   useEffect(() => {
     void load(0, true);
   }, [load, reloadKey]);
+
+  const loadNext = useCallback(() => {
+    if (loadingMoreRef.current || loading) return;
+    loadingMoreRef.current = true;
+    void load(nextOffset, false).finally(() => {
+      loadingMoreRef.current = false;
+    });
+  }, [load, loading, nextOffset]);
 
   const places = useMemo(() => eventPlaceChoices(seen), [seen]);
   const grouped = groupEvents(items, nowMs);
@@ -348,6 +374,15 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
     .join(' · ');
   const empty = !loading && !failed && items.length === 0;
   const needsConnect = scope === 'mine' && !isConnected;
+  const showAppendSkeleton = loading && items.length > 0 && !failed;
+
+  useInfiniteScrollSentinel({
+    scrollRootRef,
+    sentinelRef: loadMoreRef,
+    enabled:
+      hasMore && !loading && !failed && !loadMoreFailed && !needsConnect,
+    onIntersect: loadNext,
+  });
 
   return (
     <OsAppScreen
@@ -358,6 +393,7 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
       dockBack
       leading={null}
       backFallbackHref={APP_HOME_PATH}
+      scrollRootRef={scrollRootRef}
       heading={
         <OsAppChromeNavSearch
           value={query}
@@ -477,15 +513,22 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
               );
             })
           )}
-          {hasMore ? (
-            <button
-              type="button"
-              className="os-surface-chip"
-              disabled={loading}
-              onClick={() => void load(nextOffset, false)}
-            >
-              More
-            </button>
+          {showAppendSkeleton ? (
+            <MarketListSkeleton rows={2} variant="drops" />
+          ) : null}
+          {loadMoreFailed ? (
+            <OsChromeListAlert
+              message="Couldn’t load more."
+              retryLabel="Retry"
+              onRetry={loadNext}
+            />
+          ) : null}
+          {hasMore && !loadMoreFailed ? (
+            <div
+              ref={loadMoreRef}
+              className="standing-panel-sentinel"
+              aria-hidden
+            />
           ) : null}
         </div>
       </div>
