@@ -3,6 +3,9 @@
  *
  * Pair with {@link OsChromeSubject}. Host sets band height — e.g. app
  * `.os-app-screen-heading .os-chrome-subject` uses `--os-app-screen-nav-row-height`.
+ *
+ * Hover uses the shared account tokens from os-surface-interactive.css.
+ * Same lift as an article author: name and @id brighten, nothing underlines.
  */
 
 .os-chrome-subject {
@@ -14,11 +17,29 @@
   text-decoration: none;
 }
 
+a.os-chrome-subject:hover,
+a.os-chrome-subject:focus-visible,
+a.os-chrome-subject:hover .os-chrome-subject__name,
+a.os-chrome-subject:hover .os-chrome-subject__handle,
+a.os-chrome-subject:focus-visible .os-chrome-subject__name,
+a.os-chrome-subject:focus-visible .os-chrome-subject__handle {
+  text-decoration: none;
+}
+
+a.os-chrome-subject:focus-visible {
+  outline: 1px solid var(--os-surface-ring);
+  outline-offset: 3px;
+  border-radius: 0.65rem;
+}
+
 a.os-chrome-subject:hover .os-chrome-subject__name,
 a.os-chrome-subject:focus-visible .os-chrome-subject__name {
-  text-decoration: underline;
-  text-underline-offset: 0.12em;
-  outline: none;
+  color: var(--os-identity-name-hover);
+}
+
+a.os-chrome-subject:hover .os-chrome-subject__handle,
+a.os-chrome-subject:focus-visible .os-chrome-subject__handle {
+  color: var(--os-identity-handle-hover);
 }
 
 .os-chrome-subject__avatar {
@@ -40,8 +61,10 @@ a.os-chrome-subject:focus-visible .os-chrome-subject__name {
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.2;
+  color: var(--os-identity-name);
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color 160ms ease;
 }
 
 .os-chrome-subject__handle {
@@ -51,7 +74,8 @@ a.os-chrome-subject:focus-visible .os-chrome-subject__name {
   font-weight: 400;
   letter-spacing: 0.02em;
   line-height: 1.25;
-  color: rgb(var(--fg-rgb) / 0.42);
+  color: var(--os-identity-handle);
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color 160ms ease;
 }

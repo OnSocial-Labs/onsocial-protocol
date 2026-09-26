@@ -240,6 +240,33 @@ test.describe('authenticated messages loading', () => {
       '@bob.testnet'
     );
     await expect(identity.locator('.os-chrome-subject__avatar')).toBeVisible();
+    const name = identity.locator('.os-chrome-subject__name');
+    const handle = identity.locator('.os-chrome-subject__handle');
+    const ink = await page.evaluate(() => {
+      const probe = document.createElement('span');
+      document.body.appendChild(probe);
+      const read = (token: string) => {
+        probe.style.color = `var(${token})`;
+        return getComputedStyle(probe).color;
+      };
+      const colors = {
+        name: read('--os-identity-name'),
+        nameHover: read('--os-identity-name-hover'),
+        handle: read('--os-identity-handle'),
+        handleHover: read('--os-identity-handle-hover'),
+      };
+      probe.remove();
+      return colors;
+    });
+    await expect(name).toHaveCSS('color', ink.name);
+    await expect(handle).toHaveCSS('color', ink.handle);
+    await expect(name).toHaveCSS('text-decoration-line', 'none');
+    await expect(handle).toHaveCSS('text-decoration-line', 'none');
+    await identity.hover();
+    await expect(name).toHaveCSS('color', ink.nameHover);
+    await expect(handle).toHaveCSS('color', ink.handleHover);
+    await expect(name).toHaveCSS('text-decoration-line', 'none');
+    await expect(handle).toHaveCSS('text-decoration-line', 'none');
     await expect(
       page.locator('.os-app-screen[data-glass-chrome="true"]')
     ).toHaveCount(1);
