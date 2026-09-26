@@ -18,7 +18,6 @@ describe('os load more', () => {
   it('wires catalog and feed load-more to OsLoadMore', () => {
     const wiring = [
       'features/market/market-page-panel.tsx',
-      'features/drops/drops-page-panel.tsx',
       'features/collectibles/collectibles-page-panel.tsx',
       'components/portfolio/page-drawer-store.tsx',
       'features/protocol/dao-workspace-panel.tsx',
@@ -29,6 +28,19 @@ describe('os load more', () => {
     ] as const;
     for (const file of wiring) {
       expect(readFileSync(join(appSrc, file), 'utf8')).toContain('OsLoadMore');
+    }
+  });
+
+  it('pages events and drops by scroll, without a Show more button', () => {
+    for (const file of [
+      'features/events/events-page-panel.tsx',
+      'features/drops/drops-page-panel.tsx',
+    ]) {
+      const source = readFileSync(join(appSrc, file), 'utf8');
+      expect(source).toContain('useInfiniteScrollSentinel');
+      expect(source).not.toContain('OsLoadMore');
+      expect(source).not.toContain('>More<');
+      expect(source).not.toContain('Show more');
     }
   });
 
