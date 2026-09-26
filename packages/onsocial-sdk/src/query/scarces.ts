@@ -1619,7 +1619,11 @@ export class ScarcesQuery {
     const collectionId = opts.collectionId?.trim() ?? '';
     const params = ['$ownerId: String!', '$limit: Int!', '$offset: Int!'];
     const where = ['ownerId: {_eq: $ownerId}', 'burned: {_eq: false}'];
-    const variables: Record<string, unknown> = { ownerId: owner, limit, offset };
+    const variables: Record<string, unknown> = {
+      ownerId: owner,
+      limit,
+      offset,
+    };
     if (collectionId) {
       params.push('$collectionId: String!');
       where.push('collectionId: {_eq: $collectionId}');
