@@ -20,6 +20,11 @@ import {
   resolvePlayableSrc,
   trackCidFromPlayable,
 } from '@/lib/collectibles-offline';
+import {
+  beginPlaybackLoad,
+  playbackLoadIsCurrent,
+  shouldApplyPlaybackSrc,
+} from '@/lib/playback-load';
 import { isRenderablePostAudioMime } from '@/lib/post-media';
 
 export interface CollectiblesNowPlayingSession {
@@ -39,6 +44,8 @@ interface CollectiblesNowPlayingContextValue {
   getAudio: () => HTMLAudioElement;
   /** Register / refresh album session (does not autoplay). */
   ensureSession: (session: CollectiblesNowPlayingSession) => void;
+  /** Replace the dock with this release and start track 1. One source load. */
+  playSession: (session: CollectiblesNowPlayingSession) => void;
   setTrack: (index: number, autoplay?: boolean) => void;
   toggle: () => Promise<void>;
   pause: () => void;
@@ -59,6 +66,7 @@ export function CollectiblesNowPlayingProvider({
   children: ReactNode;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const loadGenRef = useRef(0);
   const sessionRef = useRef<CollectiblesNowPlayingSession | null>(null);
   const activeIndexRef = useRef(0);
   const blobUrlsRef = useRef<Map<string, string>>(new Map());
@@ -87,6 +95,17 @@ export function CollectiblesNowPlayingProvider({
     }
     return src;
   }, []);
+
+  const issueLoad = useCallback(() => {
+    const step = beginPlaybackLoad(loadGenRef.current);
+    loadGenRef.current = step.next;
+    return step.issued;
+  }, []);
+
+  const loadIsCurrent = useCallback(
+    (issued: number) => playbackLoadIsCurrent(issued, loadGenRef.current),
+    []
+  );
 
   const getAudio = useCallback(() => {
     if (!audioRef.current) {
@@ -136,8 +155,9 @@ export function CollectiblesNowPlayingProvider({
           if (sessionRef.current !== current) return;
           activeIndexRef.current = next;
           setActiveIndex(next);
+          const issued = issueLoad();
           const src = await resolveSrc(track);
-          if (sessionRef.current !== current) return;
+          if (!loadIsCurrent(issued) || sessionRef.current !== current) return;
           if (activeIndexRef.current !== next) return;
           audio.src = src;
           audio.load();
@@ -160,7 +180,7 @@ export function CollectiblesNowPlayingProvider({
       audio.removeEventListener('pause', onPause);
       audio.removeEventListener('ended', onEnded);
     };
-  }, [armAudible, getAudio, resolveSrc]);
+  }, [armAudible, getAudio, issueLoad, loadIsCurrent, resolveSrc]);
 
   const ensureSession = useCallback(
     (next: CollectiblesNowPlayingSession) => {
@@ -217,14 +237,50 @@ export function CollectiblesNowPlayingProvider({
       setActiveIndex(0);
       const first = next.tracks[0];
       if (first && isRenderablePostAudioMime(first.mime)) {
+        const issued = issueLoad();
         void resolveSrc(first).then((src) => {
-          if (sessionRef.current !== live) return;
+          if (!loadIsCurrent(issued) || sessionRef.current !== live) return;
           audio.src = src;
           audio.load();
         });
       }
     },
-    [getAudio, resolveSrc]
+    [getAudio, issueLoad, loadIsCurrent, resolveSrc]
+  );
+
+  const playSession = useCallback(
+    (next: CollectiblesNowPlayingSession) => {
+      const audio = getAudio();
+      const live = { ...next, localOnly: false };
+      const switching = sessionRef.current?.collectionId !== live.collectionId;
+      sessionRef.current = live;
+      setSession(live);
+      activeIndexRef.current = 0;
+      setActiveIndex(0);
+      persistNowPlayingSession({ ...live, activeIndex: 0 });
+      const track = live.tracks[0];
+      if (!track || !isRenderablePostAudioMime(track.mime)) return;
+      if (switching && !audio.paused) audio.pause();
+      const issued = issueLoad();
+      void (async () => {
+        const src = await resolveSrc(track);
+        if (!loadIsCurrent(issued) || sessionRef.current !== live) return;
+        if (
+          shouldApplyPlaybackSrc({
+            mode: 'replace',
+            indexChanged: true,
+            hasSrc: Boolean(audio.src),
+          })
+        ) {
+          audio.src = src;
+          audio.load();
+        }
+        setEngaged(true);
+        armAudible(audio);
+        await audio.play().catch(() => setPlaying(false));
+      })();
+    },
+    [armAudible, getAudio, issueLoad, loadIsCurrent, resolveSrc]
   );
 
   const setTrack = useCallback(
@@ -240,10 +296,20 @@ export function CollectiblesNowPlayingProvider({
         setActiveIndex(index);
       }
       persistNowPlayingSession({ ...current, activeIndex: index });
+      const issued = issueLoad();
       const apply = async () => {
-        if (indexChanged || !audio.src) {
-          audio.src = await resolveSrc(track);
+        const replace = shouldApplyPlaybackSrc({
+          mode: 'if-needed',
+          indexChanged,
+          hasSrc: Boolean(audio.src),
+        });
+        if (replace) {
+          const src = await resolveSrc(track);
+          if (!loadIsCurrent(issued) || sessionRef.current !== current) return;
+          audio.src = src;
           audio.load();
+        } else if (!loadIsCurrent(issued)) {
+          return;
         }
         if (autoplay) {
           setEngaged(true);
@@ -253,7 +319,7 @@ export function CollectiblesNowPlayingProvider({
       };
       void apply();
     },
-    [armAudible, getAudio, resolveSrc]
+    [armAudible, getAudio, issueLoad, loadIsCurrent, resolveSrc]
   );
 
   const toggle = useCallback(async () => {
@@ -267,7 +333,10 @@ export function CollectiblesNowPlayingProvider({
     if (!audio.src) {
       const track = current.tracks[activeIndexRef.current] ?? current.tracks[0];
       if (!track) return;
-      audio.src = await resolveSrc(track);
+      const issued = issueLoad();
+      const src = await resolveSrc(track);
+      if (!loadIsCurrent(issued) || sessionRef.current !== current) return;
+      audio.src = src;
       audio.load();
     }
     try {
@@ -277,7 +346,7 @@ export function CollectiblesNowPlayingProvider({
     } catch {
       setPlaying(false);
     }
-  }, [armAudible, getAudio, resolveSrc]);
+  }, [armAudible, getAudio, issueLoad, loadIsCurrent, resolveSrc]);
 
   const pause = useCallback(() => {
     getAudio().pause();
@@ -339,8 +408,9 @@ export function CollectiblesNowPlayingProvider({
       const restored = { ...saved, localOnly: true };
       // Mark localOnly before resolve so OPFS blobs are eligible offline-first.
       sessionRef.current = restored;
+      const issued = issueLoad();
       const src = await resolveSrc(track);
-      if (cancelled) return;
+      if (cancelled || !loadIsCurrent(issued)) return;
       activeIndexRef.current = index;
       setSession(restored);
       setActiveIndex(index);
@@ -352,7 +422,7 @@ export function CollectiblesNowPlayingProvider({
     return () => {
       cancelled = true;
     };
-  }, [armAudible, getAudio, resolveSrc]);
+  }, [armAudible, getAudio, issueLoad, loadIsCurrent, resolveSrc]);
 
   const value = useMemo(
     () => ({
@@ -362,6 +432,7 @@ export function CollectiblesNowPlayingProvider({
       engaged,
       getAudio,
       ensureSession,
+      playSession,
       setTrack,
       toggle,
       pause,
@@ -375,6 +446,7 @@ export function CollectiblesNowPlayingProvider({
       engaged,
       getAudio,
       ensureSession,
+      playSession,
       setTrack,
       toggle,
       pause,

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  normalizePinnedSongId,
   readPageHeroSourceExplicit,
+  readPinnedSongId,
   resolvePageFace,
   resolvePageHeroSource,
+  sanitizePageFace,
 } from './page-face';
 
 describe('readPageHeroSourceExplicit', () => {
@@ -15,6 +18,20 @@ describe('readPageHeroSourceExplicit', () => {
     expect(
       readPageHeroSourceExplicit({ face: { heroSource: 'none' } })
     ).toBe('none');
+  });
+});
+
+describe('readPinnedSongId', () => {
+  it('reads a collection id and drops anything else', () => {
+    expect(readPinnedSongId({ face: { songId: 'midnight-ep' } })).toBe(
+      'midnight-ep'
+    );
+    expect(readPinnedSongId({})).toBeNull();
+    expect(normalizePinnedSongId('  bad id  ')).toBeNull();
+    expect(sanitizePageFace({ songId: 'midnight-ep', heroSource: 'banner' })).toEqual(
+      { songId: 'midnight-ep', heroSource: 'banner' }
+    );
+    expect(sanitizePageFace({ songId: '' })).toEqual({});
   });
 });
 

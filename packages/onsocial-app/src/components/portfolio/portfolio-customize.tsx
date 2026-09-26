@@ -37,6 +37,8 @@ import type {
 import { SHEET_Z } from '@/lib/sheet-z';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { useApplyPageFace } from '@/hooks/use-apply-page-face';
+import { PortfolioCustomizeSong } from '@/components/portfolio/portfolio-customize-song';
+import { readPinnedSongId } from '@/lib/page-face';
 import { useApplyPageMoodTint } from '@/hooks/use-apply-page-mood-tint';
 import { useApplyProfileMedia } from '@/hooks/use-apply-profile-media';
 import { useDaoPageCapability } from '@/hooks/use-dao-page-capability';
@@ -98,6 +100,7 @@ export function PortfolioCustomize({
     isOwner: isAccountOwner,
     needsConnect,
     walletAccountId,
+    applyPinnedSong,
   } = useApplyPageFace(pageAccountId, config);
   const { canPropose } = useDaoPageCapability(pageAccountId, isDao);
   const canEditMood = isAccountOwner || canPropose;
@@ -462,6 +465,18 @@ export function PortfolioCustomize({
             </div>
           )}
         </div>
+
+        {canCustomizeFace ? (
+          <PortfolioCustomizeSong
+            key={pageAccountId}
+            accountId={pageAccountId}
+            songId={readPinnedSongId(config)}
+            disabled={controlsDisabled}
+            onChange={(next) => {
+              void applyPinnedSong(next);
+            }}
+          />
+        ) : null}
 
         <Divider variant="section" className="customize-sheet-divider" />
         <div className="customize-sheet-section">

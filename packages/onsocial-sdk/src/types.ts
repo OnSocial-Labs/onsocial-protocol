@@ -1000,6 +1000,8 @@ export interface PageFaceConfig {
   avatarMode?: 'standard' | 'cover';
   /** Profile field for the top hero. Defaults from `avatarMode` when unset. */
   heroSource?: PageHeroSource;
+  /** One audio drop pinned to the portfolio hero. */
+  songId?: string;
 }
 
 /** Page configuration stored at `{account}/page/main`. */

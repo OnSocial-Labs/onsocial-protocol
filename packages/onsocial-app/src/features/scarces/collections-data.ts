@@ -989,11 +989,32 @@ async function hydrateWritingFromSourcePost(
 /** Collections created by an account, newest first. */
 export async function fetchCollectionsByCreator(
   creatorId: string,
-  opts: { limit?: number; client?: import('@onsocial/sdk').OnSocial } = {}
+  opts: {
+    limit?: number;
+    offset?: number;
+    client?: import('@onsocial/sdk').OnSocial;
+  } = {}
 ): Promise<CollectionView[]> {
+  const page = await fetchCollectionsByCreatorPage(creatorId, opts);
+  return page.views;
+}
+
+/**
+ * One catalog page. `fetched` is the raw row count so a full page of
+ * non-audio drops still advances the next offset.
+ */
+export async function fetchCollectionsByCreatorPage(
+  creatorId: string,
+  opts: {
+    limit?: number;
+    offset?: number;
+    client?: import('@onsocial/sdk').OnSocial;
+  } = {}
+): Promise<{ views: CollectionView[]; fetched: number }> {
   const creator = creatorId.trim();
-  if (!creator) return [];
+  if (!creator) return { views: [], fetched: 0 };
   const limit = opts.limit ?? 24;
+  const offset = Math.max(0, Math.floor(opts.offset ?? 0));
 
   try {
     const client =
@@ -1004,6 +1025,7 @@ export async function fetchCollectionsByCreator(
     const catalog = await client.query.scarces.collectionsCurrent({
       creatorId: creator,
       limit,
+      offset,
       includeUnavailable: true,
     });
     if (catalog.length > 0) {
@@ -1011,25 +1033,32 @@ export async function fetchCollectionsByCreator(
         .map((row) => collectionCurrentRowToView(row))
         .filter((view): view is CollectionView => view != null)
         .sort((a, b) => b.createdAtMs - a.createdAtMs);
-      if (views.length > 0) return views;
+      if (views.length > 0 || offset > 0) {
+        return { views, fetched: catalog.length };
+      }
+    } else if (offset > 0) {
+      return { views: [], fetched: 0 };
     }
   } catch {
-    // Fall through to contract scan.
+    if (offset > 0) return { views: [], fetched: 0 };
   }
 
   try {
     const records = await viewNearContract<LazyCollectionRecord[]>(
       SCARCES_CONTRACT,
       'get_collections_by_creator',
-      { creator_id: creator, from_index: 0, limit: limit }
+      { creator_id: creator, from_index: offset, limit }
     );
-    if (!Array.isArray(records)) return [];
-    return records
-      .map(toCollectionView)
-      .filter((view): view is CollectionView => view != null)
-      .sort((a, b) => b.createdAtMs - a.createdAtMs);
+    if (!Array.isArray(records)) return { views: [], fetched: 0 };
+    return {
+      views: records
+        .map(toCollectionView)
+        .filter((view): view is CollectionView => view != null)
+        .sort((a, b) => b.createdAtMs - a.createdAtMs),
+      fetched: records.length,
+    };
   } catch {
-    return [];
+    return { views: [], fetched: 0 };
   }
 }
 

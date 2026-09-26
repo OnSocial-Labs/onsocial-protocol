@@ -41,6 +41,8 @@ export interface ResolvedPageHero {
 export interface PublicPageFace {
   avatarMode?: PageAvatarMode;
   heroSource?: PageHeroSource;
+  /** One audio drop pinned to the portfolio hero. */
+  songId?: string;
 }
 
 export interface PublicPageConfig {

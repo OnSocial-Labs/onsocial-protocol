@@ -8782,6 +8782,60 @@ a.os-surface-row {
     border-radius: 0.2rem;
   }
 
+  /*
+   * Same line as About · Writing. Glyph only — the name does not move,
+   * and cover vs banner use this one place.
+   * The hit box is wide enough to fill the middots; its height matches
+   * the words so it does not cover the bio or the gestures.
+   */
+  .portfolio-song-mark {
+    display: inline-grid;
+    width: 2.75rem;
+    height: 1.05rem;
+    margin-inline: calc((1.05rem - 2.75rem) / 2);
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.62);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .portfolio-song-mark-icon {
+    width: 0.72rem;
+    height: 0.72rem;
+    display: block;
+  }
+
+  .portfolio-song-mark-icon--play {
+    transform: translateX(0.04rem);
+  }
+
+  .portfolio-song-mark:hover,
+  .portfolio-song-mark:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+    outline: none;
+  }
+
+  .portfolio-song-mark:focus-visible {
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+    border-radius: 999px;
+  }
+
+  .portfolio-song-mark:active {
+    transform: scale(0.96);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .portfolio-song-mark:active {
+      transform: none;
+    }
+  }
+
   .portfolio-about {
     /* Match OS screen body pad (--os-screen-body-pad-x: 1rem). */
     --portfolio-about-inset: max(
@@ -11863,6 +11917,103 @@ a.os-surface-row {
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.38);
+  }
+
+  .customize-song-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .customize-song-clear {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    font-size: 0.78rem;
+    color: rgb(var(--fg-rgb) / 0.62);
+    cursor: pointer;
+  }
+
+  .customize-song-clear:hover,
+  .customize-song-clear:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.92);
+    outline: none;
+  }
+
+  .customize-song-clear:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .customize-song-find {
+    width: 100%;
+    margin: 0;
+    padding: 0.55rem 0.75rem;
+    border: 0;
+    border-radius: 0.75rem;
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: inherit;
+    font: inherit;
+    font-size: 0.9rem;
+  }
+
+  .customize-song-find::placeholder {
+    color: rgb(var(--fg-rgb) / 0.38);
+  }
+
+  .customize-song-find:focus-visible {
+    outline: none;
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+  }
+
+  .customize-song-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-height: 16rem;
+    overflow: auto;
+  }
+
+  .customize-song-group {
+    margin: 0.35rem 0 0;
+    font-size: 0.6rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.38);
+  }
+
+  .customize-song-empty {
+    margin: 0;
+    font-size: 0.78rem;
+    color: rgb(var(--fg-rgb) / 0.46);
+  }
+
+  .customize-song-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border: 0;
+    border-radius: 0.75rem;
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: inherit;
+    text-align: left;
+  }
+
+  .customize-song-by {
+    font-size: 0.72rem;
+    color: rgb(var(--fg-rgb) / 0.46);
+  }
+
+  .customize-song-row.is-selected {
+    background: rgb(var(--fg-rgb) / 0.14);
   }
 
   .customize-hue-control {
@@ -24103,7 +24254,8 @@ a.os-surface-row {
     pointer-events: none;
   }
 
-  .drop-art-overlay-stack:has(.drop-art-overlay-footer) .drop-art-overlay-footer {
+  .drop-art-overlay-stack:has(.drop-art-overlay-footer)
+    .drop-art-overlay-footer {
     width: min(100cqi, calc(100cqb - 4.2rem));
   }
 
@@ -35301,11 +35453,11 @@ a.os-surface-row {
     font-weight: 650;
   }
 
-.drop-create-form .drop-create-deal-line .suffix-field-input:focus,
-.drop-create-form .drop-create-deal-line .os-amount-field-input:focus {
-  outline: none !important;
-  box-shadow: none !important;
-}
+  .drop-create-form .drop-create-deal-line .suffix-field-input:focus,
+  .drop-create-form .drop-create-deal-line .os-amount-field-input:focus {
+    outline: none !important;
+    box-shadow: none !important;
+  }
 
   .drop-create-form .drop-create-deal-line .suffix-field-unit,
   .drop-create-form .drop-create-deal-line .os-amount-field-unit,

@@ -104,10 +104,17 @@ export function useApplyPageFace(
     [applyFacePatch]
   );
 
+  const applyPinnedSong = useCallback(
+    async (songId: string | null): Promise<string | null> =>
+      applyFacePatch({ songId: songId ?? '' }),
+    [applyFacePatch]
+  );
+
   return {
     applyAvatarMode,
     applyFacePatch,
     applyHeroSource,
+    applyPinnedSong,
     connect,
     error,
     isApplying: isApplying || isBootstrappingSession,
