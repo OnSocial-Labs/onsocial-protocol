@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
-import { DropRowFans } from '@/components/drops/drop-row-fans';
+import { DropFansButton } from '@/components/drops/drop-row-fans';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { DropsDiscoveryRowMenu } from '@/features/drops/drops-discovery-row-menu';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
@@ -36,7 +36,9 @@ function dropRowDealBits(drop: ProfileStoreDrop): string[] {
     (drop.status === 'live' || drop.status === 'upcoming') &&
     drop.remaining > 0
   ) {
-    return [price, `${drop.remaining} left`, format].filter(Boolean) as string[];
+    return [price, `${drop.remaining} left`, format].filter(
+      Boolean
+    ) as string[];
   }
   if (drop.totalSupply > 0) {
     return [
@@ -80,7 +82,8 @@ export function PortfolioDropRow({
   const href = collectionPath(drop.collectionId);
   const showMint = onMint != null && isDropMintable(drop);
   const dealBits = dropRowDealBits(drop);
-  const fanCount = drop.fanCount;
+  const fanCount =
+    drop.fanCount != null && drop.fanCount > 0 ? drop.fanCount : null;
   const droppedLabel =
     drop.createdAtMs != null && drop.createdAtMs > 0
       ? formatMarketRelativeTime(drop.createdAtMs)
@@ -113,11 +116,7 @@ export function PortfolioDropRow({
       </Link>
       <div className="market-listing-copy drops-discovery-copy">
         <div className="market-listing-head drops-discovery-head">
-          <Link
-            href={href}
-            scroll={false}
-            className="market-listing-title"
-          >
+          <Link href={href} scroll={false} className="market-listing-title">
             {drop.title}
           </Link>
         </div>
@@ -127,25 +126,15 @@ export function PortfolioDropRow({
           avatarUrl={avatarUrl}
         />
         {dealBits.length > 0 || fanCount != null ? (
-          <Link
-            href={href}
-            scroll={false}
-            className="drops-discovery-deal"
-            aria-label={[
-              ...dealBits,
-              fanCount != null
-                ? fanCount === 1
-                  ? '1 fan'
-                  : `${fanCount} fans`
-                : null,
-            ]
-              .filter(Boolean)
-              .join(', ')}
-          >
+          <div className="drops-discovery-deal">
             {dealBits.length > 0 ? (
-              <span className="drops-discovery-deal-bits">
+              <Link
+                href={href}
+                scroll={false}
+                className="drops-discovery-deal-bits"
+              >
                 {dealBits.join(' · ')}
-              </span>
+              </Link>
             ) : null}
             {fanCount != null ? (
               <>
@@ -154,10 +143,16 @@ export function PortfolioDropRow({
                     {' · '}
                   </span>
                 ) : null}
-                <DropRowFans fanIds={drop.fanIds} fanCount={fanCount} />
+                <DropFansButton
+                  creatorId={pageAccountId}
+                  collectionId={drop.collectionId}
+                  title={drop.title}
+                  fanIds={drop.fanIds}
+                  fanCount={fanCount}
+                />
               </>
             ) : null}
-          </Link>
+          </div>
         ) : null}
       </div>
       <div className="market-listing-action-col drops-discovery-action-col">
