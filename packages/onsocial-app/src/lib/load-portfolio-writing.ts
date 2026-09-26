@@ -17,6 +17,7 @@ import type { ResolvedMood } from '@/lib/moods/types';
 import type { PublicPageConfig } from '@/lib/page-data';
 import { displayName } from '@/lib/profile-display';
 import { loadProfileShell } from '@/lib/profile-shell';
+import { moreWritingByAuthor } from '@/lib/more-writing-by-author';
 import { resolveAccountId } from '@/lib/resolve-account';
 
 export const WRITING_SHELF_FETCH_LIMIT = 48;
@@ -172,7 +173,7 @@ export async function loadPortfolioWritingArticlePage(
     Promise.resolve({ accountId: resolved.accountId })
   );
   const postId = decodeURIComponent(resolved.postId ?? '').trim();
-  const [chrome, post] = await Promise.all([
+  const [chrome, post, feed] = await Promise.all([
     loadPortfolioWritingChrome(accountId),
     (async () => {
       if (!postId) return null;
@@ -183,27 +184,44 @@ export async function loadPortfolioWritingArticlePage(
         return null;
       }
     })(),
+    fetchAccountArticles(accountId),
   ]);
 
+  const articles = feed.articles;
   const article = post && isArticlePost(post) ? post : null;
-  if (!article) {
-    return {
-      ...(await loadPortfolioWritingForAccount(accountId)),
-      post: null,
-    };
-  }
+  const toHydrate = article
+    ? [
+        article,
+        ...moreWritingByAuthor(articles, {
+          accountId: article.accountId,
+          postId: article.postId,
+        }).items,
+      ]
+    : articles;
 
   let coverHints: Record<string, WritingArticleCoverHint> = {};
   try {
     const os = createServerOnSocialClient();
-    coverHints = await hydrateWritingArticleCovers([article], os);
+    coverHints = await hydrateWritingArticleCovers(toHydrate, os);
   } catch {
     coverHints = {};
   }
 
+  if (!article) {
+    return {
+      ...chrome,
+      articles,
+      coverHints,
+      articleNextOffset: feed.nextOffset,
+      post: null,
+    };
+  }
+
   return {
     ...chrome,
+    articles,
     coverHints,
+    articleNextOffset: feed.nextOffset,
     post: article,
   };
 }

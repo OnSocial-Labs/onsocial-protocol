@@ -44,8 +44,8 @@ export interface ArticleSnapshot {
   align: ArticleAlign;
   collectionId?: string;
   /**
-   * Text-card cover pinned at publish. A still photo on the post always
-   * wins; this is the card face when there is none. Never drifts later.
+   * Mood cover pinned at publish. A photo you selected is the face instead.
+   * This card shows only when there is no photo.
    */
   cover?: ArticleCoverPin;
 }
@@ -329,7 +329,7 @@ export type ResolvedArticleCover = {
 };
 
 /**
- * The one cover rule: post still → pinned payload craft → legacy minted
+ * The one cover rule: selected photo → pinned mood cover → legacy minted
  * scarce hints → default card. Every surface (shelf, article, mint)
  * resolves through here so a piece keeps one face everywhere.
  */

@@ -126,6 +126,51 @@ async function pageAccountIds(
   return uniqueAccountIds(ids);
 }
 
+const HELD_PAGE_SIZE = 80;
+const HELD_MAX_PAGES = 5;
+
+/** Collections whose pass the account still holds. Sold or burned passes are absent. */
+export async function loadHeldCollectionIds(
+  accountId: string
+): Promise<Set<string>> {
+  const ownerId = accountId.trim();
+  const ids = new Set<string>();
+  if (!ownerId) return ids;
+  const client = createReadOnlyOnSocialClient();
+  for (let page = 0; page < HELD_MAX_PAGES; page += 1) {
+    const res = await client.query.graphql<{
+      scarcesTokenOwners: Array<{ collectionId?: string | null }>;
+    }>({
+      query: `
+        query HeldCollections($ownerId: String!, $limit: Int!, $offset: Int!) {
+          scarcesTokenOwners(
+            where: {
+              ownerId: { _eq: $ownerId }
+              burned: { _eq: false }
+            }
+            limit: $limit
+            offset: $offset
+          ) {
+            collectionId
+          }
+        }
+      `,
+      variables: {
+        ownerId,
+        limit: HELD_PAGE_SIZE,
+        offset: page * HELD_PAGE_SIZE,
+      },
+    });
+    const rows = res.data?.scarcesTokenOwners ?? [];
+    for (const row of rows) {
+      const id = row.collectionId?.trim();
+      if (id) ids.add(id);
+    }
+    if (rows.length < HELD_PAGE_SIZE) break;
+  }
+  return ids;
+}
+
 /** People who still hold a pass. */
 export async function loadEventHolderIds(
   collectionId: string

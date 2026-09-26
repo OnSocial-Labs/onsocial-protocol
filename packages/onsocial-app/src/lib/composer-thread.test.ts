@@ -250,7 +250,11 @@ describe('composer thread', () => {
     expect(payload?.thread).toEqual([{ text: 'next' }]);
     expect(
       composerBeatsForThread([
-        emptyComposerBeat({ text: 'root', articleMode: true, articleTitle: 'Piece' }),
+        emptyComposerBeat({
+          text: 'root',
+          articleMode: true,
+          articleTitle: 'Piece',
+        }),
         emptyComposerBeat({
           text: 'next',
           articleMode: true,

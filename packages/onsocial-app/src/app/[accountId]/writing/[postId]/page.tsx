@@ -56,6 +56,8 @@ export default async function PortfolioWritingArticlePage({
       avatarUrl={avatarUrl}
       post={post}
       coverHint={coverHints[`${post.accountId}:${post.postId}`] ?? null}
+      articles={articles}
+      coverHints={coverHints}
     />
   );
 }
