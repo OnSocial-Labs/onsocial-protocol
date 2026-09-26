@@ -39,6 +39,14 @@ export async function accountHoldsCollection(
   return page.items.length > 0;
 }
 
+export async function pinnedCatalogViewsForIds(
+  ids: readonly string[]
+): Promise<PinnedSongCatalogView[]> {
+  if (ids.length === 0) return [];
+  const client = await readOnlyClient();
+  return viewsForIds(client, ids);
+}
+
 async function viewsForIds(
   client: Awaited<ReturnType<typeof readOnlyClient>>,
   ids: readonly string[]
@@ -71,6 +79,10 @@ async function viewsForIds(
         kind: view.kind,
         playables: view.playables,
         creatorId: view.creatorId,
+        writingFormat: view.writingFormat,
+        readables: view.readables,
+        writingManifestCid: view.writingManifestCid,
+        bookPdf: view.bookPdf,
       });
     }
   }

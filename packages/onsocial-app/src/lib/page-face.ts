@@ -65,18 +65,28 @@ export function resolvePageFace(input: {
   };
 }
 
-const PINNED_SONG_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const PINNED_DROP_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
-/** Collection id pinned on the portfolio hero, or null. */
-export function readPinnedSongId(config: PublicPageConfig): string | null {
-  return normalizePinnedSongId(config.face?.songId);
+/** Collection id for a pinned song, book, or issue. */
+export function normalizePinnedDropId(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const id = raw.trim();
+  if (!PINNED_DROP_ID.test(id)) return null;
+  return id;
 }
 
 export function normalizePinnedSongId(raw: unknown): string | null {
-  if (typeof raw !== 'string') return null;
-  const id = raw.trim();
-  if (!PINNED_SONG_ID.test(id)) return null;
-  return id;
+  return normalizePinnedDropId(raw);
+}
+
+/** Audio collection pinned on the portfolio, or null. */
+export function readPinnedSongId(config: PublicPageConfig): string | null {
+  return normalizePinnedDropId(config.face?.songId);
+}
+
+/** Book or issue collection pinned on the portfolio, or null. */
+export function readPinnedBookId(config: PublicPageConfig): string | null {
+  return normalizePinnedDropId(config.face?.bookId);
 }
 
 /** Strip legacy `face.heroMedia` URLs from page config when persisting layout. */
@@ -85,10 +95,19 @@ export function sanitizePageFace(face: PublicPageConfig['face'] | undefined) {
     return face;
   }
 
-  const { heroMedia: _legacy, songId: rawSongId, ...rest } =
-    face as PublicPageConfig['face'] & {
-      heroMedia?: unknown;
-    };
-  const songId = normalizePinnedSongId(rawSongId);
-  return songId ? { ...rest, songId } : rest;
+  const {
+    heroMedia: _legacy,
+    songId: rawSongId,
+    bookId: rawBookId,
+    ...rest
+  } = face as PublicPageConfig['face'] & {
+    heroMedia?: unknown;
+  };
+  const songId = normalizePinnedDropId(rawSongId);
+  const bookId = normalizePinnedDropId(rawBookId);
+  return {
+    ...rest,
+    ...(songId ? { songId } : {}),
+    ...(bookId ? { bookId } : {}),
+  };
 }

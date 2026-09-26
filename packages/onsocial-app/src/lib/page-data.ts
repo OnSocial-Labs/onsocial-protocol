@@ -4,10 +4,7 @@ import type { OnSocial } from '@onsocial/sdk';
 import { ACTIVE_API_URL } from '@/lib/app-config';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import { isHeuristicDaoAccountId } from '@/lib/enrich-standing-with-dao';
-import {
-  loadProfileShell,
-  type AppProfileShell,
-} from '@/lib/profile-shell';
+import { loadProfileShell, type AppProfileShell } from '@/lib/profile-shell';
 
 export interface PublicPageProfile {
   name?: string;
@@ -41,8 +38,10 @@ export interface ResolvedPageHero {
 export interface PublicPageFace {
   avatarMode?: PageAvatarMode;
   heroSource?: PageHeroSource;
-  /** One audio drop pinned to the portfolio hero. */
+  /** One audio drop pinned on the portfolio. */
   songId?: string;
+  /** One book or issue pinned on the portfolio. */
+  bookId?: string;
 }
 
 export interface PublicPageConfig {

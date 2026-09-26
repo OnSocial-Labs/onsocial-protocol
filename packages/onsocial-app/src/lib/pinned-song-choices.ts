@@ -6,6 +6,10 @@ export interface PinnedSongCatalogView {
   kind: string | null;
   playables: readonly unknown[];
   creatorId?: string | null;
+  writingFormat?: 'book' | 'issue' | null;
+  readables?: readonly unknown[];
+  writingManifestCid?: string | null;
+  bookPdf?: unknown | null;
 }
 
 export type PinnedSongSource = 'released' | 'collected';
@@ -56,12 +60,12 @@ export function pinnedSongChoicesFromViews(
 }
 
 /** Released albums stay first. A held copy of the same drop is one row. */
-export function mergePinnedSongChoices(
-  released: readonly PinnedSongChoice[],
-  collected: readonly PinnedSongChoice[]
-): PinnedSongChoice[] {
+export function mergePinnedSongChoices<T extends PinnedSongChoice>(
+  released: readonly T[],
+  collected: readonly T[]
+): T[] {
   const seen = new Set<string>();
-  const choices: PinnedSongChoice[] = [];
+  const choices: T[] = [];
   for (const choice of released) {
     if (!choice.id || seen.has(choice.id)) continue;
     seen.add(choice.id);
@@ -76,11 +80,11 @@ export function mergePinnedSongChoices(
 }
 
 /** Title or artist. The current pin stays visible while the query is active. */
-export function filterPinnedSongChoices(
-  choices: readonly PinnedSongChoice[],
+export function filterPinnedSongChoices<T extends PinnedSongChoice>(
+  choices: readonly T[],
   query: string,
   pinnedId: string | null
-): PinnedSongChoice[] {
+): T[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return [...choices];
   return choices.filter((choice) => {

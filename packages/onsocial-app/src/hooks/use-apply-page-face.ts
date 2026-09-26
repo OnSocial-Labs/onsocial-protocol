@@ -7,7 +7,11 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { accountIdsEqual } from '@/lib/account-match';
 import { sanitizePageFace } from '@/lib/page-face';
-import type { PageAvatarMode, PageHeroSource, PublicPageConfig } from '@/lib/page-data';
+import type {
+  PageAvatarMode,
+  PageHeroSource,
+  PublicPageConfig,
+} from '@/lib/page-data';
 import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -34,19 +38,16 @@ export function useApplyPageFace(
   initialConfig: PublicPageConfig
 ) {
   const router = useRouter();
-  const {
-    accountId,
-    isConnected,
-    isLoading,
-    isBootstrappingSession,
-    connect,
-  } = useAppWallet();
+  const { accountId, isConnected, isLoading, isBootstrappingSession, connect } =
+    useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const [isApplying, setIsApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isOwner =
-    isConnected && Boolean(accountId) && accountIdsEqual(accountId!, pageAccountId);
+    isConnected &&
+    Boolean(accountId) &&
+    accountIdsEqual(accountId!, pageAccountId);
 
   const applyFacePatch = useCallback(
     async (patch: Partial<PageFaceConfig>): Promise<string | null> => {
@@ -110,10 +111,17 @@ export function useApplyPageFace(
     [applyFacePatch]
   );
 
+  const applyPinnedBook = useCallback(
+    async (bookId: string | null): Promise<string | null> =>
+      applyFacePatch({ bookId: bookId ?? '' }),
+    [applyFacePatch]
+  );
+
   return {
     applyAvatarMode,
     applyFacePatch,
     applyHeroSource,
+    applyPinnedBook,
     applyPinnedSong,
     connect,
     error,
