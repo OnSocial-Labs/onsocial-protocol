@@ -173,7 +173,7 @@ export async function loadPortfolioWritingArticlePage(
     Promise.resolve({ accountId: resolved.accountId })
   );
   const postId = decodeURIComponent(resolved.postId ?? '').trim();
-  const [chrome, post, articles] = await Promise.all([
+  const [chrome, post, feed] = await Promise.all([
     loadPortfolioWritingChrome(accountId),
     (async () => {
       if (!postId) return null;
@@ -187,6 +187,7 @@ export async function loadPortfolioWritingArticlePage(
     fetchAccountArticles(accountId),
   ]);
 
+  const articles = feed.articles;
   const article = post && isArticlePost(post) ? post : null;
   const toHydrate = article
     ? [
@@ -211,6 +212,7 @@ export async function loadPortfolioWritingArticlePage(
       ...chrome,
       articles,
       coverHints,
+      articleNextOffset: feed.nextOffset,
       post: null,
     };
   }
@@ -219,6 +221,7 @@ export async function loadPortfolioWritingArticlePage(
     ...chrome,
     articles,
     coverHints,
+    articleNextOffset: feed.nextOffset,
     post: article,
   };
 }
