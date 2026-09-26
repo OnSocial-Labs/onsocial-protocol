@@ -46479,3 +46479,23 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   box-shadow: 0 0 0 1000px rgb(var(--bg-rgb)) inset !important;
   transition: background-color 99999s ease-out 0s !important;
 }
+
+/*
+ * Chat header identity stays flat, like an article author. The shared chrome
+ * subject underlines its name on hover, and a phone keeps that hover after a
+ * tap. Unlayered so it beats os-chrome-subject.css.
+ */
+.os-app-screen-heading a.messages-thread-chrome-subject,
+.os-app-screen-heading a.messages-thread-chrome-subject:hover,
+.os-app-screen-heading a.messages-thread-chrome-subject:focus-visible,
+.os-app-screen-heading a.messages-thread-chrome-subject:hover .os-chrome-subject__name,
+.os-app-screen-heading a.messages-thread-chrome-subject:focus-visible .os-chrome-subject__name,
+.os-app-screen-heading a.messages-thread-chrome-subject:hover .os-chrome-subject__handle,
+.os-app-screen-heading a.messages-thread-chrome-subject:focus-visible .os-chrome-subject__handle {
+  text-decoration: none;
+}
+
+.os-app-screen-heading a.messages-thread-chrome-subject:hover .os-chrome-subject__name,
+.os-app-screen-heading a.messages-thread-chrome-subject:focus-visible .os-chrome-subject__name {
+  color: var(--os-identity-name-hover);
+}

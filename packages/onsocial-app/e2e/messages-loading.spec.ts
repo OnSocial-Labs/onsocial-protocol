@@ -240,6 +240,10 @@ test.describe('authenticated messages loading', () => {
       '@bob.testnet'
     );
     await expect(identity.locator('.os-chrome-subject__avatar')).toBeVisible();
+    const name = identity.locator('.os-chrome-subject__name');
+    await expect(name).toHaveCSS('text-decoration-line', 'none');
+    await identity.hover();
+    await expect(name).toHaveCSS('text-decoration-line', 'none');
     await expect(
       page.locator('.os-app-screen[data-glass-chrome="true"]')
     ).toHaveCount(1);
