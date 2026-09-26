@@ -36,7 +36,24 @@ import {
   eventStyleLabel,
   eventWindowLabel,
   groupEvents,
+  type EventWindow,
 } from '@/features/events/events-catalog';
+import {
+  eventGuestCountAria,
+  eventGuestCountLabel,
+  eventGuestKind,
+  eventGuestSheetCopy,
+  loadEventCheckInIds,
+  loadEventHolderIds,
+  resolveEventGuestCount,
+  showEventGuestCount,
+  type EventGuestKind,
+} from '@/features/events/event-guests';
+import {
+  useEventCheckInRosters,
+  useEventHolderRosters,
+} from '@/features/events/use-event-guest-counts';
+import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import {
   dropFacetFieldLabel,
   TICKET_EVENT_SUGGESTIONS,
@@ -47,20 +64,53 @@ import {
   collectionPath,
 } from '@/lib/app-routes';
 import { DROPS_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 const PAGE_SIZE = 48;
+
+function eventGuestRoster(
+  kind: EventGuestKind,
+  collectionId: string,
+  rosters: {
+    holders: Record<string, string[]>;
+    inNow: Record<string, string[]>;
+    attended: Record<string, string[]>;
+  }
+): string[] | undefined {
+  const source =
+    kind === 'going'
+      ? rosters.holders
+      : kind === 'in'
+        ? rosters.inNow
+        : rosters.attended;
+  return source[collectionId];
+}
 
 function EventRow({
   item,
   nowMs,
+  window,
+  guestCount,
+  onGuests,
 }: {
   item: DropDiscoveryItem;
   nowMs: number;
+  window: EventWindow;
+  guestCount: number | null;
+  onGuests: (item: DropDiscoveryItem, kind: EventGuestKind) => void;
 }) {
   const href = collectionPath(item.collectionId);
-  const meta = [eventRowWhen(item, nowMs), eventRowPlace(item), eventRowPrice(item)]
+  const meta = [
+    eventRowWhen(item, nowMs),
+    eventRowPlace(item),
+    eventRowPrice(item),
+  ]
     .filter(Boolean)
     .join(' · ');
+  const kind = eventGuestKind(window);
+  const guestLabel = showEventGuestCount(kind, guestCount)
+    ? eventGuestCountLabel(kind, guestCount)
+    : null;
 
   return (
     <div className="market-listing-row drops-discovery-row" role="listitem">
@@ -82,9 +132,36 @@ function EventRow({
         <Link href={href} scroll={false} className="market-listing-title">
           {item.title}
         </Link>
-        <Link href={href} scroll={false} className="drops-discovery-deal">
-          <span className="drops-discovery-deal-bits">{meta}</span>
-        </Link>
+        {meta || guestLabel ? (
+          <div className="drops-discovery-deal">
+            {meta ? (
+              <Link
+                href={href}
+                scroll={false}
+                className="drops-discovery-deal-bits"
+              >
+                {meta}
+              </Link>
+            ) : null}
+            {guestLabel ? (
+              <>
+                {meta ? (
+                  <span className="drops-discovery-deal-sep" aria-hidden>
+                    {' · '}
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  className="events-guest-count"
+                  aria-label={eventGuestCountAria(kind, guestLabel)}
+                  onClick={() => onGuests(item, kind)}
+                >
+                  {guestLabel}
+                </button>
+              </>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -106,6 +183,15 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [nextOffset, setNextOffset] = useState(0);
   const [seen, setSeen] = useState<DropDiscoveryItem[]>([]);
+  const [guestOpen, setGuestOpen] = useState(false);
+  const [guestSheet, setGuestSheet] = useState<{
+    collectionId: string;
+    title: string;
+    kind: EventGuestKind;
+    ids: string[];
+    loading: boolean;
+    error: boolean;
+  } | null>(null);
   const reloadGenRef = useRef(0);
 
   const scan = useMemo<EventScan>(
@@ -167,7 +253,9 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
           setItems((prev) =>
             replace ? result.matches : [...prev, ...result.matches]
           );
-          setSeen((prev) => (replace ? result.seen : [...prev, ...result.seen]));
+          setSeen((prev) =>
+            replace ? result.seen : [...prev, ...result.seen]
+          );
           setNextOffset(result.nextOffset);
           setHasMore(result.hasMore);
         }
@@ -196,6 +284,62 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
 
   const places = useMemo(() => eventPlaceChoices(seen), [seen]);
   const grouped = groupEvents(items, nowMs);
+  const goingIds = grouped.upcoming
+    .filter((item) => item.mintedCount > 0)
+    .map((item) => item.collectionId);
+  const nowIds = grouped.now.map((item) => item.collectionId);
+  const pastIds = grouped.past.map((item) => item.collectionId);
+  const holderRosters = useEventHolderRosters(goingIds);
+  const inRosters = useEventCheckInRosters(nowIds, 20_000);
+  const attendedRosters = useEventCheckInRosters(pastIds);
+  const guestRosters = useMemo(
+    () => ({
+      holders: holderRosters,
+      inNow: inRosters,
+      attended: attendedRosters,
+    }),
+    [attendedRosters, holderRosters, inRosters]
+  );
+
+  const openGuests = useCallback(
+    (item: DropDiscoveryItem, kind: EventGuestKind) => {
+      const cached = eventGuestRoster(kind, item.collectionId, guestRosters);
+      setGuestOpen(true);
+      setGuestSheet({
+        collectionId: item.collectionId,
+        title: item.title,
+        kind,
+        ids: cached ?? [],
+        loading: cached === undefined,
+        error: false,
+      });
+      const loadGuests =
+        kind === 'going' ? loadEventHolderIds : loadEventCheckInIds;
+      void loadGuests(item.collectionId)
+        .then((ids) => {
+          setGuestSheet((current) =>
+            current?.collectionId === item.collectionId && current.kind === kind
+              ? { ...current, ids, loading: false, error: false }
+              : current
+          );
+        })
+        .catch(() => {
+          setGuestSheet((current) => {
+            if (
+              current?.collectionId !== item.collectionId ||
+              current.kind !== kind
+            ) {
+              return current;
+            }
+            if (cached !== undefined) {
+              return { ...current, loading: false, error: false };
+            }
+            return { ...current, ids: [], loading: false, error: true };
+          });
+        });
+    },
+    [guestRosters]
+  );
   const filterLabel = [
     styleId ? eventStyleLabel(styleId) : null,
     placeId ? places.find((place) => place.id === placeId)?.label : null,
@@ -228,7 +372,11 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
         />
       }
       actions={
-        <Link href={APP_EVENTS_NEW_PATH} scroll={false} className="os-surface-chip">
+        <Link
+          href={APP_EVENTS_NEW_PATH}
+          scroll={false}
+          className="os-surface-chip"
+        >
           New event
         </Link>
       }
@@ -304,9 +452,26 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
                     {eventWindowLabel(window)}
                   </h2>
                   <div role="list">
-                    {rows.map((item) => (
-                      <EventRow key={item.collectionId} item={item} nowMs={nowMs} />
-                    ))}
+                    {rows.map((item) => {
+                      const kind = eventGuestKind(window);
+                      return (
+                        <EventRow
+                          key={item.collectionId}
+                          item={item}
+                          nowMs={nowMs}
+                          window={window}
+                          guestCount={resolveEventGuestCount(kind, {
+                            mintedCount: item.mintedCount,
+                            roster: eventGuestRoster(
+                              kind,
+                              item.collectionId,
+                              guestRosters
+                            ),
+                          })}
+                          onGuests={openGuests}
+                        />
+                      );
+                    })}
                   </div>
                 </section>
               );
@@ -324,6 +489,17 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
           ) : null}
         </div>
       </div>
+      <ScarceFansSheet
+        open={guestOpen}
+        onClose={() => setGuestOpen(false)}
+        fanIds={guestSheet?.ids ?? []}
+        fanCount={guestSheet?.ids.length ?? 0}
+        dropTitle={guestSheet?.title}
+        idsLoading={guestSheet?.loading ?? false}
+        idsError={guestSheet?.error ?? false}
+        zIndex={SHEET_Z.list}
+        {...eventGuestSheetCopy(guestSheet?.kind ?? 'going')}
+      />
       <ActionDrawer
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
@@ -383,7 +559,10 @@ export function EventsPagePanel({ initialNowMs }: { initialNowMs: number }) {
               onValueChange={(next) => setPlaceId(next === 'all' ? null : next)}
               items={[
                 { id: 'all', label: 'All' },
-                ...places.map((place) => ({ id: place.id, label: place.label })),
+                ...places.map((place) => ({
+                  id: place.id,
+                  label: place.label,
+                })),
               ]}
             />
           </>

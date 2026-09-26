@@ -27,6 +27,8 @@ export type ScarceFansSheetProps = {
   dropTitle?: string | null;
   /** True while account ids are still loading (e.g. post likes fetch). */
   idsLoading?: boolean;
+  /** The id list itself failed, before profile rows load. */
+  idsError?: boolean;
   label?: string;
   countSingular?: string;
   countPlural?: string;
@@ -48,6 +50,7 @@ export function ScarceFansSheet({
   fanCount,
   dropTitle,
   idsLoading = false,
+  idsError = false,
   label = 'Fans',
   countSingular = 'fan',
   countPlural = 'fans',
@@ -64,9 +67,7 @@ export function ScarceFansSheet({
   const { endorsementSyncVersion } = useViewerEndorsement('scarce-fans');
 
   const fanIdsKey = fanIds.join('\n');
-  const requestKey = open
-    ? `${fanIdsKey}\0${viewerAccountId ?? ''}`
-    : '';
+  const requestKey = open ? `${fanIdsKey}\0${viewerAccountId ?? ''}` : '';
   const [fetched, setFetched] = useState<{
     key: string;
     accounts: ProfileListAccount[];
@@ -155,12 +156,9 @@ export function ScarceFansSheet({
   const loadError =
     Boolean(open) &&
     !idsLoading &&
-    fetched?.key === requestKey &&
-    fetched.error;
+    (idsError || (fetched?.key === requestKey && fetched.error));
   const showSkeleton =
-    open &&
-    (idsLoading ||
-      (fanIds.length > 0 && accounts === null));
+    open && (idsLoading || (fanIds.length > 0 && accounts === null));
   const skeletonCount = Math.min(
     8,
     Math.max(fanIds.length || fanCount || 1, 1)
@@ -204,9 +202,7 @@ export function ScarceFansSheet({
           })}
         </div>
       ) : (
-        <p className="scarce-fans-empty">
-          {loadError ? errorCopy : emptyCopy}
-        </p>
+        <p className="scarce-fans-empty">{loadError ? errorCopy : emptyCopy}</p>
       )}
     </OsHugSheet>
   );
