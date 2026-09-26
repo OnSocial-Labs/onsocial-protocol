@@ -24,6 +24,18 @@ describe('messages loading contract', () => {
     expect(source).toContain("setErrorSource('thread')");
   });
 
+  it('states an empty inbox and an unopened thread in one line', () => {
+    const source = readFileSync(
+      join(messagesDir, 'messages-panel.tsx'),
+      'utf8'
+    );
+
+    expect(source).toContain('No conversations yet.');
+    expect(source).toContain('Pick a conversation.');
+    expect(source).not.toContain('Search to start a chat');
+    expect(source).not.toContain('from their profile');
+  });
+
   it('keeps painted rows and appends distinct message skeletons', () => {
     const rowsSource = readFileSync(
       join(messagesDir, 'messages-inbox-rows.tsx'),

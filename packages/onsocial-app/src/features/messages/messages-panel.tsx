@@ -114,6 +114,8 @@ import {
   buildDmThreadId,
   messagingBlockedCopy,
   messagingBlockedReason,
+  showMessagesPeopleSection,
+  showMessagesSearchEmpty,
 } from '@/features/messages/messages-inbox-search';
 import { useMessagesInboxSearch } from '@/features/messages/use-messages-inbox-search';
 import { DmUnlockPanel } from '@/features/messages/dm-unlock-panel';
@@ -1500,7 +1502,7 @@ export function MessagesPanel() {
       >
         <OsAppChromePage className="messages-panel">
           <OsAppChromePageStatus>
-            Private encrypted messages between OnSocial accounts.
+            Connect to see messages.
           </OsAppChromePageStatus>
         </OsAppChromePage>
         <MessagesPrivateInfoDrawer
@@ -1751,9 +1753,7 @@ export function MessagesPanel() {
                 <MessagesInboxSkeleton />
               ) : isSearching ? (
                 <>
-                  {filteredThreads.length === 0 ? (
-                    <OsAppChromePageStatus>No matches.</OsAppChromePageStatus>
-                  ) : (
+                  {filteredThreads.length > 0 ? (
                     <>
                       {peopleActive ? (
                         <p className="messages-search-section">Conversations</p>
@@ -1771,16 +1771,19 @@ export function MessagesPanel() {
                         }}
                       />
                     </>
-                  )}
-                  {peopleActive ? (
+                  ) : null}
+                  {showMessagesPeopleSection({
+                    peopleActive,
+                    peopleCount: peopleResults.length,
+                    peoplePending,
+                    peopleFailed: Boolean(peopleError),
+                  }) ? (
                     <div className="messages-search-people">
                       <p className="messages-search-section">Start a chat</p>
                       {peoplePending ? (
                         <p className="messages-muted">Searching…</p>
                       ) : peopleError ? (
                         <p className="messages-muted">{peopleError}</p>
-                      ) : peopleResults.length === 0 ? (
-                        <p className="messages-muted">No matches.</p>
                       ) : (
                         <MessagesInboxPeopleRows
                           people={peopleResults}
@@ -1792,23 +1795,29 @@ export function MessagesPanel() {
                       )}
                     </div>
                   ) : null}
+                  {showMessagesSearchEmpty({
+                    threadCount: filteredThreads.length,
+                    peopleActive,
+                    peopleCount: peopleResults.length,
+                    peoplePending,
+                    peopleFailed: Boolean(peopleError),
+                  }) ? (
+                    <OsAppChromePageStatus>No matches.</OsAppChromePageStatus>
+                  ) : null}
                 </>
               ) : threads?.length === 0 ? (
                 <OsAppChromePageStatus>
-                  No conversations yet. Search to start a chat, or message them
-                  from their profile.
+                  No conversations yet.
                 </OsAppChromePageStatus>
               ) : inboxThreads &&
                 inboxThreads.length === 0 &&
                 sealedThreads.length > 0 ? (
                 <OsAppChromePageStatus>
-                  No open conversations. Sealed threads from before a key reset
-                  are below.
+                  No open conversations.
                 </OsAppChromePageStatus>
               ) : inboxThreads && inboxThreads.length === 0 ? (
                 <OsAppChromePageStatus>
-                  No conversations yet. Search to start a chat, or message them
-                  from their profile.
+                  No conversations yet.
                 </OsAppChromePageStatus>
               ) : (
                 <MessagesInboxThreadRows
@@ -1850,12 +1859,11 @@ export function MessagesPanel() {
             <section className="messages-thread" aria-label="Thread">
               {!activeThreadId ? (
                 <OsAppChromePageStatus className="messages-thread-empty">
-                  Pick a conversation, search to start a chat, or message them
-                  from their profile.
+                  Pick a conversation.
                 </OsAppChromePageStatus>
               ) : !isUnlocked ? (
                 <OsAppChromePageStatus>
-                  Unlock messages to read this conversation.
+                  Unlock messages.
                 </OsAppChromePageStatus>
               ) : showThreadSkeleton ? (
                 <MessagesThreadSkeleton />

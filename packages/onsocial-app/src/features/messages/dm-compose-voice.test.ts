@@ -7,8 +7,8 @@ describe('DM compose Connect voice', () => {
     expect(DM_CONNECT_CTA.toLowerCase()).not.toContain('wallet');
   });
 
-  it('hints Connect to message them', () => {
-    expect(DM_CONNECT_HINT).toBe('Connect to message them.');
+  it('hints Connect to message', () => {
+    expect(DM_CONNECT_HINT).toBe('Connect to message.');
     expect(DM_CONNECT_HINT.toLowerCase()).not.toContain('wallet');
   });
 });
