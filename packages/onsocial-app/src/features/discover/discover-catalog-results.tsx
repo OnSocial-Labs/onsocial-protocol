@@ -104,6 +104,17 @@ function CatalogRow({
   );
 }
 
+/** Keep the grouped-search words on the catalog the More link opens. */
+function withSearch(href: string, q: string): string {
+  const trimmed = q.trim();
+  if (!trimmed) return href;
+  const [path, search = ''] = href.split('?');
+  const params = new URLSearchParams(search);
+  params.set('q', trimmed);
+  const qs = params.toString();
+  return qs ? `${path}?${qs}` : path;
+}
+
 function MoreLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
@@ -257,18 +268,21 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
               ) : null}
               {id === 'books' && results.booksHasMore ? (
                 <MoreLink
-                  href={dropsPath({ kind: 'writing' })}
+                  href={withSearch(dropsPath({ kind: 'writing' }), query)}
                   label="More books"
                 />
               ) : null}
               {id === 'music' && results.musicHasMore ? (
                 <MoreLink
-                  href={dropsPath({ kind: 'audio' })}
+                  href={withSearch(dropsPath({ kind: 'audio' }), query)}
                   label="More music"
                 />
               ) : null}
               {id === 'events' && results.eventsHasMore ? (
-                <MoreLink href={APP_EVENTS_PATH} label="More events" />
+                <MoreLink
+                  href={withSearch(APP_EVENTS_PATH, query)}
+                  label="More events"
+                />
               ) : null}
             </section>
           ))
