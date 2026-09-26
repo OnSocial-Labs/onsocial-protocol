@@ -13,6 +13,8 @@ import { DiscoverFocusListPanel } from '@/features/discover/discover-focus-list-
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { DiscoverRecommendedPeek } from '@/features/discover/discover-recommended-peek';
+import { DiscoverCatalogResults } from '@/features/discover/discover-catalog-results';
+import { isDiscoverCatalogQuery } from '@/features/discover/discover-catalog';
 import { DiscoverTrendingPanel } from '@/features/discover/discover-trending-panel';
 import { DiscoverFaceFilterRail } from '@/features/discover/discover-face-filter-rail';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
@@ -94,6 +96,13 @@ export function DiscoverPanelContent() {
   const showListRefreshing = loadingPresentation === 'preserve';
   const showAppendSkeleton = loadingPresentation === 'append-skeleton';
   const hasRecommended = recommendedShownIds.length > 0;
+  if (tab === 'trending' && isDiscoverCatalogQuery(query)) {
+    return (
+      <OsAppChromePage className="discover-panel">
+        <DiscoverCatalogResults query={query} />
+      </OsAppChromePage>
+    );
+  }
   return (
     <OsAppChromePage className="discover-panel">
       {visitedTabs.has('trending') ? (

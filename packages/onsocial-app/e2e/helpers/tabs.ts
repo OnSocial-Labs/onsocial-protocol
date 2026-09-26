@@ -83,12 +83,13 @@ export async function expectSearchVisible(
   });
 }
 
-const DISCOVER_OMNI_SEARCH = 'Search people, topics, and tickers';
+const DISCOVER_OMNI_SEARCH =
+  'Search people, articles, books, music, and events';
 
 /**
- * Type a people query on Discover Moving. The omni field can paint from SSR
- * before `setQuery` is live — click, fill, and retry once if Profiles
- * never selects.
+ * Type a plain query on Discover Moving. The omni field can paint from SSR
+ * before `setQuery` is live — click, fill, and retry once if grouped results
+ * never appear.
  */
 export async function typeDiscoverPeopleSearch(
   page: Page,
@@ -97,16 +98,14 @@ export async function typeDiscoverPeopleSearch(
   await dismissNextDevOverlay(page);
   await expectSearchVisible(page, DISCOVER_OMNI_SEARCH);
   const field = searchField(page, DISCOVER_OMNI_SEARCH);
-  const profiles = tab(page, 'Discover', 'Profiles');
+  const results = page.getByRole('region', { name: 'Search results' });
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     await dismissNextDevOverlay(page);
     await field.click();
     await field.fill(query);
     try {
-      await expect(profiles).toHaveAttribute('aria-selected', 'true', {
-        timeout: 8_000,
-      });
+      await expect(results).toBeVisible({ timeout: 8_000 });
       return;
     } catch (error) {
       if (attempt === 1) {

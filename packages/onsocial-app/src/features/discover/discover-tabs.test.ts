@@ -53,7 +53,7 @@ describe('discover-tabs', () => {
   it('routes omni drafts to the tab that can answer them', () => {
     expect(discoverTabForQueryDraft('#near', 'trending')).toBe('topics');
     expect(discoverTabForQueryDraft('$SOCIAL', 'trending')).toBe('tickers');
-    expect(discoverTabForQueryDraft('alice', 'trending')).toBe('profiles');
+    expect(discoverTabForQueryDraft('alice', 'trending')).toBe('trending');
     expect(discoverTabForQueryDraft('alice', 'profiles')).toBe('profiles');
     expect(discoverTabForQueryDraft('alice', 'daos')).toBe('daos');
     expect(discoverTabForQueryDraft('alice', 'topics')).toBe('topics');

@@ -72,7 +72,10 @@ describe('discover search focus hint', () => {
     expect(discoverSearchFocusHint('hubs')).toBe('Hubs');
     expect(discoverSearchFocusHint('profiles', 'hiring')).toBe('Role title');
     expect(discoverSearchFocusHint('trending')).toBe(
-      'People, #topics, $tickers'
+      'People, articles, books, music, events'
+    );
+    expect(discoverSearchAriaLabel('trending')).toBe(
+      'Search people, articles, books, music, and events'
     );
   });
 
