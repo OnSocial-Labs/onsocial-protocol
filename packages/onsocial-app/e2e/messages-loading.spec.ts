@@ -235,6 +235,54 @@ test.describe('authenticated messages loading', () => {
     await expect(page.getByText(/from their profile/)).toHaveCount(0);
   });
 
+  test('people hits are not a failed search', async ({ page }) => {
+    await stubMessages(page, { emptyThreads: true });
+    await page.route('**/api/discover**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          query: 'green',
+          face: 'all',
+          industry: '',
+          craft: '',
+          limit: 24,
+          offset: 0,
+          hasMore: false,
+          profiles: [
+            {
+              accountId: 'greenghost.onsocial.testnet',
+              name: 'Green Ghost Testing',
+              bio: null,
+              avatarUrl: null,
+              standingCount: 0,
+              standingWithCount: 0,
+              mutualStandingCount: 0,
+              endorsementsReceivedCount: 0,
+              endorsementsGivenCount: 0,
+              moodId: 'plain',
+              viewerStanding: false,
+              theyStandWithViewer: false,
+              targetEndorsedViewer: false,
+              viewerEndorsed: false,
+            },
+          ],
+        }),
+      });
+    });
+    await page.goto('/messages', { waitUntil: 'domcontentloaded' });
+    await page
+      .getByRole('textbox', { name: 'Search conversations or people' })
+      .fill('green');
+    await expect(page.getByText('Start a chat', { exact: true })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(
+      page.getByText('Green Ghost Testing', { exact: true })
+    ).toBeVisible();
+    await expect(page.getByText('No matches.', { exact: true })).toHaveCount(0);
+  });
+
   test('keeps the cold inbox skeleton until authenticated threads settle', async ({
     page,
   }) => {

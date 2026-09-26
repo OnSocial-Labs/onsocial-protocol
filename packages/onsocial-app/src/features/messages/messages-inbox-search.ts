@@ -98,3 +98,28 @@ export function messagingBlockedCopy(
   if (reason === 'muted') return 'Unmute to message';
   return null;
 }
+
+/** One empty line only when chats and people are both done and empty. */
+export function showMessagesSearchEmpty(opts: {
+  threadCount: number;
+  peopleActive: boolean;
+  peopleCount: number;
+  peoplePending: boolean;
+  peopleFailed: boolean;
+}): boolean {
+  if (opts.threadCount > 0) return false;
+  if (!opts.peopleActive) return true;
+  if (opts.peoplePending || opts.peopleFailed) return false;
+  return opts.peopleCount === 0;
+}
+
+/** People block stays off when it would only say there are no people. */
+export function showMessagesPeopleSection(opts: {
+  peopleActive: boolean;
+  peopleCount: number;
+  peoplePending: boolean;
+  peopleFailed: boolean;
+}): boolean {
+  if (!opts.peopleActive) return false;
+  return opts.peoplePending || opts.peopleFailed || opts.peopleCount > 0;
+}

@@ -13,7 +13,7 @@ test.describe('dm compose voice', () => {
     await expect(person).not.toHaveText('alice.testnet');
     await expect(sheet.getByText('@alice.testnet')).toBeVisible();
     await expect(
-      sheet.getByText('Connect to message them.', { exact: true })
+      sheet.getByText('Connect to message.', { exact: true })
     ).toBeVisible();
     await expect(sheet.getByText('Connect wallet')).toHaveCount(0);
     await expect(

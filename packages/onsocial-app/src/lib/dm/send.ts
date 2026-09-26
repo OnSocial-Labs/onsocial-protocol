@@ -4,7 +4,11 @@ import type { NearWalletBase } from '@hot-labs/near-connect';
 import type { Session } from '@onsocial/sdk/advanced';
 import { decodeBase64, encodeBase64 } from 'tweetnacl-util';
 import { ensureAppGatewayAuth } from '@/lib/app-gateway-auth';
-import { DM_PEER_MESSAGES_UNAVAILABLE } from '@/lib/dm/copy';
+import {
+  DM_MESSAGING_UNAVAILABLE,
+  DM_PEER_MESSAGES_UNAVAILABLE,
+  DM_UNMUTE_TO_MESSAGE,
+} from '@/lib/dm/copy';
 import {
   decodeDmPublicKey,
   encodeDmPublicKey,
@@ -54,14 +58,12 @@ function mapSendError(error: unknown): { error: string; needsUnlock?: boolean } 
   if (error instanceof OnSocialError) {
     if (error.code === 'MUTED') {
       return {
-        error:
-          error.message ||
-          'Messaging isn’t available because of a mute.',
+        error: error.message || DM_MESSAGING_UNAVAILABLE,
       };
     }
     if (error.code === 'BLOCKED') {
       return {
-        error: 'Messaging is unavailable while a block is in place.',
+        error: DM_MESSAGING_UNAVAILABLE,
       };
     }
     if (error.code === 'UNAVAILABLE') {
@@ -169,13 +171,13 @@ export async function sendEncryptedDm(opts: {
   if (isBlockEitherWay(recipient)) {
     return {
       ok: false,
-      error: 'Messaging is unavailable while a block is in place.',
+      error: DM_MESSAGING_UNAVAILABLE,
     };
   }
   if (isViewerMuting(recipient)) {
     return {
       ok: false,
-      error: 'You muted them. Unmute to send a message.',
+      error: DM_UNMUTE_TO_MESSAGE,
     };
   }
 

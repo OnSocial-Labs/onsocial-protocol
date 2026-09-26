@@ -5,7 +5,7 @@ import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search'
 import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 
 const SEARCH_PLACEHOLDER_IDLE = 'Search';
-const SEARCH_ARIA_LABEL = 'Search conversations or OnSocial';
+const SEARCH_ARIA_LABEL = 'Search conversations or people';
 
 export function MessagesInboxSearchField({
   value,
