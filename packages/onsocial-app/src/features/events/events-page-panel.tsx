@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   CalendarFillIcon,
   ChevronDownIcon,
+  OsAppChromeToolbarRail,
   OsSheetAction,
   OsSheetActions,
   osFloatingPanelTriggerChevronClassName,
@@ -17,6 +18,7 @@ import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search'
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { ActionDrawer } from '@/components/ui/action-drawer';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
+import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
@@ -142,9 +144,16 @@ function EventRow({
         )}
       </Link>
       <div className="market-listing-copy drops-discovery-copy">
-        <Link href={href} scroll={false} className="market-listing-title">
-          {item.title}
-        </Link>
+        <div className="market-listing-head drops-discovery-head">
+          <Link href={href} scroll={false} className="market-listing-title">
+            {item.title}
+          </Link>
+        </div>
+        <DiscoveryPartyStack
+          accountId={item.creatorId}
+          displayName={item.creatorDisplayName}
+          avatarUrl={item.creatorAvatarUrl}
+        />
         {meta || guestLabel ? (
           <div className="drops-discovery-deal">
             {meta ? (
@@ -552,39 +561,44 @@ export function EventsPagePanel({
         </Link>
       }
       toolbar={
-        <div className="market-listing-toolbar">
-          <OsChipRail
-            ariaLabel="Event list"
-            value={scope}
-            onValueChange={setScope}
-            items={[
-              { id: 'all', label: 'All' },
-              { id: 'mine', label: 'My events' },
-            ]}
-          />
-          <button
-            type="button"
-            className={`${osFloatingPanelTriggerClassName}${
-              sheetOpen ? ' is-open' : ''
-            }`}
-            aria-haspopup="dialog"
-            aria-expanded={sheetOpen}
-            aria-label={filterLabel ? `Filter, ${filterLabel}` : 'Filter'}
-            onClick={() => setSheetOpen(true)}
-          >
-            <span className={osFloatingPanelTriggerLabelClassName}>
-              {filterLabel || 'Filter'}
-            </span>
-            <span className={osFloatingPanelTriggerMetaClassName}>
-              <ChevronDownIcon
-                className={`${osFloatingPanelTriggerChevronClassName}${
-                  sheetOpen ? ' is-open' : ''
-                }`}
-                aria-hidden
-              />
-            </span>
-          </button>
-        </div>
+        <OsAppChromeToolbarRail className="market-listing-toolbar">
+          <div className="market-listing-filter-stack">
+            <OsChipRail
+              className="market-listing-filters"
+              ariaLabel="Event list"
+              value={scope}
+              onValueChange={setScope}
+              items={[
+                { id: 'all', label: 'All' },
+                { id: 'mine', label: 'My events' },
+              ]}
+            />
+          </div>
+          <div className="standing-view-menu market-listing-sort-menu">
+            <button
+              type="button"
+              className={`${osFloatingPanelTriggerClassName}${
+                sheetOpen ? ' is-open' : ''
+              }`}
+              aria-haspopup="dialog"
+              aria-expanded={sheetOpen}
+              aria-label={filterLabel ? `Filter, ${filterLabel}` : 'Filter'}
+              onClick={() => setSheetOpen(true)}
+            >
+              <span className={osFloatingPanelTriggerLabelClassName}>
+                {filterLabel || 'Filter'}
+              </span>
+              <span className={osFloatingPanelTriggerMetaClassName}>
+                <ChevronDownIcon
+                  className={`${osFloatingPanelTriggerChevronClassName}${
+                    sheetOpen ? ' is-open' : ''
+                  }`}
+                  aria-hidden
+                />
+              </span>
+            </button>
+          </div>
+        </OsAppChromeToolbarRail>
       }
     >
       <div className="drops-screen-body">
