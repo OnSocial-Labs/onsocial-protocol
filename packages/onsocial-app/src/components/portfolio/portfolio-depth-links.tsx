@@ -3,7 +3,7 @@
 import { Fragment, type ReactNode } from 'react';
 import { PortfolioAboutLink } from '@/components/portfolio/portfolio-about-link';
 import {
-  PortfolioBookMarkLink,
+  PortfolioBookMark,
   usePortfolioBookMark,
 } from '@/components/portfolio/portfolio-book-mark';
 import {
@@ -43,7 +43,7 @@ export function PortfolioDepthLinks({
   if (book) {
     slots.push({
       key: 'book',
-      node: <PortfolioBookMarkLink title={book.title} href={book.href} />,
+      node: <PortfolioBookMark book={book} />,
     });
   }
   if (showWriting) {

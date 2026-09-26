@@ -7,17 +7,21 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import Link from 'next/link';
 import { BookTextFillIcon } from '@onsocial/ui';
+import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   fetchCollectionPreferIndexer,
   type CollectionView,
 } from '@/features/scarces/collections-data';
-import { collectionPath } from '@/lib/app-routes';
+import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
 import { accountIdsEqual } from '@/lib/account-match';
 import { pinnedBookMarkFormat } from '@/lib/pinned-book-choices';
 import { accountHoldsCollection } from '@/lib/pinned-song-catalog';
 import { portfolioSongPinEligible } from '@/lib/portfolio-song-mark';
+import {
+  PortfolioBookSheet,
+  type PortfolioBookMarkModel,
+} from '@/components/portfolio/portfolio-book-sheet';
 
 const PortfolioBookMarkContext = createContext<{
   collectionId: string | null;
@@ -40,8 +44,8 @@ export function PortfolioBookMarkProvider({
   );
 }
 
-/** Reader link for the About · Writing line. Independent of the song dock. */
-export function usePortfolioBookMark(): { title: string; href: string } | null {
+/** Book or issue on the About · Writing line. Independent of the song dock. */
+export function usePortfolioBookMark(): PortfolioBookMarkModel | null {
   const { collectionId, pageAccountId } = useContext(PortfolioBookMarkContext);
   const [view, setView] = useState<CollectionView | null>(null);
   const [hold, setHold] = useState<{
@@ -96,25 +100,59 @@ export function usePortfolioBookMark(): { title: string; href: string } | null {
   }
 
   return {
+    collectionId: view.collectionId,
     title: view.title,
-    href: collectionPath(view.collectionId, { read: true }),
+    cover: view.mediaUrl,
+    creatorId: view.creatorId,
+    readables: view.readables,
+    bookPdf: view.bookPdf,
+    writingFormat: view.writingFormat,
+    textAlign: view.textAlign ?? null,
   };
 }
 
-export function PortfolioBookMarkLink({
-  title,
-  href,
-}: {
-  title: string;
-  href: string;
-}) {
+/** Glyph opens the hug drawer. Read on that drawer opens the reader. */
+export function PortfolioBookMark({ book }: { book: PortfolioBookMarkModel }) {
+  const { accountId } = useAppWallet();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [readerOpen, setReaderOpen] = useState(false);
+
   return (
-    <Link
-      href={href}
-      className="portfolio-book-mark"
-      aria-label={`Read ${title}`}
-    >
-      <BookTextFillIcon className="portfolio-book-mark-icon" aria-hidden />
-    </Link>
+    <>
+      <button
+        type="button"
+        className="portfolio-book-mark"
+        aria-label={`Open ${book.title}`}
+        aria-haspopup="dialog"
+        aria-expanded={sheetOpen}
+        onClick={() => setSheetOpen(true)}
+      >
+        <BookTextFillIcon className="portfolio-book-mark-icon" aria-hidden />
+      </button>
+      <PortfolioBookSheet
+        open={sheetOpen}
+        book={book}
+        onClose={() => setSheetOpen(false)}
+        onRead={() => {
+          setSheetOpen(false);
+          setReaderOpen(true);
+        }}
+      />
+      <WritingReadSheet
+        open={readerOpen}
+        onClose={() => setReaderOpen(false)}
+        title={book.title}
+        cover={book.cover}
+        collectionId={book.collectionId}
+        accountId={accountId}
+        creatorId={book.creatorId}
+        readables={book.readables}
+        bookPdf={book.bookPdf}
+        writingFormat={book.writingFormat}
+        textAlign={book.textAlign ?? null}
+        canRead
+        lockedHint=""
+      />
+    </>
   );
 }
