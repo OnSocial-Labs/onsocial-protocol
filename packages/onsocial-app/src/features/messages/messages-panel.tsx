@@ -1795,8 +1795,7 @@ export function MessagesPanel() {
                 </>
               ) : threads?.length === 0 ? (
                 <OsAppChromePageStatus>
-                  No conversations yet. Search to start a chat, or message them
-                  from their profile.
+                  No conversations yet.
                 </OsAppChromePageStatus>
               ) : inboxThreads &&
                 inboxThreads.length === 0 &&
@@ -1807,8 +1806,7 @@ export function MessagesPanel() {
                 </OsAppChromePageStatus>
               ) : inboxThreads && inboxThreads.length === 0 ? (
                 <OsAppChromePageStatus>
-                  No conversations yet. Search to start a chat, or message them
-                  from their profile.
+                  No conversations yet.
                 </OsAppChromePageStatus>
               ) : (
                 <MessagesInboxThreadRows
@@ -1850,8 +1848,7 @@ export function MessagesPanel() {
             <section className="messages-thread" aria-label="Thread">
               {!activeThreadId ? (
                 <OsAppChromePageStatus className="messages-thread-empty">
-                  Pick a conversation, search to start a chat, or message them
-                  from their profile.
+                  Pick a conversation.
                 </OsAppChromePageStatus>
               ) : !isUnlocked ? (
                 <OsAppChromePageStatus>

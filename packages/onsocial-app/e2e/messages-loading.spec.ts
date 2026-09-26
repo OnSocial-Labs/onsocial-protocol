@@ -49,6 +49,7 @@ type StubOptions = {
   delayRefreshThreads?: boolean;
   delayAppend?: boolean;
   failAppend?: boolean;
+  emptyThreads?: boolean;
 };
 
 async function stubMessages(
@@ -159,7 +160,9 @@ async function stubMessages(
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          threads: [threadCallCount > 1 ? refreshedThread : firstThread],
+          threads: options.emptyThreads
+            ? []
+            : [threadCallCount > 1 ? refreshedThread : firstThread],
         }),
       });
       return;
@@ -217,6 +220,19 @@ async function expectInboxPainted(page: Page): Promise<void> {
 test.describe('authenticated messages loading', () => {
   test.beforeEach(async ({ page }) => {
     await seedAuthenticatedMessages(page);
+  });
+
+  test('states an empty inbox without a how-to', async ({ page }) => {
+    await stubMessages(page, { emptyThreads: true });
+    await page.goto('/messages', { waitUntil: 'domcontentloaded' });
+
+    const emptyInbox = page.getByText('No conversations yet.', { exact: true });
+    await expect(emptyInbox).toBeVisible({ timeout: 30_000 });
+    await expect(
+      page.getByText('Pick a conversation.', { exact: true })
+    ).toHaveCount(1);
+    await expect(page.getByText(/Search to start a chat/)).toHaveCount(0);
+    await expect(page.getByText(/from their profile/)).toHaveCount(0);
   });
 
   test('keeps the cold inbox skeleton until authenticated threads settle', async ({
