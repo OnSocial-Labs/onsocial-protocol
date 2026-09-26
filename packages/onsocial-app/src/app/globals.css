@@ -12612,16 +12612,6 @@ a.os-surface-row {
     max-height: var(--os-app-screen-nav-row-height);
   }
 
-  .os-app-screen-heading .messages-thread-chrome-subject .os-chrome-subject__name {
-    font-size: 0.84rem;
-    line-height: 1.1;
-  }
-
-  .os-app-screen-heading .messages-thread-chrome-subject .os-chrome-subject__handle {
-    font-size: 0.68rem;
-    line-height: 1.1;
-  }
-
   .os-app-screen[data-compact-chrome='true'] .home-feed-compact-chrome {
     min-height: var(--os-app-screen-nav-row-height);
   }
@@ -46478,24 +46468,4 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   -webkit-box-shadow: 0 0 0 1000px rgb(var(--bg-rgb)) inset !important;
   box-shadow: 0 0 0 1000px rgb(var(--bg-rgb)) inset !important;
   transition: background-color 99999s ease-out 0s !important;
-}
-
-/*
- * Chat header identity stays flat, like an article author. The shared chrome
- * subject underlines its name on hover, and a phone keeps that hover after a
- * tap. Unlayered so it beats os-chrome-subject.css.
- */
-.os-app-screen-heading a.messages-thread-chrome-subject,
-.os-app-screen-heading a.messages-thread-chrome-subject:hover,
-.os-app-screen-heading a.messages-thread-chrome-subject:focus-visible,
-.os-app-screen-heading a.messages-thread-chrome-subject:hover .os-chrome-subject__name,
-.os-app-screen-heading a.messages-thread-chrome-subject:focus-visible .os-chrome-subject__name,
-.os-app-screen-heading a.messages-thread-chrome-subject:hover .os-chrome-subject__handle,
-.os-app-screen-heading a.messages-thread-chrome-subject:focus-visible .os-chrome-subject__handle {
-  text-decoration: none;
-}
-
-.os-app-screen-heading a.messages-thread-chrome-subject:hover .os-chrome-subject__name,
-.os-app-screen-heading a.messages-thread-chrome-subject:focus-visible .os-chrome-subject__name {
-  color: var(--os-identity-name-hover);
 }
