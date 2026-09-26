@@ -40,5 +40,7 @@ describe('event row menu', () => {
     expect(panel).toContain('eventRowWhen');
     expect(panel).toContain('DiscoveryPartyStack');
     expect(panel).toContain('accountId={item.creatorId}');
+    expect(panel).toContain('market-listing-filter-stack');
+    expect(panel).toContain('market-listing-sort-menu');
   });
 });
