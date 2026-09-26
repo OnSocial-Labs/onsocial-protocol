@@ -3958,54 +3958,7 @@ a.os-surface-row {
     }
   }
 
-  .customize-song-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-
-  .customize-song-clear {
-    border: 0;
-    background: transparent;
-    padding: 0;
-    font: inherit;
-    font-size: 0.78rem;
-    color: rgb(var(--fg-rgb) / 0.62);
-    cursor: pointer;
-  }
-
-  .customize-song-clear:hover,
-  .customize-song-clear:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.92);
-    outline: none;
-  }
-
-  .customize-song-clear:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-
-  .customize-song-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  .customize-song-row {
-    width: 100%;
-    padding: 0.65rem 0.75rem;
-    border: 0;
-    border-radius: 0.75rem;
-    background: rgb(var(--fg-rgb) / 0.06);
-    color: inherit;
-    text-align: left;
-  }
-
-  .customize-song-row.is-selected {
-    background: rgb(var(--fg-rgb) / 0.14);
-  }
-
+  /* Hero band — absolute so height can vary per face without moving the name. */
   .portfolio-banner-region {
     position: absolute;
     top: 0;
@@ -11964,6 +11917,54 @@ a.os-surface-row {
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.38);
+  }
+
+  .customize-song-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .customize-song-clear {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    font-size: 0.78rem;
+    color: rgb(var(--fg-rgb) / 0.62);
+    cursor: pointer;
+  }
+
+  .customize-song-clear:hover,
+  .customize-song-clear:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.92);
+    outline: none;
+  }
+
+  .customize-song-clear:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .customize-song-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .customize-song-row {
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border: 0;
+    border-radius: 0.75rem;
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: inherit;
+    text-align: left;
+  }
+
+  .customize-song-row.is-selected {
+    background: rgb(var(--fg-rgb) / 0.14);
   }
 
   .customize-hue-control {

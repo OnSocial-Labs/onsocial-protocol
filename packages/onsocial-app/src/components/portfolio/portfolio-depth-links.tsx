@@ -4,16 +4,13 @@ import { PortfolioAboutLink } from '@/components/portfolio/portfolio-about-link'
 import {
   PortfolioSongMarkButton,
   usePortfolioSongMark,
-} from '@/components/portfolio/portfolio-hero-play';
+} from '@/components/portfolio/portfolio-song-mark';
 import {
   PortfolioWritingAnchor,
   useShowPortfolioWritingLink,
 } from '@/components/portfolio/portfolio-writing-link';
 
-/**
- * Face depth doors — one quiet line: About · play · Writing.
- * The play mark is the same on every face. It does not move the name.
- */
+/** Face depth doors — one quiet line: About · play · Writing. */
 export function PortfolioDepthLinks({
   accountId,
   showAbout = false,

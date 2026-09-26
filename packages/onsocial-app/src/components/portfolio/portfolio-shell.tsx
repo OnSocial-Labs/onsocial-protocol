@@ -11,7 +11,7 @@ import type {
   ResolvedPageHero,
 } from '@/lib/page-data';
 import { readPinnedSongId, resolvePageFace } from '@/lib/page-face';
-import { PortfolioSongMarkProvider } from '@/components/portfolio/portfolio-hero-play';
+import { PortfolioSongMarkProvider } from '@/components/portfolio/portfolio-song-mark';
 import type { ResolvedMood } from '@/lib/moods/types';
 
 interface PortfolioShellProps {

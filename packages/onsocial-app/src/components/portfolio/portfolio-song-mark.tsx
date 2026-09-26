@@ -14,7 +14,7 @@ import {
   type CollectionView,
 } from '@/features/scarces/collections-data';
 import { isAudioMediumKind } from '@/features/market/market-medium';
-import { portfolioSongMarkVisible } from '@/lib/portfolio-hero-play';
+import { portfolioSongMarkVisible } from '@/lib/portfolio-song-mark';
 
 const PortfolioSongMarkContext = createContext<string | null>(null);
 
