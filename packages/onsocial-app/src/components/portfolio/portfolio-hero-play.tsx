@@ -1,16 +1,54 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { PauseFillIcon, PlayFillIcon } from '@onsocial/ui';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
+import { PlayFillIcon } from '@onsocial/ui';
 import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
 import {
   fetchCollectionPreferIndexer,
   type CollectionView,
 } from '@/features/scarces/collections-data';
 import { isAudioMediumKind } from '@/features/market/market-medium';
-import { portfolioHeroPlayAction } from '@/lib/portfolio-hero-play';
+import { portfolioSongMarkVisible } from '@/lib/portfolio-hero-play';
 
-export function PortfolioHeroPlay({ collectionId }: { collectionId: string }) {
+export type PortfolioSongMarkPlacement = 'above' | 'beside';
+
+const PortfolioSongMarkContext = createContext<{
+  collectionId: string | null;
+  placement: PortfolioSongMarkPlacement;
+}>({ collectionId: null, placement: 'beside' });
+
+export function PortfolioSongMarkProvider({
+  collectionId,
+  placement,
+  children,
+}: {
+  collectionId: string | null;
+  placement: PortfolioSongMarkPlacement;
+  children: ReactNode;
+}) {
+  return (
+    <PortfolioSongMarkContext.Provider value={{ collectionId, placement }}>
+      {children}
+    </PortfolioSongMarkContext.Provider>
+  );
+}
+
+/** Play mark for one slot. Hidden when this release is already the dock's song. */
+export function PortfolioSongMark({ slot }: { slot: PortfolioSongMarkPlacement }) {
+  const { collectionId, placement } = useContext(PortfolioSongMarkContext);
+  if (!collectionId || placement !== slot) return null;
+  return (
+    <PortfolioSongMarkButton key={collectionId} collectionId={collectionId} />
+  );
+}
+
+function PortfolioSongMarkButton({ collectionId }: { collectionId: string }) {
   const nowPlaying = useCollectiblesNowPlayingOptional();
   const [view, setView] = useState<CollectionView | null>(null);
 
@@ -28,25 +66,19 @@ export function PortfolioHeroPlay({ collectionId }: { collectionId: string }) {
     return null;
   }
 
-  const same = nowPlaying?.session?.collectionId === view.collectionId;
-  const playingThis = Boolean(same && nowPlaying?.playing);
-  const action = portfolioHeroPlayAction({
+  const visible = portfolioSongMarkVisible({
     pinnedId: view.collectionId,
     sessionId: nowPlaying?.session?.collectionId ?? null,
-    playing: Boolean(nowPlaying?.playing),
   });
+  if (!visible) return null;
 
   return (
     <button
       type="button"
-      className="portfolio-hero-play"
-      aria-label={`${playingThis ? 'Pause' : 'Play'} ${view.title}`}
+      className="portfolio-song-mark"
+      aria-label={`Play ${view.title}`}
       onClick={() => {
         if (!nowPlaying) return;
-        if (action === 'toggle') {
-          void nowPlaying.toggle();
-          return;
-        }
         nowPlaying.playSession({
           collectionId: view.collectionId,
           title: view.title,
@@ -55,14 +87,12 @@ export function PortfolioHeroPlay({ collectionId }: { collectionId: string }) {
         });
       }}
     >
-      {playingThis ? (
-        <PauseFillIcon className="portfolio-hero-play-icon" aria-hidden />
-      ) : (
+      <span className="portfolio-song-mark-face">
         <PlayFillIcon
-          className="portfolio-hero-play-icon portfolio-hero-play-icon--play"
+          className="portfolio-song-mark-icon portfolio-song-mark-icon--play"
           aria-hidden
         />
-      )}
+      </span>
     </button>
   );
 }

@@ -1,38 +1,28 @@
 import { describe, expect, it } from 'vitest';
-import { portfolioHeroPlayAction } from './portfolio-hero-play';
+import { portfolioSongMarkVisible } from './portfolio-hero-play';
 
-describe('portfolioHeroPlayAction', () => {
-  it('toggles the release already in the dock', () => {
+describe('portfolioSongMarkVisible', () => {
+  it('hides while the dock is on the pinned release', () => {
     expect(
-      portfolioHeroPlayAction({
+      portfolioSongMarkVisible({
         pinnedId: 'midnight-ep',
         sessionId: 'midnight-ep',
-        playing: true,
       })
-    ).toBe('toggle');
-    expect(
-      portfolioHeroPlayAction({
-        pinnedId: 'midnight-ep',
-        sessionId: 'midnight-ep',
-        playing: false,
-      })
-    ).toBe('toggle');
+    ).toBe(false);
   });
 
-  it('switches when the dock is empty or on another release', () => {
+  it('shows when the dock is empty or on another release', () => {
     expect(
-      portfolioHeroPlayAction({
+      portfolioSongMarkVisible({
         pinnedId: 'midnight-ep',
         sessionId: null,
-        playing: false,
       })
-    ).toBe('switch');
+    ).toBe(true);
     expect(
-      portfolioHeroPlayAction({
+      portfolioSongMarkVisible({
         pinnedId: 'midnight-ep',
         sessionId: 'other-single',
-        playing: true,
       })
-    ).toBe('switch');
+    ).toBe(true);
   });
 });

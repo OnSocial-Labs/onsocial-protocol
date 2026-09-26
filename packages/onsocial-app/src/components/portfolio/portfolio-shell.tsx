@@ -11,7 +11,7 @@ import type {
   ResolvedPageHero,
 } from '@/lib/page-data';
 import { readPinnedSongId, resolvePageFace } from '@/lib/page-face';
-import { PortfolioHeroPlay } from '@/components/portfolio/portfolio-hero-play';
+import { PortfolioSongMarkProvider } from '@/components/portfolio/portfolio-hero-play';
 import type { ResolvedMood } from '@/lib/moods/types';
 
 interface PortfolioShellProps {
@@ -91,13 +91,14 @@ export function PortfolioShell({
           ) : null}
         </div>
 
-        {hero && songId ? (
-          <PortfolioHeroPlay key={songId} collectionId={songId} />
-        ) : null}
-
-        <div className="portfolio-hero portfolio-hero--strip-overlap">
-          {children}
-        </div>
+        <PortfolioSongMarkProvider
+          collectionId={hero && songId ? songId : null}
+          placement={isCoverLayout ? 'above' : 'beside'}
+        >
+          <div className="portfolio-hero portfolio-hero--strip-overlap">
+            {children}
+          </div>
+        </PortfolioSongMarkProvider>
       </div>
     </main>
   );

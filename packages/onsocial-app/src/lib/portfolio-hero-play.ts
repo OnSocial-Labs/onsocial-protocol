@@ -1,9 +1,10 @@
-/** Same release already in the dock toggles. Anything else replaces it. */
-export function portfolioHeroPlayAction(opts: {
+/**
+ * The profile mark only starts the pin.
+ * Once that release is the dock's song, pause lives on the dock and the mark hides.
+ */
+export function portfolioSongMarkVisible(opts: {
   pinnedId: string;
   sessionId: string | null;
-  playing: boolean;
-}): 'toggle' | 'switch' {
-  if (opts.sessionId === opts.pinnedId) return 'toggle';
-  return 'switch';
+}): boolean {
+  return opts.sessionId !== opts.pinnedId;
 }

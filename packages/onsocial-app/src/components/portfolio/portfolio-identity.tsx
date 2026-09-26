@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kind-switch';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { PortfolioDepthLinks } from '@/components/portfolio/portfolio-depth-links';
+import { PortfolioSongMark } from '@/components/portfolio/portfolio-hero-play';
 import { PortfolioFaceBio } from '@/components/portfolio/portfolio-face-bio';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
 import { PortfolioOrgMetaLine } from '@/components/portfolio/portfolio-org-meta-line';
@@ -121,8 +122,10 @@ export function PortfolioIdentity({
         ) : displayKind === 'dao' && profileKindLabel ? (
           <p className="portfolio-entity-kind">{profileKindLabel}</p>
         ) : null}
+        <PortfolioSongMark slot="above" />
         <div className="portfolio-name-row">
           <h1 className="portfolio-name">{titleLabel}</h1>
+          <PortfolioSongMark slot="beside" />
           {isDao ? (
             <ProtocolNameTrailing accountId={accountId} isDao={isDao} />
           ) : null}

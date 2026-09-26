@@ -3958,55 +3958,6 @@ a.os-surface-row {
     }
   }
 
-  /* Hero band — absolute so height can vary per face without moving the name.
-     Same Mage play/pause glyphs and scrim disc as the cover player. */
-  .portfolio-hero-play {
-    position: absolute;
-    top: calc(env(safe-area-inset-top, 0px) + 0.85rem);
-    right: max(0.85rem, env(safe-area-inset-right, 0px));
-    z-index: 4;
-    display: grid;
-    width: 2.75rem;
-    height: 2.75rem;
-    place-items: center;
-    padding: 0;
-    border: 0;
-    border-radius: 999px;
-    cursor: pointer;
-    pointer-events: auto;
-    color: var(--app-on-media-ink);
-    background: var(--app-scrim-media);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
-  }
-
-  .portfolio-hero-play:hover,
-  .portfolio-hero-play:focus-visible {
-    background: var(--app-scrim-media-hover);
-    outline: none;
-  }
-
-  .portfolio-hero-play-icon {
-    width: 1.15rem;
-    height: 1.15rem;
-    display: block;
-  }
-
-  .portfolio-hero-play-icon--play {
-    transform: translateX(0.08rem);
-  }
-
-  .portfolio-hero-play:active {
-    transform: scale(0.96);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .portfolio-hero-play:active {
-      transform: none;
-    }
-  }
-
   .customize-song-head {
     display: flex;
     align-items: center;
@@ -7673,6 +7624,63 @@ a.os-surface-row {
     line-height: inherit;
     overflow-wrap: break-word;
     text-wrap: balance;
+  }
+
+  /* Pinned song — page colour, no border. Cover: above the name in the fade.
+     Banner: beside the name. Pause lives on the dock. */
+  .portfolio-song-mark {
+    --song-mark-size: 1.65rem;
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: calc((var(--song-mark-size) - 2.75rem) / 2);
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.88);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .portfolio-song-mark-face {
+    display: grid;
+    width: var(--song-mark-size);
+    height: var(--song-mark-size);
+    place-items: center;
+    border: 0;
+    border-radius: 999px;
+    background: var(--mood-bg, var(--bg));
+  }
+
+  .portfolio-song-mark-icon {
+    width: 0.72rem;
+    height: 0.72rem;
+    display: block;
+  }
+
+  .portfolio-song-mark-icon--play {
+    transform: translateX(0.04rem);
+  }
+
+  .portfolio-song-mark:hover,
+  .portfolio-song-mark:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.96);
+    outline: none;
+  }
+
+  .portfolio-song-mark:focus-visible .portfolio-song-mark-face {
+    box-shadow: 0 0 0 2px rgb(var(--fg-rgb) / 0.28);
+  }
+
+  .portfolio-song-mark:active {
+    transform: scale(0.96);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .portfolio-song-mark:active {
+      transform: none;
+    }
   }
 
   .protocol-identity-mark-cluster {
