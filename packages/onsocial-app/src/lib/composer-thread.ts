@@ -224,15 +224,12 @@ export function beatToComposerSubmit(beat: ComposerBeat): ComposerSubmit {
     ...(beat.nsfw ? { nsfw: true } : {}),
   };
   const articleTitle = normalizeArticleTitle(beat.articleTitle);
-  const photoCover = beat.files.length > 0;
   const article = articleTitle
     ? {
         article: {
           title: articleTitle,
           ...(beat.articleAlign !== 'left' ? { align: beat.articleAlign } : {}),
-          ...(photoCover
-            ? {}
-            : { cover: themeToArticleCoverPin(beat.articleCoverTheme) }),
+          cover: themeToArticleCoverPin(beat.articleCoverTheme),
         },
       }
     : {};

@@ -525,7 +525,7 @@ describe('formatWritingLikeLabel', () => {
 });
 
 describe('resolveArticleCover', () => {
-  it('keeps the pinned writing cover when a photo was also stored', () => {
+  it('uses the selected photo instead of a stored mood cover', () => {
     const value = postValue({
       media: ['https://cdn.example/photo.jpg'],
       x: {
@@ -533,21 +533,6 @@ describe('resolveArticleCover', () => {
           article: { title: 'Night', cover: { mood: 'poster-noir' } },
         },
       },
-    });
-    expect(resolveArticleCover({ value })).toEqual({
-      coverUrl: null,
-      cardBg: 'poster-noir',
-      format: 'poster',
-      markShape: 'rule',
-      markColor: 'auto',
-      pinned: true,
-    });
-  });
-
-  it('uses a still when the article has no writing cover', () => {
-    const value = postValue({
-      media: ['https://cdn.example/photo.jpg'],
-      x: { onsocial: { article: { title: 'Night' } } },
     });
     expect(resolveArticleCover({ value })).toEqual({
       coverUrl: 'https://cdn.example/photo.jpg',

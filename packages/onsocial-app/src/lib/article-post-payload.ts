@@ -44,8 +44,8 @@ export interface ArticleSnapshot {
   align: ArticleAlign;
   collectionId?: string;
   /**
-   * Text-card writing cover pinned at publish. This is the article face.
-   * A still is the face only when no cover was pinned.
+   * Mood cover pinned at publish. A photo you selected is the face instead.
+   * This card shows only when there is no photo.
    */
   cover?: ArticleCoverPin;
 }
@@ -329,7 +329,7 @@ export type ResolvedArticleCover = {
 };
 
 /**
- * The one cover rule: pinned writing cover → post still → legacy minted
+ * The one cover rule: selected photo → pinned mood cover → legacy minted
  * scarce hints → default card. Every surface (shelf, article, mint)
  * resolves through here so a piece keeps one face everywhere.
  */
@@ -338,17 +338,6 @@ export function resolveArticleCover(opts: {
   scarceMediaUrl?: string | null;
   scarceCardBg?: string | null;
 }): ResolvedArticleCover {
-  const pinned = parseArticleSnapshot(opts.value)?.cover ?? null;
-  if (pinned) {
-    return {
-      coverUrl: null,
-      cardBg: pinned.mood,
-      format: pinned.format,
-      markShape: pinned.markShape,
-      markColor: pinned.markColor,
-      pinned: true,
-    };
-  }
   const still = articleCoverUrl(opts.value);
   if (still) {
     return {
@@ -357,6 +346,17 @@ export function resolveArticleCover(opts: {
       format: null,
       markShape: null,
       markColor: null,
+      pinned: true,
+    };
+  }
+  const pinned = parseArticleSnapshot(opts.value)?.cover ?? null;
+  if (pinned) {
+    return {
+      coverUrl: null,
+      cardBg: pinned.mood,
+      format: pinned.format,
+      markShape: pinned.markShape,
+      markColor: pinned.markColor,
       pinned: true,
     };
   }
