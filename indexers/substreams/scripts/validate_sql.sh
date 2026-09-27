@@ -18,6 +18,48 @@ if ! "${DOCKER_BIN}" info >/dev/null 2>&1; then
   exit 1
 fi
 
+# Deploy pipes used to hide \ir. Schema views that include a sibling file
+# must be applied with psql -f from the upload directory.
+assert_view_includes_apply_like_deploy() {
+  local deploy="${SUBSTREAMS_DIR}/../../.github/workflows/deploy-substreams-testnet.yml"
+  local view include raw uses_ir=0
+  for view in "${SUBSTREAMS_DIR}"/*_schema_views.sql; do
+    [ -f "$view" ] || continue
+    while IFS= read -r raw; do
+      [ -n "$raw" ] || continue
+      uses_ir=1
+      include="${raw#*\\ir }"
+      include="${include%%;*}"
+      include="$(printf '%s' "$include" | sed "s/^[[:space:]]*//;s/[[:space:]]*$//;s/^['\"]//;s/['\"]$//")"
+      case "$include" in
+        */*)
+          echo "error: $(basename "$view") \\ir ${include} is not a sibling file." >&2
+          echo "error: deploy copies only *.sql next to the view file." >&2
+          exit 1
+          ;;
+      esac
+      if [ ! -f "${SUBSTREAMS_DIR}/${include}" ]; then
+        echo "error: $(basename "$view") includes missing file: ${include}" >&2
+        exit 1
+      fi
+    done < <(grep -E '^[[:space:]]*\\ir[[:space:]]+' "$view" || true)
+  done
+  if [ "$uses_ir" -eq 0 ]; then
+    return 0
+  fi
+  if grep -F '$PSQL < "$view_sql"' "$deploy" >/dev/null; then
+    echo "error: schema views use \\ir but Deploy Substreams pipes them into psql." >&2
+    echo "error: stdin has no script path, so \\ir cannot see the sibling file." >&2
+    exit 1
+  fi
+  if ! grep -F 'APPLY_SCHEMA_VIEWS_WITH_PSQL_F' "$deploy" >/dev/null; then
+    echo "error: schema views use \\ir but deploy does not apply them with psql -f." >&2
+    exit 1
+  fi
+}
+
+assert_view_includes_apply_like_deploy
+
 echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
 
 "${DOCKER_BIN}" run --rm \
