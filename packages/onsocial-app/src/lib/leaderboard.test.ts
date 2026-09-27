@@ -7,7 +7,6 @@ import {
   formatReputationScore,
   leaderboardHasMorePage,
   leaderboardHeaderYouLine,
-  leaderboardLeaveTarget,
   leaderboardTrackSubtitle,
   leaderboardViewerLine,
   pctOfLeader,
@@ -131,10 +130,5 @@ describe('leaderboard helpers', () => {
     expect(
       leaderboardHeaderYouLine({ rank: null, pinVisible: false })
     ).toBeNull();
-  });
-
-  it('returns home only when the board was opened with no history', () => {
-    expect(leaderboardLeaveTarget(1)).toBe('home');
-    expect(leaderboardLeaveTarget(2)).toBe('back');
   });
 });

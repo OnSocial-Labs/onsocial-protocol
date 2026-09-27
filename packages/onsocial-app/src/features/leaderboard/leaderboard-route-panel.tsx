@@ -10,7 +10,6 @@ import {
   leaderboardPath,
   parseLeaderboardTrackParam,
 } from '@/lib/app-routes';
-import { leaderboardLeaveTarget } from '@/lib/leaderboard';
 import type { LeaderboardTrack } from '@/lib/leaderboard';
 
 /**
@@ -41,14 +40,6 @@ export function LeaderboardRoutePanel() {
     setOpen(false);
     if (rowNavigateRef.current) {
       rowNavigateRef.current = false;
-      return;
-    }
-    if (
-      leaderboardLeaveTarget(
-        typeof window === 'undefined' ? 1 : window.history.length
-      ) === 'back'
-    ) {
-      router.back();
       return;
     }
     router.push(APP_HOME_PATH);

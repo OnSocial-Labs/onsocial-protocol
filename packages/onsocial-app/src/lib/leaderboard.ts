@@ -85,11 +85,6 @@ export function leaderboardHeaderYouLine(input: {
   return `You're #${rank}`;
 }
 
-/** Cold open with no history goes Home. Otherwise close returns to the previous page. */
-export function leaderboardLeaveTarget(historyLength: number): 'back' | 'home' {
-  return historyLength > 1 ? 'back' : 'home';
-}
-
 /** Above hug sheets (boost / reputation facts ~56) and nested manage slides. */
 export const LEADERBOARD_Z = SHEET_Z.board;
 /** Nested reputation peek opened from the leaderboard. */
