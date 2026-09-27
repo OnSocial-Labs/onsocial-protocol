@@ -59,10 +59,9 @@ import {
   LEADERBOARD_PAGE_SIZE,
   LEADERBOARD_TRACKS,
   LEADERBOARD_Z,
+  leaderboardHeaderYouLine,
   leaderboardPrimaryUnit,
   leaderboardTrackHint,
-  leaderboardTrackSubtitle,
-  leaderboardViewerLine,
   pctOfLeader,
   reputationEntryToProfile,
   type EarnerEntry,
@@ -350,19 +349,6 @@ function EarnerRows({
       })}
     </BoardList>
   );
-}
-
-function viewerPrimary(
-  track: LeaderboardTrack,
-  entry: InfluenceEntry | ReputationEntry | EarnerEntry
-): string {
-  if (track === 'influence') {
-    return formatSocialCompact((entry as InfluenceEntry).effectiveBoost);
-  }
-  if (track === 'reputation') {
-    return formatReputationScore((entry as ReputationEntry).reputation);
-  }
-  return formatSocialCompact((entry as EarnerEntry).totalEarned);
 }
 
 function presentationForEntry<T extends { accountId: string; rank: number }>(
@@ -864,13 +850,10 @@ export function LeaderboardSheet({
       </>
     ) : null;
 
-  const youLineText =
-    showYouLine && shareViewer
-      ? ` · ${leaderboardViewerLine({
-          rank: shareViewer.rank,
-          primary: viewerPrimary(track, shareViewer),
-        })}`
-      : null;
+  const headerYouLine = leaderboardHeaderYouLine({
+    rank: showYouLine && shareViewer ? shareViewer.rank : null,
+    pinVisible: stickyViewer != null,
+  });
 
   const showBoostAction =
     track === 'influence' && isConnected && boostAccountId.length > 0;
@@ -916,26 +899,17 @@ export function LeaderboardSheet({
               <h1 id={titleId} className="os-app-screen-title">
                 Leaderboard
               </h1>
-              <p className="os-app-screen-subtitle leaderboard-sheet-subline">
-                <span className="leaderboard-sheet-subline-metric">
-                  {leaderboardTrackSubtitle(track)}
-                </span>
-                {youLineText ? (
-                  viewerInListRow ? (
-                    <button
-                      type="button"
-                      className="leaderboard-sheet-subline-you is-jump"
-                      onClick={scrollToViewer}
-                    >
-                      {youLineText}
-                    </button>
-                  ) : (
-                    <span className="leaderboard-sheet-subline-you">
-                      {youLineText}
-                    </span>
-                  )
-                ) : null}
-              </p>
+              {headerYouLine ? (
+                <p className="os-app-screen-subtitle leaderboard-sheet-subline">
+                  <button
+                    type="button"
+                    className="leaderboard-sheet-subline-you is-jump"
+                    onClick={scrollToViewer}
+                  >
+                    {headerYouLine}
+                  </button>
+                </p>
+              ) : null}
             </>
           }
           actions={

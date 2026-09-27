@@ -5,6 +5,8 @@ import {
   entriesForTrack,
   formatReputationComponent,
   formatReputationScore,
+  leaderboardHasMorePage,
+  leaderboardHeaderYouLine,
   leaderboardTrackSubtitle,
   leaderboardViewerLine,
   pctOfLeader,
@@ -106,5 +108,27 @@ describe('leaderboard helpers', () => {
     expect(leaderboardViewerLine({ rank: 47, primary: '12.4' })).toBe(
       "You're #47 · 12.4"
     );
+  });
+
+  it('stops the board at the top window', () => {
+    expect(
+      leaderboardHasMorePage({ incomingCount: 20, pageSize: 20, offset: 180 })
+    ).toBe(true);
+    expect(
+      leaderboardHasMorePage({ incomingCount: 20, pageSize: 20, offset: 200 })
+    ).toBe(false);
+    expect(
+      leaderboardHasMorePage({ incomingCount: 4, pageSize: 20, offset: 0 })
+    ).toBe(false);
+  });
+
+  it('shows your rank in the header only when the pin is hidden', () => {
+    expect(leaderboardHeaderYouLine({ rank: 12, pinVisible: false })).toBe(
+      "You're #12"
+    );
+    expect(leaderboardHeaderYouLine({ rank: 12, pinVisible: true })).toBeNull();
+    expect(
+      leaderboardHeaderYouLine({ rank: null, pinVisible: false })
+    ).toBeNull();
   });
 });

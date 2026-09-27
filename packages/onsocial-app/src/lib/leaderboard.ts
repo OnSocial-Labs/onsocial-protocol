@@ -55,6 +55,36 @@ export {
   formatSocialCompact,
 };
 
+/**
+ * Last offset the board API will serve. Pages are 20, so this is the top
+ * ~220 rows. Past this the list stops instead of repeating the last page.
+ */
+export const LEADERBOARD_MAX_OFFSET = 200;
+
+/** Another page exists only inside the top window. */
+export function leaderboardHasMorePage(input: {
+  incomingCount: number;
+  pageSize: number;
+  offset: number;
+}): boolean {
+  if (input.incomingCount < input.pageSize) return false;
+  return input.offset + input.pageSize <= LEADERBOARD_MAX_OFFSET;
+}
+
+/**
+ * Header status. Hidden when the pinned row is already on screen.
+ * The metric lives on the row, not under the title.
+ */
+export function leaderboardHeaderYouLine(input: {
+  rank: number | null | undefined;
+  pinVisible: boolean;
+}): string | null {
+  if (input.pinVisible) return null;
+  if (input.rank == null || !Number.isFinite(input.rank)) return null;
+  const rank = Math.max(1, Math.floor(input.rank));
+  return `You're #${rank}`;
+}
+
 /** Above hug sheets (boost / reputation facts ~56) and nested manage slides. */
 export const LEADERBOARD_Z = SHEET_Z.board;
 /** Nested reputation peek opened from the leaderboard. */
@@ -116,6 +146,7 @@ export function appendLeaderboardPage(
   const incoming = (page[key] ?? []) as Array<{ accountId: string }>;
   const existing = (current?.[key] ?? []) as Array<{ accountId: string }>;
   const merged = mergeAccountRows(existing, incoming);
+  const offset = existing.length;
   const board: LeaderboardBoardResponse = {
     ...(current ?? {}),
     ...page,
@@ -127,7 +158,11 @@ export function appendLeaderboardPage(
   };
   return {
     board,
-    hasMore: incoming.length >= pageSize,
+    hasMore: leaderboardHasMorePage({
+      incomingCount: incoming.length,
+      pageSize,
+      offset,
+    }),
   };
 }
 

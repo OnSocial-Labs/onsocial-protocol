@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import {
+  LEADERBOARD_MAX_OFFSET,
   LEADERBOARD_PAGE_SIZE,
   REPUTATION_BOARD_GRAPHQL_FIELDS,
   findViewerEntry,
@@ -11,7 +12,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const MAX_LIMIT = 50;
-const MAX_OFFSET = 200;
 const REVALIDATE_SECONDS = 30;
 
 const VALID_SCOPES: LeaderboardTrack[] = ['influence', 'reputation', 'earners'];
@@ -27,7 +27,7 @@ function buildQuery(
   viewerAccountId: string | null
 ): string {
   const safeLimit = Math.min(Math.max(1, limit), MAX_LIMIT);
-  const safeOffset = Math.min(Math.max(0, offset), MAX_OFFSET);
+  const safeOffset = Math.max(0, offset);
   const viewer =
     viewerAccountId && viewerAccountId.length > 0
       ? escapeGraphQlString(viewerAccountId)
@@ -107,10 +107,28 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid scope' }, { status: 400 });
   }
 
+  const safeOffset = Number.isFinite(offset) ? Math.max(0, offset) : 0;
+  if (safeOffset > LEADERBOARD_MAX_OFFSET) {
+    const listKey =
+      scope === 'influence'
+        ? 'leaderboardBoost'
+        : scope === 'reputation'
+          ? 'reputationScores'
+          : 'leaderboardRewards';
+    return NextResponse.json(
+      { [listKey]: [], viewerEntry: null },
+      {
+        headers: {
+          'Cache-Control': `public, s-maxage=${REVALIDATE_SECONDS}, stale-while-revalidate=${REVALIDATE_SECONDS * 2}`,
+        },
+      }
+    );
+  }
+
   try {
     const os = createServerOnSocialClient();
     const res = await os.query.graphql<Record<string, unknown>>({
-      query: buildQuery(scope, limit, offset, viewer),
+      query: buildQuery(scope, limit, safeOffset, viewer),
     });
     const data = { ...(res.data ?? {}) } as Record<string, unknown>;
     const viewerRows = data.viewerEntry;
@@ -119,7 +137,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Prefer the in-list row when the viewer is already on the page.
-    if (viewer && offset === 0) {
+    if (viewer && safeOffset === 0) {
       const listKey =
         scope === 'influence'
           ? 'leaderboardBoost'

@@ -392,6 +392,10 @@ GROUP BY account_id;
 DROP VIEW IF EXISTS app_reputation CASCADE;
 DROP VIEW IF EXISTS leaderboard_agent_features CASCADE;
 DROP VIEW IF EXISTS reputation_scores CASCADE;
+DROP VIEW IF EXISTS reputation_scores_calc CASCADE;
+DROP TABLE IF EXISTS reputation_scores_current;
+DROP TABLE IF EXISTS leaderboard_influence_rank;
+DROP TABLE IF EXISTS leaderboard_rewards_current;
 
 -- Stubs replaced by social_spend_schema_views.sql when social_spend_events exists.
 -- Keeps leaderboard views installable before / without social-spend tables.
@@ -822,6 +826,11 @@ SELECT
   )::NUMERIC, 4)                                                AS confidence_score,
   RANK() OVER (ORDER BY reputation DESC)                        AS rank
 FROM composite;
+
+-- Reads of the three boards use stored rank tables. The calc view above
+-- stays the writer input; leaderboard_rank_store.sql points the public
+-- names at those tables and refreshes them when a score changes.
+\ir leaderboard_rank_store.sql
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 9. leaderboard_agent_features — deterministic rank-consumer signals
