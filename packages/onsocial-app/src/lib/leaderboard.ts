@@ -85,6 +85,33 @@ export function leaderboardHeaderYouLine(input: {
   return `You're #${rank}`;
 }
 
+/** Index of a board inside the side-by-side pager. */
+export function leaderboardTrackIndex(track: LeaderboardTrack): number {
+  const index = LEADERBOARD_TRACKS.findIndex((item) => item.id === track);
+  return index < 0 ? 0 : index;
+}
+
+/**
+ * Board under a horizontal pager offset. Halfway across a page settles on
+ * the next board so the chip matches the page you are entering.
+ */
+export function leaderboardTrackFromPager(
+  scrollLeft: number,
+  pageWidth: number
+): LeaderboardTrack {
+  const fallback = LEADERBOARD_TRACKS[0]?.id ?? 'reputation';
+  if (
+    !Number.isFinite(scrollLeft) ||
+    !Number.isFinite(pageWidth) ||
+    pageWidth <= 0
+  ) {
+    return fallback;
+  }
+  const index = Math.round(scrollLeft / pageWidth);
+  const clamped = Math.min(LEADERBOARD_TRACKS.length - 1, Math.max(0, index));
+  return LEADERBOARD_TRACKS[clamped]?.id ?? fallback;
+}
+
 /** Above hug sheets (boost / reputation facts ~56) and nested manage slides. */
 export const LEADERBOARD_Z = SHEET_Z.board;
 /** Nested reputation peek opened from the leaderboard. */

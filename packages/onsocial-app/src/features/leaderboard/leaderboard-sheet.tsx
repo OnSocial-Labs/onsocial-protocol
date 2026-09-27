@@ -3,6 +3,9 @@
 /**
  * In-app protocol leaderboard (appear page sheet — same shell as create post).
  *
+ * Reputation, Influence, and Earners sit side by side. The chips stay put,
+ * a sideways move slides to the next board, and each list keeps its place.
+ *
  * Reuses @onsocial/ui StandingIdentity + standing-row chrome and OsPageSheet.
  * Rank / pct bars / viewer pin stay host-local — no second UI consumer yet.
  * Period/Δ needs indexer history — not faked here.
@@ -12,6 +15,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -35,7 +39,6 @@ import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing
 import { StandingListLoadMoreFooter } from '@/components/panels/standing-list-load-more-footer';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
 import { PortfolioBoostSheet } from '@/features/boost/portfolio-boost-sheet';
 import { useBoostPosition } from '@/features/boost/use-boost-position';
@@ -61,11 +64,14 @@ import {
   LEADERBOARD_Z,
   leaderboardHeaderYouLine,
   leaderboardPrimaryUnit,
+  leaderboardTrackFromPager,
   leaderboardTrackHint,
+  leaderboardTrackIndex,
   pctOfLeader,
   reputationEntryToProfile,
   type EarnerEntry,
   type InfluenceEntry,
+  type LeaderboardBoardResponse,
   type LeaderboardTrack,
   type LeaderboardTrackCache,
   type ReputationEntry,
@@ -529,6 +535,301 @@ function LeaderboardReputationPeek({
   );
 }
 
+function leaderboardPagerMotion(): ScrollBehavior {
+  if (typeof window === 'undefined') return 'auto';
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ? 'auto'
+    : 'smooth';
+}
+
+function readLeaderboardTrack(
+  track: LeaderboardTrack,
+  trackCache: LeaderboardTrackCache | null | undefined,
+  viewerAccountId: string | null | undefined
+) {
+  const board = trackCache?.board ?? null;
+  const rawRows = entriesForTrack(track, board);
+  const rows = rawRows
+    ? track === 'earners'
+      ? filterLeaderboardEarnerRows(rawRows as EarnerEntry[])
+      : rawRows
+    : null;
+  const viewerInList = findViewerEntry(rows ?? [], viewerAccountId);
+  const viewerInListRow =
+    viewerInList && rows
+      ? (rows[viewerInList.index] as
+          | InfluenceEntry
+          | ReputationEntry
+          | EarnerEntry)
+      : null;
+  const rawViewerOutside =
+    !viewerInListRow && board?.viewerEntry
+      ? (board.viewerEntry as InfluenceEntry | ReputationEntry | EarnerEntry)
+      : null;
+  const viewerOutside =
+    track === 'earners' && rawViewerOutside
+      ? isLeaderboardEarnerRanked(rawViewerOutside as EarnerEntry)
+        ? rawViewerOutside
+        : null
+      : rawViewerOutside;
+  let leaderValue = '1';
+  if (rows && rows.length > 0) {
+    if (track === 'influence') {
+      leaderValue = (rows[0] as InfluenceEntry).effectiveBoost;
+    } else if (track === 'reputation') {
+      leaderValue = (rows[0] as ReputationEntry).reputation;
+    } else {
+      leaderValue = (rows[0] as EarnerEntry).totalEarned;
+    }
+  }
+  return {
+    board,
+    rows,
+    hasMore: trackCache?.hasMore ?? false,
+    viewerInListRow,
+    viewerOutside,
+    shareViewer: viewerInListRow ?? viewerOutside,
+    leaderValue,
+  };
+}
+
+function scrollRowIntoPage(scroller: HTMLElement, row: HTMLElement): void {
+  const top = row.offsetTop - scroller.clientHeight / 2 + row.offsetHeight / 2;
+  scroller.scrollTo({
+    top: Math.max(0, top),
+    behavior: leaderboardPagerMotion(),
+  });
+}
+
+function LeaderboardTrackPage({
+  track,
+  active,
+  trackCache,
+  pageError,
+  viewerAccountId,
+  isConnected,
+  onNavigate,
+  onOpenFacts,
+  onAppend,
+  onPinnedChange,
+  onScrollTop,
+  registerScroll,
+  registerViewerRow,
+}: {
+  track: LeaderboardTrack;
+  active: boolean;
+  trackCache: LeaderboardTrackCache | null | undefined;
+  pageError: string | null;
+  viewerAccountId: string | null;
+  isConnected: boolean;
+  onNavigate?: () => void;
+  onOpenFacts: (entry: ReputationEntry) => void;
+  onAppend: (track: LeaderboardTrack, page: LeaderboardBoardResponse) => void;
+  onPinnedChange: (track: LeaderboardTrack, pinned: boolean) => void;
+  onScrollTop: (top: number) => void;
+  registerScroll: (
+    track: LeaderboardTrack,
+    node: HTMLDivElement | null
+  ) => void;
+  registerViewerRow: (
+    track: LeaderboardTrack,
+    node: HTMLDivElement | null
+  ) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const viewerRowRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const settledViewerRef = useRef(false);
+  const loadingMoreRef = useRef(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const model = useMemo(
+    () => readLeaderboardTrack(track, trackCache, viewerAccountId),
+    [track, trackCache, viewerAccountId]
+  );
+  const { board, rows, hasMore, viewerInListRow, shareViewer } = model;
+  const accountIds = useMemo(
+    () => (rows ?? []).map((row) => row.accountId),
+    [rows]
+  );
+  const profiles = usePostAuthorProfiles(accountIds);
+
+  const setScrollNode = useCallback(
+    (node: HTMLDivElement | null) => {
+      scrollRef.current = node;
+      registerScroll(track, node);
+    },
+    [registerScroll, track]
+  );
+  const setViewerNode = useCallback(
+    (node: HTMLDivElement | null) => {
+      viewerRowRef.current = node;
+      registerViewerRow(track, node);
+    },
+    [registerViewerRow, track]
+  );
+
+  useEffect(() => {
+    if (!active) return;
+    onScrollTop(scrollRef.current?.scrollTop ?? 0);
+  }, [active, onScrollTop, rows]);
+
+  useEffect(() => {
+    if (!active || !viewerInListRow) {
+      if (active) onPinnedChange(track, false);
+      return;
+    }
+    const row = viewerRowRef.current;
+    const root = scrollRef.current;
+    if (!row || !root) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        onPinnedChange(track, !entry.isIntersecting);
+      },
+      {
+        root,
+        threshold: 0.4,
+        rootMargin: '0px 0px -6% 0px',
+      }
+    );
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [active, onPinnedChange, rows, track, viewerInListRow]);
+
+  useEffect(() => {
+    if (!active || settledViewerRef.current) return;
+    if (!viewerInListRow) {
+      if (rows) settledViewerRef.current = true;
+      return;
+    }
+    const row = viewerRowRef.current;
+    const scroller = scrollRef.current;
+    if (!row || !scroller) return;
+    settledViewerRef.current = true;
+    scrollRowIntoPage(scroller, row);
+  }, [active, rows, viewerInListRow]);
+
+  const loadMore = useCallback(async () => {
+    if (!hasMore || loadingMoreRef.current || !rows) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    const data = await fetchLeaderboardBoard(track, {
+      limit: LEADERBOARD_PAGE_SIZE,
+      offset: rows.length,
+      viewerAccountId: null,
+    });
+    loadingMoreRef.current = false;
+    setLoadingMore(false);
+    if (!data) return;
+    onAppend(track, data);
+  }, [hasMore, onAppend, rows, track]);
+
+  useEffect(() => {
+    if (!hasMore || loadingMore) return;
+    const node = loadMoreSentinelRef.current;
+    const root = scrollRef.current;
+    if (!node || !root) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) void loadMore();
+      },
+      { root, rootMargin: '120px 0px' }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, loadMore, loadingMore, rows]);
+
+  const showSkeleton = !pageError && rows == null;
+  const empty = rows != null && rows.length === 0;
+
+  return (
+    <section
+      role="tabpanel"
+      id={`leaderboard-panel-${track}`}
+      aria-labelledby={`leaderboard-tab-${track}`}
+      aria-hidden={!active}
+      className="leaderboard-pager-page"
+      data-track={track}
+    >
+      <div
+        ref={setScrollNode}
+        className="leaderboard-pager-scroll"
+        onScroll={(event) => {
+          if (!active) return;
+          onScrollTop(event.currentTarget.scrollTop);
+        }}
+      >
+        <div className="leaderboard-sheet-page">
+          {pageError ? (
+            <p className="leaderboard-sheet-empty">{pageError}</p>
+          ) : showSkeleton ? (
+            <ProfileSocialListSkeleton count={6} rowVariant="leaderboard" />
+          ) : empty ? (
+            <p className="leaderboard-sheet-empty">
+              No rankings yet. Activity will appear once indexed.
+            </p>
+          ) : (
+            <>
+              {track === 'influence' && rows ? (
+                <InfluenceRows
+                  rows={rows as InfluenceEntry[]}
+                  profiles={profiles}
+                  onNavigate={onNavigate}
+                  viewerAccountId={viewerAccountId}
+                  viewerRowRef={setViewerNode}
+                />
+              ) : track === 'reputation' && rows ? (
+                <ReputationRows
+                  rows={rows as ReputationEntry[]}
+                  profiles={profiles}
+                  onNavigate={onNavigate}
+                  viewerAccountId={viewerAccountId}
+                  viewerRowRef={setViewerNode}
+                  onOpenFacts={onOpenFacts}
+                />
+              ) : track === 'earners' && rows ? (
+                <EarnerRows
+                  rows={rows as EarnerEntry[]}
+                  profiles={profiles}
+                  onNavigate={onNavigate}
+                  viewerAccountId={viewerAccountId}
+                  viewerRowRef={setViewerNode}
+                />
+              ) : null}
+              <StandingListLoadMoreFooter
+                loadMoreSentinelRef={loadMoreSentinelRef}
+                isLoadingMore={loadingMore}
+                showSentinel={hasMore}
+                skeletonRowVariant="leaderboard"
+                resultsSummary={
+                  hasMore
+                    ? null
+                    : rows && rows.length > LEADERBOARD_PAGE_SIZE
+                      ? `Showing top ${rows.length}`
+                      : null
+                }
+              />
+              {!isConnected ? (
+                <p className="leaderboard-sheet-footnote">
+                  Connect a wallet to see your rank on this board.
+                </p>
+              ) : track === 'earners' &&
+                isConnected &&
+                !shareViewer &&
+                board ? (
+                <p className="leaderboard-sheet-footnote">
+                  No SOCIAL earned yet — you won&apos;t appear on this board.
+                </p>
+              ) : null}
+            </>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function LeaderboardSheet({
   open,
   onClose,
@@ -580,9 +881,25 @@ export function LeaderboardSheet({
     setInfluenceHintSeen(true);
   }, []);
 
-  const setTrack = useCallback(
+  const committedTrackRef = useRef(track);
+  const trackSourceRef = useRef<'open' | 'select' | 'pager' | 'idle'>('open');
+  const pagerRef = useRef<HTMLDivElement | null>(null);
+  const pageScrollRefs = useRef<
+    Partial<Record<LeaderboardTrack, HTMLDivElement | null>>
+  >({});
+  const viewerRowRefs = useRef<
+    Partial<Record<LeaderboardTrack, HTMLDivElement | null>>
+  >({});
+  const failedTracksRef = useRef<Partial<Record<LeaderboardTrack, boolean>>>(
+    {}
+  );
+
+  const commitTrack = useCallback(
     (next: LeaderboardTrack) => {
-      if (track === 'influence' && next !== 'influence') {
+      const previous = committedTrackRef.current;
+      if (previous === next) return;
+      committedTrackRef.current = next;
+      if (previous === 'influence' && next !== 'influence') {
         dismissInfluenceHint();
       }
       if (next !== 'influence') {
@@ -593,28 +910,28 @@ export function LeaderboardSheet({
         setInternalTrack(next);
       }
     },
-    [dismissInfluenceHint, onTrackChange, track, trackProp]
+    [dismissInfluenceHint, onTrackChange, trackProp]
   );
 
   const viewerKey = isConnected ? (viewerAccountId ?? '') : '';
   const [cache, setCache] = useState<
     Partial<Record<LeaderboardTrack, LeaderboardTrackCache>>
   >({});
+  const cacheRef = useRef(cache);
   const [cacheViewerKey, setCacheViewerKey] = useState(viewerKey);
+  const [pageErrors, setPageErrors] = useState<
+    Partial<Record<LeaderboardTrack, string>>
+  >({});
   if (cacheViewerKey !== viewerKey) {
     setCacheViewerKey(viewerKey);
     setCache({});
+    setPageErrors({});
   }
-  const [pending, setPending] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [viewerPinned, setViewerPinned] = useState(false);
+  const [pinnedByTrack, setPinnedByTrack] = useState<
+    Partial<Record<LeaderboardTrack, boolean>>
+  >({});
+  const [listScrolled, setListScrolled] = useState(false);
   const [factsEntry, setFactsEntry] = useState<ReputationEntry | null>(null);
-  const requestIdRef = useRef(0);
-  const viewerRowRef = useRef<HTMLDivElement | null>(null);
-  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
-  const scrollRootRef = useRef<HTMLElement | null>(null);
-  const scrolledForKeyRef = useRef('');
 
   const boostAccountId = isConnected ? (viewerAccountId ?? '') : '';
   const boostSheetOpen =
@@ -625,8 +942,6 @@ export function LeaderboardSheet({
   const boost = useBoostPosition(boostAccountId, {
     live: boostSheetOpen,
   });
-
-  const trackRailHidden = useDockAutoHide(false, scrollRootRef);
 
   const requestClose = useCallback(() => {
     setClosing(true);
@@ -646,196 +961,186 @@ export function LeaderboardSheet({
       setInternalTrack(initialTrack);
     }
     setCache({});
-    setError(null);
-    setPending(false);
-    setLoadingMore(false);
-    setViewerPinned(false);
+    setPageErrors({});
+    failedTracksRef.current = {};
+    setPinnedByTrack({});
+    setListScrolled(false);
     setFactsEntry(null);
     setBoostOpen(false);
-    scrolledForKeyRef.current = '';
+    trackSourceRef.current = 'open';
     onClose();
   }, [dismissInfluenceHint, initialTrack, onClose, track, trackProp]);
 
   useEffect(() => {
+    committedTrackRef.current = track;
+  }, [track]);
+
+  const alignPager = useCallback((behavior: ScrollBehavior) => {
+    const pager = pagerRef.current;
+    if (!pager || pager.clientWidth <= 0) return;
+    const left =
+      leaderboardTrackIndex(committedTrackRef.current) * pager.clientWidth;
+    if (Math.abs(pager.scrollLeft - left) < 2) return;
+    pager.scrollTo({ left, behavior });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!sheetOpen) {
+      trackSourceRef.current = 'open';
+      return;
+    }
+    if (trackSourceRef.current === 'pager') {
+      trackSourceRef.current = 'idle';
+      return;
+    }
+    const behavior =
+      trackSourceRef.current === 'select' ? leaderboardPagerMotion() : 'auto';
+    alignPager(behavior);
+    trackSourceRef.current = 'idle';
+  }, [alignPager, sheetOpen, track]);
+
+  useEffect(() => {
     if (!sheetOpen) return;
-    if (cache[track]) return;
+    const pager = pagerRef.current;
+    if (!pager) return;
+    const observer = new ResizeObserver(() => {
+      if (trackSourceRef.current === 'pager') return;
+      alignPager('auto');
+    });
+    observer.observe(pager);
+    return () => observer.disconnect();
+  }, [alignPager, sheetOpen]);
 
-    const requestId = ++requestIdRef.current;
+  const handlePagerScroll = useCallback(() => {
+    const pager = pagerRef.current;
+    if (!pager || pager.clientWidth <= 0) return;
+    const next = leaderboardTrackFromPager(pager.scrollLeft, pager.clientWidth);
+    if (next === committedTrackRef.current) return;
+    trackSourceRef.current = 'pager';
+    commitTrack(next);
+  }, [commitTrack]);
+
+  const selectTrack = useCallback(
+    (next: LeaderboardTrack) => {
+      if (next === committedTrackRef.current) return;
+      setFactsEntry(null);
+      trackSourceRef.current = 'select';
+      commitTrack(next);
+    },
+    [commitTrack]
+  );
+
+  useEffect(() => {
+    cacheRef.current = cache;
+  }, [cache]);
+
+  useEffect(() => {
+    failedTracksRef.current = {};
+  }, [viewerKey]);
+
+  useEffect(() => {
+    if (!sheetOpen) return;
     let cancelled = false;
-    queueMicrotask(() => {
-      if (!cancelled && requestId === requestIdRef.current) {
-        setPending(true);
-        setError(null);
-      }
-    });
-
-    void fetchLeaderboardBoard(track, {
-      limit: LEADERBOARD_PAGE_SIZE,
-      offset: 0,
-      viewerAccountId: isConnected ? viewerAccountId : null,
-    }).then((data) => {
-      if (cancelled || requestId !== requestIdRef.current) return;
-      setPending(false);
-      if (!data) {
-        setError('Could not load leaderboard.');
-        return;
-      }
-      const page = appendLeaderboardPage(track, null, data);
-      setCache((prev) => ({ ...prev, [track]: page }));
-    });
-
+    const viewer = isConnected ? viewerAccountId : null;
+    for (const item of LEADERBOARD_TRACKS) {
+      const scope = item.id;
+      if (cacheRef.current[scope] || failedTracksRef.current[scope]) continue;
+      void fetchLeaderboardBoard(scope, {
+        limit: LEADERBOARD_PAGE_SIZE,
+        offset: 0,
+        viewerAccountId: viewer,
+      }).then((data) => {
+        if (cancelled) return;
+        if (!data) {
+          failedTracksRef.current[scope] = true;
+          setPageErrors((prev) => ({
+            ...prev,
+            [scope]: 'Could not load leaderboard.',
+          }));
+          return;
+        }
+        setCache((prev) => {
+          if (prev[scope]) return prev;
+          return {
+            ...prev,
+            [scope]: appendLeaderboardPage(scope, null, data),
+          };
+        });
+      });
+    }
     return () => {
       cancelled = true;
     };
-  }, [sheetOpen, track, cache, isConnected, viewerAccountId]);
+  }, [sheetOpen, isConnected, viewerAccountId]);
 
-  const trackCache = cache[track] ?? null;
-  const board = trackCache?.board ?? null;
-  const rawRows = entriesForTrack(track, board);
-  const rows = useMemo(() => {
-    if (!rawRows) return null;
-    if (track === 'earners') {
-      return filterLeaderboardEarnerRows(rawRows as EarnerEntry[]);
-    }
-    return rawRows;
-  }, [rawRows, track]);
-  const hasMore = trackCache?.hasMore ?? false;
-  const viewerInList = findViewerEntry(rows ?? [], viewerAccountId);
-  const viewerInListRow =
-    viewerInList && rows
-      ? (rows[viewerInList.index] as
-          | InfluenceEntry
-          | ReputationEntry
-          | EarnerEntry)
-      : null;
-  const rawViewerOutside =
-    !viewerInListRow && board?.viewerEntry
-      ? (board.viewerEntry as InfluenceEntry | ReputationEntry | EarnerEntry)
-      : null;
-  const viewerOutside =
-    track === 'earners' && rawViewerOutside
-      ? isLeaderboardEarnerRanked(rawViewerOutside as EarnerEntry)
-        ? rawViewerOutside
-        : null
-      : rawViewerOutside;
-  const stickyViewer = viewerOutside ?? (viewerPinned ? viewerInListRow : null);
-  const shareViewer = viewerInListRow ?? viewerOutside;
-  const trackHint =
-    track === 'influence' && !influenceHintSeen && leaderboardTrackHint(track);
-  /** Quiet you-line whenever the viewer has a rank on this track. */
-  const showYouLine = Boolean(shareViewer && isConnected);
+  const appendPage = useCallback(
+    (scope: LeaderboardTrack, page: LeaderboardBoardResponse) => {
+      setCache((prev) => {
+        const current = prev[scope]?.board ?? null;
+        return {
+          ...prev,
+          [scope]: appendLeaderboardPage(scope, current, page),
+        };
+      });
+    },
+    []
+  );
 
-  const scrollToViewer = useCallback(() => {
-    viewerRowRef.current?.scrollIntoView({
-      block: 'center',
-      behavior: 'smooth',
+  const registerScroll = useCallback(
+    (scope: LeaderboardTrack, node: HTMLDivElement | null) => {
+      pageScrollRefs.current[scope] = node;
+    },
+    []
+  );
+  const registerViewerRow = useCallback(
+    (scope: LeaderboardTrack, node: HTMLDivElement | null) => {
+      viewerRowRefs.current[scope] = node;
+    },
+    []
+  );
+  const onPinnedChange = useCallback(
+    (scope: LeaderboardTrack, pinned: boolean) => {
+      setPinnedByTrack((prev) =>
+        prev[scope] === pinned ? prev : { ...prev, [scope]: pinned }
+      );
+    },
+    []
+  );
+  const onScrollTop = useCallback((top: number) => {
+    setListScrolled((prev) => {
+      const next = top > 8;
+      return prev === next ? prev : next;
     });
   }, []);
 
-  const accountIds = useMemo(() => {
-    const ids = (rows ?? []).map((row) => row.accountId);
-    if (viewerOutside) ids.push(viewerOutside.accountId);
-    return ids;
-  }, [rows, viewerOutside]);
-  const profiles = usePostAuthorProfiles(accountIds);
+  const viewerId = isConnected ? (viewerAccountId ?? null) : null;
+  const activeModel = useMemo(
+    () => readLeaderboardTrack(track, cache[track], viewerId),
+    [cache, track, viewerId]
+  );
+  const { rows, shareViewer, leaderValue } = activeModel;
+  const pinVisible = pinnedByTrack[track] === true;
+  const stickyViewer =
+    activeModel.viewerOutside ??
+    (pinVisible ? activeModel.viewerInListRow : null);
+  const trackHint =
+    track === 'influence' && !influenceHintSeen && leaderboardTrackHint(track);
+  const showYouLine = Boolean(shareViewer && isConnected);
+  const footerIds = useMemo(
+    () => (stickyViewer ? [stickyViewer.accountId] : []),
+    [stickyViewer]
+  );
+  const profiles = usePostAuthorProfiles(footerIds);
 
-  const leaderValue = useMemo(() => {
-    if (!rows || rows.length === 0) return '1';
-    if (track === 'influence') {
-      return (rows[0] as InfluenceEntry).effectiveBoost;
-    }
-    if (track === 'reputation') {
-      return (rows[0] as ReputationEntry).reputation;
-    }
-    return (rows[0] as EarnerEntry).totalEarned;
-  }, [rows, track]);
-
-  useEffect(() => {
-    if (!sheetOpen || !viewerInListRow) return;
-    const key = `${track}:${viewerAccountId ?? ''}`;
-    if (scrolledForKeyRef.current === key) return;
-    const node = viewerRowRef.current;
-    if (!node) return;
-    scrolledForKeyRef.current = key;
-    node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [sheetOpen, track, viewerAccountId, viewerInListRow, rows]);
-
-  useEffect(() => {
-    if (!sheetOpen || !viewerInListRow) {
-      return;
-    }
-
-    const node = viewerRowRef.current;
-    if (!node) return;
-
-    const root = node.closest('.os-app-screen-body');
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (!entry) return;
-        setViewerPinned(!entry.isIntersecting);
-      },
-      {
-        root: root instanceof Element ? root : null,
-        threshold: 0.4,
-        rootMargin: '0px 0px -6% 0px',
-      }
-    );
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-    };
-  }, [sheetOpen, track, viewerInListRow, rows]);
-
-  const loadMore = useCallback(async () => {
-    if (!hasMore || loadingMore || pending) return;
-    const offset = rows?.length ?? 0;
-    setLoadingMore(true);
-    const data = await fetchLeaderboardBoard(track, {
-      limit: LEADERBOARD_PAGE_SIZE,
-      offset,
-      viewerAccountId: null,
-    });
-    setLoadingMore(false);
-    if (!data) return;
-    setCache((prev) => {
-      const current = prev[track]?.board ?? null;
-      const next = appendLeaderboardPage(track, current, data);
-      return { ...prev, [track]: next };
-    });
-  }, [hasMore, loadingMore, pending, rows, track]);
-
-  useEffect(() => {
-    if (!sheetOpen || !hasMore || loadingMore || pending) return;
-    const node = loadMoreSentinelRef.current;
-    if (!node) return;
-    const root = node.closest('.os-app-screen-body');
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (entry?.isIntersecting) {
-          void loadMore();
-        }
-      },
-      {
-        root: root instanceof Element ? root : null,
-        rootMargin: '120px 0px',
-      }
-    );
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-    };
-  }, [sheetOpen, hasMore, loadingMore, pending, loadMore, rows]);
-
-  const empty =
-    rows != null && rows.length === 0
-      ? 'No rankings yet. Activity will appear once indexed.'
-      : null;
-  const showSkeleton = pending && rows == null;
+  const scrollToViewer = useCallback(() => {
+    const scroller = pageScrollRefs.current[track];
+    const row = viewerRowRefs.current[track];
+    if (!scroller || !row) return;
+    scrollRowIntoPage(scroller, row);
+  }, [track]);
 
   const stickyFooter =
-    stickyViewer && rows && !showSkeleton && !error && !empty ? (
+    stickyViewer && rows && !pageErrors[track] ? (
       <>
         <Divider variant="section" className="leaderboard-footer-divider" />
         <ViewerFooter
@@ -890,7 +1195,7 @@ export function LeaderboardSheet({
           title="Leaderboard"
           glassChrome
           embedded
-          scrollRootRef={scrollRootRef}
+          glassScrollElevated={listScrolled}
           moodId={viewerMoodId}
           moodStyle={viewerMoodStyle}
           leading={null}
@@ -935,34 +1240,40 @@ export function LeaderboardSheet({
           }
           toolbar={
             <div className="leaderboard-toolbar">
-              <div
-                className={`os-app-chrome-rail leaderboard-track-rail${
-                  trackRailHidden ? ' is-scroll-hidden' : ''
-                }`}
-              >
+              <div className="os-app-chrome-rail leaderboard-track-rail">
                 <div
                   className="app-storage-mode-toggle leaderboard-track-row"
                   data-track={track}
                   role="tablist"
                   aria-label="Leaderboard tracks"
+                  onKeyDown={(event) => {
+                    if (
+                      event.key !== 'ArrowRight' &&
+                      event.key !== 'ArrowLeft'
+                    ) {
+                      return;
+                    }
+                    event.preventDefault();
+                    const index = leaderboardTrackIndex(track);
+                    const nextIndex =
+                      event.key === 'ArrowRight' ? index + 1 : index - 1;
+                    const next = LEADERBOARD_TRACKS[nextIndex];
+                    if (!next) return;
+                    selectTrack(next.id);
+                  }}
                 >
                   {LEADERBOARD_TRACKS.map((item) => (
                     <button
                       key={item.id}
+                      id={`leaderboard-tab-${item.id}`}
                       type="button"
                       role="tab"
                       aria-selected={track === item.id}
+                      aria-controls={`leaderboard-panel-${item.id}`}
                       className={`app-storage-mode${
                         track === item.id ? ' is-active' : ''
                       }`}
-                      onClick={() => {
-                        if (item.id === track) return;
-                        setError(null);
-                        setViewerPinned(false);
-                        setFactsEntry(null);
-                        scrolledForKeyRef.current = '';
-                        setTrack(item.id);
-                      }}
+                      onClick={() => selectTrack(item.id)}
                     >
                       {item.label}
                     </button>
@@ -976,72 +1287,30 @@ export function LeaderboardSheet({
           }
         >
           <div className="leaderboard-sheet-content">
-            {error ? (
-              <p className="leaderboard-sheet-empty">{error}</p>
-            ) : showSkeleton ? (
-              <ProfileSocialListSkeleton count={6} rowVariant="leaderboard" />
-            ) : empty ? (
-              <p className="leaderboard-sheet-empty">{empty}</p>
-            ) : (
-              <>
-                {track === 'influence' && rows ? (
-                  <InfluenceRows
-                    rows={rows as InfluenceEntry[]}
-                    profiles={profiles}
-                    onNavigate={handleRowNavigate}
-                    viewerAccountId={viewerAccountId}
-                    viewerRowRef={viewerRowRef}
-                  />
-                ) : track === 'reputation' && rows ? (
-                  <ReputationRows
-                    rows={rows as ReputationEntry[]}
-                    profiles={profiles}
-                    onNavigate={handleRowNavigate}
-                    viewerAccountId={viewerAccountId}
-                    viewerRowRef={viewerRowRef}
-                    onOpenFacts={setFactsEntry}
-                  />
-                ) : track === 'earners' && rows ? (
-                  <EarnerRows
-                    rows={rows as EarnerEntry[]}
-                    profiles={profiles}
-                    onNavigate={handleRowNavigate}
-                    viewerAccountId={viewerAccountId}
-                    viewerRowRef={viewerRowRef}
-                  />
-                ) : (
-                  <ProfileSocialListSkeleton
-                    count={6}
-                    rowVariant="leaderboard"
-                  />
-                )}
-                <StandingListLoadMoreFooter
-                  loadMoreSentinelRef={loadMoreSentinelRef}
-                  isLoadingMore={loadingMore}
-                  showSentinel={hasMore}
-                  skeletonRowVariant="leaderboard"
-                  resultsSummary={
-                    hasMore
-                      ? null
-                      : rows && rows.length > LEADERBOARD_PAGE_SIZE
-                        ? `Showing top ${rows.length}`
-                        : null
-                  }
+            <div
+              ref={pagerRef}
+              className="leaderboard-pager"
+              onScroll={handlePagerScroll}
+            >
+              {LEADERBOARD_TRACKS.map((item) => (
+                <LeaderboardTrackPage
+                  key={item.id}
+                  track={item.id}
+                  active={track === item.id}
+                  trackCache={cache[item.id]}
+                  pageError={pageErrors[item.id] ?? null}
+                  viewerAccountId={viewerId}
+                  isConnected={isConnected}
+                  onNavigate={handleRowNavigate}
+                  onOpenFacts={setFactsEntry}
+                  onAppend={appendPage}
+                  onPinnedChange={onPinnedChange}
+                  onScrollTop={onScrollTop}
+                  registerScroll={registerScroll}
+                  registerViewerRow={registerViewerRow}
                 />
-                {!isConnected ? (
-                  <p className="leaderboard-sheet-footnote">
-                    Connect a wallet to see your rank on this board.
-                  </p>
-                ) : track === 'earners' &&
-                  isConnected &&
-                  !shareViewer &&
-                  board ? (
-                  <p className="leaderboard-sheet-footnote">
-                    No SOCIAL earned yet — you won&apos;t appear on this board.
-                  </p>
-                ) : null}
-              </>
-            )}
+              ))}
+            </div>
           </div>
         </OsAppScreen>
       </OsPageSheet>

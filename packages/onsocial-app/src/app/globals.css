@@ -464,6 +464,63 @@
   -webkit-backdrop-filter: none;
 }
 
+.glass-sheet-panel.leaderboard-page-sheet .os-app-screen-body {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-sheet-content {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  height: auto;
+  overflow: hidden;
+  padding: 0;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-pager {
+  display: flex;
+  flex: 1 1 0;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-pager-page {
+  display: flex;
+  flex: 0 0 100%;
+  flex-direction: column;
+  width: 100%;
+  min-width: 100%;
+  min-height: 0;
+  height: auto;
+  overflow: hidden;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-pager-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 .os-app-screen--embedded {
   /* Overlay screens portal inside the underlay OsAppScreen — do not inherit
      Discover / Home chrome height as a second header pad. */
@@ -10706,12 +10763,58 @@ a.os-surface-row {
     margin-inline-start: auto;
   }
 
-  /* Same social-list inset as Standing / Endorsements. */
+  /* Same social-list inset as Standing / Endorsements. The three boards
+     sit side by side; each page scrolls on its own. */
   .leaderboard-sheet-content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    gap: 0;
+    padding: 0;
+  }
+
+  .leaderboard-pager {
+    display: flex;
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    height: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .leaderboard-pager::-webkit-scrollbar {
+    display: none;
+  }
+
+  .leaderboard-pager-page {
+    flex: 0 0 100%;
+    width: 100%;
+    min-width: 100%;
+    height: 100%;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  .leaderboard-pager-scroll {
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 0.1rem var(--os-screen-body-pad-x, 1rem)
+      calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .leaderboard-sheet-page {
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
-    padding: 0.1rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
   }
 
   .leaderboard-page-sheet .os-app-screen-toolbar {

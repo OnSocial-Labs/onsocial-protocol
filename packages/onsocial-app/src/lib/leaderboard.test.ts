@@ -7,6 +7,8 @@ import {
   formatReputationScore,
   leaderboardHasMorePage,
   leaderboardHeaderYouLine,
+  leaderboardTrackFromPager,
+  leaderboardTrackIndex,
   leaderboardTrackSubtitle,
   leaderboardViewerLine,
   pctOfLeader,
@@ -120,6 +122,19 @@ describe('leaderboard helpers', () => {
     expect(
       leaderboardHasMorePage({ incomingCount: 4, pageSize: 20, offset: 0 })
     ).toBe(false);
+  });
+
+  it('maps a horizontal pager offset onto the three boards', () => {
+    expect(leaderboardTrackIndex('reputation')).toBe(0);
+    expect(leaderboardTrackIndex('influence')).toBe(1);
+    expect(leaderboardTrackIndex('earners')).toBe(2);
+    expect(leaderboardTrackFromPager(0, 390)).toBe('reputation');
+    expect(leaderboardTrackFromPager(180, 390)).toBe('reputation');
+    expect(leaderboardTrackFromPager(200, 390)).toBe('influence');
+    expect(leaderboardTrackFromPager(390, 390)).toBe('influence');
+    expect(leaderboardTrackFromPager(780, 390)).toBe('earners');
+    expect(leaderboardTrackFromPager(2000, 390)).toBe('earners');
+    expect(leaderboardTrackFromPager(0, 0)).toBe('reputation');
   });
 
   it('shows your rank in the header only when the pin is hidden', () => {
