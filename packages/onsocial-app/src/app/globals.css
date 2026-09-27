@@ -498,6 +498,10 @@
   scrollbar-width: none;
 }
 
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-pager::-webkit-scrollbar {
+  display: none;
+}
+
 .glass-sheet-panel.leaderboard-page-sheet .leaderboard-pager-page {
   display: flex;
   flex: 0 0 100%;
@@ -519,6 +523,8 @@
   overflow-y: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
+  padding: 0.1rem var(--os-screen-body-pad-x, 1rem)
+    calc(1.25rem + env(safe-area-inset-bottom, 0px));
 }
 
 .os-app-screen--embedded {
@@ -10763,54 +10769,6 @@ a.os-surface-row {
     margin-inline-start: auto;
   }
 
-  /* Same social-list inset as Standing / Endorsements. The three boards
-     sit side by side; each page scrolls on its own. */
-  .leaderboard-sheet-content {
-    display: flex;
-    flex: 1 1 auto;
-    flex-direction: column;
-    min-height: 0;
-    height: 100%;
-    gap: 0;
-    padding: 0;
-  }
-
-  .leaderboard-pager {
-    display: flex;
-    flex: 1 1 auto;
-    width: 100%;
-    min-height: 0;
-    height: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x mandatory;
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
-  }
-
-  .leaderboard-pager::-webkit-scrollbar {
-    display: none;
-  }
-
-  .leaderboard-pager-page {
-    flex: 0 0 100%;
-    width: 100%;
-    min-width: 100%;
-    height: 100%;
-    scroll-snap-align: start;
-    scroll-snap-stop: always;
-  }
-
-  .leaderboard-pager-scroll {
-    height: 100%;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior-y: contain;
-    -webkit-overflow-scrolling: touch;
-    padding: 0.1rem var(--os-screen-body-pad-x, 1rem)
-      calc(1.25rem + env(safe-area-inset-bottom, 0px));
-  }
-
   .leaderboard-sheet-page {
     display: flex;
     flex-direction: column;
@@ -10858,11 +10816,6 @@ a.os-surface-row {
   .leaderboard-sheet-subline-you.is-jump:focus-visible {
     color: rgb(var(--fg-rgb) / 0.72);
     outline: none;
-  }
-
-  .leaderboard-page-sheet
-    .os-app-screen-toolbar:has(.leaderboard-track-rail.is-scroll-hidden) {
-    margin-top: 0;
   }
 
   .leaderboard-track-rail {
