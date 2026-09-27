@@ -3,8 +3,9 @@
 /**
  * In-app protocol leaderboard (appear page sheet — same shell as create post).
  *
- * Reputation, Influence, and Earners sit side by side. The chips stay put,
- * a sideways move slides to the next board, and each list keeps its place.
+ * Reputation, Influence, and Earners sit side by side. The chips span the
+ * sheet and tuck while that list scrolls. A sideways move slides to the next
+ * board, and each list keeps its place.
  *
  * Reuses @onsocial/ui StandingIdentity + standing-row chrome and OsPageSheet.
  * Rank / pct bars / viewer pin stay host-local — no second UI consumer yet.
@@ -39,6 +40,11 @@ import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing
 import { StandingListLoadMoreFooter } from '@/components/panels/standing-list-load-more-footer';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  DOCK_TOGGLE_COOLDOWN_MS,
+  nextDockAutoHidden,
+  scrollRoomOf,
+} from '@/hooks/use-dock-auto-hide';
 import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
 import { PortfolioBoostSheet } from '@/features/boost/portfolio-boost-sheet';
 import { useBoostPosition } from '@/features/boost/use-boost-position';
@@ -626,7 +632,7 @@ function LeaderboardTrackPage({
   onOpenFacts: (entry: ReputationEntry) => void;
   onAppend: (track: LeaderboardTrack, page: LeaderboardBoardResponse) => void;
   onPinnedChange: (track: LeaderboardTrack, pinned: boolean) => void;
-  onScrollTop: (top: number) => void;
+  onScrollTop: (track: LeaderboardTrack, top: number) => void;
   registerScroll: (
     track: LeaderboardTrack,
     node: HTMLDivElement | null
@@ -670,8 +676,13 @@ function LeaderboardTrackPage({
 
   useEffect(() => {
     if (!active) return;
-    onScrollTop(scrollRef.current?.scrollTop ?? 0);
-  }, [active, onScrollTop, rows]);
+    const el = scrollRef.current;
+    if (!el) return;
+    const publish = () => onScrollTop(track, el.scrollTop);
+    publish();
+    el.addEventListener('scroll', publish, { passive: true });
+    return () => el.removeEventListener('scroll', publish);
+  }, [active, onScrollTop, rows, track]);
 
   useEffect(() => {
     if (!active || !viewerInListRow) {
@@ -752,14 +763,7 @@ function LeaderboardTrackPage({
       className="leaderboard-pager-page"
       data-track={track}
     >
-      <div
-        ref={setScrollNode}
-        className="leaderboard-pager-scroll"
-        onScroll={(event) => {
-          if (!active) return;
-          onScrollTop(event.currentTarget.scrollTop);
-        }}
-      >
+      <div ref={setScrollNode} className="leaderboard-pager-scroll">
         <div className="leaderboard-sheet-page">
           {pageError ? (
             <p className="leaderboard-sheet-empty">{pageError}</p>
@@ -887,6 +891,18 @@ export function LeaderboardSheet({
   const pageScrollRefs = useRef<
     Partial<Record<LeaderboardTrack, HTMLDivElement | null>>
   >({});
+  const railHiddenRef = useRef<Record<LeaderboardTrack, boolean>>({
+    reputation: false,
+    influence: false,
+    earners: false,
+  });
+  const railLastTopRef = useRef<Record<LeaderboardTrack, number>>({
+    reputation: 0,
+    influence: 0,
+    earners: 0,
+  });
+  const railCooldownRef = useRef(0);
+  const [trackRailHidden, setTrackRailHidden] = useState(false);
   const viewerRowRefs = useRef<
     Partial<Record<LeaderboardTrack, HTMLDivElement | null>>
   >({});
@@ -1106,11 +1122,32 @@ export function LeaderboardSheet({
     },
     []
   );
-  const onScrollTop = useCallback((top: number) => {
-    setListScrolled((prev) => {
-      const next = top > 8;
-      return prev === next ? prev : next;
+  const onScrollTop = useCallback((scope: LeaderboardTrack, top: number) => {
+    const last = railLastTopRef.current[scope] ?? 0;
+    const delta = top - last;
+    railLastTopRef.current[scope] = top;
+    const next = nextDockAutoHidden({
+      scrollTop: top,
+      delta,
+      scrollRoom: scrollRoomOf(pageScrollRefs.current[scope] ?? null),
+      hidden: railHiddenRef.current[scope],
     });
+    if (next !== railHiddenRef.current[scope]) {
+      const now = performance.now();
+      const cooling = delta !== 0 && now < railCooldownRef.current;
+      if (!cooling) {
+        if (delta !== 0) {
+          railCooldownRef.current = now + DOCK_TOGGLE_COOLDOWN_MS;
+        }
+        railHiddenRef.current[scope] = next;
+      }
+    }
+    if (scope !== committedTrackRef.current) return;
+    setListScrolled((prev) => {
+      const elevated = top > 8;
+      return prev === elevated ? prev : elevated;
+    });
+    setTrackRailHidden(railHiddenRef.current[scope]);
   }, []);
 
   const viewerId = isConnected ? (viewerAccountId ?? null) : null;
@@ -1240,7 +1277,11 @@ export function LeaderboardSheet({
           }
           toolbar={
             <div className="leaderboard-toolbar">
-              <div className="os-app-chrome-rail leaderboard-track-rail">
+              <div
+                className={`os-app-chrome-rail leaderboard-track-rail${
+                  trackRailHidden ? ' is-scroll-hidden' : ''
+                }`}
+              >
                 <div
                   className="app-storage-mode-toggle leaderboard-track-row"
                   data-track={track}

@@ -82,14 +82,69 @@ test.describe('leaderboard pager', () => {
       reputation.locator('a.standing-row-main[href="/@rep-1.testnet"]')
     ).toBeVisible();
 
+    const chipSpan = await page.evaluate(() => {
+      const row = document.querySelector('.leaderboard-track-row');
+      const sheet = document.querySelector(
+        '.glass-sheet-panel.leaderboard-page-sheet'
+      );
+      if (!row || !sheet) return null;
+      const chips = row.getBoundingClientRect();
+      const panel = sheet.getBoundingClientRect();
+      return {
+        rowWidth: chips.width,
+        sheetWidth: panel.width,
+        rowLeft: chips.left,
+        sheetLeft: panel.left,
+        rowRight: chips.right,
+        sheetRight: panel.right,
+      };
+    });
+    if (!chipSpan) throw new Error('leaderboard chips are not on screen');
+    expect(Math.abs(chipSpan.rowLeft - chipSpan.sheetLeft)).toBeLessThan(2);
+    expect(Math.abs(chipSpan.rowRight - chipSpan.sheetRight)).toBeLessThan(2);
+    expect(Math.abs(chipSpan.rowWidth - chipSpan.sheetWidth)).toBeLessThan(2);
+    await page.screenshot({
+      path: '/opt/cursor/artifacts/leaderboard-chips-full.png',
+    });
+
     const reputationScroll = page.locator(
       '.leaderboard-pager-page[data-track="reputation"] .leaderboard-pager-scroll'
     );
+    const openGap = await reputationScroll.evaluate((node) => {
+      const sheet = node.closest('.leaderboard-page-sheet');
+      if (!sheet) return 0;
+      return (
+        node.getBoundingClientRect().top - sheet.getBoundingClientRect().top
+      );
+    });
     const placed = await reputationScroll.evaluate((node) => {
       node.scrollTop = 220;
       return Math.round(node.scrollTop);
     });
     expect(placed).toBeGreaterThan(40);
+    const rail = page.locator('.leaderboard-track-rail');
+    await expect(rail).toHaveClass(/is-scroll-hidden/);
+    await expect
+      .poll(async () =>
+        reputationScroll.evaluate((node) => {
+          const sheet = node.closest('.leaderboard-page-sheet');
+          if (!sheet) return 0;
+          return (
+            node.getBoundingClientRect().top - sheet.getBoundingClientRect().top
+          );
+        })
+      )
+      .toBeLessThan(openGap - 20);
+    await page.screenshot({
+      path: '/opt/cursor/artifacts/leaderboard-chips-hidden.png',
+    });
+
+    const kept = await reputationScroll.evaluate((node) => {
+      node.scrollTop = 180;
+      return Math.round(node.scrollTop);
+    });
+    expect(kept).toBeGreaterThan(40);
+    await expect(rail).not.toHaveClass(/is-scroll-hidden/);
 
     await page.getByRole('tab', { name: 'Influence' }).click();
     await expect(page).toHaveURL(/track=influence/);
@@ -133,7 +188,7 @@ test.describe('leaderboard pager', () => {
       .poll(async () =>
         reputationScroll.evaluate((node) => Math.round(node.scrollTop))
       )
-      .toBe(placed);
+      .toBe(kept);
     await page.screenshot({
       path: '/opt/cursor/artifacts/leaderboard-reputation.png',
     });

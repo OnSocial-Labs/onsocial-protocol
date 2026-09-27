@@ -470,7 +470,48 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+  padding-top: 0;
   padding-bottom: 0;
+}
+
+/*
+ * Chips run the full width of the sheet. The title row keeps the shared
+ * inset. The header stays in flow so tucking the chips gives that space
+ * to the list instead of leaving a frozen gap under an absolute bar.
+ */
+.glass-sheet-panel.leaderboard-page-sheet
+  .os-app-screen[data-glass-chrome='true']
+  > .os-app-screen-column
+  > .os-app-screen-header {
+  position: relative;
+  inset: auto;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .os-app-screen-nav-row {
+  box-sizing: border-box;
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-toolbar,
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-track-rail {
+  align-self: stretch;
+  width: 100%;
+  max-width: none;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-track-row {
+  flex: 1 1 auto;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-track-hint {
+  padding-left: calc(0.2rem + max(1rem, env(safe-area-inset-left, 0px)));
+  padding-right: calc(0.2rem + max(1rem, env(safe-area-inset-right, 0px)));
 }
 
 .glass-sheet-panel.leaderboard-page-sheet .leaderboard-sheet-content {
@@ -498,7 +539,8 @@
   scrollbar-width: none;
 }
 
-.glass-sheet-panel.leaderboard-page-sheet .leaderboard-pager::-webkit-scrollbar {
+.glass-sheet-panel.leaderboard-page-sheet
+  .leaderboard-pager::-webkit-scrollbar {
   display: none;
 }
 
