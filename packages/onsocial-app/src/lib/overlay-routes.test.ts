@@ -328,9 +328,6 @@ describe('parseOverlayPanelKey', () => {
     expect(parseOverlayPanelKey('/@alice.testnet/endorsements')).toBe(
       'endorsements'
     );
-    expect(parseOverlayPanelKey('/@alice.testnet/reputation')).toBe(
-      'reputation'
-    );
     expect(parseOverlayPanelKey('/@alice.testnet/collectibles')).toBe(
       'collectibles'
     );
@@ -343,6 +340,7 @@ describe('parseOverlayPanelKey', () => {
   it('returns null for portfolio root and unrelated paths', () => {
     expect(parseOverlayPanelKey('/@alice.testnet')).toBeNull();
     expect(parseOverlayPanelKey('/@alice.testnet/posts/abc')).toBeNull();
+    expect(parseOverlayPanelKey('/@alice.testnet/reputation')).toBeNull();
   });
 });
 
@@ -484,11 +482,6 @@ describe('resolveOverlayPanelChrome', () => {
     expect(resolveOverlayPanelChrome('endorsements')).toEqual({
       ariaTitle: 'Endorsements',
       title: 'Endorsements',
-      expectsToolbar: false,
-    });
-    expect(resolveOverlayPanelChrome('reputation')).toEqual({
-      ariaTitle: 'Reputation',
-      title: 'Reputation',
       expectsToolbar: false,
     });
     expect(resolveOverlayPanelChrome('collectibles')).toEqual({

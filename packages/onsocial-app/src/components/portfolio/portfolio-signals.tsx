@@ -1,6 +1,10 @@
+'use client';
+
+import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { ProtocolMotionArrow } from '@onsocial/ui';
-import { endorsementsPath, overlayPath } from '@/lib/overlay-routes';
+import { endorsementsPath } from '@/lib/overlay-routes';
 import { standingPath } from '@/lib/profile-social-standings';
 import { formatCount } from '@/lib/profile-display';
 import type { ProfileSignals } from '@/lib/profile-signals';
@@ -30,6 +34,14 @@ function signalValueClass(value: number): string {
   return value === 0 ? 'signal-value is-zero' : 'signal-value';
 }
 
+const ReputationFaceFacts = dynamic(
+  () =>
+    import('@/components/portfolio/reputation-face-facts').then(
+      (mod) => mod.ReputationFaceFacts
+    ),
+  { ssr: false }
+);
+
 const metricBaseClass = 'signal-metric group';
 
 function metricClassName(options?: {
@@ -55,8 +67,11 @@ export function PortfolioSignals({
   const relationshipKnown = !relationshipLoading;
   const sharedSolidarity =
     relationshipKnown && viewerStanding && theyStandWithViewer;
+  const [reputationOpen, setReputationOpen] = useState(false);
+  const [reputationMounted, setReputationMounted] = useState(false);
 
   return (
+    <>
     <div
       className={`portfolio-signals${
         relationshipLoading ? ' is-relationship-loading' : ''
@@ -162,15 +177,20 @@ export function PortfolioSignals({
               ·
             </span>
             <div className="signal-group signal-group-reputation">
-              <Link
+              <button
+                type="button"
                 className={metricClassName()}
-                href={overlayPath(accountId, 'reputation')}
-                scroll={false}
                 aria-label={`Reputation ${formatReputation(signals.reputation.reputation)}${
                   signals.reputation.rank > 0
                     ? `, rank ${signals.reputation.rank}`
                     : ''
                 }`}
+                aria-haspopup="dialog"
+                aria-expanded={reputationOpen}
+                onClick={() => {
+                  setReputationMounted(true);
+                  setReputationOpen(true);
+                }}
               >
                 <span className={metricInnerClass}>
                   <ProtocolMotionArrow className={arrowClass} />
@@ -182,7 +202,7 @@ export function PortfolioSignals({
                     {formatReputation(signals.reputation.reputation)}
                   </span>
                 </span>
-              </Link>
+              </button>
             </div>
           </div>
         ) : null}
@@ -213,5 +233,14 @@ export function PortfolioSignals({
         ) : null}
       </p>
     </div>
+    {reputationMounted && signals.reputation ? (
+      <ReputationFaceFacts
+        open={reputationOpen}
+        accountId={accountId}
+        reputation={signals.reputation}
+        onClose={() => setReputationOpen(false)}
+      />
+    ) : null}
+    </>
   );
 }

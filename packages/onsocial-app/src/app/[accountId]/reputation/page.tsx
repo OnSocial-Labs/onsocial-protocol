@@ -7,8 +7,7 @@ type ReputationRedirectProps = {
 };
 
 /**
- * Hard refresh / shared link — reputation is a face peek (overlay-only).
- * Soft nav still opens the glass sheet via `@overlay/(.)reputation`.
+ * Old `/reputation` links return to the profile. The score opens a facts drawer on the face.
  */
 export default async function ReputationPage({
   params,
