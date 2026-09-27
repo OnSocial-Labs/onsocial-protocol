@@ -209,3 +209,11 @@ SELECT
   SUM(spender_events)::BIGINT AS amplify_events
 FROM spender
 GROUP BY account_id;
+
+-- Paid-support stubs are real now. Rewrite stored ranks from the calc view.
+DO $$
+BEGIN
+  IF to_regprocedure('public.refresh_leaderboard_stored_ranks()') IS NOT NULL THEN
+    PERFORM refresh_leaderboard_stored_ranks();
+  END IF;
+END $$;
