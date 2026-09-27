@@ -358,9 +358,17 @@ jobs:
             shopt -s nullglob
             VIEW_FILES=("${UPLOAD_DIR}"/*_schema_views.sql)
             if [ ${#VIEW_FILES[@]} -gt 0 ]; then
+              # APPLY_SCHEMA_VIEWS_WITH_PSQL_F
+              # \ir is relative to the script file. A stdin pipe has no path,
+              # so leaderboard_schema_views.sql could not see leaderboard_rank_store.sql.
+              SQL_IN_CONTAINER=/tmp/onsocial-sql-apply
+              docker exec postgres rm -rf "$SQL_IN_CONTAINER"
+              docker exec postgres mkdir -p "$SQL_IN_CONTAINER"
+              docker cp "${UPLOAD_DIR}/." "postgres:${SQL_IN_CONTAINER}/"
               printf '%s\n' "${VIEW_FILES[@]}" | sort | while read -r view_sql; do
                 echo "📝 Applying $(basename "$view_sql")"
-                $PSQL < "$view_sql"
+                docker exec postgres psql -v ON_ERROR_STOP=1 -U onsocial -d onsocial_indexer \
+                  -f "${SQL_IN_CONTAINER}/$(basename "$view_sql")"
               done
               echo "✓ Schema view files applied"
             else
