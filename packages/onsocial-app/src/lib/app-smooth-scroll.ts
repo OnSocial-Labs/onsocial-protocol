@@ -65,3 +65,15 @@ export function isAppSmoothScrollLocked(dataset: {
 }): boolean {
   return dataset.scrollLocked === 'true';
 }
+
+/**
+ * Leaderboard pages scroll inside the sheet. Lenis on the sheet body or the
+ * screen body would take the wheel and the sideways pager would not move.
+ */
+export function isAppSmoothScrollPagerHost(element: HTMLElement): boolean {
+  if (!element.querySelector('.leaderboard-pager')) return false;
+  return (
+    element.classList.contains('os-app-screen-body') ||
+    element.classList.contains('glass-sheet-body')
+  );
+}

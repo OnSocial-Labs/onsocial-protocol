@@ -42,6 +42,28 @@ export function canDockAutoHide(scrollRoomPx: number): boolean {
   return scrollRoomPx >= DOCK_MIN_SCROLL_ROOM_PX;
 }
 
+/**
+ * Next tuck state for one scroll event. Near the top, or on a short page,
+ * the chrome stays visible. Otherwise hide on a downward flick and show
+ * on an upward one.
+ */
+export function nextDockAutoHidden(args: {
+  scrollTop: number;
+  delta: number;
+  scrollRoom: number;
+  hidden: boolean;
+}): boolean {
+  if (
+    !canDockAutoHide(args.scrollRoom) ||
+    args.scrollTop <= DOCK_TOP_REVEAL_PX ||
+    args.delta < -DOCK_SHOW_DELTA_PX
+  ) {
+    return false;
+  }
+  if (args.delta > DOCK_HIDE_DELTA_PX) return true;
+  return args.hidden;
+}
+
 function isScrollRootRef(
   value: ScrollRootInput
 ): value is RefObject<Element | null> {

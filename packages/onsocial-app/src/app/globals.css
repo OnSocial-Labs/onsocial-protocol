@@ -464,6 +464,134 @@
   -webkit-backdrop-filter: none;
 }
 
+.glass-sheet-panel.leaderboard-page-sheet .os-app-screen-body {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/*
+ * Header stays in flow so tucking the chips gives that space to the list.
+ * Side inset stays on the header, the same column as the user lines.
+ * The fill is the only thing that travels; it is positioned from the pager.
+ */
+.glass-sheet-panel.leaderboard-page-sheet
+  .os-app-screen[data-glass-chrome='true']
+  > .os-app-screen-column
+  > .os-app-screen-header {
+  position: relative;
+  inset: auto;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .os-app-screen-toolbar,
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-toolbar,
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-track-rail,
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-track-row {
+  width: 100%;
+  max-width: none;
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-track-rail {
+  align-items: stretch;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-track-row {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-track-thumb {
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  top: 0;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: color-mix(
+    in srgb,
+    color-mix(
+        in srgb,
+        var(--lb-b, var(--signal-reputation)) calc(var(--lb-mix, 0) * 100%),
+        var(--lb-a, var(--signal-reputation))
+      )
+      22%,
+    transparent
+  );
+}
+
+.glass-sheet-panel.leaderboard-page-sheet
+  .leaderboard-track-row
+  .app-storage-mode,
+.glass-sheet-panel.leaderboard-page-sheet
+  .leaderboard-track-row
+  .app-storage-mode.is-active {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-sheet-content {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  height: auto;
+  overflow: hidden;
+  padding: 0;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-pager {
+  display: flex;
+  flex: 1 1 0;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet
+  .leaderboard-pager::-webkit-scrollbar {
+  display: none;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-pager-page {
+  display: flex;
+  flex: 0 0 100%;
+  flex-direction: column;
+  width: 100%;
+  min-width: 100%;
+  min-height: 0;
+  height: auto;
+  overflow: hidden;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-pager-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.1rem var(--os-screen-body-pad-x, 1rem)
+    calc(1.25rem + env(safe-area-inset-bottom, 0px));
+}
+
 .os-app-screen--embedded {
   /* Overlay screens portal inside the underlay OsAppScreen — do not inherit
      Discover / Home chrome height as a second header pad. */
@@ -10706,12 +10834,10 @@ a.os-surface-row {
     margin-inline-start: auto;
   }
 
-  /* Same social-list inset as Standing / Endorsements. */
-  .leaderboard-sheet-content {
+  .leaderboard-sheet-page {
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
-    padding: 0.1rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
   }
 
   .leaderboard-page-sheet .os-app-screen-toolbar {
@@ -10755,11 +10881,6 @@ a.os-surface-row {
   .leaderboard-sheet-subline-you.is-jump:focus-visible {
     color: rgb(var(--fg-rgb) / 0.72);
     outline: none;
-  }
-
-  .leaderboard-page-sheet
-    .os-app-screen-toolbar:has(.leaderboard-track-rail.is-scroll-hidden) {
-    margin-top: 0;
   }
 
   .leaderboard-track-rail {

@@ -2,15 +2,13 @@
 
 import { useEffect, type ReactNode } from 'react';
 import Lenis from 'lenis';
-import {
-  registerAppLenis,
-  unregisterAppLenis,
-} from '@/lib/app-lenis-registry';
+import { registerAppLenis, unregisterAppLenis } from '@/lib/app-lenis-registry';
 import {
   APP_SMOOTH_SCROLL_LENIS_OPTIONS,
   APP_SMOOTH_SCROLL_ROOT_SELECTOR,
   APP_SMOOTH_WHEEL_MEDIA,
   isAppSmoothScrollLocked,
+  isAppSmoothScrollPagerHost,
   shouldUseAppSmoothScroll,
 } from '@/lib/app-smooth-scroll';
 import { LIST_SCROLL_RESTORE_SLOP_PX } from '@/lib/list-scroll-restore';
@@ -82,13 +80,18 @@ function bindAppSmoothScrollRoots(): () => void {
     );
 
     for (const [element, unbind] of instances) {
-      if (!live.has(element) || !element.isConnected) {
+      if (
+        !live.has(element) ||
+        !element.isConnected ||
+        isAppSmoothScrollPagerHost(element)
+      ) {
         unbind();
         instances.delete(element);
       }
     }
 
     for (const element of live) {
+      if (isAppSmoothScrollPagerHost(element)) continue;
       if (!instances.has(element)) {
         instances.set(element, bindAppSmoothScroll(element));
       }

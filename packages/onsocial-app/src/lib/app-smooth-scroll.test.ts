@@ -7,6 +7,7 @@ import {
   APP_SMOOTH_SCROLL_ROOT_SELECTOR,
   APP_SMOOTH_WHEEL_MEDIA,
   isAppSmoothScrollLocked,
+  isAppSmoothScrollPagerHost,
   prefersReducedMotion,
   shouldUseAppSmoothScroll,
 } from './app-smooth-scroll';
@@ -30,6 +31,21 @@ describe('app smooth scroll', () => {
     expect(APP_SMOOTH_SCROLL_ROOT_SELECTOR).toContain(
       '.os-app-chrome-scroller'
     );
+  });
+
+  it('keeps Lenis off the leaderboard pager host', () => {
+    const host = {
+      classList: { contains: (name: string) => name === 'os-app-screen-body' },
+      querySelector: (selector: string) =>
+        selector === '.leaderboard-pager' ? {} : null,
+    } as unknown as HTMLElement;
+    const plain = {
+      classList: { contains: () => false },
+      querySelector: () => null,
+    } as unknown as HTMLElement;
+    expect(isAppSmoothScrollPagerHost(host)).toBe(true);
+    expect(isAppSmoothScrollPagerHost(plain)).toBe(false);
+    expect(provider).toContain('isAppSmoothScrollPagerHost');
   });
 
   it('defers Lenis bind and suppresses class hydration on OsAppScreen body', () => {

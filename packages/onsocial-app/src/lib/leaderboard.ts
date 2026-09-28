@@ -85,6 +85,83 @@ export function leaderboardHeaderYouLine(input: {
   return `You're #${rank}`;
 }
 
+/** Index of a board inside the side-by-side pager. */
+export function leaderboardTrackIndex(track: LeaderboardTrack): number {
+  const index = LEADERBOARD_TRACKS.findIndex((item) => item.id === track);
+  return index < 0 ? 0 : index;
+}
+
+/**
+ * Board under a horizontal pager offset. Halfway across a page settles on
+ * the next board so the chip matches the page you are entering.
+ */
+export function leaderboardTrackFromPager(
+  scrollLeft: number,
+  pageWidth: number
+): LeaderboardTrack {
+  const fallback = LEADERBOARD_TRACKS[0]?.id ?? 'reputation';
+  if (
+    !Number.isFinite(scrollLeft) ||
+    !Number.isFinite(pageWidth) ||
+    pageWidth <= 0
+  ) {
+    return fallback;
+  }
+  const index = Math.round(scrollLeft / pageWidth);
+  const clamped = Math.min(LEADERBOARD_TRACKS.length - 1, Math.max(0, index));
+  return LEADERBOARD_TRACKS[clamped]?.id ?? fallback;
+}
+
+/** 0–2 pager progress. The chip fill tracks this, not the snapped board. */
+export function leaderboardPagerProgress(
+  scrollLeft: number,
+  pageWidth: number
+): number {
+  const last = Math.max(0, LEADERBOARD_TRACKS.length - 1);
+  if (
+    !Number.isFinite(scrollLeft) ||
+    !Number.isFinite(pageWidth) ||
+    pageWidth <= 0
+  ) {
+    return 0;
+  }
+  return Math.min(last, Math.max(0, scrollLeft / pageWidth));
+}
+
+/** Adjacent board colors for a traveling chip fill. Mix is 0–1 toward `to`. */
+export function leaderboardThumbBlend(progress: number): {
+  from: LeaderboardTrack;
+  to: LeaderboardTrack;
+  mix: number;
+} {
+  const last = Math.max(0, LEADERBOARD_TRACKS.length - 1);
+  const clamped = Math.min(last, Math.max(0, progress));
+  const end = LEADERBOARD_TRACKS[last]?.id ?? 'reputation';
+  if (clamped >= last) return { from: end, to: end, mix: 0 };
+  const index = Math.floor(clamped);
+  const from = LEADERBOARD_TRACKS[index]?.id ?? 'reputation';
+  const to = LEADERBOARD_TRACKS[index + 1]?.id ?? from;
+  return { from, to, mix: clamped - index };
+}
+
+/** Selected fill between equal chip boxes, in the row's coordinate space. */
+export function leaderboardThumbBox(
+  progress: number,
+  boxes: ReadonlyArray<{ left: number; width: number }>
+): { left: number; width: number } | null {
+  if (boxes.length === 0) return null;
+  const last = boxes.length - 1;
+  const clamped = Math.min(last, Math.max(0, progress));
+  const from = boxes[Math.floor(clamped)];
+  const to = boxes[Math.ceil(clamped)] ?? from;
+  if (!from || !to) return null;
+  const mix = clamped - Math.floor(clamped);
+  return {
+    left: from.left + (to.left - from.left) * mix,
+    width: from.width + (to.width - from.width) * mix,
+  };
+}
+
 /** Above hug sheets (boost / reputation facts ~56) and nested manage slides. */
 export const LEADERBOARD_Z = SHEET_Z.board;
 /** Nested reputation peek opened from the leaderboard. */
