@@ -71,6 +71,12 @@ export function isAppSmoothScrollLocked(dataset: {
  * screen body would take the wheel and the sideways pager would not move.
  */
 export function isAppSmoothScrollPagerHost(element: HTMLElement): boolean {
+  if (
+    typeof element.closest === 'function' &&
+    element.closest('.protocol-face-pair')
+  ) {
+    return true;
+  }
   if (!element.querySelector('.leaderboard-pager')) return false;
   return (
     element.classList.contains('os-app-screen-body') ||

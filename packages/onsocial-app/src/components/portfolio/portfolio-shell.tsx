@@ -1,8 +1,14 @@
 'use client';
 
-import type { CSSProperties, ReactNode } from 'react';
+import {
+  useLayoutEffect,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { resolveDisplayProfileKind, type ProfileKind } from '@onsocial/sdk';
 import { PortfolioHeroTop } from '@/components/portfolio/portfolio-hero-top';
+import { useProtocolFacePairActiveAccount } from '@/components/portfolio/protocol-face-pair';
 import { useRegisterOsPortalHost } from '@/contexts/os-portal-host-context';
 import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
 import type {
@@ -48,7 +54,25 @@ export function PortfolioShell({
   isPreviewingMood = false,
   children,
 }: PortfolioShellProps) {
-  const portalHostRef = useRegisterOsPortalHost<HTMLElement>();
+  const activePairAccount = useProtocolFacePairActiveAccount();
+  // The last registered card wins. In the pair, only the settled face may
+  // register — otherwise sheets portal into the off-screen card and drop out
+  // of the accessibility tree.
+  const ownsPortalHost =
+    activePairAccount == null || activePairAccount === pageAccountId;
+  const registerHost = useRegisterOsPortalHost<HTMLElement>();
+  const [frame, setFrame] = useState<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (!frame || !ownsPortalHost) {
+      registerHost(null);
+      return;
+    }
+    registerHost(frame);
+    return () => {
+      registerHost(null);
+    };
+  }, [frame, ownsPortalHost, registerHost]);
   const songId = readPinnedSongId(config);
   const bookId = readPinnedBookId(config);
   const { hero, isCoverLayout } = resolvePageFace({
@@ -64,7 +88,7 @@ export function PortfolioShell({
 
   return (
     <main
-      ref={portalHostRef}
+      ref={setFrame}
       className="frame app-surface portfolio-frame"
       data-page-account={pageAccountId}
       data-profile-kind={resolveDisplayProfileKind(profileKind, isDao)}

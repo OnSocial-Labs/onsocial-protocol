@@ -70,6 +70,8 @@ export type PortfolioDaoOrgChromeProps = {
   configName: string | null;
   configPurpose: string | null;
   configMetadata: string;
+  /** Landing face reads `?kind=` / `?proposal=`. The sibling face does not. */
+  honorDeepLinks?: boolean;
 };
 
 function PortfolioDaoOrgChromeInner({
@@ -79,6 +81,7 @@ function PortfolioDaoOrgChromeInner({
   configName,
   configPurpose,
   configMetadata,
+  honorDeepLinks = true,
 }: PortfolioDaoOrgChromeProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -90,7 +93,7 @@ function PortfolioDaoOrgChromeInner({
     requestOpenMoodSheet,
   } = usePortfolioMoodPreview();
   const [overlay, setOverlay] = useState<PortfolioOverlay>(() =>
-    hasDaoProposalsDeepLink(searchParams) ? 'proposals' : null
+    honorDeepLinks && hasDaoProposalsDeepLink(searchParams) ? 'proposals' : null
   );
   const [toolRequest, setToolRequest] = useState<DaoWorkspaceTool>(null);
   const {
@@ -125,17 +128,18 @@ function PortfolioDaoOrgChromeInner({
   }, [daoAccountId]);
 
   useEffect(() => {
-    if (!hasDaoProposalsDeepLink(searchParams)) return;
+    if (!honorDeepLinks || !hasDaoProposalsDeepLink(searchParams)) return;
     queueMicrotask(() => {
       setOverlay((current) => (current == null ? 'proposals' : current));
     });
-  }, [searchParams]);
+  }, [honorDeepLinks, searchParams]);
 
   useEffect(() => {
+    if (!honorDeepLinks) return;
     const proposal = searchParams.get(PROTOCOL_PROPOSAL_PARAM)?.trim();
     if (!proposal) return;
     queueMicrotask(() => setOverlay('proposals'));
-  }, [searchParams]);
+  }, [honorDeepLinks, searchParams]);
 
   useEffect(() => {
     const onSubmitted = (event: Event) => {
