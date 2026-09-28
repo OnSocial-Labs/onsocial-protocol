@@ -7,6 +7,9 @@ import {
   formatReputationScore,
   leaderboardHasMorePage,
   leaderboardHeaderYouLine,
+  leaderboardPagerProgress,
+  leaderboardThumbBlend,
+  leaderboardThumbBox,
   leaderboardTrackFromPager,
   leaderboardTrackIndex,
   leaderboardTrackSubtitle,
@@ -135,6 +138,45 @@ describe('leaderboard helpers', () => {
     expect(leaderboardTrackFromPager(780, 390)).toBe('earners');
     expect(leaderboardTrackFromPager(2000, 390)).toBe('earners');
     expect(leaderboardTrackFromPager(0, 0)).toBe('reputation');
+  });
+
+  it('slides the chip fill with the pager and lands on a board', () => {
+    expect(leaderboardPagerProgress(0, 390)).toBe(0);
+    expect(leaderboardPagerProgress(195, 390)).toBe(0.5);
+    expect(leaderboardPagerProgress(390, 390)).toBe(1);
+    expect(leaderboardPagerProgress(900, 390)).toBe(2);
+    expect(leaderboardPagerProgress(10, 0)).toBe(0);
+
+    expect(leaderboardThumbBlend(0)).toEqual({
+      from: 'reputation',
+      to: 'influence',
+      mix: 0,
+    });
+    expect(leaderboardThumbBlend(0.25)).toEqual({
+      from: 'reputation',
+      to: 'influence',
+      mix: 0.25,
+    });
+    expect(leaderboardThumbBlend(1)).toEqual({
+      from: 'influence',
+      to: 'earners',
+      mix: 0,
+    });
+    expect(leaderboardThumbBlend(2)).toEqual({
+      from: 'earners',
+      to: 'earners',
+      mix: 0,
+    });
+
+    const boxes = [
+      { left: 4, width: 100 },
+      { left: 112, width: 100 },
+      { left: 220, width: 100 },
+    ];
+    expect(leaderboardThumbBox(0, boxes)).toEqual({ left: 4, width: 100 });
+    expect(leaderboardThumbBox(0.5, boxes)).toEqual({ left: 58, width: 100 });
+    expect(leaderboardThumbBox(2, boxes)).toEqual({ left: 220, width: 100 });
+    expect(leaderboardThumbBox(0, [])).toBeNull();
   });
 
   it('shows your rank in the header only when the pin is hidden', () => {

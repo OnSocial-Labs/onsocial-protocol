@@ -84,28 +84,93 @@ test.describe('leaderboard pager', () => {
 
     const chipSpan = await page.evaluate(() => {
       const row = document.querySelector('.leaderboard-track-row');
-      const sheet = document.querySelector(
-        '.glass-sheet-panel.leaderboard-page-sheet'
-      );
-      if (!row || !sheet) return null;
+      const line = document.querySelector('.leaderboard-row');
+      if (!row || !line) return null;
       const chips = row.getBoundingClientRect();
-      const panel = sheet.getBoundingClientRect();
+      const user = line.getBoundingClientRect();
       return {
-        rowWidth: chips.width,
-        sheetWidth: panel.width,
-        rowLeft: chips.left,
-        sheetLeft: panel.left,
-        rowRight: chips.right,
-        sheetRight: panel.right,
+        chipLeft: chips.left,
+        lineLeft: user.left,
+        chipRight: chips.right,
+        lineRight: user.right,
       };
     });
     if (!chipSpan) throw new Error('leaderboard chips are not on screen');
-    expect(Math.abs(chipSpan.rowLeft - chipSpan.sheetLeft)).toBeLessThan(2);
-    expect(Math.abs(chipSpan.rowRight - chipSpan.sheetRight)).toBeLessThan(2);
-    expect(Math.abs(chipSpan.rowWidth - chipSpan.sheetWidth)).toBeLessThan(2);
+    // Standing rows keep a 0.35rem negative margin, so the line wash sits
+    // just outside the shared content inset the chips use.
+    const rowOutset = await page.evaluate(
+      () =>
+        0.35 * parseFloat(getComputedStyle(document.documentElement).fontSize)
+    );
+    expect(
+      Math.abs(chipSpan.chipLeft - rowOutset - chipSpan.lineLeft)
+    ).toBeLessThan(1.5);
+    expect(
+      Math.abs(chipSpan.chipRight + rowOutset - chipSpan.lineRight)
+    ).toBeLessThan(1.5);
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const thumb = document
+            .querySelector('.leaderboard-track-thumb')
+            ?.getBoundingClientRect();
+          const tab = document
+            .getElementById('leaderboard-tab-reputation')
+            ?.getBoundingClientRect();
+          if (!thumb || !tab || thumb.width < 10) return 99;
+          return Math.abs(thumb.left - tab.left);
+        })
+      )
+      .toBeLessThan(3);
     await page.screenshot({
-      path: '/opt/cursor/artifacts/leaderboard-chips-full.png',
+      path: '/opt/cursor/artifacts/leaderboard-chips-inset.png',
     });
+
+    // Mandatory snap will not hold a half page, so park snap for this sample.
+    // A finger drag keeps the fractional offset; the fill is glued to that.
+    const midThumb = await pager.evaluate(async (node) => {
+      node.style.scrollSnapType = 'none';
+      node.scrollLeft = node.clientWidth / 2;
+      // Chromium applies the scroll event on the next frame.
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve(null)));
+      });
+      const thumb = document.querySelector('.leaderboard-track-thumb');
+      const reputation = document.getElementById('leaderboard-tab-reputation');
+      const influence = document.getElementById('leaderboard-tab-influence');
+      const fill = thumb?.getBoundingClientRect();
+      const from = reputation?.getBoundingClientRect();
+      const to = influence?.getBoundingClientRect();
+      return {
+        progress: node.clientWidth > 0 ? node.scrollLeft / node.clientWidth : 0,
+        thumb: fill?.left ?? null,
+        between: from && to ? (from.left + to.left) / 2 : null,
+        thumbWidth: fill?.width ?? null,
+        chipWidth: from?.width ?? null,
+      };
+    });
+    if (
+      midThumb.thumb == null ||
+      midThumb.between == null ||
+      midThumb.thumbWidth == null ||
+      midThumb.chipWidth == null
+    ) {
+      throw new Error('leaderboard fill is not on screen');
+    }
+    expect(midThumb.progress).toBeCloseTo(0.5, 2);
+    expect(Math.abs(midThumb.thumb - midThumb.between)).toBeLessThan(6);
+    expect(Math.abs(midThumb.thumbWidth - midThumb.chipWidth)).toBeLessThan(4);
+    await page.screenshot({
+      path: '/opt/cursor/artifacts/leaderboard-chips-thumb.png',
+    });
+    await pager.evaluate((node) => {
+      node.style.scrollSnapType = '';
+      node.scrollLeft = 0;
+    });
+    await expect(page.getByRole('tab', { name: 'Reputation' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
 
     const reputationScroll = page.locator(
       '.leaderboard-pager-page[data-track="reputation"] .leaderboard-pager-scroll'
@@ -157,6 +222,20 @@ test.describe('leaderboard pager', () => {
         pager.evaluate((node) => Math.round(node.scrollLeft / node.clientWidth))
       )
       .toBe(1);
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const thumb = document
+            .querySelector('.leaderboard-track-thumb')
+            ?.getBoundingClientRect();
+          const tab = document
+            .getElementById('leaderboard-tab-influence')
+            ?.getBoundingClientRect();
+          if (!thumb || !tab) return 99;
+          return Math.abs(thumb.left - tab.left);
+        })
+      )
+      .toBeLessThan(3);
     await expect(
       page.locator(
         '#leaderboard-panel-influence a.standing-row-main[href="/@boost-1.testnet"]'

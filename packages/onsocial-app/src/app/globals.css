@@ -475,9 +475,9 @@
 }
 
 /*
- * Chips run the full width of the sheet. The title row keeps the shared
- * inset. The header stays in flow so tucking the chips gives that space
- * to the list instead of leaving a frozen gap under an absolute bar.
+ * Header stays in flow so tucking the chips gives that space to the list.
+ * Side inset stays on the header, the same column as the user lines.
+ * The fill is the only thing that travels; it is positioned from the pager.
  */
 .glass-sheet-panel.leaderboard-page-sheet
   .os-app-screen[data-glass-chrome='true']
@@ -485,33 +485,56 @@
   > .os-app-screen-header {
   position: relative;
   inset: auto;
-  padding-left: 0;
-  padding-right: 0;
 }
 
-.glass-sheet-panel.leaderboard-page-sheet .os-app-screen-nav-row {
-  box-sizing: border-box;
-  padding-left: max(1rem, env(safe-area-inset-left, 0px));
-  padding-right: max(1rem, env(safe-area-inset-right, 0px));
-}
-
+.glass-sheet-panel.leaderboard-page-sheet .os-app-screen-toolbar,
 .glass-sheet-panel.leaderboard-page-sheet .leaderboard-toolbar,
-.glass-sheet-panel.leaderboard-page-sheet .leaderboard-track-rail {
-  align-self: stretch;
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-track-rail,
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-track-row {
   width: 100%;
   max-width: none;
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-track-rail {
+  align-items: stretch;
 }
 
 .glass-sheet-panel.leaderboard-page-sheet .leaderboard-track-row {
+  position: relative;
   flex: 1 1 auto;
-  align-self: stretch;
-  width: 100%;
   min-width: 0;
 }
 
-.glass-sheet-panel.leaderboard-page-sheet .leaderboard-track-hint {
-  padding-left: calc(0.2rem + max(1rem, env(safe-area-inset-left, 0px)));
-  padding-right: calc(0.2rem + max(1rem, env(safe-area-inset-right, 0px)));
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-track-thumb {
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  top: 0;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: color-mix(
+    in srgb,
+    color-mix(
+        in srgb,
+        var(--lb-b, var(--signal-reputation)) calc(var(--lb-mix, 0) * 100%),
+        var(--lb-a, var(--signal-reputation))
+      )
+      22%,
+    transparent
+  );
+}
+
+.glass-sheet-panel.leaderboard-page-sheet
+  .leaderboard-track-row
+  .app-storage-mode,
+.glass-sheet-panel.leaderboard-page-sheet
+  .leaderboard-track-row
+  .app-storage-mode.is-active {
+  position: relative;
+  z-index: 1;
+  background: transparent;
 }
 
 .glass-sheet-panel.leaderboard-page-sheet .leaderboard-sheet-content {

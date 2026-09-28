@@ -3,9 +3,9 @@
 /**
  * In-app protocol leaderboard (appear page sheet — same shell as create post).
  *
- * Reputation, Influence, and Earners sit side by side. The chips span the
- * sheet and tuck while that list scrolls. A sideways move slides to the next
- * board, and each list keeps its place.
+ * Reputation, Influence, and Earners sit side by side. The chips share the
+ * user-line inset and tuck while that list scrolls. The selected fill travels
+ * with the page. Each list keeps its place.
  *
  * Reuses @onsocial/ui StandingIdentity + standing-row chrome and OsPageSheet.
  * Rank / pct bars / viewer pin stay host-local — no second UI consumer yet.
@@ -70,6 +70,9 @@ import {
   LEADERBOARD_Z,
   leaderboardHeaderYouLine,
   leaderboardPrimaryUnit,
+  leaderboardPagerProgress,
+  leaderboardThumbBlend,
+  leaderboardThumbBox,
   leaderboardTrackFromPager,
   leaderboardTrackHint,
   leaderboardTrackIndex,
@@ -541,6 +544,42 @@ function LeaderboardReputationPeek({
   );
 }
 
+const LEADERBOARD_THUMB_COLOR: Record<LeaderboardTrack, string> = {
+  reputation: 'var(--signal-reputation)',
+  influence: 'var(--signal-standing)',
+  earners: 'var(--signal-endorse)',
+};
+
+/** Glue the selected fill to the pager. Labels stay put. */
+function placeLeaderboardThumb(
+  pager: HTMLElement | null,
+  row: HTMLElement | null
+): void {
+  if (!pager || !row) return;
+  const buttons = [...row.querySelectorAll<HTMLElement>('[role="tab"]')];
+  const progress = leaderboardPagerProgress(
+    pager.scrollLeft,
+    pager.clientWidth
+  );
+  const box = leaderboardThumbBox(
+    progress,
+    buttons.map((button) => ({
+      left: button.offsetLeft,
+      width: button.offsetWidth,
+    }))
+  );
+  const thumb = row.querySelector<HTMLElement>('.leaderboard-track-thumb');
+  const sample = buttons[0];
+  if (!box || !thumb || !sample) return;
+  const blend = leaderboardThumbBlend(progress);
+  thumb.style.width = `${box.width}px`;
+  thumb.style.height = `${sample.offsetHeight}px`;
+  thumb.style.transform = `translate3d(${box.left}px, ${sample.offsetTop}px, 0)`;
+  row.style.setProperty('--lb-a', LEADERBOARD_THUMB_COLOR[blend.from]);
+  row.style.setProperty('--lb-b', LEADERBOARD_THUMB_COLOR[blend.to]);
+  row.style.setProperty('--lb-mix', String(blend.mix));
+}
+
 function leaderboardPagerMotion(): ScrollBehavior {
   if (typeof window === 'undefined') return 'auto';
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -888,6 +927,8 @@ export function LeaderboardSheet({
   const committedTrackRef = useRef(track);
   const trackSourceRef = useRef<'open' | 'select' | 'pager' | 'idle'>('open');
   const pagerRef = useRef<HTMLDivElement | null>(null);
+  const trackRowRef = useRef<HTMLDivElement | null>(null);
+  const thumbBindingRef = useRef<(() => void) | null>(null);
   const pageScrollRefs = useRef<
     Partial<Record<LeaderboardTrack, HTMLDivElement | null>>
   >({});
@@ -1007,29 +1048,62 @@ export function LeaderboardSheet({
     }
     if (trackSourceRef.current === 'pager') {
       trackSourceRef.current = 'idle';
+      placeLeaderboardThumb(pagerRef.current, trackRowRef.current);
       return;
     }
     const behavior =
       trackSourceRef.current === 'select' ? leaderboardPagerMotion() : 'auto';
     alignPager(behavior);
+    placeLeaderboardThumb(pagerRef.current, trackRowRef.current);
     trackSourceRef.current = 'idle';
   }, [alignPager, sheetOpen, track]);
 
-  useEffect(() => {
-    if (!sheetOpen) return;
+  const bindThumb = useCallback(() => {
+    thumbBindingRef.current?.();
+    thumbBindingRef.current = null;
     const pager = pagerRef.current;
     if (!pager) return;
+    const place = () => placeLeaderboardThumb(pager, trackRowRef.current);
     const observer = new ResizeObserver(() => {
+      place();
       if (trackSourceRef.current === 'pager') return;
       alignPager('auto');
     });
+    // The page sheet portals in after this component's effects. Bind when the
+    // nodes exist, and follow the scroll in the same event as the swipe.
+    pager.addEventListener('scroll', place, { passive: true });
     observer.observe(pager);
-    return () => observer.disconnect();
-  }, [alignPager, sheetOpen]);
+    if (trackRowRef.current) observer.observe(trackRowRef.current);
+    const frame = requestAnimationFrame(place);
+    thumbBindingRef.current = () => {
+      cancelAnimationFrame(frame);
+      pager.removeEventListener('scroll', place);
+      observer.disconnect();
+    };
+  }, [alignPager]);
+
+  const setTrackRowNode = useCallback(
+    (node: HTMLDivElement | null) => {
+      trackRowRef.current = node;
+      bindThumb();
+    },
+    [bindThumb]
+  );
+
+  const setPagerNode = useCallback(
+    (node: HTMLDivElement | null) => {
+      pagerRef.current = node;
+      bindThumb();
+    },
+    [bindThumb]
+  );
+
+  useEffect(() => () => thumbBindingRef.current?.(), []);
 
   const handlePagerScroll = useCallback(() => {
     const pager = pagerRef.current;
     if (!pager || pager.clientWidth <= 0) return;
+    placeLeaderboardThumb(pager, trackRowRef.current);
     const next = leaderboardTrackFromPager(pager.scrollLeft, pager.clientWidth);
     if (next === committedTrackRef.current) return;
     trackSourceRef.current = 'pager';
@@ -1283,6 +1357,7 @@ export function LeaderboardSheet({
                 }`}
               >
                 <div
+                  ref={setTrackRowNode}
                   className="app-storage-mode-toggle leaderboard-track-row"
                   data-track={track}
                   role="tablist"
@@ -1303,6 +1378,7 @@ export function LeaderboardSheet({
                     selectTrack(next.id);
                   }}
                 >
+                  <span className="leaderboard-track-thumb" aria-hidden />
                   {LEADERBOARD_TRACKS.map((item) => (
                     <button
                       key={item.id}
@@ -1329,7 +1405,7 @@ export function LeaderboardSheet({
         >
           <div className="leaderboard-sheet-content">
             <div
-              ref={pagerRef}
+              ref={setPagerNode}
               className="leaderboard-pager"
               onScroll={handlePagerScroll}
             >
