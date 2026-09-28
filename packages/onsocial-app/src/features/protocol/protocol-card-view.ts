@@ -765,6 +765,54 @@ function getVotingProgress(
   };
 }
 
+/** Widths for the proposal vote bar. The denominator is the voting council. */
+export function protocolVoteBarModel(progress: {
+  threshold: number | null;
+  totalWeight: number | null;
+  approvals: number;
+  rejects: number;
+  removes: number;
+}): {
+  showVoteRule: boolean;
+  denominator: number;
+  approvePct: number;
+  rejectPct: number;
+  removePct: number;
+  pendingPct: number;
+  thresholdPct: number | null;
+} {
+  const votesCast = progress.approvals + progress.rejects + progress.removes;
+  const showVoteRule =
+    progress.threshold != null &&
+    progress.totalWeight != null &&
+    progress.totalWeight > 0;
+  const denominator = showVoteRule
+    ? progress.totalWeight!
+    : votesCast > 0
+      ? votesCast
+      : 0;
+  const share = (count: number) =>
+    denominator > 0 ? (count / denominator) * 100 : 0;
+  const approvePct = share(progress.approvals);
+  const rejectPct = share(progress.rejects);
+  const removePct = share(progress.removes);
+  return {
+    showVoteRule,
+    denominator,
+    approvePct,
+    rejectPct,
+    removePct,
+    pendingPct:
+      showVoteRule && denominator > 0
+        ? Math.max(100 - approvePct - rejectPct - removePct, 0)
+        : 0,
+    thresholdPct:
+      showVoteRule && progress.threshold != null && progress.totalWeight! > 0
+        ? (progress.threshold / progress.totalWeight!) * 100
+        : null,
+  };
+}
+
 function roleAllowsAction(
   role: ProtocolDaoRole,
   proposalPolicyLabel: string,

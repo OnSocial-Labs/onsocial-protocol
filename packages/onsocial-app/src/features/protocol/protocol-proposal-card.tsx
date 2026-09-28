@@ -24,6 +24,7 @@ import { ProtocolAccountChip } from '@/features/protocol/protocol-account-chip';
 import {
   deriveProtocolProposalView,
   isTerminalProtocolProposalStatus,
+  protocolVoteBarModel,
 } from '@/features/protocol/protocol-card-view';
 import { ProtocolOnChainSheet } from '@/features/protocol/protocol-on-chain-sheet';
 import { splitRoutingTargetDisplay } from '@/features/protocol/protocol-proposal-routing-display';
@@ -147,30 +148,14 @@ export function ProtocolProposalCard({
   const profiles = usePostAuthorProfiles(profileIds);
 
   const progress = view.votingProgress;
-  const votesCast = progress.approvals + progress.rejects + progress.removes;
-  const showVoteRule =
-    progress.threshold != null &&
-    progress.totalWeight != null &&
-    progress.totalWeight > 0;
-  const barDenominator = showVoteRule
-    ? progress.totalWeight!
-    : votesCast > 0
-      ? votesCast
-      : 0;
-  const approvePct =
-    barDenominator > 0 ? (progress.approvals / barDenominator) * 100 : 0;
-  const rejectPct =
-    barDenominator > 0 ? (progress.rejects / barDenominator) * 100 : 0;
-  const removePct =
-    barDenominator > 0 ? (progress.removes / barDenominator) * 100 : 0;
-  const pendingPct =
-    showVoteRule && barDenominator > 0
-      ? Math.max(100 - approvePct - rejectPct - removePct, 0)
-      : 0;
-  const thresholdPct =
-    showVoteRule && progress.threshold != null && progress.totalWeight! > 0
-      ? (progress.threshold / progress.totalWeight!) * 100
-      : null;
+  const bar = protocolVoteBarModel(progress);
+  const showVoteRule = bar.showVoteRule;
+  const barDenominator = bar.denominator;
+  const approvePct = bar.approvePct;
+  const rejectPct = bar.rejectPct;
+  const removePct = bar.removePct;
+  const pendingPct = bar.pendingPct;
+  const thresholdPct = bar.thresholdPct;
   const pulseApprove = confirmedVoteAction === 'VoteApprove';
   const pulseReject = confirmedVoteAction === 'VoteReject';
   const pulseRemove = confirmedVoteAction === 'VoteRemove';
