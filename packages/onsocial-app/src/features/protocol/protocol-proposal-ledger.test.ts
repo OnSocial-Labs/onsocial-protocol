@@ -76,6 +76,49 @@ describe('protocol proposal ledger', () => {
     expect(after.votes).toEqual({});
   });
 
+  it('keeps the live council on a caught-up approval that has no chain snapshot yet', () => {
+    const threeCouncil: ProtocolDaoPolicy = {
+      ...soloCouncil,
+      default_vote_policy: {
+        quorum: '0',
+        threshold: [50, 100],
+        weight_kind: 'RoleWeight',
+      },
+      roles: [
+        {
+          name: 'council',
+          kind: {
+            Group: ['alice.testnet', 'bob.testnet', 'carol.testnet'],
+          },
+          permissions: ['*:VoteApprove', '*:VoteReject', '*:Finalize'],
+        },
+      ],
+    };
+    const open: ProtocolDaoProposal = {
+      ...openProposal(),
+      vote_counts: { council: ['1', '0', '0'] },
+      votes: { 'bob.testnet': 'Approve' },
+    };
+    const locked = applyOptimisticVote(
+      open,
+      'alice.testnet',
+      'Approve',
+      threeCouncil
+    );
+    expect(locked.status).toBe('Approved');
+    recordConfirmedProtocolProposal('dao.testnet', locked);
+
+    const chain: ProtocolDaoProposal = {
+      ...locked,
+      policy_snapshot: null,
+    };
+    const settled = overlayConfirmedProtocolProposal('dao.testnet', chain);
+    expect(settled.status).toBe('Approved');
+    expect(settled.policy_snapshot?.roles?.[0]?.kind).toEqual({
+      Group: ['alice.testnet', 'bob.testnet', 'carol.testnet'],
+    });
+  });
+
   it('does not rewind an in-review approve while the second vote is still needed', () => {
     const twoCouncil: ProtocolDaoPolicy = {
       ...soloCouncil,

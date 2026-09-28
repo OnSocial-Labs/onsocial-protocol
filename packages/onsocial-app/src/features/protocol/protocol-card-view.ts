@@ -498,6 +498,12 @@ function getEligibleVotersForProposal(
       if (members.includes(membership.memberId)) {
         return members.filter((member) => member !== membership.memberId);
       }
+      const snapshotMembers = snapshotVotingMembers(proposal, role).filter(
+        (member) => member !== membership.memberId
+      );
+      if (snapshotMembers.length > 0) {
+        return snapshotMembers.sort((left, right) => left.localeCompare(right));
+      }
       return Object.keys(proposal?.votes ?? {})
         .map((account) => normalizeAccount(account))
         .sort((left, right) => left.localeCompare(right));
@@ -534,6 +540,12 @@ function getEligibleVotersForProposal(
   }
 
   if (terminal) {
+    const snapshotMembers = snapshotVotingMembers(proposal, role);
+    if (snapshotMembers.length > 0) {
+      return [...snapshotMembers].sort((left, right) =>
+        left.localeCompare(right)
+      );
+    }
     return Object.keys(proposal?.votes ?? {})
       .map((account) => normalizeAccount(account))
       .sort((left, right) => left.localeCompare(right));
@@ -567,6 +579,15 @@ function sortEligibleRemoveMembers(
     if (rightId === subject) return -1;
     return leftId.localeCompare(rightId);
   });
+}
+
+function snapshotVotingMembers(
+  proposal: ProtocolDaoProposal | null,
+  role: ProtocolDaoRole | null
+): string[] {
+  const snapshotRole = findSnapshotVotingRole(proposal, role);
+  if (!snapshotRole) return [];
+  return getGroupMembers(snapshotRole);
 }
 
 function findSnapshotVotingRole(
@@ -641,6 +662,8 @@ function resolveVoteTimePoolSize(
       return Math.max(members.length - 1, votesCast);
     }
     if (!subjectInGroup) {
+      const snapshotPool = getSnapshotRolePoolSize(proposal, role, membership);
+      if (snapshotPool != null && snapshotPool > votesCast) return snapshotPool;
       return votesCast;
     }
     return currentPoolSize;
@@ -739,6 +762,54 @@ function getVotingProgress(
     approvals,
     rejects,
     removes,
+  };
+}
+
+/** Widths for the proposal vote bar. The denominator is the voting council. */
+export function protocolVoteBarModel(progress: {
+  threshold: number | null;
+  totalWeight: number | null;
+  approvals: number;
+  rejects: number;
+  removes: number;
+}): {
+  showVoteRule: boolean;
+  denominator: number;
+  approvePct: number;
+  rejectPct: number;
+  removePct: number;
+  pendingPct: number;
+  thresholdPct: number | null;
+} {
+  const votesCast = progress.approvals + progress.rejects + progress.removes;
+  const showVoteRule =
+    progress.threshold != null &&
+    progress.totalWeight != null &&
+    progress.totalWeight > 0;
+  const denominator = showVoteRule
+    ? progress.totalWeight!
+    : votesCast > 0
+      ? votesCast
+      : 0;
+  const share = (count: number) =>
+    denominator > 0 ? (count / denominator) * 100 : 0;
+  const approvePct = share(progress.approvals);
+  const rejectPct = share(progress.rejects);
+  const removePct = share(progress.removes);
+  return {
+    showVoteRule,
+    denominator,
+    approvePct,
+    rejectPct,
+    removePct,
+    pendingPct:
+      showVoteRule && denominator > 0
+        ? Math.max(100 - approvePct - rejectPct - removePct, 0)
+        : 0,
+    thresholdPct:
+      showVoteRule && progress.threshold != null && progress.totalWeight! > 0
+        ? (progress.threshold / progress.totalWeight!) * 100
+        : null,
   };
 }
 
@@ -1387,6 +1458,24 @@ export function mergeProtocolFeedApplications(
   return extras.length > 0 ? [...merged, ...extras] : merged;
 }
 
+/**
+ * A vote that passes is terminal before the chain attaches the vote-time
+ * policy. Freeze the council that is voting now, at whatever size it is,
+ * so the bar stays on that pool instead of collapsing to the votes already
+ * cast and sliding back when the snapshot arrives.
+ */
+function freezeLiveCouncilOnConclude(
+  before: ProtocolDaoProposal,
+  concluded: ProtocolDaoProposal,
+  daoPolicy: ProtocolDaoPolicy | null
+): ProtocolDaoProposal {
+  if (concluded.policy_snapshot?.roles?.length) return concluded;
+  if (!daoPolicy?.roles?.length) return concluded;
+  if (!isTerminalProtocolProposalStatus(concluded.status)) return concluded;
+  if (isTerminalProtocolProposalStatus(before.status)) return concluded;
+  return { ...concluded, policy_snapshot: daoPolicy };
+}
+
 export function applyOptimisticVote(
   proposal: ProtocolDaoProposal,
   accountId: string,
@@ -1401,7 +1490,11 @@ export function applyOptimisticVote(
       ([id]) => normalizeAccount(id) === viewer
     )
   ) {
-    return concludeProtocolProposal(proposal, daoPolicy);
+    return freezeLiveCouncilOnConclude(
+      proposal,
+      concludeProtocolProposal(proposal, daoPolicy),
+      daoPolicy
+    );
   }
 
   const viewerRole = findViewerRole(daoPolicy, accountId);
@@ -1423,15 +1516,17 @@ export function applyOptimisticVote(
   const idx = vote === 'Approve' ? 0 : vote === 'Reject' ? 1 : 2;
   next[idx] = String((Number.parseInt(next[idx], 10) || 0) + 1);
   vote_counts[roleName] = next;
-  return concludeProtocolProposal(
-    {
-      ...proposal,
-      votes: {
-        ...proposal.votes,
-        [accountId.trim()]: vote,
-      },
-      vote_counts,
+  const withVote: ProtocolDaoProposal = {
+    ...proposal,
+    votes: {
+      ...proposal.votes,
+      [accountId.trim()]: vote,
     },
+    vote_counts,
+  };
+  return freezeLiveCouncilOnConclude(
+    proposal,
+    concludeProtocolProposal(withVote, daoPolicy),
     daoPolicy
   );
 }
@@ -1442,7 +1537,9 @@ export function applyOptimisticFinalize(
 ): ProtocolDaoProposal {
   if (isTerminalProtocolProposalStatus(proposal.status)) return proposal;
   const concluded = concludeProtocolProposal(proposal, daoPolicy);
-  if (concluded.status !== 'InProgress') return concluded;
+  if (concluded.status !== 'InProgress') {
+    return freezeLiveCouncilOnConclude(proposal, concluded, daoPolicy);
+  }
 
   const effectivePolicy = resolveEffectiveDaoPolicy(proposal, daoPolicy);
   const proposalPolicyLabel = getProposalPolicyLabel(proposal);
@@ -1463,5 +1560,9 @@ export function applyOptimisticFinalize(
     ? getVotingPoolSize(votingRole, proposal, true)
     : null;
   if (pool == null) return proposal;
-  return { ...proposal, status: 'Rejected' };
+  return freezeLiveCouncilOnConclude(
+    proposal,
+    { ...proposal, status: 'Rejected' },
+    daoPolicy
+  );
 }
