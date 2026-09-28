@@ -134,41 +134,49 @@ export function PortfolioWebsitesEditor({
                   </button>
                 </span>
                 {pickerOpen ? (
-                  <div
-                    className="account-editor-website-marks"
-                    role="group"
+                  <ul
+                    className="account-editor-links-picker account-editor-website-marks"
                     aria-label={`${label} icons`}
                   >
-                    <button
-                      type="button"
-                      className="account-editor-website-mark"
-                      aria-label="Address"
-                      aria-pressed={!row.mark}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => onChange(row.id, { mark: '' })}
-                    >
-                      <PortfolioWebsiteGlyph
-                        href={href}
-                        className="portfolio-link-icon"
-                      />
-                    </button>
-                    {PORTFOLIO_WEBSITE_MARKS.map((mark) => (
+                    <li>
                       <button
-                        key={mark}
                         type="button"
-                        className="account-editor-website-mark"
-                        aria-label={WEBSITE_MARK_LABEL[mark]}
-                        aria-pressed={row.mark === mark}
+                        className="account-editor-links-picker-option account-editor-website-mark"
+                        aria-pressed={!row.mark}
                         onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => onChange(row.id, { mark })}
+                        onClick={() => {
+                          onChange(row.id, { mark: '' });
+                          setOpenMarkId(null);
+                        }}
                       >
-                        <PortfolioWebsiteMarkIcon
-                          mark={mark}
-                          className="portfolio-link-icon"
+                        <PortfolioWebsiteGlyph
+                          href={href}
+                          className="portfolio-link-icon account-editor-links-picker-icon"
                         />
+                        <span>Address</span>
                       </button>
+                    </li>
+                    {PORTFOLIO_WEBSITE_MARKS.map((mark) => (
+                      <li key={mark}>
+                        <button
+                          type="button"
+                          className="account-editor-links-picker-option account-editor-website-mark"
+                          aria-pressed={row.mark === mark}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => {
+                            onChange(row.id, { mark });
+                            setOpenMarkId(null);
+                          }}
+                        >
+                          <PortfolioWebsiteMarkIcon
+                            mark={mark}
+                            className="portfolio-link-icon account-editor-links-picker-icon"
+                          />
+                          <span>{WEBSITE_MARK_LABEL[mark]}</span>
+                        </button>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 ) : null}
                 <span
                   className={`account-editor-link-input account-editor-website-url${

@@ -21445,39 +21445,28 @@ a.os-surface-row {
   .account-editor-website-mark-btn:focus-visible,
   .account-editor-website-mark:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.28);
+    box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / 0.28);
   }
 
-  .account-editor-website-marks {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.15rem;
-    padding: 0.1rem 0.15rem 0.35rem 0.05rem;
+  .account-editor-website-marks.account-editor-links-picker::before {
+    content: none;
   }
 
-  .account-editor-website-mark {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.85rem;
-    height: 1.85rem;
-    padding: 0;
-    border: 0;
-    border-radius: 999px;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.42);
-    cursor: pointer;
+  .account-editor-website-marks.account-editor-links-picker::after {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 1px;
+    background-image: var(--divider-h-detail);
   }
 
-  .account-editor-website-mark:hover,
   .account-editor-website-mark[aria-pressed='true'] {
-    color: rgb(var(--fg-rgb) / 0.9);
-    background: rgb(var(--fg-rgb) / 0.08);
+    color: rgb(var(--fg-rgb) / 0.94);
   }
 
-  .account-editor-website-mark .portfolio-link-icon {
-    width: 1.05rem;
-    height: 1.05rem;
+  .account-editor-website-mark[aria-pressed='true']
+    .account-editor-links-picker-icon {
+    color: rgb(var(--fg-rgb) / 0.9);
   }
 
   .account-editor-websites-add {
@@ -21589,7 +21578,9 @@ a.os-surface-row {
     color: var(--mood-muted, rgb(var(--fg-rgb) / 0.72));
   }
 
-  .profile-edit-slide[data-mood] .account-editor-links-picker-option:hover {
+  .profile-edit-slide[data-mood] .account-editor-links-picker-option:hover,
+  .profile-edit-slide[data-mood]
+    .account-editor-website-mark[aria-pressed='true'] {
     color: var(--mood-text, rgb(var(--fg-rgb) / 0.94));
   }
 

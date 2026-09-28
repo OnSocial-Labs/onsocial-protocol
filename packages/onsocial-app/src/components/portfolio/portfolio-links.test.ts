@@ -155,7 +155,8 @@ describe('PortfolioWebsitesEditor', () => {
     expect(html).toContain('aria-label="Website address"');
     expect(html).toContain('aria-label="Website line"');
     expect(html).toContain('aria-label="Website icon"');
-    expect(html).not.toContain('aria-label="Address"');
+    expect(html).not.toContain('>Address<');
+    expect(html).not.toContain('>Globe<');
   });
 
   it('shows a chosen mark on the row and keeps the picker closed', () => {
