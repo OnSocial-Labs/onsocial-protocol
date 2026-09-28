@@ -21428,6 +21428,58 @@ a.os-surface-row {
     visibility: hidden;
   }
 
+  .account-editor-website-mark-btn {
+    border: 0;
+    margin: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    border-radius: 999px;
+  }
+
+  .account-editor-website-mark-btn:hover,
+  .account-editor-website-mark-btn[aria-expanded='true'] {
+    color: rgb(var(--fg-rgb) / 0.82);
+  }
+
+  .account-editor-website-mark-btn:focus-visible,
+  .account-editor-website-mark:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.28);
+  }
+
+  .account-editor-website-marks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem;
+    padding: 0.1rem 0.15rem 0.35rem 0.05rem;
+  }
+
+  .account-editor-website-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.85rem;
+    height: 1.85rem;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.42);
+    cursor: pointer;
+  }
+
+  .account-editor-website-mark:hover,
+  .account-editor-website-mark[aria-pressed='true'] {
+    color: rgb(var(--fg-rgb) / 0.9);
+    background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .account-editor-website-mark .portfolio-link-icon {
+    width: 1.05rem;
+    height: 1.05rem;
+  }
+
   .account-editor-websites-add {
     align-self: center;
   }

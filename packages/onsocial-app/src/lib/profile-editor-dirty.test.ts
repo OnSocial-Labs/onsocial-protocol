@@ -236,6 +236,26 @@ describe('isProfileEditorDirty', () => {
     expect(isProfileEditorDirty(input)).toBe(true);
   });
 
+  it('is dirty when a website icon changes without a chain edit', () => {
+    const snapshot = baseSnapshot({
+      links: { website: 'https://example.com/' },
+      pageConfig: { linkMarks: { website: 'shop' } },
+    });
+    const saved = readPortfolioWebsites(
+      snapshot.links,
+      snapshot.pageConfig.linkNotes,
+      snapshot.pageConfig.linkLines,
+      snapshot.pageConfig.linkMarks
+    );
+    const next = saved.map((row) => ({ ...row, mark: '' as const }));
+    const input = dirtyInput(snapshot, {
+      websites: next,
+      websitesFromSnapshot: saved,
+    });
+    expect(isProfileEditorContentDirty(input)).toBe(false);
+    expect(isProfileEditorDirty(input)).toBe(true);
+  });
+
   it('is dirty when a link title changes', () => {
     const snapshot = baseSnapshot({
       pageConfig: { linkNotes: { website: 'Home' } },

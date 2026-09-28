@@ -9,6 +9,7 @@ import {
   portfolioWebsitesCopyEqual,
   portfolioWebsitesUrlsEqual,
   readPortfolioWebsites,
+  sanitizeLinkMarks,
 } from './profile-websites';
 
 describe('applyPortfolioWebsites', () => {
@@ -50,6 +51,34 @@ describe('applyPortfolioWebsites', () => {
       site_2: 'Blog',
     });
     expect(applied.lines).toEqual({ website: 'Guides' });
+    expect(applied.marks).toEqual({});
+  });
+
+  it('stores a chosen mark and drops an unknown one', () => {
+    expect(
+      sanitizeLinkMarks({ website: 'shop', site_2: 'nope', '': 'home' })
+    ).toEqual({ website: 'shop' });
+    const applied = applyPortfolioWebsites({
+      links: {},
+      notes: {},
+      websites: [
+        {
+          id: 'a',
+          url: 'example.com',
+          name: 'Shop',
+          line: '',
+          mark: 'shop',
+        },
+        {
+          id: 'b',
+          url: 'docs.example.com',
+          name: '',
+          line: '',
+        },
+      ],
+    });
+    expect(applied.marks).toEqual({ website: 'shop' });
+    expect(applied.links.site_2).toBe('https://docs.example.com/');
   });
 
   it('drops removed sites and blank rows', () => {
@@ -92,15 +121,23 @@ describe('readPortfolioWebsites', () => {
         github: 'alice',
       },
       { website: 'Home', site_2: 'Docs' },
-      { site_2: 'Guides' }
+      { site_2: 'Guides' },
+      { website: 'shop', site_2: 'nope' }
     );
     expect(saved).toEqual([
-      { id: 'website', url: 'example.com', name: 'Home', line: '' },
+      {
+        id: 'website',
+        url: 'example.com',
+        name: 'Home',
+        line: '',
+        mark: 'shop',
+      },
       {
         id: 'site_2',
         url: 'docs.example.com/guide',
         name: 'Docs',
         line: 'Guides',
+        mark: '',
       },
     ]);
     expect(portfolioWebsitesUrlsEqual(saved, saved)).toBe(true);
@@ -116,6 +153,12 @@ describe('readPortfolioWebsites', () => {
         saved[1]!,
       ])
     ).toBe(false);
+    expect(
+      portfolioWebsitesCopyEqual(saved, [{ ...saved[0]!, mark: '' }, saved[1]!])
+    ).toBe(false);
+    expect(
+      portfolioWebsitesUrlsEqual(saved, [{ ...saved[0]!, mark: '' }, saved[1]!])
+    ).toBe(true);
   });
 });
 

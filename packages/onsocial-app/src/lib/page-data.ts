@@ -60,6 +60,11 @@ export interface PublicPageConfig {
   linkNotes?: Record<string, string>;
   /** Optional quiet lines for website keys (`website`, `site_2`, …). */
   linkLines?: Record<string, string>;
+  /**
+   * Optional drawer marks for website keys (`website`, `site_2`, …).
+   * Omitted keys follow the address.
+   */
+  linkMarks?: Record<string, string>;
   tagline?: string;
   customCss?: string;
   /** Active mood broadcast — stored in `page/main.mood`. */

@@ -13,11 +13,63 @@ export const PORTFOLIO_WEBSITE_LIMIT = 12;
 
 const EXTRA_SITE_KEY = /^site_(\d+)$/;
 
+/** Optional drawer marks. Empty means the address picks the icon. */
+export const PORTFOLIO_WEBSITE_MARKS = [
+  'globe',
+  'link',
+  'home',
+  'shop',
+  'camera',
+  'note',
+  'video',
+  'bookmark',
+] as const;
+
+export type PortfolioWebsiteMark = (typeof PORTFOLIO_WEBSITE_MARKS)[number];
+
+const WEBSITE_MARK_SET = new Set<string>(PORTFOLIO_WEBSITE_MARKS);
+
+export function parsePortfolioWebsiteMark(
+  value: string | null | undefined
+): PortfolioWebsiteMark | '' {
+  const mark = value?.trim() ?? '';
+  return WEBSITE_MARK_SET.has(mark) ? (mark as PortfolioWebsiteMark) : '';
+}
+
+export function sanitizeLinkMarks(
+  marks: Record<string, string> | null | undefined
+): Record<string, PortfolioWebsiteMark> {
+  if (!marks || typeof marks !== 'object') return {};
+  const next: Record<string, PortfolioWebsiteMark> = {};
+  for (const [key, value] of Object.entries(marks)) {
+    const id = key.trim();
+    const mark = parsePortfolioWebsiteMark(value);
+    if (!id || !mark) continue;
+    next[id] = mark;
+  }
+  return next;
+}
+
+export function linkMarksEqual(
+  a: Record<string, string> | null | undefined,
+  b: Record<string, string> | null | undefined
+): boolean {
+  const left = sanitizeLinkMarks(a);
+  const right = sanitizeLinkMarks(b);
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+  for (const key of keys) {
+    if (left[key] !== right[key]) return false;
+  }
+  return true;
+}
+
 export interface PortfolioWebsiteDraft {
   id: string;
   url: string;
   name: string;
   line: string;
+  /** Empty follows the address. */
+  mark?: PortfolioWebsiteMark | '';
 }
 
 export function isPortfolioExtraSiteKey(key: string): boolean {
@@ -96,7 +148,8 @@ function blurb(
 export function readPortfolioWebsites(
   links: unknown,
   notes?: Record<string, string> | null,
-  lines?: Record<string, string> | null
+  lines?: Record<string, string> | null,
+  marks?: Record<string, string> | null
 ): PortfolioWebsiteDraft[] {
   const record = linkRecord(links);
   const stored = [
@@ -108,6 +161,7 @@ export function readPortfolioWebsites(
     url: displayWebsiteUrl(entry.raw),
     name: blurb(notes, entry.key),
     line: blurb(lines, entry.key),
+    mark: parsePortfolioWebsiteMark(marks?.[entry.key]),
   }));
 }
 
@@ -132,10 +186,10 @@ export function portfolioWebsitesCopyEqual(
   saved: PortfolioWebsiteDraft[]
 ): boolean {
   const left = filledDrafts(next).map(
-    (row) => `${row.name.trim()}\n${row.line.trim()}`
+    (row) => `${row.name.trim()}\n${row.line.trim()}\n${row.mark ?? ''}`
   );
   const right = filledDrafts(saved).map(
-    (row) => `${row.name.trim()}\n${row.line.trim()}`
+    (row) => `${row.name.trim()}\n${row.line.trim()}\n${row.mark ?? ''}`
   );
   if (left.length !== right.length) return false;
   return left.every((copy, index) => copy === right[index]);
@@ -179,10 +233,12 @@ export function applyPortfolioWebsites(input: {
   links: Record<string, string>;
   notes: Record<string, string>;
   lines: Record<string, string>;
+  marks: Record<string, PortfolioWebsiteMark>;
 } {
   const links = stripWebsiteKeys(input.links);
   const notes = stripWebsiteKeys({ ...sanitizeLinkNotes(input.notes) });
   const lines: Record<string, string> = {};
+  const marks: Record<string, PortfolioWebsiteMark> = {};
   const filled = filledDrafts(input.websites).slice(0, PORTFOLIO_WEBSITE_LIMIT);
 
   filled.forEach((row, index) => {
@@ -194,13 +250,16 @@ export function applyPortfolioWebsites(input: {
     links[key] = normalizeWebsiteInput(row.url);
     const name = row.name.trim().slice(0, PAGE_LINK_NOTE_MAX);
     const line = row.line.trim().slice(0, PAGE_LINK_NOTE_MAX);
+    const mark = parsePortfolioWebsiteMark(row.mark);
     if (name) notes[key] = name;
     if (line) lines[key] = line;
+    if (mark) marks[key] = mark;
   });
 
   return {
     links,
     notes: sanitizeLinkNotes(notes),
     lines: sanitizeLinkNotes(lines),
+    marks,
   };
 }

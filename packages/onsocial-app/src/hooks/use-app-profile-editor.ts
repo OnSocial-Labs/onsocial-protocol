@@ -39,7 +39,9 @@ import {
 } from '@/lib/profile-links';
 import {
   applyPortfolioWebsites,
+  linkMarksEqual,
   readPortfolioWebsites,
+  sanitizeLinkMarks,
   type PortfolioWebsiteDraft,
 } from '@/lib/profile-websites';
 import { probeNearAccountExists } from '@/hooks/use-near-account-status';
@@ -231,7 +233,8 @@ export function useAppProfileEditor(
         ? readPortfolioWebsites(
             snapshotNow.links,
             snapshotNow.pageConfig?.linkNotes,
-            snapshotNow.pageConfig?.linkLines
+            snapshotNow.pageConfig?.linkLines,
+            snapshotNow.pageConfig?.linkMarks
           )
         : undefined;
       const normalizedLinks = normalizeProfileLinksInput(
@@ -255,6 +258,10 @@ export function useAppProfileEditor(
       );
       const linesDirty = websitePlan
         ? !linkNotesEqual(nextLines, snapshotNow.pageConfig?.linkLines)
+        : false;
+      const nextMarks = websitePlan?.marks;
+      const marksDirty = websitePlan
+        ? !linkMarksEqual(nextMarks, snapshotNow.pageConfig?.linkMarks)
         : false;
       const contentDirty = isProfileEditorContentDirty({
         snapshot: snapshotNow,
@@ -280,7 +287,7 @@ export function useAppProfileEditor(
         isDao,
       });
 
-      if (!contentDirty && !notesDirty && !linesDirty) {
+      if (!contentDirty && !notesDirty && !linesDirty && !marksDirty) {
         return {
           name,
           location,
@@ -388,7 +395,7 @@ export function useAppProfileEditor(
           }
         }
 
-        if (notesDirty || linesDirty) {
+        if (notesDirty || linesDirty || marksDirty) {
           const current =
             await fetchPageConfigFromBrowserProxy(signingAccountId);
           const notes = sanitizeLinkNotes(nextNotes);
@@ -400,6 +407,8 @@ export function useAppProfileEditor(
           if (websitePlan) {
             const lines = sanitizeLinkNotes(nextLines);
             next.linkLines = Object.keys(lines).length > 0 ? lines : undefined;
+            const marks = sanitizeLinkMarks(nextMarks);
+            next.linkMarks = Object.keys(marks).length > 0 ? marks : undefined;
           }
           const pageResponse = await client.pages.setConfig(next, {
             wait: true,

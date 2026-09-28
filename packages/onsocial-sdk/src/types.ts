@@ -1036,6 +1036,11 @@ export interface PageConfig {
    * Same length cap as {@link PageConfig.linkNotes}.
    */
   linkLines?: Record<string, string>;
+  /**
+   * Optional drawer marks for website keys (`website`, `site_2`, …).
+   * Omitted keys follow the address.
+   */
+  linkMarks?: Record<string, string>;
   /** Custom tagline (overrides bio on page). */
   tagline?: string;
   /** Custom CSS URL (premium feature). */

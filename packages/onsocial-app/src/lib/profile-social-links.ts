@@ -1,7 +1,11 @@
 import { normalizeLink } from './profile-display';
 import { appPageHref, PUBLIC_APP_ORIGIN } from '@/lib/app-links';
 import { normalizeNearAccountId } from '@/lib/app-near-account';
-import { listStoredExtraWebsites } from '@/lib/profile-websites';
+import {
+  listStoredExtraWebsites,
+  parsePortfolioWebsiteMark,
+  type PortfolioWebsiteMark,
+} from '@/lib/profile-websites';
 
 export type PortfolioLinkKind =
   | 'website'
@@ -25,6 +29,8 @@ export interface PortfolioSocialLink {
   note?: string;
   /** Optional quiet line from page config. Websites only. */
   line?: string;
+  /** Optional drawer mark. Websites only. Empty follows the address. */
+  mark?: PortfolioWebsiteMark;
 }
 
 const LINK_HOSTS: Record<
@@ -461,23 +467,33 @@ export function portfolioWebsiteRowCopy(link: PortfolioSocialLink): {
 function withLinkMeta(
   link: PortfolioSocialLink,
   notes: Record<string, string> | null | undefined,
-  lines: Record<string, string> | null | undefined
+  lines: Record<string, string> | null | undefined,
+  marks: Record<string, string> | null | undefined
 ): PortfolioSocialLink {
   const note = notes?.[link.key]?.trim();
   const line = lines?.[link.key]?.trim();
-  if (!note && !line) return link;
+  const mark = parsePortfolioWebsiteMark(marks?.[link.key]);
+  if (!note && !line && !mark) return link;
   return {
     ...link,
     ...(note ? { note } : {}),
     ...(line ? { line } : {}),
+    ...(mark ? { mark } : {}),
   };
+}
+
+/** A name, a line, or a custom icon is worth opening the drawer. */
+export function portfolioWebsiteHasDrawerCopy(
+  link: PortfolioSocialLink
+): boolean {
+  return Boolean(link.note?.trim() || link.line?.trim() || link.mark);
 }
 
 export type PortfolioFaceLinkMode = 'icons' | 'globe' | 'drawer';
 
 export interface PortfolioFaceLinks {
   mode: PortfolioFaceLinkMode;
-  /** Direct icons. In drawer mode the link button is separate and websites are omitted. */
+  /** Direct icons. In drawer mode the globe is separate and websites are omitted. */
   icons: PortfolioSocialLink[];
   /** Every website, including the single globe. */
   websites: PortfolioSocialLink[];
@@ -499,19 +515,22 @@ function resolveExtraWebsiteLinks(links: unknown): PortfolioSocialLink[] {
 }
 
 /**
- * Face row. One website stays a globe. Several websites collapse into one
- * link icon; known social accounts stay direct icons either way.
+ * Face row. The websites mark is always the globe.
+ * One plain address opens that site. A name, a line, a custom icon, or
+ * several sites open the drawer from that same globe.
+ * Known social accounts stay direct icons either way.
  */
 export function resolvePortfolioFaceLinks(
   links: unknown,
   notes?: Record<string, string> | null,
-  lines?: Record<string, string> | null
+  lines?: Record<string, string> | null,
+  marks?: Record<string, string> | null
 ): PortfolioFaceLinks {
   const resolved = resolvePortfolioSocialLinks(links).map((link) =>
-    withLinkMeta(link, notes, lines)
+    withLinkMeta(link, notes, lines, marks)
   );
   const extras = resolveExtraWebsiteLinks(links).map((link) =>
-    withLinkMeta(link, notes, lines)
+    withLinkMeta(link, notes, lines, marks)
   );
   const websites = [
     ...resolved.filter((link) => link.key === 'website'),
@@ -519,7 +538,10 @@ export function resolvePortfolioFaceLinks(
   ];
   const socials = resolved.filter((link) => link.key !== 'website');
 
-  if (websites.length > 1) {
+  if (
+    websites.length > 1 ||
+    websites.some((link) => portfolioWebsiteHasDrawerCopy(link))
+  ) {
     return { mode: 'drawer', icons: socials, websites };
   }
 

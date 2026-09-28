@@ -1,22 +1,32 @@
 'use client';
 
-import type { FocusEvent, KeyboardEvent } from 'react';
+import { useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { MultiplyIcon } from '@onsocial/ui';
-import { PortfolioLinkIcon } from '@/components/portfolio/portfolio-link-icon';
+import {
+  PortfolioLinkIcon,
+  PortfolioWebsiteGlyph,
+  PortfolioWebsiteMarkIcon,
+} from '@/components/portfolio/portfolio-link-icon';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { PAGE_LINK_NOTE_MAX } from '@/lib/page-launch-config';
 import { normalizeLink } from '@/lib/profile-display';
-import { portfolioLinkKindFromHref } from '@/lib/profile-social-links';
 import {
   PORTFOLIO_WEBSITE_LIMIT,
+  PORTFOLIO_WEBSITE_MARKS,
   type PortfolioWebsiteDraft,
+  type PortfolioWebsiteMark,
 } from '@/lib/profile-websites';
 
-function websiteMarkKind(url: string) {
-  const href = normalizeLink(url);
-  if (!href) return 'website' as const;
-  return portfolioLinkKindFromHref(href);
-}
+const WEBSITE_MARK_LABEL: Record<PortfolioWebsiteMark, string> = {
+  globe: 'Globe',
+  link: 'Link',
+  home: 'Home',
+  shop: 'Shop',
+  camera: 'Camera',
+  note: 'Note',
+  video: 'Video',
+  bookmark: 'Bookmark',
+};
 
 export function PortfolioWebsitesEditor({
   websites,
@@ -39,6 +49,7 @@ export function PortfolioWebsitesEditor({
 }) {
   const scrollFieldIntoView = useMobileFieldFocusScroll();
   const canAdd = websites.length < PORTFOLIO_WEBSITE_LIMIT;
+  const [openMarkId, setOpenMarkId] = useState<string | null>(null);
 
   const stayInRow = (event: FocusEvent<HTMLElement>) => {
     const field = event.currentTarget.closest('.account-editor-link-field');
@@ -66,15 +77,29 @@ export function PortfolioWebsitesEditor({
             const error = errors[row.id];
             const label =
               websites.length > 1 ? `Website ${index + 1}` : 'Website';
+            const href = normalizeLink(row.url) ?? '';
+            const pickerOpen = openMarkId === row.id;
             return (
               <div key={row.id} className="account-editor-link-field">
                 <span className="account-editor-link-input">
-                  <span className="account-editor-link-icon-slot" aria-hidden>
-                    <PortfolioLinkIcon
-                      kind={websiteMarkKind(row.url)}
+                  <button
+                    type="button"
+                    className="account-editor-link-icon-slot account-editor-website-mark-btn"
+                    aria-label={`${label} icon`}
+                    aria-expanded={pickerOpen}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() =>
+                      setOpenMarkId((current) =>
+                        current === row.id ? null : row.id
+                      )
+                    }
+                  >
+                    <PortfolioWebsiteGlyph
+                      href={href}
+                      mark={row.mark}
                       className="portfolio-link-icon"
                     />
-                  </span>
+                  </button>
                   <input
                     className="account-editor-link-value"
                     value={row.name}
@@ -108,6 +133,43 @@ export function PortfolioWebsitesEditor({
                     />
                   </button>
                 </span>
+                {pickerOpen ? (
+                  <div
+                    className="account-editor-website-marks"
+                    role="group"
+                    aria-label={`${label} icons`}
+                  >
+                    <button
+                      type="button"
+                      className="account-editor-website-mark"
+                      aria-label="Address"
+                      aria-pressed={!row.mark}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => onChange(row.id, { mark: '' })}
+                    >
+                      <PortfolioWebsiteGlyph
+                        href={href}
+                        className="portfolio-link-icon"
+                      />
+                    </button>
+                    {PORTFOLIO_WEBSITE_MARKS.map((mark) => (
+                      <button
+                        key={mark}
+                        type="button"
+                        className="account-editor-website-mark"
+                        aria-label={WEBSITE_MARK_LABEL[mark]}
+                        aria-pressed={row.mark === mark}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => onChange(row.id, { mark })}
+                      >
+                        <PortfolioWebsiteMarkIcon
+                          mark={mark}
+                          className="portfolio-link-icon"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <span
                   className={`account-editor-link-input account-editor-website-url${
                     error ? ' is-invalid' : ''

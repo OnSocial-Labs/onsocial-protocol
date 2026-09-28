@@ -12,10 +12,16 @@ interface PortfolioLinksProps {
   links?: unknown;
   notes?: Record<string, string> | null;
   lines?: Record<string, string> | null;
+  marks?: Record<string, string> | null;
 }
 
-export function PortfolioLinks({ links, notes, lines }: PortfolioLinksProps) {
-  const face = resolvePortfolioFaceLinks(links, notes, lines);
+export function PortfolioLinks({
+  links,
+  notes,
+  lines,
+  marks,
+}: PortfolioLinksProps) {
+  const face = resolvePortfolioFaceLinks(links, notes, lines, marks);
   const [open, setOpen] = useState(false);
 
   if (face.icons.length === 0 && face.websites.length === 0) {
@@ -33,10 +39,11 @@ export function PortfolioLinks({ links, notes, lines }: PortfolioLinksProps) {
               aria-label="Links"
               aria-haspopup="dialog"
               aria-expanded={open}
+              data-link-kind="website"
               onClick={() => setOpen(true)}
             >
               <PortfolioLinkIcon
-                kind="custom"
+                kind="website"
                 className="portfolio-link-icon"
               />
             </button>

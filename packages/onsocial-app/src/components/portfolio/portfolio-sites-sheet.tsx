@@ -1,15 +1,14 @@
 'use client';
 
 import { Divider, OsHugSheet } from '@onsocial/ui';
-import { PortfolioLinkIcon } from '@/components/portfolio/portfolio-link-icon';
+import { PortfolioWebsiteGlyph } from '@/components/portfolio/portfolio-link-icon';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
-  portfolioLinkKindFromHref,
   portfolioWebsiteRowCopy,
   type PortfolioSocialLink,
 } from '@/lib/profile-social-links';
 
-/** Hug drawer of websites. One Mage link icon on the face opens this. */
+/** Hug drawer of websites. The face globe opens this. */
 export function PortfolioSitesSheet({
   open,
   websites,
@@ -33,7 +32,6 @@ export function PortfolioSitesSheet({
       <div className="portfolio-sites-list">
         {websites.map((site, index) => {
           const copy = portfolioWebsiteRowCopy(site);
-          const kind = portfolioLinkKindFromHref(site.href);
           return (
             <div key={site.key}>
               {index > 0 ? <Divider variant="item" /> : null}
@@ -43,9 +41,14 @@ export function PortfolioSitesSheet({
                 rel="noopener noreferrer"
                 target="_blank"
               >
-                <span className="portfolio-sites-mark" aria-hidden>
-                  <PortfolioLinkIcon
-                    kind={kind}
+                <span
+                  className="portfolio-sites-mark"
+                  data-website-mark={site.mark ?? 'auto'}
+                  aria-hidden
+                >
+                  <PortfolioWebsiteGlyph
+                    href={site.href}
+                    mark={site.mark}
                     className="portfolio-link-icon"
                   />
                 </span>

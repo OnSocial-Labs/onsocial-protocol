@@ -221,7 +221,8 @@ export function AppProfileEditorSheet({
       readPortfolioWebsites(
         snapshot.links,
         snapshot.pageConfig?.linkNotes,
-        snapshot.pageConfig?.linkLines
+        snapshot.pageConfig?.linkLines,
+        snapshot.pageConfig?.linkMarks
       )
     );
     setWebsiteErrors({});
@@ -291,7 +292,8 @@ export function AppProfileEditorSheet({
         : readPortfolioWebsites(
             snapshot.links,
             snapshot.pageConfig?.linkNotes,
-            snapshot.pageConfig?.linkLines
+            snapshot.pageConfig?.linkLines,
+            snapshot.pageConfig?.linkMarks
           ),
       avatarFile,
       bannerFile,
@@ -417,7 +419,10 @@ export function AppProfileEditorSheet({
     if (websites.length >= PORTFOLIO_WEBSITE_LIMIT) return;
     websiteIdRef.current += 1;
     const id = `draft-${websiteIdRef.current}`;
-    setWebsites((current) => [...current, { id, url: '', name: '', line: '' }]);
+    setWebsites((current) => [
+      ...current,
+      { id, url: '', name: '', line: '', mark: '' },
+    ]);
     setWebsiteFocusId(id);
   };
 
