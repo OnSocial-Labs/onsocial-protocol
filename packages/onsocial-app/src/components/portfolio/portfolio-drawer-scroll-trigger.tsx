@@ -25,6 +25,7 @@ function hasPortfolioFeedHash(): boolean {
 export function PortfolioDrawerScrollTrigger() {
   const { isOpen, open } = usePageContentDrawer();
   const userGesturedRef = useRef(false);
+  const anchorRef = useRef<HTMLSpanElement>(null);
 
   // One-shot deep link: open the drawer, then strip the hash so a later
   // refresh lands on the plain portfolio face again.
@@ -61,7 +62,16 @@ export function PortfolioDrawerScrollTrigger() {
   useEffect(() => {
     if (isOpen) return;
 
-    const root = document.querySelector('.portfolio-page');
+    const layer = anchorRef.current?.closest('.portfolio-os-layer');
+    const frame = layer?.previousElementSibling;
+    const scoped =
+      frame instanceof HTMLElement
+        ? frame.querySelector(':scope > .portfolio-page')
+        : null;
+    const root =
+      scoped instanceof HTMLElement
+        ? scoped
+        : document.querySelector('.portfolio-page');
     if (!(root instanceof HTMLElement)) return;
 
     userGesturedRef.current = false;
@@ -120,5 +130,5 @@ export function PortfolioDrawerScrollTrigger() {
     };
   }, [isOpen, open]);
 
-  return null;
+  return <span ref={anchorRef} hidden />;
 }

@@ -592,6 +592,117 @@
     calc(1.25rem + env(safe-area-inset-bottom, 0px));
 }
 
+/* Governance / Treasury — one pair, words stay, faces slide. */
+.protocol-face-pair {
+  position: relative;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+.protocol-face-pager {
+  display: flex;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.protocol-face-pager::-webkit-scrollbar {
+  display: none;
+}
+
+.protocol-face-page {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 100%;
+  height: 100%;
+  overflow: hidden;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.protocol-face-page:not(.is-active) .portfolio-os-layer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.protocol-face-page .portfolio-entity-kind-switch {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.protocol-face-pair-pill {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  transform: translateX(-50%);
+  visibility: hidden;
+}
+
+.protocol-face-pair-pill[data-placed='true'] {
+  visibility: visible;
+}
+
+.protocol-face-pair-pill .protocol-face-pair-thumb {
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  top: 0;
+  border-radius: 999px;
+  pointer-events: none;
+  background: var(--os-surface-fill);
+}
+
+.protocol-face-pair[data-mood] .protocol-face-pair-pill {
+  background: color-mix(in srgb, var(--mood-text) 8%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--mood-text) 10%, transparent);
+  color: color-mix(in srgb, var(--mood-muted) 72%, var(--mood-text));
+}
+
+.protocol-face-pair[data-mood] .protocol-face-pair-thumb {
+  background: color-mix(in srgb, var(--mood-text) 16%, transparent);
+}
+
+.protocol-face-pair[data-mood]
+  .protocol-face-pair-pill
+  .portfolio-entity-kind-option {
+  color: color-mix(in srgb, var(--mood-muted) 58%, transparent);
+}
+
+.protocol-face-pair[data-mood]
+  .protocol-face-pair-pill
+  .portfolio-entity-kind-option.is-active {
+  color: var(--mood-text);
+}
+
+.protocol-face-pair-pill .portfolio-entity-kind-option {
+  position: relative;
+  z-index: 1;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.protocol-face-pair-pill .portfolio-entity-kind-option.is-active {
+  background: transparent;
+}
+
+.protocol-face-pair-fallback {
+  height: 100%;
+  min-height: 100dvh;
+}
+
+.protocol-face-pair .protocol-status-rail,
+.protocol-face-pair .protocol-family-rail,
+.protocol-face-pair .dao-proposals-status-rail,
+.protocol-face-pair .dao-proposals-family-rail {
+  touch-action: pan-y;
+}
+
 .os-app-screen--embedded {
   /* Overlay screens portal inside the underlay OsAppScreen — do not inherit
      Discover / Home chrome height as a second header pad. */

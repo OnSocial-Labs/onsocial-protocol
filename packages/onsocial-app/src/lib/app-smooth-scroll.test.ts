@@ -45,6 +45,13 @@ describe('app smooth scroll', () => {
     } as unknown as HTMLElement;
     expect(isAppSmoothScrollPagerHost(host)).toBe(true);
     expect(isAppSmoothScrollPagerHost(plain)).toBe(false);
+    const facePage = {
+      classList: { contains: () => false },
+      querySelector: () => null,
+      closest: (selector: string) =>
+        selector === '.protocol-face-pair' ? {} : null,
+    } as unknown as HTMLElement;
+    expect(isAppSmoothScrollPagerHost(facePage)).toBe(true);
     expect(provider).toContain('isAppSmoothScrollPagerHost');
   });
 
