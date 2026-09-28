@@ -15,6 +15,10 @@ const pageSrc = readFileSync(
   join(libDir, '../app/[accountId]/page.tsx'),
   'utf8'
 );
+const faceSrc = readFileSync(
+  join(libDir, '../components/portfolio/portfolio-account-face.tsx'),
+  'utf8'
+);
 const aboutSrc = readFileSync(
   join(libDir, 'load-portfolio-about.ts'),
   'utf8'
@@ -42,10 +46,12 @@ describe('portfolio hero path', () => {
   });
 
   it('streams person signals and does not await jobs on the account page', () => {
-    expect(pageSrc).toContain('loadPortfolioHeroDaoContext');
-    expect(pageSrc).toContain('PortfolioDeferredSignals');
-    expect(pageSrc).toContain('PortfolioDeferredProfileSeed');
-    expect(pageSrc).toContain('portfolioHeroAwaitsSignals');
+    expect(pageSrc).toContain('PortfolioAccountFace');
+    expect(faceSrc).toContain('loadPortfolioHeroDaoContext');
+    expect(faceSrc).toContain('PortfolioDeferredSignals');
+    expect(faceSrc).toContain('PortfolioDeferredProfileSeed');
+    expect(faceSrc).toContain('portfolioHeroAwaitsSignals');
+    expect(faceSrc).not.toContain('jobs.openForAccount');
     expect(pageSrc).not.toContain('jobs.openForAccount');
     expect(aboutSrc).toContain('loadPortfolioHeroDaoContext');
   });
