@@ -86,9 +86,12 @@ function placeProtocolFaceChrome(pair: HTMLElement, pager: HTMLElement): void {
     return spacer.getBoundingClientRect().top - pairRect.top;
   });
   const from = tops[0];
-  const to = tops[1] ?? from;
-  if (pill && from != null && to != null) {
-    pill.style.top = `${from + (to - from) * progress}px`;
+  const to = tops[1];
+  // Either face can still be streaming. Place from the one that is here.
+  const start = from ?? to;
+  const end = to ?? from;
+  if (pill && start != null && end != null) {
+    pill.style.top = `${start + (end - start) * progress}px`;
     pill.dataset.placed = 'true';
   }
 

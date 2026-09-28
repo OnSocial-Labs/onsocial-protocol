@@ -162,7 +162,12 @@ test.describe('protocol face pair', () => {
     await expectPortfolioIdentityOrSkip(page, TREASURY);
     await waitForPortfolioClientReady(page);
 
-    await expect(page.locator('.protocol-face-pair')).toBeVisible();
+    const pair = page.locator('.protocol-face-pair');
+    await expect(pair).toBeVisible();
+    // The pill stays hidden until the face spacer is measured.
+    await expect(
+      page.locator('.protocol-face-pair-pill[data-placed="true"]')
+    ).toBeVisible({ timeout: 30_000 });
     await expect(
       page.getByRole('tab', { name: 'Treasury', exact: true })
     ).toHaveAttribute('aria-selected', 'true');
