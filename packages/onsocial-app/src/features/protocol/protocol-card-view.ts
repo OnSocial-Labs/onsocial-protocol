@@ -641,6 +641,8 @@ function resolveVoteTimePoolSize(
       return Math.max(members.length - 1, votesCast);
     }
     if (!subjectInGroup) {
+      const snapshotPool = getSnapshotRolePoolSize(proposal, role, membership);
+      if (snapshotPool != null && snapshotPool > votesCast) return snapshotPool;
       return votesCast;
     }
     return currentPoolSize;
@@ -1389,9 +1391,9 @@ export function mergeProtocolFeedApplications(
 
 /**
  * A vote that passes is terminal before the chain attaches the vote-time
- * policy. Freeze the council that is voting now so the bar stays on that
- * pool (2 of 3) instead of collapsing to the votes already cast (2 of 2)
- * and sliding back when the snapshot arrives.
+ * policy. Freeze the council that is voting now, at whatever size it is,
+ * so the bar stays on that pool instead of collapsing to the votes already
+ * cast and sliding back when the snapshot arrives.
  */
 function freezeLiveCouncilOnConclude(
   before: ProtocolDaoProposal,

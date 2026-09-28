@@ -576,6 +576,168 @@ describe('protocol card view', () => {
     expect(settled.votingProgress.totalWeight).toBe(3);
   });
 
+  it('keeps a passing or failing bar on the live council at any size', () => {
+    function councilOf(size: number): {
+      policy: ProtocolDaoPolicy;
+      members: string[];
+    } {
+      const members = Array.from(
+        { length: size },
+        (_, index) => `member${index}.testnet`
+      );
+      return {
+        members,
+        policy: {
+          proposal_period: String(7n * 24n * 60n * 60n * 1_000_000_000n),
+          default_vote_policy: {
+            quorum: '0',
+            threshold: [50, 100],
+            weight_kind: 'RoleWeight',
+          },
+          roles: [
+            {
+              name: 'guardians',
+              kind: { Group: members },
+              permissions: ['*:VoteApprove', '*:VoteReject', '*:Finalize'],
+            },
+          ],
+        },
+      };
+    }
+
+    function viewWeight(
+      snapshot: ProtocolDaoProposal,
+      daoPolicy: ProtocolDaoPolicy
+    ) {
+      return deriveProtocolProposalView({
+        application: {
+          ...application,
+          governance_proposal: {
+            ...application.governance_proposal!,
+            status: snapshot.status,
+            snapshot,
+          },
+        },
+        accountId: 'member0.testnet',
+        daoPolicy,
+      }).votingProgress;
+    }
+
+    for (const size of [1, 2, 3, 5, 7, 12]) {
+      const { policy: council, members } = councilOf(size);
+      let current: ProtocolDaoProposal = {
+        ...proposal,
+        status: 'InProgress',
+        vote_counts: { guardians: ['0', '0', '0'] },
+        votes: {},
+      };
+      let cast = 0;
+      while (current.status !== 'Approved' && cast < size) {
+        current = applyOptimisticVote(
+          current,
+          members[cast]!,
+          'Approve',
+          council
+        );
+        cast += 1;
+      }
+      const progress = viewWeight(current, council);
+      expect(current.status, `approve size ${size}`).toBe('Approved');
+      expect(progress.approvals, `approve size ${size}`).toBe(cast);
+      expect(progress.totalWeight, `approve size ${size}`).toBe(size);
+      expect(cast, `approve size ${size}`).toBeLessThanOrEqual(size);
+    }
+
+    const { policy: six, members } = councilOf(6);
+    let rejected: ProtocolDaoProposal = {
+      ...proposal,
+      status: 'InProgress',
+      vote_counts: { guardians: ['0', '0', '0'] },
+      votes: {},
+    };
+    let rejects = 0;
+    while (rejected.status === 'InProgress' && rejects < 6) {
+      rejected = applyOptimisticVote(
+        rejected,
+        members[rejects]!,
+        'Reject',
+        six
+      );
+      rejects += 1;
+    }
+    const failed = viewWeight(rejected, six);
+    expect(rejected.status).toBe('Rejected');
+    expect(failed.rejects).toBe(rejects);
+    expect(failed.totalWeight).toBe(6);
+    expect(rejects).toBeLessThan(6);
+  });
+
+  it('keeps an add-member bar on the guardians who could vote', () => {
+    const guardians = [
+      'voter0.testnet',
+      'voter1.testnet',
+      'voter2.testnet',
+      'voter3.testnet',
+      'voter4.testnet',
+    ];
+    const council: ProtocolDaoPolicy = {
+      proposal_period: String(7n * 24n * 60n * 60n * 1_000_000_000n),
+      default_vote_policy: {
+        quorum: '0',
+        threshold: [50, 100],
+        weight_kind: 'RoleWeight',
+      },
+      roles: [
+        {
+          name: 'guardians',
+          kind: { Group: guardians },
+          permissions: ['*:VoteApprove', '*:VoteReject', '*:Finalize'],
+        },
+      ],
+    };
+    let current: ProtocolDaoProposal = {
+      id: 21,
+      proposer: 'voter0.testnet',
+      description: 'Add nominee to guardians',
+      kind: {
+        AddMemberToRole: { member_id: 'nominee.testnet', role: 'guardians' },
+      },
+      status: 'InProgress',
+      vote_counts: { guardians: ['0', '0', '0'] },
+      votes: {},
+      submission_time: String(BigInt(Date.now()) * 1_000_000n),
+    };
+    let cast = 0;
+    while (current.status !== 'Approved' && cast < guardians.length) {
+      current = applyOptimisticVote(
+        current,
+        guardians[cast]!,
+        'Approve',
+        council
+      );
+      cast += 1;
+    }
+    const view = deriveProtocolProposalView({
+      application: {
+        ...application,
+        protocol_kind: 'join',
+        protocol_subject: 'nominee.testnet',
+        governance_proposal: {
+          ...application.governance_proposal!,
+          proposal_id: 21,
+          status: current.status,
+          snapshot: current,
+        },
+      },
+      accountId: 'voter0.testnet',
+      daoPolicy: council,
+    });
+    expect(current.status).toBe('Approved');
+    expect(view.approveVotes).toBe(cast);
+    expect(view.votingProgress.totalWeight).toBe(guardians.length);
+    expect(cast).toBeLessThan(guardians.length);
+  });
+
   it('does not regress terminal status when feed refresh is stale', () => {
     const approved: ProtocolDaoProposal = {
       ...proposal,
