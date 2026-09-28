@@ -498,6 +498,12 @@ function getEligibleVotersForProposal(
       if (members.includes(membership.memberId)) {
         return members.filter((member) => member !== membership.memberId);
       }
+      const snapshotMembers = snapshotVotingMembers(proposal, role).filter(
+        (member) => member !== membership.memberId
+      );
+      if (snapshotMembers.length > 0) {
+        return snapshotMembers.sort((left, right) => left.localeCompare(right));
+      }
       return Object.keys(proposal?.votes ?? {})
         .map((account) => normalizeAccount(account))
         .sort((left, right) => left.localeCompare(right));
@@ -534,6 +540,12 @@ function getEligibleVotersForProposal(
   }
 
   if (terminal) {
+    const snapshotMembers = snapshotVotingMembers(proposal, role);
+    if (snapshotMembers.length > 0) {
+      return [...snapshotMembers].sort((left, right) =>
+        left.localeCompare(right)
+      );
+    }
     return Object.keys(proposal?.votes ?? {})
       .map((account) => normalizeAccount(account))
       .sort((left, right) => left.localeCompare(right));
@@ -567,6 +579,15 @@ function sortEligibleRemoveMembers(
     if (rightId === subject) return -1;
     return leftId.localeCompare(rightId);
   });
+}
+
+function snapshotVotingMembers(
+  proposal: ProtocolDaoProposal | null,
+  role: ProtocolDaoRole | null
+): string[] {
+  const snapshotRole = findSnapshotVotingRole(proposal, role);
+  if (!snapshotRole) return [];
+  return getGroupMembers(snapshotRole);
 }
 
 function findSnapshotVotingRole(

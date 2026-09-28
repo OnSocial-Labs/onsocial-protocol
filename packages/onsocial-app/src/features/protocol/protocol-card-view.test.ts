@@ -561,6 +561,11 @@ describe('protocol card view', () => {
     expect(passing.approveVotes).toBe(2);
     expect(passing.votingProgress.totalWeight).toBe(3);
     expect(passing.votingProgress.threshold).toBe(2);
+    expect(passing.eligibleVoters).toEqual([
+      'alice.testnet',
+      'bob.testnet',
+      'carol.testnet',
+    ]);
 
     const chainWithoutSnapshot: ProtocolDaoProposal = {
       ...optimistic,
@@ -605,7 +610,7 @@ describe('protocol card view', () => {
       };
     }
 
-    function viewWeight(
+    function viewOf(
       snapshot: ProtocolDaoProposal,
       daoPolicy: ProtocolDaoPolicy
     ) {
@@ -620,7 +625,7 @@ describe('protocol card view', () => {
         },
         accountId: 'member0.testnet',
         daoPolicy,
-      }).votingProgress;
+      });
     }
 
     for (const size of [1, 2, 3, 5, 7, 12]) {
@@ -641,10 +646,15 @@ describe('protocol card view', () => {
         );
         cast += 1;
       }
-      const progress = viewWeight(current, council);
+      const view = viewOf(current, council);
       expect(current.status, `approve size ${size}`).toBe('Approved');
-      expect(progress.approvals, `approve size ${size}`).toBe(cast);
-      expect(progress.totalWeight, `approve size ${size}`).toBe(size);
+      expect(view.votingProgress.approvals, `approve size ${size}`).toBe(cast);
+      expect(view.votingProgress.totalWeight, `approve size ${size}`).toBe(
+        size
+      );
+      expect(view.eligibleVoters, `approve size ${size}`).toEqual(
+        [...members].sort((left, right) => left.localeCompare(right))
+      );
       expect(cast, `approve size ${size}`).toBeLessThanOrEqual(size);
     }
 
@@ -665,10 +675,13 @@ describe('protocol card view', () => {
       );
       rejects += 1;
     }
-    const failed = viewWeight(rejected, six);
+    const failed = viewOf(rejected, six);
     expect(rejected.status).toBe('Rejected');
-    expect(failed.rejects).toBe(rejects);
-    expect(failed.totalWeight).toBe(6);
+    expect(failed.votingProgress.rejects).toBe(rejects);
+    expect(failed.votingProgress.totalWeight).toBe(6);
+    expect(failed.eligibleVoters).toEqual(
+      [...members].sort((left, right) => left.localeCompare(right))
+    );
     expect(rejects).toBeLessThan(6);
   });
 
@@ -735,6 +748,10 @@ describe('protocol card view', () => {
     expect(current.status).toBe('Approved');
     expect(view.approveVotes).toBe(cast);
     expect(view.votingProgress.totalWeight).toBe(guardians.length);
+    expect(view.eligibleVoters).toEqual(
+      [...guardians].sort((left, right) => left.localeCompare(right))
+    );
+    expect(view.eligibleVoters).not.toContain('nominee.testnet');
     expect(cast).toBeLessThan(guardians.length);
   });
 
