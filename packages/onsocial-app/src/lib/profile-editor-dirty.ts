@@ -14,6 +14,11 @@ import {
   type ProfileLinksInput,
 } from '@/lib/profile-links';
 import { profileEditorTagsEqual } from '@/lib/profile-tag-editor';
+import {
+  portfolioWebsitesCopyEqual,
+  portfolioWebsitesUrlsEqual,
+  type PortfolioWebsiteDraft,
+} from '@/lib/profile-websites';
 
 export function isProfileEditorContentDirty(input: {
   snapshot: ProfileEditorSnapshot;
@@ -36,6 +41,9 @@ export function isProfileEditorContentDirty(input: {
   bannerRemoved: boolean;
   /** Protocol DAO workspace — industry is a face field, kind is not a pick. */
   isDao?: boolean;
+  /** Portfolio website list. Omitted on DAO editors, which keep one website field. */
+  websites?: PortfolioWebsiteDraft[];
+  websitesFromSnapshot?: PortfolioWebsiteDraft[];
 }): boolean {
   if (input.avatarFile || input.bannerFile) {
     return true;
@@ -107,7 +115,18 @@ export function isProfileEditorContentDirty(input: {
     return true;
   }
 
+  if (
+    input.websites &&
+    !portfolioWebsitesUrlsEqual(
+      input.websites,
+      input.websitesFromSnapshot ?? []
+    )
+  ) {
+    return true;
+  }
+
   for (const field of PROFILE_LINK_EDITOR_FIELDS) {
+    if (input.websites && field.key === 'website') continue;
     if (
       input.links[field.key].trim() !==
       input.linksFromSnapshot[field.key].trim()
@@ -135,6 +154,8 @@ export function isProfileEditorDirty(input: {
   photos: ProfileAboutPhoto[];
   photoFiles: Array<File | null>;
   linkNotes: Record<string, string>;
+  websites?: PortfolioWebsiteDraft[];
+  websitesFromSnapshot?: PortfolioWebsiteDraft[];
   avatarFile: File | null;
   bannerFile: File | null;
   avatarRemoved: boolean;
@@ -142,6 +163,16 @@ export function isProfileEditorDirty(input: {
   isDao?: boolean;
 }): boolean {
   if (isProfileEditorContentDirty(input)) {
+    return true;
+  }
+
+  if (
+    input.websites &&
+    !portfolioWebsitesCopyEqual(
+      input.websites,
+      input.websitesFromSnapshot ?? []
+    )
+  ) {
     return true;
   }
 

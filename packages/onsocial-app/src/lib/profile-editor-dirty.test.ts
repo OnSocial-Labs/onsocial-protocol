@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { ProfileEditorSnapshot } from '@/hooks/use-app-profile-editor';
-import { isProfileEditorDirty } from '@/lib/profile-editor-dirty';
+import {
+  isProfileEditorContentDirty,
+  isProfileEditorDirty,
+} from '@/lib/profile-editor-dirty';
+import { readPortfolioWebsites } from '@/lib/profile-websites';
 import { sanitizeLinkNotes } from '@/lib/page-launch-config';
 import { profileLinksInputFromRecord } from '@/lib/profile-links';
 
@@ -187,6 +191,49 @@ describe('isProfileEditorDirty', () => {
         })
       )
     ).toBe(true);
+  });
+
+  it('is dirty when another website address changes', () => {
+    const snapshot = baseSnapshot({
+      links: {
+        website: 'https://example.com/',
+        site_2: 'https://docs.example.com/',
+      },
+      pageConfig: { linkNotes: { website: 'Home' } },
+    });
+    const saved = readPortfolioWebsites(
+      snapshot.links,
+      snapshot.pageConfig.linkNotes,
+      snapshot.pageConfig.linkLines
+    );
+    const next = saved.map((row) =>
+      row.id === 'site_2' ? { ...row, url: 'blog.example.com' } : row
+    );
+    const input = dirtyInput(snapshot, {
+      websites: next,
+      websitesFromSnapshot: saved,
+    });
+    expect(isProfileEditorContentDirty(input)).toBe(true);
+    expect(isProfileEditorDirty(input)).toBe(true);
+  });
+
+  it('is dirty when a website line changes without a chain edit', () => {
+    const snapshot = baseSnapshot({
+      links: { website: 'https://example.com/' },
+      pageConfig: { linkLines: { website: 'Essays' } },
+    });
+    const saved = readPortfolioWebsites(
+      snapshot.links,
+      snapshot.pageConfig.linkNotes,
+      snapshot.pageConfig.linkLines
+    );
+    const next = saved.map((row) => ({ ...row, line: 'Notes' }));
+    const input = dirtyInput(snapshot, {
+      websites: next,
+      websitesFromSnapshot: saved,
+    });
+    expect(isProfileEditorContentDirty(input)).toBe(false);
+    expect(isProfileEditorDirty(input)).toBe(true);
   });
 
   it('is dirty when a link title changes', () => {

@@ -1,6 +1,13 @@
 'use client';
 
-import { useMemo, useRef, useState, type KeyboardEvent, type FocusEvent } from 'react';
+import {
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type FocusEvent,
+  type ReactNode,
+} from 'react';
 import { MultiplyIcon } from '@onsocial/ui';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { PortfolioLinkIcon } from '@/components/portfolio/portfolio-link-icon';
@@ -86,7 +93,10 @@ function ProfileLinkInputRow({
         className={`account-editor-link-input${error ? ' is-invalid' : ''}${probing ? ' is-probing' : ''}`}
       >
         <span className="account-editor-link-icon-slot" aria-hidden>
-          <PortfolioLinkIcon kind={field.kind} className="portfolio-link-icon" />
+          <PortfolioLinkIcon
+            kind={field.kind}
+            className="portfolio-link-icon"
+          />
         </span>
         <input
           ref={inputRef}
@@ -146,7 +156,10 @@ function ProfileLinkInputRow({
           onMouseDown={(event) => event.preventDefault()}
           onClick={onCancel}
         >
-          <MultiplyIcon aria-hidden className="account-editor-link-cancel-icon" />
+          <MultiplyIcon
+            aria-hidden
+            className="account-editor-link-cancel-icon"
+          />
         </button>
       </span>
       {onNoteChange ? (
@@ -178,6 +191,9 @@ interface ProfileLinksEditorProps {
   links: ProfileLinksInput;
   fieldErrors: Partial<Record<keyof ProfileLinksInput, string>>;
   notes?: Record<string, string>;
+  /** Portfolio editor keeps websites in their own list. DAO keeps one website field. */
+  omitWebsite?: boolean;
+  websitesSlot?: ReactNode;
   onUpdateLink: (key: keyof ProfileLinksInput, value: string) => void;
   onUpdateNote?: (key: keyof ProfileLinksInput, value: string) => void;
   onClearFieldError: (key: keyof ProfileLinksInput) => void;
@@ -188,11 +204,20 @@ export function ProfileLinksEditor({
   links,
   fieldErrors,
   notes,
+  omitWebsite = false,
+  websitesSlot,
   onUpdateLink,
   onUpdateNote,
   onClearFieldError,
   onSetFieldError,
 }: ProfileLinksEditorProps) {
+  const editorFields = useMemo(
+    () =>
+      PROFILE_LINK_EDITOR_FIELDS.filter(
+        (field) => !omitWebsite || field.key !== 'website'
+      ),
+    [omitWebsite]
+  );
   const [editingKey, setEditingKey] = useState<keyof ProfileLinksInput | null>(
     null
   );
@@ -215,17 +240,17 @@ export function ProfileLinksEditor({
 
   const previewFields = useMemo(
     () =>
-      PROFILE_LINK_EDITOR_FIELDS.filter(
+      editorFields.filter(
         (field) =>
           editingKey !== field.key &&
           isProfileLinkEditorPreviewable(links[field.key], field.kind)
       ),
-    [editingKey, links]
+    [editingKey, editorFields, links]
   );
 
   const visibleInputFields = useMemo(
     () =>
-      PROFILE_LINK_EDITOR_FIELDS.filter((field) => {
+      editorFields.filter((field) => {
         if (fieldErrors[field.key]) {
           return true;
         }
@@ -241,15 +266,15 @@ export function ProfileLinksEditor({
 
         return !isProfileLinkEditorPreviewable(value, field.kind);
       }),
-    [editingKey, fieldErrors, links]
+    [editingKey, editorFields, fieldErrors, links]
   );
 
   const availableToAdd = useMemo(
     () =>
-      PROFILE_LINK_EDITOR_FIELDS.filter(
+      editorFields.filter(
         (field) => !links[field.key].trim() && editingKey !== field.key
       ),
-    [editingKey, links]
+    [editingKey, editorFields, links]
   );
 
   const focusField = (key: keyof ProfileLinksInput) => {
@@ -349,6 +374,8 @@ export function ProfileLinksEditor({
   return (
     <section className="account-editor-section account-editor-links-section">
       <h3 className="sr-only">Links</h3>
+
+      {websitesSlot}
 
       {previewFields.length > 0 ? (
         <div className="portfolio-links-scroll account-editor-links-scroll">
