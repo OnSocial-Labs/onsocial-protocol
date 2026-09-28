@@ -42,12 +42,15 @@ export async function PortfolioAccountFace({
   search,
   strict = true,
   showEssayLeave = true,
+  honorDeepLinks = true,
 }: {
   accountId: string;
   search?: PortfolioAccountFaceSearch;
   /** Missing page data 404s the route. The sibling face fails quietly. */
   strict?: boolean;
   showEssayLeave?: boolean;
+  /** `?kind=` / `?proposal=` open Proposals on the landing face only. */
+  honorDeepLinks?: boolean;
 }) {
   const data = await fetchPublicPageData(accountId);
   if (!data) {
@@ -196,6 +199,7 @@ export async function PortfolioAccountFace({
             configName={daoPage?.configName ?? null}
             configPurpose={daoPage?.configPurpose ?? null}
             configMetadata={daoPage?.configMetadata ?? ''}
+            honorDeepLinks={honorDeepLinks}
           />
         ) : null}
 

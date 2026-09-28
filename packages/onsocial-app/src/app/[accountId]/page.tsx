@@ -88,6 +88,7 @@ export default async function AccountPage({
         search={search}
         strict={false}
         showEssayLeave={false}
+        honorDeepLinks={false}
       />
     </Suspense>
   );

@@ -23,10 +23,19 @@ import {
 import { replaceBrowserUrl } from '@/lib/sync-browser-url-query';
 
 const ProtocolFacePairInsetContext = createContext(false);
+const ProtocolFacePairActiveContext = createContext<string | null>(null);
 
 /** True while this face is sliding inside the Governance / Treasury pair. */
 export function useProtocolFacePairInset(): boolean {
   return useContext(ProtocolFacePairInsetContext);
+}
+
+/**
+ * Account id of the face currently settled in the pair.
+ * Null outside the pair. Sheets and the OS clip host follow this face.
+ */
+export function useProtocolFacePairActiveAccount(): string | null {
+  return useContext(ProtocolFacePairActiveContext);
 }
 
 const PAIR_ACCOUNT: Record<ProtocolFaceDaoKind, string> = {
@@ -232,62 +241,66 @@ export function ProtocolFacePair({
 
   return (
     <ProtocolFacePairInsetContext.Provider value={true}>
-      <div ref={pairRef} className="protocol-face-pair">
-        <div
-          className="portfolio-entity-kind portfolio-entity-kind-switch protocol-face-pair-pill"
-          role="tablist"
-          aria-label="Protocol DAO"
-          onKeyDown={(event) => {
-            if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') {
-              return;
-            }
-            event.preventDefault();
-            selectKind(event.key === 'ArrowRight' ? 'treasury' : 'governance');
-          }}
-        >
-          <span className="protocol-face-pair-thumb" aria-hidden />
-          <button
-            type="button"
-            role="tab"
-            id="protocol-face-tab-governance"
-            aria-selected={settled === 'governance'}
-            aria-controls="protocol-face-governance"
-            className={`portfolio-entity-kind-option${settled === 'governance' ? ' is-active' : ''}`}
-            onClick={() => selectKind('governance')}
-          >
-            Governance
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id="protocol-face-tab-treasury"
-            aria-selected={settled === 'treasury'}
-            aria-controls="protocol-face-treasury"
-            className={`portfolio-entity-kind-option${settled === 'treasury' ? ' is-active' : ''}`}
-            onClick={() => selectKind('treasury')}
-          >
-            Treasury
-          </button>
-        </div>
-        <div ref={pagerRef} className="protocol-face-pager">
+      <ProtocolFacePairActiveContext.Provider value={PAIR_ACCOUNT[settled]}>
+        <div ref={pairRef} className="protocol-face-pair">
           <div
-            id="protocol-face-governance"
-            className={`protocol-face-page${settled === 'governance' ? ' is-active' : ''}`}
-            data-face="governance"
-            aria-hidden={settled === 'governance' ? undefined : true}
+            className="portfolio-entity-kind portfolio-entity-kind-switch protocol-face-pair-pill"
+            role="tablist"
+            aria-label="Protocol DAO"
+            onKeyDown={(event) => {
+              if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') {
+                return;
+              }
+              event.preventDefault();
+              selectKind(
+                event.key === 'ArrowRight' ? 'treasury' : 'governance'
+              );
+            }}
           >
-            {governance}
+            <span className="protocol-face-pair-thumb" aria-hidden />
+            <button
+              type="button"
+              role="tab"
+              id="protocol-face-tab-governance"
+              aria-selected={settled === 'governance'}
+              aria-controls="protocol-face-governance"
+              className={`portfolio-entity-kind-option${settled === 'governance' ? ' is-active' : ''}`}
+              onClick={() => selectKind('governance')}
+            >
+              Governance
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id="protocol-face-tab-treasury"
+              aria-selected={settled === 'treasury'}
+              aria-controls="protocol-face-treasury"
+              className={`portfolio-entity-kind-option${settled === 'treasury' ? ' is-active' : ''}`}
+              onClick={() => selectKind('treasury')}
+            >
+              Treasury
+            </button>
           </div>
-          <div
-            id="protocol-face-treasury"
-            className={`protocol-face-page${settled === 'treasury' ? ' is-active' : ''}`}
-            data-face="treasury"
-            aria-hidden={settled === 'treasury' ? undefined : true}
-          >
-            {treasury}
+          <div ref={pagerRef} className="protocol-face-pager">
+            <div
+              id="protocol-face-governance"
+              className={`protocol-face-page${settled === 'governance' ? ' is-active' : ''}`}
+              data-face="governance"
+              aria-hidden={settled === 'governance' ? undefined : true}
+            >
+              {governance}
+            </div>
+            <div
+              id="protocol-face-treasury"
+              className={`protocol-face-page${settled === 'treasury' ? ' is-active' : ''}`}
+              data-face="treasury"
+              aria-hidden={settled === 'treasury' ? undefined : true}
+            >
+              {treasury}
+            </div>
           </div>
         </div>
-      </div>
+      </ProtocolFacePairActiveContext.Provider>
     </ProtocolFacePairInsetContext.Provider>
   );
 }
