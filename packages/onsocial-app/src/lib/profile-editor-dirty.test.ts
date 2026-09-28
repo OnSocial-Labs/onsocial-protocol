@@ -236,18 +236,18 @@ describe('isProfileEditorDirty', () => {
     expect(isProfileEditorDirty(input)).toBe(true);
   });
 
-  it('is dirty when a website icon changes without a chain edit', () => {
+  it('is dirty when a website photo changes without a chain edit', () => {
     const snapshot = baseSnapshot({
       links: { website: 'https://example.com/' },
-      pageConfig: { linkMarks: { website: 'shop' } },
+      pageConfig: { linkImages: { website: 'ipfs://bafyphoto' } },
     });
     const saved = readPortfolioWebsites(
       snapshot.links,
       snapshot.pageConfig.linkNotes,
       snapshot.pageConfig.linkLines,
-      snapshot.pageConfig.linkMarks
+      snapshot.pageConfig.linkImages
     );
-    const next = saved.map((row) => ({ ...row, mark: '' as const }));
+    const next = saved.map((row) => ({ ...row, image: '' }));
     const input = dirtyInput(snapshot, {
       websites: next,
       websitesFromSnapshot: saved,

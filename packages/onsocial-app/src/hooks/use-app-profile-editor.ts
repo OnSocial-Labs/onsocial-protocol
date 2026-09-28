@@ -39,9 +39,9 @@ import {
 } from '@/lib/profile-links';
 import {
   applyPortfolioWebsites,
-  linkMarksEqual,
+  linkImagesEqual,
   readPortfolioWebsites,
-  sanitizeLinkMarks,
+  sanitizeLinkImages,
   type PortfolioWebsiteDraft,
 } from '@/lib/profile-websites';
 import { probeNearAccountExists } from '@/hooks/use-near-account-status';
@@ -234,7 +234,7 @@ export function useAppProfileEditor(
             snapshotNow.links,
             snapshotNow.pageConfig?.linkNotes,
             snapshotNow.pageConfig?.linkLines,
-            snapshotNow.pageConfig?.linkMarks
+            snapshotNow.pageConfig?.linkImages
           )
         : undefined;
       const normalizedLinks = normalizeProfileLinksInput(
@@ -259,9 +259,10 @@ export function useAppProfileEditor(
       const linesDirty = websitePlan
         ? !linkNotesEqual(nextLines, snapshotNow.pageConfig?.linkLines)
         : false;
-      const nextMarks = websitePlan?.marks;
-      const marksDirty = websitePlan
-        ? !linkMarksEqual(nextMarks, snapshotNow.pageConfig?.linkMarks)
+      const nextImages = websitePlan?.images;
+      const imagesDirty = websitePlan
+        ? Boolean(input.websites?.some((row) => row.imageFile)) ||
+          !linkImagesEqual(nextImages, snapshotNow.pageConfig?.linkImages)
         : false;
       const contentDirty = isProfileEditorContentDirty({
         snapshot: snapshotNow,
@@ -287,7 +288,7 @@ export function useAppProfileEditor(
         isDao,
       });
 
-      if (!contentDirty && !notesDirty && !linesDirty && !marksDirty) {
+      if (!contentDirty && !notesDirty && !linesDirty && !imagesDirty) {
         return {
           name,
           location,
@@ -320,9 +321,35 @@ export function useAppProfileEditor(
             );
           }
         }
+        let imagesToSave = nextImages;
+        if (input.websites?.some((row) => row.imageFile)) {
+          const uploaded: PortfolioWebsiteDraft[] = [];
+          for (const row of input.websites) {
+            if (!row.imageFile) {
+              uploaded.push(row);
+              continue;
+            }
+            const stored = await client.storage.upload(row.imageFile);
+            uploaded.push({
+              ...row,
+              image: formatProfileMediaRef(stored),
+              imageFile: null,
+            });
+          }
+          imagesToSave = applyPortfolioWebsites({
+            links: normalizedLinks,
+            notes: input.linkNotes,
+            websites: uploaded,
+          }).images;
+        }
         const hasWebsiteInput = Boolean(
           input.websites?.some(
-            (row) => row.url.trim() || row.name.trim() || row.line.trim()
+            (row) =>
+              row.url.trim() ||
+              row.name.trim() ||
+              row.line.trim() ||
+              row.image?.trim() ||
+              row.imageFile
           )
         );
         const shouldSaveLinks =
@@ -395,7 +422,7 @@ export function useAppProfileEditor(
           }
         }
 
-        if (notesDirty || linesDirty || marksDirty) {
+        if (notesDirty || linesDirty || imagesDirty) {
           const current =
             await fetchPageConfigFromBrowserProxy(signingAccountId);
           const notes = sanitizeLinkNotes(nextNotes);
@@ -407,8 +434,10 @@ export function useAppProfileEditor(
           if (websitePlan) {
             const lines = sanitizeLinkNotes(nextLines);
             next.linkLines = Object.keys(lines).length > 0 ? lines : undefined;
-            const marks = sanitizeLinkMarks(nextMarks);
-            next.linkMarks = Object.keys(marks).length > 0 ? marks : undefined;
+            const images = sanitizeLinkImages(imagesToSave);
+            next.linkImages =
+              Object.keys(images).length > 0 ? images : undefined;
+            delete (next as { linkMarks?: unknown }).linkMarks;
           }
           const pageResponse = await client.pages.setConfig(next, {
             wait: true,

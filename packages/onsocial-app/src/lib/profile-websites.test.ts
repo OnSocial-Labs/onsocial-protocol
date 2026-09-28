@@ -9,7 +9,7 @@ import {
   portfolioWebsitesCopyEqual,
   portfolioWebsitesUrlsEqual,
   readPortfolioWebsites,
-  sanitizeLinkMarks,
+  sanitizeLinkImages,
 } from './profile-websites';
 
 describe('applyPortfolioWebsites', () => {
@@ -51,13 +51,17 @@ describe('applyPortfolioWebsites', () => {
       site_2: 'Blog',
     });
     expect(applied.lines).toEqual({ website: 'Guides' });
-    expect(applied.marks).toEqual({});
+    expect(applied.images).toEqual({});
   });
 
-  it('stores a chosen mark and drops an unknown one', () => {
+  it('stores a photo and drops a drawing name', () => {
     expect(
-      sanitizeLinkMarks({ website: 'shop', site_2: 'nope', '': 'home' })
-    ).toEqual({ website: 'shop' });
+      sanitizeLinkImages({
+        website: 'ipfs://bafyphoto',
+        site_2: 'shop',
+        '': 'https://cdn.example/a.png',
+      })
+    ).toEqual({ website: 'ipfs://bafyphoto' });
     const applied = applyPortfolioWebsites({
       links: {},
       notes: {},
@@ -67,17 +71,18 @@ describe('applyPortfolioWebsites', () => {
           url: 'example.com',
           name: 'Shop',
           line: '',
-          mark: 'shop',
+          image: 'ipfs://bafyphoto',
         },
         {
           id: 'b',
           url: 'docs.example.com',
           name: '',
           line: '',
+          image: 'shop',
         },
       ],
     });
-    expect(applied.marks).toEqual({ website: 'shop' });
+    expect(applied.images).toEqual({ website: 'ipfs://bafyphoto' });
     expect(applied.links.site_2).toBe('https://docs.example.com/');
   });
 
@@ -122,7 +127,7 @@ describe('readPortfolioWebsites', () => {
       },
       { website: 'Home', site_2: 'Docs' },
       { site_2: 'Guides' },
-      { website: 'shop', site_2: 'nope' }
+      { website: 'ipfs://bafyphoto', site_2: 'shop' }
     );
     expect(saved).toEqual([
       {
@@ -130,14 +135,14 @@ describe('readPortfolioWebsites', () => {
         url: 'example.com',
         name: 'Home',
         line: '',
-        mark: 'shop',
+        image: 'ipfs://bafyphoto',
       },
       {
         id: 'site_2',
         url: 'docs.example.com/guide',
         name: 'Docs',
         line: 'Guides',
-        mark: '',
+        image: '',
       },
     ]);
     expect(portfolioWebsitesUrlsEqual(saved, saved)).toBe(true);
@@ -154,10 +159,28 @@ describe('readPortfolioWebsites', () => {
       ])
     ).toBe(false);
     expect(
-      portfolioWebsitesCopyEqual(saved, [{ ...saved[0]!, mark: '' }, saved[1]!])
+      portfolioWebsitesCopyEqual(saved, [
+        { ...saved[0]!, image: '' },
+        saved[1]!,
+      ])
     ).toBe(false);
     expect(
-      portfolioWebsitesUrlsEqual(saved, [{ ...saved[0]!, mark: '' }, saved[1]!])
+      portfolioWebsitesCopyEqual(
+        [
+          {
+            ...saved[0]!,
+            imageFile: new File(['x'], 'a.png', { type: 'image/png' }),
+          },
+          saved[1]!,
+        ],
+        saved
+      )
+    ).toBe(false);
+    expect(
+      portfolioWebsitesUrlsEqual(saved, [
+        { ...saved[0]!, image: '' },
+        saved[1]!,
+      ])
     ).toBe(true);
   });
 });
@@ -169,6 +192,15 @@ describe('portfolioWebsiteDraftError', () => {
     ).toBeNull();
     expect(
       portfolioWebsiteDraftError({ id: 'a', url: '', name: 'Docs', line: '' })
+    ).toBe('Add an address');
+    expect(
+      portfolioWebsiteDraftError({
+        id: 'a',
+        url: '',
+        name: '',
+        line: '',
+        image: 'ipfs://bafyphoto',
+      })
     ).toBe('Add an address');
     expect(
       portfolioWebsiteDraftError({

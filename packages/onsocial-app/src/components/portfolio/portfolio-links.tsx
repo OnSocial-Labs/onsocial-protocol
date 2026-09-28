@@ -12,16 +12,16 @@ interface PortfolioLinksProps {
   links?: unknown;
   notes?: Record<string, string> | null;
   lines?: Record<string, string> | null;
-  marks?: Record<string, string> | null;
+  images?: Record<string, string> | null;
 }
 
 export function PortfolioLinks({
   links,
   notes,
   lines,
-  marks,
+  images,
 }: PortfolioLinksProps) {
-  const face = resolvePortfolioFaceLinks(links, notes, lines, marks);
+  const face = resolvePortfolioFaceLinks(links, notes, lines, images);
   const [open, setOpen] = useState(false);
 
   if (face.icons.length === 0 && face.websites.length === 0) {

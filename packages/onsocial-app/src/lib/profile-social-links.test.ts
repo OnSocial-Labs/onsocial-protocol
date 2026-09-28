@@ -218,15 +218,17 @@ describe('resolvePortfolioFaceLinks', () => {
     expect(named.icons.map((link) => link.key)).toEqual(['github']);
     expect(named.websites[0]).toMatchObject({ note: 'Docs', line: 'Notes' });
 
-    const marked = resolvePortfolioFaceLinks(
+    const photographed = resolvePortfolioFaceLinks(
       { website: 'https://github.com/alice/repos', x: 'alice' },
       undefined,
       undefined,
-      { website: 'shop' }
+      { website: 'https://cdn.example/repos.png' }
     );
-    expect(marked.mode).toBe('drawer');
-    expect(marked.icons.map((link) => link.kind)).toEqual(['x']);
-    expect(marked.websites[0]?.mark).toBe('shop');
+    expect(photographed.mode).toBe('drawer');
+    expect(photographed.icons.map((link) => link.kind)).toEqual(['x']);
+    expect(photographed.websites[0]?.image).toBe(
+      'https://cdn.example/repos.png'
+    );
   });
 
   it('folds several websites into one drawer and leaves social icons direct', () => {
@@ -239,7 +241,7 @@ describe('resolvePortfolioFaceLinks', () => {
       },
       undefined,
       undefined,
-      { site_2: 'camera', website: 'not-a-mark' }
+      { site_2: 'https://cdn.example/code.png', website: 'shop' }
     );
     expect(face.mode).toBe('drawer');
     expect(face.icons.map((link) => link.kind)).toEqual(['x', 'github']);
@@ -247,8 +249,8 @@ describe('resolvePortfolioFaceLinks', () => {
       'website',
       'site_2',
     ]);
-    expect(face.websites[0]?.mark).toBeUndefined();
-    expect(face.websites[1]?.mark).toBe('camera');
+    expect(face.websites[0]?.image).toBeUndefined();
+    expect(face.websites[1]?.image).toBe('https://cdn.example/code.png');
   });
 
   it('does not fold schema v1 link arrays', () => {

@@ -215,7 +215,7 @@ export async function PortfolioAccountFace({
           links={shell?.links}
           notes={data.config.linkNotes}
           lines={data.config.linkLines}
-          marks={data.config.linkMarks}
+          images={data.config.linkImages}
         />
       </PortfolioShellRoot>
     </>

@@ -1037,10 +1037,10 @@ export interface PageConfig {
    */
   linkLines?: Record<string, string>;
   /**
-   * Optional drawer marks for website keys (`website`, `site_2`, …).
-   * Omitted keys follow the address.
+   * Optional photos for website keys (`website`, `site_2`, …).
+   * An `ipfs://` ref or https URL. Omitted keys stay the globe.
    */
-  linkMarks?: Record<string, string>;
+  linkImages?: Record<string, string>;
   /** Custom tagline (overrides bio on page). */
   tagline?: string;
   /** Custom CSS URL (premium feature). */

@@ -222,7 +222,7 @@ export function AppProfileEditorSheet({
         snapshot.links,
         snapshot.pageConfig?.linkNotes,
         snapshot.pageConfig?.linkLines,
-        snapshot.pageConfig?.linkMarks
+        snapshot.pageConfig?.linkImages
       )
     );
     setWebsiteErrors({});
@@ -293,7 +293,7 @@ export function AppProfileEditorSheet({
             snapshot.links,
             snapshot.pageConfig?.linkNotes,
             snapshot.pageConfig?.linkLines,
-            snapshot.pageConfig?.linkMarks
+            snapshot.pageConfig?.linkImages
           ),
       avatarFile,
       bannerFile,
@@ -421,7 +421,7 @@ export function AppProfileEditorSheet({
     const id = `draft-${websiteIdRef.current}`;
     setWebsites((current) => [
       ...current,
-      { id, url: '', name: '', line: '', mark: '' },
+      { id, url: '', name: '', line: '', image: '' },
     ]);
     setWebsiteFocusId(id);
   };

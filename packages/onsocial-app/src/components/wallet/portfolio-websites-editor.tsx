@@ -1,32 +1,64 @@
 'use client';
 
-import { useState, type FocusEvent, type KeyboardEvent } from 'react';
-import { MultiplyIcon } from '@onsocial/ui';
 import {
-  PortfolioLinkIcon,
-  PortfolioWebsiteGlyph,
-  PortfolioWebsiteMarkIcon,
-} from '@/components/portfolio/portfolio-link-icon';
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FocusEvent,
+  type KeyboardEvent,
+} from 'react';
+import { GlobeIcon, MultiplyIcon } from '@onsocial/ui';
+import { PortfolioLinkIcon } from '@/components/portfolio/portfolio-link-icon';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { PAGE_LINK_NOTE_MAX } from '@/lib/page-launch-config';
-import { normalizeLink } from '@/lib/profile-display';
+import { PROFILE_ABOUT_PHOTO_ACCEPT } from '@/lib/profile-about-photos';
+import { resolveProfileMediaUrl } from '@/lib/profile-display';
 import {
   PORTFOLIO_WEBSITE_LIMIT,
-  PORTFOLIO_WEBSITE_MARKS,
   type PortfolioWebsiteDraft,
-  type PortfolioWebsiteMark,
 } from '@/lib/profile-websites';
 
-const WEBSITE_MARK_LABEL: Record<PortfolioWebsiteMark, string> = {
-  globe: 'Globe',
-  link: 'Link',
-  home: 'Home',
-  shop: 'Shop',
-  camera: 'Camera',
-  note: 'Note',
-  video: 'Video',
-  bookmark: 'Bookmark',
-};
+const PHOTO_TYPES = new Set(PROFILE_ABOUT_PHOTO_ACCEPT.split(','));
+
+function useObjectUrl(file: File | null): string | null {
+  const url = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  useEffect(() => {
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [url]);
+  return url;
+}
+
+function WebsitePhotoControl({
+  row,
+  label,
+  onPick,
+}: {
+  row: PortfolioWebsiteDraft;
+  label: string;
+  onPick: () => void;
+}) {
+  const localUrl = useObjectUrl(row.imageFile ?? null);
+  const src = localUrl || resolveProfileMediaUrl(row.image) || '';
+  return (
+    <button
+      type="button"
+      className="account-editor-link-icon-slot account-editor-website-photo-btn"
+      aria-label={src ? `Change ${label} photo` : `Add ${label} photo`}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={onPick}
+    >
+      {src ? (
+        <img src={src} alt="" className="account-editor-website-photo" />
+      ) : (
+        <GlobeIcon className="portfolio-link-icon" aria-hidden />
+      )}
+    </button>
+  );
+}
 
 export function PortfolioWebsitesEditor({
   websites,
@@ -49,7 +81,9 @@ export function PortfolioWebsitesEditor({
 }) {
   const scrollFieldIntoView = useMobileFieldFocusScroll();
   const canAdd = websites.length < PORTFOLIO_WEBSITE_LIMIT;
-  const [openMarkId, setOpenMarkId] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const pickIdRef = useRef<string | null>(null);
+  const [photoRejectId, setPhotoRejectId] = useState<string | null>(null);
 
   const stayInRow = (event: FocusEvent<HTMLElement>) => {
     const field = event.currentTarget.closest('.account-editor-link-field');
@@ -69,37 +103,49 @@ export function PortfolioWebsitesEditor({
     }
   };
 
+  const choosePhoto = (id: string) => {
+    pickIdRef.current = id;
+    fileRef.current?.click();
+  };
+
+  const onPhoto = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = '';
+    const id = pickIdRef.current;
+    if (!id || !file) return;
+    if (!PHOTO_TYPES.has(file.type)) {
+      setPhotoRejectId(id);
+      return;
+    }
+    setPhotoRejectId(null);
+    onChange(id, { imageFile: file });
+  };
+
   return (
     <div className="account-editor-websites">
+      <input
+        ref={fileRef}
+        type="file"
+        accept={PROFILE_ABOUT_PHOTO_ACCEPT}
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        onChange={onPhoto}
+      />
       {websites.length > 0 ? (
         <div className="account-editor-link-grid">
           {websites.map((row, index) => {
             const error = errors[row.id];
             const label =
               websites.length > 1 ? `Website ${index + 1}` : 'Website';
-            const href = normalizeLink(row.url) ?? '';
-            const pickerOpen = openMarkId === row.id;
             return (
               <div key={row.id} className="account-editor-link-field">
                 <span className="account-editor-link-input">
-                  <button
-                    type="button"
-                    className="account-editor-link-icon-slot account-editor-website-mark-btn"
-                    aria-label={`${label} icon`}
-                    aria-expanded={pickerOpen}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() =>
-                      setOpenMarkId((current) =>
-                        current === row.id ? null : row.id
-                      )
-                    }
-                  >
-                    <PortfolioWebsiteGlyph
-                      href={href}
-                      mark={row.mark}
-                      className="portfolio-link-icon"
-                    />
-                  </button>
+                  <WebsitePhotoControl
+                    row={row}
+                    label={label}
+                    onPick={() => choosePhoto(row.id)}
+                  />
                   <input
                     className="account-editor-link-value"
                     value={row.name}
@@ -133,50 +179,27 @@ export function PortfolioWebsitesEditor({
                     />
                   </button>
                 </span>
-                {pickerOpen ? (
-                  <ul
-                    className="account-editor-links-picker account-editor-website-marks"
-                    aria-label={`${label} icons`}
+                {row.image?.trim() || row.imageFile ? (
+                  <button
+                    type="button"
+                    className="account-editor-website-photo-remove"
+                    aria-label={`Remove ${label} photo`}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setPhotoRejectId(null);
+                      onChange(row.id, { image: '', imageFile: null });
+                    }}
                   >
-                    <li>
-                      <button
-                        type="button"
-                        className="account-editor-links-picker-option account-editor-website-mark"
-                        aria-pressed={!row.mark}
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => {
-                          onChange(row.id, { mark: '' });
-                          setOpenMarkId(null);
-                        }}
-                      >
-                        <PortfolioWebsiteGlyph
-                          href={href}
-                          className="portfolio-link-icon account-editor-links-picker-icon"
-                        />
-                        <span>Address</span>
-                      </button>
-                    </li>
-                    {PORTFOLIO_WEBSITE_MARKS.map((mark) => (
-                      <li key={mark}>
-                        <button
-                          type="button"
-                          className="account-editor-links-picker-option account-editor-website-mark"
-                          aria-pressed={row.mark === mark}
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={() => {
-                            onChange(row.id, { mark });
-                            setOpenMarkId(null);
-                          }}
-                        >
-                          <PortfolioWebsiteMarkIcon
-                            mark={mark}
-                            className="portfolio-link-icon account-editor-links-picker-icon"
-                          />
-                          <span>{WEBSITE_MARK_LABEL[mark]}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                    Remove photo
+                  </button>
+                ) : null}
+                {photoRejectId === row.id ? (
+                  <span
+                    className="account-editor-website-photo-error"
+                    role="alert"
+                  >
+                    Use a photo
+                  </span>
                 ) : null}
                 <span
                   className={`account-editor-link-input account-editor-website-url${

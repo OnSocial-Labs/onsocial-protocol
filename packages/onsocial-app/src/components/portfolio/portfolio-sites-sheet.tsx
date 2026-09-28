@@ -1,7 +1,6 @@
 'use client';
 
-import { Divider, OsHugSheet } from '@onsocial/ui';
-import { PortfolioWebsiteGlyph } from '@/components/portfolio/portfolio-link-icon';
+import { Divider, GlobeIcon, OsHugSheet } from '@onsocial/ui';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
   portfolioWebsiteRowCopy,
@@ -43,14 +42,18 @@ export function PortfolioSitesSheet({
               >
                 <span
                   className="portfolio-sites-mark"
-                  data-website-mark={site.mark ?? 'auto'}
+                  data-website-photo={site.image ? 'photo' : 'globe'}
                   aria-hidden
                 >
-                  <PortfolioWebsiteGlyph
-                    href={site.href}
-                    mark={site.mark}
-                    className="portfolio-link-icon"
-                  />
+                  {site.image ? (
+                    <img
+                      src={site.image}
+                      alt=""
+                      className="portfolio-sites-photo"
+                    />
+                  ) : (
+                    <GlobeIcon className="portfolio-link-icon" />
+                  )}
                 </span>
                 <span className="portfolio-sites-copy">
                   <span className="portfolio-sites-name">{copy.title}</span>

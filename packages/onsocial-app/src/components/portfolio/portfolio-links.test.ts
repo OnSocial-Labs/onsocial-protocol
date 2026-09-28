@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { PortfolioLinks } from '@/components/portfolio/portfolio-links';
-import { PortfolioWebsiteGlyph } from '@/components/portfolio/portfolio-link-icon';
 import { PortfolioWebsitesEditor } from '@/components/wallet/portfolio-websites-editor';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { profileLinksInputFromRecord } from '@/lib/profile-links';
@@ -28,7 +27,7 @@ describe('PortfolioLinks', () => {
       createElement(PortfolioLinks, {
         links: { website: 'https://example.com', github: 'alice' },
         notes: { website: 'Docs' },
-        marks: { website: 'shop' },
+        images: { website: 'https://cdn.example/docs.png' },
       })
     );
     expect(html).toContain('data-portfolio-link-mode="drawer"');
@@ -37,8 +36,8 @@ describe('PortfolioLinks', () => {
     expect(html).toContain('M12 21.5a9.5');
     expect(html).toContain('href="https://github.com/alice"');
     expect(html).not.toContain('href="https://example.com/"');
+    expect(html).not.toContain('https://cdn.example/docs.png');
     expect(html).not.toContain('M10.522 13.48');
-    expect(html).not.toContain('M21.25 9.944');
   });
 
   it('opens the drawer from the globe when there are several websites', () => {
@@ -60,33 +59,6 @@ describe('PortfolioLinks', () => {
     expect(html).not.toContain('href="https://example.com/"');
     expect(html).not.toContain('href="https://docs.example.com/"');
     expect(html).not.toContain('M10.522 13.48');
-  });
-});
-
-describe('PortfolioWebsiteGlyph', () => {
-  it('uses a chosen mark in the drawer and the address otherwise', () => {
-    const html = renderToStaticMarkup(
-      createElement(
-        'div',
-        null,
-        createElement(PortfolioWebsiteGlyph, {
-          href: 'https://github.com/alice/repos',
-          mark: 'shop',
-          className: 'portfolio-link-icon',
-        }),
-        createElement(PortfolioWebsiteGlyph, {
-          href: 'https://github.com/alice/repos',
-          className: 'portfolio-link-icon',
-        }),
-        createElement(PortfolioWebsiteGlyph, {
-          href: 'https://example.com',
-          className: 'portfolio-link-icon',
-        })
-      )
-    );
-    expect(html).toContain('M21.25 9.944');
-    expect(html).toContain('M11.963 2.382');
-    expect(html).toContain('M12 21.5a9.5');
   });
 });
 
@@ -154,21 +126,22 @@ describe('PortfolioWebsitesEditor', () => {
     expect(html).toContain('aria-label="Website name"');
     expect(html).toContain('aria-label="Website address"');
     expect(html).toContain('aria-label="Website line"');
-    expect(html).toContain('aria-label="Website icon"');
-    expect(html).not.toContain('>Address<');
-    expect(html).not.toContain('>Globe<');
+    expect(html).toContain('aria-label="Add Website photo"');
+    expect(html).not.toContain('Remove photo');
+    expect(html).not.toContain('>Shop<');
+    expect(html).not.toContain('>Bookmark<');
   });
 
-  it('shows a chosen mark on the row and keeps the picker closed', () => {
+  it('shows a chosen photo on the row and offers to remove it', () => {
     const html = renderToStaticMarkup(
       createElement(PortfolioWebsitesEditor, {
         websites: [
           {
             id: 'website',
-            url: 'github.com/alice/repos',
-            name: 'Repos',
+            url: 'example.com',
+            name: 'Docs',
             line: '',
-            mark: 'shop',
+            image: 'https://cdn.example/docs.png',
           },
         ],
         errors: {},
@@ -178,8 +151,9 @@ describe('PortfolioWebsitesEditor', () => {
         onBlurRow: () => undefined,
       })
     );
-    expect(html).toContain('M21.25 9.944');
-    expect(html).toContain('aria-expanded="false"');
-    expect(html).not.toContain('aria-label="Shop"');
+    expect(html).toContain('src="https://cdn.example/docs.png"');
+    expect(html).toContain('aria-label="Change Website photo"');
+    expect(html).toContain('aria-label="Remove Website photo"');
+    expect(html).toContain('Remove photo');
   });
 });

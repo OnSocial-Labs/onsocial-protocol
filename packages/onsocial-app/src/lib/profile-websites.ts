@@ -13,49 +13,30 @@ export const PORTFOLIO_WEBSITE_LIMIT = 12;
 
 const EXTRA_SITE_KEY = /^site_(\d+)$/;
 
-/** Optional drawer marks. Empty means the address picks the icon. */
-export const PORTFOLIO_WEBSITE_MARKS = [
-  'globe',
-  'link',
-  'home',
-  'shop',
-  'camera',
-  'note',
-  'video',
-  'bookmark',
-] as const;
+const IMAGE_REF_MAX = 2048;
 
-export type PortfolioWebsiteMark = (typeof PORTFOLIO_WEBSITE_MARKS)[number];
-
-const WEBSITE_MARK_SET = new Set<string>(PORTFOLIO_WEBSITE_MARKS);
-
-export function parsePortfolioWebsiteMark(
-  value: string | null | undefined
-): PortfolioWebsiteMark | '' {
-  const mark = value?.trim() ?? '';
-  return WEBSITE_MARK_SET.has(mark) ? (mark as PortfolioWebsiteMark) : '';
-}
-
-export function sanitizeLinkMarks(
-  marks: Record<string, string> | null | undefined
-): Record<string, PortfolioWebsiteMark> {
-  if (!marks || typeof marks !== 'object') return {};
-  const next: Record<string, PortfolioWebsiteMark> = {};
-  for (const [key, value] of Object.entries(marks)) {
+/** Keep stored photo refs. A drawing name such as `shop` is not a photo. */
+export function sanitizeLinkImages(
+  images: Record<string, string> | null | undefined
+): Record<string, string> {
+  if (!images || typeof images !== 'object') return {};
+  const next: Record<string, string> = {};
+  for (const [key, value] of Object.entries(images)) {
     const id = key.trim();
-    const mark = parsePortfolioWebsiteMark(value);
-    if (!id || !mark) continue;
-    next[id] = mark;
+    const ref = typeof value === 'string' ? value.trim() : '';
+    if (!id || !ref || ref.length > IMAGE_REF_MAX) continue;
+    if (!ref.startsWith('ipfs://') && !/^https?:\/\//i.test(ref)) continue;
+    next[id] = ref;
   }
   return next;
 }
 
-export function linkMarksEqual(
+export function linkImagesEqual(
   a: Record<string, string> | null | undefined,
   b: Record<string, string> | null | undefined
 ): boolean {
-  const left = sanitizeLinkMarks(a);
-  const right = sanitizeLinkMarks(b);
+  const left = sanitizeLinkImages(a);
+  const right = sanitizeLinkImages(b);
   const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
   for (const key of keys) {
     if (left[key] !== right[key]) return false;
@@ -68,8 +49,10 @@ export interface PortfolioWebsiteDraft {
   url: string;
   name: string;
   line: string;
-  /** Empty follows the address. */
-  mark?: PortfolioWebsiteMark | '';
+  /** Stored photo ref. Empty means the globe. */
+  image?: string;
+  /** Photo chosen in this edit, uploaded on save. */
+  imageFile?: File | null;
 }
 
 export function isPortfolioExtraSiteKey(key: string): boolean {
@@ -149,7 +132,7 @@ export function readPortfolioWebsites(
   links: unknown,
   notes?: Record<string, string> | null,
   lines?: Record<string, string> | null,
-  marks?: Record<string, string> | null
+  images?: Record<string, string> | null
 ): PortfolioWebsiteDraft[] {
   const record = linkRecord(links);
   const stored = [
@@ -161,13 +144,21 @@ export function readPortfolioWebsites(
     url: displayWebsiteUrl(entry.raw),
     name: blurb(notes, entry.key),
     line: blurb(lines, entry.key),
-    mark: parsePortfolioWebsiteMark(marks?.[entry.key]),
+    image:
+      sanitizeLinkImages({ [entry.key]: images?.[entry.key] ?? '' })[
+        entry.key
+      ] ?? '',
   }));
+}
+
+function rowHasPhoto(row: PortfolioWebsiteDraft): boolean {
+  return Boolean(row.image?.trim() || row.imageFile);
 }
 
 function filledDrafts(rows: PortfolioWebsiteDraft[]): PortfolioWebsiteDraft[] {
   return rows.filter(
-    (row) => row.url.trim() || row.name.trim() || row.line.trim()
+    (row) =>
+      row.url.trim() || row.name.trim() || row.line.trim() || rowHasPhoto(row)
   );
 }
 
@@ -185,11 +176,14 @@ export function portfolioWebsitesCopyEqual(
   next: PortfolioWebsiteDraft[],
   saved: PortfolioWebsiteDraft[]
 ): boolean {
+  if (next.some((row) => row.imageFile)) return false;
   const left = filledDrafts(next).map(
-    (row) => `${row.name.trim()}\n${row.line.trim()}\n${row.mark ?? ''}`
+    (row) =>
+      `${row.name.trim()}\n${row.line.trim()}\n${row.image?.trim() ?? ''}`
   );
   const right = filledDrafts(saved).map(
-    (row) => `${row.name.trim()}\n${row.line.trim()}\n${row.mark ?? ''}`
+    (row) =>
+      `${row.name.trim()}\n${row.line.trim()}\n${row.image?.trim() ?? ''}`
   );
   if (left.length !== right.length) return false;
   return left.every((copy, index) => copy === right[index]);
@@ -202,7 +196,7 @@ export function portfolioWebsiteDraftError(
   const url = row.url.trim();
   const name = row.name.trim();
   const line = row.line.trim();
-  if (!url && !name && !line) return null;
+  if (!url && !name && !line && !rowHasPhoto(row)) return null;
   if (!url) return 'Add an address';
   const result = formatProfileLinkForEditor(url, 'website');
   if (!result.valid) return 'Invalid URL';
@@ -233,12 +227,12 @@ export function applyPortfolioWebsites(input: {
   links: Record<string, string>;
   notes: Record<string, string>;
   lines: Record<string, string>;
-  marks: Record<string, PortfolioWebsiteMark>;
+  images: Record<string, string>;
 } {
   const links = stripWebsiteKeys(input.links);
   const notes = stripWebsiteKeys({ ...sanitizeLinkNotes(input.notes) });
   const lines: Record<string, string> = {};
-  const marks: Record<string, PortfolioWebsiteMark> = {};
+  const images: Record<string, string> = {};
   const filled = filledDrafts(input.websites).slice(0, PORTFOLIO_WEBSITE_LIMIT);
 
   filled.forEach((row, index) => {
@@ -250,16 +244,16 @@ export function applyPortfolioWebsites(input: {
     links[key] = normalizeWebsiteInput(row.url);
     const name = row.name.trim().slice(0, PAGE_LINK_NOTE_MAX);
     const line = row.line.trim().slice(0, PAGE_LINK_NOTE_MAX);
-    const mark = parsePortfolioWebsiteMark(row.mark);
+    const image = sanitizeLinkImages({ photo: row.image ?? '' }).photo;
     if (name) notes[key] = name;
     if (line) lines[key] = line;
-    if (mark) marks[key] = mark;
+    if (image) images[key] = image;
   });
 
   return {
     links,
     notes: sanitizeLinkNotes(notes),
     lines: sanitizeLinkNotes(lines),
-    marks,
+    images,
   };
 }
