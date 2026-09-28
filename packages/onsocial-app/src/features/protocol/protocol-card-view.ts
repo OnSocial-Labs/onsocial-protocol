@@ -1387,6 +1387,24 @@ export function mergeProtocolFeedApplications(
   return extras.length > 0 ? [...merged, ...extras] : merged;
 }
 
+/**
+ * A vote that passes is terminal before the chain attaches the vote-time
+ * policy. Freeze the council that is voting now so the bar stays on that
+ * pool (2 of 3) instead of collapsing to the votes already cast (2 of 2)
+ * and sliding back when the snapshot arrives.
+ */
+function freezeLiveCouncilOnConclude(
+  before: ProtocolDaoProposal,
+  concluded: ProtocolDaoProposal,
+  daoPolicy: ProtocolDaoPolicy | null
+): ProtocolDaoProposal {
+  if (concluded.policy_snapshot?.roles?.length) return concluded;
+  if (!daoPolicy?.roles?.length) return concluded;
+  if (!isTerminalProtocolProposalStatus(concluded.status)) return concluded;
+  if (isTerminalProtocolProposalStatus(before.status)) return concluded;
+  return { ...concluded, policy_snapshot: daoPolicy };
+}
+
 export function applyOptimisticVote(
   proposal: ProtocolDaoProposal,
   accountId: string,
@@ -1401,7 +1419,11 @@ export function applyOptimisticVote(
       ([id]) => normalizeAccount(id) === viewer
     )
   ) {
-    return concludeProtocolProposal(proposal, daoPolicy);
+    return freezeLiveCouncilOnConclude(
+      proposal,
+      concludeProtocolProposal(proposal, daoPolicy),
+      daoPolicy
+    );
   }
 
   const viewerRole = findViewerRole(daoPolicy, accountId);
@@ -1423,15 +1445,17 @@ export function applyOptimisticVote(
   const idx = vote === 'Approve' ? 0 : vote === 'Reject' ? 1 : 2;
   next[idx] = String((Number.parseInt(next[idx], 10) || 0) + 1);
   vote_counts[roleName] = next;
-  return concludeProtocolProposal(
-    {
-      ...proposal,
-      votes: {
-        ...proposal.votes,
-        [accountId.trim()]: vote,
-      },
-      vote_counts,
+  const withVote: ProtocolDaoProposal = {
+    ...proposal,
+    votes: {
+      ...proposal.votes,
+      [accountId.trim()]: vote,
     },
+    vote_counts,
+  };
+  return freezeLiveCouncilOnConclude(
+    proposal,
+    concludeProtocolProposal(withVote, daoPolicy),
     daoPolicy
   );
 }
@@ -1442,7 +1466,9 @@ export function applyOptimisticFinalize(
 ): ProtocolDaoProposal {
   if (isTerminalProtocolProposalStatus(proposal.status)) return proposal;
   const concluded = concludeProtocolProposal(proposal, daoPolicy);
-  if (concluded.status !== 'InProgress') return concluded;
+  if (concluded.status !== 'InProgress') {
+    return freezeLiveCouncilOnConclude(proposal, concluded, daoPolicy);
+  }
 
   const effectivePolicy = resolveEffectiveDaoPolicy(proposal, daoPolicy);
   const proposalPolicyLabel = getProposalPolicyLabel(proposal);
@@ -1463,5 +1489,9 @@ export function applyOptimisticFinalize(
     ? getVotingPoolSize(votingRole, proposal, true)
     : null;
   if (pool == null) return proposal;
-  return { ...proposal, status: 'Rejected' };
+  return freezeLiveCouncilOnConclude(
+    proposal,
+    { ...proposal, status: 'Rejected' },
+    daoPolicy
+  );
 }

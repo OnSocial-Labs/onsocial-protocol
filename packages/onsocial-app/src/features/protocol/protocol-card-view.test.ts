@@ -511,6 +511,71 @@ describe('protocol card view', () => {
     expect(next.status).toBe('Approved');
   });
 
+  it('stops a passing second-of-three approval on the live council', () => {
+    const threeCouncil: ProtocolDaoPolicy = {
+      proposal_period: String(7n * 24n * 60n * 60n * 1_000_000_000n),
+      default_vote_policy: {
+        quorum: '0',
+        threshold: [50, 100],
+        weight_kind: 'RoleWeight',
+      },
+      roles: [
+        {
+          name: 'council',
+          kind: {
+            Group: ['alice.testnet', 'bob.testnet', 'carol.testnet'],
+          },
+          permissions: ['*:VoteApprove', '*:VoteReject', '*:Finalize'],
+        },
+      ],
+    };
+    const open: ProtocolDaoProposal = {
+      ...proposal,
+      status: 'InProgress',
+      vote_counts: { council: ['1', '0', '0'] },
+      votes: { 'bob.testnet': 'Approve' },
+    };
+    const optimistic = applyOptimisticVote(
+      open,
+      'alice.testnet',
+      'Approve',
+      threeCouncil
+    );
+    expect(optimistic.status).toBe('Approved');
+
+    const viewOf = (snapshot: ProtocolDaoProposal) =>
+      deriveProtocolProposalView({
+        application: {
+          ...application,
+          governance_proposal: {
+            ...application.governance_proposal!,
+            status: snapshot.status,
+            snapshot,
+          },
+        },
+        accountId: 'alice.testnet',
+        daoPolicy: threeCouncil,
+      });
+
+    const passing = viewOf(optimistic);
+    expect(passing.approveVotes).toBe(2);
+    expect(passing.votingProgress.totalWeight).toBe(3);
+    expect(passing.votingProgress.threshold).toBe(2);
+
+    const chainWithoutSnapshot: ProtocolDaoProposal = {
+      ...optimistic,
+      policy_snapshot: null,
+    };
+    const merged = mergeProtocolProposalSnapshot(
+      optimistic,
+      chainWithoutSnapshot
+    );
+    expect(merged).not.toBeNull();
+    const settled = viewOf(merged!);
+    expect(settled.approveVotes).toBe(2);
+    expect(settled.votingProgress.totalWeight).toBe(3);
+  });
+
   it('does not regress terminal status when feed refresh is stale', () => {
     const approved: ProtocolDaoProposal = {
       ...proposal,

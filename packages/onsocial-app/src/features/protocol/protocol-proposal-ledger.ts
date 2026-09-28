@@ -57,7 +57,10 @@ export function overlayConfirmedProtocolProposal(
     confirmedProposals.delete(
       protocolProposalLedgerKey(daoAccountId, proposalId)
     );
-    return proposal;
+    if (proposal.policy_snapshot?.roles?.length || !locked.policy_snapshot) {
+      return proposal;
+    }
+    return { ...proposal, policy_snapshot: locked.policy_snapshot };
   }
   const merged = mergeProtocolProposalSnapshot(locked, proposal) ?? locked;
   if (!isTerminalProtocolProposalStatus(locked.status)) return merged;
