@@ -37,6 +37,13 @@ import {
   profileLinksInputFromRecord,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
+import {
+  applyPortfolioWebsites,
+  linkImagesEqual,
+  readPortfolioWebsites,
+  sanitizeLinkImages,
+  type PortfolioWebsiteDraft,
+} from '@/lib/profile-websites';
 import { probeNearAccountExists } from '@/hooks/use-near-account-status';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
@@ -81,6 +88,8 @@ export interface ProfileEditorSaveInput {
   hasCurrentLinks: boolean;
   hasLinkInput: boolean;
   linkNotes: Record<string, string>;
+  /** Set on the portfolio editor. DAO saves omit this and keep one website field. */
+  websites?: PortfolioWebsiteDraft[];
   tags: string[];
   photos: ProfileAboutPhoto[];
   photoFiles: Array<File | null>;
@@ -220,11 +229,41 @@ export function useAppProfileEditor(
         throw new Error('Could not load profile.');
       }
 
-      const nextNotes = pruneLinkNotes(input.linkNotes, input.links);
+      const savedWebsites = input.websites
+        ? readPortfolioWebsites(
+            snapshotNow.links,
+            snapshotNow.pageConfig?.linkNotes,
+            snapshotNow.pageConfig?.linkLines,
+            snapshotNow.pageConfig?.linkImages
+          )
+        : undefined;
+      const normalizedLinks = normalizeProfileLinksInput(
+        input.websites ? { ...input.links, website: '' } : input.links,
+        input.currentLinks ?? undefined
+      );
+      const websitePlan = input.websites
+        ? applyPortfolioWebsites({
+            links: normalizedLinks,
+            notes: input.linkNotes,
+            websites: input.websites,
+          })
+        : null;
+      const linksToSave = websitePlan?.links ?? normalizedLinks;
+      const nextNotes =
+        websitePlan?.notes ?? pruneLinkNotes(input.linkNotes, input.links);
+      const nextLines = websitePlan?.lines;
       const notesDirty = !linkNotesEqual(
         nextNotes,
         snapshotNow.pageConfig?.linkNotes
       );
+      const linesDirty = websitePlan
+        ? !linkNotesEqual(nextLines, snapshotNow.pageConfig?.linkLines)
+        : false;
+      const nextImages = websitePlan?.images;
+      const imagesDirty = websitePlan
+        ? Boolean(input.websites?.some((row) => row.imageFile)) ||
+          !linkImagesEqual(nextImages, snapshotNow.pageConfig?.linkImages)
+        : false;
       const contentDirty = isProfileEditorContentDirty({
         snapshot: snapshotNow,
         linksFromSnapshot: profileLinksInputFromRecord(snapshotNow.links),
@@ -237,6 +276,8 @@ export function useAppProfileEditor(
         lead,
         aboutAlign,
         links: input.links,
+        websites: input.websites,
+        websitesFromSnapshot: savedWebsites,
         tags: input.tags,
         photos: input.photos,
         photoFiles: input.photoFiles,
@@ -247,7 +288,7 @@ export function useAppProfileEditor(
         isDao,
       });
 
-      if (!contentDirty && !notesDirty) {
+      if (!contentDirty && !notesDirty && !linesDirty && !imagesDirty) {
         return {
           name,
           location,
@@ -272,22 +313,50 @@ export function useAppProfileEditor(
           accountId: signingAccountId,
           session,
         } = await getClient();
-        const normalizedLinks = normalizeProfileLinksInput(
-          input.links,
-          input.currentLinks ?? undefined
-        );
-        if (normalizedLinks.onsocial) {
-          const exists = await probeNearAccountExists(normalizedLinks.onsocial);
+        if (linksToSave.onsocial) {
+          const exists = await probeNearAccountExists(linksToSave.onsocial);
           if (!exists) {
             throw new Error(
               'OnSocial link account was not found on this network'
             );
           }
         }
+        let imagesToSave = nextImages;
+        if (input.websites?.some((row) => row.imageFile)) {
+          const uploaded: PortfolioWebsiteDraft[] = [];
+          for (const row of input.websites) {
+            if (!row.imageFile) {
+              uploaded.push(row);
+              continue;
+            }
+            const stored = await client.storage.upload(row.imageFile);
+            uploaded.push({
+              ...row,
+              image: formatProfileMediaRef(stored),
+              imageFile: null,
+            });
+          }
+          imagesToSave = applyPortfolioWebsites({
+            links: normalizedLinks,
+            notes: input.linkNotes,
+            websites: uploaded,
+          }).images;
+        }
+        const hasWebsiteInput = Boolean(
+          input.websites?.some(
+            (row) =>
+              row.url.trim() ||
+              row.name.trim() ||
+              row.line.trim() ||
+              row.image?.trim() ||
+              row.imageFile
+          )
+        );
         const shouldSaveLinks =
           input.hasCurrentLinks ||
           input.hasLinkInput ||
-          Object.keys(normalizedLinks).length > 0;
+          hasWebsiteInput ||
+          Object.keys(linksToSave).length > 0;
 
         let txHash: string | null = null;
 
@@ -318,7 +387,7 @@ export function useAppProfileEditor(
             payload.banner = null;
           }
           if (shouldSaveLinks) {
-            payload.links = normalizedLinks;
+            payload.links = linksToSave;
           }
           payload.tags = normalizeProfileEditorTags(input.tags);
 
@@ -353,7 +422,7 @@ export function useAppProfileEditor(
           }
         }
 
-        if (notesDirty) {
+        if (notesDirty || linesDirty || imagesDirty) {
           const current =
             await fetchPageConfigFromBrowserProxy(signingAccountId);
           const notes = sanitizeLinkNotes(nextNotes);
@@ -362,6 +431,14 @@ export function useAppProfileEditor(
             ...current,
             linkNotes: Object.keys(notes).length > 0 ? notes : undefined,
           };
+          if (websitePlan) {
+            const lines = sanitizeLinkNotes(nextLines);
+            next.linkLines = Object.keys(lines).length > 0 ? lines : undefined;
+            const images = sanitizeLinkImages(imagesToSave);
+            next.linkImages =
+              Object.keys(images).length > 0 ? images : undefined;
+            delete (next as { linkMarks?: unknown }).linkMarks;
+          }
           const pageResponse = await client.pages.setConfig(next, {
             wait: true,
           });

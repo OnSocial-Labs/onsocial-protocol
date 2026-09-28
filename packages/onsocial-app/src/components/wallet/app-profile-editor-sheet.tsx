@@ -35,6 +35,7 @@ import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
 import { ProfileAboutEditorSheet } from '@/components/wallet/profile-about-editor-sheet';
 import { ProfileFaceBioField } from '@/components/wallet/profile-face-bio-field';
+import { PortfolioWebsitesEditor } from '@/components/wallet/portfolio-websites-editor';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { ProfileOrgMetaEditor } from '@/components/wallet/profile-org-meta-editor';
 import type { ProfileAboutPhotoDraft } from '@/components/wallet/profile-about-photos-editor';
@@ -65,6 +66,12 @@ import {
   profileLinksInputFromRecord,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
+import {
+  PORTFOLIO_WEBSITE_LIMIT,
+  portfolioWebsiteDraftError,
+  readPortfolioWebsites,
+  type PortfolioWebsiteDraft,
+} from '@/lib/profile-websites';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { isDaoStandingTarget } from '@/lib/dao-standing-account';
@@ -174,6 +181,12 @@ export function AppProfileEditorSheet({
     profileLinksInputFromRecord(null)
   );
   const [linkNotes, setLinkNotes] = useState<Record<string, string>>({});
+  const [websites, setWebsites] = useState<PortfolioWebsiteDraft[]>([]);
+  const [websiteErrors, setWebsiteErrors] = useState<Record<string, string>>(
+    {}
+  );
+  const [websiteFocusId, setWebsiteFocusId] = useState<string | null>(null);
+  const websiteIdRef = useRef(0);
   const [linkFieldErrors, setLinkFieldErrors] = useState<
     Partial<Record<keyof ProfileLinksInput, string>>
   >({});
@@ -204,6 +217,16 @@ export function AppProfileEditorSheet({
     setPhotos(snapshot.photos ?? []);
     setLinks(linksFromSnapshot);
     setLinkNotes(sanitizeLinkNotes(snapshot.pageConfig?.linkNotes));
+    setWebsites(
+      readPortfolioWebsites(
+        snapshot.links,
+        snapshot.pageConfig?.linkNotes,
+        snapshot.pageConfig?.linkLines,
+        snapshot.pageConfig?.linkImages
+      )
+    );
+    setWebsiteErrors({});
+    setWebsiteFocusId(null);
     setLinkFieldErrors({});
     setAvatarFile(null);
     setBannerFile(null);
@@ -263,6 +286,15 @@ export function AppProfileEditorSheet({
       photos,
       photoFiles: photos.map((photo) => photo.file ?? null),
       linkNotes,
+      websites: isDaoAccount ? undefined : websites,
+      websitesFromSnapshot: isDaoAccount
+        ? undefined
+        : readPortfolioWebsites(
+            snapshot.links,
+            snapshot.pageConfig?.linkNotes,
+            snapshot.pageConfig?.linkLines,
+            snapshot.pageConfig?.linkImages
+          ),
       avatarFile,
       bannerFile,
       avatarRemoved,
@@ -284,6 +316,7 @@ export function AppProfileEditorSheet({
     tags,
     photos,
     linkNotes,
+    websites,
     linksFromSnapshot,
     location,
     name,
@@ -328,12 +361,18 @@ export function AppProfileEditorSheet({
   }, [clearDiscardConfirm, onClose]);
 
   const nameReady = name.trim().length > 0;
-  const hasInvalidLinks = useMemo(
-    () =>
-      Object.keys(profileLinkEditorFieldErrors(links)).length > 0 ||
-      Object.keys(linkFieldErrors).length > 0,
-    [linkFieldErrors, links]
-  );
+  const hasInvalidLinks = useMemo(() => {
+    const fieldErrors = profileLinkEditorFieldErrors(links);
+    if (!isDaoAccount) delete fieldErrors.website;
+    return (
+      Object.keys(fieldErrors).length > 0 ||
+      Object.keys(linkFieldErrors).length > 0
+    );
+  }, [isDaoAccount, linkFieldErrors, links]);
+  const hasInvalidWebsites = useMemo(() => {
+    if (isDaoAccount) return false;
+    return websites.some((row) => portfolioWebsiteDraftError(row));
+  }, [isDaoAccount, websites]);
   const hasCurrentLinks = Boolean(
     snapshot?.links && Object.keys(snapshot.links).length > 0
   );
@@ -347,7 +386,60 @@ export function AppProfileEditorSheet({
     displayName(accountId, name.trim() || undefined)
   );
   const canSubmit =
-    Boolean(snapshot) && nameReady && !saving && !hasInvalidLinks && isDirty;
+    Boolean(snapshot) &&
+    nameReady &&
+    !saving &&
+    !hasInvalidLinks &&
+    !hasInvalidWebsites &&
+    isDirty;
+
+  const updateWebsite = (id: string, patch: Partial<PortfolioWebsiteDraft>) => {
+    setWebsites((current) =>
+      current.map((row) => (row.id === id ? { ...row, ...patch } : row))
+    );
+    setWebsiteErrors((current) => {
+      if (!current[id]) return current;
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  };
+
+  const removeWebsite = (id: string) => {
+    setWebsites((current) => current.filter((row) => row.id !== id));
+    setWebsiteErrors((current) => {
+      if (!current[id]) return current;
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  };
+
+  const addWebsite = () => {
+    if (websites.length >= PORTFOLIO_WEBSITE_LIMIT) return;
+    websiteIdRef.current += 1;
+    const id = `draft-${websiteIdRef.current}`;
+    setWebsites((current) => [
+      ...current,
+      { id, url: '', name: '', line: '', image: '' },
+    ]);
+    setWebsiteFocusId(id);
+  };
+
+  const blurWebsite = (id: string) => {
+    const row = websites.find((entry) => entry.id === id);
+    const error = row ? portfolioWebsiteDraftError(row) : null;
+    setWebsiteErrors((current) => {
+      if (!error) {
+        if (!current[id]) return current;
+        const next = { ...current };
+        delete next[id];
+        return next;
+      }
+      if (current[id] === error) return current;
+      return { ...current, [id]: error };
+    });
+  };
 
   const updateLink = (key: keyof ProfileLinksInput, value: string) => {
     setLinks((current) => ({ ...current, [key]: value }));
@@ -398,9 +490,21 @@ export function AppProfileEditorSheet({
     }
 
     const validationErrors = profileLinkEditorFieldErrors(links);
+    if (!isDaoAccount) delete validationErrors.website;
     if (Object.keys(validationErrors).length > 0) {
       setLinkFieldErrors(validationErrors);
       return;
+    }
+    if (!isDaoAccount) {
+      const nextWebsiteErrors: Record<string, string> = {};
+      for (const row of websites) {
+        const error = portfolioWebsiteDraftError(row);
+        if (error) nextWebsiteErrors[row.id] = error;
+      }
+      if (Object.keys(nextWebsiteErrors).length > 0) {
+        setWebsiteErrors(nextWebsiteErrors);
+        return;
+      }
     }
 
     try {
@@ -425,6 +529,7 @@ export function AppProfileEditorSheet({
         hasCurrentLinks,
         hasLinkInput,
         linkNotes: pruneLinkNotes(linkNotes, links),
+        websites: isDaoAccount ? undefined : websites,
         isDao: isDaoAccount,
       });
       onSaved(result);
@@ -803,6 +908,21 @@ export function AppProfileEditorSheet({
                   links={links}
                   notes={linkNotes}
                   fieldErrors={linkFieldErrors}
+                  omitWebsite={!isDaoAccount}
+                  websitesSlot={
+                    isDaoAccount ? null : (
+                      <PortfolioWebsitesEditor
+                        websites={websites}
+                        errors={websiteErrors}
+                        focusId={websiteFocusId}
+                        onChange={updateWebsite}
+                        onRemove={removeWebsite}
+                        onAdd={addWebsite}
+                        onBlurRow={blurWebsite}
+                        onFocusConsumed={() => setWebsiteFocusId(null)}
+                      />
+                    )
+                  }
                   onUpdateLink={updateLink}
                   onUpdateNote={updateNote}
                   onClearFieldError={clearLinkFieldError}

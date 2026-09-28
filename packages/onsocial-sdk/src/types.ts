@@ -1028,10 +1028,19 @@ export interface PageConfig {
    */
   sectionPins?: Partial<Record<PageSection, string[]>>;
   /**
-   * Optional one-line notes for profile link keys (`website`, `x`, …)
-   * shown in the Launch Links chapter.
+   * Optional names for profile link keys (`website`, `site_2`, `x`, …).
    */
   linkNotes?: Record<string, string>;
+  /**
+   * Optional quiet lines for website keys (`website`, `site_2`, …).
+   * Same length cap as {@link PageConfig.linkNotes}.
+   */
+  linkLines?: Record<string, string>;
+  /**
+   * Optional photos for website keys (`website`, `site_2`, …).
+   * An `ipfs://` ref or https URL. Omitted keys stay the globe.
+   */
+  linkImages?: Record<string, string>;
   /** Custom tagline (overrides bio on page). */
   tagline?: string;
   /** Custom CSS URL (premium feature). */

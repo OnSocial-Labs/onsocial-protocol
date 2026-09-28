@@ -20,7 +20,8 @@ interface PortfolioLinkIconProps {
 
 /** Mage glyphs for portfolio social / link marks. */
 export function PortfolioLinkIcon({ kind, className }: PortfolioLinkIconProps) {
-  if (kind === 'website') return <GlobeIcon className={className} aria-hidden />;
+  if (kind === 'website')
+    return <GlobeIcon className={className} aria-hidden />;
   if (kind === 'onsocial') {
     return (
       <OnSocialMark
@@ -36,7 +37,8 @@ export function PortfolioLinkIcon({ kind, className }: PortfolioLinkIconProps) {
   if (kind === 'instagram') {
     return <InstagramFillIcon className={className} aria-hidden />;
   }
-  if (kind === 'tiktok') return <TiktokFillIcon className={className} aria-hidden />;
+  if (kind === 'tiktok')
+    return <TiktokFillIcon className={className} aria-hidden />;
   if (kind === 'linkedin') {
     return <LinkedinFillIcon className={className} aria-hidden />;
   }
@@ -46,6 +48,7 @@ export function PortfolioLinkIcon({ kind, className }: PortfolioLinkIconProps) {
   if (kind === 'discord') {
     return <DiscordFillIcon className={className} aria-hidden />;
   }
-  if (kind === 'github') return <GithubFillIcon className={className} aria-hidden />;
+  if (kind === 'github')
+    return <GithubFillIcon className={className} aria-hidden />;
   return <LinkIcon className={className} aria-hidden />;
 }

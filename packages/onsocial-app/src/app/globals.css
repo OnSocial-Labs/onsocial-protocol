@@ -11432,6 +11432,11 @@ a.os-surface-row {
     color: color-mix(in srgb, var(--mood-accent) 52%, var(--mood-muted));
   }
 
+  button.portfolio-link {
+    cursor: pointer;
+    font: inherit;
+  }
+
   .portfolio-link:hover {
     color: rgb(var(--fg-rgb) / 0.92);
     transform: scale(1.1);
@@ -11445,6 +11450,60 @@ a.os-surface-row {
     .portfolio-link:hover {
       transform: none;
     }
+  }
+
+  .portfolio-sites-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .portfolio-sites-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 3.25rem;
+    padding: 0.65rem 0.15rem;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .portfolio-sites-row:hover .portfolio-sites-name {
+    color: rgb(var(--fg-rgb) / 0.96);
+  }
+
+  .portfolio-sites-mark {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .portfolio-sites-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    min-width: 0;
+  }
+
+  .portfolio-sites-name {
+    overflow: hidden;
+    font-size: 0.92rem;
+    font-weight: 500;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: rgb(var(--fg-rgb) / 0.88);
+  }
+
+  .portfolio-sites-line {
+    overflow: hidden;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: rgb(var(--fg-rgb) / 0.48);
   }
 
   .portfolio-frame[data-mood] .signal-dot,
@@ -21354,6 +21413,77 @@ a.os-surface-row {
   .account-editor-link-title:focus {
     outline: none;
     color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .account-editor-websites {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    width: 100%;
+    max-width: min(100%, 20rem);
+    margin-inline: auto;
+  }
+
+  .account-editor-website-url-spacer {
+    visibility: hidden;
+  }
+
+  .account-editor-website-photo-btn {
+    border: 0;
+    margin: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    border-radius: 999px;
+  }
+
+  .account-editor-website-photo-btn:hover {
+    color: rgb(var(--fg-rgb) / 0.82);
+  }
+
+  .account-editor-website-photo-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.28);
+  }
+
+  .account-editor-website-photo,
+  .portfolio-sites-photo {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 999px;
+    object-fit: cover;
+  }
+
+  .portfolio-sites-photo {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .account-editor-website-photo-remove {
+    align-self: flex-start;
+    margin: 0.15rem 0 0.2rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.46);
+    font: inherit;
+    font-size: 0.72rem;
+    cursor: pointer;
+  }
+
+  .account-editor-website-photo-remove:hover {
+    color: rgb(var(--fg-rgb) / 0.82);
+  }
+
+  .account-editor-website-photo-error {
+    margin: 0.1rem 0 0.2rem;
+    font-size: 0.62rem;
+    line-height: 1;
+    color: var(--protocol-red);
+  }
+
+  .account-editor-websites-add {
+    align-self: center;
   }
 
   .account-editor-form-main {

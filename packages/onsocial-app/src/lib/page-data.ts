@@ -56,8 +56,15 @@ export interface PublicPageConfig {
   sections?: string[];
   /** Featured peek ids per Launch chapter (max 3). */
   sectionPins?: Partial<Record<string, string[]>>;
-  /** Optional Launch link blurbs keyed by profile link key. */
+  /** Optional names for profile link keys (`website`, `site_2`, `x`, …). */
   linkNotes?: Record<string, string>;
+  /** Optional quiet lines for website keys (`website`, `site_2`, …). */
+  linkLines?: Record<string, string>;
+  /**
+   * Optional photos for website keys (`website`, `site_2`, …).
+   * An `ipfs://` ref or https URL. Omitted keys stay the globe.
+   */
+  linkImages?: Record<string, string>;
   tagline?: string;
   customCss?: string;
   /** Active mood broadcast — stored in `page/main.mood`. */

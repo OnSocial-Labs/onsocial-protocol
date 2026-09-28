@@ -3,7 +3,10 @@ import {
   inferPortfolioLinkKind,
   portfolioLinkDestination,
   portfolioLinkHostname,
+  portfolioLinkKindFromHref,
   portfolioLinkPresentation,
+  portfolioWebsiteRowCopy,
+  resolvePortfolioFaceLinks,
   resolvePortfolioSocialLinks,
 } from './profile-social-links';
 
@@ -73,7 +76,10 @@ describe('inferPortfolioLinkKind', () => {
       'telegram'
     );
     expect(
-      inferPortfolioLinkKind('OnSocial', 'https://testnet.onsocial.id/@alice.testnet')
+      inferPortfolioLinkKind(
+        'OnSocial',
+        'https://testnet.onsocial.id/@alice.testnet'
+      )
     ).toBe('onsocial');
     expect(
       inferPortfolioLinkKind('Newsletter', 'https://substack.com/@alice')
@@ -153,6 +159,108 @@ describe('portfolioLinkDestination', () => {
         href: 'https://github.com/greenghostnear',
       })
     ).toBe('greenghostnear');
+  });
+});
+
+describe('portfolioWebsiteRowCopy', () => {
+  const site = {
+    key: 'website',
+    kind: 'website' as const,
+    label: 'Website',
+    href: 'https://example.com/',
+  };
+
+  it('uses the hostname when a site has no name', () => {
+    expect(portfolioWebsiteRowCopy(site)).toEqual({
+      title: 'example.com',
+      detail: null,
+    });
+  });
+
+  it('keeps a written line and falls back to the hostname', () => {
+    expect(
+      portfolioWebsiteRowCopy({ ...site, note: 'Docs', line: 'API reference' })
+    ).toEqual({ title: 'Docs', detail: 'API reference' });
+    expect(portfolioWebsiteRowCopy({ ...site, note: 'Docs' })).toEqual({
+      title: 'Docs',
+      detail: 'example.com',
+    });
+  });
+});
+
+describe('portfolioLinkKindFromHref', () => {
+  it('follows the address and leaves unknown hosts as a globe', () => {
+    expect(portfolioLinkKindFromHref('https://github.com/alice')).toBe(
+      'github'
+    );
+    expect(portfolioLinkKindFromHref('https://example.com')).toBe('website');
+  });
+});
+
+describe('resolvePortfolioFaceLinks', () => {
+  it('keeps one plain website as a globe beside direct social icons', () => {
+    const face = resolvePortfolioFaceLinks({
+      website: 'https://example.com',
+      github: 'alice',
+    });
+    expect(face.mode).toBe('globe');
+    expect(face.icons.map((link) => link.key)).toEqual(['website', 'github']);
+    expect(face.icons[0]?.kind).toBe('website');
+  });
+
+  it('opens the drawer from that globe when one website has something to read', () => {
+    const named = resolvePortfolioFaceLinks(
+      { website: 'https://example.com', github: 'alice' },
+      { website: 'Docs' },
+      { website: 'Notes' }
+    );
+    expect(named.mode).toBe('drawer');
+    expect(named.icons.map((link) => link.key)).toEqual(['github']);
+    expect(named.websites[0]).toMatchObject({ note: 'Docs', line: 'Notes' });
+
+    const photographed = resolvePortfolioFaceLinks(
+      { website: 'https://github.com/alice/repos', x: 'alice' },
+      undefined,
+      undefined,
+      { website: 'https://cdn.example/repos.png' }
+    );
+    expect(photographed.mode).toBe('drawer');
+    expect(photographed.icons.map((link) => link.kind)).toEqual(['x']);
+    expect(photographed.websites[0]?.image).toBe(
+      'https://cdn.example/repos.png'
+    );
+  });
+
+  it('folds several websites into one drawer and leaves social icons direct', () => {
+    const face = resolvePortfolioFaceLinks(
+      {
+        website: 'https://example.com',
+        site_2: 'https://github.com/alice/repos',
+        github: 'alice',
+        x: 'alice',
+      },
+      undefined,
+      undefined,
+      { site_2: 'https://cdn.example/code.png', website: 'shop' }
+    );
+    expect(face.mode).toBe('drawer');
+    expect(face.icons.map((link) => link.kind)).toEqual(['x', 'github']);
+    expect(face.websites.map((link) => link.key)).toEqual([
+      'website',
+      'site_2',
+    ]);
+    expect(face.websites[0]?.image).toBeUndefined();
+    expect(face.websites[1]?.image).toBe('https://cdn.example/code.png');
+  });
+
+  it('does not fold schema v1 link arrays', () => {
+    const face = resolvePortfolioFaceLinks([
+      { label: 'My blog', url: 'https://blog.example.com' },
+      { label: 'Shop', url: 'https://shop.example.com' },
+    ]);
+    expect(face.mode).toBe('icons');
+    expect(face.icons).toHaveLength(2);
+    expect(face.websites).toEqual([]);
   });
 });
 

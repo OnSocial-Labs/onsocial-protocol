@@ -211,7 +211,12 @@ export async function PortfolioAccountFace({
             <PortfolioDeferredSignals accountId={accountId} />
           </Suspense>
         ) : null}
-        <PortfolioLinks links={shell?.links} />
+        <PortfolioLinks
+          links={shell?.links}
+          notes={data.config.linkNotes}
+          lines={data.config.linkLines}
+          images={data.config.linkImages}
+        />
       </PortfolioShellRoot>
     </>
   );
