@@ -798,7 +798,7 @@ export function QuotedPostInset({
   authorProfile?: PostAuthorProfile;
   /** Navigate to the quoted post's own page (feed/thread surfaces). */
   href?: string;
-  /** Opened post — quoted media at page size. Feed and compose stay one thumb. */
+  /** Opened post — quoted media at page size. Feed and compose stay the small thumb. */
   expanded?: boolean;
 }) {
   const router = useRouter();
@@ -808,7 +808,7 @@ export function QuotedPostInset({
   const name = displayName(post.accountId, authorProfile?.displayName);
   const text = truncateQuoteText(parsePostText(post.value));
   const mediaItems = parsePostMedia(post.value).slice(0, 4);
-  const thumb = !expanded && mediaItems.length > 0 ? mediaItems[0] : null;
+  const compactMedia = !expanded && mediaItems.length > 0 ? mediaItems : null;
   const interactive = Boolean(href);
 
   const open = (event: {
@@ -866,22 +866,17 @@ export function QuotedPostInset({
           />
         </span>
         <PostSensitiveGate labels={labels} safeMode={safeMode} compact>
-          {thumb || (expanded && mediaItems.length > 0) || text ? (
+          {compactMedia || (expanded && mediaItems.length > 0) || text ? (
             <div
               className={[
                 'post-card-quote-inset-body-row',
-                thumb ? 'has-media' : '',
+                compactMedia ? 'has-media' : '',
                 expanded && mediaItems.length > 0 ? 'is-expanded' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
             >
-              {thumb ? (
-                <QuoteMediaThumb
-                  item={thumb}
-                  extraCount={mediaItems.length - 1}
-                />
-              ) : null}
+              {compactMedia ? <QuoteMediaThumb items={compactMedia} /> : null}
               {text ? (
                 <p className="post-card-quote-inset-body">
                   <PostRichText text={text} />
@@ -904,66 +899,78 @@ export function QuotedPostInset({
   );
 }
 
-function QuoteMediaThumb({
-  item,
-  extraCount = 0,
-}: {
-  item: PostMediaItem;
-  extraCount?: number;
-}) {
-  const isVideo = isRenderablePostVideoMime(item.mime);
+function QuoteMediaThumb({ items }: { items: PostMediaItem[] }) {
+  const visible = items.slice(0, 4);
+  const singleVideoUrl =
+    visible.length === 1 && isRenderablePostVideoMime(visible[0]?.mime)
+      ? visible[0].url
+      : null;
   const [durationByUrl, setDurationByUrl] = useState<{
     url: string;
     label: string;
   } | null>(null);
   const durationLabel =
-    isVideo && durationByUrl?.url === item.url ? durationByUrl.label : '';
+    singleVideoUrl && durationByUrl?.url === singleVideoUrl
+      ? durationByUrl.label
+      : '';
 
   useEffect(() => {
-    if (!isVideo) return;
+    if (!singleVideoUrl) return;
     let cancelled = false;
     const video = document.createElement('video');
     video.preload = 'metadata';
     video.onloadedmetadata = () => {
       if (cancelled) return;
       setDurationByUrl({
-        url: item.url,
+        url: singleVideoUrl,
         label: formatMediaDuration(video.duration),
       });
     };
     video.onerror = () => {
-      if (!cancelled) setDurationByUrl({ url: item.url, label: '' });
+      if (!cancelled) setDurationByUrl({ url: singleVideoUrl, label: '' });
     };
-    video.src = item.url;
+    video.src = singleVideoUrl;
     return () => {
       cancelled = true;
       video.removeAttribute('src');
       video.load();
     };
-  }, [isVideo, item.url]);
+  }, [singleVideoUrl]);
+
+  if (visible.length === 0) return null;
 
   return (
-    <div className="post-card-quote-thumb" aria-hidden>
-      {isVideo ? (
-        <video
-          src={item.url}
-          muted
-          playsInline
-          preload="metadata"
-          className="post-card-quote-thumb-media"
-        />
-      ) : (
-        <img
-          src={item.url}
-          alt=""
-          className="post-card-quote-thumb-media"
-          loading="lazy"
-          decoding="async"
-        />
+    <div
+      className={[
+        'post-card-quote-thumb',
+        visible.length > 1 ? `is-collage is-${visible.length}` : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      aria-hidden
+    >
+      {visible.map((item, index) =>
+        isRenderablePostVideoMime(item.mime) ? (
+          <video
+            key={`${item.cid ?? item.url}:${index}`}
+            src={item.url}
+            muted
+            playsInline
+            preload="metadata"
+            className="post-card-quote-thumb-media"
+          />
+        ) : (
+          <img
+            key={`${item.cid ?? item.url}:${index}`}
+            src={item.url}
+            alt=""
+            className="post-card-quote-thumb-media"
+            loading="lazy"
+            decoding="async"
+          />
+        )
       )}
-      {extraCount > 0 ? (
-        <span className="post-card-quote-thumb-duration">+{extraCount}</span>
-      ) : durationLabel ? (
+      {durationLabel ? (
         <span className="post-card-quote-thumb-duration">{durationLabel}</span>
       ) : null}
     </div>
