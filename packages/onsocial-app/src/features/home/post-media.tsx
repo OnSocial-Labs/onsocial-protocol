@@ -1,6 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { VolumeMuteIcon, VolumeUpIcon } from '@onsocial/ui';
 import {
   usePostVideoPlayback,
@@ -8,6 +14,8 @@ import {
 } from '@/hooks/use-post-list-video';
 import type { PostMediaItem } from '@/lib/post-media';
 import {
+  collageCellStyle,
+  collageHero,
   isRenderablePostVideoMime,
   postMediaStripClassName,
 } from '@/lib/post-media';
@@ -28,6 +36,10 @@ interface PostMediaBlockProps {
   /** List: open detail (optionally with sound for video). */
   onActivate?: () => void;
   onRemove?: () => void;
+  /** Collage grid placement from measured aspect ratio. */
+  style?: CSSProperties;
+  /** Natural width / height once the file has loaded. */
+  onRatio?: (ratio: number) => void;
 }
 
 /**
@@ -45,6 +57,8 @@ export function PostMediaBlock({
   playbackDisabled = false,
   onActivate,
   onRemove,
+  style,
+  onRatio,
 }: PostMediaBlockProps) {
   const isVideo = isRenderablePostVideoMime(item.mime);
   const playbackMode: PostVideoPlaybackMode =
@@ -73,9 +87,14 @@ export function PostMediaBlock({
     setSoundOff(focusedVideoMuted);
   }, [focusedVideoMuted]);
 
+  const rememberRatio = (width: number, height: number) => {
+    if (width > 0 && height > 0) onRatio?.(width / height);
+  };
+
   return (
     <div
       ref={playbackMode ? containerRef : undefined}
+      style={style}
       className={[
         'post-media-tile',
         `post-media-tile--${size}`,
@@ -110,6 +129,10 @@ export function PostMediaBlock({
           preload="metadata"
           data-post-focus-video={isDetailVideo ? String(index) : undefined}
           className="post-media-element"
+          onLoadedMetadata={(event) => {
+            const video = event.currentTarget;
+            rememberRatio(video.videoWidth, video.videoHeight);
+          }}
         />
       ) : (
         <img
@@ -118,6 +141,10 @@ export function PostMediaBlock({
           className="post-media-element"
           loading={item.url.startsWith('blob:') ? 'eager' : 'lazy'}
           decoding="async"
+          onLoad={(event) => {
+            const img = event.currentTarget;
+            rememberRatio(img.naturalWidth, img.naturalHeight);
+          }}
         />
       )}
       {isDetailVideo ? (
@@ -195,6 +222,16 @@ export function PostMediaStrip({
   const stripRef = useRef<HTMLDivElement>(null);
   const visible = items.slice(0, 4);
   const isCarousel = focused && visible.length > 1;
+  const [ratios, setRatios] = useState<Record<string, number>>({});
+  const onRatio = useCallback((url: string, ratio: number) => {
+    setRatios((current) =>
+      current[url] === ratio ? current : { ...current, [url]: ratio }
+    );
+  }, []);
+  const hero = collageHero(
+    visible.length,
+    visible.map((item) => ratios[item.url] ?? null)
+  );
 
   useEffect(() => {
     if (!isCarousel) return;
@@ -215,6 +252,7 @@ export function PostMediaStrip({
         focused,
         page: size === 'page',
         quote: size === 'quote',
+        layout: hero?.mode,
       })}
     >
       {visible.map((item, index) => (
@@ -232,6 +270,8 @@ export function PostMediaStrip({
           }
           resumeFocusedVideo={resumeFocusedVideo && index === resumeMediaIndex}
           onActivate={onActivate ? () => onActivate(index) : undefined}
+          style={collageCellStyle(index, visible.length, hero)}
+          onRatio={(ratio) => onRatio(item.url, ratio)}
         />
       ))}
     </div>

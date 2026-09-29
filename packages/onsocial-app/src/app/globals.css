@@ -23421,7 +23421,7 @@ a.os-surface-row {
 
   /*
    * Multi attachment — borderless collage (rounded clip + hairline seams only).
-   * 2: side-by-side · 3: large left + two stacked · 4: 2×2
+   * 2: side-by-side · 3: wide photo on top, otherwise tallest on the left · 4: 2×2
    */
   .post-media-strip.is-collage {
     display: grid;
@@ -23457,14 +23457,17 @@ a.os-surface-row {
   }
 
   .post-media-strip.is-collage.post-media-strip--3 {
-    grid-template-columns: 1.15fr 1fr;
+    grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
     height: 12.5rem;
   }
 
-  .post-media-strip.is-collage.post-media-strip--3
-    .post-media-tile:first-child {
-    grid-row: 1 / -1;
+  .post-media-strip.is-collage.post-media-strip--3.is-wide {
+    grid-template-rows: 1.15fr 1fr;
+  }
+
+  .post-media-strip.is-collage.post-media-strip--3.is-tall {
+    grid-template-columns: 1.15fr 1fr;
   }
 
   .post-media-strip.is-collage.post-media-strip--4 {

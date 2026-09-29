@@ -6,6 +6,8 @@ import {
   appendPostMediaIndex,
   appendPostMediaUnmute,
   applyMediaKindOverride,
+  collageCellStyle,
+  collageHero,
   formatMediaDuration,
   isPostVideoMime,
   mediaKindFromFile,
@@ -118,6 +120,41 @@ describe('collage + unmute helpers', () => {
     expect(postMediaStripClassName({ count: 2, quote: true })).toBe(
       'post-media-strip post-media-strip--2 is-collage is-quote'
     );
+    expect(postMediaStripClassName({ count: 3, layout: 'wide' })).toBe(
+      'post-media-strip post-media-strip--3 is-collage is-wide'
+    );
+    expect(
+      postMediaStripClassName({ count: 3, layout: 'tall', page: true })
+    ).toBe('post-media-strip post-media-strip--3 is-collage is-tall is-page');
+  });
+
+  it('collageHero puts a wide photo on top and the tallest on the left', () => {
+    expect(collageHero(2, [2, 0.5])).toBeNull();
+    expect(collageHero(3, [null, null, null])).toEqual({
+      mode: 'wide',
+      index: 0,
+    });
+    expect(collageHero(3, [3.1, 0.55, 1.23])).toEqual({
+      mode: 'wide',
+      index: 0,
+    });
+    expect(collageHero(3, [1.1, 0.4, 1.0])).toEqual({
+      mode: 'tall',
+      index: 1,
+    });
+    expect(collageCellStyle(0, 3, { mode: 'wide', index: 0 })).toEqual({
+      gridColumn: '1 / -1',
+      gridRow: '1',
+    });
+    expect(collageCellStyle(1, 3, { mode: 'wide', index: 0 })).toEqual({
+      gridColumn: '1',
+      gridRow: '2',
+    });
+    expect(collageCellStyle(1, 3, { mode: 'tall', index: 1 })).toEqual({
+      gridColumn: '1',
+      gridRow: '1 / -1',
+    });
+    expect(collageCellStyle(0, 2, { mode: 'wide', index: 0 })).toBeUndefined();
   });
 
   it('appendPostMediaUnmute adds query params', () => {

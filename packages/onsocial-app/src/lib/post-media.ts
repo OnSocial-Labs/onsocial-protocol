@@ -593,12 +593,73 @@ export function revokeDroppedOptimisticMedia(
   }
 }
 
+/**
+ * Wide enough to take the full-width row in a 3-up collage.
+ * Shared by the small quote thumb and the opened post collage.
+ */
+export const COLLAGE_WIDE_RATIO = 1.2;
+
+export type CollageHero = { mode: 'wide' | 'tall'; index: number };
+
+/**
+ * 3-up placement. A photo at least {@link COLLAGE_WIDE_RATIO} wide spans the
+ * top row. Otherwise the tallest sits on the left. Unknown sizes default to
+ * the first photo on top so the collage does not flash to the left.
+ */
+export function collageHero(
+  count: number,
+  ratios: Array<number | null | undefined>
+): CollageHero | null {
+  if (count !== 3) return null;
+  let wideIndex = 0;
+  let tallIndex = 0;
+  let widest = -Infinity;
+  let tallest = Infinity;
+  let known = false;
+  ratios.forEach((ratio, index) => {
+    if (ratio == null || !Number.isFinite(ratio) || ratio <= 0) return;
+    known = true;
+    if (ratio > widest) {
+      widest = ratio;
+      wideIndex = index;
+    }
+    if (ratio < tallest) {
+      tallest = ratio;
+      tallIndex = index;
+    }
+  });
+  if (!known || widest >= COLLAGE_WIDE_RATIO) {
+    return { mode: 'wide', index: known ? wideIndex : 0 };
+  }
+  return { mode: 'tall', index: tallIndex };
+}
+
+/** Grid placement for one cell of a 3-up collage. */
+export function collageCellStyle(
+  index: number,
+  count: number,
+  hero: CollageHero | null
+): { gridColumn: string; gridRow: string } | undefined {
+  if (count !== 3 || !hero) return undefined;
+  const rest = [0, 1, 2].filter((slot) => slot !== hero.index);
+  if (hero.mode === 'wide') {
+    if (index === hero.index) return { gridColumn: '1 / -1', gridRow: '1' };
+    if (index === rest[0]) return { gridColumn: '1', gridRow: '2' };
+    return { gridColumn: '2', gridRow: '2' };
+  }
+  if (index === hero.index) return { gridColumn: '1', gridRow: '1 / -1' };
+  if (index === rest[0]) return { gridColumn: '2', gridRow: '1' };
+  return { gridColumn: '2', gridRow: '2' };
+}
+
 /** Class names for the photo collage. Several photos stay a collage on the opened post too. */
 export function postMediaStripClassName(options: {
   count: number;
   focused?: boolean;
   page?: boolean;
   quote?: boolean;
+  /** 3-up size discovery: wide photo on top, or the tallest on the left. */
+  layout?: 'wide' | 'tall' | null;
 }): string {
   const count = Math.min(Math.max(options.count, 1), POST_MEDIA_MAX_FILES);
   const multi = count > 1;
@@ -606,6 +667,7 @@ export function postMediaStripClassName(options: {
     'post-media-strip',
     `post-media-strip--${count}`,
     multi ? 'is-collage' : '',
+    options.layout ? `is-${options.layout}` : '',
     options.quote ? 'is-quote' : '',
     options.focused ? 'is-focused' : '',
     options.page ? 'is-page' : '',

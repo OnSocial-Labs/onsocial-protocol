@@ -185,6 +185,8 @@ import {
   postVisualMedia,
   resolveFeedMediaActivate,
   truncateQuoteText,
+  collageCellStyle,
+  collageHero,
   type PostMediaItem,
 } from '@/lib/post-media';
 import { isInAppPostLayerHref, postThreadPath } from '@/lib/post-routes';
@@ -975,54 +977,6 @@ export function QuotedPostInset({
   );
 }
 
-/** Wide enough to take the full-width row in a 3-up quote thumb. */
-const QUOTE_THUMB_WIDE_RATIO = 1.2;
-
-function quoteThumbHero(
-  count: number,
-  ratios: Array<number | null>
-): { mode: 'wide' | 'tall'; index: number } | null {
-  if (count !== 3) return null;
-  let wideIndex = 0;
-  let tallIndex = 0;
-  let widest = -Infinity;
-  let tallest = Infinity;
-  let known = false;
-  ratios.forEach((ratio, index) => {
-    if (ratio == null || !Number.isFinite(ratio) || ratio <= 0) return;
-    known = true;
-    if (ratio > widest) {
-      widest = ratio;
-      wideIndex = index;
-    }
-    if (ratio < tallest) {
-      tallest = ratio;
-      tallIndex = index;
-    }
-  });
-  if (!known || widest >= QUOTE_THUMB_WIDE_RATIO) {
-    return { mode: 'wide', index: known ? wideIndex : 0 };
-  }
-  return { mode: 'tall', index: tallIndex };
-}
-
-function quoteThumbCellStyle(
-  index: number,
-  count: number,
-  hero: { mode: 'wide' | 'tall'; index: number } | null
-): CSSProperties | undefined {
-  if (count !== 3 || !hero) return undefined;
-  const rest = [0, 1, 2].filter((slot) => slot !== hero.index);
-  if (hero.mode === 'wide') {
-    if (index === hero.index) return { gridColumn: '1 / -1', gridRow: '1' };
-    if (index === rest[0]) return { gridColumn: '1', gridRow: '2' };
-    return { gridColumn: '2', gridRow: '2' };
-  }
-  if (index === hero.index) return { gridColumn: '1', gridRow: '1 / -1' };
-  if (index === rest[0]) return { gridColumn: '2', gridRow: '1' };
-  return { gridColumn: '2', gridRow: '2' };
-}
-
 function QuoteThumbTile({
   item,
   style,
@@ -1075,7 +1029,7 @@ function QuoteMediaThumb({ items }: { items: PostMediaItem[] }) {
       current[url] === ratio ? current : { ...current, [url]: ratio }
     );
   }, []);
-  const hero = quoteThumbHero(
+  const hero = collageHero(
     visible.length,
     visible.map((item) => ratios[item.url] ?? null)
   );
@@ -1132,7 +1086,7 @@ function QuoteMediaThumb({ items }: { items: PostMediaItem[] }) {
         <QuoteThumbTile
           key={`${item.cid ?? item.url}:${index}`}
           item={item}
-          style={quoteThumbCellStyle(index, visible.length, hero)}
+          style={collageCellStyle(index, visible.length, hero)}
           onRatio={onRatio}
         />
       ))}
