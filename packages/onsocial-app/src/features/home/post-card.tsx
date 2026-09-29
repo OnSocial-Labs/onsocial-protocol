@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
@@ -184,6 +185,8 @@ import {
   postVisualMedia,
   resolveFeedMediaActivate,
   truncateQuoteText,
+  collageCellStyle,
+  collageHero,
   type PostMediaItem,
 } from '@/lib/post-media';
 import { isInAppPostLayerHref, postThreadPath } from '@/lib/post-routes';
@@ -792,11 +795,14 @@ export function QuotedPostInset({
   post,
   authorProfile,
   href,
+  expanded = false,
 }: {
   post: PostRow;
   authorProfile?: PostAuthorProfile;
   /** Navigate to the quoted post's own page (feed/thread surfaces). */
   href?: string;
+  /** Opened post — quoted media at page size. Feed and compose stay the small thumb. */
+  expanded?: boolean;
 }) {
   const router = useRouter();
   const { openPostThread } = usePostThreadLayer();
@@ -805,9 +811,11 @@ export function QuotedPostInset({
   const name = displayName(post.accountId, authorProfile?.displayName);
   const text = truncateQuoteText(parsePostText(post.value));
   const mediaItems = parsePostMedia(post.value).slice(0, 4);
-  const thumb = mediaItems.length === 1 ? mediaItems[0] : null;
-  const collage = mediaItems.length > 1 ? mediaItems : null;
+  const compactMedia = !expanded && mediaItems.length > 0 ? mediaItems : null;
   const interactive = Boolean(href);
+  const [quotePhotoOpen, setQuotePhotoOpen] = useState(false);
+  const [quotePhotoIndex, setQuotePhotoIndex] = useState(0);
+  const [quoteThreadOpen, setQuoteThreadOpen] = useState(false);
 
   const open = (event: {
     preventDefault(): void;
@@ -832,6 +840,7 @@ export function QuotedPostInset({
   };
 
   return (
+    <>
     <div
       className={`post-card-quote-inset${interactive ? ' post-card-quote-inset--link' : ''}`}
       role={interactive ? 'link' : undefined}
@@ -864,30 +873,31 @@ export function QuotedPostInset({
           />
         </span>
         <PostSensitiveGate labels={labels} safeMode={safeMode} compact>
-          {thumb || collage || text ? (
+          {compactMedia || (expanded && mediaItems.length > 0) || text ? (
             <div
               className={[
                 'post-card-quote-inset-body-row',
-                thumb ? 'has-media' : '',
-                collage ? 'is-stacked' : '',
+                compactMedia ? 'has-media' : '',
+                expanded && mediaItems.length > 0 ? 'is-expanded' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
             >
-              {/* Multi: text above mini-collage. Single: thumb beside text. */}
-              {collage && text ? (
+              {compactMedia ? <QuoteMediaThumb items={compactMedia} /> : null}
+              {text ? (
                 <p className="post-card-quote-inset-body">
                   <PostRichText text={text} />
                 </p>
               ) : null}
-              {collage ? (
-                <PostMediaStrip items={collage} size="quote" playbackDisabled />
-              ) : null}
-              {thumb ? <QuoteMediaThumb item={thumb} /> : null}
-              {!collage && text ? (
-                <p className="post-card-quote-inset-body">
-                  <PostRichText text={text} />
-                </p>
+              {expanded && mediaItems.length > 0 ? (
+                <PostMediaStrip
+                  items={mediaItems}
+                  size="page"
+                  onActivate={(index) => {
+                    setQuotePhotoIndex(index);
+                    setQuotePhotoOpen(true);
+                  }}
+                />
               ) : null}
             </div>
           ) : (
@@ -896,60 +906,190 @@ export function QuotedPostInset({
         </PostSensitiveGate>
       </div>
     </div>
+    {expanded && mediaItems.length > 0 ? (
+      <FeedPhotoEnlargeScreen
+        open={quotePhotoOpen}
+        onOpenChange={(open) => {
+          setQuotePhotoOpen(open);
+          if (!open) setQuoteThreadOpen(false);
+        }}
+        title={mediaItems.some((item) => isRenderablePostVideoMime(item.mime)) ? 'Media' : 'Photos'}
+        caption={text.trim() ? text : null}
+        captionDate={
+          post.blockTimestamp ? formatPostTimestamp(post.blockTimestamp) : null
+        }
+        photos={mediaItems}
+        initialIndex={quotePhotoIndex}
+        threadOpen={quoteThreadOpen}
+        onDismissThread={() => setQuoteThreadOpen(false)}
+        threadAuthor={post.accountId}
+        threadPostId={post.postId}
+        threadRoot={post}
+        peekIdentity={
+          <div className="feed-photo-caption-identity-row">
+            <Link
+              href={portfolioPath(post.accountId)}
+              className="os-media-face-identity"
+              scroll={false}
+              aria-label={`View ${name}'s profile`}
+              onClick={() => {
+                setQuotePhotoOpen(false);
+                setQuoteThreadOpen(false);
+              }}
+            >
+              <AccountAvatar
+                accountId={post.accountId}
+                kind={authorProfile?.kind}
+                src={authorProfile?.avatarUrl ?? null}
+                fallbackInitial={name}
+                size="lg"
+                className="post-card-avatar"
+              />
+              <span className="os-media-face-identity-copy">
+                <span className="os-media-face-identity-name-row">
+                  <span className="os-media-face-identity-name">{name}</span>
+                </span>
+                <span className="os-media-face-identity-handle">
+                  @{post.accountId}
+                </span>
+              </span>
+            </Link>
+          </div>
+        }
+        engagement={
+          <div className="post-card-engagement">
+            <div className="post-card-engagement-actions">
+              <button
+                type="button"
+                className="post-card-stat post-card-stat-button"
+                aria-label="Reply to this post"
+                onClick={() => setQuoteThreadOpen(true)}
+              >
+                <MessageRoundIcon aria-hidden />
+                Reply
+              </button>
+            </div>
+          </div>
+        }
+      />
+    ) : null}
+    </>
   );
 }
 
-function QuoteMediaThumb({ item }: { item: PostMediaItem }) {
-  const isVideo = isRenderablePostVideoMime(item.mime);
+function QuoteThumbTile({
+  item,
+  style,
+  onRatio,
+}: {
+  item: PostMediaItem;
+  style?: CSSProperties;
+  onRatio: (url: string, ratio: number) => void;
+}) {
+  const remember = (width: number, height: number) => {
+    if (width > 0 && height > 0) onRatio(item.url, width / height);
+  };
+  if (isRenderablePostVideoMime(item.mime)) {
+    return (
+      <video
+        src={item.url}
+        muted
+        playsInline
+        preload="metadata"
+        className="post-card-quote-thumb-media"
+        style={style}
+        onLoadedMetadata={(event) => {
+          const video = event.currentTarget;
+          remember(video.videoWidth, video.videoHeight);
+        }}
+      />
+    );
+  }
+  return (
+    <img
+      src={item.url}
+      alt=""
+      className="post-card-quote-thumb-media"
+      style={style}
+      loading="lazy"
+      decoding="async"
+      onLoad={(event) => {
+        const img = event.currentTarget;
+        remember(img.naturalWidth, img.naturalHeight);
+      }}
+    />
+  );
+}
+
+function QuoteMediaThumb({ items }: { items: PostMediaItem[] }) {
+  const visible = items.slice(0, 4);
+  const [ratios, setRatios] = useState<Record<string, number>>({});
+  const onRatio = useCallback((url: string, ratio: number) => {
+    setRatios((current) =>
+      current[url] === ratio ? current : { ...current, [url]: ratio }
+    );
+  }, []);
+  const hero = collageHero(
+    visible.length,
+    visible.map((item) => ratios[item.url] ?? null)
+  );
+  const singleVideoUrl =
+    visible.length === 1 && isRenderablePostVideoMime(visible[0]?.mime)
+      ? visible[0].url
+      : null;
   const [durationByUrl, setDurationByUrl] = useState<{
     url: string;
     label: string;
   } | null>(null);
   const durationLabel =
-    isVideo && durationByUrl?.url === item.url ? durationByUrl.label : '';
+    singleVideoUrl && durationByUrl?.url === singleVideoUrl
+      ? durationByUrl.label
+      : '';
 
   useEffect(() => {
-    if (!isVideo) return;
+    if (!singleVideoUrl) return;
     let cancelled = false;
     const video = document.createElement('video');
     video.preload = 'metadata';
     video.onloadedmetadata = () => {
       if (cancelled) return;
       setDurationByUrl({
-        url: item.url,
+        url: singleVideoUrl,
         label: formatMediaDuration(video.duration),
       });
     };
     video.onerror = () => {
-      if (!cancelled) setDurationByUrl({ url: item.url, label: '' });
+      if (!cancelled) setDurationByUrl({ url: singleVideoUrl, label: '' });
     };
-    video.src = item.url;
+    video.src = singleVideoUrl;
     return () => {
       cancelled = true;
       video.removeAttribute('src');
       video.load();
     };
-  }, [isVideo, item.url]);
+  }, [singleVideoUrl]);
+
+  if (visible.length === 0) return null;
 
   return (
-    <div className="post-card-quote-thumb" aria-hidden>
-      {isVideo ? (
-        <video
-          src={item.url}
-          muted
-          playsInline
-          preload="metadata"
-          className="post-card-quote-thumb-media"
+    <div
+      className={[
+        'post-card-quote-thumb',
+        visible.length > 1 ? `is-collage is-${visible.length}` : '',
+        hero ? `is-${hero.mode}` : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      aria-hidden
+    >
+      {visible.map((item, index) => (
+        <QuoteThumbTile
+          key={`${item.cid ?? item.url}:${index}`}
+          item={item}
+          style={collageCellStyle(index, visible.length, hero)}
+          onRatio={onRatio}
         />
-      ) : (
-        <img
-          src={item.url}
-          alt=""
-          className="post-card-quote-thumb-media"
-          loading="lazy"
-          decoding="async"
-        />
-      )}
+      ))}
       {durationLabel ? (
         <span className="post-card-quote-thumb-duration">{durationLabel}</span>
       ) : null}
@@ -2237,7 +2377,7 @@ export function PostCard({
             <PostMediaStrip
               items={mediaItems}
               size={mediaFocused ? 'page' : 'compact'}
-              focused={mediaFocused}
+              focused={mediaFocused && mediaItems.length <= 1}
               focusedVideoMuted={!mediaUnmuted}
               resumeFocusedVideo={mediaUnmuted}
               resumeMediaIndex={mediaResumeIndex}
@@ -2339,6 +2479,7 @@ export function PostCard({
             post={quotedPost}
             authorProfile={quotedAuthorProfile}
             href={quotedHref}
+            expanded={detailLayout}
           />
         ) : null}
         {detailLayout ? (
