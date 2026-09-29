@@ -46,6 +46,8 @@ fn quick_mint_and_list(contract: &mut Contract, seller: &AccountId, price: u128)
         token_id: token_id.clone(),
         price: U128(price),
         expires_at: None,
+        usd_e6: None,
+        min_near: None,
     };
     contract.execute(make_request(list_action)).unwrap();
     token_id

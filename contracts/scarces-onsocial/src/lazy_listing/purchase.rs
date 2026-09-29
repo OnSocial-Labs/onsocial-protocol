@@ -54,7 +54,16 @@ impl Contract {
             )));
         }
 
-        let unit_price = listing.price.0;
+        let unit_price = if let Some(unit) = self.dollar_unit_override {
+            unit
+        } else if self.dollar_price(DOLLAR_SCOPE_LAZY, &listing_id).is_some() {
+            self.pending_attached_balance += deposit;
+            return Err(MarketplaceError::InvalidState(
+                "This listing is priced in dollars".into(),
+            ));
+        } else {
+            listing.price.0
+        };
         let Some(total_price) = unit_price.checked_mul(quantity as u128) else {
             self.pending_attached_balance += deposit;
             return Err(MarketplaceError::InternalError("Price overflow".into()));
@@ -176,6 +185,9 @@ impl Contract {
             self.lazy_listings.remove(&listing_id);
             let bytes_freed = before_remove.saturating_sub(self.storage_usage_flushed());
             self.release_storage_waterfall(&creator_id, bytes_freed, app_id.as_deref());
+            if self.dollar_unit_override.is_some() {
+                self.clear_dollar(DOLLAR_SCOPE_LAZY, &listing_id, &creator_id);
+            }
         }
 
         self.pending_attached_balance += deposit.saturating_sub(total_price);

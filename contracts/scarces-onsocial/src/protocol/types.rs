@@ -65,6 +65,10 @@ pub enum Action {
     UpdateCollectionPrice {
         collection_id: String,
         new_price_near: U128,
+        #[serde(default)]
+        usd_e6: Option<U128>,
+        #[serde(default)]
+        min_near: Option<U128>,
     },
     UpdateCollectionTiming {
         collection_id: String,
@@ -133,6 +137,11 @@ pub enum Action {
         token_id: String,
         price: U128,
         expires_at: Option<u64>,
+        /// Millionths of a dollar. When set, `price` is only the stored NEAR floor.
+        #[serde(default)]
+        usd_e6: Option<U128>,
+        #[serde(default)]
+        min_near: Option<U128>,
     },
     DelistNativeScarce {
         token_id: String,
@@ -156,6 +165,10 @@ pub enum Action {
         scarce_contract_id: AccountId,
         token_id: String,
         price: U128,
+        #[serde(default)]
+        usd_e6: Option<U128>,
+        #[serde(default)]
+        min_near: Option<U128>,
     },
 
     AcceptOffer {
@@ -177,6 +190,10 @@ pub enum Action {
     CreateLazyListing {
         #[serde(flatten)]
         params: crate::LazyListing,
+        #[serde(default)]
+        usd_e6: Option<U128>,
+        #[serde(default)]
+        min_near: Option<U128>,
     },
     CancelLazyListing {
         listing_id: String,
@@ -184,6 +201,10 @@ pub enum Action {
     UpdateLazyListingPrice {
         listing_id: String,
         new_price: U128,
+        #[serde(default)]
+        usd_e6: Option<U128>,
+        #[serde(default)]
+        min_near: Option<U128>,
     },
     UpdateLazyListingExpiry {
         listing_id: String,

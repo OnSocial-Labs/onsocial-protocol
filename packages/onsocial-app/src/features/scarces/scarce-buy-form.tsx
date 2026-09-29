@@ -5,6 +5,7 @@ import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import { CollectionQtyStepper } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   collectionIdFromTokenId,
@@ -62,6 +63,19 @@ import {
   LazyListingNotFoundError,
   resolveLazyListingDepositYocto,
 } from '@/features/scarces/scarces-wallet-client';
+import {
+  fetchDollarOracle,
+  fetchDollarSticker,
+  formatUsdE6,
+  type DollarOracle,
+  type DollarScope,
+  type DollarSticker,
+} from '@/features/scarces/dollar-price';
+import {
+  nearChainPayTokens,
+  purchaseDollarScarce,
+  type DollarPayToken,
+} from '@/features/scarces/dollar-purchase';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { accountIdsEqual } from '@/lib/account-match';
 import { nearToYocto } from '@/lib/app-near-rpc';
@@ -195,6 +209,14 @@ export function ScarceBuyForm({
   const [confirmDelist, setConfirmDelist] = useState(false);
   const confirmTimerRef = useRef<number | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [dollarSticker, setDollarSticker] = useState<DollarSticker | null>(
+    null
+  );
+  const [dollarOracle, setDollarOracle] = useState<DollarOracle | null>(null);
+  const [dollarReady, setDollarReady] = useState(false);
+  const [dollarLookupError, setDollarLookupError] = useState(false);
+  const [payAssetId, setPayAssetId] = useState('near');
+  const [payTokens, setPayTokens] = useState<DollarPayToken[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [hydratedDescription, setHydratedDescription] = useState<string | null>(
     null
@@ -433,6 +455,71 @@ export function ScarceBuyForm({
   const isDropBuy = status === 'drop' && Boolean(collectionId);
   const isMarketBuy = status === 'listed' && Boolean(tokenId);
   const isPrimaryMint = isLazyBuy || isDropBuy;
+  const dollarScope: DollarScope | null = isMarketBuy
+    ? 'sale'
+    : isLazyBuy
+      ? 'lazy'
+      : isDropBuy
+        ? 'collection'
+        : null;
+  const dollarId = isMarketBuy
+    ? tokenId
+    : isLazyBuy
+      ? listingId
+      : isDropBuy
+        ? collectionId
+        : null;
+
+  useEffect(() => {
+    if (!dollarScope || !dollarId) {
+      setDollarSticker(null);
+      setDollarOracle(null);
+      setDollarLookupError(false);
+      setDollarReady(true);
+      return;
+    }
+    setDollarReady(false);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const sticker = await fetchDollarSticker(dollarScope, dollarId);
+        const oracle = sticker ? await fetchDollarOracle() : null;
+        if (cancelled) return;
+        setDollarSticker(sticker);
+        setDollarOracle(oracle);
+        setDollarLookupError(false);
+      } catch {
+        if (cancelled) return;
+        setDollarSticker(null);
+        setDollarOracle(null);
+        setDollarLookupError(true);
+      } finally {
+        if (!cancelled) setDollarReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dollarScope, dollarId]);
+
+  useEffect(() => {
+    if (!dollarSticker || ACTIVE_NEAR_NETWORK !== 'mainnet') {
+      setPayTokens([]);
+      return;
+    }
+    let cancelled = false;
+    void fetch('/api/onapi/intents/tokens')
+      .then((response) => (response.ok ? response.json() : []))
+      .then((body: unknown) => {
+        if (!cancelled) setPayTokens(nearChainPayTokens(body));
+      })
+      .catch(() => {
+        if (!cancelled) setPayTokens([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dollarSticker]);
 
   useEffect(() => {
     if (!viewerAccountId || !tokenId || !isMarketBuy || isOwnListing) {
@@ -493,15 +580,27 @@ export function ScarceBuyForm({
     : isMarketBuy
       ? priceNear
       : undefined;
-  const showFooterPrice =
-    isConnected && ((isDropBuy && isPaidMint) || (isMarketBuy && isPaidAsk));
+  const dollarUnitLabel = dollarSticker
+    ? formatUsdE6(dollarSticker.usdE6)
+    : null;
+  const dollarTotalLabel = dollarSticker
+    ? formatUsdE6(dollarSticker.usdE6, mintQty)
+    : null;
+  const showFooterPrice = dollarTotalLabel
+    ? isConnected && (isLazyBuy || isDropBuy || isMarketBuy)
+    : isConnected && ((isDropBuy && isPaidMint) || (isMarketBuy && isPaidAsk));
   const primaryLabelWithPrice = showFooterPrice
-    ? `${primaryActionLabel} · ${formatScarceBuyPrice(footerPriceNear) || '—'}`
+    ? `${primaryActionLabel} · ${dollarTotalLabel || formatScarceBuyPrice(footerPriceNear) || '—'}`
     : isConnected
       ? primaryActionLabel
       : 'Connect';
 
-  const canSubmit = isConnected && !pending && isBuyable;
+  const dollarCheckoutBlocked =
+    !dollarReady ||
+    dollarLookupError ||
+    (dollarSticker != null && dollarOracle == null);
+  const canSubmit =
+    isConnected && !pending && isBuyable && !dollarCheckoutBlocked;
 
   const clearDelistConfirm = useCallback(() => {
     if (confirmTimerRef.current != null) {
@@ -679,7 +778,7 @@ export function ScarceBuyForm({
     return {
       title,
       kind: isPrimaryMint ? 'mint' : 'resale',
-      askNear: priceNear ?? null,
+      askNear: dollarSticker ? null : (priceNear ?? null),
       mintPriceNear: isPrimaryMint ? (priceNear ?? null) : mintPriceNear,
       mintedAtMs,
       listedAtMs: listing?.listedAtMs ?? null,
@@ -704,6 +803,7 @@ export function ScarceBuyForm({
     title,
     isPrimaryMint,
     priceNear,
+    dollarSticker,
     mintPriceNear,
     mintedAtMs,
     listing?.listedAtMs,
@@ -739,6 +839,15 @@ export function ScarceBuyForm({
       return;
     }
 
+    if (!dollarReady || dollarLookupError) {
+      setFieldError('Could not read the price.');
+      return;
+    }
+    if (dollarSticker && !dollarOracle) {
+      setFieldError('Dollar checkout opens when the price oracle is set.');
+      return;
+    }
+
     setPending(true);
     try {
       // Wallet only — paid scarces must not bootstrap the core social session.
@@ -746,60 +855,81 @@ export function ScarceBuyForm({
       const client = createAppScarcesWalletClient(accountId, wallet);
       const fallbackDeposit = priceNear ? nearToYocto(priceNear) : null;
 
-      let response;
-      if (isLazyBuy) {
-        const depositYocto = await resolveLazyListingDepositYocto(
-          listingId!,
-          fallbackDeposit
-        );
-        response = await client.scarces.lazy.purchase(listingId!, {
-          depositYocto,
+      if (dollarSticker && dollarOracle && dollarScope && dollarId) {
+        const confirmed = await purchaseDollarScarce({
+          wallet,
+          accountId,
+          scope: dollarScope,
+          id: dollarId,
+          quantity: isMarketBuy ? 1 : mintQty,
+          sticker: dollarSticker,
+          oracle: dollarOracle,
+          payAssetId,
+          confirm: (txHashes, copy) =>
+            trackTransaction({
+              txHashes,
+              submittedMessage: copy.submittedMessage,
+              successMessage: copy.successMessage,
+              failureMessage: copy.failureMessage,
+            }),
         });
-      } else if (isDropBuy) {
-        // Free drops (priceNear null/"0") omit deposit opts — same as the
-        // former collection-page mint path. Paid drops need a deposit × qty.
-        const isFree = !fallbackDeposit || fallbackDeposit === '0';
-        let depositYocto: string | undefined;
-        if (!isFree && fallbackDeposit) {
-          try {
-            depositYocto = (
-              BigInt(fallbackDeposit) * BigInt(mintQty)
-            ).toString();
-          } catch {
-            depositYocto = fallbackDeposit;
-          }
-        }
-        response = await client.scarces.collections.purchaseFrom(
-          collectionId!,
-          priceNear ?? '0',
-          {
-            quantity: mintQty,
-            ...(depositYocto ? { depositYocto } : {}),
-          }
-        );
+        if (!confirmed) return;
       } else {
-        if (!fallbackDeposit || fallbackDeposit === '0') {
-          setFieldError('Could not load listing price. Try again.');
-          return;
+        let response;
+        if (isLazyBuy) {
+          const depositYocto = await resolveLazyListingDepositYocto(
+            listingId!,
+            fallbackDeposit
+          );
+          response = await client.scarces.lazy.purchase(listingId!, {
+            depositYocto,
+          });
+        } else if (isDropBuy) {
+          // Free drops (priceNear null/"0") omit deposit opts — same as the
+          // former collection-page mint path. Paid drops need a deposit × qty.
+          const isFree = !fallbackDeposit || fallbackDeposit === '0';
+          let depositYocto: string | undefined;
+          if (!isFree && fallbackDeposit) {
+            try {
+              depositYocto = (
+                BigInt(fallbackDeposit) * BigInt(mintQty)
+              ).toString();
+            } catch {
+              depositYocto = fallbackDeposit;
+            }
+          }
+          response = await client.scarces.collections.purchaseFrom(
+            collectionId!,
+            priceNear ?? '0',
+            {
+              quantity: mintQty,
+              ...(depositYocto ? { depositYocto } : {}),
+            }
+          );
+        } else {
+          if (!fallbackDeposit || fallbackDeposit === '0') {
+            setFieldError('Could not load listing price. Try again.');
+            return;
+          }
+          response = await client.scarces.market.purchase(tokenId!, {
+            depositYocto: fallbackDeposit,
+          });
         }
-        response = await client.scarces.market.purchase(tokenId!, {
-          depositYocto: fallbackDeposit,
-        });
-      }
 
-      const confirmed = await trackTransaction({
-        txHashes: collectRelayTxHashes(response),
-        submittedMessage: isPrimaryMint
-          ? txToastConfirming.mintingCollection
-          : txToastConfirming.buyingScarce,
-        successMessage: isPrimaryMint
-          ? txToastSuccess.collectionMinted
-          : txToastSuccess.scarcePurchased,
-        failureMessage: isPrimaryMint
-          ? txToastError.mintCollectionFailed
-          : txToastError.buyScarceFailed,
-      });
-      if (!confirmed) return;
+        const confirmed = await trackTransaction({
+          txHashes: collectRelayTxHashes(response),
+          submittedMessage: isPrimaryMint
+            ? txToastConfirming.mintingCollection
+            : txToastConfirming.buyingScarce,
+          successMessage: isPrimaryMint
+            ? txToastSuccess.collectionMinted
+            : txToastSuccess.scarcePurchased,
+          failureMessage: isPrimaryMint
+            ? txToastError.mintCollectionFailed
+            : txToastError.buyScarceFailed,
+        });
+        if (!confirmed) return;
+      }
 
       if (post) {
         const key = postScarceKey(post.accountId, post.postId);
@@ -947,6 +1077,34 @@ export function ScarceBuyForm({
           {showDistinctSeller && sellerId ? (
             <ScarcePartyLine label="Seller" accountId={sellerId} />
           ) : null}
+          {dollarSticker ? (
+            <p className="profile-support-hint">
+              {dollarOracle
+                ? 'Price stays in dollars. You pay the NEAR it is worth right now.'
+                : 'Dollar checkout opens when the price oracle is set.'}
+            </p>
+          ) : null}
+          {dollarSticker &&
+          dollarOracle &&
+          ACTIVE_NEAR_NETWORK === 'mainnet' &&
+          payTokens.length > 0 ? (
+            <label className="profile-support-hint">
+              Pay with
+              <select
+                value={payAssetId}
+                disabled={pending}
+                aria-label="Pay with"
+                onChange={(event) => setPayAssetId(event.target.value)}
+              >
+                <option value="near">NEAR</option>
+                {payTokens.map((token) => (
+                  <option key={token.assetId} value={token.assetId}>
+                    {token.symbol}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           {openOfferNear ? (
             <p className="profile-support-hint">
               Your offer · {formatScarceBuyPrice(openOfferNear)}
@@ -959,6 +1117,7 @@ export function ScarceBuyForm({
               remaining,
               unit: supplyUnit,
               priceNear,
+              priceLabel: dollarUnitLabel,
               listedLabel: listing?.listedAtMs
                 ? `Listed ${formatMarketRelativeTime(listing.listedAtMs)}`
                 : null,

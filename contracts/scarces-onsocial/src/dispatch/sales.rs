@@ -12,12 +12,29 @@ impl Contract {
                 token_id,
                 price,
                 expires_at,
+                usd_e6,
+                min_near,
             } => {
-                self.list_native_scarce(actor_id, &token_id, price, expires_at)?;
+                let min = min_near.map(|value| value.0).unwrap_or(0);
+                if let Some(usd) = usd_e6 {
+                    self.validate_dollar_listing(DOLLAR_SCOPE_SALE, &token_id, usd.0)?;
+                }
+                let list_price = if usd_e6.is_some() {
+                    Contract::stored_near_for_dollar(min)
+                } else {
+                    price
+                };
+                self.list_native_scarce(actor_id, &token_id, list_price, expires_at)?;
+                if let Some(usd) = usd_e6 {
+                    self.write_dollar(DOLLAR_SCOPE_SALE, &token_id, usd.0, min, actor_id)?;
+                } else {
+                    self.clear_dollar(DOLLAR_SCOPE_SALE, &token_id, actor_id);
+                }
                 Ok(Value::Null)
             }
             Action::DelistNativeScarce { token_id } => {
                 self.delist_native_scarce(actor_id, &token_id)?;
+                self.clear_dollar(DOLLAR_SCOPE_SALE, &token_id, actor_id);
                 Ok(Value::Null)
             }
             Action::ListNativeScarceAuction { token_id, params } => {
@@ -43,8 +60,24 @@ impl Contract {
                 scarce_contract_id,
                 token_id,
                 price,
+                usd_e6,
+                min_near,
             } => {
-                self.update_price(actor_id, &scarce_contract_id, &token_id, price)?;
+                let min = min_near.map(|value| value.0).unwrap_or(0);
+                if let Some(usd) = usd_e6 {
+                    self.validate_dollar_listing(DOLLAR_SCOPE_SALE, &token_id, usd.0)?;
+                }
+                let next_price = if usd_e6.is_some() {
+                    Contract::stored_near_for_dollar(min)
+                } else {
+                    price
+                };
+                self.update_price(actor_id, &scarce_contract_id, &token_id, next_price)?;
+                if let Some(usd) = usd_e6 {
+                    self.write_dollar(DOLLAR_SCOPE_SALE, &token_id, usd.0, min, actor_id)?;
+                } else {
+                    self.clear_dollar(DOLLAR_SCOPE_SALE, &token_id, actor_id);
+                }
                 Ok(Value::Null)
             }
             _ => unreachable!("dispatch_sales called with non-sale action"),

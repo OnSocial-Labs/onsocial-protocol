@@ -25,6 +25,8 @@ mod royalties;
 mod storage;
 
 mod admin;
+mod dollar;
+pub(crate) use dollar::{DOLLAR_SCOPE_COLLECTION, DOLLAR_SCOPE_LAZY, DOLLAR_SCOPE_SALE};
 mod dispatch;
 mod execute;
 mod ft_receiver;
@@ -136,4 +138,8 @@ pub struct Contract {
     // Persistence invariant: transient execution balance is non-persistent and excluded from serialization.
     #[borsh(skip)]
     pub pending_attached_balance: u128,
+
+    /// Set only inside a dollar purchase callback. Skipped from state, so upgrades do not migrate it.
+    #[borsh(skip)]
+    pub(crate) dollar_unit_override: Option<u128>,
 }
