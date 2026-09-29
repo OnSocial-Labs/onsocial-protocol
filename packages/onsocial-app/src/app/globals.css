@@ -726,7 +726,9 @@
     calc(1.25rem + env(safe-area-inset-bottom, 0px));
 }
 
-/* Governance / Treasury — one pair, words stay, faces slide. */
+/* Governance / Treasury — one pair, words stay, faces slide.
+   Desktop width lives with the other phone-card rules so the next
+   face enters from the card edge, not the browser gutter. */
 .protocol-face-pair {
   position: relative;
   height: 100dvh;
@@ -42618,6 +42620,14 @@ body:has(.feed-photo-slide--thread) .portfolio-summon-dock .portfolio-summon {
  * `.app-surface` hairline. Shared mood *bg* tint edge.
  */
 @media (min-width: 640px) {
+  /* Pager is the phone. Treasury enters from the card edge. */
+  .protocol-face-pair {
+    width: 36rem;
+    max-width: 100%;
+    margin-inline: auto;
+    border-radius: 1.25rem;
+  }
+
   .os-app-screen.app-surface:not(.os-slide-over),
   .portfolio-frame.app-surface[data-mood] {
     border: 1px solid
