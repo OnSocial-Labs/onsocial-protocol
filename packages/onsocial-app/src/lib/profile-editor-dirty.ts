@@ -1,5 +1,8 @@
 import {
   normalizeProfileAboutAlign,
+  normalizeProfileIndustryInput,
+  normalizeProfileLeadInput,
+  normalizeProfileLocationInput,
   type ProfileAboutAlign,
   type ProfileKind,
 } from '@onsocial/sdk';
@@ -11,6 +14,7 @@ import {
 } from '@/lib/profile-about-photos';
 import {
   PROFILE_LINK_EDITOR_FIELDS,
+  formatProfileLinkForEditor,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
 import { profileEditorTagsEqual } from '@/lib/profile-tag-editor';
@@ -19,6 +23,20 @@ import {
   portfolioWebsitesUrlsEqual,
   type PortfolioWebsiteDraft,
 } from '@/lib/profile-websites';
+
+/** Name as blur and save store it: trim and collapse whitespace. */
+export function normalizeProfileEditorName(value: string): string {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+/** Link text as the editor commits it. Invalid text stays raw so Save can still see the edit. */
+function editorStoredLink(
+  value: string,
+  kind: (typeof PROFILE_LINK_EDITOR_FIELDS)[number]['kind']
+): string {
+  const result = formatProfileLinkForEditor(value, kind);
+  return result.valid ? result.value : value.trim();
+}
 
 export function isProfileEditorContentDirty(input: {
   snapshot: ProfileEditorSnapshot;
@@ -57,11 +75,17 @@ export function isProfileEditorContentDirty(input: {
     return true;
   }
 
-  if (input.name.trim() !== input.snapshot.name.trim()) {
+  if (
+    normalizeProfileEditorName(input.name) !==
+    normalizeProfileEditorName(input.snapshot.name)
+  ) {
     return true;
   }
 
-  if (input.location.trim() !== input.snapshot.location.trim()) {
+  if (
+    normalizeProfileLocationInput(input.location) !==
+    normalizeProfileLocationInput(input.snapshot.location)
+  ) {
     return true;
   }
 
@@ -73,8 +97,10 @@ export function isProfileEditorContentDirty(input: {
   const snapshotStoresIndustry =
     Boolean(input.isDao) || input.snapshot.kind === 'org';
   if (
-    (storesIndustry ? input.industry.trim() : '') !==
-    (snapshotStoresIndustry ? (input.snapshot.industry ?? '').trim() : '')
+    (storesIndustry ? normalizeProfileIndustryInput(input.industry) : '') !==
+    (snapshotStoresIndustry
+      ? normalizeProfileIndustryInput(input.snapshot.industry ?? '')
+      : '')
   ) {
     return true;
   }
@@ -87,7 +113,10 @@ export function isProfileEditorContentDirty(input: {
     return true;
   }
 
-  if (input.lead.trim() !== (input.snapshot.lead ?? '').trim()) {
+  if (
+    normalizeProfileLeadInput(input.lead) !==
+    normalizeProfileLeadInput(input.snapshot.lead ?? '')
+  ) {
     return true;
   }
 
@@ -128,8 +157,8 @@ export function isProfileEditorContentDirty(input: {
   for (const field of PROFILE_LINK_EDITOR_FIELDS) {
     if (input.websites && field.key === 'website') continue;
     if (
-      input.links[field.key].trim() !==
-      input.linksFromSnapshot[field.key].trim()
+      editorStoredLink(input.links[field.key], field.kind) !==
+      editorStoredLink(input.linksFromSnapshot[field.key], field.kind)
     ) {
       return true;
     }

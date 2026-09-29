@@ -256,6 +256,51 @@ describe('isProfileEditorDirty', () => {
     expect(isProfileEditorDirty(input)).toBe(true);
   });
 
+  it('stays clean when location only gains spaces the save would collapse', () => {
+    const snapshot = baseSnapshot({ location: 'New York' });
+    expect(
+      isProfileEditorDirty(dirtyInput(snapshot, { location: 'New  York' }))
+    ).toBe(false);
+  });
+
+  it('stays clean when a name only has extra spaces', () => {
+    const snapshot = baseSnapshot({ name: 'Ada Lovelace' });
+    expect(
+      isProfileEditorDirty(dirtyInput(snapshot, { name: 'Ada  Lovelace' }))
+    ).toBe(false);
+  });
+
+  it('stays clean when a lead collapses to the stored line', () => {
+    const snapshot = baseSnapshot({ lead: 'Hello there' });
+    expect(
+      isProfileEditorDirty(dirtyInput(snapshot, { lead: 'Hello  there' }))
+    ).toBe(false);
+  });
+
+  it('stays clean when a link paste stores the same handle', () => {
+    const snapshot = baseSnapshot({ links: { x: 'alice' } });
+    const links = profileLinksInputFromRecord(snapshot.links);
+    expect(
+      isProfileEditorDirty(
+        dirtyInput(snapshot, {
+          links: { ...links, x: 'https://x.com/alice' },
+        })
+      )
+    ).toBe(false);
+  });
+
+  it('is dirty when a link handle actually changes', () => {
+    const snapshot = baseSnapshot({ links: { x: 'alice' } });
+    const links = profileLinksInputFromRecord(snapshot.links);
+    expect(
+      isProfileEditorDirty(
+        dirtyInput(snapshot, {
+          links: { ...links, x: 'bob' },
+        })
+      )
+    ).toBe(true);
+  });
+
   it('is dirty when a link title changes', () => {
     const snapshot = baseSnapshot({
       pageConfig: { linkNotes: { website: 'Home' } },

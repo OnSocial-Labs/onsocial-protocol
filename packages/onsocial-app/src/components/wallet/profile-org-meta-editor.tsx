@@ -13,6 +13,8 @@ import {
   hiringLineLabel,
   isProfileIndustryWriteIn,
   matchProfileIndustryOption,
+  normalizeProfileIndustryInput,
+  normalizeProfileLocationInput,
   profileIndustryChoiceOptions,
   profileIndustryDrawerValue,
   sanitizeProfileIndustryDraft,
@@ -117,8 +119,7 @@ export function ProfileOrgMetaEditor({
   };
 
   const commitIndustryWriteIn = () => {
-    const trimmed = industryDraft.trim().replace(/\s+/g, ' ');
-    onIndustryChange(trimmed);
+    onIndustryChange(normalizeProfileIndustryInput(industryDraft));
     setIndustryWriteOpen(false);
   };
 
@@ -129,7 +130,7 @@ export function ProfileOrgMetaEditor({
   };
 
   const commitLocation = () => {
-    onLocationChange(locationDraft.trim().replace(/\s+/g, ' '));
+    onLocationChange(normalizeProfileLocationInput(locationDraft));
     setLocationOpen(false);
   };
 
