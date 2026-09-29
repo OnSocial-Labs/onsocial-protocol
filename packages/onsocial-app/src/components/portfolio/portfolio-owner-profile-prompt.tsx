@@ -4,7 +4,7 @@ import { useAppAccountSheet } from '@/contexts/app-account-sheet-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { accountIdsEqual } from '@/lib/account-match';
 
-interface PortfolioActivateStripProps {
+interface PortfolioOwnerProfilePromptProps {
   pageAccountId: string;
   activated: boolean;
 }
@@ -13,10 +13,10 @@ interface PortfolioActivateStripProps {
  * Empty owner face. Saving a profile name claims the page.
  * Visitors see the account id and no prompt.
  */
-export function PortfolioActivateStrip({
+export function PortfolioOwnerProfilePrompt({
   pageAccountId,
   activated,
-}: PortfolioActivateStripProps) {
+}: PortfolioOwnerProfilePromptProps) {
   const { accountId, isConnected } = useAppWallet();
   const { openProfileEditor } = useAppAccountSheet();
 
@@ -30,10 +30,10 @@ export function PortfolioActivateStrip({
   if (!isOwner) return null;
 
   return (
-    <p className="portfolio-activate-strip-hint">
+    <p className="portfolio-owner-profile-prompt">
       <button
         type="button"
-        className="portfolio-activate-strip-edit"
+        className="portfolio-owner-profile-edit"
         onClick={() => openProfileEditor({ pageAccountId })}
       >
         Edit profile
