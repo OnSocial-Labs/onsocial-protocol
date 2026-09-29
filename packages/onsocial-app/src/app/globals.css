@@ -3969,6 +3969,25 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.42);
   }
 
+  .portfolio-activate-strip-edit {
+    border: 0;
+    padding: 0;
+    background: none;
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: rgb(var(--fg-rgb) / 0.62);
+    cursor: pointer;
+  }
+
+  .portfolio-activate-strip-edit:hover,
+  .portfolio-activate-strip-edit:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+    text-decoration: underline;
+    text-underline-offset: 0.16em;
+  }
+
   .portfolio-activate-strip-error {
     width: 100%;
     margin: 0;

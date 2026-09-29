@@ -122,21 +122,40 @@ async function resolveSputnikConfig(
   return configFromCatalogRow(catalogRow);
 }
 
-/** Face copy — tagline wins; then profile bio; then catalog / Sputnik purpose. */
+/** Written by the old Activate action. It is not a profile bio. */
+const STOCK_PAGE_TAGLINE = 'Welcome to my OnSocial page.';
+
+function readablePageTagline(raw?: string | null): string {
+  const text = raw?.trim() ?? '';
+  if (!text || text === STOCK_PAGE_TAGLINE) return '';
+  return text;
+}
+
+/**
+ * Face copy.
+ * Person: profile bio, then a real page tagline only when the bio is empty.
+ * DAO: published face, then a clamped profile bio, then a clamped purpose.
+ * A page tagline does not cover a DAO face.
+ */
 export function resolveDaoPortfolioSummary(opts: {
   tagline?: string | null;
   shellBio?: string | null;
   daoPage?: DaoPageData | null;
 }): string | null {
-  const tagline = opts.tagline?.trim();
-  if (tagline) return tagline;
-  const description = opts.daoPage?.branding.description?.trim();
-  if (description) return description;
-  const shellBio = opts.shellBio?.trim();
-  if (shellBio) return partitionDaoPurposeFaceAbout(shellBio).face || null;
-  const purpose = opts.daoPage?.configPurpose?.trim();
-  if (purpose) return partitionDaoPurposeFaceAbout(purpose).face || null;
-  return null;
+  const tagline = readablePageTagline(opts.tagline);
+  const description = opts.daoPage?.branding.description?.trim() || '';
+  const shellFace = partitionDaoPurposeFaceAbout(
+    opts.shellBio ?? ''
+  ).face.trim();
+  const purposeFace = partitionDaoPurposeFaceAbout(
+    opts.daoPage?.configPurpose ?? ''
+  ).face.trim();
+
+  if (opts.daoPage) {
+    return description || shellFace || purposeFace || tagline || null;
+  }
+
+  return opts.shellBio?.trim() || tagline || null;
 }
 
 async function resolvePortfolioDaoContext(

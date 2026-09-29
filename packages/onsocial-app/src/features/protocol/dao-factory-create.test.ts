@@ -5,10 +5,12 @@ import {
   SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR,
 } from '@/lib/app-config';
 import { nearToYocto } from '@/lib/app-near-rpc';
+import { PROFILE_BIO_MAX } from '@/lib/profile-bio-face';
 import {
   buildDaoFactoryAccountId,
   buildDaoFactoryInitArgs,
   buildDaoFactoryPolicy,
+  DAO_FACTORY_PURPOSE_MAX,
   DAO_FACTORY_VOTE_THRESHOLD,
   daoCreateAttachNearLabel,
   daoCreateAttachYocto,
@@ -21,6 +23,11 @@ import { buildDaoSocialProfileProposalPayload } from '@/features/protocol/dao-so
 import { CORE_CONTRACT } from '@/lib/app-near-contract';
 
 describe('dao-factory-create', () => {
+  it('caps purpose at the same 2000 characters as the editor', () => {
+    expect(DAO_FACTORY_PURPOSE_MAX).toBe(2000);
+    expect(DAO_FACTORY_PURPOSE_MAX).toBe(PROFILE_BIO_MAX);
+  });
+
   it('normalizes slugs to a single account segment', () => {
     expect(normalizeDaoFactorySlug('  Cool Guild!  ')).toBe('cool-guild');
     expect(normalizeDaoFactorySlug('a.b.c')).toBe('a-b-c');
@@ -177,6 +184,8 @@ describe('dao-social-profile', () => {
     };
     expect(args.request.action.data['profile/about']).toBe('More on the page.');
     expect(args.request.action.data['profile/lead']).toBe('Our story');
-    expect(args.request.action.data['profile/photos']).toContain('ipfs://print');
+    expect(args.request.action.data['profile/photos']).toContain(
+      'ipfs://print'
+    );
   });
 });

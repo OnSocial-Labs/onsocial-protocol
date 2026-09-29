@@ -56,7 +56,6 @@ import {
   FACE_BIO_LIMIT_WARN,
   FACE_BIO_WRAP_CHARS,
   clampFaceEditorInput,
-  clampProfileBioFace,
   profileAboutHasMoreThanFace,
 } from '@/lib/profile-bio-face';
 import { displayName, fallbackLabel, initials } from '@/lib/profile-display';
@@ -513,7 +512,7 @@ export function AppProfileEditorSheet({
         location,
         industry,
         kind,
-        bio: clampProfileBioFace(faceBio),
+        bio: faceBio,
         about: aboutBio.trim(),
         lead: lead.trim(),
         aboutAlign,

@@ -171,7 +171,6 @@ export async function PortfolioAccountFace({
               ? (daoPage?.branding.photos.length ?? shell?.photos.length ?? 0)
               : (shell?.photos.length ?? 0)
           }
-          tagline={tagline}
           avatarUrl={shell?.avatarUrl ?? daoPage?.branding.avatarUrl}
           mood={mood}
           isDao={daoEntity.isDao}
