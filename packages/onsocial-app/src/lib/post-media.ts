@@ -593,7 +593,7 @@ export function revokeDroppedOptimisticMedia(
   }
 }
 
-/** Class names for feed collage vs thread one-by-one carousel. */
+/** Class names for the photo collage. Several photos stay a collage on the opened post too. */
 export function postMediaStripClassName(options: {
   count: number;
   focused?: boolean;
@@ -602,12 +602,10 @@ export function postMediaStripClassName(options: {
 }): string {
   const count = Math.min(Math.max(options.count, 1), POST_MEDIA_MAX_FILES);
   const multi = count > 1;
-  const carousel = multi && Boolean(options.focused || options.page);
   return [
     'post-media-strip',
     `post-media-strip--${count}`,
-    multi && !carousel ? 'is-collage' : '',
-    carousel ? 'is-carousel' : '',
+    multi ? 'is-collage' : '',
     options.quote ? 'is-quote' : '',
     options.focused ? 'is-focused' : '',
     options.page ? 'is-page' : '',

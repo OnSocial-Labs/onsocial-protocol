@@ -113,7 +113,7 @@ describe('collage + unmute helpers', () => {
     expect(
       postMediaStripClassName({ count: 3, focused: true, page: true })
     ).toBe(
-      'post-media-strip post-media-strip--3 is-carousel is-focused is-page'
+      'post-media-strip post-media-strip--3 is-collage is-focused is-page'
     );
     expect(postMediaStripClassName({ count: 2, quote: true })).toBe(
       'post-media-strip post-media-strip--2 is-collage is-quote'

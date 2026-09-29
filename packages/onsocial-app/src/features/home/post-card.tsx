@@ -811,6 +811,9 @@ export function QuotedPostInset({
   const mediaItems = parsePostMedia(post.value).slice(0, 4);
   const compactMedia = !expanded && mediaItems.length > 0 ? mediaItems : null;
   const interactive = Boolean(href);
+  const [quotePhotoOpen, setQuotePhotoOpen] = useState(false);
+  const [quotePhotoIndex, setQuotePhotoIndex] = useState(0);
+  const [quoteThreadOpen, setQuoteThreadOpen] = useState(false);
 
   const open = (event: {
     preventDefault(): void;
@@ -835,6 +838,7 @@ export function QuotedPostInset({
   };
 
   return (
+    <>
     <div
       className={`post-card-quote-inset${interactive ? ' post-card-quote-inset--link' : ''}`}
       role={interactive ? 'link' : undefined}
@@ -887,7 +891,10 @@ export function QuotedPostInset({
                 <PostMediaStrip
                   items={mediaItems}
                   size="page"
-                  playbackDisabled
+                  onActivate={(index) => {
+                    setQuotePhotoIndex(index);
+                    setQuotePhotoOpen(true);
+                  }}
                 />
               ) : null}
             </div>
@@ -897,6 +904,74 @@ export function QuotedPostInset({
         </PostSensitiveGate>
       </div>
     </div>
+    {expanded && mediaItems.length > 0 ? (
+      <FeedPhotoEnlargeScreen
+        open={quotePhotoOpen}
+        onOpenChange={(open) => {
+          setQuotePhotoOpen(open);
+          if (!open) setQuoteThreadOpen(false);
+        }}
+        title={mediaItems.some((item) => isRenderablePostVideoMime(item.mime)) ? 'Media' : 'Photos'}
+        caption={text.trim() ? text : null}
+        captionDate={
+          post.blockTimestamp ? formatPostTimestamp(post.blockTimestamp) : null
+        }
+        photos={mediaItems}
+        initialIndex={quotePhotoIndex}
+        threadOpen={quoteThreadOpen}
+        onDismissThread={() => setQuoteThreadOpen(false)}
+        threadAuthor={post.accountId}
+        threadPostId={post.postId}
+        threadRoot={post}
+        peekIdentity={
+          <div className="feed-photo-caption-identity-row">
+            <Link
+              href={portfolioPath(post.accountId)}
+              className="os-media-face-identity"
+              scroll={false}
+              aria-label={`View ${name}'s profile`}
+              onClick={() => {
+                setQuotePhotoOpen(false);
+                setQuoteThreadOpen(false);
+              }}
+            >
+              <AccountAvatar
+                accountId={post.accountId}
+                kind={authorProfile?.kind}
+                src={authorProfile?.avatarUrl ?? null}
+                fallbackInitial={name}
+                size="lg"
+                className="post-card-avatar"
+              />
+              <span className="os-media-face-identity-copy">
+                <span className="os-media-face-identity-name-row">
+                  <span className="os-media-face-identity-name">{name}</span>
+                </span>
+                <span className="os-media-face-identity-handle">
+                  @{post.accountId}
+                </span>
+              </span>
+            </Link>
+          </div>
+        }
+        engagement={
+          <div className="post-card-engagement">
+            <div className="post-card-engagement-actions">
+              <button
+                type="button"
+                className="post-card-stat post-card-stat-button"
+                aria-label="Reply to this post"
+                onClick={() => setQuoteThreadOpen(true)}
+              >
+                <MessageRoundIcon aria-hidden />
+                Reply
+              </button>
+            </div>
+          </div>
+        }
+      />
+    ) : null}
+    </>
   );
 }
 
@@ -2348,7 +2423,7 @@ export function PostCard({
             <PostMediaStrip
               items={mediaItems}
               size={mediaFocused ? 'page' : 'compact'}
-              focused={mediaFocused}
+              focused={mediaFocused && mediaItems.length <= 1}
               focusedVideoMuted={!mediaUnmuted}
               resumeFocusedVideo={mediaUnmuted}
               resumeMediaIndex={mediaResumeIndex}
