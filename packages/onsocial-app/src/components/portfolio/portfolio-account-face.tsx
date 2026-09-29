@@ -12,7 +12,7 @@ import {
   loadPortfolioHeroDaoContext,
   portfolioHeroAwaitsSignals,
 } from '@/lib/portfolio-hero-path';
-import { PortfolioActivateStrip } from '@/components/portfolio/portfolio-activate-strip';
+import { PortfolioOwnerProfilePrompt } from '@/components/portfolio/portfolio-owner-profile-prompt';
 import { PortfolioEssayLeave } from '@/components/portfolio/portfolio-essay-leave';
 import { PortfolioDaoOrgChrome } from '@/components/portfolio/portfolio-dao-org-chrome';
 import { PortfolioDeferredShelf } from '@/components/portfolio/portfolio-deferred-shelf';
@@ -171,7 +171,6 @@ export async function PortfolioAccountFace({
               ? (daoPage?.branding.photos.length ?? shell?.photos.length ?? 0)
               : (shell?.photos.length ?? 0)
           }
-          tagline={tagline}
           avatarUrl={shell?.avatarUrl ?? daoPage?.branding.avatarUrl}
           mood={mood}
           isDao={daoEntity.isDao}
@@ -185,7 +184,7 @@ export async function PortfolioAccountFace({
         )}
 
         {daoEntity.isDao ? null : (
-          <PortfolioActivateStrip
+          <PortfolioOwnerProfilePrompt
             pageAccountId={accountId}
             activated={Boolean(data.activated)}
           />

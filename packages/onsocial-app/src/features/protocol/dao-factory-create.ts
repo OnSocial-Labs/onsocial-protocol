@@ -12,6 +12,7 @@ import {
   yoctoToNear,
 } from '@/lib/app-near-rpc';
 import { isValidNearAccountId } from '@/lib/app-near-account';
+import { PROFILE_BIO_MAX } from '@/lib/profile-bio-face';
 import { encodeDaoConfigMetadata } from '@/features/protocol/dao-branding';
 import { daysToProposalPeriodNs } from '@/features/protocol/protocol-policy';
 
@@ -24,8 +25,11 @@ export const DAO_FACTORY_SLUG_MIN = 2;
 /** Display name max (Sputnik config.name). */
 export const DAO_FACTORY_NAME_MAX = 64;
 
-/** Purpose max (Sputnik config.purpose). */
-export const DAO_FACTORY_PURPOSE_MAX = 240;
+/**
+ * Purpose write cap. Sputnik `config.purpose` has no on-chain max.
+ * Same budget as the DAO purpose editor and the About essay.
+ */
+export const DAO_FACTORY_PURPOSE_MAX = PROFILE_BIO_MAX;
 
 /** Simple majority — matches Settings / gov style (same math as factory 1/2). */
 export const DAO_FACTORY_VOTE_THRESHOLD: [number, number] = [50, 100];

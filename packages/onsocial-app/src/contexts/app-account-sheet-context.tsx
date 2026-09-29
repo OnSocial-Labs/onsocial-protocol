@@ -18,14 +18,19 @@ import { buildPathWithQuery } from '@/lib/sync-browser-url-query';
 interface AppAccountSheetContextValue {
   open: boolean;
   pageAccountId?: string;
+  /** Bumps when the face asks to open Edit profile directly. */
+  editorRequest: number;
   openAccountSheet: (options?: { pageAccountId?: string }) => void;
+  openProfileEditor: (options?: { pageAccountId?: string }) => void;
   closeAccountSheet: () => void;
 }
 
 const AppAccountSheetContext = createContext<AppAccountSheetContextValue>({
   open: false,
   pageAccountId: undefined,
+  editorRequest: 0,
   openAccountSheet: () => {},
+  openProfileEditor: () => {},
   closeAccountSheet: () => {},
 });
 
@@ -69,7 +74,8 @@ export function WalletSheetDeepLink() {
 
 export function AppAccountSheetHost() {
   const { accountId } = useAppWallet();
-  const { open, pageAccountId, closeAccountSheet } = useAppAccountSheet();
+  const { open, pageAccountId, editorRequest, closeAccountSheet } =
+    useAppAccountSheet();
 
   if (!accountId) {
     return null;
@@ -80,6 +86,7 @@ export function AppAccountSheetHost() {
       open={open}
       onClose={closeAccountSheet}
       pageAccountId={pageAccountId}
+      editorRequest={editorRequest}
     />
   );
 }
@@ -87,10 +94,20 @@ export function AppAccountSheetHost() {
 export function AppAccountSheetProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [pageAccountId, setPageAccountId] = useState<string | undefined>();
+  const [editorRequest, setEditorRequest] = useState(0);
 
   const openAccountSheet = useCallback(
     (options?: { pageAccountId?: string }) => {
       setPageAccountId(options?.pageAccountId);
+      setOpen(true);
+    },
+    []
+  );
+
+  const openProfileEditor = useCallback(
+    (options?: { pageAccountId?: string }) => {
+      setPageAccountId(options?.pageAccountId);
+      setEditorRequest((current) => current + 1);
       setOpen(true);
     },
     []
@@ -102,7 +119,14 @@ export function AppAccountSheetProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppAccountSheetContext.Provider
-      value={{ open, pageAccountId, openAccountSheet, closeAccountSheet }}
+      value={{
+        open,
+        pageAccountId,
+        editorRequest,
+        openAccountSheet,
+        openProfileEditor,
+        closeAccountSheet,
+      }}
     >
       {children}
     </AppAccountSheetContext.Provider>

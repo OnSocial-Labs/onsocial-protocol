@@ -3304,7 +3304,6 @@ a.os-surface-row {
 @layer components {
   /* Semantic feedback — protocol token backed */
   .app-error-text,
-  .portfolio-activate-strip-error,
   .mood-sheet-error,
   .customize-sheet-error,
   .portfolio-face-preview-error {
@@ -3939,28 +3938,7 @@ a.os-surface-row {
     height: 100%;
   }
 
-  .portfolio-activate-strip {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 0.65rem 0.85rem;
-    width: 100%;
-    max-width: var(--portfolio-content-width);
-    margin-inline: auto;
-    padding: 0.65rem 0.85rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.03);
-  }
-
-  .portfolio-activate-strip-copy {
-    margin: 0;
-    font-size: 0.78rem;
-    color: rgb(var(--fg-rgb) / 0.52);
-  }
-
-  .portfolio-activate-strip-hint {
+  .portfolio-owner-profile-prompt {
     width: 100%;
     max-width: var(--portfolio-content-width);
     margin: 0 auto;
@@ -3969,50 +3947,23 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.42);
   }
 
-  .portfolio-activate-strip-error {
-    width: 100%;
-    margin: 0;
-    font-size: 0.72rem;
-    text-align: center;
-  }
-
-  .portfolio-activate-strip-cta {
+  .portfolio-owner-profile-edit {
     border: 0;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.92);
-    color: var(--bg);
+    padding: 0;
+    background: none;
     font: inherit;
-    font-size: 0.76rem;
+    font-size: 0.8125rem;
     font-weight: 600;
-    padding: 0.45rem 0.85rem;
+    letter-spacing: 0.01em;
+    color: rgb(var(--fg-rgb) / 0.62);
     cursor: pointer;
-    transition:
-      background 160ms ease,
-      transform 120ms ease;
   }
 
-  @media (hover: hover) and (pointer: fine) {
-    .portfolio-activate-strip-cta:hover:not(:disabled) {
-      background: rgb(var(--fg-rgb));
-    }
-  }
-
-  .portfolio-activate-strip-cta:focus-visible {
-    outline: none;
-    box-shadow: var(
-      --os-focus-ring,
-      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
-    );
-  }
-
-  .portfolio-activate-strip-cta:active:not(:disabled) {
-    transform: scale(0.985);
-  }
-
-  /* Disabled here is a working state (cursor: wait) — keep the solid shade. */
-  .portfolio-activate-strip-cta:disabled {
-    opacity: 1;
-    cursor: wait;
+  .portfolio-owner-profile-edit:hover,
+  .portfolio-owner-profile-edit:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+    text-decoration: underline;
+    text-underline-offset: 0.16em;
   }
 
   .portfolio-frame {

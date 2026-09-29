@@ -36,13 +36,18 @@ import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import { ACCOUNT_SHEET_PEEK_RATIO } from '@/lib/account-sheet-config';
 import { accountSheetPageMoodPanel } from '@/lib/account-sheet-page-mood';
 import { accountIdsEqual } from '@/lib/account-match';
-import { accountDrawerPrimaryLabel, customDisplayName } from '@/lib/profile-display';
+import {
+  accountDrawerPrimaryLabel,
+  customDisplayName,
+} from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 interface AppAccountSheetProps {
   open: boolean;
   onClose: () => void;
   pageAccountId?: string;
+  /** Increments when the portfolio face opens Edit profile directly. */
+  editorRequest?: number;
 }
 
 interface IdentityOverride {
@@ -58,6 +63,7 @@ export function AppAccountSheet({
   open,
   onClose,
   pageAccountId,
+  editorRequest = 0,
 }: AppAccountSheetProps) {
   const {
     accountId,
@@ -193,6 +199,15 @@ export function AppAccountSheet({
     pendingCustomizeRef.current = true;
     requestClose();
   }, [requestClose]);
+
+  const [appliedEditorRequest, setAppliedEditorRequest] = useState(0);
+  if (editorRequest !== appliedEditorRequest) {
+    setAppliedEditorRequest(editorRequest);
+    if (editorRequest > 0) {
+      setEditorSession((current) => current + 1);
+      setEditorOpen(true);
+    }
+  }
 
   const handleEditProfile = useCallback(() => {
     setEditorSession((current) => current + 1);

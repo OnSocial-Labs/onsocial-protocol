@@ -1418,7 +1418,11 @@ export interface DaoPolicyActionHintContext {
 }
 
 export const DAO_CONFIG_NAME_MAX_LENGTH = 120;
-export const DAO_CONFIG_PURPOSE_MAX_LENGTH = 512;
+/**
+ * Sputnik `config.purpose` has no on-chain max.
+ * Matches the app purpose editor and About essay (2000).
+ */
+export const DAO_CONFIG_PURPOSE_MAX_LENGTH = 2000;
 
 export function normalizeDaoConfigNameInput(value: string): string | null {
   const trimmed = value.trim();

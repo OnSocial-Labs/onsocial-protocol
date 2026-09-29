@@ -44,7 +44,6 @@ interface PortfolioIdentityProps {
   tags?: string[] | null;
   /** About gallery count — opens About even when the face bio is short. */
   photoCount?: number;
-  tagline?: string;
   avatarUrl?: string | null;
   mood: ResolvedMood;
   /** DAO org face — square crest + quiet kind chrome. */
@@ -67,7 +66,6 @@ export function PortfolioIdentity({
   lead = null,
   tags = null,
   photoCount = 0,
-  tagline,
   avatarUrl,
   mood: savedMood,
   isDao = false,
@@ -82,7 +80,7 @@ export function PortfolioIdentity({
   const profileKindLabel = profileKindFaceLabel(displayKind);
 
   const titleLabel = displayName(accountId, profileName ?? undefined);
-  const summary = tagline?.trim() || bio?.trim() || '';
+  const summary = bio?.trim() || '';
   const locationLabel = location?.trim() || null;
   const tagCount = profileKindShowsCrafts(displayKind)
     ? profileIdentityTopics(tags).length
@@ -166,7 +164,7 @@ export function PortfolioIdentity({
         {summary ? (
           <PortfolioFaceBio
             text={summary}
-            fullText={isDao && !tagline?.trim() ? fullBio : null}
+            fullText={isDao ? fullBio : null}
             title={titleLabel}
             moodId={mood.id}
           />
