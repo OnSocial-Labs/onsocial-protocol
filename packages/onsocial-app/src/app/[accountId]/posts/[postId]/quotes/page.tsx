@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { PostQuotesPanel } from '@/features/home/post-quotes-panel';
+import { POST_REACH_TITLE } from '@/lib/post-reach-title';
 import { loadPostQuotesPageData } from '@/lib/load-post-quotes-page';
 import { resolveAccountId } from '@/lib/resolve-account';
 
@@ -16,7 +17,7 @@ export async function generateMetadata({
   const accountId = await resolveAccountId(params);
 
   return {
-    title: `Quotes · @${accountId} · OnSocial`,
+    title: `${POST_REACH_TITLE} · @${accountId} · OnSocial`,
     description: `Quotes and reposts of @${accountId}'s post.`,
   };
 }

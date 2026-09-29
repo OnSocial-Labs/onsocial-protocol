@@ -1,6 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import type { PostRow, ReposterRow } from '@onsocial/sdk';
 import { Divider, RepeatIcon } from '@onsocial/ui';
@@ -26,9 +34,11 @@ import {
   POST_REPOSTERS_PAGE_SIZE,
   type PostQuotesPageData,
 } from '@/lib/load-post-quotes-page';
+import { usePostQuotesTrackHost } from '@/features/home/post-quotes-track-host';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { resolveQuotedInset } from '@/lib/post-relation';
 import { displayName } from '@/lib/profile-display';
+import { POST_REACH_TITLE } from '@/lib/post-reach-title';
 import { postThreadPath } from '@/lib/post-routes';
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
@@ -206,124 +216,228 @@ export function PostQuotesPanel({
     rootEngagement?.repostCount ?? 0,
     reposters.length
   );
+  const trackHost = usePostQuotesTrackHost();
+  const pagerRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const thumbRef = useRef<HTMLSpanElement>(null);
+  const settledRef = useRef<QuotesTab>(activeTab);
+
+  const placeThumb = useCallback(() => {
+    const pager = pagerRef.current;
+    const track = trackRef.current;
+    const thumb = thumbRef.current;
+    if (!track || !thumb) return;
+    const buttons = [...track.querySelectorAll<HTMLElement>('[role="tab"]')];
+    const first = buttons[0];
+    const second = buttons[1];
+    if (!first || !second) return;
+    const width = pager?.clientWidth ?? 0;
+    const progress =
+      width > 0
+        ? Math.min(1, Math.max(0, (pager?.scrollLeft ?? 0) / width))
+        : activeTab === 'reposts'
+          ? 1
+          : 0;
+    const left =
+      first.offsetLeft + (second.offsetLeft - first.offsetLeft) * progress;
+    const buttonWidth =
+      first.offsetWidth + (second.offsetWidth - first.offsetWidth) * progress;
+    thumb.style.width = `${buttonWidth}px`;
+    thumb.style.height = `${first.offsetHeight}px`;
+    thumb.style.transform = `translate3d(${left}px, ${first.offsetTop}px, 0)`;
+  }, [activeTab]);
+
+  useLayoutEffect(() => {
+    if (loadState !== 'ready') return;
+    placeThumb();
+    const track = trackRef.current;
+    if (!track || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => placeThumb());
+    observer.observe(track);
+    const pager = pagerRef.current;
+    if (pager) observer.observe(pager);
+    return () => observer.disconnect();
+  }, [loadState, placeThumb, quoteTotal, repostTotal, trackHost]);
+
+  useEffect(() => {
+    const pager = pagerRef.current;
+    if (!pager || loadState !== 'ready') return;
+    const onScroll = () => {
+      placeThumb();
+      if (pager.clientWidth <= 0) return;
+      const next: QuotesTab =
+        pager.scrollLeft / pager.clientWidth > 0.5 ? 'reposts' : 'quotes';
+      if (settledRef.current === next) return;
+      settledRef.current = next;
+      setActiveTab(next);
+    };
+    pager.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', placeThumb);
+    return () => {
+      pager.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', placeThumb);
+    };
+  }, [loadState, placeThumb]);
+
+  const selectTab = (tab: QuotesTab) => {
+    settledRef.current = tab;
+    setActiveTab(tab);
+    const pager = pagerRef.current;
+    if (!pager || pager.clientWidth <= 0) return;
+    const reduce = window.matchMedia(
+      '(prefers-reduced-motion: reduce)'
+    ).matches;
+    pager.scrollTo({
+      left: (tab === 'reposts' ? 1 : 0) * pager.clientWidth,
+      behavior: reduce ? 'auto' : 'smooth',
+    });
+  };
+
+  const track = (
+    <div
+      ref={trackRef}
+      className="app-storage-mode-toggle post-quotes-track"
+      role="tablist"
+      aria-label="Quotes and reposts"
+      onKeyDown={(event) => {
+        if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+        event.preventDefault();
+        selectTab(event.key === 'ArrowRight' ? 'reposts' : 'quotes');
+      }}
+    >
+      <span ref={thumbRef} className="post-quotes-track-thumb" aria-hidden />
+      <button
+        type="button"
+        role="tab"
+        id="post-quotes-tab-quotes"
+        aria-controls="post-quotes-page-quotes"
+        aria-selected={activeTab === 'quotes'}
+        tabIndex={activeTab === 'quotes' ? 0 : -1}
+        className={`app-storage-mode${activeTab === 'quotes' ? ' is-active' : ''}`}
+        onClick={() => selectTab('quotes')}
+      >
+        Quotes
+        <span className="post-quotes-track-count">{quoteTotal}</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        id="post-quotes-tab-reposts"
+        aria-controls="post-quotes-page-reposts"
+        aria-selected={activeTab === 'reposts'}
+        tabIndex={activeTab === 'reposts' ? 0 : -1}
+        className={`app-storage-mode${activeTab === 'reposts' ? ' is-active' : ''}`}
+        onClick={() => selectTab('reposts')}
+      >
+        Reposts
+        <span className="post-quotes-track-count">{repostTotal}</span>
+      </button>
+    </div>
+  );
 
   const body = (
-    <div className={GUILDS_PAGE_CLASS}>
+    <div
+      className={
+        loadState === 'ready' && root
+          ? 'post-quotes-screen'
+          : `${GUILDS_PAGE_CLASS} post-quotes-screen`
+      }
+    >
       {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
 
-        {loadState === 'missing' ? (
-          <section className="guild-state-card">
-            <p>We could not find this post in the indexed feed yet.</p>
-            <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
-          </section>
-        ) : null}
+      {loadState === 'missing' ? (
+        <section className="guild-state-card">
+          <p>We could not find this post in the indexed feed yet.</p>
+          <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
+        </section>
+      ) : null}
 
-        {loadState === 'error' ? (
-          <section className="guild-state-card is-error">
-            <p>{error ?? 'Could not load quotes.'}</p>
-            <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
-          </section>
-        ) : null}
+      {loadState === 'error' ? (
+        <section className="guild-state-card is-error">
+          <p>{error ?? 'Could not load quotes.'}</p>
+          <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
+        </section>
+      ) : null}
 
-        {loadState === 'ready' && root ? (
-          <section className="guild-thread-column">
-            <div className="guild-thread-chrome">
-              <div
-                className="guild-thread-tabs"
-                role="tablist"
-                aria-label="Quotes and reposts"
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  id="post-quotes-tab-quotes"
-                  aria-controls="post-quotes-panel"
-                  aria-selected={activeTab === 'quotes'}
-                  className={activeTab === 'quotes' ? 'is-active' : undefined}
-                  onClick={() => setActiveTab('quotes')}
+      {loadState === 'ready' && root ? (
+        <div ref={pagerRef} className="post-quotes-pager">
+          <div
+            id="post-quotes-page-quotes"
+            className="post-quotes-page"
+            role="tabpanel"
+            aria-labelledby="post-quotes-tab-quotes"
+            aria-hidden={activeTab !== 'quotes'}
+            inert={activeTab !== 'quotes'}
+          >
+            <div className={`${GUILDS_PAGE_CLASS} post-quotes-page-scroll`}>
+              {quotes.length > 0 ? (
+                quotes.map((quote, index) => {
+                  const quoted = resolveQuotedInset(quote, {}, root);
+                  return (
+                    <div key={postKey(quote)}>
+                      <Divider
+                        variant="item"
+                        className={
+                          index > 0
+                            ? 'post-row-divider'
+                            : 'post-row-divider post-row-divider--leading-hidden'
+                        }
+                      />
+                      <PostCard
+                        post={quote}
+                        authorProfile={postAuthorProfiles[quote.accountId]}
+                        actionHref={postThreadPath(quote)}
+                        showRelationBadge={false}
+                        quotedPost={quoted}
+                        quotedAuthorProfile={
+                          quoted
+                            ? postAuthorProfiles[quoted.accountId]
+                            : undefined
+                        }
+                        quotedHref={quoted ? postThreadPath(quoted) : undefined}
+                        engagement={
+                          engagement[postKey(quote)] ?? EMPTY_POST_ENGAGEMENT
+                        }
+                        reactionPending={isReactionPending(quote)}
+                        savePending={isSavePending(quote)}
+                        onToggleReaction={toggleReaction}
+                        onToggleSave={toggleSave}
+                        pollTally={pollTallyFor(quote)}
+                        pollVotePending={isPollVotePending(quote)}
+                        onPollVote={(post, optionIndex) => {
+                          void castVote(post, optionIndex);
+                        }}
+                      />
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="guild-state-card">No quotes yet.</div>
+              )}
+              {hasMoreQuotes ? (
+                <OsLoadMore
+                  onClick={() => void loadMore('quotes')}
+                  pending={loadingMore}
+                  disabled={loadingMore}
                 >
-                  Quotes
-                  <span className="guild-thread-tab-count">{quoteTotal}</span>
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  id="post-quotes-tab-reposts"
-                  aria-controls="post-quotes-panel"
-                  aria-selected={activeTab === 'reposts'}
-                  className={activeTab === 'reposts' ? 'is-active' : undefined}
-                  onClick={() => setActiveTab('reposts')}
-                >
-                  Reposts
-                  <span className="guild-thread-tab-count">{repostTotal}</span>
-                </button>
-              </div>
+                  {loadingMore ? 'Loading…' : 'Show more quotes'}
+                </OsLoadMore>
+              ) : null}
             </div>
-
-            <div
-              id="post-quotes-panel"
-              className="guild-connected-stack"
-              role="tabpanel"
-              aria-labelledby={
-                activeTab === 'quotes'
-                  ? 'post-quotes-tab-quotes'
-                  : 'post-quotes-tab-reposts'
-              }
-            >
-              {activeTab === 'quotes' ? (
-                quotes.length > 0 ? (
-                  quotes.map((quote, index) => {
-                    const quoted = resolveQuotedInset(quote, {}, root);
-                    return (
-                      <div key={postKey(quote)}>
-                        <Divider
-                          variant="item"
-                          className={
-                            index > 0
-                              ? 'post-row-divider'
-                              : 'post-row-divider post-row-divider--leading-hidden'
-                          }
-                        />
-                        <PostCard
-                          post={quote}
-                          authorProfile={postAuthorProfiles[quote.accountId]}
-                          actionHref={postThreadPath(quote)}
-                          showRelationBadge={false}
-                          quotedPost={quoted}
-                          quotedAuthorProfile={
-                            quoted
-                              ? postAuthorProfiles[quoted.accountId]
-                              : undefined
-                          }
-                          quotedHref={
-                            quoted ? postThreadPath(quoted) : undefined
-                          }
-                          engagement={
-                            engagement[postKey(quote)] ?? EMPTY_POST_ENGAGEMENT
-                          }
-                          reactionPending={isReactionPending(quote)}
-                          savePending={isSavePending(quote)}
-                          onToggleReaction={toggleReaction}
-                          onToggleSave={toggleSave}
-                          pollTally={pollTallyFor(quote)}
-                          pollVotePending={isPollVotePending(quote)}
-                          onPollVote={(post, optionIndex) => {
-                            void castVote(post, optionIndex);
-                          }}
-                        />
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="guild-state-card">No quotes yet.</div>
-                )
-              ) : reposters.length > 0 ? (
+          </div>
+          <div
+            id="post-quotes-page-reposts"
+            className="post-quotes-page"
+            role="tabpanel"
+            aria-labelledby="post-quotes-tab-reposts"
+            aria-hidden={activeTab !== 'reposts'}
+            inert={activeTab !== 'reposts'}
+          >
+            <div className={`${GUILDS_PAGE_CLASS} post-quotes-page-scroll`}>
+              {reposters.length > 0 ? (
                 reposters.map((row, index) => {
                   const profile = postAuthorProfiles[row.accountId];
-                  const name = displayName(
-                    row.accountId,
-                    profile?.displayName
-                  );
+                  const name = displayName(row.accountId, profile?.displayName);
                   return (
                     <div key={`${row.accountId}:${row.repostId}`}>
                       {index > 0 ? (
@@ -358,35 +472,49 @@ export function PostQuotesPanel({
               ) : (
                 <div className="guild-state-card">No reposts yet.</div>
               )}
-
-              {(activeTab === 'quotes' && hasMoreQuotes) ||
-              (activeTab === 'reposts' && hasMoreReposters) ? (
+              {hasMoreReposters ? (
                 <OsLoadMore
-                  onClick={() => void loadMore(activeTab)}
+                  onClick={() => void loadMore('reposts')}
                   pending={loadingMore}
                   disabled={loadingMore}
                 >
-                  {loadingMore
-                    ? 'Loading…'
-                    : activeTab === 'quotes'
-                      ? 'Show more quotes'
-                      : 'Show more reposts'}
+                  {loadingMore ? 'Loading…' : 'Show more reposts'}
                 </OsLoadMore>
               ) : null}
             </div>
-          </section>
-        ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 
-  if (embedded) return body;
+  const trackNode =
+    loadState === 'ready' && root
+      ? embedded
+        ? trackHost
+          ? createPortal(track, trackHost)
+          : null
+        : null
+      : null;
+
+  if (embedded) {
+    return (
+      <>
+        {trackNode}
+        {body}
+      </>
+    );
+  }
 
   return (
     <OsAppScreen
-      title="Quotes"
+      title={POST_REACH_TITLE}
       compactChrome
       dockBack
       glassChrome
+      nestedScrollChrome
+      className="post-quotes-screen-chrome"
+      toolbar={loadState === 'ready' && root ? track : undefined}
       backFallbackHref={backHref}
     >
       {body}

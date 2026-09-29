@@ -156,6 +156,36 @@ test.describe('protocol face pair', () => {
     await expect(page).toHaveURL(/\/home\/?$/);
   });
 
+  test('desktop slide stays inside the OS column', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoApp(page, `/@${GOVERNANCE}`);
+    await expectPortfolioIdentityOrSkip(page, GOVERNANCE);
+    await waitForPortfolioClientReady(page);
+
+    const pair = page.locator('.protocol-face-pair');
+    await expect(pair).toBeVisible();
+    const metrics = await pair.evaluate((node) => {
+      const governance = document.getElementById('protocol-face-governance');
+      const treasury = document.getElementById('protocol-face-treasury');
+      const pairBox = node.getBoundingClientRect();
+      const governanceBox = governance?.getBoundingClientRect();
+      const treasuryBox = treasury?.getBoundingClientRect();
+      return {
+        viewport: window.innerWidth,
+        pairWidth: pairBox.width,
+        pairLeft: pairBox.left,
+        pageWidth: governanceBox?.width ?? 0,
+        treasuryLeft: treasuryBox?.left ?? 0,
+      };
+    });
+    expect(metrics.pairWidth).toBeLessThan(metrics.viewport - 80);
+    expect(metrics.pairLeft).toBeGreaterThan(40);
+    expect(Math.abs(metrics.pageWidth - metrics.pairWidth)).toBeLessThan(2);
+    expect(
+      Math.abs(metrics.treasuryLeft - (metrics.pairLeft + metrics.pairWidth))
+    ).toBeLessThan(2);
+  });
+
   test('a shared Treasury link opens Treasury', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, `/@${TREASURY}`);
