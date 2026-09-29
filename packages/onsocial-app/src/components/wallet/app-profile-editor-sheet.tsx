@@ -18,6 +18,7 @@ import {
   PROFILE_FACE_KIND_OPTIONS,
   PROFILE_LOCATION_MAX,
   editorFaceKind,
+  normalizeProfileLocationInput,
   profileAvatarShapeForFace,
   sanitizeProfileLocationDraft,
   type ProfileKind,
@@ -46,7 +47,10 @@ import {
   type ProfileEditorSaveResult,
   type ProfileEditorSnapshot,
 } from '@/hooks/use-app-profile-editor';
-import { isProfileEditorDirty } from '@/lib/profile-editor-dirty';
+import {
+  isProfileEditorDirty,
+  normalizeProfileEditorName,
+} from '@/lib/profile-editor-dirty';
 import {
   PAGE_LINK_NOTE_MAX,
   pruneLinkNotes,
@@ -119,6 +123,62 @@ function resolveBannerPreviewMedia(
     snapshot.bannerMedia ??
     (snapshot.bannerUrl ? { kind: 'image', url: snapshot.bannerUrl } : null)
   );
+}
+
+function profileDraftChanged(
+  baseline: ProfileEditorSnapshot,
+  draft: {
+    name: string;
+    location: string;
+    industry: string;
+    kind: ProfileKind;
+    bio: string;
+    about: string;
+    lead: string;
+    aboutAlign: 'left' | 'center' | 'justify';
+    links: ProfileLinksInput;
+    tags: string[];
+    photos: ProfileAboutPhotoDraft[];
+    linkNotes: Record<string, string>;
+    websites: PortfolioWebsiteDraft[];
+    avatarFile: File | null;
+    bannerFile: File | null;
+    avatarRemoved: boolean;
+    bannerRemoved: boolean;
+    isDao: boolean;
+  }
+): boolean {
+  return isProfileEditorDirty({
+    snapshot: baseline,
+    linksFromSnapshot: profileLinksInputFromRecord(baseline.links),
+    name: draft.name,
+    location: draft.location,
+    industry: draft.industry,
+    kind: draft.kind,
+    bio: draft.bio,
+    about: draft.about,
+    lead: draft.lead,
+    aboutAlign: draft.aboutAlign,
+    links: draft.links,
+    tags: draft.tags,
+    photos: draft.photos,
+    photoFiles: draft.photos.map((photo) => photo.file ?? null),
+    linkNotes: draft.linkNotes,
+    websites: draft.isDao ? undefined : draft.websites,
+    websitesFromSnapshot: draft.isDao
+      ? undefined
+      : readPortfolioWebsites(
+          baseline.links,
+          baseline.pageConfig?.linkNotes,
+          baseline.pageConfig?.linkLines,
+          baseline.pageConfig?.linkImages
+        ),
+    avatarFile: draft.avatarFile,
+    bannerFile: draft.bannerFile,
+    avatarRemoved: draft.avatarRemoved,
+    bannerRemoved: draft.bannerRemoved,
+    isDao: draft.isDao,
+  });
 }
 
 interface AppProfileEditorSheetProps {
@@ -194,47 +254,80 @@ export function AppProfileEditorSheet({
   const [avatarRemoved, setAvatarRemoved] = useState(false);
   const [bannerRemoved, setBannerRemoved] = useState(false);
   const [seedKey, setSeedKey] = useState<string | null>(null);
+  const [seededFrom, setSeededFrom] = useState<ProfileEditorSnapshot | null>(
+    null
+  );
 
-  const readyKey =
+  const sessionReadyKey =
     snapshot && open
       ? `${accountId}:${sessionKey}:${snapshot.accountId}`
       : null;
+  const loadKey =
+    snapshot && open
+      ? `${sessionKey}:${snapshot.loadId ?? snapshot.accountId}`
+      : null;
 
-  // Adjust draft when the editor session or loaded snapshot changes (guild pattern).
-  if (readyKey && readyKey !== seedKey && snapshot) {
-    setSeedKey(readyKey);
-    setName(snapshot.name);
-    setLocation(snapshot.location);
-    setIndustry(snapshot.industry ?? '');
-    setKind(editorFaceKind(snapshot.kind));
-    setFaceBio(snapshot.bio);
-    setAboutBio(snapshot.about ?? '');
-    setLead(snapshot.lead ?? '');
-    setAboutAlign(snapshot.aboutAlign ?? 'left');
-    setAboutOpen(false);
-    setTags(snapshot.tags ?? []);
-    setPhotos(snapshot.photos ?? []);
-    setLinks(linksFromSnapshot);
-    setLinkNotes(sanitizeLinkNotes(snapshot.pageConfig?.linkNotes));
-    setWebsites(
-      readPortfolioWebsites(
-        snapshot.links,
-        snapshot.pageConfig?.linkNotes,
-        snapshot.pageConfig?.linkLines,
-        snapshot.pageConfig?.linkImages
-      )
-    );
-    setWebsiteErrors({});
-    setWebsiteFocusId(null);
-    setLinkFieldErrors({});
-    setAvatarFile(null);
-    setBannerFile(null);
-    setAvatarRemoved(false);
-    setBannerRemoved(false);
+  // Fill from the newest read. Keep text the person already changed.
+  if (loadKey && loadKey !== seedKey && snapshot) {
+    const untouched =
+      !seededFrom ||
+      !profileDraftChanged(seededFrom, {
+        name,
+        location,
+        industry,
+        kind,
+        bio: faceBio,
+        about: aboutBio,
+        lead,
+        aboutAlign,
+        links,
+        tags,
+        photos,
+        linkNotes,
+        websites,
+        avatarFile,
+        bannerFile,
+        avatarRemoved,
+        bannerRemoved,
+        isDao: isDaoAccount,
+      });
+    setSeedKey(loadKey);
+    setSeededFrom(snapshot);
+    if (untouched) {
+      setName(snapshot.name);
+      setLocation(snapshot.location);
+      setIndustry(snapshot.industry ?? '');
+      setKind(editorFaceKind(snapshot.kind));
+      setFaceBio(snapshot.bio);
+      setAboutBio(snapshot.about ?? '');
+      setLead(snapshot.lead ?? '');
+      setAboutAlign(snapshot.aboutAlign ?? 'left');
+      setAboutOpen(false);
+      setTags(snapshot.tags ?? []);
+      setPhotos(snapshot.photos ?? []);
+      setLinks(linksFromSnapshot);
+      setLinkNotes(sanitizeLinkNotes(snapshot.pageConfig?.linkNotes));
+      setWebsites(
+        readPortfolioWebsites(
+          snapshot.links,
+          snapshot.pageConfig?.linkNotes,
+          snapshot.pageConfig?.linkLines,
+          snapshot.pageConfig?.linkImages
+        )
+      );
+      setWebsiteErrors({});
+      setWebsiteFocusId(null);
+      setLinkFieldErrors({});
+      setAvatarFile(null);
+      setBannerFile(null);
+      setAvatarRemoved(false);
+      setBannerRemoved(false);
+    }
   }
 
-  if (!open && seedKey !== null) {
+  if (!open && (seedKey !== null || seededFrom !== null)) {
     setSeedKey(null);
+    setSeededFrom(null);
   }
 
   const handleFaceBioChange = useCallback((next: string) => {
@@ -251,14 +344,14 @@ export function AppProfileEditorSheet({
       nameInputRef.current?.focus({ preventScroll: true });
     }, 280);
     return () => window.clearTimeout(focusTimer);
-  }, [open, readyKey, snapshot]);
+  }, [open, sessionReadyKey, snapshot]);
 
   const avatarPreview = useObjectUrl(avatarFile);
   const bannerPreview = useObjectUrl(bannerFile);
   const displayAvatarUrl =
     !snapshot || avatarRemoved ? null : (avatarPreview ?? snapshot.avatarUrl);
   const displayBannerMedia =
-    snapshot && seedKey === readyKey
+    snapshot && seedKey === loadKey
       ? resolveBannerPreviewMedia(
           bannerFile,
           bannerPreview,
@@ -268,7 +361,7 @@ export function AppProfileEditorSheet({
       : null;
 
   const isDirty = useMemo(() => {
-    if (!snapshot || seedKey !== readyKey) return false;
+    if (!snapshot || seedKey !== loadKey) return false;
     return isProfileEditorDirty({
       snapshot,
       linksFromSnapshot,
@@ -319,7 +412,7 @@ export function AppProfileEditorSheet({
     linksFromSnapshot,
     location,
     name,
-    readyKey,
+    loadKey,
     seedKey,
     snapshot,
     isDaoAccount,
@@ -531,6 +624,10 @@ export function AppProfileEditorSheet({
         websites: isDaoAccount ? undefined : websites,
         isDao: isDaoAccount,
       });
+      if (result.unchanged) {
+        handleLeave();
+        return;
+      }
       onSaved(result);
       setTxResult({
         type: 'success',
@@ -574,7 +671,7 @@ export function AppProfileEditorSheet({
     if (bannerInputRef.current) bannerInputRef.current.value = '';
   };
 
-  const formReady = Boolean(snapshot && seedKey === readyKey);
+  const formReady = Boolean(snapshot && seedKey === loadKey);
 
   const footer = (
     <div className="profile-edit-sheet-footer">
@@ -766,8 +863,8 @@ export function AppProfileEditorSheet({
                             onFocus={scrollFieldIntoView}
                             onChange={(event) => setName(event.target.value)}
                             onBlur={() => {
-                              const trimmed = name.trim().replace(/\s+/g, ' ');
-                              if (trimmed !== name) setName(trimmed);
+                              const next = normalizeProfileEditorName(name);
+                              if (next !== name) setName(next);
                             }}
                           />
                         </div>
@@ -842,10 +939,8 @@ export function AppProfileEditorSheet({
                                 )
                               }
                               onBlur={() => {
-                                const trimmed = location
-                                  .trim()
-                                  .replace(/\s+/g, ' ');
-                                if (trimmed !== location) setLocation(trimmed);
+                                const next = normalizeProfileLocationInput(location);
+                                if (next !== location) setLocation(next);
                               }}
                             />
                           </label>

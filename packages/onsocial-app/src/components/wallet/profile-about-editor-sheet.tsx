@@ -22,6 +22,7 @@ import { Divider, MultiplyIcon } from '@onsocial/ui';
 import {
   PROFILE_ABOUT_ALIGN_OPTIONS,
   PROFILE_LEAD_MAX,
+  normalizeProfileLeadInput,
   type ProfileAboutAlign,
 } from '@onsocial/sdk';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
@@ -187,7 +188,8 @@ export function ProfileAboutEditorSheet({
         )
       );
     if (!movingToRich) setEditingField(null);
-    const trimmed = value.trim();
+    const trimmed =
+      field === 'lead' ? normalizeProfileLeadInput(value) : value.trim();
     if (trimmed !== value) onChange(trimmed);
     if (field === 'lead' && !trimmed && !hasFilm) setLeadOpen(false);
   };

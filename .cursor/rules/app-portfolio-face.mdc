@@ -1,5 +1,5 @@
 ---
-description: App portfolio face — Launch drawer, mood chrome reuse, quiet Stand · Endorse · Support
+description: App portfolio face — rail drawer, mood chrome reuse, quiet Stand · Endorse · Support · Message
 globs: packages/onsocial-app/src/components/portfolio/**/*.{ts,tsx},packages/onsocial-app/src/app/[accountId]/**/*.{ts,tsx},packages/onsocial-app/src/lib/moods/**/*.{ts,tsx},packages/onsocial-app/src/components/moods/**/*.{ts,tsx},packages/onsocial-app/src/contexts/portfolio-mood*.tsx,packages/onsocial-app/src/hooks/use-*-mood*.ts,packages/onsocial-app/src/hooks/use-apply-mood.ts,packages/onsocial-app/src/hooks/use-viewer-wallet-mood-vars.ts,packages/onsocial-app/src/hooks/use-viewer-dock-mood.ts,packages/onsocial-app/src/components/os/summon-launcher.tsx,packages/onsocial-app/src/components/app/os-slide-over-screen.tsx,packages/onsocial-app/src/components/app/os-app-screen.tsx,packages/onsocial-app/src/features/guilds/guild-composer-sheet.tsx,packages/onsocial-app/src/features/home/home-feed.tsx
 alwaysApply: false
 ---
@@ -11,37 +11,30 @@ The portfolio is a **one-page public face**, not a Portal action dashboard.
 ## Face contents
 
 - Identity (avatar, name, **full** NEAR account id as handle, full bio)
-- Connected visitor gestures under bio: **Stand · Endorse · Support** (quiet text + colored arrows; no pills)
+- Connected visitor gestures under bio: **Stand · Endorse · Support · Message** (quiet text + colored arrows; no pills). Logged-out person pages still show **Message**. DAO visitors stay **Stand · Support** (no Endorse / Message).
 - Optional `profile/kind` (`person` | `org` | `dao`) on the same `profile/` object. Omit / person is the default — not required. Omit / person → round avatar, no kind mark. Org → squircle + a location-style line (`BuildingTreeIcon` + “Organization”). Dao → square-ish crest (`1rem`) + quiet “DAO” eyebrow. The org icon shows only when `kind` is `org`, never on person profiles. Unknown renderers ignore it. Protocol DAO tools stay heuristic / catalog — do not treat `kind: 'org'` as a Sputnik DAO.
 - **DAO org face** (`/@daoAccount`, heuristic / catalog): same route as people — square crest (`border-radius: 1rem`), quiet kind label. Legacy DAOs without `profile/kind` keep this look. Protocol Governance ↔ Treasury: kind line is a same-size highlight switch (**Governance · Treasury**), not a second flipper under tools. Org tools in a standing-style row: **Proposals · Members · Treasury · Manage** (overlays / slides). Members: Group people + Member stake thresholds (viewer weight / Stake to join). Treasury: Support pot + wallet balances. Visitors: **Stand · Support · More** (no Endorse / Message). Support credits the DAO’s social-spend pot; council with propose rights (`viewerCanProposeOnDao` — Group member **or** Member stake threshold) can **Claim support** from Manage (Call → `claim_target_balance`; live after approve — any DAO). No **Dormant page / Connect to activate**. Council can also **Propose mood** (Manage row + mood preview). Before mood / profile / claim-support / Boost / Transfer / Signal / Settings / membership proposals: hug confirm (**Propose** / **Discard**) via `DaoProposeConfirmSheet` — show bond, gate on spendable NEAR, **Stake to propose** when weight is short (`requestDaoStake` → Protocol stake sheet). Propose / Settings pickers **hide** permission-dead kinds; stake-short kinds stay visible (confirm handles stake). Edit / Claim / Propose mood / Boost / As-DAO use the same Group-or-stake capability. Create post (eligible proposers): **As · Me | DAO** then which DAO; Propose → same hug confirm → Call publishes under the DAO after approve (Public feed only). Manage **Boost** (council): lock / increase / collect / renew / extend / unlock treasury SOCIAL on the DAO’s Boost position via Call — same confirm hug; position belongs to the DAO. Proposals feed: status chips stay primary; optional family lens (`?kind=`) — Face · Boost · Support · Treasury · Members · Config — from honest action badges (Mood/Post/Profile → Face, etc.). Legacy `/dao/[account]` permanently redirects here. Protocol launcher → `/@governance…`.
 - Signals (standing · solidarity · endorsements · reputation) — browse metrics; hide the row when all counts are zero (dormant / empty faces stay quiet). Compact stats fallback (`N standing · N posts`) also omits zeros.
 - Links
 - Dock (connect / account / summon)
 
-## Page drawer (Launch)
+## Page drawer (rail)
 
-Owner-customizable scroll surface — **extension of the face**, not a second portfolio:
+Extension of the face, not a second portfolio and not a chapter list:
 
 - Tall glass sheet (~95dvh) so a thin strip of mood face stays visible
-- Compact header: **name** + one facts line (`N posts · N guilds · Joined Mon YYYY ›`) + jump chips; DAO roles / tags live in the Joined account-facts sheet
-- **Joined** is clickable → slim account-facts sheet (Portal-style), not a second face card
+- Compact header: **name** + one facts line (non-zero posts · guilds · scarces, then **Joined Mon YYYY ›**). DAO roles / tags live in the Joined account-facts sheet
+- **Joined** is clickable → slim account-facts sheet, not a second face card
 - Account facts OnSocial: Joined · fused `Updated Mar 12 · Name · Banner` (omit when same day as Joined) · activity/roles/tags when present; NEAR: Network · Account · Created
-- Drawer body is a **curated portfolio**: peek sections → See all; hide empty sections
-- Jump chips live in **header chrome** under facts (not in the scroll body); scroll-spy active state; compact chips; mood tint on **active chip only**; smooth-scroll to sections
-- Default order: posts → store → created → guilds → links → collectibles
-- Media peeks (Store / Created / Collectibles) share one square-cover rail; Guilds use discovery-row peeks (avatar square + name + meta) in the same rail width — expand stays on-page, never jumps to global `/groups`
-- Collectibles is a **public flex** chapter (on-chain holdings); peeks load for visitors. **See all collectibles** → `/@account/collectibles` (same surface for owner and visitor). OS `/collectibles` soft-redirects to `/@you/collectibles` when connected
-- Customize → **Launch chapters**: drag (or ↑↓) to reorder / hide; pin up to 3 peeks per chapter (posts / guilds / store / created / collectibles); optional **link notes** on `page/main` (face icons stay clean)
-- **Badges / Events** stay typed stubs — hard-hidden in Launch and out of Customize until a real peek product exists
-- One sheet-body scroller; overlay footer pill (**Stand · Endorse · Support**) absolutely on the panel (`height: auto`, not in flex flow); content scrolls under it; launcher hide on scroll down / reveal on scroll up or top; jump briefly tucks the pill; connect whisper when disconnected; hidden for self
-- Support is **not** a drawer section — gestures only
+- Header chrome under the facts is **rail tabs**: Posts · Replies · Reposts · Media, plus Scarces and Collectibles only when that account has them. The open tab is the drawer body (`?tab=`). One scroller
+- Collectibles tab peeks holdings here. **See all** for the full page is `/@account/collectibles` (same surface for owner and visitor). OS `/collectibles` soft-redirects to `/@you/collectibles` when connected
+- Gestures stay on the face. The drawer has no Stand · Endorse · Support footer
 - Dock arrows match Stand size (`0.55rem`), not the larger face signal clamp
-- Face keeps link **icons**; drawer Links shows label + hostname / handle rows
+- Face keeps link **icons**
 - No avatar / `@id` / bio — face already owns those
 - No reputation band names — score/rank stay on the face
-- Mood-thread chrome + thin drag grip; sections scroll inside
+- Mood-thread chrome + thin drag grip
 - Hide zero counts
-- CTA voice: **See all {chapter}** / **See all in Market** / **See all collectibles**
 
 ## Mood
 
@@ -51,12 +44,12 @@ Page mood is **identity chrome** for the portfolio face and any surface that sho
 
 | Surface | Whose mood |
 |---------|------------|
-| Face / portfolio wash / Launch (page) drawer | **Page** (`effectiveMood` on `portfolio-os-layer`) |
+| Face / portfolio wash / page drawer | **Page** (`effectiveMood` on `portfolio-os-layer`) |
 | Summon dock / grip / pill (`portfolio-summon-dock`) | **Viewer** everywhere (`useViewerDockMood` via `AppShellLauncher` / visit path); **owner** uses live `effectiveMood` so mood preview paints the dock |
 | OS app screens / slide-overs (`OsAppScreen`, `OsSlideOverScreen`) | **Viewer** by default (`useViewerDockMood`); `moodId={null}` keeps blue-corner trial; pass explicit mood only for rare overrides |
 | Create-post / wallet sheets | **Viewer** (`useViewerWalletMoodVars` / dock hook) |
 
-**Host (page) mood stays on the portfolio face only** — Launch drawer + face gesture sheets. Guild / hub / collection / drop shells use **viewer** mood when logged in (or none logged out). Do not retint those shells with the page owner’s mood.
+**Host (page) mood stays on the portfolio face only** — page drawer + face gesture sheets. Guild / hub / collection / drop shells use **viewer** mood when logged in (or none logged out). Do not retint those shells with the page owner’s mood.
 
 **Typing fields on mood surfaces** use `os-field-bordered` (transparent fill + lip so wash shows through). Reserve `os-field-soft` for quiet non-mood OS sheets (e.g. dense hug sheets without host/viewer wash).
 
@@ -144,15 +137,17 @@ Reference: create-post (`guild-composer-sheet`) may still pass viewer mood expli
 | **Stand** / Standing / Step back | `--signal-standing` | Inline toggle (ledger + dots; Step back on hover) |
 | **Endorse** | `--signal-endorse` | Opens `EndorseComposeSheet` (compact gesture sheet) |
 | **Support** | `--signal-reputation` | Opens dedicated Support glass sheet |
+| **Message** | none | Opens `DmComposeSheet`. Person pages only, including logged-out (the sheet footer owns Connect) |
 
-Even trio with · separators. Same control height as standing modal; **no border**; hover = soft bg wash.
+Quiet text with · separators. Same control height as standing modal; **no border**; hover = soft bg wash.
 
 ## Before vs after connect
 
 | State | Face |
 |-------|------|
-| Disconnected | Full face + dock connect only — **no** gesture row |
-| Connected visitor | Same face + Stand · Endorse · Support under bio |
+| Disconnected person | Full face + **Message** under bio. Dock still owns Connect |
+| Disconnected DAO | Full face, no gesture row (standing count only when someone stands) |
+| Connected visitor | Same face + Stand · Endorse · Support · Message under bio |
 | Connected visitor (DAO) | Stand · Support · More — no Endorse / Message; Claim support via Manage when council + pot > 0 |
 | Owner / self | No visitor gestures; when unclaimed target balance > 0: **gift · amount · Collect** in the same slot |
 | Owner / self (DAO) | No person payout marks — org tools row owns Manage |

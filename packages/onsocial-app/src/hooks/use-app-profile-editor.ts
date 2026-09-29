@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   editorFaceKind,
@@ -24,7 +24,10 @@ import {
   pruneLinkNotes,
   sanitizeLinkNotes,
 } from '@/lib/page-launch-config';
-import { isProfileEditorContentDirty } from '@/lib/profile-editor-dirty';
+import {
+  isProfileEditorContentDirty,
+  normalizeProfileEditorName,
+} from '@/lib/profile-editor-dirty';
 import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
 import {
   parseProfileAboutPhotoRefs,
@@ -68,6 +71,8 @@ export interface ProfileEditorSnapshot {
   pageConfig: PublicPageConfig;
   tags: string[];
   photos: ProfileAboutPhoto[];
+  /** Increments on each profile read that is still the newest request. */
+  loadId?: number;
 }
 
 export interface ProfileEditorSaveInput {
@@ -109,6 +114,8 @@ export interface ProfileEditorSaveResult {
   bannerUrl: string | null;
   bannerMedia: ResolvedPageHero | null;
   txHash?: string | null;
+  /** True when save found nothing to write. The sheet closes without a saved toast. */
+  unchanged?: boolean;
 }
 
 function formatProfileEditorError(
@@ -137,13 +144,19 @@ export function useAppProfileEditor(
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const loadRequest = useRef(0);
+  const loadSerial = useRef(0);
 
   const loadProfile = useCallback(async () => {
     if (!accountId) {
+      loadRequest.current += 1;
       setSnapshot(null);
+      setLoading(false);
+      setLoadError(null);
       return;
     }
 
+    const requestId = ++loadRequest.current;
     setLoading(true);
     setLoadError(null);
 
@@ -157,6 +170,8 @@ export function useAppProfileEditor(
         | { error?: string }
         | null;
 
+      if (requestId !== loadRequest.current) return;
+
       if (!response.ok) {
         throw new Error(
           body && 'error' in body && body.error
@@ -167,6 +182,7 @@ export function useAppProfileEditor(
 
       setSnapshot({
         ...(body as ProfileEditorSnapshot),
+        loadId: ++loadSerial.current,
         pageConfig: (body as ProfileEditorSnapshot).pageConfig ?? {},
         tags: Array.isArray((body as ProfileEditorSnapshot).tags)
           ? (body as ProfileEditorSnapshot).tags
@@ -187,15 +203,17 @@ export function useAppProfileEditor(
         ),
       });
     } catch (err) {
+      if (requestId !== loadRequest.current) return;
       setSnapshot(null);
       setLoadError(formatProfileEditorError(err, 'Could not load profile.'));
     } finally {
-      setLoading(false);
+      if (requestId === loadRequest.current) setLoading(false);
     }
   }, [accountId]);
 
   useEffect(() => {
     if (!enabled) {
+      loadRequest.current += 1;
       setSnapshot(null);
       setLoadError(null);
       setLoading(false);
@@ -210,7 +228,7 @@ export function useAppProfileEditor(
         throw new Error(connectBefore('saving a profile'));
       }
 
-      const name = input.name.trim();
+      const name = normalizeProfileEditorName(input.name);
       if (!name) {
         throw new Error('Profile name is required.');
       }
@@ -302,6 +320,7 @@ export function useAppProfileEditor(
           bannerUrl: snapshotNow.bannerUrl,
           bannerMedia: snapshotNow.bannerMedia,
           txHash: null,
+          unchanged: true,
         };
       }
 
