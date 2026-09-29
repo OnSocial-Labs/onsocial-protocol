@@ -637,6 +637,8 @@
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .glass-sheet-panel.leaderboard-page-sheet .leaderboard-track-thumb {
@@ -789,9 +791,8 @@
 }
 
 .protocol-face-pair[data-mood] .protocol-face-pair-pill {
-  background: color-mix(in srgb, var(--mood-text) 8%, transparent);
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--mood-text) 10%, transparent);
+  background: transparent;
+  box-shadow: none;
   color: color-mix(in srgb, var(--mood-muted) 72%, var(--mood-text));
 }
 
@@ -7717,8 +7718,8 @@ a.os-surface-row {
     margin: 0;
     padding: 0.06rem;
     border-radius: 999px;
-    background: var(--os-surface-fill-quiet);
-    box-shadow: inset 0 0 0 1px var(--os-surface-ring);
+    background: transparent;
+    box-shadow: none;
     font-weight: 550;
     letter-spacing: -0.01em;
     line-height: 1.2;
@@ -7775,9 +7776,8 @@ a.os-surface-row {
   }
 
   .portfolio-frame[data-mood] .portfolio-entity-kind-switch {
-    background: color-mix(in srgb, var(--mood-text) 8%, transparent);
-    box-shadow: inset 0 0 0 1px
-      color-mix(in srgb, var(--mood-text) 10%, transparent);
+    background: transparent;
+    box-shadow: none;
     color: color-mix(in srgb, var(--mood-muted) 72%, var(--mood-text));
   }
 
