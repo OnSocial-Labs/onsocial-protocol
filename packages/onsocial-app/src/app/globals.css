@@ -23873,10 +23873,10 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  /* 2–4 media: text above full-width mini collage. */
-  .post-card-quote-inset-body-row.is-stacked {
+  /* Opened post — quoted media sits under the line at page size. */
+  .post-card-quote-inset-body-row.is-expanded {
     flex-direction: column;
-    gap: 0.4rem;
+    gap: 0.45rem;
   }
 
   .post-card-quote-inset-body-row.has-media .post-card-quote-inset-body {
@@ -23887,9 +23887,13 @@ a.os-surface-row {
     white-space: normal;
   }
 
-  .post-card-quote-inset-body-row.is-stacked .post-card-quote-inset-body {
-    -webkit-line-clamp: 3;
+  .post-card-quote-inset-body-row.is-expanded .post-card-quote-inset-body {
+    -webkit-line-clamp: 6;
     flex: none;
+    width: 100%;
+  }
+
+  .post-card-quote-inset-body-row.is-expanded .post-media-strip {
     width: 100%;
   }
 
@@ -23909,6 +23913,10 @@ a.os-surface-row {
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  img.post-card-quote-thumb-media {
+    object-fit: contain;
   }
 
   .post-card-quote-thumb-duration {

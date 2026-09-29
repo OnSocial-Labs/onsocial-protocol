@@ -792,11 +792,14 @@ export function QuotedPostInset({
   post,
   authorProfile,
   href,
+  expanded = false,
 }: {
   post: PostRow;
   authorProfile?: PostAuthorProfile;
   /** Navigate to the quoted post's own page (feed/thread surfaces). */
   href?: string;
+  /** Opened post — quoted media at page size. Feed and compose stay one thumb. */
+  expanded?: boolean;
 }) {
   const router = useRouter();
   const { openPostThread } = usePostThreadLayer();
@@ -805,8 +808,7 @@ export function QuotedPostInset({
   const name = displayName(post.accountId, authorProfile?.displayName);
   const text = truncateQuoteText(parsePostText(post.value));
   const mediaItems = parsePostMedia(post.value).slice(0, 4);
-  const thumb = mediaItems.length === 1 ? mediaItems[0] : null;
-  const collage = mediaItems.length > 1 ? mediaItems : null;
+  const thumb = !expanded && mediaItems.length > 0 ? mediaItems[0] : null;
   const interactive = Boolean(href);
 
   const open = (event: {
@@ -864,30 +866,33 @@ export function QuotedPostInset({
           />
         </span>
         <PostSensitiveGate labels={labels} safeMode={safeMode} compact>
-          {thumb || collage || text ? (
+          {thumb || (expanded && mediaItems.length > 0) || text ? (
             <div
               className={[
                 'post-card-quote-inset-body-row',
                 thumb ? 'has-media' : '',
-                collage ? 'is-stacked' : '',
+                expanded && mediaItems.length > 0 ? 'is-expanded' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
             >
-              {/* Multi: text above mini-collage. Single: thumb beside text. */}
-              {collage && text ? (
+              {thumb ? (
+                <QuoteMediaThumb
+                  item={thumb}
+                  extraCount={mediaItems.length - 1}
+                />
+              ) : null}
+              {text ? (
                 <p className="post-card-quote-inset-body">
                   <PostRichText text={text} />
                 </p>
               ) : null}
-              {collage ? (
-                <PostMediaStrip items={collage} size="quote" playbackDisabled />
-              ) : null}
-              {thumb ? <QuoteMediaThumb item={thumb} /> : null}
-              {!collage && text ? (
-                <p className="post-card-quote-inset-body">
-                  <PostRichText text={text} />
-                </p>
+              {expanded && mediaItems.length > 0 ? (
+                <PostMediaStrip
+                  items={mediaItems}
+                  size="page"
+                  playbackDisabled
+                />
               ) : null}
             </div>
           ) : (
@@ -899,7 +904,13 @@ export function QuotedPostInset({
   );
 }
 
-function QuoteMediaThumb({ item }: { item: PostMediaItem }) {
+function QuoteMediaThumb({
+  item,
+  extraCount = 0,
+}: {
+  item: PostMediaItem;
+  extraCount?: number;
+}) {
   const isVideo = isRenderablePostVideoMime(item.mime);
   const [durationByUrl, setDurationByUrl] = useState<{
     url: string;
@@ -950,7 +961,9 @@ function QuoteMediaThumb({ item }: { item: PostMediaItem }) {
           decoding="async"
         />
       )}
-      {durationLabel ? (
+      {extraCount > 0 ? (
+        <span className="post-card-quote-thumb-duration">+{extraCount}</span>
+      ) : durationLabel ? (
         <span className="post-card-quote-thumb-duration">{durationLabel}</span>
       ) : null}
     </div>
@@ -2339,6 +2352,7 @@ export function PostCard({
             post={quotedPost}
             authorProfile={quotedAuthorProfile}
             href={quotedHref}
+            expanded={detailLayout}
           />
         ) : null}
         {detailLayout ? (
