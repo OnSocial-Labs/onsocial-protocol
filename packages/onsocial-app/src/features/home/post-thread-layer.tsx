@@ -19,6 +19,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { ChevronLeftIcon, OsIconAction, OsPageSheet } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { PostQuotesTrackHostProvider } from '@/features/home/post-quotes-track-host';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
@@ -34,11 +35,7 @@ import {
   personalPostPath,
   personalPostQuotesPath,
 } from '@/lib/post-routes';
-import {
-  isOsMediaFaceOpen,
-  nextPostLayerZIndex,
-  SHEET_Z,
-} from '@/lib/sheet-z';
+import { isOsMediaFaceOpen, nextPostLayerZIndex, SHEET_Z } from '@/lib/sheet-z';
 
 const LivePersonalPostPanel = dynamic(
   () =>
@@ -250,11 +247,7 @@ function withPostLayerHistoryState(): object {
 function captureUnderlayScroll(): { el: HTMLElement; top: number } | null {
   const bodies = document.querySelectorAll<HTMLElement>('.os-app-screen-body');
   for (const body of bodies) {
-    if (
-      body.closest(
-        '.post-thread-sheet-panel, .drop-sheet-panel'
-      )
-    ) {
+    if (body.closest('.post-thread-sheet-panel, .drop-sheet-panel')) {
       continue;
     }
     return { el: body, top: body.scrollTop };
@@ -308,9 +301,15 @@ function PostThreadSheet({
   const bodyRef = useRef<HTMLDivElement>(null);
   const resumeMediaRef = useRef<HTMLMediaElement[]>([]);
   const quotes = layer.kind === 'quotes';
+  const [quotesTrackHost, setQuotesTrackHost] = useState<HTMLDivElement | null>(
+    null
+  );
   const title = quotes ? 'Quotes' : 'Post';
   const initial = useMemo(
-    () => (layer.kind === 'post' && layer.root ? seedEmbeddedThread(layer.root) : null),
+    () =>
+      layer.kind === 'post' && layer.root
+        ? seedEmbeddedThread(layer.root)
+        : null,
     [layer]
   );
 
@@ -421,6 +420,16 @@ function PostThreadSheet({
           glassChrome
           compactChrome
           embedded
+          nestedScrollChrome={quotes}
+          className={quotes ? 'post-quotes-screen-chrome' : undefined}
+          toolbar={
+            quotes ? (
+              <div
+                className="post-quotes-track-slot"
+                ref={setQuotesTrackHost}
+              />
+            ) : undefined
+          }
           heading={
             <span id={titleId} className="os-app-screen-title">
               {title}
@@ -432,22 +441,24 @@ function PostThreadSheet({
             </OsIconAction>
           }
         >
-          {layer.kind === 'quotes' ? (
-            <PostQuotesPanel
-              author={layer.accountId}
-              postId={layer.postId}
-              embedded
-            />
-          ) : (
-            <LivePersonalPostPanel
-              key={`${layer.accountId}:${layer.postId}`}
-              author={layer.accountId}
-              postId={layer.postId}
-              initial={initial}
-              embedded
-              replyDockEnabled={open && !parked}
-            />
-          )}
+          <PostQuotesTrackHostProvider value={quotes ? quotesTrackHost : null}>
+            {layer.kind === 'quotes' ? (
+              <PostQuotesPanel
+                author={layer.accountId}
+                postId={layer.postId}
+                embedded
+              />
+            ) : (
+              <LivePersonalPostPanel
+                key={`${layer.accountId}:${layer.postId}`}
+                author={layer.accountId}
+                postId={layer.postId}
+                initial={initial}
+                embedded
+                replyDockEnabled={open && !parked}
+              />
+            )}
+          </PostQuotesTrackHostProvider>
         </OsAppScreen>
       </div>
     </OsPageSheet>
@@ -705,8 +716,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         accountId: parsed.accountId,
         postId: parsed.postId,
         zIndex:
-          stackRef.current[0]?.zIndex ??
-          nextStackedLayerZ(stackRef.current),
+          stackRef.current[0]?.zIndex ?? nextStackedLayerZ(stackRef.current),
       };
 
       if (stackRef.current.length > 0) {

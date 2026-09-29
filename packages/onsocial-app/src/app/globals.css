@@ -453,6 +453,136 @@
   height: 100%;
 }
 
+/*
+ * Quotes screen only. Header stays in flow so the track sits under the
+ * title and the pager fills what remains. The post thread keeps the
+ * absolute glass header.
+ */
+.os-app-screen.post-quotes-screen-chrome[data-glass-chrome='true']
+  > .os-app-screen-column
+  > .os-app-screen-header {
+  position: relative;
+  inset: auto;
+}
+
+.os-app-screen.post-quotes-screen-chrome[data-glass-chrome='true']
+  > .os-app-screen-column
+  > .os-app-screen-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 0;
+  scroll-padding-top: 0;
+}
+
+.os-app-screen.post-quotes-screen-chrome .os-app-screen-toolbar,
+.os-app-screen.post-quotes-screen-chrome .post-quotes-track-slot,
+.os-app-screen.post-quotes-screen-chrome .post-quotes-track {
+  width: 100%;
+  max-width: none;
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
+.post-quotes-track-slot {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.post-quotes-screen {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.post-quotes-screen:not(:has(.post-quotes-pager)) {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.post-quotes-track {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.post-quotes-track-thumb {
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  top: 0;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: rgb(var(--fg-rgb) / 0.1);
+}
+
+.post-quotes-track .app-storage-mode,
+.post-quotes-track .app-storage-mode.is-active {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  background: transparent;
+}
+
+.post-quotes-track-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  color: rgb(var(--fg-rgb) / 0.45);
+}
+
+.post-quotes-track .app-storage-mode.is-active .post-quotes-track-count {
+  color: rgb(var(--fg-rgb) / 0.62);
+}
+
+.post-quotes-pager {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.post-quotes-pager::-webkit-scrollbar {
+  display: none;
+}
+
+.post-quotes-page {
+  display: flex;
+  flex: 0 0 100%;
+  flex-direction: column;
+  width: 100%;
+  min-width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.post-quotes-page-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 .glass-sheet-panel.leaderboard-page-sheet .os-app-screen--embedded {
   flex: 1 1 auto;
   width: 100%;
