@@ -23420,22 +23420,24 @@ a.os-surface-row {
   }
 
   /*
-   * Multi attachment — borderless collage (rounded clip + hairline seams only).
+   * Multi attachment — one group, page-colored air between photos.
+   * Outer corner matches a single photo. Each photo has a small inner corner.
    * 2: side-by-side · 3: wide photo on top, otherwise tallest on the left · 4: 2×2
    */
   .post-media-strip.is-collage {
     display: grid;
-    gap: 1px;
+    gap: 2px;
     width: 100%;
     overflow: hidden;
     border-radius: 0.65rem;
     border: 0;
-    background: rgb(var(--fg-rgb) / 0.08);
+    background: var(--bg);
   }
 
   .post-media-strip.is-collage .post-media-tile {
     border: 0;
-    border-radius: 0;
+    border-radius: 0.25rem;
+    overflow: hidden;
     min-width: 0;
     min-height: 0;
     height: 100%;
@@ -23488,8 +23490,14 @@ a.os-surface-row {
   }
 
   .post-media-strip.is-quote.is-collage {
+    gap: 1px;
     border-radius: 0.5rem;
     border: 0;
+    background: var(--bg);
+  }
+
+  .post-media-strip.is-quote.is-collage .post-media-tile {
+    border-radius: 0;
   }
 
   .post-media-strip.is-quote.is-collage.post-media-strip--2,
