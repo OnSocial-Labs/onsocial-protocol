@@ -38,6 +38,7 @@ import { usePostQuotesTrackHost } from '@/features/home/post-quotes-track-host';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { resolveQuotedInset } from '@/lib/post-relation';
 import { displayName } from '@/lib/profile-display';
+import { POST_REACH_TITLE } from '@/lib/post-reach-title';
 import { postThreadPath } from '@/lib/post-routes';
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
@@ -507,7 +508,7 @@ export function PostQuotesPanel({
 
   return (
     <OsAppScreen
-      title="Quotes"
+      title={POST_REACH_TITLE}
       compactChrome
       dockBack
       glassChrome

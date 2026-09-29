@@ -35,6 +35,7 @@ import {
   personalPostPath,
   personalPostQuotesPath,
 } from '@/lib/post-routes';
+import { POST_REACH_TITLE } from '@/lib/post-reach-title';
 import { isOsMediaFaceOpen, nextPostLayerZIndex, SHEET_Z } from '@/lib/sheet-z';
 
 const LivePersonalPostPanel = dynamic(
@@ -304,7 +305,7 @@ function PostThreadSheet({
   const [quotesTrackHost, setQuotesTrackHost] = useState<HTMLDivElement | null>(
     null
   );
-  const title = quotes ? 'Quotes' : 'Post';
+  const title = quotes ? POST_REACH_TITLE : 'Post';
   const initial = useMemo(
     () =>
       layer.kind === 'post' && layer.root

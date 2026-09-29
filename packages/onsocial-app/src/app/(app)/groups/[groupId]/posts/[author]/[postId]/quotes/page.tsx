@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { PostQuotesPanel } from '@/features/home/post-quotes-panel';
+import { POST_REACH_TITLE } from '@/lib/post-reach-title';
 import { loadPostQuotesPageData } from '@/lib/load-post-quotes-page';
 
 type GuildPostQuotesPageProps = {
@@ -16,7 +17,7 @@ export async function generateMetadata({
   const { author } = await params;
 
   return {
-    title: `Quotes · @${decodeURIComponent(author)} · OnSocial`,
+    title: `${POST_REACH_TITLE} · @${decodeURIComponent(author)} · OnSocial`,
     description: 'Quotes and reposts of this guild post.',
   };
 }
