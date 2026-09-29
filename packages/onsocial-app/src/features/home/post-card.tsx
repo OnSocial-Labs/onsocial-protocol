@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
@@ -899,8 +900,110 @@ export function QuotedPostInset({
   );
 }
 
+/** Wide enough to take the full-width row in a 3-up quote thumb. */
+const QUOTE_THUMB_WIDE_RATIO = 1.2;
+
+function quoteThumbHero(
+  count: number,
+  ratios: Array<number | null>
+): { mode: 'wide' | 'tall'; index: number } | null {
+  if (count !== 3) return null;
+  let wideIndex = 0;
+  let tallIndex = 0;
+  let widest = -Infinity;
+  let tallest = Infinity;
+  let known = false;
+  ratios.forEach((ratio, index) => {
+    if (ratio == null || !Number.isFinite(ratio) || ratio <= 0) return;
+    known = true;
+    if (ratio > widest) {
+      widest = ratio;
+      wideIndex = index;
+    }
+    if (ratio < tallest) {
+      tallest = ratio;
+      tallIndex = index;
+    }
+  });
+  if (!known || widest >= QUOTE_THUMB_WIDE_RATIO) {
+    return { mode: 'wide', index: known ? wideIndex : 0 };
+  }
+  return { mode: 'tall', index: tallIndex };
+}
+
+function quoteThumbCellStyle(
+  index: number,
+  count: number,
+  hero: { mode: 'wide' | 'tall'; index: number } | null
+): CSSProperties | undefined {
+  if (count !== 3 || !hero) return undefined;
+  const rest = [0, 1, 2].filter((slot) => slot !== hero.index);
+  if (hero.mode === 'wide') {
+    if (index === hero.index) return { gridColumn: '1 / -1', gridRow: '1' };
+    if (index === rest[0]) return { gridColumn: '1', gridRow: '2' };
+    return { gridColumn: '2', gridRow: '2' };
+  }
+  if (index === hero.index) return { gridColumn: '1', gridRow: '1 / -1' };
+  if (index === rest[0]) return { gridColumn: '2', gridRow: '1' };
+  return { gridColumn: '2', gridRow: '2' };
+}
+
+function QuoteThumbTile({
+  item,
+  style,
+  onRatio,
+}: {
+  item: PostMediaItem;
+  style?: CSSProperties;
+  onRatio: (url: string, ratio: number) => void;
+}) {
+  const remember = (width: number, height: number) => {
+    if (width > 0 && height > 0) onRatio(item.url, width / height);
+  };
+  if (isRenderablePostVideoMime(item.mime)) {
+    return (
+      <video
+        src={item.url}
+        muted
+        playsInline
+        preload="metadata"
+        className="post-card-quote-thumb-media"
+        style={style}
+        onLoadedMetadata={(event) => {
+          const video = event.currentTarget;
+          remember(video.videoWidth, video.videoHeight);
+        }}
+      />
+    );
+  }
+  return (
+    <img
+      src={item.url}
+      alt=""
+      className="post-card-quote-thumb-media"
+      style={style}
+      loading="lazy"
+      decoding="async"
+      onLoad={(event) => {
+        const img = event.currentTarget;
+        remember(img.naturalWidth, img.naturalHeight);
+      }}
+    />
+  );
+}
+
 function QuoteMediaThumb({ items }: { items: PostMediaItem[] }) {
   const visible = items.slice(0, 4);
+  const [ratios, setRatios] = useState<Record<string, number>>({});
+  const onRatio = useCallback((url: string, ratio: number) => {
+    setRatios((current) =>
+      current[url] === ratio ? current : { ...current, [url]: ratio }
+    );
+  }, []);
+  const hero = quoteThumbHero(
+    visible.length,
+    visible.map((item) => ratios[item.url] ?? null)
+  );
   const singleVideoUrl =
     visible.length === 1 && isRenderablePostVideoMime(visible[0]?.mime)
       ? visible[0].url
@@ -944,32 +1047,20 @@ function QuoteMediaThumb({ items }: { items: PostMediaItem[] }) {
       className={[
         'post-card-quote-thumb',
         visible.length > 1 ? `is-collage is-${visible.length}` : '',
+        hero ? `is-${hero.mode}` : '',
       ]
         .filter(Boolean)
         .join(' ')}
       aria-hidden
     >
-      {visible.map((item, index) =>
-        isRenderablePostVideoMime(item.mime) ? (
-          <video
-            key={`${item.cid ?? item.url}:${index}`}
-            src={item.url}
-            muted
-            playsInline
-            preload="metadata"
-            className="post-card-quote-thumb-media"
-          />
-        ) : (
-          <img
-            key={`${item.cid ?? item.url}:${index}`}
-            src={item.url}
-            alt=""
-            className="post-card-quote-thumb-media"
-            loading="lazy"
-            decoding="async"
-          />
-        )
-      )}
+      {visible.map((item, index) => (
+        <QuoteThumbTile
+          key={`${item.cid ?? item.url}:${index}`}
+          item={item}
+          style={quoteThumbCellStyle(index, visible.length, hero)}
+          onRatio={onRatio}
+        />
+      ))}
       {durationLabel ? (
         <span className="post-card-quote-thumb-duration">{durationLabel}</span>
       ) : null}
