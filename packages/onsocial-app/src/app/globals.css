@@ -511,6 +511,8 @@
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .post-quotes-track-thumb {
@@ -520,7 +522,7 @@
   top: 0;
   border-radius: 9999px;
   pointer-events: none;
-  background: rgb(var(--fg-rgb) / 0.1);
+  background: var(--os-surface-fill);
 }
 
 .post-quotes-track .app-storage-mode,
