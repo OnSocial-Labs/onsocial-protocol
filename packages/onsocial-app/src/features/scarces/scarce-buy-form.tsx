@@ -213,8 +213,6 @@ export function ScarceBuyForm({
     null
   );
   const [dollarOracle, setDollarOracle] = useState<DollarOracle | null>(null);
-  const [dollarReady, setDollarReady] = useState(false);
-  const [dollarLookupError, setDollarLookupError] = useState(false);
   const [payAssetId, setPayAssetId] = useState('near');
   const [payTokens, setPayTokens] = useState<DollarPayToken[]>([]);
   const [quantity, setQuantity] = useState(1);
@@ -474,27 +472,27 @@ export function ScarceBuyForm({
     if (!dollarScope || !dollarId) {
       setDollarSticker(null);
       setDollarOracle(null);
-      setDollarLookupError(false);
-      setDollarReady(true);
       return;
     }
-    setDollarReady(false);
     let cancelled = false;
     void (async () => {
       try {
         const sticker = await fetchDollarSticker(dollarScope, dollarId);
-        const oracle = sticker ? await fetchDollarOracle() : null;
+        if (cancelled) return;
+        if (!sticker) {
+          setDollarSticker(null);
+          setDollarOracle(null);
+          return;
+        }
+        const oracle = await fetchDollarOracle();
         if (cancelled) return;
         setDollarSticker(sticker);
         setDollarOracle(oracle);
-        setDollarLookupError(false);
       } catch {
+        // A missing view (contract not upgraded yet) leaves the NEAR purchase open.
         if (cancelled) return;
         setDollarSticker(null);
         setDollarOracle(null);
-        setDollarLookupError(true);
-      } finally {
-        if (!cancelled) setDollarReady(true);
       }
     })();
     return () => {
@@ -595,10 +593,7 @@ export function ScarceBuyForm({
       ? primaryActionLabel
       : 'Connect';
 
-  const dollarCheckoutBlocked =
-    !dollarReady ||
-    dollarLookupError ||
-    (dollarSticker != null && dollarOracle == null);
+  const dollarCheckoutBlocked = dollarSticker != null && dollarOracle == null;
   const canSubmit =
     isConnected && !pending && isBuyable && !dollarCheckoutBlocked;
 
@@ -839,10 +834,6 @@ export function ScarceBuyForm({
       return;
     }
 
-    if (!dollarReady || dollarLookupError) {
-      setFieldError('Could not read the price.');
-      return;
-    }
     if (dollarSticker && !dollarOracle) {
       setFieldError('Dollar checkout opens when the price oracle is set.');
       return;
