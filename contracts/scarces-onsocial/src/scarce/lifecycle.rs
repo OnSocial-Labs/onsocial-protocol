@@ -163,6 +163,7 @@ impl Contract {
                     }
                 }
             }
+            self.clear_dollar(DOLLAR_SCOPE_SALE, token_id, owner_id);
             events::emit_auto_delisted(token_id, owner_id, reason);
         }
     }

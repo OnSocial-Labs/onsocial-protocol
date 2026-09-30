@@ -23,6 +23,10 @@ fn royalty_account() -> AccountId {
     near_sdk::test_utils::accounts(3)
 }
 
+fn offerer() -> AccountId {
+    near_sdk::test_utils::accounts(4)
+}
+
 fn pyth_account() -> AccountId {
     "pyth.test.near".parse().unwrap()
 }
@@ -696,6 +700,158 @@ fn dollar_purchase_needs_an_oracle() {
         "aa".into(),
     ));
     assert!(err.contains("not configured"));
+}
+
+fn offer(contract: &mut Contract, bidder: &AccountId, token_id: &str, amount: u128) {
+    testing_env!(context_with_deposit(bidder.clone(), amount).build());
+    contract
+        .execute(make_request(Action::MakeOffer {
+            token_id: token_id.to_string(),
+            amount: U128(amount),
+            expires_at: None,
+        }))
+        .unwrap();
+}
+
+#[test]
+fn cancelling_an_offer_returns_the_near_and_keeps_the_sticker() {
+    let mut contract = new_contract();
+    let token_id = mint(&mut contract, &seller(), None);
+    list_dollars(&mut contract, &seller(), &token_id, 0);
+    offer(&mut contract, &offerer(), &token_id, 2 * ONE_NEAR);
+
+    testing_env!(context_with_deposit(offerer(), 1).build());
+    contract
+        .execute(make_request(Action::CancelOffer {
+            token_id: token_id.clone(),
+        }))
+        .unwrap();
+
+    assert!(contract.get_offer(token_id.clone(), offerer()).is_none());
+    assert_eq!(transferred_to(&offerer()), 2 * ONE_NEAR);
+    assert_eq!(
+        contract
+            .get_dollar_price(DOLLAR_SCOPE_SALE.into(), token_id.clone())
+            .unwrap()
+            .usd_e6
+            .0,
+        ONE_DOLLAR_E6
+    );
+    assert_eq!(contract.nft_token(token_id).unwrap().owner_id, seller());
+}
+
+#[test]
+fn a_dollar_sale_refunds_the_open_offer() {
+    let mut contract = new_contract();
+    let token_id = mint(&mut contract, &seller(), None);
+    list_dollars(&mut contract, &seller(), &token_id, 0);
+    set_oracle(&mut contract);
+    offer(&mut contract, &offerer(), &token_id, 2 * ONE_NEAR);
+
+    settle_with_price(
+        &mut contract,
+        &token_id,
+        &pyth_json(PYTH_ONE_DOLLAR, 1_000),
+        ONE_NEAR,
+        ONE_NEAR,
+    );
+
+    assert!(contract.get_offer(token_id.clone(), offerer()).is_none());
+    assert_eq!(contract.nft_token(token_id).unwrap().owner_id, purchaser());
+    assert_eq!(transferred_to(&offerer()), 2 * ONE_NEAR);
+}
+
+#[test]
+fn accepting_an_offer_sells_for_that_near_and_clears_the_sticker() {
+    let mut contract = new_contract();
+    let token_id = mint(&mut contract, &seller(), None);
+    list_dollars(&mut contract, &seller(), &token_id, 0);
+    offer(&mut contract, &purchaser(), &token_id, 2 * ONE_NEAR);
+    offer(&mut contract, &offerer(), &token_id, ONE_NEAR);
+
+    testing_env!(context_with_deposit(seller(), 1).build());
+    contract
+        .execute(make_request(Action::AcceptOffer {
+            token_id: token_id.clone(),
+            buyer_id: purchaser(),
+        }))
+        .unwrap();
+
+    assert_eq!(
+        contract.nft_token(token_id.clone()).unwrap().owner_id,
+        purchaser()
+    );
+    assert!(contract
+        .get_dollar_price(DOLLAR_SCOPE_SALE.into(), token_id.clone())
+        .is_none());
+    let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &token_id);
+    assert!(!contract.sales.contains_key(&sale_id));
+    assert_eq!(transferred_to(&offerer()), ONE_NEAR);
+    assert_eq!(transferred_to(&purchaser()), 0);
+
+    let price = 2 * ONE_NEAR;
+    let total_fee = price * (DEFAULT_TOTAL_FEE_BPS as u128) / 10_000;
+    assert_eq!(transferred_to(&seller()), price - total_fee);
+}
+
+#[test]
+fn a_cancelled_dollar_drop_refunds_the_organizer_amount() {
+    let mut contract = new_contract();
+    contract
+        .create_collection(&seller(), collection("drop", None, None))
+        .unwrap();
+    testing_env!(context_with_deposit(seller(), 1).build());
+    contract
+        .execute(make_request(Action::UpdateCollectionPrice {
+            collection_id: "drop".into(),
+            new_price_near: U128(1),
+            usd_e6: Some(U128(ONE_DOLLAR_E6)),
+            min_near: None,
+        }))
+        .unwrap();
+    set_oracle(&mut contract);
+
+    testing_env!(
+        context(purchaser()).build(),
+        near_sdk::test_vm_config(),
+        near_sdk::RuntimeFeesConfig::test(),
+        HashMap::new(),
+        vec![PromiseResult::Successful(
+            pyth_json(PYTH_ONE_DOLLAR, 1_000).into_bytes(),
+        )],
+    );
+    contract.dollar_settle(
+        purchaser(),
+        DOLLAR_SCOPE_COLLECTION.into(),
+        "drop".into(),
+        1,
+        U128(ONE_NEAR),
+        U128(ONE_NEAR),
+    );
+    assert_eq!(
+        contract.scarces_by_id.get("drop:1").unwrap().paid_price,
+        U128(ONE_NEAR)
+    );
+
+    let refund = 500_000u128;
+    testing_env!(context_with_deposit(seller(), refund).build());
+    contract
+        .cancel_collection(&seller(), "drop", U128(refund), None, refund)
+        .unwrap();
+    contract
+        .claim_refund(&purchaser(), "drop:1", "drop")
+        .unwrap();
+
+    assert!(contract.scarces_by_id.get("drop:1").unwrap().refunded);
+    assert_eq!(transferred_to(&purchaser()), refund);
+    assert_eq!(
+        contract
+            .get_dollar_price(DOLLAR_SCOPE_COLLECTION.into(), "drop".into())
+            .unwrap()
+            .usd_e6
+            .0,
+        ONE_DOLLAR_E6
+    );
 }
 
 #[test]
