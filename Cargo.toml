@@ -20,6 +20,7 @@ members = [
     "contracts/core-onsocial",
     "contracts/manager-proxy-onsocial",
     "contracts/mock-ft",
+    "contracts/mock-pyth",
     "contracts/token-onsocial",
     "contracts/rewards-onsocial",
     "tests",

@@ -41,12 +41,42 @@ pub async fn deploy_contract(
 }
 
 pub fn get_wasm_path(contract_name: &str) -> String {
-    env::var(format!("{}_WASM_PATH", contract_name.to_uppercase())).unwrap_or_else(|_| {
-        format!(
-            "/code/target/near/{0}/{0}.wasm",
-            contract_name.replace("-", "_")
-        )
-    })
+    let underscored = contract_name.replace('-', "_");
+    let env_keys = [
+        format!("{}_WASM_PATH", underscored.to_uppercase()),
+        format!("{}_WASM_PATH", contract_name.to_uppercase()),
+    ];
+    for key in &env_keys {
+        if let Ok(path) = env::var(key) {
+            if !path.is_empty() {
+                return path;
+            }
+        }
+    }
+
+    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let candidates = [
+        format!("/code/target/near/{underscored}/{underscored}.wasm"),
+        root.join(format!("target/near/{underscored}/{underscored}.wasm"))
+            .to_string_lossy()
+            .into_owned(),
+        root.join(format!(
+            "target/wasm32-unknown-unknown/release/{underscored}.wasm"
+        ))
+        .to_string_lossy()
+        .into_owned(),
+        root.join(format!(
+            "contracts/{contract_name}/target/near/{underscored}/{underscored}.wasm"
+        ))
+        .to_string_lossy()
+        .into_owned(),
+    ];
+    for path in &candidates {
+        if std::path::Path::new(path).exists() {
+            return path.clone();
+        }
+    }
+    candidates[0].clone()
 }
 
 pub fn public_key_base58_serialize<S>(key: &PublicKey, serializer: S) -> Result<S::Ok, S::Error>
