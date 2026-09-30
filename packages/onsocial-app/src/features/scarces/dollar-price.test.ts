@@ -19,8 +19,9 @@ describe('yoctoForUsd', () => {
 });
 
 describe('buyerMaxNear', () => {
-  it('adds one percent above the computed total', () => {
-    expect(buyerMaxNear(100n, 2)).toBe(202n);
+  it('allows half a percent of price movement', () => {
+    expect(buyerMaxNear(1000n)).toBe(1005n);
+    expect(buyerMaxNear(100n, 2)).toBe(201n);
   });
 });
 

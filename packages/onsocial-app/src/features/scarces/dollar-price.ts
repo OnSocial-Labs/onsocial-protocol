@@ -57,11 +57,11 @@ export function yoctoForUsd(
   return yocto;
 }
 
-/** 1% above the computed NEAR, rounded up, so a small move still clears. */
+/** Buyer stop: 0.5% above the computed NEAR, rounded up. */
 export function buyerMaxNear(unitYocto: bigint, quantity = 1): bigint {
   if (quantity < 1) throw new Error('Quantity must be at least 1');
   const total = unitYocto * BigInt(quantity);
-  const buffered = (total * 101n + 99n) / 100n;
+  const buffered = (total * 1005n + 999n) / 1000n;
   return buffered > total ? buffered : total + 1n;
 }
 
