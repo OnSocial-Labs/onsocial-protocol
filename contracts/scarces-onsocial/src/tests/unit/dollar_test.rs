@@ -407,6 +407,45 @@ fn purchase_dollar_checks_the_deposit_and_the_listing() {
 }
 
 #[test]
+fn a_full_pool_sponsors_the_oracle_fee() {
+    let mut contract = new_contract();
+    let token_id = mint(&mut contract, &seller(), None);
+    list_dollars(&mut contract, &seller(), &token_id, 0);
+    set_oracle(&mut contract);
+    contract.platform_storage_balance = PLATFORM_STORAGE_MIN_RESERVE + ORACLE_FEE;
+
+    // The buyer attaches only the maximum NEAR; the pool pays the fetch fee.
+    testing_env!(context_with_deposit(purchaser(), ONE_NEAR).build());
+    assert!(contract
+        .purchase_dollar(DOLLAR_SCOPE_SALE.into(), token_id, 1, U128(ONE_NEAR))
+        .is_ok());
+    assert_eq!(
+        contract.platform_storage_balance,
+        PLATFORM_STORAGE_MIN_RESERVE
+    );
+}
+
+#[test]
+fn a_pool_at_its_reserve_leaves_the_fee_to_the_buyer() {
+    // new_contract seeds the pool at exactly the reserve.
+    let mut contract = new_contract();
+    let token_id = mint(&mut contract, &seller(), None);
+    list_dollars(&mut contract, &seller(), &token_id, 0);
+    set_oracle(&mut contract);
+
+    let pool_before = contract.platform_storage_balance;
+    testing_env!(context_with_deposit(purchaser(), ONE_NEAR).build());
+    let err = purchase_err(contract.purchase_dollar(
+        DOLLAR_SCOPE_SALE.into(),
+        token_id,
+        1,
+        U128(ONE_NEAR),
+    ));
+    assert!(err.contains("maximum NEAR"));
+    assert_eq!(contract.platform_storage_balance, pool_before);
+}
+
+#[test]
 fn settle_charges_the_dollar_price_and_refunds_the_rest() {
     let mut contract = new_contract();
     let token_id = mint(&mut contract, &seller(), Some(1_000));

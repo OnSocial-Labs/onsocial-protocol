@@ -30,10 +30,17 @@ struct DollarView {
 struct World {
     contract: Contract,
     oracle: Contract,
+    owner: Account,
 }
 
 async fn yocto(account: &Account) -> Result<u128> {
     Ok(account.view_account().await?.balance.as_yoctonear())
+}
+
+async fn pool_balance(contract: &Contract) -> Result<u128> {
+    let result = contract.view("get_platform_storage_balance").await?;
+    let text: String = serde_json::from_slice(&result.result)?;
+    Ok(text.parse()?)
 }
 
 async fn deploy_oracle(
@@ -78,7 +85,14 @@ async fn world(
         .transact()
         .await?
         .into_result()?;
-    Ok((worker, World { contract, oracle }))
+    Ok((
+        worker,
+        World {
+            contract,
+            oracle,
+            owner,
+        },
+    ))
 }
 
 async fn user_with_token(
@@ -348,6 +362,70 @@ async fn dollar_sale_refunds_when_the_stop_or_the_oracle_fails() -> Result<()> {
         spent_fail < ONE_NEAR / 4,
         "a rejected oracle call should refund the payment, spent {spent_fail}, {}",
         outcome_text(&failed)
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn dollar_sale_sponsors_the_oracle_fee_from_the_platform_pool() -> Result<()> {
+    let (worker, world) = world(ORACLE_ONE_DOLLAR).await?;
+    world
+        .owner
+        .call(world.contract.id(), "fund_platform_storage")
+        .deposit(NearToken::from_near(1))
+        .transact()
+        .await?
+        .into_result()?;
+
+    let (seller, token_id) = user_with_token(&worker, &world.contract, "Sponsored").await?;
+    list_dollar(&world.contract, &seller, &token_id).await?;
+    let buyer = user_with_storage(&worker, &world.contract).await?;
+
+    let pool_before = pool_balance(&world.contract).await?;
+
+    let buyer_before = yocto(&buyer).await?;
+    // Only the maximum NEAR is attached; the pool pays the oracle fetch fee.
+    let bought = buyer
+        .call(world.contract.id(), "purchase_dollar")
+        .args_json(json!({
+            "scope": "sale",
+            "id": token_id,
+            "quantity": 1,
+            "max_near": (ONE_NEAR * 1005 / 1000).to_string(),
+        }))
+        .deposit(NearToken::from_yoctonear(ONE_NEAR * 1005 / 1000))
+        .max_gas()
+        .transact()
+        .await?;
+    assert!(
+        bought.is_success(),
+        "a sponsored purchase settles without the fee attached: {}",
+        outcome_text(&bought)
+    );
+
+    let token = nft_token(&world.contract, &token_id).await?.expect("token");
+    assert_eq!(token.owner_id, buyer.id().to_string());
+    let buyer_spent = buyer_before - yocto(&buyer).await?;
+    assert!(
+        buyer_spent > ONE_NEAR * 9 / 10,
+        "buyer pays the 1 NEAR price, spent {buyer_spent}"
+    );
+    assert!(
+        buyer_spent < ONE_NEAR * 11 / 10,
+        "the oracle fee never reaches the buyer, spent {buyer_spent}"
+    );
+
+    // The freed listing storage flows back to the pool, so its net spend is
+    // at most the fetch fee and it never dips under the reserve.
+    let pool_after = pool_balance(&world.contract).await?;
+    assert!(
+        pool_after + ORACLE_FEE >= pool_before,
+        "the pool spends at most the fetch fee: before {pool_before}, after {pool_after}"
+    );
+    assert!(
+        pool_after >= 5 * ONE_NEAR,
+        "the pool never dips under its reserve: {pool_after}"
     );
 
     Ok(())

@@ -346,7 +346,9 @@ impl Contract {
     /// Buy a dollar-priced sale, lazy listing, or collection.
     ///
     /// Attach `max_near` plus the oracle fetch fee. The contract asks the
-    /// oracle for NEAR/USD and settles in the callback.
+    /// oracle for NEAR/USD and settles in the callback. While the platform
+    /// storage pool sits above its reserve it covers the fetch fee, and the
+    /// buyer's fee comes back with the surplus refund.
     #[payable]
     #[handle_result]
     pub fn purchase_dollar(
@@ -374,11 +376,21 @@ impl Contract {
             MarketplaceError::InvalidState("Dollar prices are not configured".into())
         })?;
         let attached = env::attached_deposit().as_yoctonear();
-        let payment = attached.checked_sub(ORACLE_CALL_DEPOSIT).ok_or_else(|| {
-            MarketplaceError::InsufficientDeposit(
-                "Attach the maximum NEAR plus the oracle fetch fee".into(),
-            )
-        })?;
+        // The platform storage pool (0.5% of every sale) covers the fetch fee
+        // while it stays above its reserve. A sponsored buyer still attaches
+        // the fee; the settle refund hands it back with the surplus.
+        let sponsored =
+            self.platform_storage_balance >= PLATFORM_STORAGE_MIN_RESERVE + ORACLE_CALL_DEPOSIT;
+        let payment = if sponsored {
+            self.platform_storage_balance -= ORACLE_CALL_DEPOSIT;
+            attached
+        } else {
+            attached.checked_sub(ORACLE_CALL_DEPOSIT).ok_or_else(|| {
+                MarketplaceError::InsufficientDeposit(
+                    "Attach the maximum NEAR plus the oracle fetch fee".into(),
+                )
+            })?
+        };
         if payment < max_near.0 || max_near.0 == 0 {
             return Err(MarketplaceError::InsufficientDeposit(
                 "Attach at least the maximum NEAR you agree to pay".into(),
