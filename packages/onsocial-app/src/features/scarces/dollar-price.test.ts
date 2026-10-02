@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ORACLE_CALL_FEE,
   buyerMaxNear,
+  dollarPurchaseDeposit,
   dollarStickerLabel,
   formatUsdE6,
+  parseDollarOracle,
   parseDollarSticker,
+  usdToOraclePrice,
   yoctoForUsd,
 } from './dollar-price';
 
@@ -14,7 +18,7 @@ describe('yoctoForUsd', () => {
     expect(yoctoForUsd(2_000_000n, 2n, 0)).toBe(ONE_NEAR);
   });
 
-  it('scales the Pyth integer when the exponent is -8', () => {
+  it('scales the oracle multiplier when the exponent is -8', () => {
     expect(yoctoForUsd(1_000_000n, 100_000_000n, -8)).toBe(ONE_NEAR);
   });
 });
@@ -51,5 +55,51 @@ describe('parseDollarSticker', () => {
 
   it('ignores an empty view', () => {
     expect(parseDollarSticker(null)).toBeNull();
+  });
+});
+
+describe('parseDollarOracle', () => {
+  it('reads the oracle config', () => {
+    expect(
+      parseDollarOracle({
+        oracle_contract: 'price-oracle.near',
+        asset_id: 'wrap.near',
+        max_age_seconds: 3600,
+      })
+    ).toEqual({
+      oracleContract: 'price-oracle.near',
+      assetId: 'wrap.near',
+      maxAgeSeconds: 3600,
+    });
+  });
+
+  it('ignores an empty view', () => {
+    expect(parseDollarOracle(null)).toBeNull();
+    expect(parseDollarOracle({ oracle_contract: 'price-oracle.near' })).toBeNull();
+  });
+});
+
+describe('usdToOraclePrice', () => {
+  it('converts decimal dollars to the oracle shape', () => {
+    expect(usdToOraclePrice('4.79')).toEqual({ price: 479_000_000n, expo: -8 });
+    expect(usdToOraclePrice('5')).toEqual({ price: 500_000_000n, expo: -8 });
+    expect(usdToOraclePrice('0.123456789')).toEqual({
+      price: 12_345_678n,
+      expo: -8,
+    });
+  });
+
+  it('refuses a missing or zero price', () => {
+    expect(() => usdToOraclePrice('')).toThrow();
+    expect(() => usdToOraclePrice('0')).toThrow();
+    expect(() => usdToOraclePrice('abc')).toThrow();
+  });
+});
+
+describe('dollarPurchaseDeposit', () => {
+  it('adds the oracle fetch fee to the buyer maximum', () => {
+    expect(dollarPurchaseDeposit(ONE_NEAR)).toBe(
+      (ONE_NEAR + ORACLE_CALL_FEE).toString()
+    );
   });
 });

@@ -316,7 +316,6 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s \
   REVOLUT_API_URL="$(fetch_secret REVOLUT_API_URL || true)"
   REVOLUT_API_VERSION="$(fetch_secret REVOLUT_API_VERSION || true)"
   ONECLICK_API_KEY="$(fetch_secret ONECLICK_API_KEY || true)"
-  PYTH_API_KEY="$(fetch_secret PYTH_API_KEY || true)"
 
   cat > .env.production <<ENVEOF
 # Auto-generated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')
@@ -350,7 +349,6 @@ ENVEOF
   {
     printf 'JWT_SECRET=%s\n' "$JWT_SECRET"
     printf 'ONECLICK_API_KEY=%s\n' "$ONECLICK_API_KEY"
-    printf 'PYTH_API_KEY=%s\n' "$PYTH_API_KEY"
     printf 'LIGHTHOUSE_API_KEY=%s\n' "$LIGHTHOUSE_API_KEY"
     printf 'REVOLUT_ENVIRONMENT=%s\n' "$REVOLUT_ENVIRONMENT"
     printf 'REVOLUT_SECRET_KEY=%s\n' "$REVOLUT_SECRET_KEY"

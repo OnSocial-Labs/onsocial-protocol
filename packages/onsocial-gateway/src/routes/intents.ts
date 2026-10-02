@@ -1,6 +1,7 @@
 /**
  * Server-side NEAR Intents. The 1Click key stays here.
- * Dollar scarces are priced by Pyth; this route only funds the NEAR.
+ * Dollar scarces are priced by the on-chain oracle; these routes only fund
+ * the NEAR and hand out an indicative price for the buyer stop.
  */
 
 import { Router } from 'express';
@@ -9,9 +10,9 @@ import { config } from '../config/index.js';
 import { requireAuth } from '../middleware/index.js';
 import {
   buildExactNearQuote,
-  hermesUpdateUrl,
   statusUrl,
   tokensUrl,
+  wrapNearUsdPrice,
 } from '../services/intents/quote.js';
 
 export const intentsRouter = Router();
@@ -31,36 +32,18 @@ intentsRouter.get('/tokens', async (_req: Request, res: Response) => {
 });
 
 intentsRouter.get('/near-usd', async (_req: Request, res: Response) => {
-  if (!config.pythApiKey) {
-    res.status(503).json({ error: 'Pyth is not configured' });
-    return;
-  }
   try {
-    const response = await fetch(hermesUpdateUrl(config.nearNetwork), {
-      headers: { authorization: `Bearer ${config.pythApiKey}` },
-    });
+    const response = await fetch(tokensUrl());
     if (!response.ok) {
       res.status(502).json({ error: 'NEAR price is unavailable' });
       return;
     }
-    const payload = (await response.json()) as {
-      binary?: { data?: string[] };
-      parsed?: Array<{
-        price?: { price?: string; conf?: string; expo?: number };
-      }>;
-    };
-    const updateData = payload.binary?.data?.[0];
-    const price = payload.parsed?.[0]?.price;
-    if (!updateData || !price?.price || price.expo == null) {
+    const price = wrapNearUsdPrice(await response.json());
+    if (!price) {
       res.status(502).json({ error: 'NEAR price is unavailable' });
       return;
     }
-    res.json({
-      updateData,
-      price: price.price,
-      conf: price.conf ?? '0',
-      expo: price.expo,
-    });
+    res.json(price);
   } catch {
     res.status(502).json({ error: 'NEAR price is unavailable' });
   }

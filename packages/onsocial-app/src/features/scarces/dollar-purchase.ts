@@ -1,10 +1,11 @@
 /**
  * Buy a dollar-priced scarce.
  *
- * The price is the Pyth NEAR/USD update submitted with `purchase_dollar`.
- * Another coin only funds that NEAR: 1Click delivers wrapped NEAR, the buyer
- * unwraps it, then this purchase spends native NEAR. 1Click settles on
- * mainnet, so that funding path is mainnet-only.
+ * The contract's oracle prices NEAR/USD in the settle callback; the app only
+ * uses an indicative price to size the buyer's maximum NEAR. Another coin
+ * only funds that NEAR: 1Click delivers wrapped NEAR, the buyer unwraps it,
+ * then this purchase spends native NEAR. 1Click settles on mainnet, so that
+ * funding path is mainnet-only.
  */
 
 import type { NearWalletBase } from '@hot-labs/near-connect';
@@ -21,12 +22,12 @@ import {
 } from '@/lib/transaction-toast-copy';
 import {
   DOLLAR_PURCHASE_GAS,
+  ORACLE_CALL_FEE,
   SCARCES_CONTRACT,
   WRAP_NEAR_CONTRACT,
   buyerMaxNear,
   dollarPurchaseDeposit,
-  fetchNearUsdUpdate,
-  fetchPythUpdateFee,
+  fetchNearUsdQuote,
   yoctoForUsd,
   type DollarOracle,
   type DollarScope,
@@ -241,18 +242,14 @@ async function fundWithToken(
 export async function purchaseDollarScarce(
   input: PurchaseDollarScarceInput
 ): Promise<boolean> {
-  const update = await fetchNearUsdUpdate();
-  const unit = yoctoForUsd(input.sticker.usdE6, update.price, update.expo);
+  const quote = await fetchNearUsdQuote();
+  const unit = yoctoForUsd(input.sticker.usdE6, quote.price, quote.expo);
   if (input.sticker.minNear > 0n && unit < input.sticker.minNear) {
     throw new Error('NEAR price is below the seller minimum');
   }
   const maxNear = buyerMaxNear(unit, input.quantity);
-  const pythFee = await fetchPythUpdateFee(
-    input.oracle.pythContract,
-    update.updateData
-  );
   if (input.payAssetId && input.payAssetId !== 'near') {
-    await fundWithToken(input, maxNear.toString());
+    await fundWithToken(input, (maxNear + ORACLE_CALL_FEE).toString());
   }
   const hashes = await signCall({
     wallet: input.wallet,
@@ -264,11 +261,9 @@ export async function purchaseDollarScarce(
       id: input.id,
       quantity: input.quantity,
       max_near: maxNear.toString(),
-      pyth_fee: pythFee.toString(),
-      update_data: update.updateData,
     },
     gas: DOLLAR_PURCHASE_GAS,
-    deposit: dollarPurchaseDeposit(maxNear, pythFee),
+    deposit: dollarPurchaseDeposit(maxNear),
   });
   return input.confirm(hashes, {
     submittedMessage: txToastConfirming.buyingScarce,

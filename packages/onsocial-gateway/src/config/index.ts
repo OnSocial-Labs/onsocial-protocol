@@ -229,8 +229,6 @@ export const config = {
   // NEAR Intents 1Click. Funds a dollar scarce; never sent to the browser.
   // GSM secret name is ONECLICK_API_KEY. Empty until the secret exists.
   oneClickApiKey: env('ONECLICK_API_KEY'),
-  /** Hermes requires this after the August 2026 Pyth upgrade. Server-side only. */
-  pythApiKey: env('PYTH_API_KEY'),
   // Public IPFS gateway used in NFT `media` / `reference` URLs. Defaults to
   // our own brand-stable subdomain (Caddy → upstream pinning provider) so
   // on-chain references stay valid even if the underlying provider changes.

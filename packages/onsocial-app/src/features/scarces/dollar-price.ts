@@ -14,8 +14,11 @@ export const SCARCES_CONTRACT =
 export const WRAP_NEAR_CONTRACT =
   ACTIVE_NEAR_NETWORK === 'mainnet' ? 'wrap.near' : 'wrap.testnet';
 
-/** Buyer's transaction gas. Pyth's update and the settle callback share 300 TGas. */
+/** Buyer's transaction gas. The oracle request and the settle callback share 300 TGas. */
 export const DOLLAR_PURCHASE_GAS = '300000000000000';
+
+/** Fetch fee the oracle charges per price request, attached to every buy. */
+export const ORACLE_CALL_FEE = 10n ** 22n;
 
 export type DollarScope = 'sale' | 'lazy' | 'collection';
 
@@ -25,16 +28,14 @@ export interface DollarSticker {
 }
 
 export interface DollarOracle {
-  pythContract: string;
-  priceId: string;
+  oracleContract: string;
+  assetId: string;
   maxAgeSeconds: number;
-  maxConfBps: number;
 }
 
-export interface NearUsdUpdate {
-  updateData: string;
+/** Indicative NEAR/USD, oracle-shaped: one NEAR is `price * 10^expo` dollars. */
+export interface NearUsdQuote {
   price: bigint;
-  conf: bigint;
   expo: number;
 }
 
@@ -108,23 +109,19 @@ export function parseDollarSticker(value: unknown): DollarSticker | null {
 export function parseDollarOracle(value: unknown): DollarOracle | null {
   if (!value || typeof value !== 'object') return null;
   const row = value as {
-    pyth_contract?: unknown;
-    price_id?: unknown;
+    oracle_contract?: unknown;
+    asset_id?: unknown;
     max_age_seconds?: unknown;
-    max_conf_bps?: unknown;
   };
-  if (typeof row.pyth_contract !== 'string' || !row.pyth_contract) return null;
-  if (typeof row.price_id !== 'string' || row.price_id.length !== 64)
+  if (typeof row.oracle_contract !== 'string' || !row.oracle_contract)
     return null;
+  if (typeof row.asset_id !== 'string' || !row.asset_id) return null;
   const maxAgeSeconds = Number(row.max_age_seconds);
-  const maxConfBps = Number(row.max_conf_bps);
-  if (!Number.isFinite(maxAgeSeconds) || !Number.isFinite(maxConfBps))
-    return null;
+  if (!Number.isFinite(maxAgeSeconds)) return null;
   return {
-    pythContract: row.pyth_contract,
-    priceId: row.price_id,
+    oracleContract: row.oracle_contract,
+    assetId: row.asset_id,
     maxAgeSeconds,
-    maxConfBps,
   };
 }
 
@@ -149,45 +146,28 @@ export async function fetchDollarOracle(): Promise<DollarOracle | null> {
   return parseDollarOracle(value);
 }
 
-export async function fetchNearUsdUpdate(): Promise<NearUsdUpdate> {
+/** Decimal dollars to the oracle shape: "4.79" is price 479000000, expo -8. */
+export function usdToOraclePrice(priceUsd: string): NearUsdQuote {
+  const match = /^(\d+)(?:\.(\d+))?$/.exec(priceUsd.trim());
+  if (!match) throw new Error('NEAR price is unavailable');
+  const frac = (match[2] ?? '').padEnd(8, '0').slice(0, 8);
+  const price = BigInt(`${match[1]}${frac}`);
+  if (price <= 0n) throw new Error('NEAR price is unavailable');
+  return { price, expo: -8 };
+}
+
+/**
+ * Indicative NEAR/USD for the buyer stop. The contract's oracle is
+ * authoritative; this quote only sizes `max_near` and the NEAR estimate.
+ */
+export async function fetchNearUsdQuote(): Promise<NearUsdQuote> {
   const response = await fetch('/api/onapi/intents/near-usd');
   if (!response.ok) throw new Error('NEAR price is unavailable');
-  const body = (await response.json()) as {
-    updateData?: string;
-    price?: string;
-    conf?: string;
-    expo?: number;
-  };
-  const updateData = body.updateData?.replace(/^0x/, '') ?? '';
-  const price = body.price ? BigInt(body.price) : 0n;
-  if (!updateData || price <= 0n || body.expo == null) {
-    throw new Error('NEAR price is unavailable');
-  }
-  return {
-    updateData,
-    price,
-    conf: BigInt(body.conf ?? '0'),
-    expo: body.expo,
-  };
+  const body = (await response.json()) as { priceUsd?: string };
+  if (!body.priceUsd) throw new Error('NEAR price is unavailable');
+  return usdToOraclePrice(body.priceUsd);
 }
 
-export async function fetchPythUpdateFee(
-  pythContract: string,
-  updateData: string
-): Promise<bigint> {
-  const value = await viewNearContract<unknown>(
-    pythContract,
-    'get_update_fee_estimate',
-    { data: updateData }
-  );
-  const fee = parseU128(value);
-  if (fee == null) throw new Error('Pyth update fee is unavailable');
-  return fee;
-}
-
-export function dollarPurchaseDeposit(
-  maxNear: bigint,
-  pythFee: bigint
-): string {
-  return (maxNear + pythFee).toString();
+export function dollarPurchaseDeposit(maxNear: bigint): string {
+  return (maxNear + ORACLE_CALL_FEE).toString();
 }

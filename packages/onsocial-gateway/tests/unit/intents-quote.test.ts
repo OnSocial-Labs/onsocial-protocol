@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   WRAP_NEAR_ASSET,
   buildExactNearQuote,
+  wrapNearUsdPrice,
 } from '../../src/services/intents/quote.js';
 
 describe('buildExactNearQuote', () => {
@@ -37,5 +38,31 @@ describe('buildExactNearQuote', () => {
         refundTo: 'buyer.testnet',
       })
     ).toThrow(/nep141/);
+  });
+});
+
+describe('wrapNearUsdPrice', () => {
+  it('reads the wrapped NEAR dollar price from the token list', () => {
+    const price = wrapNearUsdPrice([
+      { assetId: 'nep141:usdc.tether-token.near', price: 1 },
+      {
+        assetId: WRAP_NEAR_ASSET,
+        price: 4.79,
+        priceUpdatedAt: '2026-10-02T18:02:00.719Z',
+      },
+    ]);
+    expect(price).toEqual({
+      priceUsd: '4.79',
+      updatedAt: '2026-10-02T18:02:00.719Z',
+    });
+  });
+
+  it('is empty without a usable wrapped NEAR row', () => {
+    expect(wrapNearUsdPrice([])).toBeNull();
+    expect(wrapNearUsdPrice('nope')).toBeNull();
+    expect(wrapNearUsdPrice([{ assetId: WRAP_NEAR_ASSET }])).toBeNull();
+    expect(
+      wrapNearUsdPrice([{ assetId: WRAP_NEAR_ASSET, price: 0 }])
+    ).toBeNull();
   });
 });
