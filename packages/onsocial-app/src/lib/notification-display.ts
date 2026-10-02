@@ -244,10 +244,7 @@ export function snippetFromPostValue(
   return firstLineSnippet(parsePostText(value));
 }
 
-export function notificationSnippetKey(
-  author: string,
-  postId: string
-): string {
+export function notificationSnippetKey(author: string, postId: string): string {
   return `${author}\0${postId}`;
 }
 

@@ -341,9 +341,7 @@ describe('notification display', () => {
         },
         createdAt,
       })
-    ).toBe(
-      'opened a proposal · gov.sputnik-dao.testnet · Fund builders · 5m'
-    );
+    ).toBe('opened a proposal · gov.sputnik-dao.testnet · Fund builders · 5m');
 
     expect(
       notificationDescription({
@@ -371,7 +369,10 @@ describe('notification display', () => {
   it('stamps Today with relative recency and older days with clock time', () => {
     const now = new Date(2026, 8, 19, 15, 4, 0);
     expect(
-      formatNotificationTime(new Date(2026, 8, 19, 15, 3, 20).toISOString(), now)
+      formatNotificationTime(
+        new Date(2026, 8, 19, 15, 3, 20).toISOString(),
+        now
+      )
     ).toEqual({
       label: 'now',
       title: new Intl.DateTimeFormat('en-US', {

@@ -185,9 +185,7 @@ test.describe('rally sheet', () => {
       sheet.getByRole('heading', { name: /Join OnSocial Rally/i })
     ).toBeVisible();
     await expect(sheet.getByText('5,000 SOCIAL · 3 in')).toBeVisible();
-    await expect(
-      sheet.getByRole('list', { name: 'Standings' })
-    ).toBeVisible();
+    await expect(sheet.getByRole('list', { name: 'Standings' })).toBeVisible();
     await expect(
       sheet.getByRole('button', { name: 'Join · 100 SOCIAL' })
     ).toBeVisible();
@@ -210,9 +208,7 @@ test.describe('rally sheet', () => {
       sheet.getByRole('heading', { name: /ready to collect/i })
     ).toBeVisible();
     await expect(sheet.getByText('Ready to collect.')).toBeVisible();
-    await expect(
-      sheet.getByRole('button', { name: 'Collect' })
-    ).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Collect' })).toBeVisible();
     await sheet.screenshot({ path: 'test-results/rally-sheet-collect.png' });
   });
 });

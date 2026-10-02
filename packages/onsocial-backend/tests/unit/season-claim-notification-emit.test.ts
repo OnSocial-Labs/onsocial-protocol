@@ -9,7 +9,11 @@ describe('buildSeasonClaimOpenRows', () => {
   it('keeps positive claims with rank', () => {
     expect(
       buildSeasonClaimOpenRows([
-        { account_id: 'alice.testnet', amount: '250000000000000000000', rank: 2 },
+        {
+          account_id: 'alice.testnet',
+          amount: '250000000000000000000',
+          rank: 2,
+        },
       ])
     ).toEqual([
       {
