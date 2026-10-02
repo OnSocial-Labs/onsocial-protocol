@@ -25,8 +25,10 @@ const MS_TO_NS = 1_000_000n;
  */
 export function resolveSeasonClaimOpenDelayMs(): number {
   return (
-    parsePositiveInt(process.env.SEASON_AUTO_FINALIZE_GRACE_MS, DEFAULT_GRACE_MS) +
-    resolvePublishConfirmMs()
+    parsePositiveInt(
+      process.env.SEASON_AUTO_FINALIZE_GRACE_MS,
+      DEFAULT_GRACE_MS
+    ) + resolvePublishConfirmMs()
   );
 }
 

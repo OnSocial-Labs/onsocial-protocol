@@ -82,9 +82,9 @@ describe('rally-season', () => {
   });
 
   it('parses join min and titles', () => {
-    expect(parseJoinRallyMinYocto({ min_amount: '100000000000000000000' })).toBe(
-      100000000000000000000n
-    );
+    expect(
+      parseJoinRallyMinYocto({ min_amount: '100000000000000000000' })
+    ).toBe(100000000000000000000n);
     expect(resolveRallyPresentation('season-one').pageTitle).toBe(
       'OnSocial Rally'
     );
@@ -113,9 +113,9 @@ describe('rally-season', () => {
     expect(formatRallyPrizeLine({ poolYocto: '0', participantCount: 0 })).toBe(
       ''
     );
-    expect(
-      formatRallyPrizeLine({ poolYocto: '1500000000000000000000' })
-    ).toBe('1,500 SOCIAL');
+    expect(formatRallyPrizeLine({ poolYocto: '1500000000000000000000' })).toBe(
+      '1,500 SOCIAL'
+    );
     expect(formatRallyPrizeLine({ participantCount: 3 })).toBe('3 in');
   });
 
@@ -185,9 +185,7 @@ describe('rally-season', () => {
     expect(resolveRallyMeritWhy(null)).toBe(
       'Stand, endorse, and boost to move.'
     );
-    expect(resolveRallyMeritWhy(null, true)).toBe(
-      "Activity didn't move this."
-    );
+    expect(resolveRallyMeritWhy(null, true)).toBe("Activity didn't move this.");
     expect(
       resolveRallyMeritWhy(
         {

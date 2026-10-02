@@ -1,6 +1,9 @@
 import { SOCIAL_SPEND_CONTRACT } from '@/lib/app-config';
 import { viewNearContract } from '@/lib/app-near-rpc';
-import { formatSocialCompact, yoctoToSocial } from '@/lib/format-social-balance';
+import {
+  formatSocialCompact,
+  yoctoToSocial,
+} from '@/lib/format-social-balance';
 
 export type RallySeasonPhase = 'live' | 'upcoming' | 'claim' | 'archived';
 
@@ -233,9 +236,7 @@ export function resolveRallyMarkNudge(input: {
   return input.visible && (input.canJoin || input.canCollect);
 }
 
-export function formatRallyRankLabel(
-  rank: number | null | undefined
-): string {
+export function formatRallyRankLabel(rank: number | null | undefined): string {
   if (rank == null || !Number.isFinite(rank) || rank <= 0) return '';
   return `#${rank}`;
 }
@@ -390,9 +391,7 @@ function standingToBoardRow(
     rank: row.rank,
     score: merit ?? (Number.isFinite(row.score) ? row.score : 0),
     accountId,
-    ...(row.displayName?.trim()
-      ? { displayName: row.displayName.trim() }
-      : {}),
+    ...(row.displayName?.trim() ? { displayName: row.displayName.trim() } : {}),
     ...(breakdown ? { breakdown } : {}),
   };
 }
@@ -518,7 +517,9 @@ export function resolveRallySheetView(input: {
       title: 'Join',
       titleUnit: min ? `${min} SOCIAL` : null,
       body: '',
-      ariaLabel: min ? `Join ${pageTitle} · ${min} SOCIAL` : `Join ${pageTitle}`,
+      ariaLabel: min
+        ? `Join ${pageTitle} · ${min} SOCIAL`
+        : `Join ${pageTitle}`,
     };
   }
 
