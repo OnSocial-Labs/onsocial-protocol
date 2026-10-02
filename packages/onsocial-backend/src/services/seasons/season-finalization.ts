@@ -3,6 +3,7 @@ import { indexerQuery } from '../../db/indexer.js';
 import { logger } from '../../logger.js';
 import { viewContractAt } from '../near.js';
 import { relaySocialSpendSettlement } from '../social-spend-settlement-relay.js';
+import { emitSeasonClaimOpenNotifications } from './season-claim-notification-emit.js';
 import { SEASON_ZERO_ID } from './season-policy.js';
 import { getSeasonStandings } from './season-standings.js';
 import {
@@ -773,6 +774,10 @@ export async function publishSeasonSettlement(
      RETURNING *`,
     [id, active, result.tx_hash ?? null]
   );
+  if (active) {
+    // Fire-and-forget: Activity fan-out must never fail a settled publish.
+    void emitSeasonClaimOpenNotifications(id);
+  }
   return rowToSummary(updated.rows[0]);
 }
 

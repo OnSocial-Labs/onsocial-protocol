@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { homeWalletPath, parseAppWalletSheetParam } from '@/lib/app-routes';
+import { homeRallyPath } from '@/lib/overlay-routes';
 import {
   ACTIVITY_EXCLUDE_TYPE,
   formatNotificationTime,
@@ -57,6 +58,7 @@ describe('notification display', () => {
     expect(notificationVerb('boost_locked')).toBe('your boost is locked');
     expect(notificationVerb('reward_credited')).toBe('SOCIAL credited');
     expect(notificationVerb('reward_claimed')).toBe('SOCIAL collected');
+    expect(notificationVerb('season_claim_open')).toBe('rally rewards ready');
     expect(notificationVerb('boost_reward_claimed')).toBe('boost collected');
     expect(notificationVerb('group_invite')).toBe('invited you');
     expect(notificationVerb('scarces_sold')).toBe('bought this');
@@ -297,6 +299,16 @@ describe('notification display', () => {
       })
     ).toBe('/home?sheet=wallet');
     expect(homeWalletPath()).toBe('/home?sheet=wallet');
+
+    expect(
+      notificationHref({
+        type: 'season_claim_open',
+        actor: '',
+        recipient: 'alice.testnet',
+        context: { seasonId: 'season-one', amount: '250000000000000000000' },
+      })
+    ).toBe('/home?sheet=rally');
+    expect(homeRallyPath()).toBe('/home?sheet=rally');
     expect(parseAppWalletSheetParam('wallet')).toBe('wallet');
     expect(parseAppWalletSheetParam('boost')).toBeNull();
   });
@@ -679,6 +691,16 @@ describe('notification display', () => {
       family: 'collect',
       familyLabel: 'Collect',
       action: 'SOCIAL collected',
+    });
+    expect(
+      notificationSystemChrome({
+        type: 'season_claim_open',
+        context: {},
+      })
+    ).toEqual({
+      family: 'collect',
+      familyLabel: 'Collect',
+      action: 'Rally rewards ready',
     });
     expect(
       notificationSystemChrome({

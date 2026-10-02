@@ -410,6 +410,8 @@ export function pushNotificationVerb(
       return 'SOCIAL credited';
     case 'reward_claimed':
       return 'SOCIAL collected';
+    case 'season_claim_open':
+      return 'rally rewards ready to collect';
     case 'boost_locked':
       return 'your boost is locked';
     case 'boost_extended':
@@ -538,6 +540,10 @@ export function pushNotificationUrl(row: {
     return '/home?sheet=wallet';
   }
 
+  if (type === 'season_claim_open') {
+    return '/home?sheet=rally';
+  }
+
   if (
     type === 'reply' ||
     type === 'quote' ||
@@ -623,7 +629,7 @@ export function buildWebPushPayload(row: NotificationRow): WebPushPayload {
       notificationId: row.id,
     };
   }
-  if (type.startsWith('reward_')) {
+  if (type.startsWith('reward_') || type === 'season_claim_open') {
     return {
       title: 'Collect',
       body,
