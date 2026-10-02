@@ -257,6 +257,25 @@ export async function getSeasonZeroSettlementSummary(): Promise<SeasonZeroSettle
   return getSeasonSettlementSummary(SEASON_ZERO_ID);
 }
 
+/**
+ * Drop a finalized (never published) settlement so automation can re-finalize
+ * from a later snapshot. Claims cascade. Only safe pre-publish: the contract
+ * rejects replacing a root after claims, so a published row is never deleted.
+ */
+export async function deleteSeasonFinalizedSettlement(
+  seasonId: string
+): Promise<boolean> {
+  const id = assertSeasonId(seasonId);
+  const result = await query(
+    `DELETE FROM season_settlements
+     WHERE season_id = $1
+       AND status = 'finalized'
+       AND published_tx_hash IS NULL`,
+    [id]
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
 export async function getSeasonClaimData(
   seasonId: string,
   accountId: string

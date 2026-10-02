@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isSeasonAutoPublishEnabled,
   resolveSeasonAutoFinalizeGraceEndsAtNs,
+  resolveSeasonClaimOpenDelayMs,
 } from '../../src/services/seasons/season-settlement-automation.js';
 
 describe('season-settlement-automation', () => {
@@ -11,6 +12,11 @@ describe('season-settlement-automation', () => {
     expect(resolveSeasonAutoFinalizeGraceEndsAtNs(endsAtNs, 60_000)).toBe(
       BigInt(endsAtNs) + 60_000n * 1_000_000n
     );
+  });
+
+  it('opens claims after the grace and publish-confirm window', () => {
+    // Testnet confirm is 15m; default (mainnet) is 2h. Grace is 1h.
+    expect(resolveSeasonClaimOpenDelayMs()).toBe(75 * 60 * 1000);
   });
 
   it('disables auto-publish when explicitly turned off', () => {

@@ -2,6 +2,7 @@ import { config } from '../../config/index.js';
 import { logger } from '../../logger.js';
 import {
   confirmFinalizedSettlement,
+  deleteSeasonFinalizedSettlement,
   finalizeSeasonSettlement,
   getSeasonOnChainConfig,
   getSeasonSettlementSummary,
@@ -16,6 +17,18 @@ const DEFAULT_RETRY_MS = 5 * 60 * 1000;
 const DEFAULT_PUBLISH_CONFIRM_MS = 2 * 60 * 60 * 1000;
 const TESTNET_PUBLISH_CONFIRM_MS = 15 * 60 * 1000;
 const MS_TO_NS = 1_000_000n;
+
+/**
+ * How long after a rally ends before Collect opens on-chain. Exported so the
+ * DAO start-rally form can set `claim_starts_at_ns` to the same window the
+ * automation needs to finalize and publish the root.
+ */
+export function resolveSeasonClaimOpenDelayMs(): number {
+  return (
+    parsePositiveInt(process.env.SEASON_AUTO_FINALIZE_GRACE_MS, DEFAULT_GRACE_MS) +
+    resolvePublishConfirmMs()
+  );
+}
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let inFlight = false;
@@ -143,6 +156,16 @@ async function tryAutoPublish(seasonId: string): Promise<void> {
     const message = `Season ${seasonId} publish blocked: ${confirmation.reason ?? 'confirmation failed'}`;
     rememberFailure(seasonId, message);
     logger.error({ seasonId, reason: confirmation.reason }, message);
+    // The frozen row disagrees with a fresh snapshot and nobody has claimed
+    // yet (publish is still pending). Drop it so the next tick re-finalizes
+    // from current standings instead of retrying the stale row forever.
+    const dropped = await deleteSeasonFinalizedSettlement(seasonId);
+    if (dropped) {
+      logger.info(
+        { seasonId },
+        'Dropped stale finalized settlement; will re-finalize on next tick'
+      );
+    }
     return;
   }
 

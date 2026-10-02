@@ -66,7 +66,8 @@ export function ProtocolComposeSeasonConfigFields({
       </label>
       <p className="protocol-compose-note">
         Starts about 10 minutes after submission; end time is derived from
-        duration.
+        duration. Collect opens about 3 hours after the rally ends, once
+        results are published.
       </p>
     </>
   );

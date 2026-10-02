@@ -283,6 +283,27 @@ describe('rally-season', () => {
     ).toBe('Connect to collect if you placed.');
   });
 
+  it('says results are being calculated while the settlement is pending', () => {
+    for (const phase of [
+      'ended_pending_settlement',
+      'finalized_pending_publish',
+      'published_claim_soon',
+    ] as const) {
+      expect(
+        resolveRallySheetView({
+          loaded: true,
+          pageTitle: 'OnSocial Rally',
+          phase,
+          joined: true,
+          rank: 2,
+          canCollect: false,
+          collected: false,
+          isConnected: true,
+        }).body
+      ).toBe('Results are being calculated. Collect opens soon.');
+    }
+  });
+
   it('prefetches join affordance for live connected marks, not guests or claim', () => {
     expect(
       shouldFetchRallyJoinAffordance({

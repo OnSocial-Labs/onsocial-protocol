@@ -500,7 +500,7 @@ export function resolveRallySheetView(input: {
     };
   }
 
-  if (input.joined) {
+  if (input.joined && input.phase === 'live') {
     const rank = formatRallyRankLabel(input.rank);
     return {
       eyebrow,
@@ -531,6 +531,20 @@ export function resolveRallySheetView(input: {
         ? 'Nothing to collect.'
         : 'Connect to collect if you placed.',
       ariaLabel: pageTitle,
+    };
+  }
+
+  if (
+    input.phase === 'ended_pending_settlement' ||
+    input.phase === 'finalized_pending_publish' ||
+    input.phase === 'published_claim_soon'
+  ) {
+    return {
+      eyebrow,
+      title: pageTitle,
+      titleUnit: null,
+      body: 'Results are being calculated. Collect opens soon.',
+      ariaLabel: `${pageTitle} results are being calculated`,
     };
   }
 
