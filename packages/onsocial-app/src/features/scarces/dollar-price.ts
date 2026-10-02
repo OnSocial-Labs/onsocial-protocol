@@ -65,6 +65,16 @@ export function buyerMaxNear(unitYocto: bigint, quantity = 1): bigint {
   return buffered > total ? buffered : total + 1n;
 }
 
+/** Indexed `usd_e6` millionths. Blank when the listing is priced in NEAR. */
+export function dollarStickerLabel(
+  usdE6: string | null | undefined
+): string | null {
+  if (!usdE6 || !/^\d+$/.test(usdE6)) return null;
+  const value = BigInt(usdE6);
+  if (value <= 0n) return null;
+  return formatUsdE6(value);
+}
+
 export function formatUsdE6(usdE6: bigint, quantity = 1): string {
   const total = usdE6 * BigInt(Math.max(1, quantity));
   const whole = total / 1_000_000n;

@@ -27,7 +27,12 @@ impl Contract {
                 } else {
                     new_price_near
                 };
-                self.update_collection_price(actor_id, collection_id.clone(), stored)?;
+                self.update_collection_price(
+                    actor_id,
+                    collection_id.clone(),
+                    stored,
+                    usd_e6.map(|usd| usd.0),
+                )?;
                 if let Some(usd) = usd_e6 {
                     self.write_dollar(
                         DOLLAR_SCOPE_COLLECTION,

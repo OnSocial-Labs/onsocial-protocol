@@ -1520,7 +1520,12 @@ export function MarketPagePanel({
           ...current,
           items: current.items.map((row) =>
             item.tokenId && row.tokenId === item.tokenId
-              ? { ...row, listingKind: null, listedPriceNear: null }
+              ? {
+                  ...row,
+                  listingKind: null,
+                  listedPriceNear: null,
+                  listedUsdE6: null,
+                }
               : row
           ),
         }));
@@ -1595,6 +1600,7 @@ export function MarketPagePanel({
                   ...row,
                   listingKind: null,
                   listedPriceNear: null,
+                  listedUsdE6: null,
                   bidCount: undefined,
                   expiresAtNs: undefined,
                 }
@@ -1615,12 +1621,7 @@ export function MarketPagePanel({
         setSettleTokenId(null);
       }
     },
-    [
-      getSigningWallet,
-      setTxResult,
-      settleTokenId,
-      trackTransaction,
-    ]
+    [getSigningWallet, setTxResult, settleTokenId, trackTransaction]
   );
 
   const showEmptyBrowse =
@@ -1682,8 +1683,7 @@ export function MarketPagePanel({
         (!creatorFilter &&
           !appFilter &&
           browseListings.length === 0 &&
-          (walletLoading ||
-            (Boolean(viewerAccountId) && !ownedState.loaded))));
+          (walletLoading || (Boolean(viewerAccountId) && !ownedState.loaded))));
   const hasPaintedRows = listings.length > 0;
   const loadingPresentation = loadingMore
     ? resolveAppLoadingPresentation('appending', { hasPaintedRows })

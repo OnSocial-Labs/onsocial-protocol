@@ -92,6 +92,8 @@ export interface ScarcesActiveListingRow {
   appId: string | null;
   /** Ask / display price in yoctoNEAR. */
   price: string | null;
+  /** Dollar sticker in millionths. Empty when the ask is NEAR. */
+  usdE6?: string | null;
   /** Postgres-generated numeric mirror of `price` for server-side sorting. */
   priceNumeric: string | null;
   reservePrice: string | null;
@@ -127,6 +129,7 @@ const SCARCES_ACTIVE_LISTING_FIELDS = `
   creatorId
   appId
   price
+  usdE6
   priceNumeric
   reservePrice
   buyNowPrice
@@ -157,6 +160,8 @@ export interface ScarcesCollectionCurrentRow {
   appId: string | null;
   /** Ask per edition in yoctoNEAR. */
   price: string | null;
+  /** Dollar sticker in millionths. Empty when the ask is NEAR. */
+  usdE6?: string | null;
   allowlistPrice: string | null;
   totalSupply: number;
   mintedCount: number;
@@ -198,6 +203,7 @@ const SCARCES_COLLECTION_CURRENT_FIELDS = `
   creatorId
   appId
   price
+  usdE6
   allowlistPrice
   totalSupply
   mintedCount

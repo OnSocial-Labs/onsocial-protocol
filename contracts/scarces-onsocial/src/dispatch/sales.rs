@@ -24,7 +24,13 @@ impl Contract {
                 } else {
                     price
                 };
-                self.list_native_scarce(actor_id, &token_id, list_price, expires_at)?;
+                self.list_native_scarce_with_sticker(
+                    actor_id,
+                    &token_id,
+                    list_price,
+                    expires_at,
+                    usd_e6.map(|usd| usd.0),
+                )?;
                 if let Some(usd) = usd_e6 {
                     self.write_dollar(DOLLAR_SCOPE_SALE, &token_id, usd.0, min, actor_id)?;
                 } else {
@@ -72,7 +78,13 @@ impl Contract {
                 } else {
                     price
                 };
-                self.update_price(actor_id, &scarce_contract_id, &token_id, next_price)?;
+                self.update_price_with_sticker(
+                    actor_id,
+                    &scarce_contract_id,
+                    &token_id,
+                    next_price,
+                    usd_e6.map(|usd| usd.0),
+                )?;
                 if let Some(usd) = usd_e6 {
                     self.write_dollar(DOLLAR_SCOPE_SALE, &token_id, usd.0, min, actor_id)?;
                 } else {

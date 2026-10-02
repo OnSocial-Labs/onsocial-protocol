@@ -10,6 +10,7 @@ import {
   formatMarketRelativeTime,
   type MarketListingItem,
 } from '@/features/market/market-listings';
+import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { formatAuctionCountdown } from '@/features/scarces/scarce-auction';
 import {
   postScarceKey,
@@ -67,6 +68,7 @@ function seedListedEmbed(item: MarketListingItem) {
     status: 'lazy_listing',
     listingId: item.listingId,
     priceNear: item.priceNear,
+    ...(item.usdE6?.trim() ? { usdE6: item.usdE6.trim() } : {}),
     ...(mediaUrl ? { mediaUrl } : {}),
     ...(cardBg ? { cardBg } : {}),
     ...(item.copies != null ? { copies: item.copies } : {}),
@@ -257,7 +259,8 @@ export function MarketListingRow({
         <p className="market-listing-meta market-listing-meta--price">
           <span className="market-listing-price">
             {item.priceLabel ? `${item.priceLabel} · ` : ''}
-            {formatPriceNear(item.priceNear)} NEAR
+            {dollarStickerLabel(item.usdE6) ??
+              `${formatPriceNear(item.priceNear)} NEAR`}
           </span>
           {bidCount != null ? (
             <span className="market-listing-own">

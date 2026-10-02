@@ -19,7 +19,11 @@ impl Contract {
                     self.validate_dollar_listing(DOLLAR_SCOPE_LAZY, "pending", usd.0)?;
                     params.price = Contract::stored_near_for_dollar(min);
                 }
-                let listing_id = self.create_lazy_listing(actor_id, params)?;
+                let listing_id = self.create_lazy_listing_with_sticker(
+                    actor_id,
+                    params,
+                    usd_e6.map(|usd| usd.0),
+                )?;
                 if let Some(usd) = usd_e6 {
                     self.write_dollar(DOLLAR_SCOPE_LAZY, &listing_id, usd.0, min, actor_id)?;
                 }
@@ -45,7 +49,12 @@ impl Contract {
                 } else {
                     new_price.0
                 };
-                self.update_lazy_listing_price(actor_id, &listing_id, stored)?;
+                self.update_lazy_listing_price_with_sticker(
+                    actor_id,
+                    &listing_id,
+                    stored,
+                    usd_e6.map(|usd| usd.0),
+                )?;
                 if let Some(usd) = usd_e6 {
                     self.write_dollar(DOLLAR_SCOPE_LAZY, &listing_id, usd.0, min, actor_id)?;
                 } else {

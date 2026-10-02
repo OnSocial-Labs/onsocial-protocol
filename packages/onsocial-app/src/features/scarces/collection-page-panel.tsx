@@ -74,6 +74,7 @@ import {
 } from '@/features/scarces/collection-page-skeleton';
 import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet';
+import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { VariationSetPeek } from '@/features/scarces/variation-set-peek';
 import {
   postponeNotice,
@@ -953,9 +954,7 @@ export function CollectionPagePanel({
   const listedArticleHref = !isWritingFolioFormat(view.writingFormat)
     ? (() => {
         const coords = parseSourcePostPath(view.sourcePostPath ?? '');
-        return coords
-          ? writingArticlePath(coords.author, coords.postId)
-          : null;
+        return coords ? writingArticlePath(coords.author, coords.postId) : null;
       })()
     : null;
   const openWritingRead = () => {
@@ -1256,9 +1255,7 @@ export function CollectionPagePanel({
                     {passActionLabel}
                   </OsRowAction>
                 ) : null}
-                {opensWritingReader &&
-                vaultHref &&
-                !canShowPass ? (
+                {opensWritingReader && vaultHref && !canShowPass ? (
                   <div className="collection-reading-row">
                     <OsRowAction href={vaultHref}>
                       Open Collectibles
@@ -1377,15 +1374,17 @@ export function CollectionPagePanel({
                   <span className="collection-commerce-supply">
                     {view.minted}/{view.totalSupply}
                   </span>
-                  {view.priceNear &&
-                  view.priceNear !== '0' &&
-                  view.priceYocto !== '0' ? (
+                  {dollarStickerLabel(view.usdE6) ||
+                  (view.priceNear &&
+                    view.priceNear !== '0' &&
+                    view.priceYocto !== '0') ? (
                     <>
                       <span className="collection-meta-sep" aria-hidden>
                         ·
                       </span>
                       <span className="collection-product-price">
-                        {view.priceNear} NEAR
+                        {dollarStickerLabel(view.usdE6) ??
+                          `${view.priceNear} NEAR`}
                       </span>
                     </>
                   ) : view.kind === 'ticket' ? (
@@ -1621,9 +1620,7 @@ export function CollectionPagePanel({
               <p className="collection-section-label">
                 {writingReadingSectionLabel(readables.length)}
               </p>
-              <OsRowAction onClick={openWritingRead}>
-                Read
-              </OsRowAction>
+              <OsRowAction onClick={openWritingRead}>Read</OsRowAction>
             </div>
           </section>
         ) : null}
@@ -1840,9 +1837,7 @@ export function CollectionPagePanel({
         alreadyOwnsEdition={holdsEdition === true}
         onOpenChange={setMintOpen}
         onPurchased={handleMintPurchased}
-        zIndex={
-          coverListenOpen ? SCARCE_Z.commerceOverListen : SCARCE_Z.sheet
-        }
+        zIndex={coverListenOpen ? SCARCE_Z.commerceOverListen : SCARCE_Z.sheet}
       />
 
       {showDropLove ? (

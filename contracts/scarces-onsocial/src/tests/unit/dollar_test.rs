@@ -227,6 +227,9 @@ fn dollar_list_stores_the_sticker_and_a_one_yocto_floor() {
 
     let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &token_id);
     assert_eq!(contract.sales.get(&sale_id).unwrap().sale_conditions.0, 1);
+    assert!(near_sdk::test_utils::get_logs()
+        .iter()
+        .any(|log| log.contains("\"usd_e6\":\"1000000\"")));
 }
 
 #[test]
@@ -265,6 +268,9 @@ fn relisting_in_near_clears_the_sticker() {
     assert!(contract
         .get_dollar_price(DOLLAR_SCOPE_SALE.into(), token_id.clone())
         .is_none());
+    assert!(near_sdk::test_utils::get_logs()
+        .iter()
+        .any(|log| log.contains("update_price") && !log.contains("usd_e6")));
 
     testing_env!(context_with_deposit(purchaser(), 1_000).build());
     contract

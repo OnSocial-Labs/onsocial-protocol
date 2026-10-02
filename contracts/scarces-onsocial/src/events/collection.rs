@@ -307,11 +307,13 @@ pub fn emit_collection_price_updated(
     collection_id: &str,
     old_price: U128,
     new_price: U128,
+    usd_e6: Option<u128>,
 ) {
     EventBuilder::new(COLLECTION, "price_update", actor_id)
         .field("collection_id", collection_id)
         .field("old_price", old_price)
         .field("new_price", new_price)
+        .field_opt("usd_e6", usd_e6)
         .emit();
 }
 

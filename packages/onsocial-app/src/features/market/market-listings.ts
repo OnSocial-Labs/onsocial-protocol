@@ -104,6 +104,8 @@ export interface MarketListingItem {
   description?: string;
   /** Ask (fixed) or current high / reserve (auction). */
   priceNear: string;
+  /** Indexed dollar sticker in millionths. Empty when the ask is NEAR. */
+  usdE6?: string | null;
   /** Makes auction prices unambiguous without duplicating price values. */
   priceLabel?: 'Ask' | 'Reserve' | 'High bid';
   blockTimestamp: number;
@@ -180,6 +182,8 @@ export interface OwnedScarceItem {
   listingKind: 'fixed' | 'auction' | null;
   /** Set when this token is already listed for resale or auction. */
   listedPriceNear?: string | null;
+  /** Indexed dollar sticker in millionths when the resale ask is in dollars. */
+  listedUsdE6?: string | null;
   /** Auction bids on the current listing — cancel is blocked when > 0. */
   bidCount?: number;
   /**
@@ -720,6 +724,7 @@ export function ownedListedItemsFromViewerListings(
       ...(item.collectionId ? { collectionId: item.collectionId } : {}),
       ...(item.mediumKind ? { mediumKind: item.mediumKind } : {}),
       ...(item.priceNear ? { listedPriceNear: item.priceNear } : {}),
+      ...(item.usdE6?.trim() ? { listedUsdE6: item.usdE6.trim() } : {}),
       ...(item.bidCount != null ? { bidCount: item.bidCount } : {}),
       ...(item.expiresAtNs != null ? { expiresAtNs: item.expiresAtNs } : {}),
       ...(item.sourcePostPath ? { sourcePostPath: item.sourcePostPath } : {}),
@@ -1360,6 +1365,7 @@ export interface OwnedScarcesPage {
 type OwnedListedState = {
   kind: 'fixed' | 'auction';
   priceNear: string;
+  usdE6?: string | null;
   bidCount?: number;
   expiresAtNs?: number | null;
 };
@@ -1381,7 +1387,13 @@ async function fetchOwnerListedStates(
       if (!tokenId) continue;
       if (row.kind === 'native') {
         const priceNear = priceNearFromYocto(row.price);
-        if (priceNear) listedByToken.set(tokenId, { kind: 'fixed', priceNear });
+        if (priceNear) {
+          listedByToken.set(tokenId, {
+            kind: 'fixed',
+            priceNear,
+            ...(row.usdE6?.trim() ? { usdE6: row.usdE6.trim() } : {}),
+          });
+        }
         continue;
       }
       if (row.kind === 'auction') {
@@ -1490,6 +1502,7 @@ function ownedItemsFromTokens(
         ...discovery,
         listingKind: listed?.kind ?? null,
         listedPriceNear: listed?.priceNear ?? null,
+        ...(listed?.usdE6?.trim() ? { listedUsdE6: listed.usdE6.trim() } : {}),
         ...(issuedAt != null && Number.isFinite(issuedAt) && issuedAt > 0
           ? { mintedAtMs: issuedAt }
           : {}),
@@ -1687,6 +1700,7 @@ async function fetchOwnedScarcesPageFromIndexer(
       ...discovery,
       listingKind: listed?.kind ?? null,
       listedPriceNear: listed?.priceNear ?? null,
+      ...(listed?.usdE6?.trim() ? { listedUsdE6: listed.usdE6.trim() } : {}),
       ...(row.mintedBlockTimestamp != null && row.mintedBlockTimestamp > 0
         ? { mintedAtMs: row.mintedBlockTimestamp }
         : {}),
@@ -2178,6 +2192,9 @@ function listingFromActiveRow(
     ...(artistId ? { artistId } : {}),
     title: resolveTokenDisplayTitle(title, row.tokenId?.trim() || ''),
     priceNear,
+    ...(row.usdE6?.trim() && kind !== 'auction'
+      ? { usdE6: row.usdE6.trim() }
+      : {}),
     ...(priceLabel ? { priceLabel } : {}),
     blockTimestamp,
     mediaUrl: resolveScarceMediaUrl(row.media),

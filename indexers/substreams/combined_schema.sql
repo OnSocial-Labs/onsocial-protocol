@@ -666,6 +666,8 @@ CREATE TABLE IF NOT EXISTS scarces_active_listings (
   -- App that the listing was created under (NULL for unattributed listings).
   app_id TEXT,
   price TEXT,
+  -- Dollar sticker in millionths of a dollar. Empty when the ask is NEAR.
+  usd_e6 TEXT,
   -- Generated numeric mirror of `price` so the sink never writes it and
   -- price sorts stay index-backed (yocto values exceed BIGINT).
   price_numeric NUMERIC GENERATED ALWAYS AS (
@@ -711,6 +713,9 @@ ALTER TABLE scarces_active_listings
 
 ALTER TABLE scarces_active_listings
   ADD COLUMN IF NOT EXISTS facets TEXT[];
+
+ALTER TABLE scarces_active_listings
+  ADD COLUMN IF NOT EXISTS usd_e6 TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_listed
   ON scarces_active_listings(listed_block_timestamp DESC);
@@ -804,6 +809,8 @@ CREATE TABLE IF NOT EXISTS scarces_collections_current (
   creator_id TEXT NOT NULL DEFAULT 'unknown',
   app_id TEXT,
   price TEXT,
+  -- Dollar sticker in millionths of a dollar. Empty when the ask is NEAR.
+  usd_e6 TEXT,
   allowlist_price TEXT,
   total_supply INTEGER NOT NULL DEFAULT 0,
   minted_count INTEGER NOT NULL DEFAULT 0,
@@ -843,6 +850,9 @@ ALTER TABLE scarces_collections_current
 
 ALTER TABLE scarces_collections_current
   ADD COLUMN IF NOT EXISTS source_post_path TEXT;
+
+ALTER TABLE scarces_collections_current
+  ADD COLUMN IF NOT EXISTS usd_e6 TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_scarces_collections_current_created
   ON scarces_collections_current(created_at DESC NULLS LAST);

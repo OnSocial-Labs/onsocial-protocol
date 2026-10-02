@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
-import { collectionCurrentRowToView, hydrateWritingManifest } from '@/features/scarces/collections-data';
+import {
+  collectionCurrentRowToView,
+  hydrateWritingManifest,
+} from '@/features/scarces/collections-data';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import type {
   ScarceReadableMedia,
@@ -165,6 +168,7 @@ export function usePostCollectionEmbed(
             ...(view?.seriesTitle ? { seriesTitle: view.seriesTitle } : {}),
             ...(mediumKind ? { mediumKind } : {}),
             ...(priceNear ? { priceNear } : {}),
+            ...(row.usdE6?.trim() ? { usdE6: row.usdE6.trim() } : {}),
             ...(copies != null ? { copies } : {}),
             ...(remaining != null ? { remaining } : {}),
             ...(view?.mediaUrl || paint?.mediaUrl
@@ -175,9 +179,7 @@ export function usePostCollectionEmbed(
           };
 
           if (!cancelled) {
-            const hydrated = view
-              ? await hydrateWritingManifest(view)
-              : null;
+            const hydrated = view ? await hydrateWritingManifest(view) : null;
             if (cancelled) return;
             setPlayables(hydrated?.playables ?? view?.playables ?? []);
             setReadables(hydrated?.readables ?? view?.readables ?? []);
@@ -222,6 +224,7 @@ export function usePostCollectionEmbed(
                   ? { listingId: hit.listingId.trim() }
                   : {}),
                 ...(listPrice ? { priceNear: listPrice } : {}),
+                ...(hit.usdE6?.trim() ? { usdE6: hit.usdE6.trim() } : {}),
               };
             } else if (hit?.kind === 'auction' && hit.tokenId) {
               const listPrice = priceNearFromYocto(
@@ -280,21 +283,18 @@ export function usePostCollectionEmbed(
       ? paintToEmbed(parsed.collectionId, parsed.tokenId, paint)
       : null;
   const baseline =
-    fetchedKey === key && fetched != null
-      ? fetched
-      : (seed ?? paintBaseline);
+    fetchedKey === key && fetched != null ? fetched : (seed ?? paintBaseline);
   const embed = enabled ? resolveScarceEmbed(key, baseline) : null;
 
-  const status: PostScarceEmbedStatus =
-    !enabled
-      ? 'idle'
-      : fetchedKey === key || seed != null || paintBaseline != null
-        ? 'ready'
-        : errorKey === key
-          ? 'error'
-          : shouldFetch
-            ? 'loading'
-            : 'idle';
+  const status: PostScarceEmbedStatus = !enabled
+    ? 'idle'
+    : fetchedKey === key || seed != null || paintBaseline != null
+      ? 'ready'
+      : errorKey === key
+        ? 'error'
+        : shouldFetch
+          ? 'loading'
+          : 'idle';
 
   return {
     rootRef,

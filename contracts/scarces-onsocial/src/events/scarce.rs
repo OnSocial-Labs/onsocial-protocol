@@ -44,6 +44,7 @@ pub fn emit_scarce_update_price(
     token_id: &str,
     old_price: U128,
     new_price: U128,
+    usd_e6: Option<u128>,
 ) {
     EventBuilder::new(SCARCE, "update_price", owner_id)
         .field("owner_id", owner_id)
@@ -51,6 +52,7 @@ pub fn emit_scarce_update_price(
         .field("token_id", token_id)
         .field("old_price", old_price)
         .field("new_price", new_price)
+        .field_opt("usd_e6", usd_e6)
         .emit();
 }
 
@@ -157,6 +159,7 @@ pub fn emit_native_scarce_listed(
     browse: super::ListingBrowseMeta<'_>,
     app_id: Option<&str>,
     creator_id: &AccountId,
+    usd_e6: Option<u128>,
 ) {
     EventBuilder::new(SCARCE, "list_native", owner_id)
         .field("owner_id", owner_id)
@@ -168,6 +171,7 @@ pub fn emit_native_scarce_listed(
         .field_opt("extra", browse.extra)
         .field_opt("expires_at", expires_at)
         .field_opt("app_id", app_id)
+        .field_opt("usd_e6", usd_e6)
         .emit();
 }
 

@@ -6,6 +6,15 @@ impl Contract {
         creator_id: &AccountId,
         params: LazyListing,
     ) -> Result<String, MarketplaceError> {
+        self.create_lazy_listing_with_sticker(creator_id, params, None)
+    }
+
+    pub(crate) fn create_lazy_listing_with_sticker(
+        &mut self,
+        creator_id: &AccountId,
+        params: LazyListing,
+        usd_e6: Option<u128>,
+    ) -> Result<String, MarketplaceError> {
         let LazyListing {
             mut metadata,
             price,
@@ -121,6 +130,7 @@ impl Contract {
             },
             listing_app_id.as_deref(),
             app_commission_bps,
+            usd_e6,
         );
         Ok(listing_id)
     }
@@ -201,6 +211,16 @@ impl Contract {
         listing_id: &str,
         new_price: u128,
     ) -> Result<(), MarketplaceError> {
+        self.update_lazy_listing_price_with_sticker(actor_id, listing_id, new_price, None)
+    }
+
+    pub(crate) fn update_lazy_listing_price_with_sticker(
+        &mut self,
+        actor_id: &AccountId,
+        listing_id: &str,
+        new_price: u128,
+        usd_e6: Option<u128>,
+    ) -> Result<(), MarketplaceError> {
         let creator_id = self
             .lazy_listings
             .get(listing_id)
@@ -219,7 +239,13 @@ impl Contract {
         listing.price = near_sdk::json_types::U128(new_price);
         self.lazy_listings.insert(listing_id.to_string(), listing);
 
-        events::emit_lazy_listing_price_updated(&creator_id, listing_id, old_price, new_price);
+        events::emit_lazy_listing_price_updated(
+            &creator_id,
+            listing_id,
+            old_price,
+            new_price,
+            usd_e6,
+        );
         Ok(())
     }
 }

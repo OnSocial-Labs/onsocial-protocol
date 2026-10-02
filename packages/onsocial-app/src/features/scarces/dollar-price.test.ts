@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buyerMaxNear,
+  dollarStickerLabel,
   formatUsdE6,
   parseDollarSticker,
   yoctoForUsd,
@@ -22,6 +23,14 @@ describe('buyerMaxNear', () => {
   it('allows half a percent of price movement', () => {
     expect(buyerMaxNear(1000n)).toBe(1005n);
     expect(buyerMaxNear(100n, 2)).toBe(201n);
+  });
+});
+
+describe('dollarStickerLabel', () => {
+  it('reads an indexed sticker and ignores a NEAR ask', () => {
+    expect(dollarStickerLabel('50000000')).toBe('$50');
+    expect(dollarStickerLabel('')).toBeNull();
+    expect(dollarStickerLabel(null)).toBeNull();
   });
 });
 

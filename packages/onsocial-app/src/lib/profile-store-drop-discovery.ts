@@ -11,9 +11,7 @@ export function profileStoreDropToDiscoveryItem(
   }
 ): DropDiscoveryItem {
   const mintedCount =
-    drop.totalSupply > 0
-      ? Math.max(0, drop.totalSupply - drop.remaining)
-      : 0;
+    drop.totalSupply > 0 ? Math.max(0, drop.totalSupply - drop.remaining) : 0;
 
   return {
     collectionId: drop.collectionId,
@@ -21,6 +19,7 @@ export function profileStoreDropToDiscoveryItem(
     title: drop.title,
     mediaUrl: drop.mediaUrl,
     priceNear: drop.priceNear,
+    ...(drop.usdE6?.trim() ? { usdE6: drop.usdE6.trim() } : {}),
     mintedCount,
     remaining: drop.remaining,
     totalSupply: drop.totalSupply,

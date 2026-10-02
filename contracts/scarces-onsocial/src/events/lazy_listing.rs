@@ -23,6 +23,7 @@ pub fn emit_lazy_listing_created(
     browse: ListingBrowseMeta<'_>,
     app_id: Option<&str>,
     app_commission_bps: u16,
+    usd_e6: Option<u128>,
 ) {
     EventBuilder::new(LAZY_LISTING, "created", creator_id)
         .field("creator_id", creator_id)
@@ -36,6 +37,7 @@ pub fn emit_lazy_listing_created(
         .field_opt("expires_at", expires_at)
         .field_opt("app_id", app_id)
         .field("app_commission_bps", app_commission_bps as u32)
+        .field_opt("usd_e6", usd_e6)
         .emit();
 }
 
@@ -116,10 +118,12 @@ pub fn emit_lazy_listing_price_updated(
     listing_id: &str,
     old_price: u128,
     new_price: u128,
+    usd_e6: Option<u128>,
 ) {
     EventBuilder::new(LAZY_LISTING, "price_updated", creator_id)
         .field("listing_id", listing_id)
         .field("old_price", old_price)
         .field("new_price", new_price)
+        .field_opt("usd_e6", usd_e6)
         .emit();
 }
