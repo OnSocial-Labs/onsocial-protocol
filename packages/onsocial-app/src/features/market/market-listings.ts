@@ -9,6 +9,7 @@ import { viewNearContract, yoctoToNear } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { resolvePostThreadHrefsFromSourcePaths } from '@/lib/post-routes';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
+import { saleUsdE6 } from '@/lib/scarce-creator-earnings';
 import {
   inferAudioFormatFromPlayableCount,
   parseAudioFormat,
@@ -357,6 +358,8 @@ export interface MarketSaleItem {
   creatorId?: string;
   title: string;
   priceNear: string;
+  /** Dollar sticker (millionths) when the sale settled against one. */
+  usdE6?: string;
   blockTimestamp: number;
   mediaUrl?: string | null;
   sourcePostPath?: string;
@@ -2422,6 +2425,7 @@ export async function fetchMarketSales(
   const items = merged.slice(0, limit).map((row) => {
     const mediaUrl = saleMediaFromRow(row);
     const sourcePostPath = saleSourcePostFromRow(row);
+    const usdE6 = saleUsdE6(row);
     return {
       listingId: row.listingId?.trim() || undefined,
       tokenId: row.tokenId?.trim() || undefined,
@@ -2430,6 +2434,7 @@ export async function fetchMarketSales(
       creatorId: accountFromRow(row.creatorId, row.author),
       title: saleTitle(row),
       priceNear: priceNearFromRow(row),
+      ...(usdE6 ? { usdE6 } : {}),
       blockTimestamp: row.blockTimestamp,
       ...(mediaUrl ? { mediaUrl } : {}),
       ...(sourcePostPath ? { sourcePostPath } : {}),
