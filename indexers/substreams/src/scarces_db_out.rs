@@ -65,6 +65,7 @@ pub(crate) fn write_scarces_event(tables: &mut Tables, e: &ScarcesEvent) {
     row.set("app_commission", &e.app_commission);
     row.set("creator_payment", &e.creator_payment);
     row.set("revenue", &e.revenue);
+    row.set("usd_e6", &e.usd_e6);
     row.set("new_balance", &e.new_balance);
     row.set("initial_balance", &e.initial_balance);
     row.set("refunded_amount", &e.refunded_amount);

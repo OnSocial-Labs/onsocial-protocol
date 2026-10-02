@@ -922,6 +922,7 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'app_commission',
       'creator_payment',
       'revenue',
+      'usd_e6',
       'new_balance',
       'initial_balance',
       'refunded_amount',

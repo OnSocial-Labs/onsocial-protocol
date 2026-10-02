@@ -487,6 +487,12 @@ fn settle_charges_the_dollar_price_and_refunds_the_rest() {
     assert_eq!(transferred_to(&seller()), after_fee - royalty);
     assert_eq!(transferred_to(&owner()), revenue);
     assert!(royalty > 1);
+    let logs = near_sdk::test_utils::get_logs();
+    assert!(
+        logs.iter().any(|log| log.contains("\"operation\":\"purchase\"")
+            && log.contains("\"usd_e6\":\"1000000\"")),
+        "purchase event carries the dollar sticker: {logs:?}"
+    );
 }
 
 #[test]

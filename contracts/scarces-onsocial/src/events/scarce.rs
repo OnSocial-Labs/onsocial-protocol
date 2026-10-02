@@ -65,6 +65,8 @@ pub struct ScarcePurchase<'a> {
     pub marketplace_fee: u128,
     pub app_pool_amount: u128,
     pub app_id: Option<&'a str>,
+    /// Dollar sticker the sale settled against, when it had one.
+    pub usd_e6: Option<u128>,
 }
 
 pub fn emit_scarce_purchase(e: &ScarcePurchase) {
@@ -77,6 +79,7 @@ pub fn emit_scarce_purchase(e: &ScarcePurchase) {
         .field("marketplace_fee", e.marketplace_fee)
         .field("app_pool_amount", e.app_pool_amount)
         .field_opt("app_id", e.app_id)
+        .field_opt("usd_e6", e.usd_e6)
         .emit();
 }
 

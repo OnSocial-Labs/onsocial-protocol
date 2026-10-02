@@ -586,6 +586,7 @@ CREATE TABLE IF NOT EXISTS scarces_events (
   app_commission TEXT,
   creator_payment TEXT,
   revenue TEXT,
+  usd_e6 TEXT,
   new_balance TEXT,
   initial_balance TEXT,
   refunded_amount TEXT,

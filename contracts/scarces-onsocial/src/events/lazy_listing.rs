@@ -58,6 +58,8 @@ pub struct LazyListingPurchase<'a> {
     pub token_ids: &'a [String],
     pub minted_count: u32,
     pub remaining: u32,
+    /// Dollar sticker the mint settled against, when it had one.
+    pub usd_e6: Option<u128>,
 }
 
 pub fn emit_lazy_listing_purchased(e: &LazyListingPurchase) {
@@ -78,7 +80,8 @@ pub fn emit_lazy_listing_purchased(e: &LazyListingPurchase) {
         .field_opt("app_id", e.app_id)
         .field("token_ids", e.token_ids)
         .field("minted_count", e.minted_count)
-        .field("remaining", e.remaining);
+        .field("remaining", e.remaining)
+        .field_opt("usd_e6", e.usd_e6);
     // Back-compat: single-edition buys still expose `token_id`.
     if let Some(token_id) = e.token_ids.first() {
         builder = builder.field("token_id", token_id);

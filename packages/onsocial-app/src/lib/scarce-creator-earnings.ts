@@ -23,6 +23,8 @@ export interface ScarceCreatorEarningRow {
   kind: ScarceEarningKind;
   /** Gross sale price (yocto) when the event carries it — used for royalty context. */
   salePriceYocto?: string;
+  /** Dollar sticker (millionths) when the sale settled against one. */
+  usdE6?: string;
   sellerId?: string;
   /** App route to the source post when metadata carries `sourcePost`. */
   postHref?: string;
@@ -71,6 +73,17 @@ function salePriceYocto(row: ScarcesEventRow): string | undefined {
   const raw = row.price?.trim();
   if (!raw || !/^\d+$/.test(raw) || raw === '0') return undefined;
   return raw;
+}
+
+/** Dollar sticker from the typed column, else the event JSON. */
+export function saleUsdE6(row: ScarcesEventRow): string | undefined {
+  const typed = row.usdE6?.trim();
+  if (typed && /^\d+$/.test(typed) && typed !== '0') return typed;
+  const fromExtra = stringField(parseEventExtraRecord(row.extraData), 'usd_e6');
+  if (fromExtra && /^\d+$/.test(fromExtra) && fromExtra !== '0') {
+    return fromExtra;
+  }
+  return undefined;
 }
 
 /** Secondary royalty events vs primary creator sales. */
@@ -487,6 +500,7 @@ export async function fetchScarceCreatorEarnings(
     total += BigInt(pay);
     const buyerId = row.buyerId?.trim() || row.author?.trim() || 'unknown';
     const price = salePriceYocto(row);
+    const usdE6 = saleUsdE6(row);
     const sellerId = row.sellerId?.trim();
     const fromExtra = identityFromEventExtra(row.extraData);
     const tokenId = row.tokenId?.trim() || fromExtra.tokenId;
@@ -503,6 +517,7 @@ export async function fetchScarceCreatorEarnings(
       title: saleTitleFromRow(row),
       kind: earningKindFromRow(row),
       ...(price ? { salePriceYocto: price } : {}),
+      ...(usdE6 ? { usdE6 } : {}),
       ...(sellerId ? { sellerId } : {}),
       ...(postHref ? { postHref } : {}),
       blockTimestamp: row.blockTimestamp,

@@ -215,6 +215,7 @@ impl Contract {
             marketplace_fee: revenue,
             app_pool_amount,
             app_id: None,
+            usd_e6: None,
         });
 
         crate::fees::refund_excess(&buyer_id, deposit.0, payout_context.price.0);
@@ -376,6 +377,7 @@ impl Contract {
         };
 
         self.release_storage_waterfall(&seller_id, bytes_freed, listing_app_id.as_deref());
+        let dollar_sticker = self.dollar_price(DOLLAR_SCOPE_SALE, &token_id);
         if self.dollar_unit_override.is_some() {
             self.clear_dollar(DOLLAR_SCOPE_SALE, &token_id, &seller_id);
         }
@@ -391,6 +393,7 @@ impl Contract {
             marketplace_fee: result.revenue,
             app_pool_amount: result.app_pool_amount,
             app_id: result.app_id.as_deref(),
+            usd_e6: dollar_sticker.map(|d| d.usd_e6.0),
         });
         Ok(price)
     }

@@ -64,6 +64,7 @@ impl Contract {
         } else {
             listing.price.0
         };
+        let dollar_sticker = self.dollar_price(DOLLAR_SCOPE_LAZY, &listing_id);
         let Some(total_price) = unit_price.checked_mul(quantity as u128) else {
             self.pending_attached_balance += deposit;
             return Err(MarketplaceError::InternalError("Price overflow".into()));
@@ -208,6 +209,7 @@ impl Contract {
             token_ids: &token_ids,
             minted_count: listing.minted_count,
             remaining,
+            usd_e6: dollar_sticker.map(|d| d.usd_e6.0),
         });
 
         Ok(token_ids)

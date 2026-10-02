@@ -138,6 +138,7 @@ impl Contract {
         } else {
             crate::fees::compute_dutch_price(&collection)
         };
+        let dollar_sticker = self.dollar_price(DOLLAR_SCOPE_COLLECTION, &collection_id);
 
         if unit_price > max_price_per_token.0 {
             return Err(MarketplaceError::InvalidInput(format!(
@@ -273,6 +274,7 @@ impl Contract {
             token_ids: &token_ids,
             minted_count,
             remaining: total_supply.saturating_sub(minted_count),
+            usd_e6: dollar_sticker.map(|d| d.usd_e6.0),
         });
         Ok(())
     }

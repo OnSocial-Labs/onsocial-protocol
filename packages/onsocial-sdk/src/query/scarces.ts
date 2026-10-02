@@ -58,6 +58,8 @@ export interface ScarcesEventRow {
   marketplaceFee: string | null;
   appPoolAmount: string | null;
   creatorPayment: string | null;
+  /** Dollar sticker (millionths of a dollar) on list/purchase events. */
+  usdE6: string | null;
 
   // ── Quantity ───────────────────────────────────────────────────────────
   quantity: number | null;
@@ -314,6 +316,7 @@ const SCARCES_EVENT_FIELDS = `
   marketplaceFee
   appPoolAmount
   creatorPayment
+  usdE6
   quantity
   totalSupply
   redeemCount
