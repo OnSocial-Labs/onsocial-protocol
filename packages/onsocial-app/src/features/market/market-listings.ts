@@ -1458,15 +1458,7 @@ async function fetchOwnerListedStates(
 function ownedItemsFromTokens(
   tokens: ContractTokenRecord[],
   owner: string,
-  listedByToken: Map<
-    string,
-    {
-      kind: 'fixed' | 'auction';
-      priceNear: string;
-      bidCount?: number;
-      expiresAtNs?: number | null;
-    }
-  >
+  listedByToken: Map<string, OwnedListedState>
 ): OwnedScarceItem[] {
   return tokens
     .map((token): OwnedScarceItem | null => {
