@@ -358,10 +358,10 @@ test_integration() {
                     cd "$BASE_DIR/mock-ft" || { echo -e "${WARNING}mock-ft contract not found, FT tests will be skipped${RESET}"; }
                     cargo near build non-reproducible-wasm || { echo -e "${ERROR}Failed to build mock-ft${RESET}"; }
                 fi
-                echo "Building mock-pyth contract for dollar-price integration tests..."
-                if [ -d "$BASE_DIR/mock-pyth" ]; then
-                    cd "$BASE_DIR/mock-pyth" || { echo -e "${WARNING}mock-pyth contract not found, dollar tests will be skipped${RESET}"; }
-                    cargo near build non-reproducible-wasm || { echo -e "${ERROR}Failed to build mock-pyth${RESET}"; }
+                echo "Building mock-oracle contract for dollar-price integration tests..."
+                if [ -d "$BASE_DIR/mock-oracle" ]; then
+                    cd "$BASE_DIR/mock-oracle" || { echo -e "${WARNING}mock-oracle contract not found, dollar tests will be skipped${RESET}"; }
+                    cargo near build non-reproducible-wasm || { echo -e "${ERROR}Failed to build mock-oracle${RESET}"; }
                 fi
                 cd "$TEST_DIR" || { echo -e "${ERROR}Tests directory not found${RESET}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
                 

@@ -2564,7 +2564,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mock-pyth"
+name = "mock-oracle"
 version = "0.1.0"
 dependencies = [
  "near-sdk",

@@ -1,8 +1,8 @@
 [package]
-name = "mock-pyth"
+name = "mock-oracle"
 version = "0.1.0"
 edition = "2021"
-description = "Minimal Pyth oracle mock for scarce dollar-price integration tests"
+description = "Minimal price oracle mock for scarce dollar-price integration tests"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

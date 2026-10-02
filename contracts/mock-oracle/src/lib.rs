@@ -1,67 +1,91 @@
-//! Pyth stand-in for sandbox purchases.
+//! Price oracle stand-in for sandbox purchases.
 //!
-//! `update_price_feeds` accepts the hex payload. `get_price_no_older_than`
-//! returns the quote this contract was initialized with. The scarce contract
-//! reads that JSON the same way it reads the real oracle.
+//! `request_price_data` returns the same `PriceData` JSON the real oracle
+//! (`price-oracle.near`) returns on its fresh-cache path, so the scarce
+//! contract's settle callback reads an identical promise result. The price and
+//! publish time are set at init so a test can move the price or make it stale.
 
 use near_sdk::{env, near, PanicOnDefault};
 
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
-pub struct MockPyth {
-    price: String,
-    conf: String,
-    expo: i32,
-    fail_updates: bool,
+pub struct MockOracle {
+    multiplier: String,
+    decimals: u8,
+    /// Publish time in seconds. Zero means "now" at call time.
+    publish_time: u64,
+    fail_calls: bool,
 }
 
 #[near(serializers = [json])]
-pub struct MockPrice {
-    pub price: String,
-    pub conf: String,
-    pub expo: i32,
-    pub publish_time: String,
+pub struct Price {
+    multiplier: String,
+    decimals: u8,
+}
+
+#[near(serializers = [json])]
+pub struct AssetOptionalPrice {
+    asset_id: String,
+    price: Option<Price>,
+}
+
+#[near(serializers = [json])]
+pub struct PriceData {
+    /// Nanoseconds, as a decimal string like the real oracle.
+    timestamp: String,
+    recency_duration_sec: u32,
+    prices: Vec<AssetOptionalPrice>,
 }
 
 #[near]
-impl MockPyth {
+impl MockOracle {
     #[init]
-    pub fn new(price: String, conf: String, expo: i32) -> Self {
+    pub fn new(multiplier: String, decimals: u8, publish_time: u64) -> Self {
         Self {
-            price,
-            conf,
-            expo,
-            fail_updates: false,
+            multiplier,
+            decimals,
+            publish_time,
+            fail_calls: false,
         }
     }
 
-    pub fn set_quote(&mut self, price: String, conf: String, expo: i32) {
-        self.price = price;
-        self.conf = conf;
-        self.expo = expo;
+    pub fn set_quote(&mut self, multiplier: String, publish_time: u64) {
+        self.multiplier = multiplier;
+        self.publish_time = publish_time;
     }
 
-    pub fn set_fail_updates(&mut self, fail: bool) {
-        self.fail_updates = fail;
+    pub fn set_fail_calls(&mut self, fail: bool) {
+        self.fail_calls = fail;
     }
 
     #[payable]
-    pub fn update_price_feeds(&mut self, data: String) {
-        if self.fail_updates {
-            env::panic_str("Pyth update rejected");
+    pub fn request_price_data(
+        &mut self,
+        asset_ids: Option<Vec<String>>,
+        resource_limits: Option<near_sdk::serde_json::Value>,
+    ) -> PriceData {
+        let _ = resource_limits;
+        if self.fail_calls {
+            env::panic_str("Oracle call rejected");
         }
-        if data.is_empty() {
-            env::panic_str("Pyth update is empty");
-        }
-    }
-
-    pub fn get_price_no_older_than(&self, price_id: String, age: u64) -> MockPrice {
-        let _ = (price_id, age);
-        MockPrice {
-            price: self.price.clone(),
-            conf: self.conf.clone(),
-            expo: self.expo,
-            publish_time: "1".to_string(),
+        let asset_id = asset_ids
+            .and_then(|ids| ids.into_iter().next())
+            .unwrap_or_else(|| "wrap.near".to_string());
+        let publish_time = if self.publish_time == 0 {
+            env::block_timestamp() / 1_000_000_000
+        } else {
+            self.publish_time
+        };
+        PriceData {
+            timestamp: format!("{publish_time}000000000"),
+            recency_duration_sec: 600,
+            prices: vec![AssetOptionalPrice {
+                asset_id,
+                price: Some(Price {
+                    multiplier: self.multiplier.clone(),
+                    decimals: self.decimals,
+                }),
+            }],
         }
     }
 }

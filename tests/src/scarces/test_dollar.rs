@@ -1,6 +1,6 @@
 // Dollar listings settled through the real purchase promise chain.
-// A mock Pyth contract stands in for the oracle. The scarce wasm is the
-// release build, so these checks run the same receipts a buyer signs.
+// A mock oracle contract stands in for price-oracle.near. The scarce wasm is
+// the release build, so these checks run the same receipts a buyer signs.
 
 use anyhow::Result;
 use near_workspaces::types::NearToken;
@@ -12,12 +12,14 @@ use super::helpers::*;
 use crate::utils::get_wasm_path;
 
 const ONE_NEAR: u128 = 1_000_000_000_000_000_000_000_000;
-const PRICE_ID: &str = "c415de8d2eba7db216527dff4b60e8f3a5311c740dadb233e13e12547e226750";
+/// Oracle fetch fee the buyer attaches on top of the maximum NEAR.
+const ORACLE_FEE: u128 = 10_000_000_000_000_000_000_000;
+const ASSET_ID: &str = "wrap.near";
 const ONE_DOLLAR: &str = "1000000";
-/// Pyth integer for $1 per NEAR at expo -8.
-const PYTH_ONE_DOLLAR: &str = "100000000";
+/// Oracle multiplier for $1 per NEAR at 8 decimals.
+const ORACLE_ONE_DOLLAR: &str = "100000000";
 /// Converts a $1 sticker to more than 1.005 NEAR.
-const PYTH_PAST_STOP: &str = "99000000";
+const ORACLE_PAST_STOP: &str = "99000000";
 
 #[derive(Debug, Deserialize)]
 struct DollarView {
@@ -27,37 +29,36 @@ struct DollarView {
 
 struct World {
     contract: Contract,
-    pyth: Contract,
+    oracle: Contract,
 }
 
 async fn yocto(account: &Account) -> Result<u128> {
     Ok(account.view_account().await?.balance.as_yoctonear())
 }
 
-async fn deploy_pyth(
+async fn deploy_oracle(
     worker: &near_workspaces::Worker<near_workspaces::network::Sandbox>,
-    price: &str,
-    conf: &str,
+    multiplier: &str,
 ) -> Result<Contract> {
-    let wasm_path = get_wasm_path("mock-pyth");
+    let wasm_path = get_wasm_path("mock-oracle");
     let wasm = std::fs::read(&wasm_path)?;
-    let pyth = worker.dev_deploy(&wasm).await?;
+    let oracle = worker.dev_deploy(&wasm).await?;
     let deployer = worker.dev_create_account().await?;
     deployer
-        .call(pyth.id(), "new")
+        .call(oracle.id(), "new")
         .args_json(json!({
-            "price": price,
-            "conf": conf,
-            "expo": -8,
+            "multiplier": multiplier,
+            "decimals": 8,
+            "publish_time": 0,
         }))
         .transact()
         .await?
         .into_result()?;
-    Ok(pyth)
+    Ok(oracle)
 }
 
 async fn world(
-    price: &str,
+    multiplier: &str,
 ) -> Result<(
     near_workspaces::Worker<near_workspaces::network::Sandbox>,
     World,
@@ -65,20 +66,19 @@ async fn world(
     let worker = create_sandbox().await?;
     let owner = worker.dev_create_account().await?;
     let contract = deploy_scarces(&worker, &owner).await?;
-    let pyth = deploy_pyth(&worker, price, "1000").await?;
+    let oracle = deploy_oracle(&worker, multiplier).await?;
     owner
         .call(contract.id(), "set_dollar_oracle")
         .args_json(json!({
-            "pyth_contract": pyth.id(),
-            "price_id": PRICE_ID,
+            "oracle_contract": oracle.id(),
+            "asset_id": ASSET_ID,
             "max_age_seconds": 3600,
-            "max_conf_bps": 100,
         }))
         .deposit(ONE_YOCTO)
         .transact()
         .await?
         .into_result()?;
-    Ok((worker, World { contract, pyth }))
+    Ok((worker, World { contract, oracle }))
 }
 
 async fn user_with_token(
@@ -147,10 +147,8 @@ async fn buy_dollar(
             "id": id,
             "quantity": 1,
             "max_near": max_near.to_string(),
-            "pyth_fee": "1",
-            "update_data": "aa",
         }))
-        .deposit(NearToken::from_yoctonear(2 * ONE_NEAR + 1))
+        .deposit(NearToken::from_yoctonear(max_near + ORACLE_FEE))
         .max_gas()
         .transact()
         .await?;
@@ -162,8 +160,8 @@ fn outcome_text(result: &near_workspaces::result::ExecutionFinalResult) -> Strin
 }
 
 #[tokio::test]
-async fn dollar_sale_charges_the_pyth_near_and_refunds_the_offer() -> Result<()> {
-    let (worker, world) = world(PYTH_ONE_DOLLAR).await?;
+async fn dollar_sale_charges_the_oracle_near_and_refunds_the_offer() -> Result<()> {
+    let (worker, world) = world(ORACLE_ONE_DOLLAR).await?;
     let (seller, token_id) = user_with_token(&worker, &world.contract, "Dollar").await?;
     list_dollar(&world.contract, &seller, &token_id).await?;
 
@@ -249,8 +247,8 @@ async fn dollar_sale_charges_the_pyth_near_and_refunds_the_offer() -> Result<()>
 }
 
 #[tokio::test]
-async fn dollar_sale_refunds_when_the_stop_or_the_feed_fails() -> Result<()> {
-    let (worker, world) = world(PYTH_PAST_STOP).await?;
+async fn dollar_sale_refunds_when_the_stop_or_the_oracle_fails() -> Result<()> {
+    let (worker, world) = world(ORACLE_PAST_STOP).await?;
     let (seller, token_id) = user_with_token(&worker, &world.contract, "Stop").await?;
     list_dollar(&world.contract, &seller, &token_id).await?;
     let buyer = user_with_storage(&worker, &world.contract).await?;
@@ -281,19 +279,51 @@ async fn dollar_sale_refunds_when_the_stop_or_the_feed_fails() -> Result<()> {
     );
 
     world
-        .pyth
+        .oracle
         .call("set_quote")
         .args_json(json!({
-            "price": PYTH_ONE_DOLLAR,
-            "conf": "1000",
-            "expo": -8,
+            "multiplier": ORACLE_ONE_DOLLAR,
+            "publish_time": 1,
+        }))
+        .transact()
+        .await?
+        .into_result()?;
+
+    let before_stale = yocto(&buyer).await?;
+    let stale = buy_dollar(
+        &world.contract,
+        &buyer,
+        "sale",
+        &token_id,
+        ONE_NEAR * 1005 / 1000,
+    )
+    .await?;
+    assert!(
+        stale.is_success(),
+        "a stale price refunds inside the callback: {}",
+        outcome_text(&stale)
+    );
+    let token = nft_token(&world.contract, &token_id).await?.expect("token");
+    assert_eq!(token.owner_id, seller.id().to_string());
+    let spent_stale = before_stale - yocto(&buyer).await?;
+    assert!(
+        spent_stale < ONE_NEAR / 4,
+        "a stale price should refund the payment, spent {spent_stale}"
+    );
+
+    world
+        .oracle
+        .call("set_quote")
+        .args_json(json!({
+            "multiplier": ORACLE_ONE_DOLLAR,
+            "publish_time": 0,
         }))
         .transact()
         .await?
         .into_result()?;
     world
-        .pyth
-        .call("set_fail_updates")
+        .oracle
+        .call("set_fail_calls")
         .args_json(json!({ "fail": true }))
         .transact()
         .await?
@@ -316,7 +346,7 @@ async fn dollar_sale_refunds_when_the_stop_or_the_feed_fails() -> Result<()> {
     let spent_fail = before_fail - yocto(&buyer).await?;
     assert!(
         spent_fail < ONE_NEAR / 4,
-        "a rejected Pyth update should refund the payment, spent {spent_fail}, {}",
+        "a rejected oracle call should refund the payment, spent {spent_fail}, {}",
         outcome_text(&failed)
     );
 
@@ -325,7 +355,7 @@ async fn dollar_sale_refunds_when_the_stop_or_the_feed_fails() -> Result<()> {
 
 #[tokio::test]
 async fn accepting_an_offer_sells_for_the_bid_and_clears_the_sticker() -> Result<()> {
-    let (worker, world) = world(PYTH_ONE_DOLLAR).await?;
+    let (worker, world) = world(ORACLE_ONE_DOLLAR).await?;
     let (seller, token_id) = user_with_token(&worker, &world.contract, "Offer").await?;
     list_dollar(&world.contract, &seller, &token_id).await?;
     let offerer = user_with_storage(&worker, &world.contract).await?;
@@ -368,7 +398,7 @@ async fn accepting_an_offer_sells_for_the_bid_and_clears_the_sticker() -> Result
 
 #[tokio::test]
 async fn dollar_drop_keeps_the_sticker_and_refunds_the_organizer_amount() -> Result<()> {
-    let (worker, world) = world(PYTH_ONE_DOLLAR).await?;
+    let (worker, world) = world(ORACLE_ONE_DOLLAR).await?;
     let creator = user_with_storage(&worker, &world.contract).await?;
     create_collection(
         &world.contract,
