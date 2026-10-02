@@ -1,4 +1,4 @@
-use crate::dollar::parse_pyth_price;
+use crate::dollar::parse_oracle_price;
 use crate::tests::test_utils::*;
 use crate::*;
 use near_sdk::json_types::U128;
@@ -8,8 +8,11 @@ use std::collections::HashMap;
 
 const ONE_NEAR: u128 = 1_000_000_000_000_000_000_000_000;
 const ONE_DOLLAR_E6: u128 = 1_000_000;
-const PYTH_ONE_DOLLAR: u128 = 100_000_000;
-const PRICE_ID: &str = "c415de8d2eba7db216527dff4b60e8f3a5311c740dadb233e13e12547e226750";
+/// Oracle multiplier for $1 per NEAR at 8 decimals.
+const ORACLE_ONE_DOLLAR: u128 = 100_000_000;
+const ASSET_ID: &str = "wrap.near";
+/// Oracle fetch fee the purchase attaches.
+const ORACLE_FEE: u128 = 10_000_000_000_000_000_000_000;
 
 fn seller() -> AccountId {
     creator()
@@ -27,8 +30,8 @@ fn offerer() -> AccountId {
     near_sdk::test_utils::accounts(4)
 }
 
-fn pyth_account() -> AccountId {
-    "pyth.test.near".parse().unwrap()
+fn oracle_account() -> AccountId {
+    "price-oracle.testnet".parse().unwrap()
 }
 
 fn metadata(title: &str) -> TokenMetadata {
@@ -90,12 +93,15 @@ fn list_dollars(
 fn set_oracle(contract: &mut Contract) {
     testing_env!(context_with_deposit(owner(), 1).build());
     contract
-        .set_dollar_oracle(pyth_account(), PRICE_ID.into(), 3_600, 100)
+        .set_dollar_oracle(oracle_account(), ASSET_ID.into(), 3_600)
         .unwrap();
 }
 
-fn pyth_json(price: u128, conf: u128) -> String {
-    format!(r#"{{"price":"{price}","conf":"{conf}","expo":-8,"publish_time":1}}"#)
+fn oracle_json(multiplier: u128, publish_time: u64) -> String {
+    format!(
+        r#"{{"timestamp":"{}000000000","recency_duration_sec":600,"prices":[{{"asset_id":"{ASSET_ID}","price":{{"multiplier":"{multiplier}","decimals":8}}}}]}}"#,
+        publish_time
+    )
 }
 
 fn settle_with_price(
@@ -169,46 +175,40 @@ fn collection(id: &str, start_price: Option<u128>, royalty_bps: Option<u32>) -> 
 }
 
 #[test]
-fn owner_stores_the_pyth_feed() {
+fn owner_stores_the_oracle() {
     let mut contract = new_contract();
     set_oracle(&mut contract);
 
     let oracle = contract.get_dollar_oracle().unwrap();
-    assert_eq!(oracle.pyth_contract, pyth_account());
-    assert_eq!(oracle.price_id, PRICE_ID);
+    assert_eq!(oracle.oracle_contract, oracle_account());
+    assert_eq!(oracle.asset_id, ASSET_ID);
     assert_eq!(oracle.max_age_seconds, 3_600);
-    assert_eq!(oracle.max_conf_bps, 100);
 }
 
 #[test]
-fn oracle_rejects_a_bad_feed() {
+fn oracle_rejects_a_bad_config() {
     let mut contract = new_contract();
     testing_env!(context_with_deposit(owner(), 1).build());
 
     let err = contract
-        .set_dollar_oracle(pyth_account(), "abcd".into(), 60, 100)
+        .set_dollar_oracle(oracle_account(), "  ".into(), 60)
         .unwrap_err();
-    assert!(err.to_string().contains("32 bytes"));
+    assert!(err.to_string().contains("asset id"));
 
     let err = contract
-        .set_dollar_oracle(pyth_account(), PRICE_ID.into(), 0, 100)
+        .set_dollar_oracle(oracle_account(), ASSET_ID.into(), 0)
         .unwrap_err();
     assert!(err.to_string().contains("1 hour"));
 
-    let err = contract
-        .set_dollar_oracle(pyth_account(), PRICE_ID.into(), 60, 0)
-        .unwrap_err();
-    assert!(err.to_string().contains("1000 bps"));
-
     testing_env!(context_with_deposit(seller(), 1).build());
     let err = contract
-        .set_dollar_oracle(pyth_account(), PRICE_ID.into(), 60, 100)
+        .set_dollar_oracle(oracle_account(), ASSET_ID.into(), 60)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 
     testing_env!(context(owner()).build());
     let err = contract
-        .set_dollar_oracle(pyth_account(), PRICE_ID.into(), 60, 100)
+        .set_dollar_oracle(oracle_account(), ASSET_ID.into(), 60)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InsufficientDeposit(_)));
 }
@@ -359,30 +359,18 @@ fn auctions_and_a_zero_sticker_stay_in_near() {
 }
 
 #[test]
-fn purchase_dollar_checks_the_update_and_the_deposit() {
+fn purchase_dollar_checks_the_deposit_and_the_listing() {
     let mut contract = new_contract();
     let token_id = mint(&mut contract, &seller(), None);
     list_dollars(&mut contract, &seller(), &token_id, 0);
     set_oracle(&mut contract);
 
-    testing_env!(context_with_deposit(purchaser(), ONE_NEAR).build());
-    let err = purchase_err(contract.purchase_dollar(
-        DOLLAR_SCOPE_SALE.into(),
-        token_id.clone(),
-        1,
-        U128(ONE_NEAR),
-        U128(1),
-        "zz".into(),
-    ));
-    assert!(err.contains("price update"));
-
+    testing_env!(context_with_deposit(purchaser(), ONE_NEAR + ORACLE_FEE).build());
     let err = purchase_err(contract.purchase_dollar(
         DOLLAR_SCOPE_SALE.into(),
         "missing".into(),
         1,
         U128(ONE_NEAR),
-        U128(1),
-        "aa".into(),
     ));
     assert!(err.contains("priced in NEAR"));
 
@@ -391,32 +379,30 @@ fn purchase_dollar_checks_the_update_and_the_deposit() {
         "col".into(),
         0,
         U128(ONE_NEAR),
-        U128(1),
-        "aa".into(),
     ));
     assert!(err.contains("Quantity"));
 
-    testing_env!(context_with_deposit(purchaser(), 10).build());
+    testing_env!(context_with_deposit(purchaser(), ORACLE_FEE - 1).build());
     let err = purchase_err(contract.purchase_dollar(
         DOLLAR_SCOPE_SALE.into(),
         token_id.clone(),
         1,
         U128(ONE_NEAR),
-        U128(1),
-        "aa".into(),
+    ));
+    assert!(err.contains("oracle fetch fee"));
+
+    testing_env!(context_with_deposit(purchaser(), ORACLE_FEE + 10).build());
+    let err = purchase_err(contract.purchase_dollar(
+        DOLLAR_SCOPE_SALE.into(),
+        token_id.clone(),
+        1,
+        U128(ONE_NEAR),
     ));
     assert!(err.contains("maximum NEAR"));
 
-    testing_env!(context_with_deposit(purchaser(), ONE_NEAR + 1).build());
+    testing_env!(context_with_deposit(purchaser(), ONE_NEAR + ORACLE_FEE).build());
     assert!(contract
-        .purchase_dollar(
-            DOLLAR_SCOPE_SALE.into(),
-            token_id,
-            0,
-            U128(ONE_NEAR),
-            U128(1),
-            "0xAA".into(),
-        )
+        .purchase_dollar(DOLLAR_SCOPE_SALE.into(), token_id, 0, U128(ONE_NEAR))
         .is_ok());
 }
 
@@ -427,7 +413,8 @@ fn settle_charges_the_dollar_price_and_refunds_the_rest() {
     list_dollars(&mut contract, &seller(), &token_id, 0);
     set_oracle(&mut contract);
 
-    let unit = Contract::yocto_for_usd(ONE_DOLLAR_E6, PYTH_ONE_DOLLAR, -8).unwrap();
+    let now = near_sdk::env::block_timestamp() / 1_000_000_000;
+    let unit = Contract::yocto_for_usd(ONE_DOLLAR_E6, ORACLE_ONE_DOLLAR, -8).unwrap();
     assert_eq!(unit, ONE_NEAR);
     let max_near = unit * 1_005 / 1_000;
     let payment = max_near + ONE_NEAR;
@@ -435,7 +422,7 @@ fn settle_charges_the_dollar_price_and_refunds_the_rest() {
     settle_with_price(
         &mut contract,
         &token_id,
-        &pyth_json(PYTH_ONE_DOLLAR, 1_000),
+        &oracle_json(ORACLE_ONE_DOLLAR, now),
         max_near,
         payment,
     );
@@ -470,13 +457,14 @@ fn half_percent_stop_refunds_without_moving_the_scarce() {
     list_dollars(&mut contract, &seller(), &token_id, 0);
     set_oracle(&mut contract);
 
+    let now = near_sdk::env::block_timestamp() / 1_000_000_000;
     let max_near = ONE_NEAR * 1_005 / 1_000;
     let moved = Contract::yocto_for_usd(ONE_DOLLAR_E6, 99_000_000, -8).unwrap();
     assert!(moved > max_near);
     settle_with_price(
         &mut contract,
         &token_id,
-        &pyth_json(99_000_000, 1_000),
+        &oracle_json(99_000_000, now),
         max_near,
         max_near,
     );
@@ -492,16 +480,17 @@ fn half_percent_stop_refunds_without_moving_the_scarce() {
 }
 
 #[test]
-fn seller_minimum_and_a_wide_price_refund() {
+fn seller_minimum_and_a_stale_price_refund() {
     let mut contract = new_contract();
     let token_id = mint(&mut contract, &seller(), None);
     list_dollars(&mut contract, &seller(), &token_id, ONE_NEAR * 2);
     set_oracle(&mut contract);
 
+    let now = near_sdk::env::block_timestamp() / 1_000_000_000;
     settle_with_price(
         &mut contract,
         &token_id,
-        &pyth_json(PYTH_ONE_DOLLAR, 1_000),
+        &oracle_json(ORACLE_ONE_DOLLAR, now),
         ONE_NEAR * 3,
         ONE_NEAR * 3,
     );
@@ -511,21 +500,21 @@ fn seller_minimum_and_a_wide_price_refund() {
     );
     assert_eq!(transferred_to(&purchaser()), ONE_NEAR * 3);
 
-    let wide = mint(&mut contract, &seller(), None);
-    list_dollars(&mut contract, &seller(), &wide, 0);
+    let stale = mint(&mut contract, &seller(), None);
+    list_dollars(&mut contract, &seller(), &stale, 0);
     settle_with_price(
         &mut contract,
-        &wide,
-        &pyth_json(PYTH_ONE_DOLLAR, 2_000_000),
+        &stale,
+        &oracle_json(ORACLE_ONE_DOLLAR, now.saturating_sub(7_200)),
         ONE_NEAR * 2,
         ONE_NEAR * 2,
     );
-    assert_eq!(contract.nft_token(wide.clone()).unwrap().owner_id, seller());
+    assert_eq!(contract.nft_token(stale.clone()).unwrap().owner_id, seller());
     assert_eq!(transferred_to(&purchaser()), ONE_NEAR * 2);
 }
 
 #[test]
-fn a_failed_pyth_read_refunds_the_payment() {
+fn a_failed_oracle_read_refunds_the_payment() {
     let mut contract = new_contract();
     let token_id = mint(&mut contract, &seller(), None);
     list_dollars(&mut contract, &seller(), &token_id, 0);
@@ -567,13 +556,14 @@ fn collection_mint_keeps_the_sticker_and_skips_royalty() {
         .unwrap();
     set_oracle(&mut contract);
 
+    let now = near_sdk::env::block_timestamp() / 1_000_000_000;
     testing_env!(
         context(purchaser()).build(),
         near_sdk::test_vm_config(),
         near_sdk::RuntimeFeesConfig::test(),
         HashMap::new(),
         vec![PromiseResult::Successful(
-            pyth_json(PYTH_ONE_DOLLAR, 1_000).into_bytes(),
+            oracle_json(ORACLE_ONE_DOLLAR, now).into_bytes(),
         )],
     );
     contract.dollar_settle(
@@ -662,13 +652,14 @@ fn lazy_sale_clears_the_sticker_when_sold_out() {
         .unwrap_err();
     assert!(err.to_string().contains("priced in dollars"));
 
+    let now = near_sdk::env::block_timestamp() / 1_000_000_000;
     testing_env!(
         context(purchaser()).build(),
         near_sdk::test_vm_config(),
         near_sdk::RuntimeFeesConfig::test(),
         HashMap::new(),
         vec![PromiseResult::Successful(
-            pyth_json(PYTH_ONE_DOLLAR, 1_000).into_bytes(),
+            oracle_json(ORACLE_ONE_DOLLAR, now).into_bytes(),
         )],
     );
     contract.dollar_settle(
@@ -696,14 +687,12 @@ fn dollar_purchase_needs_an_oracle() {
     let token_id = mint(&mut contract, &seller(), None);
     list_dollars(&mut contract, &seller(), &token_id, 0);
 
-    testing_env!(context_with_deposit(purchaser(), ONE_NEAR + 1).build());
+    testing_env!(context_with_deposit(purchaser(), ONE_NEAR + ORACLE_FEE).build());
     let err = purchase_err(contract.purchase_dollar(
         DOLLAR_SCOPE_SALE.into(),
         token_id,
         1,
         U128(ONE_NEAR),
-        U128(1),
-        "aa".into(),
     ));
     assert!(err.contains("not configured"));
 }
@@ -754,10 +743,11 @@ fn a_dollar_sale_refunds_the_open_offer() {
     set_oracle(&mut contract);
     offer(&mut contract, &offerer(), &token_id, 2 * ONE_NEAR);
 
+    let now = near_sdk::env::block_timestamp() / 1_000_000_000;
     settle_with_price(
         &mut contract,
         &token_id,
-        &pyth_json(PYTH_ONE_DOLLAR, 1_000),
+        &oracle_json(ORACLE_ONE_DOLLAR, now),
         ONE_NEAR,
         ONE_NEAR,
     );
@@ -817,13 +807,14 @@ fn a_cancelled_dollar_drop_refunds_the_organizer_amount() {
         .unwrap();
     set_oracle(&mut contract);
 
+    let now = near_sdk::env::block_timestamp() / 1_000_000_000;
     testing_env!(
         context(purchaser()).build(),
         near_sdk::test_vm_config(),
         near_sdk::RuntimeFeesConfig::test(),
         HashMap::new(),
         vec![PromiseResult::Successful(
-            pyth_json(PYTH_ONE_DOLLAR, 1_000).into_bytes(),
+            oracle_json(ORACLE_ONE_DOLLAR, now).into_bytes(),
         )],
     );
     contract.dollar_settle(
@@ -861,9 +852,19 @@ fn a_cancelled_dollar_drop_refunds_the_organizer_amount() {
 }
 
 #[test]
-fn parse_pyth_price_rejects_a_missing_or_negative_price() {
-    let err = parse_pyth_price(b"null").unwrap_err();
-    assert!(err.to_string().contains("too old"));
-    let err = parse_pyth_price(br#"{"price":"-1","conf":"1","expo":-8}"#).unwrap_err();
+fn parse_oracle_price_rejects_a_missing_or_negative_price() {
+    let err = parse_oracle_price(b"null", ASSET_ID).unwrap_err();
+    assert!(err.to_string().contains("missing"));
+    let err = parse_oracle_price(
+        br#"{"timestamp":"1000000000","prices":[{"asset_id":"wrap.near","price":{"multiplier":"0","decimals":8}}]}"#,
+        ASSET_ID,
+    )
+    .unwrap_err();
     assert!(err.to_string().contains("positive"));
+    let err = parse_oracle_price(
+        br#"{"timestamp":"1000000000","prices":[{"asset_id":"wrap.near","price":null}]}"#,
+        ASSET_ID,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("too old"));
 }

@@ -5,9 +5,9 @@
 //! with no dollar record still sells for its stored NEAR amount. Auctions stay
 //! in NEAR.
 //!
-//! At purchase the buyer submits a Pyth price update. This contract asks the
-//! Pyth oracle to accept it, reads NEAR/USD, and charges that NEAR. Intents is
-//! not the price.
+//! At purchase this contract asks the price oracle for NEAR/USD. The oracle
+//! returns the price to the settle callback, which charges that NEAR and
+//! refunds the rest. Intents is not the price.
 
 use crate::*;
 use near_sdk::json_types::U128;
@@ -15,14 +15,13 @@ use near_sdk::store::LookupMap;
 use near_sdk::{AccountId, Gas, NearToken, Promise, ext_contract, near};
 use primitive_types::U256;
 
-/// Pyth's update schedules a Wormhole verify (~90 TGas of child promises).
-/// The buyer's transaction is capped at 300 TGas, so this call and the
-/// read/settle callback have to share that budget.
-const GAS_PYTH_UPDATE: u64 = 150;
-const GAS_PYTH_READ: u64 = 20;
-const GAS_DOLLAR_SETTLE: u64 = 100;
-/// Covers the price read, the settle callback, and this step's own execution.
-const GAS_DOLLAR_READ: u64 = 135;
+/// The oracle returns NEAR/USD to the settle callback. The buyer's transaction
+/// is capped at 300 TGas, so the request and the settle callback share that
+/// budget.
+const GAS_ORACLE_CALL: u64 = 150;
+const GAS_DOLLAR_SETTLE: u64 = 130;
+/// The oracle charges about 0.01 NEAR to fetch a fresh price.
+const ORACLE_CALL_DEPOSIT: u128 = 10_000_000_000_000_000_000_000;
 
 pub(crate) const DOLLAR_SCOPE_SALE: &str = "sale";
 pub(crate) const DOLLAR_SCOPE_LAZY: &str = "lazy";
@@ -40,19 +39,22 @@ pub struct DollarPrice {
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
 pub struct DollarOracle {
-    pub pyth_contract: AccountId,
-    /// Hex price id, no `0x` prefix.
-    pub price_id: String,
+    /// Oracle account, e.g. `price-oracle.near`.
+    pub oracle_contract: AccountId,
+    /// Asset id the oracle prices, e.g. `wrap.near`.
+    pub asset_id: String,
+    /// Reject a price older than this many seconds.
     pub max_age_seconds: u32,
-    /// Reject the price when Pyth's confidence is wider than this, in basis points.
-    pub max_conf_bps: u16,
 }
 
 #[allow(dead_code)]
-#[ext_contract(ext_dollar_pyth)]
-trait DollarPyth {
-    fn update_price_feeds(&mut self, data: String);
-    fn get_price_no_older_than(&self, price_id: String, age: u64);
+#[ext_contract(ext_dollar_oracle)]
+trait DollarOracleCall {
+    fn request_price_data(
+        &mut self,
+        asset_ids: Option<Vec<String>>,
+        resource_limits: Option<near_sdk::serde_json::Value>,
+    );
 }
 
 fn dollar_key(scope: &str, id: &str) -> String {
@@ -159,10 +161,10 @@ impl Contract {
         U128(min_near.max(1))
     }
 
-    /// NEAR yocto that `usd_e6` is worth at a Pyth price.
+    /// NEAR yocto that `usd_e6` is worth at the oracle price.
     ///
-    /// `price` is the Pyth integer and `expo` is its exponent, almost always -8.
-    /// One NEAR is `price * 10^expo` dollars.
+    /// `price` is the oracle multiplier and `expo` is its exponent, almost
+    /// always -8. One NEAR is `price * 10^expo` dollars.
     pub(crate) fn yocto_for_usd(
         usd_e6: u128,
         price: u128,
@@ -248,46 +250,54 @@ fn parse_i64_field(value: &near_sdk::serde_json::Value) -> Option<i64> {
     }
 }
 
-/// Pull `price`, `conf`, and `expo` out of a Pyth `get_price` JSON result.
-pub(crate) fn parse_pyth_price(bytes: &[u8]) -> Result<(u128, u128, i32), MarketplaceError> {
+/// Pull the asset price out of an oracle `PriceData` JSON result.
+/// Returns the price integer, its exponent, and the publish time in seconds.
+pub(crate) fn parse_oracle_price(
+    bytes: &[u8],
+    asset_id: &str,
+) -> Result<(u128, i32, u64), MarketplaceError> {
     let value: near_sdk::serde_json::Value = near_sdk::serde_json::from_slice(bytes)
-        .map_err(|_| MarketplaceError::InvalidState("Pyth price was not readable".into()))?;
+        .map_err(|_| MarketplaceError::InvalidState("Oracle price was not readable".into()))?;
     if value.is_null() {
         return Err(MarketplaceError::InvalidState(
-            "Pyth price is missing or too old".into(),
+            "Oracle price is missing".into(),
         ));
     }
-    let price = value
-        .get("price")
-        .and_then(parse_i64_field)
-        .ok_or_else(|| MarketplaceError::InvalidState("Pyth price was not readable".into()))?;
-    if price <= 0 {
-        return Err(MarketplaceError::InvalidState(
-            "Pyth price must be positive".into(),
-        ));
-    }
-    let conf = value
-        .get("conf")
+    let timestamp_ns = value
+        .get("timestamp")
         .and_then(parse_u128_field)
-        .ok_or_else(|| MarketplaceError::InvalidState("Pyth price was not readable".into()))?;
-    let expo = value
-        .get("expo")
+        .ok_or_else(|| MarketplaceError::InvalidState("Oracle price was not readable".into()))?;
+    let prices = value
+        .get("prices")
+        .and_then(|p| p.as_array())
+        .ok_or_else(|| MarketplaceError::InvalidState("Oracle price was not readable".into()))?;
+    let entry = prices
+        .iter()
+        .find(|p| p.get("asset_id").and_then(|a| a.as_str()) == Some(asset_id))
+        .ok_or_else(|| {
+            MarketplaceError::InvalidState("Oracle did not return the NEAR price".into())
+        })?;
+    let price_obj = entry.get("price").filter(|p| !p.is_null()).ok_or_else(|| {
+        MarketplaceError::InvalidState("Oracle price is missing or too old".into())
+    })?;
+    let multiplier = price_obj
+        .get("multiplier")
+        .and_then(parse_u128_field)
+        .filter(|m| *m > 0)
+        .ok_or_else(|| MarketplaceError::InvalidState("Oracle price must be positive".into()))?;
+    let decimals = price_obj
+        .get("decimals")
         .and_then(parse_i64_field)
-        .ok_or_else(|| MarketplaceError::InvalidState("Pyth price was not readable".into()))?;
-    if expo < i32::MIN as i64 || expo > i32::MAX as i64 {
+        .ok_or_else(|| MarketplaceError::InvalidState("Oracle price was not readable".into()))?;
+    if decimals < 0 || decimals > i32::MAX as i64 {
         return Err(MarketplaceError::InvalidState(
-            "Pyth price was not readable".into(),
+            "Oracle price was not readable".into(),
         ));
     }
-    Ok((price as u128, conf, expo as i32))
-}
-
-pub(crate) fn confidence_within(price: u128, conf: u128, max_conf_bps: u16) -> bool {
-    if price == 0 {
-        return false;
-    }
-    let width = U256::from(conf) * U256::from(10_000u128) / U256::from(price);
-    width <= U256::from(max_conf_bps as u128)
+    let publish_time = u64::try_from(timestamp_ns / 1_000_000_000).map_err(|_| {
+        MarketplaceError::InvalidState("Oracle price was not readable".into())
+    })?;
+    Ok((multiplier, -(decimals as i32), publish_time))
 }
 
 #[near]
@@ -296,17 +306,16 @@ impl Contract {
     #[handle_result]
     pub fn set_dollar_oracle(
         &mut self,
-        pyth_contract: AccountId,
-        price_id: String,
+        oracle_contract: AccountId,
+        asset_id: String,
         max_age_seconds: u32,
-        max_conf_bps: u16,
     ) -> Result<(), MarketplaceError> {
         crate::guards::check_one_yocto()?;
         self.check_contract_owner(&env::predecessor_account_id())?;
-        let price_id = price_id.trim_start_matches("0x").to_ascii_lowercase();
-        if price_id.len() != 64 || !price_id.chars().all(|c| c.is_ascii_hexdigit()) {
+        let asset_id = asset_id.trim().to_string();
+        if asset_id.is_empty() || asset_id.len() > 128 {
             return Err(MarketplaceError::InvalidInput(
-                "Pyth price id must be 32 bytes of hex".into(),
+                "Oracle asset id is missing".into(),
             ));
         }
         if max_age_seconds == 0 || max_age_seconds > 3_600 {
@@ -314,19 +323,13 @@ impl Contract {
                 "Price age must be between 1 second and 1 hour".into(),
             ));
         }
-        if max_conf_bps == 0 || max_conf_bps > 1_000 {
-            return Err(MarketplaceError::InvalidInput(
-                "Confidence band must be between 1 and 1000 bps".into(),
-            ));
-        }
         let mut store = oracle_store();
         store.insert(
             0,
             DollarOracle {
-                pyth_contract,
-                price_id,
+                oracle_contract,
+                asset_id,
                 max_age_seconds,
-                max_conf_bps,
             },
         );
         Ok(())
@@ -342,7 +345,8 @@ impl Contract {
 
     /// Buy a dollar-priced sale, lazy listing, or collection.
     ///
-    /// Attach `max_near + pyth_fee`. `update_data` is the hex payload from Pyth Hermes.
+    /// Attach `max_near` plus the oracle fetch fee. The contract asks the
+    /// oracle for NEAR/USD and settles in the callback.
     #[payable]
     #[handle_result]
     pub fn purchase_dollar(
@@ -351,18 +355,7 @@ impl Contract {
         id: String,
         quantity: u32,
         max_near: U128,
-        pyth_fee: U128,
-        update_data: String,
     ) -> Result<Promise, MarketplaceError> {
-        let update_data = update_data.trim_start_matches("0x").to_string();
-        if update_data.is_empty()
-            || update_data.len() > 32_000
-            || !update_data.chars().all(|c| c.is_ascii_hexdigit())
-        {
-            return Err(MarketplaceError::InvalidInput(
-                "Pyth price update is missing".into(),
-            ));
-        }
         let qty = if scope == DOLLAR_SCOPE_SALE {
             1
         } else {
@@ -381,9 +374,9 @@ impl Contract {
             MarketplaceError::InvalidState("Dollar prices are not configured".into())
         })?;
         let attached = env::attached_deposit().as_yoctonear();
-        let payment = attached.checked_sub(pyth_fee.0).ok_or_else(|| {
+        let payment = attached.checked_sub(ORACLE_CALL_DEPOSIT).ok_or_else(|| {
             MarketplaceError::InsufficientDeposit(
-                "Attach the maximum NEAR plus the Pyth update fee".into(),
+                "Attach the maximum NEAR plus the oracle fetch fee".into(),
             )
         })?;
         if payment < max_near.0 || max_near.0 == 0 {
@@ -392,45 +385,15 @@ impl Contract {
             ));
         }
         let buyer = env::predecessor_account_id();
-        Ok(ext_dollar_pyth::ext(oracle.pyth_contract)
-            .with_attached_deposit(NearToken::from_yoctonear(pyth_fee.0))
-            .with_static_gas(Gas::from_tgas(GAS_PYTH_UPDATE))
-            .update_price_feeds(update_data)
-            .then(
-                Self::ext(env::current_account_id())
-                    .with_static_gas(Gas::from_tgas(GAS_DOLLAR_READ))
-                    .dollar_read_price(buyer, scope, id, qty, max_near, U128(payment)),
-            ))
-    }
-
-    #[private]
-    pub fn dollar_read_price(
-        &mut self,
-        buyer_id: AccountId,
-        scope: String,
-        id: String,
-        quantity: u32,
-        max_near: U128,
-        payment: U128,
-    ) -> Promise {
-        let failed =
-            env::promise_results_count() != 1 || env::promise_result_checked(0, 1024).is_err();
-        if failed || self.get_dollar_oracle().is_none() {
-            return if payment.0 > 0 {
-                Promise::new(buyer_id).transfer(NearToken::from_yoctonear(payment.0))
-            } else {
-                Promise::new(env::current_account_id())
-            };
-        }
-        let oracle = self.get_dollar_oracle().expect("oracle checked");
-        ext_dollar_pyth::ext(oracle.pyth_contract)
-            .with_static_gas(Gas::from_tgas(GAS_PYTH_READ))
-            .get_price_no_older_than(oracle.price_id, oracle.max_age_seconds as u64)
+        Ok(ext_dollar_oracle::ext(oracle.oracle_contract)
+            .with_attached_deposit(NearToken::from_yoctonear(ORACLE_CALL_DEPOSIT))
+            .with_static_gas(Gas::from_tgas(GAS_ORACLE_CALL))
+            .request_price_data(Some(vec![oracle.asset_id]), None)
             .then(
                 Self::ext(env::current_account_id())
                     .with_static_gas(Gas::from_tgas(GAS_DOLLAR_SETTLE))
-                    .dollar_settle(buyer_id, scope, id, quantity, max_near, payment),
-            )
+                    .dollar_settle(buyer, scope, id, qty, max_near, U128(payment)),
+            ))
     }
 
     #[private]
@@ -457,7 +420,11 @@ impl Contract {
                 return;
             }
         };
-        let (price, conf, expo) = match parse_pyth_price(&bytes) {
+        let Some(oracle) = self.get_dollar_oracle() else {
+            refund(payment.0, &buyer_id);
+            return;
+        };
+        let (price, expo, publish_time) = match parse_oracle_price(&bytes, &oracle.asset_id) {
             Ok(parsed) => parsed,
             Err(err) => {
                 env::log_str(&err.to_string());
@@ -465,12 +432,9 @@ impl Contract {
                 return;
             }
         };
-        let Some(oracle) = self.get_dollar_oracle() else {
-            refund(payment.0, &buyer_id);
-            return;
-        };
-        if !confidence_within(price, conf, oracle.max_conf_bps) {
-            env::log_str("Pyth confidence is too wide");
+        let now = env::block_timestamp() / 1_000_000_000;
+        if now.saturating_sub(publish_time) > oracle.max_age_seconds as u64 {
+            env::log_str("Oracle price is too old");
             refund(payment.0, &buyer_id);
             return;
         }
@@ -536,8 +500,8 @@ mod tests {
     }
 
     #[test]
-    fn expo_minus_eight_scales_the_pyth_integer() {
-        // $1 with price 100_000_000 and expo -8 is $1 per NEAR.
+    fn expo_minus_eight_scales_the_oracle_multiplier() {
+        // $1 with multiplier 100_000_000 and expo -8 is $1 per NEAR.
         let yocto = Contract::yocto_for_usd(1_000_000, 100_000_000, -8).unwrap();
         assert_eq!(yocto, 10u128.pow(24));
     }
@@ -552,11 +516,5 @@ mod tests {
     fn seller_minimum_stops_dust() {
         let err = Contract::bound_dollar_near(1, 1, 5, 10).unwrap_err();
         assert!(err.to_string().contains("minimum"));
-    }
-
-    #[test]
-    fn wide_confidence_is_rejected() {
-        assert!(super::confidence_within(10_000, 50, 100));
-        assert!(!super::confidence_within(10_000, 200, 100));
     }
 }
