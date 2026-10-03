@@ -28,7 +28,7 @@ describe('article author stand', () => {
   it('puts Stand opposite the face, not like/save/share on the byline', () => {
     expect(panel).toContain('MediaFaceStandButton');
     expect(panel).toContain('portfolio-writing-article-stand');
-    expect(panel.lastIndexOf('os-media-face-identity')).toBeLessThan(
+    expect(panel.lastIndexOf('MediaFaceIdentity')).toBeLessThan(
       panel.lastIndexOf('MediaFaceStandButton')
     );
     expect(panel).toContain('portfolio-writing-article-author');

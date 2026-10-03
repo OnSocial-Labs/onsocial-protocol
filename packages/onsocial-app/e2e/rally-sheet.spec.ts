@@ -411,10 +411,10 @@ test.describe('rally sheet', () => {
       sheet.getByRole('heading', { name: /ready to collect/i })
     ).toBeVisible();
     await expect(sheet.getByText('Ready to collect.')).toBeVisible();
-    // Viewer row: "You" primary with the viewer's own @id underneath.
-    await expect(
-      sheet.getByRole('list', { name: 'Standings' }).getByText(`@${account}`)
-    ).toBeVisible();
+    // Viewer row is the same face link as everyone else, including their @id.
+    const strip = sheet.getByRole('list', { name: 'Standings' });
+    await expect(strip.getByText(`@${account}`)).toBeVisible();
+    await expect(strip.locator(`a[href="/@${account}"]`)).toBeVisible();
     await expect(sheet.getByRole('button', { name: 'Collect' })).toBeVisible();
     await sheet.screenshot({ path: 'test-results/rally-sheet-collect.png' });
   });
