@@ -23,6 +23,7 @@ import {
   type EndorsementSupportTarget,
 } from '@/components/panels/endorsement-support-sheet';
 import { DiscoverProfilesLink } from '@/components/panels/standing-discover-link';
+import { OsChipAction } from '@/lib/os-chip-action';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { Divider, OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -429,9 +430,18 @@ export function EndorsementsPanel({
     <div className="endorsements-panel">
       <div className="endorsements-panel-toolbar">
         <div
-          className="endorsements-mode-rail"
+          className="app-storage-mode-toggle"
           role="tablist"
           aria-label="Endorsement lists"
+          onKeyDown={(event) => {
+            if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') {
+              return;
+            }
+            event.preventDefault();
+            const next = event.key === 'ArrowRight' ? 'given' : 'received';
+            selectMode(next);
+            document.getElementById(`endorsements-tab-${next}`)?.focus();
+          }}
         >
           <button
             type="button"
@@ -439,13 +449,14 @@ export function EndorsementsPanel({
             id="endorsements-tab-received"
             aria-controls="endorsements-panel-received"
             aria-selected={mode === 'received'}
-            className={`endorsements-mode-chip${
-              mode === 'received' ? ' is-selected' : ''
+            tabIndex={mode === 'received' ? 0 : -1}
+            className={`app-storage-mode${
+              mode === 'received' ? ' is-active' : ''
             }`}
             onClick={() => selectMode('received')}
           >
             Received
-            <span className="endorsements-mode-count">{receivedCount}</span>
+            <span className="app-storage-mode-count">{receivedCount}</span>
           </button>
           <button
             type="button"
@@ -453,42 +464,47 @@ export function EndorsementsPanel({
             id="endorsements-tab-given"
             aria-controls="endorsements-panel-given"
             aria-selected={mode === 'given'}
-            className={`endorsements-mode-chip${
-              mode === 'given' ? ' is-selected' : ''
-            }`}
+            tabIndex={mode === 'given' ? 0 : -1}
+            className={`app-storage-mode${mode === 'given' ? ' is-active' : ''}`}
             onClick={() => selectMode('given')}
           >
             Given
-            <span className="endorsements-mode-count">{givenCount}</span>
+            <span className="app-storage-mode-count">{givenCount}</span>
           </button>
         </div>
 
         {!isSelf ? (
           <div className="endorsements-endorse-cta">
-            <OsSheetActions layout="row-compact">
+            <OsSheetActions
+              layout="row-compact"
+              size="sm"
+              tone="frosted-primary"
+              borderless
+              className="endorsements-endorse-action"
+            >
               <OsSheetAction
                 type="button"
                 ready={!endorseBlocked}
-                disabled={endorsePending}
+                active={isConnected && viewerEndorsed}
+                disabled={endorsePending || endorseBlocked}
                 pending={endorsePending}
-                pendingLabel={
-                  viewerEndorsed ? 'Updating…' : 'Endorsing…'
-                }
+                pendingLabel={viewerEndorsed ? 'Saving…' : 'Endorsing…'}
+                {...(isConnected && viewerEndorsed
+                  ? { 'aria-label': `Edit endorsement for ${label}` }
+                  : {})}
                 onClick={handleEndorseClick}
               >
-                {isConnected && viewerEndorsed ? 'Edit' : 'Endorse'}
+                {isConnected && viewerEndorsed ? 'Endorsed' : 'Endorse'}
               </OsSheetAction>
             </OsSheetActions>
             {isConnected && viewerEndorsed && !endorseBlocked ? (
-              <button
-                type="button"
-                className="endorsements-add-topic"
+              <OsChipAction
                 onClick={handleAddTopic}
                 disabled={endorsePending}
                 aria-label={`Add another endorsement for ${label}`}
               >
                 Add topic
-              </button>
+              </OsChipAction>
             ) : null}
           </div>
         ) : null}
@@ -543,12 +559,14 @@ export function EndorsementsPanel({
               Boolean(viewerAccountId) &&
               accountIdsEqual(viewerAccountId!, item.issuer);
             const canSupport =
-              Boolean(resolveEndorsementSpendTargetId({
-                id: typeof item.id === 'string' ? item.id : null,
-                issuer: item.issuer,
-                target: item.target,
-                topic: item.topic,
-              })) &&
+              Boolean(
+                resolveEndorsementSpendTargetId({
+                  id: typeof item.id === 'string' ? item.id : null,
+                  issuer: item.issuer,
+                  target: item.target,
+                  topic: item.topic,
+                })
+              ) &&
               (!viewerAccountId ||
                 !accountIdsEqual(viewerAccountId, item.target));
             return (
@@ -591,7 +609,9 @@ export function EndorsementsPanel({
           ) : loadMoreError ? (
             <div className="endorsements-load-more-error">
               <p className="endorsements-loading-more">{loadMoreError}</p>
-              <OsEmptyAction onClick={() => void loadMore()}>Retry</OsEmptyAction>
+              <OsEmptyAction onClick={() => void loadMore()}>
+                Retry
+              </OsEmptyAction>
             </div>
           ) : null}
         </div>

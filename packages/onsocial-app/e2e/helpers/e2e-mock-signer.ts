@@ -5,6 +5,7 @@ import { e2ePaintAccountId } from './e2e-signers';
 
 /** Keep in sync with `src/lib/e2e-mock-signer.ts`. */
 export const E2E_MOCK_SIGNER_KEY = 'onsocial.e2e.mockSigner';
+export const E2E_MOCK_SIGNER_SUCCESS_KEY = 'onsocial.e2e.mockSignerSuccess';
 
 export const E2E_MOCK_PREPARE_TARGET = 'e2e.core.testnet';
 
@@ -31,12 +32,15 @@ type PreparedAction = {
  */
 export async function seedE2eMockSigner(
   page: Page,
-  accountId = e2ePaintAccountId(COLLECTION_E2E_VIEWER)
+  accountId = e2ePaintAccountId(COLLECTION_E2E_VIEWER),
+  opts?: { succeed?: boolean }
 ): Promise<void> {
   await page.addInitScript(
-    ([walletKey, signerKey, account]) => {
+    ([walletKey, signerKey, successKey, account, succeed]) => {
       window.localStorage.setItem(walletKey, account);
       window.localStorage.setItem(signerKey, '1');
+      if (succeed) window.localStorage.setItem(successKey, '1');
+      else window.localStorage.removeItem(successKey);
       for (const key of Object.keys(window.localStorage)) {
         if (key.startsWith('onsocial.app.session.')) {
           window.localStorage.removeItem(key);
@@ -44,7 +48,13 @@ export async function seedE2eMockSigner(
       }
       window.__onsocialE2eSignerCalls = [];
     },
-    [E2E_WALLET_ACCOUNT_KEY, E2E_MOCK_SIGNER_KEY, accountId] as const
+    [
+      E2E_WALLET_ACCOUNT_KEY,
+      E2E_MOCK_SIGNER_KEY,
+      E2E_MOCK_SIGNER_SUCCESS_KEY,
+      accountId,
+      Boolean(opts?.succeed),
+    ] as const
   );
 }
 
