@@ -139,6 +139,7 @@ export function EndorseComposeSheet({
   const [isEditing, setIsEditing] = useState(false);
   const [pending, setPending] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
   const [loadingExisting, setLoadingExisting] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
@@ -213,6 +214,7 @@ export function EndorseComposeSheet({
     setMediaError(null);
     setPending(false);
     setRemoving(false);
+    setRemoveConfirmOpen(false);
     setMediaProcessing(false);
 
     const clearLocalMedia = () => {
@@ -327,6 +329,7 @@ export function EndorseComposeSheet({
 
   const handleSheetClosed = useCallback(() => {
     clearDiscardConfirm();
+    setRemoveConfirmOpen(false);
     setClosing(false);
     onOpenChange(false);
   }, [clearDiscardConfirm, onOpenChange]);
@@ -505,10 +508,12 @@ export function EndorseComposeSheet({
         wait: true,
       });
       confirmEndorseRemove(pageAccountId, topicForRemove ?? '');
+      setRemoveConfirmOpen(false);
       onSuccess?.();
       finishClose();
     } catch (error) {
       if (isWalletUserCancellation(error)) return;
+      setRemoveConfirmOpen(false);
       setTxResult({
         type: 'error',
         msg:
@@ -526,10 +531,9 @@ export function EndorseComposeSheet({
   const primaryLabel = !isConnected
     ? ENDORSE_CONNECT_CTA
     : isEditing
-      ? dirty
-        ? 'Save endorsement'
-        : 'Saved'
+      ? 'Save endorsement'
       : ENDORSE_SUBMIT_CTA;
+  const primaryDisabled = busy || (isConnected && !canSubmit);
 
   return (
     <>
@@ -579,6 +583,9 @@ export function EndorseComposeSheet({
                     ? ' is-selected'
                     : ''
                 }`}
+                aria-pressed={
+                  topic.trim().toLowerCase() === suggestion.toLowerCase()
+                }
                 disabled={busy || isSelf || discardConfirmOpen}
                 onClick={() => setTopic(suggestion)}
               >
@@ -696,7 +703,7 @@ export function EndorseComposeSheet({
               ready={canSubmit || !isConnected}
               pending={pending}
               pendingLabel={isEditing ? 'Saving…' : 'Endorsing…'}
-              disabled={busy}
+              disabled={primaryDisabled}
               onClick={() => void handleSubmit()}
             >
               {primaryLabel}
@@ -708,8 +715,8 @@ export function EndorseComposeSheet({
                 ready={!busy}
                 pending={removing}
                 pendingLabel="Removing…"
-                disabled={busy}
-                onClick={() => void handleRemove()}
+                disabled={busy || removeConfirmOpen}
+                onClick={() => setRemoveConfirmOpen(true)}
               >
                 Remove endorsement
               </OsSheetAction>
@@ -723,6 +730,19 @@ export function EndorseComposeSheet({
         onKeepEditing={keepEditing}
         title="Discard endorsement?"
         body="Your topic, note, and media won’t be saved."
+      />
+      <DiscardConfirmSheet
+        open={removeConfirmOpen}
+        onDiscard={() => void handleRemove()}
+        onKeepEditing={() => {
+          if (!removing) setRemoveConfirmOpen(false);
+        }}
+        title="Remove this endorsement?"
+        body="Your public vouch comes down."
+        discardLabel="Remove"
+        keepEditingLabel="Keep"
+        pending={removing}
+        pendingLabel="Removing…"
       />
     </>
   );

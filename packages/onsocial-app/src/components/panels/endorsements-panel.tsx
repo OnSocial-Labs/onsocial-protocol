@@ -469,14 +469,16 @@ export function EndorsementsPanel({
               <OsSheetAction
                 type="button"
                 ready={!endorseBlocked}
-                disabled={endorsePending}
+                active={isConnected && viewerEndorsed}
+                disabled={endorsePending || endorseBlocked}
                 pending={endorsePending}
-                pendingLabel={
-                  viewerEndorsed ? 'Updating…' : 'Endorsing…'
-                }
+                pendingLabel={viewerEndorsed ? 'Saving…' : 'Endorsing…'}
+                {...(isConnected && viewerEndorsed
+                  ? { 'aria-label': `Edit endorsement for ${label}` }
+                  : {})}
                 onClick={handleEndorseClick}
               >
-                {isConnected && viewerEndorsed ? 'Edit' : 'Endorse'}
+                {isConnected && viewerEndorsed ? 'Endorsed' : 'Endorse'}
               </OsSheetAction>
             </OsSheetActions>
             {isConnected && viewerEndorsed && !endorseBlocked ? (
@@ -543,12 +545,14 @@ export function EndorsementsPanel({
               Boolean(viewerAccountId) &&
               accountIdsEqual(viewerAccountId!, item.issuer);
             const canSupport =
-              Boolean(resolveEndorsementSpendTargetId({
-                id: typeof item.id === 'string' ? item.id : null,
-                issuer: item.issuer,
-                target: item.target,
-                topic: item.topic,
-              })) &&
+              Boolean(
+                resolveEndorsementSpendTargetId({
+                  id: typeof item.id === 'string' ? item.id : null,
+                  issuer: item.issuer,
+                  target: item.target,
+                  topic: item.topic,
+                })
+              ) &&
               (!viewerAccountId ||
                 !accountIdsEqual(viewerAccountId, item.target));
             return (
@@ -591,7 +595,9 @@ export function EndorsementsPanel({
           ) : loadMoreError ? (
             <div className="endorsements-load-more-error">
               <p className="endorsements-loading-more">{loadMoreError}</p>
-              <OsEmptyAction onClick={() => void loadMore()}>Retry</OsEmptyAction>
+              <OsEmptyAction onClick={() => void loadMore()}>
+                Retry
+              </OsEmptyAction>
             </div>
           ) : null}
         </div>
