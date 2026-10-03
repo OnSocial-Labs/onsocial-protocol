@@ -26,6 +26,7 @@ import { graphRouter } from './routes/graph.js';
 import { relayRouter } from './routes/relay.js';
 import { composeRouter } from './routes/compose/index.js';
 import { dataRouter } from './routes/data.js';
+import { intentsRouter } from './routes/intents.js';
 import { storageRouter } from './services/storage/index.js';
 
 const app = express();
@@ -130,6 +131,7 @@ app.use('/storage', rateLimitMiddleware, storageRouter);
 app.use('/relay', rateLimitMiddleware, relayRouter);
 app.use('/compose', rateLimitMiddleware, composeRouter);
 app.use('/data', rateLimitMiddleware, dataRouter);
+app.use('/intents', rateLimitMiddleware, intentsRouter);
 
 // 404 handler
 app.use((_req, res) => {

@@ -7,6 +7,7 @@ impl Contract {
         caller: &AccountId,
         collection_id: String,
         new_price_near: U128,
+        usd_e6: Option<u128>,
     ) -> Result<(), MarketplaceError> {
         let mut collection = self
             .collections
@@ -31,7 +32,13 @@ impl Contract {
         let old_price = collection.price_near;
         collection.price_near = new_price_near;
         self.collections.insert(collection_id.clone(), collection);
-        events::emit_collection_price_updated(caller, &collection_id, old_price, new_price_near);
+        events::emit_collection_price_updated(
+            caller,
+            &collection_id,
+            old_price,
+            new_price_near,
+            usd_e6,
+        );
         Ok(())
     }
 

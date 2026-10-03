@@ -1,0 +1,11 @@
+[package]
+name = "mock-oracle"
+version = "0.1.0"
+edition = "2021"
+description = "Minimal price oracle mock for scarce dollar-price integration tests"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = "5.24"

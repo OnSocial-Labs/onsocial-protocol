@@ -10,6 +10,8 @@ export interface ProfileStoreListing {
   title: string;
   /** Display price in NEAR (already localized), or null when unpriced. */
   priceNear: string | null;
+  /** Indexed dollar sticker in millionths. Empty when the ask is NEAR. */
+  usdE6?: string | null;
   /** Disambiguates auction vs fixed vs edition price. */
   priceLabel: 'Ask' | 'Reserve' | 'High bid' | 'From';
   mediaUrl: string | null;
@@ -45,15 +47,11 @@ export interface ProfileStoreDrop {
   mediaUrl: string | null;
   /** Display price per edition in NEAR, or null when free. */
   priceNear: string | null;
+  /** Indexed dollar sticker in millionths. Empty when the ask is NEAR. */
+  usdE6?: string | null;
   remaining: number;
   totalSupply: number;
-  status:
-    | 'upcoming'
-    | 'live'
-    | 'sold_out'
-    | 'ended'
-    | 'paused'
-    | 'cancelled';
+  status: 'upcoming' | 'live' | 'sold_out' | 'ended' | 'paused' | 'cancelled';
   /** NEP-177 `extra.kind` — Ticket, Audio, Writing, … */
   mediumKind?: string | null;
   audioFormat?: 'single' | 'album' | 'podcast' | null;

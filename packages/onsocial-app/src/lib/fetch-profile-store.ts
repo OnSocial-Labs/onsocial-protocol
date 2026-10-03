@@ -65,8 +65,7 @@ function displayTitle(
 ): string {
   const id = tokenId?.trim() ?? '';
   const raw =
-    title?.trim() ||
-    (id.includes(':') && !id.startsWith('s:') ? id : 'Scarce');
+    title?.trim() || (id.includes(':') && !id.startsWith('s:') ? id : 'Scarce');
   if (!hasUnresolvedTitleTemplate(raw)) return raw;
   const edition = id.includes(':') ? id.split(':').at(-1) : id;
   return raw.replace(/#\{id\}/gi, `#${edition}`).replace(/\{token_id\}/gi, id);
@@ -117,6 +116,9 @@ function listingFromRow(
     kind,
     title: displayTitle(row.title, row.tokenId),
     priceNear: yoctoToNearDisplay(displayYocto),
+    ...(kind !== 'auction' && row.usdE6?.trim()
+      ? { usdE6: row.usdE6.trim() }
+      : {}),
     priceLabel,
     mediaUrl: resolveMedia(row.media),
     ...(resale ? { resale: true } : {}),

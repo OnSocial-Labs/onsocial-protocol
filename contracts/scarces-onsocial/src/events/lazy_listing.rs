@@ -23,6 +23,7 @@ pub fn emit_lazy_listing_created(
     browse: ListingBrowseMeta<'_>,
     app_id: Option<&str>,
     app_commission_bps: u16,
+    usd_e6: Option<u128>,
 ) {
     EventBuilder::new(LAZY_LISTING, "created", creator_id)
         .field("creator_id", creator_id)
@@ -36,6 +37,7 @@ pub fn emit_lazy_listing_created(
         .field_opt("expires_at", expires_at)
         .field_opt("app_id", app_id)
         .field("app_commission_bps", app_commission_bps as u32)
+        .field_opt("usd_e6", usd_e6)
         .emit();
 }
 
@@ -56,6 +58,8 @@ pub struct LazyListingPurchase<'a> {
     pub token_ids: &'a [String],
     pub minted_count: u32,
     pub remaining: u32,
+    /// Dollar sticker the mint settled against, when it had one.
+    pub usd_e6: Option<u128>,
 }
 
 pub fn emit_lazy_listing_purchased(e: &LazyListingPurchase) {
@@ -76,7 +80,8 @@ pub fn emit_lazy_listing_purchased(e: &LazyListingPurchase) {
         .field_opt("app_id", e.app_id)
         .field("token_ids", e.token_ids)
         .field("minted_count", e.minted_count)
-        .field("remaining", e.remaining);
+        .field("remaining", e.remaining)
+        .field_opt("usd_e6", e.usd_e6);
     // Back-compat: single-edition buys still expose `token_id`.
     if let Some(token_id) = e.token_ids.first() {
         builder = builder.field("token_id", token_id);
@@ -116,10 +121,12 @@ pub fn emit_lazy_listing_price_updated(
     listing_id: &str,
     old_price: u128,
     new_price: u128,
+    usd_e6: Option<u128>,
 ) {
     EventBuilder::new(LAZY_LISTING, "price_updated", creator_id)
         .field("listing_id", listing_id)
         .field("old_price", old_price)
         .field("new_price", new_price)
+        .field_opt("usd_e6", usd_e6)
         .emit();
 }

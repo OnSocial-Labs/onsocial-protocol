@@ -20,9 +20,10 @@ vi.mock('@/lib/create-readonly-onsocial-client', () => ({
 }));
 
 vi.mock('@/lib/app-near-rpc', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/app-near-rpc')>(
-    '@/lib/app-near-rpc'
-  );
+  const actual =
+    await vi.importActual<typeof import('@/lib/app-near-rpc')>(
+      '@/lib/app-near-rpc'
+    );
   return {
     ...actual,
     viewNearContract: (...args: unknown[]) => viewNearContract(...args),
@@ -70,7 +71,8 @@ describe('indexer-first market listings', () => {
         sellerId: 'alice.near',
         creatorId: 'alice.near',
         appId: null,
-        price: ONE_NEAR_YOCTO,
+        price: '1',
+        usdE6: '50000000',
         priceNumeric: '1',
         reservePrice: null,
         buyNowPrice: null,
@@ -108,6 +110,7 @@ describe('indexer-first market listings', () => {
       title: 'Night Drive',
       remaining: 7,
       sourcePostPath: 'alice.near/post/p1',
+      usdE6: '50000000',
     });
     expect(items[0]?.artistId).toBeUndefined();
   });

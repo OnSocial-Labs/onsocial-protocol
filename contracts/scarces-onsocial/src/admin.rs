@@ -63,6 +63,7 @@ impl Contract {
             wnear_account_id: None,
             fee_recipient_secondary: None,
             pending_attached_balance: 0,
+            dollar_unit_override: None,
         }
     }
 

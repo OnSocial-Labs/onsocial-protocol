@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import type { PostScarceEmbed } from '@onsocial/sdk';
+import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { supplyUnitForMediumKind } from '@/features/scarces/drop-templates';
 import {
   isPrimaryMintStatus,
@@ -208,7 +209,9 @@ export function PostScarceCta({
   listenSlot = null,
 }: PostScarceCtaProps) {
   const links = commerceLinks(embed, authorAccountId);
-  const price = formatPriceNear(embed.priceNear);
+  const nearPrice = formatPriceNear(embed.priceNear);
+  const price =
+    dollarStickerLabel(embed.usdE6) ?? (nearPrice ? `${nearPrice} NEAR` : null);
   const edition = editionMeta(embed);
   const collectionId =
     embed.collectionId?.trim() || embed.latest?.collectionId?.trim() || '';
@@ -314,9 +317,7 @@ export function PostScarceCta({
       return (
         <div className="post-card-scarce-cta post-card-scarce-cta--muted">
           <span className="post-card-scarce-cta-main">
-            {price
-              ? `${dropCta.mutedLabel} · ${price} NEAR`
-              : dropCta.mutedLabel}
+            {price ? `${dropCta.mutedLabel} · ${price}` : dropCta.mutedLabel}
           </span>
           {edition ? (
             <span className="post-card-scarce-cta-meta">{edition}</span>
@@ -349,7 +350,7 @@ export function PostScarceCta({
             }}
           >
             <span className="post-card-scarce-buy-main">
-              {price ? `Bid · ${price} NEAR` : 'Bid'}
+              {price ? `Bid · ${price}` : 'Bid'}
             </span>
             <BuyMetaRow embed={embed} edition={edition} />
           </button>
@@ -372,7 +373,7 @@ export function PostScarceCta({
           }}
         >
           <span className="post-card-scarce-buy-main">
-            {price ? `${mintVerb} · ${price} NEAR` : mintVerb}
+            {price ? `${mintVerb} · ${price}` : mintVerb}
           </span>
           {dropCta.kind === 'mint' ? (
             edition ? (
@@ -427,7 +428,7 @@ export function PostScarceCta({
       return (
         <div className="post-card-scarce-cta post-card-scarce-cta--muted">
           <span className="post-card-scarce-cta-main">
-            {price ? `Auction · ${price} NEAR` : 'Your auction'}
+            {price ? `Auction · ${price}` : 'Your auction'}
           </span>
           <ResaleMeta embed={embed} />
           {listenSlot}
@@ -439,7 +440,7 @@ export function PostScarceCta({
       return (
         <div className="post-card-scarce-cta post-card-scarce-cta--muted">
           <span className="post-card-scarce-cta-main">
-            {price ? `Auction · ${price} NEAR…` : 'Auction…'}
+            {price ? `Auction · ${price}…` : 'Auction…'}
           </span>
           <ResaleMeta embed={embed} />
           {listenSlot}
@@ -459,7 +460,7 @@ export function PostScarceCta({
           }}
         >
           <span className="post-card-scarce-buy-main">
-            {price ? `Bid · ${price} NEAR` : 'Bid'}
+            {price ? `Bid · ${price}` : 'Bid'}
           </span>
           <BuyMetaRow embed={embed} edition={edition} />
         </button>
@@ -471,8 +472,7 @@ export function PostScarceCta({
 
   const isLazyMint =
     embed.status === 'lazy_listing' && Boolean(embed.listingId);
-  const isSecondaryBuy =
-    embed.status === 'listed' && Boolean(embed.tokenId);
+  const isSecondaryBuy = embed.status === 'listed' && Boolean(embed.tokenId);
   const canCommerce = !isAuthor && (isLazyMint || isSecondaryBuy);
   const primaryIsMint = isPrimaryMintStatus(embed.status);
 
@@ -482,10 +482,10 @@ export function PostScarceCta({
         <span className="post-card-scarce-cta-main">
           {embed.status === 'lazy_listing'
             ? price
-              ? `Your Drop · ${price} NEAR`
+              ? `Your Drop · ${price}`
               : 'Your Drop'
             : price
-              ? `Yours · ${price} NEAR`
+              ? `Yours · ${price}`
               : 'Yours'}
         </span>
         {edition ? (
@@ -504,10 +504,10 @@ export function PostScarceCta({
         <span className="post-card-scarce-cta-main">
           {primaryIsMint
             ? price
-              ? `Drop · ${price} NEAR…`
+              ? `Drop · ${price}…`
               : 'Drop…'
             : price
-              ? `Listing · ${price} NEAR…`
+              ? `Listing · ${price}…`
               : 'Listing…'}
         </span>
         <ResaleMeta embed={embed} />
@@ -532,7 +532,7 @@ export function PostScarceCta({
         }}
       >
         <span className="post-card-scarce-buy-main">
-          {price ? `${commerceVerb} · ${price} NEAR` : commerceVerb}
+          {price ? `${commerceVerb} · ${price}` : commerceVerb}
         </span>
         {primaryIsMint ? (
           edition ? (

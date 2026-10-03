@@ -641,7 +641,12 @@ export interface GenerateSetJob {
 
 export interface ListingOptions {
   tokenId: string;
-  priceNear: string;
+  /** NEAR ask. Omitted when `priceUsd` is the sticker. */
+  priceNear?: string;
+  /** Dollar sticker, for example `50` or `12.50`. Settled in NEAR at purchase. */
+  priceUsd?: string;
+  /** Least NEAR the seller will accept when the sticker is in dollars. */
+  minNear?: string;
   expiresAt?: string;
 }
 

@@ -17,6 +17,10 @@ pub mod test_collections;
 #[cfg(test)]
 pub mod test_deploy_and_admin;
 #[cfg(test)]
+pub mod test_dollar;
+#[cfg(test)]
+pub mod test_dollar_testnet;
+#[cfg(test)]
 pub mod test_lazy_listings;
 #[cfg(test)]
 pub mod test_native_sales;

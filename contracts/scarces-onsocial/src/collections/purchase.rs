@@ -120,7 +120,17 @@ impl Contract {
             }
         }
 
-        let unit_price = if is_before_start {
+        let unit_price = if let Some(unit) = self.dollar_unit_override {
+            unit
+        } else if self
+            .dollar_price(DOLLAR_SCOPE_COLLECTION, &collection_id)
+            .is_some()
+        {
+            self.pending_attached_balance += deposit;
+            return Err(MarketplaceError::InvalidState(
+                "This collection is priced in dollars".into(),
+            ));
+        } else if is_before_start {
             collection
                 .allowlist_price
                 .map(|p| p.0)
@@ -128,6 +138,7 @@ impl Contract {
         } else {
             crate::fees::compute_dutch_price(&collection)
         };
+        let dollar_sticker = self.dollar_price(DOLLAR_SCOPE_COLLECTION, &collection_id);
 
         if unit_price > max_price_per_token.0 {
             return Err(MarketplaceError::InvalidInput(format!(
@@ -263,6 +274,7 @@ impl Contract {
             token_ids: &token_ids,
             minted_count,
             remaining: total_supply.saturating_sub(minted_count),
+            usd_e6: dollar_sticker.map(|d| d.usd_e6.0),
         });
         Ok(())
     }

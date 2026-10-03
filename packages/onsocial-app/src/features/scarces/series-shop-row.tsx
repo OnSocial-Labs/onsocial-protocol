@@ -11,6 +11,7 @@ import {
   seriesShopActionLabel,
   shopRowCreatorLabel,
 } from '@/features/scarces/series-page-view';
+import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { collectionPath } from '@/lib/app-routes';
 import { OsRowAction } from '@/lib/os-row-action';
 
@@ -30,13 +31,12 @@ export function SeriesShopRow({
   const status = deriveCollectionStatus(view, nowMs);
   const action = seriesShopActionLabel(status);
   const href = collectionPath(view.collectionId);
-  const creatorLabel = showCreator
-    ? shopRowCreatorLabel(view.creatorId)
-    : '';
+  const creatorLabel = showCreator ? shopRowCreatorLabel(view.creatorId) : '';
   const price =
-    view.priceNear != null && view.priceNear !== '0'
+    dollarStickerLabel(view.usdE6) ??
+    (view.priceNear != null && view.priceNear !== '0'
       ? `${view.priceNear} NEAR`
-      : 'Free';
+      : 'Free');
   const supply =
     view.totalSupply > 0 ? `${view.minted}/${view.totalSupply}` : null;
 

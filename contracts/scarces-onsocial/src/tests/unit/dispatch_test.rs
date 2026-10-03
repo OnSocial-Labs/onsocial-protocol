@@ -104,6 +104,8 @@ fn dispatch_list_native_scarce() {
         token_id: tid.clone(),
         price: U128(5_000),
         expires_at: None,
+        usd_e6: None,
+        min_near: None,
     };
     let result = contract.dispatch_action(action, &buyer()).unwrap();
     assert!(result.is_null());
@@ -263,7 +265,11 @@ fn dispatch_create_lazy_listing_returns_id() {
         expires_at: None,
         max_per_purchase: 1,
     };
-    let action = Action::CreateLazyListing { params };
+    let action = Action::CreateLazyListing {
+        params,
+        usd_e6: None,
+        min_near: None,
+    };
     let result = contract.dispatch_action(action, &creator()).unwrap();
     assert!(result.is_string());
     assert!(result.as_str().unwrap().starts_with("ll:"));
@@ -354,6 +360,8 @@ fn dispatch_list_nonexistent_token_forwards_error() {
         token_id: "nonexistent".to_string(),
         price: U128(1_000),
         expires_at: None,
+        usd_e6: None,
+        min_near: None,
     };
     let err = contract.dispatch_action(action, &buyer()).unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
@@ -431,6 +439,8 @@ fn dispatch_update_price() {
         scarce_contract_id: mkt.clone(),
         token_id: tid.clone(),
         price: U128(8_000),
+        usd_e6: None,
+        min_near: None,
     };
     contract.dispatch_action(action, &buyer()).unwrap();
 

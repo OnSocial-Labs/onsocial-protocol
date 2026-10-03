@@ -572,6 +572,53 @@ fn active_listing_list_native_sets_mint_creator() {
 }
 
 #[test]
+fn active_listing_stores_a_dollar_sticker_and_clears_it() {
+    let mut tables = Tables::new();
+    let listed = ScarcesEvent {
+        id: "r-0-SCARCE_UPDATE-list_native".into(),
+        block_height: 10,
+        block_timestamp: 100,
+        receipt_id: "r".into(),
+        event_type: "SCARCE_UPDATE".into(),
+        operation: "list_native".into(),
+        author: "seller.near".into(),
+        owner_id: "seller.near".into(),
+        token_id: "s:1".into(),
+        price: "1".into(),
+        extra_data: r#"{"token_id":"s:1","owner_id":"seller.near","price":"1","usd_e6":"50000000"}"#.into(),
+        ..Default::default()
+    };
+    apply_active_listing(&mut tables, &listed);
+    let listed_changes = tables.to_database_changes();
+    assert_eq!(
+        find_field_for_pk(&listed_changes, "scarces_active_listings", "native:s:1", "usd_e6"),
+        Some("50000000")
+    );
+
+    let mut tables = Tables::new();
+    let relisted = ScarcesEvent {
+        id: "r-1-SCARCE_UPDATE-update_price".into(),
+        block_height: 11,
+        block_timestamp: 110,
+        receipt_id: "r".into(),
+        event_type: "SCARCE_UPDATE".into(),
+        operation: "update_price".into(),
+        author: "seller.near".into(),
+        owner_id: "seller.near".into(),
+        token_id: "s:1".into(),
+        new_price: "1000".into(),
+        extra_data: r#"{"token_id":"s:1","new_price":"1000"}"#.into(),
+        ..Default::default()
+    };
+    apply_active_listing(&mut tables, &relisted);
+    let relisted_changes = tables.to_database_changes();
+    assert_eq!(
+        find_field_for_pk(&relisted_changes, "scarces_active_listings", "native:s:1", "usd_e6"),
+        Some("")
+    );
+}
+
+#[test]
 fn active_listing_auction_sets_mint_creator() {
     let mut tables = Tables::new();
     let event = ScarcesEvent {

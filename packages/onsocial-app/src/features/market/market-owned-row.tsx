@@ -7,15 +7,13 @@ import {
   marketPostLayerLinkHandlers,
   useMarketPostLayer,
 } from '@/features/market/market-post-layer';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@onsocial/ui';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import {
   auctionExpiresAtMs,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import { CollectiblesHoldingRowMenu } from '@/features/collectibles/collectibles-holding-row-menu';
+import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
 import {
   holdingsActionLabel,
@@ -97,8 +95,7 @@ export function MarketOwnedRow({
   const showViewSourcePost = Boolean(sourcePostHref);
   // Listed Drop edition or post-minted scarce → Post announce (Resale in feed).
   const showPostCompose =
-    listed &&
-    Boolean(item.collectionId?.trim() || item.tokenId?.trim());
+    listed && Boolean(item.collectionId?.trim() || item.tokenId?.trim());
   const [brokenMediaUrl, setBrokenMediaUrl] = useState<string | null>(null);
   const showThumb = Boolean(item.mediaUrl) && brokenMediaUrl !== item.mediaUrl;
 
@@ -154,7 +151,8 @@ export function MarketOwnedRow({
             <>
               <span className="market-listing-price">
                 {auction ? 'Reserve' : 'Ask'} ·{' '}
-                {formatPriceNear(item.listedPriceNear)} NEAR
+                {dollarStickerLabel(item.listedUsdE6) ??
+                  `${formatPriceNear(item.listedPriceNear)} NEAR`}
               </span>
               <span className="market-listing-own"> · </span>
             </>
@@ -250,9 +248,7 @@ export function MarketOwnedRow({
                   tokenId: item.tokenId,
                   title: item.title,
                   ...(item.mediaUrl ? { mediaUrl: item.mediaUrl } : {}),
-                  ...(item.mediumKind
-                    ? { mediumKind: item.mediumKind }
-                    : {}),
+                  ...(item.mediumKind ? { mediumKind: item.mediumKind } : {}),
                   ...(item.sourcePostPath
                     ? { sourcePostPath: item.sourcePostPath }
                     : {}),

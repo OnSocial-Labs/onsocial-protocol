@@ -7,6 +7,7 @@ import {
   isFallbackEarningTitle,
   postHrefFromSourcePath,
   saleTitleFromRow,
+  saleUsdE6,
   scarceEarningsKindSubtotals,
   sourcePostPathFromExtra,
   type ScarceCreatorEarningRow,
@@ -38,6 +39,7 @@ function row(partial: Partial<ScarcesEventRow>): ScarcesEventRow {
     marketplaceFee: null,
     appPoolAmount: null,
     creatorPayment: '985000000000000000000000',
+    usdE6: null,
     quantity: null,
     totalSupply: null,
     redeemCount: null,
@@ -165,6 +167,23 @@ describe('formatEarningKindLine', () => {
         '20 Jul'
       )
     ).toBe('Sale · Hello · 20 Jul');
+  });
+});
+
+describe('saleUsdE6', () => {
+  it('reads the typed column first', () => {
+    expect(saleUsdE6(row({ usdE6: '50000000' }))).toBe('50000000');
+  });
+
+  it('falls back to the event JSON', () => {
+    expect(
+      saleUsdE6(row({ extraData: JSON.stringify({ usd_e6: '1000000' }) }))
+    ).toBe('1000000');
+  });
+
+  it('is empty for NEAR sales', () => {
+    expect(saleUsdE6(row({}))).toBeUndefined();
+    expect(saleUsdE6(row({ usdE6: '0' }))).toBeUndefined();
   });
 });
 

@@ -1106,4 +1106,49 @@
       }
     ]
   }
+,
+  {
+    "name": "scarces_dollar_purchase_event",
+    "contract": "scarces",
+    "receiver_id": "scarces.onsocial.testnet",
+    "block_height": 245000019,
+    "block_timestamp": 1776000002,
+    "receipt_seed": [106, 107],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "SCARCE_UPDATE",
+        "data": [
+          {
+            "operation": "purchase",
+            "author": "buyer.onsocial.testnet",
+            "buyer_id": "buyer.onsocial.testnet",
+            "seller_id": "seller.onsocial.testnet",
+            "scarce_contract_id": "scarces.onsocial.testnet",
+            "token_id": "s:21",
+            "price": "218383867907613017417964",
+            "marketplace_fee": "4367677358152260348359",
+            "app_pool_amount": "0",
+            "usd_e6": "1000000"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": { "scarces_events": 1 },
+    "expected_rows": [
+      {
+        "table": "scarces_events",
+        "fields": {
+          "event_type": "SCARCE_UPDATE",
+          "operation": "purchase",
+          "buyer_id": "buyer.onsocial.testnet",
+          "seller_id": "seller.onsocial.testnet",
+          "token_id": "s:21",
+          "price": "218383867907613017417964",
+          "usd_e6": "1000000"
+        }
+      }
+    ]
+  }
 ]

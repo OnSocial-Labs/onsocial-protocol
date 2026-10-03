@@ -44,6 +44,8 @@ export type DropDiscoveryItem = {
   title: string;
   mediaUrl: string | null;
   priceNear: string | null;
+  /** Indexed dollar sticker in millionths. Empty when the ask is NEAR. */
+  usdE6?: string | null;
   mintedCount: number;
   remaining: number | null;
   totalSupply: number | null;
@@ -143,6 +145,7 @@ function rowToDiscoveryItem(
     title: view?.title?.trim() || row.title?.trim() || row.collectionId,
     mediaUrl: view?.mediaUrl ?? null,
     priceNear: price,
+    ...(row.usdE6?.trim() ? { usdE6: row.usdE6.trim() } : {}),
     mintedCount: row.mintedCount ?? 0,
     remaining: row.remaining ?? null,
     totalSupply: row.totalSupply ?? null,
@@ -156,9 +159,9 @@ function rowToDiscoveryItem(
       view?.playables && view.playables.length > 0
         ? view.playables.length
         : null,
-    description:
-      view?.description?.trim() || row.description?.trim() || null,
-    createdAtMs: view?.createdAtMs && view.createdAtMs > 0 ? view.createdAtMs : null,
+    description: view?.description?.trim() || row.description?.trim() || null,
+    createdAtMs:
+      view?.createdAtMs && view.createdAtMs > 0 ? view.createdAtMs : null,
     ...(extras?.fanCount != null ? { fanCount: extras.fanCount } : {}),
     view,
   };
@@ -229,8 +232,7 @@ export async function fetchDropFanRostersByCollectionIds(
   }
 
   try {
-    const rows =
-      await os.query.scarces.collectionLoveFansByCollectionIds(ids);
+    const rows = await os.query.scarces.collectionLoveFansByCollectionIds(ids);
     mergeFanCountRows(byId, rows);
   } catch {
     // Fall through to legacy album views.
@@ -324,9 +326,7 @@ export async function softFillDropFanRosters(
 function closingSortKey(item: DropDiscoveryItem): number {
   if (item.endTimeMs != null && item.endTimeMs > 0) return item.endTimeMs;
   const ratio =
-    item.remaining != null &&
-    item.totalSupply != null &&
-    item.totalSupply > 0
+    item.remaining != null && item.totalSupply != null && item.totalSupply > 0
       ? item.remaining / item.totalSupply
       : 1;
   return Number.MAX_SAFE_INTEGER - Math.floor((1 - ratio) * 1e12);
@@ -420,9 +420,7 @@ async function fetchClosingPage(
   }
 ): Promise<{ items: DropDiscoveryItem[]; hasMore: boolean }> {
   const ns = nowNs();
-  const mediumFilter = opts.mediumKind
-    ? { mediumKind: opts.mediumKind }
-    : {};
+  const mediumFilter = opts.mediumKind ? { mediumKind: opts.mediumKind } : {};
   const searchFilter = opts.search ? { search: opts.search } : {};
   const batch = Math.max(opts.limit * MEDIUM_OVERFETCH, 40);
   const byId = new Map<string, DropDiscoveryItem>();
@@ -769,9 +767,7 @@ async function fetchCatalogPage(
   }
 ): Promise<{ items: DropDiscoveryItem[]; hasMore: boolean }> {
   const ns = nowNs();
-  const mediumFilter = opts.mediumKind
-    ? { mediumKind: opts.mediumKind }
-    : {};
+  const mediumFilter = opts.mediumKind ? { mediumKind: opts.mediumKind } : {};
   const searchFilter = opts.search ? { search: opts.search } : {};
   const base =
     opts.sort === 'new'
@@ -862,8 +858,7 @@ export async function fetchDropsPage(
       : {};
   const effectiveMedium = mediumFilter.mediumKind ?? null;
   // Format chips only apply under Audio.
-  const effectiveFormat =
-    effectiveMedium === 'audio' ? audioFormat : null;
+  const effectiveFormat = effectiveMedium === 'audio' ? audioFormat : null;
 
   if (sort === 'saved') {
     const viewer = opts.viewerAccountId?.trim() ?? '';
@@ -951,4 +946,3 @@ export async function fetchDropsPage(
     hasMore: page.hasMore,
   };
 }
-

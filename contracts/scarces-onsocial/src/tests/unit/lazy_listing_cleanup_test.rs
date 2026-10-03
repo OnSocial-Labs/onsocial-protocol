@@ -34,7 +34,11 @@ fn create_listing_with_expiry(contract: &mut Contract, expires_at: Option<u64>) 
         expires_at,
         max_per_purchase: 1,
     };
-    let action = Action::CreateLazyListing { params };
+    let action = Action::CreateLazyListing {
+        params,
+        usd_e6: None,
+        min_near: None,
+    };
     contract
         .execute(make_request(action))
         .unwrap()

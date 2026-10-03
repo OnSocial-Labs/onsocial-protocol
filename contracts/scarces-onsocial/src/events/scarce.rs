@@ -44,6 +44,7 @@ pub fn emit_scarce_update_price(
     token_id: &str,
     old_price: U128,
     new_price: U128,
+    usd_e6: Option<u128>,
 ) {
     EventBuilder::new(SCARCE, "update_price", owner_id)
         .field("owner_id", owner_id)
@@ -51,6 +52,7 @@ pub fn emit_scarce_update_price(
         .field("token_id", token_id)
         .field("old_price", old_price)
         .field("new_price", new_price)
+        .field_opt("usd_e6", usd_e6)
         .emit();
 }
 
@@ -63,6 +65,8 @@ pub struct ScarcePurchase<'a> {
     pub marketplace_fee: u128,
     pub app_pool_amount: u128,
     pub app_id: Option<&'a str>,
+    /// Dollar sticker the sale settled against, when it had one.
+    pub usd_e6: Option<u128>,
 }
 
 pub fn emit_scarce_purchase(e: &ScarcePurchase) {
@@ -75,6 +79,7 @@ pub fn emit_scarce_purchase(e: &ScarcePurchase) {
         .field("marketplace_fee", e.marketplace_fee)
         .field("app_pool_amount", e.app_pool_amount)
         .field_opt("app_id", e.app_id)
+        .field_opt("usd_e6", e.usd_e6)
         .emit();
 }
 
@@ -157,6 +162,7 @@ pub fn emit_native_scarce_listed(
     browse: super::ListingBrowseMeta<'_>,
     app_id: Option<&str>,
     creator_id: &AccountId,
+    usd_e6: Option<u128>,
 ) {
     EventBuilder::new(SCARCE, "list_native", owner_id)
         .field("owner_id", owner_id)
@@ -168,6 +174,7 @@ pub fn emit_native_scarce_listed(
         .field_opt("extra", browse.extra)
         .field_opt("expires_at", expires_at)
         .field_opt("app_id", app_id)
+        .field_opt("usd_e6", usd_e6)
         .emit();
 }
 

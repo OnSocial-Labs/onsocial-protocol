@@ -43,8 +43,10 @@ function sourcePostAuthor(path: string | undefined): string | null {
 }
 
 const NEAR_INPUT_DECIMALS = 5;
+const USD_INPUT_DECIMALS = 2;
 const MIN_PRICE_NEAR = '0.01';
 const PRESETS = ['0.1', '1', '5', '10'] as const;
+const USD_PRESETS = ['1', '5', '10', '50'] as const;
 const INCREMENT_PRESETS = ['0.01', '0.1', '0.5'] as const;
 
 const NS_PER_HOUR = 3_600_000_000_000;
@@ -60,6 +62,7 @@ type SellMode = 'fixed' | 'auction';
 export interface ScarceSellSuccessDetail {
   tokenId: string;
   priceNear: string;
+  priceUsd?: string;
   mode: SellMode;
 }
 
@@ -88,6 +91,7 @@ export function ScarceSellForm({
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const onAmountFocus = useMobileFieldFocusScroll<HTMLInputElement>();
   const [mode, setMode] = useState<SellMode>('fixed');
+  const [quoteUnit, setQuoteUnit] = useState<'near' | 'usd'>('near');
   const [amountInput, setAmountInput] = useState(
     item.listedPriceNear?.trim() || '1'
   );
@@ -201,9 +205,17 @@ export function ScarceSellForm({
     };
   }, [item.playable, item.playables, item.tokenId]);
 
-  const applyAmountInput = useCallback((raw: string) => {
-    setAmountInput(normalizeAmountInput(raw, NEAR_INPUT_DECIMALS));
-  }, []);
+  const priceUnit = mode === 'auction' ? 'near' : quoteUnit;
+  const amountDecimals =
+    priceUnit === 'usd' ? USD_INPUT_DECIMALS : NEAR_INPUT_DECIMALS;
+  const amountPresets = priceUnit === 'usd' ? USD_PRESETS : PRESETS;
+
+  const applyAmountInput = useCallback(
+    (raw: string) => {
+      setAmountInput(normalizeAmountInput(raw, amountDecimals));
+    },
+    [amountDecimals]
+  );
 
   const applyIncrementInput = useCallback((raw: string) => {
     setIncrementInput(normalizeAmountInput(raw, NEAR_INPUT_DECIMALS));
@@ -213,10 +225,7 @@ export function ScarceSellForm({
     setBuyNowInput(normalizeAmountInput(raw, NEAR_INPUT_DECIMALS));
   }, []);
 
-  const normalizedAmount = finalizeAmountInput(
-    amountInput,
-    NEAR_INPUT_DECIMALS
-  );
+  const normalizedAmount = finalizeAmountInput(amountInput, amountDecimals);
   const normalizedIncrement = finalizeAmountInput(
     incrementInput,
     NEAR_INPUT_DECIMALS
@@ -227,7 +236,12 @@ export function ScarceSellForm({
   );
 
   let amountError: string | null = null;
-  if (normalizedAmount) {
+  if (normalizedAmount && priceUnit === 'usd') {
+    const usd = Number(normalizedAmount);
+    if (!Number.isFinite(usd) || usd <= 0) {
+      amountError = 'Enter a dollar price.';
+    }
+  } else if (normalizedAmount && priceUnit === 'near') {
     try {
       const yocto = BigInt(nearToYocto(normalizedAmount));
       const minYocto = BigInt(nearToYocto(MIN_PRICE_NEAR));
@@ -291,20 +305,23 @@ export function ScarceSellForm({
   async function handleSubmit() {
     setFieldError(null);
 
-    const priceNear = finalizeAmountInput(amountInput, NEAR_INPUT_DECIMALS);
+    const priceNear = finalizeAmountInput(amountInput, amountDecimals);
     if (!priceNear) {
       setFieldError(mode === 'auction' ? 'Enter a reserve.' : 'Enter a price.');
       return;
     }
-    try {
-      const yocto = BigInt(nearToYocto(priceNear));
-      if (yocto < BigInt(nearToYocto(MIN_PRICE_NEAR))) {
-        setFieldError(`Minimum ${MIN_PRICE_NEAR} NEAR.`);
+    const listingInDollars = mode === 'fixed' && priceUnit === 'usd';
+    if (!listingInDollars) {
+      try {
+        const yocto = BigInt(nearToYocto(priceNear));
+        if (yocto < BigInt(nearToYocto(MIN_PRICE_NEAR))) {
+          setFieldError(`Minimum ${MIN_PRICE_NEAR} NEAR.`);
+          return;
+        }
+      } catch {
+        setFieldError('Invalid amount.');
         return;
       }
-    } catch {
-      setFieldError('Invalid amount.');
-      return;
     }
 
     setPending(true);
@@ -344,10 +361,11 @@ export function ScarceSellForm({
         return;
       }
 
-      const response = await client.scarces.market.sell({
-        tokenId: item.tokenId,
-        priceNear,
-      });
+      const response = await client.scarces.market.sell(
+        listingInDollars
+          ? { tokenId: item.tokenId, priceUsd: priceNear }
+          : { tokenId: item.tokenId, priceNear }
+      );
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
         submittedMessage: txToastConfirming.sellingScarce,
@@ -355,7 +373,12 @@ export function ScarceSellForm({
         failureMessage: txToastError.sellScarceFailed,
       });
       if (!confirmed) return;
-      onSuccess?.({ tokenId: item.tokenId, priceNear, mode: 'fixed' });
+      onSuccess?.({
+        tokenId: item.tokenId,
+        priceNear: listingInDollars ? '0' : priceNear,
+        ...(listingInDollars ? { priceUsd: priceNear } : {}),
+        mode: 'fixed',
+      });
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
       setTxResult({
@@ -467,22 +490,54 @@ export function ScarceSellForm({
       {mode === 'auction' ? (
         <p className="scarce-mood-picker-label">Reserve</p>
       ) : (
-        <p className="scarce-mood-picker-label">Price</p>
+        <div
+          className="app-storage-presets"
+          role="group"
+          aria-label="Price unit"
+        >
+          <button
+            type="button"
+            className={`os-surface-chip${priceUnit === 'near' ? ' is-selected' : ''}`}
+            disabled={pending}
+            onClick={() => setQuoteUnit('near')}
+          >
+            NEAR
+          </button>
+          <button
+            type="button"
+            className={`os-surface-chip${priceUnit === 'usd' ? ' is-selected' : ''}`}
+            disabled={pending}
+            onClick={() => setQuoteUnit('usd')}
+          >
+            USD
+          </button>
+        </div>
       )}
       <AmountField
         value={amountInput}
         onValueChange={applyAmountInput}
-        maxDecimals={NEAR_INPUT_DECIMALS}
+        maxDecimals={amountDecimals}
         onFocus={onAmountFocus}
-        placeholder={MIN_PRICE_NEAR}
-        aria-label={mode === 'auction' ? 'Reserve in NEAR' : 'Price in NEAR'}
+        placeholder={priceUnit === 'usd' ? '50' : MIN_PRICE_NEAR}
+        aria-label={
+          mode === 'auction'
+            ? 'Reserve in NEAR'
+            : priceUnit === 'usd'
+              ? 'Price in dollars'
+              : 'Price in NEAR'
+        }
         invalid={Boolean(amountError)}
-        unit="NEAR"
+        unit={priceUnit === 'usd' ? 'USD' : 'NEAR'}
         disabled={pending}
       />
+      {mode === 'fixed' && priceUnit === 'usd' ? (
+        <p className="profile-support-hint">
+          The dollar amount stays put. Buyers pay the NEAR it is worth.
+        </p>
+      ) : null}
 
       <AmountFieldMetaRow
-        presets={PRESETS}
+        presets={amountPresets}
         selectedValue={normalizedAmount}
         onSelectPreset={applyAmountInput}
         presetsAriaLabel={

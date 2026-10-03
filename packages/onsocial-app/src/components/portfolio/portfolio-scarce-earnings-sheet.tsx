@@ -41,6 +41,7 @@ import {
   type ScarceCreatorEarningRow,
   type ScarceEarningKind,
 } from '@/lib/scarce-creator-earnings';
+import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 interface PortfolioScarceEarningsSheetProps {
@@ -142,7 +143,9 @@ function EarningsList({
                   <span className="standing-row-time">{when}</span>
                 ) : null}
                 <span className="portfolio-support-collect-info-amount portfolio-scarce-earnings-amount">
-                  {formatEarningsNear(row.paymentYocto)}
+                  {row.usdE6
+                    ? `${dollarStickerLabel(row.usdE6) ?? ''} · ${formatEarningsNear(row.paymentYocto)}`
+                    : formatEarningsNear(row.paymentYocto)}
                 </span>
               </div>
             </div>

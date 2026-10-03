@@ -46,6 +46,7 @@ import {
 } from '@/features/market/market-medium';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { fetchAllowlistRemaining } from '@/features/scarces/collections-data';
+import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import {
   ScarceFeedMediumSheet,
   resolveScarceFeedMediumMode,
@@ -279,8 +280,10 @@ function DropRow({
     nowMs
   );
   const showPrice = sort !== 'finished' || Boolean(item.priceNear);
-  const priceLabel =
-    showPrice && item.priceNear
+  const sticker = dollarStickerLabel(item.usdE6);
+  const priceLabel = sticker
+    ? sticker
+    : showPrice && item.priceNear
       ? `${item.priceNear} NEAR`
       : showPrice
         ? 'Drop'
@@ -1036,8 +1039,7 @@ export function DropsPagePanel({
   const showCatalogSkeleton = !failed && loadingPresentation === 'skeleton';
   const catalogRefreshing = loadingPresentation === 'preserve';
   const showAppendSkeleton = loadingPresentation === 'append-skeleton';
-  const searchSettled =
-    !searching || needle === debouncedQuery.toLowerCase();
+  const searchSettled = !searching || needle === debouncedQuery.toLowerCase();
 
   useInfiniteScrollSentinel({
     scrollRootRef,
