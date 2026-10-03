@@ -7113,8 +7113,8 @@ a.os-surface-row {
 
   .portfolio-rally-strip-row {
     display: grid;
-    grid-template-columns: 2.1rem minmax(0, 1fr) auto;
-    align-items: center;
+    grid-template-columns: 2.05rem minmax(0, 1fr) auto;
+    align-items: flex-start;
     gap: 0.45rem;
     margin-inline: -0.2rem;
     padding-block: 0.48rem;
@@ -7123,54 +7123,32 @@ a.os-surface-row {
     letter-spacing: -0.015em;
   }
 
-  .portfolio-rally-strip-you {
-    width: calc(100% + 0.4rem);
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .portfolio-rally-why {
-    margin: 0 0 0.2rem;
-    padding: 0 0.2rem 0.2rem 2.3rem;
-    font-size: 0.78rem;
-    line-height: 1.4;
-    letter-spacing: -0.01em;
-    color: rgb(var(--fg-rgb) / 0.48);
-  }
-
   .portfolio-rally-strip-rank,
   .portfolio-rally-strip-score {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 1.35rem;
     font-variant-numeric: tabular-nums;
-    color: rgb(var(--fg-rgb) / 0.46);
+  }
+
+  .portfolio-rally-strip-rank {
+    font-size: 1.06rem;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .portfolio-rally-strip-row.is-top .portfolio-rally-strip-rank {
+    color: rgb(var(--fg-rgb) / 0.9);
   }
 
   .portfolio-rally-strip-score {
+    justify-content: flex-end;
     font-size: 0.74rem;
     font-weight: 600;
-    text-align: right;
-  }
-
-  .portfolio-rally-strip-name,
-  .portfolio-rally-strip-name:hover,
-  .portfolio-rally-strip-name:focus-visible,
-  .portfolio-rally-strip-name:visited {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: rgb(var(--fg-rgb) / 0.82);
-    text-decoration: none;
-  }
-
-  .portfolio-rally-strip-item.is-you .portfolio-rally-strip-name,
-  .portfolio-rally-strip-item.is-you .portfolio-rally-strip-rank,
-  .portfolio-rally-strip-item.is-you .portfolio-rally-strip-score {
-    color: rgb(var(--fg-rgb) / 0.94);
-    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.46);
   }
 
   .rally-sheet-back {

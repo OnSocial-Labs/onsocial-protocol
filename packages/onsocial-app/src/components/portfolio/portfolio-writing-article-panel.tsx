@@ -25,7 +25,7 @@ import {
 } from '@/components/portfolio/portfolio-writing-cover';
 import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import { AccountPlaceLink } from '@/components/portfolio/account-place-link';
-import { AccountAvatar } from '@/components/profile/account-avatar';
+import { MediaFaceIdentity } from '@/components/profile/media-face-identity';
 import { MediaFaceStandButton } from '@/components/ui/media-face-stand-button';
 import { accountIdsEqual } from '@/lib/account-match';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -50,7 +50,6 @@ import {
   postTimestampIso,
 } from '@/lib/post-display';
 import { useEssayReturnSearch } from '@/hooks/use-essay-return-search';
-import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { displayName } from '@/lib/profile-display';
 import { personalPostPath } from '@/lib/post-routes';
 import { shareUrl } from '@/lib/share-url';
@@ -443,32 +442,12 @@ export function PortfolioWritingArticlePanel({
 
       {showAuthor ? (
         <div className="portfolio-writing-article-author">
-          <AccountPlaceLink
+          <MediaFaceIdentity
+            accountId={post.accountId}
+            profileName={titleLabel}
+            avatarUrl={avatarUrl}
             href={authorHref}
-            className="os-media-face-identity"
-            aria-label={`View ${authorName}'s profile`}
-          >
-            <AccountAvatar
-              accountId={post.accountId}
-              src={avatarUrl}
-              fallbackInitial={authorName}
-              size="lg"
-              className="post-card-avatar"
-            />
-            <span className="os-media-face-identity-copy">
-              <span className="os-media-face-identity-name-row">
-                <span className="os-media-face-identity-name">
-                  {authorName}
-                </span>
-                <span className="post-identity-name-marks">
-                  <ProtocolNameTrailing accountId={post.accountId} />
-                </span>
-              </span>
-              <span className="os-media-face-identity-handle">
-                @{post.accountId}
-              </span>
-            </span>
-          </AccountPlaceLink>
+          />
           {!(
             viewerAccountId && accountIdsEqual(viewerAccountId, post.accountId)
           ) ? (

@@ -432,11 +432,7 @@ export function PortfolioRallySheet({
               </p>
             ) : null}
 
-            <RallySheetSport
-              rows={player.standingStrip}
-              viewerAccountId={accountId}
-              ended={player.phase !== 'live'}
-            />
+            <RallySheetSport rows={player.standingStrip} />
 
             {!player.isPast && pastSeasons.length > 0 ? (
               <button
