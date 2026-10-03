@@ -19,6 +19,7 @@ import {
   isPortfolioOverlayPath,
   parseOverlayPanelKey,
   parsePortfolioSheetParam,
+  parseRallySeasonParam,
   portfolioBoostPath,
   portfolioCollectiblesPath,
   endorsementsPath,
@@ -72,6 +73,19 @@ describe('portfolioRallyPath', () => {
       '/@alice.testnet?sheet=rally'
     );
     expect(homeRallyPath()).toBe('/home?sheet=rally');
+  });
+
+  it('deep-links a specific season, including past rallies', () => {
+    expect(homeRallyPath('season-zero')).toBe(
+      '/home?sheet=rally&season=season-zero'
+    );
+    expect(homeRallyPath(null)).toBe('/home?sheet=rally');
+    expect(homeRallyPath('not a season')).toBe('/home?sheet=rally');
+    expect(parseRallySeasonParam('season-one')).toBe('season-one');
+    expect(parseRallySeasonParam(' Season-Two ')).toBe('Season-Two');
+    expect(parseRallySeasonParam('../etc')).toBeNull();
+    expect(parseRallySeasonParam('')).toBeNull();
+    expect(parseRallySeasonParam(null)).toBeNull();
   });
 });
 
@@ -243,9 +257,9 @@ describe('portfolioFromEssayPath', () => {
       isAccountWritingPlace('alice.testnet', '/@alice.testnet/writing/99')
     ).toBe(true);
     expect(isAccountWritingPlace('alice.testnet', '/home')).toBe(false);
-    expect(
-      isWritingShelfPath('alice.testnet', '/@alice.testnet/writing')
-    ).toBe(true);
+    expect(isWritingShelfPath('alice.testnet', '/@alice.testnet/writing')).toBe(
+      true
+    );
     expect(
       isWritingShelfPath('alice.testnet', '/@alice.testnet/writing/99')
     ).toBe(false);

@@ -20,6 +20,12 @@ const SEASON_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const NS_PER_MS = 1_000_000n;
 const MS_PER_MINUTE = 60_000;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+/**
+ * Grace (1h) + publish confirm (2h) the backend needs after a rally ends
+ * before the root is on-chain. Collect opens after that so the first claim
+ * never hits a missing root.
+ */
+export const SEASON_CLAIM_OPEN_DELAY_MS = 3 * 60 * 60 * 1000;
 const SEASON_WORD_RANKS = [
   'one',
   'two',
@@ -134,6 +140,7 @@ export function buildProtocolSeasonConfigInput(
   const nowMs = options.nowMs ?? Date.now();
   const startsAtMs = nowMs + 10 * MS_PER_MINUTE;
   const endsAtMs = startsAtMs + durationDaysToMs(draft.durationDays);
+  const claimStartsAtMs = endsAtMs + SEASON_CLAIM_OPEN_DELAY_MS;
 
   return {
     season_id: seasonId,
@@ -142,7 +149,7 @@ export function buildProtocolSeasonConfigInput(
       active: draft.active,
       starts_at_ns: Number(BigInt(startsAtMs) * NS_PER_MS),
       ends_at_ns: Number(BigInt(endsAtMs) * NS_PER_MS),
-      claim_starts_at_ns: null,
+      claim_starts_at_ns: Number(BigInt(claimStartsAtMs) * NS_PER_MS),
     },
   };
 }

@@ -14,6 +14,7 @@ export const NOTIFICATION_TYPES = [
   'profile_supported',
   'reward_credited',
   'reward_claimed',
+  'season_claim_open',
   'boost_locked',
   'boost_extended',
   'boost_unlocked',

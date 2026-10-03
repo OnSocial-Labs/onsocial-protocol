@@ -12,6 +12,7 @@ import {
 import { parsePostText } from '@/lib/post-display';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import {
+  homeRallyPath,
   portfolioBoostPath,
   portfolioEndorsementPath,
   portfolioPath,
@@ -243,10 +244,7 @@ export function snippetFromPostValue(
   return firstLineSnippet(parsePostText(value));
 }
 
-export function notificationSnippetKey(
-  author: string,
-  postId: string
-): string {
+export function notificationSnippetKey(author: string, postId: string): string {
   return `${author}\0${postId}`;
 }
 
@@ -443,6 +441,8 @@ export function notificationVerb(
       return 'SOCIAL credited';
     case 'reward_claimed':
       return 'SOCIAL collected';
+    case 'season_claim_open':
+      return 'rally rewards ready';
     case 'boost_locked':
       return 'your boost is locked';
     case 'boost_extended':
@@ -614,6 +614,10 @@ export function notificationHref(
     return homeWalletPath();
   }
 
+  if (type === 'season_claim_open') {
+    return homeRallyPath(textField(context, 'seasonId'));
+  }
+
   if (actor) return portfolioPath(actor);
   return APP_HOME_PATH;
 }
@@ -702,6 +706,7 @@ export function notificationDetail(
     type === 'scarces_offer' ||
     type === 'endorsement_supported' ||
     type === 'profile_supported' ||
+    type === 'season_claim_open' ||
     type.startsWith('boost_') ||
     type.startsWith('reward_')
   ) {
@@ -815,6 +820,7 @@ export function notificationActivityBadgeKind(
 function systemFamily(type: string): NotificationSystemFamily {
   if (type.startsWith('boost_')) return 'boost';
   if (type.startsWith('reward_')) return 'collect';
+  if (type.startsWith('season_')) return 'collect';
   if (type.startsWith('dao_')) return 'dao';
   if (type.startsWith('scarces_')) return 'scarces';
   if (type.startsWith('group_')) return 'guild';
@@ -855,6 +861,8 @@ function systemAction(
       return 'SOCIAL credited';
     case 'reward_claimed':
       return 'SOCIAL collected';
+    case 'season_claim_open':
+      return 'Rally rewards ready';
     case 'profile_anniversary': {
       const years = numberField(context, 'years');
       if (years === 1) return '1 year on OnSocial';

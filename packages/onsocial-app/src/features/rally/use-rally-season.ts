@@ -13,6 +13,7 @@ import {
   formatJoinRallyMinLabel,
   formatRallyMarkCaption,
   formatRallyPrizeLine,
+  listPastRallySeasons,
   resolveRallyCanJoin,
   resolveRallyLifecyclePhase,
   resolveRallyMarkNudge,
@@ -24,6 +25,7 @@ import {
   type RallyClaimRecord,
   type RallyLifecyclePhase,
   type RallyRegistryEntry,
+  type RallyRegistrySnapshot,
   type RallyStanding,
 } from '@/lib/rally-season';
 
@@ -49,6 +51,8 @@ export type RallyPlayerState = {
   seasonId: string;
   pageTitle: string;
   phase: RallyLifecyclePhase | null;
+  /** True when the sheet shows a past season instead of the current rally. */
+  isPast: boolean;
   joined: boolean;
   standing: RallyStanding | null;
   claim: RallyClaimRecord | null;
@@ -69,6 +73,12 @@ export type RallySeasonState = {
   occasion: RallyOccasion;
   mark: RallyMarkState;
   player: RallyPlayerState;
+  /** Settled seasons behind the current one — the Past rallies drawer. */
+  pastSeasons: RallyRegistryEntry[];
+  /** Swap the sheet to another season (`null` = back to the current rally). */
+  selectSeason: (seasonId: string | null) => void;
+  /** True when `seasonId` is a known season (current or past). */
+  hasSeason: (seasonId: string) => boolean;
   refresh: () => void;
 };
 
@@ -108,7 +118,8 @@ export function useRallySeason(
 
   const [reloadNonce, setReloadNonce] = useState(0);
   const [occasionLoaded, setOccasionLoaded] = useState(false);
-  const [entry, setEntry] = useState<RallyRegistryEntry | null>(null);
+  const [registry, setRegistry] = useState<RallyRegistrySnapshot | null>(null);
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
   const [standing, setStanding] = useState<RallyStanding | null>(null);
   const [apiClaim, setApiClaim] = useState<RallyClaimRecord | null>(null);
   const [snapshotLoaded, setSnapshotLoaded] = useState(!accountId);
@@ -129,6 +140,31 @@ export function useRallySeason(
   const refresh = useCallback(() => {
     setReloadNonce((value) => value + 1);
   }, []);
+
+  const selectSeason = useCallback((seasonId: string | null) => {
+    setSelectedSeasonId(seasonId);
+  }, []);
+
+  const occasionEntry = resolveRallyOccasion(registry);
+  const selectedEntry = selectedSeasonId
+    ? (registry?.seasons.find((row) => row.seasonId === selectedSeasonId) ??
+      null)
+    : null;
+  // Selection only steers the open sheet — the mark always tracks the occasion.
+  const entry = detail && selectedEntry ? selectedEntry : occasionEntry;
+  const pastSeasons = useMemo(
+    () =>
+      listPastRallySeasons(
+        registry,
+        resolveRallyOccasion(registry)?.seasonId ?? null
+      ),
+    [registry]
+  );
+  const hasSeason = useCallback(
+    (seasonId: string) =>
+      Boolean(registry?.seasons.some((row) => row.seasonId === seasonId)),
+    [registry]
+  );
 
   const seasonId = entry?.seasonId ?? null;
   if (tracked.seasonId !== seasonId || tracked.accountId !== accountId) {
@@ -153,9 +189,9 @@ export function useRallySeason(
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const registry = await fetchRallyRegistry();
+      const next = await fetchRallyRegistry();
       if (cancelled) return;
-      setEntry(resolveRallyOccasion(registry));
+      setRegistry(next);
       setOccasionLoaded(true);
     };
     void load();
@@ -291,6 +327,9 @@ export function useRallySeason(
   const hasClaimOverride = Boolean(
     seasonId && claim?.claimed && apiClaim && apiClaim.claimed !== true
   );
+  const isPast = Boolean(
+    selectedEntry && selectedEntry.seasonId !== occasionEntry?.seasonId
+  );
 
   useEffect(() => {
     if (!seasonId) return;
@@ -313,8 +352,8 @@ export function useRallySeason(
     void participateSyncVersion;
     const occasion: RallyOccasion = {
       loaded: occasionLoaded,
-      entry,
-      seasonId,
+      entry: occasionEntry,
+      seasonId: occasionEntry?.seasonId ?? null,
       pageTitle: presentation.pageTitle,
     };
     const ariaLabel = !entry
@@ -328,9 +367,9 @@ export function useRallySeason(
             : presentation.pageTitle;
     const mark: RallyMarkState = {
       loaded: occasionLoaded && snapshotReady,
-      visible: Boolean(entry),
+      visible: Boolean(occasionEntry),
       nudge: resolveRallyMarkNudge({
-        visible: Boolean(entry),
+        visible: Boolean(occasionEntry),
         canJoin,
         canCollect,
       }),
@@ -342,6 +381,7 @@ export function useRallySeason(
       seasonId: seasonId ?? '',
       pageTitle: presentation.pageTitle,
       phase: resolvedPhase,
+      isPast,
       joined,
       standing,
       claim,
@@ -357,7 +397,15 @@ export function useRallySeason(
       standingStrip,
       refresh,
     };
-    return { occasion, mark, player, refresh };
+    return {
+      occasion,
+      mark,
+      player,
+      pastSeasons,
+      selectSeason,
+      hasSeason,
+      refresh,
+    };
   }, [
     balanceYocto,
     canCollect,
@@ -366,18 +414,23 @@ export function useRallySeason(
     claimPending,
     entry,
     hasEnoughSocial,
+    hasSeason,
+    isPast,
     joinMinYocto,
     joinPending,
     joined,
     label,
     loaded,
+    occasionEntry,
     occasionLoaded,
     participateSyncVersion,
+    pastSeasons,
     presentation.pageTitle,
     prizeLine,
     refresh,
     resolvedPhase,
     seasonId,
+    selectSeason,
     snapshotReady,
     standing,
     standingStrip,

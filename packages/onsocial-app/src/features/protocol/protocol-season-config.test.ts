@@ -26,7 +26,7 @@ describe('protocol season config', () => {
         active: true,
         starts_at_ns: 600_000_000_000,
         ends_at_ns: 173_400_000_000_000,
-        claim_starts_at_ns: null,
+        claim_starts_at_ns: 184_200_000_000_000,
       },
     });
   });
