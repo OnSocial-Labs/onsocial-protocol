@@ -7159,7 +7159,7 @@ a.os-surface-row {
   .portfolio-rally-strip-identity:focus-visible,
   .portfolio-rally-strip-identity:visited {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.5rem;
     min-width: 0;
     color: inherit;
@@ -7167,10 +7167,6 @@ a.os-surface-row {
     --os-identity-name-size: 0.85rem;
     --os-identity-name-weight: 400;
     --os-identity-name: rgb(var(--fg-rgb) / 0.82);
-  }
-
-  .portfolio-rally-strip-identity .standing-row-avatar-slot {
-    margin-top: 0;
   }
 
   .portfolio-rally-strip-identity .standing-row-name-row,
