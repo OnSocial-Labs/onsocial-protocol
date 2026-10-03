@@ -21,6 +21,8 @@ export type RallyRegistryEntry = {
   phase: RallySeasonPhase;
   is_live: boolean;
   claim_open: boolean;
+  starts_at_ns?: string;
+  ends_at_ns?: string;
 };
 
 export type RallyRegistrySnapshot = {
@@ -117,6 +119,89 @@ export function resolveRallyOccasion(
   registry: RallyRegistrySnapshot | null
 ): RallyRegistryEntry | null {
   return registry?.live ?? registry?.claim ?? null;
+}
+
+/** Settled seasons behind the current one — the Past rallies drawer. */
+export function listPastRallySeasons(
+  registry: RallyRegistrySnapshot | null,
+  currentSeasonId: string | null
+): RallyRegistryEntry[] {
+  if (!registry) return [];
+  return registry.seasons.filter(
+    (entry) =>
+      entry.seasonId !== currentSeasonId &&
+      (entry.phase === 'archived' ||
+        entry.phase === 'claim' ||
+        entry.seasonId === 'season-zero')
+  );
+}
+
+export type RallyClaimHint = 'collect' | 'collected' | 'none';
+
+export function resolveRallyClaimHint(
+  claim: RallyClaimRecord | null | undefined
+): RallyClaimHint {
+  if (!claim) return 'none';
+  if (parsePositiveYocto(claim.amountYocto) == null) return 'none';
+  return claim.claimed ? 'collected' : 'collect';
+}
+
+export type RallyPastRowBadge = {
+  label: string;
+  tone: 'collect' | 'collected' | 'muted' | 'loading';
+};
+
+/** Row badge — did I get anything, and can I still take it. */
+export function resolveRallyPastRowBadge(input: {
+  entry: RallyRegistryEntry;
+  /** undefined while the viewer claim is still loading. */
+  claim?: RallyClaimRecord | null;
+  isConnected: boolean;
+}): RallyPastRowBadge {
+  const hint = resolveRallyClaimHint(input.claim);
+  if (hint === 'collected') return { label: 'Collected', tone: 'collected' };
+  if (!input.entry.claim_open) return { label: 'Closed', tone: 'muted' };
+  if (!input.isConnected) return { label: 'Claims open', tone: 'muted' };
+  if (input.claim === undefined) return { label: '', tone: 'loading' };
+  if (hint === 'collect') {
+    const amount = formatSocialCompact(input.claim!.amountYocto).replace(
+      /\.00$/,
+      ''
+    );
+    return { label: `Collect · ${amount} SOCIAL`, tone: 'collect' };
+  }
+  return { label: 'No reward', tone: 'muted' };
+}
+
+const RALLY_DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+});
+
+function rallyDateMs(ns: string | undefined): number | null {
+  const raw = ns?.trim() ?? '';
+  if (!raw || !/^\d+$/.test(raw)) return null;
+  try {
+    const ms = Number(BigInt(raw) / 1_000_000n);
+    return Number.isFinite(ms) && ms > 0 ? ms : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Compact range for past rows — `Sep 12 – Oct 3`. Empty when unknown. */
+export function formatRallySeasonDates(
+  entry: Pick<RallyRegistryEntry, 'starts_at_ns' | 'ends_at_ns'>
+): string {
+  const startMs = rallyDateMs(entry.starts_at_ns);
+  const endMs = rallyDateMs(entry.ends_at_ns);
+  if (startMs == null && endMs == null) return '';
+  if (startMs == null) return RALLY_DATE_FORMAT.format(new Date(endMs!));
+  if (endMs == null) return RALLY_DATE_FORMAT.format(new Date(startMs));
+  const start = RALLY_DATE_FORMAT.format(new Date(startMs));
+  const end = RALLY_DATE_FORMAT.format(new Date(endMs));
+  return start === end ? start : `${start} – ${end}`;
 }
 
 export function isRallySettlementPublished(
@@ -460,6 +545,8 @@ export function resolveRallySheetView(input: {
   collected: boolean;
   joinMinLabel?: string | null;
   isConnected: boolean;
+  /** Past-rally detail — a closed season never says "calculating". */
+  archived?: boolean;
 }): RallySheetView {
   const eyebrow = 'Rally';
   const pageTitle = input.pageTitle.trim() || 'OnSocial Rally';
@@ -536,9 +623,10 @@ export function resolveRallySheetView(input: {
   }
 
   if (
-    input.phase === 'ended_pending_settlement' ||
-    input.phase === 'finalized_pending_publish' ||
-    input.phase === 'published_claim_soon'
+    !input.archived &&
+    (input.phase === 'ended_pending_settlement' ||
+      input.phase === 'finalized_pending_publish' ||
+      input.phase === 'published_claim_soon')
   ) {
     return {
       eyebrow,

@@ -2,7 +2,9 @@
 
 import { useCallback, useId, useState } from 'react';
 import {
+  ChevronLeftIcon,
   GlassSheet,
+  OsIconAction,
   osGestureSheetBodyClassName,
   useScrollLock,
 } from '@onsocial/ui';
@@ -12,7 +14,9 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { useSeasonParticipation } from '@/contexts/season-participation-context';
 import { CommerceSheetFooter } from '@/features/scarces/commerce-sheet-footer';
+import { RallyPastSheet } from '@/features/rally/rally-past-sheet';
 import { RallySheetSport } from '@/features/rally/rally-sheet-sport';
+import { useRallyPastClaimHints } from '@/features/rally/use-rally-past-claim-hints';
 import type { RallyPlayerState } from '@/features/rally/use-rally-season';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
@@ -20,7 +24,10 @@ import { extractNearTransactionHashes } from '@/lib/app-near-rpc';
 import { refreshAppSocialBalanceAfterClaim } from '@/lib/app-social-balance-sync';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
-import { resolveRallySheetView } from '@/lib/rally-season';
+import {
+  resolveRallySheetView,
+  type RallyRegistryEntry,
+} from '@/lib/rally-season';
 import {
   txToastConfirming,
   txToastError,
@@ -34,6 +41,8 @@ const APP_SOCIAL_SPEND_APP_ID = 'onpage';
 interface PortfolioRallySheetProps {
   open: boolean;
   player: RallyPlayerState;
+  pastSeasons?: RallyRegistryEntry[];
+  onSelectSeason?: (seasonId: string | null) => void;
   onOpenChange: (open: boolean) => void;
   zIndex?: number;
 }
@@ -54,11 +63,14 @@ function RallySheetLoadingSkeleton() {
 export function PortfolioRallySheet({
   open,
   player,
+  pastSeasons = [],
+  onSelectSeason,
   onOpenChange,
   zIndex = 56,
 }: PortfolioRallySheetProps) {
   const titleId = useId();
   const [closing, setClosing] = useState(false);
+  const [pastOpen, setPastOpen] = useState(false);
   const sheetOpen = open && !closing;
   const moodPreview = usePortfolioMoodPreviewOptional();
   const mood = moodPreview?.effectiveMood ?? null;
@@ -80,6 +92,12 @@ export function PortfolioRallySheet({
     null
   );
 
+  const pastHints = useRallyPastClaimHints(
+    pastSeasons,
+    accountId,
+    sheetOpen && pastSeasons.length > 0
+  );
+
   useScrollLock(open || closing);
 
   const requestClose = useCallback(() => {
@@ -89,8 +107,22 @@ export function PortfolioRallySheet({
   const handleSheetClosed = useCallback(() => {
     setClosing(false);
     setAction(null);
+    setPastOpen(false);
     onOpenChange(false);
   }, [onOpenChange]);
+
+  const handleBackToPastRallies = useCallback(() => {
+    onSelectSeason?.(null);
+    setPastOpen(true);
+  }, [onSelectSeason]);
+
+  const handleSelectPastSeason = useCallback(
+    (seasonId: string) => {
+      setPastOpen(false);
+      onSelectSeason?.(seasonId);
+    },
+    [onSelectSeason]
+  );
 
   const signing = action === 'join' || action === 'collect';
   const shortfallYocto =
@@ -110,6 +142,7 @@ export function PortfolioRallySheet({
     collected: Boolean(player.claim?.claimed),
     joinMinLabel: player.joinMinLabel,
     isConnected,
+    archived: player.isPast,
   });
 
   async function sendSignedSpend(
@@ -153,12 +186,7 @@ export function PortfolioRallySheet({
 
   async function handleJoin() {
     const seasonId = player.seasonId;
-    if (
-      !seasonId ||
-      player.joined ||
-      player.joinMinYocto == null ||
-      action
-    ) {
+    if (!seasonId || player.joined || player.joinMinYocto == null || action) {
       return;
     }
     if (!isConnected) {
@@ -255,6 +283,8 @@ export function PortfolioRallySheet({
 
   const footerState = (() => {
     if (!player.loaded) return null;
+    // Past rallies are read-only unless the collect window is still open.
+    if (player.isPast && !player.canCollect) return null;
     if (!isConnected) {
       return {
         visible: true,
@@ -305,97 +335,136 @@ export function PortfolioRallySheet({
   })();
 
   return (
-    <GlassSheet
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleSheetClosed}
-      tone="os"
-      sizing="hug"
-      moodId={mood?.id}
-      panelStyle={panelStyle}
-      panelClassName="os-gesture-sheet-panel os-gesture-sheet-panel--tall profile-support-sheet-panel"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={zIndex}
-      ariaLabelledBy={titleId}
-      backdropLabel="Close rally"
-      bodyClassName={`profile-support-sheet-body ${osGestureSheetBodyClassName}`}
-      header={
-        <SheetChromeHeader
-          className="portfolio-support-collect-info-header"
-          actionsClassName="standing-sheet-actions--payout"
-          onClose={requestClose}
-          closeAriaLabel="Close rally"
-        >
-          <div className="standing-sheet-subject">
-            <div className="standing-sheet-subject-copy">
-              <p className="portfolio-payout-sheet-eyebrow">
-                {view.eyebrow}
-              </p>
-              <h2
-                id={titleId}
-                className="portfolio-payout-sheet-total portfolio-boost-sheet-title"
-                aria-label={view.ariaLabel}
+    <>
+      <GlassSheet
+        open={sheetOpen}
+        onClose={requestClose}
+        onClosed={handleSheetClosed}
+        tone="os"
+        sizing="hug"
+        moodId={mood?.id}
+        panelStyle={panelStyle}
+        panelClassName="os-gesture-sheet-panel os-gesture-sheet-panel--tall profile-support-sheet-panel"
+        initialDetent="full"
+        peekRatio={1}
+        zIndex={zIndex}
+        ariaLabelledBy={titleId}
+        backdropLabel="Close rally"
+        bodyClassName={`profile-support-sheet-body ${osGestureSheetBodyClassName}`}
+        header={
+          <SheetChromeHeader
+            className="portfolio-support-collect-info-header"
+            actionsClassName="standing-sheet-actions--payout"
+            onClose={requestClose}
+            closeAriaLabel="Close rally"
+          >
+            {player.isPast ? (
+              <OsIconAction
+                className="rally-sheet-back"
+                ariaLabel="Back to past rallies"
+                onClick={handleBackToPastRallies}
               >
-                {!player.loaded ? (
-                  <span
-                    className="standing-row-shimmer portfolio-boost-shimmer-title"
-                    aria-hidden
-                  />
-                ) : (
-                  <>
-                    <span className="portfolio-boost-sheet-title-amount">
-                      {view.title}
-                    </span>
-                    {view.titleUnit ? (
-                      <span className="portfolio-payout-sheet-unit">
-                        {view.titleUnit}
+                <ChevronLeftIcon
+                  className="glass-sheet-close-icon"
+                  aria-hidden
+                />
+              </OsIconAction>
+            ) : null}
+            <div className="standing-sheet-subject">
+              <div className="standing-sheet-subject-copy">
+                <p className="portfolio-payout-sheet-eyebrow">{view.eyebrow}</p>
+                <h2
+                  id={titleId}
+                  className="portfolio-payout-sheet-total portfolio-boost-sheet-title"
+                  aria-label={view.ariaLabel}
+                >
+                  {!player.loaded ? (
+                    <span
+                      className="standing-row-shimmer portfolio-boost-shimmer-title"
+                      aria-hidden
+                    />
+                  ) : (
+                    <>
+                      <span className="portfolio-boost-sheet-title-amount">
+                        {view.title}
                       </span>
-                    ) : null}
-                  </>
-                )}
-              </h2>
-              {player.loaded && player.prizeLine ? (
-                <p className="portfolio-payout-sheet-sub">{player.prizeLine}</p>
-              ) : null}
+                      {view.titleUnit ? (
+                        <span className="portfolio-payout-sheet-unit">
+                          {view.titleUnit}
+                        </span>
+                      ) : null}
+                    </>
+                  )}
+                </h2>
+                {player.loaded && player.prizeLine ? (
+                  <p className="portfolio-payout-sheet-sub">
+                    {player.prizeLine}
+                  </p>
+                ) : null}
+              </div>
             </div>
+          </SheetChromeHeader>
+        }
+        footer={
+          footerState ? (
+            <CommerceSheetFooter
+              formId="portfolio-rally-sheet"
+              keyboardOpen={false}
+              state={footerState}
+            />
+          ) : undefined
+        }
+      >
+        {!player.loaded ? (
+          <RallySheetLoadingSkeleton />
+        ) : (
+          <div className="portfolio-rally-view">
+            {view.body ? (
+              <p className="portfolio-boost-intro">{view.body}</p>
+            ) : null}
+
+            {isConnected &&
+            player.phase === 'live' &&
+            !player.joined &&
+            shortfallYocto > 0n ? (
+              <p className="profile-support-error" role="alert">
+                Need {formatSocialCompact(shortfallYocto)} more SOCIAL.
+              </p>
+            ) : null}
+
+            <RallySheetSport
+              rows={player.standingStrip}
+              viewerAccountId={accountId}
+              ended={player.phase !== 'live'}
+            />
+
+            {!player.isPast && pastSeasons.length > 0 ? (
+              <button
+                type="button"
+                className="rally-past-entry"
+                onClick={() => setPastOpen(true)}
+              >
+                <span className="rally-past-entry-label">Past rallies</span>
+                {pastHints.hasCollect ? (
+                  <span
+                    className="rally-past-entry-dot"
+                    aria-label="SOCIAL ready to collect from a past rally"
+                  />
+                ) : null}
+              </button>
+            ) : null}
           </div>
-        </SheetChromeHeader>
-      }
-      footer={
-        footerState ? (
-          <CommerceSheetFooter
-            formId="portfolio-rally-sheet"
-            keyboardOpen={false}
-            state={footerState}
-          />
-        ) : undefined
-      }
-    >
-      {!player.loaded ? (
-        <RallySheetLoadingSkeleton />
-      ) : (
-        <div className="portfolio-rally-view">
-          {view.body ? (
-            <p className="portfolio-boost-intro">{view.body}</p>
-          ) : null}
+        )}
+      </GlassSheet>
 
-          {isConnected &&
-          player.phase === 'live' &&
-          !player.joined &&
-          shortfallYocto > 0n ? (
-            <p className="profile-support-error" role="alert">
-              Need {formatSocialCompact(shortfallYocto)} more SOCIAL.
-            </p>
-          ) : null}
-
-          <RallySheetSport
-            rows={player.standingStrip}
-            viewerAccountId={accountId}
-            ended={player.phase !== 'live'}
-          />
-        </div>
-      )}
-    </GlassSheet>
+      <RallyPastSheet
+        open={pastOpen && sheetOpen}
+        entries={pastSeasons}
+        claims={pastHints.claims}
+        isConnected={isConnected}
+        onSelect={handleSelectPastSeason}
+        onClose={() => setPastOpen(false)}
+      />
+    </>
   );
 }

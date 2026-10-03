@@ -307,8 +307,11 @@ describe('notification display', () => {
         recipient: 'alice.testnet',
         context: { seasonId: 'season-one', amount: '250000000000000000000' },
       })
-    ).toBe('/home?sheet=rally');
+    ).toBe('/home?sheet=rally&season=season-one');
     expect(homeRallyPath()).toBe('/home?sheet=rally');
+    expect(homeRallyPath('season-one')).toBe(
+      '/home?sheet=rally&season=season-one'
+    );
     expect(parseAppWalletSheetParam('wallet')).toBe('wallet');
     expect(parseAppWalletSheetParam('boost')).toBeNull();
   });

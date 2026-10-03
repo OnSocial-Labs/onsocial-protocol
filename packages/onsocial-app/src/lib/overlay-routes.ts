@@ -102,6 +102,18 @@ export function portfolioFromEssayPath(
 /** Shareable owner sheets on the profile face (`?sheet=`). */
 export const PORTFOLIO_SHEET_PARAM = 'sheet';
 
+/** `?sheet=rally&season=<seasonId>` — opens that rally, including past ones. */
+export const RALLY_SEASON_PARAM = 'season';
+
+const RALLY_SEASON_ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/i;
+
+export function parseRallySeasonParam(
+  raw: string | null | undefined
+): string | null {
+  const value = (raw ?? '').trim();
+  return RALLY_SEASON_ID_PATTERN.test(value) ? value : null;
+}
+
 export type PortfolioShareSheetId = 'boost' | 'rally';
 
 export function parsePortfolioSheetParam(
@@ -122,8 +134,12 @@ export function portfolioRallyPath(accountId: string): string {
 }
 
 /** Viewer rally player from Home (same `sheet=` key as wallet). */
-export function homeRallyPath(): string {
-  return `${APP_HOME_PATH}?${PORTFOLIO_SHEET_PARAM}=rally`;
+export function homeRallyPath(seasonId?: string | null): string {
+  const base = `${APP_HOME_PATH}?${PORTFOLIO_SHEET_PARAM}=rally`;
+  const season = parseRallySeasonParam(seasonId);
+  return season
+    ? `${base}&${RALLY_SEASON_PARAM}=${encodeURIComponent(season)}`
+    : base;
 }
 
 /** Viewer Boost sheet from Home — guest lock, same `sheet=` key as profile. */

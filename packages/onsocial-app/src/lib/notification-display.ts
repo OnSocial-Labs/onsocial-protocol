@@ -615,7 +615,7 @@ export function notificationHref(
   }
 
   if (type === 'season_claim_open') {
-    return homeRallyPath();
+    return homeRallyPath(textField(context, 'seasonId'));
   }
 
   if (actor) return portfolioPath(actor);

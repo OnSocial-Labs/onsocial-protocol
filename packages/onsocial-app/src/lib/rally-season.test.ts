@@ -3,17 +3,22 @@ import { txToastSuccess } from '@/lib/transaction-toast-copy';
 import {
   formatRallyMarkCaption,
   formatRallyPrizeLine,
+  formatRallySeasonDates,
+  listPastRallySeasons,
   parseJoinRallyMinYocto,
+  resolveRallyClaimHint,
   resolveRallyLifecyclePhase,
   resolveRallyMeritWhy,
   rallyMeritScore,
   resolveRallyCanJoin,
   resolveRallyMarkNudge,
   resolveRallyOccasion,
+  resolveRallyPastRowBadge,
   resolveRallyPresentation,
   resolveRallySheetView,
   resolveRallyStandingStrip,
   shouldFetchRallyJoinAffordance,
+  type RallyRegistryEntry,
 } from '@/lib/rally-season';
 
 describe('rally-season', () => {
@@ -300,6 +305,180 @@ describe('rally-season', () => {
         }).body
       ).toBe('Results are being calculated. Collect opens soon.');
     }
+  });
+
+  it('never says a past rally is still calculating', () => {
+    expect(
+      resolveRallySheetView({
+        loaded: true,
+        pageTitle: 'Genesis Rally',
+        phase: 'published_claim_soon',
+        joined: true,
+        rank: 2,
+        canCollect: false,
+        collected: false,
+        isConnected: true,
+        archived: true,
+      }).body
+    ).toBe('Genesis Rally is closed.');
+    // A past rally with the window still open still collects.
+    expect(
+      resolveRallySheetView({
+        loaded: true,
+        pageTitle: 'Genesis Rally',
+        phase: 'claim_open',
+        joined: true,
+        canCollect: true,
+        collectYocto: '1500000000000000000000',
+        collected: false,
+        isConnected: true,
+        archived: true,
+      }).title
+    ).toBe('1,500');
+  });
+
+  it('lists past rallies behind the current one', () => {
+    const entry = (
+      seasonId: string,
+      phase: RallyRegistryEntry['phase']
+    ): RallyRegistryEntry => ({
+      seasonId,
+      label: seasonId,
+      phase,
+      is_live: phase === 'live',
+      claim_open: phase === 'claim',
+    });
+    const registry = {
+      live: entry('season-two', 'live'),
+      upcoming: entry('season-three', 'upcoming'),
+      claim: null,
+      seasons: [
+        entry('season-two', 'live'),
+        entry('season-three', 'upcoming'),
+        entry('season-one', 'claim'),
+        entry('season-zero', 'archived'),
+      ],
+      resolvedActiveSeasonId: 'season-two',
+    };
+    expect(
+      listPastRallySeasons(registry, 'season-two').map((row) => row.seasonId)
+    ).toEqual(['season-one', 'season-zero']);
+    // No current rally — every settled season is past.
+    expect(
+      listPastRallySeasons({ ...registry, live: null }, null).map(
+        (row) => row.seasonId
+      )
+    ).toEqual(['season-one', 'season-zero']);
+    expect(listPastRallySeasons(null, null)).toEqual([]);
+  });
+
+  it('reads claim hints from claim records', () => {
+    const claim = {
+      seasonId: 'season-zero',
+      accountId: 'alice.near',
+      amountYocto: '250000000000000000000',
+      proof: [],
+      rank: 2,
+      score: 40,
+      claimed: false,
+    };
+    expect(resolveRallyClaimHint(null)).toBe('none');
+    expect(resolveRallyClaimHint({ ...claim, amountYocto: '0' })).toBe('none');
+    expect(resolveRallyClaimHint(claim)).toBe('collect');
+    expect(resolveRallyClaimHint({ ...claim, claimed: true })).toBe(
+      'collected'
+    );
+  });
+
+  it('answers did-I-get-anything on past rally rows', () => {
+    const openEntry: RallyRegistryEntry = {
+      seasonId: 'season-one',
+      label: 'OnSocial Rally',
+      phase: 'claim',
+      is_live: false,
+      claim_open: true,
+    };
+    const closedEntry: RallyRegistryEntry = {
+      ...openEntry,
+      seasonId: 'season-zero',
+      claim_open: false,
+      phase: 'archived',
+    };
+    const claim = {
+      seasonId: 'season-one',
+      accountId: 'alice.near',
+      amountYocto: '250000000000000000000',
+      proof: [],
+      rank: 2,
+      score: 40,
+      claimed: false,
+    };
+    // Window open, viewer placed, not yet collected.
+    expect(
+      resolveRallyPastRowBadge({ entry: openEntry, claim, isConnected: true })
+    ).toEqual({ label: 'Collect · 250 SOCIAL', tone: 'collect' });
+    // Collected reads the same whether the window is open or shut.
+    expect(
+      resolveRallyPastRowBadge({
+        entry: closedEntry,
+        claim: { ...claim, claimed: true },
+        isConnected: true,
+      })
+    ).toEqual({ label: 'Collected', tone: 'collected' });
+    // Window shut with nothing claimed.
+    expect(
+      resolveRallyPastRowBadge({
+        entry: closedEntry,
+        claim: null,
+        isConnected: true,
+      })
+    ).toEqual({ label: 'Closed', tone: 'muted' });
+    // Guests see the window, not the outcome.
+    expect(
+      resolveRallyPastRowBadge({
+        entry: openEntry,
+        claim: undefined,
+        isConnected: false,
+      })
+    ).toEqual({ label: 'Claims open', tone: 'muted' });
+    // Loading row.
+    expect(
+      resolveRallyPastRowBadge({
+        entry: openEntry,
+        claim: undefined,
+        isConnected: true,
+      }).tone
+    ).toBe('loading');
+    // Joined but did not place.
+    expect(
+      resolveRallyPastRowBadge({
+        entry: openEntry,
+        claim: null,
+        isConnected: true,
+      })
+    ).toEqual({ label: 'No reward', tone: 'muted' });
+  });
+
+  it('formats past rally dates as a compact range', () => {
+    const ns = (ms: number) => (BigInt(ms) * 1_000_000n).toString();
+    const start = Date.UTC(2026, 8, 12);
+    const end = Date.UTC(2026, 9, 3);
+    expect(
+      formatRallySeasonDates({
+        starts_at_ns: ns(start),
+        ends_at_ns: ns(end),
+      })
+    ).toBe('Sep 12 – Oct 3');
+    expect(
+      formatRallySeasonDates({
+        starts_at_ns: ns(start),
+        ends_at_ns: ns(start),
+      })
+    ).toBe('Sep 12');
+    expect(formatRallySeasonDates({})).toBe('');
+    expect(
+      formatRallySeasonDates({ starts_at_ns: 'oops', ends_at_ns: ns(end) })
+    ).toBe('Oct 3');
   });
 
   it('prefetches join affordance for live connected marks, not guests or claim', () => {

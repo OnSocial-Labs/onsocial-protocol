@@ -7173,6 +7173,124 @@ a.os-surface-row {
     font-weight: 600;
   }
 
+  .rally-sheet-back {
+    align-self: flex-start;
+    margin-block: auto;
+  }
+
+  .rally-past-entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.45rem;
+    margin: 0.35rem -0.2rem 0;
+    padding-block: 0.48rem;
+    padding-inline: 0.2rem;
+    border: 0;
+    border-top: 1px solid rgb(var(--fg-rgb) / 0.08);
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.62);
+    font: inherit;
+    font-size: 0.85rem;
+    letter-spacing: -0.015em;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .rally-past-entry:hover,
+  .rally-past-entry:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.9);
+  }
+
+  .rally-past-entry-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .rally-past-entry-dot {
+    display: block;
+    flex-shrink: 0;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: var(--protocol-green, #00ec97);
+  }
+
+  .rally-past-list {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .rally-past-list-item {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .rally-past-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    width: 100%;
+    margin-inline: -0.2rem;
+    padding-block: 0.52rem;
+    padding-inline: 0.2rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .rally-past-row-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    min-width: 0;
+  }
+
+  .rally-past-row-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    letter-spacing: -0.015em;
+    color: rgb(var(--fg-rgb) / 0.86);
+  }
+
+  .rally-past-row-dates {
+    font-size: 0.72rem;
+    color: rgb(var(--fg-rgb) / 0.44);
+  }
+
+  .rally-past-row-badge {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    color: rgb(var(--fg-rgb) / 0.46);
+  }
+
+  .rally-past-row-badge--collect {
+    color: var(--protocol-green, #00ec97);
+  }
+
+  .rally-past-row-badge--collected {
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .rally-past-row-badge--loading {
+    width: 3.2rem;
+    height: 0.7rem;
+  }
+
   .portfolio-listing-action-row {
     align-items: center;
     gap: 0.75rem;
