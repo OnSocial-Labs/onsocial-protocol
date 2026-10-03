@@ -31,6 +31,7 @@ import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import { creditAppPlatformSocialReward } from '@/lib/app-platform-rewards';
+import { OsChipAction } from '@/lib/os-chip-action';
 import { humanizeEndorsementTopic } from '@/lib/endorsement-display';
 import {
   ENDORSEMENT_IMAGE_MAX_BYTES,
@@ -570,7 +571,7 @@ export function EndorseComposeSheet({
           </label>
 
           <div
-            className="endorse-compose-suggestions"
+            className="app-access-options"
             role="group"
             aria-label="Suggested topics"
           >
@@ -578,7 +579,7 @@ export function EndorseComposeSheet({
               <button
                 key={suggestion}
                 type="button"
-                className={`endorse-compose-chip${
+                className={`os-surface-chip${
                   topic.trim().toLowerCase() === suggestion.toLowerCase()
                     ? ' is-selected'
                     : ''
@@ -614,14 +615,12 @@ export function EndorseComposeSheet({
                 onChange={(event) => setNote(event.target.value)}
               />
             ) : (
-              <button
-                type="button"
-                className="endorse-compose-add-note"
+              <OsChipAction
                 disabled={busy || isSelf || discardConfirmOpen}
                 onClick={() => setNoteFieldVisible(true)}
               >
                 Add a note
-              </button>
+              </OsChipAction>
             )}
           </div>
 
@@ -655,14 +654,12 @@ export function EndorseComposeSheet({
                     className="endorse-compose-media-el"
                   />
                 )}
-                <button
-                  type="button"
-                  className="endorse-compose-media-remove"
+                <OsChipAction
                   disabled={busy || discardConfirmOpen}
                   onClick={handleClearMedia}
                 >
                   Remove media
-                </button>
+                </OsChipAction>
               </div>
             ) : (
               <button
