@@ -465,7 +465,13 @@ export function EndorsementsPanel({
 
         {!isSelf ? (
           <div className="endorsements-endorse-cta">
-            <OsSheetActions layout="row-compact">
+            <OsSheetActions
+              layout="row-compact"
+              size="sm"
+              tone="frosted-primary"
+              borderless
+              className="endorsements-endorse-action"
+            >
               <OsSheetAction
                 type="button"
                 ready={!endorseBlocked}
