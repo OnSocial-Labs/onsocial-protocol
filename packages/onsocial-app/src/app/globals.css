@@ -7154,19 +7154,31 @@ a.os-surface-row {
     text-align: right;
   }
 
-  .portfolio-rally-strip-name,
-  .portfolio-rally-strip-name:hover,
-  .portfolio-rally-strip-name:focus-visible,
-  .portfolio-rally-strip-name:visited {
+  .portfolio-rally-strip-identity,
+  .portfolio-rally-strip-identity:hover,
+  .portfolio-rally-strip-identity:focus-visible,
+  .portfolio-rally-strip-identity:visited {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: rgb(var(--fg-rgb) / 0.82);
+    color: inherit;
     text-decoration: none;
+    --os-identity-name-size: 0.85rem;
+    --os-identity-name-weight: 400;
+    --os-identity-name: rgb(var(--fg-rgb) / 0.82);
   }
 
-  .portfolio-rally-strip-item.is-you .portfolio-rally-strip-name,
+  .portfolio-rally-strip-identity .standing-row-avatar-slot {
+    margin-top: 0;
+  }
+
+  .portfolio-rally-strip-identity .standing-row-name-row,
+  .portfolio-rally-strip-identity .standing-row-handle {
+    line-height: 1.35;
+  }
+
+  .portfolio-rally-strip-item.is-you .standing-row-name,
   .portfolio-rally-strip-item.is-you .portfolio-rally-strip-rank,
   .portfolio-rally-strip-item.is-you .portfolio-rally-strip-score {
     color: rgb(var(--fg-rgb) / 0.94);

@@ -43,7 +43,13 @@ function claimConfig(): Record<string, unknown> {
 const STANDINGS = {
   total: 3,
   standings: [
-    { rank: 1, score: 90, accountId: 'bob.testnet', displayName: 'Bob' },
+    {
+      rank: 1,
+      score: 90,
+      accountId: 'bob.testnet',
+      displayName: 'Bob',
+      avatarUrl: 'https://img.example/bob.png',
+    },
     { rank: 2, score: 40, accountId: 'carol.testnet', displayName: null },
     { rank: 3, score: 12, accountId: 'dave.testnet', displayName: null },
   ],
@@ -376,7 +382,13 @@ test.describe('rally sheet', () => {
       sheet.getByRole('heading', { name: /Join OnSocial Rally/i })
     ).toBeVisible();
     await expect(sheet.getByText('5,000 SOCIAL · 3 in')).toBeVisible();
-    await expect(sheet.getByRole('list', { name: 'Standings' })).toBeVisible();
+    const strip = sheet.getByRole('list', { name: 'Standings' });
+    await expect(strip).toBeVisible();
+    // Every row shows the unique @id under the name, plus an avatar.
+    await expect(strip.getByText('@bob.testnet')).toBeVisible();
+    await expect(strip.getByText('@carol.testnet')).toBeVisible();
+    await expect(strip.getByText('@dave.testnet')).toBeVisible();
+    await expect(strip.locator('.profile-avatar')).toHaveCount(3);
     await expect(
       sheet.getByRole('button', { name: 'Join · 100 SOCIAL' })
     ).toBeVisible();
@@ -399,6 +411,10 @@ test.describe('rally sheet', () => {
       sheet.getByRole('heading', { name: /ready to collect/i })
     ).toBeVisible();
     await expect(sheet.getByText('Ready to collect.')).toBeVisible();
+    // Viewer row: "You" primary with the viewer's own @id underneath.
+    await expect(
+      sheet.getByRole('list', { name: 'Standings' }).getByText(`@${account}`)
+    ).toBeVisible();
     await expect(sheet.getByRole('button', { name: 'Collect' })).toBeVisible();
     await sheet.screenshot({ path: 'test-results/rally-sheet-collect.png' });
   });

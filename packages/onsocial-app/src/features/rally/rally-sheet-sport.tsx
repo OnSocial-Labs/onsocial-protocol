@@ -2,8 +2,8 @@
 
 import { useId, useState } from 'react';
 import Link from 'next/link';
-import { displayName } from '@/lib/profile-display';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import {
   formatRallyRankLabel,
   resolveRallyMeritWhy,
@@ -34,7 +34,6 @@ export function RallySheetSport({
     <ol className="portfolio-rally-strip" aria-label="Standings">
       {rows.map((row) => {
         const isYou = you.length > 0 && row.accountId.toLowerCase() === you;
-        const name = isYou ? 'You' : displayName(row.accountId, row.displayName);
         const why = isYou ? resolveRallyMeritWhy(row.breakdown, ended) : '';
         return (
           <li
@@ -52,7 +51,14 @@ export function RallySheetSport({
                 <span className="portfolio-rally-strip-rank">
                   {formatRallyRankLabel(row.rank)}
                 </span>
-                <span className="portfolio-rally-strip-name">{name}</span>
+                <span className="portfolio-rally-strip-identity">
+                  <StandingIdentity
+                    accountId={row.accountId}
+                    profileName="You"
+                    avatarUrl={row.avatarUrl}
+                    size="md"
+                  />
+                </span>
                 <span className="portfolio-rally-strip-score">
                   {formatScore(row.score)}
                 </span>
@@ -65,9 +71,14 @@ export function RallySheetSport({
                 <Link
                   href={portfolioPath(row.accountId)}
                   scroll={false}
-                  className="portfolio-rally-strip-name"
+                  className="portfolio-rally-strip-identity"
                 >
-                  {name}
+                  <StandingIdentity
+                    accountId={row.accountId}
+                    profileName={row.displayName}
+                    avatarUrl={row.avatarUrl}
+                    size="md"
+                  />
                 </Link>
                 <span className="portfolio-rally-strip-score">
                   {formatScore(row.score)}

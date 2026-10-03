@@ -61,6 +61,7 @@ export type RallyStanding = {
   score: number;
   accountId: string;
   displayName?: string | null;
+  avatarUrl?: string | null;
   breakdown?: RallyMeritBreakdown;
 };
 
@@ -69,6 +70,7 @@ export type RallyBoardRow = {
   score: number;
   accountId: string;
   displayName?: string | null;
+  avatarUrl?: string | null;
   breakdown?: RallyMeritBreakdown;
 };
 
@@ -465,7 +467,7 @@ export function resolveRallyMeritWhy(
 function standingToBoardRow(
   row: Pick<
     RallyBoardRow,
-    'rank' | 'score' | 'accountId' | 'displayName' | 'breakdown'
+    'rank' | 'score' | 'accountId' | 'displayName' | 'avatarUrl' | 'breakdown'
   >
 ): RallyBoardRow | null {
   const accountId = row.accountId.trim();
@@ -477,6 +479,7 @@ function standingToBoardRow(
     score: merit ?? (Number.isFinite(row.score) ? row.score : 0),
     accountId,
     ...(row.displayName?.trim() ? { displayName: row.displayName.trim() } : {}),
+    ...(row.avatarUrl?.trim() ? { avatarUrl: row.avatarUrl.trim() } : {}),
     ...(breakdown ? { breakdown } : {}),
   };
 }
@@ -706,6 +709,7 @@ export async function fetchRallyStandings(
       score?: number;
       accountId?: string;
       displayName?: string | null;
+      avatarUrl?: string | null;
       breakdown?: unknown;
     }>;
   };
@@ -716,6 +720,7 @@ export async function fetchRallyStandings(
         score: Number(row.score),
         accountId: String(row.accountId ?? ''),
         displayName: row.displayName,
+        avatarUrl: row.avatarUrl,
         breakdown: parseRallyMeritBreakdown(row.breakdown) ?? undefined,
       })
     )
@@ -744,6 +749,7 @@ export async function fetchRallyMe(
     score: standing.score,
     accountId: standing.accountId,
     ...(standing.displayName ? { displayName: standing.displayName } : {}),
+    ...(standing.avatarUrl ? { avatarUrl: standing.avatarUrl } : {}),
     ...(breakdown ? { breakdown } : {}),
   };
 }
