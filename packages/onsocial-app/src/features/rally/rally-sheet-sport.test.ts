@@ -23,7 +23,9 @@ describe('RallySheetSport', () => {
     expect(html).toContain('href="/@you.near"');
     expect(html).toContain('href="/@d.near"');
     expect(html).toContain('os-media-face-identity');
-    expect(html).toContain('#2');
+    expect(html).toContain('profile-avatar--sm');
+    expect(html).toContain('>2<');
+    expect(html).not.toContain('#2');
     expect(html).not.toContain('type="button"');
     expect(html).not.toContain('SOCIAL');
     expect(html).not.toContain('Stand, endorse');

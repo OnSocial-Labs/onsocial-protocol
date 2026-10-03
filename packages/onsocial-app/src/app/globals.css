@@ -7113,8 +7113,8 @@ a.os-surface-row {
 
   .portfolio-rally-strip-row {
     display: grid;
-    grid-template-columns: 2.1rem minmax(0, 1fr) auto;
-    align-items: center;
+    grid-template-columns: 2.05rem minmax(0, 1fr) auto;
+    align-items: flex-start;
     gap: 0.45rem;
     margin-inline: -0.2rem;
     padding-block: 0.48rem;
@@ -7125,14 +7125,30 @@ a.os-surface-row {
 
   .portfolio-rally-strip-rank,
   .portfolio-rally-strip-score {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 1.35rem;
     font-variant-numeric: tabular-nums;
-    color: rgb(var(--fg-rgb) / 0.46);
+  }
+
+  .portfolio-rally-strip-rank {
+    font-size: 1.06rem;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .portfolio-rally-strip-row.is-top .portfolio-rally-strip-rank {
+    color: rgb(var(--fg-rgb) / 0.9);
   }
 
   .portfolio-rally-strip-score {
+    justify-content: flex-end;
     font-size: 0.74rem;
     font-weight: 600;
-    text-align: right;
+    color: rgb(var(--fg-rgb) / 0.46);
   }
 
   .rally-sheet-back {
