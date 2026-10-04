@@ -19,6 +19,7 @@ import {
   standingIdentityAccountCopy,
 } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
 import { PostMediaStrip } from '@/features/home/post-media';
 import {
@@ -36,6 +37,7 @@ import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   endorsementVouchLine,
+  endorsementVouchTitle,
   formatEndorsementTime,
   humanizeEndorsementTopic,
 } from '@/lib/endorsement-display';
@@ -51,7 +53,7 @@ import type {
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { displayName } from '@/lib/profile-display';
 import { shareUrl } from '@/lib/share-url';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
@@ -226,20 +228,20 @@ export function EndorsementFocusSheet({
     setComposeOpen(true);
   }
 
+  // Record sheet, not an action: kind + subject header (Endorsement /
+  // design — the Amplify + work grammar), then note and proof, then who's
+  // who under the media — the same attribution pattern the photo stage
+  // uses. The dialog keeps a people-first accessible name via titleLabel.
   return (
     <>
       <OsGestureSheet
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleSheetClosed}
-        verb={topic || 'Endorsement'}
-        personName={issuerName}
-        handle={fallbackLabel(issuerAccountId)}
+        verb="Endorsement"
+        subject={topic}
+        titleLabel={endorsementVouchTitle(issuerName, targetName)}
         signal="endorse"
-        whisper={`Vouch for ${targetName}`}
-        {...(issuerAccountId
-          ? { personHref: portfolioPath(issuerAccountId) }
-          : {})}
         closeAriaLabel="Close endorsement"
         backdropLabel="Close endorsement"
         moodId={effectiveMood?.id}
@@ -300,6 +302,26 @@ export function EndorsementFocusSheet({
                 />
               </div>
             ) : null}
+
+            <div className="standing-row endorsement-focus-whoswho">
+              <div className="standing-row-main">
+                <Link
+                  href={portfolioPath(issuerAccountId)}
+                  className="standing-row-hit"
+                  scroll={false}
+                  aria-label={`View ${issuerName}'s profile`}
+                />
+                <StandingIdentity
+                  accountId={issuerAccountId}
+                  profileName={item.issuerName ?? undefined}
+                  avatarUrl={item.issuerAvatarUrl ?? null}
+                >
+                  <span className="endorsement-focus-target">
+                    Vouch for {targetName}
+                  </span>
+                </StandingIdentity>
+              </div>
+            </div>
 
             <p className="endorsement-focus-meta">
               Endorsed

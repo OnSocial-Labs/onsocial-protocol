@@ -41869,6 +41869,14 @@ a.os-surface-row {
     margin-top: 0;
   }
 
+  .endorsement-focus-target {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
   .endorsement-focus-meta {
     margin: 0;
     font-size: 0.68rem;

@@ -186,7 +186,7 @@ test.describe('signed writes mock signer', () => {
     const panel = page.locator('.endorsements-panel');
     await expect(panel).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await panel.getByRole('button', { name: /Open endorsement from/ }).click();
-    const vouch = page.getByRole('dialog', { name: /Endorsement Green/ });
+    const vouch = page.getByRole('dialog', { name: /Green’s vouch for/ });
     await expect(vouch).toBeVisible();
     await vouch
       .getByRole('button', { name: 'Edit endorsement', exact: true })

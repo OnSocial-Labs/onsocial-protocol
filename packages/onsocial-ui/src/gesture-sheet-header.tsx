@@ -18,6 +18,12 @@ export interface GestureSheetHeaderProps {
   personName?: string;
   /** When set, the person name links to their profile. No second face in the body. */
   personHref?: string;
+  /**
+   * Accessible name override for the title — record sheets whose visible
+   * title is just the topic (the who lives in the body) still name the
+   * dialog after the people.
+   */
+  titleLabel?: string;
   /** Quiet @handle under the title. Omit when unused or redundant. */
   handle?: string;
   /** Work title under the verb (Amplify). Omit when the post has no named work. */
@@ -44,6 +50,7 @@ export function GestureSheetHeader({
   verb,
   personName = '',
   personHref = '',
+  titleLabel = '',
   handle = '',
   subject = '',
   signal,
@@ -63,6 +70,7 @@ export function GestureSheetHeader({
             id={titleId}
             role="heading"
             aria-level={2}
+            {...(titleLabel ? { 'aria-label': titleLabel } : {})}
             className="standing-sheet-subject-name gesture-sheet-title"
           >
             <span

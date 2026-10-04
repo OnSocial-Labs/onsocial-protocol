@@ -171,10 +171,35 @@ test.describe('endorse compose voice', () => {
     await panel
       .getByRole('button', { name: 'Open endorsement from Bob' })
       .click();
-    const vouch = page.getByRole('dialog', { name: /design Bob/ });
+    const vouch = page.getByRole('dialog', { name: 'Bob’s vouch for Alice' });
     await expect(vouch).toBeVisible();
+    await expect(vouch.locator('.gesture-sheet-verb')).toHaveText(
+      'Endorsement'
+    );
+    await expect(vouch.locator('.gesture-sheet-subject')).toHaveText('design');
+    await expect(vouch.locator('.gesture-sheet-person')).toHaveCount(0);
+    await expect(vouch.locator('.gesture-sheet-handle')).toHaveCount(0);
+    await expect(vouch.locator('.gesture-sheet-whisper')).toHaveCount(0);
     await expect(vouch.locator('.endorsement-focus-identity')).toHaveCount(0);
-    await expect(vouch.getByRole('link', { name: 'Bob' })).toBeVisible();
+    const whoswho = vouch.locator('.endorsement-focus-whoswho');
+    await expect(
+      whoswho.getByRole('link', { name: "View Bob's profile" })
+    ).toBeVisible();
+    await expect(whoswho.locator('.standing-row-name')).toHaveText('Bob');
+    await expect(whoswho.locator('.standing-row-handle')).toHaveText(
+      '@bob.testnet'
+    );
+    await expect(whoswho.locator('.standing-row-avatar-slot')).toBeVisible();
+    await expect(whoswho.locator('.endorsement-focus-target')).toHaveText(
+      'Vouch for Alice'
+    );
+    const mediaBox = await vouch
+      .locator('.endorsement-focus-media')
+      .boundingBox();
+    const whoswhoBox = await whoswho.boundingBox();
+    expect(mediaBox).not.toBeNull();
+    expect(whoswhoBox).not.toBeNull();
+    expect(whoswhoBox!.y).toBeGreaterThan(mediaBox!.y);
     await expect(vouch.getByText('Clear product work.')).toBeVisible();
     const share = vouch.getByRole('button', {
       name: 'Share endorsement',
