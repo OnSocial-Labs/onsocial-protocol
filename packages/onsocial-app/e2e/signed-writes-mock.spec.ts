@@ -185,7 +185,12 @@ test.describe('signed writes mock signer', () => {
 
     const panel = page.locator('.endorsements-panel');
     await expect(panel).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
-    await panel.getByRole('button', { name: 'Edit', exact: true }).click();
+    await panel.getByRole('button', { name: /Open endorsement from/ }).click();
+    const vouch = page.getByRole('dialog', { name: /Endorsement Green/ });
+    await expect(vouch).toBeVisible();
+    await vouch
+      .getByRole('button', { name: 'Edit endorsement', exact: true })
+      .click();
 
     const sheet = page.getByRole('dialog', { name: /^Edit endorsement/ });
     await expect(sheet).toBeVisible();
