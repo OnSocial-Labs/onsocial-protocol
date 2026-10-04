@@ -171,11 +171,21 @@ test.describe('endorse compose voice', () => {
     await panel
       .getByRole('button', { name: 'Open endorsement from Bob' })
       .click();
-    const vouch = page.getByRole('dialog', { name: 'From Bob' });
+    const vouch = page.getByRole('dialog', { name: 'Endorsed Bob' });
     await expect(vouch).toBeVisible();
     await expect(vouch.locator('.gesture-sheet-subject')).toHaveText('design');
     await expect(vouch.locator('.endorsement-focus-identity')).toHaveCount(0);
-    await expect(vouch.getByRole('link', { name: 'Bob' })).toBeVisible();
+    const identity = vouch.locator('.gesture-sheet-identity');
+    await expect(
+      identity.getByRole('link', { name: "View Bob's profile" })
+    ).toBeVisible();
+    await expect(identity.locator('.standing-row-name')).toHaveText('Bob');
+    await expect(identity.locator('.standing-row-handle')).toHaveText(
+      '@bob.testnet'
+    );
+    await expect(identity.locator('.standing-row-avatar-slot')).toBeVisible();
+    await expect(vouch.locator('.gesture-sheet-person')).toHaveCount(0);
+    await expect(vouch.locator('.gesture-sheet-handle')).toHaveCount(0);
     await expect(vouch.getByText('Clear product work.')).toBeVisible();
     const share = vouch.getByRole('button', {
       name: 'Share endorsement',

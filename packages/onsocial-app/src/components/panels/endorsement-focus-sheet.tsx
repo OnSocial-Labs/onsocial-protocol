@@ -19,6 +19,7 @@ import {
   standingIdentityAccountCopy,
 } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
 import { PostMediaStrip } from '@/features/home/post-media';
 import {
@@ -226,22 +227,38 @@ export function EndorsementFocusSheet({
     setComposeOpen(true);
   }
 
-  // Title is "{verb} {person}". The topic is the subject line under it,
-  // so a design vouch from Bob reads "From Bob", not "design Bob".
+  // Title stays "{verb} {person}"; the visible person row is the shared
+  // avatar + name + @id identity (one profile link), topic underneath —
+  // so a design vouch from Bob reads "Endorsed Bob", not "design Bob".
   return (
     <>
       <OsGestureSheet
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleSheetClosed}
-        verb="From"
+        verb="Endorsed"
         personName={issuerName}
         subject={topic}
         handle={fallbackLabel(issuerAccountId)}
         signal="endorse"
         whisper={`Vouch for ${targetName}`}
         {...(issuerAccountId
-          ? { personHref: portfolioPath(issuerAccountId) }
+          ? {
+              personIdentity: (
+                <Link
+                  href={portfolioPath(issuerAccountId)}
+                  className="gesture-sheet-identity-link"
+                  scroll={false}
+                  aria-label={`View ${issuerName}'s profile`}
+                >
+                  <StandingIdentity
+                    accountId={issuerAccountId}
+                    profileName={item?.issuerName ?? undefined}
+                    avatarUrl={item?.issuerAvatarUrl ?? null}
+                  />
+                </Link>
+              ),
+            }
           : {})}
         closeAriaLabel="Close endorsement"
         backdropLabel="Close endorsement"
