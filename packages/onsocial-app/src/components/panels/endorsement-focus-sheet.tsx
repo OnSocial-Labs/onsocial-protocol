@@ -9,13 +9,19 @@ import {
 } from 'react';
 import Link from 'next/link';
 import {
+  EditIcon,
   OsGestureSheet,
+  OsIconAction,
+  OsSheetAction,
+  OsSheetActions,
   ShareIcon,
+  osIconActionGlyphClassName,
   standingIdentityAccountCopy,
 } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
+import { PostMediaStrip } from '@/features/home/post-media';
 import {
   EndorseComposeSheet,
   type EndorseComposeIntent,
@@ -63,7 +69,7 @@ interface EndorsementFocusSheetProps {
 }
 
 /**
- * Shareable vouch focus — full note, media with controls, Support / Edit / Share.
+ * Shareable vouch focus — full note, shared media tile, sheet action row.
  * Hosts on the recipient face (`?endorsement=`) or over the overlay peek.
  */
 export function EndorsementFocusSheet({
@@ -239,6 +245,39 @@ export function EndorsementFocusSheet({
         bodyClassName="profile-support-sheet-body"
         titleId={titleId}
         zIndex={zIndex}
+        footer={
+          item ? (
+            <div className="os-sheet-footer endorsement-focus-toolbar">
+              <OsIconAction ariaLabel="Share endorsement" onClick={handleShare}>
+                <ShareIcon
+                  className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
+                  aria-hidden
+                />
+              </OsIconAction>
+              {viewerOwns ? (
+                <OsIconAction ariaLabel="Edit endorsement" onClick={handleEdit}>
+                  <EditIcon
+                    className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
+                    aria-hidden
+                  />
+                </OsIconAction>
+              ) : null}
+              {canSupport ? (
+                <OsSheetActions
+                  layout="row-compact"
+                  size="sm"
+                  tone="frosted-primary"
+                  borderless
+                  className="endorsements-endorse-action endorsement-focus-support"
+                >
+                  <OsSheetAction type="button" onClick={handleSupport}>
+                    {!isConnected ? 'Connect' : 'Support'}
+                  </OsSheetAction>
+                </OsSheetActions>
+              ) : null}
+            </div>
+          ) : undefined
+        }
       >
         {item ? (
           <div className="endorsement-focus-sheet">
@@ -258,34 +297,19 @@ export function EndorsementFocusSheet({
             {note ? <p className="endorsement-focus-note">{note}</p> : null}
 
             {stageMedia ? (
-              <button
-                type="button"
-                className="endorsement-focus-media"
-                onClick={() => setMediaOpen(true)}
-                aria-label={
-                  stageIsVideo
-                    ? 'Play endorsement video'
-                    : 'View endorsement photo'
-                }
-              >
-                {stageIsVideo ? (
-                  <video
-                    src={stageMedia.url}
-                    className="endorsement-focus-media-el"
-                    autoPlay
-                    muted
-                    playsInline
-                    loop
-                    preload="metadata"
-                  />
-                ) : (
-                  <img
-                    src={stageMedia.url}
-                    alt=""
-                    className="endorsement-focus-media-el"
-                  />
-                )}
-              </button>
+              <div className="endorsement-focus-media">
+                <PostMediaStrip
+                  items={[stageMedia]}
+                  size="page"
+                  focused={stageIsVideo}
+                  activateLabel={
+                    stageIsVideo
+                      ? 'Play endorsement video'
+                      : 'View endorsement photo'
+                  }
+                  onActivate={() => setMediaOpen(true)}
+                />
+              </div>
             ) : null}
 
             <p className="endorsement-focus-meta">
@@ -307,35 +331,6 @@ export function EndorsementFocusSheet({
                 ` · ${supporterCount} supporter${supporterCount === 1 ? '' : 's'}`
               ) : null}
             </p>
-
-            <div className="endorsement-focus-actions">
-              <button
-                type="button"
-                className="endorsement-row-action endorsement-focus-share"
-                onClick={handleShare}
-              >
-                <ShareIcon aria-hidden />
-                Share
-              </button>
-              {canSupport ? (
-                <button
-                  type="button"
-                  className="endorsement-row-action"
-                  onClick={handleSupport}
-                >
-                  {!isConnected ? 'Connect' : 'Support'}
-                </button>
-              ) : null}
-              {viewerOwns ? (
-                <button
-                  type="button"
-                  className="endorsement-row-action"
-                  onClick={handleEdit}
-                >
-                  Edit
-                </button>
-              ) : null}
-            </div>
           </div>
         ) : null}
       </OsGestureSheet>
@@ -393,7 +388,6 @@ export function EndorsementFocusSheet({
         captionExpandLabel="Show endorsement"
         captionCollapseLabel="Collapse endorsement"
         closeAriaLabel="Back to endorsement"
-        zIndex={zIndex + 81}
         photos={stageMedia ? [stageMedia] : []}
         peekIdentity={
           item ? (

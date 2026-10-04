@@ -153,7 +153,7 @@ test.describe('endorse compose voice', () => {
     });
 
     const panel = await openEndorsementsPanelLoggedOut(page);
-    const photo = panel.locator('.endorsement-row-media-el');
+    const photo = panel.locator('.endorsement-row-media .post-media-element');
     await expect(photo).toBeVisible();
     const pictureOpensRow = await photo.evaluate((el) => {
       const box = el.getBoundingClientRect();
@@ -171,7 +171,19 @@ test.describe('endorse compose voice', () => {
     const vouch = page.getByRole('dialog', { name: /design Bob/ });
     await expect(vouch).toBeVisible();
     await expect(vouch.getByText('Clear product work.')).toBeVisible();
-    await expect(vouch.getByRole('button', { name: 'Share' })).toBeVisible();
+    const share = vouch.getByRole('button', {
+      name: 'Share endorsement',
+      exact: true,
+    });
+    await expect(share).toBeVisible();
+    await expect(share).toBeInViewport();
+    await expect(share).toHaveText('');
+    await expect(
+      vouch.getByRole('button', { name: 'Connect', exact: true })
+    ).toBeVisible();
+    await expect(
+      vouch.getByRole('button', { name: 'Edit endorsement' })
+    ).toHaveCount(0);
 
     await vouch.getByRole('button', { name: 'View endorsement photo' }).click();
     const stage = page.getByRole('dialog', {

@@ -1480,8 +1480,36 @@ body:has([data-os-slide-over='true']:not(.is-closing)) .os-launcher-root {
 
 /* List proof is part of the row tap. Unlayered so it wins the standing hit. */
 .endorsement-standing-row .endorsement-row-media,
-.endorsement-standing-row .endorsement-row-media-el {
+.endorsement-standing-row .endorsement-row-media * {
   pointer-events: none;
+}
+
+.endorsement-focus-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.endorsement-focus-toolbar .endorsement-focus-support {
+  margin-left: auto;
+}
+
+.glass-sheet-panel:has(.endorsement-focus-toolbar)
+  > .glass-sheet-body.os-gesture-sheet-body {
+  padding-bottom: 0.35rem;
+}
+
+button.post-media-tile {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 /* Endorsements header — same compact pill as guild Join. */
@@ -41789,21 +41817,12 @@ a.os-surface-row {
 
   .endorsement-standing-row .endorsement-row-media {
     display: block;
-    width: fit-content;
-    margin-top: 0.4rem;
+    min-width: 0;
     max-width: 100%;
-    overflow: hidden;
-    border-radius: 0.75rem;
-    background: rgb(var(--fg-rgb) / 0.04);
   }
 
-  .endorsement-standing-row .endorsement-row-media-el {
-    display: block;
-    width: auto;
-    max-width: 100%;
-    max-height: 11rem;
-    height: auto;
-    vertical-align: top;
+  .endorsement-standing-row .endorsement-row-media .post-media-strip {
+    margin-top: 0.4rem;
   }
 
   .endorsement-standing-row .endorsement-row-meta {
@@ -41882,26 +41901,11 @@ a.os-surface-row {
   .endorsement-focus-media {
     display: block;
     width: 100%;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    overflow: hidden;
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.04);
-    color: inherit;
-    font: inherit;
-    text-align: start;
-    cursor: pointer;
+    min-width: 0;
   }
 
-  .endorsement-focus-media-el {
-    display: block;
-    width: 100%;
-    height: auto;
-    max-height: min(70vh, 36rem);
-    object-fit: contain;
-    object-position: center top;
-    pointer-events: none;
+  .endorsement-focus-media .post-media-strip {
+    margin-top: 0;
   }
 
   .endorsement-focus-meta {
@@ -41955,25 +41959,6 @@ a.os-surface-row {
     padding: 0.4rem 0.05rem 0.15rem;
     font-size: 0.78rem;
     color: rgb(var(--fg-rgb) / 0.5);
-  }
-
-  .endorsement-focus-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.15rem;
-    margin-top: 0.15rem;
-  }
-
-  .endorsement-focus-share {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-
-  .endorsement-focus-share svg {
-    width: 0.85rem;
-    height: 0.85rem;
   }
 
   .endorsements-load-more {

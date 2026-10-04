@@ -242,19 +242,27 @@ export function glassSheetBackdropFilterStyle(
   };
 }
 
+/** Photo / listen face band. Sheets opened while a face is already up rise by this. */
+export const GLASS_SHEET_MEDIA_FACE_LIFT = 80;
+
 /**
- * A listen / read / photo face sits at z 80. Sheets opened from the dock
- * (wallet, mint, composer, facts) use lower bands, so they render under it.
- * Lift every glass sheet by that same amount while a face is open. Relative
- * order stays: wallet under storage, both above the player.
+ * A sheet that opens under an already-open media face sits above the film.
+ * A sheet that was already open stays on its own band — a face opened later
+ * must not lift the parent over the stage.
  */
-function zIndexAboveMediaFace(zIndex: number): number {
-  if (typeof document === 'undefined') return zIndex;
-  const faceOpen = document.querySelector(
-    '[data-os-slide-over="true"]:not(.is-closing)'
+export function resolveGlassSheetZIndex(
+  zIndex: number,
+  openedAboveMediaFace: boolean
+): number {
+  if (!openedAboveMediaFace) return zIndex;
+  return zIndex + GLASS_SHEET_MEDIA_FACE_LIFT;
+}
+
+function mediaFaceAlreadyOpen(): boolean {
+  if (typeof document === 'undefined') return false;
+  return Boolean(
+    document.querySelector('[data-os-slide-over="true"]:not(.is-closing)')
   );
-  if (!faceOpen) return zIndex;
-  return zIndex + 80;
 }
 
 /** Highest visible glass sheet — nested Escape should not dismiss the parent. */
@@ -774,6 +782,7 @@ export function GlassSheet({
     portalTarget !== document.body;
   const reduceTransparency = usePrefersReducedTransparency();
   const sheetReady = open && !!portalTarget;
+  const [openedAboveMediaFace, setOpenedAboveMediaFace] = useState(false);
   const [enterAnimationDone, setEnterAnimationDone] = useState(false);
   const [hugEnterArmed, setHugEnterArmed] = useState(false);
   const [hugEnterLockedPx, setHugEnterLockedPx] = useState<number | null>(null);
@@ -969,6 +978,17 @@ export function GlassSheet({
 
   useSheetFocusTrap(visible, panelRef);
 
+  useLayoutEffect(() => {
+    if (!mounted) {
+      setOpenedAboveMediaFace(false);
+      return;
+    }
+    if (!open) return;
+    // Sample once per open. A face that appears later must not lift this sheet.
+    const faceOpen = mediaFaceAlreadyOpen();
+    setOpenedAboveMediaFace((sampled) => sampled || faceOpen);
+  }, [mounted, open]);
+
   if (!mounted || !portalTarget) {
     return null;
   }
@@ -987,7 +1007,9 @@ export function GlassSheet({
       data-surface={surface}
       data-presentation={presentation}
       data-keep-dock={keepDock ? 'true' : undefined}
-      style={{ zIndex: zIndexAboveMediaFace(zIndex) }}
+      style={{
+        zIndex: resolveGlassSheetZIndex(zIndex, openedAboveMediaFace),
+      }}
       role="presentation"
     >
       {opaquePage ? null : (
