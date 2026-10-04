@@ -112,6 +112,7 @@ export function FeedPhotoEnlargeScreen({
   threadPostId = null,
   threadRoot = null,
   closeAriaLabel,
+  zIndex = SCARCE_Z.listenShell,
   stage = null,
   mast = null,
   peekIdentity = null,
@@ -142,6 +143,8 @@ export function FeedPhotoEnlargeScreen({
   threadPostId?: string | null;
   threadRoot?: PostRow | null;
   closeAriaLabel?: string;
+  /** Above a vouch sheet. Glass sheets lift by 80 while a media face is open. */
+  zIndex?: number;
   /** Mood / craft cover — used when there is no raster media to enlarge. */
   stage?: ReactNode;
   /** Optional face mast (article-style). Photo/video uses peekIdentity. */
@@ -1110,7 +1113,7 @@ export function FeedPhotoEnlargeScreen({
       mast={mast}
       trailing={trailingNode}
       closeAriaLabel={quietClose}
-      zIndex={SCARCE_Z.listenShell}
+      zIndex={zIndex}
       footer={onFilm ? null : engagement}
       transport={onFilm ? null : videoTransport}
       stageLayout="fixed"

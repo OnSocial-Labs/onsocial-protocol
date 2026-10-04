@@ -393,6 +393,7 @@ export function EndorsementFocusSheet({
         captionExpandLabel="Show endorsement"
         captionCollapseLabel="Collapse endorsement"
         closeAriaLabel="Back to endorsement"
+        zIndex={zIndex + 81}
         photos={stageMedia ? [stageMedia] : []}
         peekIdentity={
           item ? (
