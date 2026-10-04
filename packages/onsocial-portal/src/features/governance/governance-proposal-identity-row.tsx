@@ -5,7 +5,7 @@ import {
   GovernanceAccountChip,
   GovernanceAccountChipSkeleton,
 } from '@/features/governance/governance-account-chip';
-import { getPortalProfileUrl } from '@/lib/portal-config';
+import { getPublicAppPageUrl } from '@/lib/portal-config';
 import {
   resolveProposalTargetEyebrowLabel,
   type ProposalPresentation,
@@ -123,7 +123,7 @@ function GovernanceProposalTargetLine({
         {routingValue}
         {showContractAccountId && targetAccountId ? (
           <Link
-            href={getPortalProfileUrl(targetAccountId)}
+            href={getPublicAppPageUrl(targetAccountId)}
             className="max-w-full truncate font-mono portal-type-caption leading-none text-muted-foreground/65 transition-opacity hover:opacity-90"
           >
             {targetAccountId}

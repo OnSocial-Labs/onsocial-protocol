@@ -20,7 +20,7 @@ import {
   type JoinSpendSplitPart,
 } from '@/lib/join-rally-routing';
 import { RALLY_JOIN_SPLIT_EYEBROW } from '@/lib/rally-join-copy';
-import { getPortalDiscoverUrl } from '@/lib/portal-config';
+import { getPublicAppDiscoverUrl } from '@/lib/portal-config';
 import { PORTAL_SWAP_ENABLED } from '@/lib/portal-swap-config';
 import { cn } from '@/lib/utils';
 
@@ -193,7 +193,7 @@ export function RallyDiscoverProfilesLink({
       className={cn('min-w-[10rem] justify-center', className)}
     >
       <Link
-        href={getPortalDiscoverUrl()}
+        href={getPublicAppDiscoverUrl()}
         className="inline-flex items-center gap-1.5"
       >
         Discover profiles

@@ -28,11 +28,10 @@ import { cleanHandle } from '@/lib/endorsements';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import Link from 'next/link';
 import {
-  getPortalProfileUrl,
-  getPortalStandUrl,
+  getPublicAppPageUrl,
+  getPublicAppStandingUrl,
   syncPortalNetworkUrl,
   type PortalNetworkFilter,
-  type PortalStandKind,
 } from '@/lib/portal-config';
 import {
   isAbortLikeError,
@@ -537,8 +536,7 @@ function NetworkOrbitNode({
         transition={motionTransition}
       >
         <Link
-          href={getPortalProfileUrl(node.account.accountId)}
-          prefetch
+          href={getPublicAppPageUrl(node.account.accountId)}
           onClick={onClose}
           className="block h-full w-full rounded-full"
           aria-label={`Open ${displayLabel(node.account)}`}
@@ -650,8 +648,7 @@ function CenterNetworkAccount({
   if (pageLayout) {
     return (
       <Link
-        href={getPortalProfileUrl(accountId)}
-        prefetch
+        href={getPublicAppPageUrl(accountId)}
         onClick={onClose}
         className={cn(sharedClassName, 'cursor-pointer')}
         style={sharedStyle}
@@ -966,10 +963,10 @@ export function NetworkPanel({
     },
   ];
 
-  const viewAllStandKind: PortalStandKind = networkFilterToStandKind(filter);
-  const viewAllHref = getPortalStandUrl(centerAccountId, viewAllStandKind, {
-    q: serverSearchActive ? normalizedSearchQuery : null,
-  });
+  const viewAllHref = getPublicAppStandingUrl(
+    centerAccountId,
+    networkFilterToStandKind(filter)
+  );
   const activeFilterOption =
     filterOptions.find((option) => option.id === filter) ?? filterOptions[0];
   const centerAvatarSize = stageLayout.centerAvatar;

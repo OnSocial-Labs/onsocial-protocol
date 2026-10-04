@@ -47,7 +47,7 @@ import {
 } from '@/components/ui/profile-action-pill';
 import { CompactActionPillPending } from '@/components/ui/profile-social-standing-toggle';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/near-network';
-import { getPortalProfileUrl } from '@/lib/portal-config';
+import { getPublicAppPageUrl } from '@/lib/portal-config';
 import { walletLabelFromAccountId } from '@/lib/wallet-label';
 import {
   markWalletMenuSeen,
@@ -336,7 +336,7 @@ export function WalletButton({
   const profilePrimaryLabel = hasProfileName
     ? profileState.profile?.name
     : walletLabel;
-  const profilePageUrl = accountId ? getPortalProfileUrl(accountId) : null;
+  const profilePageUrl = accountId ? getPublicAppPageUrl(accountId) : null;
 
   const compactDisconnectedButtonClass = disconnectedLabel
     ? 'group relative inline-flex h-9 w-auto items-center justify-center gap-2.5 rounded-full border border-border/45 bg-background/70 px-3 pr-3.5 text-muted-foreground backdrop-blur-md transition-all duration-300 hover:border-border/70 hover:bg-background/84 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-background md:h-10 md:px-3.5 md:pr-4'
