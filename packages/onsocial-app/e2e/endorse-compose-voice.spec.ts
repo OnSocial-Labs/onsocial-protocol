@@ -173,8 +173,10 @@ test.describe('endorse compose voice', () => {
       .click();
     const vouch = page.getByRole('dialog', { name: 'Bob’s vouch for Alice' });
     await expect(vouch).toBeVisible();
-    await expect(vouch.locator('.gesture-sheet-verb')).toHaveText('design');
-    await expect(vouch.locator('.gesture-sheet-subject')).toHaveCount(0);
+    await expect(vouch.locator('.gesture-sheet-verb')).toHaveText(
+      'Endorsement'
+    );
+    await expect(vouch.locator('.gesture-sheet-subject')).toHaveText('design');
     await expect(vouch.locator('.gesture-sheet-person')).toHaveCount(0);
     await expect(vouch.locator('.gesture-sheet-handle')).toHaveCount(0);
     await expect(vouch.locator('.gesture-sheet-whisper')).toHaveCount(0);

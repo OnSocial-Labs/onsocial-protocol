@@ -228,17 +228,18 @@ export function EndorsementFocusSheet({
     setComposeOpen(true);
   }
 
-  // Record sheet, not an action: the topic is the title, and who's who
-  // (author identity + target) sits under the media — the same attribution
-  // pattern the photo stage uses. The dialog keeps a people-first
-  // accessible name via titleLabel.
+  // Record sheet, not an action: kind + subject header (Endorsement /
+  // design — the Amplify + work grammar), then note and proof, then who's
+  // who under the media — the same attribution pattern the photo stage
+  // uses. The dialog keeps a people-first accessible name via titleLabel.
   return (
     <>
       <OsGestureSheet
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleSheetClosed}
-        verb={topic || 'Endorsement'}
+        verb="Endorsement"
+        subject={topic}
         titleLabel={endorsementVouchTitle(issuerName, targetName)}
         signal="endorse"
         closeAriaLabel="Close endorsement"
