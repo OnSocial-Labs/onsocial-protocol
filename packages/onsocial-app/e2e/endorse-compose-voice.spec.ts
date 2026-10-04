@@ -98,7 +98,10 @@ test.describe('endorse compose voice', () => {
     await expect(panel.getByText('No matches.')).toHaveCount(0);
     await expect(
       panel.getByRole('button', { name: 'Support', exact: true })
-    ).toBeVisible();
+    ).toHaveCount(0);
+    await expect(
+      panel.getByRole('button', { name: 'Edit', exact: true })
+    ).toHaveCount(0);
 
     await search.fill('');
     await menu.click();
@@ -170,6 +173,8 @@ test.describe('endorse compose voice', () => {
       .click();
     const vouch = page.getByRole('dialog', { name: /design Bob/ });
     await expect(vouch).toBeVisible();
+    await expect(vouch.locator('.endorsement-focus-identity')).toHaveCount(0);
+    await expect(vouch.getByRole('link', { name: 'Bob' })).toBeVisible();
     await expect(vouch.getByText('Clear product work.')).toBeVisible();
     const share = vouch.getByRole('button', {
       name: 'Share endorsement',

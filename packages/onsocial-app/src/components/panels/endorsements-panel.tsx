@@ -19,10 +19,6 @@ import {
   EndorsementListSkeleton,
 } from '@/components/panels/endorsement-list-row';
 import { EndorsementFocusSheet } from '@/components/panels/endorsement-focus-sheet';
-import {
-  EndorsementSupportSheet,
-  type EndorsementSupportTarget,
-} from '@/components/panels/endorsement-support-sheet';
 import { DiscoverProfilesLink } from '@/components/panels/standing-discover-link';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import {
@@ -41,14 +37,12 @@ import { accountIdsEqual } from '@/lib/account-match';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { buildEndorsementEmptyState } from '@/lib/endorsement-empty-state';
 import { endorsementRowMatchesQuery } from '@/lib/endorsement-display';
-import { parseEndorsementMediaRef } from '@/lib/endorsement-media';
 import { matchEndorsementFocusItem } from '@/lib/endorsement-focus';
 import { endorsementsPath } from '@/lib/overlay-routes';
 import { formatProfileCount } from '@/lib/profile-social-standings';
 import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 import { displayName } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
-import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
 import { replaceBrowserUrl } from '@/lib/sync-browser-url-query';
 import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
 import { derivePortfolioEndorsementCounts } from '@/lib/viewer-endorsement-ledger';
@@ -163,7 +157,7 @@ export function EndorsementsPanel({
   initial = null,
   initialMode = 'received',
 }: EndorsementsPanelProps) {
-  const { accountId: viewerAccountId, isConnected, connect } = useAppWallet();
+  const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { setTxResult } = useAppTransactionFeedback();
   const {
     viewerEndorsed,
@@ -193,9 +187,6 @@ export function EndorsementsPanel({
   const [composeSession, setComposeSession] = useState<ComposeSession | null>(
     null
   );
-  const [supportOpen, setSupportOpen] = useState(false);
-  const [supportTarget, setSupportTarget] =
-    useState<EndorsementSupportTarget | null>(null);
   const [focusOpen, setFocusOpen] = useState(false);
   const [focusItem, setFocusItem] = useState<EndorsementPanelItem | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -449,28 +440,6 @@ export function EndorsementsPanel({
     onAddTopic: handleAddTopic,
   });
 
-  function openSupport(item: EndorsementPanelItem) {
-    const endorsementId = resolveEndorsementSpendTargetId({
-      id: typeof item.id === 'string' ? item.id : null,
-      issuer: item.issuer,
-      target: item.target,
-      topic: item.topic,
-    });
-    if (!endorsementId) return;
-    if (!isConnected) {
-      void connect();
-      return;
-    }
-    setSupportTarget({
-      endorsementId,
-      recipientAccountId: item.target,
-      recipientName: item.targetName,
-      issuer: item.issuer,
-      topic: item.topic ?? null,
-    });
-    setSupportOpen(true);
-  }
-
   const listOptions: ChoiceOption<EndorsementsMode>[] = [
     {
       value: 'received',
@@ -552,55 +521,20 @@ export function EndorsementsPanel({
         </div>
       ) : (
         <div className="standing-list endorsement-list">
-          {visibleItems.map((item, index) => {
-            const viewerOwns =
-              Boolean(viewerAccountId) &&
-              accountIdsEqual(viewerAccountId!, item.issuer);
-            const canSupport =
-              Boolean(
-                resolveEndorsementSpendTargetId({
-                  id: typeof item.id === 'string' ? item.id : null,
-                  issuer: item.issuer,
-                  target: item.target,
-                  topic: item.topic,
-                })
-              ) &&
-              (!viewerAccountId ||
-                !accountIdsEqual(viewerAccountId, item.target));
-            return (
-              <div key={rowKey(item)}>
-                {index > 0 ? <Divider variant="item" /> : null}
-                <EndorsementListRow
-                  item={item}
-                  pageAccountId={accountId}
-                  mode={mode}
-                  viewerAccountId={viewerAccountId}
-                  canEdit={viewerOwns}
-                  onEdit={() =>
-                    openCompose({
-                      targetAccountId: item.target,
-                      targetName: item.targetName,
-                      targetAvatarUrl: item.targetAvatarUrl,
-                      intent: 'edit',
-                      existing: {
-                        id: typeof item.id === 'string' ? item.id : null,
-                        topic: item.topic ?? null,
-                        note: item.note ?? null,
-                        media: parseEndorsementMediaRef(item.media),
-                        mediaUrl: item.mediaUrl ?? null,
-                      },
-                    })
-                  }
-                  canSupport={canSupport}
-                  onSupport={() => openSupport(item)}
-                  onOpen={() => {
-                    setFocusItem(item);
-                    setFocusOpen(true);
-                  }}
-                />
-              </div>
-            );
-          })}
+          {visibleItems.map((item, index) => (
+            <div key={rowKey(item)}>
+              {index > 0 ? <Divider variant="item" /> : null}
+              <EndorsementListRow
+                item={item}
+                pageAccountId={accountId}
+                mode={mode}
+                onOpen={() => {
+                  setFocusItem(item);
+                  setFocusOpen(true);
+                }}
+              />
+            </div>
+          ))}
           <div ref={loadMoreRef} className="endorsements-load-more" />
           {loadingMore ? (
             <p className="endorsements-loading-more">Loading more…</p>
@@ -644,22 +578,6 @@ export function EndorsementsPanel({
         onOpenChange={(next) => {
           setFocusOpen(next);
           if (!next) setFocusItem(null);
-        }}
-        onSuccess={() => void load({ soft: true })}
-      />
-
-      <EndorsementSupportSheet
-        open={supportOpen}
-        target={supportTarget}
-        mood={
-          supportTarget &&
-          !accountIdsEqual(supportTarget.recipientAccountId, accountId)
-            ? null
-            : mood
-        }
-        onOpenChange={(next) => {
-          setSupportOpen(next);
-          if (!next) setSupportTarget(null);
         }}
         onSuccess={() => void load({ soft: true })}
       />

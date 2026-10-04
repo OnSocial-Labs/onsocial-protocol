@@ -12,37 +12,24 @@ import {
 } from '@/lib/endorsement-display';
 import { endorsementStageMedia } from '@/lib/endorsement-media';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
 
 interface EndorsementListRowProps {
   item: EndorsementPanelItem;
   /** Whose page this list is on — drives which party is the “other”. */
   pageAccountId: string;
   mode: 'received' | 'given';
-  viewerAccountId?: string | null;
-  /** When set, show Edit for the viewer’s own vouch on this target. */
-  canEdit?: boolean;
-  onEdit?: () => void;
-  /** When set, show Support for SOCIAL spend on this vouch. */
-  canSupport?: boolean;
-  onSupport?: () => void;
-  /** Open the shareable focus sheet (row tap). */
+  /** Open the shareable focus sheet (row tap). Actions live on that sheet. */
   onOpen?: () => void;
 }
 
 /**
- * Endorsement list row — StandingIdentity chrome + vouch body (topic / note /
- * media) + quiet Support · Edit rail. Same row shell as Standing lists.
+ * Endorsement list row — StandingIdentity chrome plus the vouch (topic, note,
+ * proof). Tap opens the sheet. Support, Share, and Edit live there once.
  */
 export function EndorsementListRow({
   item,
   pageAccountId,
   mode,
-  viewerAccountId = null,
-  canEdit = false,
-  onEdit,
-  canSupport = false,
-  onSupport,
   onOpen,
 }: EndorsementListRowProps) {
   const otherAccountId = mode === 'received' ? item.issuer : item.target;
@@ -57,20 +44,7 @@ export function EndorsementListRow({
     media: item.media,
     mediaUrl: item.mediaUrl,
   });
-  const spendTargetId = resolveEndorsementSpendTargetId({
-    id: typeof item.id === 'string' ? item.id : null,
-    issuer: item.issuer,
-    target: item.target,
-    topic: item.topic,
-  });
   const supporterCount = item.supporterCount ?? 0;
-
-  const showSupport =
-    canSupport &&
-    Boolean(onSupport) &&
-    Boolean(spendTargetId) &&
-    (!viewerAccountId || viewerAccountId !== item.target);
-  const hasAside = showSupport || (canEdit && Boolean(onEdit));
 
   return (
     <article className="standing-row endorsement-standing-row">
@@ -127,27 +101,6 @@ export function EndorsementListRow({
             </span>
           </span>
         </StandingIdentity>
-      </div>
-
-      <div className={`standing-row-aside${hasAside ? '' : ' is-empty'}`}>
-        {showSupport ? (
-          <button
-            type="button"
-            className="endorsement-row-action"
-            onClick={onSupport}
-          >
-            Support
-          </button>
-        ) : null}
-        {canEdit && onEdit ? (
-          <button
-            type="button"
-            className="endorsement-row-action"
-            onClick={onEdit}
-          >
-            Edit
-          </button>
-        ) : null}
       </div>
     </article>
   );

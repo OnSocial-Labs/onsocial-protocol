@@ -19,7 +19,6 @@ import {
   standingIdentityAccountCopy,
 } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
-import { StandingIdentity } from '@/components/profile/standing-identity';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
 import { PostMediaStrip } from '@/features/home/post-media';
 import {
@@ -238,6 +237,9 @@ export function EndorsementFocusSheet({
         handle={fallbackLabel(issuerAccountId)}
         signal="endorse"
         whisper={`Vouch for ${targetName}`}
+        {...(issuerAccountId
+          ? { personHref: portfolioPath(issuerAccountId) }
+          : {})}
         closeAriaLabel="Close endorsement"
         backdropLabel="Close endorsement"
         moodId={effectiveMood?.id}
@@ -281,19 +283,6 @@ export function EndorsementFocusSheet({
       >
         {item ? (
           <div className="endorsement-focus-sheet">
-            <Link
-              href={portfolioPath(item.issuer)}
-              className="endorsement-focus-identity"
-              scroll={false}
-              aria-label={`View ${issuerName}'s profile`}
-            >
-              <StandingIdentity
-                accountId={item.issuer}
-                profileName={item.issuerName}
-                avatarUrl={item.issuerAvatarUrl}
-              />
-            </Link>
-
             {note ? <p className="endorsement-focus-note">{note}</p> : null}
 
             {stageMedia ? (

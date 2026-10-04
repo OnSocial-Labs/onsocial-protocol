@@ -111,6 +111,16 @@
   color: rgb(var(--fg-rgb) / 0.88);
 }
 
+a.gesture-sheet-person {
+  color: rgb(var(--fg-rgb) / 0.88);
+  text-decoration: none;
+}
+
+a.gesture-sheet-person:hover,
+a.gesture-sheet-person:focus-visible {
+  color: rgb(var(--fg-rgb) / 0.96);
+}
+
 .gesture-sheet-subject {
   margin: 0.12rem 0 0;
   font-size: 0.86rem;
