@@ -41756,13 +41756,7 @@ a.os-surface-row {
   .endorsements-panel-toolbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.65rem;
-  }
-
-  /* Track shares the row with the endorse pill. Segments are app-storage-mode. */
-  .endorsements-panel-toolbar .app-storage-mode-toggle {
-    flex: 1 1 auto;
+    gap: 0.45rem;
     min-width: 0;
   }
 

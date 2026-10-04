@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   EndorseExistingDraft,
   EndorsementPanelItem,
@@ -25,7 +25,15 @@ import {
 import { DiscoverProfilesLink } from '@/components/panels/standing-discover-link';
 import { OsChipAction } from '@/lib/os-chip-action';
 import { OsEmptyAction } from '@/lib/os-empty-action';
-import { Divider, OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import {
+  ChoiceDrawerMenu,
+  Divider,
+  OsSheetAction,
+  OsSheetActions,
+  SearchField,
+  osFloatingPanelCountClassName,
+  type ChoiceOption,
+} from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
@@ -34,9 +42,12 @@ import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { accountIdsEqual } from '@/lib/account-match';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { buildEndorsementEmptyState } from '@/lib/endorsement-empty-state';
+import { endorsementRowMatchesQuery } from '@/lib/endorsement-display';
 import { parseEndorsementMediaRef } from '@/lib/endorsement-media';
 import { matchEndorsementFocusItem } from '@/lib/endorsement-focus';
 import { endorsementsPath } from '@/lib/overlay-routes';
+import { formatProfileCount } from '@/lib/profile-social-standings';
+import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 import { displayName } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
@@ -134,6 +145,18 @@ function rowKey(item: EndorsementPanelItem): string {
   return `${item.issuer}:${item.target}:${item.topic ?? ''}:${item.blockHeight}`;
 }
 
+function EndorsementCountBadge({ count }: { count: number }) {
+  return (
+    <span
+      className={`${osFloatingPanelCountClassName}${
+        count === 0 ? ' is-zero' : ''
+      }`}
+    >
+      {formatProfileCount(count)}
+    </span>
+  );
+}
+
 export function EndorsementsPanel({
   accountId,
   profileName = null,
@@ -160,6 +183,7 @@ export function EndorsementsPanel({
   const endorsePending = isEndorsePendingForTarget(accountId);
   const endorseBlocked = isBlockEitherWay(accountId);
   const [mode, setMode] = useState<EndorsementsMode>(initialMode);
+  const [query, setQuery] = useState('');
   const [data, setData] = useState<EndorsementsPanelResponse | null>(
     () => initial
   );
@@ -225,6 +249,10 @@ export function EndorsementsPanel({
     setMode(initialMode);
   }, [initialMode]);
 
+  useEffect(() => {
+    setQuery('');
+  }, [accountId]);
+
   const selectMode = useCallback(
     (next: EndorsementsMode) => {
       if (next === mode) return;
@@ -287,6 +315,14 @@ export function EndorsementsPanel({
   void endorsementSyncVersion;
   const receivedCount = adjustedCounts.received;
   const givenCount = adjustedCounts.given;
+  const visibleItems = useMemo(() => {
+    const needle = query.trim();
+    if (!needle) return items;
+    return items.filter((item) =>
+      endorsementRowMatchesQuery(item, mode, needle)
+    );
+  }, [items, mode, query]);
+  const searching = query.trim().length > 0;
 
   useEffect(() => {
     if (!focusOpen || !focusItem) return;
@@ -357,7 +393,7 @@ export function EndorsementsPanel({
       !loadingMore &&
       !error &&
       !loadMoreError &&
-      items.length > 0,
+      (items.length > 0 || searching),
     onIntersect: () => {
       void loadMore();
     },
@@ -426,52 +462,45 @@ export function EndorsementsPanel({
     setSupportOpen(true);
   }
 
+  const listOptions: ChoiceOption<EndorsementsMode>[] = [
+    {
+      value: 'received',
+      label: 'Received',
+      leading: <EndorsementCountBadge count={receivedCount} />,
+    },
+    {
+      value: 'given',
+      label: 'Given',
+      leading: <EndorsementCountBadge count={givenCount} />,
+    },
+  ];
+
   return (
     <div className="endorsements-panel">
-      <div className="endorsements-panel-toolbar">
-        <div
-          className="app-storage-mode-toggle"
-          role="tablist"
-          aria-label="Endorsement lists"
-          onKeyDown={(event) => {
-            if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') {
-              return;
-            }
-            event.preventDefault();
-            const next = event.key === 'ArrowRight' ? 'given' : 'received';
-            selectMode(next);
-            document.getElementById(`endorsements-tab-${next}`)?.focus();
-          }}
-        >
-          <button
-            type="button"
-            role="tab"
-            id="endorsements-tab-received"
-            aria-controls="endorsements-panel-received"
-            aria-selected={mode === 'received'}
-            tabIndex={mode === 'received' ? 0 : -1}
-            className={`app-storage-mode${
-              mode === 'received' ? ' is-active' : ''
-            }`}
-            onClick={() => selectMode('received')}
-          >
-            Received
-            <span className="app-storage-mode-count">{receivedCount}</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id="endorsements-tab-given"
-            aria-controls="endorsements-panel-given"
-            aria-selected={mode === 'given'}
-            tabIndex={mode === 'given' ? 0 : -1}
-            className={`app-storage-mode${mode === 'given' ? ' is-active' : ''}`}
-            onClick={() => selectMode('given')}
-          >
-            Given
-            <span className="app-storage-mode-count">{givenCount}</span>
-          </button>
-        </div>
+      <div className="standing-list-toolbar endorsements-panel-toolbar">
+        <ChoiceDrawerMenu
+          label="Endorsements"
+          value={mode}
+          options={listOptions}
+          onChange={selectMode}
+          triggerMeta={
+            <EndorsementCountBadge
+              count={mode === 'received' ? receivedCount : givenCount}
+            />
+          }
+          className="standing-view-menu"
+          zIndex={SHEET_Z.nested}
+        />
+        <SearchField
+          value={query}
+          onValueChange={setQuery}
+          placeholder="Search"
+          maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
+          clearAriaLabel="Clear endorsement search"
+          ariaLabel="Search endorsements"
+          chrome="floating-panel"
+          className="standing-list-toolbar-search"
+        />
 
         {!isSelf ? (
           <div className="endorsements-endorse-cta">
@@ -513,30 +542,31 @@ export function EndorsementsPanel({
       {loading ? (
         <EndorsementListSkeleton />
       ) : error ? (
-        <div
-          className="endorsements-empty"
-          role="tabpanel"
-          id={`endorsements-panel-${mode}`}
-          aria-labelledby={`endorsements-tab-${mode}`}
-        >
+        <div className="endorsements-empty">
           <p className="endorsements-empty-copy">{error}</p>
           <OsEmptyAction onClick={() => void load()}>Retry</OsEmptyAction>
         </div>
-      ) : items.length === 0 ? (
+      ) : visibleItems.length === 0 && searching && hasMore ? (
+        <div className="endorsements-load-more-error">
+          <p className="endorsements-loading-more">Loading more…</p>
+          <div ref={loadMoreRef} className="endorsements-load-more" />
+        </div>
+      ) : visibleItems.length === 0 ? (
         <div
-          className="standing-panel-empty-block"
-          role="tabpanel"
-          id={`endorsements-panel-${mode}`}
-          aria-labelledby={`endorsements-tab-${mode}`}
+          className={`standing-panel-empty-block${
+            searching ? ' is-search' : ''
+          }`}
         >
           <div className="standing-panel-empty-state">
-            <p className="standing-panel-empty-primary">{emptyState.primary}</p>
-            {emptyState.secondary ? (
+            <p className="standing-panel-empty-primary">
+              {searching ? 'No matches.' : emptyState.primary}
+            </p>
+            {!searching && emptyState.secondary ? (
               <p className="standing-panel-empty-secondary">
                 {emptyState.secondary}
               </p>
             ) : null}
-            {emptyState.showDiscover ? (
+            {!searching && emptyState.showDiscover ? (
               <div className="standing-panel-empty-actions">
                 <DiscoverProfilesLink
                   accountId={accountId}
@@ -548,13 +578,8 @@ export function EndorsementsPanel({
           </div>
         </div>
       ) : (
-        <div
-          className="standing-list endorsement-list"
-          role="tabpanel"
-          id={`endorsements-panel-${mode}`}
-          aria-labelledby={`endorsements-tab-${mode}`}
-        >
-          {items.map((item, index) => {
+        <div className="standing-list endorsement-list">
+          {visibleItems.map((item, index) => {
             const viewerOwns =
               Boolean(viewerAccountId) &&
               accountIdsEqual(viewerAccountId!, item.issuer);

@@ -1,6 +1,7 @@
 import type { EndorsementListItem } from '@onsocial/sdk';
 import { normalizeEndorsementTopic } from '@onsocial/sdk';
 import { formatNearAccountDisplayName } from '@onsocial/ui';
+import type { EndorsementsMode } from '@/lib/endorsements-panel-data';
 import { formatRelativePostTimestamp } from '@/lib/post-display';
 
 export function humanizeEndorsementTopic(topic?: string | null): string {
@@ -34,4 +35,28 @@ export function endorsementPartyLabel(
   name?: string | null
 ): string {
   return formatNearAccountDisplayName(accountId, name);
+}
+
+/** Name, account id, topic, and note — the same local match Standing uses. */
+export function endorsementRowMatchesQuery(
+  item: Pick<EndorsementListItem, 'issuer' | 'target' | 'topic' | 'note'> & {
+    issuerName?: string | null;
+    targetName?: string | null;
+  },
+  mode: EndorsementsMode,
+  query: string
+): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  const accountId = mode === 'received' ? item.issuer : item.target;
+  const name = mode === 'received' ? item.issuerName : item.targetName;
+  const haystack = [
+    endorsementPartyLabel(accountId, name),
+    accountId,
+    humanizeEndorsementTopic(item.topic),
+    item.note ?? '',
+  ]
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(needle);
 }

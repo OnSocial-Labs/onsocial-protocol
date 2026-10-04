@@ -40,7 +40,7 @@ test.describe('endorse compose voice', () => {
     expect(await borderTop(design)).toBe('0px');
   });
 
-  test('Received and Given use the shared borderless list track', async ({
+  test('Received and Given use the standing list menu and search', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -78,22 +78,27 @@ test.describe('endorse compose voice', () => {
     });
     const panel = await openEndorsementsPanelLoggedOut(page);
 
-    const track = panel.locator('.app-storage-mode-toggle');
-    await expect(track).toBeVisible();
-    await expect(panel.locator('.endorsements-mode-chip')).toHaveCount(0);
-    expect(await borderTop(track)).toBe('0px');
+    const menu = panel.getByRole('button', { name: 'Open endorsements menu' });
+    await expect(menu).toBeVisible();
+    await expect(menu).toContainText('Received');
+    await expect(panel.locator('.app-storage-mode-toggle')).toHaveCount(0);
 
-    const received = panel.getByRole('tab', { name: /Received/ });
-    const given = panel.getByRole('tab', { name: /Given/ });
-    await expect(received).toHaveClass(/app-storage-mode/);
-    await expect(received).toHaveClass(/is-active/);
-    await expect(given).toHaveClass(/app-storage-mode/);
-    await expect(given).not.toHaveClass(/is-active/);
-    expect(await borderTop(received)).toBe('0px');
-    expect(await borderTop(given)).toBe('0px');
+    const search = panel.getByRole('textbox', { name: 'Search endorsements' });
+    await expect(search).toBeVisible();
+    await search.fill('nobody');
+    await expect(panel.getByText('No matches.')).toBeVisible();
+    await search.fill('bob');
+    await expect(panel.getByText('Bob', { exact: true })).toBeVisible();
+    await expect(panel.getByText('No matches.')).toHaveCount(0);
+    await expect(
+      panel.getByRole('button', { name: 'Support', exact: true })
+    ).toBeVisible();
 
-    const support = panel.getByRole('button', { name: 'Support', exact: true });
-    await expect(support).toBeVisible();
-    expect(await borderTop(support)).toBe('0px');
+    await search.fill('');
+    await menu.click();
+    await expect(page.getByRole('option', { name: /Received/ })).toBeVisible();
+    await page.getByRole('option', { name: /Given/ }).click();
+    await expect(menu).toContainText('Given');
+    await expect(panel.getByText('has not endorsed anyone yet.')).toBeVisible();
   });
 });
