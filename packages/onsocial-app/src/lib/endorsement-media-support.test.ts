@@ -4,6 +4,7 @@ import {
   resolveEndorsementSpendTargetId,
 } from '@/lib/social-spend-endorsement';
 import {
+  endorsementStageMedia,
   parseEndorsementMediaRef,
   resolveEndorsementDisplayMediaUrl,
   resolveEndorsementOptimisticDraftMedia,
@@ -66,9 +67,9 @@ describe('endorsement media helpers', () => {
       mime: 'image/jpeg',
       size: 12,
     });
-    expect(
-      resolveEndorsementDisplayMediaUrl({ media }, 'testnet')
-    ).toBe('https://cdn.testnet.onsocial.id/ipfs/bafytest');
+    expect(resolveEndorsementDisplayMediaUrl({ media }, 'testnet')).toBe(
+      'https://cdn.testnet.onsocial.id/ipfs/bafytest'
+    );
     expect(
       resolveEndorsementDisplayMediaUrl(
         { media, mediaUrl: 'https://cdn.example/direct.jpg' },
@@ -108,6 +109,26 @@ describe('endorsement media helpers', () => {
       media: existing,
       mediaUrl: 'https://cdn.example/old.jpg',
     });
+  });
+
+  it('builds one stage item from the display url', () => {
+    expect(
+      endorsementStageMedia({
+        media: { cid: 'bafytest', mime: 'image/png', alt: 'Workshop' },
+        mediaUrl: 'https://cdn.example/proof.png',
+      })
+    ).toEqual({
+      url: 'https://cdn.example/proof.png',
+      mime: 'image/png',
+      cid: 'bafytest',
+      alt: 'Workshop',
+    });
+    expect(
+      endorsementStageMedia({
+        mediaUrl: 'https://cdn.example/clip.mp4',
+      })?.mime
+    ).toBe('video/mp4');
+    expect(endorsementStageMedia({})).toBeNull();
   });
 
   it('clears media when the viewer removed it', () => {

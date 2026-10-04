@@ -11,8 +11,11 @@ import Link from 'next/link';
 import {
   OsGestureSheet,
   ShareIcon,
+  standingIdentityAccountCopy,
 } from '@onsocial/ui';
+import { AccountAvatar } from '@/components/profile/account-avatar';
 import { StandingIdentity } from '@/components/profile/standing-identity';
+import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
 import {
   EndorseComposeSheet,
   type EndorseComposeIntent,
@@ -27,13 +30,14 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
+  endorsementVouchLine,
   formatEndorsementTime,
   humanizeEndorsementTopic,
 } from '@/lib/endorsement-display';
 import { endorsementFocusSharePath } from '@/lib/endorsement-focus';
 import {
+  endorsementStageMedia,
   parseEndorsementMediaRef,
-  resolveEndorsementDisplayMediaUrl,
 } from '@/lib/endorsement-media';
 import type {
   EndorseExistingDraft,
@@ -85,11 +89,15 @@ export function EndorsementFocusSheet({
     useState<EndorsementSupportTarget | null>(null);
   const [supportersOpen, setSupportersOpen] = useState(false);
   const [supportersRefreshKey, setSupportersRefreshKey] = useState(0);
+  const [mediaOpen, setMediaOpen] = useState(false);
 
   const sheetOpen = open && !closing && Boolean(item);
   const issuerAccountId = item?.issuer ?? '';
   const targetAccountId = item?.target ?? pageAccountId;
-  const issuerName = displayName(issuerAccountId, item?.issuerName ?? undefined);
+  const issuerName = displayName(
+    issuerAccountId,
+    item?.issuerName ?? undefined
+  );
   const targetName = displayName(
     targetAccountId,
     item?.targetName ?? undefined
@@ -97,14 +105,16 @@ export function EndorsementFocusSheet({
   const topic = humanizeEndorsementTopic(item?.topic);
   const time = item ? formatEndorsementTime(item) : '';
   const note = item?.note?.trim() || null;
-  const media = parseEndorsementMediaRef(item?.media);
-  const mediaUrl = item
-    ? resolveEndorsementDisplayMediaUrl({
-        media,
+  const stageMedia = item
+    ? endorsementStageMedia({
+        media: item.media,
         mediaUrl: item.mediaUrl,
       })
     : null;
-  const mediaMime = media?.mime ?? null;
+  const stageIsVideo = Boolean(
+    stageMedia?.mime.toLowerCase().startsWith('video/')
+  );
+  const vouchLine = endorsementVouchLine(issuerName, targetName, item?.topic);
   const spendTargetId = item
     ? resolveEndorsementSpendTargetId({
         id: typeof item.id === 'string' ? item.id : null,
@@ -147,6 +157,7 @@ export function EndorsementFocusSheet({
     setSupportOpen(false);
     setSupportTarget(null);
     setSupportersOpen(false);
+    setMediaOpen(false);
     onOpenChange(false);
   }, [onOpenChange]);
 
@@ -154,9 +165,7 @@ export function EndorsementFocusSheet({
     if (!item) return;
     const href = endorsementFocusSharePath(item);
     const url = new URL(href, window.location.origin).toString();
-    const headline = topic
-      ? `${issuerName} endorsed ${targetName} for ${topic}`
-      : `${issuerName} endorsed ${targetName}`;
+    const headline = vouchLine;
     void (async () => {
       const result = await shareUrl({
         url,
@@ -248,29 +257,35 @@ export function EndorsementFocusSheet({
 
             {note ? <p className="endorsement-focus-note">{note}</p> : null}
 
-            {mediaUrl ? (
-              <div className="endorsement-focus-media">
-                {mediaMime?.toLowerCase().startsWith('video/') ? (
+            {stageMedia ? (
+              <button
+                type="button"
+                className="endorsement-focus-media"
+                onClick={() => setMediaOpen(true)}
+                aria-label={
+                  stageIsVideo
+                    ? 'Play endorsement video'
+                    : 'View endorsement photo'
+                }
+              >
+                {stageIsVideo ? (
                   <video
-                    src={mediaUrl}
+                    src={stageMedia.url}
                     className="endorsement-focus-media-el"
-                    controls
+                    autoPlay
+                    muted
                     playsInline
+                    loop
                     preload="metadata"
-                    aria-label={
-                      topic
-                        ? `Endorsement video for ${topic}`
-                        : 'Endorsement video'
-                    }
                   />
                 ) : (
                   <img
-                    src={mediaUrl}
-                    alt={media?.alt?.trim() || ''}
+                    src={stageMedia.url}
+                    alt=""
                     className="endorsement-focus-media-el"
                   />
                 )}
-              </div>
+              </button>
             ) : null}
 
             <p className="endorsement-focus-meta">
@@ -367,6 +382,44 @@ export function EndorsementFocusSheet({
         zIndex={nestedZ}
         refreshKey={supportersRefreshKey}
         onOpenChange={setSupportersOpen}
+      />
+
+      <FeedPhotoEnlargeScreen
+        open={mediaOpen && Boolean(stageMedia)}
+        onOpenChange={setMediaOpen}
+        title={vouchLine}
+        caption={vouchLine}
+        captionDate={time || null}
+        captionExpandLabel="Show endorsement"
+        captionCollapseLabel="Collapse endorsement"
+        closeAriaLabel="Back to endorsement"
+        photos={stageMedia ? [stageMedia] : []}
+        peekIdentity={
+          item ? (
+            <Link
+              href={portfolioPath(item.issuer)}
+              className="os-media-face-identity"
+              scroll={false}
+              aria-label={`View ${issuerName}'s profile`}
+              onClick={() => setMediaOpen(false)}
+            >
+              <AccountAvatar
+                accountId={item.issuer}
+                src={item.issuerAvatarUrl ?? null}
+                fallbackInitial={issuerName}
+                size="lg"
+              />
+              <span className="os-media-face-identity-copy">
+                <span className="os-media-face-identity-name">
+                  {issuerName}
+                </span>
+                <span className="os-media-face-identity-handle">
+                  {standingIdentityAccountCopy(issuerAccountId)}
+                </span>
+              </span>
+            </Link>
+          ) : null
+        }
       />
     </>
   );

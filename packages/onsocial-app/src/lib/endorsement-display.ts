@@ -8,6 +8,19 @@ export function humanizeEndorsementTopic(topic?: string | null): string {
   return (topic ?? '').trim().replace(/[-_]+/gu, ' ').replace(/\s+/gu, ' ');
 }
 
+/** One line for share text and the media stage: who vouched, for whom, for what. */
+export function endorsementVouchLine(
+  issuerName: string,
+  targetName: string,
+  topic?: string | null
+): string {
+  const cleanTopic = humanizeEndorsementTopic(topic);
+  if (cleanTopic) {
+    return `${issuerName} endorsed ${targetName} for ${cleanTopic}`;
+  }
+  return `${issuerName} endorsed ${targetName}`;
+}
+
 export function endorsementTopicKey(topic?: string | null): string {
   return (normalizeEndorsementTopic(topic ?? undefined) ?? '').toLowerCase();
 }

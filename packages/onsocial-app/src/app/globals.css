@@ -1478,6 +1478,12 @@ body:has([data-os-slide-over='true']:not(.is-closing)) .os-launcher-root {
   min-width: 0;
 }
 
+/* List proof is part of the row tap. Unlayered so it wins the standing hit. */
+.endorsement-standing-row .endorsement-row-media,
+.endorsement-standing-row .endorsement-row-media-el {
+  pointer-events: none;
+}
+
 /* Endorsements header — same compact pill as guild Join. */
 .endorsements-endorse-action.os-sheet-actions--row-compact {
   flex-shrink: 0;
@@ -41783,13 +41789,12 @@ a.os-surface-row {
 
   .endorsement-standing-row .endorsement-row-media {
     display: block;
+    width: fit-content;
     margin-top: 0.4rem;
     max-width: 100%;
     overflow: hidden;
     border-radius: 0.75rem;
     background: rgb(var(--fg-rgb) / 0.04);
-    /* Island above `.standing-row-hit` (Standing bio links pattern). */
-    pointer-events: auto;
   }
 
   .endorsement-standing-row .endorsement-row-media-el {
@@ -41875,16 +41880,28 @@ a.os-surface-row {
   }
 
   .endorsement-focus-media {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
     overflow: hidden;
     border-radius: 0.85rem;
     background: rgb(var(--fg-rgb) / 0.04);
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
   }
 
   .endorsement-focus-media-el {
     display: block;
     width: 100%;
-    max-height: 18rem;
     height: auto;
+    max-height: min(70vh, 36rem);
+    object-fit: contain;
+    object-position: center top;
+    pointer-events: none;
   }
 
   .endorsement-focus-meta {

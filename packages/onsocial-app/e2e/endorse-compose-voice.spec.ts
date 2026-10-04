@@ -107,4 +107,86 @@ test.describe('endorse compose voice', () => {
     await expect(menu).toContainText('Given');
     await expect(panel.getByText('has not endorsed anyone yet.')).toBeVisible();
   });
+
+  test('endorsement media opens the vouch, then the photo stage', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const proof = `data:image/svg+xml,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1100" viewBox="0 0 800 1100"><rect width="800" height="1100" fill="#c4a46a"/><text x="48" y="140" fill="#1c140c" font-size="54" font-family="sans-serif">Proof</text></svg>'
+    )}`;
+    await page.route('**/api/profile/endorsements**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          accountId: ENDORSE_E2E_ACCOUNT,
+          counts: { received: 1, given: 0 },
+          received: [
+            {
+              issuer: 'bob.testnet',
+              target: ENDORSE_E2E_ACCOUNT,
+              topic: 'design',
+              note: 'Clear product work.',
+              v: 1,
+              since: 1,
+              blockHeight: 1,
+              blockTimestamp: 1_700_000_000_000_000_000,
+              issuerName: 'Bob',
+              issuerAvatarUrl: null,
+              targetName: 'Alice',
+              targetAvatarUrl: null,
+              media: {
+                cid: 'bafyendorseproof',
+                mime: 'image/svg+xml',
+                alt: 'Workshop',
+              },
+              mediaUrl: proof,
+              supporterCount: 0,
+            },
+          ],
+          given: [],
+          receivedHasMore: false,
+          givenHasMore: false,
+        }),
+      });
+    });
+
+    const panel = await openEndorsementsPanelLoggedOut(page);
+    const photo = panel.locator('.endorsement-row-media-el');
+    await expect(photo).toBeVisible();
+    const pictureOpensRow = await photo.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(
+        box.x + box.width / 2,
+        box.y + box.height / 2
+      );
+      return Boolean(hit?.closest('.standing-row-hit'));
+    });
+    expect(pictureOpensRow).toBe(true);
+
+    await panel
+      .getByRole('button', { name: 'Open endorsement from Bob' })
+      .click();
+    const vouch = page.getByRole('dialog', { name: /design Bob/ });
+    await expect(vouch).toBeVisible();
+    await expect(vouch.getByText('Clear product work.')).toBeVisible();
+    await expect(vouch.getByRole('button', { name: 'Share' })).toBeVisible();
+
+    await vouch.getByRole('button', { name: 'View endorsement photo' }).click();
+    const stage = page.getByRole('dialog', {
+      name: 'Bob endorsed Alice for design',
+    });
+    await expect(stage).toBeVisible();
+    await expect(
+      stage.getByRole('button', { name: 'Show endorsement' })
+    ).toContainText('Bob endorsed Alice for design');
+    await expect(stage.getByRole('button', { name: 'Reply' })).toHaveCount(0);
+    await expect(stage.getByRole('button', { name: 'Repost' })).toHaveCount(0);
+    await expect(stage.getByRole('button', { name: 'Quote' })).toHaveCount(0);
+
+    await stage.getByRole('button', { name: 'Back to endorsement' }).click();
+    await expect(stage).toBeHidden();
+    await expect(vouch).toBeVisible();
+  });
 });

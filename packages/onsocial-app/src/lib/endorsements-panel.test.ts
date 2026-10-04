@@ -7,6 +7,7 @@ import { parseEndorsementsMode } from '@/lib/load-endorsements-page';
 import {
   endorsementRowMatchesQuery,
   endorsementTopicKey,
+  endorsementVouchLine,
   humanizeEndorsementTopic,
 } from '@/lib/endorsement-display';
 
@@ -29,6 +30,15 @@ describe('endorsement display helpers', () => {
 
   it('keys topics via normalize', () => {
     expect(endorsementTopicKey('Product Design')).toBe('product-design');
+  });
+
+  it('writes the vouch line used on the media stage', () => {
+    expect(endorsementVouchLine('Bob', 'Alice', 'product-design')).toBe(
+      'Bob endorsed Alice for product design'
+    );
+    expect(endorsementVouchLine('Bob', 'Alice', '  ')).toBe(
+      'Bob endorsed Alice'
+    );
   });
 });
 

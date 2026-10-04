@@ -100,6 +100,8 @@ export function FeedPhotoEnlargeScreen({
   title,
   caption = null,
   captionDate = null,
+  captionExpandLabel = 'Show full post',
+  captionCollapseLabel = 'Collapse caption',
   quiet = false,
   photos,
   initialIndex = 0,
@@ -122,6 +124,9 @@ export function FeedPhotoEnlargeScreen({
   caption?: string | null;
   /** Post creation date — shown at the end of the expanded caption. */
   captionDate?: string | null;
+  /** Accessible name when the caption peek can open. Posts say “Show full post”. */
+  captionExpandLabel?: string;
+  captionCollapseLabel?: string;
   /** Hide the visual title — picture + × only (About stills). */
   quiet?: boolean;
   /** Image and/or video items (audio excluded upstream). */
@@ -249,8 +254,11 @@ export function FeedPhotoEnlargeScreen({
   const dismissThread = useCallback(() => {
     onDismissThread?.();
   }, [onDismissThread]);
-  const { band: threadBand, dragging: threadDragging, gripHandlers } =
-    useFeedThreadBand(Boolean(open && threadOpen), dismissThread);
+  const {
+    band: threadBand,
+    dragging: threadDragging,
+    gripHandlers,
+  } = useFeedThreadBand(Boolean(open && threadOpen), dismissThread);
   const jacketT = threadJacketT(Boolean(open && threadOpen), threadBand);
   const slideClass = [
     quiet ? 'feed-photo-slide feed-photo-slide--quiet' : 'feed-photo-slide',
@@ -381,10 +389,7 @@ export function FeedPhotoEnlargeScreen({
       if (!video) return;
       const duration = video.duration;
       if (!Number.isFinite(duration) || duration <= 0) return;
-      const next = Math.min(
-        duration,
-        Math.max(0, video.currentTime + delta)
-      );
+      const next = Math.min(duration, Math.max(0, video.currentTime + delta));
       video.currentTime = next;
       paintProgress(next / duration, duration);
       setVideoDuration(duration);
@@ -833,9 +838,7 @@ export function FeedPhotoEnlargeScreen({
   /* Keep transport mounted while watching. On-film (cinema / thread) it
    * stays visible; footer transport fades while chrome is quiet. */
   const transportMounted = open && activeIsVideo;
-  const transportVisible =
-    transportMounted &&
-    (threadOpen || showVideoChrome);
+  const transportVisible = transportMounted && (threadOpen || showVideoChrome);
 
   /* Repaint rail/time after the transport remounts (reply cancel, cinema). */
   useLayoutEffect(() => {
@@ -1024,82 +1027,79 @@ export function FeedPhotoEnlargeScreen({
 
   const showCaptionPeek =
     !cinema && !threadOpen && (hasCaption || Boolean(peekIdentity));
-  const captionNode =
-    showCaptionPeek ? (
-      <>
+  const captionNode = showCaptionPeek ? (
+    <>
+      {hasCaption ? (
+        <button
+          type="button"
+          className={`feed-photo-caption-dim${captionExpanded ? ' is-on' : ''}`}
+          aria-label="Collapse caption"
+          tabIndex={captionExpanded ? 0 : -1}
+          aria-hidden={!captionExpanded}
+          onClick={(event) => {
+            event.stopPropagation();
+            collapseCaption();
+            revealChrome();
+          }}
+        />
+      ) : null}
+      <div
+        ref={captionHostRef}
+        className={`feed-photo-caption os-reveal${captionHasMore ? ' has-more' : ''}${captionExpanded ? ' is-expanded is-open' : ''}${chromeQuiet ? ' is-chrome-quiet' : ''}`}
+      >
+        {peekIdentity ? (
+          <div
+            className="feed-photo-caption-identity"
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            {peekIdentity}
+          </div>
+        ) : null}
         {hasCaption ? (
           <button
             type="button"
-            className={`feed-photo-caption-dim${captionExpanded ? ' is-on' : ''}`}
-            aria-label="Collapse caption"
-            tabIndex={captionExpanded ? 0 : -1}
-            aria-hidden={!captionExpanded}
+            className="feed-photo-caption-body"
+            aria-expanded={captionExpanded}
+            aria-label={
+              captionExpanded ? captionCollapseLabel : captionExpandLabel
+            }
             onClick={(event) => {
               event.stopPropagation();
-              collapseCaption();
+              if (captionExpanded) collapseCaption();
+              else expandCaption();
               revealChrome();
             }}
-          />
-        ) : null}
-        <div
-          ref={captionHostRef}
-          className={`feed-photo-caption os-reveal${captionHasMore ? ' has-more' : ''}${captionExpanded ? ' is-expanded is-open' : ''}${chromeQuiet ? ' is-chrome-quiet' : ''}`}
-        >
-          {peekIdentity ? (
-            <div
-              className="feed-photo-caption-identity"
-              onClick={(event) => event.stopPropagation()}
-              onPointerDown={(event) => event.stopPropagation()}
-            >
-              {peekIdentity}
-            </div>
-          ) : null}
-          {hasCaption ? (
-            <button
-              type="button"
-              className="feed-photo-caption-body"
-              aria-expanded={captionExpanded}
-              aria-label={
-                captionExpanded ? 'Collapse caption' : 'Show full post'
-              }
-              onClick={(event) => {
-                event.stopPropagation();
-                if (captionExpanded) collapseCaption();
-                else expandCaption();
-                revealChrome();
-              }}
+          >
+            <span
+              ref={captionClipRef}
+              className="feed-photo-caption-clip os-reveal-clip"
             >
               <span
-                ref={captionClipRef}
-                className="feed-photo-caption-clip os-reveal-clip"
+                ref={captionInnerRef}
+                className="feed-photo-caption-clip-inner os-reveal-inner is-capped"
               >
-                <span
-                  ref={captionInnerRef}
-                  className="feed-photo-caption-clip-inner os-reveal-inner is-capped"
-                >
-                  <span ref={captionTextRef} className="feed-photo-caption-text">
-                    {captionText}
-                  </span>
-                  {captionDateText ? (
-                    <span className="feed-photo-caption-date">
-                      {captionDateText}
-                    </span>
-                  ) : null}
+                <span ref={captionTextRef} className="feed-photo-caption-text">
+                  {captionText}
                 </span>
+                {captionDateText ? (
+                  <span className="feed-photo-caption-date">
+                    {captionDateText}
+                  </span>
+                ) : null}
               </span>
-              <span className="feed-photo-caption-more" aria-hidden>
-                ...
-              </span>
-            </button>
-          ) : null}
-        </div>
-      </>
-    ) : null;
+            </span>
+            <span className="feed-photo-caption-more" aria-hidden>
+              ...
+            </span>
+          </button>
+        ) : null}
+      </div>
+    </>
+  ) : null;
 
   const trailingNode =
-    typeof trailing === 'function'
-      ? trailing({ downloadCurrent })
-      : trailing;
+    typeof trailing === 'function' ? trailing({ downloadCurrent }) : trailing;
 
   return (
     <OsMediaFaceShell
@@ -1149,9 +1149,7 @@ export function FeedPhotoEnlargeScreen({
                     active={open && photoIndex === index}
                     photoIndex={photoIndex}
                     videoRefs={videoRefs}
-                    muted={
-                      open && photoIndex === index ? videoMuted : true
-                    }
+                    muted={open && photoIndex === index ? videoMuted : true}
                     buffering={
                       open && photoIndex === index ? videoBuffering : false
                     }
@@ -1321,4 +1319,3 @@ function FeedPhotoMediaStage({
     />
   );
 }
-
