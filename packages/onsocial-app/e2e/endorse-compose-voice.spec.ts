@@ -171,8 +171,9 @@ test.describe('endorse compose voice', () => {
     await panel
       .getByRole('button', { name: 'Open endorsement from Bob' })
       .click();
-    const vouch = page.getByRole('dialog', { name: /design Bob/ });
+    const vouch = page.getByRole('dialog', { name: 'From Bob' });
     await expect(vouch).toBeVisible();
+    await expect(vouch.locator('.gesture-sheet-subject')).toHaveText('design');
     await expect(vouch.locator('.endorsement-focus-identity')).toHaveCount(0);
     await expect(vouch.getByRole('link', { name: 'Bob' })).toBeVisible();
     await expect(vouch.getByText('Clear product work.')).toBeVisible();

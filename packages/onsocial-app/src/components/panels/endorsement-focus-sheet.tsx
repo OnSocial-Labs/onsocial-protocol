@@ -226,14 +226,17 @@ export function EndorsementFocusSheet({
     setComposeOpen(true);
   }
 
+  // Title is "{verb} {person}". The topic is the subject line under it,
+  // so a design vouch from Bob reads "From Bob", not "design Bob".
   return (
     <>
       <OsGestureSheet
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleSheetClosed}
-        verb={topic || 'Endorsement'}
+        verb="From"
         personName={issuerName}
+        subject={topic}
         handle={fallbackLabel(issuerAccountId)}
         signal="endorse"
         whisper={`Vouch for ${targetName}`}
