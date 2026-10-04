@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePublishEndorsementsHeaderActions } from '@/components/overlay/endorsements-overlay-frame';
 import type {
   EndorseExistingDraft,
   EndorsementPanelItem,
@@ -23,13 +24,10 @@ import {
   type EndorsementSupportTarget,
 } from '@/components/panels/endorsement-support-sheet';
 import { DiscoverProfilesLink } from '@/components/panels/standing-discover-link';
-import { OsChipAction } from '@/lib/os-chip-action';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import {
   ChoiceDrawerMenu,
   Divider,
-  OsSheetAction,
-  OsSheetActions,
   SearchField,
   osFloatingPanelCountClassName,
   type ChoiceOption,
@@ -440,6 +438,17 @@ export function EndorsementsPanel({
     });
   }
 
+  usePublishEndorsementsHeaderActions({
+    show: !isSelf,
+    endorsed: isConnected && viewerEndorsed,
+    pending: endorsePending,
+    blocked: endorseBlocked,
+    label,
+    showAddTopic: isConnected && viewerEndorsed && !endorseBlocked,
+    onEndorse: handleEndorseClick,
+    onAddTopic: handleAddTopic,
+  });
+
   function openSupport(item: EndorsementPanelItem) {
     const endorsementId = resolveEndorsementSpendTargetId({
       id: typeof item.id === 'string' ? item.id : null,
@@ -477,7 +486,7 @@ export function EndorsementsPanel({
 
   return (
     <div className="endorsements-panel">
-      <div className="standing-list-toolbar endorsements-panel-toolbar">
+      <div className="standing-list-toolbar">
         <ChoiceDrawerMenu
           label="Endorsements"
           value={mode}
@@ -501,42 +510,6 @@ export function EndorsementsPanel({
           chrome="floating-panel"
           className="standing-list-toolbar-search"
         />
-
-        {!isSelf ? (
-          <div className="endorsements-endorse-cta">
-            <OsSheetActions
-              layout="row-compact"
-              size="sm"
-              tone="frosted-primary"
-              borderless
-              className="endorsements-endorse-action"
-            >
-              <OsSheetAction
-                type="button"
-                ready={!endorseBlocked}
-                active={isConnected && viewerEndorsed}
-                disabled={endorsePending || endorseBlocked}
-                pending={endorsePending}
-                pendingLabel={viewerEndorsed ? 'Saving…' : 'Endorsing…'}
-                {...(isConnected && viewerEndorsed
-                  ? { 'aria-label': `Edit endorsement for ${label}` }
-                  : {})}
-                onClick={handleEndorseClick}
-              >
-                {isConnected && viewerEndorsed ? 'Endorsed' : 'Endorse'}
-              </OsSheetAction>
-            </OsSheetActions>
-            {isConnected && viewerEndorsed && !endorseBlocked ? (
-              <OsChipAction
-                onClick={handleAddTopic}
-                disabled={endorsePending}
-                aria-label={`Add another endorsement for ${label}`}
-              >
-                Add topic
-              </OsChipAction>
-            ) : null}
-          </div>
-        ) : null}
       </div>
 
       {loading ? (

@@ -82,6 +82,12 @@ test.describe('endorse compose voice', () => {
     await expect(menu).toBeVisible();
     await expect(menu).toContainText('Received');
     await expect(panel.locator('.app-storage-mode-toggle')).toHaveCount(0);
+    await expect(
+      panel.getByRole('button', { name: 'Endorse', exact: true })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Endorse', exact: true })
+    ).toBeVisible();
 
     const search = panel.getByRole('textbox', { name: 'Search endorsements' });
     await expect(search).toBeVisible();

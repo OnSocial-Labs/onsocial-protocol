@@ -66,6 +66,6 @@ export async function openEndorsementsPanelLoggedOut(page: Page) {
 
 /** Soft-open endorsements from the portfolio face, then open compose. */
 export async function openEndorseComposeLoggedOut(page: Page): Promise<void> {
-  const panel = await openEndorsementsPanelLoggedOut(page);
-  await panel.getByRole('button', { name: 'Endorse', exact: true }).click();
+  await openEndorsementsPanelLoggedOut(page);
+  await page.getByRole('button', { name: 'Endorse', exact: true }).click();
 }

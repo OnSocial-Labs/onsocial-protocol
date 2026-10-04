@@ -1478,7 +1478,7 @@ body:has([data-os-slide-over='true']:not(.is-closing)) .os-launcher-root {
   min-width: 0;
 }
 
-/* Endorsements toolbar — same compact pill as guild Join. */
+/* Endorsements header — same compact pill as guild Join. */
 .endorsements-endorse-action.os-sheet-actions--row-compact {
   flex-shrink: 0;
   width: auto;
@@ -41751,21 +41751,6 @@ a.os-surface-row {
     /* Same denser rhythm as `.standing-panel` — social list overlays share inset. */
     gap: 0.65rem;
     padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
-  }
-
-  .endorsements-panel-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    min-width: 0;
-  }
-
-  .endorsements-endorse-cta {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    flex-shrink: 0;
-    gap: 0.15rem;
   }
 
   .endorsement-list {
