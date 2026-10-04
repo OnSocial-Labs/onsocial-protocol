@@ -19,11 +19,11 @@ export interface GestureSheetHeaderProps {
   /** When set, the person name links to their profile. No second face in the body. */
   personHref?: string;
   /**
-   * Shared identity cluster (avatar + name + @id, one profile link) rendered
-   * under the verb instead of the inline person + handle lines. The title
-   * keeps the full "{verb} {person}" accessible name via aria-label.
+   * Accessible name override for the title — record sheets whose visible
+   * title is just the topic (the who lives in the body) still name the
+   * dialog after the people.
    */
-  personIdentity?: ReactNode;
+  titleLabel?: string;
   /** Quiet @handle under the title. Omit when unused or redundant. */
   handle?: string;
   /** Work title under the verb (Amplify). Omit when the post has no named work. */
@@ -50,7 +50,7 @@ export function GestureSheetHeader({
   verb,
   personName = '',
   personHref = '',
-  personIdentity = null,
+  titleLabel = '',
   handle = '',
   subject = '',
   signal,
@@ -61,7 +61,6 @@ export function GestureSheetHeader({
   const person = personName.trim();
   const workTitle = subject.trim();
   const handleLine = handle.trim() ? standingIdentityAccountCopy(handle) : '';
-  const identityMode = Boolean(personIdentity) && Boolean(person);
 
   return (
     <div className="standing-sheet-header gesture-sheet-header">
@@ -71,7 +70,7 @@ export function GestureSheetHeader({
             id={titleId}
             role="heading"
             aria-level={2}
-            {...(identityMode ? { 'aria-label': `${verb} ${person}` } : {})}
+            {...(titleLabel ? { 'aria-label': titleLabel } : {})}
             className="standing-sheet-subject-name gesture-sheet-title"
           >
             <span
@@ -79,7 +78,7 @@ export function GestureSheetHeader({
             >
               {verb}
             </span>
-            {person && !identityMode ? (
+            {person ? (
               <>
                 {' '}
                 {personHref ? (
@@ -92,13 +91,10 @@ export function GestureSheetHeader({
               </>
             ) : null}
           </p>
-          {identityMode ? (
-            <div className="gesture-sheet-identity">{personIdentity}</div>
-          ) : null}
           {workTitle ? (
             <p className="gesture-sheet-subject">{workTitle}</p>
           ) : null}
-          {handleLine && !identityMode ? (
+          {handleLine ? (
             <p className="gesture-sheet-handle">{handleLine}</p>
           ) : null}
           {whisper ? <p className="gesture-sheet-whisper">{whisper}</p> : null}

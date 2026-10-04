@@ -37,6 +37,7 @@ import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   endorsementVouchLine,
+  endorsementVouchTitle,
   formatEndorsementTime,
   humanizeEndorsementTopic,
 } from '@/lib/endorsement-display';
@@ -52,7 +53,7 @@ import type {
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { displayName } from '@/lib/profile-display';
 import { shareUrl } from '@/lib/share-url';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
@@ -227,39 +228,19 @@ export function EndorsementFocusSheet({
     setComposeOpen(true);
   }
 
-  // Title stays "{verb} {person}"; the visible person row is the shared
-  // avatar + name + @id identity (one profile link), topic underneath —
-  // so a design vouch from Bob reads "Endorsed Bob", not "design Bob".
+  // Record sheet, not an action: the topic is the title, and who's who
+  // (author identity + target) sits under the media — the same attribution
+  // pattern the photo stage uses. The dialog keeps a people-first
+  // accessible name via titleLabel.
   return (
     <>
       <OsGestureSheet
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleSheetClosed}
-        verb="Endorsed"
-        personName={issuerName}
-        subject={topic}
-        handle={fallbackLabel(issuerAccountId)}
+        verb={topic || 'Endorsement'}
+        titleLabel={endorsementVouchTitle(issuerName, targetName)}
         signal="endorse"
-        whisper={`Vouch for ${targetName}`}
-        {...(issuerAccountId
-          ? {
-              personIdentity: (
-                <Link
-                  href={portfolioPath(issuerAccountId)}
-                  className="gesture-sheet-identity-link"
-                  scroll={false}
-                  aria-label={`View ${issuerName}'s profile`}
-                >
-                  <StandingIdentity
-                    accountId={issuerAccountId}
-                    profileName={item?.issuerName ?? undefined}
-                    avatarUrl={item?.issuerAvatarUrl ?? null}
-                  />
-                </Link>
-              ),
-            }
-          : {})}
         closeAriaLabel="Close endorsement"
         backdropLabel="Close endorsement"
         moodId={effectiveMood?.id}
@@ -320,6 +301,26 @@ export function EndorsementFocusSheet({
                 />
               </div>
             ) : null}
+
+            <div className="standing-row endorsement-focus-whoswho">
+              <div className="standing-row-main">
+                <Link
+                  href={portfolioPath(issuerAccountId)}
+                  className="standing-row-hit"
+                  scroll={false}
+                  aria-label={`View ${issuerName}'s profile`}
+                />
+                <StandingIdentity
+                  accountId={issuerAccountId}
+                  profileName={item.issuerName ?? undefined}
+                  avatarUrl={item.issuerAvatarUrl ?? null}
+                >
+                  <span className="endorsement-focus-target">
+                    Vouch for {targetName}
+                  </span>
+                </StandingIdentity>
+              </div>
+            </div>
 
             <p className="endorsement-focus-meta">
               Endorsed

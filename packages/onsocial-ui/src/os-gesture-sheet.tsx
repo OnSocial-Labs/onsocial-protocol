@@ -33,8 +33,8 @@ export interface OsGestureSheetProps {
   personName?: string;
   /** Profile link on the header person. Omit when the name is not a destination. */
   personHref?: string;
-  /** Shared identity cluster under the verb — replaces inline person + handle. */
-  personIdentity?: ReactNode;
+  /** Accessible name override when the visible title is only the topic. */
+  titleLabel?: string;
   handle?: string;
   subject?: string;
   signal: GestureSheetSignal;
@@ -77,7 +77,7 @@ export function OsGestureSheet({
   verb,
   personName,
   personHref,
-  personIdentity,
+  titleLabel,
   handle,
   subject,
   signal,
@@ -138,7 +138,7 @@ export function OsGestureSheet({
             verb={verb}
             {...(personName != null ? { personName } : {})}
             {...(personHref != null ? { personHref } : {})}
-            {...(personIdentity != null ? { personIdentity } : {})}
+            {...(titleLabel != null ? { titleLabel } : {})}
             {...(handle != null ? { handle } : {})}
             {...(subject != null ? { subject } : {})}
             signal={signal}

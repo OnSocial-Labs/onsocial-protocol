@@ -8,6 +8,7 @@ import {
   endorsementRowMatchesQuery,
   endorsementTopicKey,
   endorsementVouchLine,
+  endorsementVouchTitle,
   humanizeEndorsementTopic,
 } from '@/lib/endorsement-display';
 
@@ -39,6 +40,10 @@ describe('endorsement display helpers', () => {
     expect(endorsementVouchLine('Bob', 'Alice', '  ')).toBe(
       'Bob endorsed Alice'
     );
+  });
+
+  it('names the vouch dialog after the people, not the topic', () => {
+    expect(endorsementVouchTitle('Bob', 'Alice')).toBe('Bob’s vouch for Alice');
   });
 });
 

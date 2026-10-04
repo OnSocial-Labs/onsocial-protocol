@@ -111,38 +111,6 @@
   color: rgb(var(--fg-rgb) / 0.88);
 }
 
-/* Identity mode — shared avatar + name/@id cluster (article-row chrome). */
-.gesture-sheet-identity {
-  margin-top: 0.4rem;
-}
-
-.gesture-sheet-identity-link {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin: 0 -0.35rem;
-  padding: 0.3rem 0.35rem;
-  border-radius: 0.85rem;
-  color: inherit;
-  text-decoration: none;
-  transition: background 160ms ease;
-}
-
-.gesture-sheet-identity-link:hover,
-.gesture-sheet-identity-link:focus-visible {
-  background: var(--os-surface-row-hover);
-}
-
-.gesture-sheet-identity-link:hover .standing-row-name,
-.gesture-sheet-identity-link:focus-visible .standing-row-name {
-  color: var(--os-identity-name-hover);
-}
-
-.gesture-sheet-identity-link:hover .standing-row-handle,
-.gesture-sheet-identity-link:focus-visible .standing-row-handle {
-  color: var(--os-identity-handle-hover);
-}
-
 a.gesture-sheet-person {
   color: rgb(var(--fg-rgb) / 0.88);
   text-decoration: none;

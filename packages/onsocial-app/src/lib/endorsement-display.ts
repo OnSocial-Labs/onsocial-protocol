@@ -21,6 +21,18 @@ export function endorsementVouchLine(
   return `${issuerName} endorsed ${targetName}`;
 }
 
+/**
+ * Accessible dialog name for the vouch sheet — the visible title is the
+ * topic, so the accessible name carries who's who. Distinct from
+ * {@link endorsementVouchLine}, which the photo stage (stacked above) uses.
+ */
+export function endorsementVouchTitle(
+  issuerName: string,
+  targetName: string
+): string {
+  return `${issuerName}’s vouch for ${targetName}`;
+}
+
 export function endorsementTopicKey(topic?: string | null): string {
   return (normalizeEndorsementTopic(topic ?? undefined) ?? '').toLowerCase();
 }
