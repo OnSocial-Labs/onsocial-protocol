@@ -40,8 +40,8 @@ async function openEndorsementsOverlay(page: Page): Promise<void> {
   await softOpenPortfolioOverlay(page, endorsementsHref);
 }
 
-/** Soft-open endorsements from the portfolio face, then open compose. */
-export async function openEndorseComposeLoggedOut(page: Page): Promise<void> {
+/** Soft-open the endorsements list from the portfolio face. */
+export async function openEndorsementsPanelLoggedOut(page: Page) {
   await gotoApp(page, `/@${ENDORSE_E2E_ACCOUNT}`);
   await waitForPortfolioClientReady(page);
 
@@ -60,7 +60,12 @@ export async function openEndorseComposeLoggedOut(page: Page): Promise<void> {
 
   const panel = page.locator('.endorsements-panel');
   await panel.waitFor({ state: 'visible', timeout: 15_000 });
-
   await dismissNextDevOverlay(page);
-  await panel.getByRole('button', { name: 'Endorse', exact: true }).click();
+  return panel;
+}
+
+/** Soft-open endorsements from the portfolio face, then open compose. */
+export async function openEndorseComposeLoggedOut(page: Page): Promise<void> {
+  await openEndorsementsPanelLoggedOut(page);
+  await page.getByRole('button', { name: 'Endorse', exact: true }).click();
 }

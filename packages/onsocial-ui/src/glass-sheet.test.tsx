@@ -5,7 +5,9 @@ import {
   SheetHeader,
   hugEnterNeedsArming,
   nextHugEnterStableSample,
+  GLASS_SHEET_MEDIA_FACE_LIFT,
   resolveBackdropPresentation,
+  resolveGlassSheetZIndex,
   resolveHugEnterLockStyle,
   resolvePanelPresentation,
   resolveSheetCoverProgress,
@@ -59,6 +61,19 @@ describe('hug enter height lock', () => {
     });
     expect(resolveHugEnterLockStyle(480, false)).toBeUndefined();
     expect(resolveHugEnterLockStyle(null, true)).toBeUndefined();
+  });
+});
+
+describe('resolveGlassSheetZIndex', () => {
+  it('keeps a sheet that opened with no media face on its own band', () => {
+    expect(resolveGlassSheetZIndex(60, false)).toBe(60);
+  });
+
+  it('lifts a sheet that opened while a media face was already up', () => {
+    expect(resolveGlassSheetZIndex(60, true)).toBe(
+      60 + GLASS_SHEET_MEDIA_FACE_LIFT
+    );
+    expect(resolveGlassSheetZIndex(50, true)).toBe(130);
   });
 });
 

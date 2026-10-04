@@ -17,8 +17,14 @@ import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { accountIdsEqual } from '@/lib/account-match';
 import { displayName } from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
-import { isBlockEitherWay, isViewerMuting } from '@/lib/viewer-mute-block-filter';
-import { isWalletUserCancellation, formatStandingActionError } from '@/lib/wallet-errors';
+import {
+  isBlockEitherWay,
+  isViewerMuting,
+} from '@/lib/viewer-mute-block-filter';
+import {
+  isWalletUserCancellation,
+  formatStandingActionError,
+} from '@/lib/wallet-errors';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { PortfolioDaoGestureStandingCount } from '@/components/portfolio/portfolio-dao-gesture-standing-count';
 
@@ -214,7 +220,7 @@ function PortfolioIdentityGesturesVisitor({
                 className={`portfolio-identity-gesture portfolio-identity-gesture--endorse group${
                   viewerEndorsed ? ' is-endorsed' : ''
                 }`}
-                disabled={endorsePending}
+                disabled={endorsePending || blockEitherWay}
                 onClick={() => {
                   if (blockEitherWay) {
                     setTxResult({

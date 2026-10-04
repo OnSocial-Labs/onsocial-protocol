@@ -17,6 +17,7 @@ import {
   E2E_CHROME_TIMEOUT_MS,
   dismissNextDevOverlay,
   gotoApp,
+  softOpenPortfolioOverlay,
 } from './helpers';
 import {
   expectSignedEndorseCompose,
@@ -114,5 +115,132 @@ test.describe('signed writes mock signer', () => {
       ).toBe(true);
       expect(JSON.stringify(recorded)).toContain('night-drive');
     });
+  });
+
+  test('a topic chip dirties the sheet and close asks to discard', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await seedE2eMockSigner(page, signedChromeViewerAccount());
+    await stubE2eComposePrepare(page);
+    await stubE2eDataGetOne(page);
+    await openSignedEndorseCompose(page);
+    await expectSignedEndorseCompose(page);
+    await dismissNextDevOverlay(page);
+
+    const sheet = page.getByRole('dialog', { name: /^Endorse / });
+    await sheet.getByRole('button', { name: 'Design', exact: true }).click();
+    await expect(sheet.locator('.endorse-compose-input')).toHaveValue('Design');
+    await sheet.getByRole('button', { name: 'Close endorse' }).click();
+
+    const discard = page.getByRole('dialog', { name: 'Discard endorsement?' });
+    await expect(discard).toBeVisible();
+    await discard
+      .locator('button.os-sheet-action')
+      .filter({ hasText: 'Keep editing' })
+      .click();
+    await expect(discard).toBeHidden();
+    await expect(sheet.locator('.endorse-compose-input')).toHaveValue('Design');
+  });
+
+  test('remove asks, then records a null endorsement set', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const viewer = signedChromeViewerAccount();
+    const target = signedChromeTargetAccount();
+    await seedE2eMockSigner(page, viewer);
+    await stubE2eComposePrepare(page);
+    await stubE2eDataGetOne(page);
+    await openSignedVisitorProfile(page);
+    await page.route('**/api/profile/endorsements**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          accountId: target,
+          counts: { received: 1, given: 0 },
+          received: [
+            {
+              issuer: viewer,
+              target,
+              v: 1,
+              since: 1,
+              blockHeight: 1,
+              blockTimestamp: 1_700_000_000_000_000_000,
+              issuerName: 'Green',
+              issuerAvatarUrl: null,
+              targetName: null,
+              targetAvatarUrl: null,
+              mediaUrl: null,
+              supporterCount: 0,
+            },
+          ],
+          given: [],
+          receivedHasMore: false,
+          givenHasMore: false,
+        }),
+      });
+    });
+    await dismissNextDevOverlay(page);
+    await softOpenPortfolioOverlay(page, `/@${target}/endorsements`);
+
+    const panel = page.locator('.endorsements-panel');
+    await expect(panel).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await panel.getByRole('button', { name: /Open endorsement from/ }).click();
+    const vouch = page.getByRole('dialog', { name: /Endorsement Green/ });
+    await expect(vouch).toBeVisible();
+    await vouch
+      .getByRole('button', { name: 'Edit endorsement', exact: true })
+      .click();
+
+    const sheet = page.getByRole('dialog', { name: /^Edit endorsement/ });
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole('button', { name: 'Remove endorsement' }).click();
+    const confirm = page.getByRole('dialog', {
+      name: 'Remove this endorsement?',
+    });
+    await expect(confirm).toBeVisible();
+    await confirm.getByRole('button', { name: 'Remove', exact: true }).click();
+
+    await expectE2eSignerWrite(page, (recorded) => {
+      const prepared = recorded.map(extractPreparedAction);
+      expect(
+        prepared.some((action) => {
+          const body = action?.body as
+            | { path?: string; value?: unknown }
+            | undefined;
+          return (
+            action?.e2eVerb === 'set' &&
+            body?.path === `endorsement/${target}` &&
+            body.value === null
+          );
+        })
+      ).toBe(true);
+    });
+  });
+
+  test('a successful endorse closes the sheet and the face reads Endorsed', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await seedE2eMockSigner(page, signedChromeViewerAccount(), {
+      succeed: true,
+    });
+    await stubE2eComposePrepare(page);
+    await stubE2eDataGetOne(page);
+    await openSignedEndorseCompose(page);
+    await expectSignedEndorseCompose(page);
+    await dismissNextDevOverlay(page);
+
+    const sheet = page.getByRole('dialog', { name: /^Endorse / });
+    await sheet
+      .getByRole('button', { name: ENDORSE_SUBMIT_CTA, exact: true })
+      .click();
+
+    await expect(sheet).toBeHidden({ timeout: E2E_CHROME_TIMEOUT_MS });
+    const face = page.locator('.portfolio-identity-gesture--endorse');
+    await expect(face).toContainText('Endorsed');
+    await expect(
+      page.getByRole('button', { name: /^Edit endorsement for / })
+    ).toBeVisible();
   });
 });

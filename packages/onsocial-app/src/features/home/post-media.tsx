@@ -35,6 +35,11 @@ interface PostMediaBlockProps {
   playbackDisabled?: boolean;
   /** List: open detail (optionally with sound for video). */
   onActivate?: () => void;
+  /**
+   * Accessible name when the tile is the control. Omitted on detail video,
+   * which already has a mute button inside the tile.
+   */
+  activateLabel?: string;
   onRemove?: () => void;
   /** Collage grid placement from measured aspect ratio. */
   style?: CSSProperties;
@@ -56,6 +61,7 @@ export function PostMediaBlock({
   resumeFocusedVideo = false,
   playbackDisabled = false,
   onActivate,
+  activateLabel,
   onRemove,
   style,
   onRatio,
@@ -81,6 +87,8 @@ export function PostMediaBlock({
   const isDetailVideo =
     playbackMode === 'detail-muted' || playbackMode === 'detail-unmuted';
   const isActivatable = Boolean(onActivate) && !onRemove;
+  const activateAsControl =
+    isActivatable && Boolean(activateLabel) && !isDetailVideo;
   const [soundOff, setSoundOff] = useState(focusedVideoMuted);
 
   useEffect(() => {
@@ -91,40 +99,29 @@ export function PostMediaBlock({
     if (width > 0 && height > 0) onRatio?.(width / height);
   };
 
-  return (
-    <div
-      ref={playbackMode ? containerRef : undefined}
-      style={style}
-      className={[
-        'post-media-tile',
-        `post-media-tile--${size}`,
-        isActivatable ? 'is-activatable' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      onClick={
-        isActivatable
-          ? (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onActivate?.();
-            }
-          : undefined
-      }
-      onPointerDown={
-        isActivatable ? (event) => event.stopPropagation() : undefined
-      }
-    >
+  const tileClassName = [
+    'post-media-tile',
+    `post-media-tile--${size}`,
+    isActivatable ? 'is-activatable' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const handleActivate = (event: {
+    preventDefault(): void;
+    stopPropagation(): void;
+  }) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onActivate?.();
+  };
+  const media = (
+    <>
       {isVideo ? (
         <video
           ref={playbackMode ? videoRef : undefined}
           src={item.url}
           playsInline
-          muted={
-            isListVideo ||
-            playbackDisabled ||
-            (isDetailVideo && soundOff)
-          }
+          muted={isListVideo || playbackDisabled || (isDetailVideo && soundOff)}
           loop={isListVideo || isDetailVideo}
           preload="metadata"
           data-post-focus-video={isDetailVideo ? String(index) : undefined}
@@ -191,6 +188,35 @@ export function PostMediaBlock({
           ×
         </button>
       ) : null}
+    </>
+  );
+
+  if (activateAsControl) {
+    return (
+      <button
+        type="button"
+        style={style}
+        className={tileClassName}
+        aria-label={activateLabel}
+        onClick={handleActivate}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        {media}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      ref={playbackMode ? containerRef : undefined}
+      style={style}
+      className={tileClassName}
+      onClick={isActivatable ? handleActivate : undefined}
+      onPointerDown={
+        isActivatable ? (event) => event.stopPropagation() : undefined
+      }
+    >
+      {media}
     </div>
   );
 }
@@ -206,6 +232,8 @@ interface PostMediaStripProps {
   /** Quote insets — static thumbs, no list autoplay. */
   playbackDisabled?: boolean;
   onActivate?: (index: number) => void;
+  /** Accessible name for a single still. Detail video keeps its mute control. */
+  activateLabel?: string;
 }
 
 /** One or more media tiles for a post card / thread root. */
@@ -218,6 +246,7 @@ export function PostMediaStrip({
   resumeMediaIndex = 0,
   playbackDisabled = false,
   onActivate,
+  activateLabel,
 }: PostMediaStripProps) {
   const stripRef = useRef<HTMLDivElement>(null);
   const visible = items.slice(0, 4);
@@ -270,6 +299,7 @@ export function PostMediaStrip({
           }
           resumeFocusedVideo={resumeFocusedVideo && index === resumeMediaIndex}
           onActivate={onActivate ? () => onActivate(index) : undefined}
+          activateLabel={activateLabel}
           style={collageCellStyle(index, visible.length, hero)}
           onRatio={(ratio) => onRatio(item.url, ratio)}
         />

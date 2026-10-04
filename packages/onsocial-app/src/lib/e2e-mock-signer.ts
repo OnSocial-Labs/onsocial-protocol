@@ -4,6 +4,8 @@ import { e2eWalletPaintAllowed } from '@/lib/e2e-wallet-account';
 /** Keep in sync with Playwright `seedE2eMockSigner`. */
 export const E2E_MOCK_SIGNER_KEY = 'onsocial.e2e.mockSigner';
 export const E2E_AUTH_SESSION_KEY = 'onsocial.e2e.authSession';
+/** Record the write and resolve, so a sheet can close without a chain broadcast. */
+export const E2E_MOCK_SIGNER_SUCCESS_KEY = 'onsocial.e2e.mockSignerSuccess';
 
 /** Thrown after recording so nothing hits the chain. */
 export const E2E_MOCK_SIGNER_ERROR = 'E2E mock signer — not broadcast';
@@ -38,6 +40,22 @@ export function readE2eAuthSessionEnabled(): boolean {
   } catch {
     return false;
   }
+}
+
+function mockSignerShouldSucceed(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(E2E_MOCK_SIGNER_SUCCESS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function finishMockSend(): { transaction: { hash: string } } {
+  if (mockSignerShouldSucceed()) {
+    return { transaction: { hash: 'e2e-mock-tx' } };
+  }
+  throw new Error(E2E_MOCK_SIGNER_ERROR);
 }
 
 function recordCall(call: E2eMockSignerCall): void {
@@ -85,7 +103,7 @@ export function createE2eMockWallet(accountId: string): NearWalletBase {
       for (const call of actionCalls(params.actions ?? [])) {
         recordCall({ ...call, receiverId });
       }
-      throw new Error(E2E_MOCK_SIGNER_ERROR);
+      return finishMockSend();
     },
     async signAndSendTransactions(params: {
       transactions?: ReadonlyArray<{
@@ -104,7 +122,7 @@ export function createE2eMockWallet(accountId: string): NearWalletBase {
           recordCall({ ...call, receiverId });
         }
       }
-      throw new Error(E2E_MOCK_SIGNER_ERROR);
+      return finishMockSend();
     },
   } as unknown as NearWalletBase;
 }

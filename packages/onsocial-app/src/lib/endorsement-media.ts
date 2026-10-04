@@ -60,6 +60,33 @@ export function resolveEndorsementMediaUrl(
   return `${MEDIA_CDN_BASE[network]}/${media.cid}`;
 }
 
+function endorsementUrlLooksLikeVideo(url: string): boolean {
+  return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url);
+}
+
+/**
+ * One still or clip for the shared photo stage. Endorsements carry a single
+ * proof, so this never becomes a collage.
+ */
+export function endorsementStageMedia(input: {
+  media?: unknown;
+  mediaUrl?: string | null;
+}): { url: string; mime: string; cid?: string; alt?: string } | null {
+  const url = resolveEndorsementDisplayMediaUrl(input);
+  if (!url) return null;
+  const media = parseEndorsementMediaRef(input.media);
+  const mime = media?.mime?.trim() || '';
+  const resolvedMime =
+    mime || (endorsementUrlLooksLikeVideo(url) ? 'video/mp4' : 'image/jpeg');
+  const alt = media?.alt?.trim() || '';
+  return {
+    url,
+    mime: resolvedMime,
+    ...(media?.cid ? { cid: media.cid } : {}),
+    ...(alt ? { alt } : {}),
+  };
+}
+
 /** Prefer enriched mediaUrl; fall back to cid gateway URL for list cards. */
 export function resolveEndorsementDisplayMediaUrl(
   item: { media?: unknown; mediaUrl?: string | null },
@@ -67,7 +94,10 @@ export function resolveEndorsementDisplayMediaUrl(
 ): string | null {
   const direct = item.mediaUrl?.trim();
   if (direct) return direct;
-  return resolveEndorsementMediaUrl(parseEndorsementMediaRef(item.media), network);
+  return resolveEndorsementMediaUrl(
+    parseEndorsementMediaRef(item.media),
+    network
+  );
 }
 
 /**

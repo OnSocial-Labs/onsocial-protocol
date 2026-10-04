@@ -1,83 +1,50 @@
 'use client';
 
 import Link from 'next/link';
-import {
-  standingIdentityLabel,
-} from '@onsocial/ui';
+import { standingIdentityLabel } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
+import { PostMediaStrip } from '@/features/home/post-media';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import type { EndorsementPanelItem } from '@/lib/endorsements-panel-data';
 import {
   formatEndorsementTime,
   humanizeEndorsementTopic,
 } from '@/lib/endorsement-display';
-import {
-  parseEndorsementMediaRef,
-  resolveEndorsementDisplayMediaUrl,
-} from '@/lib/endorsement-media';
+import { endorsementStageMedia } from '@/lib/endorsement-media';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
 
 interface EndorsementListRowProps {
   item: EndorsementPanelItem;
   /** Whose page this list is on — drives which party is the “other”. */
   pageAccountId: string;
   mode: 'received' | 'given';
-  viewerAccountId?: string | null;
-  /** When set, show Edit for the viewer’s own vouch on this target. */
-  canEdit?: boolean;
-  onEdit?: () => void;
-  /** When set, show Support for SOCIAL spend on this vouch. */
-  canSupport?: boolean;
-  onSupport?: () => void;
-  /** Open the shareable focus sheet (row tap). */
+  /** Open the shareable focus sheet (row tap). Actions live on that sheet. */
   onOpen?: () => void;
 }
 
 /**
- * Endorsement list row — StandingIdentity chrome + vouch body (topic / note /
- * media) + quiet Support · Edit rail. Same row shell as Standing lists.
+ * Endorsement list row — StandingIdentity chrome plus the vouch (topic, note,
+ * proof). Tap opens the sheet. Support, Share, and Edit live there once.
  */
 export function EndorsementListRow({
   item,
   pageAccountId,
   mode,
-  viewerAccountId = null,
-  canEdit = false,
-  onEdit,
-  canSupport = false,
-  onSupport,
   onOpen,
 }: EndorsementListRowProps) {
   const otherAccountId = mode === 'received' ? item.issuer : item.target;
-  const otherName =
-    mode === 'received' ? item.issuerName : item.targetName;
+  const otherName = mode === 'received' ? item.issuerName : item.targetName;
   const otherAvatar =
     mode === 'received' ? item.issuerAvatarUrl : item.targetAvatarUrl;
   const { label } = standingIdentityLabel(otherAccountId, otherName);
   const topic = humanizeEndorsementTopic(item.topic);
   const time = formatEndorsementTime(item);
   const note = item.note?.trim() || null;
-  const media = parseEndorsementMediaRef(item.media);
-  const mediaUrl = resolveEndorsementDisplayMediaUrl({
-    media,
+  const stageMedia = endorsementStageMedia({
+    media: item.media,
     mediaUrl: item.mediaUrl,
   });
-  const mediaMime = media?.mime ?? null;
-  const spendTargetId = resolveEndorsementSpendTargetId({
-    id: typeof item.id === 'string' ? item.id : null,
-    issuer: item.issuer,
-    target: item.target,
-    topic: item.topic,
-  });
   const supporterCount = item.supporterCount ?? 0;
-
-  const showSupport =
-    canSupport &&
-    Boolean(onSupport) &&
-    Boolean(spendTargetId) &&
-    (!viewerAccountId || viewerAccountId !== item.target);
-  const hasAside = showSupport || (canEdit && Boolean(onEdit));
 
   return (
     <article className="standing-row endorsement-standing-row">
@@ -117,32 +84,9 @@ export function EndorsementListRow({
           }
         >
           {note ? <span className="endorsement-row-note">{note}</span> : null}
-          {mediaUrl ? (
+          {stageMedia ? (
             <span className="endorsement-row-media">
-              {mediaMime?.toLowerCase().startsWith('video/') ? (
-                <video
-                  src={mediaUrl}
-                  className="endorsement-row-media-el"
-                  autoPlay
-                  muted
-                  playsInline
-                  loop
-                  preload="metadata"
-                  aria-label={
-                    topic
-                      ? `Endorsement video for ${topic}`
-                      : 'Endorsement video'
-                  }
-                />
-              ) : (
-                <img
-                  src={mediaUrl}
-                  alt={media?.alt?.trim() || ''}
-                  className="endorsement-row-media-el"
-                  loading="lazy"
-                  decoding="async"
-                />
-              )}
+              <PostMediaStrip items={[stageMedia]} size="compact" />
             </span>
           ) : null}
           <span className="endorsement-row-meta">
@@ -157,29 +101,6 @@ export function EndorsementListRow({
             </span>
           </span>
         </StandingIdentity>
-      </div>
-
-      <div
-        className={`standing-row-aside${hasAside ? '' : ' is-empty'}`}
-      >
-        {showSupport ? (
-          <button
-            type="button"
-            className="endorsement-row-action"
-            onClick={onSupport}
-          >
-            Support
-          </button>
-        ) : null}
-        {canEdit && onEdit ? (
-          <button
-            type="button"
-            className="endorsement-row-action"
-            onClick={onEdit}
-          >
-            Edit
-          </button>
-        ) : null}
       </div>
     </article>
   );

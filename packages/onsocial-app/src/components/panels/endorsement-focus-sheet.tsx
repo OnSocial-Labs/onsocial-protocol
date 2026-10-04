@@ -9,10 +9,18 @@ import {
 } from 'react';
 import Link from 'next/link';
 import {
+  EditIcon,
   OsGestureSheet,
+  OsIconAction,
+  OsSheetAction,
+  OsSheetActions,
   ShareIcon,
+  osIconActionGlyphClassName,
+  standingIdentityAccountCopy,
 } from '@onsocial/ui';
-import { StandingIdentity } from '@/components/profile/standing-identity';
+import { AccountAvatar } from '@/components/profile/account-avatar';
+import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
+import { PostMediaStrip } from '@/features/home/post-media';
 import {
   EndorseComposeSheet,
   type EndorseComposeIntent,
@@ -27,13 +35,14 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
+  endorsementVouchLine,
   formatEndorsementTime,
   humanizeEndorsementTopic,
 } from '@/lib/endorsement-display';
 import { endorsementFocusSharePath } from '@/lib/endorsement-focus';
 import {
+  endorsementStageMedia,
   parseEndorsementMediaRef,
-  resolveEndorsementDisplayMediaUrl,
 } from '@/lib/endorsement-media';
 import type {
   EndorseExistingDraft,
@@ -59,7 +68,7 @@ interface EndorsementFocusSheetProps {
 }
 
 /**
- * Shareable vouch focus — full note, media with controls, Support / Edit / Share.
+ * Shareable vouch focus — full note, shared media tile, sheet action row.
  * Hosts on the recipient face (`?endorsement=`) or over the overlay peek.
  */
 export function EndorsementFocusSheet({
@@ -85,11 +94,15 @@ export function EndorsementFocusSheet({
     useState<EndorsementSupportTarget | null>(null);
   const [supportersOpen, setSupportersOpen] = useState(false);
   const [supportersRefreshKey, setSupportersRefreshKey] = useState(0);
+  const [mediaOpen, setMediaOpen] = useState(false);
 
   const sheetOpen = open && !closing && Boolean(item);
   const issuerAccountId = item?.issuer ?? '';
   const targetAccountId = item?.target ?? pageAccountId;
-  const issuerName = displayName(issuerAccountId, item?.issuerName ?? undefined);
+  const issuerName = displayName(
+    issuerAccountId,
+    item?.issuerName ?? undefined
+  );
   const targetName = displayName(
     targetAccountId,
     item?.targetName ?? undefined
@@ -97,14 +110,16 @@ export function EndorsementFocusSheet({
   const topic = humanizeEndorsementTopic(item?.topic);
   const time = item ? formatEndorsementTime(item) : '';
   const note = item?.note?.trim() || null;
-  const media = parseEndorsementMediaRef(item?.media);
-  const mediaUrl = item
-    ? resolveEndorsementDisplayMediaUrl({
-        media,
+  const stageMedia = item
+    ? endorsementStageMedia({
+        media: item.media,
         mediaUrl: item.mediaUrl,
       })
     : null;
-  const mediaMime = media?.mime ?? null;
+  const stageIsVideo = Boolean(
+    stageMedia?.mime.toLowerCase().startsWith('video/')
+  );
+  const vouchLine = endorsementVouchLine(issuerName, targetName, item?.topic);
   const spendTargetId = item
     ? resolveEndorsementSpendTargetId({
         id: typeof item.id === 'string' ? item.id : null,
@@ -147,6 +162,7 @@ export function EndorsementFocusSheet({
     setSupportOpen(false);
     setSupportTarget(null);
     setSupportersOpen(false);
+    setMediaOpen(false);
     onOpenChange(false);
   }, [onOpenChange]);
 
@@ -154,9 +170,7 @@ export function EndorsementFocusSheet({
     if (!item) return;
     const href = endorsementFocusSharePath(item);
     const url = new URL(href, window.location.origin).toString();
-    const headline = topic
-      ? `${issuerName} endorsed ${targetName} for ${topic}`
-      : `${issuerName} endorsed ${targetName}`;
+    const headline = vouchLine;
     void (async () => {
       const result = await shareUrl({
         url,
@@ -223,6 +237,9 @@ export function EndorsementFocusSheet({
         handle={fallbackLabel(issuerAccountId)}
         signal="endorse"
         whisper={`Vouch for ${targetName}`}
+        {...(issuerAccountId
+          ? { personHref: portfolioPath(issuerAccountId) }
+          : {})}
         closeAriaLabel="Close endorsement"
         backdropLabel="Close endorsement"
         moodId={effectiveMood?.id}
@@ -230,46 +247,57 @@ export function EndorsementFocusSheet({
         bodyClassName="profile-support-sheet-body"
         titleId={titleId}
         zIndex={zIndex}
+        footer={
+          item ? (
+            <div className="os-sheet-footer endorsement-focus-toolbar">
+              <OsIconAction ariaLabel="Share endorsement" onClick={handleShare}>
+                <ShareIcon
+                  className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
+                  aria-hidden
+                />
+              </OsIconAction>
+              {viewerOwns ? (
+                <OsIconAction ariaLabel="Edit endorsement" onClick={handleEdit}>
+                  <EditIcon
+                    className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
+                    aria-hidden
+                  />
+                </OsIconAction>
+              ) : null}
+              {canSupport ? (
+                <OsSheetActions
+                  layout="row-compact"
+                  size="sm"
+                  tone="frosted-primary"
+                  borderless
+                  className="endorsements-endorse-action endorsement-focus-support"
+                >
+                  <OsSheetAction type="button" onClick={handleSupport}>
+                    {!isConnected ? 'Connect' : 'Support'}
+                  </OsSheetAction>
+                </OsSheetActions>
+              ) : null}
+            </div>
+          ) : undefined
+        }
       >
         {item ? (
           <div className="endorsement-focus-sheet">
-            <Link
-              href={portfolioPath(item.issuer)}
-              className="endorsement-focus-identity"
-              scroll={false}
-              aria-label={`View ${issuerName}'s profile`}
-            >
-              <StandingIdentity
-                accountId={item.issuer}
-                profileName={item.issuerName}
-                avatarUrl={item.issuerAvatarUrl}
-              />
-            </Link>
-
             {note ? <p className="endorsement-focus-note">{note}</p> : null}
 
-            {mediaUrl ? (
+            {stageMedia ? (
               <div className="endorsement-focus-media">
-                {mediaMime?.toLowerCase().startsWith('video/') ? (
-                  <video
-                    src={mediaUrl}
-                    className="endorsement-focus-media-el"
-                    controls
-                    playsInline
-                    preload="metadata"
-                    aria-label={
-                      topic
-                        ? `Endorsement video for ${topic}`
-                        : 'Endorsement video'
-                    }
-                  />
-                ) : (
-                  <img
-                    src={mediaUrl}
-                    alt={media?.alt?.trim() || ''}
-                    className="endorsement-focus-media-el"
-                  />
-                )}
+                <PostMediaStrip
+                  items={[stageMedia]}
+                  size="page"
+                  focused={stageIsVideo}
+                  activateLabel={
+                    stageIsVideo
+                      ? 'Play endorsement video'
+                      : 'View endorsement photo'
+                  }
+                  onActivate={() => setMediaOpen(true)}
+                />
               </div>
             ) : null}
 
@@ -292,35 +320,6 @@ export function EndorsementFocusSheet({
                 ` · ${supporterCount} supporter${supporterCount === 1 ? '' : 's'}`
               ) : null}
             </p>
-
-            <div className="endorsement-focus-actions">
-              <button
-                type="button"
-                className="endorsement-row-action endorsement-focus-share"
-                onClick={handleShare}
-              >
-                <ShareIcon aria-hidden />
-                Share
-              </button>
-              {canSupport ? (
-                <button
-                  type="button"
-                  className="endorsement-row-action"
-                  onClick={handleSupport}
-                >
-                  {!isConnected ? 'Connect' : 'Support'}
-                </button>
-              ) : null}
-              {viewerOwns ? (
-                <button
-                  type="button"
-                  className="endorsement-row-action"
-                  onClick={handleEdit}
-                >
-                  Edit
-                </button>
-              ) : null}
-            </div>
           </div>
         ) : null}
       </OsGestureSheet>
@@ -367,6 +366,44 @@ export function EndorsementFocusSheet({
         zIndex={nestedZ}
         refreshKey={supportersRefreshKey}
         onOpenChange={setSupportersOpen}
+      />
+
+      <FeedPhotoEnlargeScreen
+        open={mediaOpen && Boolean(stageMedia)}
+        onOpenChange={setMediaOpen}
+        title={vouchLine}
+        caption={vouchLine}
+        captionDate={time || null}
+        captionExpandLabel="Show endorsement"
+        captionCollapseLabel="Collapse endorsement"
+        closeAriaLabel="Back to endorsement"
+        photos={stageMedia ? [stageMedia] : []}
+        peekIdentity={
+          item ? (
+            <Link
+              href={portfolioPath(item.issuer)}
+              className="os-media-face-identity"
+              scroll={false}
+              aria-label={`View ${issuerName}'s profile`}
+              onClick={() => setMediaOpen(false)}
+            >
+              <AccountAvatar
+                accountId={item.issuer}
+                src={item.issuerAvatarUrl ?? null}
+                fallbackInitial={issuerName}
+                size="lg"
+              />
+              <span className="os-media-face-identity-copy">
+                <span className="os-media-face-identity-name">
+                  {issuerName}
+                </span>
+                <span className="os-media-face-identity-handle">
+                  {standingIdentityAccountCopy(issuerAccountId)}
+                </span>
+              </span>
+            </Link>
+          ) : null
+        }
       />
     </>
   );

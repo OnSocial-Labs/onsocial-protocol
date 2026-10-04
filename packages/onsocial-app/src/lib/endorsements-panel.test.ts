@@ -5,7 +5,9 @@ import {
 } from '@/lib/endorsements-panel-data';
 import { parseEndorsementsMode } from '@/lib/load-endorsements-page';
 import {
+  endorsementRowMatchesQuery,
   endorsementTopicKey,
+  endorsementVouchLine,
   humanizeEndorsementTopic,
 } from '@/lib/endorsement-display';
 
@@ -28,6 +30,15 @@ describe('endorsement display helpers', () => {
 
   it('keys topics via normalize', () => {
     expect(endorsementTopicKey('Product Design')).toBe('product-design');
+  });
+
+  it('writes the vouch line used on the media stage', () => {
+    expect(endorsementVouchLine('Bob', 'Alice', 'product-design')).toBe(
+      'Bob endorsed Alice for product design'
+    );
+    expect(endorsementVouchLine('Bob', 'Alice', '  ')).toBe(
+      'Bob endorsed Alice'
+    );
   });
 });
 
@@ -62,6 +73,35 @@ describe('endorsements panel payload shape', () => {
     };
     expect(item.mediaUrl).toContain('bafy');
     expect(item.supporterCount).toBe(3);
+  });
+});
+
+describe('endorsement list search', () => {
+  const row = {
+    issuer: 'bob.testnet',
+    target: 'alice.testnet',
+    issuerName: 'Bob',
+    targetName: 'Alice',
+    topic: 'product-design',
+    note: 'Clear product work.',
+  };
+
+  it('matches the other person by name or account id', () => {
+    expect(endorsementRowMatchesQuery(row, 'received', 'bob')).toBe(true);
+    expect(endorsementRowMatchesQuery(row, 'received', 'bob.testnet')).toBe(
+      true
+    );
+    expect(endorsementRowMatchesQuery(row, 'given', 'alice')).toBe(true);
+    expect(endorsementRowMatchesQuery(row, 'received', 'nobody')).toBe(false);
+  });
+
+  it('also matches topic and note on the row', () => {
+    expect(endorsementRowMatchesQuery(row, 'received', 'product design')).toBe(
+      true
+    );
+    expect(endorsementRowMatchesQuery(row, 'received', 'clear product')).toBe(
+      true
+    );
   });
 });
 
