@@ -231,6 +231,33 @@ export function portfolioEndorsementPath(
   return qs ? `${portfolioPath(accountId)}?${qs}` : portfolioPath(accountId);
 }
 
+/** Legacy portal supporters links carried `endorsementId` — accept both keys. */
+const LEGACY_ENDORSEMENT_ID_PARAM = 'endorsementId';
+
+function firstSearchValue(value: string | string[] | undefined): string | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw?.trim() || null;
+}
+
+/**
+ * Hard-load target for the bare `/endorsements` route. The list is a face
+ * peek, so bounce to the portfolio — but forward a vouch deep link
+ * (`?endorsement=`, or legacy portal `?endorsementId=`) so the focus sheet
+ * still opens on the exact vouch.
+ */
+export function endorsementsHardLoadPath(
+  accountId: string,
+  search?: Record<string, string | string[] | undefined>
+): string {
+  const id =
+    firstSearchValue(search?.[ENDORSEMENT_FOCUS_PARAM]) ??
+    firstSearchValue(search?.[LEGACY_ENDORSEMENT_ID_PARAM]);
+  const issuer = firstSearchValue(search?.[ENDORSEMENT_ISSUER_PARAM]);
+  const topic = firstSearchValue(search?.[ENDORSEMENT_TOPIC_PARAM]);
+  if (!id && !issuer) return portfolioPath(accountId);
+  return portfolioEndorsementPath(accountId, { id, issuer, topic });
+}
+
 /** Held catalog for an account — Launch See all + OS vault when connected. */
 export function portfolioCollectiblesPath(
   accountId: string,

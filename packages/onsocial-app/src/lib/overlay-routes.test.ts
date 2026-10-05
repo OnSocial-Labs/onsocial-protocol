@@ -22,6 +22,7 @@ import {
   parseRallySeasonParam,
   portfolioBoostPath,
   portfolioCollectiblesPath,
+  endorsementsHardLoadPath,
   endorsementsPath,
   parsePortfolioEndorsementFocus,
   portfolioEndorsementPath,
@@ -168,6 +169,48 @@ describe('portfolioEndorsementPath', () => {
     expect(
       portfolioEndorsementPath('alice.testnet', {
         issuer: 'bob.testnet',
+        topic: 'design',
+      })
+    ).toBe('/@alice.testnet?issuer=bob.testnet&topic=design');
+  });
+});
+
+describe('endorsementsHardLoadPath', () => {
+  it('bounces to the bare face when there is no vouch deep link', () => {
+    expect(endorsementsHardLoadPath('alice.testnet')).toBe('/@alice.testnet');
+    expect(endorsementsHardLoadPath('alice.testnet', {})).toBe(
+      '/@alice.testnet'
+    );
+    expect(endorsementsHardLoadPath('alice.testnet', { mode: 'given' })).toBe(
+      '/@alice.testnet'
+    );
+  });
+
+  it('forwards an app-native vouch deep link to the face', () => {
+    expect(
+      endorsementsHardLoadPath('alice.testnet', {
+        endorsement: '550e8400-e29b-41d4-a716-446655440000',
+        issuer: 'bob.testnet',
+      })
+    ).toBe(
+      '/@alice.testnet?endorsement=550e8400-e29b-41d4-a716-446655440000&issuer=bob.testnet'
+    );
+  });
+
+  it('maps legacy portal endorsementId links onto the face', () => {
+    expect(
+      endorsementsHardLoadPath('alice.testnet', {
+        endorsementId: 'legacy:bob.testnet:alice.testnet:design',
+      })
+    ).toBe(
+      '/@alice.testnet?endorsement=legacy%3Abob.testnet%3Aalice.testnet%3Adesign'
+    );
+  });
+
+  it('keeps an issuer-only focus and takes the first of repeated keys', () => {
+    expect(
+      endorsementsHardLoadPath('alice.testnet', {
+        issuer: ['bob.testnet', 'carol.testnet'],
         topic: 'design',
       })
     ).toBe('/@alice.testnet?issuer=bob.testnet&topic=design');
