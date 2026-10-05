@@ -47112,3 +47112,410 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   background: var(--os-surface-fill-hover);
   outline: none;
 }
+
+@layer components {
+  /* ── Network orbit (@/account/network) — three-ring standing map ─ */
+
+  .network-orbit-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    gap: 0.35rem;
+    padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1rem;
+  }
+
+  .network-orbit-caption-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem 0.75rem;
+    min-height: 1.1rem;
+  }
+
+  .network-orbit-caption-row--end {
+    justify-content: flex-end;
+  }
+
+  .network-orbit-caption {
+    margin: 0;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--os-surface-muted);
+  }
+
+  .network-orbit-view-all {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--protocol-blue);
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+
+  .network-orbit-view-all:hover {
+    color: color-mix(in srgb, var(--protocol-blue) 80%, transparent);
+  }
+
+  .network-orbit-stage-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 300px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+
+  .network-orbit-stage-bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      circle at 50% 50%,
+      rgb(var(--fg-rgb, 255 255 255) / 0.05),
+      transparent 70%
+    );
+  }
+
+  .network-orbit-stage {
+    position: relative;
+    transition: opacity 200ms ease;
+  }
+
+  .network-orbit-stage.is-refreshing {
+    opacity: 0.68;
+  }
+
+  .network-orbit-stage-skeleton {
+    width: min(320px, 78%);
+    aspect-ratio: 1;
+    border-radius: 9999px;
+  }
+
+  .network-orbit-empty {
+    position: absolute;
+    inset-inline: 1.5rem;
+    bottom: 2rem;
+    margin: 0;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--os-surface-muted);
+  }
+
+  /* Spokes — rotated wrapper at the stage center, line inside. */
+
+  .network-orbit-spoke {
+    position: absolute;
+    width: 0;
+    height: 0;
+    z-index: 1;
+    pointer-events: none;
+    animation: network-orbit-fade-in 0.22s ease-out backwards;
+  }
+
+  .network-orbit-spoke-line {
+    position: absolute;
+    top: -0.5px;
+    height: 1px;
+    background: var(--protocol-blue);
+    opacity: 0.18;
+    transition: opacity 0.22s ease;
+    animation-name: network-orbit-idle-line;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+
+  .network-orbit-spoke-line--mutual {
+    background: var(--protocol-purple);
+    opacity: 0.34;
+  }
+
+  .network-orbit-spoke-line.is-dimmed {
+    opacity: 0.05;
+  }
+
+  /* Nodes — outer link positions + floats; inner circle clips the avatar so
+     the hover label can overflow below. */
+
+  .network-orbit-node {
+    --orbit-rest-opacity: 1;
+    position: absolute;
+    z-index: 10;
+    display: block;
+    border-radius: 9999px;
+    touch-action: manipulation;
+    text-decoration: none;
+    opacity: var(--orbit-rest-opacity);
+    transition: opacity 0.22s ease;
+    animation-name: network-orbit-fade-in, network-orbit-idle-node;
+    animation-timing-function: ease-out, ease-in-out;
+    animation-fill-mode: backwards, none;
+    animation-iteration-count: 1, infinite;
+  }
+
+  .network-orbit-node.is-dimmed {
+    --orbit-rest-opacity: 0.18;
+  }
+
+  /* Invisible hit-slop — lifts 18–24px avatars to ~34–40px touch targets. */
+  .network-orbit-node::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 9999px;
+  }
+
+  .network-orbit-node-avatar,
+  .network-orbit-node-fallback {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 9999px;
+    overflow: hidden;
+    object-fit: cover;
+    background: rgb(var(--fg-rgb, 255 255 255) / 0.06);
+    border: 2px solid color-mix(in srgb, var(--protocol-blue) 35%, transparent);
+    transition:
+      border-color 200ms ease,
+      box-shadow 200ms ease;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  .network-orbit-node--mutual .network-orbit-node-avatar,
+  .network-orbit-node--mutual .network-orbit-node-fallback {
+    border-color: color-mix(in srgb, var(--protocol-purple) 45%, transparent);
+  }
+
+  .network-orbit-node-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .network-orbit-node-fallback-icon {
+    width: 1rem;
+    height: 1rem;
+    color: var(--os-surface-muted);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .network-orbit-node:hover .network-orbit-node-avatar,
+    .network-orbit-node:hover .network-orbit-node-fallback {
+      border-color: var(--protocol-blue);
+      box-shadow: 0 0 12px
+        color-mix(in srgb, var(--protocol-blue) 20%, transparent);
+    }
+
+    .network-orbit-node--mutual:hover .network-orbit-node-avatar,
+    .network-orbit-node--mutual:hover .network-orbit-node-fallback {
+      border-color: var(--protocol-purple);
+      box-shadow: 0 0 12px
+        color-mix(in srgb, var(--protocol-purple) 22%, transparent);
+    }
+  }
+
+  .network-orbit-node:focus-visible {
+    outline: none;
+  }
+
+  .network-orbit-node:focus-visible .network-orbit-node-avatar,
+  .network-orbit-node:focus-visible .network-orbit-node-fallback {
+    box-shadow: 0 0 0 2px
+      color-mix(in srgb, var(--protocol-blue) 55%, transparent);
+  }
+
+  .network-orbit-node-label {
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    z-index: 20;
+    margin-top: 0.375rem;
+    transform: translateX(calc(-50% + var(--label-shift-x, 0px)));
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-radius: 0.375rem;
+    border: 1px solid rgb(var(--fg-rgb, 255 255 255) / 0.12);
+    background: rgb(var(--bg-rgb, 0 0 0) / 0.72);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 0.125rem 0.5rem;
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: var(--os-surface-foreground, inherit);
+    opacity: 0;
+    transition: opacity 160ms ease;
+    pointer-events: none;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .network-orbit-node:hover .network-orbit-node-label,
+    .network-orbit-node:focus-visible .network-orbit-node-label {
+      opacity: 1;
+    }
+  }
+
+  /* Center account. */
+
+  .network-orbit-center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 30;
+    display: block;
+    border-radius: 9999px;
+    touch-action: manipulation;
+  }
+
+  .network-orbit-center-glow {
+    position: absolute;
+    border-radius: 9999px;
+    pointer-events: none;
+  }
+
+  .network-orbit-center-avatar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 9999px;
+    border: 3px solid var(--center-identity-border);
+    background: rgb(var(--fg-rgb, 255 255 255) / 0.06);
+    transition:
+      border-color 200ms ease,
+      box-shadow 200ms ease;
+  }
+
+  .network-orbit-center-avatar img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .network-orbit-center-fallback-icon {
+    color: var(--os-surface-muted);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .network-orbit-center:hover .network-orbit-center-avatar {
+      border-color: var(--center-identity);
+      box-shadow: 0 0 20px var(--center-identity-glow);
+    }
+  }
+
+  .network-orbit-center:focus-visible {
+    outline: none;
+  }
+
+  .network-orbit-center:focus-visible .network-orbit-center-avatar {
+    box-shadow: 0 0 0 3px var(--center-identity-border);
+  }
+
+  .network-orbit-center-label {
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    z-index: 20;
+    margin-top: 0.375rem;
+    transform: translateX(-50%);
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-radius: 0.375rem;
+    border: 1px solid rgb(var(--fg-rgb, 255 255 255) / 0.12);
+    background: rgb(var(--bg-rgb, 0 0 0) / 0.72);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 0.125rem 0.5rem;
+    font-size: 0.68rem;
+    font-weight: 500;
+    opacity: 0;
+    transition: opacity 160ms ease;
+    pointer-events: none;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .network-orbit-center:hover .network-orbit-center-label,
+    .network-orbit-center:focus-visible .network-orbit-center-label {
+      opacity: 1;
+    }
+  }
+
+  /* Sparse maps have room — show every name without hover (touch included). */
+  .network-orbit-stage--sparse .network-orbit-node-label,
+  .network-orbit-stage--sparse .network-orbit-center-label {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .network-orbit-node-label,
+    .network-orbit-center-label {
+      background: rgb(var(--bg-rgb, 0 0 0) / 0.94);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+  }
+
+  @keyframes network-orbit-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: var(--orbit-rest-opacity, 1);
+    }
+  }
+
+  @keyframes network-orbit-idle-node {
+    0%,
+    100% {
+      transform: translate(0, 0);
+    }
+    50% {
+      transform: translate(var(--orbit-fx, 0px), var(--orbit-fy, 0px));
+    }
+  }
+
+  @keyframes network-orbit-idle-line {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    50% {
+      transform: translateX(var(--orbit-amp, 0px));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .network-orbit-node,
+    .network-orbit-spoke,
+    .network-orbit-spoke-line {
+      animation: none;
+    }
+
+    .network-orbit-node,
+    .network-orbit-spoke-line {
+      transition: none;
+    }
+  }
+}
+
+@layer components {
+  .network-orbit-center-fallback-icon {
+    display: inline-flex;
+  }
+
+  .network-orbit-center-fallback-icon .network-orbit-center-fallback-glyph {
+    width: 100%;
+    height: 100%;
+  }
+}

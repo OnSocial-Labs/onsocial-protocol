@@ -2619,7 +2619,256 @@ describe('QueryModule', () => {
       expect(sample.counts).toEqual({ incoming: 4, outgoing: 3, mutual: 1 });
       expect(sample.incoming[0]?.accountId).toBe('bob.near');
       expect(sample.peers[0]?.name).toBe('Bob');
+      expect(sample.viewerKnown).toEqual({
+        mutual: [],
+        incoming: [],
+        outgoing: [],
+      });
       expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('fetches viewer-known intersections when opted in', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('StandingViewerOutIds')) {
+          return {
+            data: { standingsCurrent: [{ targetAccount: 'dave.near' }] },
+          };
+        }
+        if (query.includes('StandingViewerKnown')) {
+          return {
+            data: {
+              knownIncoming: [
+                {
+                  accountId: 'dave.near',
+                  targetAccount: 'alice.near',
+                  value: '{"since":2}',
+                  blockHeight: 5,
+                  blockTimestamp: 50,
+                },
+              ],
+              knownOutgoing: [],
+              knownMutual: [],
+            },
+          };
+        }
+        if (query.includes('StandingPeerEnrichment')) {
+          return {
+            data: {
+              profileSearch: [],
+              viewerOutgoing: [],
+              viewerIncoming: [],
+            },
+          };
+        }
+        if (query.includes('StandingNetworkSample')) {
+          return {
+            data: {
+              standingCounts: [{ standingWithCount: 4 }],
+              standingOutCounts: [{ standingWithOthersCount: 3 }],
+              profileSearch: [{ mutualStandingCount: 1 }],
+              incomingSample: [],
+              outgoingSample: [],
+              mutualSample: [],
+            },
+          };
+        }
+        return { data: {} };
+      });
+
+      const sample = await os.query.standings.networkSample({
+        accountId: 'alice.near',
+        viewerAccountId: 'carol.near',
+        includeViewerKnown: true,
+      });
+
+      // sample ∥ viewer-out ids, then the intersection, then enrichment.
+      expect(fetch).toHaveBeenCalledTimes(4);
+      const knownCall = JSON.parse(fetch.mock.calls[2][1].body);
+      expect(String(knownCall.query)).toContain('StandingViewerKnown');
+      expect(knownCall.variables.viewerOut).toEqual(['dave.near']);
+      expect(sample.viewerKnown.incoming[0]?.accountId).toBe('dave.near');
+      expect(sample.viewerKnown.incoming[0]?.since).toBe(2);
+    });
+
+    it('boosts endorsed accounts already in the sample with no extra fetch', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('StandingSubjectEndorsements')) {
+          return {
+            data: { endorsementsCurrent: [{ target: 'bob.near' }] },
+          };
+        }
+        if (query.includes('StandingPeerEnrichment')) {
+          return {
+            data: { profileSearch: [], viewerOutgoing: [], viewerIncoming: [] },
+          };
+        }
+        if (query.includes('StandingNetworkSample')) {
+          return {
+            data: {
+              standingCounts: [{ standingWithCount: 1 }],
+              standingOutCounts: [{ standingWithOthersCount: 0 }],
+              profileSearch: [{ mutualStandingCount: 0 }],
+              incomingSample: [
+                {
+                  accountId: 'bob.near',
+                  targetAccount: 'alice.near',
+                  value: '{"since":1}',
+                  blockHeight: 1,
+                  blockTimestamp: 9,
+                },
+              ],
+              outgoingSample: [],
+              mutualSample: [],
+            },
+          };
+        }
+        return { data: {} };
+      });
+
+      const sample = await os.query.standings.networkSample({
+        accountId: 'alice.near',
+        includeSubjectEndorsed: true,
+      });
+
+      // sample ∥ endorsements, then enrichment — the intersection never
+      // fires because every endorsed account is already in the sample.
+      expect(fetch).toHaveBeenCalledTimes(3);
+      for (const call of fetch.mock.calls) {
+        const query = String(JSON.parse(call[1].body).query);
+        expect(query).not.toContain('StandingSubjectEndorsed(');
+      }
+      expect(sample.subjectEndorsedIds).toEqual(['bob.near']);
+      expect(sample.subjectEndorsed).toEqual({
+        mutual: [],
+        incoming: [],
+        outgoing: [],
+      });
+    });
+
+    it('fetches endorsed connections missing from the sample', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('StandingSubjectEndorsements')) {
+          return {
+            data: {
+              endorsementsCurrent: [
+                { target: 'bob.near' },
+                { target: 'eve.near' },
+                { target: 'ghost.near' },
+              ],
+            },
+          };
+        }
+        if (query.includes('StandingSubjectEndorsed')) {
+          return {
+            data: {
+              endorsedIncoming: [],
+              endorsedOutgoing: [
+                {
+                  accountId: 'alice.near',
+                  targetAccount: 'eve.near',
+                  value: '{"since":3}',
+                  blockHeight: 7,
+                  blockTimestamp: 70,
+                },
+              ],
+              endorsedMutual: [],
+            },
+          };
+        }
+        if (query.includes('StandingPeerEnrichment')) {
+          return {
+            data: { profileSearch: [], viewerOutgoing: [], viewerIncoming: [] },
+          };
+        }
+        if (query.includes('StandingNetworkSample')) {
+          return {
+            data: {
+              standingCounts: [{ standingWithCount: 1 }],
+              standingOutCounts: [{ standingWithOthersCount: 1 }],
+              profileSearch: [{ mutualStandingCount: 0 }],
+              incomingSample: [
+                {
+                  accountId: 'bob.near',
+                  targetAccount: 'alice.near',
+                  value: '{"since":1}',
+                  blockHeight: 1,
+                  blockTimestamp: 9,
+                },
+              ],
+              outgoingSample: [],
+              mutualSample: [],
+            },
+          };
+        }
+        return { data: {} };
+      });
+
+      const sample = await os.query.standings.networkSample({
+        accountId: 'alice.near',
+        includeSubjectEndorsed: true,
+      });
+
+      // sample ∥ endorsements, then the intersection, then enrichment.
+      expect(fetch).toHaveBeenCalledTimes(4);
+      const intersectCall = JSON.parse(fetch.mock.calls[2][1].body);
+      expect(String(intersectCall.query)).toContain('StandingSubjectEndorsed');
+      // Only the missing ids are probed — bob.near boosts in place.
+      expect(intersectCall.variables.endorsed).toEqual([
+        'eve.near',
+        'ghost.near',
+      ]);
+      expect(sample.subjectEndorsed.outgoing[0]?.targetAccount).toBe(
+        'eve.near'
+      );
+      // ghost.near is endorsed but not connected — excluded from the set.
+      expect(sample.subjectEndorsedIds).toEqual(['bob.near', 'eve.near']);
+    });
+
+    it('skips viewer-known fetch for self-views and logged-out viewers', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('StandingPeerEnrichment')) {
+          return {
+            data: { profileSearch: [], viewerOutgoing: [], viewerIncoming: [] },
+          };
+        }
+        return {
+          data: {
+            standingCounts: [{ standingWithCount: 0 }],
+            standingOutCounts: [{ standingWithOthersCount: 0 }],
+            profileSearch: [{ mutualStandingCount: 0 }],
+            incomingSample: [],
+            outgoingSample: [],
+            mutualSample: [],
+          },
+        };
+      });
+
+      const selfView = await os.query.standings.networkSample({
+        accountId: 'alice.near',
+        viewerAccountId: 'alice.near',
+        includeViewerKnown: true,
+      });
+      expect(selfView.viewerKnown.incoming).toEqual([]);
+
+      const anonView = await os.query.standings.networkSample({
+        accountId: 'alice.near',
+        viewerAccountId: null,
+        includeViewerKnown: true,
+      });
+      expect(anonView.viewerKnown.incoming).toEqual([]);
+
+      // Only the sample query ran (enrichment short-circuits on empty
+      // peers) — the viewer-known queries never fire.
+      expect(fetch).toHaveBeenCalledTimes(2);
+      for (const call of fetch.mock.calls) {
+        const query = String(JSON.parse(call[1].body).query);
+        expect(query).toContain('StandingNetworkSample');
+        expect(query).not.toContain('StandingViewer');
+      }
     });
   });
 
