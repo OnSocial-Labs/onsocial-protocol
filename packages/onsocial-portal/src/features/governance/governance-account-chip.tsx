@@ -14,7 +14,7 @@ import {
   useMemberAccountLookup,
 } from '@/hooks/use-member-account-lookup';
 import { isNearNamedAccountComplete } from '@/lib/portal-near-account';
-import { getPortalProfileUrl } from '@/lib/portal-config';
+import { getPublicAppPageUrl } from '@/lib/portal-config';
 import { cn } from '@/lib/utils';
 
 export function prefetchGovernanceCardAccounts(
@@ -114,7 +114,7 @@ export function GovernanceAccountChip({
   const profileHref =
     subjectKind === 'infrastructure' && !socialProfile
       ? null
-      : getPortalProfileUrl(accountId);
+      : getPublicAppPageUrl(accountId);
   const FallbackIcon = subjectKind === 'infrastructure' ? Box3dIcon : UserIcon;
 
   let avatar: ReactNode;

@@ -31,6 +31,7 @@ import {
   homeRallyPath,
   portfolioRallyPath,
   portfolioFeedPath,
+  networkPath,
   resolveOverlayPanelChrome,
   shouldOpenPortfolioGlassOverlay,
 } from './overlay-routes';
@@ -242,6 +243,39 @@ describe('parsePortfolioEndorsementFocus', () => {
   });
 });
 
+describe('networkPath', () => {
+  it('builds the bare orbit route', () => {
+    expect(networkPath('alice.testnet')).toBe('/@alice.testnet/network');
+  });
+
+  it('carries a relationship filter and skips all', () => {
+    expect(networkPath('alice.testnet', { filter: 'mutual' })).toBe(
+      '/@alice.testnet/network?filter=mutual'
+    );
+    expect(networkPath('alice.testnet', { filter: 'all' })).toBe(
+      '/@alice.testnet/network'
+    );
+    expect(networkPath('alice.testnet', { filter: 'everything' })).toBe(
+      '/@alice.testnet/network'
+    );
+  });
+
+  it('carries a search query only when it is a real search', () => {
+    expect(networkPath('alice.testnet', { q: 'bo' })).toBe(
+      '/@alice.testnet/network?q=bo'
+    );
+    expect(networkPath('alice.testnet', { q: ' b ' })).toBe(
+      '/@alice.testnet/network'
+    );
+  });
+
+  it('combines filter and query', () => {
+    expect(
+      networkPath('alice.testnet', { filter: 'outgoing', q: 'bob' })
+    ).toBe('/@alice.testnet/network?filter=outgoing&q=bob');
+  });
+});
+
 describe('aboutPath', () => {
   it('builds the shareable About route', () => {
     expect(aboutPath('alice.testnet')).toBe('/@alice.testnet/about');
@@ -388,6 +422,10 @@ describe('parseOverlayPanelKey', () => {
     expect(parseOverlayPanelKey('/@alice.testnet/reputation')).toBe(
       'reputation'
     );
+    expect(parseOverlayPanelKey('/@alice.testnet/network')).toBe('network');
+    expect(parseOverlayPanelKey('/@alice.testnet/network?filter=mutual')).toBe(
+      'network'
+    );
     expect(parseOverlayPanelKey('/@alice.testnet/collectibles')).toBe(
       'collectibles'
     );
@@ -407,6 +445,7 @@ describe('isPortfolioOverlayPath', () => {
   it('matches overlay drawer paths', () => {
     expect(isPortfolioOverlayPath('/@alice.testnet/discover')).toBe(true);
     expect(isPortfolioOverlayPath('/@alice.testnet/about')).toBe(true);
+    expect(isPortfolioOverlayPath('/@alice.testnet/network')).toBe(true);
     expect(isPortfolioOverlayPath('/@alice.testnet/writing')).toBe(true);
     expect(isPortfolioOverlayPath('/@alice.testnet/writing/42')).toBe(false);
   });
@@ -439,6 +478,7 @@ describe('isFullPagePanelLayout', () => {
 
   it('is true for full-page panel routes', () => {
     expect(isFullPagePanelLayout(['standing', 'incoming'])).toBe(true);
+    expect(isFullPagePanelLayout(['network'])).toBe(true);
     expect(isFullPagePanelLayout(['discover'])).toBe(true);
     expect(isFullPagePanelLayout(['about'])).toBe(true);
     expect(isFullPagePanelLayout(['writing'])).toBe(true);
@@ -515,9 +555,13 @@ describe('shouldOpenPortfolioGlassOverlay', () => {
 });
 
 describe('resolveOverlayPanelChrome', () => {
-  it('expects toolbar chrome for standing and discover', () => {
+  it('expects toolbar chrome for standing, network, and discover', () => {
     expect(resolveOverlayPanelChrome('standing:incoming')).toEqual({
       ariaTitle: 'Standing',
+      expectsToolbar: true,
+    });
+    expect(resolveOverlayPanelChrome('network')).toEqual({
+      ariaTitle: 'Network',
       expectsToolbar: true,
     });
     expect(resolveOverlayPanelChrome('discover')).toEqual({

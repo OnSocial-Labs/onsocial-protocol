@@ -56,7 +56,11 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useNavVisibility } from '@/components/providers/nav-visibility-context';
 import { useWallet } from '@/contexts/wallet-context';
 import { useGatewayAuth } from '@/contexts/gateway-auth-context';
-import { isGovernanceWallet, getPortalProfileUrl } from '@/lib/portal-config';
+import {
+  isGovernanceWallet,
+  getPublicAppDiscoverUrl,
+  getPublicAppPageUrl,
+} from '@/lib/portal-config';
 
 /* ── Grouped navigation structure ────────────────────────────── */
 
@@ -280,8 +284,8 @@ export function Navigation() {
     const items: NavGroupItem[] = [
       {
         label: 'Discover profiles',
-        href: '/discover',
-        description: 'Browse identities on the graph',
+        href: getPublicAppDiscoverUrl(),
+        description: 'Browse identities in the app',
         icon: Search,
       },
     ];
@@ -289,8 +293,8 @@ export function Navigation() {
     if (accountId) {
       items.push({
         label: 'Your profile',
-        href: getPortalProfileUrl(accountId),
-        description: 'Open your portal profile',
+        href: getPublicAppPageUrl(accountId),
+        description: 'Open your profile in the app',
         icon: User,
       });
     }
