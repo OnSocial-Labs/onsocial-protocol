@@ -2691,6 +2691,142 @@ describe('QueryModule', () => {
       expect(sample.viewerKnown.incoming[0]?.since).toBe(2);
     });
 
+    it('boosts endorsed accounts already in the sample with no extra fetch', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('StandingSubjectEndorsements')) {
+          return {
+            data: { endorsementsCurrent: [{ target: 'bob.near' }] },
+          };
+        }
+        if (query.includes('StandingPeerEnrichment')) {
+          return {
+            data: { profileSearch: [], viewerOutgoing: [], viewerIncoming: [] },
+          };
+        }
+        if (query.includes('StandingNetworkSample')) {
+          return {
+            data: {
+              standingCounts: [{ standingWithCount: 1 }],
+              standingOutCounts: [{ standingWithOthersCount: 0 }],
+              profileSearch: [{ mutualStandingCount: 0 }],
+              incomingSample: [
+                {
+                  accountId: 'bob.near',
+                  targetAccount: 'alice.near',
+                  value: '{"since":1}',
+                  blockHeight: 1,
+                  blockTimestamp: 9,
+                },
+              ],
+              outgoingSample: [],
+              mutualSample: [],
+            },
+          };
+        }
+        return { data: {} };
+      });
+
+      const sample = await os.query.standings.networkSample({
+        accountId: 'alice.near',
+        includeSubjectEndorsed: true,
+      });
+
+      // sample ∥ endorsements, then enrichment — the intersection never
+      // fires because every endorsed account is already in the sample.
+      expect(fetch).toHaveBeenCalledTimes(3);
+      for (const call of fetch.mock.calls) {
+        const query = String(JSON.parse(call[1].body).query);
+        expect(query).not.toContain('StandingSubjectEndorsed(');
+      }
+      expect(sample.subjectEndorsedIds).toEqual(['bob.near']);
+      expect(sample.subjectEndorsed).toEqual({
+        mutual: [],
+        incoming: [],
+        outgoing: [],
+      });
+    });
+
+    it('fetches endorsed connections missing from the sample', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query ?? '');
+        if (query.includes('StandingSubjectEndorsements')) {
+          return {
+            data: {
+              endorsementsCurrent: [
+                { target: 'bob.near' },
+                { target: 'eve.near' },
+                { target: 'ghost.near' },
+              ],
+            },
+          };
+        }
+        if (query.includes('StandingSubjectEndorsed')) {
+          return {
+            data: {
+              endorsedIncoming: [],
+              endorsedOutgoing: [
+                {
+                  accountId: 'alice.near',
+                  targetAccount: 'eve.near',
+                  value: '{"since":3}',
+                  blockHeight: 7,
+                  blockTimestamp: 70,
+                },
+              ],
+              endorsedMutual: [],
+            },
+          };
+        }
+        if (query.includes('StandingPeerEnrichment')) {
+          return {
+            data: { profileSearch: [], viewerOutgoing: [], viewerIncoming: [] },
+          };
+        }
+        if (query.includes('StandingNetworkSample')) {
+          return {
+            data: {
+              standingCounts: [{ standingWithCount: 1 }],
+              standingOutCounts: [{ standingWithOthersCount: 1 }],
+              profileSearch: [{ mutualStandingCount: 0 }],
+              incomingSample: [
+                {
+                  accountId: 'bob.near',
+                  targetAccount: 'alice.near',
+                  value: '{"since":1}',
+                  blockHeight: 1,
+                  blockTimestamp: 9,
+                },
+              ],
+              outgoingSample: [],
+              mutualSample: [],
+            },
+          };
+        }
+        return { data: {} };
+      });
+
+      const sample = await os.query.standings.networkSample({
+        accountId: 'alice.near',
+        includeSubjectEndorsed: true,
+      });
+
+      // sample ∥ endorsements, then the intersection, then enrichment.
+      expect(fetch).toHaveBeenCalledTimes(4);
+      const intersectCall = JSON.parse(fetch.mock.calls[2][1].body);
+      expect(String(intersectCall.query)).toContain('StandingSubjectEndorsed');
+      // Only the missing ids are probed — bob.near boosts in place.
+      expect(intersectCall.variables.endorsed).toEqual([
+        'eve.near',
+        'ghost.near',
+      ]);
+      expect(sample.subjectEndorsed.outgoing[0]?.targetAccount).toBe(
+        'eve.near'
+      );
+      // ghost.near is endorsed but not connected — excluded from the set.
+      expect(sample.subjectEndorsedIds).toEqual(['bob.near', 'eve.near']);
+    });
+
     it('skips viewer-known fetch for self-views and logged-out viewers', async () => {
       const { os, fetch } = makeOsWithGraph((body) => {
         const query = String(body.query ?? '');

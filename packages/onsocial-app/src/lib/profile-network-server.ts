@@ -10,6 +10,7 @@ import {
   NETWORK_GRAPH_FETCH_LIMIT,
   NETWORK_GRAPH_MAX_MAP_NODES,
   parseNetworkFilter,
+  rankNetworkSources,
   type NetworkAccount,
   type NetworkCenterMood,
   type NetworkFilterKind,
@@ -244,39 +245,46 @@ export async function loadProfileNetworkOrbit(
         incomingLimit: NETWORK_GRAPH_FETCH_LIMIT.incoming,
         outgoingLimit: NETWORK_GRAPH_FETCH_LIMIT.outgoing,
         includeViewerKnown: true,
+        includeSubjectEndorsed: true,
       }),
       loadCenterMood(os, accountId),
     ]);
 
     const peers = peerMetaFromSearchRows(os, sample.peers);
-    // Recognition first: connections the viewer also stands with lead each
-    // ring, then the recency sample. Dedupe happens downstream (mutual
-    // section wins over one-directional duplicates).
-    const accounts = buildNetworkAccountsOrdered(
-      rowsToNetworkSources(
-        [
-          ...(sample.viewerKnown.mutual as StandingListItem[]),
-          ...(sample.mutual as StandingListItem[]),
-        ],
-        'mutual',
-        peers
-      ),
-      rowsToNetworkSources(
-        [...sample.viewerKnown.incoming, ...sample.incoming],
-        'incoming',
-        peers
-      ),
-      rowsToNetworkSources(
-        [...sample.viewerKnown.outgoing, ...sample.outgoing],
-        'outgoing',
-        peers
-      )
-    );
     const knownIds = new Set([
       ...sample.viewerKnown.mutual.map((row) => row.accountId),
       ...sample.viewerKnown.incoming.map((row) => row.accountId),
       ...sample.viewerKnown.outgoing.map((row) => row.targetAccount),
     ]);
+    const endorsedIds = new Set(sample.subjectEndorsedIds);
+    // Tier order per ring: connections the viewer stands with, then the
+    // subject's endorsed picks, then the recency sample. Dedupe happens
+    // downstream (mutual section wins over one-directional duplicates).
+    const tieredSources = (
+      direction: 'mutual' | 'incoming' | 'outgoing',
+      rows: StandingListItem[]
+    ) =>
+      rankNetworkSources(rowsToNetworkSources(rows, direction, peers), {
+        viewerKnownIds: knownIds,
+        endorsedIds,
+      });
+    const accounts = buildNetworkAccountsOrdered(
+      tieredSources('mutual', [
+        ...(sample.viewerKnown.mutual as StandingListItem[]),
+        ...(sample.subjectEndorsed.mutual as StandingListItem[]),
+        ...(sample.mutual as StandingListItem[]),
+      ]),
+      tieredSources('incoming', [
+        ...sample.viewerKnown.incoming,
+        ...sample.subjectEndorsed.incoming,
+        ...sample.incoming,
+      ]),
+      tieredSources('outgoing', [
+        ...sample.viewerKnown.outgoing,
+        ...sample.subjectEndorsed.outgoing,
+        ...sample.outgoing,
+      ])
+    );
     return {
       accountId,
       viewerAccountId,
@@ -285,6 +293,9 @@ export async function loadProfileNetworkOrbit(
       centerMood,
       viewerKnownCount: accounts.filter((account) =>
         knownIds.has(account.accountId)
+      ).length,
+      subjectEndorsedCount: accounts.filter((account) =>
+        endorsedIds.has(account.accountId)
       ).length,
     };
   }

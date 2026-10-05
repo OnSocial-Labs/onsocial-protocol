@@ -50,6 +50,7 @@ export default async function NetworkAccountPage({
       initialCounts={orbit?.counts ?? null}
       initialCenterMood={orbit?.centerMood ?? null}
       initialViewerKnownCount={orbit?.viewerKnownCount ?? 0}
+      initialSubjectEndorsedCount={orbit?.subjectEndorsedCount ?? 0}
       initialFilter={initialFilter}
       initialQuery={initialQuery}
     />

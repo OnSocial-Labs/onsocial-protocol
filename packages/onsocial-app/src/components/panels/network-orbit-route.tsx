@@ -18,6 +18,7 @@ export function NetworkOrbitOverlayRoute({
   initialCounts = null,
   initialCenterMood = null,
   initialViewerKnownCount = 0,
+  initialSubjectEndorsedCount = 0,
   initialFilter = 'all',
   initialQuery = '',
 }: {
@@ -28,6 +29,7 @@ export function NetworkOrbitOverlayRoute({
   initialCounts?: NetworkStandingCounts | null;
   initialCenterMood?: NetworkCenterMood | null;
   initialViewerKnownCount?: number;
+  initialSubjectEndorsedCount?: number;
   initialFilter?: NetworkFilterKind;
   initialQuery?: string;
 }) {
@@ -45,6 +47,7 @@ export function NetworkOrbitOverlayRoute({
       initialCounts={initialCounts}
       initialCenterMood={initialCenterMood}
       initialViewerKnownCount={initialViewerKnownCount}
+      initialSubjectEndorsedCount={initialSubjectEndorsedCount}
       initialFilter={initialFilter}
       initialQuery={initialQuery}
     />

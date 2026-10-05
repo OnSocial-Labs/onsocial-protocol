@@ -49,6 +49,11 @@ export interface NetworkOrbitPayload {
    * full loads; 0/absent means the map is pure recency order.
    */
   viewerKnownCount?: number;
+  /**
+   * Unique shown accounts the subject endorses. Only on full loads;
+   * 0/absent means no endorsed connections are on the map.
+   */
+  subjectEndorsedCount?: number;
   search?: NetworkOrbitSearchMeta;
 }
 
@@ -97,6 +102,33 @@ export function parseNetworkFilter(
     return raw;
   }
   return 'all';
+}
+
+/**
+ * Stable tier order within one direction's candidate list: accounts the
+ * viewer stands with first, then accounts the subject endorses, then the
+ * recency sample. Dedupes by account (first occurrence wins) so callers can
+ * concatenate tier lists and the recency sample without pre-filtering.
+ */
+export function rankNetworkSources(
+  sources: NetworkAccountSource[],
+  tiers: {
+    viewerKnownIds: ReadonlySet<string>;
+    endorsedIds: ReadonlySet<string>;
+  }
+): NetworkAccountSource[] {
+  const seen = new Set<string>();
+  const known: NetworkAccountSource[] = [];
+  const endorsed: NetworkAccountSource[] = [];
+  const rest: NetworkAccountSource[] = [];
+  for (const source of sources) {
+    if (seen.has(source.accountId)) continue;
+    seen.add(source.accountId);
+    if (tiers.viewerKnownIds.has(source.accountId)) known.push(source);
+    else if (tiers.endorsedIds.has(source.accountId)) endorsed.push(source);
+    else rest.push(source);
+  }
+  return [...known, ...endorsed, ...rest];
 }
 
 /**

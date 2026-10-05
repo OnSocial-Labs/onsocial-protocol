@@ -48,6 +48,7 @@ export interface NetworkOrbitProviderProps {
   initialCounts?: NetworkStandingCounts | null;
   initialCenterMood?: NetworkCenterMood | null;
   initialViewerKnownCount?: number;
+  initialSubjectEndorsedCount?: number;
   initialFilter?: NetworkFilterKind;
   initialQuery?: string;
   children: ReactNode;
@@ -80,6 +81,8 @@ interface NetworkOrbitContextValue {
   mapShownCount: number;
   /** Shown accounts the logged-in viewer also stands with (0 = pure recency). */
   viewerKnownCount: number;
+  /** Shown accounts the subject endorses (0 = no endorsed picks on the map). */
+  subjectEndorsedCount: number;
   /** True while the anonymous SSR sample revalidates into a viewer-known one. */
   personalizing: boolean;
   /** List view matching the current orbit filter (+ search). */
@@ -118,6 +121,7 @@ export function NetworkOrbitProvider({
   initialCounts = null,
   initialCenterMood = null,
   initialViewerKnownCount = 0,
+  initialSubjectEndorsedCount = 0,
   initialFilter = 'all',
   initialQuery = '',
   children,
@@ -139,6 +143,9 @@ export function NetworkOrbitProvider({
   );
   const [viewerKnownCount, setViewerKnownCount] = useState(
     initialViewerKnownCount
+  );
+  const [subjectEndorsedCount, setSubjectEndorsedCount] = useState(
+    initialSubjectEndorsedCount
   );
   const [searchAccounts, setSearchAccounts] = useState<NetworkAccount[] | null>(
     null
@@ -176,6 +183,7 @@ export function NetworkOrbitProvider({
         setBaseCounts(result.counts);
         setCenterMood(result.centerMood ?? null);
         setViewerKnownCount(result.viewerKnownCount);
+        setSubjectEndorsedCount(result.subjectEndorsedCount);
       })
       .catch(() => {
         if (cancelled) return;
@@ -211,6 +219,7 @@ export function NetworkOrbitProvider({
         setBaseCounts(result.counts);
         setCenterMood(result.centerMood ?? null);
         setViewerKnownCount(result.viewerKnownCount);
+        setSubjectEndorsedCount(result.subjectEndorsedCount);
       })
       .catch(() => {
         // Keep the anonymous sample — recency order is the documented floor.
@@ -370,6 +379,7 @@ export function NetworkOrbitProvider({
     loadError,
     mapShownCount: placedNodes.length,
     viewerKnownCount,
+    subjectEndorsedCount,
     personalizing,
     listHref,
   };

@@ -61,6 +61,7 @@ export default async function NetworkOverlayRoute({
         initialAccounts={orbit?.accounts ?? null}
         initialCounts={orbit?.counts ?? null}
         initialCenterMood={orbit?.centerMood ?? null}
+        initialSubjectEndorsedCount={orbit?.subjectEndorsedCount ?? 0}
         initialFilter={initialFilter}
         initialQuery={initialQuery}
       />

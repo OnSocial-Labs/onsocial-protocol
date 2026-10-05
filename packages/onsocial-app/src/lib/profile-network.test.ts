@@ -8,6 +8,7 @@ import {
   networkFilterToStandKind,
   networkUniqueConnectionTotal,
   parseNetworkFilter,
+  rankNetworkSources,
   type NetworkAccountSource,
 } from './profile-network';
 
@@ -61,6 +62,83 @@ describe('buildNetworkAccountsOrdered', () => {
     ]);
     expect(accounts[0]?.kind).toBe('mutual');
     expect(accounts[1]?.kind).toBe('incoming');
+  });
+});
+
+describe('rankNetworkSources', () => {
+  const noTiers = {
+    viewerKnownIds: new Set<string>(),
+    endorsedIds: new Set<string>(),
+  };
+
+  it('keeps recency order when no tiers match', () => {
+    const ranked = rankNetworkSources(
+      [source('a.testnet'), source('b.testnet'), source('c.testnet')],
+      noTiers
+    );
+    expect(ranked.map((s) => s.accountId)).toEqual([
+      'a.testnet',
+      'b.testnet',
+      'c.testnet',
+    ]);
+  });
+
+  it('leads with viewer-known, then endorsed, then recency', () => {
+    const ranked = rankNetworkSources(
+      [
+        source('new1.testnet'),
+        source('endorsed1.testnet'),
+        source('new2.testnet'),
+        source('known1.testnet'),
+        source('endorsed2.testnet'),
+      ],
+      {
+        viewerKnownIds: new Set(['known1.testnet']),
+        endorsedIds: new Set(['endorsed1.testnet', 'endorsed2.testnet']),
+      }
+    );
+    expect(ranked.map((s) => s.accountId)).toEqual([
+      'known1.testnet',
+      'endorsed1.testnet',
+      'endorsed2.testnet',
+      'new1.testnet',
+      'new2.testnet',
+    ]);
+  });
+
+  it('dedupes tier lists concatenated with the sample, first wins', () => {
+    const ranked = rankNetworkSources(
+      [
+        source('known1.testnet'), // viewer-known intersection row
+        source('endorsed1.testnet'), // endorsed intersection row
+        source('new1.testnet'),
+        source('endorsed1.testnet'), // also present in the recency sample
+        source('known1.testnet'),
+      ],
+      {
+        viewerKnownIds: new Set(['known1.testnet']),
+        endorsedIds: new Set(['endorsed1.testnet']),
+      }
+    );
+    expect(ranked.map((s) => s.accountId)).toEqual([
+      'known1.testnet',
+      'endorsed1.testnet',
+      'new1.testnet',
+    ]);
+  });
+
+  it('ranks a viewer-known + endorsed account in the known tier', () => {
+    const ranked = rankNetworkSources(
+      [source('new1.testnet'), source('both.testnet')],
+      {
+        viewerKnownIds: new Set(['both.testnet']),
+        endorsedIds: new Set(['both.testnet']),
+      }
+    );
+    expect(ranked.map((s) => s.accountId)).toEqual([
+      'both.testnet',
+      'new1.testnet',
+    ]);
   });
 });
 

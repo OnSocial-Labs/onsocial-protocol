@@ -89,6 +89,7 @@ const PERSONALIZED_ORBIT = {
     },
   ],
   viewerKnownCount: 1,
+  subjectEndorsedCount: 1,
 };
 
 const ANONYMOUS_ORBIT = {
@@ -189,12 +190,12 @@ test.describe('network orbit', () => {
     await waitForNetworkOrbitReady(page);
 
     // The anonymous SSR sample is empty; the viewer-aware refetch ranks and
-    // fills the map, then the caption discloses the personalization.
+    // fills the map, then the caption discloses the ranking tiers.
     await expect(page.locator('.network-orbit-node')).toHaveCount(3, {
       timeout: 10_000,
     });
     await expect(
-      page.getByText('Map shows 3 of 45 · people you know + newest')
+      page.getByText('Map shows 3 of 45 · people you know + endorsed first')
     ).toBeVisible();
   });
 

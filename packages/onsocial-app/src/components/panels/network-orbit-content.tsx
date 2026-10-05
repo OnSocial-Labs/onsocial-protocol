@@ -224,6 +224,7 @@ function OrbitCaptions() {
     mapShownCount,
     totalUnique,
     viewerKnownCount,
+    subjectEndorsedCount,
     isSelf,
     listHref,
   } = useNetworkOrbit();
@@ -248,12 +249,19 @@ function OrbitCaptions() {
 
   if (!searchActive && totalUnique > mapShownCount) {
     const personalized = viewerKnownCount > 0 && !isSelf;
+    const endorsed = subjectEndorsedCount > 0;
+    const order = personalized
+      ? endorsed
+        ? 'people you know + endorsed first'
+        : 'people you know + newest'
+      : endorsed
+        ? 'endorsed + newest'
+        : 'newest stands';
     return (
       <div className="network-orbit-caption-row">
         <p className="network-orbit-caption">
           Map shows {formatProfileCount(mapShownCount)} of{' '}
-          {formatProfileCount(totalUnique)} ·{' '}
-          {personalized ? 'people you know + newest' : 'newest stands'}
+          {formatProfileCount(totalUnique)} · {order}
         </p>
         <Link href={listHref} scroll={false} className="network-orbit-view-all">
           View all

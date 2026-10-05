@@ -14,6 +14,7 @@ export type NetworkOrbitResult = {
   counts: NetworkStandingCounts;
   centerMood: NetworkOrbitPayload['centerMood'] | null;
   viewerKnownCount: number;
+  subjectEndorsedCount: number;
   search: NetworkOrbitSearchMeta | null;
 };
 
@@ -97,6 +98,7 @@ async function fetchNetworkOrbitFresh(
     },
     centerMood: body.centerMood ?? null,
     viewerKnownCount: Number(body.viewerKnownCount ?? 0),
+    subjectEndorsedCount: Number(body.subjectEndorsedCount ?? 0),
     search: body.search ?? null,
   };
 }
