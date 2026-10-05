@@ -47,6 +47,7 @@ export interface NetworkOrbitProviderProps {
   initialAccounts?: NetworkAccount[] | null;
   initialCounts?: NetworkStandingCounts | null;
   initialCenterMood?: NetworkCenterMood | null;
+  initialViewerKnownCount?: number;
   initialFilter?: NetworkFilterKind;
   initialQuery?: string;
   children: ReactNode;
@@ -77,6 +78,10 @@ interface NetworkOrbitContextValue {
   loading: boolean;
   loadError: string | null;
   mapShownCount: number;
+  /** Shown accounts the logged-in viewer also stands with (0 = pure recency). */
+  viewerKnownCount: number;
+  /** True while the anonymous SSR sample revalidates into a viewer-known one. */
+  personalizing: boolean;
   /** List view matching the current orbit filter (+ search). */
   listHref: string;
 }
@@ -112,6 +117,7 @@ export function NetworkOrbitProvider({
   initialAccounts = null,
   initialCounts = null,
   initialCenterMood = null,
+  initialViewerKnownCount = 0,
   initialFilter = 'all',
   initialQuery = '',
   children,
@@ -131,6 +137,9 @@ export function NetworkOrbitProvider({
   const [centerMood, setCenterMood] = useState<NetworkCenterMood | null>(
     initialCenterMood
   );
+  const [viewerKnownCount, setViewerKnownCount] = useState(
+    initialViewerKnownCount
+  );
   const [searchAccounts, setSearchAccounts] = useState<NetworkAccount[] | null>(
     null
   );
@@ -140,6 +149,8 @@ export function NetworkOrbitProvider({
   const [searchFetching, setSearchFetching] = useState(false);
   const [loading, setLoading] = useState(initialAccounts === null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [personalizing, setPersonalizing] = useState(false);
+  const personalizeAttemptedRef = useRef<string | null>(null);
   const [stageSize, setStageSize] = useState(ORBIT_STAGE_SIZE);
   const [wrapWidth, setWrapWidth] = useState<number | null>(null);
   const stageWrapRef = useRef<HTMLDivElement>(null);
@@ -164,6 +175,7 @@ export function NetworkOrbitProvider({
         setBaseAccounts(result.accounts);
         setBaseCounts(result.counts);
         setCenterMood(result.centerMood ?? null);
+        setViewerKnownCount(result.viewerKnownCount);
       })
       .catch(() => {
         if (cancelled) return;
@@ -179,6 +191,35 @@ export function NetworkOrbitProvider({
     // Initial fallback only — account swaps re-key the provider.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId]);
+
+  // SSR is anonymous (the wallet is client-side), so once a viewer connects
+  // the sample revalidates into a viewer-known ranking — a one-time settle.
+  useEffect(() => {
+    if (!viewerAccountId || viewerAccountId === accountId) return;
+    if (searchActive) return;
+    if (personalizeAttemptedRef.current === viewerAccountId) return;
+    personalizeAttemptedRef.current = viewerAccountId;
+    const controller = new AbortController();
+    setPersonalizing(true);
+    void fetchNetworkOrbit(
+      { accountId, viewerAccountId },
+      { signal: controller.signal }
+    )
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        setBaseAccounts(result.accounts);
+        setBaseCounts(result.counts);
+        setCenterMood(result.centerMood ?? null);
+        setViewerKnownCount(result.viewerKnownCount);
+      })
+      .catch(() => {
+        // Keep the anonymous sample — recency order is the documented floor.
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setPersonalizing(false);
+      });
+    return () => controller.abort();
+  }, [accountId, viewerAccountId, searchActive]);
 
   useEffect(() => {
     if (!searchActive) {
@@ -328,6 +369,8 @@ export function NetworkOrbitProvider({
     loading,
     loadError,
     mapShownCount: placedNodes.length,
+    viewerKnownCount,
+    personalizing,
     listHref,
   };
 

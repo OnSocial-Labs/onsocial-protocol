@@ -55,6 +55,14 @@ export interface StandingNetworkSampleOptions {
   mutualLimit?: number;
   incomingLimit?: number;
   outgoingLimit?: number;
+  /**
+   * Also fetch the subject's connections the viewer stands with, so callers
+   * can rank recognized accounts ahead of the recency sample. Skipped when
+   * the viewer is logged out or is the subject. Costs one extra round-trip.
+   */
+  includeViewerKnown?: boolean;
+  /** Cap per direction for the viewer-known intersection (default 12). */
+  viewerKnownLimit?: number;
 }
 
 export interface StandingNetworkSampleResult {
@@ -64,6 +72,12 @@ export interface StandingNetworkSampleResult {
   mutual: StandingListItem[];
   incoming: StandingListItem[];
   outgoing: StandingListItem[];
+  /** Subject's connections the viewer also stands with (empty unless opted in). */
+  viewerKnown: {
+    mutual: StandingListItem[];
+    incoming: StandingListItem[];
+    outgoing: StandingListItem[];
+  };
   peers: ProfileSearchRow[];
   viewerOutgoingPeerIds: string[];
   viewerIncomingPeerIds: string[];
@@ -893,6 +907,10 @@ export class StandingsQuery {
   /**
    * Network map sample — tab counts, three directional lists, and peer
    * enrichment in **two** graph round-trips (portal network graph pattern).
+   * With `includeViewerKnown` (and a logged-in viewer who is not the
+   * subject) two more round-trips — one parallel to the sample — fetch the
+   * subject's connections the viewer also stands with, so maps can rank
+   * recognized accounts first.
    */
   async networkSample(
     opts: StandingNetworkSampleOptions
@@ -902,34 +920,43 @@ export class StandingsQuery {
     const incomingLimit = opts.incomingLimit ?? 24;
     const outgoingLimit = opts.outgoingLimit ?? 24;
     const viewerAccountId = opts.viewerAccountId?.trim() ?? null;
+    const personalize = Boolean(
+      opts.includeViewerKnown &&
+        viewerAccountId &&
+        viewerAccountId !== accountId
+    );
+    const viewerKnownLimit = opts.viewerKnownLimit ?? 12;
+    // Newest viewer stands are enough for recognition — cap the id list.
+    const VIEWER_OUT_CAP = 400;
 
-    const res = await this._q.graphql<{
-      standingCounts: Array<{ standingWithCount: number }>;
-      standingOutCounts: Array<{ standingWithOthersCount: number }>;
-      profileSearch: Array<{ mutualStandingCount: number }>;
-      incomingSample: Array<{
-        accountId: string;
-        targetAccount: string;
-        value: string | null;
-        blockHeight: number;
-        blockTimestamp: number;
-      }>;
-      outgoingSample: Array<{
-        accountId: string;
-        targetAccount: string;
-        value: string | null;
-        blockHeight: number;
-        blockTimestamp: number;
-      }>;
-      mutualSample: Array<{
-        accountId: string;
-        mutualAccount: string;
-        value: string | null;
-        blockHeight: number;
-        blockTimestamp: number;
-      }>;
-    }>({
-      query: `query StandingNetworkSample(
+    const [res, viewerOutRes] = await Promise.all([
+      this._q.graphql<{
+        standingCounts: Array<{ standingWithCount: number }>;
+        standingOutCounts: Array<{ standingWithOthersCount: number }>;
+        profileSearch: Array<{ mutualStandingCount: number }>;
+        incomingSample: Array<{
+          accountId: string;
+          targetAccount: string;
+          value: string | null;
+          blockHeight: number;
+          blockTimestamp: number;
+        }>;
+        outgoingSample: Array<{
+          accountId: string;
+          targetAccount: string;
+          value: string | null;
+          blockHeight: number;
+          blockTimestamp: number;
+        }>;
+        mutualSample: Array<{
+          accountId: string;
+          mutualAccount: string;
+          value: string | null;
+          blockHeight: number;
+          blockTimestamp: number;
+        }>;
+      }>({
+        query: `query StandingNetworkSample(
         $accountId: String!
         $mutualLimit: Int!
         $incomingLimit: Int!
@@ -969,8 +996,26 @@ export class StandingsQuery {
           accountId mutualAccount value blockHeight blockTimestamp
         }
       }`,
-      variables: { accountId, mutualLimit, incomingLimit, outgoingLimit },
-    });
+        variables: { accountId, mutualLimit, incomingLimit, outgoingLimit },
+      }),
+      personalize
+        ? this._q.graphql<{
+            standingsCurrent: Array<{ targetAccount: string }>;
+          }>({
+            query: `query StandingViewerOutIds($viewerId: String!, $cap: Int!) {
+              standingsCurrent(
+                where: {accountId: {_eq: $viewerId}}
+                limit: $cap
+                offset: 0
+                orderBy: [{blockTimestamp: DESC}]
+              ) {
+                targetAccount
+              }
+            }`,
+            variables: { viewerId: viewerAccountId, cap: VIEWER_OUT_CAP },
+          })
+        : Promise.resolve(null),
+    ]);
 
     const mapStandingRow = (row: {
       accountId: string;
@@ -986,21 +1031,118 @@ export class StandingsQuery {
       blockTimestamp: Number(row.blockTimestamp) || 0,
     });
 
-    const incoming = (res.data?.incomingSample ?? []).map(mapStandingRow);
-    const outgoing = (res.data?.outgoingSample ?? []).map(mapStandingRow);
-    const mutual = (res.data?.mutualSample ?? []).map((row) => ({
+    const mapMutualRow = (row: {
+      accountId: string;
+      mutualAccount: string;
+      value: string | null;
+      blockHeight: number;
+      blockTimestamp: number;
+    }): StandingListItem => ({
       accountId: row.mutualAccount,
       targetAccount: row.accountId,
       since: parseStandingSince(row.value),
       blockHeight: Number(row.blockHeight) || 0,
       blockTimestamp: Number(row.blockTimestamp) || 0,
-    }));
+    });
+
+    const incoming = (res.data?.incomingSample ?? []).map(mapStandingRow);
+    const outgoing = (res.data?.outgoingSample ?? []).map(mapStandingRow);
+    const mutual = (res.data?.mutualSample ?? []).map(mapMutualRow);
+
+    const viewerOutIds = (viewerOutRes?.data?.standingsCurrent ?? []).map(
+      (row) => row.targetAccount
+    );
+    const viewerKnown: StandingNetworkSampleResult['viewerKnown'] = {
+      mutual: [],
+      incoming: [],
+      outgoing: [],
+    };
+    if (viewerOutIds.length > 0) {
+      const knownRes = await this._q.graphql<{
+        knownIncoming: Array<{
+          accountId: string;
+          targetAccount: string;
+          value: string | null;
+          blockHeight: number;
+          blockTimestamp: number;
+        }>;
+        knownOutgoing: Array<{
+          accountId: string;
+          targetAccount: string;
+          value: string | null;
+          blockHeight: number;
+          blockTimestamp: number;
+        }>;
+        knownMutual: Array<{
+          accountId: string;
+          mutualAccount: string;
+          value: string | null;
+          blockHeight: number;
+          blockTimestamp: number;
+        }>;
+      }>({
+        query: `query StandingViewerKnown(
+          $accountId: String!
+          $viewerOut: [String!]!
+          $limit: Int!
+        ) {
+          knownIncoming: standingsCurrent(
+            where: {
+              targetAccount: {_eq: $accountId}
+              accountId: {_in: $viewerOut}
+            }
+            limit: $limit
+            offset: 0
+            orderBy: [{blockTimestamp: DESC}]
+          ) {
+            accountId targetAccount value blockHeight blockTimestamp
+          }
+          knownOutgoing: standingsCurrent(
+            where: {
+              accountId: {_eq: $accountId}
+              targetAccount: {_in: $viewerOut}
+            }
+            limit: $limit
+            offset: 0
+            orderBy: [{blockTimestamp: DESC}]
+          ) {
+            accountId targetAccount value blockHeight blockTimestamp
+          }
+          knownMutual: mutualStandingsCurrent(
+            where: {
+              accountId: {_eq: $accountId}
+              mutualAccount: {_in: $viewerOut}
+            }
+            limit: $limit
+            offset: 0
+            orderBy: [{blockTimestamp: DESC}]
+          ) {
+            accountId mutualAccount value blockHeight blockTimestamp
+          }
+        }`,
+        variables: {
+          accountId,
+          viewerOut: viewerOutIds,
+          limit: viewerKnownLimit,
+        },
+      });
+      viewerKnown.incoming = (knownRes.data?.knownIncoming ?? []).map(
+        mapStandingRow
+      );
+      viewerKnown.outgoing = (knownRes.data?.knownOutgoing ?? []).map(
+        mapStandingRow
+      );
+      viewerKnown.mutual = (knownRes.data?.knownMutual ?? []).map(mapMutualRow);
+    }
 
     const peerAccountIds = [
       ...new Set([
         ...mutual.map((row) => row.accountId),
         ...incoming.map((row) => row.accountId),
         ...outgoing.map((row) => row.targetAccount),
+        ...viewerKnown.mutual.map((row) => row.accountId),
+        ...viewerKnown.incoming.map((row) => row.accountId),
+        ...viewerKnown.outgoing.map((row) => row.targetAccount),
       ]),
     ];
 
@@ -1019,6 +1161,7 @@ export class StandingsQuery {
       incoming,
       outgoing,
       mutual,
+      viewerKnown,
       peers: enrichment.profiles,
       viewerOutgoingPeerIds: enrichment.viewerOutgoingPeerIds,
       viewerIncomingPeerIds: enrichment.viewerIncomingPeerIds,

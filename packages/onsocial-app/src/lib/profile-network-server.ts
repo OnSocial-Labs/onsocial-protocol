@@ -84,7 +84,10 @@ function rowPeerId(
 }
 
 function countUniqueSearchPeers(
-  sets: Array<{ rows: StandingListItem[]; direction: 'mutual' | 'incoming' | 'outgoing' }>
+  sets: Array<{
+    rows: StandingListItem[];
+    direction: 'mutual' | 'incoming' | 'outgoing';
+  }>
 ): number {
   const seen = new Set<string>();
   for (const { rows, direction } of sets) {
@@ -108,8 +111,11 @@ async function loadSearchedNetworkAccounts(
     return { accounts: [], matchTotal: 0 };
   }
 
-  const { mutual: mutualLimit, incoming: incomingLimit, outgoing: outgoingLimit } =
-    NETWORK_GRAPH_FETCH_LIMIT;
+  const {
+    mutual: mutualLimit,
+    incoming: incomingLimit,
+    outgoing: outgoingLimit,
+  } = NETWORK_GRAPH_FETCH_LIMIT;
 
   const sets: Array<{
     rows: StandingListItem[];
@@ -237,21 +243,49 @@ export async function loadProfileNetworkOrbit(
         mutualLimit: NETWORK_GRAPH_FETCH_LIMIT.mutual,
         incomingLimit: NETWORK_GRAPH_FETCH_LIMIT.incoming,
         outgoingLimit: NETWORK_GRAPH_FETCH_LIMIT.outgoing,
+        includeViewerKnown: true,
       }),
       loadCenterMood(os, accountId),
     ]);
 
     const peers = peerMetaFromSearchRows(os, sample.peers);
+    // Recognition first: connections the viewer also stands with lead each
+    // ring, then the recency sample. Dedupe happens downstream (mutual
+    // section wins over one-directional duplicates).
+    const accounts = buildNetworkAccountsOrdered(
+      rowsToNetworkSources(
+        [
+          ...(sample.viewerKnown.mutual as StandingListItem[]),
+          ...(sample.mutual as StandingListItem[]),
+        ],
+        'mutual',
+        peers
+      ),
+      rowsToNetworkSources(
+        [...sample.viewerKnown.incoming, ...sample.incoming],
+        'incoming',
+        peers
+      ),
+      rowsToNetworkSources(
+        [...sample.viewerKnown.outgoing, ...sample.outgoing],
+        'outgoing',
+        peers
+      )
+    );
+    const knownIds = new Set([
+      ...sample.viewerKnown.mutual.map((row) => row.accountId),
+      ...sample.viewerKnown.incoming.map((row) => row.accountId),
+      ...sample.viewerKnown.outgoing.map((row) => row.targetAccount),
+    ]);
     return {
       accountId,
       viewerAccountId,
       counts: sample.counts,
-      accounts: buildNetworkAccountsOrdered(
-        rowsToNetworkSources(sample.mutual as StandingListItem[], 'mutual', peers),
-        rowsToNetworkSources(sample.incoming, 'incoming', peers),
-        rowsToNetworkSources(sample.outgoing, 'outgoing', peers)
-      ),
+      accounts,
       centerMood,
+      viewerKnownCount: accounts.filter((account) =>
+        knownIds.has(account.accountId)
+      ).length,
     };
   }
 

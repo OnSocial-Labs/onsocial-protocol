@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { ENDORSE_E2E_ACCOUNT } from './helpers/endorse-compose-voice';
+import { seedE2eMockSigner } from './helpers/e2e-mock-signer';
 import {
   dismissNextDevOverlay,
   gotoApp,
@@ -58,6 +59,57 @@ async function waitForNetworkOrbitReady(page: Page): Promise<void> {
     undefined,
     { timeout: 15_000 }
   );
+}
+
+const VIEWER_ACCOUNT = 'visitor.testnet';
+
+/** Personalized payload returned only to viewer-aware client fetches. */
+const PERSONALIZED_ORBIT = {
+  accountId: ENDORSE_E2E_ACCOUNT,
+  viewerAccountId: VIEWER_ACCOUNT,
+  counts: { incoming: 30, outgoing: 20, mutual: 5 },
+  accounts: [
+    {
+      accountId: 'bob.testnet',
+      name: 'Bob',
+      avatarUrl: svgAvatar('#4f7cff'),
+      kind: 'mutual',
+    },
+    {
+      accountId: 'carol.testnet',
+      name: 'Carol',
+      avatarUrl: svgAvatar('#34d399'),
+      kind: 'incoming',
+    },
+    {
+      accountId: 'dave.testnet',
+      name: 'Dave',
+      avatarUrl: svgAvatar('#f472b6'),
+      kind: 'outgoing',
+    },
+  ],
+  viewerKnownCount: 1,
+};
+
+const ANONYMOUS_ORBIT = {
+  accountId: ENDORSE_E2E_ACCOUNT,
+  viewerAccountId: null,
+  counts: { incoming: 30, outgoing: 20, mutual: 5 },
+  accounts: [],
+};
+
+/** SSR stays anonymous (wallet is client-side); the ranked payload only answers viewer-aware fetches. */
+async function stubPersonalizedNetworkOrbit(page: Page): Promise<void> {
+  await page.route('**/api/profile/network**', async (route) => {
+    const url = new URL(route.request().url());
+    const personalized =
+      url.searchParams.get('viewerAccountId') === VIEWER_ACCOUNT;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(personalized ? PERSONALIZED_ORBIT : ANONYMOUS_ORBIT),
+    });
+  });
 }
 
 async function openStandingSheet(page: Page): Promise<void> {
@@ -124,6 +176,26 @@ test.describe('network orbit', () => {
     await expect(page.locator('.network-orbit-center')).toBeVisible({
       timeout: 15_000,
     });
+  });
+
+  test('connected viewer revalidates into a viewer-known ranking', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await seedE2eMockSigner(page, VIEWER_ACCOUNT);
+    await stubPersonalizedNetworkOrbit(page);
+    await gotoApp(page, `/@${ENDORSE_E2E_ACCOUNT}/network`);
+    await dismissNextDevOverlay(page);
+    await waitForNetworkOrbitReady(page);
+
+    // The anonymous SSR sample is empty; the viewer-aware refetch ranks and
+    // fills the map, then the caption discloses the personalization.
+    await expect(page.locator('.network-orbit-node')).toHaveCount(3, {
+      timeout: 10_000,
+    });
+    await expect(
+      page.getByText('Map shows 3 of 45 · people you know + newest')
+    ).toBeVisible();
   });
 
   test('standing sheet opens the orbit overlay and view-all swaps back', async ({

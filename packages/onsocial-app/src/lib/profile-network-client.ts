@@ -13,6 +13,7 @@ export type NetworkOrbitResult = {
   accounts: NetworkOrbitPayload['accounts'];
   counts: NetworkStandingCounts;
   centerMood: NetworkOrbitPayload['centerMood'] | null;
+  viewerKnownCount: number;
   search: NetworkOrbitSearchMeta | null;
 };
 
@@ -95,6 +96,7 @@ async function fetchNetworkOrbitFresh(
       mutual: Number(body.counts?.mutual ?? 0),
     },
     centerMood: body.centerMood ?? null,
+    viewerKnownCount: Number(body.viewerKnownCount ?? 0),
     search: body.search ?? null,
   };
 }

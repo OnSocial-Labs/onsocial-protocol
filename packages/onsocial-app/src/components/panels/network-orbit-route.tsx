@@ -17,6 +17,7 @@ export function NetworkOrbitOverlayRoute({
   initialAccounts = null,
   initialCounts = null,
   initialCenterMood = null,
+  initialViewerKnownCount = 0,
   initialFilter = 'all',
   initialQuery = '',
 }: {
@@ -26,6 +27,7 @@ export function NetworkOrbitOverlayRoute({
   initialAccounts?: NetworkAccount[] | null;
   initialCounts?: NetworkStandingCounts | null;
   initialCenterMood?: NetworkCenterMood | null;
+  initialViewerKnownCount?: number;
   initialFilter?: NetworkFilterKind;
   initialQuery?: string;
 }) {
@@ -42,6 +44,7 @@ export function NetworkOrbitOverlayRoute({
       initialAccounts={initialAccounts}
       initialCounts={initialCounts}
       initialCenterMood={initialCenterMood}
+      initialViewerKnownCount={initialViewerKnownCount}
       initialFilter={initialFilter}
       initialQuery={initialQuery}
     />

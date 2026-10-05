@@ -1,8 +1,5 @@
 import type { PublicPageConfig } from '@/lib/page-data';
-import {
-  parsePageMoodRecord,
-  resolvePortfolioMood,
-} from '@/lib/moods/resolve';
+import { parsePageMoodRecord, resolvePortfolioMood } from '@/lib/moods/resolve';
 import type { StanceDetailKind } from '@/lib/profile-social-standings';
 
 export type NetworkAccountKind = 'mutual' | 'incoming' | 'outgoing';
@@ -47,6 +44,11 @@ export interface NetworkOrbitPayload {
   accounts: NetworkAccount[];
   /** Only on full (non-search) loads — the center does not change mid-search. */
   centerMood?: NetworkCenterMood | null;
+  /**
+   * Unique shown accounts the logged-in viewer also stands with. Only on
+   * full loads; 0/absent means the map is pure recency order.
+   */
+  viewerKnownCount?: number;
   search?: NetworkOrbitSearchMeta;
 }
 

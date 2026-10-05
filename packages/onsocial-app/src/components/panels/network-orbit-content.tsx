@@ -223,6 +223,8 @@ function OrbitCaptions() {
     searchMatchTotal,
     mapShownCount,
     totalUnique,
+    viewerKnownCount,
+    isSelf,
     listHref,
   } = useNetworkOrbit();
 
@@ -245,11 +247,13 @@ function OrbitCaptions() {
   }
 
   if (!searchActive && totalUnique > mapShownCount) {
+    const personalized = viewerKnownCount > 0 && !isSelf;
     return (
       <div className="network-orbit-caption-row">
         <p className="network-orbit-caption">
           Map shows {formatProfileCount(mapShownCount)} of{' '}
-          {formatProfileCount(totalUnique)} · newest stands
+          {formatProfileCount(totalUnique)} ·{' '}
+          {personalized ? 'people you know + newest' : 'newest stands'}
         </p>
         <Link href={listHref} scroll={false} className="network-orbit-view-all">
           View all
@@ -284,6 +288,7 @@ export function NetworkOrbitContent() {
     loadError,
     isSelf,
     displayName,
+    personalizing,
   } = useNetworkOrbit();
 
   const showEmpty =
@@ -309,7 +314,7 @@ export function NetworkOrbitContent() {
           <div
             className={`network-orbit-stage${
               sparse ? ' network-orbit-stage--sparse' : ''
-            }${searchActive && searchFetching ? ' is-refreshing' : ''}`}
+            }${(searchActive && searchFetching) || personalizing ? ' is-refreshing' : ''}`}
             style={{ width: stageSize, height: stageSize }}
           >
             {placedNodes.map((node, index) => (

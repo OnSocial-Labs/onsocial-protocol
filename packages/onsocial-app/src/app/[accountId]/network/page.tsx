@@ -49,6 +49,7 @@ export default async function NetworkAccountPage({
       initialAccounts={orbit?.accounts ?? null}
       initialCounts={orbit?.counts ?? null}
       initialCenterMood={orbit?.centerMood ?? null}
+      initialViewerKnownCount={orbit?.viewerKnownCount ?? 0}
       initialFilter={initialFilter}
       initialQuery={initialQuery}
     />
