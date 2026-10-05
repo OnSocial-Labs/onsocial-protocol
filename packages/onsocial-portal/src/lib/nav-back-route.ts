@@ -10,7 +10,7 @@ export function resolveRouteNavBack(
 ): RouteNavBackState | null {
   if (pathname === '/' || pathname === '/offline') return null;
 
-  if (pathname.startsWith('/u/') || pathname === '/discover') {
+  if (pathname.startsWith('/u/')) {
     return DEFAULT_NAV_BACK;
   }
 

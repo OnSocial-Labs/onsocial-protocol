@@ -8,7 +8,7 @@ import {
 } from '@/features/profile/profile-list-row';
 import { cleanHandle } from '@/lib/endorsements';
 import { formatGenesisSocialBalanceDisplay } from '@/lib/genesis-season';
-import { getPortalProfileUrl } from '@/lib/portal-config';
+import { getPublicAppPageUrl } from '@/lib/portal-config';
 import {
   STANDING_RANK_FOCUS_RING_CLASS,
   STANDING_RANK_MIX_BAR_SUBTLE_CLASS,
@@ -513,7 +513,7 @@ export function StandingRow({
   rewardSlotLoading?: boolean;
   className?: string;
 }) {
-  const profileHref = getPortalProfileUrl(standing.accountId);
+  const profileHref = getPublicAppPageUrl(standing.accountId);
   const handle = cleanHandle(standing.accountId);
   const signalLine = standingSignalLine(standing);
   const rankTone = standingRankTone(standing.rank);

@@ -176,95 +176,26 @@ export function getPublicAppBoostUrl(accountId?: string | null): string {
   return `${getPublicAppPageUrl(trimmed)}?sheet=boost`;
 }
 
-export function getPortalProfileUrl(accountId: string): string {
-  return `/u/${encodeURIComponent(accountId)}`;
+export type PublicAppStandingKind = 'incoming' | 'outgoing' | 'mutual';
+
+/** Map legacy portal stand kinds onto the app's standing kinds. */
+export function normalizePublicAppStandingKind(
+  raw: string
+): PublicAppStandingKind {
+  if (raw === 'outgoing' || raw === 'mutual') return raw;
+  if (raw === 'solidarity') return 'mutual';
+  return 'incoming';
 }
 
-export type PortalStandKind = 'incoming' | 'outgoing' | 'mutual';
-
-export interface PortalStandUrlParams {
-  q?: string | null;
-}
-
-export function getPortalStandUrl(
+export function getPublicAppStandingUrl(
   accountId: string,
-  kind: PortalStandKind,
-  params: PortalStandUrlParams = {}
+  kind: string
 ): string {
-  const search = new URLSearchParams();
-  if (params.q?.trim()) search.set('q', params.q.trim());
-  const qs = search.toString();
-  return `/u/${encodeURIComponent(accountId)}/stand/${kind}${
-    qs ? `?${qs}` : ''
-  }`;
+  return `${getPublicAppPageUrl(accountId)}/standing/${normalizePublicAppStandingKind(kind)}`;
 }
 
-/** Update the stand list address bar without a full navigation. */
-export function syncPortalStandUrl(
-  accountId: string,
-  kind: PortalStandKind,
-  params: PortalStandUrlParams = {}
-): void {
-  if (typeof window === 'undefined') return;
-  const href = getPortalStandUrl(accountId, kind, params);
-  window.history.replaceState(window.history.state, '', href);
-}
-
-export type PortalEndorsementsMode = 'received' | 'given' | 'supported';
-
-export interface PortalEndorsementsUrlParams {
-  mode?: PortalEndorsementsMode;
-  topic?: string | null;
-  issuer?: string | null;
-  target?: string | null;
-  q?: string | null;
-}
-
-export function getPortalEndorsementsUrl(
-  accountId: string,
-  params: PortalEndorsementsUrlParams = {}
-): string {
-  const search = new URLSearchParams();
-  if (params.mode) search.set('mode', params.mode);
-  if (params.topic?.trim()) search.set('topic', params.topic.trim());
-  if (params.issuer?.trim()) search.set('issuer', params.issuer.trim());
-  if (params.target?.trim()) search.set('target', params.target.trim());
-  if (params.q?.trim()) search.set('q', params.q.trim());
-  const qs = search.toString();
-  return `/u/${encodeURIComponent(accountId)}/endorsements${
-    qs ? `?${qs}` : ''
-  }`;
-}
-
-export interface PortalEndorsementSupportersUrlParams {
-  endorsementId: string;
-  issuer?: string | null;
-  target?: string | null;
-  topic?: string | null;
-  q?: string | null;
-}
-
-export function getPortalEndorsementSupportersUrl(
-  accountId: string,
-  params: PortalEndorsementSupportersUrlParams
-): string {
-  const search = new URLSearchParams();
-  search.set('endorsementId', params.endorsementId.trim());
-  if (params.issuer?.trim()) search.set('issuer', params.issuer.trim());
-  if (params.target?.trim()) search.set('target', params.target.trim());
-  if (params.topic?.trim()) search.set('topic', params.topic.trim());
-  if (params.q?.trim()) search.set('q', params.q.trim());
-  return `/u/${encodeURIComponent(accountId)}/endorsements/supporters?${search.toString()}`;
-}
-
-/** Update supporters list address bar without a full navigation. */
-export function syncPortalEndorsementSupportersUrl(
-  accountId: string,
-  params: PortalEndorsementSupportersUrlParams
-): void {
-  if (typeof window === 'undefined') return;
-  const href = getPortalEndorsementSupportersUrl(accountId, params);
-  window.history.replaceState(window.history.state, '', href);
+export function getPublicAppDiscoverUrl(): string {
+  return `${PUBLIC_APP_URL}/discover`;
 }
 
 export type PortalNetworkFilter = 'all' | 'mutual' | 'incoming' | 'outgoing';
@@ -295,10 +226,6 @@ export function syncPortalNetworkUrl(
   if (typeof window === 'undefined') return;
   const href = getPortalNetworkUrl(accountId, params);
   window.history.replaceState(window.history.state, '', href);
-}
-
-export function getPortalDiscoverUrl(): string {
-  return '/discover';
 }
 
 export function openPublicAppProfile(accountId: string): void {

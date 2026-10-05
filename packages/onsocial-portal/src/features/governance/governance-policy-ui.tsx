@@ -26,7 +26,7 @@ import {
 } from '@/features/governance/governance-proposal-builders';
 import type { GovernanceDaoRole } from '@/features/governance/types';
 import { useMemberAccountLookup } from '@/hooks/use-member-account-lookup';
-import { getPortalProfileUrl } from '@/lib/portal-config';
+import { getPublicAppPageUrl } from '@/lib/portal-config';
 import { yoctoToSocial } from '@/lib/near-rpc';
 import {
   getBoundedNoteFieldCounter,
@@ -92,7 +92,7 @@ function CouncilMemberAvatar({
 
   return (
     <Link
-      href={getPortalProfileUrl(accountId)}
+      href={getPublicAppPageUrl(accountId)}
       prefetch
       className={cn(
         'relative block shrink-0 overflow-hidden rounded-full border-2 border-background bg-muted/30 shadow-none transition-opacity hover:opacity-90',

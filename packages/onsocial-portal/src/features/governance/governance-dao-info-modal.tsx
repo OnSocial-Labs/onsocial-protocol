@@ -68,7 +68,7 @@ import {
 } from '@/lib/near-rpc';
 import {
   ACTIVE_NEAR_EXPLORER_URL,
-  getPortalProfileUrl,
+  getPublicAppPageUrl,
 } from '@/lib/portal-config';
 import { cn } from '@/lib/utils';
 
@@ -357,7 +357,7 @@ function RoleMemberAvatar({
 
   return (
     <Link
-      href={getPortalProfileUrl(accountId)}
+      href={getPublicAppPageUrl(accountId)}
       prefetch
       className={cn(
         'relative block h-5 w-5 shrink-0 overflow-hidden rounded-full border border-background bg-muted/30 transition-opacity hover:opacity-90',
