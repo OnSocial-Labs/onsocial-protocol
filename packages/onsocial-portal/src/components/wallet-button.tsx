@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, type MouseEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Wallet, ChevronDown, User, Copy, Check } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
@@ -47,7 +46,10 @@ import {
 } from '@/components/ui/profile-action-pill';
 import { CompactActionPillPending } from '@/components/ui/profile-social-standing-toggle';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/near-network';
-import { getPublicAppPageUrl } from '@/lib/portal-config';
+import {
+  getPublicAppDiscoverUrl,
+  getPublicAppPageUrl,
+} from '@/lib/portal-config';
 import { walletLabelFromAccountId } from '@/lib/wallet-label';
 import {
   markWalletMenuSeen,
@@ -227,7 +229,6 @@ export function WalletButton({
   menuAlign = 'right',
   disconnectedLabel,
 }: WalletButtonProps) {
-  const router = useRouter();
   const {
     accountId,
     isConnected,
@@ -306,7 +307,7 @@ export function WalletButton({
 
   const openProfileDiscovery = () => {
     closeMenu();
-    router.push('/discover');
+    window.location.assign(getPublicAppDiscoverUrl());
   };
 
   const handleProfileAction = () => {
