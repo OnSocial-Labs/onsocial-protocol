@@ -70,6 +70,7 @@ describe('next.config social redirects', () => {
 
     const expectations: Record<string, string> = {
       '/u/:accountId': `${PUBLIC_APP_URL}/@:accountId`,
+      '/u/:accountId/network': `${PUBLIC_APP_URL}/@:accountId/network`,
       '/u/:accountId/endorsements': `${PUBLIC_APP_URL}/@:accountId/endorsements`,
       '/u/:accountId/endorsements/supporters': `${PUBLIC_APP_URL}/@:accountId/endorsements`,
       '/u/:accountId/stand/solidarity': `${PUBLIC_APP_URL}/@:accountId/standing/mutual`,
@@ -87,10 +88,13 @@ describe('next.config social redirects', () => {
     }
   });
 
-  it('keeps the network orbit on the portal', async () => {
+  it('hands the network orbit to the app as a temporary redirect', async () => {
     const redirects = await loadSocialRedirects();
-    expect(redirects.some((entry) => entry.source.includes('network'))).toBe(
-      false
+    const entry = redirects.find(
+      (redirect) => redirect.source === '/u/:accountId/network'
     );
+    expect(entry).toBeDefined();
+    expect(entry?.destination).toBe(`${PUBLIC_APP_URL}/@:accountId/network`);
+    expect(entry?.permanent).toBe(false);
   });
 });

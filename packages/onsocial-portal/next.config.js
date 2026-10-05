@@ -12,11 +12,15 @@ const publicAppUrl = (
 ).replace(/\/$/, '');
 
 // Social surfaces live in the app; the portal keeps protocol routes only.
-// 307 (not 308) while the split rolls out. /u/:accountId/network stays local.
+// 307 (not 308) while the split rolls out.
 const socialAppRedirects = [
   {
     source: '/u/:accountId',
     destination: `${publicAppUrl}/@:accountId`,
+  },
+  {
+    source: '/u/:accountId/network',
+    destination: `${publicAppUrl}/@:accountId/network`,
   },
   {
     source: '/u/:accountId/endorsements',
