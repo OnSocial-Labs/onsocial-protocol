@@ -67,6 +67,8 @@ interface NetworkOrbitContextValue {
   totalUnique: number;
   placedNodes: OrbitPlacedNode[];
   stageSize: number;
+  /** Stage's horizontal offset inside the clipping wrap (stage is centered). */
+  stageInsetX: number;
   stageWrapRef: RefObject<HTMLDivElement | null>;
   isDimmed: (account: NetworkAccount) => boolean;
   searchActive: boolean;
@@ -123,8 +125,9 @@ export function NetworkOrbitProvider({
   const [baseAccounts, setBaseAccounts] = useState<NetworkAccount[]>(
     initialAccounts ?? []
   );
-  const [baseCounts, setBaseCounts] =
-    useState<NetworkStandingCounts | null>(initialCounts);
+  const [baseCounts, setBaseCounts] = useState<NetworkStandingCounts | null>(
+    initialCounts
+  );
   const [centerMood, setCenterMood] = useState<NetworkCenterMood | null>(
     initialCenterMood
   );
@@ -138,6 +141,7 @@ export function NetworkOrbitProvider({
   const [loading, setLoading] = useState(initialAccounts === null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [stageSize, setStageSize] = useState(ORBIT_STAGE_SIZE);
+  const [wrapWidth, setWrapWidth] = useState<number | null>(null);
   const stageWrapRef = useRef<HTMLDivElement>(null);
   const latestSearchLoadRef = useRef(0);
 
@@ -248,6 +252,7 @@ export function NetworkOrbitProvider({
         )
       );
       setStageSize(next);
+      setWrapWidth((prev) => (prev === el.clientWidth ? prev : el.clientWidth));
     };
     update();
     const observer = new ResizeObserver(update);
@@ -312,6 +317,9 @@ export function NetworkOrbitProvider({
     totalUnique,
     placedNodes,
     stageSize,
+    // Before the wrap measures, assume the minimum inset the layout guarantees.
+    stageInsetX:
+      wrapWidth === null ? 12 : Math.max(12, (wrapWidth - stageSize) / 2),
     stageWrapRef,
     isDimmed,
     searchActive,

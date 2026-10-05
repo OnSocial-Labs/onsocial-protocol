@@ -110,6 +110,11 @@ test.describe('network orbit', () => {
     await expect(
       page.getByRole('link', { name: "Open Bob's network" })
     ).toBeVisible();
+    // Sparse maps show every name without hover (touch has none).
+    await expect(page.locator('.network-orbit-node-label').first()).toHaveCSS(
+      'opacity',
+      '1'
+    );
     await expect(page.getByText('Map shows 3 of 5 matches')).toBeVisible();
 
     await page.getByRole('link', { name: "Open Bob's network" }).click();

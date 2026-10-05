@@ -6,7 +6,9 @@ import { UserIcon } from '@onsocial/ui';
 import { useNetworkOrbit } from '@/components/panels/network-orbit-context';
 import { displayName as resolveDisplayName } from '@/lib/profile-display';
 import {
+  ORBIT_SPARSE_LABEL_LIMIT,
   orbitCenterIdentity,
+  orbitLabelShiftX,
   orbitStageLayout,
   type OrbitPlacedNode,
 } from '@/lib/profile-network-layout';
@@ -101,9 +103,16 @@ function OrbitNode({
   dimmed: boolean;
   stageSize: number;
 }) {
+  const { stageInsetX } = useNetworkOrbit();
   const motion = nodeMotion(index);
   const amp = nodeDrift(node, index, stageSize);
   const label = nodeLabel(node.account);
+  const labelShiftX = orbitLabelShiftX({
+    x: node.x,
+    stageSize,
+    stageInsetX,
+    label,
+  });
 
   return (
     <Link
@@ -122,6 +131,7 @@ function OrbitNode({
           marginTop: -node.size / 2,
           '--orbit-fx': `${node.unitX * amp}px`,
           '--orbit-fy': `${node.unitY * amp}px`,
+          '--label-shift-x': `${labelShiftX}px`,
           animationDelay: `${motion.entranceDelay}s, ${motion.idleDelay}s`,
           animationDuration: `0.22s, ${motion.idleDuration}s`,
         } as CSSProperties
@@ -281,6 +291,8 @@ export function NetworkOrbitContent() {
     !loadError &&
     !searchFetching &&
     (searchActive ? searchMatchTotal === 0 : placedNodes.length === 0);
+  const sparse =
+    placedNodes.length > 0 && placedNodes.length <= ORBIT_SPARSE_LABEL_LIMIT;
 
   return (
     <div className="network-orbit-panel">
@@ -296,8 +308,8 @@ export function NetworkOrbitContent() {
         ) : (
           <div
             className={`network-orbit-stage${
-              searchActive && searchFetching ? ' is-refreshing' : ''
-            }`}
+              sparse ? ' network-orbit-stage--sparse' : ''
+            }${searchActive && searchFetching ? ' is-refreshing' : ''}`}
             style={{ width: stageSize, height: stageSize }}
           >
             {placedNodes.map((node, index) => (

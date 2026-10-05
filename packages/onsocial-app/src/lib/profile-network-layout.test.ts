@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest';
 import type { NetworkAccount } from './profile-network';
 import {
   orbitCenterIdentity,
+  orbitLabelShiftX,
   orbitStageLayout,
   placeNetworkNodes,
 } from './profile-network-layout';
 
-function account(accountId: string, kind: NetworkAccount['kind']): NetworkAccount {
+function account(
+  accountId: string,
+  kind: NetworkAccount['kind']
+): NetworkAccount {
   return { accountId, name: null, avatarUrl: null, kind };
 }
 
@@ -34,9 +38,15 @@ describe('placeNetworkNodes', () => {
 
   it('caps each ring at the ring cap', () => {
     const many = (kind: NetworkAccount['kind'], prefix: string) =>
-      Array.from({ length: 20 }, (_, i) => account(`${prefix}${i}.testnet`, kind));
+      Array.from({ length: 20 }, (_, i) =>
+        account(`${prefix}${i}.testnet`, kind)
+      );
     const nodes = placeNetworkNodes(
-      [...many('mutual', 'm'), ...many('incoming', 'i'), ...many('outgoing', 'o')],
+      [
+        ...many('mutual', 'm'),
+        ...many('incoming', 'i'),
+        ...many('outgoing', 'o'),
+      ],
       460
     );
     expect(nodes.filter((n) => n.ring === 'inner')).toHaveLength(12);
@@ -104,6 +114,39 @@ describe('placeNetworkNodes', () => {
 
   it('returns an empty list for no accounts', () => {
     expect(placeNetworkNodes([], 460)).toEqual([]);
+  });
+});
+
+describe('orbitLabelShiftX', () => {
+  // Mobile portrait: 276px stage centered in a 358px wrap → 41px inset.
+  const base = { stageSize: 276, stageInsetX: 41 };
+  const longName = 'a-very-long-display-name.testnet'; // width caps at 140 → half 70
+
+  it('leaves labels that fit alone', () => {
+    expect(orbitLabelShiftX({ x: 138, label: 'bob.testnet', ...base })).toBe(0);
+    // Short label at the outer-ring edge still fits thanks to the wrap inset.
+    expect(orbitLabelShiftX({ x: 28, label: 'bob.testnet', ...base })).toBe(0);
+    expect(orbitLabelShiftX({ x: 248, label: 'bob.testnet', ...base })).toBe(0);
+  });
+
+  it('pulls long left-edge labels back into the wrap', () => {
+    // Left edge 28-70=-42 passes the bound 8-41=-33 → shift +9.
+    expect(orbitLabelShiftX({ x: 28, label: longName, ...base })).toBe(9);
+  });
+
+  it('pulls long right-edge labels back into the wrap', () => {
+    // Right edge 248+70=318 passes the bound 276+41-8=309 → shift -9.
+    expect(orbitLabelShiftX({ x: 248, label: longName, ...base })).toBe(-9);
+  });
+
+  it('shifts more when the wrap barely exceeds the stage', () => {
+    const tight = { stageSize: 276, stageInsetX: 12 };
+    // Bound 276+12-8=280 → 318-280 = -38.
+    expect(orbitLabelShiftX({ x: 248, label: longName, ...tight })).toBe(-38);
+    // Even a short label clips now: 248+39.25=287.25 → shift -7.25 → -7.
+    expect(orbitLabelShiftX({ x: 248, label: 'bob.testnet', ...tight })).toBe(
+      -7
+    );
   });
 });
 

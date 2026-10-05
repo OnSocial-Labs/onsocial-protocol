@@ -5,6 +5,8 @@ import {
 
 export const ORBIT_STAGE_SIZE = 460;
 export const ORBIT_MIN_STAGE_SIZE = 260;
+/** At or below this node count the map has room to show every name. */
+export const ORBIT_SPARSE_LABEL_LIMIT = 9;
 
 const INNER_RADIUS = 108;
 const MID_RADIUS = 146;
@@ -201,6 +203,40 @@ export function placeNetworkNodes(
       ring: spec.ring,
     };
   });
+}
+
+const LABEL_MAX_WIDTH_PX = 140;
+const LABEL_CHAR_WIDTH_PX = 5.5;
+const LABEL_CHROME_PX = 18;
+const LABEL_EDGE_PAD_PX = 8;
+
+/**
+ * Horizontal nudge keeping a node label inside the clipped stage wrap.
+ * Labels center under their node, so nodes near the wrap edge would
+ * otherwise render their name half-cut. `stageInsetX` is the stage's
+ * offset within the wrap (the wrap is what clips).
+ */
+export function orbitLabelShiftX({
+  x,
+  stageSize,
+  stageInsetX,
+  label,
+}: {
+  x: number;
+  stageSize: number;
+  stageInsetX: number;
+  label: string;
+}): number {
+  const half =
+    Math.min(
+      LABEL_MAX_WIDTH_PX,
+      label.length * LABEL_CHAR_WIDTH_PX + LABEL_CHROME_PX
+    ) / 2;
+  const leftBound = LABEL_EDGE_PAD_PX - stageInsetX;
+  const rightBound = stageSize + stageInsetX - LABEL_EDGE_PAD_PX;
+  if (x - half < leftBound) return Math.round(leftBound - (x - half));
+  if (x + half > rightBound) return Math.round(rightBound - (x + half));
+  return 0;
 }
 
 export function orbitAccountHash(accountId: string): number {
