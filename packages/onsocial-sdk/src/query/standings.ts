@@ -1129,29 +1129,29 @@ export class StandingsQuery {
       viewerOutIds.length > 0
         ? this._q
             .graphql<{
-        knownIncoming: Array<{
-          accountId: string;
-          targetAccount: string;
-          value: string | null;
-          blockHeight: number;
-          blockTimestamp: number;
-        }>;
-        knownOutgoing: Array<{
-          accountId: string;
-          targetAccount: string;
-          value: string | null;
-          blockHeight: number;
-          blockTimestamp: number;
-        }>;
-        knownMutual: Array<{
-          accountId: string;
-          mutualAccount: string;
-          value: string | null;
-          blockHeight: number;
-          blockTimestamp: number;
-        }>;
-      }>({
-        query: `query StandingViewerKnown(
+              knownIncoming: Array<{
+                accountId: string;
+                targetAccount: string;
+                value: string | null;
+                blockHeight: number;
+                blockTimestamp: number;
+              }>;
+              knownOutgoing: Array<{
+                accountId: string;
+                targetAccount: string;
+                value: string | null;
+                blockHeight: number;
+                blockTimestamp: number;
+              }>;
+              knownMutual: Array<{
+                accountId: string;
+                mutualAccount: string;
+                value: string | null;
+                blockHeight: number;
+                blockTimestamp: number;
+              }>;
+            }>({
+              query: `query StandingViewerKnown(
           $accountId: String!
           $viewerOut: [String!]!
           $limit: Int!
