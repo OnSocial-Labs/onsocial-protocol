@@ -4,6 +4,7 @@ import { usePortfolioProfileSeed } from '@/contexts/portfolio-profile-seed-conte
 import { displayName as resolveDisplayName } from '@/lib/profile-display';
 import type {
   NetworkAccount,
+  NetworkCenterMood,
   NetworkFilterKind,
   NetworkStandingCounts,
 } from '@/lib/profile-network';
@@ -15,6 +16,7 @@ export function NetworkOrbitOverlayRoute({
   avatarUrl: serverAvatarUrl,
   initialAccounts = null,
   initialCounts = null,
+  initialCenterMood = null,
   initialFilter = 'all',
   initialQuery = '',
 }: {
@@ -23,6 +25,7 @@ export function NetworkOrbitOverlayRoute({
   avatarUrl?: string | null;
   initialAccounts?: NetworkAccount[] | null;
   initialCounts?: NetworkStandingCounts | null;
+  initialCenterMood?: NetworkCenterMood | null;
   initialFilter?: NetworkFilterKind;
   initialQuery?: string;
 }) {
@@ -38,6 +41,7 @@ export function NetworkOrbitOverlayRoute({
       avatarUrl={serverAvatarUrl ?? seed?.avatarUrl ?? null}
       initialAccounts={initialAccounts}
       initialCounts={initialCounts}
+      initialCenterMood={initialCenterMood}
       initialFilter={initialFilter}
       initialQuery={initialQuery}
     />

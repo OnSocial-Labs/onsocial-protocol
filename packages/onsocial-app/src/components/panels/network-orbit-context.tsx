@@ -25,6 +25,7 @@ import {
   networkFilterToStandKind,
   networkUniqueConnectionTotal,
   type NetworkAccount,
+  type NetworkCenterMood,
   type NetworkFilterKind,
   type NetworkOrbitSearchMeta,
   type NetworkStandingCounts,
@@ -45,6 +46,7 @@ export interface NetworkOrbitProviderProps {
   /** Null when the server load failed — the client fetches on mount. */
   initialAccounts?: NetworkAccount[] | null;
   initialCounts?: NetworkStandingCounts | null;
+  initialCenterMood?: NetworkCenterMood | null;
   initialFilter?: NetworkFilterKind;
   initialQuery?: string;
   children: ReactNode;
@@ -56,6 +58,7 @@ interface NetworkOrbitContextValue {
   avatarUrl: string | null;
   viewerAccountId: string | null;
   isSelf: boolean;
+  centerMood: NetworkCenterMood | null;
   filter: NetworkFilterKind;
   setFilter: (filter: NetworkFilterKind) => void;
   query: string;
@@ -106,6 +109,7 @@ export function NetworkOrbitProvider({
   avatarUrl = null,
   initialAccounts = null,
   initialCounts = null,
+  initialCenterMood = null,
   initialFilter = 'all',
   initialQuery = '',
   children,
@@ -121,6 +125,9 @@ export function NetworkOrbitProvider({
   );
   const [baseCounts, setBaseCounts] =
     useState<NetworkStandingCounts | null>(initialCounts);
+  const [centerMood, setCenterMood] = useState<NetworkCenterMood | null>(
+    initialCenterMood
+  );
   const [searchAccounts, setSearchAccounts] = useState<NetworkAccount[] | null>(
     null
   );
@@ -152,6 +159,7 @@ export function NetworkOrbitProvider({
         if (cancelled) return;
         setBaseAccounts(result.accounts);
         setBaseCounts(result.counts);
+        setCenterMood(result.centerMood ?? null);
       })
       .catch(() => {
         if (cancelled) return;
@@ -295,6 +303,7 @@ export function NetworkOrbitProvider({
     avatarUrl,
     viewerAccountId,
     isSelf,
+    centerMood,
     filter,
     setFilter,
     query,

@@ -93,6 +93,8 @@ test.describe('network orbit', () => {
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    // Idle drift keeps nodes perpetually "unstable" for actionability checks.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await stubNetworkOrbitSearch(page);
     await gotoApp(page, `/@${ENDORSE_E2E_ACCOUNT}/network`);
     await dismissNextDevOverlay(page);

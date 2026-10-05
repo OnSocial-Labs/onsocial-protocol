@@ -148,32 +148,44 @@ function OrbitNode({
 }
 
 function OrbitCenter({ stageSize }: { stageSize: number }) {
-  const { accountId, displayName, avatarUrl, isSelf } = useNetworkOrbit();
+  const { accountId, displayName, avatarUrl, isSelf, centerMood } =
+    useNetworkOrbit();
   const layout = orbitStageLayout(stageSize);
   const size = layout.centerAvatar;
   const identity = orbitCenterIdentity(accountId);
   const label = isSelf ? 'You' : displayName;
 
+  const identityVars: CSSProperties = centerMood
+    ? ({
+        '--center-identity': centerMood.accent,
+        '--center-identity-border': `color-mix(in srgb, ${centerMood.accent} 55%, transparent)`,
+        '--center-identity-glow': `color-mix(in srgb, ${centerMood.accent} 30%, transparent)`,
+      } as CSSProperties)
+    : ({
+        '--center-identity': `hsl(${identity.primaryHue} 60% 60%)`,
+        '--center-identity-border': `hsl(${identity.primaryHue} 60% 60% / 0.55)`,
+        '--center-identity-glow': `hsl(${identity.primaryHue} 60% 60% / 0.3)`,
+      } as CSSProperties);
+  const glowBackground = centerMood
+    ? `radial-gradient(circle, color-mix(in srgb, ${centerMood.accent} 32%, transparent), color-mix(in srgb, ${centerMood.accentLight} 14%, transparent), transparent 70%)`
+    : identity.gradient;
+
   return (
     <Link
       href={portfolioPath(accountId)}
       className="network-orbit-center"
-      style={
-        {
-          width: size,
-          height: size,
-          marginLeft: -size / 2,
-          marginTop: -size / 2,
-          '--center-identity': `hsl(${identity.primaryHue} 60% 60%)`,
-          '--center-identity-border': `hsl(${identity.primaryHue} 60% 60% / 0.55)`,
-          '--center-identity-glow': `hsl(${identity.primaryHue} 60% 60% / 0.3)`,
-        } as CSSProperties
-      }
+      style={{
+        width: size,
+        height: size,
+        marginLeft: -size / 2,
+        marginTop: -size / 2,
+        ...identityVars,
+      }}
       aria-label={`Open ${label}`}
     >
       <span
         className="network-orbit-center-glow"
-        style={{ background: identity.gradient, inset: Math.round(-size * 0.52) }}
+        style={{ background: glowBackground, inset: Math.round(-size * 0.52) }}
         aria-hidden="true"
       />
       <span className="network-orbit-center-avatar">

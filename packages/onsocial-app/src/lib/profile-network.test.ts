@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildNetworkAccountsOrdered,
+  centerMoodFromConfig,
   NETWORK_GRAPH_MAX_MAP_NODES,
   NETWORK_GRAPH_RING_CAP,
   networkFilterCounts,
@@ -94,5 +95,36 @@ describe('graph caps', () => {
         NETWORK_GRAPH_RING_CAP.incoming +
         NETWORK_GRAPH_RING_CAP.outgoing
     );
+  });
+});
+
+describe('centerMoodFromConfig', () => {
+  it('returns null without a mood record', () => {
+    expect(centerMoodFromConfig(null)).toBeNull();
+    expect(centerMoodFromConfig(undefined)).toBeNull();
+    expect(centerMoodFromConfig({})).toBeNull();
+    expect(centerMoodFromConfig({ mood: { id: '' } })).toBeNull();
+  });
+
+  it('returns null for the default protocol mood (hash identity stays)', () => {
+    expect(centerMoodFromConfig({ mood: { id: 'protocol' } })).toBeNull();
+  });
+
+  it('resolves the preset accent for a chosen mood', () => {
+    const mood = centerMoodFromConfig({ mood: { id: 'creative' } });
+    expect(mood).not.toBeNull();
+    expect(mood?.accent).toContain('186');
+    expect(mood?.accentLight).toBeTruthy();
+  });
+
+  it('prefers stored per-mood ink tints over the catalog accent', () => {
+    const base = centerMoodFromConfig({ mood: { id: 'creative' } });
+    const tinted = centerMoodFromConfig({
+      mood: { id: 'creative' },
+      theme: { moodTints: { creative: 120 } },
+    });
+    expect(base).not.toBeNull();
+    expect(tinted).not.toBeNull();
+    expect(tinted?.accent).not.toBe(base?.accent);
   });
 });

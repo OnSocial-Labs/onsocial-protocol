@@ -60,6 +60,7 @@ export default async function NetworkOverlayRoute({
         avatarUrl={shell?.avatarUrl ?? null}
         initialAccounts={orbit?.accounts ?? null}
         initialCounts={orbit?.counts ?? null}
+        initialCenterMood={orbit?.centerMood ?? null}
         initialFilter={initialFilter}
         initialQuery={initialQuery}
       />

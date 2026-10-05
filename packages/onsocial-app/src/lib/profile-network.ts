@@ -1,3 +1,8 @@
+import type { PublicPageConfig } from '@/lib/page-data';
+import {
+  parsePageMoodRecord,
+  resolvePortfolioMood,
+} from '@/lib/moods/resolve';
 import type { StanceDetailKind } from '@/lib/profile-social-standings';
 
 export type NetworkAccountKind = 'mutual' | 'incoming' | 'outgoing';
@@ -29,12 +34,39 @@ export interface NetworkOrbitSearchMeta {
   filter: NetworkFilterKind;
 }
 
+/** Subject's chosen mood accent for the orbit center glow. */
+export interface NetworkCenterMood {
+  accent: string;
+  accentLight: string;
+}
+
 export interface NetworkOrbitPayload {
   accountId: string;
   viewerAccountId: string | null;
   counts: NetworkStandingCounts;
   accounts: NetworkAccount[];
+  /** Only on full (non-search) loads — the center does not change mid-search. */
+  centerMood?: NetworkCenterMood | null;
   search?: NetworkOrbitSearchMeta;
+}
+
+/**
+ * Center-glow rule: the subject's own mood accent when they picked a
+ * non-default mood; null otherwise so the orbit falls back to the stable
+ * per-account identity hue (keeps variety across mood-less profiles).
+ */
+export function centerMoodFromConfig(
+  config: PublicPageConfig | null | undefined
+): NetworkCenterMood | null {
+  if (!config || !parsePageMoodRecord(config)) return null;
+  const mood = resolvePortfolioMood(config);
+  if (mood.id === 'protocol') return null;
+  const accent = mood.cssVars['--mood-preset-accent'];
+  if (!accent) return null;
+  return {
+    accent,
+    accentLight: mood.cssVars['--mood-preset-accent-light'] ?? accent,
+  };
 }
 
 /** Orbit placement caps (must match `placeNetworkNodes` slices). */

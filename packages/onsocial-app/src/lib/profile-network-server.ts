@@ -6,10 +6,12 @@ import {
 } from '@/lib/profile-account-search';
 import {
   buildNetworkAccountsOrdered,
+  centerMoodFromConfig,
   NETWORK_GRAPH_FETCH_LIMIT,
   NETWORK_GRAPH_MAX_MAP_NODES,
   parseNetworkFilter,
   type NetworkAccount,
+  type NetworkCenterMood,
   type NetworkFilterKind,
   type NetworkOrbitPayload,
 } from '@/lib/profile-network';
@@ -204,6 +206,15 @@ async function loadSearchedNetworkAccounts(
   };
 }
 
+/** Subject's mood accent for the center glow — null when no mood is set. */
+async function loadCenterMood(
+  os: AppOnSocialClient,
+  accountId: string
+): Promise<NetworkCenterMood | null> {
+  const config = await os.query.pages.getConfig(accountId).catch(() => null);
+  return centerMoodFromConfig(config);
+}
+
 /**
  * Orbit payload for `/@account/network` — the three-ring standing map.
  * Lean by design: nodes only need name + avatar, so no bio/mood/DAO
@@ -219,13 +230,16 @@ export async function loadProfileNetworkOrbit(
   const filter = parseNetworkFilter(options.filter);
 
   if (!isProfileSearchQuery(normalizedSearch)) {
-    const sample = await os.standings.networkSample({
-      accountId,
-      viewerAccountId,
-      mutualLimit: NETWORK_GRAPH_FETCH_LIMIT.mutual,
-      incomingLimit: NETWORK_GRAPH_FETCH_LIMIT.incoming,
-      outgoingLimit: NETWORK_GRAPH_FETCH_LIMIT.outgoing,
-    });
+    const [sample, centerMood] = await Promise.all([
+      os.standings.networkSample({
+        accountId,
+        viewerAccountId,
+        mutualLimit: NETWORK_GRAPH_FETCH_LIMIT.mutual,
+        incomingLimit: NETWORK_GRAPH_FETCH_LIMIT.incoming,
+        outgoingLimit: NETWORK_GRAPH_FETCH_LIMIT.outgoing,
+      }),
+      loadCenterMood(os, accountId),
+    ]);
 
     const peers = peerMetaFromSearchRows(os, sample.peers);
     return {
@@ -237,6 +251,7 @@ export async function loadProfileNetworkOrbit(
         rowsToNetworkSources(sample.incoming, 'incoming', peers),
         rowsToNetworkSources(sample.outgoing, 'outgoing', peers)
       ),
+      centerMood,
     };
   }
 
