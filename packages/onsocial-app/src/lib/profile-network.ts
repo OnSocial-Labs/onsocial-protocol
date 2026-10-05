@@ -9,6 +9,8 @@ export interface NetworkAccount {
   name: string | null;
   avatarUrl: string | null;
   kind: NetworkAccountKind;
+  /** The map subject gave this account an endorsement. */
+  endorsed?: boolean;
 }
 
 export interface NetworkAccountSource {
@@ -129,6 +131,19 @@ export function rankNetworkSources(
     else rest.push(source);
   }
   return [...known, ...endorsed, ...rest];
+}
+
+/** Flag accounts the subject endorses — drives the gold vouch pip on nodes. */
+export function markEndorsedAccounts(
+  accounts: NetworkAccount[],
+  endorsedIds: ReadonlySet<string>
+): NetworkAccount[] {
+  if (endorsedIds.size === 0) return accounts;
+  return accounts.map((account) =>
+    endorsedIds.has(account.accountId)
+      ? { ...account, endorsed: true }
+      : account
+  );
 }
 
 /**

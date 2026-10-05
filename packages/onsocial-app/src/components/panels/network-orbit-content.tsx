@@ -103,7 +103,7 @@ function OrbitNode({
   dimmed: boolean;
   stageSize: number;
 }) {
-  const { stageInsetX } = useNetworkOrbit();
+  const { stageInsetX, displayName, isSelf } = useNetworkOrbit();
   const motion = nodeMotion(index);
   const amp = nodeDrift(node, index, stageSize);
   const label = nodeLabel(node.account);
@@ -113,6 +113,7 @@ function OrbitNode({
     stageInsetX,
     label,
   });
+  const endorsed = node.account.endorsed === true;
 
   return (
     <Link
@@ -136,7 +137,9 @@ function OrbitNode({
           animationDuration: `0.22s, ${motion.idleDuration}s`,
         } as CSSProperties
       }
-      aria-label={`Open ${label}'s network`}
+      aria-label={`Open ${label}'s network${
+        endorsed ? `, endorsed by ${isSelf ? 'you' : displayName}` : ''
+      }`}
     >
       {node.account.avatarUrl ? (
         <img
@@ -152,6 +155,9 @@ function OrbitNode({
           <UserIcon className="network-orbit-node-fallback-icon" />
         </span>
       )}
+      {endorsed ? (
+        <span className="network-orbit-node-endorsed" aria-hidden="true" />
+      ) : null}
       <span className="network-orbit-node-label">{label}</span>
     </Link>
   );
