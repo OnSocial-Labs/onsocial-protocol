@@ -41905,6 +41905,32 @@ a.os-surface-row {
     outline: none;
   }
 
+  /* Inline supporter faces in the meta line — small, quiet, on the text baseline. */
+  .endorsement-focus-supporter-faces.guild-facepile {
+    display: inline-flex;
+    align-items: center;
+    min-height: 0;
+    margin-right: 0.28rem;
+    vertical-align: -0.14em;
+  }
+
+  .endorsement-focus-supporter-faces .guild-facepile-avatars--slots {
+    --guild-facepile-avatar-size: 0.85rem;
+    --guild-facepile-overlap: 0.28rem;
+    height: 0.85rem;
+    overflow: visible;
+  }
+
+  .endorsement-focus-supporter-faces .guild-facepile-avatar {
+    width: 0.85rem;
+    height: 0.85rem;
+    box-shadow: 0 0 0 1.5px rgb(var(--bg-rgb));
+  }
+
+  .endorsement-focus-supporter-faces .guild-facepile-avatar:not(:first-child) {
+    margin-left: -0.28rem;
+  }
+
   .endorsement-supporters-sheet-body {
     padding-bottom: 0.4rem;
   }

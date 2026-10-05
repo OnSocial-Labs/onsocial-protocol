@@ -22,6 +22,7 @@ import { AccountAvatar } from '@/components/profile/account-avatar';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
 import { PostMediaStrip } from '@/features/home/post-media';
+import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import {
   EndorseComposeSheet,
   type EndorseComposeIntent,
@@ -33,7 +34,9 @@ import {
 import { EndorsementSupportersSheet } from '@/components/panels/endorsement-supporters-sheet';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useEndorsementSupporters } from '@/hooks/use-endorsement-supporters';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
+import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   endorsementVouchLine,
@@ -46,6 +49,7 @@ import {
   endorsementStageMedia,
   parseEndorsementMediaRef,
 } from '@/lib/endorsement-media';
+import { invalidateEndorsementSupporters } from '@/lib/endorsement-supporters-client';
 import type {
   EndorseExistingDraft,
   EndorsementPanelItem,
@@ -131,6 +135,25 @@ export function EndorsementFocusSheet({
       })
     : null;
   const supporterCount = item?.supporterCount ?? 0;
+  // Warm the supporters list while the vouch is open — the meta-line facepile
+  // peeks at it, and the supporters sheet reads the same cached promise.
+  const supporterPeekEnabled =
+    sheetOpen && supporterCount > 0 && Boolean(spendTargetId);
+  const { supporters: supporterPeek } = useEndorsementSupporters(
+    supporterPeekEnabled ? spendTargetId : null,
+    { enabled: supporterPeekEnabled, refreshKey: supportersRefreshKey }
+  );
+  const supporterPeekProfiles = useMemo(() => {
+    const map: Record<string, PostAuthorProfile> = {};
+    for (const supporter of supporterPeek ?? []) {
+      map[supporter.accountId] = {
+        accountId: supporter.accountId,
+        displayName: supporter.name ?? supporter.accountId,
+        avatarUrl: supporter.avatarUrl,
+      };
+    }
+    return map;
+  }, [supporterPeek]);
   const viewerOwns =
     Boolean(viewerAccountId) &&
     Boolean(item) &&
@@ -334,6 +357,14 @@ export function EndorsementFocusSheet({
                     className="endorsement-focus-supporters"
                     onClick={() => setSupportersOpen(true)}
                   >
+                    {supporterPeek && supporterPeek.length > 0 ? (
+                      <GuildFacepile
+                        memberIds={supporterPeek.map((row) => row.accountId)}
+                        profiles={supporterPeekProfiles}
+                        showCount={false}
+                        className="endorsement-focus-supporter-faces"
+                      />
+                    ) : null}
                     {supporterCount} supporter
                     {supporterCount === 1 ? '' : 's'}
                   </button>
@@ -376,6 +407,7 @@ export function EndorsementFocusSheet({
           if (!next) setSupportTarget(null);
         }}
         onSuccess={() => {
+          if (spendTargetId) invalidateEndorsementSupporters(spendTargetId);
           setSupportersRefreshKey((key) => key + 1);
           onSuccess?.();
         }}
