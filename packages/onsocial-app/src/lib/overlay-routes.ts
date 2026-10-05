@@ -36,6 +36,7 @@ export const OVERLAY_PANELS = [
   'endorsements',
   'feed',
   'standing',
+  'network',
   'reputation',
   'collectibles',
   'writing',
@@ -251,6 +252,28 @@ export function aboutPath(accountId: string): string {
   return overlayPath(accountId, 'about');
 }
 
+/**
+ * Standing orbit map. Overlay on soft nav, full page on hard refresh — the
+ * portal `/u/:accountId/network` redirect lands here.
+ */
+export function networkPath(
+  accountId: string,
+  options?: { filter?: string | null; q?: string | null }
+): string {
+  const base = overlayPath(accountId, 'network');
+  const params = new URLSearchParams();
+  const filter = options?.filter?.trim().toLowerCase() ?? '';
+  if (filter === 'mutual' || filter === 'incoming' || filter === 'outgoing') {
+    params.set('filter', filter);
+  }
+  const q = normalizeProfileSearchQuery(options?.q);
+  if (isProfileSearchQuery(q)) {
+    params.set('q', q);
+  }
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
+}
+
 /** Author Writing shelf — titled longform posts. */
 export function writingPath(accountId: string): string {
   return overlayPath(accountId, 'writing');
@@ -348,6 +371,7 @@ export const OVERLAY_PANEL_LABELS: Record<OverlayPanel, string> = {
   endorsements: 'Endorsements',
   feed: 'Feed',
   standing: 'Standing',
+  network: 'Network',
   reputation: 'Reputation',
   collectibles: 'Collectibles',
   writing: 'Writing',
@@ -481,6 +505,10 @@ export function resolveOverlayPanelChrome(
 
   if (panelKey.startsWith('standing:')) {
     return { ariaTitle: 'Standing', expectsToolbar: true };
+  }
+
+  if (panelKey === 'network') {
+    return { ariaTitle: 'Network', expectsToolbar: true };
   }
 
   if (panelKey === 'discover') {

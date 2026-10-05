@@ -1,0 +1,270 @@
+import type { ProfileSearchRow } from '@onsocial/sdk';
+import {
+  isProfileSearchQuery,
+  normalizeProfileSearchQuery,
+  searchMatchingAccountIds,
+} from '@/lib/profile-account-search';
+import {
+  buildNetworkAccountsOrdered,
+  NETWORK_GRAPH_FETCH_LIMIT,
+  NETWORK_GRAPH_MAX_MAP_NODES,
+  parseNetworkFilter,
+  type NetworkAccount,
+  type NetworkFilterKind,
+  type NetworkOrbitPayload,
+} from '@/lib/profile-network';
+import type {
+  AppOnSocialClient,
+  StandingListItem,
+} from '@/lib/profile-social-server';
+
+interface PeerMeta {
+  name: string | null;
+  avatarUrl: string | null;
+}
+
+function peerMetaFromSearchRows(
+  os: AppOnSocialClient,
+  rows: ProfileSearchRow[]
+): Map<string, PeerMeta> {
+  const meta = new Map<string, PeerMeta>();
+  for (const row of rows) {
+    meta.set(row.accountId, {
+      name: row.name ?? null,
+      avatarUrl: os.profiles.avatarUrl({
+        accountId: row.accountId,
+        name: row.name ?? undefined,
+        bio: row.bio ?? undefined,
+        avatar: row.avatar ?? undefined,
+        banner: row.banner ?? undefined,
+        kind: row.kind,
+        extra: {},
+      }),
+    });
+  }
+  return meta;
+}
+
+function rowsToNetworkSources(
+  rows: StandingListItem[],
+  direction: 'mutual' | 'incoming' | 'outgoing',
+  peers: Map<string, PeerMeta>
+): Array<{ accountId: string; name: string | null; avatarUrl: string | null }> {
+  return rows.map((row) => {
+    const id = direction === 'outgoing' ? row.targetAccount : row.accountId;
+    const meta = peers.get(id);
+    return {
+      accountId: id,
+      name: meta?.name ?? null,
+      avatarUrl: meta?.avatarUrl ?? null,
+    };
+  });
+}
+
+async function loadPeerMeta(
+  os: AppOnSocialClient,
+  viewerAccountId: string | null,
+  accountIds: string[]
+): Promise<Map<string, PeerMeta>> {
+  if (accountIds.length === 0) return new Map();
+  const enrichment = await os.standings.enrichPeers(
+    viewerAccountId,
+    accountIds
+  );
+  return peerMetaFromSearchRows(os, enrichment.profiles);
+}
+
+function rowPeerId(
+  row: StandingListItem,
+  direction: 'mutual' | 'incoming' | 'outgoing'
+): string {
+  return direction === 'outgoing' ? row.targetAccount : row.accountId;
+}
+
+function countUniqueSearchPeers(
+  sets: Array<{ rows: StandingListItem[]; direction: 'mutual' | 'incoming' | 'outgoing' }>
+): number {
+  const seen = new Set<string>();
+  for (const { rows, direction } of sets) {
+    for (const row of rows) {
+      const id = rowPeerId(row, direction);
+      if (id) seen.add(id);
+    }
+  }
+  return seen.size;
+}
+
+async function loadSearchedNetworkAccounts(
+  os: AppOnSocialClient,
+  accountId: string,
+  viewerAccountId: string | null,
+  searchQuery: string,
+  filter: NetworkFilterKind
+): Promise<{ accounts: NetworkAccount[]; matchTotal: number }> {
+  const participants = await searchMatchingAccountIds(os, searchQuery);
+  if (participants.length === 0) {
+    return { accounts: [], matchTotal: 0 };
+  }
+
+  const { mutual: mutualLimit, incoming: incomingLimit, outgoing: outgoingLimit } =
+    NETWORK_GRAPH_FETCH_LIMIT;
+
+  const sets: Array<{
+    rows: StandingListItem[];
+    direction: 'mutual' | 'incoming' | 'outgoing';
+  }> = [];
+  let matchTotal = 0;
+
+  if (filter === 'mutual') {
+    const [rows, total] = await Promise.all([
+      os.query.standings.mutualFilteredDetailed(accountId, participants, {
+        limit: NETWORK_GRAPH_MAX_MAP_NODES,
+        offset: 0,
+      }),
+      os.query.standings.mutualFilteredCount(accountId, participants),
+    ]);
+    sets.push({ rows: rows as StandingListItem[], direction: 'mutual' });
+    matchTotal = total;
+  } else if (filter === 'incoming') {
+    const [mutualRows, page] = await Promise.all([
+      os.query.standings.mutualFilteredDetailed(accountId, participants, {
+        limit: mutualLimit,
+        offset: 0,
+      }),
+      os.query.standings.incomingFilteredPage(accountId, participants, {
+        limit: incomingLimit,
+        offset: 0,
+      }),
+    ]);
+    sets.push(
+      { rows: mutualRows as StandingListItem[], direction: 'mutual' },
+      { rows: page.rows as StandingListItem[], direction: 'incoming' }
+    );
+    matchTotal = page.total;
+  } else if (filter === 'outgoing') {
+    const [mutualRows, page] = await Promise.all([
+      os.query.standings.mutualFilteredDetailed(accountId, participants, {
+        limit: mutualLimit,
+        offset: 0,
+      }),
+      os.query.standings.outgoingFilteredPage(accountId, participants, {
+        limit: outgoingLimit,
+        offset: 0,
+      }),
+    ]);
+    sets.push(
+      { rows: mutualRows as StandingListItem[], direction: 'mutual' },
+      { rows: page.rows as StandingListItem[], direction: 'outgoing' }
+    );
+    matchTotal = page.total;
+  } else {
+    const [mutualRows, incomingPage, outgoingPage] = await Promise.all([
+      os.query.standings.mutualFilteredDetailed(accountId, participants, {
+        limit: mutualLimit,
+        offset: 0,
+      }),
+      os.query.standings.incomingFilteredPage(accountId, participants, {
+        limit: incomingLimit,
+        offset: 0,
+      }),
+      os.query.standings.outgoingFilteredPage(accountId, participants, {
+        limit: outgoingLimit,
+        offset: 0,
+      }),
+    ]);
+    sets.push(
+      { rows: mutualRows as StandingListItem[], direction: 'mutual' },
+      { rows: incomingPage.rows as StandingListItem[], direction: 'incoming' },
+      { rows: outgoingPage.rows as StandingListItem[], direction: 'outgoing' }
+    );
+    matchTotal = countUniqueSearchPeers(sets);
+  }
+
+  const accountIds = Array.from(
+    new Set(
+      sets.flatMap(({ rows, direction }) =>
+        rows.map((row) => rowPeerId(row, direction))
+      )
+    )
+  );
+  const peers = await loadPeerMeta(os, viewerAccountId, accountIds);
+
+  const sourcesFor = (direction: 'mutual' | 'incoming' | 'outgoing') => {
+    const set = sets.find((s) => s.direction === direction);
+    return set ? rowsToNetworkSources(set.rows, direction, peers) : [];
+  };
+
+  return {
+    accounts: buildNetworkAccountsOrdered(
+      sourcesFor('mutual'),
+      sourcesFor('incoming'),
+      sourcesFor('outgoing')
+    ),
+    matchTotal,
+  };
+}
+
+/**
+ * Orbit payload for `/@account/network` — the three-ring standing map.
+ * Lean by design: nodes only need name + avatar, so no bio/mood/DAO
+ * enrichment (unlike the standing list).
+ */
+export async function loadProfileNetworkOrbit(
+  os: AppOnSocialClient,
+  accountId: string,
+  viewerAccountId: string | null,
+  options: { searchQuery?: string | null; filter?: string | null } = {}
+): Promise<NetworkOrbitPayload> {
+  const normalizedSearch = normalizeProfileSearchQuery(options.searchQuery);
+  const filter = parseNetworkFilter(options.filter);
+
+  if (!isProfileSearchQuery(normalizedSearch)) {
+    const sample = await os.standings.networkSample({
+      accountId,
+      viewerAccountId,
+      mutualLimit: NETWORK_GRAPH_FETCH_LIMIT.mutual,
+      incomingLimit: NETWORK_GRAPH_FETCH_LIMIT.incoming,
+      outgoingLimit: NETWORK_GRAPH_FETCH_LIMIT.outgoing,
+    });
+
+    const peers = peerMetaFromSearchRows(os, sample.peers);
+    return {
+      accountId,
+      viewerAccountId,
+      counts: sample.counts,
+      accounts: buildNetworkAccountsOrdered(
+        rowsToNetworkSources(sample.mutual as StandingListItem[], 'mutual', peers),
+        rowsToNetworkSources(sample.incoming, 'incoming', peers),
+        rowsToNetworkSources(sample.outgoing, 'outgoing', peers)
+      ),
+    };
+  }
+
+  const [countsRes, mutualCount, searched] = await Promise.all([
+    os.standings.counts(accountId),
+    os.standings.mutualCount(accountId),
+    loadSearchedNetworkAccounts(
+      os,
+      accountId,
+      viewerAccountId,
+      normalizedSearch,
+      filter
+    ),
+  ]);
+
+  return {
+    accountId,
+    viewerAccountId,
+    counts: {
+      incoming: countsRes.incoming,
+      outgoing: countsRes.outgoing,
+      mutual: mutualCount,
+    },
+    accounts: searched.accounts,
+    search: {
+      query: normalizedSearch,
+      matchTotal: searched.matchTotal,
+      filter,
+    },
+  };
+}
