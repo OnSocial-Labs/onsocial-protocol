@@ -80,6 +80,7 @@ const PERSONALIZED_ORBIT = {
       name: 'Carol',
       avatarUrl: svgAvatar('#34d399'),
       kind: 'incoming',
+      endorsed: true,
     },
     {
       accountId: 'dave.testnet',
@@ -196,6 +197,11 @@ test.describe('network orbit', () => {
     });
     await expect(
       page.getByText('Map shows 3 of 45 · people you know + endorsed first')
+    ).toBeVisible();
+    // The subject's endorsed connection carries the gold vouch pip.
+    await expect(page.locator('.network-orbit-node-endorsed')).toHaveCount(1);
+    await expect(
+      page.getByRole('link', { name: /Open Carol's network, endorsed by / })
     ).toBeVisible();
   });
 

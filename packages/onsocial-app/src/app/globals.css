@@ -47294,6 +47294,21 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     border-radius: 9999px;
   }
 
+  /* Vouch pip — the subject endorsed this connection. Gold, quiet, and
+     outside the avatar's border so it never fights the ring colors. */
+  .network-orbit-node-endorsed {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    z-index: 15;
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background: var(--signal-endorse, #dab872);
+    box-shadow: 0 0 0 2px rgb(var(--bg-rgb, 0 0 0) / 0.9);
+    pointer-events: none;
+  }
+
   .network-orbit-node-avatar,
   .network-orbit-node-fallback {
     display: block;

@@ -7,6 +7,7 @@ import {
 import {
   buildNetworkAccountsOrdered,
   centerMoodFromConfig,
+  markEndorsedAccounts,
   NETWORK_GRAPH_FETCH_LIMIT,
   NETWORK_GRAPH_MAX_MAP_NODES,
   parseNetworkFilter,
@@ -268,22 +269,25 @@ export async function loadProfileNetworkOrbit(
         viewerKnownIds: knownIds,
         endorsedIds,
       });
-    const accounts = buildNetworkAccountsOrdered(
-      tieredSources('mutual', [
-        ...(sample.viewerKnown.mutual as StandingListItem[]),
-        ...(sample.subjectEndorsed.mutual as StandingListItem[]),
-        ...(sample.mutual as StandingListItem[]),
-      ]),
-      tieredSources('incoming', [
-        ...sample.viewerKnown.incoming,
-        ...sample.subjectEndorsed.incoming,
-        ...sample.incoming,
-      ]),
-      tieredSources('outgoing', [
-        ...sample.viewerKnown.outgoing,
-        ...sample.subjectEndorsed.outgoing,
-        ...sample.outgoing,
-      ])
+    const accounts = markEndorsedAccounts(
+      buildNetworkAccountsOrdered(
+        tieredSources('mutual', [
+          ...(sample.viewerKnown.mutual as StandingListItem[]),
+          ...(sample.subjectEndorsed.mutual as StandingListItem[]),
+          ...(sample.mutual as StandingListItem[]),
+        ]),
+        tieredSources('incoming', [
+          ...sample.viewerKnown.incoming,
+          ...sample.subjectEndorsed.incoming,
+          ...sample.incoming,
+        ]),
+        tieredSources('outgoing', [
+          ...sample.viewerKnown.outgoing,
+          ...sample.subjectEndorsed.outgoing,
+          ...sample.outgoing,
+        ])
+      ),
+      endorsedIds
     );
     return {
       accountId,
@@ -294,9 +298,8 @@ export async function loadProfileNetworkOrbit(
       viewerKnownCount: accounts.filter((account) =>
         knownIds.has(account.accountId)
       ).length,
-      subjectEndorsedCount: accounts.filter((account) =>
-        endorsedIds.has(account.accountId)
-      ).length,
+      subjectEndorsedCount: accounts.filter((account) => account.endorsed)
+        .length,
     };
   }
 

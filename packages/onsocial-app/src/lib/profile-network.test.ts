@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildNetworkAccountsOrdered,
   centerMoodFromConfig,
+  markEndorsedAccounts,
   NETWORK_GRAPH_MAX_MAP_NODES,
   NETWORK_GRAPH_RING_CAP,
   networkFilterCounts,
@@ -139,6 +140,34 @@ describe('rankNetworkSources', () => {
       'both.testnet',
       'new1.testnet',
     ]);
+  });
+});
+
+describe('markEndorsedAccounts', () => {
+  it('flags only accounts in the endorsed set', () => {
+    const accounts = buildNetworkAccountsOrdered(
+      [source('m1.testnet')],
+      [source('i1.testnet')],
+      [source('o1.testnet')]
+    );
+    const marked = markEndorsedAccounts(
+      accounts,
+      new Set(['i1.testnet', 'ghost.testnet'])
+    );
+    expect(marked.map((a) => a.endorsed ?? false)).toEqual([
+      false,
+      true,
+      false,
+    ]);
+  });
+
+  it('returns the same array when nothing is endorsed', () => {
+    const accounts = buildNetworkAccountsOrdered(
+      [source('m1.testnet')],
+      [],
+      []
+    );
+    expect(markEndorsedAccounts(accounts, new Set())).toBe(accounts);
   });
 });
 
