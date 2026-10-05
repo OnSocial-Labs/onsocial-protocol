@@ -10,21 +10,29 @@ export function BoostLeaderboardPageIntro() {
   usePageNavBadge('Leaderboard', 'blue');
 
   return (
-    <SectionHeader
-      title="Leaderboard"
-      description="Reputation multiplies posts, reactions, locks, and participation."
-      size="compact"
-      badgeAccent="blue"
-      className="mb-4 hidden md:flex"
-      contentClassName="flex-1"
-      aside={
-        <Button variant="outline" size="sm" asChild>
-          <OpenBoostInAppLink className="group inline-flex items-center gap-1">
-            Open in OnSocial
-            <ProtocolMotionArrow className="h-4 w-4" />
-          </OpenBoostInAppLink>
-        </Button>
-      }
-    />
+    // sr-only (not hidden) on mobile so the h1 stays in the accessibility tree;
+    // the mobile navbar badge carries the visible page name there. The aside
+    // link stays display:none on mobile so it cannot be tab-focused invisibly.
+    <div className="max-md:sr-only">
+      <SectionHeader
+        title="Leaderboard"
+        titleAs="h1"
+        description="Reputation multiplies posts, reactions, locks, and participation."
+        size="compact"
+        badgeAccent="blue"
+        className="mb-4"
+        contentClassName="flex-1"
+        aside={
+          <div className="max-md:hidden">
+            <Button variant="outline" size="sm" asChild>
+              <OpenBoostInAppLink className="group inline-flex items-center gap-1">
+                Open in OnSocial
+                <ProtocolMotionArrow className="h-4 w-4" />
+              </OpenBoostInAppLink>
+            </Button>
+          </div>
+        }
+      />
+    </div>
   );
 }

@@ -7,13 +7,18 @@ export function GovernancePageIntro() {
   usePageNavBadge('Governance', 'blue');
 
   return (
-    <SectionHeader
-      title="Governance"
-      description="Public proposals and on-chain decisions."
-      size="compact"
-      badgeAccent="blue"
-      className="mb-4 hidden md:flex"
-      contentClassName="flex-1"
-    />
+    // sr-only (not hidden) on mobile so the h1 stays in the accessibility tree;
+    // the mobile navbar badge carries the visible page name there.
+    <div className="max-md:sr-only">
+      <SectionHeader
+        title="Governance"
+        titleAs="h1"
+        description="Public proposals and on-chain decisions."
+        size="compact"
+        badgeAccent="blue"
+        className="mb-4"
+        contentClassName="flex-1"
+      />
+    </div>
   );
 }

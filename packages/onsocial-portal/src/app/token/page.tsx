@@ -16,9 +16,9 @@ export default function TokenRedirect() {
   return (
     <PageShell>
       <SurfacePanel radius="xl" tone="soft" className="py-10 text-center">
-        <p className="text-lg font-semibold tracking-[-0.02em] text-foreground">
+        <h1 className="text-lg font-semibold tracking-[-0.02em] text-foreground">
           Token details moved to transparency
-        </p>
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Redirecting now. If nothing happens, open{' '}
           <Link

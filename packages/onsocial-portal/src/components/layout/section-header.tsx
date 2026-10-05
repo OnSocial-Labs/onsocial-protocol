@@ -19,6 +19,8 @@ const accentTextClass: Record<PortalAccent, string> = {
 interface SectionHeaderProps {
   badge?: ReactNode;
   title?: ReactNode;
+  /** Heading level for the title. Use "h1" when this header is the page title. */
+  titleAs?: 'h1' | 'h2';
   description?: ReactNode;
   badgeAccent?: PortalAccent;
   appearance?: 'label' | 'pill';
@@ -33,6 +35,7 @@ interface SectionHeaderProps {
 export function SectionHeader({
   badge,
   title,
+  titleAs: TitleTag = 'h2',
   description,
   badgeAccent = 'neutral',
   appearance = 'label',
@@ -84,7 +87,7 @@ export function SectionHeader({
           )
         ) : null}
         {title ? (
-          <h2
+          <TitleTag
             className={cn(
               badge ? 'mt-2' : null,
               compact
@@ -95,7 +98,7 @@ export function SectionHeader({
             )}
           >
             {title}
-          </h2>
+          </TitleTag>
         ) : null}
         {description ? (
           <p
