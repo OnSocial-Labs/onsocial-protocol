@@ -154,6 +154,7 @@ pub fn emit_scarce_transfer(
         .emit();
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn emit_native_scarce_listed(
     owner_id: &AccountId,
     token_id: &str,

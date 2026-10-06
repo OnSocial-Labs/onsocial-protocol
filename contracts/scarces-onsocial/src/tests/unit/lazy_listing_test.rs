@@ -43,7 +43,7 @@ fn create_lazy_listing_happy() {
     testing_env!(context(creator()).build());
 
     let id = contract
-        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000))
+        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000), None)
         .unwrap();
     assert!(id.starts_with("ll:"));
     assert!(contract.lazy_listings.contains_key(&id));
@@ -60,7 +60,7 @@ fn create_lazy_listing_increments_token_id() {
 
     let before = contract.next_token_id;
     contract
-        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000))
+        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000), None)
         .unwrap();
     assert_eq!(contract.next_token_id, before + 1);
 }
@@ -73,7 +73,7 @@ fn create_lazy_listing_past_expiry_fails() {
     let mut params = make_lazy_listing_params(1_000);
     params.expires_at = Some(1_000_000_000_000_000_000);
     let err = contract
-        .create_lazy_listing(&creator(), params)
+        .create_lazy_listing(&creator(), params, None)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
@@ -86,7 +86,7 @@ fn create_lazy_listing_unknown_app_fails() {
     let mut params = make_lazy_listing_params(1_000);
     params.options.app_id = Some("unknown-app".to_string());
     let err = contract
-        .create_lazy_listing(&creator(), params)
+        .create_lazy_listing(&creator(), params, None)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
@@ -115,7 +115,7 @@ fn create_lazy_listing_invite_only_blocks_outsider() {
     let mut params = make_lazy_listing_params(1_000);
     params.options.app_id = Some("gated".to_string());
     let err = contract
-        .create_lazy_listing(&creator(), params)
+        .create_lazy_listing(&creator(), params, None)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
@@ -143,7 +143,9 @@ fn create_lazy_listing_snapshots_commission_and_emits_app_id() {
 
     let mut params = make_lazy_listing_params(1_000);
     params.options.app_id = Some("snap".to_string());
-    let id = contract.create_lazy_listing(&creator(), params).unwrap();
+    let id = contract
+        .create_lazy_listing(&creator(), params, None)
+        .unwrap();
 
     let listing = contract.lazy_listings.get(&id).unwrap();
     assert_eq!(listing.app_commission_bps, 350);
@@ -180,7 +182,7 @@ fn create_lazy_listing_invalid_royalty_fails() {
     bad_royalty.insert("a.near".parse().unwrap(), 6_000u32);
     params.options.royalty = Some(bad_royalty);
     let err = contract
-        .create_lazy_listing(&creator(), params)
+        .create_lazy_listing(&creator(), params, None)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
@@ -191,7 +193,7 @@ fn cancel_lazy_listing_happy() {
     testing_env!(context(creator()).build());
 
     let id = contract
-        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000))
+        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000), None)
         .unwrap();
     contract.cancel_lazy_listing(&creator(), &id).unwrap();
     assert!(!contract.lazy_listings.contains_key(&id));
@@ -203,7 +205,7 @@ fn cancel_lazy_listing_wrong_creator_fails() {
     testing_env!(context(creator()).build());
 
     let id = contract
-        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000))
+        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000), None)
         .unwrap();
     let err = contract.cancel_lazy_listing(&buyer(), &id).unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
@@ -226,7 +228,7 @@ fn update_expiry_happy() {
     testing_env!(context(creator()).build());
 
     let id = contract
-        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000))
+        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000), None)
         .unwrap();
     let future = 2_000_000_000_000_000_000u64;
     contract
@@ -244,7 +246,7 @@ fn update_expiry_past_fails() {
     testing_env!(context(creator()).build());
 
     let id = contract
-        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000))
+        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000), None)
         .unwrap();
     let past = 1_000_000_000_000_000_000u64;
     let err = contract
@@ -259,7 +261,7 @@ fn update_expiry_wrong_creator_fails() {
     testing_env!(context(creator()).build());
 
     let id = contract
-        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000))
+        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000), None)
         .unwrap();
     let err = contract
         .update_lazy_listing_expiry(&buyer(), &id, None)
@@ -273,10 +275,10 @@ fn update_price_happy() {
     testing_env!(context(creator()).build());
 
     let id = contract
-        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000))
+        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000), None)
         .unwrap();
     contract
-        .update_lazy_listing_price(&creator(), &id, 5_000)
+        .update_lazy_listing_price(&creator(), &id, 5_000, None)
         .unwrap();
     assert_eq!(contract.lazy_listings.get(&id).unwrap().price, U128(5_000));
 }
@@ -287,10 +289,10 @@ fn update_price_wrong_creator_fails() {
     testing_env!(context(creator()).build());
 
     let id = contract
-        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000))
+        .create_lazy_listing(&creator(), make_lazy_listing_params(1_000), None)
         .unwrap();
     let err = contract
-        .update_lazy_listing_price(&buyer(), &id, 5_000)
+        .update_lazy_listing_price(&buyer(), &id, 5_000, None)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
@@ -301,7 +303,7 @@ fn update_price_nonexistent_fails() {
     testing_env!(context(creator()).build());
 
     let err = contract
-        .update_lazy_listing_price(&creator(), "ll:999", 5_000)
+        .update_lazy_listing_price(&creator(), "ll:999", 5_000, None)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
@@ -412,7 +414,9 @@ fn purchase_lazy_listing_emits_one_event_with_quantity() {
     let mut params = make_lazy_listing_params(1_000);
     params.metadata.copies = Some(10);
     params.max_per_purchase = 3;
-    let listing_id = contract.create_lazy_listing(&creator(), params).unwrap();
+    let listing_id = contract
+        .create_lazy_listing(&creator(), params, None)
+        .unwrap();
 
     testing_env!(context_with_deposit(buyer(), 10_000).build());
     let token_ids = contract

@@ -141,7 +141,7 @@ fn dispatch_delist_native_scarce() {
     };
     let tid = contract.quick_mint(&buyer(), metadata, options).unwrap();
     contract
-        .list_native_scarce(&buyer(), &tid, U128(5_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(5_000), None, None)
         .unwrap();
 
     let action = Action::DelistNativeScarce {
@@ -431,7 +431,7 @@ fn dispatch_update_price() {
     };
     let tid = contract.quick_mint(&buyer(), metadata, options).unwrap();
     contract
-        .list_native_scarce(&buyer(), &tid, U128(5_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(5_000), None, None)
         .unwrap();
 
     let mkt: AccountId = "marketplace.near".parse().unwrap();
@@ -478,7 +478,7 @@ fn execute_purchase_native_scarce_happy() {
     };
     let tid = contract.quick_mint(&buyer(), metadata, options).unwrap();
     contract
-        .list_native_scarce(&buyer(), &tid, U128(5_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(5_000), None, None)
         .unwrap();
 
     testing_env!(context_with_deposit(creator(), 10_000).build());
@@ -524,7 +524,9 @@ fn execute_purchase_lazy_listing_happy() {
         expires_at: None,
         max_per_purchase: 1,
     };
-    let listing_id = contract.create_lazy_listing(&creator(), params).unwrap();
+    let listing_id = contract
+        .create_lazy_listing(&creator(), params, None)
+        .unwrap();
 
     testing_env!(context_with_deposit(buyer(), 10_000).build());
     let result = contract
@@ -571,7 +573,9 @@ fn execute_purchase_lazy_listing_multi_copy() {
         expires_at: None,
         max_per_purchase: 1,
     };
-    let listing_id = contract.create_lazy_listing(&creator(), params).unwrap();
+    let listing_id = contract
+        .create_lazy_listing(&creator(), params, None)
+        .unwrap();
     let created = contract.lazy_listings.get(&listing_id).unwrap();
     assert_eq!(created.minted_count, 0);
     assert_eq!(crate::lazy_listing::remaining_editions(created), 3);
@@ -639,7 +643,9 @@ fn execute_purchase_lazy_listing_batch() {
         expires_at: None,
         max_per_purchase: 3,
     };
-    let listing_id = contract.create_lazy_listing(&creator(), params).unwrap();
+    let listing_id = contract
+        .create_lazy_listing(&creator(), params, None)
+        .unwrap();
 
     testing_env!(context_with_deposit(buyer(), 10_000).build());
     let result = contract

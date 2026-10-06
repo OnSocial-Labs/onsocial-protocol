@@ -112,14 +112,18 @@ impl Contract {
             },
         );
         let after = self.storage_usage_flushed();
-        if after > before {
-            // A failed charge panics so the listing change in this receipt reverts
-            // with the unpaid sticker. Returning Err would keep the 1-yocto floor.
-            if let Err(err) = self.charge_storage_waterfall(actor_id, after - before, None) {
-                env::panic_str(&format!("Dollar price storage: {err}"));
+        match after.cmp(&before) {
+            std::cmp::Ordering::Greater => {
+                // A failed charge panics so the listing change in this receipt reverts
+                // with the unpaid sticker. Returning Err would keep the 1-yocto floor.
+                if let Err(err) = self.charge_storage_waterfall(actor_id, after - before, None) {
+                    env::panic_str(&format!("Dollar price storage: {err}"));
+                }
             }
-        } else if before > after {
-            self.release_storage_waterfall(actor_id, before - after, None);
+            std::cmp::Ordering::Less => {
+                self.release_storage_waterfall(actor_id, before - after, None);
+            }
+            std::cmp::Ordering::Equal => {}
         }
         Ok(())
     }
@@ -294,9 +298,8 @@ pub(crate) fn parse_oracle_price(
             "Oracle price was not readable".into(),
         ));
     }
-    let publish_time = u64::try_from(timestamp_ns / 1_000_000_000).map_err(|_| {
-        MarketplaceError::InvalidState("Oracle price was not readable".into())
-    })?;
+    let publish_time = u64::try_from(timestamp_ns / 1_000_000_000)
+        .map_err(|_| MarketplaceError::InvalidState("Oracle price was not readable".into()))?;
     Ok((multiplier, -(decimals as i32), publish_time))
 }
 

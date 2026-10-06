@@ -27,7 +27,7 @@ fn setup_listed_scarce(contract: &mut Contract, price: u128) -> String {
     };
     let tid = contract.quick_mint(&buyer(), metadata, options).unwrap();
     contract
-        .list_native_scarce(&buyer(), &tid, U128(price), None)
+        .list_native_scarce(&buyer(), &tid, U128(price), None, None)
         .unwrap();
     tid
 }
@@ -60,7 +60,9 @@ fn setup_lazy_listing(contract: &mut Contract, price: u128) -> String {
         expires_at: None,
         max_per_purchase: 1,
     };
-    contract.create_lazy_listing(&creator(), params).unwrap()
+    contract
+        .create_lazy_listing(&creator(), params, None)
+        .unwrap()
 }
 
 fn setup_collection(contract: &mut Contract, price: u128) -> String {

@@ -3,7 +3,7 @@ use crate::tests::test_utils::*;
 use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::test_utils::get_created_receipts;
-use near_sdk::{testing_env, AccountId, PromiseResult};
+use near_sdk::{AccountId, PromiseResult, testing_env};
 use std::collections::HashMap;
 
 const ONE_NEAR: u128 = 1_000_000_000_000_000_000_000_000;
@@ -227,9 +227,11 @@ fn dollar_list_stores_the_sticker_and_a_one_yocto_floor() {
 
     let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &token_id);
     assert_eq!(contract.sales.get(&sale_id).unwrap().sale_conditions.0, 1);
-    assert!(near_sdk::test_utils::get_logs()
-        .iter()
-        .any(|log| log.contains("\"usd_e6\":\"1000000\"")));
+    assert!(
+        near_sdk::test_utils::get_logs()
+            .iter()
+            .any(|log| log.contains("\"usd_e6\":\"1000000\""))
+    );
 }
 
 #[test]
@@ -265,12 +267,16 @@ fn relisting_in_near_clears_the_sticker() {
         }))
         .unwrap();
 
-    assert!(contract
-        .get_dollar_price(DOLLAR_SCOPE_SALE.into(), token_id.clone())
-        .is_none());
-    assert!(near_sdk::test_utils::get_logs()
-        .iter()
-        .any(|log| log.contains("update_price") && !log.contains("usd_e6")));
+    assert!(
+        contract
+            .get_dollar_price(DOLLAR_SCOPE_SALE.into(), token_id.clone())
+            .is_none()
+    );
+    assert!(
+        near_sdk::test_utils::get_logs()
+            .iter()
+            .any(|log| log.contains("update_price") && !log.contains("usd_e6"))
+    );
 
     testing_env!(context_with_deposit(purchaser(), 1_000).build());
     contract
@@ -293,9 +299,11 @@ fn delist_clears_the_sticker() {
             token_id: token_id.clone(),
         }))
         .unwrap();
-    assert!(contract
-        .get_dollar_price(DOLLAR_SCOPE_SALE.into(), token_id)
-        .is_none());
+    assert!(
+        contract
+            .get_dollar_price(DOLLAR_SCOPE_SALE.into(), token_id)
+            .is_none()
+    );
 }
 
 #[test]
@@ -401,9 +409,11 @@ fn purchase_dollar_checks_the_deposit_and_the_listing() {
     assert!(err.contains("maximum NEAR"));
 
     testing_env!(context_with_deposit(purchaser(), ONE_NEAR + ORACLE_FEE).build());
-    assert!(contract
-        .purchase_dollar(DOLLAR_SCOPE_SALE.into(), token_id, 0, U128(ONE_NEAR))
-        .is_ok());
+    assert!(
+        contract
+            .purchase_dollar(DOLLAR_SCOPE_SALE.into(), token_id, 0, U128(ONE_NEAR))
+            .is_ok()
+    );
 }
 
 #[test]
@@ -416,9 +426,11 @@ fn a_full_pool_sponsors_the_oracle_fee() {
 
     // The buyer attaches only the maximum NEAR; the pool pays the fetch fee.
     testing_env!(context_with_deposit(purchaser(), ONE_NEAR).build());
-    assert!(contract
-        .purchase_dollar(DOLLAR_SCOPE_SALE.into(), token_id, 1, U128(ONE_NEAR))
-        .is_ok());
+    assert!(
+        contract
+            .purchase_dollar(DOLLAR_SCOPE_SALE.into(), token_id, 1, U128(ONE_NEAR))
+            .is_ok()
+    );
     assert_eq!(
         contract.platform_storage_balance,
         PLATFORM_STORAGE_MIN_RESERVE
@@ -470,9 +482,11 @@ fn settle_charges_the_dollar_price_and_refunds_the_rest() {
         contract.nft_token(token_id.clone()).unwrap().owner_id,
         purchaser()
     );
-    assert!(contract
-        .get_dollar_price(DOLLAR_SCOPE_SALE.into(), token_id.clone())
-        .is_none());
+    assert!(
+        contract
+            .get_dollar_price(DOLLAR_SCOPE_SALE.into(), token_id.clone())
+            .is_none()
+    );
     assert!(contract.dollar_unit_override.is_none());
     assert_eq!(contract.pending_attached_balance, 0);
     let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &token_id);
@@ -489,8 +503,9 @@ fn settle_charges_the_dollar_price_and_refunds_the_rest() {
     assert!(royalty > 1);
     let logs = near_sdk::test_utils::get_logs();
     assert!(
-        logs.iter().any(|log| log.contains("\"operation\":\"purchase\"")
-            && log.contains("\"usd_e6\":\"1000000\"")),
+        logs.iter()
+            .any(|log| log.contains("\"operation\":\"purchase\"")
+                && log.contains("\"usd_e6\":\"1000000\"")),
         "purchase event carries the dollar sticker: {logs:?}"
     );
 }
@@ -518,9 +533,11 @@ fn half_percent_stop_refunds_without_moving_the_scarce() {
         contract.nft_token(token_id.clone()).unwrap().owner_id,
         seller()
     );
-    assert!(contract
-        .get_dollar_price(DOLLAR_SCOPE_SALE.into(), token_id)
-        .is_some());
+    assert!(
+        contract
+            .get_dollar_price(DOLLAR_SCOPE_SALE.into(), token_id)
+            .is_some()
+    );
     assert_eq!(transferred_to(&purchaser()), max_near);
 }
 
@@ -554,7 +571,10 @@ fn seller_minimum_and_a_stale_price_refund() {
         ONE_NEAR * 2,
         ONE_NEAR * 2,
     );
-    assert_eq!(contract.nft_token(stale.clone()).unwrap().owner_id, seller());
+    assert_eq!(
+        contract.nft_token(stale.clone()).unwrap().owner_id,
+        seller()
+    );
     assert_eq!(transferred_to(&purchaser()), ONE_NEAR * 2);
 }
 
@@ -633,9 +653,11 @@ fn collection_mint_keeps_the_sticker_and_skips_royalty() {
     let revenue = ONE_NEAR * (DEFAULT_TOTAL_FEE_BPS as u128) / 10_000
         - ONE_NEAR * (DEFAULT_PLATFORM_STORAGE_FEE_BPS as u128) / 10_000;
     assert_eq!(transferred_to(&seller()), ONE_NEAR - revenue);
-    assert!(near_sdk::test_utils::get_logs()
-        .iter()
-        .all(|line| !line.contains("royalty_paid")));
+    assert!(
+        near_sdk::test_utils::get_logs()
+            .iter()
+            .all(|line| !line.contains("royalty_paid"))
+    );
 }
 
 #[test]
@@ -716,9 +738,11 @@ fn lazy_sale_clears_the_sticker_when_sold_out() {
         U128(ONE_NEAR),
     );
 
-    assert!(contract
-        .get_dollar_price(DOLLAR_SCOPE_LAZY.into(), listing_id.clone())
-        .is_none());
+    assert!(
+        contract
+            .get_dollar_price(DOLLAR_SCOPE_LAZY.into(), listing_id.clone())
+            .is_none()
+    );
     assert!(!contract.lazy_listings.contains_key(&listing_id));
     assert_eq!(contract.pending_attached_balance, 0);
     let revenue = ONE_NEAR * (DEFAULT_TOTAL_FEE_BPS as u128) / 10_000
@@ -822,9 +846,11 @@ fn accepting_an_offer_sells_for_that_near_and_clears_the_sticker() {
         contract.nft_token(token_id.clone()).unwrap().owner_id,
         purchaser()
     );
-    assert!(contract
-        .get_dollar_price(DOLLAR_SCOPE_SALE.into(), token_id.clone())
-        .is_none());
+    assert!(
+        contract
+            .get_dollar_price(DOLLAR_SCOPE_SALE.into(), token_id.clone())
+            .is_none()
+    );
     let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &token_id);
     assert!(!contract.sales.contains_key(&sale_id));
     assert_eq!(transferred_to(&offerer()), ONE_NEAR);

@@ -5,14 +5,6 @@ impl Contract {
         &mut self,
         creator_id: &AccountId,
         params: LazyListing,
-    ) -> Result<String, MarketplaceError> {
-        self.create_lazy_listing_with_sticker(creator_id, params, None)
-    }
-
-    pub(crate) fn create_lazy_listing_with_sticker(
-        &mut self,
-        creator_id: &AccountId,
-        params: LazyListing,
         usd_e6: Option<u128>,
     ) -> Result<String, MarketplaceError> {
         let LazyListing {
@@ -206,15 +198,6 @@ impl Contract {
     }
 
     pub(crate) fn update_lazy_listing_price(
-        &mut self,
-        actor_id: &AccountId,
-        listing_id: &str,
-        new_price: u128,
-    ) -> Result<(), MarketplaceError> {
-        self.update_lazy_listing_price_with_sticker(actor_id, listing_id, new_price, None)
-    }
-
-    pub(crate) fn update_lazy_listing_price_with_sticker(
         &mut self,
         actor_id: &AccountId,
         listing_id: &str,

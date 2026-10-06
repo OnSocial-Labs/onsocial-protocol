@@ -176,7 +176,7 @@ fn wnear_deposit_enables_prepaid_purchase() {
     };
     let token_id = contract.quick_mint(&creator(), metadata, options).unwrap();
     contract
-        .list_native_scarce(&creator(), &token_id, U128(price), None)
+        .list_native_scarce(&creator(), &token_id, U128(price), None, None)
         .unwrap();
 
     testing_env!(context(buyer()).build());

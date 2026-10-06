@@ -28,7 +28,7 @@ fn setup_listed_scarce(contract: &mut Contract) -> (String, u128) {
     };
     let tid = contract.quick_mint(&buyer(), metadata, options).unwrap();
     contract
-        .list_native_scarce(&buyer(), &tid, U128(price), None)
+        .list_native_scarce(&buyer(), &tid, U128(price), None, None)
         .unwrap();
     (tid, price)
 }

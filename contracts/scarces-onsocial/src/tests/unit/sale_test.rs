@@ -38,7 +38,7 @@ fn list_native_scarce_happy() {
     testing_env!(context(buyer()).build());
 
     contract
-        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None, None)
         .unwrap();
 
     let sale_id = Contract::make_sale_id(&env::current_account_id(), &tid);
@@ -53,7 +53,7 @@ fn list_native_scarce_records_created_at() {
     testing_env!(context(buyer()).block_timestamp(listed_at).build());
 
     contract
-        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None, None)
         .unwrap();
 
     let sales = contract.get_sales(None, None);
@@ -66,7 +66,7 @@ fn migrate_preserves_legacy_sales_without_created_at() {
     let tid = make_standalone_token(&mut contract, &buyer());
     testing_env!(context(buyer()).build());
     contract
-        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None, None)
         .unwrap();
     let sale_id = Contract::make_sale_id(&env::current_account_id(), &tid);
     let mut timestamps: LookupMap<String, u64> = LookupMap::new(StorageKey::SaleCreatedAt);
@@ -87,7 +87,7 @@ fn list_native_scarce_not_owner_fails() {
     testing_env!(context(creator()).build());
 
     let err = contract
-        .list_native_scarce(&creator(), &tid, U128(1_000), None)
+        .list_native_scarce(&creator(), &tid, U128(1_000), None, None)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
@@ -99,7 +99,7 @@ fn list_native_scarce_zero_price_fails() {
     testing_env!(context(buyer()).build());
 
     let err = contract
-        .list_native_scarce(&buyer(), &tid, U128(0), None)
+        .list_native_scarce(&buyer(), &tid, U128(0), None, None)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
@@ -110,7 +110,7 @@ fn list_native_scarce_nonexistent_token_fails() {
     testing_env!(context(buyer()).build());
 
     let err = contract
-        .list_native_scarce(&buyer(), "nope", U128(1_000), None)
+        .list_native_scarce(&buyer(), "nope", U128(1_000), None, None)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
@@ -122,10 +122,10 @@ fn list_native_scarce_duplicate_fails() {
     testing_env!(context(buyer()).build());
 
     contract
-        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None, None)
         .unwrap();
     let err = contract
-        .list_native_scarce(&buyer(), &tid, U128(2_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(2_000), None, None)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
@@ -138,7 +138,7 @@ fn list_native_scarce_past_expiry_fails() {
 
     let past = 1_000_000_000_000_000_000u64;
     let err = contract
-        .list_native_scarce(&buyer(), &tid, U128(1_000), Some(past))
+        .list_native_scarce(&buyer(), &tid, U128(1_000), Some(past), None)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
@@ -150,7 +150,7 @@ fn delist_native_scarce_happy() {
     testing_env!(context(buyer()).build());
 
     contract
-        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None, None)
         .unwrap();
     contract.delist_native_scarce(&buyer(), &tid).unwrap();
 
@@ -165,7 +165,7 @@ fn delist_native_scarce_wrong_owner_fails() {
     testing_env!(context(buyer()).build());
 
     contract
-        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None, None)
         .unwrap();
     let err = contract.delist_native_scarce(&creator(), &tid).unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
@@ -189,11 +189,11 @@ fn update_price_happy() {
     testing_env!(context(buyer()).build());
 
     contract
-        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None, None)
         .unwrap();
     let mkt: AccountId = "marketplace.near".parse().unwrap();
     contract
-        .update_price(&buyer(), &mkt, &tid, U128(2_000))
+        .update_price(&buyer(), &mkt, &tid, U128(2_000), None)
         .unwrap();
 
     let sale_id = Contract::make_sale_id(&mkt, &tid);
@@ -210,11 +210,11 @@ fn update_price_zero_fails() {
     testing_env!(context(buyer()).build());
 
     contract
-        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None, None)
         .unwrap();
     let mkt: AccountId = "marketplace.near".parse().unwrap();
     let err = contract
-        .update_price(&buyer(), &mkt, &tid, U128(0))
+        .update_price(&buyer(), &mkt, &tid, U128(0), None)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
@@ -226,11 +226,11 @@ fn update_price_wrong_owner_fails() {
     testing_env!(context(buyer()).build());
 
     contract
-        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None, None)
         .unwrap();
     let mkt: AccountId = "marketplace.near".parse().unwrap();
     let err = contract
-        .update_price(&creator(), &mkt, &tid, U128(5_000))
+        .update_price(&creator(), &mkt, &tid, U128(5_000), None)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
@@ -413,7 +413,7 @@ fn add_then_remove_sale_cleans_indexes() {
     testing_env!(context(buyer()).build());
 
     contract
-        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None, None)
         .unwrap();
 
     let owner_set = contract.by_owner_id.get(&buyer());
@@ -461,7 +461,7 @@ fn list_soulbound_token_fails() {
 
     testing_env!(context(buyer()).build());
     let err = contract
-        .list_native_scarce(&buyer(), "soul:1", U128(1_000), None)
+        .list_native_scarce(&buyer(), "soul:1", U128(1_000), None, None)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
@@ -506,7 +506,7 @@ fn list_revoked_token_fails() {
 
     testing_env!(context(buyer()).build());
     let err = contract
-        .list_native_scarce(&buyer(), "rev:1", U128(1_000), None)
+        .list_native_scarce(&buyer(), "rev:1", U128(1_000), None, None)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
@@ -531,7 +531,7 @@ fn purchase_native_stale_ownership_keeps_sale_and_restores_deposit() {
     let tid = make_standalone_token(&mut contract, &buyer());
     testing_env!(context(buyer()).build());
     contract
-        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None, None)
         .unwrap();
 
     // Simulate ownership drift without auto-delist (stale listing).
@@ -567,7 +567,7 @@ fn purchase_native_with_future_expiry_succeeds() {
 
     testing_env!(context(buyer()).build());
     contract
-        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None, None)
         .unwrap();
 
     testing_env!(context(creator()).build());
@@ -588,7 +588,7 @@ fn purchase_native_expired_token_fails_and_restores_deposit() {
 
     testing_env!(context(buyer()).build());
     contract
-        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None, None)
         .unwrap();
 
     // Expire after listing (ms in the past relative to block time).
@@ -613,7 +613,7 @@ fn purchase_native_happy_credits_overpay_only() {
     testing_env!(context(buyer()).build());
     let price = 1_000u128;
     contract
-        .list_native_scarce(&buyer(), &tid, U128(price), None)
+        .list_native_scarce(&buyer(), &tid, U128(price), None, None)
         .unwrap();
 
     testing_env!(context(creator()).build());

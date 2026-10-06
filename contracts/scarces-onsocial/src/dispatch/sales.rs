@@ -24,7 +24,7 @@ impl Contract {
                 } else {
                     price
                 };
-                self.list_native_scarce_with_sticker(
+                self.list_native_scarce(
                     actor_id,
                     &token_id,
                     list_price,
@@ -78,7 +78,7 @@ impl Contract {
                 } else {
                     price
                 };
-                self.update_price_with_sticker(
+                self.update_price(
                     actor_id,
                     &scarce_contract_id,
                     &token_id,

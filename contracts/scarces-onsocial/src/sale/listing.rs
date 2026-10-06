@@ -183,16 +183,6 @@ impl Contract {
         token_id: &str,
         price: U128,
         expires_at: Option<u64>,
-    ) -> Result<(), MarketplaceError> {
-        self.list_native_scarce_with_sticker(owner_id, token_id, price, expires_at, None)
-    }
-
-    pub(crate) fn list_native_scarce_with_sticker(
-        &mut self,
-        owner_id: &AccountId,
-        token_id: &str,
-        price: U128,
-        expires_at: Option<u64>,
         usd_e6: Option<u128>,
     ) -> Result<(), MarketplaceError> {
         let token = self
@@ -340,16 +330,6 @@ impl Contract {
     }
 
     pub(crate) fn update_price(
-        &mut self,
-        actor_id: &AccountId,
-        scarce_contract_id: &AccountId,
-        token_id: &str,
-        price: U128,
-    ) -> Result<(), MarketplaceError> {
-        self.update_price_with_sticker(actor_id, scarce_contract_id, token_id, price, None)
-    }
-
-    pub(crate) fn update_price_with_sticker(
         &mut self,
         actor_id: &AccountId,
         scarce_contract_id: &AccountId,
