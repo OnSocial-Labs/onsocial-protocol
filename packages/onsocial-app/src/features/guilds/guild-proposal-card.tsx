@@ -106,12 +106,26 @@ export function GuildProposalCard({
   const submittedTitle = formatPostTimestamp(proposal.created_at);
   const showProposer =
     !suppressProposer && Boolean(proposerAccountId && proposerDisplayName);
+  // Past the voting period the chain rejects votes — show the closed
+  // state (strip + final count) instead of actions that would fail.
+  const votingClosed = !outcome.isTerminal && voteProgress.isExpired;
+  // Acknowledge the viewer's vote alongside the quorum readout.
+  const progressLabel =
+    voteProgress.showProgress && voteProgress.label ? voteProgress.label : null;
+  const votedLabel =
+    viewerVote === true || viewerVote === false
+      ? guildViewerVoteLabel(viewerVote)
+      : null;
+  const voteRowLabel =
+    progressLabel && votedLabel
+      ? `${votedLabel} · ${progressLabel}`
+      : (progressLabel ?? votedLabel);
   const showFooter =
     outcome.isTerminal ||
     voteProgress.showProgress ||
     viewerVote === true ||
     viewerVote === false ||
-    canVote ||
+    (canVote && !votingClosed) ||
     (isOwnRequest && onCancel);
 
   return (
@@ -317,19 +331,16 @@ export function GuildProposalCard({
             </>
           ) : (
             <div className="guild-proposal-card-vote-row">
-              {voteProgress.showProgress && voteProgress.label ? (
+              {voteRowLabel ? (
                 <p className="guild-proposal-card-progress-label">
-                  {voteProgress.label}
-                </p>
-              ) : viewerVote === true || viewerVote === false ? (
-                <p className="guild-proposal-card-voted">
-                  {guildViewerVoteLabel(viewerVote)}
+                  {voteRowLabel}
                 </p>
               ) : (
                 <span className="guild-proposal-card-vote-spacer" />
               )}
 
-              {viewerVote === true || viewerVote === false ? null : canVote ? (
+              {viewerVote === true ||
+              viewerVote === false ? null : canVote && !votingClosed ? (
                 <OsSheetActions
                   layout="row-compact"
                   tone="frosted-primary"

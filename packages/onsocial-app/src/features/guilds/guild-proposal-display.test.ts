@@ -187,7 +187,8 @@ describe('guild-proposal-display', () => {
       new Date(now.getTime() + sevenDaysMs + 60_000)
     );
     expect(expiredProgress.closesLabel).toBe('Voting closed');
-    expect(expiredProgress.label).toContain('voting period ended');
+    expect(expiredProgress.isExpired).toBe(true);
+    expect(expiredProgress.label).toBe('2/3 voted');
   });
 
   it('labels approved and rejected outcomes', () => {

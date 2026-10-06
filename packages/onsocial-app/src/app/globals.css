@@ -38600,8 +38600,7 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  .guild-proposal-card-progress-label,
-  .guild-proposal-card-voted {
+  .guild-proposal-card-progress-label {
     margin: 0;
     min-width: 0;
     flex: 1 1 auto;

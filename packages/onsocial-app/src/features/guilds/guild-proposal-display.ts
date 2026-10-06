@@ -190,12 +190,7 @@ function permissionChangeHeadline(
     };
   }
 
-  const article =
-    roleLabel === 'Admin'
-      ? 'an'
-      : roleLabel === 'Moderator'
-        ? 'a'
-        : 'a';
+  const article = roleLabel === 'Admin' ? 'an' : 'a';
 
   return {
     headline: `Make ${name} ${article} ${roleLabel}`,
@@ -666,6 +661,7 @@ export interface GuildProposalVoteProgress {
   label: string;
   closesLabel: string | null;
   closesTitle: string | null;
+  isExpired: boolean;
   ariaLabel: string;
   showProgress: boolean;
 }
@@ -904,8 +900,12 @@ export function guildProposalVoteProgress(
           majorityBps,
         }));
 
+  // Once the period ends, "need N more" is stale — report the final count;
+  // the strip carries the "Voting closed" cue.
   const progressDetail = closes.isExpired
-    ? `${label}${label ? ' · ' : ''}voting period ended`
+    ? memberPool > 0
+      ? `${totalVotes}/${memberPool} voted`
+      : ''
     : label;
 
   return {
@@ -918,6 +918,7 @@ export function guildProposalVoteProgress(
     opposePoolPercent,
     quorumMarkerPercent,
     label: progressDetail,
+    isExpired: closes.isExpired,
     closesLabel: closes.label,
     closesTitle: closes.title,
     ariaLabel: `${yesVotes} supported, ${noVotes} opposed, out of ${memberPool} members at proposal time. ${progressDetail}${
