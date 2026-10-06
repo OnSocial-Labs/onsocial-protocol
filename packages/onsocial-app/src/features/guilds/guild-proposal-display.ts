@@ -538,20 +538,6 @@ function cleanProposalDescription(description: string | null | undefined): strin
   return trimmed;
 }
 
-/** @deprecated Prefer `guildProposalPresentation(proposal).headline`. */
-export function guildProposalTitle(proposal: Proposal): string {
-  return guildProposalPresentation(proposal).headline;
-}
-
-/** @deprecated Prefer `guildProposalPresentation(proposal).detail`. */
-export function guildProposalDescription(proposal: Proposal): string | null {
-  const presentation = guildProposalPresentation(proposal);
-  if (presentation.suppressDescription) {
-    return presentation.detail;
-  }
-  return presentation.detail ?? cleanProposalDescription(proposal.description);
-}
-
 export function guildProposalMetaLine(input: {
   proposal: Proposal;
   tally: ProposalTally | null;

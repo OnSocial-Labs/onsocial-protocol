@@ -3,7 +3,6 @@ import {
   guildProposalClosesLabel,
   guildProposalPresentation,
   guildProposalTallyLabel,
-  guildProposalTitle,
   guildProposalOutcome,
   guildProposalVoteProgress,
   guildViewerVoteLabel,
@@ -128,11 +127,11 @@ describe('guild-proposal-display', () => {
 
   it('formats proposal titles by type when chain copy is missing', () => {
     expect(
-      guildProposalTitle({
+      guildProposalPresentation({
         ...baseProposal,
         title: '',
         type: 'permission_change',
-      })
+      }).headline
     ).toBe('Role change');
   });
 

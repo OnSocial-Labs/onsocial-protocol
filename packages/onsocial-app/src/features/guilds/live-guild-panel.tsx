@@ -35,9 +35,9 @@ import {
 import { postMetaFromText } from '@/features/home/post-mentions';
 import { placesMetaFromComposer } from '@/lib/post-place';
 import {
-  GuildComposerSheet,
-  type GuildComposerMode,
-  type GuildComposerSubmit,
+  ComposerSheet,
+  type ComposerMode,
+  type ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
 import type { ComposerBeat } from '@/lib/composer-thread';
 import {
@@ -216,7 +216,7 @@ export function LiveGuildPanel({
   });
   const newPostDraftKey = composerNewPostDraftKey(groupId);
   const [composer, setComposer] = useState<{
-    mode: GuildComposerMode;
+    mode: ComposerMode;
     target: PostRow | null;
     initialText?: string;
     initialFiles?: File[];
@@ -669,7 +669,6 @@ export function LiveGuildPanel({
       config,
       effectiveIsBlacklisted,
       effectiveIsMember,
-      effectiveIsOwner,
       effectiveJoinPending,
       isConnected,
       joinCancelReady,
@@ -679,7 +678,7 @@ export function LiveGuildPanel({
     ]
   );
 
-  const openComposerModal = (mode: GuildComposerMode) => (target: PostRow) => {
+  const openComposerModal = (mode: ComposerMode) => (target: PostRow) => {
     setModalError(null);
     setComposer({ mode, target });
   };
@@ -709,7 +708,7 @@ export function LiveGuildPanel({
     });
   }, [groupId, scheduleReconcile, setLocalPosts]);
 
-  const submitFromModal = async (payload: GuildComposerSubmit) => {
+  const submitFromModal = async (payload: ComposerSubmit) => {
     if (!composer || modalPending) return;
     const { mode, target } = composer;
     const text = payload.text.trim();
@@ -1299,7 +1298,7 @@ export function LiveGuildPanel({
         ) : null}
       </div>
       {composer ? (
-        <GuildComposerSheet
+        <ComposerSheet
           open
           mode={composer.mode}
           target={composer.target}

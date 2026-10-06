@@ -41,9 +41,9 @@ import { postMetaFromText } from '@/features/home/post-mentions';
 import { placesMetaFromComposer } from '@/lib/post-place';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import {
-  GuildComposerSheet,
-  type GuildComposerMode,
-  type GuildComposerSubmit,
+  ComposerSheet,
+  type ComposerMode,
+  type ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
 import {
   GuildMembershipConfirmDrawer,
@@ -232,7 +232,7 @@ export function LiveGuildPostPanel({
     walletLoading,
   });
   const [modalTarget, setModalTarget] = useState<PostRow | null>(null);
-  const [modalMode, setModalMode] = useState<GuildComposerMode>('quote');
+  const [modalMode, setModalMode] = useState<ComposerMode>('quote');
   const [modalSeed, setModalSeed] = useState<{ text: string; files: File[] }>({
     text: '',
     files: [],
@@ -416,7 +416,7 @@ export function LiveGuildPostPanel({
 
   const performSubmit = async (
     target: PostRow,
-    mode: GuildComposerMode,
+    mode: ComposerMode,
     text: string,
     files: File[] = [],
     contentLabels: PostContentLabels = {},
@@ -476,7 +476,7 @@ export function LiveGuildPostPanel({
   };
 
   const insertConfirmedRootChild = (
-    mode: GuildComposerMode,
+    mode: ComposerMode,
     text: string,
     newPostId: string,
     files: File[] = [],
@@ -527,13 +527,13 @@ export function LiveGuildPostPanel({
     scheduleReconcile();
   };
 
-  const openComposerModal = (mode: GuildComposerMode) => (target: PostRow) => {
+  const openComposerModal = (mode: ComposerMode) => (target: PostRow) => {
     setModalMode(mode);
     setModalError(null);
     setModalTarget(target);
   };
 
-  const submitFromModal = async (payload: GuildComposerSubmit) => {
+  const submitFromModal = async (payload: ComposerSubmit) => {
     const target = modalTarget;
     const text = payload.text.trim();
     const files = payload.files ?? [];
@@ -1277,7 +1277,7 @@ export function LiveGuildPostPanel({
         ) : null}
       </div>
       {modalTarget ? (
-        <GuildComposerSheet
+        <ComposerSheet
           key={`${postKey(modalTarget)}:${modalSeed.files
             .map((file) => `${file.name}:${file.size}:${file.lastModified}`)
             .join('|')}`}
