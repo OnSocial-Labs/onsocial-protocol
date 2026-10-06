@@ -12,7 +12,7 @@ pnpm --filter @onsocial/text-card check
 ```
 
 ```typescript
-import { /* generator + themes */ } from '@onsocial/text-card';
+import {} from /* generator + themes */ '@onsocial/text-card';
 ```
 
 No runtime dependencies. See `src/` for themes and generator API.
