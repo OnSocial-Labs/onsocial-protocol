@@ -2,11 +2,18 @@
 
 import {
   AnimatePresence,
+  animate,
   motion,
-  useDragControls,
+  useMotionValue,
   useReducedMotion,
 } from 'framer-motion';
-import { useEffect, type ReactNode, type RefObject } from 'react';
+import {
+  useEffect,
+  useRef,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { createPortal } from 'react-dom';
 
 import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
@@ -24,6 +31,11 @@ import { cn } from '@/lib/utils';
  */
 export const sheetShellClass =
   'relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[1.25rem] border border-b-0 border-border/67 bg-background/98 pb-[env(safe-area-inset-bottom)] md:max-h-[min(640px,calc(100vh-2rem))] md:max-w-md md:rounded-2xl md:border-b md:pb-0';
+
+/** Grip must travel this far before the panel follows (keeps taps inert). */
+const DRAG_ACTIVATION_PX = 4;
+/** Release past this pull distance dismisses the drawer. */
+const DRAG_DISMISS_PX = 120;
 
 export function Sheet({
   open,
@@ -50,8 +62,19 @@ export function Sheet({
 }) {
   const reduceMotion = useReducedMotion();
   const isMobile = useIsMobile();
-  const dragControls = useDragControls();
   useBodyScrollLock(open);
+
+  /**
+   * Single transform source for the mobile drawer: enter/exit animations,
+   * grip drags, and snap-backs all write this motion value, so a release
+   * mid-drag or a dismiss mid-pull can never fight a framer drag session.
+   */
+  const panelY = useMotionValue(0);
+  const dragState = useRef<{
+    startY: number;
+    currentY: number;
+    active: boolean;
+  } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -64,12 +87,41 @@ export function Sheet({
 
   if (typeof document === 'undefined') return null;
 
+  const onGripPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (dismissDisabled) return;
+    dragState.current = { startY: event.clientY, currentY: 0, active: false };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const onGripPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const state = dragState.current;
+    if (!state) return;
+    const deltaY = event.clientY - state.startY;
+    if (!state.active && Math.abs(deltaY) < DRAG_ACTIVATION_PX) return;
+    if (!state.active) state.active = true;
+    const next = Math.max(0, deltaY);
+    state.currentY = next;
+    panelY.set(next);
+  };
+
+  const onGripPointerEnd = () => {
+    const state = dragState.current;
+    if (!state) return;
+    dragState.current = null;
+    if (!state.active) return;
+    if (!dismissDisabled && state.currentY > DRAG_DISMISS_PX) {
+      onOpenChange(false);
+      return;
+    }
+    animate(panelY, 0, {
+      duration: reduceMotion ? 0 : 0.22,
+      ease: 'easeOut',
+    });
+  };
+
   const panelMotion = isMobile
     ? {
-        initial: {
-          y: reduceMotion ? 0 : '100%',
-          opacity: reduceMotion ? 0 : 1,
-        },
+        initial: { y: '100%', opacity: reduceMotion ? 0 : 1 },
         animate: { y: 0, opacity: 1 },
         exit: { y: reduceMotion ? 0 : '100%', opacity: reduceMotion ? 0 : 1 },
         transition: {
@@ -107,18 +159,7 @@ export function Sheet({
             aria-modal="true"
             aria-labelledby={ariaLabelledby}
             aria-label={ariaLabelledby ? undefined : ariaLabel}
-            drag={isMobile ? 'y' : false}
-            dragListener={false}
-            dragControls={dragControls}
-            dragMomentum={false}
-            dragConstraints={{ top: 0 }}
-            dragElastic={{ top: 0, bottom: 0.5 }}
-            onDragEnd={(_event, info) => {
-              if (dismissDisabled) return;
-              if (info.offset.y > 120 || info.velocity.y > 600) {
-                onOpenChange(false);
-              }
-            }}
+            style={isMobile ? { y: panelY } : undefined}
             className={cn(
               sheetShellClass,
               portalElevatedShadowClass,
@@ -127,8 +168,11 @@ export function Sheet({
           >
             {isMobile ? (
               <div
-                className="flex h-5 w-full shrink-0 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
-                onPointerDown={(event) => dragControls.start(event)}
+                className="flex h-5 w-full shrink-0 touch-none items-center justify-center"
+                onPointerDown={onGripPointerDown}
+                onPointerMove={onGripPointerMove}
+                onPointerUp={onGripPointerEnd}
+                onPointerCancel={onGripPointerEnd}
                 aria-hidden
               >
                 <span className="h-1 w-9 rounded-full bg-foreground/20" />
