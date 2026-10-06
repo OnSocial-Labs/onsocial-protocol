@@ -252,20 +252,20 @@ impl Contract {
             return Err(e);
         }
 
-        events::emit_native_scarce_listed(
+        events::emit_native_scarce_listed(&events::NativeScarceListed {
             owner_id,
             token_id,
             price,
             expires_at,
-            events::ListingBrowseMeta {
+            browse: events::ListingBrowseMeta {
                 title: title.as_deref(),
                 media: media.as_deref(),
                 extra: extra.as_deref(),
             },
-            app_id.as_deref(),
-            &creator_id,
+            app_id: app_id.as_deref(),
+            creator_id: &creator_id,
             usd_e6,
-        );
+        });
         Ok(())
     }
 

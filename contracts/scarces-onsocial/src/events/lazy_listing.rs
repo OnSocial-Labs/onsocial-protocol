@@ -12,32 +12,35 @@ pub struct ListingBrowseMeta<'a> {
     pub extra: Option<&'a str>,
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn emit_lazy_listing_created(
-    creator_id: &AccountId,
-    listing_id: &str,
-    price: u128,
-    copies: u64,
-    max_per_purchase: u32,
-    expires_at: Option<u64>,
-    browse: ListingBrowseMeta<'_>,
-    app_id: Option<&str>,
-    app_commission_bps: u16,
-    usd_e6: Option<u128>,
-) {
-    EventBuilder::new(LAZY_LISTING, "created", creator_id)
-        .field("creator_id", creator_id)
-        .field("listing_id", listing_id)
-        .field("price", price)
-        .field("copies", copies)
-        .field("max_per_purchase", max_per_purchase)
-        .field_opt("title", browse.title)
-        .field_opt("media", browse.media)
-        .field_opt("extra", browse.extra)
-        .field_opt("expires_at", expires_at)
-        .field_opt("app_id", app_id)
-        .field("app_commission_bps", app_commission_bps as u32)
-        .field_opt("usd_e6", usd_e6)
+/// Primary-sale lazy listing. `browse` feeds the Market catalog.
+pub struct LazyListingCreated<'a> {
+    pub creator_id: &'a AccountId,
+    pub listing_id: &'a str,
+    pub price: u128,
+    pub copies: u64,
+    pub max_per_purchase: u32,
+    pub expires_at: Option<u64>,
+    pub browse: ListingBrowseMeta<'a>,
+    pub app_id: Option<&'a str>,
+    pub app_commission_bps: u16,
+    /// Dollar sticker in millionths. Empty when the ask is NEAR.
+    pub usd_e6: Option<u128>,
+}
+
+pub fn emit_lazy_listing_created(e: &LazyListingCreated) {
+    EventBuilder::new(LAZY_LISTING, "created", e.creator_id)
+        .field("creator_id", e.creator_id)
+        .field("listing_id", e.listing_id)
+        .field("price", e.price)
+        .field("copies", e.copies)
+        .field("max_per_purchase", e.max_per_purchase)
+        .field_opt("title", e.browse.title)
+        .field_opt("media", e.browse.media)
+        .field_opt("extra", e.browse.extra)
+        .field_opt("expires_at", e.expires_at)
+        .field_opt("app_id", e.app_id)
+        .field("app_commission_bps", e.app_commission_bps as u32)
+        .field_opt("usd_e6", e.usd_e6)
         .emit();
 }
 

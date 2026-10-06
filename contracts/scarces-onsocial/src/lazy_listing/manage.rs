@@ -108,22 +108,22 @@ impl Contract {
             return Err(e);
         }
 
-        events::emit_lazy_listing_created(
+        events::emit_lazy_listing_created(&events::LazyListingCreated {
             creator_id,
-            &listing_id,
+            listing_id: &listing_id,
             price,
             copies,
             max_per_purchase,
             expires_at,
-            events::ListingBrowseMeta {
+            browse: events::ListingBrowseMeta {
                 title: title.as_deref(),
                 media: media.as_deref(),
                 extra: extra.as_deref(),
             },
-            listing_app_id.as_deref(),
+            app_id: listing_app_id.as_deref(),
             app_commission_bps,
             usd_e6,
-        );
+        });
         Ok(listing_id)
     }
 

@@ -154,28 +154,31 @@ pub fn emit_scarce_transfer(
         .emit();
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn emit_native_scarce_listed(
-    owner_id: &AccountId,
-    token_id: &str,
-    price: U128,
-    expires_at: Option<u64>,
-    browse: super::ListingBrowseMeta<'_>,
-    app_id: Option<&str>,
-    creator_id: &AccountId,
-    usd_e6: Option<u128>,
-) {
-    EventBuilder::new(SCARCE, "list_native", owner_id)
-        .field("owner_id", owner_id)
-        .field("token_id", token_id)
-        .field("price", price)
-        .field("creator_id", creator_id)
-        .field_opt("title", browse.title)
-        .field_opt("media", browse.media)
-        .field_opt("extra", browse.extra)
-        .field_opt("expires_at", expires_at)
-        .field_opt("app_id", app_id)
-        .field_opt("usd_e6", usd_e6)
+/// Resale listing of a native scarce. `browse` feeds the Market catalog.
+pub struct NativeScarceListed<'a> {
+    pub owner_id: &'a AccountId,
+    pub token_id: &'a str,
+    pub price: U128,
+    pub expires_at: Option<u64>,
+    pub browse: super::ListingBrowseMeta<'a>,
+    pub app_id: Option<&'a str>,
+    pub creator_id: &'a AccountId,
+    /// Dollar sticker in millionths. Empty when the ask is NEAR.
+    pub usd_e6: Option<u128>,
+}
+
+pub fn emit_native_scarce_listed(e: &NativeScarceListed) {
+    EventBuilder::new(SCARCE, "list_native", e.owner_id)
+        .field("owner_id", e.owner_id)
+        .field("token_id", e.token_id)
+        .field("price", e.price)
+        .field("creator_id", e.creator_id)
+        .field_opt("title", e.browse.title)
+        .field_opt("media", e.browse.media)
+        .field_opt("extra", e.browse.extra)
+        .field_opt("expires_at", e.expires_at)
+        .field_opt("app_id", e.app_id)
+        .field_opt("usd_e6", e.usd_e6)
         .emit();
 }
 
