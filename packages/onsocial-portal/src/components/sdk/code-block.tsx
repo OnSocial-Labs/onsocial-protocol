@@ -1,18 +1,31 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import hljs from 'highlight.js/lib/core';
+import bash from 'highlight.js/lib/languages/bash';
+import json from 'highlight.js/lib/languages/json';
+import typescript from 'highlight.js/lib/languages/typescript';
 import { Check, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('json', json);
+hljs.registerLanguage('bash', bash);
+
+export type CodeBlockLanguage = 'typescript' | 'json' | 'bash';
+
 /**
- * Shared docs code block. Wraps long lines (mobile-first) and offers a
- * clipboard copy button in the corner.
+ * Shared docs code block. Syntax-highlights with highlight.js (token colors
+ * live in globals.css), wraps long lines (mobile-first), and offers a
+ * clipboard copy button in the corner. Copy always uses the raw source.
  */
 export function CodeBlock({
   code,
+  lang = 'typescript',
   className,
 }: {
   code: string;
+  lang?: CodeBlockLanguage;
   className?: string;
 }) {
   const [copied, setCopied] = useState(false);
@@ -23,6 +36,14 @@ export function CodeBlock({
       if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
     };
   }, []);
+
+  const highlighted = useMemo(() => {
+    try {
+      return hljs.highlight(code, { language: lang }).value;
+    } catch {
+      return null;
+    }
+  }, [code, lang]);
 
   async function handleCopy() {
     try {
@@ -45,7 +66,14 @@ export function CodeBlock({
   return (
     <div className={cn('group relative mt-4', className)}>
       <pre className="rounded-[0.9rem] border border-border/35 bg-background/60 px-4 py-3 pr-11 text-xs leading-6 text-foreground/85 md:text-sm">
-        <code className="whitespace-pre-wrap break-words">{code}</code>
+        {highlighted === null ? (
+          <code className="whitespace-pre-wrap break-words">{code}</code>
+        ) : (
+          <code
+            className="hljs whitespace-pre-wrap break-words"
+            dangerouslySetInnerHTML={{ __html: highlighted }}
+          />
+        )}
       </pre>
       <button
         type="button"
