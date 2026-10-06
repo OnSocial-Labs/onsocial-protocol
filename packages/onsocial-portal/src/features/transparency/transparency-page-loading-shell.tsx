@@ -24,7 +24,7 @@ export function TransparencyPageLoadingShell() {
   return (
     <PageShell className="max-w-6xl">
       <TransparencyPageColumn>
-        <div className="max-md:hidden">
+        <div className="max-md:sr-only">
           <TransparencyPageIntro />
         </div>
 

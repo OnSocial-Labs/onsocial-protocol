@@ -67,7 +67,8 @@ export default function TransparencyPage() {
   return (
     <PageShell className="max-w-6xl">
       <TransparencyPageColumn>
-        <div className="max-md:hidden">
+        {/* sr-only (not hidden) on mobile keeps the h1 in the accessibility tree */}
+        <div className="max-md:sr-only">
           <TransparencyPageIntro />
         </div>
 
