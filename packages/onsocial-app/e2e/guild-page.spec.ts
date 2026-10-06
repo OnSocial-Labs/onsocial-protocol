@@ -41,6 +41,9 @@ test.describe('guild page', () => {
       'false'
     );
     await expect(page.getByText(GUILD_E2E_EMPTY_FEED)).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Share the first post' })
+    ).toHaveCount(0);
 
     await expect(page.getByText('Connect wallet')).toHaveCount(0);
     await expect(
@@ -139,6 +142,23 @@ test.describe('guild page', () => {
       0
     );
     await expect(page.getByRole('button', { name: 'Add room' })).toHaveCount(0);
+  });
+
+  test('member with an empty feed gets a compose cue', async ({ page }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphGuild(page, 'member');
+    await stubGuildPage(page, { memberId: COLLECTIBLES_VAULT_OWNER });
+    await gotoApp(page, GUILD_E2E_PATH);
+
+    await expect(page.getByText(GUILD_E2E_EMPTY_FEED)).toBeVisible({
+      timeout: E2E_CHROME_TIMEOUT_MS,
+    });
+    const cue = page.getByRole('button', { name: 'Share the first post' });
+    await expect(cue).toBeVisible();
+    await cue.click();
+    await expect(
+      page.getByRole('dialog', { name: 'New post' })
+    ).toBeVisible();
   });
 
   test('banned viewer sees Banned and why, not Join', async ({ page }) => {

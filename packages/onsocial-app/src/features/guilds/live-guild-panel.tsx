@@ -1291,6 +1291,11 @@ export function LiveGuildPanel({
                   {selectedFeedSpace
                     ? `No ${selectedFeedSpace.title.toLowerCase()} posts yet.`
                     : 'No guild posts yet.'}
+                  {canCompose ? (
+                    <OsEmptyAction onClick={openPostComposer}>
+                      Share the first post
+                    </OsEmptyAction>
+                  ) : null}
                 </div>
               )}
             </section>
