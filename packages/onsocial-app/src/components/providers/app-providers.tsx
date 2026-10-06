@@ -2,7 +2,7 @@
 
 import { AppSocialBalanceProvider } from '@/contexts/app-social-balance-context';
 import { AppRewardsProvider } from '@/contexts/app-rewards-context';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import {
   AppAccountSheetHost,
   AppAccountSheetProvider,
@@ -38,6 +38,7 @@ import { NotificationsHost } from '@/components/providers/notifications-host';
 import { AppSmoothScrollProvider } from '@/components/providers/app-smooth-scroll-provider';
 import { FeedSessionHost } from '@/components/providers/feed-session-host';
 import { PwaProvider } from '@/components/providers/pwa-provider';
+import { markAppHydrated } from '@/lib/e2e-portfolio-ready';
 import { WebPushProvider } from '@/components/providers/web-push-provider';
 import { GlassSheetPortalProvider } from '@onsocial/ui';
 
@@ -49,6 +50,14 @@ function SeasonParticipationGate({ children }: { children: React.ReactNode }) {
       {children}
     </SeasonParticipationProvider>
   );
+}
+
+/** Body flag e2e waits on before interacting — clicks pre-hydration are lost. */
+function AppHydratedMarker() {
+  useEffect(() => {
+    markAppHydrated();
+  }, []);
+  return null;
 }
 
 /** Clip GlassSheet frost to the live OS / portfolio card (same host as slide-overs). */
@@ -64,6 +73,7 @@ function OsGlassSheetPortalBridge({ children }: { children: React.ReactNode }) {
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <PwaProvider>
+      <AppHydratedMarker />
       <AppSmoothScrollProvider>
         <AppWalletProvider>
           <AppTransactionFeedbackProvider>

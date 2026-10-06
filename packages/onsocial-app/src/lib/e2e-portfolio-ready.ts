@@ -1,3 +1,12 @@
+/** Keep in sync with Playwright `gotoApp` hydration wait. */
+export const E2E_APP_HYDRATED_ATTR = 'appHydrated';
+
+/** Set once AppProviders mounts — every app route hydrates through it. */
+export function markAppHydrated(): void {
+  if (typeof document === 'undefined') return;
+  document.body.dataset[E2E_APP_HYDRATED_ATTR] = 'true';
+}
+
 /** Keep in sync with Playwright `waitForPortfolioClientReady`. */
 export const E2E_PORTFOLIO_READY_ATTR = 'portfolioClientReady';
 

@@ -17,6 +17,10 @@ declare global {
 /**
  * Navigate to an app path with a consistent wait strategy.
  * Prefer `domcontentloaded` — `networkidle` hangs under parallel e2e.
+ * Then wait for the AppProviders hydration marker: SSR chrome is visible
+ * before React attaches, and clicks that land pre-hydration are lost
+ * (dev compiles make the window wide). Keep in sync with
+ * `markAppHydrated` in src/lib/e2e-portfolio-ready.ts.
  */
 export async function gotoApp(
   page: Page,
@@ -26,6 +30,11 @@ export async function gotoApp(
   await page.goto(path, {
     waitUntil: opts?.waitUntil ?? 'domcontentloaded',
   });
+  await page.waitForFunction(
+    () => document.body.dataset.appHydrated === 'true',
+    undefined,
+    { timeout: E2E_CHROME_TIMEOUT_MS }
+  );
 }
 
 async function waitForPortfolioReadyFlag(
