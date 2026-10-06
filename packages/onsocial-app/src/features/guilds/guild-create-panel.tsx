@@ -53,6 +53,7 @@ import {
   collectRelayTxHashes,
   normalizeGuildIdInput,
 } from '@/features/guilds/guilds-data';
+import { seedCreatedGuildCaches } from '@/features/guilds/guild-create-seed';
 import {
   GuildBadgeWell,
   GuildLookPreview,
@@ -92,7 +93,7 @@ const GUILD_MIN_ID = 3;
 
 export function GuildCreatePanel() {
   const router = useRouter();
-  const { isConnected, connect } = useAppWallet();
+  const { accountId, isConnected, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [name, setName] = useState('');
@@ -322,8 +323,11 @@ export function GuildCreatePanel() {
       const onsocial: Record<string, unknown> = {
         structure: guildStructureForMetadata(DEFAULT_GUILD_STRUCTURE),
       };
+      let bannerCid: string | null = null;
+      let badgeCid: string | null = null;
       if (bannerFile) {
         const uploaded = await client.storage.upload(bannerFile);
+        bannerCid = uploaded.cid;
         onsocial.banner = {
           cid: uploaded.cid,
           mime: uploaded.mime,
@@ -332,6 +336,7 @@ export function GuildCreatePanel() {
       }
       if (badgeFile) {
         const uploaded = await client.storage.upload(badgeFile);
+        badgeCid = uploaded.cid;
         onsocial.badge = {
           cid: uploaded.cid,
           mime: uploaded.mime,
@@ -356,6 +361,19 @@ export function GuildCreatePanel() {
       });
 
       if (confirmed) {
+        if (accountId) {
+          seedCreatedGuildCaches({
+            groupId,
+            accountId,
+            name: name.trim(),
+            description: description.trim(),
+            bannerCid,
+            badgeCid,
+            accessGated,
+            memberDriven,
+            topics: normalizeGuildEditorTags(tags),
+          });
+        }
         router.push(`/groups/${encodeURIComponent(groupId)}`);
       }
     } catch (cause) {
