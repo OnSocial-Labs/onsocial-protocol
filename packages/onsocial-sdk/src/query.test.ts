@@ -810,6 +810,27 @@ describe('QueryModule', () => {
       const body = JSON.parse(fetch.mock.calls[0][1].body);
       expect(body.query).not.toContain('where:');
     });
+
+    it('filters by kind server-side when set', async () => {
+      const { os, fetch } = makeOs({ data: { postsFeed: [] } });
+      await os.query.feed.recent({
+        author: 'a.near',
+        section: 'posts',
+        kind: 'longform',
+      });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('kind: {_eq: $kind}');
+      expect(body.query).toContain('$kind: String!');
+      expect(body.variables).toMatchObject({ kind: 'longform' });
+    });
+
+    it('omits the kind filter for blank values', async () => {
+      const { os, fetch } = makeOs({ data: { postsFeed: [] } });
+      await os.query.feed.recent({ author: 'a.near', kind: '  ' });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).not.toContain('$kind');
+      expect(body.variables).not.toHaveProperty('kind');
+    });
   });
 
   describe('feed schema fallbacks', () => {
