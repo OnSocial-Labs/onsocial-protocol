@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { createPortal } from 'react-dom';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   PROFILE_FACE_KIND_OPTIONS,
   PROFILE_INDUSTRY_MAX,
@@ -32,8 +30,8 @@ import {
   ProfileEditorMediaToolbar,
   type ChoiceOption,
 } from '@onsocial/ui';
-import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
+import { Sheet } from '@/components/ui/sheet';
 import { ProfileLinkFieldIcon } from '@/components/profile-link-icons';
 import {
   TransactionFeedbackToast,
@@ -46,7 +44,6 @@ import {
   profileIdentityOverlapClass,
   profileIdentityTextClass,
 } from '@/features/profile/profile-identity-loading';
-import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import type {
   ProfileSaveInput,
   ProfileSaveResult,
@@ -62,7 +59,6 @@ import {
   type ProfileLinkKind,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
-import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import {
   reportWalletActionFailure,
   isWalletUserCancellation,
@@ -156,7 +152,6 @@ export function ProfileEditor({
   onOpenChange,
   onSave,
 }: ProfileEditorProps) {
-  const reduceMotion = useReducedMotion();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const bannerInputRef = useRef<HTMLInputElement | null>(null);
   const industryInputRef = useRef<HTMLInputElement | null>(null);
@@ -195,21 +190,6 @@ export function ProfileEditor({
     : (bannerPreviewUrl ?? bannerUrl);
   const submitLabel = profile ? 'Save profile' : 'Create profile';
   const nameReady = name.trim().length > 0;
-  const scrollRef = useRef<HTMLDivElement>(null);
-  useBodyScrollLock(open, scrollRef);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !isSaving) {
-        onOpenChange(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSaving, onOpenChange, open]);
 
   const characterCount = bio.trim().length;
   const initialLinks = useMemo(
@@ -420,567 +400,518 @@ export function ProfileEditor({
     markDirty();
   };
 
-  if (typeof document === 'undefined') return null;
-
   return (
     <>
-      {createPortal(
-        <AnimatePresence initial={false}>
-          {open ? (
-            <motion.div
-              {...fadeMotion(reduceMotion ? 0 : 0.18)}
-              data-lenis-prevent
-              className="fixed inset-0 z-[2147483646] flex items-center justify-center px-4 py-6"
-            >
-              <button
-                type="button"
-                className="absolute inset-0 bg-background/72 backdrop-blur-md"
-                aria-label="Close profile editor"
-                disabled={isSaving}
-                onClick={() => onOpenChange(false)}
-              />
+      <Sheet
+        open={open}
+        onOpenChange={onOpenChange}
+        ariaLabelledby="profile-name"
+        dismissLabel="Close profile editor"
+        dismissDisabled={isSaving}
+        panelClassName="h-[92dvh] md:h-[min(760px,calc(100vh-2rem))] md:max-w-xl"
+      >
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
+            <ModalCloseButton
+              ariaLabel="Close profile editor"
+              onClick={() => onOpenChange(false)}
+              disabled={isSaving}
+              className="border-white/18 bg-black/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_12px_28px_-20px_rgba(0,0,0,0.56)] backdrop-blur-xl backdrop-saturate-150 hover:border-white/28 hover:bg-black/30 hover:text-white"
+            />
+          </div>
 
-              <motion.form
-                {...scaleFadeMotion(!!reduceMotion, {
-                  y: 14,
-                  scale: 0.98,
-                  duration: 0.22,
-                  exitY: 10,
-                  exitScale: 0.99,
-                })}
-                onSubmit={handleSubmit}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="profile-name"
-                className={cn(
-                  'relative flex h-[min(760px,calc(100vh-2rem))] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border/67 bg-background/98',
-                  portalElevatedShadowClass
-                )}
-              >
-                <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
-                  <ModalCloseButton
-                    ariaLabel="Close profile editor"
-                    onClick={() => onOpenChange(false)}
-                    disabled={isSaving}
-                    className="border-white/18 bg-black/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_12px_28px_-20px_rgba(0,0,0,0.56)] backdrop-blur-xl backdrop-saturate-150 hover:border-white/28 hover:bg-black/30 hover:text-white"
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <section className="pb-2">
+              <div className="profile-editor-media-banner-dock">
+                <div
+                  className={`profile-editor-media-host profile-editor-media-host--banner aspect-[5/1] w-full${displayBannerUrl ? ' has-media' : ''}`}
+                >
+                  <button
+                    type="button"
+                    onClick={openBannerPicker}
+                    className="profile-editor-media-backdrop relative flex h-full w-full cursor-pointer items-center justify-center overflow-hidden bg-background text-muted-foreground"
+                    aria-label="Choose profile banner"
+                  >
+                    {!displayBannerUrl ? (
+                      <span
+                        aria-hidden
+                        className="profile-editor-media-empty-fill"
+                      />
+                    ) : null}
+                    {displayBannerUrl ? (
+                      <img
+                        src={displayBannerUrl}
+                        alt=""
+                        className="relative h-full w-full object-cover"
+                      />
+                    ) : null}
+                    <span
+                      className={`profile-editor-media-overlay${displayBannerUrl ? ' has-media' : ''}`}
+                      aria-hidden
+                    />
+                  </button>
+                  <ProfileEditorMediaToolbar
+                    layout="banner"
+                    removeLabel={displayBannerUrl ? 'Remove banner' : undefined}
+                    onRemove={displayBannerUrl ? handleRemoveBanner : undefined}
                   />
                 </div>
+                <p className="profile-editor-media-size-hint profile-editor-media-size-hint--dock">
+                  1500&times;300
+                </p>
+              </div>
 
-                <div
-                  ref={scrollRef}
-                  className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-                >
-                  <section className="pb-2">
-                    <div className="profile-editor-media-banner-dock">
+              <div
+                className={cn(
+                  'relative z-10 space-y-3 pb-2 pointer-events-none',
+                  profileIdentityLayoutClass,
+                  profileIdentityOverlapClass,
+                  'px-4 md:px-5'
+                )}
+              >
+                <div className="space-y-2 pr-8">
+                  <div className="flex items-start gap-3.5">
+                    <div
+                      className={cn(
+                        profileIdentityAvatarDockClass,
+                        'pointer-events-auto'
+                      )}
+                    >
                       <div
-                        className={`profile-editor-media-host profile-editor-media-host--banner aspect-[5/1] w-full${displayBannerUrl ? ' has-media' : ''}`}
+                        className={cn(
+                          'profile-editor-media-host profile-editor-media-host--avatar',
+                          profileAvatarShapeFromKind(kind) !== 'circle' &&
+                            'profile-editor-media-host--squircle',
+                          profileIdentityAvatarSizeClass,
+                          displayAvatarUrl && 'has-media'
+                        )}
+                        data-profile-kind={kind}
                       >
                         <button
                           type="button"
-                          onClick={openBannerPicker}
-                          className="profile-editor-media-backdrop relative flex h-full w-full cursor-pointer items-center justify-center overflow-hidden bg-background text-muted-foreground"
-                          aria-label="Choose profile banner"
+                          onClick={() => fileInputRef.current?.click()}
+                          className={cn(
+                            'profile-editor-media-backdrop relative flex cursor-pointer items-center justify-center overflow-hidden !border-[3px] !border-background bg-background text-muted-foreground shadow-lg',
+                            profileIdentityAvatarSizeClass,
+                            kind === 'person' && 'rounded-full',
+                            kind === 'org' && 'rounded-2xl',
+                            kind === 'dao' && 'rounded-[1rem]'
+                          )}
+                          aria-label="Choose avatar"
                         >
-                          {!displayBannerUrl ? (
+                          {!displayAvatarUrl ? (
                             <span
                               aria-hidden
-                              className="profile-editor-media-empty-fill"
+                              className={cn(
+                                'profile-editor-media-empty-fill',
+                                kind === 'person' && 'rounded-full',
+                                kind === 'org' && 'rounded-[13px]',
+                                kind === 'dao' && 'rounded-[0.85rem]'
+                              )}
                             />
                           ) : null}
-                          {displayBannerUrl ? (
+                          {displayAvatarUrl ? (
                             <img
-                              src={displayBannerUrl}
+                              src={displayAvatarUrl}
                               alt=""
                               className="relative h-full w-full object-cover"
                             />
                           ) : null}
                           <span
-                            className={`profile-editor-media-overlay${displayBannerUrl ? ' has-media' : ''}`}
+                            className={cn(
+                              'profile-editor-media-overlay',
+                              kind === 'person' && 'rounded-full',
+                              kind === 'org' && 'rounded-[13px]',
+                              kind === 'dao' && 'rounded-[0.85rem]',
+                              displayAvatarUrl && 'has-media'
+                            )}
                             aria-hidden
                           />
                         </button>
                         <ProfileEditorMediaToolbar
-                          layout="banner"
+                          layout="avatar"
                           removeLabel={
-                            displayBannerUrl ? 'Remove banner' : undefined
+                            displayAvatarUrl ? 'Remove avatar' : undefined
                           }
                           onRemove={
-                            displayBannerUrl ? handleRemoveBanner : undefined
+                            displayAvatarUrl ? handleRemoveAvatar : undefined
                           }
                         />
                       </div>
-                      <p className="profile-editor-media-size-hint profile-editor-media-size-hint--dock">
-                        1500&times;300
-                      </p>
+                      <span className="portal-type-micro tabular-nums leading-none text-muted-foreground/45">
+                        512&times;512
+                      </span>
                     </div>
+                  </div>
 
+                  <div
+                    className={cn(
+                      profileIdentityTextClass,
+                      'pointer-events-auto'
+                    )}
+                  >
+                    <label htmlFor="profile-name" className="sr-only">
+                      Display name
+                    </label>
+                    <input
+                      id="profile-name"
+                      value={name}
+                      onChange={(event) => {
+                        setName(event.target.value);
+                        markDirty();
+                      }}
+                      maxLength={50}
+                      autoComplete="name"
+                      className="w-full bg-transparent font-semibold text-foreground portal-type-display outline-none"
+                      aria-required="true"
+                    />
+                    <p className="min-w-0 truncate portal-type-body-sm text-muted-foreground/55">
+                      {accountId ? `@${accountId}` : 'Wallet'}
+                    </p>
                     <div
-                      className={cn(
-                        'relative z-10 space-y-3 pb-2 pointer-events-none',
-                        profileIdentityLayoutClass,
-                        profileIdentityOverlapClass,
-                        'px-4 md:px-5'
-                      )}
+                      className="flex flex-wrap gap-1.5 pt-1"
+                      role="radiogroup"
+                      aria-label="Account type"
                     >
-                      <div className="space-y-2 pr-8">
-                        <div className="flex items-start gap-3.5">
-                          <div
-                            className={cn(
-                              profileIdentityAvatarDockClass,
-                              'pointer-events-auto'
-                            )}
-                          >
-                            <div
-                              className={cn(
-                                'profile-editor-media-host profile-editor-media-host--avatar',
-                                profileAvatarShapeFromKind(kind) !== 'circle' &&
-                                  'profile-editor-media-host--squircle',
-                                profileIdentityAvatarSizeClass,
-                                displayAvatarUrl && 'has-media'
-                              )}
-                              data-profile-kind={kind}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => fileInputRef.current?.click()}
-                                className={cn(
-                                  'profile-editor-media-backdrop relative flex cursor-pointer items-center justify-center overflow-hidden !border-[3px] !border-background bg-background text-muted-foreground shadow-lg',
-                                  profileIdentityAvatarSizeClass,
-                                  kind === 'person' && 'rounded-full',
-                                  kind === 'org' && 'rounded-2xl',
-                                  kind === 'dao' && 'rounded-[1rem]'
-                                )}
-                                aria-label="Choose avatar"
-                              >
-                                {!displayAvatarUrl ? (
-                                  <span
-                                    aria-hidden
-                                    className={cn(
-                                      'profile-editor-media-empty-fill',
-                                      kind === 'person' && 'rounded-full',
-                                      kind === 'org' && 'rounded-[13px]',
-                                      kind === 'dao' && 'rounded-[0.85rem]'
-                                    )}
-                                  />
-                                ) : null}
-                                {displayAvatarUrl ? (
-                                  <img
-                                    src={displayAvatarUrl}
-                                    alt=""
-                                    className="relative h-full w-full object-cover"
-                                  />
-                                ) : null}
-                                <span
-                                  className={cn(
-                                    'profile-editor-media-overlay',
-                                    kind === 'person' && 'rounded-full',
-                                    kind === 'org' && 'rounded-[13px]',
-                                    kind === 'dao' && 'rounded-[0.85rem]',
-                                    displayAvatarUrl && 'has-media'
-                                  )}
-                                  aria-hidden
-                                />
-                              </button>
-                              <ProfileEditorMediaToolbar
-                                layout="avatar"
-                                removeLabel={
-                                  displayAvatarUrl ? 'Remove avatar' : undefined
-                                }
-                                onRemove={
-                                  displayAvatarUrl
-                                    ? handleRemoveAvatar
-                                    : undefined
-                                }
-                              />
-                            </div>
-                            <span className="portal-type-micro tabular-nums leading-none text-muted-foreground/45">
-                              512&times;512
-                            </span>
-                          </div>
-                        </div>
-
-                        <div
-                          className={cn(
-                            profileIdentityTextClass,
-                            'pointer-events-auto'
-                          )}
-                        >
-                          <label htmlFor="profile-name" className="sr-only">
-                            Display name
-                          </label>
-                          <input
-                            id="profile-name"
-                            value={name}
-                            onChange={(event) => {
-                              setName(event.target.value);
-                              markDirty();
-                            }}
-                            maxLength={50}
-                            autoComplete="name"
-                            className="w-full bg-transparent font-semibold text-foreground portal-type-display outline-none"
-                            aria-required="true"
-                          />
-                          <p className="min-w-0 truncate portal-type-body-sm text-muted-foreground/55">
-                            {accountId ? `@${accountId}` : 'Wallet'}
-                          </p>
-                          <div
-                            className="flex flex-wrap gap-1.5 pt-1"
-                            role="radiogroup"
-                            aria-label="Account type"
-                          >
-                            {PROFILE_FACE_KIND_OPTIONS.map((option) => (
-                              <button
-                                key={option.value}
-                                type="button"
-                                role="radio"
-                                aria-checked={kind === option.value}
-                                disabled={isSaving}
-                                onClick={() => {
-                                  setKind(option.value);
-                                  if (option.value !== 'org') {
-                                    setIndustryWriteIn(false);
-                                    setIndustryDrawerOpen(false);
-                                  }
-                                  markDirty();
-                                }}
-                                className={cn(
-                                  'rounded-full px-2.5 py-1 portal-type-caption transition-colors',
-                                  kind === option.value
-                                    ? 'bg-foreground/10 text-foreground'
-                                    : 'text-muted-foreground/70 hover:bg-foreground/5'
-                                )}
-                              >
-                                {option.label}
-                              </button>
-                            ))}
-                          </div>
-                          {kind === 'org' ? (
-                            <>
-                              {industryWriteIn ? (
-                                <label
-                                  htmlFor="profile-industry"
-                                  className="mt-1 flex items-center gap-1.5"
-                                >
-                                  <span className="sr-only">Industry</span>
-                                  <button
-                                    type="button"
-                                    disabled={isSaving}
-                                    aria-label="Choose industry"
-                                    className="shrink-0 text-muted-foreground/55"
-                                    onClick={() => setIndustryDrawerOpen(true)}
-                                  >
-                                    <BuildingTreeIcon
-                                      className="h-3.5 w-3.5"
-                                      aria-hidden
-                                    />
-                                  </button>
-                                  <input
-                                    ref={industryInputRef}
-                                    id="profile-industry"
-                                    value={industry}
-                                    onChange={(event) => {
-                                      setIndustry(
-                                        sanitizeProfileIndustryDraft(
-                                          event.target.value
-                                        )
-                                      );
-                                      markDirty();
-                                    }}
-                                    onBlur={() => {
-                                      const trimmed =
-                                        normalizeProfileIndustryInput(industry);
-                                      if (trimmed !== industry)
-                                        setIndustry(trimmed);
-                                      if (
-                                        !trimmed ||
-                                        matchProfileIndustryOption(trimmed)
-                                      ) {
-                                        setIndustryWriteIn(false);
-                                      }
-                                    }}
-                                    maxLength={PROFILE_INDUSTRY_MAX}
-                                    autoComplete="organization-title"
-                                    placeholder="Industry"
-                                    className="w-full bg-transparent portal-type-body-sm text-muted-foreground/70 outline-none placeholder:text-muted-foreground/35"
-                                  />
-                                </label>
-                              ) : (
-                                <button
-                                  type="button"
-                                  disabled={isSaving}
-                                  aria-haspopup="dialog"
-                                  aria-expanded={industryDrawerOpen}
-                                  className="mt-1 flex w-full items-center gap-1.5 text-left"
-                                  onClick={() => setIndustryDrawerOpen(true)}
-                                >
-                                  <BuildingTreeIcon
-                                    className="h-3.5 w-3.5 shrink-0 text-muted-foreground/55"
-                                    aria-hidden
-                                  />
-                                  <span
-                                    className={`portal-type-body-sm ${
-                                      industry
-                                        ? 'text-muted-foreground/70'
-                                        : 'text-muted-foreground/35'
-                                    }`}
-                                  >
-                                    {industry || 'Industry'}
-                                  </span>
-                                </button>
-                              )}
-                              <ChoiceDrawer
-                                open={industryDrawerOpen}
-                                onClose={() => setIndustryDrawerOpen(false)}
-                                label="Industry"
-                                copy="Optional. Skip to stay Organization."
-                                value={profileIndustryDrawerValue(industry)}
-                                options={PROFILE_INDUSTRY_CHOICES}
-                                onChange={(next) => {
-                                  if (isProfileIndustryWriteIn(next)) {
-                                    setIndustryWriteIn(true);
-                                    if (matchProfileIndustryOption(industry)) {
-                                      setIndustry('');
-                                    }
-                                    markDirty();
-                                    window.setTimeout(
-                                      () => industryInputRef.current?.focus(),
-                                      0
-                                    );
-                                    return;
-                                  }
-                                  setIndustryWriteIn(false);
-                                  setIndustry(next);
-                                  markDirty();
-                                }}
-                                zIndex={PORTAL_INDUSTRY_DRAWER_Z}
-                              />
-                              {accountId ? (
-                                <ProfileJobsEditor
-                                  accountId={accountId}
-                                  disabled={isSaving || isAuthorizingSession}
-                                  onToast={setActionToast}
-                                />
-                              ) : null}
-                            </>
-                          ) : null}
-                          <label htmlFor="profile-location" className="sr-only">
-                            Location
-                          </label>
-                          <input
-                            id="profile-location"
-                            value={location}
-                            onChange={(event) => {
-                              setLocation(
-                                sanitizeProfileLocationDraft(event.target.value)
-                              );
-                              markDirty();
-                            }}
-                            onBlur={() => {
-                              const trimmed =
-                                normalizeProfileLocationInput(location);
-                              if (trimmed !== location) setLocation(trimmed);
-                            }}
-                            maxLength={PROFILE_LOCATION_MAX}
-                            autoComplete="address-level2"
-                            placeholder="Based in"
-                            className="w-full bg-transparent portal-type-body-sm text-muted-foreground/70 outline-none placeholder:text-muted-foreground/35"
-                          />
-                          <p className="portal-type-caption tabular-nums text-muted-foreground/45">
-                            {name.length}/50
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="pointer-events-auto">
-                        <label htmlFor="profile-bio" className="sr-only">
-                          Bio
-                        </label>
-                        <textarea
-                          id="profile-bio"
-                          value={bio}
-                          onChange={(event) => {
-                            setBio(event.target.value);
+                      {PROFILE_FACE_KIND_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={kind === option.value}
+                          disabled={isSaving}
+                          onClick={() => {
+                            setKind(option.value);
+                            if (option.value !== 'org') {
+                              setIndustryWriteIn(false);
+                              setIndustryDrawerOpen(false);
+                            }
                             markDirty();
                           }}
-                          maxLength={160}
-                          rows={2}
-                          placeholder="Bio — use #topics, $tickers, @accounts…"
-                          className="w-full resize-none bg-transparent portal-type-body leading-relaxed text-muted-foreground outline-none placeholder:text-muted-foreground/40"
-                        />
-                        <p className="mt-0.5 portal-type-caption tabular-nums text-muted-foreground/45">
-                          {characterCount}/160
-                        </p>
-                      </div>
-                    </div>
-
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,image/gif"
-                      className="hidden"
-                      onChange={(event) => {
-                        setAvatar(event.target.files?.[0] ?? null);
-                        setAvatarRemoved(false);
-                        markDirty();
-                        event.target.value = '';
-                      }}
-                    />
-                    <input
-                      ref={bannerInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,image/gif"
-                      className="hidden"
-                      onChange={(event) => {
-                        setBanner(event.target.files?.[0] ?? null);
-                        setBannerRemoved(false);
-                        markDirty();
-                        event.target.value = '';
-                      }}
-                    />
-                  </section>
-
-                  <div className="space-y-3 px-4 py-3 md:px-5">
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {PROFILE_LINK_EDITOR_FIELDS.map((field) => (
-                        <div
-                          key={field.key}
                           className={cn(
-                            'col-span-1 space-y-1',
-                            field.fullWidth && 'col-span-2'
+                            'rounded-full px-2.5 py-1 portal-type-caption transition-colors',
+                            kind === option.value
+                              ? 'bg-foreground/10 text-foreground'
+                              : 'text-muted-foreground/70 hover:bg-foreground/5'
                           )}
                         >
-                          <div
-                            className={cn(
-                              'portal-field-focus flex items-center rounded-2xl border border-border/40 bg-background/45',
-                              linkFieldErrors[field.key] &&
-                                'border-[var(--portal-red-border)]'
-                            )}
-                          >
-                            <span
-                              className="flex h-9 w-9 shrink-0 items-center justify-center border-r border-border/60 text-muted-foreground"
-                              aria-hidden
-                            >
-                              <ProfileLinkFieldIcon kind={field.kind} />
-                            </span>
-                            <input
-                              id={`profile-${field.key}`}
-                              value={links[field.key]}
-                              onChange={(event) =>
-                                updateLink(field.key, event.target.value)
-                              }
-                              onBlur={() => {
-                                void commitLinkField(field.key, field.kind);
-                              }}
-                              disabled={probingLinkKey === field.key}
-                              aria-busy={
-                                probingLinkKey === field.key || undefined
-                              }
-                              maxLength={
-                                field.kind === 'website' ||
-                                field.kind === 'onsocial'
-                                  ? 255
-                                  : 80
-                              }
-                              inputMode={
-                                field.kind === 'website' ||
-                                field.kind === 'onsocial'
-                                  ? 'url'
-                                  : undefined
-                              }
-                              autoComplete={
-                                field.kind === 'website' ? 'url' : 'off'
-                              }
-                              autoCapitalize={
-                                field.kind === 'onsocial' ? 'none' : undefined
-                              }
-                              autoCorrect={
-                                field.kind === 'onsocial' ? 'off' : undefined
-                              }
-                              spellCheck={
-                                field.kind === 'onsocial' ? false : undefined
-                              }
-                              className="w-full bg-transparent px-3 py-2.5 text-sm outline-none disabled:opacity-70"
-                              placeholder={field.placeholder}
-                              aria-label={field.label}
-                              aria-invalid={Boolean(linkFieldErrors[field.key])}
-                            />
-                          </div>
-                          {probingLinkKey === field.key ? (
-                            <p className="px-1 text-[11px] leading-snug text-muted-foreground">
-                              Checking…
-                            </p>
-                          ) : linkFieldErrors[field.key] ? (
-                            <p className="px-1 text-[11px] leading-snug text-[var(--portal-red)]">
-                              {profileLinkEditorInlineError(
-                                field.kind,
-                                linkFieldErrors[field.key]
-                              )}
-                            </p>
-                          ) : null}
-                        </div>
+                          {option.label}
+                        </button>
                       ))}
                     </div>
-
-                    {error && !isWalletCancellationMessage(error) ? (
-                      <p className="rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--portal-red)]">
-                        {error}
-                      </p>
+                    {kind === 'org' ? (
+                      <>
+                        {industryWriteIn ? (
+                          <label
+                            htmlFor="profile-industry"
+                            className="mt-1 flex items-center gap-1.5"
+                          >
+                            <span className="sr-only">Industry</span>
+                            <button
+                              type="button"
+                              disabled={isSaving}
+                              aria-label="Choose industry"
+                              className="shrink-0 text-muted-foreground/55"
+                              onClick={() => setIndustryDrawerOpen(true)}
+                            >
+                              <BuildingTreeIcon
+                                className="h-3.5 w-3.5"
+                                aria-hidden
+                              />
+                            </button>
+                            <input
+                              ref={industryInputRef}
+                              id="profile-industry"
+                              value={industry}
+                              onChange={(event) => {
+                                setIndustry(
+                                  sanitizeProfileIndustryDraft(
+                                    event.target.value
+                                  )
+                                );
+                                markDirty();
+                              }}
+                              onBlur={() => {
+                                const trimmed =
+                                  normalizeProfileIndustryInput(industry);
+                                if (trimmed !== industry) setIndustry(trimmed);
+                                if (
+                                  !trimmed ||
+                                  matchProfileIndustryOption(trimmed)
+                                ) {
+                                  setIndustryWriteIn(false);
+                                }
+                              }}
+                              maxLength={PROFILE_INDUSTRY_MAX}
+                              autoComplete="organization-title"
+                              placeholder="Industry"
+                              className="w-full bg-transparent portal-type-body-sm text-muted-foreground/70 outline-none placeholder:text-muted-foreground/35"
+                            />
+                          </label>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={isSaving}
+                            aria-haspopup="dialog"
+                            aria-expanded={industryDrawerOpen}
+                            className="mt-1 flex w-full items-center gap-1.5 text-left"
+                            onClick={() => setIndustryDrawerOpen(true)}
+                          >
+                            <BuildingTreeIcon
+                              className="h-3.5 w-3.5 shrink-0 text-muted-foreground/55"
+                              aria-hidden
+                            />
+                            <span
+                              className={`portal-type-body-sm ${
+                                industry
+                                  ? 'text-muted-foreground/70'
+                                  : 'text-muted-foreground/35'
+                              }`}
+                            >
+                              {industry || 'Industry'}
+                            </span>
+                          </button>
+                        )}
+                        <ChoiceDrawer
+                          open={industryDrawerOpen}
+                          onClose={() => setIndustryDrawerOpen(false)}
+                          label="Industry"
+                          copy="Optional. Skip to stay Organization."
+                          value={profileIndustryDrawerValue(industry)}
+                          options={PROFILE_INDUSTRY_CHOICES}
+                          onChange={(next) => {
+                            if (isProfileIndustryWriteIn(next)) {
+                              setIndustryWriteIn(true);
+                              if (matchProfileIndustryOption(industry)) {
+                                setIndustry('');
+                              }
+                              markDirty();
+                              window.setTimeout(
+                                () => industryInputRef.current?.focus(),
+                                0
+                              );
+                              return;
+                            }
+                            setIndustryWriteIn(false);
+                            setIndustry(next);
+                            markDirty();
+                          }}
+                          zIndex={PORTAL_INDUSTRY_DRAWER_Z}
+                        />
+                        {accountId ? (
+                          <ProfileJobsEditor
+                            accountId={accountId}
+                            disabled={isSaving || isAuthorizingSession}
+                            onToast={setActionToast}
+                          />
+                        ) : null}
+                      </>
                     ) : null}
-
-                    {!hasSocialSession ? (
-                      <p className="rounded-xl border border-border/45 bg-muted/22 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-                        {isAuthorizingSession
-                          ? 'Check your wallet extension — approve the OnSocial session transaction when it appears.'
-                          : 'One approval unlocks your profile and social actions for this session.'}
-                      </p>
-                    ) : null}
+                    <label htmlFor="profile-location" className="sr-only">
+                      Location
+                    </label>
+                    <input
+                      id="profile-location"
+                      value={location}
+                      onChange={(event) => {
+                        setLocation(
+                          sanitizeProfileLocationDraft(event.target.value)
+                        );
+                        markDirty();
+                      }}
+                      onBlur={() => {
+                        const trimmed = normalizeProfileLocationInput(location);
+                        if (trimmed !== location) setLocation(trimmed);
+                      }}
+                      maxLength={PROFILE_LOCATION_MAX}
+                      autoComplete="address-level2"
+                      placeholder="Based in"
+                      className="w-full bg-transparent portal-type-body-sm text-muted-foreground/70 outline-none placeholder:text-muted-foreground/35"
+                    />
+                    <p className="portal-type-caption tabular-nums text-muted-foreground/45">
+                      {name.length}/50
+                    </p>
                   </div>
                 </div>
 
-                <OsSheetActions
-                  layout="stack"
-                  className="shrink-0 border-t border-fade-section px-4 py-4 md:px-5"
-                >
-                  {!profile ? (
-                    <p className="portal-type-label leading-snug text-muted-foreground/60">
-                      Saving your profile earns SOCIAL rewards.
-                    </p>
-                  ) : null}
-                  <OsSheetAction
-                    type="submit"
-                    variant="primary"
-                    ready={isDirty && !saved && hasSocialSession}
-                    succeeded={saved}
-                    succeededLabel="Saved"
-                    pending={isAuthorizingSession || isSaving}
-                    pendingLabel={
-                      isAuthorizingSession ? 'Authorizing…' : 'Saving…'
-                    }
-                    disabled={
-                      saved ||
-                      !nameReady ||
-                      isSaving ||
-                      isAuthorizingSession ||
-                      (hasSocialSession && !isDirty)
-                    }
+                <div className="pointer-events-auto">
+                  <label htmlFor="profile-bio" className="sr-only">
+                    Bio
+                  </label>
+                  <textarea
+                    id="profile-bio"
+                    value={bio}
+                    onChange={(event) => {
+                      setBio(event.target.value);
+                      markDirty();
+                    }}
+                    maxLength={160}
+                    rows={2}
+                    placeholder="Bio — use #topics, $tickers, @accounts…"
+                    className="w-full resize-none bg-transparent portal-type-body leading-relaxed text-muted-foreground outline-none placeholder:text-muted-foreground/40"
+                  />
+                  <p className="mt-0.5 portal-type-caption tabular-nums text-muted-foreground/45">
+                    {characterCount}/160
+                  </p>
+                </div>
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+                onChange={(event) => {
+                  setAvatar(event.target.files?.[0] ?? null);
+                  setAvatarRemoved(false);
+                  markDirty();
+                  event.target.value = '';
+                }}
+              />
+              <input
+                ref={bannerInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+                onChange={(event) => {
+                  setBanner(event.target.files?.[0] ?? null);
+                  setBannerRemoved(false);
+                  markDirty();
+                  event.target.value = '';
+                }}
+              />
+            </section>
+
+            <div className="space-y-3 px-4 py-3 md:px-5">
+              <div className="grid grid-cols-2 gap-2.5">
+                {PROFILE_LINK_EDITOR_FIELDS.map((field) => (
+                  <div
+                    key={field.key}
+                    className={cn(
+                      'col-span-1 space-y-1',
+                      field.fullWidth && 'col-span-2'
+                    )}
                   >
-                    {!hasSocialSession ? 'Resume session to save' : submitLabel}
-                  </OsSheetAction>
-                  <OsSheetAction
-                    type="button"
-                    variant="ghost"
-                    disabled={isSaving || isAuthorizingSession}
-                    onClick={() => onOpenChange(false)}
-                  >
-                    Cancel
-                  </OsSheetAction>
-                </OsSheetActions>
-              </motion.form>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>,
-        document.body
-      )}
+                    <div
+                      className={cn(
+                        'portal-field-focus flex items-center rounded-2xl border border-border/40 bg-background/45',
+                        linkFieldErrors[field.key] &&
+                          'border-[var(--portal-red-border)]'
+                      )}
+                    >
+                      <span
+                        className="flex h-9 w-9 shrink-0 items-center justify-center border-r border-border/60 text-muted-foreground"
+                        aria-hidden
+                      >
+                        <ProfileLinkFieldIcon kind={field.kind} />
+                      </span>
+                      <input
+                        id={`profile-${field.key}`}
+                        value={links[field.key]}
+                        onChange={(event) =>
+                          updateLink(field.key, event.target.value)
+                        }
+                        onBlur={() => {
+                          void commitLinkField(field.key, field.kind);
+                        }}
+                        disabled={probingLinkKey === field.key}
+                        aria-busy={probingLinkKey === field.key || undefined}
+                        maxLength={
+                          field.kind === 'website' || field.kind === 'onsocial'
+                            ? 255
+                            : 80
+                        }
+                        inputMode={
+                          field.kind === 'website' || field.kind === 'onsocial'
+                            ? 'url'
+                            : undefined
+                        }
+                        autoComplete={field.kind === 'website' ? 'url' : 'off'}
+                        autoCapitalize={
+                          field.kind === 'onsocial' ? 'none' : undefined
+                        }
+                        autoCorrect={
+                          field.kind === 'onsocial' ? 'off' : undefined
+                        }
+                        spellCheck={
+                          field.kind === 'onsocial' ? false : undefined
+                        }
+                        className="w-full bg-transparent px-3 py-2.5 text-sm outline-none disabled:opacity-70"
+                        placeholder={field.placeholder}
+                        aria-label={field.label}
+                        aria-invalid={Boolean(linkFieldErrors[field.key])}
+                      />
+                    </div>
+                    {probingLinkKey === field.key ? (
+                      <p className="px-1 text-[11px] leading-snug text-muted-foreground">
+                        Checking…
+                      </p>
+                    ) : linkFieldErrors[field.key] ? (
+                      <p className="px-1 text-[11px] leading-snug text-[var(--portal-red)]">
+                        {profileLinkEditorInlineError(
+                          field.kind,
+                          linkFieldErrors[field.key]
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+
+              {error && !isWalletCancellationMessage(error) ? (
+                <p className="rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--portal-red)]">
+                  {error}
+                </p>
+              ) : null}
+
+              {!hasSocialSession ? (
+                <p className="rounded-xl border border-border/45 bg-muted/22 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                  {isAuthorizingSession
+                    ? 'Check your wallet extension — approve the OnSocial session transaction when it appears.'
+                    : 'One approval unlocks your profile and social actions for this session.'}
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <OsSheetActions
+            layout="stack"
+            className="shrink-0 border-t border-fade-section px-4 py-4 md:px-5"
+          >
+            {!profile ? (
+              <p className="portal-type-label leading-snug text-muted-foreground/60">
+                Saving your profile earns SOCIAL rewards.
+              </p>
+            ) : null}
+            <OsSheetAction
+              type="submit"
+              variant="primary"
+              ready={isDirty && !saved && hasSocialSession}
+              succeeded={saved}
+              succeededLabel="Saved"
+              pending={isAuthorizingSession || isSaving}
+              pendingLabel={isAuthorizingSession ? 'Authorizing…' : 'Saving…'}
+              disabled={
+                saved ||
+                !nameReady ||
+                isSaving ||
+                isAuthorizingSession ||
+                (hasSocialSession && !isDirty)
+              }
+            >
+              {!hasSocialSession ? 'Resume session to save' : submitLabel}
+            </OsSheetAction>
+            <OsSheetAction
+              type="button"
+              variant="ghost"
+              disabled={isSaving || isAuthorizingSession}
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </OsSheetAction>
+          </OsSheetActions>
+        </form>
+      </Sheet>
       <TransactionFeedbackToast
         result={actionToast}
         onClose={() => setActionToast(null)}

@@ -1148,15 +1148,37 @@ export async function fetchCollectionsByAppPage(
     ];
     if (collectionIds.length === 0) return { views: [], fetched: 0 };
 
-    const views = (
-      await Promise.all(
-        collectionIds.map((collectionId) => fetchCollection(collectionId))
-      )
-    )
-      .filter((view): view is CollectionView => view != null)
+    // One batched catalog read; RPC only for ids the indexer has not seen.
+    const catalogRows = await client.query.scarces
+      .collectionsCurrentByIds(collectionIds)
+      .catch(() => []);
+    const seen = new Set<string>();
+    const indexerViews: CollectionView[] = [];
+    for (const row of catalogRows) {
+      const view = collectionCurrentRowToView(row);
+      if (!view) continue;
+      seen.add(row.collectionId?.trim() ?? '');
+      indexerViews.push(view);
+    }
+    // RPC views arrive hydrated; indexer rows still need the writing pass.
+    const views: CollectionView[] = await Promise.all(
+      indexerViews.map(hydrateWritingManifest)
+    );
+    const missing = collectionIds.filter(
+      (collectionId) => !seen.has(collectionId)
+    );
+    if (missing.length > 0) {
+      const rpcViews = await Promise.all(
+        missing.map((collectionId) => fetchCollection(collectionId))
+      );
+      for (const view of rpcViews) {
+        if (view) views.push(view);
+      }
+    }
+    const merged = views
       .filter((view) => !view.appId || view.appId === id)
       .sort((a, b) => b.createdAtMs - a.createdAtMs);
-    return { views, fetched: views.length };
+    return { views: merged, fetched: merged.length };
   } catch {
     // Fall through to contract scan only when indexer is unavailable.
   }

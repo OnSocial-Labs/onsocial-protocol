@@ -15,7 +15,7 @@ import { PortalBadge } from '@/components/ui/portal-badge';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
-import { getPortalProfileUrl } from '@/lib/portal-config';
+import { getPublicAppPageUrl } from '@/lib/portal-config';
 import {
   fetchInfluenceBoard,
   fetchReputationBoard,
@@ -91,7 +91,7 @@ function InfluenceRow({
         {entry.rank}
       </span>
       <Link
-        href={getPortalProfileUrl(entry.accountId)}
+        href={getPublicAppPageUrl(entry.accountId)}
         className="min-w-0 flex-1"
       >
         <div className="flex items-center gap-2">
@@ -147,7 +147,7 @@ function ReputationRow({
       </span>
       <div className="min-w-0 flex-1">
         <Link
-          href={getPortalProfileUrl(entry.accountId)}
+          href={getPublicAppPageUrl(entry.accountId)}
           className="flex items-center gap-2"
         >
           <StandingIdentity
@@ -203,7 +203,7 @@ function EarnerRow({
       </span>
       <div className="min-w-0 flex-1">
         <Link
-          href={getPortalProfileUrl(entry.accountId)}
+          href={getPublicAppPageUrl(entry.accountId)}
           className="flex min-w-0 flex-1 flex-col gap-1"
         >
           <div className="flex items-center gap-2">

@@ -1,24 +1,19 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { TokenIcon } from '@onsocial/ui';
 import {
   compactModalBodyClass,
   compactModalBodyDenseClass,
   compactModalHeaderDenseClass,
-  compactModalShellClass,
-  portalElevatedShadowClass,
 } from '@/components/ui/floating-panel';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
 import { ModalHeader } from '@/components/ui/modal-header';
+import { Sheet } from '@/components/ui/sheet';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { useWallet } from '@/contexts/wallet-context';
 import { WalletBootstrapPlaceholder } from '@/components/ui/portal-connect-prompt';
-import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { formatNearCompact, formatSocialCompact } from '@/lib/leaderboard';
-import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 interface WalletAssetToken {
@@ -187,98 +182,51 @@ export function WalletAssetsModal({
   onOpenChange,
 }: WalletAssetsModalProps) {
   const { isLoading: isWalletBootstrapping } = useWallet();
-  const reduceMotion = useReducedMotion();
   const titleId = useId();
-  const scrollRef = useRef<HTMLDivElement>(null);
 
-  useBodyScrollLock(open, scrollRef);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onOpenChange(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onOpenChange, open]);
-
-  if (typeof document === 'undefined') return null;
-
-  return createPortal(
-    <AnimatePresence initial={false}>
-      {open ? (
-        <motion.div
-          {...fadeMotion(reduceMotion ? 0 : 0.18)}
-          data-lenis-prevent
-          className="fixed inset-0 z-[2147483645] flex items-center justify-center px-4 py-6"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 bg-background/72 backdrop-blur-md"
-            aria-label="Close wallet assets"
+  return (
+    <Sheet
+      open={open}
+      onOpenChange={onOpenChange}
+      ariaLabelledby={titleId}
+      dismissLabel="Close wallet assets"
+    >
+      <ModalHeader
+        titleId={titleId}
+        title="Assets"
+        description={
+          accountId
+            ? `@${accountId} · Native NEAR & SOCIAL`
+            : isWalletBootstrapping
+              ? 'Checking wallet connection'
+              : 'Connect a wallet to view balances'
+        }
+        descriptionVariant="meta"
+        bordered
+        className={compactModalHeaderDenseClass}
+        actions={
+          <ModalCloseButton
+            ariaLabel="Close wallet assets"
             onClick={() => onOpenChange(false)}
           />
+        }
+      />
 
-          <motion.div
-            {...scaleFadeMotion(!!reduceMotion, {
-              y: 14,
-              scale: 0.98,
-              duration: 0.22,
-              exitY: 8,
-              exitScale: 0.99,
-            })}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            className={cn(compactModalShellClass, portalElevatedShadowClass)}
-          >
-            <ModalHeader
-              titleId={titleId}
-              title="Assets"
-              description={
-                accountId
-                  ? `@${accountId} · Native NEAR & SOCIAL`
-                  : isWalletBootstrapping
-                    ? 'Checking wallet connection'
-                    : 'Connect a wallet to view balances'
-              }
-              descriptionVariant="meta"
-              bordered
-              className={compactModalHeaderDenseClass}
-              actions={
-                <ModalCloseButton
-                  ariaLabel="Close wallet assets"
-                  onClick={() => onOpenChange(false)}
-                />
-              }
-            />
-
-            <div
-              ref={scrollRef}
-              className={cn(compactModalBodyClass, compactModalBodyDenseClass)}
-            >
-              {isWalletBootstrapping ? (
-                <WalletBootstrapPlaceholder variant="inline" className="py-4" />
-              ) : !accountId ? (
-                <p className="py-4 text-center text-sm text-muted-foreground/65">
-                  Connect a wallet to view balances.
-                </p>
-              ) : (
-                <WalletAssetsModalBody
-                  key={accountId}
-                  accountId={accountId}
-                  open={open}
-                />
-              )}
-            </div>
-          </motion.div>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>,
-    document.body
+      <div className={cn(compactModalBodyClass, compactModalBodyDenseClass)}>
+        {isWalletBootstrapping ? (
+          <WalletBootstrapPlaceholder variant="inline" className="py-4" />
+        ) : !accountId ? (
+          <p className="py-4 text-center text-sm text-muted-foreground/65">
+            Connect a wallet to view balances.
+          </p>
+        ) : (
+          <WalletAssetsModalBody
+            key={accountId}
+            accountId={accountId}
+            open={open}
+          />
+        )}
+      </div>
+    </Sheet>
   );
 }

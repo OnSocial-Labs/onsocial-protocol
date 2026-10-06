@@ -3,7 +3,7 @@ import { InterceptMisfireRecovery } from '@/components/overlay/intercept-misfire
 import { PortfolioFaceOverlayLeave } from '@/components/portfolio/portfolio-face-overlay-leave';
 import { panelLabel } from '@/lib/overlay-routes';
 import { EndorsementsPanel } from '@/components/panels/endorsements-panel';
-import { SimpleOverlayPanel } from '@/components/overlay/simple-overlay-panel';
+import { EndorsementsOverlayFrame } from '@/components/overlay/endorsements-overlay-frame';
 import {
   loadEndorsementsPageData,
   parseEndorsementsMode,
@@ -44,7 +44,7 @@ export default async function EndorsementsOverlay({
   ]);
   return (
     <OverlayInterceptRoot>
-      <SimpleOverlayPanel ariaTitle={title} title={title}>
+      <EndorsementsOverlayFrame ariaTitle={title} title={title}>
         <PortfolioFaceOverlayLeave accountId={accountId} />
         <EndorsementsPanel
           accountId={accountId}
@@ -53,7 +53,7 @@ export default async function EndorsementsOverlay({
           initial={initial}
           initialMode={initialMode}
         />
-      </SimpleOverlayPanel>
+      </EndorsementsOverlayFrame>
     </OverlayInterceptRoot>
   );
 }

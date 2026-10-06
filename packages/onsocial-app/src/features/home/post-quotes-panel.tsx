@@ -317,7 +317,7 @@ export function PostQuotesPanel({
         onClick={() => selectTab('quotes')}
       >
         Quotes
-        <span className="post-quotes-track-count">{quoteTotal}</span>
+        <span className="app-storage-mode-count">{quoteTotal}</span>
       </button>
       <button
         type="button"
@@ -330,7 +330,7 @@ export function PostQuotesPanel({
         onClick={() => selectTab('reposts')}
       >
         Reposts
-        <span className="post-quotes-track-count">{repostTotal}</span>
+        <span className="app-storage-mode-count">{repostTotal}</span>
       </button>
     </div>
   );

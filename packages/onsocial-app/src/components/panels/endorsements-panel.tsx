@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePublishEndorsementsHeaderActions } from '@/components/overlay/endorsements-overlay-frame';
 import type {
   EndorseExistingDraft,
   EndorsementPanelItem,
@@ -18,13 +19,15 @@ import {
   EndorsementListSkeleton,
 } from '@/components/panels/endorsement-list-row';
 import { EndorsementFocusSheet } from '@/components/panels/endorsement-focus-sheet';
-import {
-  EndorsementSupportSheet,
-  type EndorsementSupportTarget,
-} from '@/components/panels/endorsement-support-sheet';
 import { DiscoverProfilesLink } from '@/components/panels/standing-discover-link';
 import { OsEmptyAction } from '@/lib/os-empty-action';
-import { Divider, OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import {
+  ChoiceDrawerMenu,
+  Divider,
+  SearchField,
+  osFloatingPanelCountClassName,
+  type ChoiceOption,
+} from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
@@ -33,12 +36,13 @@ import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { accountIdsEqual } from '@/lib/account-match';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { buildEndorsementEmptyState } from '@/lib/endorsement-empty-state';
-import { parseEndorsementMediaRef } from '@/lib/endorsement-media';
+import { endorsementRowMatchesQuery } from '@/lib/endorsement-display';
 import { matchEndorsementFocusItem } from '@/lib/endorsement-focus';
 import { endorsementsPath } from '@/lib/overlay-routes';
+import { formatProfileCount } from '@/lib/profile-social-standings';
+import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 import { displayName } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
-import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
 import { replaceBrowserUrl } from '@/lib/sync-browser-url-query';
 import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
 import { derivePortfolioEndorsementCounts } from '@/lib/viewer-endorsement-ledger';
@@ -133,6 +137,18 @@ function rowKey(item: EndorsementPanelItem): string {
   return `${item.issuer}:${item.target}:${item.topic ?? ''}:${item.blockHeight}`;
 }
 
+function EndorsementCountBadge({ count }: { count: number }) {
+  return (
+    <span
+      className={`${osFloatingPanelCountClassName}${
+        count === 0 ? ' is-zero' : ''
+      }`}
+    >
+      {formatProfileCount(count)}
+    </span>
+  );
+}
+
 export function EndorsementsPanel({
   accountId,
   profileName = null,
@@ -141,7 +157,7 @@ export function EndorsementsPanel({
   initial = null,
   initialMode = 'received',
 }: EndorsementsPanelProps) {
-  const { accountId: viewerAccountId, isConnected, connect } = useAppWallet();
+  const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { setTxResult } = useAppTransactionFeedback();
   const {
     viewerEndorsed,
@@ -159,6 +175,7 @@ export function EndorsementsPanel({
   const endorsePending = isEndorsePendingForTarget(accountId);
   const endorseBlocked = isBlockEitherWay(accountId);
   const [mode, setMode] = useState<EndorsementsMode>(initialMode);
+  const [query, setQuery] = useState('');
   const [data, setData] = useState<EndorsementsPanelResponse | null>(
     () => initial
   );
@@ -170,9 +187,6 @@ export function EndorsementsPanel({
   const [composeSession, setComposeSession] = useState<ComposeSession | null>(
     null
   );
-  const [supportOpen, setSupportOpen] = useState(false);
-  const [supportTarget, setSupportTarget] =
-    useState<EndorsementSupportTarget | null>(null);
   const [focusOpen, setFocusOpen] = useState(false);
   const [focusItem, setFocusItem] = useState<EndorsementPanelItem | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -223,6 +237,10 @@ export function EndorsementsPanel({
   useEffect(() => {
     setMode(initialMode);
   }, [initialMode]);
+
+  useEffect(() => {
+    setQuery('');
+  }, [accountId]);
 
   const selectMode = useCallback(
     (next: EndorsementsMode) => {
@@ -286,6 +304,14 @@ export function EndorsementsPanel({
   void endorsementSyncVersion;
   const receivedCount = adjustedCounts.received;
   const givenCount = adjustedCounts.given;
+  const visibleItems = useMemo(() => {
+    const needle = query.trim();
+    if (!needle) return items;
+    return items.filter((item) =>
+      endorsementRowMatchesQuery(item, mode, needle)
+    );
+  }, [items, mode, query]);
+  const searching = query.trim().length > 0;
 
   useEffect(() => {
     if (!focusOpen || !focusItem) return;
@@ -356,7 +382,7 @@ export function EndorsementsPanel({
       !loadingMore &&
       !error &&
       !loadMoreError &&
-      items.length > 0,
+      (items.length > 0 || searching),
     onIntersect: () => {
       void loadMore();
     },
@@ -403,124 +429,86 @@ export function EndorsementsPanel({
     });
   }
 
-  function openSupport(item: EndorsementPanelItem) {
-    const endorsementId = resolveEndorsementSpendTargetId({
-      id: typeof item.id === 'string' ? item.id : null,
-      issuer: item.issuer,
-      target: item.target,
-      topic: item.topic,
-    });
-    if (!endorsementId) return;
-    if (!isConnected) {
-      void connect();
-      return;
-    }
-    setSupportTarget({
-      endorsementId,
-      recipientAccountId: item.target,
-      recipientName: item.targetName,
-      issuer: item.issuer,
-      topic: item.topic ?? null,
-    });
-    setSupportOpen(true);
-  }
+  usePublishEndorsementsHeaderActions({
+    show: !isSelf,
+    endorsed: isConnected && viewerEndorsed,
+    pending: endorsePending,
+    blocked: endorseBlocked,
+    label,
+    showAddTopic: isConnected && viewerEndorsed && !endorseBlocked,
+    onEndorse: handleEndorseClick,
+    onAddTopic: handleAddTopic,
+  });
+
+  const listOptions: ChoiceOption<EndorsementsMode>[] = [
+    {
+      value: 'received',
+      label: 'Received',
+      leading: <EndorsementCountBadge count={receivedCount} />,
+    },
+    {
+      value: 'given',
+      label: 'Given',
+      leading: <EndorsementCountBadge count={givenCount} />,
+    },
+  ];
 
   return (
     <div className="endorsements-panel">
-      <div className="endorsements-panel-toolbar">
-        <div
-          className="endorsements-mode-rail"
-          role="tablist"
-          aria-label="Endorsement lists"
-        >
-          <button
-            type="button"
-            role="tab"
-            id="endorsements-tab-received"
-            aria-controls="endorsements-panel-received"
-            aria-selected={mode === 'received'}
-            className={`endorsements-mode-chip${
-              mode === 'received' ? ' is-selected' : ''
-            }`}
-            onClick={() => selectMode('received')}
-          >
-            Received
-            <span className="endorsements-mode-count">{receivedCount}</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id="endorsements-tab-given"
-            aria-controls="endorsements-panel-given"
-            aria-selected={mode === 'given'}
-            className={`endorsements-mode-chip${
-              mode === 'given' ? ' is-selected' : ''
-            }`}
-            onClick={() => selectMode('given')}
-          >
-            Given
-            <span className="endorsements-mode-count">{givenCount}</span>
-          </button>
-        </div>
-
-        {!isSelf ? (
-          <div className="endorsements-endorse-cta">
-            <OsSheetActions layout="row-compact">
-              <OsSheetAction
-                type="button"
-                ready={!endorseBlocked}
-                disabled={endorsePending}
-                pending={endorsePending}
-                pendingLabel={
-                  viewerEndorsed ? 'Updating…' : 'Endorsing…'
-                }
-                onClick={handleEndorseClick}
-              >
-                {isConnected && viewerEndorsed ? 'Edit' : 'Endorse'}
-              </OsSheetAction>
-            </OsSheetActions>
-            {isConnected && viewerEndorsed && !endorseBlocked ? (
-              <button
-                type="button"
-                className="endorsements-add-topic"
-                onClick={handleAddTopic}
-                disabled={endorsePending}
-                aria-label={`Add another endorsement for ${label}`}
-              >
-                Add topic
-              </button>
-            ) : null}
-          </div>
-        ) : null}
+      <div className="standing-list-toolbar">
+        <ChoiceDrawerMenu
+          label="Endorsements"
+          value={mode}
+          options={listOptions}
+          onChange={selectMode}
+          triggerMeta={
+            <EndorsementCountBadge
+              count={mode === 'received' ? receivedCount : givenCount}
+            />
+          }
+          className="standing-view-menu"
+          zIndex={SHEET_Z.nested}
+        />
+        <SearchField
+          value={query}
+          onValueChange={setQuery}
+          placeholder="Search"
+          maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
+          clearAriaLabel="Clear endorsement search"
+          ariaLabel="Search endorsements"
+          chrome="floating-panel"
+          className="standing-list-toolbar-search"
+        />
       </div>
 
       {loading ? (
         <EndorsementListSkeleton />
       ) : error ? (
-        <div
-          className="endorsements-empty"
-          role="tabpanel"
-          id={`endorsements-panel-${mode}`}
-          aria-labelledby={`endorsements-tab-${mode}`}
-        >
+        <div className="endorsements-empty">
           <p className="endorsements-empty-copy">{error}</p>
           <OsEmptyAction onClick={() => void load()}>Retry</OsEmptyAction>
         </div>
-      ) : items.length === 0 ? (
+      ) : visibleItems.length === 0 && searching && hasMore ? (
+        <div className="endorsements-load-more-error">
+          <p className="endorsements-loading-more">Loading more…</p>
+          <div ref={loadMoreRef} className="endorsements-load-more" />
+        </div>
+      ) : visibleItems.length === 0 ? (
         <div
-          className="standing-panel-empty-block"
-          role="tabpanel"
-          id={`endorsements-panel-${mode}`}
-          aria-labelledby={`endorsements-tab-${mode}`}
+          className={`standing-panel-empty-block${
+            searching ? ' is-search' : ''
+          }`}
         >
           <div className="standing-panel-empty-state">
-            <p className="standing-panel-empty-primary">{emptyState.primary}</p>
-            {emptyState.secondary ? (
+            <p className="standing-panel-empty-primary">
+              {searching ? 'No matches.' : emptyState.primary}
+            </p>
+            {!searching && emptyState.secondary ? (
               <p className="standing-panel-empty-secondary">
                 {emptyState.secondary}
               </p>
             ) : null}
-            {emptyState.showDiscover ? (
+            {!searching && emptyState.showDiscover ? (
               <div className="standing-panel-empty-actions">
                 <DiscoverProfilesLink
                   accountId={accountId}
@@ -532,66 +520,30 @@ export function EndorsementsPanel({
           </div>
         </div>
       ) : (
-        <div
-          className="standing-list endorsement-list"
-          role="tabpanel"
-          id={`endorsements-panel-${mode}`}
-          aria-labelledby={`endorsements-tab-${mode}`}
-        >
-          {items.map((item, index) => {
-            const viewerOwns =
-              Boolean(viewerAccountId) &&
-              accountIdsEqual(viewerAccountId!, item.issuer);
-            const canSupport =
-              Boolean(resolveEndorsementSpendTargetId({
-                id: typeof item.id === 'string' ? item.id : null,
-                issuer: item.issuer,
-                target: item.target,
-                topic: item.topic,
-              })) &&
-              (!viewerAccountId ||
-                !accountIdsEqual(viewerAccountId, item.target));
-            return (
-              <div key={rowKey(item)}>
-                {index > 0 ? <Divider variant="item" /> : null}
-                <EndorsementListRow
-                  item={item}
-                  pageAccountId={accountId}
-                  mode={mode}
-                  viewerAccountId={viewerAccountId}
-                  canEdit={viewerOwns}
-                  onEdit={() =>
-                    openCompose({
-                      targetAccountId: item.target,
-                      targetName: item.targetName,
-                      targetAvatarUrl: item.targetAvatarUrl,
-                      intent: 'edit',
-                      existing: {
-                        id: typeof item.id === 'string' ? item.id : null,
-                        topic: item.topic ?? null,
-                        note: item.note ?? null,
-                        media: parseEndorsementMediaRef(item.media),
-                        mediaUrl: item.mediaUrl ?? null,
-                      },
-                    })
-                  }
-                  canSupport={canSupport}
-                  onSupport={() => openSupport(item)}
-                  onOpen={() => {
-                    setFocusItem(item);
-                    setFocusOpen(true);
-                  }}
-                />
-              </div>
-            );
-          })}
+        <div className="standing-list endorsement-list">
+          {visibleItems.map((item, index) => (
+            <div key={rowKey(item)}>
+              {index > 0 ? <Divider variant="item" /> : null}
+              <EndorsementListRow
+                item={item}
+                pageAccountId={accountId}
+                mode={mode}
+                onOpen={() => {
+                  setFocusItem(item);
+                  setFocusOpen(true);
+                }}
+              />
+            </div>
+          ))}
           <div ref={loadMoreRef} className="endorsements-load-more" />
           {loadingMore ? (
             <p className="endorsements-loading-more">Loading more…</p>
           ) : loadMoreError ? (
             <div className="endorsements-load-more-error">
               <p className="endorsements-loading-more">{loadMoreError}</p>
-              <OsEmptyAction onClick={() => void loadMore()}>Retry</OsEmptyAction>
+              <OsEmptyAction onClick={() => void loadMore()}>
+                Retry
+              </OsEmptyAction>
             </div>
           ) : null}
         </div>
@@ -626,22 +578,6 @@ export function EndorsementsPanel({
         onOpenChange={(next) => {
           setFocusOpen(next);
           if (!next) setFocusItem(null);
-        }}
-        onSuccess={() => void load({ soft: true })}
-      />
-
-      <EndorsementSupportSheet
-        open={supportOpen}
-        target={supportTarget}
-        mood={
-          supportTarget &&
-          !accountIdsEqual(supportTarget.recipientAccountId, accountId)
-            ? null
-            : mood
-        }
-        onOpenChange={(next) => {
-          setSupportOpen(next);
-          if (!next) setSupportTarget(null);
         }}
         onSuccess={() => void load({ soft: true })}
       />

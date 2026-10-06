@@ -30,6 +30,9 @@ describe('pushNotificationVerb', () => {
   it('maps collect and boost verbs without reward wording', () => {
     expect(pushNotificationVerb('reward_credited')).toBe('SOCIAL credited');
     expect(pushNotificationVerb('reward_claimed')).toBe('SOCIAL collected');
+    expect(pushNotificationVerb('season_claim_open')).toBe(
+      'rally rewards ready to collect'
+    );
     expect(pushNotificationVerb('boost_reward_claimed')).toBe(
       'boost collected'
     );
@@ -141,6 +144,14 @@ describe('pushNotificationUrl', () => {
     ).toBe('/home?sheet=wallet');
     expect(
       pushNotificationUrl({
+        notification_type: 'season_claim_open',
+        actor: '',
+        recipient: 'alice.near',
+        context: { seasonId: 'season-one', amount: '250000000000000000000' },
+      })
+    ).toBe('/home?sheet=rally');
+    expect(
+      pushNotificationUrl({
         notification_type: 'scarces_sold',
         actor: 'bob.near',
         context: { collectionId: 'night-drive' },
@@ -174,6 +185,23 @@ describe('buildWebPushPayload', () => {
       url: '/@alice.near',
       tag: 'onsocial-notif-11111111-1111-1111-1111-111111111111',
       notificationId: '11111111-1111-1111-1111-111111111111',
+    });
+  });
+
+  it('titles rally claim-open pushes as Collect', () => {
+    const payload = buildWebPushPayload({
+      id: '33333333-3333-3333-3333-333333333333',
+      recipient: 'alice.near',
+      actor: '',
+      notification_type: 'season_claim_open',
+      context: { seasonId: 'season-one', amount: '250000000000000000000' },
+    });
+    expect(payload).toEqual({
+      title: 'Collect',
+      body: 'rally rewards ready to collect',
+      url: '/home?sheet=rally',
+      tag: 'onsocial-notif-33333333-3333-3333-3333-333333333333',
+      notificationId: '33333333-3333-3333-3333-333333333333',
     });
   });
 

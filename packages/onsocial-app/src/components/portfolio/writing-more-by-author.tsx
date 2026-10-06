@@ -60,6 +60,7 @@ export function WritingMoreByAuthor({
           author: accountId,
           limit: AUTHOR_ARTICLES_LIMIT,
           section: 'posts',
+          kind: 'longform',
         });
         const rows = page.items.filter(isArticlePost);
         if (cancelled) return;

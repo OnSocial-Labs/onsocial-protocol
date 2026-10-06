@@ -36,7 +36,7 @@ export const SDK_METHOD_GUIDES: SdkMethodGuide[] = [
       'Apps that need immediate post readback plus indexed discovery later.',
     ],
     buildOrder: [
-      'Auth: completeAppHandoff for a listed community site, or wallet + os.auth.setToken for a first-party app.',
+      'Auth: os.auth.completeAppHandoff for a listed community site, or wallet + os.auth.setToken for a first-party app.',
       'Write through os.profiles, os.posts, os.reactions, os.saves, os.standings, os.endorsements, or os.attestations.',
       'Read the exact path back with os.social.getOne or os.social.get immediately after the write.',
       'Use os.query.feed, os.query.threads, or other indexed helpers for product lists once the indexer catches up.',
@@ -44,13 +44,19 @@ export const SDK_METHOD_GUIDES: SdkMethodGuide[] = [
     primaryMethods: [
       'os.profiles.update(profile)',
       'os.profiles.get(accountId) and os.profiles.getMany(accountIds)',
+      'os.profiles.avatarMedia/bannerMedia/resolveMedia for media objects',
       'os.posts.create(post, postId?)',
       'os.posts.reply(parent, reply, replyId?)',
       'os.posts.quote(ref, quote, quoteId?)',
-      'os.posts.groupPost(groupId, post, postId?)',
+      'os.posts.repost(ref) and os.posts.groupPost/groupReply/groupQuote/groupRepost',
       'os.reactions.add/remove/toggle/summary',
-      'os.saves.add/remove/toggle/list',
-      'os.standings.add/remove',
+      'os.saves.add/remove/toggle/list/get/has',
+      'os.standings.add/remove/toggle/has/counts',
+      'os.standings.listOutgoing/listIncoming (+Detailed) and mutualCount/mutualList',
+      'os.standings.networkSample for orbit-map samples: viewer-known first, then endorsed, then newest',
+      'os.standings.* — viewerStandsWith, profilePreview, listPage, enrichPeers, and the rest',
+      'os.blocks.add/remove/toggle/has/eitherWay and listOutgoing/listIncoming',
+      'os.blocks.* — Detailed list variants and viewerBlocks',
       'os.endorsements.* and os.attestations.*',
     ],
     readMethods: [
@@ -58,6 +64,7 @@ export const SDK_METHOD_GUIDES: SdkMethodGuide[] = [
       'os.query.feed.recent({ author, limit }) for indexed feed surfaces.',
       'os.query.threads.replies(author, postId) and os.query.threads.tree(author, postId) for thread views.',
       'os.query.reactions.counts(author, path) for aggregate reaction counts.',
+      'os.query.standings.* and os.query.endorsements.* for indexed social-graph reads.',
     ],
     transactionModel: [
       'Each high-level write is one contract action and therefore one wallet modal when defaultBroadcast is wallet.',
@@ -127,7 +134,11 @@ const indexedThread = await os.query.threads.tree(accountId, postId, {
       'os.groups.addMember/removeMember/approveJoin/rejectJoin',
       'os.groups.getConfig/getStats/getMember/isMember/isMemberDriven',
       'os.posts.groupPost/groupReply/groupQuote',
+      'os.groups.post/reply/quote/repost for group-content writes on the groups module',
       'os.groups.propose/vote/listProposals/getProposal',
+      'os.groups.proposeBan/proposeInviteMember/proposeMetadataUpdate and other propose* variants',
+      'os.groups.blacklist/unblacklist, transferOwnership, setPrivacy, updateMetadata',
+      'os.groups.* — the full group surface, including proposal tally and vote reads',
       'os.permissions.grantOrPropose and os.permissions.revokeOrPropose',
     ],
     readMethods: [
@@ -205,8 +216,11 @@ const feed = await os.query.groups.feed(groupId, { limit: 20 });`,
       'os.permissions.revokeKey(publicKey, path)',
       'os.permissions.has(owner, grantee, path, level)',
       'os.permissions.get(owner, grantee, path)',
+      'os.permissions.* — key-permission and group-admin checks (hasKeyPermission, hasGroupAdmin, …)',
       'os.storage.upload/uploadJson/uploadMany/url',
+      'os.storage.* — getJson, health, and provider introspection',
       'os.storageAccount.balance/deposit/withdraw/tip/sponsor',
+      'os.storageAccount.* — pool funding, sponsor quotas, and sponsorship reads',
     ],
     readMethods: [
       'os.permissions.has(owner, grantee, path, level) for current on-chain authority.',
@@ -269,27 +283,34 @@ const history = await os.query.permissions.history(accountId, { limit: 20 });`,
     ],
     buildOrder: [
       'Use direct reads for immediate confirmation after writes.',
-      'Use os.query.* helpers for list and history views.',
+      'Use the typed os.query helpers for list and history views.',
       'Show a pending state when a direct read succeeds but the indexed read has not caught up.',
       'Use os.query.graphql or os.query.raw only when typed helpers do not cover the surface yet.',
     ],
     primaryMethods: [
       'os.query.feed.recent(opts)',
+      'os.query.feed.* — personal, following, media, byHashtag/byTicker/byPlace, pulse, and more',
       'os.query.threads.replies(author, postId, opts)',
       'os.query.threads.tree(author, postId, opts)',
+      'os.query.threads.* — quotes, reposters, counts, and path-based variants',
       'os.query.groups.feed(groupId, opts)',
-      'os.query.groups.post(author, groupId, postId)',
+      'os.query.groups.* — browse, members, conversation, thread, quotes, and counts',
       'os.query.profiles.*',
       'os.query.reactions.counts(author, path)',
-      'os.query.permissions.* and os.query.governance.*',
-      'os.query.storage.*',
+      'os.query.reactions.* — statesForPosts and other reaction reads',
+      'os.query.getLimits() for server-enforced max page sizes per namespace',
       'os.query.graphql({ query, variables })',
+      'os.subscribe.scarces.* — realtime mint/list/sale/transfer subscriptions',
     ],
     readMethods: [
       'os.social.getOne(path, accountId) when you need the current contract state.',
       'os.query.feed.recent for home, profile, or app feed lists.',
       'os.query.threads.tree for a full conversation shape.',
-      'os.query.graphql for custom product queries backed by the same indexer.',
+      'Social graph: os.query.graph.*, os.query.standings.*, os.query.blocks.*, os.query.saves.*, os.query.endorsements.*, os.query.attestations.*',
+      'Discovery: os.query.hashtags.*, os.query.tickers.*, os.query.places.*, os.query.stats.*',
+      'Economy: os.query.scarces.*, os.query.rewards.*, os.query.token.*, os.query.boost.*, os.query.socialSpend.*',
+      'Platform: os.query.pages.*, os.query.jobs.*, os.query.storage.*, os.query.permissions.*, os.query.governance.*',
+      'Escape hatches: os.query.raw.* and os.query.graphql when typed helpers do not cover the surface yet.',
     ],
     transactionModel: [
       'Indexed reads do not sign transactions.',
@@ -345,12 +366,23 @@ const pendingIndexer = Boolean(freshPost) && !thread.root;`,
     ],
     primaryMethods: [
       'os.scarces.tokens.mint/get/transfer/batchTransfer/burn/renew/redeem',
+      'os.scarces.tokens.* — renewMany, revoke, claimRefund, and the full token surface',
       'os.scarces.fromPost.mint(post, opts)',
       'os.scarces.fromPost.list(post, priceNear, opts)',
+      'os.scarces.fromPost.* — createDrop, embed, and mintReceipt',
       'os.scarces.market.sell/delist/purchase',
+      'os.scarces.market.* — delistExternal and updateSalePrice',
       'os.scarces.collections.create/mintFrom/purchaseFrom',
+      'os.scarces.collections.* — allowlists, airdrops, variation sets, timing, and lifecycle',
       'os.scarces.auctions.* and os.scarces.offers.*',
+      'os.scarces.lazy.* — gasless lazy-listing create/purchase/cancel and price updates',
+      'os.scarces.approvals.* and os.scarces.storage.* for marketplace operator + storage management',
+      'os.scarces.apps.* for app-owned collection pools and creator allowlists',
+      'os.scarces.previewTextCard(card) to preview a text-card render before minting',
+      'os.mintPost(postAuthor, postId, opts?) — mint a post as a scarce, optionally listed, in one call',
       'os.rewards.credit/claim/getBalance',
+      'os.rewards.getAppConfig() for reward program configuration',
+      'os.socialSpend.* — spend, boostPost, supportProfile/supportEndorsement, joinRally, unlockPageMood, season claims, and build*Transaction variants',
       'os.token.* and os.boost.* reads',
     ],
     readMethods: [
@@ -434,12 +466,15 @@ const recentSales = await os.query.scarces.recentSales({ limit: 20 });`,
     ],
     primaryMethods: [
       'os.social.set(entries)',
-      'os.social.get/getOne/listKeys/countKeys/delete',
+      'os.social.get/getOne/listKeys/countKeys',
+      'os.social.* — low-level verb helpers (post, reply, react, save, endorse, standWith, …) built on the same primitives',
+      'Delete a path with os.social.set(path, null)',
       'buildPostSetData/buildReplySetData/buildGroupPostSetData',
       'os.execute(action, opts?)',
       'os.raw.social, os.raw.http, os.raw.execute',
+      'os.chain.* — direct contract views (getStorageBalance, getContractInfo, listKeys, countKeys, …)',
       'os.query.raw.byAppId / byAppJsonContains',
-      'defaultBroadcast: { kind: "wallet" | "gateway" | "relayer" }',
+      "defaultBroadcast: 'gateway' | { kind: 'relayer', url } | { kind: 'wallet', signer }",
       'os.auth.setToken(token) for browser gateway auth after NEP-413 login',
     ],
     readMethods: [
@@ -484,7 +519,7 @@ const reply = await os.social.getOne('post/' + replyId, accountId);`,
       {
         title: 'Write and query a custom app item',
         description:
-          'No schema PR. List the tile, then completeAppHandoff on the dapp origin. Catch AppHandoffRedirect.',
+          'No schema PR. List the tile, then os.auth.completeAppHandoff on the dapp origin. Catch AppHandoffRedirect.',
         code: `const appId = 'playground';
 const itemId = Date.now().toString(36);
 const path = 'apps/' + appId + '/item/' + itemId;
@@ -523,11 +558,121 @@ const planned = await os.query.raw.byAppJsonContains(
     notes: [
       'Advanced APIs are powerful, but the high-level modules are the safer default for app teams.',
       'Batch only paths that belong to the same user intent and should succeed or fail together.',
+      'There is no os.social.delete: set a path to null to tombstone it. Direct reads treat it as gone immediately; indexed rows catch up on the next indexer pass.',
       'Use wait: true for writes where an on-chain revert must immediately stop follow-up work.',
       'Custom app JSON under apps/<appId> is queryable via byAppId. List the public tile on /onapi/apps.',
-      'Listed tiles and /handoff?app=&pk= grant apps/<appId>/ to the dapp-held key. Call completeAppHandoff({ osOrigin, appId }) on the dapp origin. First visit throws AppHandoffRedirect. Later visits restore a stored refresh token.',
+      'Listed tiles and /handoff?app=&pk= grant apps/<appId>/ to the dapp-held key. Call os.auth.completeAppHandoff({ osOrigin, appId }) on the dapp origin. First visit throws AppHandoffRedirect. Later visits restore a stored refresh token.',
     ],
     playgroundHref: '/playground?example=app-item-and-query',
+  },
+  {
+    slug: 'platform-services',
+    title: 'Platform services',
+    badge: 'Platform',
+    accent: 'amber',
+    summary:
+      'Sign-in and session auth, notifications and push, webhooks, direct messages, mutes, pages, and jobs — the service layer around the social graph.',
+    bestFor: [
+      'Sign-in flows: listed-site handoff or first-party wallet challenge.',
+      'Notification centers, browser push, and server event sinks.',
+      'DM surfaces, mute lists, page moods/themes, and job boards.',
+    ],
+    buildOrder: [
+      'Pick the auth lane: os.auth.completeAppHandoff for listed sites, or os.auth.login with a NEP-413 wallet signature.',
+      'Call os.auth.me to confirm the session, then attach UI to the resolved account.',
+      'Layer services on top: os.notifications, os.dm, os.pages, os.jobs, os.mutes.',
+      'Use os.webhooks on a trusted server when your backend needs event pushes.',
+    ],
+    primaryMethods: [
+      'os.auth.login(request) and os.auth.refresh() for wallet-challenge auth',
+      'os.auth.me() and os.auth.logout()',
+      'os.auth.completeAppHandoff({ osOrigin, appId }) for listed community sites',
+      'os.auth.startOnSocialHandoff/restoreAppSession/refreshAppAccess for app-managed sessions',
+      'os.auth.setToken(token) when you already hold a gateway JWT',
+      'os.notifications.list/unreadCount/markRead',
+      'os.notifications.subscribePush/unsubscribePush/setPushEnabled',
+      'os.notifications.getVapidPublicKey/getPushStatus for push capability checks',
+      'os.notifications.createRule/listRules/deleteRule',
+      'os.notifications.sendEvents for app-driven alerts',
+      'os.notifications.* — the full notification surface',
+      'os.webhooks.create/list/delete for server event sinks',
+      'os.dm.listThreads/listMessages/send/markRead/unreadCount',
+      'os.mutes.add/remove/list/has',
+      'os.pages.get/getConfig/getTemplates',
+      'os.pages.setConfig/setMood/setTheme/setSections/setVisibility/setTemplate/setMoodTint/unlockMood',
+      'os.jobs.create/remove/openFor/forAccount',
+    ],
+    readMethods: [
+      'os.auth.me() for the current session identity.',
+      'os.notifications.list({ recipient, limit }) and os.notifications.unreadCount(...) for inbox surfaces.',
+      'os.dm.listThreads() and os.dm.unreadCount() for message lists.',
+      'os.pages.get(accountId) and os.pages.getConfig() for page state.',
+      'os.jobs.openFor(accountId) and os.jobs.forAccount(...) for job board reads.',
+    ],
+    transactionModel: [
+      'Auth, notifications, webhooks, DMs, and mutes are gateway API calls — no wallet modal.',
+      'Pages and jobs writes are relayed contract writes and follow the normal broadcast rules.',
+      'Keep webhooks and sendEvents on trusted servers; never ship service credentials to the browser.',
+    ],
+    examples: [
+      {
+        title: 'Sign in with a wallet challenge',
+        description:
+          'First-party apps exchange a NEP-413 wallet signature for a gateway JWT. login stores the token on the client.',
+        code: `const challengeRes = await fetch(gatewayUrl + '/auth/challenge', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ accountId }),
+});
+const { challenge } = await challengeRes.json();
+
+const signed = await wallet.signMessage({
+  message: challenge.message,
+  recipient: challenge.recipient,
+  nonce: Uint8Array.from(atob(challenge.nonce), (c) => c.charCodeAt(0)),
+});
+
+await os.auth.login({
+  accountId,
+  message: challenge.message,
+  signature: signed.signature,
+  publicKey: signed.publicKey,
+});
+
+const me = await os.auth.me();`,
+      },
+      {
+        title: 'Inbox, unread badge, and browser push',
+        description:
+          'List notifications for the signed-in account and opt the browser into push.',
+        code: `const inbox = await os.notifications.list({
+  recipient: accountId,
+  limit: 20,
+});
+const unread = await os.notifications.unreadCount(accountId);
+
+const vapidKey = await os.notifications.getVapidPublicKey();
+if (vapidKey) {
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: vapidKey,
+  });
+  const keys = subscription.toJSON().keys;
+  await os.notifications.subscribePush({
+    endpoint: subscription.endpoint,
+    p256dh: keys.p256dh,
+    auth: keys.auth,
+  });
+}`,
+      },
+    ],
+    notes: [
+      'os.auth.login stores the JWT on the client automatically; os.auth.setToken is for tokens you already hold.',
+      'os.auth.refresh rotates app refresh tokens after a community handoff without another OS bounce.',
+      'Push needs a service worker; subscribePush takes the endpoint plus p256dh/auth keys from the browser subscription.',
+      'DMs and mutes are account-scoped gateway lanes, not contract writes.',
+    ],
   },
 ];
 

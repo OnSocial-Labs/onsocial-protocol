@@ -3,6 +3,7 @@ import { indexerQuery } from '../../db/indexer.js';
 import { logger } from '../../logger.js';
 import { viewContractAt } from '../near.js';
 import { relaySocialSpendSettlement } from '../social-spend-settlement-relay.js';
+import { emitSeasonClaimOpenNotifications } from './season-claim-notification-emit.js';
 import { SEASON_ZERO_ID } from './season-policy.js';
 import { getSeasonStandings } from './season-standings.js';
 import {
@@ -254,6 +255,25 @@ export async function getSeasonSettlementSummary(
 
 export async function getSeasonZeroSettlementSummary(): Promise<SeasonZeroSettlementSummary | null> {
   return getSeasonSettlementSummary(SEASON_ZERO_ID);
+}
+
+/**
+ * Drop a finalized (never published) settlement so automation can re-finalize
+ * from a later snapshot. Claims cascade. Only safe pre-publish: the contract
+ * rejects replacing a root after claims, so a published row is never deleted.
+ */
+export async function deleteSeasonFinalizedSettlement(
+  seasonId: string
+): Promise<boolean> {
+  const id = assertSeasonId(seasonId);
+  const result = await query(
+    `DELETE FROM season_settlements
+     WHERE season_id = $1
+       AND status = 'finalized'
+       AND published_tx_hash IS NULL`,
+    [id]
+  );
+  return (result.rowCount ?? 0) > 0;
 }
 
 export async function getSeasonClaimData(
@@ -773,6 +793,10 @@ export async function publishSeasonSettlement(
      RETURNING *`,
     [id, active, result.tx_hash ?? null]
   );
+  if (active) {
+    // Fire-and-forget: Activity fan-out must never fail a settled publish.
+    void emitSeasonClaimOpenNotifications(id);
+  }
   return rowToSummary(updated.rows[0]);
 }
 

@@ -36,6 +36,7 @@ export const OVERLAY_PANELS = [
   'endorsements',
   'feed',
   'standing',
+  'network',
   'reputation',
   'collectibles',
   'writing',
@@ -102,6 +103,18 @@ export function portfolioFromEssayPath(
 /** Shareable owner sheets on the profile face (`?sheet=`). */
 export const PORTFOLIO_SHEET_PARAM = 'sheet';
 
+/** `?sheet=rally&season=<seasonId>` — opens that rally, including past ones. */
+export const RALLY_SEASON_PARAM = 'season';
+
+const RALLY_SEASON_ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/i;
+
+export function parseRallySeasonParam(
+  raw: string | null | undefined
+): string | null {
+  const value = (raw ?? '').trim();
+  return RALLY_SEASON_ID_PATTERN.test(value) ? value : null;
+}
+
 export type PortfolioShareSheetId = 'boost' | 'rally';
 
 export function parsePortfolioSheetParam(
@@ -122,8 +135,12 @@ export function portfolioRallyPath(accountId: string): string {
 }
 
 /** Viewer rally player from Home (same `sheet=` key as wallet). */
-export function homeRallyPath(): string {
-  return `${APP_HOME_PATH}?${PORTFOLIO_SHEET_PARAM}=rally`;
+export function homeRallyPath(seasonId?: string | null): string {
+  const base = `${APP_HOME_PATH}?${PORTFOLIO_SHEET_PARAM}=rally`;
+  const season = parseRallySeasonParam(seasonId);
+  return season
+    ? `${base}&${RALLY_SEASON_PARAM}=${encodeURIComponent(season)}`
+    : base;
 }
 
 /** Viewer Boost sheet from Home — guest lock, same `sheet=` key as profile. */
@@ -215,6 +232,33 @@ export function portfolioEndorsementPath(
   return qs ? `${portfolioPath(accountId)}?${qs}` : portfolioPath(accountId);
 }
 
+/** Legacy portal supporters links carried `endorsementId` — accept both keys. */
+const LEGACY_ENDORSEMENT_ID_PARAM = 'endorsementId';
+
+function firstSearchValue(value: string | string[] | undefined): string | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw?.trim() || null;
+}
+
+/**
+ * Hard-load target for the bare `/endorsements` route. The list is a face
+ * peek, so bounce to the portfolio — but forward a vouch deep link
+ * (`?endorsement=`, or legacy portal `?endorsementId=`) so the focus sheet
+ * still opens on the exact vouch.
+ */
+export function endorsementsHardLoadPath(
+  accountId: string,
+  search?: Record<string, string | string[] | undefined>
+): string {
+  const id =
+    firstSearchValue(search?.[ENDORSEMENT_FOCUS_PARAM]) ??
+    firstSearchValue(search?.[LEGACY_ENDORSEMENT_ID_PARAM]);
+  const issuer = firstSearchValue(search?.[ENDORSEMENT_ISSUER_PARAM]);
+  const topic = firstSearchValue(search?.[ENDORSEMENT_TOPIC_PARAM]);
+  if (!id && !issuer) return portfolioPath(accountId);
+  return portfolioEndorsementPath(accountId, { id, issuer, topic });
+}
+
 /** Held catalog for an account — Launch See all + OS vault when connected. */
 export function portfolioCollectiblesPath(
   accountId: string,
@@ -233,6 +277,28 @@ export function portfolioCollectiblesPath(
 /** Shareable About page — overlay on soft nav, full page on hard refresh. */
 export function aboutPath(accountId: string): string {
   return overlayPath(accountId, 'about');
+}
+
+/**
+ * Standing orbit map. Overlay on soft nav, full page on hard refresh — the
+ * portal `/u/:accountId/network` redirect lands here.
+ */
+export function networkPath(
+  accountId: string,
+  options?: { filter?: string | null; q?: string | null }
+): string {
+  const base = overlayPath(accountId, 'network');
+  const params = new URLSearchParams();
+  const filter = options?.filter?.trim().toLowerCase() ?? '';
+  if (filter === 'mutual' || filter === 'incoming' || filter === 'outgoing') {
+    params.set('filter', filter);
+  }
+  const q = normalizeProfileSearchQuery(options?.q);
+  if (isProfileSearchQuery(q)) {
+    params.set('q', q);
+  }
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
 }
 
 /** Author Writing shelf — titled longform posts. */
@@ -332,6 +398,7 @@ export const OVERLAY_PANEL_LABELS: Record<OverlayPanel, string> = {
   endorsements: 'Endorsements',
   feed: 'Feed',
   standing: 'Standing',
+  network: 'Network',
   reputation: 'Reputation',
   collectibles: 'Collectibles',
   writing: 'Writing',
@@ -465,6 +532,10 @@ export function resolveOverlayPanelChrome(
 
   if (panelKey.startsWith('standing:')) {
     return { ariaTitle: 'Standing', expectsToolbar: true };
+  }
+
+  if (panelKey === 'network') {
+    return { ariaTitle: 'Network', expectsToolbar: true };
   }
 
   if (panelKey === 'discover') {

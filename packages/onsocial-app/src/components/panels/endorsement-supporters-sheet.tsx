@@ -1,14 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import Link from 'next/link';
-import {
-  Divider,
-  OsHugSheet,
-} from '@onsocial/ui';
+import { Divider, OsHugSheet } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { EndorsementListSkeleton } from '@/components/panels/endorsement-list-row';
-import type { AppEndorsementSupporter } from '@/lib/app-endorsement-supporters';
+import { useEndorsementSupporters } from '@/hooks/use-endorsement-supporters';
 import { formatEndorsementTime } from '@/lib/endorsement-display';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import { portfolioPath } from '@/lib/overlay-routes';
@@ -21,26 +18,6 @@ interface EndorsementSupportersSheetProps {
   zIndex?: number;
   onOpenChange: (open: boolean) => void;
   refreshKey?: number;
-}
-
-async function fetchEndorsementSupporters(
-  endorsementId: string
-): Promise<AppEndorsementSupporter[]> {
-  const params = new URLSearchParams({ endorsementId });
-  const response = await fetch(`/api/endorsement/supporters?${params}`, {
-    cache: 'no-store',
-  });
-  const body = (await response.json().catch(() => null)) as {
-    supporters?: AppEndorsementSupporter[];
-    error?: string;
-    detail?: string;
-  } | null;
-  if (!response.ok) {
-    throw new Error(
-      body?.detail ?? body?.error ?? 'Could not load supporters.'
-    );
-  }
-  return body?.supporters ?? [];
 }
 
 /**
@@ -56,39 +33,11 @@ export function EndorsementSupportersSheet({
   refreshKey = 0,
 }: EndorsementSupportersSheetProps) {
   const [closing, setClosing] = useState(false);
-  const requestKey =
-    open && endorsementId ? `${endorsementId}:${refreshKey}` : '';
-  const [fetched, setFetched] = useState<{
-    key: string;
-    supporters: AppEndorsementSupporter[];
-    error: string | null;
-  } | null>(null);
   const sheetOpen = open && !closing && Boolean(endorsementId);
-
-  useEffect(() => {
-    if (!open || !endorsementId) return;
-    const key = `${endorsementId}:${refreshKey}`;
-    let cancelled = false;
-    void fetchEndorsementSupporters(endorsementId)
-      .then((supporters) => {
-        if (cancelled) return;
-        setFetched({ key, supporters, error: null });
-      })
-      .catch((cause) => {
-        if (cancelled) return;
-        setFetched({
-          key,
-          supporters: [],
-          error:
-            cause instanceof Error
-              ? cause.message
-              : 'Could not load supporters.',
-        });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [endorsementId, open, refreshKey]);
+  const { supporters, error } = useEndorsementSupporters(endorsementId, {
+    enabled: open && Boolean(endorsementId),
+    refreshKey,
+  });
 
   const requestClose = useCallback(() => {
     setClosing(true);
@@ -96,13 +45,8 @@ export function EndorsementSupportersSheet({
 
   const handleClosed = useCallback(() => {
     setClosing(false);
-    setFetched(null);
     onOpenChange(false);
   }, [onOpenChange]);
-
-  const ready = fetched?.key === requestKey;
-  const supporters = ready ? fetched.supporters : null;
-  const error = ready ? fetched.error : null;
 
   return (
     <OsHugSheet

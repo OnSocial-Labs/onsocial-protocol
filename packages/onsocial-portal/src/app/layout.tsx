@@ -1,4 +1,3 @@
-import { Suspense } from 'react';
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
@@ -17,6 +16,7 @@ import { PortalRewardsProvider } from '@/contexts/portal-rewards-context';
 import { Navigation } from '@/components/navigation/navigation';
 import { Footer } from '@/components/footer';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
+import { PORTAL_ORIGIN } from '@/lib/portal-origin';
 import { ONSOCIAL_BRAND_TAGLINE } from '@onsocial/ui';
 
 const isMainnet = ACTIVE_NEAR_NETWORK === 'mainnet';
@@ -26,6 +26,7 @@ const applicationName = isMainnet
 const description = ONSOCIAL_BRAND_TAGLINE;
 
 export const metadata: Metadata = {
+  metadataBase: new URL(PORTAL_ORIGIN),
   title: 'OnSocial Protocol - Decentralized Social Infrastructure',
   description,
   applicationName,
@@ -56,6 +57,13 @@ export const metadata: Metadata = {
     title: 'OnSocial Protocol',
     description,
     type: 'website',
+    siteName: applicationName,
+    url: '/',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'OnSocial Protocol',
+    description,
   },
 };
 
@@ -154,17 +162,15 @@ export default function RootLayout({
                     <GatewayAuthProvider>
                       <MobilePageProvider>
                         <NavVisibilityProvider>
-                          <Suspense>
-                            <SmoothScrollProvider>
-                              <div className="flex min-h-[100dvh] flex-col">
-                                <Navigation />
-                                <main className="safe-x flex flex-1 flex-col">
-                                  {children}
-                                </main>
-                                <Footer />
-                              </div>
-                            </SmoothScrollProvider>
-                          </Suspense>
+                          <SmoothScrollProvider>
+                            <div className="flex min-h-[100dvh] flex-col">
+                              <Navigation />
+                              <main className="safe-x flex flex-1 flex-col">
+                                {children}
+                              </main>
+                              <Footer />
+                            </div>
+                          </SmoothScrollProvider>
                         </NavVisibilityProvider>
                       </MobilePageProvider>
                     </GatewayAuthProvider>

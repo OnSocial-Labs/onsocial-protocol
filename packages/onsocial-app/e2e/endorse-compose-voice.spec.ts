@@ -1,8 +1,14 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import {
+  ENDORSE_E2E_ACCOUNT,
   openEndorseComposeLoggedOut,
+  openEndorsementsPanelLoggedOut,
   stubEndorseComposeApis,
 } from './helpers/endorse-compose-voice';
+
+function borderTop(locator: Locator) {
+  return locator.evaluate((el) => getComputedStyle(el).borderTopWidth);
+}
 
 test.describe('endorse compose voice', () => {
   test('Endorse sheet asks Connect, not Connect wallet', async ({ page }) => {
@@ -27,5 +33,346 @@ test.describe('endorse compose voice', () => {
     await expect(attach).toBeVisible();
     await expect(attach).toHaveClass(/os-write-dock-tool/);
     await expect(attach).toHaveText('');
+
+    const design = sheet.getByRole('button', { name: 'Design', exact: true });
+    await expect(design).toHaveClass(/os-surface-chip/);
+    await expect(design).not.toHaveClass(/endorse-compose-chip/);
+    expect(await borderTop(design)).toBe('0px');
+  });
+
+  test('Received and Given use the standing list menu and search', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await stubEndorseComposeApis(page);
+    await page.route('**/api/profile/endorsements**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          accountId: ENDORSE_E2E_ACCOUNT,
+          counts: { received: 1, given: 0 },
+          received: [
+            {
+              issuer: 'bob.testnet',
+              target: ENDORSE_E2E_ACCOUNT,
+              topic: 'design',
+              note: 'Clear product work.',
+              v: 1,
+              since: 1,
+              blockHeight: 1,
+              blockTimestamp: 1_700_000_000_000_000_000,
+              issuerName: 'Bob',
+              issuerAvatarUrl: null,
+              targetName: null,
+              targetAvatarUrl: null,
+              mediaUrl: null,
+              supporterCount: 0,
+            },
+          ],
+          given: [],
+          receivedHasMore: false,
+          givenHasMore: false,
+        }),
+      });
+    });
+    const panel = await openEndorsementsPanelLoggedOut(page);
+
+    const menu = panel.getByRole('button', { name: 'Open endorsements menu' });
+    await expect(menu).toBeVisible();
+    await expect(menu).toContainText('Received');
+    await expect(panel.locator('.app-storage-mode-toggle')).toHaveCount(0);
+    await expect(
+      panel.getByRole('button', { name: 'Endorse', exact: true })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Endorse', exact: true })
+    ).toBeVisible();
+
+    const search = panel.getByRole('textbox', { name: 'Search endorsements' });
+    await expect(search).toBeVisible();
+    await search.fill('nobody');
+    await expect(panel.getByText('No matches.')).toBeVisible();
+    await search.fill('bob');
+    await expect(panel.getByText('Bob', { exact: true })).toBeVisible();
+    await expect(panel.getByText('No matches.')).toHaveCount(0);
+    await expect(
+      panel.getByRole('button', { name: 'Support', exact: true })
+    ).toHaveCount(0);
+    await expect(
+      panel.getByRole('button', { name: 'Edit', exact: true })
+    ).toHaveCount(0);
+
+    await search.fill('');
+    await menu.click();
+    await expect(page.getByRole('option', { name: /Received/ })).toBeVisible();
+    await page.getByRole('option', { name: /Given/ }).click();
+    await expect(menu).toContainText('Given');
+    await expect(panel.getByText('has not endorsed anyone yet.')).toBeVisible();
+  });
+
+  test('endorsement media opens the vouch, then the photo stage', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const proof = `data:image/svg+xml,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1100" viewBox="0 0 800 1100"><rect width="800" height="1100" fill="#c4a46a"/><text x="48" y="140" fill="#1c140c" font-size="54" font-family="sans-serif">Proof</text></svg>'
+    )}`;
+    await page.route('**/api/profile/endorsements**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          accountId: ENDORSE_E2E_ACCOUNT,
+          counts: { received: 1, given: 0 },
+          received: [
+            {
+              issuer: 'bob.testnet',
+              target: ENDORSE_E2E_ACCOUNT,
+              topic: 'design',
+              note: 'Clear product work.',
+              v: 1,
+              since: 1,
+              blockHeight: 1,
+              blockTimestamp: 1_700_000_000_000_000_000,
+              issuerName: 'Bob',
+              issuerAvatarUrl: null,
+              targetName: 'Alice',
+              targetAvatarUrl: null,
+              media: {
+                cid: 'bafyendorseproof',
+                mime: 'image/svg+xml',
+                alt: 'Workshop',
+              },
+              mediaUrl: proof,
+              supporterCount: 0,
+            },
+          ],
+          given: [],
+          receivedHasMore: false,
+          givenHasMore: false,
+        }),
+      });
+    });
+
+    const panel = await openEndorsementsPanelLoggedOut(page);
+    const photo = panel.locator('.endorsement-row-media .post-media-element');
+    await expect(photo).toBeVisible();
+    const pictureOpensRow = await photo.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(
+        box.x + box.width / 2,
+        box.y + box.height / 2
+      );
+      return Boolean(hit?.closest('.standing-row-hit'));
+    });
+    expect(pictureOpensRow).toBe(true);
+
+    await panel
+      .getByRole('button', { name: 'Open endorsement from Bob' })
+      .click();
+    const vouch = page.getByRole('dialog', { name: 'Bob’s vouch for Alice' });
+    await expect(vouch).toBeVisible();
+    await expect(vouch.locator('.gesture-sheet-verb')).toHaveText(
+      'Endorsement'
+    );
+    await expect(vouch.locator('.gesture-sheet-subject')).toHaveText('design');
+    await expect(vouch.locator('.gesture-sheet-person')).toHaveCount(0);
+    await expect(vouch.locator('.gesture-sheet-handle')).toHaveCount(0);
+    await expect(vouch.locator('.gesture-sheet-whisper')).toHaveCount(0);
+    await expect(vouch.locator('.endorsement-focus-identity')).toHaveCount(0);
+    const whoswho = vouch.locator('.endorsement-focus-whoswho');
+    await expect(
+      whoswho.getByRole('link', { name: "View Bob's profile" })
+    ).toBeVisible();
+    await expect(whoswho.locator('.standing-row-name')).toHaveText('Bob');
+    await expect(whoswho.locator('.standing-row-handle')).toHaveText(
+      '@bob.testnet'
+    );
+    await expect(whoswho.locator('.standing-row-avatar-slot')).toBeVisible();
+    await expect(whoswho.locator('.endorsement-focus-target')).toHaveText(
+      'Vouch for Alice'
+    );
+    const mediaBox = await vouch
+      .locator('.endorsement-focus-media')
+      .boundingBox();
+    const whoswhoBox = await whoswho.boundingBox();
+    expect(mediaBox).not.toBeNull();
+    expect(whoswhoBox).not.toBeNull();
+    expect(whoswhoBox!.y).toBeGreaterThan(mediaBox!.y);
+    await expect(vouch.getByText('Clear product work.')).toBeVisible();
+    const share = vouch.getByRole('button', {
+      name: 'Share endorsement',
+      exact: true,
+    });
+    await expect(share).toBeVisible();
+    await expect(share).toBeInViewport();
+    await expect(share).toHaveText('');
+    await expect(
+      vouch.getByRole('button', { name: 'Connect', exact: true })
+    ).toBeVisible();
+    await expect(
+      vouch.getByRole('button', { name: 'Edit endorsement' })
+    ).toHaveCount(0);
+
+    await vouch.getByRole('button', { name: 'View endorsement photo' }).click();
+    const stage = page.getByRole('dialog', {
+      name: 'Bob endorsed Alice for design',
+    });
+    await expect(stage).toBeVisible();
+    await expect(
+      stage.getByRole('button', { name: 'Show endorsement' })
+    ).toContainText('Bob endorsed Alice for design');
+    await expect(stage.getByRole('button', { name: 'Reply' })).toHaveCount(0);
+    await expect(stage.getByRole('button', { name: 'Repost' })).toHaveCount(0);
+    await expect(stage.getByRole('button', { name: 'Quote' })).toHaveCount(0);
+
+    await stage.getByRole('button', { name: 'Back to endorsement' }).click();
+    await expect(stage).toBeHidden();
+    await expect(vouch).toBeVisible();
+  });
+
+  test('vouch shows supporter faces and opens the supporters sheet', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const supporterAvatar = (color: string, letter: string) =>
+      `data:image/svg+xml,${encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><circle cx="48" cy="48" r="48" fill="${color}"/><text x="48" y="62" font-size="44" text-anchor="middle" fill="#fff" font-family="sans-serif">${letter}</text></svg>`
+      )}`;
+    await page.route('**/api/profile/endorsements**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          accountId: ENDORSE_E2E_ACCOUNT,
+          counts: { received: 1, given: 0 },
+          received: [
+            {
+              issuer: 'bob.testnet',
+              target: ENDORSE_E2E_ACCOUNT,
+              topic: 'design',
+              note: 'Clear product work.',
+              v: 1,
+              since: 1,
+              blockHeight: 1,
+              blockTimestamp: 1_700_000_000_000_000_000,
+              issuerName: 'Bob',
+              issuerAvatarUrl: null,
+              targetName: 'Alice',
+              targetAvatarUrl: null,
+              mediaUrl: null,
+              supporterCount: 2,
+            },
+          ],
+          given: [],
+          receivedHasMore: false,
+          givenHasMore: false,
+        }),
+      });
+    });
+    await page.route('**/api/endorsement/supporters**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          endorsementId: 'legacy:bob.testnet:alice.testnet:design',
+          total: 2,
+          supporters: [
+            {
+              accountId: 'carol.testnet',
+              name: 'Carol',
+              avatarUrl: supporterAvatar('#7c3aed', 'C'),
+              totalAmountYocto: '3000000000000000000000000',
+              spendCount: 1,
+              latestSupportAt: 1_700_000_100_000_000_000,
+            },
+            {
+              accountId: 'dave.testnet',
+              name: 'Dave',
+              avatarUrl: supporterAvatar('#0e7490', 'D'),
+              totalAmountYocto: '1500000000000000000000000',
+              spendCount: 2,
+              latestSupportAt: 1_700_000_200_000_000_000,
+            },
+          ],
+        }),
+      });
+    });
+
+    const panel = await openEndorsementsPanelLoggedOut(page);
+    await panel
+      .getByRole('button', { name: 'Open endorsement from Bob' })
+      .click();
+    const vouch = page.getByRole('dialog', { name: 'Bob’s vouch for Alice' });
+    await expect(vouch).toBeVisible();
+
+    const entry = vouch.getByRole('button', { name: /2 supporters/ });
+    await expect(entry).toBeVisible();
+    await expect(entry.locator('.guild-facepile-avatar')).toHaveCount(2);
+
+    await entry.click();
+    const sheet = page.getByRole('dialog', { name: 'Supporters' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByText('Carol', { exact: true })).toBeVisible();
+    await expect(sheet.getByText('Dave', { exact: true })).toBeVisible();
+    await expect(sheet.getByText(/SOCIAL/)).toHaveCount(2);
+    await expect(
+      sheet.getByRole('link', { name: /carol\.testnet/ })
+    ).toBeVisible();
+  });
+
+  test('hard load forwards a legacy supporters deep link to the vouch', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const vouchItem = {
+      issuer: 'bob.testnet',
+      target: ENDORSE_E2E_ACCOUNT,
+      topic: 'design',
+      note: 'Clear product work.',
+      v: 1,
+      since: 1,
+      blockHeight: 1,
+      blockTimestamp: 1_700_000_000_000_000_000,
+      issuerName: 'Bob',
+      issuerAvatarUrl: null,
+      targetName: 'Alice',
+      targetAvatarUrl: null,
+      mediaUrl: null,
+      supporterCount: 0,
+    };
+    await page.route('**/api/profile/endorsements**', async (route) => {
+      const url = new URL(route.request().url());
+      // The face focus host asks for one matched vouch, not the list.
+      if (url.searchParams.has('endorsement')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ item: vouchItem }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          accountId: ENDORSE_E2E_ACCOUNT,
+          counts: { received: 1, given: 0 },
+          received: [vouchItem],
+          given: [],
+          receivedHasMore: false,
+          givenHasMore: false,
+        }),
+      });
+    });
+
+    await page.goto(
+      '/@alice.testnet/endorsements?endorsementId=legacy%3Abob.testnet%3Aalice.testnet%3Adesign'
+    );
+    await expect(page).toHaveURL(/\/@alice\.testnet\?endorsement=legacy/);
+    const vouch = page.getByRole('dialog', { name: 'Bob’s vouch for Alice' });
+    await expect(vouch).toBeVisible({ timeout: 15_000 });
+    await expect(vouch.getByText('Clear product work.')).toBeVisible();
   });
 });

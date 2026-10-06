@@ -9,6 +9,7 @@ export function TransparencyPageIntro() {
   return (
     <SectionHeader
       title="Transparency"
+      titleAs="h1"
       description="On-chain supply, allocation, and token contract."
       size="compact"
       badgeAccent="blue"

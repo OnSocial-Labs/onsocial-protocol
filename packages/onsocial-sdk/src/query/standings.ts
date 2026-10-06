@@ -55,6 +55,23 @@ export interface StandingNetworkSampleOptions {
   mutualLimit?: number;
   incomingLimit?: number;
   outgoingLimit?: number;
+  /**
+   * Also fetch the subject's connections the viewer stands with, so callers
+   * can rank recognized accounts ahead of the recency sample. Skipped when
+   * the viewer is logged out or is the subject. Costs one extra round-trip.
+   */
+  includeViewerKnown?: boolean;
+  /** Cap per direction for the viewer-known intersection (default 12). */
+  viewerKnownLimit?: number;
+  /**
+   * Also fetch the subject's given endorsements, so callers can rank the
+   * subject's chosen accounts ahead of pure recency. Endorsements already
+   * in the recency sample need no extra query; one intersection round-trip
+   * fires only for endorsed connections missing from the sample.
+   */
+  includeSubjectEndorsed?: boolean;
+  /** Cap on given endorsements considered (default 24, newest first). */
+  subjectEndorsedLimit?: number;
 }
 
 export interface StandingNetworkSampleResult {
@@ -64,6 +81,24 @@ export interface StandingNetworkSampleResult {
   mutual: StandingListItem[];
   incoming: StandingListItem[];
   outgoing: StandingListItem[];
+  /** Subject's connections the viewer also stands with (empty unless opted in). */
+  viewerKnown: {
+    mutual: StandingListItem[];
+    incoming: StandingListItem[];
+    outgoing: StandingListItem[];
+  };
+  /**
+   * Endorsements the subject gave that overlap their standing network —
+   * rows for endorsed connections missing from the recency sample.
+   * Accounts already in the sample appear only via `subjectEndorsedIds`.
+   */
+  subjectEndorsed: {
+    mutual: StandingListItem[];
+    incoming: StandingListItem[];
+    outgoing: StandingListItem[];
+  };
+  /** Connected accounts the subject endorses (the boost set). */
+  subjectEndorsedIds: string[];
   peers: ProfileSearchRow[];
   viewerOutgoingPeerIds: string[];
   viewerIncomingPeerIds: string[];
@@ -893,6 +928,13 @@ export class StandingsQuery {
   /**
    * Network map sample — tab counts, three directional lists, and peer
    * enrichment in **two** graph round-trips (portal network graph pattern).
+   * With `includeViewerKnown` (and a logged-in viewer who is not the
+   * subject) two more round-trips — one parallel to the sample — fetch the
+   * subject's connections the viewer also stands with, so maps can rank
+   * recognized accounts first. With `includeSubjectEndorsed` the subject's
+   * given endorsements (fetched parallel to the sample) boost endorsed
+   * connections; only endorsed accounts missing from the sample cost one
+   * extra intersection round-trip, parallel to the viewer-known one.
    */
   async networkSample(
     opts: StandingNetworkSampleOptions
@@ -902,34 +944,48 @@ export class StandingsQuery {
     const incomingLimit = opts.incomingLimit ?? 24;
     const outgoingLimit = opts.outgoingLimit ?? 24;
     const viewerAccountId = opts.viewerAccountId?.trim() ?? null;
+    const personalize = Boolean(
+      opts.includeViewerKnown &&
+        viewerAccountId &&
+        viewerAccountId !== accountId
+    );
+    const viewerKnownLimit = opts.viewerKnownLimit ?? 12;
+    // Newest viewer stands are enough for recognition — cap the id list.
+    const VIEWER_OUT_CAP = 400;
+    const includeSubjectEndorsed = opts.includeSubjectEndorsed === true;
+    const subjectEndorsedLimit = Math.max(
+      1,
+      Math.min(opts.subjectEndorsedLimit ?? 24, 50)
+    );
 
-    const res = await this._q.graphql<{
-      standingCounts: Array<{ standingWithCount: number }>;
-      standingOutCounts: Array<{ standingWithOthersCount: number }>;
-      profileSearch: Array<{ mutualStandingCount: number }>;
-      incomingSample: Array<{
-        accountId: string;
-        targetAccount: string;
-        value: string | null;
-        blockHeight: number;
-        blockTimestamp: number;
-      }>;
-      outgoingSample: Array<{
-        accountId: string;
-        targetAccount: string;
-        value: string | null;
-        blockHeight: number;
-        blockTimestamp: number;
-      }>;
-      mutualSample: Array<{
-        accountId: string;
-        mutualAccount: string;
-        value: string | null;
-        blockHeight: number;
-        blockTimestamp: number;
-      }>;
-    }>({
-      query: `query StandingNetworkSample(
+    const [res, viewerOutRes, endorsedRes] = await Promise.all([
+      this._q.graphql<{
+        standingCounts: Array<{ standingWithCount: number }>;
+        standingOutCounts: Array<{ standingWithOthersCount: number }>;
+        profileSearch: Array<{ mutualStandingCount: number }>;
+        incomingSample: Array<{
+          accountId: string;
+          targetAccount: string;
+          value: string | null;
+          blockHeight: number;
+          blockTimestamp: number;
+        }>;
+        outgoingSample: Array<{
+          accountId: string;
+          targetAccount: string;
+          value: string | null;
+          blockHeight: number;
+          blockTimestamp: number;
+        }>;
+        mutualSample: Array<{
+          accountId: string;
+          mutualAccount: string;
+          value: string | null;
+          blockHeight: number;
+          blockTimestamp: number;
+        }>;
+      }>({
+        query: `query StandingNetworkSample(
         $accountId: String!
         $mutualLimit: Int!
         $incomingLimit: Int!
@@ -969,8 +1025,50 @@ export class StandingsQuery {
           accountId mutualAccount value blockHeight blockTimestamp
         }
       }`,
-      variables: { accountId, mutualLimit, incomingLimit, outgoingLimit },
-    });
+        variables: { accountId, mutualLimit, incomingLimit, outgoingLimit },
+      }),
+      personalize
+        ? this._q
+            .graphql<{
+              standingsCurrent: Array<{ targetAccount: string }>;
+            }>({
+              query: `query StandingViewerOutIds($viewerId: String!, $cap: Int!) {
+              standingsCurrent(
+                where: {accountId: {_eq: $viewerId}}
+                limit: $cap
+                offset: 0
+                orderBy: [{blockTimestamp: DESC}]
+              ) {
+                targetAccount
+              }
+            }`,
+              variables: { viewerId: viewerAccountId, cap: VIEWER_OUT_CAP },
+            })
+            .catch(() => null)
+        : Promise.resolve(null),
+      includeSubjectEndorsed
+        ? this._q
+            .graphql<{
+              endorsementsCurrent: Array<{ target: string }>;
+            }>({
+              query: `query StandingSubjectEndorsements(
+              $accountId: String!
+              $limit: Int!
+            ) {
+              endorsementsCurrent(
+                where: {issuer: {_eq: $accountId}, operation: {_eq: "set"}}
+                limit: $limit
+                offset: 0
+                orderBy: [{blockHeight: DESC}]
+              ) {
+                target
+              }
+            }`,
+              variables: { accountId, limit: subjectEndorsedLimit },
+            })
+            .catch(() => null)
+        : Promise.resolve(null),
+    ]);
 
     const mapStandingRow = (row: {
       accountId: string;
@@ -986,21 +1084,236 @@ export class StandingsQuery {
       blockTimestamp: Number(row.blockTimestamp) || 0,
     });
 
-    const incoming = (res.data?.incomingSample ?? []).map(mapStandingRow);
-    const outgoing = (res.data?.outgoingSample ?? []).map(mapStandingRow);
-    const mutual = (res.data?.mutualSample ?? []).map((row) => ({
+    const mapMutualRow = (row: {
+      accountId: string;
+      mutualAccount: string;
+      value: string | null;
+      blockHeight: number;
+      blockTimestamp: number;
+    }): StandingListItem => ({
       accountId: row.mutualAccount,
       targetAccount: row.accountId,
       since: parseStandingSince(row.value),
       blockHeight: Number(row.blockHeight) || 0,
       blockTimestamp: Number(row.blockTimestamp) || 0,
-    }));
+    });
+
+    const incoming = (res.data?.incomingSample ?? []).map(mapStandingRow);
+    const outgoing = (res.data?.outgoingSample ?? []).map(mapStandingRow);
+    const mutual = (res.data?.mutualSample ?? []).map(mapMutualRow);
+
+    const viewerOutIds = (viewerOutRes?.data?.standingsCurrent ?? []).map(
+      (row) => row.targetAccount
+    );
+    const samplePeerIds = new Set([
+      ...mutual.map((row) => row.accountId),
+      ...incoming.map((row) => row.accountId),
+      ...outgoing.map((row) => row.targetAccount),
+    ]);
+    const endorsedIds = includeSubjectEndorsed
+      ? [
+          ...new Set(
+            (endorsedRes?.data?.endorsementsCurrent ?? [])
+              .map((row) => row.target)
+              .filter(Boolean)
+          ),
+        ]
+      : [];
+    // Endorsed accounts already in the recency sample boost in place — only
+    // the missing ones need an intersection fetch.
+    const missingEndorsedIds = endorsedIds.filter(
+      (id) => !samplePeerIds.has(id)
+    );
+
+    const viewerKnownPromise =
+      viewerOutIds.length > 0
+        ? this._q
+            .graphql<{
+              knownIncoming: Array<{
+                accountId: string;
+                targetAccount: string;
+                value: string | null;
+                blockHeight: number;
+                blockTimestamp: number;
+              }>;
+              knownOutgoing: Array<{
+                accountId: string;
+                targetAccount: string;
+                value: string | null;
+                blockHeight: number;
+                blockTimestamp: number;
+              }>;
+              knownMutual: Array<{
+                accountId: string;
+                mutualAccount: string;
+                value: string | null;
+                blockHeight: number;
+                blockTimestamp: number;
+              }>;
+            }>({
+              query: `query StandingViewerKnown(
+          $accountId: String!
+          $viewerOut: [String!]!
+          $limit: Int!
+        ) {
+          knownIncoming: standingsCurrent(
+            where: {
+              targetAccount: {_eq: $accountId}
+              accountId: {_in: $viewerOut}
+            }
+            limit: $limit
+            offset: 0
+            orderBy: [{blockTimestamp: DESC}]
+          ) {
+            accountId targetAccount value blockHeight blockTimestamp
+          }
+          knownOutgoing: standingsCurrent(
+            where: {
+              accountId: {_eq: $accountId}
+              targetAccount: {_in: $viewerOut}
+            }
+            limit: $limit
+            offset: 0
+            orderBy: [{blockTimestamp: DESC}]
+          ) {
+            accountId targetAccount value blockHeight blockTimestamp
+          }
+          knownMutual: mutualStandingsCurrent(
+            where: {
+              accountId: {_eq: $accountId}
+              mutualAccount: {_in: $viewerOut}
+            }
+            limit: $limit
+            offset: 0
+            orderBy: [{blockTimestamp: DESC}]
+          ) {
+            accountId mutualAccount value blockHeight blockTimestamp
+          }
+        }`,
+              variables: {
+                accountId,
+                viewerOut: viewerOutIds,
+                limit: viewerKnownLimit,
+              },
+            })
+            .catch(() => null)
+        : Promise.resolve(null);
+
+    const endorsedIntersectPromise =
+      missingEndorsedIds.length > 0
+        ? this._q
+            .graphql<{
+              endorsedIncoming: Array<{
+                accountId: string;
+                targetAccount: string;
+                value: string | null;
+                blockHeight: number;
+                blockTimestamp: number;
+              }>;
+              endorsedOutgoing: Array<{
+                accountId: string;
+                targetAccount: string;
+                value: string | null;
+                blockHeight: number;
+                blockTimestamp: number;
+              }>;
+              endorsedMutual: Array<{
+                accountId: string;
+                mutualAccount: string;
+                value: string | null;
+                blockHeight: number;
+                blockTimestamp: number;
+              }>;
+            }>({
+              query: `query StandingSubjectEndorsed(
+              $accountId: String!
+              $endorsed: [String!]!
+              $limit: Int!
+            ) {
+              endorsedIncoming: standingsCurrent(
+                where: {
+                  targetAccount: {_eq: $accountId}
+                  accountId: {_in: $endorsed}
+                }
+                limit: $limit
+                offset: 0
+                orderBy: [{blockTimestamp: DESC}]
+              ) {
+                accountId targetAccount value blockHeight blockTimestamp
+              }
+              endorsedOutgoing: standingsCurrent(
+                where: {
+                  accountId: {_eq: $accountId}
+                  targetAccount: {_in: $endorsed}
+                }
+                limit: $limit
+                offset: 0
+                orderBy: [{blockTimestamp: DESC}]
+              ) {
+                accountId targetAccount value blockHeight blockTimestamp
+              }
+              endorsedMutual: mutualStandingsCurrent(
+                where: {
+                  accountId: {_eq: $accountId}
+                  mutualAccount: {_in: $endorsed}
+                }
+                limit: $limit
+                offset: 0
+                orderBy: [{blockTimestamp: DESC}]
+              ) {
+                accountId mutualAccount value blockHeight blockTimestamp
+              }
+            }`,
+              variables: {
+                accountId,
+                endorsed: missingEndorsedIds,
+                limit: subjectEndorsedLimit,
+              },
+            })
+            .catch(() => null)
+        : Promise.resolve(null);
+
+    const [knownRes, endorsedIntersectRes] = await Promise.all([
+      viewerKnownPromise,
+      endorsedIntersectPromise,
+    ]);
+
+    const viewerKnown: StandingNetworkSampleResult['viewerKnown'] = {
+      mutual: (knownRes?.data?.knownMutual ?? []).map(mapMutualRow),
+      incoming: (knownRes?.data?.knownIncoming ?? []).map(mapStandingRow),
+      outgoing: (knownRes?.data?.knownOutgoing ?? []).map(mapStandingRow),
+    };
+    const subjectEndorsed: StandingNetworkSampleResult['subjectEndorsed'] = {
+      mutual: (endorsedIntersectRes?.data?.endorsedMutual ?? []).map(
+        mapMutualRow
+      ),
+      incoming: (endorsedIntersectRes?.data?.endorsedIncoming ?? []).map(
+        mapStandingRow
+      ),
+      outgoing: (endorsedIntersectRes?.data?.endorsedOutgoing ?? []).map(
+        mapStandingRow
+      ),
+    };
+    const connectedEndorsedIds = new Set([
+      ...subjectEndorsed.mutual.map((row) => row.accountId),
+      ...subjectEndorsed.incoming.map((row) => row.accountId),
+      ...subjectEndorsed.outgoing.map((row) => row.targetAccount),
+    ]);
+    const subjectEndorsedIds = endorsedIds.filter(
+      (id) => samplePeerIds.has(id) || connectedEndorsedIds.has(id)
+    );
 
     const peerAccountIds = [
       ...new Set([
         ...mutual.map((row) => row.accountId),
         ...incoming.map((row) => row.accountId),
         ...outgoing.map((row) => row.targetAccount),
+        ...viewerKnown.mutual.map((row) => row.accountId),
+        ...viewerKnown.incoming.map((row) => row.accountId),
+        ...viewerKnown.outgoing.map((row) => row.targetAccount),
+        ...subjectEndorsed.mutual.map((row) => row.accountId),
+        ...subjectEndorsed.incoming.map((row) => row.accountId),
+        ...subjectEndorsed.outgoing.map((row) => row.targetAccount),
       ]),
     ];
 
@@ -1019,6 +1332,9 @@ export class StandingsQuery {
       incoming,
       outgoing,
       mutual,
+      viewerKnown,
+      subjectEndorsed,
+      subjectEndorsedIds,
       peers: enrichment.profiles,
       viewerOutgoingPeerIds: enrichment.viewerOutgoingPeerIds,
       viewerIncomingPeerIds: enrichment.viewerIncomingPeerIds,

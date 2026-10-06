@@ -30,6 +30,25 @@ export function readPortfolioClientReady(): boolean {
   return document.body.dataset[E2E_PORTFOLIO_READY_ATTR] === 'true';
 }
 
+/** Keep in sync with Playwright network-orbit specs. */
+export const E2E_NETWORK_ORBIT_READY_ATTR = 'networkOrbitReady';
+
+let orbitReadyHolders = 0;
+
+export function markNetworkOrbitReady(): void {
+  if (typeof document === 'undefined') return;
+  orbitReadyHolders += 1;
+  document.body.dataset[E2E_NETWORK_ORBIT_READY_ATTR] = 'true';
+}
+
+export function unmarkNetworkOrbitReady(): void {
+  if (typeof document === 'undefined') return;
+  orbitReadyHolders = Math.max(0, orbitReadyHolders - 1);
+  if (orbitReadyHolders === 0) {
+    delete document.body.dataset[E2E_NETWORK_ORBIT_READY_ATTR];
+  }
+}
+
 export function installE2eAppRouterPush(
   push: (href: string) => void
 ): () => void {

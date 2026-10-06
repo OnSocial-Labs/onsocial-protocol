@@ -3,6 +3,7 @@ import {
   E2E_AUTH_SESSION_KEY,
   E2E_MOCK_SIGNER_ERROR,
   E2E_MOCK_SIGNER_KEY,
+  E2E_MOCK_SIGNER_SUCCESS_KEY,
   createE2eMockWallet,
   readE2eAuthSessionEnabled,
   readE2eMockSignerEnabled,
@@ -78,5 +79,22 @@ describe('createE2eMockWallet', () => {
       },
     ]);
     expect(E2E_MOCK_SIGNER_KEY).toBe('onsocial.e2e.mockSigner');
+  });
+
+  it('resolves a fake hash when the success flag is set', async () => {
+    vi.stubGlobal('window', {
+      __onsocialE2eSignerCalls: [],
+      localStorage: {
+        getItem: (key: string) =>
+          key === E2E_MOCK_SIGNER_SUCCESS_KEY ? '1' : null,
+      },
+    });
+    const wallet = createE2eMockWallet('visitor.testnet');
+    await expect(
+      wallet.signAndSendTransaction({
+        receiverId: 'core.testnet',
+        actions: [],
+      } as never)
+    ).resolves.toEqual({ transaction: { hash: 'e2e-mock-tx' } });
   });
 });

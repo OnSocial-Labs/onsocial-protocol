@@ -239,29 +239,25 @@ export async function hydrateCollectionEmbedsForPosts(
     rows.map((row) => [row.collectionId.trim(), row] as const)
   );
 
-  const sellersWithTokens = [
+  const tokenIds = [
     ...new Set(
       refs
-        .filter((ref) => ref.tokenId)
-        .map((ref) => ref.sellerId.trim())
-        .filter(Boolean)
+        .map((ref) => ref.tokenId?.trim())
+        .filter((id): id is string => Boolean(id))
     ),
   ];
-  const listingsBySeller = new Map<string, ScarcesActiveListingRow[]>();
-  await Promise.all(
-    sellersWithTokens.map(async (sellerId) => {
-      try {
-        const listed = await os.query.scarces.activeListings({
-          sellerId,
-          kinds: ['native', 'auction'],
-          limit: 40,
-        });
-        listingsBySeller.set(sellerId, listed);
-      } catch {
-        listingsBySeller.set(sellerId, []);
-      }
-    })
-  );
+  // One batched query for every token-bearing ref on the page — a token has
+  // at most one active native/auction listing, so limit matches exactly.
+  const sellerListings =
+    tokenIds.length === 0
+      ? []
+      : await os.query.scarces
+          .activeListings({
+            kinds: ['native', 'auction'],
+            tokenIds,
+            limit: tokenIds.length,
+          })
+          .catch(() => [] as ScarcesActiveListingRow[]);
 
   const out: PostScarceEmbedMap = {};
   for (const ref of refs) {
@@ -274,11 +270,7 @@ export async function hydrateCollectionEmbedsForPosts(
     if (!embed) continue;
 
     if (ref.tokenId) {
-      embed = applySellerListingToEmbed(
-        embed,
-        ref.tokenId,
-        listingsBySeller.get(ref.sellerId) ?? []
-      );
+      embed = applySellerListingToEmbed(embed, ref.tokenId, sellerListings);
     }
 
     out[ref.key] = embed;
@@ -316,24 +308,15 @@ export async function hydrateTokenEmbedsForPosts(
   }
   if (refs.length === 0) return {};
 
-  const sellers = [
-    ...new Set(refs.map((ref) => ref.sellerId.trim()).filter(Boolean)),
-  ];
-  const listingsBySeller = new Map<string, ScarcesActiveListingRow[]>();
-  await Promise.all(
-    sellers.map(async (sellerId) => {
-      try {
-        const listed = await os.query.scarces.activeListings({
-          sellerId,
-          kinds: ['native', 'auction'],
-          limit: 40,
-        });
-        listingsBySeller.set(sellerId, listed);
-      } catch {
-        listingsBySeller.set(sellerId, []);
-      }
+  const tokenIds = [...new Set(refs.map((ref) => ref.tokenId))];
+  // Single batch: tokenId {_in} — one active listing per token at most.
+  const listings = await os.query.scarces
+    .activeListings({
+      kinds: ['native', 'auction'],
+      tokenIds,
+      limit: tokenIds.length,
     })
-  );
+    .catch(() => [] as ScarcesActiveListingRow[]);
 
   const out: PostScarceEmbedMap = {};
   for (const ref of refs) {
@@ -344,11 +327,7 @@ export async function hydrateTokenEmbedsForPosts(
           tokenId: ref.tokenId,
           events: [],
         };
-    out[ref.key] = applySellerListingToEmbed(
-      baseline,
-      ref.tokenId,
-      listingsBySeller.get(ref.sellerId) ?? []
-    );
+    out[ref.key] = applySellerListingToEmbed(baseline, ref.tokenId, listings);
   }
   return out;
 }
@@ -443,8 +422,8 @@ export async function loadPostEngagementMap(
 }
 
 /**
- * Live lazy listings + primary Drops for posts on the page — one query per
- * distinct creator, matched by `sourcePostPath`. Drop embeds win over lazy
+ * Live lazy listings + primary Drops for posts on the page — one batched
+ * query per lane, matched by `sourcePostPath`. Drop embeds win over lazy
  * when both exist (post → Drop is the primary product).
  */
 export async function hydrateLazyScarceEmbedsForPosts(
@@ -453,101 +432,83 @@ export async function hydrateLazyScarceEmbedsForPosts(
 ): Promise<PostScarceEmbedMap> {
   if (posts.length === 0) return {};
 
-  const creators = [
-    ...new Set(posts.map((post) => post.accountId.trim()).filter(Boolean)),
+  const sourcePostPaths = [
+    ...new Set(posts.map((post) => postScarceKey(post.accountId, post.postId))),
   ];
-  const [listingsByCreator, dropsByCreator] = await Promise.all([
-    Promise.all(
-      creators.map(async (sellerId) => {
-        try {
-          const rows = await os.query.scarces.activeListings({
-            sellerId,
-            kinds: ['lazy'],
-            limit: 40,
-          });
-          return [sellerId, rows] as const;
-        } catch {
-          return [sellerId, [] as ScarcesActiveListingRow[]] as const;
-        }
+  // Bounded well under the 100-row graph tier for a normal feed page; the
+  // newest-per-path resolution below tolerates duplicate rows per post.
+  const lazyLimit = Math.min(sourcePostPaths.length * 4, 100);
+  const dropLimit = Math.min(sourcePostPaths.length * 2, 100);
+  const [lazyRows, dropRows] = await Promise.all([
+    os.query.scarces
+      .activeListings({
+        kinds: ['lazy'],
+        sourcePostPaths,
+        limit: lazyLimit,
       })
-    ),
-    Promise.all(
-      creators.map(async (creatorId) => {
-        try {
-          const rows = await os.query.scarces.collectionsCurrent({
-            creatorId,
-            includeUnavailable: true,
-            limit: 40,
-          });
-          return [creatorId, rows] as const;
-        } catch {
-          return [creatorId, [] as const] as const;
-        }
+      .catch(() => [] as ScarcesActiveListingRow[]),
+    os.query.scarces
+      .collectionsCurrent({
+        sourcePostPaths,
+        includeUnavailable: true,
+        limit: dropLimit,
       })
-    ),
+      .catch(() => [] as ScarcesCollectionCurrentRow[]),
   ]);
 
   const bySourcePath = new Map<
     string,
     { embed: PostScarceEmbed; ts: number }
   >();
-  for (const [, rows] of listingsByCreator) {
-    for (const row of rows) {
-      const source = row.sourcePostPath?.trim();
-      if (!source) continue;
-      const embed = lazyEmbedFromActiveRow(row);
-      if (!embed) continue;
-      const prev = bySourcePath.get(source);
-      const nextTs = row.listedBlockTimestamp ?? 0;
-      if (!prev || nextTs >= prev.ts) {
-        bySourcePath.set(source, { embed, ts: nextTs });
-      }
+  for (const row of lazyRows) {
+    const source = row.sourcePostPath?.trim();
+    if (!source) continue;
+    const embed = lazyEmbedFromActiveRow(row);
+    if (!embed) continue;
+    const prev = bySourcePath.get(source);
+    const nextTs = row.listedBlockTimestamp ?? 0;
+    if (!prev || nextTs >= prev.ts) {
+      bySourcePath.set(source, { embed, ts: nextTs });
     }
   }
 
-  for (const [, rows] of dropsByCreator) {
-    for (const row of rows) {
-      const source =
-        row.sourcePostPath?.trim() ||
-        (() => {
-          try {
-            const extra = row.extraJson ? JSON.parse(row.extraJson) : null;
-            const nested =
-              extra && typeof extra === 'object' && !Array.isArray(extra)
-                ? (extra as Record<string, unknown>).sourcePost
-                : null;
+  for (const row of dropRows) {
+    const source =
+      row.sourcePostPath?.trim() ||
+      (() => {
+        try {
+          const extra = row.extraJson ? JSON.parse(row.extraJson) : null;
+          const nested =
+            extra && typeof extra === 'object' && !Array.isArray(extra)
+              ? (extra as Record<string, unknown>).sourcePost
+              : null;
+          if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+            const path = (nested as Record<string, unknown>).path;
+            if (typeof path === 'string' && path.trim()) return path.trim();
+            const author = (nested as Record<string, unknown>).author;
+            const postId = (nested as Record<string, unknown>).postId;
             if (
-              nested &&
-              typeof nested === 'object' &&
-              !Array.isArray(nested)
+              typeof author === 'string' &&
+              typeof postId === 'string' &&
+              author.trim() &&
+              postId.trim()
             ) {
-              const path = (nested as Record<string, unknown>).path;
-              if (typeof path === 'string' && path.trim()) return path.trim();
-              const author = (nested as Record<string, unknown>).author;
-              const postId = (nested as Record<string, unknown>).postId;
-              if (
-                typeof author === 'string' &&
-                typeof postId === 'string' &&
-                author.trim() &&
-                postId.trim()
-              ) {
-                return `${author.trim()}/post/${postId.trim()}`;
-              }
+              return `${author.trim()}/post/${postId.trim()}`;
             }
-          } catch {
-            /* ignore */
           }
-          return '';
-        })();
-      if (!source) continue;
-      const embed = dropEmbedFromCollectionRow(row);
-      if (!embed) continue;
-      const prev = bySourcePath.get(source);
-      const nextTs = row.createdBlockTimestamp ?? row.createdAt ?? 0;
-      // Drop is the primary product — prefer it over a lazy listing.
-      if (!prev || prev.embed.status !== 'drop' || nextTs >= prev.ts) {
-        bySourcePath.set(source, { embed, ts: nextTs });
-      }
+        } catch {
+          /* ignore */
+        }
+        return '';
+      })();
+    if (!source) continue;
+    const embed = dropEmbedFromCollectionRow(row);
+    if (!embed) continue;
+    const prev = bySourcePath.get(source);
+    const nextTs = row.createdBlockTimestamp ?? row.createdAt ?? 0;
+    // Drop is the primary product — prefer it over a lazy listing.
+    if (!prev || prev.embed.status !== 'drop' || nextTs >= prev.ts) {
+      bySourcePath.set(source, { embed, ts: nextTs });
     }
   }
 

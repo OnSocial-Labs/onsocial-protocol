@@ -1246,6 +1246,8 @@ export function MessagesPanel() {
   useEffect(() => {
     if (!isConnected || !accountId || !hasSocialSession) return;
     const tick = () => {
+      // Hidden tabs skip their round; the focus listener refetches on return.
+      if (document.visibilityState === 'hidden') return;
       void refreshThreads();
       requestDmUnreadRefresh();
       if (activeThreadId && isUnlocked) {

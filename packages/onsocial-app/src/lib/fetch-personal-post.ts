@@ -71,6 +71,11 @@ function postRefKey(author: string, postId: string): string {
   return `${author}\0${postId}`;
 }
 
+/** Map key used by fetchIndexedPostsByRefs results. */
+export function indexedPostRefKey(author: string, postId: string): string {
+  return postRefKey(author, postId);
+}
+
 /**
  * Batch-load indexed posts for many (author, postId) pairs in one GraphQL round-trip.
  * Map keys are `${author}\\0${postId}`.
