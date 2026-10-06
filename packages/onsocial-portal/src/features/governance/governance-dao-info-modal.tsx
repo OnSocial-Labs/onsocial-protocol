@@ -555,7 +555,10 @@ function DaoInfoPanel({
     <>
       <section
         aria-label="DAO snapshot"
-        className={cn('border-b border-fade-section', compactModalSectionYClass)}
+        className={cn(
+          'border-b border-fade-section',
+          compactModalSectionYClass
+        )}
       >
         <DaoSnapshotGrid
           nearBalanceYocto={nearBalanceYocto}
