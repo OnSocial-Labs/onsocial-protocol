@@ -11,7 +11,7 @@ const MARK_PATH =
 export default function OpengraphImage() {
   return new ImageResponse(
     (
-      <div
+        <div
         style={{
           width: '100%',
           height: '100%',
@@ -20,9 +20,22 @@ export default function OpengraphImage() {
           alignItems: 'center',
           justifyContent: 'center',
           gap: 28,
-          background: 'linear-gradient(135deg, #07111f 0%, #0b1b30 100%)',
+          background: '#000000',
         }}
       >
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            width: 620,
+            height: 620,
+            transform: 'translate(-50%, -58%)',
+            borderRadius: '50%',
+            background:
+              'radial-gradient(circle, rgba(52, 211, 153, 0.14) 0%, rgba(52, 211, 153, 0) 65%)',
+          }}
+        />
         <svg viewBox="0 0 672 672" width="170" height="170">
           <path d={MARK_PATH} fill="#f8fafc" />
         </svg>
