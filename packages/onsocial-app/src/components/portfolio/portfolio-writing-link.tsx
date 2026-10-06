@@ -11,7 +11,11 @@ import {
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { writingPath } from '@/lib/overlay-routes';
 
-const WRITING_PRESENCE_LIMIT = 24;
+/**
+ * Presence probe — every returned row is a longform post (full article
+ * body), so a handful is enough to confirm the shelf exists.
+ */
+const WRITING_PRESENCE_LIMIT = 4;
 const presenceCache = new Map<string, boolean>();
 
 function useAccountHasArticles(
@@ -35,6 +39,7 @@ function useAccountHasArticles(
         author: accountId,
         limit: WRITING_PRESENCE_LIMIT,
         section: 'posts',
+        kind: 'longform',
       })
       .then((page) => {
         const next = page.items.some(isArticlePost);

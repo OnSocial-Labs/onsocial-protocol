@@ -26,6 +26,8 @@ export function useScarceCollectionSaves(opts: {
   const loadIdRef = useRef(0);
   const onErrorRef = useRef(opts.onError);
   onErrorRef.current = opts.onError;
+  const collectionIdsRef = useRef(opts.collectionIds);
+  collectionIdsRef.current = opts.collectionIds;
 
   const seedSignature = useMemo(
     () =>
@@ -43,9 +45,27 @@ export function useScarceCollectionSaves(opts: {
       return;
     }
     const loadId = ++loadIdRef.current;
+    const seedIds = (collectionIdsRef.current ?? [])
+      .map((id) => id.trim())
+      .filter(Boolean);
     try {
       const client = createReadOnlyOnSocialClient();
-      const rows = await client.query.saves.list(accountId, { limit: 500 });
+      // Seeded: exact membership for the visible collections only — cover
+      // both on-chain (`account/saved/…`) and indexer-relative path shapes.
+      // Unseeded: one account-scoped list, server-filtered to collection
+      // saves instead of paging every save the account has.
+      const rows = seedIds.length
+        ? await client.query.saves.forPaths(
+            accountId,
+            seedIds.flatMap((id) => [
+              scarceCollectionContentPath(id),
+              `${accountId}/saved/${scarceCollectionContentPath(id)}`,
+            ])
+          )
+        : await client.query.saves.list(accountId, {
+            limit: 500,
+            contentPathContains: 'scarce/collection/',
+          });
       if (loadIdRef.current !== loadId) return;
       const fromIndexer = new Set<string>();
       for (const row of rows) {

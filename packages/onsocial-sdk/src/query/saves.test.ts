@@ -83,4 +83,30 @@ describe('SavesQuery', () => {
     expect(await q.forPaths('alice.near', ['', '  '])).toEqual([]);
     expect(spies.graphql).not.toHaveBeenCalled();
   });
+
+  it('list applies contentPathContains as a _like filter', async () => {
+    const { mod, spies } = makeQuery(() => ({ data: { savesCurrent: [] } }));
+    const q = new SavesQuery(mod);
+    await q.list('alice.near', {
+      limit: 100,
+      contentPathContains: 'scarce/collection/',
+    });
+    const req = spies.graphql.mock.calls[0]![0];
+    expect(req.variables).toEqual({
+      id: 'alice.near',
+      limit: 100,
+      offset: 0,
+      pathLike: '%scarce/collection/%',
+    });
+    expect(String(req.query)).toContain('contentPath: {_like: $pathLike}');
+  });
+
+  it('list omits the pathLike variable without the filter', async () => {
+    const { mod, spies } = makeQuery(() => ({ data: { savesCurrent: [] } }));
+    const q = new SavesQuery(mod);
+    await q.list('alice.near', { limit: 10 });
+    const req = spies.graphql.mock.calls[0]![0];
+    expect(req.variables).toEqual({ id: 'alice.near', limit: 10, offset: 0 });
+    expect(String(req.query)).not.toContain('pathLike');
+  });
 });

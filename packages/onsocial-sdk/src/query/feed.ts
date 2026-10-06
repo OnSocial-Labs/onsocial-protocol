@@ -299,9 +299,13 @@ export class FeedQuery {
    * - `'replies'` — has a `parentPath`
    * - `'reposts'` — `refType === 'repost'`
    *
+   * `kind` matches the indexer-extracted post kind server-side
+   * (`'longform'` for titled articles, `'poll'`, media kinds, …).
+   *
    * ```ts
    * const { items, nextOffset } = await os.query.feed.recent({ limit: 20, sort: 'hot' });
    * const replies = await os.query.feed.recent({ author: 'alice.near', section: 'replies' });
+   * const articles = await os.query.feed.recent({ author: 'alice.near', kind: 'longform' });
    * ```
    */
   async recent(
@@ -311,6 +315,11 @@ export class FeedQuery {
       offset?: number;
       sort?: FeedSort;
       section?: FeedSection;
+      /**
+       * Server-side `kind` match (e.g. `'longform'` for articles). Keeps
+       * filtered walks (Writing shelf) from paging the raw feed client-side.
+       */
+      kind?: string;
     } = {}
   ): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
@@ -318,14 +327,17 @@ export class FeedQuery {
     const sort = opts.sort ?? 'recent';
     const orderBy = feedOrderByClause(sort);
     const hasAuthor = !!opts.author;
+    const kind = opts.kind?.trim() || '';
     const variables = {
       ...(hasAuthor ? { author: opts.author } : {}),
+      ...(kind ? { kind } : {}),
       limit,
       offset,
     };
 
     const conditions: string[] = [];
     if (hasAuthor) conditions.push('accountId: {_eq: $author}');
+    if (kind) conditions.push('kind: {_eq: $kind}');
     if (opts.section === 'posts') {
       conditions.push('parentPath: {_eq: ""}', 'refType: {_neq: "repost"}');
     } else if (opts.section === 'replies') {
@@ -335,9 +347,12 @@ export class FeedQuery {
     }
     const whereClause =
       conditions.length > 0 ? `where: {${conditions.join(', ')}}, ` : '';
-    const params = hasAuthor
-      ? '$author: String!, $limit: Int!, $offset: Int!'
-      : '$limit: Int!, $offset: Int!';
+    const params = [
+      ...(hasAuthor ? ['$author: String!'] : []),
+      ...(kind ? ['$kind: String!'] : []),
+      '$limit: Int!',
+      '$offset: Int!',
+    ].join(', ');
 
     const chronoOrder = feedOrderByClause('recent');
     const rows = await this.queryFeedRows({

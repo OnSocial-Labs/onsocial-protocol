@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { GroupPostRef, PostRow } from '@onsocial/sdk';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { fetchPersonalPost } from '@/lib/fetch-personal-post';
+import {
+  fetchIndexedPostsByRefs,
+  fetchPersonalPost,
+  indexedPostRefKey,
+} from '@/lib/fetch-personal-post';
 import { isRepostRefType } from '@/lib/post-relation';
 
 const GROUP_POST_PATH_PATTERN =
@@ -88,22 +92,68 @@ export function useResolvedGroupPosts(paths: Array<string | undefined>) {
 
     let cancelled = false;
 
-    void Promise.all(
-      uniquePaths.map(
-        async (path): Promise<[string, PostRow | null]> => [
-          path,
-          await fetchQuotedPost(path),
-        ]
-      )
-    ).then((entries) => {
+    void (async () => {
+      const entries: [string, PostRow | null][] = [];
+      const misses: string[] = [];
+      for (const path of uniquePaths) {
+        const cached = quotedPostCache.get(path);
+        if (cached !== undefined) entries.push([path, cached]);
+        else misses.push(path);
+      }
+
+      // Personal refs batch into ONE postsCurrent query; group refs keep the
+      // per-path groups.post lane (rarer, no batch variant yet).
+      const personalMisses = new Map<string, { author: string; postId: string }>();
+      const groupMisses: string[] = [];
+      for (const path of misses) {
+        if (parseGroupPostPath(path)) {
+          groupMisses.push(path);
+          continue;
+        }
+        const personalRef = parsePersonalPostPath(path);
+        if (personalRef) {
+          personalMisses.set(path, personalRef);
+        } else {
+          quotedPostCache.set(path, null);
+          entries.push([path, null]);
+        }
+      }
+
+      const personalPromise =
+        personalMisses.size > 0
+          ? fetchIndexedPostsByRefs([...personalMisses.values()]).catch(
+              () => new Map<string, PostRow>()
+            )
+          : Promise.resolve(new Map<string, PostRow>());
+      const groupPromise = Promise.all(
+        groupMisses.map(
+          async (path): Promise<[string, PostRow | null]> => [
+            path,
+            await fetchQuotedPost(path),
+          ]
+        )
+      );
+
+      const [byRef, groupEntries] = await Promise.all([
+        personalPromise,
+        groupPromise,
+      ]);
       if (cancelled) return;
+
+      for (const [path, ref] of personalMisses) {
+        const post =
+          byRef.get(indexedPostRefKey(ref.author, ref.postId)) ?? null;
+        quotedPostCache.set(path, post);
+        entries.push([path, post]);
+      }
+      entries.push(...groupEntries);
 
       const next: Record<string, PostRow> = {};
       for (const [path, post] of entries) {
         if (post) next[path] = post;
       }
       setResolvedPosts(next);
-    });
+    })();
 
     return () => {
       cancelled = true;

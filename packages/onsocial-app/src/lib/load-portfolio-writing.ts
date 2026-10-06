@@ -34,8 +34,10 @@ export type PortfolioWritingPageData = {
 };
 
 /**
- * One shelf window. Skips post pages that contain no articles so a scroll
- * still reveals the next piece.
+ * One shelf window. Articles have carried `kind: 'longform'` since the
+ * shelf launched, so the server filters — one query instead of walking
+ * raw feed pages. `isArticlePost` stays the exact gate: a longform row
+ * whose payload lost its title is not an article.
  */
 export async function fetchAuthorArticleWindow(
   os: OnSocial,
@@ -43,21 +45,17 @@ export async function fetchAuthorArticleWindow(
   offset: number,
   limit = WRITING_SHELF_FETCH_LIMIT
 ): Promise<{ articles: PostRow[]; nextOffset: number | null }> {
-  const found: PostRow[] = [];
-  let cursor: number | null = offset;
-  let rounds = 0;
-  while (cursor != null && found.length === 0 && rounds < 6) {
-    const page = await os.query.feed.recent({
-      author: accountId,
-      limit,
-      offset: cursor,
-      section: 'posts',
-    });
-    found.push(...page.items.filter(isArticlePost));
-    cursor = page.nextOffset ?? null;
-    rounds += 1;
-  }
-  return { articles: found, nextOffset: cursor };
+  const page = await os.query.feed.recent({
+    author: accountId,
+    limit,
+    offset,
+    section: 'posts',
+    kind: 'longform',
+  });
+  return {
+    articles: page.items.filter(isArticlePost),
+    nextOffset: page.nextOffset ?? null,
+  };
 }
 
 export type PortfolioWritingArticlePageData = PortfolioWritingPageData & {

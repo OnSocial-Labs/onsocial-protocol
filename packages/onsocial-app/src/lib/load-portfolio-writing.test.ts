@@ -54,7 +54,20 @@ function client(
 }
 
 describe('fetchAuthorArticleWindow', () => {
-  it('returns articles from the first post page', async () => {
+  it('asks the server for longform roots in one query', async () => {
+    const os = client([{ items: [], nextOffset: 48 }]);
+    await fetchAuthorArticleWindow(os, 'alice.testnet', 0, 48);
+    expect(os.query.feed.recent).toHaveBeenCalledTimes(1);
+    expect(os.query.feed.recent).toHaveBeenCalledWith({
+      author: 'alice.testnet',
+      limit: 48,
+      offset: 0,
+      section: 'posts',
+      kind: 'longform',
+    });
+  });
+
+  it('returns articles from the page, keeping the payload gate', async () => {
     const os = client([
       { items: [post('1', true), post('2', false)], nextOffset: 48 },
     ]);
@@ -63,19 +76,8 @@ describe('fetchAuthorArticleWindow', () => {
     expect(page.nextOffset).toBe(48);
   });
 
-  it('skips a post page that has no articles', async () => {
-    const os = client([
-      { items: [post('1', false)], nextOffset: 48 },
-      { items: [post('2', true)], nextOffset: 96 },
-    ]);
-    const page = await fetchAuthorArticleWindow(os, 'alice.testnet', 0, 48);
-    expect(page.articles.map((row) => row.postId)).toEqual(['2']);
-    expect(page.nextOffset).toBe(96);
-    expect(os.query.feed.recent).toHaveBeenCalledTimes(2);
-  });
-
   it('stops when the feed ends', async () => {
-    const os = client([{ items: [post('1', false)] }]);
+    const os = client([{ items: [] }]);
     const page = await fetchAuthorArticleWindow(os, 'alice.testnet', 48, 48);
     expect(page.articles).toEqual([]);
     expect(page.nextOffset).toBeNull();

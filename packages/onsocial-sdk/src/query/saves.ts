@@ -30,21 +30,39 @@ export class SavesQuery {
    */
   async list(
     accountId: string,
-    opts: { limit?: number; offset?: number } = {}
+    opts: {
+      limit?: number;
+      offset?: number;
+      /**
+       * Server-side substring filter on `contentPath` (`_like: %needle%`).
+       * Prefer this over paging the full save list when the caller only
+       * needs one save family (e.g. `'scarce/collection/'`).
+       */
+      contentPathContains?: string;
+    } = {}
   ): Promise<SaveRow[]> {
     const limit = opts.limit ?? 50;
     const offset = opts.offset ?? 0;
+    const needle = opts.contentPathContains?.trim();
+    const where = needle
+      ? `where: {accountId: {_eq: $id}, operation: {_eq: "set"}, contentPath: {_like: $pathLike}},`
+      : `where: {accountId: {_eq: $id}, operation: {_eq: "set"}},`;
     const res = await this._q.graphql<{ savesCurrent: SaveRow[] }>({
-      query: `query Saves($id: String!, $limit: Int!, $offset: Int!) {
+      query: `query Saves($id: String!, $limit: Int!, $offset: Int!${needle ? ', $pathLike: String!' : ''}) {
         savesCurrent(
-          where: {accountId: {_eq: $id}, operation: {_eq: "set"}},
+          ${where}
           limit: $limit, offset: $offset,
           orderBy: [{blockHeight: DESC}]
         ) {
           ${SAVE_ROW_SELECTION}
         }
       }`,
-      variables: { id: accountId, limit, offset },
+      variables: {
+        id: accountId,
+        limit,
+        offset,
+        ...(needle ? { pathLike: `%${needle}%` } : {}),
+      },
     });
     return res.data?.savesCurrent ?? [];
   }

@@ -728,6 +728,12 @@ export class ScarcesQuery {
       tokenIds?: string[];
       /** Only listings from this seller account. */
       sellerId?: string;
+      /**
+       * Batch filter — listings minted from these source post paths
+       * (`author/post/{id}`). Preferred over per-seller loops when hydrating
+       * scarce embeds for a page of posts.
+       */
+      sourcePostPaths?: string[];
       /** Only listings published under this app / store slug. */
       appId?: string;
       /** Case-insensitive substring match on title / seller / creator. */
@@ -774,6 +780,16 @@ export class ScarcesQuery {
       params.push('$sellerId: String!');
       variables.sellerId = opts.sellerId;
       where.push('sellerId: {_eq: $sellerId}');
+    }
+    const sourcePostPaths = [
+      ...new Set(
+        (opts.sourcePostPaths ?? []).map((p) => p.trim()).filter(Boolean)
+      ),
+    ];
+    if (sourcePostPaths.length > 0) {
+      params.push('$sourcePostPaths: [String!]!');
+      variables.sourcePostPaths = sourcePostPaths;
+      where.push('sourcePostPath: {_in: $sourcePostPaths}');
     }
     if (opts.appId) {
       params.push('$appId: String!');
@@ -891,6 +907,11 @@ export class ScarcesQuery {
       search?: string;
       /** Exact source post path (`author/post/{id}`). */
       sourcePostPath?: string;
+      /**
+       * Batch filter — drops minted from these source post paths. Preferred
+       * over per-creator loops when hydrating embeds for a page of posts.
+       */
+      sourcePostPaths?: string[];
       /** When false (default), hide paused/cancelled/banned shells. */
       includeUnavailable?: boolean;
       /**
@@ -1017,6 +1038,16 @@ export class ScarcesQuery {
       params.push('$sourcePostPath: String!');
       variables.sourcePostPath = opts.sourcePostPath.trim();
       where.push('sourcePostPath: {_eq: $sourcePostPath}');
+    }
+    const sourcePostPaths = [
+      ...new Set(
+        (opts.sourcePostPaths ?? []).map((p) => p.trim()).filter(Boolean)
+      ),
+    ];
+    if (sourcePostPaths.length > 0) {
+      params.push('$sourcePostPaths: [String!]!');
+      variables.sourcePostPaths = sourcePostPaths;
+      where.push('sourcePostPath: {_in: $sourcePostPaths}');
     }
 
     const whereClause = where.length ? `where: { ${where.join(', ')} },` : '';
