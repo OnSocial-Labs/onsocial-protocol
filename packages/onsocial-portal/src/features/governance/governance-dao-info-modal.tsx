@@ -536,7 +536,6 @@ function DaoInfoPanel({
   positionPath,
   onNavigate,
   roles,
-  hasPurposeAbove,
 }: {
   nearBalanceYocto: string;
   socialBalanceYocto: string;
@@ -551,17 +550,12 @@ function DaoInfoPanel({
   positionPath: string;
   onNavigate: () => void;
   roles: GovernanceDaoRole[];
-  hasPurposeAbove: boolean;
 }) {
   return (
     <>
       <section
         aria-label="DAO snapshot"
-        className={cn(
-          'border-b border-fade-section',
-          compactModalSectionYClass,
-          !hasPurposeAbove && 'border-t'
-        )}
+        className={cn('border-b border-fade-section', compactModalSectionYClass)}
       >
         <DaoSnapshotGrid
           nearBalanceYocto={nearBalanceYocto}
@@ -828,7 +822,7 @@ export function GovernanceDaoInfoModal({
             <section
               aria-label="DAO snapshot"
               className={cn(
-                'border-y border-fade-section',
+                'border-b border-fade-section',
                 compactModalSectionYClass
               )}
             >
@@ -853,7 +847,6 @@ export function GovernanceDaoInfoModal({
               positionPath={positionPath}
               onNavigate={() => onOpenChange(false)}
               roles={roles}
-              hasPurposeAbove={!!daoPurpose}
             />
 
             <div
