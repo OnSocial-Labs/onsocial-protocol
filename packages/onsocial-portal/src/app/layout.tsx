@@ -1,4 +1,3 @@
-import { Suspense } from 'react';
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
@@ -163,17 +162,15 @@ export default function RootLayout({
                     <GatewayAuthProvider>
                       <MobilePageProvider>
                         <NavVisibilityProvider>
-                          <Suspense>
-                            <SmoothScrollProvider>
-                              <div className="flex min-h-[100dvh] flex-col">
-                                <Navigation />
-                                <main className="safe-x flex flex-1 flex-col">
-                                  {children}
-                                </main>
-                                <Footer />
-                              </div>
-                            </SmoothScrollProvider>
-                          </Suspense>
+                          <SmoothScrollProvider>
+                            <div className="flex min-h-[100dvh] flex-col">
+                              <Navigation />
+                              <main className="safe-x flex flex-1 flex-col">
+                                {children}
+                              </main>
+                              <Footer />
+                            </div>
+                          </SmoothScrollProvider>
                         </NavVisibilityProvider>
                       </MobilePageProvider>
                     </GatewayAuthProvider>
