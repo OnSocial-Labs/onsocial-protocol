@@ -24,6 +24,8 @@ import {
   walletMenuSectionShellClass,
 } from '@/components/ui/floating-panel';
 import { FloatingPanelMenu } from '@/components/ui/floating-panel-menu';
+import { Sheet } from '@/components/ui/sheet';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   utilityButtonActiveClass,
   utilityButtonClass,
@@ -265,7 +267,9 @@ export function WalletButton({
     close: closeMenu,
     toggle: toggleMenu,
     containerRef: menuRef,
+    panelRef: menuPanelRef,
   } = useDropdown();
+  const isMobile = useIsMobile();
   const platformStorage = usePlatformStorageSummary(
     accountId,
     menuOpen || walletStorageOpen,
@@ -438,6 +442,79 @@ export function WalletButton({
     );
   }
 
+  const walletMenuContent = (
+    <div className={walletMenuSectionShellClass}>
+      <div className={walletMenuCardClass}>
+        <WalletMenuIdentity
+          welcomeLabel={welcomeLabel}
+          profilePrimaryLabel={profilePrimaryLabel}
+          hasProfileName={hasProfileName}
+          accountId={accountId}
+          hasProfile={hasProfile}
+          profilePageUrl={profilePageUrl}
+          onEdit={handleProfileAction}
+        />
+
+        <div
+          className={walletMenuInnerDividerClass}
+          role="separator"
+          aria-hidden
+        />
+
+        <div className={walletMenuMetricsBlockClass}>
+          <WalletRewardsSection
+            compact
+            walletBalanceYocto={walletBalanceYocto}
+            walletBalanceLoading={walletBalanceLoading}
+            walletBalanceError={walletBalanceError}
+            walletHasLoadedBalance={walletHasLoadedBalance}
+            claimableYocto={claimableYocto}
+            canClaim={canClaim}
+            claiming={claiming}
+            rewardsLoading={rewardsLoading}
+            remainingToClaimYocto={remainingToClaimYocto}
+            onClaim={async () => {
+              await claimRewards();
+              setWalletBalanceRefreshKey((key) => key + 1);
+            }}
+            onOpenRules={openRewardsRules}
+            onOpenAssets={openWalletAssets}
+          />
+
+          <WalletPlatformStorageStrip
+            compact
+            loading={platformStorage.loading}
+            error={platformStorage.error}
+            summary={platformStorage.summary}
+            onOpenManage={openWalletStorage}
+            manageHighlighted={storageManageIsHighlighted(
+              platformStorage.summary
+            )}
+          />
+        </div>
+
+        <div
+          className={walletMenuInnerDividerClass}
+          role="separator"
+          aria-hidden
+        />
+
+        <WalletMenuActionDock
+          onDiscover={openProfileDiscovery}
+          onExplorer={() => {
+            window.open(
+              `${ACTIVE_NEAR_EXPLORER_URL}/address/${accountId}`,
+              '_blank'
+            );
+            closeMenu();
+          }}
+          onSwitch={handleSwitchWallet}
+          onDisconnect={handleDisconnect}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="relative inline-flex shrink-0 items-center" ref={menuRef}>
       <button
@@ -478,83 +555,28 @@ export function WalletButton({
         )}
       </button>
 
-      <FloatingPanelMenu
-        open={menuOpen}
-        align={menuAlign === 'left' ? 'left' : 'right'}
-        offsetClass="mt-1"
-        className={walletMenuPanelWidthClass}
-      >
-        <div className={walletMenuSectionShellClass}>
-          <div className={walletMenuCardClass}>
-            <WalletMenuIdentity
-              welcomeLabel={welcomeLabel}
-              profilePrimaryLabel={profilePrimaryLabel}
-              hasProfileName={hasProfileName}
-              accountId={accountId}
-              hasProfile={hasProfile}
-              profilePageUrl={profilePageUrl}
-              onEdit={handleProfileAction}
-            />
-
-            <div
-              className={walletMenuInnerDividerClass}
-              role="separator"
-              aria-hidden
-            />
-
-            <div className={walletMenuMetricsBlockClass}>
-              <WalletRewardsSection
-                compact
-                walletBalanceYocto={walletBalanceYocto}
-                walletBalanceLoading={walletBalanceLoading}
-                walletBalanceError={walletBalanceError}
-                walletHasLoadedBalance={walletHasLoadedBalance}
-                claimableYocto={claimableYocto}
-                canClaim={canClaim}
-                claiming={claiming}
-                rewardsLoading={rewardsLoading}
-                remainingToClaimYocto={remainingToClaimYocto}
-                onClaim={async () => {
-                  await claimRewards();
-                  setWalletBalanceRefreshKey((key) => key + 1);
-                }}
-                onOpenRules={openRewardsRules}
-                onOpenAssets={openWalletAssets}
-              />
-
-              <WalletPlatformStorageStrip
-                compact
-                loading={platformStorage.loading}
-                error={platformStorage.error}
-                summary={platformStorage.summary}
-                onOpenManage={openWalletStorage}
-                manageHighlighted={storageManageIsHighlighted(
-                  platformStorage.summary
-                )}
-              />
-            </div>
-
-            <div
-              className={walletMenuInnerDividerClass}
-              role="separator"
-              aria-hidden
-            />
-
-            <WalletMenuActionDock
-              onDiscover={openProfileDiscovery}
-              onExplorer={() => {
-                window.open(
-                  `${ACTIVE_NEAR_EXPLORER_URL}/address/${accountId}`,
-                  '_blank'
-                );
-                closeMenu();
-              }}
-              onSwitch={handleSwitchWallet}
-              onDisconnect={handleDisconnect}
-            />
-          </div>
-        </div>
-      </FloatingPanelMenu>
+      {isMobile ? (
+        <Sheet
+          open={menuOpen}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) closeMenu();
+          }}
+          ariaLabel="Wallet menu"
+          dismissLabel="Close wallet menu"
+          panelRef={menuPanelRef}
+        >
+          {walletMenuContent}
+        </Sheet>
+      ) : (
+        <FloatingPanelMenu
+          open={menuOpen}
+          align={menuAlign === 'left' ? 'left' : 'right'}
+          offsetClass="mt-1"
+          className={walletMenuPanelWidthClass}
+        >
+          {walletMenuContent}
+        </FloatingPanelMenu>
+      )}
 
       <ProfileEditor
         key={profileEditorKey}

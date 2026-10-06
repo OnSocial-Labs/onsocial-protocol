@@ -1,8 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { useEffect, useId } from 'react';
 import Link from 'next/link';
 import { formatClaimRatioLabel } from '@/lib/rewards-claim-progress';
 import { RewardsClaimMetricRow } from '@/components/rewards-claim-metric-row';
@@ -11,15 +9,12 @@ import {
   compactModalBodyClass,
   compactModalBodyDenseClass,
   compactModalInsetShellPadClass,
-  compactModalShellClass,
-  portalElevatedShadowClass,
 } from '@/components/ui/floating-panel';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
 import { ModalHeader } from '@/components/ui/modal-header';
+import { Sheet } from '@/components/ui/sheet';
 import { usePortalRewardsOptional } from '@/contexts/portal-rewards-context';
-import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { formatSocialCompact } from '@/lib/leaderboard';
-import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import {
   PORTAL_REWARD_ACTION_RULES,
   PORTAL_REWARD_CREDIT_YOCTO,
@@ -203,32 +198,14 @@ export function PortalRewardsRulesModal({
   accountId,
   onOpenChange,
 }: PortalRewardsRulesModalProps) {
-  const reduceMotion = useReducedMotion();
   const titleId = useId();
-  const scrollRef = useRef<HTMLDivElement>(null);
   const rewards = usePortalRewardsOptional();
   const refreshRewardsState = rewards?.refreshRewardsState;
-  useBodyScrollLock(open, scrollRef);
 
   useEffect(() => {
     if (!open || !refreshRewardsState) return;
     void refreshRewardsState({ fresh: true, silent: true });
   }, [open, refreshRewardsState]);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onOpenChange(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onOpenChange, open]);
-
-  if (typeof document === 'undefined') return null;
 
   const claimableYocto = rewards?.claimableYocto ?? 0n;
   const totalEarnedYocto = rewards?.totalEarnedYocto ?? 0n;
@@ -241,82 +218,56 @@ export function PortalRewardsRulesModal({
   const portalDailyCapYocto = rewards?.portalDailyCapYocto ?? 0n;
   const actionProgress = rewards?.actionProgress ?? null;
 
-  return createPortal(
-    <AnimatePresence initial={false}>
-      {open ? (
-        <motion.div
-          {...fadeMotion(reduceMotion ? 0 : 0.18)}
-          data-lenis-prevent
-          className="fixed inset-0 z-[2147483645] flex items-center justify-center px-4 py-6"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 bg-background/72 backdrop-blur-md"
-            aria-label="Close rewards rules"
+  return (
+    <Sheet
+      open={open}
+      onOpenChange={onOpenChange}
+      ariaLabelledby={titleId}
+      dismissLabel="Close rewards rules"
+    >
+      <ModalHeader
+        titleId={titleId}
+        title="How rewards work"
+        description={portalRewardsHeaderHint({
+          accountId,
+          claimableYocto,
+          canClaim,
+          loading: showProgress && progressLoading,
+        })}
+        descriptionVariant="meta"
+        bordered
+        actions={
+          <ModalCloseButton
+            ariaLabel="Close rewards rules"
             onClick={() => onOpenChange(false)}
           />
+        }
+      />
 
-          <motion.div
-            {...scaleFadeMotion(!!reduceMotion, {
-              y: 14,
-              scale: 0.98,
-              duration: 0.22,
-              exitY: 8,
-              exitScale: 0.99,
-            })}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            className={cn(compactModalShellClass, portalElevatedShadowClass)}
-          >
-            <ModalHeader
-              titleId={titleId}
-              title="How rewards work"
-              description={portalRewardsHeaderHint({
-                accountId,
-                claimableYocto,
-                canClaim,
-                loading: showProgress && progressLoading,
-              })}
-              descriptionVariant="meta"
-              bordered
-              actions={
-                <ModalCloseButton
-                  ariaLabel="Close rewards rules"
-                  onClick={() => onOpenChange(false)}
-                />
-              }
-            />
-
-            <div
-              ref={scrollRef}
-              className={cn(
-                compactModalBodyClass,
-                compactModalBodyDenseClass,
-                'max-h-[min(72vh,34rem)]'
-              )}
-            >
-              <PortalRewardsRulesContent
-                showProgress={showProgress}
-                loading={progressLoading}
-                claimableYocto={claimableYocto}
-                canClaim={canClaim}
-                claiming={claiming}
-                remainingToClaimYocto={remainingToClaimYocto}
-                totalEarnedYocto={totalEarnedYocto}
-                portalDailyEarnedYocto={portalDailyEarnedYocto}
-                portalDailyCapYocto={portalDailyCapYocto}
-                progress={actionProgress}
-                onClaim={async () => {
-                  await rewards?.claimRewards();
-                }}
-                onPartnersLinkClick={() => onOpenChange(false)}
-              />
-            </div>
-          </motion.div>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>,
-    document.body
+      <div
+        className={cn(
+          compactModalBodyClass,
+          compactModalBodyDenseClass,
+          'md:max-h-[min(72vh,34rem)]'
+        )}
+      >
+        <PortalRewardsRulesContent
+          showProgress={showProgress}
+          loading={progressLoading}
+          claimableYocto={claimableYocto}
+          canClaim={canClaim}
+          claiming={claiming}
+          remainingToClaimYocto={remainingToClaimYocto}
+          totalEarnedYocto={totalEarnedYocto}
+          portalDailyEarnedYocto={portalDailyEarnedYocto}
+          portalDailyCapYocto={portalDailyCapYocto}
+          progress={actionProgress}
+          onClaim={async () => {
+            await rewards?.claimRewards();
+          }}
+          onPartnersLinkClick={() => onOpenChange(false)}
+        />
+      </div>
+    </Sheet>
   );
 }

@@ -1,15 +1,6 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import { createPortal } from 'react-dom';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { TokenIcon } from '@onsocial/ui';
 import { Button } from '@/components/ui/button';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
@@ -19,17 +10,15 @@ import {
   compactModalHeaderDenseClass,
   compactModalSectionLabelClass,
   compactModalSectionYClass,
-  compactModalShellClass,
-  portalElevatedShadowClass,
   walletMenuMetricCaptionSlotClass,
   walletMenuMetricRowClass,
 } from '@/components/ui/floating-panel';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
 import { ModalHeader } from '@/components/ui/modal-header';
+import { Sheet } from '@/components/ui/sheet';
 import { AllowanceProgressBar } from '@/components/platform-storage-allowance-summary';
 import { WalletStorageSharePanel } from '@/components/wallet-storage-share-panel';
 import { SocialSpendAmountPill } from '@/components/social-spend-pill';
-import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
 import { useSharedStoragePool } from '@/hooks/use-shared-storage-pool';
@@ -38,7 +27,6 @@ import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
 import { useWallet } from '@/contexts/wallet-context';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import { formatNearCompact } from '@/lib/leaderboard';
-import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import { yoctoToNear } from '@/lib/near-rpc';
 import {
   sendStorageDepositTransaction,
@@ -270,9 +258,7 @@ export function WalletStorageModal({
   refreshKey = 0,
   onStorageChanged,
 }: WalletStorageModalProps) {
-  const reduceMotion = useReducedMotion();
   const titleId = useId();
-  const scrollRef = useRef<HTMLDivElement>(null);
   const { getSigningWallet } = useWallet();
   const { txResult, clearTxResult, setTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
@@ -289,8 +275,6 @@ export function WalletStorageModal({
   const [amountInput, setAmountInput] = useState('0.1');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useBodyScrollLock(open, scrollRef);
 
   const summary = userStorage.summary;
   const canWithdraw = (summary?.withdrawableYocto ?? 0n) > 0n;
@@ -340,14 +324,7 @@ export function WalletStorageModal({
     setError(null);
     setMode('deposit');
     setAmountInput('0.1');
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onOpenChange(false);
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onOpenChange, open]);
+  }, [open]);
 
   useEffect(() => {
     if (mode === 'withdraw' && !canWithdraw) {
@@ -422,8 +399,6 @@ export function WalletStorageModal({
     }
   };
 
-  if (typeof document === 'undefined') return null;
-
   const loading = userStorage.loading || platformStorage.loading;
   const actionHint =
     mode === 'deposit'
@@ -438,337 +413,290 @@ export function WalletStorageModal({
     summary.balanceYocto > 0n &&
     (sharedPool.summary?.totalCapacityBytes ?? 0) > 0;
 
-  return createPortal(
-    <AnimatePresence initial={false}>
-      {open ? (
-        <motion.div
-          {...fadeMotion(reduceMotion ? 0 : 0.18)}
-          data-lenis-prevent
-          className="fixed inset-0 z-[2147483645] flex items-center justify-center px-3 py-4 sm:px-4 sm:py-6"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 bg-background/72 backdrop-blur-md"
-            aria-label="Close storage"
+  return (
+    <Sheet
+      open={open}
+      onOpenChange={onOpenChange}
+      ariaLabelledby={titleId}
+      dismissLabel="Close storage"
+    >
+      <ModalHeader
+        titleId={titleId}
+        title="Storage"
+        description={
+          accountId ? `@${accountId}` : 'Connect a wallet to manage storage'
+        }
+        descriptionVariant="meta"
+        bordered
+        className={compactModalHeaderDenseClass}
+        actions={
+          <ModalCloseButton
+            ariaLabel="Close storage"
             onClick={() => onOpenChange(false)}
           />
+        }
+      />
 
-          <motion.div
-            {...scaleFadeMotion(!!reduceMotion, {
-              y: 14,
-              scale: 0.98,
-              duration: 0.22,
-              exitY: 8,
-              exitScale: 0.99,
-            })}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            className={cn(compactModalShellClass, portalElevatedShadowClass)}
-          >
-            <ModalHeader
-              titleId={titleId}
-              title="Storage"
-              description={
-                accountId
-                  ? `@${accountId}`
-                  : 'Connect a wallet to manage storage'
-              }
-              descriptionVariant="meta"
-              bordered
-              className={compactModalHeaderDenseClass}
-              actions={
-                <ModalCloseButton
-                  ariaLabel="Close storage"
-                  onClick={() => onOpenChange(false)}
-                />
-              }
-            />
+      <div
+        className={cn(
+          compactModalBodyClass,
+          compactModalBodyDenseClass,
+          mode === 'share' && 'pb-5',
+          'space-y-0'
+        )}
+      >
+        <section
+          className={cn(
+            mode !== 'share' && 'border-b border-fade-section',
+            mode === 'share' && 'pb-4',
+            compactModalSectionYClass
+          )}
+        >
+          {loading && mode !== 'share' ? (
+            <div className="space-y-1" aria-hidden>
+              <div className="h-3 w-16 animate-pulse rounded bg-muted/35" />
+              <div className="h-5 w-20 animate-pulse rounded bg-muted/30" />
+              <div className="h-3 w-40 animate-pulse rounded bg-muted/25" />
+            </div>
+          ) : userStorage.error && mode !== 'share' ? (
+            <p className="portal-type-body-sm text-[var(--portal-amber)]">
+              {userStorage.error}
+            </p>
+          ) : summary && mode !== 'share' ? (
+            <UserStorageReadout summary={summary} />
+          ) : mode !== 'share' ? (
+            <p className="portal-type-body-sm text-muted-foreground/60">
+              No storage yet — add NEAR to get started.
+            </p>
+          ) : null}
 
-            <div
-              ref={scrollRef}
-              className={cn(
-                compactModalBodyClass,
-                compactModalBodyDenseClass,
-                mode === 'share' && 'pb-5',
-                'space-y-0'
-              )}
-            >
-              <section
-                className={cn(
-                  mode !== 'share' && 'border-b border-fade-section',
-                  mode === 'share' && 'pb-4',
-                  compactModalSectionYClass
-                )}
-              >
-                {loading && mode !== 'share' ? (
-                  <div className="space-y-1" aria-hidden>
-                    <div className="h-3 w-16 animate-pulse rounded bg-muted/35" />
-                    <div className="h-5 w-20 animate-pulse rounded bg-muted/30" />
-                    <div className="h-3 w-40 animate-pulse rounded bg-muted/25" />
-                  </div>
-                ) : userStorage.error && mode !== 'share' ? (
-                  <p className="portal-type-body-sm text-[var(--portal-amber)]">
-                    {userStorage.error}
-                  </p>
-                ) : summary && mode !== 'share' ? (
-                  <UserStorageReadout summary={summary} />
-                ) : mode !== 'share' ? (
-                  <p className="portal-type-body-sm text-muted-foreground/60">
-                    No storage yet — add NEAR to get started.
-                  </p>
-                ) : null}
+          {mode === 'share' && accountId ? (
+            <>
+              {showUserStorageShareStrip && summary ? (
+                <UserStorageShareStrip summary={summary} />
+              ) : null}
+              <WalletStorageSharePanel
+                accountId={accountId}
+                refreshKey={refreshKey + localRefreshKey}
+                sharedPool={sharedPool.summary}
+                sharedPoolLoading={sharedPool.loading}
+                walletNearYocto={walletNearYocto}
+                pending={pending}
+                setPending={setPending}
+                error={error}
+                onError={setError}
+                onPoolChanged={refreshAfterTx}
+                getSigningWallet={getSigningWallet}
+                trackTransaction={trackTransaction}
+                clearTxResult={clearTxResult}
+                setTxResult={setTxResult}
+                toggleAfterReadout={
+                  <StorageModeToggle
+                    mode={mode}
+                    onChange={setMode}
+                    canWithdraw={canWithdraw}
+                  />
+                }
+              />
+            </>
+          ) : (
+            <div className="mt-3 space-y-3">
+              <StorageModeToggle
+                mode={mode}
+                onChange={setMode}
+                canWithdraw={canWithdraw}
+              />
+              <div className="space-y-2">
+                <div className="portal-field-focus flex items-center gap-2.5 rounded-2xl border border-border/40 bg-background/45 px-3 py-2.5">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={amountInput}
+                    onChange={(event) => applyAmountInput(event.target.value)}
+                    onBlur={() =>
+                      applyAmountInput(
+                        finalizeAmountInput(
+                          amountInput,
+                          STORAGE_NEAR_INPUT_DECIMALS
+                        )
+                      )
+                    }
+                    placeholder={amountHint}
+                    aria-label="Amount in NEAR"
+                    aria-invalid={Boolean(amountInput) && !canSubmitAmount}
+                    className={AMOUNT_INPUT_CLASS}
+                  />
+                  <div
+                    className="h-5 w-px shrink-0 divider-v-section"
+                    aria-hidden="true"
+                  />
+                  <span className="inline-flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
+                    <TokenIcon src={NEAR_TOKEN_ICON} label="NEAR" size="md" />
+                    <span className="portal-type-caption font-medium text-muted-foreground/55">
+                      NEAR
+                    </span>
+                  </span>
+                </div>
 
-                {mode === 'share' && accountId ? (
-                  <>
-                    {showUserStorageShareStrip && summary ? (
-                      <UserStorageShareStrip summary={summary} />
-                    ) : null}
-                    <WalletStorageSharePanel
-                      accountId={accountId}
-                      refreshKey={refreshKey + localRefreshKey}
-                      sharedPool={sharedPool.summary}
-                      sharedPoolLoading={sharedPool.loading}
-                      walletNearYocto={walletNearYocto}
-                      pending={pending}
-                      setPending={setPending}
-                      error={error}
-                      onError={setError}
-                      onPoolChanged={refreshAfterTx}
-                      getSigningWallet={getSigningWallet}
-                      trackTransaction={trackTransaction}
-                      clearTxResult={clearTxResult}
-                      setTxResult={setTxResult}
-                      toggleAfterReadout={
-                        <StorageModeToggle
-                          mode={mode}
-                          onChange={setMode}
-                          canWithdraw={canWithdraw}
-                        />
-                      }
-                    />
-                  </>
-                ) : (
-                  <div className="mt-3 space-y-3">
-                    <StorageModeToggle
-                      mode={mode}
-                      onChange={setMode}
-                      canWithdraw={canWithdraw}
-                    />
-                    <div className="space-y-2">
-                      <div className="portal-field-focus flex items-center gap-2.5 rounded-2xl border border-border/40 bg-background/45 px-3 py-2.5">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          autoComplete="off"
-                          value={amountInput}
-                          onChange={(event) =>
-                            applyAmountInput(event.target.value)
-                          }
-                          onBlur={() =>
-                            applyAmountInput(
-                              finalizeAmountInput(
-                                amountInput,
-                                STORAGE_NEAR_INPUT_DECIMALS
-                              )
-                            )
-                          }
-                          placeholder={amountHint}
-                          aria-label="Amount in NEAR"
-                          aria-invalid={
-                            Boolean(amountInput) && !canSubmitAmount
-                          }
-                          className={AMOUNT_INPUT_CLASS}
-                        />
-                        <div
-                          className="h-5 w-px shrink-0 divider-v-section"
-                          aria-hidden="true"
-                        />
-                        <span className="inline-flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
-                          <TokenIcon
-                            src={NEAR_TOKEN_ICON}
-                            label="NEAR"
-                            size="md"
-                          />
-                          <span className="portal-type-caption font-medium text-muted-foreground/55">
-                            NEAR
-                          </span>
-                        </span>
-                      </div>
-
-                      <div className={storageModalQuickAmountRowClass}>
-                        <div className={storageModalQuickAmountSlotClass}>
-                          {mode === 'deposit' ? (
-                            <div
-                              className="flex flex-wrap gap-1.5"
-                              role="group"
-                              aria-label="Quick amounts"
+                <div className={storageModalQuickAmountRowClass}>
+                  <div className={storageModalQuickAmountSlotClass}>
+                    {mode === 'deposit' ? (
+                      <div
+                        className="flex flex-wrap gap-1.5"
+                        role="group"
+                        aria-label="Quick amounts"
+                      >
+                        {STORAGE_DEPOSIT_PRESETS_NEAR.map((preset) => {
+                          const selected = normalizedAmount === preset;
+                          return (
+                            <SocialSpendAmountPill
+                              key={preset}
+                              selected={selected}
+                              onClick={() => applyAmountInput(preset)}
                             >
-                              {STORAGE_DEPOSIT_PRESETS_NEAR.map((preset) => {
-                                const selected = normalizedAmount === preset;
-                                return (
-                                  <SocialSpendAmountPill
-                                    key={preset}
-                                    selected={selected}
-                                    onClick={() => applyAmountInput(preset)}
-                                  >
-                                    {preset}
-                                  </SocialSpendAmountPill>
-                                );
-                              })}
-                            </div>
-                          ) : canWithdraw ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                applyAmountInput(
-                                  yoctoToNear(withdrawableYocto.toString())
-                                )
-                              }
-                              className="portal-type-label text-[var(--portal-blue)] transition-colors hover:text-[var(--portal-blue-hover)]"
-                            >
-                              Max (
-                              {formatNearCompact(withdrawableYocto.toString())}{' '}
-                              NEAR)
-                            </button>
-                          ) : (
-                            <span aria-hidden="true" className="invisible">
-                              Max
-                            </span>
-                          )}
-                        </div>
-
-                        <p className="portal-type-micro ml-auto min-h-4 shrink-0 text-right tabular-nums text-muted-foreground/50">
-                          {mode === 'deposit' &&
-                          depositPreviewCapacityBytes != null &&
-                          depositPreviewCapacityBytes > 0 ? (
-                            <>
-                              ≈{' '}
-                              <span className="font-mono font-semibold text-portal-neutral">
-                                {formatCompactBytes(
-                                  depositPreviewCapacityBytes
-                                )}
-                              </span>
-                              <span
-                                className="text-muted-foreground/35"
-                                aria-hidden="true"
-                              >
-                                {' '}
-                                ·{' '}
-                              </span>
-                            </>
-                          ) : null}
-                          {mode === 'deposit' && walletNearYocto != null ? (
-                            <>
-                              Balance{' '}
-                              <span className="text-muted-foreground/70">
-                                {formatNearCompact(walletNearYocto.toString())}
-                              </span>
-                              <span
-                                className="text-muted-foreground/35"
-                                aria-hidden="true"
-                              >
-                                {' '}
-                                ·{' '}
-                              </span>
-                            </>
-                          ) : mode === 'withdraw' && canWithdraw ? (
-                            <>
-                              Withdrawable{' '}
-                              <span className="text-muted-foreground/70">
-                                {formatNearCompact(
-                                  withdrawableYocto.toString()
-                                )}
-                              </span>
-                              <span
-                                className="text-muted-foreground/35"
-                                aria-hidden="true"
-                              >
-                                {' '}
-                                ·{' '}
-                              </span>
-                            </>
-                          ) : null}
-                          Min {amountHint}
-                        </p>
+                              {preset}
+                            </SocialSpendAmountPill>
+                          );
+                        })}
                       </div>
-                    </div>
-
-                    {error ? (
-                      <p className="rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-2.5 py-2 portal-type-caption leading-relaxed text-[var(--portal-red)]">
-                        {error}
-                      </p>
-                    ) : null}
-
-                    <Button
-                      type="button"
-                      variant="accent"
-                      size="sm"
-                      className="h-10 w-full"
-                      disabled={submitDisabled}
-                      loading={pending}
-                      onClick={() => {
-                        void handleSubmit();
-                      }}
-                    >
-                      {mode === 'deposit' ? 'Add NEAR' : 'Withdraw NEAR'}
-                    </Button>
-
-                    {actionHint ? (
-                      <p className={storageModalHintSlotClass}>{actionHint}</p>
-                    ) : null}
-                  </div>
-                )}
-              </section>
-
-              {mode !== 'share' ? (
-                <section className={compactModalSectionYClass}>
-                  <h3
-                    className={cn(
-                      sectionEyebrowClass,
-                      compactModalSectionLabelClass
+                    ) : canWithdraw ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          applyAmountInput(
+                            yoctoToNear(withdrawableYocto.toString())
+                          )
+                        }
+                        className="portal-type-label text-[var(--portal-blue)] transition-colors hover:text-[var(--portal-blue-hover)]"
+                      >
+                        Max ({formatNearCompact(withdrawableYocto.toString())}{' '}
+                        NEAR)
+                      </button>
+                    ) : (
+                      <span aria-hidden="true" className="invisible">
+                        Max
+                      </span>
                     )}
-                  >
-                    {PLATFORM_STORAGE_LABEL}
-                  </h3>
+                  </div>
 
-                  {platformStorage.loading ? (
-                    <div className="space-y-1" aria-hidden>
-                      <div className={walletMenuMetricRowClass}>
-                        <div className="h-3 w-14 animate-pulse rounded bg-muted/35" />
-                        <div className="h-1 flex-1 animate-pulse rounded-full bg-muted/30" />
-                        <div className="h-3 w-20 animate-pulse rounded bg-muted/35" />
-                      </div>
-                    </div>
-                  ) : platformStorage.error ? (
-                    <p className="portal-type-body-sm text-muted-foreground/55">
-                      {platformStorage.error}
-                    </p>
-                  ) : platformStorage.summary ? (
-                    <div className="space-y-0.5">
-                      <AllowanceProgressBar
-                        summary={platformStorage.summary}
-                        compact
-                      />
-                      <PlatformStorageMeta summary={platformStorage.summary} />
-                    </div>
-                  ) : (
-                    <p className="portal-type-body-sm text-muted-foreground/55">
-                      Unavailable
-                    </p>
-                  )}
-                </section>
+                  <p className="portal-type-micro ml-auto min-h-4 shrink-0 text-right tabular-nums text-muted-foreground/50">
+                    {mode === 'deposit' &&
+                    depositPreviewCapacityBytes != null &&
+                    depositPreviewCapacityBytes > 0 ? (
+                      <>
+                        ≈{' '}
+                        <span className="font-mono font-semibold text-portal-neutral">
+                          {formatCompactBytes(depositPreviewCapacityBytes)}
+                        </span>
+                        <span
+                          className="text-muted-foreground/35"
+                          aria-hidden="true"
+                        >
+                          {' '}
+                          ·{' '}
+                        </span>
+                      </>
+                    ) : null}
+                    {mode === 'deposit' && walletNearYocto != null ? (
+                      <>
+                        Balance{' '}
+                        <span className="text-muted-foreground/70">
+                          {formatNearCompact(walletNearYocto.toString())}
+                        </span>
+                        <span
+                          className="text-muted-foreground/35"
+                          aria-hidden="true"
+                        >
+                          {' '}
+                          ·{' '}
+                        </span>
+                      </>
+                    ) : mode === 'withdraw' && canWithdraw ? (
+                      <>
+                        Withdrawable{' '}
+                        <span className="text-muted-foreground/70">
+                          {formatNearCompact(withdrawableYocto.toString())}
+                        </span>
+                        <span
+                          className="text-muted-foreground/35"
+                          aria-hidden="true"
+                        >
+                          {' '}
+                          ·{' '}
+                        </span>
+                      </>
+                    ) : null}
+                    Min {amountHint}
+                  </p>
+                </div>
+              </div>
+
+              {error ? (
+                <p className="rounded-xl border border-[var(--portal-red-border)] bg-[var(--portal-red-bg)] px-2.5 py-2 portal-type-caption leading-relaxed text-[var(--portal-red)]">
+                  {error}
+                </p>
+              ) : null}
+
+              <Button
+                type="button"
+                variant="accent"
+                size="sm"
+                className="h-10 w-full"
+                disabled={submitDisabled}
+                loading={pending}
+                onClick={() => {
+                  void handleSubmit();
+                }}
+              >
+                {mode === 'deposit' ? 'Add NEAR' : 'Withdraw NEAR'}
+              </Button>
+
+              {actionHint ? (
+                <p className={storageModalHintSlotClass}>{actionHint}</p>
               ) : null}
             </div>
+          )}
+        </section>
 
-            <TransactionFeedbackToast
-              result={txResult}
-              onClose={clearTxResult}
-            />
-          </motion.div>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>,
-    document.body
+        {mode !== 'share' ? (
+          <section className={compactModalSectionYClass}>
+            <h3
+              className={cn(sectionEyebrowClass, compactModalSectionLabelClass)}
+            >
+              {PLATFORM_STORAGE_LABEL}
+            </h3>
+
+            {platformStorage.loading ? (
+              <div className="space-y-1" aria-hidden>
+                <div className={walletMenuMetricRowClass}>
+                  <div className="h-3 w-14 animate-pulse rounded bg-muted/35" />
+                  <div className="h-1 flex-1 animate-pulse rounded-full bg-muted/30" />
+                  <div className="h-3 w-20 animate-pulse rounded bg-muted/35" />
+                </div>
+              </div>
+            ) : platformStorage.error ? (
+              <p className="portal-type-body-sm text-muted-foreground/55">
+                {platformStorage.error}
+              </p>
+            ) : platformStorage.summary ? (
+              <div className="space-y-0.5">
+                <AllowanceProgressBar
+                  summary={platformStorage.summary}
+                  compact
+                />
+                <PlatformStorageMeta summary={platformStorage.summary} />
+              </div>
+            ) : (
+              <p className="portal-type-body-sm text-muted-foreground/55">
+                Unavailable
+              </p>
+            )}
+          </section>
+        ) : null}
+      </div>
+
+      <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
+    </Sheet>
   );
 }
