@@ -9,7 +9,6 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ChevronDown, Shield, User, Users } from 'lucide-react';
 import {
@@ -21,13 +20,12 @@ import {
   compactModalPanelSectionClass,
   compactModalSectionLabelClass,
   compactModalSectionYClass,
-  compactModalShellClass,
   compactModalStatGridCellClass,
   floatingPanelItemClass,
-  portalElevatedShadowClass,
 } from '@/components/ui/floating-panel';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
 import { ModalHeader } from '@/components/ui/modal-header';
+import { Sheet } from '@/components/ui/sheet';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { TokenIcon, ProtocolMotionArrow } from '@onsocial/ui';
 import {
@@ -55,10 +53,8 @@ import type {
   GovernanceDaoPolicy,
   GovernanceDaoRole,
 } from '@/features/governance/types';
-import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { useMemberAccountLookup } from '@/hooks/use-member-account-lookup';
 import { formatNearCompact, formatSocialCompact } from '@/lib/leaderboard';
-import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import {
   getGovernanceDaoConfig,
   getGovernanceEligibility,
@@ -540,7 +536,6 @@ function DaoInfoPanel({
   positionPath,
   onNavigate,
   roles,
-  hasPurposeAbove,
 }: {
   nearBalanceYocto: string;
   socialBalanceYocto: string;
@@ -555,7 +550,6 @@ function DaoInfoPanel({
   positionPath: string;
   onNavigate: () => void;
   roles: GovernanceDaoRole[];
-  hasPurposeAbove: boolean;
 }) {
   return (
     <>
@@ -563,8 +557,7 @@ function DaoInfoPanel({
         aria-label="DAO snapshot"
         className={cn(
           'border-b border-fade-section',
-          compactModalSectionYClass,
-          !hasPurposeAbove && 'border-t'
+          compactModalSectionYClass
         )}
       >
         <DaoSnapshotGrid
@@ -739,9 +732,7 @@ export function GovernanceDaoInfoModal({
   activeBoard: GovernanceDaoBoard;
   viewerAccountId: string | null;
 }) {
-  const reduceMotion = useReducedMotion();
   const titleId = useId();
-  const scrollRef = useRef<HTMLDivElement>(null);
   const {
     loading,
     error,
@@ -753,23 +744,6 @@ export function GovernanceDaoInfoModal({
     eligibility,
     daoPurpose,
   } = useGovernanceDaoInfoData(daoAccountId, open, viewerAccountId);
-
-  useBodyScrollLock(open, scrollRef);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onOpenChange(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onOpenChange, open]);
 
   const roles = useMemo(
     () => sortDaoPolicyRolesForDisplay(policy?.roles),
@@ -813,140 +787,101 @@ export function GovernanceDaoInfoModal({
     voteThreshold
   );
 
-  if (typeof document === 'undefined') {
-    return null;
-  }
-
-  return createPortal(
-    <AnimatePresence initial={false}>
-      {open ? (
-        <motion.div
-          {...fadeMotion(reduceMotion ? 0 : 0.18)}
-          data-lenis-prevent
-          className="fixed inset-0 z-[2147483645] flex items-center justify-center px-4 py-6"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 bg-background/72 backdrop-blur-md"
-            aria-label="Close DAO info"
+  return (
+    <Sheet
+      open={open}
+      onOpenChange={onOpenChange}
+      ariaLabelledby={titleId}
+      dismissLabel="Close DAO info"
+      panelClassName="min-w-0 shrink-0"
+    >
+      <ModalHeader
+        titleId={titleId}
+        title={boardLabel}
+        description={`@${daoAccountId}`}
+        descriptionVariant="meta"
+        bordered
+        className={compactModalHeaderDenseClass}
+        titleClassName="text-base tracking-tight"
+        descriptionClassName="font-mono portal-type-caption text-muted-foreground/60"
+        actions={
+          <ModalCloseButton
+            ariaLabel="Close DAO info"
             onClick={() => onOpenChange(false)}
           />
+        }
+      />
 
-          <motion.div
-            {...scaleFadeMotion(!!reduceMotion, {
-              y: 14,
-              scale: 0.98,
-              duration: 0.22,
-              exitY: 8,
-              exitScale: 0.99,
-            })}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            className={cn(
-              compactModalShellClass,
-              portalElevatedShadowClass,
-              'w-full min-w-0 max-w-md shrink-0',
-              'max-h-[min(640px,calc(100dvh-2rem))]'
-            )}
-          >
-            <ModalHeader
-              titleId={titleId}
-              title={boardLabel}
-              description={`@${daoAccountId}`}
-              descriptionVariant="meta"
-              bordered
-              className={compactModalHeaderDenseClass}
-              titleClassName="text-base tracking-tight"
-              descriptionClassName="font-mono portal-type-caption text-muted-foreground/60"
-              actions={
-                <ModalCloseButton
-                  ariaLabel="Close DAO info"
-                  onClick={() => onOpenChange(false)}
-                />
-              }
+      <div className={cn(compactModalBodyClass, compactModalBodyDenseClass)}>
+        {!loading && !error && daoPurpose ? (
+          <DaoPurposeSection text={daoPurpose} />
+        ) : null}
+
+        {loading ? (
+          <div className="space-y-1">
+            <div className="flex justify-center py-1">
+              <PulsingDots size="sm" />
+            </div>
+            <section
+              aria-label="DAO snapshot"
+              className={cn(
+                'border-b border-fade-section',
+                compactModalSectionYClass
+              )}
+            >
+              <DaoInfoSkeleton />
+            </section>
+          </div>
+        ) : error ? (
+          <p className="py-3 text-center text-sm portal-red-text">{error}</p>
+        ) : (
+          <>
+            <DaoInfoPanel
+              nearBalanceYocto={nearBalanceYocto}
+              socialBalanceYocto={socialBalanceYocto}
+              socialIcon={socialIcon}
+              bondLabel={bondLabel}
+              periodLabel={periodLabel}
+              approvalLabel={approvalLabel}
+              quorumLabel={quorumLabel}
+              viewerAccountId={viewerAccountId}
+              viewerRoles={viewerRoles}
+              eligibility={eligibility}
+              positionPath={positionPath}
+              onNavigate={() => onOpenChange(false)}
+              roles={roles}
             />
 
             <div
-              ref={scrollRef}
-              className={cn(compactModalBodyClass, compactModalBodyDenseClass)}
-            >
-              {!loading && !error && daoPurpose ? (
-                <DaoPurposeSection text={daoPurpose} />
-              ) : null}
-
-              {loading ? (
-                <div className="space-y-1">
-                  <div className="flex justify-center py-1">
-                    <PulsingDots size="sm" />
-                  </div>
-                  <section
-                    aria-label="DAO snapshot"
-                    className={cn(
-                      'border-y border-fade-section',
-                      compactModalSectionYClass
-                    )}
-                  >
-                    <DaoInfoSkeleton />
-                  </section>
-                </div>
-              ) : error ? (
-                <p className="py-3 text-center text-sm portal-red-text">
-                  {error}
-                </p>
-              ) : (
-                <>
-                  <DaoInfoPanel
-                    nearBalanceYocto={nearBalanceYocto}
-                    socialBalanceYocto={socialBalanceYocto}
-                    socialIcon={socialIcon}
-                    bondLabel={bondLabel}
-                    periodLabel={periodLabel}
-                    approvalLabel={approvalLabel}
-                    quorumLabel={quorumLabel}
-                    viewerAccountId={viewerAccountId}
-                    viewerRoles={viewerRoles}
-                    eligibility={eligibility}
-                    positionPath={positionPath}
-                    onNavigate={() => onOpenChange(false)}
-                    roles={roles}
-                    hasPurposeAbove={!!daoPurpose}
-                  />
-
-                  <div
-                    className={cn(
-                      'flex items-center justify-center gap-x-2.5 border-t border-fade-section portal-type-caption text-muted-foreground/65',
-                      compactModalFooterYClass
-                    )}
-                  >
-                    <Link
-                      href={policyPath}
-                      className="portal-action-link font-medium"
-                      onClick={() => onOpenChange(false)}
-                    >
-                      Policy
-                    </Link>
-                    <span aria-hidden className="text-muted-foreground/30">
-                      ·
-                    </span>
-                    <a
-                      href={explorerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="portal-action-link group inline-flex items-center gap-0.5 font-medium"
-                      onClick={() => onOpenChange(false)}
-                    >
-                      Explorer
-                      <ProtocolMotionArrow className="h-3 w-3" />
-                    </a>
-                  </div>
-                </>
+              className={cn(
+                'flex items-center justify-center gap-x-2.5 border-t border-fade-section portal-type-caption text-muted-foreground/65',
+                compactModalFooterYClass
               )}
+            >
+              <Link
+                href={policyPath}
+                className="portal-action-link font-medium"
+                onClick={() => onOpenChange(false)}
+              >
+                Policy
+              </Link>
+              <span aria-hidden className="text-muted-foreground/30">
+                ·
+              </span>
+              <a
+                href={explorerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="portal-action-link group inline-flex items-center gap-0.5 font-medium"
+                onClick={() => onOpenChange(false)}
+              >
+                Explorer
+                <ProtocolMotionArrow className="h-3 w-3" />
+              </a>
             </div>
-          </motion.div>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>,
-    document.body
+          </>
+        )}
+      </div>
+    </Sheet>
   );
 }
