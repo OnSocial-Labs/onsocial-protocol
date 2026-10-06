@@ -54,6 +54,8 @@ export interface GuildProposalCardProps {
   onExpire?: () => void;
   /** Opens the voter roster drawer. */
   onShowVoters?: () => void;
+  /** Whether the voter roster drawer is open for this proposal. */
+  votersOpen?: boolean;
 }
 
 export function GuildProposalCard({
@@ -73,6 +75,7 @@ export function GuildProposalCard({
   onCancel,
   onExpire,
   onShowVoters,
+  votersOpen = false,
 }: GuildProposalCardProps) {
   const presentation = guildProposalPresentation(proposal);
   const outcome = guildProposalOutcome(proposal, presentation);
@@ -134,19 +137,22 @@ export function GuildProposalCard({
     (canVote && !votingClosed) ||
     (votingClosed && Boolean(onExpire)) ||
     (isOwnRequest && onCancel);
-  const votersToggle =
-    onShowVoters && voteProgress.showProgress ? (
-      <div className="guild-proposal-card-meta-row">
-        <button
-          type="button"
-          className="guild-proposal-card-voters-toggle"
-          aria-haspopup="dialog"
-          onClick={onShowVoters}
-        >
-          Votes · {voteProgress.totalVotes}/{voteProgress.memberPool}
-        </button>
-      </div>
-    ) : null;
+  // Inline roster toggle — sits on the label line like the DAO card's meta
+  // row instead of adding a second votes line. The label already carries the
+  // counts, so only the standalone (terminal) form repeats them.
+  const showVotersToggle = Boolean(onShowVoters && voteProgress.showProgress);
+  const votersButton = (label: string) => (
+    <button
+      type="button"
+      className="guild-proposal-card-voters-toggle"
+      aria-haspopup="dialog"
+      aria-expanded={votersOpen}
+      onClick={onShowVoters}
+    >
+      {label}
+    </button>
+  );
+  const votersCountLabel = `Votes · ${voteProgress.totalVotes}/${voteProgress.memberPool}`;
 
   return (
     <OsProposalCard
@@ -312,18 +318,21 @@ export function GuildProposalCard({
           ) : null}
 
           {outcome.isTerminal ? (
-            <>
-              <p className={osSheetFloatingPanelCopyClassName}>
-                {outcome.tone === 'approved' && presentation.roleLabel ? (
-                  <>
-                    <strong>{presentation.roleLabel}</strong> role applied.
-                  </>
-                ) : (
-                  outcome.footerLabel
-                )}
-              </p>
-              {votersToggle}
-            </>
+            <p className={osSheetFloatingPanelCopyClassName}>
+              {outcome.tone === 'approved' && presentation.roleLabel ? (
+                <>
+                  <strong>{presentation.roleLabel}</strong> role applied.
+                </>
+              ) : (
+                outcome.footerLabel
+              )}
+              {showVotersToggle ? (
+                <>
+                  {' · '}
+                  {votersButton(votersCountLabel)}
+                </>
+              ) : null}
+            </p>
           ) : isOwnRequest && onCancel ? (
             <>
               <p className={osSheetFloatingPanelCopyClassName}>
@@ -354,11 +363,20 @@ export function GuildProposalCard({
             </>
           ) : (
             <>
-              {votersToggle}
               <div className="guild-proposal-card-vote-row">
                 {voteRowLabel ? (
                   <p className="guild-proposal-card-progress-label">
                     {voteRowLabel}
+                    {showVotersToggle ? (
+                      <>
+                        {' · '}
+                        {votersButton('Votes')}
+                      </>
+                    ) : null}
+                  </p>
+                ) : showVotersToggle ? (
+                  <p className="guild-proposal-card-progress-label">
+                    {votersButton(votersCountLabel)}
                   </p>
                 ) : (
                   <span className="guild-proposal-card-vote-spacer" />

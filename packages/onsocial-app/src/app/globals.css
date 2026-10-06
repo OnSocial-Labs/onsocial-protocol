@@ -38613,26 +38613,19 @@ a.os-surface-row {
     flex: 1 1 auto;
   }
 
-  .guild-proposal-card-meta-row {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    min-width: 0;
-  }
-
   .guild-proposal-card-voters-toggle {
-    width: fit-content;
+    display: inline;
     border: 0;
     margin: 0;
     padding: 0;
     background: transparent;
     font: inherit;
-    font-size: 0.72rem;
     font-weight: 650;
     color: rgb(var(--fg-rgb) / 0.58);
     cursor: pointer;
     text-decoration: underline;
     text-underline-offset: 0.12em;
+    white-space: nowrap;
   }
 
   .guild-proposal-card-voters-toggle:hover,

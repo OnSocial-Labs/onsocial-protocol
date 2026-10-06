@@ -76,6 +76,10 @@ test.describe('guild proposals sheet', () => {
     await expect(
       resolvedCard.getByRole('button', { name: 'Support' })
     ).toHaveCount(0);
+    // Resolved cards keep the roster toggle with the final count.
+    await expect(
+      resolvedCard.getByRole('button', { name: 'Votes · 6/7' })
+    ).toBeVisible();
   });
 
   test('guest sees proposals but no vote actions', async ({ page }) => {
@@ -112,9 +116,11 @@ test.describe('guild proposals sheet', () => {
     const roleCard = sheet.locator('.guild-proposal-card', {
       hasText: 'Bob Builder',
     });
-    await roleCard
-      .getByRole('button', { name: 'Votes · 4/7' })
-      .click();
+    // Inline roster toggle rides on the progress label line.
+    await expect(
+      roleCard.getByText('3–1 · ready · Votes')
+    ).toBeVisible();
+    await roleCard.getByRole('button', { name: 'Votes', exact: true }).click();
 
     const voters = page.getByRole('dialog', {
       name: 'Make bob.testnet a Moderator',

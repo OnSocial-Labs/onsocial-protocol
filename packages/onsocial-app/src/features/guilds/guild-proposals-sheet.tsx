@@ -437,6 +437,7 @@ export function GuildProposalsSheet({
                   accountId ? () => void runExpire(proposal) : undefined
                 }
                 onShowVoters={() => openVoters(proposal)}
+                votersOpen={votersFor?.proposal.id === proposal.id}
               />
             ))}
           </OsProposalCardList>
@@ -460,6 +461,7 @@ export function GuildProposalsSheet({
                   pendingAction={null}
                   profiles={profiles}
                   onShowVoters={() => openVoters(proposal)}
+                  votersOpen={votersFor?.proposal.id === proposal.id}
                 />
               ))}
             </OsProposalCardList>
