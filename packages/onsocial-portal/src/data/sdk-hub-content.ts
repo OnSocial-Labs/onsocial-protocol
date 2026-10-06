@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+  Bell,
   Boxes,
   Database,
   GitBranch,
@@ -448,6 +449,22 @@ export const SDK_METHOD_FAMILIES: SdkMethodFamily[] = [
     ],
     href: '/sdk/advanced-control',
   },
+  {
+    title: 'Platform services',
+    icon: Bell,
+    accent: 'amber',
+    summary:
+      'Auth sessions and handoffs, notifications and push, webhooks, DMs, mutes, pages, and jobs.',
+    methods: [
+      'os.auth.login/refresh/me/logout and completeAppHandoff',
+      'os.notifications.list/markRead + subscribePush',
+      'os.webhooks.create/list/delete',
+      'os.dm.listThreads/send/markRead',
+      'os.mutes.add/remove/list/has',
+      'os.pages.get/setConfig/setMood and os.jobs.create/openFor',
+    ],
+    href: '/sdk/platform-services',
+  },
 ];
 
 export const SDK_PRODUCTION_CHECKS = [
@@ -465,8 +482,17 @@ export const SDK_PACKAGES: SdkPackage[] = [
     name: '@onsocial/sdk',
     manager: 'pnpm',
     command: 'pnpm add @onsocial/sdk',
-    status: 'Unified client. Not on npm yet — this repo uses workspace:*',
+    status:
+      'Unified client. v0.1.0 is publish-ready — first npm release lands with the public launch.',
     accent: 'blue',
+  },
+  {
+    name: '@onsocial/text-card',
+    manager: 'pnpm',
+    command: 'pnpm add @onsocial/text-card',
+    status:
+      'Pure SVG text-card generator + theme catalog. Ships alongside @onsocial/sdk.',
+    accent: 'gold',
   },
   {
     name: '@onsocial-id/rewards',
