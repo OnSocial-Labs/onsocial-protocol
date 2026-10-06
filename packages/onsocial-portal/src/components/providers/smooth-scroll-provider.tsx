@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useMemo, useRef } from 'react';
 import Lenis from 'lenis';
 import {
   resetPortalScrollY,
@@ -34,11 +34,13 @@ function writeScrollPosition(routeKey: string, scrollTop: number) {
   );
 }
 
-export function SmoothScrollProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+/**
+ * All scroll logic lives here, isolated behind the provider's own Suspense
+ * boundary: useSearchParams suspends during prerender, and this keeps that
+ * suspension from forcing the whole app tree into a client-only shell.
+ * Renders nothing — every effect operates on window/document.
+ */
+function SmoothScrollController() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const lenisRef = useRef<Lenis | null>(null);
@@ -279,5 +281,20 @@ export function SmoothScrollProvider({
     }, 2500);
   }, [routeKey]);
 
-  return <>{children}</>;
+  return null;
+}
+
+export function SmoothScrollProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <Suspense fallback={null}>
+        <SmoothScrollController />
+      </Suspense>
+      {children}
+    </>
+  );
 }
