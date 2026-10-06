@@ -18,6 +18,7 @@ import { discoverDaosLead } from '@/lib/discover-tab-lead';
 
 const PAGE_SIZE = 24;
 const SOFT_POLL_MS = 2800;
+const SOFT_POLL_MAX_MS = 15000;
 
 /**
  * Paginated Sputnik factory catalog browse — shared by Discover DAOs tab and
@@ -100,8 +101,18 @@ export function useDaoCatalogBrowse(opts: {
   useEffect(() => {
     if (!enabled || !syncing) return;
     let cancelled = false;
+    let timer = 0;
     const loaded = Math.max(PAGE_SIZE, offset + PAGE_SIZE);
-    const timer = window.setInterval(() => {
+    // Back off while the factory keeps syncing (2.8s → 15s cap) and skip
+    // rounds while the tab is hidden — a fixed 2.8s interval spams the
+    // catalog lane for the whole sync window.
+    let delay = SOFT_POLL_MS;
+    const tick = () => {
+      if (cancelled) return;
+      if (document.visibilityState === 'hidden') {
+        timer = window.setTimeout(tick, delay);
+        return;
+      }
       void fetchDaoCatalog({
         q: activeQuery,
         limit: loaded,
@@ -114,14 +125,21 @@ export function useDaoCatalogBrowse(opts: {
           setSyncing(response.syncing);
           setFactoryCount(response.factoryCount);
           setIndexedCount(response.indexedCount);
+          delay = response.syncing
+            ? Math.min(Math.round(delay * 1.5), SOFT_POLL_MAX_MS)
+            : SOFT_POLL_MS;
         })
         .catch(() => {
-          // soft poll best-effort
+          delay = Math.min(delay * 2, SOFT_POLL_MAX_MS);
+        })
+        .finally(() => {
+          if (!cancelled) timer = window.setTimeout(tick, delay);
         });
-    }, SOFT_POLL_MS);
+    };
+    timer = window.setTimeout(tick, delay);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
     };
   }, [activeQuery, enabled, offset, syncing]);
 
