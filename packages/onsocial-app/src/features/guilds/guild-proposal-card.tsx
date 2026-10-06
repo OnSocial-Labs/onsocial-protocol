@@ -37,7 +37,7 @@ export interface GuildProposalCardProps {
   tally: ProposalTally | null;
   viewerVote?: boolean;
   canVote?: boolean;
-  pendingAction?: 'support' | 'oppose' | 'cancel' | null;
+  pendingAction?: 'support' | 'oppose' | 'cancel' | 'expire' | null;
   isOwnRequest?: boolean;
   suppressProposer?: boolean;
   showSequence?: boolean;
@@ -50,6 +50,8 @@ export interface GuildProposalCardProps {
   onSupport?: () => void;
   onOppose?: () => void;
   onCancel?: () => void;
+  /** Permissionless finalize once the voting period has elapsed. */
+  onExpire?: () => void;
 }
 
 export function GuildProposalCard({
@@ -67,6 +69,7 @@ export function GuildProposalCard({
   onSupport,
   onOppose,
   onCancel,
+  onExpire,
 }: GuildProposalCardProps) {
   const presentation = guildProposalPresentation(proposal);
   const outcome = guildProposalOutcome(proposal, presentation);
@@ -126,6 +129,7 @@ export function GuildProposalCard({
     viewerVote === true ||
     viewerVote === false ||
     (canVote && !votingClosed) ||
+    (votingClosed && Boolean(onExpire)) ||
     (isOwnRequest && onCancel);
 
   return (
@@ -330,70 +334,91 @@ export function GuildProposalCard({
               </OsSheetActions>
             </>
           ) : (
-            <div className="guild-proposal-card-vote-row">
-              {voteRowLabel ? (
-                <p className="guild-proposal-card-progress-label">
-                  {voteRowLabel}
-                </p>
-              ) : (
-                <span className="guild-proposal-card-vote-spacer" />
-              )}
-
-              {viewerVote === true ||
-              viewerVote === false ? null : canVote && !votingClosed ? (
-                <OsSheetActions
-                  layout="row-compact"
-                  tone="frosted-primary"
-                  borderless
-                  className={osProposalCardActionsClassName}
-                >
-                  {!pendingAction ? (
-                    <>
-                      <OsSheetAction
-                        type="button"
-                        variant="danger"
-                        onClick={onOppose}
-                      >
-                        {opposeLabel}
-                      </OsSheetAction>
-                      <OsSheetAction
-                        type="button"
-                        variant="primary"
-                        ready
-                        onClick={onSupport}
-                      >
-                        {supportLabel}
-                      </OsSheetAction>
-                    </>
-                  ) : pendingAction === 'support' ? (
+            <>
+              <div className="guild-proposal-card-vote-row">
+                {voteRowLabel ? (
+                  <p className="guild-proposal-card-progress-label">
+                    {voteRowLabel}
+                  </p>
+                ) : (
+                  <span className="guild-proposal-card-vote-spacer" />
+                )}
+                {votingClosed && onExpire ? (
+                  <OsSheetActions
+                    layout="row-compact"
+                    tone="frosted-primary"
+                    borderless
+                    className={osProposalCardActionsClassName}
+                  >
                     <OsSheetAction
                       type="button"
                       variant="primary"
                       ready
-                      pending
-                      pendingLabel="Voting…"
-                      disabled
-                      className={osSheetActionExpandedClassName}
-                      onClick={onSupport}
+                      pending={pendingAction === 'expire'}
+                      pendingLabel="Resolving…"
+                      disabled={pendingAction === 'expire'}
+                      onClick={onExpire}
                     >
-                      {supportLabel}
+                      Resolve
                     </OsSheetAction>
-                  ) : (
-                    <OsSheetAction
-                      type="button"
-                      variant="danger"
-                      pending
-                      pendingLabel="Voting…"
-                      disabled
-                      className={osSheetActionExpandedClassName}
-                      onClick={onOppose}
-                    >
-                      {opposeLabel}
-                    </OsSheetAction>
-                  )}
-                </OsSheetActions>
-              ) : null}
-            </div>
+                  </OsSheetActions>
+                ) : null}
+                {viewerVote === true ||
+                viewerVote === false ? null : canVote && !votingClosed ? (
+                  <OsSheetActions
+                    layout="row-compact"
+                    tone="frosted-primary"
+                    borderless
+                    className={osProposalCardActionsClassName}
+                  >
+                    {!pendingAction ? (
+                      <>
+                        <OsSheetAction
+                          type="button"
+                          variant="danger"
+                          onClick={onOppose}
+                        >
+                          {opposeLabel}
+                        </OsSheetAction>
+                        <OsSheetAction
+                          type="button"
+                          variant="primary"
+                          ready
+                          onClick={onSupport}
+                        >
+                          {supportLabel}
+                        </OsSheetAction>
+                      </>
+                    ) : pendingAction === 'support' ? (
+                      <OsSheetAction
+                        type="button"
+                        variant="primary"
+                        ready
+                        pending
+                        pendingLabel="Voting…"
+                        disabled
+                        className={osSheetActionExpandedClassName}
+                        onClick={onSupport}
+                      >
+                        {supportLabel}
+                      </OsSheetAction>
+                    ) : (
+                      <OsSheetAction
+                        type="button"
+                        variant="danger"
+                        pending
+                        pendingLabel="Voting…"
+                        disabled
+                        className={osSheetActionExpandedClassName}
+                        onClick={onOppose}
+                      >
+                        {opposeLabel}
+                      </OsSheetAction>
+                    )}
+                  </OsSheetActions>
+                ) : null}
+              </div>
+            </>
           )}
         </OsProposalCardFooter>
       ) : null}

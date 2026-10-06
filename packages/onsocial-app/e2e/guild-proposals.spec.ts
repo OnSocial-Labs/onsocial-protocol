@@ -49,7 +49,8 @@ test.describe('guild proposals sheet', () => {
       roomCard.getByRole('button', { name: 'Support' })
     ).toHaveCount(0);
 
-    // Expired card: closed cue, final count, no failing vote actions.
+    // Expired card: closed cue, final count, no failing vote actions —
+    // a signed-in member gets the permissionless Resolve finalize instead.
     const expiredCard = sheet.locator('.guild-proposal-card', {
       hasText: 'Dana Dao',
     });
@@ -61,6 +62,9 @@ test.describe('guild proposals sheet', () => {
     await expect(
       expiredCard.getByRole('button', { name: 'Oppose' })
     ).toHaveCount(0);
+    await expect(
+      expiredCard.getByRole('button', { name: 'Resolve' })
+    ).toBeVisible();
 
     // Resolved section: outcome copy instead of actions.
     await expect(sheet.getByText('Recently resolved')).toBeVisible();
@@ -89,5 +93,10 @@ test.describe('guild proposals sheet', () => {
     await expect(
       sheet.getByRole('button', { name: 'Support' })
     ).toHaveCount(0);
+    // Resolve needs a wallet — guests only get the read-only roster.
+    await expect(
+      sheet.getByRole('button', { name: 'Resolve' })
+    ).toHaveCount(0);
   });
+
 });

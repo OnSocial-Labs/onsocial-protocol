@@ -84,7 +84,7 @@ export function GuildProposalsSheet({
   );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingActions, setPendingActions] = useState<
-    Map<string, 'support' | 'oppose'>
+    Map<string, 'support' | 'oppose' | 'expire'>
   >(() => new Map());
   const retryTimersRef = useRef<number[]>([]);
 
@@ -291,6 +291,40 @@ export function GuildProposalsSheet({
     }
   };
 
+  const runExpire = async (proposal: Proposal) => {
+    setPendingActions((current) =>
+      new Map(current).set(proposal.id, 'expire')
+    );
+    try {
+      const { client } = await getClient();
+      const response = await client.groups.expireProposal(groupId, proposal.id);
+      const confirmed = await trackTransaction({
+        txHashes: collectRelayTxHashes(response),
+        submittedMessage: txToastConfirming.resolvingGuildProposal,
+        successMessage: txToastSuccess.guildProposalResolved,
+        failureMessage: txToastError.guildProposalResolveFailed,
+      });
+
+      if (confirmed) {
+        onResolved?.();
+        await refreshOneProposal(proposal.id);
+        scheduleProposalRetries(proposal.id);
+      }
+    } catch (cause) {
+      if (isWalletUserCancellation(cause)) return;
+      setTxResult({
+        type: 'error',
+        msg: txToastError.guildProposalResolveFailed,
+      });
+    } finally {
+      setPendingActions((current) => {
+        const next = new Map(current);
+        next.delete(proposal.id);
+        return next;
+      });
+    }
+  };
+
   const joinRequestCount = listActiveJoinRequestProposals(allProposals).length;
   const canVote = memberDriven && isMember;
   const profileIds = useMemo(() => {
@@ -382,6 +416,9 @@ export function GuildProposalsSheet({
                 profiles={profiles}
                 onSupport={() => void runVote(proposal, true)}
                 onOppose={() => void runVote(proposal, false)}
+                onExpire={
+                  accountId ? () => void runExpire(proposal) : undefined
+                }
               />
             ))}
           </OsProposalCardList>
