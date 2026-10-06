@@ -11,6 +11,7 @@
 // storage balances, sales), and post-upgrade functionality.
 
 use anyhow::Result;
+use near_workspaces::types::NearToken;
 use serde_json::json;
 
 use super::helpers::*;
@@ -337,5 +338,121 @@ async fn test_double_upgrade_succeeds() -> Result<()> {
     // Still functional
     let supply = nft_total_supply(&contract).await?;
     assert_eq!(supply, "0");
+    Ok(())
+}
+
+// =============================================================================
+// Dollar upgrade: pre-upgrade listings keep settling, dollar writes activate
+// =============================================================================
+
+#[tokio::test]
+async fn test_upgrade_then_preexisting_sale_purchases() -> Result<()> {
+    let worker = create_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+    let contract = deploy_scarces(&worker, &owner).await?;
+
+    // Seller lists a NEAR sale before the upgrade.
+    let seller = worker.dev_create_account().await?;
+    storage_deposit(&contract, &seller, None, DEPOSIT_LARGE)
+        .await?
+        .into_result()?;
+    execute_action(
+        &contract,
+        &seller,
+        json!({
+            "type": "quick_mint",
+            "metadata": { "title": "Listed before upgrade" },
+            "options": { "transferable": true, "burnable": true }
+        }),
+        DEPOSIT_STORAGE,
+    )
+    .await?
+    .into_result()?;
+    let tokens = nft_tokens_for_owner(&contract, seller.id().as_str(), None, None).await?;
+    let token_id = tokens[0].token_id.clone();
+    list_native_scarce(&contract, &seller, &token_id, PRICE_1_NEAR, DEPOSIT_STORAGE)
+        .await?
+        .into_result()?;
+
+    let wasm = read_scarces_wasm();
+    do_upgrade(&contract, &owner, &wasm).await?.into_result()?;
+
+    // The pre-upgrade listing still settles at its stored NEAR price.
+    let buyer = worker.dev_create_account().await?;
+    storage_deposit(&contract, &buyer, None, DEPOSIT_LARGE)
+        .await?
+        .into_result()?;
+    purchase_native_scarce(&contract, &buyer, &token_id, NearToken::from_near(1))
+        .await?
+        .into_result()?;
+
+    let token = nft_token(&contract, &token_id).await?.expect("token exists");
+    assert_eq!(token.owner_id.to_string(), buyer.id().to_string());
+    assert!(get_sale(&contract, &token_id).await?.is_none());
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_upgrade_then_dollar_writes_work() -> Result<()> {
+    let worker = create_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+    let contract = deploy_scarces(&worker, &owner).await?;
+
+    let wasm = read_scarces_wasm();
+    do_upgrade(&contract, &owner, &wasm).await?.into_result()?;
+
+    // Oracle config and the dollar sticker live under storage keys that did
+    // not exist before the upgrade.
+    owner
+        .call(contract.id(), "set_dollar_oracle")
+        .args_json(json!({
+            "oracle_contract": "oracle.testnet",
+            "asset_id": "wrap.near",
+            "max_age_seconds": 60,
+        }))
+        .deposit(ONE_YOCTO)
+        .transact()
+        .await?
+        .into_result()?;
+
+    let seller = worker.dev_create_account().await?;
+    storage_deposit(&contract, &seller, None, DEPOSIT_LARGE)
+        .await?
+        .into_result()?;
+    execute_action(
+        &contract,
+        &seller,
+        json!({
+            "type": "quick_mint",
+            "metadata": { "title": "Dollar after upgrade" },
+            "options": { "transferable": true, "burnable": true }
+        }),
+        DEPOSIT_STORAGE,
+    )
+    .await?
+    .into_result()?;
+    let tokens = nft_tokens_for_owner(&contract, seller.id().as_str(), None, None).await?;
+    let token_id = tokens[0].token_id.clone();
+    execute_action(
+        &contract,
+        &seller,
+        json!({
+            "type": "list_native_scarce",
+            "token_id": token_id,
+            "price": PRICE_1_NEAR,
+            "usd_e6": "5000000"
+        }),
+        DEPOSIT_STORAGE,
+    )
+    .await?
+    .into_result()?;
+
+    let sticker: Option<serde_json::Value> = contract
+        .view("get_dollar_price")
+        .args_json(json!({ "scope": "sale", "id": token_id }))
+        .await?
+        .json()?;
+    let sticker = sticker.expect("dollar sticker readable after upgrade");
+    assert_eq!(sticker["usd_e6"], "5000000");
     Ok(())
 }
