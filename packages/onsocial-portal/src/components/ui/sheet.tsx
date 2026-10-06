@@ -10,6 +10,7 @@ import {
 import {
   useEffect,
   useRef,
+  type FocusEvent as ReactFocusEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type RefObject,
@@ -19,6 +20,7 @@ import { createPortal } from 'react-dom';
 import { portalElevatedShadowClass } from '@/components/ui/floating-panel';
 import { useBodyScrollLock } from '@/hooks/use-body-scroll-lock';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
@@ -36,6 +38,34 @@ export const sheetShellClass =
 const DRAG_ACTIVATION_PX = 4;
 /** Release past this pull distance dismisses the drawer. */
 const DRAG_DISMISS_PX = 120;
+/** Breathing room kept above the drawer while the keyboard is open. */
+const KEYBOARD_TOP_INSET_PX = 12;
+/** Retry pass after the keyboard animation settles. */
+const KEYBOARD_SCROLL_RETRY_MS = 280;
+
+/**
+ * Keep a focused field visible above the mobile keyboard. Runs once
+ * immediately and once after the keyboard animation; body scroll is locked
+ * while a sheet is open, so only the sheet's own scroller moves.
+ */
+function scrollSheetFieldIntoView(element: HTMLElement) {
+  const run = () => {
+    if (document.activeElement !== element) return;
+    const viewport = window.visualViewport;
+    if (!viewport) {
+      element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+    const rect = element.getBoundingClientRect();
+    const topInset = viewport.offsetTop + 72;
+    const bottomInset = viewport.offsetTop + viewport.height - 96;
+    if (rect.top < topInset || rect.bottom > bottomInset) {
+      element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  };
+  window.requestAnimationFrame(run);
+  window.setTimeout(run, KEYBOARD_SCROLL_RETRY_MS);
+}
 
 export function Sheet({
   open,
@@ -63,6 +93,7 @@ export function Sheet({
   const reduceMotion = useReducedMotion();
   const isMobile = useIsMobile();
   useBodyScrollLock(open);
+  const viewport = useVisualViewportSheetMetrics(open && isMobile);
 
   /**
    * Single transform source for the mobile drawer: enter/exit animations,
@@ -119,6 +150,18 @@ export function Sheet({
     });
   };
 
+  const onPanelFocusCapture = (event: ReactFocusEvent<HTMLDivElement>) => {
+    if (!isMobile) return;
+    const target = event.target as HTMLElement;
+    if (
+      !/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) &&
+      !target.isContentEditable
+    ) {
+      return;
+    }
+    scrollSheetFieldIntoView(target);
+  };
+
   const panelMotion = isMobile
     ? {
         initial: { y: '100%', opacity: reduceMotion ? 0 : 1 },
@@ -159,7 +202,25 @@ export function Sheet({
             aria-modal="true"
             aria-labelledby={ariaLabelledby}
             aria-label={ariaLabelledby ? undefined : ariaLabel}
-            style={isMobile ? { y: panelY } : undefined}
+            onFocusCapture={onPanelFocusCapture}
+            style={
+              isMobile
+                ? {
+                    y: panelY,
+                    ...(viewport.lift > 0
+                      ? {
+                          // Ride above the keyboard; cap height to the
+                          // visible band so the grip/header stay on-screen.
+                          marginBottom: `calc(${viewport.lift}px - env(safe-area-inset-bottom, 0px))`,
+                          maxHeight: Math.max(
+                            240,
+                            viewport.height - KEYBOARD_TOP_INSET_PX
+                          ),
+                        }
+                      : {}),
+                  }
+                : undefined
+            }
             className={cn(
               sheetShellClass,
               portalElevatedShadowClass,
