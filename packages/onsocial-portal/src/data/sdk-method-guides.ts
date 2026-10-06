@@ -36,7 +36,7 @@ export const SDK_METHOD_GUIDES: SdkMethodGuide[] = [
       'Apps that need immediate post readback plus indexed discovery later.',
     ],
     buildOrder: [
-      'Auth: completeAppHandoff for a listed community site, or wallet + os.auth.setToken for a first-party app.',
+      'Auth: os.auth.completeAppHandoff for a listed community site, or wallet + os.auth.setToken for a first-party app.',
       'Write through os.profiles, os.posts, os.reactions, os.saves, os.standings, os.endorsements, or os.attestations.',
       'Read the exact path back with os.social.getOne or os.social.get immediately after the write.',
       'Use os.query.feed, os.query.threads, or other indexed helpers for product lists once the indexer catches up.',
@@ -434,12 +434,13 @@ const recentSales = await os.query.scarces.recentSales({ limit: 20 });`,
     ],
     primaryMethods: [
       'os.social.set(entries)',
-      'os.social.get/getOne/listKeys/countKeys/delete',
+      'os.social.get/getOne/listKeys/countKeys',
+      'Delete a path with os.social.set(path, null)',
       'buildPostSetData/buildReplySetData/buildGroupPostSetData',
       'os.execute(action, opts?)',
       'os.raw.social, os.raw.http, os.raw.execute',
       'os.query.raw.byAppId / byAppJsonContains',
-      'defaultBroadcast: { kind: "wallet" | "gateway" | "relayer" }',
+      "defaultBroadcast: 'gateway' | { kind: 'relayer', url } | { kind: 'wallet', signer }",
       'os.auth.setToken(token) for browser gateway auth after NEP-413 login',
     ],
     readMethods: [
@@ -484,7 +485,7 @@ const reply = await os.social.getOne('post/' + replyId, accountId);`,
       {
         title: 'Write and query a custom app item',
         description:
-          'No schema PR. List the tile, then completeAppHandoff on the dapp origin. Catch AppHandoffRedirect.',
+          'No schema PR. List the tile, then os.auth.completeAppHandoff on the dapp origin. Catch AppHandoffRedirect.',
         code: `const appId = 'playground';
 const itemId = Date.now().toString(36);
 const path = 'apps/' + appId + '/item/' + itemId;
@@ -523,9 +524,10 @@ const planned = await os.query.raw.byAppJsonContains(
     notes: [
       'Advanced APIs are powerful, but the high-level modules are the safer default for app teams.',
       'Batch only paths that belong to the same user intent and should succeed or fail together.',
+      'There is no os.social.delete: set a path to null to tombstone it. Direct reads treat it as gone immediately; indexed rows catch up on the next indexer pass.',
       'Use wait: true for writes where an on-chain revert must immediately stop follow-up work.',
       'Custom app JSON under apps/<appId> is queryable via byAppId. List the public tile on /onapi/apps.',
-      'Listed tiles and /handoff?app=&pk= grant apps/<appId>/ to the dapp-held key. Call completeAppHandoff({ osOrigin, appId }) on the dapp origin. First visit throws AppHandoffRedirect. Later visits restore a stored refresh token.',
+      'Listed tiles and /handoff?app=&pk= grant apps/<appId>/ to the dapp-held key. Call os.auth.completeAppHandoff({ osOrigin, appId }) on the dapp origin. First visit throws AppHandoffRedirect. Later visits restore a stored refresh token.',
     ],
     playgroundHref: '/playground?example=app-item-and-query',
   },
