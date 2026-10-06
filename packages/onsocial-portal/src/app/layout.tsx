@@ -17,6 +17,7 @@ import { PortalRewardsProvider } from '@/contexts/portal-rewards-context';
 import { Navigation } from '@/components/navigation/navigation';
 import { Footer } from '@/components/footer';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
+import { PORTAL_ORIGIN } from '@/lib/portal-origin';
 import { ONSOCIAL_BRAND_TAGLINE } from '@onsocial/ui';
 
 const isMainnet = ACTIVE_NEAR_NETWORK === 'mainnet';
@@ -26,6 +27,7 @@ const applicationName = isMainnet
 const description = ONSOCIAL_BRAND_TAGLINE;
 
 export const metadata: Metadata = {
+  metadataBase: new URL(PORTAL_ORIGIN),
   title: 'OnSocial Protocol - Decentralized Social Infrastructure',
   description,
   applicationName,
@@ -56,6 +58,13 @@ export const metadata: Metadata = {
     title: 'OnSocial Protocol',
     description,
     type: 'website',
+    siteName: applicationName,
+    url: '/',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'OnSocial Protocol',
+    description,
   },
 };
 

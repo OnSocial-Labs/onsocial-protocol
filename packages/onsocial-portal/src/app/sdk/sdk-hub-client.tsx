@@ -494,7 +494,7 @@ await os.social.set({
                       </div>
                     </div>
                   </div>
-                  <CodeBlock code={pkg.command} />
+                  <CodeBlock code={pkg.command} lang="bash" />
                 </div>
                 {pkg.href ? (
                   <a
