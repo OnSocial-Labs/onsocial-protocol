@@ -124,7 +124,7 @@ describe('feed-paint-hydrate', () => {
     ]);
   });
 
-  it('hydrateLazyScarceEmbedsForPosts uses one activeListings per creator', async () => {
+  it('hydrateLazyScarceEmbedsForPosts batches one activeListings by sourcePostPaths', async () => {
     const row: ScarcesActiveListingRow = {
       listingKey: 'lazy:ll:1',
       kind: 'lazy',
@@ -165,9 +165,9 @@ describe('feed-paint-hydrate', () => {
 
     expect(activeListings).toHaveBeenCalledTimes(1);
     expect(activeListings).toHaveBeenCalledWith({
-      sellerId: 'alice.near',
       kinds: ['lazy'],
-      limit: 40,
+      sourcePostPaths: ['alice.near/post/p1', 'alice.near/post/p2'],
+      limit: 8,
     });
     expect(map['alice.near/post/p1']).toMatchObject({
       status: 'lazy_listing',
@@ -307,9 +307,9 @@ describe('feed-paint-hydrate', () => {
     ]);
 
     expect(activeListings).toHaveBeenCalledWith({
-      sellerId: 'alice.near',
       kinds: ['native', 'auction'],
-      limit: 40,
+      tokenIds: ['s:post-1'],
+      limit: 1,
     });
     expect(map['alice.near/post/announce']).toMatchObject({
       status: 'listed',
