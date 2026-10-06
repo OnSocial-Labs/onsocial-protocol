@@ -220,35 +220,21 @@ export async function fetchDropFanRostersByCollectionIds(
   if (ids.length === 0) return byId;
   const os = client ?? createReadOnlyOnSocialClient();
 
-  try {
-    const rows =
-      await os.query.scarces.collectionLoveFanIdsByCollectionIds(ids);
-    mergeFanRosterRows(byId, rows);
-  } catch {
-    // View may not be tracked yet — fall through.
-  }
-
-  try {
-    const rows =
-      await os.query.scarces.collectionLoveFansByCollectionIds(ids);
-    mergeFanCountRows(byId, rows);
-  } catch {
-    // Fall through to legacy album views.
-  }
-
-  try {
-    const rows = await os.query.scarces.albumLoveFanIdsByCollectionIds(ids);
-    mergeFanRosterRows(byId, rows);
-  } catch {
-    // View may not be tracked yet — fall through to counts-only.
-  }
-
-  try {
-    const rows = await os.query.scarces.albumLoveFansByCollectionIds(ids);
-    mergeFanCountRows(byId, rows);
-  } catch {
-    // Best-effort — return partial map.
-  }
+  // Independent lanes (a view may not be tracked yet) — fire together,
+  // merge in preference order: roster rows before counts-only, current
+  // views before legacy album views.
+  const [loveFanIds, loveFans, albumFanIds, albumFans] = await Promise.all([
+    os.query.scarces
+      .collectionLoveFanIdsByCollectionIds(ids)
+      .catch(() => []),
+    os.query.scarces.collectionLoveFansByCollectionIds(ids).catch(() => []),
+    os.query.scarces.albumLoveFanIdsByCollectionIds(ids).catch(() => []),
+    os.query.scarces.albumLoveFansByCollectionIds(ids).catch(() => []),
+  ]);
+  mergeFanRosterRows(byId, loveFanIds);
+  mergeFanCountRows(byId, loveFans);
+  mergeFanRosterRows(byId, albumFanIds);
+  mergeFanCountRows(byId, albumFans);
 
   return byId;
 }
@@ -524,6 +510,7 @@ async function fetchSavedPage(
   const saves = await client.query.saves.list(viewer, {
     limit: 500,
     offset: 0,
+    contentPathContains: 'scarce/collection/',
   });
   const collectionIds = saves
     .map((row) => parseScarceCollectionSavePath(row.contentPath))

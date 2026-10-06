@@ -18,67 +18,69 @@ export async function loadProfileListAccounts(
   if (ids.length === 0) return [];
 
   const client = createReadOnlyOnSocialClient();
-  const rows = await client.query.profiles.statsForAccounts(ids);
+  const viewer = viewerAccountId?.trim() || '';
+  const targets = viewer
+    ? ids.filter((id) => !accountIdsEqual(id, viewer))
+    : [];
+
+  interface ViewerContext {
+    viewerOutgoing: Array<{ targetAccount: string }>;
+    viewerIncoming: Array<{ accountId: string }>;
+    viewerEndorsements: Array<{ issuer: string }>;
+    viewerOutgoingEndorsements: Array<{ target: string }>;
+  }
+
+  // Stats batch and viewer graph batch are independent — fire together.
+  const [rows, viewerRes] = await Promise.all([
+    client.query.profiles.statsForAccounts(ids),
+    targets.length > 0
+      ? client.query.graphql<ViewerContext>({
+          query: `query FansRosterViewerContext($viewer: String!, $pageAccountIds: [String!]!) {
+            viewerOutgoing: standingsCurrent(
+              where: {
+                accountId: {_eq: $viewer},
+                targetAccount: {_in: $pageAccountIds}
+              }
+            ) { targetAccount }
+            viewerIncoming: standingsCurrent(
+              where: {
+                targetAccount: {_eq: $viewer},
+                accountId: {_in: $pageAccountIds}
+              }
+            ) { accountId }
+            viewerEndorsements: endorsementsCurrent(
+              where: {
+                target: {_eq: $viewer},
+                issuer: {_in: $pageAccountIds},
+                operation: {_eq: "set"}
+              }
+            ) { issuer }
+            viewerOutgoingEndorsements: endorsementsCurrent(
+              where: {
+                issuer: {_eq: $viewer},
+                target: {_in: $pageAccountIds},
+                operation: {_eq: "set"}
+              }
+            ) { target }
+          }`,
+          variables: { viewer, pageAccountIds: targets },
+        })
+      : Promise.resolve(null),
+  ]);
   const byId = new Map(rows.map((row) => [row.accountId, row] as const));
 
-  let viewerOutgoing = new Set<string>();
-  let viewerIncoming = new Set<string>();
-  let endorsementIssuers = new Set<string>();
-  let endorsementTargets = new Set<string>();
-  const viewer = viewerAccountId?.trim() || '';
-  if (viewer) {
-    const targets = ids.filter((id) => !accountIdsEqual(id, viewer));
-    if (targets.length > 0) {
-      const res = await client.query.graphql<{
-        viewerOutgoing: Array<{ targetAccount: string }>;
-        viewerIncoming: Array<{ accountId: string }>;
-        viewerEndorsements: Array<{ issuer: string }>;
-        viewerOutgoingEndorsements: Array<{ target: string }>;
-      }>({
-        query: `query FansRosterViewerContext($viewer: String!, $pageAccountIds: [String!]!) {
-          viewerOutgoing: standingsCurrent(
-            where: {
-              accountId: {_eq: $viewer},
-              targetAccount: {_in: $pageAccountIds}
-            }
-          ) { targetAccount }
-          viewerIncoming: standingsCurrent(
-            where: {
-              targetAccount: {_eq: $viewer},
-              accountId: {_in: $pageAccountIds}
-            }
-          ) { accountId }
-          viewerEndorsements: endorsementsCurrent(
-            where: {
-              target: {_eq: $viewer},
-              issuer: {_in: $pageAccountIds},
-              operation: {_eq: "set"}
-            }
-          ) { issuer }
-          viewerOutgoingEndorsements: endorsementsCurrent(
-            where: {
-              issuer: {_eq: $viewer},
-              target: {_in: $pageAccountIds},
-              operation: {_eq: "set"}
-            }
-          ) { target }
-        }`,
-        variables: { viewer, pageAccountIds: targets },
-      });
-      viewerOutgoing = new Set(
-        (res.data?.viewerOutgoing ?? []).map((row) => row.targetAccount)
-      );
-      viewerIncoming = new Set(
-        (res.data?.viewerIncoming ?? []).map((row) => row.accountId)
-      );
-      endorsementIssuers = new Set(
-        (res.data?.viewerEndorsements ?? []).map((row) => row.issuer)
-      );
-      endorsementTargets = new Set(
-        (res.data?.viewerOutgoingEndorsements ?? []).map((row) => row.target)
-      );
-    }
-  }
+  const viewerOutgoing = new Set(
+    (viewerRes?.data?.viewerOutgoing ?? []).map((row) => row.targetAccount)
+  );
+  const viewerIncoming = new Set(
+    (viewerRes?.data?.viewerIncoming ?? []).map((row) => row.accountId)
+  );
+  const endorsementIssuers = new Set(
+    (viewerRes?.data?.viewerEndorsements ?? []).map((row) => row.issuer)
+  );
+  const endorsementTargets = new Set(
+    (viewerRes?.data?.viewerOutgoingEndorsements ?? []).map((row) => row.target)
+  );
 
   return ids.map((accountId) => {
     const row = byId.get(accountId);
