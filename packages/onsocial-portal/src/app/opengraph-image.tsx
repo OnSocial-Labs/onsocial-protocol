@@ -24,7 +24,7 @@ export default function OpengraphImage() {
         }}
       >
         <svg viewBox="0 0 672 672" width="170" height="170">
-          <path d={MARK_PATH} fill="#34d399" />
+          <path d={MARK_PATH} fill="#f8fafc" />
         </svg>
         <div
           style={{
@@ -46,6 +46,16 @@ export default function OpengraphImage() {
           </div>
           <div style={{ fontSize: 30, color: '#94a3b8' }}>
             {ONSOCIAL_BRAND_TAGLINE}
+          </div>
+          <div
+            style={{
+              fontSize: 24,
+              color: '#34d399',
+              letterSpacing: '0.08em',
+              marginTop: 10,
+            }}
+          >
+            portal.onsocial.id
           </div>
         </div>
       </div>
