@@ -451,7 +451,7 @@ fn purchase_native_refunds_open_token_offers() {
     mint_for_offer(&mut contract, &owner(), "t1");
     testing_env!(context(owner()).build());
     contract
-        .list_native_scarce(&owner(), "t1", U128(5_000), None)
+        .list_native_scarce(&owner(), "t1", U128(5_000), None, None)
         .unwrap();
     make_token_offer(&mut contract, buyer(), "t1", OFFER_YOCTO, None);
     make_token_offer(&mut contract, creator(), "t1", OFFER_YOCTO, None);
@@ -477,7 +477,7 @@ fn delist_does_not_refund_token_offers() {
     mint_for_offer(&mut contract, &owner(), "t1");
     testing_env!(context(owner()).build());
     contract
-        .list_native_scarce(&owner(), "t1", U128(5_000), None)
+        .list_native_scarce(&owner(), "t1", U128(5_000), None, None)
         .unwrap();
     make_token_offer(&mut contract, buyer(), "t1", OFFER_YOCTO, None);
 

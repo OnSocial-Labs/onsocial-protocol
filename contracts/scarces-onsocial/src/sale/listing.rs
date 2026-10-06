@@ -183,6 +183,7 @@ impl Contract {
         token_id: &str,
         price: U128,
         expires_at: Option<u64>,
+        usd_e6: Option<u128>,
     ) -> Result<(), MarketplaceError> {
         let token = self
             .scarces_by_id
@@ -251,19 +252,20 @@ impl Contract {
             return Err(e);
         }
 
-        events::emit_native_scarce_listed(
+        events::emit_native_scarce_listed(&events::NativeScarceListed {
             owner_id,
             token_id,
             price,
             expires_at,
-            events::ListingBrowseMeta {
+            browse: events::ListingBrowseMeta {
                 title: title.as_deref(),
                 media: media.as_deref(),
                 extra: extra.as_deref(),
             },
-            app_id.as_deref(),
-            &creator_id,
-        );
+            app_id: app_id.as_deref(),
+            creator_id: &creator_id,
+            usd_e6,
+        });
         Ok(())
     }
 
@@ -333,6 +335,7 @@ impl Contract {
         scarce_contract_id: &AccountId,
         token_id: &str,
         price: U128,
+        usd_e6: Option<u128>,
     ) -> Result<(), MarketplaceError> {
         let sale_id = Self::make_sale_id(scarce_contract_id, token_id);
         let sale = self
@@ -354,7 +357,14 @@ impl Contract {
         let mut sale = sale.clone();
         sale.sale_conditions = price;
         self.sales.insert(sale_id, sale);
-        events::emit_scarce_update_price(&owner_id, scarce_contract_id, token_id, old_price, price);
+        events::emit_scarce_update_price(
+            &owner_id,
+            scarce_contract_id,
+            token_id,
+            old_price,
+            price,
+            usd_e6,
+        );
         Ok(())
     }
 }

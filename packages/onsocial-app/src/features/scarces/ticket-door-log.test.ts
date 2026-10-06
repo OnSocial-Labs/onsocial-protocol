@@ -38,6 +38,7 @@ function redeemRow(
     marketplaceFee: null,
     appPoolAmount: null,
     creatorPayment: null,
+    usdE6: null,
     quantity: null,
     totalSupply: null,
     redeemCount: partial.redeemCount ?? null,

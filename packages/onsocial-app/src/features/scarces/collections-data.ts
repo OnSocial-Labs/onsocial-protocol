@@ -91,6 +91,8 @@ export interface CollectionView {
   mediaUrl: string | null;
   /** Display price per edition in NEAR (localized), or null when free. */
   priceNear: string | null;
+  /** Indexed dollar sticker in millionths. Empty when the ask is NEAR. */
+  usdE6?: string | null;
   /** Ask per edition in yoctoNEAR (buy deposit), '0' when free. */
   priceYocto: string;
   totalSupply: number;
@@ -779,6 +781,7 @@ export function collectionCurrentRowToView(row: {
   creatorId: string;
   appId: string | null;
   price: string | null;
+  usdE6?: string | null;
   allowlistPrice: string | null;
   totalSupply: number;
   mintedCount: number;
@@ -837,7 +840,7 @@ export function collectionCurrentRowToView(row: {
     });
   }
 
-  return toCollectionView({
+  const view = toCollectionView({
     collection_id: row.collectionId,
     creator_id: row.creatorId,
     total_supply: row.totalSupply,
@@ -862,6 +865,9 @@ export function collectionCurrentRowToView(row: {
     random_assignment: row.randomAssignment,
     royalty,
   });
+  if (!view) return null;
+  const usdE6 = row.usdE6?.trim();
+  return usdE6 ? { ...view, usdE6 } : view;
 }
 
 /** One collection record from the contract, or null when missing. */

@@ -118,6 +118,9 @@ export function usePostScarceEmbed(
             status: 'lazy_listing',
             listingId: livePrimary.listingId,
             priceNear: livePrimary.priceNear,
+            ...(livePrimary.usdE6?.trim()
+              ? { usdE6: livePrimary.usdE6.trim() }
+              : {}),
             ...(livePrimary.mediaUrl ? { mediaUrl: livePrimary.mediaUrl } : {}),
             ...(livePrimary.cardBg ? { cardBg: livePrimary.cardBg } : {}),
             ...(livePrimary.copies != null
@@ -134,6 +137,9 @@ export function usePostScarceEmbed(
               status: 'lazy_listing',
               listingId: livePrimary.listingId,
               priceNear: livePrimary.priceNear,
+              ...(livePrimary.usdE6?.trim()
+                ? { usdE6: livePrimary.usdE6.trim() }
+                : {}),
               ...(livePrimary.mediaUrl
                 ? { mediaUrl: livePrimary.mediaUrl }
                 : {}),

@@ -127,7 +127,7 @@ export function usePostTokenEmbed(
           if (hit?.kind === 'native' && hit.tokenId) {
             const listPrice = priceNearFromYocto(hit.price);
             const mediaUrl = hit.media?.trim()
-              ? resolveScarceMediaUrl(hit.media.trim()) ?? hit.media.trim()
+              ? (resolveScarceMediaUrl(hit.media.trim()) ?? hit.media.trim())
               : undefined;
             if (!cancelled && hit.title?.trim()) {
               setDropTitle(hit.title.trim());
@@ -140,6 +140,7 @@ export function usePostTokenEmbed(
                 ? { listingId: hit.listingId.trim() }
                 : {}),
               ...(listPrice ? { priceNear: listPrice } : {}),
+              ...(hit.usdE6?.trim() ? { usdE6: hit.usdE6.trim() } : {}),
               ...(mediaUrl ? { mediaUrl } : {}),
               ...(hit.mediumKind?.trim()
                 ? { mediumKind: hit.mediumKind.trim().toLowerCase() }
@@ -150,7 +151,7 @@ export function usePostTokenEmbed(
               hit.highestBid ?? hit.reservePrice
             );
             const mediaUrl = hit.media?.trim()
-              ? resolveScarceMediaUrl(hit.media.trim()) ?? hit.media.trim()
+              ? (resolveScarceMediaUrl(hit.media.trim()) ?? hit.media.trim())
               : undefined;
             if (!cancelled && hit.title?.trim()) {
               setDropTitle(hit.title.trim());
@@ -183,14 +184,7 @@ export function usePostTokenEmbed(
     return () => {
       cancelled = true;
     };
-  }, [
-    shouldFetch,
-    key,
-    parsed?.tokenId,
-    post.accountId,
-    post.value,
-    retryKey,
-  ]);
+  }, [shouldFetch, key, parsed?.tokenId, post.accountId, post.value, retryKey]);
 
   useEffect(() => {
     if (!override || !shouldFetch) return;
@@ -210,21 +204,18 @@ export function usePostTokenEmbed(
       ? paintToTokenEmbed(parsed.tokenId, paint)
       : null;
   const baseline =
-    fetchedKey === key && fetched != null
-      ? fetched
-      : (seed ?? paintBaseline);
+    fetchedKey === key && fetched != null ? fetched : (seed ?? paintBaseline);
   const embed = enabled ? resolveScarceEmbed(key, baseline) : null;
 
-  const status: PostScarceEmbedStatus =
-    !enabled
-      ? 'idle'
-      : fetchedKey === key || seed != null || paintBaseline != null
-        ? 'ready'
-        : errorKey === key
-          ? 'error'
-          : shouldFetch
-            ? 'loading'
-            : 'idle';
+  const status: PostScarceEmbedStatus = !enabled
+    ? 'idle'
+    : fetchedKey === key || seed != null || paintBaseline != null
+      ? 'ready'
+      : errorKey === key
+        ? 'error'
+        : shouldFetch
+          ? 'loading'
+          : 'idle';
 
   return {
     rootRef,

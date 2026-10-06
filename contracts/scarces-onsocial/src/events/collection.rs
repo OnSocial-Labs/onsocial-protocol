@@ -105,6 +105,8 @@ pub struct CollectionPurchase<'a> {
     pub token_ids: &'a [String],
     pub minted_count: u32,
     pub remaining: u32,
+    /// Dollar sticker the mint settled against, when it had one.
+    pub usd_e6: Option<u128>,
 }
 
 pub fn emit_collection_purchase(e: &CollectionPurchase) {
@@ -122,6 +124,7 @@ pub fn emit_collection_purchase(e: &CollectionPurchase) {
         .field("token_ids", e.token_ids)
         .field("minted_count", e.minted_count)
         .field("remaining", e.remaining)
+        .field_opt("usd_e6", e.usd_e6)
         .emit();
 }
 
@@ -307,11 +310,13 @@ pub fn emit_collection_price_updated(
     collection_id: &str,
     old_price: U128,
     new_price: U128,
+    usd_e6: Option<u128>,
 ) {
     EventBuilder::new(COLLECTION, "price_update", actor_id)
         .field("collection_id", collection_id)
         .field("old_price", old_price)
         .field("new_price", new_price)
+        .field_opt("usd_e6", usd_e6)
         .emit();
 }
 

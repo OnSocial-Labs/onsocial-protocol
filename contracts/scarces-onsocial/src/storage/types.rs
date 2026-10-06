@@ -42,6 +42,8 @@ pub enum StorageKey {
     SaleCreatedAt,
     CollectionSeatPool,
     TokenOfferCounts,
+    DollarPrices,
+    DollarOracle,
 }
 
 #[near(serializers = [borsh, json])]

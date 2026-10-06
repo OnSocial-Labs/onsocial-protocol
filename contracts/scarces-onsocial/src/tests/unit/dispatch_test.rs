@@ -104,6 +104,8 @@ fn dispatch_list_native_scarce() {
         token_id: tid.clone(),
         price: U128(5_000),
         expires_at: None,
+        usd_e6: None,
+        min_near: None,
     };
     let result = contract.dispatch_action(action, &buyer()).unwrap();
     assert!(result.is_null());
@@ -139,7 +141,7 @@ fn dispatch_delist_native_scarce() {
     };
     let tid = contract.quick_mint(&buyer(), metadata, options).unwrap();
     contract
-        .list_native_scarce(&buyer(), &tid, U128(5_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(5_000), None, None)
         .unwrap();
 
     let action = Action::DelistNativeScarce {
@@ -263,7 +265,11 @@ fn dispatch_create_lazy_listing_returns_id() {
         expires_at: None,
         max_per_purchase: 1,
     };
-    let action = Action::CreateLazyListing { params };
+    let action = Action::CreateLazyListing {
+        params,
+        usd_e6: None,
+        min_near: None,
+    };
     let result = contract.dispatch_action(action, &creator()).unwrap();
     assert!(result.is_string());
     assert!(result.as_str().unwrap().starts_with("ll:"));
@@ -354,6 +360,8 @@ fn dispatch_list_nonexistent_token_forwards_error() {
         token_id: "nonexistent".to_string(),
         price: U128(1_000),
         expires_at: None,
+        usd_e6: None,
+        min_near: None,
     };
     let err = contract.dispatch_action(action, &buyer()).unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
@@ -423,7 +431,7 @@ fn dispatch_update_price() {
     };
     let tid = contract.quick_mint(&buyer(), metadata, options).unwrap();
     contract
-        .list_native_scarce(&buyer(), &tid, U128(5_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(5_000), None, None)
         .unwrap();
 
     let mkt: AccountId = "marketplace.near".parse().unwrap();
@@ -431,6 +439,8 @@ fn dispatch_update_price() {
         scarce_contract_id: mkt.clone(),
         token_id: tid.clone(),
         price: U128(8_000),
+        usd_e6: None,
+        min_near: None,
     };
     contract.dispatch_action(action, &buyer()).unwrap();
 
@@ -468,7 +478,7 @@ fn execute_purchase_native_scarce_happy() {
     };
     let tid = contract.quick_mint(&buyer(), metadata, options).unwrap();
     contract
-        .list_native_scarce(&buyer(), &tid, U128(5_000), None)
+        .list_native_scarce(&buyer(), &tid, U128(5_000), None, None)
         .unwrap();
 
     testing_env!(context_with_deposit(creator(), 10_000).build());
@@ -514,7 +524,9 @@ fn execute_purchase_lazy_listing_happy() {
         expires_at: None,
         max_per_purchase: 1,
     };
-    let listing_id = contract.create_lazy_listing(&creator(), params).unwrap();
+    let listing_id = contract
+        .create_lazy_listing(&creator(), params, None)
+        .unwrap();
 
     testing_env!(context_with_deposit(buyer(), 10_000).build());
     let result = contract
@@ -561,7 +573,9 @@ fn execute_purchase_lazy_listing_multi_copy() {
         expires_at: None,
         max_per_purchase: 1,
     };
-    let listing_id = contract.create_lazy_listing(&creator(), params).unwrap();
+    let listing_id = contract
+        .create_lazy_listing(&creator(), params, None)
+        .unwrap();
     let created = contract.lazy_listings.get(&listing_id).unwrap();
     assert_eq!(created.minted_count, 0);
     assert_eq!(crate::lazy_listing::remaining_editions(created), 3);
@@ -629,7 +643,9 @@ fn execute_purchase_lazy_listing_batch() {
         expires_at: None,
         max_per_purchase: 3,
     };
-    let listing_id = contract.create_lazy_listing(&creator(), params).unwrap();
+    let listing_id = contract
+        .create_lazy_listing(&creator(), params, None)
+        .unwrap();
 
     testing_env!(context_with_deposit(buyer(), 10_000).build());
     let result = contract

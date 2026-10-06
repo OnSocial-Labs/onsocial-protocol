@@ -121,15 +121,15 @@ impl Contract {
         self.app_pool_ids.insert(app_id.clone());
 
         if let Some(p) = self.app_pools.get(&app_id) {
-            events::emit_app_pool_register(
-                actor_id,
-                &app_id,
+            events::emit_app_pool_register(&events::AppPoolRegister {
+                owner_id: actor_id,
+                app_id: &app_id,
                 initial_balance,
-                p.primary_sale_bps,
-                p.effective_creator_access().as_str(),
-                p.curated,
-                p.metadata.as_deref(),
-            );
+                primary_sale_bps: p.primary_sale_bps,
+                creator_access: p.effective_creator_access().as_str(),
+                curated: p.curated,
+                metadata: p.metadata.as_deref(),
+            });
         }
         Ok(())
     }

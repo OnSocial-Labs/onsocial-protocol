@@ -3,24 +3,26 @@ use near_sdk::AccountId;
 use super::APP_POOL;
 use super::builder::EventBuilder;
 
-#[allow(clippy::too_many_arguments)]
-pub fn emit_app_pool_register(
-    owner_id: &AccountId,
-    app_id: &str,
-    initial_balance: u128,
-    primary_sale_bps: u16,
-    creator_access: &str,
-    curated: bool,
-    metadata: Option<&str>,
-) {
-    EventBuilder::new(APP_POOL, "register", owner_id)
-        .field("owner_id", owner_id)
-        .field("app_id", app_id)
-        .field("initial_balance", initial_balance)
-        .field("primary_sale_bps", primary_sale_bps as u32)
-        .field("creator_access", creator_access)
-        .field("curated", curated)
-        .field_opt("metadata", metadata)
+/// App pool registration. `creator_access` is the resolved access mode.
+pub struct AppPoolRegister<'a> {
+    pub owner_id: &'a AccountId,
+    pub app_id: &'a str,
+    pub initial_balance: u128,
+    pub primary_sale_bps: u16,
+    pub creator_access: &'a str,
+    pub curated: bool,
+    pub metadata: Option<&'a str>,
+}
+
+pub fn emit_app_pool_register(e: &AppPoolRegister) {
+    EventBuilder::new(APP_POOL, "register", e.owner_id)
+        .field("owner_id", e.owner_id)
+        .field("app_id", e.app_id)
+        .field("initial_balance", e.initial_balance)
+        .field("primary_sale_bps", e.primary_sale_bps as u32)
+        .field("creator_access", e.creator_access)
+        .field("curated", e.curated)
+        .field_opt("metadata", e.metadata)
         .emit();
 }
 

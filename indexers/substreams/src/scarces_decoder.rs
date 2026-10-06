@@ -66,6 +66,7 @@ pub fn decode_scarces_event(
         app_commission: str_field(data, "app_commission"),
         creator_payment: str_field(data, "creator_payment"),
         revenue: str_field(data, "revenue"),
+        usd_e6: str_field(data, "usd_e6"),
         new_balance: str_field(data, "new_balance"),
         initial_balance: str_field(data, "initial_balance"),
         refunded_amount: str_field_any(data, &["refunded_amount", "refund_amount"]),

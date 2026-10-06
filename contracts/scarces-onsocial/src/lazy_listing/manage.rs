@@ -5,6 +5,7 @@ impl Contract {
         &mut self,
         creator_id: &AccountId,
         params: LazyListing,
+        usd_e6: Option<u128>,
     ) -> Result<String, MarketplaceError> {
         let LazyListing {
             mut metadata,
@@ -107,21 +108,22 @@ impl Contract {
             return Err(e);
         }
 
-        events::emit_lazy_listing_created(
+        events::emit_lazy_listing_created(&events::LazyListingCreated {
             creator_id,
-            &listing_id,
+            listing_id: &listing_id,
             price,
             copies,
             max_per_purchase,
             expires_at,
-            events::ListingBrowseMeta {
+            browse: events::ListingBrowseMeta {
                 title: title.as_deref(),
                 media: media.as_deref(),
                 extra: extra.as_deref(),
             },
-            listing_app_id.as_deref(),
+            app_id: listing_app_id.as_deref(),
             app_commission_bps,
-        );
+            usd_e6,
+        });
         Ok(listing_id)
     }
 
@@ -200,6 +202,7 @@ impl Contract {
         actor_id: &AccountId,
         listing_id: &str,
         new_price: u128,
+        usd_e6: Option<u128>,
     ) -> Result<(), MarketplaceError> {
         let creator_id = self
             .lazy_listings
@@ -219,7 +222,13 @@ impl Contract {
         listing.price = near_sdk::json_types::U128(new_price);
         self.lazy_listings.insert(listing_id.to_string(), listing);
 
-        events::emit_lazy_listing_price_updated(&creator_id, listing_id, old_price, new_price);
+        events::emit_lazy_listing_price_updated(
+            &creator_id,
+            listing_id,
+            old_price,
+            new_price,
+            usd_e6,
+        );
         Ok(())
     }
 }

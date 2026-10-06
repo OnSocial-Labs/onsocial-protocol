@@ -23,7 +23,9 @@ const list = actionHandlers(
   (b) =>
     buildListNativeScarceAction({
       tokenId: String(b.tokenId || ''),
-      priceNear: String(b.priceNear || ''),
+      priceNear: b.priceNear != null ? String(b.priceNear) : undefined,
+      priceUsd: b.priceUsd != null ? String(b.priceUsd) : undefined,
+      minNear: b.minNear != null ? String(b.minNear) : undefined,
       expiresAt: b.expiresAt != null ? Number(b.expiresAt) : undefined,
       targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
     }),

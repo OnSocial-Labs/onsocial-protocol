@@ -543,7 +543,7 @@ SQLEOF
 
     validate_scarces_catalog_upgrade_shape() {
       db="$1"
-      for column_name in price_numeric app_id medium_kind audio_format facets; do
+      for column_name in price_numeric app_id medium_kind audio_format facets usd_e6; do
         exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
           SELECT EXISTS (
             SELECT 1
@@ -559,7 +559,7 @@ SQLEOF
         fi
       done
 
-      for column_name in medium_kind source_post_path; do
+      for column_name in medium_kind source_post_path usd_e6; do
         exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
           SELECT EXISTS (
             SELECT 1

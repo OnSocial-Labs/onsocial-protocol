@@ -49,6 +49,32 @@ describe('buildListNativeScarceAction', () => {
     ).toThrow(ComposeError);
   });
 
+  it('stores a dollar sticker and a 1 yocto NEAR floor', () => {
+    const result = buildListNativeScarceAction({
+      tokenId: 's:1',
+      priceUsd: '50',
+    });
+    expect(result.action).toEqual({
+      type: 'list_native_scarce',
+      token_id: 's:1',
+      price: '1',
+      usd_e6: '50000000',
+    });
+  });
+
+  it('keeps a seller minimum when the sticker is in dollars', () => {
+    const result = buildListNativeScarceAction({
+      tokenId: 's:1',
+      priceUsd: '12.50',
+      minNear: '1',
+    });
+    expect(result.action).toMatchObject({
+      usd_e6: '12500000',
+      min_near: '1000000000000000000000000',
+      price: '1000000000000000000000000',
+    });
+  });
+
   it('throws on missing priceNear', () => {
     expect(() =>
       buildListNativeScarceAction({ tokenId: 's:1', priceNear: '' })

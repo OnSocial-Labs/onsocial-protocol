@@ -11,6 +11,7 @@ pub mod unit {
     pub mod collection_purchase_test;
     pub mod collections_test;
     pub mod dispatch_test;
+    pub mod dollar_test;
     pub mod fee_routing_test;
     pub mod fees_test;
     pub mod guards_test;

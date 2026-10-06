@@ -43,6 +43,8 @@ fn create_listing(contract: &mut Contract) -> String {
     testing_env!(context(creator()).build());
     let action = Action::CreateLazyListing {
         params: make_lazy_listing_params(5_000),
+        usd_e6: None,
+        min_near: None,
     };
     contract
         .execute(make_request(action))
@@ -79,7 +81,11 @@ fn create_listing_with_app(contract: &mut Contract) -> String {
         expires_at: None,
         max_per_purchase: 1,
     };
-    let action = Action::CreateLazyListing { params };
+    let action = Action::CreateLazyListing {
+        params,
+        usd_e6: None,
+        min_near: None,
+    };
     contract
         .execute(make_request(action))
         .unwrap()

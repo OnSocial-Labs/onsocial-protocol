@@ -62,6 +62,7 @@ message ScarcesEvent {
   string app_commission = 26;
   string creator_payment = 112;
   string revenue = 27;
+  string usd_e6 = 116;          // dollar sticker on list/purchase events
   string new_balance = 28;
   string initial_balance = 113;
   string refunded_amount = 29;

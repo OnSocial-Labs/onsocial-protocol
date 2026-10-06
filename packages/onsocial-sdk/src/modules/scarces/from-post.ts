@@ -269,6 +269,8 @@ export interface PostScarceEmbed {
   auctionId?: string;
   /** Current asking / bid price in NEAR (string, decimal). */
   priceNear?: string;
+  /** Indexed dollar sticker in millionths. Empty when the ask is NEAR. */
+  usdE6?: string;
   /** Edition size when known (NEP-177 copies / Drop total supply). */
   copies?: number;
   /** Unsold editions still on the live lazy listing or Drop. */

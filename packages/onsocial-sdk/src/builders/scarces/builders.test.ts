@@ -302,6 +302,20 @@ describe('scarces builders — collections', () => {
 });
 
 describe('scarces builders — market', () => {
+  it('list_native_scarce stores a dollar sticker beside a NEAR floor', () => {
+    expect(
+      buildListNativeScarceAction({
+        tokenId: '1',
+        priceUsd: '50',
+      })
+    ).toEqual({
+      type: 'list_native_scarce',
+      token_id: '1',
+      price: '1',
+      usd_e6: '50000000',
+    });
+  });
+
   it('list_native_scarce encodes price + optional expires_at', () => {
     expect(
       buildListNativeScarceAction({

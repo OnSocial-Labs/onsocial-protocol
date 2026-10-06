@@ -15,10 +15,7 @@ export function postScarceKey(accountId: string, postId: string): string {
   return `${accountId}/post/${postId}`;
 }
 
-function scarceSeedPaintEqual(
-  a: PostScarceEmbed,
-  b: PostScarceEmbed
-): boolean {
+function scarceSeedPaintEqual(a: PostScarceEmbed, b: PostScarceEmbed): boolean {
   return (
     a.status === b.status &&
     a.listingId === b.listingId &&
@@ -212,6 +209,7 @@ export function resolveScarceEmbed(
       listingId: override.listingId ?? fetched.listingId,
       tokenId: override.tokenId ?? fetched.tokenId,
       priceNear: override.priceNear ?? fetched.priceNear,
+      usdE6: override.usdE6 ?? fetched.usdE6,
       cardBg: override.cardBg ?? (sameListing ? fetched.cardBg : undefined),
       mediaUrl:
         override.mediaUrl ?? (sameListing ? fetched.mediaUrl : undefined),
@@ -236,6 +234,7 @@ export function resolveScarceEmbed(
       appId: override.appId ?? fetched.appId,
       seriesId: override.seriesId ?? fetched.seriesId,
       priceNear: override.priceNear ?? fetched.priceNear,
+      usdE6: override.usdE6 ?? fetched.usdE6,
       mediaUrl: override.mediaUrl ?? (sameDrop ? fetched.mediaUrl : undefined),
       copies: override.copies ?? fetched.copies,
       remaining: override.remaining ?? fetched.remaining,

@@ -12,30 +12,35 @@ pub struct ListingBrowseMeta<'a> {
     pub extra: Option<&'a str>,
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn emit_lazy_listing_created(
-    creator_id: &AccountId,
-    listing_id: &str,
-    price: u128,
-    copies: u64,
-    max_per_purchase: u32,
-    expires_at: Option<u64>,
-    browse: ListingBrowseMeta<'_>,
-    app_id: Option<&str>,
-    app_commission_bps: u16,
-) {
-    EventBuilder::new(LAZY_LISTING, "created", creator_id)
-        .field("creator_id", creator_id)
-        .field("listing_id", listing_id)
-        .field("price", price)
-        .field("copies", copies)
-        .field("max_per_purchase", max_per_purchase)
-        .field_opt("title", browse.title)
-        .field_opt("media", browse.media)
-        .field_opt("extra", browse.extra)
-        .field_opt("expires_at", expires_at)
-        .field_opt("app_id", app_id)
-        .field("app_commission_bps", app_commission_bps as u32)
+/// Primary-sale lazy listing. `browse` feeds the Market catalog.
+pub struct LazyListingCreated<'a> {
+    pub creator_id: &'a AccountId,
+    pub listing_id: &'a str,
+    pub price: u128,
+    pub copies: u64,
+    pub max_per_purchase: u32,
+    pub expires_at: Option<u64>,
+    pub browse: ListingBrowseMeta<'a>,
+    pub app_id: Option<&'a str>,
+    pub app_commission_bps: u16,
+    /// Dollar sticker in millionths. Empty when the ask is NEAR.
+    pub usd_e6: Option<u128>,
+}
+
+pub fn emit_lazy_listing_created(e: &LazyListingCreated) {
+    EventBuilder::new(LAZY_LISTING, "created", e.creator_id)
+        .field("creator_id", e.creator_id)
+        .field("listing_id", e.listing_id)
+        .field("price", e.price)
+        .field("copies", e.copies)
+        .field("max_per_purchase", e.max_per_purchase)
+        .field_opt("title", e.browse.title)
+        .field_opt("media", e.browse.media)
+        .field_opt("extra", e.browse.extra)
+        .field_opt("expires_at", e.expires_at)
+        .field_opt("app_id", e.app_id)
+        .field("app_commission_bps", e.app_commission_bps as u32)
+        .field_opt("usd_e6", e.usd_e6)
         .emit();
 }
 
@@ -56,6 +61,8 @@ pub struct LazyListingPurchase<'a> {
     pub token_ids: &'a [String],
     pub minted_count: u32,
     pub remaining: u32,
+    /// Dollar sticker the mint settled against, when it had one.
+    pub usd_e6: Option<u128>,
 }
 
 pub fn emit_lazy_listing_purchased(e: &LazyListingPurchase) {
@@ -76,7 +83,8 @@ pub fn emit_lazy_listing_purchased(e: &LazyListingPurchase) {
         .field_opt("app_id", e.app_id)
         .field("token_ids", e.token_ids)
         .field("minted_count", e.minted_count)
-        .field("remaining", e.remaining);
+        .field("remaining", e.remaining)
+        .field_opt("usd_e6", e.usd_e6);
     // Back-compat: single-edition buys still expose `token_id`.
     if let Some(token_id) = e.token_ids.first() {
         builder = builder.field("token_id", token_id);
@@ -116,10 +124,12 @@ pub fn emit_lazy_listing_price_updated(
     listing_id: &str,
     old_price: u128,
     new_price: u128,
+    usd_e6: Option<u128>,
 ) {
     EventBuilder::new(LAZY_LISTING, "price_updated", creator_id)
         .field("listing_id", listing_id)
         .field("old_price", old_price)
         .field("new_price", new_price)
+        .field_opt("usd_e6", usd_e6)
         .emit();
 }

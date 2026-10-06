@@ -77,6 +77,8 @@ fn update_collection_price_happy() {
         .execute(make_request(Action::UpdateCollectionPrice {
             collection_id: "col1".to_string(),
             new_price_near: U128(2_000_000_000_000_000_000_000_000),
+            usd_e6: None,
+            min_near: None,
         }))
         .unwrap();
 
@@ -93,6 +95,8 @@ fn update_collection_price_non_creator_fails() {
         .execute(make_request(Action::UpdateCollectionPrice {
             collection_id: "col1".to_string(),
             new_price_near: U128(2_000),
+            usd_e6: None,
+            min_near: None,
         }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
@@ -107,6 +111,8 @@ fn update_collection_price_not_found_fails() {
         .execute(make_request(Action::UpdateCollectionPrice {
             collection_id: "nope".to_string(),
             new_price_near: U128(1_000),
+            usd_e6: None,
+            min_near: None,
         }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));

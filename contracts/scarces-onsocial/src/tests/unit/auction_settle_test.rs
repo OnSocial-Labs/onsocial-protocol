@@ -145,6 +145,8 @@ fn delist_scarce_wrong_owner_fails() {
             token_id: tid.clone(),
             price: U128(1_000),
             expires_at: None,
+            usd_e6: None,
+            min_near: None,
         }))
         .unwrap();
 
@@ -169,6 +171,8 @@ fn delist_scarce_happy() {
             token_id: tid.clone(),
             price: U128(1_000),
             expires_at: None,
+            usd_e6: None,
+            min_near: None,
         }))
         .unwrap();
 

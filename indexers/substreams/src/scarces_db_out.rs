@@ -65,6 +65,7 @@ pub(crate) fn write_scarces_event(tables: &mut Tables, e: &ScarcesEvent) {
     row.set("app_commission", &e.app_commission);
     row.set("creator_payment", &e.creator_payment);
     row.set("revenue", &e.revenue);
+    row.set("usd_e6", &e.usd_e6);
     row.set("new_balance", &e.new_balance);
     row.set("initial_balance", &e.initial_balance);
     row.set("refunded_amount", &e.refunded_amount);
@@ -157,6 +158,15 @@ fn json_str(data: &Value, key: &str) -> Option<String> {
         Value::Number(n) => Some(n.to_string()),
         _ => None,
     })
+}
+
+/// Indexed dollar sticker (`usd_e6`). Empty when the ask stays in NEAR so a
+/// relist clears a previous sticker on upsert.
+fn dollar_sticker_column(data: &Value) -> String {
+    match json_str(data, "usd_e6") {
+        Some(raw) if raw != "0" && raw.chars().all(|c| c.is_ascii_digit()) => raw,
+        _ => String::new(),
+    }
 }
 
 fn json_u32(data: &Value, key: &str) -> Option<u32> {
@@ -395,6 +405,7 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                 if let Some(price) = non_empty(&e.price) {
                     row.set("price", price);
                 }
+                row.set("usd_e6", dollar_sticker_column(&data));
                 row.set("copies", copies);
                 row.set("remaining", copies);
                 row.set("minted_count", 0u32);
@@ -421,6 +432,7 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                 if let Some(price) = non_empty(&e.new_price).or_else(|| non_empty(&e.price)) {
                     row.set("price", price);
                 }
+                row.set("usd_e6", dollar_sticker_column(&data));
             }
             set_updated(tables, &key, e);
         }
@@ -493,6 +505,7 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                 if let Some(price) = non_empty(&e.price) {
                     row.set("price", price);
                 }
+                row.set("usd_e6", dollar_sticker_column(&data));
                 if e.expires_at > 0 {
                     row.set("expires_at", e.expires_at);
                 } else if let Some(exp) = json_u64(&data, "expires_at") {
@@ -533,6 +546,7 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                     row.set("reserve_price", reserve);
                     row.set("price", reserve);
                 }
+                row.set("usd_e6", "");
                 if let Some(buy_now) = non_empty(&e.buy_now_price) {
                     row.set("buy_now_price", buy_now);
                 }
@@ -581,16 +595,13 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                 if let Some(price) = non_empty(&e.new_price) {
                     row.set("price", price);
                 }
+                row.set("usd_e6", dollar_sticker_column(&data));
             }
             set_updated(tables, &key, e);
         }
         (
             "SCARCE_UPDATE",
-            "delist_native"
-            | "auto_delist"
-            | "purchase"
-            | "auction_settled"
-            | "auction_cancelled",
+            "delist_native" | "auto_delist" | "purchase" | "auction_settled" | "auction_cancelled",
         ) => {
             if let Some(token_id) = non_empty(&e.token_id) {
                 tables.delete_row("scarces_active_listings", native_key(token_id));
@@ -812,8 +823,7 @@ fn collection_source_post_path(data: &Value) -> Option<String> {
         return Some(path);
     }
     let extra = collection_extra_blob(data)?;
-    if let Some(path) =
-        json_str(&extra, "postPath").or_else(|| json_str(&extra, "sourcePostPath"))
+    if let Some(path) = json_str(&extra, "postPath").or_else(|| json_str(&extra, "sourcePostPath"))
     {
         return Some(path);
     }
@@ -868,9 +878,7 @@ fn set_collection_browse(tables: &mut Tables, collection_id: &str, data: &Value)
                 Some(key)
             }
         })
-        .or_else(|| {
-            collection_extra_blob(data).and_then(|extra| medium_kind_from_extra(&extra))
-        });
+        .or_else(|| collection_extra_blob(data).and_then(|extra| medium_kind_from_extra(&extra)));
     if let Some(medium) = medium {
         row.set("medium_kind", medium);
     }
@@ -993,6 +1001,7 @@ pub(crate) fn apply_collections_current(tables: &mut Tables, e: &ScarcesEvent) {
                 if !price.is_empty() {
                     row.set("price", price);
                 }
+                row.set("usd_e6", dollar_sticker_column(&data));
             }
             set_collection_updated(tables, collection_id, e);
         }

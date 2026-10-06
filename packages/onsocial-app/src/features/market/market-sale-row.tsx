@@ -9,6 +9,7 @@ import {
   marketPostLayerLinkHandlers,
   useMarketPostLayer,
 } from '@/features/market/market-post-layer';
+import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 
@@ -40,8 +41,9 @@ export function MarketSaleRow({ sale, soldTo = false }: MarketSaleRowProps) {
   ) : (
     sale.title
   );
+  const sticker = dollarStickerLabel(sale.usdE6);
   const price = sale.priceNear?.trim()
-    ? `${sale.priceNear.trim()} NEAR`
+    ? `${sticker ? `${sticker} · ` : ''}${sale.priceNear.trim()} NEAR`
     : null;
 
   return (

@@ -6,6 +6,7 @@ import { DropFansButton } from '@/components/drops/drop-row-fans';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { DropsDiscoveryRowMenu } from '@/features/drops/drops-discovery-row-menu';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
+import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { collectionPath } from '@/lib/app-routes';
 import { profileStoreDropToDiscoveryItem } from '@/lib/profile-store-drop-discovery';
 import { scarceRowFormatLabel } from '@/lib/scarce-row-kind';
@@ -19,7 +20,9 @@ function formatPriceNear(priceNear: string): string {
 
 function dropRowDealBits(drop: ProfileStoreDrop): string[] {
   const priceNear = drop.priceNear?.trim();
-  const price = priceNear ? `${formatPriceNear(priceNear)} NEAR` : 'Free';
+  const price =
+    dollarStickerLabel(drop.usdE6) ??
+    (priceNear ? `${formatPriceNear(priceNear)} NEAR` : 'Free');
   const format = scarceRowFormatLabel({
     mediumKind: drop.mediumKind,
     audioFormat: drop.audioFormat,

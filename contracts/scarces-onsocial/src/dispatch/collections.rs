@@ -15,8 +15,35 @@ impl Contract {
             Action::UpdateCollectionPrice {
                 collection_id,
                 new_price_near,
+                usd_e6,
+                min_near,
             } => {
-                self.update_collection_price(actor_id, collection_id, new_price_near)?;
+                let min = min_near.map(|value| value.0).unwrap_or(0);
+                if let Some(usd) = usd_e6 {
+                    self.validate_dollar_listing(DOLLAR_SCOPE_COLLECTION, &collection_id, usd.0)?;
+                }
+                let stored = if usd_e6.is_some() {
+                    Contract::stored_near_for_dollar(min)
+                } else {
+                    new_price_near
+                };
+                self.update_collection_price(
+                    actor_id,
+                    collection_id.clone(),
+                    stored,
+                    usd_e6.map(|usd| usd.0),
+                )?;
+                if let Some(usd) = usd_e6 {
+                    self.write_dollar(
+                        DOLLAR_SCOPE_COLLECTION,
+                        &collection_id,
+                        usd.0,
+                        min,
+                        actor_id,
+                    )?;
+                } else {
+                    self.clear_dollar(DOLLAR_SCOPE_COLLECTION, &collection_id, actor_id);
+                }
                 Ok(Value::Null)
             }
             Action::UpdateCollectionTiming {

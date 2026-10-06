@@ -20,11 +20,7 @@ export function scarceBuySupplyPart(opts: {
   const copies = opts.copies;
   if (copies == null || !Number.isFinite(copies) || copies <= 1) return null;
   const remaining = opts.remaining;
-  if (
-    remaining != null &&
-    Number.isFinite(remaining) &&
-    remaining < copies
-  ) {
+  if (remaining != null && Number.isFinite(remaining) && remaining < copies) {
     return `${remaining} of ${copies} left`;
   }
   const unit = opts.unit.trim() || 'editions';
@@ -37,10 +33,12 @@ export function scarceBuyDealParts(opts: {
   remaining?: number | null;
   unit?: string;
   priceNear?: string | null;
+  /** Spoken price when the sticker is dollars, for example `$50`. */
+  priceLabel?: string | null;
   listedLabel?: string | null;
   mintedLabel?: string | null;
 }): string[] {
-  const price = formatScarceBuyPrice(opts.priceNear);
+  const price = opts.priceLabel?.trim() || formatScarceBuyPrice(opts.priceNear);
   if (opts.isPrimaryMint) {
     const supply = scarceBuySupplyPart({
       copies: opts.copies,

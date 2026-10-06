@@ -14,6 +14,7 @@ export function collectionToProfileStoreDrop(
     title: collection.title,
     mediaUrl: collection.mediaUrl,
     priceNear: collection.priceNear,
+    ...(collection.usdE6?.trim() ? { usdE6: collection.usdE6.trim() } : {}),
     remaining: collection.remaining,
     totalSupply: collection.totalSupply,
     status: deriveCollectionStatus(collection),

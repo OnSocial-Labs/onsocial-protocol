@@ -89,6 +89,15 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
     path: 'compose/prepare/list-native-scarce',
     body: 'json',
   },
+  { method: 'GET', path: 'intents/tokens', body: 'none', optionalApiKey: true },
+  {
+    method: 'GET',
+    path: 'intents/near-usd',
+    body: 'none',
+    optionalApiKey: true,
+  },
+  { method: 'GET', path: 'intents/status', body: 'none', optionalApiKey: true },
+  { method: 'POST', path: 'intents/quote', body: 'json' },
   {
     method: 'POST',
     path: 'compose/prepare/delist-native-scarce',

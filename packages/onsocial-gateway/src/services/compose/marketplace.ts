@@ -16,14 +16,45 @@ import {
 // Fixed-price listing
 // ---------------------------------------------------------------------------
 
+/** Millionths of a dollar. $50 is 50000000. */
+export function usdToE6(priceUsd: string): string {
+  const trimmed = priceUsd.trim();
+  const match = /^(\d+)(?:\.(\d{1,6}))?$/.exec(trimmed);
+  if (!match) throw new ComposeError(400, 'Invalid dollar price');
+  const whole = BigInt(match[1] ?? '0');
+  const frac = (match[2] ?? '').padEnd(6, '0');
+  const e6 = whole * 1_000_000n + BigInt(frac);
+  if (e6 <= 0n)
+    throw new ComposeError(400, 'Dollar price must be greater than 0');
+  return e6.toString();
+}
+
 /** Build a ListNativeScarce action — list a native token for fixed-price sale. */
 export function buildListNativeScarceAction(params: {
   tokenId: string;
-  priceNear: string;
+  priceNear?: string;
+  priceUsd?: string;
+  minNear?: string;
   expiresAt?: number;
   targetAccount?: string;
 }): SimpleActionResult {
   if (!params.tokenId) throw new ComposeError(400, 'Missing tokenId');
+  const targetAccount = resolveScarcesTarget(params.targetAccount);
+  if (params.priceUsd) {
+    const usdE6 = usdToE6(params.priceUsd);
+    const floor = params.minNear ? nearToYocto(params.minNear) : '1';
+    return {
+      action: {
+        type: 'list_native_scarce',
+        token_id: params.tokenId,
+        price: floor,
+        usd_e6: usdE6,
+        ...(params.minNear ? { min_near: floor } : {}),
+        ...(params.expiresAt != null && { expires_at: params.expiresAt }),
+      },
+      targetAccount,
+    };
+  }
   if (!params.priceNear) throw new ComposeError(400, 'Missing priceNear');
   return {
     action: {
@@ -32,7 +63,7 @@ export function buildListNativeScarceAction(params: {
       price: nearToYocto(params.priceNear),
       ...(params.expiresAt != null && { expires_at: params.expiresAt }),
     },
-    targetAccount: resolveScarcesTarget(params.targetAccount),
+    targetAccount,
   };
 }
 

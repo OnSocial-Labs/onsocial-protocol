@@ -31,6 +31,7 @@ import {
   MARKETPLACE_FEE_BPS,
   totalRoyaltyBps,
 } from '@/features/scarces/scarce-royalty';
+import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import {
   ACTIVE_NEAR_EXPLORER_URL,
   ACTIVE_NEAR_NETWORK,
@@ -140,9 +141,10 @@ export function CollectionFactsSheet({
       ? formatPageDrawerJoinedFullLabel(view.createdAtMs)
       : null;
   const priceLabel =
-    view.priceYocto === '0' || view.priceNear == null
+    dollarStickerLabel(view.usdE6) ??
+    (view.priceYocto === '0' || view.priceNear == null
       ? 'Free'
-      : `${view.priceNear} NEAR`;
+      : `${view.priceNear} NEAR`);
   const walletCap =
     view.maxPerWallet == null || view.maxPerWallet <= 0
       ? 'No per-wallet limit'
