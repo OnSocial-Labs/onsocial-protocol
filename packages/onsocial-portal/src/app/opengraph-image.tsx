@@ -11,7 +11,7 @@ const MARK_PATH =
 export default function OpengraphImage() {
   return new ImageResponse(
     (
-        <div
+      <div
         style={{
           width: '100%',
           height: '100%',
