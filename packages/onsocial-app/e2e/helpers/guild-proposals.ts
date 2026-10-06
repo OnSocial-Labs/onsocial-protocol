@@ -121,6 +121,20 @@ const PROFILE_ROWS = [
   { accountId: 'erin.testnet', name: 'Erin Engineer' },
 ];
 
+/** Matches the active role card tally: 3 support + 1 oppose of 4 cast. */
+const VOTE_ROWS: Record<string, unknown[]> = {
+  [GUILD_PROPOSAL_ACTIVE_ROLE_ID]: [
+    { voter: 'alice.testnet', approve: true, votedAt: 1 },
+    { voter: 'bob.testnet', approve: true, votedAt: 2 },
+    { voter: 'dana.testnet', approve: true, votedAt: 3 },
+    { voter: 'erin.testnet', approve: false, votedAt: 4 },
+  ],
+  [GUILD_PROPOSAL_RESOLVED_ID]: [
+    { voter: 'alice.testnet', approve: true, votedAt: 1 },
+    { voter: 'bob.testnet', approve: true, votedAt: 2 },
+  ],
+};
+
 function json(data: unknown) {
   return {
     status: 200,
@@ -148,6 +162,15 @@ export async function stubGuildProposals(page: Page): Promise<void> {
             profileKinds: [],
           },
         })
+      );
+      return;
+    }
+    if (raw.includes('query Votes(')) {
+      const match = Object.entries(VOTE_ROWS).find(([proposalId]) =>
+        raw.includes(proposalId)
+      );
+      await route.fulfill(
+        json({ data: { groupUpdates: match ? match[1] : [] } })
       );
       return;
     }

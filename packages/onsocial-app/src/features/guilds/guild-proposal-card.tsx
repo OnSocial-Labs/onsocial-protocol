@@ -52,6 +52,8 @@ export interface GuildProposalCardProps {
   onCancel?: () => void;
   /** Permissionless finalize once the voting period has elapsed. */
   onExpire?: () => void;
+  /** Opens the voter roster drawer. */
+  onShowVoters?: () => void;
 }
 
 export function GuildProposalCard({
@@ -70,6 +72,7 @@ export function GuildProposalCard({
   onOppose,
   onCancel,
   onExpire,
+  onShowVoters,
 }: GuildProposalCardProps) {
   const presentation = guildProposalPresentation(proposal);
   const outcome = guildProposalOutcome(proposal, presentation);
@@ -131,6 +134,19 @@ export function GuildProposalCard({
     (canVote && !votingClosed) ||
     (votingClosed && Boolean(onExpire)) ||
     (isOwnRequest && onCancel);
+  const votersToggle =
+    onShowVoters && voteProgress.showProgress ? (
+      <div className="guild-proposal-card-meta-row">
+        <button
+          type="button"
+          className="guild-proposal-card-voters-toggle"
+          aria-haspopup="dialog"
+          onClick={onShowVoters}
+        >
+          Votes · {voteProgress.totalVotes}/{voteProgress.memberPool}
+        </button>
+      </div>
+    ) : null;
 
   return (
     <OsProposalCard
@@ -296,15 +312,18 @@ export function GuildProposalCard({
           ) : null}
 
           {outcome.isTerminal ? (
-            <p className={osSheetFloatingPanelCopyClassName}>
-              {outcome.tone === 'approved' && presentation.roleLabel ? (
-                <>
-                  <strong>{presentation.roleLabel}</strong> role applied.
-                </>
-              ) : (
-                outcome.footerLabel
-              )}
-            </p>
+            <>
+              <p className={osSheetFloatingPanelCopyClassName}>
+                {outcome.tone === 'approved' && presentation.roleLabel ? (
+                  <>
+                    <strong>{presentation.roleLabel}</strong> role applied.
+                  </>
+                ) : (
+                  outcome.footerLabel
+                )}
+              </p>
+              {votersToggle}
+            </>
           ) : isOwnRequest && onCancel ? (
             <>
               <p className={osSheetFloatingPanelCopyClassName}>
@@ -335,6 +354,7 @@ export function GuildProposalCard({
             </>
           ) : (
             <>
+              {votersToggle}
               <div className="guild-proposal-card-vote-row">
                 {voteRowLabel ? (
                   <p className="guild-proposal-card-progress-label">

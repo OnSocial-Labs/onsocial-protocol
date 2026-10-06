@@ -99,4 +99,39 @@ test.describe('guild proposals sheet', () => {
     ).toHaveCount(0);
   });
 
+  test('votes toggle opens the voter roster drawer', async ({ page }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphGuild(page, 'member');
+    await stubGuildPage(page, { memberId: COLLECTIBLES_VAULT_OWNER });
+    await stubGuildProposals(page);
+    await gotoApp(page, `${GUILD_E2E_PATH}?sheet=proposals`);
+
+    const sheet = page.getByRole('dialog', { name: 'Proposals' });
+    await expect(sheet).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+
+    const roleCard = sheet.locator('.guild-proposal-card', {
+      hasText: 'Bob Builder',
+    });
+    await roleCard
+      .getByRole('button', { name: 'Votes · 4/7' })
+      .click();
+
+    const voters = page.getByRole('dialog', {
+      name: 'Make bob.testnet a Moderator',
+    });
+    await expect(voters).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(voters.getByText('Votes · #12')).toBeVisible();
+
+    const aliceRow = voters.locator('.protocol-voter-row', {
+      hasText: 'Alice Admin',
+    });
+    await expect(aliceRow.getByText('Support')).toBeVisible();
+    const erinRow = voters.locator('.protocol-voter-row', {
+      hasText: 'Erin Engineer',
+    });
+    await expect(erinRow.getByText('Oppose')).toBeVisible();
+
+    // Members with no vote on record list as abstainers.
+    await expect(voters.getByText("Hasn't voted").first()).toBeVisible();
+  });
 });

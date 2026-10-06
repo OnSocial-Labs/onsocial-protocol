@@ -12,10 +12,12 @@ import {
 import { listActiveJoinRequestProposals } from '@/features/guilds/guild-config';
 import {
   guildProposalPresentation,
+  guildProposalVoteProgress,
   isTerminalGuildProposalStatus,
   partitionGuildGovernanceProposals,
 } from '@/features/guilds/guild-proposal-display';
 import { GuildProposalCard } from '@/features/guilds/guild-proposal-card';
+import { GuildProposalVotersSheet } from '@/features/guilds/guild-proposal-voters-sheet';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -86,6 +88,10 @@ export function GuildProposalsSheet({
   const [pendingActions, setPendingActions] = useState<
     Map<string, 'support' | 'oppose' | 'expire'>
   >(() => new Map());
+  const [votersFor, setVotersFor] = useState<{
+    proposal: Proposal;
+    votingClosed: boolean;
+  } | null>(null);
   const retryTimersRef = useRef<number[]>([]);
 
   const clearRetryTimers = useCallback(() => {
@@ -325,6 +331,16 @@ export function GuildProposalsSheet({
     }
   };
 
+  const openVoters = (proposal: Proposal) => {
+    setVotersFor({
+      proposal,
+      votingClosed:
+        isTerminalGuildProposalStatus(proposal.status) ||
+        guildProposalVoteProgress(proposal, tallies.get(proposal.id) ?? null)
+          .isExpired,
+    });
+  };
+
   const joinRequestCount = listActiveJoinRequestProposals(allProposals).length;
   const canVote = memberDriven && isMember;
   const profileIds = useMemo(() => {
@@ -345,11 +361,12 @@ export function GuildProposalsSheet({
       : 'Active governance items excluding join requests.';
 
   return (
-    <OsHugSheet
-      open={open}
-      onClose={onClose}
-      label="Proposals"
-      copy={subtitle}
+    <>
+      <OsHugSheet
+        open={open}
+        onClose={onClose}
+        label="Proposals"
+        copy={subtitle}
       closeAriaLabel="Close"
       backdropLabel="Close proposals"
       zIndex={SHEET_Z.facts}
@@ -419,6 +436,7 @@ export function GuildProposalsSheet({
                 onExpire={
                   accountId ? () => void runExpire(proposal) : undefined
                 }
+                onShowVoters={() => openVoters(proposal)}
               />
             ))}
           </OsProposalCardList>
@@ -441,12 +459,21 @@ export function GuildProposalsSheet({
                   canVote={false}
                   pendingAction={null}
                   profiles={profiles}
+                  onShowVoters={() => openVoters(proposal)}
                 />
               ))}
             </OsProposalCardList>
           </>
         ) : null}
       </div>
-    </OsHugSheet>
+      </OsHugSheet>
+      <GuildProposalVotersSheet
+        open={votersFor !== null}
+        groupId={groupId}
+        proposal={votersFor?.proposal ?? null}
+        votingClosed={votersFor?.votingClosed ?? false}
+        onClose={() => setVotersFor(null)}
+      />
+    </>
   );
 }
