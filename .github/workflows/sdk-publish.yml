@@ -1,0 +1,102 @@
+name: Publish SDK packages
+
+# Manual, intentional releases only. Publishes @onsocial/text-card first, then
+# @onsocial/sdk (the SDK depends on text-card via workspace:*, which pnpm
+# rewrites to the real version at pack time — so text-card must exist on npm
+# before the SDK tarball is installable).
+#
+# Requires an NPM_TOKEN secret (npm granular access token, publish permission
+# on @onsocial/*). Provenance statements are signed via OIDC (id-token: write)
+# and link each release back to this repo + run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'npm dist-tag for the release'
+        required: true
+        default: 'latest'
+      dry_run:
+        description: 'Pack and verify only — do not publish'
+        required: true
+        default: true
+        type: boolean
+
+concurrency:
+  group: sdk-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # npm provenance
+
+env:
+  CI: true
+
+jobs:
+  publish:
+    name: Verify and publish
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check text-card (lint, format, build, test, publint)
+        run: pnpm --filter @onsocial/text-card run check
+
+      - name: Check SDK (lint, format, build, test, publint)
+        run: pnpm --filter @onsocial/sdk run check
+
+      - name: Verify versions are unpublished
+        if: inputs.dry_run == false
+        run: |
+          set -euo pipefail
+          for pair in "@onsocial/text-card:packages/onsocial-text-card" "@onsocial/sdk:packages/onsocial-sdk"; do
+            pkg="${pair%%:*}"
+            dir="${pair##*:}"
+            version=$(node -p "require('./$dir/package.json').version")
+            if npm view "$pkg@$version" version >/dev/null 2>&1; then
+              echo "::error::$pkg@$version is already on npm — bump the version first"
+              exit 1
+            fi
+            echo "$pkg@$version is not on npm yet — good to publish"
+          done
+
+      - name: Dry-run pack
+        if: inputs.dry_run
+        run: |
+          pnpm --filter @onsocial/text-card pack
+          pnpm --filter @onsocial/sdk pack
+          echo "Dry run complete — tarballs packed and verified, nothing published."
+
+      - name: Guard real publishes to main
+        if: inputs.dry_run == false && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Real publishes must run from main. Use dry_run on branches."
+          exit 1
+
+      - name: Publish text-card
+        if: inputs.dry_run == false && github.ref == 'refs/heads/main'
+        run: pnpm -C packages/onsocial-text-card publish --provenance --no-git-checks --tag "${{ inputs.tag }}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish SDK
+        if: inputs.dry_run == false && github.ref == 'refs/heads/main'
+        run: pnpm -C packages/onsocial-sdk publish --provenance --no-git-checks --tag "${{ inputs.tag }}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -7,16 +7,16 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./advanced": {
-      "import": "./dist/advanced/index.js",
-      "types": "./dist/advanced/index.d.ts"
+      "types": "./dist/advanced/index.d.ts",
+      "import": "./dist/advanced/index.js"
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "clean": "rm -rf dist",
     "lint": "eslint src",
     "format": "prettier --write 'src/**/*.{ts,js,json}' 'tests/**/*.ts' '*.{json,md,js}'",
@@ -27,7 +27,7 @@
     "diag:cards": "tsx tests/integration/diag-mint-cards.mts",
     "diag:receipt": "tsx tests/integration/diag-receipt-yellow.mts",
     "diag:title-split": "tsx tests/integration/diag-title-split.mts",
-    "check": "pnpm lint && pnpm format:check && pnpm build && pnpm test"
+    "check": "pnpm lint && pnpm format:check && pnpm build && pnpm test && publint"
   },
   "dependencies": {
     "@onsocial/text-card": "workspace:*"
@@ -36,19 +36,19 @@
     "@eslint/js": "^9.30.1",
     "eslint": "^9.39.4",
     "prettier": "^3.6.2",
+    "publint": "^0.3.25",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.54.0",
     "vitest": "^3.2.4"
   },
   "files": [
-    "dist",
-    "src"
+    "dist"
   ],
   "license": "MIT",
   "author": "OnSocial Labs <dev@onsocial.id> (https://onsocial.id)",
   "repository": {
     "type": "git",
-    "url": "https://github.com/OnSocial-Labs/onsocial-protocol.git",
+    "url": "git+https://github.com/OnSocial-Labs/onsocial-protocol.git",
     "directory": "packages/onsocial-sdk"
   },
   "publishConfig": {
