@@ -79,6 +79,17 @@ export function usePollVotes(
     const wantedKeys = new Set(
       pollTargets.map((t) => pollVoteStateKey(t.owner, t.postId))
     );
+    // Suffix-match the visible polls' vote paths server-side (rows may or may
+    // not carry the voter prefix, so match on `pollvote/<owner>/post/<id>`).
+    // The client-side wantedKeys filter stays as the exact gate — LIKE treats
+    // `_` in account ids as a wildcard, so the server filter is a superset.
+    const pathLikes = pollTargets.map(
+      (t) => `%${POLL_VOTE_DATA_TYPE}/${t.owner}/post/${t.postId}`
+    );
+    const pathParams = pathLikes.map((_, i) => `$p${i}: String!`).join(', ');
+    const pathOr = pathLikes
+      .map((_, i) => `{path: {_like: $p${i}}}`)
+      .join(', ');
 
     const loadIndexed = client.query
       .graphql<{
@@ -86,12 +97,13 @@ export function usePollVotes(
       }>({
         // Prefer targetAccount (post owner) — avoids invalid GraphQL escapes
         // that broke inline path `_regex` with `\.` in account ids.
-        query: `query PollVotesForPosts($dataType: String!, $owners: [String!]!) {
+        query: `query PollVotesForPosts($dataType: String!, $owners: [String!]!, ${pathParams}) {
           dataUpdates(
             where: {
               _and: [
                 {dataType: {_eq: $dataType}}
                 {targetAccount: {_in: $owners}}
+                {_or: [${pathOr}]}
               ]
             }
             limit: 1000
@@ -103,6 +115,7 @@ export function usePollVotes(
         variables: {
           dataType: POLL_VOTE_DATA_TYPE,
           owners,
+          ...Object.fromEntries(pathLikes.map((p, i) => [`p${i}`, p])),
         },
       })
       .then((res) => res.data?.dataUpdates ?? [])
