@@ -110,7 +110,9 @@ describe('moodPresetPreviewVars', () => {
     });
 
     expect(mood.id).toBe('broadsheet');
-    expect(mood.cssVars['--mood-preset-accent']).toBe('rgb(82 82 91 / 0.92)');
+    expect(mood.cssVars['--mood-preset-accent']).toBe(
+      'rgb(101 101 112 / 0.92)'
+    );
     expect(mood.cssVars['--mood-preset-accent-light']).toBe(
       'rgb(28 28 32 / 0.95)'
     );

@@ -146,16 +146,16 @@ describe('page moods', () => {
     expect(pageMoodPreviewCssVars('protocol', theme)).toMatchObject({
       '--mood-accent': PROTOCOL_COLORS.blue,
       '--mood-preset-accent': PROTOCOL_COLORS.blue,
-      '--mood-preset-accent-light': PROTOCOL_COLORS.blue,
+      '--mood-preset-accent-light': PAGE_MOOD_PRESETS.protocol.theme.accentLight,
     });
   });
 
   it('splits broadsheet accentLight for editorial ink on light os', () => {
     const theme = PREMIUM_PAGE_MOOD_PRESETS.broadsheet.theme;
-    expect(theme.accent).toBe('rgb(82 82 91 / 0.92)');
+    expect(theme.accent).toBe('rgb(101 101 112 / 0.92)');
     expect(theme.accentLight).toBe('rgb(28 28 32 / 0.95)');
     expect(pageMoodPreviewCssVars('broadsheet', theme)).toMatchObject({
-      '--mood-preset-accent': 'rgb(82 82 91 / 0.92)',
+      '--mood-preset-accent': 'rgb(101 101 112 / 0.92)',
       '--mood-preset-accent-light': 'rgb(28 28 32 / 0.95)',
     });
     expect(pageMoodTypographyFor('broadsheet').fontDisplay).toBe(
@@ -173,13 +173,112 @@ describe('page moods', () => {
     const build = PAGE_MOOD_PRESETS.build.theme;
     expect(build.text).toContain('212 251');
     expect(build.textLight).toBe('rgb(42 98 48 / 0.96)');
-    expect(build.mutedLight).toBe('rgb(65 105 72 / 0.55)');
+    expect(build.mutedLight).toBe('rgb(65 105 72 / 0.7)');
 
     const terminal = PREMIUM_PAGE_MOOD_PRESETS.terminal.theme;
     expect(terminal.text).toContain('57 255 20');
     expect(terminal.textLight).toBe('rgb(32 115 42 / 0.96)');
-    expect(terminal.mutedLight).toBe('rgb(50 105 58 / 0.55)');
+    expect(terminal.mutedLight).toBe('rgb(50 105 58 / 0.7)');
     expect(pageMoodTypographyFor('terminal').displayWeight).toBe(500);
     expect(pageMoodTypographyFor('build').displayWeight).toBe(600);
+  });
+
+  describe('wcag contrast floors', () => {
+    type Rgba = [number, number, number, number];
+
+    const parseColor = (c: string): Rgba => {
+      const hex = c.match(/^#([0-9a-f]{6})$/i);
+      if (hex) {
+        const v = parseInt(hex[1], 16);
+        return [(v >> 16) & 255, (v >> 8) & 255, v & 255, 1];
+      }
+      const rgb = c.match(
+        /^rgb\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\s*\)$/i
+      );
+      if (rgb) {
+        return [
+          Number(rgb[1]),
+          Number(rgb[2]),
+          Number(rgb[3]),
+          rgb[4] ? Number(rgb[4]) : 1,
+        ];
+      }
+      throw new Error(`unparseable mood color: ${c}`);
+    };
+
+    const luminance = ([r, g, b]: [number, number, number]): number => {
+      const f = (v: number) => {
+        const s = v / 255;
+        return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+      };
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+    };
+
+    const contrastRatio = (fgStr: string, bgStr: string): number => {
+      const [r, g, b, a] = parseColor(fgStr);
+      const bg = parseColor(bgStr);
+      const flat: [number, number, number] = [
+        r * a + bg[0] * (1 - a),
+        g * a + bg[1] * (1 - a),
+        b * a + bg[2] * (1 - a),
+      ];
+      const l1 = luminance(flat);
+      const l2 = luminance([bg[0], bg[1], bg[2]]);
+      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    };
+
+    const allPresets = [
+      ...Object.values(PAGE_MOOD_PRESETS),
+      ...Object.values(PREMIUM_PAGE_MOOD_PRESETS),
+    ];
+
+    it('covers both os modes for every catalog mood', () => {
+      expect(allPresets.length).toBeGreaterThanOrEqual(16);
+      for (const preset of allPresets) {
+        const t = preset.theme;
+        for (const key of [
+          'background',
+          'backgroundLight',
+          'text',
+          'textLight',
+          'muted',
+          'mutedLight',
+          'accent',
+          'accentLight',
+        ] as const) {
+          expect(t[key], `${preset.id}.${key}`).toBeTruthy();
+        }
+      }
+    });
+
+    it.each(allPresets.map((p) => [p.id, p] as const))(
+      '%s keeps text >= 4.5 and muted/accent >= 3.0 in both modes',
+      (_id, preset) => {
+        const t = preset.theme;
+        const modes = [
+          {
+            bg: t.background,
+            text: t.text,
+            muted: t.muted,
+            accent: t.accent,
+          },
+          {
+            bg: t.backgroundLight,
+            text: t.textLight,
+            muted: t.mutedLight,
+            accent: t.accentLight ?? t.accent,
+          },
+        ];
+        for (const mode of modes) {
+          expect(contrastRatio(mode.text, mode.bg)).toBeGreaterThanOrEqual(4.5);
+          expect(contrastRatio(mode.muted, mode.bg)).toBeGreaterThanOrEqual(
+            3.0
+          );
+          expect(contrastRatio(mode.accent, mode.bg)).toBeGreaterThanOrEqual(
+            3.0
+          );
+        }
+      }
+    );
   });
 });
