@@ -4464,24 +4464,13 @@ a.os-surface-row {
       [data-avatar-cover='true']
     )
     .portfolio-banner-region::after {
-    background:
-      radial-gradient(
-        ellipse 76% 42% at 50% 100%,
-        color-mix(in srgb, var(--bg) 16%, transparent) 0%,
-        transparent 72%
-      ),
-      linear-gradient(
-        to bottom,
-        transparent 0%,
-        color-mix(in srgb, var(--bg) 18%, transparent) 35%,
-        color-mix(in srgb, var(--bg) 52%, transparent) 68%,
-        var(--bg) 100%
-      );
     /*
-     * The banner's foot dissolves through the pane: blur ramps 0 → 10px down
-     * the fade band (mask), so hero media melts into the frosted page instead
-     * of ending at a hard edge.
+     * No color fade here: the generic hero wash ends in opaque --bg, which
+     * paints a flat black/white band over the frost — a hard horizontal cut
+     * where the band meets the pane. The mask-ramped blur alone dissolves
+     * the hero into the frosted sheet (it samples across the boundary).
      */
+    background: none;
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
     -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 100%);
@@ -4851,7 +4840,10 @@ a.os-surface-row {
       content: none;
     }
 
-    /* Banner foot falls back to the plain gradient fade — no blur ramp. */
+    /*
+     * Banner foot without blur: restore the flat --bg fade (the default rule
+     * paints no color, so the hero's hard edge would show bare).
+     */
     .portfolio-frame[data-mood='glass'][data-avatar-cover='true']
       .portfolio-banner-region::after,
     .portfolio-frame[data-mood='glass'][data-has-banner='true']:not(
@@ -4860,6 +4852,15 @@ a.os-surface-row {
       .portfolio-banner-region::after {
       -webkit-backdrop-filter: none;
       backdrop-filter: none;
+      -webkit-mask-image: none;
+      mask-image: none;
+      background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        color-mix(in srgb, var(--bg) 18%, transparent) 35%,
+        color-mix(in srgb, var(--bg) 52%, transparent) 68%,
+        var(--bg) 100%
+      );
     }
 
     .portfolio-frame[data-mood='glass'] .portfolio-page::before,
