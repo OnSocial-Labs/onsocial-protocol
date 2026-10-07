@@ -4583,18 +4583,39 @@ a.os-surface-row {
     --glass-card-lip: inset 0 1px 0 rgb(255 255 255 / 0.22);
   }
 
+  /*
+   * The smoky backdrop carries dim light pools so the frosted sheet has
+   * something to blur — glass only reads as glass when shapes sit behind it.
+   * Pool alphas are capped so muted ink over a pool core stays ≥ 3.4:1.
+   */
   .portfolio-frame[data-mood='glass'] .portfolio-page::before {
     content: '';
     position: absolute;
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    background: linear-gradient(
-      155deg,
-      rgb(44 52 66) 0%,
-      rgb(24 30 42) 46%,
-      rgb(10 12 18) 100%
-    );
+    background:
+      radial-gradient(
+        ellipse 60% 42% at 12% 18%,
+        rgb(120 170 235 / 0.08),
+        transparent 62%
+      ),
+      radial-gradient(
+        ellipse 52% 38% at 88% 46%,
+        rgb(160 200 255 / 0.06),
+        transparent 60%
+      ),
+      radial-gradient(
+        ellipse 70% 46% at 30% 88%,
+        rgb(90 140 200 / 0.07),
+        transparent 64%
+      ),
+      linear-gradient(
+        155deg,
+        rgb(44 52 66) 0%,
+        rgb(24 30 42) 46%,
+        rgb(10 12 18) 100%
+      );
   }
 
   .portfolio-frame[data-mood='glass'] .portfolio-page::after {
@@ -4669,12 +4690,28 @@ a.os-surface-row {
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    background: linear-gradient(
-      155deg,
-      rgb(238 241 246) 0%,
-      rgb(200 206 218) 48%,
-      rgb(172 179 192) 100%
-    );
+    background:
+      radial-gradient(
+        ellipse 60% 42% at 12% 18%,
+        rgb(255 255 255 / 0.5),
+        transparent 62%
+      ),
+      radial-gradient(
+        ellipse 52% 38% at 88% 46%,
+        rgb(190 215 245 / 0.35),
+        transparent 60%
+      ),
+      radial-gradient(
+        ellipse 70% 46% at 30% 88%,
+        rgb(255 255 255 / 0.4),
+        transparent 64%
+      ),
+      linear-gradient(
+        155deg,
+        rgb(238 241 246) 0%,
+        rgb(200 206 218) 48%,
+        rgb(172 179 192) 100%
+      );
   }
 
   @media (prefers-color-scheme: light) {
@@ -4730,12 +4767,28 @@ a.os-surface-row {
       inset: 0;
       z-index: 0;
       pointer-events: none;
-      background: linear-gradient(
-        155deg,
-        rgb(238 241 246) 0%,
-        rgb(200 206 218) 48%,
-        rgb(172 179 192) 100%
-      );
+      background:
+        radial-gradient(
+          ellipse 60% 42% at 12% 18%,
+          rgb(255 255 255 / 0.5),
+          transparent 62%
+        ),
+        radial-gradient(
+          ellipse 52% 38% at 88% 46%,
+          rgb(190 215 245 / 0.35),
+          transparent 60%
+        ),
+        radial-gradient(
+          ellipse 70% 46% at 30% 88%,
+          rgb(255 255 255 / 0.4),
+          transparent 64%
+        ),
+        linear-gradient(
+          155deg,
+          rgb(238 241 246) 0%,
+          rgb(200 206 218) 48%,
+          rgb(172 179 192) 100%
+        );
     }
   }
 
