@@ -5519,21 +5519,21 @@ a.os-surface-row {
     );
     --summer-sheet-sky: radial-gradient(
       ellipse 85% 45% at 50% -12%,
-      rgb(255 190 120 / 0.05),
+      rgb(130 190 255 / 0.05),
       transparent 60%
     );
     --summer-bloom: radial-gradient(
       ellipse 18rem 9rem at 50% 100.5%,
-      rgb(255 130 45 / 0.08),
+      rgb(255 175 60 / 0.09),
       transparent 70%
     );
     --summer-sun: radial-gradient(
       circle 3rem at 50% 100.5%,
-      rgb(255 110 30 / 0.4) 0 60%,
-      rgb(255 90 20 / 0.17) 72%,
+      rgb(255 176 48 / 0.42) 0 60%,
+      rgb(255 150 30 / 0.18) 72%,
       transparent 82%
     );
-    --summer-sheet-lip: inset 0 1px 0 rgb(255 190 120 / 0.08);
+    --summer-sheet-lip: inset 0 1px 0 rgb(255 210 140 / 0.08);
   }
 
   .portfolio-frame[data-mood='summer'].frame {
@@ -5582,22 +5582,22 @@ a.os-surface-row {
     );
     --summer-sheet-sky: radial-gradient(
       ellipse 85% 45% at 50% -12%,
-      rgb(255 200 140 / 0.07),
+      rgb(110 180 255 / 0.07),
       transparent 60%
     );
     --summer-bloom: radial-gradient(
       ellipse 18rem 9rem at 50% 100.5%,
-      rgb(255 150 70 / 0.1),
+      rgb(255 170 60 / 0.1),
       transparent 70%
     );
     --summer-sun: radial-gradient(
       circle 3rem at 50% 100.5%,
-      rgb(255 120 40 / 0.4) 0 60%,
-      rgb(255 100 30 / 0.17) 72%,
+      rgb(255 160 40 / 0.42) 0 60%,
+      rgb(255 140 25 / 0.18) 72%,
       transparent 82%
     );
     --summer-sheet-lip:
-      inset 0 1px 0 rgb(255 255 255 / 0.9), inset 0 -1px 0 rgb(174 84 0 / 0.06);
+      inset 0 1px 0 rgb(255 255 255 / 0.9), inset 0 -1px 0 rgb(160 90 0 / 0.06);
   }
 
   @media (prefers-color-scheme: light) {
@@ -5609,23 +5609,23 @@ a.os-surface-row {
       );
       --summer-sheet-sky: radial-gradient(
         ellipse 85% 45% at 50% -12%,
-        rgb(255 200 140 / 0.07),
+        rgb(110 180 255 / 0.07),
         transparent 60%
       );
       --summer-bloom: radial-gradient(
         ellipse 18rem 9rem at 50% 100.5%,
-        rgb(255 150 70 / 0.1),
+        rgb(255 170 60 / 0.1),
         transparent 70%
       );
       --summer-sun: radial-gradient(
         circle 3rem at 50% 100.5%,
-        rgb(255 120 40 / 0.4) 0 60%,
-        rgb(255 100 30 / 0.17) 72%,
+        rgb(255 160 40 / 0.42) 0 60%,
+        rgb(255 140 25 / 0.18) 72%,
         transparent 82%
       );
       --summer-sheet-lip:
         inset 0 1px 0 rgb(255 255 255 / 0.9),
-        inset 0 -1px 0 rgb(174 84 0 / 0.06);
+        inset 0 -1px 0 rgb(160 90 0 / 0.06);
     }
   }
 
@@ -5653,7 +5653,7 @@ a.os-surface-row {
       rgb(255 160 90 / 0.05),
       transparent 60%
     );
-    --autumn-leaf: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3E%3Cg transform='rotate(28 15 15)'%3E%3Cpath d='M15 2.5 C21.5 8.5 23.5 16.5 15 27.5 C6.5 16.5 8.5 8.5 15 2.5 Z' fill='rgb(200,96,34)' fill-opacity='0.5'/%3E%3Cpath d='M15 5.5 L15 25' stroke='rgb(140,58,16)' stroke-width='1.1' stroke-opacity='0.45' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+    --autumn-leaf: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3E%3Cg transform='rotate(28 15 15)'%3E%3Cpath d='M15 2 L17.2 7.2 L21.8 5 L20.6 9.8 L26.2 9.4 L23.2 13.2 L27.6 16.2 L22.2 17.6 L23.2 22.4 L17.6 20.2 L16 24.5 L16.2 28 L13.8 28 L14 24.5 L12.4 20.2 L6.8 22.4 L7.8 17.6 L2.4 16.2 L6.8 13.2 L3.8 9.4 L9.4 9.8 L8.2 5 L12.8 7.2 Z' fill='rgb(200,96,34)' fill-opacity='0.5'/%3E%3C/g%3E%3C/svg%3E");
     --autumn-sheet-lip: inset 0 1px 0 rgb(255 170 100 / 0.07);
   }
 
@@ -5710,7 +5710,7 @@ a.os-surface-row {
       rgb(230 140 60 / 0.06),
       transparent 60%
     );
-    --autumn-leaf: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3E%3Cg transform='rotate(28 15 15)'%3E%3Cpath d='M15 2.5 C21.5 8.5 23.5 16.5 15 27.5 C6.5 16.5 8.5 8.5 15 2.5 Z' fill='rgb(170,75,20)' fill-opacity='0.22'/%3E%3Cpath d='M15 5.5 L15 25' stroke='rgb(120,50,12)' stroke-width='1.1' stroke-opacity='0.2' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+    --autumn-leaf: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3E%3Cg transform='rotate(28 15 15)'%3E%3Cpath d='M15 2 L17.2 7.2 L21.8 5 L20.6 9.8 L26.2 9.4 L23.2 13.2 L27.6 16.2 L22.2 17.6 L23.2 22.4 L17.6 20.2 L16 24.5 L16.2 28 L13.8 28 L14 24.5 L12.4 20.2 L6.8 22.4 L7.8 17.6 L2.4 16.2 L6.8 13.2 L3.8 9.4 L9.4 9.8 L8.2 5 L12.8 7.2 Z' fill='rgb(170,75,20)' fill-opacity='0.22'/%3E%3C/g%3E%3C/svg%3E");
     --autumn-sheet-lip:
       inset 0 1px 0 rgb(255 255 255 / 0.9), inset 0 -1px 0 rgb(150 60 10 / 0.06);
   }
@@ -5727,7 +5727,7 @@ a.os-surface-row {
         rgb(230 140 60 / 0.06),
         transparent 60%
       );
-      --autumn-leaf: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3E%3Cg transform='rotate(28 15 15)'%3E%3Cpath d='M15 2.5 C21.5 8.5 23.5 16.5 15 27.5 C6.5 16.5 8.5 8.5 15 2.5 Z' fill='rgb(170,75,20)' fill-opacity='0.22'/%3E%3Cpath d='M15 5.5 L15 25' stroke='rgb(120,50,12)' stroke-width='1.1' stroke-opacity='0.2' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+      --autumn-leaf: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3E%3Cg transform='rotate(28 15 15)'%3E%3Cpath d='M15 2 L17.2 7.2 L21.8 5 L20.6 9.8 L26.2 9.4 L23.2 13.2 L27.6 16.2 L22.2 17.6 L23.2 22.4 L17.6 20.2 L16 24.5 L16.2 28 L13.8 28 L14 24.5 L12.4 20.2 L6.8 22.4 L7.8 17.6 L2.4 16.2 L6.8 13.2 L3.8 9.4 L9.4 9.8 L8.2 5 L12.8 7.2 Z' fill='rgb(170,75,20)' fill-opacity='0.22'/%3E%3C/g%3E%3C/svg%3E");
       --autumn-sheet-lip:
         inset 0 1px 0 rgb(255 255 255 / 0.9),
         inset 0 -1px 0 rgb(150 60 10 / 0.06);

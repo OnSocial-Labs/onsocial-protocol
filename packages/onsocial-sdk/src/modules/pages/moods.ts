@@ -554,15 +554,15 @@ export const PREMIUM_PAGE_MOOD_PRESETS: Record<
       backgroundLight: '#fffaf3',
       text: 'rgb(255 252 245 / 0.96)',
       textLight: 'rgb(17 19 24 / 0.96)',
-      muted: 'rgb(255 228 196 / 0.48)',
+      muted: 'rgb(255 232 190 / 0.48)',
       mutedLight: 'rgb(17 19 24 / 0.5)',
-      accent: 'rgb(255 168 88 / 0.95)',
-      accentLight: 'rgb(174 84 0 / 0.95)',
+      accent: 'rgb(255 186 78 / 0.95)',
+      accentLight: 'rgb(160 90 0 / 0.95)',
       banner:
-        'radial-gradient(ellipse 82% 68% at 18% -8%, rgb(255 168 88 / 0.24), transparent 56%), radial-gradient(ellipse 72% 54% at 82% 10%, rgb(255 220 120 / 0.14), transparent 52%), radial-gradient(ellipse 90% 58% at 50% 100%, rgb(255 140 60 / 0.1), transparent 58%)',
+        'radial-gradient(ellipse 82% 68% at 18% -8%, rgb(255 190 95 / 0.24), transparent 56%), radial-gradient(ellipse 72% 54% at 82% 10%, rgb(130 190 255 / 0.12), transparent 52%), radial-gradient(ellipse 90% 58% at 50% 100%, rgb(255 175 60 / 0.1), transparent 58%)',
       bannerLight:
-        'radial-gradient(ellipse 82% 68% at 18% -8%, rgb(255 168 88 / 0.16), transparent 56%), radial-gradient(ellipse 72% 54% at 82% 10%, rgb(255 200 100 / 0.1), transparent 52%), radial-gradient(ellipse 90% 58% at 50% 100%, rgb(255 168 88 / 0.06), transparent 58%)',
-      surface: 'rgb(255 168 88 / 0.06)',
+        'radial-gradient(ellipse 82% 68% at 18% -8%, rgb(255 190 95 / 0.16), transparent 56%), radial-gradient(ellipse 72% 54% at 82% 10%, rgb(110 180 255 / 0.09), transparent 52%), radial-gradient(ellipse 90% 58% at 50% 100%, rgb(255 175 60 / 0.06), transparent 58%)',
+      surface: 'rgb(255 186 78 / 0.06)',
     },
   },
   autumn: {
