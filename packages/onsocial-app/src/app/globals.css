@@ -5500,13 +5500,13 @@ a.os-surface-row {
   }
 
   /*
-   * Summer finish — golden hour. The sun sits below the page: a warm horizon
-   * glow pinned to the viewport bottom (background-attachment: fixed, the
-   * Glass pools cue) while content scrolls over it; the sky above stays
-   * near-dark so ink keeps its contrast. Mood-only heroes wear the banner
-   * token's sky radials, dissolving at the hem. The horizon replaces the
-   * generic mood-only accent bloom. iOS Safari ignores fixed attachment →
-   * the horizon scrolls with the page (graceful, same tradeoff as Glass).
+   * Summer finish — golden hour. A low sun sits half-sunk at the bottom
+   * edge of the viewport (background-attachment: fixed, the Glass pools
+   * cue): a small disc with a soft limb over a quiet horizon band, while
+   * content scrolls past. The sky above stays near-dark so ink keeps its
+   * contrast. The sun replaces the generic mood-only accent bloom. iOS
+   * Safari ignores fixed attachment → the sun scrolls with the page
+   * (graceful, same tradeoff as Glass).
    */
   .portfolio-frame[data-mood='summer'] {
     --mood-bg: transparent;
@@ -5523,13 +5523,14 @@ a.os-surface-row {
     );
     --summer-horizon: radial-gradient(
       ellipse 130% 46% at 50% 112%,
-      rgb(255 150 60 / 0.16),
+      rgb(255 150 60 / 0.1),
       transparent 62%
     );
-    --summer-ember: radial-gradient(
-      ellipse 55% 26% at 50% 116%,
-      rgb(255 196 110 / 0.13),
-      transparent 58%
+    --summer-sun: radial-gradient(
+      circle 3rem at 50% 100.5%,
+      rgb(255 110 30 / 0.42) 0 60%,
+      rgb(255 90 20 / 0.18) 72%,
+      transparent 82%
     );
     --summer-sheet-lip: inset 0 1px 0 rgb(255 190 120 / 0.08);
   }
@@ -5552,13 +5553,13 @@ a.os-surface-row {
     z-index: 0;
     pointer-events: none;
     background:
-      var(--summer-sheet-sky), var(--summer-horizon), var(--summer-ember),
+      var(--summer-sheet-sky), var(--summer-sun), var(--summer-horizon),
       var(--summer-sheet-base);
     background-attachment: scroll, fixed, fixed, scroll;
     box-shadow: var(--summer-sheet-lip);
   }
 
-  /* The horizon replaces the generic mood-only accent bloom. */
+  /* The sun replaces the generic mood-only accent bloom. */
   .portfolio-frame[data-mood-only='true'][data-mood='summer']
     .portfolio-page::after {
     content: none;
@@ -5570,26 +5571,6 @@ a.os-surface-row {
   .portfolio-frame[data-mood='summer'] .portfolio-profile-banner,
   .portfolio-frame[data-mood='summer'] .portfolio-hero-video {
     z-index: 1;
-  }
-
-  /* Mood-only hero — the sky: golden-hour radials dissolving at the hem.
-   * `--mood-banner` / `--mood-preset-banner-light` directly (not the inline
-   * `--mood-banner-active`, which is always the dark banner). */
-  .portfolio-frame[data-mood='summer'] .portfolio-banner-region--mood-only {
-    background: var(--mood-banner);
-    -webkit-mask-image: linear-gradient(
-      180deg,
-      black 0%,
-      black 55%,
-      transparent 96%
-    );
-    mask-image: linear-gradient(180deg, black 0%, black 55%, transparent 96%);
-  }
-
-  :root[data-theme='light']
-    .portfolio-frame[data-mood='summer']
-    .portfolio-banner-region--mood-only {
-    background: var(--mood-preset-banner-light, var(--mood-banner));
   }
 
   :root[data-theme='light'] .portfolio-frame[data-mood='summer'] {
@@ -5605,13 +5586,14 @@ a.os-surface-row {
     );
     --summer-horizon: radial-gradient(
       ellipse 130% 46% at 50% 112%,
-      rgb(255 170 90 / 0.2),
+      rgb(255 170 90 / 0.12),
       transparent 62%
     );
-    --summer-ember: radial-gradient(
-      ellipse 55% 26% at 50% 116%,
-      rgb(255 200 130 / 0.16),
-      transparent 58%
+    --summer-sun: radial-gradient(
+      circle 3rem at 50% 100.5%,
+      rgb(255 120 40 / 0.42) 0 60%,
+      rgb(255 100 30 / 0.18) 72%,
+      transparent 82%
     );
     --summer-sheet-lip:
       inset 0 1px 0 rgb(255 255 255 / 0.9), inset 0 -1px 0 rgb(174 84 0 / 0.06);
@@ -5631,23 +5613,18 @@ a.os-surface-row {
       );
       --summer-horizon: radial-gradient(
         ellipse 130% 46% at 50% 112%,
-        rgb(255 170 90 / 0.2),
+        rgb(255 170 90 / 0.12),
         transparent 62%
       );
-      --summer-ember: radial-gradient(
-        ellipse 55% 26% at 50% 116%,
-        rgb(255 200 130 / 0.16),
-        transparent 58%
+      --summer-sun: radial-gradient(
+        circle 3rem at 50% 100.5%,
+        rgb(255 120 40 / 0.42) 0 60%,
+        rgb(255 100 30 / 0.18) 72%,
+        transparent 82%
       );
       --summer-sheet-lip:
         inset 0 1px 0 rgb(255 255 255 / 0.9),
         inset 0 -1px 0 rgb(174 84 0 / 0.06);
-    }
-
-    :root:not([data-theme])
-      .portfolio-frame[data-mood='summer']
-      .portfolio-banner-region--mood-only {
-      background: var(--mood-preset-banner-light, var(--mood-banner));
     }
   }
 
