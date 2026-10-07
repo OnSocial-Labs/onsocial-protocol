@@ -57,7 +57,7 @@ test.describe('mood picker', () => {
   test.beforeEach(async ({ page }) => {
     await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
     await gotoApp(page, `/@${COLLECTIBLES_VAULT_OWNER}`);
-    await expectPortfolioIdentityOrSkip(page);
+    await expectPortfolioIdentityOrSkip(page, COLLECTIBLES_VAULT_OWNER);
   });
 
   test('lists every built-in mood and the premium store sections', async ({
