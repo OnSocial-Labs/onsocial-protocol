@@ -139,8 +139,8 @@
 .search-field.sheet-control.collection-door-log-search:active {
   background: transparent;
   box-shadow: none;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   transform: none;
 }
 
@@ -430,8 +430,8 @@
   max-height: 100%;
   min-height: 0;
   background: transparent;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .glass-sheet-panel.post-thread-sheet-panel
@@ -582,8 +582,8 @@
   max-height: 100%;
   min-height: 0;
   background: transparent;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .glass-sheet-panel.leaderboard-page-sheet .os-app-screen-body {
@@ -874,8 +874,8 @@
   max-height: 100%;
   min-height: 0;
   background: transparent;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .glass-sheet-panel.dao-proposals-page
@@ -915,8 +915,8 @@
   min-height: 0;
   background: transparent;
   background-color: transparent;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -1183,8 +1183,8 @@ body:has([data-os-slide-over='true']:not(.is-closing)) .os-launcher-root {
   letter-spacing: -0.02em;
   line-height: 1.25;
   filter: none;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .scarce-listen-slide .scarce-clip-listen-art {
@@ -1222,8 +1222,8 @@ body:has([data-os-slide-over='true']:not(.is-closing)) .os-launcher-root {
   background: var(--app-scrim-media);
   color: var(--app-on-media-ink);
   filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
-  backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 .os-app-screen[data-immersive-header='true']
@@ -1286,8 +1286,8 @@ body:has([data-os-slide-over='true']:not(.is-closing)) .os-launcher-root {
   letter-spacing: -0.02em;
   line-height: 1;
   filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
-  backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 .os-slide-over[data-immersive-header='true']
@@ -1347,8 +1347,8 @@ body:has([data-os-slide-over='true']:not(.is-closing)) .os-launcher-root {
   box-shadow: none;
   background: transparent;
   filter: none;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   color: rgb(var(--fg-rgb) / 0.88);
 }
 
@@ -1399,8 +1399,8 @@ body:has([data-os-slide-over='true']:not(.is-closing)) .os-launcher-root {
   max-height: var(--os-app-screen-nav-row-height, 2.35rem);
   padding: 0;
   filter: none;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 /*
@@ -1559,8 +1559,8 @@ button.post-media-tile {
   .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
   border-color: rgb(var(--fg-rgb) / 0.12);
   background: rgb(var(--fg-rgb) / 0.07);
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   box-shadow: none;
   color: var(--protocol-green-ink, var(--protocol-green));
 }
@@ -1906,8 +1906,8 @@ button.post-media-tile {
   );
   color: rgb(var(--fg-rgb) / 0.9);
   filter: none;
-  backdrop-filter: blur(16px) saturate(1.4);
   -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.12),
     0 4px 12px -6px rgb(0 0 0 / 0.35);
@@ -2509,8 +2509,8 @@ a.os-surface-row {
     rgb(var(--bg-rgb) / 0.5) 93%,
     var(--preview-bar-mood) 7%
   );
-  backdrop-filter: blur(32px) saturate(1.6);
   -webkit-backdrop-filter: blur(32px) saturate(1.6);
+  backdrop-filter: blur(32px) saturate(1.6);
   box-shadow:
     inset 0 1px 0
       color-mix(in srgb, var(--preview-bar-mood) 18%, rgb(var(--fg-rgb) / 0.08)),
@@ -4477,6 +4477,15 @@ a.os-surface-row {
         color-mix(in srgb, var(--bg) 52%, transparent) 68%,
         var(--bg) 100%
       );
+    /*
+     * The banner's foot dissolves through the pane: blur ramps 0 → 10px down
+     * the fade band (mask), so hero media melts into the frosted page instead
+     * of ending at a hard edge.
+     */
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 100%);
+    mask-image: linear-gradient(180deg, transparent 0%, black 100%);
   }
 
   /* Minimal — empty region reserves hero height; bloom paints on .portfolio-page. */
@@ -4512,7 +4521,7 @@ a.os-surface-row {
   .portfolio-frame[data-mood-only='true'][data-mood='glass']
     .portfolio-page::after {
     height: auto;
-    inset: 0;
+    inset: -3%;
     background: var(--glass-card-glint);
   }
 
@@ -4618,15 +4627,41 @@ a.os-surface-row {
       );
   }
 
+  /*
+   * Catch light drifts slowly across the pane — the specular cue that makes
+   * glass feel lit by a real light source. Transform-only (compositor cheap);
+   * inset oversize keeps coverage at the drift extremes.
+   */
   .portfolio-frame[data-mood='glass'] .portfolio-page::after {
     content: '';
     position: absolute;
-    inset: 0;
+    inset: -3%;
     z-index: 1;
     pointer-events: none;
     background: var(--glass-card-glint);
+    animation: mood-glass-glint-drift 22s ease-in-out infinite;
   }
 
+  @keyframes mood-glass-glint-drift {
+    0%,
+    100% {
+      transform: translate3d(-1.2%, -0.8%, 0);
+    }
+    50% {
+      transform: translate3d(1.2%, 0.8%, 0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .portfolio-frame[data-mood='glass'] .portfolio-page::after {
+      animation: none;
+    }
+  }
+
+  /*
+   * Frost tooth: static micro-noise on the pane surface is what separates
+   * etched glass from smooth plastic. Baked at 5% in the tile; no animation.
+   */
   .portfolio-glass-sheet {
     position: absolute;
     inset: 0;
@@ -4634,9 +4669,21 @@ a.os-surface-row {
     pointer-events: none;
     border: 0;
     background: var(--glass-card-sheen), var(--glass-card-fill);
-    backdrop-filter: blur(22px) saturate(1.28);
+    /* Prefixed first, unprefixed last: Lightning CSS keeps the final
+       declaration, and modern Chromium no longer honors the -webkit- alias. */
     -webkit-backdrop-filter: blur(22px) saturate(1.28);
+    backdrop-filter: blur(22px) saturate(1.28);
     box-shadow: var(--glass-card-lip);
+  }
+
+  /* Frost tooth on its own layer — a url() layer inside the background
+     shorthand gets dropped by the CSS pipeline when mixed with var(). */
+  .portfolio-glass-sheet::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)' opacity='0.05'/%3E%3C/svg%3E");
   }
 
   :root[data-theme='light'] .portfolio-frame[data-mood='glass'],
@@ -4794,10 +4841,25 @@ a.os-surface-row {
 
   @media (prefers-reduced-transparency: reduce) {
     .portfolio-glass-sheet {
-      backdrop-filter: none;
       -webkit-backdrop-filter: none;
+      backdrop-filter: none;
       background: var(--glass-surface-solid, var(--surface-solid));
       box-shadow: none;
+    }
+
+    .portfolio-glass-sheet::after {
+      content: none;
+    }
+
+    /* Banner foot falls back to the plain gradient fade — no blur ramp. */
+    .portfolio-frame[data-mood='glass'][data-avatar-cover='true']
+      .portfolio-banner-region::after,
+    .portfolio-frame[data-mood='glass'][data-has-banner='true']:not(
+        [data-avatar-cover='true']
+      )
+      .portfolio-banner-region::after {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
     }
 
     .portfolio-frame[data-mood='glass'] .portfolio-page::before,
@@ -4862,8 +4924,8 @@ a.os-surface-row {
     color: rgb(160 175 195);
     background: rgb(255 255 255 / 0.08);
     border: 1px solid rgb(255 255 255 / 0.14);
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     box-shadow: none;
   }
 
@@ -5470,8 +5532,8 @@ a.os-surface-row {
     background: rgb(255 255 255 / 0.06);
     border: 1px solid rgb(255 255 255 / 0.1);
     box-shadow: none;
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   .portfolio-frame[data-mood='carbon'] .mood-indicator-dot {
@@ -12964,8 +13026,8 @@ a.os-surface-row {
     overflow: hidden;
     isolation: isolate;
     background: var(--glass-screen-surface);
-    backdrop-filter: blur(20px) saturate(1.22);
     -webkit-backdrop-filter: blur(20px) saturate(1.22);
+    backdrop-filter: blur(20px) saturate(1.22);
     color: rgb(var(--fg-rgb) / 0.96);
   }
 
@@ -13632,8 +13694,8 @@ a.os-surface-row {
 
   .os-app-screen[data-tone='os'] .standing-list-toolbar .sheet-control {
     background: var(--os-surface-row-hover);
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   .os-app-screen[data-tone='os'] .standing-list-toolbar .sheet-control:hover,
@@ -13652,8 +13714,8 @@ a.os-surface-row {
     .standing-list-toolbar
     .os-floating-panel-trigger {
     background: var(--os-surface-fill-hover-soft);
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     box-shadow: none;
   }
 
@@ -13709,8 +13771,8 @@ a.os-surface-row {
     padding: 0.28rem 0.7rem;
     border-radius: 9999px;
     background: rgb(var(--bg-rgb) / 0.72);
-    backdrop-filter: blur(18px) saturate(1.4);
     -webkit-backdrop-filter: blur(18px) saturate(1.4);
+    backdrop-filter: blur(18px) saturate(1.4);
     font-size: 0.75rem;
     line-height: 1.35;
     color: rgb(var(--fg-rgb) / 0.55);
@@ -16793,8 +16855,8 @@ a.os-surface-row {
   /* OS standing overlay: flat glass controls (match soft chrome ladder). */
   .glass-sheet-panel[data-tone='os'] .standing-sheet-header .sheet-control {
     background: var(--os-surface-row-hover);
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   .glass-sheet-panel[data-tone='os']
@@ -20004,8 +20066,8 @@ a.os-surface-row {
   .profile-editor-media-host:focus-within
     .account-editor-banner-overlay.has-media {
     background: rgb(0 0 0 / 0.4);
-    backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
   }
 
   .account-editor-avatar-overlay {
@@ -22030,8 +22092,8 @@ a.os-surface-row {
     .profile-editor-media-host:hover .profile-editor-media-overlay.has-media,
     .profile-editor-media-host:focus-within
       .profile-editor-media-overlay.has-media {
-      backdrop-filter: none;
       -webkit-backdrop-filter: none;
+      backdrop-filter: none;
       background: rgb(0 0 0 / 0.52);
     }
   }
@@ -22049,8 +22111,8 @@ a.os-surface-row {
       calc(0.25rem + env(safe-area-inset-bottom, 0px))
       max(1rem, env(safe-area-inset-left, 0px));
     background: transparent;
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     box-shadow: none;
   }
 
@@ -22123,8 +22185,8 @@ a.os-surface-row {
   /* Quiet tech air: flat black/white base. No mesh / no dots / no corner wash. */
   .os-app-screen {
     background-color: #000;
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   .os-app-screen::before {
@@ -22139,8 +22201,8 @@ a.os-surface-row {
     position: relative;
     z-index: 1;
     background: transparent;
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   .os-app-screen .os-app-screen-header,
@@ -22461,8 +22523,8 @@ a.os-surface-row {
     box-shadow:
       0 18px 40px -18px rgb(0 0 0 / 0.34),
       0 6px 16px -12px rgb(0 0 0 / 0.18);
-    backdrop-filter: blur(20px) saturate(1.2);
     -webkit-backdrop-filter: blur(20px) saturate(1.2);
+    backdrop-filter: blur(20px) saturate(1.2);
   }
 
   .home-hashtag-suggest-item {
@@ -25131,8 +25193,8 @@ a.os-surface-row {
     border-radius: 999px;
     color: rgb(var(--fg-rgb) / 0.92);
     background: rgb(var(--fg-rgb) / 0.1);
-    backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
     font-size: 1.35rem;
     line-height: 1;
     transform: none;
@@ -25906,8 +25968,8 @@ a.os-surface-row {
     cursor: pointer;
     color: var(--app-on-media-ink);
     background: var(--app-scrim-media);
-    backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
     filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
   }
 
@@ -27487,8 +27549,8 @@ a.os-surface-row {
     border: 0;
     background: var(--app-scrim-media);
     color: var(--app-on-media-ink);
-    backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
     filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
   }
 
@@ -27520,8 +27582,8 @@ a.os-surface-row {
     .collectibles-play-drop-action
     .os-sheet-action {
     filter: none;
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   a.collectibles-holding-row,
@@ -28293,8 +28355,8 @@ a.os-surface-row {
     .collection-header-status:not(.is-live) {
     background: var(--app-scrim-media);
     color: var(--app-on-media-ink);
-    backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
     filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
   }
 
@@ -28312,8 +28374,8 @@ a.os-surface-row {
     > .os-app-screen-header.is-elevated
     .collection-header-status {
     filter: none;
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   /* Music drop hero — same cover player as Collectibles play. */
@@ -32182,8 +32244,8 @@ a.os-surface-row {
 
   .os-app-screen.os-slide-over.os-app-screen--mood .os-app-screen-column {
     background: transparent;
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   /* Home / in-shell: the .app-surface card IS the phone view.
@@ -32206,8 +32268,8 @@ a.os-surface-row {
 
   .os-app-screen.os-app-screen--mood:not(.os-slide-over) .os-app-screen-column {
     background: transparent;
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   @media (prefers-reduced-transparency: reduce) {
@@ -34208,8 +34270,8 @@ a.os-surface-row {
     /* Theme transport — same idea as overlay nav, not hard black. */
     color: rgb(var(--fg-rgb) / 0.92);
     background: rgb(var(--fg-rgb) / 0.1);
-    backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
     font-size: 1.25rem;
     line-height: 1;
     cursor: pointer;
@@ -43122,8 +43184,8 @@ button.scarce-clip-cover-expand {
   border-radius: 9999px;
   color: var(--app-on-media-ink);
   background: var(--app-scrim-media);
-  backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
   line-height: 1;
 }
@@ -43187,8 +43249,8 @@ button.scarce-clip-cover-expand.scarce-clip-listen-contract {
   color: var(--os-surface-emphasis);
   background: var(--os-surface-fill-strong);
   filter: none;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 button.scarce-clip-cover-expand.scarce-clip-listen-contract:hover,
@@ -43231,8 +43293,8 @@ button.scarce-clip-cover-expand.collection-cover-read-hit {
   max-height: none;
   border-radius: 0;
   background: transparent;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   filter: none;
   display: flex;
   align-items: flex-end;
@@ -43262,8 +43324,8 @@ button.scarce-clip-cover-expand.collection-cover-read-hit:focus-visible {
   border-radius: 9999px;
   color: var(--app-on-media-ink);
   background: var(--app-scrim-media);
-  backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
 }
 
@@ -44220,8 +44282,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
   border-color: rgb(var(--fg-rgb) / 0.12);
   background: rgb(var(--fg-rgb) / 0.07);
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   box-shadow: none;
   color: var(--protocol-green-ink, var(--protocol-green));
 }
@@ -44248,8 +44310,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
   border-color: color-mix(in srgb, var(--protocol-green) 32%, transparent);
   background: color-mix(in srgb, var(--protocol-green) 10%, transparent);
-  backdrop-filter: blur(12px) saturate(140%);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--protocol-green) 14%, transparent),
     0 3px 8px -2px color-mix(in srgb, var(--protocol-green) 12%, transparent);
@@ -47649,8 +47711,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     border-radius: 0.375rem;
     border: 1px solid rgb(var(--fg-rgb, 255 255 255) / 0.12);
     background: rgb(var(--bg-rgb, 0 0 0) / 0.72);
-    backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
     padding: 0.125rem 0.5rem;
     font-size: 0.68rem;
     font-weight: 500;
@@ -47741,8 +47803,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     border-radius: 0.375rem;
     border: 1px solid rgb(var(--fg-rgb, 255 255 255) / 0.12);
     background: rgb(var(--bg-rgb, 0 0 0) / 0.72);
-    backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
     padding: 0.125rem 0.5rem;
     font-size: 0.68rem;
     font-weight: 500;
@@ -47768,8 +47830,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     .network-orbit-node-label,
     .network-orbit-center-label {
       background: rgb(var(--bg-rgb, 0 0 0) / 0.94);
-      backdrop-filter: none;
       -webkit-backdrop-filter: none;
+      backdrop-filter: none;
     }
   }
 

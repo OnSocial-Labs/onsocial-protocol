@@ -2,7 +2,10 @@
 
 .app-tx-toast-anchor {
   --app-tx-toast-bottom: calc(
-    var(--portfolio-dock-clearance, calc(4.75rem + env(safe-area-inset-bottom, 0px))) +
+    var(
+        --portfolio-dock-clearance,
+        calc(4.75rem + env(safe-area-inset-bottom, 0px))
+      ) +
       0.75rem
   );
 
@@ -26,8 +29,8 @@
   /* Soft chip — readable overlay (near dropdown opacity), not ambient glass. */
   border-radius: 1.15rem;
   background: rgb(var(--bg-rgb) / 0.92);
-  backdrop-filter: blur(32px) saturate(1.6);
   -webkit-backdrop-filter: blur(32px) saturate(1.6);
+  backdrop-filter: blur(32px) saturate(1.6);
   box-shadow:
     inset 0 1px 0 rgb(var(--fg-rgb) / 0.1),
     0 18px 40px -18px rgb(0 0 0 / 0.34),
@@ -205,7 +208,7 @@
   .app-tx-toast.is-success,
   .app-tx-toast.is-error {
     background: rgb(var(--bg-rgb) / 0.98);
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }
