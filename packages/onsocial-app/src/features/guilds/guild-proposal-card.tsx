@@ -337,6 +337,7 @@ export function GuildProposalCard({
                 <OsSheetAction
                   type="button"
                   variant="danger"
+                  ready={pendingAction !== 'cancel'}
                   disabled={pendingAction === 'cancel'}
                   onClick={onCancel}
                 >
@@ -397,6 +398,7 @@ export function GuildProposalCard({
                         <OsSheetAction
                           type="button"
                           variant="danger"
+                          ready
                           onClick={onOppose}
                         >
                           {opposeLabel}
