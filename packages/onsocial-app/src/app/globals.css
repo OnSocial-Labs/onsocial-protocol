@@ -4572,6 +4572,15 @@ a.os-surface-row {
         rgb(200 225 255 / 0.18) 0%,
         transparent 68%
       ),
+      /* Prismatic band — optical-glass dispersion, drifts with the glint. */
+        linear-gradient(
+          115deg,
+          transparent 40%,
+          rgb(190 228 255 / 0.06) 46%,
+          rgb(255 210 240 / 0.05) 50%,
+          rgb(205 255 238 / 0.05) 54%,
+          transparent 60%
+        ),
       linear-gradient(
         155deg,
         transparent 18%,
@@ -4585,6 +4594,11 @@ a.os-surface-row {
    * The smoky backdrop carries dim light pools so the frosted sheet has
    * something to blur — glass only reads as glass when shapes sit behind it.
    * Pool alphas are capped so muted ink over a pool core stays ≥ 3.4:1.
+   *
+   * background-attachment: fixed pins the light to the viewport while page
+   * content scrolls through the frost — the parallax cue of a real material
+   * held against a lit backdrop. (iOS Safari ignores fixed attachment and
+   * keeps the pools scrolling — graceful.)
    */
   .portfolio-frame[data-mood='glass'] .portfolio-page::before {
     content: '';
@@ -4614,6 +4628,7 @@ a.os-surface-row {
         rgb(24 30 42) 46%,
         rgb(10 12 18) 100%
       );
+    background-attachment: fixed;
   }
 
   /*
@@ -4707,6 +4722,15 @@ a.os-surface-row {
         rgb(240 248 255 / 0.5) 0%,
         transparent 70%
       ),
+      /* Prismatic band — optical-glass dispersion, drifts with the glint. */
+        linear-gradient(
+          115deg,
+          transparent 40%,
+          rgb(150 200 255 / 0.09) 46%,
+          rgb(235 170 220 / 0.08) 50%,
+          rgb(170 235 210 / 0.08) 54%,
+          transparent 60%
+        ),
       linear-gradient(
         155deg,
         transparent 16%,
@@ -4748,6 +4772,7 @@ a.os-surface-row {
         rgb(200 206 218) 48%,
         rgb(172 179 192) 100%
       );
+    background-attachment: fixed;
   }
 
   @media (prefers-color-scheme: light) {
@@ -4783,6 +4808,15 @@ a.os-surface-row {
           rgb(240 248 255 / 0.5) 0%,
           transparent 70%
         ),
+        /* Prismatic band — optical-glass dispersion, drifts with the glint. */
+          linear-gradient(
+            115deg,
+            transparent 40%,
+            rgb(150 200 255 / 0.09) 46%,
+            rgb(235 170 220 / 0.08) 50%,
+            rgb(170 235 210 / 0.08) 54%,
+            transparent 60%
+          ),
         linear-gradient(
           155deg,
           transparent 16%,
@@ -4825,6 +4859,7 @@ a.os-surface-row {
           rgb(200 206 218) 48%,
           rgb(172 179 192) 100%
         );
+      background-attachment: fixed;
     }
   }
 
