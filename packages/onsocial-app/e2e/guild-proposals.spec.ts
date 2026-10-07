@@ -26,6 +26,13 @@ test.describe('guild proposals sheet', () => {
     await expect(roleCard).toBeVisible();
     await expect(roleCard.getByText('Moderator')).toBeVisible();
     await expect(roleCard.getByText('Keeps the rooms tidy')).toBeVisible();
+    // Identity: one shared clickable cluster; @id always shows for the
+    // target and the proposer.
+    await expect(
+      roleCard.getByRole('link', { name: "View Bob Builder's profile" })
+    ).toBeVisible();
+    await expect(roleCard.getByText('@bob.testnet')).toBeVisible();
+    await expect(roleCard.getByText('@alice.testnet')).toBeVisible();
     await expect(roleCard.getByText('3–1 · ready')).toBeVisible();
     await expect(
       roleCard.getByRole('button', { name: 'Support' })

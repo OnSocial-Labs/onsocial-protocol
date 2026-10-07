@@ -24,6 +24,7 @@ import {
   guildViewerVoteLabel,
 } from '@/features/guilds/guild-proposal-display';
 import { AccountAvatar } from '@/components/profile/account-avatar';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
   formatPostTimestamp,
@@ -99,10 +100,6 @@ export function GuildProposalCard({
           : `Promote to ${presentation.roleLabel.toLowerCase()}`
         : presentation.headline)
     : null;
-  const showHandle =
-    showIdentity &&
-    presentation.targetLabel &&
-    presentation.targetLabel.toLowerCase() !== targetDisplayName?.toLowerCase();
   const proposerAccountId = proposal.proposer?.trim() || null;
   const proposerProfile = proposerAccountId
     ? profiles[proposerAccountId]
@@ -110,6 +107,8 @@ export function GuildProposalCard({
   const proposerDisplayName = proposerAccountId
     ? displayName(proposerAccountId, proposerProfile?.displayName ?? undefined)
     : null;
+  // Show the exact @id whenever a display name is standing in for it.
+  const proposerNamed = Boolean(proposerProfile?.displayName?.trim());
   const submittedDate = resolvePostDate(proposal.created_at);
   const submittedRelative = formatRelativePostTimestamp(proposal.created_at);
   const submittedTitle = formatPostTimestamp(proposal.created_at);
@@ -214,56 +213,35 @@ export function GuildProposalCard({
           {showIdentity ? (
             <Link
               href={portfolioPath(targetAccountId!)}
-              className="guild-proposal-card-avatar-link"
+              className="guild-proposal-card-identity"
+              aria-label={`View ${targetDisplayName}'s profile`}
               scroll={false}
             >
-              <AccountAvatar
-                accountId={targetAccountId}
-                src={targetProfile?.avatarUrl ?? null}
-                fallbackInitial={targetDisplayName!}
+              <StandingIdentity
+                accountId={targetAccountId!}
+                profileName={targetProfile?.displayName}
+                avatarUrl={targetProfile?.avatarUrl}
+                size="lg"
                 shellLoading={!targetProfile}
-                size="sm"
-                className="guild-proposal-card-avatar"
-              />
-            </Link>
-          ) : null}
-
-          <div className="guild-proposal-card-copy">
-            {showIdentity ? (
-              <div className="guild-proposal-card-identity-row">
-                <Link
-                  href={portfolioPath(targetAccountId!)}
-                  className="guild-proposal-card-name"
-                  scroll={false}
-                >
-                  {targetDisplayName}
-                </Link>
-                {presentation.roleLabel ? (
-                  <span className="guild-proposal-card-role-pill">
-                    {presentation.roleLabel}
-                  </span>
-                ) : null}
-              </div>
-            ) : (
-              <p className="guild-proposal-card-headline">
-                {presentation.headline}
-              </p>
-            )}
-
-            {showIdentity && bodyLine ? (
-              <p className="guild-proposal-card-action">{bodyLine}</p>
-            ) : null}
-
-            {showHandle ? (
-              <Link
-                href={portfolioPath(targetAccountId!)}
-                className="guild-proposal-card-handle"
-                scroll={false}
+                avatarClassName="guild-proposal-card-avatar"
+                nameTrailing={
+                  presentation.roleLabel ? (
+                    <span className="guild-proposal-card-role-pill">
+                      {presentation.roleLabel}
+                    </span>
+                  ) : null
+                }
               >
-                @{presentation.targetLabel}
-              </Link>
-            ) : null}
-          </div>
+                {bodyLine ? (
+                  <p className="guild-proposal-card-action">{bodyLine}</p>
+                ) : null}
+              </StandingIdentity>
+            </Link>
+          ) : (
+            <p className="guild-proposal-card-headline">
+              {presentation.headline}
+            </p>
+          )}
         </div>
 
         {showProposer ? (
@@ -284,6 +262,11 @@ export function GuildProposalCard({
             <span className="guild-proposal-card-proposer-name">
               {proposerDisplayName}
             </span>
+            {proposerNamed ? (
+              <span className="guild-proposal-card-proposer-handle">
+                @{proposerAccountId}
+              </span>
+            ) : null}
           </Link>
         ) : null}
       </OsProposalCardBody>

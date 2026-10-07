@@ -38383,15 +38383,33 @@ a.os-surface-row {
     gap: 0.5rem;
   }
 
-  .guild-proposal-card-avatar-link {
-    flex: 0 0 auto;
-    margin-top: 0.02rem;
+  .guild-proposal-card-identity {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    min-width: 0;
+    flex: 1 1 auto;
     text-decoration: none;
+    color: inherit;
+    --os-identity-name-size: 0.82rem;
+    --os-identity-name-weight: 650;
+  }
+
+  .guild-proposal-card-identity .standing-row-name {
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .guild-proposal-card-identity:hover .standing-row-name,
+  .guild-proposal-card-identity:focus-visible .standing-row-name {
+    color: rgb(var(--fg-rgb) / 0.98);
+  }
+
+  .guild-proposal-card-identity .guild-proposal-card-action {
+    margin-top: 0.1rem;
   }
 
   .guild-proposal-card-avatar.profile-avatar {
-    width: 1.55rem;
-    height: 1.55rem;
+    flex: 0 0 auto;
     border-width: 1.5px;
     transition:
       transform 140ms ease,
@@ -38416,42 +38434,11 @@ a.os-surface-row {
       color-mix(in srgb, var(--protocol-blue) 16%, transparent);
   }
 
-  .guild-proposal-card-avatar-link:hover
+  .guild-proposal-card-identity:hover
     .guild-proposal-card-avatar.profile-avatar,
-  .guild-proposal-card-avatar-link:focus-visible
+  .guild-proposal-card-identity:focus-visible
     .guild-proposal-card-avatar.profile-avatar {
     transform: scale(1.04);
-  }
-
-  .guild-proposal-card-copy {
-    display: grid;
-    gap: 0.08rem;
-    min-width: 0;
-    flex: 1 1 auto;
-  }
-
-  .guild-proposal-card-identity-row {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    gap: 0.38rem;
-  }
-
-  .guild-proposal-card-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.82rem;
-    font-weight: 650;
-    line-height: 1.25;
-    color: rgb(var(--fg-rgb) / 0.92);
-    text-decoration: none;
-  }
-
-  .guild-proposal-card-name:hover,
-  .guild-proposal-card-name:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.98);
   }
 
   .guild-proposal-card-role-pill {
@@ -38497,22 +38484,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.66);
   }
 
-  .guild-proposal-card-handle {
-    width: fit-content;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: var(--os-identity-handle-size, 0.72rem);
-    font-weight: var(--os-identity-handle-weight, 400);
-    color: var(--os-identity-handle);
-    text-decoration: none;
-  }
-
-  .guild-proposal-card-handle:hover {
-    color: var(--os-identity-handle-hover);
-  }
-
   .guild-proposal-card-proposer {
     display: inline-flex;
     align-items: center;
@@ -38552,6 +38523,15 @@ a.os-surface-row {
     font-size: 0.62rem;
     font-weight: 600;
     color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .guild-proposal-card-proposer-handle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.62rem;
+    font-weight: 500;
+    color: rgb(var(--fg-rgb) / 0.4);
   }
 
   .guild-proposal-card-footer {
