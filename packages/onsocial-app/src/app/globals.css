@@ -5502,11 +5502,12 @@ a.os-surface-row {
   /*
    * Summer finish — golden hour. A low sun sits half-sunk at the bottom
    * edge of the viewport (background-attachment: fixed, the Glass pools
-   * cue): a small disc with a soft limb over a quiet horizon band, while
-   * content scrolls past. The sky above stays near-dark so ink keeps its
-   * contrast. The sun replaces the generic mood-only accent bloom. iOS
-   * Safari ignores fixed attachment → the sun scrolls with the page
-   * (graceful, same tradeoff as Glass).
+   * cue): a small disc with a soft limb, wrapped in its own rounded
+   * bloom — one light source, so the glow reads as the sun's aura, not
+   * edge-lighting — while content scrolls past. The sky above stays
+   * near-dark so ink keeps its contrast. The sun replaces the generic
+   * mood-only accent bloom. iOS Safari ignores fixed attachment → the
+   * sun scrolls with the page (graceful, same tradeoff as Glass).
    */
   .portfolio-frame[data-mood='summer'] {
     --mood-bg: transparent;
@@ -5521,15 +5522,15 @@ a.os-surface-row {
       rgb(255 190 120 / 0.05),
       transparent 60%
     );
-    --summer-horizon: radial-gradient(
-      ellipse 130% 46% at 50% 112%,
-      rgb(255 150 60 / 0.1),
-      transparent 62%
+    --summer-bloom: radial-gradient(
+      ellipse 18rem 9rem at 50% 100.5%,
+      rgb(255 130 45 / 0.08),
+      transparent 70%
     );
     --summer-sun: radial-gradient(
       circle 3rem at 50% 100.5%,
-      rgb(255 110 30 / 0.42) 0 60%,
-      rgb(255 90 20 / 0.18) 72%,
+      rgb(255 110 30 / 0.4) 0 60%,
+      rgb(255 90 20 / 0.17) 72%,
       transparent 82%
     );
     --summer-sheet-lip: inset 0 1px 0 rgb(255 190 120 / 0.08);
@@ -5553,7 +5554,7 @@ a.os-surface-row {
     z-index: 0;
     pointer-events: none;
     background:
-      var(--summer-sheet-sky), var(--summer-sun), var(--summer-horizon),
+      var(--summer-sheet-sky), var(--summer-sun), var(--summer-bloom),
       var(--summer-sheet-base);
     background-attachment: scroll, fixed, fixed, scroll;
     box-shadow: var(--summer-sheet-lip);
@@ -5584,15 +5585,15 @@ a.os-surface-row {
       rgb(255 200 140 / 0.07),
       transparent 60%
     );
-    --summer-horizon: radial-gradient(
-      ellipse 130% 46% at 50% 112%,
-      rgb(255 170 90 / 0.12),
-      transparent 62%
+    --summer-bloom: radial-gradient(
+      ellipse 18rem 9rem at 50% 100.5%,
+      rgb(255 150 70 / 0.1),
+      transparent 70%
     );
     --summer-sun: radial-gradient(
       circle 3rem at 50% 100.5%,
-      rgb(255 120 40 / 0.42) 0 60%,
-      rgb(255 100 30 / 0.18) 72%,
+      rgb(255 120 40 / 0.4) 0 60%,
+      rgb(255 100 30 / 0.17) 72%,
       transparent 82%
     );
     --summer-sheet-lip:
@@ -5611,15 +5612,15 @@ a.os-surface-row {
         rgb(255 200 140 / 0.07),
         transparent 60%
       );
-      --summer-horizon: radial-gradient(
-        ellipse 130% 46% at 50% 112%,
-        rgb(255 170 90 / 0.12),
-        transparent 62%
+      --summer-bloom: radial-gradient(
+        ellipse 18rem 9rem at 50% 100.5%,
+        rgb(255 150 70 / 0.1),
+        transparent 70%
       );
       --summer-sun: radial-gradient(
         circle 3rem at 50% 100.5%,
-        rgb(255 120 40 / 0.42) 0 60%,
-        rgb(255 100 30 / 0.18) 72%,
+        rgb(255 120 40 / 0.4) 0 60%,
+        rgb(255 100 30 / 0.17) 72%,
         transparent 82%
       );
       --summer-sheet-lip:
