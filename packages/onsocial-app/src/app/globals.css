@@ -5099,16 +5099,23 @@ a.os-surface-row {
     filter: grayscale(1);
   }
 
-  .portfolio-frame[data-mood='noir'] .portfolio-page::before {
+  /*
+   * Vignette lives on the frame (not the scrolling page) so content stays
+   * bright as it scrolls under a fixed "projector screen". Percentage radii
+   * make corner distance aspect-independent: r = sqrt((50/62)^2 + (42/58)^2)
+   * ≈ 1.08 — corners land just past the 100% stop on any screen. z-index 2
+   * sits above the page (z-index 1) and below sheets/dock chrome (z-index 40+).
+   */
+  .portfolio-frame[data-mood='noir']::before {
     content: '';
     position: absolute;
     inset: 0;
     z-index: 2;
     pointer-events: none;
     background: radial-gradient(
-      ellipse 130% 105% at 50% 42%,
-      transparent 58%,
-      rgb(0 0 0 / 0.42) 100%
+      ellipse 62% 58% at 50% 42%,
+      transparent 55%,
+      rgb(0 0 0 / 0.45) 100%
     );
   }
 
@@ -5118,8 +5125,8 @@ a.os-surface-row {
     inset: -4%;
     z-index: 2;
     pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    opacity: 0.07;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.2;
     mix-blend-mode: screen;
     animation: mood-noir-grain 0.48s steps(4) infinite;
   }
@@ -5127,41 +5134,37 @@ a.os-surface-row {
   /* Outranks the generic mood-only preview bloom's `opacity: 1`. */
   .portfolio-frame[data-mood='noir'][data-mood-preview='true'][data-mood-only='true']
     .portfolio-page::after {
-    opacity: 0.07;
+    opacity: 0.2;
   }
 
-  :root[data-theme='light']
-    .portfolio-frame[data-mood='noir']
-    .portfolio-page::before {
+  :root[data-theme='light'] .portfolio-frame[data-mood='noir']::before {
     background: radial-gradient(
-      ellipse 130% 105% at 50% 42%,
-      transparent 62%,
-      rgb(17 19 24 / 0.14) 100%
+      ellipse 62% 58% at 50% 42%,
+      transparent 55%,
+      rgb(17 19 24 / 0.16) 100%
     );
   }
 
   :root[data-theme='light']
     .portfolio-frame[data-mood='noir']
     .portfolio-page::after {
-    opacity: 0.05;
+    opacity: 0.1;
     mix-blend-mode: multiply;
   }
 
   @media (prefers-color-scheme: light) {
-    :root:not([data-theme])
-      .portfolio-frame[data-mood='noir']
-      .portfolio-page::before {
+    :root:not([data-theme]) .portfolio-frame[data-mood='noir']::before {
       background: radial-gradient(
-        ellipse 130% 105% at 50% 42%,
-        transparent 62%,
-        rgb(17 19 24 / 0.14) 100%
+        ellipse 62% 58% at 50% 42%,
+        transparent 55%,
+        rgb(17 19 24 / 0.16) 100%
       );
     }
 
     :root:not([data-theme])
       .portfolio-frame[data-mood='noir']
       .portfolio-page::after {
-      opacity: 0.05;
+      opacity: 0.1;
       mix-blend-mode: multiply;
     }
   }
