@@ -146,7 +146,8 @@ describe('page moods', () => {
     expect(pageMoodPreviewCssVars('protocol', theme)).toMatchObject({
       '--mood-accent': PROTOCOL_COLORS.blue,
       '--mood-preset-accent': PROTOCOL_COLORS.blue,
-      '--mood-preset-accent-light': PAGE_MOOD_PRESETS.protocol.theme.accentLight,
+      '--mood-preset-accent-light':
+        PAGE_MOOD_PRESETS.protocol.theme.accentLight,
     });
   });
 
