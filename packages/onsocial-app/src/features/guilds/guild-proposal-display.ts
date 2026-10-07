@@ -178,9 +178,10 @@ export function guildPermissionRoleLabel(level: number): string {
 
 function permissionChangeHeadline(
   targetAccountId: string,
-  level: number
+  level: number,
+  profileName?: string | null
 ): { headline: string; roleLabel: string } {
-  const name = fallbackLabel(targetAccountId);
+  const name = profileName?.trim() || fallbackLabel(targetAccountId);
   const roleLabel = guildPermissionRoleLabel(level);
 
   if (level <= PERMISSION.NONE) {
@@ -271,11 +272,15 @@ function readGroupUpdateFields(proposal: Proposal): {
 }
 
 export function guildProposalPresentation(
-  proposal: Proposal
+  proposal: Proposal,
+  profileName?: string | null
 ): GuildProposalPresentation {
   const proposerLabel = proposal.proposer
     ? fallbackLabel(proposal.proposer)
     : null;
+  // Headlines prefer the target's display name when the caller has it
+  // (drawer copy); `targetLabel` stays the raw id for handle comparisons.
+  const named = (accountId: string) => profileName?.trim() || fallbackLabel(accountId);
 
   if (proposal.type === 'permission_change') {
     const targetAccountId = readPermissionChangeTarget(proposal);
@@ -285,7 +290,8 @@ export function guildProposalPresentation(
     if (targetAccountId && level != null) {
       const { headline, roleLabel } = permissionChangeHeadline(
         targetAccountId,
-        level
+        level,
+        profileName
       );
       return {
         kind: 'Role',
@@ -309,7 +315,7 @@ export function guildProposalPresentation(
       kind: 'Join',
       kindTone: 'access',
       headline: requester
-        ? `${fallbackLabel(requester)} requested to join`
+        ? `${named(requester)} requested to join`
         : 'Membership request',
       targetAccountId: requester,
       targetLabel: requester ? fallbackLabel(requester) : null,
@@ -327,7 +333,7 @@ export function guildProposalPresentation(
     const { targetAccountId, path, reason } = readPathPermissionFields(proposal);
     const roomTitle = path ? roomTitleFromSpaceWritePath(path) : null;
     const isGrant = proposal.type === 'path_permission_grant';
-    const name = targetAccountId ? fallbackLabel(targetAccountId) : null;
+    const name = targetAccountId ? named(targetAccountId) : null;
     const cleanedReason =
       reason && !isChainGeneratedCopy(reason) ? reason : null;
 
@@ -369,7 +375,7 @@ export function guildProposalPresentation(
     const isBan =
       proposal.type === 'group_update_ban' || groupUpdate.updateType === 'ban';
     const targetAccountId = groupUpdate.targetAccountId;
-    const name = targetAccountId ? fallbackLabel(targetAccountId) : null;
+    const name = targetAccountId ? named(targetAccountId) : null;
     const cleanedReason =
       groupUpdate.reason && !isChainGeneratedCopy(groupUpdate.reason)
         ? groupUpdate.reason
@@ -386,7 +392,7 @@ export function guildProposalPresentation(
           ? 'Ban member'
           : 'Unban member',
       targetAccountId,
-      targetLabel: name,
+      targetLabel: targetAccountId ? fallbackLabel(targetAccountId) : null,
       roleLabel: null,
       detail: cleanedReason,
       proposerLabel,

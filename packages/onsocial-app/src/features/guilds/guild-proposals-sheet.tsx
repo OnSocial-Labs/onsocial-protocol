@@ -353,6 +353,13 @@ export function GuildProposalsSheet({
     return [...ids];
   }, [proposals, resolvedProposals]);
   const profiles = usePostAuthorProfiles(profileIds);
+  const votersTargetName = (() => {
+    if (!votersFor) return null;
+    const targetId = guildProposalPresentation(
+      votersFor.proposal
+    ).targetAccountId;
+    return targetId ? (profiles[targetId]?.displayName ?? null) : null;
+  })();
 
   const subtitle = canVote
     ? 'Support or oppose active governance items.'
@@ -474,6 +481,7 @@ export function GuildProposalsSheet({
         groupId={groupId}
         proposal={votersFor?.proposal ?? null}
         votingClosed={votersFor?.votingClosed ?? false}
+        targetName={votersTargetName}
         onClose={() => setVotersFor(null)}
       />
     </>

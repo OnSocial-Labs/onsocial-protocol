@@ -50,6 +50,27 @@ describe('guild-proposal-display', () => {
     expect(presentation.suppressDescription).toBe(true);
   });
 
+  it('prefers the target display name in headlines when provided', () => {
+    const proposal = {
+      ...baseProposal,
+      title: 'Change Permission for greenghost.onsocial.testnet to level 2',
+      type: 'permission_change',
+      target: 'greenghost.onsocial.testnet',
+      data: {},
+    };
+
+    const named = guildProposalPresentation(proposal, 'Green Ghost');
+    expect(named.headline).toBe('Make Green Ghost a Moderator');
+    // targetLabel stays the raw id for handle comparisons.
+    expect(named.targetLabel).toBe('greenghost.onsocial.testnet');
+
+    const join = guildProposalPresentation(
+      { ...baseProposal, type: 'join_request', target: 'greenghost.onsocial.testnet' },
+      'Green Ghost'
+    );
+    expect(join.headline).toBe('Green Ghost requested to join');
+  });
+
   it('formats path permission grants as room access', () => {
     const presentation = guildProposalPresentation({
       ...baseProposal,

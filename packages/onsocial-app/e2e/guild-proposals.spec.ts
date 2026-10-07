@@ -130,7 +130,7 @@ test.describe('guild proposals sheet', () => {
     await roleCard.getByRole('button', { name: 'Votes', exact: true }).click();
 
     const voters = page.getByRole('dialog', {
-      name: 'Make bob.testnet a Moderator',
+      name: 'Make Bob Builder a Moderator',
     });
     await expect(voters).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await expect(voters.getByText('Votes · #12')).toBeVisible();

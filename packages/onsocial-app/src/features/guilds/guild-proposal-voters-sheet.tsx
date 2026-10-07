@@ -23,6 +23,8 @@ interface GuildProposalVotersSheetProps {
   proposal: Proposal | null;
   /** Past the voting period or terminal — non-voters did not vote. */
   votingClosed: boolean;
+  /** Target's display name when already loaded — keeps the headline friendly. */
+  targetName?: string | null;
   onClose: () => void;
 }
 
@@ -32,6 +34,7 @@ export function GuildProposalVotersSheet({
   groupId,
   proposal,
   votingClosed,
+  targetName,
   onClose,
 }: GuildProposalVotersSheetProps) {
   const [closing, setClosing] = useState(false);
@@ -98,7 +101,9 @@ export function GuildProposalVotersSheet({
     onClose();
   }, [onClose]);
 
-  const presentation = proposal ? guildProposalPresentation(proposal) : null;
+  const presentation = proposal
+    ? guildProposalPresentation(proposal, targetName)
+    : null;
   const title = proposal ? `Votes · #${proposal.sequence_number}` : 'Votes';
   const noVoteLabel = votingClosed ? 'Did not vote' : "Hasn't voted";
   const rows: Array<{ accountId: string; approve: boolean | null }> = [
