@@ -7,6 +7,7 @@ import type {
 /** Premium page mood ids — stored in `page/main.mood.id` when unlocked. */
 export type PremiumPageMoodId =
   | 'summer'
+  | 'autumn'
   | 'gold'
   | 'glass'
   | 'carbon'
@@ -33,6 +34,7 @@ export interface PageMoodCatalogEntry {
 
 export const PREMIUM_PAGE_MOOD_IDS = [
   'summer',
+  'autumn',
   'gold',
   'glass',
   'carbon',
@@ -48,6 +50,7 @@ export const SOCIAL_DECIMALS = 18;
 /** Seasonal drops — lower barrier, time-boxed in picker. */
 export const SEASONAL_MOOD_PRICE_SOCIAL = '100';
 export const SUMMER_MOOD_PRICE_SOCIAL = SEASONAL_MOOD_PRICE_SOCIAL;
+export const AUTUMN_MOOD_PRICE_SOCIAL = SEASONAL_MOOD_PRICE_SOCIAL;
 
 /** Evergreen finish packs — identity flex above seasonal. */
 export const FINISH_MOOD_PRICE_SOCIAL = '250';
@@ -70,7 +73,7 @@ export const PAGE_MOOD_PICKER_STORE_SECTIONS: ReadonlyArray<{
   title: string;
   ids: readonly PremiumPageMoodId[];
 }> = [
-  { title: 'Seasonal', ids: ['summer'] },
+  { title: 'Seasonal', ids: ['summer', 'autumn'] },
   { title: 'Finishes', ids: ['gold', 'glass', 'carbon', 'holographic'] },
   { title: 'Voices', ids: ['broadsheet', 'terminal', 'signature'] },
 ];

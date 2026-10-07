@@ -5630,6 +5630,111 @@ a.os-surface-row {
   }
 
   /*
+   * Autumn finish — leaf fall. A single landed leaf rests near the bottom
+   * of the column, left of the sun's spot (viewport-fixed, the Glass pools
+   * cue) — a leaf that just settled. Static: a transform sway re-anchored
+   * the fixed background to the pseudo-element's own box and lost the
+   * leaf, and stillness is the concept. The sheet is warm umber. The leaf
+   * takes the `.portfolio-page::after` slot, which also replaces the
+   * generic mood-only accent bloom (the mood-only selector outranks the
+   * generic bloom rule). iOS Safari ignores fixed attachment → the leaf
+   * scrolls with the page (graceful, same tradeoff as Glass).
+   */
+  .portfolio-frame[data-mood='autumn'] {
+    --mood-bg: transparent;
+    --portfolio-avatar-ring: var(--bg);
+    --autumn-sheet-base: linear-gradient(
+      180deg,
+      rgb(20 12 7) 0%,
+      rgb(12 8 5) 100%
+    );
+    --autumn-sheet-sky: radial-gradient(
+      ellipse 85% 45% at 50% -12%,
+      rgb(255 160 90 / 0.05),
+      transparent 60%
+    );
+    --autumn-leaf: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3E%3Cg transform='rotate(28 15 15)'%3E%3Cpath d='M15 2.5 C21.5 8.5 23.5 16.5 15 27.5 C6.5 16.5 8.5 8.5 15 2.5 Z' fill='rgb(200,96,34)' fill-opacity='0.5'/%3E%3Cpath d='M15 5.5 L15 25' stroke='rgb(140,58,16)' stroke-width='1.1' stroke-opacity='0.45' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+    --autumn-sheet-lip: inset 0 1px 0 rgb(255 170 100 / 0.07);
+  }
+
+  .portfolio-frame[data-mood='autumn'].frame {
+    background: transparent;
+  }
+
+  .portfolio-frame[data-mood='autumn'] .portfolio-page {
+    isolation: isolate;
+    flex: 1;
+    min-height: 100%;
+    background: transparent;
+  }
+
+  .portfolio-frame[data-mood='autumn'] .portfolio-page::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: var(--autumn-sheet-sky), var(--autumn-sheet-base);
+    box-shadow: var(--autumn-sheet-lip);
+  }
+
+  .portfolio-frame[data-mood='autumn'] .portfolio-page::after,
+  .portfolio-frame[data-mood-only='true'][data-mood='autumn']
+    .portfolio-page::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    height: auto;
+    z-index: 0;
+    pointer-events: none;
+    background: var(--autumn-leaf) no-repeat 37% 91% / 2rem;
+    background-attachment: fixed;
+  }
+
+  .portfolio-frame[data-mood='autumn'] .portfolio-banner-region,
+  .portfolio-frame[data-mood='autumn'] .portfolio-hero,
+  .portfolio-frame[data-mood='autumn'] .portfolio-avatar-cover,
+  .portfolio-frame[data-mood='autumn'] .portfolio-profile-banner,
+  .portfolio-frame[data-mood='autumn'] .portfolio-hero-video {
+    z-index: 1;
+  }
+
+  :root[data-theme='light'] .portfolio-frame[data-mood='autumn'] {
+    --autumn-sheet-base: linear-gradient(
+      180deg,
+      rgb(250 243 230) 0%,
+      rgb(247 238 222) 100%
+    );
+    --autumn-sheet-sky: radial-gradient(
+      ellipse 85% 45% at 50% -12%,
+      rgb(230 140 60 / 0.06),
+      transparent 60%
+    );
+    --autumn-leaf: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3E%3Cg transform='rotate(28 15 15)'%3E%3Cpath d='M15 2.5 C21.5 8.5 23.5 16.5 15 27.5 C6.5 16.5 8.5 8.5 15 2.5 Z' fill='rgb(170,75,20)' fill-opacity='0.22'/%3E%3Cpath d='M15 5.5 L15 25' stroke='rgb(120,50,12)' stroke-width='1.1' stroke-opacity='0.2' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+    --autumn-sheet-lip:
+      inset 0 1px 0 rgb(255 255 255 / 0.9), inset 0 -1px 0 rgb(150 60 10 / 0.06);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .portfolio-frame[data-mood='autumn'] {
+      --autumn-sheet-base: linear-gradient(
+        180deg,
+        rgb(250 243 230) 0%,
+        rgb(247 238 222) 100%
+      );
+      --autumn-sheet-sky: radial-gradient(
+        ellipse 85% 45% at 50% -12%,
+        rgb(230 140 60 / 0.06),
+        transparent 60%
+      );
+      --autumn-leaf: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3E%3Cg transform='rotate(28 15 15)'%3E%3Cpath d='M15 2.5 C21.5 8.5 23.5 16.5 15 27.5 C6.5 16.5 8.5 8.5 15 2.5 Z' fill='rgb(170,75,20)' fill-opacity='0.22'/%3E%3Cpath d='M15 5.5 L15 25' stroke='rgb(120,50,12)' stroke-width='1.1' stroke-opacity='0.2' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+      --autumn-sheet-lip:
+        inset 0 1px 0 rgb(255 255 255 / 0.9),
+        inset 0 -1px 0 rgb(150 60 10 / 0.06);
+    }
+  }
+
+  /*
    * Gold — serif display + diagonal foil. Each theme gets its own contrasting
    * stop set (shadow → highlight) so shimmer reads on charcoal and on cream.
    */
@@ -12681,6 +12786,8 @@ a.os-surface-row {
   }
 
   /* Finish pack swatches — mini material preview on picker rows. */
+  .mood-sheet-item[data-mood='summer'],
+  .mood-sheet-item[data-mood='autumn'],
   .mood-sheet-item[data-mood='gold'],
   .mood-sheet-item[data-mood='glass'],
   .mood-sheet-item[data-mood='carbon'],
@@ -12691,6 +12798,7 @@ a.os-surface-row {
   }
 
   .mood-sheet-item[data-mood='summer']::before,
+  .mood-sheet-item[data-mood='autumn']::before,
   .mood-sheet-item[data-mood='gold']::before,
   .mood-sheet-item[data-mood='glass']::before,
   .mood-sheet-item[data-mood='carbon']::before,
@@ -12711,6 +12819,8 @@ a.os-surface-row {
     pointer-events: none;
   }
 
+  .mood-sheet-item[data-mood='summer'] > *,
+  .mood-sheet-item[data-mood='autumn'] > *,
   .mood-sheet-item[data-mood='gold'] > *,
   .mood-sheet-item[data-mood='glass'] > *,
   .mood-sheet-item[data-mood='carbon'] > *,

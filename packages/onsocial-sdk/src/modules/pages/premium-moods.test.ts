@@ -71,10 +71,19 @@ describe('premium page moods', () => {
     const entry = PAGE_MOOD_CATALOG.summer;
     expect(isPremiumMoodAvailable(entry, Date.parse('2026-06-01'))).toBe(true);
     expect(isPremiumMoodAvailable(entry, Date.parse('2026-10-01'))).toBe(false);
+    const autumn = PAGE_MOOD_CATALOG.autumn;
+    expect(isPremiumMoodAvailable(autumn, Date.parse('2026-10-15'))).toBe(true);
+    expect(isPremiumMoodAvailable(autumn, Date.parse('2026-12-01'))).toBe(
+      false
+    );
   });
 
   it('assigns tiered catalog prices by pack kind', () => {
     expect(PAGE_MOOD_CATALOG.summer).toMatchObject({
+      packKind: 'seasonal',
+      priceSocial: '100',
+    });
+    expect(PAGE_MOOD_CATALOG.autumn).toMatchObject({
       packKind: 'seasonal',
       priceSocial: '100',
     });

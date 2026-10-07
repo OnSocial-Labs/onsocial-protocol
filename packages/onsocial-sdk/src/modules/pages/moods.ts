@@ -7,6 +7,7 @@ import {
 } from './mood-hue.js';
 import { PROTOCOL_COLORS } from '../../protocol-colors.js';
 import {
+  AUTUMN_MOOD_PRICE_SOCIAL,
   FINISH_MOOD_PRICE_SOCIAL,
   HOLOGRAPHIC_MOOD_PRICE_SOCIAL,
   isPremiumPageMoodId,
@@ -165,6 +166,14 @@ export const MOOD_PAGE_TYPOGRAPHY: Record<PageMoodId, PageMoodTypography> = {
     displayWeight: 600,
     displayLetterSpacing: '-0.035em',
     bodyLineHeight: 1.58,
+    bioMaxWidth: '21rem',
+  },
+  autumn: {
+    fontDisplay: MOOD_FONT_STACKS.sans,
+    fontBody: MOOD_FONT_STACKS.sans,
+    displayWeight: 600,
+    displayLetterSpacing: '-0.03em',
+    bodyLineHeight: 1.6,
     bioMaxWidth: '21rem',
   },
   gold: {
@@ -556,6 +565,26 @@ export const PREMIUM_PAGE_MOOD_PRESETS: Record<
       surface: 'rgb(255 168 88 / 0.06)',
     },
   },
+  autumn: {
+    id: 'autumn',
+    label: 'Autumn',
+    tagline: 'Leaf fall — warm rust, quiet seasonal turn.',
+    theme: {
+      background: '#100805',
+      backgroundLight: '#f9f1e3',
+      text: 'rgb(255 250 240 / 0.96)',
+      textLight: 'rgb(23 16 10 / 0.96)',
+      muted: 'rgb(255 214 170 / 0.5)',
+      mutedLight: 'rgb(23 16 10 / 0.52)',
+      accent: 'rgb(230 110 45 / 0.95)',
+      accentLight: 'rgb(150 60 10 / 0.95)',
+      banner:
+        'radial-gradient(ellipse 82% 68% at 18% -8%, rgb(230 110 45 / 0.22), transparent 56%), radial-gradient(ellipse 72% 54% at 82% 10%, rgb(255 170 80 / 0.12), transparent 52%), radial-gradient(ellipse 90% 58% at 50% 100%, rgb(200 90 30 / 0.1), transparent 58%)',
+      bannerLight:
+        'radial-gradient(ellipse 82% 68% at 18% -8%, rgb(230 110 45 / 0.14), transparent 56%), radial-gradient(ellipse 72% 54% at 82% 10%, rgb(255 170 80 / 0.08), transparent 52%), radial-gradient(ellipse 90% 58% at 50% 100%, rgb(200 90 30 / 0.06), transparent 58%)',
+      surface: 'rgb(230 110 45 / 0.06)',
+    },
+  },
   gold: {
     id: 'gold',
     label: 'Gold',
@@ -712,6 +741,17 @@ export const PAGE_MOOD_CATALOG: Record<string, PageMoodCatalogEntry> =
         relatedFreeMood: 'celebration',
         priceSocial: SUMMER_MOOD_PRICE_SOCIAL,
         availableUntil: '2026-09-30T23:59:59.000Z',
+      },
+    ] as const,
+    [
+      'autumn',
+      {
+        id: 'autumn',
+        tier: 'premium' as const,
+        packKind: 'seasonal' as const,
+        relatedFreeMood: 'journal',
+        priceSocial: AUTUMN_MOOD_PRICE_SOCIAL,
+        availableUntil: '2026-11-30T23:59:59.000Z',
       },
     ] as const,
     [

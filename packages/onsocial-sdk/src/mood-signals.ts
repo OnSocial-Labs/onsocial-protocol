@@ -61,6 +61,12 @@ export const MOOD_SIGNAL_PROTOCOL_WEIGHT: Record<
     endorse: 0.24,
     reputation: 0.3,
   },
+  autumn: {
+    standing: 0.56,
+    solidarity: 0.42,
+    endorse: 0.4,
+    reputation: 0.36,
+  },
   gold: { standing: 0.52, solidarity: 0.38, endorse: 0.2, reputation: 0.28 },
   /** Icy preset accent — typography uses neutral slate in app CSS; signals stay protocol. */
   glass: {
