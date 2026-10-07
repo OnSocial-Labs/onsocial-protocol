@@ -121,9 +121,25 @@ export function manageSheetFromShare(
 
 export function guildSheetPath(
   groupId: string,
-  sheet: GuildShareSheetId
+  sheet: GuildShareSheetId,
+  opts?: { proposal?: string | number | null }
 ): string {
-  return `${guildPath(groupId)}?sheet=${sheet}`;
+  const base = `${guildPath(groupId)}?sheet=${sheet}`;
+  const proposal = opts?.proposal;
+  if (proposal === null || proposal === undefined) return base;
+  const value = String(proposal).trim();
+  return value ? `${base}&proposal=${encodeURIComponent(value)}` : base;
+}
+
+/**
+ * Per-proposal deep-link param (`?proposal=`) — matches a card by sequence
+ * number first, chain id as fallback.
+ */
+export function parseGuildProposalParam(
+  raw: string | null | undefined
+): string | null {
+  const value = (raw ?? '').trim();
+  return value || null;
 }
 
 export function guildPostPath(

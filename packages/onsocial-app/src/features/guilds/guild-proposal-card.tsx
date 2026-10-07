@@ -1,16 +1,20 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import type { Proposal, ProposalTally } from '@onsocial/sdk';
 import {
+  CheckIcon,
   OsProposalCard,
   OsProposalCardBody,
   OsProposalCardFooter,
   OsProposalCardSep,
   OsProposalCardStrip,
+  OsProposalCardStripEnd,
   OsProposalCardStripMain,
   OsSheetAction,
   OsSheetActions,
+  ShareIcon,
   osProposalCardActionsClassName,
   osSheetActionExpandedClassName,
   osSheetFloatingPanelCopyClassName,
@@ -26,6 +30,7 @@ import {
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { shareUrl } from '@/lib/share-url';
 import {
   formatPostTimestamp,
   formatRelativePostTimestamp,
@@ -57,6 +62,10 @@ export interface GuildProposalCardProps {
   onShowVoters?: () => void;
   /** Whether the voter roster drawer is open for this proposal. */
   votersOpen?: boolean;
+  /** Per-proposal share link — omitted on access-gated guilds. */
+  shareHref?: string | null;
+  /** Deep-linked card highlight (`?proposal=`). */
+  focused?: boolean;
 }
 
 export function GuildProposalCard({
@@ -77,6 +86,8 @@ export function GuildProposalCard({
   onExpire,
   onShowVoters,
   votersOpen = false,
+  shareHref = null,
+  focused = false,
 }: GuildProposalCardProps) {
   const presentation = guildProposalPresentation(proposal);
   const outcome = guildProposalOutcome(proposal, presentation);
@@ -152,13 +163,24 @@ export function GuildProposalCard({
     </button>
   );
   const votersCountLabel = `Votes · ${voteProgress.totalVotes}/${voteProgress.memberPool}`;
+  const [shared, setShared] = useState(false);
+  const shareText = shareHref
+    ? `${
+        proposal.sequence_number > 0 ? `Proposal #${proposal.sequence_number} · ` : ''
+      }${
+        targetDisplayName
+          ? guildProposalPresentation(proposal, targetDisplayName).headline
+          : presentation.headline
+      }`
+    : null;
 
   return (
     <OsProposalCard
       surface="bordered"
+      id={`guild-proposal-${proposal.id}`}
       className={`guild-proposal-card guild-proposal-card--${presentation.kindTone}${
         outcome.isTerminal ? ` guild-proposal-card--${outcome.tone}` : ''
-      }`}
+      }${focused ? ' guild-proposal-card--focused' : ''}`}
     >
       <OsProposalCardStrip className="guild-proposal-card-strip">
         <OsProposalCardStripMain>
@@ -195,16 +217,51 @@ export function GuildProposalCard({
             </>
           ) : null}
         </OsProposalCardStripMain>
-        {stripStatusLabel ? (
-          <span
-            className={`guild-proposal-card-tally${
-              outcome.stripLabel
-                ? ` guild-proposal-card-status guild-proposal-card-status--${outcome.tone}`
-                : ''
-            }`}
-          >
-            {stripStatusLabel}
-          </span>
+        {stripStatusLabel || shareHref ? (
+          <OsProposalCardStripEnd className="guild-proposal-card-strip-end">
+            {stripStatusLabel ? (
+              <span
+                className={`guild-proposal-card-tally${
+                  outcome.stripLabel
+                    ? ` guild-proposal-card-status guild-proposal-card-status--${outcome.tone}`
+                    : ''
+                }`}
+              >
+                {stripStatusLabel}
+              </span>
+            ) : null}
+            {shareHref ? (
+              <button
+                type="button"
+                className={`guild-proposal-card-share${shared ? ' is-done' : ''}`}
+                aria-label={shared ? 'Link copied' : 'Share proposal'}
+                title={shared ? 'Link copied' : 'Share proposal'}
+                onClick={() => {
+                  void (async () => {
+                    const url = new URL(
+                      shareHref,
+                      window.location.origin
+                    ).toString();
+                    const result = await shareUrl({
+                      url,
+                      title: shareText ?? undefined,
+                      text: shareText ?? undefined,
+                    });
+                    if (result === 'copied' || result === 'shared') {
+                      setShared(true);
+                      window.setTimeout(() => setShared(false), 1600);
+                    }
+                  })();
+                }}
+              >
+                {shared ? (
+                  <CheckIcon aria-hidden />
+                ) : (
+                  <ShareIcon aria-hidden />
+                )}
+              </button>
+            ) : null}
+          </OsProposalCardStripEnd>
         ) : null}
       </OsProposalCardStrip>
 

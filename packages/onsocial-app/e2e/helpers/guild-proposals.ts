@@ -147,7 +147,10 @@ function json(data: unknown) {
  * Member-driven guild with proposal rows. Register after `stubGuildPage`
  * so these handlers win and `fallback` delegates the rest.
  */
-export async function stubGuildProposals(page: Page): Promise<void> {
+export async function stubGuildProposals(
+  page: Page,
+  opts?: { accessGated?: boolean }
+): Promise<void> {
   await page.route('**/api/onapi/graph/query', async (route) => {
     const raw = route.request().postData() ?? '';
     if (raw.includes('ProfileStatsBatch')) {
@@ -187,7 +190,7 @@ export async function stubGuildProposals(page: Page): Promise<void> {
           name: 'Audit Guild',
           description: 'A stub guild for e2e.',
           owner: 'owner.testnet',
-          isPublic: true,
+          isPublic: !opts?.accessGated,
           memberDriven: true,
           topics: ['builders'],
         })

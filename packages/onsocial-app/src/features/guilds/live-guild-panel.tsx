@@ -149,10 +149,12 @@ export function LiveGuildPanel({
   groupId,
   initial = null,
   initialSheet = null,
+  initialProposal = null,
 }: {
   groupId: string;
   initial?: GuildPageData | null;
   initialSheet?: GuildShareSheetId | null;
+  initialProposal?: string | null;
 }) {
   const router = useRouter();
   const {
@@ -1402,6 +1404,8 @@ export function LiveGuildPanel({
           accountId={accountId}
           isMember={viewer?.isMember ?? false}
           memberDriven={config.memberDriven}
+          accessGated={config.accessGated}
+          focusProposal={initialProposal}
           onClose={() => openManageSheet(null)}
           onOpenRequests={
             viewer?.isMember ? () => openManageSheet('requests') : undefined

@@ -40,6 +40,13 @@ test.describe('guild proposals sheet', () => {
     await expect(
       roleCard.getByRole('button', { name: 'Oppose' })
     ).toBeVisible();
+    // Public guild: every card carries a per-proposal share affordance.
+    await expect(
+      roleCard.getByRole('button', { name: 'Share proposal' })
+    ).toBeVisible();
+    await expect(
+      sheet.getByRole('button', { name: 'Share proposal' })
+    ).toHaveCount(4);
 
     // Room card: humanized room name, viewer vote acknowledged next to
     // the quorum readout, actions replaced.
@@ -107,6 +114,68 @@ test.describe('guild proposals sheet', () => {
     // Resolve needs a wallet — guests only get the read-only roster.
     await expect(
       sheet.getByRole('button', { name: 'Resolve' })
+    ).toHaveCount(0);
+  });
+
+  test('proposal deep link opens the sheet with the card focused', async ({
+    page,
+  }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphGuild(page, 'member');
+    await stubGuildPage(page, { memberId: COLLECTIBLES_VAULT_OWNER });
+    await stubGuildProposals(page);
+    await gotoApp(page, `${GUILD_E2E_PATH}?sheet=proposals&proposal=11`);
+
+    const sheet = page.getByRole('dialog', { name: 'Proposals' });
+    await expect(sheet).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+
+    // Sequence-number deep link focuses the matching card.
+    const roomCard = sheet.locator('.guild-proposal-card', {
+      hasText: 'Carol Creator',
+    });
+    await expect(roomCard).toHaveClass(/guild-proposal-card--focused/);
+    // The other cards stay unfocused.
+    await expect(
+      sheet.locator('.guild-proposal-card', { hasText: 'Bob Builder' })
+    ).not.toHaveClass(/guild-proposal-card--focused/);
+  });
+
+  test('proposal deep link also matches the chain id for resolved cards', async ({
+    page,
+  }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphGuild(page, 'member');
+    await stubGuildPage(page, { memberId: COLLECTIBLES_VAULT_OWNER });
+    await stubGuildProposals(page);
+    await gotoApp(
+      page,
+      `${GUILD_E2E_PATH}?sheet=proposals&proposal=prop-resolved`
+    );
+
+    const sheet = page.getByRole('dialog', { name: 'Proposals' });
+    await expect(sheet).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(
+      sheet.locator('.guild-proposal-card', { hasText: 'Erin Engineer' })
+    ).toHaveClass(/guild-proposal-card--focused/);
+  });
+
+  test('access-gated guild keeps proposals readable but hides share', async ({
+    page,
+  }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphGuild(page, 'member');
+    await stubGuildPage(page, {
+      memberId: COLLECTIBLES_VAULT_OWNER,
+      accessGated: true,
+    });
+    await stubGuildProposals(page, { accessGated: true });
+    await gotoApp(page, `${GUILD_E2E_PATH}?sheet=proposals`);
+
+    const sheet = page.getByRole('dialog', { name: 'Proposals' });
+    await expect(sheet).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(sheet.getByText('Bob Builder')).toBeVisible();
+    await expect(
+      sheet.getByRole('button', { name: 'Share proposal' })
     ).toHaveCount(0);
   });
 

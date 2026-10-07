@@ -3,6 +3,7 @@ import {
   guildPath,
   guildSheetPath,
   manageSheetFromShare,
+  parseGuildProposalParam,
   parseGuildSheetParam,
 } from '@/features/guilds/guilds-data';
 
@@ -27,6 +28,33 @@ describe('guild share sheet paths', () => {
     expect(guildSheetPath('rebels.near', 'settings')).toBe(
       '/groups/rebels.near?sheet=settings'
     );
+  });
+
+  it('appends a proposal deep-link param when given one', () => {
+    expect(
+      guildSheetPath('rebels.near', 'proposals', { proposal: 12 })
+    ).toBe('/groups/rebels.near?sheet=proposals&proposal=12');
+    expect(
+      guildSheetPath('rebels.near', 'proposals', { proposal: ' prop-1 ' })
+    ).toBe('/groups/rebels.near?sheet=proposals&proposal=prop-1');
+    expect(
+      guildSheetPath('rebels.near', 'proposals', { proposal: null })
+    ).toBe('/groups/rebels.near?sheet=proposals');
+    expect(guildSheetPath('rebels.near', 'proposals', { proposal: '' })).toBe(
+      '/groups/rebels.near?sheet=proposals'
+    );
+    expect(guildSheetPath('rebels.near', 'proposals')).toBe(
+      '/groups/rebels.near?sheet=proposals'
+    );
+  });
+
+  it('parses the proposal deep-link param', () => {
+    expect(parseGuildProposalParam('12')).toBe('12');
+    expect(parseGuildProposalParam(' prop-1 ')).toBe('prop-1');
+    expect(parseGuildProposalParam('')).toBeNull();
+    expect(parseGuildProposalParam('   ')).toBeNull();
+    expect(parseGuildProposalParam(null)).toBeNull();
+    expect(parseGuildProposalParam(undefined)).toBeNull();
   });
 
   it('keeps settings off the manage-sheet stack', () => {

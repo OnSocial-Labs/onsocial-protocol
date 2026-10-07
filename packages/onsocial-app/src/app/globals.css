@@ -38614,6 +38614,53 @@ a.os-surface-row {
     outline: none;
   }
 
+  /* Strip end — status pill + share icon on one row (strip-end defaults to
+   * a stacked column for the DAO status/deadline pair). */
+  .guild-proposal-card-strip-end {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .guild-proposal-card-share {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0.15rem;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.48);
+    cursor: pointer;
+    line-height: 0;
+    transition: color 160ms ease;
+  }
+
+  .guild-proposal-card-share:hover,
+  .guild-proposal-card-share:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.82);
+    outline: none;
+  }
+
+  .guild-proposal-card-share.is-done {
+    color: var(--signal-reputation, var(--protocol-green, #16a34a));
+  }
+
+  .guild-proposal-card-share svg {
+    display: block;
+    width: 0.8rem;
+    height: 0.8rem;
+  }
+
+  /* Deep-linked card (?proposal=) — quiet ring until the sheet closes. */
+  .guild-proposal-card--focused {
+    box-shadow: 0 0 0 2px
+      color-mix(in srgb, var(--protocol-blue, #60a5fa) 35%, transparent);
+  }
+
   .guild-proposal-card--approved .guild-proposal-card-progress-support {
     background: rgb(var(--fg-rgb) / 0.34);
   }

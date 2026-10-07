@@ -618,7 +618,10 @@ function e2eGuildMemberRow(opts: {
   };
 }
 
-export function e2eGuildCurrentRows(guild: E2eGraphGuild) {
+export function e2eGuildCurrentRows(
+  guild: E2eGraphGuild,
+  opts?: { isPublic?: boolean }
+) {
   if (guild === 'missing') return [];
   return [
     {
@@ -628,7 +631,7 @@ export function e2eGuildCurrentRows(guild: E2eGraphGuild) {
       groupDescription: 'A stub guild for e2e.',
       groupBannerCid: null,
       groupBadgeCid: null,
-      isPublic: true,
+      isPublic: opts?.isPublic ?? true,
       isMemberDriven: false,
       groupTopics: ['builders'],
       blockHeight: 1,

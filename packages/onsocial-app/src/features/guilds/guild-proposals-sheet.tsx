@@ -18,7 +18,10 @@ import {
 } from '@/features/guilds/guild-proposal-display';
 import { GuildProposalCard } from '@/features/guilds/guild-proposal-card';
 import { GuildProposalVotersSheet } from '@/features/guilds/guild-proposal-voters-sheet';
-import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
+import {
+  collectRelayTxHashes,
+  guildSheetPath,
+} from '@/features/guilds/guilds-data';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -41,6 +44,10 @@ interface GuildProposalsSheetProps {
   accountId: string | null;
   isMember: boolean;
   memberDriven: boolean;
+  /** Access-gated guilds don't advertise per-proposal share links. */
+  accessGated?: boolean;
+  /** Deep-linked proposal (`?proposal=`) — sequence number or chain id. */
+  focusProposal?: string | null;
   onClose: () => void;
   onOpenRequests?: () => void;
   onResolved?: () => void;
@@ -66,6 +73,8 @@ export function GuildProposalsSheet({
   accountId,
   isMember,
   memberDriven,
+  accessGated = false,
+  focusProposal = null,
   onClose,
   onOpenRequests,
   onResolved,
@@ -92,6 +101,8 @@ export function GuildProposalsSheet({
     proposal: Proposal;
     votingClosed: boolean;
   } | null>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const focusAppliedRef = useRef(false);
   const retryTimersRef = useRef<number[]>([]);
 
   const clearRetryTimers = useCallback(() => {
@@ -254,6 +265,37 @@ export function GuildProposalsSheet({
     [clearRetryTimers, refreshOneProposal]
   );
 
+  // Deep-linked proposal: highlight the card once the list lands and scroll
+  // it into view inside the sheet body. Runs once per sheet mount.
+  useEffect(() => {
+    if (focusAppliedRef.current) return;
+    if (loadState !== 'ready' || !focusProposal) return;
+    const match = [...proposals, ...resolvedProposals].find(
+      (proposal) =>
+        String(proposal.sequence_number) === focusProposal ||
+        proposal.id === focusProposal
+    );
+    if (!match) return;
+    focusAppliedRef.current = true;
+    const frame = window.requestAnimationFrame(() => {
+      setFocusedId(match.id);
+      document
+        .getElementById(`guild-proposal-${match.id}`)
+        ?.scrollIntoView({ block: 'center' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusProposal, loadState, proposals, resolvedProposals]);
+
+  // Per-proposal share link — public guilds only; gated guilds keep
+  // proposals readable but don't advertise a broadcast affordance.
+  const shareHrefFor = (proposal: Proposal): string | null => {
+    if (accessGated) return null;
+    return guildSheetPath(groupId, 'proposals', {
+      proposal:
+        proposal.sequence_number > 0 ? proposal.sequence_number : proposal.id,
+    });
+  };
+
   const runVote = async (proposal: Proposal, approve: boolean) => {
     setPendingActions((current) =>
       new Map(current).set(proposal.id, approve ? 'support' : 'oppose')
@@ -378,7 +420,7 @@ export function GuildProposalsSheet({
       backdropLabel="Close proposals"
       zIndex={SHEET_Z.facts}
       sizing="full"
-      initialDetent="peek"
+      initialDetent={focusProposal ? 'full' : 'peek'}
       peekRatio={GLASS_SHEET_PEEK_RATIO}
       titleId="guild-proposals-title"
       headerClassName="guild-manage-sheet-header"
@@ -438,6 +480,8 @@ export function GuildProposalsSheet({
                 canVote={canVote}
                 pendingAction={pendingActions.get(proposal.id) ?? null}
                 profiles={profiles}
+                shareHref={shareHrefFor(proposal)}
+                focused={focusedId === proposal.id}
                 onSupport={() => void runVote(proposal, true)}
                 onOppose={() => void runVote(proposal, false)}
                 onExpire={
@@ -467,6 +511,8 @@ export function GuildProposalsSheet({
                   canVote={false}
                   pendingAction={null}
                   profiles={profiles}
+                  shareHref={shareHrefFor(proposal)}
+                  focused={focusedId === proposal.id}
                   onShowVoters={() => openVoters(proposal)}
                   votersOpen={votersFor?.proposal.id === proposal.id}
                 />
