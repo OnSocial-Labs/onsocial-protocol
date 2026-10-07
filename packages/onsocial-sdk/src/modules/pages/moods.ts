@@ -413,9 +413,9 @@ export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {
   business: {
     id: 'business',
     label: 'Business',
-    tagline: 'Professional, restrained, trust-first presentation.',
+    tagline: 'Boardroom navy — pinstripe suit, quiet confidence.',
     theme: {
-      background: '#040608',
+      background: '#060a13',
       backgroundLight: '#f4f8ff',
       text: 'rgb(240 246 255 / 0.96)',
       textLight: 'rgb(17 19 24 / 0.96)',
@@ -424,9 +424,9 @@ export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {
       accent: 'rgb(120 176 255 / 0.92)',
       accentLight: 'rgb(0 99 237 / 0.95)',
       banner:
-        'radial-gradient(ellipse 85% 68% at 15% -10%, rgb(120 176 255 / 0.2), transparent 56%), radial-gradient(ellipse 72% 52% at 85% 5%, rgb(180 210 255 / 0.1), transparent 48%), radial-gradient(ellipse 88% 58% at 50% 100%, rgb(120 176 255 / 0.07), transparent 58%)',
+        'repeating-linear-gradient(90deg, transparent 0 6px, rgb(170 200 245 / 0.06) 6px 7px), radial-gradient(ellipse 85% 68% at 15% -10%, rgb(120 176 255 / 0.18), transparent 56%), radial-gradient(ellipse 72% 52% at 85% 5%, rgb(160 195 245 / 0.09), transparent 48%), radial-gradient(ellipse 88% 58% at 50% 100%, rgb(120 176 255 / 0.06), transparent 58%)',
       bannerLight:
-        'radial-gradient(ellipse 85% 68% at 15% -10%, rgb(120 176 255 / 0.14), transparent 56%), radial-gradient(ellipse 72% 52% at 85% 5%, rgb(120 176 255 / 0.08), transparent 48%), radial-gradient(ellipse 88% 58% at 50% 100%, rgb(120 176 255 / 0.05), transparent 58%)',
+        'repeating-linear-gradient(90deg, transparent 0 6px, rgb(24 44 84 / 0.05) 6px 7px), radial-gradient(ellipse 85% 68% at 15% -10%, rgb(120 176 255 / 0.14), transparent 56%), radial-gradient(ellipse 72% 52% at 85% 5%, rgb(120 176 255 / 0.08), transparent 48%), radial-gradient(ellipse 88% 58% at 50% 100%, rgb(120 176 255 / 0.05), transparent 58%)',
       surface: 'rgb(120 176 255 / 0.06)',
     },
   },

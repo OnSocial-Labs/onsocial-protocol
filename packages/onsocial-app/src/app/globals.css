@@ -5327,6 +5327,127 @@ a.os-surface-row {
   }
 
   /*
+   * Business finish — tailored navy pinstripe (Carbon sheet pattern). Base +
+   * chalk stripe + wool sheen + top lip; solid ink on top. The stripe is
+   * vertical suiting, not Carbon's diagonal twill: tailoring, not machinery.
+   */
+  .portfolio-frame[data-mood='business'] {
+    --mood-bg: transparent;
+    --portfolio-avatar-ring: var(--bg);
+    --business-sheet-base: linear-gradient(
+      180deg,
+      rgb(13 19 33) 0%,
+      rgb(6 9 16) 100%
+    );
+    --business-sheet-stripe: repeating-linear-gradient(
+      90deg,
+      transparent 0 6px,
+      rgb(170 200 245 / 0.045) 6px 7px
+    );
+    --business-sheet-sheen: linear-gradient(
+      105deg,
+      rgb(150 185 235 / 0.05) 0%,
+      transparent 32%
+    );
+    --business-sheet-downlight: radial-gradient(
+      ellipse 90% 55% at 50% -10%,
+      rgb(120 170 240 / 0.09),
+      transparent 62%
+    );
+    --business-sheet-lip: inset 0 1px 0 rgb(170 200 245 / 0.09);
+  }
+
+  .portfolio-frame[data-mood='business'].frame {
+    background: transparent;
+  }
+
+  .portfolio-frame[data-mood='business'] .portfolio-page {
+    isolation: isolate;
+    flex: 1;
+    min-height: 100%;
+    background: transparent;
+  }
+
+  .portfolio-frame[data-mood='business'] .portfolio-page::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      var(--business-sheet-sheen), var(--business-sheet-downlight),
+      var(--business-sheet-stripe), var(--business-sheet-base);
+    box-shadow: var(--business-sheet-lip);
+  }
+
+  /* The sheet replaces the generic mood-only accent bloom. */
+  .portfolio-frame[data-mood-only='true'][data-mood='business']
+    .portfolio-page::after {
+    content: none;
+  }
+
+  :root[data-theme='light'] .portfolio-frame[data-mood='business'] {
+    --business-sheet-base: linear-gradient(
+      180deg,
+      rgb(247 249 253) 0%,
+      rgb(236 240 247) 100%
+    );
+    --business-sheet-stripe: repeating-linear-gradient(
+      90deg,
+      transparent 0 6px,
+      rgb(24 44 84 / 0.05) 6px 7px
+    );
+    --business-sheet-sheen: linear-gradient(
+      105deg,
+      rgb(255 255 255 / 0.55) 0%,
+      transparent 32%
+    );
+    --business-sheet-downlight: radial-gradient(
+      ellipse 90% 55% at 50% -10%,
+      rgb(120 170 240 / 0.06),
+      transparent 62%
+    );
+    --business-sheet-lip:
+      inset 0 1px 0 rgb(255 255 255 / 0.9), inset 0 -1px 0 rgb(24 44 84 / 0.05);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .portfolio-frame[data-mood='business'] {
+      --business-sheet-base: linear-gradient(
+        180deg,
+        rgb(247 249 253) 0%,
+        rgb(236 240 247) 100%
+      );
+      --business-sheet-stripe: repeating-linear-gradient(
+        90deg,
+        transparent 0 6px,
+        rgb(24 44 84 / 0.05) 6px 7px
+      );
+      --business-sheet-sheen: linear-gradient(
+        105deg,
+        rgb(255 255 255 / 0.55) 0%,
+        transparent 32%
+      );
+      --business-sheet-downlight: radial-gradient(
+        ellipse 90% 55% at 50% -10%,
+        rgb(120 170 240 / 0.06),
+        transparent 62%
+      );
+      --business-sheet-lip:
+        inset 0 1px 0 rgb(255 255 255 / 0.9),
+        inset 0 -1px 0 rgb(24 44 84 / 0.05);
+    }
+  }
+
+  .portfolio-frame[data-mood='business'] .portfolio-banner-region,
+  .portfolio-frame[data-mood='business'] .portfolio-hero,
+  .portfolio-frame[data-mood='business'] .portfolio-avatar-cover,
+  .portfolio-frame[data-mood='business'] .portfolio-profile-banner,
+  .portfolio-frame[data-mood='business'] .portfolio-hero-video {
+    z-index: 1;
+  }
+
+  /*
    * Gold — serif display + diagonal foil. Each theme gets its own contrasting
    * stop set (shadow → highlight) so shimmer reads on charcoal and on cream.
    */
