@@ -4580,13 +4580,7 @@ a.os-surface-row {
           rgb(255 210 240 / 0.05) 50%,
           rgb(205 255 238 / 0.05) 54%,
           transparent 60%
-        ),
-      linear-gradient(
-        155deg,
-        transparent 18%,
-        rgb(255 255 255 / 0.045) 46%,
-        transparent 74%
-      );
+        );
     --glass-card-lip: inset 0 1px 0 rgb(255 255 255 / 0.22);
   }
 
@@ -4730,13 +4724,7 @@ a.os-surface-row {
           rgb(235 170 220 / 0.08) 50%,
           rgb(170 235 210 / 0.08) 54%,
           transparent 60%
-        ),
-      linear-gradient(
-        155deg,
-        transparent 16%,
-        rgb(225 238 252 / 0.45) 44%,
-        transparent 72%
-      );
+        );
     --glass-card-lip:
       inset 0 1px 0 rgb(255 255 255 / 1), inset 1px 0 0 rgb(255 255 255 / 0.35),
       inset 0 -1px 0 rgb(17 19 24 / 0.1);
@@ -4816,13 +4804,7 @@ a.os-surface-row {
             rgb(235 170 220 / 0.08) 50%,
             rgb(170 235 210 / 0.08) 54%,
             transparent 60%
-          ),
-        linear-gradient(
-          155deg,
-          transparent 16%,
-          rgb(225 238 252 / 0.45) 44%,
-          transparent 72%
-        );
+          );
       --glass-card-lip:
         inset 0 1px 0 rgb(255 255 255 / 1),
         inset 1px 0 0 rgb(255 255 255 / 0.35),
