@@ -77,9 +77,7 @@ test.describe('mood picker', () => {
       'Finishes',
       'Voices',
     ]) {
-      await expect(
-        moodSheet.getByText(title, { exact: true })
-      ).toBeVisible();
+      await expect(moodSheet.getByText(title, { exact: true })).toBeVisible();
     }
     await expect(
       moodSheet.getByRole('button', { name: /^Terminal/ })
@@ -121,8 +119,6 @@ test.describe('mood picker', () => {
     await expect(bar.getByRole('button', { name: /Save/i })).toBeVisible();
 
     await bar.getByRole('button', { name: /Cancel/i }).click();
-    await expect(
-      page.getByRole('dialog', { name: /Moods/i })
-    ).toBeVisible();
+    await expect(page.getByRole('dialog', { name: /Moods/i })).toBeVisible();
   });
 });

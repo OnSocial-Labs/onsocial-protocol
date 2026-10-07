@@ -382,7 +382,7 @@ export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {
       muted: 'rgb(255 255 255 / 0.42)',
       mutedLight: 'rgb(17 19 24 / 0.5)',
       accent: PROTOCOL_COLORS.blue,
-      accentLight: 'rgb(7 108 232 / 0.95)',
+      accentLight: 'rgb(7 104 224 / 0.95)',
       banner:
         'radial-gradient(ellipse 85% 70% at 18% -8%, rgb(96 165 250 / 0.22), transparent 58%), radial-gradient(ellipse 75% 55% at 82% 12%, rgb(192 132 252 / 0.14), transparent 52%), radial-gradient(ellipse 90% 60% at 50% 100%, rgb(96 165 250 / 0.08), transparent 62%)',
       bannerLight:
@@ -402,7 +402,7 @@ export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {
       muted: 'rgb(255 248 235 / 0.44)',
       mutedLight: 'rgb(17 19 24 / 0.5)',
       accent: 'rgb(212 175 106 / 0.95)',
-      accentLight: 'rgb(144 108 42 / 0.95)',
+      accentLight: 'rgb(135 101 39 / 0.95)',
       banner:
         'radial-gradient(ellipse 80% 65% at 22% -5%, rgb(212 175 106 / 0.22), transparent 55%), radial-gradient(ellipse 70% 50% at 78% 8%, rgb(255 248 235 / 0.08), transparent 50%), radial-gradient(ellipse 95% 55% at 50% 100%, rgb(212 175 106 / 0.07), transparent 60%)',
       bannerLight:
@@ -422,7 +422,7 @@ export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {
       muted: 'rgb(180 198 220 / 0.48)',
       mutedLight: 'rgb(17 19 24 / 0.5)',
       accent: 'rgb(120 176 255 / 0.92)',
-      accentLight: 'rgb(0 103 247 / 0.95)',
+      accentLight: 'rgb(0 99 237 / 0.95)',
       banner:
         'radial-gradient(ellipse 85% 68% at 15% -10%, rgb(120 176 255 / 0.2), transparent 56%), radial-gradient(ellipse 72% 52% at 85% 5%, rgb(180 210 255 / 0.1), transparent 48%), radial-gradient(ellipse 88% 58% at 50% 100%, rgb(120 176 255 / 0.07), transparent 58%)',
       bannerLight:
@@ -442,7 +442,7 @@ export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {
       muted: 'rgb(122 122 130 / 0.75)',
       mutedLight: 'rgb(113 113 122 / 0.8)',
       accent: 'rgb(212 212 216 / 0.94)',
-      accentLight: 'rgb(111 111 123 / 0.95)',
+      accentLight: 'rgb(104 104 115 / 0.95)',
       banner:
         'radial-gradient(ellipse 88% 62% at 50% -12%, rgb(255 255 255 / 0.05), transparent 58%), radial-gradient(ellipse 72% 48% at 82% 18%, rgb(161 161 170 / 0.04), transparent 52%)',
       bannerLight:
@@ -462,7 +462,7 @@ export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {
       muted: 'rgb(230 210 255 / 0.46)',
       mutedLight: 'rgb(17 19 24 / 0.5)',
       accent: 'rgb(186 132 255 / 0.92)',
-      accentLight: 'rgb(146 61 255 / 0.95)',
+      accentLight: 'rgb(140 50 255 / 0.95)',
       banner:
         'radial-gradient(ellipse 82% 72% at 12% -8%, rgb(186 132 255 / 0.24), transparent 55%), radial-gradient(ellipse 68% 58% at 88% 10%, rgb(255 120 180 / 0.14), transparent 50%), radial-gradient(ellipse 92% 62% at 50% 100%, rgb(186 132 255 / 0.09), transparent 60%)',
       bannerLight:
@@ -482,7 +482,7 @@ export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {
       muted: 'rgb(255 210 220 / 0.48)',
       mutedLight: 'rgb(17 19 24 / 0.5)',
       accent: 'rgb(255 120 160 / 0.95)',
-      accentLight: 'rgb(227 0 67 / 0.95)',
+      accentLight: 'rgb(222 0 66 / 0.95)',
       banner:
         'radial-gradient(ellipse 80% 70% at 20% -6%, rgb(255 120 160 / 0.24), transparent 54%), radial-gradient(ellipse 75% 55% at 80% 8%, rgb(255 200 100 / 0.16), transparent 50%), radial-gradient(ellipse 90% 60% at 50% 100%, rgb(255 140 170 / 0.1), transparent 58%)',
       bannerLight:
@@ -502,7 +502,7 @@ export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {
       muted: 'rgb(90 138 85 / 0.72)',
       mutedLight: 'rgb(65 105 72 / 0.7)',
       accent: PROTOCOL_COLORS.green,
-      accentLight: 'rgb(0 129 82 / 0.95)',
+      accentLight: 'rgb(0 124 79 / 0.95)',
       banner:
         'radial-gradient(ellipse 82% 68% at 16% -8%, rgb(74 222 128 / 0.18), transparent 56%), radial-gradient(ellipse 70% 52% at 84% 10%, rgb(212 251 200 / 0.06), transparent 50%), radial-gradient(ellipse 90% 58% at 50% 100%, rgb(74 222 128 / 0.06), transparent 58%)',
       bannerLight:
@@ -521,7 +521,7 @@ export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {
       textLight: 'rgb(17 19 24 / 0.96)',
       muted: 'rgb(161 161 170 / 0.56)',
       mutedLight: 'rgb(113 113 122 / 0.8)',
-      accent: 'rgb(101 101 112 / 0.92)',
+      accent: 'rgb(130 130 142 / 0.92)',
       accentLight: 'rgb(82 82 91 / 0.95)',
       banner:
         'radial-gradient(ellipse 84% 66% at 20% -6%, rgb(250 249 247 / 0.06), transparent 55%), radial-gradient(ellipse 76% 54% at 80% 8%, rgb(161 161 170 / 0.05), transparent 50%), radial-gradient(ellipse 92% 60% at 50% 100%, rgb(250 249 247 / 0.04), transparent 58%)',
@@ -548,7 +548,7 @@ export const PREMIUM_PAGE_MOOD_PRESETS: Record<
       muted: 'rgb(255 228 196 / 0.48)',
       mutedLight: 'rgb(17 19 24 / 0.5)',
       accent: 'rgb(255 168 88 / 0.95)',
-      accentLight: 'rgb(185 89 0 / 0.95)',
+      accentLight: 'rgb(174 84 0 / 0.95)',
       banner:
         'radial-gradient(ellipse 82% 68% at 18% -8%, rgb(255 168 88 / 0.24), transparent 56%), radial-gradient(ellipse 72% 54% at 82% 10%, rgb(255 220 120 / 0.14), transparent 52%), radial-gradient(ellipse 90% 58% at 50% 100%, rgb(255 140 60 / 0.1), transparent 58%)',
       bannerLight:
@@ -568,7 +568,7 @@ export const PREMIUM_PAGE_MOOD_PRESETS: Record<
       muted: 'rgb(255 228 170 / 0.46)',
       mutedLight: 'rgb(17 19 24 / 0.5)',
       accent: 'rgb(255 215 130 / 0.96)',
-      accentLight: 'rgb(155 106 0 / 0.95)',
+      accentLight: 'rgb(148 101 0 / 0.95)',
       banner:
         'radial-gradient(ellipse 80% 66% at 20% -6%, rgb(255 215 130 / 0.28), transparent 54%), radial-gradient(ellipse 72% 52% at 80% 8%, rgb(255 240 190 / 0.12), transparent 50%), radial-gradient(ellipse 92% 58% at 50% 100%, rgb(255 200 100 / 0.1), transparent 58%)',
       bannerLight:
@@ -588,7 +588,7 @@ export const PREMIUM_PAGE_MOOD_PRESETS: Record<
       muted: 'rgb(180 210 240 / 0.5)',
       mutedLight: 'rgb(17 19 24 / 0.5)',
       accent: 'rgb(180 220 255 / 0.94)',
-      accentLight: 'rgb(0 112 211 / 0.95)',
+      accentLight: 'rgb(0 107 202 / 0.95)',
       banner:
         'radial-gradient(ellipse 86% 70% at 14% -10%, rgb(180 220 255 / 0.22), transparent 56%), radial-gradient(ellipse 74% 54% at 86% 6%, rgb(240 250 255 / 0.1), transparent 48%), radial-gradient(ellipse 90% 60% at 50% 100%, rgb(180 220 255 / 0.08), transparent 58%)',
       bannerLight:
@@ -608,7 +608,7 @@ export const PREMIUM_PAGE_MOOD_PRESETS: Record<
       muted: 'rgb(130 140 155 / 0.65)',
       mutedLight: 'rgb(100 110 120 / 0.78)',
       accent: 'rgb(140 150 165 / 0.92)',
-      accentLight: 'rgb(100 111 128 / 0.95)',
+      accentLight: 'rgb(94 104 121 / 0.95)',
       banner:
         'radial-gradient(ellipse 88% 64% at 50% -12%, rgb(100 120 150 / 0.08), transparent 58%), radial-gradient(ellipse 72% 50% at 82% 16%, rgb(60 70 85 / 0.06), transparent 52%), radial-gradient(ellipse 94% 56% at 50% 100%, rgb(80 90 110 / 0.05), transparent 58%)',
       bannerLight:
@@ -628,7 +628,7 @@ export const PREMIUM_PAGE_MOOD_PRESETS: Record<
       muted: 'rgb(220 200 255 / 0.48)',
       mutedLight: 'rgb(17 19 24 / 0.5)',
       accent: 'rgb(180 140 255 / 0.95)',
-      accentLight: 'rgb(133 69 255 / 0.95)',
+      accentLight: 'rgb(127 60 255 / 0.95)',
       banner:
         'radial-gradient(ellipse 82% 72% at 10% -8%, rgb(180 140 255 / 0.26), transparent 54%), radial-gradient(ellipse 68% 58% at 90% 8%, rgb(80 220 255 / 0.16), transparent 50%), radial-gradient(ellipse 78% 62% at 50% 40%, rgb(255 120 180 / 0.12), transparent 52%), radial-gradient(ellipse 92% 60% at 50% 100%, rgb(180 140 255 / 0.1), transparent 58%)',
       bannerLight:
@@ -647,7 +647,7 @@ export const PREMIUM_PAGE_MOOD_PRESETS: Record<
       textLight: 'rgb(17 19 24 / 0.96)',
       muted: 'rgb(161 161 170 / 0.56)',
       mutedLight: 'rgb(113 113 122 / 0.8)',
-      accent: 'rgb(101 101 112 / 0.92)',
+      accent: 'rgb(130 130 142 / 0.92)',
       accentLight: 'rgb(28 28 32 / 0.95)',
       banner:
         'radial-gradient(ellipse 84% 66% at 20% -6%, rgb(250 249 247 / 0.06), transparent 55%), radial-gradient(ellipse 76% 54% at 80% 8%, rgb(161 161 170 / 0.05), transparent 50%), radial-gradient(ellipse 92% 60% at 50% 100%, rgb(250 249 247 / 0.04), transparent 58%)',
@@ -668,7 +668,7 @@ export const PREMIUM_PAGE_MOOD_PRESETS: Record<
       muted: 'rgb(40 120 30 / 0.88)',
       mutedLight: 'rgb(50 105 58 / 0.7)',
       accent: 'rgb(57 255 20 / 0.95)',
-      accentLight: 'rgb(21 132 0 / 0.95)',
+      accentLight: 'rgb(20 125 0 / 0.95)',
       banner:
         'radial-gradient(ellipse 82% 68% at 16% -8%, rgb(57 255 20 / 0.16), transparent 56%), radial-gradient(ellipse 70% 52% at 84% 10%, rgb(57 255 20 / 0.06), transparent 50%), radial-gradient(ellipse 90% 58% at 50% 100%, rgb(57 255 20 / 0.05), transparent 58%)',
       bannerLight:
@@ -688,7 +688,7 @@ export const PREMIUM_PAGE_MOOD_PRESETS: Record<
       muted: 'rgb(160 210 230 / 0.48)',
       mutedLight: 'rgb(17 19 24 / 0.5)',
       accent: 'rgb(56 189 248 / 0.95)',
-      accentLight: 'rgb(6 123 175 / 0.95)',
+      accentLight: 'rgb(6 116 165 / 0.95)',
       banner:
         'radial-gradient(ellipse 85% 68% at 18% -8%, rgb(56 189 248 / 0.2), transparent 56%), radial-gradient(ellipse 75% 55% at 82% 12%, rgb(96 165 250 / 0.12), transparent 52%), radial-gradient(ellipse 90% 60% at 50% 100%, rgb(56 189 248 / 0.08), transparent 62%)',
       bannerLight:

@@ -2390,7 +2390,7 @@ button.post-media-tile {
 }
 
 .mood-sheet-panel .mood-sheet-item.is-active .mood-sheet-item-tagline {
-  color: rgb(var(--fg-rgb) / 0.58);
+  color: rgb(var(--fg-rgb) / 0.62);
 }
 
 .mood-sheet-panel .mood-sheet-item.is-active[data-mood='gold']::before,
@@ -2409,7 +2409,12 @@ button.post-media-tile {
   .mood-sheet-panel
   .mood-sheet-item.is-active
   .mood-sheet-item-badge {
-  color: var(--mood-row-accent-light, var(--mood-row-accent));
+  /* Active row sits on a fg/0.04 wash — blend toward ink to hold 4.5:1. */
+  color: color-mix(
+    in srgb,
+    var(--mood-row-accent-light, var(--mood-row-accent)) 85%,
+    rgb(var(--fg-rgb))
+  );
 }
 
 @media (prefers-color-scheme: light) {
@@ -2421,7 +2426,11 @@ button.post-media-tile {
     .mood-sheet-panel
     .mood-sheet-item.is-active
     .mood-sheet-item-badge {
-    color: var(--mood-row-accent-light, var(--mood-row-accent));
+    color: color-mix(
+      in srgb,
+      var(--mood-row-accent-light, var(--mood-row-accent)) 85%,
+      rgb(var(--fg-rgb))
+    );
   }
 }
 

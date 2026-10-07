@@ -153,10 +153,10 @@ describe('page moods', () => {
 
   it('splits broadsheet accentLight for editorial ink on light os', () => {
     const theme = PREMIUM_PAGE_MOOD_PRESETS.broadsheet.theme;
-    expect(theme.accent).toBe('rgb(101 101 112 / 0.92)');
+    expect(theme.accent).toBe('rgb(130 130 142 / 0.92)');
     expect(theme.accentLight).toBe('rgb(28 28 32 / 0.95)');
     expect(pageMoodPreviewCssVars('broadsheet', theme)).toMatchObject({
-      '--mood-preset-accent': 'rgb(101 101 112 / 0.92)',
+      '--mood-preset-accent': 'rgb(130 130 142 / 0.92)',
       '--mood-preset-accent-light': 'rgb(28 28 32 / 0.95)',
     });
     expect(pageMoodTypographyFor('broadsheet').fontDisplay).toBe(
@@ -252,8 +252,10 @@ describe('page moods', () => {
       }
     });
 
+    // Accent tokens double as picker-row label ink (`--mood-row-accent`),
+    // so they must clear the 4.5 text floor, not the 3.0 non-text floor.
     it.each(allPresets.map((p) => [p.id, p] as const))(
-      '%s keeps text >= 4.5 and muted/accent >= 3.0 in both modes',
+      '%s keeps text/accent >= 4.5 and muted >= 3.0 in both modes',
       (_id, preset) => {
         const t = preset.theme;
         const modes = [
@@ -276,7 +278,7 @@ describe('page moods', () => {
             3.0
           );
           expect(contrastRatio(mode.accent, mode.bg)).toBeGreaterThanOrEqual(
-            3.0
+            4.5
           );
         }
       }
