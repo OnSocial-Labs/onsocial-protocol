@@ -121,8 +121,8 @@ export const MOOD_PAGE_TYPOGRAPHY: Record<PageMoodId, PageMoodTypography> = {
   noir: {
     fontDisplay: MOOD_FONT_STACKS.sans,
     fontBody: MOOD_FONT_STACKS.sans,
-    displayWeight: 600,
-    displayLetterSpacing: '-0.03em',
+    displayWeight: 500,
+    displayLetterSpacing: '-0.02em',
     bodyLineHeight: 1.55,
     bioMaxWidth: '20rem',
   },
@@ -433,10 +433,10 @@ export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {
   noir: {
     id: 'noir',
     label: 'Noir',
-    tagline: 'Stealth executive — matte black, calm, precise.',
+    tagline: 'True black, hard light, zero noise.',
     theme: {
-      background: '#050505',
-      backgroundLight: '#f5f5f4',
+      background: '#000000',
+      backgroundLight: '#ffffff',
       text: 'rgb(255 255 255 / 0.96)',
       textLight: 'rgb(17 19 24 / 0.96)',
       muted: 'rgb(122 122 130 / 0.75)',
@@ -444,9 +444,9 @@ export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {
       accent: 'rgb(212 212 216 / 0.94)',
       accentLight: 'rgb(104 104 115 / 0.95)',
       banner:
-        'radial-gradient(ellipse 88% 62% at 50% -12%, rgb(255 255 255 / 0.05), transparent 58%), radial-gradient(ellipse 72% 48% at 82% 18%, rgb(161 161 170 / 0.04), transparent 52%)',
+        'linear-gradient(112deg, transparent 40%, rgb(255 255 255 / 0.08) 46%, rgb(255 255 255 / 0.16) 52%, rgb(255 255 255 / 0.08) 58%, transparent 64%), radial-gradient(ellipse 88% 62% at 50% -12%, rgb(255 255 255 / 0.04), transparent 58%)',
       bannerLight:
-        'radial-gradient(ellipse 88% 62% at 50% -12%, rgb(17 19 24 / 0.04), transparent 58%), radial-gradient(ellipse 72% 48% at 82% 18%, rgb(113 113 122 / 0.05), transparent 52%)',
+        'linear-gradient(112deg, transparent 40%, rgb(17 19 24 / 0.05) 46%, rgb(17 19 24 / 0.1) 52%, rgb(17 19 24 / 0.05) 58%, transparent 64%), radial-gradient(ellipse 88% 62% at 50% -12%, rgb(17 19 24 / 0.03), transparent 58%)',
       surface: 'rgb(255 255 255 / 0.05)',
     },
   },
