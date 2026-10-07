@@ -38574,9 +38574,16 @@ a.os-surface-row {
 
   .guild-proposal-card-vote-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
+    /* The shared card footer is a wrapping row-flex, so without a full
+       basis this row shrink-wraps and the decision pills crowd the meta
+       line. Claim the whole footer width: meta left, pills pinned right. */
+    flex: 1 1 100%;
+    /* Ultra-narrow sheets wrap instead: meta line on top, decision pills
+       right-aligned on their own row — the groups never touch. */
+    gap: 0.4rem 1rem;
     min-width: 0;
   }
 
@@ -38623,6 +38630,8 @@ a.os-surface-row {
     align-items: center;
     gap: 0.4rem;
     min-width: 0;
+    /* Stays pinned right when the vote row wraps onto a second line. */
+    margin-left: auto;
   }
 
   .guild-proposal-card-outcome-row {
