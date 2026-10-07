@@ -4576,9 +4576,9 @@ a.os-surface-row {
         linear-gradient(
           115deg,
           transparent 40%,
-          rgb(190 228 255 / 0.06) 46%,
-          rgb(255 210 240 / 0.05) 50%,
-          rgb(205 255 238 / 0.05) 54%,
+          rgb(190 228 255 / 0.035) 46%,
+          rgb(255 210 240 / 0.03) 50%,
+          rgb(205 255 238 / 0.03) 54%,
           transparent 60%
         );
     --glass-card-lip: inset 0 1px 0 rgb(255 255 255 / 0.22);
