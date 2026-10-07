@@ -4714,12 +4714,12 @@ a.os-surface-row {
       radial-gradient(
         ellipse 108% 74% at 16% -16%,
         rgb(255 255 255 / 0.92) 0%,
-        rgb(255 255 255 / 0.32) 54%,
+        rgb(208 228 250 / 0.5) 54%,
         transparent 84%
       ),
       radial-gradient(
         ellipse 78% 52% at 100% 0%,
-        rgb(240 248 255 / 0.5) 0%,
+        rgb(198 224 255 / 0.55) 0%,
         transparent 70%
       ),
       /* Prismatic band — optical-glass dispersion, drifts with the glint. */
@@ -4734,7 +4734,7 @@ a.os-surface-row {
       linear-gradient(
         155deg,
         transparent 16%,
-        rgb(255 255 255 / 0.42) 44%,
+        rgb(214 232 252 / 0.55) 44%,
         transparent 72%
       );
     --glass-card-lip:
@@ -4753,17 +4753,17 @@ a.os-surface-row {
     background:
       radial-gradient(
         ellipse 60% 42% at 12% 18%,
-        rgb(255 255 255 / 0.5),
+        rgb(120 168 228 / 0.55),
         transparent 62%
       ),
       radial-gradient(
         ellipse 52% 38% at 88% 46%,
-        rgb(190 215 245 / 0.35),
+        rgb(95 145 215 / 0.5),
         transparent 60%
       ),
       radial-gradient(
         ellipse 70% 46% at 30% 88%,
-        rgb(255 255 255 / 0.4),
+        rgb(130 172 225 / 0.52),
         transparent 64%
       ),
       linear-gradient(
@@ -4800,12 +4800,12 @@ a.os-surface-row {
         radial-gradient(
           ellipse 108% 74% at 16% -16%,
           rgb(255 255 255 / 0.92) 0%,
-          rgb(255 255 255 / 0.32) 54%,
+          rgb(208 228 250 / 0.5) 54%,
           transparent 84%
         ),
         radial-gradient(
           ellipse 78% 52% at 100% 0%,
-          rgb(240 248 255 / 0.5) 0%,
+          rgb(198 224 255 / 0.55) 0%,
           transparent 70%
         ),
         /* Prismatic band — optical-glass dispersion, drifts with the glint. */
@@ -4820,7 +4820,7 @@ a.os-surface-row {
         linear-gradient(
           155deg,
           transparent 16%,
-          rgb(255 255 255 / 0.42) 44%,
+          rgb(214 232 252 / 0.55) 44%,
           transparent 72%
         );
       --glass-card-lip:
@@ -4840,17 +4840,17 @@ a.os-surface-row {
       background:
         radial-gradient(
           ellipse 60% 42% at 12% 18%,
-          rgb(255 255 255 / 0.5),
+          rgb(120 168 228 / 0.55),
           transparent 62%
         ),
         radial-gradient(
           ellipse 52% 38% at 88% 46%,
-          rgb(190 215 245 / 0.35),
+          rgb(95 145 215 / 0.5),
           transparent 60%
         ),
         radial-gradient(
           ellipse 70% 46% at 30% 88%,
-          rgb(255 255 255 / 0.4),
+          rgb(130 172 225 / 0.52),
           transparent 64%
         ),
         linear-gradient(
