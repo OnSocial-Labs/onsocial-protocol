@@ -186,8 +186,9 @@ export function GuildProposalCard({
           : presentation.headline
       }`
     : null;
-  // Share rides the footer action cluster (posts + DAO card convention) —
-  // the strip's right slot stays status + deadline only.
+  // Share rides the meta line as an inline utility (same pattern as the
+  // Votes toggle) — the footer's right side stays decision-only, so the
+  // vote pair reads as one unit opposite the meta even on narrow sheets.
   const shareButton = shareHref ? (
     <button
       type="button"
@@ -211,6 +212,12 @@ export function GuildProposalCard({
     >
       {shared ? <CheckIcon aria-hidden /> : <ShareIcon aria-hidden />}
     </button>
+  ) : null;
+  const shareMeta = shareButton ? (
+    <>
+      {' · '}
+      {shareButton}
+    </>
   ) : null;
 
   return (
@@ -385,8 +392,8 @@ export function GuildProposalCard({
                     {votersButton(votersCountLabel)}
                   </>
                 ) : null}
+                {shareMeta}
               </p>
-              {shareButton}
             </div>
           ) : isOwnRequest && onCancel ? (
             <>
@@ -429,22 +436,22 @@ export function GuildProposalCard({
                         {votersButton('Votes')}
                       </>
                     ) : null}
+                    {shareMeta}
                   </p>
-                ) : showVotersToggle ? (
+                ) : showVotersToggle || shareMeta ? (
                   <p className="guild-proposal-card-progress-label">
-                    {votersButton(votersCountLabel)}
+                    {showVotersToggle ? votersButton(votersCountLabel) : null}
+                    {shareMeta}
                   </p>
                 ) : (
                   <span className="guild-proposal-card-vote-spacer" />
                 )}
-                {shareButton ||
-                (votingClosed && onExpire) ||
+                {(votingClosed && onExpire) ||
                 (viewerVote !== true &&
                   viewerVote !== false &&
                   canVote &&
                   !votingClosed) ? (
                   <div className="guild-proposal-card-vote-end">
-                    {shareButton}
                     {votingClosed && onExpire ? (
                       <OsSheetActions
                         layout="row-compact"
