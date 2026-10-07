@@ -5448,6 +5448,58 @@ a.os-surface-row {
   }
 
   /*
+   * Lapel — on a mood-only hero the cloth changes facet: finer 5px stripe over
+   * its own navy facing (opaque, so the 7px body stripe doesn't beat against
+   * it), dissolving at the hem via the mask — no seam. Facing gradient matches
+   * the body base across the hero band (≤1 level).
+   */
+  .portfolio-frame[data-mood='business'] .portfolio-banner-region--mood-only {
+    background:
+      var(--business-sheet-downlight),
+      repeating-linear-gradient(
+        90deg,
+        transparent 0 4px,
+        rgb(170 200 245 / 0.045) 4px 5px
+      ),
+      linear-gradient(180deg, rgb(13 19 33) 0%, rgb(11 16 27) 100%);
+    -webkit-mask-image: linear-gradient(
+      180deg,
+      black 0%,
+      black 55%,
+      transparent 96%
+    );
+    mask-image: linear-gradient(180deg, black 0%, black 55%, transparent 96%);
+  }
+
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='business']
+    .portfolio-banner-region--mood-only {
+    background:
+      var(--business-sheet-downlight),
+      repeating-linear-gradient(
+        90deg,
+        transparent 0 4px,
+        rgb(24 44 84 / 0.05) 4px 5px
+      ),
+      linear-gradient(180deg, rgb(247 249 253) 0%, rgb(243 246 251) 100%);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='business']
+      .portfolio-banner-region--mood-only {
+      background:
+        var(--business-sheet-downlight),
+        repeating-linear-gradient(
+          90deg,
+          transparent 0 4px,
+          rgb(24 44 84 / 0.05) 4px 5px
+        ),
+        linear-gradient(180deg, rgb(247 249 253) 0%, rgb(243 246 251) 100%);
+    }
+  }
+
+  /*
    * Gold — serif display + diagonal foil. Each theme gets its own contrasting
    * stop set (shadow → highlight) so shimmer reads on charcoal and on cream.
    */
