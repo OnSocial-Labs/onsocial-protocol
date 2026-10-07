@@ -3,7 +3,6 @@ import {
   guildProposalClosesLabel,
   guildProposalPresentation,
   guildProposalTallyLabel,
-  guildProposalTitle,
   guildProposalOutcome,
   guildProposalVoteProgress,
   guildViewerVoteLabel,
@@ -49,6 +48,27 @@ describe('guild-proposal-display', () => {
     expect(presentation.roleLabel).toBe('Moderator');
     expect(presentation.targetAccountId).toBe('greenghost.onsocial.testnet');
     expect(presentation.suppressDescription).toBe(true);
+  });
+
+  it('prefers the target display name in headlines when provided', () => {
+    const proposal = {
+      ...baseProposal,
+      title: 'Change Permission for greenghost.onsocial.testnet to level 2',
+      type: 'permission_change',
+      target: 'greenghost.onsocial.testnet',
+      data: {},
+    };
+
+    const named = guildProposalPresentation(proposal, 'Green Ghost');
+    expect(named.headline).toBe('Make Green Ghost a Moderator');
+    // targetLabel stays the raw id for handle comparisons.
+    expect(named.targetLabel).toBe('greenghost.onsocial.testnet');
+
+    const join = guildProposalPresentation(
+      { ...baseProposal, type: 'join_request', target: 'greenghost.onsocial.testnet' },
+      'Green Ghost'
+    );
+    expect(join.headline).toBe('Green Ghost requested to join');
   });
 
   it('formats path permission grants as room access', () => {
@@ -128,11 +148,11 @@ describe('guild-proposal-display', () => {
 
   it('formats proposal titles by type when chain copy is missing', () => {
     expect(
-      guildProposalTitle({
+      guildProposalPresentation({
         ...baseProposal,
         title: '',
         type: 'permission_change',
-      })
+      }).headline
     ).toBe('Role change');
   });
 
@@ -188,7 +208,8 @@ describe('guild-proposal-display', () => {
       new Date(now.getTime() + sevenDaysMs + 60_000)
     );
     expect(expiredProgress.closesLabel).toBe('Voting closed');
-    expect(expiredProgress.label).toContain('voting period ended');
+    expect(expiredProgress.isExpired).toBe(true);
+    expect(expiredProgress.label).toBe('2/3 voted');
   });
 
   it('labels approved and rejected outcomes', () => {

@@ -178,9 +178,10 @@ export function guildPermissionRoleLabel(level: number): string {
 
 function permissionChangeHeadline(
   targetAccountId: string,
-  level: number
+  level: number,
+  profileName?: string | null
 ): { headline: string; roleLabel: string } {
-  const name = fallbackLabel(targetAccountId);
+  const name = profileName?.trim() || fallbackLabel(targetAccountId);
   const roleLabel = guildPermissionRoleLabel(level);
 
   if (level <= PERMISSION.NONE) {
@@ -190,12 +191,7 @@ function permissionChangeHeadline(
     };
   }
 
-  const article =
-    roleLabel === 'Admin'
-      ? 'an'
-      : roleLabel === 'Moderator'
-        ? 'a'
-        : 'a';
+  const article = roleLabel === 'Admin' ? 'an' : 'a';
 
   return {
     headline: `Make ${name} ${article} ${roleLabel}`,
@@ -276,11 +272,15 @@ function readGroupUpdateFields(proposal: Proposal): {
 }
 
 export function guildProposalPresentation(
-  proposal: Proposal
+  proposal: Proposal,
+  profileName?: string | null
 ): GuildProposalPresentation {
   const proposerLabel = proposal.proposer
     ? fallbackLabel(proposal.proposer)
     : null;
+  // Headlines prefer the target's display name when the caller has it
+  // (drawer copy); `targetLabel` stays the raw id for handle comparisons.
+  const named = (accountId: string) => profileName?.trim() || fallbackLabel(accountId);
 
   if (proposal.type === 'permission_change') {
     const targetAccountId = readPermissionChangeTarget(proposal);
@@ -290,7 +290,8 @@ export function guildProposalPresentation(
     if (targetAccountId && level != null) {
       const { headline, roleLabel } = permissionChangeHeadline(
         targetAccountId,
-        level
+        level,
+        profileName
       );
       return {
         kind: 'Role',
@@ -314,7 +315,7 @@ export function guildProposalPresentation(
       kind: 'Join',
       kindTone: 'access',
       headline: requester
-        ? `${fallbackLabel(requester)} requested to join`
+        ? `${named(requester)} requested to join`
         : 'Membership request',
       targetAccountId: requester,
       targetLabel: requester ? fallbackLabel(requester) : null,
@@ -332,7 +333,7 @@ export function guildProposalPresentation(
     const { targetAccountId, path, reason } = readPathPermissionFields(proposal);
     const roomTitle = path ? roomTitleFromSpaceWritePath(path) : null;
     const isGrant = proposal.type === 'path_permission_grant';
-    const name = targetAccountId ? fallbackLabel(targetAccountId) : null;
+    const name = targetAccountId ? named(targetAccountId) : null;
     const cleanedReason =
       reason && !isChainGeneratedCopy(reason) ? reason : null;
 
@@ -374,7 +375,7 @@ export function guildProposalPresentation(
     const isBan =
       proposal.type === 'group_update_ban' || groupUpdate.updateType === 'ban';
     const targetAccountId = groupUpdate.targetAccountId;
-    const name = targetAccountId ? fallbackLabel(targetAccountId) : null;
+    const name = targetAccountId ? named(targetAccountId) : null;
     const cleanedReason =
       groupUpdate.reason && !isChainGeneratedCopy(groupUpdate.reason)
         ? groupUpdate.reason
@@ -391,7 +392,7 @@ export function guildProposalPresentation(
           ? 'Ban member'
           : 'Unban member',
       targetAccountId,
-      targetLabel: name,
+      targetLabel: targetAccountId ? fallbackLabel(targetAccountId) : null,
       roleLabel: null,
       detail: cleanedReason,
       proposerLabel,
@@ -538,20 +539,6 @@ function cleanProposalDescription(description: string | null | undefined): strin
   return trimmed;
 }
 
-/** @deprecated Prefer `guildProposalPresentation(proposal).headline`. */
-export function guildProposalTitle(proposal: Proposal): string {
-  return guildProposalPresentation(proposal).headline;
-}
-
-/** @deprecated Prefer `guildProposalPresentation(proposal).detail`. */
-export function guildProposalDescription(proposal: Proposal): string | null {
-  const presentation = guildProposalPresentation(proposal);
-  if (presentation.suppressDescription) {
-    return presentation.detail;
-  }
-  return presentation.detail ?? cleanProposalDescription(proposal.description);
-}
-
 export function guildProposalMetaLine(input: {
   proposal: Proposal;
   tally: ProposalTally | null;
@@ -680,6 +667,7 @@ export interface GuildProposalVoteProgress {
   label: string;
   closesLabel: string | null;
   closesTitle: string | null;
+  isExpired: boolean;
   ariaLabel: string;
   showProgress: boolean;
 }
@@ -918,8 +906,12 @@ export function guildProposalVoteProgress(
           majorityBps,
         }));
 
+  // Once the period ends, "need N more" is stale — report the final count;
+  // the strip carries the "Voting closed" cue.
   const progressDetail = closes.isExpired
-    ? `${label}${label ? ' · ' : ''}voting period ended`
+    ? memberPool > 0
+      ? `${totalVotes}/${memberPool} voted`
+      : ''
     : label;
 
   return {
@@ -932,6 +924,7 @@ export function guildProposalVoteProgress(
     opposePoolPercent,
     quorumMarkerPercent,
     label: progressDetail,
+    isExpired: closes.isExpired,
     closesLabel: closes.label,
     closesTitle: closes.title,
     ariaLabel: `${yesVotes} supported, ${noVotes} opposed, out of ${memberPool} members at proposal time. ${progressDetail}${

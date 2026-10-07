@@ -50,13 +50,13 @@ function guildFixture(opts?: {
   return 'empty';
 }
 
-function groupConfig(opts?: { ownerId?: string }) {
+function groupConfig(opts?: { ownerId?: string; accessGated?: boolean }) {
   const ownerId = opts?.ownerId ?? GUILD_E2E_OWNER;
   return {
     name: GUILD_E2E_STORED_NAME,
     description: 'A stub guild for e2e.',
     owner: ownerId,
-    isPublic: true,
+    isPublic: !opts?.accessGated,
     memberDriven: false,
     topics: ['builders'],
     x: {
@@ -109,6 +109,8 @@ export async function stubGuildPage(
     memberId?: string;
     /** Seeded wallet is banned (not a member) when this is set. */
     bannedId?: string;
+    /** Marks the guild access-gated (isPublic: false) across stubs. */
+    accessGated?: boolean;
   }
 ): Promise<void> {
   const rows = opts?.rows ?? 'empty';
@@ -142,7 +144,11 @@ export async function stubGuildPage(
       await delayIfShell();
       await route.fulfill(
         json({
-          data: { groupsCurrent: e2eGuildCurrentRows(guild) },
+          data: {
+            groupsCurrent: e2eGuildCurrentRows(guild, {
+              isPublic: !opts?.accessGated,
+            }),
+          },
         })
       );
       return;
@@ -243,7 +249,13 @@ export async function stubGuildPage(
       (userId === ownerId || (memberId != null && userId === memberId));
 
     if (path.endsWith('/data/group-config')) {
-      await route.fulfill(json(missing ? null : groupConfig({ ownerId })));
+      await route.fulfill(
+        json(
+          missing
+            ? null
+            : groupConfig({ ownerId, accessGated: opts?.accessGated })
+        )
+      );
       return;
     }
     if (path.endsWith('/data/group-stats')) {

@@ -6,6 +6,7 @@ import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { Divider, OsIconAction, SettingsIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
+import { useOsInAppPop } from '@/components/providers/os-face-leave-provider';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -35,9 +36,9 @@ import {
 import { postMetaFromText } from '@/features/home/post-mentions';
 import { placesMetaFromComposer } from '@/lib/post-place';
 import {
-  GuildComposerSheet,
-  type GuildComposerMode,
-  type GuildComposerSubmit,
+  ComposerSheet,
+  type ComposerMode,
+  type ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
 import type { ComposerBeat } from '@/lib/composer-thread';
 import {
@@ -149,10 +150,12 @@ export function LiveGuildPanel({
   groupId,
   initial = null,
   initialSheet = null,
+  initialProposal = null,
 }: {
   groupId: string;
   initial?: GuildPageData | null;
   initialSheet?: GuildShareSheetId | null;
+  initialProposal?: string | null;
 }) {
   const router = useRouter();
   const {
@@ -216,7 +219,7 @@ export function LiveGuildPanel({
   });
   const newPostDraftKey = composerNewPostDraftKey(groupId);
   const [composer, setComposer] = useState<{
-    mode: GuildComposerMode;
+    mode: ComposerMode;
     target: PostRow | null;
     initialText?: string;
     initialFiles?: File[];
@@ -251,19 +254,55 @@ export function LiveGuildPanel({
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const lastHydratedFeedKeysRef = useRef('');
 
+  const popInApp = useOsInAppPop();
+  // True while the open manage sheet owns the history entry it pushed, so
+  // browser Back closes the drawer before leaving the guild. A sheet opened
+  // by a cold deep link owns no entry — close replaces onto the guild page.
+  const manageSheetPushedRef = useRef(false);
   const openManageSheet = useCallback(
     (sheet: GuildManageSheetId | null) => {
-      setManageSheet(sheet);
       const shareable =
         sheet === 'proposals' || sheet === 'members' || sheet === 'requests'
           ? sheet
           : null;
+      if (sheet === null) {
+        const face = guildPath(groupId);
+        const before = window.location.pathname + window.location.search;
+        setManageSheet(null);
+        if (!manageSheetPushedRef.current || !popInApp()) {
+          manageSheetPushedRef.current = false;
+          router.replace(face, { scroll: false });
+          return;
+        }
+        manageSheetPushedRef.current = false;
+        // The pop can be a no-op (cold open + in-sheet switch left one real
+        // entry) — then land on the bare guild path instead of leaving a
+        // stale `?sheet=` URL over a closed drawer. Sheet urls differ by
+        // search, not pathname, so compare both.
+        const timer = window.setTimeout(() => {
+          if (window.location.pathname + window.location.search === before) {
+            router.replace(face, { scroll: false });
+          }
+        }, 400);
+        window.addEventListener('popstate', () => window.clearTimeout(timer), {
+          once: true,
+        });
+        return;
+      }
+      const opening = manageSheet === null;
+      setManageSheet(sheet);
+      if (shareable && opening) {
+        manageSheetPushedRef.current = true;
+        router.push(guildSheetPath(groupId, shareable), { scroll: false });
+        return;
+      }
+      // In-sheet switches replace — one history entry per open, not per tab.
       router.replace(
         shareable ? guildSheetPath(groupId, shareable) : guildPath(groupId),
         { scroll: false }
       );
     },
-    [groupId, router]
+    [groupId, manageSheet, popInApp, router]
   );
 
   useEffect(() => {
@@ -669,7 +708,6 @@ export function LiveGuildPanel({
       config,
       effectiveIsBlacklisted,
       effectiveIsMember,
-      effectiveIsOwner,
       effectiveJoinPending,
       isConnected,
       joinCancelReady,
@@ -679,7 +717,7 @@ export function LiveGuildPanel({
     ]
   );
 
-  const openComposerModal = (mode: GuildComposerMode) => (target: PostRow) => {
+  const openComposerModal = (mode: ComposerMode) => (target: PostRow) => {
     setModalError(null);
     setComposer({ mode, target });
   };
@@ -709,7 +747,7 @@ export function LiveGuildPanel({
     });
   }, [groupId, scheduleReconcile, setLocalPosts]);
 
-  const submitFromModal = async (payload: GuildComposerSubmit) => {
+  const submitFromModal = async (payload: ComposerSubmit) => {
     if (!composer || modalPending) return;
     const { mode, target } = composer;
     const text = payload.text.trim();
@@ -1292,6 +1330,11 @@ export function LiveGuildPanel({
                   {selectedFeedSpace
                     ? `No ${selectedFeedSpace.title.toLowerCase()} posts yet.`
                     : 'No guild posts yet.'}
+                  {canCompose ? (
+                    <OsEmptyAction onClick={openPostComposer}>
+                      Share the first post
+                    </OsEmptyAction>
+                  ) : null}
                 </div>
               )}
             </section>
@@ -1299,7 +1342,7 @@ export function LiveGuildPanel({
         ) : null}
       </div>
       {composer ? (
-        <GuildComposerSheet
+        <ComposerSheet
           open
           mode={composer.mode}
           target={composer.target}
@@ -1398,6 +1441,8 @@ export function LiveGuildPanel({
           accountId={accountId}
           isMember={viewer?.isMember ?? false}
           memberDriven={config.memberDriven}
+          accessGated={config.accessGated}
+          focusProposal={initialProposal}
           onClose={() => openManageSheet(null)}
           onOpenRequests={
             viewer?.isMember ? () => openManageSheet('requests') : undefined

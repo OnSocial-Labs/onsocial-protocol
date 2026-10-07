@@ -194,16 +194,12 @@ function revokeSheetBeatPreviews(beat: SheetBeat) {
 const COMPOSER_NEST_Z = scarceNestZIndex(SHEET_Z.list);
 
 export type ComposerMode = 'post' | 'reply' | 'quote';
-/** @deprecated Prefer `ComposerMode`. */
-export type GuildComposerMode = ComposerMode;
 
 export interface ComposerPollDraft {
   options: string[];
   /** Duration from now in ms; omit for open-ended. */
   durationMs?: number;
 }
-/** @deprecated Prefer `ComposerPollDraft`. */
-export type GuildComposerPollDraft = ComposerPollDraft;
 
 /** Drop / resale reference attached to a post (“Post this Drop”). */
 export interface ComposerDropDraft {
@@ -247,9 +243,6 @@ export type ComposerPublishResult = {
   postedCount?: number;
   totalCount?: number;
 };
-/** @deprecated Prefer `ComposerSubmit`. */
-export type GuildComposerSubmit = ComposerSubmit;
-
 const TITLE: Record<ComposerMode, string> = {
   post: 'New post',
   reply: 'Reply',
@@ -279,11 +272,7 @@ export type ComposerDestination =
     }
   | {
       kind: 'personal';
-      /** @deprecated Unused — identity + Post to menus cover this. */
-      label?: string;
     };
-/** @deprecated Prefer `ComposerDestination`. */
-export type GuildComposerDestination = ComposerDestination;
 
 interface ComposerSheetProps {
   open: boolean;
@@ -1877,6 +1866,3 @@ export function ComposerSheet({
     </>
   );
 }
-
-/** @deprecated Prefer `ComposerSheet`. */
-export const GuildComposerSheet = ComposerSheet;

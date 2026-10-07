@@ -38383,15 +38383,33 @@ a.os-surface-row {
     gap: 0.5rem;
   }
 
-  .guild-proposal-card-avatar-link {
-    flex: 0 0 auto;
-    margin-top: 0.02rem;
+  .guild-proposal-card-identity {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    min-width: 0;
+    flex: 1 1 auto;
     text-decoration: none;
+    color: inherit;
+    --os-identity-name-size: 0.82rem;
+    --os-identity-name-weight: 650;
+  }
+
+  .guild-proposal-card-identity .standing-row-name {
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .guild-proposal-card-identity:hover .standing-row-name,
+  .guild-proposal-card-identity:focus-visible .standing-row-name {
+    color: rgb(var(--fg-rgb) / 0.98);
+  }
+
+  .guild-proposal-card-identity .guild-proposal-card-action {
+    margin-top: 0.1rem;
   }
 
   .guild-proposal-card-avatar.profile-avatar {
-    width: 1.55rem;
-    height: 1.55rem;
+    flex: 0 0 auto;
     border-width: 1.5px;
     transition:
       transform 140ms ease,
@@ -38416,42 +38434,11 @@ a.os-surface-row {
       color-mix(in srgb, var(--protocol-blue) 16%, transparent);
   }
 
-  .guild-proposal-card-avatar-link:hover
+  .guild-proposal-card-identity:hover
     .guild-proposal-card-avatar.profile-avatar,
-  .guild-proposal-card-avatar-link:focus-visible
+  .guild-proposal-card-identity:focus-visible
     .guild-proposal-card-avatar.profile-avatar {
     transform: scale(1.04);
-  }
-
-  .guild-proposal-card-copy {
-    display: grid;
-    gap: 0.08rem;
-    min-width: 0;
-    flex: 1 1 auto;
-  }
-
-  .guild-proposal-card-identity-row {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    gap: 0.38rem;
-  }
-
-  .guild-proposal-card-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.82rem;
-    font-weight: 650;
-    line-height: 1.25;
-    color: rgb(var(--fg-rgb) / 0.92);
-    text-decoration: none;
-  }
-
-  .guild-proposal-card-name:hover,
-  .guild-proposal-card-name:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.98);
   }
 
   .guild-proposal-card-role-pill {
@@ -38497,22 +38484,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.66);
   }
 
-  .guild-proposal-card-handle {
-    width: fit-content;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: var(--os-identity-handle-size, 0.72rem);
-    font-weight: var(--os-identity-handle-weight, 400);
-    color: var(--os-identity-handle);
-    text-decoration: none;
-  }
-
-  .guild-proposal-card-handle:hover {
-    color: var(--os-identity-handle-hover);
-  }
-
   .guild-proposal-card-proposer {
     display: inline-flex;
     align-items: center;
@@ -38552,6 +38523,15 @@ a.os-surface-row {
     font-size: 0.62rem;
     font-weight: 600;
     color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .guild-proposal-card-proposer-handle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.62rem;
+    font-weight: 500;
+    color: rgb(var(--fg-rgb) / 0.4);
   }
 
   .guild-proposal-card-footer {
@@ -38594,14 +38574,20 @@ a.os-surface-row {
 
   .guild-proposal-card-vote-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
+    /* The shared card footer is a wrapping row-flex, so without a full
+       basis this row shrink-wraps and the decision pills crowd the meta
+       line. Claim the whole footer width: meta left, pills pinned right. */
+    flex: 1 1 100%;
+    /* Ultra-narrow sheets wrap instead: meta line on top, decision pills
+       right-aligned on their own row — the groups never touch. */
+    gap: 0.4rem 1rem;
     min-width: 0;
   }
 
-  .guild-proposal-card-progress-label,
-  .guild-proposal-card-voted {
+  .guild-proposal-card-progress-label {
     margin: 0;
     min-width: 0;
     flex: 1 1 auto;
@@ -38612,6 +38598,95 @@ a.os-surface-row {
 
   .guild-proposal-card-vote-spacer {
     flex: 1 1 auto;
+  }
+
+  .guild-proposal-card-voters-toggle {
+    display: inline;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    font: inherit;
+    font-weight: 650;
+    color: rgb(var(--fg-rgb) / 0.58);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 0.12em;
+    white-space: nowrap;
+  }
+
+  .guild-proposal-card-voters-toggle:hover,
+  .guild-proposal-card-voters-toggle:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.82);
+    outline: none;
+  }
+
+  /* Footer action cluster — share icon rides with the card's actions
+   * (posts + DAO card convention); the strip's right slot stays status-only. */
+  .guild-proposal-card-vote-end {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    /* Stays pinned right when the vote row wraps onto a second line. */
+    margin-left: auto;
+  }
+
+  .guild-proposal-card-outcome-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .guild-proposal-card-outcome-row > p {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .guild-proposal-card-share {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0.2rem;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.48);
+    cursor: pointer;
+    line-height: 0;
+    /* Inline in the meta line — optically center the glyph on the text. */
+    vertical-align: middle;
+    margin-top: -0.12em;
+    transition: color 160ms ease;
+  }
+
+  .guild-proposal-card-share:hover,
+  .guild-proposal-card-share:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.82);
+    outline: none;
+  }
+
+  .guild-proposal-card-share.is-done {
+    color: var(--signal-reputation, var(--protocol-green, #16a34a));
+  }
+
+  .guild-proposal-card-share svg {
+    display: block;
+    width: 0.95rem;
+    height: 0.95rem;
+  }
+
+  /* Deep-linked card (?proposal=) — quiet ring until the sheet closes. */
+  .guild-proposal-card--focused {
+    box-shadow: 0 0 0 2px
+      color-mix(in srgb, var(--protocol-blue, #60a5fa) 35%, transparent);
   }
 
   .guild-proposal-card--approved .guild-proposal-card-progress-support {

@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  E2E_APP_HYDRATED_ATTR,
   E2E_PORTFOLIO_READY_ATTR,
   installE2eAppRouterPush,
+  markAppHydrated,
   markPortfolioClientReady,
   readPortfolioClientReady,
   unmarkPortfolioClientReady,
@@ -29,6 +31,18 @@ describe('portfolio client ready refcount', () => {
     unmarkPortfolioClientReady();
     expect(readPortfolioClientReady()).toBe(false);
     expect(dataset[E2E_PORTFOLIO_READY_ATTR]).toBeUndefined();
+  });
+});
+
+describe('markAppHydrated', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('sets the body flag gotoApp waits on', () => {
+    const dataset = stubReadyDocument();
+    markAppHydrated();
+    expect(dataset[E2E_APP_HYDRATED_ATTR]).toBe('true');
   });
 });
 
