@@ -216,4 +216,46 @@ test.describe('guild proposals sheet', () => {
     // Members with no vote on record list as abstainers.
     await expect(voters.getByText("Hasn't voted").first()).toBeVisible();
   });
+
+  test('sheet opened in-app owns a history entry — browser Back closes it', async ({
+    page,
+  }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphGuild(page, 'member');
+    await stubGuildPage(page, { memberId: COLLECTIBLES_VAULT_OWNER });
+    await stubGuildProposals(page);
+    await gotoApp(page, GUILD_E2E_PATH);
+
+    await page.getByRole('button', { name: 'Guild menu' }).click();
+    await page.getByRole('menuitem', { name: /Proposals/ }).click();
+    const sheet = page.getByRole('dialog', { name: 'Proposals' });
+    await expect(sheet).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(page).toHaveURL(
+      new RegExp(`${GUILD_E2E_PATH}\\?sheet=proposals`)
+    );
+
+    // Browser Back pops the sheet's entry — the drawer closes onto the
+    // guild page instead of leaving the app.
+    await page.goBack();
+    await expect(sheet).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`${GUILD_E2E_PATH}$`));
+  });
+
+  test('cold proposal deep link closes onto the guild page', async ({
+    page,
+  }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphGuild(page, 'member');
+    await stubGuildPage(page, { memberId: COLLECTIBLES_VAULT_OWNER });
+    await stubGuildProposals(page);
+    await gotoApp(page, `${GUILD_E2E_PATH}?sheet=proposals&proposal=12`);
+
+    const sheet = page.getByRole('dialog', { name: 'Proposals' });
+    await expect(sheet).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    // No entry underneath a cold open — close replaces onto the bare guild
+    // path rather than popping out of the app.
+    await sheet.getByRole('button', { name: 'Close' }).click();
+    await expect(sheet).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`${GUILD_E2E_PATH}$`));
+  });
 });
