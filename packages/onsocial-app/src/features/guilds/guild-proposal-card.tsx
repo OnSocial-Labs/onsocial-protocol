@@ -10,7 +10,6 @@ import {
   OsProposalCardFooter,
   OsProposalCardSep,
   OsProposalCardStrip,
-  OsProposalCardStripEnd,
   OsProposalCardStripMain,
   OsSheetAction,
   OsSheetActions,
@@ -95,8 +94,7 @@ export function GuildProposalCard({
   const voteProgress = guildProposalVoteProgress(proposal, tally);
   // Prefer progress line over strip tally — avoid duplicate vote copy.
   const stripStatusLabel =
-    outcome.stripLabel ??
-    (voteProgress.showProgress ? null : tallyLabel);
+    outcome.stripLabel ?? (voteProgress.showProgress ? null : tallyLabel);
   const targetAccountId = presentation.targetAccountId;
   const targetProfile = targetAccountId ? profiles[targetAccountId] : undefined;
   const targetDisplayName = targetAccountId
@@ -104,12 +102,12 @@ export function GuildProposalCard({
     : null;
   const showIdentity = Boolean(targetAccountId && targetDisplayName);
   const bodyLine = showIdentity
-    ? presentation.detail ??
+    ? (presentation.detail ??
       (presentation.roleLabel
         ? presentation.roleLabel === 'Member'
           ? 'Make regular member'
           : `Promote to ${presentation.roleLabel.toLowerCase()}`
-        : presentation.headline)
+        : presentation.headline))
     : null;
   const proposerAccountId = proposal.proposer?.trim() || null;
   const proposerProfile = proposerAccountId
@@ -146,6 +144,7 @@ export function GuildProposalCard({
     viewerVote === false ||
     (canVote && !votingClosed) ||
     (votingClosed && Boolean(onExpire)) ||
+    Boolean(shareHref) ||
     (isOwnRequest && onCancel);
   // Inline roster toggle — sits on the label line like the DAO card's meta
   // row instead of adding a second votes line. The label already carries the
@@ -166,13 +165,41 @@ export function GuildProposalCard({
   const [shared, setShared] = useState(false);
   const shareText = shareHref
     ? `${
-        proposal.sequence_number > 0 ? `Proposal #${proposal.sequence_number} · ` : ''
+        proposal.sequence_number > 0
+          ? `Proposal #${proposal.sequence_number} · `
+          : ''
       }${
         targetDisplayName
           ? guildProposalPresentation(proposal, targetDisplayName).headline
           : presentation.headline
       }`
     : null;
+  // Share rides the footer action cluster (posts + DAO card convention) —
+  // the strip's right slot stays status-only.
+  const shareButton = shareHref ? (
+    <button
+      type="button"
+      className={`guild-proposal-card-share${shared ? ' is-done' : ''}`}
+      aria-label={shared ? 'Link copied' : 'Share proposal'}
+      title={shared ? 'Link copied' : 'Share proposal'}
+      onClick={() => {
+        void (async () => {
+          const url = new URL(shareHref, window.location.origin).toString();
+          const result = await shareUrl({
+            url,
+            title: shareText ?? undefined,
+            text: shareText ?? undefined,
+          });
+          if (result === 'copied' || result === 'shared') {
+            setShared(true);
+            window.setTimeout(() => setShared(false), 1600);
+          }
+        })();
+      }}
+    >
+      {shared ? <CheckIcon aria-hidden /> : <ShareIcon aria-hidden />}
+    </button>
+  ) : null;
 
   return (
     <OsProposalCard
@@ -217,51 +244,16 @@ export function GuildProposalCard({
             </>
           ) : null}
         </OsProposalCardStripMain>
-        {stripStatusLabel || shareHref ? (
-          <OsProposalCardStripEnd className="guild-proposal-card-strip-end">
-            {stripStatusLabel ? (
-              <span
-                className={`guild-proposal-card-tally${
-                  outcome.stripLabel
-                    ? ` guild-proposal-card-status guild-proposal-card-status--${outcome.tone}`
-                    : ''
-                }`}
-              >
-                {stripStatusLabel}
-              </span>
-            ) : null}
-            {shareHref ? (
-              <button
-                type="button"
-                className={`guild-proposal-card-share${shared ? ' is-done' : ''}`}
-                aria-label={shared ? 'Link copied' : 'Share proposal'}
-                title={shared ? 'Link copied' : 'Share proposal'}
-                onClick={() => {
-                  void (async () => {
-                    const url = new URL(
-                      shareHref,
-                      window.location.origin
-                    ).toString();
-                    const result = await shareUrl({
-                      url,
-                      title: shareText ?? undefined,
-                      text: shareText ?? undefined,
-                    });
-                    if (result === 'copied' || result === 'shared') {
-                      setShared(true);
-                      window.setTimeout(() => setShared(false), 1600);
-                    }
-                  })();
-                }}
-              >
-                {shared ? (
-                  <CheckIcon aria-hidden />
-                ) : (
-                  <ShareIcon aria-hidden />
-                )}
-              </button>
-            ) : null}
-          </OsProposalCardStripEnd>
+        {stripStatusLabel ? (
+          <span
+            className={`guild-proposal-card-tally${
+              outcome.stripLabel
+                ? ` guild-proposal-card-status guild-proposal-card-status--${outcome.tone}`
+                : ''
+            }`}
+          >
+            {stripStatusLabel}
+          </span>
         ) : null}
       </OsProposalCardStrip>
 
@@ -358,21 +350,24 @@ export function GuildProposalCard({
           ) : null}
 
           {outcome.isTerminal ? (
-            <p className={osSheetFloatingPanelCopyClassName}>
-              {outcome.tone === 'approved' && presentation.roleLabel ? (
-                <>
-                  <strong>{presentation.roleLabel}</strong> role applied.
-                </>
-              ) : (
-                outcome.footerLabel
-              )}
-              {showVotersToggle ? (
-                <>
-                  {' · '}
-                  {votersButton(votersCountLabel)}
-                </>
-              ) : null}
-            </p>
+            <div className="guild-proposal-card-outcome-row">
+              <p className={osSheetFloatingPanelCopyClassName}>
+                {outcome.tone === 'approved' && presentation.roleLabel ? (
+                  <>
+                    <strong>{presentation.roleLabel}</strong> role applied.
+                  </>
+                ) : (
+                  outcome.footerLabel
+                )}
+                {showVotersToggle ? (
+                  <>
+                    {' · '}
+                    {votersButton(votersCountLabel)}
+                  </>
+                ) : null}
+              </p>
+              {shareButton}
+            </div>
           ) : isOwnRequest && onCancel ? (
             <>
               <p className={osSheetFloatingPanelCopyClassName}>
@@ -422,80 +417,90 @@ export function GuildProposalCard({
                 ) : (
                   <span className="guild-proposal-card-vote-spacer" />
                 )}
-                {votingClosed && onExpire ? (
-                  <OsSheetActions
-                    layout="row-compact"
-                    tone="frosted-primary"
-                    borderless
-                    className={osProposalCardActionsClassName}
-                  >
-                    <OsSheetAction
-                      type="button"
-                      variant="primary"
-                      ready
-                      pending={pendingAction === 'expire'}
-                      pendingLabel="Resolving…"
-                      disabled={pendingAction === 'expire'}
-                      onClick={onExpire}
-                    >
-                      Resolve
-                    </OsSheetAction>
-                  </OsSheetActions>
-                ) : null}
-                {viewerVote === true ||
-                viewerVote === false ? null : canVote && !votingClosed ? (
-                  <OsSheetActions
-                    layout="row-compact"
-                    tone="frosted-primary"
-                    borderless
-                    className={osProposalCardActionsClassName}
-                  >
-                    {!pendingAction ? (
-                      <>
-                        <OsSheetAction
-                          type="button"
-                          variant="danger"
-                          ready
-                          onClick={onOppose}
-                        >
-                          {opposeLabel}
-                        </OsSheetAction>
+                {shareButton ||
+                (votingClosed && onExpire) ||
+                (viewerVote !== true &&
+                  viewerVote !== false &&
+                  canVote &&
+                  !votingClosed) ? (
+                  <div className="guild-proposal-card-vote-end">
+                    {shareButton}
+                    {votingClosed && onExpire ? (
+                      <OsSheetActions
+                        layout="row-compact"
+                        tone="frosted-primary"
+                        borderless
+                        className={osProposalCardActionsClassName}
+                      >
                         <OsSheetAction
                           type="button"
                           variant="primary"
                           ready
-                          onClick={onSupport}
+                          pending={pendingAction === 'expire'}
+                          pendingLabel="Resolving…"
+                          disabled={pendingAction === 'expire'}
+                          onClick={onExpire}
                         >
-                          {supportLabel}
+                          Resolve
                         </OsSheetAction>
-                      </>
-                    ) : pendingAction === 'support' ? (
-                      <OsSheetAction
-                        type="button"
-                        variant="primary"
-                        ready
-                        pending
-                        pendingLabel="Voting…"
-                        disabled
-                        className={osSheetActionExpandedClassName}
-                        onClick={onSupport}
+                      </OsSheetActions>
+                    ) : null}
+                    {viewerVote === true ||
+                    viewerVote === false ? null : canVote && !votingClosed ? (
+                      <OsSheetActions
+                        layout="row-compact"
+                        tone="frosted-primary"
+                        borderless
+                        className={osProposalCardActionsClassName}
                       >
-                        {supportLabel}
-                      </OsSheetAction>
-                    ) : (
-                      <OsSheetAction
-                        type="button"
-                        variant="danger"
-                        pending
-                        pendingLabel="Voting…"
-                        disabled
-                        className={osSheetActionExpandedClassName}
-                        onClick={onOppose}
-                      >
-                        {opposeLabel}
-                      </OsSheetAction>
-                    )}
-                  </OsSheetActions>
+                        {!pendingAction ? (
+                          <>
+                            <OsSheetAction
+                              type="button"
+                              variant="danger"
+                              ready
+                              onClick={onOppose}
+                            >
+                              {opposeLabel}
+                            </OsSheetAction>
+                            <OsSheetAction
+                              type="button"
+                              variant="primary"
+                              ready
+                              onClick={onSupport}
+                            >
+                              {supportLabel}
+                            </OsSheetAction>
+                          </>
+                        ) : pendingAction === 'support' ? (
+                          <OsSheetAction
+                            type="button"
+                            variant="primary"
+                            ready
+                            pending
+                            pendingLabel="Voting…"
+                            disabled
+                            className={osSheetActionExpandedClassName}
+                            onClick={onSupport}
+                          >
+                            {supportLabel}
+                          </OsSheetAction>
+                        ) : (
+                          <OsSheetAction
+                            type="button"
+                            variant="danger"
+                            pending
+                            pendingLabel="Voting…"
+                            disabled
+                            className={osSheetActionExpandedClassName}
+                            onClick={onOppose}
+                          >
+                            {opposeLabel}
+                          </OsSheetAction>
+                        )}
+                      </OsSheetActions>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             </>
