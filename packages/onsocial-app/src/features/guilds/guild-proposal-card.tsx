@@ -10,6 +10,7 @@ import {
   OsProposalCardFooter,
   OsProposalCardSep,
   OsProposalCardStrip,
+  OsProposalCardStripEnd,
   OsProposalCardStripMain,
   OsSheetAction,
   OsSheetActions,
@@ -95,6 +96,17 @@ export function GuildProposalCard({
   // Prefer progress line over strip tally — avoid duplicate vote copy.
   const stripStatusLabel =
     outcome.stripLabel ?? (voteProgress.showProgress ? null : tallyLabel);
+  // DAO strip idiom — status + deadline stack at the right end so the left
+  // cluster stays `#id · kind · submitted`. Expired cards stamp "Voting
+  // closed" as the de-facto status; active cards get the quiet deadline.
+  const stripDeadlineLabel =
+    !outcome.isTerminal && !voteProgress.isExpired
+      ? voteProgress.closesLabel
+      : null;
+  const stripClosedLabel =
+    !outcome.isTerminal && voteProgress.isExpired
+      ? voteProgress.closesLabel
+      : null;
   const targetAccountId = presentation.targetAccountId;
   const targetProfile = targetAccountId ? profiles[targetAccountId] : undefined;
   const targetDisplayName = targetAccountId
@@ -175,7 +187,7 @@ export function GuildProposalCard({
       }`
     : null;
   // Share rides the footer action cluster (posts + DAO card convention) —
-  // the strip's right slot stays status-only.
+  // the strip's right slot stays status + deadline only.
   const shareButton = shareHref ? (
     <button
       type="button"
@@ -232,28 +244,36 @@ export function GuildProposalCard({
               </time>
             </>
           ) : null}
-          {!outcome.isTerminal && voteProgress.closesLabel ? (
-            <>
-              <OsProposalCardSep />
+        </OsProposalCardStripMain>
+        {stripStatusLabel || stripClosedLabel || stripDeadlineLabel ? (
+          <OsProposalCardStripEnd className="guild-proposal-card-strip-end">
+            {stripStatusLabel ? (
+              <span
+                className={`guild-proposal-card-tally${
+                  outcome.stripLabel
+                    ? ` guild-proposal-card-status guild-proposal-card-status--${outcome.tone}`
+                    : ''
+                }`}
+              >
+                {stripStatusLabel}
+              </span>
+            ) : stripClosedLabel ? (
+              <span
+                className="guild-proposal-card-tally guild-proposal-card-status"
+                title={voteProgress.closesTitle ?? undefined}
+              >
+                {stripClosedLabel}
+              </span>
+            ) : null}
+            {stripDeadlineLabel ? (
               <span
                 className="guild-proposal-card-closes"
                 title={voteProgress.closesTitle ?? undefined}
               >
-                {voteProgress.closesLabel}
+                {stripDeadlineLabel}
               </span>
-            </>
-          ) : null}
-        </OsProposalCardStripMain>
-        {stripStatusLabel ? (
-          <span
-            className={`guild-proposal-card-tally${
-              outcome.stripLabel
-                ? ` guild-proposal-card-status guild-proposal-card-status--${outcome.tone}`
-                : ''
-            }`}
-          >
-            {stripStatusLabel}
-          </span>
+            ) : null}
+          </OsProposalCardStripEnd>
         ) : null}
       </OsProposalCardStrip>
 
