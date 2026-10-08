@@ -9,6 +9,7 @@ import {
 import { PORTFOLIO_FEED_SECTION_ID } from '@/lib/overlay-routes';
 import {
   PORTFOLIO_FEED_REVEAL_EVENT,
+  isPortfolioFeedLayoutScroll,
   shouldRevealPortfolioFeed,
 } from '@/lib/portfolio-feed-reveal';
 
@@ -75,6 +76,10 @@ export function PortfolioDrawerScrollTrigger() {
     if (!(root instanceof HTMLElement)) return;
 
     userGesturedRef.current = false;
+    let layoutSize = {
+      clientHeight: root.clientHeight,
+      scrollHeight: root.scrollHeight,
+    };
 
     const markUserGesture = () => {
       userGesturedRef.current = true;
@@ -94,9 +99,20 @@ export function PortfolioDrawerScrollTrigger() {
       }
     };
 
-    const onScroll = () => tryOpen();
+    const onScroll = () => {
+      const nextSize = {
+        clientHeight: root.clientHeight,
+        scrollHeight: root.scrollHeight,
+      };
+      const layoutScroll = isPortfolioFeedLayoutScroll(layoutSize, nextSize);
+      layoutSize = nextSize;
+      if (layoutScroll) return;
+      tryOpen();
+    };
 
     const onWheel = (event: WheelEvent) => {
+      // Pinch and page zoom report as ctrl+wheel. That is not a swipe.
+      if (event.ctrlKey) return;
       markUserGesture();
       tryOpen(event.deltaY);
     };
