@@ -6096,6 +6096,101 @@ a.os-surface-row {
   }
 
   /*
+   * Gold finish — champagne foil sheet (Carbon pattern). Base + horizontal
+   * brush + raking specular band; the foil name gradient stays the hero cue.
+   * Brush runs horizontal: Carbon weaves diagonal, Business stripes vertical.
+   * Separates premium Gold from free Lead, which keeps the flat antique sheet.
+   */
+  .portfolio-frame[data-mood='gold'] {
+    --mood-bg: transparent;
+    --portfolio-avatar-ring: var(--bg);
+    --gold-sheet-base: linear-gradient(
+      180deg,
+      rgb(16 12 6) 0%,
+      rgb(8 6 3) 100%
+    );
+    --gold-sheet-brush: repeating-linear-gradient(
+      180deg,
+      transparent 0 2px,
+      rgb(255 214 140 / 0.03) 2px 3px
+    );
+    --gold-sheet-rake: linear-gradient(
+      65deg,
+      transparent 52%,
+      rgb(255 225 160 / 0.05) 76%,
+      transparent 94%
+    );
+    --gold-sheet-lip: inset 0 1px 0 rgb(255 228 168 / 0.1);
+  }
+
+  .portfolio-frame[data-mood='gold'].frame {
+    background: transparent;
+  }
+
+  .portfolio-frame[data-mood='gold'] .portfolio-page {
+    isolation: isolate;
+    flex: 1;
+    min-height: 100%;
+    background: transparent;
+  }
+
+  .portfolio-frame[data-mood='gold'] .portfolio-page::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      var(--gold-sheet-rake), var(--gold-sheet-brush), var(--gold-sheet-base);
+    box-shadow: var(--gold-sheet-lip);
+  }
+
+  :root[data-theme='light'] .portfolio-frame[data-mood='gold'] {
+    --gold-sheet-base: linear-gradient(
+      180deg,
+      rgb(252 248 238) 0%,
+      rgb(246 240 226) 100%
+    );
+    --gold-sheet-brush: repeating-linear-gradient(
+      180deg,
+      transparent 0 2px,
+      rgb(148 101 0 / 0.035) 2px 3px
+    );
+    --gold-sheet-rake: linear-gradient(
+      65deg,
+      transparent 52%,
+      rgb(255 252 240 / 0.85) 76%,
+      transparent 94%
+    );
+    --gold-sheet-lip:
+      inset 0 1px 0 rgb(255 255 255 / 0.9), inset 0 -1px 0 rgb(148 101 0 / 0.05);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .portfolio-frame[data-mood='gold'] {
+      --gold-sheet-base: linear-gradient(
+        180deg,
+        rgb(252 248 238) 0%,
+        rgb(246 240 226) 100%
+      );
+      --gold-sheet-brush: repeating-linear-gradient(
+        180deg,
+        transparent 0 2px,
+        rgb(148 101 0 / 0.035) 2px 3px
+      );
+      --gold-sheet-rake: linear-gradient(
+        65deg,
+        transparent 52%,
+        rgb(255 252 240 / 0.85) 76%,
+        transparent 94%
+      );
+      --gold-sheet-lip:
+        inset 0 1px 0 rgb(255 255 255 / 0.9),
+        inset 0 -1px 0 rgb(148 101 0 / 0.05);
+    }
+  }
+
+  /*
    * Carbon finish — matte graphite sheet (Glass pattern). Base + twill weave +
    * clear-coat sheen + top lip; solid ink on top. No grain overlay on content.
    * The weave is two crossing diagonals: intersections brighten into nodes,
@@ -13214,6 +13309,40 @@ a.os-surface-row {
           transparent 0 2px,
           rgb(17 19 24 / 0.05) 2px 3px
         );
+    }
+  }
+
+  /* Gold swatch — horizontal foil brush over the banner strip (sheet match). */
+  .mood-sheet-item[data-mood='gold']::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2.85rem;
+    background: repeating-linear-gradient(
+      180deg,
+      transparent 0 2px,
+      rgb(255 240 200 / 0.1) 2px 3px
+    );
+    pointer-events: none;
+  }
+
+  :root[data-theme='light'] .mood-sheet-item[data-mood='gold']::after {
+    background: repeating-linear-gradient(
+      180deg,
+      transparent 0 2px,
+      rgb(148 101 0 / 0.08) 2px 3px
+    );
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .mood-sheet-item[data-mood='gold']::after {
+      background: repeating-linear-gradient(
+        180deg,
+        transparent 0 2px,
+        rgb(148 101 0 / 0.08) 2px 3px
+      );
     }
   }
 

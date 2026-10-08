@@ -420,7 +420,7 @@ export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {
   lead: {
     id: 'lead',
     label: 'Lead',
-    tagline: 'Executive presence — sharp, confident, high contrast.',
+    tagline: 'Antique brass — sharp, confident, high contrast.',
     theme: {
       background: '#070605',
       backgroundLight: '#fbf8f2',
