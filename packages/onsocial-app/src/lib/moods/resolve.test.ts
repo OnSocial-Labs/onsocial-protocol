@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { PROTOCOL_COLORS } from '@onsocial/sdk';
 import { MOOD_PRESETS } from './presets';
-import { moodDrawerThreadVars, moodPresetPreviewVars, moodSheetItemPreviewVars, moodSheetPanelStyle, moodSheetRowInlineStyle, moodSheetRowPreviewVars, pageContentDrawerPanelStyle, portalMoodSignalStyle, portfolioMoodShellStyle, resolvePortfolioMood, resolvePortfolioMoodForId, resolvePortfolioMoodForPreview, supportSheetPanelStyle } from './resolve';
+import {
+  moodDrawerThreadVars,
+  moodPresetPreviewVars,
+  moodSheetItemPreviewVars,
+  moodSheetPanelStyle,
+  moodSheetRowInlineStyle,
+  moodSheetRowPreviewVars,
+  pageContentDrawerPanelStyle,
+  portalMoodSignalStyle,
+  portfolioMoodShellStyle,
+  resolvePortfolioMood,
+  resolvePortfolioMoodForId,
+  resolvePortfolioMoodForPreview,
+  supportSheetPanelStyle,
+} from './resolve';
 import { PREMIUM_MOOD_PRESETS } from './presets';
 
 describe('resolvePortfolioMood', () => {
@@ -24,7 +38,11 @@ describe('resolvePortfolioMood', () => {
 
   it('resolves a stored celebration mood with note and accent css vars', () => {
     const mood = resolvePortfolioMood({
-      mood: { id: 'celebration', since: 1_700_000_000_000, note: 'just shipped' },
+      mood: {
+        id: 'celebration',
+        since: 1_700_000_000_000,
+        note: 'just shipped',
+      },
     });
     expect(mood.id).toBe('celebration');
     expect(mood.label).toBe('Celebration');
@@ -41,7 +59,9 @@ describe('moodPresetPreviewVars', () => {
     const preview = moodPresetPreviewVars('creative', theme);
     const mood = resolvePortfolioMood({ mood: { id: 'creative' } });
 
-    expect(preview['--mood-preset-accent']).toBe(mood.cssVars['--mood-preset-accent']);
+    expect(preview['--mood-preset-accent']).toBe(
+      mood.cssVars['--mood-preset-accent']
+    );
     expect(preview['--mood-preset-bg']).toBe('#06040a');
     expect(preview['--mood-preset-bg-light']).toBe('#faf5ff');
     expect(preview['--mood-display-weight']).toBe('700');
@@ -100,6 +120,23 @@ describe('moodPresetPreviewVars', () => {
     expect(mood.id).toBe('summer');
     expect(mood.label).toBe('Summer');
     expect(mood.cssVars['--mood-preset-accent']).toContain('255');
+    expect(mood.cssVars['--mood-signal-standing']).toMatch(/^rgb\(/);
+  });
+
+  it('resolves premium winter mood css vars', () => {
+    const mood = resolvePortfolioMood({
+      mood: { id: 'winter' },
+      moodUnlocks: { winter: { since: 1 } },
+    });
+
+    expect(mood.id).toBe('winter');
+    expect(mood.label).toBe('Winter');
+    expect(mood.cssVars['--mood-preset-accent']).toBe(
+      'rgb(150 205 245 / 0.95)'
+    );
+    expect(mood.cssVars['--mood-preset-accent-light']).toBe(
+      'rgb(0 110 180 / 0.95)'
+    );
     expect(mood.cssVars['--mood-signal-standing']).toMatch(/^rgb\(/);
   });
 
@@ -184,7 +221,9 @@ describe('moodPresetPreviewVars', () => {
     );
 
     expect(lead['--mood-row-accent']).toBe(MOOD_PRESETS.lead.theme.accent);
-    expect(creative['--mood-row-accent']).toBe(MOOD_PRESETS.creative.theme.accent);
+    expect(creative['--mood-row-accent']).toBe(
+      MOOD_PRESETS.creative.theme.accent
+    );
     expect(lead['--mood-row-accent']).not.toBe(creative['--mood-row-accent']);
   });
 
@@ -193,7 +232,11 @@ describe('moodPresetPreviewVars', () => {
       accent: PROTOCOL_COLORS.blue,
       primary: PROTOCOL_COLORS.blue,
     };
-    const lead = moodSheetRowPreviewVars('lead', MOOD_PRESETS.lead.theme, pageTheme);
+    const lead = moodSheetRowPreviewVars(
+      'lead',
+      MOOD_PRESETS.lead.theme,
+      pageTheme
+    );
     const creative = moodSheetRowPreviewVars(
       'creative',
       MOOD_PRESETS.creative.theme,
@@ -233,7 +276,10 @@ describe('moodPresetPreviewVars', () => {
   });
 
   it('shell style sets concrete accent vars for preview frames', () => {
-    const lead = resolvePortfolioMoodForPreview({ mood: { id: 'protocol' } }, 'lead');
+    const lead = resolvePortfolioMoodForPreview(
+      { mood: { id: 'protocol' } },
+      'lead'
+    );
     const creative = resolvePortfolioMoodForPreview(
       { mood: { id: 'protocol' } },
       'creative'
@@ -242,7 +288,9 @@ describe('moodPresetPreviewVars', () => {
     const creativeShell = portfolioMoodShellStyle(creative.cssVars);
 
     expect(leadShell['--mood-accent']).toBe(MOOD_PRESETS.lead.theme.accent);
-    expect(creativeShell['--mood-accent']).toBe(MOOD_PRESETS.creative.theme.accent);
+    expect(creativeShell['--mood-accent']).toBe(
+      MOOD_PRESETS.creative.theme.accent
+    );
     expect(leadShell['--mood-bg-preset-mix']).toBeUndefined();
     expect(leadShell['--mood-banner-active']).toContain('gradient');
   });
@@ -285,7 +333,9 @@ describe('moodDrawerThreadVars', () => {
     const mood = resolvePortfolioMood({ mood: { id: 'creative' } });
     const thread = moodDrawerThreadVars(mood.cssVars);
 
-    expect(thread['--mood-preset-accent']).toBe(mood.cssVars['--mood-preset-accent']);
+    expect(thread['--mood-preset-accent']).toBe(
+      mood.cssVars['--mood-preset-accent']
+    );
     expect(thread['--mood-preset-bg']).toBeTruthy();
     expect(thread).not.toHaveProperty('--mood-font-display');
     expect(thread).not.toHaveProperty('--mood-text-preset-mix');
@@ -298,7 +348,11 @@ describe('pageContentDrawerPanelStyle', () => {
     const panel = pageContentDrawerPanelStyle(mood.cssVars);
 
     expect(panel['--mood-preset-bg']).toBeTruthy();
-    expect(panel['--mood-preset-accent']).toBe(mood.cssVars['--mood-preset-accent']);
-    expect(panel['--mood-accent-chrome']).toBe(mood.cssVars['--mood-preset-accent']);
+    expect(panel['--mood-preset-accent']).toBe(
+      mood.cssVars['--mood-preset-accent']
+    );
+    expect(panel['--mood-accent-chrome']).toBe(
+      mood.cssVars['--mood-preset-accent']
+    );
   });
 });
