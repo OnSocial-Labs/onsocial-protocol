@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import {
   OsActionDrawerConfirm,
   OsField,
@@ -15,6 +15,7 @@ import {
   canOfferDmPasskey,
   ensureDmKeys,
   hasDmPasskeyEnrolled,
+  lockDmKeys,
   resetDmMessagingKeys,
   restoreDmKeysFromRecoveryCode,
   unlockDmKeysWithPasskey,
@@ -58,6 +59,9 @@ export function DmUnlockPanel({
   const [recoveryInput, setRecoveryInput] = useState('');
   const [unlockPending, setUnlockPending] = useState(false);
   const [passkeyPending, setPasskeyPending] = useState(false);
+  const [passkeyPhase, setPasskeyPhase] = useState<'device' | 'verify' | null>(
+    null
+  );
   const [resetConfirm, setResetConfirm] = useState(false);
   const [resetPending, setResetPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,11 +69,9 @@ export function DmUnlockPanel({
   const canPasskey = canOfferDmPasskey();
   const passkeyPrimary = passkeyEnrolled && canPasskey;
   const [recoveryMode, setRecoveryMode] = useState(() => !passkeyPrimary);
-  const autoPromptedRef = useRef(false);
   const busy = unlockPending || passkeyPending || resetPending;
 
   useEffect(() => {
-    autoPromptedRef.current = false;
     setRecoveryMode(!passkeyPrimary);
     setRecoveryInput('');
     setError(null);
@@ -108,19 +110,22 @@ export function DmUnlockPanel({
 
   const handlePasskeyUnlock = async () => {
     setPasskeyPending(true);
+    setPasskeyPhase('device');
     setError(null);
     try {
-      // Verify profile identity before leaving unlock chrome — stale passkeys
-      // after a reset elsewhere must not look like a successful unlock.
+      // Open the device sheet inside the tap. A profile read first spends
+      // the user gesture, so the browser reports failure before the passcode.
+      await unlockDmKeysWithPasskey(accountId);
+      setPasskeyPhase('verify');
       const { client } = await getClient();
       const remote = await lookupDmKeyBackup(client, accountId);
       if (remote.status === 'unavailable') {
+        lockDmKeys(accountId);
         setError(
           'Could not verify messaging keys. Check your connection and try again.'
         );
         return;
       }
-      await unlockDmKeysWithPasskey(accountId);
       if (remote.status === 'found') {
         try {
           await ensureDmKeys(accountId, { remote });
@@ -129,6 +134,7 @@ export function DmUnlockPanel({
             setError(cause.message);
             return;
           }
+          lockDmKeys(accountId);
           throw cause;
         }
       }
@@ -149,18 +155,9 @@ export function DmUnlockPanel({
       );
     } finally {
       setPasskeyPending(false);
+      setPasskeyPhase(null);
     }
   };
-
-  useEffect(() => {
-    if (!passkeyPrimary || recoveryMode || resetConfirm || autoPromptedRef.current) {
-      return;
-    }
-    autoPromptedRef.current = true;
-    void handlePasskeyUnlock();
-    // Auto-prompt once per visit when device unlock is available.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional single mount prompt
-  }, [passkeyPrimary, recoveryMode, resetConfirm]);
 
   const handleReset = async () => {
     setResetPending(true);
@@ -243,7 +240,11 @@ export function DmUnlockPanel({
               type="button"
               ready={!busy}
               pending={passkeyPending}
-              pendingLabel="Unlocking…"
+              pendingLabel={
+                passkeyPhase === 'verify'
+                  ? 'Unlocking…'
+                  : 'Waiting for this device…'
+              }
               onClick={() => void handlePasskeyUnlock()}
             >
               Unlock with this device
