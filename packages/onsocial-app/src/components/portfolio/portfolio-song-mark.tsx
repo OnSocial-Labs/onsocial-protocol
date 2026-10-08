@@ -47,7 +47,7 @@ export function PortfolioSongMarkProvider({
   );
 }
 
-/** Play control on the portrait rim, or null while the dock owns the song. */
+/** Play control beside the launcher, or null while the dock owns the song. */
 export function usePortfolioSongMark(): {
   title: string;
   play: () => void;
@@ -143,7 +143,7 @@ export function PortfolioSongMarkButton({
   return (
     <button
       type="button"
-      className="portfolio-song-mark"
+      className="os-dock-pill portfolio-dock-mark portfolio-song-mark"
       aria-label={`Play ${title}`}
       onClick={onPlay}
     >

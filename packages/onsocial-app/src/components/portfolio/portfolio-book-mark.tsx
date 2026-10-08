@@ -44,7 +44,7 @@ export function PortfolioBookMarkProvider({
   );
 }
 
-/** Book or issue on the portrait rim. Independent of the song dock. */
+/** Book or issue beside the launcher. Independent of the song dock. */
 export function usePortfolioBookMark(): PortfolioBookMarkModel | null {
   const { collectionId, pageAccountId } = useContext(PortfolioBookMarkContext);
   const [view, setView] = useState<CollectionView | null>(null);
@@ -121,7 +121,7 @@ export function PortfolioBookMark({ book }: { book: PortfolioBookMarkModel }) {
     <>
       <button
         type="button"
-        className="portfolio-book-mark"
+        className="os-dock-pill portfolio-dock-mark portfolio-book-mark"
         aria-label={`Open ${book.title}`}
         aria-haspopup="dialog"
         aria-expanded={sheetOpen}

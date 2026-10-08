@@ -9,14 +9,14 @@ import {
   usePortfolioSongMark,
 } from '@/components/portfolio/portfolio-song-mark';
 
-/** Play and book, seated on the bottom rim of the portrait. */
-export function PortfolioPortraitMarks() {
+/** Play and book, on the launcher line, to the right of the pill. */
+export function PortfolioDockMarks() {
   const song = usePortfolioSongMark();
   const book = usePortfolioBookMark();
   if (!song && !book) return null;
 
   return (
-    <div className="portfolio-portrait-marks">
+    <div className="portfolio-dock-marks">
       {song ? (
         <PortfolioSongMarkButton title={song.title} onPlay={song.play} />
       ) : null}

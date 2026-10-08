@@ -29,7 +29,9 @@ import { PortfolioDrawerScrollTrigger } from '@/components/portfolio/portfolio-d
 import { PortfolioPersonalComposer } from '@/components/portfolio/portfolio-personal-composer';
 import { ViewerWalletMoodSync } from '@/components/wallet/viewer-wallet-mood-sync';
 import { PortfolioCustomize } from '@/components/portfolio/portfolio-customize';
+import { PortfolioBookMarkProvider } from '@/components/portfolio/portfolio-book-mark';
 import { PortfolioShell } from '@/components/portfolio/portfolio-shell';
+import { PortfolioSongMarkProvider } from '@/components/portfolio/portfolio-song-mark';
 import type {
   PageAvatarMode,
   PageHeroSource,
@@ -42,7 +44,12 @@ import type { PageDrawerMeta } from '@/lib/page-drawer-meta';
 import type { ProfileKind } from '@onsocial/sdk';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
-import { resolvePageFace } from '@/lib/page-face';
+import {
+  readPinnedBookId,
+  readPinnedSongId,
+  readPinnedSongStart,
+  resolvePageFace,
+} from '@/lib/page-face';
 import {
   portfolioMoodShellStyle,
   resolvePortfolioMood,
@@ -121,71 +128,86 @@ function PortfolioShellPreviewBridge({
     bannerMedia: bannerMedia ?? null,
   });
   const hasBanner = Boolean(hero);
+  const songId = hero ? readPinnedSongId(previewConfig) : null;
+  const bookId = hero ? readPinnedBookId(previewConfig) : null;
 
   return (
     <PortfolioPostPeeksProvider initialPostPeeks={[]}>
       <PortfolioShelfProvider>
-        <>
-          <PortfolioShell
+        <PortfolioSongMarkProvider
+          collectionId={songId}
+          pageAccountId={pageAccountId}
+          songStart={readPinnedSongStart(previewConfig)}
+        >
+          <PortfolioBookMarkProvider
+            collectionId={bookId}
             pageAccountId={pageAccountId}
-            isDao={isDao}
-            profileKind={profileKind}
-            mood={effectiveMood}
-            config={previewConfig}
-            avatarMode={effectiveAvatarMode}
-            avatarMedia={avatarMedia}
-            bannerMedia={bannerMedia}
-            isPreviewing={isPreviewing}
-            isPreviewingMood={isPreviewingMood}
           >
-            {children}
-          </PortfolioShell>
-          <ViewerWalletMoodSync
-            pageAccountId={pageAccountId}
-            mood={effectiveMood}
-          />
-          <div
-            className="portfolio-os-layer"
-            data-mood={effectiveMood.id}
-            data-mood-preview={isPreviewingMood ? 'true' : undefined}
-            data-has-banner={hasBanner ? 'true' : undefined}
-            data-mood-only={hasBanner ? undefined : 'true'}
-            style={
-              portfolioMoodShellStyle(effectiveMood.cssVars) as CSSProperties
-            }
-          >
-            <PortfolioCustomize
-              pageAccountId={pageAccountId}
-              isDao={isDao}
-              config={config}
-              mood={committedMood}
-            />
-            <PortfolioPersonalComposer pageAccountId={pageAccountId} />
-            <PortfolioDrawerScrollTrigger />
-            <PortfolioPageDock pageAccountId={pageAccountId} />
-            <PageContentDrawer
-              pageAccountId={pageAccountId}
-              mood={effectiveMood}
-              profileName={profileName}
-              drawerMeta={drawerMeta}
-              avatarUrl={avatarMedia?.url ?? null}
-              stats={stats}
-            />
-            <PortfolioFacePreviewBar
-              pageAccountId={pageAccountId}
-              config={config}
-            />
-            <PortfolioMoodPreviewBar
-              pageAccountId={pageAccountId}
-              config={config}
-              isDao={isDao}
-            />
-          </div>
-          {/* Suspense owned here — keys on prop-passed elements are ignored. */}
-          {deferredShelf != null ? (
-            <Suspense fallback={null}>{deferredShelf}</Suspense>
-          ) : null}
-        </>
+            <>
+              <PortfolioShell
+                pageAccountId={pageAccountId}
+                isDao={isDao}
+                profileKind={profileKind}
+                mood={effectiveMood}
+                config={previewConfig}
+                avatarMode={effectiveAvatarMode}
+                avatarMedia={avatarMedia}
+                bannerMedia={bannerMedia}
+                isPreviewing={isPreviewing}
+                isPreviewingMood={isPreviewingMood}
+              >
+                {children}
+              </PortfolioShell>
+              <ViewerWalletMoodSync
+                pageAccountId={pageAccountId}
+                mood={effectiveMood}
+              />
+              <div
+                className="portfolio-os-layer"
+                data-mood={effectiveMood.id}
+                data-mood-preview={isPreviewingMood ? 'true' : undefined}
+                data-has-banner={hasBanner ? 'true' : undefined}
+                data-mood-only={hasBanner ? undefined : 'true'}
+                style={
+                  portfolioMoodShellStyle(
+                    effectiveMood.cssVars
+                  ) as CSSProperties
+                }
+              >
+                <PortfolioCustomize
+                  pageAccountId={pageAccountId}
+                  isDao={isDao}
+                  config={config}
+                  mood={committedMood}
+                />
+                <PortfolioPersonalComposer pageAccountId={pageAccountId} />
+                <PortfolioDrawerScrollTrigger />
+                <PortfolioPageDock pageAccountId={pageAccountId} />
+                <PageContentDrawer
+                  pageAccountId={pageAccountId}
+                  mood={effectiveMood}
+                  profileName={profileName}
+                  drawerMeta={drawerMeta}
+                  avatarUrl={avatarMedia?.url ?? null}
+                  stats={stats}
+                />
+                <PortfolioFacePreviewBar
+                  pageAccountId={pageAccountId}
+                  config={config}
+                />
+                <PortfolioMoodPreviewBar
+                  pageAccountId={pageAccountId}
+                  config={config}
+                  isDao={isDao}
+                />
+              </div>
+              {/* Suspense owned here — keys on prop-passed elements are ignored. */}
+              {deferredShelf != null ? (
+                <Suspense fallback={null}>{deferredShelf}</Suspense>
+              ) : null}
+            </>
+          </PortfolioBookMarkProvider>
+        </PortfolioSongMarkProvider>
       </PortfolioShelfProvider>
     </PortfolioPostPeeksProvider>
   );

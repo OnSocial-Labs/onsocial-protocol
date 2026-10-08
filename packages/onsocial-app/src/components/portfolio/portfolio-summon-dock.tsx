@@ -37,6 +37,7 @@ import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
 import { ownerPortfolioOsApps, visitorPortfolioOsApps } from '@/lib/os-apps';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
 import { SummonLauncher } from '@/components/os/summon-launcher';
+import { PortfolioDockMarks } from '@/components/portfolio/portfolio-dock-marks';
 import { PortfolioSummonComposeButton } from '@/components/portfolio/portfolio-summon-compose-button';
 import { OsDockBackZone } from '@/components/wallet/os-dock-back-zone';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
@@ -261,62 +262,65 @@ export function PortfolioSummonDock({
             Swipe up · hold for apps
           </p>
         ) : null}
-        <OsDockPill
-          pageAccountId={pageAccountId}
-          writeMorph={writeMorph}
-          navBack={
-            showDockBack ? (
-              <OsDockBackZone
-                fallbackHref={dockBack.fallbackHref}
-                ariaLabel={dockBack.ariaLabel}
-                onBack={dockBack.onBack}
-              />
-            ) : undefined
-          }
-          grip={
-            <button
-              type="button"
-              className="portfolio-summon-grip-zone is-interactive is-gesture-host"
-              aria-haspopup="dialog"
-              aria-expanded={osOpen}
-              aria-label={
-                pageDrawerOpen
-                  ? 'Open launcher'
-                  : 'Swipe up for page content. Hold for apps.'
-              }
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={finishPointer}
-              onPointerCancel={finishPointer}
-              onContextMenu={(event) => event.preventDefault()}
-            >
-              <span className="portfolio-summon-grip" aria-hidden />
-            </button>
-          }
-          nowPlaying={<CollectiblesNowPlayingDockChip />}
-          write={
-            write ? (
-              <OsWriteDock
-                key={write.draftKey ?? 'write'}
-                placeholder={write.placeholder}
-                ariaLabel={write.ariaLabel}
-                disabled={write.disabled}
-                pending={write.pending}
-                error={write.error}
-                above={write.above}
-                accept={write.accept}
-                draftKey={write.draftKey}
-                onExpand={write.onExpand}
-                onSubmit={write.onSubmit}
-              />
-            ) : undefined
-          }
-          action={
-            compose?.type === 'action' ? (
-              <PortfolioSummonComposeButton compose={compose.entry} />
-            ) : undefined
-          }
-        />
+        <div className="portfolio-summon-line">
+          <OsDockPill
+            pageAccountId={pageAccountId}
+            writeMorph={writeMorph}
+            navBack={
+              showDockBack ? (
+                <OsDockBackZone
+                  fallbackHref={dockBack.fallbackHref}
+                  ariaLabel={dockBack.ariaLabel}
+                  onBack={dockBack.onBack}
+                />
+              ) : undefined
+            }
+            grip={
+              <button
+                type="button"
+                className="portfolio-summon-grip-zone is-interactive is-gesture-host"
+                aria-haspopup="dialog"
+                aria-expanded={osOpen}
+                aria-label={
+                  pageDrawerOpen
+                    ? 'Open launcher'
+                    : 'Swipe up for page content. Hold for apps.'
+                }
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={finishPointer}
+                onPointerCancel={finishPointer}
+                onContextMenu={(event) => event.preventDefault()}
+              >
+                <span className="portfolio-summon-grip" aria-hidden />
+              </button>
+            }
+            nowPlaying={<CollectiblesNowPlayingDockChip />}
+            write={
+              write ? (
+                <OsWriteDock
+                  key={write.draftKey ?? 'write'}
+                  placeholder={write.placeholder}
+                  ariaLabel={write.ariaLabel}
+                  disabled={write.disabled}
+                  pending={write.pending}
+                  error={write.error}
+                  above={write.above}
+                  accept={write.accept}
+                  draftKey={write.draftKey}
+                  onExpand={write.onExpand}
+                  onSubmit={write.onSubmit}
+                />
+              ) : undefined
+            }
+            action={
+              compose?.type === 'action' ? (
+                <PortfolioSummonComposeButton compose={compose.entry} />
+              ) : undefined
+            }
+          />
+          {write ? null : <PortfolioDockMarks />}
+        </div>
       </div>
 
       <SummonLauncher
