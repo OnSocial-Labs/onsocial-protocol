@@ -37,6 +37,17 @@ describe('mood signal blends', () => {
     expect(signals.standing).not.toBe(signals.solidarity);
   });
 
+  it('tints winter signals icy while standing keeps the highest protocol share', () => {
+    const accent = 'rgb(150 205 245 / 0.95)';
+    const signals = pageMoodSignalsFor('winter', accent);
+
+    expect(signals.standing).toMatch(/^rgb\(/);
+    expect(signals.standing).not.toBe(PROTOCOL_SIGNAL_COLORS.standing);
+    expect(MOOD_SIGNAL_PROTOCOL_WEIGHT.winter.standing).toBeGreaterThan(
+      MOOD_SIGNAL_PROTOCOL_WEIGHT.winter.endorse
+    );
+  });
+
   it('linear blend returns protocol color at weight 1', () => {
     expect(
       blendProtocolSignalWithMood(

@@ -67,15 +67,47 @@ describe('premium page moods', () => {
     ).toEqual({ summer: { since: 1, purchaseTxHash: 'tx' } });
   });
 
-  it('respects seasonal availability windows', () => {
-    const entry = PAGE_MOOD_CATALOG.summer;
-    expect(isPremiumMoodAvailable(entry, Date.parse('2026-06-01'))).toBe(true);
-    expect(isPremiumMoodAvailable(entry, Date.parse('2026-10-01'))).toBe(false);
+  it('respects calendar-season availability windows', () => {
+    const summer = PAGE_MOOD_CATALOG.summer;
+    expect(isPremiumMoodAvailable(summer, Date.parse('2026-05-31'))).toBe(
+      false
+    );
+    expect(isPremiumMoodAvailable(summer, Date.parse('2026-06-01'))).toBe(true);
+    expect(isPremiumMoodAvailable(summer, Date.parse('2026-08-15'))).toBe(true);
+    expect(isPremiumMoodAvailable(summer, Date.parse('2026-09-01'))).toBe(
+      false
+    );
     const autumn = PAGE_MOOD_CATALOG.autumn;
+    expect(isPremiumMoodAvailable(autumn, Date.parse('2026-08-31'))).toBe(
+      false
+    );
     expect(isPremiumMoodAvailable(autumn, Date.parse('2026-10-15'))).toBe(true);
     expect(isPremiumMoodAvailable(autumn, Date.parse('2026-12-01'))).toBe(
       false
     );
+    const winter = PAGE_MOOD_CATALOG.winter;
+    expect(isPremiumMoodAvailable(winter, Date.parse('2026-11-30'))).toBe(
+      false
+    );
+    expect(isPremiumMoodAvailable(winter, Date.parse('2026-12-01'))).toBe(true);
+    expect(isPremiumMoodAvailable(winter, Date.parse('2027-01-15'))).toBe(true);
+    expect(isPremiumMoodAvailable(winter, Date.parse('2027-03-01'))).toBe(
+      false
+    );
+  });
+
+  it('prices every seasonal mood the same', () => {
+    const seasonal = Object.values(PAGE_MOOD_CATALOG).filter(
+      (entry) => entry.packKind === 'seasonal'
+    );
+    expect(seasonal.map((entry) => entry.id).sort()).toEqual([
+      'autumn',
+      'summer',
+      'winter',
+    ]);
+    for (const entry of seasonal) {
+      expect(entry.priceSocial).toBe('100');
+    }
   });
 
   it('assigns tiered catalog prices by pack kind', () => {
@@ -84,6 +116,10 @@ describe('premium page moods', () => {
       priceSocial: '100',
     });
     expect(PAGE_MOOD_CATALOG.autumn).toMatchObject({
+      packKind: 'seasonal',
+      priceSocial: '100',
+    });
+    expect(PAGE_MOOD_CATALOG.winter).toMatchObject({
       packKind: 'seasonal',
       priceSocial: '100',
     });

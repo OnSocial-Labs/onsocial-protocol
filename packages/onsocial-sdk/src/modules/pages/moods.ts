@@ -14,6 +14,7 @@ import {
   SIGNATURE_MOOD_PRICE_SOCIAL,
   SUMMER_MOOD_PRICE_SOCIAL,
   VOICE_MOOD_PRICE_SOCIAL,
+  WINTER_MOOD_PRICE_SOCIAL,
   type PageMoodCatalogEntry,
   type PremiumPageMoodId,
 } from './premium-moods.js';
@@ -174,6 +175,14 @@ export const MOOD_PAGE_TYPOGRAPHY: Record<PageMoodId, PageMoodTypography> = {
     displayWeight: 600,
     displayLetterSpacing: '-0.03em',
     bodyLineHeight: 1.6,
+    bioMaxWidth: '21rem',
+  },
+  winter: {
+    fontDisplay: MOOD_FONT_STACKS.sans,
+    fontBody: MOOD_FONT_STACKS.sans,
+    displayWeight: 600,
+    displayLetterSpacing: '-0.035em',
+    bodyLineHeight: 1.58,
     bioMaxWidth: '21rem',
   },
   gold: {
@@ -585,6 +594,26 @@ export const PREMIUM_PAGE_MOOD_PRESETS: Record<
       surface: 'rgb(230 110 45 / 0.06)',
     },
   },
+  winter: {
+    id: 'winter',
+    label: 'Winter',
+    tagline: 'First frost — crisp air, quiet snowfall.',
+    theme: {
+      background: '#070a10',
+      backgroundLight: '#f5f9fd',
+      text: 'rgb(240 248 255 / 0.96)',
+      textLight: 'rgb(17 19 24 / 0.96)',
+      muted: 'rgb(190 215 235 / 0.5)',
+      mutedLight: 'rgb(17 19 24 / 0.5)',
+      accent: 'rgb(150 205 245 / 0.95)',
+      accentLight: 'rgb(0 110 180 / 0.95)',
+      banner:
+        'radial-gradient(ellipse 85% 68% at 16% -8%, rgb(150 205 245 / 0.16), transparent 56%), radial-gradient(ellipse 72% 54% at 84% 10%, rgb(200 230 255 / 0.08), transparent 52%), radial-gradient(ellipse 90% 58% at 50% 100%, rgb(150 205 245 / 0.06), transparent 58%)',
+      bannerLight:
+        'radial-gradient(ellipse 85% 68% at 16% -8%, rgb(150 205 245 / 0.12), transparent 56%), radial-gradient(ellipse 72% 54% at 84% 10%, rgb(200 230 255 / 0.06), transparent 52%), radial-gradient(ellipse 90% 58% at 50% 100%, rgb(150 205 245 / 0.05), transparent 58%)',
+      surface: 'rgb(150 205 245 / 0.06)',
+    },
+  },
   gold: {
     id: 'gold',
     label: 'Gold',
@@ -740,7 +769,8 @@ export const PAGE_MOOD_CATALOG: Record<string, PageMoodCatalogEntry> =
         packKind: 'seasonal' as const,
         relatedFreeMood: 'celebration',
         priceSocial: SUMMER_MOOD_PRICE_SOCIAL,
-        availableUntil: '2026-09-30T23:59:59.000Z',
+        availableFrom: '2026-06-01T00:00:00.000Z',
+        availableUntil: '2026-08-31T23:59:59.000Z',
       },
     ] as const,
     [
@@ -751,7 +781,20 @@ export const PAGE_MOOD_CATALOG: Record<string, PageMoodCatalogEntry> =
         packKind: 'seasonal' as const,
         relatedFreeMood: 'journal',
         priceSocial: AUTUMN_MOOD_PRICE_SOCIAL,
+        availableFrom: '2026-09-01T00:00:00.000Z',
         availableUntil: '2026-11-30T23:59:59.000Z',
+      },
+    ] as const,
+    [
+      'winter',
+      {
+        id: 'winter',
+        tier: 'premium' as const,
+        packKind: 'seasonal' as const,
+        relatedFreeMood: 'business',
+        priceSocial: WINTER_MOOD_PRICE_SOCIAL,
+        availableFrom: '2026-12-01T00:00:00.000Z',
+        availableUntil: '2027-02-28T23:59:59.000Z',
       },
     ] as const,
     [

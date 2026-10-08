@@ -8,6 +8,7 @@ import type {
 export type PremiumPageMoodId =
   | 'summer'
   | 'autumn'
+  | 'winter'
   | 'gold'
   | 'glass'
   | 'carbon'
@@ -28,6 +29,8 @@ export interface PageMoodCatalogEntry {
   relatedFreeMood?: string;
   /** Whole SOCIAL amount (18-decimal token) as a decimal string, e.g. `"100"`. */
   priceSocial?: string;
+  /** ISO date — picker hides before this; pairs with `availableUntil` for calendar-season windows. */
+  availableFrom?: string;
   /** ISO date — picker hides after this; existing unlocks keep working. */
   availableUntil?: string;
 }
@@ -35,6 +38,7 @@ export interface PageMoodCatalogEntry {
 export const PREMIUM_PAGE_MOOD_IDS = [
   'summer',
   'autumn',
+  'winter',
   'gold',
   'glass',
   'carbon',
@@ -47,10 +51,11 @@ export const PREMIUM_PAGE_MOOD_IDS = [
 /** SOCIAL token uses 18 decimals (`1 SOCIAL` = `10^18` yocto). */
 export const SOCIAL_DECIMALS = 18;
 
-/** Seasonal drops — lower barrier, time-boxed in picker. */
+/** Seasonal drops — one price for every season, time-boxed in picker. */
 export const SEASONAL_MOOD_PRICE_SOCIAL = '100';
 export const SUMMER_MOOD_PRICE_SOCIAL = SEASONAL_MOOD_PRICE_SOCIAL;
 export const AUTUMN_MOOD_PRICE_SOCIAL = SEASONAL_MOOD_PRICE_SOCIAL;
+export const WINTER_MOOD_PRICE_SOCIAL = SEASONAL_MOOD_PRICE_SOCIAL;
 
 /** Evergreen finish packs — identity flex above seasonal. */
 export const FINISH_MOOD_PRICE_SOCIAL = '250';
@@ -73,7 +78,7 @@ export const PAGE_MOOD_PICKER_STORE_SECTIONS: ReadonlyArray<{
   title: string;
   ids: readonly PremiumPageMoodId[];
 }> = [
-  { title: 'Seasonal', ids: ['summer', 'autumn'] },
+  { title: 'Seasonal', ids: ['summer', 'autumn', 'winter'] },
   { title: 'Finishes', ids: ['gold', 'glass', 'carbon', 'holographic'] },
   { title: 'Voices', ids: ['broadsheet', 'terminal', 'signature'] },
 ];
@@ -196,6 +201,12 @@ export function isPremiumMoodAvailable(
   entry: PageMoodCatalogEntry,
   now = Date.now()
 ): boolean {
+  if (entry.availableFrom) {
+    const from = Date.parse(entry.availableFrom);
+    if (Number.isFinite(from) && now < from) {
+      return false;
+    }
+  }
   if (!entry.availableUntil) {
     return true;
   }
