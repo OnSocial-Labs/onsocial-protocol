@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PORTFOLIO_FEED_LOCKED_MAX_SCROLL_PX,
   PORTFOLIO_FEED_REVEAL_LEAD_PX,
+  isPortfolioFeedLayoutScroll,
   shouldRevealPortfolioFeed,
 } from './portfolio-feed-reveal';
 
@@ -77,6 +78,21 @@ describe('shouldRevealPortfolioFeed', () => {
         userGestured: false,
       })
     ).toBe(true);
+  });
+
+  it('treats a taller viewport as layout, not a swipe', () => {
+    expect(
+      isPortfolioFeedLayoutScroll(
+        { clientHeight: 800, scrollHeight: 1040 },
+        { clientHeight: 980, scrollHeight: 1040 }
+      )
+    ).toBe(true);
+    expect(
+      isPortfolioFeedLayoutScroll(
+        { clientHeight: 800, scrollHeight: 1040 },
+        { clientHeight: 800, scrollHeight: 1040 }
+      )
+    ).toBe(false);
   });
 
   it('respects reveal lead at the hero tail', () => {

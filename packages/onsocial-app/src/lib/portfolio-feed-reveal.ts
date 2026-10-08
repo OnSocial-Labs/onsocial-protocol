@@ -23,6 +23,21 @@ export interface PortfolioFeedRevealInput {
 }
 
 /**
+ * A scroll event fired because the viewport or page grew, not because the
+ * person swiped. Enlarging the window reaches the hero tail and must not
+ * open the page drawer.
+ */
+export function isPortfolioFeedLayoutScroll(
+  previous: { clientHeight: number; scrollHeight: number },
+  next: { clientHeight: number; scrollHeight: number }
+): boolean {
+  return (
+    previous.clientHeight !== next.clientHeight ||
+    previous.scrollHeight !== next.scrollHeight
+  );
+}
+
+/**
  * Face-first portfolio — feed opens only on explicit scroll intent.
  * Scroll restoration and layout scroll events are ignored until the user gestures.
  */
