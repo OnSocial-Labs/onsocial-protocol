@@ -7175,10 +7175,10 @@ a.os-surface-row {
 
   /* Cover — avatar is the hero; circle hidden, name below the dissolve band. */
   .portfolio-frame[data-avatar-cover='true']
-    .portfolio-identity
+    .portfolio-portrait
     > .portfolio-avatar,
   .portfolio-frame[data-avatar-cover='true']
-    .portfolio-identity
+    .portfolio-portrait
     > .portfolio-avatar-fallback {
     display: none;
   }
@@ -8858,6 +8858,30 @@ a.os-surface-row {
     }
   }
 
+  .portfolio-portrait {
+    position: relative;
+    z-index: 2;
+    width: var(--portfolio-avatar-size);
+    height: var(--portfolio-avatar-size);
+    flex-shrink: 0;
+  }
+
+  /* Cover — the hero is the portrait. Marks sit on its lower rim, above the name. */
+  .portfolio-frame[data-avatar-cover='true'] .portfolio-portrait {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: auto;
+    height: 0;
+    transform: translateX(-50%);
+  }
+
+  .portfolio-frame[data-avatar-cover='true'] .portfolio-portrait-marks {
+    bottom: auto;
+    top: -0.15rem;
+    transform: translate(-50%, -100%);
+  }
+
   .portfolio-avatar,
   .portfolio-avatar-fallback {
     position: relative;
@@ -10266,7 +10290,7 @@ a.os-surface-row {
    */
   .portfolio-depth-links {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: center;
     align-items: center;
     gap: 0;
@@ -10304,31 +10328,61 @@ a.os-surface-row {
   }
 
   /*
-   * Same line as About · Writing. Glyph only — the name does not move,
-   * and cover vs banner use this one place.
-   * The hit box is wide enough to fill the middots; its height matches
-   * the words so it does not cover the bio or the gestures.
+   * Play and book sit on the portrait rim, in the gap the face already spends.
+   * They add no row. Cover uses the same chips on the hero lower edge.
    */
+  .portfolio-portrait-marks {
+    --portrait-mark-size: calc(var(--portfolio-avatar-size) * 0.32);
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--portrait-mark-size) * 0.18);
+    transform: translate(-50%, 36%);
+    pointer-events: none;
+  }
+
   .portfolio-song-mark,
   .portfolio-book-mark {
+    position: relative;
     display: inline-grid;
-    width: 2.75rem;
-    height: 1.05rem;
-    margin-inline: calc((1.05rem - 2.75rem) / 2);
+    width: var(--portrait-mark-size, 1.75rem);
+    height: var(--portrait-mark-size, 1.75rem);
+    margin: 0;
     place-items: center;
     padding: 0;
-    border: 0;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.62);
+    border: 1px solid rgb(var(--fg-rgb) / 0.16);
+    border-radius: 999px;
+    background: color-mix(
+      in srgb,
+      var(--mood-bg, var(--bg)) 86%,
+      rgb(var(--fg-rgb))
+    );
+    color: rgb(var(--fg-rgb) / 0.88);
+    box-shadow:
+      0 0 0 2px var(--portfolio-avatar-ring, var(--mood-bg, var(--bg))),
+      0 1px 3px rgb(0 0 0 / 0.16);
     text-decoration: none;
     cursor: pointer;
     flex-shrink: 0;
+    pointer-events: auto;
+    backdrop-filter: blur(12px);
+  }
+
+  .portfolio-song-mark::before,
+  .portfolio-book-mark::before {
+    content: '';
+    position: absolute;
+    inset: -0.28rem;
   }
 
   .portfolio-song-mark-icon,
   .portfolio-book-mark-icon {
-    width: 0.72rem;
-    height: 0.72rem;
+    width: 46%;
+    height: 46%;
     display: block;
   }
 

@@ -47,7 +47,7 @@ export function PortfolioSongMarkProvider({
   );
 }
 
-/** Play control for the About · Writing line, or null while the dock owns the song. */
+/** Play control on the portrait rim, or null while the dock owns the song. */
 export function usePortfolioSongMark(): {
   title: string;
   play: () => void;

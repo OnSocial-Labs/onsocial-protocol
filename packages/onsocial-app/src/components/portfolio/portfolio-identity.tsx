@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kind-switch';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { PortfolioDepthLinks } from '@/components/portfolio/portfolio-depth-links';
+import { PortfolioPortraitMarks } from '@/components/portfolio/portfolio-portrait-marks';
 import { PortfolioFaceBio } from '@/components/portfolio/portfolio-face-bio';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
 import { PortfolioOrgMetaLine } from '@/components/portfolio/portfolio-org-meta-line';
@@ -103,13 +104,16 @@ export function PortfolioIdentity({
       className="portfolio-identity animate-rise-in"
       data-profile-kind={displayKind}
     >
-      {avatarUrl ? (
-        <img alt={titleLabel} className="portfolio-avatar" src={avatarUrl} />
-      ) : (
-        <div className="portfolio-avatar portfolio-avatar-fallback">
-          {initials(titleLabel)}
-        </div>
-      )}
+      <div className="portfolio-portrait">
+        {avatarUrl ? (
+          <img alt={titleLabel} className="portfolio-avatar" src={avatarUrl} />
+        ) : (
+          <div className="portfolio-avatar portfolio-avatar-fallback">
+            {initials(titleLabel)}
+          </div>
+        )}
+        <PortfolioPortraitMarks />
+      </div>
 
       <div className="portfolio-identity-copy">
         {displayKind !== 'org' && isDao && isProtocolFacePairDao(accountId) ? (

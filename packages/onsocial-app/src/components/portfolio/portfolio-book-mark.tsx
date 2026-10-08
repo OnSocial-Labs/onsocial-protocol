@@ -44,7 +44,7 @@ export function PortfolioBookMarkProvider({
   );
 }
 
-/** Book or issue on the About · Writing line. Independent of the song dock. */
+/** Book or issue on the portrait rim. Independent of the song dock. */
 export function usePortfolioBookMark(): PortfolioBookMarkModel | null {
   const { collectionId, pageAccountId } = useContext(PortfolioBookMarkContext);
   const [view, setView] = useState<CollectionView | null>(null);
