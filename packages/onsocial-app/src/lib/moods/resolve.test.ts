@@ -140,6 +140,23 @@ describe('moodPresetPreviewVars', () => {
     expect(mood.cssVars['--mood-signal-standing']).toMatch(/^rgb\(/);
   });
 
+  it('resolves premium spring mood css vars', () => {
+    const mood = resolvePortfolioMood({
+      mood: { id: 'spring' },
+      moodUnlocks: { spring: { since: 1 } },
+    });
+
+    expect(mood.id).toBe('spring');
+    expect(mood.label).toBe('Spring');
+    expect(mood.cssVars['--mood-preset-accent']).toBe(
+      'rgb(242 172 206 / 0.95)'
+    );
+    expect(mood.cssVars['--mood-preset-accent-light']).toBe(
+      'rgb(185 45 105 / 0.95)'
+    );
+    expect(mood.cssVars['--mood-signal-standing']).toMatch(/^rgb\(/);
+  });
+
   it('splits broadsheet accent for dark chrome vs light ink', () => {
     const mood = resolvePortfolioMood({
       mood: { id: 'broadsheet' },
