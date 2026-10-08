@@ -59,6 +59,7 @@ import {
   canOfferDmPasskey,
   enrollDmPasskeyUnlock,
   ensureDmKeys,
+  getStoredDmIdentity,
   hasDmPasskeyEnrolled,
   hasUnlockedDmKey,
   peekPendingDmRecoveryCode,
@@ -471,10 +472,21 @@ export function MessagesPanel() {
       return;
     }
     if (remote.status === 'unavailable') {
-      setError(
-        'Could not verify messaging keys. Check your connection and try again.'
+      const stored = getStoredDmIdentity(accountId);
+      const canUnlockHere = Boolean(
+        stored?.publicKey ||
+          stored?.wrapped ||
+          stored?.secretKey ||
+          stored?.passkeyWrapped
       );
-      setErrorSource('keys');
+      // A locked device still has its unlock screen. A profile miss is not
+      // a failure until the person tries to unlock.
+      if (!canUnlockHere) {
+        setError(
+          'Could not verify messaging keys. Check your connection and try again.'
+        );
+        setErrorSource('keys');
+      }
       setKeysTick((n) => n + 1);
       return;
     }
@@ -505,10 +517,12 @@ export function MessagesPanel() {
       if (accountGenRef.current !== gen || !isCurrentAccount(expectedAccount)) {
         return;
       }
-      if (
-        cause instanceof DmKeysLockedError ||
-        cause instanceof DmKeysMismatchError
-      ) {
+      if (cause instanceof DmKeysLockedError) {
+        // Locked is the unlock screen, not an error above it.
+        setKeysTick((n) => n + 1);
+        return;
+      }
+      if (cause instanceof DmKeysMismatchError) {
         setError(cause.message);
         setErrorSource('keys');
         setKeysTick((n) => n + 1);
