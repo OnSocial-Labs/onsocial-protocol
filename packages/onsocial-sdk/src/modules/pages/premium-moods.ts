@@ -9,6 +9,7 @@ export type PremiumPageMoodId =
   | 'summer'
   | 'autumn'
   | 'winter'
+  | 'spring'
   | 'gold'
   | 'glass'
   | 'carbon'
@@ -39,6 +40,7 @@ export const PREMIUM_PAGE_MOOD_IDS = [
   'summer',
   'autumn',
   'winter',
+  'spring',
   'gold',
   'glass',
   'carbon',
@@ -56,6 +58,7 @@ export const SEASONAL_MOOD_PRICE_SOCIAL = '100';
 export const SUMMER_MOOD_PRICE_SOCIAL = SEASONAL_MOOD_PRICE_SOCIAL;
 export const AUTUMN_MOOD_PRICE_SOCIAL = SEASONAL_MOOD_PRICE_SOCIAL;
 export const WINTER_MOOD_PRICE_SOCIAL = SEASONAL_MOOD_PRICE_SOCIAL;
+export const SPRING_MOOD_PRICE_SOCIAL = SEASONAL_MOOD_PRICE_SOCIAL;
 
 /** Evergreen finish packs — identity flex above seasonal. */
 export const FINISH_MOOD_PRICE_SOCIAL = '250';
@@ -78,7 +81,7 @@ export const PAGE_MOOD_PICKER_STORE_SECTIONS: ReadonlyArray<{
   title: string;
   ids: readonly PremiumPageMoodId[];
 }> = [
-  { title: 'Seasonal', ids: ['summer', 'autumn', 'winter'] },
+  { title: 'Seasonal', ids: ['summer', 'autumn', 'winter', 'spring'] },
   { title: 'Finishes', ids: ['gold', 'glass', 'carbon', 'holographic'] },
   { title: 'Voices', ids: ['broadsheet', 'terminal', 'signature'] },
 ];

@@ -48,6 +48,17 @@ describe('mood signal blends', () => {
     );
   });
 
+  it('tints spring signals blossom while standing keeps the highest protocol share', () => {
+    const accent = 'rgb(242 172 206 / 0.95)';
+    const signals = pageMoodSignalsFor('spring', accent);
+
+    expect(signals.standing).toMatch(/^rgb\(/);
+    expect(signals.standing).not.toBe(PROTOCOL_SIGNAL_COLORS.standing);
+    expect(MOOD_SIGNAL_PROTOCOL_WEIGHT.spring.standing).toBeGreaterThan(
+      MOOD_SIGNAL_PROTOCOL_WEIGHT.spring.endorse
+    );
+  });
+
   it('linear blend returns protocol color at weight 1', () => {
     expect(
       blendProtocolSignalWithMood(

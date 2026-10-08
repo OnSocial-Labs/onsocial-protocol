@@ -74,6 +74,13 @@ export const MOOD_SIGNAL_PROTOCOL_WEIGHT: Record<
     endorse: 0.36,
     reputation: 0.34,
   },
+  /** Blossom seasonal — creative parity: fresh petal accent tints every signal. */
+  spring: {
+    standing: 0.52,
+    solidarity: 0.3,
+    endorse: 0.32,
+    reputation: 0.34,
+  },
   gold: { standing: 0.52, solidarity: 0.38, endorse: 0.2, reputation: 0.28 },
   /** Icy preset accent — typography uses neutral slate in app CSS; signals stay protocol. */
   glass: {

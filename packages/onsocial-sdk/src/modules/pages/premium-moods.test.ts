@@ -94,6 +94,15 @@ describe('premium page moods', () => {
     expect(isPremiumMoodAvailable(winter, Date.parse('2027-03-01'))).toBe(
       false
     );
+    const spring = PAGE_MOOD_CATALOG.spring;
+    expect(isPremiumMoodAvailable(spring, Date.parse('2027-02-28'))).toBe(
+      false
+    );
+    expect(isPremiumMoodAvailable(spring, Date.parse('2027-03-01'))).toBe(true);
+    expect(isPremiumMoodAvailable(spring, Date.parse('2027-04-15'))).toBe(true);
+    expect(isPremiumMoodAvailable(spring, Date.parse('2027-06-01'))).toBe(
+      false
+    );
   });
 
   it('prices every seasonal mood the same', () => {
@@ -102,6 +111,7 @@ describe('premium page moods', () => {
     );
     expect(seasonal.map((entry) => entry.id).sort()).toEqual([
       'autumn',
+      'spring',
       'summer',
       'winter',
     ]);
@@ -120,6 +130,10 @@ describe('premium page moods', () => {
       priceSocial: '100',
     });
     expect(PAGE_MOOD_CATALOG.winter).toMatchObject({
+      packKind: 'seasonal',
+      priceSocial: '100',
+    });
+    expect(PAGE_MOOD_CATALOG.spring).toMatchObject({
       packKind: 'seasonal',
       priceSocial: '100',
     });

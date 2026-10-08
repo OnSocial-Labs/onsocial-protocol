@@ -12,6 +12,7 @@ import {
   HOLOGRAPHIC_MOOD_PRICE_SOCIAL,
   isPremiumPageMoodId,
   SIGNATURE_MOOD_PRICE_SOCIAL,
+  SPRING_MOOD_PRICE_SOCIAL,
   SUMMER_MOOD_PRICE_SOCIAL,
   VOICE_MOOD_PRICE_SOCIAL,
   WINTER_MOOD_PRICE_SOCIAL,
@@ -183,6 +184,14 @@ export const MOOD_PAGE_TYPOGRAPHY: Record<PageMoodId, PageMoodTypography> = {
     displayWeight: 600,
     displayLetterSpacing: '-0.035em',
     bodyLineHeight: 1.58,
+    bioMaxWidth: '21rem',
+  },
+  spring: {
+    fontDisplay: MOOD_FONT_STACKS.sans,
+    fontBody: MOOD_FONT_STACKS.sans,
+    displayWeight: 600,
+    displayLetterSpacing: '-0.03em',
+    bodyLineHeight: 1.6,
     bioMaxWidth: '21rem',
   },
   gold: {
@@ -614,6 +623,26 @@ export const PREMIUM_PAGE_MOOD_PRESETS: Record<
       surface: 'rgb(150 205 245 / 0.06)',
     },
   },
+  spring: {
+    id: 'spring',
+    label: 'Spring',
+    tagline: 'First bloom — soft petals, longer light.',
+    theme: {
+      background: '#070c08',
+      backgroundLight: '#f8fcf7',
+      text: 'rgb(245 252 246 / 0.96)',
+      textLight: 'rgb(17 19 24 / 0.96)',
+      muted: 'rgb(235 190 210 / 0.5)',
+      mutedLight: 'rgb(17 19 24 / 0.5)',
+      accent: 'rgb(242 172 206 / 0.95)',
+      accentLight: 'rgb(185 45 105 / 0.95)',
+      banner:
+        'radial-gradient(ellipse 85% 68% at 16% -8%, rgb(242 172 206 / 0.16), transparent 56%), radial-gradient(ellipse 72% 54% at 84% 10%, rgb(255 220 235 / 0.08), transparent 52%), radial-gradient(ellipse 90% 58% at 50% 100%, rgb(242 172 206 / 0.06), transparent 58%)',
+      bannerLight:
+        'radial-gradient(ellipse 85% 68% at 16% -8%, rgb(242 172 206 / 0.12), transparent 56%), radial-gradient(ellipse 72% 54% at 84% 10%, rgb(255 220 235 / 0.06), transparent 52%), radial-gradient(ellipse 90% 58% at 50% 100%, rgb(242 172 206 / 0.05), transparent 58%)',
+      surface: 'rgb(242 172 206 / 0.06)',
+    },
+  },
   gold: {
     id: 'gold',
     label: 'Gold',
@@ -795,6 +824,18 @@ export const PAGE_MOOD_CATALOG: Record<string, PageMoodCatalogEntry> =
         priceSocial: WINTER_MOOD_PRICE_SOCIAL,
         availableFrom: '2026-12-01T00:00:00.000Z',
         availableUntil: '2027-02-28T23:59:59.000Z',
+      },
+    ] as const,
+    [
+      'spring',
+      {
+        id: 'spring',
+        tier: 'premium' as const,
+        packKind: 'seasonal' as const,
+        relatedFreeMood: 'creative',
+        priceSocial: SPRING_MOOD_PRICE_SOCIAL,
+        availableFrom: '2027-03-01T00:00:00.000Z',
+        availableUntil: '2027-05-31T23:59:59.000Z',
       },
     ] as const,
     [
