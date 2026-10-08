@@ -3,19 +3,11 @@
 import { Fragment, type ReactNode } from 'react';
 import { PortfolioAboutLink } from '@/components/portfolio/portfolio-about-link';
 import {
-  PortfolioBookMark,
-  usePortfolioBookMark,
-} from '@/components/portfolio/portfolio-book-mark';
-import {
-  PortfolioSongMarkButton,
-  usePortfolioSongMark,
-} from '@/components/portfolio/portfolio-song-mark';
-import {
   PortfolioWritingAnchor,
   useShowPortfolioWritingLink,
 } from '@/components/portfolio/portfolio-writing-link';
 
-/** Face depth doors — one quiet line: About · play · book · Writing. */
+/** Face depth doors — one quiet line: About · Writing. */
 export function PortfolioDepthLinks({
   accountId,
   showAbout = false,
@@ -24,26 +16,12 @@ export function PortfolioDepthLinks({
   showAbout?: boolean;
 }) {
   const showWriting = useShowPortfolioWritingLink(accountId);
-  const song = usePortfolioSongMark();
-  const book = usePortfolioBookMark();
   const slots: Array<{ key: string; node: ReactNode }> = [];
 
   if (showAbout) {
     slots.push({
       key: 'about',
       node: <PortfolioAboutLink accountId={accountId} />,
-    });
-  }
-  if (song) {
-    slots.push({
-      key: 'song',
-      node: <PortfolioSongMarkButton title={song.title} onPlay={song.play} />,
-    });
-  }
-  if (book) {
-    slots.push({
-      key: 'book',
-      node: <PortfolioBookMark book={book} />,
     });
   }
   if (showWriting) {

@@ -10266,7 +10266,7 @@ a.os-surface-row {
    */
   .portfolio-depth-links {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: center;
     align-items: center;
     gap: 0;
@@ -10301,68 +10301,6 @@ a.os-surface-row {
       0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
     );
     border-radius: 0.2rem;
-  }
-
-  /*
-   * Same line as About · Writing. Glyph only — the name does not move,
-   * and cover vs banner use this one place.
-   * The hit box is wide enough to fill the middots; its height matches
-   * the words so it does not cover the bio or the gestures.
-   */
-  .portfolio-song-mark,
-  .portfolio-book-mark {
-    display: inline-grid;
-    width: 2.75rem;
-    height: 1.05rem;
-    margin-inline: calc((1.05rem - 2.75rem) / 2);
-    place-items: center;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.62);
-    text-decoration: none;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-
-  .portfolio-song-mark-icon,
-  .portfolio-book-mark-icon {
-    width: 0.72rem;
-    height: 0.72rem;
-    display: block;
-  }
-
-  .portfolio-song-mark-icon--play {
-    transform: translateX(0.04rem);
-  }
-
-  .portfolio-song-mark:hover,
-  .portfolio-song-mark:focus-visible,
-  .portfolio-book-mark:hover,
-  .portfolio-book-mark:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.88);
-    outline: none;
-  }
-
-  .portfolio-song-mark:focus-visible,
-  .portfolio-book-mark:focus-visible {
-    box-shadow: var(
-      --os-focus-ring,
-      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
-    );
-    border-radius: 999px;
-  }
-
-  .portfolio-song-mark:active,
-  .portfolio-book-mark:active {
-    transform: scale(0.96);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .portfolio-song-mark:active,
-    .portfolio-book-mark:active {
-      transform: none;
-    }
   }
 
   .portfolio-about {
@@ -15631,6 +15569,76 @@ a.os-surface-row {
   .portfolio-summon {
     pointer-events: auto;
     --portfolio-summon-avatar-size: 1.35rem;
+  }
+
+  /* Launcher stays centered. Play and book sit on its line, to the right, same pill. */
+  .portfolio-summon-line {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    pointer-events: none;
+  }
+
+  .portfolio-dock-marks {
+    position: absolute;
+    left: calc(100% + 0.5rem);
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    pointer-events: none;
+  }
+
+  .portfolio-dock-mark.os-dock-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    min-width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    color: rgb(var(--fg-rgb) / 0.88);
+    cursor: pointer;
+    pointer-events: auto;
+    flex-shrink: 0;
+  }
+
+  .portfolio-dock-mark .portfolio-song-mark-icon,
+  .portfolio-dock-mark .portfolio-book-mark-icon {
+    width: 1.05rem;
+    height: 1.05rem;
+    align-self: center;
+    display: block;
+  }
+
+  .portfolio-song-mark-icon--play {
+    transform: translateX(0.04rem);
+  }
+
+  .portfolio-dock-mark:hover,
+  .portfolio-dock-mark:focus-visible {
+    color: rgb(var(--fg-rgb) / 1);
+    outline: none;
+  }
+
+  .portfolio-dock-mark:focus-visible {
+    box-shadow: var(
+      --os-focus-ring,
+      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
+    );
+  }
+
+  .portfolio-dock-mark:active {
+    transform: scale(0.96);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .portfolio-dock-mark:active {
+      transform: none;
+    }
   }
 
   /* Write mode fills the dock column; idle pill stays content-sized (grip flex:1). */
