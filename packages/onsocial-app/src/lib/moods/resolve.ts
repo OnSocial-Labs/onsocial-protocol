@@ -46,7 +46,9 @@ export function moodPresetPreviewVars(
 }
 
 /** Accent-only vars for list-row mood hints (discover, standings previews). */
-export function moodDiscoverHintVars(moodId: PageMoodId): Record<string, string> {
+export function moodDiscoverHintVars(
+  moodId: PageMoodId
+): Record<string, string> {
   const preset = moodPresetForId(moodId);
   return {
     '--mood-preset-accent': preset.theme.accent,
@@ -313,6 +315,30 @@ export function resolvePortfolioMood(config: PublicPageConfig): ResolvedMood {
     note: record?.note?.trim() || null,
     cssVars,
   };
+}
+
+/**
+ * Live ink preview — same catalog mood, with one hue swapped in.
+ * Does not read or write the stored tint.
+ */
+export function resolvePortfolioMoodForTintPreview(
+  config: PublicPageConfig,
+  moodId: PageMoodId,
+  hue: number
+): ResolvedMood {
+  return resolvePortfolioMoodForPreview(
+    {
+      ...config,
+      theme: {
+        ...config.theme,
+        moodTints: {
+          ...config.theme?.moodTints,
+          [moodId]: hue,
+        },
+      },
+    },
+    moodId
+  );
 }
 
 /** Resolve live page preview — catalog mood colors + stored per-mood ink tints. */

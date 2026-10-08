@@ -37,7 +37,6 @@ import {
   readPinnedSongId,
   readPinnedSongStart,
 } from '@/lib/page-face';
-import { useApplyPageMoodTint } from '@/hooks/use-apply-page-mood-tint';
 import { useDaoPageCapability } from '@/hooks/use-dao-page-capability';
 import { usePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
 import { usePortfolioCustomize } from '@/contexts/portfolio-customize-context';
@@ -96,15 +95,8 @@ export function PortfolioCustomize({
   const canEditMood = isAccountOwner || canPropose;
   const canCustomizeFace = isAccountOwner;
 
-  const {
-    applyMoodTint,
-    error: tintError,
-    isApplying: isApplyingTint,
-    isOwner: isTintOwner,
-  } = useApplyPageMoodTint(pageAccountId);
-
-  const isApplying = isApplyingFace || isApplyingTint;
-  const error = faceError ?? tintError;
+  const isApplying = isApplyingFace;
+  const error = faceError;
   const isCoverLayout = effectiveAvatarMode === 'cover';
   const controlsLocked =
     needsConnect ||
@@ -112,22 +104,30 @@ export function PortfolioCustomize({
       walletAccountId && !accountIdsEqual(walletAccountId, pageAccountId)
     );
   const controlsDisabled = isApplying || controlsLocked;
+  const {
+    registerMoodSheetOpen,
+    unregisterMoodSheetOpen,
+    setPreviewTint,
+    committedTint,
+  } = usePortfolioMoodPreview();
   const signaturePreset = APP_PREMIUM_MOOD_PRESETS.signature;
   const signatureUnlocked = isPageMoodUnlocked(
     { moodUnlocks: config.moodUnlocks },
     'signature',
     PAGE_MOOD_CATALOG
   );
-  const savedSignatureHue = effectiveMoodTintHue(
+  const storedSignatureHue = effectiveMoodTintHue(
     'signature',
     config.theme,
     signaturePreset.theme.accent
   );
+  const savedSignatureHue =
+    committedTint?.moodId === 'signature'
+      ? committedTint.hue
+      : storedSignatureHue;
   const [draftSignatureHue, setDraftSignatureHue] = useState(savedSignatureHue);
   const draftSignatureHueRef = useRef(savedSignatureHue);
   const customizeApi = usePortfolioCustomize();
-  const { registerMoodSheetOpen, unregisterMoodSheetOpen } =
-    usePortfolioMoodPreview();
   const { moodId: portfolioMoodId, style: portfolioMoodStyle } =
     usePortfolioMoodVars(pageAccountId, walletAccountId ?? '', open);
   const moodAccent =
@@ -222,28 +222,26 @@ export function PortfolioCustomize({
     setOpen(false);
   }
 
-  async function commitSignatureHue(nextHue: number) {
-    if (Math.round(nextHue) === Math.round(savedSignatureHue)) {
-      return;
-    }
-
-    await applyMoodTint('signature', nextHue);
-  }
-
   function handleSignatureHueInput(nextHue: number) {
     const normalized = ((nextHue % 360) + 360) % 360;
     draftSignatureHueRef.current = normalized;
     setDraftSignatureHue(normalized);
   }
 
-  async function handleSignatureHueCommit() {
-    await commitSignatureHue(draftSignatureHueRef.current);
+  function beginSignatureHuePreview() {
+    const nextHue = draftSignatureHueRef.current;
+    if (Math.round(nextHue) === Math.round(savedSignatureHue)) {
+      return;
+    }
+
+    setPreviewTint('signature', nextHue);
+    setOpen(false);
   }
 
   const showSignatureHue =
     mood.id === 'signature' &&
     signatureUnlocked &&
-    isTintOwner &&
+    isAccountOwner &&
     !needsConnect;
   const moodPageId = resolvePageMoodId(String(mood.id)) ?? 'protocol';
 
@@ -322,6 +320,9 @@ export function PortfolioCustomize({
             <Divider variant="section" className="customize-sheet-divider" />
             <div className="customize-sheet-section">
               <p className="customize-sheet-label">Ink hue</p>
+              <p className="customize-sheet-copy customize-sheet-copy--inline">
+                Release to preview on your page. Save when it looks right.
+              </p>
               <label className="customize-hue-control">
                 <span className="customize-hue-preview" aria-hidden>
                   <span
@@ -343,10 +344,10 @@ export function PortfolioCustomize({
                   onChange={(event) =>
                     handleSignatureHueInput(Number(event.target.value))
                   }
-                  onPointerUp={() => void handleSignatureHueCommit()}
+                  onPointerUp={beginSignatureHuePreview}
                   onKeyUp={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      void handleSignatureHueCommit();
+                    if (event.key === 'Enter') {
+                      beginSignatureHuePreview();
                     }
                   }}
                 />
