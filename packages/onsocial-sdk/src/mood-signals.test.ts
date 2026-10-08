@@ -4,6 +4,7 @@ import {
   blendProtocolSignalWithMood,
   MOOD_SIGNAL_PROTOCOL_WEIGHT,
   pageMoodSignalsFor,
+  parseColorToRgb,
   PROTOCOL_SIGNAL_COLORS,
 } from './mood-signals.js';
 
@@ -35,6 +36,19 @@ describe('mood signal blends', () => {
     const signals = pageMoodSignalsFor('creative', accent);
 
     expect(signals.standing).not.toBe(signals.solidarity);
+  });
+
+  it.each([
+    ['summer', 'rgb(255 186 78 / 0.95)'],
+    ['autumn', 'rgb(230 110 45 / 0.95)'],
+  ] as const)('keeps %s standing blue-dominant', (mood, accent) => {
+    const signals = pageMoodSignalsFor(mood, accent);
+    const rgb = parseColorToRgb(signals.standing);
+
+    expect(rgb).not.toBeNull();
+    // Blue channel leads red and green so the standing identity survives the mood blend.
+    expect(rgb![2]).toBeGreaterThan(rgb![0]);
+    expect(rgb![2]).toBeGreaterThan(rgb![1]);
   });
 
   it('linear blend returns protocol color at weight 1', () => {
