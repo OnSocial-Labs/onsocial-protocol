@@ -14,8 +14,10 @@ import {
   osSheetFloatingPanelClassName,
 } from '@onsocial/ui';
 import { useApplyMood } from '@/hooks/use-apply-mood';
+import { useApplyPageMoodTint } from '@/hooks/use-apply-page-mood-tint';
 import { useUnlockPremiumMood } from '@/hooks/use-unlock-premium-mood';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
+import { usePortfolioCustomize } from '@/contexts/portfolio-customize-context';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
 import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
@@ -23,10 +25,7 @@ import {
   PAGE_MOOD_CATALOG as APP_MOOD_CATALOG,
   PREMIUM_MOOD_PRESETS,
 } from '@/lib/moods/presets';
-import {
-  txToastError,
-  txToastSuccess,
-} from '@/lib/transaction-toast-copy';
+import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { nearExplorerTxHref } from '@/lib/app-config';
 import type { PublicPageConfig } from '@/lib/page-data';
 
@@ -43,6 +42,7 @@ interface PortfolioMoodPreviewBarProps {
 
 interface MoodPreviewBarSnapshot {
   previewLabel: string;
+  kind: 'mood' | 'ink';
 }
 
 function isPremiumMoodId(moodId: PageMoodId): moodId is PremiumPageMoodId {
@@ -57,14 +57,17 @@ export function PortfolioMoodPreviewBar({
 }: PortfolioMoodPreviewBarProps) {
   const {
     previewMoodId,
+    previewTint,
     effectiveMood,
     isPreviewingMood,
     discardMoodPreview,
     commitMoodPreview,
+    commitTintPreview,
     requestCloseMoodSheet,
     requestOpenMoodSheet,
     requestDaoStake,
   } = usePortfolioMoodPreview();
+  const openCustomize = usePortfolioCustomize()?.openCustomize;
   const openStake = onRequestStake ?? requestDaoStake;
   const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();
   const {
@@ -81,6 +84,11 @@ export function PortfolioMoodPreviewBar({
     isUnlocking,
     error: unlockError,
   } = useUnlockPremiumMood(pageAccountId);
+  const {
+    applyMoodTint,
+    isApplying: isApplyingTint,
+    error: tintError,
+  } = useApplyPageMoodTint(pageAccountId);
   const { setTxResult } = useAppTransactionFeedback();
   const [farewellSnapshot, setFarewellSnapshot] =
     useState<MoodPreviewBarSnapshot | null>(null);
@@ -96,33 +104,87 @@ export function PortfolioMoodPreviewBar({
     []
   );
 
+  const inkPreview = previewTint !== null && previewMoodId === null;
   const isOpen = isPreviewingMood || farewellSnapshot !== null;
-  const error = applyError ?? unlockError;
-  const isBusy = isApplying || isUnlocking;
+  const error = applyError ?? unlockError ?? tintError;
+  const isBusy = isApplying || isUnlocking || isApplyingTint;
   const proposeOnly = isDao && isOwner && !isAccountOwner;
 
   useEffect(() => {
     if (!error) return;
-    setTxResult({ type: 'error', msg: txToastError.moodSaveFailed });
-  }, [error, setTxResult]);
+    setTxResult({
+      type: 'error',
+      msg: inkPreview
+        ? txToastError.inkSaveFailed
+        : txToastError.moodSaveFailed,
+    });
+  }, [error, inkPreview, setTxResult]);
 
-  if (!isOwner || !isOpen || (!farewellSnapshot && !previewMoodId)) {
+  if (
+    !isOwner ||
+    !isOpen ||
+    (!farewellSnapshot && !previewMoodId && !previewTint)
+  ) {
     return null;
   }
 
-  const snapshot = farewellSnapshot ?? {
-    previewLabel: effectiveMood.label,
-  };
-  const activePreviewId = previewMoodId!;
-  const unlocked = isPageMoodUnlocked(
-    { moodUnlocks: config.moodUnlocks },
-    activePreviewId,
-    PAGE_MOOD_CATALOG
-  );
-  const priceSocial = APP_MOOD_CATALOG[activePreviewId]?.priceSocial;
-  const needsUnlock = !unlocked && isPremiumMoodId(activePreviewId);
+  const snapshot: MoodPreviewBarSnapshot =
+    farewellSnapshot ??
+    (inkPreview && previewTint
+      ? {
+          previewLabel: `Ink · ${Math.round(previewTint.hue)}°`,
+          kind: 'ink',
+        }
+      : {
+          previewLabel: effectiveMood.label,
+          kind: 'mood',
+        });
+  const savingInk = snapshot.kind === 'ink';
+  const activePreviewId = previewMoodId;
+  const unlocked = activePreviewId
+    ? isPageMoodUnlocked(
+        { moodUnlocks: config.moodUnlocks },
+        activePreviewId,
+        PAGE_MOOD_CATALOG
+      )
+    : true;
+  const priceSocial = activePreviewId
+    ? APP_MOOD_CATALOG[activePreviewId]?.priceSocial
+    : undefined;
+  const needsUnlock =
+    activePreviewId != null && !unlocked && isPremiumMoodId(activePreviewId);
+
+  async function commitInk() {
+    if (!previewTint) {
+      return;
+    }
+
+    const { moodId, hue } = previewTint;
+    const applyTxHash = await applyMoodTint(moodId, hue);
+    if (applyTxHash === null) {
+      return;
+    }
+
+    setTxResult({
+      type: 'success',
+      msg: txToastSuccess.inkSaved,
+      explorerHref: nearExplorerTxHref(applyTxHash) ?? null,
+    });
+    setFarewellSnapshot({
+      previewLabel: `Ink · ${Math.round(hue)}°`,
+      kind: 'ink',
+    });
+    dismissTimerRef.current = setTimeout(() => {
+      commitTintPreview(moodId, hue);
+      setFarewellSnapshot(null);
+    }, SAVED_DISMISS_MS);
+  }
 
   async function commitMood() {
+    if (!activePreviewId) {
+      return;
+    }
+
     let explorerHref: string | null = null;
 
     if (needsUnlock) {
@@ -166,6 +228,10 @@ export function PortfolioMoodPreviewBar({
   }
 
   function handlePrimary() {
+    if (savingInk) {
+      void commitInk();
+      return;
+    }
     if (proposeOnly) {
       setProposeConfirmOpen(true);
       return;
@@ -174,9 +240,14 @@ export function PortfolioMoodPreviewBar({
   }
 
   function handleCancel() {
+    const reopenCustomize = savingInk;
     setProposeConfirmOpen(false);
     discardMoodPreview();
     window.setTimeout(() => {
+      if (reopenCustomize) {
+        openCustomize?.();
+        return;
+      }
       requestOpenMoodSheet();
     }, 0);
   }
@@ -200,27 +271,35 @@ export function PortfolioMoodPreviewBar({
               Cancel
             </button>
           ) : null}
-          <OsSheetActions layout="row-compact" tone="frosted-primary" borderless>
+          <OsSheetActions
+            layout="row-compact"
+            tone="frosted-primary"
+            borderless
+          >
             <OsSheetAction
               type="button"
               variant="primary"
               ready={!isBusy}
-              pending={isApplying || isUnlocking}
+              pending={isBusy}
               pendingLabel={
-                needsUnlock
-                  ? 'Unlocking…'
-                  : isAccountOwner
-                    ? 'Saving…'
-                    : 'Submitting…'
+                savingInk
+                  ? 'Saving…'
+                  : needsUnlock
+                    ? 'Unlocking…'
+                    : isAccountOwner
+                      ? 'Saving…'
+                      : 'Submitting…'
               }
               disabled={isBusy}
               onClick={handlePrimary}
             >
-              {needsUnlock && priceSocial && isAccountOwner
-                ? `Unlock · ${priceSocial}`
-                : isAccountOwner
-                  ? 'Save'
-                  : 'Propose mood'}
+              {savingInk
+                ? 'Save'
+                : needsUnlock && priceSocial && isAccountOwner
+                  ? `Unlock · ${priceSocial}`
+                  : isAccountOwner
+                    ? 'Save'
+                    : 'Propose mood'}
             </OsSheetAction>
           </OsSheetActions>
         </div>

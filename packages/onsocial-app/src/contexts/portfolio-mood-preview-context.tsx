@@ -9,17 +9,30 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { PageMoodId } from '@onsocial/sdk';
-import { resolvePortfolioMoodForPreview } from '@/lib/moods/resolve';
+import { resolvePageMoodId, type PageMoodId } from '@onsocial/sdk';
+import {
+  resolvePortfolioMoodForPreview,
+  resolvePortfolioMoodForTintPreview,
+} from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import type { PublicPageConfig } from '@/lib/page-data';
+
+export interface MoodTintPreview {
+  moodId: PageMoodId;
+  hue: number;
+}
 
 interface PortfolioMoodPreviewContextValue {
   committedMood: ResolvedMood;
   previewMoodId: PageMoodId | null;
+  /** Unsaved ink hue. Page shows it; chain write waits for Save. */
+  previewTint: MoodTintPreview | null;
+  /** Hue kept locally after Save until the refreshed config matches. */
+  committedTint: MoodTintPreview | null;
   effectiveMood: ResolvedMood;
   isPreviewingMood: boolean;
   setPreviewMood: (moodId: PageMoodId) => void;
+  setPreviewTint: (moodId: PageMoodId, hue: number) => void;
   discardMoodPreview: () => void;
   /**
    * After a successful on-chain save — keep this mood as committed
@@ -27,6 +40,7 @@ interface PortfolioMoodPreviewContextValue {
    * catches up (SSR props can lag until a hard reload).
    */
   commitMoodPreview: (moodId: PageMoodId) => void;
+  commitTintPreview: (moodId: PageMoodId, hue: number) => void;
   registerMoodSheetOpen: (open: () => void) => void;
   unregisterMoodSheetOpen: () => void;
   registerMoodSheetClose: (close: () => void) => void;
@@ -54,6 +68,12 @@ export function PortfolioMoodPreviewProvider({
   children,
 }: PortfolioMoodPreviewProviderProps) {
   const [previewMoodId, setPreviewMoodId] = useState<PageMoodId | null>(null);
+  const [previewTint, setPreviewTintState] = useState<MoodTintPreview | null>(
+    null
+  );
+  const [committedTint, setCommittedTint] = useState<MoodTintPreview | null>(
+    null
+  );
   const [committedOverride, setCommittedOverride] =
     useState<ResolvedMood | null>(null);
   const closeMoodSheetRef = useRef<(() => void) | null>(null);
@@ -75,18 +95,26 @@ export function PortfolioMoodPreviewProvider({
 
   const discardMoodPreview = useCallback(() => {
     setPreviewMoodId(null);
+    setPreviewTintState(null);
   }, []);
 
   const commitMoodPreview = useCallback(
     (moodId: PageMoodId) => {
       setCommittedOverride(resolvePortfolioMoodForPreview(config, moodId));
       setPreviewMoodId(null);
+      setPreviewTintState(null);
     },
     [config]
   );
 
+  const commitTintPreview = useCallback((moodId: PageMoodId, hue: number) => {
+    setCommittedTint({ moodId, hue });
+    setPreviewTintState(null);
+  }, []);
+
   const setPreviewMood = useCallback(
     (moodId: PageMoodId) => {
+      setPreviewTintState(null);
       if (moodId === committedMoodId) {
         setPreviewMoodId(null);
         return;
@@ -96,6 +124,11 @@ export function PortfolioMoodPreviewProvider({
     },
     [committedMoodId]
   );
+
+  const setPreviewTint = useCallback((moodId: PageMoodId, hue: number) => {
+    setPreviewMoodId(null);
+    setPreviewTintState({ moodId, hue });
+  }, []);
 
   const registerMoodSheetOpen = useCallback((open: () => void) => {
     openMoodSheetRef.current = open;
@@ -134,19 +167,57 @@ export function PortfolioMoodPreviewProvider({
   }, []);
 
   const value = useMemo<PortfolioMoodPreviewContextValue>(() => {
-    const isPreviewingMood = activePreview !== null;
-    const effectiveMood = isPreviewingMood
+    const committedId = resolvePageMoodId(committedMoodId);
+    const storedHue =
+      committedId != null ? config.theme?.moodTints?.[committedId] : undefined;
+    const tintCaughtUp =
+      committedTint != null &&
+      committedId === committedTint.moodId &&
+      typeof storedHue === 'number' &&
+      Math.round(storedHue) === Math.round(committedTint.hue);
+    const optimisticTint =
+      committedTint != null &&
+      committedId === committedTint.moodId &&
+      !tintCaughtUp
+        ? committedTint
+        : null;
+    const activeTint =
+      previewTint != null &&
+      activePreview === null &&
+      committedId === previewTint.moodId
+        ? previewTint
+        : null;
+    const tintedBase =
+      optimisticTint && committedId
+        ? resolvePortfolioMoodForTintPreview(
+            config,
+            committedId,
+            optimisticTint.hue
+          )
+        : resolvedCommitted;
+    const isPreviewingMood = activePreview !== null || activeTint !== null;
+    const effectiveMood = activePreview
       ? resolvePortfolioMoodForPreview(config, activePreview)
-      : resolvedCommitted;
+      : activeTint && committedId
+        ? resolvePortfolioMoodForTintPreview(
+            config,
+            committedId,
+            activeTint.hue
+          )
+        : tintedBase;
 
     return {
       committedMood: resolvedCommitted,
       previewMoodId: activePreview,
+      previewTint: activeTint,
+      committedTint: optimisticTint,
       effectiveMood,
       isPreviewingMood,
       setPreviewMood,
+      setPreviewTint,
       discardMoodPreview,
       commitMoodPreview,
+      commitTintPreview,
       registerMoodSheetOpen,
       unregisterMoodSheetOpen,
       registerMoodSheetClose,
@@ -160,8 +231,11 @@ export function PortfolioMoodPreviewProvider({
   }, [
     activePreview,
     commitMoodPreview,
+    commitTintPreview,
+    committedTint,
     config,
     discardMoodPreview,
+    previewTint,
     registerDaoStakeRequest,
     registerMoodSheetOpen,
     registerMoodSheetClose,
@@ -169,7 +243,9 @@ export function PortfolioMoodPreviewProvider({
     requestDaoStake,
     requestOpenMoodSheet,
     resolvedCommitted,
+    committedMoodId,
     setPreviewMood,
+    setPreviewTint,
     unregisterDaoStakeRequest,
     unregisterMoodSheetOpen,
     unregisterMoodSheetClose,

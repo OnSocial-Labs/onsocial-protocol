@@ -14,6 +14,7 @@ import {
   resolvePortfolioMood,
   resolvePortfolioMoodForId,
   resolvePortfolioMoodForPreview,
+  resolvePortfolioMoodForTintPreview,
   supportSheetPanelStyle,
 } from './resolve';
 import { PREMIUM_MOOD_PRESETS } from './presets';
@@ -272,6 +273,22 @@ describe('moodPresetPreviewVars', () => {
 
     expect(panel['--mood-preset-accent']).toBeUndefined();
     expect(panel['--mood-preset-bg']).toBe(mood.cssVars['--mood-preset-bg']);
+  });
+
+  it('tint preview shifts signature ink without the stored hue', () => {
+    const config = { mood: { id: 'signature' as const } };
+    const stored = resolvePortfolioMoodForPreview(config, 'signature');
+    const preview = resolvePortfolioMoodForTintPreview(
+      config,
+      'signature',
+      300
+    );
+
+    expect(preview.id).toBe('signature');
+    expect(preview.cssVars['--mood-preset-accent']).not.toBe(
+      stored.cssVars['--mood-preset-accent']
+    );
+    expect(preview.cssVars['--mood-banner']).toContain('gradient');
   });
 
   it('preview resolve keeps catalog accents when page theme accent is set', () => {
