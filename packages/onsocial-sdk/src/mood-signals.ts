@@ -56,13 +56,13 @@ export const MOOD_SIGNAL_PROTOCOL_WEIGHT: Record<
     reputation: 0.36,
   },
   summer: {
-    standing: 0.68,
+    standing: 0.5,
     solidarity: 0.3,
     endorse: 0.24,
     reputation: 0.3,
   },
   autumn: {
-    standing: 0.7,
+    standing: 0.56,
     solidarity: 0.42,
     endorse: 0.4,
     reputation: 0.36,
