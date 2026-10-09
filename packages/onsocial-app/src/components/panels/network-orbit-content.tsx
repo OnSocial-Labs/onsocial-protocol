@@ -261,7 +261,12 @@ function OrbitCaptions() {
           Map shows {formatProfileCount(mapShownCount)} of{' '}
           {formatProfileCount(searchMatchTotal)} matches
         </p>
-        <Link href={listHref} scroll={false} className="network-orbit-view-all">
+        <Link
+          href={listHref}
+          scroll={false}
+          prefetch={false}
+          className="network-orbit-view-all"
+        >
           View all
         </Link>
       </div>
@@ -284,7 +289,12 @@ function OrbitCaptions() {
           Map shows {formatProfileCount(mapShownCount)} of{' '}
           {formatProfileCount(totalUnique)} · {order}
         </p>
-        <Link href={listHref} scroll={false} className="network-orbit-view-all">
+        <Link
+          href={listHref}
+          scroll={false}
+          prefetch={false}
+          className="network-orbit-view-all"
+        >
           View all
         </Link>
       </div>
@@ -294,7 +304,12 @@ function OrbitCaptions() {
   if (totalUnique > 0) {
     return (
       <div className="network-orbit-caption-row network-orbit-caption-row--end">
-        <Link href={listHref} scroll={false} className="network-orbit-view-all">
+        <Link
+          href={listHref}
+          scroll={false}
+          prefetch={false}
+          className="network-orbit-view-all"
+        >
           View all
         </Link>
       </div>

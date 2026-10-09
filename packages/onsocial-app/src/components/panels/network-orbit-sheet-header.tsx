@@ -110,7 +110,12 @@ export function NetworkOrbitSheetHeader() {
         </Link>
         <div className="standing-sheet-actions">
           <OsIconAction asChild ariaLabel="Open standing list">
-            <Link href={listHref} scroll={false} aria-label="Open standing list">
+            <Link
+              href={listHref}
+              scroll={false}
+              prefetch={false}
+              aria-label="Open standing list"
+            >
               <AlignJustifyIcon
                 className="glass-sheet-icon-action-glyph"
                 aria-hidden

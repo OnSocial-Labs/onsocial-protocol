@@ -25,7 +25,12 @@ function NetworkOrbitListAction() {
   const { listHref } = useNetworkOrbit();
   return (
     <OsIconAction asChild ariaLabel="Open standing list">
-      <Link href={listHref} scroll={false} aria-label="Open standing list">
+      <Link
+        href={listHref}
+        scroll={false}
+        prefetch={false}
+        aria-label="Open standing list"
+      >
         <AlignJustifyIcon
           className="glass-sheet-icon-action-glyph"
           aria-hidden
