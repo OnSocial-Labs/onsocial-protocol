@@ -4,7 +4,7 @@
  */
 
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
-import { viewNearContract } from '@/lib/app-near-rpc';
+import { viewNearContract, yoctoToNear } from '@/lib/app-near-rpc';
 
 export const SCARCES_CONTRACT =
   ACTIVE_NEAR_NETWORK === 'mainnet'
@@ -64,6 +64,21 @@ export function buyerMaxNear(unitYocto: bigint, quantity = 1): bigint {
   const total = unitYocto * BigInt(quantity);
   const buffered = (total * 1005n + 999n) / 1000n;
   return buffered > total ? buffered : total + 1n;
+}
+
+/** Spoken NEAR for a dollar sticker at an indicative quote. The chain oracle still settles. */
+export function dollarNearEstimateLabel(
+  unitYocto: bigint,
+  quantity = 1
+): string {
+  const total = unitYocto * BigInt(Math.max(1, quantity));
+  const near = yoctoToNear(total.toString());
+  const amount = Number(near);
+  const spoken =
+    Number.isFinite(amount) && amount >= 0.0001
+      ? amount.toLocaleString('en-US', { maximumFractionDigits: 4 })
+      : near;
+  return `About ${spoken} NEAR now.`;
 }
 
 /** Indexed `usd_e6` millionths. Blank when the listing is priced in NEAR. */

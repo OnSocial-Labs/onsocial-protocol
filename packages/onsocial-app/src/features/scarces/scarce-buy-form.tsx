@@ -64,9 +64,12 @@ import {
   resolveLazyListingDepositYocto,
 } from '@/features/scarces/scarces-wallet-client';
 import {
+  dollarNearEstimateLabel,
   fetchDollarOracle,
   fetchDollarSticker,
+  fetchNearUsdQuote,
   formatUsdE6,
+  yoctoForUsd,
   type DollarOracle,
   type DollarScope,
   type DollarSticker,
@@ -213,6 +216,7 @@ export function ScarceBuyForm({
     null
   );
   const [dollarOracle, setDollarOracle] = useState<DollarOracle | null>(null);
+  const [dollarUnitYocto, setDollarUnitYocto] = useState<bigint | null>(null);
   const [payAssetId, setPayAssetId] = useState('near');
   const [payTokens, setPayTokens] = useState<DollarPayToken[]>([]);
   const [quantity, setQuantity] = useState(1);
@@ -501,6 +505,27 @@ export function ScarceBuyForm({
   }, [dollarScope, dollarId]);
 
   useEffect(() => {
+    if (!dollarSticker || !dollarOracle) {
+      setDollarUnitYocto(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchNearUsdQuote()
+      .then((quote) => {
+        if (cancelled) return;
+        setDollarUnitYocto(
+          yoctoForUsd(dollarSticker.usdE6, quote.price, quote.expo)
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setDollarUnitYocto(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dollarSticker, dollarOracle]);
+
+  useEffect(() => {
     if (!dollarSticker || ACTIVE_NEAR_NETWORK !== 'mainnet') {
       setPayTokens([]);
       return;
@@ -584,6 +609,10 @@ export function ScarceBuyForm({
   const dollarTotalLabel = dollarSticker
     ? formatUsdE6(dollarSticker.usdE6, mintQty)
     : null;
+  const dollarNearLabel =
+    dollarUnitYocto != null
+      ? dollarNearEstimateLabel(dollarUnitYocto, mintQty)
+      : null;
   const showFooterPrice = dollarTotalLabel
     ? isConnected && (isLazyBuy || isDropBuy || isMarketBuy)
     : isConnected && ((isDropBuy && isPaidMint) || (isMarketBuy && isPaidAsk));
@@ -1068,13 +1097,6 @@ export function ScarceBuyForm({
           {showDistinctSeller && sellerId ? (
             <ScarcePartyLine label="Seller" accountId={sellerId} />
           ) : null}
-          {dollarSticker ? (
-            <p className="profile-support-hint">
-              {dollarOracle
-                ? 'Price stays in dollars. You pay the NEAR it is worth right now.'
-                : 'Dollar checkout opens when the price oracle is set.'}
-            </p>
-          ) : null}
           {dollarSticker &&
           dollarOracle &&
           ACTIVE_NEAR_NETWORK === 'mainnet' &&
@@ -1118,6 +1140,14 @@ export function ScarceBuyForm({
             })}
             onOpenFacts={() => setFactsOpen(true)}
           />
+          {dollarSticker ? (
+            <p className="profile-support-hint">
+              {!dollarOracle
+                ? 'Dollar checkout opens when the price oracle is set.'
+                : (dollarNearLabel ??
+                  'Price stays in dollars. You pay the NEAR it is worth right now.')}
+            </p>
+          ) : null}
         </div>
 
         <ScarceProvenanceCopy
