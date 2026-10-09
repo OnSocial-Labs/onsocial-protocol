@@ -26,6 +26,14 @@ const ONSOCIAL_CDN_BASE: Record<string, string> = {
   testnet: 'https://cdn.testnet.onsocial.id/ipfs',
 };
 
+/** Fetchable cover URL stored in NEP-177 `media`. Wallets open this directly. */
+export function onsocialCdnUrl(network: string, cid: string): string {
+  const bare = cid.trim().replace(/^ipfs:\/\//, '');
+  const base =
+    ONSOCIAL_CDN_BASE[network] ?? 'https://cdn.testnet.onsocial.id/ipfs';
+  return `${base}/${bare}`;
+}
+
 /**
  * Result of a successful upload. All provider-knowable fields are populated;
  * renderer-hints like `width`, `height`, `alt`, `blurhash` may be filled in
@@ -160,10 +168,7 @@ export class GatewayProvider implements StorageProvider {
   }
 
   url(cid: string): string {
-    const base =
-      ONSOCIAL_CDN_BASE[this._http.network] ??
-      'https://cdn.testnet.onsocial.id/ipfs';
-    return `${base}/${cid}`;
+    return onsocialCdnUrl(this._http.network, cid);
   }
 }
 

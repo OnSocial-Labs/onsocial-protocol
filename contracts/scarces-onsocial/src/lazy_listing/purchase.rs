@@ -81,6 +81,12 @@ impl Contract {
         let creator_id = listing.creator_id.clone();
         let app_id = listing.app_id.clone();
         let mint_metadata = crate::lazy_listing::metadata_for_mint(&listing.metadata);
+        if Contract::metadata_door_closed(mint_metadata.expires_at) {
+            self.pending_attached_balance += deposit;
+            return Err(MarketplaceError::InvalidState(
+                "Cannot mint after the event has ended".into(),
+            ));
+        }
         let royalty = listing.royalty.clone();
         let transferable = listing.transferable;
         let burnable = listing.burnable;

@@ -194,7 +194,7 @@ export function TicketDoorEventSheet({
                 <SheetFactRow label="Starts" value={event.starts} />
               ) : null}
               {event.ends ? (
-                <SheetFactRow label="Ends" value={event.ends} />
+                <SheetFactRow label={event.endsLabel} value={event.ends} />
               ) : null}
               {event.next ? <SheetFactCopy>{event.next}</SheetFactCopy> : null}
             </SheetFactSection>

@@ -42,6 +42,8 @@ export function buildTokenMetadata(opts: {
   title: string;
   description?: string;
   mediaCid?: string;
+  /** Fetchable cover URL. Wins over `ipfs://<mediaCid>` when set. */
+  mediaUrl?: string;
   mediaHash?: string;
   copies?: number;
   /** NEP-177 expiry in milliseconds since epoch. */
@@ -55,10 +57,16 @@ export function buildTokenMetadata(opts: {
     assertBase64Sha256Hash(opts.mediaHash, 'mediaHash');
   }
 
+  const media = opts.mediaUrl?.trim()
+    ? opts.mediaUrl.trim()
+    : opts.mediaCid
+      ? `ipfs://${opts.mediaCid}`
+      : undefined;
+
   return {
     title: opts.title,
     ...(opts.description ? { description: opts.description } : {}),
-    ...(opts.mediaCid ? { media: `ipfs://${opts.mediaCid}` } : {}),
+    ...(media ? { media } : {}),
     ...(opts.mediaHash ? { media_hash: opts.mediaHash } : {}),
     ...(opts.copies != null ? { copies: opts.copies } : {}),
     ...(opts.expiresAtMs != null ? { expires_at: opts.expiresAtMs } : {}),

@@ -74,8 +74,23 @@ describe('ticket event metadata', () => {
     expect(facts.place).toBeTruthy();
     expect(facts.starts).toBeNull();
     expect(facts.ends).toMatch(/\d:\d{2}/);
+    expect(facts.endsLabel).toBe('Ends');
     expect(facts.when).toMatch(/Until .+\d:\d{2}/);
     expect(facts.empty).toBe(false);
+  });
+
+  it('labels a finished show Ended', () => {
+    const now = 1_700_000_000_000;
+    const facts = ticketEventScheduleFacts(
+      {
+        eventStartsAtMs: now - 2 * 86_400_000,
+        eventEndsAtMs: now - 86_400_000,
+        place: null,
+      },
+      now
+    );
+    expect(facts.endsLabel).toBe('Ended');
+    expect(facts.ends).toBeTruthy();
   });
 
   it('puts the clock on the same day and both dates when the show runs over', () => {

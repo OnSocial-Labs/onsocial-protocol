@@ -29,7 +29,11 @@ import {
   buildUpdateCollectionPriceAction,
   withCollectionProvenance,
 } from '../../builders/scarces/collections.js';
-import { hasLocalUpload, resolveScarceMedia } from './_media.js';
+import {
+  hasLocalUpload,
+  resolveScarceMedia,
+  walletMediaUrl,
+} from './_media.js';
 import { ONE_YOCTO_NEAR, scarcesRelayOptions } from './_relay.js';
 
 /** Allowlist entry as accepted by the scarces contract. */
@@ -160,6 +164,15 @@ export class ScarcesCollectionsApi {
       createAction = buildCreateCollectionAction({
         ...opts,
         ...(mediaCid ? { mediaCid } : {}),
+        ...(mediaCid
+          ? {
+              mediaUrl: walletMediaUrl(
+                mediaCid,
+                this._storage,
+                this._http.network
+              ),
+            }
+          : {}),
         ...(mediaHash ? { mediaHash } : {}),
       }) as Record<string, unknown>;
     } else {

@@ -14,7 +14,9 @@ fn merge_event_end_previous(
     previous_ms: u64,
 ) -> Result<String, MarketplaceError> {
     let mut meta = match existing.map(str::trim).filter(|s| !s.is_empty()) {
-        Some(raw) => serde_json::from_str::<serde_json::Value>(raw).unwrap_or(serde_json::json!({})),
+        Some(raw) => {
+            serde_json::from_str::<serde_json::Value>(raw).unwrap_or(serde_json::json!({}))
+        }
         None => serde_json::json!({}),
     };
     if !meta.is_object() {
@@ -158,10 +160,7 @@ impl Contract {
             .or_else(|| template_event_ends_at(&template));
         if let Some(prior) = prior_end {
             if prior != expires_at_ms {
-                let next_meta = merge_event_end_previous(
-                    collection.metadata.as_deref(),
-                    prior,
-                )?;
+                let next_meta = merge_event_end_previous(collection.metadata.as_deref(), prior)?;
                 crate::validation::validate_metadata_json(&next_meta)?;
                 collection.metadata = Some(next_meta);
             }

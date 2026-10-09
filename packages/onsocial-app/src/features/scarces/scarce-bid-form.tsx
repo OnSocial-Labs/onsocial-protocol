@@ -36,6 +36,7 @@ import {
   postScarceKey,
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
+import { ScarceCommerceSummary } from '@/features/scarces/scarce-commerce-summary';
 import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
@@ -825,106 +826,105 @@ export function ScarceBidForm({
           />
         ) : null}
 
-        <div className="scarce-buy-summary">
-          <p className="scarce-buy-title">{title}</p>
-          {parties.artistPending ? (
-            <ScarcePartyLine pending />
-          ) : artistId ? (
-            <ScarcePartyLine
-              label={scarceMakerPartyLabel(showDistinctSeller)}
-              accountId={artistId}
+        <ScarceCommerceSummary
+          title={title}
+          story={
+            <ScarceProvenanceCopy
+              title={title}
+              description={resolvedDescription}
+              post={post}
+              postHref={listing?.postHref}
+              sourcePostPath={resolvedSourcePostPath ?? listing?.sourcePostPath}
+              hideOriginalLink={isScarceOriginalSelf(
+                post,
+                resolvedSourcePostPath ?? listing?.sourcePostPath,
+                listing?.postHref
+              )}
+              event={
+                hydratedEvent
+                  ? {
+                      eventStartsAtMs: hydratedEvent.eventStartsAtMs,
+                      eventEndsAtMs: hydratedEvent.eventEndsAtMs,
+                      place: hydratedEvent.place,
+                      accessEndsAtMs: hydratedEvent.accessEndsAtMs,
+                      kind: hydratedEvent.kind,
+                    }
+                  : null
+              }
             />
-          ) : null}
-          {showDistinctSeller && sellerId ? (
-            <ScarcePartyLine label="Seller" accountId={sellerId} />
-          ) : null}
-          <p className="scarce-buy-price">
-            {auctionLoading ? (
-              <span
-                className="standing-row-shimmer scarce-buy-price-skel"
-                aria-hidden
-              />
-            ) : ended ? (
-              auction?.reserveMet ? (
-                `Ended · ${formatNearLabel(highNear)}`
-              ) : (
-                'Ended · reserve not met'
-              )
-            ) : highNear ? (
-              `High bid · ${formatNearLabel(highNear)}`
-            ) : minNear ? (
-              `Reserve · ${formatNearLabel(minNear)}`
-            ) : (
-              'Auction'
-            )}
-          </p>
-          {!ended && !auctionLoading ? (
-            <p className="profile-support-hint scarce-buy-meta">
-              {[
-                countdown
-                  ? countdown === 'Ended'
-                    ? 'Ended'
-                    : `Ends ${countdown}`
-                  : auction?.expiresAtNs == null
-                    ? 'Starts on first bid'
-                    : null,
-                stepNear ? `Step ${formatNearShort(stepNear)}` : null,
-                buyNow && !bidMeetsBuyNow && !minMeetsBuyNow
-                  ? `Buy now ${formatNearShort(buyNow)}`
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-              {stepNear || (buyNow && !bidMeetsBuyNow && !minMeetsBuyNow)
-                ? ' NEAR'
-                : ''}
-            </p>
-          ) : null}
-          {(() => {
-            const listedLabel = listing?.listedAtMs
-              ? formatMarketRelativeTime(listing.listedAtMs)
-              : '';
-            const mintedLabel = mintedAtMs
-              ? formatMarketRelativeTime(mintedAtMs)
-              : '';
-            const mintPriceLabel = mintPriceNear
-              ? `${formatNearShort(mintPriceNear)} NEAR`
-              : '';
-            const parts = [
-              listedLabel ? `Listed ${listedLabel}` : null,
-              mintedLabel ? `Minted ${mintedLabel}` : null,
-              mintPriceLabel || null,
-            ].filter((part): part is string => Boolean(part));
-            return (
+          }
+          parties={
+            parties.artistPending ||
+            artistId ||
+            (showDistinctSeller && sellerId) ? (
+              <>
+                {parties.artistPending ? (
+                  <ScarcePartyLine pending />
+                ) : artistId ? (
+                  <ScarcePartyLine
+                    label={scarceMakerPartyLabel(showDistinctSeller)}
+                    accountId={artistId}
+                  />
+                ) : null}
+                {showDistinctSeller && sellerId ? (
+                  <ScarcePartyLine label="Seller" accountId={sellerId} />
+                ) : null}
+              </>
+            ) : null
+          }
+          price={
+            <>
+              <p className="scarce-buy-price">
+                {auctionLoading ? (
+                  <span
+                    className="standing-row-shimmer scarce-buy-price-skel"
+                    aria-hidden
+                  />
+                ) : ended ? (
+                  auction?.reserveMet ? (
+                    `Ended · ${formatNearLabel(highNear)}`
+                  ) : (
+                    'Ended · reserve not met'
+                  )
+                ) : highNear ? (
+                  `High bid · ${formatNearLabel(highNear)}`
+                ) : minNear ? (
+                  `Reserve · ${formatNearLabel(minNear)}`
+                ) : (
+                  'Auction'
+                )}
+              </p>
+              {!ended && !auctionLoading ? (
+                <p className="profile-support-hint scarce-buy-meta">
+                  {[
+                    countdown
+                      ? countdown === 'Ended'
+                        ? 'Ended'
+                        : `Ends ${countdown}`
+                      : auction?.expiresAtNs == null
+                        ? 'Starts on first bid'
+                        : null,
+                    stepNear ? `Step ${formatNearShort(stepNear)}` : null,
+                    buyNow && !bidMeetsBuyNow && !minMeetsBuyNow
+                      ? `Buy now ${formatNearShort(buyNow)}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  {stepNear || (buyNow && !bidMeetsBuyNow && !minMeetsBuyNow)
+                    ? ' NEAR'
+                    : ''}
+                </p>
+              ) : null}
               <ScarceBuyFactsMeta
-                parts={parts.length > 0 ? parts : ['Auction']}
+                parts={
+                  listing?.listedAtMs
+                    ? [`Listed ${formatMarketRelativeTime(listing.listedAtMs)}`]
+                    : []
+                }
                 onOpenFacts={() => setFactsOpen(true)}
               />
-            );
-          })()}
-        </div>
-
-        <ScarceProvenanceCopy
-          title={title}
-          description={resolvedDescription}
-          post={post}
-          postHref={listing?.postHref}
-          sourcePostPath={resolvedSourcePostPath ?? listing?.sourcePostPath}
-          hideOriginalLink={isScarceOriginalSelf(
-            post,
-            resolvedSourcePostPath ?? listing?.sourcePostPath,
-            listing?.postHref
-          )}
-          event={
-            hydratedEvent
-              ? {
-                  eventStartsAtMs: hydratedEvent.eventStartsAtMs,
-                  eventEndsAtMs: hydratedEvent.eventEndsAtMs,
-                  place: hydratedEvent.place,
-                  accessEndsAtMs: hydratedEvent.accessEndsAtMs,
-                  kind: hydratedEvent.kind,
-                }
-              : null
+            </>
           }
         />
 

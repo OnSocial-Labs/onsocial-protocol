@@ -58,11 +58,15 @@ export function yoctoForUsd(
   return yocto;
 }
 
-/** Buyer stop: 0.5% above the computed NEAR, rounded up. */
+/**
+ * Buyer stop: 2% above the indicative NEAR, rounded up.
+ * The oracle settles the real amount and the rest is refunded. 2% covers the
+ * gap between the 1Click quote and that oracle, plus a small move during the fetch.
+ */
 export function buyerMaxNear(unitYocto: bigint, quantity = 1): bigint {
   if (quantity < 1) throw new Error('Quantity must be at least 1');
   const total = unitYocto * BigInt(quantity);
-  const buffered = (total * 1005n + 999n) / 1000n;
+  const buffered = (total * 1020n + 999n) / 1000n;
   return buffered > total ? buffered : total + 1n;
 }
 
@@ -78,7 +82,7 @@ export function dollarNearEstimateLabel(
     Number.isFinite(amount) && amount >= 0.0001
       ? amount.toLocaleString('en-US', { maximumFractionDigits: 4 })
       : near;
-  return `About ${spoken} NEAR now.`;
+  return `${spoken} NEAR now`;
 }
 
 /** Indexed `usd_e6` millionths. Blank when the listing is priced in NEAR. */

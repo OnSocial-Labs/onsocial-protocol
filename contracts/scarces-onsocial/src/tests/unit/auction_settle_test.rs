@@ -86,6 +86,68 @@ fn settle_auction_after_expiry_happy() {
 }
 
 #[test]
+fn settle_auction_unsold_expired_token_fails() {
+    let mut contract = setup_contract();
+    let tid = list_and_setup_auction(&mut contract, &owner());
+    let mut token = contract.scarces_by_id.get(&tid).unwrap().clone();
+    token.metadata.expires_at = Some(1_600_000_000_000);
+    contract.scarces_by_id.insert(tid.clone(), token);
+
+    testing_env!(context_with_deposit(buyer(), 1_000).build());
+    contract
+        .execute(make_request(Action::PlaceBid {
+            token_id: tid.clone(),
+            amount: U128(1_000),
+        }))
+        .unwrap();
+
+    testing_env!(
+        context_with_deposit(buyer(), 0)
+            .block_timestamp(1_700_000_000_000_000_000 + 120_000_000_000)
+            .build()
+    );
+    let err = contract
+        .execute(make_request(Action::SettleAuction {
+            token_id: tid.clone(),
+        }))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidState(_)));
+    let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &tid);
+    assert!(contract.sales.contains_key(&sale_id));
+    assert_eq!(contract.scarces_by_id.get(&tid).unwrap().owner_id, owner());
+}
+
+#[test]
+fn settle_auction_expired_held_token_succeeds() {
+    let mut contract = setup_contract();
+    let tid = list_and_setup_auction(&mut contract, &owner());
+    let mut token = contract.scarces_by_id.get(&tid).unwrap().clone();
+    token.creator_id = creator();
+    token.metadata.expires_at = Some(1_600_000_000_000);
+    contract.scarces_by_id.insert(tid.clone(), token);
+
+    testing_env!(context_with_deposit(buyer(), 1_000).build());
+    contract
+        .execute(make_request(Action::PlaceBid {
+            token_id: tid.clone(),
+            amount: U128(1_000),
+        }))
+        .unwrap();
+
+    testing_env!(
+        context_with_deposit(buyer(), 0)
+            .block_timestamp(1_700_000_000_000_000_000 + 120_000_000_000)
+            .build()
+    );
+    contract
+        .execute(make_request(Action::SettleAuction {
+            token_id: tid.clone(),
+        }))
+        .unwrap();
+    assert_eq!(contract.scarces_by_id.get(&tid).unwrap().owner_id, buyer());
+}
+
+#[test]
 fn settle_auction_before_expiry_fails() {
     let mut contract = setup_contract();
     let tid = list_and_setup_auction(&mut contract, &owner());

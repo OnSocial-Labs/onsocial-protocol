@@ -10,10 +10,12 @@ describe('accessEndsScheduleFacts', () => {
     const future = accessEndsScheduleFacts(now + 86_400_000, now);
     expect(future.empty).toBe(false);
     expect(future.ends).toBeTruthy();
+    expect(future.endsLabel).toBe('Ends');
     expect(future.next).toMatch(/^Ends /);
 
     const past = accessEndsScheduleFacts(now - 86_400_000, now);
     expect(past.empty).toBe(false);
+    expect(past.endsLabel).toBe('Ended');
     expect(past.next).toMatch(/^Ended /);
   });
 

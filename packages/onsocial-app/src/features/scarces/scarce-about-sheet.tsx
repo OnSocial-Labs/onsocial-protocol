@@ -119,7 +119,7 @@ export function ScarceAboutSheet({
                 <SheetFactRow label="Starts" value={schedule.starts} />
               ) : null}
               {schedule.ends ? (
-                <SheetFactRow label="Ends" value={schedule.ends} />
+                <SheetFactRow label={schedule.endsLabel} value={schedule.ends} />
               ) : null}
               {schedule.next ? (
                 <SheetFactCopy>{schedule.next}</SheetFactCopy>
@@ -132,7 +132,7 @@ export function ScarceAboutSheet({
             {trimmed || showEvent ? <Divider variant="detail" /> : null}
             <SheetFactSection title="Access">
               {access.ends ? (
-                <SheetFactRow label="Ends" value={access.ends} />
+                <SheetFactRow label={access.endsLabel} value={access.ends} />
               ) : null}
               {access.next ? <SheetFactCopy>{access.next}</SheetFactCopy> : null}
             </SheetFactSection>

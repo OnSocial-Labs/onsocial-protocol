@@ -24,17 +24,16 @@ export function ScarceBuyFactsMeta({
           <span className="scarce-buy-meta-label">{part}</span>
         </Fragment>
       ))}
-      <span className="scarce-buy-meta-sep" aria-hidden />
+      {labels.length > 0 ? (
+        <span className="scarce-buy-meta-sep" aria-hidden />
+      ) : null}
       <button
         type="button"
         className="guild-hero-facts-button collectibles-play-facts scarce-buy-facts-button"
         aria-label="Scarce facts"
         onClick={onOpenFacts}
       >
-        <InformationCircleIcon
-          className="guild-hero-facts-icon"
-          aria-hidden
-        />
+        <InformationCircleIcon className="guild-hero-facts-icon" aria-hidden />
       </button>
     </p>
   );

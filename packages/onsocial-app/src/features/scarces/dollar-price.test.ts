@@ -25,17 +25,23 @@ describe('yoctoForUsd', () => {
 });
 
 describe('buyerMaxNear', () => {
-  it('allows half a percent of price movement', () => {
-    expect(buyerMaxNear(1000n)).toBe(1005n);
-    expect(buyerMaxNear(100n, 2)).toBe(201n);
+  it('allows two percent of price movement', () => {
+    expect(buyerMaxNear(1000n)).toBe(1020n);
+    expect(buyerMaxNear(100n, 2)).toBe(204n);
+  });
+
+  it('clears a 1Click quote that sits a little above the oracle', () => {
+    const quoted = yoctoForUsd(5_000_000n, 470_000_000n, -8);
+    const oracle = yoctoForUsd(5_000_000n, 467_613_333n, -8);
+    expect(buyerMaxNear(quoted)).toBeGreaterThan(oracle);
   });
 });
 
 describe('dollarNearEstimateLabel', () => {
   it('speaks the live NEAR for the quantity the buyer is taking', () => {
-    expect(dollarNearEstimateLabel(ONE_NEAR)).toBe('About 1 NEAR now.');
-    expect(dollarNearEstimateLabel(ONE_NEAR * 125n / 10n, 2)).toBe(
-      'About 25 NEAR now.'
+    expect(dollarNearEstimateLabel(ONE_NEAR)).toBe('1 NEAR now');
+    expect(dollarNearEstimateLabel((ONE_NEAR * 125n) / 10n, 2)).toBe(
+      '25 NEAR now'
     );
   });
 });
@@ -85,7 +91,9 @@ describe('parseDollarOracle', () => {
 
   it('ignores an empty view', () => {
     expect(parseDollarOracle(null)).toBeNull();
-    expect(parseDollarOracle({ oracle_contract: 'price-oracle.near' })).toBeNull();
+    expect(
+      parseDollarOracle({ oracle_contract: 'price-oracle.near' })
+    ).toBeNull();
   });
 });
 

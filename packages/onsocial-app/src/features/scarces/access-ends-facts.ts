@@ -16,22 +16,30 @@ export function accessEndsScheduleFacts(
   nowMs: number
 ): {
   ends: string | null;
+  /** `Ended` once access has expired. The datetime stays in `ends`. */
+  endsLabel: 'Ends' | 'Ended';
   next: string | null;
   empty: boolean;
 } {
   if (accessEndsAtMs == null || !Number.isFinite(accessEndsAtMs) || accessEndsAtMs <= 0) {
-    return { ends: null, next: null, empty: true };
+    return { ends: null, endsLabel: 'Ends', next: null, empty: true };
   }
   const ends = formatPageDrawerJoinedFullLabel(accessEndsAtMs);
+  const ended = accessEndsAtMs <= nowMs;
   let next: string | null = null;
-  if (accessEndsAtMs > nowMs) {
+  if (!ended) {
     const rel = formatFutureRelativeTime(accessEndsAtMs, nowMs);
     next = rel ? `Ends ${rel}` : null;
   } else {
     const rel = formatMarketRelativeTime(accessEndsAtMs, nowMs);
     next = rel ? `Ended ${rel}` : null;
   }
-  return { ends, next, empty: !ends };
+  return {
+    ends,
+    endsLabel: ended ? 'Ended' : 'Ends',
+    next,
+    empty: !ends,
+  };
 }
 
 /** Show Access block when expiry is set and Event story is not already covering it. */

@@ -32,6 +32,7 @@ import { ScarceBuyFactsMeta } from '@/features/scarces/scarce-buy-facts-meta';
 import {
   formatScarceBuyPrice,
   scarceBuyDealParts,
+  scarceBuyPriceLine,
 } from '@/features/scarces/scarce-buy-deal';
 import { supplyUnitForMediumKind } from '@/features/scarces/drop-templates';
 import {
@@ -43,6 +44,7 @@ import {
   postScarceKey,
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
+import { ScarceCommerceSummary } from '@/features/scarces/scarce-commerce-summary';
 import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
@@ -64,11 +66,13 @@ import {
   resolveLazyListingDepositYocto,
 } from '@/features/scarces/scarces-wallet-client';
 import {
+  buyerMaxNear,
   dollarNearEstimateLabel,
   fetchDollarOracle,
   fetchDollarSticker,
   fetchNearUsdQuote,
   formatUsdE6,
+  ORACLE_CALL_FEE,
   yoctoForUsd,
   type DollarOracle,
   type DollarScope,
@@ -77,11 +81,18 @@ import {
 import {
   nearChainPayTokens,
   purchaseDollarScarce,
+  quoteDryTokenAmountIn,
   type DollarPayToken,
 } from '@/features/scarces/dollar-purchase';
+import { scarceBuyAfford } from '@/features/scarces/scarce-buy-afford';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
 import { accountIdsEqual } from '@/lib/account-match';
-import { nearToYocto } from '@/lib/app-near-rpc';
+import {
+  nearToYocto,
+  normalizeFtBalanceYocto,
+  viewNearContract,
+} from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { parseDropPaintSnapshot, parsePostText } from '@/lib/post-display';
 import {
@@ -219,6 +230,11 @@ export function ScarceBuyForm({
   const [dollarUnitYocto, setDollarUnitYocto] = useState<bigint | null>(null);
   const [payAssetId, setPayAssetId] = useState('near');
   const [payTokens, setPayTokens] = useState<DollarPayToken[]>([]);
+  const [tokenFunding, setTokenFunding] = useState<{
+    assetId: string;
+    amountIn: bigint | null;
+    balance: bigint | null;
+  } | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [hydratedDescription, setHydratedDescription] = useState<string | null>(
     null
@@ -603,9 +619,6 @@ export function ScarceBuyForm({
     : isMarketBuy
       ? priceNear
       : undefined;
-  const dollarUnitLabel = dollarSticker
-    ? formatUsdE6(dollarSticker.usdE6)
-    : null;
   const dollarTotalLabel = dollarSticker
     ? formatUsdE6(dollarSticker.usdE6, mintQty)
     : null;
@@ -613,6 +626,106 @@ export function ScarceBuyForm({
     dollarUnitYocto != null
       ? dollarNearEstimateLabel(dollarUnitYocto, mintQty)
       : null;
+  const sheetPriceLabel = scarceBuyPriceLine({
+    priceLabel: dollarTotalLabel,
+    priceNear: footerPriceNear,
+  });
+  const nearDepositYocto = useMemo((): bigint | null => {
+    if (dollarSticker) {
+      if (!dollarOracle || dollarUnitYocto == null) return null;
+      return buyerMaxNear(dollarUnitYocto, mintQty) + ORACLE_CALL_FEE;
+    }
+    const raw = isDropBuy ? totalPriceNear : priceNear;
+    if (!raw?.trim() || Number.parseFloat(raw) <= 0) return 0n;
+    try {
+      return BigInt(nearToYocto(raw));
+    } catch {
+      return null;
+    }
+  }, [
+    dollarOracle,
+    dollarSticker,
+    dollarUnitYocto,
+    isDropBuy,
+    mintQty,
+    priceNear,
+    totalPriceNear,
+  ]);
+  const payWithToken =
+    payAssetId !== 'near' &&
+    Boolean(dollarSticker && dollarOracle) &&
+    ACTIVE_NEAR_NETWORK === 'mainnet';
+  const selectedPayToken =
+    payTokens.find((token) => token.assetId === payAssetId) ?? null;
+  const walletNear = useWalletNearBalance(
+    viewerAccountId,
+    isConnected && isBuyable && !isOwnListing
+  );
+  const otherPayLabel =
+    payTokens.length === 1
+      ? payTokens[0]!.symbol
+      : payTokens.length > 1
+        ? 'another coin'
+        : null;
+  const liveTokenFunding =
+    tokenFunding && tokenFunding.assetId === payAssetId ? tokenFunding : null;
+  const afford =
+    isConnected && isBuyable && !isOwnListing
+      ? scarceBuyAfford({
+          depositYocto: nearDepositYocto,
+          nearBalanceYocto: walletNear.loading ? null : walletNear.balanceYocto,
+          payWithToken,
+          tokenAmountIn: liveTokenFunding?.amountIn ?? null,
+          tokenBalance: liveTokenFunding?.balance ?? null,
+          tokenSymbol: selectedPayToken?.symbol ?? null,
+          tokenDecimals: selectedPayToken?.decimals ?? 0,
+          otherPayLabel,
+        })
+      : { blocked: false, hint: null };
+
+  useEffect(() => {
+    if (
+      !payWithToken ||
+      !selectedPayToken ||
+      !viewerAccountId ||
+      nearDepositYocto == null ||
+      nearDepositYocto <= 0n
+    ) {
+      setTokenFunding(null);
+      return;
+    }
+    const assetId = selectedPayToken.assetId;
+    const contractId = selectedPayToken.contractId;
+    let cancelled = false;
+    setTokenFunding(null);
+    void (async () => {
+      try {
+        const [amountIn, balance] = await Promise.all([
+          quoteDryTokenAmountIn({
+            originAsset: assetId,
+            amountOutYocto: nearDepositYocto.toString(),
+            recipient: viewerAccountId,
+          }),
+          viewNearContract<unknown>(contractId, 'ft_balance_of', {
+            account_id: viewerAccountId,
+          }).then(normalizeFtBalanceYocto),
+        ]);
+        if (cancelled) return;
+        setTokenFunding({
+          assetId,
+          amountIn: BigInt(amountIn),
+          balance,
+        });
+      } catch {
+        if (!cancelled) {
+          setTokenFunding({ assetId, amountIn: null, balance: null });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [nearDepositYocto, payWithToken, selectedPayToken, viewerAccountId]);
   const showFooterPrice = dollarTotalLabel
     ? isConnected && (isLazyBuy || isDropBuy || isMarketBuy)
     : isConnected && ((isDropBuy && isPaidMint) || (isMarketBuy && isPaidAsk));
@@ -624,7 +737,11 @@ export function ScarceBuyForm({
 
   const dollarCheckoutBlocked = dollarSticker != null && dollarOracle == null;
   const canSubmit =
-    isConnected && !pending && isBuyable && !dollarCheckoutBlocked;
+    isConnected &&
+    !pending &&
+    isBuyable &&
+    !dollarCheckoutBlocked &&
+    !afford.blocked;
 
   const clearDelistConfirm = useCallback(() => {
     if (confirmTimerRef.current != null) {
@@ -868,6 +985,8 @@ export function ScarceBuyForm({
       return;
     }
 
+    if (afford.blocked) return;
+
     setPending(true);
     try {
       // Wallet only — paid scarces must not bootstrap the core social session.
@@ -1082,95 +1201,110 @@ export function ScarceBuyForm({
           />
         ) : null}
 
-        <div className="scarce-buy-summary">
-          <p className="scarce-buy-title">{title}</p>
-          {parties.artistPending ? (
-            <ScarcePartyLine pending />
-          ) : artistId ? (
-            <ScarcePartyLine
-              label={scarceMakerPartyLabel(showDistinctSeller)}
-              accountId={artistId}
-              displayNameValue={artistProfileName}
-              avatarUrl={artistAvatarUrl}
-            />
-          ) : null}
-          {showDistinctSeller && sellerId ? (
-            <ScarcePartyLine label="Seller" accountId={sellerId} />
-          ) : null}
-          {dollarSticker &&
-          dollarOracle &&
-          ACTIVE_NEAR_NETWORK === 'mainnet' &&
-          payTokens.length > 0 ? (
-            <label className="profile-support-hint">
-              Pay with
-              <select
-                value={payAssetId}
-                disabled={pending}
-                aria-label="Pay with"
-                onChange={(event) => setPayAssetId(event.target.value)}
-              >
-                <option value="near">NEAR</option>
-                {payTokens.map((token) => (
-                  <option key={token.assetId} value={token.assetId}>
-                    {token.symbol}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          {openOfferNear ? (
-            <p className="profile-support-hint">
-              Your offer · {formatScarceBuyPrice(openOfferNear)}
-            </p>
-          ) : null}
-          <ScarceBuyFactsMeta
-            parts={scarceBuyDealParts({
-              isPrimaryMint,
-              copies,
-              remaining,
-              unit: supplyUnit,
-              priceNear,
-              priceLabel: dollarUnitLabel,
-              listedLabel: listing?.listedAtMs
-                ? `Listed ${formatMarketRelativeTime(listing.listedAtMs)}`
-                : null,
-              mintedLabel: mintedAtMs
-                ? `Minted ${formatMarketRelativeTime(mintedAtMs)}`
-                : null,
-            })}
-            onOpenFacts={() => setFactsOpen(true)}
-          />
-          {dollarSticker ? (
-            <p className="profile-support-hint">
-              {!dollarOracle
-                ? 'Dollar checkout opens when the price oracle is set.'
-                : (dollarNearLabel ??
-                  'Price stays in dollars. You pay the NEAR it is worth right now.')}
-            </p>
-          ) : null}
-        </div>
-
-        <ScarceProvenanceCopy
+        <ScarceCommerceSummary
           title={title}
-          description={resolvedDescription}
-          post={post}
-          postHref={listing?.postHref}
-          sourcePostPath={resolvedSourcePostPath ?? listing?.sourcePostPath}
-          hideOriginalLink={isScarceOriginalSelf(
-            post,
-            resolvedSourcePostPath ?? listing?.sourcePostPath,
-            listing?.postHref
-          )}
-          event={
-            hydratedEvent
-              ? {
-                  eventStartsAtMs: hydratedEvent.eventStartsAtMs,
-                  eventEndsAtMs: hydratedEvent.eventEndsAtMs,
-                  place: hydratedEvent.place,
-                  accessEndsAtMs: hydratedEvent.accessEndsAtMs,
-                  kind: hydratedEvent.kind,
-                }
-              : null
+          story={
+            <ScarceProvenanceCopy
+              title={title}
+              description={resolvedDescription}
+              post={post}
+              postHref={listing?.postHref}
+              sourcePostPath={resolvedSourcePostPath ?? listing?.sourcePostPath}
+              hideOriginalLink={isScarceOriginalSelf(
+                post,
+                resolvedSourcePostPath ?? listing?.sourcePostPath,
+                listing?.postHref
+              )}
+              event={
+                hydratedEvent
+                  ? {
+                      eventStartsAtMs: hydratedEvent.eventStartsAtMs,
+                      eventEndsAtMs: hydratedEvent.eventEndsAtMs,
+                      place: hydratedEvent.place,
+                      accessEndsAtMs: hydratedEvent.accessEndsAtMs,
+                      kind: hydratedEvent.kind,
+                    }
+                  : null
+              }
+            />
+          }
+          parties={
+            parties.artistPending ||
+            artistId ||
+            (showDistinctSeller && sellerId) ? (
+              <>
+                {parties.artistPending ? (
+                  <ScarcePartyLine pending />
+                ) : artistId ? (
+                  <ScarcePartyLine
+                    label={scarceMakerPartyLabel(showDistinctSeller)}
+                    accountId={artistId}
+                    displayNameValue={artistProfileName}
+                    avatarUrl={artistAvatarUrl}
+                  />
+                ) : null}
+                {showDistinctSeller && sellerId ? (
+                  <ScarcePartyLine label="Seller" accountId={sellerId} />
+                ) : null}
+              </>
+            ) : null
+          }
+          price={
+            <>
+              {sheetPriceLabel ? (
+                <p className="scarce-buy-price">{sheetPriceLabel}</p>
+              ) : null}
+              {dollarSticker ? (
+                <p className="profile-support-hint">
+                  {!dollarOracle
+                    ? 'Dollar checkout opens when the price oracle is set.'
+                    : (dollarNearLabel ??
+                      'Price stays in dollars. You pay the NEAR it is worth right now.')}
+                </p>
+              ) : null}
+              {afford.hint ? (
+                <p className="profile-support-hint">{afford.hint}</p>
+              ) : null}
+              {openOfferNear ? (
+                <p className="profile-support-hint">
+                  Your offer · {formatScarceBuyPrice(openOfferNear)}
+                </p>
+              ) : null}
+              {dollarSticker &&
+              dollarOracle &&
+              ACTIVE_NEAR_NETWORK === 'mainnet' &&
+              payTokens.length > 0 ? (
+                <label className="profile-support-hint">
+                  Pay with
+                  <select
+                    value={payAssetId}
+                    disabled={pending}
+                    aria-label="Pay with"
+                    onChange={(event) => setPayAssetId(event.target.value)}
+                  >
+                    <option value="near">NEAR</option>
+                    {payTokens.map((token) => (
+                      <option key={token.assetId} value={token.assetId}>
+                        {token.symbol}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              <ScarceBuyFactsMeta
+                parts={scarceBuyDealParts({
+                  isPrimaryMint,
+                  copies,
+                  remaining,
+                  unit: supplyUnit,
+                  listedLabel:
+                    !isPrimaryMint && listing?.listedAtMs
+                      ? `Listed ${formatMarketRelativeTime(listing.listedAtMs)}`
+                      : null,
+                })}
+                onOpenFacts={() => setFactsOpen(true)}
+              />
+            </>
           }
         />
 

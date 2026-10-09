@@ -67,6 +67,17 @@ describe('scarces builders — tokens', () => {
     });
   });
 
+  it('quick_mint stores a fetchable media URL when one is given', () => {
+    expect(
+      buildQuickMintAction({
+        title: 'Genesis',
+        mediaCid: 'bafy123',
+        mediaHash: HASH_32,
+        mediaUrl: 'https://cdn.testnet.onsocial.id/ipfs/bafy123',
+      }).metadata.media
+    ).toBe('https://cdn.testnet.onsocial.id/ipfs/bafy123');
+  });
+
   it('quick_mint requires mediaHash with mediaCid', () => {
     expect(() =>
       buildQuickMintAction({ title: 'Genesis', mediaCid: 'bafy123' })

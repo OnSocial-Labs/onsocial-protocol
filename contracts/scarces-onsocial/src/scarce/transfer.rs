@@ -158,6 +158,12 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?
             .clone();
 
+        if self.token_door_closed(&token, token_id) && !Contract::held_before_door(&token) {
+            return Err(MarketplaceError::InvalidState(
+                "Cannot transfer an expired token".into(),
+            ));
+        }
+
         self.check_transferable(&token, token_id, "transfer")?;
 
         // State/indexing invariant: delist uses pre-transfer owner context.

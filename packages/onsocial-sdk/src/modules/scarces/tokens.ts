@@ -17,7 +17,11 @@ import {
 import { SCARCES_VERBS } from './verbs.js';
 import { resolveContractId } from '../../internal/contracts.js';
 import { buildQuickMintAction } from '../../builders/scarces/tokens.js';
-import { hasLocalUpload, resolveScarceMedia } from './_media.js';
+import {
+  hasLocalUpload,
+  resolveScarceMedia,
+  walletMediaUrl,
+} from './_media.js';
 import { scarcesRelayOptions } from './_relay.js';
 
 export interface ScarceTokenMetadata {
@@ -156,6 +160,15 @@ export class ScarcesTokensApi {
       const action = buildQuickMintAction({
         ...opts,
         ...(mediaCid ? { mediaCid } : {}),
+        ...(mediaCid
+          ? {
+              mediaUrl: walletMediaUrl(
+                mediaCid,
+                this._storage,
+                this._http.network
+              ),
+            }
+          : {}),
         ...(mediaHash ? { mediaHash } : {}),
       });
       return signAndRelay(

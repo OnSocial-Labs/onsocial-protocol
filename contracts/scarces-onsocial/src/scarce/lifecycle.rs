@@ -15,6 +15,38 @@ fn admission_closed(
 }
 
 impl Contract {
+    pub(crate) fn token_door_closed(&self, token: &Scarce, token_id: &str) -> bool {
+        let cid = collection_id_from_token_id(token_id);
+        let event_ends = if cid.is_empty() {
+            None
+        } else {
+            self.collections.get(cid).and_then(|c| c.event_ends_at)
+        };
+        admission_closed(token.metadata.expires_at, event_ends, crate::time::now_ms())
+    }
+
+    pub(crate) fn collection_door_closed(&self, collection: &LazyCollection) -> bool {
+        let template_exp =
+            near_sdk::serde_json::from_str::<TokenMetadata>(&collection.metadata_template)
+                .ok()
+                .and_then(|meta| meta.expires_at);
+        admission_closed(
+            template_exp,
+            collection.event_ends_at,
+            crate::time::now_ms(),
+        )
+    }
+
+    pub(crate) fn metadata_door_closed(expires_at: Option<u64>) -> bool {
+        admission_closed(expires_at, None, crate::time::now_ms())
+    }
+
+    pub(crate) fn held_before_door(token: &Scarce) -> bool {
+        token.owner_id != token.creator_id || token.paid_price.0 > 0
+    }
+}
+
+impl Contract {
     pub(crate) fn renew_token(
         &mut self,
         actor_id: &AccountId,

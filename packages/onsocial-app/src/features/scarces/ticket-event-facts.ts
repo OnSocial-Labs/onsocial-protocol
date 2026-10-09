@@ -181,6 +181,8 @@ export function ticketEventScheduleFacts(
   place: string | null;
   starts: string | null;
   ends: string | null;
+  /** `Ended` once the show is over. The datetime stays in `ends`. */
+  endsLabel: 'Ends' | 'Ended';
   when: string | null;
   next: string | null;
   empty: boolean;
@@ -188,6 +190,7 @@ export function ticketEventScheduleFacts(
   const place = ticketEventPlaceLabel(view.place);
   const startMs = eventInstant(view.eventStartsAtMs);
   const endMs = eventInstant(view.eventEndsAtMs);
+  const now = eventInstant(nowMs) ?? nowMs;
   const starts =
     startMs != null
       ? withEventZone(formatPageDrawerJoinedDateTimeLabel(startMs) ?? '', startMs)
@@ -196,6 +199,8 @@ export function ticketEventScheduleFacts(
     endMs != null
       ? withEventZone(formatPageDrawerJoinedDateTimeLabel(endMs) ?? '', endMs)
       : null;
+  const endsLabel: 'Ends' | 'Ended' =
+    endMs != null && endMs <= now ? 'Ended' : 'Ends';
   const when = eventScheduleLine(view.eventStartsAtMs, view.eventEndsAtMs);
   const next = eventScheduleHint(
     view.eventStartsAtMs,
@@ -207,6 +212,7 @@ export function ticketEventScheduleFacts(
     place,
     starts,
     ends,
+    endsLabel,
     when,
     next,
     empty: !place && !starts && !ends,

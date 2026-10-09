@@ -125,11 +125,12 @@ async function signCall(opts: {
   return extractNearTransactionHashes(result);
 }
 
-async function quoteExactNear(opts: {
+async function requestNearQuote(opts: {
   originAsset: string;
   amountOutYocto: string;
   recipient: string;
-}): Promise<{ amountIn: string; depositAddress: string }> {
+  dry: boolean;
+}): Promise<{ amountIn: string; depositAddress: string | null }> {
   const response = await fetch('/api/onapi/intents/quote', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -138,7 +139,7 @@ async function quoteExactNear(opts: {
       amountOutYocto: opts.amountOutYocto,
       recipient: opts.recipient,
       refundTo: opts.recipient,
-      dry: false,
+      dry: opts.dry,
     }),
   });
   const body = (await response.json().catch(() => null)) as {
@@ -149,9 +150,28 @@ async function quoteExactNear(opts: {
     throw new Error(body?.error || 'Quote was refused');
   }
   const amountIn = body?.quote?.amountIn;
-  const depositAddress = body?.quote?.depositAddress;
-  if (!amountIn || !depositAddress) throw new Error('Quote was refused');
-  return { amountIn, depositAddress };
+  if (!amountIn) throw new Error('Quote was refused');
+  return { amountIn, depositAddress: body?.quote?.depositAddress ?? null };
+}
+
+/** Dry 1Click quote for the Pay with check. Does not open a deposit. */
+export async function quoteDryTokenAmountIn(opts: {
+  originAsset: string;
+  amountOutYocto: string;
+  recipient: string;
+}): Promise<string> {
+  const quote = await requestNearQuote({ ...opts, dry: true });
+  return quote.amountIn;
+}
+
+async function quoteExactNear(opts: {
+  originAsset: string;
+  amountOutYocto: string;
+  recipient: string;
+}): Promise<{ amountIn: string; depositAddress: string }> {
+  const quote = await requestNearQuote({ ...opts, dry: false });
+  if (!quote.depositAddress) throw new Error('Quote was refused');
+  return { amountIn: quote.amountIn, depositAddress: quote.depositAddress };
 }
 
 async function waitForSwap(depositAddress: string): Promise<void> {

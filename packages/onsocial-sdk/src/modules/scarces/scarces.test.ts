@@ -215,7 +215,7 @@ describe('ScarcesModule.tokens — local-upload path (storage configured)', () =
         type: 'quick_mint',
         metadata: {
           title: 'Local',
-          media: 'ipfs://bafyUploaded',
+          media: 'https://gw/bafyUploaded',
           media_hash: expect.stringMatching(HASH_32_RE),
         },
       },
@@ -292,11 +292,32 @@ describe('ScarcesModule.collections', () => {
     const metadataTemplate = JSON.parse(
       (signed[0].action as Record<string, unknown>).metadata_template as string
     ) as Record<string, unknown>;
-    expect(metadataTemplate.media).toBe('ipfs://bafyUploaded');
+    expect(metadataTemplate.media).toBe('https://gw/bafyUploaded');
     expect(metadataTemplate.media_hash).toEqual(
       expect.stringMatching(HASH_32_RE)
     );
     expect(signed[0].targetAccount).toBe('scarces.onsocial.near');
+  });
+
+  it('create with a pinned cover stores the storage URL', async () => {
+    const http = makeHttp();
+    const storage = makeStorage();
+    const { getter, signed } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter, undefined, storage);
+    const mediaHash = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
+    await mod.collections.create({
+      collectionId: 'g',
+      totalSupply: 1,
+      title: 'G',
+      mediaCid: 'bafyPinned',
+      mediaHash,
+    });
+    expect(storage.upload).not.toHaveBeenCalled();
+    const metadataTemplate = JSON.parse(
+      (signed[0].action as Record<string, unknown>).metadata_template as string
+    ) as Record<string, unknown>;
+    expect(metadataTemplate.media).toBe('https://gw/bafyPinned');
+    expect(metadataTemplate.media_hash).toBe(mediaHash);
   });
 
   it('create with a dollar price batches the sticker into one wallet confirmation', async () => {
@@ -509,7 +530,7 @@ describe('ScarcesModule.lazy', () => {
           unknown
         >
       ).media
-    ).toBe('ipfs://bafyUploaded');
+    ).toBe('https://gw/bafyUploaded');
     expect(
       (
         (signed[0].action as Record<string, unknown>).metadata as Record<

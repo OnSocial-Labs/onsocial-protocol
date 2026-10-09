@@ -417,6 +417,8 @@ export interface MintOptions {
   image?: Blob | File;
   /** Pre-uploaded IPFS CID — bypasses gateway upload (BYO storage). */
   mediaCid?: string;
+  /** Fetchable NEP-177 `media` URL. When set, this is stored instead of `ipfs://`. */
+  mediaUrl?: string;
   /** NEP-177 `media_hash` (raw sha256 of the media bytes, base64). Required with `mediaCid`; upload flows compute it automatically. */
   mediaHash?: string;
   copies?: number;
@@ -524,6 +526,8 @@ export interface CollectionOptions {
   randomAssignment?: boolean;
   /** Pre-uploaded IPFS CID — bypasses gateway upload (BYO storage). */
   mediaCid?: string;
+  /** Fetchable NEP-177 `media` URL. When set, this is stored instead of `ipfs://`. */
+  mediaUrl?: string;
   /** NEP-177 `media_hash` (raw sha256 of the media bytes, base64). Required with `mediaCid`; upload flows compute it automatically. */
   mediaHash?: string;
   /** Collection-level metadata blob (e.g. `{ series: { id, title } }`). */
@@ -679,6 +683,8 @@ export interface LazyListingOptions {
   priceNear: string;
   image?: Blob | File;
   mediaCid?: string;
+  /** Fetchable NEP-177 `media` URL. When set, this is stored instead of `ipfs://`. */
+  mediaUrl?: string;
   /** NEP-177 `media_hash` (raw sha256 of the media bytes, base64). Required with `mediaCid`; upload flows compute it automatically. */
   mediaHash?: string;
   description?: string;

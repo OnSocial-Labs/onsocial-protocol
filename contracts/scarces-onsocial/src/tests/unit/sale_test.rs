@@ -607,6 +607,88 @@ fn purchase_native_expired_token_fails_and_restores_deposit() {
 }
 
 #[test]
+fn purchase_native_expired_held_token_succeeds() {
+    let mut contract = new_contract();
+    let tid = make_standalone_token(&mut contract, &buyer());
+    let mut token = contract.scarces_by_id.get(&tid).unwrap().clone();
+    token.creator_id = creator();
+    token.metadata.expires_at = Some(1_600_000_000_000);
+    contract.scarces_by_id.insert(tid.clone(), token);
+
+    testing_env!(context(buyer()).build());
+    contract
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None, None)
+        .unwrap();
+
+    testing_env!(context(creator()).build());
+    contract.pending_attached_balance = 0;
+    contract
+        .purchase_native_scarce(&creator(), tid.clone(), 1_000)
+        .unwrap();
+    assert_eq!(
+        contract.scarces_by_id.get(&tid).unwrap().owner_id,
+        creator()
+    );
+}
+
+#[test]
+fn purchase_native_expired_paid_holding_succeeds() {
+    let mut contract = new_contract();
+    let tid = make_standalone_token(&mut contract, &buyer());
+    let mut token = contract.scarces_by_id.get(&tid).unwrap().clone();
+    token.paid_price = U128(1);
+    token.metadata.expires_at = Some(1_600_000_000_000);
+    contract.scarces_by_id.insert(tid.clone(), token);
+
+    testing_env!(context(buyer()).build());
+    contract
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None, None)
+        .unwrap();
+
+    testing_env!(context(creator()).build());
+    contract.pending_attached_balance = 0;
+    contract
+        .purchase_native_scarce(&creator(), tid.clone(), 1_000)
+        .unwrap();
+    assert_eq!(
+        contract.scarces_by_id.get(&tid).unwrap().owner_id,
+        creator()
+    );
+}
+
+#[test]
+fn transfer_unsold_expired_token_fails() {
+    let mut contract = new_contract();
+    let tid = make_standalone_token(&mut contract, &buyer());
+    let mut token = contract.scarces_by_id.get(&tid).unwrap().clone();
+    token.metadata.expires_at = Some(1_600_000_000_000);
+    contract.scarces_by_id.insert(tid.clone(), token);
+
+    testing_env!(context(buyer()).build());
+    let err = contract
+        .transfer(&buyer(), &creator(), &tid, None, None)
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidState(_)));
+    assert_eq!(contract.scarces_by_id.get(&tid).unwrap().owner_id, buyer());
+}
+
+#[test]
+fn transfer_expired_held_token_succeeds() {
+    let mut contract = new_contract();
+    let tid = make_standalone_token(&mut contract, &buyer());
+    let mut token = contract.scarces_by_id.get(&tid).unwrap().clone();
+    token.creator_id = creator();
+    token.metadata.expires_at = Some(1_600_000_000_000);
+    contract.scarces_by_id.insert(tid.clone(), token);
+
+    testing_env!(context(buyer()).build());
+    contract
+        .transfer(&buyer(), &owner(), &tid, None, None)
+        .unwrap();
+    assert_eq!(contract.scarces_by_id.get(&tid).unwrap().owner_id, owner());
+}
+
+#[test]
 fn purchase_native_happy_credits_overpay_only() {
     let mut contract = new_contract();
     let tid = make_standalone_token(&mut contract, &buyer());

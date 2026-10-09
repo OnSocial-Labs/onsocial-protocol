@@ -167,7 +167,7 @@ export function CollectionAboutSheet({
                 <SheetFactRow label="Starts" value={event.starts} />
               ) : null}
               {event.ends ? (
-                <SheetFactRow label="Ends" value={event.ends} />
+                <SheetFactRow label={event.endsLabel} value={event.ends} />
               ) : null}
               {event.next ? <SheetFactCopy>{event.next}</SheetFactCopy> : null}
               {movedNotice ? <SheetFactCopy>{movedNotice}</SheetFactCopy> : null}
@@ -180,7 +180,7 @@ export function CollectionAboutSheet({
             {description || showEvent ? <Divider variant="detail" /> : null}
             <SheetFactSection title="Access">
               {access.ends ? (
-                <SheetFactRow label="Ends" value={access.ends} />
+                <SheetFactRow label={access.endsLabel} value={access.ends} />
               ) : null}
               {access.next ? <SheetFactCopy>{access.next}</SheetFactCopy> : null}
             </SheetFactSection>

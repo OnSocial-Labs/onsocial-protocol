@@ -316,3 +316,100 @@ fn postpone_does_not_open_refunds() {
     let err = contract.claim_refund(&buyer(), &seat(1), COL).unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
+
+#[test]
+fn sold_ticket_resells_after_the_door_closes() {
+    let mut contract = new_contract();
+    testing_env!(at(creator(), T0_NS).build());
+    contract
+        .create_collection(&creator(), ticket_config())
+        .unwrap();
+    buy(&mut contract, T0_NS, 1);
+
+    testing_env!(at(creator(), T0_NS).build());
+    contract
+        .mint_from_collection(&creator(), COL, 1, None)
+        .unwrap();
+
+    let after_original = T0_NS + DAY_NS + 1;
+    testing_env!(at(buyer(), after_original).build());
+    contract.pending_attached_balance = 0;
+    let err = contract
+        .purchase_from_collection(&buyer(), COL.into(), 1, U128(u128::MAX), PRICE)
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidState(_)));
+    assert_eq!(contract.pending_attached_balance, PRICE);
+    assert_eq!(contract.get_collection(COL.into()).unwrap().minted_count, 2);
+
+    testing_env!(at(creator(), after_original).build());
+    let err = contract
+        .transfer(&creator(), &buyer(), &seat(2), None, None)
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidState(_)));
+    assert_eq!(
+        contract.scarces_by_id.get(&seat(2)).unwrap().owner_id,
+        creator()
+    );
+
+    testing_env!(at(buyer(), after_original).build());
+    contract
+        .list_native_scarce(&buyer(), &seat(1), U128(PRICE), None, None)
+        .unwrap();
+    testing_env!(at(creator(), after_original).build());
+    contract.pending_attached_balance = 0;
+    contract
+        .purchase_native_scarce(&creator(), seat(1), PRICE)
+        .unwrap();
+    assert_eq!(
+        contract.scarces_by_id.get(&seat(1)).unwrap().owner_id,
+        creator()
+    );
+
+    testing_env!(at(creator(), after_original).build());
+    let err = contract
+        .redeem_token(&creator(), &seat(1), COL)
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidState(_)));
+}
+
+#[test]
+fn postponed_show_mints_until_the_new_door_then_closes() {
+    let mut contract = new_contract();
+    testing_env!(at(creator(), T0_NS).build());
+    contract
+        .create_collection(&creator(), ticket_config())
+        .unwrap();
+    buy(&mut contract, T0_NS, 1);
+
+    let after_original = T0_NS + DAY_NS + 1;
+    testing_env!(at(creator(), after_original).build());
+    contract
+        .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
+        .unwrap();
+    buy(&mut contract, after_original, 1);
+    assert_eq!(contract.get_collection(COL.into()).unwrap().minted_count, 2);
+
+    let after_postponed = postponed_end_ns() + 1;
+    testing_env!(at(buyer(), after_postponed).build());
+    contract.pending_attached_balance = 0;
+    let err = contract
+        .purchase_from_collection(&buyer(), COL.into(), 1, U128(u128::MAX), PRICE)
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidState(_)));
+    assert_eq!(contract.pending_attached_balance, PRICE);
+    assert_eq!(contract.get_collection(COL.into()).unwrap().minted_count, 2);
+
+    testing_env!(at(buyer(), after_postponed).build());
+    contract
+        .list_native_scarce(&buyer(), &seat(1), U128(PRICE), None, None)
+        .unwrap();
+    testing_env!(at(creator(), after_postponed).build());
+    contract.pending_attached_balance = 0;
+    contract
+        .purchase_native_scarce(&creator(), seat(1), PRICE)
+        .unwrap();
+    assert_eq!(
+        contract.scarces_by_id.get(&seat(1)).unwrap().owner_id,
+        creator()
+    );
+}

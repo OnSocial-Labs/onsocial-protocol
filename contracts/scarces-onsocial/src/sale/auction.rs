@@ -191,6 +191,11 @@ impl Contract {
                     "Token ownership changed — auction is stale".into(),
                 ));
             }
+            if self.token_door_closed(&token, token_id) && !Contract::held_before_door(&token) {
+                return Err(MarketplaceError::InvalidState(
+                    "Cannot purchase an expired token".into(),
+                ));
+            }
             self.check_transferable(&token, token_id, "auction settle")?;
             let (total_fee, _, _, _) = self.calculate_fee_split(
                 winning_bid,

@@ -128,6 +128,10 @@ function formatDropWindow(
   kind: 'opens' | 'ends',
   nowMs: number
 ): string {
+  if (kind === 'ends' && ms <= nowMs) {
+    const rel = formatMarketRelativeTime(ms, nowMs);
+    return rel ? `Ended ${rel}` : 'Ended';
+  }
   const rel = formatDropRelativeFuture(ms, nowMs);
   if (!rel) return '';
   if (rel === 'soon') return kind === 'opens' ? 'Opens soon' : 'Ends soon';

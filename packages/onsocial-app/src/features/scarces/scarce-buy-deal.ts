@@ -1,6 +1,7 @@
 /**
- * One spoken Collect / Buy deal — same voice as New drop (`25 editions · 1 NEAR`).
- * Price is the unit ask. Footer scales the commit total when qty > 1.
+ * Quiet facts under the price. The price itself is its own line.
+ * Primary mint keeps supply (`25 editions`). A resale keeps one clock
+ * (`Listed 2d ago`). Minted stays in the facts sheet.
  */
 
 export function formatScarceBuyPrice(
@@ -27,27 +28,37 @@ export function scarceBuySupplyPart(opts: {
   return `${copies} ${unit}`;
 }
 
+/**
+ * Spoken ask for the price line. Dollars win when the sticker is set.
+ * A zero NEAR ask stays blank so a dollar sticker can arrive without
+ * flashing `0 NEAR`.
+ */
+export function scarceBuyPriceLine(opts: {
+  priceLabel?: string | null;
+  priceNear?: string | null;
+}): string {
+  const dollars = opts.priceLabel?.trim() || '';
+  if (dollars) return dollars;
+  const near = formatScarceBuyPrice(opts.priceNear);
+  if (!near || near === '0 NEAR') return '';
+  return near;
+}
+
 export function scarceBuyDealParts(opts: {
   isPrimaryMint: boolean;
   copies?: number | null;
   remaining?: number | null;
   unit?: string;
-  priceNear?: string | null;
-  /** Spoken price when the sticker is dollars, for example `$50`. */
-  priceLabel?: string | null;
   listedLabel?: string | null;
-  mintedLabel?: string | null;
 }): string[] {
-  const price = opts.priceLabel?.trim() || formatScarceBuyPrice(opts.priceNear);
   if (opts.isPrimaryMint) {
     const supply = scarceBuySupplyPart({
       copies: opts.copies,
       remaining: opts.remaining,
       unit: opts.unit ?? 'editions',
     });
-    return [supply, price].filter((part): part is string => Boolean(part));
+    return supply ? [supply] : [];
   }
   const listed = opts.listedLabel?.trim() || '';
-  const minted = opts.mintedLabel?.trim() || '';
-  return [price, listed, minted].filter(Boolean);
+  return listed ? [listed] : [];
 }

@@ -19,7 +19,11 @@ import {
 } from '../../internal/session-bridge.js';
 import { resolveContractId } from '../../internal/contracts.js';
 import { buildCreateLazyListingAction } from '../../builders/scarces/lazy.js';
-import { hasLocalUpload, resolveScarceMedia } from './_media.js';
+import {
+  hasLocalUpload,
+  resolveScarceMedia,
+  walletMediaUrl,
+} from './_media.js';
 import { SCARCES_VERBS } from './verbs.js';
 import { scarcesRelayOptions } from './_relay.js';
 
@@ -59,6 +63,15 @@ export class ScarcesLazyApi {
       const action = buildCreateLazyListingAction({
         ...opts,
         ...(mediaCid ? { mediaCid } : {}),
+        ...(mediaCid
+          ? {
+              mediaUrl: walletMediaUrl(
+                mediaCid,
+                this._storage,
+                this._http.network
+              ),
+            }
+          : {}),
         ...(mediaHash ? { mediaHash } : {}),
       });
       return signAndRelay(

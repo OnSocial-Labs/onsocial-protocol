@@ -22,6 +22,13 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
             .clone();
 
+        if self.collection_door_closed(&collection) {
+            self.pending_attached_balance += deposit;
+            return Err(MarketplaceError::InvalidState(
+                "Cannot mint after the event has ended".into(),
+            ));
+        }
+
         let max_per_purchase = if collection.max_per_purchase == 0 {
             MAX_BATCH_MINT
         } else {
@@ -301,6 +308,12 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
             .clone();
 
+        if self.collection_door_closed(&collection) {
+            return Err(MarketplaceError::InvalidState(
+                "Cannot mint after the event has ended".into(),
+            ));
+        }
+
         if !self.is_collection_active(&collection) {
             return Err(MarketplaceError::InvalidState(
                 "Collection is not active for minting".into(),
@@ -419,6 +432,12 @@ impl Contract {
             .get(collection_id)
             .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
             .clone();
+
+        if self.collection_door_closed(&collection) {
+            return Err(MarketplaceError::InvalidState(
+                "Cannot mint after the event has ended".into(),
+            ));
+        }
 
         if !self.is_collection_active(&collection) {
             return Err(MarketplaceError::InvalidState(

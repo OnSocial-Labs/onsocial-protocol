@@ -323,13 +323,10 @@ impl Contract {
                 "Cannot purchase a revoked token".into(),
             ));
         }
-        // NEP-177 expires_at is milliseconds — compare in ms (same as is_token_valid).
-        if let Some(expires_at) = token.metadata.expires_at {
-            if crate::time::now_ms() >= expires_at {
-                return Err(MarketplaceError::InvalidState(
-                    "Cannot purchase an expired token".into(),
-                ));
-            }
+        if self.token_door_closed(&token, &token_id) && !Contract::held_before_door(&token) {
+            return Err(MarketplaceError::InvalidState(
+                "Cannot purchase an expired token".into(),
+            ));
         }
         self.check_transferable(&token, &token_id, "purchase")?;
 

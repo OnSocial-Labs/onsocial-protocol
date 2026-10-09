@@ -16,6 +16,7 @@
 // ---------------------------------------------------------------------------
 
 import type { StorageProvider } from '../../storage/provider.js';
+import { onsocialCdnUrl } from '../../storage/provider.js';
 import { isFileLike } from '../../builders/post.js';
 
 export interface MediaResolveInput {
@@ -27,6 +28,18 @@ export interface MediaResolveInput {
 export interface ResolvedMedia {
   mediaCid?: string;
   mediaHash?: string;
+  mediaUrl?: string;
+}
+
+/** Cover URL wallets can open. Uses the storage provider when one is set. */
+export function walletMediaUrl(
+  cid: string,
+  storage: StorageProvider | undefined,
+  network: string
+): string {
+  const bare = cid.trim().replace(/^ipfs:\/\//, '');
+  if (storage) return storage.url(bare);
+  return onsocialCdnUrl(network, bare);
 }
 
 export async function resolveScarceMedia(

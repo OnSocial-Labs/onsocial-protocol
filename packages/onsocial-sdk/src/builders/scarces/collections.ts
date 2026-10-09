@@ -86,6 +86,7 @@ export function buildCreateCollectionAction(opts: CollectionOptions) {
       title: opts.title,
       ...(opts.description ? { description: opts.description } : {}),
       ...(opts.mediaCid ? { mediaCid: opts.mediaCid } : {}),
+      ...(opts.mediaUrl ? { mediaUrl: opts.mediaUrl } : {}),
       ...(opts.mediaHash ? { mediaHash: opts.mediaHash } : {}),
       ...(opts.expiresAtMs != null ? { expiresAtMs: opts.expiresAtMs } : {}),
       ...(opts.extra ? { extra: opts.extra } : {}),

@@ -16,6 +16,7 @@ import {
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
 import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
+import { ScarceCommerceSummary } from '@/features/scarces/scarce-commerce-summary';
 import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
@@ -431,36 +432,45 @@ export function ScarceSellForm({
         <ScarceBuyCover src={mediaUrl} label={title} />
       ) : null}
 
-      <div className="scarce-buy-summary">
-        <p className="scarce-buy-title">{title}</p>
-        {parties.artistPending ? (
-          <ScarcePartyLine pending />
-        ) : authorId ? (
-          <ScarcePartyLine
-            label={scarceMakerPartyLabel(showDistinctSeller)}
-            accountId={authorId}
-          />
-        ) : null}
-        {showDistinctSeller && sellerId ? (
-          <ScarcePartyLine label="Seller" accountId={sellerId} />
-        ) : null}
-      </div>
-
-      <ScarceProvenanceCopy
+      <ScarceCommerceSummary
         title={title}
-        description={item.description}
-        postHref={sourcePostHref}
-        sourcePostPath={item.sourcePostPath}
-        event={
-          hydratedEvent
-            ? {
-                eventStartsAtMs: hydratedEvent.eventStartsAtMs,
-                eventEndsAtMs: hydratedEvent.eventEndsAtMs,
-                place: hydratedEvent.place,
-                accessEndsAtMs: hydratedEvent.accessEndsAtMs,
-                kind: hydratedEvent.kind,
-              }
-            : null
+        story={
+          <ScarceProvenanceCopy
+            title={title}
+            description={item.description}
+            postHref={sourcePostHref}
+            sourcePostPath={item.sourcePostPath}
+            event={
+              hydratedEvent
+                ? {
+                    eventStartsAtMs: hydratedEvent.eventStartsAtMs,
+                    eventEndsAtMs: hydratedEvent.eventEndsAtMs,
+                    place: hydratedEvent.place,
+                    accessEndsAtMs: hydratedEvent.accessEndsAtMs,
+                    kind: hydratedEvent.kind,
+                  }
+                : null
+            }
+          />
+        }
+        parties={
+          parties.artistPending ||
+          authorId ||
+          (showDistinctSeller && sellerId) ? (
+            <>
+              {parties.artistPending ? (
+                <ScarcePartyLine pending />
+              ) : authorId ? (
+                <ScarcePartyLine
+                  label={scarceMakerPartyLabel(showDistinctSeller)}
+                  accountId={authorId}
+                />
+              ) : null}
+              {showDistinctSeller && sellerId ? (
+                <ScarcePartyLine label="Seller" accountId={sellerId} />
+              ) : null}
+            </>
+          ) : null
         }
       />
 

@@ -9,6 +9,7 @@ import {
   useSyncCommerceSheetFooter,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
+import { ScarceCommerceSummary } from '@/features/scarces/scarce-commerce-summary';
 import {
   fetchOfferFromBuyer,
   viewerOfferCta,
@@ -299,19 +300,25 @@ export function ScarceOfferForm({
         </div>
       ) : null}
 
-      <div className="scarce-buy-summary">
-        <p className="scarce-buy-title">{listing.title?.trim() || 'Scarce'}</p>
-        {listing.askNear ? (
-          <p className="scarce-buy-price">
-            {formatNearLabel(listing.askNear)}
-          </p>
-        ) : null}
-        {existing && !loadingOffer ? (
-          <p className="profile-support-hint">
-            Your offer · {formatNearLabel(existing.amountNear)}
-          </p>
-        ) : null}
-      </div>
+      <ScarceCommerceSummary
+        title={listing.title?.trim() || 'Scarce'}
+        price={
+          listing.askNear || (existing && !loadingOffer) ? (
+            <>
+              {listing.askNear ? (
+                <p className="scarce-buy-price">
+                  {formatNearLabel(listing.askNear)}
+                </p>
+              ) : null}
+              {existing && !loadingOffer ? (
+                <p className="profile-support-hint">
+                  Your offer · {formatNearLabel(existing.amountNear)}
+                </p>
+              ) : null}
+            </>
+          ) : null
+        }
+      />
 
       {!isOwn ? (
         loadingOffer ? (

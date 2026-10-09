@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatScarceBuyPrice,
   scarceBuyDealParts,
+  scarceBuyPriceLine,
   scarceBuySupplyPart,
 } from './scarce-buy-deal';
 
@@ -40,51 +41,58 @@ describe('scarceBuySupplyPart', () => {
   });
 });
 
+describe('scarceBuyPriceLine', () => {
+  it('prefers a dollar sticker over the NEAR ask', () => {
+    expect(scarceBuyPriceLine({ priceLabel: '$5', priceNear: '1.06' })).toBe(
+      '$5'
+    );
+    expect(scarceBuyPriceLine({ priceNear: '3' })).toBe('3 NEAR');
+    expect(scarceBuyPriceLine({ priceNear: '0' })).toBe('');
+    expect(scarceBuyPriceLine({})).toBe('');
+  });
+});
+
 describe('scarceBuyDealParts', () => {
-  it('speaks a primary mint like New drop', () => {
+  it('keeps supply under the price on a primary mint', () => {
     expect(
       scarceBuyDealParts({
         isPrimaryMint: true,
         copies: 25,
         remaining: 25,
         unit: 'editions',
-        priceNear: '1',
       })
-    ).toEqual(['25 editions', '1 NEAR']);
+    ).toEqual(['25 editions']);
   });
 
-  it('keeps the unit ask when qty would change the footer total', () => {
+  it('says what is left once some are gone', () => {
     expect(
       scarceBuyDealParts({
         isPrimaryMint: true,
         copies: 10,
         remaining: 8,
         unit: 'editions',
-        priceNear: '2',
       })
-    ).toEqual(['8 of 10 left', '2 NEAR']);
+    ).toEqual(['8 of 10 left']);
   });
 
-  it('does not say Ask on a resale', () => {
+  it('keeps one clock on a resale', () => {
     expect(
       scarceBuyDealParts({
         isPrimaryMint: false,
-        priceNear: '3',
         listedLabel: 'Listed 2d ago',
-        mintedLabel: 'Minted 1w ago',
       })
-    ).toEqual(['3 NEAR', 'Listed 2d ago', 'Minted 1w ago']);
+    ).toEqual(['Listed 2d ago']);
   });
 
-  it('does not invent Mint or Primary mint filler', () => {
+  it('stays quiet on a 1/1 with no clock', () => {
     expect(
       scarceBuyDealParts({
         isPrimaryMint: true,
         copies: 1,
         remaining: 1,
         unit: 'editions',
-        priceNear: '1',
       })
-    ).toEqual(['1 NEAR']);
+    ).toEqual([]);
+    expect(scarceBuyDealParts({ isPrimaryMint: false })).toEqual([]);
   });
 });
