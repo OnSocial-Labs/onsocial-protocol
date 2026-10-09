@@ -238,6 +238,19 @@
       }
     },
     {
+      "name": "update collection price in dollars",
+      "expected_action_type": "update_collection_price",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "update_collection_price",
+          "collection_id": "genesis",
+          "new_price_near": "1",
+          "usd_e6": "50000000"
+        }
+      }
+    },
+    {
       "name": "update collection timing",
       "expected_action_type": "update_collection_timing",
       "request": {

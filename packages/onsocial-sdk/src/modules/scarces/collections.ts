@@ -26,6 +26,7 @@ import { SCARCES_VERBS } from './verbs.js';
 import { resolveContractId } from '../../internal/contracts.js';
 import {
   buildCreateCollectionAction,
+  buildUpdateCollectionPriceAction,
   withCollectionProvenance,
 } from '../../builders/scarces/collections.js';
 import { hasLocalUpload, resolveScarceMedia } from './_media.js';
@@ -83,6 +84,9 @@ export class ScarcesCollectionsApi {
    * When `relay.allowlist` is non-empty and broadcast is wallet mode, create
    * and set-allowlist are packed into **one** wallet confirmation.
    *
+   * A `priceUsd` sticker is the same shape: `create_collection` has no dollar
+   * field, so the wallet signs create and `update_collection_price` together.
+   *
    * ```ts
    * await os.scarces.collections.create({
    *   collectionId: 'genesis',
@@ -98,7 +102,11 @@ export class ScarcesCollectionsApi {
   ): Promise<RelayResponse> {
     // Every minted token carries drop / series / creator provenance in its
     // NEP-177 `extra` — wallets and marketplaces can attribute it anywhere.
-    const opts = withCollectionProvenance(options, this._http.actorId);
+    const priceUsd = options.priceUsd?.trim() ?? '';
+    const opts = withCollectionProvenance(
+      priceUsd ? { ...options, priceUsd, priceNear: undefined } : options,
+      this._http.actorId
+    );
     const relayOpts = this._relayOpts(
       relay?.depositYocto !== undefined
         ? { depositYocto: relay.depositYocto }
@@ -115,6 +123,11 @@ export class ScarcesCollectionsApi {
     if (batchAllowlist && !isWallet) {
       throw new Error(
         'create with allowlist requires wallet broadcast (one confirmation)'
+      );
+    }
+    if (priceUsd && !isWallet) {
+      throw new Error(
+        'create with a dollar price requires wallet broadcast (one confirmation)'
       );
     }
 
@@ -151,7 +164,7 @@ export class ScarcesCollectionsApi {
       }) as Record<string, unknown>;
     } else {
       const form = this._buildCreateForm(opts);
-      if (batchAllowlist) {
+      if (batchAllowlist || priceUsd) {
         const prepared = await prepareComposeForm(
           this._http,
           SCARCES_VERBS.CREATE_COLLECTION,
@@ -177,7 +190,52 @@ export class ScarcesCollectionsApi {
       }
     }
 
-    if (!batchAllowlist) {
+    const calls: Array<{
+      action: Record<string, unknown>;
+      targetContract: string;
+      depositYocto?: string;
+    }> = [
+      {
+        action: createAction,
+        targetContract: createTarget,
+        depositYocto: createDeposit,
+      },
+    ];
+
+    if (priceUsd) {
+      calls.push({
+        action: buildUpdateCollectionPriceAction({
+          collectionId: opts.collectionId,
+          priceUsd,
+          ...(opts.minNear?.trim() ? { minNear: opts.minNear.trim() } : {}),
+        }) as Record<string, unknown>,
+        targetContract: createTarget,
+        depositYocto: ONE_YOCTO_NEAR,
+      });
+    }
+
+    if (batchAllowlist) {
+      const preparedAllowlist = await prepareCompose(
+        this._http,
+        SCARCES_VERBS.SET_ALLOWLIST,
+        {
+          collectionId: opts.collectionId,
+          entries: allowlist,
+        }
+      );
+      const allowlistTarget =
+        preparedAllowlist.target_account || this._scarcesContract;
+      if (allowlistTarget !== createTarget) {
+        throw new Error('Create and allowlist must target the same contract');
+      }
+      calls.push({
+        action: preparedAllowlist.action as Record<string, unknown>,
+        targetContract: allowlistTarget,
+        depositYocto: ONE_YOCTO_NEAR,
+      });
+    }
+
+    if (calls.length === 1) {
       return signAndRelay(
         this._http,
         this._getSession(),
@@ -190,39 +248,11 @@ export class ScarcesCollectionsApi {
 
     if (typeof broadcast !== 'object' || broadcast.kind !== 'wallet') {
       throw new Error(
-        'create with allowlist requires wallet broadcast (one confirmation)'
+        'create with a dollar price or allowlist requires wallet broadcast (one confirmation)'
       );
     }
 
-    const preparedAllowlist = await prepareCompose(
-      this._http,
-      SCARCES_VERBS.SET_ALLOWLIST,
-      {
-        collectionId: opts.collectionId,
-        entries: allowlist,
-      }
-    );
-    const allowlistTarget =
-      preparedAllowlist.target_account || this._scarcesContract;
-    if (allowlistTarget !== createTarget) {
-      throw new Error('Create and allowlist must target the same contract');
-    }
-
-    return broadcastViaWalletBatch(
-      [
-        {
-          action: createAction,
-          targetContract: createTarget,
-          depositYocto: createDeposit,
-        },
-        {
-          action: preparedAllowlist.action as Record<string, unknown>,
-          targetContract: allowlistTarget,
-          depositYocto: ONE_YOCTO_NEAR,
-        },
-      ],
-      broadcast
-    );
+    return broadcastViaWalletBatch(calls, broadcast);
   }
 
   private _buildCreateForm(opts: CollectionOptions): FormData {

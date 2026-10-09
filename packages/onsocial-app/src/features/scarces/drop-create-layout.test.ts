@@ -10,6 +10,8 @@ import {
   dropCreateDescriptionToggle,
   dropCreateBookPdfPlacement,
   dropCreateDealDraftDirty,
+  dropCreatePriceFields,
+  dropCreatePriceSummary,
   dropCreateDesignDraftDirty,
   dropCreateMoreToggle,
   dropCreateRoyaltyDraftDirty,
@@ -161,6 +163,16 @@ describe('drop create draft dirtiness', () => {
     expect(dropCreateDealDraftDirty('  ', '  ')).toBe(false);
     expect(dropCreateDealDraftDirty('5', '')).toBe(true);
     expect(dropCreateDealDraftDirty('', '1')).toBe(true);
+    expect(dropCreateDealDraftDirty('', '', 'usd')).toBe(true);
+  });
+
+  it('prices a drop in dollars without sending a NEAR ask', () => {
+    expect(dropCreatePriceSummary('', 'near')).toBe('Free');
+    expect(dropCreatePriceSummary('1', 'near')).toBe('1 NEAR');
+    expect(dropCreatePriceSummary('50', 'usd')).toBe('$50');
+    expect(dropCreatePriceFields('', 'usd')).toEqual({});
+    expect(dropCreatePriceFields('50', 'usd')).toEqual({ priceUsd: '50' });
+    expect(dropCreatePriceFields('1', 'near')).toEqual({ priceNear: '1' });
   });
 
   it('treats a royalty change or split as a draft and leaves the 10% default', () => {
@@ -341,9 +353,7 @@ describe('dropCreate summaries', () => {
     expect(dropCreateSaleWindowSummary('Now', 'no end')).toBe('Now · no end');
     expect(dropCreateAllowlistNeedsSaleOpen(0, '')).toBe(false);
     expect(dropCreateAllowlistNeedsSaleOpen(2, '')).toBe(true);
-    expect(dropCreateAllowlistNeedsSaleOpen(2, '2026-09-30T21:49')).toBe(
-      false
-    );
+    expect(dropCreateAllowlistNeedsSaleOpen(2, '2026-09-30T21:49')).toBe(false);
     const eventEndsMs = Date.parse('2026-09-25T21:54:00');
     const afterEvent = Date.parse('2026-09-30T21:49:00');
     expect(

@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import type { CollectionOptions } from '../../types.js';
+import { usdToE6 } from './market.js';
 import {
   buildTokenMetadata,
   nearToYocto,
@@ -125,6 +126,35 @@ export function buildCreateCollectionAction(opts: CollectionOptions) {
     ...(parseOptionalU64(opts.endTime) != null
       ? { end_time: parseOptionalU64(opts.endTime) }
       : {}),
+  };
+}
+
+/**
+ * Collection price change. A dollar sticker stores a 1-yocto NEAR floor
+ * (or `minNear`) and writes `usd_e6`. Buyers pay the NEAR that sticker is
+ * worth at purchase.
+ */
+export function buildUpdateCollectionPriceAction(opts: {
+  collectionId: string;
+  newPriceNear?: string;
+  priceUsd?: string;
+  minNear?: string;
+}) {
+  if (opts.priceUsd) {
+    const floor = opts.minNear ? nearToYocto(opts.minNear) : '1';
+    return {
+      type: 'update_collection_price' as const,
+      collection_id: opts.collectionId,
+      new_price_near: floor,
+      usd_e6: usdToE6(opts.priceUsd),
+      ...(opts.minNear ? { min_near: floor } : {}),
+    };
+  }
+  if (!opts.newPriceNear) throw new Error('Missing newPriceNear');
+  return {
+    type: 'update_collection_price' as const,
+    collection_id: opts.collectionId,
+    new_price_near: nearToYocto(opts.newPriceNear),
   };
 }
 

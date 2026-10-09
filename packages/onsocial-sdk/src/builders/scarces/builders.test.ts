@@ -9,6 +9,7 @@ import {
   buildCancelCollectionOfferAction,
   buildCancelOfferAction,
   buildCreateCollectionAction,
+  buildUpdateCollectionPriceAction,
   withCollectionProvenance,
   buildCreateLazyListingAction,
   buildDelistNativeScarceAction,
@@ -290,6 +291,33 @@ describe('scarces builders — collections', () => {
       type: 'airdrop_from_collection',
       collection_id: 'genesis',
       receivers: ['a.near', 'b.near'],
+    });
+  });
+
+  it('update_collection_price stores a dollar sticker beside a NEAR floor', () => {
+    expect(
+      buildUpdateCollectionPriceAction({
+        collectionId: 'genesis',
+        priceUsd: '50',
+      })
+    ).toEqual({
+      type: 'update_collection_price',
+      collection_id: 'genesis',
+      new_price_near: '1',
+      usd_e6: '50000000',
+    });
+    expect(
+      buildUpdateCollectionPriceAction({
+        collectionId: 'genesis',
+        priceUsd: '12.50',
+        minNear: '0.5',
+      })
+    ).toEqual({
+      type: 'update_collection_price',
+      collection_id: 'genesis',
+      new_price_near: '500000000000000000000000',
+      usd_e6: '12500000',
+      min_near: '500000000000000000000000',
     });
   });
 
