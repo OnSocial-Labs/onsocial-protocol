@@ -335,10 +335,21 @@ export function StandingPanelProvider({
     normalizedQuery.length >= PROFILE_SEARCH_MIN_QUERY_LENGTH;
   const searchQueryForFetch = serverSearchActive ? normalizedQuery : '';
 
+  const adoptedUrlQueryRef = useRef(false);
   useEffect(() => {
     if (!syncUrl) return;
 
     const params = new URLSearchParams(window.location.search);
+    const urlQuery = normalizeProfileSearchQuery(params.get('q'));
+    // A prefetched standing sheet can mount without the query the link carried.
+    // Take that query once instead of wiping it from the address bar.
+    if (!adoptedUrlQueryRef.current && urlQuery && urlQuery !== normalizedQuery) {
+      adoptedUrlQueryRef.current = true;
+      setQuery(urlQuery);
+      return;
+    }
+    adoptedUrlQueryRef.current = true;
+
     if (serverSearchActive) {
       params.set('q', normalizedQuery);
     } else {

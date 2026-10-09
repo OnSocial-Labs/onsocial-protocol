@@ -25,7 +25,12 @@ function NetworkOrbitListAction() {
   const { listHref } = useNetworkOrbit();
   return (
     <OsIconAction asChild ariaLabel="Open standing list">
-      <Link href={listHref} scroll={false} aria-label="Open standing list">
+      <Link
+        href={listHref}
+        scroll={false}
+        prefetch={false}
+        aria-label="Open standing list"
+      >
         <AlignJustifyIcon
           className="glass-sheet-icon-action-glyph"
           aria-hidden
@@ -62,6 +67,12 @@ function NetworkOrbitPageScreen({
   const popInApp = useOsInAppPop();
   const { displayName, isSelf } = useNetworkOrbit();
   const onDockBack = useCallback(() => {
+    const prior = window.history.state as { networkOrbit?: string } | null;
+    // Face taps are their own history. The screen that opened the map is Next's.
+    if (prior?.networkOrbit) {
+      window.history.back();
+      return;
+    }
     if (popInApp()) return;
     router.push(backFallbackHref);
   }, [backFallbackHref, popInApp, router]);

@@ -118,6 +118,30 @@ describe('shouldMountPortfolioGlassHost', () => {
     ).toBe(false);
   });
 
+  it('keeps the network map full screen and still peeks standing over it', () => {
+    expect(
+      shouldMountPortfolioGlassHost({
+        pathname: '/@alice.testnet/network',
+        layoutSegments: ['network'],
+        overlaySlotMode: 'idle',
+      })
+    ).toBe(false);
+    expect(
+      shouldMountPortfolioGlassHost({
+        pathname: '/@alice.testnet/network',
+        layoutSegments: [],
+        overlaySlotMode: 'intercept',
+      })
+    ).toBe(false);
+    expect(
+      shouldMountPortfolioGlassHost({
+        pathname: '/@alice.testnet/standing/incoming',
+        layoutSegments: ['network'],
+        overlaySlotMode: 'intercept',
+      })
+    ).toBe(true);
+  });
+
   it('does not mount for collectibles PanelPage vault', () => {
     expect(
       shouldMountPortfolioGlassHost({

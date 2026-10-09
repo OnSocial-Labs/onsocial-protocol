@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, MouseEvent } from 'react';
 import { UserIcon } from '@onsocial/ui';
 import { useNetworkOrbit } from '@/components/panels/network-orbit-context';
 import { displayName as resolveDisplayName } from '@/lib/profile-display';
@@ -103,7 +103,7 @@ function OrbitNode({
   dimmed: boolean;
   stageSize: number;
 }) {
-  const { stageInsetX, displayName, isSelf } = useNetworkOrbit();
+  const { stageInsetX, displayName, isSelf, openSubject } = useNetworkOrbit();
   const motion = nodeMotion(index);
   const amp = nodeDrift(node, index, stageSize);
   const label = nodeLabel(node.account);
@@ -115,10 +115,25 @@ function OrbitNode({
   });
   const endorsed = node.account.endorsed === true;
 
+  const openHere = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      event.button !== 0
+    ) {
+      return;
+    }
+    event.preventDefault();
+    openSubject(node.account);
+  };
+
   return (
     <Link
       href={networkPath(node.account.accountId)}
       scroll={false}
+      onClick={openHere}
       className={`network-orbit-node${
         node.account.kind === 'mutual' ? ' network-orbit-node--mutual' : ''
       }${dimmed ? ' is-dimmed' : ''}`}
@@ -246,7 +261,12 @@ function OrbitCaptions() {
           Map shows {formatProfileCount(mapShownCount)} of{' '}
           {formatProfileCount(searchMatchTotal)} matches
         </p>
-        <Link href={listHref} scroll={false} className="network-orbit-view-all">
+        <Link
+          href={listHref}
+          scroll={false}
+          prefetch={false}
+          className="network-orbit-view-all"
+        >
           View all
         </Link>
       </div>
@@ -269,7 +289,12 @@ function OrbitCaptions() {
           Map shows {formatProfileCount(mapShownCount)} of{' '}
           {formatProfileCount(totalUnique)} · {order}
         </p>
-        <Link href={listHref} scroll={false} className="network-orbit-view-all">
+        <Link
+          href={listHref}
+          scroll={false}
+          prefetch={false}
+          className="network-orbit-view-all"
+        >
           View all
         </Link>
       </div>
@@ -279,7 +304,12 @@ function OrbitCaptions() {
   if (totalUnique > 0) {
     return (
       <div className="network-orbit-caption-row network-orbit-caption-row--end">
-        <Link href={listHref} scroll={false} className="network-orbit-view-all">
+        <Link
+          href={listHref}
+          scroll={false}
+          prefetch={false}
+          className="network-orbit-view-all"
+        >
           View all
         </Link>
       </div>
@@ -303,9 +333,12 @@ export function NetworkOrbitContent() {
     isSelf,
     displayName,
     personalizing,
+    ringsFading,
   } = useNetworkOrbit();
 
+  const showSkeleton = loading && placedNodes.length === 0 && !ringsFading;
   const showEmpty =
+    !ringsFading &&
     !loading &&
     !loadError &&
     !searchFetching &&
@@ -319,7 +352,7 @@ export function NetworkOrbitContent() {
 
       <div className="network-orbit-stage-wrap" ref={stageWrapRef}>
         <div className="network-orbit-stage-bg" aria-hidden="true" />
-        {loading ? (
+        {showSkeleton ? (
           <div
             className="network-orbit-stage-skeleton standing-row-shimmer"
             aria-hidden="true"
@@ -328,7 +361,11 @@ export function NetworkOrbitContent() {
           <div
             className={`network-orbit-stage${
               sparse ? ' network-orbit-stage--sparse' : ''
-            }${(searchActive && searchFetching) || personalizing ? ' is-refreshing' : ''}`}
+            }${ringsFading ? ' is-fading-rings' : ''}${
+              (searchActive && searchFetching) || personalizing
+                ? ' is-refreshing'
+                : ''
+            }`}
             style={{ width: stageSize, height: stageSize }}
           >
             {placedNodes.map((node, index) => (

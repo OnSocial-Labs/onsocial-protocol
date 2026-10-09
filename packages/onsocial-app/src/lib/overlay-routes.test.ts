@@ -31,6 +31,7 @@ import {
   homeRallyPath,
   portfolioRallyPath,
   portfolioFeedPath,
+  networkAccountIdFromPath,
   networkPath,
   resolveOverlayPanelChrome,
   shouldOpenPortfolioGlassOverlay,
@@ -273,6 +274,27 @@ describe('networkPath', () => {
     expect(
       networkPath('alice.testnet', { filter: 'outgoing', q: 'bob' })
     ).toBe('/@alice.testnet/network?filter=outgoing&q=bob');
+  });
+});
+
+describe('networkAccountIdFromPath', () => {
+  it('reads the account on the network screen', () => {
+    expect(networkAccountIdFromPath('/@alice.testnet/network')).toBe(
+      'alice.testnet'
+    );
+    expect(networkAccountIdFromPath('/@alice.testnet/network/')).toBe(
+      'alice.testnet'
+    );
+    expect(networkAccountIdFromPath('/@a%2Fb.testnet/network')).toBe(
+      'a/b.testnet'
+    );
+  });
+
+  it('ignores other screens', () => {
+    expect(
+      networkAccountIdFromPath('/@alice.testnet/standing/incoming')
+    ).toBeNull();
+    expect(networkAccountIdFromPath('/@alice.testnet')).toBeNull();
   });
 });
 
