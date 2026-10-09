@@ -39,10 +39,7 @@ import {
   type OrbitPlacedNode,
 } from '@/lib/profile-network-layout';
 import { standingPath } from '@/lib/profile-social-standings';
-import {
-  networkAccountIdFromPath,
-  networkPath,
-} from '@/lib/overlay-routes';
+import { networkAccountIdFromPath, networkPath } from '@/lib/overlay-routes';
 
 export interface NetworkOrbitProviderProps {
   accountId: string;
@@ -410,11 +407,9 @@ export function NetworkOrbitProvider({
   useEffect(() => {
     const onPop = (event: PopStateEvent) => {
       const id = networkAccountIdFromPath(window.location.pathname);
-      if (!id) {
-        // Left the map. Next's own popstate listener restores the screen.
-        return;
-      }
-      // Keep the center swap on this page. Next would refetch the route.
+      // Leaving the map (back to Standing) belongs to the App Router.
+      if (!id) return;
+      // A face tap only changed the center. Next would refetch and freeze it.
       event.stopImmediatePropagation();
       if (id === subjectIdRef.current) return;
       const face = facesRef.current.get(id);

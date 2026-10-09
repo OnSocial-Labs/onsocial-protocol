@@ -67,12 +67,13 @@ function NetworkOrbitPageScreen({
   const popInApp = useOsInAppPop();
   const { displayName, isSelf } = useNetworkOrbit();
   const onDockBack = useCallback(() => {
-    if (popInApp()) return;
     const prior = window.history.state as { networkOrbit?: string } | null;
+    // Face taps are their own history. The screen that opened the map is Next's.
     if (prior?.networkOrbit) {
       window.history.back();
       return;
     }
+    if (popInApp()) return;
     router.push(backFallbackHref);
   }, [backFallbackHref, popInApp, router]);
 

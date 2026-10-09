@@ -48819,6 +48819,14 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   max-width: 9.25rem;
 }
 
+@media (max-width: 359px) {
+  .network-orbit-toolbar .standing-view-menu {
+    flex-basis: 7.25rem;
+    width: 7.25rem;
+    max-width: 7.25rem;
+  }
+}
+
 .network-orbit-toolbar .os-floating-panel-trigger {
   box-sizing: border-box;
   width: 100%;

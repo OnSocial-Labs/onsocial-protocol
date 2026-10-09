@@ -180,6 +180,16 @@ test.describe('network orbit', () => {
       { timeout: 15_000 }
     );
     await expect(page.locator('.network-orbit-center')).toBeVisible();
+
+    await page.goBack();
+    await expect(page).toHaveURL(
+      new RegExp(`/@${ENDORSE_E2E_ACCOUNT}/network$`)
+    );
+    await expect(page.locator('.network-orbit-center-label')).not.toHaveText(
+      'Bob',
+      { timeout: 15_000 }
+    );
+    await expect(page.locator('.network-orbit-center')).toHaveCount(1);
   });
 
   test('connected viewer revalidates into a viewer-known ranking', async ({
@@ -239,8 +249,33 @@ test.describe('network orbit', () => {
       page.getByRole('button', { name: 'Open network menu' })
     ).toBeVisible({ timeout: 15_000 });
     await expect(
+      page.getByRole('button', { name: 'Close Network' })
+    ).toHaveCount(0);
+    await expect(
       page.getByRole('link', { name: 'Open standing list' })
     ).toBeVisible();
+    await expect(page.locator('.os-app-screen')).toBeVisible();
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/standing\/incoming$/);
+    await expect(
+      page.getByRole('button', { name: 'Close Standing' })
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole('link', { name: 'Open network map' }).click();
+    await expect(
+      page.getByRole('button', { name: 'Open network menu' })
+    ).toBeVisible({ timeout: 15_000 });
+    await page.getByRole('button', { name: 'Back' }).click();
+    await expect(page).toHaveURL(/\/standing\/incoming$/);
+    await expect(
+      page.getByRole('button', { name: 'Close Standing' })
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole('link', { name: 'Open network map' }).click();
+    await expect(
+      page.getByRole('button', { name: 'Open network menu' })
+    ).toBeVisible({ timeout: 15_000 });
 
     const search = page.getByRole('textbox', { name: 'Search network' });
     await waitForNetworkOrbitReady(page);
@@ -256,5 +291,8 @@ test.describe('network orbit', () => {
     await expect(
       page.getByRole('button', { name: 'Close Standing' })
     ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByRole('textbox', { name: 'Search standing' })
+    ).toHaveValue('bo');
   });
 });
