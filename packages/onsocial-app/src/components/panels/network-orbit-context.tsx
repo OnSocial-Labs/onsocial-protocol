@@ -151,7 +151,6 @@ export function NetworkOrbitProvider({
   );
   const subjectIdRef = useRef(subjectId);
   subjectIdRef.current = subjectId;
-  const initialSubjectRef = useRef(accountId);
 
   const [filter, setFilter] = useState<NetworkFilterKind>(initialFilter);
   const [query, setQuery] = useState(initialQuery);
