@@ -27,6 +27,7 @@ export type { BatchTransferEntry } from './tokens.js';
 
 export {
   buildCreateCollectionAction,
+  buildUpdateCollectionPriceAction,
   withCollectionProvenance,
   buildMintFromCollectionAction,
   buildPurchaseFromCollectionAction,

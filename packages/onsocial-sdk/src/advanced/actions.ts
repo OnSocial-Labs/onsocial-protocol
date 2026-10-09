@@ -48,6 +48,7 @@ import {
 } from '../modules/rewards.js';
 import {
   buildCreateCollectionAction as buildCreateCollectionActionInternal,
+  buildUpdateCollectionPriceAction as buildUpdateCollectionPriceActionInternal,
   buildCreateLazyListingAction as buildCreateLazyListingActionInternal,
   buildListNativeScarceAction as buildListNativeScarceActionInternal,
   buildMintFromCollectionAction as buildMintFromCollectionActionInternal,
@@ -215,6 +216,9 @@ export type ScarcesAction =
       type: 'update_collection_price';
       collection_id: string;
       new_price_near: string;
+      /** Millionths of a dollar. When set, `new_price_near` is the NEAR floor. */
+      usd_e6?: string;
+      min_near?: string;
     }
   | {
       type: 'update_collection_timing';
@@ -583,6 +587,15 @@ export function buildScarcesCreateCollectionAction(
   opts: CollectionOptions
 ): ScarcesAction {
   return buildCreateCollectionActionInternal(opts);
+}
+
+export function buildScarcesUpdateCollectionPriceAction(opts: {
+  collectionId: string;
+  newPriceNear?: string;
+  priceUsd?: string;
+  minNear?: string;
+}): ScarcesAction {
+  return buildUpdateCollectionPriceActionInternal(opts);
 }
 
 export function buildScarcesTransferAction(

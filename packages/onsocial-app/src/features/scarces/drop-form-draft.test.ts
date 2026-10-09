@@ -104,6 +104,19 @@ describe('drop-form-draft', () => {
     expect(loadDropFormDraft('alice.near')).toBeNull();
   });
 
+  it('keeps a dollar price unit and treats older drafts as NEAR', () => {
+    saveDropFormDraft(baseDraft({ title: 'Prints', priceUnit: 'usd' }));
+    expect(loadDropFormDraft('alice.near')?.priceUnit).toBe('usd');
+
+    const legacy = baseDraft({ title: 'Legacy' });
+    delete (legacy as { priceUnit?: string }).priceUnit;
+    window.localStorage.setItem(
+      'onsocial.drop-form-draft.v1',
+      JSON.stringify({ ...legacy, savedAt: Date.now() })
+    );
+    expect(loadDropFormDraft('alice.near')?.priceUnit).toBe('near');
+  });
+
   it('loads older drafts that omit burnable as No', () => {
     const legacy = baseDraft({ title: 'Legacy' });
     delete (legacy as { burnable?: boolean }).burnable;

@@ -138,6 +138,10 @@ import {
   dropCreateBookPdfPlacement,
   dropCreateDealDraftDirty,
   dropCreateDealShowsSupplyField,
+  dropCreatePriceDecimals,
+  dropCreatePriceFields,
+  dropCreatePriceSummary,
+  type DropPriceUnit,
   dropCreateDesignDraftDirty,
   dropCreateMoreToggle,
   dropCreateRoyaltyDraftDirty,
@@ -215,7 +219,6 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
-const NEAR_INPUT_DECIMALS = 5;
 const MIN_SUPPLY = 1;
 const MAX_SUPPLY = 10_000;
 const MIN_VARIATIONS = 2;
@@ -357,6 +360,7 @@ export function CreateDropPanel() {
   const [description, setDescription] = useState('');
   const [supplyInput, setSupplyInput] = useState('');
   const [priceInput, setPriceInput] = useState('');
+  const [priceUnit, setPriceUnit] = useState<DropPriceUnit>('near');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [eventStarts, setEventStarts] = useState('');
@@ -544,6 +548,7 @@ export function CreateDropPanel() {
     setDescription('');
     setSupplyInput('');
     setPriceInput('');
+    setPriceUnit('near');
     setStartTime('');
     setEndTime('');
     setEventStarts('');
@@ -706,6 +711,7 @@ export function CreateDropPanel() {
         setSeriesName(formDraft.seriesName);
         setSupplyInput(formDraft.supplyInput);
         setPriceInput(formDraft.priceInput);
+        setPriceUnit(formDraft.priceUnit === 'usd' ? 'usd' : 'near');
         setStartTime(formDraft.startTime);
         setEndTime(formDraft.endTime);
         setEventStarts(formDraft.eventStarts);
@@ -841,6 +847,7 @@ export function CreateDropPanel() {
         seriesName,
         supplyInput,
         priceInput,
+        priceUnit,
         startTime,
         endTime,
         eventStarts,
@@ -882,6 +889,7 @@ export function CreateDropPanel() {
     seriesName,
     supplyInput,
     priceInput,
+    priceUnit,
     startTime,
     endTime,
     eventStarts,
@@ -994,7 +1002,8 @@ export function CreateDropPanel() {
         ? variationFiles.length
         : (pinnedLargeSet?.pieceCount ?? 0)
       : editionSupply;
-  const priceAmount = finalizeAmountInput(priceInput, NEAR_INPUT_DECIMALS);
+  const priceDecimals = dropCreatePriceDecimals(priceUnit);
+  const priceAmount = finalizeAmountInput(priceInput, priceDecimals);
   const priceIsFree = !priceAmount || Number(priceAmount) === 0;
   const price = priceIsFree ? '' : priceAmount;
   const supplyValid =
@@ -1583,7 +1592,7 @@ export function CreateDropPanel() {
     trackFiles.length > 0 ||
     chapterFiles.length > 0 ||
     variationFiles.length > 0 ||
-    dropCreateDealDraftDirty(supplyInput, priceInput) ||
+    dropCreateDealDraftDirty(supplyInput, priceInput, priceUnit) ||
     dropCreateRoyaltyDraftDirty({
       royaltyBps,
       isCustomRoyalty,
@@ -1671,7 +1680,7 @@ export function CreateDropPanel() {
         value: collectionId || derivedSlug || '—',
       },
       { label: 'Supply', value: `${supply} ${template.unit}` },
-      { label: 'Price', value: price ? `${price} NEAR` : 'Free' },
+      { label: 'Price', value: dropCreatePriceSummary(price, priceUnit) },
       {
         label: dropCreateExtraRowLabel('transferable'),
         value: dropCreateTransferableSummary(transferable),
@@ -1788,6 +1797,7 @@ export function CreateDropPanel() {
     derivedSlug,
     appId,
     price,
+    priceUnit,
     transferable,
     burnable,
     renewable,
@@ -2417,7 +2427,7 @@ export function CreateDropPanel() {
               ...dropFacetsExtraFields(facets, createFacetMedium),
             },
             ...(collectionMetadata ? { metadata: collectionMetadata } : {}),
-            ...(price ? { priceNear: price } : {}),
+            ...dropCreatePriceFields(price, priceUnit),
             ...(description.trim() ? { description: description.trim() } : {}),
             ...(startNs ? { startTime: startNs } : {}),
             ...(endNs ? { endTime: endNs } : {}),
@@ -2529,6 +2539,7 @@ export function CreateDropPanel() {
     burnable,
     template,
     price,
+    priceUnit,
     description,
     maxRedeems,
     resolvedRoyaltyBps,
@@ -3488,14 +3499,65 @@ export function CreateDropPanel() {
             <AmountField
               value={priceInput}
               onValueChange={setPriceInput}
-              maxDecimals={NEAR_INPUT_DECIMALS}
+              maxDecimals={priceDecimals}
               placeholder="0"
-              aria-label={`Price per ${template.unitSingular} in NEAR`}
-              unit="NEAR"
+              aria-label={
+                priceUnit === 'usd'
+                  ? `Price per ${template.unitSingular} in dollars`
+                  : `Price per ${template.unitSingular} in NEAR`
+              }
               chrome="soft"
               disabled={pending}
+              trailing={
+                <span
+                  className="drop-create-price-unit"
+                  role="group"
+                  aria-label="Price unit"
+                  data-drop-price-unit={priceUnit}
+                >
+                  <button
+                    type="button"
+                    aria-pressed={priceUnit === 'near'}
+                    disabled={pending}
+                    onClick={() => {
+                      if (priceUnit === 'near') return;
+                      setPriceUnit('near');
+                      setPriceInput((current) =>
+                        finalizeAmountInput(
+                          current,
+                          dropCreatePriceDecimals('near')
+                        )
+                      );
+                    }}
+                  >
+                    NEAR
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={priceUnit === 'usd'}
+                    disabled={pending}
+                    onClick={() => {
+                      if (priceUnit === 'usd') return;
+                      setPriceUnit('usd');
+                      setPriceInput((current) =>
+                        finalizeAmountInput(
+                          current,
+                          dropCreatePriceDecimals('usd')
+                        )
+                      );
+                    }}
+                  >
+                    USD
+                  </button>
+                </span>
+              }
             />
           </div>
+          {priceUnit === 'usd' ? (
+            <p className="profile-support-hint">
+              The dollar amount stays put. Buyers pay the NEAR it is worth.
+            </p>
+          ) : null}
         </div>
 
         <div
@@ -4003,61 +4065,63 @@ export function CreateDropPanel() {
               role="group"
               aria-label="Sale window"
             >
-            <div
-              className={`drop-schedule-cell${startTime ? ' has-value' : ''}`}
-            >
-              <button
-                type="button"
-                className="drop-schedule-cell-main"
-                disabled={pending}
-                onClick={() => setScheduleField('opens')}
+              <div
+                className={`drop-schedule-cell${startTime ? ' has-value' : ''}`}
               >
-                <span className="drop-schedule-cell-label">Opens</span>
-                <span className="drop-schedule-cell-value">
-                  {startTime
-                    ? formatScheduleLabel(startTime)
-                    : allowlistNeedsOpen
-                      ? 'Required'
-                      : 'Now'}
-                </span>
-              </button>
-              {startTime ? (
                 <button
                   type="button"
-                  className="drop-schedule-cell-clear"
+                  className="drop-schedule-cell-main"
                   disabled={pending}
-                  aria-label="Clear open time"
-                  onClick={() => setStartTime('')}
+                  onClick={() => setScheduleField('opens')}
                 >
-                  ✕
+                  <span className="drop-schedule-cell-label">Opens</span>
+                  <span className="drop-schedule-cell-value">
+                    {startTime
+                      ? formatScheduleLabel(startTime)
+                      : allowlistNeedsOpen
+                        ? 'Required'
+                        : 'Now'}
+                  </span>
                 </button>
-              ) : null}
-            </div>
-            <div className={`drop-schedule-cell${endTime ? ' has-value' : ''}`}>
-              <button
-                type="button"
-                className="drop-schedule-cell-main"
-                disabled={pending}
-                onClick={() => setScheduleField('closes')}
+                {startTime ? (
+                  <button
+                    type="button"
+                    className="drop-schedule-cell-clear"
+                    disabled={pending}
+                    aria-label="Clear open time"
+                    onClick={() => setStartTime('')}
+                  >
+                    ✕
+                  </button>
+                ) : null}
+              </div>
+              <div
+                className={`drop-schedule-cell${endTime ? ' has-value' : ''}`}
               >
-                <span className="drop-schedule-cell-label">Closes</span>
-                <span className="drop-schedule-cell-value">
-                  {endTime ? formatScheduleLabel(endTime) : 'No end'}
-                </span>
-              </button>
-              {endTime ? (
                 <button
                   type="button"
-                  className="drop-schedule-cell-clear"
+                  className="drop-schedule-cell-main"
                   disabled={pending}
-                  aria-label="Clear close time"
-                  onClick={() => setEndTime('')}
+                  onClick={() => setScheduleField('closes')}
                 >
-                  ✕
+                  <span className="drop-schedule-cell-label">Closes</span>
+                  <span className="drop-schedule-cell-value">
+                    {endTime ? formatScheduleLabel(endTime) : 'No end'}
+                  </span>
                 </button>
-              ) : null}
+                {endTime ? (
+                  <button
+                    type="button"
+                    className="drop-schedule-cell-clear"
+                    disabled={pending}
+                    aria-label="Clear close time"
+                    onClick={() => setEndTime('')}
+                  >
+                    ✕
+                  </button>
+                ) : null}
+              </div>
             </div>
-          </div>
           </>
         ) : null}
         {extraSheet === 'perWallet' ? (

@@ -136,12 +136,38 @@ export function dropCreateMoreToggle(open: boolean): string {
   return open ? 'Hide more' : 'More';
 }
 
-/** A typed supply or price is a draft. Empty fields still submit as free. */
+export type DropPriceUnit = 'near' | 'usd';
+
+/** NEAR keeps five decimals. A dollar sticker is cents. */
+export function dropCreatePriceDecimals(unit: DropPriceUnit): number {
+  return unit === 'usd' ? 2 : 5;
+}
+
+/** Review line. Empty is free in either unit. */
+export function dropCreatePriceSummary(
+  price: string,
+  unit: DropPriceUnit
+): string {
+  if (!price) return 'Free';
+  return unit === 'usd' ? `$${price}` : `${price} NEAR`;
+}
+
+/** Fields for `collections.create`. A dollar sticker is not a NEAR ask. */
+export function dropCreatePriceFields(
+  price: string,
+  unit: DropPriceUnit
+): { priceNear?: string; priceUsd?: string } {
+  if (!price) return {};
+  return unit === 'usd' ? { priceUsd: price } : { priceNear: price };
+}
+
+/** A typed supply or price is a draft. Choosing dollars is a draft too. */
 export function dropCreateDealDraftDirty(
   supply: string,
-  price: string
+  price: string,
+  priceUnit: DropPriceUnit = 'near'
 ): boolean {
-  return Boolean(supply.trim() || price.trim());
+  return Boolean(supply.trim() || price.trim() || priceUnit === 'usd');
 }
 
 /** Default 10% with no split is not a draft. A change or a split is. */

@@ -3,6 +3,7 @@ import {
   ORACLE_CALL_FEE,
   buyerMaxNear,
   dollarPurchaseDeposit,
+  dollarNearEstimateLabel,
   dollarStickerLabel,
   formatUsdE6,
   parseDollarOracle,
@@ -27,6 +28,15 @@ describe('buyerMaxNear', () => {
   it('allows half a percent of price movement', () => {
     expect(buyerMaxNear(1000n)).toBe(1005n);
     expect(buyerMaxNear(100n, 2)).toBe(201n);
+  });
+});
+
+describe('dollarNearEstimateLabel', () => {
+  it('speaks the live NEAR for the quantity the buyer is taking', () => {
+    expect(dollarNearEstimateLabel(ONE_NEAR)).toBe('About 1 NEAR now.');
+    expect(dollarNearEstimateLabel(ONE_NEAR * 125n / 10n, 2)).toBe(
+      'About 25 NEAR now.'
+    );
   });
 });
 

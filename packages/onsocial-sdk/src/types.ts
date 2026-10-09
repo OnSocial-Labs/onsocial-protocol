@@ -529,6 +529,14 @@ export interface CollectionOptions {
   /** Collection-level metadata blob (e.g. `{ series: { id, title } }`). */
   metadata?: Record<string, unknown>;
   priceNear?: string;
+  /**
+   * Dollar sticker, for example `50` or `12.50`. Settled in NEAR at purchase.
+   * Create stores it with `update_collection_price` in the same wallet
+   * confirmation — `create_collection` itself only carries a NEAR price.
+   */
+  priceUsd?: string;
+  /** Least NEAR the creator will accept when the sticker is in dollars. */
+  minNear?: string;
   description?: string;
   royalty?: Record<string, number>;
   extra?: Record<string, unknown>;

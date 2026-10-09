@@ -244,6 +244,13 @@ describe('ScarcesModule.tokens — local-upload path (storage configured)', () =
   });
 });
 
+type WalletDollarTx = {
+  actions: Array<{
+    deposit: string;
+    args: { request: { action: Record<string, unknown> } };
+  }>;
+};
+
 describe('ScarcesModule.collections', () => {
   it('create without storage routes through /compose/prepare/create-collection then /relay/delegate', async () => {
     const http = makeHttp();
@@ -290,6 +297,96 @@ describe('ScarcesModule.collections', () => {
       expect.stringMatching(HASH_32_RE)
     );
     expect(signed[0].targetAccount).toBe('scarces.onsocial.near');
+  });
+
+  it('create with a dollar price batches the sticker into one wallet confirmation', async () => {
+    const http = makeHttp();
+    const storage = makeStorage();
+    const { getter } = makeSessionGetter();
+    const signer = vi.fn(async (_tx: WalletDollarTx) => ({
+      txHash: 'dollar-drop',
+    }));
+    const mod = new ScarcesModule(
+      asHttp(http),
+      getter,
+      undefined,
+      storage,
+      () => ({ kind: 'wallet', signer }) as never
+    );
+    const file = new Blob([new Uint8Array([1])], { type: 'image/png' });
+    await mod.collections.create({
+      collectionId: 'g',
+      totalSupply: 10,
+      title: 'G',
+      priceUsd: '50',
+      image: file,
+    });
+    expect(signer).toHaveBeenCalledTimes(1);
+    const tx = signer.mock.calls[0]![0];
+    expect(tx.actions).toHaveLength(2);
+    expect(tx.actions[0]?.args.request.action).toEqual(
+      expect.objectContaining({
+        type: 'create_collection',
+        price_near: '0',
+      })
+    );
+    expect(tx.actions[1]?.args.request.action).toEqual({
+      type: 'update_collection_price',
+      collection_id: 'g',
+      new_price_near: '1',
+      usd_e6: '50000000',
+    });
+    expect(tx.actions[1]?.deposit).toBe('1');
+    expect(http.requestForm).not.toHaveBeenCalled();
+  });
+
+  it('create with a dollar price batches a gateway-composed drop', async () => {
+    const http = makeHttp();
+    const { getter } = makeSessionGetter();
+    const signer = vi.fn(async (_tx: WalletDollarTx) => ({
+      txHash: 'dollar-gateway',
+    }));
+    const mod = new ScarcesModule(
+      asHttp(http),
+      getter,
+      undefined,
+      undefined,
+      () => ({ kind: 'wallet', signer }) as never
+    );
+    await mod.collections.create({
+      collectionId: 'g',
+      totalSupply: 10,
+      title: 'G',
+      priceUsd: '12.5',
+    });
+    expect(http.requestForm).toHaveBeenCalledWith(
+      'POST',
+      '/compose/prepare/create-collection',
+      expect.any(FormData)
+    );
+    const tx = signer.mock.calls[0]![0];
+    expect(tx.actions[0]?.args.request.action.type).toBe('create_collection');
+    expect(tx.actions[1]?.args.request.action).toEqual({
+      type: 'update_collection_price',
+      collection_id: 'g',
+      new_price_near: '1',
+      usd_e6: '12500000',
+    });
+  });
+
+  it('create with a dollar price refuses a session that cannot batch', async () => {
+    const http = makeHttp();
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
+    await expect(
+      mod.collections.create({
+        collectionId: 'g',
+        totalSupply: 10,
+        title: 'G',
+        priceUsd: '12',
+      })
+    ).rejects.toThrow(/dollar price/);
+    expect(http.requestForm).not.toHaveBeenCalled();
   });
 
   it('mintFrom / purchaseFrom / airdrop / pause / resume / delete go through compose/prepare/*', async () => {

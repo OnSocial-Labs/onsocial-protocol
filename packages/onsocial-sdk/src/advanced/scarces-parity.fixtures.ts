@@ -14,6 +14,7 @@ import type { Network } from '../types.js';
 import type { ScarcesAction } from './actions.js';
 import {
   buildScarcesCreateCollectionAction,
+  buildScarcesUpdateCollectionPriceAction,
   buildScarcesCreateLazyListingAction,
   buildScarcesListNativeAction,
   buildScarcesMintFromCollectionAction,
@@ -356,6 +357,17 @@ export function getScarcesParityCases(
         collection_id: 'genesis',
         new_price_near: '2000000000000000000000000',
       },
+    },
+    {
+      name: 'update collection price in dollars',
+      action: buildScarcesUpdateCollectionPriceAction({
+        collectionId: 'genesis',
+        priceUsd: '50',
+      }),
+      expectedAction: buildScarcesUpdateCollectionPriceAction({
+        collectionId: 'genesis',
+        priceUsd: '50',
+      }),
     },
     {
       name: 'update collection timing',

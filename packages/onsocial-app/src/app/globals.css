@@ -43500,6 +43500,54 @@ a.os-surface-row {
   color: rgb(var(--fg-rgb) / 0.48);
 }
 
+/* NEAR / USD sit in the unit slot. Unlayered so the quiet word stays a choice. */
+.drop-create-form .drop-create-deal-line .drop-create-price-unit {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  flex: 0 0 auto;
+}
+
+.drop-create-form .drop-create-deal-line .drop-create-price-unit button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: rgb(var(--fg-rgb) / 0.32);
+  cursor: pointer;
+}
+
+.drop-create-form
+  .drop-create-deal-line
+  .drop-create-price-unit
+  button[aria-pressed='true'] {
+  color: rgb(var(--fg-rgb) / 0.92);
+}
+
+.drop-create-form
+  .drop-create-deal-line
+  .drop-create-price-unit
+  button:focus-visible {
+  outline: 2px solid rgb(var(--fg-rgb) / 0.55);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.drop-create-form
+  .drop-create-deal-line
+  .drop-create-price-unit
+  button:disabled {
+  cursor: default;
+}
+
+.drop-create-form .drop-create-deal .profile-support-hint {
+  max-width: 28rem;
+}
+
 /*
  * Write dock radius — unlayered so it beats imported os-launcher.css
  * `.os-dock-pill { border-radius: 9999px }` (layered rules lose to unlayered).

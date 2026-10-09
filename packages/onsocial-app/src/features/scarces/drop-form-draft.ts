@@ -14,6 +14,7 @@ import {
   parseGenerativeRarity,
   type GenerativeRarity,
 } from '@/features/scarces/generative-set';
+import type { DropPriceUnit } from '@/features/scarces/drop-create-layout';
 
 export type DropArtMode = 'single' | 'variations';
 export type DropVariationSource = 'upload' | 'generate' | 'cid';
@@ -30,6 +31,8 @@ export type DropFormDraft = {
   seriesName: string;
   supplyInput: string;
   priceInput: string;
+  /** Missing on older drafts — those stay priced in NEAR. */
+  priceUnit?: DropPriceUnit;
   startTime: string;
   endTime: string;
   eventStarts: string;
@@ -153,11 +156,19 @@ function readRaw(): DropFormDraft | null {
     ) {
       return null;
     }
+    if (
+      parsed.priceUnit != null &&
+      parsed.priceUnit !== 'near' &&
+      parsed.priceUnit !== 'usd'
+    ) {
+      return null;
+    }
     const generativeRarity = parseGenerativeRarity(parsed.generativeRarity);
     const draft = {
       ...(parsed as DropFormDraft),
       burnable: parsed.burnable === true,
-    };
+      priceUnit: parsed.priceUnit === 'usd' ? 'usd' : 'near',
+    } as DropFormDraft;
     if (!generativeRarity) {
       delete draft.generativeRarity;
       return draft;
@@ -202,6 +213,7 @@ export function dropFormDraftHasContent(
     | 'maxPerWallet'
     | 'supplyInput'
     | 'priceInput'
+    | 'priceUnit'
     | 'royaltyBps'
     | 'isCustomRoyalty'
     | 'templateId'
@@ -223,8 +235,10 @@ export function dropFormDraftHasContent(
   if (draft.placeDraft.trim()) return true;
   if (draft.accessEnds.trim()) return true;
   if (draft.maxPerWallet.trim()) return true;
-  if (draft.supplyInput.trim() && draft.supplyInput.trim() !== '25') return true;
+  if (draft.supplyInput.trim() && draft.supplyInput.trim() !== '25')
+    return true;
   if (draft.priceInput.trim() && draft.priceInput.trim() !== '1') return true;
+  if (draft.priceUnit === 'usd') return true;
   if (draft.isCustomRoyalty || draft.royaltyBps !== DEFAULT_ROYALTY_BPS)
     return true;
   if (draft.templateId !== 'art') return true;
