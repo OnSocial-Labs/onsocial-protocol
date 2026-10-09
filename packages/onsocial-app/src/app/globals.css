@@ -48805,3 +48805,43 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     height: 100%;
   }
 }
+
+/* Network map fills the OS screen. Search and filter stay one height; the chip width does not steal the field. */
+.os-app-screen-body:has(> .network-orbit-panel) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.network-orbit-toolbar .standing-view-menu {
+  flex: 0 0 9.25rem;
+  width: 9.25rem;
+  max-width: 9.25rem;
+}
+
+.network-orbit-toolbar .os-floating-panel-trigger {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  height: var(--os-app-screen-nav-row-height, 2.35rem);
+  min-height: var(--os-app-screen-nav-row-height, 2.35rem);
+  max-height: var(--os-app-screen-nav-row-height, 2.35rem);
+  padding-block: 0;
+}
+
+.network-orbit-toolbar .search-field.os-floating-panel-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--os-app-screen-nav-row-height, 2.35rem);
+  min-height: var(--os-app-screen-nav-row-height, 2.35rem);
+  max-height: var(--os-app-screen-nav-row-height, 2.35rem);
+}
+
+.network-orbit-stage.is-fading-rings .network-orbit-node,
+.network-orbit-stage.is-fading-rings .network-orbit-spoke,
+.network-orbit-stage.is-fading-rings .network-orbit-spoke-line {
+  animation: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}

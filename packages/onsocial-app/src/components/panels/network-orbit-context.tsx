@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -38,6 +39,10 @@ import {
   type OrbitPlacedNode,
 } from '@/lib/profile-network-layout';
 import { standingPath } from '@/lib/profile-social-standings';
+import {
+  networkAccountIdFromPath,
+  networkPath,
+} from '@/lib/overlay-routes';
 
 export interface NetworkOrbitProviderProps {
   accountId: string;
@@ -85,6 +90,10 @@ interface NetworkOrbitContextValue {
   subjectEndorsedCount: number;
   /** True while the anonymous SSR sample revalidates into a viewer-known one. */
   personalizing: boolean;
+  /** True while a tapped face's spokes fade and the next sample is in flight. */
+  ringsFading: boolean;
+  /** Put this face in the center now. Rings fill when their sample arrives. */
+  openSubject: (account: NetworkAccount) => void;
   /** List view matching the current orbit filter (+ search). */
   listHref: string;
 }
@@ -128,7 +137,21 @@ export function NetworkOrbitProvider({
 }: NetworkOrbitProviderProps) {
   const { accountId: viewerAccountIdRaw } = useAppWallet();
   const viewerAccountId = viewerAccountIdRaw ?? null;
-  const isSelf = Boolean(viewerAccountId && viewerAccountId === accountId);
+  const initialName =
+    displayNameProp?.trim() || resolveDisplayName(accountId);
+  const [subjectId, setSubjectId] = useState(accountId);
+  const [subjectName, setSubjectName] = useState(initialName);
+  const [subjectAvatar, setSubjectAvatar] = useState<string | null>(avatarUrl);
+  const [ringsFading, setRingsFading] = useState(false);
+  const isSelf = Boolean(viewerAccountId && viewerAccountId === subjectId);
+  const facesRef = useRef(
+    new Map<string, { name: string; avatarUrl: string | null }>([
+      [accountId, { name: initialName, avatarUrl }],
+    ])
+  );
+  const subjectIdRef = useRef(subjectId);
+  subjectIdRef.current = subjectId;
+  const initialSubjectRef = useRef(accountId);
 
   const [filter, setFilter] = useState<NetworkFilterKind>(initialFilter);
   const [query, setQuery] = useState(initialQuery);
@@ -179,6 +202,7 @@ export function NetworkOrbitProvider({
     )
       .then((result) => {
         if (cancelled) return;
+        if (subjectIdRef.current !== accountId) return;
         setBaseAccounts(result.accounts);
         setBaseCounts(result.counts);
         setCenterMood(result.centerMood ?? null);
@@ -187,7 +211,7 @@ export function NetworkOrbitProvider({
       })
       .catch(() => {
         if (cancelled) return;
-        setLoadError('Could not load the network map.');
+        setLoadError('The map did not load.');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -196,25 +220,72 @@ export function NetworkOrbitProvider({
       cancelled = true;
       controller.abort();
     };
-    // Initial fallback only — account swaps re-key the provider.
+    // Initial fallback only. A face tap fetches in the effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId]);
 
+  const appliedSubjectRef = useRef(accountId);
+  const viewerAccountIdRef = useRef(viewerAccountId);
+  viewerAccountIdRef.current = viewerAccountId;
+
+  // A tapped face keeps the center and fades the spokes until this sample lands.
+  // Returning to the first person refetches too — their rings were replaced.
+  useEffect(() => {
+    if (appliedSubjectRef.current === subjectId) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    setRingsFading(true);
+    setLoadError(null);
+    const viewerAccountId = viewerAccountIdRef.current;
+    personalizeAttemptedRef.current = viewerAccountId;
+    void fetchNetworkOrbit(
+      { accountId: subjectId, viewerAccountId },
+      { signal: controller.signal, skipMemoryCache: true }
+    )
+      .then((result) => {
+        if (cancelled) return;
+        appliedSubjectRef.current = subjectId;
+        setBaseAccounts(result.accounts);
+        setBaseCounts(result.counts);
+        setCenterMood(result.centerMood ?? null);
+        setViewerKnownCount(result.viewerKnownCount);
+        setSubjectEndorsedCount(result.subjectEndorsedCount);
+        setRingsFading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        appliedSubjectRef.current = subjectId;
+        setBaseAccounts([]);
+        setBaseCounts(null);
+        setViewerKnownCount(0);
+        setSubjectEndorsedCount(0);
+        setLoadError('The map did not load.');
+        setRingsFading(false);
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [subjectId]);
+
   // SSR is anonymous (the wallet is client-side), so once a viewer connects
   // the sample revalidates into a viewer-known ranking — a one-time settle.
+  // A subject swap aborts this so it cannot paint the previous map back.
   useEffect(() => {
+    if (subjectId !== accountId) return;
     if (!viewerAccountId || viewerAccountId === accountId) return;
     if (searchActive) return;
     if (personalizeAttemptedRef.current === viewerAccountId) return;
-    personalizeAttemptedRef.current = viewerAccountId;
     const controller = new AbortController();
     setPersonalizing(true);
     void fetchNetworkOrbit(
       { accountId, viewerAccountId },
-      { signal: controller.signal }
+      { signal: controller.signal, skipMemoryCache: true }
     )
       .then((result) => {
         if (controller.signal.aborted) return;
+        if (subjectIdRef.current !== accountId) return;
+        personalizeAttemptedRef.current = viewerAccountId;
         setBaseAccounts(result.accounts);
         setBaseCounts(result.counts);
         setCenterMood(result.centerMood ?? null);
@@ -228,7 +299,7 @@ export function NetworkOrbitProvider({
         if (!controller.signal.aborted) setPersonalizing(false);
       });
     return () => controller.abort();
-  }, [accountId, viewerAccountId, searchActive]);
+  }, [accountId, subjectId, viewerAccountId, searchActive]);
 
   useEffect(() => {
     if (!searchActive) {
@@ -248,7 +319,7 @@ export function NetworkOrbitProvider({
       fetchStarted = true;
       void fetchNetworkOrbit(
         {
-          accountId,
+          accountId: subjectId,
           viewerAccountId,
           searchQuery: normalizedSearchQuery,
           filter,
@@ -282,7 +353,82 @@ export function NetworkOrbitProvider({
       window.clearTimeout(timeout);
       if (fetchStarted) controller.abort();
     };
-  }, [accountId, filter, normalizedSearchQuery, searchActive, viewerAccountId]);
+  }, [subjectId, filter, normalizedSearchQuery, searchActive, viewerAccountId]);
+
+  const showSubject = useCallback(
+    (
+      id: string,
+      name: string,
+      avatar: string | null,
+      history: 'push' | 'stay'
+    ) => {
+      if (id === subjectIdRef.current) return;
+      facesRef.current.set(id, { name, avatarUrl: avatar });
+      setSubjectId(id);
+      setSubjectName(name);
+      setSubjectAvatar(avatar);
+      setCenterMood(null);
+      setRingsFading(true);
+      setLoadError(null);
+      setPersonalizing(false);
+      setQuery('');
+      setFilter('all');
+      setSearchAccounts(null);
+      setSearchMeta(null);
+      setSearchFetching(false);
+      if (history === 'stay') return;
+      const href = networkPath(id);
+      if (window.location.pathname !== href) {
+        const prior = window.history.state;
+        const data =
+          prior && typeof prior === 'object'
+            ? { ...prior, networkOrbit: id }
+            : { networkOrbit: id };
+        // Next's pushState starts a server restore and freezes the previous map.
+        History.prototype.pushState.call(window.history, data, '', href);
+      }
+    },
+    []
+  );
+
+  const openSubject = useCallback(
+    (account: NetworkAccount) => {
+      const name = account.name?.trim() || resolveDisplayName(account.accountId);
+      showSubject(account.accountId, name, account.avatarUrl, 'push');
+    },
+    [showSubject]
+  );
+
+  useEffect(() => {
+    for (const account of baseAccounts) {
+      facesRef.current.set(account.accountId, {
+        name: account.name?.trim() || resolveDisplayName(account.accountId),
+        avatarUrl: account.avatarUrl,
+      });
+    }
+  }, [baseAccounts]);
+
+  useEffect(() => {
+    const onPop = (event: PopStateEvent) => {
+      const id = networkAccountIdFromPath(window.location.pathname);
+      if (!id) {
+        // Left the map. Next's own popstate listener restores the screen.
+        return;
+      }
+      // Keep the center swap on this page. Next would refetch the route.
+      event.stopImmediatePropagation();
+      if (id === subjectIdRef.current) return;
+      const face = facesRef.current.get(id);
+      showSubject(
+        id,
+        face?.name ?? resolveDisplayName(id),
+        face?.avatarUrl ?? null,
+        'stay'
+      );
+    };
+    window.addEventListener('popstate', onPop, true);
+    return () => window.removeEventListener('popstate', onPop, true);
+  }, [showSubject]);
 
   useEffect(() => {
     markNetworkOrbitReady();
@@ -347,15 +493,17 @@ export function NetworkOrbitProvider({
   };
 
   const listHref = standingPath(
-    accountId,
+    subjectId,
     networkFilterToStandKind(filter),
     searchActive ? normalizedSearchQuery : undefined
   );
 
   const value: NetworkOrbitContextValue = {
-    accountId,
-    displayName: displayNameProp?.trim() || resolveDisplayName(accountId),
-    avatarUrl,
+    accountId: subjectId,
+    displayName: subjectName,
+    avatarUrl: subjectAvatar,
+    ringsFading,
+    openSubject,
     viewerAccountId,
     isSelf,
     centerMood,

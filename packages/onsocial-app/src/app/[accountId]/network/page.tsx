@@ -21,7 +21,7 @@ function firstParam(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
 }
 
-/** Hard refresh / shared link — full-page orbit (soft nav opens the glass sheet). */
+/** Full-screen network map — shared link, hard refresh, and the standing globe. */
 export default async function NetworkAccountPage({
   params,
   searchParams,

@@ -63,6 +63,11 @@ function NetworkOrbitPageScreen({
   const { displayName, isSelf } = useNetworkOrbit();
   const onDockBack = useCallback(() => {
     if (popInApp()) return;
+    const prior = window.history.state as { networkOrbit?: string } | null;
+    if (prior?.networkOrbit) {
+      window.history.back();
+      return;
+    }
     router.push(backFallbackHref);
   }, [backFallbackHref, popInApp, router]);
 

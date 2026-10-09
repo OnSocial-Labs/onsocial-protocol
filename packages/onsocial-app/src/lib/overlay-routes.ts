@@ -280,8 +280,8 @@ export function aboutPath(accountId: string): string {
 }
 
 /**
- * Standing orbit map. Overlay on soft nav, full page on hard refresh — the
- * portal `/u/:accountId/network` redirect lands here.
+ * Standing orbit map. Always the full screen — the portal
+ * `/u/:accountId/network` redirect lands here too.
  */
 export function networkPath(
   accountId: string,
@@ -299,6 +299,17 @@ export function networkPath(
   }
   const qs = params.toString();
   return qs ? `${base}?${qs}` : base;
+}
+
+/** Account id from `/@id/network`, or null when the path is another screen. */
+export function networkAccountIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/\/@([^/]+)\/network\/?$/);
+  if (!match?.[1]) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
 }
 
 /** Author Writing shelf — titled longform posts. */

@@ -175,9 +175,11 @@ test.describe('network orbit', () => {
     await expect(page).toHaveURL(/\/@bob\.testnet\/network/, {
       timeout: 10_000,
     });
-    await expect(page.locator('.network-orbit-center')).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(page.locator('.network-orbit-center-label')).toHaveText(
+      'Bob',
+      { timeout: 15_000 }
+    );
+    await expect(page.locator('.network-orbit-center')).toBeVisible();
   });
 
   test('connected viewer revalidates into a viewer-known ranking', async ({
@@ -205,7 +207,7 @@ test.describe('network orbit', () => {
     ).toBeVisible();
   });
 
-  test('standing sheet opens the orbit overlay and view-all swaps back', async ({
+  test('standing globe opens the full-screen map and view-all returns', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -234,7 +236,7 @@ test.describe('network orbit', () => {
       new RegExp(`/@${ENDORSE_E2E_ACCOUNT}/network`)
     );
     await expect(
-      page.getByRole('button', { name: 'Close Network' })
+      page.getByRole('button', { name: 'Open network menu' })
     ).toBeVisible({ timeout: 15_000 });
     await expect(
       page.getByRole('link', { name: 'Open standing list' })

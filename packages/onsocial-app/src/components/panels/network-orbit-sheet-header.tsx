@@ -61,7 +61,7 @@ export function NetworkOrbitToolbar() {
   );
 
   return (
-    <div className="standing-list-toolbar">
+    <div className="standing-list-toolbar network-orbit-toolbar">
       <ChoiceDrawerMenu
         label="Network"
         value={filter}
