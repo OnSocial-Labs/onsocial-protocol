@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
@@ -75,6 +75,7 @@ import {
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
+import { useLandOpenedPost } from '@/hooks/use-land-opened-post';
 import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
 import {
@@ -240,9 +241,8 @@ export function LiveGuildPostPanel({
   const [dockTarget, setDockTarget] = useState<PostRow | null>(null);
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
-  const [activeThreadTab, setActiveThreadTab] = useState<GuildThreadTab>(
-    'replies'
-  );
+  const [activeThreadTab, setActiveThreadTab] =
+    useState<GuildThreadTab>('replies');
   const [threadTabTouched, setThreadTabTouched] = useState(false);
   const [replySort, setReplySort] = useState<ThreadReplySort>('relevant');
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
@@ -322,6 +322,8 @@ export function LiveGuildPostPanel({
   // Full ancestor chain up to the conversation root, oldest first.
   const ancestorChain = useAncestorChain(conversation.root?.parentPath);
   const hasParent = ancestorChain.length > 0;
+  const openedPostRef = useRef<HTMLDivElement>(null);
+  useLandOpenedPost(openedPostRef, conversation.root?.postId, hasParent);
   const engagementPosts = useMemo(
     () => [...ancestorChain, ...threadPosts],
     [ancestorChain, threadPosts]
@@ -696,12 +698,13 @@ export function LiveGuildPostPanel({
   const threadDraftKey = root
     ? writeDockDraftKey('post', postKey(root))
     : undefined;
-  const writeAbove = nestedDockReply && writeName ? (
-    <OsWriteDockReplyChip
-      label={writeName}
-      onCancel={() => setDockTarget(null)}
-    />
-  ) : null;
+  const writeAbove =
+    nestedDockReply && writeName ? (
+      <OsWriteDockReplyChip
+        label={writeName}
+        onCancel={() => setDockTarget(null)}
+      />
+    ) : null;
   useReplyWriteDock({
     target: writeTarget,
     enabled: Boolean(root) && (!accountId || canPostInThread),
@@ -833,31 +836,31 @@ export function LiveGuildPostPanel({
         </span>
       ) : (
         <>
-        <GuildMembershipJoinButton
-          className="guild-hero-membership guild-thread-nav-membership"
-          label={membershipActionLabel}
-          ready={membershipActionReady}
-          active={effectiveIsMember}
-          pending={joinActionPending}
-          pendingLabel={guildMembershipJoinPendingLabel({
-            accessGated,
-            canceling: effectiveJoinPending,
-            leaving: effectiveIsMember,
-          })}
-          disabled={
-            effectiveIsBlacklisted ||
-            (effectiveJoinPending && !joinCancelReady) ||
-            (!viewerAccessResolved && Boolean(membershipHint))
-          }
-          onClick={handleMembershipClick}
-        />
-        <GuildMembershipConfirmDrawer
-          kind={confirmKind}
-          guildName={guildDisplayName(guildName, groupId)}
-          pending={joinActionPending}
-          onConfirm={confirmMembership}
-          onCancel={dismissConfirm}
-        />
+          <GuildMembershipJoinButton
+            className="guild-hero-membership guild-thread-nav-membership"
+            label={membershipActionLabel}
+            ready={membershipActionReady}
+            active={effectiveIsMember}
+            pending={joinActionPending}
+            pendingLabel={guildMembershipJoinPendingLabel({
+              accessGated,
+              canceling: effectiveJoinPending,
+              leaving: effectiveIsMember,
+            })}
+            disabled={
+              effectiveIsBlacklisted ||
+              (effectiveJoinPending && !joinCancelReady) ||
+              (!viewerAccessResolved && Boolean(membershipHint))
+            }
+            onClick={handleMembershipClick}
+          />
+          <GuildMembershipConfirmDrawer
+            kind={confirmKind}
+            guildName={guildDisplayName(guildName, groupId)}
+            pending={joinActionPending}
+            onConfirm={confirmMembership}
+            onCancel={dismissConfirm}
+          />
         </>
       )}
     </div>
@@ -1075,6 +1078,8 @@ export function LiveGuildPostPanel({
               ))}
 
               <div
+                ref={openedPostRef}
+                data-thread-opened-post={conversation.root.postId}
                 className={`guild-thread-root${hasParent ? ' post-thread-item post-thread-item--up' : ''}`}
               >
                 <PostCard
