@@ -14265,8 +14265,12 @@ a.os-surface-row {
    * .os-app-screen as the hero name approaches the nav bar.
    * No CSS transition: scroll position drives opacity directly, so the two
    * titles swap smoothly and never show both at full opacity.
+   * Only this screen's own nav title. A post opened on top keeps Post.
    */
-  .os-app-screen[data-immersive-header='true'] .os-app-screen-heading {
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header
+    .os-app-screen-heading {
     opacity: var(--title-handoff, 0);
     pointer-events: none;
     will-change: opacity;
