@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
@@ -75,6 +75,7 @@ import {
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
+import { useLandOpenedPost } from '@/hooks/use-land-opened-post';
 import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
 import {
@@ -341,6 +342,8 @@ export function LiveGuildPostPanel({
   // Full ancestor chain up to the conversation root, oldest first.
   const ancestorChain = useAncestorChain(conversation.root?.parentPath);
   const hasParent = ancestorChain.length > 0;
+  const openedPostRef = useRef<HTMLDivElement>(null);
+  useLandOpenedPost(openedPostRef, conversation.root?.postId, hasParent);
   const engagementPosts = useMemo(
     () => [...ancestorChain, ...threadPosts],
     [ancestorChain, threadPosts]
@@ -1090,6 +1093,8 @@ export function LiveGuildPostPanel({
               ))}
 
               <div
+                ref={openedPostRef}
+                data-thread-opened-post={conversation.root.postId}
                 className={`guild-thread-root${hasParent ? ' post-thread-item post-thread-item--up' : ''}`}
               >
                 <PostCard

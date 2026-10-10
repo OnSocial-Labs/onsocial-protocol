@@ -50,8 +50,10 @@ import {
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
+import { useLandOpenedPost } from '@/hooks/use-land-opened-post';
 import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
+import { planThreadLoad } from '@/lib/thread-open';
 import {
   resolveQuotedInset,
   collectRelationTargetAccountIds,
@@ -188,9 +190,10 @@ export function LivePersonalPostPanel({
   const [error, setError] = useState<string | null>(null);
   const paginatedRef = useRef(false);
   const reconcileTimersRef = useRef<number[]>([]);
-  const ssrSeedRef = useRef(Boolean(initial));
+  const openedPostRef = useRef<HTMLDivElement>(null);
 
   const rootPath = personalPostContentPath(author, postId);
+  const paintedKeyRef = useRef<string | null>(initial ? rootPath : null);
   const treePosts = useMemo(() => flattenTreePosts(replyTree), [replyTree]);
   const replyRows = useMemo(() => {
     const rows = buildReplyRows(
@@ -251,6 +254,7 @@ export function LivePersonalPostPanel({
   );
   const ancestorChain = useAncestorChain(conversation.root?.parentPath);
   const hasParent = ancestorChain.length > 0;
+  useLandOpenedPost(openedPostRef, conversation.root?.postId, hasParent);
   const engagementPosts = useMemo(
     () => [...ancestorChain, ...threadPosts],
     [ancestorChain, threadPosts]
@@ -391,14 +395,19 @@ export function LivePersonalPostPanel({
 
   useEffect(() => {
     if (walletLoading) return;
-    // Soft reconcile after SSR — never blank a painted thread on wallet.
-    if (ssrSeedRef.current) {
-      ssrSeedRef.current = false;
-      void refresh({ background: true });
-      return;
-    }
-    void refresh();
-  }, [author, postId, walletLoading, refresh]);
+    let cancelled = false;
+    const key = rootPath;
+    // One load per setup. A second effect pass must not blank a painted card.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const plan = planThreadLoad(paintedKeyRef.current, key);
+      paintedKeyRef.current = plan.paintedKey;
+      void refresh({ background: plan.background });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [refresh, rootPath, walletLoading]);
 
   useEffect(() => {
     setActiveThreadTab('replies');
@@ -892,6 +901,8 @@ export function LivePersonalPostPanel({
             ))}
 
             <div
+              ref={openedPostRef}
+              data-thread-opened-post={conversation.root.postId}
               className={`guild-thread-root${hasParent ? ' post-thread-item post-thread-item--up' : ''}`}
             >
               <PostCard
