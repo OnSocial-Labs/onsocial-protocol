@@ -38,6 +38,13 @@ import {
   isHomeFeedSocialLens,
 } from '@/features/home/home-feed-pulse';
 import {
+  collectResolvedSavePage,
+  countVisibleHomeFeedCards,
+  fillVisibleFeedPage,
+  homeFeedIncludeForeignReplies,
+  homeFeedShowsTimelineChrome,
+} from '@/features/home/home-feed-visible';
+import {
   homeFeedLensEmptyCopy,
   readStoredHomeFeedLens,
   resolveHomeFeedLens,
@@ -91,7 +98,10 @@ import {
   type AmplifySuccessDetail,
 } from '@/lib/amplify-heat';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { fetchIndexedPostsByRefs } from '@/lib/fetch-personal-post';
+import {
+  fetchIndexedPostsByRefs,
+  indexedPostRefKey,
+} from '@/lib/fetch-personal-post';
 import { parseSaveContentPath } from '@/lib/save-content-path';
 import {
   EMPTY_UNSEEN_FEED_SUMMARY,
@@ -139,20 +149,19 @@ async function fetchSavedFeedPage(
   limit: number
 ): Promise<Paginated<PostRow>> {
   const client = createReadOnlyOnSocialClient();
-  const saves = await client.query.saves.list(accountId, { limit, offset });
-  const refs = saves
-    .map((row) => parseSaveContentPath(row.contentPath))
-    .filter((ref): ref is { author: string; postId: string } => ref != null);
-  const byRef = await fetchIndexedPostsByRefs(refs);
-  const items: PostRow[] = [];
-  for (const ref of refs) {
-    const row = byRef.get(`${ref.author}\0${ref.postId}`);
-    if (row) items.push(row);
-  }
-  return {
-    items,
-    nextOffset: saves.length < limit ? undefined : offset + saves.length,
-  };
+  return collectResolvedSavePage({
+    offset,
+    limit,
+    loadRefs: async (pageOffset, pageLimit) => {
+      const saves = await client.query.saves.list(accountId, {
+        limit: pageLimit,
+        offset: pageOffset,
+      });
+      return saves.map((row) => parseSaveContentPath(row.contentPath));
+    },
+    hydrate: (refs) => fetchIndexedPostsByRefs([...refs]),
+    refKey: (ref) => indexedPostRefKey(ref.author, ref.postId),
+  });
 }
 
 function mergeFeedPosts(current: PostRow[], incoming: PostRow[]): PostRow[] {
@@ -184,7 +193,8 @@ async function fetchHomeFeedPageClient(
   offset: number,
   standingSources: string[] | null,
   sort: HomeFeedSort,
-  limit: number = HOME_FEED_PAGE_SIZE
+  limit: number = HOME_FEED_PAGE_SIZE,
+  options: { fillVisible?: boolean } = {}
 ): Promise<{ page: Paginated<PostRow>; standingSources: string[] | null }> {
   const client = createReadOnlyOnSocialClient();
 
@@ -208,11 +218,22 @@ async function fetchHomeFeedPageClient(
     return { page, standingSources: sources };
   }
 
-  const page = await client.query.feed.recent({
-    limit,
-    offset,
-    sort,
-  });
+  const fetchRecent = (pageOffset: number, pageLimit: number) =>
+    client.query.feed.recent({
+      limit: pageLimit,
+      offset: pageOffset,
+      sort,
+    });
+  const page =
+    options.fillVisible === false
+      ? await fetchRecent(offset, limit)
+      : await fillVisibleFeedPage({
+          offset,
+          limit,
+          fetchPage: fetchRecent,
+          visibleCount: (posts) =>
+            countVisibleHomeFeedCards(filterHiddenAuthors(posts)),
+        });
   return { page, standingSources: null };
 }
 
@@ -333,6 +354,8 @@ export function HomePagePanel({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [engagementError, setEngagementError] = useState<string | null>(null);
+  const [hiddenWalkGaveUp, setHiddenWalkGaveUp] = useState(false);
+  const hiddenWalksRef = useRef(0);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [unseenPosts, setUnseenPosts] = useState<UnseenFeedSummary>(
     EMPTY_UNSEEN_FEED_SUMMARY
@@ -498,15 +521,25 @@ export function HomePagePanel({
   const activeLens = resolveHomeFeedLens(lens, isConnected);
 
   const stoodWithAccountIds = useMemo(() => {
-    if (
-      activeFocus ||
-      !isHomeFeedSocialLens(activeLens) ||
-      !standingNetworkIds?.length
-    ) {
-      return undefined;
-    }
+    if (activeFocus || !standingNetworkIds?.length) return undefined;
+    // Keep Pulse peeks painted through a refresh, including a lens change
+    // that has not swapped the rows yet.
+    if (!isHomeFeedSocialLens(activeLens) && !isRefreshing) return undefined;
     return new Set(standingNetworkIds);
-  }, [activeFocus, activeLens, standingNetworkIds]);
+  }, [activeFocus, activeLens, isRefreshing, standingNetworkIds]);
+
+  const includeForeignReplies = homeFeedIncludeForeignReplies(
+    activeLens,
+    activeFocus != null
+  );
+  const visibleCardCount = useMemo(
+    () =>
+      countVisibleHomeFeedCards(visiblePosts, {
+        includeForeignReplies,
+        stoodWithAccountIds,
+      }),
+    [includeForeignReplies, stoodWithAccountIds, visiblePosts]
+  );
 
   const handleSortChange = useCallback((next: HomeFeedSort) => {
     sortUserChangedRef.current = true;
@@ -587,6 +620,8 @@ export function HomePagePanel({
       feedSessionKeyRef.current = sessionKey;
       setSsrBootstrapDone(true);
       ssrBootstrapDoneRef.current = true;
+      isLoadingRef.current = false;
+      isRefreshingRef.current = false;
       setIsLoading(false);
       setIsRefreshing(false);
       return;
@@ -603,6 +638,8 @@ export function HomePagePanel({
     if (canUseSsrBootstrap) {
       setSsrBootstrapDone(true);
       ssrBootstrapDoneRef.current = true;
+      isLoadingRef.current = false;
+      isRefreshingRef.current = false;
       setIsLoading(false);
       // Assume SSR hot matches until standing lens needs a client upgrade.
       ssrHotGlobalSkipRef.current = true;
@@ -625,6 +662,8 @@ export function HomePagePanel({
       activeLens === 'global' &&
       reloadNonce === ssrHotGlobalReloadNonceRef.current
     ) {
+      isLoadingRef.current = false;
+      isRefreshingRef.current = false;
       setIsLoading(false);
       setIsRefreshing(false);
       return;
@@ -656,8 +695,8 @@ export function HomePagePanel({
     appendInFlightRef.current = false;
     const previousStandingSources = standingSourcesRef.current;
     const previousNextOffset = nextOffsetRef.current;
-    standingSourcesRef.current = null;
-    setStandingNetworkIds(null);
+    hiddenWalksRef.current = 0;
+    setHiddenWalkGaveUp(false);
     setEngagementError(null);
     setLoadError(null);
     clearUnseenPosts();
@@ -670,9 +709,15 @@ export function HomePagePanel({
 
     const keepPrevious = postsLengthRef.current > 0;
     if (keepPrevious) {
+      isRefreshingRef.current = true;
+      isLoadingRef.current = false;
       setIsRefreshing(true);
       setIsLoading(false);
     } else {
+      standingSourcesRef.current = null;
+      setStandingNetworkIds(null);
+      isLoadingRef.current = true;
+      isRefreshingRef.current = false;
       setIsLoading(true);
       setIsRefreshing(false);
       setNextOffset(undefined);
@@ -740,6 +785,8 @@ export function HomePagePanel({
         }
       } finally {
         if (isCurrentLoadingRequest(loadIdRef.current, loadId)) {
+          isLoadingRef.current = false;
+          isRefreshingRef.current = false;
           setIsLoading(false);
           setIsRefreshing(false);
           setIsLoadingMore(false);
@@ -838,6 +885,16 @@ export function HomePagePanel({
           // Restore offset so the next intersect can retry this page.
           nextOffsetRef.current = baseOffset;
           setNextOffset(baseOffset);
+          const painted = countVisibleHomeFeedCards(
+            filterHiddenAuthors(postsRef.current),
+            {
+              includeForeignReplies: homeFeedIncludeForeignReplies(
+                activeLens,
+                focus != null
+              ),
+            }
+          );
+          if (painted === 0) setLoadError('Could not load feed.');
         }
       } finally {
         if (isCurrentLoadingRequest(loadIdRef.current, loadId)) {
@@ -849,7 +906,9 @@ export function HomePagePanel({
   }, [accountId, activeLens, sort, tagParam, tickerParam, placeParam]);
 
   const hasMore = nextOffset !== undefined;
-  const showLoadMoreSentinel = hasMore && visiblePosts.length > 0;
+  const showLoadMoreSentinel = hasMore && visibleCardCount > 0;
+  const walkingHiddenPage =
+    visibleCardCount === 0 && hasMore && !loadError && !hiddenWalkGaveUp;
 
   useInfiniteScrollSentinel({
     scrollRootRef,
@@ -859,6 +918,31 @@ export function HomePagePanel({
     onIntersect: loadMore,
     rootMargin: '200px 0px',
   });
+
+  useEffect(() => {
+    if (
+      !walkingHiddenPage ||
+      isLoading ||
+      isRefreshing ||
+      isLoadingMore ||
+      loadError
+    ) {
+      return;
+    }
+    if (hiddenWalksRef.current >= 4) {
+      setHiddenWalkGaveUp(true);
+      return;
+    }
+    hiddenWalksRef.current += 1;
+    loadMore();
+  }, [
+    isLoading,
+    isLoadingMore,
+    isRefreshing,
+    loadError,
+    loadMore,
+    walkingHiddenPage,
+  ]);
 
   const clearFocusSearch = useCallback(() => {
     router.replace(homeFeedFocusClearPath(), { scroll: false });
@@ -922,10 +1006,15 @@ export function HomePagePanel({
   }, [clearUnseenPosts]);
 
   const probeNewPosts = useCallback(async () => {
+    const focus = parseHomeFeedFocus({
+      tag: tagParam,
+      ticker: tickerParam,
+      place: placeParam,
+    });
     if (
       !lensReady ||
       walletLoading ||
-      activeLens === 'saved' ||
+      !homeFeedShowsTimelineChrome(activeLens, focus != null) ||
       isLoadingRef.current ||
       isRefreshingRef.current ||
       newPostsProbeInFlightRef.current ||
@@ -936,11 +1025,6 @@ export function HomePagePanel({
     }
 
     newPostsProbeInFlightRef.current = true;
-    const focus = parseHomeFeedFocus({
-      tag: tagParam,
-      ticker: tickerParam,
-      place: placeParam,
-    });
 
     try {
       // Always probe chronological head so “new” means newer content, not Hot churn.
@@ -956,7 +1040,8 @@ export function HomePagePanel({
             0,
             standingSourcesRef.current,
             'recent',
-            HOME_FEED_NEW_PROBE_SIZE
+            HOME_FEED_NEW_PROBE_SIZE,
+            { fillVisible: false }
           );
 
       if (
@@ -1089,7 +1174,7 @@ export function HomePagePanel({
     ? homeFeedFocusEmptyCopy(activeFocus)
     : homeFeedLensEmptyCopy(activeLens);
 
-  const hasPaintedRows = visiblePosts.length > 0;
+  const hasPaintedRows = visibleCardCount > 0;
   const loadingPresentation = isLoadingMore
     ? resolveAppLoadingPresentation('appending', { hasPaintedRows })
     : isLoading
@@ -1100,11 +1185,18 @@ export function HomePagePanel({
   const errorPresentation = loadError
     ? resolveAppLoadingPresentation('error', { hasPaintedRows })
     : null;
-  const showColdSkeleton = loadingPresentation === 'skeleton';
+  const showColdSkeleton =
+    loadingPresentation === 'skeleton' ||
+    (walkingHiddenPage && !isRefreshing && !isLoading);
   const showAppendSkeleton = loadingPresentation === 'append-skeleton';
   const showEmpty =
-    !isLoading && !isRefreshing && !loadError && visiblePosts.length === 0;
-  const showFeed = visiblePosts.length > 0;
+    !isLoading &&
+    !isRefreshing &&
+    !isLoadingMore &&
+    !loadError &&
+    visibleCardCount === 0 &&
+    (!hasMore || hiddenWalkGaveUp);
+  const showFeed = visibleCardCount > 0;
   const newPostsCountLabel = homeFeedNewPostsCountLabel(unseenPosts.count);
   const showNewPostsPill =
     Boolean(newPostsCountLabel) && showFeed && !isRefreshing && !isLoading;
@@ -1141,9 +1233,9 @@ export function HomePagePanel({
               onClearFocus={clearFocusSearch}
               onNewFeed={() => setSavedFeedSheetOpen(true)}
             />
-            {activeLens === 'saved' ? null : (
+            {homeFeedShowsTimelineChrome(activeLens, activeFocus != null) ? (
               <HomeFeedSortToggle sort={sort} onSortChange={handleSortChange} />
-            )}
+            ) : null}
           </OsAppChromeToolbarRail>
         }
       >
@@ -1170,7 +1262,7 @@ export function HomePagePanel({
             <>
               <PersonalFeedList
                 posts={visiblePosts}
-                includeForeignReplies={Boolean(activeFocus)}
+                includeForeignReplies={includeForeignReplies}
                 stoodWithAccountIds={stoodWithAccountIds}
                 showGuildAttribution
                 className={`home-feed-list${isRefreshing ? ' is-refreshing' : ''}`}
