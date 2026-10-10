@@ -22,7 +22,6 @@ export type PersonalPostPageData = {
   quotes: PostRow[];
   replyTree: ThreadNode[];
   hasMoreReplies: boolean;
-  hasMoreQuotes: boolean;
   engagement: PostEngagementMap;
   scarceEmbeds: PostScarceEmbedMap;
 };
@@ -61,11 +60,7 @@ export const loadPersonalPostPageData = cache(
       if (!root) return null;
       const replyTree = treeResult.replies ?? [];
       const quotes = quotesResult;
-      const paintPosts = [
-        root,
-        ...quotes,
-        ...flattenTreePosts(replyTree),
-      ];
+      const paintPosts = [root, ...quotes, ...flattenTreePosts(replyTree)];
       const [engagement, scarceEmbeds] = await Promise.all([
         loadPostEngagementMap(os, paintPosts),
         hydrateScarceEmbedsForPosts(os, paintPosts),
@@ -76,7 +71,6 @@ export const loadPersonalPostPageData = cache(
         quotes,
         replyTree,
         hasMoreReplies: replyTree.length >= THREAD_REPLY_PAGE_SIZE,
-        hasMoreQuotes: quotes.length >= THREAD_QUOTE_PAGE_SIZE,
         engagement,
         scarceEmbeds,
       };

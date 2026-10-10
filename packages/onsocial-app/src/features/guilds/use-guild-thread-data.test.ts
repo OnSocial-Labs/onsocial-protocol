@@ -6,11 +6,9 @@ import {
   groupPostContentPath,
   guildThreadDocumentCopy,
   GUILD_THREAD_LOAD_ERROR,
-  GUILD_THREAD_LOAD_MORE_QUOTES_ERROR,
   GUILD_THREAD_LOAD_MORE_REPLIES_ERROR,
   guildThreadLoadError,
   guildThreadLoadMoreError,
-  guildThreadLoadMoreFallback,
   nextGuildThreadMembership,
 } from '@/features/guilds/guild-thread-data';
 
@@ -20,7 +18,6 @@ const initialThread = {
   quotes: [{ postId: 'quote-1' }],
   replyTree: [],
   hasMoreReplies: true,
-  hasMoreQuotes: false,
   guildName: 'Audit Guild',
   memberDriven: false,
   accessGated: false,
@@ -70,23 +67,21 @@ describe('guildThreadLoadError', () => {
       'Indexer timed out.'
     );
     expect(guildThreadLoadError('nope')).toBe(GUILD_THREAD_LOAD_ERROR);
-    expect(guildThreadLoadError(new Error('   '))).toBe(GUILD_THREAD_LOAD_ERROR);
+    expect(guildThreadLoadError(new Error('   '))).toBe(
+      GUILD_THREAD_LOAD_ERROR
+    );
   });
 });
 
 describe('guildThreadLoadMoreError', () => {
-  it('keeps a typed error and names the failed tab', () => {
-    expect(
-      guildThreadLoadMoreError('replies', new Error('Reply page timed out.'))
-    ).toEqual({
-      tab: 'replies',
-      message: 'Reply page timed out.',
-    });
-    expect(guildThreadLoadMoreError('quotes', 'nope')).toEqual({
-      tab: 'quotes',
-      message: GUILD_THREAD_LOAD_MORE_QUOTES_ERROR,
-    });
-    expect(guildThreadLoadMoreFallback('replies')).toBe(
+  it('keeps a typed error and falls back when more replies fail', () => {
+    expect(guildThreadLoadMoreError(new Error('Reply page timed out.'))).toBe(
+      'Reply page timed out.'
+    );
+    expect(guildThreadLoadMoreError('nope')).toBe(
+      GUILD_THREAD_LOAD_MORE_REPLIES_ERROR
+    );
+    expect(guildThreadLoadMoreError(new Error('   '))).toBe(
       GUILD_THREAD_LOAD_MORE_REPLIES_ERROR
     );
   });

@@ -17,9 +17,7 @@ import {
   guildThreadLoadError,
   guildThreadLoadMoreError,
   nextGuildThreadMembership,
-  type GuildThreadLoadMoreError,
   type GuildThreadLoadState,
-  type GuildThreadTab,
 } from '@/features/guilds/guild-thread-data';
 import {
   parseGuildStructure,
@@ -44,17 +42,11 @@ import {
   withoutIndexedPosts,
 } from '@/lib/thread-display';
 
-export type {
-  GuildThreadLoadMoreError,
-  GuildThreadLoadState,
-  GuildThreadTab,
-} from '@/features/guilds/guild-thread-data';
+export type { GuildThreadLoadState } from '@/features/guilds/guild-thread-data';
 export {
   GUILD_THREAD_LOAD_ERROR,
-  GUILD_THREAD_LOAD_MORE_QUOTES_ERROR,
   GUILD_THREAD_LOAD_MORE_REPLIES_ERROR,
   groupPostContentPath,
-  guildThreadLoadMoreFallback,
 } from '@/features/guilds/guild-thread-data';
 
 const REPLY_PAGE_SIZE = THREAD_REPLY_PAGE_SIZE;
@@ -102,12 +94,11 @@ export function useGuildThreadData({
   pendingJoinProposalId: string | null;
   viewerAccessResolved: boolean;
   hasMoreReplies: boolean;
-  hasMoreQuotes: boolean;
   loadingMore: boolean;
-  loadMoreError: GuildThreadLoadMoreError | null;
+  loadMoreError: string | null;
   rootPath: string;
   refresh: (options?: { background?: boolean }) => Promise<void>;
-  loadMore: (tab: GuildThreadTab) => void;
+  loadMore: () => void;
   scheduleReconcile: () => void;
   applyMembershipOutcome: (outcome: GuildMembershipOutcome) => void;
 } {
@@ -150,12 +141,8 @@ export function useGuildThreadData({
   const [hasMoreReplies, setHasMoreReplies] = useState(
     () => initial?.hasMoreReplies ?? false
   );
-  const [hasMoreQuotes, setHasMoreQuotes] = useState(
-    () => initial?.hasMoreQuotes ?? false
-  );
   const [loadingMore, setLoadingMore] = useState(false);
-  const [loadMoreError, setLoadMoreError] =
-    useState<GuildThreadLoadMoreError | null>(null);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const paginatedRef = useRef(false);
   const reconcileTimersRef = useRef<number[]>([]);
@@ -227,7 +214,6 @@ export function useGuildThreadData({
           });
           setReplyTree(fetchedTree);
           setHasMoreReplies(fetchedTree.length >= REPLY_PAGE_SIZE);
-          setHasMoreQuotes(fetchedQuotes.length >= QUOTE_PAGE_SIZE);
           setLoadMoreError(null);
         }
 
@@ -358,75 +344,50 @@ export function useGuildThreadData({
     }
   }, [refresh]);
 
-  const loadMore = useCallback(
-    (tab: GuildThreadTab) => {
-      if (loadMoreInFlightRef.current) return;
-      loadMoreInFlightRef.current = true;
-      setLoadingMore(true);
-      setLoadMoreError(null);
-      const requestKey = threadKey;
-      const repliesOffset = conversation.replies.length;
-      const quotesOffset = conversation.quotes.length;
-      void (async () => {
-        try {
-          const client = createReadOnlyOnSocialClient();
-          if (tab === 'replies') {
-            const page = await client.query.threads.repliesByPath(rootPath, {
-              limit: REPLY_PAGE_SIZE,
-              offset: repliesOffset,
-            });
-            if (threadKeyRef.current !== requestKey) return;
-            paginatedRef.current = true;
-            setConversation((current) => ({
-              ...current,
-              replies: [...current.replies, ...page],
-            }));
-            // Extra pages join as top-level rows; their own descendants
-            // arrive with the next full refresh.
-            setReplyTree((current) => [
-              ...current,
-              ...page.map((post) =>
-                leafThreadNode(
-                  post,
-                  groupPostContentPath(post.accountId, groupId, post.postId)
-                )
-              ),
-            ]);
-            setHasMoreReplies(page.length >= REPLY_PAGE_SIZE);
-          } else {
-            const page = await client.query.threads.quotesByPath(rootPath, {
-              limit: QUOTE_PAGE_SIZE,
-              offset: quotesOffset,
-              order: 'desc',
-            });
-            if (threadKeyRef.current !== requestKey) return;
-            paginatedRef.current = true;
-            setConversation((current) => ({
-              ...current,
-              quotes: [...current.quotes, ...page],
-            }));
-            setHasMoreQuotes(page.length >= QUOTE_PAGE_SIZE);
-          }
-        } catch (cause) {
-          if (threadKeyRef.current !== requestKey) return;
-          // Keep the current list; Retry replaces the button so it stays usable.
-          setLoadMoreError(guildThreadLoadMoreError(tab, cause));
-        } finally {
-          if (threadKeyRef.current === requestKey) {
-            loadMoreInFlightRef.current = false;
-            setLoadingMore(false);
-          }
+  const loadMore = useCallback(() => {
+    if (loadMoreInFlightRef.current) return;
+    loadMoreInFlightRef.current = true;
+    setLoadingMore(true);
+    setLoadMoreError(null);
+    const requestKey = threadKey;
+    const repliesOffset = conversation.replies.length;
+    void (async () => {
+      try {
+        const client = createReadOnlyOnSocialClient();
+        const page = await client.query.threads.repliesByPath(rootPath, {
+          limit: REPLY_PAGE_SIZE,
+          offset: repliesOffset,
+        });
+        if (threadKeyRef.current !== requestKey) return;
+        paginatedRef.current = true;
+        setConversation((current) => ({
+          ...current,
+          replies: [...current.replies, ...page],
+        }));
+        // Extra pages join as top-level rows; their own descendants
+        // arrive with the next full refresh.
+        setReplyTree((current) => [
+          ...current,
+          ...page.map((post) =>
+            leafThreadNode(
+              post,
+              groupPostContentPath(post.accountId, groupId, post.postId)
+            )
+          ),
+        ]);
+        setHasMoreReplies(page.length >= REPLY_PAGE_SIZE);
+      } catch (cause) {
+        if (threadKeyRef.current !== requestKey) return;
+        // Keep the current list; Retry replaces the button so it stays usable.
+        setLoadMoreError(guildThreadLoadMoreError(cause));
+      } finally {
+        if (threadKeyRef.current === requestKey) {
+          loadMoreInFlightRef.current = false;
+          setLoadingMore(false);
         }
-      })();
-    },
-    [
-      conversation.quotes.length,
-      conversation.replies.length,
-      groupId,
-      rootPath,
-      threadKey,
-    ]
-  );
+      }
+    })();
+  }, [conversation.replies.length, groupId, rootPath, threadKey]);
 
   const applyMembershipOutcome = useCallback(
     (outcome: GuildMembershipOutcome) => {
@@ -473,7 +434,6 @@ export function useGuildThreadData({
     pendingJoinProposalId,
     viewerAccessResolved,
     hasMoreReplies,
-    hasMoreQuotes,
     loadingMore,
     loadMoreError,
     rootPath,
