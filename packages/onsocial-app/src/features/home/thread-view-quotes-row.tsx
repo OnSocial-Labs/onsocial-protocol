@@ -15,7 +15,7 @@ interface ThreadViewQuotesRowProps {
 
 /**
  * Quiet amplification row under the thread divider — quotes and reposts live
- * on their own screen, so the detail page stays about the conversation.
+ * on their own view, so the thread stays about the conversation.
  */
 export function ThreadViewQuotesRow({
   href,

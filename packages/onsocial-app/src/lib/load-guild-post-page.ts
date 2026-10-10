@@ -21,7 +21,6 @@ export type GuildPostPageData = {
   quotes: PostRow[];
   replyTree: ThreadNode[];
   hasMoreReplies: boolean;
-  hasMoreQuotes: boolean;
   guildName: string | null;
   memberDriven: boolean;
   accessGated: boolean;
@@ -83,7 +82,6 @@ export const loadGuildPostPageData = cache(
         quotes,
         replyTree,
         hasMoreReplies: replyTree.length >= THREAD_REPLY_PAGE_SIZE,
-        hasMoreQuotes: quotes.length >= THREAD_QUOTE_PAGE_SIZE,
         guildName: shell?.groupName?.trim() || null,
         memberDriven: Boolean(shell?.isMemberDriven),
         accessGated: shell?.isPublic === false,

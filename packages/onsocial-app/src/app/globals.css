@@ -41868,12 +41868,6 @@ a.os-surface-row {
     word-break: break-word;
   }
 
-  .guild-thread-chrome {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-  }
-
   /* Compact Join / Connect opposite the thread title. */
   .guild-thread-nav-membership {
     flex-shrink: 0;
@@ -41972,68 +41966,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.26);
   }
 
-  /* Same chip language as feed filters / composer Reply·Quote — no dark track. */
-  .guild-thread-tabs {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 0.3rem;
-    padding: 0;
-    border-radius: 0;
-    background: transparent;
-  }
-
-  .guild-thread-tabs button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
-    min-height: 1.85rem;
-    border: 0;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.05);
-    color: rgb(var(--fg-rgb) / 0.58);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    padding: 0.32rem 0.72rem;
-    transition:
-      background 160ms ease,
-      color 160ms ease;
-  }
-
-  .guild-thread-tabs button:hover,
-  .guild-thread-tabs button:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.08);
-    color: rgb(var(--fg-rgb) / 0.82);
-    outline: none;
-  }
-
-  .guild-thread-tabs button.is-active {
-    background: rgb(var(--fg-rgb) / 0.1);
-    color: rgb(var(--fg-rgb) / 0.92);
-  }
-
-  .guild-thread-tab-count {
-    display: inline-flex;
-    min-width: 1.1rem;
-    justify-content: center;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.08);
-    color: rgb(var(--fg-rgb) / 0.55);
-    font-size: 0.62rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
-    padding: 0.18rem 0.32rem;
-  }
-
-  .guild-thread-tabs button.is-active .guild-thread-tab-count {
-    background: rgb(var(--fg-rgb) / 0.14);
-    color: rgb(var(--fg-rgb) / 0.78);
-  }
-
   .guild-connected-stack {
     display: flex;
     flex-direction: column;
@@ -42041,8 +41973,8 @@ a.os-surface-row {
   }
 
   /*
-   * Flow layout (default): one controls row under the divider — `Replies ▾`
-   * sort left, `View quotes ›` or `View reposts ›` right. Quiet chrome:
+   * One controls row under the divider — `Replies ▾` sort left,
+   * `View quotes ›` or `View reposts ›` right. Quiet chrome:
    * muted ink, fg on hover.
    */
   .thread-controls-row {
