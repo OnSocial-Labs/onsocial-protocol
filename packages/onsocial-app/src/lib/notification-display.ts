@@ -140,6 +140,8 @@ export function notificationLeadAccountId(
       null
     );
   }
+  // A reward is OnSocial crediting SOCIAL. The signer is often the relayer.
+  if (notification.type?.startsWith('reward_')) return null;
   if (notification.type === 'dao_proposal_resolved') {
     return (
       notificationDaoAccountId(notification) ??
@@ -160,7 +162,7 @@ export function notificationProfileAccountIds(
     const lead = notificationLeadAccountId(item);
     if (lead) ids.add(lead);
     const actor = item.actor?.trim();
-    if (actor) ids.add(actor);
+    if (actor && !item.type?.startsWith('reward_')) ids.add(actor);
     const dao = notificationDaoAccountId(item);
     if (dao) ids.add(dao);
   }
