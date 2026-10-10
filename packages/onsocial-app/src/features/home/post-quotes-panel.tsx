@@ -39,10 +39,10 @@ import { portfolioPath } from '@/lib/overlay-routes';
 import { resolveQuotedInset } from '@/lib/post-relation';
 import { displayName } from '@/lib/profile-display';
 import { POST_REACH_TITLE } from '@/lib/post-reach-title';
-import { postThreadPath } from '@/lib/post-routes';
+import { postThreadPath, type PostQuotesTab } from '@/lib/post-routes';
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
-type QuotesTab = 'quotes' | 'reposts';
+type QuotesTab = PostQuotesTab;
 
 interface PostQuotesPanelProps {
   author: string;
@@ -50,6 +50,8 @@ interface PostQuotesPanelProps {
   initial?: PostQuotesPageData | null;
   /** Inside the post sheet — the sheet header owns Back. */
   embedded?: boolean;
+  /** Reposts-only rows open this screen already on Reposts. */
+  initialTab?: QuotesTab;
 }
 
 function contentPathFor(root: PostRow): string {
@@ -64,6 +66,7 @@ export function PostQuotesPanel({
   postId,
   initial = null,
   embedded = false,
+  initialTab = 'quotes',
 }: PostQuotesPanelProps) {
   seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
   const { setTxResult } = useAppTransactionFeedback();
@@ -82,7 +85,10 @@ export function PostQuotesPanel({
     () => initial?.hasMoreReposters ?? false
   );
   const [loadingMore, setLoadingMore] = useState(false);
-  const [activeTab, setActiveTab] = useState<QuotesTab>('quotes');
+  const [activeTab, setActiveTab] = useState<QuotesTab>(
+    initialTab === 'reposts' ? 'reposts' : 'quotes'
+  );
+  const pinRepostsRef = useRef(initialTab === 'reposts');
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(
@@ -249,10 +255,19 @@ export function PostQuotesPanel({
 
   useLayoutEffect(() => {
     if (loadState !== 'ready') return;
-    placeThumb();
+    const sync = () => {
+      const pager = pagerRef.current;
+      if (pinRepostsRef.current && pager && pager.clientWidth > 0) {
+        pager.scrollLeft = pager.clientWidth;
+        settledRef.current = 'reposts';
+        pinRepostsRef.current = false;
+      }
+      placeThumb();
+    };
+    sync();
     const track = trackRef.current;
     if (!track || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => placeThumb());
+    const observer = new ResizeObserver(() => sync());
     observer.observe(track);
     const pager = pagerRef.current;
     if (pager) observer.observe(pager);

@@ -82,6 +82,10 @@ import {
   collectRelationTargetAccountIds,
 } from '@/lib/post-relation';
 import { postQuotesPath } from '@/lib/post-routes';
+import {
+  resolveThreadShareRow,
+  threadShareRowHref,
+} from '@/lib/thread-share-row';
 import { resolveThreadLayout } from '@/lib/thread-layout';
 import {
   sortThreadReplyRows,
@@ -240,9 +244,8 @@ export function LiveGuildPostPanel({
   const [dockTarget, setDockTarget] = useState<PostRow | null>(null);
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
-  const [activeThreadTab, setActiveThreadTab] = useState<GuildThreadTab>(
-    'replies'
-  );
+  const [activeThreadTab, setActiveThreadTab] =
+    useState<GuildThreadTab>('replies');
   const [threadTabTouched, setThreadTabTouched] = useState(false);
   const [replySort, setReplySort] = useState<ThreadReplySort>('relevant');
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
@@ -372,6 +375,8 @@ export function LiveGuildPostPanel({
     ? engagement[postKey(conversation.root)]
     : undefined;
   const quoteTotal = Math.max(rootEngagement?.quoteCount ?? 0, quotes.length);
+  const repostTotal = Math.max(0, rootEngagement?.repostCount ?? 0);
+  const shareRow = resolveThreadShareRow(quoteTotal, repostTotal);
   const sortedReplyRows = useMemo(
     () => sortThreadReplyRows(replyRows, replySort, engagement),
     [replyRows, replySort, engagement]
@@ -696,12 +701,13 @@ export function LiveGuildPostPanel({
   const threadDraftKey = root
     ? writeDockDraftKey('post', postKey(root))
     : undefined;
-  const writeAbove = nestedDockReply && writeName ? (
-    <OsWriteDockReplyChip
-      label={writeName}
-      onCancel={() => setDockTarget(null)}
-    />
-  ) : null;
+  const writeAbove =
+    nestedDockReply && writeName ? (
+      <OsWriteDockReplyChip
+        label={writeName}
+        onCancel={() => setDockTarget(null)}
+      />
+    ) : null;
   useReplyWriteDock({
     target: writeTarget,
     enabled: Boolean(root) && (!accountId || canPostInThread),
@@ -833,31 +839,31 @@ export function LiveGuildPostPanel({
         </span>
       ) : (
         <>
-        <GuildMembershipJoinButton
-          className="guild-hero-membership guild-thread-nav-membership"
-          label={membershipActionLabel}
-          ready={membershipActionReady}
-          active={effectiveIsMember}
-          pending={joinActionPending}
-          pendingLabel={guildMembershipJoinPendingLabel({
-            accessGated,
-            canceling: effectiveJoinPending,
-            leaving: effectiveIsMember,
-          })}
-          disabled={
-            effectiveIsBlacklisted ||
-            (effectiveJoinPending && !joinCancelReady) ||
-            (!viewerAccessResolved && Boolean(membershipHint))
-          }
-          onClick={handleMembershipClick}
-        />
-        <GuildMembershipConfirmDrawer
-          kind={confirmKind}
-          guildName={guildDisplayName(guildName, groupId)}
-          pending={joinActionPending}
-          onConfirm={confirmMembership}
-          onCancel={dismissConfirm}
-        />
+          <GuildMembershipJoinButton
+            className="guild-hero-membership guild-thread-nav-membership"
+            label={membershipActionLabel}
+            ready={membershipActionReady}
+            active={effectiveIsMember}
+            pending={joinActionPending}
+            pendingLabel={guildMembershipJoinPendingLabel({
+              accessGated,
+              canceling: effectiveJoinPending,
+              leaving: effectiveIsMember,
+            })}
+            disabled={
+              effectiveIsBlacklisted ||
+              (effectiveJoinPending && !joinCancelReady) ||
+              (!viewerAccessResolved && Boolean(membershipHint))
+            }
+            onClick={handleMembershipClick}
+          />
+          <GuildMembershipConfirmDrawer
+            kind={confirmKind}
+            guildName={guildDisplayName(guildName, groupId)}
+            pending={joinActionPending}
+            onConfirm={confirmMembership}
+            onCancel={dismissConfirm}
+          />
         </>
       )}
     </div>
@@ -1186,7 +1192,7 @@ export function LiveGuildPostPanel({
                   </button>
                 </div>
               </div>
-            ) : replyListRows.length > 0 || quoteTotal > 0 ? (
+            ) : replyListRows.length > 0 || shareRow ? (
               <div className="thread-controls-row">
                 {replyListRows.length > 0 ? (
                   <ThreadRepliesSortButton
@@ -1196,10 +1202,14 @@ export function LiveGuildPostPanel({
                 ) : (
                   <span className="thread-controls-spacer" aria-hidden />
                 )}
-                {quoteTotal > 0 && conversation.root ? (
+                {shareRow && conversation.root ? (
                   <ThreadViewQuotesRow
-                    href={postQuotesPath(conversation.root)}
-                    quoteCount={quoteTotal}
+                    href={threadShareRowHref(
+                      postQuotesPath(conversation.root),
+                      shareRow
+                    )}
+                    label={shareRow.label}
+                    count={shareRow.count}
                   />
                 ) : null}
               </div>
@@ -1249,7 +1259,7 @@ export function LiveGuildPostPanel({
               <div className="guild-connected-stack">
                 {replyListRows.length > 0 ? (
                   replyListRows
-                ) : quoteTotal === 0 ? (
+                ) : !shareRow ? (
                   <ThreadDiscoverPeek
                     author={author}
                     excludePostId={postId}
