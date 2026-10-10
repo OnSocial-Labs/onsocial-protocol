@@ -613,6 +613,25 @@ describe('notification display', () => {
     ).toEqual(['bob.testnet', 'gov.sputnik-dao.testnet']);
   });
 
+  it('paints a reward credit as Collect, not the relayer', () => {
+    const credited = {
+      type: 'reward_credited',
+      actor: 'relayer.onsocial.testnet',
+      recipient: 'alice.testnet',
+      context: { amount: '12' },
+    };
+    expect(notificationLeadAccountId(credited)).toBeNull();
+    expect(notificationProfileAccountIds([credited])).toEqual([]);
+    expect(isSystemNotification(credited)).toBe(true);
+    expect(notificationSystemChrome(credited)).toEqual({
+      family: 'collect',
+      familyLabel: 'Collect',
+      action: 'SOCIAL credited',
+    });
+    expect(notificationHref(credited)).toBe('/home?sheet=wallet');
+    expect(notificationDetail(credited).snippet).toBe('12 SOCIAL');
+  });
+
   it('leads anniversary rows with the member, not a system mark', () => {
     expect(
       notificationLeadAccountId({
