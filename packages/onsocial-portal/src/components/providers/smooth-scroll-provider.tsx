@@ -1,12 +1,28 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import Lenis from 'lenis';
 import {
   resetPortalScrollY,
   setPortalScrollY,
 } from '@/lib/portal-scroll-state';
 import { usePathname, useSearchParams } from 'next/navigation';
+
+/** Minimal Navigation API shape — not yet in every TS lib.dom version. */
+type NavigateEventLike = {
+  navigationType?: string;
+  destination?: { url?: string };
+};
+type NavigationLike = {
+  addEventListener(
+    type: 'navigate',
+    listener: (event: NavigateEventLike) => void
+  ): void;
+  removeEventListener(
+    type: 'navigate',
+    listener: (event: NavigateEventLike) => void
+  ): void;
+};
 
 const SCROLL_STORAGE_PREFIX = 'onsocial:scroll:';
 
@@ -46,7 +62,8 @@ function SmoothScrollController() {
   const lenisRef = useRef<Lenis | null>(null);
   const isPopNavigationRef = useRef(false);
   const hasMountedRef = useRef(false);
-  const routeKeyRef = useRef(pathname);
+  const routeKeyRef = useRef('');
+  const lastScrollYRef = useRef(0);
   const scrollFrameRef = useRef<number | null>(null);
   const restoreFrameRef = useRef<number | null>(null);
   const restoreTimeoutRef = useRef<number | null>(null);
@@ -150,16 +167,72 @@ function SmoothScrollController() {
       return;
     }
 
+    // React 19 intercepts history traversals through the Navigation API and
+    // commits the route change before the browser dispatches `popstate`, so a
+    // popstate listener alone fires too late to flag a back/forward
+    // navigation. The Navigation API's `navigate` event fires before the
+    // commit; popstate stays as the fallback for browsers without it.
+    const locationKey = () =>
+      `${window.location.pathname}${window.location.search}`;
+
     const handlePopState = () => {
+      if (locationKey() === routeKeyRef.current) {
+        // Late popstate: React already committed this traversal. Re-arming
+        // here would mislabel the next plain link push as a back/forward
+        // navigation and wrongly restore an old position.
+        return;
+      }
       isPopNavigationRef.current = true;
     };
 
     window.addEventListener('popstate', handlePopState);
 
+    const navigation = (window as unknown as { navigation?: NavigationLike })
+      .navigation;
+
+    const handleNavigate = (event: NavigateEventLike) => {
+      if (event.navigationType !== 'traverse') {
+        return;
+      }
+      try {
+        const destination = new URL(
+          event.destination?.url ?? '',
+          window.location.href
+        );
+        // Traversals that keep the same route key (hash-only) never reach the
+        // routeKey effect; arming the flag would leak into the next push.
+        if (
+          `${destination.pathname}${destination.search}` === routeKeyRef.current
+        ) {
+          return;
+        }
+      } catch {
+        // Unparseable destination — still treat as a pop navigation.
+      }
+      isPopNavigationRef.current = true;
+    };
+
+    navigation?.addEventListener('navigate', handleNavigate);
+
     return () => {
       window.removeEventListener('popstate', handlePopState);
+      navigation?.removeEventListener('navigate', handleNavigate);
     };
   }, []);
+
+  // Swap the active route key in a layout effect: child layout effects run
+  // before the router's own scroll-to-top, so the outgoing route keeps the
+  // position captured from real scroll events instead of reading
+  // window.scrollY after Next has already zeroed it.
+  useLayoutEffect(() => {
+    if (!routeKey || routeKeyRef.current === routeKey) {
+      return;
+    }
+    if (routeKeyRef.current) {
+      writeScrollPosition(routeKeyRef.current, lastScrollYRef.current);
+    }
+    routeKeyRef.current = routeKey;
+  }, [routeKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -167,6 +240,10 @@ function SmoothScrollController() {
     }
 
     const saveCurrentRoutePosition = () => {
+      if (!routeKeyRef.current) {
+        return;
+      }
+      lastScrollYRef.current = window.scrollY;
       writeScrollPosition(routeKeyRef.current, window.scrollY);
     };
 
@@ -207,7 +284,6 @@ function SmoothScrollController() {
 
     if (!hasMountedRef.current) {
       hasMountedRef.current = true;
-      routeKeyRef.current = routeKey;
       writeScrollPosition(routeKey, window.scrollY);
       return;
     }
@@ -220,9 +296,6 @@ function SmoothScrollController() {
         })
       );
     };
-
-    writeScrollPosition(routeKeyRef.current, window.scrollY);
-    routeKeyRef.current = routeKey;
 
     const nextScrollTop = readScrollPosition(routeKey);
     const isPopNavigation = isPopNavigationRef.current;
