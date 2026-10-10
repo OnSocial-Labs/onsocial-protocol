@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import {
+  collectionIdFromTokenId,
   formatMarketRelativeTime,
   type MarketSaleItem,
 } from '@/features/market/market-listings';
@@ -10,8 +11,20 @@ import {
   useMarketPostLayer,
 } from '@/features/market/market-post-layer';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
+import { collectionPath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
+
+/** Post when the sale has one. Otherwise the drop page for an edition token. */
+export function marketSaleDetailHref(
+  sale: Pick<MarketSaleItem, 'postHref' | 'tokenId'>
+): { href: string; kind: 'post' | 'drop' } | null {
+  const postHref = sale.postHref?.trim();
+  if (postHref) return { href: postHref, kind: 'post' };
+  const collectionId = collectionIdFromTokenId(sale.tokenId ?? '');
+  if (!collectionId) return null;
+  return { href: collectionPath(collectionId), kind: 'drop' };
+}
 
 function formatSalePriceNear(priceNear: string, fractionDigits: 2 | 4): string {
   const n = Number.parseFloat(priceNear);
@@ -50,12 +63,16 @@ export function MarketSaleRow({ sale, soldTo = false }: MarketSaleRowProps) {
   const buyer = sale.buyerId?.trim() || '';
   const counterpart = soldTo ? buyer : seller;
   const saleTime = formatMarketRelativeTime(sale.blockTimestamp);
-  const title = sale.postHref ? (
+  const detail = marketSaleDetailHref(sale);
+  const postHandlers = detail
+    ? marketPostLayerLinkHandlers(detail.href, openMarketPost)
+    : null;
+  const title = detail ? (
     <Link
-      href={sale.postHref}
+      href={detail.href}
       scroll={false}
       className="market-listing-title-link"
-      {...marketPostLayerLinkHandlers(sale.postHref, openMarketPost)}
+      {...(postHandlers ?? {})}
     >
       {sale.title}
     </Link>
@@ -63,19 +80,34 @@ export function MarketSaleRow({ sale, soldTo = false }: MarketSaleRowProps) {
     sale.title
   );
   const price = marketSalePriceLabel(sale);
+  const thumbClass = `market-listing-thumb${sale.mediaUrl ? ' has-media' : ''}`;
+  const thumbArt = sale.mediaUrl ? (
+    <img src={sale.mediaUrl} alt="" />
+  ) : (
+    <span className="market-listing-thumb-fallback" />
+  );
 
   return (
     <li className="market-sale-row">
-      <div
-        className={`market-listing-thumb${sale.mediaUrl ? ' has-media' : ''}`}
-        aria-hidden
-      >
-        {sale.mediaUrl ? (
-          <img src={sale.mediaUrl} alt="" />
-        ) : (
-          <span className="market-listing-thumb-fallback" />
-        )}
-      </div>
+      {detail ? (
+        <Link
+          href={detail.href}
+          scroll={false}
+          className={thumbClass}
+          aria-label={
+            detail.kind === 'post'
+              ? `Open post for ${sale.title}`
+              : `Open drop for ${sale.title}`
+          }
+          {...(postHandlers ?? {})}
+        >
+          {thumbArt}
+        </Link>
+      ) : (
+        <div className={thumbClass} aria-hidden>
+          {thumbArt}
+        </div>
+      )}
       <div className="market-listing-copy">
         <div className="market-listing-head">
           <p className="market-sale-title">{title}</p>
