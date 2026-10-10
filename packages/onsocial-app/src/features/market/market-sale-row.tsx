@@ -13,6 +13,27 @@ import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 
+function formatSalePriceNear(priceNear: string, fractionDigits: 2 | 4): string {
+  const n = Number.parseFloat(priceNear);
+  if (!Number.isFinite(n)) return priceNear;
+  return n.toLocaleString('en-US', {
+    minimumFractionDigits: fractionDigits === 2 ? 2 : 0,
+    maximumFractionDigits: fractionDigits,
+  });
+}
+
+/** Dollar sales use the 2dp earnings face. NEAR sales stay at 4dp like listings. */
+export function marketSalePriceLabel(input: {
+  usdE6?: string | null;
+  priceNear?: string | null;
+}): string | null {
+  const sticker = dollarStickerLabel(input.usdE6);
+  const near = input.priceNear?.trim();
+  if (!near) return sticker;
+  const amount = formatSalePriceNear(near, sticker ? 2 : 4);
+  return `${sticker ? `${sticker} · ` : ''}${amount} NEAR`;
+}
+
 interface MarketSaleRowProps {
   sale: MarketSaleItem;
   /**
@@ -41,10 +62,7 @@ export function MarketSaleRow({ sale, soldTo = false }: MarketSaleRowProps) {
   ) : (
     sale.title
   );
-  const sticker = dollarStickerLabel(sale.usdE6);
-  const price = sale.priceNear?.trim()
-    ? `${sticker ? `${sticker} · ` : ''}${sale.priceNear.trim()} NEAR`
-    : null;
+  const price = marketSalePriceLabel(sale);
 
   return (
     <li className="market-sale-row">
@@ -67,9 +85,7 @@ export function MarketSaleRow({ sale, soldTo = false }: MarketSaleRowProps) {
           {soldTo && price ? (
             <span className="market-listing-own"> · </span>
           ) : null}
-          {price ? (
-            <span className="market-listing-price">{price}</span>
-          ) : null}
+          {price ? <span className="market-listing-price">{price}</span> : null}
           {counterpart ? (
             <>
               <span className="market-listing-own"> · </span>
