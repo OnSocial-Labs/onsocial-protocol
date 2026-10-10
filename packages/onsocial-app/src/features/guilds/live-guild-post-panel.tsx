@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
-import { Divider, OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -82,6 +82,10 @@ import {
   collectRelationTargetAccountIds,
 } from '@/lib/post-relation';
 import { postQuotesPath } from '@/lib/post-routes';
+import {
+  resolveThreadShareRow,
+  threadShareRowHref,
+} from '@/lib/thread-share-row';
 import { resolveThreadLayout } from '@/lib/thread-layout';
 import {
   sortThreadReplyRows,
@@ -387,6 +391,8 @@ export function LiveGuildPostPanel({
     ? engagement[postKey(conversation.root)]
     : undefined;
   const quoteTotal = Math.max(rootEngagement?.quoteCount ?? 0, quotes.length);
+  const repostTotal = Math.max(0, rootEngagement?.repostCount ?? 0);
+  const shareRow = resolveThreadShareRow(quoteTotal, repostTotal);
   const sortedReplyRows = useMemo(
     () => sortThreadReplyRows(replyRows, replySort, engagement),
     [replyRows, replySort, engagement]
@@ -839,28 +845,6 @@ export function LiveGuildPostPanel({
     viewerAccessResolved &&
     !effectiveIsMember &&
     !effectiveIsBlacklisted;
-  const connectAction =
-    !embedded && !walletLoading && !isConnected ? (
-      <OsSheetActions
-        layout="row-compact"
-        tone="frosted-primary"
-        size="sm"
-        borderless
-        className="guild-thread-nav-membership"
-      >
-        <OsSheetAction
-          type="button"
-          className="guild-hero-action"
-          variant="primary"
-          ready
-          onClick={() => {
-            void connect();
-          }}
-        >
-          Connect
-        </OsSheetAction>
-      </OsSheetActions>
-    ) : null;
   const joinDock = needsJoinToReply ? (
     <div className="guild-thread-join-dock">
       <GuildMembershipJoinButton
@@ -1027,7 +1011,6 @@ export function LiveGuildPostPanel({
       glassChrome
       compactChrome
       backFallbackHref={guildPath(groupId)}
-      actions={connectAction}
     >
       <div className={GUILDS_PAGE_CLASS}>
         {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
@@ -1220,7 +1203,7 @@ export function LiveGuildPostPanel({
                   </button>
                 </div>
               </div>
-            ) : replyListRows.length > 0 || quoteTotal > 0 ? (
+            ) : replyListRows.length > 0 || shareRow ? (
               <div className="thread-controls-row">
                 {replyListRows.length > 0 ? (
                   <ThreadRepliesSortButton
@@ -1230,10 +1213,14 @@ export function LiveGuildPostPanel({
                 ) : (
                   <span className="thread-controls-spacer" aria-hidden />
                 )}
-                {quoteTotal > 0 && conversation.root ? (
+                {shareRow && conversation.root ? (
                   <ThreadViewQuotesRow
-                    href={postQuotesPath(conversation.root)}
-                    quoteCount={quoteTotal}
+                    href={threadShareRowHref(
+                      postQuotesPath(conversation.root),
+                      shareRow
+                    )}
+                    label={shareRow.label}
+                    count={shareRow.count}
                   />
                 ) : null}
               </div>
@@ -1283,7 +1270,7 @@ export function LiveGuildPostPanel({
               <div className="guild-connected-stack">
                 {replyListRows.length > 0 ? (
                   replyListRows
-                ) : quoteTotal === 0 ? (
+                ) : !shareRow ? (
                   <ThreadDiscoverPeek
                     author={author}
                     excludePostId={postId}

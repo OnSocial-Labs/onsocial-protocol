@@ -42038,7 +42038,8 @@ a.os-surface-row {
 
   /*
    * Flow layout (default): one controls row under the divider — `Replies ▾`
-   * sort left, `View quotes ›` right. Quiet chrome: muted ink, fg on hover.
+   * sort left, `View quotes ›` or `View reposts ›` right. Quiet chrome:
+   * muted ink, fg on hover.
    */
   .thread-controls-row {
     display: flex;

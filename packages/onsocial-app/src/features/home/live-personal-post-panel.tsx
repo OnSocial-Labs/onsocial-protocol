@@ -5,7 +5,6 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -74,6 +73,10 @@ import {
   postThreadPath,
   THREAD_FOCUS_REPLY_QUERY,
 } from '@/lib/post-routes';
+import {
+  resolveThreadShareRow,
+  threadShareRowHref,
+} from '@/lib/thread-share-row';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { resolveThreadLayout } from '@/lib/thread-layout';
 import {
@@ -298,6 +301,8 @@ export function LivePersonalPostPanel({
     ? engagement[postKey(conversation.root)]
     : undefined;
   const quoteTotal = Math.max(rootEngagement?.quoteCount ?? 0, quotes.length);
+  const repostTotal = Math.max(0, rootEngagement?.repostCount ?? 0);
+  const shareRow = resolveThreadShareRow(quoteTotal, repostTotal);
   const sortedReplyRows = useMemo(
     () => sortThreadReplyRows(replyRows, replySort, engagement),
     [replyRows, replySort, engagement]
@@ -692,29 +697,6 @@ export function LivePersonalPostPanel({
     },
   });
 
-  const connectAction =
-    !walletLoading && !isConnected ? (
-      <OsSheetActions
-        layout="row-compact"
-        tone="frosted-primary"
-        size="sm"
-        borderless
-        className="guild-thread-nav-membership"
-      >
-        <OsSheetAction
-          type="button"
-          className="guild-hero-action"
-          variant="primary"
-          ready
-          onClick={() => {
-            void connect();
-          }}
-        >
-          Connect
-        </OsSheetAction>
-      </OsSheetActions>
-    ) : null;
-
   const replyListRows = sortedReplyRows.map((row, index) => {
     if (row.kind === 'more') {
       return (
@@ -1011,7 +993,7 @@ export function LivePersonalPostPanel({
                 </button>
               </div>
             </div>
-          ) : replyListRows.length > 0 || quoteTotal > 0 ? (
+          ) : replyListRows.length > 0 || shareRow ? (
             <div className="thread-controls-row">
               {replyListRows.length > 0 ? (
                 <ThreadRepliesSortButton
@@ -1021,10 +1003,14 @@ export function LivePersonalPostPanel({
               ) : (
                 <span className="thread-controls-spacer" aria-hidden />
               )}
-              {quoteTotal > 0 ? (
+              {shareRow ? (
                 <ThreadViewQuotesRow
-                  href={personalPostQuotesPath(author, postId)}
-                  quoteCount={quoteTotal}
+                  href={threadShareRowHref(
+                    personalPostQuotesPath(author, postId),
+                    shareRow
+                  )}
+                  label={shareRow.label}
+                  count={shareRow.count}
                 />
               ) : null}
             </div>
@@ -1072,7 +1058,7 @@ export function LivePersonalPostPanel({
             <div className="guild-connected-stack">
               {replyListRows.length > 0 ? (
                 replyListRows
-              ) : quoteTotal === 0 ? (
+              ) : !shareRow ? (
                 <ThreadDiscoverPeek
                   author={author}
                   excludePostId={postId}
@@ -1155,7 +1141,6 @@ export function LivePersonalPostPanel({
       glassChrome
       compactChrome
       backFallbackHref={APP_HOME_PATH}
-      actions={connectAction}
     >
       {thread}
       {composer}

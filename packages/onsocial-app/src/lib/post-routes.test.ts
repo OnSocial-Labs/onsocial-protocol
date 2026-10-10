@@ -7,6 +7,7 @@ import {
   isInAppPostLayerHref,
   isOverlayPostLayerLocation,
   parseGuildPostLayerHref,
+  parseGuildPostQuotesHref,
   parseInAppPostLayerHref,
   parseInAppPostQuotesHref,
   personalPostContentPath,
@@ -117,6 +118,26 @@ describe('parseGuildPostLayerHref', () => {
   });
 });
 
+describe('parseGuildPostQuotesHref', () => {
+  it('parses a guild quotes permalink', () => {
+    expect(
+      parseGuildPostQuotesHref(
+        '/groups/dao/posts/alice.testnet/123/quotes?tab=reposts'
+      )
+    ).toEqual({
+      groupId: 'dao',
+      accountId: 'alice.testnet',
+      postId: '123',
+    });
+  });
+
+  it('ignores the guild post itself', () => {
+    expect(
+      parseGuildPostQuotesHref('/groups/dao/posts/alice.testnet/123')
+    ).toBeNull();
+  });
+});
+
 describe('isAppPostSheetHref', () => {
   it('opens personal and guild threads over the current screen', () => {
     expect(isAppPostSheetHref('/@alice.testnet/posts/123')).toBe(true);
@@ -168,6 +189,18 @@ describe('isOverlayPostLayerLocation', () => {
       isOverlayPostLayerLocation(
         '/groups/dao',
         '/groups/dao/posts/alice.testnet/123'
+      )
+    ).toBe(true);
+    expect(
+      isOverlayPostLayerLocation(
+        '/groups/dao',
+        '/groups/dao/posts/alice.testnet/123/quotes?tab=reposts'
+      )
+    ).toBe(true);
+    expect(
+      isOverlayPostLayerLocation(
+        '/home',
+        '/@alice.testnet/posts/123/quotes?tab=reposts'
       )
     ).toBe(true);
   });
