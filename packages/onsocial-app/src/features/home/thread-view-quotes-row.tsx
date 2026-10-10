@@ -9,16 +9,18 @@ import {
 
 interface ThreadViewQuotesRowProps {
   href: string;
-  quoteCount: number;
+  label: string;
+  count: number;
 }
 
 /**
- * Quiet amplification row under the thread divider — quotes live on their own
- * screen (X/Bluesky pattern), so the detail page stays about the conversation.
+ * Quiet amplification row under the thread divider — quotes and reposts live
+ * on their own screen, so the detail page stays about the conversation.
  */
 export function ThreadViewQuotesRow({
   href,
-  quoteCount,
+  label,
+  count,
 }: ThreadViewQuotesRowProps) {
   const { openPostQuotes } = usePostThreadLayer();
 
@@ -33,8 +35,8 @@ export function ThreadViewQuotesRow({
         event.preventDefault();
       }}
     >
-      <span className="thread-view-quotes-label">View quotes</span>
-      <span className="thread-view-quotes-count">{quoteCount}</span>
+      <span className="thread-view-quotes-label">{label}</span>
+      <span className="thread-view-quotes-count">{count}</span>
       <ChevronRightIcon className="thread-view-quotes-chevron" aria-hidden />
     </Link>
   );

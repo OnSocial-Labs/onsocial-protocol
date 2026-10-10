@@ -55,9 +55,7 @@ export function parseInAppPostLayerHref(
  * Personal post / writing permalink — consume the click and open a sheet.
  * Do not let Next replace the underlay behind an open post or enlarge drawer.
  */
-export function isInAppPostLayerHref(
-  href: string | null | undefined
-): boolean {
+export function isInAppPostLayerHref(href: string | null | undefined): boolean {
   return parseInAppPostLayerHref(href) != null;
 }
 
@@ -130,6 +128,46 @@ export function postQuotesPath(post: {
   groupId?: string | null;
 }): string {
   return `${postThreadPath(post)}/quotes`;
+}
+
+/** Query param: open the quotes screen on Quotes or Reposts. */
+export const POST_QUOTES_TAB_QUERY = 'tab';
+
+export type PostQuotesTab = 'quotes' | 'reposts';
+
+export function readPostQuotesTabValue(
+  value: string | string[] | null | undefined
+): PostQuotesTab {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw === 'reposts' ? 'reposts' : 'quotes';
+}
+
+export function readPostQuotesTab(
+  searchParams: Pick<URLSearchParams, 'get'> | null | undefined
+): PostQuotesTab {
+  return readPostQuotesTabValue(searchParams?.get(POST_QUOTES_TAB_QUERY));
+}
+
+/** Tab on a quotes href. Missing or unknown values stay on Quotes. */
+export function readPostQuotesTabFromHref(href: string): PostQuotesTab {
+  const queryStart = href.indexOf('?');
+  if (queryStart === -1) return 'quotes';
+  const hashStart = href.indexOf('#', queryStart);
+  const query = href.slice(
+    queryStart + 1,
+    hashStart === -1 ? undefined : hashStart
+  );
+  return readPostQuotesTab(new URLSearchParams(query));
+}
+
+/** Reposts-only links carry `?tab=reposts`. Quotes stays a clean path. */
+export function withPostQuotesTab(href: string, tab: PostQuotesTab): string {
+  if (tab !== 'reposts') return href;
+  const hashStart = href.indexOf('#');
+  const hash = hashStart === -1 ? '' : href.slice(hashStart);
+  const base = hashStart === -1 ? href : href.slice(0, hashStart);
+  const join = base.includes('?') ? '&' : '?';
+  return `${base}${join}${POST_QUOTES_TAB_QUERY}=reposts${hash}`;
 }
 
 /** Query param: scroll + highlight a reply on thread landing. */

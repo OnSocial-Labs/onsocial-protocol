@@ -34,6 +34,9 @@ import {
   parseInAppPostQuotesHref,
   personalPostPath,
   personalPostQuotesPath,
+  readPostQuotesTabFromHref,
+  withPostQuotesTab,
+  type PostQuotesTab,
 } from '@/lib/post-routes';
 import { POST_REACH_TITLE } from '@/lib/post-reach-title';
 import { isOsMediaFaceOpen, nextPostLayerZIndex, SHEET_Z } from '@/lib/sheet-z';
@@ -144,6 +147,7 @@ type QuotesLayerTarget = {
   kind: 'quotes';
   accountId: string;
   postId: string;
+  tab: PostQuotesTab;
   zIndex: number;
 };
 
@@ -201,7 +205,10 @@ function nextStackedLayerZ(stack: PlaceLayerTarget[]): number {
 function placeLayerHref(layer: PlaceLayerTarget): string {
   if (layer.kind === 'drop') return collectionPath(layer.collectionId);
   if (layer.kind === 'quotes') {
-    return personalPostQuotesPath(layer.accountId, layer.postId);
+    return withPostQuotesTab(
+      personalPostQuotesPath(layer.accountId, layer.postId),
+      layer.tab
+    );
   }
   return personalPostPath(layer.accountId, layer.postId);
 }
@@ -445,9 +452,11 @@ function PostThreadSheet({
           <PostQuotesTrackHostProvider value={quotes ? quotesTrackHost : null}>
             {layer.kind === 'quotes' ? (
               <PostQuotesPanel
+                key={`${layer.accountId}:${layer.postId}:${layer.tab}`}
                 author={layer.accountId}
                 postId={layer.postId}
                 embedded
+                initialTab={layer.tab}
               />
             ) : (
               <LivePersonalPostPanel
@@ -700,7 +709,11 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     ({ href }: { href: string }) => {
       const parsed = parseInAppPostQuotesHref(href);
       if (!parsed) return false;
-      const canonical = personalPostQuotesPath(parsed.accountId, parsed.postId);
+      const tab = readPostQuotesTabFromHref(href);
+      const canonical = withPostQuotesTab(
+        personalPostQuotesPath(parsed.accountId, parsed.postId),
+        tab
+      );
 
       const top = stackRef.current[stackRef.current.length - 1];
       if (
@@ -708,6 +721,21 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         accountIdsEqual(top.accountId, parsed.accountId) &&
         top.postId === parsed.postId
       ) {
+        if (top.tab !== tab) {
+          const trail = stackRef.current.map((item, index) =>
+            index === stackRef.current.length - 1 && item.kind === 'quotes'
+              ? { ...item, tab }
+              : item
+          );
+          stackRef.current = trail;
+          setStack(trail);
+          if (typeof window !== 'undefined') {
+            const currentUrl = `${window.location.pathname}${window.location.search}`;
+            if (currentUrl !== canonical) {
+              nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
+            }
+          }
+        }
         return true;
       }
 
@@ -716,6 +744,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         kind: 'quotes',
         accountId: parsed.accountId,
         postId: parsed.postId,
+        tab,
         zIndex:
           stackRef.current[0]?.zIndex ?? nextStackedLayerZ(stackRef.current),
       };
