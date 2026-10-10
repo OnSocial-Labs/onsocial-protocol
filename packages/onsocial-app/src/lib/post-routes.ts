@@ -55,10 +55,66 @@ export function parseInAppPostLayerHref(
  * Personal post / writing permalink — consume the click and open a sheet.
  * Do not let Next replace the underlay behind an open post or enlarge drawer.
  */
-export function isInAppPostLayerHref(
-  href: string | null | undefined
-): boolean {
+export function isInAppPostLayerHref(href: string | null | undefined): boolean {
   return parseInAppPostLayerHref(href) != null;
+}
+
+function pathnameOnly(href: string): string | null {
+  let pathname = href.trim();
+  if (!pathname) return null;
+  try {
+    if (/^https?:\/\//i.test(pathname)) {
+      pathname = new URL(pathname).pathname;
+    }
+  } catch {
+    return null;
+  }
+  const q = pathname.indexOf('?');
+  if (q !== -1) pathname = pathname.slice(0, q);
+  const hash = pathname.indexOf('#');
+  if (hash !== -1) pathname = pathname.slice(0, hash);
+  return pathname;
+}
+
+/**
+ * Guild thread permalink: `/groups/{group}/posts/{author}/{postId}`.
+ * Quote screens stay real pages.
+ */
+export function parseGuildPostLayerHref(
+  href: string | null | undefined
+): { groupId: string; accountId: string; postId: string } | null {
+  if (!href) return null;
+  const pathname = pathnameOnly(href);
+  if (!pathname) return null;
+  const match = pathname.match(
+    /^\/groups\/([^/]+)\/posts\/([^/]+)\/([^/]+)\/?$/
+  );
+  if (!match) return null;
+  try {
+    return {
+      groupId: decodeURIComponent(match[1]),
+      accountId: decodeURIComponent(match[2]),
+      postId: decodeURIComponent(match[3]),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Personal or guild thread — open over the current screen. */
+export function isAppPostSheetHref(href: string | null | undefined): boolean {
+  return isInAppPostLayerHref(href) || parseGuildPostLayerHref(href) != null;
+}
+
+export function canonicalizeGuildPostLayerHref(href: string): string | null {
+  const parsed = parseGuildPostLayerHref(href);
+  if (!parsed) return null;
+  const path = guildPostPath(parsed.groupId, parsed.accountId, parsed.postId);
+  const q = href.indexOf('?');
+  if (q === -1) return path;
+  const hash = href.indexOf('#');
+  const query = href.slice(q, hash === -1 ? undefined : hash);
+  return query ? `${path}${query}` : path;
 }
 
 /** Canonical share permalink for a parsed in-app post layer. */
@@ -160,10 +216,13 @@ export function isOverlayPostLayerLocation(
   nextPathname: string,
   locationHref: string
 ): boolean {
-  return (
-    parseInAppPostLayerHref(locationHref) != null &&
-    parseInAppPostLayerHref(nextPathname) == null
-  );
+  const locationIsThread =
+    parseInAppPostLayerHref(locationHref) != null ||
+    parseGuildPostLayerHref(locationHref) != null;
+  const routerIsThread =
+    parseInAppPostLayerHref(nextPathname) != null ||
+    parseGuildPostLayerHref(nextPathname) != null;
+  return locationIsThread && !routerIsThread;
 }
 
 function parseSourcePostPath(

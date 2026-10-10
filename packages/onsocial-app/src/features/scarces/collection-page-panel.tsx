@@ -150,7 +150,7 @@ import {
   portfolioPath,
   writingArticlePath,
 } from '@/lib/overlay-routes';
-import { isInAppPostLayerHref } from '@/lib/post-routes';
+import { isAppPostSheetHref } from '@/lib/post-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import { holdingsActionLabel } from '@/lib/portfolio-holdings';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
@@ -1692,13 +1692,13 @@ export function CollectionPagePanel({
             className="collection-source-link"
             onClick={(event: MouseEvent<HTMLAnchorElement>) => {
               if (!isUnmodifiedPrimaryClick(event)) return;
-              if (!isInAppPostLayerHref(sourceHref)) return;
+              if (!isAppPostSheetHref(sourceHref)) return;
               event.preventDefault();
               event.stopPropagation();
               openPostThread({ href: sourceHref });
             }}
             onNavigate={(event) => {
-              if (!isInAppPostLayerHref(sourceHref)) return;
+              if (!isAppPostSheetHref(sourceHref)) return;
               event.preventDefault();
               openPostThread({ href: sourceHref });
             }}

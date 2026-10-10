@@ -17,6 +17,7 @@ import {
 import type { PollTally } from '@/lib/poll-votes';
 import { parsePostText } from '@/lib/post-display';
 import { isRepostRefType } from '@/lib/post-relation';
+import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
 import { postThreadPath } from '@/lib/post-routes';
 
 /** Chains up to this long render in full; longer ones collapse the middle. */
@@ -35,6 +36,8 @@ interface FeedThreadBlockProps {
   channelTitleById?: Record<string, string>;
   /** Home / hashtag: show guild source above the author. */
   showGuildAttribution?: boolean;
+  /** Guild feed: the screen already shows this guild, and maybe one room. */
+  sheetContext?: ThreadSheetContext | null;
   guildNameById?: Record<string, string>;
   postAuthorProfiles: Record<string, PostAuthorProfile>;
   quotedPosts: Record<string, PostRow>;
@@ -71,10 +74,7 @@ interface BlockRow {
   first: boolean;
 }
 
-function resolveThreadHref(
-  post: PostRow,
-  fallbackGroupId?: string
-): string {
+function resolveThreadHref(post: PostRow, fallbackGroupId?: string): string {
   return postThreadPath({
     accountId: post.accountId,
     postId: post.postId,
@@ -92,6 +92,7 @@ export function FeedThreadBlock({
   showChannel = false,
   channelTitleById,
   showGuildAttribution = false,
+  sheetContext = null,
   guildNameById,
   postAuthorProfiles,
   quotedPosts,
@@ -117,9 +118,7 @@ export function FeedThreadBlock({
   const collapsed = !expanded && block.length > BLOCK_MAX_UNCOLLAPSED;
   const hiddenCount = collapsed ? block.length - 1 - BLOCK_TAIL_VISIBLE : 0;
   const coilTailHref =
-    standingCoilTail && standingPeek
-      ? postThreadPath(standingPeek)
-      : undefined;
+    standingCoilTail && standingPeek ? postThreadPath(standingPeek) : undefined;
 
   const toRow = (
     post: PostRow,
@@ -195,8 +194,7 @@ export function FeedThreadBlock({
             repostOriginal
               ? {
                   accountId: post.accountId,
-                  displayName:
-                    postAuthorProfiles[post.accountId]?.displayName,
+                  displayName: postAuthorProfiles[post.accountId]?.displayName,
                 }
               : undefined
           }
@@ -204,13 +202,12 @@ export function FeedThreadBlock({
           showChannel={showChannel}
           channelLabel={
             showChannel && card.channel
-              ? channelTitleById?.[card.channel] ?? card.channel
+              ? (channelTitleById?.[card.channel] ?? card.channel)
               : undefined
           }
           showGuildAttribution={showGuildAttribution}
-          guildName={
-            card.groupId ? guildNameById?.[card.groupId] : undefined
-          }
+          sheetContext={sheetContext}
+          guildName={card.groupId ? guildNameById?.[card.groupId] : undefined}
           showRelationBadge={first}
           authorProfiles={postAuthorProfiles}
           className={first ? undefined : 'post-card--chain-cont'}

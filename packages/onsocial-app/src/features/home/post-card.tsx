@@ -189,7 +189,8 @@ import {
   collageHero,
   type PostMediaItem,
 } from '@/lib/post-media';
-import { isInAppPostLayerHref, postThreadPath } from '@/lib/post-routes';
+import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
+import { isAppPostSheetHref, postThreadPath } from '@/lib/post-routes';
 import { shareUrl } from '@/lib/share-url';
 import type { PollTally } from '@/lib/poll-votes';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
@@ -226,6 +227,11 @@ interface PostCardProps {
   showGuildAttribution?: boolean;
   /** Resolved guild display name when `showGuildAttribution` is on. */
   guildName?: string;
+  /**
+   * Feed this card was opened from. A guild feed skips the guild line the
+   * screen already shows.
+   */
+  sheetContext?: ThreadSheetContext | null;
   engagement?: PostEngagement;
   reactionPending?: boolean;
   savePending?: boolean;
@@ -562,7 +568,9 @@ function PostCardMenu({
         description: blocked ? undefined : BLOCK_ACTION_DESCRIPTION,
         destructive: !blocked,
         disabled: blockPending,
-        leading: <UserCrossIcon className="os-action-drawer-icon" aria-hidden />,
+        leading: (
+          <UserCrossIcon className="os-action-drawer-icon" aria-hidden />
+        ),
         onSelect: () => {
           if (blocked) {
             void handleBlockToggle(false);
@@ -796,6 +804,7 @@ export function QuotedPostInset({
   authorProfile,
   href,
   expanded = false,
+  sheetContext = null,
 }: {
   post: PostRow;
   authorProfile?: PostAuthorProfile;
@@ -803,6 +812,7 @@ export function QuotedPostInset({
   href?: string;
   /** Opened post — quoted media at page size. Feed and compose stay the small thumb. */
   expanded?: boolean;
+  sheetContext?: ThreadSheetContext | null;
 }) {
   const router = useRouter();
   const { openPostThread } = usePostThreadLayer();
@@ -832,8 +842,8 @@ export function QuotedPostInset({
     }
     event.preventDefault();
     event.stopPropagation();
-    if (isInAppPostLayerHref(href)) {
-      openPostThread({ href, root: post });
+    if (isAppPostSheetHref(href)) {
+      openPostThread({ href, root: post, context: sheetContext });
       return;
     }
     router.push(href);
@@ -841,138 +851,144 @@ export function QuotedPostInset({
 
   return (
     <>
-    <div
-      className={`post-card-quote-inset${interactive ? ' post-card-quote-inset--link' : ''}`}
-      role={interactive ? 'link' : undefined}
-      tabIndex={interactive ? 0 : undefined}
-      aria-label={interactive ? `View quoted post by ${name}` : undefined}
-      onClick={interactive ? open : undefined}
-      onKeyDown={
-        interactive
-          ? (event) => {
-              if (event.key === 'Enter' || event.key === ' ') open(event);
-            }
-          : undefined
-      }
-    >
-      <Divider orientation="vertical" variant="detail" />
-      <div className="post-card-quote-inset-content">
-        <span className="post-card-quote-inset-head">
-          <AccountAvatar
-            accountId={post.accountId}
-            kind={authorProfile?.kind}
-            src={authorProfile?.avatarUrl ?? null}
-            fallbackInitial={name}
-            size="sm"
-            className="post-card-quote-inset-avatar"
-          />
-          <PostIdentityMeta
-            name={name}
-            accountId={post.accountId}
-            timestamp={post.blockTimestamp}
-          />
-        </span>
-        <PostSensitiveGate labels={labels} safeMode={safeMode} compact>
-          {compactMedia || (expanded && mediaItems.length > 0) || text ? (
-            <div
-              className={[
-                'post-card-quote-inset-body-row',
-                compactMedia ? 'has-media' : '',
-                expanded && mediaItems.length > 0 ? 'is-expanded' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-            >
-              {compactMedia ? <QuoteMediaThumb items={compactMedia} /> : null}
-              {text ? (
-                <p className="post-card-quote-inset-body">
-                  <PostRichText text={text} />
-                </p>
-              ) : null}
-              {expanded && mediaItems.length > 0 ? (
-                <PostMediaStrip
-                  items={mediaItems}
-                  size="page"
-                  onActivate={(index) => {
-                    setQuotePhotoIndex(index);
-                    setQuotePhotoOpen(true);
-                  }}
-                />
-              ) : null}
-            </div>
-          ) : (
-            <p className="post-card-quote-inset-body">…</p>
-          )}
-        </PostSensitiveGate>
-      </div>
-    </div>
-    {expanded && mediaItems.length > 0 ? (
-      <FeedPhotoEnlargeScreen
-        open={quotePhotoOpen}
-        onOpenChange={(open) => {
-          setQuotePhotoOpen(open);
-          if (!open) setQuoteThreadOpen(false);
-        }}
-        title={mediaItems.some((item) => isRenderablePostVideoMime(item.mime)) ? 'Media' : 'Photos'}
-        caption={text.trim() ? text : null}
-        captionDate={
-          post.blockTimestamp ? formatPostTimestamp(post.blockTimestamp) : null
+      <div
+        className={`post-card-quote-inset${interactive ? ' post-card-quote-inset--link' : ''}`}
+        role={interactive ? 'link' : undefined}
+        tabIndex={interactive ? 0 : undefined}
+        aria-label={interactive ? `View quoted post by ${name}` : undefined}
+        onClick={interactive ? open : undefined}
+        onKeyDown={
+          interactive
+            ? (event) => {
+                if (event.key === 'Enter' || event.key === ' ') open(event);
+              }
+            : undefined
         }
-        photos={mediaItems}
-        initialIndex={quotePhotoIndex}
-        threadOpen={quoteThreadOpen}
-        onDismissThread={() => setQuoteThreadOpen(false)}
-        threadAuthor={post.accountId}
-        threadPostId={post.postId}
-        threadRoot={post}
-        peekIdentity={
-          <div className="feed-photo-caption-identity-row">
-            <Link
-              href={portfolioPath(post.accountId)}
-              className="os-media-face-identity"
-              scroll={false}
-              aria-label={`View ${name}'s profile`}
-              onClick={() => {
-                setQuotePhotoOpen(false);
-                setQuoteThreadOpen(false);
-              }}
-            >
-              <AccountAvatar
-                accountId={post.accountId}
-                kind={authorProfile?.kind}
-                src={authorProfile?.avatarUrl ?? null}
-                fallbackInitial={name}
-                size="lg"
-                className="post-card-avatar"
-              />
-              <span className="os-media-face-identity-copy">
-                <span className="os-media-face-identity-name-row">
-                  <span className="os-media-face-identity-name">{name}</span>
-                </span>
-                <span className="os-media-face-identity-handle">
-                  @{post.accountId}
-                </span>
-              </span>
-            </Link>
-          </div>
-        }
-        engagement={
-          <div className="post-card-engagement">
-            <div className="post-card-engagement-actions">
-              <button
-                type="button"
-                className="post-card-stat post-card-stat-button"
-                aria-label="Reply to this post"
-                onClick={() => setQuoteThreadOpen(true)}
+      >
+        <Divider orientation="vertical" variant="detail" />
+        <div className="post-card-quote-inset-content">
+          <span className="post-card-quote-inset-head">
+            <AccountAvatar
+              accountId={post.accountId}
+              kind={authorProfile?.kind}
+              src={authorProfile?.avatarUrl ?? null}
+              fallbackInitial={name}
+              size="sm"
+              className="post-card-quote-inset-avatar"
+            />
+            <PostIdentityMeta
+              name={name}
+              accountId={post.accountId}
+              timestamp={post.blockTimestamp}
+            />
+          </span>
+          <PostSensitiveGate labels={labels} safeMode={safeMode} compact>
+            {compactMedia || (expanded && mediaItems.length > 0) || text ? (
+              <div
+                className={[
+                  'post-card-quote-inset-body-row',
+                  compactMedia ? 'has-media' : '',
+                  expanded && mediaItems.length > 0 ? 'is-expanded' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
               >
-                <MessageRoundIcon aria-hidden />
-                Reply
-              </button>
+                {compactMedia ? <QuoteMediaThumb items={compactMedia} /> : null}
+                {text ? (
+                  <p className="post-card-quote-inset-body">
+                    <PostRichText text={text} />
+                  </p>
+                ) : null}
+                {expanded && mediaItems.length > 0 ? (
+                  <PostMediaStrip
+                    items={mediaItems}
+                    size="page"
+                    onActivate={(index) => {
+                      setQuotePhotoIndex(index);
+                      setQuotePhotoOpen(true);
+                    }}
+                  />
+                ) : null}
+              </div>
+            ) : (
+              <p className="post-card-quote-inset-body">…</p>
+            )}
+          </PostSensitiveGate>
+        </div>
+      </div>
+      {expanded && mediaItems.length > 0 ? (
+        <FeedPhotoEnlargeScreen
+          open={quotePhotoOpen}
+          onOpenChange={(open) => {
+            setQuotePhotoOpen(open);
+            if (!open) setQuoteThreadOpen(false);
+          }}
+          title={
+            mediaItems.some((item) => isRenderablePostVideoMime(item.mime))
+              ? 'Media'
+              : 'Photos'
+          }
+          caption={text.trim() ? text : null}
+          captionDate={
+            post.blockTimestamp
+              ? formatPostTimestamp(post.blockTimestamp)
+              : null
+          }
+          photos={mediaItems}
+          initialIndex={quotePhotoIndex}
+          threadOpen={quoteThreadOpen}
+          onDismissThread={() => setQuoteThreadOpen(false)}
+          threadAuthor={post.accountId}
+          threadPostId={post.postId}
+          threadRoot={post}
+          peekIdentity={
+            <div className="feed-photo-caption-identity-row">
+              <Link
+                href={portfolioPath(post.accountId)}
+                className="os-media-face-identity"
+                scroll={false}
+                aria-label={`View ${name}'s profile`}
+                onClick={() => {
+                  setQuotePhotoOpen(false);
+                  setQuoteThreadOpen(false);
+                }}
+              >
+                <AccountAvatar
+                  accountId={post.accountId}
+                  kind={authorProfile?.kind}
+                  src={authorProfile?.avatarUrl ?? null}
+                  fallbackInitial={name}
+                  size="lg"
+                  className="post-card-avatar"
+                />
+                <span className="os-media-face-identity-copy">
+                  <span className="os-media-face-identity-name-row">
+                    <span className="os-media-face-identity-name">{name}</span>
+                  </span>
+                  <span className="os-media-face-identity-handle">
+                    @{post.accountId}
+                  </span>
+                </span>
+              </Link>
             </div>
-          </div>
-        }
-      />
-    ) : null}
+          }
+          engagement={
+            <div className="post-card-engagement">
+              <div className="post-card-engagement-actions">
+                <button
+                  type="button"
+                  className="post-card-stat post-card-stat-button"
+                  aria-label="Reply to this post"
+                  onClick={() => setQuoteThreadOpen(true)}
+                >
+                  <MessageRoundIcon aria-hidden />
+                  Reply
+                </button>
+              </div>
+            </div>
+          }
+        />
+      ) : null}
     </>
   );
 }
@@ -1709,6 +1725,7 @@ export function PostCard({
   mediaResumeIndex = 0,
   detailLayout = false,
   preferActionHref = false,
+  sheetContext = null,
 }: PostCardProps) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
@@ -1718,21 +1735,21 @@ export function PostCard({
     (event: MouseEvent<HTMLAnchorElement>, href: string) => {
       if (detailLayout) return;
       if (!isUnmodifiedPrimaryClick(event)) return;
-      if (!isInAppPostLayerHref(href)) return;
+      if (!isAppPostSheetHref(href)) return;
       event.preventDefault();
       event.stopPropagation();
-      openPostThread({ href, root: post });
+      openPostThread({ href, root: post, context: sheetContext });
     },
-    [detailLayout, openPostThread, post]
+    [detailLayout, openPostThread, post, sheetContext]
   );
   const interceptOpenNavigate = useCallback(
     (event: { preventDefault(): void }, href: string) => {
       if (detailLayout) return;
-      if (!isInAppPostLayerHref(href)) return;
+      if (!isAppPostSheetHref(href)) return;
       event.preventDefault();
-      openPostThread({ href, root: post });
+      openPostThread({ href, root: post, context: sheetContext });
     },
-    [detailLayout, openPostThread, post]
+    [detailLayout, openPostThread, post, sheetContext]
   );
   const { safeMode } = useViewerSafeMode();
   const [amplifyOpen, setAmplifyOpen] = useState(false);
@@ -2480,6 +2497,7 @@ export function PostCard({
             authorProfile={quotedAuthorProfile}
             href={quotedHref}
             expanded={detailLayout}
+            sheetContext={sheetContext}
           />
         ) : null}
         {detailLayout ? (

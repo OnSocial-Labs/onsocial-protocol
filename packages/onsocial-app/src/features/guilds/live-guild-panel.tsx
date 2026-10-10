@@ -851,12 +851,7 @@ export function LiveGuildPanel({
       const response =
         mode === 'quote'
           ? await client.groups.quotePost(groupId, ref, postData, newPostId)
-          : await client.groups.replyToPost(
-              groupId,
-              ref,
-              postData,
-              newPostId
-            );
+          : await client.groups.replyToPost(groupId, ref, postData, newPostId);
 
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
@@ -1153,7 +1148,9 @@ export function LiveGuildPanel({
               If it was just created, wait a moment and try again. Anyone can
               open this page once the guild is live.
             </p>
-            <OsEmptyAction onClick={() => void refresh()}>Try again</OsEmptyAction>
+            <OsEmptyAction onClick={() => void refresh()}>
+              Try again
+            </OsEmptyAction>
           </section>
         ) : null}
 
@@ -1199,39 +1196,39 @@ export function LiveGuildPanel({
                   </span>
                 ) : (
                   <>
-                  <GuildMembershipJoinButton
-                    className="guild-hero-membership"
-                    label={actionLabel}
-                    active={effectiveIsMember}
-                    ready={
-                      membershipActionReady && !needsCollaborativeStorage
-                    }
-                    pending={actionPending}
-                    pendingLabel={guildMembershipJoinPendingLabel({
-                      accessGated: Boolean(config?.accessGated),
-                      canceling: effectiveJoinPending,
-                      leaving: effectiveIsMember,
-                    })}
-                    disabled={
-                      effectiveIsBlacklisted ||
-                      (effectiveJoinPending && !joinCancelReady) ||
-                      (isConnected &&
-                        !viewerAccessResolved &&
-                        !effectiveIsMember)
-                    }
-                    onClick={handleMembershipClick}
-                  />
-                  <GuildMembershipConfirmDrawer
-                    kind={confirmKind}
-                    guildName={
-                      config
-                        ? guildDisplayName(config.name, groupId)
-                        : undefined
-                    }
-                    pending={actionPending}
-                    onConfirm={confirmMembership}
-                    onCancel={dismissConfirm}
-                  />
+                    <GuildMembershipJoinButton
+                      className="guild-hero-membership"
+                      label={actionLabel}
+                      active={effectiveIsMember}
+                      ready={
+                        membershipActionReady && !needsCollaborativeStorage
+                      }
+                      pending={actionPending}
+                      pendingLabel={guildMembershipJoinPendingLabel({
+                        accessGated: Boolean(config?.accessGated),
+                        canceling: effectiveJoinPending,
+                        leaving: effectiveIsMember,
+                      })}
+                      disabled={
+                        effectiveIsBlacklisted ||
+                        (effectiveJoinPending && !joinCancelReady) ||
+                        (isConnected &&
+                          !viewerAccessResolved &&
+                          !effectiveIsMember)
+                      }
+                      onClick={handleMembershipClick}
+                    />
+                    <GuildMembershipConfirmDrawer
+                      kind={confirmKind}
+                      guildName={
+                        config
+                          ? guildDisplayName(config.name, groupId)
+                          : undefined
+                      }
+                      pending={actionPending}
+                      onConfirm={confirmMembership}
+                      onCancel={dismissConfirm}
+                    />
                   </>
                 )
               }
@@ -1266,6 +1263,13 @@ export function LiveGuildPanel({
                         block={posts}
                         groupId={groupId}
                         showChannel={selectedFeedFilterId === 'all'}
+                        sheetContext={{
+                          guildId: groupId,
+                          roomId:
+                            selectedFeedFilterId === 'all'
+                              ? null
+                              : selectedFeedFilterId,
+                        }}
                         channelTitleById={channelTitleById}
                         postAuthorProfiles={postAuthorProfiles}
                         quotedPosts={quotedPosts}
