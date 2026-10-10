@@ -5,7 +5,6 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -51,8 +50,10 @@ import {
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
+import { useLandOpenedPost } from '@/hooks/use-land-opened-post';
 import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
+import { planThreadLoad } from '@/lib/thread-open';
 import {
   resolveQuotedInset,
   collectRelationTargetAccountIds,
@@ -74,6 +75,10 @@ import {
   postThreadPath,
   THREAD_FOCUS_REPLY_QUERY,
 } from '@/lib/post-routes';
+import {
+  resolveThreadShareRow,
+  threadShareRowHref,
+} from '@/lib/thread-share-row';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { resolveThreadLayout } from '@/lib/thread-layout';
 import {
@@ -185,9 +190,10 @@ export function LivePersonalPostPanel({
   const [error, setError] = useState<string | null>(null);
   const paginatedRef = useRef(false);
   const reconcileTimersRef = useRef<number[]>([]);
-  const ssrSeedRef = useRef(Boolean(initial));
+  const openedPostRef = useRef<HTMLDivElement>(null);
 
   const rootPath = personalPostContentPath(author, postId);
+  const paintedKeyRef = useRef<string | null>(initial ? rootPath : null);
   const treePosts = useMemo(() => flattenTreePosts(replyTree), [replyTree]);
   const replyRows = useMemo(() => {
     const rows = buildReplyRows(
@@ -248,6 +254,7 @@ export function LivePersonalPostPanel({
   );
   const ancestorChain = useAncestorChain(conversation.root?.parentPath);
   const hasParent = ancestorChain.length > 0;
+  useLandOpenedPost(openedPostRef, conversation.root?.postId, hasParent);
   const engagementPosts = useMemo(
     () => [...ancestorChain, ...threadPosts],
     [ancestorChain, threadPosts]
@@ -298,6 +305,8 @@ export function LivePersonalPostPanel({
     ? engagement[postKey(conversation.root)]
     : undefined;
   const quoteTotal = Math.max(rootEngagement?.quoteCount ?? 0, quotes.length);
+  const repostTotal = Math.max(0, rootEngagement?.repostCount ?? 0);
+  const shareRow = resolveThreadShareRow(quoteTotal, repostTotal);
   const sortedReplyRows = useMemo(
     () => sortThreadReplyRows(replyRows, replySort, engagement),
     [replyRows, replySort, engagement]
@@ -386,14 +395,19 @@ export function LivePersonalPostPanel({
 
   useEffect(() => {
     if (walletLoading) return;
-    // Soft reconcile after SSR — never blank a painted thread on wallet.
-    if (ssrSeedRef.current) {
-      ssrSeedRef.current = false;
-      void refresh({ background: true });
-      return;
-    }
-    void refresh();
-  }, [author, postId, walletLoading, refresh]);
+    let cancelled = false;
+    const key = rootPath;
+    // One load per setup. A second effect pass must not blank a painted card.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const plan = planThreadLoad(paintedKeyRef.current, key);
+      paintedKeyRef.current = plan.paintedKey;
+      void refresh({ background: plan.background });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [refresh, rootPath, walletLoading]);
 
   useEffect(() => {
     setActiveThreadTab('replies');
@@ -692,29 +706,6 @@ export function LivePersonalPostPanel({
     },
   });
 
-  const connectAction =
-    !walletLoading && !isConnected ? (
-      <OsSheetActions
-        layout="row-compact"
-        tone="frosted-primary"
-        size="sm"
-        borderless
-        className="guild-thread-nav-membership"
-      >
-        <OsSheetAction
-          type="button"
-          className="guild-hero-action"
-          variant="primary"
-          ready
-          onClick={() => {
-            void connect();
-          }}
-        >
-          Connect
-        </OsSheetAction>
-      </OsSheetActions>
-    ) : null;
-
   const replyListRows = sortedReplyRows.map((row, index) => {
     if (row.kind === 'more') {
       return (
@@ -910,6 +901,8 @@ export function LivePersonalPostPanel({
             ))}
 
             <div
+              ref={openedPostRef}
+              data-thread-opened-post={conversation.root.postId}
               className={`guild-thread-root${hasParent ? ' post-thread-item post-thread-item--up' : ''}`}
             >
               <PostCard
@@ -1011,7 +1004,7 @@ export function LivePersonalPostPanel({
                 </button>
               </div>
             </div>
-          ) : replyListRows.length > 0 || quoteTotal > 0 ? (
+          ) : replyListRows.length > 0 || shareRow ? (
             <div className="thread-controls-row">
               {replyListRows.length > 0 ? (
                 <ThreadRepliesSortButton
@@ -1021,10 +1014,14 @@ export function LivePersonalPostPanel({
               ) : (
                 <span className="thread-controls-spacer" aria-hidden />
               )}
-              {quoteTotal > 0 ? (
+              {shareRow ? (
                 <ThreadViewQuotesRow
-                  href={personalPostQuotesPath(author, postId)}
-                  quoteCount={quoteTotal}
+                  href={threadShareRowHref(
+                    personalPostQuotesPath(author, postId),
+                    shareRow
+                  )}
+                  label={shareRow.label}
+                  count={shareRow.count}
                 />
               ) : null}
             </div>
@@ -1072,7 +1069,7 @@ export function LivePersonalPostPanel({
             <div className="guild-connected-stack">
               {replyListRows.length > 0 ? (
                 replyListRows
-              ) : quoteTotal === 0 ? (
+              ) : !shareRow ? (
                 <ThreadDiscoverPeek
                   author={author}
                   excludePostId={postId}
@@ -1155,7 +1152,6 @@ export function LivePersonalPostPanel({
       glassChrome
       compactChrome
       backFallbackHref={APP_HOME_PATH}
-      actions={connectAction}
     >
       {thread}
       {composer}

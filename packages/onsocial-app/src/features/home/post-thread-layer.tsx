@@ -23,18 +23,30 @@ import { PostQuotesTrackHostProvider } from '@/features/home/post-quotes-track-h
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
+import type { GuildPostPageData } from '@/lib/load-guild-post-page';
+import {
+  guildThreadCardContext,
+  type ThreadSheetContext,
+} from '@/lib/guild-thread-card-context';
 import {
   canonicalizeDropLayerHref,
   collectionPath,
   parseInAppDropLayerHref,
 } from '@/lib/app-routes';
 import {
+  canonicalizeGuildPostLayerHref,
   canonicalizePostLayerHref,
+  parseGuildPostLayerHref,
+  parseGuildPostQuotesHref,
   parseInAppPostLayerHref,
   parseInAppPostQuotesHref,
   personalPostPath,
-  personalPostQuotesPath,
+  postQuotesPath,
+  readPostQuotesTabFromHref,
+  withPostQuotesTab,
+  type PostQuotesTab,
 } from '@/lib/post-routes';
+import { guildPostPath } from '@/features/guilds/guilds-data';
 import { POST_REACH_TITLE } from '@/lib/post-reach-title';
 import { isOsMediaFaceOpen, nextPostLayerZIndex, SHEET_Z } from '@/lib/sheet-z';
 
@@ -50,6 +62,14 @@ const CollectionPagePanel = dynamic(
   () =>
     import('@/features/scarces/collection-page-panel').then(
       (mod) => mod.CollectionPagePanel
+    ),
+  { ssr: false }
+);
+
+const LiveGuildPostPanel = dynamic(
+  () =>
+    import('@/features/guilds/live-guild-post-panel').then(
+      (mod) => mod.LiveGuildPostPanel
     ),
   { ssr: false }
 );
@@ -128,6 +148,10 @@ type PostThreadLayerTarget = {
   kind: 'post';
   accountId: string;
   postId: string;
+  /** Set for a guild thread. Personal posts leave this empty. */
+  groupId: string | null;
+  /** Feed the post was opened from, so the card can skip context already on screen. */
+  context: ThreadSheetContext | null;
   root: PostRow | null;
   zIndex: number;
 };
@@ -144,6 +168,9 @@ type QuotesLayerTarget = {
   kind: 'quotes';
   accountId: string;
   postId: string;
+  /** Set for a guild thread. Personal posts leave this empty. */
+  groupId: string | null;
+  tab: PostQuotesTab;
   zIndex: number;
 };
 
@@ -155,7 +182,11 @@ type PlaceLayerTarget =
 type ReaderLayerTarget = PostThreadLayerTarget | QuotesLayerTarget;
 
 type PostThreadLayerValue = {
-  openPostThread: (input: { href: string; root?: PostRow | null }) => boolean;
+  openPostThread: (input: {
+    href: string;
+    root?: PostRow | null;
+    context?: ThreadSheetContext | null;
+  }) => boolean;
   openPostQuotes: (input: { href: string }) => boolean;
   openDrop: (input: { href: string }) => boolean;
   closePostThread: () => void;
@@ -201,9 +232,35 @@ function nextStackedLayerZ(stack: PlaceLayerTarget[]): number {
 function placeLayerHref(layer: PlaceLayerTarget): string {
   if (layer.kind === 'drop') return collectionPath(layer.collectionId);
   if (layer.kind === 'quotes') {
-    return personalPostQuotesPath(layer.accountId, layer.postId);
+    return withPostQuotesTab(
+      postQuotesPath({
+        accountId: layer.accountId,
+        postId: layer.postId,
+        groupId: layer.groupId,
+      }),
+      layer.tab
+    );
+  }
+  if (layer.groupId) {
+    return guildPostPath(layer.groupId, layer.accountId, layer.postId);
   }
   return personalPostPath(layer.accountId, layer.postId);
+}
+
+function seedGuildThread(root: PostRow): GuildPostPageData {
+  return {
+    root,
+    replies: [],
+    quotes: [],
+    replyTree: [],
+    hasMoreReplies: false,
+    hasMoreQuotes: false,
+    guildName: null,
+    memberDriven: false,
+    accessGated: false,
+    engagement: {},
+    scarceEmbeds: {},
+  };
 }
 
 function seedEmbeddedThread(root: PostRow): PersonalPostPageData {
@@ -306,6 +363,14 @@ function PostThreadSheet({
     null
   );
   const title = quotes ? POST_REACH_TITLE : 'Post';
+  const guildCard =
+    layer.kind === 'post' && layer.groupId
+      ? guildThreadCardContext({
+          groupId: layer.groupId,
+          postChannel: layer.root?.channel,
+          openedFrom: layer.context,
+        })
+      : null;
   const initial = useMemo(
     () =>
       layer.kind === 'post' && layer.root
@@ -445,9 +510,24 @@ function PostThreadSheet({
           <PostQuotesTrackHostProvider value={quotes ? quotesTrackHost : null}>
             {layer.kind === 'quotes' ? (
               <PostQuotesPanel
+                key={`${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}:${layer.tab}`}
                 author={layer.accountId}
                 postId={layer.postId}
                 embedded
+                initialTab={layer.tab}
+              />
+            ) : layer.groupId ? (
+              <LiveGuildPostPanel
+                key={`${layer.groupId}:${layer.accountId}:${layer.postId}`}
+                groupId={layer.groupId}
+                author={layer.accountId}
+                postId={layer.postId}
+                initial={layer.root ? seedGuildThread(layer.root) : null}
+                embedded
+                replyDockEnabled={open && !parked}
+                showGuildLine={guildCard?.showGuildLine ?? true}
+                showChannel={guildCard?.showChannel ?? true}
+                sheetContext={layer.context}
               />
             ) : (
               <LivePersonalPostPanel
@@ -612,15 +692,48 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   }, [beginCloseTop, syncOverlayUrl]);
 
   const openPostThread = useCallback(
-    ({ href, root = null }: { href: string; root?: PostRow | null }) => {
-      const parsed = parseInAppPostLayerHref(href);
+    ({
+      href,
+      root = null,
+      context = null,
+    }: {
+      href: string;
+      root?: PostRow | null;
+      context?: ThreadSheetContext | null;
+    }) => {
+      const personal = parseInAppPostLayerHref(href);
+      const guild = personal ? null : parseGuildPostLayerHref(href);
+      const parsed = personal
+        ? {
+            accountId: personal.accountId,
+            postId: personal.postId,
+            groupId: null as string | null,
+          }
+        : guild
+          ? {
+              accountId: guild.accountId,
+              postId: guild.postId,
+              groupId: guild.groupId,
+            }
+          : null;
       if (!parsed) return false;
-      const canonical = canonicalizePostLayerHref(href);
+      const canonical = personal
+        ? canonicalizePostLayerHref(href)
+        : canonicalizeGuildPostLayerHref(href);
       if (!canonical) return false;
 
-      const currentPage = parseInAppPostLayerHref(pathname);
+      const personalPage = parseInAppPostLayerHref(pathname);
+      const guildPage = personalPage ? null : parseGuildPostLayerHref(pathname);
+      const currentPage = personalPage
+        ? {
+            accountId: personalPage.accountId,
+            postId: personalPage.postId,
+            groupId: null as string | null,
+          }
+        : guildPage;
       if (
         currentPage &&
+        (currentPage.groupId ?? null) === parsed.groupId &&
         accountIdsEqual(currentPage.accountId, parsed.accountId) &&
         currentPage.postId === parsed.postId &&
         stackRef.current.length === 0
@@ -631,6 +744,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       const top = stackRef.current[stackRef.current.length - 1];
       if (
         top?.kind === 'post' &&
+        (top.groupId ?? null) === parsed.groupId &&
         accountIdsEqual(top.accountId, parsed.accountId) &&
         top.postId === parsed.postId
       ) {
@@ -645,6 +759,8 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           kind: 'post',
           accountId: parsed.accountId,
           postId: parsed.postId,
+          groupId: parsed.groupId,
+          context,
           root,
           zIndex: stackRef.current[0]?.zIndex ?? SHEET_Z.overlayHost,
         };
@@ -667,6 +783,8 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         kind: 'post',
         accountId: parsed.accountId,
         postId: parsed.postId,
+        groupId: parsed.groupId,
+        context,
         root,
         zIndex: nextStackedLayerZ(stackRef.current),
       };
@@ -698,16 +816,54 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
 
   const openPostQuotes = useCallback(
     ({ href }: { href: string }) => {
-      const parsed = parseInAppPostQuotesHref(href);
+      const personal = parseInAppPostQuotesHref(href);
+      const guild = personal ? null : parseGuildPostQuotesHref(href);
+      const parsed = personal
+        ? {
+            accountId: personal.accountId,
+            postId: personal.postId,
+            groupId: null as string | null,
+          }
+        : guild
+          ? {
+              accountId: guild.accountId,
+              postId: guild.postId,
+              groupId: guild.groupId,
+            }
+          : null;
       if (!parsed) return false;
-      const canonical = personalPostQuotesPath(parsed.accountId, parsed.postId);
+      const tab = readPostQuotesTabFromHref(href);
+      const canonical = withPostQuotesTab(
+        postQuotesPath({
+          accountId: parsed.accountId,
+          postId: parsed.postId,
+          groupId: parsed.groupId,
+        }),
+        tab
+      );
 
       const top = stackRef.current[stackRef.current.length - 1];
       if (
         top?.kind === 'quotes' &&
+        (top.groupId ?? null) === parsed.groupId &&
         accountIdsEqual(top.accountId, parsed.accountId) &&
         top.postId === parsed.postId
       ) {
+        if (top.tab !== tab) {
+          const trail = stackRef.current.map((item, index) =>
+            index === stackRef.current.length - 1 && item.kind === 'quotes'
+              ? { ...item, tab }
+              : item
+          );
+          stackRef.current = trail;
+          setStack(trail);
+          if (typeof window !== 'undefined') {
+            const currentUrl = `${window.location.pathname}${window.location.search}`;
+            if (currentUrl !== canonical) {
+              nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
+            }
+          }
+        }
         return true;
       }
 
@@ -716,6 +872,8 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         kind: 'quotes',
         accountId: parsed.accountId,
         postId: parsed.postId,
+        groupId: parsed.groupId,
+        tab,
         zIndex:
           stackRef.current[0]?.zIndex ?? nextStackedLayerZ(stackRef.current),
       };

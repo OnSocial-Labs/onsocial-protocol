@@ -14265,8 +14265,12 @@ a.os-surface-row {
    * .os-app-screen as the hero name approaches the nav bar.
    * No CSS transition: scroll position drives opacity directly, so the two
    * titles swap smoothly and never show both at full opacity.
+   * Only this screen's own nav title. A post opened on top keeps Post.
    */
-  .os-app-screen[data-immersive-header='true'] .os-app-screen-heading {
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header
+    .os-app-screen-heading {
     opacity: var(--title-handoff, 0);
     pointer-events: none;
     will-change: opacity;
@@ -40552,6 +40556,20 @@ a.os-surface-row {
     gap: 0.85rem;
   }
 
+  .guild-thread-join-dock {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    display: flex;
+    justify-content: center;
+    padding: 0.75rem 0 calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(
+      to top,
+      rgb(var(--bg-rgb) / 0.96) 55%,
+      rgb(var(--bg-rgb) / 0)
+    );
+  }
+
   .guild-thread-root > .post-card {
     margin: 0;
     padding: 0.35rem 0;
@@ -42024,7 +42042,8 @@ a.os-surface-row {
 
   /*
    * Flow layout (default): one controls row under the divider — `Replies ▾`
-   * sort left, `View quotes ›` right. Quiet chrome: muted ink, fg on hover.
+   * sort left, `View quotes ›` or `View reposts ›` right. Quiet chrome:
+   * muted ink, fg on hover.
    */
   .thread-controls-row {
     display: flex;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
@@ -75,6 +75,7 @@ import {
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
+import { useLandOpenedPost } from '@/hooks/use-land-opened-post';
 import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
 import {
@@ -82,6 +83,10 @@ import {
   collectRelationTargetAccountIds,
 } from '@/lib/post-relation';
 import { postQuotesPath } from '@/lib/post-routes';
+import {
+  resolveThreadShareRow,
+  threadShareRowHref,
+} from '@/lib/thread-share-row';
 import { resolveThreadLayout } from '@/lib/thread-layout';
 import {
   sortThreadReplyRows,
@@ -119,6 +124,7 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { playPostFocusVideo } from '@/hooks/use-post-list-video';
+import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
 import type { GuildPostPageData } from '@/lib/load-guild-post-page';
 
 interface LiveGuildPostPanelProps {
@@ -126,6 +132,16 @@ interface LiveGuildPostPanelProps {
   author: string;
   postId: string;
   initial?: GuildPostPageData | null;
+  /** Sheet over a feed. The sheet already supplies the Post header. */
+  embedded?: boolean;
+  /** False while the sheet is parked under a profile. */
+  replyDockEnabled?: boolean;
+  /** Muted guild name above the author. Off when this guild is already the screen. */
+  showGuildLine?: boolean;
+  /** Room line on the opened post. Off inside one room. */
+  showChannel?: boolean;
+  /** Passed to posts opened from this thread. */
+  sheetContext?: ThreadSheetContext | null;
 }
 
 function GuildThreadLoadMoreFooter({
@@ -172,6 +188,11 @@ export function LiveGuildPostPanel({
   author,
   postId,
   initial = null,
+  embedded = false,
+  replyDockEnabled = true,
+  showGuildLine = true,
+  showChannel: showRoom = true,
+  sheetContext = null,
 }: LiveGuildPostPanelProps) {
   seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
   const {
@@ -240,9 +261,8 @@ export function LiveGuildPostPanel({
   const [dockTarget, setDockTarget] = useState<PostRow | null>(null);
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
-  const [activeThreadTab, setActiveThreadTab] = useState<GuildThreadTab>(
-    'replies'
-  );
+  const [activeThreadTab, setActiveThreadTab] =
+    useState<GuildThreadTab>('replies');
   const [threadTabTouched, setThreadTabTouched] = useState(false);
   const [replySort, setReplySort] = useState<ThreadReplySort>('relevant');
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
@@ -322,6 +342,8 @@ export function LiveGuildPostPanel({
   // Full ancestor chain up to the conversation root, oldest first.
   const ancestorChain = useAncestorChain(conversation.root?.parentPath);
   const hasParent = ancestorChain.length > 0;
+  const openedPostRef = useRef<HTMLDivElement>(null);
+  useLandOpenedPost(openedPostRef, conversation.root?.postId, hasParent);
   const engagementPosts = useMemo(
     () => [...ancestorChain, ...threadPosts],
     [ancestorChain, threadPosts]
@@ -372,6 +394,8 @@ export function LiveGuildPostPanel({
     ? engagement[postKey(conversation.root)]
     : undefined;
   const quoteTotal = Math.max(rootEngagement?.quoteCount ?? 0, quotes.length);
+  const repostTotal = Math.max(0, rootEngagement?.repostCount ?? 0);
+  const shareRow = resolveThreadShareRow(quoteTotal, repostTotal);
   const sortedReplyRows = useMemo(
     () => sortThreadReplyRows(replyRows, replySort, engagement),
     [replyRows, replySort, engagement]
@@ -696,15 +720,17 @@ export function LiveGuildPostPanel({
   const threadDraftKey = root
     ? writeDockDraftKey('post', postKey(root))
     : undefined;
-  const writeAbove = nestedDockReply && writeName ? (
-    <OsWriteDockReplyChip
-      label={writeName}
-      onCancel={() => setDockTarget(null)}
-    />
-  ) : null;
+  const writeAbove =
+    nestedDockReply && writeName ? (
+      <OsWriteDockReplyChip
+        label={writeName}
+        onCancel={() => setDockTarget(null)}
+      />
+    ) : null;
   useReplyWriteDock({
     target: writeTarget,
-    enabled: Boolean(root) && (!accountId || canPostInThread),
+    enabled:
+      replyDockEnabled && Boolean(root) && (!accountId || canPostInThread),
     disabled: Boolean(modalTarget),
     placeholder: WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
     above: writeAbove,
@@ -728,12 +754,6 @@ export function LiveGuildPostPanel({
   const membershipHint = accountId
     ? (readGuildMembershipCache(accountId, groupId) ?? null)
     : null;
-  const membershipChromePending =
-    walletLoading ||
-    (isConnected &&
-      Boolean(accountId) &&
-      !viewerAccessResolved &&
-      membershipHint == null);
   const effectiveIsMember = viewerAccessResolved
     ? isMember
     : Boolean(membershipHint?.isMember);
@@ -822,45 +842,41 @@ export function LiveGuildPostPanel({
     needsStorage: needsCollaborativeStorage,
   });
 
-  const membershipActions = (
-    <div className="guild-hero-membership-slot guild-thread-nav-membership-slot">
-      {membershipChromePending ? (
-        <span aria-busy="true" aria-label="Loading membership">
-          <span
-            className="standing-row-shimmer guild-thread-nav-membership-shimmer"
-            aria-hidden
-          />
-        </span>
-      ) : (
-        <>
-        <GuildMembershipJoinButton
-          className="guild-hero-membership guild-thread-nav-membership"
-          label={membershipActionLabel}
-          ready={membershipActionReady}
-          active={effectiveIsMember}
-          pending={joinActionPending}
-          pendingLabel={guildMembershipJoinPendingLabel({
-            accessGated,
-            canceling: effectiveJoinPending,
-            leaving: effectiveIsMember,
-          })}
-          disabled={
-            effectiveIsBlacklisted ||
-            (effectiveJoinPending && !joinCancelReady) ||
-            (!viewerAccessResolved && Boolean(membershipHint))
-          }
-          onClick={handleMembershipClick}
-        />
-        <GuildMembershipConfirmDrawer
-          kind={confirmKind}
-          guildName={guildDisplayName(guildName, groupId)}
-          pending={joinActionPending}
-          onConfirm={confirmMembership}
-          onCancel={dismissConfirm}
-        />
-        </>
-      )}
+  const needsJoinToReply =
+    replyDockEnabled &&
+    Boolean(accountId) &&
+    viewerAccessResolved &&
+    !effectiveIsMember &&
+    !effectiveIsBlacklisted;
+  const joinDock = needsJoinToReply ? (
+    <div className="guild-thread-join-dock">
+      <GuildMembershipJoinButton
+        className="guild-hero-membership guild-thread-nav-membership"
+        label={membershipActionLabel}
+        ready={membershipActionReady}
+        active={effectiveIsMember}
+        pending={joinActionPending}
+        pendingLabel={guildMembershipJoinPendingLabel({
+          accessGated,
+          canceling: effectiveJoinPending,
+          leaving: effectiveIsMember,
+        })}
+        disabled={
+          (effectiveJoinPending && !joinCancelReady) ||
+          (!viewerAccessResolved && Boolean(membershipHint))
+        }
+        onClick={handleMembershipClick}
+      />
     </div>
+  ) : null;
+  const membershipDrawer = (
+    <GuildMembershipConfirmDrawer
+      kind={confirmKind}
+      guildName={guildDisplayName(guildName, groupId)}
+      pending={joinActionPending}
+      onConfirm={confirmMembership}
+      onCancel={dismissConfirm}
+    />
   );
 
   const replyListRows = sortedReplyRows.map((row, index) => {
@@ -912,6 +928,7 @@ export function LiveGuildPostPanel({
           <PostCard
             post={row.post}
             authorProfile={postAuthorProfiles[row.post.accountId]}
+            sheetContext={sheetContext}
             actionHref={guildPostPath(
               groupId,
               row.post.accountId,
@@ -960,6 +977,7 @@ export function LiveGuildPostPanel({
         <PostCard
           post={quote}
           authorProfile={postAuthorProfiles[quote.accountId]}
+          sheetContext={sheetContext}
           actionHref={guildPostPath(groupId, quote.accountId, quote.postId)}
           showRelationBadge={false}
           quotedPost={quoted}
@@ -989,14 +1007,13 @@ export function LiveGuildPostPanel({
     );
   });
 
-  return (
+  const threadScreen = (
     <OsAppScreen
-      title={guildDisplayName(guildName, groupId)}
-      titleHref={guildPath(groupId)}
+      title="Post"
       dockBack
+      glassChrome
       compactChrome
       backFallbackHref={guildPath(groupId)}
-      actions={membershipActions}
     >
       <div className={GUILDS_PAGE_CLASS}>
         {loadState === 'loading' ? <PostRowSkeleton rows={4} /> : null}
@@ -1026,6 +1043,7 @@ export function LiveGuildPostPanel({
                   <PostCard
                     post={ancestor}
                     authorProfile={postAuthorProfiles[ancestor.accountId]}
+                    sheetContext={sheetContext}
                     actionHref={guildPostPath(
                       groupId,
                       ancestor.accountId,
@@ -1075,6 +1093,8 @@ export function LiveGuildPostPanel({
               ))}
 
               <div
+                ref={openedPostRef}
+                data-thread-opened-post={conversation.root.postId}
                 className={`guild-thread-root${hasParent ? ' post-thread-item post-thread-item--up' : ''}`}
               >
                 <PostCard
@@ -1089,8 +1109,10 @@ export function LiveGuildPostPanel({
                   // Parent drawn above with a chain line already says "reply".
                   showRelationBadge={!hasParent}
                   authorProfiles={postAuthorProfiles}
-                  // Thread is reached from anywhere — root keeps channel context.
-                  showChannel
+                  sheetContext={sheetContext}
+                  showGuildAttribution={showGuildLine}
+                  guildName={guildDisplayName(guildName, groupId)}
+                  showChannel={showRoom}
                   channelLabel={
                     conversation.root.channel
                       ? (channelTitleById[conversation.root.channel] ??
@@ -1186,7 +1208,7 @@ export function LiveGuildPostPanel({
                   </button>
                 </div>
               </div>
-            ) : replyListRows.length > 0 || quoteTotal > 0 ? (
+            ) : replyListRows.length > 0 || shareRow ? (
               <div className="thread-controls-row">
                 {replyListRows.length > 0 ? (
                   <ThreadRepliesSortButton
@@ -1196,10 +1218,14 @@ export function LiveGuildPostPanel({
                 ) : (
                   <span className="thread-controls-spacer" aria-hidden />
                 )}
-                {quoteTotal > 0 && conversation.root ? (
+                {shareRow && conversation.root ? (
                   <ThreadViewQuotesRow
-                    href={postQuotesPath(conversation.root)}
-                    quoteCount={quoteTotal}
+                    href={threadShareRowHref(
+                      postQuotesPath(conversation.root),
+                      shareRow
+                    )}
+                    label={shareRow.label}
+                    count={shareRow.count}
                   />
                 ) : null}
               </div>
@@ -1249,7 +1275,7 @@ export function LiveGuildPostPanel({
               <div className="guild-connected-stack">
                 {replyListRows.length > 0 ? (
                   replyListRows
-                ) : quoteTotal === 0 ? (
+                ) : !shareRow ? (
                   <ThreadDiscoverPeek
                     author={author}
                     excludePostId={postId}
@@ -1275,6 +1301,7 @@ export function LiveGuildPostPanel({
             )}
           </section>
         ) : null}
+        {joinDock}
       </div>
       {modalTarget ? (
         <ComposerSheet
@@ -1324,6 +1351,10 @@ export function LiveGuildPostPanel({
           }
         />
       ) : null}
+      {membershipDrawer}
     </OsAppScreen>
   );
+
+  if (embedded) return threadScreen.props.children;
+  return threadScreen;
 }

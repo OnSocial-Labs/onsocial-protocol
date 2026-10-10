@@ -42,6 +42,7 @@ export default async function GuildPostPage({ params }: GuildPostPageProps) {
       author={authorId}
       postId={post}
       initial={initial}
+      sheetContext={{ guildId: id }}
     />
   );
 }

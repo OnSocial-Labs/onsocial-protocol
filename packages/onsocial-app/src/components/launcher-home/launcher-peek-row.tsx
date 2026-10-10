@@ -2,18 +2,14 @@
 
 import Link from 'next/link';
 import type { PostRow } from '@onsocial/sdk';
-import {
-  Divider,
-  RepeatIcon,
-  standingIdentityLabel,
-} from '@onsocial/ui';
+import { Divider, RepeatIcon, standingIdentityLabel } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import type { MouseEvent, ReactNode } from 'react';
 import {
   isUnmodifiedPrimaryClick,
   usePostThreadLayer,
 } from '@/features/home/post-thread-layer';
-import { isInAppPostLayerHref } from '@/lib/post-routes';
+import { isAppPostSheetHref } from '@/lib/post-routes';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import type { PostRelationContext } from '@/lib/post-relation';
 import {
@@ -72,20 +68,27 @@ function LauncherPeekRelation({
     );
   }
 
-  const target = formatLauncherRelationTarget(relation.handle, targetProfileName);
+  const target = formatLauncherRelationTarget(
+    relation.handle,
+    targetProfileName
+  );
 
   return (
     <span className="launcher-home-peek-relation">
       {relation.verb}{' '}
       {target.name ? (
         <>
-          <span className="launcher-home-peek-relation-name">{target.name}</span>{' '}
+          <span className="launcher-home-peek-relation-name">
+            {target.name}
+          </span>{' '}
           <span className="launcher-home-peek-relation-handle">
             @{target.handle}
           </span>
         </>
       ) : (
-        <span className="launcher-home-peek-relation-handle">@{target.handle}</span>
+        <span className="launcher-home-peek-relation-handle">
+          @{target.handle}
+        </span>
       )}
     </span>
   );
@@ -202,13 +205,13 @@ export function LauncherSocialPeekRow({
             aria-label={ariaLabel}
             onClick={(event: MouseEvent<HTMLAnchorElement>) => {
               if (!isUnmodifiedPrimaryClick(event)) return;
-              if (!isInAppPostLayerHref(href)) return;
+              if (!isAppPostSheetHref(href)) return;
               event.preventDefault();
               event.stopPropagation();
               openPostThread({ href, root: overlayRoot });
             }}
             onNavigate={(event) => {
-              if (!isInAppPostLayerHref(href)) return;
+              if (!isAppPostSheetHref(href)) return;
               event.preventDefault();
               openPostThread({ href, root: overlayRoot });
             }}

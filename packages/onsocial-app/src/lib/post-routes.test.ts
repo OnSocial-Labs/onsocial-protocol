@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   appendThreadFocusReply,
+  canonicalizeGuildPostLayerHref,
   canonicalizePostLayerHref,
+  isAppPostSheetHref,
   isInAppPostLayerHref,
   isOverlayPostLayerLocation,
+  parseGuildPostLayerHref,
+  parseGuildPostQuotesHref,
   parseInAppPostLayerHref,
   parseInAppPostQuotesHref,
   personalPostContentPath,
@@ -67,12 +71,12 @@ describe('parseInAppPostLayerHref', () => {
 
 describe('parseInAppPostQuotesHref', () => {
   it('parses a personal quotes permalink', () => {
-    expect(parseInAppPostQuotesHref('/@alice.testnet/posts/123/quotes')).toEqual(
-      {
-        accountId: 'alice.testnet',
-        postId: '123',
-      }
-    );
+    expect(
+      parseInAppPostQuotesHref('/@alice.testnet/posts/123/quotes')
+    ).toEqual({
+      accountId: 'alice.testnet',
+      postId: '123',
+    });
   });
 
   it('ignores the post itself and guild quote pages', () => {
@@ -89,10 +93,70 @@ describe('isInAppPostLayerHref', () => {
     expect(isInAppPostLayerHref('/@alice.testnet/writing/123')).toBe(true);
   });
 
-  it('is false for guild threads so they stay real pages', () => {
+  it('is false for guild threads so route matching stays personal', () => {
+    expect(isInAppPostLayerHref('/groups/dao/posts/alice.testnet/123')).toBe(
+      false
+    );
+  });
+});
+
+describe('parseGuildPostLayerHref', () => {
+  it('parses a guild thread permalink', () => {
     expect(
-      isInAppPostLayerHref('/groups/dao/posts/alice.testnet/123')
+      parseGuildPostLayerHref('/groups/dao/posts/alice.testnet/123')
+    ).toEqual({
+      groupId: 'dao',
+      accountId: 'alice.testnet',
+      postId: '123',
+    });
+  });
+
+  it('ignores guild quote pages', () => {
+    expect(
+      parseGuildPostLayerHref('/groups/dao/posts/alice.testnet/123/quotes')
+    ).toBeNull();
+  });
+});
+
+describe('parseGuildPostQuotesHref', () => {
+  it('parses a guild quotes permalink', () => {
+    expect(
+      parseGuildPostQuotesHref(
+        '/groups/dao/posts/alice.testnet/123/quotes?tab=reposts'
+      )
+    ).toEqual({
+      groupId: 'dao',
+      accountId: 'alice.testnet',
+      postId: '123',
+    });
+  });
+
+  it('ignores the guild post itself', () => {
+    expect(
+      parseGuildPostQuotesHref('/groups/dao/posts/alice.testnet/123')
+    ).toBeNull();
+  });
+});
+
+describe('isAppPostSheetHref', () => {
+  it('opens personal and guild threads over the current screen', () => {
+    expect(isAppPostSheetHref('/@alice.testnet/posts/123')).toBe(true);
+    expect(isAppPostSheetHref('/groups/dao/posts/alice.testnet/123')).toBe(
+      true
+    );
+    expect(
+      isAppPostSheetHref('/groups/dao/posts/alice.testnet/123/quotes')
     ).toBe(false);
+  });
+});
+
+describe('canonicalizeGuildPostLayerHref', () => {
+  it('keeps the reply query on the guild permalink', () => {
+    expect(
+      canonicalizeGuildPostLayerHref(
+        '/groups/dao/posts/alice.testnet/123?reply=9'
+      )
+    ).toBe('/groups/dao/posts/alice.testnet/123?reply=9');
   });
 });
 
@@ -117,11 +181,41 @@ describe('isOverlayPostLayerLocation', () => {
     ).toBe(true);
   });
 
+  it('is true when a guild thread is open over Home or the guild feed', () => {
+    expect(
+      isOverlayPostLayerLocation('/home', '/groups/dao/posts/alice.testnet/123')
+    ).toBe(true);
+    expect(
+      isOverlayPostLayerLocation(
+        '/groups/dao',
+        '/groups/dao/posts/alice.testnet/123'
+      )
+    ).toBe(true);
+    expect(
+      isOverlayPostLayerLocation(
+        '/groups/dao',
+        '/groups/dao/posts/alice.testnet/123/quotes?tab=reposts'
+      )
+    ).toBe(true);
+    expect(
+      isOverlayPostLayerLocation(
+        '/home',
+        '/@alice.testnet/posts/123/quotes?tab=reposts'
+      )
+    ).toBe(true);
+  });
+
   it('is false on a real post page or a non-post location', () => {
     expect(
       isOverlayPostLayerLocation(
         '/@alice.testnet/posts/123',
         '/@alice.testnet/posts/123?reply=9'
+      )
+    ).toBe(false);
+    expect(
+      isOverlayPostLayerLocation(
+        '/groups/dao/posts/alice.testnet/123',
+        '/groups/dao/posts/alice.testnet/123'
       )
     ).toBe(false);
     expect(isOverlayPostLayerLocation('/discover', '/discover')).toBe(false);

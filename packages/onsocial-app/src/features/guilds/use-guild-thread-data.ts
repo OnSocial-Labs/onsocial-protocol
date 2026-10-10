@@ -29,6 +29,7 @@ import {
 import { resolveViewerAllowlistSpaceIds } from '@/features/guilds/guild-space-write';
 import { resolveGuildViewerAccess } from '@/features/guilds/guild-viewer-access';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { planThreadLoad } from '@/lib/thread-open';
 import { writeGuildMembershipCache } from '@/lib/guild-membership-cache';
 import type { GuildPostPageData } from '@/lib/load-guild-post-page';
 import {
@@ -158,7 +159,7 @@ export function useGuildThreadData({
   const [error, setError] = useState<string | null>(null);
   const paginatedRef = useRef(false);
   const reconcileTimersRef = useRef<number[]>([]);
-  const ssrSeedRef = useRef(Boolean(initial));
+  const paintedKeyRef = useRef<string | null>(initial ? threadKey : null);
   const loadMoreInFlightRef = useRef(false);
   const refreshRequestIdRef = useRef(0);
 
@@ -321,14 +322,19 @@ export function useGuildThreadData({
   useEffect(() => {
     if (walletLoading) return;
     setViewerAccessResolved(false);
-    // Soft reconcile after SSR — keep thread painted while ACL hydrates.
-    if (ssrSeedRef.current) {
-      ssrSeedRef.current = false;
-      void refresh({ background: true });
-      return;
-    }
-    void refresh();
-  }, [refresh, walletLoading]);
+    let cancelled = false;
+    const key = threadKey;
+    // One load per setup. A second effect pass must not blank a painted card.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const plan = planThreadLoad(paintedKeyRef.current, key);
+      paintedKeyRef.current = plan.paintedKey;
+      void refresh({ background: plan.background });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [refresh, threadKey, walletLoading]);
 
   useEffect(() => {
     paginatedRef.current = false;

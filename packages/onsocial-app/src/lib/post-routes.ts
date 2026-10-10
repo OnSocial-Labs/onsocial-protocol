@@ -55,10 +55,66 @@ export function parseInAppPostLayerHref(
  * Personal post / writing permalink — consume the click and open a sheet.
  * Do not let Next replace the underlay behind an open post or enlarge drawer.
  */
-export function isInAppPostLayerHref(
-  href: string | null | undefined
-): boolean {
+export function isInAppPostLayerHref(href: string | null | undefined): boolean {
   return parseInAppPostLayerHref(href) != null;
+}
+
+function pathnameOnly(href: string): string | null {
+  let pathname = href.trim();
+  if (!pathname) return null;
+  try {
+    if (/^https?:\/\//i.test(pathname)) {
+      pathname = new URL(pathname).pathname;
+    }
+  } catch {
+    return null;
+  }
+  const q = pathname.indexOf('?');
+  if (q !== -1) pathname = pathname.slice(0, q);
+  const hash = pathname.indexOf('#');
+  if (hash !== -1) pathname = pathname.slice(0, hash);
+  return pathname;
+}
+
+/**
+ * Guild thread permalink: `/groups/{group}/posts/{author}/{postId}`.
+ * Quote screens stay real pages.
+ */
+export function parseGuildPostLayerHref(
+  href: string | null | undefined
+): { groupId: string; accountId: string; postId: string } | null {
+  if (!href) return null;
+  const pathname = pathnameOnly(href);
+  if (!pathname) return null;
+  const match = pathname.match(
+    /^\/groups\/([^/]+)\/posts\/([^/]+)\/([^/]+)\/?$/
+  );
+  if (!match) return null;
+  try {
+    return {
+      groupId: decodeURIComponent(match[1]),
+      accountId: decodeURIComponent(match[2]),
+      postId: decodeURIComponent(match[3]),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Personal or guild thread — open over the current screen. */
+export function isAppPostSheetHref(href: string | null | undefined): boolean {
+  return isInAppPostLayerHref(href) || parseGuildPostLayerHref(href) != null;
+}
+
+export function canonicalizeGuildPostLayerHref(href: string): string | null {
+  const parsed = parseGuildPostLayerHref(href);
+  if (!parsed) return null;
+  const path = guildPostPath(parsed.groupId, parsed.accountId, parsed.postId);
+  const q = href.indexOf('?');
+  if (q === -1) return path;
+  const hash = href.indexOf('#');
+  const query = href.slice(q, hash === -1 ? undefined : hash);
+  return query ? `${path}${query}` : path;
 }
 
 /** Canonical share permalink for a parsed in-app post layer. */
@@ -91,8 +147,8 @@ export function personalPostQuotesPath(author: string, postId: string): string {
 }
 
 /**
- * In-app quotes sheet: `/@{author}/posts/{postId}/quotes`.
- * Guild quote screens stay real pages.
+ * Personal quotes sheet: `/@{author}/posts/{postId}/quotes`.
+ * A direct load of this URL is still the quotes page.
  */
 export function parseInAppPostQuotesHref(
   href: string | null | undefined
@@ -123,6 +179,31 @@ export function parseInAppPostQuotesHref(
   }
 }
 
+/**
+ * Guild quotes sheet: `/groups/{group}/posts/{author}/{postId}/quotes`.
+ * A direct load of this URL is still the quotes page.
+ */
+export function parseGuildPostQuotesHref(
+  href: string | null | undefined
+): { groupId: string; accountId: string; postId: string } | null {
+  if (!href) return null;
+  const pathname = pathnameOnly(href);
+  if (!pathname) return null;
+  const match = pathname.match(
+    /^\/groups\/([^/]+)\/posts\/([^/]+)\/([^/]+)\/quotes\/?$/
+  );
+  if (!match) return null;
+  try {
+    return {
+      groupId: decodeURIComponent(match[1]),
+      accountId: decodeURIComponent(match[2]),
+      postId: decodeURIComponent(match[3]),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Quotes + reposts screen for any post row — guild or personal. */
 export function postQuotesPath(post: {
   accountId: string;
@@ -130,6 +211,46 @@ export function postQuotesPath(post: {
   groupId?: string | null;
 }): string {
   return `${postThreadPath(post)}/quotes`;
+}
+
+/** Query param: open the quotes screen on Quotes or Reposts. */
+export const POST_QUOTES_TAB_QUERY = 'tab';
+
+export type PostQuotesTab = 'quotes' | 'reposts';
+
+export function readPostQuotesTabValue(
+  value: string | string[] | null | undefined
+): PostQuotesTab {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw === 'reposts' ? 'reposts' : 'quotes';
+}
+
+export function readPostQuotesTab(
+  searchParams: Pick<URLSearchParams, 'get'> | null | undefined
+): PostQuotesTab {
+  return readPostQuotesTabValue(searchParams?.get(POST_QUOTES_TAB_QUERY));
+}
+
+/** Tab on a quotes href. Missing or unknown values stay on Quotes. */
+export function readPostQuotesTabFromHref(href: string): PostQuotesTab {
+  const queryStart = href.indexOf('?');
+  if (queryStart === -1) return 'quotes';
+  const hashStart = href.indexOf('#', queryStart);
+  const query = href.slice(
+    queryStart + 1,
+    hashStart === -1 ? undefined : hashStart
+  );
+  return readPostQuotesTab(new URLSearchParams(query));
+}
+
+/** Reposts-only links carry `?tab=reposts`. Quotes stays a clean path. */
+export function withPostQuotesTab(href: string, tab: PostQuotesTab): string {
+  if (tab !== 'reposts') return href;
+  const hashStart = href.indexOf('#');
+  const hash = hashStart === -1 ? '' : href.slice(hashStart);
+  const base = hashStart === -1 ? href : href.slice(0, hashStart);
+  const join = base.includes('?') ? '&' : '?';
+  return `${base}${join}${POST_QUOTES_TAB_QUERY}=reposts${hash}`;
 }
 
 /** Query param: scroll + highlight a reply on thread landing. */
@@ -160,9 +281,17 @@ export function isOverlayPostLayerLocation(
   nextPathname: string,
   locationHref: string
 ): boolean {
+  const locationIsThread = isPostOrQuotesLocation(locationHref);
+  const routerIsThread = isPostOrQuotesLocation(nextPathname);
+  return locationIsThread && !routerIsThread;
+}
+
+function isPostOrQuotesLocation(href: string): boolean {
   return (
-    parseInAppPostLayerHref(locationHref) != null &&
-    parseInAppPostLayerHref(nextPathname) == null
+    parseInAppPostLayerHref(href) != null ||
+    parseGuildPostLayerHref(href) != null ||
+    parseInAppPostQuotesHref(href) != null ||
+    parseGuildPostQuotesHref(href) != null
   );
 }
 
