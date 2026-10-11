@@ -130,19 +130,18 @@ export function FeedSessionHost({ children }: { children: ReactNode }) {
   }, [onFeed]);
 
   useLayoutEffect(() => {
-    if (onFeed) {
-      setFrontReady(false);
-      return;
-    }
     const front = frontRef.current;
-    setFrontReady(
+    const ready =
+      !onFeed &&
       Boolean(
         front?.querySelector(
           '.portfolio-page, .portfolio-frame, .os-app-screen, .protocol-face-pair'
         )
-      )
-    );
-  }, [onFeed, pathname, children]);
+      );
+    if (ready === frontReady) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- before-paint route readiness
+    setFrontReady(ready);
+  }, [frontReady, onFeed, pathname, children]);
 
   /* The URL changes before the next page exists. Keep the feed up until that
    * page is actually in the DOM, so the card is not a blank dead layer. */
