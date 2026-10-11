@@ -28,10 +28,8 @@ import {
   Divider,
   FireFillIcon,
   MultiplyIcon,
-  OsHugSheet,
   OsIconAction,
   OsPageSheet,
-  SheetCloseButton,
   osIconActionGlyphClassName,
 } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
@@ -49,7 +47,7 @@ import {
 import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
 import { PortfolioBoostSheet } from '@/features/boost/portfolio-boost-sheet';
 import { useBoostPosition } from '@/features/boost/use-boost-position';
-import { ReputationBreakdownFacts } from '@/features/leaderboard/reputation-breakdown-facts';
+import { ReputationFactsSheet } from '@/features/leaderboard/reputation-facts-sheet';
 import {
   usePostAuthorProfiles,
   type PostAuthorProfile,
@@ -469,79 +467,6 @@ function ViewerFooter({
         isViewer
       />
     </div>
-  );
-}
-
-function LeaderboardReputationPeek({
-  open,
-  onClose,
-  entry,
-}: {
-  open: boolean;
-  onClose: () => void;
-  entry: ReputationEntry | null;
-}) {
-  const [closing, setClosing] = useState(false);
-  const sheetOpen = open && !closing && entry != null;
-
-  const requestClose = useCallback(() => {
-    setClosing(true);
-  }, []);
-
-  const handleClosed = useCallback(() => {
-    setClosing(false);
-    onClose();
-  }, [onClose]);
-
-  const reputation = entry ? reputationEntryToProfile(entry) : null;
-  const accountId = entry?.accountId ?? '';
-
-  return (
-    <OsHugSheet
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleClosed}
-      chrome="facts"
-      label="Reputation"
-      copy={
-        reputation
-          ? reputation.rank > 0
-            ? `Rank #${reputation.rank}`
-            : 'Protocol reputation'
-          : 'Not indexed yet'
-      }
-      closeAriaLabel="Close reputation"
-      backdropLabel="Close reputation"
-      zIndex={LEADERBOARD_FACTS_Z}
-      panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
-      bodyClassName="guild-facts-sheet-body"
-      headerActions={
-        <div className="standing-sheet-actions standing-sheet-actions--payout">
-          <SheetCloseButton
-            onClick={requestClose}
-            ariaLabel="Close reputation"
-          />
-        </div>
-      }
-    >
-      <div className="guild-facts">
-        <ReputationBreakdownFacts
-          accountId={accountId}
-          reputation={reputation}
-        />
-        {accountId ? (
-          <p className="leaderboard-facts-profile-link">
-            <Link
-              href={portfolioPath(accountId)}
-              scroll={false}
-              onClick={requestClose}
-            >
-              View profile
-            </Link>
-          </p>
-        ) : null}
-      </div>
-    </OsHugSheet>
   );
 }
 
@@ -1437,10 +1362,13 @@ export function LeaderboardSheet({
         </OsAppScreen>
       </OsPageSheet>
 
-      <LeaderboardReputationPeek
+      <ReputationFactsSheet
         open={factsEntry != null}
-        entry={factsEntry}
         onClose={() => setFactsEntry(null)}
+        accountId={factsEntry?.accountId ?? ''}
+        reputation={factsEntry ? reputationEntryToProfile(factsEntry) : null}
+        zIndex={LEADERBOARD_FACTS_Z}
+        showProfileLink
       />
 
       {showBoostAction ? (

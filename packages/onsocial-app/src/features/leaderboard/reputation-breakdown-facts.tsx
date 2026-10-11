@@ -94,6 +94,7 @@ export function ReputationBreakdownFacts({
         {factors.map((factor) => (
           <SheetFactRow
             key={factor.title}
+            className="reputation-facts-factor-row"
             label={
               <FactorLabel title={factor.title} hint={factor.hint} />
             }

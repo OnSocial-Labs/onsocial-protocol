@@ -308,6 +308,14 @@
   --glass-sheet-body-opacity: 0.64;
 }
 
+/* Unlayered: `.os-sheet-facts-row` lives outside @layer and would keep the
+   5.5rem label column, which crushes reputation factor hints. */
+.os-sheet-facts-row.reputation-facts-factor-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 1rem;
+  align-items: start;
+}
+
 /*
  * Hosted glass sheets (portfolio overlays + hug peeks in the OS column) —
  * header top inset matches `.os-app-screen-header`. Unlayered so it wins over
@@ -12114,9 +12122,21 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.46);
   }
 
-  .reputation-facts-activity .os-sheet-facts-section-rows,
   .reputation-facts-activity .os-sheet-facts-section-rows {
     gap: 0.38rem;
+  }
+
+  .reputation-facts-activity .os-sheet-facts-value {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+    font-weight: 650;
+  }
+
+  .reputation-facts-factor-row .os-sheet-facts-value {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+    font-weight: 650;
+    line-height: 1.2;
   }
 
   .reputation-facts-factor-label {
@@ -12128,7 +12148,11 @@ a.os-surface-row {
   }
 
   .reputation-facts-factor-title {
+    font-size: 0.84rem;
+    font-weight: 550;
+    letter-spacing: -0.01em;
     line-height: 1.2;
+    color: rgb(var(--fg-rgb) / 0.88);
   }
 
   .reputation-facts-factor-hint {
@@ -12138,19 +12162,6 @@ a.os-surface-row {
     text-transform: none;
     color: rgb(var(--fg-rgb) / 0.42);
     line-height: 1.25;
-  }
-
-  .reputation-panel-body.panel-body {
-    gap: 0;
-    padding: 0.15rem 1.15rem 1.35rem;
-  }
-
-  .reputation-panel-body {
-    position: relative;
-  }
-
-  .reputation-panel-facts {
-    position: relative;
   }
 
   .glass-sheet-header-title-row > .standing-sheet-actions {
@@ -12560,8 +12571,9 @@ a.os-surface-row {
     appearance: none;
     border: 0;
     background: transparent;
-    padding: 0;
     margin: 0;
+    min-height: 1.875rem;
+    padding: 0.06rem var(--signals-metric-pad-x);
     font: inherit;
     color: inherit;
     cursor: pointer;
@@ -12787,7 +12799,8 @@ a.os-surface-row {
       padding-block: 0.04rem;
     }
 
-    .portfolio-frame .signal-metric:where(a) {
+    .portfolio-frame .signal-metric:where(a),
+    .portfolio-frame button.signal-metric {
       min-height: 1.75rem;
       padding-block: 0.04rem;
     }

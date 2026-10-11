@@ -37,7 +37,6 @@ export const OVERLAY_PANELS = [
   'feed',
   'standing',
   'network',
-  'reputation',
   'collectibles',
   'writing',
 ] as const;
@@ -410,7 +409,6 @@ export const OVERLAY_PANEL_LABELS: Record<OverlayPanel, string> = {
   feed: 'Feed',
   standing: 'Standing',
   network: 'Network',
-  reputation: 'Reputation',
   collectibles: 'Collectibles',
   writing: 'Writing',
 };
@@ -497,7 +495,8 @@ export function isFullPagePanelLayout(segments: readonly string[]): boolean {
  * Open the portfolio glass drawer only for soft-nav intercepts over the profile
  * page.
  *
- * Face peeks — reputation, endorsements, standing — stay overlay-only.
+ * Face peeks — endorsements and standing — stay overlay-only.
+ * Reputation opens a short facts drawer on the face, not this glass sheet.
  * Feed opens the portfolio page drawer (`#portfolio-feed` one-shot signal);
  * hard refresh on `/feed` redirects to that anchor.
  *
