@@ -198,11 +198,26 @@ test.describe('guild page', () => {
     await expect(
       page.locator('.guild-hero-membership').getByRole('button', { name: 'Joined' })
     ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
-    await expect(page.getByRole('button', { name: 'Guild settings' })).toBeVisible();
+    const settingsButton = page.getByRole('button', { name: 'Guild settings' });
+    await expect(settingsButton).toBeVisible();
     await expect(page.getByRole('button', { name: 'Guild menu' })).toBeVisible();
     const rooms = page.getByRole('tablist', { name: 'Guild rooms' });
     await expect(rooms.getByRole('button', { name: 'Add room' })).toBeVisible();
     await expect(rooms.getByRole('tab', { name: 'Add room' })).toHaveCount(0);
+    await settingsButton.click();
+    const settings = page.getByRole('dialog', { name: 'Settings' });
+    await expect(settings).toBeVisible();
+    const closedItself = settings
+      .waitFor({ state: 'hidden', timeout: 2_000 })
+      .then(() => true)
+      .catch(() => false);
+    await expect(settings.getByRole('button', { name: /Edit guild/ })).toBeVisible();
+    await expect(settings.getByRole('button', { name: /^Rooms/ })).toBeVisible();
+    await expect(settings.getByRole('button', { name: /Guild storage/ })).toBeVisible();
+    await expect(settings.getByText('Analytics')).toHaveCount(0);
+    await expect(settings.getByText('Soon')).toHaveCount(0);
+    expect(await closedItself).toBe(false);
+    await expect(settings).toBeVisible();
   });
 
   test('facts sheet opens from the hero info control', async ({ page }) => {

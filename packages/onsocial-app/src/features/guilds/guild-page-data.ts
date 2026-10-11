@@ -98,6 +98,19 @@ export function emptyLiveGuildState(): LiveGuildState {
   };
 }
 
+/**
+ * A sheet query (`?sheet=`) re-renders the guild page with a new seed object
+ * for the guild already on screen. Applying it again clears the viewer, which
+ * unmounts the settings drawer and opens it a second time.
+ */
+export function shouldIgnoreGuildPageReseed(
+  seededGroupId: string | null,
+  groupId: string,
+  initialGroupId: string | null | undefined
+): boolean {
+  return seededGroupId === groupId && initialGroupId === groupId;
+}
+
 export function liveGuildStateFromSeed(input: {
   config: GuildConfigSnapshot | null;
   stats: GroupStats | null;
