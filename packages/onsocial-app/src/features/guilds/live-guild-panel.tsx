@@ -510,8 +510,9 @@ export function LiveGuildPanel({
     groupId
   );
 
-  // Room-row frost grows down to meet the chips. Measured once; scroll only
-  // reads scrollTop. A layout read on each coasting frame jerks when you let go.
+  // One sheet grows down to the room row. Measured from layout position;
+  // scroll only reads scrollTop. Once the row is covered, the sheet stays
+  // until you scroll back up — a later measure must not pull it off.
   useEffect(() => {
     const scrollRoot = scrollRootRef.current;
     const canTrack =
@@ -525,31 +526,32 @@ export function LiveGuildPanel({
     );
     let dockStart = 0;
     let approach = 1;
+    let covered = false;
     let last = '';
 
     const measure = () => {
       const rail = scrollRoot.querySelector<HTMLElement>(
         '.guild-feed-filter-pin'
       );
-      if (!rail) return;
-      let top = 0;
-      let node: HTMLElement | null = rail;
-      while (node && node !== scrollRoot) {
-        top += node.offsetTop;
-        node = node.offsetParent as HTMLElement | null;
-      }
+      if (!rail || !header) return;
+      const headerBottom = header.getBoundingClientRect().bottom;
+      const railTop = rail.getBoundingClientRect().top;
+      if (railTop <= headerBottom + 1) return;
+      const rootTop = scrollRoot.getBoundingClientRect().top;
+      const top = railTop - rootTop + scrollRoot.scrollTop;
       approach = Math.max(rail.offsetHeight, 1);
-      const headerHeight = header?.offsetHeight ?? 72;
-      dockStart = top - headerHeight - approach;
+      dockStart = top - header.offsetHeight - approach;
     };
 
     const syncRail = () => {
       if (!screen) return;
-      const reveal = Math.max(
+      const raw = Math.max(
         0,
         Math.min(1, (scrollRoot.scrollTop - dockStart) / approach)
       );
-      const next = reveal.toFixed(3);
+      if (raw >= 1) covered = true;
+      if (scrollRoot.scrollTop <= dockStart) covered = false;
+      const next = (covered ? 1 : raw).toFixed(3);
       if (next === last) return;
       last = next;
       screen.style.setProperty('--os-rail-reveal', next);
@@ -563,13 +565,15 @@ export function LiveGuildPanel({
     });
     observer.observe(scrollRoot);
     scrollRoot.addEventListener('scroll', syncRail, { passive: true });
-    window.addEventListener('resize', measure);
-    window.addEventListener('resize', syncRail);
+    const onResize = () => {
+      measure();
+      syncRail();
+    };
+    window.addEventListener('resize', onResize);
     return () => {
       observer.disconnect();
       scrollRoot.removeEventListener('scroll', syncRail);
-      window.removeEventListener('resize', measure);
-      window.removeEventListener('resize', syncRail);
+      window.removeEventListener('resize', onResize);
       screen?.style.removeProperty('--os-rail-reveal');
     };
   }, [loadState, shellPreview]);
@@ -1098,7 +1102,7 @@ export function LiveGuildPanel({
       immersiveHeader={loadState === 'loading' || loadState === 'ready'}
       scrollRootRef={scrollRootRef}
     >
-      {/* Viewport-anchored chrome glass — nav + room rail frost as one pane. */}
+      {/* One frost sheet — nav, and the room row once that row docks. */}
       <div
         aria-hidden
         className="os-chrome-glass"
