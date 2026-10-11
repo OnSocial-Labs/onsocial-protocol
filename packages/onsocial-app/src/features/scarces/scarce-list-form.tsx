@@ -67,6 +67,7 @@ import {
   postScarceCoverImage,
   postScarceVideo,
 } from '@/features/scarces/scarce-post-preview';
+import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
 import { ScarceVideoFramePicker } from '@/features/scarces/scarce-video-frame-picker';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import {
@@ -921,6 +922,12 @@ export function ScarceListForm({
           ) : null}
         </>
       )}
+
+      <ScarcePartyLine
+        accountId={post.accountId}
+        displayNameValue={authorName}
+        avatarUrl={creatorAvatarUrl}
+      />
 
       <div className="scarce-mood-picker-block">
         <div
