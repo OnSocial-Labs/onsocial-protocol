@@ -18,7 +18,7 @@ import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyb
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { displayName } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 interface ProfileSupportSheetProps {
@@ -33,20 +33,18 @@ interface ProfileSupportSheetProps {
 }
 
 /**
- * Dedicated money sheet for profile Support — one job, same family as
- * Endorse compose. Face Support and drawer Stand · Support open this; do not put
- * the amount form on the mood face.
+ * Dedicated money sheet for profile Support. Header is the verb only, same
+ * slot as Buy and Sell. The recipient face sits on the first body row.
  */
 export function ProfileSupportSheet({
   open,
   pageAccountId,
   profileName = null,
-  avatarUrl: _avatarUrl = null,
+  avatarUrl = null,
   mood = null,
   onOpenChange,
   zIndex = SHEET_Z.gesture,
 }: ProfileSupportSheetProps) {
-  void _avatarUrl;
   const titleId = useId();
   const formId = useId();
   const [closing, setClosing] = useState(false);
@@ -56,7 +54,6 @@ export function ProfileSupportSheet({
     useState<CommerceSheetFooterState | null>(null);
   const sheetOpen = open && !closing;
   const name = displayName(pageAccountId, profileName ?? undefined);
-  const handle = fallbackLabel(pageAccountId);
   const fetchedMood = usePageOwnerMood(pageAccountId, open || closing);
   const effectiveMood = mood ?? fetchedMood;
   const { keyboardStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
@@ -106,8 +103,7 @@ export function ProfileSupportSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       verb="Support"
-      personName={name}
-      handle={handle}
+      titleLabel={`Support ${name}`}
       signal="reputation"
       closeAriaLabel="Close support"
       backdropLabel="Close support"
@@ -134,6 +130,7 @@ export function ProfileSupportSheet({
         formId={formId}
         pageAccountId={pageAccountId}
         profileName={profileName}
+        avatarUrl={avatarUrl}
         onFooterStateChange={handleFooterStateChange}
         onSuccess={requestClose}
       />

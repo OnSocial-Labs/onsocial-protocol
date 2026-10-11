@@ -14,6 +14,7 @@ import {
   useSyncCommerceSheetFooter,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
+import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
 import { accountIdsEqual } from '@/lib/account-match';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
@@ -66,6 +67,7 @@ function extractTxHash(value: unknown): string | undefined {
 interface ProfileSupportFormProps {
   pageAccountId: string;
   profileName?: string | null;
+  avatarUrl?: string | null;
   /** Associates footer submit with this form. */
   formId?: string;
   /** Publishes pinned commerce footer state (Buy / Boost pattern). */
@@ -88,9 +90,28 @@ async function fetchWalletBalanceYocto(accountId: string): Promise<bigint> {
   return BigInt(body.balanceYocto);
 }
 
+function SupportRecipientFace({
+  pageAccountId,
+  profileName,
+  avatarUrl,
+}: {
+  pageAccountId: string;
+  profileName?: string | null;
+  avatarUrl?: string | null;
+}) {
+  return (
+    <ScarcePartyLine
+      accountId={pageAccountId}
+      displayNameValue={profileName}
+      avatarUrl={avatarUrl}
+    />
+  );
+}
+
 export function ProfileSupportForm({
   pageAccountId,
   profileName = null,
+  avatarUrl = null,
   formId,
   onFooterStateChange,
   onSuccess,
@@ -327,11 +348,22 @@ export function ProfileSupportForm({
     }
   }
 
+  const recipient = (
+    <SupportRecipientFace
+      pageAccountId={pageAccountId}
+      profileName={profileName}
+      avatarUrl={avatarUrl}
+    />
+  );
+
   if (isSelf) {
     return (
-      <p className="page-drawer-section-empty">
-        Support from others will show here.
-      </p>
+      <div className="profile-support-form">
+        {recipient}
+        <p className="page-drawer-section-empty">
+          Support from others will show here.
+        </p>
+      </div>
     );
   }
 
@@ -344,6 +376,7 @@ export function ProfileSupportForm({
         void handleSubmit();
       }}
     >
+      {recipient}
       <AmountField
         value={amountInput}
         onValueChange={applyAmountInput}
