@@ -1,12 +1,28 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import Lenis from 'lenis';
 import {
   resetPortalScrollY,
   setPortalScrollY,
 } from '@/lib/portal-scroll-state';
 import { usePathname, useSearchParams } from 'next/navigation';
+
+/** Minimal Navigation API shape — not yet in every TS lib.dom version. */
+type NavigateEventLike = {
+  navigationType?: string;
+  destination?: { url?: string };
+};
+type NavigationLike = {
+  addEventListener(
+    type: 'navigate',
+    listener: (event: NavigateEventLike) => void
+  ): void;
+  removeEventListener(
+    type: 'navigate',
+    listener: (event: NavigateEventLike) => void
+  ): void;
+};
 
 const SCROLL_STORAGE_PREFIX = 'onsocial:scroll:';
 
@@ -46,7 +62,8 @@ function SmoothScrollController() {
   const lenisRef = useRef<Lenis | null>(null);
   const isPopNavigationRef = useRef(false);
   const hasMountedRef = useRef(false);
-  const routeKeyRef = useRef(pathname);
+  const routeKeyRef = useRef('');
+  const lastScrollYRef = useRef(0);
   const scrollFrameRef = useRef<number | null>(null);
   const restoreFrameRef = useRef<number | null>(null);
   const restoreTimeoutRef = useRef<number | null>(null);
@@ -150,16 +167,64 @@ function SmoothScrollController() {
       return;
     }
 
+    // React 19 commits a history traversal before `popstate`. The Navigation
+    // API `navigate` event fires first; popstate covers browsers without it.
+    const locationKey = () =>
+      `${window.location.pathname}${window.location.search}`;
+
     const handlePopState = () => {
+      if (locationKey() === routeKeyRef.current) {
+        // Late popstate: this traversal is already committed. Re-arming
+        // would restore an old position on the next plain link push.
+        return;
+      }
       isPopNavigationRef.current = true;
     };
 
     window.addEventListener('popstate', handlePopState);
 
+    const navigation = (window as unknown as { navigation?: NavigationLike })
+      .navigation;
+
+    const handleNavigate = (event: NavigateEventLike) => {
+      if (event.navigationType !== 'traverse') {
+        return;
+      }
+      try {
+        const destination = new URL(
+          event.destination?.url ?? '',
+          window.location.href
+        );
+        if (
+          `${destination.pathname}${destination.search}` === routeKeyRef.current
+        ) {
+          return;
+        }
+      } catch {
+        // Unparseable destination — still treat as a pop navigation.
+      }
+      isPopNavigationRef.current = true;
+    };
+
+    navigation?.addEventListener('navigate', handleNavigate);
+
     return () => {
       window.removeEventListener('popstate', handlePopState);
+      navigation?.removeEventListener('navigate', handleNavigate);
     };
   }, []);
+
+  // Child layout effects run before the router's scroll-to-top, so the
+  // outgoing route keeps the last real scroll position.
+  useLayoutEffect(() => {
+    if (!routeKey || routeKeyRef.current === routeKey) {
+      return;
+    }
+    if (routeKeyRef.current) {
+      writeScrollPosition(routeKeyRef.current, lastScrollYRef.current);
+    }
+    routeKeyRef.current = routeKey;
+  }, [routeKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -167,6 +232,10 @@ function SmoothScrollController() {
     }
 
     const saveCurrentRoutePosition = () => {
+      if (!routeKeyRef.current) {
+        return;
+      }
+      lastScrollYRef.current = window.scrollY;
       writeScrollPosition(routeKeyRef.current, window.scrollY);
     };
 
@@ -207,7 +276,6 @@ function SmoothScrollController() {
 
     if (!hasMountedRef.current) {
       hasMountedRef.current = true;
-      routeKeyRef.current = routeKey;
       writeScrollPosition(routeKey, window.scrollY);
       return;
     }
@@ -220,9 +288,6 @@ function SmoothScrollController() {
         })
       );
     };
-
-    writeScrollPosition(routeKeyRef.current, window.scrollY);
-    routeKeyRef.current = routeKey;
 
     const nextScrollTop = readScrollPosition(routeKey);
     const isPopNavigation = isPopNavigationRef.current;
