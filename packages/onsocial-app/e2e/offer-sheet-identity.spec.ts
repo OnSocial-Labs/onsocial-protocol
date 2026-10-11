@@ -32,6 +32,7 @@ test('offer sheet header is the verb and the owner is the body face', async ({
   const sheet = page.getByRole('dialog', { name: /^Offer / });
   await expect(sheet).toBeVisible();
   await expect(sheet.locator('.gesture-sheet-verb')).toHaveText('Offer');
+  await expect(sheet.locator('.gesture-sheet-whisper')).toHaveCount(0);
   await expect(sheet.locator('.gesture-sheet-person')).toHaveCount(0);
   await expect(sheet.locator('.gesture-sheet-handle')).toHaveCount(0);
   await expect(sheet.locator('.scarce-buy-party-handle')).toHaveText(

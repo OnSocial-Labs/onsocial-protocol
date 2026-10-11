@@ -92,7 +92,6 @@ export function ScarceOfferSheet({
       verb="Offer"
       titleLabel={name ? `Offer ${name}` : 'Offer'}
       signal="reputation"
-      whisper="Offer NEAR for this scarce. Owner accepts when ready."
       closeAriaLabel="Close offer scarce"
       backdropLabel="Close offer scarce"
       keyboardOpen={keyboardOpen}
