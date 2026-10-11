@@ -174,9 +174,7 @@ function scrollerThumbSurface(
   scroller: HTMLElement
 ): 'buried' | 'overlay' | 'page' {
   if (
-    scroller.closest(
-      '.post-thread-sheet-parked, [data-feed-session="covered"]'
-    )
+    scroller.closest('.post-thread-sheet-parked, [data-feed-session="covered"]')
   ) {
     return 'buried';
   }
@@ -252,7 +250,9 @@ function placeOverlayScrollThumb(scroller: HTMLElement, thumb: HTMLElement) {
     return;
   }
   const sheet = scroller.closest('.glass-sheet-root');
-  const sheetZ = sheet ? Number.parseInt(getComputedStyle(sheet).zIndex, 10) : 0;
+  const sheetZ = sheet
+    ? Number.parseInt(getComputedStyle(sheet).zIndex, 10)
+    : 0;
   const viewportWidth = scroller.ownerDocument.documentElement.clientWidth;
   thumb.style.zIndex = String(
     Number.isFinite(sheetZ) && sheetZ > 0 ? sheetZ + 1 : 4

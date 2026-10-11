@@ -51,8 +51,8 @@ describe('resolveOverlayScrollThumb', () => {
     expect(overlayScrollThumbIsVisible(673, 80, 1247, 1079, 1920, 1080)).toBe(
       true
     );
-    expect(
-      overlayScrollThumbIsVisible(1821, 80, 2395, 1079, 1920, 1080)
-    ).toBe(false);
+    expect(overlayScrollThumbIsVisible(1821, 80, 2395, 1079, 1920, 1080)).toBe(
+      false
+    );
   });
 });

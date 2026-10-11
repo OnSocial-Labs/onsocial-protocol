@@ -839,9 +839,7 @@ export function GlassSheet({
   const [enterAnimationDone, setEnterAnimationDone] = useState(false);
   const [hugEnterArmed, setHugEnterArmed] = useState(false);
   const [hugEnterLockedPx, setHugEnterLockedPx] = useState<number | null>(null);
-  const [hugViewportCapPx, setHugViewportCapPx] = useState<number | null>(
-    null
-  );
+  const [hugViewportCapPx, setHugViewportCapPx] = useState<number | null>(null);
   const [suspendHugFloor, setSuspendHugFloor] = useState(false);
   const [panelHeightPx, setPanelHeightPx] = useState(0);
   const [isDesktopSheet, setIsDesktopSheet] = useState(false);
