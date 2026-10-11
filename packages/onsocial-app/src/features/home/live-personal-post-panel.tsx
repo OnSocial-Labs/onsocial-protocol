@@ -54,10 +54,7 @@ import { useLandOpenedPost } from '@/hooks/use-land-opened-post';
 import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
 import { planThreadLoad } from '@/lib/thread-open';
-import {
-  resolveQuotedInset,
-  collectRelationTargetAccountIds,
-} from '@/lib/post-relation';
+import { collectRelationTargetAccountIds } from '@/lib/post-relation';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fetchIndexedPost, fetchPersonalPost } from '@/lib/fetch-personal-post';
 import {
@@ -80,7 +77,6 @@ import {
   threadShareRowHref,
 } from '@/lib/thread-share-row';
 import { SHEET_Z } from '@/lib/sheet-z';
-import { resolveThreadLayout } from '@/lib/thread-layout';
 import {
   sortThreadReplyRows,
   type ThreadReplySort,
@@ -96,7 +92,6 @@ import { playPostFocusVideo } from '@/hooks/use-post-list-video';
 import { readPostMediaUnmuteIndex } from '@/lib/post-media';
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
-type ThreadTab = 'replies' | 'quotes';
 
 const REPLY_PAGE_SIZE = THREAD_REPLY_PAGE_SIZE;
 const QUOTE_PAGE_SIZE = THREAD_QUOTE_PAGE_SIZE;
@@ -109,8 +104,8 @@ interface LivePersonalPostPanelProps {
   postId: string;
   initial?: PersonalPostPageData | null;
   /**
-   * Media-face thread drawer — no OsAppScreen jacket. Same replies / quotes
-   * / write dock as `/@account/posts/:id`.
+   * Media-face thread drawer — no OsAppScreen jacket. Same replies
+   * and write dock as `/@account/posts/:id`.
    */
   embedded?: boolean;
   /** Hide root photo / video — the enlarge film already shows it. */
@@ -145,7 +140,6 @@ export function LivePersonalPostPanel({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const threadLayout = resolveThreadLayout(searchParams);
   const mediaUnmuted = searchParams.get('media') === 'unmute';
   const mediaResumeIndex = readPostMediaUnmuteIndex(searchParams);
   const [loadState, setLoadState] = useState<LoadState>(() =>
@@ -174,17 +168,12 @@ export function LivePersonalPostPanel({
   const [dockTarget, setDockTarget] = useState<PostRow | null>(null);
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
-  const [activeThreadTab, setActiveThreadTab] = useState<ThreadTab>('replies');
-  const [threadTabTouched, setThreadTabTouched] = useState(false);
   const [replySort, setReplySort] = useState<ThreadReplySort>('relevant');
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
     () => new Set()
   );
   const [hasMoreReplies, setHasMoreReplies] = useState(
     () => initial?.hasMoreReplies ?? false
-  );
-  const [hasMoreQuotes, setHasMoreQuotes] = useState(
-    () => initial?.hasMoreQuotes ?? false
   );
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -215,11 +204,6 @@ export function LivePersonalPostPanel({
     }
     return rows;
   }, [replyTree, conversation.root, expandedBranches, localReplies, treePosts]);
-  const replyCount = useMemo(
-    () =>
-      treePosts.length + withoutIndexedPosts(localReplies, treePosts).length,
-    [treePosts, localReplies]
-  );
   const replyFocusKey = useMemo(
     () =>
       replyRows
@@ -227,16 +211,7 @@ export function LivePersonalPostPanel({
         .join('\n'),
     [replyRows]
   );
-  const threadFocus = useThreadFocusReply(
-    loadState === 'ready',
-    replyFocusKey,
-    {
-      onFocusReply: () => {
-        setActiveThreadTab('replies');
-        setThreadTabTouched(true);
-      },
-    }
-  );
+  const threadFocus = useThreadFocusReply(loadState === 'ready', replyFocusKey);
   const quotes = useMemo(
     () => [
       ...withoutIndexedPosts(localQuotes, conversation.quotes),
@@ -376,7 +351,6 @@ export function LivePersonalPostPanel({
           });
           setReplyTree(fetchedTree);
           setHasMoreReplies(fetchedTree.length >= REPLY_PAGE_SIZE);
-          setHasMoreQuotes(fetchedQuotes.length >= QUOTE_PAGE_SIZE);
         }
 
         if (!options.background) {
@@ -410,28 +384,6 @@ export function LivePersonalPostPanel({
   }, [refresh, rootPath, walletLoading]);
 
   useEffect(() => {
-    setActiveThreadTab('replies');
-    setThreadTabTouched(false);
-  }, [rootPath]);
-
-  useEffect(() => {
-    if (threadLayout !== 'tabs' || threadTabTouched) return;
-    if (
-      activeThreadTab === 'replies' &&
-      replyCount === 0 &&
-      quotes.length > 0
-    ) {
-      setActiveThreadTab('quotes');
-    }
-  }, [
-    activeThreadTab,
-    quotes.length,
-    replyCount,
-    threadLayout,
-    threadTabTouched,
-  ]);
-
-  useEffect(() => {
     const timers = reconcileTimersRef.current;
     return () => {
       for (const timer of timers) window.clearTimeout(timer);
@@ -459,58 +411,36 @@ export function LivePersonalPostPanel({
     }
   }, [refresh]);
 
-  const loadMore = useCallback(
-    async (tab: ThreadTab) => {
-      if (loadingMore) return;
-      setLoadingMore(true);
-      try {
-        const client = createReadOnlyOnSocialClient();
-        if (tab === 'replies') {
-          const page = await client.query.threads.repliesByPath(rootPath, {
-            limit: REPLY_PAGE_SIZE,
-            offset: conversation.replies.length,
-          });
-          paginatedRef.current = true;
-          setConversation((current) => ({
-            ...current,
-            replies: [...current.replies, ...page],
-          }));
-          setReplyTree((current) => [
-            ...current,
-            ...page.map((post) =>
-              leafThreadNode(
-                post,
-                personalPostContentPath(post.accountId, post.postId)
-              )
-            ),
-          ]);
-          setHasMoreReplies(page.length >= REPLY_PAGE_SIZE);
-        } else {
-          const page = await client.query.threads.quotesByPath(rootPath, {
-            limit: QUOTE_PAGE_SIZE,
-            offset: conversation.quotes.length,
-            order: 'desc',
-          });
-          paginatedRef.current = true;
-          setConversation((current) => ({
-            ...current,
-            quotes: [...current.quotes, ...page],
-          }));
-          setHasMoreQuotes(page.length >= QUOTE_PAGE_SIZE);
-        }
-      } catch {
-        // Keep the current list; the button stays available to retry.
-      } finally {
-        setLoadingMore(false);
-      }
-    },
-    [
-      conversation.quotes.length,
-      conversation.replies.length,
-      loadingMore,
-      rootPath,
-    ]
-  );
+  const loadMoreReplies = useCallback(async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const client = createReadOnlyOnSocialClient();
+      const page = await client.query.threads.repliesByPath(rootPath, {
+        limit: REPLY_PAGE_SIZE,
+        offset: conversation.replies.length,
+      });
+      paginatedRef.current = true;
+      setConversation((current) => ({
+        ...current,
+        replies: [...current.replies, ...page],
+      }));
+      setReplyTree((current) => [
+        ...current,
+        ...page.map((post) =>
+          leafThreadNode(
+            post,
+            personalPostContentPath(post.accountId, post.postId)
+          )
+        ),
+      ]);
+      setHasMoreReplies(page.length >= REPLY_PAGE_SIZE);
+    } catch {
+      // Keep the current list; the button stays available to retry.
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [conversation.replies.length, loadingMore, rootPath]);
 
   const canPostInThread = Boolean(isConnected && accountId);
 
@@ -523,8 +453,6 @@ export function LivePersonalPostPanel({
     } else {
       setLocalReplies((current) => [...current, optimisticPost]);
     }
-    setActiveThreadTab(mode === 'quote' ? 'quotes' : 'replies');
-    setThreadTabTouched(true);
     if (mode === 'reply') {
       threadFocus.requestFocus(optimisticPost);
     }
@@ -784,51 +712,6 @@ export function LivePersonalPostPanel({
     );
   });
 
-  const quoteListRows = quotes.map((quote, index) => {
-    const quoted = resolveQuotedInset(quote, quotedPosts, conversation.root);
-    return (
-      <div key={postKey(quote)}>
-        <Divider
-          variant="item"
-          className={
-            index > 0
-              ? 'post-row-divider'
-              : 'post-row-divider post-row-divider--leading-hidden'
-          }
-        />
-        <PostCard
-          post={quote}
-          authorProfile={postAuthorProfiles[quote.accountId]}
-          actionHref={postThreadPath(quote)}
-          menuZIndex={nestMenuZ}
-          showRelationBadge={false}
-          quotedPost={quoted}
-          quotedAuthorProfile={
-            quoted ? postAuthorProfiles[quoted.accountId] : undefined
-          }
-          quotedHref={quotedHrefFor(quoted)}
-          engagement={engagement[postKey(quote)] ?? EMPTY_POST_ENGAGEMENT}
-          reactionPending={isReactionPending(quote)}
-          savePending={isSavePending(quote)}
-          sharePending={isSharePending(quote)}
-          onToggleReaction={toggleReaction}
-          onToggleSave={toggleSave}
-          onAmplifyConfirmed={confirmAmplify}
-          onReply={replyHandler}
-          onExpandReply={expandReply}
-          onQuote={quoteHandler}
-          onRepost={repostHandler}
-          onUndoRepost={undoRepostHandler}
-          pollTally={pollTallyFor(quote)}
-          pollVotePending={isPollVotePending(quote)}
-          onPollVote={(post, optionIndex) => {
-            void castVote(post, optionIndex);
-          }}
-        />
-      </div>
-    );
-  });
-
   const thread = (
     <div
       className={hideRootMedia ? 'feed-media-thread-embed' : GUILDS_PAGE_CLASS}
@@ -959,52 +842,7 @@ export function LivePersonalPostPanel({
 
           <Divider variant="detail" />
 
-          {threadLayout === 'tabs' ? (
-            <div className="guild-thread-chrome">
-              <div
-                className="guild-thread-tabs"
-                role="tablist"
-                aria-label="Discussion content"
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  id="personal-thread-tab-replies"
-                  aria-controls="personal-thread-panel"
-                  aria-selected={activeThreadTab === 'replies'}
-                  className={
-                    activeThreadTab === 'replies' ? 'is-active' : undefined
-                  }
-                  onClick={() => {
-                    setThreadTabTouched(true);
-                    setActiveThreadTab('replies');
-                  }}
-                >
-                  Replies
-                  <span className="guild-thread-tab-count">{replyCount}</span>
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  id="personal-thread-tab-quotes"
-                  aria-controls="personal-thread-panel"
-                  aria-selected={activeThreadTab === 'quotes'}
-                  className={
-                    activeThreadTab === 'quotes' ? 'is-active' : undefined
-                  }
-                  onClick={() => {
-                    setThreadTabTouched(true);
-                    setActiveThreadTab('quotes');
-                  }}
-                >
-                  Quotes
-                  <span className="guild-thread-tab-count">
-                    {quotes.length}
-                  </span>
-                </button>
-              </div>
-            </div>
-          ) : replyListRows.length > 0 || shareRow ? (
+          {replyListRows.length > 0 || shareRow ? (
             <div className="thread-controls-row">
               {replyListRows.length > 0 ? (
                 <ThreadRepliesSortButton
@@ -1027,74 +865,34 @@ export function LivePersonalPostPanel({
             </div>
           ) : null}
 
-          {threadLayout === 'tabs' ? (
-            <div
-              id="personal-thread-panel"
-              className="guild-connected-stack"
-              role="tabpanel"
-              aria-labelledby={
-                activeThreadTab === 'replies'
-                  ? 'personal-thread-tab-replies'
-                  : 'personal-thread-tab-quotes'
-              }
-            >
-              {activeThreadTab === 'replies' ? (
-                replyListRows.length > 0 ? (
-                  replyListRows
-                ) : (
-                  <div className="guild-state-card">No replies yet.</div>
-                )
-              ) : quoteListRows.length > 0 ? (
-                quoteListRows
-              ) : (
-                <div className="guild-state-card">No quotes yet.</div>
-              )}
+          <div className="guild-connected-stack">
+            {replyListRows.length > 0 ? (
+              replyListRows
+            ) : !shareRow ? (
+              <ThreadDiscoverPeek
+                author={author}
+                excludePostId={postId}
+                authorProfiles={postAuthorProfiles}
+                menuZIndex={nestMenuZ}
+                onReply={replyHandler}
+                onExpandReply={expandReply}
+                onQuote={quoteHandler}
+                onRepost={repostHandler}
+                onUndoRepost={undoRepostHandler}
+                onAmplifyConfirmed={confirmAmplify}
+              />
+            ) : null}
 
-              {(activeThreadTab === 'replies' && hasMoreReplies) ||
-              (activeThreadTab === 'quotes' && hasMoreQuotes) ? (
-                <OsLoadMore
-                  onClick={() => void loadMore(activeThreadTab)}
-                  pending={loadingMore}
-                  disabled={loadingMore}
-                >
-                  {loadingMore
-                    ? 'Loading…'
-                    : activeThreadTab === 'replies'
-                      ? 'Show more replies'
-                      : 'Show more quotes'}
-                </OsLoadMore>
-              ) : null}
-            </div>
-          ) : (
-            <div className="guild-connected-stack">
-              {replyListRows.length > 0 ? (
-                replyListRows
-              ) : !shareRow ? (
-                <ThreadDiscoverPeek
-                  author={author}
-                  excludePostId={postId}
-                  authorProfiles={postAuthorProfiles}
-                  menuZIndex={nestMenuZ}
-                  onReply={replyHandler}
-                  onExpandReply={expandReply}
-                  onQuote={quoteHandler}
-                  onRepost={repostHandler}
-                  onUndoRepost={undoRepostHandler}
-                  onAmplifyConfirmed={confirmAmplify}
-                />
-              ) : null}
-
-              {hasMoreReplies ? (
-                <OsLoadMore
-                  onClick={() => void loadMore('replies')}
-                  pending={loadingMore}
-                  disabled={loadingMore}
-                >
-                  {loadingMore ? 'Loading…' : 'Show more replies'}
-                </OsLoadMore>
-              ) : null}
-            </div>
-          )}
+            {hasMoreReplies ? (
+              <OsLoadMore
+                onClick={() => void loadMoreReplies()}
+                pending={loadingMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? 'Loading…' : 'Show more replies'}
+              </OsLoadMore>
+            ) : null}
+          </div>
         </section>
       ) : null}
     </div>

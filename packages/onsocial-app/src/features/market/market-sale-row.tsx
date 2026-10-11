@@ -47,21 +47,10 @@ export function marketSalePriceLabel(input: {
   return `${sticker ? `${sticker} · ` : ''}${amount} NEAR`;
 }
 
-interface MarketSaleRowProps {
-  sale: MarketSaleItem;
-  /**
-   * Store peek — the page owner is the seller, so lead with Sold + buyer
-   * instead of repeating the profile.
-   */
-  soldTo?: boolean;
-}
-
 /** Recent-sales list row — shared so Market panel stays lean. */
-export function MarketSaleRow({ sale, soldTo = false }: MarketSaleRowProps) {
+export function MarketSaleRow({ sale }: { sale: MarketSaleItem }) {
   const openMarketPost = useMarketPostLayer();
   const seller = sale.sellerId?.trim() || sale.creatorId?.trim() || '';
-  const buyer = sale.buyerId?.trim() || '';
-  const counterpart = soldTo ? buyer : seller;
   const saleTime = formatMarketRelativeTime(sale.blockTimestamp);
   const detail = marketSaleDetailHref(sale);
   const postHandlers = detail
@@ -113,28 +102,24 @@ export function MarketSaleRow({ sale, soldTo = false }: MarketSaleRowProps) {
           <p className="market-sale-title">{title}</p>
         </div>
         <p className="market-sale-meta">
-          {soldTo ? <span className="market-listing-own">Sold</span> : null}
-          {soldTo && price ? (
-            <span className="market-listing-own"> · </span>
-          ) : null}
           {price ? <span className="market-listing-price">{price}</span> : null}
-          {counterpart ? (
+          {seller ? (
             <>
               <span className="market-listing-own"> · </span>
               <Link
-                href={portfolioPath(counterpart)}
+                href={portfolioPath(seller)}
                 scroll={false}
                 className="market-listing-handle"
               >
-                @{fallbackLabel(counterpart)}
+                @{fallbackLabel(seller)}
               </Link>
             </>
-          ) : !soldTo ? (
+          ) : (
             <>
               {price ? <span className="market-listing-own"> · </span> : null}
               <span className="market-listing-own">Sale</span>
             </>
-          ) : null}
+          )}
           {saleTime ? ` · ${saleTime}` : ''}
         </p>
       </div>

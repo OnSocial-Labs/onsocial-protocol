@@ -40,6 +40,7 @@ import { resolveQuotedInset } from '@/lib/post-relation';
 import { displayName } from '@/lib/profile-display';
 import { POST_REACH_TITLE } from '@/lib/post-reach-title';
 import { postThreadPath, type PostQuotesTab } from '@/lib/post-routes';
+import { planThreadLoad } from '@/lib/thread-open';
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
 type QuotesTab = PostQuotesTab;
@@ -138,15 +139,23 @@ export function PostQuotesPanel({
     [author, postId]
   );
 
-  const ssrSeedRef = useRef(Boolean(initial));
+  const paintedKeyRef = useRef<string | null>(
+    initial ? `${author}/${postId}` : null
+  );
 
   useEffect(() => {
-    if (ssrSeedRef.current) {
-      ssrSeedRef.current = false;
-      void refresh({ background: true });
-      return;
-    }
-    void refresh();
+    let cancelled = false;
+    const key = `${author}/${postId}`;
+    // One load per setup. A second effect pass must not blank a painted card.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const plan = planThreadLoad(paintedKeyRef.current, key);
+      paintedKeyRef.current = plan.paintedKey;
+      void refresh({ background: plan.background });
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [author, postId, refresh]);
 
   const profileIds = useMemo(() => {

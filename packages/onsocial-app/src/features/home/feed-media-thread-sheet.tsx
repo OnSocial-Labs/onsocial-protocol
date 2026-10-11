@@ -24,7 +24,6 @@ function seedEmbeddedThread(root: PostRow): PersonalPostPageData {
     quotes: [],
     replyTree: [],
     hasMoreReplies: false,
-    hasMoreQuotes: false,
     engagement: {},
     scarceEmbeds: {},
   };

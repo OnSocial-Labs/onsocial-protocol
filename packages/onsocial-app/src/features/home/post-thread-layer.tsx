@@ -254,7 +254,6 @@ function seedGuildThread(root: PostRow): GuildPostPageData {
     quotes: [],
     replyTree: [],
     hasMoreReplies: false,
-    hasMoreQuotes: false,
     guildName: null,
     memberDriven: false,
     accessGated: false,
@@ -270,7 +269,6 @@ function seedEmbeddedThread(root: PostRow): PersonalPostPageData {
     quotes: [],
     replyTree: [],
     hasMoreReplies: false,
-    hasMoreQuotes: false,
     engagement: {},
     scarceEmbeds: {},
   };
