@@ -28,7 +28,7 @@ export interface OfflineAlbumStamp {
   creatorId?: string | null;
   seriesId?: string | null;
   seriesTitle?: string | null;
-  audioFormat?: 'single' | 'album' | 'podcast' | null;
+  audioFormat?: 'single' | 'album' | 'podcast' | 'audiobook' | null;
   facets?: string[];
 }
 
@@ -220,7 +220,7 @@ export async function rememberCachedTrack(opts: {
   creatorId?: string | null;
   seriesId?: string | null;
   seriesTitle?: string | null;
-  audioFormat?: 'single' | 'album' | 'podcast' | null;
+  audioFormat?: 'single' | 'album' | 'podcast' | 'audiobook' | null;
   facets?: string[];
 }): Promise<void> {
   const meta = playableToOfflineMeta(opts.track);

@@ -136,7 +136,7 @@ export interface MarketListingItem {
    */
   mediumKind?: string | null;
   /** Audio release format from `extra.audioFormat` (or inferred). */
-  audioFormat?: 'single' | 'album' | 'podcast' | null;
+  audioFormat?: 'single' | 'album' | 'podcast' | 'audiobook' | null;
   /** Discovery facets (genres / subjects) from `extra.facets`. */
   facets?: string[];
   /**
@@ -176,7 +176,7 @@ export interface OwnedScarceItem {
   /** Medium taxonomy from metadata `extra.kind` when set. */
   mediumKind?: string | null;
   /** Audio release format from `extra.audioFormat` (or inferred). */
-  audioFormat?: 'single' | 'album' | 'podcast' | null;
+  audioFormat?: 'single' | 'album' | 'podcast' | 'audiobook' | null;
   /** Discovery facets (genres / subjects) from `extra.facets`. */
   facets?: string[];
   /** Listing state for an owned native scarce. */
@@ -558,7 +558,7 @@ function discoveryFieldsFromExtra(
   extra: Record<string, unknown> | null,
   playableCount = 0
 ): {
-  audioFormat?: 'single' | 'album' | 'podcast' | null;
+  audioFormat?: 'single' | 'album' | 'podcast' | 'audiobook' | null;
   facets?: string[];
 } {
   const mediumKind = mediumKindFromExtra(extra);
@@ -2303,7 +2303,7 @@ export async function fetchMarketListings(
     /** Discovery facet ids — all must match. */
     facets?: string[];
     /** Audio release format (`extra.audioFormat`). */
-    audioFormat?: 'single' | 'album' | 'podcast' | string;
+    audioFormat?: 'single' | 'album' | 'podcast' | 'audiobook' | string;
     /**
      * Omit lazy thought post-mints (default All browse). Off when
      * `mediumKind=thought`. Defaults on when no medium filter is set.

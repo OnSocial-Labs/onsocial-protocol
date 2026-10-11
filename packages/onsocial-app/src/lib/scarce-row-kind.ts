@@ -7,7 +7,7 @@ import type { WritingReleaseFormat } from '@/features/scarces/drop-writing';
 /** Inputs shared by Market listings and profile drop rows. */
 export interface ScarceRowKindInput {
   mediumKind?: string | null;
-  audioFormat?: 'single' | 'album' | 'podcast' | null;
+  audioFormat?: 'single' | 'album' | 'podcast' | 'audiobook' | null;
   writingFormat?: WritingReleaseFormat | null;
 }
 

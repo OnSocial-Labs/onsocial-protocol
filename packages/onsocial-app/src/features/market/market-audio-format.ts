@@ -1,1 +1,6 @@
-export type MarketAudioFormatFilter = 'single' | 'album' | 'podcast' | null;
+export type MarketAudioFormatFilter =
+  | 'single'
+  | 'album'
+  | 'podcast'
+  | 'audiobook'
+  | null;
