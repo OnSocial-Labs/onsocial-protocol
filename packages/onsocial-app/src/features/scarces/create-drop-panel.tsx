@@ -66,7 +66,11 @@ import {
 import {
   DROP_AUDIO_MAX_BYTES,
   DROP_AUDIO_MAX_TRACKS,
+  audioPartNoun,
+  audioReleaseFormatLabel,
   isDropAudioMime,
+  isMultiTrackAudioFormat,
+  musicTracksInvalidMessage,
   musicTracksValid,
   playableFromPinnedFiles,
   sha256BlobBase64,
@@ -1182,14 +1186,14 @@ export function CreateDropPanel() {
       }
       setError(null);
       setTrackFiles((prev) => {
-        if (musicFormat === 'single') {
+        if (!isMultiTrackAudioFormat(musicFormat)) {
           return picked.slice(0, 1);
         }
         const next = [...prev, ...picked].slice(0, DROP_AUDIO_MAX_TRACKS);
         return next;
       });
       setTrackLyrics((prev) => {
-        if (musicFormat === 'single') {
+        if (!isMultiTrackAudioFormat(musicFormat)) {
           return [''];
         }
         const added = picked.map(() => '');
@@ -1625,16 +1629,14 @@ export function CreateDropPanel() {
   const startSummaryRows = useMemo((): DropStartSummaryRow[] => {
     const kindParts = [template.label];
     if (isAudio) {
-      kindParts.push(musicFormat === 'album' ? 'Album' : 'Single');
-      if (trackFiles.length > 0) {
+      kindParts.push(audioReleaseFormatLabel(musicFormat));
+      const audioCount =
+        trackFiles.length > 0
+          ? trackFiles.length
+          : (pinnedMusic?.playable.length ?? 0);
+      if (audioCount > 0) {
         kindParts.push(
-          `${trackFiles.length} ${trackFiles.length === 1 ? 'track' : 'tracks'}`
-        );
-      } else if (pinnedMusic) {
-        kindParts.push(
-          `${pinnedMusic.playable.length} ${
-            pinnedMusic.playable.length === 1 ? 'track' : 'tracks'
-          }`
+          `${audioCount} ${audioPartNoun(musicFormat, audioCount)}`
         );
       }
     } else if (isWriting) {
@@ -1866,11 +1868,7 @@ export function CreateDropPanel() {
       !pinnedMusic &&
       !musicTracksValid(musicFormat, trackFiles.length)
     ) {
-      setError(
-        musicFormat === 'single'
-          ? 'Add one track for this single.'
-          : `Add 2–${DROP_AUDIO_MAX_TRACKS} tracks for an album.`
-      );
+      setError(musicTracksInvalidMessage(musicFormat));
       return;
     }
     if (
@@ -2825,6 +2823,30 @@ export function CreateDropPanel() {
                   >
                     Album
                   </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={musicFormat === 'podcast'}
+                    className={`app-access-option${
+                      musicFormat === 'podcast' ? ' is-selected' : ''
+                    }`}
+                    disabled={pending}
+                    onClick={() => setMusicReleaseFormat('podcast')}
+                  >
+                    Podcast
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={musicFormat === 'audiobook'}
+                    className={`app-access-option${
+                      musicFormat === 'audiobook' ? ' is-selected' : ''
+                    }`}
+                    disabled={pending}
+                    onClick={() => setMusicReleaseFormat('audiobook')}
+                  >
+                    Audiobook
+                  </button>
                 </div>
               </div>
             ) : isWriting ? (
@@ -3239,7 +3261,7 @@ export function CreateDropPanel() {
                     files={trackFiles}
                     lyrics={trackLyrics}
                     disabled={pending}
-                    sortable={musicFormat === 'album'}
+                    sortable={isMultiTrackAudioFormat(musicFormat)}
                     onRemove={removeTrackAt}
                     onReorder={reorderTracks}
                     onLyricsChange={setTrackLyricsAt}
@@ -3247,7 +3269,7 @@ export function CreateDropPanel() {
                 ) : pinnedMusic ? (
                   <p className="drop-pin-resume-detail">
                     {pinnedMusic.playable.length}{' '}
-                    {pinnedMusic.playable.length === 1 ? 'track' : 'tracks'}{' '}
+                    {audioPartNoun(musicFormat, pinnedMusic.playable.length)}{' '}
                     pinned · ready to sign
                   </p>
                 ) : (
@@ -3259,14 +3281,19 @@ export function CreateDropPanel() {
                       onClick={() => tracksInputRef.current?.click()}
                     >
                       {dropCreateAttachAction(
-                        musicFormat === 'single' ? 'track' : 'tracks'
+                        musicFormat === 'single'
+                          ? 'track'
+                          : musicFormat === 'podcast'
+                            ? 'episodes'
+                            : musicFormat === 'audiobook'
+                              ? 'chapters'
+                              : 'tracks'
                       )}
                     </button>
                     <p className="drop-create-attach-hint">
-                      {dropCreateAttachHint(
-                        musicFormat === 'single' ? 'single' : 'album',
-                        { maxTracks: DROP_AUDIO_MAX_TRACKS }
-                      )}
+                      {dropCreateAttachHint(musicFormat, {
+                        maxTracks: DROP_AUDIO_MAX_TRACKS,
+                      })}
                     </p>
                   </>
                 )}
@@ -3274,22 +3301,29 @@ export function CreateDropPanel() {
                   <div
                     className="app-storage-presets"
                     role="group"
-                    aria-label="Track actions"
+                    aria-label={`${audioPartNoun(musicFormat, 2)} actions`}
                   >
                     <button
                       type="button"
                       className="os-surface-chip"
                       disabled={
                         pending ||
-                        (musicFormat === 'single' && trackFiles.length >= 1) ||
-                        (musicFormat === 'album' &&
+                        (!isMultiTrackAudioFormat(musicFormat) &&
+                          trackFiles.length >= 1) ||
+                        (isMultiTrackAudioFormat(musicFormat) &&
                           trackFiles.length >= DROP_AUDIO_MAX_TRACKS)
                       }
                       onClick={() => tracksInputRef.current?.click()}
                     >
                       {trackFiles.length === 0
                         ? dropCreateAttachAction(
-                            musicFormat === 'single' ? 'track' : 'tracks'
+                            musicFormat === 'single'
+                              ? 'track'
+                              : musicFormat === 'podcast'
+                                ? 'episodes'
+                                : musicFormat === 'audiobook'
+                                  ? 'chapters'
+                                  : 'tracks'
                           )
                         : musicFormat === 'single'
                           ? 'Replace track'
@@ -3315,7 +3349,7 @@ export function CreateDropPanel() {
                   ref={tracksInputRef}
                   type="file"
                   accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.webm"
-                  multiple={musicFormat === 'album'}
+                  multiple={isMultiTrackAudioFormat(musicFormat)}
                   className="scarce-cover-file-input"
                   tabIndex={-1}
                   aria-hidden

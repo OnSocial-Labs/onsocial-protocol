@@ -88,6 +88,10 @@ export function dropCreateSetDealLabel(count: number): {
 export type DropCreateAttachAction =
   | 'track'
   | 'tracks'
+  | 'episode'
+  | 'episodes'
+  | 'chapter'
+  | 'chapters'
   | 'file'
   | 'files'
   | 'pdf';
@@ -98,6 +102,14 @@ export function dropCreateAttachAction(kind: DropCreateAttachAction): string {
       return 'Add track';
     case 'tracks':
       return 'Add tracks';
+    case 'episode':
+      return 'Add episode';
+    case 'episodes':
+      return 'Add episodes';
+    case 'chapter':
+      return 'Add chapter';
+    case 'chapters':
+      return 'Add chapters';
     case 'file':
       return 'Add file';
     case 'files':
@@ -108,7 +120,13 @@ export function dropCreateAttachAction(kind: DropCreateAttachAction): string {
 }
 
 /** Empty attach line — the file you are about to add. Preview and reorder live on the list. */
-export type DropCreateAttachHintKind = 'single' | 'album' | 'issue' | 'book';
+export type DropCreateAttachHintKind =
+  | 'single'
+  | 'album'
+  | 'podcast'
+  | 'audiobook'
+  | 'issue'
+  | 'book';
 
 export function dropCreateAttachHint(
   kind: DropCreateAttachHintKind,
@@ -119,6 +137,10 @@ export function dropCreateAttachHint(
       return 'MP3, M4A, WAV, or similar · ≤20 MB';
     case 'album':
       return `2–${limits.maxTracks ?? 30} tracks · MP3, M4A, WAV, or similar · ≤20 MB each`;
+    case 'podcast':
+      return `Split long shows into episodes · 1–${limits.maxTracks ?? 30} · ≤20 MB each (~20–25 min)`;
+    case 'audiobook':
+      return `Split by chapter · 1–${limits.maxTracks ?? 30} · ≤20 MB each (~20–25 min)`;
     case 'issue':
       return '.md for the reader · PDF ok · ≤500 KB text / 20 MB PDF';
     case 'book':

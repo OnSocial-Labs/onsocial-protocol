@@ -37,6 +37,7 @@ const AUDIO_FORMAT_OPTIONS: ReadonlyArray<{
   { id: 'single', label: 'Single' },
   { id: 'album', label: 'Album' },
   { id: 'podcast', label: 'Podcast' },
+  { id: 'audiobook', label: 'Audiobook' },
 ];
 
 function mediumLabel(medium: MarketMediumFilter): string {

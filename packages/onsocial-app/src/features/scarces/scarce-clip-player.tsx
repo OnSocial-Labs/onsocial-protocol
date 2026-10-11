@@ -66,7 +66,7 @@ interface ScarceClipPlayerProps {
     creatorId?: string | null;
     seriesId?: string | null;
     seriesTitle?: string | null;
-    audioFormat?: 'single' | 'album' | 'podcast' | null;
+    audioFormat?: 'single' | 'album' | 'podcast' | 'audiobook' | null;
     facets?: string[];
   } | null;
   /** Creator of the drop — enables song loves + album fan count. */

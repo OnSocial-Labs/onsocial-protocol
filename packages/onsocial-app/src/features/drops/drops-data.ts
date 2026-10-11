@@ -92,7 +92,7 @@ function rowMatchesMedium(
   return rowMediumKind(row) === mediumKind;
 }
 
-export type DropAudioFormatFilter = 'single' | 'album' | 'podcast';
+export type DropAudioFormatFilter = 'single' | 'album' | 'podcast' | 'audiobook';
 
 function itemMatchesAudioFormat(
   item: DropDiscoveryItem,

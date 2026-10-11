@@ -755,7 +755,7 @@ export class ScarcesQuery {
       /** Discovery facet ids that must all appear in `facets` (Hasura `_contains`). */
       facets?: string[];
       /** Audio release format column (`single` | `album` | …). */
-      audioFormat?: 'single' | 'album' | 'podcast' | string;
+      audioFormat?: 'single' | 'album' | 'podcast' | 'audiobook' | string;
       /**
        * When true, omit primary post-mints (`kind=lazy` + `mediumKind=thought`).
        * Use for default Market All browse; leave off when filtering `mediumKind=thought`.
