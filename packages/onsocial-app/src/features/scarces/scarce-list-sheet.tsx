@@ -14,7 +14,7 @@ import {
   type ScarceListSuccessDetail,
 } from '@/features/scarces/scarce-list-form';
 import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { displayName } from '@/lib/profile-display';
 
 interface ScarceListSheetProps {
   open: boolean;
@@ -26,7 +26,11 @@ interface ScarceListSheetProps {
   zIndex?: number;
 }
 
-/** Author sheet: lazy-list a post as a scarce (mint-on-purchase). */
+/**
+ * Author sheet: lazy-list a post as a scarce (mint-on-purchase).
+ * Header is the verb only, same slot as Buy and Sell. The author face
+ * sits in the body under the preview.
+ */
 export function ScarceListSheet({
   open,
   post,
@@ -46,7 +50,6 @@ export function ScarceListSheet({
   const { panelStyle, keyboardOpen, moodId } =
     useCommerceSheetKeyboard(sheetOpen);
   const name = post ? displayName(post.accountId, authorName ?? undefined) : '';
-  const handle = post ? fallbackLabel(post.accountId) : '';
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -77,8 +80,7 @@ export function ScarceListSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       verb="List"
-      personName={name}
-      handle={handle}
+      titleLabel={name ? `List ${name}` : 'List'}
       signal="reputation"
       closeAriaLabel="Close list scarce"
       backdropLabel="Close list scarce"
