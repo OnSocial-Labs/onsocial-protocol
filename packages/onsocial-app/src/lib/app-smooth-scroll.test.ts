@@ -9,6 +9,7 @@ import {
   isAppSmoothScrollLocked,
   isAppSmoothScrollPagerHost,
   prefersReducedMotion,
+  shouldBindAppSmoothScrollRoot,
   shouldUseAppSmoothScroll,
 } from './app-smooth-scroll';
 
@@ -31,6 +32,14 @@ describe('app smooth scroll', () => {
     expect(APP_SMOOTH_SCROLL_ROOT_SELECTOR).toContain(
       '.os-app-chrome-scroller'
     );
+  });
+
+  it('keeps Lenis off shells that do not scroll', () => {
+    expect(shouldBindAppSmoothScrollRoot(false, 'auto')).toBe(true);
+    expect(shouldBindAppSmoothScrollRoot(false, 'scroll')).toBe(true);
+    expect(shouldBindAppSmoothScrollRoot(false, 'hidden')).toBe(false);
+    expect(shouldBindAppSmoothScrollRoot(true, 'auto')).toBe(false);
+    expect(provider).toContain('shouldBindAppSmoothScrollRoot');
   });
 
   it('keeps Lenis off the leaderboard pager host', () => {

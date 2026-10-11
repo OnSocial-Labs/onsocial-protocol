@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 /**
  * One commerce face for Buy, Bid, and Sell.
- * Title, the About line, the people, then the price.
+ * Title, the person, one line of what it is, then the price.
  */
 export function ScarceCommerceSummary({
   title,
@@ -19,11 +19,11 @@ export function ScarceCommerceSummary({
 }) {
   return (
     <div className="scarce-buy-summary">
-      <div className="scarce-buy-story">
+      <div className="scarce-buy-identity">
         <p className="scarce-buy-title">{title}</p>
-        {story}
+        {parties ? <div className="scarce-buy-parties">{parties}</div> : null}
       </div>
-      {parties ? <div className="scarce-buy-parties">{parties}</div> : null}
+      {story ? <div className="scarce-buy-story">{story}</div> : null}
       {price ? <div className="scarce-buy-price-block">{price}</div> : null}
     </div>
   );

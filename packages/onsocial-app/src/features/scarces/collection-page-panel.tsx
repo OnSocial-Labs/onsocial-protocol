@@ -26,6 +26,7 @@ import {
   ShopFillIcon,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { useImmersiveTitleHandoff } from '@/hooks/use-immersive-title-handoff';
 import {
   isUnmodifiedPrimaryClick,
   usePostThreadLayer,
@@ -290,7 +291,6 @@ export function CollectionPagePanel({
   } | null>(() =>
     initial != null ? { key: ssrActivityKey, rows: initialActivity } : null
   );
-  const [headerElevated, setHeaderElevated] = useState(false);
   const initialCreatorId = initial?.creatorId?.trim() || '';
   const [creatorAvatarUrl, setCreatorAvatarUrl] = useState<string | null>(
     () => initialCreator?.avatarUrl ?? null
@@ -585,61 +585,18 @@ export function CollectionPagePanel({
     return () => window.clearInterval(id);
   }, [hasClock]);
 
-  // Title handoff: elevate immersive nav once the drop name scrolls under it
-  // — same recipe as guild / hub (no room-filter rail).
   const handoffKey = collectionCoverImmersive({
     hasMedia: hasImmersiveCover,
     kind: view?.kind,
   })
     ? (view?.collectionId ?? null)
     : null;
-  useEffect(() => {
-    const scrollRoot = scrollRootRef.current;
-    if (!scrollRoot || !handoffKey) return;
-
-    const heroTitle = heroTitleRef.current;
-    const header = scrollRoot.parentElement?.querySelector(
-      '.os-app-screen-header'
-    );
-    const screen = scrollRoot.closest<HTMLElement>('.os-app-screen') ?? null;
-
-    const syncElevated = () => {
-      const scrolled = scrollRoot.scrollTop > 8;
-      if (!heroTitle) {
-        setHeaderElevated(scrollRoot.scrollTop > 18);
-        return;
-      }
-      const headerBottom =
-        header?.getBoundingClientRect().bottom ??
-        scrollRoot.getBoundingClientRect().top + 72;
-      const heroRect = heroTitle.getBoundingClientRect();
-      const titleTop = heroRect.top;
-
-      if (heroRect.height > 0) {
-        const fadeZone = 28;
-        const distance = titleTop - headerBottom;
-        const t = Math.max(0, Math.min(1, 1 - distance / fadeZone));
-        screen?.style.setProperty('--title-handoff', String(t));
-      }
-
-      setHeaderElevated((current) => {
-        if (current) {
-          return scrolled && titleTop < headerBottom + 2;
-        }
-        return scrolled && titleTop < headerBottom - 4;
-      });
-    };
-
-    syncElevated();
-    scrollRoot.addEventListener('scroll', syncElevated, { passive: true });
-    window.addEventListener('resize', syncElevated, { passive: true });
-    return () => {
-      scrollRoot.removeEventListener('scroll', syncElevated);
-      window.removeEventListener('resize', syncElevated);
-      screen?.style.removeProperty('--title-handoff');
-      setHeaderElevated(false);
-    };
-  }, [handoffKey]);
+  useImmersiveTitleHandoff(
+    scrollRootRef,
+    heroTitleRef,
+    Boolean(handoffKey),
+    handoffKey
+  );
 
   const allowlistPending =
     needsAllowlist && isConnected && allowlistRemaining == null;
@@ -893,22 +850,13 @@ export function CollectionPagePanel({
     isConnected &&
     allowlistRemaining != null &&
     allowlistRemaining < 1;
-  const mintDisabledReason = !mintable
-    ? status === 'sold_out'
-      ? 'This drop is sold out.'
-      : status === 'upcoming' && allowlistBlocked
-        ? 'Early access is allowlist only.'
-        : status === 'upcoming'
-          ? 'Minting hasn’t opened yet.'
-          : status === 'paused'
-            ? 'The creator paused this drop.'
-            : status === 'cancelled'
-              ? 'This drop was cancelled.'
-              : 'This drop has closed.'
-    : walletRemaining === 0
+  const personalMintHint =
+    walletRemaining === 0
       ? 'You’ve reached your limit for this drop.'
       : allowlistBlocked
-        ? 'You’re not on the allowlist.'
+        ? status === 'upcoming'
+          ? 'Early access is allowlist only.'
+          : 'You’re not on the allowlist.'
         : null;
   const playables = view.playables;
   const hasPlayables = playables.length > 0;
@@ -1010,13 +958,6 @@ export function CollectionPagePanel({
     (view.accessEndsAtMs != null && view.accessEndsAtMs > 0) ||
     Boolean(view.seriesId) ||
     view.createdAtMs > 0;
-  const aboutTeaserText =
-    description ||
-    aboutEvent.place ||
-    (view.accessEndsAtMs != null && view.accessEndsAtMs > 0 && aboutEvent.empty
-      ? 'Access details'
-      : '') ||
-    (aboutHasMore ? 'About' : '');
   const chipParts: string[] = [];
   if (view.isVariations) {
     chipParts.push(
@@ -1060,7 +1001,6 @@ export function CollectionPagePanel({
       backFallbackHref={dropBackHref}
       leading={embedded ? collectionOverlayBack(onClose) : undefined}
       immersiveHeader={immersive}
-      headerElevated={immersive ? headerElevated : false}
       scrollRootRef={scrollRootRef}
       actions={
         <>
@@ -1233,6 +1173,118 @@ export function CollectionPagePanel({
                 </div>
               </div>
             </div>
+            {description ? (
+              <CollectionAboutTeaser
+                text={description}
+                hasMore={aboutHasMore}
+                onReadMore={() => setAboutOpen(true)}
+              />
+            ) : null}
+            <div className="collection-commerce-actions">
+              {showOwnerManage ? (
+                <CollectionOwnerManageMenu
+                  collectionId={view.collectionId}
+                  title={view.title}
+                  status={status}
+                  minted={view.minted}
+                  priceNear={view.priceNear}
+                  kind={view.kind}
+                  renewable={view.renewable}
+                  eventEndsAtMs={view.eventEndsAtMs}
+                  onManaged={handleOwnerManaged}
+                />
+              ) : null}
+              {showDropLove && dropLoves.fanCount > 0 ? (
+                <div className="collection-drop-fans">
+                  <GuildFacepile
+                    memberIds={dropFanIds}
+                    profiles={dropFanProfiles}
+                    memberCount={dropLoves.fanCount}
+                    countUnit={{ one: 'fan', other: 'fans' }}
+                    slots={Math.min(5, Math.max(1, dropLoves.fanCount))}
+                    loading={dropLoves.fansLoading && dropFanIds.length === 0}
+                    className="collection-drop-fans-facepile"
+                    onClick={() => setDropFansOpen(true)}
+                  />
+                </div>
+              ) : null}
+              <div className="collection-commerce-action-icons">
+                {showDropLove ? (
+                  <button
+                    type="button"
+                    className={`collection-commerce-love os-confirm-icon${
+                      dropLoves.viewerLoved ? ' is-loved' : ''
+                    }${dropLoves.pending ? ' is-pending' : ''}`}
+                    aria-label={
+                      dropLoves.pending
+                        ? 'Confirming love'
+                        : dropLoves.viewerLoved
+                          ? 'Remove love from this drop'
+                          : 'Love this drop'
+                    }
+                    aria-pressed={dropLoves.viewerLoved}
+                    aria-busy={dropLoves.pending}
+                    disabled={dropLoves.pending}
+                    onClick={() => {
+                      void dropLoves.toggleLove();
+                    }}
+                  >
+                    {dropLoves.viewerLoved ? (
+                      <HeartFillIcon
+                        aria-hidden
+                        className="collection-commerce-love-icon"
+                      />
+                    ) : (
+                      <HeartIcon
+                        aria-hidden
+                        className="collection-commerce-love-icon"
+                      />
+                    )}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className={`collection-commerce-save os-confirm-icon${
+                    collectionSaved ? ' is-saved' : ''
+                  }${collectionSavePending ? ' is-pending' : ''}`}
+                  aria-label={
+                    collectionSaved
+                      ? 'Remove drop bookmark'
+                      : 'Bookmark this drop'
+                  }
+                  aria-pressed={collectionSaved}
+                  disabled={collectionSavePending}
+                  onClick={() => {
+                    void collectionSaves.toggleSave(collectionId);
+                  }}
+                >
+                  {collectionSaved ? (
+                    <BookmarkFillIcon
+                      aria-hidden
+                      className="collection-commerce-save-icon"
+                    />
+                  ) : (
+                    <BookmarkIcon
+                      aria-hidden
+                      className="collection-commerce-save-icon"
+                    />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="collection-commerce-share"
+                  aria-label={shareCopied ? 'Link copied' : 'Share drop link'}
+                  onClick={() => {
+                    void handleShare();
+                  }}
+                >
+                  <ShareIcon
+                    aria-hidden
+                    className="collection-commerce-share-icon"
+                  />
+                </button>
+              </div>
+            </div>
             {useFirst ? (
               <div className="collection-use-actions">
                 {canShowPass && vaultHref ? (
@@ -1360,17 +1412,21 @@ export function CollectionPagePanel({
                 ) : null}
               </div>
             ) : null}
-            <div className="collection-product-row">
-              {showCommerceMeter ? (
+            {showCommerceMeter ? (
+              <div className="collection-product-row">
                 <div className="collection-product-line">
-                  <span
-                    className={`collection-product-status ${statusTone(status)}`}
-                  >
-                    {schedule ?? collectionStatusLabel(status)}
-                  </span>
-                  <span className="collection-meta-sep" aria-hidden>
-                    ·
-                  </span>
+                  {schedule ? (
+                    <>
+                      <span
+                        className={`collection-product-status ${statusTone(status)}`}
+                      >
+                        {schedule}
+                      </span>
+                      <span className="collection-meta-sep" aria-hidden>
+                        ·
+                      </span>
+                    </>
+                  ) : null}
                   <span className="collection-commerce-supply">
                     {view.minted}/{view.totalSupply}
                   </span>
@@ -1418,103 +1474,8 @@ export function CollectionPagePanel({
                     </>
                   ) : null}
                 </div>
-              ) : null}
-              <div className="collection-commerce-share-row collection-commerce-share-row--viewer">
-                {showOwnerManage ? (
-                  <CollectionOwnerManageMenu
-                    collectionId={view.collectionId}
-                    title={view.title}
-                    status={status}
-                    minted={view.minted}
-                    priceNear={view.priceNear}
-                    kind={view.kind}
-                    renewable={view.renewable}
-                    eventEndsAtMs={view.eventEndsAtMs}
-                    onManaged={handleOwnerManaged}
-                  />
-                ) : null}
-                {showDropLove ? (
-                  <button
-                    type="button"
-                    className={`collection-commerce-love${
-                      dropLoves.viewerLoved ? ' is-loved' : ''
-                    }${dropLoves.pending ? ' is-pending' : ''}`}
-                    aria-label={
-                      dropLoves.viewerLoved
-                        ? dropLoves.loveCount > 0
-                          ? `Remove love from this drop (${dropLoves.loveCount})`
-                          : 'Remove love from this drop'
-                        : dropLoves.loveCount > 0
-                          ? `Love this drop (${dropLoves.loveCount})`
-                          : 'Love this drop'
-                    }
-                    aria-pressed={dropLoves.viewerLoved}
-                    disabled={dropLoves.pending}
-                    onClick={() => {
-                      void dropLoves.toggleLove();
-                    }}
-                  >
-                    {dropLoves.viewerLoved ? (
-                      <HeartFillIcon
-                        aria-hidden
-                        className="collection-commerce-love-icon"
-                      />
-                    ) : (
-                      <HeartIcon
-                        aria-hidden
-                        className="collection-commerce-love-icon"
-                      />
-                    )}
-                    {dropLoves.loveCount > 0 ? (
-                      <span className="collection-commerce-love-count">
-                        {dropLoves.loveCount}
-                      </span>
-                    ) : null}
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className={`collection-commerce-save${
-                    collectionSaved ? ' is-saved' : ''
-                  }${collectionSavePending ? ' is-pending' : ''}`}
-                  aria-label={
-                    collectionSaved
-                      ? 'Remove drop bookmark'
-                      : 'Bookmark this drop'
-                  }
-                  aria-pressed={collectionSaved}
-                  disabled={collectionSavePending}
-                  onClick={() => {
-                    void collectionSaves.toggleSave(collectionId);
-                  }}
-                >
-                  {collectionSaved ? (
-                    <BookmarkFillIcon
-                      aria-hidden
-                      className="collection-commerce-save-icon"
-                    />
-                  ) : (
-                    <BookmarkIcon
-                      aria-hidden
-                      className="collection-commerce-save-icon"
-                    />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="collection-commerce-share"
-                  aria-label={shareCopied ? 'Link copied' : 'Share drop link'}
-                  onClick={() => {
-                    void handleShare();
-                  }}
-                >
-                  <ShareIcon
-                    aria-hidden
-                    className="collection-commerce-share-icon"
-                  />
-                </button>
               </div>
-            </div>
+            ) : null}
             {showCommerceMeter ? (
               <div
                 className="collection-progress"
@@ -1534,29 +1495,8 @@ export function CollectionPagePanel({
                 />
               </div>
             ) : null}
-            {showDropLove && dropLoves.fanCount > 0 ? (
-              <div className="collection-drop-fans">
-                <GuildFacepile
-                  memberIds={dropFanIds}
-                  profiles={dropFanProfiles}
-                  memberCount={dropLoves.fanCount}
-                  countUnit={{ one: 'fan', other: 'fans' }}
-                  slots={Math.min(5, Math.max(1, dropLoves.fanCount))}
-                  loading={dropLoves.fansLoading && dropFanIds.length === 0}
-                  className="collection-drop-fans-facepile"
-                  onClick={() => setDropFansOpen(true)}
-                />
-              </div>
-            ) : null}
-            {showCommerceMeter && mintDisabledReason && !isOwner ? (
-              <p className="collection-mint-hint">{mintDisabledReason}</p>
-            ) : null}
-            {aboutTeaserText ? (
-              <CollectionAboutTeaser
-                text={aboutTeaserText}
-                hasMore={aboutHasMore}
-                onReadMore={() => setAboutOpen(true)}
-              />
+            {showCommerceMeter && personalMintHint && !isOwner ? (
+              <p className="collection-mint-hint">{personalMintHint}</p>
             ) : null}
             {movedNotice ? (
               <p className="collection-mint-hint">{movedNotice}</p>
@@ -1748,7 +1688,9 @@ export function CollectionPagePanel({
         panelClassName="collection-activity-sheet-panel os-sheet-cap-standard"
         bodyClassName="collection-activity-sheet-body"
       >
-        {sheetActivity.length > 0 ? (
+        {!activityLoaded ? (
+          <CollectionActivitySkeleton rows={6} />
+        ) : sheetActivity.length > 0 ? (
           <CollectionActivityRows
             rows={sheetActivity}
             profiles={activityProfiles}

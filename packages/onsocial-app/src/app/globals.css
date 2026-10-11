@@ -3,6 +3,7 @@
 @import '@onsocial/ui/dividers.css';
 @import '@onsocial/ui/glass-sheet.css';
 @import '@onsocial/ui/pulsing-dots.css';
+@import '@onsocial/ui/os-confirm-icon.css';
 @import '@onsocial/ui/os-sheet-action.css';
 @import '@onsocial/ui/os-surface-interactive.css';
 @import '@onsocial/ui/os-surface-halo.css';
@@ -235,11 +236,13 @@
  * the 0.62 peek ratio on purpose).
  */
 .glass-sheet-panel.os-sheet-cap-short {
-  max-height: min(72dvh, 28rem);
+  --os-hug-cap: min(72dvh, 28rem, 100%);
+  max-height: var(--os-hug-cap);
 }
 
 .glass-sheet-panel.os-sheet-cap-standard {
-  max-height: min(88dvh, 36rem);
+  --os-hug-cap: min(88dvh, 36rem, 100%);
+  max-height: var(--os-hug-cap);
 }
 
 /* Same trim as choice drawers: the shared footer owns the resting inset. */
@@ -290,7 +293,8 @@
 }
 
 .glass-sheet-panel.os-sheet-cap-tall {
-  max-height: min(94dvh, 46rem);
+  --os-hug-cap: min(94dvh, 46rem, 100%);
+  max-height: var(--os-hug-cap);
 }
 
 .glass-sheet-panel.account-drawer-panel {
@@ -323,7 +327,9 @@
  */
 .glass-sheet-root--hosted .glass-sheet-header,
 .glass-sheet-root--hosted .standing-sheet-header {
-  padding-top: calc(env(safe-area-inset-top, 0px) + 0.65rem);
+  padding-top: calc(
+    env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y, 0.3rem)
+  );
 }
 
 /*
@@ -1211,11 +1217,11 @@ body:has([data-os-slide-over='true']:not(.is-closing)) .os-launcher-root {
  */
 .os-app-screen[data-immersive-header='true']
   > .os-app-screen-column
-  > .os-app-screen-header:not(.is-elevated)
+  > .os-app-screen-header
   .contextual-back,
 .os-app-screen[data-immersive-header='true']
   > .os-app-screen-column
-  > .os-app-screen-header:not(.is-elevated)
+  > .os-app-screen-header
   .glass-sheet-icon-action {
   box-sizing: border-box;
   width: 1.85rem;
@@ -1388,27 +1394,6 @@ body:has([data-os-slide-over='true']:not(.is-closing)) .os-launcher-root {
   .glass-sheet-icon-action:focus-visible {
   background: var(--app-scrim-media-hover);
   color: rgb(255 255 255 / 1);
-}
-
-.os-app-screen[data-immersive-header='true']
-  > .os-app-screen-column
-  > .os-app-screen-header.is-elevated
-  .contextual-back,
-.os-app-screen[data-immersive-header='true']
-  > .os-app-screen-column
-  > .os-app-screen-header.is-elevated
-  .glass-sheet-icon-action {
-  box-sizing: border-box;
-  width: var(--os-app-screen-nav-row-height, 2.35rem);
-  height: var(--os-app-screen-nav-row-height, 2.35rem);
-  min-width: var(--os-app-screen-nav-row-height, 2.35rem);
-  min-height: var(--os-app-screen-nav-row-height, 2.35rem);
-  max-width: var(--os-app-screen-nav-row-height, 2.35rem);
-  max-height: var(--os-app-screen-nav-row-height, 2.35rem);
-  padding: 0;
-  filter: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
 }
 
 /*
@@ -3209,7 +3194,8 @@ a.os-surface-row {
   @media (hover: hover) and (pointer: fine) {
     ::-webkit-scrollbar {
       width: 3px;
-      height: 3px;
+      /* Vertical thumb only. A 3px horizontal thickness opens a gap under the lines. */
+      height: 0;
     }
 
     :hover::-webkit-scrollbar-thumb,
@@ -3283,9 +3269,48 @@ a.os-surface-row {
 
 /* Unlayered so it beats the `a { color: inherit }` reset above (@layer loses). */
 .scarce-provenance-original-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  max-width: 100%;
+  line-height: 1;
   color: var(--protocol-green, #00ec97);
   text-decoration: none;
   font-weight: 550;
+}
+
+/* Same one-line box as `.collection-about-teaser-line` while the story hydrates. */
+.scarce-provenance-pending-line {
+  position: relative;
+}
+
+.scarce-provenance-pending-ghost {
+  visibility: hidden;
+}
+
+.scarce-provenance-pending-story {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 88%;
+  height: 0.62rem;
+  transform: translateY(-50%);
+  border-radius: 0.25rem;
+}
+
+.scarce-facts-value-skel {
+  display: inline-block;
+  width: 4.5rem;
+  height: 0.72rem;
+  vertical-align: middle;
+  border-radius: 0.25rem;
+}
+
+.scarce-provenance-original-arrow {
+  display: block;
+  width: 0.72rem;
+  height: 0.72rem;
+  flex: 0 0 0.72rem;
 }
 
 /*
@@ -3367,7 +3392,8 @@ a.os-surface-row {
 .scarce-provenance-original-link:hover,
 .scarce-provenance-original-link:focus-visible {
   color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
-  text-decoration: underline;
+  text-decoration: none;
+  outline: none;
 }
 
 .guild-facts-link.scarce-facts-source-link {
@@ -9194,9 +9220,10 @@ a.os-surface-row {
     padding-bottom: 0.85rem;
   }
 
-  /* Match protocol / commerce sheet footers — 1.15rem column + safe area. */
+  /* Match protocol / commerce sheet footers — page column + safe area. */
   .protocol-identity-mark-hint-footer {
-    padding: 0.45rem 1.15rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.45rem var(--os-sheet-footer-pad-inline, 1rem)
+      calc(0.55rem + env(safe-area-inset-bottom, 0px));
   }
 
   .protocol-identity-mark-hint {
@@ -11440,8 +11467,7 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
-  .portfolio-writing-article-action:disabled,
-  .portfolio-writing-article-action.is-pending {
+  .portfolio-writing-article-action:disabled:not(.is-pending) {
     opacity: 0.55;
     cursor: default;
   }
@@ -14227,8 +14253,12 @@ a.os-surface-row {
    */
   .os-app-screen[data-immersive-header='true']:not(:has(.guild-feed-filter-pin))
     > .os-app-screen-column
-    > .os-app-screen-header.is-elevated::before {
-    opacity: 1;
+    > .os-app-screen-header::before {
+    opacity: clamp(0, calc(var(--title-handoff, 0) * 8), 1);
+    animation: os-immersive-frost linear both;
+    animation-timeline: --os-immersive-title;
+    animation-range-start: exit 0%;
+    animation-range-end: exit 100%;
   }
 
   .os-app-screen[data-immersive-header='true']
@@ -14274,19 +14304,56 @@ a.os-surface-row {
   }
 
   /*
-   * Scroll-linked title crossfade — JS sets --title-handoff (0→1) on
-   * .os-app-screen as the hero name approaches the nav bar.
-   * No CSS transition: scroll position drives opacity directly, so the two
-   * titles swap smoothly and never show both at full opacity.
-   * Only this screen's own nav title. A post opened on top keeps Post.
+   * One crossfade, shared by guilds, hubs, drops, and albums.
+   * The page name fades out as it meets the bar; the bar name fades in on
+   * the same progress. Scroll-driven (not a timer) so reversing scroll
+   * reverses the name on the same pixel — a transition holds, then lets go.
+   * --title-handoff is only the fallback where view timelines are missing.
    */
-  .os-app-screen[data-immersive-header='true']
+  @keyframes os-immersive-title-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes os-immersive-title-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes os-immersive-frost {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .os-app-screen[data-immersive-header='true'] {
+    timeline-scope: --os-immersive-title;
+  }
+
+  .os-app-screen[data-immersive-header='true']:not(.os-slide-over):not(
+      .portfolio-writing-article-screen
+    )
     > .os-app-screen-column
     > .os-app-screen-header
     .os-app-screen-heading {
     opacity: var(--title-handoff, 0);
     pointer-events: none;
-    will-change: opacity;
+    overflow-anchor: none;
+    animation: os-immersive-title-in linear both;
+    animation-timeline: --os-immersive-title;
+    animation-range-start: exit 0%;
+    animation-range-end: exit 100%;
   }
 
   /* Cover editors keep the verb in chrome — no hero-name handoff. */
@@ -14296,6 +14363,7 @@ a.os-surface-row {
     overflow: visible;
     pointer-events: auto;
     will-change: auto;
+    animation: none;
   }
 
   .os-app-screen[data-immersive-header='true']
@@ -14306,16 +14374,54 @@ a.os-surface-row {
     pointer-events: auto;
   }
 
-  .os-app-screen[data-immersive-header='true'] .guild-hero-title-row,
-  .os-app-screen[data-immersive-header='true'] .app-page-hero .app-page-title,
-  .os-app-screen[data-immersive-header='true']
+  .os-app-screen[data-immersive-header='true']:not(.os-slide-over)
+    .guild-hero-title-row
+    h2,
+  .os-app-screen[data-immersive-header='true']:not(.os-slide-over)
+    .app-page-hero
+    .app-page-title,
+  .os-app-screen[data-immersive-header='true']:not(.os-slide-over)
     .collection-hero
     .collection-title,
-  .os-app-screen[data-immersive-header='true'] .collectibles-play-title-row,
-  .os-app-screen[data-immersive-header='true']
-    .portfolio-writing-article-title {
+  .os-app-screen[data-immersive-header='true']:not(.os-slide-over)
+    .collectibles-play-title-row {
     opacity: calc(1 - var(--title-handoff, 0));
-    will-change: opacity;
+    overflow-anchor: none;
+    position: relative;
+    animation: os-immersive-title-out linear both;
+    animation-timeline: --os-immersive-title;
+    animation-range-start: exit 0%;
+    animation-range-end: exit 100%;
+  }
+
+  /*
+   * The timeline box starts 2.5rem above the name and ends at the name.
+   * The crossfade runs that whole way: the page name fades out as it
+   * approaches the bar, and the bar name fades in over the same distance.
+   * A range only as tall as the glyphs feels like the name is held, then let go.
+   */
+  .os-app-screen[data-immersive-header='true']:not(.os-slide-over)
+    .guild-hero-title-row
+    h2::before,
+  .os-app-screen[data-immersive-header='true']:not(.os-slide-over)
+    .app-page-hero
+    .app-page-title::before,
+  .os-app-screen[data-immersive-header='true']:not(.os-slide-over)
+    .collection-hero
+    .collection-title::before,
+  .os-app-screen[data-immersive-header='true']:not(.os-slide-over)
+    .collectibles-play-title-row::before {
+    content: '';
+    position: absolute;
+    top: -2.5rem;
+    left: 0;
+    width: 1px;
+    height: calc(2.5rem + 100%);
+    pointer-events: none;
+    view-timeline-name: --os-immersive-title;
+    view-timeline-axis: block;
+    view-timeline-inset: var(--os-app-screen-elevated-chrome-height) 0px 0px
+      0px;
   }
 
   .os-app-screen-nav-row {
@@ -14418,17 +14524,21 @@ a.os-surface-row {
   }
 
   /*
-   * Immersive elevate: feed anchors under solid title chrome + sticky room strip.
-   * Keep scroll-padding stable while chips tuck (transform-only) — changing it
-   * on hide reflows the scroller and makes chips + dock jump.
+   * Anchor offset is constant. Toggling it when the title hands off shifts
+   * the scroller — guilds jump there because the room row is sticky; hubs
+   * have no row, so the same toggle stays invisible.
    */
-  .os-app-screen[data-immersive-header='true']:has(
-      .os-app-screen-header.is-elevated
-    )
+  .os-app-screen[data-immersive-header='true'] .os-app-screen-body {
+    scroll-padding-top: var(--os-app-screen-elevated-chrome-height);
+    /* Fading the name must not make the browser nudge scroll when the
+       gesture ends. The room row is sticky, so anchoring jerks on release. */
+    overflow-anchor: none;
+  }
+
+  .os-app-screen[data-immersive-header='true']:has(.guild-feed-filter-pin)
     .os-app-screen-body {
     scroll-padding-top: calc(
-      var(--os-app-screen-elevated-chrome-height) +
-        var(--guild-feed-filter-sticky-block)
+      var(--os-app-screen-elevated-chrome-height) + var(--os-chrome-rail-block)
     );
   }
 
@@ -14452,6 +14562,7 @@ a.os-surface-row {
     -webkit-overflow-scrolling: touch;
     /* Short clearance only — feed scrolls under the floating dock pill. */
     padding-bottom: calc(3.25rem + env(safe-area-inset-bottom, 0px));
+    /* Do not set scrollbar-gutter here. A stable rail narrows the column and wraps a line down. */
     transition: padding-bottom var(--os-motion-dock, 260ms) ease;
   }
 
@@ -14484,8 +14595,7 @@ a.os-surface-row {
     pointer-events: none;
   }
 
-  /* Overlay lock — hide the thumb only. Keep the 3px rail.
-     Collapsing that rail gave the column 3px back and a wrapped line jumped up. */
+  /* Overlay lock. Text columns use the stable scroller, so there is no rail to collapse. */
   [data-scroll-locked='true']::-webkit-scrollbar-thumb {
     background: transparent;
   }
@@ -14570,10 +14680,17 @@ a.os-surface-row {
     pointer-events: none;
   }
 
-  /* Immersive guild / hero — sit under elevated chrome + sticky rail. */
+  /* Immersive guild / hero — sit under the stable nav bar. */
   .os-app-screen[data-immersive-header='true'] .os-chrome-whisper-anchor {
+    top: calc(var(--os-app-screen-elevated-chrome-height) + 0.35rem);
+  }
+
+  .os-app-screen[data-immersive-header='true']:has(
+      .guild-feed-filter-pin.is-pinned
+    )
+    .os-chrome-whisper-anchor {
     top: calc(
-      var(--os-app-screen-elevated-chrome-height) + var(--os-rail-reveal, 0px) +
+      var(--os-app-screen-elevated-chrome-height) + var(--os-chrome-rail-block) +
         0.35rem
     );
   }
@@ -17704,8 +17821,10 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    padding: 0 max(1.15rem, env(safe-area-inset-right, 0px)) 0.65rem
-      max(1.15rem, env(safe-area-inset-left, 0px));
+    padding: 0
+      max(var(--os-screen-body-pad-x, 1rem), env(safe-area-inset-right, 0px))
+      0.65rem
+      max(var(--os-screen-body-pad-x, 1rem), env(safe-area-inset-left, 0px));
   }
 
   .discover-sheet-title-row {
@@ -17761,7 +17880,7 @@ a.os-surface-row {
     .glass-sheet-root:not(.glass-sheet-root--hosted)
       .glass-sheet-panel
       .standing-sheet-header {
-      padding-top: 0.75rem;
+      padding-top: var(--os-app-chrome-pad-y, 0.3rem);
     }
   }
 
@@ -18663,8 +18782,8 @@ a.os-surface-row {
     position: relative;
     z-index: 1;
     gap: 0;
-    /* Same 1.15rem column as `.glass-sheet-header` / `.os-hug-sheet-body`. */
-    padding: 0 1.15rem 0.75rem;
+    /* Same column as `.glass-sheet-header` / the page. */
+    padding: 0 var(--os-screen-body-pad-x, 1rem) 0.75rem;
   }
 
   .account-drawer-subject-row {
@@ -18834,7 +18953,7 @@ a.os-surface-row {
 
   @media (min-width: 768px) {
     .glass-sheet-panel .account-drawer-header {
-      padding-top: 0.75rem;
+      padding-top: var(--os-app-chrome-pad-y, 0.3rem);
     }
   }
 
@@ -18940,6 +19059,11 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
+    /* Head + bar + one caption. Loading and settled share this box so the
+       wallet sheet does not grow and shift every line when rewards arrive. */
+    min-height: calc(
+      (0.75rem * 1.3) + 0.35rem + 0.85rem + 0.35rem + (0.75rem * 1.35)
+    );
   }
 
   .account-wallet-activity-head {
@@ -18961,13 +19085,18 @@ a.os-surface-row {
     color: var(--protocol-green);
   }
 
-  .account-wallet-activity-label.is-loading {
+  .account-wallet-activity-label.is-loading,
+  .account-wallet-activity-ratio.is-loading {
     display: block;
     width: 5rem;
     height: 0.8rem;
     border-radius: 0.3rem;
     background: rgb(var(--fg-rgb) / 0.08);
     animation: account-card-pulse 1.2s ease-in-out infinite;
+  }
+
+  .account-wallet-activity-ratio.is-loading {
+    width: 2.5rem;
   }
 
   .account-wallet-metrics {
@@ -19247,7 +19376,7 @@ a.os-surface-row {
   .account-wallet-caption.is-loading {
     display: block;
     width: 70%;
-    height: 0.65rem;
+    height: calc(0.75rem * 1.35);
     border-radius: 0.25rem;
     background: rgb(var(--fg-rgb) / 0.06);
     animation: account-card-pulse 1.2s ease-in-out infinite;
@@ -19670,11 +19799,32 @@ a.os-surface-row {
     gap: 0.65rem;
   }
 
-  .app-storage-readout.is-loading {
-    height: 3rem;
-    border-radius: var(--os-surface-radius-row, 0.85rem);
-    background: rgb(var(--fg-rgb) / 0.06);
-    animation: account-card-pulse 1.2s ease-in-out infinite;
+  .app-storage-balance-value.is-pending,
+  .app-storage-pending-line {
+    position: relative;
+    display: inline-block;
+  }
+
+  .app-storage-pending-ghost {
+    visibility: hidden;
+  }
+
+  .app-storage-pending-balance,
+  .app-storage-pending-meta {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    height: 0.72rem;
+    transform: translateY(-50%);
+    border-radius: 0.25rem;
+  }
+
+  .app-storage-pending-balance {
+    width: 100%;
+  }
+
+  .app-storage-pending-meta {
+    width: 78%;
   }
 
   .app-storage-readout {
@@ -25464,11 +25614,6 @@ a.os-surface-row {
     color: var(--protocol-green);
   }
 
-  /* Pending keeps its shade (the dots signal work); only disabled dims. */
-  .post-card-save.is-pending {
-    cursor: progress;
-  }
-
   .post-card-save:disabled:not(.is-pending) {
     opacity: 1;
     color: rgb(var(--fg-rgb) / 0.26);
@@ -27094,10 +27239,9 @@ a.os-surface-row {
     align-items: center;
     justify-items: start;
     flex-shrink: 0;
-    width: 3.05rem;
     box-sizing: border-box;
-    margin: 0;
-    padding: 0.1rem 0.12rem;
+    margin: -0.28rem 0;
+    padding: 0.35rem 0.2rem;
     border: 0;
     border-radius: 9999px;
     background: transparent;
@@ -27114,10 +27258,6 @@ a.os-surface-row {
 
   .scarce-clip-track-love.is-loved {
     color: var(--protocol-green, #00ec97);
-  }
-
-  .scarce-clip-track-love.is-pending {
-    cursor: progress;
   }
 
   .scarce-clip-track-love-icon {
@@ -27738,10 +27878,6 @@ a.os-surface-row {
     color: var(--protocol-green, #00ec97);
   }
 
-  .scarce-clip-listen-love.is-pending {
-    cursor: progress;
-  }
-
   .scarce-clip-listen-love-icon {
     width: 1rem;
     height: 1rem;
@@ -27777,10 +27913,6 @@ a.os-surface-row {
 
   .scarce-clip-listen-save.is-saved {
     color: var(--protocol-green, #00ec97);
-  }
-
-  .scarce-clip-listen-save.is-pending {
-    cursor: progress;
   }
 
   .scarce-clip-listen-save-icon {
@@ -27999,6 +28131,12 @@ a.os-surface-row {
     margin-bottom: 0.35rem;
   }
 
+  .scarce-buy-identity {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
   .scarce-buy-story {
     display: flex;
     flex-direction: column;
@@ -28031,6 +28169,26 @@ a.os-surface-row {
 
   .scarce-buy-price-block .scarce-buy-meta-row {
     margin-top: 0.35rem;
+  }
+
+  .scarce-buy-deal-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .scarce-buy-deal-row .scarce-buy-price {
+    margin: 0;
+    min-width: 0;
+  }
+
+  .scarce-buy-price-block .scarce-buy-deal-row .scarce-buy-meta-row {
+    margin: 0 0 0 auto;
+    width: auto;
+    flex: 0 1 auto;
+    justify-content: flex-end;
   }
 
   .scarce-buy-meta {
@@ -29656,8 +29814,32 @@ a.os-surface-row {
     align-items: center;
     gap: 0.45rem;
     margin-top: 0.45rem;
-    /* Match save / share / Manage hit target so owner switch doesn’t reflow. */
     min-height: 1.35rem;
+  }
+
+  .collection-commerce-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    margin-top: 0.35rem;
+  }
+
+  .collection-commerce-actions .collection-drop-fans {
+    display: flex;
+    align-items: center;
+    flex: 0 1 auto;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .collection-commerce-action-icons {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.15rem;
+    margin-left: auto;
   }
 
   .collection-event-lines {
@@ -29737,15 +29919,6 @@ a.os-surface-row {
     font-weight: 500;
   }
 
-  .collection-commerce-share-row {
-    display: inline-flex;
-    flex-shrink: 0;
-    align-items: center;
-    gap: 0.45rem;
-    margin: 0;
-    min-height: 1.35rem;
-  }
-
   .collection-product-manage {
     display: inline-flex;
     flex-shrink: 0;
@@ -29804,10 +29977,10 @@ a.os-surface-row {
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
+    min-width: 1.75rem;
+    min-height: 1.75rem;
     margin: 0;
-    padding: 0;
+    padding: 0.35rem 0.2rem;
     border: 0;
     border-radius: 9999px;
     background: transparent;
@@ -29825,8 +29998,8 @@ a.os-surface-row {
 
   .collection-commerce-share-icon {
     display: block;
-    width: 0.88rem;
-    height: 0.88rem;
+    width: 1.05rem;
+    height: 1.05rem;
   }
 
   .collection-commerce-save {
@@ -29834,10 +30007,10 @@ a.os-surface-row {
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
+    min-width: 1.75rem;
+    min-height: 1.75rem;
     margin: 0;
-    padding: 0;
+    padding: 0.35rem 0.2rem;
     border: 0;
     border-radius: 9999px;
     background: transparent;
@@ -29860,15 +30033,10 @@ a.os-surface-row {
     color: var(--protocol-green, #00ec97);
   }
 
-  /* Pending keeps its shade — dimming read as disabled. */
-  .collection-commerce-save.is-pending {
-    cursor: progress;
-  }
-
   .collection-commerce-save-icon {
     display: block;
-    width: 0.88rem;
-    height: 0.88rem;
+    width: 1.05rem;
+    height: 1.05rem;
   }
 
   .collection-commerce-love {
@@ -29876,11 +30044,10 @@ a.os-surface-row {
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    gap: 0.18rem;
-    min-width: 1.35rem;
-    height: 1.35rem;
+    min-width: 1.75rem;
+    min-height: 1.75rem;
     margin: 0;
-    padding: 0.1rem 0.12rem;
+    padding: 0.35rem 0.2rem;
     border: 0;
     border-radius: 9999px;
     background: transparent;
@@ -29902,40 +30069,32 @@ a.os-surface-row {
     color: var(--protocol-green, #00ec97);
   }
 
-  .collection-commerce-love.is-pending {
-    cursor: progress;
-  }
-
   .collection-commerce-love-icon {
     display: block;
-    width: 0.88rem;
-    height: 0.88rem;
-  }
-
-  .collection-commerce-love-count {
-    font-size: 0.68rem;
-    font-weight: 600;
-    line-height: 1;
-    letter-spacing: -0.01em;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .collection-commerce-share-row--viewer {
-    margin-left: auto;
+    width: 1.05rem;
+    height: 1.05rem;
   }
 
   .collection-drop-fans {
     display: flex;
     align-items: center;
-    margin: 0.35rem 0 0;
+    margin: 0;
   }
 
   button.collection-drop-fans-facepile.guild-facepile {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.75rem;
     margin: 0;
-    padding: 0.1rem 0.15rem 0.1rem 0;
+    padding: 0;
     border: 0;
     background: transparent;
     color: var(--os-surface-muted);
+  }
+
+  .collection-drop-fans-facepile .guild-facepile-avatars--slots {
+    height: 1.35rem;
+    align-items: center;
   }
 
   button.collection-drop-fans-facepile.guild-facepile:hover,
@@ -31925,9 +32084,14 @@ a.os-surface-row {
     font-size: 0.82rem;
     font-weight: 600;
     color: var(--os-surface-muted-strong);
-    text-decoration: underline;
-    text-underline-offset: 0.15em;
+    text-decoration: none;
     cursor: pointer;
+  }
+
+  .collection-allowlist-toggle:hover,
+  .collection-allowlist-toggle:focus-visible {
+    color: var(--os-surface-emphasis);
+    outline: none;
   }
 
   .collection-allowlist-sheet {
@@ -31940,7 +32104,8 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.45rem;
-    padding: 0.35rem 1.15rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.35rem var(--os-screen-body-pad-x, 1rem)
+      calc(0.85rem + env(safe-area-inset-bottom, 0px));
   }
 
   .collection-allowlist-sources {
@@ -32147,9 +32312,14 @@ a.os-surface-row {
     font-size: 0.78rem;
     font-weight: 600;
     color: var(--os-surface-muted-strong);
-    text-decoration: underline;
-    text-underline-offset: 0.15em;
+    text-decoration: none;
     cursor: pointer;
+  }
+
+  .collection-allowlist-text-btn:hover,
+  .collection-allowlist-text-btn:focus-visible {
+    color: var(--os-surface-emphasis);
+    outline: none;
   }
 
   .collection-allowlist-text-btn:disabled {
@@ -32255,7 +32425,7 @@ a.os-surface-row {
   .collection-allowlist-edit-sheet-body {
     flex: 0 1 auto;
     min-height: 0;
-    padding: 0.35rem 1.15rem 0.55rem;
+    padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 0.55rem;
   }
 
   /* Height hug is unlayered on the panel; body inset from OsHugSheet. */
@@ -32306,8 +32476,14 @@ a.os-surface-row {
     align-self: flex-start;
     font-size: 0.82rem;
     color: var(--os-surface-muted-strong);
-    text-decoration: underline;
-    text-underline-offset: 0.15em;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .collection-source-link:hover,
+  .collection-source-link:focus-visible {
+    color: var(--os-surface-emphasis);
+    outline: none;
   }
 
   .collection-activity {
@@ -32333,9 +32509,14 @@ a.os-surface-row {
     font-size: 0.72rem;
     font-weight: 600;
     color: var(--os-surface-muted-strong);
-    text-decoration: underline;
-    text-underline-offset: 0.15em;
+    text-decoration: none;
     cursor: pointer;
+  }
+
+  .collection-activity-more:hover,
+  .collection-activity-more:focus-visible {
+    color: var(--os-surface-emphasis);
+    outline: none;
   }
 
   .glass-sheet-panel.collection-activity-sheet-panel {
@@ -33538,7 +33719,7 @@ a.os-surface-row {
    * GlassSheet body; footer owns its own pad (see .hub-manage-sheet-footer).
    */
   .hub-manage-slide .os-slide-over-content.hub-manage-slide-body {
-    padding: 0.35rem 1.15rem 1.35rem;
+    padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.35rem;
   }
 
   /*
@@ -34852,7 +35033,7 @@ a.os-surface-row {
     --os-screen-footer-band: 4.25rem;
   }
 
-  /* Locked Connect — same 1.15rem sheet inset as Collect. */
+  /* Locked Connect — same sheet inset as Collect. */
   .scarce-read-slide .scarce-writing-read.is-connect-locked {
     padding-inline: var(--os-sheet-footer-pad-inline);
     padding-bottom: 0.55rem;
@@ -35909,7 +36090,7 @@ a.os-surface-row {
   }
 
   .drop-time-sheet-body {
-    padding: 0.15rem 1.15rem 0.35rem;
+    padding: 0.15rem var(--os-screen-body-pad-x, 1rem) 0.35rem;
   }
 
   .drop-time-sheet {
@@ -38477,12 +38658,6 @@ a.os-surface-row {
     color: var(--protocol-amber);
   }
 
-  /* Pending keeps its shade — dimming read as disabled. */
-  .post-card-react.is-pending,
-  .post-card-stat--quote.is-pending {
-    cursor: progress;
-  }
-
   .discover-search-input {
     width: 100%;
     border: 1px solid rgb(var(--fg-rgb) / 0.1);
@@ -38647,6 +38822,7 @@ a.os-surface-row {
     flex-direction: column;
     gap: 0.35rem;
     padding: 0 0.1rem 0.2rem;
+    overflow-anchor: none;
   }
 
   /* Full-bleed solid banner — fills the top under the immersive nav. */
@@ -40002,7 +40178,8 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.55rem;
-    padding: 0.35rem 1.15rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.35rem var(--os-screen-body-pad-x, 1rem)
+      calc(0.85rem + env(safe-area-inset-bottom, 0px));
   }
 
   .guild-facepile {
@@ -42125,14 +42302,16 @@ a.os-surface-row {
   .guild-feed-filter-pin {
     position: relative;
     z-index: 1;
+    overflow-anchor: none;
   }
 
   .guild-feed-filter-pin.is-pinned {
     position: sticky;
     top: var(--os-app-screen-elevated-chrome-height);
-    /* Above the chrome glass band — docked chips stay sharp on the frost. */
+    /* Above the one frost sheet — chips stay sharp, blur stays on the sheet. */
     z-index: var(--os-chrome-rail-z);
     /* No transform here — transform on sticky kills sticking in most engines. */
+    overflow-anchor: none;
   }
 
   .guild-feed-filter-pin-inner {
@@ -42142,22 +42321,11 @@ a.os-surface-row {
     background: transparent;
     box-shadow: none;
     opacity: 1;
-    /* No resting transform — transform + backdrop-filter on one element
-       breaks the frost blur in Chromium. Hidden state still translates. */
-    transition:
-      transform 220ms ease,
-      opacity 220ms ease;
   }
 
   /*
-   * Chrome glass — ONE viewport-anchored pane for nav + rail. A zero-height
-   * sticky band at the top of the scroller owns the frost, so the sheet is
-   * always in its final position: header and rail zones frost together.
-   * Opacity snaps with scroll so a flick does not outrun the blur. Chips dock
-   * into glass that is already there (no travel, no header-later stagger).
-   * Hiding the chips only retracts the pane's bottom edge, so the nav zone
-   * never loses its frost.
-   * Standard property only (Lightning CSS drops it if a -webkit- pair follows).
+   * Chrome glass — one viewport-anchored sheet. Hubs and drops stay the
+   * nav bar. On guilds the same sheet grows down only as the room row docks.
    */
   .os-chrome-glass {
     position: sticky;
@@ -42169,36 +42337,32 @@ a.os-surface-row {
     pointer-events: none;
   }
 
-  /*
-   * Height is scroll-linked via --os-rail-reveal (JS, 0 → 1): the glass
-   * starts at nav height and grows down to meet the rail on its final
-   * approach, so the rail zone only frosts as the rail docks into it.
-   * Fallback 0 — before the rail exists (loading) the glass stays nav-only.
-   * The height transition softens both the reveal and the auto-hide retract.
-   */
   .os-chrome-glass::before {
     content: '';
     position: absolute;
     top: 0;
     inset-inline: 0;
+    height: var(--os-app-screen-elevated-chrome-height);
+    background: rgb(var(--bg-rgb) / 0.72);
+    backdrop-filter: blur(20px) saturate(1.3);
+    /* Solid as soon as the name starts across — never a fading blur. */
+    opacity: clamp(0, calc(var(--title-handoff, 0) * 8), 1);
+    animation: os-immersive-frost linear both;
+    animation-timeline: --os-immersive-title;
+    animation-range-start: exit 0%;
+    animation-range-end: exit 100%;
+  }
+
+  /*
+   * Guilds: the sheet starts at the nav. --os-rail-reveal (0→1) grows it
+   * down over the chips' last approach, so the rail zone frosts only as
+   * the row docks. No height ease — a timer lags the chips and slows scroll.
+   */
+  .os-app-screen:has(.guild-feed-filter-pin) .os-chrome-glass::before {
     height: calc(
       var(--os-app-screen-elevated-chrome-height) + var(--os-rail-reveal, 0) *
         var(--os-chrome-rail-block)
     );
-    background: rgb(var(--bg-rgb) / 0.72);
-    backdrop-filter: blur(20px) saturate(1.3);
-    opacity: 0;
-    /* Height still eases — that's rail retract, not elevate. */
-    transition: height 220ms ease;
-  }
-
-  .os-chrome-glass.is-frosted::before {
-    opacity: 1;
-  }
-
-  /* Rail hidden — glass retracts to cover only the nav chrome. */
-  .os-chrome-glass.is-rail-hidden::before {
-    height: var(--os-app-screen-elevated-chrome-height);
   }
 
   @media (prefers-reduced-transparency: reduce) {
@@ -45425,7 +45589,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 }
 
 .protocol-action-sheet-footer {
-  padding: 0.45rem 1.15rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
+  padding: 0.45rem var(--os-sheet-footer-pad-inline, 1rem)
+    calc(0.55rem + env(safe-area-inset-bottom, 0px));
 }
 
 .protocol-action-summary {

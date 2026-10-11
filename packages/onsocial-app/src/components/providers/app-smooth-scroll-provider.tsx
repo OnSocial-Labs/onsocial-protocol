@@ -9,6 +9,7 @@ import {
   APP_SMOOTH_WHEEL_MEDIA,
   isAppSmoothScrollLocked,
   isAppSmoothScrollPagerHost,
+  shouldBindAppSmoothScrollRoot,
   shouldUseAppSmoothScroll,
 } from '@/lib/app-smooth-scroll';
 import { LIST_SCROLL_RESTORE_SLOP_PX } from '@/lib/list-scroll-restore';
@@ -21,6 +22,14 @@ function bindAppSmoothScroll(wrapper: HTMLElement): () => void {
     ...APP_SMOOTH_SCROLL_LENIS_OPTIONS,
   });
   registerAppLenis(wrapper, lenis);
+  const onThumbScroll = (event: Event) => {
+    if (!(event instanceof CustomEvent) || typeof event.detail !== 'number') {
+      return;
+    }
+    event.preventDefault();
+    lenis.scrollTo(event.detail, { immediate: true, force: true });
+  };
+  wrapper.addEventListener('os-thumb-scroll', onThumbScroll);
   const pending = Number(wrapper.dataset.osScrollRestore);
   if (
     Number.isFinite(pending) &&
@@ -56,6 +65,7 @@ function bindAppSmoothScroll(wrapper: HTMLElement): () => void {
   }
 
   return () => {
+    wrapper.removeEventListener('os-thumb-scroll', onThumbScroll);
     lockObserver.disconnect();
     unregisterAppLenis(wrapper);
     lenis.destroy();
@@ -79,19 +89,21 @@ function bindAppSmoothScrollRoots(): () => void {
       document.querySelectorAll<HTMLElement>(APP_SMOOTH_SCROLL_ROOT_SELECTOR)
     );
 
+    const canScroll = (element: HTMLElement) =>
+      shouldBindAppSmoothScrollRoot(
+        isAppSmoothScrollPagerHost(element),
+        getComputedStyle(element).overflowY
+      );
+
     for (const [element, unbind] of instances) {
-      if (
-        !live.has(element) ||
-        !element.isConnected ||
-        isAppSmoothScrollPagerHost(element)
-      ) {
+      if (!live.has(element) || !element.isConnected || !canScroll(element)) {
         unbind();
         instances.delete(element);
       }
     }
 
     for (const element of live) {
-      if (isAppSmoothScrollPagerHost(element)) continue;
+      if (!canScroll(element)) continue;
       if (!instances.has(element)) {
         instances.set(element, bindAppSmoothScroll(element));
       }

@@ -147,7 +147,7 @@ export function PortfolioWritingArticleActions({
     >
       <button
         type="button"
-        className={`portfolio-writing-article-action${
+        className={`portfolio-writing-article-action os-confirm-icon${
           liked ? ' is-active' : ''
         }${likePending ? ' is-pending' : ''}`}
         disabled={likePending}
@@ -166,7 +166,7 @@ export function PortfolioWritingArticleActions({
       </button>
       <button
         type="button"
-        className={`portfolio-writing-article-action${
+        className={`portfolio-writing-article-action os-confirm-icon${
           saved ? ' is-active' : ''
         }${savePending ? ' is-pending' : ''}`}
         disabled={savePending}

@@ -59,7 +59,17 @@ export function useVisualViewportSheetMetrics(
     }
 
     const sync = () => {
-      setMetrics(readMetrics());
+      setMetrics((current) => {
+        const next = readMetrics();
+        if (
+          current.lift === next.lift &&
+          current.height === next.height &&
+          current.isMobile === next.isMobile
+        ) {
+          return current;
+        }
+        return next;
+      });
     };
 
     const viewport = window.visualViewport;

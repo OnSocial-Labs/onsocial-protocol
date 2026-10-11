@@ -60,8 +60,14 @@ export function AccountClaimMetricRow() {
   if (rewardsLoading) {
     return (
       <div className="account-wallet-activity" aria-hidden>
-        <span className="account-wallet-activity-label is-loading" />
-        <span className="account-wallet-progress-track is-loading" />
+        <div className="account-wallet-activity-head">
+          <span className="account-wallet-activity-label is-loading" />
+          <span className="account-wallet-activity-ratio is-loading" />
+        </div>
+        <div className="account-wallet-progress-slot">
+          <span className="account-wallet-progress-track is-loading" />
+        </div>
+        <p className="account-wallet-caption is-loading" />
       </div>
     );
   }

@@ -31,7 +31,10 @@
  */
 :root {
   --os-sheet-footer-pad-top: 0.45rem;
-  --os-sheet-footer-pad-inline: 1.15rem;
+  /* Same column as the page (--os-screen-body-pad-x). A wider sheet inset
+     lands every line to the right of the page it covers. */
+  --os-sheet-pad-inline: var(--os-screen-body-pad-x, 1rem);
+  --os-sheet-footer-pad-inline: var(--os-sheet-pad-inline);
   --os-sheet-footer-pad-bottom: calc(
     0.55rem + env(safe-area-inset-bottom, 0px)
   );
@@ -167,8 +170,11 @@
  * Prefer `sizing="hug"` on GlassSheet over per-panel height:auto overrides.
  */
 .glass-sheet-panel[data-sizing='hug'] {
+  /* Screen owns the cap. Script only records content height. */
+  --os-hug-cap: min(90dvh, 720px, 100%);
   height: auto;
-  max-height: min(90dvh, 720px);
+  max-height: var(--os-hug-cap);
+  min-height: min(var(--os-hug-content, 0px), var(--os-hug-cap));
 }
 
 .glass-sheet-panel[data-sizing='hug'] > .glass-sheet-body {
@@ -177,11 +183,12 @@
 }
 
 /*
- * Default hug body inset — same 1.15rem column as SheetHeader; bottom matches
- * `.os-sheet-footer` resting clearance (`--os-sheet-footer-pad-bottom`).
+ * Default hug body inset — same column as SheetHeader and the page;
+ * bottom matches `.os-sheet-footer` resting clearance.
  */
 .os-hug-sheet-body {
-  padding: 0.2rem 1.15rem var(--os-sheet-footer-pad-bottom);
+  padding: 0.2rem var(--os-sheet-pad-inline, 1rem)
+    var(--os-sheet-footer-pad-bottom);
 }
 
 /* Frost behind content — blur clipped to the sheet frame (not the viewport). */
@@ -473,7 +480,7 @@
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-  padding: 0 1.15rem 0.75rem;
+  padding: 0 var(--os-sheet-pad-inline, 1rem) 0.75rem;
 }
 
 .glass-sheet-header-copy {
@@ -602,6 +609,121 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/*
+ * Text columns: the native bar takes no width, so a line cannot move when
+ * overflow starts or stops. The 3px thumb is painted in the right padding.
+ * Touch keeps no rail. Keep this list in step with OS_STABLE_SCROLL_SELECTOR.
+ */
+.os-stable-scroll::-webkit-scrollbar,
+.os-app-screen-body::-webkit-scrollbar,
+.glass-sheet-body::-webkit-scrollbar,
+.os-app-chrome-scroller::-webkit-scrollbar,
+.portfolio-page::-webkit-scrollbar,
+.gate-scroll::-webkit-scrollbar,
+.protocol-on-chain-raw::-webkit-scrollbar,
+.app-storage-grants-list::-webkit-scrollbar,
+.account-editor-form-main::-webkit-scrollbar,
+.home-saved-feed-sheet-list::-webkit-scrollbar,
+.feed-photo-thread-body::-webkit-scrollbar,
+.os-reveal-inner.is-capped::-webkit-scrollbar,
+.post-quotes-page-scroll::-webkit-scrollbar,
+.post-quotes-screen:not(:has(.post-quotes-pager))::-webkit-scrollbar,
+.leaderboard-pager-scroll::-webkit-scrollbar,
+.drop-time-drum-list::-webkit-scrollbar,
+.scarce-clip-listen:has(.scarce-clip-listen-footer)::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .os-stable-scroll,
+  .os-app-screen-body,
+  .glass-sheet-body,
+  .os-app-chrome-scroller,
+  .portfolio-page,
+  .gate-scroll,
+  .protocol-on-chain-raw,
+  .app-storage-grants-list,
+  .account-editor-form-main,
+  .home-saved-feed-sheet-list,
+  .feed-photo-thread-body,
+  .os-reveal-inner.is-capped,
+  .post-quotes-page-scroll,
+  .post-quotes-screen:not(:has(.post-quotes-pager)),
+  .leaderboard-pager-scroll,
+  .drop-time-drum-list,
+  .scarce-clip-listen:has(.scarce-clip-listen-footer) {
+    scrollbar-width: none;
+  }
+}
+
+.os-stable-scroll-thumb {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: auto;
+  z-index: 4;
+  width: 3px;
+  height: 0;
+  margin: 0;
+  border-radius: 999px;
+  background: rgb(var(--fg-rgb) / 0.28);
+  opacity: 0;
+  pointer-events: none;
+  transform: none;
+  transition: opacity 160ms ease;
+}
+
+/* A page thumb must not sit on top of an open drawer or slide. */
+html:has(
+    .glass-sheet-root.is-visible:not(.post-thread-sheet-parked),
+    [data-os-slide-over='true']:not(.is-closing)
+  )
+  .os-stable-scroll-thumb[data-os-thumb-for='page'],
+.os-stable-scroll-thumb[data-os-thumb-for='buried'] {
+  height: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .os-stable-scroll-thumb.is-overflow {
+    opacity: 1;
+    pointer-events: auto;
+    cursor: grab;
+  }
+
+  /* Wider than the 3px paint so the cursor can take it. */
+  .os-stable-scroll-thumb.is-overflow::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    right: -8px;
+    bottom: -6px;
+    width: 16px;
+  }
+
+  .os-stable-scroll-thumb.is-overflow.is-hot,
+  .os-stable-scroll-thumb.is-overflow.is-active {
+    background: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .os-stable-scroll-thumb.is-overflow:hover,
+  .os-stable-scroll-thumb.is-overflow.is-dragging {
+    background: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .os-stable-scroll-thumb.is-overflow.is-dragging {
+    cursor: grabbing;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-stable-scroll-thumb {
+    transition: none;
+  }
+}
+
 .glass-sheet-footer {
   flex-shrink: 0;
 }
@@ -623,7 +745,7 @@
 }
 
 @media (min-width: 768px) {
-  .glass-sheet-panel {
+  .glass-sheet-panel:not([data-sizing='hug']) {
     height: min(calc(100dvh - env(safe-area-inset-bottom, 0px)), 720px);
   }
 }

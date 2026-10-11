@@ -1,0 +1,50 @@
+/**
+ * @onsocial/ui — glyph confirmation.
+ * Add `os-confirm-icon` on the control and `is-pending` while work confirms.
+ * The icon stays in place: a short pop, then a breathe. Counts beside it stay still.
+ */
+
+.os-confirm-icon.is-pending {
+  cursor: default;
+  opacity: 1;
+}
+
+.os-confirm-icon.is-pending > svg,
+.os-confirm-icon.is-pending > .os-confirm-icon-glyph {
+  transform-origin: center;
+  animation:
+    os-confirm-icon-pop 280ms cubic-bezier(0.2, 0.9, 0.2, 1.2) both,
+    os-confirm-icon-breathe 1.15s ease-in-out 280ms infinite;
+}
+
+@keyframes os-confirm-icon-pop {
+  0% {
+    transform: scale(0.72);
+  }
+
+  55% {
+    transform: scale(1.22);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes os-confirm-icon-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.62;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-confirm-icon.is-pending > svg,
+  .os-confirm-icon.is-pending > .os-confirm-icon-glyph {
+    animation: none;
+  }
+}

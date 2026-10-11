@@ -274,13 +274,18 @@ export function ScarceClipListenSheet({
               {showLove ? (
                 <button
                   type="button"
-                  className={`scarce-clip-listen-love${
+                  className={`scarce-clip-listen-love os-confirm-icon${
                     loved ? ' is-loved' : ''
                   }${lovePending ? ' is-pending' : ''}`}
                   aria-label={
-                    loved ? `Unlove ${trackTitle}` : `Love ${trackTitle}`
+                    lovePending
+                      ? `Confirming love for ${trackTitle}`
+                      : loved
+                        ? `Unlove ${trackTitle}`
+                        : `Love ${trackTitle}`
                   }
                   aria-pressed={loved}
+                  aria-busy={lovePending}
                   disabled={lovePending}
                   onClick={() => onToggleLove?.()}
                 >
@@ -305,7 +310,7 @@ export function ScarceClipListenSheet({
               {showSave ? (
                 <button
                   type="button"
-                  className={`scarce-clip-listen-save${
+                  className={`scarce-clip-listen-save os-confirm-icon${
                     saved ? ' is-saved' : ''
                   }${savePending ? ' is-pending' : ''}`}
                   aria-label={

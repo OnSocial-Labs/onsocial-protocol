@@ -317,15 +317,18 @@ export function useGuildPageData({
       }
       if (groupIdRef.current !== groupId) return;
 
-      const resolved = await resolveGuildViewerAccess(
-        client,
-        groupId,
-        accountId,
-        {
+      let resolved: Awaited<ReturnType<typeof resolveGuildViewerAccess>>;
+      try {
+        resolved = await resolveGuildViewerAccess(client, groupId, accountId, {
           memberDriven: normalizedConfig.memberDriven,
           accessGated: normalizedConfig.accessGated,
-        }
-      );
+        });
+      } catch {
+        if (groupIdRef.current !== groupId) return;
+        setShellExtrasResolved(true);
+        setViewerAccessResolved(true);
+        return;
+      }
       const viewerState = resolved?.viewer ?? null;
       const moderationState = resolved?.moderation ?? null;
       if (groupIdRef.current !== groupId) return;

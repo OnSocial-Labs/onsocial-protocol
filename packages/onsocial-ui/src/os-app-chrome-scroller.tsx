@@ -30,7 +30,7 @@ export function OsAppChromeScroller({
     >
       <div
         ref={scrollRef}
-        className={`${osAppChromeScrollerClassName}${className ? ` ${className}` : ''}`}
+        className={`${osAppChromeScrollerClassName} os-stable-scroll${className ? ` ${className}` : ''}`}
         // App Lenis may add `lenis` before nested hydration finishes.
         suppressHydrationWarning
         {...scrollProps}

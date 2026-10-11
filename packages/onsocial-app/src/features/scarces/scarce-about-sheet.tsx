@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   Divider,
   OsHugSheet,
+  ProtocolMotionArrow,
   SheetFactCopy,
   SheetFactRow,
   SheetFactSection,
@@ -145,10 +146,11 @@ export function ScarceAboutSheet({
               <Link
                 href={originalHref}
                 scroll={false}
-                className="scarce-provenance-original-link"
+                className="scarce-provenance-original-link group"
                 onClick={requestClose}
               >
                 View original post
+                <ProtocolMotionArrow className="scarce-provenance-original-arrow" />
               </Link>
             </p>
           </>

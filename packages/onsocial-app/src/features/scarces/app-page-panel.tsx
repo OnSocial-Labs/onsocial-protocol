@@ -19,6 +19,7 @@ import {
   SettingsIcon,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { useImmersiveTitleHandoff } from '@/hooks/use-immersive-title-handoff';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
@@ -169,7 +170,6 @@ export function AppPagePanel({
   const [manageSheet, setManageSheet] = useState<HubManageSheetId | null>(null);
   const settingsNextRef = useRef<HubManageSheetId | null>(null);
   const creatorsNextRef = useRef(false);
-  const [headerElevated, setHeaderElevated] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
   const dropsKey = `${appId}:${refreshKey}`;
@@ -275,55 +275,13 @@ export function AppPagePanel({
     };
   }, [appId, dropsKey, initialDrops, refreshKey]);
 
-  // Title handoff: elevate the immersive nav once the hero name scrolls
-  // under it — same recipe as the guild page, minus the room-filter rail.
-  useEffect(() => {
-    const scrollRoot = scrollRootRef.current;
-    if (!scrollRoot || !hasApp) return;
-
-    const heroTitle = heroTitleRef.current;
-    const header = scrollRoot.parentElement?.querySelector(
-      '.os-app-screen-header'
-    );
-    const screen = scrollRoot.closest<HTMLElement>('.os-app-screen') ?? null;
-    const syncElevated = () => {
-      const scrolled = scrollRoot.scrollTop > 8;
-      if (!heroTitle) {
-        setHeaderElevated(scrollRoot.scrollTop > 18);
-        return;
-      }
-      const headerBottom =
-        header?.getBoundingClientRect().bottom ??
-        scrollRoot.getBoundingClientRect().top + 72;
-      const heroRect = heroTitle.getBoundingClientRect();
-      const titleTop = heroRect.top;
-
-      // Guard: before first layout (height 0), leave handoff at 0 so the
-      // hero name stays visible on first paint.
-      if (heroRect.height > 0) {
-        const fadeZone = 28;
-        const distance = titleTop - headerBottom;
-        const t = Math.max(0, Math.min(1, 1 - distance / fadeZone));
-        screen?.style.setProperty('--title-handoff', String(t));
-      }
-
-      setHeaderElevated((current) => {
-        if (current) {
-          return scrolled && titleTop < headerBottom + 2;
-        }
-        return scrolled && titleTop < headerBottom - 4;
-      });
-    };
-
-    syncElevated();
-    scrollRoot.addEventListener('scroll', syncElevated, { passive: true });
-    window.addEventListener('resize', syncElevated, { passive: true });
-    return () => {
-      scrollRoot.removeEventListener('scroll', syncElevated);
-      window.removeEventListener('resize', syncElevated);
-      screen?.style.removeProperty('--title-handoff');
-    };
-  }, [hasApp]);
+  // Title handoff: the bar name tracks scroll. No React state — a render here jumps the page.
+  useImmersiveTitleHandoff(
+    scrollRootRef,
+    heroTitleRef,
+    hasApp,
+    app?.appId ?? null
+  );
 
   const owner = useMemo(
     () => (app ? isAppOwner(app, viewerAccountId ?? null) : false),
@@ -619,12 +577,11 @@ export function AppPagePanel({
         ) : undefined
       }
       immersiveHeader
-      headerElevated={headerElevated}
       scrollRootRef={scrollRootRef}
     >
       <div
         aria-hidden
-        className={`os-chrome-glass${headerElevated ? ' is-frosted' : ''}`}
+        className="os-chrome-glass"
       />
       <div
         className={osChromePageClassName(

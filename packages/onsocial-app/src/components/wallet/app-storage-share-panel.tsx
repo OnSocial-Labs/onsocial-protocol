@@ -135,8 +135,22 @@ function SharePoolReadout({
 }) {
   if (loading) {
     return (
-      <div className="app-storage-share-card is-loading" aria-hidden>
-        <span className="account-wallet-progress-track is-loading" />
+      <div className="app-storage-share-card" aria-busy="true">
+        <div className="app-storage-share-card-head">
+          <span className="account-card-wallet-label">{SHARE_POOL_LABEL}</span>
+        </div>
+        <p className="app-storage-meta">
+          <span className="app-storage-pending-ghost">0 KB shared of 0 KB</span>
+        </p>
+        <div className="account-wallet-progress-track" aria-hidden>
+          <span
+            className="account-wallet-progress-fill"
+            style={{ width: '0%' }}
+          />
+        </div>
+        <p className="app-storage-meta">
+          Pool capacity for accounts you sponsor.
+        </p>
       </div>
     );
   }
@@ -364,8 +378,13 @@ function StorageSharesGrantedReadout({
 }) {
   if (loading) {
     return (
-      <div className="app-storage-grants is-loading" aria-hidden>
-        <span className="account-wallet-progress-track is-loading" />
+      <div className="app-storage-grants" aria-busy="true">
+        <div className="app-storage-grants-head">
+          <span className="account-card-wallet-label">Shared with</span>
+        </div>
+        <p className="app-storage-meta">
+          <span className="app-storage-pending-ghost">0 KB</span>
+        </p>
       </div>
     );
   }

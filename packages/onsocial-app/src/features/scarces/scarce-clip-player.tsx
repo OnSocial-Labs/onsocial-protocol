@@ -190,9 +190,7 @@ export function ScarceClipPlayer({
   // Bind to the host whenever this drop is already playing — never mount a
   // second <audio> beside the page player (even if mime hydrate lags).
   const persistMode = Boolean(
-    persist?.collectionId &&
-      nowPlaying &&
-      (isAudio || hostSession != null)
+    persist?.collectionId && nowPlaying && (isAudio || hostSession != null)
   );
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const durationByUrlRef = useRef<Map<string, number>>(new Map());
@@ -751,8 +749,7 @@ export function ScarceClipPlayer({
   const restrictToCached =
     Boolean(nowPlaying?.session?.localOnly) || browserOnline === false;
   const playDisabled =
-    restrictToCached &&
-    !cachedCids.has(trackCidFromPlayable(active) ?? '');
+    restrictToCached && !cachedCids.has(trackCidFromPlayable(active) ?? '');
   const downloadItems = playlist.map((track, index) => ({
     cid: track.cid,
     url: track.url,
@@ -862,7 +859,11 @@ export function ScarceClipPlayer({
                 }}
               >
                 {cover ? (
-                  <img className="scarce-clip-player-cover" src={cover} alt="" />
+                  <img
+                    className="scarce-clip-player-cover"
+                    src={cover}
+                    alt=""
+                  />
                 ) : (
                   <div className="scarce-clip-player-cover scarce-clip-player-cover--empty" />
                 )}
@@ -927,9 +928,7 @@ export function ScarceClipPlayer({
                     type="button"
                     className="scarce-clip-player-play scarce-clip-player-play--skip"
                     aria-label="Next track"
-                    disabled={
-                      playDisabled || !canSelectIndex(activeIndex + 1)
-                    }
+                    disabled={playDisabled || !canSelectIndex(activeIndex + 1)}
                     onClick={(event) => {
                       event.stopPropagation();
                       pokeChrome();
@@ -1102,23 +1101,86 @@ export function ScarceClipPlayer({
 
       {tracksOnly && (playlist.length > 1 || showFansFacepile) ? (
         <div className="scarce-clip-tracks-head">
-            <div className="scarce-clip-download-bar">
-              {fansFacepile}
-              {playlist.length > 1 && showDownloads ? (
-                <>
+          <div className="scarce-clip-download-bar">
+            {fansFacepile}
+            {playlist.length > 1 && showDownloads ? (
+              <>
+                <MediaDownloadControl
+                  className="scarce-clip-download-control"
+                  glyph="save"
+                  ariaLabel="Save album to Files"
+                  disabled={
+                    downloadLock != null && downloadLock !== 'save-album'
+                  }
+                  onBusyChange={(busy) =>
+                    setDownloadLock(busy ? 'save-album' : null)
+                  }
+                  onDownload={async (onProgress) => {
+                    try {
+                      await exportIpfsAlbumTracks(downloadItems, onProgress);
+                    } catch (cause) {
+                      reportOfflineError(
+                        cause,
+                        txToastError.offlineCacheFailed
+                      );
+                      throw cause;
+                    }
+                  }}
+                />
+                {offlineAllowed || offlineUnknown ? (
                   <MediaDownloadControl
                     className="scarce-clip-download-control"
-                    glyph="save"
-                    ariaLabel="Save album to Files"
+                    ariaLabel="Download album"
+                    cached={offlineAllowed && albumCached}
                     disabled={
-                      downloadLock != null && downloadLock !== 'save-album'
+                      offlineUnknown ||
+                      (downloadLock != null && downloadLock !== 'album')
                     }
                     onBusyChange={(busy) =>
-                      setDownloadLock(busy ? 'save-album' : null)
+                      setDownloadLock(busy ? 'album' : null)
+                    }
+                    onRemove={
+                      offlineAllowed
+                        ? async () => {
+                            try {
+                              await removeAlbumTracks(albumCids);
+                              setCachedCids(new Set());
+                            } catch (cause) {
+                              reportOfflineError(
+                                cause,
+                                txToastError.offlineRemoveFailed
+                              );
+                            }
+                          }
+                        : undefined
                     }
                     onDownload={async (onProgress) => {
                       try {
-                        await exportIpfsAlbumTracks(downloadItems, onProgress);
+                        await downloadIpfsAlbumZip(
+                          downloadItems,
+                          persist?.title,
+                          onProgress,
+                          persist?.collectionId
+                            ? {
+                                cacheOffline: true,
+                                exportFile: false,
+                                skipCids: cachedCids,
+                                onOfflineCache: async ({ cid, mime, blob }) => {
+                                  const track =
+                                    playlist.find(
+                                      (entry) =>
+                                        trackCidFromPlayable(entry) === cid
+                                    ) ?? playlist[0]!;
+                                  await cacheOfflineBytes({
+                                    cid,
+                                    mime,
+                                    blob,
+                                    track,
+                                  });
+                                },
+                              }
+                            : undefined
+                        );
                       } catch (cause) {
                         reportOfflineError(
                           cause,
@@ -1128,87 +1190,20 @@ export function ScarceClipPlayer({
                       }
                     }}
                   />
-                  {offlineAllowed || offlineUnknown ? (
-                    <MediaDownloadControl
-                      className="scarce-clip-download-control"
-                      ariaLabel="Download album"
-                      cached={offlineAllowed && albumCached}
-                      disabled={
-                        offlineUnknown ||
-                        (downloadLock != null && downloadLock !== 'album')
-                      }
-                      onBusyChange={(busy) =>
-                        setDownloadLock(busy ? 'album' : null)
-                      }
-                      onRemove={
-                        offlineAllowed
-                          ? async () => {
-                              try {
-                                await removeAlbumTracks(albumCids);
-                                setCachedCids(new Set());
-                              } catch (cause) {
-                                reportOfflineError(
-                                  cause,
-                                  txToastError.offlineRemoveFailed
-                                );
-                              }
-                            }
-                          : undefined
-                      }
-                      onDownload={async (onProgress) => {
-                        try {
-                          await downloadIpfsAlbumZip(
-                            downloadItems,
-                            persist?.title,
-                            onProgress,
-                            persist?.collectionId
-                              ? {
-                                  cacheOffline: true,
-                                  exportFile: false,
-                                  skipCids: cachedCids,
-                                  onOfflineCache: async ({
-                                    cid,
-                                    mime,
-                                    blob,
-                                  }) => {
-                                    const track =
-                                      playlist.find(
-                                        (entry) =>
-                                          trackCidFromPlayable(entry) === cid
-                                      ) ?? playlist[0]!;
-                                    await cacheOfflineBytes({
-                                      cid,
-                                      mime,
-                                      blob,
-                                      track,
-                                    });
-                                  },
-                                }
-                              : undefined
-                          );
-                        } catch (cause) {
-                          reportOfflineError(
-                            cause,
-                            txToastError.offlineCacheFailed
-                          );
-                          throw cause;
-                        }
-                      }}
-                    />
-                  ) : null}
-                </>
-              ) : null}
-              {playlist.length > 1 && showShare && persist?.collectionId ? (
-                    <ScarceClipShareButton
-                      className="scarce-clip-download-control"
-                      title={persist.title}
-                      collectionId={persist.collectionId}
-                      mediaUrl={poster}
-                      mediumKind="audio"
-                      showFeedPost={showFeedPost}
-                    />
-              ) : null}
-            </div>
+                ) : null}
+              </>
+            ) : null}
+            {playlist.length > 1 && showShare && persist?.collectionId ? (
+              <ScarceClipShareButton
+                className="scarce-clip-download-control"
+                title={persist.title}
+                collectionId={persist.collectionId}
+                mediaUrl={poster}
+                mediumKind="audio"
+                showFeedPost={showFeedPost}
+              />
+            ) : null}
+          </div>
         </div>
       ) : null}
 
@@ -1230,11 +1225,7 @@ export function ScarceClipPlayer({
             type="button"
             className="scarce-clip-transport-btn scarce-clip-transport-btn--play"
             aria-label={
-              playDisabled
-                ? 'Unavailable offline'
-                : playing
-                  ? 'Pause'
-                  : 'Play'
+              playDisabled ? 'Unavailable offline' : playing ? 'Pause' : 'Play'
             }
             disabled={playDisabled}
             onClick={() => {
@@ -1260,10 +1251,7 @@ export function ScarceClipPlayer({
             disabled={playDisabled || !canSelectIndex(activeIndex + 1)}
             onClick={() => skipNext()}
           >
-            <NextFillIcon
-              className="scarce-clip-transport-icon"
-              aria-hidden
-            />
+            <NextFillIcon className="scarce-clip-transport-icon" aria-hidden />
           </button>
         </div>
       ) : null}
@@ -1291,7 +1279,11 @@ export function ScarceClipPlayer({
               if (!scrubbingRef.current) showKnobPeek(1100);
             }}
           >
-            <div ref={railRef} className="scarce-clip-progress-rail" aria-hidden>
+            <div
+              ref={railRef}
+              className="scarce-clip-progress-rail"
+              aria-hidden
+            >
               <div className="scarce-clip-progress-fill" />
               <span className="scarce-clip-progress-knob" />
             </div>
@@ -1509,13 +1501,18 @@ export function ScarceClipPlayer({
                   {persist?.collectionId && creatorId && cid ? (
                     <button
                       type="button"
-                      className={`scarce-clip-track-love${
+                      className={`scarce-clip-track-love os-confirm-icon${
                         loved ? ' is-loved' : ''
                       }${lovePending ? ' is-pending' : ''}`}
                       aria-label={
-                        loved ? `Unlove ${label}` : `Love ${label}`
+                        lovePending
+                          ? `Confirming love for ${label}`
+                          : loved
+                            ? `Unlove ${label}`
+                            : `Love ${label}`
                       }
                       aria-pressed={loved}
+                      aria-busy={lovePending}
                       disabled={lovePending}
                       onClick={() => {
                         void loves.toggleLove(track);
@@ -1541,87 +1538,87 @@ export function ScarceClipPlayer({
                     </button>
                   ) : null}
                   {showDownloads ? (
-                  <ScarceTrackOptionsMenu
-                    label={label}
-                    index={index}
-                    cached={offlineAllowed && trackCached}
-                    canKeepOffline={offlineAllowed}
-                    offlineUnknown={offlineUnknown}
-                    downloadLock={downloadLock}
-                    onLockChange={(busy) =>
-                      setDownloadLock(busy ? `menu-${index}` : null)
-                    }
-                    onSave={async (onProgress) => {
-                      try {
-                        await downloadIpfsMedia({
-                          cid: track.cid,
-                          url: track.url,
-                          mime: track.mime,
-                          title: track.title,
-                          fallbackName: `track-${index + 1}`,
-                          onProgress,
-                          exportFile: true,
-                        });
-                      } catch (cause) {
-                        reportOfflineError(
-                          cause,
-                          txToastError.offlineCacheFailed
-                        );
-                        throw cause;
+                    <ScarceTrackOptionsMenu
+                      label={label}
+                      index={index}
+                      cached={offlineAllowed && trackCached}
+                      canKeepOffline={offlineAllowed}
+                      offlineUnknown={offlineUnknown}
+                      downloadLock={downloadLock}
+                      onLockChange={(busy) =>
+                        setDownloadLock(busy ? `menu-${index}` : null)
                       }
-                    }}
-                    onDownload={async (onProgress) => {
-                      try {
-                        await downloadIpfsMedia({
-                          cid: track.cid,
-                          url: track.url,
-                          mime: track.mime,
-                          title: track.title,
-                          fallbackName: `track-${index + 1}`,
-                          onProgress,
-                          cacheOffline: Boolean(persist?.collectionId),
-                          exportFile: false,
-                          onOfflineCache: async ({
-                            cid: cachedCid,
-                            mime,
-                            blob,
-                          }) => {
-                            await cacheOfflineBytes({
+                      onSave={async (onProgress) => {
+                        try {
+                          await downloadIpfsMedia({
+                            cid: track.cid,
+                            url: track.url,
+                            mime: track.mime,
+                            title: track.title,
+                            fallbackName: `track-${index + 1}`,
+                            onProgress,
+                            exportFile: true,
+                          });
+                        } catch (cause) {
+                          reportOfflineError(
+                            cause,
+                            txToastError.offlineCacheFailed
+                          );
+                          throw cause;
+                        }
+                      }}
+                      onDownload={async (onProgress) => {
+                        try {
+                          await downloadIpfsMedia({
+                            cid: track.cid,
+                            url: track.url,
+                            mime: track.mime,
+                            title: track.title,
+                            fallbackName: `track-${index + 1}`,
+                            onProgress,
+                            cacheOffline: Boolean(persist?.collectionId),
+                            exportFile: false,
+                            onOfflineCache: async ({
                               cid: cachedCid,
                               mime,
                               blob,
-                              track,
-                            });
-                          },
-                        });
-                      } catch (cause) {
-                        reportOfflineError(
-                          cause,
-                          txToastError.offlineCacheFailed
-                        );
-                        throw cause;
-                      }
-                    }}
-                    onRemove={
-                      offlineAllowed && cid
-                        ? async () => {
-                            try {
-                              await removeTrack(cid);
-                              setCachedCids((current) => {
-                                const next = new Set(current);
-                                next.delete(cid);
-                                return next;
+                            }) => {
+                              await cacheOfflineBytes({
+                                cid: cachedCid,
+                                mime,
+                                blob,
+                                track,
                               });
-                            } catch (cause) {
-                              reportOfflineError(
-                                cause,
-                                txToastError.offlineRemoveFailed
-                              );
+                            },
+                          });
+                        } catch (cause) {
+                          reportOfflineError(
+                            cause,
+                            txToastError.offlineCacheFailed
+                          );
+                          throw cause;
+                        }
+                      }}
+                      onRemove={
+                        offlineAllowed && cid
+                          ? async () => {
+                              try {
+                                await removeTrack(cid);
+                                setCachedCids((current) => {
+                                  const next = new Set(current);
+                                  next.delete(cid);
+                                  return next;
+                                });
+                              } catch (cause) {
+                                reportOfflineError(
+                                  cause,
+                                  txToastError.offlineRemoveFailed
+                                );
+                              }
                             }
-                          }
-                        : undefined
-                    }
-                  />
+                          : undefined
+                      }
+                    />
                   ) : null}
                 </li>
               );
@@ -1637,15 +1634,18 @@ export function ScarceClipPlayer({
           {persist?.collectionId && creatorId ? (
             <button
               type="button"
-              className={`scarce-clip-track-love${
+              className={`scarce-clip-track-love os-confirm-icon${
                 loves.viewerLoves(active) ? ' is-loved' : ''
               }${loves.isLovePending(active) ? ' is-pending' : ''}`}
               aria-label={
-                loves.viewerLoves(active)
-                  ? `Unlove ${active.title?.trim() || 'track'}`
-                  : `Love ${active.title?.trim() || 'track'}`
+                loves.isLovePending(active)
+                  ? `Confirming love for ${active.title?.trim() || 'track'}`
+                  : loves.viewerLoves(active)
+                    ? `Unlove ${active.title?.trim() || 'track'}`
+                    : `Love ${active.title?.trim() || 'track'}`
               }
               aria-pressed={loves.viewerLoves(active)}
+              aria-busy={loves.isLovePending(active)}
               disabled={loves.isLovePending(active)}
               onClick={() => {
                 void loves.toggleLove(active);
@@ -1657,7 +1657,10 @@ export function ScarceClipPlayer({
                   aria-hidden
                 />
               ) : (
-                <HeartIcon className="scarce-clip-track-love-icon" aria-hidden />
+                <HeartIcon
+                  className="scarce-clip-track-love-icon"
+                  aria-hidden
+                />
               )}
               <span
                 className="scarce-clip-track-love-count"
@@ -1673,9 +1676,7 @@ export function ScarceClipPlayer({
             className="scarce-clip-download-control"
             glyph="save"
             ariaLabel="Save track to Files"
-            disabled={
-              downloadLock != null && downloadLock !== 'save-single'
-            }
+            disabled={downloadLock != null && downloadLock !== 'save-single'}
             onBusyChange={(busy) =>
               setDownloadLock(busy ? 'save-single' : null)
             }

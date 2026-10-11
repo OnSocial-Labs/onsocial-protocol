@@ -148,6 +148,40 @@ function PlatformBufferStatus({
   );
 }
 
+/** Same box as the settled readout — numbers shimmer in place, no blank bar. */
+function UserStorageReadoutPending() {
+  return (
+    <div className="app-storage-readout os-surface-panel" aria-busy="true">
+      <div className="app-storage-readout-head">
+        <span className="account-wallet-metric-label">
+          {USER_STORAGE_LABEL}
+        </span>
+        <div className="app-storage-balance-row">
+          <span className="app-storage-balance-value is-pending">
+            <span className="app-storage-pending-ghost">0.00</span>
+            <span
+              className="standing-row-shimmer app-storage-pending-balance"
+              aria-hidden
+            />
+          </span>
+          <span className="account-card-balance-unit">NEAR</span>
+        </div>
+      </div>
+      <p className="app-storage-meta">
+        <span className="app-storage-pending-line">
+          <span className="app-storage-pending-ghost">
+            0 KB used · 0 KB free
+          </span>
+          <span
+            className="standing-row-shimmer app-storage-pending-meta"
+            aria-hidden
+          />
+        </span>
+      </p>
+    </div>
+  );
+}
+
 function UserStorageBlock({
   loading,
   error,
@@ -158,7 +192,7 @@ function UserStorageBlock({
   summary: UserStorageSummary | null;
 }) {
   if (loading) {
-    return <div className="app-storage-readout is-loading" aria-hidden />;
+    return <UserStorageReadoutPending />;
   }
 
   if (error) {

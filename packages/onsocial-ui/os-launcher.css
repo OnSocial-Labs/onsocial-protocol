@@ -226,7 +226,7 @@
 
 @media (min-width: 768px) {
   .os-launcher-header {
-    padding-top: 0.75rem;
+    padding-top: var(--os-app-chrome-pad-y, 0.3rem);
   }
 }
 

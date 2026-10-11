@@ -70,6 +70,15 @@ export function isAppSmoothScrollLocked(dataset: {
  * Leaderboard pages scroll inside the sheet. Lenis on the sheet body or the
  * screen body would take the wheel and the sideways pager would not move.
  */
+/** Hidden shells must not take the wheel from the list inside them. */
+export function shouldBindAppSmoothScrollRoot(
+  isPagerHost: boolean,
+  overflowY: string
+): boolean {
+  if (isPagerHost) return false;
+  return overflowY === 'auto' || overflowY === 'scroll';
+}
+
 export function isAppSmoothScrollPagerHost(element: HTMLElement): boolean {
   if (
     typeof element.closest === 'function' &&

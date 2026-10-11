@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { InformationCircleIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { useImmersiveTitleHandoff } from '@/hooks/use-immersive-title-handoff';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -173,7 +174,6 @@ export function CollectiblesPlayPanel({
   } | null>(null);
   const [sellOpen, setSellOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
-  const [headerElevated, setHeaderElevated] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
   const ownershipKey =
@@ -377,55 +377,13 @@ export function CollectiblesPlayPanel({
     return () => window.clearInterval(id);
   }, [status]);
 
-  // Title handoff — same recipe as collection / guild immersive nav.
   const handoffKey = immersive ? (view?.collectionId ?? null) : null;
-  useEffect(() => {
-    const scrollRoot = scrollRootRef.current;
-    if (!scrollRoot || !handoffKey) return;
-
-    const heroTitle = heroTitleRef.current;
-    const header = scrollRoot.parentElement?.querySelector(
-      '.os-app-screen-header'
-    );
-    const screen = scrollRoot.closest<HTMLElement>('.os-app-screen') ?? null;
-
-    const syncElevated = () => {
-      const scrolled = scrollRoot.scrollTop > 8;
-      if (!heroTitle) {
-        setHeaderElevated(scrollRoot.scrollTop > 18);
-        return;
-      }
-      const headerBottom =
-        header?.getBoundingClientRect().bottom ??
-        scrollRoot.getBoundingClientRect().top + 72;
-      const heroRect = heroTitle.getBoundingClientRect();
-      const titleTop = heroRect.top;
-
-      if (heroRect.height > 0) {
-        const fadeZone = 28;
-        const distance = titleTop - headerBottom;
-        const t = Math.max(0, Math.min(1, 1 - distance / fadeZone));
-        screen?.style.setProperty('--title-handoff', String(t));
-      }
-
-      setHeaderElevated((current) => {
-        if (current) {
-          return scrolled && titleTop < headerBottom + 2;
-        }
-        return scrolled && titleTop < headerBottom - 4;
-      });
-    };
-
-    syncElevated();
-    scrollRoot.addEventListener('scroll', syncElevated, { passive: true });
-    window.addEventListener('resize', syncElevated, { passive: true });
-    return () => {
-      scrollRoot.removeEventListener('scroll', syncElevated);
-      window.removeEventListener('resize', syncElevated);
-      screen?.style.removeProperty('--title-handoff');
-      setHeaderElevated(false);
-    };
-  }, [handoffKey]);
+  useImmersiveTitleHandoff(
+    scrollRootRef,
+    heroTitleRef,
+    Boolean(handoffKey),
+    handoffKey
+  );
 
   const vaultBackHref = collectiblesPlayBackHref(viewerAccountId);
 
@@ -435,7 +393,6 @@ export function CollectiblesPlayPanel({
       dockBack
       backFallbackHref={vaultBackHref}
       immersiveHeader={immersive}
-      headerElevated={immersive ? headerElevated : false}
       glassChrome={!immersive}
       scrollRootRef={scrollRootRef}
       actions={
@@ -460,7 +417,7 @@ export function CollectiblesPlayPanel({
       {immersive ? (
         <div
           aria-hidden
-          className={`os-chrome-glass${headerElevated ? ' is-frosted' : ''}`}
+          className="os-chrome-glass"
         />
       ) : null}
 

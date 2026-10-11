@@ -5,6 +5,7 @@ import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import { CollectionQtyStepper } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import '@/features/scarces/scarce-buy-deal.css';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
@@ -56,6 +57,7 @@ import { ScarcePostPreview } from '@/features/scarces/scarce-post-preview';
 import {
   ScarceProvenanceCopy,
   isScarceOriginalSelf,
+  resolveScarceBodyText,
 } from '@/features/scarces/scarce-provenance-copy';
 import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
 import { fetchScarceRoyaltyMap } from '@/features/scarces/scarce-royalty-fetch';
@@ -248,6 +250,16 @@ export function ScarceBuyForm({
   const [hydratedPlayables, setHydratedPlayables] = useState<
     ScarcePlayableMedia[] | null
   >(null);
+  /** False until catalog story hydrate finishes — holds the teaser line. */
+  const [storySettled, setStorySettled] = useState(
+    () => Boolean(listing?.description?.trim() || post)
+  );
+  const [mintSettled, setMintSettled] = useState(() => {
+    const id = listing?.tokenId?.trim() || embed?.tokenId?.trim();
+    const initialStatus = listing?.status ?? embed?.status;
+    return !id || initialStatus === 'lazy_listing' || initialStatus === 'drop';
+  });
+  const [royaltySettled, setRoyaltySettled] = useState(false);
   const [mintedAtMs, setMintedAtMs] = useState<number | null>(null);
   const [mintPriceNear, setMintPriceNear] = useState<string | null>(null);
   const [royalty, setRoyalty] = useState<Record<string, number> | null>(null);
@@ -286,6 +298,13 @@ export function ScarceBuyForm({
   const title = listing?.title?.trim() || titleFromPost(post) || 'Scarce';
   const resolvedDescription =
     listing?.description?.trim() || hydratedDescription || null;
+  const descriptionPending =
+    !storySettled &&
+    !resolveScarceBodyText({
+      title,
+      description: resolvedDescription,
+      post,
+    });
   const resolvedMediaUrl =
     listing?.mediaUrl?.trim() ||
     embed?.mediaUrl?.trim() ||
@@ -392,26 +411,31 @@ export function ScarceBuyForm({
       setHydratedSourcePostPath(null);
       setHydratedPlayable(null);
       setHydratedPlayables(null);
+      setStorySettled(true);
       return;
     }
     let cancelled = false;
     void (async () => {
-      const meta = await fetchScarceListingMeta({ listingId, tokenId });
-      if (cancelled || !meta) return;
-      if (needsDescription && meta.description) {
-        setHydratedDescription(meta.description);
-      }
-      if (needsMedia && meta.mediaUrl) {
-        setHydratedMediaUrl(meta.mediaUrl);
-      }
-      if (needsSource && meta.sourcePostPath) {
-        setHydratedSourcePostPath(meta.sourcePostPath);
-      }
-      if (needsPlayable && meta.playable) {
-        setHydratedPlayable(meta.playable);
-      }
-      if (needsPlayables && meta.playables?.length) {
-        setHydratedPlayables(meta.playables);
+      try {
+        const meta = await fetchScarceListingMeta({ listingId, tokenId });
+        if (cancelled || !meta) return;
+        if (needsDescription && meta.description) {
+          setHydratedDescription(meta.description);
+        }
+        if (needsMedia && meta.mediaUrl) {
+          setHydratedMediaUrl(meta.mediaUrl);
+        }
+        if (needsSource && meta.sourcePostPath) {
+          setHydratedSourcePostPath(meta.sourcePostPath);
+        }
+        if (needsPlayable && meta.playable) {
+          setHydratedPlayable(meta.playable);
+        }
+        if (needsPlayables && meta.playables?.length) {
+          setHydratedPlayables(meta.playables);
+        }
+      } finally {
+        if (!cancelled) setStorySettled(true);
       }
     })();
     return () => {
@@ -433,14 +457,20 @@ export function ScarceBuyForm({
     if (!id || status === 'lazy_listing' || status === 'drop') {
       setMintedAtMs(null);
       setMintPriceNear(null);
+      setMintSettled(true);
       return;
     }
     let cancelled = false;
+    setMintSettled(false);
     void (async () => {
-      const summary = await fetchScarceMintSummary(id);
-      if (cancelled) return;
-      setMintedAtMs(summary.mintedAtMs);
-      setMintPriceNear(summary.mintPriceNear);
+      try {
+        const summary = await fetchScarceMintSummary(id);
+        if (cancelled) return;
+        setMintedAtMs(summary.mintedAtMs);
+        setMintPriceNear(summary.mintPriceNear);
+      } finally {
+        if (!cancelled) setMintSettled(true);
+      }
     })();
     return () => {
       cancelled = true;
@@ -449,15 +479,20 @@ export function ScarceBuyForm({
 
   useEffect(() => {
     setRoyalty(null);
+    setRoyaltySettled(false);
     let cancelled = false;
     void (async () => {
-      const map = await fetchScarceRoyaltyMap({
-        collectionId,
-        listingId,
-        tokenId,
-      });
-      if (cancelled) return;
-      setRoyalty(map);
+      try {
+        const map = await fetchScarceRoyaltyMap({
+          collectionId,
+          listingId,
+          tokenId,
+        });
+        if (cancelled) return;
+        setRoyalty(map);
+      } finally {
+        if (!cancelled) setRoyaltySettled(true);
+      }
     })();
     return () => {
       cancelled = true;
@@ -934,6 +969,8 @@ export function ScarceBuyForm({
       tokenId: tokenId ?? null,
       listingId: listingId ?? null,
       royalty,
+      royaltyLoading: !royaltySettled,
+      mintLoading: !mintSettled,
       eventStartsAtMs: hydratedEvent?.eventStartsAtMs ?? null,
       eventEndsAtMs: hydratedEvent?.eventEndsAtMs ?? null,
       place: hydratedEvent?.place ?? null,
@@ -959,6 +996,8 @@ export function ScarceBuyForm({
     tokenId,
     listingId,
     royalty,
+    royaltySettled,
+    mintSettled,
     hydratedEvent,
     resolvedDescription,
   ]);
@@ -1215,6 +1254,7 @@ export function ScarceBuyForm({
                 resolvedSourcePostPath ?? listing?.sourcePostPath,
                 listing?.postHref
               )}
+              descriptionPending={descriptionPending}
               event={
                 hydratedEvent
                   ? {
@@ -1251,9 +1291,24 @@ export function ScarceBuyForm({
           }
           price={
             <>
-              {sheetPriceLabel ? (
-                <p className="scarce-buy-price">{sheetPriceLabel}</p>
-              ) : null}
+              <div className="scarce-buy-deal-row">
+                {sheetPriceLabel ? (
+                  <p className="scarce-buy-price">{sheetPriceLabel}</p>
+                ) : null}
+                <ScarceBuyFactsMeta
+                  parts={scarceBuyDealParts({
+                    isPrimaryMint,
+                    copies,
+                    remaining,
+                    unit: supplyUnit,
+                    listedLabel:
+                      !isPrimaryMint && listing?.listedAtMs
+                        ? `Listed ${formatMarketRelativeTime(listing.listedAtMs)}`
+                        : null,
+                  })}
+                  onOpenFacts={() => setFactsOpen(true)}
+                />
+              </div>
               {dollarSticker ? (
                 <p className="profile-support-hint">
                   {!dollarOracle
@@ -1291,19 +1346,6 @@ export function ScarceBuyForm({
                   </select>
                 </label>
               ) : null}
-              <ScarceBuyFactsMeta
-                parts={scarceBuyDealParts({
-                  isPrimaryMint,
-                  copies,
-                  remaining,
-                  unit: supplyUnit,
-                  listedLabel:
-                    !isPrimaryMint && listing?.listedAtMs
-                      ? `Listed ${formatMarketRelativeTime(listing.listedAtMs)}`
-                      : null,
-                })}
-                onOpenFacts={() => setFactsOpen(true)}
-              />
             </>
           }
         />

@@ -74,7 +74,7 @@
   flex-direction: column;
   gap: 0.85rem;
   /* Bleed the row pill outside the text column so option copy sits on the
-     same 1.15rem inset as the sheet title instead of 0.65rem further in. */
+     same inset as the sheet title instead of 0.65rem further in. */
   margin-inline: -0.65rem;
 }
 

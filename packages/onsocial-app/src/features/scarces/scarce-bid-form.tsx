@@ -5,6 +5,7 @@ import type { PostRow, PostScarceEmbed, ScarcesEventRow } from '@onsocial/sdk';
 import { AmountField } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import '@/features/scarces/scarce-buy-deal.css';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   fetchScarceListingMeta,
@@ -48,6 +49,7 @@ import { ScarcePostPreview } from '@/features/scarces/scarce-post-preview';
 import {
   ScarceProvenanceCopy,
   isScarceOriginalSelf,
+  resolveScarceBodyText,
 } from '@/features/scarces/scarce-provenance-copy';
 import { fetchScarceRoyaltyMap } from '@/features/scarces/scarce-royalty-fetch';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
@@ -187,6 +189,13 @@ export function ScarceBidForm({
   const [hydratedPlayables, setHydratedPlayables] = useState<
     ScarcePlayableMedia[] | null
   >(null);
+  const [storySettled, setStorySettled] = useState(
+    () => Boolean(listing?.description?.trim() || post)
+  );
+  const [mintSettled, setMintSettled] = useState(
+    () => !listing?.tokenId?.trim() && !embed?.tokenId?.trim()
+  );
+  const [royaltySettled, setRoyaltySettled] = useState(false);
   const [mintedAtMs, setMintedAtMs] = useState<number | null>(null);
   const [mintPriceNear, setMintPriceNear] = useState<string | null>(null);
   const [royalty, setRoyalty] = useState<Record<string, number> | null>(null);
@@ -211,6 +220,13 @@ export function ScarceBidForm({
   const title = listing?.title?.trim() || titleFromPost(post) || 'Scarce';
   const resolvedDescription =
     listing?.description?.trim() || hydratedDescription || null;
+  const descriptionPending =
+    !storySettled &&
+    !resolveScarceBodyText({
+      title,
+      description: resolvedDescription,
+      post,
+    });
   const resolvedMediaUrl =
     listing?.mediaUrl?.trim() ||
     embed?.mediaUrl?.trim() ||
@@ -341,26 +357,31 @@ export function ScarceBidForm({
       setHydratedSourcePostPath(null);
       setHydratedPlayable(null);
       setHydratedPlayables(null);
+      setStorySettled(true);
       return;
     }
     let cancelled = false;
     void (async () => {
-      const meta = await fetchScarceListingMeta({ tokenId });
-      if (cancelled || !meta) return;
-      if (needsDescription && meta.description) {
-        setHydratedDescription(meta.description);
-      }
-      if (needsMedia && meta.mediaUrl) {
-        setHydratedMediaUrl(meta.mediaUrl);
-      }
-      if (needsSource && meta.sourcePostPath) {
-        setHydratedSourcePostPath(meta.sourcePostPath);
-      }
-      if (needsPlayable && meta.playable) {
-        setHydratedPlayable(meta.playable);
-      }
-      if (needsPlayables && meta.playables?.length) {
-        setHydratedPlayables(meta.playables);
+      try {
+        const meta = await fetchScarceListingMeta({ tokenId });
+        if (cancelled || !meta) return;
+        if (needsDescription && meta.description) {
+          setHydratedDescription(meta.description);
+        }
+        if (needsMedia && meta.mediaUrl) {
+          setHydratedMediaUrl(meta.mediaUrl);
+        }
+        if (needsSource && meta.sourcePostPath) {
+          setHydratedSourcePostPath(meta.sourcePostPath);
+        }
+        if (needsPlayable && meta.playable) {
+          setHydratedPlayable(meta.playable);
+        }
+        if (needsPlayables && meta.playables?.length) {
+          setHydratedPlayables(meta.playables);
+        }
+      } finally {
+        if (!cancelled) setStorySettled(true);
       }
     })();
     return () => {
@@ -381,14 +402,20 @@ export function ScarceBidForm({
     if (!id) {
       setMintedAtMs(null);
       setMintPriceNear(null);
+      setMintSettled(true);
       return;
     }
     let cancelled = false;
+    setMintSettled(false);
     void (async () => {
-      const summary = await fetchScarceMintSummary(id);
-      if (cancelled) return;
-      setMintedAtMs(summary.mintedAtMs);
-      setMintPriceNear(summary.mintPriceNear);
+      try {
+        const summary = await fetchScarceMintSummary(id);
+        if (cancelled) return;
+        setMintedAtMs(summary.mintedAtMs);
+        setMintPriceNear(summary.mintPriceNear);
+      } finally {
+        if (!cancelled) setMintSettled(true);
+      }
     })();
     return () => {
       cancelled = true;
@@ -398,12 +425,20 @@ export function ScarceBidForm({
   useEffect(() => {
     const id = tokenId.trim();
     setRoyalty(null);
-    if (!id) return;
+    if (!id) {
+      setRoyaltySettled(true);
+      return;
+    }
+    setRoyaltySettled(false);
     let cancelled = false;
     void (async () => {
-      const map = await fetchScarceRoyaltyMap({ tokenId: id });
-      if (cancelled) return;
-      setRoyalty(map);
+      try {
+        const map = await fetchScarceRoyaltyMap({ tokenId: id });
+        if (cancelled) return;
+        setRoyalty(map);
+      } finally {
+        if (!cancelled) setRoyaltySettled(true);
+      }
     })();
     return () => {
       cancelled = true;
@@ -758,6 +793,8 @@ export function ScarceBidForm({
       tokenId: tokenId || null,
       collectionId: collectionId ?? null,
       royalty,
+      royaltyLoading: !royaltySettled,
+      mintLoading: !mintSettled,
       eventStartsAtMs: hydratedEvent?.eventStartsAtMs ?? null,
       eventEndsAtMs: hydratedEvent?.eventEndsAtMs ?? null,
       place: hydratedEvent?.place ?? null,
@@ -780,6 +817,8 @@ export function ScarceBidForm({
     tokenId,
     collectionId,
     royalty,
+    royaltySettled,
+    mintSettled,
     hydratedEvent,
     resolvedDescription,
   ]);
@@ -840,6 +879,7 @@ export function ScarceBidForm({
                 resolvedSourcePostPath ?? listing?.sourcePostPath,
                 listing?.postHref
               )}
+              descriptionPending={descriptionPending}
               event={
                 hydratedEvent
                   ? {
@@ -874,26 +914,38 @@ export function ScarceBidForm({
           }
           price={
             <>
-              <p className="scarce-buy-price">
-                {auctionLoading ? (
-                  <span
-                    className="standing-row-shimmer scarce-buy-price-skel"
-                    aria-hidden
-                  />
-                ) : ended ? (
-                  auction?.reserveMet ? (
-                    `Ended · ${formatNearLabel(highNear)}`
+              <div className="scarce-buy-deal-row">
+                <p className="scarce-buy-price">
+                  {auctionLoading ? (
+                    <span
+                      className="standing-row-shimmer scarce-buy-price-skel"
+                      aria-hidden
+                    />
+                  ) : ended ? (
+                    auction?.reserveMet ? (
+                      `Ended · ${formatNearLabel(highNear)}`
+                    ) : (
+                      'Ended · reserve not met'
+                    )
+                  ) : highNear ? (
+                    `High bid · ${formatNearLabel(highNear)}`
+                  ) : minNear ? (
+                    `Reserve · ${formatNearLabel(minNear)}`
                   ) : (
-                    'Ended · reserve not met'
-                  )
-                ) : highNear ? (
-                  `High bid · ${formatNearLabel(highNear)}`
-                ) : minNear ? (
-                  `Reserve · ${formatNearLabel(minNear)}`
-                ) : (
-                  'Auction'
-                )}
-              </p>
+                    'Auction'
+                  )}
+                </p>
+                <ScarceBuyFactsMeta
+                  parts={
+                    listing?.listedAtMs
+                      ? [
+                          `Listed ${formatMarketRelativeTime(listing.listedAtMs)}`,
+                        ]
+                      : []
+                  }
+                  onOpenFacts={() => setFactsOpen(true)}
+                />
+              </div>
               {!ended && !auctionLoading ? (
                 <p className="profile-support-hint scarce-buy-meta">
                   {[
@@ -916,14 +968,6 @@ export function ScarceBidForm({
                     : ''}
                 </p>
               ) : null}
-              <ScarceBuyFactsMeta
-                parts={
-                  listing?.listedAtMs
-                    ? [`Listed ${formatMarketRelativeTime(listing.listedAtMs)}`]
-                    : []
-                }
-                onOpenFacts={() => setFactsOpen(true)}
-              />
             </>
           }
         />

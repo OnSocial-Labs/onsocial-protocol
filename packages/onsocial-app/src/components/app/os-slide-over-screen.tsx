@@ -383,7 +383,7 @@ export function OsSlideOverScreen({
           </header>
           <main
             ref={setBodyRef}
-            className="os-app-screen-body"
+            className="os-app-screen-body os-stable-scroll"
             // Lenis may add `lenis` before nested hydration finishes.
             suppressHydrationWarning
           >

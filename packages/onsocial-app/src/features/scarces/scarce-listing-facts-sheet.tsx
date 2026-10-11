@@ -65,6 +65,10 @@ export interface ScarceListingFacts {
    * `null`/omit = unknown; `{}` = none; non-empty = cut.
    */
   royalty?: Record<string, number> | null;
+  /** True while the royalty map is still resolving. */
+  royaltyLoading?: boolean;
+  /** True while minted time is still resolving (resale / auction). */
+  mintLoading?: boolean;
   /** Ticket event window — from drop template / rain-day override. */
   eventStartsAtMs?: number | null;
   eventEndsAtMs?: number | null;
@@ -196,6 +200,7 @@ export function ScarceListingFactsSheet({
   const hasPeople = Boolean(facts.authorId?.trim()) || showSeller;
   const hasProvenance = Boolean(
     mintedAbs ||
+      facts.mintLoading ||
       listedAbs ||
       sourceHref ||
       facts.collectionId?.trim() ||
@@ -311,7 +316,17 @@ export function ScarceListingFactsSheet({
             label="Marketplace fee"
             value={`${formatRoyaltyPercent(MARKETPLACE_FEE_BPS)}%`}
           />
-          {royalty != null ? (
+          {facts.royaltyLoading && royalty == null ? (
+            <SheetFactRow
+              label="Resale royalty"
+              value={
+                <span
+                  className="standing-row-shimmer scarce-facts-value-skel"
+                  aria-hidden
+                />
+              }
+            />
+          ) : royalty != null ? (
             <SheetFactRow
               label="Resale royalty"
               value={
@@ -378,6 +393,16 @@ export function ScarceListingFactsSheet({
                   label="Minted"
                   value={
                     mintedRel ? `${mintedAbs} · ${mintedRel}` : mintedAbs
+                  }
+                />
+              ) : facts.mintLoading ? (
+                <SheetFactRow
+                  label="Minted"
+                  value={
+                    <span
+                      className="standing-row-shimmer scarce-facts-value-skel"
+                      aria-hidden
+                    />
                   }
                 />
               ) : null}

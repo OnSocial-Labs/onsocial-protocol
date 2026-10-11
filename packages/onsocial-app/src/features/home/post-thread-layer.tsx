@@ -389,6 +389,11 @@ function PostThreadSheet({
       window.setTimeout(() => target.pause(), 0);
     };
     const allowScroll = (event: Event) => {
+      const target = event.target;
+      if (!(sheetRoot instanceof HTMLElement) || !(target instanceof Node)) {
+        return;
+      }
+      if (!sheetRoot.contains(target)) return;
       event.stopPropagation();
     };
     const apply = () => {

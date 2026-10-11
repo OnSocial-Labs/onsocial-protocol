@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import type { PostRow } from '@onsocial/sdk';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { CollectionAboutTeaser } from '@/features/scarces/collection-about-sheet';
 import {
   ScarceAboutSheet,
@@ -39,6 +40,11 @@ export interface ScarceProvenanceCopyProps {
   event?: ScarceAboutEvent | null;
   /** About sheet stack above commerce. */
   aboutZIndex?: number;
+  /**
+   * Catalog rows omit the story. Hold one line until hydrate finishes
+   * so the price row stays put when the sentence arrives.
+   */
+  descriptionPending?: boolean;
 }
 
 /** Full post body for scarce sheets — cover stays on the art above. */
@@ -125,6 +131,7 @@ export function ScarceProvenanceCopy({
   showTitle = false,
   event = null,
   aboutZIndex = SCARCE_Z.nestedOverCommerce,
+  descriptionPending = false,
 }: ScarceProvenanceCopyProps) {
   const [aboutOpen, setAboutOpen] = useState(false);
   const resolvedTitle = title?.trim() || null;
@@ -154,11 +161,17 @@ export function ScarceProvenanceCopy({
   // (e.g. list/compose preview).
   const showTitleRow = Boolean(resolvedTitle) && showTitle;
 
-  if (!showTitleRow && !teaserText && !originalHref) return null;
+  const holdStoryLine = descriptionPending && !teaserText;
+  if (!showTitleRow && !teaserText && !originalHref && !holdStoryLine) {
+    return null;
+  }
 
   return (
     <>
-      <div className="scarce-provenance-copy">
+      <div
+        className="scarce-provenance-copy"
+        aria-busy={holdStoryLine ? true : undefined}
+      >
         {showTitleRow ? (
           <p className="scarce-provenance-title">{resolvedTitle}</p>
         ) : null}
@@ -168,15 +181,25 @@ export function ScarceProvenanceCopy({
             hasMore={hasMoreStory}
             onReadMore={() => setAboutOpen(true)}
           />
+        ) : holdStoryLine ? (
+          <div className="collection-about-teaser" aria-hidden>
+            <span className="collection-about-teaser-line scarce-provenance-pending-line">
+              <span className="scarce-provenance-pending-ghost">
+                About this scarce
+              </span>
+              <span className="standing-row-shimmer scarce-provenance-pending-story" />
+            </span>
+          </div>
         ) : null}
         {originalHref ? (
           <p className="scarce-provenance-original">
             <Link
               href={originalHref}
               scroll={false}
-              className="scarce-provenance-original-link"
+              className="scarce-provenance-original-link group"
             >
               View original post
+              <ProtocolMotionArrow className="scarce-provenance-original-arrow" />
             </Link>
           </p>
         ) : null}

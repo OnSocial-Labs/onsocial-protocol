@@ -20,6 +20,7 @@ import {
 } from '@/contexts/compose-launcher-context';
 import { useFeedReplyWriteDock } from '@/hooks/use-feed-reply-write-dock';
 import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { useImmersiveTitleHandoff } from '@/hooks/use-immersive-title-handoff';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { writeDockDraftKey } from '@/lib/os-write-dock';
 import {
@@ -102,7 +103,6 @@ import {
   type GuildShareSheetId,
 } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import { coalesceFeedThreads } from '@/lib/feed-threads';
@@ -227,7 +227,6 @@ export function LiveGuildPanel({
   } | null>(null);
   const [modalPending, setModalPending] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
-  const [headerElevated, setHeaderElevated] = useState(false);
   const [manageSheet, setManageSheet] = useState<GuildManageSheetId | null>(
     () => manageSheetFromShare(initialSheet)
   );
@@ -333,9 +332,6 @@ export function LiveGuildPanel({
       : null;
   // Always the real name when known — heading is hidden until elevate (no "Guild" flash).
   const title = resolvedDisplayName ?? 'Guild';
-  // Auto-hide only while sticky under elevated chrome — stay visible at top of page.
-  // Unscoped listener — same path as the bottom dock (body scroller via capture).
-  const feedFiltersHidden = useDockAutoHide(!headerElevated);
   const feedSpaces = useMemo(
     () => (config ? enabledGuildSpaces(config.structure) : []),
     [config]
@@ -505,75 +501,75 @@ export function LiveGuildPanel({
 
   useEffect(() => {
     lastHydratedFeedKeysRef.current = '';
-    setHeaderElevated(false);
   }, [groupId]);
 
+  useImmersiveTitleHandoff(
+    scrollRootRef,
+    heroTitleRef,
+    loadState === 'ready' || (loadState === 'loading' && Boolean(shellPreview)),
+    groupId
+  );
+
+  // Room-row frost grows down to meet the chips. Measured once; scroll only
+  // reads scrollTop. A layout read on each coasting frame jerks when you let go.
   useEffect(() => {
     const scrollRoot = scrollRootRef.current;
-    const canElevate =
+    const canTrack =
       loadState === 'ready' ||
       (loadState === 'loading' && Boolean(shellPreview));
-    if (!scrollRoot || !canElevate) return;
+    if (!scrollRoot || !canTrack) return;
 
-    // Title handoff: elevate once the hero name scrolls under the immersive bar.
-    const heroTitle = heroTitleRef.current;
-    const header = scrollRoot.parentElement?.querySelector(
+    const screen = scrollRoot.closest<HTMLElement>('.os-app-screen');
+    const header = scrollRoot.parentElement?.querySelector<HTMLElement>(
       '.os-app-screen-header'
     );
+    let dockStart = 0;
+    let approach = 1;
+    let last = '';
 
-    const screen = scrollRoot.closest<HTMLElement>('.os-app-screen') ?? null;
-    const railPin = scrollRoot.querySelector('.guild-feed-filter-pin');
-
-    const syncElevated = () => {
-      const scrolled = scrollRoot.scrollTop > 8;
-      if (!heroTitle) {
-        setHeaderElevated(scrollRoot.scrollTop > 18);
-        return;
+    const measure = () => {
+      const rail = scrollRoot.querySelector<HTMLElement>(
+        '.guild-feed-filter-pin'
+      );
+      if (!rail) return;
+      let top = 0;
+      let node: HTMLElement | null = rail;
+      while (node && node !== scrollRoot) {
+        top += node.offsetTop;
+        node = node.offsetParent as HTMLElement | null;
       }
-      const headerBottom =
-        header?.getBoundingClientRect().bottom ??
-        scrollRoot.getBoundingClientRect().top + 72;
-      const heroRect = heroTitle.getBoundingClientRect();
-      const titleTop = heroRect.top;
-
-      // Guard: if the hero hasn't laid out yet (height 0), leave handoff at
-      // the default (0) so the hero name stays visible on first paint.
-      if (heroRect.height > 0) {
-        const fadeZone = 28;
-        const distance = titleTop - headerBottom;
-        const t = Math.max(0, Math.min(1, 1 - distance / fadeZone));
-        screen?.style.setProperty('--title-handoff', String(t));
-      }
-
-      // Rail reveal: the chrome glass starts at nav height and grows down to
-      // meet the chips strip over its final approach, docking flush (0 → 1).
-      if (railPin) {
-        const pinRect = railPin.getBoundingClientRect();
-        if (pinRect.height > 0) {
-          const approach = pinRect.height;
-          const p = Math.max(
-            0,
-            Math.min(1, (headerBottom + approach - pinRect.top) / approach)
-          );
-          screen?.style.setProperty('--os-rail-reveal', String(p));
-        }
-      }
-
-      setHeaderElevated((current) => {
-        if (current) {
-          return scrolled && titleTop < headerBottom + 2;
-        }
-        return scrolled && titleTop < headerBottom - 4;
-      });
+      approach = Math.max(rail.offsetHeight, 1);
+      const headerHeight = header?.offsetHeight ?? 72;
+      dockStart = top - headerHeight - approach;
     };
 
-    syncElevated();
-    scrollRoot.addEventListener('scroll', syncElevated, { passive: true });
-    window.addEventListener('resize', syncElevated, { passive: true });
+    const syncRail = () => {
+      if (!screen) return;
+      const reveal = Math.max(
+        0,
+        Math.min(1, (scrollRoot.scrollTop - dockStart) / approach)
+      );
+      const next = reveal.toFixed(3);
+      if (next === last) return;
+      last = next;
+      screen.style.setProperty('--os-rail-reveal', next);
+    };
+
+    measure();
+    syncRail();
+    const observer = new ResizeObserver(() => {
+      measure();
+      syncRail();
+    });
+    observer.observe(scrollRoot);
+    scrollRoot.addEventListener('scroll', syncRail, { passive: true });
+    window.addEventListener('resize', measure);
+    window.addEventListener('resize', syncRail);
     return () => {
-      scrollRoot.removeEventListener('scroll', syncElevated);
-      window.removeEventListener('resize', syncElevated);
-      screen?.style.removeProperty('--title-handoff');
+      observer.disconnect();
+      scrollRoot.removeEventListener('scroll', syncRail);
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('resize', syncRail);
       screen?.style.removeProperty('--os-rail-reveal');
     };
   }, [loadState, shellPreview]);
@@ -1053,7 +1049,7 @@ export function LiveGuildPanel({
         loadState === 'ready' ||
         (loadState === 'loading' && Boolean(shellPreview))
       }
-      scrollHidden={headerElevated && feedFiltersHidden}
+      scrollHidden={false}
     />
   );
 
@@ -1100,15 +1096,12 @@ export function LiveGuildPanel({
         ) : undefined
       }
       immersiveHeader={loadState === 'loading' || loadState === 'ready'}
-      headerElevated={headerElevated}
       scrollRootRef={scrollRootRef}
     >
       {/* Viewport-anchored chrome glass — nav + room rail frost as one pane. */}
       <div
         aria-hidden
-        className={`os-chrome-glass${headerElevated ? ' is-frosted' : ''}${
-          headerElevated && feedFiltersHidden ? ' is-rail-hidden' : ''
-        }`}
+        className="os-chrome-glass"
       />
       <div className={GUILDS_PAGE_CLASS}>
         {loadState === 'loading' ? (

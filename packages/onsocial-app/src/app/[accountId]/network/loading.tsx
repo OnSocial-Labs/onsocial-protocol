@@ -16,7 +16,7 @@ export default function NetworkLoading() {
             </div>
           </div>
         </header>
-        <main className="os-app-screen-body">
+        <main className="os-app-screen-body os-stable-scroll">
           <div className="network-orbit-panel">
             <div className="network-orbit-stage-wrap">
               <div

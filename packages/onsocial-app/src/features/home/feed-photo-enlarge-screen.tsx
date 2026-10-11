@@ -1077,7 +1077,7 @@ export function FeedPhotoEnlargeScreen({
             >
               <span
                 ref={captionInnerRef}
-                className="feed-photo-caption-clip-inner os-reveal-inner is-capped"
+                className="feed-photo-caption-clip-inner os-reveal-inner is-capped os-stable-scroll"
               >
                 <span ref={captionTextRef} className="feed-photo-caption-text">
                   {captionText}

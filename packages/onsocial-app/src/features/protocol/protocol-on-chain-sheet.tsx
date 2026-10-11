@@ -116,7 +116,7 @@ export function ProtocolOnChainSheet({
               title="Raw proposal"
               className="protocol-on-chain-raw-section"
             >
-              <pre className="protocol-on-chain-raw">
+              <pre className="protocol-on-chain-raw os-stable-scroll">
                 <code>{rawJson}</code>
               </pre>
             </SheetFactSection>

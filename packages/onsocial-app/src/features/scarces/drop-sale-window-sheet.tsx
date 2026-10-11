@@ -547,7 +547,7 @@ function DropTimePickerSheet({
               <div className="drop-time-drum-band" aria-hidden />
               <div
                 ref={hourListRef}
-                className="drop-time-drum-list"
+                className="drop-time-drum-list os-stable-scroll"
                 role="listbox"
                 aria-label="Hour"
                 aria-activedescendant={`drop-time-hour-${hour}`}
@@ -591,7 +591,7 @@ function DropTimePickerSheet({
               <div className="drop-time-drum-band" aria-hidden />
               <div
                 ref={minuteListRef}
-                className="drop-time-drum-list"
+                className="drop-time-drum-list os-stable-scroll"
                 role="listbox"
                 aria-label="Minute"
                 aria-activedescendant={`drop-time-minute-${minute}`}

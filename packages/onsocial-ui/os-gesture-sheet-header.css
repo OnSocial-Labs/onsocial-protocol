@@ -24,7 +24,8 @@
 }
 
 .glass-sheet-panel.os-gesture-sheet-panel--tall {
-  max-height: min(94dvh, 46rem);
+  --os-hug-cap: min(94dvh, 46rem, 100%);
+  max-height: var(--os-hug-cap);
 }
 
 .glass-sheet-panel.os-gesture-sheet-panel.is-keyboard-open > .glass-sheet-body {
@@ -36,7 +37,8 @@
  * Gesture form body — same inset as `.os-hug-sheet-body` (bottom = footer pad).
  */
 .os-gesture-sheet-body {
-  padding: 0.2rem 1.15rem var(--os-sheet-footer-pad-bottom);
+  padding: 0.2rem var(--os-sheet-pad-inline, 1rem)
+    var(--os-sheet-footer-pad-bottom);
 }
 
 .gesture-sheet-header {

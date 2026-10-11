@@ -30,10 +30,14 @@ async function resolveMembershipRoles(
 ): Promise<
   Pick<ResolvedGuildViewer, 'isMember' | 'isOwner' | 'isAdmin' | 'canModerate'>
 > {
-  // Privileged roles always come from chain views — indexer rows can exist with
-  // stale or missing isOwner / isAdmin / canModerate flags.
-  const [rpcIsOwner, rpcIsAdmin, rpcCanModerate, rpcIsMember] =
-    await Promise.all([
+  let rpcIsOwner = false;
+  let rpcIsAdmin = false;
+  let rpcCanModerate = false;
+  let rpcIsMember = Boolean(membership);
+  try {
+    // Privileged roles always come from chain views — indexer rows can exist with
+    // stale or missing isOwner / isAdmin / canModerate flags.
+    [rpcIsOwner, rpcIsAdmin, rpcCanModerate, rpcIsMember] = await Promise.all([
       client.groups.isOwner(groupId, accountId),
       client.groups.isAdmin(groupId, accountId),
       client.groups.canModerate(groupId, accountId),
@@ -41,6 +45,13 @@ async function resolveMembershipRoles(
         ? Promise.resolve(true)
         : client.groups.isMember(groupId, accountId),
     ]);
+  } catch {
+    // A down role view must not blank the guild. Indexer flags still paint.
+    rpcIsOwner = membership?.isOwner ?? false;
+    rpcIsAdmin = membership?.isAdmin ?? false;
+    rpcCanModerate = membership?.canModerate ?? false;
+    rpcIsMember = Boolean(membership);
+  }
 
   const isMember = Boolean(membership) || rpcIsMember || rpcIsOwner;
   if (!isMember) {

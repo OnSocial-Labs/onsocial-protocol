@@ -29,7 +29,6 @@ import {
   HeartIcon,
   MessageRoundIcon,
   NoteTextIcon,
-  PulsingDots,
   RepeatIcon,
   ShareIcon,
   TrashIcon,
@@ -1380,20 +1379,13 @@ function PostEngagementRow({
           onActivate={onReply ? () => onReply(post) : undefined}
         />
         <EngagementStat
-          icon={
-            sharePending ? (
-              <PulsingDots size="sm" label="Confirming share" />
-            ) : (
-              <RepeatIcon aria-hidden />
-            )
-          }
+          icon={<RepeatIcon aria-hidden />}
           count={shareCount}
           label="shares"
           tone="quote"
-          className={
-            `${engagement.viewerReposted && !sharePending ? 'is-active' : ''}${sharePending ? ' is-pending' : ''}`.trim() ||
-            undefined
-          }
+          className={`os-confirm-icon${
+            engagement.viewerReposted && !sharePending ? ' is-active' : ''
+          }${sharePending ? ' is-pending' : ''}`}
           disabled={sharePending}
           ariaPressed={
             sharePending ? undefined : engagement.viewerReposted || undefined
@@ -1416,7 +1408,7 @@ function PostEngagementRow({
             icon={<ReactIcon filled={engagement.viewerReacted} />}
             count={engagement.reactionCount}
             label="reactions"
-            className={`post-card-react${engagement.viewerReacted ? ' is-active' : ''}${reactionPending ? ' is-pending' : ''}`}
+            className={`os-confirm-icon post-card-react${engagement.viewerReacted ? ' is-active' : ''}${reactionPending ? ' is-pending' : ''}`}
             disabled={reactionPending}
             ariaPressed={engagement.viewerReacted}
             actionLabel={
@@ -1450,7 +1442,7 @@ function PostEngagementRow({
         {onToggleSave ? (
           <button
             type="button"
-            className={`post-card-stat post-card-stat-button post-card-save${
+            className={`os-confirm-icon post-card-stat post-card-stat-button post-card-save${
               engagement.viewerSaved ? ' is-active' : ''
             }${savePending ? ' is-pending' : ''}`}
             disabled={savePending}

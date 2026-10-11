@@ -106,6 +106,31 @@ describe('resolveGuildViewerAccess', () => {
     expect(viewer.pendingJoinProposalId).toBeNull();
   });
 
+  it('keeps indexer roles when the chain role views fail', async () => {
+    const client = createMockClient({
+      membership: {
+        isOwner: true,
+        isAdmin: false,
+        canModerate: true,
+      },
+    });
+    client.groups.isOwner = vi.fn(async () => {
+      throw new Error('RPC call failed');
+    });
+
+    const { viewer } = await resolveGuildViewerAccess(
+      client,
+      'grp_test',
+      'owner.testnet',
+      { memberDriven: false, accessGated: false }
+    );
+
+    expect(viewer.isMember).toBe(true);
+    expect(viewer.isOwner).toBe(true);
+    expect(viewer.canModerate).toBe(true);
+    expect(viewer.isAdmin).toBe(false);
+  });
+
   it('marks non-members as blacklisted when chain says so', async () => {
     const client = createMockClient({
       membership: null,
