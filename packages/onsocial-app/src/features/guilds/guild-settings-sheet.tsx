@@ -2,11 +2,16 @@
 
 import { useCallback, useState } from 'react';
 import { OsHugSheet, OsSurfaceRow, OsSurfaceRowList } from '@onsocial/ui';
+import {
+  guildSettingsActions,
+  type GuildSettingsActionId,
+} from '@/features/guilds/guild-settings-actions';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 interface GuildSettingsSheetProps {
   open: boolean;
   guildName?: string;
+  viewer: { isOwner: boolean; isAdmin: boolean } | null;
   onClose: () => void;
   onEditGuild: () => void;
   onOpenRooms: () => void;
@@ -14,12 +19,13 @@ interface GuildSettingsSheetProps {
 }
 
 /**
- * Settings hub for guild owners/admins — Edit guild + Rooms + future tools.
+ * Settings hub for guild owners and admins.
  * Toolbar gear opens this sheet instead of deep-linking into the editor.
  */
 export function GuildSettingsSheet({
   open,
   guildName,
+  viewer,
   onClose,
   onEditGuild,
   onOpenRooms,
@@ -27,6 +33,7 @@ export function GuildSettingsSheet({
 }: GuildSettingsSheetProps) {
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
+  const actions = guildSettingsActions(viewer);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -37,6 +44,16 @@ export function GuildSettingsSheet({
     setClosing(false);
     onClose();
   }, [onClose]);
+
+  const select = useCallback(
+    (id: GuildSettingsActionId) => {
+      if (id === 'edit') onEditGuild();
+      if (id === 'rooms') onOpenRooms();
+      if (id === 'storage') onOpenGroupStorage();
+      requestClose();
+    },
+    [onEditGuild, onOpenGroupStorage, onOpenRooms, requestClose]
+  );
 
   return (
     <OsHugSheet
@@ -55,36 +72,14 @@ export function GuildSettingsSheet({
         className="guild-settings-sheet-list"
         aria-label="Guild settings"
       >
-        <OsSurfaceRow
-          label="Edit guild"
-          description="Banner, name, topics, access"
-          onClick={() => {
-            onEditGuild();
-            requestClose();
-          }}
-        />
-        <OsSurfaceRow
-          label="Rooms"
-          description="Rooms and feed tabs"
-          onClick={() => {
-            onOpenRooms();
-            requestClose();
-          }}
-        />
-        <OsSurfaceRow
-          label="Guild storage"
-          description="Fund the pool and add storage for members"
-          onClick={() => {
-            onOpenGroupStorage();
-            requestClose();
-          }}
-        />
-        <OsSurfaceRow
-          label="Analytics"
-          description="Reach, posts, and member activity"
-          badge="Soon"
-          disabled
-        />
+        {actions.map((action) => (
+          <OsSurfaceRow
+            key={action.id}
+            label={action.label}
+            description={action.description}
+            onClick={() => select(action.id)}
+          />
+        ))}
       </OsSurfaceRowList>
     </OsHugSheet>
   );

@@ -50,6 +50,7 @@ import {
   liveGuildStateFromSeed,
   pageCacheFromInitial,
   pendingJoinRequest,
+  shouldIgnoreGuildPageReseed,
   persistGuildPageCache,
   type GuildFeedFilterId,
   type GuildPageLoadState,
@@ -175,6 +176,10 @@ export function useGuildPageData({
     () => !initial && !readGuildFeedCache(groupId, 'all')
   );
   const ssrGroupIdRef = useRef(initial ? groupId : null);
+  /** Guild whose server seed is already on screen. Sheet URLs must not reseed it. */
+  const seededGroupIdRef = useRef<string | null>(null);
+  const initialRef = useRef(initial);
+  initialRef.current = initial;
   const [allowlistSpaceIds, setAllowlistSpaceIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
@@ -640,6 +645,16 @@ export function useGuildPageData({
   }, [groupId, refreshShell]);
 
   useEffect(() => {
+    if (
+      shouldIgnoreGuildPageReseed(
+        seededGroupIdRef.current,
+        groupId,
+        initial?.groupId
+      )
+    ) {
+      return;
+    }
+
     clearStructureRetryTimers();
     guildShellRequestIdRef.current += 1;
     guildFeedRequestIdRef.current += 1;
@@ -650,6 +665,7 @@ export function useGuildPageData({
     // Parent pairs `initial` with this groupId; still require the id so a
     // stale seed cannot paint the wrong guild.
     if (initial && initial.groupId === groupId) {
+      seededGroupIdRef.current = groupId;
       persistGuildPageCache(groupId, pageCacheFromInitial(initial), {
         filterId: 'all',
         posts: initial.posts,
@@ -686,6 +702,7 @@ export function useGuildPageData({
     ssrGroupIdRef.current = null;
 
     if (cachedPage && cachedFeed) {
+      seededGroupIdRef.current = groupId;
       structureHydratedRef.current = cachedPage.structureResolved;
       skipSsrFeedRefreshRef.current = true;
       setShellExtrasResolved(true);
@@ -730,24 +747,28 @@ export function useGuildPageData({
   useEffect(() => clearStructureRetryTimers, [clearStructureRetryTimers]);
 
   useEffect(() => {
-    // Drop previous wallet's membership before extras resolve for the new one.
+    // Drop the previous wallet or guild before extras resolve. A new seed
+    // object for the same guild (sheet query) must not clear the viewer —
+    // that closes the settings drawer and opens it again.
     setState((current) => ({
       ...current,
       viewer: null,
       moderation: null,
     }));
     setViewerAccessResolved(false);
-    // Soft SSR keeps painted shell; ACL still re-resolves for the new wallet.
-    const softSsr = ssrGroupIdRef.current === groupId && Boolean(initial);
+    const softSsr =
+      ssrGroupIdRef.current === groupId && Boolean(initialRef.current);
     if (!softSsr) {
       setShellExtrasResolved(false);
     }
-  }, [accountId, groupId, initial]);
+  }, [accountId, groupId]);
 
   useEffect(() => {
     if (walletLoading) return;
     // Soft-reconcile viewer/ACL after SSR; full reload on client guild switch.
-    const softSsr = ssrGroupIdRef.current === groupId && Boolean(initial);
+    const currentInitial = initialRef.current;
+    const softSsr =
+      ssrGroupIdRef.current === groupId && Boolean(currentInitial);
     if (!accountId) {
       setViewerAccessResolved(true);
       if (softSsr) {
@@ -768,8 +789,9 @@ export function useGuildPageData({
     hasLoadedRef.current = false;
     void refresh();
     // Shell + feed load is scoped to guild/account changes; tab switches use refreshFeed.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshFeed intentionally excluded
-  }, [accountId, groupId, walletLoading, initial]);
+    // A new `initial` object for the same guild is a sheet query, not a reload.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshFeed and initial identity excluded
+  }, [accountId, groupId, walletLoading]);
 
   useEffect(() => {
     if (walletLoading || !hasLoadedRef.current) return;

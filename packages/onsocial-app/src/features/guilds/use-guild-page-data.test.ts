@@ -7,6 +7,7 @@ import {
   liveGuildStateFromSeed,
   pageCacheFromInitial,
   pendingJoinRequest,
+  shouldIgnoreGuildPageReseed,
 } from '@/features/guilds/guild-page-data';
 
 const initialPage = {
@@ -41,6 +42,26 @@ describe('pageCacheFromInitial', () => {
       postCount: 7,
       structureResolved: true,
     });
+  });
+});
+
+describe('shouldIgnoreGuildPageReseed', () => {
+  it('ignores a second seed for the guild already on screen', () => {
+    expect(
+      shouldIgnoreGuildPageReseed('rebels.near', 'rebels.near', 'rebels.near')
+    ).toBe(true);
+  });
+
+  it('applies the first seed and a switch to another guild', () => {
+    expect(
+      shouldIgnoreGuildPageReseed(null, 'rebels.near', 'rebels.near')
+    ).toBe(false);
+    expect(
+      shouldIgnoreGuildPageReseed('rebels.near', 'other.near', 'other.near')
+    ).toBe(false);
+    expect(
+      shouldIgnoreGuildPageReseed('rebels.near', 'rebels.near', null)
+    ).toBe(false);
   });
 });
 
