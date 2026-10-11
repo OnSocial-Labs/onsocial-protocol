@@ -16,8 +16,15 @@ import {
 } from '@/contexts/overlay-chrome-context';
 import { OverlayDismissProvider } from '@/contexts/overlay-dismiss-context';
 import { parseOverlayPanelKey } from '@/lib/overlay-routes';
+import {
+  standingSheetAlreadyCovered,
+  getNetworkStandingHandoffPhase,
+} from '@/components/panels/network-standing-handoff';
 import type { OverlaySlotMode } from '@/lib/overlay-slot';
-import { shouldMountPortfolioGlassHost } from '@/lib/portfolio-glass-host';
+import {
+  shouldKeepStandingGlassHost,
+  shouldMountPortfolioGlassHost,
+} from '@/lib/portfolio-glass-host';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { useLivePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
 import { PostRowSkeleton } from '@/features/home/post-card';
@@ -72,7 +79,10 @@ function PortfolioGlassSheet({
   }, [chrome?.scrollBodyRef, panelKey]);
 
   return (
-    <OverlayDismissProvider accountId={accountId}>
+    <OverlayDismissProvider
+      accountId={accountId}
+      overlayPresent={overlayPresent}
+    >
       {({ sheetOpen, requestDismiss, handleSheetClosed }) => (
         <PortfolioGlassSheetFrame
           sheetOpen={sheetOpen}
@@ -120,10 +130,15 @@ function PortfolioGlassSheetFrame({
   const faceMood = useLivePortfolioMoodVars(overlayPresent);
 
   useEffect(() => {
-    if (!overlayPresent && sheetOpen) {
+    if (
+      !overlayPresent &&
+      sheetOpen &&
+      panelKey !== 'network' &&
+      getNetworkStandingHandoffPhase() !== 'open'
+    ) {
       requestDismiss();
     }
-  }, [overlayPresent, requestDismiss, sheetOpen]);
+  }, [overlayPresent, panelKey, requestDismiss, sheetOpen]);
 
   return (
     <OsPageSheet
@@ -179,21 +194,37 @@ export function PortfolioGlassHost({
     overlaySlotMode,
   });
   const [hostMounted, setHostMounted] = useState(false);
-  const [presentation, setPresentation] = useState<'appear' | 'swap'>('appear');
+  const [presentation, setPresentation] = useState<'appear' | 'swap'>(() =>
+    standingSheetAlreadyCovered() ? 'swap' : 'appear'
+  );
   const [trackedPanelKey, setTrackedPanelKey] = useState<string | null>(null);
+  const sheetPresentation = standingSheetAlreadyCovered()
+    ? 'swap'
+    : presentation;
 
   if (overlayPresent && !hostMounted) {
     setHostMounted(true);
   }
 
   if (!overlayPresent && hostMounted) {
-    setHostMounted(false);
-    setTrackedPanelKey(null);
-    setPresentation('appear');
+    const keepStandingSheet = shouldKeepStandingGlassHost({
+      panelKey,
+      handoffPhase: getNetworkStandingHandoffPhase(),
+    });
+    if (!keepStandingSheet) {
+      setHostMounted(false);
+      setTrackedPanelKey(null);
+      setPresentation('appear');
+    }
   }
 
   if (overlayPresent && panelKey && panelKey !== trackedPanelKey) {
-    setPresentation(trackedPanelKey != null ? 'swap' : 'appear');
+    // A sheet that already covered the map stays put when the route finishes.
+    setPresentation(
+      standingSheetAlreadyCovered() || trackedPanelKey != null
+        ? 'swap'
+        : 'appear'
+    );
     setTrackedPanelKey(panelKey);
   }
 
@@ -207,7 +238,7 @@ export function PortfolioGlassHost({
         accountId={accountId}
         overlayPresent={overlayPresent}
         panelKey={panelKey}
-        presentation={presentation}
+        presentation={sheetPresentation}
       >
         {overlayPresent ? overlay : null}
       </PortfolioGlassSheet>

@@ -9,9 +9,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { SimpleOverlayPanel } from '@/components/overlay/simple-overlay-panel';
+import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
+import { useOverlayDismiss } from '@/contexts/overlay-dismiss-context';
 import { OsChipAction } from '@/lib/os-chip-action';
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { OsSheetAction, OsSheetActions, SheetCloseButton } from '@onsocial/ui';
 
 type EndorsementsHeaderActionState = {
   show: boolean;
@@ -33,6 +34,14 @@ const EndorsementsHeaderActionsDispatchContext = createContext<
   (state: EndorsementsHeaderActionState | null) => void
 >(() => {});
 
+const EndorsementsToolbarSlotContext = createContext<HTMLDivElement | null>(
+  null
+);
+
+const EndorsementsToolbarSlotDispatchContext = createContext<
+  (slot: HTMLDivElement | null) => void
+>(() => {});
+
 export function EndorsementsHeaderActionsProvider({
   children,
 }: {
@@ -41,14 +50,26 @@ export function EndorsementsHeaderActionsProvider({
   const [state, setState] = useState<EndorsementsHeaderActionState | null>(
     null
   );
+  const [toolbarSlot, setToolbarSlot] = useState<HTMLDivElement | null>(null);
 
   return (
     <EndorsementsHeaderActionsDispatchContext.Provider value={setState}>
       <EndorsementsHeaderActionsContext.Provider value={state}>
-        {children}
+        <EndorsementsToolbarSlotContext.Provider value={toolbarSlot}>
+          <EndorsementsToolbarSlotDispatchContext.Provider
+            value={setToolbarSlot}
+          >
+            {children}
+          </EndorsementsToolbarSlotDispatchContext.Provider>
+        </EndorsementsToolbarSlotContext.Provider>
       </EndorsementsHeaderActionsContext.Provider>
     </EndorsementsHeaderActionsDispatchContext.Provider>
   );
+}
+
+/** Filter and search mount here so the header matches standing's compact row. */
+export function useEndorsementsToolbarSlot(): HTMLDivElement | null {
+  return useContext(EndorsementsToolbarSlotContext);
 }
 
 /**
@@ -146,6 +167,43 @@ export function EndorsementsHeaderActions() {
   );
 }
 
+function EndorsementsOverlayChrome({
+  ariaTitle,
+  title,
+}: {
+  ariaTitle: string;
+  title?: string;
+}) {
+  const close = useOverlayDismiss();
+  const setToolbarSlot = useContext(EndorsementsToolbarSlotDispatchContext);
+
+  return (
+    <OverlayPanelChrome
+      ariaTitle={ariaTitle}
+      toolbar={
+        <div className="standing-sheet-header standing-sheet-header--compact">
+          <div className="standing-sheet-subject-row">
+            <span className="standing-sheet-subject-name endorsements-sheet-title">
+              {title ?? ariaTitle}
+            </span>
+            <div className="standing-sheet-actions">
+              <EndorsementsHeaderActions />
+              <SheetCloseButton
+                onClick={close}
+                ariaLabel={`Close ${title ?? ariaTitle}`}
+              />
+            </div>
+          </div>
+          <div
+            ref={setToolbarSlot}
+            className="os-app-chrome-rail standing-sheet-toolbar-row standing-toolbar-rail"
+          />
+        </div>
+      }
+    />
+  );
+}
+
 export function EndorsementsOverlayFrame({
   ariaTitle,
   title,
@@ -157,13 +215,8 @@ export function EndorsementsOverlayFrame({
 }) {
   return (
     <EndorsementsHeaderActionsProvider>
-      <SimpleOverlayPanel
-        ariaTitle={ariaTitle}
-        title={title}
-        headerActions={<EndorsementsHeaderActions />}
-      >
-        {children}
-      </SimpleOverlayPanel>
+      <EndorsementsOverlayChrome ariaTitle={ariaTitle} title={title} />
+      {children}
     </EndorsementsHeaderActionsProvider>
   );
 }

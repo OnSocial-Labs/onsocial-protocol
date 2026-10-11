@@ -732,8 +732,8 @@ function useSheetPresence(
   onClosed?: () => void,
   presentation: GlassSheetPresentation = 'enter'
 ) {
-  const [mounted, setMounted] = useState(false);
-  const [visible, setVisible] = useState(false);
+  const [mounted, setMounted] = useState(() => open && presentation === 'swap');
+  const [visible, setVisible] = useState(() => open && presentation === 'swap');
   const closeFinishedRef = useRef(false);
   const presentationRef = useRef(presentation);
   presentationRef.current = presentation;

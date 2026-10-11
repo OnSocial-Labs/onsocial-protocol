@@ -57,3 +57,16 @@ export function shouldMountPortfolioGlassHost(input: {
 
   return input.layoutSegments.length === 0;
 }
+
+/**
+ * Keep the standing sheet mounted only while the map handoff is still opening.
+ * A globe click must drop it. Once the list is up, a name tap to the profile
+ * must drop it too — holding it closed through history and reopened the list.
+ */
+export function shouldKeepStandingGlassHost(input: {
+  panelKey: string | null;
+  handoffPhase: 'open' | 'close' | null;
+}): boolean {
+  if (input.panelKey === 'network') return false;
+  return input.handoffPhase === 'open';
+}

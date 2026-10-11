@@ -19,6 +19,7 @@ import {
 } from '@/lib/endorsement-focus';
 import type { PortfolioEndorsementFocus } from '@/lib/overlay-routes';
 import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
+import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
 function profileMap(rows: ProfileSearchRow[]): Map<string, ProfileSearchRow> {
   return new Map(rows.map((row) => [row.accountId, row]));
@@ -39,9 +40,9 @@ export function enrichEndorsementItem(
   return {
     ...item,
     issuerName: issuer?.name ?? null,
-    issuerAvatarUrl: issuer?.avatar ?? null,
+    issuerAvatarUrl: resolveProfileMediaUrl(issuer?.avatar),
     targetName: target?.name ?? null,
-    targetAvatarUrl: target?.avatar ?? null,
+    targetAvatarUrl: resolveProfileMediaUrl(target?.avatar),
     mediaUrl,
   };
 }
@@ -56,15 +57,14 @@ async function enrichList(
   const map =
     profiles ??
     profileMap(
-      await os!
-        .query.profiles.statsForAccounts([
+      await os!.query.profiles
+        .statsForAccounts([
           ...new Set(items.flatMap((item) => [item.issuer, item.target])),
         ])
         .catch(() => [])
     );
   const resolveUrl =
-    mediaUrlResolver ??
-    (os ? (cid: string) => os.storage.url(cid) : undefined);
+    mediaUrlResolver ?? (os ? (cid: string) => os.storage.url(cid) : undefined);
   return items.map((item) => enrichEndorsementItem(item, map, resolveUrl));
 }
 
@@ -174,10 +174,7 @@ export async function loadEndorsementsModePage(
 ): Promise<EndorsementsModePageResponse | null> {
   const id = accountId.trim();
   if (!id) return null;
-  const limit = Math.min(
-    Math.max(opts.limit ?? ENDORSEMENTS_PAGE_SIZE, 1),
-    48
-  );
+  const limit = Math.min(Math.max(opts.limit ?? ENDORSEMENTS_PAGE_SIZE, 1), 48);
   const offset = Math.max(opts.offset ?? 0, 0);
   try {
     const os = createAppOnSocialClient();

@@ -4,6 +4,7 @@ import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-roo
 import OverlayDefault from '@/app/[accountId]/@overlay/default';
 import {
   resolveOverlaySlotMode,
+  shouldKeepStandingGlassHost,
   shouldMountPortfolioGlassHost,
 } from './portfolio-glass-host';
 
@@ -155,6 +156,38 @@ describe('shouldMountPortfolioGlassHost', () => {
         pathname: '/@alice.testnet/collectibles',
         layoutSegments: [],
         overlaySlotMode: 'idle',
+      })
+    ).toBe(false);
+  });
+});
+
+describe('shouldKeepStandingGlassHost', () => {
+  it('drops the sheet when the globe opens the map', () => {
+    expect(
+      shouldKeepStandingGlassHost({
+        panelKey: 'network',
+        handoffPhase: null,
+      })
+    ).toBe(false);
+    expect(
+      shouldKeepStandingGlassHost({
+        panelKey: 'network',
+        handoffPhase: 'open',
+      })
+    ).toBe(false);
+  });
+
+  it('holds the sheet only while the map handoff is opening', () => {
+    expect(
+      shouldKeepStandingGlassHost({
+        panelKey: null,
+        handoffPhase: 'open',
+      })
+    ).toBe(true);
+    expect(
+      shouldKeepStandingGlassHost({
+        panelKey: null,
+        handoffPhase: null,
       })
     ).toBe(false);
   });

@@ -14,9 +14,7 @@ import {
   type SetStateAction,
 } from 'react';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import {
-  usePortfolioProfileSeed,
-} from '@/contexts/portfolio-profile-seed-context';
+import { usePortfolioProfileSeed } from '@/contexts/portfolio-profile-seed-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
@@ -25,7 +23,10 @@ import {
   PROFILE_SEARCH_MIN_QUERY_LENGTH,
 } from '@/lib/profile-account-search';
 import { displayName } from '@/lib/profile-display';
-import { replaceBrowserQueryUrl, replaceBrowserUrl } from '@/lib/sync-browser-url-query';
+import {
+  replaceBrowserQueryUrl,
+  replaceBrowserUrl,
+} from '@/lib/sync-browser-url-query';
 import { isStandingListCacheDisplayReady } from '@/lib/profile-list-display';
 import {
   readStandingListCache,
@@ -45,6 +46,10 @@ import {
   type StanceDetailKind,
   type StandingAccountSummary,
 } from '@/lib/profile-social-standings';
+import {
+  getStandingOpeningFace,
+  rememberStandingOpeningFace,
+} from '@/components/panels/network-standing-handoff';
 import type { StandingInitialList } from '@/lib/load-standing-list-page';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
@@ -71,6 +76,11 @@ export interface StandingPanelProviderProps {
   initialList?: StandingInitialList | null;
   /** Server bootstrap from intercept route (shell + list on first paint). */
   profileMetaFromServer?: boolean;
+  /**
+   * Chrome only. The opening sheet must not fetch, or its skeleton is
+   * replaced by a second loading list before the settled rows arrive.
+   */
+  listPreview?: boolean;
   syncUrl?: boolean;
   shellVariant?: StandingShellVariant;
   scrollRootRef?: RefObject<Element | null>;
@@ -185,6 +195,7 @@ export function StandingPanelProvider({
   initialQuery = '',
   initialList = null,
   profileMetaFromServer = false,
+  listPreview = false,
   syncUrl = true,
   shellVariant = 'overlay',
   scrollRootRef,
@@ -197,7 +208,8 @@ export function StandingPanelProvider({
     theyStandWithViewer,
     isLoading: relationshipLoading,
   } = useViewerRelationship(accountId);
-  const { accountId: viewerAccountId, isLoading: walletLoading } = useAppWallet();
+  const { accountId: viewerAccountId, isLoading: walletLoading } =
+    useAppWallet();
   const {
     isConnected,
     standingSyncVersion,
@@ -211,6 +223,7 @@ export function StandingPanelProvider({
 
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const loadIdRef = useRef(0);
+  const settledListKeyRef = useRef<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
 
   const [profileDisplayName, setProfileDisplayName] = useState(
@@ -219,9 +232,8 @@ export function StandingPanelProvider({
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(
     () => portfolioSeed?.avatarUrl ?? avatarUrl ?? null
   );
-  const [subjectProfileKind, setSubjectProfileKind] = useState<ProfileKind | null>(
-    () => parseProfileKind(profileKind) ?? null
-  );
+  const [subjectProfileKind, setSubjectProfileKind] =
+    useState<ProfileKind | null>(() => parseProfileKind(profileKind) ?? null);
   const [metaLoaded, setMetaLoaded] = useState(
     () =>
       Boolean(portfolioSeed) ||
@@ -343,7 +355,11 @@ export function StandingPanelProvider({
     const urlQuery = normalizeProfileSearchQuery(params.get('q'));
     // A prefetched standing sheet can mount without the query the link carried.
     // Take that query once instead of wiping it from the address bar.
-    if (!adoptedUrlQueryRef.current && urlQuery && urlQuery !== normalizedQuery) {
+    if (
+      !adoptedUrlQueryRef.current &&
+      urlQuery &&
+      urlQuery !== normalizedQuery
+    ) {
       adoptedUrlQueryRef.current = true;
       setQuery(urlQuery);
       return;
@@ -402,7 +418,20 @@ export function StandingPanelProvider({
     [accountId, activeKind, isDaoSubject, query, scrollRootRef, syncUrl]
   );
 
-  const isSelf = Boolean(viewerAccountId && viewerAccountId === accountId);
+  const isSelf =
+    getStandingOpeningFace(accountId)?.subjectIsViewer === true ||
+    Boolean(viewerAccountId && viewerAccountId === accountId);
+
+  useEffect(() => {
+    const name = profileDisplayName.trim();
+    if (!accountId || !name) return;
+    rememberStandingOpeningFace({
+      accountId,
+      displayName: name,
+      avatarUrl: profileAvatarUrl,
+      subjectIsViewer: isSelf,
+    });
+  }, [accountId, isSelf, profileAvatarUrl, profileDisplayName]);
   const liveCounts = useMemo(
     () =>
       derivePortfolioStandingCounts({
@@ -479,7 +508,7 @@ export function StandingPanelProvider({
   }, [filteredAccounts, localPendingIds, standingPendingIds]);
 
   useEffect(() => {
-    if (walletLoading) {
+    if (listPreview || walletLoading) {
       return;
     }
 
@@ -508,6 +537,11 @@ export function StandingPanelProvider({
       cachedEntry != null &&
       isStandingListCacheDisplayReady(cachedEntry, viewerKey);
 
+    const listKey = `${accountId}|${activeKind}|${searchQueryForFetch}`;
+    const dimExisting =
+      settledListKeyRef.current != null &&
+      settledListKeyRef.current !== listKey;
+
     if (cachedEntry && cacheReady) {
       setAccounts(cachedEntry.accounts);
       setListTotal(cachedEntry.listTotal);
@@ -517,7 +551,7 @@ export function StandingPanelProvider({
         setCountsHydrated(true);
       }
       setIsLoading(false);
-      setIsListRefreshing(true);
+      setIsListRefreshing(dimExisting);
       setLoadError(null);
       setRelationshipSynced(true);
       writeStandingListCache(cacheKey, cachedEntry);
@@ -530,7 +564,7 @@ export function StandingPanelProvider({
         setCountsHydrated(true);
       }
       setIsLoading(false);
-      setIsListRefreshing(true);
+      setIsListRefreshing(dimExisting);
       setLoadError(null);
       setRelationshipSynced(false);
     } else {
@@ -589,6 +623,7 @@ export function StandingPanelProvider({
               setIsLoading(false);
               setIsListRefreshing(false);
               setRelationshipSynced(true);
+              settledListKeyRef.current = listKey;
             }
           });
       },
@@ -606,6 +641,7 @@ export function StandingPanelProvider({
     reloadNonce,
     searchQueryForFetch,
     serverSearchActive,
+    listPreview,
     viewerAccountId,
     viewerKey,
     walletLoading,
@@ -613,7 +649,12 @@ export function StandingPanelProvider({
 
   useEffect(() => {
     if (
-      !shouldFreshFetchStandingListFor(accountId, viewerAccountId ?? null, activeKind) ||
+      listPreview ||
+      !shouldFreshFetchStandingListFor(
+        accountId,
+        viewerAccountId ?? null,
+        activeKind
+      ) ||
       serverSearchActive
     ) {
       return;
@@ -666,6 +707,7 @@ export function StandingPanelProvider({
   }, [
     accountId,
     activeKind,
+    listPreview,
     reconcileStandingListFromFetch,
     searchQueryForFetch,
     serverSearchActive,
@@ -827,7 +869,7 @@ export function StandingPanelProvider({
   ]);
 
   const showSubjectSkeleton = !metaLoaded;
-  const countsLoading = !countsHydrated && isLoading;
+  const countsLoading = listPreview || (!countsHydrated && isLoading);
   const listBootstrapReady = useMemo(
     () =>
       initialList != null &&
@@ -839,11 +881,12 @@ export function StandingPanelProvider({
   const hasListRows = filteredAccounts.length > 0;
   // Never blank painted rows while the wallet hydrates — soft-refresh instead.
   const showListSkeleton =
-    !hasListRows &&
-    !trimmedSearch &&
-    (walletLoading ||
-      (!listBootstrapReady && isLoading) ||
-      (!listBootstrapReady && !relationshipSynced));
+    listPreview ||
+    (!hasListRows &&
+      !trimmedSearch &&
+      (walletLoading ||
+        (!listBootstrapReady && isLoading) ||
+        (!listBootstrapReady && !relationshipSynced)));
   const showLoadMoreSentinel =
     hasMore && searchSettled && filteredAccounts.length > 0;
 
@@ -951,7 +994,9 @@ export function StandingPanelProvider({
 export function useStandingPanel(): StandingPanelContextValue {
   const context = useContext(StandingPanelContext);
   if (!context) {
-    throw new Error('useStandingPanel must be used within StandingPanelProvider');
+    throw new Error(
+      'useStandingPanel must be used within StandingPanelProvider'
+    );
   }
   return context;
 }

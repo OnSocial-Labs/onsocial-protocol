@@ -311,6 +311,17 @@ export function networkAccountIdFromPath(pathname: string): string | null {
   }
 }
 
+/** Account id from `/@id` and any screen under it. */
+export function accountIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/@([^/]+)/);
+  if (!match?.[1]) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
 /** Author Writing shelf — titled longform posts. */
 export function writingPath(accountId: string): string {
   return overlayPath(accountId, 'writing');

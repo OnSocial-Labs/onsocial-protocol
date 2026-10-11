@@ -16,13 +16,16 @@ import {
 import {
   NetworkOrbitSheetHeader,
   NetworkOrbitToolbar,
+  useOpenNetworkStandingList,
 } from '@/components/panels/network-orbit-sheet-header';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { networkMapTitle } from '@/components/panels/network-loading-title';
 
 type NetworkOrbitSheetProps = Omit<NetworkOrbitProviderProps, 'children'>;
 
 function NetworkOrbitListAction() {
   const { listHref } = useNetworkOrbit();
+  const openStandingList = useOpenNetworkStandingList();
   return (
     <OsIconAction asChild ariaLabel="Open standing list">
       <Link
@@ -30,6 +33,7 @@ function NetworkOrbitListAction() {
         scroll={false}
         prefetch={false}
         aria-label="Open standing list"
+        onClick={openStandingList}
       >
         <AlignJustifyIcon
           className="glass-sheet-icon-action-glyph"
@@ -79,7 +83,8 @@ function NetworkOrbitPageScreen({
 
   return (
     <OsAppScreen
-      title={isSelf ? 'Your network' : `${displayName}'s network`}
+      title={networkMapTitle(displayName, isSelf)}
+      className="network-orbit-screen"
       compactChrome
       glassChrome
       scrollRootRef={scrollRootRef}

@@ -1,7 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePublishEndorsementsHeaderActions } from '@/components/overlay/endorsements-overlay-frame';
+import { createPortal } from 'react-dom';
+import {
+  useEndorsementsToolbarSlot,
+  usePublishEndorsementsHeaderActions,
+} from '@/components/overlay/endorsements-overlay-frame';
 import type {
   EndorseExistingDraft,
   EndorsementPanelItem,
@@ -453,33 +457,38 @@ export function EndorsementsPanel({
     },
   ];
 
+  const toolbarSlot = useEndorsementsToolbarSlot();
+  const toolbar = (
+    <div className="standing-list-toolbar">
+      <ChoiceDrawerMenu
+        label="Endorsements"
+        value={mode}
+        options={listOptions}
+        onChange={selectMode}
+        triggerMeta={
+          <EndorsementCountBadge
+            count={mode === 'received' ? receivedCount : givenCount}
+          />
+        }
+        className="standing-view-menu"
+        zIndex={SHEET_Z.nested}
+      />
+      <SearchField
+        value={query}
+        onValueChange={setQuery}
+        placeholder="Search"
+        maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
+        clearAriaLabel="Clear endorsement search"
+        ariaLabel="Search endorsements"
+        chrome="floating-panel"
+        className="standing-list-toolbar-search"
+      />
+    </div>
+  );
+
   return (
     <div className="endorsements-panel">
-      <div className="standing-list-toolbar">
-        <ChoiceDrawerMenu
-          label="Endorsements"
-          value={mode}
-          options={listOptions}
-          onChange={selectMode}
-          triggerMeta={
-            <EndorsementCountBadge
-              count={mode === 'received' ? receivedCount : givenCount}
-            />
-          }
-          className="standing-view-menu"
-          zIndex={SHEET_Z.nested}
-        />
-        <SearchField
-          value={query}
-          onValueChange={setQuery}
-          placeholder="Search"
-          maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
-          clearAriaLabel="Clear endorsement search"
-          ariaLabel="Search endorsements"
-          chrome="floating-panel"
-          className="standing-list-toolbar-search"
-        />
-      </div>
+      {toolbarSlot ? createPortal(toolbar, toolbarSlot) : toolbar}
 
       {loading ? (
         <EndorsementListSkeleton />

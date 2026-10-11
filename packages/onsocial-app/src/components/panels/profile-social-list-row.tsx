@@ -209,17 +209,18 @@ export function ProfileSocialListSkeletonRow({
       <div className="standing-row-main">
         <div className="standing-row-avatar standing-row-shimmer" />
         <div className="standing-row-copy">
-          <div className="standing-row-name-row">
+          <div className="standing-row-name-row standing-row-skeleton-name">
             <div className="standing-row-shimmer standing-row-shimmer-line" />
-            {showTimeShimmer ? (
-              <div className="standing-row-shimmer standing-row-shimmer-time" />
-            ) : null}
           </div>
-          <div className="standing-row-shimmer standing-row-shimmer-line-sm" />
-          <>
+          <div className="standing-row-skeleton-handle">
+            <div className="standing-row-shimmer standing-row-shimmer-line-sm" />
+          </div>
+          <div className="standing-row-skeleton-bio">
             <div className="standing-row-shimmer standing-row-shimmer-line-bio" />
+          </div>
+          <div className="standing-row-skeleton-metrics">
             <div className="standing-row-shimmer standing-row-shimmer-line-xs" />
-          </>
+          </div>
         </div>
       </div>
       <div className="standing-row-aside standing-row-aside--skeleton">

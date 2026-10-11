@@ -4,6 +4,7 @@ import type {
 } from '@onsocial/sdk';
 import { createAppOnSocialClient } from '@/lib/profile-social-server';
 import { normalizeEndorsementSupportId } from '@/lib/app-endorsement-support-total';
+import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
 export interface AppEndorsementSupporter {
   accountId: string;
@@ -30,7 +31,7 @@ export function enrichEndorsementSupporters(
     return {
       accountId: row.accountId,
       name: profile?.name ?? null,
-      avatarUrl: profile?.avatar ?? null,
+      avatarUrl: resolveProfileMediaUrl(profile?.avatar),
       totalAmountYocto: row.totalAmountYocto,
       spendCount: row.spendCount,
       latestSupportAt: row.latestSupportAt,
@@ -47,9 +48,8 @@ export async function loadAppEndorsementSupporters(
   }
 
   const os = createAppOnSocialClient();
-  const aggregates = await os.query.socialSpend.endorsementSupporters(
-    normalized
-  );
+  const aggregates =
+    await os.query.socialSpend.endorsementSupporters(normalized);
   if (aggregates.length === 0) {
     return { endorsementId: normalized, supporters: [], total: 0 };
   }
