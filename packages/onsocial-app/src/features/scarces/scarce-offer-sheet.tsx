@@ -12,7 +12,7 @@ import {
   ScarceOfferForm,
   type ScarceOfferSuccessDetail,
 } from '@/features/scarces/scarce-offer-form';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { displayName } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 export interface ScarceOfferListing {
@@ -34,7 +34,11 @@ interface ScarceOfferSheetProps {
   zIndex?: number;
 }
 
-/** Sheet for making a NEAR offer on a native scarce. */
+/**
+ * Sheet for making a NEAR offer on a native scarce.
+ * Header is the verb only, same slot as Buy and Sell. The owner face
+ * sits in the body under the scarce title.
+ */
 export function ScarceOfferSheet({
   open,
   listing,
@@ -56,7 +60,6 @@ export function ScarceOfferSheet({
   const name = ownerId
     ? displayName(ownerId, listing?.ownerName ?? undefined)
     : '';
-  const handle = ownerId ? fallbackLabel(ownerId) : '';
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -87,10 +90,8 @@ export function ScarceOfferSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       verb="Offer"
-      personName={name}
-      handle={handle}
+      titleLabel={name ? `Offer ${name}` : 'Offer'}
       signal="reputation"
-      whisper="Offer NEAR for this scarce. Owner accepts when ready."
       closeAriaLabel="Close offer scarce"
       backdropLabel="Close offer scarce"
       keyboardOpen={keyboardOpen}
@@ -118,6 +119,7 @@ export function ScarceOfferSheet({
             title: listing.title,
             mediaUrl: listing.mediaUrl,
             ownerId: listing.ownerId,
+            ownerName: listing.ownerName,
             askNear: listing.askNear,
             existingAmountNear: listing.existingAmountNear,
           }}
