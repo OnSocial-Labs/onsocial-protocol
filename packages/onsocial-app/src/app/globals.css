@@ -381,6 +381,17 @@
   white-space: nowrap;
 }
 
+/*
+ * The kept Home feed stays in the DOM under the next screen. Descendants
+ * opt back into hits (the dock, a sheet). Force them through so standing
+ * and boost on the profile receive the click. A writing hop keeps the
+ * article usable, so that pass is left alone.
+ */
+html:not([data-shelf-hop]) [data-feed-session='covered'],
+html:not([data-shelf-hop]) [data-feed-session='covered'] * {
+  pointer-events: none !important;
+}
+
 .standing-sheet-header--compact .standing-sheet-toolbar-row.os-app-chrome-rail {
   height: 2rem;
   min-height: 2rem;

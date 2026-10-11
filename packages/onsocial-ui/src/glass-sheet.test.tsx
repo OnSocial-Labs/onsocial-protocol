@@ -3,6 +3,7 @@ import {
   GLASS_SHEET_PEEK_RATIO,
   GlassSheet,
   SheetHeader,
+  sheetPresenceCloseShouldFinish,
   hugEnterNeedsArming,
   nextHugEnterStableSample,
   GLASS_SHEET_MEDIA_FACE_LIFT,
@@ -21,6 +22,35 @@ describe('GlassSheet', () => {
     expect(typeof GlassSheet).toBe('function');
     expect(typeof SheetHeader).toBe('function');
     expect(GLASS_SHEET_PEEK_RATIO).toBe(0.62);
+  });
+});
+
+describe('sheet presence close', () => {
+  it('does not finish while the sheet is opening', () => {
+    expect(
+      sheetPresenceCloseShouldFinish({
+        open: true,
+        mounted: true,
+        visible: false,
+      })
+    ).toBe(false);
+  });
+
+  it('finishes only after a close has been requested', () => {
+    expect(
+      sheetPresenceCloseShouldFinish({
+        open: false,
+        mounted: true,
+        visible: false,
+      })
+    ).toBe(true);
+    expect(
+      sheetPresenceCloseShouldFinish({
+        open: false,
+        mounted: false,
+        visible: false,
+      })
+    ).toBe(false);
   });
 });
 

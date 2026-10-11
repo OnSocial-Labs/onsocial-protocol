@@ -15,7 +15,10 @@ import {
   useOverlayChromeClear,
 } from '@/contexts/overlay-chrome-context';
 import { OverlayDismissProvider } from '@/contexts/overlay-dismiss-context';
-import { parseOverlayPanelKey } from '@/lib/overlay-routes';
+import {
+  isPortfolioOverlayPath,
+  parseOverlayPanelKey,
+} from '@/lib/overlay-routes';
 import {
   standingSheetAlreadyCovered,
   getNetworkStandingHandoffPhase,
@@ -131,13 +134,19 @@ function PortfolioGlassSheetFrame({
 
   useEffect(() => {
     if (
-      !overlayPresent &&
-      sheetOpen &&
-      panelKey !== 'network' &&
-      getNetworkStandingHandoffPhase() !== 'open'
+      overlayPresent ||
+      !sheetOpen ||
+      panelKey === 'network' ||
+      getNetworkStandingHandoffPhase() === 'open'
     ) {
-      requestDismiss();
+      return;
     }
+    // The address updates before the overlay slot. Dismissing on that frame
+    // closes the sheet the person just opened.
+    if (isPortfolioOverlayPath(window.location.pathname)) {
+      return;
+    }
+    requestDismiss();
   }, [overlayPresent, panelKey, requestDismiss, sheetOpen]);
 
   return (
@@ -211,7 +220,12 @@ export function PortfolioGlassHost({
       panelKey,
       handoffPhase: getNetworkStandingHandoffPhase(),
     });
-    if (!keepStandingSheet) {
+    // Slot mode can lag the address by a frame. Dropping the host there
+    // unmounts the sheet and paints it again — the flash.
+    const addressStillWantsSheet =
+      typeof window !== 'undefined' &&
+      isPortfolioOverlayPath(window.location.pathname);
+    if (!keepStandingSheet && !addressStillWantsSheet) {
       setHostMounted(false);
       setTrackedPanelKey(null);
       setPresentation('appear');
