@@ -1,5 +1,6 @@
 import { createAppOnSocialClient } from '@/lib/profile-social-server';
 import { isEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
+import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
 export interface AppEndorsementSupportPreviewSupporter {
   accountId: string;
@@ -59,7 +60,7 @@ export async function loadAppEndorsementSupportTotal(
     supporterCount: summary.supporterCount,
     previewSupporters: summary.previewSupporters.map((row) => ({
       accountId: row.accountId,
-      avatarUrl: byId.get(row.accountId)?.avatar ?? null,
+      avatarUrl: resolveProfileMediaUrl(byId.get(row.accountId)?.avatar),
       totalAmountYocto: row.totalAmountYocto,
     })),
   };

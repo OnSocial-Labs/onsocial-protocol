@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import type { ProfileSearchRow } from '@onsocial/sdk';
 import {
   ENDORSEMENTS_PAGE_SIZE,
   type EndorsementsPanelResponse,
 } from '@/lib/endorsements-panel-data';
-import { parseEndorsementsMode } from '@/lib/load-endorsements-page';
+import {
+  enrichEndorsementItem,
+  parseEndorsementsMode,
+} from '@/lib/load-endorsements-page';
 import {
   endorsementRowMatchesQuery,
   endorsementTopicKey,
@@ -11,6 +15,45 @@ import {
   endorsementVouchTitle,
   humanizeEndorsementTopic,
 } from '@/lib/endorsement-display';
+
+describe('enrichEndorsementItem', () => {
+  it('turns ipfs avatars into CDN urls and leaves https urls alone', () => {
+    const item = enrichEndorsementItem(
+      {
+        issuer: 'alice.testnet',
+        target: 'bob.testnet',
+        v: 1,
+        since: 1,
+        blockHeight: 1,
+        blockTimestamp: 1,
+      },
+      new Map<string, ProfileSearchRow>([
+        [
+          'alice.testnet',
+          {
+            accountId: 'alice.testnet',
+            name: 'Alice',
+            avatar: 'ipfs://bafyavataralice',
+          } as ProfileSearchRow,
+        ],
+        [
+          'bob.testnet',
+          {
+            accountId: 'bob.testnet',
+            name: 'Bob',
+            avatar: 'https://cdn.example/bob.png',
+          } as ProfileSearchRow,
+        ],
+      ])
+    );
+
+    expect(item.issuerAvatarUrl).toBe(
+      'https://cdn.testnet.onsocial.id/ipfs/bafyavataralice'
+    );
+    expect(item.targetAvatarUrl).toBe('https://cdn.example/bob.png');
+    expect(item.issuerName).toBe('Alice');
+  });
+});
 
 describe('parseEndorsementsMode', () => {
   it('accepts received and given', () => {

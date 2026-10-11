@@ -447,12 +447,17 @@
   color: var(--os-fp-count-fg-strong);
 }
 
-.os-floating-panel-count--standing {
-  color: var(--portal-blue, var(--protocol-blue));
+/* Standing / mutual counts follow the profile mood signals, including hover. */
+.os-floating-panel-count--standing,
+.os-floating-panel-item:hover .os-floating-panel-count--standing,
+.os-floating-panel-item.is-selected .os-floating-panel-count--standing {
+  color: var(--signal-standing, var(--protocol-blue-ink));
 }
 
-.os-floating-panel-count--solidarity {
-  color: var(--portal-purple, var(--protocol-purple));
+.os-floating-panel-count--solidarity,
+.os-floating-panel-item:hover .os-floating-panel-count--solidarity,
+.os-floating-panel-item.is-selected .os-floating-panel-count--solidarity {
+  color: var(--signal-solidarity, var(--protocol-purple-ink));
 }
 
 .os-floating-panel-count.is-zero {

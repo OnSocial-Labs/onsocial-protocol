@@ -1,15 +1,59 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { SheetCloseButton } from '@onsocial/ui';
+import {
+  getNetworkStandingHandoffOpenTarget,
+  getStandingOpeningFace,
+} from '@/components/panels/network-standing-handoff';
 import {
   useOverlayChrome,
   useOverlayHeaderPortalTarget,
 } from '@/contexts/overlay-chrome-context';
 import { useOverlayDismiss } from '@/contexts/overlay-dismiss-context';
 import {
+  accountIdFromPath,
   resolveOverlayPanelChrome,
   type OverlayPanelChromeHint,
 } from '@/lib/overlay-routes';
+
+/** Same band as the settled standing header, so the list does not drop in. */
+function StandingHeaderFallback({ onClose }: { onClose: () => void }) {
+  const pathname = usePathname() ?? '';
+  const handoff = getNetworkStandingHandoffOpenTarget();
+  const accountId = handoff?.accountId ?? accountIdFromPath(pathname);
+  const face = accountId ? getStandingOpeningFace(accountId) : null;
+  const label = face?.displayName.trim() || accountId || '';
+
+  return (
+    <div className="standing-sheet-header standing-sheet-header--compact overlay-header-fallback">
+      <div className="standing-sheet-subject-row">
+        {label ? (
+          <div className="standing-sheet-subject">
+            <span className="standing-sheet-subject-copy">
+              <span className="standing-sheet-subject-name">{label}</span>
+            </span>
+          </div>
+        ) : (
+          <div className="standing-sheet-subject standing-sheet-subject--skeleton">
+            <span className="standing-sheet-subject-copy">
+              <span className="standing-row-shimmer standing-row-shimmer-line standing-sheet-subject-shimmer-name" />
+            </span>
+          </div>
+        )}
+        <div className="standing-sheet-actions">
+          <span className="standing-sheet-discover-slot" aria-hidden />
+          <span className="standing-sheet-discover-slot" aria-hidden />
+          <SheetCloseButton onClick={onClose} ariaLabel="Close Standing" />
+        </div>
+      </div>
+      <div
+        className="os-app-chrome-rail standing-sheet-toolbar-row standing-toolbar-rail"
+        aria-hidden
+      />
+    </div>
+  );
+}
 
 function OverlayHeaderFallback({
   panelKey,
@@ -27,15 +71,7 @@ function OverlayHeaderFallback({
 
   if (hint.expectsToolbar) {
     const toolbarFallback = panelKey.startsWith('standing:') ? (
-      <div className="standing-sheet-header overlay-header-fallback">
-        <div className="standing-sheet-subject-row" aria-hidden>
-          <div className="standing-sheet-subject" />
-          <div className="standing-sheet-actions">
-            <span className="standing-sheet-discover-slot" />
-            {closeControl}
-          </div>
-        </div>
-      </div>
+      <StandingHeaderFallback onClose={onClose} />
     ) : panelKey === 'discover' ? (
       <div className="standing-sheet-header discover-sheet-header overlay-header-fallback">
         <div className="discover-sheet-nav-row" aria-hidden>

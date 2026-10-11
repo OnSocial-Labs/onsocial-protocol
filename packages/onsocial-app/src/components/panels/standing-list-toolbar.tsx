@@ -12,7 +12,9 @@ import {
   type StanceDetailKind,
 } from '@/lib/profile-social-standings';
 import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
-import type { ReactNode } from 'react';
+import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
+import { supportSheetPanelStyle } from '@/lib/moods/resolve';
+import { useMemo, type CSSProperties, type ReactNode } from 'react';
 
 function countAccentClass(kind: StanceDetailKind): string {
   return kind === 'mutual'
@@ -58,6 +60,7 @@ export function StandingListToolbar({
   onViewMenuOpenChange?: (open: boolean) => void;
 }) {
   const {
+    accountId,
     kind,
     navigateKind,
     counts,
@@ -67,6 +70,14 @@ export function StandingListToolbar({
     query,
     setQuery,
   } = useStandingPanel();
+  const mood = usePageOwnerMood(accountId, Boolean(accountId));
+  const signalStyle = useMemo(
+    () =>
+      mood
+        ? (supportSheetPanelStyle(mood.cssVars) as CSSProperties)
+        : undefined,
+    [mood]
+  );
 
   const kinds: StanceDetailKind[] = ['incoming', 'outgoing', 'mutual'];
   const countFor = (viewKind: StanceDetailKind) => {
@@ -103,6 +114,8 @@ export function StandingListToolbar({
             />
           }
           className="standing-view-menu"
+          {...(mood?.id ? { moodId: mood.id } : {})}
+          {...(signalStyle ? { panelStyle: signalStyle } : {})}
           {...(onViewMenuOpenChange
             ? { onOpenChange: onViewMenuOpenChange }
             : {})}

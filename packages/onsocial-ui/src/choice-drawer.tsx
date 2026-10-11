@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
 import { ChevronDownIcon } from './mage-stroke-icons.js';
@@ -95,6 +96,10 @@ export interface ChoiceDrawerProps<T extends string> {
   hint?: string;
   closeOnSelect?: boolean;
   zIndex?: number;
+  /** Profile mood id — forwarded so a portaled sheet keeps signal hues. */
+  moodId?: string;
+  /** Signal CSS vars for the portaled sheet (standing / solidarity). */
+  panelStyle?: CSSProperties;
 }
 
 /**
@@ -113,6 +118,8 @@ export function ChoiceDrawer<T extends string>({
   hint,
   closeOnSelect = true,
   zIndex = 60,
+  moodId,
+  panelStyle,
 }: ChoiceDrawerProps<T>) {
   const sections = useMemo(() => groupOptions(options), [options]);
 
@@ -125,6 +132,8 @@ export function ChoiceDrawer<T extends string>({
       copy={copy}
       zIndex={zIndex}
       chrome="choice"
+      {...(moodId ? { moodId } : {})}
+      {...(panelStyle ? { panelStyle } : {})}
     >
       <div className="os-choice-sheet-list" role="listbox" aria-label={label}>
         {sections.map((section, sectionIndex) => (
@@ -313,6 +322,10 @@ export interface ChoiceDrawerMenuProps<T extends string> {
   triggerClassName?: string;
   onOpenChange?: (open: boolean) => void;
   zIndex?: number;
+  /** Profile mood id — the portaled menu keeps that face's signal hues. */
+  moodId?: string;
+  /** Signal CSS vars for the trigger and the portaled menu. */
+  panelStyle?: CSSProperties;
 }
 
 /**
@@ -333,6 +346,8 @@ export function ChoiceDrawerMenu<T extends string>({
   triggerClassName,
   onOpenChange,
   zIndex = 60,
+  moodId,
+  panelStyle,
 }: ChoiceDrawerMenuProps<T>) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -355,7 +370,10 @@ export function ChoiceDrawerMenu<T extends string>({
   }, []);
 
   return (
-    <div className={className ?? 'standing-view-menu'}>
+    <div
+      className={className ?? 'standing-view-menu'}
+      {...(panelStyle ? { style: panelStyle } : {})}
+    >
       <button
         type="button"
         className={`${osFloatingPanelTriggerClassName}${
@@ -400,6 +418,8 @@ export function ChoiceDrawerMenu<T extends string>({
         copy={copy}
         hint={hint}
         zIndex={zIndex}
+        {...(moodId ? { moodId } : {})}
+        {...(panelStyle ? { panelStyle } : {})}
       />
     </div>
   );

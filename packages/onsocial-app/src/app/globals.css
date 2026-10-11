@@ -333,6 +333,74 @@
 }
 
 /*
+ * Standing glass header matches the compact network header: 2.35rem name
+ * row, 0.98rem title, 2rem filter row. Unlayered so it wins over
+ * `.glass-sheet-icon-action` (2.75rem) and `.os-app-chrome-rail` (1.85rem).
+ * Other sheets keep the standing-sheet-header class without this modifier.
+ */
+.standing-sheet-header--compact {
+  gap: var(--os-app-chrome-chip-gap, 0.28rem);
+  padding-bottom: var(--os-app-chrome-pad-y, 0.3rem);
+}
+
+.standing-sheet-header--compact .standing-sheet-subject-row {
+  height: var(--os-app-screen-nav-row-height, 2.35rem);
+  min-height: var(--os-app-screen-nav-row-height, 2.35rem);
+  max-height: var(--os-app-screen-nav-row-height, 2.35rem);
+}
+
+.standing-sheet-header--compact .glass-sheet-icon-action,
+.standing-sheet-header--compact .standing-sheet-discover-slot {
+  box-sizing: border-box;
+  width: var(--os-app-screen-nav-row-height, 2.35rem);
+  height: var(--os-app-screen-nav-row-height, 2.35rem);
+  min-width: var(--os-app-screen-nav-row-height, 2.35rem);
+  min-height: var(--os-app-screen-nav-row-height, 2.35rem);
+}
+
+.standing-sheet-header--compact .glass-sheet-icon-action > svg {
+  display: block;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.standing-sheet-header--compact .standing-sheet-subject-name {
+  font-size: 0.98rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.standing-sheet-header--compact .endorsements-sheet-title {
+  flex: 1;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.standing-sheet-header--compact .standing-sheet-toolbar-row.os-app-chrome-rail {
+  height: 2rem;
+  min-height: 2rem;
+  max-height: 2rem;
+  transition: none;
+}
+
+.network-orbit-screen .os-app-screen-title {
+  font-size: 0.98rem;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.standing-sheet-header--compact
+  .standing-sheet-subject-shimmer-name.standing-row-shimmer-line {
+  height: calc(0.98rem * 1.25);
+  margin-top: 0;
+}
+
+/*
  * Fact peeks keep the standard GlassSheet grip. Don't add a second title
  * inset — that pad was compensating for a hidden handle.
  */
@@ -14137,6 +14205,30 @@ a.os-surface-row {
   }
 
   /*
+   * Network is a name row plus a 2rem filter row. The nav-only fallback
+   * under-counts that row, so the map drops when the measured height lands.
+   */
+  .os-app-screen.network-orbit-screen[data-compact-chrome='true'] {
+    --os-app-screen-chrome-height: calc(
+      env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y) +
+        var(--os-app-screen-nav-row-height) +
+        var(--os-app-chrome-chip-gap, 0.28rem) + 2rem +
+        var(--os-app-chrome-pad-y)
+    );
+  }
+
+  /* Network loading shell has no dock yet. Reserve the same clearance the live
+     map uses so the center account does not rise when the dock mounts. */
+  .os-app-screen.network-orbit-screen
+    > .os-app-screen-column
+    > .os-app-screen-body {
+    padding-bottom: calc(
+      var(--os-summon-dock-occupied, var(--portfolio-dock-clearance, 4.75rem)) +
+        0.4rem
+    );
+  }
+
+  /*
    * One compact nav band everywhere (Discover / Market / Messages / Proposals).
    * Market actions used to stay at OsIconAction's 2.75rem and loft the row —
    * Discover (no actions) stayed 2.35rem, so its search sat higher / chips closer.
@@ -14213,12 +14305,19 @@ a.os-surface-row {
 
   .os-app-screen[data-compact-chrome='true']
     .os-app-screen-toolbar
-    .search-field.os-floating-panel-search,
+    .search-field.os-floating-panel-search:not(.standing-list-toolbar-search),
   .os-app-screen[data-compact-chrome='true']
     .os-app-screen-toolbar
     .search-field.os-app-screen-search {
     height: var(--os-app-screen-nav-row-height);
     min-height: var(--os-app-screen-nav-row-height);
+  }
+
+  /* Standing menu + search keep their own 2rem row inside compact chrome. */
+  .os-app-screen-toolbar > .standing-list-toolbar {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
   }
 
   .os-app-screen-heading .os-app-chrome-nav-search {
@@ -14423,8 +14522,7 @@ a.os-surface-row {
     pointer-events: none;
     view-timeline-name: --os-immersive-title;
     view-timeline-axis: block;
-    view-timeline-inset: var(--os-app-screen-elevated-chrome-height) 0px 0px
-      0px;
+    view-timeline-inset: var(--os-app-screen-elevated-chrome-height) 0px 0px 0px;
   }
 
   .os-app-screen-nav-row {
@@ -14693,8 +14791,8 @@ a.os-surface-row {
     )
     .os-chrome-whisper-anchor {
     top: calc(
-      var(--os-app-screen-elevated-chrome-height) + var(--os-chrome-rail-block) +
-        0.35rem
+      var(--os-app-screen-elevated-chrome-height) +
+        var(--os-chrome-rail-block) + 0.35rem
     );
   }
 
@@ -18006,6 +18104,42 @@ a.os-surface-row {
     max-height: 2.85rem;
   }
 
+  /* The profile face stays behind the sheet while standing opens from the map. */
+  html[data-standing-handoff='open'] .portfolio-page,
+  html[data-standing-handoff='close'] .network-orbit-screen > .os-app-screen-column {
+    visibility: hidden;
+  }
+
+  html[data-standing-early='open'] .glass-sheet-root:not(.standing-early-sheet) {
+    visibility: hidden;
+  }
+
+  /* Frozen map, under the standing sheet, while that route change paints. */
+  #standing-handoff-hold {
+    position: fixed;
+    inset: 0;
+    z-index: 49;
+    pointer-events: none;
+    overflow: hidden;
+    transform: translateZ(0);
+  }
+
+  #standing-handoff-hold .os-app-screen > :not(.standing-early-sheet),
+  #standing-handoff-hold .os-app-screen > :not(.standing-early-sheet) * {
+    animation: none !important;
+    pointer-events: none !important;
+  }
+
+  #standing-handoff-hold .os-app-screen {
+    height: 100%;
+    min-height: 100%;
+  }
+
+  #standing-handoff-hold .standing-early-sheet,
+  #standing-handoff-hold .standing-early-sheet * {
+    pointer-events: auto;
+  }
+
   .standing-sheet-toolbar-row .standing-list-toolbar {
     flex: 1;
     min-width: 0;
@@ -18265,10 +18399,6 @@ a.os-surface-row {
     }
   }
 
-  .standing-panel-body {
-    animation: standing-panel-body-in 140ms ease;
-  }
-
   .standing-panel-body.is-refreshing {
     opacity: 0.72;
     transition: opacity 160ms ease;
@@ -18276,6 +18406,10 @@ a.os-surface-row {
 
   .profile-social-list {
     animation: standing-panel-body-in 140ms ease;
+  }
+
+  .standing-panel .profile-social-list {
+    animation: none;
   }
 
   .standing-panel-error-block {
@@ -18737,6 +18871,38 @@ a.os-surface-row {
   .standing-row-shimmer-line-xs {
     height: 0.48rem;
     width: 78%;
+    margin-top: 0.45rem;
+  }
+
+  /* Same stroke weights as the shared shimmer, spaced like a settled row. */
+  .standing-list-skeleton .standing-row-skeleton-name {
+    min-height: calc(0.875rem * 1.5);
+  }
+
+  .standing-list-skeleton .standing-row-skeleton-handle {
+    display: flex;
+    align-items: center;
+    min-height: calc(0.72rem * 1.45);
+    margin-top: 0.05rem;
+  }
+
+  .standing-list-skeleton .standing-row-skeleton-handle .standing-row-shimmer-line-sm,
+  .standing-list-skeleton .standing-row-skeleton-bio .standing-row-shimmer-line-bio,
+  .standing-list-skeleton .standing-row-skeleton-metrics .standing-row-shimmer-line-xs {
+    margin-top: 0;
+  }
+
+  .standing-list-skeleton .standing-row-skeleton-bio {
+    display: flex;
+    align-items: center;
+    min-height: calc(0.75rem * 1.45);
+    margin-top: 0.2rem;
+  }
+
+  .standing-list-skeleton .standing-row-skeleton-metrics {
+    display: flex;
+    align-items: center;
+    min-height: calc(0.6875rem * 1.5);
     margin-top: 0.45rem;
   }
 
@@ -48645,10 +48811,23 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     opacity: 0.68;
   }
 
-  .network-orbit-stage-skeleton {
-    width: min(320px, 78%);
-    aspect-ratio: 1;
-    border-radius: 9999px;
+  .network-loading-title {
+    display: block;
+    width: 9rem;
+    height: calc(0.98rem * 1.25);
+    margin: 0;
+    border-radius: 999px;
+  }
+
+  .network-loading-icon {
+    width: var(--os-app-screen-nav-row-height, 2.35rem);
+    height: var(--os-app-screen-nav-row-height, 2.35rem);
+    flex-shrink: 0;
+  }
+
+  .network-loading-toolbar {
+    height: 2rem;
+    width: 100%;
   }
 
   .network-orbit-empty {
@@ -48991,43 +49170,11 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   }
 }
 
-/* Network map fills the OS screen. Search and filter stay one height; the chip width does not steal the field. */
+/* Network map fills the OS screen. The filter and search use the standing toolbar. */
 .os-app-screen-body:has(> .network-orbit-panel) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-.network-orbit-toolbar .standing-view-menu {
-  flex: 0 0 9.25rem;
-  width: 9.25rem;
-  max-width: 9.25rem;
-}
-
-@media (max-width: 359px) {
-  .network-orbit-toolbar .standing-view-menu {
-    flex-basis: 7.25rem;
-    width: 7.25rem;
-    max-width: 7.25rem;
-  }
-}
-
-.network-orbit-toolbar .os-floating-panel-trigger {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 100%;
-  height: var(--os-app-screen-nav-row-height, 2.35rem);
-  min-height: var(--os-app-screen-nav-row-height, 2.35rem);
-  max-height: var(--os-app-screen-nav-row-height, 2.35rem);
-  padding-block: 0;
-}
-
-.network-orbit-toolbar .search-field.os-floating-panel-search {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: var(--os-app-screen-nav-row-height, 2.35rem);
-  min-height: var(--os-app-screen-nav-row-height, 2.35rem);
-  max-height: var(--os-app-screen-nav-row-height, 2.35rem);
 }
 
 .network-orbit-stage.is-fading-rings .network-orbit-node,

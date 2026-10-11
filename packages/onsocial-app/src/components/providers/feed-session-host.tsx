@@ -39,6 +39,19 @@ const COVERED_FEED_STYLE: CSSProperties = {
 };
 
 /**
+ * The parked feed is `position: fixed` at z-index 0, which paints above the
+ * in-flow profile. This layer keeps the live route on top so a feed descendant
+ * cannot take the profile's clicks. A writing hop drops the layer so the
+ * article on the feed can still be used.
+ */
+const LIVE_FRONT_STYLE: CSSProperties = {
+  position: 'relative',
+  zIndex: 1,
+  height: '100%',
+  minHeight: '100%',
+};
+
+/**
  * Home mounts once per tab. Article and profile routes cover it.
  * Back to /home reveals the same list and the same line.
  * A hard refresh of an article never mounts this feed.
@@ -52,7 +65,9 @@ export function FeedSessionHost({ children }: { children: ReactNode }) {
     () => false
   );
   const [mounted, setMounted] = useState(onFeed);
+  const [frontReady, setFrontReady] = useState(false);
   const hostRef = useRef<HTMLDivElement>(null);
+  const frontRef = useRef<HTMLDivElement>(null);
   const coveredScrollRef = useRef(0);
 
   if (onFeed && !mounted) {
@@ -114,30 +129,59 @@ export function FeedSessionHost({ children }: { children: ReactNode }) {
     return () => root.removeEventListener('play', quiet, true);
   }, [onFeed]);
 
+  useLayoutEffect(() => {
+    if (onFeed) {
+      setFrontReady(false);
+      return;
+    }
+    const front = frontRef.current;
+    setFrontReady(
+      Boolean(
+        front?.querySelector(
+          '.portfolio-page, .portfolio-frame, .os-app-screen, .protocol-face-pair'
+        )
+      )
+    );
+  }, [onFeed, pathname, children]);
+
+  /* The URL changes before the next page exists. Keep the feed up until that
+   * page is actually in the DOM, so the card is not a blank dead layer. */
+  const holdFeed = !onFeed && !shelfHop && !frontReady;
   /* Writing hops through the profile face. Keep the article on screen until
    * that list covers it, instead of painting the portfolio underneath. */
-  const coveredStyle = onFeed
-    ? undefined
-    : shelfHop
-      ? { ...COVERED_FEED_STYLE, visibility: 'visible' as const }
-      : COVERED_FEED_STYLE;
+  const coveredStyle =
+    onFeed || holdFeed
+      ? undefined
+      : shelfHop
+        ? { ...COVERED_FEED_STYLE, visibility: 'visible' as const }
+        : COVERED_FEED_STYLE;
 
   return (
     <>
       {mounted ? (
         <div
           ref={hostRef}
-          data-feed-session={onFeed ? 'live' : 'covered'}
+          data-feed-session={onFeed || holdFeed ? 'live' : 'covered'}
           style={coveredStyle}
-          inert={!onFeed ? true : undefined}
-          aria-hidden={!onFeed && !shelfHop ? true : undefined}
+          inert={!onFeed && !holdFeed ? true : undefined}
+          aria-hidden={!onFeed && !shelfHop && !holdFeed ? true : undefined}
         >
           <Suspense fallback={null}>
             <HomePagePanel />
           </Suspense>
         </div>
       ) : null}
-      {children}
+      <div
+        ref={frontRef}
+        className="feed-session-front"
+        style={
+          onFeed || shelfHop || holdFeed
+            ? { display: 'contents' }
+            : LIVE_FRONT_STYLE
+        }
+      >
+        {children}
+      </div>
     </>
   );
 }

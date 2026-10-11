@@ -47,6 +47,28 @@ describe('enrichEndorsementSupporters', () => {
     ]);
   });
 
+  it('resolves ipfs avatars to the profile CDN', () => {
+    expect(
+      enrichEndorsementSupporters(
+        [
+          {
+            accountId: 'carol.testnet',
+            totalAmountYocto: '1',
+            spendCount: 1,
+            latestSupportAt: null,
+          },
+        ],
+        [
+          {
+            accountId: 'carol.testnet',
+            name: 'Carol',
+            avatar: 'ipfs://bafyavatarcarol',
+          },
+        ]
+      )[0]?.avatarUrl
+    ).toBe('https://cdn.testnet.onsocial.id/ipfs/bafyavatarcarol');
+  });
+
   it('returns an empty list when nobody has supported', () => {
     expect(enrichEndorsementSupporters([], [])).toEqual([]);
   });

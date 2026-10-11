@@ -3,6 +3,10 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { AccountAvatar } from '@/components/profile/account-avatar';
+import {
+  clearNetworkStandingHandoff,
+  clearStandingSheetCovered,
+} from '@/components/panels/network-standing-handoff';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { useStandingPanel } from '@/components/panels/standing-panel-context';
 import type { ProfileKind } from '@onsocial/sdk';
@@ -56,7 +60,6 @@ export function StandingSheetSubjectAvatar({
 function SubjectSkeletonBody() {
   return (
     <div className="standing-sheet-subject standing-sheet-subject--skeleton">
-      <AccountAvatar size="md" shellLoading />
       <span className="standing-sheet-subject-copy">
         <span className="standing-row-shimmer standing-row-shimmer-line standing-sheet-subject-shimmer-name" />
       </span>
@@ -90,16 +93,8 @@ export function StandingSheetSubject({
   leading?: ReactNode;
   trailing?: ReactNode;
 }) {
-  const {
-    accountId,
-    displayName,
-    avatarUrl,
-    profileKind,
-    isDaoSubject,
-    isSelf,
-    showSubjectSkeleton,
-  } = useStandingPanel();
-  const label = isSelf ? 'You' : displayName;
+  const { accountId, displayName, showSubjectSkeleton } = useStandingPanel();
+  const label = displayName.trim() || accountId;
 
   if (showSubjectSkeleton) {
     return (
@@ -114,13 +109,13 @@ export function StandingSheetSubject({
         href={portfolioPath(accountId)}
         className="standing-sheet-subject"
         aria-label={`${label} portfolio`}
+        onClick={() => {
+          // A map handoff treats arrival on this profile as "now open the
+          // list". The name is that profile, so the list must not come back.
+          clearNetworkStandingHandoff();
+          clearStandingSheetCovered();
+        }}
       >
-        <SubjectAvatar
-          accountId={accountId}
-          avatarUrl={avatarUrl}
-          kind={profileKind}
-          isDao={isDaoSubject}
-        />
         <span className="standing-sheet-subject-copy">
           <span className="standing-sheet-subject-name">{label}</span>
         </span>

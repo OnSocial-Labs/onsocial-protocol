@@ -29,6 +29,9 @@ export function useSummonDockOccupiedHeight(
       if (host && host !== screen) {
         host.style.setProperty(OCCUPIED_VAR, value);
       }
+      /* Keep the last height on the document so the next screen, including
+         the network loading shell, reserves the same dock before it measures. */
+      document.documentElement.style.setProperty(OCCUPIED_VAR, value);
     };
 
     sync();

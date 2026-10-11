@@ -36,6 +36,7 @@ import { OsFaceLeaveProvider } from '@/components/providers/os-face-leave-provid
 import { DmUnreadHost } from '@/components/providers/dm-unread-host';
 import { NotificationsHost } from '@/components/providers/notifications-host';
 import { AppSmoothScrollProvider } from '@/components/providers/app-smooth-scroll-provider';
+import { NetworkStandingHandoffHost } from '@/components/panels/network-standing-handoff-host';
 import { FeedSessionHost } from '@/components/providers/feed-session-host';
 import { PwaProvider } from '@/components/providers/pwa-provider';
 import { markAppHydrated } from '@/lib/e2e-portfolio-ready';
@@ -98,6 +99,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                                                 <WebPushProvider>
                                                   <FeedSessionHost>
                                                     {children}
+                                                    <NetworkStandingHandoffHost />
                                                   </FeedSessionHost>
                                                   <ViewerMuteBlockHost />
                                                   <DropComposeHost />

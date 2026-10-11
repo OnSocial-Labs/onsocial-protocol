@@ -31,6 +31,7 @@ import {
   homeRallyPath,
   portfolioRallyPath,
   portfolioFeedPath,
+  accountIdFromPath,
   networkAccountIdFromPath,
   networkPath,
   resolveOverlayPanelChrome,
@@ -295,6 +296,21 @@ describe('networkAccountIdFromPath', () => {
       networkAccountIdFromPath('/@alice.testnet/standing/incoming')
     ).toBeNull();
     expect(networkAccountIdFromPath('/@alice.testnet')).toBeNull();
+  });
+});
+
+describe('accountIdFromPath', () => {
+  it('reads the account from a portfolio screen', () => {
+    expect(accountIdFromPath('/@alice.testnet')).toBe('alice.testnet');
+    expect(accountIdFromPath('/@alice.testnet/standing/incoming')).toBe(
+      'alice.testnet'
+    );
+    expect(accountIdFromPath('/@a%2Fb.testnet/network')).toBe('a/b.testnet');
+  });
+
+  it('ignores app routes', () => {
+    expect(accountIdFromPath('/home')).toBeNull();
+    expect(accountIdFromPath('/')).toBeNull();
   });
 });
 

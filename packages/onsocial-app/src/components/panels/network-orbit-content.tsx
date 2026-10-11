@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { CSSProperties, MouseEvent } from 'react';
 import { UserIcon } from '@onsocial/ui';
 import { useNetworkOrbit } from '@/components/panels/network-orbit-context';
+import { useOpenNetworkStandingList } from '@/components/panels/network-orbit-sheet-header';
 import { displayName as resolveDisplayName } from '@/lib/profile-display';
 import {
   ORBIT_SPARSE_LABEL_LIMIT,
@@ -17,6 +18,21 @@ import { networkPath, portfolioPath } from '@/lib/overlay-routes';
 import type { NetworkAccount } from '@/lib/profile-network';
 
 const LINE_EDGE_OVERLAP = 1.5;
+
+/**
+ * SSR prints `230px` and the browser shortens long floats. The client then
+ * hydrates a different style string and drops click handlers on the map.
+ * Round first so both sides emit the same text.
+ */
+function cssPx(value: number): string {
+  const rounded = Math.round(value * 100) / 100;
+  return `${Object.is(rounded, -0) ? 0 : rounded}px`;
+}
+
+function cssRad(value: number): string {
+  const rounded = Math.round(value * 1e5) / 1e5;
+  return `${Object.is(rounded, -0) ? 0 : rounded}rad`;
+}
 
 function nodeLabel(account: NetworkAccount): string {
   return account.name?.trim() || resolveDisplayName(account.accountId);
@@ -65,9 +81,9 @@ function OrbitSpoke({
     <div
       className="network-orbit-spoke"
       style={{
-        left: layout.center,
-        top: layout.center,
-        transform: `rotate(${angle}rad)`,
+        left: cssPx(layout.center),
+        top: cssPx(layout.center),
+        transform: `rotate(${cssRad(angle)})`,
         animationDelay: `${motion.entranceDelay}s`,
       }}
       aria-hidden="true"
@@ -80,9 +96,9 @@ function OrbitSpoke({
         }${dimmed ? ' is-dimmed' : ''}`}
         style={
           {
-            left: startRadius,
-            width: length,
-            '--orbit-amp': `${amp}px`,
+            left: cssPx(startRadius),
+            width: cssPx(length),
+            '--orbit-amp': cssPx(amp),
             animationDelay: `${motion.idleDelay}s`,
             animationDuration: `${motion.idleDuration}s`,
           } as CSSProperties
@@ -139,15 +155,15 @@ function OrbitNode({
       }${dimmed ? ' is-dimmed' : ''}`}
       style={
         {
-          left: node.x,
-          top: node.y,
-          width: node.size,
-          height: node.size,
-          marginLeft: -node.size / 2,
-          marginTop: -node.size / 2,
-          '--orbit-fx': `${node.unitX * amp}px`,
-          '--orbit-fy': `${node.unitY * amp}px`,
-          '--label-shift-x': `${labelShiftX}px`,
+          left: cssPx(node.x),
+          top: cssPx(node.y),
+          width: cssPx(node.size),
+          height: cssPx(node.size),
+          marginLeft: cssPx(-node.size / 2),
+          marginTop: cssPx(-node.size / 2),
+          '--orbit-fx': cssPx(node.unitX * amp),
+          '--orbit-fy': cssPx(node.unitY * amp),
+          '--label-shift-x': cssPx(labelShiftX),
           animationDelay: `${motion.entranceDelay}s, ${motion.idleDelay}s`,
           animationDuration: `0.22s, ${motion.idleDuration}s`,
         } as CSSProperties
@@ -179,12 +195,10 @@ function OrbitNode({
 }
 
 function OrbitCenter({ stageSize }: { stageSize: number }) {
-  const { accountId, displayName, avatarUrl, isSelf, centerMood } =
-    useNetworkOrbit();
+  const { accountId, displayName, avatarUrl, centerMood } = useNetworkOrbit();
   const layout = orbitStageLayout(stageSize);
   const size = layout.centerAvatar;
   const identity = orbitCenterIdentity(accountId);
-  const label = isSelf ? 'You' : displayName;
 
   const identityVars: CSSProperties = centerMood
     ? ({
@@ -206,17 +220,20 @@ function OrbitCenter({ stageSize }: { stageSize: number }) {
       href={portfolioPath(accountId)}
       className="network-orbit-center"
       style={{
-        width: size,
-        height: size,
-        marginLeft: -size / 2,
-        marginTop: -size / 2,
+        width: cssPx(size),
+        height: cssPx(size),
+        marginLeft: cssPx(-size / 2),
+        marginTop: cssPx(-size / 2),
         ...identityVars,
       }}
-      aria-label={`Open ${label}`}
+      aria-label={`Open ${displayName}`}
     >
       <span
         className="network-orbit-center-glow"
-        style={{ background: glowBackground, inset: Math.round(-size * 0.52) }}
+        style={{
+          background: glowBackground,
+          inset: cssPx(Math.round(-size * 0.52)),
+        }}
         aria-hidden="true"
       />
       <span className="network-orbit-center-avatar">
@@ -225,7 +242,7 @@ function OrbitCenter({ stageSize }: { stageSize: number }) {
         ) : (
           <span
             className="network-orbit-center-fallback-icon"
-            style={{ width: size * 0.38, height: size * 0.38 }}
+            style={{ width: cssPx(size * 0.38), height: cssPx(size * 0.38) }}
             aria-hidden
           >
             <UserIcon className="network-orbit-center-fallback-glyph" />
@@ -249,9 +266,14 @@ function OrbitCaptions() {
     isSelf,
     listHref,
   } = useNetworkOrbit();
+  const openStandingList = useOpenNetworkStandingList();
 
   if (searchActive && searchFetching) {
-    return <p className="network-orbit-caption">Searching…</p>;
+    return (
+      <div className="network-orbit-caption-row">
+        <p className="network-orbit-caption">Searching…</p>
+      </div>
+    );
   }
 
   if (searchActive && searchMatchTotal > mapShownCount) {
@@ -266,6 +288,7 @@ function OrbitCaptions() {
           scroll={false}
           prefetch={false}
           className="network-orbit-view-all"
+          onClick={openStandingList}
         >
           View all
         </Link>
@@ -294,6 +317,7 @@ function OrbitCaptions() {
           scroll={false}
           prefetch={false}
           className="network-orbit-view-all"
+          onClick={openStandingList}
         >
           View all
         </Link>
@@ -309,6 +333,7 @@ function OrbitCaptions() {
           scroll={false}
           prefetch={false}
           className="network-orbit-view-all"
+          onClick={openStandingList}
         >
           View all
         </Link>
@@ -316,7 +341,7 @@ function OrbitCaptions() {
     );
   }
 
-  return null;
+  return <div className="network-orbit-caption-row" aria-hidden="true" />;
 }
 
 export function NetworkOrbitContent() {
@@ -336,7 +361,6 @@ export function NetworkOrbitContent() {
     ringsFading,
   } = useNetworkOrbit();
 
-  const showSkeleton = loading && placedNodes.length === 0 && !ringsFading;
   const showEmpty =
     !ringsFading &&
     !loading &&
@@ -352,43 +376,36 @@ export function NetworkOrbitContent() {
 
       <div className="network-orbit-stage-wrap" ref={stageWrapRef}>
         <div className="network-orbit-stage-bg" aria-hidden="true" />
-        {showSkeleton ? (
-          <div
-            className="network-orbit-stage-skeleton standing-row-shimmer"
-            aria-hidden="true"
-          />
-        ) : (
-          <div
-            className={`network-orbit-stage${
-              sparse ? ' network-orbit-stage--sparse' : ''
-            }${ringsFading ? ' is-fading-rings' : ''}${
-              (searchActive && searchFetching) || personalizing
-                ? ' is-refreshing'
-                : ''
-            }`}
-            style={{ width: stageSize, height: stageSize }}
-          >
-            {placedNodes.map((node, index) => (
-              <OrbitSpoke
-                key={`spoke-${node.account.accountId}`}
-                node={node}
-                index={index}
-                dimmed={isDimmed(node.account)}
-                stageSize={stageSize}
-              />
-            ))}
-            {placedNodes.map((node, index) => (
-              <OrbitNode
-                key={node.account.accountId}
-                node={node}
-                index={index}
-                dimmed={isDimmed(node.account)}
-                stageSize={stageSize}
-              />
-            ))}
-            <OrbitCenter stageSize={stageSize} />
-          </div>
-        )}
+        <div
+          className={`network-orbit-stage${
+            sparse ? ' network-orbit-stage--sparse' : ''
+          }${ringsFading ? ' is-fading-rings' : ''}${
+            (searchActive && searchFetching) || personalizing
+              ? ' is-refreshing'
+              : ''
+          }`}
+          style={{ width: cssPx(stageSize), height: cssPx(stageSize) }}
+        >
+          {placedNodes.map((node, index) => (
+            <OrbitSpoke
+              key={`spoke-${node.account.accountId}`}
+              node={node}
+              index={index}
+              dimmed={isDimmed(node.account)}
+              stageSize={stageSize}
+            />
+          ))}
+          {placedNodes.map((node, index) => (
+            <OrbitNode
+              key={node.account.accountId}
+              node={node}
+              index={index}
+              dimmed={isDimmed(node.account)}
+              stageSize={stageSize}
+            />
+          ))}
+          <OrbitCenter stageSize={stageSize} />
+        </div>
 
         {loadError ? (
           <p className="network-orbit-empty">{loadError}</p>
