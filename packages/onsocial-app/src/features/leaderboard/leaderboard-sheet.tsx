@@ -42,6 +42,7 @@ import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-li
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   DOCK_TOGGLE_COOLDOWN_MS,
+  dockToggleCooling,
   nextDockAutoHidden,
   scrollRoomOf,
 } from '@/hooks/use-dock-auto-hide';
@@ -1208,7 +1209,11 @@ export function LeaderboardSheet({
     });
     if (next !== railHiddenRef.current[scope]) {
       const now = performance.now();
-      const cooling = delta !== 0 && now < railCooldownRef.current;
+      const cooling = dockToggleCooling({
+        delta,
+        now,
+        cooldownUntil: railCooldownRef.current,
+      });
       if (!cooling) {
         if (delta !== 0) {
           railCooldownRef.current = now + DOCK_TOGGLE_COOLDOWN_MS;

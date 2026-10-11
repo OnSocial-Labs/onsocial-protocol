@@ -3,8 +3,10 @@ import {
   DOCK_HIDE_DELTA_PX,
   DOCK_MIN_SCROLL_ROOM_PX,
   DOCK_SHOW_DELTA_PX,
+  DOCK_TOGGLE_COOLDOWN_MS,
   DOCK_TOP_REVEAL_PX,
   canDockAutoHide,
+  dockToggleCooling,
   nextDockAutoHidden,
   scrollRoomOf,
 } from './use-dock-auto-hide';
@@ -69,6 +71,46 @@ describe('dock auto-hide scroll room', () => {
         delta: DOCK_HIDE_DELTA_PX + 1,
         scrollRoom: DOCK_MIN_SCROLL_ROOM_PX - 1,
         hidden: false,
+      })
+    ).toBe(false);
+  });
+
+  it('lets a flick reveal during the settle cooldown', () => {
+    const now = 1_000;
+    const cooldownUntil = now + DOCK_TOGGLE_COOLDOWN_MS - 1;
+    expect(
+      dockToggleCooling({
+        delta: -(DOCK_SHOW_DELTA_PX + 1),
+        now,
+        cooldownUntil,
+      })
+    ).toBe(false);
+    expect(
+      dockToggleCooling({
+        delta: DOCK_HIDE_DELTA_PX + 1,
+        now,
+        cooldownUntil,
+      })
+    ).toBe(false);
+    expect(
+      dockToggleCooling({
+        delta: 2,
+        now,
+        cooldownUntil,
+      })
+    ).toBe(true);
+    expect(
+      dockToggleCooling({
+        delta: 0,
+        now,
+        cooldownUntil,
+      })
+    ).toBe(false);
+    expect(
+      dockToggleCooling({
+        delta: 2,
+        now: cooldownUntil,
+        cooldownUntil,
       })
     ).toBe(false);
   });

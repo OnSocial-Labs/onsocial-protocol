@@ -42,6 +42,24 @@ export function canDockAutoHide(scrollRoomPx: number): boolean {
   return scrollRoomPx >= DOCK_MIN_SCROLL_ROOM_PX;
 }
 
+/** A flick large enough to hide or show. Smaller moves are layout settle. */
+export function isDockFlick(delta: number): boolean {
+  return delta < -DOCK_SHOW_DELTA_PX || delta > DOCK_HIDE_DELTA_PX;
+}
+
+/**
+ * Settle cooldown blocks tiny follow-up deltas. A real flick still toggles,
+ * so scrolling back up reveals the chrome without waiting out the timer.
+ */
+export function dockToggleCooling(args: {
+  delta: number;
+  now: number;
+  cooldownUntil: number;
+}): boolean {
+  if (isDockFlick(args.delta)) return false;
+  return args.delta !== 0 && args.now < args.cooldownUntil;
+}
+
 /**
  * Next tuck state for one scroll event. Near the top, or on a short page,
  * the chrome stays visible. Otherwise hide on a downward flick and show
