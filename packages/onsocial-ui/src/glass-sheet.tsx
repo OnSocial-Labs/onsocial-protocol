@@ -727,6 +727,20 @@ function useGlassSheetPortalTarget(
   return contextHost ?? body;
 }
 
+/**
+ * Opening keeps the sheet mounted and invisible for two frames. That window
+ * must not arm the close timer — a busy frame (the kept Home feed, a slow
+ * profile) lets the 320ms timer fire before the enter frames, and `onClosed`
+ * tears the sheet down as a flash.
+ */
+export function sheetPresenceCloseShouldFinish(input: {
+  open: boolean;
+  mounted: boolean;
+  visible: boolean;
+}): boolean {
+  return input.mounted && !input.open && !input.visible;
+}
+
 function useSheetPresence(
   open: boolean,
   onClosed?: () => void,
@@ -736,7 +750,9 @@ function useSheetPresence(
   const [visible, setVisible] = useState(() => open && presentation === 'swap');
   const closeFinishedRef = useRef(false);
   const presentationRef = useRef(presentation);
+  const openRef = useRef(open);
   presentationRef.current = presentation;
+  openRef.current = open;
 
   useEffect(() => {
     if (open) {
@@ -756,7 +772,7 @@ function useSheetPresence(
   }, [open]);
 
   const finishClose = useCallback(() => {
-    if (closeFinishedRef.current) {
+    if (closeFinishedRef.current || openRef.current) {
       return;
     }
     closeFinishedRef.current = true;
@@ -765,19 +781,26 @@ function useSheetPresence(
   }, [onClosed]);
 
   useEffect(() => {
-    if (visible || !mounted) {
+    if (!sheetPresenceCloseShouldFinish({ open, mounted, visible })) {
       return;
     }
 
     const timer = window.setTimeout(finishClose, SHEET_TRANSITION_MS);
     return () => window.clearTimeout(timer);
-  }, [finishClose, mounted, visible]);
+  }, [finishClose, mounted, open, visible]);
 
   const handlePanelTransitionEnd = useCallback(
     (event: React.TransitionEvent<HTMLDivElement>) => {
+      if (event.target !== event.currentTarget) {
+        return;
+      }
       const closeProp =
         presentationRef.current === 'appear' ? 'opacity' : 'transform';
-      if (event.propertyName !== closeProp || visible) {
+      if (
+        event.propertyName !== closeProp ||
+        visible ||
+        openRef.current
+      ) {
         return;
       }
       finishClose();

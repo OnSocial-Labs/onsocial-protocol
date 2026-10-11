@@ -102,9 +102,15 @@ const getServerMountedSnapshot = () => false;
 
 function probeOsCardHost(): HTMLElement | null {
   if (typeof document === 'undefined') return null;
-  return document.querySelector<HTMLElement>(
+  const live = document.querySelector<HTMLElement>(
+    '.feed-session-front .portfolio-frame.app-surface, .feed-session-front .os-app-screen.app-surface:not(.os-slide-over)'
+  );
+  if (live) return live;
+  const any = document.querySelector<HTMLElement>(
     '.portfolio-frame.app-surface, .os-app-screen.app-surface:not(.os-slide-over)'
   );
+  if (any?.closest('[data-feed-session="covered"]')) return null;
+  return any;
 }
 
 function launcherAppLabel(app: OsAppLink, openingPage: boolean) {
@@ -278,8 +284,7 @@ export function SummonLauncher({
   const immersiveChromeQuiet = useImmersiveChromeQuiet();
   const writing = Boolean(write) || writePinned;
   const autoHide = useDockAutoHide(open || writing);
-  const dockHidden =
-    !open && (immersiveChromeQuiet || (autoHide && !writing));
+  const dockHidden = !open && (immersiveChromeQuiet || (autoHide && !writing));
   const showDockBack = resolveDockBackVisible({
     dockBack,
     launcherOpen: open,

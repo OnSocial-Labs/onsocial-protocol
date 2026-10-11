@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import { usePathname } from 'next/navigation';
+import { useNoteOsPortalHosts } from '@/contexts/os-portal-host-context';
 import { HomePagePanel } from '@/features/home/home-feed';
 import { APP_HOME_PATH } from '@/lib/app-routes';
 import {
@@ -51,6 +52,9 @@ const LIVE_FRONT_STYLE: CSSProperties = {
   minHeight: '100%',
 };
 
+const FRONT_READY_SELECTOR =
+  '.portfolio-page, .portfolio-frame, .os-app-screen, .protocol-face-pair';
+
 /**
  * Home mounts once per tab. Article and profile routes cover it.
  * Back to /home reveals the same list and the same line.
@@ -66,6 +70,7 @@ export function FeedSessionHost({ children }: { children: ReactNode }) {
   );
   const [mounted, setMounted] = useState(onFeed);
   const [frontReady, setFrontReady] = useState(false);
+  const notePortalHosts = useNoteOsPortalHosts();
   const hostRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
   const coveredScrollRef = useRef(0);
@@ -131,17 +136,36 @@ export function FeedSessionHost({ children }: { children: ReactNode }) {
 
   useLayoutEffect(() => {
     const front = frontRef.current;
-    const ready =
-      !onFeed &&
-      Boolean(
-        front?.querySelector(
-          '.portfolio-page, .portfolio-frame, .os-app-screen, .protocol-face-pair'
-        )
-      );
-    if (ready === frontReady) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- before-paint route readiness
-    setFrontReady(ready);
-  }, [frontReady, onFeed, pathname, children]);
+    let frame = 0;
+    const apply = (ready: boolean) => {
+      setFrontReady((current) => (current === ready ? current : ready));
+    };
+    const readReady = () =>
+      !onFeed && Boolean(front?.querySelector(FRONT_READY_SELECTOR));
+    const sync = () => {
+      if (readReady()) {
+        cancelAnimationFrame(frame);
+        apply(true);
+        return;
+      }
+      // A sheet opening inside the profile can drop the front node for a
+      // frame. Uncovering the feed in that frame is the flash.
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        apply(readReady());
+      });
+    };
+    sync();
+    if (onFeed || !front) {
+      return () => cancelAnimationFrame(frame);
+    }
+    const observer = new MutationObserver(sync);
+    observer.observe(front, { childList: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [onFeed, pathname]);
 
   /* The URL changes before the next page exists. Keep the feed up until that
    * page is actually in the DOM, so the card is not a blank dead layer. */
@@ -154,6 +178,10 @@ export function FeedSessionHost({ children }: { children: ReactNode }) {
       : shelfHop
         ? { ...COVERED_FEED_STYLE, visibility: 'visible' as const }
         : COVERED_FEED_STYLE;
+
+  useLayoutEffect(() => {
+    notePortalHosts();
+  }, [holdFeed, notePortalHosts, onFeed]);
 
   return (
     <>

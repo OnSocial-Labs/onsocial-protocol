@@ -26,6 +26,17 @@ interface OsPortalHostContextValue {
   /** Topmost registered OS / portfolio card. */
   host: HTMLElement | null;
   register: (node: HTMLElement) => () => void;
+  /** Re-read which card is live after the parked feed is covered. */
+  noteHosts: () => void;
+}
+
+/** The kept Home feed is not a card once the next screen covers it. */
+function coveredFeedHost(node: HTMLElement): boolean {
+  return Boolean(node.closest('[data-feed-session="covered"]'));
+}
+
+function insideFeedSession(node: HTMLElement): boolean {
+  return Boolean(node.closest('[data-feed-session]'));
 }
 
 const OsPortalHostContext = createContext<OsPortalHostContextValue | null>(
@@ -34,6 +45,7 @@ const OsPortalHostContext = createContext<OsPortalHostContextValue | null>(
 
 export function OsPortalHostProvider({ children }: { children: ReactNode }) {
   const [hosts, setHosts] = useState<HostEntry[]>([]);
+  const [hostEpoch, setHostEpoch] = useState(0);
   const nextId = useRef(0);
 
   const register = useCallback((node: HTMLElement) => {
@@ -44,11 +56,33 @@ export function OsPortalHostProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const host = hosts.length > 0 ? hosts[hosts.length - 1]!.node : null;
+  const noteHosts = useCallback(() => {
+    setHostEpoch((epoch) => epoch + 1);
+  }, []);
+
+  // hostEpoch forces a re-read after the feed is covered. The DOM flag is
+  // not in React state, so the render has to run again to see it.
+  void hostEpoch;
+  // A profile card always wins over the kept feed. While the feed is briefly
+  // live again, sheets must stay on the profile — moving them into the feed
+  // hides them the moment the feed is covered.
+  let host: HTMLElement | null = null;
+  let feedHost: HTMLElement | null = null;
+  for (let index = hosts.length - 1; index >= 0; index -= 1) {
+    const node = hosts[index]!.node;
+    if (!node.isConnected) continue;
+    if (insideFeedSession(node)) {
+      if (!feedHost && !coveredFeedHost(node)) feedHost = node;
+      continue;
+    }
+    host = node;
+    break;
+  }
+  if (!host) host = feedHost;
 
   const value = useMemo(
-    () => ({ host, register }),
-    [host, register]
+    () => ({ host, register, noteHosts }),
+    [host, noteHosts, register]
   );
 
   return (
@@ -61,6 +95,11 @@ export function OsPortalHostProvider({ children }: { children: ReactNode }) {
 /** Active clip host for `OsSlideOverScreen` (null → fall back to `document.body`). */
 export function useOsPortalHost(): HTMLElement | null {
   return useContext(OsPortalHostContext)?.host ?? null;
+}
+
+/** Ask the provider to skip a feed card that just became covered. */
+export function useNoteOsPortalHosts(): () => void {
+  return useContext(OsPortalHostContext)?.noteHosts ?? (() => {});
 }
 
 /**
