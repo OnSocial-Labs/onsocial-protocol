@@ -10,6 +10,7 @@ import {
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
 import { ScarceCommerceSummary } from '@/features/scarces/scarce-commerce-summary';
+import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
 import {
   fetchOfferFromBuyer,
   viewerOfferCta,
@@ -57,6 +58,7 @@ interface ScarceOfferFormProps {
     title?: string;
     mediaUrl?: string | null;
     ownerId: string;
+    ownerName?: string | null;
     /** Listed ask, when offering against a fixed-price sale. */
     askNear?: string;
     /** Known viewer offer — first paint is Update, not Make. */
@@ -302,6 +304,12 @@ export function ScarceOfferForm({
 
       <ScarceCommerceSummary
         title={listing.title?.trim() || 'Scarce'}
+        parties={
+          <ScarcePartyLine
+            accountId={listing.ownerId}
+            displayNameValue={listing.ownerName}
+          />
+        }
         price={
           listing.askNear || (existing && !loadingOffer) ? (
             <>

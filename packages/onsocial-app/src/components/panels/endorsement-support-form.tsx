@@ -14,6 +14,7 @@ import {
   useSyncCommerceSheetFooter,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
+import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
 import { accountIdsEqual } from '@/lib/account-match';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
@@ -343,19 +344,32 @@ export function EndorsementSupportForm({
     }
   }
 
+  const recipient = recipientAccountId ? (
+    <ScarcePartyLine
+      accountId={recipientAccountId}
+      displayNameValue={recipientName}
+    />
+  ) : null;
+
   if (!spendTargetOk) {
     return (
-      <p className="page-drawer-section-empty">
-        This endorsement can’t receive SOCIAL support yet.
-      </p>
+      <div className="profile-support-form">
+        {recipient}
+        <p className="page-drawer-section-empty">
+          This endorsement can’t receive SOCIAL support yet.
+        </p>
+      </div>
     );
   }
 
   if (isSelf) {
     return (
-      <p className="page-drawer-section-empty">
-        Others can support this vouch with SOCIAL.
-      </p>
+      <div className="profile-support-form">
+        {recipient}
+        <p className="page-drawer-section-empty">
+          Others can support this vouch with SOCIAL.
+        </p>
+      </div>
     );
   }
 
@@ -368,6 +382,7 @@ export function EndorsementSupportForm({
         void handleSubmit();
       }}
     >
+      {recipient}
       <AmountField
         value={amountInput}
         onValueChange={applyAmountInput}

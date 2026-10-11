@@ -19,7 +19,7 @@ import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { humanizeEndorsementTopic } from '@/lib/endorsement-display';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { displayName } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 export interface EndorsementSupportTarget {
@@ -41,8 +41,8 @@ interface EndorsementSupportSheetProps {
 
 /**
  * SOCIAL spend sheet for supporting an endorsement — same money gesture
- * family as profile Support (`OsGestureSheet` + AmountField). Topic lives in
- * the header whisper, not a body intro block.
+ * family as profile Support. Header is the verb only. The recipient face
+ * is the first body row. Topic stays in the header whisper.
  */
 export function EndorsementSupportSheet({
   open,
@@ -65,7 +65,6 @@ export function EndorsementSupportSheet({
     recipientAccountId,
     target?.recipientName ?? undefined
   );
-  const handle = fallbackLabel(recipientAccountId);
   const topicLabel = humanizeEndorsementTopic(target?.topic);
   const whisper = topicLabel
     ? `Vouch for ${topicLabel}`
@@ -121,8 +120,9 @@ export function EndorsementSupportSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       verb="Support endorsement"
-      personName={name}
-      handle={handle}
+      titleLabel={
+        recipientAccountId ? `Support endorsement ${name}` : 'Support endorsement'
+      }
       signal="reputation"
       whisper={whisper}
       closeAriaLabel="Close endorsement support"
