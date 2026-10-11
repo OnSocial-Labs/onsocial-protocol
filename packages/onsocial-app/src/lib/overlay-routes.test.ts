@@ -271,9 +271,9 @@ describe('networkPath', () => {
   });
 
   it('combines filter and query', () => {
-    expect(
-      networkPath('alice.testnet', { filter: 'outgoing', q: 'bob' })
-    ).toBe('/@alice.testnet/network?filter=outgoing&q=bob');
+    expect(networkPath('alice.testnet', { filter: 'outgoing', q: 'bob' })).toBe(
+      '/@alice.testnet/network?filter=outgoing&q=bob'
+    );
   });
 });
 
@@ -441,9 +441,7 @@ describe('parseOverlayPanelKey', () => {
     expect(parseOverlayPanelKey('/@alice.testnet/endorsements')).toBe(
       'endorsements'
     );
-    expect(parseOverlayPanelKey('/@alice.testnet/reputation')).toBe(
-      'reputation'
-    );
+    expect(parseOverlayPanelKey('/@alice.testnet/reputation')).toBeNull();
     expect(parseOverlayPanelKey('/@alice.testnet/network')).toBe('network');
     expect(parseOverlayPanelKey('/@alice.testnet/network?filter=mutual')).toBe(
       'network'
@@ -609,11 +607,7 @@ describe('resolveOverlayPanelChrome', () => {
       title: 'Endorsements',
       expectsToolbar: false,
     });
-    expect(resolveOverlayPanelChrome('reputation')).toEqual({
-      ariaTitle: 'Reputation',
-      title: 'Reputation',
-      expectsToolbar: false,
-    });
+    expect(resolveOverlayPanelChrome('reputation')).toBeNull();
     expect(resolveOverlayPanelChrome('collectibles')).toEqual({
       ariaTitle: 'Collectibles',
       title: 'Collectibles',

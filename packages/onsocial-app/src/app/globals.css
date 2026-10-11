@@ -12140,19 +12140,6 @@ a.os-surface-row {
     line-height: 1.25;
   }
 
-  .reputation-panel-body.panel-body {
-    gap: 0;
-    padding: 0.15rem 1.15rem 1.35rem;
-  }
-
-  .reputation-panel-body {
-    position: relative;
-  }
-
-  .reputation-panel-facts {
-    position: relative;
-  }
-
   .glass-sheet-header-title-row > .standing-sheet-actions {
     flex-shrink: 0;
     margin-inline-start: auto;
@@ -12560,8 +12547,9 @@ a.os-surface-row {
     appearance: none;
     border: 0;
     background: transparent;
-    padding: 0;
     margin: 0;
+    min-height: 1.875rem;
+    padding: 0.06rem var(--signals-metric-pad-x);
     font: inherit;
     color: inherit;
     cursor: pointer;
@@ -12787,7 +12775,8 @@ a.os-surface-row {
       padding-block: 0.04rem;
     }
 
-    .portfolio-frame .signal-metric:where(a) {
+    .portfolio-frame .signal-metric:where(a),
+    .portfolio-frame button.signal-metric {
       min-height: 1.75rem;
       padding-block: 0.04rem;
     }
