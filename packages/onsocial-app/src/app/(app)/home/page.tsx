@@ -6,8 +6,8 @@ export const metadata: Metadata = {
 };
 
 /**
- * The feed lives in FeedSessionHost so leaving for an article or a person
- * does not build a new list. This route only owns the URL.
+ * The feed lives in FeedSessionHost while this URL is open. Leaving saves
+ * the list and removes it. This route only owns the URL.
  */
 export default function HomePage() {
   return null;

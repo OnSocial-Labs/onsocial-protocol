@@ -58,6 +58,27 @@ export function shouldMountPortfolioGlassHost(input: {
   return input.layoutSegments.length === 0;
 }
 
+/** Network, the vault, the feed redirect, and an article are the screen itself. */
+export function portfolioPanelIsFullScreen(panelKey: string | null): boolean {
+  if (panelKey == null) return false;
+  return (
+    panelKey === 'feed' ||
+    panelKey === 'collectibles' ||
+    panelKey === 'network' ||
+    panelKey.startsWith('writing:')
+  );
+}
+
+/**
+ * The router still names a glass sheet. Use the router pathname, not
+ * `window.location`: the address bar can update a frame later and never
+ * render again, which left Standing's empty frost over the map.
+ */
+export function routeKeepsPortfolioGlassSheet(pathname: string): boolean {
+  const panelKey = parseOverlayPanelKey(pathname);
+  return panelKey != null && !portfolioPanelIsFullScreen(panelKey);
+}
+
 /**
  * Keep the standing sheet mounted only while the map handoff is still opening.
  * A globe click must drop it. Once the list is up, a name tap to the profile

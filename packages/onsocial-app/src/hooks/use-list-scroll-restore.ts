@@ -7,6 +7,8 @@ import {
 } from '@/lib/list-scroll-restore';
 
 const RESTORE_FRAMES = 90;
+/** Lenis eases for about 1.5s after a wheel or drag. Follow that coast. */
+const SCROLL_GESTURE_MS = 1800;
 
 /** Keep applying the saved line until the scroller is actually there. */
 export function useListScrollRestore(
@@ -38,7 +40,9 @@ export function useListScrollRestore(
     };
     attempt();
 
-    const markUser = () => {
+    let coastUntil = 0;
+    let holdLine = false;
+    const writeLine = () => {
       const memory = memoryRef.current;
       if (!memory) return;
       memory.userAdjusted = true;
@@ -46,15 +50,35 @@ export function useListScrollRestore(
       memory.landed = node.scrollTop;
       delete node.dataset.osScrollRestore;
     };
-    node.addEventListener('wheel', markUser, { passive: true });
-    node.addEventListener('touchmove', markUser, { passive: true });
-    node.addEventListener('keydown', markUser);
+    const beginCoast = () => {
+      holdLine = false;
+      coastUntil = performance.now() + SCROLL_GESTURE_MS;
+      writeLine();
+    };
+    const hold = () => {
+      holdLine = true;
+      coastUntil = 0;
+      writeLine();
+    };
+    const remember = (event: Event) => {
+      if (holdLine && !event.isTrusted) return;
+      const coasting = performance.now() < coastUntil;
+      if (!event.isTrusted && !coasting) return;
+      writeLine();
+    };
+    node.addEventListener('wheel', beginCoast, { passive: true });
+    node.addEventListener('touchmove', beginCoast, { passive: true });
+    node.addEventListener('pointerdown', hold);
+    node.addEventListener('keydown', beginCoast);
+    node.addEventListener('scroll', remember, { passive: true });
 
     return () => {
       if (raf !== 0) cancelAnimationFrame(raf);
-      node.removeEventListener('wheel', markUser);
-      node.removeEventListener('touchmove', markUser);
-      node.removeEventListener('keydown', markUser);
+      node.removeEventListener('wheel', beginCoast);
+      node.removeEventListener('touchmove', beginCoast);
+      node.removeEventListener('pointerdown', hold);
+      node.removeEventListener('keydown', beginCoast);
+      node.removeEventListener('scroll', remember);
     };
   }, [enabled, memoryRef, revision, scrollRootRef]);
 }

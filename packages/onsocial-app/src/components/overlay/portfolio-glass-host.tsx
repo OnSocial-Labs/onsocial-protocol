@@ -15,16 +15,15 @@ import {
   useOverlayChromeClear,
 } from '@/contexts/overlay-chrome-context';
 import { OverlayDismissProvider } from '@/contexts/overlay-dismiss-context';
-import {
-  isPortfolioOverlayPath,
-  parseOverlayPanelKey,
-} from '@/lib/overlay-routes';
+import { parseOverlayPanelKey } from '@/lib/overlay-routes';
 import {
   standingSheetAlreadyCovered,
   getNetworkStandingHandoffPhase,
 } from '@/components/panels/network-standing-handoff';
 import type { OverlaySlotMode } from '@/lib/overlay-slot';
 import {
+  portfolioPanelIsFullScreen,
+  routeKeepsPortfolioGlassSheet,
   shouldKeepStandingGlassHost,
   shouldMountPortfolioGlassHost,
 } from '@/lib/portfolio-glass-host';
@@ -133,19 +132,13 @@ function PortfolioGlassSheetFrame({
   const faceMood = useLivePortfolioMoodVars(overlayPresent);
 
   useEffect(() => {
-    if (
-      overlayPresent ||
-      !sheetOpen ||
-      panelKey === 'network' ||
-      getNetworkStandingHandoffPhase() === 'open'
-    ) {
-      return;
-    }
-    // The address updates before the overlay slot. Dismissing on that frame
-    // closes the sheet the person just opened.
-    if (isPortfolioOverlayPath(window.location.pathname)) {
-      return;
-    }
+    if (overlayPresent || !sheetOpen) return;
+    if (portfolioPanelIsFullScreen(panelKey)) return;
+    if (getNetworkStandingHandoffPhase() === 'open') return;
+    // The slot can lag the router by a frame. Dismissing then closes the
+    // sheet the person just opened. A full screen never reaches this effect:
+    // the host unmounts it in the same render.
+    if (routeKeepsPortfolioGlassSheet(window.location.pathname)) return;
     requestDismiss();
   }, [overlayPresent, panelKey, requestDismiss, sheetOpen]);
 
@@ -215,17 +208,26 @@ export function PortfolioGlassHost({
     setHostMounted(true);
   }
 
+  // The map (and the other full screens) replace the sheet. Drop it in this
+  // render. Waiting on window.location left the frost up after the router
+  // had already committed, and nothing rendered again to take it down.
+  if (portfolioPanelIsFullScreen(panelKey)) {
+    if (hostMounted || trackedPanelKey != null) {
+      setHostMounted(false);
+      setTrackedPanelKey(null);
+      setPresentation('appear');
+    }
+    return null;
+  }
+
   if (!overlayPresent && hostMounted) {
     const keepStandingSheet = shouldKeepStandingGlassHost({
       panelKey,
       handoffPhase: getNetworkStandingHandoffPhase(),
     });
-    // Slot mode can lag the address by a frame. Dropping the host there
-    // unmounts the sheet and paints it again — the flash.
-    const addressStillWantsSheet =
-      typeof window !== 'undefined' &&
-      isPortfolioOverlayPath(window.location.pathname);
-    if (!keepStandingSheet && !addressStillWantsSheet) {
+    // Slot mode can lag the router by a frame. The router pathname is what
+    // still names the sheet; the address bar is not.
+    if (!keepStandingSheet && !routeKeepsPortfolioGlassSheet(pathname)) {
       setHostMounted(false);
       setTrackedPanelKey(null);
       setPresentation('appear');

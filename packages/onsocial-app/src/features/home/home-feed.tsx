@@ -124,8 +124,10 @@ import {
 import { scrollFeedToNewest } from '@/lib/feed-scroll-to-newest';
 import {
   createListScrollMemory,
+  scrollLineOnLeave,
   scrollTopToPersist,
 } from '@/lib/list-scroll-restore';
+import { getAppLenis } from '@/lib/app-lenis-registry';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 import { filterHiddenAuthors } from '@/lib/viewer-mute-block-filter';
 import {
@@ -437,14 +439,20 @@ export function HomePagePanel({
 
   useEffect(() => {
     return () => {
-      const live = scrollRootRef.current?.scrollTop ?? 0;
+      const node = scrollRootRef.current;
+      const memory = scrollMemoryRef.current;
+      const live = node?.scrollTop ?? 0;
+      const lenisTop = node ? (getAppLenis(node)?.scroll ?? 0) : 0;
+      const line = memory.userAdjusted
+        ? memory.landed
+        : scrollLineOnLeave(Math.max(live, lenisTop), memory.landed);
       writeHomeFeedSession({
         sessionKey: feedSessionKeyRef.current,
         posts: postsRef.current,
         nextOffset: nextOffsetRef.current,
         standingNetworkIds: standingSourcesRef.current,
         offsetShiftApplied: offsetShiftAppliedRef.current,
-        scrollTop: scrollTopToPersist(scrollMemoryRef.current, live),
+        scrollTop: scrollTopToPersist(memory, line),
       });
     };
   }, []);
@@ -1082,6 +1090,8 @@ export function HomePagePanel({
     if (!lensReady || walletLoading) return;
 
     const tick = () => {
+      const root = scrollRootRef.current;
+      if (root?.closest('[data-feed-session="covered"]')) return;
       void probeNewPosts();
     };
 

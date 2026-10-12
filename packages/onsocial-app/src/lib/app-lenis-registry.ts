@@ -2,6 +2,7 @@
 
 export type AppLenisScroll = {
   readonly limit: number;
+  readonly scroll: number;
   resize: () => void;
   scrollTo: (
     target: number,
