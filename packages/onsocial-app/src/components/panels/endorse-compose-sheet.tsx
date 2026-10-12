@@ -46,6 +46,7 @@ import type { EndorseExistingDraft } from '@/lib/endorsements-panel-data';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { commercePartyLines } from '@/features/scarces/collection-creator-face';
+import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
 import {
   ENDORSE_CONNECTED_HINT,
   ENDORSE_CONNECT_CTA,
@@ -97,7 +98,8 @@ function mediaFingerprint(media: MediaRef | null): string {
 
 /**
  * Face Endorse compose — same hug gesture family as Support (host mood +
- * OsGestureSheet). Bordered type-ins so mood wash shows through. Edit/remove
+ * OsGestureSheet). Header is the verb only. The person sits on the first
+ * body row. Bordered type-ins so mood wash shows through. Edit/remove
  * via upsert; dirty close uses discard confirm; rewards on first create save.
  * Optional photo/video attach mirrors portal endorsement media.
  */
@@ -145,10 +147,9 @@ export function EndorseComposeSheet({
   const [fieldError, setFieldError] = useState<string | null>(null);
 
   const sheetOpen = open && !closing;
-  const { name, handle } = commercePartyLines(
-    pageAccountId,
-    customDisplayName(pageAccountId, profileName) || null
-  );
+  const displayNameValue =
+    customDisplayName(pageAccountId, profileName) || null;
+  const { name } = commercePartyLines(pageAccountId, displayNameValue);
   const isSelf =
     Boolean(accountId) && accountIdsEqual(accountId!, pageAccountId);
   const fetchedMood = usePageOwnerMood(pageAccountId, open || closing);
@@ -543,8 +544,7 @@ export function EndorseComposeSheet({
         onClose={requestClose}
         onClosed={handleSheetClosed}
         verb={verb}
-        personName={name}
-        handle={handle}
+        titleLabel={name ? `${verb} ${name}` : verb}
         signal="endorse"
         closeAriaLabel="Close endorse"
         backdropLabel="Close endorse"
@@ -556,6 +556,11 @@ export function EndorseComposeSheet({
         zIndex={zIndex}
       >
         <div className="endorse-compose-form">
+          <ScarcePartyLine
+            accountId={pageAccountId}
+            displayNameValue={displayNameValue}
+            avatarUrl={avatarUrl}
+          />
           <label className="endorse-compose-field">
             <span className="endorse-compose-label">Topic</span>
             <input

@@ -8,10 +8,18 @@ test.describe('dm compose voice', () => {
 
     const sheet = page.getByRole('dialog', { name: /^Message / });
     await expect(sheet).toBeVisible({ timeout: 15_000 });
-    const person = sheet.locator('.gesture-sheet-person');
-    await expect(person).toBeVisible();
-    await expect(person).not.toHaveText('alice.testnet');
-    await expect(sheet.getByText('@alice.testnet')).toBeVisible();
+    await expect(sheet.locator('.gesture-sheet-verb')).toHaveText('Message');
+    await expect(sheet.locator('.gesture-sheet-person')).toHaveCount(0);
+    await expect(sheet.locator('.gesture-sheet-handle')).toHaveCount(0);
+    await expect(sheet.locator('.gesture-sheet-whisper')).toHaveCount(0);
+    const face = sheet.locator('.scarce-buy-party');
+    await expect(face).toBeVisible();
+    await expect(face.locator('.scarce-buy-party-name')).not.toHaveText(
+      'alice.testnet'
+    );
+    await expect(face.locator('.scarce-buy-party-handle')).toHaveText(
+      '@alice.testnet'
+    );
     await expect(
       sheet.getByText('Connect to message.', { exact: true })
     ).toBeVisible();
