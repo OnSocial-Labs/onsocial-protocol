@@ -47670,6 +47670,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   margin-bottom: 0.55rem;
 }
 
+.dm-compose-body,
 .dm-compose-form,
 .dm-recovery-sheet {
   display: grid;
