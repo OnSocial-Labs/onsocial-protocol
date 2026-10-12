@@ -85,7 +85,7 @@ test.describe('endorse compose voice', () => {
     });
     const panel = await openEndorsementsPanelLoggedOut(page);
 
-    const menu = panel.getByRole('button', { name: 'Open endorsements menu' });
+    const menu = page.getByRole('button', { name: 'Open endorsements menu' });
     await expect(menu).toBeVisible();
     await expect(menu).toContainText('Received');
     await expect(panel.locator('.app-storage-mode-toggle')).toHaveCount(0);
@@ -96,7 +96,7 @@ test.describe('endorse compose voice', () => {
       page.getByRole('button', { name: 'Endorse', exact: true })
     ).toBeVisible();
 
-    const search = panel.getByRole('textbox', { name: 'Search endorsements' });
+    const search = page.getByRole('textbox', { name: 'Search endorsements' });
     await expect(search).toBeVisible();
     await search.fill('nobody');
     await expect(panel.getByText('No matches.')).toBeVisible();

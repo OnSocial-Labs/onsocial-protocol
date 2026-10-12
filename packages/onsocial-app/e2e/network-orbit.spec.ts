@@ -137,8 +137,8 @@ test.describe('network orbit', () => {
     await expect(
       page.getByRole('textbox', { name: 'Search network' })
     ).toBeVisible();
-    // Center account always renders once loaded, even with no connections.
-    await expect(page.locator('.network-orbit-center')).toBeVisible({
+    // The account link, not the loading shell that shares the center class.
+    await expect(page.locator('a.network-orbit-center')).toBeVisible({
       timeout: 15_000,
     });
   });
