@@ -138,9 +138,10 @@ test.describe('network orbit', () => {
       page.getByRole('textbox', { name: 'Search network' })
     ).toBeVisible();
     // The account link, not the loading shell that shares the center class.
-    await expect(page.locator('a.network-orbit-center')).toBeVisible({
-      timeout: 15_000,
-    });
+    // A hard load can paint that link twice for a frame; wait until one remains.
+    const center = page.locator('a.network-orbit-center');
+    await expect(center).toHaveCount(1, { timeout: 15_000 });
+    await expect(center).toBeVisible();
   });
 
   test('search maps mocked standings and nodes swap the orbit subject', async ({
