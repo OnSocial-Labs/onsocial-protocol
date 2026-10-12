@@ -796,11 +796,7 @@ function useSheetPresence(
       }
       const closeProp =
         presentationRef.current === 'appear' ? 'opacity' : 'transform';
-      if (
-        event.propertyName !== closeProp ||
-        visible ||
-        openRef.current
-      ) {
+      if (event.propertyName !== closeProp || visible || openRef.current) {
         return;
       }
       finishClose();
