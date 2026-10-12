@@ -56,15 +56,33 @@ export function applyListScrollRestore(
   }
   node.dataset.osScrollRestore = String(goal);
   const lenis = getAppLenis(node);
-  if (lenis && lenis.limit + LIST_SCROLL_RESTORE_SLOP_PX >= goal) {
+  const lenisReady = Boolean(
+    lenis && lenis.limit + LIST_SCROLL_RESTORE_SLOP_PX >= goal
+  );
+  if (lenis && lenisReady) {
     lenis.resize();
     lenis.scrollTo(goal, { immediate: true, force: true });
-  } else if (!lenis && node.scrollTop !== goal) {
+  } else if (node.scrollTop !== goal) {
     node.scrollTop = goal;
   }
   const landed = listScrollRestoreLanded(node, goal);
-  if (landed) delete node.dataset.osScrollRestore;
-  return landed;
+  // Lenis binds a frame later and would jump back to the top if the marker
+  // was already gone. Keep it until Lenis has actually taken the line.
+  if (landed && (!lenis || lenisReady)) {
+    delete node.dataset.osScrollRestore;
+  }
+  return Boolean(landed && (!lenis || lenisReady));
+}
+
+/**
+ * The line to store when leaving a list. A scroller cleared on the way out
+ * keeps the line already read.
+ */
+export function scrollLineOnLeave(live: number, remembered: number): number {
+  const top = Number.isFinite(live) ? Math.max(0, live) : 0;
+  if (top > 0) return top;
+  const kept = Number.isFinite(remembered) ? Math.max(0, remembered) : 0;
+  return kept;
 }
 
 /**

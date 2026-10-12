@@ -101,6 +101,11 @@ export function reduceOsFaceLeaveHop(
     Boolean(prevAccount && currentAccount) &&
     accountIdsEqual(prevAccount!, currentAccount);
   if (prev && prev !== current && !sameFace) {
+    // Another face keeps the screen that started the browse. The launcher
+    // returns there in one tap. Profile-to-profile is not a back stop.
+    if (prevAccount) {
+      return { lastHref: current, stack: state.stack, popping: false };
+    }
     const origin = normalizeOsLeaveHref(prev);
     if (origin) {
       const stack = [...state.stack.filter((href) => href !== origin), origin];

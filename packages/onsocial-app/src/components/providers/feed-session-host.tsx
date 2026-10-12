@@ -2,7 +2,6 @@
 
 import {
   Suspense,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -28,26 +27,16 @@ export function isFeedSessionPath(pathname: string | null): boolean {
 }
 
 /**
- * Keep the feed's box while it is covered. `display: none` lets Lenis
- * clamp the scroller back to the top.
+ * Writing hop keeps the article on the feed until the shelf covers it.
+ * Every other leave unmounts the feed once the next screen exists.
  */
-const COVERED_FEED_STYLE: CSSProperties = {
+const SHELF_FEED_STYLE: CSSProperties = {
   position: 'fixed',
   inset: 0,
-  visibility: 'hidden',
-  pointerEvents: 'none',
   zIndex: 0,
 };
 
-/**
- * The parked feed is `position: fixed` at z-index 0, which paints above the
- * in-flow profile. This layer keeps the live route on top so a feed descendant
- * cannot take the profile's clicks. A writing hop drops the layer so the
- * article on the feed can still be used.
- */
-const LIVE_FRONT_STYLE: CSSProperties = {
-  position: 'relative',
-  zIndex: 1,
+const FRONT_FILL_STYLE: CSSProperties = {
   height: '100%',
   minHeight: '100%',
 };
@@ -56,9 +45,9 @@ const FRONT_READY_SELECTOR =
   '.portfolio-page, .portfolio-frame, .os-app-screen, .protocol-face-pair';
 
 /**
- * Home mounts once per tab. Article and profile routes cover it.
- * Back to /home reveals the same list and the same line.
- * A hard refresh of an article never mounts this feed.
+ * Home mounts while you are on it. Leaving saves the list and the line in
+ * memory, then removes the feed from the page. Coming back paints that same
+ * list. A hard refresh starts from the server.
  */
 export function FeedSessionHost({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -68,40 +57,14 @@ export function FeedSessionHost({ children }: { children: ReactNode }) {
     isPortfolioShelfHop,
     () => false
   );
-  const [mounted, setMounted] = useState(onFeed);
-  const [frontReady, setFrontReady] = useState(false);
+  const [keepFeed, setKeepFeed] = useState(onFeed);
   const notePortalHosts = useNoteOsPortalHosts();
   const hostRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
-  const coveredScrollRef = useRef(0);
 
-  if (onFeed && !mounted) {
-    setMounted(true);
+  if (onFeed && !keepFeed) {
+    setKeepFeed(true);
   }
-
-  useEffect(() => {
-    const body = hostRef.current?.querySelector('.os-app-screen-body');
-    if (!(body instanceof HTMLElement)) return;
-    const remember = () => {
-      if (body.scrollTop > 0) coveredScrollRef.current = body.scrollTop;
-    };
-    remember();
-    body.addEventListener('scroll', remember, { passive: true });
-    return () => body.removeEventListener('scroll', remember);
-  }, [mounted, onFeed]);
-
-  useLayoutEffect(() => {
-    const body = hostRef.current?.querySelector('.os-app-screen-body');
-    if (!(body instanceof HTMLElement)) return;
-    if (!onFeed) {
-      if (body.scrollTop > 0) coveredScrollRef.current = body.scrollTop;
-      return;
-    }
-    const saved = coveredScrollRef.current;
-    if (saved > 0 && body.scrollTop < 2) {
-      body.scrollTop = saved;
-    }
-  }, [onFeed]);
 
   useLayoutEffect(() => {
     if (!shelfHop) return;
@@ -111,6 +74,24 @@ export function FeedSessionHost({ children }: { children: ReactNode }) {
     }
     if (hasShelfHopLeftHome()) endPortfolioShelfHop();
   }, [onFeed, shelfHop]);
+
+  useLayoutEffect(() => {
+    if (onFeed || !keepFeed || shelfHop) return;
+    const front = frontRef.current;
+    if (!front) return;
+    let observer: MutationObserver | null = null;
+    const drop = () => {
+      if (!front.querySelector(FRONT_READY_SELECTOR)) return;
+      observer?.disconnect();
+      observer = null;
+      setKeepFeed((current) => (current ? false : current));
+    };
+    drop();
+    if (front.querySelector(FRONT_READY_SELECTOR)) return;
+    observer = new MutationObserver(drop);
+    observer.observe(front, { childList: true, subtree: true });
+    return () => observer?.disconnect();
+  }, [keepFeed, onFeed, pathname, shelfHop]);
 
   useLayoutEffect(() => {
     const root = hostRef.current;
@@ -132,66 +113,22 @@ export function FeedSessionHost({ children }: { children: ReactNode }) {
     quiet();
     root.addEventListener('play', quiet, true);
     return () => root.removeEventListener('play', quiet, true);
-  }, [onFeed]);
+  }, [onFeed, keepFeed]);
 
-  useLayoutEffect(() => {
-    const front = frontRef.current;
-    let frame = 0;
-    const apply = (ready: boolean) => {
-      setFrontReady((current) => (current === ready ? current : ready));
-    };
-    const readReady = () =>
-      !onFeed && Boolean(front?.querySelector(FRONT_READY_SELECTOR));
-    const sync = () => {
-      if (readReady()) {
-        cancelAnimationFrame(frame);
-        apply(true);
-        return;
-      }
-      // A sheet opening inside the profile can drop the front node for a
-      // frame. Uncovering the feed in that frame is the flash.
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        apply(readReady());
-      });
-    };
-    sync();
-    if (onFeed || !front) {
-      return () => cancelAnimationFrame(frame);
-    }
-    const observer = new MutationObserver(sync);
-    observer.observe(front, { childList: true });
-    return () => {
-      cancelAnimationFrame(frame);
-      observer.disconnect();
-    };
-  }, [onFeed, pathname]);
-
-  /* The URL changes before the next page exists. Keep the feed up until that
-   * page is actually in the DOM, so the card is not a blank dead layer. */
-  const holdFeed = !onFeed && !shelfHop && !frontReady;
-  /* Writing hops through the profile face. Keep the article on screen until
-   * that list covers it, instead of painting the portfolio underneath. */
-  const coveredStyle =
-    onFeed || holdFeed
-      ? undefined
-      : shelfHop
-        ? { ...COVERED_FEED_STYLE, visibility: 'visible' as const }
-        : COVERED_FEED_STYLE;
+  const showFeed = onFeed || keepFeed;
+  const shelfCover = showFeed && shelfHop && !onFeed;
 
   useLayoutEffect(() => {
     notePortalHosts();
-  }, [holdFeed, notePortalHosts, onFeed]);
+  }, [notePortalHosts, showFeed]);
 
   return (
     <>
-      {mounted ? (
+      {showFeed ? (
         <div
           ref={hostRef}
-          data-feed-session={onFeed || holdFeed ? 'live' : 'covered'}
-          style={coveredStyle}
-          inert={!onFeed && !holdFeed ? true : undefined}
-          aria-hidden={!onFeed && !shelfHop && !holdFeed ? true : undefined}
+          data-feed-session="live"
+          style={shelfCover ? SHELF_FEED_STYLE : undefined}
         >
           <Suspense fallback={null}>
             <HomePagePanel />
@@ -201,11 +138,7 @@ export function FeedSessionHost({ children }: { children: ReactNode }) {
       <div
         ref={frontRef}
         className="feed-session-front"
-        style={
-          onFeed || shelfHop || holdFeed
-            ? { display: 'contents' }
-            : LIVE_FRONT_STYLE
-        }
+        style={showFeed ? { display: 'contents' } : FRONT_FILL_STYLE}
       >
         {children}
       </div>

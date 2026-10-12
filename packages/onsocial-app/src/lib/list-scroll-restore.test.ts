@@ -3,6 +3,7 @@ import {
   applyListScrollRestore,
   createListScrollMemory,
   listScrollRestoreLanded,
+  scrollLineOnLeave,
   scrollTopToPersist,
 } from './list-scroll-restore';
 
@@ -44,6 +45,12 @@ describe('list scroll restore', () => {
   it('does not write the top over a line this mount never reached', () => {
     const memory = createListScrollMemory(640);
     expect(scrollTopToPersist(memory, 0)).toBe(640);
+  });
+
+  it('keeps the line when the scroller is cleared on the way out', () => {
+    expect(scrollLineOnLeave(0, 640)).toBe(640);
+    expect(scrollLineOnLeave(120, 640)).toBe(120);
+    expect(scrollLineOnLeave(0, 0)).toBe(0);
   });
 
   it('trusts a real scroll back to the top', () => {

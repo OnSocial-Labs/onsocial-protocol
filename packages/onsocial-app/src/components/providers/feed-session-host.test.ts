@@ -18,7 +18,7 @@ describe('feed session path', () => {
 });
 
 describe('feed session host wiring', () => {
-  it('keeps one Home feed mounted in the app shell', () => {
+  it('mounts the Home feed in the shell and drops it after a leave', () => {
     const host = readFileSync(join(here, 'feed-session-host.tsx'), 'utf8');
     const providers = readFileSync(join(here, 'app-providers.tsx'), 'utf8');
     const route = readFileSync(
@@ -27,9 +27,9 @@ describe('feed session host wiring', () => {
     );
 
     expect(host).toContain('HomePagePanel');
-    expect(host).toContain("visibility: 'hidden'");
-    expect(host).toContain('if (onFeed && !mounted)');
-    expect(host).toContain('setMounted(true)');
+    expect(host).toContain('setKeepFeed');
+    expect(host).toContain('if (onFeed && !keepFeed)');
+    expect(host).not.toContain("display: 'none'");
     expect(host).toContain('data-feed-session');
     expect(providers).toContain('FeedSessionHost');
     expect(route).not.toContain('HomePagePanel');

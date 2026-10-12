@@ -3,7 +3,9 @@ import { createElement } from 'react';
 import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-root';
 import OverlayDefault from '@/app/[accountId]/@overlay/default';
 import {
+  portfolioPanelIsFullScreen,
   resolveOverlaySlotMode,
+  routeKeepsPortfolioGlassSheet,
   shouldKeepStandingGlassHost,
   shouldMountPortfolioGlassHost,
 } from './portfolio-glass-host';
@@ -158,6 +160,27 @@ describe('shouldMountPortfolioGlassHost', () => {
         overlaySlotMode: 'idle',
       })
     ).toBe(false);
+  });
+});
+
+describe('portfolioPanelIsFullScreen', () => {
+  it('treats the map as the screen and standing as a sheet', () => {
+    expect(portfolioPanelIsFullScreen('network')).toBe(true);
+    expect(portfolioPanelIsFullScreen('standing:incoming')).toBe(false);
+    expect(portfolioPanelIsFullScreen(null)).toBe(false);
+  });
+});
+
+describe('routeKeepsPortfolioGlassSheet', () => {
+  it('keeps standing and about, and drops the map', () => {
+    expect(
+      routeKeepsPortfolioGlassSheet('/@alice.testnet/standing/incoming')
+    ).toBe(true);
+    expect(routeKeepsPortfolioGlassSheet('/@alice.testnet/about')).toBe(true);
+    expect(routeKeepsPortfolioGlassSheet('/@alice.testnet/network')).toBe(
+      false
+    );
+    expect(routeKeepsPortfolioGlassSheet('/@alice.testnet')).toBe(false);
   });
 });
 

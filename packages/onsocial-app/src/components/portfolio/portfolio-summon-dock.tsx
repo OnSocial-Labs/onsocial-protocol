@@ -23,10 +23,7 @@ import {
   type DockBackRegistration,
 } from '@/contexts/dock-chrome-context';
 import { OsWriteDock } from '@/components/os/os-write-dock';
-import {
-  useOsFaceLeave,
-  useOsInAppPop,
-} from '@/components/providers/os-face-leave-provider';
+import { useOsFaceLeave } from '@/components/providers/os-face-leave-provider';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
@@ -82,12 +79,10 @@ export function PortfolioSummonDock({
   const write = compose?.type === 'write' ? compose.entry : null;
   const registeredDockBack = useDockBack();
   const { leaveHref: faceLeaveHref, consumeLeave } = useOsFaceLeave();
-  const popInApp = useOsInAppPop();
   const router = useRouter();
   const leaveToOrigin = useCallback(() => {
-    if (popInApp()) return;
     router.push(consumeLeave());
-  }, [consumeLeave, popInApp, router]);
+  }, [consumeLeave, router]);
   const faceDockBack = useMemo<DockBackRegistration>(
     () => ({
       fallbackHref: faceLeaveHref,

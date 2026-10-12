@@ -95,19 +95,32 @@ describe('os face leave hop', () => {
     expect(next.stack).toEqual(['/discover']);
   });
 
-  it('stacks a second face so dock leave is the previous profile', () => {
-    const next = hop('/@bob.near', hop('/@alice.near', hop('/discover')));
-    expect(next.stack).toEqual(['/discover', '/@alice.near']);
-    expect(peekOsFaceLeaveHref(next)).toBe('/@alice.near');
+  it('keeps the feed behind every face opened from it', () => {
+    const next = hop(
+      '/@cara.near',
+      hop('/@bob.near', hop('/@alice.near', hop('/home')))
+    );
+    expect(next.stack).toEqual(['/home']);
+    expect(peekOsFaceLeaveHref(next)).toBe('/home');
+    const consumed = reduceOsFaceLeaveConsume(next);
+    expect(consumed.href).toBe('/home');
+    expect(consumed.state.stack).toEqual([]);
   });
 
-  it('does not re-push when dock-leaving back to the origin face', () => {
-    const onBob = hop('/@bob.near', hop('/@alice.near', hop('/discover')));
-    const consumed = reduceOsFaceLeaveConsume(onBob);
-    expect(consumed.href).toBe('/@alice.near');
-    const backOnAlice = reduceOsFaceLeaveHop(consumed.state, '/@alice.near');
-    expect(backOnAlice.stack).toEqual(['/discover']);
-    expect(backOnAlice.popping).toBe(false);
+  it('keeps Discover, including its query, behind a run of faces', () => {
+    const next = hop(
+      '/@bob.near',
+      hop('/@alice.near', hop('/discover?tab=profiles&q=os'))
+    );
+    expect(peekOsFaceLeaveHref(next)).toBe('/discover?tab=profiles&q=os');
+    const consumed = reduceOsFaceLeaveConsume(next);
+    expect(consumed.href).toBe('/discover?tab=profiles&q=os');
+  });
+
+  it('leaves a deep-linked run of faces to Home', () => {
+    const next = hop('/@bob.near', hop('/@alice.near'));
+    expect(next.stack).toEqual([]);
+    expect(peekOsFaceLeaveHref(next)).toBe(APP_HOME_PATH);
   });
 
   it('clears the stack on an index so launcher hops cannot loop', () => {
