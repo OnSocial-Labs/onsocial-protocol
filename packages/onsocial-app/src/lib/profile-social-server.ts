@@ -55,7 +55,9 @@ export function createAppOnSocialClient(): AppOnSocialClient {
   return createServerOnSocialClient();
 }
 
-function profileSearchRowToMaterialised(row: ProfileSearchRow): MaterialisedProfile {
+function profileSearchRowToMaterialised(
+  row: ProfileSearchRow
+): MaterialisedProfile {
   return {
     accountId: row.accountId,
     name: row.name ?? undefined,
@@ -82,10 +84,7 @@ function mapStandingRowsToSummaries(
   rows: StandingListItem[],
   direction: StandingDirection,
   profiles: Record<string, MaterialisedProfile>,
-  profileStats: Map<
-    string,
-    ReturnType<typeof profileStatsFromSearchRow>
-  >,
+  profileStats: Map<string, ReturnType<typeof profileStatsFromSearchRow>>,
   viewerOutgoingSet: Set<string>,
   viewerIncomingSet: Set<string>,
   viewerEndorsementIssuerSet: Set<string>,
@@ -170,26 +169,15 @@ async function buildStandingAccountSummaries(
     profileStats.set(row.accountId, profileStatsFromSearchRow(row));
   }
 
+  const viewer = viewerAccountId?.trim() || '';
   const viewerOutgoingSet = new Set(enrichment.viewerOutgoingPeerIds);
   const viewerIncomingSet = new Set(enrichment.viewerIncomingPeerIds);
-  const viewerEndorsementIssuerSet = new Set<string>();
-  const viewerEndorsementTargetSet = new Set<string>();
-  const viewer = viewerAccountId?.trim() || '';
-  if (viewer && accountIds.length > 0) {
-    const peers = accountIds.filter((id) => id !== viewer);
-    if (peers.length > 0) {
-      try {
-        const [inbound, outbound] = await Promise.all([
-          os.query.endorsements.issuersAmong(viewer, peers),
-          os.query.endorsements.targetsAmong(viewer, peers),
-        ]);
-        for (const issuer of inbound) viewerEndorsementIssuerSet.add(issuer);
-        for (const target of outbound) viewerEndorsementTargetSet.add(target);
-      } catch {
-        // Endorsement badges are optional — standing lists still work.
-      }
-    }
-  }
+  const viewerEndorsementIssuerSet = new Set(
+    (enrichment.viewerEndorsementIssuerIds ?? []).filter((id) => id !== viewer)
+  );
+  const viewerEndorsementTargetSet = new Set(
+    (enrichment.viewerEndorsementTargetIds ?? []).filter((id) => id !== viewer)
+  );
 
   const summaries = mapStandingRowsToSummaries(
     os,
@@ -296,4 +284,13 @@ export async function listStandingAccountsPage(
     total: page.total,
     ...(page.counts ? { counts: page.counts } : {}),
   };
+}
+
+/** Edges for ids already on screen. Does not rebuild profile rows. */
+export function listStandingViewerLines(
+  os: AppOnSocialClient,
+  viewerAccountId: string,
+  peerAccountIds: string[]
+) {
+  return os.standings.viewerLinesAmong(viewerAccountId, peerAccountIds);
 }

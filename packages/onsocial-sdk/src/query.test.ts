@@ -2561,6 +2561,8 @@ describe('QueryModule', () => {
           ],
           viewerOutgoing: [{ targetAccount: 'bob.near' }],
           viewerIncoming: [],
+          endorsementIssuers: [{ issuer: 'bob.near' }],
+          endorsementTargets: [],
         },
       });
 
@@ -2570,9 +2572,44 @@ describe('QueryModule', () => {
 
       expect(enrichment.profiles[0]?.name).toBe('Bob');
       expect(enrichment.viewerOutgoingPeerIds).toEqual(['bob.near']);
+      expect(enrichment.viewerEndorsementIssuerIds).toEqual(['bob.near']);
+      expect(enrichment.viewerEndorsementTargetIds).toEqual([]);
       expect(fetch).toHaveBeenCalledTimes(1);
       const body = JSON.parse(fetch.mock.calls[0][1].body);
       expect(body.query).toContain('StandingPeerEnrichment');
+      expect(body.query).toContain('endorsementIssuers');
+      expect(body.query).toContain('endorsementTargets');
+    });
+  });
+
+  describe('viewerLinesAmong()', () => {
+    it('loads standing and endorsement edges without profile rows', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          viewerOutgoing: [{ targetAccount: 'bob.near' }],
+          viewerIncoming: [{ accountId: 'ada.near' }],
+          endorsementIssuers: [{ issuer: 'ada.near' }],
+          endorsementTargets: [{ target: 'bob.near' }],
+        },
+      });
+
+      const lines = await os.query.standings.viewerLinesAmong('carol.near', [
+        'bob.near',
+        'ada.near',
+        'carol.near',
+      ]);
+
+      expect(lines).toEqual({
+        viewerOutgoingPeerIds: ['bob.near'],
+        viewerIncomingPeerIds: ['ada.near'],
+        viewerEndorsementIssuerIds: ['ada.near'],
+        viewerEndorsementTargetIds: ['bob.near'],
+      });
+      expect(fetch).toHaveBeenCalledTimes(1);
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('StandingViewerLines');
+      expect(body.query).not.toContain('profileSearch');
+      expect(body.variables.peerIds).toEqual(['bob.near', 'ada.near']);
     });
   });
 

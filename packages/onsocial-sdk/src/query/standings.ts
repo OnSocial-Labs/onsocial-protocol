@@ -43,10 +43,17 @@ export interface StandingListPageResult {
   counts?: { incoming: number; outgoing: number; mutual: number };
 }
 
-export interface StandingPeerEnrichment {
-  profiles: ProfileSearchRow[];
+export interface StandingViewerLines {
   viewerOutgoingPeerIds: string[];
   viewerIncomingPeerIds: string[];
+  /** Peers in the set who currently endorse the viewer. */
+  viewerEndorsementIssuerIds: string[];
+  /** Peers in the set the viewer currently endorses. */
+  viewerEndorsementTargetIds: string[];
+}
+
+export interface StandingPeerEnrichment extends StandingViewerLines {
+  profiles: ProfileSearchRow[];
 }
 
 export interface StandingNetworkSampleOptions {
@@ -102,6 +109,74 @@ export interface StandingNetworkSampleResult {
   peers: ProfileSearchRow[];
   viewerOutgoingPeerIds: string[];
   viewerIncomingPeerIds: string[];
+}
+
+const STANDING_VIEWER_LINE_SELECTION = `
+  viewerOutgoing: standingsCurrent(
+    where: {accountId: {_eq: $viewer}, targetAccount: {_in: $peerIds}}
+  ) {
+    targetAccount
+  }
+  viewerIncoming: standingsCurrent(
+    where: {targetAccount: {_eq: $viewer}, accountId: {_in: $peerIds}}
+  ) {
+    accountId
+  }
+  endorsementIssuers: endorsementsCurrent(
+    where: {
+      target: {_eq: $viewer},
+      issuer: {_in: $peerIds},
+      operation: {_eq: "set"}
+    }
+  ) {
+    issuer
+  }
+  endorsementTargets: endorsementsCurrent(
+    where: {
+      issuer: {_eq: $viewer},
+      target: {_in: $peerIds},
+      operation: {_eq: "set"}
+    }
+  ) {
+    target
+  }
+`;
+
+type StandingViewerLineRows = {
+  viewerOutgoing?: Array<{ targetAccount: string }>;
+  viewerIncoming?: Array<{ accountId: string }>;
+  endorsementIssuers?: Array<{ issuer: string }>;
+  endorsementTargets?: Array<{ target: string }>;
+};
+
+function emptyViewerLines(): StandingViewerLines {
+  return {
+    viewerOutgoingPeerIds: [],
+    viewerIncomingPeerIds: [],
+    viewerEndorsementIssuerIds: [],
+    viewerEndorsementTargetIds: [],
+  };
+}
+
+function viewerLinesFromRows(
+  rows: StandingViewerLineRows | undefined,
+  viewer: string
+): StandingViewerLines {
+  const keep = (id: string) => id !== viewer;
+  return {
+    viewerOutgoingPeerIds: (rows?.viewerOutgoing ?? [])
+      .map((row) => row.targetAccount)
+      .filter(keep),
+    viewerIncomingPeerIds: (rows?.viewerIncoming ?? [])
+      .map((row) => row.accountId)
+      .filter(keep),
+    viewerEndorsementIssuerIds: (rows?.endorsementIssuers ?? [])
+      .map((row) => row.issuer)
+      .filter(keep),
+    viewerEndorsementTargetIds: (rows?.endorsementTargets ?? [])
+      .map((row) => row.target)
+      .filter(keep),
+  };
 }
 
 function parseStandingSince(raw: string | null | undefined): number | null {
@@ -827,7 +902,8 @@ export class StandingsQuery {
   }
 
   /**
-   * Batch profile search rows plus viewer ↔ peer standing context (one round-trip).
+   * Batch profile search rows plus viewer standing and endorsement lines
+   * (one round-trip).
    */
   async enrichPeers(
     viewerAccountId: string | null | undefined,
@@ -839,8 +915,7 @@ export class StandingsQuery {
     if (peers.length === 0) {
       return {
         profiles: [],
-        viewerOutgoingPeerIds: [],
-        viewerIncomingPeerIds: [],
+        ...emptyViewerLines(),
       };
     }
 
@@ -872,17 +947,16 @@ export class StandingsQuery {
           res.data?.profileSearch ?? [],
           profileKindsFromCurrentRows(res.data?.profileKinds)
         ),
-        viewerOutgoingPeerIds: [],
-        viewerIncomingPeerIds: [],
+        ...emptyViewerLines(),
       };
     }
 
-    const res = await this._q.graphql<{
-      profileSearch: ProfileSearchRow[];
-      profileKinds: Array<{ accountId: string; value: string }>;
-      viewerOutgoing: Array<{ targetAccount: string }>;
-      viewerIncoming: Array<{ accountId: string }>;
-    }>({
+    const res = await this._q.graphql<
+      {
+        profileSearch: ProfileSearchRow[];
+        profileKinds: Array<{ accountId: string; value: string }>;
+      } & StandingViewerLineRows
+    >({
       query: `query StandingPeerEnrichment($viewer: String!, $peerIds: [String!]!, $limit: Int!) {
         profileSearch(where: {accountId: {_in: $peerIds}}, limit: $limit) {
           accountId name bio avatar banner
@@ -897,16 +971,7 @@ export class StandingsQuery {
         ) {
           accountId value
         }
-        viewerOutgoing: standingsCurrent(
-          where: {accountId: {_eq: $viewer}, targetAccount: {_in: $peerIds}}
-        ) {
-          targetAccount
-        }
-        viewerIncoming: standingsCurrent(
-          where: {targetAccount: {_eq: $viewer}, accountId: {_in: $peerIds}}
-        ) {
-          accountId
-        }
+        ${STANDING_VIEWER_LINE_SELECTION}
       }`,
       variables: { viewer, peerIds: peers, limit: peers.length },
     });
@@ -916,13 +981,35 @@ export class StandingsQuery {
         res.data?.profileSearch ?? [],
         profileKindsFromCurrentRows(res.data?.profileKinds)
       ),
-      viewerOutgoingPeerIds: (res.data?.viewerOutgoing ?? []).map(
-        (row) => row.targetAccount
-      ),
-      viewerIncomingPeerIds: (res.data?.viewerIncoming ?? []).map(
-        (row) => row.accountId
-      ),
+      ...viewerLinesFromRows(res.data, viewer),
     };
+  }
+
+  /**
+   * Standing and endorsement edges between one viewer and ids already listed.
+   * Skips profile rows so the first screen can keep the page it already has.
+   */
+  async viewerLinesAmong(
+    viewerAccountId: string | null | undefined,
+    peerAccountIds: string[]
+  ): Promise<StandingViewerLines> {
+    const viewer = viewerAccountId?.trim() ?? '';
+    const peers = [
+      ...new Set(
+        peerAccountIds
+          .map((id) => id.trim())
+          .filter((id) => id.length > 0 && id !== viewer)
+      ),
+    ];
+    if (!viewer || peers.length === 0) return emptyViewerLines();
+
+    const res = await this._q.graphql<StandingViewerLineRows>({
+      query: `query StandingViewerLines($viewer: String!, $peerIds: [String!]!) {
+        ${STANDING_VIEWER_LINE_SELECTION}
+      }`,
+      variables: { viewer, peerIds: peers },
+    });
+    return viewerLinesFromRows(res.data, viewer);
   }
 
   /**

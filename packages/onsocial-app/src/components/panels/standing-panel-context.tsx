@@ -34,6 +34,14 @@ import {
   writeStandingListCache,
 } from '@/lib/standing-list-cache';
 import {
+  standingListLoadPlan,
+  standingListShowsSkeleton,
+} from '@/lib/standing-list-presentation';
+import {
+  applyStandingViewerLines,
+  fetchStandingViewerLines,
+} from '@/lib/standing-viewer-lines';
+import {
   buildStandingEmptyState,
   type StandingPanelEmptyState,
 } from '@/lib/standing-empty-state';
@@ -532,17 +540,23 @@ export function StandingPanelProvider({
           counts: initialList.counts,
         }
       : undefined;
-    const cachedEntry = readStandingListCache(cacheKey) ?? bootstrap;
+    const storedEntry = readStandingListCache(cacheKey);
+    const cachedEntry = storedEntry ?? bootstrap;
     const cacheReady =
-      cachedEntry != null &&
-      isStandingListCacheDisplayReady(cachedEntry, viewerKey);
+      storedEntry != null &&
+      isStandingListCacheDisplayReady(storedEntry, viewerKey);
+    const loadPlan = standingListLoadPlan({
+      cacheReady,
+      canUseInitialList,
+      viewerKnown: Boolean(viewerKey),
+    });
 
     const listKey = `${accountId}|${activeKind}|${searchQueryForFetch}`;
     const dimExisting =
       settledListKeyRef.current != null &&
       settledListKeyRef.current !== listKey;
 
-    if (cachedEntry && cacheReady) {
+    if (loadPlan === 'cache-refresh' && cachedEntry) {
       setAccounts(cachedEntry.accounts);
       setListTotal(cachedEntry.listTotal);
       setHasMore(cachedEntry.hasMore);
@@ -555,7 +569,10 @@ export function StandingPanelProvider({
       setLoadError(null);
       setRelationshipSynced(true);
       writeStandingListCache(cacheKey, cachedEntry);
-    } else if (canUseInitialList) {
+    } else if (
+      (loadPlan === 'viewer-lines' || loadPlan === 'signed-out-ready') &&
+      initialList
+    ) {
       setAccounts(initialList.accounts);
       setListTotal(initialList.total);
       setHasMore(initialList.hasMore);
@@ -566,7 +583,7 @@ export function StandingPanelProvider({
       setIsLoading(false);
       setIsListRefreshing(dimExisting);
       setLoadError(null);
-      setRelationshipSynced(false);
+      setRelationshipSynced(loadPlan === 'signed-out-ready');
     } else {
       setAccounts([]);
       setListTotal(0);
@@ -578,8 +595,76 @@ export function StandingPanelProvider({
     }
     setIsLoadingMore(false);
 
+    if (loadPlan === 'signed-out-ready') {
+      settledListKeyRef.current = listKey;
+      return;
+    }
+
     const timeout = window.setTimeout(
       () => {
+        if (loadPlan === 'viewer-lines' && initialList && viewerKey) {
+          const peerIds = initialList.accounts.map(
+            (account) => account.accountId
+          );
+          void fetchStandingViewerLines(viewerKey, peerIds)
+            .then((lines) => {
+              if (loadIdRef.current !== loadId) return;
+              const merged = applyStandingViewerLines(
+                initialList.accounts,
+                lines
+              );
+              setAccounts(merged);
+              writeStandingListCache(cacheKey, {
+                viewerAccountId: viewerKey,
+                accounts: merged,
+                listTotal: initialList.total,
+                hasMore: initialList.hasMore,
+                counts: initialList.counts,
+              });
+            })
+            .catch(() => {
+              if (loadIdRef.current !== loadId) return;
+              // People stay up. A full page can still fill the lines afterward.
+              void fetchProfileSocialStandings(
+                accountId,
+                viewerAccountId ?? null,
+                activeKind,
+                0,
+                searchQueryForFetch
+              )
+                .then((response) => {
+                  if (loadIdRef.current !== loadId) return;
+                  reconcileStandingListFromFetch(response.accounts);
+                  setAccounts(response.accounts);
+                  setHasMore(response.hasMore);
+                  setListTotal(response.total);
+                  if (response.counts) {
+                    setCounts(response.counts);
+                  }
+                  setCountsHydrated(true);
+                  writeStandingListCache(cacheKey, {
+                    viewerAccountId: viewerKey,
+                    accounts: response.accounts,
+                    listTotal: response.total,
+                    hasMore: response.hasMore,
+                    counts: response.counts,
+                  });
+                })
+                .catch(() => {
+                  // Lines stay off. The people already on screen remain.
+                });
+            })
+            .finally(() => {
+              if (loadIdRef.current === loadId) {
+                setIsLoading(false);
+                setIsListRefreshing(false);
+                setRelationshipSynced(true);
+                settledListKeyRef.current = listKey;
+              }
+            });
+          return;
+        }
+
         setIsLoadingMore(false);
         setHasMore(false);
 
@@ -879,14 +964,18 @@ export function StandingPanelProvider({
     [initialList, activeKind, kind, query, initialQuery]
   );
   const hasListRows = filteredAccounts.length > 0;
-  // Never blank painted rows while the wallet hydrates — soft-refresh instead.
-  const showListSkeleton =
-    listPreview ||
-    (!hasListRows &&
-      !trimmedSearch &&
-      (walletLoading ||
-        (!listBootstrapReady && isLoading) ||
-        (!listBootstrapReady && !relationshipSynced)));
+  // Hold the skeleton until signed-in relationship lines are known, so the
+  // row is not painted and then pushed down when those lines arrive.
+  const showListSkeleton = standingListShowsSkeleton({
+    listPreview,
+    searching: Boolean(trimmedSearch),
+    relationshipSynced,
+    walletLoading,
+    viewerKnown: isConnected || Boolean(viewerAccountId),
+    hasRows: hasListRows,
+    listBootstrapReady,
+    isLoading,
+  });
   const showLoadMoreSentinel =
     hasMore && searchSettled && filteredAccounts.length > 0;
 

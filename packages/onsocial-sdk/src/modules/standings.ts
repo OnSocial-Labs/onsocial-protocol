@@ -22,6 +22,7 @@ import type {
   StandingListPageOptions,
   StandingListPageResult,
   StandingPeerEnrichment,
+  StandingViewerLines,
   StandingNetworkSampleOptions,
   StandingNetworkSampleResult,
 } from '../query/standings.js';
@@ -210,6 +211,20 @@ export class StandingsModule {
     peerAccountIds: string[]
   ): Promise<StandingPeerEnrichment> {
     return this._query.standings.enrichPeers(viewerAccountId, peerAccountIds);
+  }
+
+  /**
+   * Viewer standing and endorsement edges for ids already on screen.
+   * One round-trip, no profile rows.
+   */
+  viewerLinesAmong(
+    viewerAccountId: string | null | undefined,
+    peerAccountIds: string[]
+  ): Promise<StandingViewerLines> {
+    return this._query.standings.viewerLinesAmong(
+      viewerAccountId,
+      peerAccountIds
+    );
   }
 
   /**
