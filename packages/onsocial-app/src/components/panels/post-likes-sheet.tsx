@@ -24,7 +24,7 @@ export type PostLikesSheetProps = {
 };
 
 /**
- * Who liked a post — same standing roster chrome as album fans.
+ * Who liked a post — the same person row as album fans.
  */
 export function PostLikesSheet({
   open,

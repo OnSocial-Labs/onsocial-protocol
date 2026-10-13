@@ -8,10 +8,7 @@ import {
 } from '@/components/panels/profile-social-list-row';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
-import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
-import { overlayViewerEndorsedOnAccounts } from '@/lib/viewer-endorsement-ledger';
 import { accountIdsEqual } from '@/lib/account-match';
 import { loadProfileListAccounts } from '@/lib/load-profile-list-accounts';
 import type { ProfileListAccount } from '@/lib/profile-list-account';
@@ -41,8 +38,8 @@ export type ScarceFansSheetProps = {
 };
 
 /**
- * Account roster sheet — standing-style rows (skeleton → hydrated stats + Stand).
- * Album fans + post likes share this chrome.
+ * Gesture roster — face, name, @id, and stand.
+ * Album fans and post likes share this sheet. Standings keep the ledger row.
  */
 export function ScarceFansSheet({
   open,
@@ -66,7 +63,6 @@ export function ScarceFansSheet({
   const { setTxResult } = useAppTransactionFeedback();
   const { updateStanding, isStandingPendingForTarget } =
     useViewerStanding('scarce-fans');
-  const { endorsementSyncVersion } = useViewerEndorsement('scarce-fans');
 
   const fanIdsKey = fanIds.join('\n');
   const requestKey = open ? `${fanIdsKey}\0${viewerAccountId ?? ''}` : '';
@@ -143,18 +139,8 @@ export function ScarceFansSheet({
   const accounts = useMemo(() => {
     if (!open || idsLoading || fanIds.length === 0) return [];
     if (fetched?.key !== requestKey) return null;
-    return overlayViewerEndorsedOnAccounts(
-      fetched.accounts,
-      getGlobalViewerEndorsementLedger()
-    );
-  }, [
-    endorsementSyncVersion,
-    fanIds.length,
-    fetched,
-    idsLoading,
-    open,
-    requestKey,
-  ]);
+    return fetched.accounts;
+  }, [fanIds.length, fetched, idsLoading, open, requestKey]);
   const loadError =
     Boolean(open) &&
     !idsLoading &&
@@ -180,7 +166,7 @@ export function ScarceFansSheet({
       bodyClassName="scarce-fans-sheet-body"
     >
       {showSkeleton ? (
-        <ProfileSocialListSkeleton count={skeletonCount} />
+        <ProfileSocialListSkeleton count={skeletonCount} rowVariant="person" />
       ) : accounts && accounts.length > 0 ? (
         <div className="standing-list scarce-fans-standing">
           {accounts.map((account, index) => {
@@ -192,6 +178,7 @@ export function ScarceFansSheet({
                 {index > 0 ? <Divider variant="item" /> : null}
                 <ProfileSocialListRow
                   account={account}
+                  density="person"
                   standingTimeMode="never"
                   viewerAccountId={viewerAccountId}
                   canUpdateStanding={isConnected && !isSelf}

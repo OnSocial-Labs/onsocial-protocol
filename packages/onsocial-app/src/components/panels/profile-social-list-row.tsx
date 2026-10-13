@@ -23,8 +23,11 @@ import { formatProfileCount } from '@/lib/profile-social-standings';
 
 export type ProfileStandingTimeMode = 'always' | 'viewer-only' | 'never';
 
+export type ProfileSocialListDensity = 'ledger' | 'person';
+
 export type ProfileSocialListSkeletonRowVariant =
   | 'standing'
+  | 'person'
   | 'discover'
   | 'guild-member'
   | 'leaderboard';
@@ -149,6 +152,8 @@ export function ProfileSocialListSkeletonRow({
 }) {
   const showTimeShimmer =
     rowVariant === 'standing' || rowVariant === 'guild-member';
+  const showLedgerShimmer =
+    rowVariant === 'standing' || rowVariant === 'discover';
   const isGuildMember = rowVariant === 'guild-member';
   const isLeaderboard = rowVariant === 'leaderboard';
 
@@ -216,12 +221,16 @@ export function ProfileSocialListSkeletonRow({
           <div className="standing-row-skeleton-handle">
             <div className="standing-row-shimmer standing-row-shimmer-line-sm" />
           </div>
-          <div className="standing-row-skeleton-bio">
-            <div className="standing-row-shimmer standing-row-shimmer-line-bio" />
-          </div>
-          <div className="standing-row-skeleton-metrics">
-            <div className="standing-row-shimmer standing-row-shimmer-line-xs" />
-          </div>
+          {showLedgerShimmer ? (
+            <>
+              <div className="standing-row-skeleton-bio">
+                <div className="standing-row-shimmer standing-row-shimmer-line-bio" />
+              </div>
+              <div className="standing-row-skeleton-metrics">
+                <div className="standing-row-shimmer standing-row-shimmer-line-xs" />
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
       <div className="standing-row-aside standing-row-aside--skeleton">
@@ -238,6 +247,7 @@ export function ProfileSocialListRow({
   account,
   showSolidarityBadge,
   standingTimeMode = 'always',
+  density = 'ledger',
   viewerAccountId,
   canUpdateStanding,
   isPending,
@@ -247,14 +257,22 @@ export function ProfileSocialListRow({
   account: ProfileListAccount;
   showSolidarityBadge?: boolean;
   standingTimeMode?: ProfileStandingTimeMode;
+  /** Ledger is standings. Person is likes, fans, and other gesture rosters. */
+  density?: ProfileSocialListDensity;
   viewerAccountId: string | null;
   canUpdateStanding?: boolean;
   isPending?: boolean;
   viewerRelationshipLoading?: boolean;
   onUpdateStanding?: (shouldStand: boolean) => void;
 }) {
+  const ledger = density === 'ledger';
+
   if (!isProfileListAccountDisplayReady(account)) {
-    return <ProfileSocialListSkeletonRow rowVariant="standing" />;
+    return (
+      <ProfileSocialListSkeletonRow
+        rowVariant={ledger ? 'standing' : 'person'}
+      />
+    );
   }
 
   const canShowViewerRelationship =
@@ -289,10 +307,11 @@ export function ProfileSocialListRow({
     ? null
     : resolveStandingTimeMeta(account, standingTimeMode);
   const showRelationshipSignals =
-    sharedSolidarity ||
-    theyStandWithViewer ||
-    showEndorsedYou ||
-    showEndorsedThem;
+    ledger &&
+    (sharedSolidarity ||
+      theyStandWithViewer ||
+      showEndorsedYou ||
+      showEndorsedThem);
   const moodId = account.moodId ?? 'protocol';
   const isDaoTarget = isDaoStandingTarget(account.accountId, account.isDao);
   const targetHref = isDaoTarget
@@ -359,7 +378,7 @@ export function ProfileSocialListRow({
             />
           }
         >
-          {bio ? (
+          {ledger && bio ? (
             <span className="standing-row-bio">
               <PostRichText
                 text={bio}
@@ -369,17 +388,19 @@ export function ProfileSocialListRow({
               />
             </span>
           ) : null}
-          {offerHint ? (
+          {ledger && offerHint ? (
             <span className="standing-row-bio standing-row-offer">
               {offerHint}
             </span>
           ) : null}
-          {hiringHint ? (
+          {ledger && hiringHint ? (
             <span className="standing-row-bio standing-row-hiring">
               {hiringHint}
             </span>
           ) : null}
-          <ProfileRowMetrics account={account} isDao={isDaoTarget} />
+          {ledger ? (
+            <ProfileRowMetrics account={account} isDao={isDaoTarget} />
+          ) : null}
         </StandingIdentity>
       </div>
 

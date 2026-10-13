@@ -20,9 +20,11 @@ import {
   type AppStatsView,
   type AppView,
 } from '@/features/scarces/apps-data';
+import { StandingIdentity } from '@/components/profile/standing-identity';
 import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
-import { AccountAvatar } from '@/components/profile/account-avatar';
+import { RosterRoleBadge } from '@/features/guilds/roster-role-badge';
 import { hubCategoryLabel } from '@/features/scarces/hub-categories';
+import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
@@ -280,45 +282,38 @@ export function HubCreatorsSheet({
       panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-facts-sheet-body"
     >
-      <ul className="hub-people-list">
-        {people.map((person) => {
+      <div className="standing-list">
+        {people.map((person, index) => {
           const profile = profiles[person.accountId];
           return (
-            <li key={person.accountId}>
-              <Link
-                href={portfolioPath(person.accountId)}
-                scroll={false}
-                className="hub-people-row"
-                onClick={requestClose}
-              >
-                <AccountAvatar
-                  accountId={person.accountId}
-                  kind={profile?.kind}
-                  src={profile?.avatarUrl ?? null}
-                  fallbackInitial={collectionCreatorNameLine(
-                    person.accountId,
-                    profile?.displayName
-                  )}
-                  size="sm"
-                  className="hub-people-avatar"
-                />
-                <span className="hub-people-copy">
-                  <span className="hub-people-name">
-                    {collectionCreatorNameLine(
-                      person.accountId,
-                      profile?.displayName
-                    )}
-                  </span>
-                  <span className="hub-people-handle">
-                    @{fallbackLabel(person.accountId)}
-                  </span>
-                </span>
-                <span className="hub-people-role">{person.role}</span>
-              </Link>
-            </li>
+            <div key={person.accountId}>
+              {index > 0 ? <Divider variant="item" /> : null}
+              <div className="standing-row">
+                <Link
+                  href={portfolioPath(person.accountId)}
+                  className="standing-row-main"
+                  scroll={false}
+                  onClick={requestClose}
+                >
+                  <StandingIdentity
+                    accountId={person.accountId}
+                    profileName={profile?.displayName}
+                    avatarUrl={profile?.avatarUrl}
+                    kind={profile?.kind}
+                    nameRowClassName="guild-member-row-name-row"
+                    nameTrailing={
+                      <ProtocolNameTrailing
+                        accountId={person.accountId}
+                        extra={<RosterRoleBadge label={person.role} />}
+                      />
+                    }
+                  />
+                </Link>
+              </div>
+            </div>
           );
         })}
-      </ul>
+      </div>
     </OsHugSheet>
   );
 }
