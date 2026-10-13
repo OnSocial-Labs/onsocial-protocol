@@ -38213,6 +38213,11 @@ a.os-surface-row {
     align-items: center;
   }
 
+  .discover-catalog-row:active {
+    background: var(--os-surface-fill-active);
+    transition: none;
+  }
+
   .market-listing-list,
   .market-sales-list {
     display: flex;

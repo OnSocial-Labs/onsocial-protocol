@@ -31,6 +31,7 @@ export type E2eGraphGuild = 'empty' | 'missing' | 'member' | 'banned' | 'owner';
 export type E2eGraphMarket = 'shop' | 'shop-empty' | 'live-first';
 export type E2eGraphDrop = 'default' | 'held' | 'missing';
 export type E2eGraphWriting = 'shelf' | 'reader';
+export type E2eGraphArticles = 'list';
 export type E2eDropCollectionId =
   | 'night-drive'
   | 'chapter-one'
@@ -45,6 +46,7 @@ export type E2eGraphCookieValue = {
   market?: E2eGraphMarket;
   drop?: E2eGraphDrop;
   writing?: E2eGraphWriting;
+  articles?: E2eGraphArticles;
 };
 
 const TWO_NEAR_YOCTO = '2000000000000000000000000';
@@ -113,6 +115,8 @@ export function parseE2eGraphCookie(
   if (writing === 'shelf' || writing === 'reader') {
     parsed.writing = writing;
   }
+  const articles = params.get('articles');
+  if (articles === 'list') parsed.articles = articles;
   return parsed;
 }
 
@@ -132,6 +136,7 @@ export function serializeE2eGraphCookie(opts: E2eGraphCookieValue): string {
   if (opts.market) params.set('market', opts.market);
   if (opts.drop) params.set('drop', opts.drop);
   if (opts.writing) params.set('writing', opts.writing);
+  if (opts.articles) params.set('articles', opts.articles);
   return params.toString();
 }
 
@@ -974,6 +979,56 @@ export function e2eWritingShelfRows() {
   ];
 }
 
+const E2E_DISCOVER_ARTICLES = [
+  { postId: 'night', title: 'Night drive', blockHeight: 40 },
+  { postId: 'print', title: 'Quiet print', blockHeight: 30 },
+  { postId: 'tokyo', title: 'Tokyo lights', blockHeight: 20 },
+  { postId: 'harbor', title: 'Harbor light', blockHeight: 10 },
+] as const;
+
+function e2eDiscoverArticleValue(title: string): string {
+  return JSON.stringify({
+    v: 1,
+    text: 'A river in Lisbon after dark.',
+    x: { onsocial: { article: { title } } },
+  });
+}
+
+export function e2eDiscoverArticleRows() {
+  return E2E_DISCOVER_ARTICLES.map((row) => ({
+    accountId: E2E_WRITING_ACCOUNT,
+    postId: row.postId,
+    title: row.title,
+    blockHeight: row.blockHeight,
+    blockTimestamp: 1_700_000_000_000,
+  }));
+}
+
+function e2eDiscoverArticlePost(postId: string) {
+  const row =
+    E2E_DISCOVER_ARTICLES.find((item) => item.postId === postId) ??
+    E2E_DISCOVER_ARTICLES[0];
+  return {
+    accountId: E2E_WRITING_ACCOUNT,
+    postId: row.postId,
+    value: e2eDiscoverArticleValue(row.title),
+    blockHeight: row.blockHeight,
+    blockTimestamp: 1_700_000_000_000,
+    receiptId: `receipt-${row.postId}`,
+    parentPath: '',
+    parentAuthor: '',
+    parentType: '',
+    refPath: '',
+    refAuthor: '',
+    refType: '',
+    channel: '',
+    kind: 'longform',
+    audiences: '',
+    groupId: '',
+    isGroupContent: false,
+  };
+}
+
 export function resolveE2eGraphStub(opts: {
   query: string;
   variables?: Record<string, unknown>;
@@ -981,6 +1036,15 @@ export function resolveE2eGraphStub(opts: {
 }): { data: Record<string, unknown> } | null {
   const parsed = parseE2eGraphCookie(opts.cookieValue);
   const variables = opts.variables ?? {};
+
+  if (parsed.articles === 'list' && opts.query.includes('articlesSearch')) {
+    return { data: { articlesSearch: e2eDiscoverArticleRows() } };
+  }
+  if (parsed.articles === 'list' && opts.query.includes('PersonalPost')) {
+    const postId =
+      typeof variables.postId === 'string' ? variables.postId : 'night';
+    return { data: { postsCurrent: [e2eDiscoverArticlePost(postId)] } };
+  }
 
   const writingRows = e2eWritingRows(parsed.writing);
   if (writingRows && isPostsFeedQuery(opts.query)) {

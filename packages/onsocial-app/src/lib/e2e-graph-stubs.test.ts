@@ -9,6 +9,7 @@ import {
   e2eSeriesCatalogRows,
   e2eVaultCollectionRows,
   e2eVaultOwnedRows,
+  e2eDiscoverArticleRows,
   e2eWritingReaderRows,
   e2eWritingShelfRows,
   extractGraphQuery,
@@ -113,6 +114,8 @@ describe('parseE2eGraphCookie', () => {
     expect(parseE2eGraphCookie('writing=reader')).toEqual({
       writing: 'reader',
     });
+    expect(parseE2eGraphCookie('articles=list')).toEqual({ articles: 'list' });
+    expect(serializeE2eGraphCookie({ articles: 'list' })).toBe('articles=list');
     expect(isE2eWritingShelfCookie('catalog=empty')).toBe(false);
   });
 
@@ -350,6 +353,12 @@ describe('resolveE2eGraphStub', () => {
         cookieValue: 'writing=reader',
       })?.data.postsFeed
     ).toEqual(e2eWritingReaderRows());
+    expect(
+      resolveE2eGraphStub({
+        query: 'query DiscoverArticles { articlesSearch }',
+        cookieValue: 'articles=list',
+      })?.data.articlesSearch
+    ).toEqual(e2eDiscoverArticleRows());
     expect(
       resolveE2eGraphStub({
         query: 'query Posts($author: String!, $limit: Int!) { postsFeed }',

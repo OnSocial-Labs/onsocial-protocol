@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
@@ -15,7 +15,12 @@ import {
 } from '@/features/discover/discover-catalog-search';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { APP_EVENTS_PATH, dropsPath, collectionPath } from '@/lib/app-routes';
+import { ArticleReadOverlay } from '@/components/portfolio/article-read-screen';
+import { DiscoverArticlesList } from '@/features/discover/discover-articles-list';
+import { isArticlePost } from '@/lib/article-post-payload';
+import { fetchPersonalPost } from '@/lib/fetch-personal-post';
 import { portfolioPath, writingArticlePath } from '@/lib/overlay-routes';
+import type { PostRow } from '@onsocial/sdk';
 
 const SECTION_LABEL: Record<DiscoverCatalogSectionId, string> = {
   people: 'People',
@@ -71,12 +76,14 @@ function CatalogRow({
   meta,
   face,
   coverUrl,
+  onOpen,
 }: {
   href: string;
   title: string;
   meta?: string;
   face?: { accountId: string; avatarUrl?: string | null };
   coverUrl?: string | null;
+  onOpen?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
   return (
     <Link
@@ -85,7 +92,7 @@ function CatalogRow({
       className={`market-listing-row discover-catalog-row${
         face ? ' discover-catalog-row--face' : ''
       }`}
-      role="listitem"
+      onClick={onOpen}
     >
       {face ? (
         <CatalogFace
@@ -132,12 +139,42 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
   const { setTab } = useDiscoverPanel();
   const [results, setResults] = useState<DiscoverCatalogResults | null>(null);
   const [loading, setLoading] = useState(true);
+  const [articlesOpen, setArticlesOpen] = useState(false);
+  const [reading, setReading] = useState<PostRow | null>(null);
+
+  const openArticle = useCallback(
+    async (article: { accountId: string; postId: string }) => {
+      try {
+        const post = await fetchPersonalPost({
+          author: article.accountId,
+          postId: article.postId,
+        });
+        if (post && isArticlePost(post)) setReading(post);
+      } catch {
+        // Stay on the list. The permalink remains on the row.
+      }
+    },
+    []
+  );
+
+  const openArticleFromRow = (
+    article: { accountId: string; postId: string },
+    event: MouseEvent<HTMLAnchorElement>
+  ) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+    event.preventDefault();
+    void openArticle(article);
+  };
 
   useEffect(() => {
     const trimmed = query.trim();
     if (!isDiscoverCatalogQuery(trimmed)) return;
     let cancelled = false;
     const handle = window.setTimeout(() => {
+      setArticlesOpen(false);
+      setReading(null);
       setLoading(true);
       setResults(null);
       void loadDiscoverCatalog(trimmed)
@@ -219,6 +256,7 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
                         title={article.title}
                         meta={article.accountId}
                         face={{ accountId: article.accountId }}
+                        onOpen={(event) => openArticleFromRow(article, event)}
                       />
                     ))
                   : null}
@@ -256,6 +294,16 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
                     ))
                   : null}
               </div>
+              {id === 'articles' && results.articlesHasMore ? (
+                <button
+                  type="button"
+                  className="os-surface-chip"
+                  aria-label="More articles"
+                  onClick={() => setArticlesOpen(true)}
+                >
+                  More
+                </button>
+              ) : null}
               {id === 'people' && results.peopleHasMore ? (
                 <button
                   type="button"
@@ -287,6 +335,23 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
             </section>
           ))
         : null}
+      <DiscoverArticlesList
+        query={query}
+        open={articlesOpen}
+        onClose={() => setArticlesOpen(false)}
+        onOpenArticle={openArticle}
+      />
+      {reading ? (
+        <ArticleReadOverlay
+          open
+          onOpenChange={(next) => {
+            if (!next) setReading(null);
+          }}
+          accountId={reading.accountId}
+          titleLabel={reading.accountId}
+          post={reading}
+        />
+      ) : null}
     </div>
   );
 }
