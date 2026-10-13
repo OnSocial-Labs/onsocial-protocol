@@ -29,6 +29,35 @@ export interface EngagementMap {
   [key: string]: PostEngagement;
 }
 
+/**
+ * Heart moves immediately. The count stays until the chain confirms,
+ * so a cancel or a failed like never flashes a number.
+ */
+export function pendingReactionEngagement(
+  previous: PostEngagement,
+  applied: boolean
+): PostEngagement {
+  return {
+    ...previous,
+    viewerReacted: applied,
+  };
+}
+
+/** Count moves once the like is confirmed and the heart can stop pulsing. */
+export function confirmedReactionEngagement(
+  previous: PostEngagement,
+  applied: boolean
+): PostEngagement {
+  return {
+    ...previous,
+    viewerReacted: applied,
+    reactionCount: Math.max(
+      0,
+      previous.reactionCount + (applied ? 1 : -1)
+    ),
+  };
+}
+
 export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
   replyCount: 0,
   quoteCount: 0,
@@ -302,14 +331,7 @@ export function usePostEngagement(
       setPendingReactionKeys((current) => new Set(current).add(key));
       setEngagement((current) => ({
         ...current,
-        [key]: {
-          ...previous,
-          viewerReacted: applied,
-          reactionCount: Math.max(
-            0,
-            previous.reactionCount + (applied ? 1 : -1)
-          ),
-        },
+        [key]: pendingReactionEngagement(previous, applied),
       }));
 
       try {
@@ -319,6 +341,16 @@ export function usePostEngagement(
           DEFAULT_REACTION_KIND,
           { viewer: accountId, wait: true }
         );
+        setEngagement((current) => {
+          const live = current[key] ?? previous;
+          return {
+            ...current,
+            [key]: confirmedReactionEngagement(
+              { ...live, reactionCount: previous.reactionCount },
+              applied
+            ),
+          };
+        });
       } catch (cause) {
         setEngagement((current) => ({ ...current, [key]: previous }));
         if (!isWalletUserCancellation(cause)) {

@@ -9,6 +9,8 @@ import {
   e2eSeriesCatalogRows,
   e2eVaultCollectionRows,
   e2eVaultOwnedRows,
+  e2eDiscoverArticleRows,
+  e2eWritingReaderRows,
   e2eWritingShelfRows,
   extractGraphQuery,
   extractGraphRequest,
@@ -108,6 +110,12 @@ describe('parseE2eGraphCookie', () => {
       serializeE2eGraphCookie({ catalog: 'empty', writing: 'shelf' })
     ).toBe('catalog=empty&writing=shelf');
     expect(isE2eWritingShelfCookie('writing=shelf')).toBe(true);
+    expect(isE2eWritingShelfCookie('writing=reader')).toBe(true);
+    expect(parseE2eGraphCookie('writing=reader')).toEqual({
+      writing: 'reader',
+    });
+    expect(parseE2eGraphCookie('articles=list')).toEqual({ articles: 'list' });
+    expect(serializeE2eGraphCookie({ articles: 'list' })).toBe('articles=list');
     expect(isE2eWritingShelfCookie('catalog=empty')).toBe(false);
   });
 
@@ -339,6 +347,32 @@ describe('resolveE2eGraphStub', () => {
         cookieValue: 'writing=shelf',
       })
     ).toEqual({ data: { postsFeed: e2eWritingShelfRows() } });
+    expect(
+      resolveE2eGraphStub({
+        query: 'query Posts($author: String!, $limit: Int!) { postsFeed }',
+        cookieValue: 'writing=reader',
+      })?.data.postsFeed
+    ).toEqual(e2eWritingReaderRows());
+    expect(
+      resolveE2eGraphStub({
+        query: 'query DiscoverArticles { articlesSearch }',
+        cookieValue: 'articles=list',
+      })?.data.articlesSearch
+    ).toEqual(e2eDiscoverArticleRows());
+    expect(
+      resolveE2eGraphStub({
+        query: 'query ProfileStatsBatch { profileSearch profileKinds }',
+        cookieValue: 'articles=list',
+      })?.data.profileSearch
+    ).toEqual([
+      { accountId: 'alice.testnet', name: 'Alice', avatar: null },
+    ]);
+    expect(
+      resolveE2eGraphStub({
+        query: 'query IndexedPostsByRefs { postsCurrent }',
+        cookieValue: 'articles=list',
+      })?.data.postsCurrent
+    ).toHaveLength(4);
     expect(
       resolveE2eGraphStub({
         query: 'query Posts($author: String!, $limit: Int!) { postsFeed }',

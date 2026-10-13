@@ -10,6 +10,7 @@ import {
   type E2eGraphHub,
   type E2eGraphMarket,
   type E2eGraphVault,
+  type E2eGraphArticles,
   type E2eGraphWriting,
 } from '../../src/lib/e2e-graph-stubs';
 
@@ -86,6 +87,14 @@ export async function setE2eGraphDrop(
   drop: E2eGraphDrop
 ): Promise<void> {
   await setE2eGraphCookie(page, { drop });
+}
+
+/** Opt Discover article search into the essay-list fixture. */
+export async function setE2eGraphArticles(
+  page: Page,
+  articles: E2eGraphArticles
+): Promise<void> {
+  await setE2eGraphCookie(page, { articles });
 }
 
 /** Opt SSR into Writing shelf articles. */

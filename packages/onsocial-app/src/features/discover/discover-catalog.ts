@@ -169,6 +169,40 @@ export function catalogDropMeta(row: CatalogDropMatchRow): string {
   return [format, row.creatorId].filter(Boolean).join(' · ');
 }
 
+/** The essay index is not tracked yet — keep the post-body scan until it is. */
+export function isArticlesSearchUnavailable(message: string): boolean {
+  return /articles[_ ]?search/i.test(message);
+}
+
+export type ArticleSearchCursor = {
+  blockHeight: number;
+  postId: string;
+};
+
+/** Newest first. A cursor keeps the next page from repeating the row you have. */
+export function articleRowsPage<
+  T extends { blockHeight: number; postId: string },
+>(
+  rows: readonly T[],
+  limit: number,
+  before: ArticleSearchCursor | null
+): { items: T[]; hasMore: boolean } {
+  const cap = Math.max(0, limit);
+  const ordered = [...rows].sort((a, b) => {
+    if (a.blockHeight !== b.blockHeight) return b.blockHeight - a.blockHeight;
+    if (a.postId === b.postId) return 0;
+    return a.postId < b.postId ? 1 : -1;
+  });
+  const rest = before
+    ? ordered.filter(
+        (row) =>
+          row.blockHeight < before.blockHeight ||
+          (row.blockHeight === before.blockHeight && row.postId < before.postId)
+      )
+    : ordered;
+  return { items: rest.slice(0, cap), hasMore: rest.length > cap };
+}
+
 export function visibleCatalogSectionIds(
   counts: Record<DiscoverCatalogSectionId, number>
 ): DiscoverCatalogSectionId[] {

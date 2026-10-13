@@ -59,7 +59,9 @@ import { downloadIpfsMedia, isDownloadAbort } from '@/lib/media-download';
 import { PostAmplifySheet } from '@/features/home/post-amplify-sheet';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
+import { PostLikesSheet } from '@/components/panels/post-likes-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { formatWritingLikeLabel } from '@/lib/article-post-payload';
 import {
   useFocusWriteDock,
   type WriteDockSubmit,
@@ -1305,6 +1307,9 @@ function PostEngagementRow({
   post: PostRow;
 }) {
   const [shareOpen, setShareOpen] = useState(false);
+  const [likesOpen, setLikesOpen] = useState(false);
+  const { accountId: viewerAccountId } = useAppWallet();
+  const likeLabel = formatWritingLikeLabel(engagement.reactionCount);
   const canShare = Boolean(onQuote || onRepost || onUndoRepost);
   const closeShare = () => setShareOpen(false);
   const shareCount =
@@ -1403,28 +1408,55 @@ function PostEngagementRow({
             canShare && !sharePending ? () => setShareOpen(true) : undefined
           }
         />
-        {onToggleReaction ? (
-          <EngagementStat
-            icon={<ReactIcon filled={engagement.viewerReacted} />}
-            count={engagement.reactionCount}
-            label="reactions"
-            className={`os-confirm-icon post-card-react${engagement.viewerReacted ? ' is-active' : ''}${reactionPending ? ' is-pending' : ''}`}
-            disabled={reactionPending}
-            ariaPressed={engagement.viewerReacted}
-            actionLabel={
-              engagement.viewerReacted
-                ? 'Remove your reaction'
-                : 'React to this post'
-            }
-            onActivate={() => onToggleReaction(post)}
-          />
-        ) : (
-          <EngagementStat
-            icon={<ReactIcon filled={false} />}
-            count={engagement.reactionCount}
-            label="reactions"
-          />
-        )}
+        <span className="post-card-react-cluster">
+          {onToggleReaction ? (
+            <button
+              type="button"
+              className={`os-confirm-icon post-card-stat post-card-stat-button post-card-react${
+                engagement.viewerReacted ? ' is-active' : ''
+              }${reactionPending ? ' is-pending' : ''}`}
+              disabled={reactionPending}
+              aria-pressed={engagement.viewerReacted}
+              aria-label={
+                engagement.viewerReacted
+                  ? 'Remove your reaction'
+                  : 'React to this post'
+              }
+              title={engagement.viewerReacted ? 'Liked' : 'Like'}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onToggleReaction(post);
+              }}
+            >
+              <ReactIcon filled={engagement.viewerReacted} />
+            </button>
+          ) : (
+            <span className="post-card-react" aria-hidden>
+              <ReactIcon filled={false} />
+            </span>
+          )}
+          {likeLabel ? (
+            <button
+              type="button"
+              className="post-card-like-count"
+              aria-label={`View who liked — ${likeLabel}`}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setLikesOpen(true);
+              }}
+            >
+              {engagement.reactionCount}
+            </button>
+          ) : null}
+        </span>
         <EngagementStat
           icon={<AmplifyIcon filled={engagement.viewerAmplified} />}
           count={engagement.amplifyCount}
@@ -1465,6 +1497,17 @@ function PostEngagementRow({
         ) : null}
         <PostShareControl href={shareHref} title={shareTitle} />
       </div>
+      <PostLikesSheet
+        open={likesOpen}
+        onClose={() => setLikesOpen(false)}
+        postOwner={post.accountId}
+        postId={post.postId}
+        groupId={post.groupId}
+        likeCount={engagement.reactionCount}
+        viewerAccountId={viewerAccountId}
+        viewerLiked={!reactionPending && engagement.viewerReacted}
+        {...(shareDrawerZIndex != null ? { zIndex: shareDrawerZIndex } : {})}
+      />
       {canShare ? (
         <ActionDrawer
           open={shareOpen}
