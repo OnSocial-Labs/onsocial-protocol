@@ -3,10 +3,12 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type MouseEvent,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -29,6 +31,11 @@ import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { useArticleReadChrome } from '@/hooks/use-article-read-chrome';
 import { useEssayReturnSearch } from '@/hooks/use-essay-return-search';
+import {
+  articleScrollMemory,
+  commitArticleScroll,
+  saveArticleScroll,
+} from '@/lib/article-read-scroll';
 import { popArticleTrail, pushArticleTrail } from '@/lib/article-read-trail';
 import { parseArticleSnapshot } from '@/lib/article-post-payload';
 import { withEssayReturnSearch } from '@/lib/essay-return-href';
@@ -67,6 +74,65 @@ function useArticleReadTrail(root: PostRow, open: boolean) {
     setTrail((prev) => popArticleTrail(prev) ?? prev);
     return true;
   }, []);
+  return { current, openArticle, backArticle };
+}
+
+/**
+ * Each essay keeps its own place. A new essay starts at the top.
+ * Opening the reader again starts at the top of the piece that was tapped.
+ */
+function useArticleReadPlace(
+  scrollRootRef: RefObject<HTMLElement | null>,
+  currentKey: string,
+  open: boolean
+) {
+  const memoryRef = useRef(articleScrollMemory(currentKey));
+  const openRef = useRef(false);
+  const rememberPlace = useCallback(() => {
+    const root = scrollRootRef.current;
+    if (!root) return;
+    memoryRef.current = saveArticleScroll(memoryRef.current, root.scrollTop);
+  }, [scrollRootRef]);
+  useLayoutEffect(() => {
+    const root = scrollRootRef.current;
+    const reopened = open && !openRef.current;
+    openRef.current = open;
+    if (!open) return;
+    if (reopened) {
+      memoryRef.current = articleScrollMemory(currentKey);
+      if (root) root.scrollTop = 0;
+      return;
+    }
+    const moved = commitArticleScroll(memoryRef.current, currentKey);
+    memoryRef.current = moved.memory;
+    if (root) root.scrollTop = moved.scrollTop;
+  }, [currentKey, open, scrollRootRef]);
+  return rememberPlace;
+}
+
+function useArticleReader(
+  root: PostRow,
+  open: boolean,
+  scrollRootRef: RefObject<HTMLElement | null>
+) {
+  const {
+    current,
+    openArticle: pushArticle,
+    backArticle: popArticle,
+  } = useArticleReadTrail(root, open);
+  const currentKey = postKey(current);
+  const rememberPlace = useArticleReadPlace(scrollRootRef, currentKey, open);
+  const openArticle = useCallback(
+    (post: PostRow) => {
+      rememberPlace();
+      pushArticle(post);
+    },
+    [pushArticle, rememberPlace]
+  );
+  const backArticle = useCallback(() => {
+    rememberPlace();
+    return popArticle();
+  }, [popArticle, rememberPlace]);
   return { current, openArticle, backArticle };
 }
 
@@ -155,9 +221,10 @@ export function ArticleReadOverlay({
     onOpenChange: (open: boolean) => void;
   }) {
   const scrollRootRef = useRef<HTMLElement | null>(null);
-  const { current, openArticle, backArticle } = useArticleReadTrail(
+  const { current, openArticle, backArticle } = useArticleReader(
     panel.post,
-    open
+    open,
+    scrollRootRef
   );
   const articleTitle =
     parseArticleSnapshot(current.value)?.title?.trim() || 'Article';
@@ -184,10 +251,6 @@ export function ArticleReadOverlay({
     <ArticleReadFooter post={current} />
   );
   const showWakeFooter = Boolean(resolvedFooter) && wakeFooter && !writePinned;
-  const currentKey = postKey(current);
-  useEffect(() => {
-    scrollRootRef.current?.scrollTo({ top: 0 });
-  }, [currentKey]);
 
   return (
     <OsSlideOverScreen
@@ -228,9 +291,10 @@ export function ArticleReadOverlay({
 export function ArticleReadPage(panel: PortfolioWritingArticlePanelProps) {
   const router = useRouter();
   const scrollRootRef = useRef<HTMLElement | null>(null);
-  const { current, openArticle, backArticle } = useArticleReadTrail(
+  const { current, openArticle, backArticle } = useArticleReader(
     panel.post,
-    true
+    true,
+    scrollRootRef
   );
   const articleTitle =
     parseArticleSnapshot(current.value)?.title?.trim() || 'Writing';
@@ -238,10 +302,6 @@ export function ArticleReadPage(panel: PortfolioWritingArticlePanelProps) {
     scrollRootRef,
     true
   );
-  const currentKey = postKey(current);
-  useEffect(() => {
-    scrollRootRef.current?.scrollTo({ top: 0 });
-  }, [currentKey]);
   const returnSearch = useEssayReturnSearch();
   const shelfHref = withEssayReturnSearch(
     writingPath(panel.accountId),

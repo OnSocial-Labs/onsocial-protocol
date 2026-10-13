@@ -11214,6 +11214,11 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.045);
   }
 
+  .portfolio-writing-card:active {
+    background: var(--os-surface-fill-active);
+    transition: none;
+  }
+
   .portfolio-writing-card:focus-visible {
     outline: 2px solid rgb(var(--fg-rgb) / 0.28);
     outline-offset: 2px;

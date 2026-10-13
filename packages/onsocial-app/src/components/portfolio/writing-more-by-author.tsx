@@ -11,8 +11,11 @@ import {
 } from '@/lib/article-post-payload';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import type { WritingArticleCoverHint } from '@/lib/hydrate-writing-article-covers';
-import { moreWritingByAuthor } from '@/lib/more-writing-by-author';
-import { writingArticlePath, writingPath } from '@/lib/overlay-routes';
+import {
+  MORE_WRITING_ROW_LIMIT,
+  moreWritingByAuthor,
+} from '@/lib/more-writing-by-author';
+import { writingArticlePath } from '@/lib/overlay-routes';
 import {
   formatWritingShelfTimestamp,
   postKey,
@@ -40,13 +43,21 @@ export function WritingMoreByAuthor({
   articles?: readonly PostRow[];
   coverHints?: Record<string, WritingArticleCoverHint>;
   onOpenArticle?: (post: PostRow) => void;
-  /** Shelf is already open under the reader. More closes back onto it. */
+  /**
+   * Writing list is already open under the reader. More closes onto that list.
+   * From the feed, More reveals the rest of the essays in this reader.
+   */
   onReturnToShelf?: () => void;
 }) {
   const [fetched, setFetched] = useState<PostRow[] | null>(null);
   const [fetchedHints, setFetchedHints] = useState<
     Record<string, WritingArticleCoverHint>
   >({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  if (expandedId !== null && expandedId !== postId) {
+    setExpandedId(null);
+  }
+  const expanded = expandedId === postId;
 
   useEffect(() => {
     if (articles !== undefined) return;
@@ -86,10 +97,14 @@ export function WritingMoreByAuthor({
 
   const source = articles !== undefined ? articles : fetched;
   if (source == null) return null;
-  const { items, hasMore } = moreWritingByAuthor(source, {
-    accountId,
-    postId,
-  });
+  const { items, hasMore } = moreWritingByAuthor(
+    source,
+    {
+      accountId,
+      postId,
+    },
+    expanded ? Number.POSITIVE_INFINITY : MORE_WRITING_ROW_LIMIT
+  );
   if (items.length === 0) return null;
   const hints = articles !== undefined ? coverHints : fetchedHints;
   const moreLabel = `More by ${name}`;
@@ -168,25 +183,20 @@ export function WritingMoreByAuthor({
         })}
       </ul>
       {hasMore ? (
-        onReturnToShelf ? (
-          <button
-            type="button"
-            className="os-surface-chip portfolio-writing-more-link"
-            aria-label={moreLabel}
-            onClick={onReturnToShelf}
-          >
-            More
-          </button>
-        ) : (
-          <Link
-            href={writingPath(accountId)}
-            className="os-surface-chip portfolio-writing-more-link"
-            aria-label={moreLabel}
-            scroll={false}
-          >
-            More
-          </Link>
-        )
+        <button
+          type="button"
+          className="os-surface-chip portfolio-writing-more-link"
+          aria-label={moreLabel}
+          onClick={() => {
+            if (onReturnToShelf) {
+              onReturnToShelf();
+              return;
+            }
+            setExpandedId(postId);
+          }}
+        >
+          More
+        </button>
       ) : null}
     </section>
   );

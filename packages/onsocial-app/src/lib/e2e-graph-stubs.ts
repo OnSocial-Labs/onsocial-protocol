@@ -5,7 +5,7 @@
  *
  * Tests opt in with cookie `onsocial.e2e.graph`
  * (`catalog=night-roads`, `vault=default`, `hub=catalog`, `guild=empty`,
- * `market=shop`, `drop=default`, `writing=shelf`, or combined).
+ * `market=shop`, `drop=default`, `writing=shelf`, `writing=reader`, or combined).
  * No cookie → live indexer / existing `page.route` only (SSR miss still works).
  */
 
@@ -30,7 +30,7 @@ export type E2eGraphHub = 'catalog' | 'empty' | 'held' | 'staff';
 export type E2eGraphGuild = 'empty' | 'missing' | 'member' | 'banned' | 'owner';
 export type E2eGraphMarket = 'shop' | 'shop-empty' | 'live-first';
 export type E2eGraphDrop = 'default' | 'held' | 'missing';
-export type E2eGraphWriting = 'shelf';
+export type E2eGraphWriting = 'shelf' | 'reader';
 export type E2eDropCollectionId =
   | 'night-drive'
   | 'chapter-one'
@@ -110,7 +110,7 @@ export function parseE2eGraphCookie(
     parsed.drop = drop;
   }
   const writing = params.get('writing');
-  if (writing === 'shelf') {
+  if (writing === 'shelf' || writing === 'reader') {
     parsed.writing = writing;
   }
   return parsed;
@@ -119,7 +119,8 @@ export function parseE2eGraphCookie(
 export function isE2eWritingShelfCookie(
   value: string | null | undefined
 ): boolean {
-  return parseE2eGraphCookie(value).writing === 'shelf';
+  const writing = parseE2eGraphCookie(value).writing;
+  return writing === 'shelf' || writing === 'reader';
 }
 
 export function serializeE2eGraphCookie(opts: E2eGraphCookieValue): string {
@@ -916,6 +917,39 @@ function e2eWritingArticleRow(opts: {
   };
 }
 
+function e2eWritingRows(writing: E2eGraphWriting | undefined) {
+  if (writing === 'reader') return e2eWritingReaderRows();
+  if (writing === 'shelf') return e2eWritingShelfRows();
+  return null;
+}
+
+/**
+ * Reader fixture — Night drive is long enough to scroll, and two extra
+ * essays make the More chip reveal the rest in the reader.
+ */
+export function e2eWritingReaderRows() {
+  const shelf = e2eWritingShelfRows();
+  const night = shelf[0];
+  const payload = JSON.parse(night.value) as { text: string };
+  payload.text = 'A river in Lisbon after dark. '.repeat(40);
+  return [
+    { ...night, value: JSON.stringify(payload) },
+    ...shelf.slice(1),
+    e2eWritingArticleRow({
+      postId: 'harbor',
+      title: 'Harbor light',
+      text: 'Boats at dawn.',
+      blockTimestamp: FIXTURE_CREATED_AT - 259_200_000,
+    }),
+    e2eWritingArticleRow({
+      postId: 'paper',
+      title: 'Paper boats',
+      text: 'Folded on the kitchen table.',
+      blockTimestamp: FIXTURE_CREATED_AT - 345_600_000,
+    }),
+  ];
+}
+
 /** Writing shelf fixture — distinct titles so fast search can miss on purpose. */
 export function e2eWritingShelfRows() {
   return [
@@ -948,11 +982,12 @@ export function resolveE2eGraphStub(opts: {
   const parsed = parseE2eGraphCookie(opts.cookieValue);
   const variables = opts.variables ?? {};
 
-  if (parsed.writing === 'shelf' && isPostsFeedQuery(opts.query)) {
-    return { data: { postsFeed: e2eWritingShelfRows() } };
+  const writingRows = e2eWritingRows(parsed.writing);
+  if (writingRows && isPostsFeedQuery(opts.query)) {
+    return { data: { postsFeed: writingRows } };
   }
-  if (parsed.writing === 'shelf' && isPostsCurrentQuery(opts.query)) {
-    return { data: { postsCurrent: e2eWritingShelfRows() } };
+  if (writingRows && isPostsCurrentQuery(opts.query)) {
+    return { data: { postsCurrent: writingRows } };
   }
 
   if (parsed.hub && isAppRowQuery(opts.query)) {

@@ -18,6 +18,7 @@ describe('article reader core', () => {
     expect(screen).toContain('article-read-screen');
     expect(screen).not.toContain('portfolioMoodShellStyle');
     expect(screen).toContain('useArticleReadTrail');
+    expect(screen).toContain('useArticleReadPlace');
     expect(screen).toContain('onBeforeClose');
     expect(feed).toContain('ArticleReadOverlay');
     expect(feed).toContain('engagement');
