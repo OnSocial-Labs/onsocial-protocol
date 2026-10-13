@@ -361,6 +361,14 @@ describe('resolveE2eGraphStub', () => {
     ).toEqual(e2eDiscoverArticleRows());
     expect(
       resolveE2eGraphStub({
+        query: 'query ProfileStatsBatch { profileSearch profileKinds }',
+        cookieValue: 'articles=list',
+      })?.data.profileSearch
+    ).toEqual([
+      { accountId: 'alice.testnet', name: 'Alice', avatar: null },
+    ]);
+    expect(
+      resolveE2eGraphStub({
         query: 'query Posts($author: String!, $limit: Int!) { postsFeed }',
         cookieValue: null,
       })

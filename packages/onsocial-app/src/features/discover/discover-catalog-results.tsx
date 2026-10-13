@@ -18,8 +18,10 @@ import { APP_EVENTS_PATH, dropsPath, collectionPath } from '@/lib/app-routes';
 import { ArticleReadOverlay } from '@/components/portfolio/article-read-screen';
 import { DiscoverArticlesList } from '@/features/discover/discover-articles-list';
 import { isArticlePost } from '@/lib/article-post-payload';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { fetchPersonalPost } from '@/lib/fetch-personal-post';
 import { portfolioPath, writingArticlePath } from '@/lib/overlay-routes';
+import { displayName } from '@/lib/profile-display';
 import type { PostRow } from '@onsocial/sdk';
 
 const SECTION_LABEL: Record<DiscoverCatalogSectionId, string> = {
@@ -81,7 +83,11 @@ function CatalogRow({
   href: string;
   title: string;
   meta?: string;
-  face?: { accountId: string; avatarUrl?: string | null };
+  face?: {
+    accountId: string;
+    name?: string;
+    avatarUrl?: string | null;
+  };
   coverUrl?: string | null;
   onOpen?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
@@ -97,7 +103,7 @@ function CatalogRow({
       {face ? (
         <CatalogFace
           accountId={face.accountId}
-          name={title}
+          name={face.name?.trim() || title}
           avatarUrl={face.avatarUrl}
         />
       ) : (
@@ -141,6 +147,10 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
   const [loading, setLoading] = useState(true);
   const [articlesOpen, setArticlesOpen] = useState(false);
   const [reading, setReading] = useState<PostRow | null>(null);
+  const articleAuthors = usePostAuthorProfiles([
+    ...(results?.articles ?? []).map((article) => article.accountId),
+    reading?.accountId ?? '',
+  ]);
 
   const openArticle = useCallback(
     async (article: { accountId: string; postId: string }) => {
@@ -255,7 +265,15 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
                         )}
                         title={article.title}
                         meta={article.accountId}
-                        face={{ accountId: article.accountId }}
+                        face={{
+                          accountId: article.accountId,
+                          name: displayName(
+                            article.accountId,
+                            articleAuthors[article.accountId]?.displayName
+                          ),
+                          avatarUrl:
+                            articleAuthors[article.accountId]?.avatarUrl,
+                        }}
                         onOpen={(event) => openArticleFromRow(article, event)}
                       />
                     ))
@@ -348,7 +366,11 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
             if (!next) setReading(null);
           }}
           accountId={reading.accountId}
-          titleLabel={reading.accountId}
+          titleLabel={
+            articleAuthors[reading.accountId]?.displayName?.trim() ||
+            reading.accountId
+          }
+          avatarUrl={articleAuthors[reading.accountId]?.avatarUrl ?? null}
           post={reading}
         />
       ) : null}

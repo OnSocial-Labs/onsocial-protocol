@@ -23,6 +23,7 @@ test.describe('discover articles', () => {
     const results = page.getByRole('region', { name: 'Search results' });
     const night = results.getByRole('link', { name: 'Night drive' });
     await expect(night).toBeVisible();
+    await expect(night.locator('.profile-avatar__initial')).toHaveText('A');
     await expect(
       results.getByRole('link', { name: 'Harbor light' })
     ).toHaveCount(0);
@@ -41,12 +42,12 @@ test.describe('discover articles', () => {
     await page.getByRole('button', { name: 'More articles' }).click();
     const list = page.getByRole('dialog', { name: 'Articles' });
     await expect(list).toBeVisible();
-    await expect(
-      list.getByRole('link', { name: 'Harbor light' })
-    ).toBeVisible();
+    const harbor = list.getByRole('link', { name: 'Harbor light' });
+    await expect(harbor).toBeVisible();
+    await expect(harbor.locator('.profile-avatar__initial')).toHaveText('A');
     await expect(page).toHaveURL(/\/discover\/?(\?|$)/);
 
-    await list.getByRole('link', { name: 'Harbor light' }).click();
+    await harbor.click();
     await expect(
       page.getByRole('dialog', { name: 'Harbor light' })
     ).toBeVisible();

@@ -1040,6 +1040,20 @@ export function resolveE2eGraphStub(opts: {
   if (parsed.articles === 'list' && opts.query.includes('articlesSearch')) {
     return { data: { articlesSearch: e2eDiscoverArticleRows() } };
   }
+  if (parsed.articles === 'list' && isProfileBatchQuery(opts.query)) {
+    return {
+      data: {
+        profileSearch: [
+          {
+            accountId: E2E_WRITING_ACCOUNT,
+            name: 'Alice',
+            avatar: null,
+          },
+        ],
+        profileKinds: [],
+      },
+    };
+  }
   if (parsed.articles === 'list' && opts.query.includes('PersonalPost')) {
     const postId =
       typeof variables.postId === 'string' ? variables.postId : 'night';

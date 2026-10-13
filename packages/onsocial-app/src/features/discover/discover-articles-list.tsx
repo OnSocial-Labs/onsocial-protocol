@@ -12,13 +12,10 @@ import {
   type DiscoverCatalogArticle,
 } from '@/features/discover/discover-catalog-search';
 import type { ArticleSearchCursor } from '@/features/discover/discover-catalog';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { writingArticlePath } from '@/lib/overlay-routes';
+import { displayName } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
-
-function faceInitial(label: string): string {
-  const trimmed = label.trim();
-  return trimmed ? trimmed.slice(0, 1).toUpperCase() : '?';
-}
 
 /**
  * The rest of a Discover article search. A row opens the reader over this
@@ -39,6 +36,7 @@ export function DiscoverArticlesList({
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const authors = usePostAuthorProfiles(rows.map((row) => row.accountId));
 
   useEffect(() => {
     if (!open) return;
@@ -131,7 +129,11 @@ export function DiscoverArticlesList({
           >
             <AccountAvatar
               accountId={article.accountId}
-              fallbackInitial={faceInitial(article.title)}
+              src={authors[article.accountId]?.avatarUrl ?? null}
+              fallbackInitial={displayName(
+                article.accountId,
+                authors[article.accountId]?.displayName
+              )}
               size="lg"
             />
             <div className="market-listing-copy">
