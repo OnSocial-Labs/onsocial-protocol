@@ -54,7 +54,7 @@ export function DropsLoadingScreen({
         >
           <p className="sr-only">Loading drops…</p>
           <section className="market-section" aria-labelledby="drops-catalog">
-            <h2 id="drops-catalog" className="market-section-title">
+            <h2 id="drops-catalog" className="sr-only">
               {dropsSortLabel(toolbar.sort)}
             </h2>
             <MarketListSkeleton

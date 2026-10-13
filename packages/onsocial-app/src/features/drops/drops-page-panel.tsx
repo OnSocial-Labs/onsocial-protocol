@@ -1170,7 +1170,7 @@ export function DropsPagePanel({
             aria-labelledby="drops-catalog"
             aria-busy={catalogRefreshing || undefined}
           >
-            <h2 id="drops-catalog" className="market-section-title">
+            <h2 id="drops-catalog" className="sr-only">
               {dropsSortLabel(sort)}
             </h2>
             {failed && errorPresentation === 'state' ? (

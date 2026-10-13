@@ -17,8 +17,11 @@ describe('drop cover expand wiring', () => {
     expect(panel).toContain("coverExpand === 'read'");
     expect(panel).toContain("coverExpand === 'listen'");
     expect(panel).toContain('collection-cover-read-hit');
-    expect(panel).toContain('aria-label="Open reader"');
-    expect(panel).toContain('aria-label="Open listen"');
+    expect(panel).toContain("'Open reader'");
+    expect(panel).toContain("'Open listen'");
+    expect(panel).toContain("'View artwork'");
+    expect(panel).not.toContain('ScaleUpIcon');
+    expect(panel).not.toContain('collection-cover-read-hit-chip');
     expect(panel).toContain('coverListenOpen');
     expect(panel).toContain('immersiveListen');
     expect(panel).not.toContain(

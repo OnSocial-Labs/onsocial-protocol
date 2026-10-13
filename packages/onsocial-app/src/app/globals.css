@@ -42587,6 +42587,16 @@ a.os-surface-row {
     pointer-events: none;
   }
 
+  /*
+   * Drops already starts the list below the header, and the header frost
+   * covers that chrome once the list scrolls. The shared band grows downward
+   * from the content line and veils the first row, so Drops leaves it clear.
+   * Events shares .drops-screen-body; #drops-catalog keeps this to Drops.
+   */
+  .drops-screen-body:has(#drops-catalog) > .os-chrome-glass::before {
+    content: none;
+  }
+
   .os-chrome-glass::before {
     content: '';
     position: absolute;
@@ -44628,7 +44638,8 @@ button.scarce-clip-cover-expand:focus-visible {
 }
 
 /*
- * Writing drop cover — the face is the Read hit. Chip stays in the corner.
+ * Drop cover — the face is the medium hit. Read, listen, pass, and art
+ * use the picture. The word under the cover does that same job.
  */
 button.scarce-clip-cover-expand.collection-cover-read-hit {
   inset: 0;
@@ -44659,21 +44670,6 @@ button.scarce-clip-cover-expand.collection-cover-read-hit:hover,
 button.scarce-clip-cover-expand.collection-cover-read-hit:focus-visible {
   background: transparent;
   color: var(--app-on-media-ink);
-}
-
-.collection-cover-read-hit-chip {
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.85rem;
-  height: 1.85rem;
-  border-radius: 9999px;
-  color: var(--app-on-media-ink);
-  background: var(--app-scrim-media);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
 }
 
 .scarce-clip-cover-expand-icon {

@@ -20,7 +20,6 @@ import {
   InformationCircleIcon,
   BookmarkFillIcon,
   BookmarkIcon,
-  ScaleUpIcon,
   ShareIcon,
   OsIconAction,
   ShopFillIcon,
@@ -1035,56 +1034,29 @@ export function CollectionPagePanel({
               : {})}
           >
             {view.mediaUrl ? <img src={view.mediaUrl} alt="" /> : null}
-            {coverExpand === 'read' ? (
+            {coverExpand ? (
               <button
                 type="button"
                 className="scarce-clip-cover-expand collection-cover-read-expand collection-cover-read-hit"
-                aria-label="Open reader"
-                onClick={openWritingRead}
-              >
-                <span className="collection-cover-read-hit-chip" aria-hidden>
-                  <ScaleUpIcon
-                    className="scarce-clip-cover-expand-icon"
-                    aria-hidden
-                  />
-                </span>
-              </button>
-            ) : coverExpand === 'listen' ? (
-              <button
-                type="button"
-                className="scarce-clip-cover-expand collection-cover-read-expand"
-                aria-label="Open listen"
-                onClick={() => setCoverListenOpen(true)}
-              >
-                <ScaleUpIcon
-                  className="scarce-clip-cover-expand-icon"
-                  aria-hidden
-                />
-              </button>
-            ) : coverExpand === 'pass' ? (
-              <button
-                type="button"
-                className="scarce-clip-cover-expand collection-cover-read-expand"
-                aria-label={passActionLabel}
-                onClick={openOwnedPass}
-              >
-                <ScaleUpIcon
-                  className="scarce-clip-cover-expand-icon"
-                  aria-hidden
-                />
-              </button>
-            ) : coverExpand === 'artwork' ? (
-              <button
-                type="button"
-                className="scarce-clip-cover-expand collection-cover-read-expand"
-                aria-label="View artwork"
-                onClick={() => setMediaOverlayOpen(true)}
-              >
-                <ScaleUpIcon
-                  className="scarce-clip-cover-expand-icon"
-                  aria-hidden
-                />
-              </button>
+                aria-label={
+                  coverExpand === 'read'
+                    ? 'Open reader'
+                    : coverExpand === 'listen'
+                      ? 'Open listen'
+                      : coverExpand === 'pass'
+                        ? passActionLabel
+                        : 'View artwork'
+                }
+                onClick={
+                  coverExpand === 'read'
+                    ? openWritingRead
+                    : coverExpand === 'listen'
+                      ? () => setCoverListenOpen(true)
+                      : coverExpand === 'pass'
+                        ? openOwnedPass
+                        : () => setMediaOverlayOpen(true)
+                }
+              />
             ) : null}
           </div>
 
