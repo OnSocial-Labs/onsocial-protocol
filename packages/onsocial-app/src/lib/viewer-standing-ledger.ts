@@ -218,7 +218,15 @@ export function deriveStandingAccountsList({
     if (viewerStanding === apiStanding) {
       return account;
     }
-    return { ...account, viewerStanding };
+    const delta = viewerStanding ? 1 : -1;
+    return {
+      ...account,
+      viewerStanding,
+      standingCount: clampStandingCount((account.standingCount ?? 0) + delta),
+      mutualStandingCount: account.theyStandWithViewer
+        ? clampStandingCount((account.mutualStandingCount ?? 0) + delta)
+        : account.mutualStandingCount,
+    };
   });
 
   if (!isViewerOwnList || ledger.size === 0) {

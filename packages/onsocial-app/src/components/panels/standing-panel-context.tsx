@@ -872,13 +872,6 @@ export function StandingPanelProvider({
 
       try {
         await updateStanding(account, shouldStand);
-        setAccounts((current) =>
-          current.map((row) =>
-            row.accountId === account.accountId
-              ? { ...row, viewerStanding: shouldStand }
-              : row
-          )
-        );
       } catch (error) {
         if (!isWalletUserCancellation(error)) {
           setActionError(getErrorMessage(error));
