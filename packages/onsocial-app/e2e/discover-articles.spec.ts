@@ -40,13 +40,48 @@ test.describe('discover articles', () => {
     );
     await expect(night).toBeVisible();
 
+    const discoverSearch = page.getByRole('textbox', {
+      name: 'Search people, articles, books, music, and events',
+    });
+    const previewTitle = results.locator('.market-listing-title', {
+      hasText: 'Night drive',
+    });
+    const discoverSearchBox = await discoverSearch.boundingBox();
+    const previewTitleBox = await previewTitle.boundingBox();
+
     await page.getByRole('button', { name: 'More articles' }).click();
     const list = page.getByRole('dialog', { name: 'Articles' });
     await expect(list).toBeVisible();
+    await expect(list.locator('.os-app-screen-subtitle')).toHaveCount(0);
+    await expect(list.locator('h1')).toHaveText('Articles');
+    const articlesSearch = list.getByRole('textbox', {
+      name: 'Search articles',
+    });
+    await expect(articlesSearch).toHaveValue('night');
+    const back = list.getByRole('button', { name: 'Back' });
+    const backBox = await back.boundingBox();
+    const articlesSearchBox = await articlesSearch.boundingBox();
+    expect(backBox).not.toBeNull();
+    expect(articlesSearchBox).not.toBeNull();
+    expect(discoverSearchBox).not.toBeNull();
+    const backMid = backBox!.y + backBox!.height / 2;
+    const searchMid = articlesSearchBox!.y + articlesSearchBox!.height / 2;
+    expect(Math.abs(backMid - searchMid)).toBeLessThan(2);
+    const articlesRight = articlesSearchBox!.x + articlesSearchBox!.width;
+    const discoverRight = discoverSearchBox!.x + discoverSearchBox!.width;
+    expect(Math.abs(articlesRight - discoverRight)).toBeLessThan(2);
+
     const harbor = list.getByRole('link', { name: 'Harbor light' });
     await expect(harbor).toBeVisible();
     await expect(harbor.locator('.profile-avatar__initial')).toHaveText('A');
     await expect(harbor).toContainText('by Alice · @alice.testnet');
+    const listTitle = list.locator('.market-listing-title', {
+      hasText: 'Night drive',
+    });
+    const listTitleBox = await listTitle.boundingBox();
+    expect(previewTitleBox).not.toBeNull();
+    expect(listTitleBox).not.toBeNull();
+    expect(Math.abs(listTitleBox!.x - previewTitleBox!.x)).toBeLessThan(2);
     await expect(page).toHaveURL(/\/discover\/?(\?|$)/);
 
     await harbor.click();

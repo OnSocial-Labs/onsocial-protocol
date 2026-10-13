@@ -2,7 +2,8 @@
 
 import { useEffect, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
-import { ChevronLeftIcon } from '@onsocial/ui';
+import { ChevronLeftIcon, NoteTextFillIcon } from '@onsocial/ui';
+import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
@@ -13,15 +14,18 @@ import {
 } from '@/features/discover/discover-catalog-search';
 import {
   discoverArticleByline,
+  isDiscoverCatalogQuery,
   type ArticleSearchCursor,
 } from '@/features/discover/discover-catalog';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { writingArticlePath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
+import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 /**
- * The rest of a Discover article search. A row opens the reader over this
+ * The rest of a Discover article search. The header is the same search field
+ * as Market and Events, holding the word. A row opens the reader over this
  * list. Back returns here, then to the search.
  */
 export function DiscoverArticlesList({
@@ -35,20 +39,33 @@ export function DiscoverArticlesList({
   onClose: () => void;
   onOpenArticle: (article: DiscoverCatalogArticle) => void;
 }) {
+  const [draft, setDraft] = useState(query);
+  const [trackedQuery, setTrackedQuery] = useState(query);
+  if (query !== trackedQuery) {
+    setTrackedQuery(query);
+    setDraft(query);
+  }
   const [rows, setRows] = useState<DiscoverCatalogArticle[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const trimmed = draft.trim();
   const authors = usePostAuthorProfiles(rows.map((row) => row.accountId));
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     const handle = window.setTimeout(() => {
+      if (!isDiscoverCatalogQuery(trimmed)) {
+        setRows([]);
+        setHasMore(false);
+        setLoading(false);
+        return;
+      }
       setRows([]);
       setHasMore(false);
       setLoading(true);
-      void searchDiscoverArticles(query, { limit: DISCOVER_ARTICLE_PAGE })
+      void searchDiscoverArticles(trimmed, { limit: DISCOVER_ARTICLE_PAGE })
         .then((page) => {
           if (cancelled) return;
           setRows(page.items);
@@ -63,22 +80,22 @@ export function DiscoverArticlesList({
         .finally(() => {
           if (!cancelled) setLoading(false);
         });
-    }, 0);
+    }, 200);
     return () => {
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [open, query]);
+  }, [open, trimmed]);
 
   const loadMore = () => {
     const last = rows[rows.length - 1];
-    if (!last || loadingMore) return;
+    if (!last || loadingMore || !isDiscoverCatalogQuery(trimmed)) return;
     const before: ArticleSearchCursor = {
       blockHeight: last.blockHeight,
       postId: last.postId,
     };
     setLoadingMore(true);
-    void searchDiscoverArticles(query, {
+    void searchDiscoverArticles(trimmed, {
       limit: DISCOVER_ARTICLE_PAGE,
       before,
     })
@@ -110,14 +127,28 @@ export function DiscoverArticlesList({
       open={open}
       onClose={onClose}
       title="Articles"
-      subtitle={query.trim()}
+      compactChrome
+      heading={
+        <OsAppChromeNavSearch
+          value={draft}
+          onValueChange={setDraft}
+          placeholder="Search articles"
+          maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
+          clearAriaLabel="Clear search"
+          ariaLabel="Search articles"
+          idleClassName="discover-nav-search-field"
+          leadingIcon={
+            <NoteTextFillIcon className="search-field-icon" aria-hidden />
+          }
+        />
+      }
       closeAriaLabel="Back"
       closeIcon={<ChevronLeftIcon className="glass-sheet-close-icon" />}
       zIndex={SHEET_Z.discover}
-      contentClassName="discover-articles-list"
+      contentClassName="os-app-chrome-page discover-articles-list"
     >
       {loading ? <MarketListSkeleton rows={4} /> : null}
-      {!loading && rows.length === 0 ? (
+      {!loading && isDiscoverCatalogQuery(trimmed) && rows.length === 0 ? (
         <p className="market-section-title">Nothing matches.</p>
       ) : null}
       <div role="list">
