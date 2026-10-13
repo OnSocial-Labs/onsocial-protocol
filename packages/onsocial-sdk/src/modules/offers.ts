@@ -55,7 +55,10 @@ export class OffersModule {
         throw new Error('Offer limit reached');
       }
     }
-    const result = await this._social.set(buildOfferSetData(offerId, input), opts);
+    const result = await this._social.set(
+      buildOfferSetData(offerId, input),
+      opts
+    );
     return { offerId, result };
   }
 
