@@ -7,7 +7,6 @@ import {
 } from '@/features/scarces/drop-facets';
 import { parseWritingFormat } from '@/features/scarces/drop-writing';
 import { isDiscoverTopicDraft } from '@/features/discover/discover-omni-search';
-import { displayName } from '@/lib/profile-display';
 import { scarceRowFormatLabel } from '@/lib/scarce-row-kind';
 
 export const DISCOVER_CATALOG_PREVIEW = 3;
@@ -168,15 +167,6 @@ export function catalogDropMeta(row: CatalogDropMatchRow): string {
     writingFormat: parseWritingFormat(extra?.writingFormat),
   });
   return [format, row.creatorId].filter(Boolean).join(' · ');
-}
-
-/** Author line for an essay row. Same name and `@id` as the article page. */
-export function discoverArticleByline(
-  accountId: string,
-  profileName?: string | null
-): string {
-  const name = displayName(accountId, profileName);
-  return `by ${name} · @${accountId}`;
 }
 
 /** The essay index is not tracked yet — keep the post-body scan until it is. */

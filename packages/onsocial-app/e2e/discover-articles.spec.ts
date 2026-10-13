@@ -27,10 +27,13 @@ test.describe('discover articles', () => {
       night.locator('.portfolio-writing-cover-card, .portfolio-writing-cover-photo')
     ).toBeVisible();
     await expect(
-      night.locator('.discover-article-byline .profile-avatar__initial')
+      night.locator('.drops-discovery-party .profile-avatar__initial')
     ).toHaveText('A');
     await expect(night.locator('.profile-avatar--lg')).toHaveCount(0);
-    await expect(night).toContainText('by Alice · @alice.testnet');
+    await expect(night.locator('.drops-discovery-by')).toHaveText('by Alice');
+    await expect(night.locator('.drops-discovery-sub')).toHaveText(
+      '@alice.testnet'
+    );
     await expect(
       results.getByRole('link', { name: 'Harbor light' })
     ).toHaveCount(0);
@@ -85,10 +88,13 @@ test.describe('discover articles', () => {
       )
     ).toBeVisible();
     await expect(
-      harbor.locator('.discover-article-byline .profile-avatar__initial')
+      harbor.locator('.drops-discovery-party .profile-avatar__initial')
     ).toHaveText('A');
     await expect(harbor.locator('.profile-avatar--lg')).toHaveCount(0);
-    await expect(harbor).toContainText('by Alice · @alice.testnet');
+    await expect(harbor.locator('.drops-discovery-by')).toHaveText('by Alice');
+    await expect(harbor.locator('.drops-discovery-sub')).toHaveText(
+      '@alice.testnet'
+    );
     const listTitle = list.locator('.market-listing-title', {
       hasText: 'Night drive',
     });

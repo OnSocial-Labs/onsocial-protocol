@@ -38227,8 +38227,8 @@ a.os-surface-row {
     aspect-ratio: auto;
   }
 
-  .discover-article-byline {
-    gap: 0.4rem;
+  .discover-catalog-row:has(.drops-discovery-party) {
+    align-items: flex-start;
   }
 
   .market-listing-list,
@@ -38326,7 +38326,7 @@ a.os-surface-row {
   }
 
   /* Collection-meta anatomy (mint page): avatar | by Name / @handle · series. */
-  a.drops-discovery-party {
+  .drops-discovery-party {
     display: flex;
     align-items: flex-start;
     gap: 0.4rem;

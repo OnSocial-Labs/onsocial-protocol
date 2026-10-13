@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   articleRowsPage,
-  discoverArticleByline,
   catalogCreatorIlike,
   catalogDropMatches,
   catalogDropMeta,
@@ -13,15 +12,6 @@ import {
 } from '@/features/discover/discover-catalog';
 
 describe('discover catalog search', () => {
-  it('writes the essay author the way the article page does', () => {
-    expect(discoverArticleByline('alice.testnet', 'Alice')).toBe(
-      'by Alice · @alice.testnet'
-    );
-    expect(discoverArticleByline('alice.testnet', 'Sam')).toBe(
-      'by Sam · @alice.testnet'
-    );
-  });
-
   it('uses a plain word and leaves topic drafts on their tabs', () => {
     expect(isDiscoverCatalogQuery('fiction')).toBe(true);
     expect(isDiscoverCatalogQuery('  night ')).toBe(true);
