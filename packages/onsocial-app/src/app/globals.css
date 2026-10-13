@@ -9781,7 +9781,8 @@ a.os-surface-row {
     color: inherit;
   }
 
-  button.portfolio-hiring {
+  button.portfolio-hiring,
+  button.portfolio-offer {
     appearance: none;
     background: none;
     border: 0;
@@ -9792,7 +9793,9 @@ a.os-surface-row {
   }
 
   button.portfolio-hiring:hover,
-  button.portfolio-hiring:focus-visible {
+  button.portfolio-hiring:focus-visible,
+  button.portfolio-offer:hover,
+  button.portfolio-offer:focus-visible {
     opacity: 1;
   }
 
@@ -18825,8 +18828,28 @@ a.os-surface-row {
     color: hsl(var(--muted-foreground));
   }
 
-  .standing-row-hiring {
+  .standing-row-hiring,
+  .standing-row-offer {
     color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .portfolio-offer-lines {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .portfolio-offer-line {
+    margin: 0;
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
+
+  .portfolio-offer-link {
+    display: inline-block;
+    margin-top: 0.65rem;
+    font-size: 0.78rem;
+    color: rgb(var(--fg-rgb) / 0.62);
   }
 
   .standing-row-bio .os-hashtag,

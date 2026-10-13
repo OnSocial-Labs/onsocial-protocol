@@ -52,6 +52,7 @@ interface DmComposeSheetProps {
   mood?: ResolvedMood | null;
   onClose: () => void;
   onSent?: () => void;
+  zIndex?: number;
 }
 
 /** Private message sheet. Header is the verb only. The recipient face is the first body row. */
@@ -62,6 +63,7 @@ export function DmComposeSheet({
   mood = null,
   onClose,
   onSent,
+  zIndex,
 }: DmComposeSheetProps) {
   const router = useRouter();
   const titleId = useId();
@@ -241,6 +243,7 @@ export function DmComposeSheet({
         size="tall"
         bodyClassName="profile-support-sheet-body"
         titleId={titleId}
+        {...(zIndex != null ? { zIndex } : {})}
       >
         <div className="dm-compose-body">
           <ScarcePartyLine

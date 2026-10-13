@@ -28,6 +28,8 @@ export interface ProfileListAccount {
   kind?: ProfileKind | null;
   industry?: string | null;
   openJobsCount?: number;
+  /** First standing offer title, when this account provides something. */
+  offerTitle?: string | null;
 }
 
 export function standingAccountToProfileListAccount(

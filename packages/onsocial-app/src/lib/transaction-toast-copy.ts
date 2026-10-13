@@ -162,6 +162,8 @@ export const txToastPending = {
   postingRole: 'Posting role…',
   savingRole: 'Saving role…',
   removingRole: 'Removing role…',
+  savingOffer: 'Saving offer…',
+  removingOffer: 'Removing offer…',
 } as const;
 
 export const txToastSuccess = {
@@ -287,6 +289,8 @@ export const txToastSuccess = {
   rolePosted: 'Role posted.',
   roleSaved: 'Role updated.',
   roleRemoved: 'Role removed.',
+  offerSaved: 'Offer saved.',
+  offerRemoved: 'Offer removed.',
 } as const;
 
 export const txToastError = {
@@ -297,6 +301,8 @@ export const txToastError = {
   rolePostFailed: 'Could not post role.',
   roleSaveFailed: 'Could not update role.',
   roleRemoveFailed: 'Could not remove role.',
+  offerSaveFailed: 'Could not save offer.',
+  offerRemoveFailed: 'Could not remove offer.',
   profileOnSocialMissing: 'OnSocial account not found on this network.',
   moodSaveFailed: 'Could not save mood.',
   inkSaveFailed: 'Could not save ink.',

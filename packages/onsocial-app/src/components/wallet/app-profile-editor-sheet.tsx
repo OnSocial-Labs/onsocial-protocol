@@ -39,6 +39,7 @@ import { ProfileFaceBioField } from '@/components/wallet/profile-face-bio-field'
 import { PortfolioWebsitesEditor } from '@/components/wallet/portfolio-websites-editor';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { ProfileOrgMetaEditor } from '@/components/wallet/profile-org-meta-editor';
+import { ProfileOffersEditor } from '@/components/profile/profile-offers-editor';
 import type { ProfileAboutPhotoDraft } from '@/components/wallet/profile-about-photos-editor';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
@@ -939,12 +940,22 @@ export function AppProfileEditorSheet({
                                 )
                               }
                               onBlur={() => {
-                                const next = normalizeProfileLocationInput(location);
+                                const next =
+                                  normalizeProfileLocationInput(location);
                                 if (next !== location) setLocation(next);
                               }}
                             />
                           </label>
                         )}
+                        {!isDaoAccount &&
+                        kind === 'person' &&
+                        snapshot?.accountId ? (
+                          <ProfileOffersEditor
+                            accountId={snapshot.accountId}
+                            kind="person"
+                            disabled={saving}
+                          />
+                        ) : null}
                         <label htmlFor="profile-editor-bio" className="sr-only">
                           Bio
                         </label>

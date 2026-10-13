@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
@@ -23,6 +23,7 @@ import {
   DISCOVER_CONNECT_HINT,
   discoverProfilesLead,
 } from '@/lib/discover-tab-lead';
+import { fetchOfferTitles } from '@/lib/profile-offers';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
 
@@ -80,6 +81,30 @@ export function DiscoverPanelContent() {
   const profilesForList = useMemo(
     () => excludeRecommendedFromList(listAccounts, recommendedShownIds),
     [listAccounts, recommendedShownIds]
+  );
+  const offerAccountKey = profilesForList
+    .map((account) => account.accountId)
+    .slice(0, 40)
+    .join(',');
+  const [offerTitles, setOfferTitles] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const ids = offerAccountKey ? offerAccountKey.split(',') : [];
+    if (ids.length === 0) return;
+    const controller = new AbortController();
+    void fetchOfferTitles(ids, controller.signal)
+      .then((titles) => {
+        if (!controller.signal.aborted) setOfferTitles(titles);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [offerAccountKey]);
+  const profilesWithOffers = useMemo(
+    () =>
+      profilesForList.map((account) => {
+        const offerTitle = offerTitles[account.accountId];
+        return offerTitle ? { ...account, offerTitle } : account;
+      }),
+    [offerTitles, profilesForList]
   );
   const hasPaintedRows = profilesForList.length > 0;
   const loadingPresentation = isLoadingMore
@@ -185,7 +210,7 @@ export function DiscoverPanelContent() {
                 ) : null
               ) : (
                 <ProfileSocialList
-                  accounts={profilesForList}
+                  accounts={profilesWithOffers}
                   listKey={listKey}
                   viewerAccountId={viewerAccountId}
                   showSolidarityBadge

@@ -6,6 +6,7 @@ import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-iden
 import { PortfolioDepthLinks } from '@/components/portfolio/portfolio-depth-links';
 import { PortfolioFaceBio } from '@/components/portfolio/portfolio-face-bio';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
+import { PortfolioOfferLines } from '@/components/portfolio/portfolio-offer-lines';
 import { PortfolioOrgMetaLine } from '@/components/portfolio/portfolio-org-meta-line';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
@@ -161,6 +162,13 @@ export function PortfolioIdentity({
             <span>{locationLabel}</span>
           </p>
         ) : null}
+        {displayKind === 'dao' ? null : (
+          <PortfolioOfferLines
+            accountId={accountId}
+            profileName={titleLabel}
+            mood={mood}
+          />
+        )}
         {summary ? (
           <PortfolioFaceBio
             text={summary}

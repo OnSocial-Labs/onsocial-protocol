@@ -369,6 +369,11 @@ export function ProfileSocialListRow({
               {hiringHint}
             </span>
           ) : null}
+          {account.offerTitle ? (
+            <span className="standing-row-bio standing-row-offer">
+              {account.offerTitle}
+            </span>
+          ) : null}
           <ProfileRowMetrics account={account} isDao={isDaoTarget} />
         </StandingIdentity>
       </div>

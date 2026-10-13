@@ -32,11 +32,10 @@ import {
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
 import { PortfolioOrgKindMark } from '@/components/portfolio/portfolio-org-kind-mark';
 import { ProfileJobsEditor } from '@/components/profile/profile-jobs-editor';
+import { ProfileOffersEditor } from '@/components/profile/profile-offers-editor';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
-import {
-  JOBS_CHANGED_EVENT,
-  fetchOpenJobs,
-} from '@/lib/profile-jobs';
+import { JOBS_CHANGED_EVENT, fetchOpenJobs } from '@/lib/profile-jobs';
+import { OFFERS_CHANGED_EVENT, fetchAccountOffers } from '@/lib/profile-offers';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 const PROFILE_INDUSTRY_CHOICES: ChoiceOption<string>[] =
@@ -75,13 +74,34 @@ export function ProfileOrgMetaEditor({
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationDraft, setLocationDraft] = useState(location);
   const [hiringOpen, setHiringOpen] = useState(false);
+  const [offerOpen, setOfferOpen] = useState(false);
   const [jobCount, setJobCount] = useState(0);
+  const [offerLabel, setOfferLabel] = useState('Offer');
 
   useEffect(() => {
     if (!showHiring) return;
     let cancelled = false;
     void fetchOpenJobs(accountId).then((jobs) => {
       if (!cancelled) setJobCount(jobs.length);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, showHiring]);
+
+  useEffect(() => {
+    if (!showHiring) return;
+    let cancelled = false;
+    void fetchAccountOffers(accountId).then((offers) => {
+      if (cancelled) return;
+      const first = offers[0]?.title?.trim();
+      setOfferLabel(
+        offers.length === 0
+          ? 'Offer'
+          : offers.length === 1 && first
+            ? first
+            : `Offers · ${offers.length}`
+      );
     });
     return () => {
       cancelled = true;
@@ -99,6 +119,25 @@ export function ProfileOrgMetaEditor({
   }, [accountId]);
 
   useEffect(() => {
+    const onChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ accountId?: string }>).detail;
+      if (detail?.accountId && detail.accountId !== accountId) return;
+      void fetchAccountOffers(accountId).then((offers) => {
+        const first = offers[0]?.title?.trim();
+        setOfferLabel(
+          offers.length === 0
+            ? 'Offer'
+            : offers.length === 1 && first
+              ? first
+              : `Offers · ${offers.length}`
+        );
+      });
+    };
+    window.addEventListener(OFFERS_CHANGED_EVENT, onChange);
+    return () => window.removeEventListener(OFFERS_CHANGED_EVENT, onChange);
+  }, [accountId]);
+
+  useEffect(() => {
     if (!industryWriteOpen) return;
     window.setTimeout(() => industryInputRef.current?.focus(), 0);
   }, [industryWriteOpen]);
@@ -109,9 +148,7 @@ export function ProfileOrgMetaEditor({
 
   const handleIndustryChoice = (next: string) => {
     if (isProfileIndustryWriteIn(next)) {
-      setIndustryDraft(
-        matchProfileIndustryOption(industry) ? '' : industry
-      );
+      setIndustryDraft(matchProfileIndustryOption(industry) ? '' : industry);
       setIndustryWriteOpen(true);
       return;
     }
@@ -152,7 +189,9 @@ export function ProfileOrgMetaEditor({
           {showHiring ? <PortfolioOrgKindMark /> : null}
           <span
             className={
-              industry.trim() ? undefined : 'account-editor-org-meta-placeholder'
+              industry.trim()
+                ? undefined
+                : 'account-editor-org-meta-placeholder'
             }
           >
             {industryLabel}
@@ -198,6 +237,20 @@ export function ProfileOrgMetaEditor({
               onClick={() => setHiringOpen(true)}
             >
               {hiringLabel}
+            </button>
+            <span className="portfolio-org-meta-sep" aria-hidden>
+              ·
+            </span>
+            <button
+              type="button"
+              className="portfolio-org-meta-hiring"
+              disabled={disabled}
+              aria-haspopup="dialog"
+              aria-expanded={offerOpen}
+              aria-label={offerLabel === 'Offer' ? 'Manage offers' : offerLabel}
+              onClick={() => setOfferOpen(true)}
+            >
+              {offerLabel}
             </button>
           </>
         ) : null}
@@ -323,6 +376,16 @@ export function ProfileOrgMetaEditor({
           sheetOnly
           open={hiringOpen}
           onOpenChange={setHiringOpen}
+        />
+      ) : null}
+      {showHiring ? (
+        <ProfileOffersEditor
+          accountId={accountId}
+          kind="org"
+          disabled={disabled}
+          sheetOnly
+          open={offerOpen}
+          onOpenChange={setOfferOpen}
         />
       ) : null}
     </>
