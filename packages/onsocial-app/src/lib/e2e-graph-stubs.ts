@@ -1054,6 +1054,15 @@ export function resolveE2eGraphStub(opts: {
       },
     };
   }
+  if (parsed.articles === 'list' && opts.query.includes('IndexedPostsByRefs')) {
+    return {
+      data: {
+        postsCurrent: E2E_DISCOVER_ARTICLES.map((row) =>
+          e2eDiscoverArticlePost(row.postId)
+        ),
+      },
+    };
+  }
   if (parsed.articles === 'list' && opts.query.includes('PersonalPost')) {
     const postId =
       typeof variables.postId === 'string' ? variables.postId : 'night';

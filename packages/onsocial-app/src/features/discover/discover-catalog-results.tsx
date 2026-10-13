@@ -5,11 +5,15 @@ import Link from 'next/link';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
-  discoverArticleByline,
   isDiscoverCatalogQuery,
   visibleCatalogSectionIds,
   type DiscoverCatalogSectionId,
 } from '@/features/discover/discover-catalog';
+import { DiscoverArticleRow } from '@/features/discover/discover-article-row';
+import {
+  discoverArticleCoverKey,
+  useDiscoverArticleCovers,
+} from '@/features/discover/use-discover-article-covers';
 import {
   loadDiscoverCatalog,
   type DiscoverCatalogResults,
@@ -21,8 +25,7 @@ import { DiscoverArticlesList } from '@/features/discover/discover-articles-list
 import { isArticlePost } from '@/lib/article-post-payload';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { fetchPersonalPost } from '@/lib/fetch-personal-post';
-import { portfolioPath, writingArticlePath } from '@/lib/overlay-routes';
-import { displayName } from '@/lib/profile-display';
+import { portfolioPath } from '@/lib/overlay-routes';
 import type { PostRow } from '@onsocial/sdk';
 
 const SECTION_LABEL: Record<DiscoverCatalogSectionId, string> = {
@@ -152,6 +155,7 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
     ...(results?.articles ?? []).map((article) => article.accountId),
     reading?.accountId ?? '',
   ]);
+  const articleCovers = useDiscoverArticleCovers(results?.articles ?? []);
 
   const openArticle = useCallback(
     async (article: { accountId: string; postId: string }) => {
@@ -258,26 +262,25 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
                   : null}
                 {id === 'articles'
                   ? results.articles.map((article) => (
-                      <CatalogRow
+                      <DiscoverArticleRow
                         key={`${article.accountId}/${article.postId}`}
-                        href={writingArticlePath(
-                          article.accountId,
-                          article.postId
-                        )}
+                        accountId={article.accountId}
+                        postId={article.postId}
                         title={article.title}
-                        meta={discoverArticleByline(
-                          article.accountId,
+                        profileName={
                           articleAuthors[article.accountId]?.displayName
-                        )}
-                        face={{
-                          accountId: article.accountId,
-                          name: displayName(
-                            article.accountId,
-                            articleAuthors[article.accountId]?.displayName
-                          ),
-                          avatarUrl:
-                            articleAuthors[article.accountId]?.avatarUrl,
-                        }}
+                        }
+                        avatarUrl={
+                          articleAuthors[article.accountId]?.avatarUrl
+                        }
+                        cover={
+                          articleCovers[
+                            discoverArticleCoverKey(
+                              article.accountId,
+                              article.postId
+                            )
+                          ]
+                        }
                         onOpen={(event) => openArticleFromRow(article, event)}
                       />
                     ))

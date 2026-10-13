@@ -23,7 +23,13 @@ test.describe('discover articles', () => {
     const results = page.getByRole('region', { name: 'Search results' });
     const night = results.getByRole('link', { name: 'Night drive' });
     await expect(night).toBeVisible();
-    await expect(night.locator('.profile-avatar__initial')).toHaveText('A');
+    await expect(
+      night.locator('.portfolio-writing-cover-card, .portfolio-writing-cover-photo')
+    ).toBeVisible();
+    await expect(
+      night.locator('.discover-article-byline .profile-avatar__initial')
+    ).toHaveText('A');
+    await expect(night.locator('.profile-avatar--lg')).toHaveCount(0);
     await expect(night).toContainText('by Alice · @alice.testnet');
     await expect(
       results.getByRole('link', { name: 'Harbor light' })
@@ -73,7 +79,15 @@ test.describe('discover articles', () => {
 
     const harbor = list.getByRole('link', { name: 'Harbor light' });
     await expect(harbor).toBeVisible();
-    await expect(harbor.locator('.profile-avatar__initial')).toHaveText('A');
+    await expect(
+      harbor.locator(
+        '.portfolio-writing-cover-card, .portfolio-writing-cover-photo'
+      )
+    ).toBeVisible();
+    await expect(
+      harbor.locator('.discover-article-byline .profile-avatar__initial')
+    ).toHaveText('A');
+    await expect(harbor.locator('.profile-avatar--lg')).toHaveCount(0);
     await expect(harbor).toContainText('by Alice · @alice.testnet');
     const listTitle = list.locator('.market-listing-title', {
       hasText: 'Night drive',

@@ -38218,6 +38218,19 @@ a.os-surface-row {
     transition: none;
   }
 
+  /* Essay thumb fills the catalog cover. The face stays on the byline. */
+  .discover-article-cover.portfolio-writing-cover {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+  }
+
+  .discover-article-byline {
+    gap: 0.4rem;
+  }
+
   .market-listing-list,
   .market-sales-list {
     display: flex;

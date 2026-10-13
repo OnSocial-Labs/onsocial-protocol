@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useState, type MouseEvent } from 'react';
-import Link from 'next/link';
 import { ChevronLeftIcon, NoteTextFillIcon } from '@onsocial/ui';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
-import { AccountAvatar } from '@/components/profile/account-avatar';
+import { DiscoverArticleRow } from '@/features/discover/discover-article-row';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
@@ -13,13 +12,14 @@ import {
   type DiscoverCatalogArticle,
 } from '@/features/discover/discover-catalog-search';
 import {
-  discoverArticleByline,
   isDiscoverCatalogQuery,
   type ArticleSearchCursor,
 } from '@/features/discover/discover-catalog';
+import {
+  discoverArticleCoverKey,
+  useDiscoverArticleCovers,
+} from '@/features/discover/use-discover-article-covers';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { writingArticlePath } from '@/lib/overlay-routes';
-import { displayName } from '@/lib/profile-display';
 import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 import { SHEET_Z } from '@/lib/sheet-z';
 
@@ -51,6 +51,7 @@ export function DiscoverArticlesList({
   const [loadingMore, setLoadingMore] = useState(false);
   const trimmed = draft.trim();
   const authors = usePostAuthorProfiles(rows.map((row) => row.accountId));
+  const covers = useDiscoverArticleCovers(rows);
 
   useEffect(() => {
     if (!open) return;
@@ -153,33 +154,20 @@ export function DiscoverArticlesList({
       ) : null}
       <div role="list">
         {rows.map((article) => (
-          <Link
+          <DiscoverArticleRow
             key={`${article.accountId}/${article.postId}`}
-            href={writingArticlePath(article.accountId, article.postId)}
-            scroll={false}
-            className="market-listing-row discover-catalog-row discover-catalog-row--face"
-            aria-label={article.title}
-            onClick={(event) => openRow(article, event)}
-          >
-            <AccountAvatar
-              accountId={article.accountId}
-              src={authors[article.accountId]?.avatarUrl ?? null}
-              fallbackInitial={displayName(
-                article.accountId,
-                authors[article.accountId]?.displayName
-              )}
-              size="lg"
-            />
-            <div className="market-listing-copy">
-              <span className="market-listing-title">{article.title}</span>
-              <p className="drops-discovery-deal">
-                {discoverArticleByline(
-                  article.accountId,
-                  authors[article.accountId]?.displayName
-                )}
-              </p>
-            </div>
-          </Link>
+            accountId={article.accountId}
+            postId={article.postId}
+            title={article.title}
+            profileName={authors[article.accountId]?.displayName}
+            avatarUrl={authors[article.accountId]?.avatarUrl}
+            cover={
+              covers[
+                discoverArticleCoverKey(article.accountId, article.postId)
+              ]
+            }
+            onOpen={(event) => openRow(article, event)}
+          />
         ))}
       </div>
       {hasMore ? (

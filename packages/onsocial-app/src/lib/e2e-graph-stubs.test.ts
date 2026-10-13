@@ -369,6 +369,12 @@ describe('resolveE2eGraphStub', () => {
     ]);
     expect(
       resolveE2eGraphStub({
+        query: 'query IndexedPostsByRefs { postsCurrent }',
+        cookieValue: 'articles=list',
+      })?.data.postsCurrent
+    ).toHaveLength(4);
+    expect(
+      resolveE2eGraphStub({
         query: 'query Posts($author: String!, $limit: Int!) { postsFeed }',
         cookieValue: null,
       })
