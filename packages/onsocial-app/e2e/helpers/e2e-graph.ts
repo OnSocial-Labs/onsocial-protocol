@@ -6,6 +6,7 @@ import {
   type E2eGraphCatalog,
   type E2eGraphCookieValue,
   type E2eGraphDrop,
+  type E2eGraphDrops,
   type E2eGraphGuild,
   type E2eGraphHub,
   type E2eGraphMarket,
@@ -87,6 +88,14 @@ export async function setE2eGraphDrop(
   drop: E2eGraphDrop
 ): Promise<void> {
   await setE2eGraphCookie(page, { drop });
+}
+
+/** Opt the Drops list into audio, writing, and art cover rows. */
+export async function setE2eGraphDrops(
+  page: Page,
+  drops: E2eGraphDrops
+): Promise<void> {
+  await setE2eGraphCookie(page, { drops });
 }
 
 /** Opt Discover article search into the essay-list fixture. */

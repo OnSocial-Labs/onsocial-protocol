@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   e2eGraphStubsAllowed,
   e2eDropCurrentRows,
+  e2eDropsCoverCatalogRows,
   e2eGuildCurrentRows,
   e2eGuildMemberRows,
   e2eHubCatalogRows,
@@ -80,6 +81,12 @@ describe('parseE2eGraphCookie', () => {
     expect(serializeE2eGraphCookie({ market: 'shop', drop: 'default' })).toBe(
       'market=shop&drop=default'
     );
+  });
+
+  it('reads drops=covers', () => {
+    expect(parseE2eGraphCookie('drops=covers')).toEqual({ drops: 'covers' });
+    expect(serializeE2eGraphCookie({ drops: 'covers' })).toBe('drops=covers');
+    expect(parseE2eGraphCookie('drops=list')).toEqual({});
   });
 
   it('reads market=shop and combined catalog+market', () => {
@@ -364,9 +371,7 @@ describe('resolveE2eGraphStub', () => {
         query: 'query ProfileStatsBatch { profileSearch profileKinds }',
         cookieValue: 'articles=list',
       })?.data.profileSearch
-    ).toEqual([
-      { accountId: 'alice.testnet', name: 'Alice', avatar: null },
-    ]);
+    ).toEqual([{ accountId: 'alice.testnet', name: 'Alice', avatar: null }]);
     expect(
       resolveE2eGraphStub({
         query: 'query IndexedPostsByRefs { postsCurrent }',
@@ -376,6 +381,32 @@ describe('resolveE2eGraphStub', () => {
     expect(
       resolveE2eGraphStub({
         query: 'query Posts($author: String!, $limit: Int!) { postsFeed }',
+        cookieValue: null,
+      })
+    ).toBeNull();
+  });
+
+  it('returns audio, writing, and art rows for the Drops list', () => {
+    expect(
+      resolveE2eGraphStub({
+        query: catalogQuery,
+        cookieValue: 'drops=covers',
+      })?.data.scarcesCollectionsCurrent
+    ).toEqual(e2eDropsCoverCatalogRows());
+    expect(
+      resolveE2eGraphStub({
+        query: 'query ScarcesCollectionCurrent($collectionId: String!) { x }',
+        variables: { collectionId: 'chapter-one' },
+        cookieValue: 'drops=covers',
+      })?.data.scarcesCollectionsCurrent
+    ).toEqual([
+      e2eDropsCoverCatalogRows().find(
+        (row) => row.collectionId === 'chapter-one'
+      ),
+    ]);
+    expect(
+      resolveE2eGraphStub({
+        query: catalogQuery,
         cookieValue: null,
       })
     ).toBeNull();

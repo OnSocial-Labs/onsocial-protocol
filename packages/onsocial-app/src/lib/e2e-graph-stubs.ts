@@ -5,7 +5,7 @@
  *
  * Tests opt in with cookie `onsocial.e2e.graph`
  * (`catalog=night-roads`, `vault=default`, `hub=catalog`, `guild=empty`,
- * `market=shop`, `drop=default`, `writing=shelf`, `writing=reader`, or combined).
+ * `market=shop`, `drop=default`, `drops=covers`, `writing=shelf`, `writing=reader`, or combined).
  * No cookie → live indexer / existing `page.route` only (SSR miss still works).
  */
 
@@ -30,6 +30,7 @@ export type E2eGraphHub = 'catalog' | 'empty' | 'held' | 'staff';
 export type E2eGraphGuild = 'empty' | 'missing' | 'member' | 'banned' | 'owner';
 export type E2eGraphMarket = 'shop' | 'shop-empty' | 'live-first';
 export type E2eGraphDrop = 'default' | 'held' | 'missing';
+export type E2eGraphDrops = 'covers';
 export type E2eGraphWriting = 'shelf' | 'reader';
 export type E2eGraphArticles = 'list';
 export type E2eDropCollectionId =
@@ -45,6 +46,7 @@ export type E2eGraphCookieValue = {
   guild?: E2eGraphGuild;
   market?: E2eGraphMarket;
   drop?: E2eGraphDrop;
+  drops?: E2eGraphDrops;
   writing?: E2eGraphWriting;
   articles?: E2eGraphArticles;
 };
@@ -111,6 +113,8 @@ export function parseE2eGraphCookie(
   if (drop === 'default' || drop === 'held' || drop === 'missing') {
     parsed.drop = drop;
   }
+  const drops = params.get('drops');
+  if (drops === 'covers') parsed.drops = drops;
   const writing = params.get('writing');
   if (writing === 'shelf' || writing === 'reader') {
     parsed.writing = writing;
@@ -135,6 +139,7 @@ export function serializeE2eGraphCookie(opts: E2eGraphCookieValue): string {
   if (opts.guild) params.set('guild', opts.guild);
   if (opts.market) params.set('market', opts.market);
   if (opts.drop) params.set('drop', opts.drop);
+  if (opts.drops) params.set('drops', opts.drops);
   if (opts.writing) params.set('writing', opts.writing);
   if (opts.articles) params.set('articles', opts.articles);
   return params.toString();
@@ -297,6 +302,8 @@ function collectionRow(opts: {
   appId?: string | null;
   title: string;
   kind: string;
+  /** Cover URL written into the metadata template. */
+  coverMedia?: string;
   extra?: Record<string, unknown>;
   series?: { id: string; title: string };
   endTime?: number | null;
@@ -333,6 +340,7 @@ function collectionRow(opts: {
     sourcePostPath: null,
     metadataTemplate: JSON.stringify({
       title: opts.title,
+      ...(opts.coverMedia ? { media: opts.coverMedia } : {}),
       extra: JSON.stringify({ kind: opts.kind, ...opts.extra }),
     }),
     metadata: opts.series ? JSON.stringify({ series: opts.series }) : null,
@@ -885,6 +893,37 @@ export function e2eDropCurrentRows(
   return [e2eDropCollectionRow(collectionId, { ended: drop === 'held' })];
 }
 
+const DROPS_COVER_MEDIA = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200"><rect width="1200" height="1200" fill="#1c1c1c"/><circle cx="600" cy="600" r="210" fill="#f4f4f4"/></svg>'
+)}`;
+
+/** Live Drops list — audio listens, writing reads, art opens large. */
+export function e2eDropsCoverCatalogRows(): ReturnType<typeof collectionRow>[] {
+  return [
+    collectionRow({
+      collectionId: 'night-drive',
+      title: 'Night Drive',
+      kind: 'audio',
+      extra: dropExtra('audio'),
+      coverMedia: DROPS_COVER_MEDIA,
+    }),
+    collectionRow({
+      collectionId: 'chapter-one',
+      title: 'Chapter One',
+      kind: 'writing',
+      extra: dropExtra('writing'),
+      coverMedia: DROPS_COVER_MEDIA,
+    }),
+    collectionRow({
+      collectionId: 'quiet-print',
+      title: 'Quiet Print',
+      kind: 'art',
+      extra: dropExtra('art'),
+      coverMedia: DROPS_COVER_MEDIA,
+    }),
+  ];
+}
+
 export const E2E_WRITING_ACCOUNT = 'alice.testnet';
 
 function e2eWritingArticleRow(opts: {
@@ -1054,7 +1093,10 @@ export function resolveE2eGraphStub(opts: {
       },
     };
   }
-  if (parsed.articles === 'list' && opts.query.includes('ViewerPostReactions')) {
+  if (
+    parsed.articles === 'list' &&
+    opts.query.includes('ViewerPostReactions')
+  ) {
     return { data: { reactionsCurrent: [] } };
   }
   if (parsed.articles === 'list' && opts.query.includes('PostReactionCounts')) {
@@ -1074,7 +1116,10 @@ export function resolveE2eGraphStub(opts: {
   if (parsed.articles === 'list' && opts.query.includes('SocialSpendEvents')) {
     return { data: { socialSpendEvents: [] } };
   }
-  if (parsed.articles === 'list' && opts.query.includes('ThreadCountsByPaths')) {
+  if (
+    parsed.articles === 'list' &&
+    opts.query.includes('ThreadCountsByPaths')
+  ) {
     return {
       data: {
         threadReplyCounts: [],
@@ -1228,6 +1273,50 @@ export function resolveE2eGraphStub(opts: {
       data: { scarcesActiveListings: e2eVaultListingRows(parsed.vault) },
     };
   }
+  if (
+    parsed.drops === 'covers' &&
+    isCreatorCatalogQuery(opts.query) &&
+    !isAppCatalogQuery(opts.query, variables)
+  ) {
+    return {
+      data: { scarcesCollectionsCurrent: e2eDropsCoverCatalogRows() },
+    };
+  }
+  if (parsed.drops === 'covers' && isCollectionCurrentQuery(opts.query)) {
+    const collectionId =
+      typeof variables.collectionId === 'string' ? variables.collectionId : '';
+    const row =
+      e2eDropsCoverCatalogRows().find(
+        (entry) => entry.collectionId === collectionId
+      ) ?? null;
+    return {
+      data: { scarcesCollectionsCurrent: row ? [row] : [] },
+    };
+  }
+  if (parsed.drops === 'covers' && opts.query.includes('query Profiles(')) {
+    return { data: { profilesCurrent: [] } };
+  }
+  if (parsed.drops === 'covers' && isProfileBatchQuery(opts.query)) {
+    return {
+      data: {
+        profileSearch: [
+          { accountId: 'alice.near', name: 'Alice', avatar: null },
+        ],
+        profileKinds: [],
+      },
+    };
+  }
+  if (parsed.drops === 'covers' && opts.query.includes('LoveFan')) {
+    return {
+      data: {
+        scarceAlbumLoveFans: [],
+        scarceAlbumLoveFanIds: [],
+        scarceCollectionLoveFans: [],
+        scarceCollectionLoveFanIds: [],
+      },
+    };
+  }
+
   if (
     parsed.catalog &&
     isCreatorCatalogQuery(opts.query) &&
