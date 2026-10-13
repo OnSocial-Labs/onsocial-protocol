@@ -5,8 +5,6 @@ import {
 
 export const ORBIT_STAGE_SIZE = 460;
 export const ORBIT_MIN_STAGE_SIZE = 260;
-/** At or below this node count the map has room to show every name. */
-export const ORBIT_SPARSE_LABEL_LIMIT = 9;
 
 const INNER_RADIUS = 108;
 const MID_RADIUS = 146;
@@ -15,11 +13,10 @@ const CENTER_AVATAR = 84;
 const INNER_AVATAR = 40;
 const MID_AVATAR = 34;
 const OUTER_AVATAR = 30;
-/** Minimum angle between any two spokes (global, all rings). */
-const MIN_SPOKE_ANGLE_RAD = 0.34;
-const GOLDEN_ANGLE_RAD = 2.399963229728653;
 const NODE_RING_PADDING_PX = 10;
-/** Max radial drift (px at design stage size); scaled down on small stages. */
+/** Air a farther spoke keeps from a closer face, at the design stage size. */
+const SPOKE_AIR_PX = 8;
+/** Max radial drift (px at design stage size); scaled with the stage. */
 export const ORBIT_IDLE_FLOAT = 2;
 
 export interface OrbitStageLayout {
@@ -34,6 +31,18 @@ export interface OrbitStageLayout {
   outerAvatar: number;
   nodePadding: number;
   floatAmplitude: number;
+}
+
+/**
+ * Stage square for the space the map can use. Grows with that space —
+ * a full screen stays larger than a smaller window — and only floors
+ * when the wrap is tighter than the smallest readable ring.
+ */
+export function orbitFitStageSize(width: number, height: number): number {
+  const pad = 24;
+  const room = Math.min(width, height) - pad;
+  if (!Number.isFinite(room)) return ORBIT_STAGE_SIZE;
+  return Math.max(ORBIT_MIN_STAGE_SIZE, Math.round(room));
 }
 
 export function orbitStageLayout(stageSize: number): OrbitStageLayout {
@@ -53,6 +62,61 @@ export function orbitStageLayout(stageSize: number): OrbitStageLayout {
   };
 }
 
+/** Per-node drift phase. Index 4 is the widest breathe. */
+export function orbitDriftPhase(index: number): number {
+  return 0.88 + (index % 5) * 0.06;
+}
+
+/** How far a spoke tucks under a ring so the join stays hidden. */
+export const SPOKE_RING_TUCK_PX = 1.5;
+
+/**
+ * The face and its line ease outward together.
+ * The line meets the face ring, and the center end stays covered
+ * because that end is tucked by the same distance the line will travel.
+ */
+export function orbitSpokeJoin(input: {
+  nodeX: number;
+  nodeY: number;
+  nodeSize: number;
+  unitX: number;
+  unitY: number;
+  center: number;
+  centerRadius: number;
+  amplitude: number;
+}): {
+  driftX: number;
+  driftY: number;
+  amp: number;
+  start: number;
+  length: number;
+} {
+  const radius = Math.hypot(
+    input.nodeX - input.center,
+    input.nodeY - input.center
+  );
+  const driftX = Math.round(input.unitX * input.amplitude);
+  const driftY = Math.round(input.unitY * input.amplitude);
+  const amp = driftX * input.unitX + driftY * input.unitY;
+  const start = input.centerRadius - SPOKE_RING_TUCK_PX - amp;
+  const end = input.nodeSize / 2 - SPOKE_RING_TUCK_PX;
+  const length = Math.max(0, radius - start - end);
+  return { driftX, driftY, amp, start, length };
+}
+
+/** Outward drift for one face. Spacing uses the widest phase so the float cannot close the gap. */
+export function orbitNodeDrift(
+  stageSize: number,
+  nodeSize: number,
+  index: number
+): number {
+  return (
+    orbitStageLayout(stageSize).floatAmplitude *
+    Math.min(1, nodeSize / 40) *
+    orbitDriftPhase(index)
+  );
+}
+
 export interface OrbitPlacedNode {
   account: NetworkAccount;
   x: number;
@@ -63,79 +127,198 @@ export interface OrbitPlacedNode {
   ring: 'inner' | 'mid' | 'outer';
 }
 
+/** Center-to-center distance that still clears both faces at full outward drift. */
+function requiredSeparation(
+  radiusA: number,
+  sizeA: number,
+  radiusB: number,
+  sizeB: number,
+  stageSize: number
+): number {
+  const air = NODE_RING_PADDING_PX * (stageSize / ORBIT_STAGE_SIZE);
+  return (
+    sizeA / 2 +
+    sizeB / 2 +
+    air +
+    orbitNodeDrift(stageSize, sizeA, 4) +
+    orbitNodeDrift(stageSize, sizeB, 4)
+  );
+}
+
 function angularDistance(a: number, b: number): number {
   const tau = Math.PI * 2;
   const delta = Math.abs(a - b) % tau;
   return Math.min(delta, tau - delta);
 }
 
-function minAngularGapForRing(
+/**
+ * Gap between an outward spoke and a closer face.
+ * The spoke is a ray from the center, so a face on the far side of the
+ * circle is not on it.
+ */
+function rayClearance(
+  angle: number,
+  face: PlacedSpoke,
+  stageSize: number
+): number {
+  const delta = angularDistance(angle, face.angle);
+  if (delta > Math.PI / 2) return Number.POSITIVE_INFINITY;
+  const miss = face.radius * Math.sin(delta);
+  const air = SPOKE_AIR_PX * (stageSize / ORBIT_STAGE_SIZE);
+  return miss - face.size / 2 - air;
+}
+
+function spokeDistance(
+  radiusA: number,
+  angleA: number,
+  radiusB: number,
+  angleB: number
+): number {
+  const dx = Math.cos(angleA) * radiusA - Math.cos(angleB) * radiusB;
+  const dy = Math.sin(angleA) * radiusA - Math.sin(angleB) * radiusB;
+  return Math.hypot(dx, dy);
+}
+
+type PlacedSpoke = { radius: number; size: number; angle: number };
+
+function clearance(
+  radius: number,
+  size: number,
+  angle: number,
+  placed: readonly PlacedSpoke[],
+  stageSize: number
+): number {
+  let min = Number.POSITIVE_INFINITY;
+  for (const other of placed) {
+    const dist = spokeDistance(radius, angle, other.radius, other.angle);
+    const need = requiredSeparation(
+      radius,
+      size,
+      other.radius,
+      other.size,
+      stageSize
+    );
+    min = Math.min(min, dist - need);
+  }
+  return min;
+}
+
+/** Face gap, and — for a farther ring — spoke gap against every closer face. */
+function slotScore(
+  radius: number,
+  size: number,
+  angle: number,
+  placed: readonly PlacedSpoke[],
+  stageSize: number
+): number {
+  let score = clearance(radius, size, angle, placed, stageSize);
+  for (const other of placed) {
+    if (other.radius + 0.5 >= radius) continue;
+    score = Math.min(score, rayClearance(angle, other, stageSize));
+  }
+  return score;
+}
+
+/**
+ * Slide one face along its ring until its spoke clears closer faces,
+ * without leaving the open sector between its neighbors.
+ */
+function nudgeSpokeAngle(
+  preferred: number,
+  step: number,
+  radius: number,
+  size: number,
+  placed: readonly PlacedSpoke[],
+  stageSize: number,
+  count: number
+): number {
+  const score = (angle: number) =>
+    slotScore(radius, size, angle, placed, stageSize);
+  const start = score(preferred);
+  if (start >= -0.5) return preferred;
+  const limit =
+    count <= 1
+      ? Math.PI
+      : Math.max(
+          0,
+          (step -
+            2 *
+              Math.asin(
+                Math.min(
+                  1,
+                  requiredSeparation(radius, size, radius, size, stageSize) /
+                    (2 * radius)
+                )
+              )) /
+            2 -
+            0.02
+        );
+  let best = preferred;
+  let bestScore = score(preferred);
+  const steps = 48;
+  for (let index = 1; index <= steps; index++) {
+    const shift = (limit * index) / steps;
+    for (const sign of [1, -1] as const) {
+      const angle = preferred + sign * shift;
+      const next = score(angle);
+      if (next > bestScore) {
+        bestScore = next;
+        best = angle;
+      }
+      if (next >= -0.5) return angle;
+    }
+  }
+  if (bestScore >= -0.5) return best;
+  for (let index = 0; index < 360; index++) {
+    const angle = -Math.PI + (index / 360) * Math.PI * 2;
+    const next = score(angle);
+    if (next > bestScore) {
+      bestScore = next;
+      best = angle;
+    }
+  }
+  return best;
+}
+
+/**
+ * Even spacing on a ring is the widest same-ring gap. The phase is the
+ * rotation that leaves the most air against faces already on other rings,
+ * including room for each farther spoke to pass between closer faces.
+ */
+function ringPhase(
   count: number,
   radius: number,
-  avatarSize: number
+  size: number,
+  placed: readonly PlacedSpoke[],
+  stageSize: number
 ): number {
-  if (count <= 1) return Math.PI * 2;
-  const chord = avatarSize + NODE_RING_PADDING_PX;
-  const fromChord = 2 * Math.asin(Math.min(1, chord / (2 * radius)));
-  return Math.max((Math.PI * 2) / count, fromChord, MIN_SPOKE_ANGLE_RAD);
-}
-
-function spokeAngleIsFree(
-  angle: number,
-  blockedAngles: number[],
-  minGap: number
-): boolean {
-  return blockedAngles.every(
-    (blocked) => angularDistance(angle, blocked) >= minGap
-  );
-}
-
-function findFreeSpokeAngle(
-  preferred: number,
-  blockedAngles: number[],
-  minGap: number
-): number {
-  if (spokeAngleIsFree(preferred, blockedAngles, minGap)) {
-    return preferred;
-  }
-
-  for (let step = 1; step <= 64; step++) {
-    const shift = minGap * step;
-    for (const sign of [1, -1] as const) {
-      const candidate = preferred + sign * shift;
-      if (spokeAngleIsFree(candidate, blockedAngles, minGap)) {
-        return candidate;
-      }
+  const origin = -Math.PI / 2;
+  if (count === 0 || placed.length === 0) return origin;
+  const step = (Math.PI * 2) / count;
+  let best = origin;
+  let bestScore = Number.NEGATIVE_INFINITY;
+  for (let sample = 0; sample < 72; sample++) {
+    const phase = origin + (sample / 72) * step;
+    let score = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < count; index++) {
+      score = Math.min(
+        score,
+        slotScore(radius, size, phase + index * step, placed, stageSize)
+      );
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = phase;
     }
   }
-
-  for (let step = 1; step <= 90; step++) {
-    const candidate = preferred + step * GOLDEN_ANGLE_RAD;
-    if (spokeAngleIsFree(candidate, blockedAngles, minGap)) {
-      return candidate;
-    }
-  }
-
-  let bestAngle = preferred;
-  let bestGap = -1;
-  for (let step = 0; step < 72; step++) {
-    const candidate = preferred + (step / 72) * Math.PI * 2;
-    const gap = blockedAngles.reduce((min, blocked) => {
-      const distance = angularDistance(candidate, blocked);
-      return min === -1 ? distance : Math.min(min, distance);
-    }, -1);
-    if (gap > bestGap) {
-      bestGap = gap;
-      bestAngle = candidate;
-    }
-  }
-  return bestAngle;
+  return best;
 }
 
 /**
  * Place orbit nodes on three rings — mutual inner, incoming mid, outgoing
- * outer — spreading spokes so no two avatars overlap. Deterministic per
- * account list, so server and client render the same map.
+ * outer — spreading spokes so no two avatars overlap and a farther line
+ * passes between closer faces. Deterministic per account list, so server
+ * and client render the same map.
  */
 export function placeNetworkNodes(
   accounts: NetworkAccount[],
@@ -177,42 +360,78 @@ export function placeNetworkNodes(
       })),
   ];
 
-  const count = specs.length;
-  if (count === 0) return [];
+  if (specs.length === 0) return [];
 
-  const globalMinGap = Math.max(
-    MIN_SPOKE_ANGLE_RAD,
-    (Math.PI * 2) / count + 0.04,
-    ...specs.map((spec) => minAngularGapForRing(1, spec.radius, spec.size))
-  );
-
-  const usedAngles: number[] = [];
-  return specs.map((spec, index) => {
-    const preferred = -Math.PI / 2 + (index / count) * Math.PI * 2;
-    const angle = findFreeSpokeAngle(preferred, usedAngles, globalMinGap);
-    usedAngles.push(angle);
-    const unitX = Math.cos(angle);
-    const unitY = Math.sin(angle);
-    return {
-      account: spec.account,
-      x: Math.round(layout.center + unitX * spec.radius),
-      y: Math.round(layout.center + unitY * spec.radius),
-      size: spec.size,
-      unitX,
-      unitY,
-      ring: spec.ring,
-    };
-  });
+  const placed: PlacedSpoke[] = [];
+  const nodes: OrbitPlacedNode[] = [];
+  const rings = ['inner', 'mid', 'outer'] as const;
+  for (const ring of rings) {
+    const members = specs.filter((spec) => spec.ring === ring);
+    if (members.length === 0) continue;
+    const { radius, size } = members[0]!;
+    const step = (Math.PI * 2) / members.length;
+    const phase = ringPhase(members.length, radius, size, placed, stageSize);
+    members.forEach((spec, index) => {
+      const angle = nudgeSpokeAngle(
+        phase + index * step,
+        step,
+        radius,
+        size,
+        placed,
+        stageSize,
+        members.length
+      );
+      const unitX = Math.cos(angle);
+      const unitY = Math.sin(angle);
+      placed.push({ radius: spec.radius, size: spec.size, angle });
+      nodes.push({
+        account: spec.account,
+        x: Math.round(layout.center + unitX * spec.radius),
+        y: Math.round(layout.center + unitY * spec.radius),
+        size: spec.size,
+        unitX,
+        unitY,
+        ring: spec.ring,
+      });
+    });
+  }
+  return nodes;
 }
 
 const LABEL_MAX_WIDTH_PX = 140;
 const LABEL_CHAR_WIDTH_PX = 5.5;
 const LABEL_CHROME_PX = 18;
 const LABEL_EDGE_PAD_PX = 8;
+/** Chip height: 0.68rem type, vertical padding, and the 1px border. */
+const LABEL_HEIGHT_PX = 22;
+/** Name plus the Endorsed line. */
+export const ORBIT_ENDORSED_LABEL_HEIGHT_PX = 36;
+const LABEL_GAP_PX = 6;
+const LABEL_FACE_PAD_PX = 4;
+
+export interface OrbitLabelOffset {
+  x: number;
+  y: number;
+}
+
+export interface OrbitLabelObstacle {
+  x: number;
+  y: number;
+  radius: number;
+}
+
+function labelHalfWidth(label: string): number {
+  return (
+    Math.min(
+      LABEL_MAX_WIDTH_PX,
+      label.length * LABEL_CHAR_WIDTH_PX + LABEL_CHROME_PX
+    ) / 2
+  );
+}
 
 /**
  * Horizontal nudge keeping a node label inside the clipped stage wrap.
- * Labels center under their node, so nodes near the wrap edge would
+ * Labels sit above their node, so nodes near the wrap edge would
  * otherwise render their name half-cut. `stageInsetX` is the stage's
  * offset within the wrap (the wrap is what clips).
  */
@@ -237,6 +456,148 @@ export function orbitLabelShiftX({
   if (x - half < leftBound) return Math.round(leftBound - (x - half));
   if (x + half > rightBound) return Math.round(rightBound - (x + half));
   return 0;
+}
+
+function circleHitsRect(
+  cx: number,
+  cy: number,
+  radius: number,
+  left: number,
+  top: number,
+  right: number,
+  bottom: number
+): boolean {
+  const nearestX = Math.max(left, Math.min(cx, right));
+  const nearestY = Math.max(top, Math.min(cy, bottom));
+  const dx = cx - nearestX;
+  const dy = cy - nearestY;
+  return dx * dx + dy * dy < radius * radius;
+}
+
+function labelRect(
+  nodeX: number,
+  nodeY: number,
+  offsetX: number,
+  offsetY: number,
+  halfW: number,
+  halfH: number
+) {
+  return {
+    left: nodeX + offsetX - halfW,
+    right: nodeX + offsetX + halfW,
+    top: nodeY + offsetY - halfH,
+    bottom: nodeY + offsetY + halfH,
+  };
+}
+
+function clampLabelX(
+  offsetX: number,
+  nodeX: number,
+  halfW: number,
+  stageSize: number,
+  stageInsetX: number
+): number {
+  const leftBound = LABEL_EDGE_PAD_PX - stageInsetX;
+  const rightBound = stageSize + stageInsetX - LABEL_EDGE_PAD_PX;
+  let x = offsetX;
+  const left = nodeX + x - halfW;
+  const right = nodeX + x + halfW;
+  if (left < leftBound) x += leftBound - left;
+  if (right > rightBound) x -= right - rightBound;
+  return x;
+}
+
+/**
+ * Where the name chip sits relative to its avatar center.
+ * Prefer directly above the face. If that chip would cross the center
+ * or another avatar, walk outward along the spoke until the chip is clear.
+ */
+export function orbitLabelOffset({
+  x,
+  y,
+  size,
+  unitX,
+  unitY,
+  stageSize,
+  stageInsetX,
+  label,
+  labelHeight = LABEL_HEIGHT_PX,
+  obstacles,
+}: {
+  x: number;
+  y: number;
+  size: number;
+  unitX: number;
+  unitY: number;
+  stageSize: number;
+  stageInsetX: number;
+  label: string;
+  labelHeight?: number;
+  obstacles: readonly OrbitLabelObstacle[];
+}): OrbitLabelOffset {
+  const halfW = labelHalfWidth(label);
+  const halfH = labelHeight / 2;
+  const clear = size / 2 + LABEL_GAP_PX;
+  const faces = [
+    { x, y, radius: size / 2 + LABEL_FACE_PAD_PX },
+    ...obstacles.map((obstacle) => ({
+      x: obstacle.x,
+      y: obstacle.y,
+      radius: obstacle.radius + LABEL_FACE_PAD_PX,
+    })),
+  ];
+
+  const place = (offsetX: number, offsetY: number): OrbitLabelOffset => {
+    const xClamped = clampLabelX(offsetX, x, halfW, stageSize, stageInsetX);
+    return { x: Math.round(xClamped), y: Math.round(offsetY) };
+  };
+
+  const raw: Array<{ x: number; y: number }> = [{ x: 0, y: -(clear + halfH) }];
+  const extent = Math.abs(unitX) * halfW + Math.abs(unitY) * halfH;
+  const spoke = Math.atan2(unitY, unitX);
+  for (let ring = 0; ring < 12; ring++) {
+    const distance = clear + extent + ring * 12;
+    for (let step = 0; step < 16; step++) {
+      const angle = spoke + (step / 16) * Math.PI * 2;
+      raw.push({
+        x: Math.cos(angle) * distance,
+        y: Math.sin(angle) * distance,
+      });
+    }
+  }
+
+  let fallback = place(0, -(clear + halfH));
+  let fallbackHits = Number.POSITIVE_INFINITY;
+  for (const candidate of raw) {
+    for (const clamp of [true, false]) {
+      const offset = clamp
+        ? place(candidate.x, candidate.y)
+        : { x: Math.round(candidate.x), y: Math.round(candidate.y) };
+      const rect = labelRect(x, y, offset.x, offset.y, halfW, halfH);
+      const hits = faces.reduce(
+        (count, face) =>
+          count +
+          (circleHitsRect(
+            face.x,
+            face.y,
+            face.radius,
+            rect.left,
+            rect.top,
+            rect.right,
+            rect.bottom
+          )
+            ? 1
+            : 0),
+        0
+      );
+      if (hits === 0) return offset;
+      if (clamp && hits < fallbackHits) {
+        fallbackHits = hits;
+        fallback = offset;
+      }
+    }
+  }
+  return fallback;
 }
 
 export function orbitAccountHash(accountId: string): number {

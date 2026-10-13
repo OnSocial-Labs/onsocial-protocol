@@ -1,9 +1,7 @@
 'use client';
 
 import { useCallback, useRef, type RefObject } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlignJustifyIcon, OsIconAction } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
 import { useOsInAppPop } from '@/components/providers/os-face-leave-provider';
@@ -14,35 +12,14 @@ import {
   type NetworkOrbitProviderProps,
 } from '@/components/panels/network-orbit-context';
 import {
+  NetworkCenterStandAction,
   NetworkOrbitSheetHeader,
   NetworkOrbitToolbar,
-  useOpenNetworkStandingList,
 } from '@/components/panels/network-orbit-sheet-header';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { networkMapTitle } from '@/components/panels/network-loading-title';
 
 type NetworkOrbitSheetProps = Omit<NetworkOrbitProviderProps, 'children'>;
-
-function NetworkOrbitListAction() {
-  const { listHref } = useNetworkOrbit();
-  const openStandingList = useOpenNetworkStandingList();
-  return (
-    <OsIconAction asChild ariaLabel="Open standing list">
-      <Link
-        href={listHref}
-        scroll={false}
-        prefetch={false}
-        aria-label="Open standing list"
-        onClick={openStandingList}
-      >
-        <AlignJustifyIcon
-          className="glass-sheet-icon-action-glyph"
-          aria-hidden
-        />
-      </Link>
-    </OsIconAction>
-  );
-}
 
 /** Glass overlay — soft nav from the face or the standing sheet. */
 export function NetworkOrbitOverlaySheet(props: NetworkOrbitSheetProps) {
@@ -83,16 +60,15 @@ function NetworkOrbitPageScreen({
 
   return (
     <OsAppScreen
-      title={networkMapTitle(displayName, isSelf)}
+      title={networkMapTitle(displayName)}
       className="network-orbit-screen"
       compactChrome
       glassChrome
       scrollRootRef={scrollRootRef}
-      leading={null}
       dockBack
       onDockBack={onDockBack}
       backFallbackHref={backFallbackHref}
-      actions={<NetworkOrbitListAction />}
+      actions={isSelf ? undefined : <NetworkCenterStandAction />}
       toolbar={<NetworkOrbitToolbar />}
     >
       <NetworkOrbitContent />

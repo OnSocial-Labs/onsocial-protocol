@@ -33,8 +33,7 @@ import {
 } from '@/lib/profile-network';
 import { fetchNetworkOrbit } from '@/lib/profile-network-client';
 import {
-  ORBIT_MIN_STAGE_SIZE,
-  ORBIT_STAGE_SIZE,
+  orbitFitStageSize,
   placeNetworkNodes,
   type OrbitPlacedNode,
 } from '@/lib/profile-network-layout';
@@ -70,7 +69,7 @@ interface NetworkOrbitContextValue {
   counts: ReturnType<typeof networkFilterCounts>;
   totalUnique: number;
   placedNodes: OrbitPlacedNode[];
-  stageSize: number;
+  stageSize: number | null;
   /** Stage's horizontal offset inside the clipping wrap (stage is centered). */
   stageInsetX: number;
   stageWrapRef: RefObject<HTMLDivElement | null>;
@@ -134,8 +133,7 @@ export function NetworkOrbitProvider({
 }: NetworkOrbitProviderProps) {
   const { accountId: viewerAccountIdRaw } = useAppWallet();
   const viewerAccountId = viewerAccountIdRaw ?? null;
-  const initialName =
-    displayNameProp?.trim() || resolveDisplayName(accountId);
+  const initialName = displayNameProp?.trim() || resolveDisplayName(accountId);
   const [subjectId, setSubjectId] = useState(accountId);
   const [subjectName, setSubjectName] = useState(initialName);
   const [subjectAvatar, setSubjectAvatar] = useState<string | null>(avatarUrl);
@@ -177,7 +175,7 @@ export function NetworkOrbitProvider({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [personalizing, setPersonalizing] = useState(false);
   const personalizeAttemptedRef = useRef<string | null>(null);
-  const [stageSize, setStageSize] = useState(ORBIT_STAGE_SIZE);
+  const [stageSize, setStageSize] = useState<number | null>(null);
   const [wrapWidth, setWrapWidth] = useState<number | null>(null);
   const stageWrapRef = useRef<HTMLDivElement>(null);
   const latestSearchLoadRef = useRef(0);
@@ -389,7 +387,8 @@ export function NetworkOrbitProvider({
 
   const openSubject = useCallback(
     (account: NetworkAccount) => {
-      const name = account.name?.trim() || resolveDisplayName(account.accountId);
+      const name =
+        account.name?.trim() || resolveDisplayName(account.accountId);
       showSubject(account.accountId, name, account.avatarUrl, 'push');
     },
     [showSubject]
@@ -433,15 +432,7 @@ export function NetworkOrbitProvider({
     const el = stageWrapRef.current;
     if (!el) return;
     const update = () => {
-      const pad = 24;
-      const next = Math.min(
-        ORBIT_STAGE_SIZE,
-        Math.max(
-          ORBIT_MIN_STAGE_SIZE,
-          Math.min(el.clientWidth - pad, el.clientHeight - pad)
-        )
-      );
-      setStageSize(next);
+      setStageSize(orbitFitStageSize(el.clientWidth, el.clientHeight));
       setWrapWidth((prev) => (prev === el.clientWidth ? prev : el.clientWidth));
     };
     update();
@@ -457,7 +448,8 @@ export function NetworkOrbitProvider({
   const totalUnique = networkUniqueConnectionTotal(totalCounts);
 
   const placedNodes = useMemo(
-    () => placeNetworkNodes(displayAccounts, stageSize),
+    () =>
+      stageSize == null ? [] : placeNetworkNodes(displayAccounts, stageSize),
     [displayAccounts, stageSize]
   );
 
@@ -511,7 +503,9 @@ export function NetworkOrbitProvider({
     stageSize,
     // Before the wrap measures, assume the minimum inset the layout guarantees.
     stageInsetX:
-      wrapWidth === null ? 12 : Math.max(12, (wrapWidth - stageSize) / 2),
+      stageSize == null || wrapWidth === null
+        ? 12
+        : Math.max(12, (wrapWidth - stageSize) / 2),
     stageWrapRef,
     isDimmed,
     searchActive,

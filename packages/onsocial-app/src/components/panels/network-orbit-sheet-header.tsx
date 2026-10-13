@@ -10,14 +10,13 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  AlignJustifyIcon,
   ChoiceDrawerMenu,
-  OsIconAction,
   SearchField,
   SheetCloseButton,
   osFloatingPanelCountClassName,
   type ChoiceOption,
 } from '@onsocial/ui';
+import { MediaFaceStandButton } from '@/components/ui/media-face-stand-button';
 import { useOverlayDismiss } from '@/contexts/overlay-dismiss-context';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
@@ -197,10 +196,23 @@ export function NetworkOrbitToolbar() {
   );
 }
 
+/** Stand with the person in the center. Own map has no stand-with-yourself. */
+export function NetworkCenterStandAction() {
+  const { accountId, avatarUrl, displayName, isSelf } = useNetworkOrbit();
+  if (!accountId || isSelf) return null;
+  const name = displayName.trim() || accountId;
+  return (
+    <MediaFaceStandButton
+      accountId={accountId}
+      name={name}
+      avatarUrl={avatarUrl}
+    />
+  );
+}
+
 export function NetworkOrbitSheetHeader() {
   const close = useOverlayDismiss();
-  const openStandingList = useOpenNetworkStandingList();
-  const { accountId, displayName, avatarUrl, listHref } = useNetworkOrbit();
+  const { accountId, displayName, avatarUrl } = useNetworkOrbit();
   const label = displayName.trim() || accountId;
 
   return (
@@ -221,21 +233,8 @@ export function NetworkOrbitSheetHeader() {
             <span className="standing-sheet-subject-name">{label}</span>
           </span>
         </Link>
-        <div className="standing-sheet-actions">
-          <OsIconAction asChild ariaLabel="Open standing list">
-            <Link
-              href={listHref}
-              scroll={false}
-              prefetch={false}
-              aria-label="Open standing list"
-              onClick={openStandingList}
-            >
-              <AlignJustifyIcon
-                className="glass-sheet-icon-action-glyph"
-                aria-hidden
-              />
-            </Link>
-          </OsIconAction>
+        <div className="standing-sheet-actions network-orbit-header-actions">
+          <NetworkCenterStandAction />
           <SheetCloseButton onClick={close} ariaLabel="Close Network" />
         </div>
       </div>

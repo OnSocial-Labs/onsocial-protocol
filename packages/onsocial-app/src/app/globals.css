@@ -349,6 +349,10 @@
   max-height: var(--os-app-screen-nav-row-height, 2.35rem);
 }
 
+.network-orbit-header-actions {
+  gap: 0.4rem;
+}
+
 .standing-sheet-header--compact .glass-sheet-icon-action,
 .standing-sheet-header--compact .standing-sheet-discover-slot {
   box-sizing: border-box;
@@ -18117,11 +18121,14 @@ a.os-surface-row {
 
   /* The profile face stays behind the sheet while standing opens from the map. */
   html[data-standing-handoff='open'] .portfolio-page,
-  html[data-standing-handoff='close'] .network-orbit-screen > .os-app-screen-column {
+  html[data-standing-handoff='close']
+    .network-orbit-screen
+    > .os-app-screen-column {
     visibility: hidden;
   }
 
-  html[data-standing-early='open'] .glass-sheet-root:not(.standing-early-sheet) {
+  html[data-standing-early='open']
+    .glass-sheet-root:not(.standing-early-sheet) {
     visibility: hidden;
   }
 
@@ -18897,9 +18904,15 @@ a.os-surface-row {
     margin-top: 0.05rem;
   }
 
-  .standing-list-skeleton .standing-row-skeleton-handle .standing-row-shimmer-line-sm,
-  .standing-list-skeleton .standing-row-skeleton-bio .standing-row-shimmer-line-bio,
-  .standing-list-skeleton .standing-row-skeleton-metrics .standing-row-shimmer-line-xs {
+  .standing-list-skeleton
+    .standing-row-skeleton-handle
+    .standing-row-shimmer-line-sm,
+  .standing-list-skeleton
+    .standing-row-skeleton-bio
+    .standing-row-shimmer-line-bio,
+  .standing-list-skeleton
+    .standing-row-skeleton-metrics
+    .standing-row-shimmer-line-xs {
     margin-top: 0;
   }
 
@@ -48761,11 +48774,14 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 
   .network-orbit-caption-row {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: space-between;
     gap: 0.25rem 0.75rem;
+    height: 1.1rem;
     min-height: 1.1rem;
+    max-height: 1.1rem;
+    overflow: hidden;
   }
 
   .network-orbit-caption-row--end {
@@ -48860,7 +48876,11 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     height: 0;
     z-index: 1;
     pointer-events: none;
-    animation: network-orbit-fade-in 0.22s ease-out backwards;
+    animation-name: network-orbit-fade-in;
+    animation-duration: 0.22s;
+    animation-timing-function: ease-out;
+    animation-fill-mode: backwards;
+    animation-delay: var(--enter-delay, 0s);
   }
 
   .network-orbit-spoke-line {
@@ -48871,8 +48891,10 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     opacity: 0.18;
     transition: opacity 0.22s ease;
     animation-name: network-orbit-idle-line;
+    animation-duration: var(--idle-duration, 5.5s);
     animation-timing-function: ease-in-out;
     animation-iteration-count: infinite;
+    animation-delay: var(--idle-delay, 0s);
   }
 
   .network-orbit-spoke-line--mutual {
@@ -48885,7 +48907,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   }
 
   /* Nodes — outer link positions + floats; inner circle clips the avatar so
-     the hover label can overflow below. */
+     the name can sit above it. */
 
   .network-orbit-node {
     --orbit-rest-opacity: 1;
@@ -48898,9 +48920,11 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     opacity: var(--orbit-rest-opacity);
     transition: opacity 0.22s ease;
     animation-name: network-orbit-fade-in, network-orbit-idle-node;
+    animation-duration: 0.22s, var(--idle-duration, 5.5s);
     animation-timing-function: ease-out, ease-in-out;
     animation-fill-mode: backwards, none;
     animation-iteration-count: 1, infinite;
+    animation-delay: var(--enter-delay, 0s), var(--idle-delay, 0s);
   }
 
   .network-orbit-node.is-dimmed {
@@ -48930,25 +48954,40 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     pointer-events: none;
   }
 
+  /* Clip the photo on the image. A mask on the moving box softens it. */
+  .network-orbit-node-face {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 9999px;
+    /* Opaque, same as the screen, so a spoke end tucked under the ring
+       stays hidden when there is no photo. */
+    background: rgb(var(--bg-rgb, 0 0 0));
+  }
+
   .network-orbit-node-avatar,
   .network-orbit-node-fallback {
     display: block;
     width: 100%;
     height: 100%;
     border-radius: 9999px;
-    overflow: hidden;
     object-fit: cover;
-    background: rgb(var(--fg-rgb, 255 255 255) / 0.06);
-    border: 2px solid color-mix(in srgb, var(--protocol-blue) 35%, transparent);
-    transition:
-      border-color 200ms ease,
-      box-shadow 200ms ease;
     user-select: none;
     pointer-events: none;
   }
 
-  .network-orbit-node--mutual .network-orbit-node-avatar,
-  .network-orbit-node--mutual .network-orbit-node-fallback {
+  .network-orbit-node-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    border: 2px solid color-mix(in srgb, var(--protocol-blue) 35%, transparent);
+    pointer-events: none;
+    transition:
+      border-color 200ms ease,
+      box-shadow 200ms ease;
+  }
+
+  .network-orbit-node--mutual .network-orbit-node-ring {
     border-color: color-mix(in srgb, var(--protocol-purple) 45%, transparent);
   }
 
@@ -48965,15 +49004,13 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .network-orbit-node:hover .network-orbit-node-avatar,
-    .network-orbit-node:hover .network-orbit-node-fallback {
+    .network-orbit-node:hover .network-orbit-node-ring {
       border-color: var(--protocol-blue);
       box-shadow: 0 0 12px
         color-mix(in srgb, var(--protocol-blue) 20%, transparent);
     }
 
-    .network-orbit-node--mutual:hover .network-orbit-node-avatar,
-    .network-orbit-node--mutual:hover .network-orbit-node-fallback {
+    .network-orbit-node--mutual:hover .network-orbit-node-ring {
       border-color: var(--protocol-purple);
       box-shadow: 0 0 12px
         color-mix(in srgb, var(--protocol-purple) 22%, transparent);
@@ -48984,8 +49021,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     outline: none;
   }
 
-  .network-orbit-node:focus-visible .network-orbit-node-avatar,
-  .network-orbit-node:focus-visible .network-orbit-node-fallback {
+  .network-orbit-node:focus-visible .network-orbit-node-ring {
     box-shadow: 0 0 0 2px
       color-mix(in srgb, var(--protocol-blue) 55%, transparent);
   }
@@ -48993,14 +49029,18 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   .network-orbit-node-label {
     position: absolute;
     left: 50%;
-    top: 100%;
+    top: 50%;
     z-index: 20;
-    margin-top: 0.375rem;
-    transform: translateX(calc(-50% + var(--label-shift-x, 0px)));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform: translate(
+      calc(-50% + var(--label-x, 0px)),
+      calc(-50% + var(--label-y, 0px))
+    );
     max-width: 140px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow: visible;
+    white-space: normal;
     border-radius: 0.375rem;
     border: 1px solid rgb(var(--fg-rgb, 255 255 255) / 0.12);
     background: rgb(var(--bg-rgb, 0 0 0) / 0.72);
@@ -49015,11 +49055,40 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     pointer-events: none;
   }
 
+  .network-orbit-node-label-name {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .network-orbit-node-label-mark {
+    flex: none;
+    white-space: nowrap;
+    color: var(--signal-endorse, #dab872);
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    line-height: 1.1;
+  }
+
   @media (hover: hover) and (pointer: fine) {
-    .network-orbit-node:hover .network-orbit-node-label,
-    .network-orbit-node:focus-visible .network-orbit-node-label {
+    .network-orbit-node:hover {
+      z-index: 40;
+    }
+
+    .network-orbit-node:hover .network-orbit-node-label {
       opacity: 1;
     }
+  }
+
+  .network-orbit-node:focus-visible {
+    z-index: 40;
+  }
+
+  .network-orbit-node:focus-visible .network-orbit-node-label {
+    opacity: 1;
   }
 
   /* Center account. */
@@ -49049,8 +49118,17 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     height: 100%;
     overflow: hidden;
     border-radius: 9999px;
-    border: 3px solid var(--center-identity-border);
-    background: rgb(var(--fg-rgb, 255 255 255) / 0.06);
+    background: rgb(var(--bg-rgb, 0 0 0));
+  }
+
+  .network-orbit-center-ring {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: 9999px;
+    border: 3px solid
+      var(--center-identity-border, rgb(var(--fg-rgb, 255 255 255) / 0.28));
+    pointer-events: none;
     transition:
       border-color 200ms ease,
       box-shadow 200ms ease;
@@ -49068,7 +49146,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .network-orbit-center:hover .network-orbit-center-avatar {
+    .network-orbit-center:hover .network-orbit-center-ring {
       border-color: var(--center-identity);
       box-shadow: 0 0 20px var(--center-identity-glow);
     }
@@ -49078,50 +49156,12 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     outline: none;
   }
 
-  .network-orbit-center:focus-visible .network-orbit-center-avatar {
+  .network-orbit-center:focus-visible .network-orbit-center-ring {
     box-shadow: 0 0 0 3px var(--center-identity-border);
   }
 
-  .network-orbit-center-label {
-    position: absolute;
-    left: 50%;
-    top: 100%;
-    z-index: 20;
-    margin-top: 0.375rem;
-    transform: translateX(-50%);
-    max-width: 140px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    border-radius: 0.375rem;
-    border: 1px solid rgb(var(--fg-rgb, 255 255 255) / 0.12);
-    background: rgb(var(--bg-rgb, 0 0 0) / 0.72);
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
-    padding: 0.125rem 0.5rem;
-    font-size: 0.68rem;
-    font-weight: 500;
-    opacity: 0;
-    transition: opacity 160ms ease;
-    pointer-events: none;
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .network-orbit-center:hover .network-orbit-center-label,
-    .network-orbit-center:focus-visible .network-orbit-center-label {
-      opacity: 1;
-    }
-  }
-
-  /* Sparse maps have room — show every name without hover (touch included). */
-  .network-orbit-stage--sparse .network-orbit-node-label,
-  .network-orbit-stage--sparse .network-orbit-center-label {
-    opacity: 1;
-  }
-
   @media (prefers-reduced-transparency: reduce) {
-    .network-orbit-node-label,
-    .network-orbit-center-label {
+    .network-orbit-node-label {
       background: rgb(var(--bg-rgb, 0 0 0) / 0.94);
       -webkit-backdrop-filter: none;
       backdrop-filter: none;
@@ -49137,6 +49177,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     }
   }
 
+  /* Glide. The line uses the same ease. */
   @keyframes network-orbit-idle-node {
     0%,
     100% {
@@ -49180,6 +49221,22 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     width: 100%;
     height: 100%;
   }
+}
+
+/* The map seat is the clearance token, not the dock's measured height.
+   A late measurement was sliding the center down after the first paint. */
+.os-app-screen.network-orbit-screen
+  > .os-app-screen-column
+  > .os-app-screen-body {
+  padding-bottom: calc(var(--portfolio-dock-clearance, 4.75rem) + 0.4rem);
+  transition: none;
+}
+
+.network-orbit-screen .os-app-screen-toolbar,
+.network-loading-toolbar {
+  height: 2rem;
+  min-height: 2rem;
+  max-height: 2rem;
 }
 
 /* Network map fills the OS screen. The filter and search use the standing toolbar. */

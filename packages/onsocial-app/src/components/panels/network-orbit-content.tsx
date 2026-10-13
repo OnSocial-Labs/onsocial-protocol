@@ -7,17 +7,17 @@ import { useNetworkOrbit } from '@/components/panels/network-orbit-context';
 import { useOpenNetworkStandingList } from '@/components/panels/network-orbit-sheet-header';
 import { displayName as resolveDisplayName } from '@/lib/profile-display';
 import {
-  ORBIT_SPARSE_LABEL_LIMIT,
   orbitCenterIdentity,
-  orbitLabelShiftX,
+  orbitLabelOffset,
+  orbitNodeDrift,
+  orbitSpokeJoin,
   orbitStageLayout,
+  ORBIT_ENDORSED_LABEL_HEIGHT_PX,
   type OrbitPlacedNode,
 } from '@/lib/profile-network-layout';
 import { formatProfileCount } from '@/lib/profile-social-standings';
 import { networkPath, portfolioPath } from '@/lib/overlay-routes';
 import type { NetworkAccount } from '@/lib/profile-network';
-
-const LINE_EDGE_OVERLAP = 1.5;
 
 /**
  * SSR prints `230px` and the browser shortens long floats. The client then
@@ -51,10 +51,7 @@ function nodeDrift(
   index: number,
   stageSize: number
 ): number {
-  const base =
-    orbitStageLayout(stageSize).floatAmplitude * (0.88 + (index % 5) * 0.06);
-  const driftScale = Math.min(1, node.size / 40);
-  return base * driftScale;
+  return orbitNodeDrift(stageSize, node.size, index);
 }
 
 function OrbitSpoke({
@@ -70,22 +67,29 @@ function OrbitSpoke({
 }) {
   const layout = orbitStageLayout(stageSize);
   const angle = Math.atan2(node.unitY, node.unitX);
-  const radius = Math.hypot(node.x - layout.center, node.y - layout.center);
-  const startRadius = layout.centerAvatar / 2 - LINE_EDGE_OVERLAP;
-  const endRadius = node.size / 2 - LINE_EDGE_OVERLAP;
-  const length = Math.max(0, radius - startRadius - endRadius);
   const motion = nodeMotion(index);
-  const amp = nodeDrift(node, index, stageSize);
+  const join = orbitSpokeJoin({
+    nodeX: node.x,
+    nodeY: node.y,
+    nodeSize: node.size,
+    unitX: node.unitX,
+    unitY: node.unitY,
+    center: layout.center,
+    centerRadius: layout.centerAvatar / 2,
+    amplitude: nodeDrift(node, index, stageSize),
+  });
 
   return (
     <div
       className="network-orbit-spoke"
-      style={{
-        left: cssPx(layout.center),
-        top: cssPx(layout.center),
-        transform: `rotate(${cssRad(angle)})`,
-        animationDelay: `${motion.entranceDelay}s`,
-      }}
+      style={
+        {
+          left: cssPx(layout.center),
+          top: cssPx(layout.center),
+          transform: `rotate(${cssRad(angle)})`,
+          '--enter-delay': `${motion.entranceDelay}s`,
+        } as CSSProperties
+      }
       aria-hidden="true"
     >
       <div
@@ -96,11 +100,11 @@ function OrbitSpoke({
         }${dimmed ? ' is-dimmed' : ''}`}
         style={
           {
-            left: cssPx(startRadius),
-            width: cssPx(length),
-            '--orbit-amp': cssPx(amp),
-            animationDelay: `${motion.idleDelay}s`,
-            animationDuration: `${motion.idleDuration}s`,
+            left: cssPx(join.start),
+            width: cssPx(join.length),
+            '--orbit-amp': cssPx(join.amp),
+            '--idle-delay': `${motion.idleDelay}s`,
+            '--idle-duration': `${motion.idleDuration}s`,
           } as CSSProperties
         }
       />
@@ -119,17 +123,47 @@ function OrbitNode({
   dimmed: boolean;
   stageSize: number;
 }) {
-  const { stageInsetX, displayName, isSelf, openSubject } = useNetworkOrbit();
+  const { stageInsetX, displayName, isSelf, openSubject, placedNodes } =
+    useNetworkOrbit();
   const motion = nodeMotion(index);
-  const amp = nodeDrift(node, index, stageSize);
   const label = nodeLabel(node.account);
-  const labelShiftX = orbitLabelShiftX({
-    x: node.x,
-    stageSize,
-    stageInsetX,
-    label,
+  const layout = orbitStageLayout(stageSize);
+  const join = orbitSpokeJoin({
+    nodeX: node.x,
+    nodeY: node.y,
+    nodeSize: node.size,
+    unitX: node.unitX,
+    unitY: node.unitY,
+    center: layout.center,
+    centerRadius: layout.centerAvatar / 2,
+    amplitude: nodeDrift(node, index, stageSize),
   });
   const endorsed = node.account.endorsed === true;
+  const labelOffset = orbitLabelOffset({
+    x: node.x,
+    y: node.y,
+    size: node.size,
+    unitX: node.unitX,
+    unitY: node.unitY,
+    stageSize,
+    stageInsetX,
+    label: endorsed && label.length < 'Endorsed'.length ? 'Endorsed' : label,
+    labelHeight: endorsed ? ORBIT_ENDORSED_LABEL_HEIGHT_PX : undefined,
+    obstacles: [
+      {
+        x: layout.center,
+        y: layout.center,
+        radius: layout.centerAvatar / 2,
+      },
+      ...placedNodes
+        .filter((other) => other.account.accountId !== node.account.accountId)
+        .map((other) => ({
+          x: other.x,
+          y: other.y,
+          radius: other.size / 2,
+        })),
+    ],
+  });
 
   const openHere = (event: MouseEvent<HTMLAnchorElement>) => {
     if (
@@ -155,41 +189,47 @@ function OrbitNode({
       }${dimmed ? ' is-dimmed' : ''}`}
       style={
         {
-          left: cssPx(node.x),
-          top: cssPx(node.y),
+          left: cssPx(Math.round(node.x - node.size / 2)),
+          top: cssPx(Math.round(node.y - node.size / 2)),
           width: cssPx(node.size),
           height: cssPx(node.size),
-          marginLeft: cssPx(-node.size / 2),
-          marginTop: cssPx(-node.size / 2),
-          '--orbit-fx': cssPx(node.unitX * amp),
-          '--orbit-fy': cssPx(node.unitY * amp),
-          '--label-shift-x': cssPx(labelShiftX),
-          animationDelay: `${motion.entranceDelay}s, ${motion.idleDelay}s`,
-          animationDuration: `0.22s, ${motion.idleDuration}s`,
+          '--orbit-fx': cssPx(join.driftX),
+          '--orbit-fy': cssPx(join.driftY),
+          '--label-x': cssPx(labelOffset.x),
+          '--label-y': cssPx(labelOffset.y),
+          '--enter-delay': `${motion.entranceDelay}s`,
+          '--idle-delay': `${motion.idleDelay}s`,
+          '--idle-duration': `${motion.idleDuration}s`,
         } as CSSProperties
       }
       aria-label={`Open ${label}'s network${
         endorsed ? `, endorsed by ${isSelf ? 'you' : displayName}` : ''
       }`}
     >
-      {node.account.avatarUrl ? (
-        <img
-          src={node.account.avatarUrl}
-          alt=""
-          width={node.size}
-          height={node.size}
-          className="network-orbit-node-avatar"
-          draggable={false}
-        />
-      ) : (
-        <span className="network-orbit-node-fallback" aria-hidden>
-          <UserIcon className="network-orbit-node-fallback-icon" />
-        </span>
-      )}
+      <span className="network-orbit-node-face">
+        {node.account.avatarUrl ? (
+          <img
+            src={node.account.avatarUrl}
+            alt=""
+            className="network-orbit-node-avatar"
+            draggable={false}
+          />
+        ) : (
+          <span className="network-orbit-node-fallback" aria-hidden>
+            <UserIcon className="network-orbit-node-fallback-icon" />
+          </span>
+        )}
+      </span>
+      <span className="network-orbit-node-ring" aria-hidden="true" />
       {endorsed ? (
         <span className="network-orbit-node-endorsed" aria-hidden="true" />
       ) : null}
-      <span className="network-orbit-node-label">{label}</span>
+      <span className="network-orbit-node-label">
+        <span className="network-orbit-node-label-name">{label}</span>
+        {endorsed ? (
+          <span className="network-orbit-node-label-mark">Endorsed</span>
+        ) : null}
+      </span>
     </Link>
   );
 }
@@ -220,10 +260,10 @@ function OrbitCenter({ stageSize }: { stageSize: number }) {
       href={portfolioPath(accountId)}
       className="network-orbit-center"
       style={{
+        left: cssPx(Math.round(layout.center - size / 2)),
+        top: cssPx(Math.round(layout.center - size / 2)),
         width: cssPx(size),
         height: cssPx(size),
-        marginLeft: cssPx(-size / 2),
-        marginTop: cssPx(-size / 2),
         ...identityVars,
       }}
       aria-label={`Open ${displayName}`}
@@ -238,7 +278,7 @@ function OrbitCenter({ stageSize }: { stageSize: number }) {
       />
       <span className="network-orbit-center-avatar">
         {avatarUrl ? (
-          <img src={avatarUrl} alt="" width={size} height={size} />
+          <img src={avatarUrl} alt="" />
         ) : (
           <span
             className="network-orbit-center-fallback-icon"
@@ -249,7 +289,7 @@ function OrbitCenter({ stageSize }: { stageSize: number }) {
           </span>
         )}
       </span>
-      <span className="network-orbit-center-label">{displayName}</span>
+      <span className="network-orbit-center-ring" aria-hidden="true" />
     </Link>
   );
 }
@@ -362,50 +402,50 @@ export function NetworkOrbitContent() {
   } = useNetworkOrbit();
 
   const showEmpty =
+    stageSize != null &&
     !ringsFading &&
     !loading &&
     !loadError &&
     !searchFetching &&
     (searchActive ? searchMatchTotal === 0 : placedNodes.length === 0);
-  const sparse =
-    placedNodes.length > 0 && placedNodes.length <= ORBIT_SPARSE_LABEL_LIMIT;
-
   return (
     <div className="network-orbit-panel">
       <OrbitCaptions />
 
       <div className="network-orbit-stage-wrap" ref={stageWrapRef}>
         <div className="network-orbit-stage-bg" aria-hidden="true" />
-        <div
-          className={`network-orbit-stage${
-            sparse ? ' network-orbit-stage--sparse' : ''
-          }${ringsFading ? ' is-fading-rings' : ''}${
-            (searchActive && searchFetching) || personalizing
-              ? ' is-refreshing'
-              : ''
-          }`}
-          style={{ width: cssPx(stageSize), height: cssPx(stageSize) }}
-        >
-          {placedNodes.map((node, index) => (
-            <OrbitSpoke
-              key={`spoke-${node.account.accountId}`}
-              node={node}
-              index={index}
-              dimmed={isDimmed(node.account)}
-              stageSize={stageSize}
-            />
-          ))}
-          {placedNodes.map((node, index) => (
-            <OrbitNode
-              key={node.account.accountId}
-              node={node}
-              index={index}
-              dimmed={isDimmed(node.account)}
-              stageSize={stageSize}
-            />
-          ))}
-          <OrbitCenter stageSize={stageSize} />
-        </div>
+        {stageSize != null ? (
+          <div
+            className={`network-orbit-stage${
+              ringsFading ? ' is-fading-rings' : ''
+            }${
+              (searchActive && searchFetching) || personalizing
+                ? ' is-refreshing'
+                : ''
+            }`}
+            style={{ width: cssPx(stageSize), height: cssPx(stageSize) }}
+          >
+            {placedNodes.map((node, index) => (
+              <OrbitSpoke
+                key={`spoke-${node.account.accountId}`}
+                node={node}
+                index={index}
+                dimmed={isDimmed(node.account)}
+                stageSize={stageSize}
+              />
+            ))}
+            {placedNodes.map((node, index) => (
+              <OrbitNode
+                key={node.account.accountId}
+                node={node}
+                index={index}
+                dimmed={isDimmed(node.account)}
+                stageSize={stageSize}
+              />
+            ))}
+            <OrbitCenter stageSize={stageSize} />
+          </div>
+        ) : null}
 
         {loadError ? (
           <p className="network-orbit-empty">{loadError}</p>

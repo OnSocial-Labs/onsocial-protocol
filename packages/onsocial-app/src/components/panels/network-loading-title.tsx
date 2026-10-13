@@ -8,8 +8,7 @@ import { accountIdFromPath } from '@/lib/overlay-routes';
 /** Full-stage center face. The loading shell uses the same size so it does not jump. */
 const LOADING_CENTER_SIZE = 84;
 
-export function networkMapTitle(displayName: string, isSelf: boolean): string {
-  if (isSelf) return 'Your network';
+export function networkMapTitle(displayName: string): string {
   return `${displayName}'s network`;
 }
 
@@ -32,11 +31,7 @@ export function NetworkLoadingTitle() {
     );
   }
 
-  return (
-    <h1 className="os-app-screen-title">
-      {networkMapTitle(name, face?.subjectIsViewer === true)}
-    </h1>
-  );
+  return <h1 className="os-app-screen-title">{networkMapTitle(name)}</h1>;
 }
 
 /** The account already on screen, held in the map center until nodes grow in. */
@@ -77,6 +72,7 @@ export function NetworkLoadingCenter() {
           </span>
         )}
       </span>
+      <span className="network-orbit-center-ring" aria-hidden="true" />
     </div>
   );
 }

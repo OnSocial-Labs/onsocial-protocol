@@ -162,34 +162,35 @@ test.describe('network orbit', () => {
     await expect(page.locator('.network-orbit-node')).toHaveCount(3, {
       timeout: 10_000,
     });
-    await expect(
-      page.getByRole('link', { name: "Open Bob's network" })
-    ).toBeVisible();
-    // Sparse maps show every name without hover (touch has none).
-    await expect(page.locator('.network-orbit-node-label').first()).toHaveCSS(
+    const bob = page.getByRole('link', { name: "Open Bob's network" });
+    await expect(bob).toBeVisible();
+    await expect(bob.locator('.network-orbit-node-label')).toHaveCSS(
+      'opacity',
+      '0'
+    );
+    await bob.hover();
+    await expect(bob.locator('.network-orbit-node-label')).toHaveCSS(
       'opacity',
       '1'
     );
     await expect(page.getByText('Map shows 3 of 5 matches')).toBeVisible();
 
-    await page.getByRole('link', { name: "Open Bob's network" }).click();
+    await bob.click();
     await expect(page).toHaveURL(/\/@bob\.testnet\/network/, {
       timeout: 10_000,
     });
-    await expect(page.locator('.network-orbit-center-label')).toHaveText(
-      'Bob',
-      { timeout: 15_000 }
-    );
+    await expect(
+      page.getByRole('heading', { name: "Bob's network" })
+    ).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('.network-orbit-center')).toBeVisible();
 
     await page.goBack();
     await expect(page).toHaveURL(
       new RegExp(`/@${ENDORSE_E2E_ACCOUNT}/network$`)
     );
-    await expect(page.locator('.network-orbit-center-label')).not.toHaveText(
-      'Bob',
-      { timeout: 15_000 }
-    );
+    await expect(
+      page.getByRole('heading', { name: "Bob's network" })
+    ).toHaveCount(0);
     await expect(page.locator('.network-orbit-center')).toHaveCount(1);
   });
 
@@ -253,7 +254,7 @@ test.describe('network orbit', () => {
       page.getByRole('button', { name: 'Close Network' })
     ).toHaveCount(0);
     await expect(
-      page.getByRole('link', { name: 'Open standing list' })
+      page.getByRole('button', { name: /^Stand with / })
     ).toBeVisible();
     await expect(page.locator('.os-app-screen')).toBeVisible();
 
