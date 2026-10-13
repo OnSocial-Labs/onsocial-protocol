@@ -11207,9 +11207,7 @@ a.os-surface-row {
     border-radius: 0.85rem;
     color: inherit;
     text-decoration: none;
-    transition:
-      background-color 0.16s ease,
-      transform 0.16s ease;
+    transition: background-color 0.16s ease;
   }
 
   .portfolio-writing-card:hover {
@@ -11219,10 +11217,6 @@ a.os-surface-row {
   .portfolio-writing-card:focus-visible {
     outline: 2px solid rgb(var(--fg-rgb) / 0.28);
     outline-offset: 2px;
-  }
-
-  .portfolio-writing-card:active {
-    transform: scale(0.992);
   }
 
   .portfolio-writing-cover,
@@ -11596,10 +11590,6 @@ a.os-surface-row {
   @media (prefers-reduced-motion: reduce) {
     .portfolio-writing-card {
       transition: none;
-    }
-
-    .portfolio-writing-card:active {
-      transform: none;
     }
 
     .portfolio-about-type {

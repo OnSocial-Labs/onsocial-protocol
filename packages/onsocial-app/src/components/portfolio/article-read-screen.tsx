@@ -1,6 +1,13 @@
 'use client';
 
-import { useRef, type MouseEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -22,12 +29,58 @@ import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { useArticleReadChrome } from '@/hooks/use-article-read-chrome';
 import { useEssayReturnSearch } from '@/hooks/use-essay-return-search';
+import { popArticleTrail, pushArticleTrail } from '@/lib/article-read-trail';
 import { parseArticleSnapshot } from '@/lib/article-post-payload';
 import { withEssayReturnSearch } from '@/lib/essay-return-href';
 import { writingPath } from '@/lib/overlay-routes';
+import { postKey } from '@/lib/post-display';
 import { consumeWritingShelf } from '@/lib/writing-shelf-return';
+import type { PostRow } from '@onsocial/sdk';
+import type { WritingArticleCoverHint } from '@/lib/hydrate-writing-article-covers';
 
 const ARTICLE_READ_CLASS = 'article-read-screen feed-article-slide';
+
+/**
+ * Articles opened from More by stay in this reader. Back walks the trail.
+ * Opening the reader again starts at the piece that was tapped.
+ */
+function useArticleReadTrail(root: PostRow, open: boolean) {
+  const rootKey = postKey(root);
+  const [trail, setTrail] = useState<PostRow[]>([root]);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setTrail([root]);
+  } else if (open && postKey(trail[0] ?? root) !== rootKey) {
+    setTrail([root]);
+  }
+  const trailRef = useRef(trail);
+  useEffect(() => {
+    trailRef.current = trail;
+  }, [trail]);
+  const current = trail[trail.length - 1] ?? root;
+  const openArticle = useCallback((post: PostRow) => {
+    setTrail((prev) => pushArticleTrail(prev, post));
+  }, []);
+  const backArticle = useCallback(() => {
+    if (!popArticleTrail(trailRef.current)) return false;
+    setTrail((prev) => popArticleTrail(prev) ?? prev);
+    return true;
+  }, []);
+  return { current, openArticle, backArticle };
+}
+
+function hintForArticle(
+  post: PostRow,
+  root: PostRow,
+  rootHint: WritingArticleCoverHint | null | undefined,
+  hints: Record<string, WritingArticleCoverHint> | undefined
+): WritingArticleCoverHint | null {
+  return (
+    hints?.[postKey(post)] ??
+    (postKey(post) === postKey(root) ? (rootHint ?? null) : null)
+  );
+}
 
 export type ArticleReadFooterProps = {
   /** Feed owns buy sheets. Omit to resolve listed Drop on the reader. */
@@ -102,8 +155,12 @@ export function ArticleReadOverlay({
     onOpenChange: (open: boolean) => void;
   }) {
   const scrollRootRef = useRef<HTMLElement | null>(null);
+  const { current, openArticle, backArticle } = useArticleReadTrail(
+    panel.post,
+    open
+  );
   const articleTitle =
-    parseArticleSnapshot(panel.post.value)?.title?.trim() || 'Article';
+    parseArticleSnapshot(current.value)?.title?.trim() || 'Article';
   const writePinned = useWriteDockPinned();
   const { chromeQuiet, progress, wakeFooter } = useArticleReadChrome(
     scrollRootRef,
@@ -111,23 +168,32 @@ export function ArticleReadOverlay({
     writePinned
   );
   const quiet = chromeQuiet && !writePinned;
-  const resolvedFooter =
+  const readingRoot = postKey(current) === postKey(panel.post);
+  const resolvedFooter = readingRoot ? (
     footer !== undefined ? (
       footer
     ) : (
       <ArticleReadFooter
-        post={panel.post}
+        post={current}
         commerce={commerce}
         onReply={onReply}
         shareExtras={shareExtras}
       />
-    );
+    )
+  ) : (
+    <ArticleReadFooter post={current} />
+  );
   const showWakeFooter = Boolean(resolvedFooter) && wakeFooter && !writePinned;
+  const currentKey = postKey(current);
+  useEffect(() => {
+    scrollRootRef.current?.scrollTo({ top: 0 });
+  }, [currentKey]);
 
   return (
     <OsSlideOverScreen
       open={open}
       onClose={() => onOpenChange(false)}
+      onBeforeClose={() => !backArticle()}
       title={articleTitle}
       heading={<></>}
       immersiveHeader
@@ -142,7 +208,18 @@ export function ArticleReadOverlay({
       contentClassName="feed-article-slide-body"
       footer={resolvedFooter}
     >
-      <ArticleReadBody {...panel} progress={progress} />
+      <ArticleReadBody
+        {...panel}
+        post={current}
+        coverHint={hintForArticle(
+          current,
+          panel.post,
+          panel.coverHint,
+          panel.coverHints
+        )}
+        onOpenArticle={openArticle}
+        progress={progress}
+      />
     </OsSlideOverScreen>
   );
 }
@@ -151,12 +228,20 @@ export function ArticleReadOverlay({
 export function ArticleReadPage(panel: PortfolioWritingArticlePanelProps) {
   const router = useRouter();
   const scrollRootRef = useRef<HTMLElement | null>(null);
+  const { current, openArticle, backArticle } = useArticleReadTrail(
+    panel.post,
+    true
+  );
   const articleTitle =
-    parseArticleSnapshot(panel.post.value)?.title?.trim() || 'Writing';
+    parseArticleSnapshot(current.value)?.title?.trim() || 'Writing';
   const { chromeQuiet, progress, wakeFooter } = useArticleReadChrome(
     scrollRootRef,
     true
   );
+  const currentKey = postKey(current);
+  useEffect(() => {
+    scrollRootRef.current?.scrollTo({ top: 0 });
+  }, [currentKey]);
   const returnSearch = useEssayReturnSearch();
   const shelfHref = withEssayReturnSearch(
     writingPath(panel.accountId),
@@ -186,15 +271,32 @@ export function ArticleReadPage(panel: PortfolioWritingArticlePanelProps) {
             href={shelfHref}
             scroll={false}
             prefetch={false}
-            onClick={onShelfBack}
+            onClick={(event) => {
+              if (backArticle()) {
+                event.preventDefault();
+                return;
+              }
+              onShelfBack(event);
+            }}
           >
             <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
           </Link>
         </OsIconAction>
       }
-      footer={<ArticleReadFooter post={panel.post} />}
+      footer={<ArticleReadFooter post={current} />}
     >
-      <ArticleReadBody {...panel} progress={progress} />
+      <ArticleReadBody
+        {...panel}
+        post={current}
+        coverHint={hintForArticle(
+          current,
+          panel.post,
+          panel.coverHint,
+          panel.coverHints
+        )}
+        onOpenArticle={openArticle}
+        progress={progress}
+      />
     </OsAppScreen>
   );
 }
