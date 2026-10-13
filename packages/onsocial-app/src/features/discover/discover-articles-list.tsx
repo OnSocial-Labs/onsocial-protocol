@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
 import { ChevronLeftIcon, NoteTextFillIcon } from '@onsocial/ui';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
+import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { DiscoverArticleRow } from '@/features/discover/discover-article-row';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
@@ -21,6 +22,7 @@ import {
 } from '@/features/discover/use-discover-article-covers';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { usePostEngagement } from '@/hooks/use-post-engagement';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 import { SHEET_Z } from '@/lib/sheet-z';
 
@@ -50,6 +52,8 @@ export function DiscoverArticlesList({
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const trimmed = draft.trim();
   const authors = usePostAuthorProfiles(rows.map((row) => row.accountId));
   const { covers, posts } = useDiscoverArticleCovers(rows);
@@ -67,6 +71,7 @@ export function DiscoverArticlesList({
       }
       setRows([]);
       setHasMore(false);
+      setLoadMoreFailed(false);
       setLoading(true);
       void searchDiscoverArticles(trimmed, { limit: DISCOVER_ARTICLE_PAGE })
         .then((page) => {
@@ -90,14 +95,17 @@ export function DiscoverArticlesList({
     };
   }, [open, trimmed]);
 
-  const loadMore = () => {
+  const loadMore = useCallback(() => {
     const last = rows[rows.length - 1];
-    if (!last || loadingMore || !isDiscoverCatalogQuery(trimmed)) return;
+    if (!last || loading || loadingMore || !isDiscoverCatalogQuery(trimmed)) {
+      return;
+    }
     const before: ArticleSearchCursor = {
       blockHeight: last.blockHeight,
       postId: last.postId,
     };
     setLoadingMore(true);
+    setLoadMoreFailed(false);
     void searchDiscoverArticles(trimmed, {
       limit: DISCOVER_ARTICLE_PAGE,
       before,
@@ -107,11 +115,27 @@ export function DiscoverArticlesList({
         setHasMore(page.hasMore);
       })
       .catch(() => {
-        setHasMore(false);
+        setLoadMoreFailed(true);
       })
       .finally(() => {
         setLoadingMore(false);
       });
+  }, [loading, loadingMore, rows, trimmed]);
+
+  useInfiniteScrollSentinel({
+    sentinelRef: loadMoreRef,
+    enabled:
+      open &&
+      hasMore &&
+      rows.length > 0 &&
+      !loading &&
+      !loadingMore &&
+      !loadMoreFailed,
+    onIntersect: loadMore,
+  });
+
+  const retryLoadMore = () => {
+    loadMore();
   };
 
   const openRow = (
@@ -177,16 +201,20 @@ export function DiscoverArticlesList({
           />
         ))}
       </div>
-      {hasMore ? (
-        <button
-          type="button"
-          className="os-surface-chip"
-          aria-label="More articles"
-          disabled={loadingMore}
-          onClick={loadMore}
-        >
-          More
-        </button>
+      {loadingMore ? <MarketListSkeleton rows={2} /> : null}
+      {loadMoreFailed ? (
+        <OsChromeListAlert
+          message="Couldn’t load more."
+          retryLabel="Retry"
+          onRetry={retryLoadMore}
+        />
+      ) : null}
+      {hasMore && !loadMoreFailed ? (
+        <div
+          ref={loadMoreRef}
+          className="standing-panel-sentinel"
+          aria-hidden
+        />
       ) : null}
     </OsSlideOverScreen>
   );
