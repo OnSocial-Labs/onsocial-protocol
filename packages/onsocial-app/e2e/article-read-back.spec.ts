@@ -29,6 +29,17 @@ test.describe('article reader back', () => {
     expect(opened).not.toBeNull();
 
     const nextCard = night.getByRole('link', { name: 'Quiet print' });
+    await expect(nextCard).toBeVisible();
+    await expect(night).toHaveCSS('opacity', '1');
+    let previousY = -1;
+    await expect
+      .poll(async () => {
+        const y = (await nextCard.boundingBox())?.y ?? -1;
+        const settled = previousY >= 0 && Math.abs(y - previousY) < 0.5;
+        previousY = y;
+        return settled;
+      })
+      .toBe(true);
     const cardBefore = await nextCard.boundingBox();
     expect(cardBefore).not.toBeNull();
     await page.mouse.move(
