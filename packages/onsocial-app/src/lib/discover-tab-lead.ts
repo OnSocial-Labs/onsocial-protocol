@@ -30,6 +30,7 @@ export function discoverProfilesLead(
     ? profileIdentityTopicLabel(craft.trim())
     : '';
   if (craftLabel) return `People · ${craftLabel}`;
+  if (face === 'offers') return 'Offers';
   if (face === 'hiring') return sector ? `Hiring · ${sector}` : 'Hiring';
   if (face === 'orgs') return sector ? `Orgs · ${sector}` : 'Orgs';
   if (face === 'daos') return sector ? `DAOs · ${sector}` : 'DAOs';
@@ -83,15 +84,13 @@ export function discoverTrendingLead(): string {
   return "What's moving";
 }
 
-/** Quiet stand hint — Profiles list. */
-export const DISCOVER_CONNECT_HINT = 'Connect to stand with profiles.';
-
 /** Profiles peek heading on Moving — names the face / industry filter. */
 export function discoverTrendingProfilesHeading(
   face: DiscoverFaceFilter = 'all',
   industry = ''
 ): string {
   const sector = industry.trim();
+  if (face === 'offers') return 'Offers';
   if (face === 'hiring') return sector ? `Hiring · ${sector}` : 'Hiring';
   if (face === 'orgs') return sector ? `Orgs · ${sector}` : 'Orgs';
   if (face === 'daos') return sector ? `DAOs · ${sector}` : 'DAOs';

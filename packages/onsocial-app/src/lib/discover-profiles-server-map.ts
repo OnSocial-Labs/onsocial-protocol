@@ -57,6 +57,7 @@ export async function mapDiscoverPageToResponse(
       kind: profile.kind ?? null,
       industry: row.industry ?? null,
       openJobsCount: row.openJobsCount ?? 0,
+      offerCount: row.offerCount,
       standingCount: row.standingCount,
       standingWithCount: row.standingWithCount,
       mutualStandingCount: row.mutualStandingCount,

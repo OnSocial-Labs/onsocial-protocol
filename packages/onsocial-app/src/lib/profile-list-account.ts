@@ -28,6 +28,8 @@ export interface ProfileListAccount {
   kind?: ProfileKind | null;
   industry?: string | null;
   openJobsCount?: number;
+  /** Standing services. Omitted until the directory count is known. */
+  offerCount?: number;
 }
 
 export function standingAccountToProfileListAccount(
@@ -79,6 +81,7 @@ export function discoverProfileToProfileListAccount(
     kind: profile.kind,
     industry: profile.industry,
     openJobsCount: profile.openJobsCount,
+    offerCount: profile.offerCount,
   };
 }
 

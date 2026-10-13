@@ -462,6 +462,7 @@ export const SDK_METHOD_FAMILIES: SdkMethodFamily[] = [
       'os.dm.listThreads/send/markRead',
       'os.mutes.add/remove/list/has',
       'os.pages.get/setConfig/setMood and os.jobs.create/openFor',
+      'os.offers.list/create/remove',
     ],
     href: '/sdk/platform-services',
   },

@@ -148,6 +148,22 @@ export {
   normalizeJobUrl,
   sortAccountJobs,
   todayDateInput,
+  OFFER_LINE_MAX,
+  OFFER_MAX,
+  OFFER_TITLE_MAX,
+  OFFER_URL_MAX,
+  buildOfferRemoveData,
+  buildOfferSetData,
+  createOfferId,
+  normalizeOfferLine,
+  normalizeOfferTitle,
+  normalizeOfferUrl,
+  offerLineAriaLabel,
+  offerLineLabel,
+  offerMaxForKind,
+  offerPath,
+  parseOfferKeyEntry,
+  sortOffers,
   buildEndorsementSetData,
   buildEndorsementRemoveData,
   normalizeEndorsementTopic,
@@ -158,6 +174,8 @@ export type {
   SaveBuildInput,
   EndorsementBuildInput,
   JobBuildInput,
+  OfferBuildInput,
+  OfferRecord,
   AttestationBuildInput,
   AttestationSignatureInput,
   ProfileBioMeta,
@@ -440,6 +458,10 @@ export {
   parseDiscoverFaceFilter,
 } from './query/profiles.js';
 export type { JobSearchOptions, JobSearchRow } from './query/jobs.js';
+export type {
+  OfferSearchOptions,
+  OfferSearchRow,
+} from './query/offers-search.js';
 export type { ProtocolPulse, ProtocolTotals } from './query/stats.js';
 export { ReactionsModule } from './modules/reactions.js';
 export type {

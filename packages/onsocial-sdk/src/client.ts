@@ -13,6 +13,7 @@ import { SubscribeModule } from './modules/subscribe/index.js';
 import { StorageModule } from './storage/module.js';
 import { EndorsementsModule } from './modules/endorsements.js';
 import { JobsModule } from './modules/jobs.js';
+import { OffersModule } from './modules/offers.js';
 import { AttestationsModule } from './modules/attestations.js';
 import {
   resolveStorageProvider,
@@ -264,6 +265,8 @@ export class OnSocial {
   readonly endorsements: EndorsementsModule;
   /** Jobs — org hiring listings (`jobs/<id>`). */
   readonly jobs: JobsModule;
+  /** Offers — standing services (`offers/<id>`). */
+  readonly offers: OffersModule;
   /** Attestations — verifiable typed claims with auto-claimId issue + lists. */
   readonly attestations: AttestationsModule;
   /** Standings — account ↔ account "stand with" graph. */
@@ -518,6 +521,7 @@ export class OnSocial {
     this.saves = new SavesModule(this.social, this.query);
     this.endorsements = new EndorsementsModule(this.social, this.query);
     this.jobs = new JobsModule(this.social, this.query);
+    this.offers = new OffersModule(this.social);
     this.attestations = new AttestationsModule(this.social, this.query);
     this.standings = new StandingsModule(this.social, this.query);
     this.blocks = new BlocksModule(this.social, this.query);

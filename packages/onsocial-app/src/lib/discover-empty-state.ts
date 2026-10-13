@@ -42,6 +42,12 @@ export function buildDiscoverEmptyState(
   }
 
   if (trimmedQuery) {
+    if (face === 'offers') {
+      return {
+        primary: 'No matching offers.',
+        showClearSearch: false,
+      };
+    }
     if (face === 'hiring') {
       return {
         primary: industry
@@ -56,6 +62,12 @@ export function buildDiscoverEmptyState(
     };
   }
 
+  if (face === 'offers') {
+    return {
+      primary: 'No offers yet.',
+      showClearSearch: false,
+    };
+  }
   if (face === 'hiring') {
     return {
       primary: industry
@@ -74,9 +86,7 @@ export function buildDiscoverEmptyState(
   }
   if (face === 'daos') {
     return {
-      primary: industry
-        ? `No DAOs in ${industry} yet.`
-        : 'No DAOs found.',
+      primary: industry ? `No DAOs in ${industry} yet.` : 'No DAOs found.',
       showClearSearch: false,
     };
   }

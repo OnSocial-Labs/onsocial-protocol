@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
@@ -19,10 +19,8 @@ import { DiscoverTrendingPanel } from '@/features/discover/discover-trending-pan
 import { DiscoverFaceFilterRail } from '@/features/discover/discover-face-filter-rail';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
 import { excludeRecommendedFromList } from '@/lib/discover-recommended';
-import {
-  DISCOVER_CONNECT_HINT,
-  discoverProfilesLead,
-} from '@/lib/discover-tab-lead';
+import { discoverProfilesLead } from '@/lib/discover-tab-lead';
+import { fetchOfferCounts } from '@/lib/profile-offers';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
 
@@ -43,7 +41,6 @@ export function DiscoverPanelContent() {
     listAccounts,
     viewerAccountId,
     isConnected,
-    showConnectHint,
     loadError,
     actionError,
     emptyState,
@@ -80,6 +77,32 @@ export function DiscoverPanelContent() {
   const profilesForList = useMemo(
     () => excludeRecommendedFromList(listAccounts, recommendedShownIds),
     [listAccounts, recommendedShownIds]
+  );
+  const offerAccountKey = profilesForList
+    .filter((account) => account.offerCount == null)
+    .map((account) => account.accountId)
+    .slice(0, 40)
+    .join(',');
+  const [offerCounts, setOfferCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const ids = offerAccountKey ? offerAccountKey.split(',') : [];
+    if (ids.length === 0) return;
+    const controller = new AbortController();
+    void fetchOfferCounts(ids, controller.signal)
+      .then((counts) => {
+        if (!controller.signal.aborted) setOfferCounts(counts);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [offerAccountKey]);
+  const profilesWithOffers = useMemo(
+    () =>
+      profilesForList.map((account) => {
+        if (account.offerCount != null) return account;
+        const offerCount = offerCounts[account.accountId];
+        return offerCount ? { ...account, offerCount } : account;
+      }),
+    [offerCounts, profilesForList]
   );
   const hasPaintedRows = profilesForList.length > 0;
   const loadingPresentation = isLoadingMore
@@ -123,14 +146,6 @@ export function DiscoverPanelContent() {
             )}
           </DiscoverTabLead>
           <DiscoverFaceFilterRail />
-
-          {showConnectHint ? (
-            <div className="os-chrome-whisper-anchor" role="status">
-              <p className="discover-connect-hint os-chrome-whisper">
-                {DISCOVER_CONNECT_HINT}
-              </p>
-            </div>
-          ) : null}
 
           {loadError ? (
             errorPresentation === 'overlay' ? (
@@ -185,7 +200,7 @@ export function DiscoverPanelContent() {
                 ) : null
               ) : (
                 <ProfileSocialList
-                  accounts={profilesForList}
+                  accounts={profilesWithOffers}
                   listKey={listKey}
                   viewerAccountId={viewerAccountId}
                   showSolidarityBadge

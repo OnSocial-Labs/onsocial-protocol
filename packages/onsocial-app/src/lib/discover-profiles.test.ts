@@ -39,6 +39,9 @@ describe('discover profile filters', () => {
       parseDiscoverProfileFilters({ face: 'people', industry: 'Healthcare' })
     ).toEqual({ face: 'people' });
     expect(
+      parseDiscoverProfileFilters({ face: 'offers', industry: 'Healthcare' })
+    ).toEqual({ face: 'offers' });
+    expect(
       parseDiscoverProfileFilters({
         face: 'daos',
         industry: 'Film',

@@ -36,6 +36,11 @@ export function buildDiscoverListSummary({
   const trimmedQuery = query.trim();
 
   if (trimmedQuery) {
+    if (face === 'offers') {
+      return hasMore
+        ? `Showing ${shown} matching profiles`
+        : `${shown} matching profile${shownCount === 1 ? '' : 's'}`;
+    }
     if (face === 'hiring') {
       return hasMore
         ? `Showing ${shown} matching orgs`

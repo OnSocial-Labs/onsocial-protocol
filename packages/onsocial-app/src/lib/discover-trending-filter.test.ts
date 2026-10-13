@@ -129,6 +129,27 @@ describe('discover trending filter', () => {
         [
           {
             ...profiles[0],
+            kind: 'person',
+            offerCount: 1,
+          },
+          {
+            ...profiles[1],
+            kind: 'org',
+            industry: 'Healthcare',
+            offerCount: 2,
+          },
+        ],
+        '',
+        'offers',
+        'Healthcare'
+      ).map((row) => row.accountId)
+    ).toEqual(['alice.near', 'bob.near']);
+
+    expect(
+      filterTrendingProfiles(
+        [
+          {
+            ...profiles[0],
             kind: 'dao',
             industry: 'Film',
           },

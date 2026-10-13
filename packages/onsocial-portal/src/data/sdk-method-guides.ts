@@ -309,7 +309,7 @@ const history = await os.query.permissions.history(accountId, { limit: 20 });`,
       'Social graph: os.query.graph.*, os.query.standings.*, os.query.blocks.*, os.query.saves.*, os.query.endorsements.*, os.query.attestations.*',
       'Discovery: os.query.hashtags.*, os.query.tickers.*, os.query.places.*, os.query.stats.*',
       'Economy: os.query.scarces.*, os.query.rewards.*, os.query.token.*, os.query.boost.*, os.query.socialSpend.*',
-      'Platform: os.query.pages.*, os.query.jobs.*, os.query.storage.*, os.query.permissions.*, os.query.governance.*',
+      'Platform: os.query.pages.*, os.query.jobs.*, os.query.offers.*, os.query.storage.*, os.query.permissions.*, os.query.governance.*',
       'Escape hatches: os.query.raw.* and os.query.graphql when typed helpers do not cover the surface yet.',
     ],
     transactionModel: [
@@ -601,6 +601,7 @@ const planned = await os.query.raw.byAppJsonContains(
       'os.pages.get/getConfig/getTemplates',
       'os.pages.setConfig/setMood/setTheme/setSections/setVisibility/setTemplate/setMoodTint/unlockMood',
       'os.jobs.create/remove/openFor/forAccount',
+      'os.offers.list/create/remove',
     ],
     readMethods: [
       'os.auth.me() for the current session identity.',
@@ -608,10 +609,11 @@ const planned = await os.query.raw.byAppJsonContains(
       'os.dm.listThreads() and os.dm.unreadCount() for message lists.',
       'os.pages.get(accountId) and os.pages.getConfig() for page state.',
       'os.jobs.openFor(accountId) and os.jobs.forAccount(...) for job board reads.',
+      'os.offers.list(accountId) for standing services on a profile.',
     ],
     transactionModel: [
       'Auth, notifications, webhooks, DMs, and mutes are gateway API calls — no wallet modal.',
-      'Pages and jobs writes are relayed contract writes and follow the normal broadcast rules.',
+      'Pages, jobs, and offers writes are relayed contract writes and follow the normal broadcast rules.',
       'Keep webhooks and sendEvents on trusted servers; never ship service credentials to the browser.',
     ],
     examples: [

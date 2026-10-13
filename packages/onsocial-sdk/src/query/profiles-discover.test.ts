@@ -10,6 +10,8 @@ describe('discover face filters', () => {
     expect(parseDiscoverFaceFilter('people')).toBe('people');
     expect(parseDiscoverFaceFilter('org')).toBe('orgs');
     expect(parseDiscoverFaceFilter('hiring')).toBe('hiring');
+    expect(parseDiscoverFaceFilter('offers')).toBe('offers');
+    expect(parseDiscoverFaceFilter('offer')).toBe('offers');
     expect(parseDiscoverFaceFilter('dao')).toBe('daos');
     expect(parseDiscoverFaceFilter('daos')).toBe('daos');
   });
@@ -31,6 +33,9 @@ describe('discover face filters', () => {
       kind: 'dao',
       industry: 'Film',
     });
+    expect(discoverFaceSearchOptions('offers', 'Healthcare')).toEqual({
+      offers: true,
+    });
     expect(discoverFaceSearchOptions('all')).toEqual({});
   });
 
@@ -42,6 +47,10 @@ describe('discover face filters', () => {
     expect(hiring.filter).toContain('openJobsCount: {_gt: 0}');
     expect(hiring.variables.industry).toBe('Healthcare');
     expect(hiring.variableDecl).toContain('$industry');
+
+    const offers = buildDiscoverWhere(discoverFaceSearchOptions('offers'));
+    expect(offers.filter).toContain('offerCount: {_gt: 0}');
+    expect(offers.filter).not.toContain('kind:');
 
     const daos = buildDiscoverWhere(discoverFaceSearchOptions('daos', 'Film'));
     expect(daos.filter).toContain('kind: {_eq: "dao"}');

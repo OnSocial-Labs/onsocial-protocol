@@ -73,6 +73,7 @@ import { SocialSpendQuery } from './social-spend.js';
 import { RawQuery } from './raw.js';
 import { PagesQuery } from './pages.js';
 import { JobsQuery } from './jobs.js';
+import { OffersSearchQuery } from './offers-search.js';
 
 export { GraphQLValidationError } from './_shared.js';
 export { APP_DATA_TYPE, escapeLike, normalizeAppPrefix } from './raw.js';
@@ -180,6 +181,7 @@ export type {
 export type { SocialSpendEventType } from './social-spend-events.js';
 export type { PageCurrentRow } from './pages.js';
 export type { JobSearchOptions, JobSearchRow } from './jobs.js';
+export type { OfferSearchOptions, OfferSearchRow } from './offers-search.js';
 export type {
   GroupCurrentRow,
   GroupMembershipCurrentRow,
@@ -217,6 +219,7 @@ export class QueryModule {
   readonly socialSpend: SocialSpendQuery;
   readonly pages: PagesQuery;
   readonly jobs: JobsQuery;
+  readonly offers: OffersSearchQuery;
   readonly raw: RawQuery;
 
   constructor(http: HttpClient) {
@@ -246,6 +249,7 @@ export class QueryModule {
     this.socialSpend = new SocialSpendQuery(this);
     this.pages = new PagesQuery(this);
     this.jobs = new JobsQuery(this);
+    this.offers = new OffersSearchQuery(this);
     this.raw = new RawQuery(this);
   }
 

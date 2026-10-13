@@ -18,9 +18,7 @@ import { PROFILE_EDITOR_MAX_TAG_LENGTH } from '@/lib/profile-tag-editor';
 
 export const PROFILE_CRAFT_MAX = PROFILE_EDITOR_MAX_TAG_LENGTH;
 
-export function normalizeDiscoverCraft(
-  raw: string | null | undefined
-): string {
+export function normalizeDiscoverCraft(raw: string | null | undefined): string {
   return (raw ?? '')
     .trim()
     .replace(/^#+/, '')
@@ -59,6 +57,7 @@ export interface DiscoverProfileSummary {
   kind?: ProfileKind | null;
   industry?: string | null;
   openJobsCount?: number;
+  offerCount?: number;
   standingCount: number;
   standingWithCount: number;
   mutualStandingCount: number;
@@ -97,11 +96,9 @@ export function parseDiscoverProfileFilters(params: {
   craft?: string | null;
 }): DiscoverProfileFilters {
   const craft = normalizeDiscoverCraft(params.craft);
-  const face = craft
-    ? 'people'
-    : parseDiscoverFaceFilter(params.face);
+  const face = craft ? 'people' : parseDiscoverFaceFilter(params.face);
   const industry =
-    face === 'people'
+    face === 'people' || face === 'offers'
       ? ''
       : (params.industry ?? '').trim().slice(0, PROFILE_INDUSTRY_MAX);
   return {
@@ -121,7 +118,8 @@ export function applyDiscoverFilterParams(
   const nextFace = craftTag ? 'people' : face;
   if (nextFace === 'all') params.delete('face');
   else params.set('face', nextFace);
-  const sector = nextFace === 'people' ? '' : industry.trim();
+  const sector =
+    nextFace === 'people' || nextFace === 'offers' ? '' : industry.trim();
   if (sector) params.set('industry', sector);
   else params.delete('industry');
   if (craftTag) params.set('craft', craftTag);
@@ -210,6 +208,7 @@ export function discoverPageToProfileListAccounts(
       kind: profile.kind ?? null,
       industry: row.industry ?? null,
       openJobsCount: row.openJobsCount ?? 0,
+      offerCount: row.offerCount,
       standingCount: row.standingCount,
       standingWithCount: row.standingWithCount,
       mutualStandingCount: row.mutualStandingCount,
