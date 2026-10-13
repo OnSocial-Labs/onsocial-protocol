@@ -917,45 +917,48 @@ export function AppProfileEditorSheet({
                             }
                           />
                         ) : (
-                          <label
-                            className="account-editor-location-row"
-                            htmlFor="profile-editor-location"
-                          >
-                            <span className="sr-only">Location</span>
-                            <PortfolioLocationMark />
-                            <input
-                              id="profile-editor-location"
-                              className="account-editor-location"
-                              value={location}
-                              maxLength={PROFILE_LOCATION_MAX}
-                              autoComplete="address-level2"
-                              placeholder="Based in"
-                              disabled={saving}
-                              onFocus={scrollFieldIntoView}
-                              onChange={(event) =>
-                                setLocation(
-                                  sanitizeProfileLocationDraft(
-                                    event.target.value
+                          <div className="account-editor-location-row">
+                            <label
+                              className="account-editor-location-field"
+                              htmlFor="profile-editor-location"
+                            >
+                              <span className="sr-only">Location</span>
+                              <PortfolioLocationMark />
+                              <input
+                                id="profile-editor-location"
+                                className="account-editor-location"
+                                value={location}
+                                maxLength={PROFILE_LOCATION_MAX}
+                                autoComplete="address-level2"
+                                placeholder="Based in"
+                                disabled={saving}
+                                onFocus={scrollFieldIntoView}
+                                onChange={(event) =>
+                                  setLocation(
+                                    sanitizeProfileLocationDraft(
+                                      event.target.value
+                                    )
                                   )
-                                )
-                              }
-                              onBlur={() => {
-                                const next =
-                                  normalizeProfileLocationInput(location);
-                                if (next !== location) setLocation(next);
-                              }}
-                            />
-                          </label>
+                                }
+                                onBlur={() => {
+                                  const next =
+                                    normalizeProfileLocationInput(location);
+                                  if (next !== location) setLocation(next);
+                                }}
+                              />
+                            </label>
+                            {!isDaoAccount &&
+                            kind === 'person' &&
+                            snapshot?.accountId ? (
+                              <ProfileOffersEditor
+                                accountId={snapshot.accountId}
+                                kind="person"
+                                disabled={saving}
+                                inline
+                              />
+                            ) : null}
+                          </div>
                         )}
-                        {!isDaoAccount &&
-                        kind === 'person' &&
-                        snapshot?.accountId ? (
-                          <ProfileOffersEditor
-                            accountId={snapshot.accountId}
-                            kind="person"
-                            disabled={saving}
-                          />
-                        ) : null}
                         <label htmlFor="profile-editor-bio" className="sr-only">
                           Bio
                         </label>

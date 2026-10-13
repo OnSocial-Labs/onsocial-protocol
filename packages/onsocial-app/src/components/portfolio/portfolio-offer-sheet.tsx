@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { OfferRecord } from '@onsocial/sdk';
 import {
+  Divider,
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
@@ -20,71 +21,156 @@ function offerHost(url: string): string {
   }
 }
 
-export function PortfolioOfferSheet({
+function OfferDetailSheet({
   open,
   onClose,
-  offer,
+  onMessage,
   profileName,
-  mood = null,
-  accountId,
-  zIndex = SHEET_Z.gesture,
+  offer,
+  zIndex,
 }: {
   open: boolean;
   onClose: () => void;
-  offer: OfferRecord | null;
+  onMessage: () => void;
   profileName: string;
-  mood?: ResolvedMood | null;
-  accountId: string;
-  zIndex?: number;
+  offer: OfferRecord | null;
+  zIndex: number;
 }) {
-  const [messageOpen, setMessageOpen] = useState(false);
   if (!offer) return null;
   const line = offer.line?.trim() || '';
   const url = offer.url?.trim() || '';
 
   return (
+    <OsHugSheet
+      open={open}
+      onClose={onClose}
+      label={offer.title}
+      copy={profileName}
+      closeAriaLabel="Close offer"
+      backdropLabel="Close offer"
+      zIndex={zIndex}
+      footer={
+        <OsSheetFooter>
+          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+            <OsSheetAction
+              type="button"
+              variant="primary"
+              ready
+              onClick={onMessage}
+            >
+              Message
+            </OsSheetAction>
+          </OsSheetActions>
+        </OsSheetFooter>
+      }
+    >
+      {line || url ? (
+        <div className="portfolio-offer-detail">
+          {line ? <p className="portfolio-offer-line">{line}</p> : null}
+          {url ? (
+            <a
+              className="portfolio-offer-link"
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {offerHost(url)}
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+    </OsHugSheet>
+  );
+}
+
+/**
+ * Visitor offer drawer. One offer opens on its title. Several open as a
+ * list titled Offers, then the same detail. Message sits above that detail.
+ */
+export function PortfolioOffersSheet({
+  open,
+  onClose,
+  offers,
+  profileName,
+  mood = null,
+  accountId,
+  zIndex = SHEET_Z.list,
+}: {
+  open: boolean;
+  onClose: () => void;
+  offers: OfferRecord[];
+  profileName: string;
+  mood?: ResolvedMood | null;
+  accountId: string;
+  zIndex?: number;
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [messageOpen, setMessageOpen] = useState(false);
+
+  if (!open && selectedId !== null) setSelectedId(null);
+  if (!open && messageOpen) setMessageOpen(false);
+
+  const single = offers.length === 1 ? offers[0]! : null;
+  const selected =
+    single ?? offers.find((offer) => offer.offerId === selectedId) ?? null;
+  const show = open && !messageOpen;
+  const listOpen = show && offers.length > 1;
+  const detailOpen = show && selected != null;
+  const detailZ = Math.max(zIndex + 2, SHEET_Z.nested);
+
+  return (
     <>
       <OsHugSheet
-        open={open && !messageOpen}
-        onClose={onClose}
-        label={offer.title}
+        open={listOpen}
+        onClose={() => {
+          if (detailOpen) return;
+          onClose();
+        }}
+        label="Offers"
         copy={profileName}
-        closeAriaLabel="Close offer"
-        backdropLabel="Close offer"
+        closeAriaLabel="Close offers"
+        backdropLabel="Close offers"
         zIndex={zIndex}
-        footer={
-          <OsSheetFooter>
-            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-              <OsSheetAction
-                type="button"
-                variant="primary"
-                ready
-                onClick={() => setMessageOpen(true)}
-              >
-                Message
-              </OsSheetAction>
-            </OsSheetActions>
-          </OsSheetFooter>
-        }
       >
-        {line ? <p className="portfolio-offer-line">{line}</p> : null}
-        {url ? (
-          <a
-            className="portfolio-offer-link"
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {offerHost(url)}
-          </a>
-        ) : null}
+        {offers.length === 0 ? (
+          <p className="app-storage-meta">No offers yet.</p>
+        ) : (
+          <ul className="portfolio-hiring-list">
+            {offers.map((offer, index) => (
+              <li key={offer.offerId} className="portfolio-hiring-item">
+                {index > 0 ? <Divider variant="item" /> : null}
+                <button
+                  type="button"
+                  className="portfolio-hiring-row"
+                  onClick={() => setSelectedId(offer.offerId)}
+                >
+                  <p className="portfolio-hiring-title">{offer.title}</p>
+                  {offer.line ? (
+                    <p className="portfolio-hiring-teaser">{offer.line}</p>
+                  ) : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </OsHugSheet>
+      <OfferDetailSheet
+        open={detailOpen}
+        onClose={() => {
+          if (single) onClose();
+          else setSelectedId(null);
+        }}
+        onMessage={() => setMessageOpen(true)}
+        profileName={profileName}
+        offer={selected}
+        zIndex={detailZ}
+      />
       <DmComposeSheet
         open={messageOpen}
         peerAccountId={accountId}
         peerName={profileName}
         mood={mood}
-        zIndex={Math.max(zIndex + 2, SHEET_Z.nested)}
+        zIndex={detailZ + 2}
         onClose={() => setMessageOpen(false)}
       />
     </>

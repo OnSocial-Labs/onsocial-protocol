@@ -5,6 +5,8 @@ import {
   createOfferId,
   normalizeOfferLine,
   normalizeOfferUrl,
+  offerLineAriaLabel,
+  offerLineLabel,
   offerMaxForKind,
   parseOfferKeyEntry,
   sortOffers,
@@ -39,11 +41,16 @@ describe('offers builder', () => {
     expect(buildOfferRemoveData('o-1')).toEqual({ 'offers/o-1': null });
   });
 
-  it('caps a person at one offer and an org at three', () => {
-    expect(offerMaxForKind('person')).toBe(1);
-    expect(offerMaxForKind(null)).toBe(1);
-    expect(offerMaxForKind('org')).toBe(3);
+  it('lets a person and an org keep the same short list', () => {
+    expect(offerMaxForKind('person')).toBe(8);
+    expect(offerMaxForKind(null)).toBe(8);
+    expect(offerMaxForKind('org')).toBe(8);
     expect(offerMaxForKind('dao')).toBe(0);
+    expect(offerLineLabel(0)).toBe('Offers');
+    expect(offerLineLabel(1)).toBe('Offers');
+    expect(offerLineLabel(3)).toBe('Offers · 3');
+    expect(offerLineAriaLabel(1)).toBe('View offers');
+    expect(offerLineAriaLabel(3)).toBe('View 3 offers');
   });
 
   it('reads a chain key into a record and keeps the oldest first', () => {

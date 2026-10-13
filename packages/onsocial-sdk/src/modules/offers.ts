@@ -7,6 +7,7 @@ import {
   buildOfferRemoveData,
   buildOfferSetData,
   createOfferId,
+  OFFER_MAX,
   offerMaxForKind,
   parseOfferKeyEntry,
   sortOffers,
@@ -24,7 +25,7 @@ export class OffersModule {
     if (!id) return [];
     const entries = await this._social.listKeys({
       prefix: `${id}/offers/`,
-      limit: 8,
+      limit: OFFER_MAX,
       withValues: true,
     });
     const offers = entries

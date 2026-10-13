@@ -2,7 +2,7 @@
 
 /**
  * Org meta in Edit profile — one face-matching line:
- * industry · location · Hiring. Each segment opens a drawer/sheet.
+ * industry · location · Offers · Hiring. Each segment opens a drawer.
  */
 
 import { useEffect, useId, useRef, useState } from 'react';
@@ -11,6 +11,8 @@ import {
   PROFILE_LOCATION_MAX,
   hiringLineAriaLabel,
   hiringLineLabel,
+  offerLineAriaLabel,
+  offerLineLabel,
   isProfileIndustryWriteIn,
   matchProfileIndustryOption,
   normalizeProfileIndustryInput,
@@ -76,7 +78,7 @@ export function ProfileOrgMetaEditor({
   const [hiringOpen, setHiringOpen] = useState(false);
   const [offerOpen, setOfferOpen] = useState(false);
   const [jobCount, setJobCount] = useState(0);
-  const [offerLabel, setOfferLabel] = useState('Offer');
+  const [offerCount, setOfferCount] = useState(0);
 
   useEffect(() => {
     if (!showHiring) return;
@@ -93,15 +95,7 @@ export function ProfileOrgMetaEditor({
     if (!showHiring) return;
     let cancelled = false;
     void fetchAccountOffers(accountId).then((offers) => {
-      if (cancelled) return;
-      const first = offers[0]?.title?.trim();
-      setOfferLabel(
-        offers.length === 0
-          ? 'Offer'
-          : offers.length === 1 && first
-            ? first
-            : `Offers · ${offers.length}`
-      );
+      if (!cancelled) setOfferCount(offers.length);
     });
     return () => {
       cancelled = true;
@@ -123,14 +117,7 @@ export function ProfileOrgMetaEditor({
       const detail = (event as CustomEvent<{ accountId?: string }>).detail;
       if (detail?.accountId && detail.accountId !== accountId) return;
       void fetchAccountOffers(accountId).then((offers) => {
-        const first = offers[0]?.title?.trim();
-        setOfferLabel(
-          offers.length === 0
-            ? 'Offer'
-            : offers.length === 1 && first
-              ? first
-              : `Offers · ${offers.length}`
-        );
+        setOfferCount(offers.length);
       });
     };
     window.addEventListener(OFFERS_CHANGED_EVENT, onChange);
@@ -145,6 +132,7 @@ export function ProfileOrgMetaEditor({
   const industryLabel = industry.trim() || emptyIndustryLabel;
   const locationLabel = location.trim() || 'Location';
   const hiringLabel = hiringLineLabel(jobCount);
+  const offerLabel = offerLineLabel(offerCount);
 
   const handleIndustryChoice = (next: string) => {
     if (isProfileIndustryWriteIn(next)) {
@@ -227,6 +215,24 @@ export function ProfileOrgMetaEditor({
             </span>
             <button
               type="button"
+              className="portfolio-org-meta-offers"
+              disabled={disabled}
+              aria-haspopup="dialog"
+              aria-expanded={offerOpen}
+              aria-label={
+                offerCount > 0
+                  ? offerLineAriaLabel(offerCount)
+                  : 'Manage offers'
+              }
+              onClick={() => setOfferOpen(true)}
+            >
+              {offerLabel}
+            </button>
+            <span className="portfolio-org-meta-sep" aria-hidden>
+              ·
+            </span>
+            <button
+              type="button"
               className="portfolio-org-meta-hiring"
               disabled={disabled}
               aria-haspopup="dialog"
@@ -237,20 +243,6 @@ export function ProfileOrgMetaEditor({
               onClick={() => setHiringOpen(true)}
             >
               {hiringLabel}
-            </button>
-            <span className="portfolio-org-meta-sep" aria-hidden>
-              ·
-            </span>
-            <button
-              type="button"
-              className="portfolio-org-meta-hiring"
-              disabled={disabled}
-              aria-haspopup="dialog"
-              aria-expanded={offerOpen}
-              aria-label={offerLabel === 'Offer' ? 'Manage offers' : offerLabel}
-              onClick={() => setOfferOpen(true)}
-            >
-              {offerLabel}
             </button>
           </>
         ) : null}

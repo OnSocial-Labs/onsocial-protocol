@@ -5,8 +5,7 @@ import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kin
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { PortfolioDepthLinks } from '@/components/portfolio/portfolio-depth-links';
 import { PortfolioFaceBio } from '@/components/portfolio/portfolio-face-bio';
-import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
-import { PortfolioOfferLines } from '@/components/portfolio/portfolio-offer-lines';
+import { PortfolioOffersLine } from '@/components/portfolio/portfolio-offers-line';
 import { PortfolioOrgMetaLine } from '@/components/portfolio/portfolio-org-meta-line';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
@@ -145,6 +144,7 @@ export function PortfolioIdentity({
             industry={industry}
             location={locationLabel}
             initialJobs={openJobs}
+            mood={mood}
           />
         ) : displayKind === 'dao' ? (
           <PortfolioOrgMetaLine
@@ -153,20 +153,17 @@ export function PortfolioIdentity({
             industry={industry}
             location={locationLabel}
             showHiring={false}
+            showOffers={false}
             emptyIndustryLabel={null}
             kindLine="dao"
           />
-        ) : locationLabel ? (
-          <p className="portfolio-location">
-            <PortfolioLocationMark />
-            <span>{locationLabel}</span>
-          </p>
-        ) : null}
-        {displayKind === 'dao' ? null : (
-          <PortfolioOfferLines
+        ) : (
+          <PortfolioOffersLine
             accountId={accountId}
             profileName={titleLabel}
             mood={mood}
+            locationLabel={locationLabel}
+            kind="person"
           />
         )}
         {summary ? (

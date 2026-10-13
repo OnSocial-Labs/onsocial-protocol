@@ -1,6 +1,7 @@
 // ---------------------------------------------------------------------------
 // builders/offers — standing services (`offers/<offerId>`)
-// A person keeps one. An org keeps a short list. No close date.
+// A person and an org keep the same short list. A DAO offers nothing.
+// No close date.
 // ---------------------------------------------------------------------------
 
 import type { ProfileKind } from '../schema/v1.js';
@@ -12,8 +13,8 @@ export const OFFER_TITLE_MAX = 80;
 /** One line under the title. */
 export const OFFER_LINE_MAX = 140;
 export const OFFER_URL_MAX = 512;
-export const OFFER_MAX_PERSON = 1;
-export const OFFER_MAX_ORG = 3;
+/** Shared ceiling for a person and an org. One read already returns this many. */
+export const OFFER_MAX = 8;
 
 export interface OfferBuildInput {
   title: string;
@@ -34,9 +35,18 @@ export interface OfferRecord {
 }
 
 export function offerMaxForKind(kind?: ProfileKind | null): number {
-  if (kind === 'org') return OFFER_MAX_ORG;
   if (kind === 'dao') return 0;
-  return OFFER_MAX_PERSON;
+  return OFFER_MAX;
+}
+
+/** Quiet face line: `Offers` for one, `Offers · N` after that. */
+export function offerLineLabel(count: number): string {
+  if (count <= 1) return 'Offers';
+  return `Offers · ${count}`;
+}
+
+export function offerLineAriaLabel(count: number): string {
+  return count <= 1 ? 'View offers' : `View ${count} offers`;
 }
 
 export function normalizeOfferTitle(raw: string): string {

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useId, useState } from 'react';
 import {
+  offerLineLabel,
+  offerMaxForKind,
   OFFER_LINE_MAX,
   OFFER_TITLE_MAX,
   OFFER_URL_MAX,
@@ -46,18 +48,23 @@ export function ProfileOffersEditor({
   accountId,
   kind,
   disabled = false,
-  /** Org meta row owns the trigger. */
+  /** Meta row owns the trigger. */
   sheetOnly = false,
+  /** · Offers on an existing editor row. */
+  inline = false,
   open: openProp,
   onOpenChange,
+  onPreviewVisitors,
   triggerClassName,
 }: {
   accountId: string;
   kind: ProfileKind | null;
   disabled?: boolean;
   sheetOnly?: boolean;
+  inline?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  onPreviewVisitors?: () => void;
   triggerClassName?: string;
 }) {
   const formId = useId();
@@ -72,7 +79,7 @@ export function ProfileOffersEditor({
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [removeId, setRemoveId] = useState<string | null>(null);
-  const max = kind === 'org' ? 3 : kind === 'dao' ? 0 : 1;
+  const max = offerMaxForKind(kind);
   const sheetOpen = openProp ?? uncontrolledOpen;
   const setSheetOpen = onOpenChange ?? setUncontrolledOpen;
 
@@ -83,6 +90,16 @@ export function ProfileOffersEditor({
   useEffect(() => {
     reload();
   }, [reload]);
+
+  useEffect(() => {
+    if (sheetOpen) return;
+    setFormOpen(false);
+    setEditingId(null);
+    setTitle('');
+    setLine('');
+    setUrl('');
+    setRemoveId(null);
+  }, [sheetOpen]);
 
   useEffect(() => {
     const onChange = (event: Event) => {
@@ -110,21 +127,14 @@ export function ProfileOffersEditor({
   };
 
   const openCreate = () => {
+    if (offers.length >= max) return;
     resetForm();
     setFormOpen(true);
   };
 
-  const openSheet = () => {
-    if (max <= 1) {
-      const existing = offers[0];
-      if (existing) openEdit(existing);
-      else openCreate();
-    }
-    setSheetOpen(true);
-  };
-
   const urlInvalid = url.trim().length > 0 && !normalizeOfferUrl(url);
   const canSave = title.trim().length > 0 && !urlInvalid && !busy;
+  const canAdd = offers.length < max && !busy && !disabled;
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -149,7 +159,6 @@ export function ProfileOffersEditor({
       if (confirmed) {
         resetForm();
         setFormOpen(false);
-        if (max <= 1) setSheetOpen(false);
         notifyOffersChanged(accountId);
         reload();
       }
@@ -176,7 +185,6 @@ export function ProfileOffersEditor({
         setRemoveId(null);
         resetForm();
         setFormOpen(false);
-        if (max <= 1) setSheetOpen(false);
         notifyOffersChanged(accountId);
         reload();
       }
@@ -189,13 +197,6 @@ export function ProfileOffersEditor({
   };
 
   if (max === 0) return null;
-
-  const triggerLabel =
-    offers.length === 0
-      ? 'Offer'
-      : offers.length === 1
-        ? offers[0]!.title
-        : `Offers · ${offers.length}`;
 
   const form = (
     <form
@@ -247,160 +248,145 @@ export function ProfileOffersEditor({
   );
 
   const list =
-    max <= 1 ? (
-      form
+    offers.length === 0 ? (
+      <p className="app-storage-meta">No offers yet.</p>
     ) : (
-      <>
-        {offers.length === 0 ? (
-          <p className="app-storage-meta">No offer yet.</p>
-        ) : (
-          <ul className="portfolio-hiring-list">
-            {offers.map((offer, index) => (
-              <li key={offer.offerId} className="portfolio-hiring-item">
-                {index > 0 ? <Divider variant="item" /> : null}
-                <button
-                  type="button"
-                  className="account-editor-hiring-row"
-                  disabled={busy}
-                  onClick={() => openEdit(offer)}
-                >
-                  <p className="portfolio-hiring-title">{offer.title}</p>
-                  {offer.line || offer.url ? (
-                    <p className="portfolio-hiring-meta">
-                      {offer.line ? <span>{offer.line}</span> : null}
-                      {offer.line && offer.url ? (
-                        <span className="portfolio-hiring-meta-sep" aria-hidden>
-                          ·
-                        </span>
-                      ) : null}
-                      {offer.url ? <span>{offerHost(offer.url)}</span> : null}
-                    </p>
+      <ul className="portfolio-hiring-list">
+        {offers.map((offer, index) => (
+          <li key={offer.offerId} className="portfolio-hiring-item">
+            {index > 0 ? <Divider variant="item" /> : null}
+            <button
+              type="button"
+              className="account-editor-hiring-row"
+              disabled={busy}
+              onClick={() => openEdit(offer)}
+            >
+              <p className="portfolio-hiring-title">{offer.title}</p>
+              {offer.line || offer.url ? (
+                <p className="portfolio-hiring-meta">
+                  {offer.line ? <span>{offer.line}</span> : null}
+                  {offer.line && offer.url ? (
+                    <span className="portfolio-hiring-meta-sep" aria-hidden>
+                      ·
+                    </span>
                   ) : null}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {offers.length < max ? (
-          <button
-            type="button"
-            className="account-editor-jobs-add"
-            disabled={busy}
-            onClick={openCreate}
-          >
-            Add offer
-          </button>
-        ) : null}
-      </>
+                  {offer.url ? <span>{offerHost(offer.url)}</span> : null}
+                </p>
+              ) : null}
+            </button>
+          </li>
+        ))}
+      </ul>
     );
+
+  const trigger = (
+    <button
+      type="button"
+      className={triggerClassName ?? 'portfolio-org-meta-offers'}
+      disabled={disabled}
+      aria-haspopup="dialog"
+      aria-expanded={sheetOpen}
+      aria-label={
+        offers.length === 0 ? 'Manage offers' : offerLineLabel(offers.length)
+      }
+      onClick={() => setSheetOpen(true)}
+    >
+      {offerLineLabel(offers.length)}
+    </button>
+  );
 
   return (
     <>
-      {sheetOnly ? null : (
-        <button
-          type="button"
-          className={
-            triggerClassName ??
-            'portfolio-location portfolio-offer account-editor-offer-trigger'
-          }
-          disabled={disabled}
-          aria-haspopup="dialog"
-          aria-expanded={sheetOpen}
-          onClick={openSheet}
-        >
-          <span
-            className={
-              offers.length === 0
-                ? 'account-editor-org-meta-placeholder'
-                : undefined
-            }
-          >
-            {triggerLabel}
+      {sheetOnly ? null : inline ? (
+        <>
+          <span className="portfolio-org-meta-sep" aria-hidden>
+            ·
           </span>
-        </button>
+          {trigger}
+        </>
+      ) : (
+        trigger
       )}
 
       <OsHugSheet
-        open={sheetOpen && (max <= 1 || !formOpen)}
+        open={sheetOpen}
         onClose={() => {
-          if (!busy) setSheetOpen(false);
+          if (!busy && !formOpen && removeId == null) setSheetOpen(false);
         }}
-        label={max <= 1 ? 'Offer' : 'Offers'}
-        closeAriaLabel="Close offer"
-        backdropLabel="Close offer"
+        label="Offers"
+        closeAriaLabel="Close offers"
+        backdropLabel="Close offers"
         zIndex={SHEET_Z.confirm}
         footer={
-          max <= 1 ? (
-            <OsSheetFooter>
-              <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-                {editingId ? (
-                  <OsSheetAction
-                    type="button"
-                    disabled={busy}
-                    onClick={() => setRemoveId(editingId)}
-                  >
-                    Remove
-                  </OsSheetAction>
-                ) : null}
+          <OsSheetFooter>
+            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+              {onPreviewVisitors ? (
                 <OsSheetAction
-                  type="submit"
-                  form={formId}
-                  variant="primary"
-                  ready={canSave}
-                  pending={busy}
-                  pendingLabel="Saving…"
-                  disabled={!canSave}
+                  type="button"
+                  variant="ghost"
+                  ready={offers.length > 0}
+                  disabled={offers.length === 0 || busy}
+                  onClick={onPreviewVisitors}
                 >
-                  Save
+                  Preview
                 </OsSheetAction>
-              </OsSheetActions>
-            </OsSheetFooter>
-          ) : undefined
+              ) : null}
+              <OsSheetAction
+                type="button"
+                variant="primary"
+                ready={canAdd}
+                disabled={!canAdd}
+                onClick={openCreate}
+              >
+                Add offer
+              </OsSheetAction>
+            </OsSheetActions>
+          </OsSheetFooter>
         }
       >
         {list}
       </OsHugSheet>
 
-      {max > 1 ? (
-        <OsHugSheet
-          open={sheetOpen && formOpen}
-          onClose={() => {
-            if (!busy) setFormOpen(false);
-          }}
-          label={editingId ? 'Edit offer' : 'Offer'}
-          closeAriaLabel="Close offer"
-          backdropLabel="Close offer"
-          zIndex={SHEET_Z.overlayNested}
-          footer={
-            <OsSheetFooter>
-              <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-                {editingId ? (
-                  <OsSheetAction
-                    type="button"
-                    disabled={busy}
-                    onClick={() => setRemoveId(editingId)}
-                  >
-                    Remove
-                  </OsSheetAction>
-                ) : null}
+      <OsHugSheet
+        open={sheetOpen && formOpen}
+        onClose={() => {
+          if (!busy) setFormOpen(false);
+        }}
+        label={editingId ? 'Edit offer' : 'New offer'}
+        closeAriaLabel="Close offer"
+        backdropLabel="Close offer"
+        zIndex={SHEET_Z.overlayNested}
+        footer={
+          <OsSheetFooter>
+            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+              {editingId ? (
                 <OsSheetAction
-                  type="submit"
-                  form={formId}
-                  variant="primary"
-                  ready={canSave}
-                  pending={busy}
-                  pendingLabel="Saving…"
-                  disabled={!canSave}
+                  type="button"
+                  variant="danger"
+                  ready={!busy}
+                  disabled={busy}
+                  onClick={() => setRemoveId(editingId)}
                 >
-                  Save
+                  Remove
                 </OsSheetAction>
-              </OsSheetActions>
-            </OsSheetFooter>
-          }
-        >
-          {form}
-        </OsHugSheet>
-      ) : null}
+              ) : null}
+              <OsSheetAction
+                type="submit"
+                form={formId}
+                variant="primary"
+                ready={canSave}
+                pending={busy}
+                pendingLabel="Saving…"
+                disabled={!canSave}
+              >
+                Save
+              </OsSheetAction>
+            </OsSheetActions>
+          </OsSheetFooter>
+        }
+      >
+        {form}
+      </OsHugSheet>
 
       <DiscardConfirmSheet
         open={removeId != null}

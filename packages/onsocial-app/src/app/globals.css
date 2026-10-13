@@ -9781,8 +9781,7 @@ a.os-surface-row {
     color: inherit;
   }
 
-  button.portfolio-hiring,
-  button.portfolio-offer {
+  button.portfolio-hiring {
     appearance: none;
     background: none;
     border: 0;
@@ -9793,13 +9792,12 @@ a.os-surface-row {
   }
 
   button.portfolio-hiring:hover,
-  button.portfolio-hiring:focus-visible,
-  button.portfolio-offer:hover,
-  button.portfolio-offer:focus-visible {
+  button.portfolio-hiring:focus-visible {
     opacity: 1;
   }
 
-  button.portfolio-org-meta-hiring {
+  button.portfolio-org-meta-hiring,
+  button.portfolio-org-meta-offers {
     appearance: none;
     background: none;
     border: 0;
@@ -9815,8 +9813,16 @@ a.os-surface-row {
   }
 
   button.portfolio-org-meta-hiring:hover,
-  button.portfolio-org-meta-hiring:focus-visible {
+  button.portfolio-org-meta-hiring:focus-visible,
+  button.portfolio-org-meta-offers:hover,
+  button.portfolio-org-meta-offers:focus-visible {
     color: var(--signal-reputation, var(--protocol-green, #00ec97));
+  }
+
+  button.portfolio-org-meta-hiring:disabled,
+  button.portfolio-org-meta-offers:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
 
   .portfolio-hiring-list {
@@ -10058,7 +10064,8 @@ a.os-surface-row {
   }
 
   button.account-editor-org-meta-part:disabled,
-  .account-editor-org-meta button.portfolio-org-meta-hiring:disabled {
+  .account-editor-org-meta button.portfolio-org-meta-hiring:disabled,
+  .account-editor-org-meta button.portfolio-org-meta-offers:disabled {
     opacity: 0.45;
     cursor: not-allowed;
   }
@@ -10066,7 +10073,9 @@ a.os-surface-row {
   .account-editor-org-meta button.account-editor-org-meta-part:hover,
   .account-editor-org-meta button.account-editor-org-meta-part:focus-visible,
   .account-editor-org-meta button.portfolio-org-meta-hiring:hover,
-  .account-editor-org-meta button.portfolio-org-meta-hiring:focus-visible {
+  .account-editor-org-meta button.portfolio-org-meta-hiring:focus-visible,
+  .account-editor-org-meta button.portfolio-org-meta-offers:hover,
+  .account-editor-org-meta button.portfolio-org-meta-offers:focus-visible {
     color: var(--signal-reputation, var(--protocol-green, #00ec97));
   }
 
@@ -10080,7 +10089,8 @@ a.os-surface-row {
   }
 
   button.account-editor-org-meta-part:focus-visible,
-  .account-editor-org-meta button.portfolio-org-meta-hiring:focus-visible {
+  .account-editor-org-meta button.portfolio-org-meta-hiring:focus-visible,
+  .account-editor-org-meta button.portfolio-org-meta-offers:focus-visible {
     outline: none;
   }
 
@@ -18833,23 +18843,25 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.42);
   }
 
-  .portfolio-offer-lines {
+  .portfolio-offer-detail {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
+    gap: 0.85rem;
+    text-align: left;
   }
 
   .portfolio-offer-line {
     margin: 0;
-    font-size: 0.92rem;
-    line-height: 1.45;
+    font-size: 0.95rem;
+    line-height: 1.55;
   }
 
   .portfolio-offer-link {
-    display: inline-block;
-    margin-top: 0.65rem;
-    font-size: 0.78rem;
-    color: rgb(var(--fg-rgb) / 0.62);
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: var(--mood-muted, hsl(var(--muted-foreground)));
+    text-decoration: none;
   }
 
   .standing-row-bio .os-hashtag,
@@ -21477,11 +21489,20 @@ a.os-surface-row {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-wrap: wrap;
     gap: 0.28em;
     width: 100%;
     max-width: min(100%, 20rem);
     margin: 0.15rem auto 0;
     color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .account-editor-location-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28em;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .account-editor-industry-trigger,
