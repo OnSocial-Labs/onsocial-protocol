@@ -48868,6 +48868,13 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     color: var(--os-surface-muted);
   }
 
+  /* One seat per face so pointing at it can rest the face and its line together. */
+  .network-orbit-seat {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
   /* Spokes — rotated wrapper at the stage center, line inside. */
 
   .network-orbit-spoke {
@@ -48918,6 +48925,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     touch-action: manipulation;
     text-decoration: none;
     opacity: var(--orbit-rest-opacity);
+    pointer-events: auto;
     transition: opacity 0.22s ease;
     animation-name: network-orbit-fade-in, network-orbit-idle-node;
     animation-duration: 0.22s, var(--idle-duration, 5.5s);

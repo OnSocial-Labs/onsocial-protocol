@@ -70,8 +70,9 @@ interface NetworkOrbitContextValue {
   totalUnique: number;
   placedNodes: OrbitPlacedNode[];
   stageSize: number | null;
-  /** Stage's horizontal offset inside the clipping wrap (stage is centered). */
+  /** Stage's offset inside the clipping wrap (stage is centered). */
   stageInsetX: number;
+  stageInsetY: number;
   stageWrapRef: RefObject<HTMLDivElement | null>;
   isDimmed: (account: NetworkAccount) => boolean;
   searchActive: boolean;
@@ -104,6 +105,11 @@ export function useNetworkOrbit(): NetworkOrbitContextValue {
     throw new Error('useNetworkOrbit must be used within NetworkOrbitProvider');
   }
   return ctx;
+}
+
+function wrapInset(wrap: number | null, stage: number | null): number {
+  if (wrap == null || stage == null) return 12;
+  return (wrap - stage) / 2;
 }
 
 function sampleCounts(accounts: NetworkAccount[]): NetworkStandingCounts {
@@ -177,6 +183,7 @@ export function NetworkOrbitProvider({
   const personalizeAttemptedRef = useRef<string | null>(null);
   const [stageSize, setStageSize] = useState<number | null>(null);
   const [wrapWidth, setWrapWidth] = useState<number | null>(null);
+  const [wrapHeight, setWrapHeight] = useState<number | null>(null);
   const stageWrapRef = useRef<HTMLDivElement>(null);
   const latestSearchLoadRef = useRef(0);
 
@@ -434,6 +441,9 @@ export function NetworkOrbitProvider({
     const update = () => {
       setStageSize(orbitFitStageSize(el.clientWidth, el.clientHeight));
       setWrapWidth((prev) => (prev === el.clientWidth ? prev : el.clientWidth));
+      setWrapHeight((prev) =>
+        prev === el.clientHeight ? prev : el.clientHeight
+      );
     };
     update();
     const observer = new ResizeObserver(update);
@@ -502,10 +512,8 @@ export function NetworkOrbitProvider({
     placedNodes,
     stageSize,
     // Before the wrap measures, assume the minimum inset the layout guarantees.
-    stageInsetX:
-      stageSize == null || wrapWidth === null
-        ? 12
-        : Math.max(12, (wrapWidth - stageSize) / 2),
+    stageInsetX: wrapInset(wrapWidth, stageSize),
+    stageInsetY: wrapInset(wrapHeight, stageSize),
     stageWrapRef,
     isDimmed,
     searchActive,

@@ -54,6 +54,34 @@ function nodeDrift(
   return orbitNodeDrift(stageSize, node.size, index);
 }
 
+/** Hold the glide where it is so the name stays put, then let it resume. */
+function idleMotion(el: Element): CSSAnimation | null {
+  for (const anim of el.getAnimations()) {
+    if (
+      anim instanceof CSSAnimation &&
+      (anim.animationName === 'network-orbit-idle-node' ||
+        anim.animationName === 'network-orbit-idle-line')
+    ) {
+      return anim;
+    }
+  }
+  return null;
+}
+
+function settleSeat(seat: Element, held: boolean) {
+  for (const el of seat.querySelectorAll(
+    '.network-orbit-node, .network-orbit-spoke-line'
+  )) {
+    const idle = idleMotion(el);
+    if (!idle) continue;
+    if (held) {
+      idle.pause();
+    } else if (idle.playState === 'paused') {
+      idle.play();
+    }
+  }
+}
+
 function OrbitSpoke({
   node,
   index,
@@ -123,8 +151,14 @@ function OrbitNode({
   dimmed: boolean;
   stageSize: number;
 }) {
-  const { stageInsetX, displayName, isSelf, openSubject, placedNodes } =
-    useNetworkOrbit();
+  const {
+    stageInsetX,
+    stageInsetY,
+    displayName,
+    isSelf,
+    openSubject,
+    placedNodes,
+  } = useNetworkOrbit();
   const motion = nodeMotion(index);
   const label = nodeLabel(node.account);
   const layout = orbitStageLayout(stageSize);
@@ -147,6 +181,7 @@ function OrbitNode({
     unitY: node.unitY,
     stageSize,
     stageInsetX,
+    stageInsetY,
     label: endorsed && label.length < 'Endorsed'.length ? 'Endorsed' : label,
     labelHeight: endorsed ? ORBIT_ENDORSED_LABEL_HEIGHT_PX : undefined,
     obstacles: [
@@ -164,6 +199,14 @@ function OrbitNode({
         })),
     ],
   });
+
+  const settleHere = (event: {
+    currentTarget: EventTarget & HTMLAnchorElement;
+  }) => {
+    const seat = event.currentTarget.closest('.network-orbit-seat');
+    if (!seat) return;
+    settleSeat(seat, event.currentTarget.matches(':hover, :focus-visible'));
+  };
 
   const openHere = (event: MouseEvent<HTMLAnchorElement>) => {
     if (
@@ -184,6 +227,10 @@ function OrbitNode({
       href={networkPath(node.account.accountId)}
       scroll={false}
       onClick={openHere}
+      onPointerEnter={settleHere}
+      onPointerLeave={settleHere}
+      onFocus={settleHere}
+      onBlur={settleHere}
       className={`network-orbit-node${
         node.account.kind === 'mutual' ? ' network-orbit-node--mutual' : ''
       }${dimmed ? ' is-dimmed' : ''}`}
@@ -426,22 +473,20 @@ export function NetworkOrbitContent() {
             style={{ width: cssPx(stageSize), height: cssPx(stageSize) }}
           >
             {placedNodes.map((node, index) => (
-              <OrbitSpoke
-                key={`spoke-${node.account.accountId}`}
-                node={node}
-                index={index}
-                dimmed={isDimmed(node.account)}
-                stageSize={stageSize}
-              />
-            ))}
-            {placedNodes.map((node, index) => (
-              <OrbitNode
-                key={node.account.accountId}
-                node={node}
-                index={index}
-                dimmed={isDimmed(node.account)}
-                stageSize={stageSize}
-              />
+              <div className="network-orbit-seat" key={node.account.accountId}>
+                <OrbitSpoke
+                  node={node}
+                  index={index}
+                  dimmed={isDimmed(node.account)}
+                  stageSize={stageSize}
+                />
+                <OrbitNode
+                  node={node}
+                  index={index}
+                  dimmed={isDimmed(node.account)}
+                  stageSize={stageSize}
+                />
+              </div>
             ))}
             <OrbitCenter stageSize={stageSize} />
           </div>

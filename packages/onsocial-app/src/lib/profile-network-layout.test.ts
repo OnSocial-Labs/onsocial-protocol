@@ -307,6 +307,30 @@ describe('orbitLabelOffset', () => {
     expect(endorsed.y).toBeLessThan(name.y);
   });
 
+  it('keeps a long name inside the wrap at the screen edge', () => {
+    const stageSize = 276;
+    const stageInsetX = 12;
+    const label = 'Playground test02_onsocial';
+    const nodeX = 248;
+    const offset = orbitLabelOffset({
+      x: nodeX,
+      y: 138,
+      size: 30,
+      unitX: 1,
+      unitY: 0,
+      stageSize,
+      stageInsetX,
+      stageInsetY: 80,
+      label,
+      obstacles: [{ x: 138, y: 138, radius: 42 }],
+    });
+    const halfW = Math.min(140, label.length * 5.5 + 18) / 2;
+    expect(nodeX + offset.x - halfW).toBeGreaterThanOrEqual(8 - stageInsetX);
+    expect(nodeX + offset.x + halfW).toBeLessThanOrEqual(
+      stageSize + stageInsetX - 8
+    );
+  });
+
   it('moves a name off the center and off neighboring faces', () => {
     const names = [
       'Playground test02_onsocial',
@@ -344,6 +368,7 @@ describe('orbitLabelOffset', () => {
           unitY: node.unitY,
           stageSize,
           stageInsetX: 12,
+          stageInsetY: 160,
           label,
           obstacles: [
             {
@@ -367,6 +392,12 @@ describe('orbitLabelOffset', () => {
           top: node.y + offset.y - 11,
           bottom: node.y + offset.y + 11,
         };
+        expect(rect.left, `${label} on ${stageSize}`).toBeGreaterThanOrEqual(
+          8 - 12
+        );
+        expect(rect.right, `${label} on ${stageSize}`).toBeLessThanOrEqual(
+          stageSize + 12 - 8
+        );
         const faces = [
           {
             x: layout.center,

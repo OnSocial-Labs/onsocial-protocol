@@ -490,27 +490,73 @@ function labelRect(
   };
 }
 
-function clampLabelX(
-  offsetX: number,
-  nodeX: number,
-  halfW: number,
+function labelClipBounds(
   stageSize: number,
-  stageInsetX: number
-): number {
-  const leftBound = LABEL_EDGE_PAD_PX - stageInsetX;
-  const rightBound = stageSize + stageInsetX - LABEL_EDGE_PAD_PX;
+  stageInsetX: number,
+  stageInsetY: number
+) {
+  return {
+    left: LABEL_EDGE_PAD_PX - stageInsetX,
+    right: stageSize + stageInsetX - LABEL_EDGE_PAD_PX,
+    top: LABEL_EDGE_PAD_PX - stageInsetY,
+    bottom: stageSize + stageInsetY - LABEL_EDGE_PAD_PX,
+  };
+}
+
+/** Pull a chip back inside the wrap. The wrap is what clips the screen edge. */
+function clampLabelOffset(
+  offsetX: number,
+  offsetY: number,
+  nodeX: number,
+  nodeY: number,
+  halfW: number,
+  halfH: number,
+  bounds: { left: number; right: number; top: number; bottom: number }
+): { x: number; y: number } {
   let x = offsetX;
-  const left = nodeX + x - halfW;
-  const right = nodeX + x + halfW;
-  if (left < leftBound) x += leftBound - left;
-  if (right > rightBound) x -= right - rightBound;
-  return x;
+  let y = offsetY;
+  const roomX = bounds.right - bounds.left;
+  const roomY = bounds.bottom - bounds.top;
+  if (halfW * 2 >= roomX) {
+    x = (bounds.left + bounds.right) / 2 - nodeX;
+  } else {
+    const left = nodeX + x - halfW;
+    if (left < bounds.left) x += bounds.left - left;
+    const right = nodeX + x + halfW;
+    if (right > bounds.right) x -= right - bounds.right;
+  }
+  if (halfH * 2 >= roomY) {
+    y = (bounds.top + bounds.bottom) / 2 - nodeY;
+  } else {
+    const top = nodeY + y - halfH;
+    if (top < bounds.top) y += bounds.top - top;
+    const bottom = nodeY + y + halfH;
+    if (bottom > bounds.bottom) y -= bottom - bounds.bottom;
+  }
+  return { x, y };
+}
+
+/** Round the offset, then step back inside if rounding crossed the wrap. */
+function snapInside(
+  offset: number,
+  node: number,
+  half: number,
+  boundStart: number,
+  boundEnd: number
+): number {
+  let value = Math.round(offset);
+  const start = node + value - half;
+  if (start < boundStart) value += Math.ceil(boundStart - start);
+  const end = node + value + half;
+  if (end > boundEnd) value -= Math.ceil(end - boundEnd);
+  return value;
 }
 
 /**
  * Where the name chip sits relative to its avatar center.
  * Prefer directly above the face. If that chip would cross the center
  * or another avatar, walk outward along the spoke until the chip is clear.
+ * Every accepted spot stays inside the wrap, so the screen edge cannot cut it.
  */
 export function orbitLabelOffset({
   x,
@@ -520,6 +566,7 @@ export function orbitLabelOffset({
   unitY,
   stageSize,
   stageInsetX,
+  stageInsetY = stageInsetX,
   label,
   labelHeight = LABEL_HEIGHT_PX,
   obstacles,
@@ -531,6 +578,7 @@ export function orbitLabelOffset({
   unitY: number;
   stageSize: number;
   stageInsetX: number;
+  stageInsetY?: number;
   label: string;
   labelHeight?: number;
   obstacles: readonly OrbitLabelObstacle[];
@@ -538,6 +586,7 @@ export function orbitLabelOffset({
   const halfW = labelHalfWidth(label);
   const halfH = labelHeight / 2;
   const clear = size / 2 + LABEL_GAP_PX;
+  const bounds = labelClipBounds(stageSize, stageInsetX, stageInsetY);
   const faces = [
     { x, y, radius: size / 2 + LABEL_FACE_PAD_PX },
     ...obstacles.map((obstacle) => ({
@@ -548,8 +597,39 @@ export function orbitLabelOffset({
   ];
 
   const place = (offsetX: number, offsetY: number): OrbitLabelOffset => {
-    const xClamped = clampLabelX(offsetX, x, halfW, stageSize, stageInsetX);
-    return { x: Math.round(xClamped), y: Math.round(offsetY) };
+    const clamped = clampLabelOffset(
+      offsetX,
+      offsetY,
+      x,
+      y,
+      halfW,
+      halfH,
+      bounds
+    );
+    return {
+      x: snapInside(clamped.x, x, halfW, bounds.left, bounds.right),
+      y: snapInside(clamped.y, y, halfH, bounds.top, bounds.bottom),
+    };
+  };
+
+  const hitsFor = (offset: OrbitLabelOffset): number => {
+    const rect = labelRect(x, y, offset.x, offset.y, halfW, halfH);
+    return faces.reduce(
+      (count, face) =>
+        count +
+        (circleHitsRect(
+          face.x,
+          face.y,
+          face.radius,
+          rect.left,
+          rect.top,
+          rect.right,
+          rect.bottom
+        )
+          ? 1
+          : 0),
+      0
+    );
   };
 
   const raw: Array<{ x: number; y: number }> = [{ x: 0, y: -(clear + halfH) }];
@@ -567,34 +647,14 @@ export function orbitLabelOffset({
   }
 
   let fallback = place(0, -(clear + halfH));
-  let fallbackHits = Number.POSITIVE_INFINITY;
+  let fallbackHits = hitsFor(fallback);
   for (const candidate of raw) {
-    for (const clamp of [true, false]) {
-      const offset = clamp
-        ? place(candidate.x, candidate.y)
-        : { x: Math.round(candidate.x), y: Math.round(candidate.y) };
-      const rect = labelRect(x, y, offset.x, offset.y, halfW, halfH);
-      const hits = faces.reduce(
-        (count, face) =>
-          count +
-          (circleHitsRect(
-            face.x,
-            face.y,
-            face.radius,
-            rect.left,
-            rect.top,
-            rect.right,
-            rect.bottom
-          )
-            ? 1
-            : 0),
-        0
-      );
-      if (hits === 0) return offset;
-      if (clamp && hits < fallbackHits) {
-        fallbackHits = hits;
-        fallback = offset;
-      }
+    const offset = place(candidate.x, candidate.y);
+    const hits = hitsFor(offset);
+    if (hits === 0) return offset;
+    if (hits < fallbackHits) {
+      fallbackHits = hits;
+      fallback = offset;
     }
   }
   return fallback;
