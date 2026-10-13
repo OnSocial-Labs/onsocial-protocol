@@ -39,6 +39,9 @@ test.describe('discover shell', () => {
     await expectTabVisible(page, 'Filter profiles', 'Orgs');
     await expectTabVisible(page, 'Filter profiles', 'Offers');
     await expectTabVisible(page, 'Filter profiles', 'Hiring');
+    await expect(
+      page.getByText('Connect to stand with profiles.')
+    ).toHaveCount(0);
   });
 
   test('deep-links Topics from ?tab=topics', async ({ page }) => {

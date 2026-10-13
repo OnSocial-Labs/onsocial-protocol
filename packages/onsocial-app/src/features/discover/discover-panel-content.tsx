@@ -19,10 +19,7 @@ import { DiscoverTrendingPanel } from '@/features/discover/discover-trending-pan
 import { DiscoverFaceFilterRail } from '@/features/discover/discover-face-filter-rail';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
 import { excludeRecommendedFromList } from '@/lib/discover-recommended';
-import {
-  DISCOVER_CONNECT_HINT,
-  discoverProfilesLead,
-} from '@/lib/discover-tab-lead';
+import { discoverProfilesLead } from '@/lib/discover-tab-lead';
 import { fetchOfferCounts } from '@/lib/profile-offers';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
@@ -44,7 +41,6 @@ export function DiscoverPanelContent() {
     listAccounts,
     viewerAccountId,
     isConnected,
-    showConnectHint,
     loadError,
     actionError,
     emptyState,
@@ -150,14 +146,6 @@ export function DiscoverPanelContent() {
             )}
           </DiscoverTabLead>
           <DiscoverFaceFilterRail />
-
-          {showConnectHint ? (
-            <div className="os-chrome-whisper-anchor" role="status">
-              <p className="discover-connect-hint os-chrome-whisper">
-                {DISCOVER_CONNECT_HINT}
-              </p>
-            </div>
-          ) : null}
 
           {loadError ? (
             errorPresentation === 'overlay' ? (

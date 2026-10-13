@@ -775,7 +775,6 @@ export function useDiscoverProfiles(
   );
   const hasListRows = profiles.length > 0;
 
-  const showConnectHint = !walletLoading && !isConnected;
   const searching = isDiscoverPeopleSearchActive(query);
   const searchSettled = !searching || !isLoading;
   const showListSkeleton =
@@ -867,7 +866,6 @@ export function useDiscoverProfiles(
     isConnected,
     walletLoading,
     connect,
-    showConnectHint,
     loadError,
     actionError,
     subtitle,

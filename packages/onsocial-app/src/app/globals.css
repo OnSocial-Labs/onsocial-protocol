@@ -14875,13 +14875,6 @@ a.os-surface-row {
     outline: none;
   }
 
-  .discover-connect-hint {
-    margin: 0;
-    font-size: 0.75rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.52);
-  }
-
   .discover-trending-strip {
     display: flex;
     flex-direction: column;
