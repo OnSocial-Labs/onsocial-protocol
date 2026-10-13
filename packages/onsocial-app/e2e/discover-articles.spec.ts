@@ -24,6 +24,7 @@ test.describe('discover articles', () => {
     const night = results.getByRole('link', { name: 'Night drive' });
     await expect(night).toBeVisible();
     await expect(night.locator('.profile-avatar__initial')).toHaveText('A');
+    await expect(night).toContainText('by Alice · @alice.testnet');
     await expect(
       results.getByRole('link', { name: 'Harbor light' })
     ).toHaveCount(0);
@@ -45,6 +46,7 @@ test.describe('discover articles', () => {
     const harbor = list.getByRole('link', { name: 'Harbor light' });
     await expect(harbor).toBeVisible();
     await expect(harbor.locator('.profile-avatar__initial')).toHaveText('A');
+    await expect(harbor).toContainText('by Alice · @alice.testnet');
     await expect(page).toHaveURL(/\/discover\/?(\?|$)/);
 
     await harbor.click();

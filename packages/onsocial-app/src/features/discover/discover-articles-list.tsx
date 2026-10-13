@@ -11,7 +11,10 @@ import {
   searchDiscoverArticles,
   type DiscoverCatalogArticle,
 } from '@/features/discover/discover-catalog-search';
-import type { ArticleSearchCursor } from '@/features/discover/discover-catalog';
+import {
+  discoverArticleByline,
+  type ArticleSearchCursor,
+} from '@/features/discover/discover-catalog';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { writingArticlePath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
@@ -138,7 +141,12 @@ export function DiscoverArticlesList({
             />
             <div className="market-listing-copy">
               <span className="market-listing-title">{article.title}</span>
-              <p className="drops-discovery-deal">{article.accountId}</p>
+              <p className="drops-discovery-deal">
+                {discoverArticleByline(
+                  article.accountId,
+                  authors[article.accountId]?.displayName
+                )}
+              </p>
             </div>
           </Link>
         ))}

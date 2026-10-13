@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
+  discoverArticleByline,
   isDiscoverCatalogQuery,
   visibleCatalogSectionIds,
   type DiscoverCatalogSectionId,
@@ -264,7 +265,10 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
                           article.postId
                         )}
                         title={article.title}
-                        meta={article.accountId}
+                        meta={discoverArticleByline(
+                          article.accountId,
+                          articleAuthors[article.accountId]?.displayName
+                        )}
                         face={{
                           accountId: article.accountId,
                           name: displayName(
