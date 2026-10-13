@@ -1054,6 +1054,35 @@ export function resolveE2eGraphStub(opts: {
       },
     };
   }
+  if (parsed.articles === 'list' && opts.query.includes('ViewerPostReactions')) {
+    return { data: { reactionsCurrent: [] } };
+  }
+  if (parsed.articles === 'list' && opts.query.includes('PostReactionCounts')) {
+    return {
+      data: {
+        reactionCounts: [
+          {
+            postOwner: E2E_WRITING_ACCOUNT,
+            postPath: 'post/night',
+            reactionKind: 'like',
+            reactionCount: 12,
+          },
+        ],
+      },
+    };
+  }
+  if (parsed.articles === 'list' && opts.query.includes('SocialSpendEvents')) {
+    return { data: { socialSpendEvents: [] } };
+  }
+  if (parsed.articles === 'list' && opts.query.includes('ThreadCountsByPaths')) {
+    return {
+      data: {
+        threadReplyCounts: [],
+        quoteCounts: [],
+        repostCounts: [],
+      },
+    };
+  }
   if (parsed.articles === 'list' && opts.query.includes('IndexedPostsByRefs')) {
     return {
       data: {

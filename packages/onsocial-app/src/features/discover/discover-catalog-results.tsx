@@ -24,6 +24,7 @@ import { ArticleReadOverlay } from '@/components/portfolio/article-read-screen';
 import { DiscoverArticlesList } from '@/features/discover/discover-articles-list';
 import { isArticlePost } from '@/lib/article-post-payload';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { fetchPersonalPost } from '@/lib/fetch-personal-post';
 import { portfolioPath } from '@/lib/overlay-routes';
 import type { PostRow } from '@onsocial/sdk';
@@ -155,7 +156,9 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
     ...(results?.articles ?? []).map((article) => article.accountId),
     reading?.accountId ?? '',
   ]);
-  const articleCovers = useDiscoverArticleCovers(results?.articles ?? []);
+  const { covers: articleCovers, posts: articlePosts } =
+    useDiscoverArticleCovers(results?.articles ?? []);
+  const { engagement: articleEngagement } = usePostEngagement(articlePosts);
 
   const openArticle = useCallback(
     async (article: { accountId: string; postId: string }) => {
@@ -280,6 +283,12 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
                               article.postId
                             )
                           ]
+                        }
+                        blockTimestamp={article.blockTimestamp}
+                        likeCount={
+                          articleEngagement[
+                            `${article.accountId}:${article.postId}`
+                          ]?.reactionCount
                         }
                         onOpen={(event) => openArticleFromRow(article, event)}
                       />

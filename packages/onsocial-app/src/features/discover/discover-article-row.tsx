@@ -2,15 +2,23 @@
 
 import type { MouseEvent } from 'react';
 import Link from 'next/link';
+import { HeartIcon } from '@onsocial/ui';
 import { PortfolioWritingCover } from '@/components/portfolio/portfolio-writing-cover';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { commercePartyLines } from '@/features/scarces/collection-creator-face';
 import type { DiscoverArticleCover } from '@/features/discover/use-discover-article-covers';
+import { formatWritingLikeLabel } from '@/lib/article-post-payload';
 import { writingArticlePath } from '@/lib/overlay-routes';
+import {
+  formatPostTimestamp,
+  formatRelativePostTimestamp,
+  postTimestampIso,
+} from '@/lib/post-display';
 
 /**
  * Essay row for Moving and the Articles list. The thumb is the cover.
  * Name and @id stack beside it, the same way a drop row does.
+ * The time sits opposite the title. A quiet heart count is the validation.
  * The row opens the essay.
  */
 export function DiscoverArticleRow({
@@ -20,6 +28,8 @@ export function DiscoverArticleRow({
   profileName,
   avatarUrl,
   cover,
+  blockTimestamp,
+  likeCount = 0,
   onOpen,
 }: {
   accountId: string;
@@ -28,9 +38,14 @@ export function DiscoverArticleRow({
   profileName?: string | null;
   avatarUrl?: string | null;
   cover?: DiscoverArticleCover | null;
+  blockTimestamp?: number;
+  likeCount?: number;
   onOpen?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
   const party = commercePartyLines(accountId, profileName);
+  const issuedAt = blockTimestamp ?? 0;
+  const whenIso = issuedAt > 0 ? postTimestampIso(issuedAt) : undefined;
+  const likeLabel = formatWritingLikeLabel(likeCount);
   return (
     <Link
       href={writingArticlePath(accountId, postId)}
@@ -66,7 +81,18 @@ export function DiscoverArticleRow({
         )}
       </span>
       <div className="market-listing-copy drops-discovery-copy">
-        <span className="market-listing-title">{title}</span>
+        <div className="market-listing-head">
+          <span className="market-listing-title">{title}</span>
+          {whenIso ? (
+            <time
+              className="market-listing-meta-right"
+              dateTime={whenIso}
+              title={formatPostTimestamp(issuedAt)}
+            >
+              {formatRelativePostTimestamp(issuedAt)}
+            </time>
+          ) : null}
+        </div>
         <span className="drops-discovery-party">
           <AccountAvatar
             accountId={accountId}
@@ -80,6 +106,12 @@ export function DiscoverArticleRow({
             <span className="drops-discovery-sub">@{party.handle}</span>
           </span>
         </span>
+        {likeLabel ? (
+          <span className="discover-article-likes" aria-label={likeLabel}>
+            <HeartIcon className="discover-article-likes-icon" aria-hidden />
+            <span>{likeCount}</span>
+          </span>
+        ) : null}
       </div>
     </Link>
   );

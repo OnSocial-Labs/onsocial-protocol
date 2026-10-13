@@ -11567,6 +11567,25 @@ a.os-surface-row {
     cursor: default;
   }
 
+  .portfolio-writing-article-like-count {
+    margin: 0 0.15rem 0 -0.15rem;
+    padding: 0.35rem 0.2rem;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.48);
+    font: inherit;
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .portfolio-writing-article-like-count:hover,
+  .portfolio-writing-article-like-count:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+    outline: none;
+  }
+
   .portfolio-writing-article-action-icon {
     display: block;
     width: 1.05rem;
@@ -38229,6 +38248,31 @@ a.os-surface-row {
 
   .discover-catalog-row:has(.drops-discovery-party) {
     align-items: flex-start;
+  }
+
+  .discover-catalog-row .market-listing-head {
+    align-items: baseline;
+    min-width: 0;
+  }
+
+  /* Quiet validation under the name, lined up with “by”. */
+  .discover-article-likes {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
+    margin-top: 0.12rem;
+    margin-left: calc(1.35rem + 0.4rem);
+    max-width: 100%;
+    color: var(--os-surface-muted);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .discover-article-likes-icon {
+    width: 0.8rem;
+    height: 0.8rem;
+    flex-shrink: 0;
   }
 
   .market-listing-list,

@@ -36,6 +36,7 @@ export type DiscoverCatalogArticle = {
   postId: string;
   title: string;
   blockHeight: number;
+  blockTimestamp: number;
 };
 
 export type DiscoverCatalogDrop = {
@@ -166,6 +167,7 @@ async function searchArticlesIndexed(
       postId: string;
       title: string;
       blockHeight: number | string;
+      blockTimestamp?: number | string | null;
     }>;
   }>({
     query: `
@@ -189,6 +191,7 @@ async function searchArticlesIndexed(
           postId
           title
           blockHeight
+          blockTimestamp
         }
       }
     `,
@@ -199,6 +202,7 @@ async function searchArticlesIndexed(
     postId: row.postId,
     title: row.title?.trim() || 'Article',
     blockHeight: articleBlockHeight(row.blockHeight),
+    blockTimestamp: articleBlockHeight(row.blockTimestamp),
   }));
   return {
     items: rows.slice(0, limit),
@@ -220,6 +224,7 @@ async function searchArticlesFallback(
       postId: string;
       value: string;
       blockHeight?: number | string | null;
+      blockTimestamp?: number | string | null;
     }>;
   }>({
     query: `
@@ -242,6 +247,7 @@ async function searchArticlesFallback(
           postId
           value
           blockHeight
+          blockTimestamp
         }
       }
     `,
@@ -266,6 +272,7 @@ async function searchArticlesFallback(
       postId: row.postId,
       title: article.title,
       blockHeight: articleBlockHeight(row.blockHeight),
+      blockTimestamp: articleBlockHeight(row.blockTimestamp),
     });
   }
   return articleRowsPage(articles, limit, before);

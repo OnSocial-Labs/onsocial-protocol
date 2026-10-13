@@ -34,13 +34,26 @@ test.describe('discover articles', () => {
     await expect(night.locator('.drops-discovery-sub')).toHaveText(
       '@alice.testnet'
     );
+    await expect(night.locator('time')).toBeVisible();
+    await expect(night.locator('.discover-article-likes')).toHaveAttribute(
+      'aria-label',
+      '12 likes'
+    );
+    await expect(
+      results
+        .getByRole('link', { name: 'Quiet print' })
+        .locator('.discover-article-likes')
+    ).toHaveCount(0);
     await expect(
       results.getByRole('link', { name: 'Harbor light' })
     ).toHaveCount(0);
 
     await night.click();
+    const essay = page.getByRole('dialog', { name: 'Night drive' });
+    await expect(essay).toBeVisible();
+    await expect(essay).toHaveCSS('opacity', '1');
     await expect(
-      page.getByRole('dialog', { name: 'Night drive' })
+      essay.getByRole('button', { name: 'View who liked — 12 likes' })
     ).toBeVisible();
     await expect(page).toHaveURL(/\/discover\/?(\?|$)/);
     await page.getByRole('button', { name: 'Back from article' }).click();
@@ -95,6 +108,12 @@ test.describe('discover articles', () => {
     await expect(harbor.locator('.drops-discovery-sub')).toHaveText(
       '@alice.testnet'
     );
+    await expect(harbor.locator('time')).toBeVisible();
+    await expect(
+      list
+        .getByRole('link', { name: 'Night drive' })
+        .locator('.discover-article-likes')
+    ).toHaveAttribute('aria-label', '12 likes');
     const listTitle = list.locator('.market-listing-title', {
       hasText: 'Night drive',
     });

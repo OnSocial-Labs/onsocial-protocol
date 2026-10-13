@@ -20,6 +20,7 @@ import {
   useDiscoverArticleCovers,
 } from '@/features/discover/use-discover-article-covers';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 import { SHEET_Z } from '@/lib/sheet-z';
 
@@ -51,7 +52,8 @@ export function DiscoverArticlesList({
   const [loadingMore, setLoadingMore] = useState(false);
   const trimmed = draft.trim();
   const authors = usePostAuthorProfiles(rows.map((row) => row.accountId));
-  const covers = useDiscoverArticleCovers(rows);
+  const { covers, posts } = useDiscoverArticleCovers(rows);
+  const { engagement } = usePostEngagement(posts);
 
   useEffect(() => {
     if (!open) return;
@@ -165,6 +167,11 @@ export function DiscoverArticlesList({
               covers[
                 discoverArticleCoverKey(article.accountId, article.postId)
               ]
+            }
+            blockTimestamp={article.blockTimestamp}
+            likeCount={
+              engagement[`${article.accountId}:${article.postId}`]
+                ?.reactionCount
             }
             onOpen={(event) => openRow(article, event)}
           />

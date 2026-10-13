@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { PostRow } from '@onsocial/sdk';
 import {
   fetchIndexedPostsByRefs,
   indexedPostRefKey,
@@ -30,16 +31,23 @@ function articleCoverKey(accountId: string, postId: string): string {
   return `${accountId}/${postId}`;
 }
 
-/** Covers for the essays already listed. One batch, same rule as the shelf. */
+/**
+ * Covers and post rows for the essays already listed.
+ * One batch, same cover rule as the shelf. The rows feed like counts.
+ */
 export function useDiscoverArticleCovers(
   articles: Array<{ accountId: string; postId: string }>
-): Record<string, DiscoverArticleCover> {
+): {
+  covers: Record<string, DiscoverArticleCover>;
+  posts: PostRow[];
+} {
   const key = articles
     .map((article) => indexedPostRefKey(article.accountId, article.postId))
     .join('\n');
   const [covers, setCovers] = useState<Record<string, DiscoverArticleCover>>(
     {}
   );
+  const [posts, setPosts] = useState<PostRow[]>([]);
 
   useEffect(() => {
     const refs = key
@@ -57,19 +65,25 @@ export function useDiscoverArticleCovers(
     let cancelled = false;
     const handle = window.setTimeout(() => {
       void fetchIndexedPostsByRefs(refs)
-        .then((posts) => {
+        .then((loaded) => {
           if (cancelled) return;
-          const next: Record<string, DiscoverArticleCover> = {};
+          const nextCovers: Record<string, DiscoverArticleCover> = {};
+          const nextPosts: PostRow[] = [];
           for (const ref of refs) {
-            const post = posts.get(indexedPostRefKey(ref.author, ref.postId));
+            const post = loaded.get(indexedPostRefKey(ref.author, ref.postId));
             if (!post) continue;
-            next[articleCoverKey(ref.author, ref.postId)] =
+            nextPosts.push(post);
+            nextCovers[articleCoverKey(ref.author, ref.postId)] =
               discoverArticleCoverFromPost(post);
           }
-          setCovers(next);
+          setCovers(nextCovers);
+          setPosts(nextPosts);
         })
         .catch(() => {
-          if (!cancelled) setCovers({});
+          if (!cancelled) {
+            setCovers({});
+            setPosts([]);
+          }
         });
     }, 0);
     return () => {
@@ -78,7 +92,7 @@ export function useDiscoverArticleCovers(
     };
   }, [key]);
 
-  return covers;
+  return { covers, posts };
 }
 
 export function discoverArticleCoverKey(
