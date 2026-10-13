@@ -8,6 +8,8 @@ import type {
 
 export function composeDockAriaLabel(kind: ComposeKind): string {
   switch (kind) {
+    case 'article':
+      return 'Write an article';
     case 'drop':
       return 'Start a drop';
     case 'mint':

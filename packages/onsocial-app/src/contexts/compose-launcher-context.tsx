@@ -21,7 +21,13 @@ import {
 type ComposeAction = () => void;
 
 /** What the dock action button creates — picks the glyph (pen / stars). */
-export type ComposeKind = 'post' | 'announce' | 'drop' | 'mint' | 'propose';
+export type ComposeKind =
+  | 'post'
+  | 'article'
+  | 'announce'
+  | 'drop'
+  | 'mint'
+  | 'propose';
 
 export interface ComposeLauncherEntry {
   action: ComposeAction;

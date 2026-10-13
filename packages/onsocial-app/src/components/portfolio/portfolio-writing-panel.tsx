@@ -395,8 +395,10 @@ function PortfolioWritingShelf({
           />
         }
       >
-        <div aria-hidden className="os-chrome-glass" />
-        <PortfolioPersonalComposer pageAccountId={panel.accountId} />
+        <PortfolioPersonalComposer
+          pageAccountId={panel.accountId}
+          dockPen="article"
+        />
         <PortfolioWritingList
           {...panel}
           articles={articles}
