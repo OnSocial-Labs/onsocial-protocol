@@ -1,13 +1,37 @@
 import { describe, expect, it } from 'vitest';
 import {
+  confirmedReactionEngagement,
   EMPTY_POST_ENGAGEMENT,
   mergeEngagementSoftUpgrade,
+  pendingReactionEngagement,
   type PostEngagement,
 } from '@/hooks/use-post-engagement';
 
 function row(over: Partial<PostEngagement> = {}): PostEngagement {
   return { ...EMPTY_POST_ENGAGEMENT, ...over };
 }
+
+describe('reaction confirmation', () => {
+  it('fills the heart and holds the count until the like confirms', () => {
+    const previous = row({ viewerReacted: false, reactionCount: 3 });
+    expect(pendingReactionEngagement(previous, true)).toEqual(
+      row({ viewerReacted: true, reactionCount: 3 })
+    );
+    expect(confirmedReactionEngagement(previous, true)).toEqual(
+      row({ viewerReacted: true, reactionCount: 4 })
+    );
+  });
+
+  it('holds the count until an unlike confirms', () => {
+    const previous = row({ viewerReacted: true, reactionCount: 4 });
+    expect(pendingReactionEngagement(previous, false)).toEqual(
+      row({ viewerReacted: false, reactionCount: 4 })
+    );
+    expect(confirmedReactionEngagement(previous, false)).toEqual(
+      row({ viewerReacted: false, reactionCount: 3 })
+    );
+  });
+});
 
 describe('mergeEngagementSoftUpgrade', () => {
   it('keeps pending reaction optimism over fetched counts', () => {

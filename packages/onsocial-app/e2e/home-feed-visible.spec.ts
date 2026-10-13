@@ -218,4 +218,87 @@ test.describe('Home feed visible cards', () => {
     await expect(feed).toContainText('Replying to');
     await expect(page.getByRole('button', { name: 'Recent' })).toHaveCount(0);
   });
+
+  test('opens who liked from the count and leaves the heart as the like', async ({
+    page,
+  }) => {
+    await page.route('**/api/onapi/graph/query', async (route) => {
+      const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody;
+      const query = body.query ?? '';
+      const field = graphField(query);
+      if (field) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: {
+              [field]: [
+                feedRow({
+                  accountId: 'alice.near',
+                  postId: 'liked-root',
+                  text: 'A liked post',
+                }),
+              ],
+            },
+          }),
+        });
+        return;
+      }
+      if (query.includes('PostReactionCounts')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: {
+              reactionCounts: [
+                {
+                  postOwner: 'alice.near',
+                  postPath: 'post/liked-root',
+                  reactionKind: 'like',
+                  reactionCount: 4,
+                },
+              ],
+            },
+          }),
+        });
+        return;
+      }
+      if (query.includes('ThreadCountsByPaths')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: {
+              threadReplyCounts: [],
+              quoteCounts: [],
+              repostCounts: [],
+            },
+          }),
+        });
+        return;
+      }
+      if (query.includes('SocialSpendEvents')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: { socialSpendEvents: [] } }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await gotoApp(page, '/home');
+    await dismissNextDevOverlay(page);
+    const feed = page.locator('.home-feed-list');
+    await expect(feed).toContainText('A liked post');
+    const heart = feed.getByRole('button', { name: 'React to this post' });
+    const likes = feed.getByRole('button', {
+      name: 'View who liked — 4 likes',
+    });
+    await expect(heart).toBeVisible();
+    await expect(likes).toBeVisible();
+    await likes.click();
+    await expect(page.getByRole('dialog', { name: 'Likes' })).toBeVisible();
+  });
 });

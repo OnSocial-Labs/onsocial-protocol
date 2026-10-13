@@ -24342,6 +24342,7 @@ a.os-surface-row {
   .post-card--openable .post-card-stat,
   .post-card--openable .post-card-stat-button,
   .post-card--openable .post-card-react,
+  .post-card--openable .post-card-like-count,
   .post-card--openable .post-card-amplify,
   .post-card--openable .post-card-menu,
   .post-card--openable .post-card-menu-panel,
@@ -24371,6 +24372,7 @@ a.os-surface-row {
   .post-card--openable .post-card-stat,
   .post-card--openable .post-card-stat-button,
   .post-card--openable .post-card-react,
+  .post-card--openable .post-card-like-count,
   .post-card--openable .post-card-amplify {
     position: relative;
     z-index: 2;
@@ -25824,6 +25826,7 @@ a.os-surface-row {
 
   .post-card-engagement-actions > .post-card-stat,
   .post-card-engagement-actions > .post-card-react,
+  .post-card-engagement-actions > .post-card-react-cluster,
   .post-card-engagement-actions > .post-card-amplify {
     justify-content: flex-start;
     width: 100%;
@@ -25883,6 +25886,34 @@ a.os-surface-row {
     display: inline-flex;
     align-items: center;
     gap: 0.32rem;
+  }
+
+  .post-card-react-cluster {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.32rem;
+    min-width: 0;
+    color: rgb(var(--fg-rgb) / 0.5);
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .post-card-like-count {
+    margin: 0;
+    padding: 0.35rem 0.1rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .post-card-like-count:hover,
+  .post-card-like-count:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+    outline: none;
   }
 
   .post-card-engagement-count {
