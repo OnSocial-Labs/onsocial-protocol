@@ -91,7 +91,8 @@ export function filterTrendingProfiles(
   industry = ''
 ): ProfileListAccount[] {
   const needle = discoverTrendingFilterQuery(query);
-  const sector = face === 'people' ? '' : industry.trim().toLowerCase();
+  const sector =
+    face === 'people' || face === 'offers' ? '' : industry.trim().toLowerCase();
   return rows.filter((row) => {
     if (face === 'people' && row.kind && row.kind !== 'person') return false;
     if ((face === 'orgs' || face === 'hiring') && row.kind !== 'org') {
@@ -101,6 +102,9 @@ export function filterTrendingProfiles(
       return false;
     }
     if (face === 'hiring' && !(row.openJobsCount && row.openJobsCount > 0)) {
+      return false;
+    }
+    if (face === 'offers' && !(row.offerCount && row.offerCount > 0)) {
       return false;
     }
     if (sector && (row.industry ?? '').trim().toLowerCase() !== sector) {

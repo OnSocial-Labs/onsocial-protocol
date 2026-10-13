@@ -140,7 +140,7 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
         exit 1
       fi
 
-      for view_name in apps_current posts_feed standing_counts thread_reply_counts quote_counts repost_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation scarces_token_owners scarces_app_stats scarces_app_stats_hot scarces_collections_trade_stats group_member_counts groups_by_member_count scarce_album_love_fans scarce_album_love_fan_ids scarce_collection_love_fans scarce_collection_love_fan_ids jobs_current jobs_search; do
+      for view_name in apps_current posts_feed standing_counts thread_reply_counts quote_counts repost_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation scarces_token_owners scarces_app_stats scarces_app_stats_hot scarces_collections_trade_stats group_member_counts groups_by_member_count scarce_album_love_fans scarce_album_love_fan_ids scarce_collection_love_fans scarce_collection_love_fan_ids jobs_current jobs_search offers_current offers_search; do
         exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
           SELECT to_regclass('"'"'public.${view_name}'"'"') IS NOT NULL;
         ")"
@@ -384,7 +384,7 @@ nested"
 
     validate_profile_search_jobs_columns() {
       db="$1"
-      for column_name in kind industry open_jobs_count; do
+      for column_name in kind industry open_jobs_count offer_count; do
         exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
           SELECT EXISTS (
             SELECT 1

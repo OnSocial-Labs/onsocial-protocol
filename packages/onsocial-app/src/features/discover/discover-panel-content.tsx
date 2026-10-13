@@ -23,7 +23,7 @@ import {
   DISCOVER_CONNECT_HINT,
   discoverProfilesLead,
 } from '@/lib/discover-tab-lead';
-import { fetchOfferTitles } from '@/lib/profile-offers';
+import { fetchOfferCounts } from '@/lib/profile-offers';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
 
@@ -83,17 +83,18 @@ export function DiscoverPanelContent() {
     [listAccounts, recommendedShownIds]
   );
   const offerAccountKey = profilesForList
+    .filter((account) => account.offerCount == null)
     .map((account) => account.accountId)
     .slice(0, 40)
     .join(',');
-  const [offerTitles, setOfferTitles] = useState<Record<string, string>>({});
+  const [offerCounts, setOfferCounts] = useState<Record<string, number>>({});
   useEffect(() => {
     const ids = offerAccountKey ? offerAccountKey.split(',') : [];
     if (ids.length === 0) return;
     const controller = new AbortController();
-    void fetchOfferTitles(ids, controller.signal)
-      .then((titles) => {
-        if (!controller.signal.aborted) setOfferTitles(titles);
+    void fetchOfferCounts(ids, controller.signal)
+      .then((counts) => {
+        if (!controller.signal.aborted) setOfferCounts(counts);
       })
       .catch(() => {});
     return () => controller.abort();
@@ -101,10 +102,11 @@ export function DiscoverPanelContent() {
   const profilesWithOffers = useMemo(
     () =>
       profilesForList.map((account) => {
-        const offerTitle = offerTitles[account.accountId];
-        return offerTitle ? { ...account, offerTitle } : account;
+        if (account.offerCount != null) return account;
+        const offerCount = offerCounts[account.accountId];
+        return offerCount ? { ...account, offerCount } : account;
       }),
-    [offerTitles, profilesForList]
+    [offerCounts, profilesForList]
   );
   const hasPaintedRows = profilesForList.length > 0;
   const loadingPresentation = isLoadingMore

@@ -1149,7 +1149,8 @@ SELECT
   )                                                           AS discover_score,
   ps.kind,
   ps.industry,
-  ps.open_jobs_count
+  ps.open_jobs_count,
+  ps.offer_count
 FROM profile_search ps
 LEFT JOIN reputation_scores rs ON rs.account_id = ps.account_id;
 

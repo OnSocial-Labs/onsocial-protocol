@@ -23,6 +23,7 @@ const FACE_ITEMS: Array<{
   { id: 'people', label: 'People' },
   { id: 'orgs', label: 'Orgs' },
   { id: 'daos', label: 'DAOs' },
+  { id: 'offers', label: 'Offers' },
   { id: 'hiring', label: 'Hiring' },
 ];
 
@@ -35,7 +36,7 @@ export function DiscoverFaceFilterRail() {
   const [industryOpen, setIndustryOpen] = useState(false);
   const [craftOpen, setCraftOpen] = useState(false);
   const [popularCrafts, setPopularCrafts] = useState<DiscoverCraftCount[]>([]);
-  const showIndustry = face !== 'people';
+  const showIndustry = face !== 'people' && face !== 'offers';
   const showCraft = face === 'people';
   const craftLabel = craft ? profileIdentityTopicLabel(craft) : '';
   const craftChoices = useMemo(() => {

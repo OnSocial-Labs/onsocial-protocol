@@ -14,6 +14,7 @@ import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing
 import { portfolioPath } from '@/lib/overlay-routes';
 import { daoPath } from '@/lib/app-routes';
 import { isDaoStandingTarget } from '@/lib/dao-standing-account';
+import { offerLineLabel } from '@onsocial/sdk';
 import { hiringLineLabel } from '@/lib/profile-jobs';
 import type { ProfileListAccount } from '@/lib/profile-list-account';
 import { isProfileListAccountDisplayReady } from '@/lib/profile-list-display';
@@ -280,6 +281,10 @@ export function ProfileSocialListRow({
     (account.openJobsCount ?? 0) > 0
       ? hiringLineLabel(account.openJobsCount ?? 0)
       : null;
+  const offerHint =
+    (account.offerCount ?? 0) > 0
+      ? offerLineLabel(account.offerCount ?? 0)
+      : null;
   const timeMeta = isResolvingViewerRelationship
     ? null
     : resolveStandingTimeMeta(account, standingTimeMode);
@@ -364,14 +369,14 @@ export function ProfileSocialListRow({
               />
             </span>
           ) : null}
+          {offerHint ? (
+            <span className="standing-row-bio standing-row-offer">
+              {offerHint}
+            </span>
+          ) : null}
           {hiringHint ? (
             <span className="standing-row-bio standing-row-hiring">
               {hiringHint}
-            </span>
-          ) : null}
-          {account.offerTitle ? (
-            <span className="standing-row-bio standing-row-offer">
-              {account.offerTitle}
             </span>
           ) : null}
           <ProfileRowMetrics account={account} isDao={isDaoTarget} />

@@ -224,7 +224,9 @@ export function useDiscoverProfiles(
   const sessionRestoreReloadNonceRef = useRef(0);
   const scrollMemoryRef = useRef(
     createListScrollMemory(
-      restoredSession ? readDiscoverTabScroll(restoredSession.tabScroll, tab) : 0
+      restoredSession
+        ? readDiscoverTabScroll(restoredSession.tabScroll, tab)
+        : 0
     )
   );
   const [profiles, setProfiles] = useState<DiscoverProfileSummary[]>(
@@ -345,7 +347,7 @@ export function useDiscoverProfiles(
 
   const setFace = useCallback((next: DiscoverFaceFilter) => {
     setFaceState(next);
-    if (next === 'people') {
+    if (next === 'people' || next === 'offers') {
       setIndustryState('');
     }
     if (next !== 'people') {

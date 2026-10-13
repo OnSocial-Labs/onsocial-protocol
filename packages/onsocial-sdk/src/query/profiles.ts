@@ -20,6 +20,8 @@ export interface ProfileSearchRow {
   kind?: ProfileKind;
   industry?: string | null;
   openJobsCount?: number;
+  /** Standing services on the profile. Missing when the directory has no column yet. */
+  offerCount?: number;
   standingCount: number;
   standingWithCount: number;
   mutualStandingCount: number;
@@ -37,8 +39,14 @@ export interface ProfileSearchRow {
 
 export type DiscoverFaceKind = 'person' | 'org' | 'dao';
 
-/** Discover chip rail — not a new tab. Hiring implies orgs with open roles. */
-export type DiscoverFaceFilter = 'all' | 'people' | 'orgs' | 'daos' | 'hiring';
+/** Discover chip rail — not a new tab. Hiring is orgs with open roles. Offers is anyone with a standing service. */
+export type DiscoverFaceFilter =
+  | 'all'
+  | 'people'
+  | 'orgs'
+  | 'daos'
+  | 'offers'
+  | 'hiring';
 
 export function parseDiscoverFaceFilter(
   raw: string | null | undefined
@@ -48,6 +56,7 @@ export function parseDiscoverFaceFilter(
   if (value === 'orgs' || value === 'org') return 'orgs';
   if (value === 'daos' || value === 'dao') return 'daos';
   if (value === 'hiring') return 'hiring';
+  if (value === 'offers' || value === 'offer') return 'offers';
   return 'all';
 }
 
@@ -55,11 +64,17 @@ export function discoverFaceSearchOptions(
   face: DiscoverFaceFilter,
   industry?: string | null,
   craft?: string | null
-): Pick<ProfileSearchOptions, 'kind' | 'industry' | 'hiring' | 'craft'> {
+): Pick<
+  ProfileSearchOptions,
+  'kind' | 'industry' | 'hiring' | 'offers' | 'craft'
+> {
   const sector = face === 'people' ? undefined : industry?.trim() || undefined;
   const craftTag = craft?.trim().toLowerCase() || undefined;
   if (face === 'hiring') {
     return { kind: 'org', hiring: true, industry: sector };
+  }
+  if (face === 'offers') {
+    return { offers: true };
   }
   if (face === 'orgs') {
     return { kind: 'org', industry: sector };
@@ -91,6 +106,8 @@ export interface ProfileSearchOptions {
   /** Internal — account ids resolved from {@link craft}. */
   accountIds?: string[];
   hiring?: boolean;
+  /** Standing services — people and orgs. */
+  offers?: boolean;
   /**
    * `discover` (default) — reputation × confidence, then standing, then activity.
    * `activity` — last stand / endorse / profile write, then standing.
@@ -154,6 +171,14 @@ function parseStandingSince(raw: string | null | undefined): number | null {
 }
 
 const PROFILE_SEARCH_FIELDS = `
+  accountId name bio avatar banner kind industry openJobsCount offerCount
+  standingCount standingWithCount mutualStandingCount
+  endorsementsReceivedCount endorsementsGivenCount
+  firstProfileTimestamp
+  lastProfileBlock lastProfileTimestamp lastActivityBlock
+`;
+
+const PROFILE_SEARCH_FIELDS_WITHOUT_OFFERS = `
   accountId name bio avatar banner kind industry openJobsCount
   standingCount standingWithCount mutualStandingCount
   endorsementsReceivedCount endorsementsGivenCount
@@ -165,6 +190,16 @@ const PROFILE_DISCOVER_FIELDS = `
   ${PROFILE_SEARCH_FIELDS}
   discoverScore reputation confidenceScore
 `;
+
+const PROFILE_DISCOVER_FIELDS_WITHOUT_OFFERS = `
+  ${PROFILE_SEARCH_FIELDS_WITHOUT_OFFERS}
+  discoverScore reputation confidenceScore
+`;
+
+function missingOfferCountField(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : '';
+  return /offer[_ ]?count/i.test(message);
+}
 
 const PROFILE_KINDS_SELECTION = `
   profileKinds: profilesCurrent(
@@ -236,6 +271,9 @@ export function buildDiscoverWhere(opts: ProfileSearchOptions): {
   if (opts.hiring) {
     clauses.push('{openJobsCount: {_gt: 0}}');
   }
+  if (opts.offers) {
+    clauses.push('{offerCount: {_gt: 0}}');
+  }
   if (clauses.length === 0) {
     return { filter: '', variableDecl: '', variables };
   }
@@ -264,6 +302,7 @@ function mapDiscoverRows(
       reputation?: number | string | null;
       confidenceScore?: number | string | null;
       openJobsCount?: number | string | null;
+      offerCount?: number | string | null;
     }
   >
 ): ProfileSearchRow[] {
@@ -275,6 +314,8 @@ function mapDiscoverRows(
         : null,
     openJobsCount:
       row.openJobsCount == null ? 0 : Number(row.openJobsCount) || 0,
+    offerCount:
+      row.offerCount == null ? undefined : Number(row.offerCount) || 0,
     discoverScore:
       row.discoverScore == null ? undefined : Number(row.discoverScore),
     reputation: row.reputation == null ? undefined : Number(row.reputation),
@@ -401,22 +442,33 @@ export class ProfilesQuery {
     const ids = [...new Set(accountIds.map((id) => id.trim()).filter(Boolean))];
     if (ids.length === 0) return [];
 
-    const res = await this._q.graphql<{
-      profileSearch: ProfileSearchRow[];
-      profileKinds: Array<{ accountId: string; value: string }>;
-    }>({
-      query: `query ProfileStatsBatch($ids: [String!]!, $limit: Int!) {
-        profileSearch(where: {accountId: {_in: $ids}}, limit: $limit) {
-          ${PROFILE_SEARCH_FIELDS}
-        }
-        ${PROFILE_KINDS_SELECTION}
-      }`,
-      variables: { ids, limit: ids.length },
-    });
-    return applyProfileSearchKinds(
-      res.data?.profileSearch ?? [],
-      profileKindsFromCurrentRows(res.data?.profileKinds)
-    );
+    const load = async (includeOfferCount: boolean) => {
+      const fields = includeOfferCount
+        ? PROFILE_SEARCH_FIELDS
+        : PROFILE_SEARCH_FIELDS_WITHOUT_OFFERS;
+      const res = await this._q.graphql<{
+        profileSearch: ProfileSearchRow[];
+        profileKinds: Array<{ accountId: string; value: string }>;
+      }>({
+        query: `query ProfileStatsBatch($ids: [String!]!, $limit: Int!) {
+          profileSearch(where: {accountId: {_in: $ids}}, limit: $limit) {
+            ${fields}
+          }
+          ${PROFILE_KINDS_SELECTION}
+        }`,
+        variables: { ids, limit: ids.length },
+      });
+      return applyProfileSearchKinds(
+        res.data?.profileSearch ?? [],
+        profileKindsFromCurrentRows(res.data?.profileKinds)
+      );
+    };
+    try {
+      return await load(true);
+    } catch (error) {
+      if (!missingOfferCountField(error)) throw error;
+      return load(false);
+    }
   }
 
   /**
@@ -435,36 +487,49 @@ export class ProfilesQuery {
       accountIds = await this.accountIdsForCraft(craft);
       if (accountIds.length === 0) return [];
     }
-    const { filter, variableDecl, variables } = buildDiscoverWhere({
-      ...opts,
-      accountIds,
-    });
-    const res = await this._q.graphql<{
-      profileDiscover: Array<
-        ProfileSearchRow & {
-          discoverScore?: number | string | null;
-          reputation?: number | string | null;
-          confidenceScore?: number | string | null;
-        }
-      >;
-    }>({
-      query: `query ProfileDiscover($limit: Int!, $offset: Int!${variableDecl}) {
-        profileDiscover(
-          ${filter}
-          limit: $limit,
-          offset: $offset,
-          orderBy: ${discoverOrderByClause(opts.order)}
-        ) {
-          ${PROFILE_DISCOVER_FIELDS}
-        }
-      }`,
-      variables: {
-        limit: opts.limit ?? 20,
-        offset: opts.offset ?? 0,
-        ...variables,
-      },
-    });
-    return mapDiscoverRows(res.data?.profileDiscover ?? []);
+    const load = async (includeOfferCount: boolean) => {
+      const where = buildDiscoverWhere({
+        ...opts,
+        accountIds,
+        offers: includeOfferCount ? opts.offers : false,
+      });
+      const fields = includeOfferCount
+        ? PROFILE_DISCOVER_FIELDS
+        : PROFILE_DISCOVER_FIELDS_WITHOUT_OFFERS;
+      const res = await this._q.graphql<{
+        profileDiscover: Array<
+          ProfileSearchRow & {
+            discoverScore?: number | string | null;
+            reputation?: number | string | null;
+            confidenceScore?: number | string | null;
+          }
+        >;
+      }>({
+        query: `query ProfileDiscover($limit: Int!, $offset: Int!${where.variableDecl}) {
+          profileDiscover(
+            ${where.filter}
+            limit: $limit,
+            offset: $offset,
+            orderBy: ${discoverOrderByClause(opts.order)}
+          ) {
+            ${fields}
+          }
+        }`,
+        variables: {
+          limit: opts.limit ?? 20,
+          offset: opts.offset ?? 0,
+          ...where.variables,
+        },
+      });
+      return mapDiscoverRows(res.data?.profileDiscover ?? []);
+    };
+    try {
+      return await load(true);
+    } catch (error) {
+      if (!missingOfferCountField(error)) throw error;
+      if (opts.offers) return [];
+      return load(false);
+    }
   }
 
   /** Accounts that list this curated About craft (`profile/tags`). */
@@ -553,6 +618,7 @@ export class ProfilesQuery {
         industry: opts.industry,
         craft: opts.craft,
         hiring: opts.hiring,
+        offers: opts.offers,
         order: opts.order,
         limit,
         offset,
@@ -566,6 +632,7 @@ export class ProfilesQuery {
       industry: opts.industry,
       craft: opts.craft,
       hiring: opts.hiring,
+      offers: opts.offers,
       order: opts.order,
       limit,
       offset,

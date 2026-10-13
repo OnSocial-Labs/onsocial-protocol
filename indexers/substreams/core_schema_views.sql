@@ -767,6 +767,24 @@ FROM data_updates
 WHERE data_type = 'jobs'
 ORDER BY account_id, data_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
 
+CREATE INDEX IF NOT EXISTS idx_data_updates_offers_dedup
+  ON data_updates(account_id, data_id, block_height DESC)
+  WHERE data_type = 'offers';
+
+CREATE OR REPLACE VIEW offers_current AS
+SELECT DISTINCT ON (account_id, data_id)
+  account_id,
+  data_id                      AS offer_id,
+  path,
+  value,
+  value_json,
+  block_height,
+  block_timestamp,
+  operation
+FROM data_updates
+WHERE data_type = 'offers'
+ORDER BY account_id, data_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- 6b. profile_search — one row per profile for discovery/search
 -- ────────────────────────────────────────────────────────────────────────────
@@ -806,6 +824,15 @@ open_job_counts AS (
   WHERE operation = 'set'
     AND COALESCE(NULLIF(value_json ->> 'ends', '')::numeric, 0)
       >= (EXTRACT(EPOCH FROM NOW()) * 1000)
+  GROUP BY account_id
+),
+offer_counts AS (
+  SELECT
+    account_id,
+    COUNT(*) AS offer_count
+  FROM offers_current
+  WHERE operation = 'set'
+    AND COALESCE(NULLIF(value_json ->> 'title', ''), '') <> ''
   GROUP BY account_id
 ),
 profile_since AS (
@@ -894,7 +921,8 @@ SELECT
   ps.first_profile_timestamp,
   p.kind,
   p.industry,
-  COALESCE(ojc.open_jobs_count, 0)            AS open_jobs_count
+  COALESCE(ojc.open_jobs_count, 0)            AS open_jobs_count,
+  COALESCE(oc.offer_count, 0)                 AS offer_count
 FROM profile_rows p
 LEFT JOIN profile_since ps ON ps.account_id = p.account_id
 LEFT JOIN standing_counts sc ON sc.account_id = p.account_id
@@ -903,6 +931,7 @@ LEFT JOIN mutual_standing_counts msc ON msc.account_id = p.account_id
 LEFT JOIN endorsement_received_counts erc ON erc.account_id = p.account_id
 LEFT JOIN endorsement_given_counts egc ON egc.account_id = p.account_id
 LEFT JOIN open_job_counts ojc ON ojc.account_id = p.account_id
+LEFT JOIN offer_counts oc ON oc.account_id = p.account_id
 WHERE p.name IS NOT NULL
    OR p.bio IS NOT NULL
    OR p.avatar IS NOT NULL
@@ -956,6 +985,53 @@ LEFT JOIN org_faces p ON p.account_id = j.account_id
 WHERE j.operation = 'set'
   AND COALESCE(NULLIF(j.value_json ->> 'ends', '')::numeric, 0)
     >= (EXTRACT(EPOCH FROM NOW()) * 1000);
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 6b3. offers_search — standing services joined to the profile face
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW offers_search AS
+WITH profile_faces AS (
+  SELECT
+    account_id,
+    MAX(value) FILTER (WHERE field = 'name')      AS name,
+    MAX(value) FILTER (WHERE field = 'kind')      AS kind,
+    MAX(value) FILTER (WHERE field = 'industry')  AS industry,
+    MAX(value) FILTER (WHERE field = 'avatar')    AS avatar
+  FROM profiles_current
+  WHERE operation = 'set'
+    AND value IS NOT NULL
+    AND field IN ('name', 'kind', 'industry', 'avatar')
+  GROUP BY account_id
+)
+SELECT
+  o.account_id                                              AS account_id,
+  o.offer_id,
+  o.path,
+  COALESCE(o.value_json ->> 'title', '')                    AS title,
+  NULLIF(o.value_json ->> 'line', '')                       AS line,
+  NULLIF(o.value_json ->> 'url', '')                        AS url,
+  NULLIF(o.value_json ->> 'since', '')::bigint              AS since,
+  p.name                                                    AS profile_name,
+  p.kind                                                    AS profile_kind,
+  p.industry                                                AS profile_industry,
+  p.avatar                                                  AS profile_avatar,
+  LOWER(
+    CONCAT_WS(
+      ' ',
+      o.account_id,
+      p.name,
+      o.value_json ->> 'title',
+      o.value_json ->> 'line',
+      p.industry
+    )
+  )                                                         AS search_text,
+  o.block_height,
+  o.block_timestamp
+FROM offers_current o
+LEFT JOIN profile_faces p ON p.account_id = o.account_id
+WHERE o.operation = 'set'
+  AND COALESCE(NULLIF(o.value_json ->> 'title', ''), '') <> '';
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 6c. post_amplify_heat — stub (0 heat). Real formula in

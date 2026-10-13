@@ -309,7 +309,7 @@ const history = await os.query.permissions.history(accountId, { limit: 20 });`,
       'Social graph: os.query.graph.*, os.query.standings.*, os.query.blocks.*, os.query.saves.*, os.query.endorsements.*, os.query.attestations.*',
       'Discovery: os.query.hashtags.*, os.query.tickers.*, os.query.places.*, os.query.stats.*',
       'Economy: os.query.scarces.*, os.query.rewards.*, os.query.token.*, os.query.boost.*, os.query.socialSpend.*',
-      'Platform: os.query.pages.*, os.query.jobs.*, os.query.storage.*, os.query.permissions.*, os.query.governance.*',
+      'Platform: os.query.pages.*, os.query.jobs.*, os.query.offers.*, os.query.storage.*, os.query.permissions.*, os.query.governance.*',
       'Escape hatches: os.query.raw.* and os.query.graphql when typed helpers do not cover the surface yet.',
     ],
     transactionModel: [

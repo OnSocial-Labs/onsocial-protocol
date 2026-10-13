@@ -25,10 +25,10 @@ export async function fetchAccountOffers(
   return Array.isArray(body?.offers) ? body.offers : [];
 }
 
-export async function fetchOfferTitles(
+export async function fetchOfferCounts(
   accountIds: string[],
   signal?: AbortSignal
-): Promise<Record<string, string>> {
+): Promise<Record<string, number>> {
   const ids = accountIds
     .map((id) => id.trim())
     .filter(Boolean)
@@ -41,7 +41,7 @@ export async function fetchOfferTitles(
   });
   if (!response.ok) return {};
   const body = (await response.json().catch(() => null)) as {
-    titles?: Record<string, string>;
+    counts?: Record<string, number>;
   } | null;
-  return body?.titles && typeof body.titles === 'object' ? body.titles : {};
+  return body?.counts && typeof body.counts === 'object' ? body.counts : {};
 }

@@ -5,6 +5,7 @@ import type {
 import { discoverSearchOptionsFromFilters } from '@/lib/discover-profiles';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import { loadHiringDiscoverPage } from '@/lib/discover-hiring';
+import { loadOffersDiscoverPage } from '@/lib/discover-offers';
 import { mapDiscoverPageToResponse } from '@/lib/discover-profiles-server-map';
 
 const DEFAULT_LIMIT = 24;
@@ -21,6 +22,27 @@ export async function loadDiscoverProfilesPage(
   const industry = filters.industry?.trim() ?? '';
   const craft = filters.craft?.trim() ?? '';
   const needle = query.trim();
+
+  if (face === 'offers' && needle) {
+    try {
+      const offers = await loadOffersDiscoverPage(os, {
+        query: needle,
+        viewerAccountId,
+        offset,
+        limit,
+      });
+      const mapped = await mapDiscoverPageToResponse(
+        os,
+        offers,
+        query,
+        limit,
+        offset
+      );
+      return { ...mapped, face, industry, craft, hasMore: offers.hasMore };
+    } catch {
+      // Fall through to profile discover if the offers index is unavailable.
+    }
+  }
 
   if (face === 'hiring' && needle) {
     try {

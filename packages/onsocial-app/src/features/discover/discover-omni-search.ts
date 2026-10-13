@@ -79,6 +79,7 @@ export function discoverSearchFocusHint(
   tab: DiscoverTab,
   face: DiscoverFaceFilter = 'all'
 ): string {
+  if (tab === 'profiles' && face === 'offers') return 'Offer title';
   if (tab === 'profiles' && face === 'hiring') return 'Role title';
   if (tab === 'daos') return 'DAOs';
   if (tab === 'guilds') return 'Guilds';
@@ -91,6 +92,7 @@ export function discoverSearchAriaLabel(
   tab: DiscoverTab,
   face: DiscoverFaceFilter = 'all'
 ): string {
+  if (tab === 'profiles' && face === 'offers') return 'Search offers';
   if (tab === 'profiles' && face === 'hiring') return 'Search open roles';
   if (tab === 'daos') return 'Search DAOs';
   if (tab === 'guilds') return 'Search Guilds';

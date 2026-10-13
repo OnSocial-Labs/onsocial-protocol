@@ -37,6 +37,7 @@ test.describe('discover shell', () => {
     await expectTabVisible(page, 'Filter profiles', 'All');
     await expectTabVisible(page, 'Filter profiles', 'People');
     await expectTabVisible(page, 'Filter profiles', 'Orgs');
+    await expectTabVisible(page, 'Filter profiles', 'Offers');
     await expectTabVisible(page, 'Filter profiles', 'Hiring');
   });
 
@@ -66,6 +67,7 @@ test.describe('discover shell', () => {
     ).toHaveCount(0);
     await clickTab(page, 'Discover', 'Profiles');
     await expectTabSelected(page, 'Discover', 'Profiles');
+    await expectTabVisible(page, 'Filter profiles', 'Offers');
     await expectTabVisible(page, 'Filter profiles', 'Hiring');
   });
 });

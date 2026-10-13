@@ -458,6 +458,10 @@ export {
   parseDiscoverFaceFilter,
 } from './query/profiles.js';
 export type { JobSearchOptions, JobSearchRow } from './query/jobs.js';
+export type {
+  OfferSearchOptions,
+  OfferSearchRow,
+} from './query/offers-search.js';
 export type { ProtocolPulse, ProtocolTotals } from './query/stats.js';
 export { ReactionsModule } from './modules/reactions.js';
 export type {

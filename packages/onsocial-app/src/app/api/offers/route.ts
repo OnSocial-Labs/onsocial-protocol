@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     .slice(0, MAX_BATCH);
 
   if (!single && batch.length === 0) {
-    return NextResponse.json({ offers: [], titles: {} }, { status: 400 });
+    return NextResponse.json({ offers: [], counts: {} }, { status: 400 });
   }
 
   try {
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const titles: Record<string, string> = {};
+    const counts: Record<string, number> = {};
     const queue = [...batch];
     const workers = Array.from(
       { length: Math.min(6, queue.length) },
@@ -51,8 +51,7 @@ export async function GET(request: NextRequest) {
           if (!accountId) return;
           try {
             const offers = await os.offers.list(accountId);
-            const title = offers[0]?.title?.trim();
-            if (title) titles[accountId] = title;
+            if (offers.length > 0) counts[accountId] = offers.length;
           } catch {
             // One account missing offers should not blank the row list.
           }
@@ -61,15 +60,15 @@ export async function GET(request: NextRequest) {
     );
     await Promise.all(workers);
     return NextResponse.json(
-      { titles },
+      { counts },
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Offers failed';
     const missingKey = detail.includes('ONSOCIAL_API_KEY');
-    const empty: { offers: OfferRecord[]; titles: Record<string, string> } = {
+    const empty: { offers: OfferRecord[]; counts: Record<string, number> } = {
       offers: [],
-      titles: {},
+      counts: {},
     };
     return NextResponse.json(
       {
