@@ -72,6 +72,8 @@ const COMPOSER_CONFIRM_Z = scarceNestZIndex(SHEET_Z.list);
 interface UsePersonalComposerOptions {
   /** When true, dock pen opens a new personal post. */
   registerPen: boolean;
+  /** Writing shelf opens the composer already in article mode. */
+  dockPen?: 'post' | 'article';
   /**
    * Fallback whisper when destination menus are unavailable.
    * Kept for call-site compatibility; menus replace the identity line.
@@ -90,6 +92,7 @@ interface UsePersonalComposerOptions {
  */
 export function usePersonalComposer({
   registerPen,
+  dockPen = 'post',
   authorProfiles,
   onConfirmed,
   onUnreposted,
@@ -344,7 +347,14 @@ export function usePersonalComposer({
     ]
   );
 
-  useRegisterComposeAction(registerPen ? openPost : null);
+  const openDockPen = useCallback(() => {
+    openPost(dockPen === 'article' ? { article: true } : undefined);
+  }, [dockPen, openPost]);
+
+  useRegisterComposeAction(
+    registerPen ? openDockPen : null,
+    dockPen === 'article' ? 'article' : 'post'
+  );
 
   const submitDaoProposal = useCallback(async () => {
     if (!pendingDaoPayload || !selectedDaoId || pending) return;

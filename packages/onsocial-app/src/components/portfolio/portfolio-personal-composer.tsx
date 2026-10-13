@@ -11,6 +11,8 @@ import { toProfilePostPeek } from '@/lib/fetch-profile-peeks';
 
 interface PortfolioPersonalComposerProps {
   pageAccountId: string;
+  /** Writing shelf: the dock pen starts an article. */
+  dockPen?: 'post' | 'article';
 }
 
 /**
@@ -19,6 +21,7 @@ interface PortfolioPersonalComposerProps {
  */
 export function PortfolioPersonalComposer({
   pageAccountId,
+  dockPen = 'post',
 }: PortfolioPersonalComposerProps) {
   const { accountId, isConnected } = useAppWallet();
   const peeks = useOptionalPortfolioPostPeeks();
@@ -44,6 +47,7 @@ export function PortfolioPersonalComposer({
 
   const { sheet, openPost } = usePersonalComposer({
     registerPen: Boolean(isOwner),
+    dockPen,
     destinationLabel,
     onConfirmed,
   });
