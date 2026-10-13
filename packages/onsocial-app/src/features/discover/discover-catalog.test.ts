@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  articleRowsPage,
   catalogCreatorIlike,
   catalogDropMatches,
   catalogDropMeta,
   catalogFacetContainsPattern,
   catalogFacetIdForQuery,
+  isArticlesSearchUnavailable,
   isDiscoverCatalogQuery,
   visibleCatalogSectionIds,
 } from '@/features/discover/discover-catalog';
@@ -81,6 +83,39 @@ describe('discover catalog search', () => {
         }),
       })
     ).toBe('Album · ada.testnet');
+  });
+
+  it('treats a missing essay index as the post-body scan', () => {
+    expect(
+      isArticlesSearchUnavailable(
+        "field 'articlesSearch' not found in type: 'query_root'"
+      )
+    ).toBe(true);
+    expect(isArticlesSearchUnavailable('articles_search does not exist')).toBe(
+      true
+    );
+    expect(isArticlesSearchUnavailable('network down')).toBe(false);
+  });
+
+  it('pages essays newest first without repeating the cursor', () => {
+    const rows = [
+      { postId: 'b', blockHeight: 10 },
+      { postId: 'a', blockHeight: 20 },
+      { postId: 'c', blockHeight: 20 },
+      { postId: 'd', blockHeight: 5 },
+    ];
+    expect(articleRowsPage(rows, 2, null)).toEqual({
+      items: [
+        { postId: 'c', blockHeight: 20 },
+        { postId: 'a', blockHeight: 20 },
+      ],
+      hasMore: true,
+    });
+    expect(
+      articleRowsPage(rows, 2, { blockHeight: 20, postId: 'a' }).items.map(
+        (row) => row.postId
+      )
+    ).toEqual(['b', 'd']);
   });
 
   it('hides empty sections and keeps the reading order', () => {

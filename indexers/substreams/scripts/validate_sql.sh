@@ -140,7 +140,7 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
         exit 1
       fi
 
-      for view_name in apps_current posts_feed standing_counts thread_reply_counts quote_counts repost_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation scarces_token_owners scarces_app_stats scarces_app_stats_hot scarces_collections_trade_stats group_member_counts groups_by_member_count scarce_album_love_fans scarce_album_love_fan_ids scarce_collection_love_fans scarce_collection_love_fan_ids jobs_current jobs_search offers_current offers_search; do
+      for view_name in apps_current posts_feed standing_counts thread_reply_counts quote_counts repost_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation scarces_token_owners scarces_app_stats scarces_app_stats_hot scarces_collections_trade_stats group_member_counts groups_by_member_count scarce_album_love_fans scarce_album_love_fan_ids scarce_collection_love_fans scarce_collection_love_fan_ids jobs_current jobs_search offers_current offers_search articles_search; do
         exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
           SELECT to_regclass('"'"'public.${view_name}'"'"') IS NOT NULL;
         ")"
@@ -149,6 +149,18 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
           exit 1
         fi
       done
+
+      apply_sql "$db" /work/tests/fixtures/articles_search_check.sql
+      article_rows="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atf /work/tests/fixtures/articles_search_assert.sql)"
+      apply_sql "$db" /work/tests/fixtures/articles_search_cleanup.sql
+      expected_articles="Night drive|Lisbon
+0"
+      if [ "$article_rows" != "$expected_articles" ]; then
+        echo "error: unexpected articles_search rows in $db" >&2
+        echo "  expected: $expected_articles" >&2
+        echo "  actual:   ${article_rows:-missing}" >&2
+        exit 1
+      fi
 
       for table_name in posts_current reactions_current saves_current; do
         is_table="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "

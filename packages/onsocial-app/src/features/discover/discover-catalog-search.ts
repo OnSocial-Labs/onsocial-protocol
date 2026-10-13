@@ -6,12 +6,15 @@ import {
   parseArticleSnapshot,
 } from '@/lib/article-post-payload';
 import {
+  articleRowsPage,
   catalogArticleMatches,
   catalogCreatorIlike,
   catalogDropMatches,
   catalogDropMeta,
   catalogFacetContainsPattern,
   catalogFacetIdForQuery,
+  isArticlesSearchUnavailable,
+  type ArticleSearchCursor,
   type CatalogDropMatchRow,
   DISCOVER_CATALOG_PREVIEW,
 } from '@/features/discover/discover-catalog';
@@ -19,6 +22,8 @@ import {
 /** Slack so a facet match still fills the preview after title hits. */
 const DROP_FETCH_LIMIT = 16;
 const ARTICLE_SCAN_LIMIT = 40;
+/** One page of the article list opened from More. */
+export const DISCOVER_ARTICLE_PAGE = 24;
 
 export type DiscoverCatalogPerson = {
   accountId: string;
@@ -30,6 +35,8 @@ export type DiscoverCatalogArticle = {
   accountId: string;
   postId: string;
   title: string;
+  blockHeight: number;
+  blockTimestamp: number;
 };
 
 export type DiscoverCatalogDrop = {
@@ -46,6 +53,7 @@ export type DiscoverCatalogResults = {
   music: DiscoverCatalogDrop[];
   events: DiscoverCatalogDrop[];
   peopleHasMore: boolean;
+  articlesHasMore: boolean;
   booksHasMore: boolean;
   musicHasMore: boolean;
   eventsHasMore: boolean;
@@ -105,17 +113,122 @@ async function searchPeople(query: string): Promise<{
   };
 }
 
-async function searchArticles(
-  query: string
-): Promise<DiscoverCatalogArticle[]> {
+function articleBlockHeight(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function emptyArticlePage(): {
+  items: DiscoverCatalogArticle[];
+  hasMore: boolean;
+} {
+  return { items: [], hasMore: false };
+}
+
+async function searchArticlesIndexed(
+  query: string,
+  limit: number,
+  before: ArticleSearchCursor | null
+): Promise<{ items: DiscoverCatalogArticle[]; hasMore: boolean }> {
   const creator = catalogCreatorIlike(query);
-  if (!creator) return [];
+  if (!creator) return emptyArticlePage();
   const client = createReadOnlyOnSocialClient();
+  const decls = [
+    '$pattern: String!',
+    '$prefix: String!',
+    '$label: String!',
+    '$limit: Int!',
+  ];
+  const variables: Record<string, unknown> = {
+    pattern: ilikeContains(query),
+    prefix: creator.prefix,
+    label: creator.label,
+    limit: limit + 1,
+  };
+  const cursor =
+    before == null
+      ? ''
+      : `, { _or: [
+          { blockHeight: { _lt: $before } },
+          { blockHeight: { _eq: $before }, postId: { _lt: $beforeId } }
+        ] }`;
+  if (before) {
+    decls.push('$before: bigint!', '$beforeId: String!');
+    variables.before = before.blockHeight;
+    variables.beforeId = before.postId;
+  }
   const res = await client.query.graphql<{
-    postsCurrent: Array<{ accountId: string; postId: string; value: string }>;
+    articlesSearch: Array<{
+      accountId: string;
+      postId: string;
+      title: string;
+      blockHeight: number | string;
+      blockTimestamp?: number | string | null;
+    }>;
   }>({
     query: `
-      query DiscoverArticles($title: String!, $excerpt: String!, $article: String!, $creatorPrefix: String!, $creatorLabel: String!, $limit: Int!) {
+      query DiscoverArticles(${decls.join(', ')}) {
+        articlesSearch(
+          where: {
+            _and: [
+              { _or: [
+                { title: { _ilike: $pattern } },
+                { excerpt: { _ilike: $pattern } },
+                { accountId: { _ilike: $prefix } },
+                { accountId: { _ilike: $label } }
+              ] }
+              ${cursor}
+            ]
+          }
+          orderBy: [{ blockHeight: DESC }, { postId: DESC }]
+          limit: $limit
+        ) {
+          accountId
+          postId
+          title
+          blockHeight
+          blockTimestamp
+        }
+      }
+    `,
+    variables,
+  });
+  const rows = (res.data?.articlesSearch ?? []).map((row) => ({
+    accountId: row.accountId,
+    postId: row.postId,
+    title: row.title?.trim() || 'Article',
+    blockHeight: articleBlockHeight(row.blockHeight),
+    blockTimestamp: articleBlockHeight(row.blockTimestamp),
+  }));
+  return {
+    items: rows.slice(0, limit),
+    hasMore: rows.length > limit,
+  };
+}
+
+async function searchArticlesFallback(
+  query: string,
+  limit: number,
+  before: ArticleSearchCursor | null
+): Promise<{ items: DiscoverCatalogArticle[]; hasMore: boolean }> {
+  const creator = catalogCreatorIlike(query);
+  if (!creator) return emptyArticlePage();
+  const client = createReadOnlyOnSocialClient();
+  const res = await client.query.graphql<{
+    postsCurrent: Array<{
+      accountId: string;
+      postId: string;
+      value: string;
+      blockHeight?: number | string | null;
+      blockTimestamp?: number | string | null;
+    }>;
+  }>({
+    query: `
+      query DiscoverArticlesFallback($title: String!, $excerpt: String!, $article: String!, $creatorPrefix: String!, $creatorLabel: String!, $limit: Int!) {
         postsCurrent(
           where: {
             isGroupContent: { _eq: false }
@@ -133,6 +246,8 @@ async function searchArticles(
           accountId
           postId
           value
+          blockHeight
+          blockTimestamp
         }
       }
     `,
@@ -156,10 +271,27 @@ async function searchArticles(
       accountId: row.accountId,
       postId: row.postId,
       title: article.title,
+      blockHeight: articleBlockHeight(row.blockHeight),
+      blockTimestamp: articleBlockHeight(row.blockTimestamp),
     });
-    if (articles.length >= DISCOVER_CATALOG_PREVIEW) break;
   }
-  return articles;
+  return articleRowsPage(articles, limit, before);
+}
+
+/** Title, excerpt, or author. Uses the essay index, then the post-body scan. */
+export async function searchDiscoverArticles(
+  query: string,
+  opts?: { limit?: number; before?: ArticleSearchCursor | null }
+): Promise<{ items: DiscoverCatalogArticle[]; hasMore: boolean }> {
+  const limit = opts?.limit ?? DISCOVER_CATALOG_PREVIEW;
+  const before = opts?.before ?? null;
+  try {
+    return await searchArticlesIndexed(query, limit, before);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!isArticlesSearchUnavailable(message)) throw error;
+    return searchArticlesFallback(query, limit, before);
+  }
 }
 
 async function searchDrops(
@@ -233,8 +365,8 @@ export async function loadDiscoverCatalog(
       (result) => ({ ok: true as const, result }),
       () => ({ ok: false as const })
     ),
-    withRetry(() => searchArticles(query)).then(
-      (items) => ({ ok: true as const, items }),
+    withRetry(() => searchDiscoverArticles(query)).then(
+      (result) => ({ ok: true as const, result }),
       () => ({ ok: false as const })
     ),
     withRetry(() => searchDrops('writing', query)).then(
@@ -255,11 +387,12 @@ export async function loadDiscoverCatalog(
   const partial = !failed && statuses.some((entry) => !entry.ok);
   return {
     people: people.ok ? people.result.items : [],
-    articles: articles.ok ? articles.items : [],
+    articles: articles.ok ? articles.result.items : [],
     books: books.ok ? books.result.items : [],
     music: music.ok ? music.result.items : [],
     events: events.ok ? events.result.items : [],
     peopleHasMore: people.ok ? people.result.hasMore : false,
+    articlesHasMore: articles.ok ? articles.result.hasMore : false,
     booksHasMore: books.ok ? books.result.hasMore : false,
     musicHasMore: music.ok ? music.result.hasMore : false,
     eventsHasMore: events.ok ? events.result.hasMore : false,

@@ -338,6 +338,18 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
   {
+    name: 'articles_search',
+    columns: [
+      'account_id',
+      'post_id',
+      'title',
+      'excerpt',
+      'search_text',
+      'block_height',
+      'block_timestamp',
+    ],
+  },
+  {
     name: 'posts_current',
     columns: [
       'account_id',

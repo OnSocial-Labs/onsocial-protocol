@@ -112,10 +112,14 @@ export function PortfolioWritingArticleActions({
   const row = engagement[postKey(post)] ?? EMPTY_POST_ENGAGEMENT;
   const saved = row.viewerSaved;
   const liked = row.viewerReacted;
+  const likeCount = row.reactionCount;
+  const likeLabel = formatWritingLikeLabel(likeCount);
   const savePending = isSavePending(post);
   const likePending = isReactionPending(post);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [likesOpen, setLikesOpen] = useState(false);
+  const { accountId: viewerAccountId } = useAppWallet();
   const extras = shareExtras ?? [];
 
   const shareArticle = () => {
@@ -164,6 +168,16 @@ export function PortfolioWritingArticleActions({
           <HeartIcon className="portfolio-writing-article-action-icon" />
         )}
       </button>
+      {likeLabel ? (
+        <button
+          type="button"
+          className="portfolio-writing-article-like-count"
+          aria-label={`View who liked — ${likeLabel}`}
+          onClick={() => setLikesOpen(true)}
+        >
+          {likeCount}
+        </button>
+      ) : null}
       <button
         type="button"
         className={`portfolio-writing-article-action os-confirm-icon${
@@ -251,6 +265,17 @@ export function PortfolioWritingArticleActions({
           ]}
         />
       ) : null}
+      <PostLikesSheet
+        open={likesOpen}
+        onClose={() => setLikesOpen(false)}
+        postOwner={post.accountId}
+        postId={post.postId}
+        groupId={post.groupId}
+        likeCount={likeCount}
+        title={article?.title}
+        viewerAccountId={viewerAccountId}
+        viewerLiked={liked}
+      />
     </div>
   );
 }
@@ -315,14 +340,8 @@ export function PortfolioWritingArticlePanel({
     onReturnToShelf?.();
   };
   const { accountId: viewerAccountId } = useAppWallet();
-  const { engagement } = usePostEngagement([post]);
-  const row = engagement[postKey(post)] ?? EMPTY_POST_ENGAGEMENT;
-  const liked = row.viewerReacted;
-  const likeCount = row.reactionCount;
-  const [likesOpen, setLikesOpen] = useState(false);
   const [coverOpen, setCoverOpen] = useState(false);
   const readLabel = formatWritingReadLabel(body);
-  const likeLabel = formatWritingLikeLabel(likeCount);
   const issuedAt =
     typeof post.blockTimestamp === 'number'
       ? post.blockTimestamp
@@ -420,21 +439,6 @@ export function PortfolioWritingArticlePanel({
                   <span>{readLabel}</span>
                 </>
               ) : null}
-              {likeLabel ? (
-                <>
-                  <span className="portfolio-writing-byline-sep" aria-hidden>
-                    ·
-                  </span>
-                  <button
-                    type="button"
-                    className="portfolio-writing-byline-likes"
-                    aria-label={`View who liked — ${likeLabel}`}
-                    onClick={() => setLikesOpen(true)}
-                  >
-                    {likeLabel}
-                  </button>
-                </>
-              ) : null}
             </p>
           </div>
         </header>
@@ -494,18 +498,6 @@ export function PortfolioWritingArticlePanel({
           onClose={() => setCoverOpen(false)}
         />
       ) : null}
-
-      <PostLikesSheet
-        open={likesOpen}
-        onClose={() => setLikesOpen(false)}
-        postOwner={post.accountId}
-        postId={post.postId}
-        groupId={post.groupId}
-        likeCount={likeCount}
-        title={article.title}
-        viewerAccountId={viewerAccountId}
-        viewerLiked={liked}
-      />
     </article>
   );
 }

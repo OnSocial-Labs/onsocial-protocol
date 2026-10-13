@@ -11567,6 +11567,25 @@ a.os-surface-row {
     cursor: default;
   }
 
+  .portfolio-writing-article-like-count {
+    margin: 0 0.15rem 0 -0.15rem;
+    padding: 0.35rem 0.2rem;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.48);
+    font: inherit;
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .portfolio-writing-article-like-count:hover,
+  .portfolio-writing-article-like-count:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+    outline: none;
+  }
+
   .portfolio-writing-article-action-icon {
     display: block;
     width: 1.05rem;
@@ -24323,6 +24342,7 @@ a.os-surface-row {
   .post-card--openable .post-card-stat,
   .post-card--openable .post-card-stat-button,
   .post-card--openable .post-card-react,
+  .post-card--openable .post-card-like-count,
   .post-card--openable .post-card-amplify,
   .post-card--openable .post-card-menu,
   .post-card--openable .post-card-menu-panel,
@@ -24352,6 +24372,7 @@ a.os-surface-row {
   .post-card--openable .post-card-stat,
   .post-card--openable .post-card-stat-button,
   .post-card--openable .post-card-react,
+  .post-card--openable .post-card-like-count,
   .post-card--openable .post-card-amplify {
     position: relative;
     z-index: 2;
@@ -25805,6 +25826,7 @@ a.os-surface-row {
 
   .post-card-engagement-actions > .post-card-stat,
   .post-card-engagement-actions > .post-card-react,
+  .post-card-engagement-actions > .post-card-react-cluster,
   .post-card-engagement-actions > .post-card-amplify {
     justify-content: flex-start;
     width: 100%;
@@ -25864,6 +25886,34 @@ a.os-surface-row {
     display: inline-flex;
     align-items: center;
     gap: 0.32rem;
+  }
+
+  .post-card-react-cluster {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.32rem;
+    min-width: 0;
+    color: rgb(var(--fg-rgb) / 0.5);
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .post-card-like-count {
+    margin: 0;
+    padding: 0.35rem 0.1rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .post-card-like-count:hover,
+  .post-card-like-count:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+    outline: none;
   }
 
   .post-card-engagement-count {
@@ -38213,6 +38263,49 @@ a.os-surface-row {
     align-items: center;
   }
 
+  .discover-catalog-row:active {
+    background: var(--os-surface-fill-active);
+    transition: none;
+  }
+
+  /* Essay thumb fills the catalog cover. The face stays on the byline. */
+  .discover-article-cover.portfolio-writing-cover {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+  }
+
+  .discover-catalog-row:has(.drops-discovery-party) {
+    align-items: flex-start;
+  }
+
+  .discover-catalog-row .market-listing-head {
+    align-items: baseline;
+    min-width: 0;
+  }
+
+  /* Quiet validation under the name, lined up with “by”. */
+  .discover-article-likes {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
+    margin-top: 0.12rem;
+    margin-left: calc(1.35rem + 0.4rem);
+    max-width: 100%;
+    color: var(--os-surface-muted);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .discover-article-likes-icon {
+    width: 0.8rem;
+    height: 0.8rem;
+    flex-shrink: 0;
+  }
+
   .market-listing-list,
   .market-sales-list {
     display: flex;
@@ -38308,7 +38401,7 @@ a.os-surface-row {
   }
 
   /* Collection-meta anatomy (mint page): avatar | by Name / @handle · series. */
-  a.drops-discovery-party {
+  .drops-discovery-party {
     display: flex;
     align-items: flex-start;
     gap: 0.4rem;
