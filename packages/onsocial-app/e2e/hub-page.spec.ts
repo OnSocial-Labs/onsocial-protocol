@@ -50,6 +50,18 @@ test.describe('hub page', () => {
     await expect(
       page.getByText('4 drops · 12 minted · 6 holders · 4.0 NEAR')
     ).toBeVisible();
+
+    await page.getByRole('button', { name: /View roster/ }).click();
+    const creators = page.getByRole('dialog').filter({
+      has: page.getByRole('button', { name: 'Close creators' }),
+    });
+    await expect(
+      creators.getByRole('link', { name: 'Alice Owner @alice.near' })
+    ).toBeVisible();
+    await expect(
+      creators.locator('.standing-row-name-row .guild-member-role-badge')
+    ).toHaveText('Owner');
+    await expect(creators.locator('.hub-people-role')).toHaveCount(0);
   });
 
   test('SSR catalog hit paints Audit Hub without the skeleton', async ({

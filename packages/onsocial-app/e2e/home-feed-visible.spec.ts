@@ -285,6 +285,55 @@ test.describe('Home feed visible cards', () => {
         });
         return;
       }
+      if (query.includes('PostLikeAccounts')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: { reactionsCurrent: [{ accountId: 'bob.near' }] },
+          }),
+        });
+        return;
+      }
+      if (query.includes('ProfileStatsBatch')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: {
+              profileSearch: [
+                {
+                  accountId: 'bob.near',
+                  name: 'Bob',
+                  bio: 'Ledger bio that likes should hide',
+                  standingCount: 12,
+                  standingWithCount: 3,
+                  mutualStandingCount: 1,
+                  endorsementsReceivedCount: 4,
+                  endorsementsGivenCount: 2,
+                },
+              ],
+              profileKinds: [],
+            },
+          }),
+        });
+        return;
+      }
+      if (query.includes('FansRosterViewerContext')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: {
+              viewerOutgoing: [],
+              viewerIncoming: [],
+              viewerEndorsements: [],
+              viewerOutgoingEndorsements: [],
+            },
+          }),
+        });
+        return;
+      }
       await route.continue();
     });
 
@@ -299,6 +348,11 @@ test.describe('Home feed visible cards', () => {
     await expect(heart).toBeVisible();
     await expect(likes).toBeVisible();
     await likes.click();
-    await expect(page.getByRole('dialog', { name: 'Likes' })).toBeVisible();
+    const likesSheet = page.getByRole('dialog', { name: 'Likes' });
+    await expect(likesSheet).toBeVisible();
+    await expect(likesSheet.getByText('Bob', { exact: true })).toBeVisible();
+    await expect(likesSheet.getByText('@bob.near', { exact: true })).toBeVisible();
+    await expect(likesSheet.locator('.standing-row-metrics')).toHaveCount(0);
+    await expect(likesSheet.locator('.standing-row-bio')).toHaveCount(0);
   });
 });
