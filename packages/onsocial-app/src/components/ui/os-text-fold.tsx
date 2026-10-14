@@ -1,6 +1,11 @@
 'use client';
 
-import { useCallback, useLayoutEffect, type ReactNode } from 'react';
+import {
+  useCallback,
+  useLayoutEffect,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { useOsReveal } from '@onsocial/ui';
 
 /**
@@ -19,7 +24,14 @@ export function OsTextFold({
   onOverflow?: (overflows: boolean) => void;
   children: ReactNode;
 }) {
-  const { hostRef, clipRef, innerRef, measure } = useOsReveal<HTMLDivElement>();
+  const {
+    hostRef,
+    clipRef: clipElementRef,
+    innerRef: innerElementRef,
+    measure,
+  } = useOsReveal<HTMLDivElement>();
+  const clipRef = clipElementRef as RefObject<HTMLDivElement | null>;
+  const innerRef = innerElementRef as RefObject<HTMLDivElement | null>;
 
   const sync = useCallback(() => {
     const host = hostRef.current;
