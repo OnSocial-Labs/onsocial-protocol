@@ -5,6 +5,7 @@ import {
 } from '@/features/market/owned-vault-cache';
 import {
   collectionCatalogShell,
+  collectionCoverArtChip,
   collectionCoverExpandAction,
   collectionCoverImmersive,
   collectionCoverSquare,
@@ -126,6 +127,30 @@ describe('collection page view', () => {
         hasMedia: true,
       })
     ).toBe('artwork');
+  });
+
+  it('opens the full picture from a cropped cover only', () => {
+    expect(
+      collectionCoverArtChip({ hasMedia: true, kind: 'audio' })
+    ).toBe(true);
+    expect(
+      collectionCoverArtChip({ hasMedia: true, kind: 'writing' })
+    ).toBe(true);
+    expect(
+      collectionCoverArtChip({ hasMedia: true, kind: 'video' })
+    ).toBe(true);
+    expect(collectionCoverArtChip({ hasMedia: true, kind: 'art' })).toBe(
+      false
+    );
+    expect(collectionCoverArtChip({ hasMedia: true, kind: 'ticket' })).toBe(
+      false
+    );
+    expect(
+      collectionCoverArtChip({ hasMedia: true, kind: 'membership' })
+    ).toBe(false);
+    expect(collectionCoverArtChip({ hasMedia: false, kind: 'audio' })).toBe(
+      false
+    );
   });
 
   it('resolves ownership to holder / visitor / unknown', () => {

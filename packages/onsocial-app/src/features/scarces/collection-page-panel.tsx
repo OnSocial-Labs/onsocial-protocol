@@ -20,6 +20,7 @@ import {
   InformationCircleIcon,
   BookmarkFillIcon,
   BookmarkIcon,
+  ScaleUpIcon,
   ShareIcon,
   OsIconAction,
   ShopFillIcon,
@@ -53,6 +54,7 @@ import {
 import { CollectionOwnerManageMenu } from '@/features/scarces/collection-owner-manage-menu';
 import {
   collectionCatalogShell,
+  collectionCoverArtChip,
   collectionCoverExpandAction,
   collectionCoverImmersive,
   collectionCoverSquare,
@@ -925,6 +927,10 @@ export function CollectionPagePanel({
     hasMedia: Boolean(view.mediaUrl),
     listenOnCover: ownership === 'visitor',
   });
+  const showCoverArtChip = collectionCoverArtChip({
+    hasMedia: Boolean(view.mediaUrl),
+    kind: view.kind,
+  });
   const passActionLabel = holdingsActionLabel(mediumKind);
   const showCommerceMeter = collectionShowCommerceMeter({
     useFirst,
@@ -1058,6 +1064,19 @@ export function CollectionPagePanel({
                         : () => setMediaOverlayOpen(true)
                 }
               />
+            ) : null}
+            {showCoverArtChip ? (
+              <button
+                type="button"
+                className="scarce-clip-cover-expand collection-cover-art-expand"
+                aria-label="View full cover"
+                onClick={() => setMediaOverlayOpen(true)}
+              >
+                <ScaleUpIcon
+                  className="scarce-clip-cover-expand-icon"
+                  aria-hidden
+                />
+              </button>
             ) : null}
           </div>
 
