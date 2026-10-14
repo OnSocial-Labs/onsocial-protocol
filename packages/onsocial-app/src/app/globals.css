@@ -1270,6 +1270,20 @@ body:has([data-os-slide-over='true']:not(.is-closing)) .os-launcher-root {
   pointer-events: auto;
 }
 
+/* The event name lives under the thumbnail. Keep this title for the dialog. */
+.ticket-pass-slide .os-app-screen-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Unlayered — pass rows and actions sit outside the components layer so layout holds. */
 button.collectibles-holding-row-main {
   display: flex;

@@ -1,8 +1,7 @@
 /**
  * Saved Show-pass picture — small cover, event name, and a high-contrast QR.
- * Apple Wallet and Google Wallet need issuer certificates this app does
- * not hold, so "Add to Wallet" shares this picture into Photos, Files,
- * Drive, and AirDrop. The guest shows that picture with no signal.
+ * Download writes the PNG. Save shares that file so the guest can keep it
+ * in Photos. This app has no wallet pass certificates.
  */
 
 import { encode, type QrCodeGenerateResult } from 'uqr';
@@ -39,13 +38,23 @@ export function ticketPassPictureFilename(title: string): string {
   return `${slug || 'onsocial'}-pass.png`;
 }
 
-export function ticketPassWalletLabel(
-  userAgent: string
-): 'Apple Wallet' | 'Google Wallet' | 'Add to Wallet' {
-  const ua = userAgent.toLowerCase();
-  if (/iphone|ipad|ipod/.test(ua)) return 'Apple Wallet';
-  if (/android/.test(ua)) return 'Google Wallet';
-  return 'Add to Wallet';
+/** Save is the Photos path. It exists only when the device can share a file. */
+export function ticketPassCanSavePicture(): boolean {
+  if (
+    typeof navigator === 'undefined' ||
+    typeof navigator.share !== 'function'
+  ) {
+    return false;
+  }
+  if (typeof navigator.canShare !== 'function') return true;
+  try {
+    const file = new File([new Uint8Array()], 'pass.png', {
+      type: 'image/png',
+    });
+    return navigator.canShare({ files: [file] });
+  } catch {
+    return false;
+  }
 }
 
 export function ticketPassQrMatrix(value: string): QrCodeGenerateResult {
@@ -334,7 +343,6 @@ export async function shareTicketPassPicture(
     await navigator.share({
       files: [file],
       title,
-      text: title,
     });
     return 'shared';
   } catch (error) {

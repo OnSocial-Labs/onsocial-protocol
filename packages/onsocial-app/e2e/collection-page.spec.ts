@@ -409,17 +409,20 @@ test.describe('collection drop page', () => {
     await expect(pass.locator('.ticket-show-pass-status')).toHaveCount(0);
     await expect(pass.getByText('Pass 1', { exact: true })).toBeVisible();
     await expect(
-      pass.getByRole('button', { name: 'Save picture' })
+      page.getByRole('button', { name: 'Back from pass' })
     ).toBeVisible();
-    await expect(
-      pass.getByRole('button', { name: 'Add to Wallet' })
-    ).toBeVisible();
+    await expect(pass.getByRole('button', { name: 'Download' })).toBeVisible();
+    await expect(pass.getByRole('button', { name: 'Save' })).toHaveCount(0);
+    const headerTitle = page.locator('.ticket-pass-slide .os-app-screen-title');
+    await expect(headerTitle).toHaveText('Gate Pass');
+    const headerBox = await headerTitle.boundingBox();
+    expect((headerBox?.width ?? 0) < 8).toBe(true);
     await expect(pass.getByText(/os2\|/)).toHaveCount(0);
 
     const downloadPromise = page.waitForEvent('download');
-    await pass.getByRole('button', { name: 'Save picture' }).click();
+    await pass.getByRole('button', { name: 'Download' }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe('gate-pass-pass.png');
-    await expect(pass.getByText('Saved', { exact: true })).toBeVisible();
+    await expect(pass.getByText('Downloaded', { exact: true })).toBeVisible();
   });
 });

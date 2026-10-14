@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ticketPassCanSavePicture,
   ticketPassPictureFilename,
   ticketPassPictureStatusLine,
   ticketPassQrMatrix,
-  ticketPassWalletLabel,
 } from '@/features/scarces/ticket-pass-picture';
 
 describe('ticket-pass-picture', () => {
@@ -14,16 +14,8 @@ describe('ticket-pass-picture', () => {
     expect(ticketPassPictureFilename('  ')).toBe('onsocial-pass.png');
   });
 
-  it('labels the wallet action for the phone', () => {
-    expect(
-      ticketPassWalletLabel('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)')
-    ).toBe('Apple Wallet');
-    expect(ticketPassWalletLabel('Mozilla/5.0 (Linux; Android 14)')).toBe(
-      'Google Wallet'
-    );
-    expect(ticketPassWalletLabel('Mozilla/5.0 (Macintosh)')).toBe(
-      'Add to Wallet'
-    );
+  it('hides Save when the device cannot share a picture file', () => {
+    expect(ticketPassCanSavePicture()).toBe(false);
   });
 
   it('keeps a real status and drops the filler word Pass', () => {

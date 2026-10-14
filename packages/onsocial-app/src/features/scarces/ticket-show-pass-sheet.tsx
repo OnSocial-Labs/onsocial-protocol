@@ -21,8 +21,8 @@ import {
   downloadTicketPassPicture,
   renderTicketPassPicture,
   shareTicketPassPicture,
+  ticketPassCanSavePicture,
   ticketPassPictureFilename,
-  ticketPassWalletLabel,
 } from '@/features/scarces/ticket-pass-picture';
 import {
   clearSavedTicketPass,
@@ -53,8 +53,8 @@ import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
 /**
  * Show pass — small cover, event name, then a saved QR.
- * The code is signed once and kept on this device. Save picture / Add to
- * Wallet keep a copy the guest can show with no signal.
+ * The code is signed once and kept on this device. Download writes the PNG.
+ * Save shares that picture so the guest can keep it in Photos.
  */
 export function TicketShowPassSheet({
   open,
@@ -86,9 +86,9 @@ export function TicketShowPassSheet({
   const [livePayload, setLivePayload] = useState<string | null>(null);
   const [liveError, setLiveError] = useState<string | null>(null);
   const [liveReady, setLiveReady] = useState(false);
-  const [exporting, setExporting] = useState<'picture' | 'wallet' | null>(null);
+  const [exporting, setExporting] = useState<'download' | 'save' | null>(null);
   const [exportNote, setExportNote] = useState<string | null>(null);
-  const [walletLabel, setWalletLabel] = useState('Add to Wallet');
+  const [canSave, setCanSave] = useState(false);
   const [holderFace, setHolderFace] = useState<CollectionCreatorFace | null>(
     null
   );
@@ -188,7 +188,7 @@ export function TicketShowPassSheet({
 
   useEffect(() => {
     if (!open) return;
-    setWalletLabel(ticketPassWalletLabel(navigator.userAgent));
+    setCanSave(ticketPassCanSavePicture());
   }, [open]);
 
   useEffect(() => {
@@ -392,28 +392,28 @@ export function TicketShowPassSheet({
     whenLabel,
   ]);
 
-  const savePicture = useCallback(async () => {
+  const downloadPicture = useCallback(async () => {
     if (!passCode || exporting) return;
-    setExporting('picture');
+    setExporting('download');
     setExportNote(null);
     try {
       const blob = await buildPassPicture();
       if (!blob) {
-        noteExport('Could not save');
+        noteExport('Could not download');
         return;
       }
       downloadTicketPassPicture(blob, ticketPassPictureFilename(name));
-      noteExport('Saved');
+      noteExport('Downloaded');
     } catch {
-      noteExport('Could not save');
+      noteExport('Could not download');
     } finally {
       setExporting(null);
     }
   }, [buildPassPicture, exporting, name, noteExport, passCode]);
 
-  const addToWallet = useCallback(async () => {
+  const savePicture = useCallback(async () => {
     if (!passCode || exporting) return;
-    setExporting('wallet');
+    setExporting('save');
     setExportNote(null);
     try {
       const blob = await buildPassPicture();
@@ -421,12 +421,13 @@ export function TicketShowPassSheet({
         noteExport('Could not save');
         return;
       }
-      const filename = ticketPassPictureFilename(name);
-      const shared = await shareTicketPassPicture(blob, filename, name);
-      if (shared === 'unavailable') {
-        downloadTicketPassPicture(blob, filename);
-        noteExport('Saved');
-      }
+      const shared = await shareTicketPassPicture(
+        blob,
+        ticketPassPictureFilename(name),
+        name
+      );
+      if (shared === 'shared') noteExport('Saved');
+      else if (shared === 'unavailable') noteExport('Could not save');
     } catch {
       noteExport('Could not save');
     } finally {
@@ -521,25 +522,29 @@ export function TicketShowPassSheet({
                 <button
                   type="button"
                   className="ticket-show-pass-action"
-                  onClick={() => void savePicture()}
+                  onClick={() => void downloadPicture()}
                   disabled={exporting != null}
                 >
-                  {exporting === 'picture' ? 'Saving…' : 'Save picture'}
+                  {exporting === 'download' ? 'Downloading…' : 'Download'}
                 </button>
-                <button
-                  type="button"
-                  className="ticket-show-pass-action"
-                  onClick={() => void addToWallet()}
-                  disabled={exporting != null}
-                >
-                  {exporting === 'wallet' ? 'Saving…' : walletLabel}
-                </button>
+                {canSave ? (
+                  <button
+                    type="button"
+                    className="ticket-show-pass-action"
+                    onClick={() => void savePicture()}
+                    disabled={exporting != null}
+                  >
+                    {exporting === 'save' ? 'Saving…' : 'Save'}
+                  </button>
+                ) : null}
               </div>
             ) : null}
             {exportNote ? (
               <p
                 className={`ticket-show-pass-export-note${
-                  exportNote === 'Saved' ? ' is-saved' : ''
+                  exportNote === 'Saved' || exportNote === 'Downloaded'
+                    ? ' is-saved'
+                    : ''
                 }`}
                 role="status"
               >
