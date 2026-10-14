@@ -371,6 +371,10 @@ test.describe('collection drop page', () => {
     page,
   }) => {
     const expMs = Date.now() + 86_400_000;
+    const payload = `os2|gate-pass|gate-pass:1|${expMs}|pk|nonce|sig`;
+    await page
+      .context()
+      .grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.addInitScript(
       (record) => {
         window.localStorage.setItem(
@@ -381,7 +385,7 @@ test.describe('collection drop page', () => {
       {
         tokenId: 'gate-pass:1',
         ownerId: 'alice.near',
-        payload: `os2|gate-pass|gate-pass:1|${expMs}|pk|nonce|sig`,
+        payload,
         expMs,
       }
     );
@@ -413,11 +417,28 @@ test.describe('collection drop page', () => {
     ).toBeVisible();
     await expect(pass.getByRole('button', { name: 'Download' })).toBeVisible();
     await expect(pass.getByRole('button', { name: 'Save' })).toHaveCount(0);
+    const copy = pass.getByRole('button', {
+      name: 'Copy live pass code for door entry',
+    });
+    await expect(copy).toBeVisible();
+    const seatBox = await pass
+      .getByText('Pass 1', { exact: true })
+      .boundingBox();
+    const copyBox = await copy.boundingBox();
+    expect(seatBox && copyBox && copyBox.x > seatBox.x).toBe(true);
+    await expect(pass.getByText(payload)).toHaveCount(0);
+    await copy.click();
+    await expect(
+      pass.getByRole('button', { name: 'Live pass code copied' })
+    ).toBeVisible();
+    await expect(pass.getByText('Copied', { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      payload
+    );
     const headerTitle = page.locator('.ticket-pass-slide .os-app-screen-title');
     await expect(headerTitle).toHaveText('Gate Pass');
     const headerBox = await headerTitle.boundingBox();
     expect((headerBox?.width ?? 0) < 8).toBe(true);
-    await expect(pass.getByText(/os2\|/)).toHaveCount(0);
 
     const downloadPromise = page.waitForEvent('download');
     await pass.getByRole('button', { name: 'Download' }).click();

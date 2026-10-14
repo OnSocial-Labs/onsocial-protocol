@@ -118,7 +118,7 @@ export function TicketDoorWorkbench({
       : status
         ? null
         : cameraError && !cameraActive
-          ? 'Camera unavailable — paste a pass code, then Look up.'
+          ? 'Camera unavailable — paste a saved pass, then Look up.'
           : cameraActive
             ? redeemVoice
               ? 'Point at the coupon.'
@@ -126,8 +126,8 @@ export function TicketDoorWorkbench({
             : cameraOpening
               ? 'Opening the camera…'
               : redeemVoice
-                ? 'Start the camera or paste a coupon code.'
-                : 'Start the camera or paste a pass code.';
+                ? 'Start the camera or paste a saved coupon.'
+                : 'Start the camera or paste a saved pass.';
 
   const { name: holderName, handle: holderHandle } = ownerId
     ? commercePartyLines(ownerId, holderFaceForOwner?.displayName)
@@ -275,7 +275,9 @@ export function TicketDoorWorkbench({
       {!status ? (
         <>
           <label className="ticket-door-field">
-            <span className="sr-only">Pass code</span>
+            <span className="sr-only">
+              {redeemVoice ? 'Saved coupon' : 'Saved pass'}
+            </span>
             <input
               className={`${osFieldBorderedClassName} ticket-door-input`}
               value={manualInput}
@@ -283,8 +285,10 @@ export function TicketDoorWorkbench({
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
-              placeholder="Paste pass code"
-              aria-label={redeemVoice ? 'Coupon code' : 'Pass code'}
+              placeholder={
+                redeemVoice ? 'Paste a saved coupon' : 'Paste a saved pass'
+              }
+              aria-label={redeemVoice ? 'Saved coupon' : 'Saved pass'}
               disabled={admitPending}
               onChange={(event) => {
                 setManualInput(event.target.value);

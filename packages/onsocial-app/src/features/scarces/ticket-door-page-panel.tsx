@@ -2,8 +2,14 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import {
+  FocusFillIcon,
+  FocusIcon,
+  OsSheetAction,
+  OsSheetActions,
+} from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { useRegisterDockAction } from '@/contexts/dock-chrome-context';
 import { OsRowAction } from '@/lib/os-row-action';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -156,6 +162,29 @@ export function TicketDoorPagePanel({
     },
   });
 
+  const cameraLive = door.cameraActive || door.cameraOpening;
+  useRegisterDockAction(
+    doorActive && !door.status
+      ? {
+          ariaLabel: cameraLive ? 'Stop camera' : 'Start camera',
+          pressed: cameraLive,
+          disabled: door.lookupPending || door.admitPending,
+          onClick: () => {
+            if (door.cameraActive || door.cameraOpening) door.stopCamera();
+            else void door.startCamera();
+          },
+          icon: cameraLive ? (
+            <FocusFillIcon
+              className="portfolio-summon-compose-icon"
+              aria-hidden
+            />
+          ) : (
+            <FocusIcon className="portfolio-summon-compose-icon" aria-hidden />
+          ),
+        }
+      : null
+  );
+
   useEffect(() => {
     if (!doorActive) return;
     let cancelled = false;
@@ -258,7 +287,6 @@ export function TicketDoorPagePanel({
         canAdmit={door.canAdmit}
       />
     );
-    const cameraCta = door.cameraError ? 'Try camera' : 'Start camera';
     const primaryPending = door.admitPending;
     const primaryPendingLabel = redeemVoice ? 'Redeeming…' : 'Admitting…';
     const scanNext = () => {
@@ -312,41 +340,6 @@ export function TicketDoorPagePanel({
               onClick={scanNext}
             >
               {redeemVoice ? 'Next coupon' : 'Next guest'}
-            </OsSheetAction>
-          </OsSheetActions>
-        </DoorFooter>
-      );
-    } else if (door.cameraOpening) {
-      footer = null;
-    } else if (door.cameraActive) {
-      footer = (
-        <DoorFooter>
-          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetAction
-              type="button"
-              variant="ghost"
-              onClick={() => door.stopCamera()}
-              disabled={door.lookupPending}
-            >
-              Stop camera
-            </OsSheetAction>
-          </OsSheetActions>
-        </DoorFooter>
-      );
-    } else {
-      footer = (
-        <DoorFooter>
-          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetAction
-              type="button"
-              variant="primary"
-              ready
-              disabled={door.lookupPending}
-              onClick={() => {
-                void door.startCamera();
-              }}
-            >
-              {cameraCta}
             </OsSheetAction>
           </OsSheetActions>
         </DoorFooter>

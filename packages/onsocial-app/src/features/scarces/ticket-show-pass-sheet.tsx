@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Divider } from '@onsocial/ui';
+import { CopyIcon, Divider } from '@onsocial/ui';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import { AccountAvatar } from '@/components/profile/account-avatar';
@@ -31,6 +31,7 @@ import {
   writeSavedTicketPass,
 } from '@/features/scarces/ticket-pass-saved';
 import {
+  ticketPassLiveCodePreview,
   ticketPassSeatLabel,
   ticketPassStatusLabel,
 } from '@/features/scarces/ticket-pass-payload';
@@ -55,6 +56,8 @@ import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
  * Show pass — small cover, event name, then a saved QR.
  * The code is signed once and kept on this device. Download writes the PNG.
  * Save shares that picture so the guest can keep it in Photos.
+ * Copy puts the signed code on the clipboard for the door paste field.
+ * The seat row shows a short preview, never the full string.
  */
 export function TicketShowPassSheet({
   open,
@@ -89,6 +92,7 @@ export function TicketShowPassSheet({
   const [exporting, setExporting] = useState<'download' | 'save' | null>(null);
   const [exportNote, setExportNote] = useState<string | null>(null);
   const [canSave, setCanSave] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
   const [holderFace, setHolderFace] = useState<CollectionCreatorFace | null>(
     null
   );
@@ -108,6 +112,7 @@ export function TicketShowPassSheet({
       setArtEnlargeOpen(false);
       setExporting(null);
       setExportNote(null);
+      setCodeCopied(false);
       const saved = readSavedTicketPass(tokenId);
       const cached =
         saved && isTicketPassLiveFresh(saved.expMs) ? saved.payload : null;
@@ -123,6 +128,17 @@ export function TicketShowPassSheet({
   const statusLoading = open && !statusReady;
 
   const passCode = livePayload?.trim() || '';
+  const passCodePreview = passCode ? ticketPassLiveCodePreview(passCode) : '';
+  const copyPassCode = useCallback(async () => {
+    if (!passCode) return;
+    try {
+      await navigator.clipboard.writeText(passCode);
+      setCodeCopied(true);
+      window.setTimeout(() => setCodeCopied(false), 1600);
+    } catch {
+      /* clipboard refused — the preview stays so the guest can retry */
+    }
+  }, [passCode]);
 
   useEffect(() => {
     if (!open) return;
@@ -466,7 +482,9 @@ export function TicketShowPassSheet({
           ) : null}
           <p className="ticket-show-pass-name">{name}</p>
           {statusLine ? (
-            <p className={`ticket-show-pass-status${toneClass}`}>{statusLine}</p>
+            <p className={`ticket-show-pass-status${toneClass}`}>
+              {statusLine}
+            </p>
           ) : null}
 
           {livePayload ? (
@@ -515,6 +533,30 @@ export function TicketShowPassSheet({
               <span className="ticket-show-pass-seat">
                 {ticketPassSeatLabel(tokenId)}
               </span>
+              {passCode ? (
+                <button
+                  type="button"
+                  className={`ticket-show-pass-code${
+                    codeCopied ? ' is-copied' : ''
+                  }`}
+                  onClick={() => void copyPassCode()}
+                  aria-label={
+                    codeCopied
+                      ? 'Live pass code copied'
+                      : 'Copy live pass code for door entry'
+                  }
+                >
+                  <span className="ticket-show-pass-code-preview">
+                    {codeCopied ? 'Copied' : passCodePreview}
+                  </span>
+                  {codeCopied ? null : (
+                    <CopyIcon
+                      className="ticket-show-pass-code-icon"
+                      aria-hidden
+                    />
+                  )}
+                </button>
+              ) : null}
             </div>
 
             {passCode ? (

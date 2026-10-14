@@ -325,6 +325,31 @@ export function TrashIcon({
   );
 }
 
+/** Mage `focus` — camera reticle, stroke. Official weight is 1.5. */
+export function FocusIcon({
+  strokeWidth = 1.5,
+  ...props
+}: MageStrokeIconProps & { strokeWidth?: number }) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M20.325 8.3V6.45a2.775 2.775 0 0 0-2.775-2.775h-2.775m0 16.65h2.775a2.775 2.775 0 0 0 2.775-2.775V15.7m-16.65 0v1.85a2.775 2.775 0 0 0 2.775 2.775h2.775m0-16.65H6.45A2.775 2.775 0 0 0 3.675 6.45V8.3"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M12 8a4 4 0 1 1 0 8a4 4 0 0 1 0-8Z"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
 /** Mage `camera` — profile / media pickers. */
 export function CameraIcon({
   strokeWidth = 2,

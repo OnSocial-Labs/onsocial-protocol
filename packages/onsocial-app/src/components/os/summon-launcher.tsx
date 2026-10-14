@@ -49,6 +49,7 @@ import {
 import {
   resolveDockBackVisible,
   resolveDockConnectHintVisible,
+  useDockAction,
   useDockBack,
   useHeaderOwnsConnect,
   useImmersiveChromeQuiet,
@@ -273,6 +274,7 @@ export function SummonLauncher({
 
   const compose = useComposeLauncher();
   const dockBack = useDockBack();
+  const dockAction = useDockAction();
   const headerOwnsConnect = useHeaderOwnsConnect();
   const showDockConnectHint = resolveDockConnectHintVisible({
     headerOwnsConnect,
@@ -569,7 +571,20 @@ export function SummonLauncher({
               ) : undefined
             }
             action={
-              compose?.type === 'action' ? (
+              dockAction ? (
+                <button
+                  type="button"
+                  className={`portfolio-summon-compose${
+                    dockAction.pressed ? ' is-pressed' : ''
+                  }`}
+                  aria-label={dockAction.ariaLabel}
+                  aria-pressed={Boolean(dockAction.pressed)}
+                  disabled={dockAction.disabled}
+                  onClick={dockAction.onClick}
+                >
+                  {dockAction.icon}
+                </button>
+              ) : compose?.type === 'action' ? (
                 <PortfolioSummonComposeButton compose={compose.entry} />
               ) : undefined
             }
