@@ -1,5 +1,5 @@
 /**
- * Saved Show-pass picture — cover, event, and a high-contrast QR.
+ * Saved Show-pass picture — square cover, event, and a high-contrast QR.
  * Apple Wallet and Google Wallet need issuer certificates this app does
  * not hold, so "Add to Wallet" shares this picture into Photos, Files,
  * Drive, and AirDrop. The guest shows that picture with no signal.
@@ -50,6 +50,13 @@ export function ticketPassWalletLabel(
 
 export function ticketPassQrMatrix(value: string): QrCodeGenerateResult {
   return encode(value, { ecc: 'H', border: 2 });
+}
+
+/** Status earns a line only when it says more than the word Pass. */
+export function ticketPassPictureStatusLine(label: string): string {
+  const status = label.trim();
+  if (!status || status.toLowerCase() === 'pass') return '';
+  return status;
 }
 
 export type TicketPassShareResult = 'shared' | 'dismissed' | 'unavailable';
@@ -150,15 +157,17 @@ function paintTicketPass(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
+  const plate = 760;
+  const plateX = (PICTURE_WIDTH - plate) / 2;
+
   if (cover) {
-    const coverH = Math.round(contentW / 2.15);
     ctx.save();
     ctx.beginPath();
-    ctx.roundRect(pad, y, contentW, coverH, 36);
+    ctx.roundRect(plateX, y, plate, plate, 40);
     ctx.clip();
-    drawCover(ctx, cover, pad, y, contentW, coverH);
+    drawCover(ctx, cover, plateX, y, plate, plate);
     ctx.restore();
-    y += coverH + 44;
+    y += plate + 48;
   }
 
   ctx.fillStyle = PICTURE_FG;
@@ -184,14 +193,17 @@ function paintTicketPass(
     }
   }
 
-  y += 18;
-  ctx.fillStyle = input.valid ? PICTURE_GREEN : PICTURE_MUTED;
-  ctx.font = `600 32px ${FONT}`;
-  ctx.fillText(input.statusLabel.trim() || 'Pass', PICTURE_WIDTH / 2, y);
-  y += 56;
+  const statusLine = ticketPassPictureStatusLine(input.statusLabel);
+  if (statusLine) {
+    y += 18;
+    ctx.fillStyle = input.valid ? PICTURE_GREEN : PICTURE_MUTED;
+    ctx.font = `600 32px ${FONT}`;
+    ctx.fillText(statusLine, PICTURE_WIDTH / 2, y);
+    y += 56;
+  } else {
+    y += 28;
+  }
 
-  const plate = 760;
-  const plateX = (PICTURE_WIDTH - plate) / 2;
   ctx.fillStyle = '#ffffff';
   ctx.beginPath();
   ctx.roundRect(plateX, y, plate, plate, 40);

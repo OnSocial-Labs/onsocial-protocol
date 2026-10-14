@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ticketPassPictureFilename,
+  ticketPassPictureStatusLine,
   ticketPassQrMatrix,
   ticketPassWalletLabel,
 } from '@/features/scarces/ticket-pass-picture';
@@ -23,6 +24,14 @@ describe('ticket-pass-picture', () => {
     expect(ticketPassWalletLabel('Mozilla/5.0 (Macintosh)')).toBe(
       'Add to Wallet'
     );
+  });
+
+  it('keeps a real status and drops the filler word Pass', () => {
+    expect(ticketPassPictureStatusLine('1 check-in left')).toBe(
+      '1 check-in left'
+    );
+    expect(ticketPassPictureStatusLine('Pass')).toBe('');
+    expect(ticketPassPictureStatusLine('  ')).toBe('');
   });
 
   it('draws a square QR matrix for a saved pass code', () => {

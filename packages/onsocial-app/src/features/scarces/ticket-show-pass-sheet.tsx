@@ -340,11 +340,11 @@ export function TicketShowPassSheet({
         redeemCount: status.redeemCount,
         maxRedeems: status.maxRedeems,
       })
-    : passCode
-      ? 'Pass'
-      : statusLoading
-        ? 'Checking pass…'
-        : (statusError ?? 'Pass');
+    : !passCode && statusLoading
+      ? 'Checking…'
+      : !passCode
+        ? (statusError ?? '')
+        : '';
 
   const toneClass = status
     ? status.isValid
@@ -358,7 +358,7 @@ export function TicketShowPassSheet({
     ? commercePartyLines(ownerId, holderFaceForOwner?.displayName)
     : { name: '', handle: '' };
   const holderAccount = holderHandle ? `@${holderHandle}` : '';
-  const qrHint = !liveReady ? 'Preparing pass…' : liveError ? liveError : null;
+  const qrHint = !liveReady ? 'Preparing…' : liveError ? liveError : null;
 
   const noteExport = useCallback((note: string) => {
     setExportNote(note);
@@ -463,7 +463,9 @@ export function TicketShowPassSheet({
               />
             </button>
           ) : null}
-          <p className={`ticket-show-pass-status${toneClass}`}>{statusLine}</p>
+          {statusLine ? (
+            <p className={`ticket-show-pass-status${toneClass}`}>{statusLine}</p>
+          ) : null}
 
           {livePayload ? (
             <TicketPassQr

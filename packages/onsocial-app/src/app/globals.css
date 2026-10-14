@@ -31639,12 +31639,14 @@ a.os-surface-row {
   .ticket-show-pass-mark-btn {
     width: var(--pass-qr);
     max-width: 100%;
-    margin: 0 0 0.35rem;
+    aspect-ratio: 1 / 1;
+    margin: 0;
     padding: 0;
     border: 0;
     background: transparent;
     cursor: pointer;
     border-radius: 0.75rem;
+    overflow: hidden;
     line-height: 0;
   }
 
@@ -31656,14 +31658,10 @@ a.os-surface-row {
   .ticket-show-pass-mark {
     display: block;
     width: 100%;
-    height: auto;
-    aspect-ratio: 2.15 / 1;
+    height: 100%;
     margin: 0;
-    border-radius: 0.75rem;
     object-fit: cover;
     flex-shrink: 0;
-    background: rgb(var(--fg-rgb) / 0.08);
-    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.1);
   }
 
   .ticket-show-pass-status {
@@ -31821,8 +31819,7 @@ a.os-surface-row {
       padding: 0.25rem 0.1rem 0.4rem;
     }
 
-    .ticket-show-pass-mark {
-      aspect-ratio: 2.6 / 1;
+    .ticket-show-pass-mark-btn {
       border-radius: 0.55rem;
     }
   }
@@ -31834,8 +31831,7 @@ a.os-surface-row {
       --pass-gap-qr: 0.55rem;
     }
 
-    .ticket-show-pass-mark {
-      aspect-ratio: 3 / 1;
+    .ticket-show-pass-mark-btn {
       border-radius: 0.45rem;
     }
 
@@ -31867,7 +31863,7 @@ a.os-surface-row {
       padding: 0.45rem 0.2rem 0.65rem;
     }
 
-    .ticket-show-pass-mark {
+    .ticket-show-pass-mark-btn {
       border-radius: 0.85rem;
     }
   }

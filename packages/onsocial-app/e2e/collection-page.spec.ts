@@ -394,9 +394,16 @@ test.describe('collection drop page', () => {
     await expect(
       pass.getByRole('img', { name: 'QR for Gate Pass' })
     ).toBeVisible();
-    await expect(
-      pass.getByRole('button', { name: 'View artwork for Gate Pass' })
-    ).toBeVisible();
+    const artwork = pass.getByRole('button', {
+      name: 'View artwork for Gate Pass',
+    });
+    await expect(artwork).toBeVisible();
+    const artBox = await artwork.boundingBox();
+    expect(artBox).toBeTruthy();
+    expect(Math.abs((artBox?.width ?? 0) - (artBox?.height ?? 0))).toBeLessThan(
+      2
+    );
+    await expect(pass.locator('.ticket-show-pass-status')).toHaveCount(0);
     await expect(pass.getByText('Pass 1', { exact: true })).toBeVisible();
     await expect(
       pass.getByRole('button', { name: 'Save picture' })
