@@ -10,7 +10,7 @@ const ACCOUNT = 'alice.testnet';
 const ONE_OFFER = {
   offerId: 'o-1',
   title: 'Brand identity',
-  line: 'Marks and type.',
+  description: 'Marks and type.',
   url: 'https://studio.example/book',
   since: 1,
 };
@@ -18,7 +18,7 @@ const ONE_OFFER = {
 const SECOND_OFFER = {
   offerId: 'o-2',
   title: 'Workshops',
-  line: 'A day with the team.',
+  description: 'A day with the team.',
   url: null,
   since: 2,
 };

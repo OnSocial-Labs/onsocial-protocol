@@ -88,7 +88,7 @@ export type HugEnterSampleState = {
   matches: number;
 };
 
-/** Whether hug sheets should delay/lock height through the enter motion. */
+/** Whether hug sheets should wait for a settled layout before the enter slide. */
 export function hugEnterNeedsArming(
   sizing: GlassSheetSizing,
   presentation: GlassSheetPresentation
@@ -120,64 +120,6 @@ export function nextHugEnterStableSample(
   return {
     state: { lastHeightPx: heightPx, matches: 1 },
     armed: neededMatches <= 1,
-  };
-}
-
-function hugSheetBody(panel: HTMLElement): HTMLElement | null {
-  const children = panel.children;
-  for (let index = 0; index < children.length; index += 1) {
-    const child = children[index];
-    if (
-      child instanceof HTMLElement &&
-      child.classList.contains('glass-sheet-body')
-    ) {
-      return child;
-    }
-  }
-  return null;
-}
-
-function readHugContentHeight(panel: HTMLElement): number {
-  const body = hugSheetBody(panel);
-  if (!body) return panel.offsetHeight;
-  return resolveHugContentHeight(
-    panel.offsetHeight,
-    body.clientHeight,
-    body.scrollHeight
-  );
-}
-
-/**
- * Full hug height, including lines clipped inside the body.
- * A short or stretched panel is not the content: chrome plus the body's
- * scroll height is. A short screen still returns the real content.
- */
-export function resolveHugContentHeight(
-  panelHeightPx: number,
-  bodyClientHeightPx: number,
-  bodyScrollHeightPx: number
-): number {
-  if (panelHeightPx <= 0) return 0;
-  if (bodyClientHeightPx <= 0 || bodyScrollHeightPx <= 0) return panelHeightPx;
-  return panelHeightPx - bodyClientHeightPx + bodyScrollHeightPx;
-}
-
-/**
- * Content height for a hug sheet, while it opens and after.
- * The screen cap stays in CSS (`--os-hug-cap`). A pixel height here would
- * paint taller than that cap, then snap down when the open animation ends.
- * `off` while the keyboard is open so the sheet can still lift.
- */
-export function resolveHugEnterLockStyle(
-  lockedHeightPx: number | null,
-  phase: 'enter' | 'floor' | 'off',
-  _viewportCapPx: number | null = null
-): CSSProperties | undefined {
-  if (phase === 'off' || lockedHeightPx == null || lockedHeightPx <= 0) {
-    return undefined;
-  }
-  return {
-    ['--os-hug-content' as string]: `${Math.round(lockedHeightPx)}px`,
   };
 }
 
@@ -857,9 +799,6 @@ export function GlassSheet({
   const [openedAboveMediaFace, setOpenedAboveMediaFace] = useState(false);
   const [enterAnimationDone, setEnterAnimationDone] = useState(false);
   const [hugEnterArmed, setHugEnterArmed] = useState(false);
-  const [hugEnterLockedPx, setHugEnterLockedPx] = useState<number | null>(null);
-  const [hugViewportCapPx, setHugViewportCapPx] = useState<number | null>(null);
-  const [suspendHugFloor, setSuspendHugFloor] = useState(false);
   const [panelHeightPx, setPanelHeightPx] = useState(0);
   const [isDesktopSheet, setIsDesktopSheet] = useState(false);
   const { mounted, visible, handlePanelTransitionEnd } = useSheetPresence(
@@ -891,23 +830,14 @@ export function GlassSheet({
     (presentation === 'enter' || presentation === 'appear') &&
     panelIsOpen &&
     !enterAnimationDone;
-  const hugEnterLockStyle = resolveHugEnterLockStyle(
-    hugEnterLockedPx,
-    suspendHugFloor ? 'off' : showEnterAnimation ? 'enter' : 'floor',
-    hugViewportCapPx
-  );
   const draggingRef = useRef(dragging);
   const detentRef = useRef(detent);
-  const trackViewportCapRef = useRef(showEnterAnimation);
-  const hugViewportCapRef = useRef<number | null>(null);
   draggingRef.current = dragging;
   detentRef.current = detent;
-  trackViewportCapRef.current = showEnterAnimation;
 
   useLayoutEffect(() => {
     if (!mounted) {
       setPanelHeightPx(0);
-      hugViewportCapRef.current = null;
       return;
     }
 
@@ -918,8 +848,8 @@ export function GlassSheet({
 
     const syncHeight = () => {
       const nextHeight = panel.offsetHeight;
-      // A resting full sheet does not use this number for its box. Writing it
-      // on every resize pixel re-renders the drawer and the lines jump.
+      // Drag math only. A resting sheet must not rewrite this on every
+      // content pixel — that re-render is what shifts the lines.
       setPanelHeightPx((current) => {
         if (
           current > 0 &&
@@ -930,15 +860,6 @@ export function GlassSheet({
         }
         return current === nextHeight ? current : nextHeight;
       });
-      if (!trackViewportCapRef.current && hugViewportCapRef.current != null) {
-        return;
-      }
-      const cap = panel.parentElement?.clientHeight ?? 0;
-      const nextCap = cap > 0 ? cap : null;
-      hugViewportCapRef.current = nextCap;
-      setHugViewportCapPx((current) =>
-        current === nextCap ? current : nextCap
-      );
     };
 
     syncHeight();
@@ -966,9 +887,8 @@ export function GlassSheet({
     let sampleState: HugEnterSampleState = { lastHeightPx: 0, matches: 0 };
     let raf = 0;
 
-    const arm = (heightPx: number) => {
+    const arm = () => {
       if (cancelled) return;
-      setHugEnterLockedPx(heightPx);
       setHugEnterArmed(true);
     };
 
@@ -976,11 +896,11 @@ export function GlassSheet({
       if (cancelled) return;
       const next = nextHugEnterStableSample(
         sampleState,
-        readHugContentHeight(panel)
+        panel.offsetHeight
       );
       sampleState = next.state;
       if (next.armed) {
-        arm(sampleState.lastHeightPx);
+        arm();
         return;
       }
       raf = window.requestAnimationFrame(sample);
@@ -1056,8 +976,6 @@ export function GlassSheet({
     if (!open) {
       setEnterAnimationDone(false);
       setHugEnterArmed(false);
-      setHugEnterLockedPx(null);
-      setSuspendHugFloor(false);
     }
   }, [open]);
 
@@ -1076,46 +994,6 @@ export function GlassSheet({
       }
     }
   }, [visible]);
-
-  // Remember the content height, not the short screen. A larger window then
-  // grows the sheet up to that height. The painted box stays inside the cap.
-  useLayoutEffect(() => {
-    if (!mounted || !hugEnterArmed) return;
-    const panel = panelRef.current;
-    if (!panel) return;
-    const sync = () => {
-      const content = Math.round(readHugContentHeight(panel));
-      setHugEnterLockedPx((current) =>
-        current == null || content > current + 1 ? content : current
-      );
-    };
-    sync();
-    const observer = new ResizeObserver(sync);
-    observer.observe(panel);
-    const body = hugSheetBody(panel);
-    if (body) {
-      observer.observe(body);
-      const mutations = new MutationObserver(sync);
-      mutations.observe(body, { childList: true, subtree: true });
-      return () => {
-        observer.disconnect();
-        mutations.disconnect();
-      };
-    }
-    return () => observer.disconnect();
-  }, [mounted, hugEnterArmed]);
-
-  useLayoutEffect(() => {
-    const panel = panelRef.current;
-    if (!mounted || !panel) return;
-    const sync = () => {
-      setSuspendHugFloor(panel.classList.contains('is-keyboard-open'));
-    };
-    sync();
-    const observer = new MutationObserver(sync);
-    observer.observe(panel, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, [mounted, open]);
 
   const finishEnterAnimation = useCallback(() => {
     setEnterAnimationDone(true);
@@ -1215,7 +1093,6 @@ export function GlassSheet({
         style={
           {
             '--sheet-y': sheetY,
-            ...hugEnterLockStyle,
             ...(dragging ? { transform: `translateY(${sheetY})` } : {}),
             ...panelStyle,
           } as CSSProperties

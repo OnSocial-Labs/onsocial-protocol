@@ -7,19 +7,24 @@
 import type { ProfileKind } from '../schema/v1.js';
 import { SCHEMA_VERSION } from '../schema/v1.js';
 import type { SocialSetData } from './_shared.js';
-import { normalizeJobTitle, normalizeJobUrl } from './jobs.js';
+import {
+  JOB_DESCRIPTION_MAX,
+  normalizeJobDescription,
+  normalizeJobTitle,
+  normalizeJobUrl,
+} from './jobs.js';
 
 export const OFFER_TITLE_MAX = 80;
-/** One line under the title. */
-export const OFFER_LINE_MAX = 140;
+/** Same brief as a role: opener plus a short list (`**` / `*` / `- `). */
+export const OFFER_DESCRIPTION_MAX = JOB_DESCRIPTION_MAX;
 export const OFFER_URL_MAX = 512;
 /** Shared ceiling for a person and an org. One read already returns this many. */
 export const OFFER_MAX = 8;
 
 export interface OfferBuildInput {
   title: string;
-  /** Short line of what you do. Omit when the title is enough. */
-  line?: string | null;
+  /** What the service includes. Omit when the title is enough. */
+  description?: string | null;
   /** Optional booking or site link. */
   url?: string | null;
   since?: number;
@@ -29,7 +34,7 @@ export interface OfferBuildInput {
 export interface OfferRecord {
   offerId: string;
   title: string;
-  line: string | null;
+  description: string | null;
   url: string | null;
   since: number | null;
 }
@@ -53,9 +58,9 @@ export function normalizeOfferTitle(raw: string): string {
   return normalizeJobTitle(raw).slice(0, OFFER_TITLE_MAX);
 }
 
-/** Collapse to one line. */
-export function normalizeOfferLine(raw: string): string {
-  return raw.replace(/\s+/g, ' ').trim().slice(0, OFFER_LINE_MAX);
+/** Keep newlines for lists and paragraphs; same marks as a role. */
+export function normalizeOfferDescription(raw: string): string {
+  return normalizeJobDescription(raw);
 }
 
 export function normalizeOfferUrl(raw: string): string {
@@ -79,14 +84,14 @@ export function buildOfferSetData(
   if (!title) {
     throw new Error('Offer title is required');
   }
-  const line = normalizeOfferLine(input.line ?? '');
+  const description = normalizeOfferDescription(input.description ?? '');
   const url = normalizeOfferUrl(input.url ?? '');
   const since = input.since ?? input.now ?? Date.now();
   return {
     [offerPath(offerId)]: {
       v: SCHEMA_VERSION,
       title,
-      ...(line ? { line } : {}),
+      ...(description ? { description } : {}),
       ...(url ? { url } : {}),
       since,
     },
@@ -130,8 +135,8 @@ export function parseOfferKeyEntry(entry: {
     typeof value.title === 'string' ? value.title : ''
   );
   if (!title) return null;
-  const line = normalizeOfferLine(
-    typeof value.line === 'string' ? value.line : ''
+  const description = normalizeOfferDescription(
+    typeof value.description === 'string' ? value.description : ''
   );
   const url = normalizeOfferUrl(typeof value.url === 'string' ? value.url : '');
   const sinceRaw = value.since;
@@ -144,7 +149,7 @@ export function parseOfferKeyEntry(entry: {
   return {
     offerId,
     title,
-    line: line || null,
+    description: description || null,
     url: url || null,
     since: since != null && Number.isFinite(since) ? since : null,
   };

@@ -41,6 +41,8 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'POST', path: 'relay/delegate', body: 'json' },
   { method: 'GET', path: 'data/get-one', body: 'none' },
   { method: 'GET', path: 'data/get', body: 'none' },
+  // Offer save counts existing keys before the write (`os.offers.list`).
+  { method: 'GET', path: 'data/keys', body: 'none' },
   // Live guild page reads.
   { method: 'GET', path: 'data/group-config', body: 'none' },
   { method: 'GET', path: 'data/group-stats', body: 'none' },

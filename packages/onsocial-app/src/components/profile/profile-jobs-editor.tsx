@@ -372,7 +372,7 @@ export function ProfileJobsEditor({
           </OsSheetFooter>
         }
       >
-        <div className="account-editor-jobs-form">
+        <div className="account-editor-sheet-form">
           <label className="guild-field" htmlFor={`${formId}-title`}>
             <span>Title</span>
             <input
@@ -389,7 +389,7 @@ export function ProfileJobsEditor({
           <label className="guild-field" htmlFor={`${formId}-description`}>
             <span>Description</span>
             <div
-              className={`${osFieldBorderedClassName} account-editor-jobs-rich`}
+              className={`${osFieldBorderedClassName} account-editor-sheet-rich`}
             >
               <ProfileBioRichTextarea
                 id={`${formId}-description`}
@@ -398,7 +398,7 @@ export function ProfileJobsEditor({
                 rows={4}
                 placeholder="What you’re hiring for"
                 tools={['bold', 'italic', 'list']}
-                className="account-editor-jobs-bio"
+                className="account-editor-sheet-bio"
                 disabled={busy}
                 onChange={setDescription}
               />

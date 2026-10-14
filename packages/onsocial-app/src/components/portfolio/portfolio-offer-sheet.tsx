@@ -9,8 +9,10 @@ import {
   OsSheetActions,
   OsSheetFooter,
 } from '@onsocial/ui';
+import { PortfolioBioBlocks } from '@/components/portfolio/portfolio-bio-blocks';
 import { DmComposeSheet } from '@/features/messages/dm-compose-sheet';
 import type { ResolvedMood } from '@/lib/moods/types';
+import { profileBioPlainPreview } from '@/lib/profile-bio-rich';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 function offerHost(url: string): string {
@@ -37,7 +39,7 @@ function OfferDetailSheet({
   zIndex: number;
 }) {
   if (!offer) return null;
-  const line = offer.line?.trim() || '';
+  const description = offer.description?.trim() || '';
   const url = offer.url?.trim() || '';
 
   return (
@@ -64,20 +66,26 @@ function OfferDetailSheet({
         </OsSheetFooter>
       }
     >
-      {line || url ? (
-        <div className="portfolio-offer-detail">
-          {line ? <p className="portfolio-offer-line">{line}</p> : null}
-          {url ? (
-            <a
-              className="portfolio-offer-link"
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {offerHost(url)}
-            </a>
-          ) : null}
+      {description ? (
+        <div className="portfolio-hiring-detail-copy">
+          <PortfolioBioBlocks text={description} headingAs="p" />
         </div>
+      ) : null}
+      {url ? (
+        <>
+          <Divider
+            variant="detail"
+            className="portfolio-hiring-detail-divider"
+          />
+          <a
+            className="portfolio-hiring-meta portfolio-hiring-detail-meta portfolio-offer-link"
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {offerHost(url)}
+          </a>
+        </>
       ) : null}
     </OsHugSheet>
   );
@@ -145,8 +153,12 @@ export function PortfolioOffersSheet({
                   onClick={() => setSelectedId(offer.offerId)}
                 >
                   <p className="portfolio-hiring-title">{offer.title}</p>
-                  {offer.line ? (
-                    <p className="portfolio-hiring-teaser">{offer.line}</p>
+                  {offer.description ? (
+                    <p className="portfolio-hiring-teaser">
+                      {profileBioPlainPreview(offer.description, {
+                        maxBlocks: 1,
+                      })}
+                    </p>
                   ) : null}
                 </button>
               </li>

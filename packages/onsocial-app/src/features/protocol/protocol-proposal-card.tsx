@@ -41,6 +41,7 @@ import type {
 } from '@/features/protocol/types';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
+import { OsTextFold } from '@/components/ui/os-text-fold';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import { shareUrl } from '@/lib/share-url';
@@ -107,6 +108,7 @@ export function ProtocolProposalCard({
   > | null;
 }) {
   const [descOpen, setDescOpen] = useState(false);
+  const [descOverflows, setDescOverflows] = useState(false);
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
   const [onChainOpen, setOnChainOpen] = useState(false);
@@ -223,7 +225,6 @@ export function ProtocolProposalCard({
     view.description && view.description.trim() !== view.headline.trim()
       ? view.description.trim()
       : null;
-  const descriptionLong = Boolean(description && description.length > 140);
   const cardNavigable = Boolean(
     interactive && proposalHref && onNavigateToProposal
   );
@@ -395,7 +396,9 @@ export function ProtocolProposalCard({
                         title={
                           view.targetAccount && view.targetValue
                             ? `${view.targetValue} · ${view.targetAccount}`
-                            : (view.targetValue ?? view.targetAccount ?? undefined)
+                            : (view.targetValue ??
+                              view.targetAccount ??
+                              undefined)
                         }
                       >
                         {view.targetValue ??
@@ -436,19 +439,23 @@ export function ProtocolProposalCard({
 
             {description ? (
               <div className="protocol-card-description-block">
-                <p
-                  className={`protocol-card-description${
-                    descriptionLong && !descOpen ? ' is-clamped' : ''
-                  }`}
+                <OsTextFold
+                  open={descOpen}
+                  closedLines={2}
+                  onOverflow={setDescOverflows}
                 >
-                  {description}
-                </p>
-                {descriptionLong ? (
+                  <p className="protocol-card-description">{description}</p>
+                </OsTextFold>
+                {descOverflows ? (
                   <button
                     type="button"
                     className="protocol-card-description-more"
                     aria-expanded={descOpen}
-                    onClick={() => setDescOpen((open) => !open)}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setDescOpen((open) => !open);
+                    }}
                   >
                     {descOpen ? 'Show less' : 'Show more'}
                   </button>
@@ -471,7 +478,10 @@ export function ProtocolProposalCard({
                     view.currentVote === 'Reject' ? ' is-confirmed' : ''
                   }${pulseReject ? ' is-pulse' : ''}`}
                 >
-                  <MultiplyIcon className="protocol-card-vote-icon" aria-hidden />
+                  <MultiplyIcon
+                    className="protocol-card-vote-icon"
+                    aria-hidden
+                  />
                   <span>{view.rejectVotes}</span>
                 </span>
                 {view.removeVotes > 0 || view.currentVote === 'Remove' ? (
@@ -562,7 +572,10 @@ export function ProtocolProposalCard({
                   ) : null}
                 </div>
               ) : (
-                <span className="protocol-card-action-meta-spacer" aria-hidden />
+                <span
+                  className="protocol-card-action-meta-spacer"
+                  aria-hidden
+                />
               )}
               {shareHref || canAct ? (
                 <div className="protocol-card-action-end">

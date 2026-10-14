@@ -990,7 +990,8 @@ WHERE j.operation = 'set'
 -- 6b3. offers_search — standing services joined to the profile face
 -- ────────────────────────────────────────────────────────────────────────────
 
-CREATE OR REPLACE VIEW offers_search AS
+DROP VIEW IF EXISTS offers_search;
+CREATE VIEW offers_search AS
 WITH profile_faces AS (
   SELECT
     account_id,
@@ -1009,7 +1010,7 @@ SELECT
   o.offer_id,
   o.path,
   COALESCE(o.value_json ->> 'title', '')                    AS title,
-  NULLIF(o.value_json ->> 'line', '')                       AS line,
+  NULLIF(o.value_json ->> 'description', '')                AS description,
   NULLIF(o.value_json ->> 'url', '')                        AS url,
   NULLIF(o.value_json ->> 'since', '')::bigint              AS since,
   p.name                                                    AS profile_name,
@@ -1022,7 +1023,7 @@ SELECT
       o.account_id,
       p.name,
       o.value_json ->> 'title',
-      o.value_json ->> 'line',
+      o.value_json ->> 'description',
       p.industry
     )
   )                                                         AS search_text,

@@ -6,7 +6,7 @@
 import type { QueryModule } from './index.js';
 
 const OFFER_SEARCH_FIELDS = `
-  accountId offerId title line url since
+  accountId offerId title description url since
   profileName profileKind profileIndustry profileAvatar searchText
   blockHeight blockTimestamp
 `;
@@ -15,7 +15,7 @@ export interface OfferSearchRow {
   accountId: string;
   offerId: string;
   title: string;
-  line: string | null;
+  description: string | null;
   url: string | null;
   since: number | null;
   profileName: string | null;
@@ -47,7 +47,10 @@ function mapOfferRow(row: Record<string, unknown>): OfferSearchRow {
     accountId: String(row.accountId ?? ''),
     offerId: String(row.offerId ?? ''),
     title: String(row.title ?? ''),
-    line: typeof row.line === 'string' && row.line.trim() ? row.line : null,
+    description:
+      typeof row.description === 'string' && row.description.trim()
+        ? row.description
+        : null,
     url: typeof row.url === 'string' && row.url.trim() ? row.url : null,
     since: row.since == null ? null : asNumber(row.since),
     profileName: typeof row.profileName === 'string' ? row.profileName : null,
@@ -65,7 +68,7 @@ function mapOfferRow(row: Record<string, unknown>): OfferSearchRow {
 export class OffersSearchQuery {
   constructor(private _q: QueryModule) {}
 
-  /** Standing services whose title, line, or profile matches. */
+  /** Standing services whose title, description, or profile matches. */
   async search(opts: OfferSearchOptions = {}): Promise<OfferSearchRow[]> {
     const decls = ['$limit: Int!', '$offset: Int!'];
     const variables: Record<string, unknown> = {

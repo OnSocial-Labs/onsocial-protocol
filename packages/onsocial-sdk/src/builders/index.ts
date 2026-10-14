@@ -180,14 +180,14 @@ export {
 } from './jobs.js';
 export type { JobBuildInput } from './jobs.js';
 export {
-  OFFER_LINE_MAX,
+  OFFER_DESCRIPTION_MAX,
   OFFER_MAX,
   OFFER_TITLE_MAX,
   OFFER_URL_MAX,
   buildOfferRemoveData,
   buildOfferSetData,
   createOfferId,
-  normalizeOfferLine,
+  normalizeOfferDescription,
   normalizeOfferTitle,
   normalizeOfferUrl,
   offerLineAriaLabel,

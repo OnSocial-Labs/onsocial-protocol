@@ -170,15 +170,19 @@
  * Prefer `sizing="hug"` on GlassSheet over per-panel height:auto overrides.
  */
 .glass-sheet-panel[data-sizing='hug'] {
-  /* Screen owns the cap. Script only records content height. */
+  /* Browser sizes the box to the content. The cap is the only limit. */
   --os-hug-cap: min(90dvh, 720px, 100%);
   height: auto;
   max-height: var(--os-hug-cap);
-  min-height: min(var(--os-hug-content, 0px), var(--os-hug-cap));
+  min-height: 0;
 }
 
+/*
+ * Basis is the content, so a short drawer stays short. At the cap the body
+ * shrinks and scrolls. A pixel height here is what shifted the lines.
+ */
 .glass-sheet-panel[data-sizing='hug'] > .glass-sheet-body {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
@@ -605,6 +609,7 @@
   flex: 1;
   overflow-x: clip;
   overflow-y: auto;
+  overflow-anchor: none;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }

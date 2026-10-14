@@ -36,7 +36,6 @@ import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
 import { ProfileAboutEditorSheet } from '@/components/wallet/profile-about-editor-sheet';
 import { ProfileFaceBioField } from '@/components/wallet/profile-face-bio-field';
-import { PortfolioWebsitesEditor } from '@/components/wallet/portfolio-websites-editor';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { ProfileOrgMetaEditor } from '@/components/wallet/profile-org-meta-editor';
 import { ProfileOffersEditor } from '@/components/profile/profile-offers-editor';
@@ -245,8 +244,6 @@ export function AppProfileEditorSheet({
   const [websiteErrors, setWebsiteErrors] = useState<Record<string, string>>(
     {}
   );
-  const [websiteFocusId, setWebsiteFocusId] = useState<string | null>(null);
-  const websiteIdRef = useRef(0);
   const [linkFieldErrors, setLinkFieldErrors] = useState<
     Partial<Record<keyof ProfileLinksInput, string>>
   >({});
@@ -317,7 +314,6 @@ export function AppProfileEditorSheet({
         )
       );
       setWebsiteErrors({});
-      setWebsiteFocusId(null);
       setLinkFieldErrors({});
       setAvatarFile(null);
       setBannerFile(null);
@@ -486,14 +482,16 @@ export function AppProfileEditorSheet({
     !hasInvalidWebsites &&
     isDirty;
 
-  const updateWebsite = (id: string, patch: Partial<PortfolioWebsiteDraft>) => {
-    setWebsites((current) =>
-      current.map((row) => (row.id === id ? { ...row, ...patch } : row))
-    );
+  const saveWebsite = (row: PortfolioWebsiteDraft) => {
+    setWebsites((current) => {
+      const index = current.findIndex((item) => item.id === row.id);
+      if (index < 0) return [...current, row];
+      return current.map((item) => (item.id === row.id ? row : item));
+    });
     setWebsiteErrors((current) => {
-      if (!current[id]) return current;
+      if (!current[row.id]) return current;
       const next = { ...current };
-      delete next[id];
+      delete next[row.id];
       return next;
     });
   };
@@ -505,32 +503,6 @@ export function AppProfileEditorSheet({
       const next = { ...current };
       delete next[id];
       return next;
-    });
-  };
-
-  const addWebsite = () => {
-    if (websites.length >= PORTFOLIO_WEBSITE_LIMIT) return;
-    websiteIdRef.current += 1;
-    const id = `draft-${websiteIdRef.current}`;
-    setWebsites((current) => [
-      ...current,
-      { id, url: '', name: '', line: '', image: '' },
-    ]);
-    setWebsiteFocusId(id);
-  };
-
-  const blurWebsite = (id: string) => {
-    const row = websites.find((entry) => entry.id === id);
-    const error = row ? portfolioWebsiteDraftError(row) : null;
-    setWebsiteErrors((current) => {
-      if (!error) {
-        if (!current[id]) return current;
-        const next = { ...current };
-        delete next[id];
-        return next;
-      }
-      if (current[id] === error) return current;
-      return { ...current, [id]: error };
     });
   };
 
@@ -1012,20 +984,13 @@ export function AppProfileEditorSheet({
                   notes={linkNotes}
                   fieldErrors={linkFieldErrors}
                   omitWebsite={!isDaoAccount}
-                  websitesSlot={
-                    isDaoAccount ? null : (
-                      <PortfolioWebsitesEditor
-                        websites={websites}
-                        errors={websiteErrors}
-                        focusId={websiteFocusId}
-                        onChange={updateWebsite}
-                        onRemove={removeWebsite}
-                        onAdd={addWebsite}
-                        onBlurRow={blurWebsite}
-                        onFocusConsumed={() => setWebsiteFocusId(null)}
-                      />
-                    )
+                  websites={isDaoAccount ? undefined : websites}
+                  websiteErrors={websiteErrors}
+                  canAddWebsite={
+                    !isDaoAccount && websites.length < PORTFOLIO_WEBSITE_LIMIT
                   }
+                  onSaveWebsite={isDaoAccount ? undefined : saveWebsite}
+                  onRemoveWebsite={isDaoAccount ? undefined : removeWebsite}
                   onUpdateLink={updateLink}
                   onUpdateNote={updateNote}
                   onClearFieldError={clearLinkFieldError}

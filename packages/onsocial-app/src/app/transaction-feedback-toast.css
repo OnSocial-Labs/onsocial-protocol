@@ -22,6 +22,17 @@
   pointer-events: none;
 }
 
+/*
+ * Drawers cover the dock lane. The toast already paints above them; parked
+ * in that lane it sits inside the sheet and only shows once the sheet leaves.
+ * While a sheet is mounted, pin it to the top of the column (scrim).
+ * Parked post threads stay in the DOM and must not move the toast.
+ */
+body:has(.glass-sheet-root:not(.post-thread-sheet-parked)) .app-tx-toast-anchor {
+  top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  bottom: auto;
+}
+
 .app-tx-toast {
   position: relative;
   overflow: hidden;

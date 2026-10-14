@@ -4,14 +4,12 @@ import {
   useCallback,
   useEffect,
   useId,
-  useImperativeHandle,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type CSSProperties,
   type ReactNode,
-  type Ref,
 } from 'react';
 import {
   AmountFieldMetaRow,
@@ -96,7 +94,6 @@ type BoostSheetMode = 'collect' | 'increase' | 'renew' | 'extend';
 type BoostTxAction = 'commit' | 'collect' | 'unlock' | 'renew' | 'extend';
 
 const LIVE_COUNTER_FRACTION_DIGITS = 4;
-const BOOST_MODE_SWAP_MS = 180;
 /**
  * Max time the +amount chip can stay up if chain state never lands. Chip
  * motion is 1.75s / 1.15s in CSS; the normal path clears on the applied
@@ -112,107 +109,66 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-type BoostModeSlotHandle = {
-  /** Lock current slot height before setMode — prevents hug-sheet top snap. */
-  prepareSwap: () => void;
-};
-
 /**
- * Mode body only — outgoing fades up, incoming fades in, shell height tweens.
- * Call `prepareSwap()` before changing `mode` so the hug drawer top doesn’t jump.
+ * One body. The clip eases between the two content heights — the same
+ * measured fold as a post preview. The words are not translated, and the
+ * previous mode is not left on screen underneath.
  */
 function BoostModeSlot({
   mode,
   children,
-  ref,
 }: {
   mode: BoostSheetMode;
   children: ReactNode;
-  ref?: Ref<BoostModeSlotHandle>;
 }) {
-  const shellRef = useRef<HTMLDivElement>(null);
-  const prevModeRef = useRef(mode);
-  const prevChildrenRef = useRef(children);
-  const [exit, setExit] = useState<{
-    mode: BoostSheetMode;
-    node: ReactNode;
-  } | null>(null);
-
-  useImperativeHandle(ref, () => ({
-    prepareSwap: () => {
-      const shell = shellRef.current;
-      if (!shell || prefersReducedMotion()) return;
-      shell.style.height = `${shell.offsetHeight}px`;
-    },
-  }));
+  const clipRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const modeRef = useRef(mode);
+  const heightRef = useRef<number | null>(null);
 
   useLayoutEffect(() => {
-    if (mode === prevModeRef.current) return;
+    const clip = clipRef.current;
+    const inner = innerRef.current;
+    if (!clip || !inner) return;
 
-    const fromMode = prevModeRef.current;
-    const fromNode = prevChildrenRef.current;
-    prevModeRef.current = mode;
-    prevChildrenRef.current = children;
+    const next = inner.scrollHeight;
+    const modeChanged = modeRef.current !== mode;
+    modeRef.current = mode;
 
-    if (prefersReducedMotion()) {
-      setExit(null);
-      const shell = shellRef.current;
-      if (shell) shell.style.height = 'auto';
+    if (!modeChanged || prefersReducedMotion() || heightRef.current == null) {
+      clip.style.height = 'auto';
+      heightRef.current = next;
       return;
     }
 
-    setExit({ mode: fromMode, node: fromNode });
+    const from = clip.style.height.endsWith('px')
+      ? clip.getBoundingClientRect().height
+      : heightRef.current;
+    if (Math.abs(from - next) < 1) {
+      clip.style.height = 'auto';
+      heightRef.current = next;
+      return;
+    }
 
-    const shell = shellRef.current;
-    const applyHeight = () => {
-      if (!shell) return;
-      const inEl = shell.querySelector(
-        '[data-boost-mode-layer="in"]'
-      ) as HTMLElement | null;
-      if (!inEl) return;
-      const to = inEl.offsetHeight;
-      // Height should already be locked via prepareSwap; tween to the new body.
-      void shell.offsetHeight;
-      shell.style.height = `${to}px`;
+    clip.style.transition = 'none';
+    clip.style.height = `${from}px`;
+    void clip.offsetHeight;
+    clip.style.transition = '';
+    clip.style.height = `${next}px`;
+    heightRef.current = next;
+
+    const done = (event: TransitionEvent) => {
+      if (event.target !== clip || event.propertyName !== 'height') return;
+      clip.style.height = 'auto';
+      heightRef.current = inner.scrollHeight;
     };
-    requestAnimationFrame(() => requestAnimationFrame(applyHeight));
-
-    const timer = window.setTimeout(() => {
-      setExit(null);
-      if (shell) shell.style.height = 'auto';
-    }, BOOST_MODE_SWAP_MS);
-
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mode-driven swap
+    clip.addEventListener('transitionend', done);
+    return () => clip.removeEventListener('transitionend', done);
   }, [mode]);
 
-  useLayoutEffect(() => {
-    if (!exit) prevChildrenRef.current = children;
-  }, [children, exit]);
-
-  const swapping = exit != null;
-
   return (
-    <div ref={shellRef} className="portfolio-boost-mode-slot">
-      {exit ? (
-        <div
-          key={`out-${exit.mode}`}
-          data-boost-mode-layer="out"
-          className="portfolio-boost-mode-layer is-out"
-          aria-hidden
-        >
-          {exit.node}
-        </div>
-      ) : null}
-      <div
-        key={`in-${mode}`}
-        data-boost-mode-layer="in"
-        className={
-          swapping
-            ? 'portfolio-boost-mode-layer is-in'
-            : 'portfolio-boost-mode-layer'
-        }
-      >
+    <div ref={clipRef} className="portfolio-boost-mode-clip os-reveal-clip">
+      <div ref={innerRef} className="portfolio-boost-mode-layer">
         {children}
       </div>
     </div>
@@ -390,7 +346,6 @@ export function PortfolioBoostSheet({
   const socialIcon = useSocialTokenIcon();
 
   const [mode, setMode] = useState<BoostSheetMode>('collect');
-  const modeSlotRef = useRef<BoostModeSlotHandle>(null);
   /** Button pulsing dots — wallet signing only; toast owns chain confirm. */
   const [signingAction, setSigningAction] = useState<BoostTxAction | null>(
     null
@@ -848,7 +803,6 @@ export function PortfolioBoostSheet({
 
   function switchMode(next: BoostSheetMode) {
     if (txBusy || next === mode) return;
-    modeSlotRef.current?.prepareSwap();
     setFieldError(null);
     setAmountInput('');
     setExtendMonths(null);
@@ -1143,7 +1097,7 @@ export function PortfolioBoostSheet({
             ))}
           </div>
 
-          <BoostModeSlot ref={modeSlotRef} mode={mode}>
+          <BoostModeSlot mode={mode}>
             {canUnlock && mode === 'collect' ? (
               <p className="portfolio-boost-note portfolio-boost-note--center">
                 Release your lock and collect everything.

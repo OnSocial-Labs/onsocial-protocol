@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { PortfolioLinks } from '@/components/portfolio/portfolio-links';
-import { PortfolioWebsitesEditor } from '@/components/wallet/portfolio-websites-editor';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { profileLinksInputFromRecord } from '@/lib/profile-links';
 
@@ -65,7 +64,7 @@ describe('PortfolioLinks', () => {
 describe('ProfileLinksEditor websites', () => {
   const noop = () => undefined;
 
-  it('keeps a single website field for DAO editors', () => {
+  it('keeps website behind Add link for DAO editors', () => {
     const html = renderToStaticMarkup(
       createElement(ProfileLinksEditor, {
         links: profileLinksInputFromRecord(null),
@@ -75,35 +74,17 @@ describe('ProfileLinksEditor websites', () => {
         onSetFieldError: noop,
       })
     );
-    expect(html).toContain('>Website<');
+    expect(html).toContain('Add link');
+    expect(html).not.toContain('>Website<');
+    expect(html).not.toContain('placeholder="example.com"');
   });
 
-  it('hides that field when websites have their own list', () => {
+  it('shows a website as the globe beside social icons', () => {
     const html = renderToStaticMarkup(
       createElement(ProfileLinksEditor, {
-        links: profileLinksInputFromRecord({
-          website: 'https://example.com',
-          github: 'alice',
-        }),
+        links: profileLinksInputFromRecord({ github: 'alice' }),
         fieldErrors: {},
         omitWebsite: true,
-        websitesSlot: createElement('p', null, 'Add website'),
-        onUpdateLink: noop,
-        onClearFieldError: noop,
-        onSetFieldError: noop,
-      })
-    );
-    expect(html).toContain('Add website');
-    expect(html).toContain('Edit GitHub');
-    expect(html).not.toContain('Edit Website');
-    expect(html).not.toContain('>Website<');
-  });
-});
-
-describe('PortfolioWebsitesEditor', () => {
-  it('lists name, address, and an optional line', () => {
-    const html = renderToStaticMarkup(
-      createElement(PortfolioWebsitesEditor, {
         websites: [
           {
             id: 'website',
@@ -112,29 +93,28 @@ describe('PortfolioWebsitesEditor', () => {
             line: 'Guides',
           },
         ],
-        errors: {},
-        onChange: () => undefined,
-        onRemove: () => undefined,
-        onAdd: () => undefined,
-        onBlurRow: () => undefined,
+        onSaveWebsite: noop,
+        onRemoveWebsite: noop,
+        canAddWebsite: true,
+        onUpdateLink: noop,
+        onClearFieldError: noop,
+        onSetFieldError: noop,
       })
     );
-    expect(html).toContain('value="Docs"');
-    expect(html).toContain('value="example.com"');
-    expect(html).toContain('value="Guides"');
-    expect(html).toContain('Add website');
-    expect(html).toContain('aria-label="Website name"');
-    expect(html).toContain('aria-label="Website address"');
-    expect(html).toContain('aria-label="Website line"');
-    expect(html).toContain('aria-label="Add Website photo"');
-    expect(html).not.toContain('Remove photo');
-    expect(html).not.toContain('>Shop<');
-    expect(html).not.toContain('>Bookmark<');
+    expect(html).toContain('aria-label="Edit website"');
+    expect(html).toContain('Edit GitHub');
+    expect(html).not.toContain('Docs');
+    expect(html).not.toContain('example.com');
+    expect(html).not.toContain('Guides');
+    expect(html).not.toContain('>Website<');
   });
 
-  it('shows a chosen photo on the row and offers to remove it', () => {
+  it('keeps a website photo off the icon row', () => {
     const html = renderToStaticMarkup(
-      createElement(PortfolioWebsitesEditor, {
+      createElement(ProfileLinksEditor, {
+        links: profileLinksInputFromRecord(null),
+        fieldErrors: {},
+        omitWebsite: true,
         websites: [
           {
             id: 'website',
@@ -144,16 +124,15 @@ describe('PortfolioWebsitesEditor', () => {
             image: 'https://cdn.example/docs.png',
           },
         ],
-        errors: {},
-        onChange: () => undefined,
-        onRemove: () => undefined,
-        onAdd: () => undefined,
-        onBlurRow: () => undefined,
+        onSaveWebsite: noop,
+        onRemoveWebsite: noop,
+        onUpdateLink: noop,
+        onClearFieldError: noop,
+        onSetFieldError: noop,
       })
     );
-    expect(html).toContain('src="https://cdn.example/docs.png"');
-    expect(html).toContain('aria-label="Change Website photo"');
-    expect(html).toContain('aria-label="Remove Website photo"');
-    expect(html).toContain('Remove photo');
+    expect(html).toContain('aria-label="Edit website"');
+    expect(html).not.toContain('https://cdn.example/docs.png');
+    expect(html).not.toContain('Remove photo');
   });
 });

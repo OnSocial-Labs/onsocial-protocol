@@ -9,8 +9,6 @@ import {
   GLASS_SHEET_MEDIA_FACE_LIFT,
   resolveBackdropPresentation,
   resolveGlassSheetZIndex,
-  resolveHugContentHeight,
-  resolveHugEnterLockStyle,
   resolvePanelPresentation,
   resolveSheetCoverProgress,
   resolveSheetOffsetPx,
@@ -54,7 +52,7 @@ describe('sheet presence close', () => {
   });
 });
 
-describe('hug enter height lock', () => {
+describe('hug enter', () => {
   it('arms only for hug enter/appear presentations', () => {
     expect(hugEnterNeedsArming('hug', 'enter')).toBe(true);
     expect(hugEnterNeedsArming('hug', 'appear')).toBe(true);
@@ -85,29 +83,6 @@ describe('hug enter height lock', () => {
     expect(settled.armed).toBe(true);
   });
 
-  it('records content height and lets the screen cap the box', () => {
-    expect(resolveHugEnterLockStyle(480, 'enter')).toEqual({
-      '--os-hug-content': '480px',
-    });
-    expect(resolveHugEnterLockStyle(480, 'floor')).toEqual({
-      '--os-hug-content': '480px',
-    });
-    expect(resolveHugEnterLockStyle(900, 'floor', 640)).toEqual({
-      '--os-hug-content': '900px',
-    });
-    expect(resolveHugEnterLockStyle(900, 'enter', 640)).toEqual({
-      '--os-hug-content': '900px',
-    });
-    expect(resolveHugEnterLockStyle(800, 'floor', 1080)).toEqual({
-      '--os-hug-content': '800px',
-    });
-    expect(resolveHugContentHeight(420, 300, 680)).toBe(800);
-    expect(resolveHugContentHeight(444, 300, 300)).toBe(444);
-    expect(resolveHugContentHeight(1000, 900, 400)).toBe(500);
-    expect(resolveHugEnterLockStyle(480, 'off')).toBeUndefined();
-    expect(resolveHugEnterLockStyle(null, 'enter')).toBeUndefined();
-    expect(resolveHugEnterLockStyle(0, 'floor')).toBeUndefined();
-  });
 });
 
 describe('resolveGlassSheetZIndex', () => {

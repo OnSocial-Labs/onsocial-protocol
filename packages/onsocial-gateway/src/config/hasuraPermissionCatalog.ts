@@ -325,7 +325,7 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'offer_id',
       'path',
       'title',
-      'line',
+      'description',
       'url',
       'since',
       'profile_name',

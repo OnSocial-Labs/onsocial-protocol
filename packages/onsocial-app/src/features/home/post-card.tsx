@@ -149,6 +149,7 @@ import {
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
+import { OsTextFold } from '@/components/ui/os-text-fold';
 import { StandingToggle } from '@/components/ui/standing-toggle';
 import {
   isDaoStandingTarget,
@@ -1597,18 +1598,16 @@ function PostCardBody({
   onArticleHrefNavigate?: ((event: { preventDefault(): void }) => void) | null;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [bodyOverflows, setBodyOverflows] = useState(false);
   const previewLimit = postFeedPreviewLimit(hasMedia);
   const isArticle = Boolean(articleTitle && articleHref);
-  const canExpand =
-    !isArticle &&
-    !expandDisabled &&
-    !hideText &&
-    postPreviewNeedsExpand(text, previewLimit);
+  /** Photo posts peek shorter. The full text stays mounted; the clip folds it. */
+  const closedLines = hasMedia ? 3 : 6;
+  const foldBody =
+    !isArticle && !expandDisabled && !hideText && text.trim().length > 0;
   const tease = isArticle
     ? truncatePostPreview(articleTeaseSource(text), previewLimit)
-    : canExpand && !expanded
-      ? truncatePostPreview(text, previewLimit)
-      : text;
+    : text;
   const showArticleRead =
     isArticle &&
     (Boolean(articleHref) || Boolean(onReadArticle)) &&
@@ -1662,10 +1661,22 @@ function PostCardBody({
       ) : null}
       {!hideText && tease.trim() ? (
         <div className="post-card-body-block">
-          <p className="post-card-body">
-            <PostRichText text={tease} inlineMarks={isArticle} />
-          </p>
-          {canExpand ? (
+          {foldBody ? (
+            <OsTextFold
+              open={expanded}
+              closedLines={closedLines}
+              onOverflow={setBodyOverflows}
+            >
+              <p className="post-card-body">
+                <PostRichText text={text} />
+              </p>
+            </OsTextFold>
+          ) : (
+            <p className="post-card-body">
+              <PostRichText text={tease} inlineMarks={isArticle} />
+            </p>
+          )}
+          {foldBody && bodyOverflows ? (
             <button
               type="button"
               className="post-card-show-more"

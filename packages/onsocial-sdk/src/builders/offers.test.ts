@@ -3,7 +3,7 @@ import {
   buildOfferRemoveData,
   buildOfferSetData,
   createOfferId,
-  normalizeOfferLine,
+  normalizeOfferDescription,
   normalizeOfferUrl,
   offerLineAriaLabel,
   offerLineLabel,
@@ -17,7 +17,7 @@ describe('offers builder', () => {
     expect(
       buildOfferSetData('o-1', {
         title: '  Brand identity  ',
-        line: 'Marks, type, and a site.',
+        description: 'Marks, type, and a site.',
         url: 'studio.example/book',
         since: 1_700_000_000_000,
       })
@@ -25,7 +25,7 @@ describe('offers builder', () => {
       'offers/o-1': {
         v: 1,
         title: 'Brand identity',
-        line: 'Marks, type, and a site.',
+        description: 'Marks, type, and a site.',
         url: 'https://studio.example/book',
         since: 1_700_000_000_000,
       },
@@ -36,7 +36,10 @@ describe('offers builder', () => {
     expect(() => buildOfferSetData('o-1', { title: '   ' })).toThrow(/title/i);
     expect(normalizeOfferUrl('javascript:alert(1)')).toBe('');
     expect(normalizeOfferUrl('http://insecure.example/x')).toBe('');
-    expect(normalizeOfferLine('  two\nlines  ')).toBe('two lines');
+    expect(
+      normalizeOfferDescription('Ship UI.\n\n- **React**\n- *TypeScript*')
+    ).toBe('Ship UI.\n\n- **React**\n- *TypeScript*');
+    expect(normalizeOfferDescription('  a   b  \n\n\n  c  ')).toBe('a b\n\nc');
     expect(createOfferId(1).startsWith('o-')).toBe(true);
     expect(buildOfferRemoveData('o-1')).toEqual({ 'offers/o-1': null });
   });
@@ -59,21 +62,21 @@ describe('offers builder', () => {
       value: JSON.stringify({
         v: 1,
         title: '  Editing  ',
-        line: 'Essays',
+        description: 'Essays',
         since: 20,
       }),
     });
     expect(parsed).toEqual({
       offerId: 'o-2',
       title: 'Editing',
-      line: 'Essays',
+      description: 'Essays',
       url: null,
       since: 20,
     });
     expect(
       sortOffers([
-        { offerId: 'b', title: 'B', line: null, url: null, since: 2 },
-        { offerId: 'a', title: 'A', line: null, url: null, since: 1 },
+        { offerId: 'b', title: 'B', description: null, url: null, since: 2 },
+        { offerId: 'a', title: 'A', description: null, url: null, since: 1 },
       ]).map((offer) => offer.offerId)
     ).toEqual(['a', 'b']);
   });

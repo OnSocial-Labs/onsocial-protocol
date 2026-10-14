@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useState } from 'react';
 import {
   offerLineLabel,
   offerMaxForKind,
-  OFFER_LINE_MAX,
+  OFFER_DESCRIPTION_MAX,
   OFFER_TITLE_MAX,
   OFFER_URL_MAX,
   normalizeOfferUrl,
@@ -20,6 +20,7 @@ import {
   OsSheetFooter,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
+import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -28,6 +29,7 @@ import {
   notifyOffersChanged,
   OFFERS_CHANGED_EVENT,
 } from '@/lib/profile-offers';
+import { profileBioPlainPreview } from '@/lib/profile-bio-rich';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastError,
@@ -75,7 +77,7 @@ export function ProfileOffersEditor({
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
-  const [line, setLine] = useState('');
+  const [description, setDescription] = useState('');
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [removeId, setRemoveId] = useState<string | null>(null);
@@ -96,7 +98,7 @@ export function ProfileOffersEditor({
     setFormOpen(false);
     setEditingId(null);
     setTitle('');
-    setLine('');
+    setDescription('');
     setUrl('');
     setRemoveId(null);
   }, [sheetOpen]);
@@ -114,14 +116,14 @@ export function ProfileOffersEditor({
   const resetForm = () => {
     setEditingId(null);
     setTitle('');
-    setLine('');
+    setDescription('');
     setUrl('');
   };
 
   const openEdit = (offer: OfferRecord) => {
     setEditingId(offer.offerId);
     setTitle(offer.title);
-    setLine(offer.line ?? '');
+    setDescription(offer.description ?? '');
     setUrl(offer.url ?? '');
     setFormOpen(true);
   };
@@ -143,7 +145,7 @@ export function ProfileOffersEditor({
     try {
       const { client } = await getClient();
       const { result } = await client.offers.create(
-        { title, line, url },
+        { title, description, url },
         {
           ...(editing ? { offerId: editingId } : {}),
           accountId,
@@ -201,7 +203,7 @@ export function ProfileOffersEditor({
   const form = (
     <form
       id={formId}
-      className="account-editor-offer-form"
+      className="account-editor-sheet-form"
       onSubmit={(event) => {
         event.preventDefault();
         void handleSave();
@@ -214,35 +216,52 @@ export function ProfileOffersEditor({
           className={osFieldBorderedClassName}
           value={title}
           maxLength={OFFER_TITLE_MAX}
-          placeholder="What you offer"
+          placeholder="Design review"
           disabled={busy}
+          autoComplete="off"
           onChange={(event) => setTitle(event.target.value)}
         />
       </label>
-      <label className="guild-field" htmlFor={`${formId}-line`}>
-        <span>Line</span>
-        <input
-          id={`${formId}-line`}
-          className={osFieldBorderedClassName}
-          value={line}
-          maxLength={OFFER_LINE_MAX}
-          placeholder="One line"
-          disabled={busy}
-          onChange={(event) => setLine(event.target.value)}
-        />
+      <label className="guild-field" htmlFor={`${formId}-description`}>
+        <span>Description</span>
+        <div
+          className={`${osFieldBorderedClassName} account-editor-sheet-rich`}
+        >
+          <ProfileBioRichTextarea
+            id={`${formId}-description`}
+            value={description}
+            maxLength={OFFER_DESCRIPTION_MAX}
+            rows={4}
+            placeholder="A one-hour look at your product"
+            tools={['bold', 'italic', 'list']}
+            className="account-editor-sheet-bio"
+            disabled={busy}
+            onChange={setDescription}
+          />
+        </div>
       </label>
       <label className="guild-field" htmlFor={`${formId}-url`}>
         <span>Link</span>
         <input
           id={`${formId}-url`}
-          className={osFieldBorderedClassName}
+          className={`${osFieldBorderedClassName}${
+            urlInvalid ? ' is-invalid' : ''
+          }`}
           value={url}
           maxLength={OFFER_URL_MAX}
-          placeholder="Optional"
+          placeholder="studio.com/book"
           inputMode="url"
+          autoComplete="url"
           disabled={busy}
+          aria-invalid={urlInvalid || undefined}
+          aria-errormessage={urlInvalid ? `${formId}-url-error` : undefined}
           onChange={(event) => setUrl(event.target.value)}
         />
+        {urlInvalid ? (
+          <small id={`${formId}-url-error`} className="is-invalid">
+            Invalid URL
+          </small>
+        ) : null}
       </label>
     </form>
   );
@@ -252,30 +271,32 @@ export function ProfileOffersEditor({
       <p className="app-storage-meta">No offers yet.</p>
     ) : (
       <ul className="portfolio-hiring-list">
-        {offers.map((offer, index) => (
-          <li key={offer.offerId} className="portfolio-hiring-item">
-            {index > 0 ? <Divider variant="item" /> : null}
-            <button
-              type="button"
-              className="account-editor-hiring-row"
-              disabled={busy}
-              onClick={() => openEdit(offer)}
-            >
-              <p className="portfolio-hiring-title">{offer.title}</p>
-              {offer.line || offer.url ? (
-                <p className="portfolio-hiring-meta">
-                  {offer.line ? <span>{offer.line}</span> : null}
-                  {offer.line && offer.url ? (
-                    <span className="portfolio-hiring-meta-sep" aria-hidden>
-                      ·
-                    </span>
-                  ) : null}
-                  {offer.url ? <span>{offerHost(offer.url)}</span> : null}
-                </p>
-              ) : null}
-            </button>
-          </li>
-        ))}
+        {offers.map((offer, index) => {
+          const teaser = profileBioPlainPreview(offer.description ?? '', {
+            maxBlocks: 1,
+          });
+          return (
+            <li key={offer.offerId} className="portfolio-hiring-item">
+              {index > 0 ? <Divider variant="item" /> : null}
+              <button
+                type="button"
+                className="account-editor-hiring-row"
+                disabled={busy}
+                onClick={() => openEdit(offer)}
+              >
+                <p className="portfolio-hiring-title">{offer.title}</p>
+                {teaser ? (
+                  <p className="portfolio-hiring-teaser">{teaser}</p>
+                ) : null}
+                {offer.url ? (
+                  <p className="portfolio-hiring-meta">
+                    {offerHost(offer.url)}
+                  </p>
+                ) : null}
+              </button>
+            </li>
+          );
+        })}
       </ul>
     );
 
