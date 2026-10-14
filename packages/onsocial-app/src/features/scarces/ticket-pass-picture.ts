@@ -1,5 +1,5 @@
 /**
- * Saved Show-pass picture — square cover, event, and a high-contrast QR.
+ * Saved Show-pass picture — small cover, event name, and a high-contrast QR.
  * Apple Wallet and Google Wallet need issuer certificates this app does
  * not hold, so "Add to Wallet" shares this picture into Photos, Files,
  * Drive, and AirDrop. The guest shows that picture with no signal.
@@ -161,13 +161,15 @@ function paintTicketPass(
   const plateX = (PICTURE_WIDTH - plate) / 2;
 
   if (cover) {
+    const thumb = 220;
+    const thumbX = (PICTURE_WIDTH - thumb) / 2;
     ctx.save();
     ctx.beginPath();
-    ctx.roundRect(plateX, y, plate, plate, 40);
+    ctx.roundRect(thumbX, y, thumb, thumb, 36);
     ctx.clip();
-    drawCover(ctx, cover, plateX, y, plate, plate);
+    drawCover(ctx, cover, thumbX, y, thumb, thumb);
     ctx.restore();
-    y += plate + 48;
+    y += thumb + 40;
   }
 
   ctx.fillStyle = PICTURE_FG;

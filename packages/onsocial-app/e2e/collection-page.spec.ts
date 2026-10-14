@@ -400,8 +400,11 @@ test.describe('collection drop page', () => {
     await expect(artwork).toBeVisible();
     const artBox = await artwork.boundingBox();
     expect(artBox).toBeTruthy();
-    expect(Math.abs((artBox?.width ?? 0) - (artBox?.height ?? 0))).toBeLessThan(
-      2
+    expect(artBox!.width).toBeGreaterThan(36);
+    expect(artBox!.width).toBeLessThan(96);
+    expect(Math.abs(artBox!.width - artBox!.height)).toBeLessThan(2);
+    await expect(pass.locator('.ticket-show-pass-name')).toHaveText(
+      'Gate Pass'
     );
     await expect(pass.locator('.ticket-show-pass-status')).toHaveCount(0);
     await expect(pass.getByText('Pass 1', { exact: true })).toBeVisible();

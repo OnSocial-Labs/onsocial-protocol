@@ -52,7 +52,7 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
 /**
- * Show pass — event name in the jacket; cover, then a saved QR, in the body.
+ * Show pass — small cover, event name, then a saved QR.
  * The code is signed once and kept on this device. Save picture / Add to
  * Wallet keep a copy the guest can show with no signal.
  */
@@ -463,6 +463,7 @@ export function TicketShowPassSheet({
               />
             </button>
           ) : null}
+          <p className="ticket-show-pass-name">{name}</p>
           {statusLine ? (
             <p className={`ticket-show-pass-status${toneClass}`}>{statusLine}</p>
           ) : null}

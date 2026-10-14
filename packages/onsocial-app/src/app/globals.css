@@ -31675,15 +31675,12 @@ a.os-surface-row {
   }
 
   .ticket-show-pass-mark-btn {
-    width: var(--pass-qr);
-    max-width: 100%;
-    aspect-ratio: 1 / 1;
     margin: 0;
     padding: 0;
     border: 0;
     background: transparent;
     cursor: pointer;
-    border-radius: 0.75rem;
+    border-radius: 0.7rem;
     overflow: hidden;
     line-height: 0;
   }
@@ -31695,11 +31692,25 @@ a.os-surface-row {
 
   .ticket-show-pass-mark {
     display: block;
-    width: 100%;
-    height: 100%;
+    width: 4.5rem;
+    height: 4.5rem;
     margin: 0;
     object-fit: cover;
     flex-shrink: 0;
+  }
+
+  .ticket-show-pass-name {
+    margin: 0.55rem 0 0;
+    max-width: var(--pass-qr);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+    font-size: 1.02rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    color: rgb(var(--fg-rgb) / 0.92);
   }
 
   .ticket-show-pass-status {
@@ -31857,8 +31868,14 @@ a.os-surface-row {
       padding: 0.25rem 0.1rem 0.4rem;
     }
 
-    .ticket-show-pass-mark-btn {
-      border-radius: 0.55rem;
+    .ticket-show-pass-mark {
+      width: 3.25rem;
+      height: 3.25rem;
+    }
+
+    .ticket-show-pass-name {
+      margin-top: 0.35rem;
+      font-size: 0.95rem;
     }
   }
 
@@ -31869,8 +31886,14 @@ a.os-surface-row {
       --pass-gap-qr: 0.55rem;
     }
 
-    .ticket-show-pass-mark-btn {
-      border-radius: 0.45rem;
+    .ticket-show-pass-mark {
+      width: 2.5rem;
+      height: 2.5rem;
+    }
+
+    .ticket-show-pass-name {
+      margin-top: 0.25rem;
+      font-size: 0.88rem;
     }
 
     .ticket-show-pass-status {
@@ -31901,8 +31924,9 @@ a.os-surface-row {
       padding: 0.45rem 0.2rem 0.65rem;
     }
 
-    .ticket-show-pass-mark-btn {
-      border-radius: 0.85rem;
+    .ticket-show-pass-mark {
+      width: 5rem;
+      height: 5rem;
     }
   }
 
