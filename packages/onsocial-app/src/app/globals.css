@@ -1270,7 +1270,36 @@ body:has([data-os-slide-over='true']:not(.is-closing)) .os-launcher-root {
   pointer-events: auto;
 }
 
-/* Unlayered — pass actions sit outside the components layer so the row gap holds. */
+/* Unlayered — pass rows and actions sit outside the components layer so layout holds. */
+button.collectibles-holding-row-main {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: flex-start;
+  gap: 0.9rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.market-listing-title-link {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .ticket-show-pass-actions {
   display: flex;
   align-items: center;
@@ -28998,17 +29027,26 @@ a.os-surface-row {
     padding: 0.55rem 0.15rem;
   }
 
-  a.collectibles-holding-row-main {
+  a.collectibles-holding-row-main,
+  button.collectibles-holding-row-main {
     display: flex;
     min-width: 0;
     flex: 1;
     align-items: flex-start;
     gap: 0.9rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
     color: inherit;
+    font: inherit;
+    text-align: left;
     text-decoration: none;
+    cursor: pointer;
   }
 
-  a.collectibles-holding-row-main:focus-visible {
+  a.collectibles-holding-row-main:focus-visible,
+  button.collectibles-holding-row-main:focus-visible {
     outline: none;
   }
 
@@ -38845,12 +38883,26 @@ a.os-surface-row {
     text-decoration: none;
   }
 
+  button.market-listing-title-link {
+    display: block;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
   .market-listing-title-link:hover {
     color: var(--os-surface-emphasis);
   }
 
-  .market-listing-thumb:is(a) {
+  .market-listing-thumb:is(a, button) {
     display: block;
+    color: inherit;
+    font: inherit;
     text-decoration: none;
   }
 

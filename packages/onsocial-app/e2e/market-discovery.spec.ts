@@ -1,4 +1,10 @@
 import { expect, test } from '@playwright/test';
+import { seedE2eWallet } from './helpers/collection-page';
+import {
+  COLLECTIBLES_VAULT_OWNER,
+  stubCollectiblesVaultGraph,
+} from './helpers/collectibles-vault';
+import { setE2eGraphVault } from './helpers/e2e-graph';
 import {
   clickTab,
   closeMarketFilter,
@@ -113,5 +119,28 @@ test.describe('market discovery', () => {
     await expectTabSelected(page, 'Listing type', 'All');
 
     await expect(tablist(page, 'Listing type')).toBeVisible();
+  });
+
+  test('Show pass on Yours opens over Market and close stays there', async ({
+    page,
+  }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphVault(page, 'default');
+    await stubCollectiblesVaultGraph(page);
+    await gotoApp(page, '/market');
+
+    const yours = page.getByRole('region', { name: 'Yours' });
+    await expect(yours).toBeVisible({ timeout: 30_000 });
+    await yours.getByRole('button', { name: 'Show pass Gate Pass' }).click();
+
+    const pass = page.locator('.ticket-show-pass');
+    await expect(pass).toBeVisible();
+    await expect(page).toHaveURL(/\/market/);
+    await expect(page).not.toHaveURL(/\/collection\//);
+
+    await page.getByRole('button', { name: 'Back from pass' }).click();
+    await expect(pass).toHaveCount(0);
+    await expect(yours).toBeVisible();
+    await expect(page).toHaveURL(/\/market/);
   });
 });

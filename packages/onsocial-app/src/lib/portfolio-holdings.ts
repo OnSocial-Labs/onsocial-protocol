@@ -214,7 +214,8 @@ export function holdingsHrefForOwned(item: {
   if (collectionId && (medium === 'writing' || medium === 'book')) {
     return collectionPath(collectionId, { read: true });
   }
-  // Tickets / memberships / coupons open Show pass on the drop page.
+  // Tickets / memberships / coupons: shareable drop deep link.
+  // Collectibles and Market open the pass overlay on the current page.
   if (
     collectionId &&
     (medium === 'ticket' || medium === 'membership' || medium === 'coupon')

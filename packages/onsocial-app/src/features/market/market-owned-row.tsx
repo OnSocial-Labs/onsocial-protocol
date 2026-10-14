@@ -13,6 +13,8 @@ import {
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import { CollectiblesHoldingRowMenu } from '@/features/collectibles/collectibles-holding-row-menu';
+import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
+import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
 import {
@@ -97,7 +99,16 @@ export function MarketOwnedRow({
   const showPostCompose =
     listed && Boolean(item.collectionId?.trim() || item.tokenId?.trim());
   const [brokenMediaUrl, setBrokenMediaUrl] = useState<string | null>(null);
+  const [passOpen, setPassOpen] = useState(false);
+  const [passMounted, setPassMounted] = useState(false);
   const showThumb = Boolean(item.mediaUrl) && brokenMediaUrl !== item.mediaUrl;
+  const passCollectionId = item.collectionId?.trim() || '';
+  const opensPass =
+    isPassMediumKind(item.mediumKind) && Boolean(passCollectionId);
+  const openPass = () => {
+    setPassMounted(true);
+    setPassOpen(true);
+  };
 
   const thumb = showThumb ? (
     <img
@@ -109,7 +120,15 @@ export function MarketOwnedRow({
     <span className="market-listing-thumb-fallback" aria-hidden />
   );
 
-  const title = useHref ? (
+  const title = opensPass ? (
+    <button
+      type="button"
+      className="market-listing-title-link"
+      onClick={openPass}
+    >
+      {item.title}
+    </button>
+  ) : useHref ? (
     <Link
       href={useHref}
       scroll={false}
@@ -124,7 +143,16 @@ export function MarketOwnedRow({
 
   return (
     <div className="market-listing-row" role="listitem">
-      {useHref ? (
+      {opensPass ? (
+        <button
+          type="button"
+          className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
+          aria-label={`${useAction} ${item.title}`}
+          onClick={openPass}
+        >
+          {thumb}
+        </button>
+      ) : useHref ? (
         <Link
           href={useHref}
           scroll={false}
@@ -280,6 +308,16 @@ export function MarketOwnedRow({
           </OsSheetActions>
         ) : null}
       </div>
+      {opensPass && passMounted ? (
+        <OwnedShowPassSheet
+          open={passOpen}
+          onClose={() => setPassOpen(false)}
+          title={item.title}
+          cover={item.mediaUrl}
+          collectionId={passCollectionId}
+          tokenId={item.tokenId}
+        />
+      ) : null}
     </div>
   );
 }
