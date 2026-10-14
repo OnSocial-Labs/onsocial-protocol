@@ -923,6 +923,7 @@ export function CollectionPagePanel({
     isAudio,
     hasPlayables,
     hasMedia: Boolean(view.mediaUrl),
+    listenOnCover: ownership === 'visitor',
   });
   const passActionLabel = holdingsActionLabel(mediumKind);
   const showCommerceMeter = collectionShowCommerceMeter({

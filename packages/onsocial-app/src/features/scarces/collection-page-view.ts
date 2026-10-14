@@ -40,8 +40,10 @@ export function collectionOpensWritingReader(opts: {
 }
 
 /**
- * Cover ScaleUp on the drop page — primary medium immersive:
- * Writing → Read, audio → Listen, held pass → Show pass, else art zoom.
+ * Drop cover hit.
+ * Writing reads. A held pass opens the pass. A visitor with tracks listens.
+ * Holders listen from Play on the Collectibles player, so their cover stays
+ * a picture. Any other picture opens large.
  */
 export function collectionCoverExpandAction(opts: {
   kind?: string | null;
@@ -50,10 +52,18 @@ export function collectionCoverExpandAction(opts: {
   isAudio: boolean;
   hasPlayables?: boolean;
   hasMedia: boolean;
+  /** False once the viewer holds the drop. Defaults to a visitor listen. */
+  listenOnCover?: boolean;
 }): CollectionCoverExpandAction {
   if (collectionOpensWritingReader(opts)) return 'read';
   if (opts.canShowPass) return 'pass';
-  if (opts.isAudio && (opts.hasPlayables ?? false)) return 'listen';
+  if (
+    opts.isAudio &&
+    (opts.hasPlayables ?? false) &&
+    opts.listenOnCover !== false
+  ) {
+    return 'listen';
+  }
   if (!opts.isAudio && opts.hasMedia) return 'artwork';
   return null;
 }

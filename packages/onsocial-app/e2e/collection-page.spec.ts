@@ -82,6 +82,9 @@ test.describe('collection drop page', () => {
         .locator('.collection-use-actions')
         .getByRole('button', { name: 'Play', exact: true })
     ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Open listen' })
+    ).toBeVisible();
     await expect(page.locator('.collection-meta-creator-name')).toHaveText(
       'by Alice'
     );
@@ -231,6 +234,9 @@ test.describe('collection drop page', () => {
       /\/collectibles\/play\?.*night-drive/
     );
     await expect(page.locator('.collection-tracks')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Open listen' })).toHaveCount(
+      0
+    );
     await expect(
       page.getByRole('link', { name: 'Open Collectibles' })
     ).toHaveAttribute('href', HOLDER_BACK);

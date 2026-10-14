@@ -13,6 +13,7 @@ const reader = readFileSync(
 describe('drop cover expand wiring', () => {
   it('routes the drop cover through collectionCoverExpandAction', () => {
     expect(panel).toContain('collectionCoverExpandAction');
+    expect(panel).toContain("listenOnCover: ownership === 'visitor'");
     expect(panel).toContain('collectionOpensWritingReader');
     expect(panel).toContain("coverExpand === 'read'");
     expect(panel).toContain("coverExpand === 'listen'");

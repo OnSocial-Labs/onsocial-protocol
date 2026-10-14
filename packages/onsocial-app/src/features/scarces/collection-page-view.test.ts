@@ -99,6 +99,17 @@ describe('collection page view', () => {
     ).toBe(null);
     expect(
       collectionCoverExpandAction({
+        kind: 'audio',
+        hasReadables: false,
+        canShowPass: false,
+        isAudio: true,
+        hasPlayables: true,
+        hasMedia: true,
+        listenOnCover: false,
+      })
+    ).toBe(null);
+    expect(
+      collectionCoverExpandAction({
         kind: 'ticket',
         hasReadables: false,
         canShowPass: true,
