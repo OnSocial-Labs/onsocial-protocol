@@ -13,6 +13,6 @@ describe('ticket door / redeem Connect voice', () => {
     );
     expect(ticketStaffConnectError('admit')).toBe('Connect to admit.');
     expect(ticketStaffConnectError('redeem')).toBe('Connect to redeem.');
-    expect(TICKET_PASS_CONNECT_LIVE).toBe('Connect to show a live pass.');
+    expect(TICKET_PASS_CONNECT_LIVE).toBe('Connect once to save this pass.');
   });
 });

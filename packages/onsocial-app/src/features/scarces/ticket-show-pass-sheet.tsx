@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { CopyIcon, Divider } from '@onsocial/ui';
+import { Divider } from '@onsocial/ui';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import { AccountAvatar } from '@/components/profile/account-avatar';
@@ -12,11 +12,25 @@ import {
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
 import {
+  parseTicketPassLivePayload,
   signTicketPassLive,
-  TICKET_PASS_LIVE_REFRESH_MS,
+  isTicketPassLiveFresh,
+  ticketPassLiveMatchesSessionKey,
 } from '@/features/scarces/ticket-pass-live';
 import {
-  ticketPassLiveCodePreview,
+  downloadTicketPassPicture,
+  renderTicketPassPicture,
+  shareTicketPassPicture,
+  ticketPassPictureFilename,
+  ticketPassWalletLabel,
+} from '@/features/scarces/ticket-pass-picture';
+import {
+  clearSavedTicketPass,
+  readSavedTicketPass,
+  ticketPassSavedTtlMs,
+  writeSavedTicketPass,
+} from '@/features/scarces/ticket-pass-saved';
+import {
   ticketPassSeatLabel,
   ticketPassStatusLabel,
 } from '@/features/scarces/ticket-pass-payload';
@@ -38,7 +52,9 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
 /**
- * Show pass — event name in the jacket; cover, then QR, in the body.
+ * Show pass — event name in the jacket; cover, then a saved QR, in the body.
+ * The code is signed once and kept on this device. Save picture / Add to
+ * Wallet keep a copy the guest can show with no signal.
  */
 export function TicketShowPassSheet({
   open,
@@ -47,6 +63,9 @@ export function TicketShowPassSheet({
   cover = null,
   collectionId,
   tokenId,
+  eventEndsAtMs = null,
+  whenLabel = null,
+  placeLabel = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -54,6 +73,9 @@ export function TicketShowPassSheet({
   cover?: string | null;
   collectionId: string;
   tokenId: string;
+  eventEndsAtMs?: number | null;
+  whenLabel?: string | null;
+  placeLabel?: string | null;
 }) {
   const [wasOpen, setWasOpen] = useState(open);
   const [status, setStatus] = useState<TicketTokenStatus | null>(null);
@@ -61,10 +83,12 @@ export function TicketShowPassSheet({
   const [statusReady, setStatusReady] = useState(false);
   const [thumbFailed, setThumbFailed] = useState(false);
   const [artEnlargeOpen, setArtEnlargeOpen] = useState(false);
-  const [codeCopied, setCodeCopied] = useState(false);
   const [livePayload, setLivePayload] = useState<string | null>(null);
   const [liveError, setLiveError] = useState<string | null>(null);
   const [liveReady, setLiveReady] = useState(false);
+  const [exporting, setExporting] = useState<'picture' | 'wallet' | null>(null);
+  const [exportNote, setExportNote] = useState<string | null>(null);
+  const [walletLabel, setWalletLabel] = useState('Add to Wallet');
   const [holderFace, setHolderFace] = useState<CollectionCreatorFace | null>(
     null
   );
@@ -82,10 +106,14 @@ export function TicketShowPassSheet({
       setStatusReady(false);
       setThumbFailed(false);
       setArtEnlargeOpen(false);
-      setCodeCopied(false);
-      setLivePayload(null);
+      setExporting(null);
+      setExportNote(null);
+      const saved = readSavedTicketPass(tokenId);
+      const cached =
+        saved && isTicketPassLiveFresh(saved.expMs) ? saved.payload : null;
+      setLivePayload(cached);
       setLiveError(null);
-      setLiveReady(false);
+      setLiveReady(Boolean(cached));
       setHolderFace(null);
       setHolderFetchOwnerId(null);
       setHolderFetchDone(false);
@@ -95,17 +123,15 @@ export function TicketShowPassSheet({
   const statusLoading = open && !statusReady;
 
   const passCode = livePayload?.trim() || '';
-  const passCodePreview = passCode ? ticketPassLiveCodePreview(passCode) : '';
-  const copyPassCode = useCallback(async () => {
-    if (!passCode) return;
-    try {
-      await navigator.clipboard.writeText(passCode);
-      setCodeCopied(true);
-      window.setTimeout(() => setCodeCopied(false), 1600);
-    } catch {
-      /* leave code visible for manual read */
-    }
-  }, [passCode]);
+
+  useEffect(() => {
+    if (!open) return;
+    const saved = readSavedTicketPass(tokenId);
+    if (!saved || !isTicketPassLiveFresh(saved.expMs)) return;
+    setLivePayload(saved.payload);
+    setLiveError(null);
+    setLiveReady(true);
+  }, [open, tokenId]);
 
   useEffect(() => {
     if (!open) return;
@@ -162,12 +188,67 @@ export function TicketShowPassSheet({
 
   useEffect(() => {
     if (!open) return;
-    if (!statusReady || !status) return;
+    setWalletLabel(ticketPassWalletLabel(navigator.userAgent));
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !statusReady) return;
 
     let cancelled = false;
-    let timer: number | null = null;
 
-    const refresh = async () => {
+    const ensureSavedPass = async () => {
+      const owner = status?.ownerId?.trim() || '';
+      const saved = readSavedTicketPass(tokenId);
+      const savedFresh = Boolean(
+        saved &&
+          isTicketPassLiveFresh(saved.expMs) &&
+          parseTicketPassLivePayload(saved.payload, collectionId)
+      );
+      const savedForOwner =
+        savedFresh &&
+        Boolean(saved && (!owner || accountIdsEqual(saved.ownerId, owner)));
+
+      if (saved && owner && !accountIdsEqual(saved.ownerId, owner)) {
+        clearSavedTicketPass(tokenId);
+      }
+
+      if (savedForOwner && saved) {
+        const viewer = accountId?.trim() || '';
+        const canResign =
+          Boolean(viewer) && Boolean(owner) && accountIdsEqual(viewer, owner);
+        let sessionKey = '';
+        if (canResign) {
+          let session = getCachedAppSocialSession(viewer);
+          if (!session) {
+            session = await restoreAppSocialSession(viewer);
+            if (session) setCachedAppSocialSession(viewer, session);
+          }
+          sessionKey = session?.key?.publicKey ?? '';
+        }
+        const sameKey =
+          !sessionKey ||
+          ticketPassLiveMatchesSessionKey(saved.payload, sessionKey);
+        if (sameKey) {
+          if (!cancelled) {
+            setLivePayload(saved.payload);
+            setLiveError(null);
+            setLiveReady(true);
+          }
+          return;
+        }
+      }
+
+      if (!status) {
+        if (!cancelled) {
+          setLiveReady(true);
+          if (!savedFresh) {
+            setLivePayload(null);
+            setLiveError(statusError ?? 'Pass code unavailable.');
+          }
+        }
+        return;
+      }
+
       const viewer = accountId?.trim() || '';
       if (!viewer) {
         if (!cancelled) {
@@ -177,11 +258,10 @@ export function TicketShowPassSheet({
         }
         return;
       }
-      const owner = status.ownerId.trim();
       if (!owner || !accountIdsEqual(viewer, owner)) {
         if (!cancelled) {
           setLivePayload(null);
-          setLiveError('Only the pass owner can show a live door code.');
+          setLiveError('Only the pass owner can save this pass.');
           setLiveReady(true);
         }
         return;
@@ -195,7 +275,7 @@ export function TicketShowPassSheet({
       if (!session?.key?.sign) {
         if (!cancelled) {
           setLivePayload(null);
-          setLiveError('Enable your App session to show a live pass.');
+          setLiveError('Enable your App session to save this pass.');
           setLiveReady(true);
         }
         return;
@@ -205,29 +285,46 @@ export function TicketShowPassSheet({
         session,
         collectionId,
         tokenId,
+        ttlMs: ticketPassSavedTtlMs({
+          nowMs: Date.now(),
+          eventEndsAtMs,
+        }),
       });
       if (cancelled) return;
-      if (!next) {
+      const parsed = next
+        ? parseTicketPassLivePayload(next, collectionId)
+        : null;
+      if (!next || !parsed) {
         setLivePayload(null);
-        setLiveError('Could not refresh pass code.');
+        setLiveError('Could not save pass code.');
         setLiveReady(true);
         return;
       }
+      writeSavedTicketPass({
+        tokenId: parsed.tokenId,
+        ownerId: owner,
+        payload: next,
+        expMs: parsed.expMs,
+      });
       setLivePayload(next);
       setLiveError(null);
       setLiveReady(true);
     };
 
-    void refresh();
-    timer = window.setInterval(() => {
-      void refresh();
-    }, TICKET_PASS_LIVE_REFRESH_MS);
-
+    void ensureSavedPass();
     return () => {
       cancelled = true;
-      if (timer != null) window.clearInterval(timer);
     };
-  }, [accountId, collectionId, open, status, statusReady, tokenId]);
+  }, [
+    accountId,
+    collectionId,
+    eventEndsAtMs,
+    open,
+    status,
+    statusError,
+    statusReady,
+    tokenId,
+  ]);
 
   const name = (status?.title ?? title).trim() || 'Pass';
   const coverUrl = resolveScarceMediaUrl(cover?.trim() || null);
@@ -243,9 +340,11 @@ export function TicketShowPassSheet({
         redeemCount: status.redeemCount,
         maxRedeems: status.maxRedeems,
       })
-    : statusLoading
-      ? 'Checking pass…'
-      : (statusError ?? 'Pass');
+    : passCode
+      ? 'Pass'
+      : statusLoading
+        ? 'Checking pass…'
+        : (statusError ?? 'Pass');
 
   const toneClass = status
     ? status.isValid
@@ -259,11 +358,81 @@ export function TicketShowPassSheet({
     ? commercePartyLines(ownerId, holderFaceForOwner?.displayName)
     : { name: '', handle: '' };
   const holderAccount = holderHandle ? `@${holderHandle}` : '';
-  const qrHint = !liveReady
-    ? 'Preparing live pass…'
-    : liveError
-      ? liveError
-      : null;
+  const qrHint = !liveReady ? 'Preparing pass…' : liveError ? liveError : null;
+
+  const noteExport = useCallback((note: string) => {
+    setExportNote(note);
+    window.setTimeout(() => setExportNote(null), 1600);
+  }, []);
+
+  const buildPassPicture = useCallback(async () => {
+    if (!passCode) return null;
+    return renderTicketPassPicture({
+      title: name,
+      whenLabel,
+      placeLabel,
+      statusLabel: statusLine,
+      seatLabel: ticketPassSeatLabel(tokenId),
+      holderName: holderName || null,
+      holderAccount: holderAccount || null,
+      qrValue: passCode,
+      coverUrl: media,
+      valid: Boolean(status?.isValid),
+    });
+  }, [
+    holderAccount,
+    holderName,
+    media,
+    name,
+    passCode,
+    placeLabel,
+    status?.isValid,
+    statusLine,
+    tokenId,
+    whenLabel,
+  ]);
+
+  const savePicture = useCallback(async () => {
+    if (!passCode || exporting) return;
+    setExporting('picture');
+    setExportNote(null);
+    try {
+      const blob = await buildPassPicture();
+      if (!blob) {
+        noteExport('Could not save');
+        return;
+      }
+      downloadTicketPassPicture(blob, ticketPassPictureFilename(name));
+      noteExport('Saved');
+    } catch {
+      noteExport('Could not save');
+    } finally {
+      setExporting(null);
+    }
+  }, [buildPassPicture, exporting, name, noteExport, passCode]);
+
+  const addToWallet = useCallback(async () => {
+    if (!passCode || exporting) return;
+    setExporting('wallet');
+    setExportNote(null);
+    try {
+      const blob = await buildPassPicture();
+      if (!blob) {
+        noteExport('Could not save');
+        return;
+      }
+      const filename = ticketPassPictureFilename(name);
+      const shared = await shareTicketPassPicture(blob, filename, name);
+      if (shared === 'unavailable') {
+        downloadTicketPassPicture(blob, filename);
+        noteExport('Saved');
+      }
+    } catch {
+      noteExport('Could not save');
+    } finally {
+      setExporting(null);
+    }
+  }, [buildPassPicture, exporting, name, noteExport, passCode]);
 
   return (
     <OsMediaFaceShell
@@ -342,31 +511,38 @@ export function TicketShowPassSheet({
               <span className="ticket-show-pass-seat">
                 {ticketPassSeatLabel(tokenId)}
               </span>
-              {passCode ? (
+            </div>
+
+            {passCode ? (
+              <div className="ticket-show-pass-actions">
                 <button
                   type="button"
-                  className={`ticket-show-pass-code${
-                    codeCopied ? ' is-copied' : ''
-                  }`}
-                  onClick={() => void copyPassCode()}
-                  aria-label={
-                    codeCopied
-                      ? 'Live pass code copied'
-                      : 'Copy live pass code for door entry'
-                  }
+                  className="ticket-show-pass-action"
+                  onClick={() => void savePicture()}
+                  disabled={exporting != null}
                 >
-                  <span className="ticket-show-pass-code-preview">
-                    {codeCopied ? 'Copied' : passCodePreview}
-                  </span>
-                  {codeCopied ? null : (
-                    <CopyIcon
-                      className="ticket-show-pass-code-icon"
-                      aria-hidden
-                    />
-                  )}
+                  {exporting === 'picture' ? 'Saving…' : 'Save picture'}
                 </button>
-              ) : null}
-            </div>
+                <button
+                  type="button"
+                  className="ticket-show-pass-action"
+                  onClick={() => void addToWallet()}
+                  disabled={exporting != null}
+                >
+                  {exporting === 'wallet' ? 'Saving…' : walletLabel}
+                </button>
+              </div>
+            ) : null}
+            {exportNote ? (
+              <p
+                className={`ticket-show-pass-export-note${
+                  exportNote === 'Saved' ? ' is-saved' : ''
+                }`}
+                role="status"
+              >
+                {exportNote}
+              </p>
+            ) : null}
 
             <TicketClaimRefundAction
               collectionId={collectionId}

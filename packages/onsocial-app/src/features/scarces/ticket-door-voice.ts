@@ -12,5 +12,5 @@ export function ticketStaffConnectError(voice: PassStaffVoice): string {
   return voice === 'redeem' ? 'Connect to redeem.' : 'Connect to admit.';
 }
 
-/** Guest Show pass when no wallet is connected. */
-export const TICKET_PASS_CONNECT_LIVE = 'Connect to show a live pass.';
+/** Guest Show pass when no wallet is connected and nothing is saved yet. */
+export const TICKET_PASS_CONNECT_LIVE = 'Connect once to save this pass.';

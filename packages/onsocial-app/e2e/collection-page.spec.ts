@@ -96,9 +96,7 @@ test.describe('collection drop page', () => {
   test.describe('visitor writing at 390', () => {
     test.use({ viewport: { width: 390, height: 844 } });
 
-    test('visitor writing drop opens Read under commerce', async ({
-      page,
-    }) => {
+    test('visitor writing drop opens Read under commerce', async ({ page }) => {
       await setE2eGraphDrop(page, 'default');
       await stubCollectionPageGraph(page);
       await gotoApp(page, '/collection/chapter-one');
@@ -217,7 +215,9 @@ test.describe('collection drop page', () => {
     await expectCollectionPageSettled(page);
     const chip = page.getByRole('button', { name: 'View full cover' });
     await expect(chip).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Open listen' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Open listen' })
+    ).toBeVisible();
     await chip.click();
     await expect(page.locator('.drop-art-page-sheet-panel')).toBeVisible();
     await expect(
@@ -231,10 +231,12 @@ test.describe('collection drop page', () => {
 
     await gotoApp(page, '/collection/quiet-print');
     await expectCollectionPageSettled(page);
-    await expect(page.getByRole('button', { name: 'View full cover' })).toHaveCount(
-      0
-    );
-    await expect(page.getByRole('button', { name: 'View artwork' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'View full cover' })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'View artwork' })
+    ).toBeVisible();
   });
 
   test('held audio drop puts Play above the product row', async ({ page }) => {
@@ -363,5 +365,48 @@ test.describe('collection drop page', () => {
     await expect(page.locator('.portfolio-summon-hint--connect')).toHaveText(
       'Connect'
     );
+  });
+
+  test('saved Show pass keeps the QR and offers a picture', async ({
+    page,
+  }) => {
+    const expMs = Date.now() + 86_400_000;
+    await page.addInitScript(
+      (record) => {
+        window.localStorage.setItem(
+          'onsocial.ticket-pass.v1',
+          JSON.stringify({ 'gate-pass:1': record })
+        );
+      },
+      {
+        tokenId: 'gate-pass:1',
+        ownerId: 'alice.near',
+        payload: `os2|gate-pass|gate-pass:1|${expMs}|pk|nonce|sig`,
+        expMs,
+      }
+    );
+    await setE2eGraphDrop(page, 'default');
+    await stubCollectionPageGraph(page);
+    await gotoApp(page, '/collection/gate-pass?pass=1&t=gate-pass:1');
+
+    const pass = page.locator('.ticket-show-pass');
+    await expect(pass).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(
+      pass.getByRole('img', { name: 'QR for Gate Pass' })
+    ).toBeVisible();
+    await expect(pass.getByText('Pass 1', { exact: true })).toBeVisible();
+    await expect(
+      pass.getByRole('button', { name: 'Save picture' })
+    ).toBeVisible();
+    await expect(
+      pass.getByRole('button', { name: 'Add to Wallet' })
+    ).toBeVisible();
+    await expect(pass.getByText(/os2\|/)).toHaveCount(0);
+
+    const downloadPromise = page.waitForEvent('download');
+    await pass.getByRole('button', { name: 'Save picture' }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe('gate-pass-pass.png');
+    await expect(pass.getByText('Saved', { exact: true })).toBeVisible();
   });
 });

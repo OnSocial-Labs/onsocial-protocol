@@ -115,14 +115,14 @@ export function TicketDoorWorkbench({
       : status
         ? null
         : cameraError && !cameraActive
-          ? 'Camera unavailable — paste a live Show pass code, then Look up.'
+          ? 'Camera unavailable — paste a pass code, then Look up.'
           : cameraActive
             ? redeemVoice
-              ? 'Point at a live coupon QR.'
-              : 'Point at a live Show pass QR.'
+              ? 'Point at the coupon.'
+              : 'Point at the guest pass.'
             : redeemVoice
-              ? 'Start the camera or paste a live coupon code.'
-              : 'Start the camera or paste a live Show pass code.';
+              ? 'Start the camera or paste a coupon code.'
+              : 'Start the camera or paste a pass code.';
 
   const { name: holderName, handle: holderHandle } = ownerId
     ? commercePartyLines(ownerId, holderFaceForOwner?.displayName)

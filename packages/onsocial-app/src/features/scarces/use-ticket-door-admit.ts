@@ -124,7 +124,7 @@ export function useTicketDoorAdmit({
       if (!trimmed.startsWith('os2|')) {
         setStatus(null);
         setAdmitConfirmed(false);
-        setLookupError('Ask the guest to open Show pass for a live door code.');
+        setLookupError('Ask the guest to show their saved pass.');
         return;
       }
 
@@ -172,7 +172,7 @@ export function useTicketDoorAdmit({
           setStatus(null);
           setAdmitConfirmed(false);
           setLookupError(
-            'Pass signature does not match the ticket owner. Ask them to reopen Show pass.'
+            'Pass signature does not match the ticket owner. Ask them to open Show pass and save it again.'
           );
           return;
         }

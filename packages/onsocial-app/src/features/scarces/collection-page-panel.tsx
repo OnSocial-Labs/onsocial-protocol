@@ -1762,6 +1762,9 @@ export function CollectionPagePanel({
           cover={view.mediaUrl}
           collectionId={view.collectionId}
           tokenId={showPassTokenId}
+          eventEndsAtMs={view.eventEndsAtMs}
+          whenLabel={aboutEvent.when}
+          placeLabel={aboutEvent.place}
         />
       ) : null}
 
