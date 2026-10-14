@@ -82,7 +82,6 @@ describe('hug enter', () => {
     const settled = nextHugEnterStableSample(changed.state, 480);
     expect(settled.armed).toBe(true);
   });
-
 });
 
 describe('resolveGlassSheetZIndex', () => {

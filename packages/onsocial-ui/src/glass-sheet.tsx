@@ -894,10 +894,7 @@ export function GlassSheet({
 
     const sample = () => {
       if (cancelled) return;
-      const next = nextHugEnterStableSample(
-        sampleState,
-        panel.offsetHeight
-      );
+      const next = nextHugEnterStableSample(sampleState, panel.offsetHeight);
       sampleState = next.state;
       if (next.armed) {
         arm();
