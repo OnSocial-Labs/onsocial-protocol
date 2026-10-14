@@ -241,6 +241,7 @@ export function TicketDoorPagePanel({
         eventName={eventName}
         videoRef={door.videoRef}
         cameraActive={door.cameraActive}
+        cameraOpening={door.cameraOpening}
         cameraError={door.cameraError}
         scanHint={door.scanHint}
         manualInput={door.manualInput}
@@ -315,6 +316,8 @@ export function TicketDoorPagePanel({
           </OsSheetActions>
         </DoorFooter>
       );
+    } else if (door.cameraOpening) {
+      footer = null;
     } else if (door.cameraActive) {
       footer = (
         <DoorFooter>

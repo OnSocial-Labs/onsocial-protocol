@@ -22,6 +22,7 @@ export function TicketDoorWorkbench({
   eventName,
   videoRef,
   cameraActive,
+  cameraOpening = false,
   cameraError,
   scanHint,
   manualInput,
@@ -41,6 +42,8 @@ export function TicketDoorWorkbench({
   eventName: string;
   videoRef: RefObject<HTMLVideoElement | null>;
   cameraActive: boolean;
+  /** True while the rear camera is opening on the way into Admit. */
+  cameraOpening?: boolean;
   cameraError: string | null;
   scanHint: string | null;
   manualInput: string;
@@ -120,9 +123,11 @@ export function TicketDoorWorkbench({
             ? redeemVoice
               ? 'Point at the coupon.'
               : 'Point at the guest pass.'
-            : redeemVoice
-              ? 'Start the camera or paste a coupon code.'
-              : 'Start the camera or paste a pass code.';
+            : cameraOpening
+              ? 'Opening the camera…'
+              : redeemVoice
+                ? 'Start the camera or paste a coupon code.'
+                : 'Start the camera or paste a pass code.';
 
   const { name: holderName, handle: holderHandle } = ownerId
     ? commercePartyLines(ownerId, holderFaceForOwner?.displayName)

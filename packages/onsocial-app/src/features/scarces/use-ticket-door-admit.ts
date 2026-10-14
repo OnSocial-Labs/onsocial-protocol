@@ -14,6 +14,10 @@ import {
   ticketPassRemaining,
   type PassStaffVoice,
 } from '@/features/scarces/ticket-pass-payload';
+import {
+  openDoorCamera,
+  qrTextFromVideoFrame,
+} from '@/features/scarces/ticket-door-camera';
 import { ticketStaffConnectError } from '@/features/scarces/ticket-door-voice';
 import {
   fetchTicketTokenStatus,
@@ -59,8 +63,9 @@ export type TicketDoorAdmitOptions = {
 };
 
 /**
- * Browser camera + QR lookup + on-chain admit for Door staff.
- * Shared by the drop sheet and the fullscreen Admit page.
+ * Phone camera + QR lookup + on-chain admit for Door staff.
+ * The rear camera opens as soon as the door is active. Chrome reads the
+ * QR natively; every other phone reads the frame in the app.
  */
 export function useTicketDoorAdmit({
   collectionId,
@@ -73,10 +78,15 @@ export function useTicketDoorAdmit({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanTimerRef = useRef<number | null>(null);
+  const scanBusyRef = useRef(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  /** Bumped so a late camera start cannot attach after Stop or a new start. */
+  const cameraGenRef = useRef(0);
   const [manualInput, setManualInput] = useState('');
   const [scanHint, setScanHint] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
+  const [cameraOpening, setCameraOpening] = useState(false);
   const [lookupPending, setLookupPending] = useState(false);
   const [admitPending, setAdmitPending] = useState(false);
   const [status, setStatus] = useState<TicketTokenStatus | null>(null);
@@ -102,6 +112,8 @@ export function useTicketDoorAdmit({
   }, []);
 
   const stopCamera = useCallback(() => {
+    cameraGenRef.current += 1;
+    scanBusyRef.current = false;
     if (scanTimerRef.current != null) {
       window.clearInterval(scanTimerRef.current);
       scanTimerRef.current = null;
@@ -116,6 +128,7 @@ export function useTicketDoorAdmit({
       video.srcObject = null;
     }
     setCameraActive(false);
+    setCameraOpening(false);
   }, []);
 
   const applyLookup = useCallback(
@@ -195,26 +208,23 @@ export function useTicketDoorAdmit({
   );
 
   const startCamera = useCallback(async () => {
+    const generation = cameraGenRef.current + 1;
+    cameraGenRef.current = generation;
     setCameraError(null);
     setScanHint(null);
-    const Detector = getBarcodeDetector();
-    if (!Detector) {
-      setCameraError('Camera scan unavailable on this browser.');
-      return;
-    }
+    setCameraOpening(true);
     if (!navigator.mediaDevices?.getUserMedia) {
+      if (cameraGenRef.current !== generation) return;
+      setCameraOpening(false);
       setCameraError('Camera unavailable on this device.');
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      });
+      const stream = await openDoorCamera();
+      if (cameraGenRef.current !== generation) {
+        for (const track of stream.getTracks()) track.stop();
+        return;
+      }
       streamRef.current = stream;
       const video = videoRef.current;
       if (!video) {
@@ -223,22 +233,50 @@ export function useTicketDoorAdmit({
       }
       video.srcObject = stream;
       await video.play();
+      if (cameraGenRef.current !== generation) {
+        stopCamera();
+        return;
+      }
       setCameraActive(true);
-      const detector = new Detector({ formats: ['qr_code'] });
+      setCameraOpening(false);
+      const Detector = getBarcodeDetector();
+      const detector = Detector ? new Detector({ formats: ['qr_code'] }) : null;
+      const canvas = canvasRef.current ?? document.createElement('canvas');
+      canvasRef.current = canvas;
+      const accept = (raw: string | null | undefined) => {
+        const code = raw?.trim();
+        if (
+          !code ||
+          scanBusyRef.current ||
+          cameraGenRef.current !== generation
+        ) {
+          return;
+        }
+        scanBusyRef.current = true;
+        void Promise.resolve(applyLookup(code)).finally(() => {
+          scanBusyRef.current = false;
+        });
+      };
       scanTimerRef.current = window.setInterval(() => {
-        if (!videoRef.current || videoRef.current.readyState < 2) return;
-        void detector
-          .detect(videoRef.current)
-          .then((codes) => {
-            const raw = codes[0]?.rawValue?.trim();
-            if (!raw) return;
-            void applyLookup(raw);
-          })
-          .catch(() => {
-            /* keep scanning */
-          });
-      }, 450);
+        const frame = videoRef.current;
+        if (!frame || frame.readyState < 2 || scanBusyRef.current) return;
+        if (detector) {
+          void detector
+            .detect(frame)
+            .then((codes) => accept(codes[0]?.rawValue))
+            .catch(() => {
+              /* keep scanning */
+            });
+          return;
+        }
+        try {
+          accept(qrTextFromVideoFrame(frame, canvas));
+        } catch {
+          /* keep scanning */
+        }
+      }, 400);
     } catch {
+      if (cameraGenRef.current !== generation) return;
       stopCamera();
       setCameraError('Camera blocked in this browser.');
     }
@@ -365,6 +403,7 @@ export function useTicketDoorAdmit({
     scanHint,
     cameraError,
     cameraActive,
+    cameraOpening,
     lookupPending,
     admitPending,
     status,
