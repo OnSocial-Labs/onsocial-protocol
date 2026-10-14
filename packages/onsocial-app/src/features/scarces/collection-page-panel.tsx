@@ -123,7 +123,6 @@ import { CollectionEventGuests } from '@/features/events/event-guests-sheet';
 import { eventGuestKind } from '@/features/events/event-guests';
 import { eventWindowFor } from '@/features/events/events-catalog';
 import { TicketShowPassSheet } from '@/features/scarces/ticket-show-pass-sheet';
-import { CollectionDoorStaffManager } from '@/features/scarces/collection-door-staff-manager';
 import { CollectionDoorLogSheet } from '@/features/scarces/collection-door-log-sheet';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
@@ -688,6 +687,10 @@ export function CollectionPagePanel({
           renewable: view.renewable,
           status,
         })) ||
+      (view != null &&
+        isPassMediumKind((view.kind ?? '').trim().toLowerCase()) &&
+        view.maxRedeems != null &&
+        view.maxRedeems > 0) ||
       status === 'cancelled');
 
   const handleOwnerManaged = useCallback(
@@ -1186,6 +1189,11 @@ export function CollectionPagePanel({
                   kind={view.kind}
                   renewable={view.renewable}
                   eventEndsAtMs={view.eventEndsAtMs}
+                  doorStaff={
+                    isPassKind && view.maxRedeems != null && view.maxRedeems > 0
+                      ? { creatorId: view.creatorId, voice: staffVoice }
+                      : null
+                  }
                   onManaged={handleOwnerManaged}
                 />
               ) : null}
@@ -1570,9 +1578,7 @@ export function CollectionPagePanel({
           />
         ) : null}
 
-        {canDoor ||
-        (isOwner && view.maxRedeems != null && view.maxRedeems > 0) ||
-        (isOwner && status === 'upcoming') ? (
+        {canDoor || (isOwner && status === 'upcoming') ? (
           <section
             className="collection-reading"
             aria-label={isOwner ? 'Host tools' : 'Door'}
@@ -1598,7 +1604,7 @@ export function CollectionPagePanel({
                     {staffVoice === 'redeem' ? 'Redeem log' : 'Door log'}
                   </p>
                   <OsRowAction onClick={() => setDoorLogOpen(true)}>
-                    See who
+                    Scans
                   </OsRowAction>
                 </div>
               </>
@@ -1608,13 +1614,6 @@ export function CollectionPagePanel({
                 open={doorLogOpen}
                 onClose={() => setDoorLogOpen(false)}
                 collectionId={view.collectionId}
-                voice={staffVoice}
-              />
-            ) : null}
-            {isOwner && view.maxRedeems != null && view.maxRedeems > 0 ? (
-              <CollectionDoorStaffManager
-                collectionId={view.collectionId}
-                creatorId={view.creatorId}
                 voice={staffVoice}
               />
             ) : null}

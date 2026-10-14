@@ -131,20 +131,6 @@
   box-sizing: border-box;
 }
 
-/* Door log search — same press as nav search: drop the fill, keep the box. */
-.search-field.sheet-control.collection-door-log-search {
-  -webkit-tap-highlight-color: transparent;
-}
-
-.search-field.sheet-control.collection-door-log-search:focus-within,
-.search-field.sheet-control.collection-door-log-search:active {
-  background: transparent;
-  box-shadow: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  transform: none;
-}
-
 /* Same side inset as the slide header. The shared slide body pads the sides to 0. */
 .collection-door-log-slide .os-slide-over-content.collection-door-log,
 .event-guests-slide .os-slide-over-content.event-guests {
@@ -32982,10 +32968,6 @@ a.os-surface-row {
     font-weight: 650;
     color: rgb(var(--fg-rgb) / 0.72);
     font-variant-numeric: tabular-nums;
-  }
-
-  .collection-door-log-search {
-    margin: 0 0 0.15rem;
   }
 
   .collection-activity-standing {

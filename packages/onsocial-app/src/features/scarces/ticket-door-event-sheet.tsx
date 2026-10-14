@@ -183,7 +183,7 @@ export function TicketDoorEventSheet({
                   className="guild-facts-link"
                   onClick={() => setDoorLogOpen(true)}
                 >
-                  See who
+                  Scans
                 </button>
               }
             />

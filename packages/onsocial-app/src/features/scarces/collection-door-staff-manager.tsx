@@ -8,10 +8,7 @@ import {
   SearchField,
   UserPlusIcon,
 } from '@onsocial/ui';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@onsocial/ui';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -74,14 +71,29 @@ export function CollectionDoorStaffManager({
   collectionId,
   creatorId,
   voice = 'admit',
+  hideRow = false,
+  open: openProp,
+  onOpenChange,
 }: {
   collectionId: string;
   creatorId: string;
   voice?: PassStaffVoice;
+  /** Owner Manage already opens this sheet — skip the second Manage row. */
+  hideRow?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const { isConnected, accountId, getSigningWallet } = useAppWallet();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = openProp ?? uncontrolledOpen;
+  const setOpen = useCallback(
+    (next: boolean) => {
+      onOpenChange?.(next);
+      if (openProp === undefined) setUncontrolledOpen(next);
+    },
+    [onOpenChange, openProp]
+  );
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
   /** Last confirmed on-chain roster (for the Manage button + dirty check). */
@@ -134,8 +146,7 @@ export function CollectionDoorStaffManager({
     }
     setLoadError(null);
     const wasDirty =
-      sortedAccountKey(draftRef.current) !==
-      sortedAccountKey(savedRef.current);
+      sortedAccountKey(draftRef.current) !== sortedAccountKey(savedRef.current);
     setSaved(roster.redeemers);
     if (!wasDirty) setDraft(roster.redeemers);
     setRosterReady(true);
@@ -202,7 +213,7 @@ export function CollectionDoorStaffManager({
   const handleClosed = useCallback(() => {
     setClosing(false);
     setOpen(false);
-  }, []);
+  }, [setOpen]);
 
   const isDraftStaff = useCallback(
     (target: string) =>
@@ -304,6 +315,213 @@ export function CollectionDoorStaffManager({
     ? isConnected && !pending && rosterReady && !loadError
     : !pending && rosterReady && !loadError;
 
+  const sheet = (
+    <OsHugSheet
+      open={sheetOpen}
+      onClose={requestClose}
+      onClosed={handleClosed}
+      label={voice === 'redeem' ? 'Redeem staff' : 'Door staff'}
+      copy={
+        voice === 'redeem'
+          ? 'Who can Redeem at the counter'
+          : 'Who can Admit at the door'
+      }
+      closeAriaLabel={
+        voice === 'redeem' ? 'Close redeem staff' : 'Close door staff'
+      }
+      backdropLabel={
+        voice === 'redeem' ? 'Close redeem staff' : 'Close door staff'
+      }
+      zIndex={SHEET_Z.shellManager}
+      panelClassName="scarce-commerce-sheet-panel collection-allowlist-sheet-panel os-sheet-cap-standard"
+      bodyClassName="scarce-commerce-sheet-body collection-allowlist-sheet-body"
+      footer={
+        <div className="guild-add-member-footer">
+          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+            <OsSheetAction
+              type="button"
+              variant="primary"
+              ready={canPrimary}
+              disabled={!canPrimary}
+              pending={pending}
+              pendingLabel="Saving…"
+              onClick={() => {
+                if (!dirty) {
+                  requestClose();
+                  return;
+                }
+                void handleSave();
+              }}
+            >
+              {saveStaffLabel(draft.length, pending, dirty)}
+            </OsSheetAction>
+          </OsSheetActions>
+        </div>
+      }
+    >
+      <div className="ticket-door-staff collection-allowlist-sheet guild-add-member-sheet">
+        <p className="ticket-door-lead">
+          {voice === 'redeem'
+            ? `Add up to ${MAX_COLLECTION_REDEEMERS} wallets that can redeem coupons. You always can.`
+            : `Add up to ${MAX_COLLECTION_REDEEMERS} wallets that can check in passes. You always can.`}
+        </p>
+
+        <SearchField
+          value={query}
+          onValueChange={(next) => {
+            if (pending || atCap) return;
+            setQuery(next);
+            const normalized = normalizeProfileSearchQuery(next);
+            if (normalized.length < PROFILE_SEARCH_MIN_QUERY_LENGTH) {
+              setSearchProfiles([]);
+              setSearchPending(false);
+              setSearchError(null);
+            }
+          }}
+          placeholder="Search to add"
+          ariaLabel={
+            voice === 'redeem'
+              ? 'Search to add redeem staff'
+              : 'Search to add door staff'
+          }
+          maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
+          clearAriaLabel="Clear staff search"
+          chrome="sheet"
+          className="collection-allowlist-search"
+          autoFocus
+        />
+
+        {loadError ? (
+          <p className="ticket-door-error" role="alert">
+            {loadError}
+          </p>
+        ) : null}
+
+        {draft.length > 0 ? (
+          <div className="collection-allowlist-section">
+            <div className="collection-allowlist-members-head">
+              <p className="collection-allowlist-section-label">
+                Staff · {draft.length}
+              </p>
+              {draft.length > 0 ? (
+                <button
+                  type="button"
+                  className="collection-allowlist-text-btn"
+                  disabled={pending}
+                  onClick={() => setDraft([])}
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+            <ul className="collection-allowlist-selected">
+              {draft.map((account) => {
+                const face = profiles[account];
+                const snap = draftFaces[account];
+                const name = displayName(
+                  account,
+                  face?.displayName || snap?.name || undefined
+                );
+                return (
+                  <li key={account} className="collection-allowlist-chip">
+                    <span className="collection-allowlist-chip-main">
+                      <AccountAvatar
+                        accountId={account}
+                        kind={face?.kind}
+                        src={face?.avatarUrl ?? snap?.avatarUrl ?? null}
+                        fallbackInitial={name}
+                        size="sm"
+                        className="collection-allowlist-chip-avatar"
+                      />
+                      <span className="collection-allowlist-chip-label">
+                        @{fallbackLabel(account)}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      className="collection-allowlist-chip-remove"
+                      disabled={pending}
+                      aria-label={`Remove @${fallbackLabel(account)}`}
+                      onClick={() => removeFromDraft(account)}
+                    >
+                      <MultiplyIcon
+                        aria-hidden
+                        className="collection-allowlist-chip-remove-icon"
+                      />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : (
+          <p className="ticket-door-hint">No {staffNoun} yet.</p>
+        )}
+
+        {searchActive ? (
+          <div className="collection-allowlist-section">
+            {searchPending && searchProfiles.length === 0 ? (
+              <p className="guild-add-member-hint">Searching…</p>
+            ) : null}
+            {searchError ? (
+              <p className="guild-form-error" role="alert">
+                {searchError}
+              </p>
+            ) : null}
+            {!searchPending && searchProfiles.length === 0 && !searchError ? (
+              <p className="guild-add-member-hint">No profiles found.</p>
+            ) : null}
+            {!searchPending &&
+            searchProfiles.length > 0 &&
+            visibleSearchProfiles.length === 0 &&
+            !searchError ? (
+              <p className="guild-add-member-hint">
+                Already on staff — keep typing to find more.
+              </p>
+            ) : null}
+            {visibleSearchProfiles.length > 0 ? (
+              <div
+                className="standing-list guild-add-member-results"
+                role="listbox"
+                aria-label="Search results"
+              >
+                {visibleSearchProfiles.map((profile, index) => (
+                  <div key={profile.accountId}>
+                    {index > 0 ? <Divider variant="item" /> : null}
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      className="guild-add-member-result"
+                      disabled={pending || atCap}
+                      onClick={() => addToDraft(profile)}
+                    >
+                      <StandingIdentity
+                        accountId={profile.accountId}
+                        profileName={profile.name}
+                        avatarUrl={profile.avatarUrl}
+                      />
+                      <UserPlusIcon
+                        aria-hidden
+                        className="collection-allowlist-row-add"
+                      />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : atCap ? (
+          <p className="guild-add-member-hint">
+            {`Maximum ${MAX_COLLECTION_REDEEMERS} staff.`}
+          </p>
+        ) : null}
+      </div>
+    </OsHugSheet>
+  );
+
+  if (hideRow) return sheet;
+
   return (
     <div className="collection-door-staff">
       <div className="collection-reading-row">
@@ -314,209 +532,7 @@ export function CollectionDoorStaffManager({
           {saved.length > 0 ? `${saved.length} · Manage` : 'Manage'}
         </OsRowAction>
       </div>
-
-      <OsHugSheet
-        open={sheetOpen}
-        onClose={requestClose}
-        onClosed={handleClosed}
-        label={voice === 'redeem' ? 'Redeem staff' : 'Door staff'}
-        copy={
-          voice === 'redeem'
-            ? 'Who can Redeem at the counter'
-            : 'Who can Admit at the door'
-        }
-        closeAriaLabel={
-          voice === 'redeem' ? 'Close redeem staff' : 'Close door staff'
-        }
-        backdropLabel={
-          voice === 'redeem' ? 'Close redeem staff' : 'Close door staff'
-        }
-        zIndex={SHEET_Z.shellManager}
-        panelClassName="scarce-commerce-sheet-panel collection-allowlist-sheet-panel os-sheet-cap-standard"
-        bodyClassName="scarce-commerce-sheet-body collection-allowlist-sheet-body"
-        footer={
-          <div className="guild-add-member-footer">
-            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-              <OsSheetAction
-                type="button"
-                variant="primary"
-                ready={canPrimary}
-                disabled={!canPrimary}
-                pending={pending}
-                pendingLabel="Saving…"
-                onClick={() => {
-                  if (!dirty) {
-                    requestClose();
-                    return;
-                  }
-                  void handleSave();
-                }}
-              >
-                {saveStaffLabel(draft.length, pending, dirty)}
-              </OsSheetAction>
-            </OsSheetActions>
-          </div>
-        }
-      >
-        <div className="ticket-door-staff collection-allowlist-sheet guild-add-member-sheet">
-          <p className="ticket-door-lead">
-            {voice === 'redeem'
-              ? `Add up to ${MAX_COLLECTION_REDEEMERS} wallets that can redeem coupons. You always can.`
-              : `Add up to ${MAX_COLLECTION_REDEEMERS} wallets that can check in passes. You always can.`}
-          </p>
-
-          <SearchField
-            value={query}
-            onValueChange={(next) => {
-              if (pending || atCap) return;
-              setQuery(next);
-              const normalized = normalizeProfileSearchQuery(next);
-              if (normalized.length < PROFILE_SEARCH_MIN_QUERY_LENGTH) {
-                setSearchProfiles([]);
-                setSearchPending(false);
-                setSearchError(null);
-              }
-            }}
-            placeholder="Search to add"
-            ariaLabel={
-              voice === 'redeem'
-                ? 'Search to add redeem staff'
-                : 'Search to add door staff'
-            }
-            maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
-            clearAriaLabel="Clear staff search"
-            chrome="sheet"
-            className="collection-allowlist-search"
-            autoFocus
-          />
-
-          {loadError ? (
-            <p className="ticket-door-error" role="alert">
-              {loadError}
-            </p>
-          ) : null}
-
-          {draft.length > 0 ? (
-            <div className="collection-allowlist-section">
-              <div className="collection-allowlist-members-head">
-                <p className="collection-allowlist-section-label">
-                  Staff · {draft.length}
-                </p>
-                {draft.length > 0 ? (
-                  <button
-                    type="button"
-                    className="collection-allowlist-text-btn"
-                    disabled={pending}
-                    onClick={() => setDraft([])}
-                  >
-                    Clear
-                  </button>
-                ) : null}
-              </div>
-              <ul className="collection-allowlist-selected">
-                {draft.map((account) => {
-                  const face = profiles[account];
-                  const snap = draftFaces[account];
-                  const name = displayName(
-                    account,
-                    face?.displayName || snap?.name || undefined
-                  );
-                  return (
-                    <li key={account} className="collection-allowlist-chip">
-                      <span className="collection-allowlist-chip-main">
-                        <AccountAvatar
-                          accountId={account}
-                          kind={face?.kind}
-                          src={face?.avatarUrl ?? snap?.avatarUrl ?? null}
-                          fallbackInitial={name}
-                          size="sm"
-                          className="collection-allowlist-chip-avatar"
-                        />
-                        <span className="collection-allowlist-chip-label">
-                          @{fallbackLabel(account)}
-                        </span>
-                      </span>
-                      <button
-                        type="button"
-                        className="collection-allowlist-chip-remove"
-                        disabled={pending}
-                        aria-label={`Remove @${fallbackLabel(account)}`}
-                        onClick={() => removeFromDraft(account)}
-                      >
-                        <MultiplyIcon
-                          aria-hidden
-                          className="collection-allowlist-chip-remove-icon"
-                        />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ) : (
-            <p className="ticket-door-hint">No {staffNoun} yet.</p>
-          )}
-
-          {searchActive ? (
-            <div className="collection-allowlist-section">
-              {searchPending && searchProfiles.length === 0 ? (
-                <p className="guild-add-member-hint">Searching…</p>
-              ) : null}
-              {searchError ? (
-                <p className="guild-form-error" role="alert">
-                  {searchError}
-                </p>
-              ) : null}
-              {!searchPending && searchProfiles.length === 0 && !searchError ? (
-                <p className="guild-add-member-hint">No profiles found.</p>
-              ) : null}
-              {!searchPending &&
-              searchProfiles.length > 0 &&
-              visibleSearchProfiles.length === 0 &&
-              !searchError ? (
-                <p className="guild-add-member-hint">
-                  Already on staff — keep typing to find more.
-                </p>
-              ) : null}
-              {visibleSearchProfiles.length > 0 ? (
-                <div
-                  className="standing-list guild-add-member-results"
-                  role="listbox"
-                  aria-label="Search results"
-                >
-                  {visibleSearchProfiles.map((profile, index) => (
-                    <div key={profile.accountId}>
-                      {index > 0 ? <Divider variant="item" /> : null}
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={false}
-                        className="guild-add-member-result"
-                        disabled={pending || atCap}
-                        onClick={() => addToDraft(profile)}
-                      >
-                        <StandingIdentity
-                          accountId={profile.accountId}
-                          profileName={profile.name}
-                          avatarUrl={profile.avatarUrl}
-                        />
-                        <UserPlusIcon
-                          aria-hidden
-                          className="collection-allowlist-row-add"
-                        />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ) : atCap ? (
-            <p className="guild-add-member-hint">
-              {`Maximum ${MAX_COLLECTION_REDEEMERS} staff.`}
-            </p>
-          ) : null}
-        </div>
-      </OsHugSheet>
+      {sheet}
     </div>
   );
 }

@@ -7,10 +7,10 @@ import {
   Divider,
   OsIconAction,
   RefreshIcon,
-  SearchField,
   standingIdentityLabel,
 } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
+import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { CollectionActivitySkeleton } from '@/features/scarces/collection-page-skeleton';
 import {
@@ -163,21 +163,17 @@ export function CollectionDoorLogSheet({
   const redeemVoice = voice === 'redeem';
   const title = redeemVoice ? 'Redeem log' : 'Door log';
   const attendance = liveTally || attendanceLine?.trim() || '';
-  const subtitle = attendance
+  const countLine = attendance
     ? attendance
-    : !loaded || entries == null
-      ? undefined
-      : entries.length === 0
+    : !loaded || entries == null || entries.length === 0
+      ? ''
+      : entries.length === 1
         ? redeemVoice
-          ? 'No redeems yet'
-          : 'No check-ins yet'
-        : entries.length === 1
-          ? redeemVoice
-            ? '1 redeem'
-            : '1 check-in'
-          : redeemVoice
-            ? `${entries.length} redeems`
-            : `${entries.length} check-ins`;
+          ? '1 redeem'
+          : '1 check-in'
+        : redeemVoice
+          ? `${entries.length} redeems`
+          : `${entries.length} check-ins`;
   const staffVerb = doorLogStaffVerb(voice);
 
   return (
@@ -186,7 +182,23 @@ export function CollectionDoorLogSheet({
       onClose={requestClose}
       onClosed={handleClosed}
       title={title}
-      subtitle={subtitle}
+      compactChrome
+      heading={
+        <OsAppChromeNavSearch
+          value={query}
+          onValueChange={setQuery}
+          placeholder={redeemVoice ? 'Search redeem log' : 'Search door log'}
+          clearAriaLabel={
+            redeemVoice ? 'Clear redeem log search' : 'Clear door log search'
+          }
+          ariaLabel={
+            redeemVoice
+              ? 'Search redeem log by guest, staff, or pass'
+              : 'Search door log by guest, staff, or pass'
+          }
+          idleClassName="discover-nav-search-field"
+        />
+      }
       closeAriaLabel="Back"
       closeIcon={
         <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
@@ -204,17 +216,7 @@ export function CollectionDoorLogSheet({
         </OsIconAction>
       }
     >
-      <SearchField
-        value={query}
-        onValueChange={setQuery}
-        placeholder="Search guest, staff, or pass"
-        ariaLabel={redeemVoice ? 'Search redeem log' : 'Search door log'}
-        clearAriaLabel={
-          redeemVoice ? 'Clear redeem log search' : 'Clear door log search'
-        }
-        chrome="sheet"
-        className="collection-door-log-search"
-      />
+      {countLine ? <p className="scarce-fans-lede">{countLine}</p> : null}
 
       {loadError ? (
         <p className="ticket-door-error" role="alert">
@@ -285,7 +287,10 @@ export function CollectionDoorLogSheet({
                   </div>
                   <div className="standing-row-aside collection-door-log-aside">
                     {entry.timeAbsolute || entry.timeLabel ? (
-                      <time dateTime={timeIso} title={entry.timeAbsolute || undefined}>
+                      <time
+                        dateTime={timeIso}
+                        title={entry.timeAbsolute || undefined}
+                      >
                         {entry.timeAbsolute ? (
                           <span className="collection-door-log-absolute">
                             {entry.timeAbsolute}
