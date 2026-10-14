@@ -14,6 +14,7 @@ import {
   type CollectionView,
 } from '@/features/scarces/collections-data';
 import { type CollectionRedeemAttendance } from '@/features/scarces/ticket-attendance';
+import { eventGuestTallyLine } from '@/features/events/event-guests';
 import { CollectionDoorLogSheet } from '@/features/scarces/collection-door-log-sheet';
 import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
@@ -120,9 +121,12 @@ export function TicketDoorEventSheet({
   const dropHref = collectionPath(view.collectionId);
   const attendanceSuffix =
     attendance && attendance.collectionId === view.collectionId
-      ? redeemVoice
-        ? `${Math.min(attendance.minted, attendance.fullyRedeemedCount)} of ${attendance.minted} redeemed`
-        : `${Math.min(attendance.minted, attendance.fullyRedeemedCount)} of ${attendance.minted} in`
+      ? eventGuestTallyLine({
+          kind: 'in',
+          present: Math.min(attendance.minted, attendance.fullyRedeemedCount),
+          sold: attendance.minted,
+          redeemed: redeemVoice,
+        })
       : null;
 
   return (
@@ -179,7 +183,7 @@ export function TicketDoorEventSheet({
                   className="guild-facts-link"
                   onClick={() => setDoorLogOpen(true)}
                 >
-                  See who
+                  Scans
                 </button>
               }
             />

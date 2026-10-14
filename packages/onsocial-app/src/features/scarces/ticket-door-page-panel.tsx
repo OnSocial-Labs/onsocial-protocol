@@ -2,8 +2,14 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import {
+  FocusFillIcon,
+  FocusIcon,
+  OsSheetAction,
+  OsSheetActions,
+} from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { useRegisterDockAction } from '@/contexts/dock-chrome-context';
 import { OsRowAction } from '@/lib/os-row-action';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -156,6 +162,29 @@ export function TicketDoorPagePanel({
     },
   });
 
+  const cameraLive = door.cameraActive || door.cameraOpening;
+  useRegisterDockAction(
+    doorActive && !door.status
+      ? {
+          ariaLabel: cameraLive ? 'Stop camera' : 'Start camera',
+          pressed: cameraLive,
+          disabled: door.lookupPending || door.admitPending,
+          onClick: () => {
+            if (door.cameraActive || door.cameraOpening) door.stopCamera();
+            else void door.startCamera();
+          },
+          icon: cameraLive ? (
+            <FocusFillIcon
+              className="portfolio-summon-compose-icon"
+              aria-hidden
+            />
+          ) : (
+            <FocusIcon className="portfolio-summon-compose-icon" aria-hidden />
+          ),
+        }
+      : null
+  );
+
   useEffect(() => {
     if (!doorActive) return;
     let cancelled = false;
@@ -241,6 +270,7 @@ export function TicketDoorPagePanel({
         eventName={eventName}
         videoRef={door.videoRef}
         cameraActive={door.cameraActive}
+        cameraOpening={door.cameraOpening}
         cameraError={door.cameraError}
         scanHint={door.scanHint}
         manualInput={door.manualInput}
@@ -257,61 +287,64 @@ export function TicketDoorPagePanel({
         canAdmit={door.canAdmit}
       />
     );
-    const cameraCta = door.cameraActive
-      ? 'Stop camera'
-      : door.cameraError
-        ? 'Try camera'
-        : 'Start camera';
-    const primaryReady = door.canAdmit;
     const primaryPending = door.admitPending;
-    const primaryLabel = !door.admitConfirmed
-      ? 'Confirm'
-      : redeemVoice
-        ? 'Redeem'
-        : 'Admit';
     const primaryPendingLabel = redeemVoice ? 'Redeeming…' : 'Admitting…';
-    footer = (
-      <DoorFooter stacked>
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="button"
-            variant="primary"
-            ready={primaryReady}
-            pending={door.admitConfirmed ? primaryPending : false}
-            pendingLabel={primaryPendingLabel}
-            disabled={!primaryReady || (door.admitConfirmed && primaryPending)}
-            onClick={() => {
-              if (!door.admitConfirmed) door.confirmAdmit();
-              else void door.handleAdmit();
-            }}
-          >
-            {primaryLabel}
-          </OsSheetAction>
-          {door.admitConfirmed && door.canAdmit ? (
+    const scanNext = () => {
+      door.resetSession();
+      void door.startCamera();
+    };
+    if (door.canAdmit) {
+      const primaryLabel = !door.admitConfirmed
+        ? 'Confirm'
+        : redeemVoice
+          ? 'Redeem'
+          : 'Admit';
+      footer = (
+        <DoorFooter stacked={door.admitConfirmed}>
+          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
             <OsSheetAction
               type="button"
-              variant="ghost"
-              onClick={() => door.clearAdmitConfirm()}
-              disabled={door.admitPending}
-            >
-              Back
-            </OsSheetAction>
-          ) : (
-            <OsSheetAction
-              type="button"
-              variant="ghost"
+              variant="primary"
+              ready
+              pending={door.admitConfirmed ? primaryPending : false}
+              pendingLabel={primaryPendingLabel}
+              disabled={door.admitConfirmed && primaryPending}
               onClick={() => {
-                if (door.cameraActive) door.stopCamera();
-                else void door.startCamera();
+                if (!door.admitConfirmed) door.confirmAdmit();
+                else void door.handleAdmit();
               }}
-              disabled={door.admitPending || door.lookupPending}
             >
-              {cameraCta}
+              {primaryLabel}
             </OsSheetAction>
-          )}
-        </OsSheetActions>
-      </DoorFooter>
-    );
+            {door.admitConfirmed ? (
+              <OsSheetAction
+                type="button"
+                variant="ghost"
+                onClick={() => door.clearAdmitConfirm()}
+                disabled={door.admitPending}
+              >
+                Back
+              </OsSheetAction>
+            ) : null}
+          </OsSheetActions>
+        </DoorFooter>
+      );
+    } else if (door.status) {
+      footer = (
+        <DoorFooter>
+          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+            <OsSheetAction
+              type="button"
+              variant="primary"
+              ready
+              onClick={scanNext}
+            >
+              {redeemVoice ? 'Next coupon' : 'Next guest'}
+            </OsSheetAction>
+          </OsSheetActions>
+        </DoorFooter>
+      );
+    }
   }
 
   return (
@@ -328,7 +361,9 @@ export function TicketDoorPagePanel({
             className="ticket-door-event-action"
             onClick={() => setEventOpen(true)}
             aria-label={
-              redeemVoice ? 'Open event redeem details' : 'Open event door details'
+              redeemVoice
+                ? 'Open event redeem details'
+                : 'Open event door details'
             }
           >
             Event

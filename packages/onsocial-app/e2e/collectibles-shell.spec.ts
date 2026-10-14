@@ -137,9 +137,13 @@ test.describe('collectibles shell', () => {
     await expect(
       page.locator('.collectibles-holding-row').filter({ hasText: 'Dusk Run' })
     ).toBeVisible();
+    const gateRow = page
+      .locator('.collectibles-holding-row')
+      .filter({ hasText: 'Gate Pass' });
+    await expect(gateRow).toContainText('Tickets');
     await expect(
-      page.locator('.collectibles-holding-row').filter({ hasText: 'Gate Pass' })
-    ).toContainText('Tickets');
+      gateRow.getByRole('button', { name: 'Show pass Gate Pass' })
+    ).toBeVisible();
     await expect(
       page.getByRole('region', { name: 'Collectibles' })
     ).toBeVisible();
@@ -360,5 +364,29 @@ test.describe('collectibles shell', () => {
     ).toBeVisible();
     await jump.first().getByRole('option', { name: 'Finn' }).click();
     await expect(page.locator('#collectibles-from-finn-near')).toBeInViewport();
+  });
+
+  test('Show pass opens on the vault and close stays there', async ({
+    page,
+  }) => {
+    await setE2eGraphVault(page, 'default');
+    await stubCollectiblesVaultGraph(page);
+    await gotoApp(page, `/@${COLLECTIBLES_VAULT_OWNER}/collectibles`);
+
+    const gateRow = page
+      .locator('.collectibles-holding-row')
+      .filter({ hasText: 'Gate Pass' });
+    await expect(gateRow).toBeVisible({ timeout: 30_000 });
+    await gateRow.getByRole('button', { name: 'Show pass Gate Pass' }).click();
+
+    const pass = page.locator('.ticket-show-pass');
+    await expect(pass).toBeVisible();
+    await expect(page).toHaveURL(/\/collectibles\/?(\?|$)/);
+    await expect(page).not.toHaveURL(/\/collection\//);
+
+    await page.getByRole('button', { name: 'Back from pass' }).click();
+    await expect(pass).toHaveCount(0);
+    await expect(gateRow).toBeVisible();
+    await expect(page).toHaveURL(/\/collectibles/);
   });
 });

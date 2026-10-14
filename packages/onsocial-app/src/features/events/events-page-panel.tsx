@@ -48,19 +48,17 @@ import {
   eventGuestCountAria,
   eventGuestCountLabel,
   eventGuestKind,
-  eventGuestSheetCopy,
-  loadEventCheckInIds,
-  loadEventHolderIds,
   loadHeldCollectionIds,
   resolveEventGuestCount,
   showEventGuestCount,
   type EventGuestKind,
 } from '@/features/events/event-guests';
+import { EventGuestsSheet } from '@/features/events/event-guests-sheet';
+import { passStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import {
   useEventCheckInRosters,
   useEventHolderRosters,
 } from '@/features/events/use-event-guest-counts';
-import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import {
   dropFacetFieldLabel,
   TICKET_EVENT_SUGGESTIONS,
@@ -71,7 +69,6 @@ import {
   collectionPath,
 } from '@/lib/app-routes';
 import { DROPS_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
-import { SHEET_Z } from '@/lib/sheet-z';
 
 const PAGE_SIZE = 48;
 
@@ -236,14 +233,12 @@ export function EventsPagePanel({
   const [heldNextPage, setHeldNextPage] = useState(0);
   const [holdingsAttempt, setHoldingsAttempt] = useState(0);
   const [heldFor, setHeldFor] = useState<string | null>(null);
-  const [guestOpen, setGuestOpen] = useState(false);
   const [guestSheet, setGuestSheet] = useState<{
     collectionId: string;
     title: string;
     kind: EventGuestKind;
-    ids: string[];
-    loading: boolean;
-    error: boolean;
+    sold: number;
+    voice: 'admit' | 'redeem';
   } | null>(null);
   const reloadGenRef = useRef(0);
   const loadingMoreRef = useRef(false);
@@ -458,42 +453,15 @@ export function EventsPagePanel({
 
   const openGuests = useCallback(
     (item: DropDiscoveryItem, kind: EventGuestKind) => {
-      const cached = eventGuestRoster(kind, item.collectionId, guestRosters);
-      setGuestOpen(true);
       setGuestSheet({
         collectionId: item.collectionId,
         title: item.title,
         kind,
-        ids: cached ?? [],
-        loading: cached === undefined,
-        error: false,
+        sold: item.mintedCount,
+        voice: passStaffVoice(item.mediumKind),
       });
-      const loadGuests =
-        kind === 'going' ? loadEventHolderIds : loadEventCheckInIds;
-      void loadGuests(item.collectionId)
-        .then((ids) => {
-          setGuestSheet((current) =>
-            current?.collectionId === item.collectionId && current.kind === kind
-              ? { ...current, ids, loading: false, error: false }
-              : current
-          );
-        })
-        .catch(() => {
-          setGuestSheet((current) => {
-            if (
-              current?.collectionId !== item.collectionId ||
-              current.kind !== kind
-            ) {
-              return current;
-            }
-            if (cached !== undefined) {
-              return { ...current, loading: false, error: false };
-            }
-            return { ...current, ids: [], loading: false, error: true };
-          });
-        });
     },
-    [guestRosters]
+    []
   );
   const filterLabel = [
     styleId ? eventStyleLabel(styleId) : null,
@@ -706,16 +674,14 @@ export function EventsPagePanel({
           ) : null}
         </div>
       </div>
-      <ScarceFansSheet
-        open={guestOpen}
-        onClose={() => setGuestOpen(false)}
-        fanIds={guestSheet?.ids ?? []}
-        fanCount={guestSheet?.ids.length ?? 0}
-        dropTitle={guestSheet?.title}
-        idsLoading={guestSheet?.loading ?? false}
-        idsError={guestSheet?.error ?? false}
-        zIndex={SHEET_Z.list}
-        {...eventGuestSheetCopy(guestSheet?.kind ?? 'going')}
+      <EventGuestsSheet
+        open={guestSheet != null}
+        onClose={() => setGuestSheet(null)}
+        collectionId={guestSheet?.collectionId ?? ''}
+        title={guestSheet?.title ?? ''}
+        kind={guestSheet?.kind ?? 'going'}
+        sold={guestSheet?.sold ?? null}
+        voice={guestSheet?.voice ?? 'admit'}
       />
       <ActionDrawer
         open={sheetOpen}

@@ -11,6 +11,7 @@ import {
   PlayFillIcon,
   TimeIcon,
   TrashIcon,
+  UserPlusIcon,
 } from '@onsocial/ui';
 import {
   ActionDrawer,
@@ -22,7 +23,9 @@ import { DropWithdrawRefundsConfirmPanel } from '@/components/wallet/drop-withdr
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import type { CollectionStatus } from '@/features/scarces/collections-data';
+import { CollectionDoorStaffManager } from '@/features/scarces/collection-door-staff-manager';
 import { DropExtendEntryPanel } from '@/features/scarces/drop-extend-entry-panel';
+import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import {
   canCancelDrop,
   canDeleteDrop,
@@ -56,8 +59,9 @@ const SCARCES_CONTRACT =
 type ManagePanel = 'menu' | 'cancel' | 'delete' | 'withdraw' | 'extend';
 
 /**
- * Owner Drop page control — compact Sell-style pill beside bookmark / share,
- * Pause / Resume / Cancel / Delete / Withdraw / Postpone entry in a drawer.
+ * Owner Drop page control — compact Sell-style pill beside bookmark / share.
+ * Pause / Resume / Cancel / Delete / Withdraw / Postpone entry, and Door staff
+ * for a pass, live in one drawer.
  */
 export function CollectionOwnerManageMenu({
   collectionId,
@@ -68,6 +72,7 @@ export function CollectionOwnerManageMenu({
   kind = null,
   renewable = false,
   eventEndsAtMs = null,
+  doorStaff = null,
   onManaged,
   zIndex,
 }: {
@@ -79,6 +84,8 @@ export function CollectionOwnerManageMenu({
   kind?: string | null;
   renewable?: boolean;
   eventEndsAtMs?: number | null;
+  /** Pass drops: Door staff / Redeem staff opens from this drawer. */
+  doorStaff?: { creatorId: string; voice: PassStaffVoice } | null;
   zIndex?: number;
   onManaged: (
     change:
@@ -93,6 +100,7 @@ export function CollectionOwnerManageMenu({
   const { isConnected, getSigningWallet } = useAppWallet();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const [open, setOpen] = useState(false);
+  const [staffOpen, setStaffOpen] = useState(false);
   const [panel, setPanel] = useState<ManagePanel>('menu');
   const [ownerPending, setOwnerPending] = useState(false);
   const [refundDeadlineMs, setRefundDeadlineMs] = useState<number | null>(null);
@@ -377,6 +385,23 @@ export function CollectionOwnerManageMenu({
         },
       });
     }
+    if (doorStaff) {
+      const redeem = doorStaff.voice === 'redeem';
+      list.push({
+        id: 'door-staff',
+        section: redeem ? 'Counter' : 'Door',
+        label: redeem ? 'Redeem staff' : 'Door staff',
+        description: redeem
+          ? 'Who can redeem at the counter'
+          : 'Who can admit at the door',
+        disabled: ownerPending,
+        leading: <UserPlusIcon className="os-action-drawer-icon" aria-hidden />,
+        onSelect: () => {
+          close();
+          setStaffOpen(true);
+        },
+      });
+    }
     if (showPause) {
       list.push({
         id: 'pause',
@@ -384,7 +409,9 @@ export function CollectionOwnerManageMenu({
         label: ownerPending ? 'Pausing…' : 'Pause drop',
         description: 'Stop minting for now',
         disabled: ownerPending,
-        leading: <PauseFillIcon className="os-action-drawer-icon" aria-hidden />,
+        leading: (
+          <PauseFillIcon className="os-action-drawer-icon" aria-hidden />
+        ),
         onSelect: () => {
           void runLifecycle('paused');
         },
@@ -451,13 +478,18 @@ export function CollectionOwnerManageMenu({
         description: 'Holders can claim until the window ends',
         disabled: true,
         leading: (
-          <InformationCircleIcon className="os-action-drawer-icon" aria-hidden />
+          <InformationCircleIcon
+            className="os-action-drawer-icon"
+            aria-hidden
+          />
         ),
         onSelect: () => {},
       });
     }
     return list;
   }, [
+    close,
+    doorStaff,
     ownerPending,
     runLifecycle,
     showCancel,
@@ -476,6 +508,7 @@ export function CollectionOwnerManageMenu({
     !showCancel &&
     !showWithdraw &&
     !showExtend &&
+    !doorStaff &&
     status !== 'cancelled'
   ) {
     return null;
@@ -525,9 +558,7 @@ export function CollectionOwnerManageMenu({
         }
         label={drawerLabel}
         copy={panel === 'menu' ? 'Owner controls' : undefined}
-        listAriaLabel={
-          panel === 'menu' ? `Manage ${dropTitle}` : drawerLabel
-        }
+        listAriaLabel={panel === 'menu' ? `Manage ${dropTitle}` : drawerLabel}
         closeAriaLabel={panel === 'menu' ? 'Close' : 'Back to manage'}
         items={panel === 'menu' ? items : undefined}
         {...(zIndex != null ? { zIndex } : {})}
@@ -575,6 +606,16 @@ export function CollectionOwnerManageMenu({
           />
         ) : null}
       </ActionDrawer>
+      {doorStaff ? (
+        <CollectionDoorStaffManager
+          collectionId={collectionId}
+          creatorId={doorStaff.creatorId}
+          voice={doorStaff.voice}
+          hideRow
+          open={staffOpen}
+          onOpenChange={setStaffOpen}
+        />
+      ) : null}
     </div>
   );
 }

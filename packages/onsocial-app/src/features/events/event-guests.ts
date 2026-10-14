@@ -48,6 +48,29 @@ export function eventGuestCountLabel(
   return n === 1 ? '1 going' : `${n} going`;
 }
 
+/**
+ * Quiet totals for the guest list. Sold is passes minted. Present is the
+ * people on the list. Coupons say redeemed once the event is underway.
+ */
+export function eventGuestTallyLine(opts: {
+  kind: EventGuestKind;
+  present: number;
+  sold: number | null;
+  redeemed?: boolean;
+}): string {
+  const present = Math.max(0, Math.floor(opts.present));
+  const presentLabel =
+    opts.redeemed && opts.kind !== 'going'
+      ? present === 1
+        ? '1 redeemed'
+        : `${present} redeemed`
+      : eventGuestCountLabel(opts.kind, present);
+  if (opts.sold == null || !Number.isFinite(opts.sold)) return presentLabel;
+  const sold = Math.max(0, Math.floor(opts.sold));
+  const soldLabel = sold === 1 ? '1 sold' : `${sold} sold`;
+  return `${soldLabel} · ${presentLabel}`;
+}
+
 export function eventGuestSheetCopy(kind: EventGuestKind): {
   label: string;
   countSingular: string;

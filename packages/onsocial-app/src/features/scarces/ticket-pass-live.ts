@@ -1,6 +1,6 @@
 /**
- * Live Show-pass QR (os2) — short-lived NEP-413 signature from the
- * holder's App social session key. Door verifies before admit.
+ * Show-pass QR (os2) — NEP-413 signature from the holder's App social
+ * session key. Signed once and saved on the device. Door verifies before admit.
  *
  * Format (pipe-separated; token ids may contain `:`):
  *   os2|{collection}|{token}|{expMs}|{pkB64u}|{nonceB64u}|{sigB64u}
@@ -8,6 +8,10 @@
 
 import type { Session } from '@onsocial/sdk/advanced';
 import { base58Encode, parseEd25519PublicKey } from '@onsocial/sdk/advanced';
+import {
+  TICKET_PASS_SAVED_MAX_AHEAD_MS,
+  ticketPassSavedTtlMs,
+} from '@/features/scarces/ticket-pass-saved';
 import {
   base64ToBytes,
   bytesToBase64,
@@ -17,12 +21,6 @@ import { accountOwnsPublicKey } from '@/lib/near-access-key';
 
 export const TICKET_PASS_LIVE_PREFIX = 'os2';
 export const TICKET_PASS_LIVE_RECIPIENT = 'onsocial.ticket.pass';
-/** How long a signed QR stays valid at the door. */
-export const TICKET_PASS_LIVE_TTL_MS = 45_000;
-/** Re-sign while Show pass stays open (under TTL). */
-export const TICKET_PASS_LIVE_REFRESH_MS = 30_000;
-/** Reject proofs that claim expiry too far in the future. */
-const TICKET_PASS_LIVE_MAX_AHEAD_MS = TICKET_PASS_LIVE_TTL_MS + 15_000;
 
 export interface TicketPassLivePayload {
   collectionId: string;
@@ -134,13 +132,29 @@ export function parseTicketPassLivePayload(
   };
 }
 
+/** True when this saved code was signed by the current App session key. */
+export function ticketPassLiveMatchesSessionKey(
+  raw: string,
+  nearPublicKey: string
+): boolean {
+  const payload = parseTicketPassLivePayload(raw);
+  if (!payload || !nearPublicKey.trim()) return false;
+  let publicKeyRaw: Uint8Array;
+  try {
+    publicKeyRaw = parseEd25519PublicKey(nearPublicKey);
+  } catch {
+    return false;
+  }
+  return bytesToBase64Url(publicKeyRaw) === payload.publicKeyB64u;
+}
+
 export function isTicketPassLiveFresh(
   expMs: number,
   nowMs: number = Date.now()
 ): boolean {
   if (!Number.isFinite(expMs)) return false;
   if (expMs <= nowMs) return false;
-  if (expMs > nowMs + TICKET_PASS_LIVE_MAX_AHEAD_MS) return false;
+  if (expMs > nowMs + TICKET_PASS_SAVED_MAX_AHEAD_MS) return false;
   return true;
 }
 
@@ -181,7 +195,7 @@ export async function signTicketPassLive(input: {
   if (collectionId.includes('|') || tokenId.includes('|')) return null;
 
   const nowMs = input.nowMs ?? Date.now();
-  const ttlMs = input.ttlMs ?? TICKET_PASS_LIVE_TTL_MS;
+  const ttlMs = input.ttlMs ?? ticketPassSavedTtlMs({ nowMs });
   const expMs = nowMs + ttlMs;
   const nonce = new Uint8Array(32);
   crypto.getRandomValues(nonce);
@@ -223,12 +237,13 @@ export async function verifyTicketPassLiveCrypto(
 ): Promise<TicketPassLiveVerifyResult> {
   const payload = parseTicketPassLivePayload(raw, expectedCollectionId);
   if (!payload) {
-    return { ok: false, error: 'That code is not a live Show pass.' };
+    return { ok: false, error: 'That code is not a Show pass.' };
   }
   if (!isTicketPassLiveFresh(payload.expMs, nowMs)) {
     return {
       ok: false,
-      error: 'Pass code expired. Ask the guest to open Show pass again.',
+      error:
+        'Pass code expired. Ask the guest to open Show pass and save it again.',
     };
   }
 

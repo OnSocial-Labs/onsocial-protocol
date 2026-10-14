@@ -874,6 +874,7 @@ export function e2eDropCollectionRow(
     remaining: ended ? 0 : 8,
     endTime: ended ? FIXTURE_ENDED_AT : null,
     maxRedeems: kind === 'ticket' ? 1 : null,
+    ...(kind === 'ticket' ? { coverMedia: DROPS_COVER_MEDIA } : {}),
   });
 }
 

@@ -7,6 +7,7 @@ import {
   eventGuestCountAria,
   eventGuestCountLabel,
   eventGuestKind,
+  eventGuestTallyLine,
   loadHeldCollectionIdsFrom,
   resolveEventGuestCount,
   showEventGuestCount,
@@ -25,6 +26,34 @@ describe('event guest counts', () => {
     expect(eventGuestCountLabel('going', 128)).toBe('128 going');
     expect(eventGuestCountLabel('attended', 1)).toBe('1 attended');
     expect(eventGuestCountLabel('attended', 186)).toBe('186 attended');
+  });
+
+  it('pairs sold with who is in, quietly', () => {
+    expect(
+      eventGuestTallyLine({ kind: 'in', present: 47, sold: 128 })
+    ).toBe('128 sold · 47 in');
+    expect(
+      eventGuestTallyLine({ kind: 'in', present: 1, sold: 1 })
+    ).toBe('1 sold · 1 in');
+    expect(
+      eventGuestTallyLine({
+        kind: 'in',
+        present: 12,
+        sold: 40,
+        redeemed: true,
+      })
+    ).toBe('40 sold · 12 redeemed');
+    expect(
+      eventGuestTallyLine({
+        kind: 'going',
+        present: 4,
+        sold: 9,
+        redeemed: true,
+      })
+    ).toBe('9 sold · 4 going');
+    expect(
+      eventGuestTallyLine({ kind: 'attended', present: 3, sold: null })
+    ).toBe('3 attended');
   });
 
   it('uses a resolved roster, and minted passes only while holders load', () => {

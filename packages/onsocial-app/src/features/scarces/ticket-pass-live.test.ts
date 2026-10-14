@@ -5,6 +5,7 @@ import {
   isTicketPassLiveFresh,
   parseTicketPassLivePayload,
   signTicketPassLive,
+  ticketPassLiveMatchesSessionKey,
   verifyTicketPassLiveCrypto,
 } from '@/features/scarces/ticket-pass-live';
 import { parseTicketPassPayload } from '@/features/scarces/ticket-pass-payload';
@@ -49,6 +50,12 @@ describe('ticket-pass-live', () => {
     expect(parseTicketPassLivePayload(encoded!, 'other')).toBeNull();
     expect(isTicketPassLiveFresh(Date.now() - 1)).toBe(false);
     expect(isTicketPassLiveFresh(Date.now() + 30_000)).toBe(true);
+    expect(isTicketPassLiveFresh(Date.now() + 30 * 24 * 60 * 60 * 1000)).toBe(
+      true
+    );
+    expect(isTicketPassLiveFresh(Date.now() + 200 * 24 * 60 * 60 * 1000)).toBe(
+      false
+    );
   });
 
   it('signs with a session key and verifies crypto', async () => {
@@ -71,6 +78,10 @@ describe('ticket-pass-live', () => {
       ttlMs: 45_000,
     });
     expect(encoded).toBeTruthy();
+    expect(ticketPassLiveMatchesSessionKey(encoded!, key.publicKey)).toBe(true);
+    expect(
+      ticketPassLiveMatchesSessionKey(encoded!, 'ed25519:not-the-key')
+    ).toBe(false);
     const verified = await verifyTicketPassLiveCrypto(
       encoded!,
       'night-drive',
@@ -87,6 +98,33 @@ describe('ticket-pass-live', () => {
       nowMs + 60_000
     );
     expect(expired.ok).toBe(false);
+
+    const saved = await signTicketPassLive({
+      session: session as never,
+      collectionId: 'night-drive',
+      tokenId: 'night-drive:7',
+      nowMs,
+      ttlMs: 30 * 24 * 60 * 60 * 1000,
+    });
+    const stillGood = await verifyTicketPassLiveCrypto(
+      saved!,
+      'night-drive',
+      nowMs + 10 * 24 * 60 * 60 * 1000
+    );
+    expect(stillGood.ok).toBe(true);
+    const tooFar = await signTicketPassLive({
+      session: session as never,
+      collectionId: 'night-drive',
+      tokenId: 'night-drive:7',
+      nowMs,
+      ttlMs: 200 * 24 * 60 * 60 * 1000,
+    });
+    const rejected = await verifyTicketPassLiveCrypto(
+      tooFar!,
+      'night-drive',
+      nowMs + 1_000
+    );
+    expect(rejected.ok).toBe(false);
   });
 
   it('rejects tampered live payloads', async () => {

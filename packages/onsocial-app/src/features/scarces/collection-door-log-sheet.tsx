@@ -7,10 +7,10 @@ import {
   Divider,
   OsIconAction,
   RefreshIcon,
-  SearchField,
   standingIdentityLabel,
 } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
+import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { CollectionActivitySkeleton } from '@/features/scarces/collection-page-skeleton';
 import {
@@ -23,6 +23,8 @@ import {
 } from '@/features/scarces/ticket-door-log';
 import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import { eventGuestTallyLine } from '@/features/events/event-guests';
+import { fetchCollectionRedeemAttendance } from '@/features/scarces/ticket-attendance';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { osChromePageClassName } from '@/lib/os-chrome-page';
 import { SHEET_Z } from '@/lib/sheet-z';
@@ -46,7 +48,7 @@ export function CollectionDoorLogSheet({
   onClose: () => void;
   collectionId: string;
   voice?: PassStaffVoice;
-  /** Totals line under the title (e.g. `47 of 200 in`). */
+  /** Totals line under the title (e.g. `128 sold · 47 in`). */
   attendanceLine?: string | null;
   revision?: number;
 }) {
@@ -65,41 +67,73 @@ export function CollectionDoorLogSheet({
     onClose();
   }, [onClose]);
 
-  const requestKey = `${collectionId.trim()}:${refreshNonce}:${revision}`;
+  const requestKey = `${collectionId.trim()}:${refreshNonce}:${revision}:${voice}`;
   const [fetched, setFetched] = useState<{
     key: string;
     entries: DoorLogEntry[];
     error: string | null;
+    tally: string | null;
   } | null>(null);
 
   useEffect(() => {
     if (!sheetOpen) return;
     let cancelled = false;
     const key = requestKey;
-    void fetchCollectionDoorLog(collectionId)
-      .then((next) => {
-        if (cancelled) return;
-        setFetched({ key, entries: next, error: null });
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setFetched({
-          key,
-          entries: [],
-          error:
-            voice === 'redeem'
-              ? 'Could not load redeem history.'
-              : 'Could not load door log.',
+    const load = () => {
+      void Promise.all([
+        fetchCollectionDoorLog(collectionId),
+        fetchCollectionRedeemAttendance(collectionId),
+      ])
+        .then(([next, attendance]) => {
+          if (cancelled) return;
+          const tally =
+            attendance && attendance.collectionId === collectionId.trim()
+              ? eventGuestTallyLine({
+                  kind: 'in',
+                  present: Math.min(
+                    attendance.minted,
+                    attendance.fullyRedeemedCount
+                  ),
+                  sold: attendance.minted,
+                  redeemed: voice === 'redeem',
+                })
+              : null;
+          setFetched({ key, entries: next, error: null, tally });
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setFetched((current) =>
+            current && current.entries.length > 0
+              ? current
+              : {
+                  key,
+                  entries: [],
+                  error:
+                    voice === 'redeem'
+                      ? 'Could not load redeem history.'
+                      : 'Could not load door log.',
+                  tally: null,
+                }
+          );
         });
-      });
+    };
+    load();
+    const timer = window.setInterval(load, 12_000);
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
   }, [collectionId, requestKey, sheetOpen, voice]);
 
-  const loaded = fetched?.key === requestKey;
-  const entries = loaded ? fetched.entries : null;
-  const loadError = loaded ? fetched.error : null;
+  const sameList =
+    fetched != null &&
+    fetched.key.startsWith(`${collectionId.trim()}:`) &&
+    fetched.key.endsWith(`:${voice}`);
+  const loaded = sameList;
+  const entries = sameList ? fetched.entries : null;
+  const loadError =
+    sameList && fetched.key === requestKey ? fetched.error : null;
+  const liveTally = sameList ? fetched.tally : null;
 
   const accountIds = useMemo(() => {
     if (!entries?.length) return [] as string[];
@@ -128,22 +162,18 @@ export function CollectionDoorLogSheet({
 
   const redeemVoice = voice === 'redeem';
   const title = redeemVoice ? 'Redeem log' : 'Door log';
-  const attendance = attendanceLine?.trim() || '';
-  const subtitle = attendance
+  const attendance = liveTally || attendanceLine?.trim() || '';
+  const countLine = attendance
     ? attendance
-    : !loaded || entries == null
-      ? undefined
-      : entries.length === 0
+    : !loaded || entries == null || entries.length === 0
+      ? ''
+      : entries.length === 1
         ? redeemVoice
-          ? 'No redeems yet'
-          : 'No check-ins yet'
-        : entries.length === 1
-          ? redeemVoice
-            ? '1 redeem'
-            : '1 check-in'
-          : redeemVoice
-            ? `${entries.length} redeems`
-            : `${entries.length} check-ins`;
+          ? '1 redeem'
+          : '1 check-in'
+        : redeemVoice
+          ? `${entries.length} redeems`
+          : `${entries.length} check-ins`;
   const staffVerb = doorLogStaffVerb(voice);
 
   return (
@@ -152,7 +182,23 @@ export function CollectionDoorLogSheet({
       onClose={requestClose}
       onClosed={handleClosed}
       title={title}
-      subtitle={subtitle}
+      compactChrome
+      heading={
+        <OsAppChromeNavSearch
+          value={query}
+          onValueChange={setQuery}
+          placeholder={redeemVoice ? 'Search redeem log' : 'Search door log'}
+          clearAriaLabel={
+            redeemVoice ? 'Clear redeem log search' : 'Clear door log search'
+          }
+          ariaLabel={
+            redeemVoice
+              ? 'Search redeem log by guest, staff, or pass'
+              : 'Search door log by guest, staff, or pass'
+          }
+          idleClassName="discover-nav-search-field"
+        />
+      }
       closeAriaLabel="Back"
       closeIcon={
         <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
@@ -170,17 +216,7 @@ export function CollectionDoorLogSheet({
         </OsIconAction>
       }
     >
-      <SearchField
-        value={query}
-        onValueChange={setQuery}
-        placeholder="Search guest, staff, or pass"
-        ariaLabel={redeemVoice ? 'Search redeem log' : 'Search door log'}
-        clearAriaLabel={
-          redeemVoice ? 'Clear redeem log search' : 'Clear door log search'
-        }
-        chrome="sheet"
-        className="collection-door-log-search"
-      />
+      {countLine ? <p className="scarce-fans-lede">{countLine}</p> : null}
 
       {loadError ? (
         <p className="ticket-door-error" role="alert">
@@ -251,7 +287,10 @@ export function CollectionDoorLogSheet({
                   </div>
                   <div className="standing-row-aside collection-door-log-aside">
                     {entry.timeAbsolute || entry.timeLabel ? (
-                      <time dateTime={timeIso} title={entry.timeAbsolute || undefined}>
+                      <time
+                        dateTime={timeIso}
+                        title={entry.timeAbsolute || undefined}
+                      >
                         {entry.timeAbsolute ? (
                           <span className="collection-door-log-absolute">
                             {entry.timeAbsolute}

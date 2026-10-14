@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Divider, OsHugSheet } from '@onsocial/ui';
+import { ChevronLeftIcon, Divider, OsHugSheet } from '@onsocial/ui';
+import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { osChromePageClassName } from '@/lib/os-chrome-page';
 import {
   ProfileSocialListRow,
   ProfileSocialListSkeleton,
@@ -22,6 +24,10 @@ export type ScarceFansSheetProps = {
   fanIds: string[];
   fanCount: number;
   dropTitle?: string | null;
+  /** Quiet totals. On a page this is the header subtitle. */
+  lede?: string | null;
+  /** Hug card for fans. Page for a guest list that has to clear the dock. */
+  frame?: 'hug' | 'page';
   /** True while account ids are still loading (e.g. post likes fetch). */
   idsLoading?: boolean;
   /** The id list itself failed, before profile rows load. */
@@ -47,6 +53,8 @@ export function ScarceFansSheet({
   fanIds,
   fanCount,
   dropTitle,
+  lede = null,
+  frame = 'hug',
   idsLoading = false,
   idsError = false,
   label = 'Fans',
@@ -151,20 +159,12 @@ export function ScarceFansSheet({
     8,
     Math.max(fanIds.length || fanCount || 1, 1)
   );
-
-  return (
-    <OsHugSheet
-      open={open}
-      onClose={handleClose}
-      label={label}
-      copy={dropTitle?.trim() || countLabel}
-      closeAriaLabel={closeAriaLabel}
-      backdropLabel={backdropLabel}
-      zIndex={zIndex}
-      onClosed={onClosed}
-      panelClassName="scarce-fans-sheet-panel os-sheet-cap-standard"
-      bodyClassName="scarce-fans-sheet-body"
-    >
+  const tally = lede?.trim() || '';
+  const list = (
+    <>
+      {frame === 'hug' && tally ? (
+        <p className="scarce-fans-lede">{tally}</p>
+      ) : null}
       {showSkeleton ? (
         <ProfileSocialListSkeleton count={skeletonCount} rowVariant="person" />
       ) : accounts && accounts.length > 0 ? (
@@ -194,6 +194,44 @@ export function ScarceFansSheet({
       ) : (
         <p className="scarce-fans-empty">{loadError ? errorCopy : emptyCopy}</p>
       )}
+    </>
+  );
+
+  if (frame === 'page') {
+    return (
+      <OsSlideOverScreen
+        open={open}
+        onClose={handleClose}
+        onClosed={onClosed}
+        title={dropTitle?.trim() || label}
+        subtitle={tally || undefined}
+        closeAriaLabel={closeAriaLabel}
+        closeIcon={
+          <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+        }
+        zIndex={zIndex}
+        className="event-guests-slide"
+        contentClassName={osChromePageClassName('event-guests')}
+      >
+        {list}
+      </OsSlideOverScreen>
+    );
+  }
+
+  return (
+    <OsHugSheet
+      open={open}
+      onClose={handleClose}
+      label={label}
+      copy={dropTitle?.trim() || countLabel}
+      closeAriaLabel={closeAriaLabel}
+      backdropLabel={backdropLabel}
+      zIndex={zIndex}
+      onClosed={onClosed}
+      panelClassName="scarce-fans-sheet-panel os-sheet-cap-standard"
+      bodyClassName="scarce-fans-sheet-body"
+    >
+      {list}
     </OsHugSheet>
   );
 }

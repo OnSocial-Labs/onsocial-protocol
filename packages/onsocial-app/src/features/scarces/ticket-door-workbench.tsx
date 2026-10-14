@@ -22,6 +22,7 @@ export function TicketDoorWorkbench({
   eventName,
   videoRef,
   cameraActive,
+  cameraOpening = false,
   cameraError,
   scanHint,
   manualInput,
@@ -41,6 +42,8 @@ export function TicketDoorWorkbench({
   eventName: string;
   videoRef: RefObject<HTMLVideoElement | null>;
   cameraActive: boolean;
+  /** True while the rear camera is opening on the way into Admit. */
+  cameraOpening?: boolean;
   cameraError: string | null;
   scanHint: string | null;
   manualInput: string;
@@ -115,14 +118,16 @@ export function TicketDoorWorkbench({
       : status
         ? null
         : cameraError && !cameraActive
-          ? 'Camera unavailable — paste a live Show pass code, then Look up.'
+          ? 'Camera unavailable — paste a saved pass, then Look up.'
           : cameraActive
             ? redeemVoice
-              ? 'Point at a live coupon QR.'
-              : 'Point at a live Show pass QR.'
-            : redeemVoice
-              ? 'Start the camera or paste a live coupon code.'
-              : 'Start the camera or paste a live Show pass code.';
+              ? 'Point at the coupon.'
+              : 'Point at the guest pass.'
+            : cameraOpening
+              ? 'Opening the camera…'
+              : redeemVoice
+                ? 'Start the camera or paste a saved coupon.'
+                : 'Start the camera or paste a saved pass.';
 
   const { name: holderName, handle: holderHandle } = ownerId
     ? commercePartyLines(ownerId, holderFaceForOwner?.displayName)
@@ -149,47 +154,6 @@ export function TicketDoorWorkbench({
   return (
     <div className="ticket-door">
       {leadText ? <p className="ticket-door-lead">{leadText}</p> : null}
-
-      <label className="ticket-door-field">
-        <span className="ticket-door-field-label">Pass code</span>
-        <input
-          className={`${osFieldBorderedClassName} ticket-door-input`}
-          value={manualInput}
-          inputMode="text"
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-          placeholder="Paste pass code"
-          disabled={admitPending}
-          onChange={(event) => {
-            setManualInput(event.target.value);
-            setLookupError(null);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              void applyLookup(manualInput);
-            }
-          }}
-        />
-      </label>
-
-      <button
-        type="button"
-        className="ticket-door-lookup"
-        disabled={admitPending || lookupPending || !manualInput.trim()}
-        onClick={() => {
-          void applyLookup(manualInput);
-        }}
-      >
-        {lookupPending ? 'Looking up…' : 'Look up'}
-      </button>
-
-      {lookupError ? (
-        <p className="ticket-door-error" role="alert">
-          {lookupError}
-        </p>
-      ) : null}
 
       {/* Video stays mounted for getUserMedia; square only shows when live. */}
       <div
@@ -263,7 +227,6 @@ export function TicketDoorWorkbench({
                   <p className="ticket-door-preview-seat">
                     {ticketPassSeatLabel(status.tokenId)}
                   </p>
-                  <p className="ticket-door-preview-token">{status.tokenId}</p>
                   {confirmCue ? (
                     <p
                       className={`ticket-door-preview-confirm${
@@ -294,7 +257,6 @@ export function TicketDoorWorkbench({
                 <p className="ticket-door-preview-seat">
                   {ticketPassSeatLabel(status.tokenId)}
                 </p>
-                <p className="ticket-door-preview-token">{status.tokenId}</p>
                 {confirmCue ? (
                   <p
                     className={`ticket-door-preview-confirm${
@@ -307,6 +269,56 @@ export function TicketDoorWorkbench({
               </>
             )}
           </div>
+        </>
+      ) : null}
+
+      {!status ? (
+        <>
+          <label className="ticket-door-field">
+            <span className="sr-only">
+              {redeemVoice ? 'Saved coupon' : 'Saved pass'}
+            </span>
+            <input
+              className={`${osFieldBorderedClassName} ticket-door-input`}
+              value={manualInput}
+              inputMode="text"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder={
+                redeemVoice ? 'Paste a saved coupon' : 'Paste a saved pass'
+              }
+              aria-label={redeemVoice ? 'Saved coupon' : 'Saved pass'}
+              disabled={admitPending}
+              onChange={(event) => {
+                setManualInput(event.target.value);
+                setLookupError(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void applyLookup(manualInput);
+                }
+              }}
+            />
+          </label>
+
+          <button
+            type="button"
+            className="ticket-door-lookup"
+            disabled={admitPending || lookupPending || !manualInput.trim()}
+            onClick={() => {
+              void applyLookup(manualInput);
+            }}
+          >
+            {lookupPending ? 'Looking up…' : 'Look up'}
+          </button>
+
+          {lookupError ? (
+            <p className="ticket-door-error" role="alert">
+              {lookupError}
+            </p>
+          ) : null}
         </>
       ) : null}
     </div>

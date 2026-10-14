@@ -96,9 +96,7 @@ test.describe('collection drop page', () => {
   test.describe('visitor writing at 390', () => {
     test.use({ viewport: { width: 390, height: 844 } });
 
-    test('visitor writing drop opens Read under commerce', async ({
-      page,
-    }) => {
+    test('visitor writing drop opens Read under commerce', async ({ page }) => {
       await setE2eGraphDrop(page, 'default');
       await stubCollectionPageGraph(page);
       await gotoApp(page, '/collection/chapter-one');
@@ -217,7 +215,9 @@ test.describe('collection drop page', () => {
     await expectCollectionPageSettled(page);
     const chip = page.getByRole('button', { name: 'View full cover' });
     await expect(chip).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Open listen' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Open listen' })
+    ).toBeVisible();
     await chip.click();
     await expect(page.locator('.drop-art-page-sheet-panel')).toBeVisible();
     await expect(
@@ -231,10 +231,12 @@ test.describe('collection drop page', () => {
 
     await gotoApp(page, '/collection/quiet-print');
     await expectCollectionPageSettled(page);
-    await expect(page.getByRole('button', { name: 'View full cover' })).toHaveCount(
-      0
-    );
-    await expect(page.getByRole('button', { name: 'View artwork' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'View full cover' })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'View artwork' })
+    ).toBeVisible();
   });
 
   test('held audio drop puts Play above the product row', async ({ page }) => {
@@ -363,5 +365,85 @@ test.describe('collection drop page', () => {
     await expect(page.locator('.portfolio-summon-hint--connect')).toHaveText(
       'Connect'
     );
+  });
+
+  test('saved Show pass keeps the QR and offers a picture', async ({
+    page,
+  }) => {
+    const expMs = Date.now() + 86_400_000;
+    const payload = `os2|gate-pass|gate-pass:1|${expMs}|pk|nonce|sig`;
+    await page
+      .context()
+      .grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.addInitScript(
+      (record) => {
+        window.localStorage.setItem(
+          'onsocial.ticket-pass.v1',
+          JSON.stringify({ 'gate-pass:1': record })
+        );
+      },
+      {
+        tokenId: 'gate-pass:1',
+        ownerId: 'alice.near',
+        payload,
+        expMs,
+      }
+    );
+    await setE2eGraphDrop(page, 'default');
+    await stubCollectionPageGraph(page);
+    await gotoApp(page, '/collection/gate-pass?pass=1&t=gate-pass:1');
+
+    const pass = page.locator('.ticket-show-pass');
+    await expect(pass).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(
+      pass.getByRole('img', { name: 'QR for Gate Pass' })
+    ).toBeVisible();
+    const artwork = pass.getByRole('button', {
+      name: 'View artwork for Gate Pass',
+    });
+    await expect(artwork).toBeVisible();
+    const artBox = await artwork.boundingBox();
+    expect(artBox).toBeTruthy();
+    expect(artBox!.width).toBeGreaterThan(36);
+    expect(artBox!.width).toBeLessThan(96);
+    expect(Math.abs(artBox!.width - artBox!.height)).toBeLessThan(2);
+    await expect(pass.locator('.ticket-show-pass-name')).toHaveText(
+      'Gate Pass'
+    );
+    await expect(pass.locator('.ticket-show-pass-status')).toHaveCount(0);
+    await expect(pass.getByText('Pass 1', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Back from pass' })
+    ).toBeVisible();
+    await expect(pass.getByRole('button', { name: 'Download' })).toBeVisible();
+    await expect(pass.getByRole('button', { name: 'Save' })).toHaveCount(0);
+    const copy = pass.getByRole('button', {
+      name: 'Copy live pass code for door entry',
+    });
+    await expect(copy).toBeVisible();
+    const seatBox = await pass
+      .getByText('Pass 1', { exact: true })
+      .boundingBox();
+    const copyBox = await copy.boundingBox();
+    expect(seatBox && copyBox && copyBox.x > seatBox.x).toBe(true);
+    await expect(pass.getByText(payload)).toHaveCount(0);
+    await copy.click();
+    await expect(
+      pass.getByRole('button', { name: 'Live pass code copied' })
+    ).toBeVisible();
+    await expect(pass.getByText('Copied', { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      payload
+    );
+    const headerTitle = page.locator('.ticket-pass-slide .os-app-screen-title');
+    await expect(headerTitle).toHaveText('Gate Pass');
+    const headerBox = await headerTitle.boundingBox();
+    expect((headerBox?.width ?? 0) < 8).toBe(true);
+
+    const downloadPromise = page.waitForEvent('download');
+    await pass.getByRole('button', { name: 'Download' }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe('gate-pass-pass.png');
+    await expect(pass.getByText('Downloaded', { exact: true })).toBeVisible();
   });
 });
