@@ -145,6 +145,14 @@
   transform: none;
 }
 
+/* Same side inset as the slide header. The shared slide body pads the sides to 0. */
+.collection-door-log-slide .os-slide-over-content.collection-door-log,
+.event-guests-slide .os-slide-over-content.event-guests {
+  padding: 0.45rem max(1rem, env(safe-area-inset-right, 0px)) 1.5rem
+    max(1rem, env(safe-area-inset-left, 0px));
+  gap: 0.7rem;
+}
+
 /*
  * Discover omni wrappers — `display: contents` so the SearchField is a direct
  * heading flex item (same box as Market). Extra form/div was lofting the pill.
@@ -32987,6 +32995,21 @@ a.os-surface-row {
   .glass-sheet-panel.scarce-fans-sheet-panel {
     --glass-header-scrim-height: min(5rem, 24%);
     --glass-sheet-body-opacity: 0.64;
+  }
+
+  .scarce-fans-lede {
+    margin: 0 0 0.65rem;
+    font-size: 0.78rem;
+    font-weight: 550;
+    line-height: 1.3;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+    color: var(--os-surface-muted);
+  }
+
+  .collection-guest-tally {
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
   }
 
   .scarce-fans-empty {

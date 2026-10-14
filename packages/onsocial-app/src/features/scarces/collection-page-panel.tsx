@@ -119,6 +119,9 @@ import {
   passStaffVoice,
 } from '@/features/scarces/ticket-pass-payload';
 import { fetchIsCollectionRedeemer } from '@/features/scarces/ticket-redeemers';
+import { CollectionEventGuests } from '@/features/events/event-guests-sheet';
+import { eventGuestKind } from '@/features/events/event-guests';
+import { eventWindowFor } from '@/features/events/events-catalog';
 import { TicketShowPassSheet } from '@/features/scarces/ticket-show-pass-sheet';
 import { CollectionDoorStaffManager } from '@/features/scarces/collection-door-staff-manager';
 import { CollectionDoorLogSheet } from '@/features/scarces/collection-door-log-sheet';
@@ -1555,6 +1558,16 @@ export function CollectionPagePanel({
               <OsRowAction onClick={openWritingRead}>Read</OsRowAction>
             </div>
           </section>
+        ) : null}
+
+        {isPassKind ? (
+          <CollectionEventGuests
+            collectionId={view.collectionId}
+            title={view.title}
+            sold={view.minted}
+            kind={eventGuestKind(eventWindowFor({ view }, nowMs))}
+            voice={staffVoice}
+          />
         ) : null}
 
         {canDoor ||
