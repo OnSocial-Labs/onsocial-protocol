@@ -32074,14 +32074,6 @@ a.os-surface-row {
     gap: 0.35rem;
   }
 
-  .ticket-door-field-label {
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.52);
-  }
-
   .ticket-door-input {
     width: 100%;
   }
@@ -32211,17 +32203,6 @@ a.os-surface-row {
     letter-spacing: -0.015em;
     line-height: 1.2;
     color: rgb(var(--fg-rgb) / 0.68);
-  }
-
-  .ticket-door-preview-token {
-    margin: 0;
-    font-size: 0.58rem;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
-    line-height: 1.3;
-    color: rgb(var(--fg-rgb) / 0.34);
-    overflow-wrap: anywhere;
   }
 
   .ticket-door-preview-confirm {

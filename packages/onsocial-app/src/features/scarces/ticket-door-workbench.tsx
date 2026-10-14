@@ -150,47 +150,6 @@ export function TicketDoorWorkbench({
     <div className="ticket-door">
       {leadText ? <p className="ticket-door-lead">{leadText}</p> : null}
 
-      <label className="ticket-door-field">
-        <span className="ticket-door-field-label">Pass code</span>
-        <input
-          className={`${osFieldBorderedClassName} ticket-door-input`}
-          value={manualInput}
-          inputMode="text"
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-          placeholder="Paste pass code"
-          disabled={admitPending}
-          onChange={(event) => {
-            setManualInput(event.target.value);
-            setLookupError(null);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              void applyLookup(manualInput);
-            }
-          }}
-        />
-      </label>
-
-      <button
-        type="button"
-        className="ticket-door-lookup"
-        disabled={admitPending || lookupPending || !manualInput.trim()}
-        onClick={() => {
-          void applyLookup(manualInput);
-        }}
-      >
-        {lookupPending ? 'Looking up…' : 'Look up'}
-      </button>
-
-      {lookupError ? (
-        <p className="ticket-door-error" role="alert">
-          {lookupError}
-        </p>
-      ) : null}
-
       {/* Video stays mounted for getUserMedia; square only shows when live. */}
       <div
         className={
@@ -263,7 +222,6 @@ export function TicketDoorWorkbench({
                   <p className="ticket-door-preview-seat">
                     {ticketPassSeatLabel(status.tokenId)}
                   </p>
-                  <p className="ticket-door-preview-token">{status.tokenId}</p>
                   {confirmCue ? (
                     <p
                       className={`ticket-door-preview-confirm${
@@ -294,7 +252,6 @@ export function TicketDoorWorkbench({
                 <p className="ticket-door-preview-seat">
                   {ticketPassSeatLabel(status.tokenId)}
                 </p>
-                <p className="ticket-door-preview-token">{status.tokenId}</p>
                 {confirmCue ? (
                   <p
                     className={`ticket-door-preview-confirm${
@@ -307,6 +264,52 @@ export function TicketDoorWorkbench({
               </>
             )}
           </div>
+        </>
+      ) : null}
+
+      {!status ? (
+        <>
+          <label className="ticket-door-field">
+            <span className="sr-only">Pass code</span>
+            <input
+              className={`${osFieldBorderedClassName} ticket-door-input`}
+              value={manualInput}
+              inputMode="text"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="Paste pass code"
+              aria-label={redeemVoice ? 'Coupon code' : 'Pass code'}
+              disabled={admitPending}
+              onChange={(event) => {
+                setManualInput(event.target.value);
+                setLookupError(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void applyLookup(manualInput);
+                }
+              }}
+            />
+          </label>
+
+          <button
+            type="button"
+            className="ticket-door-lookup"
+            disabled={admitPending || lookupPending || !manualInput.trim()}
+            onClick={() => {
+              void applyLookup(manualInput);
+            }}
+          >
+            {lookupPending ? 'Looking up…' : 'Look up'}
+          </button>
+
+          {lookupError ? (
+            <p className="ticket-door-error" role="alert">
+              {lookupError}
+            </p>
+          ) : null}
         </>
       ) : null}
     </div>
