@@ -16,7 +16,7 @@ import {
   seedE2eWallet,
   stubCollectionPageGraph,
 } from './helpers/collection-page';
-import { setE2eGraphDrop } from './helpers/e2e-graph';
+import { setE2eGraphDrop, setE2eGraphDrops } from './helpers/e2e-graph';
 
 const HOLDER_BACK = `/@${COLLECTION_E2E_VIEWER}/collectibles`;
 
@@ -81,6 +81,9 @@ test.describe('collection drop page', () => {
       page
         .locator('.collection-use-actions')
         .getByRole('button', { name: 'Play', exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Open listen' })
     ).toBeVisible();
     await expect(page.locator('.collection-meta-creator-name')).toHaveText(
       'by Alice'
@@ -205,6 +208,35 @@ test.describe('collection drop page', () => {
     });
   });
 
+  test('cropped cover opens the full picture from the corner', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await setE2eGraphDrops(page, 'covers');
+    await gotoApp(page, '/collection/night-drive');
+    await expectCollectionPageSettled(page);
+    const chip = page.getByRole('button', { name: 'View full cover' });
+    await expect(chip).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open listen' })).toBeVisible();
+    await chip.click();
+    await expect(page.locator('.drop-art-page-sheet-panel')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Close preview' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Back from listen' })
+    ).toHaveCount(0);
+    await page.getByRole('button', { name: 'Close preview' }).click();
+    await expect(page.locator('.drop-art-page-sheet-panel')).toHaveCount(0);
+
+    await gotoApp(page, '/collection/quiet-print');
+    await expectCollectionPageSettled(page);
+    await expect(page.getByRole('button', { name: 'View full cover' })).toHaveCount(
+      0
+    );
+    await expect(page.getByRole('button', { name: 'View artwork' })).toBeVisible();
+  });
+
   test('held audio drop puts Play above the product row', async ({ page }) => {
     await seedE2eWallet(page);
     await setE2eGraphDrop(page, 'held');
@@ -231,6 +263,9 @@ test.describe('collection drop page', () => {
       /\/collectibles\/play\?.*night-drive/
     );
     await expect(page.locator('.collection-tracks')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Open listen' })).toHaveCount(
+      0
+    );
     await expect(
       page.getByRole('link', { name: 'Open Collectibles' })
     ).toHaveAttribute('href', HOLDER_BACK);

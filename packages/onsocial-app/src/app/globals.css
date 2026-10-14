@@ -29643,6 +29643,19 @@ a.os-surface-row {
     z-index: 2;
   }
 
+  /* Full picture for a cropped band. Sits above the medium hit. */
+  .collection-cover .collection-cover-art-expand {
+    position: absolute;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    z-index: 3;
+  }
+
+  .collection-cover.is-immersive .collection-cover-art-expand {
+    right: max(0.85rem, env(safe-area-inset-right, 0px));
+    bottom: max(0.85rem, env(safe-area-inset-bottom, 0px));
+  }
+
   .collection-cover.is-immersive.has-read .collection-cover-read-expand {
     right: max(0.85rem, env(safe-area-inset-right, 0px));
     bottom: max(0.85rem, env(safe-area-inset-bottom, 0px));
@@ -42587,6 +42600,16 @@ a.os-surface-row {
     pointer-events: none;
   }
 
+  /*
+   * Drops already starts the list below the header, and the header frost
+   * covers that chrome once the list scrolls. The shared band grows downward
+   * from the content line and veils the first row, so Drops leaves it clear.
+   * Events shares .drops-screen-body; #drops-catalog keeps this to Drops.
+   */
+  .drops-screen-body:has(#drops-catalog) > .os-chrome-glass::before {
+    content: none;
+  }
+
   .os-chrome-glass::before {
     content: '';
     position: absolute;
@@ -44628,7 +44651,8 @@ button.scarce-clip-cover-expand:focus-visible {
 }
 
 /*
- * Writing drop cover — the face is the Read hit. Chip stays in the corner.
+ * Drop cover — the face is the medium hit. Read, listen, pass, and art
+ * use the picture. The word under the cover does that same job.
  */
 button.scarce-clip-cover-expand.collection-cover-read-hit {
   inset: 0;
@@ -44661,19 +44685,12 @@ button.scarce-clip-cover-expand.collection-cover-read-hit:focus-visible {
   color: var(--app-on-media-ink);
 }
 
-.collection-cover-read-hit-chip {
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.85rem;
-  height: 1.85rem;
-  border-radius: 9999px;
-  color: var(--app-on-media-ink);
-  background: var(--app-scrim-media);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
+/* Unlayered so the corner control stays above the full-cover medium hit. */
+button.scarce-clip-cover-expand.collection-cover-art-expand {
+  position: absolute;
+  z-index: 4;
+  right: 0.75rem;
+  bottom: 0.75rem;
 }
 
 .scarce-clip-cover-expand-icon {

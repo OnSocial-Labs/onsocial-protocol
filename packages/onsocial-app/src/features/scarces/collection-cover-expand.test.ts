@@ -13,12 +13,18 @@ const reader = readFileSync(
 describe('drop cover expand wiring', () => {
   it('routes the drop cover through collectionCoverExpandAction', () => {
     expect(panel).toContain('collectionCoverExpandAction');
+    expect(panel).toContain("listenOnCover: ownership === 'visitor'");
     expect(panel).toContain('collectionOpensWritingReader');
     expect(panel).toContain("coverExpand === 'read'");
     expect(panel).toContain("coverExpand === 'listen'");
     expect(panel).toContain('collection-cover-read-hit');
-    expect(panel).toContain('aria-label="Open reader"');
-    expect(panel).toContain('aria-label="Open listen"');
+    expect(panel).toContain("'Open reader'");
+    expect(panel).toContain("'Open listen'");
+    expect(panel).toContain("'View artwork'");
+    expect(panel).toContain('collectionCoverArtChip');
+    expect(panel).toContain('ScaleUpIcon');
+    expect(panel).toContain('View full cover');
+    expect(panel).not.toContain('collection-cover-read-hit-chip');
     expect(panel).toContain('coverListenOpen');
     expect(panel).toContain('immersiveListen');
     expect(panel).not.toContain(

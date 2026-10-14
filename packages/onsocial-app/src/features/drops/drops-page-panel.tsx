@@ -35,6 +35,8 @@ import {
   type UpcomingBucket,
 } from '@/features/drops/drops-data';
 import {
+  dropsListCoverAction,
+  dropsListCoverLabel,
   dropsShopActionLabel,
   dropsShopMintable,
 } from '@/features/drops/drops-page-view';
@@ -264,7 +266,7 @@ function DropRow({
   nowMs,
   onToggleSave,
   onOwnerManaged,
-  onPlay,
+  onOpenCover,
 }: {
   item: DropDiscoveryItem;
   sort: DropsSort;
@@ -274,7 +276,8 @@ function DropRow({
   nowMs: number;
   onToggleSave: () => void;
   onOwnerManaged?: (change: 'paused' | 'resumed' | 'deleted') => void;
-  onPlay?: () => void;
+  /** Cover tap — listen, read, or view art on this list. */
+  onOpenCover?: () => void;
 }) {
   const formatLabel = dropRowFormatLabel(item);
   const meta = dropRowMetaBits(
@@ -294,6 +297,15 @@ function DropRow({
         ? 'Drop'
         : null;
   const href = collectionPath(item.collectionId);
+  const coverAction = dropsListCoverAction(item);
+  const thumbClass = `market-listing-thumb drops-discovery-thumb${
+    item.mediaUrl ? ' has-media' : ''
+  }`;
+  const thumb = item.mediaUrl ? (
+    <img src={item.mediaUrl} alt="" />
+  ) : (
+    <span className="market-listing-thumb-fallback" />
+  );
   const droppedLabel =
     item.createdAtMs != null
       ? formatMarketRelativeTime(item.createdAtMs, nowMs)
@@ -314,36 +326,26 @@ function DropRow({
 
   return (
     <div className="market-listing-row drops-discovery-row" role="listitem">
-      {item.hasPlayable && onPlay ? (
+      {coverAction && onOpenCover ? (
         <button
           type="button"
-          className={`market-listing-thumb drops-discovery-thumb${
-            item.mediaUrl ? ' has-media' : ''
-          }`}
-          aria-label={`Listen to ${item.title}`}
-          onClick={onPlay}
+          className={thumbClass}
+          aria-label={dropsListCoverLabel(coverAction, item.title)}
+          onClick={onOpenCover}
         >
-          {item.mediaUrl ? (
-            <img src={item.mediaUrl} alt="" />
-          ) : (
-            <span className="market-listing-thumb-fallback" />
-          )}
-          <span className="market-listing-thumb-play" aria-hidden />
+          {thumb}
+          {coverAction === 'listen' ? (
+            <span className="market-listing-thumb-play" aria-hidden />
+          ) : null}
         </button>
       ) : (
         <Link
           href={href}
           scroll={false}
-          className={`market-listing-thumb drops-discovery-thumb${
-            item.mediaUrl ? ' has-media' : ''
-          }`}
+          className={thumbClass}
           aria-label={`Open ${item.title}`}
         >
-          {item.mediaUrl ? (
-            <img src={item.mediaUrl} alt="" />
-          ) : (
-            <span className="market-listing-thumb-fallback" />
-          )}
+          {thumb}
         </Link>
       )}
       <div className="market-listing-copy drops-discovery-copy">
@@ -614,7 +616,7 @@ export function DropsPagePanel({
   const [allowlistById, setAllowlistById] = useState<
     Record<string, number | null>
   >({});
-  const [playItem, setPlayItem] = useState<DropDiscoveryItem | null>(null);
+  const [coverItem, setCoverItem] = useState<DropDiscoveryItem | null>(null);
 
   const collectionIds = useMemo(
     () => items.map((item) => item.collectionId),
@@ -1124,13 +1126,9 @@ export function DropsPagePanel({
           ),
         }));
       }}
-      onPlay={
-        item.hasPlayable
-          ? () => {
-              setPlayItem(item);
-            }
-          : undefined
-      }
+      onOpenCover={() => {
+        setCoverItem(item);
+      }}
     />
   );
 
@@ -1172,7 +1170,7 @@ export function DropsPagePanel({
             aria-labelledby="drops-catalog"
             aria-busy={catalogRefreshing || undefined}
           >
-            <h2 id="drops-catalog" className="market-section-title">
+            <h2 id="drops-catalog" className="sr-only">
               {dropsSortLabel(sort)}
             </h2>
             {failed && errorPresentation === 'state' ? (
@@ -1246,20 +1244,23 @@ export function DropsPagePanel({
           />
         </div>
 
-        {playItem ? (
+        {coverItem ? (
           <ScarceFeedMediumSheet
             open
             onOpenChange={(open) => {
-              if (!open) setPlayItem(null);
+              if (!open) setCoverItem(null);
             }}
             mode={resolveScarceFeedMediumMode(
-              playItem.mediumKind ?? playItem.view?.kind
+              coverItem.mediumKind ?? coverItem.view?.kind
             )}
-            title={playItem.title}
-            cover={playItem.mediaUrl}
-            creatorId={playItem.creatorId}
-            collectionId={playItem.collectionId}
-            playables={playItem.view?.playables ?? []}
+            title={coverItem.title}
+            cover={coverItem.mediaUrl}
+            creatorId={coverItem.creatorId}
+            collectionId={coverItem.collectionId}
+            playables={coverItem.view?.playables ?? []}
+            readables={coverItem.view?.readables ?? []}
+            writingFormat={coverItem.view?.writingFormat ?? null}
+            bookPdf={coverItem.view?.bookPdf ?? null}
             viewerAccountId={accountId}
           />
         ) : null}

@@ -4,6 +4,7 @@ import { collectionIdFromTokenId } from '@/features/market/market-listings';
 import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
 import type { CollectiblesNowPlayingSession } from '@/contexts/collectibles-now-playing-context';
 import type { CollectionView } from '@/features/scarces/collections-data';
+import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 
 /** Art matches create-drop / wallets: inset 1×1. Audio is also square. */
 export function collectionCoverSquare(opts: {
@@ -23,6 +24,21 @@ export function collectionCoverImmersive(opts: {
   return (opts.kind ?? '').trim().toLowerCase() !== 'art';
 }
 
+/**
+ * Corner control on a cropped cover. It opens the full picture only.
+ * Art already fills its square and opens large from the picture. A pass
+ * expands from the thumbnail inside Show pass.
+ */
+export function collectionCoverArtChip(opts: {
+  hasMedia: boolean;
+  kind?: string | null;
+}): boolean {
+  if (!opts.hasMedia) return false;
+  const kind = (opts.kind ?? '').trim().toLowerCase();
+  if (kind === 'art' || isPassMediumKind(kind)) return false;
+  return true;
+}
+
 export type CollectionCoverExpandAction =
   | 'read'
   | 'listen'
@@ -40,8 +56,10 @@ export function collectionOpensWritingReader(opts: {
 }
 
 /**
- * Cover ScaleUp on the drop page — primary medium immersive:
- * Writing → Read, audio → Listen, held pass → Show pass, else art zoom.
+ * Drop cover hit.
+ * Writing reads. A held pass opens the pass. A visitor with tracks listens.
+ * Holders listen from Play on the Collectibles player, so their cover stays
+ * a picture. Any other picture opens large.
  */
 export function collectionCoverExpandAction(opts: {
   kind?: string | null;
@@ -50,10 +68,18 @@ export function collectionCoverExpandAction(opts: {
   isAudio: boolean;
   hasPlayables?: boolean;
   hasMedia: boolean;
+  /** False once the viewer holds the drop. Defaults to a visitor listen. */
+  listenOnCover?: boolean;
 }): CollectionCoverExpandAction {
   if (collectionOpensWritingReader(opts)) return 'read';
   if (opts.canShowPass) return 'pass';
-  if (opts.isAudio && (opts.hasPlayables ?? false)) return 'listen';
+  if (
+    opts.isAudio &&
+    (opts.hasPlayables ?? false) &&
+    opts.listenOnCover !== false
+  ) {
+    return 'listen';
+  }
   if (!opts.isAudio && opts.hasMedia) return 'artwork';
   return null;
 }
