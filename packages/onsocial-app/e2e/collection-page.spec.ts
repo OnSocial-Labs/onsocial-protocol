@@ -394,6 +394,9 @@ test.describe('collection drop page', () => {
     await expect(
       pass.getByRole('img', { name: 'QR for Gate Pass' })
     ).toBeVisible();
+    await expect(
+      pass.getByRole('button', { name: 'View artwork for Gate Pass' })
+    ).toBeVisible();
     await expect(pass.getByText('Pass 1', { exact: true })).toBeVisible();
     await expect(
       pass.getByRole('button', { name: 'Save picture' })

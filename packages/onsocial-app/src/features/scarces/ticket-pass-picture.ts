@@ -151,7 +151,7 @@ function paintTicketPass(
   ctx.textBaseline = 'top';
 
   if (cover) {
-    const coverH = 520;
+    const coverH = Math.round(contentW / 2.15);
     ctx.save();
     ctx.beginPath();
     ctx.roundRect(pad, y, contentW, coverH, 36);
