@@ -24,10 +24,12 @@ import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
 import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
+import { collectionPath } from '@/lib/app-routes';
 import {
   holdingsActionLabel,
   holdingsHrefForOwned,
 } from '@/lib/portfolio-holdings';
+import { OsRowAction } from '@/lib/os-row-action';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
 
 interface MarketOwnedRowProps {
@@ -148,6 +150,7 @@ export function MarketOwnedRow({
   const passCollectionId = item.collectionId?.trim() || '';
   const opensPass =
     isPassMediumKind(item.mediumKind) && Boolean(passCollectionId);
+  const dropHref = passCollectionId ? collectionPath(passCollectionId) : null;
   const openPass = () => {
     setPassMounted(true);
     setPassOpen(true);
@@ -164,13 +167,7 @@ export function MarketOwnedRow({
   );
 
   const title = opensPass ? (
-    <button
-      type="button"
-      className="market-listing-title-link"
-      onClick={openPass}
-    >
-      {item.title}
-    </button>
+    item.title
   ) : useHref ? (
     <Link
       href={useHref}
@@ -186,15 +183,21 @@ export function MarketOwnedRow({
 
   return (
     <div className="market-listing-row" role="listitem">
+      {opensPass && dropHref ? (
+        <Link
+          href={dropHref}
+          scroll={false}
+          className="market-listing-row-open"
+          aria-label={`Open drop for ${item.title}`}
+        />
+      ) : null}
       {opensPass ? (
-        <button
-          type="button"
+        <div
           className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
-          aria-label={`${useAction} ${item.title}`}
-          onClick={openPass}
+          aria-hidden
         >
           {thumb}
-        </button>
+        </div>
       ) : useHref ? (
         <Link
           href={useHref}
@@ -249,6 +252,15 @@ export function MarketOwnedRow({
           >
             {clock.label}
           </time>
+        ) : null}
+        {opensPass ? (
+          <OsRowAction
+            className="collectibles-holding-action"
+            aria-label={`${useAction} ${item.title}`}
+            onClick={openPass}
+          >
+            {useAction}
+          </OsRowAction>
         ) : null}
         {showOffers ? (
           <OsSheetActions
