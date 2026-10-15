@@ -308,7 +308,7 @@ export function ProtocolDaoInfoSheet({
             ) : null}
           </SheetFactSection>
         </>
-      ) : showFacts && !accountId ? (
+      ) : !accountId ? (
         <p className="dao-info-empty">
           Connect a wallet to see your stake position.
         </p>
