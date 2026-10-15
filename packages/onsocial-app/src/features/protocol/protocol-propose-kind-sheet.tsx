@@ -35,6 +35,7 @@ export function ProtocolProposeKindSheet({
   daoAccountId,
   accountId,
   daoPolicy,
+  factsReady = true,
   lastKind = null,
   onSelectKind,
   onOpenStake,
@@ -44,6 +45,8 @@ export function ProtocolProposeKindSheet({
   daoAccountId: string | null;
   accountId: string | null;
   daoPolicy: ProtocolDaoPolicy | null;
+  /** False while DAO config or policy is still loading. */
+  factsReady?: boolean;
   /** Highlighted kind from the previous propose (does not skip the drawer). */
   lastKind?: ProtocolCreateKind | null;
   onSelectKind: (kind: ProtocolCreateKind) => void;
@@ -62,15 +65,23 @@ export function ProtocolProposeKindSheet({
     return lastKind ?? readLastProtocolCreateKind();
   }, [open, lastKind]);
 
+  const policyMissing = Boolean(accountId) && factsReady && daoPolicy == null;
   const pickerLoading =
     Boolean(accountId) &&
-    (eligibility.loadState === 'loading' || chainContext.loadState === 'loading');
+    !policyMissing &&
+    (!factsReady ||
+      eligibility.loadState === 'loading' ||
+      chainContext.loadState === 'loading');
   const pickerReady =
     Boolean(accountId) &&
+    factsReady &&
+    daoPolicy != null &&
     eligibility.loadState === 'ready' &&
     chainContext.loadState === 'ready';
   const pickerError =
     Boolean(accountId) &&
+    !policyMissing &&
+    !pickerLoading &&
     (eligibility.loadState === 'error' || chainContext.loadState === 'error');
 
   const { common, grouped, hasVisible } = useMemo(
@@ -116,14 +127,21 @@ export function ProtocolProposeKindSheet({
       buildProtocolPickerActionItems({
         sections,
         accountId,
-        loadState: statusLoadState,
+        loadState: policyMissing ? 'loading' : statusLoadState,
         highlightedId: highlightedKind,
         onSelect: (kind) => {
           rememberProtocolCreateKind(kind);
           onSelectKind(kind);
         },
       }),
-    [accountId, highlightedKind, onSelectKind, sections, statusLoadState]
+    [
+      accountId,
+      highlightedKind,
+      onSelectKind,
+      policyMissing,
+      sections,
+      statusLoadState,
+    ]
   );
 
   return (
@@ -136,32 +154,42 @@ export function ProtocolProposeKindSheet({
       backdropLabel="Close propose"
       items={items}
     >
-      <ProtocolPickerStatus
-        accountId={accountId}
-        loadState={statusLoadState}
-        connectEmpty="Connect a wallet to propose."
-        loadingEmpty="Checking what you can propose…"
-        errorNote="Could not verify proposal eligibility. Close and try again."
-        stakeBlocked={eligibility.stakeBlocked}
-        stakeMessage={protocolPickerStakeGateMessage(
-          eligibility.remainingLabel,
-          'propose'
-        )}
-        foreignStakeBlocked={eligibility.foreignStakeBlocked}
-        foreignStakeMessage={protocolPickerForeignStakeMessage(
-          eligibility.foreignStakeTokenLabel,
-          'propose'
-        )}
-        roleBlocked={eligibility.roleBlocked}
-        onOpenStake={onOpenStake}
-        onClose={onClose}
-      />
+      {policyMissing ? (
+        <p className="protocol-empty">DAO policy is unavailable.</p>
+      ) : (
+        <>
+          <ProtocolPickerStatus
+            accountId={accountId}
+            loadState={statusLoadState}
+            connectEmpty="Connect a wallet to propose."
+            loadingEmpty={
+              factsReady
+                ? 'Checking what you can propose…'
+                : 'Loading DAO policy…'
+            }
+            errorNote="Could not verify proposal eligibility. Close and try again."
+            stakeBlocked={pickerReady && eligibility.stakeBlocked}
+            stakeMessage={protocolPickerStakeGateMessage(
+              eligibility.remainingLabel,
+              'propose'
+            )}
+            foreignStakeBlocked={pickerReady && eligibility.foreignStakeBlocked}
+            foreignStakeMessage={protocolPickerForeignStakeMessage(
+              eligibility.foreignStakeTokenLabel,
+              'propose'
+            )}
+            roleBlocked={pickerReady && eligibility.roleBlocked}
+            onOpenStake={onOpenStake}
+            onClose={onClose}
+          />
 
-      {pickerReady && !hasVisible ? (
-        <p className="protocol-compose-note is-warn">
-          No proposal types match your roles on this DAO.
-        </p>
-      ) : null}
+          {pickerReady && !hasVisible ? (
+            <p className="protocol-compose-note is-warn">
+              No proposal types match your roles on this DAO.
+            </p>
+          ) : null}
+        </>
+      )}
     </ProtocolPickerSheet>
   );
 }

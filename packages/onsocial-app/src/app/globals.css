@@ -943,7 +943,8 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 .protocol-face-pair .protocol-status-rail,
 .protocol-face-pair .protocol-family-rail,
 .protocol-face-pair .dao-proposals-status-rail,
-.protocol-face-pair .dao-proposals-family-rail {
+.protocol-face-pair .dao-proposals-family-rail,
+.protocol-face-pair .dao-proposals-voted-rail {
   touch-action: pan-y;
 }
 
@@ -45104,13 +45105,6 @@ a.protocol-board-chip {
   color: rgb(var(--fg-rgb) / 0.55);
 }
 
-.dao-info-warn {
-  margin: 0;
-  font-size: 0.84rem;
-  line-height: 1.4;
-  color: color-mix(in srgb, var(--protocol-red, #c45c5c) 82%, transparent);
-}
-
 .dao-info-position-lead {
   margin: 0;
   font-size: 0.95rem;
@@ -46721,7 +46715,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   overflow: visible;
 }
 
-/* Compact chrome — same search→chips gap; two rails stack (not one-line height). */
+/* Compact chrome — same search→chips gap; filter rails stack (not one-line height). */
 .os-app-screen[data-compact-chrome='true']
   .os-app-screen-toolbar:has(.dao-proposals-header-toolbar) {
   margin-top: var(--os-app-chrome-chip-gap, 0.28rem);
@@ -46738,7 +46732,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 }
 
 .dao-proposals-status-rail,
-.dao-proposals-family-rail {
+.dao-proposals-family-rail,
+.dao-proposals-voted-rail {
   margin: 0;
 }
 

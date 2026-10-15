@@ -65,6 +65,8 @@ import {
   filterProtocolApplications,
   findProtocolApplicationByProposalId,
   getVisibleProtocolBatch,
+  proposalDrawerContentReady,
+  resolveProposalDrawerBody,
   PROTOCOL_FEED_FAMILY_OPTIONS,
   PROTOCOL_FEED_PAGE_SIZE,
   PROTOCOL_FEED_STATUS_OPTIONS,
@@ -106,7 +108,10 @@ import {
   undelegateProtocolStake,
   withdrawProtocolStake,
 } from '@/features/protocol/protocol-staking';
-import { getProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
+import {
+  getProtocolDaoConfig,
+  getProtocolGovernanceEligibility,
+} from '@/features/protocol/protocol-eligibility';
 import type {
   ProtocolApplication,
   ProtocolDaoAction,
@@ -207,6 +212,7 @@ export function DaoWorkspacePanel({
   const [searchQuery, setSearchQuery] = useState(() =>
     parseProtocolSearchQuery(searchParams.get(PROTOCOL_SEARCH_PARAM))
   );
+  const [votedOnly, setVotedOnly] = useState(false);
   const [focusedProposalId, setFocusedProposalId] = useState<number | null>(
     () => parseProtocolProposalId(searchParams.get(PROTOCOL_PROPOSAL_PARAM))
   );
@@ -240,6 +246,7 @@ export function DaoWorkspacePanel({
   const [feedSyncing, setFeedSyncing] = useState(() =>
     Boolean(cachedFeed?.syncing)
   );
+  const [configSettled, setConfigSettled] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionAppId, setActionAppId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<ProtocolDaoAction | null>(
@@ -359,7 +366,11 @@ export function DaoWorkspacePanel({
     queueMicrotask(() => {
       setVisibleCount(PROTOCOL_FEED_PAGE_SIZE);
     });
-  }, [daoAccountId, statusFilter, familyFilter, searchQuery]);
+  }, [daoAccountId, statusFilter, familyFilter, searchQuery, votedOnly]);
+
+  useEffect(() => {
+    setVotedOnly(false);
+  }, [daoAccountId]);
 
   const actionApplication = useMemo(
     () => applications.find((row) => row.app_id === actionAppId) ?? null,
@@ -392,16 +403,61 @@ export function DaoWorkspacePanel({
     [applications, softExpired, searchQuery, statusFilter]
   );
 
+  const votedCount = useMemo(
+    () =>
+      filterProtocolApplications(applications, statusFilter, {
+        isSoftExpired: softExpired,
+        searchQuery,
+        family: familyFilter,
+        votedOnly: true,
+        accountId,
+      }).length,
+    [
+      applications,
+      statusFilter,
+      softExpired,
+      searchQuery,
+      familyFilter,
+      accountId,
+    ]
+  );
+
+  const drawerBody = useMemo(
+    () =>
+      resolveProposalDrawerBody({
+        feedState: loadState,
+        syncing: feedSyncing,
+        hasPolicy: daoPolicy != null,
+        configSettled,
+        applications,
+        status: statusFilter,
+        searchQuery,
+        family: familyFilter,
+        votedOnly,
+        accountId,
+        isSoftExpired: softExpired,
+      }),
+    [
+      loadState,
+      feedSyncing,
+      daoPolicy,
+      configSettled,
+      applications,
+      statusFilter,
+      searchQuery,
+      familyFilter,
+      votedOnly,
+      accountId,
+      softExpired,
+    ]
+  );
+
   const filteredApplications = useMemo(
     () =>
-      sortProtocolApplicationsForFeed(
-        filterProtocolApplications(applications, statusFilter, {
-          isSoftExpired: softExpired,
-          searchQuery,
-          family: familyFilter,
-        })
-      ),
-    [applications, statusFilter, softExpired, searchQuery, familyFilter]
+      drawerBody.state === 'ready'
+        ? sortProtocolApplicationsForFeed(drawerBody.applications)
+        : [],
+    [drawerBody]
   );
 
   const {
@@ -431,10 +487,6 @@ export function DaoWorkspacePanel({
         ? `All ${filteredApplications.length} ${filteredApplications.length === 1 ? 'result' : 'results'}`
         : `All ${filteredApplications.length} proposals`
       : null;
-
-  const showColdSkeleton =
-    loadState === 'loading' ||
-    (loadState === 'ready' && feedSyncing && applications.length === 0);
 
   const buildDaoHref = useCallback(
     (opts?: {
@@ -585,6 +637,25 @@ export function DaoWorkspacePanel({
   }, [loadFeed]);
 
   useEffect(() => {
+    let cancelled = false;
+    setConfigSettled(false);
+    void getProtocolDaoConfig(daoAccountId).finally(() => {
+      if (!cancelled) setConfigSettled(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [daoAccountId]);
+
+  const drawerContentReady = proposalDrawerContentReady({
+    feedState: loadState,
+    syncing: feedSyncing,
+    hasPolicy: daoPolicy != null,
+    configSettled,
+  });
+  const showColdSkeleton = !drawerContentReady && loadState !== 'error';
+
+  useEffect(() => {
     if (!feedSyncing || loadState !== 'ready') return;
     const timer = window.setInterval(() => {
       void loadFeed({ soft: true });
@@ -710,6 +781,10 @@ export function DaoWorkspacePanel({
     },
     [daoAccountId, familyFilter, focusedProposalId, searchQuery]
   );
+
+  const toggleVoted = useCallback(() => {
+    setVotedOnly((current) => !current);
+  }, []);
 
   const navigateFamily = useCallback(
     (nextFamily: ProtocolProposalFamily) => {
@@ -1449,6 +1524,7 @@ export function DaoWorkspacePanel({
     () => ({
       scrollRootRef,
       loadState,
+      contentReady: drawerContentReady,
       searchDraft,
       setSearchDraft,
       searchQuery,
@@ -1459,10 +1535,14 @@ export function DaoWorkspacePanel({
       familyFilter,
       navigateFamily,
       familyCounts,
+      votedOnly,
+      votedCount,
+      toggleVoted,
       inProposalDetail,
     }),
     [
       loadState,
+      drawerContentReady,
       searchDraft,
       searchQuery,
       commitSearch,
@@ -1472,6 +1552,9 @@ export function DaoWorkspacePanel({
       familyFilter,
       navigateFamily,
       familyCounts,
+      votedOnly,
+      votedCount,
+      toggleVoted,
       inProposalDetail,
     ]
   );
@@ -1497,6 +1580,7 @@ export function DaoWorkspacePanel({
         daoAccountId={daoAccountId}
         accountId={accountId}
         daoPolicy={daoPolicy}
+        factsReady={drawerContentReady}
         lastKind={createKind}
         onSelectKind={(kind) => {
           rememberProtocolCreateKind(kind);
@@ -1516,6 +1600,7 @@ export function DaoWorkspacePanel({
         daoAccountId={daoAccountId}
         accountId={accountId}
         daoPolicy={daoPolicy}
+        factsReady={drawerContentReady}
         pending={createPending}
         initialKind={createKind}
         onSubmit={(payload) => {
@@ -1554,6 +1639,7 @@ export function DaoWorkspacePanel({
         daoAccountId={daoAccountId}
         accountId={accountId}
         daoPolicy={daoPolicy}
+        factsReady={drawerContentReady}
         lastAction={settingsAction}
         onSelectAction={(actionId) => {
           rememberProtocolPolicyAction(actionId);
@@ -1576,6 +1662,7 @@ export function DaoWorkspacePanel({
         daoAccountId={daoAccountId}
         accountId={accountId}
         daoPolicy={daoPolicy}
+        factsReady={drawerContentReady}
         pending={settingsPending}
         initialAction={settingsAction}
         onSubmit={(payload) => {
@@ -1597,6 +1684,7 @@ export function DaoWorkspacePanel({
         daoAccountId={daoAccountId}
         accountId={accountId}
         daoPolicy={daoPolicy}
+        factsReady={drawerContentReady}
         onOpenStake={() => {
           closeAllSheets();
           setStakeOpen(true);
@@ -1611,7 +1699,7 @@ export function DaoWorkspacePanel({
 
   const workspace = (
     <div className="dao-workspace">
-      {!hideTools ? (
+      {!hideTools && drawerContentReady ? (
         <div className="protocol-tools">
           <button
             type="button"
@@ -1656,7 +1744,7 @@ export function DaoWorkspacePanel({
         </div>
       ) : null}
 
-      {loadState === 'ready' && !useHeaderChrome && !inProposalDetail ? (
+      {drawerContentReady && !useHeaderChrome && !inProposalDetail ? (
         <label className="protocol-search-field">
           <span className="sr-only">Search proposals</span>
           <input
@@ -1677,7 +1765,7 @@ export function DaoWorkspacePanel({
         </label>
       ) : null}
 
-      {loadState === 'ready' && !useHeaderChrome && !inProposalDetail ? (
+      {drawerContentReady && !useHeaderChrome && !inProposalDetail ? (
         <div
           className="protocol-status-rail"
           role="tablist"
@@ -1708,7 +1796,7 @@ export function DaoWorkspacePanel({
         </div>
       ) : null}
 
-      {loadState === 'ready' && !useHeaderChrome && !inProposalDetail ? (
+      {drawerContentReady && !useHeaderChrome && !inProposalDetail ? (
         <div
           className="protocol-family-rail"
           role="tablist"
@@ -1739,6 +1827,20 @@ export function DaoWorkspacePanel({
         </div>
       ) : null}
 
+      {drawerContentReady && !useHeaderChrome && !inProposalDetail ? (
+        <div role="group" aria-label="Proposals you voted on">
+          <button
+            type="button"
+            aria-pressed={votedOnly}
+            className={`protocol-board-chip${votedOnly ? ' is-active' : ''}`}
+            onClick={toggleVoted}
+          >
+            Voted
+            <span className="protocol-status-count">{votedCount}</span>
+          </button>
+        </div>
+      ) : null}
+
       {showColdSkeleton ? (
         <>
           <span className="sr-only" role="status">
@@ -1759,27 +1861,30 @@ export function DaoWorkspacePanel({
           </button>
         </div>
       ) : null}
-      {loadState === 'ready' &&
-      !showColdSkeleton &&
+      {drawerContentReady &&
+      loadState === 'ready' &&
       applications.length === 0 ? (
         <p className="protocol-empty">
           {hideTools ? 'No proposals yet.' : 'No protocol proposals yet.'}
         </p>
       ) : null}
-      {loadState === 'ready' &&
+      {drawerContentReady &&
+      loadState === 'ready' &&
       applications.length > 0 &&
       filteredApplications.length === 0 ? (
         <p className="protocol-empty">
           {searchQuery
             ? 'No matches.'
-            : familyFilter !== 'all'
-              ? `No ${statusFilter === 'all' ? '' : statusFilter === 'open' ? 'open ' : `${statusFilter} `}${PROTOCOL_FEED_FAMILY_OPTIONS.find((o) => o.id === familyFilter)?.label.toLowerCase() ?? familyFilter} proposals.`
-              : statusFilter === 'all'
-                ? 'No proposals.'
-                : `No ${statusFilter === 'open' ? 'open' : statusFilter} proposals.`}
+            : votedOnly
+              ? 'No proposals you have voted on.'
+              : familyFilter !== 'all'
+                ? `No ${statusFilter === 'all' ? '' : statusFilter === 'open' ? 'open ' : `${statusFilter} `}${PROTOCOL_FEED_FAMILY_OPTIONS.find((o) => o.id === familyFilter)?.label.toLowerCase() ?? familyFilter} proposals.`
+                : statusFilter === 'all'
+                  ? 'No proposals.'
+                  : `No ${statusFilter === 'open' ? 'open' : statusFilter} proposals.`}
         </p>
       ) : null}
-      {loadState === 'ready' && inProposalDetail ? (
+      {drawerContentReady && loadState === 'ready' && inProposalDetail ? (
         detailApplication ? (
           <div className="protocol-proposal-detail-shell">
             {renderProposalCard(detailApplication, {
@@ -1793,7 +1898,8 @@ export function DaoWorkspacePanel({
           </div>
         )
       ) : null}
-      {loadState === 'ready' &&
+      {drawerContentReady &&
+      loadState === 'ready' &&
       !inProposalDetail &&
       paintedApplications.length > 0 ? (
         <>
@@ -1883,7 +1989,7 @@ export function DaoWorkspacePanel({
               inProposalDetail ? undefined : <DaoWorkspaceHeaderSearch />
             }
             toolbar={
-              loadState === 'ready' && !inProposalDetail ? (
+              drawerContentReady && !inProposalDetail ? (
                 <DaoWorkspaceHeaderToolbar />
               ) : undefined
             }
