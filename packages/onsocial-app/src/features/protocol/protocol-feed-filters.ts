@@ -83,9 +83,26 @@ export function resolveProtocolApplicationFamily(
   );
 }
 
+const PROTOCOL_DAO_VOTES = new Set(['Approve', 'Reject', 'Remove']);
+
+/** True when this account has Approve, Reject, or Remove on the live snapshot. */
+export function viewerVotedOnProtocolApplication(
+  application: ProtocolApplication,
+  accountId: string | null | undefined
+): boolean {
+  const viewer = accountId?.trim().toLowerCase() ?? '';
+  if (!viewer) return false;
+  const votes = resolveLiveProposal(application)?.votes;
+  if (!votes) return false;
+  return Object.entries(votes).some(([id, vote]) => {
+    if (id.trim().toLowerCase() !== viewer) return false;
+    return PROTOCOL_DAO_VOTES.has(vote);
+  });
+}
+
 /**
- * Filter feed rows by status chip, optional family lens, and search query.
- * `open` = InProgress (not soft-expired).
+ * Filter feed rows by status chip, optional family lens, search query,
+ * and the viewer's voted-on lens. `open` = InProgress (not soft-expired).
  */
 export function filterProtocolApplications(
   applications: ProtocolApplication[],
@@ -94,11 +111,22 @@ export function filterProtocolApplications(
     isSoftExpired?: (application: ProtocolApplication) => boolean;
     searchQuery?: string | null;
     family?: ProtocolProposalFamily | null;
+    /** Keep rows this account has already voted on. */
+    votedOnly?: boolean;
+    accountId?: string | null;
   }
 ): ProtocolApplication[] {
   const query = opts?.searchQuery?.trim().toLowerCase() ?? '';
   const family = opts?.family ?? 'all';
+  const votedOnly = opts?.votedOnly === true;
   return applications.filter((application) => {
+    if (
+      votedOnly &&
+      !viewerVotedOnProtocolApplication(application, opts?.accountId)
+    ) {
+      return false;
+    }
+
     if (query) {
       const haystack = buildProtocolSearchText(application);
       if (!haystack.includes(query)) return false;
@@ -225,6 +253,48 @@ export function proposalDrawerContentReady(input: {
   if (!input.configSettled || input.feedState === 'loading') return false;
   if (input.hasPolicy) return true;
   return !input.syncing;
+}
+
+export type ProposalDrawerBody =
+  | { state: 'skeleton' }
+  | { state: 'error' }
+  | { state: 'ready'; applications: ProtocolApplication[] };
+
+/**
+ * What the proposal drawer body paints: error wins, then the existing
+ * skeleton gate, then the filtered list (status, family, search, voted-on).
+ */
+export function resolveProposalDrawerBody(input: {
+  feedState: 'loading' | 'ready' | 'error';
+  syncing: boolean;
+  hasPolicy: boolean;
+  configSettled: boolean;
+  applications: ProtocolApplication[];
+  status: ProtocolFeedStatusFilter;
+  searchQuery?: string | null;
+  family?: ProtocolProposalFamily | null;
+  votedOnly?: boolean;
+  accountId?: string | null;
+  isSoftExpired?: (application: ProtocolApplication) => boolean;
+}): ProposalDrawerBody {
+  if (input.feedState === 'error') return { state: 'error' };
+  const ready = proposalDrawerContentReady({
+    feedState: input.feedState,
+    syncing: input.syncing,
+    hasPolicy: input.hasPolicy,
+    configSettled: input.configSettled,
+  });
+  if (!ready || input.feedState !== 'ready') return { state: 'skeleton' };
+  return {
+    state: 'ready',
+    applications: filterProtocolApplications(input.applications, input.status, {
+      isSoftExpired: input.isSoftExpired,
+      searchQuery: input.searchQuery,
+      family: input.family,
+      votedOnly: input.votedOnly,
+      accountId: input.accountId,
+    }),
+  };
 }
 
 export function findProtocolApplicationByProposalId(

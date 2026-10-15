@@ -2,15 +2,20 @@ import { describe, expect, it } from 'vitest';
 import {
   PROTOCOL_FEED_PAGE_SIZE,
   buildProtocolProposalAppId,
+  filterProtocolApplications,
   getVisibleProtocolBatch,
   isProtocolRemovedFromChainPlaceholder,
   proposalDrawerContentReady,
+  resolveProposalDrawerBody,
   sortProtocolApplicationsForFeed,
   upsertProtocolProposalApplication,
+  viewerVotedOnProtocolApplication,
 } from '@/features/protocol/protocol-feed-filters';
 import type {
   ProtocolApplication,
   ProtocolDaoProposal,
+  ProtocolDaoProposalStatus,
+  ProtocolDaoVote,
 } from '@/features/protocol/types';
 
 describe('proposalDrawerContentReady', () => {
@@ -209,5 +214,169 @@ describe('sortProtocolApplicationsForFeed', () => {
       56, 55, 53, 17, 16,
     ]);
     expect(isProtocolRemovedFromChainPlaceholder(placeholder(16))).toBe(true);
+  });
+});
+
+function votedProposal(
+  id: number,
+  votes: Record<string, ProtocolDaoVote>,
+  extras?: { description?: string; status?: ProtocolDaoProposalStatus }
+): ProtocolApplication {
+  const status = extras?.status ?? 'InProgress';
+  const description = extras?.description ?? `Proposal ${id}`;
+  return {
+    app_id: buildProtocolProposalAppId(id),
+    label: `#${id}`,
+    status: 'approved',
+    description,
+    created_at: '2026-01-01T00:00:00.000Z',
+    governance_proposal: {
+      proposal_id: id,
+      status,
+      proposer: 'alice.testnet',
+      description,
+      dao_account: 'dao.testnet',
+      tx_hash: null,
+      submitted_at: '1',
+      snapshot: {
+        id,
+        proposer: 'alice.testnet',
+        description,
+        kind: { Vote: null },
+        status,
+        vote_counts: {},
+        votes,
+        submission_time: '1',
+      },
+    },
+  };
+}
+
+const votedRows = [
+  votedProposal(1, { 'ada.testnet': 'Approve' }, { description: 'Roadmap' }),
+  votedProposal(2, { 'ADA.testnet': 'Reject' }),
+  votedProposal(3, { 'ada.testnet': 'Remove' }, { status: 'Approved' }),
+  votedProposal(4, { 'bob.testnet': 'Approve' }, { description: 'Treasury' }),
+  votedProposal(5, {}),
+];
+
+describe('voted-on proposal drawer', () => {
+  it('keeps only proposals the current user has voted on', () => {
+    const ids = filterProtocolApplications(votedRows, 'all', {
+      votedOnly: true,
+      accountId: 'ada.testnet',
+    }).map((row) => row.governance_proposal?.proposal_id);
+
+    expect(ids).toEqual([1, 2, 3]);
+    expect(viewerVotedOnProtocolApplication(votedRows[1]!, 'Ada.Testnet')).toBe(
+      true
+    );
+    expect(viewerVotedOnProtocolApplication(votedRows[3]!, 'ada.testnet')).toBe(
+      false
+    );
+    expect(viewerVotedOnProtocolApplication(votedRows[0]!, null)).toBe(false);
+    expect(viewerVotedOnProtocolApplication(votedRows[0]!, '  ')).toBe(false);
+  });
+
+  it('leaves the existing list, search, and status filters unchanged', () => {
+    expect(
+      filterProtocolApplications(votedRows, 'all').map(
+        (row) => row.governance_proposal?.proposal_id
+      )
+    ).toEqual([1, 2, 3, 4, 5]);
+    expect(
+      filterProtocolApplications(votedRows, 'all', {
+        searchQuery: 'treasury',
+      }).map((row) => row.governance_proposal?.proposal_id)
+    ).toEqual([4]);
+    expect(
+      filterProtocolApplications(votedRows, 'open').map(
+        (row) => row.governance_proposal?.proposal_id
+      )
+    ).toEqual([1, 2, 4, 5]);
+    expect(
+      filterProtocolApplications(votedRows, 'all', { family: 'config' }).map(
+        (row) => row.governance_proposal?.proposal_id
+      )
+    ).toEqual([1, 2, 3, 4, 5]);
+    expect(
+      filterProtocolApplications(votedRows, 'all', {
+        family: 'treasury',
+        votedOnly: true,
+        accountId: 'ada.testnet',
+      })
+    ).toEqual([]);
+    expect(
+      filterProtocolApplications(votedRows, 'approved', {
+        votedOnly: true,
+        accountId: 'ada.testnet',
+      }).map((row) => row.governance_proposal?.proposal_id)
+    ).toEqual([3]);
+    expect(
+      filterProtocolApplications(votedRows, 'all', {
+        votedOnly: true,
+        accountId: 'ada.testnet',
+        searchQuery: 'roadmap',
+      }).map((row) => row.governance_proposal?.proposal_id)
+    ).toEqual([1]);
+  });
+
+  it('uses the skeleton until the drawer is ready, then only voted rows', () => {
+    const loading = resolveProposalDrawerBody({
+      feedState: 'loading',
+      syncing: true,
+      hasPolicy: false,
+      configSettled: false,
+      applications: votedRows,
+      status: 'all',
+      votedOnly: true,
+      accountId: 'ada.testnet',
+    });
+    expect(loading).toEqual({ state: 'skeleton' });
+
+    const configPending = resolveProposalDrawerBody({
+      feedState: 'ready',
+      syncing: false,
+      hasPolicy: true,
+      configSettled: false,
+      applications: votedRows,
+      status: 'all',
+      votedOnly: true,
+      accountId: 'ada.testnet',
+    });
+    expect(configPending).toEqual({ state: 'skeleton' });
+
+    const ready = resolveProposalDrawerBody({
+      feedState: 'ready',
+      syncing: true,
+      hasPolicy: true,
+      configSettled: true,
+      applications: votedRows,
+      status: 'all',
+      searchQuery: '',
+      family: 'all',
+      votedOnly: true,
+      accountId: 'ada.testnet',
+    });
+    expect(ready.state).toBe('ready');
+    if (ready.state !== 'ready') return;
+    expect(
+      ready.applications.map((row) => row.governance_proposal?.proposal_id)
+    ).toEqual([1, 2, 3]);
+  });
+
+  it('keeps the error state even when voted rows are already in hand', () => {
+    expect(
+      resolveProposalDrawerBody({
+        feedState: 'error',
+        syncing: false,
+        hasPolicy: true,
+        configSettled: true,
+        applications: votedRows,
+        status: 'all',
+        votedOnly: true,
+        accountId: 'ada.testnet',
+      })
+    ).toEqual({ state: 'error' });
   });
 });

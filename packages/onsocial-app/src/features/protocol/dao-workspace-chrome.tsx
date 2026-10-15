@@ -32,6 +32,9 @@ export type DaoWorkspaceChromeContextValue = {
   familyFilter: ProtocolProposalFamily;
   navigateFamily: (family: ProtocolProposalFamily) => void;
   familyCounts: Record<ProtocolProposalFamily, number>;
+  votedOnly: boolean;
+  votedCount: number;
+  toggleVoted: () => void;
   inProposalDetail: boolean;
 };
 
@@ -99,9 +102,7 @@ export function DaoWorkspaceHeaderSearch() {
         clearAriaLabel="Clear proposal search"
         ariaLabel="Search proposals"
         idleClassName="discover-nav-search-field dao-proposals-header-search"
-        leadingIcon={
-          <NoteTextIcon className="search-field-icon" aria-hidden />
-        }
+        leadingIcon={<NoteTextIcon className="search-field-icon" aria-hidden />}
       />
     </div>
   );
@@ -177,11 +178,36 @@ function ProtocolFamilyRail() {
   );
 }
 
-/** Status + family chip rails — scroll tuck hides search above (OsAppScreen scrollTuck="search"). */
-export function DaoWorkspaceHeaderToolbar() {
-  const { loadState, inProposalDetail } = useDaoWorkspaceChrome();
+function ProtocolVotedRail() {
+  const { votedOnly, votedCount, toggleVoted } = useDaoWorkspaceChrome();
 
-  if (loadState !== 'ready' || inProposalDetail) {
+  return (
+    <OsChipRail
+      selection="multi"
+      className="discover-tab-bar--header dao-proposals-voted-rail"
+      ariaLabel="Proposals you voted on"
+      values={votedOnly ? ['voted'] : []}
+      onToggle={toggleVoted}
+      items={[
+        {
+          id: 'voted',
+          label: (
+            <>
+              Voted
+              <span className="protocol-status-count">{votedCount}</span>
+            </>
+          ),
+        },
+      ]}
+    />
+  );
+}
+
+/** Status, family, and voted chip rails — scroll tuck hides search above. */
+export function DaoWorkspaceHeaderToolbar() {
+  const { loadState, contentReady, inProposalDetail } = useDaoWorkspaceChrome();
+
+  if (loadState !== 'ready' || !contentReady || inProposalDetail) {
     return null;
   }
 
@@ -190,6 +216,7 @@ export function DaoWorkspaceHeaderToolbar() {
       <div className="dao-proposals-filter-stack">
         <ProtocolStatusRail />
         <ProtocolFamilyRail />
+        <ProtocolVotedRail />
       </div>
     </OsAppChromeToolbarRail>
   );
