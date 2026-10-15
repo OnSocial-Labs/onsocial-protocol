@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import {
-  collectionIdFromTokenId,
   marketListingRowKey,
   formatMarketRelativeTime,
   type MarketListingItem,
@@ -16,7 +15,7 @@ import {
   postScarceKey,
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
-import { collectionPath } from '@/lib/app-routes';
+import { marketListingRowTarget } from '@/features/market/market-row-targets';
 import { personalPostPath } from '@/lib/post-routes';
 import {
   marketPostLayerLinkHandlers,
@@ -95,13 +94,13 @@ export function MarketListingRow({
   // Provenance: distinct mint creator when set, else the seller is the creator.
   const creatorId = item.artistId?.trim() || sellerId;
   const postHref = item.postHref ?? postHrefFromSourcePath(item.sourcePostPath);
-  // Social post when listed from a post; else drop page for edition tokens.
-  const detailHref =
-    postHref ??
-    (() => {
-      const collectionId = collectionIdFromTokenId(item.tokenId ?? '');
-      return collectionId ? collectionPath(collectionId) : null;
-    })();
+  // The row opens the drop. Show pass / Mint stay on the button.
+  // A post scarce with no drop still opens the post.
+  const rowTarget = marketListingRowTarget({
+    collectionId: item.collectionId,
+    tokenId: item.tokenId,
+    postHref,
+  });
   const [confirmRowKey, setConfirmRowKey] = useState<string | null>(null);
   const confirmTimerRef = useRef<number | null>(null);
   const confirmingCancel =
@@ -161,23 +160,6 @@ export function MarketListingRow({
     onCancel(item);
   };
 
-  const titleNode = detailHref ? (
-    <Link
-      href={detailHref}
-      scroll={false}
-      className="market-listing-title-link"
-      {...(postHref
-        ? marketPostLayerLinkHandlers(postHref, openMarketPost, () =>
-            seedListedEmbed(item)
-          )
-        : {})}
-    >
-      {item.title}
-    </Link>
-  ) : (
-    item.title
-  );
-
   const isPrimaryMint = item.kind === 'lazy';
   const buyLabel =
     item.kind === 'auction'
@@ -204,34 +186,41 @@ export function MarketListingRow({
           ? `Buy another ${item.title}`
           : `Buy ${item.title}`;
 
+  const thumbClass = `market-listing-thumb${item.mediaUrl ? ' has-media' : ''}`;
+  const thumbArt = item.mediaUrl ? (
+    <img src={item.mediaUrl} alt="" />
+  ) : (
+    <span className="market-listing-thumb-fallback" aria-hidden />
+  );
+  const rowOpensPost = rowTarget?.kind === 'post';
+
   return (
     <div className="market-listing-row" role="listitem">
-      {detailHref ? (
+      {rowTarget ? (
         <Link
-          href={detailHref}
+          href={rowTarget.href}
           scroll={false}
-          className={`market-listing-thumb${item.mediaUrl ? ' has-media' : ''}`}
+          className="market-listing-row-open"
           aria-label={
-            postHref
+            rowOpensPost
               ? `Open post for ${item.title}`
               : `Open drop for ${item.title}`
           }
-          {...(postHref
-            ? marketPostLayerLinkHandlers(postHref, openMarketPost, () =>
+          {...(rowOpensPost
+            ? marketPostLayerLinkHandlers(rowTarget.href, openMarketPost, () =>
                 seedListedEmbed(item)
               )
             : {})}
-        >
-          {item.mediaUrl ? (
-            <img src={item.mediaUrl} alt="" />
-          ) : (
-            <span className="market-listing-thumb-fallback" aria-hidden />
-          )}
-        </Link>
+        />
+      ) : null}
+      {rowTarget ? (
+        <div className={thumbClass} aria-hidden>
+          {thumbArt}
+        </div>
       ) : (
         <button
           type="button"
-          className={`market-listing-thumb${item.mediaUrl ? ' has-media' : ''}`}
+          className={thumbClass}
           onClick={() => {
             if (!isOwnListing) onBuy(item);
           }}
@@ -240,16 +229,12 @@ export function MarketListingRow({
             isOwnListing ? `${item.title} (your listing)` : buyAriaLabel
           }
         >
-          {item.mediaUrl ? (
-            <img src={item.mediaUrl} alt="" />
-          ) : (
-            <span className="market-listing-thumb-fallback" aria-hidden />
-          )}
+          {thumbArt}
         </button>
       )}
       <div className="market-listing-copy drops-discovery-copy">
         <div className="market-listing-head drops-discovery-head">
-          <p className="market-listing-title">{titleNode}</p>
+          <p className="market-listing-title">{item.title}</p>
         </div>
         <DiscoveryPartyStack
           accountId={creatorId}

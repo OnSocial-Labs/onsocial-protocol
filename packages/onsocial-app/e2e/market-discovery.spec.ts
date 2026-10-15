@@ -131,6 +131,9 @@ test.describe('market discovery', () => {
 
     const yours = page.getByRole('region', { name: 'Yours' });
     await expect(yours).toBeVisible({ timeout: 30_000 });
+    await expect(
+      yours.getByRole('link', { name: 'Open drop for Gate Pass' })
+    ).toHaveAttribute('href', '/collection/gate-pass');
     await yours.getByRole('button', { name: 'Show pass Gate Pass' }).click();
 
     const pass = page.locator('.ticket-show-pass');
@@ -142,5 +145,13 @@ test.describe('market discovery', () => {
     await expect(pass).toHaveCount(0);
     await expect(yours).toBeVisible();
     await expect(page).toHaveURL(/\/market/);
+
+    const gateRow = yours.locator('.market-listing-row').filter({
+      hasText: 'Gate Pass',
+    });
+    await gateRow
+      .getByRole('link', { name: 'Open drop for Gate Pass' })
+      .click({ position: { x: 16, y: 16 } });
+    await expect(page).toHaveURL(/\/collection\/gate-pass/);
   });
 });
