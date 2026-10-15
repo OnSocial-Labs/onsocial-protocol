@@ -7,11 +7,18 @@ import {
   marketPostLayerLinkHandlers,
   useMarketPostLayer,
 } from '@/features/market/market-post-layer';
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import {
+  OsSheetAction,
+  OsSheetActions,
+  normalizeSocialTimestamp,
+} from '@onsocial/ui';
 import {
   auctionExpiresAtMs,
+  formatMarketRelativeTime,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
+import { marketAuctionClockLabel } from '@/features/scarces/scarce-auction';
+import { socialTimeProps } from '@/lib/post-display';
 import { CollectiblesHoldingRowMenu } from '@/features/collectibles/collectibles-holding-row-menu';
 import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
 import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
@@ -37,6 +44,38 @@ interface MarketOwnedRowProps {
   onChanged?: () => void;
   onSettle?: (item: OwnedScarceItem) => void;
   onOffers?: (item: OwnedScarceItem) => void;
+}
+
+/** Corner clock for a listing you own. Bare status stays only when the clock is missing. */
+export function ownedListingClock(
+  item: Pick<OwnedScarceItem, 'listingKind' | 'expiresAtNs' | 'listedAtMs'>,
+  nowMs: number
+): { label: string; atMs: number | null } | null {
+  if (item.listingKind === 'auction') {
+    const label = marketAuctionClockLabel(item.expiresAtNs, nowMs);
+    if (!label) return null;
+    return { label, atMs: auctionExpiresAtMs(item.expiresAtNs) };
+  }
+  if (item.listingKind !== 'fixed') return null;
+  const atMs = normalizeSocialTimestamp(item.listedAtMs);
+  if (!atMs) return null;
+  const rel = formatMarketRelativeTime(atMs, nowMs);
+  if (!rel) return null;
+  return { label: `Listed ${rel}`, atMs };
+}
+
+/** Line under the title. The corner already says Listed / Ended / Ends in. */
+export function ownedListingStatusBit(
+  item: Pick<OwnedScarceItem, 'listingKind' | 'bidCount'>,
+  clockLabel: string | null
+): string | null {
+  if (item.listingKind === 'auction') {
+    const bids = item.bidCount ?? 0;
+    if (bids > 0) return bids === 1 ? '1 bid' : `${bids} bids`;
+    return clockLabel ? null : 'Auction live';
+  }
+  if (item.listingKind != null) return clockLabel ? null : 'Listed';
+  return 'Ready to sell';
 }
 
 function formatPriceNear(priceNear: string): string {
@@ -75,6 +114,10 @@ export function MarketOwnedRow({
   // reads like a parallel primary action.
   const hasOffers = offerCount > 0 && Boolean(highestOfferNear?.trim());
   const showOffers = Boolean(onOffers) && hasOffers;
+  const clock =
+    typeof nowMs === 'number' ? ownedListingClock(item, nowMs) : null;
+  const statusBit = ownedListingStatusBit(item, clock?.label ?? null);
+  const showPrice = Boolean(listed && item.listedPriceNear);
   const offersLabel = offerCount > 1 ? 'Offers' : 'Offer';
   const offersAriaLabel = highestOfferNear?.trim()
     ? offerCount > 1
@@ -175,32 +218,22 @@ export function MarketOwnedRow({
           <p className="market-listing-title">{title}</p>
         </div>
         <p className="market-listing-meta">
-          {listed && item.listedPriceNear ? (
-            <>
-              <span className="market-listing-price">
-                {auction ? 'Reserve' : 'Ask'} ·{' '}
-                {dollarStickerLabel(item.listedUsdE6) ??
-                  `${formatPriceNear(item.listedPriceNear)} NEAR`}
-              </span>
-              <span className="market-listing-own"> · </span>
-            </>
-          ) : null}
-          {auction ? (
-            <span className="market-listing-own">
-              {needsSettle
-                ? `${item.bidCount === 1 ? '1 bid' : `${item.bidCount} bids`} · ended`
-                : auctionHasBids
-                  ? `${item.bidCount === 1 ? '1 bid' : `${item.bidCount} bids`} · live`
-                  : 'Auction live'}
+          {showPrice ? (
+            <span className="market-listing-price">
+              {auction ? 'Reserve' : 'Ask'} ·{' '}
+              {dollarStickerLabel(item.listedUsdE6) ??
+                `${formatPriceNear(item.listedPriceNear!)} NEAR`}
             </span>
-          ) : listed ? (
-            <span className="market-listing-own">Listed</span>
-          ) : (
-            <span className="market-listing-own">Ready to sell</span>
-          )}
+          ) : null}
+          {statusBit ? (
+            <span className="market-listing-own">
+              {showPrice ? ' · ' : ''}
+              {statusBit}
+            </span>
+          ) : null}
           {showOffers ? (
             <span className="market-listing-own">
-              {' · '}
+              {showPrice || statusBit ? ' · ' : ''}
               {offerCount === 1
                 ? `Offer ${formatPriceNear(highestOfferNear!)} NEAR`
                 : `${offerCount} offers · top ${formatPriceNear(highestOfferNear!)} NEAR`}
@@ -209,6 +242,14 @@ export function MarketOwnedRow({
         </p>
       </div>
       <div className="market-listing-action-col">
+        {clock ? (
+          <time
+            className="market-listing-meta-right"
+            {...socialTimeProps(clock.atMs)}
+          >
+            {clock.label}
+          </time>
+        ) : null}
         {showOffers ? (
           <OsSheetActions
             layout="row-compact"

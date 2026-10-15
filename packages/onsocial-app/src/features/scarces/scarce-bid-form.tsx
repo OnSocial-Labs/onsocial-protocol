@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { PostRow, PostScarceEmbed, ScarcesEventRow } from '@onsocial/sdk';
-import { AmountField } from '@onsocial/ui';
+import { AmountField, normalizeSocialTimestamp } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import '@/features/scarces/scarce-buy-deal.css';
@@ -11,6 +11,7 @@ import {
   fetchScarceListingMeta,
   fetchScarceMintSummary,
   formatMarketRelativePhrase,
+  formatMarketRelativeTime,
   type ScarcePlayableMedia,
 } from '@/features/market/market-listings';
 import {
@@ -59,7 +60,11 @@ import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { accountIdsEqual } from '@/lib/account-match';
 import { nearToYocto, yoctoToNear } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { parseDropPaintSnapshot, parsePostText } from '@/lib/post-display';
+import {
+  parseDropPaintSnapshot,
+  parsePostText,
+  socialTimeProps,
+} from '@/lib/post-display';
 import { fallbackLabel } from '@/lib/profile-display';
 import {
   txToastConfirming,
@@ -131,6 +136,17 @@ function formatNearShort(near: string | null | undefined): string {
   const n = Number.parseFloat(near);
   if (!Number.isFinite(n)) return near.trim();
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
+}
+
+/** Bare stamp on a bid ledger row. The section already says this is the auction. */
+export function bidHistoryClock(
+  blockTimestamp: number | null | undefined,
+  nowMs = Date.now()
+): { label: string; atMs: number } | null {
+  const atMs = normalizeSocialTimestamp(blockTimestamp);
+  if (!atMs) return null;
+  const label = formatMarketRelativeTime(atMs, nowMs);
+  return label ? { label, atMs } : null;
 }
 
 function bidRowAmountNear(row: ScarcesEventRow): string | null {
@@ -980,6 +996,7 @@ export function ScarceBidForm({
                 const amountNear = bidRowAmountNear(row);
                 const amount = amountNear ? formatNearLabel(amountNear) : '—';
                 const bidder = row.bidder || row.buyerId || row.author;
+                const clock = bidHistoryClock(row.blockTimestamp);
                 return (
                   <li
                     key={`${row.blockTimestamp}:${bidder}:${index}`}
@@ -988,7 +1005,19 @@ export function ScarceBidForm({
                     <span className="scarce-bid-history-bidder">
                       @{fallbackLabel(bidder)}
                     </span>
-                    <span className="scarce-bid-history-amount">{amount}</span>
+                    <span className="scarce-bid-history-end">
+                      <span className="scarce-bid-history-amount">
+                        {amount}
+                      </span>
+                      {clock ? (
+                        <time
+                          className="standing-row-time"
+                          {...socialTimeProps(clock.atMs)}
+                        >
+                          {clock.label}
+                        </time>
+                      ) : null}
+                    </span>
                   </li>
                 );
               })}

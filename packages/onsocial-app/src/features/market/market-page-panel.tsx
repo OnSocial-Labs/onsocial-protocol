@@ -2188,6 +2188,9 @@ export function MarketPagePanel({
                     title={meta.title}
                     mediaUrl={meta.mediaUrl}
                     amountNear={offer.amountNear}
+                    createdAtNs={offer.createdAtNs}
+                    expiresAtNs={offer.expiresAtNs}
+                    nowMs={nowMs}
                     onManage={() => {
                       void handleManageOffer(offer);
                     }}

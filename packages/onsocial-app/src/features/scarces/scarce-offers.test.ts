@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  offerListClock,
   offersWithoutLiveListing,
   viewerOfferCta,
   viewerOfferCtaLabel,
@@ -26,6 +27,29 @@ describe('offersWithoutLiveListing', () => {
     expect(offersWithoutLiveListing([offer('s:1')], new Set(['s:1']))).toEqual(
       []
     );
+  });
+});
+
+describe('offerListClock', () => {
+  const now = Date.parse('2026-06-15T12:00:00.000Z');
+
+  it('uses a bare stamp unless the offer expires', () => {
+    expect(
+      offerListClock({ createdAtNs: (now - 5 * 60_000) * 1_000_000 }, now)
+        ?.label
+    ).toBe('5m');
+    expect(
+      offerListClock(
+        {
+          createdAtNs: (now - 5 * 60_000) * 1_000_000,
+          expiresAtNs: (now + 2 * 86_400_000) * 1_000_000,
+        },
+        now
+      )?.label
+    ).toBe('Ends 2d');
+    expect(
+      offerListClock({ createdAtNs: 0, expiresAtNs: null }, now)
+    ).toBeNull();
   });
 });
 

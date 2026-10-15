@@ -1,3 +1,8 @@
+import {
+  formatSocialFutureStamp,
+  normalizeSocialTimestamp,
+} from '@onsocial/ui';
+import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { viewNearContract, yoctoToNear } from '@/lib/app-near-rpc';
@@ -29,6 +34,30 @@ export interface MyOpenTokenOffer {
   amountYocto: string;
   amountNear: string;
   expiresAtNs: number | null;
+  createdAtNs?: number | null;
+}
+
+/**
+ * One clock on an offer row.
+ * A deadline is `Ends …`. Otherwise the stamp is when it was made, with no extra word.
+ */
+export function offerListClock(
+  offer: { createdAtNs?: number | null; expiresAtNs?: number | null },
+  nowMs = Date.now()
+): { label: string; atMs: number } | null {
+  const expiresMs = normalizeSocialTimestamp(offer.expiresAtNs);
+  if (expiresMs != null && expiresMs > nowMs) {
+    const rel = formatSocialFutureStamp(expiresMs, nowMs);
+    if (!rel) return null;
+    return {
+      label: rel === 'soon' ? 'Ends soon' : `Ends ${rel}`,
+      atMs: expiresMs,
+    };
+  }
+  const createdMs = normalizeSocialTimestamp(offer.createdAtNs);
+  if (createdMs == null) return null;
+  const label = formatMarketRelativeTime(createdMs, nowMs);
+  return label ? { label, atMs: createdMs } : null;
 }
 
 /** Null until the viewer’s offer query has settled — never guess Make vs Update. */
@@ -304,6 +333,7 @@ export async function fetchMyOpenTokenOffers(
         amountYocto: row.amount,
         amountNear: yoctoToNear(row.amount),
         expiresAtNs: row.expiresAt && row.expiresAt > 0 ? row.expiresAt : null,
+        createdAtNs: row.createdBlockTimestamp || 0,
       }))
       .sort((a, b) => {
         const diff = BigInt(b.amountYocto) - BigInt(a.amountYocto);

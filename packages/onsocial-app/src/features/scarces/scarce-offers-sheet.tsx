@@ -19,8 +19,10 @@ import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
 import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
 import {
   fetchOffersForToken,
+  offerListClock,
   type ScarceTokenOffer,
 } from '@/features/scarces/scarce-offers';
+import { socialTimeProps } from '@/lib/post-display';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { SHEET_Z } from '@/lib/sheet-z';
@@ -251,6 +253,7 @@ export function ScarceOffersSheet({
                   const selected = selectedOffer?.buyerId === offer.buyerId;
                   const face = buyerFaces.get(offer.buyerId);
                   const amount = formatNearLabel(offer.amountNear);
+                  const clock = offerListClock(offer);
                   return (
                     <li key={offer.buyerId} className="scarce-offer-item">
                       {index > 0 ? <Divider variant="item" /> : null}
@@ -260,6 +263,14 @@ export function ScarceOffersSheet({
                           displayNameValue={face?.displayName}
                           avatarUrl={face?.avatarUrl}
                         />
+                        {clock ? (
+                          <time
+                            className="standing-row-time"
+                            {...socialTimeProps(clock.atMs)}
+                          >
+                            {clock.label}
+                          </time>
+                        ) : null}
                         {canPickOffer ? (
                           <button
                             type="button"

@@ -9,10 +9,12 @@ import {
 } from '@/features/scarces/collections-data';
 import {
   seriesShopActionLabel,
+  seriesShopClock,
   shopRowCreatorLabel,
 } from '@/features/scarces/series-page-view';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { collectionPath } from '@/lib/app-routes';
+import { socialTimeProps } from '@/lib/post-display';
 import { OsRowAction } from '@/lib/os-row-action';
 
 /** Unheld series drop — same list row as the vault, shop CTA to the drop. */
@@ -29,6 +31,17 @@ export function SeriesShopRow({
   const [brokenMediaUrl, setBrokenMediaUrl] = useState<string | null>(null);
   const showThumb = Boolean(view.mediaUrl) && brokenMediaUrl !== view.mediaUrl;
   const status = deriveCollectionStatus(view, nowMs);
+  const clock =
+    typeof nowMs === 'number'
+      ? seriesShopClock(
+          {
+            status,
+            startTimeMs: view.startTimeMs,
+            endTimeMs: view.endTimeMs,
+          },
+          nowMs
+        )
+      : null;
   const action = seriesShopActionLabel(status);
   const href = collectionPath(view.collectionId);
   const creatorLabel = showCreator ? shopRowCreatorLabel(view.creatorId) : '';
@@ -39,6 +52,13 @@ export function SeriesShopRow({
       : 'Free');
   const supply =
     view.totalSupply > 0 ? `${view.minted}/${view.totalSupply}` : null;
+  const metaBits = [
+    clock ? null : collectionStatusLabel(status),
+    view.kind,
+    creatorLabel,
+    price,
+    supply,
+  ].filter((bit): bit is string => Boolean(bit));
 
   return (
     <div className="market-listing-row series-shop-row" role="listitem">
@@ -66,23 +86,18 @@ export function SeriesShopRow({
           <div className="market-listing-head">
             <p className="market-listing-title">{view.title}</p>
           </div>
-          <p className="market-listing-meta">
-            <span>{collectionStatusLabel(status)}</span>
-            {view.kind ? (
-              <span className="market-listing-own"> · {view.kind}</span>
-            ) : null}
-            {creatorLabel ? (
-              <span className="market-listing-own">
-                {' · '}
-                {creatorLabel}
-              </span>
-            ) : null}
-            <span> · {price}</span>
-            {supply ? <span> · {supply}</span> : null}
-          </p>
+          <p className="market-listing-meta">{metaBits.join(' · ')}</p>
         </div>
       </Link>
       <div className="market-listing-action-col collectibles-holding-action-col">
+        {clock ? (
+          <time
+            className="market-listing-meta-right"
+            {...socialTimeProps(clock.atMs)}
+          >
+            {clock.label}
+          </time>
+        ) : null}
         <OsRowAction
           href={href}
           className="collectibles-holding-action"

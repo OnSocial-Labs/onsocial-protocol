@@ -1,5 +1,7 @@
+import { formatSocialFutureStamp } from '@onsocial/ui';
 import {
   collectionIdFromTokenId,
+  formatMarketRelativeTime,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import { peekOwnedVaultPage } from '@/features/market/owned-vault-cache';
@@ -52,12 +54,56 @@ export function seriesCatalogShell(opts: {
 }
 
 /** Route `loading.tsx` owns the SSR skeleton; the panel paints after hydrate. */
-export function seriesRouteYieldsLoadingSkeleton(clientMounted: boolean): boolean {
+export function seriesRouteYieldsLoadingSkeleton(
+  clientMounted: boolean
+): boolean {
   return !clientMounted;
 }
 
 export function seriesShopActionLabel(status: string): string {
   return status === 'live' ? 'Collect' : 'Open';
+}
+
+function seriesWindowStamp(
+  ms: number | null | undefined,
+  kind: 'opens' | 'ends',
+  nowMs: number
+): { label: string; atMs: number } | null {
+  if (ms == null || !Number.isFinite(ms) || ms <= 0) return null;
+  if (kind === 'ends' && ms <= nowMs) {
+    const rel = formatMarketRelativeTime(ms, nowMs);
+    return { label: rel ? `Ended ${rel}` : 'Ended', atMs: ms };
+  }
+  const rel = formatSocialFutureStamp(ms, nowMs);
+  if (!rel) return null;
+  if (rel === 'soon') {
+    return { label: kind === 'opens' ? 'Opens soon' : 'Ends soon', atMs: ms };
+  }
+  return {
+    label: kind === 'opens' ? `Opens ${rel}` : `Ends ${rel}`,
+    atMs: ms,
+  };
+}
+
+/**
+ * Series and hub shop corner.
+ * Upcoming, live, and ended use the window. Sold out, paused, and cancelled keep their word.
+ */
+export function seriesShopClock(
+  input: {
+    status: string;
+    startTimeMs?: number | null;
+    endTimeMs?: number | null;
+  },
+  nowMs: number
+): { label: string; atMs: number } | null {
+  if (input.status === 'upcoming') {
+    return seriesWindowStamp(input.startTimeMs, 'opens', nowMs);
+  }
+  if (input.status === 'live' || input.status === 'ended') {
+    return seriesWindowStamp(input.endTimeMs, 'ends', nowMs);
+  }
+  return null;
 }
 
 /** Compact spoken name on multi-creator shop rows — same voice as lists. */
