@@ -174,7 +174,7 @@ export function MarketListingRow({
   const isPrimaryMint = item.kind === 'lazy';
   const buyLabel =
     item.kind === 'auction'
-      ? auctionCountdown === 'Ended'
+      ? auctionClockLabel === 'Ended'
         ? 'Settle'
         : 'Bid'
       : isPrimaryMint
@@ -186,7 +186,7 @@ export function MarketListingRow({
           : 'Buy';
   const buyAriaLabel =
     item.kind === 'auction'
-      ? auctionCountdown === 'Ended'
+      ? auctionClockLabel === 'Ended'
         ? `Settle auction for ${item.title}`
         : `Bid on ${item.title}`
       : isPrimaryMint
