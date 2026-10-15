@@ -10,6 +10,7 @@ import {
   isDropWritingChapterMime,
   isDropWritingMime,
   isWritingFolioFormat,
+  listedArticleReaderHref,
   isLikelyIpfsCid,
   parseSourcePostPath,
   parseWritingFormat,
@@ -138,6 +139,29 @@ describe('readableFromPostBody', () => {
       postId: '9',
     });
     expect(readableFromPostBody({ path: 'alice.near/post/9', text: '  ' })).toBeNull();
+  });
+});
+
+describe('listedArticleReaderHref', () => {
+  it('opens the article reader and leaves the post to View source post', () => {
+    expect(
+      listedArticleReaderHref({
+        sourcePostPath: 'alice.testnet/post/42',
+      })
+    ).toBe('/@alice.testnet/writing/42');
+    expect(
+      listedArticleReaderHref({
+        writingFormat: 'book',
+        sourcePostPath: 'alice.testnet/post/42',
+      })
+    ).toBeNull();
+    expect(
+      listedArticleReaderHref({
+        writingFormat: 'issue',
+        sourcePostPath: 'alice.testnet/post/42',
+      })
+    ).toBeNull();
+    expect(listedArticleReaderHref({ sourcePostPath: '' })).toBeNull();
   });
 });
 

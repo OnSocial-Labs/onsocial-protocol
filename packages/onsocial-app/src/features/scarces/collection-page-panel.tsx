@@ -106,8 +106,7 @@ import {
   canResumeDrop,
 } from '@/features/scarces/drop-owner-actions';
 import {
-  isWritingFolioFormat,
-  parseSourcePostPath,
+  listedArticleReaderHref,
   writingReadingSectionLabel,
 } from '@/features/scarces/drop-writing';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
@@ -152,7 +151,6 @@ import {
 import {
   portfolioCollectiblesPath,
   portfolioPath,
-  writingArticlePath,
 } from '@/lib/overlay-routes';
 import { isAppPostSheetHref } from '@/lib/post-routes';
 import { fallbackLabel } from '@/lib/profile-display';
@@ -479,25 +477,25 @@ export function CollectionPagePanel({
       return;
     }
     queueMicrotask(() => {
-      if (view && !isWritingFolioFormat(view.writingFormat)) {
-        const coords = parseSourcePostPath(view.sourcePostPath ?? '');
-        if (coords) {
-          const href = writingArticlePath(coords.author, coords.postId);
-          if (openPostThread({ href })) return;
-          router.push(href);
-          return;
-        }
+      const href = listedArticleReaderHref({
+        writingFormat: view?.writingFormat,
+        sourcePostPath: view?.sourcePostPath,
+      });
+      if (href) {
+        router.push(href);
+        return;
       }
       setWritingReadOpen(true);
     });
   }, [
     collectionId,
-    openPostThread,
     router,
     view,
     view?.kind,
     view?.readables.length,
     view?.bookPdf,
+    view?.sourcePostPath,
+    view?.writingFormat,
   ]);
 
   // Collectibles "Show pass" deep-links with ?pass=1&t=… → open pass once token is known.
@@ -907,15 +905,12 @@ export function CollectionPagePanel({
     kind: view.kind,
     hasReadables,
   });
-  const listedArticleHref = !isWritingFolioFormat(view.writingFormat)
-    ? (() => {
-        const coords = parseSourcePostPath(view.sourcePostPath ?? '');
-        return coords ? writingArticlePath(coords.author, coords.postId) : null;
-      })()
-    : null;
+  const listedArticleHref = listedArticleReaderHref({
+    writingFormat: view.writingFormat,
+    sourcePostPath: view.sourcePostPath,
+  });
   const openWritingRead = () => {
     if (listedArticleHref) {
-      if (openPostThread({ href: listedArticleHref })) return;
       router.push(listedArticleHref);
       return;
     }
