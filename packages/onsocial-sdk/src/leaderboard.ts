@@ -37,17 +37,6 @@ export function leaderboardPrimaryUnit(track: LeaderboardTrack): string {
   }
 }
 
-/** One quiet explainer under track segments — only when the metric needs it. */
-export function leaderboardTrackHint(track: LeaderboardTrack): string | null {
-  switch (track) {
-    case 'influence':
-      return 'More locked, longer term — higher influence.';
-    case 'reputation':
-    case 'earners':
-      return null;
-  }
-}
-
 /** Quiet orientation line for the connected viewer on a track. */
 export function leaderboardViewerLine(input: {
   rank: number;

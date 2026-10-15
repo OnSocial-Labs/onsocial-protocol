@@ -11,7 +11,6 @@ import {
   leaderboardPrimaryUnit,
   leaderboardRankLabel,
   leaderboardShareCopy,
-  leaderboardTrackHint,
   leaderboardTrackSubtitle,
   leaderboardViewerLine,
   pctOfLeader,
@@ -91,8 +90,6 @@ describe('leaderboard helpers', () => {
     expect(leaderboardPrimaryUnit('influence')).toBe('Boost');
     expect(leaderboardPrimaryUnit('earners')).toBe('SOCIAL');
     expect(leaderboardPrimaryUnit('reputation')).toBe('Score');
-    expect(leaderboardTrackHint('influence')).toMatch(/influence/i);
-    expect(leaderboardTrackHint('earners')).toBeNull();
   });
 
   it('builds a quiet you-line', () => {

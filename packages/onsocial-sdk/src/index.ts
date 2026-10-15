@@ -371,7 +371,6 @@ export {
   formatScore,
   leaderboardPrimaryUnit,
   leaderboardTrackSubtitle,
-  leaderboardTrackHint,
   leaderboardShareCopy,
   leaderboardViewerLine,
   pctOfLeader,

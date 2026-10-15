@@ -74,7 +74,6 @@ import {
   leaderboardThumbBlend,
   leaderboardThumbBox,
   leaderboardTrackFromPager,
-  leaderboardTrackHint,
   leaderboardTrackIndex,
   pctOfLeader,
   reputationEntryToProfile,
@@ -92,25 +91,6 @@ import {
 } from '@/lib/moods/resolve';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
-
-const INFLUENCE_HINT_SESSION_KEY = 'leaderboard-influence-hint-seen';
-
-function readInfluenceHintSeen(): boolean {
-  if (typeof sessionStorage === 'undefined') return false;
-  try {
-    return sessionStorage.getItem(INFLUENCE_HINT_SESSION_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function persistInfluenceHintSeen(): void {
-  try {
-    sessionStorage.setItem(INFLUENCE_HINT_SESSION_KEY, '1');
-  } catch {
-    /* ignore */
-  }
-}
 
 function topRankClass(rank: number): string {
   return rank <= 3 ? ' is-top' : '';
@@ -578,7 +558,6 @@ function LeaderboardTrackPage({
   active,
   trackCache,
   pageError,
-  influenceHint,
   pinned,
   viewerAccountId,
   isConnected,
@@ -595,7 +574,6 @@ function LeaderboardTrackPage({
   active: boolean;
   trackCache: LeaderboardTrackCache | null | undefined;
   pageError: string | null;
-  influenceHint: string | null;
   pinned: boolean;
   viewerAccountId: string | null;
   isConnected: boolean;
@@ -742,9 +720,6 @@ function LeaderboardTrackPage({
         suppressHydrationWarning
       >
         <div className="leaderboard-sheet-page">
-          {influenceHint ? (
-            <p className="leaderboard-track-hint">{influenceHint}</p>
-          ) : null}
           {pageError ? (
             <ListLoadError message={pageError} onRetry={() => onRetry(track)} />
           ) : showSkeleton ? (
@@ -859,14 +834,6 @@ export function LeaderboardSheet({
     } as CSSProperties;
   }, [fallbackMood.cssVars, fetchedMoodStyle, viewerAccountId]);
   const [boostOpen, setBoostOpen] = useState(false);
-  const [influenceHintSeen, setInfluenceHintSeen] = useState(
-    readInfluenceHintSeen
-  );
-
-  const dismissInfluenceHint = useCallback(() => {
-    persistInfluenceHintSeen();
-    setInfluenceHintSeen(true);
-  }, []);
 
   const committedTrackRef = useRef(track);
   const trackSourceRef = useRef<'open' | 'select' | 'pager' | 'idle'>('open');
@@ -902,9 +869,6 @@ export function LeaderboardSheet({
       const previous = committedTrackRef.current;
       if (previous === next) return;
       committedTrackRef.current = next;
-      if (previous === 'influence' && next !== 'influence') {
-        dismissInfluenceHint();
-      }
       if (next !== 'influence') {
         setBoostOpen(false);
       }
@@ -913,7 +877,7 @@ export function LeaderboardSheet({
         setInternalTrack(next);
       }
     },
-    [dismissInfluenceHint, onTrackChange, trackProp]
+    [onTrackChange, trackProp]
   );
 
   const viewerKey = isConnected ? (viewerAccountId ?? '') : '';
@@ -957,9 +921,6 @@ export function LeaderboardSheet({
   }, [onRowNavigate, requestClose]);
 
   const handleClosed = useCallback(() => {
-    if (track === 'influence') {
-      dismissInfluenceHint();
-    }
     setClosing(false);
     if (trackProp === undefined) {
       setInternalTrack(initialTrack);
@@ -973,7 +934,7 @@ export function LeaderboardSheet({
     setBoostOpen(false);
     trackSourceRef.current = 'open';
     onClose();
-  }, [dismissInfluenceHint, initialTrack, onClose, track, trackProp]);
+  }, [initialTrack, onClose, trackProp]);
 
   useEffect(() => {
     committedTrackRef.current = track;
@@ -1227,9 +1188,6 @@ export function LeaderboardSheet({
   const stickyViewer =
     activeModel.viewerOutside ??
     (pinVisible ? activeModel.viewerInListRow : null);
-  const influenceHint = influenceHintSeen
-    ? null
-    : leaderboardTrackHint('influence');
   const nestedZ = zIndex + 4;
   const showYouLine = Boolean(shareViewer && isConnected);
   const footerIds = useMemo(
@@ -1412,7 +1370,6 @@ export function LeaderboardSheet({
                   active={track === item.id}
                   trackCache={cache[item.id]}
                   pageError={pageErrors[item.id] ?? null}
-                  influenceHint={item.id === 'influence' ? influenceHint : null}
                   pinned={track === item.id && stickyViewer != null}
                   viewerAccountId={viewerId}
                   isConnected={isConnected}
