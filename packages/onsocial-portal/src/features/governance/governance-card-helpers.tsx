@@ -1,5 +1,6 @@
 import React, { Fragment } from 'react';
 import { CheckCircle2, Vote, XCircle, type LucideIcon } from 'lucide-react';
+import { formatSocialCalendarTime } from '@onsocial/ui';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
 import { fetchDaoPolicy, fetchDaoProposal } from '@/features/governance/api';
 import {
@@ -355,19 +356,10 @@ function formatRelativeTimestamp(
 ): { relative: string; absolute: string } | null {
   if (!Number.isFinite(ms)) return null;
   const date = new Date(ms);
-  const elapsedMs = Date.now() - date.getTime();
-  const elapsedSec = Math.max(0, Math.floor(elapsedMs / 1000));
-
-  let relative = 'just now';
-  if (elapsedSec >= 60 && elapsedSec < 3600) {
-    relative = `${Math.floor(elapsedSec / 60)}m ago`;
-  } else if (elapsedSec >= 3600 && elapsedSec < 86400) {
-    relative = `${Math.floor(elapsedSec / 3600)}h ago`;
-  } else if (elapsedSec >= 86400) {
-    relative = `${Math.floor(elapsedSec / 86400)}d ago`;
-  }
-
-  return { relative, absolute: date.toLocaleString() };
+  if (!Number.isFinite(date.getTime())) return null;
+  const calendar = formatSocialCalendarTime(ms);
+  if (!calendar) return null;
+  return { relative: calendar.label, absolute: date.toLocaleString() };
 }
 
 export function formatIsoTimestamp(

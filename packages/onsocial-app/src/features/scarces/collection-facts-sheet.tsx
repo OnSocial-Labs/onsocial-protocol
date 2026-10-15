@@ -24,7 +24,7 @@ import {
 } from '@/features/scarces/access-ends-facts';
 import {
   formatFutureRelativeTime,
-  formatMarketRelativeTime,
+  formatMarketRelativePhrase,
 } from '@/features/market/market-listings';
 import {
   formatRoyaltyPercent,
@@ -86,7 +86,7 @@ function scheduleFacts(
     const rel = formatFutureRelativeTime(view.endTimeMs, nowMs);
     next = rel ? `Closes ${rel}` : null;
   } else if (status === 'ended' && view.endTimeMs) {
-    const rel = formatMarketRelativeTime(view.endTimeMs, nowMs);
+    const rel = formatMarketRelativePhrase(view.endTimeMs, nowMs);
     next = rel ? `Closed ${rel}` : null;
   }
 

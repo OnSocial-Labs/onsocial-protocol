@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { formatSocialFutureStamp } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsRowAction } from '@/lib/os-row-action';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
@@ -113,18 +114,6 @@ const UPCOMING_SECTIONS: ReadonlyArray<{
   { id: 'later', label: 'Later' },
 ];
 
-/** Compact relative future (`3h`, `2d`) for Opens / Ends copy. */
-function formatDropRelativeFuture(ms: number, nowMs: number): string {
-  if (!Number.isFinite(ms) || ms <= 0) return '';
-  const delta = Math.max(0, ms - nowMs);
-  const minutes = Math.floor(delta / 60_000);
-  if (minutes < 1) return 'soon';
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  return `${Math.floor(hours / 24)}d`;
-}
-
 function formatDropWindow(
   ms: number,
   kind: 'opens' | 'ends',
@@ -134,7 +123,7 @@ function formatDropWindow(
     const rel = formatMarketRelativeTime(ms, nowMs);
     return rel ? `Ended ${rel}` : 'Ended';
   }
-  const rel = formatDropRelativeFuture(ms, nowMs);
+  const rel = formatSocialFutureStamp(ms, nowMs);
   if (!rel) return '';
   if (rel === 'soon') return kind === 'opens' ? 'Opens soon' : 'Ends soon';
   return kind === 'opens' ? `Opens ${rel}` : `Ends ${rel}`;

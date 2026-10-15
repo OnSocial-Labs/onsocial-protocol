@@ -12,7 +12,7 @@ import {
   collectionIdFromTokenId,
   fetchScarceListingMeta,
   fetchScarceMintSummary,
-  formatMarketRelativeTime,
+  formatMarketRelativePhrase,
   findLiveListingForPost,
   type ScarcePlayableMedia,
 } from '@/features/market/market-listings';
@@ -251,8 +251,8 @@ export function ScarceBuyForm({
     ScarcePlayableMedia[] | null
   >(null);
   /** False until catalog story hydrate finishes — holds the teaser line. */
-  const [storySettled, setStorySettled] = useState(
-    () => Boolean(listing?.description?.trim() || post)
+  const [storySettled, setStorySettled] = useState(() =>
+    Boolean(listing?.description?.trim() || post)
   );
   const [mintSettled, setMintSettled] = useState(() => {
     const id = listing?.tokenId?.trim() || embed?.tokenId?.trim();
@@ -1303,7 +1303,7 @@ export function ScarceBuyForm({
                     unit: supplyUnit,
                     listedLabel:
                       !isPrimaryMint && listing?.listedAtMs
-                        ? `Listed ${formatMarketRelativeTime(listing.listedAtMs)}`
+                        ? `Listed ${formatMarketRelativePhrase(listing.listedAtMs)}`
                         : null,
                   })}
                   onOpenFacts={() => setFactsOpen(true)}

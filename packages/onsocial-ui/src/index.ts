@@ -505,6 +505,7 @@ export {
 } from './os-surface-row.js';
 export {
   formatSocialCalendarTime,
+  formatSocialFutureStamp,
   formatSocialRelativeTime,
   formatSocialStandingTimeMeta,
   normalizeSocialTimestamp,

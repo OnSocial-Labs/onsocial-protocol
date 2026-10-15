@@ -126,7 +126,6 @@ describe('listing action copy', () => {
     expect(listingActionSectionTitle('delist')).toBe('');
   });
 
-
   it('eyebrows stay short', () => {
     expect(listingActionEyebrow('collect_win')).toBe('You won');
     expect(listingActionEyebrow('complete_sale')).toBe('Sale ended');
@@ -191,7 +190,7 @@ describe('listing action copy', () => {
       expiresAtNs: endedMs * 1e6,
       ended: true,
     });
-    expect(listingActionAgeLabel(win)).toBe('5m ago');
+    expect(listingActionAgeLabel(win)).toBe('5m');
     expect(listingActionTimeLabel(win)).toBe('Ended 5m ago');
 
     const listed = base({
@@ -199,7 +198,7 @@ describe('listing action copy', () => {
       kind: 'delist',
       listedAtMs: Date.now() - 3 * 3_600_000,
     });
-    expect(listingActionAgeLabel(listed)).toBe('3h ago');
+    expect(listingActionAgeLabel(listed)).toBe('3h');
     expect(listingActionTimeLabel(listed)).toBe('Listed 3h ago');
   });
 });

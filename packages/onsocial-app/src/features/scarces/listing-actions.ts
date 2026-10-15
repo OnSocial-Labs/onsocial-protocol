@@ -3,6 +3,7 @@ import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   auctionExpiresAtMs,
   fetchScarceTokenMeta,
+  formatMarketRelativePhrase,
   formatMarketRelativeTime,
   resolveScarceMediaUrl,
   resolveTokenDisplayTitle,
@@ -71,7 +72,7 @@ function listedAtMsFromRow(
       : listedBlockTimestamp * 1000;
 }
 
-/** Compact age only (`1d ago`) — section / row kind carries Ended vs Listed. */
+/** Compact age (`5m`, `3h`, `Mar 12`) — section / row kind carries Ended vs Listed. */
 export function listingActionAgeLabel(item: ListingActionItem): string {
   if (item.kind === 'collect_win' || item.kind === 'complete_sale') {
     const endsAtMs = auctionExpiresAtMs(item.expiresAtNs);
@@ -84,19 +85,31 @@ export function listingActionAgeLabel(item: ListingActionItem): string {
   return '';
 }
 
+function listingActionPhrase(item: ListingActionItem): string {
+  if (item.kind === 'collect_win' || item.kind === 'complete_sale') {
+    const endsAtMs = auctionExpiresAtMs(item.expiresAtNs);
+    if (endsAtMs == null) return '';
+    return formatMarketRelativePhrase(endsAtMs) || '';
+  }
+  if (item.listedAtMs != null && item.listedAtMs > 0) {
+    return formatMarketRelativePhrase(item.listedAtMs) || '';
+  }
+  return '';
+}
+
 /** @deprecated Prefer {@link listingActionAgeLabel}. */
 export function listingActionTimeLabel(item: ListingActionItem): string {
-  const age = listingActionAgeLabel(item);
-  if (!age) {
+  const phrase = listingActionPhrase(item);
+  if (!phrase) {
     if (item.kind === 'collect_win' || item.kind === 'complete_sale') {
       return 'Ended';
     }
     return '';
   }
   if (item.kind === 'collect_win' || item.kind === 'complete_sale') {
-    return `Ended ${age}`;
+    return `Ended ${phrase}`;
   }
-  return `Listed ${age}`;
+  return `Listed ${phrase}`;
 }
 
 /**

@@ -8,13 +8,13 @@ describe('guildMemberTimeMeta', () => {
 
     const twoHoursAgo = Date.parse('2026-07-07T10:00:00Z');
     expect(guildMemberTimeMeta(twoHoursAgo)).toEqual({
-      label: '2h ago',
+      label: '2h',
       prefix: 'Joined',
       description: 'Joined 2h ago',
     });
 
     expect(guildMemberTimeMeta(twoHoursAgo, { isOwner: true })).toEqual({
-      label: '2h ago',
+      label: '2h',
       prefix: 'Member since',
       description: 'Member since 2h ago',
     });

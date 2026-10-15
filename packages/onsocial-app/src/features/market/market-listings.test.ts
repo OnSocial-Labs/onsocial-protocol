@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   excludeOwnedNativeListings,
+  formatFutureRelativeTime,
+  formatMarketRelativePhrase,
   formatMarketRelativeTime,
   hasUnresolvedTitleTemplate,
   isPrimaryThoughtListing,
@@ -26,12 +28,27 @@ describe('formatMarketRelativeTime', () => {
     expect(formatMarketRelativeTime(Number.NaN)).toBe('');
   });
 
-  it('formats recent ages', () => {
-    const now = Date.now();
-    expect(formatMarketRelativeTime(now - 30_000, now)).toBe('just now');
-    expect(formatMarketRelativeTime(now - 5 * 60_000, now)).toBe('5m ago');
-    expect(formatMarketRelativeTime(now - 3 * 3_600_000, now)).toBe('3h ago');
-    expect(formatMarketRelativeTime(now - 2 * 86_400_000, now)).toBe('2d ago');
+  it('formats recent ages as a short stamp and dates after a week', () => {
+    const now = Date.parse('2026-06-25T12:00:00.000Z');
+    expect(formatMarketRelativeTime(now - 30_000, now)).toBe('now');
+    expect(formatMarketRelativeTime(now - 5 * 60_000, now)).toBe('5m');
+    expect(formatMarketRelativeTime(now - 3 * 3_600_000, now)).toBe('3h');
+    expect(formatMarketRelativeTime(now - 2 * 86_400_000, now)).toBe('2d');
+    expect(formatMarketRelativeTime(now - 1_650 * 86_400_000, now)).toBe(
+      "Dec 18 '21"
+    );
+  });
+
+  it('keeps the sentence in the phrase and caps a long countdown', () => {
+    const now = Date.parse('2026-06-25T12:00:00.000Z');
+    expect(formatMarketRelativePhrase(now - 5 * 60_000, now)).toBe('5m ago');
+    expect(formatMarketRelativePhrase(now - 1_650 * 86_400_000, now)).toBe(
+      'Dec 18, 2021'
+    );
+    expect(formatFutureRelativeTime(now + 3 * 3_600_000, now)).toBe('in 3h');
+    expect(formatFutureRelativeTime(now + 4 * 86_400_000, now)).toBe('in 4d');
+    expect(formatFutureRelativeTime(now + 40 * 86_400_000, now)).toBe('Aug 4');
+    expect(formatFutureRelativeTime(0)).toBe('');
   });
 });
 
@@ -136,9 +153,9 @@ describe('mergeOwnedYoursItems', () => {
         listingKind: null,
       },
     ];
-    expect(mergeOwnedYoursItems(vault, catalog).map((row) => row.tokenId)).toEqual(
-      ['s:1', 's:9']
-    );
+    expect(
+      mergeOwnedYoursItems(vault, catalog).map((row) => row.tokenId)
+    ).toEqual(['s:1', 's:9']);
     expect(
       mergeOwnedYoursItems(
         [{ ...catalog[0]!, title: 'Vault wins' }, ...vault],
@@ -235,35 +252,27 @@ describe('sortMarketListings', () => {
   ];
 
   it('sorts newest first by default key', () => {
-    expect(sortMarketListings(listings, 'newest').map((row) => row.tokenId ?? row.listingId)).toEqual([
-      's:later',
-      's:ask',
-      's:soon',
-      'll:old',
-    ]);
+    expect(
+      sortMarketListings(listings, 'newest').map(
+        (row) => row.tokenId ?? row.listingId
+      )
+    ).toEqual(['s:later', 's:ask', 's:soon', 'll:old']);
   });
 
   it('sorts by price ascending and descending', () => {
-    expect(sortMarketListings(listings, 'price-asc').map((row) => row.priceNear)).toEqual([
-      '0.5',
-      '1',
-      '2',
-      '3',
-    ]);
-    expect(sortMarketListings(listings, 'price-desc').map((row) => row.priceNear)).toEqual([
-      '3',
-      '2',
-      '1',
-      '0.5',
-    ]);
+    expect(
+      sortMarketListings(listings, 'price-asc').map((row) => row.priceNear)
+    ).toEqual(['0.5', '1', '2', '3']);
+    expect(
+      sortMarketListings(listings, 'price-desc').map((row) => row.priceNear)
+    ).toEqual(['3', '2', '1', '0.5']);
   });
 
   it('sorts ending auctions by soonest clock, then other auctions, then fixed', () => {
-    expect(sortMarketListings(listings, 'ending').map((row) => row.tokenId ?? row.listingId)).toEqual([
-      's:soon',
-      's:later',
-      's:ask',
-      'll:old',
-    ]);
+    expect(
+      sortMarketListings(listings, 'ending').map(
+        (row) => row.tokenId ?? row.listingId
+      )
+    ).toEqual(['s:soon', 's:later', 's:ask', 'll:old']);
   });
 });

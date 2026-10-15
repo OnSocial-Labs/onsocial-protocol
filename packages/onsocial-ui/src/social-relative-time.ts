@@ -20,6 +20,28 @@ function formatMonthDayYear(date: Date): string {
   return `${formatMonthDay(date)}, ${date.getFullYear()}`;
 }
 
+function formatSocialDateStamp(
+  timestampMs: number,
+  referenceMs: number
+): SocialCalendarTime | null {
+  const date = new Date(timestampMs);
+  if (!Number.isFinite(date.getTime())) return null;
+
+  const monthDay = formatMonthDay(date);
+  const year = date.getFullYear();
+  const title = formatMonthDayYear(date);
+  const referenceYear = new Date(referenceMs).getFullYear();
+
+  if (year === referenceYear) {
+    return { label: monthDay, title };
+  }
+
+  return {
+    label: `${monthDay} ${formatShortYear(year)}`,
+    title,
+  };
+}
+
 export interface SocialCalendarTime {
   /** Compact row label — e.g. Mar 12 or Mar 12 '24. */
   label: string;
@@ -27,7 +49,10 @@ export interface SocialCalendarTime {
   title: string;
 }
 
-/** Relative buckets, then compact calendar date with short year when not current year. */
+/**
+ * Visible stamp: `now`, `5m`, `3h`, `4d`, then `Mar 12` or `Mar 12 '24`.
+ * `title` keeps the phrase (`5m ago`, `Mar 12, 2026`) for sentences and hover.
+ */
 export function formatSocialRelativeTime(
   timestampMs: number | null | undefined,
   referenceMs = Date.now()
@@ -45,39 +70,43 @@ export function formatSocialCalendarTime(
   const diff = Math.max(0, referenceMs - timestampMs);
   const min = Math.floor(diff / 60000);
   if (min < 1) {
-    return { label: 'just now', title: 'just now' };
+    return { label: 'now', title: 'just now' };
   }
   if (min < 60) {
-    const label = `${min}m ago`;
-    return { label, title: label };
+    return { label: `${min}m`, title: `${min}m ago` };
   }
   const hr = Math.floor(min / 60);
   if (hr < 24) {
-    const label = `${hr}h ago`;
-    return { label, title: label };
+    return { label: `${hr}h`, title: `${hr}h ago` };
   }
   const day = Math.floor(hr / 24);
   if (day < 7) {
-    const label = `${day}d ago`;
-    return { label, title: label };
+    return { label: `${day}d`, title: `${day}d ago` };
   }
 
-  const date = new Date(timestampMs);
-  if (!Number.isFinite(date.getTime())) return null;
+  return formatSocialDateStamp(timestampMs, referenceMs);
+}
 
-  const monthDay = formatMonthDay(date);
-  const year = date.getFullYear();
-  const title = formatMonthDayYear(date);
-  const referenceYear = new Date(referenceMs).getFullYear();
-
-  if (year === referenceYear) {
-    return { label: monthDay, title };
+/**
+ * Future stamp: `soon`, `5m`, `3h`, `4d` under a week, then `Mar 12`.
+ * Callers that want `in 5m` add the preposition for the short buckets.
+ */
+export function formatSocialFutureStamp(
+  timestampMs: number | null | undefined,
+  referenceMs = Date.now()
+): string {
+  if (!timestampMs || !Number.isFinite(timestampMs) || timestampMs <= 0) {
+    return '';
   }
-
-  return {
-    label: `${monthDay} ${formatShortYear(year)}`,
-    title,
-  };
+  const delta = timestampMs - referenceMs;
+  if (delta <= 0) return 'soon';
+  const minutes = Math.max(1, Math.ceil(delta / 60_000));
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  return formatSocialDateStamp(timestampMs, referenceMs)?.label ?? '';
 }
 
 export function formatSocialStandingTimeMeta(

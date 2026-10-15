@@ -20,7 +20,7 @@ import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
 import {
   formatFutureRelativeTime,
-  formatMarketRelativeTime,
+  formatMarketRelativePhrase,
 } from '@/features/market/market-listings';
 import { collectionPath } from '@/lib/app-routes';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
@@ -53,7 +53,7 @@ function saleScheduleLines(
     const rel = formatFutureRelativeTime(view.endTimeMs, nowMs);
     next = rel ? `Sale closes ${rel}` : null;
   } else if (status === 'ended' && view.endTimeMs) {
-    const rel = formatMarketRelativeTime(view.endTimeMs, nowMs);
+    const rel = formatMarketRelativePhrase(view.endTimeMs, nowMs);
     next = rel ? `Sale closed ${rel}` : null;
   }
 

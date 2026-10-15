@@ -10,7 +10,7 @@ import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   fetchScarceListingMeta,
   fetchScarceMintSummary,
-  formatMarketRelativeTime,
+  formatMarketRelativePhrase,
   type ScarcePlayableMedia,
 } from '@/features/market/market-listings';
 import {
@@ -189,8 +189,8 @@ export function ScarceBidForm({
   const [hydratedPlayables, setHydratedPlayables] = useState<
     ScarcePlayableMedia[] | null
   >(null);
-  const [storySettled, setStorySettled] = useState(
-    () => Boolean(listing?.description?.trim() || post)
+  const [storySettled, setStorySettled] = useState(() =>
+    Boolean(listing?.description?.trim() || post)
   );
   const [mintSettled, setMintSettled] = useState(
     () => !listing?.tokenId?.trim() && !embed?.tokenId?.trim()
@@ -939,7 +939,7 @@ export function ScarceBidForm({
                   parts={
                     listing?.listedAtMs
                       ? [
-                          `Listed ${formatMarketRelativeTime(listing.listedAtMs)}`,
+                          `Listed ${formatMarketRelativePhrase(listing.listedAtMs)}`,
                         ]
                       : []
                   }

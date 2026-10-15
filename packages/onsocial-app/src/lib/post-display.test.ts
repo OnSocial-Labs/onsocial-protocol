@@ -356,7 +356,7 @@ describe('formatRelativePostTimestamp', () => {
       new Date('2025-03-10T12:00:00Z').getTime(),
       now
     );
-    expect(formatted).toContain('2025');
+    expect(formatted).toBe("Mar 10 '25");
   });
 
   it('handles nanosecond timestamps and invalid input', () => {

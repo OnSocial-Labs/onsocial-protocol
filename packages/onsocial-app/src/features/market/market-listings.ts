@@ -4,6 +4,12 @@ import type {
   ScarcesCollectionCurrentRow,
   ScarcesEventRow,
 } from '@onsocial/sdk';
+import {
+  formatSocialCalendarTime,
+  formatSocialFutureStamp,
+  formatSocialRelativeTime,
+  normalizeSocialTimestamp,
+} from '@onsocial/ui';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { viewNearContract, yoctoToNear } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
@@ -469,7 +475,7 @@ function timestampMs(raw: number | string | null | undefined): number {
 }
 
 /**
- * Relative age for Market listed / sold / minted labels.
+ * Short age for row stamps (`now`, `5m`, `3h`, `4d`, then `Mar 12`).
  * Accepts ms or ns-ish indexer timestamps.
  * Pass `nowMs` from a stable clock (SSR snapshot) to avoid hydration drift.
  */
@@ -477,31 +483,31 @@ export function formatMarketRelativeTime(
   timestamp: number,
   nowMs: number = Date.now()
 ): string {
-  if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
-  const ms = timestamp > 1e15 ? Math.floor(timestamp / 1e6) : timestamp;
-  const elapsed = Math.max(0, nowMs - ms);
-  const minutes = Math.floor(elapsed / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  const ms = normalizeSocialTimestamp(timestamp);
+  if (!ms) return '';
+  return formatSocialRelativeTime(ms, nowMs);
 }
 
-/** Countdown to a future time (`in 12m` / `in 2h` / `soon`). */
+/** Sentence form (`5m ago`, `Mar 12, 2026`) for Listed / Ended / Closed. */
+export function formatMarketRelativePhrase(
+  timestamp: number,
+  nowMs: number = Date.now()
+): string {
+  const ms = normalizeSocialTimestamp(timestamp);
+  if (!ms) return '';
+  return formatSocialCalendarTime(ms, nowMs)?.title ?? '';
+}
+
+/** Countdown (`in 12m` / `in 2h` / `in 4d`), then a date. */
 export function formatFutureRelativeTime(
   timestamp: number,
   nowMs: number = Date.now()
 ): string {
-  if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
-  const ms = timestamp > 1e15 ? Math.floor(timestamp / 1e6) : timestamp;
-  const delta = ms - nowMs;
-  if (delta <= 0) return 'soon';
-  const minutes = Math.max(1, Math.ceil(delta / 60_000));
-  if (minutes < 60) return `in ${minutes}m`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 48) return `in ${hours}h`;
-  return `in ${Math.round(hours / 24)}d`;
+  const ms = normalizeSocialTimestamp(timestamp);
+  if (!ms) return '';
+  const stamp = formatSocialFutureStamp(ms, nowMs);
+  if (!stamp || stamp === 'soon' || !/^\d+[mhd]$/.test(stamp)) return stamp;
+  return `in ${stamp}`;
 }
 
 function priceNearFromRow(row: ScarcesEventRow): string {

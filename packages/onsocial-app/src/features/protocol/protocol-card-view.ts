@@ -1,3 +1,7 @@
+import {
+  formatSocialFutureStamp,
+  formatSocialRelativeTime,
+} from '@onsocial/ui';
 import { daoRoleGroupMembers } from '@/features/protocol/protocol-propose-gate';
 import { getProtocolProposalPolicyLabel } from '@/features/protocol/protocol-proposal-presentation';
 import { deriveProtocolProposalPresentation } from '@/features/protocol/protocol-proposal-presentation';
@@ -53,20 +57,11 @@ function parseNanosecondsToMilliseconds(
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function formatRelativeFromDelta(deltaMs: number): string {
-  const abs = Math.abs(deltaMs);
-  const sec = Math.floor(abs / 1000);
-  if (sec < 60) return deltaMs >= 0 ? 'in moments' : 'just now';
-  if (sec < 3600) {
-    const m = Math.floor(sec / 60);
-    return deltaMs >= 0 ? `in ${m}m` : `${m}m ago`;
-  }
-  if (sec < 86400) {
-    const h = Math.floor(sec / 3600);
-    return deltaMs >= 0 ? `in ${h}h` : `${h}h ago`;
-  }
-  const d = Math.floor(sec / 86400);
-  return deltaMs >= 0 ? `in ${d}d` : `${d}d ago`;
+function formatCountdownPhrase(targetMs: number, nowMs: number): string {
+  if (targetMs <= nowMs) return formatSocialRelativeTime(targetMs, nowMs);
+  const stamp = formatSocialFutureStamp(targetMs, nowMs);
+  if (/^\d+[mhd]$/.test(stamp)) return `in ${stamp}`;
+  return stamp;
 }
 
 function formatRelativeTimestamp(
@@ -77,7 +72,7 @@ function formatRelativeTimestamp(
   absolute: string;
 } {
   return {
-    relative: formatRelativeFromDelta(ms - nowMs),
+    relative: formatSocialRelativeTime(ms, nowMs),
     absolute: new Date(ms).toLocaleString(),
   };
 }
@@ -956,9 +951,8 @@ export function deriveProtocolProposalView(opts: {
       proposal.status === 'Expired' ||
       proposal.status === 'Failed')
   ) {
-    const delta = expiresAtMs - nowMs;
     deadline = {
-      relative: formatRelativeFromDelta(delta),
+      relative: formatCountdownPhrase(expiresAtMs, nowMs),
       absolute: new Date(expiresAtMs).toLocaleString(),
       expired,
       prefix: expired ? 'Closed' : 'Closes',

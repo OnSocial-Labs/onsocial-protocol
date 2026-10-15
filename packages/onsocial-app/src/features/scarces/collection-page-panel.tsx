@@ -147,6 +147,7 @@ import { OsRowAction } from '@/lib/os-row-action';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   formatFutureRelativeTime,
+  formatMarketRelativePhrase,
   formatMarketRelativeTime,
 } from '@/features/market/market-listings';
 import {
@@ -194,7 +195,7 @@ function scheduleLine(
     return rel ? `${sale ? 'Sale closes' : 'Closes'} ${rel}` : null;
   }
   if (status === 'ended' && view.endTimeMs) {
-    const rel = formatMarketRelativeTime(view.endTimeMs, nowMs);
+    const rel = formatMarketRelativePhrase(view.endTimeMs, nowMs);
     return rel ? `${sale ? 'Sale closed' : 'Closed'} ${rel}` : null;
   }
   return null;

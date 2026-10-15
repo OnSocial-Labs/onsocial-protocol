@@ -6,7 +6,7 @@
 import type { CollectionView } from '@/features/scarces/collections-data';
 import {
   formatFutureRelativeTime,
-  formatMarketRelativeTime,
+  formatMarketRelativePhrase,
 } from '@/features/market/market-listings';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
 import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
@@ -21,7 +21,11 @@ export function accessEndsScheduleFacts(
   next: string | null;
   empty: boolean;
 } {
-  if (accessEndsAtMs == null || !Number.isFinite(accessEndsAtMs) || accessEndsAtMs <= 0) {
+  if (
+    accessEndsAtMs == null ||
+    !Number.isFinite(accessEndsAtMs) ||
+    accessEndsAtMs <= 0
+  ) {
     return { ends: null, endsLabel: 'Ends', next: null, empty: true };
   }
   const ends = formatPageDrawerJoinedFullLabel(accessEndsAtMs);
@@ -31,7 +35,7 @@ export function accessEndsScheduleFacts(
     const rel = formatFutureRelativeTime(accessEndsAtMs, nowMs);
     next = rel ? `Ends ${rel}` : null;
   } else {
-    const rel = formatMarketRelativeTime(accessEndsAtMs, nowMs);
+    const rel = formatMarketRelativePhrase(accessEndsAtMs, nowMs);
     next = rel ? `Ended ${rel}` : null;
   }
   return {
@@ -46,11 +50,7 @@ export function accessEndsScheduleFacts(
 export function collectionShouldShowAccessEnds(
   view: Pick<
     CollectionView,
-    | 'accessEndsAtMs'
-    | 'eventStartsAtMs'
-    | 'eventEndsAtMs'
-    | 'place'
-    | 'kind'
+    'accessEndsAtMs' | 'eventStartsAtMs' | 'eventEndsAtMs' | 'place' | 'kind'
   >,
   nowMs: number
 ): boolean {

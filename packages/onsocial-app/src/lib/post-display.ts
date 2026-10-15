@@ -1,4 +1,5 @@
 import type { PostRow } from '@onsocial/sdk';
+import { formatSocialRelativeTime } from '@onsocial/ui';
 
 /** Composer hard cap for post body text. */
 export const POST_TEXT_MAX_LENGTH = 4000;
@@ -303,7 +304,7 @@ export function postTimestampIso(
 }
 
 /**
- * Compact feed-style timestamp: `now`, `5m`, `2h`, `3d`, then a short date.
+ * Compact feed stamp: `now`, `5m`, `2h`, `3d`, then `Mar 12` or `Mar 12 '24`.
  * Pair with the absolute time (title/dateTime) for precision on demand.
  */
 export function formatRelativePostTimestamp(
@@ -312,24 +313,9 @@ export function formatRelativePostTimestamp(
 ): string {
   const date = resolvePostDate(blockTimestamp);
   if (!date) return 'Unknown time';
-
-  const elapsedMs = now.getTime() - date.getTime();
-  if (elapsedMs < 60_000) return 'now';
-
-  const minutes = Math.floor(elapsedMs / 60_000);
-  if (minutes < 60) return `${minutes}m`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-
-  return new Intl.DateTimeFormat(POST_TIMESTAMP_LOCALE, {
-    month: 'short',
-    day: 'numeric',
-    ...(date.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}),
-  }).format(date);
+  return (
+    formatSocialRelativeTime(date.getTime(), now.getTime()) || 'Unknown time'
+  );
 }
 
 /** Writing shelf meta — full calendar date (always includes year). */
