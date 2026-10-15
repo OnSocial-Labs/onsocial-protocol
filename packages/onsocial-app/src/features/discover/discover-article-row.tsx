@@ -8,6 +8,7 @@ import { AccountAvatar } from '@/components/profile/account-avatar';
 import { commercePartyLines } from '@/features/scarces/collection-creator-face';
 import type { DiscoverArticleCover } from '@/features/discover/use-discover-article-covers';
 import { formatWritingLikeLabel } from '@/lib/article-post-payload';
+import { StableCount } from '@/components/ui/stable-count';
 import { writingArticlePath } from '@/lib/overlay-routes';
 import {
   formatPostTimestamp,
@@ -109,7 +110,7 @@ export function DiscoverArticleRow({
         {likeLabel ? (
           <span className="discover-article-likes" aria-label={likeLabel}>
             <HeartIcon className="discover-article-likes-icon" aria-hidden />
-            <span>{likeCount}</span>
+            <StableCount value={likeCount} />
           </span>
         ) : null}
       </div>

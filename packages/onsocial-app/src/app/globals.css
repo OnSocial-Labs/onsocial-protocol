@@ -11633,22 +11633,52 @@ a.os-surface-row {
     cursor: default;
   }
 
+  .portfolio-writing-article-like {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    height: 2.15rem;
+    color: rgb(var(--fg-rgb) / 0.48);
+    font-variant-numeric: tabular-nums;
+  }
+
   .portfolio-writing-article-like-count {
-    margin: 0 0.15rem 0 -0.15rem;
-    padding: 0.35rem 0.2rem;
+    /* Sit in the heart button's empty side so the figure is one gap from the icon. */
+    margin: 0 0.1rem 0 -0.27rem;
+    padding: 0.35rem 0.12rem 0.35rem 0;
     border: 0;
     background: transparent;
-    color: rgb(var(--fg-rgb) / 0.48);
-    font: inherit;
+    color: inherit;
+    font-family: inherit;
     font-size: 0.78rem;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
     line-height: 1;
     cursor: pointer;
   }
 
+  .portfolio-writing-article-like .portfolio-writing-article-action {
+    color: inherit;
+  }
+
+  .portfolio-writing-article-like .portfolio-writing-article-action:hover,
+  .portfolio-writing-article-like .portfolio-writing-article-action:focus-visible,
+  .portfolio-writing-article-like:hover,
+  .portfolio-writing-article-like:focus-within {
+    color: rgb(var(--fg-rgb) / 0.88);
+  }
+
+  .portfolio-writing-article-like.is-active,
+  .portfolio-writing-article-like.is-active:hover,
+  .portfolio-writing-article-like.is-active:focus-within,
+  .portfolio-writing-article-like.is-active .portfolio-writing-article-action:hover,
+  .portfolio-writing-article-like.is-active .portfolio-writing-article-action:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
   .portfolio-writing-article-like-count:hover,
   .portfolio-writing-article-like-count:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.88);
+    color: inherit;
     outline: none;
   }
 
@@ -25954,30 +25984,53 @@ a.os-surface-row {
   }
 
   .post-card-react-cluster {
+    min-width: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Same icon-to-figure gap as reply and share. Padding lives on the two
+     targets so the heart and the count stay one stat and both stay tappable. */
+  .post-card-react-cluster.post-card-react {
+    gap: 0;
+    padding: 0;
+  }
+
+  .post-card-react-heart {
     display: inline-flex;
     align-items: center;
-    gap: 0.32rem;
-    min-width: 0;
-    color: rgb(var(--fg-rgb) / 0.5);
-    font-size: 0.72rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
+    margin: 0;
+    padding: 0.35rem 0.2rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .post-card-react-cluster:has(.post-card-like-count) .post-card-react-heart {
+    padding-right: 0.16rem;
+  }
+
+  .post-card-react-heart:disabled {
+    cursor: default;
   }
 
   .post-card-like-count {
     margin: 0;
-    padding: 0.35rem 0.1rem;
+    padding: 0.35rem 0.2rem 0.35rem 0.16rem;
     border: 0;
     background: transparent;
     color: inherit;
-    font: inherit;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    font-variant-numeric: tabular-nums;
+    line-height: inherit;
     cursor: pointer;
   }
 
   .post-card-like-count:hover,
   .post-card-like-count:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.88);
+    color: inherit;
     outline: none;
   }
 
@@ -25986,6 +26039,17 @@ a.os-surface-row {
     font-weight: inherit;
     line-height: inherit;
     font-variant-numeric: tabular-nums;
+  }
+
+  .os-stable-count {
+    display: inline-flex;
+    align-items: baseline;
+  }
+
+  .os-stable-count-glyph {
+    display: inline-block;
+    width: 1ch;
+    text-align: center;
   }
 
   .post-card-stat svg,
@@ -26020,6 +26084,8 @@ a.os-surface-row {
 
   .post-card-stat-button:focus-visible,
   .post-card-react:focus-visible,
+  .post-card-react-heart:focus-visible,
+  .post-card-like-count:focus-visible,
   .post-card-amplify:focus-visible,
   .post-card-share:focus-visible,
   .post-card-save:focus-visible {

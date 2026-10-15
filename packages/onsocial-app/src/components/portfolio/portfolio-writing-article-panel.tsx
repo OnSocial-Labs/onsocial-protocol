@@ -18,6 +18,7 @@ import {
 } from '@onsocial/ui';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { PostLikesSheet } from '@/components/panels/post-likes-sheet';
+import { StableCount } from '@/components/ui/stable-count';
 import { PortfolioBioBlocks } from '@/components/portfolio/portfolio-bio-blocks';
 import {
   PortfolioWritingCover,
@@ -149,35 +150,39 @@ export function PortfolioWritingArticleActions({
     <div
       className={`portfolio-writing-article-actions${className ? ` ${className}` : ''}`}
     >
-      <button
-        type="button"
-        className={`portfolio-writing-article-action os-confirm-icon${
-          liked ? ' is-active' : ''
-        }${likePending ? ' is-pending' : ''}`}
-        disabled={likePending}
-        aria-pressed={liked}
-        aria-label={liked ? 'Remove your like' : 'Like this article'}
-        title={liked ? 'Liked' : 'Like'}
-        onClick={() => {
-          void toggleReaction(post);
-        }}
+      <span
+        className={`portfolio-writing-article-like${liked ? ' is-active' : ''}`}
       >
-        {liked ? (
-          <HeartFillIcon className="portfolio-writing-article-action-icon" />
-        ) : (
-          <HeartIcon className="portfolio-writing-article-action-icon" />
-        )}
-      </button>
-      {likeLabel ? (
         <button
           type="button"
-          className="portfolio-writing-article-like-count"
-          aria-label={`View who liked — ${likeLabel}`}
-          onClick={() => setLikesOpen(true)}
+          className={`portfolio-writing-article-action os-confirm-icon${
+            liked ? ' is-active' : ''
+          }${likePending ? ' is-pending' : ''}`}
+          disabled={likePending}
+          aria-pressed={liked}
+          aria-label={liked ? 'Remove your like' : 'Like this article'}
+          title={liked ? 'Liked' : 'Like'}
+          onClick={() => {
+            void toggleReaction(post);
+          }}
         >
-          {likeCount}
+          {liked ? (
+            <HeartFillIcon className="portfolio-writing-article-action-icon" />
+          ) : (
+            <HeartIcon className="portfolio-writing-article-action-icon" />
+          )}
         </button>
-      ) : null}
+        {likeLabel ? (
+          <button
+            type="button"
+            className="portfolio-writing-article-like-count"
+            aria-label={`View who liked — ${likeLabel}`}
+            onClick={() => setLikesOpen(true)}
+          >
+            <StableCount value={likeCount} />
+          </button>
+        ) : null}
+      </span>
       <button
         type="button"
         className={`portfolio-writing-article-action os-confirm-icon${

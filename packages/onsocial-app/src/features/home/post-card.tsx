@@ -60,6 +60,7 @@ import { PostAmplifySheet } from '@/features/home/post-amplify-sheet';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { PostLikesSheet } from '@/components/panels/post-likes-sheet';
+import { StableCount } from '@/components/ui/stable-count';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { formatWritingLikeLabel } from '@/lib/article-post-payload';
 import {
@@ -1234,7 +1235,7 @@ function EngagementStat({
 }) {
   const countNode =
     count > 0 ? (
-      <span className="post-card-engagement-count">{count}</span>
+      <StableCount className="post-card-engagement-count" value={count} />
     ) : null;
 
   if (onActivate) {
@@ -1409,13 +1410,17 @@ function PostEngagementRow({
             canShare && !sharePending ? () => setShareOpen(true) : undefined
           }
         />
-        <span className="post-card-react-cluster">
+        <span
+          className={`post-card-react-cluster post-card-react${
+            engagement.viewerReacted ? ' is-active' : ''
+          }`}
+        >
           {onToggleReaction ? (
             <button
               type="button"
-              className={`os-confirm-icon post-card-stat post-card-stat-button post-card-react${
-                engagement.viewerReacted ? ' is-active' : ''
-              }${reactionPending ? ' is-pending' : ''}`}
+              className={`os-confirm-icon post-card-react-heart${
+                reactionPending ? ' is-pending' : ''
+              }`}
               disabled={reactionPending}
               aria-pressed={engagement.viewerReacted}
               aria-label={
@@ -1436,7 +1441,7 @@ function PostEngagementRow({
               <ReactIcon filled={engagement.viewerReacted} />
             </button>
           ) : (
-            <span className="post-card-react" aria-hidden>
+            <span className="post-card-react-heart" aria-hidden>
               <ReactIcon filled={false} />
             </span>
           )}
@@ -1454,7 +1459,7 @@ function PostEngagementRow({
                 setLikesOpen(true);
               }}
             >
-              {engagement.reactionCount}
+              <StableCount value={engagement.reactionCount} />
             </button>
           ) : null}
         </span>
