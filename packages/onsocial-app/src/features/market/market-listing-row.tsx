@@ -17,6 +17,7 @@ import {
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
 import { collectionPath } from '@/lib/app-routes';
+import { socialTimeProps } from '@/lib/post-display';
 import { personalPostPath } from '@/lib/post-routes';
 import {
   marketPostLayerLinkHandlers,
@@ -130,6 +131,8 @@ export function MarketListingRow({
     : item.kind !== 'auction' && listedTime
       ? `Listed ${listedTime}`
       : null;
+  const timeAt =
+    item.kind === 'auction' ? (item.expiresAtNs ?? null) : item.blockTimestamp;
 
   useEffect(() => {
     return () => {
@@ -292,7 +295,12 @@ export function MarketListingRow({
       </div>
       <div className="market-listing-action-col">
         {timeLabel ? (
-          <p className="market-listing-meta-right">{timeLabel}</p>
+          <time
+            className="market-listing-meta-right"
+            {...socialTimeProps(timeAt)}
+          >
+            {timeLabel}
+          </time>
         ) : null}
         <OsSheetActions
           layout="row-compact"

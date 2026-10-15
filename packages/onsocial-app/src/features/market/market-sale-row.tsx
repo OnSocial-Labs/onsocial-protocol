@@ -13,6 +13,7 @@ import {
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { collectionPath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { socialTimeProps } from '@/lib/post-display';
 import { fallbackLabel } from '@/lib/profile-display';
 
 /** Post when the sale has one. Otherwise the drop page for an edition token. */
@@ -120,7 +121,12 @@ export function MarketSaleRow({ sale }: { sale: MarketSaleItem }) {
               <span className="market-listing-own">Sale</span>
             </>
           )}
-          {saleTime ? ` · ${saleTime}` : ''}
+          {saleTime ? (
+            <>
+              {' · '}
+              <time {...socialTimeProps(sale.blockTimestamp)}>{saleTime}</time>
+            </>
+          ) : null}
         </p>
       </div>
     </li>

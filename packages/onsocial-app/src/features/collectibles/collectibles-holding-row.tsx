@@ -5,6 +5,7 @@ import { useState, type ReactNode } from 'react';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
 import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
+import { socialTimeProps } from '@/lib/post-display';
 import { displayName } from '@/lib/profile-display';
 import type { PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
 import { OsRowAction } from '@/lib/os-row-action';
@@ -78,8 +79,11 @@ export function CollectiblesHoldingRow({
               {displayName(creatorId)}
             </span>
           ) : null}
-          {mintedRel ? (
-            <span className="market-listing-own"> · {mintedRel}</span>
+          {mintedRel && item.mintedAtMs != null ? (
+            <span className="market-listing-own">
+              {' · '}
+              <time {...socialTimeProps(item.mintedAtMs)}>{mintedRel}</time>
+            </span>
           ) : null}
         </p>
       </div>
@@ -87,7 +91,10 @@ export function CollectiblesHoldingRow({
   );
 
   return (
-    <div className="market-listing-row collectibles-holding-row" role="listitem">
+    <div
+      className="market-listing-row collectibles-holding-row"
+      role="listitem"
+    >
       {opensPass ? (
         <button
           type="button"

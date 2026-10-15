@@ -13,6 +13,7 @@ export interface CollectionActivityRow {
   label: string;
   actor: string | null;
   time: string;
+  timeTitle?: string;
   priceNear: string | null;
 }
 
@@ -71,7 +72,12 @@ export function CollectionActivityRows({
               </div>
               <div className="standing-row-aside">
                 {row.time ? (
-                  <span className="standing-row-time">{row.time}</span>
+                  <time
+                    className="standing-row-time"
+                    title={row.timeTitle || undefined}
+                  >
+                    {row.time}
+                  </time>
                 ) : null}
                 {row.priceNear ? (
                   <span className="collection-activity-price">

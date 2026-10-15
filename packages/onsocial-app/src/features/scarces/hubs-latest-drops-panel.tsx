@@ -14,6 +14,7 @@ import {
 import type { AppView } from '@/features/scarces/apps-data';
 import { collectionCurrentRowToView } from '@/features/scarces/collections-data';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
+import { formatPostTimestamp } from '@/lib/post-display';
 import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { collectionPath } from '@/lib/app-routes';
@@ -257,6 +258,11 @@ export function HubsLatestDropsPanel({
             avatarUrl={profile?.avatarUrl}
             contextLabel={peek.hubName}
             timeLabel={timeLabel}
+            timeTitle={
+              peek.createdAtMs > 0
+                ? formatPostTimestamp(peek.createdAtMs)
+                : undefined
+            }
             excerpt={peek.title}
             showDivider={index > 0}
           />

@@ -1,9 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { formatSocialFutureStamp } from '@onsocial/ui';
+import { socialTimeProps } from '@/lib/post-display';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsRowAction } from '@/lib/os-row-action';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
@@ -160,9 +168,14 @@ function dropRowFormatLabel(item: DropDiscoveryItem): string | null {
   return null;
 }
 
+type DropMetaBit = {
+  text: string;
+  /** Set when this bit is a clock, so hover can show the exact instant. */
+  atMs?: number;
+};
+
 type DropRowMetaBits = {
-  /** Scarcity / lifecycle — second weight after price. */
-  scarcity: string | null;
+  bits: DropMetaBit[];
   format: string | null;
 };
 
@@ -179,71 +192,67 @@ function dropRowMetaBits(
       : `${item.mintedCount} minted`;
 
   if (sort === 'loved' || sort === 'traded') {
-    return { scarcity: null, format: formatLabel };
+    return { bits: [], format: formatLabel };
   }
 
   if (sort === 'upcoming') {
-    const parts: string[] = [];
+    const bits: DropMetaBit[] = [];
     if (item.hasAllowlist) {
-      parts.push(
-        allowlistRemaining != null && allowlistRemaining > 0
-          ? "You're in"
-          : 'Allowlist'
-      );
+      bits.push({
+        text:
+          allowlistRemaining != null && allowlistRemaining > 0
+            ? "You're in"
+            : 'Allowlist',
+      });
     } else if (item.startTimeMs == null) {
-      parts.push('Upcoming');
+      bits.push({ text: 'Upcoming' });
     }
     if (item.startTimeMs != null) {
       const opens = formatDropWindow(item.startTimeMs, 'opens', nowMs);
-      if (opens) parts.push(opens);
+      if (opens) bits.push({ text: opens, atMs: item.startTimeMs });
     }
-    return {
-      scarcity: parts.join(' · ') || null,
-      format: formatLabel,
-    };
+    return { bits, format: formatLabel };
   }
 
   if (sort === 'finished') {
     const soldOut =
       item.status === 'sold_out' ||
       (item.remaining != null && item.remaining <= 0);
-    const endedLabel =
-      item.endTimeMs != null
-        ? `Ended ${formatMarketRelativeTime(item.endTimeMs, nowMs)}`.trim()
-        : 'Ended';
-    return {
-      scarcity: [soldOut ? 'Sold out' : endedLabel, supply].join(' · '),
-      format: formatLabel,
-    };
+    const bits: DropMetaBit[] = [];
+    if (soldOut) {
+      bits.push({ text: 'Sold out' });
+    } else if (item.endTimeMs != null) {
+      const ended =
+        `Ended ${formatMarketRelativeTime(item.endTimeMs, nowMs)}`.trim();
+      bits.push({ text: ended || 'Ended', atMs: item.endTimeMs });
+    } else {
+      bits.push({ text: 'Ended' });
+    }
+    bits.push({ text: supply });
+    return { bits, format: formatLabel };
   }
 
   if (sort === 'live' || sort === 'closing') {
-    const parts: string[] = [];
+    const bits: DropMetaBit[] = [];
     if (sort === 'closing' || isDropClosing(item, nowMs)) {
-      parts.push('Closing');
+      bits.push({ text: 'Closing' });
     }
     if (item.remaining != null && item.remaining > 0) {
-      parts.push(`${item.remaining} left`);
+      bits.push({ text: `${item.remaining} left` });
     } else {
-      parts.push(supply);
+      bits.push({ text: supply });
     }
     if (item.endTimeMs != null) {
       const ends = formatDropWindow(item.endTimeMs, 'ends', nowMs);
-      if (ends) parts.push(ends);
+      if (ends) bits.push({ text: ends, atMs: item.endTimeMs });
     }
-    return {
-      scarcity: parts.join(' · ') || null,
-      format: formatLabel,
-    };
+    return { bits, format: formatLabel };
   }
 
   if (item.remaining != null && item.remaining > 0) {
-    return {
-      scarcity: `${item.remaining} left`,
-      format: formatLabel,
-    };
+    return { bits: [{ text: `${item.remaining} left` }], format: formatLabel };
   }
-  return { scarcity: supply, format: formatLabel };
+  return { bits: [{ text: supply }], format: formatLabel };
 }
 
 function DropRow({
@@ -300,9 +309,11 @@ function DropRow({
       ? formatMarketRelativeTime(item.createdAtMs, nowMs)
       : '';
   // Fans render as facepile (or text fallback) — keep out of the spaced bits.
-  const dealBits = [priceLabel, meta.scarcity, meta.format].filter(
-    Boolean
-  ) as string[];
+  const dealBits = [
+    priceLabel,
+    ...meta.bits.map((bit) => bit.text),
+    meta.format,
+  ].filter(Boolean);
   const fanCount =
     item.fanCount != null && item.fanCount > 0 ? item.fanCount : null;
   const action = dropsShopActionLabel(
@@ -356,7 +367,26 @@ function DropRow({
                 scroll={false}
                 className="drops-discovery-deal-bits"
               >
-                {dealBits.join(' · ')}
+                {[
+                  priceLabel ? { key: 'price', node: priceLabel } : null,
+                  ...meta.bits.map((bit, index) => ({
+                    key: `bit-${index}`,
+                    node:
+                      bit.atMs != null ? (
+                        <time {...socialTimeProps(bit.atMs)}>{bit.text}</time>
+                      ) : (
+                        bit.text
+                      ),
+                  })),
+                  meta.format ? { key: 'format', node: meta.format } : null,
+                ]
+                  .filter((part) => part != null)
+                  .map((part, index) => (
+                    <Fragment key={part.key}>
+                      {index > 0 ? ' · ' : null}
+                      {part.node}
+                    </Fragment>
+                  ))}
               </Link>
             ) : null}
             {fanCount != null ? (
@@ -380,8 +410,13 @@ function DropRow({
       </div>
       <div className="market-listing-action-col drops-discovery-action-col">
         <div className="drops-discovery-head-trail">
-          {droppedLabel ? (
-            <span className="market-listing-meta-right">{droppedLabel}</span>
+          {droppedLabel && item.createdAtMs != null ? (
+            <time
+              className="market-listing-meta-right"
+              {...socialTimeProps(item.createdAtMs)}
+            >
+              {droppedLabel}
+            </time>
           ) : null}
           <DropsDiscoveryRowMenu
             item={item}

@@ -22,8 +22,8 @@ import {
   relationTargetAccountId,
 } from '@/lib/launcher-post-peek';
 import {
+  formatPostTimestamp,
   formatRelativePostTimestamp,
-  postTimestampIso,
 } from '@/lib/post-display';
 import { isRepostRefType } from '@/lib/post-relation';
 import { postThreadPath } from '@/lib/post-routes';
@@ -310,7 +310,11 @@ export function GuildsLatestPostsPanel({
             avatarUrl={profile?.avatarUrl}
             contextLabel={peek.guildName}
             timeLabel={timeLabel}
-            timeTitle={postTimestampIso(peek.blockTimestamp) ?? undefined}
+            timeTitle={
+              peek.blockTimestamp > 0
+                ? formatPostTimestamp(peek.blockTimestamp)
+                : undefined
+            }
             excerpt={display.excerpt}
             relation={display.relation}
             repostAttribution={display.repostAttribution}

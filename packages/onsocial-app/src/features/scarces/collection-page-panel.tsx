@@ -141,6 +141,7 @@ import {
   marketCreatorPath,
   seriesPagePath,
 } from '@/lib/app-routes';
+import { socialTimeProps } from '@/lib/post-display';
 import { MARKET_PAGE_CLASS, osChromePageClassName } from '@/lib/os-chrome-page';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsRowAction } from '@/lib/os-row-action';
@@ -1153,7 +1154,12 @@ export function CollectionPagePanel({
                       <span className="collection-meta-sep" aria-hidden>
                         ·
                       </span>
-                      <span className="collection-meta-time">{createdRel}</span>
+                      <time
+                        className="collection-meta-time"
+                        {...socialTimeProps(view.createdAtMs)}
+                      >
+                        {createdRel}
+                      </time>
                     </>
                   ) : null}
                   <span className="collection-meta-sep" aria-hidden>

@@ -84,6 +84,27 @@ export function eventRowWhen(item: DropDiscoveryItem, nowMs: number): string {
   );
 }
 
+/** Instant behind {@link eventRowWhen}, for the hover datetime. */
+export function eventRowWhenAt(
+  item: DropDiscoveryItem,
+  nowMs: number
+): number | null {
+  const start = item.view?.eventStartsAtMs ?? null;
+  const end = item.view?.eventEndsAtMs ?? null;
+  if (end != null && end > 0 && end <= nowMs) return end;
+  if (start != null && start > 0 && start > nowMs) return start;
+  if (
+    start != null &&
+    start > 0 &&
+    start <= nowMs &&
+    (end == null || end > nowMs)
+  ) {
+    return start;
+  }
+  if (end != null && end > nowMs) return end;
+  return null;
+}
+
 export function eventRowPlace(item: DropDiscoveryItem): string | null {
   return ticketEventPlaceLabel(item.view?.place);
 }

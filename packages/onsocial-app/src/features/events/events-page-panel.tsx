@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import Link from 'next/link';
 import {
   CalendarFillIcon,
@@ -24,6 +31,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import { DropsDiscoveryRowMenu } from '@/features/drops/drops-discovery-row-menu';
+import { socialTimeProps } from '@/lib/post-display';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
   fetchDropsPage,
@@ -39,6 +47,7 @@ import {
   eventRowPlace,
   eventRowPrice,
   eventRowWhen,
+  eventRowWhenAt,
   eventStyleLabel,
   eventWindowLabel,
   groupEvents,
@@ -112,13 +121,17 @@ function EventRow({
   onOwnerManaged: (change: 'paused' | 'resumed' | 'deleted') => void;
 }) {
   const href = collectionPath(item.collectionId);
-  const meta = [
-    eventRowWhen(item, nowMs),
+  const when = eventRowWhen(item, nowMs);
+  const whenAt = eventRowWhenAt(item, nowMs);
+  const dealParts = [
+    when ? (
+      <time key="when" {...(whenAt != null ? socialTimeProps(whenAt) : {})}>
+        {when}
+      </time>
+    ) : null,
     eventRowPlace(item),
     eventRowPrice(item),
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  ].filter((part) => part != null && part !== '');
   const kind = eventGuestKind(window);
   const guestLabel = showEventGuestCount(kind, guestCount)
     ? eventGuestCountLabel(kind, guestCount)
@@ -151,20 +164,25 @@ function EventRow({
           displayName={item.creatorDisplayName}
           avatarUrl={item.creatorAvatarUrl}
         />
-        {meta || guestLabel ? (
+        {dealParts.length > 0 || guestLabel ? (
           <div className="drops-discovery-deal">
-            {meta ? (
+            {dealParts.length > 0 ? (
               <Link
                 href={href}
                 scroll={false}
                 className="drops-discovery-deal-bits"
               >
-                {meta}
+                {dealParts.map((part, index) => (
+                  <Fragment key={index}>
+                    {index > 0 ? ' · ' : null}
+                    {part}
+                  </Fragment>
+                ))}
               </Link>
             ) : null}
             {guestLabel ? (
               <>
-                {meta ? (
+                {dealParts.length > 0 ? (
                   <span className="drops-discovery-deal-sep" aria-hidden>
                     {' · '}
                   </span>

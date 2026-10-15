@@ -261,6 +261,17 @@ export function parseDropPaintSnapshot(
 /** Fixed locale so SSR and the browser never disagree on month/day order. */
 const POST_TIMESTAMP_LOCALE = 'en-US';
 
+/** Hover and machine time for a short stamp. Empty when the instant is missing. */
+export function socialTimeProps(
+  timestamp: number | string | null | undefined
+): { dateTime?: string; title?: string } {
+  if (timestamp == null || timestamp === '' || timestamp === 0) return {};
+  const dateTime = postTimestampIso(timestamp);
+  const title = formatPostTimestamp(timestamp);
+  if (!dateTime || title === 'Unknown time') return {};
+  return { dateTime, title };
+}
+
 export function formatPostTimestamp(blockTimestamp: number | string): string {
   const date = resolvePostDate(blockTimestamp);
   if (!date) return 'Unknown time';

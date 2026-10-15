@@ -3,6 +3,7 @@ import {
   amplifyWorkTitle,
   formatPostPeekExcerpt,
   formatPostTimestamp,
+  socialTimeProps,
   formatRelativePostTimestamp,
   formatWritingShelfTimestamp,
   parseDropPaintSnapshot,
@@ -316,6 +317,15 @@ describe('post timestamps', () => {
     expect(formatPostTimestamp(Date.parse('2026-07-18T07:13:29.370Z'))).toMatch(
       /^Jul 18, 2026,/
     );
+  });
+
+  it('pairs a short stamp with the absolute hover time', () => {
+    const ms = Date.parse('2026-03-12T15:04:00.000Z');
+    expect(socialTimeProps(ms)).toEqual({
+      dateTime: '2026-03-12T15:04:00.000Z',
+      title: formatPostTimestamp(ms),
+    });
+    expect(socialTimeProps(0)).toEqual({});
   });
 });
 

@@ -1,5 +1,6 @@
 import type { CollectionActivityRow } from '@/features/scarces/collection-activity-rows';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
+import { formatPostTimestamp } from '@/lib/post-display';
 
 const NEAR_DECIMALS = 24;
 
@@ -54,9 +55,11 @@ export function mapCollectionActivityRows(
         row.author?.trim() ||
         null,
       time: formatMarketRelativeTime(row.blockTimestamp ?? 0) ?? '',
-      priceNear: isCreate
-        ? null
-        : yoctoToNearDisplay(row.price ?? row.amount),
+      timeTitle:
+        row.blockTimestamp != null && row.blockTimestamp > 0
+          ? formatPostTimestamp(row.blockTimestamp)
+          : undefined,
+      priceNear: isCreate ? null : yoctoToNearDisplay(row.price ?? row.amount),
     };
   });
 }

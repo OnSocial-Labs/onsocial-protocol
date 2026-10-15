@@ -25,7 +25,10 @@ import {
 } from '@/features/protocol/protocol-proposal-peek-limits';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { daoPortfolioPath } from '@/lib/app-routes';
-import { formatRelativePostTimestamp } from '@/lib/post-display';
+import {
+  formatPostTimestamp,
+  formatRelativePostTimestamp,
+} from '@/lib/post-display';
 import {
   readLauncherLatestSession,
   writeLauncherLatestSession,
@@ -273,7 +276,7 @@ export function DaosExplorePanel({
             timeLabel={timeLabel}
             timeTitle={
               peek.createdAtMs > 0
-                ? new Date(peek.createdAtMs).toISOString()
+                ? formatPostTimestamp(peek.createdAtMs)
                 : undefined
             }
             excerpt={peek.label}

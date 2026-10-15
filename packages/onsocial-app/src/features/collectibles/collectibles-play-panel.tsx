@@ -29,6 +29,7 @@ import {
 import { marketMediumLabel } from '@/features/market/market-medium';
 import { CollectiblesPlaySkeleton } from '@/features/collectibles/collectibles-play-skeleton';
 import { OsRowAction } from '@/lib/os-row-action';
+import { socialTimeProps } from '@/lib/post-display';
 import {
   collectionCreatorNameLine,
   fetchCollectionCreatorFace,
@@ -162,9 +163,7 @@ export function CollectiblesPlayPanel({
   const [clientLoad, setClientLoad] = useState<PlayLoadState | null>(null);
   // Prefer soft RPC refresh when present; keep SSR shell until then.
   const load =
-    clientLoad?.collectionId === collectionId
-      ? clientLoad
-      : (ssrLoad ?? null);
+    clientLoad?.collectionId === collectionId ? clientLoad : (ssrLoad ?? null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [factsOpen, setFactsOpen] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -291,14 +290,13 @@ export function CollectiblesPlayPanel({
     };
   }, [ownershipKey, viewerAccountId, collectionId, tokenIdParam]);
 
-  const status =
-    !collectionId
-      ? 'error'
-      : load?.collectionId !== collectionId
-        ? 'loading'
-        : load.failed || !load.view
-          ? 'error'
-          : 'ready';
+  const status = !collectionId
+    ? 'error'
+    : load?.collectionId !== collectionId
+      ? 'loading'
+      : load.failed || !load.view
+        ? 'error'
+        : 'ready';
   const view = load?.collectionId === collectionId ? load.view : null;
   const offlinePlayback =
     load?.collectionId === collectionId ? Boolean(load.offline) : false;
@@ -368,7 +366,8 @@ export function CollectiblesPlayPanel({
     view != null && deriveCollectionStatus(view, nowMs) === 'live';
   const screenTitle = view?.title?.trim() || 'Player';
   // Immersive chrome while loading so the cover shell matches ready geometry.
-  const immersive = status === 'loading' || (status === 'ready' && view != null);
+  const immersive =
+    status === 'loading' || (status === 'ready' && view != null);
 
   // Keep Live chip honest while the mint window can flip.
   useEffect(() => {
@@ -414,12 +413,7 @@ export function CollectiblesPlayPanel({
         ) : undefined
       }
     >
-      {immersive ? (
-        <div
-          aria-hidden
-          className="os-chrome-glass"
-        />
-      ) : null}
+      {immersive ? <div aria-hidden className="os-chrome-glass" /> : null}
 
       <div
         className={osChromePageClassName(
@@ -499,7 +493,8 @@ export function CollectiblesPlayPanel({
                   onList={() => setSellOpen(true)}
                   onTransfer={() => setTransferOpen(true)}
                   onDelisted={() => {
-                    if (!ownershipKey || !viewerAccountId || !collectionId) return;
+                    if (!ownershipKey || !viewerAccountId || !collectionId)
+                      return;
                     void (async () => {
                       const next = tokenIdParam
                         ? await fetchOwnedScarceByTokenId(
@@ -520,74 +515,81 @@ export function CollectiblesPlayPanel({
             </div>
 
             {offlinePlayback ? null : (
-            <div className="collectibles-play-creator collection-meta">
-              <Link
-                href={portfolioPath(view.creatorId)}
-                scroll={false}
-                className="collection-meta-avatar-link"
-                tabIndex={-1}
-                aria-hidden
-              >
-                <AccountAvatar
-                  accountId={view.creatorId}
-                  src={creatorAvatarUrl}
-                  fallbackInitial={creatorNameLine}
-                  size="sm"
-                  className="collection-meta-avatar"
-                />
-              </Link>
-              <div className="collection-meta-copy">
+              <div className="collectibles-play-creator collection-meta">
                 <Link
                   href={portfolioPath(view.creatorId)}
                   scroll={false}
-                  className="collection-meta-creator-name"
+                  className="collection-meta-avatar-link"
+                  tabIndex={-1}
+                  aria-hidden
                 >
-                  by {creatorNameLine}
+                  <AccountAvatar
+                    accountId={view.creatorId}
+                    src={creatorAvatarUrl}
+                    fallbackInitial={creatorNameLine}
+                    size="sm"
+                    className="collection-meta-avatar"
+                  />
                 </Link>
-                <div className="collection-meta-sub">
+                <div className="collection-meta-copy">
                   <Link
                     href={portfolioPath(view.creatorId)}
                     scroll={false}
-                    className="collection-meta-handle"
+                    className="collection-meta-creator-name"
                   >
-                    @{fallbackLabel(view.creatorId)}
+                    by {creatorNameLine}
                   </Link>
-                  {kindLabel ? (
-                    <>
-                      <span className="collection-meta-sep" aria-hidden>
-                        ·
-                      </span>
-                      <span className="collectibles-play-kind">{kindLabel}</span>
-                    </>
-                  ) : null}
-                  {releasedRel ? (
-                    <>
-                      <span className="collection-meta-sep" aria-hidden>
-                        ·
-                      </span>
-                      <span className="collection-meta-time">{releasedRel}</span>
-                    </>
-                  ) : null}
-                  <span className="collection-meta-sep" aria-hidden>
-                    ·
-                  </span>
-                  <button
-                    type="button"
-                    className="guild-hero-facts-button collectibles-play-facts"
-                    aria-label="Drop facts"
-                    onClick={() => {
-                      setNowMs(Date.now());
-                      setFactsOpen(true);
-                    }}
-                  >
-                    <InformationCircleIcon
-                      className="guild-hero-facts-icon"
-                      aria-hidden
-                    />
-                  </button>
+                  <div className="collection-meta-sub">
+                    <Link
+                      href={portfolioPath(view.creatorId)}
+                      scroll={false}
+                      className="collection-meta-handle"
+                    >
+                      @{fallbackLabel(view.creatorId)}
+                    </Link>
+                    {kindLabel ? (
+                      <>
+                        <span className="collection-meta-sep" aria-hidden>
+                          ·
+                        </span>
+                        <span className="collectibles-play-kind">
+                          {kindLabel}
+                        </span>
+                      </>
+                    ) : null}
+                    {releasedRel ? (
+                      <>
+                        <span className="collection-meta-sep" aria-hidden>
+                          ·
+                        </span>
+                        <time
+                          className="collection-meta-time"
+                          {...(view ? socialTimeProps(view.createdAtMs) : {})}
+                        >
+                          {releasedRel}
+                        </time>
+                      </>
+                    ) : null}
+                    <span className="collection-meta-sep" aria-hidden>
+                      ·
+                    </span>
+                    <button
+                      type="button"
+                      className="guild-hero-facts-button collectibles-play-facts"
+                      aria-label="Drop facts"
+                      onClick={() => {
+                        setNowMs(Date.now());
+                        setFactsOpen(true);
+                      }}
+                    >
+                      <InformationCircleIcon
+                        className="guild-hero-facts-icon"
+                        aria-hidden
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
             )}
 
             {showCreatorGestures ? (

@@ -8,6 +8,7 @@ import { DropsDiscoveryRowMenu } from '@/features/drops/drops-discovery-row-menu
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { collectionPath } from '@/lib/app-routes';
+import { socialTimeProps } from '@/lib/post-display';
 import { profileStoreDropToDiscoveryItem } from '@/lib/profile-store-drop-discovery';
 import { scarceRowFormatLabel } from '@/lib/scarce-row-kind';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
@@ -160,8 +161,13 @@ export function PortfolioDropRow({
       </div>
       <div className="market-listing-action-col drops-discovery-action-col">
         <div className="drops-discovery-head-trail">
-          {droppedLabel ? (
-            <span className="market-listing-meta-right">{droppedLabel}</span>
+          {droppedLabel && drop.createdAtMs != null ? (
+            <time
+              className="market-listing-meta-right"
+              {...socialTimeProps(drop.createdAtMs)}
+            >
+              {droppedLabel}
+            </time>
           ) : null}
           {onToggleSave ? (
             <DropsDiscoveryRowMenu
