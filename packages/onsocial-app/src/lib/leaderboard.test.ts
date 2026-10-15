@@ -6,6 +6,7 @@ import {
   formatReputationComponent,
   formatReputationScore,
   leaderboardHasMorePage,
+  formatLeaderboardAmount,
   leaderboardHeaderYouLine,
   leaderboardPagerProgress,
   leaderboardThumbBlend,
@@ -21,6 +22,21 @@ import {
 } from '@/lib/leaderboard';
 
 describe('leaderboard helpers', () => {
+  it('formats board amounts on one scale', () => {
+    expect(formatLeaderboardAmount(0)).toBe('0');
+    expect(formatLeaderboardAmount('12400000000000000000000000')).toBe('12.4M');
+    expect(formatLeaderboardAmount('980000000000000000000000')).toBe('980K');
+    expect(formatLeaderboardAmount('42500000000000000000000')).toBe('42.5K');
+    expect(formatLeaderboardAmount('9400000000000000000000')).toBe('9.4K');
+    expect(formatLeaderboardAmount('1240000000000000000000')).toBe('1.2K');
+    expect(formatLeaderboardAmount('220000000000000000000')).toBe('220');
+    expect(formatLeaderboardAmount('88500000000000000000')).toBe('88.5');
+    expect(formatLeaderboardAmount('12500000000000000000')).toBe('12.5');
+    expect(formatLeaderboardAmount('1250000000000000000')).toBe('1.25');
+    expect(formatLeaderboardAmount('400000000000000000')).toBe('0.4');
+    expect(formatLeaderboardAmount('80000000000000000')).toBe('0.08');
+  });
+
   it('formats reputation scores', () => {
     expect(formatReputationScore(0)).toBe('0');
     expect(formatReputationScore(12.4)).toBe('12.4');

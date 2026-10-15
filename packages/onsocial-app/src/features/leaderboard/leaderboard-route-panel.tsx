@@ -1,36 +1,33 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { LeaderboardSheet } from '@/features/leaderboard/leaderboard-sheet';
-import {
-  APP_HOME_PATH,
-  LEADERBOARD_TRACK_PARAM,
-  leaderboardPath,
-  parseLeaderboardTrackParam,
-} from '@/lib/app-routes';
+import { APP_HOME_PATH, leaderboardPath } from '@/lib/app-routes';
 import type { LeaderboardTrack } from '@/lib/leaderboard';
 
 /**
  * First-class `/leaderboard` destination — same appear page sheet as chart entries.
+ * Track lives here so a chip does not suspend the page (that remounted the sheet
+ * and snapped the pager after the next list loaded). The URL still updates.
  * Underlay registers the OS portal host; close leaves to Home.
  */
-export function LeaderboardRoutePanel() {
+export function LeaderboardRoutePanel({
+  initialTrack,
+}: {
+  initialTrack: LeaderboardTrack;
+}) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const track = parseLeaderboardTrackParam(
-    searchParams.get(LEADERBOARD_TRACK_PARAM)
-  ) as LeaderboardTrack;
   const [open, setOpen] = useState(true);
+  const [track, setTrack] = useState(initialTrack);
   const rowNavigateRef = useRef(false);
 
-  const handleTrackChange = useCallback(
-    (next: LeaderboardTrack) => {
-      router.replace(leaderboardPath({ track: next }), { scroll: false });
-    },
-    [router]
-  );
+  const handleTrackChange = useCallback((next: LeaderboardTrack) => {
+    setTrack(next);
+    const path = leaderboardPath({ track: next });
+    window.history.replaceState(null, '', path);
+  }, []);
 
   const handleRowNavigate = useCallback(() => {
     rowNavigateRef.current = true;

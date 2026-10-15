@@ -35,6 +35,7 @@ import {
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
+import { ListLoadError } from '@/components/panels/list-load-error';
 import { StandingListLoadMoreFooter } from '@/components/panels/standing-list-load-more-footer';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -59,11 +60,11 @@ import {
   fetchLeaderboardBoard,
   filterLeaderboardEarnerRows,
   findViewerEntry,
+  formatLeaderboardAmount,
   formatReputationScore,
   formatSocialCompact,
   isLeaderboardEarnerRanked,
   leaderboardRankLabel,
-  LEADERBOARD_FACTS_Z,
   LEADERBOARD_PAGE_SIZE,
   LEADERBOARD_TRACKS,
   LEADERBOARD_Z,
@@ -263,7 +264,7 @@ function InfluenceRows({
               rankLabel={entry.rankLabel}
               denseIndex={entry.denseIndex}
               rankTied={entry.tied}
-              primary={formatSocialCompact(entry.effectiveBoost)}
+              primary={formatLeaderboardAmount(entry.effectiveBoost)}
               pct={pctOfLeader(entry.effectiveBoost, leader)}
               track="influence"
               profile={profiles[entry.accountId]}
@@ -350,7 +351,7 @@ function EarnerRows({
               rankLabel={entry.rankLabel}
               denseIndex={entry.denseIndex}
               rankTied={entry.tied}
-              primary={formatSocialCompact(entry.totalEarned)}
+              primary={formatLeaderboardAmount(entry.totalEarned)}
               pct={pctOfLeader(entry.totalEarned, leader)}
               track="earners"
               profile={profiles[entry.accountId]}
@@ -419,7 +420,7 @@ function ViewerFooter({
           rankLabel={rankLabel}
           denseIndex={denseIndex}
           rankTied={rankTied}
-          primary={formatSocialCompact(row.effectiveBoost)}
+          primary={formatLeaderboardAmount(row.effectiveBoost)}
           pct={pctOfLeader(row.effectiveBoost, leaderValue)}
           track="influence"
           profile={profile}
@@ -459,7 +460,7 @@ function ViewerFooter({
         rankLabel={rankLabel}
         denseIndex={denseIndex}
         rankTied={rankTied}
-        primary={formatSocialCompact(row.totalEarned)}
+        primary={formatLeaderboardAmount(row.totalEarned)}
         pct={pctOfLeader(row.totalEarned, leaderValue)}
         track="earners"
         profile={profile}
@@ -577,11 +578,14 @@ function LeaderboardTrackPage({
   active,
   trackCache,
   pageError,
+  influenceHint,
+  pinned,
   viewerAccountId,
   isConnected,
   onNavigate,
   onOpenFacts,
   onAppend,
+  onRetry,
   onPinnedChange,
   onScrollTop,
   registerScroll,
@@ -591,11 +595,14 @@ function LeaderboardTrackPage({
   active: boolean;
   trackCache: LeaderboardTrackCache | null | undefined;
   pageError: string | null;
+  influenceHint: string | null;
+  pinned: boolean;
   viewerAccountId: string | null;
   isConnected: boolean;
   onNavigate?: () => void;
   onOpenFacts: (entry: ReputationEntry) => void;
   onAppend: (track: LeaderboardTrack, page: LeaderboardBoardResponse) => void;
+  onRetry: (track: LeaderboardTrack) => void;
   onPinnedChange: (track: LeaderboardTrack, pinned: boolean) => void;
   onScrollTop: (track: LeaderboardTrack, top: number) => void;
   registerScroll: (
@@ -727,11 +734,19 @@ function LeaderboardTrackPage({
       aria-hidden={!active}
       className="leaderboard-pager-page"
       data-track={track}
+      data-pinned={pinned ? 'true' : 'false'}
     >
-      <div ref={setScrollNode} className="leaderboard-pager-scroll">
+      <div
+        ref={setScrollNode}
+        className="leaderboard-pager-scroll"
+        suppressHydrationWarning
+      >
         <div className="leaderboard-sheet-page">
+          {influenceHint ? (
+            <p className="leaderboard-track-hint">{influenceHint}</p>
+          ) : null}
           {pageError ? (
-            <p className="leaderboard-sheet-empty">{pageError}</p>
+            <ListLoadError message={pageError} onRetry={() => onRetry(track)} />
           ) : showSkeleton ? (
             <ProfileSocialListSkeleton count={6} rowVariant="leaderboard" />
           ) : empty ? (
@@ -806,6 +821,7 @@ export function LeaderboardSheet({
   track: trackProp,
   onTrackChange,
   onRowNavigate,
+  zIndex = LEADERBOARD_Z,
 }: {
   open: boolean;
   onClose: () => void;
@@ -815,6 +831,8 @@ export function LeaderboardSheet({
   onTrackChange?: (track: LeaderboardTrack) => void;
   /** Fired when a row link is taken — parent should not also leave to Home. */
   onRowNavigate?: () => void;
+  /** Pre-lift sheet z. Nested facts and boost sit four above this. */
+  zIndex?: number;
 }) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const titleId = useId();
@@ -852,6 +870,8 @@ export function LeaderboardSheet({
 
   const committedTrackRef = useRef(track);
   const trackSourceRef = useRef<'open' | 'select' | 'pager' | 'idle'>('open');
+  /** Chip slide owns the pager until it lands, so mid-flight scroll does not snap back. */
+  const selectLockRef = useRef(false);
   const pagerRef = useRef<HTMLDivElement | null>(null);
   const trackRowRef = useRef<HTMLDivElement | null>(null);
   const thumbBindingRef = useRef<(() => void) | null>(null);
@@ -905,6 +925,7 @@ export function LeaderboardSheet({
   const [pageErrors, setPageErrors] = useState<
     Partial<Record<LeaderboardTrack, string>>
   >({});
+  const [retryNonce, setRetryNonce] = useState(0);
   if (cacheViewerKey !== viewerKey) {
     setCacheViewerKey(viewerKey);
     setCache({});
@@ -992,7 +1013,7 @@ export function LeaderboardSheet({
     const place = () => placeLeaderboardThumb(pager, trackRowRef.current);
     const observer = new ResizeObserver(() => {
       place();
-      if (trackSourceRef.current === 'pager') return;
+      if (trackSourceRef.current === 'pager' || selectLockRef.current) return;
       alignPager('auto');
     });
     // The page sheet portals in after this component's effects. Bind when the
@@ -1030,6 +1051,14 @@ export function LeaderboardSheet({
     const pager = pagerRef.current;
     if (!pager || pager.clientWidth <= 0) return;
     placeLeaderboardThumb(pager, trackRowRef.current);
+    if (selectLockRef.current) {
+      const target =
+        leaderboardTrackIndex(committedTrackRef.current) * pager.clientWidth;
+      if (Math.abs(pager.scrollLeft - target) < 2) {
+        selectLockRef.current = false;
+      }
+      return;
+    }
     const next = leaderboardTrackFromPager(pager.scrollLeft, pager.clientWidth);
     if (next === committedTrackRef.current) return;
     trackSourceRef.current = 'pager';
@@ -1041,10 +1070,38 @@ export function LeaderboardSheet({
       if (next === committedTrackRef.current) return;
       setFactsEntry(null);
       trackSourceRef.current = 'select';
+      selectLockRef.current = true;
       commitTrack(next);
+      const pager = pagerRef.current;
+      if (pager && pager.clientWidth > 0) {
+        const left = leaderboardTrackIndex(next) * pager.clientWidth;
+        pager.scrollTo({
+          left,
+          behavior: leaderboardPagerMotion(),
+        });
+        if (
+          leaderboardPagerMotion() === 'auto' ||
+          Math.abs(pager.scrollLeft - left) < 2
+        ) {
+          selectLockRef.current = false;
+        }
+      } else {
+        selectLockRef.current = false;
+      }
     },
     [commitTrack]
   );
+
+  const retryTrack = useCallback((scope: LeaderboardTrack) => {
+    delete failedTracksRef.current[scope];
+    setPageErrors((prev) => {
+      if (!prev[scope]) return prev;
+      const next = { ...prev };
+      delete next[scope];
+      return next;
+    });
+    setRetryNonce((nonce) => nonce + 1);
+  }, []);
 
   useEffect(() => {
     cacheRef.current = cache;
@@ -1075,6 +1132,12 @@ export function LeaderboardSheet({
           }));
           return;
         }
+        setPageErrors((prev) => {
+          if (!prev[scope]) return prev;
+          const next = { ...prev };
+          delete next[scope];
+          return next;
+        });
         setCache((prev) => {
           if (prev[scope]) return prev;
           return {
@@ -1087,7 +1150,7 @@ export function LeaderboardSheet({
     return () => {
       cancelled = true;
     };
-  }, [sheetOpen, isConnected, viewerAccountId]);
+  }, [sheetOpen, isConnected, viewerAccountId, retryNonce]);
 
   const appendPage = useCallback(
     (scope: LeaderboardTrack, page: LeaderboardBoardResponse) => {
@@ -1164,8 +1227,10 @@ export function LeaderboardSheet({
   const stickyViewer =
     activeModel.viewerOutside ??
     (pinVisible ? activeModel.viewerInListRow : null);
-  const trackHint =
-    track === 'influence' && !influenceHintSeen && leaderboardTrackHint(track);
+  const influenceHint = influenceHintSeen
+    ? null
+    : leaderboardTrackHint('influence');
+  const nestedZ = zIndex + 4;
   const showYouLine = Boolean(shareViewer && isConnected);
   const footerIds = useMemo(
     () => (stickyViewer ? [stickyViewer.accountId] : []),
@@ -1218,7 +1283,7 @@ export function LeaderboardSheet({
         onClosed={handleClosed}
         surface="page"
         presentation="appear"
-        zIndex={LEADERBOARD_Z}
+        zIndex={zIndex}
         ariaLabelledBy={titleId}
         backdropLabel="Close leaderboard"
         moodId={viewerMoodId ?? undefined}
@@ -1245,15 +1310,19 @@ export function LeaderboardSheet({
               <h1 id={titleId} className="os-app-screen-title">
                 Leaderboard
               </h1>
-              {headerYouLine ? (
+              {isConnected ? (
                 <p className="os-app-screen-subtitle leaderboard-sheet-subline">
-                  <button
-                    type="button"
-                    className="leaderboard-sheet-subline-you is-jump"
-                    onClick={scrollToViewer}
-                  >
-                    {headerYouLine}
-                  </button>
+                  {headerYouLine ? (
+                    <button
+                      type="button"
+                      className="leaderboard-sheet-subline-you is-jump"
+                      onClick={scrollToViewer}
+                    >
+                      {headerYouLine}
+                    </button>
+                  ) : (
+                    <span aria-hidden="true">&nbsp;</span>
+                  )}
                 </p>
               ) : null}
             </>
@@ -1327,9 +1396,6 @@ export function LeaderboardSheet({
                   ))}
                 </div>
               </div>
-              {trackHint ? (
-                <p className="leaderboard-track-hint">{trackHint}</p>
-              ) : null}
             </div>
           }
         >
@@ -1346,11 +1412,14 @@ export function LeaderboardSheet({
                   active={track === item.id}
                   trackCache={cache[item.id]}
                   pageError={pageErrors[item.id] ?? null}
+                  influenceHint={item.id === 'influence' ? influenceHint : null}
+                  pinned={track === item.id && stickyViewer != null}
                   viewerAccountId={viewerId}
                   isConnected={isConnected}
                   onNavigate={handleRowNavigate}
                   onOpenFacts={setFactsEntry}
                   onAppend={appendPage}
+                  onRetry={retryTrack}
                   onPinnedChange={onPinnedChange}
                   onScrollTop={onScrollTop}
                   registerScroll={registerScroll}
@@ -1367,7 +1436,7 @@ export function LeaderboardSheet({
         onClose={() => setFactsEntry(null)}
         accountId={factsEntry?.accountId ?? ''}
         reputation={factsEntry ? reputationEntryToProfile(factsEntry) : null}
-        zIndex={LEADERBOARD_FACTS_Z}
+        zIndex={nestedZ}
         showProfileLink
       />
 
@@ -1377,7 +1446,7 @@ export function LeaderboardSheet({
           accountId={boostAccountId}
           position={boost}
           onOpenChange={setBoostOpen}
-          zIndex={LEADERBOARD_FACTS_Z}
+          zIndex={nestedZ}
         />
       ) : null}
     </>

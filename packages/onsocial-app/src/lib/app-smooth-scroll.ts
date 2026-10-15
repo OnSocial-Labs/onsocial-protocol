@@ -18,6 +18,7 @@ export const APP_SMOOTH_SCROLL_ROOT_SELECTOR = [
   '.gate-scroll',
   '.glass-sheet-body',
   '.os-app-chrome-scroller',
+  '.leaderboard-pager-scroll',
 ].join(', ');
 
 /**
@@ -67,8 +68,10 @@ export function isAppSmoothScrollLocked(dataset: {
 }
 
 /**
- * Leaderboard pages scroll inside the sheet. Lenis on the sheet body or the
- * screen body would take the wheel and the sideways pager would not move.
+ * Leaderboard pages scroll inside `.leaderboard-pager-scroll` (in the
+ * selector above). Lenis on the sheet body or the screen body would take
+ * the wheel and the sideways pager would not move. Vertical gesture
+ * orientation leaves a sideways wheel on the pager.
  */
 /** Hidden shells must not take the wheel from the list inside them. */
 export function shouldBindAppSmoothScrollRoot(

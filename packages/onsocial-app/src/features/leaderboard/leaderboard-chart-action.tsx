@@ -9,6 +9,7 @@ import {
 } from '@onsocial/ui';
 import { LeaderboardSheet } from '@/features/leaderboard/leaderboard-sheet';
 import { leaderboardPath, type LeaderboardTrackParam } from '@/lib/app-routes';
+import { LEADERBOARD_Z } from '@/lib/leaderboard';
 
 function isModifiedClick(event: MouseEvent): boolean {
   return (
@@ -24,9 +25,12 @@ function isModifiedClick(event: MouseEvent): boolean {
 export function LeaderboardChartAction({
   track = 'reputation',
   ariaLabel = 'Open leaderboard',
+  zIndex = LEADERBOARD_Z,
 }: {
   track?: LeaderboardTrackParam;
   ariaLabel?: string;
+  /** Pre-lift parent z. The board opens at least at the board band. */
+  zIndex?: number;
 }) {
   const [open, setOpen] = useState(false);
   const href = leaderboardPath({ track });
@@ -51,6 +55,7 @@ export function LeaderboardChartAction({
         open={open}
         onClose={() => setOpen(false)}
         initialTrack={track}
+        zIndex={Math.max(LEADERBOARD_Z, zIndex)}
       />
     </>
   );

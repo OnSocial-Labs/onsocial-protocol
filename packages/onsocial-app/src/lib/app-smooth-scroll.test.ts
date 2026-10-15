@@ -32,6 +32,9 @@ describe('app smooth scroll', () => {
     expect(APP_SMOOTH_SCROLL_ROOT_SELECTOR).toContain(
       '.os-app-chrome-scroller'
     );
+    expect(APP_SMOOTH_SCROLL_ROOT_SELECTOR).toContain(
+      '.leaderboard-pager-scroll'
+    );
   });
 
   it('keeps Lenis off shells that do not scroll', () => {

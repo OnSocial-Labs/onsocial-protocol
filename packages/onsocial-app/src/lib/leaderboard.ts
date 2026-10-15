@@ -1,4 +1,8 @@
-import { formatSocialCompact } from '@/lib/format-social-balance';
+import {
+  formatSocialCompact,
+  yoctoToSocial,
+  type SocialYocto,
+} from '@/lib/format-social-balance';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
   LEADERBOARD_PAGE_SIZE,
@@ -54,6 +58,26 @@ export {
   reputationTierLabel,
   formatSocialCompact,
 };
+
+function trimLeaderboardZeros(value: string): string {
+  return value.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+}
+
+/**
+ * One grammar for a board column. Wallet balances stay on
+ * {@link formatSocialCompact} (`220.00`, `1,240`).
+ */
+export function formatLeaderboardAmount(yocto: SocialYocto): string {
+  const raw = Number.parseFloat(yoctoToSocial(yocto));
+  if (!Number.isFinite(raw) || raw === 0) return '0';
+  if (raw >= 1_000_000) {
+    return `${trimLeaderboardZeros((raw / 1_000_000).toFixed(1))}M`;
+  }
+  if (raw >= 1_000) {
+    return `${trimLeaderboardZeros((raw / 1_000).toFixed(1))}K`;
+  }
+  return trimLeaderboardZeros(raw.toFixed(2));
+}
 
 /**
  * Last offset the board API will serve. Pages are 20, so this is the top

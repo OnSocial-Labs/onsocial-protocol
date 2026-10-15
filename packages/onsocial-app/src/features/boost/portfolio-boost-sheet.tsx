@@ -965,6 +965,7 @@ export function PortfolioBoostSheet({
             <LeaderboardChartAction
               track="influence"
               ariaLabel="Open influence leaderboard"
+              zIndex={zIndex + 2}
             />
           }
           onClose={requestClose}
