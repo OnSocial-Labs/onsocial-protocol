@@ -424,8 +424,6 @@ fn assert_event_ended(err: MarketplaceError) {
     }
 }
 
-/// Postpone is open until the end in force, including a later date set by
-/// an earlier postpone. At that instant the write is refused.
 #[test]
 fn postpone_stops_when_the_end_in_force_is_reached() {
     let mut contract = new_contract();

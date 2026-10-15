@@ -120,11 +120,6 @@ impl Contract {
         Ok(())
     }
 
-    /// Postpone the mint template's `expires_at` (and `extra.eventEndsAt`
-    /// when present) while the end already in force is still ahead.
-    /// Renewable collections only — same gate as `renew_token`.
-    /// The end in force is the collection door: once `now` reaches it,
-    /// the write is refused and sold seats stay closed.
     pub(crate) fn update_collection_template_expiry(
         &mut self,
         actor_id: &AccountId,
