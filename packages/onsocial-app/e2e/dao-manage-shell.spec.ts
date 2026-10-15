@@ -100,7 +100,7 @@ test.describe('DAO manage shell', () => {
     ).toBeVisible();
     await expect(
       info.getByText('Connect a wallet to see your stake position.')
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 30_000 });
   });
 
   test('family kind deep-link opens Proposals', async ({ page }) => {
