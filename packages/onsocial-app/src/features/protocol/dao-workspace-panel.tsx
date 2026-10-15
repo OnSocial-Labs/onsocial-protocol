@@ -1469,6 +1469,7 @@ export function DaoWorkspacePanel({
     () => ({
       scrollRootRef,
       loadState,
+      contentReady: drawerContentReady,
       searchDraft,
       setSearchDraft,
       searchQuery,
@@ -1483,6 +1484,7 @@ export function DaoWorkspacePanel({
     }),
     [
       loadState,
+      drawerContentReady,
       searchDraft,
       searchQuery,
       commitSearch,

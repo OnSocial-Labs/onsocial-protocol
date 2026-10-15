@@ -20,6 +20,8 @@ import type { ProtocolFeedStatusFilter } from '@/lib/app-routes';
 export type DaoWorkspaceChromeContextValue = {
   scrollRootRef: RefObject<HTMLElement | null>;
   loadState: 'loading' | 'ready' | 'error';
+  /** False while DAO config or policy is still loading. Search stays visible. */
+  contentReady: boolean;
   searchDraft: string;
   setSearchDraft: (value: string) => void;
   searchQuery: string;
@@ -63,7 +65,7 @@ function useDaoWorkspaceChrome(): DaoWorkspaceChromeContextValue {
 /** Compact nav search — same OsAppChromeNavSearch recipe as Market / Messages. */
 export function DaoWorkspaceHeaderSearch() {
   const {
-    loadState,
+    contentReady,
     searchDraft,
     setSearchDraft,
     commitSearch,
@@ -74,11 +76,13 @@ export function DaoWorkspaceHeaderSearch() {
     return null;
   }
 
-  const interactive = loadState === 'ready';
+  const interactive = contentReady;
 
   return (
     <div
       className="dao-proposals-header-search-wrap"
+      inert={interactive ? undefined : true}
+      aria-disabled={interactive ? undefined : true}
       onKeyDown={(event) => {
         if (!interactive) return;
         if (event.key === 'Enter') {
