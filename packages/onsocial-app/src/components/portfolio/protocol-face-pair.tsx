@@ -17,6 +17,7 @@ import type { ProtocolFaceDaoKind } from '@/lib/portfolio-dao-entity';
 import {
   protocolFacePairIndex,
   protocolFacePairKindFromPager,
+  protocolFacePairLayoutTop,
   protocolFacePairProgress,
   protocolFacePairThumbBox,
 } from '@/lib/protocol-face-pair';
@@ -77,13 +78,14 @@ function placeProtocolFaceChrome(pair: HTMLElement, pager: HTMLElement): void {
   }
 
   const pages = [...pair.querySelectorAll<HTMLElement>('.protocol-face-page')];
-  const pairRect = pair.getBoundingClientRect();
   const tops = pages.map((page) => {
     const spacer = page.querySelector<HTMLElement>(
       '.portfolio-entity-kind-switch'
     );
-    if (!spacer) return null;
-    return spacer.getBoundingClientRect().top - pairRect.top;
+    if (!spacer || spacer.offsetWidth <= 0 || spacer.offsetHeight <= 0) {
+      return null;
+    }
+    return protocolFacePairLayoutTop(spacer, pair);
   });
   const from = tops[0];
   const to = tops[1];
@@ -157,7 +159,13 @@ export function ProtocolFacePair({
     if (!pager || pager.clientWidth <= 0) return;
     const left = protocolFacePairIndex(settledRef.current) * pager.clientWidth;
     if (Math.abs(pager.scrollLeft - left) < 2) return;
+    // Ignore scroll-driven kind changes until this align lands. A no-op
+    // above leaves swipes free to publish.
+    selectingRef.current = true;
     pager.scrollTo({ left, behavior });
+    if (Math.abs(pager.scrollLeft - left) < 2) {
+      selectingRef.current = false;
+    }
   }, []);
 
   const publishSettled = useCallback((next: ProtocolFaceDaoKind) => {
