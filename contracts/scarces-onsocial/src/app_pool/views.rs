@@ -56,13 +56,11 @@ impl Contract {
             if let Some(uri) = Self::extract_base_uri(collection.metadata.as_deref()) {
                 return Some(uri);
             }
-            if let Some(ref app_id) = collection.app_id {
-                if let Some(pool) = self.app_pools.get(app_id) {
-                    if let Some(uri) = Self::extract_base_uri(pool.metadata.as_deref()) {
+            if let Some(ref app_id) = collection.app_id
+                && let Some(pool) = self.app_pools.get(app_id)
+                    && let Some(uri) = Self::extract_base_uri(pool.metadata.as_deref()) {
                         return Some(uri);
                     }
-                }
-            }
         }
         self.contract_metadata.base_uri.clone()
     }

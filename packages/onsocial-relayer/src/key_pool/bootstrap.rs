@@ -37,6 +37,13 @@ pub async fn bootstrap_pool_from_chain(
                         "Ignoring non-FullAccess access key in delegate key store"
                     );
                 }
+                AccessKeyPermissionView::GasKeyFunctionCall { .. }
+                | AccessKeyPermissionView::GasKeyFullAccess { .. } => {
+                    warn!(
+                        key = %public_key,
+                        "Ignoring gas-key access key in delegate key store"
+                    );
+                }
             },
             Err(e) => {
                 warn!(key = %public_key, error = %e, "Stored key not found on chain, skipping");

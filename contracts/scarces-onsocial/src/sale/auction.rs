@@ -61,20 +61,18 @@ impl Contract {
                 "Auction needs either expires_at or auction_duration_ns".into(),
             ));
         }
-        if let Some(exp) = expires_at {
-            if exp <= env::block_timestamp() {
+        if let Some(exp) = expires_at
+            && exp <= env::block_timestamp() {
                 return Err(MarketplaceError::InvalidInput(
                     "expires_at must be in the future".into(),
                 ));
             }
-        }
-        if let Some(bnp) = buy_now_price {
-            if bnp <= reserve_price {
+        if let Some(bnp) = buy_now_price
+            && bnp <= reserve_price {
                 return Err(MarketplaceError::InvalidInput(
                     "buy_now_price must exceed reserve_price".into(),
                 ));
             }
-        }
 
         let auction = AuctionState {
             reserve_price: U128(reserve_price),
@@ -240,12 +238,11 @@ impl Contract {
             );
             self.refund_remaining_token_offers(token_id);
         } else {
-            if let Some(bidder) = winner {
-                if winning_bid > 0 {
+            if let Some(bidder) = winner
+                && winning_bid > 0 {
                     let _ = Promise::new(bidder.clone())
                         .transfer(NearToken::from_yoctonear(winning_bid));
                 }
-            }
             events::emit_auction_cancelled(&seller_id, token_id, "reserve_not_met");
         }
         Ok(())
@@ -338,11 +335,10 @@ impl Contract {
 
         let prev_bidder = auction.highest_bidder.clone();
         let prev_bid = auction.highest_bid.0;
-        if let Some(ref prev) = prev_bidder {
-            if prev_bid > 0 {
+        if let Some(ref prev) = prev_bidder
+            && prev_bid > 0 {
                 let _ = Promise::new(prev.clone()).transfer(NearToken::from_yoctonear(prev_bid));
             }
-        }
 
         auction.highest_bid = U128(bid);
         auction.highest_bidder = Some(bidder.clone());
@@ -363,11 +359,10 @@ impl Contract {
 
         events::emit_auction_bid(bidder, &token_id, bid, auction.bid_count, new_expires_at);
 
-        if let Some(bnp) = auction.buy_now_price {
-            if bid >= bnp.0 {
+        if let Some(bnp) = auction.buy_now_price
+            && bid >= bnp.0 {
                 self.settle_auction_buynow(bidder, &token_id)?;
             }
-        }
         Ok(())
     }
 }

@@ -65,8 +65,8 @@ impl GroupGovernance {
             ));
         }
 
-        if !is_owner {
-            if let Some(ref member_info) = member_info {
+        if !is_owner
+            && let Some(ref member_info) = member_info {
                 let joined_at = member_info
                     .get("joined_at")
                     .and_then(|v| v.as_str())
@@ -79,7 +79,6 @@ impl GroupGovernance {
                     ));
                 }
             }
-        }
 
         let status =
             ProposalStatus::from_json_status(proposal_data.get("status").and_then(|v| v.as_str()))?;

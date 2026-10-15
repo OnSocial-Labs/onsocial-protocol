@@ -175,33 +175,30 @@ impl ProposalType {
                     ));
                 }
 
-                if let Some(quorum_bps) = participation_quorum_bps {
-                    if *quorum_bps < crate::constants::MIN_VOTING_PARTICIPATION_QUORUM_BPS
-                        || *quorum_bps > BPS_DENOMINATOR
+                if let Some(quorum_bps) = participation_quorum_bps
+                    && (*quorum_bps < crate::constants::MIN_VOTING_PARTICIPATION_QUORUM_BPS
+                        || *quorum_bps > BPS_DENOMINATOR)
                     {
                         return Err(invalid_input!(
                             "Participation quorum bps must be between 100 and 10000"
                         ));
                     }
-                }
 
-                if let Some(threshold_bps) = majority_threshold_bps {
-                    if *threshold_bps < crate::constants::MIN_VOTING_MAJORITY_THRESHOLD_BPS
-                        || *threshold_bps > BPS_DENOMINATOR
+                if let Some(threshold_bps) = majority_threshold_bps
+                    && (*threshold_bps < crate::constants::MIN_VOTING_MAJORITY_THRESHOLD_BPS
+                        || *threshold_bps > BPS_DENOMINATOR)
                     {
                         return Err(invalid_input!(
                             "Majority threshold bps must be between 5001 and 10000"
                         ));
                     }
-                }
 
-                if let Some(period) = voting_period {
-                    if !(MIN_VOTING_PERIOD..=MAX_VOTING_PERIOD).contains(period) {
+                if let Some(period) = voting_period
+                    && !(MIN_VOTING_PERIOD..=MAX_VOTING_PERIOD).contains(period) {
                         return Err(invalid_input!(
                             "Voting period must be between 1 hour and 365 days"
                         ));
                     }
-                }
             }
             Self::CustomProposal {
                 title, description, ..

@@ -82,22 +82,19 @@ impl SocialPlatform {
             let mut quota = self.group_sponsor_quotas.get(&quota_key).cloned();
 
             // Lazy-sync non-override quota to latest group default.
-            if let Some(q) = quota.as_mut() {
-                if !q.is_override {
-                    if let Some(default_policy) = self.group_sponsor_defaults.get(&group_id) {
-                        if q.applied_default_version != default_policy.version {
+            if let Some(q) = quota.as_mut()
+                && !q.is_override
+                    && let Some(default_policy) = self.group_sponsor_defaults.get(&group_id)
+                        && q.applied_default_version != default_policy.version {
                             q.enabled = default_policy.enabled;
                             q.daily_refill_bytes = default_policy.daily_refill_bytes;
                             q.allowance_max_bytes = default_policy.allowance_max_bytes;
                             q.applied_default_version = default_policy.version;
                         }
-                    }
-                }
-            }
 
-            if quota.is_none() {
-                if let Some(default_policy) = self.group_sponsor_defaults.get(&group_id) {
-                    if default_policy.enabled {
+            if quota.is_none()
+                && let Some(default_policy) = self.group_sponsor_defaults.get(&group_id)
+                    && default_policy.enabled {
                         quota = Some(crate::state::models::GroupSponsorAccount {
                             is_override: false,
                             applied_default_version: default_policy.version,
@@ -108,8 +105,6 @@ impl SocialPlatform {
                             last_refill_ns: near_sdk::env::block_timestamp(),
                         });
                     }
-                }
-            }
             if let Some(q) = quota.as_mut() {
                 let now = near_sdk::env::block_timestamp();
                 q.refill(now);
@@ -154,17 +149,14 @@ impl SocialPlatform {
         }
 
         // Priority 3: Personal sponsor allocation
-        if let Some(shared) = storage.shared_storage.as_mut() {
-            if shared.is_valid_for_path(full_path) && shared.can_use_additional_bytes(bytes) {
-                if let Some(pool) = self.shared_storage_pools.get(&shared.pool_id).cloned() {
-                    if pool.can_allocate_additional(bytes) {
+        if let Some(shared) = storage.shared_storage.as_mut()
+            && shared.is_valid_for_path(full_path) && shared.can_use_additional_bytes(bytes)
+                && let Some(pool) = self.shared_storage_pools.get(&shared.pool_id).cloned()
+                    && pool.can_allocate_additional(bytes) {
                         shared.used_bytes = shared.used_bytes.saturating_add(bytes);
                         self.add_pool_usage(&shared.pool_id.clone(), bytes);
                         return None;
                     }
-                }
-            }
-        }
 
         // Priority 4: Personal balance
         None
@@ -191,8 +183,8 @@ impl SocialPlatform {
         }
 
         // Refund group pool, bounded by payer usage.
-        if remaining > 0 {
-            if let Some(group_id) = SharedStoragePool::extract_group_id_from_path(full_path) {
+        if remaining > 0
+            && let Some(group_id) = SharedStoragePool::extract_group_id_from_path(full_path) {
                 let k = Self::group_usage_key(payer, &group_id);
                 let used = self.group_pool_usage.get(&k).copied().unwrap_or(0);
                 if used > 0 {
@@ -205,34 +197,30 @@ impl SocialPlatform {
                     }
                 }
             }
-        }
 
         // Refund sponsor pool, bounded by sponsor usage.
-        if remaining > 0 {
-            if let Some(shared) = storage.shared_storage.as_mut() {
-                if shared.used_bytes > 0 {
+        if remaining > 0
+            && let Some(shared) = storage.shared_storage.as_mut()
+                && shared.used_bytes > 0 {
                     let refund = remaining.min(shared.used_bytes);
                     if refund > 0 {
                         shared.used_bytes = shared.used_bytes.saturating_sub(refund);
                         self.subtract_pool_usage(&shared.pool_id.clone(), refund);
                     }
                 }
-            }
-        }
 
         // Remaining bytes paid by personal balance require no pool accounting.
     }
 
     fn try_allocate_from_platform_pool(&mut self, bytes: u64) -> bool {
         let platform_account = Self::platform_pool_account();
-        if let Some(pool) = self.shared_storage_pools.get(&platform_account) {
-            if pool.can_allocate_additional(bytes) {
+        if let Some(pool) = self.shared_storage_pools.get(&platform_account)
+            && pool.can_allocate_additional(bytes) {
                 let mut updated = pool.clone();
                 updated.used_bytes = updated.used_bytes.saturating_add(bytes);
                 self.shared_storage_pools.insert(platform_account, updated);
                 return true;
             }
-        }
         false
     }
 
@@ -251,14 +239,13 @@ impl SocialPlatform {
         let Ok(pool_key) = SharedStoragePool::group_pool_key(group_id) else {
             return false;
         };
-        if let Some(pool) = self.shared_storage_pools.get(&pool_key) {
-            if pool.can_allocate_additional(bytes) {
+        if let Some(pool) = self.shared_storage_pools.get(&pool_key)
+            && pool.can_allocate_additional(bytes) {
                 let mut updated = pool.clone();
                 updated.used_bytes = updated.used_bytes.saturating_add(bytes);
                 self.shared_storage_pools.insert(pool_key, updated);
                 return true;
             }
-        }
         false
     }
 

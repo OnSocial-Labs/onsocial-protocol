@@ -655,13 +655,12 @@ impl SocialSpendContract {
             return Err(SocialSpendError::InvalidInput("Message too large".into()));
         }
 
-        if let Ok(fund) = serde_json::from_str::<FundSeasonPoolMsg>(&msg) {
-            if fund.v == 1 && fund.action == "fund_season_pool" {
+        if let Ok(fund) = serde_json::from_str::<FundSeasonPoolMsg>(&msg)
+            && fund.v == 1 && fund.action == "fund_season_pool" {
                 self.assert_season_pool_funder(&sender_id)?;
                 self.fund_season_pool(&fund.season_id, amount.0, "wallet", &sender_id)?;
                 return Ok(U128(0));
             }
-        }
 
         let input: SpendMsg = serde_json::from_str(&msg)
             .map_err(|_| SocialSpendError::InvalidInput("Invalid JSON".into()))?;
@@ -716,13 +715,12 @@ impl SocialSpendContract {
                 total_amount.0
             )));
         }
-        if let Some(existing) = self.season_settlements.get(&season_id) {
-            if existing.claimed_amount > 0 {
+        if let Some(existing) = self.season_settlements.get(&season_id)
+            && existing.claimed_amount > 0 {
                 return Err(SocialSpendError::InvalidInput(
                     "Cannot replace settlement after claims".into(),
                 ));
             }
-        }
 
         let settlement = SeasonSettlement {
             root: root.0.clone(),
@@ -1342,13 +1340,12 @@ impl SocialSpendContract {
                 "starts_at_ns must be before ends_at_ns".into(),
             ));
         }
-        if let Some(claim_starts_at_ns) = config.claim_starts_at_ns {
-            if claim_starts_at_ns < config.ends_at_ns {
+        if let Some(claim_starts_at_ns) = config.claim_starts_at_ns
+            && claim_starts_at_ns < config.ends_at_ns {
                 return Err(SocialSpendError::InvalidInput(
                     "claim_starts_at_ns must be at or after ends_at_ns".into(),
                 ));
             }
-        }
         Ok(())
     }
 

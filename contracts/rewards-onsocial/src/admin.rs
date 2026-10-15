@@ -345,19 +345,19 @@ impl RewardsContract {
             ));
         }
 
-        if let Some(ref callers) = update.authorized_callers {
-            if callers.is_empty() {
-                return Err(RewardsError::InvalidInput(
-                    "authorized_callers cannot be empty".into(),
-                ));
-            }
+        if let Some(ref callers) = update.authorized_callers
+            && callers.is_empty()
+        {
+            return Err(RewardsError::InvalidInput(
+                "authorized_callers cannot be empty".into(),
+            ));
         }
-        if let Some(budget) = update.total_budget {
-            if budget.0 == 0 {
-                return Err(RewardsError::InvalidInput(
-                    "total_budget must be > 0 (every app needs a lifetime cap)".into(),
-                ));
-            }
+        if let Some(budget) = update.total_budget
+            && budget.0 == 0
+        {
+            return Err(RewardsError::InvalidInput(
+                "total_budget must be > 0 (every app needs a lifetime cap)".into(),
+            ));
         }
         Ok(())
     }

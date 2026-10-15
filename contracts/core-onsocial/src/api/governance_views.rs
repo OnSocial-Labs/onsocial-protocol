@@ -77,14 +77,13 @@ impl Contract {
         let mut seq = start;
         while seq > 0 && results.len() < limit as usize {
             let index_path = format!("groups/{}/proposal_index/{}", group_id, seq);
-            if let Some(proposal_id_val) = self.platform.storage_get(&index_path) {
-                if let Some(proposal_id) = proposal_id_val.as_str() {
+            if let Some(proposal_id_val) = self.platform.storage_get(&index_path)
+                && let Some(proposal_id) = proposal_id_val.as_str() {
                     let proposal_path = format!("groups/{}/proposals/{}", group_id, proposal_id);
                     if let Some(proposal) = self.platform.storage_get(&proposal_path) {
                         results.push(proposal);
                     }
                 }
-            }
             seq -= 1;
         }
         results

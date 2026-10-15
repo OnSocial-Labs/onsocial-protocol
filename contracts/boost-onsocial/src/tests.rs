@@ -1193,11 +1193,7 @@ fn test_claimable_rewards_single_participant() {
     assert!(claimable > 0, "Should have claimable rewards");
 
     // Should be approximately equal to released amount
-    let diff = if claimable > expected_release {
-        claimable - expected_release
-    } else {
-        expected_release - claimable
-    };
+    let diff = claimable.abs_diff(expected_release);
     assert!(
         diff < ONE_SOCIAL / 100,
         "Claimable should be close to released"
@@ -1228,11 +1224,10 @@ fn test_claimable_rewards_two_participants_equal() {
     let bob = contract.get_account("bob.near".parse().unwrap());
 
     // Should be equal (within rounding)
-    let diff = if alice.claimable_rewards.0 > bob.claimable_rewards.0 {
-        alice.claimable_rewards.0 - bob.claimable_rewards.0
-    } else {
-        bob.claimable_rewards.0 - alice.claimable_rewards.0
-    };
+    let diff = alice
+        .claimable_rewards
+        .0
+        .abs_diff(bob.claimable_rewards.0);
 
     assert!(
         diff < ONE_SOCIAL / 1000,
@@ -1786,11 +1781,10 @@ fn test_multiple_equal_participants() {
     let user0 = contract.get_account("user0.near".parse().unwrap());
     let user4 = contract.get_account("user4.near".parse().unwrap());
 
-    let diff = if user0.claimable_rewards.0 > user4.claimable_rewards.0 {
-        user0.claimable_rewards.0 - user4.claimable_rewards.0
-    } else {
-        user4.claimable_rewards.0 - user0.claimable_rewards.0
-    };
+    let diff = user0
+        .claimable_rewards
+        .0
+        .abs_diff(user4.claimable_rewards.0);
 
     assert!(
         diff < ONE_SOCIAL / 1000,
@@ -3119,11 +3113,7 @@ fn test_claim_rewards_basic() {
 
     // Approximately 0.2% of 1000 = 2 SOCIAL
     let expected = 1000 * ONE_SOCIAL * TEST_FIXED_WEEKLY_RATE_BPS / 10_000;
-    let diff = if claimable > expected {
-        claimable - expected
-    } else {
-        expected - claimable
-    };
+    let diff = claimable.abs_diff(expected);
     assert!(
         diff < ONE_SOCIAL / 10,
         "Should be approximately 2 SOCIAL (within 0.1)"
@@ -3666,11 +3656,7 @@ fn test_concurrent_participants_join_leave_same_block() {
     let total_claimable =
         alice.claimable_rewards.0 + bob.claimable_rewards.0 + carol.claimable_rewards.0;
     let total_released = contract.total_rewards_released;
-    let diff = if total_claimable > total_released {
-        total_claimable - total_released
-    } else {
-        total_released - total_claimable
-    };
+    let diff = total_claimable.abs_diff(total_released);
     assert!(diff < ONE_SOCIAL / 100, "Rounding should be minimal");
 }
 
@@ -4126,11 +4112,9 @@ fn test_continuous_release_multiple_pokes() {
     contract2.poke();
 
     // Should be very close (within rounding)
-    let diff = if contract.total_rewards_released > contract2.total_rewards_released {
-        contract.total_rewards_released - contract2.total_rewards_released
-    } else {
-        contract2.total_rewards_released - contract.total_rewards_released
-    };
+    let diff = contract
+        .total_rewards_released
+        .abs_diff(contract2.total_rewards_released);
     assert!(
         diff < ONE_SOCIAL / 1000, // Within 0.001 SOCIAL
         "Multiple pokes should equal single poke: {} vs {}",

@@ -11,11 +11,12 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
-use near_gas::NearGas;
+use near_primitives::gas::Gas;
 use near_primitives::hash::CryptoHash;
 use near_primitives::transaction::{Action, FunctionCallAction, TransferAction};
 use near_primitives::types::AccountId;
 use near_primitives::views::FinalExecutionStatus;
+use near_token::NearToken;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::atomic::Ordering;
@@ -45,7 +46,7 @@ fn validate_delegate_inner_action(
         return Err(format!("Inner method not allowed: {}", fc.method_name));
     }
 
-    if fc.deposit > MAX_DELEGATE_INNER_DEPOSIT_YOCTO {
+    if fc.deposit.as_yoctonear() > MAX_DELEGATE_INNER_DEPOSIT_YOCTO {
         return Err(format!(
             "Inner action deposit exceeds max {MAX_DELEGATE_INNER_DEPOSIT_YOCTO} yoctoNEAR"
         ));
@@ -589,7 +590,7 @@ pub async fn execute_transfer(
     );
 
     let actions = vec![Action::Transfer(TransferAction {
-        deposit: amount_yocto,
+        deposit: NearToken::from_yoctonear(amount_yocto),
     })];
 
     let submitted = match state
@@ -755,8 +756,8 @@ fn build_rewards_execute_actions(action: &RewardsServiceAction, gas_tgas: u64) -
     vec![Action::FunctionCall(Box::new(FunctionCallAction {
         method_name: "execute".to_string(),
         args,
-        gas: NearGas::from_tgas(gas_tgas).as_gas(),
-        deposit: 0,
+        gas: Gas::from_teragas(gas_tgas),
+        deposit: NearToken::from_yoctonear(0),
     }))]
 }
 
@@ -807,8 +808,8 @@ fn build_social_spend_settlement_actions(
     vec![Action::FunctionCall(Box::new(FunctionCallAction {
         method_name: "publish_season_root".to_string(),
         args,
-        gas: NearGas::from_tgas(gas_tgas).as_gas(),
-        deposit: 1,
+        gas: Gas::from_teragas(gas_tgas),
+        deposit: NearToken::from_yoctonear(1),
     }))]
 }
 
@@ -954,7 +955,7 @@ mod tests {
         };
 
         assert_eq!(fc.method_name, "execute");
-        assert_eq!(fc.deposit, 0);
+        assert_eq!(fc.deposit, NearToken::from_yoctonear(0));
         let args: Value = serde_json::from_slice(&fc.args).unwrap();
         assert_eq!(args["request"]["action"]["type"], "claim");
         assert_eq!(args["request"]["action"]["account_id"], "alice.testnet");
@@ -991,7 +992,7 @@ mod tests {
         };
 
         assert_eq!(fc.method_name, "publish_season_root");
-        assert_eq!(fc.deposit, 1);
+        assert_eq!(fc.deposit, NearToken::from_yoctonear(1));
         let args: Value = serde_json::from_slice(&fc.args).unwrap();
         assert_eq!(args["season_id"], "season0");
         assert_eq!(args["root"], "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
@@ -1004,8 +1005,8 @@ mod tests {
         let action = Action::FunctionCall(Box::new(FunctionCallAction {
             method_name: "execute".to_string(),
             args: vec![],
-            gas: 100_000_000_000_000,
-            deposit: 1,
+            gas: Gas::from_gas(100_000_000_000_000),
+            deposit: NearToken::from_yoctonear(1),
         }));
 
         assert!(validate_delegate_inner_action(&action, &["execute".to_string()]).is_ok());
@@ -1016,8 +1017,8 @@ mod tests {
         let action = Action::FunctionCall(Box::new(FunctionCallAction {
             method_name: "execute".to_string(),
             args: vec![],
-            gas: 100_000_000_000_000,
-            deposit: 2,
+            gas: Gas::from_gas(100_000_000_000_000),
+            deposit: NearToken::from_yoctonear(2),
         }));
 
         assert_eq!(
@@ -1031,8 +1032,8 @@ mod tests {
         let action = Action::FunctionCall(Box::new(FunctionCallAction {
             method_name: "danger".to_string(),
             args: vec![],
-            gas: 100_000_000_000_000,
-            deposit: 0,
+            gas: Gas::from_gas(100_000_000_000_000),
+            deposit: NearToken::from_yoctonear(0),
         }));
 
         assert_eq!(

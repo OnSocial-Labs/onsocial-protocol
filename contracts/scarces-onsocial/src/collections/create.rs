@@ -70,34 +70,31 @@ impl Contract {
             .map_err(|_| MarketplaceError::InvalidInput("Invalid metadata template JSON".into()))?;
         crate::validation::validate_token_metadata(&parsed_template)?;
 
-        if let (Some(start), Some(end)) = (start_time, end_time) {
-            if end <= start {
+        if let (Some(start), Some(end)) = (start_time, end_time)
+            && end <= start {
                 return Err(MarketplaceError::InvalidInput(
                     "End time must be after start time".into(),
                 ));
             }
-        }
 
         let merged_royalty = self.merge_royalties(app_id.as_deref(), royalty)?;
-        if let Some(ref r) = merged_royalty {
-            if r.is_empty() {
+        if let Some(ref r) = merged_royalty
+            && r.is_empty() {
                 return Err(MarketplaceError::InvalidInput(
                     "Royalty map cannot be empty if provided".into(),
                 ));
             }
-        }
 
         if let Some(ref m) = metadata {
             crate::validation::validate_metadata_json(m)?;
         }
 
-        if let Some(max) = max_per_wallet {
-            if max == 0 {
+        if let Some(max) = max_per_wallet
+            && max == 0 {
                 return Err(MarketplaceError::InvalidInput(
                     "max_per_wallet must be > 0".into(),
                 ));
             }
-        }
 
         let max_per_purchase = match max_per_purchase {
             None | Some(0) => MAX_BATCH_MINT,

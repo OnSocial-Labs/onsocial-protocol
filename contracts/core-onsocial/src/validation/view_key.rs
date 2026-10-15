@@ -15,21 +15,18 @@ pub fn resolve_view_key(key: &str, account_id: Option<&AccountId>) -> Option<Str
     }
 
     if let Some(acct) = account_id {
-        if let Some(first) = key.split('/').next() {
-            if first == acct.as_str() {
+        if let Some(first) = key.split('/').next()
+            && first == acct.as_str() {
                 return Some(key.to_string());
             }
-        }
         return Some(format!("{}/{}", acct, key));
     }
 
-    if key.contains('/') {
-        if let Some(first) = key.split('/').next() {
-            if AccountId::try_from(first.to_string()).is_ok() {
+    if key.contains('/')
+        && let Some(first) = key.split('/').next()
+            && AccountId::try_from(first.to_string()).is_ok() {
                 return Some(key.to_string());
             }
-        }
-    }
 
     None
 }

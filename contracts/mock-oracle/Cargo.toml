@@ -8,4 +8,4 @@ description = "Minimal price oracle mock for scarce dollar-price integration tes
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-near-sdk = "5.24"
+near-sdk = "5.29.1"

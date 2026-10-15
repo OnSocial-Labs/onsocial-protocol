@@ -162,13 +162,12 @@ impl Contract {
         let prior_end = collection
             .event_ends_at
             .or_else(|| template_event_ends_at(&template));
-        if let Some(prior) = prior_end {
-            if prior != expires_at_ms {
+        if let Some(prior) = prior_end
+            && prior != expires_at_ms {
                 let next_meta = merge_event_end_previous(collection.metadata.as_deref(), prior)?;
                 crate::validation::validate_metadata_json(&next_meta)?;
                 collection.metadata = Some(next_meta);
             }
-        }
         let obj = template.as_object_mut().ok_or_else(|| {
             MarketplaceError::InvalidState("Collection template is not a JSON object".into())
         })?;
@@ -176,10 +175,10 @@ impl Contract {
         obj.insert("expires_at".into(), expires_at_ms.into());
 
         // `extra` is a JSON string field; sync eventEndsAt when it exists.
-        if let Some(extra_str) = obj.get("extra").and_then(|v| v.as_str()) {
-            if let Ok(mut extra_json) = serde_json::from_str::<serde_json::Value>(extra_str) {
-                if let Some(extra_obj) = extra_json.as_object_mut() {
-                    if extra_obj.contains_key("eventEndsAt") {
+        if let Some(extra_str) = obj.get("extra").and_then(|v| v.as_str())
+            && let Ok(mut extra_json) = serde_json::from_str::<serde_json::Value>(extra_str)
+                && let Some(extra_obj) = extra_json.as_object_mut()
+                    && extra_obj.contains_key("eventEndsAt") {
                         extra_obj.insert("eventEndsAt".into(), expires_at_ms.into());
                         let next_extra = serde_json::to_string(&extra_json).map_err(|_| {
                             MarketplaceError::InternalError(
@@ -188,9 +187,6 @@ impl Contract {
                         })?;
                         obj.insert("extra".into(), serde_json::Value::String(next_extra));
                     }
-                }
-            }
-        }
 
         let next_template = serde_json::to_string(&template)
             .map_err(|_| MarketplaceError::InternalError("Failed to serialize template".into()))?;

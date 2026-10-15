@@ -58,13 +58,12 @@ impl Contract {
             0
         };
 
-        if let Some(exp) = expires_at {
-            if exp <= env::block_timestamp() {
+        if let Some(exp) = expires_at
+            && exp <= env::block_timestamp() {
                 return Err(MarketplaceError::InvalidInput(
                     "Expiration must be in the future".into(),
                 ));
             }
-        }
 
         let listing_app_id = app_id.clone();
 
@@ -162,13 +161,12 @@ impl Contract {
         listing_id: &str,
         new_expires_at: Option<u64>,
     ) -> Result<(), MarketplaceError> {
-        if let Some(exp) = new_expires_at {
-            if exp <= env::block_timestamp() {
+        if let Some(exp) = new_expires_at
+            && exp <= env::block_timestamp() {
                 return Err(MarketplaceError::InvalidInput(
                     "Expiration must be in the future".into(),
                 ));
             }
-        }
 
         let creator_id = self
             .lazy_listings

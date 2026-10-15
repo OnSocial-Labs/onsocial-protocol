@@ -59,15 +59,13 @@ impl VotingConfig {
 impl GroupGovernance {
     pub(super) fn get_voting_config(platform: &SocialPlatform, group_id: &str) -> VotingConfig {
         let config_key = format!("groups/{}/config", group_id);
-        if let Some(config) = platform.storage_get(&config_key) {
-            if let Some(voting_config_val) = config.get("voting_config") {
-                if let Ok(voting_config) =
+        if let Some(config) = platform.storage_get(&config_key)
+            && let Some(voting_config_val) = config.get("voting_config")
+                && let Ok(voting_config) =
                     serde_json::from_value::<VotingConfig>(voting_config_val.clone())
                 {
                     return voting_config.sanitized();
                 }
-            }
-        }
         VotingConfig::default()
     }
 

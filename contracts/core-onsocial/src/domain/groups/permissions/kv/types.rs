@@ -244,11 +244,10 @@ pub(crate) fn key_permission_level(
             return max_level;
         }
 
-        if let Some(group_id) = group_id_opt {
-            if super::eval::is_group_root_path(&current_path, group_id) {
+        if let Some(group_id) = group_id_opt
+            && super::eval::is_group_root_path(&current_path, group_id) {
                 break;
             }
-        }
 
         current_path = match get_parent_path(&current_path) {
             Some(parent) => parent,

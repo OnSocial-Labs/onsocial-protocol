@@ -93,13 +93,12 @@ impl Contract {
                 .or_insert(U128(owner_amount));
         }
 
-        if let Some(max_len) = max_len {
-            if payout_map.len() > max_len as usize {
+        if let Some(max_len) = max_len
+            && payout_map.len() > max_len as usize {
                 return Err(MarketplaceError::InvalidInput(
                     "Payout exceeds max_len_payout".to_string(),
                 ));
             }
-        }
 
         Ok(Payout { payout: payout_map })
     }

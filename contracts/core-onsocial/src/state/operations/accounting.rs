@@ -16,8 +16,8 @@ impl SocialPlatform {
         }
 
         // Try auto-deposit from attached balance — only deposit the shortfall
-        if let Some(balance) = attached_balance {
-            if **balance > 0 {
+        if let Some(balance) = attached_balance
+            && **balance > 0 {
                 let needed = storage.storage_balance_needed();
                 let available = storage.available_balance();
                 let shortfall = needed.saturating_sub(available);
@@ -26,7 +26,6 @@ impl SocialPlatform {
                 **balance = balance.saturating_sub(deposit);
                 return self.assert_storage_covered_with_platform(storage);
             }
-        }
 
         self.assert_storage_covered_with_platform(storage)
     }

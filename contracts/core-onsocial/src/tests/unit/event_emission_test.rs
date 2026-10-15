@@ -127,9 +127,9 @@ mod event_emission_tests {
         let mut found_partition_metadata = false;
 
         for log in logs {
-            if let Some(event) = decode_event(&log) {
-                if let Some(data) = event.data.first() {
-                    if data.partition_id.is_some() {
+            if let Some(event) = decode_event(&log)
+                && let Some(data) = event.data.first()
+                    && data.partition_id.is_some() {
                         found_partition_metadata = true;
                         let partition = data.partition_id.unwrap();
 
@@ -141,8 +141,6 @@ mod event_emission_tests {
 
                         println!("✓ Partition metadata: partition_id={}", partition);
                     }
-                }
-            }
         }
 
         assert!(
@@ -220,12 +218,11 @@ mod event_emission_tests {
         let logs = get_logs();
 
         for log in logs {
-            if let Some(event) = decode_event(&log) {
-                if let Some(data) = event.data.first() {
+            if let Some(event) = decode_event(&log)
+                && let Some(data) = event.data.first() {
                     assert_eq!(data.author, alice.as_str(), "Author should be the signer");
                     println!("✓ Event author: {}", data.author);
                 }
-            }
         }
 
         println!("✅ Event author test passed");
@@ -255,16 +252,13 @@ mod event_emission_tests {
 
         let mut found_group_update = false;
         for log in logs {
-            if let Some(event) = decode_event(&log) {
-                if event.event == "GROUP_UPDATE" {
-                    if let Some(data) = event.data.first() {
-                        if data.operation == "create_group" {
+            if let Some(event) = decode_event(&log)
+                && event.event == "GROUP_UPDATE"
+                    && let Some(data) = event.data.first()
+                        && data.operation == "create_group" {
                             found_group_update = true;
                             println!("✓ Found GROUP_UPDATE/create_group event");
                         }
-                    }
-                }
-            }
         }
 
         assert!(
@@ -302,14 +296,12 @@ mod event_emission_tests {
 
         let mut found_add_member = false;
         for log in logs {
-            if let Some(event) = decode_event(&log) {
-                if let Some(data) = event.data.first() {
-                    if data.operation == "add_member" {
+            if let Some(event) = decode_event(&log)
+                && let Some(data) = event.data.first()
+                    && data.operation == "add_member" {
                         found_add_member = true;
                         println!("✓ Found add_member event: type={}", event.event);
                     }
-                }
-            }
         }
 
         assert!(found_add_member, "Should emit add_member event");

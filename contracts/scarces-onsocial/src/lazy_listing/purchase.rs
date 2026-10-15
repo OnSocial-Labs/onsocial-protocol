@@ -21,14 +21,13 @@ impl Contract {
             return Err(MarketplaceError::NotFound("Lazy listing not found".into()));
         };
 
-        if let Some(exp) = listing.expires_at {
-            if env::block_timestamp() > exp {
+        if let Some(exp) = listing.expires_at
+            && env::block_timestamp() > exp {
                 self.pending_attached_balance += deposit;
                 return Err(MarketplaceError::InvalidState(
                     "Lazy listing has expired".into(),
                 ));
             }
-        }
 
         let max_buy = crate::lazy_listing::max_per_purchase(&listing);
         if quantity > max_buy {

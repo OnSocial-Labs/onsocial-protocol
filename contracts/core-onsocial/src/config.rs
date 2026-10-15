@@ -106,21 +106,18 @@ impl GovernanceConfig {
             return Err("Safety limits can only be increased");
         }
 
-        if let Some(v) = patch.platform_onboarding_bytes {
-            if v < MIN_PLATFORM_ONBOARDING_BYTES {
+        if let Some(v) = patch.platform_onboarding_bytes
+            && v < MIN_PLATFORM_ONBOARDING_BYTES {
                 return Err("platform_onboarding_bytes cannot be below minimum");
             }
-        }
-        if let Some(v) = patch.platform_daily_refill_bytes {
-            if v < MIN_PLATFORM_DAILY_REFILL_BYTES {
+        if let Some(v) = patch.platform_daily_refill_bytes
+            && v < MIN_PLATFORM_DAILY_REFILL_BYTES {
                 return Err("platform_daily_refill_bytes cannot be below minimum");
             }
-        }
-        if let Some(v) = patch.platform_allowance_max_bytes {
-            if v < MIN_PLATFORM_ALLOWANCE_MAX_BYTES {
+        if let Some(v) = patch.platform_allowance_max_bytes
+            && v < MIN_PLATFORM_ALLOWANCE_MAX_BYTES {
                 return Err("platform_allowance_max_bytes cannot be below minimum");
             }
-        }
 
         Ok(())
     }

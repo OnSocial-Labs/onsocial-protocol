@@ -108,16 +108,14 @@ impl Contract {
             .get(&quota_key)
             .cloned()?;
 
-        if !quota.is_override {
-            if let Some(default_policy) = self.platform.group_sponsor_defaults.get(&group_id) {
-                if quota.applied_default_version != default_policy.version {
+        if !quota.is_override
+            && let Some(default_policy) = self.platform.group_sponsor_defaults.get(&group_id)
+                && quota.applied_default_version != default_policy.version {
                     quota.enabled = default_policy.enabled;
                     quota.daily_refill_bytes = default_policy.daily_refill_bytes;
                     quota.allowance_max_bytes = default_policy.allowance_max_bytes;
                     quota.applied_default_version = default_policy.version;
                 }
-            }
-        }
 
         let now = near_sdk::env::block_timestamp();
         quota.refill(now);

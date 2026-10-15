@@ -154,13 +154,12 @@ impl Contract {
             ));
         }
 
-        if let Some(exp) = expires_at {
-            if exp <= env::block_timestamp() {
+        if let Some(exp) = expires_at
+            && exp <= env::block_timestamp() {
                 return Err(MarketplaceError::InvalidInput(
                     "Offer expiry must be in the future".into(),
                 ));
             }
-        }
 
         let live = self.touch_token_offer_book(token_id);
         let key = offer_key(token_id, buyer_id);
@@ -251,13 +250,12 @@ impl Contract {
             .remove(&key)
             .ok_or_else(|| MarketplaceError::NotFound("Offer not found".into()))?;
 
-        if let Some(exp) = offer.expires_at {
-            if env::block_timestamp() > exp {
+        if let Some(exp) = offer.expires_at
+            && env::block_timestamp() > exp {
                 self.refund_offer(token_id, offer);
                 self.decrement_live_token_offer_count(token_id);
                 return Err(MarketplaceError::InvalidState("Offer has expired".into()));
             }
-        }
 
         let amount = offer.amount.0;
         self.refund_remaining_token_offers(token_id);

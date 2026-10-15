@@ -1037,15 +1037,15 @@ mod storage_flow_tests {
         let join_result = contract.execute(join_group_request("depositgroup".to_string()));
 
         // Expected behavior: Either fail with clear error OR auto-allocate from contract
-        if join_result.is_err() {
-            println!(
-                "✅ Join correctly rejected with zero deposit: {:?}",
-                join_result.unwrap_err()
-            );
-        } else {
-            println!("⚠️ Join succeeded with zero deposit (auto-allocation enabled)");
-            // Verify they're a member
-            assert!(contract.is_group_member("depositgroup".to_string(), member.clone()));
+        match join_result {
+            Err(err) => {
+                println!("✅ Join correctly rejected with zero deposit: {:?}", err);
+            }
+            Ok(_) => {
+                println!("⚠️ Join succeeded with zero deposit (auto-allocation enabled)");
+                // Verify they're a member
+                assert!(contract.is_group_member("depositgroup".to_string(), member.clone()));
+            }
         }
 
         println!("✅ Storage deposit requirements enforced correctly");

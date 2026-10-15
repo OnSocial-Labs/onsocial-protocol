@@ -229,8 +229,8 @@ async fn delegate_e2e_inner_receipt_attributed_to_user() -> Result<()> {
     let inner_fc = Action::FunctionCall(Box::new(FunctionCallAction {
         method_name: "execute".into(),
         args: inner_args,
-        gas: 100_000_000_000_000, // 100 TGas
-        deposit: 0,
+        gas: near_primitives::gas::Gas::from_teragas(100),
+        deposit: NearToken::from_yoctonear(0),
     }));
     let inner_non_delegate: NonDelegateAction = inner_fc
         .try_into()
@@ -409,8 +409,8 @@ async fn delegate_e2e_rejects_disallowed_inner_receiver() -> Result<()> {
     let inner_fc = Action::FunctionCall(Box::new(FunctionCallAction {
         method_name: "noop".into(),
         args: b"{}".to_vec(),
-        gas: 30_000_000_000_000,
-        deposit: 0,
+        gas: near_primitives::gas::Gas::from_teragas(30),
+        deposit: NearToken::from_yoctonear(0),
     }));
     let delegate = DelegateAction {
         sender_id: alice_id,
