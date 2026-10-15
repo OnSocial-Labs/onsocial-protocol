@@ -47,8 +47,17 @@ export function protocolFacePairProgress(
 
 type LayoutNode = {
   offsetTop: number;
-  offsetParent: LayoutNode | null;
+  offsetParent: unknown;
 };
+
+function asLayoutNode(value: unknown): LayoutNode | null {
+  if (!value || typeof value !== 'object' || !('offsetTop' in value)) {
+    return null;
+  }
+  const offsetTop = value.offsetTop;
+  if (typeof offsetTop !== 'number' || !Number.isFinite(offsetTop)) return null;
+  return value as LayoutNode;
+}
 
 /**
  * Layout top of `node` inside `root`. Walks offsetParent, so a CSS transform
@@ -64,11 +73,9 @@ export function protocolFacePairLayoutTop(
   while (current && current !== root) {
     if (seen.has(current)) return null;
     seen.add(current);
-    if (!Number.isFinite(current.offsetTop)) return null;
     top += current.offsetTop;
-    const parent = current.offsetParent;
-    if (!parent) return null;
-    current = parent;
+    current = asLayoutNode(current.offsetParent);
+    if (!current) return null;
   }
   return current === root ? top : null;
 }
