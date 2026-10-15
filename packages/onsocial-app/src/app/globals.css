@@ -1307,7 +1307,7 @@ body:has([data-os-slide-over='true']:not(.is-closing)) .os-launcher-root {
 }
 
 /* Unlayered — pass rows and actions sit outside the components layer so layout holds. */
-button.collectibles-holding-row-main {
+.collectibles-holding-row-main {
   display: flex;
   min-width: 0;
   flex: 1 1 auto;
@@ -29097,8 +29097,7 @@ a.os-surface-row {
     padding: 0.55rem 0.15rem;
   }
 
-  a.collectibles-holding-row-main,
-  button.collectibles-holding-row-main {
+  .collectibles-holding-row-main {
     display: flex;
     min-width: 0;
     flex: 1;
@@ -29115,8 +29114,7 @@ a.os-surface-row {
     cursor: pointer;
   }
 
-  a.collectibles-holding-row-main:focus-visible,
-  button.collectibles-holding-row-main:focus-visible {
+  .collectibles-holding-row-main:focus-visible {
     outline: none;
   }
 
@@ -38514,13 +38512,19 @@ a.os-surface-row {
     color: inherit;
   }
 
-  /* Collection-meta anatomy (mint page): avatar | by Name / @handle · series. */
+  /* Collection-meta anatomy (mint page): avatar | by Name / @handle · series.
+     Shrink to the cluster. The rest of the row opens the drop. */
   .drops-discovery-party {
+    position: relative;
+    z-index: 1;
     display: flex;
+    align-self: flex-start;
     align-items: flex-start;
     gap: 0.4rem;
+    width: fit-content;
     min-width: 0;
     max-width: 100%;
+    overflow: hidden;
     color: inherit;
     text-decoration: none;
     cursor: pointer;
@@ -38537,7 +38541,7 @@ a.os-surface-row {
   .drops-discovery-party-stack {
     display: flex;
     min-width: 0;
-    flex: 1;
+    flex: 0 1 auto;
     flex-direction: column;
     align-items: flex-start;
     gap: 0.06rem;
@@ -38768,6 +38772,7 @@ a.os-surface-row {
 
   .market-listing-row,
   .market-sale-row {
+    position: relative;
     display: flex;
     align-items: flex-start;
     gap: 0.9rem;
@@ -38775,6 +38780,32 @@ a.os-surface-row {
     padding: 0.85rem 0.45rem;
     border-radius: 0.85rem;
     transition: background 160ms ease;
+  }
+
+  /* Covers the hover row. Visuals pass clicks through.
+     The creator cluster and the action keep their own hits. */
+  .market-listing-row-open {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    border-radius: inherit;
+    cursor: pointer;
+  }
+
+  .market-listing-row-open:focus-visible {
+    outline: 2px solid rgb(var(--primary-rgb) / 0.8);
+    outline-offset: -2px;
+  }
+
+  .market-listing-row:has(.market-listing-row-open)
+    > :not(.market-listing-row-open):not(.market-listing-action-col) {
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .market-listing-row:has(.market-listing-row-open) .drops-discovery-party {
+    pointer-events: auto;
   }
 
   .market-listing-row:hover,

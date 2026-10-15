@@ -107,6 +107,17 @@ test.describe('drops discovery', () => {
     await gotoApp(page, '/drops');
     await expectDropsChrome(page);
 
+    const nightRow = page
+      .locator('.drops-discovery-row')
+      .filter({ hasText: 'Night Drive' });
+    const party = nightRow.locator('.drops-discovery-party');
+    await expect(party).toHaveAttribute('href', '/@alice.near');
+    const partyBox = await party.boundingBox();
+    const rowBox = await nightRow.boundingBox();
+    expect(partyBox && rowBox && partyBox.width < rowBox.width * 0.7).toBe(
+      true
+    );
+
     const listen = page.getByRole('button', { name: 'Listen to Night Drive' });
     const read = page.getByRole('button', { name: 'Read Chapter One' });
     const view = page.getByRole('button', { name: 'View Quiet Print' });

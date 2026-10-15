@@ -7,6 +7,7 @@ import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
 import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { displayName } from '@/lib/profile-display';
 import type { PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
+import { collectionPath } from '@/lib/app-routes';
 import { OsRowAction } from '@/lib/os-row-action';
 
 interface CollectiblesHoldingRowProps {
@@ -37,6 +38,7 @@ export function CollectiblesHoldingRow({
   const showThumb = Boolean(item.mediaUrl) && brokenMediaUrl !== item.mediaUrl;
   const collectionId = item.collectionId?.trim() || '';
   const opensPass = isPassMediumKind(item.mediumKind) && Boolean(collectionId);
+  const dropHref = collectionId ? collectionPath(collectionId) : null;
   const titleHint = [
     item.title,
     item.actionLabel,
@@ -88,18 +90,17 @@ export function CollectiblesHoldingRow({
 
   return (
     <div className="market-listing-row collectibles-holding-row" role="listitem">
-      {opensPass ? (
-        <button
-          type="button"
-          className="collectibles-holding-row-main"
+      {opensPass && dropHref ? (
+        <Link
+          href={dropHref}
+          scroll={false}
+          className="market-listing-row-open"
+          aria-label={`Open drop for ${item.title}`}
           title={titleHint}
-          onClick={() => {
-            setPassMounted(true);
-            setPassOpen(true);
-          }}
-        >
-          {mainBody}
-        </button>
+        />
+      ) : null}
+      {opensPass ? (
+        <div className="collectibles-holding-row-main">{mainBody}</div>
       ) : (
         <Link
           href={item.href}

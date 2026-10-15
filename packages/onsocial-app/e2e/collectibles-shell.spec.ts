@@ -145,6 +145,9 @@ test.describe('collectibles shell', () => {
       gateRow.getByRole('button', { name: 'Show pass Gate Pass' })
     ).toBeVisible();
     await expect(
+      gateRow.getByRole('link', { name: 'Open drop for Gate Pass' })
+    ).toHaveAttribute('href', '/collection/gate-pass');
+    await expect(
       page.getByRole('region', { name: 'Collectibles' })
     ).toBeVisible();
 
@@ -388,5 +391,10 @@ test.describe('collectibles shell', () => {
     await expect(pass).toHaveCount(0);
     await expect(gateRow).toBeVisible();
     await expect(page).toHaveURL(/\/collectibles/);
+
+    await gateRow
+      .getByRole('link', { name: 'Open drop for Gate Pass' })
+      .click({ position: { x: 16, y: 16 } });
+    await expect(page).toHaveURL(/\/collection\/gate-pass/);
   });
 });
