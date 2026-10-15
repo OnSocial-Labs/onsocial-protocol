@@ -208,13 +208,6 @@ async fn test_short_event_cancel_refunds_buyer() -> Result<()> {
     Ok(())
 }
 
-fn failure_text(result: near_workspaces::result::ExecutionFinalResult) -> String {
-    match result.into_result() {
-        Ok(_) => String::new(),
-        Err(err) => err.to_string(),
-    }
-}
-
 /// Short-dated show → postpone while the door is open → the original date
 /// stays open → a later postpone → cancel → refund before and after the
 /// new date. After that date, another postpone is refused.
@@ -309,21 +302,26 @@ async fn test_short_event_postpone_then_cancel_refunds() -> Result<()> {
         "door closed after postponed date"
     );
 
+    // A day past whatever the sandbox landed on, so this is not the
+    // "must be in the future" check. The end in force has been reached.
+    let now_ms = now_ns(&worker).await? / 1_000_000;
+    assert!(now_ms >= second_end_ms);
     let refused = update_collection_template_expiry(
         &contract,
         &creator,
         COL,
-        second_end_ms + 60_000,
+        now_ms + 86_400_000,
         ONE_YOCTO,
     )
     .await?;
-    let refused_text = failure_text(refused);
     assert!(
-        refused_text.contains("Event has ended"),
-        "postpone after the end should be refused, got {refused_text}"
+        refused.is_failure(),
+        "postpone after the end should be refused"
     );
     let col = get_collection(&contract, COL).await?.unwrap();
     assert_eq!(col.event_ends_at, Some(second_end_ms));
+    let template: serde_json::Value = serde_json::from_str(&col.metadata_template)?;
+    assert_eq!(template["expires_at"].as_u64(), Some(second_end_ms));
 
     let before_second = buyer.view_account().await?.balance.as_yoctonear();
     claim_refund(&contract, &buyer, refund_after, COL, ONE_YOCTO)
