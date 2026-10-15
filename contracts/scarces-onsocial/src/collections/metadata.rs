@@ -120,10 +120,11 @@ impl Contract {
         Ok(())
     }
 
-    /// Rain-day postpone: rewrite the mint template's `expires_at` (and the
-    /// `extra.eventEndsAt` display field when present) so tokens minted after
-    /// a date change match the renewed ones. Renewable collections only —
-    /// same gate as `renew_token` ("Allow date changes").
+    /// Postpone the mint template's `expires_at` (and `extra.eventEndsAt`
+    /// when present) while the end already in force is still ahead.
+    /// Renewable collections only — same gate as `renew_token`.
+    /// The end in force is the collection door: once `now` reaches it,
+    /// the write is refused and sold seats stay closed.
     pub(crate) fn update_collection_template_expiry(
         &mut self,
         actor_id: &AccountId,
@@ -155,6 +156,14 @@ impl Contract {
             .map_err(|_| {
             MarketplaceError::InvalidState("Collection template is not valid JSON".into())
         })?;
+        let template_exp = template.get("expires_at").and_then(|v| v.as_u64());
+        if crate::scarce::admission_closed(
+            template_exp,
+            collection.event_ends_at,
+            crate::time::now_ms(),
+        ) {
+            return Err(MarketplaceError::InvalidState("Event has ended".into()));
+        }
         let prior_end = collection
             .event_ends_at
             .or_else(|| template_event_ends_at(&template));

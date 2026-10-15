@@ -173,4 +173,44 @@ describe('canExtendTicketEntry', () => {
       })
     ).toBe(false);
   });
+
+  it('hides postpone once the listed end is reached', () => {
+    const now = 1_700_000_000_000;
+    expect(
+      canExtendTicketEntry({
+        kind: 'ticket',
+        renewable: true,
+        status: 'live',
+        eventEndsAtMs: now + 1,
+        nowMs: now,
+      })
+    ).toBe(true);
+    expect(
+      canExtendTicketEntry({
+        kind: 'ticket',
+        renewable: true,
+        status: 'live',
+        eventEndsAtMs: now,
+        nowMs: now,
+      })
+    ).toBe(false);
+    expect(
+      canExtendTicketEntry({
+        kind: 'ticket',
+        renewable: true,
+        status: 'live',
+        eventEndsAtMs: now - 60_000,
+        nowMs: now,
+      })
+    ).toBe(false);
+    expect(
+      canExtendTicketEntry({
+        kind: 'ticket',
+        renewable: true,
+        status: 'live',
+        eventEndsAtMs: null,
+        nowMs: now,
+      })
+    ).toBe(true);
+  });
 });

@@ -464,6 +464,9 @@ pub struct LazyCollection {
     pub total_revenue: String,
     #[serde(default)]
     pub allowlist_price: Option<String>,
+    /// Postponed door end (ms). Absent until the organiser postpones.
+    #[serde(default)]
+    pub event_ends_at: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

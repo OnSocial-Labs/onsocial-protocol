@@ -111,7 +111,12 @@ export function CollectionOwnerManageMenu({
   const showResume = canResumeDrop(status);
   const showDelete = canDeleteDrop(minted, status);
   const showCancel = canCancelDrop(status);
-  const showExtend = canExtendTicketEntry({ kind, renewable, status });
+  const showExtend = canExtendTicketEntry({
+    kind,
+    renewable,
+    status,
+    eventEndsAtMs,
+  });
   const showWithdraw = canWithdrawUnclaimedRefunds({
     cancelled: status === 'cancelled',
     refundDeadlineMs,

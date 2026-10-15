@@ -3,7 +3,7 @@ use crate::*;
 /// Closed when the token has an expiry and both that expiry and any
 /// collection postpone are already in the past. A token with no expiry
 /// stays open.
-fn admission_closed(
+pub(crate) fn admission_closed(
     token_expires_at: Option<u64>,
     event_ends_at: Option<u64>,
     now_ms: u64,

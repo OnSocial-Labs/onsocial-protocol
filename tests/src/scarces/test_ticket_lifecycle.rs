@@ -5,8 +5,10 @@
 // exercises the live WASM path:
 //   1. Buyer pays for seats
 //   2. Cancel → holder claim_refund actually credits NEAR
-//   3. Same show, postponed first — refund still works before and after the
-//      new date (claim window is 60s, above the 5s sandbox minimum)
+//   3. Same show, postponed while the door is still open — the original
+//      date no longer closes it. Refund still works before and after the
+//      new date (claim window is 60s, above the 5s sandbox minimum).
+//      A postpone after that new date is refused.
 //
 // Run:
 //   make test-integration-contract-scarces-onsocial TEST=test_short_event
@@ -206,14 +208,30 @@ async fn test_short_event_cancel_refunds_buyer() -> Result<()> {
     Ok(())
 }
 
-/// Short-dated show → postpone → cancel → refund before and after the new date.
+fn failure_text(result: near_workspaces::result::ExecutionFinalResult) -> String {
+    match result.into_result() {
+        Ok(_) => String::new(),
+        Err(err) => err.to_string(),
+    }
+}
+
+/// Short-dated show → postpone while the door is open → the original date
+/// stays open → a later postpone → cancel → refund before and after the
+/// new date. After that date, another postpone is refused.
 #[tokio::test]
 async fn test_short_event_postpone_then_cancel_refunds() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let creator = user_with_storage(&worker, &contract).await?;
     let buyer = user_with_storage(&worker, &contract).await?;
 
-    let original_end_ms = now_ns(&worker).await? / 1_000_000 + 8_000;
+    let started_ms = now_ns(&worker).await? / 1_000_000;
+    let original_end_ms = started_ms + 12_000;
+    // First new end clears one sandbox jump past the original door.
+    // The second move is later, and the claim window below still covers it.
+    let first_end_ms = started_ms + 45_000;
+    let second_end_ms = started_ms + 70_000;
+    let second_end_ns = second_end_ms * 1_000_000;
+    const POSTPONE_CLAIM_NS: u64 = 120 * 1_000_000_000;
     create_ticket_show(&contract, &creator, original_end_ms).await?;
 
     let seats = buy_seats(&contract, &buyer, 4).await?;
@@ -227,31 +245,37 @@ async fn test_short_event_postpone_then_cancel_refunds() -> Result<()> {
         .await?
         .into_result()?;
 
-    // Original short date passes — unused seats cannot enter.
-    fast_forward_past(&worker, original_end_ms * 1_000_000).await?;
-    let expired = redeem_token(&contract, &creator, door_proof, COL, ONE_YOCTO).await?;
-    assert!(
-        expired.into_result().is_err(),
-        "cannot redeem after original short date"
-    );
-
-    let postponed_end_ms = now_ns(&worker).await? / 1_000_000 + 15_000;
-    let postponed_end_ns = postponed_end_ms * 1_000_000;
-    update_collection_template_expiry(&contract, &creator, COL, postponed_end_ms, ONE_YOCTO)
+    update_collection_template_expiry(&contract, &creator, COL, first_end_ms, ONE_YOCTO)
         .await?
         .into_result()?;
+    let col = get_collection(&contract, COL).await?.unwrap();
+    assert_eq!(col.event_ends_at, Some(first_end_ms));
+
+    // A second postpone is allowed until that new date, and replaces it.
+    update_collection_template_expiry(&contract, &creator, COL, second_end_ms, ONE_YOCTO)
+        .await?
+        .into_result()?;
+    let col = get_collection(&contract, COL).await?.unwrap();
+    assert_eq!(col.event_ends_at, Some(second_end_ms));
+
+    fast_forward_past(&worker, original_end_ms * 1_000_000).await?;
+    let after_original = now_ns(&worker).await?;
+    assert!(
+        after_original < second_end_ns,
+        "sandbox jump passed the postponed end (now={after_original} end={second_end_ns})"
+    );
     redeem_token(&contract, &creator, door_proof, COL, ONE_YOCTO)
         .await?
         .into_result()?;
 
-    // New sale after postpone inherits the new door; redeem proves it works.
+    // New sale after the original date inherits the postponed door.
     let after_postpone = buy_seats(&contract, &buyer, 1).await?;
     let extra = after_postpone
         .iter()
         .find(|id| !seats.contains(id))
         .expect("seat minted after postpone");
     let tok = nft_token(&contract, extra).await?.unwrap();
-    assert_eq!(tok.metadata.unwrap().expires_at, Some(postponed_end_ms));
+    assert_eq!(tok.metadata.unwrap().expires_at, Some(second_end_ms));
     redeem_token(&contract, &creator, extra, COL, ONE_YOCTO)
         .await?
         .into_result()?;
@@ -263,13 +287,13 @@ async fn test_short_event_postpone_then_cancel_refunds() -> Result<()> {
         &creator,
         COL,
         REFUND,
-        Some(CLAIM_WINDOW_NS),
+        Some(POSTPONE_CLAIM_NS),
         NearToken::from_near(1),
     )
     .await?
     .into_result()?;
 
-    assert!(now_ns(&worker).await? < postponed_end_ns);
+    assert!(now_ns(&worker).await? < second_end_ns);
     let before = buyer.view_account().await?.balance.as_yoctonear();
     claim_refund(&contract, &buyer, refund_before, COL, ONE_YOCTO)
         .await?
@@ -278,12 +302,28 @@ async fn test_short_event_postpone_then_cancel_refunds() -> Result<()> {
     assert_refunded(before, mid);
     println!("postpone: refunded {refund_before} before new date");
 
-    fast_forward_past(&worker, postponed_end_ns).await?;
+    fast_forward_past(&worker, second_end_ns).await?;
     let door = redeem_token(&contract, &creator, refund_after, COL, ONE_YOCTO).await?;
     assert!(
         door.into_result().is_err(),
         "door closed after postponed date"
     );
+
+    let refused = update_collection_template_expiry(
+        &contract,
+        &creator,
+        COL,
+        second_end_ms + 60_000,
+        ONE_YOCTO,
+    )
+    .await?;
+    let refused_text = failure_text(refused);
+    assert!(
+        refused_text.contains("Event has ended"),
+        "postpone after the end should be refused, got {refused_text}"
+    );
+    let col = get_collection(&contract, COL).await?.unwrap();
+    assert_eq!(col.event_ends_at, Some(second_end_ms));
 
     let before_second = buyer.view_account().await?.balance.as_yoctonear();
     claim_refund(&contract, &buyer, refund_after, COL, ONE_YOCTO)

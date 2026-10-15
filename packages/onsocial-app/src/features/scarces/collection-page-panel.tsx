@@ -686,6 +686,7 @@ export function CollectionPagePanel({
           kind: view.kind,
           renewable: view.renewable,
           status,
+          eventEndsAtMs: view.eventEndsAtMs,
         })) ||
       (view != null &&
         isPassMediumKind((view.kind ?? '').trim().toLowerCase()) &&

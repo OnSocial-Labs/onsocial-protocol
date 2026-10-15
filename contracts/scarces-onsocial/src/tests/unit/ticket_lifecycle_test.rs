@@ -1,8 +1,9 @@
-//! Guest ticket lifecycle — one rain-day show, then a cancel.
+//! Guest ticket lifecycle — postpone while the show is still open, then cancel.
 //!
 //! Three clocks:
 //! - sale window (`start_time` / `end_time`, ns)
-//! - door access (`metadata.expires_at`, ms) — postpone extends it via the collection end
+//! - door access (`metadata.expires_at`, ms) — postpone moves the collection end
+//!   while that end is still ahead
 //! - refund claim window (starts only after `cancel_collection`)
 //!
 //! Postpone never refunds. Refunds are holder claims against the cancel pool.
@@ -141,16 +142,8 @@ fn guest_ticket_rain_day_postpone_cancel_and_refunds() {
         1
     );
 
-    // --- Original event date has passed; unused tickets cannot enter ---
-    let after_original = T0_NS + DAY_NS + 1;
-    testing_env!(at(creator(), after_original).build());
-    let err = contract
-        .redeem_token(&creator(), &seat(2), COL)
-        .unwrap_err();
-    assert!(matches!(err, MarketplaceError::InvalidState(_)));
-
-    // --- Rain-day postpone: one collection write covers every sold seat ---
-    testing_env!(at(creator(), after_original).build());
+    // --- Postpone while the original end is still ahead ---
+    testing_env!(at(creator(), T0_NS).build());
     contract
         .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
         .unwrap();
@@ -187,7 +180,9 @@ fn guest_ticket_rain_day_postpone_cancel_and_refunds() {
         near_sdk::serde_json::from_str(template["extra"].as_str().unwrap()).unwrap();
     assert_eq!(extra["eventEndsAt"], postponed_end_ms());
 
-    // Door works again after postpone.
+    // Original date has passed; the new end keeps unused seats open.
+    let after_original = T0_NS + DAY_NS + 1;
+    testing_env!(at(creator(), after_original).build());
     contract.redeem_token(&creator(), &seat(2), COL).unwrap();
     assert_eq!(
         contract
@@ -381,11 +376,12 @@ fn postponed_show_mints_until_the_new_door_then_closes() {
         .unwrap();
     buy(&mut contract, T0_NS, 1);
 
-    let after_original = T0_NS + DAY_NS + 1;
-    testing_env!(at(creator(), after_original).build());
+    testing_env!(at(creator(), T0_NS).build());
     contract
         .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
         .unwrap();
+
+    let after_original = T0_NS + DAY_NS + 1;
     buy(&mut contract, after_original, 1);
     assert_eq!(contract.get_collection(COL.into()).unwrap().minted_count, 2);
 
@@ -412,4 +408,71 @@ fn postponed_show_mints_until_the_new_door_then_closes() {
         contract.scarces_by_id.get(&seat(1)).unwrap().owner_id,
         creator()
     );
+}
+
+fn template_expires_at(contract: &Contract) -> u64 {
+    let template: near_sdk::serde_json::Value =
+        near_sdk::serde_json::from_str(&contract.collections.get(COL).unwrap().metadata_template)
+            .unwrap();
+    template["expires_at"].as_u64().unwrap()
+}
+
+fn assert_event_ended(err: MarketplaceError) {
+    match err {
+        MarketplaceError::InvalidState(msg) => assert_eq!(msg, "Event has ended"),
+        other => panic!("expected Event has ended, got {other:?}"),
+    }
+}
+
+/// Postpone is open until the end in force, including a later date set by
+/// an earlier postpone. At that instant the write is refused.
+#[test]
+fn postpone_stops_when_the_end_in_force_is_reached() {
+    let mut contract = new_contract();
+    testing_env!(at(creator(), T0_NS).build());
+    contract
+        .create_collection(&creator(), ticket_config())
+        .unwrap();
+
+    let at_original = T0_NS + DAY_NS;
+    testing_env!(at(creator(), at_original).build());
+    let err = contract
+        .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
+        .unwrap_err();
+    assert_event_ended(err);
+    assert_eq!(contract.collections.get(COL).unwrap().event_ends_at, None);
+    assert_eq!(template_expires_at(&contract), original_end_ms());
+
+    let before_original = T0_NS + DAY_NS - NS_PER_MS;
+    testing_env!(at(creator(), before_original).build());
+    contract
+        .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
+        .unwrap();
+    assert_eq!(
+        contract.collections.get(COL).unwrap().event_ends_at,
+        Some(postponed_end_ms())
+    );
+
+    let later_end_ms = T0_MS + 8 * DAY_MS;
+    let before_postponed = postponed_end_ns() - NS_PER_MS;
+    testing_env!(at(creator(), before_postponed).build());
+    contract
+        .update_collection_template_expiry(&creator(), COL, later_end_ms)
+        .unwrap();
+    assert_eq!(
+        contract.collections.get(COL).unwrap().event_ends_at,
+        Some(later_end_ms)
+    );
+    assert_eq!(template_expires_at(&contract), later_end_ms);
+
+    testing_env!(at(creator(), later_end_ms * NS_PER_MS).build());
+    let err = contract
+        .update_collection_template_expiry(&creator(), COL, T0_MS + 12 * DAY_MS)
+        .unwrap_err();
+    assert_event_ended(err);
+    assert_eq!(
+        contract.collections.get(COL).unwrap().event_ends_at,
+        Some(later_end_ms)
+    );
+    assert_eq!(template_expires_at(&contract), later_end_ms);
 }

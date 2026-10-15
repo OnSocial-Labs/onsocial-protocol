@@ -1,6 +1,7 @@
 mod approval;
 mod enumeration;
 mod lifecycle;
+pub(crate) use lifecycle::admission_closed;
 mod metadata;
 mod mint;
 mod ownership;

@@ -54,15 +54,24 @@ export function canWithdrawUnclaimedRefunds(input: {
   return isRefundClaimWindowClosed(input.refundDeadlineMs, input.nowMs);
 }
 
-/** Organiser rain-day: postpone entry / redeem on a renewable ticket drop. */
+/**
+ * Organiser can postpone a renewable ticket while the listed end is still
+ * ahead. A missing end stays allowed — the contract can still set one.
+ * `now >= end` matches the door: closed at that instant.
+ */
 export function canExtendTicketEntry(input: {
   kind?: string | null;
   renewable?: boolean | null;
   status?: CollectionStatus | null;
+  eventEndsAtMs?: number | null;
+  nowMs?: number;
 }): boolean {
   if (input.kind !== 'ticket') return false;
   if (!input.renewable) return false;
   if (input.status === 'cancelled') return false;
+  const end = input.eventEndsAtMs;
+  const now = input.nowMs ?? Date.now();
+  if (end != null && Number.isFinite(end) && end > 0 && now >= end) return false;
   return true;
 }
 
