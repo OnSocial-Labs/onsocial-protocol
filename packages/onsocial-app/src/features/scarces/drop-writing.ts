@@ -1,3 +1,5 @@
+import { writingArticlePath } from '@/lib/overlay-routes';
+
 /**
  * Writing drops — Issue / Book manuscripts pinned as Markdown chapters
  * (Issue may also use a single PDF). Books may attach one optional
@@ -316,6 +318,17 @@ export function parseSourcePostPath(
   const match = trimmed.match(/^([^/]+)\/post\/([^/]+)$/);
   if (!match?.[1] || !match[2]) return null;
   return { author: match[1], postId: match[2] };
+}
+
+/** Listed article — the reader. Book and Issue stay in the folio. */
+export function listedArticleReaderHref(opts: {
+  writingFormat?: WritingReleaseFormat | null;
+  sourcePostPath?: string | null;
+}): string | null {
+  if (isWritingFolioFormat(opts.writingFormat)) return null;
+  const coords = parseSourcePostPath(opts.sourcePostPath ?? '');
+  if (!coords) return null;
+  return writingArticlePath(coords.author, coords.postId);
 }
 
 /** One-chapter readable from a titled Writing post (no manifesto). */
