@@ -20,11 +20,10 @@ impl Contract {
             .get(&sale_id)
             .ok_or_else(|| MarketplaceError::NotFound("No sale found".into()))?;
 
-        if let Some(expiration) = sale.expires_at {
-            if env::block_timestamp() > expiration {
+        if let Some(expiration) = sale.expires_at
+            && env::block_timestamp() > expiration {
                 return Err(MarketplaceError::InvalidState("Sale has expired".into()));
             }
-        }
 
         let (contract_id, tok_id, approval_id) = match &sale.sale_type {
             SaleType::External {
@@ -57,20 +56,18 @@ impl Contract {
 
         let owner_id = sale.owner_id.clone();
 
-        if let Some(tgas) = scarce_transfer_gas_tgas {
-            if tgas > 300 {
+        if let Some(tgas) = scarce_transfer_gas_tgas
+            && tgas > 300 {
                 return Err(MarketplaceError::InvalidInput(
                     "scarce_transfer_gas_tgas exceeds maximum of 300".into(),
                 ));
             }
-        }
-        if let Some(tgas) = resolve_purchase_gas_tgas {
-            if tgas > 300 {
+        if let Some(tgas) = resolve_purchase_gas_tgas
+            && tgas > 300 {
                 return Err(MarketplaceError::InvalidInput(
                     "resolve_purchase_gas_tgas exceeds maximum of 300".into(),
                 ));
             }
-        }
 
         // Security boundary: remove sale before XCC; failed resolution refunds buyer.
         let before_remove = self.storage_usage_flushed();
@@ -274,11 +271,10 @@ impl Contract {
             ));
         }
 
-        if let Some(expiration) = sale.expires_at {
-            if env::block_timestamp() > expiration {
+        if let Some(expiration) = sale.expires_at
+            && env::block_timestamp() > expiration {
                 return Err(MarketplaceError::InvalidState("Sale has expired".into()));
             }
-        }
 
         let price = if let Some(unit) = self.dollar_unit_override {
             unit

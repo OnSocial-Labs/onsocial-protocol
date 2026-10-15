@@ -2,7 +2,7 @@
 pub fn calculate_storage_balance_needed(bytes: u64) -> u128 {
     let byte_cost = near_sdk::env::storage_byte_cost().as_yoctonear();
     debug_assert!(byte_cost > 0, "Storage byte cost cannot be zero");
-    (bytes as u128).checked_mul(byte_cost).unwrap_or(u128::MAX)
+    (bytes as u128).saturating_mul(byte_cost)
 }
 
 #[inline(always)]

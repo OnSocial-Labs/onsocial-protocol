@@ -490,8 +490,8 @@ mod voting_tests {
         ));
         // This might fail because the proposal was already executed (single member auto-executes)
         // or because alice already voted. Both are acceptable behaviors.
-        if vote_result.is_err() {
-            let error_msg = vote_result.unwrap_err().to_string();
+        if let Err(err) = vote_result {
+            let error_msg = err.to_string();
             assert!(
                 error_msg.contains("already voted")
                     || error_msg.contains("not active")

@@ -56,11 +56,10 @@ impl ProposalType {
                         if let (Some(member_driven_val), true) = (
                             changes_obj.get("member_driven"),
                             changes_obj.contains_key("member_driven"),
-                        ) {
-                            if member_driven_val.as_bool() == Some(true) {
+                        )
+                            && member_driven_val.as_bool() == Some(true) {
                                 config_obj.insert("is_private".to_string(), Value::Bool(true));
                             }
-                        }
                     }
                 }
             }

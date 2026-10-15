@@ -47,13 +47,12 @@ impl Contract {
             }
         }
 
-        if let Some(tgas) = approval_gas_tgas {
-            if tgas > 300 {
+        if let Some(tgas) = approval_gas_tgas
+            && tgas > 300 {
                 return Err(MarketplaceError::InvalidInput(
                     "approval_gas_tgas exceeds maximum of 300".into(),
                 ));
             }
-        }
 
         let approval_gas = Gas::from_tgas(approval_gas_tgas.unwrap_or(DEFAULT_CALLBACK_GAS));
 
@@ -221,13 +220,12 @@ impl Contract {
             ));
         }
 
-        if let Some(expiration) = expires_at {
-            if expiration <= env::block_timestamp() {
+        if let Some(expiration) = expires_at
+            && expiration <= env::block_timestamp() {
                 return Err(MarketplaceError::InvalidInput(
                     "Expiration must be in the future".into(),
                 ));
             }
-        }
 
         let sale = Sale {
             owner_id: owner_id.clone(),

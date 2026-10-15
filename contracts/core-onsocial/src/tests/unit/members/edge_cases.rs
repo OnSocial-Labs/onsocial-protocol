@@ -10,7 +10,6 @@ use serde_json::json;
 
 #[cfg(test)]
 mod member_edge_cases {
-
     use super::*;
 
     // === STORAGE BALANCE EDGE CASES ===
@@ -42,20 +41,23 @@ mod member_edge_cases {
 
         // This might succeed because the contract already has storage balance
         // Let's verify the operation completed successfully and the member was added
-        if add_result.is_ok() {
-            assert!(
-                contract.is_group_member("test_group".to_string(), member.clone()),
-                "Member should be added successfully"
-            );
-            println!("✅ Member addition succeeded with existing storage balance");
-        } else {
-            let error_msg = format!("{:?}", add_result.unwrap_err());
-            assert!(
-                error_msg.contains("storage") || error_msg.contains("deposit"),
-                "Should be storage-related error: {}",
-                error_msg
-            );
-            println!("✅ Member addition failed with insufficient storage as expected");
+        match add_result {
+            Ok(_) => {
+                assert!(
+                    contract.is_group_member("test_group".to_string(), member.clone()),
+                    "Member should be added successfully"
+                );
+                println!("✅ Member addition succeeded with existing storage balance");
+            }
+            Err(err) => {
+                let error_msg = format!("{:?}", err);
+                assert!(
+                    error_msg.contains("storage") || error_msg.contains("deposit"),
+                    "Should be storage-related error: {}",
+                    error_msg
+                );
+                println!("✅ Member addition failed with insufficient storage as expected");
+            }
         }
     }
 
@@ -562,25 +564,25 @@ mod member_edge_cases {
         ));
 
         // Should handle long account IDs gracefully
-        if add_result.is_ok() {
-            assert!(contract.is_group_member("test_group".to_string(), long_member.clone()));
+        match add_result {
+            Ok(_) => {
+                assert!(contract.is_group_member("test_group".to_string(), long_member.clone()));
 
-            // Test other operations with long account ID
-            let blacklist_result = contract.execute(blacklist_group_member_request(
-                "test_group".to_string(),
-                long_member.clone(),
-            ));
-            assert!(
-                blacklist_result.is_ok(),
-                "Blacklist should work with long account IDs"
-            );
+                // Test other operations with long account ID
+                let blacklist_result = contract.execute(blacklist_group_member_request(
+                    "test_group".to_string(),
+                    long_member.clone(),
+                ));
+                assert!(
+                    blacklist_result.is_ok(),
+                    "Blacklist should work with long account IDs"
+                );
 
-            println!("✅ Long account IDs handled correctly");
-        } else {
-            println!(
-                "✅ Long account IDs rejected gracefully: {:?}",
-                add_result.unwrap_err()
-            );
+                println!("✅ Long account IDs handled correctly");
+            }
+            Err(err) => {
+                println!("✅ Long account IDs rejected gracefully: {:?}", err);
+            }
         }
     }
 
@@ -615,12 +617,8 @@ mod member_edge_cases {
                 member_id.clone(),
             ));
 
-            if add_result.is_err() {
-                println!(
-                    "Failed to add member {} due to: {:?}",
-                    i,
-                    add_result.unwrap_err()
-                );
+            if let Err(err) = add_result {
+                println!("Failed to add member {} due to: {:?}", i, err);
                 break;
             }
 
@@ -653,29 +651,32 @@ mod member_edge_cases {
             member.clone(),
         ));
 
-        if add_result.is_err() {
-            // Expected failure - now add more storage and retry
-            let more_storage_context =
-                get_context_with_deposit(owner.clone(), 5_000_000_000_000_000_000_000_000);
-            near_sdk::testing_env!(more_storage_context.build());
+        match add_result {
+            Err(_) => {
+                // Expected failure - now add more storage and retry
+                let more_storage_context =
+                    get_context_with_deposit(owner.clone(), 5_000_000_000_000_000_000_000_000);
+                near_sdk::testing_env!(more_storage_context.build());
 
-            // Should now succeed with more storage
-            let retry_result = contract.execute(add_group_member_request(
-                "test_group".to_string(),
-                member.clone(),
-            ));
+                // Should now succeed with more storage
+                let retry_result = contract.execute(add_group_member_request(
+                    "test_group".to_string(),
+                    member.clone(),
+                ));
 
-            if retry_result.is_ok() {
-                assert!(contract.is_group_member("test_group".to_string(), member.clone()));
-                println!("✅ Storage exhaustion recovery successful");
-            } else {
-                println!(
-                    "✅ Storage limits properly enforced: {:?}",
-                    retry_result.unwrap_err()
-                );
+                match retry_result {
+                    Ok(_) => {
+                        assert!(contract.is_group_member("test_group".to_string(), member.clone()));
+                        println!("✅ Storage exhaustion recovery successful");
+                    }
+                    Err(err) => {
+                        println!("✅ Storage limits properly enforced: {:?}", err);
+                    }
+                }
             }
-        } else {
-            println!("✅ Member addition succeeded with limited storage");
+            Ok(_) => {
+                println!("✅ Member addition succeeded with limited storage");
+            }
         }
     }
 

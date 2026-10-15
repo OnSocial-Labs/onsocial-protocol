@@ -579,8 +579,8 @@ pub fn test_remove_member_bypass_proposals(
 
     // Update member count
     let stats_key = format!("groups/{}/stats", group_id);
-    if let Some(mut stats) = contract.platform.storage_get(&stats_key) {
-        if let Some(obj) = stats.as_object_mut() {
+    if let Some(mut stats) = contract.platform.storage_get(&stats_key)
+        && let Some(obj) = stats.as_object_mut() {
             let current_count = obj
                 .get("total_members")
                 .and_then(|v| v.as_u64())
@@ -598,7 +598,6 @@ pub fn test_remove_member_bypass_proposals(
                 .storage_set(&stats_key, &stats)
                 .expect("Test setup: failed to update stats");
         }
-    }
 }
 
 /// Decode and verify contract events from logs (NEP-297 JSON format)

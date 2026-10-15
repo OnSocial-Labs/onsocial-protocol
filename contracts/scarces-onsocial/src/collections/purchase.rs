@@ -63,13 +63,12 @@ impl Contract {
             if collection.minted_count >= collection.total_supply {
                 return Err(MarketplaceError::InvalidState("Sold out".into()));
             }
-            if let Some(end) = collection.end_time {
-                if now > end {
+            if let Some(end) = collection.end_time
+                && now > end {
                     return Err(MarketplaceError::InvalidState(
                         "Collection has ended".into(),
                     ));
                 }
-            }
 
             let al_key = format!("{}:al:{}", collection_id, buyer_id);
             let allocation = self.collection_allowlist.get(&al_key).copied().unwrap_or(0);

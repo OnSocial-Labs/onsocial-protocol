@@ -89,13 +89,13 @@ fn sdk_msg_fixture_matches_contract_parser() {
                         case.name
                     )),
                 }
-                if let Some(m) = months {
-                    if !VALID_LOCK_PERIODS.contains(&m) {
-                        failures.push(format!(
-                            "case `{}`: months {m} not in VALID_LOCK_PERIODS {:?}",
-                            case.name, VALID_LOCK_PERIODS
-                        ));
-                    }
+                if let Some(m) = months
+                    && !VALID_LOCK_PERIODS.contains(&m)
+                {
+                    failures.push(format!(
+                        "case `{}`: months {m} not in VALID_LOCK_PERIODS {:?}",
+                        case.name, VALID_LOCK_PERIODS
+                    ));
                 }
             }
             "credits" | "fund_scheduled" => {}

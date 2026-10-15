@@ -38,7 +38,7 @@ RS_PRODUCTION_IMAGE := relayer-production
 CONTRACTS_DOCKER_IMAGE := contracts-builder
 
 # External Docker images (for version consistency and easy updates)
-EXTERNAL_RUST_IMAGE := rust:1.86
+EXTERNAL_RUST_IMAGE := rust:1.93
 EXTERNAL_NODE_IMAGE := node:slim
 EXTERNAL_REDIS_IMAGE := redis:latest
 

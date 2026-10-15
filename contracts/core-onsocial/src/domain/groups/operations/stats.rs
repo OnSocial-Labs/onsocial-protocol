@@ -26,8 +26,8 @@ impl crate::domain::groups::core::GroupStorage {
             })
         });
 
-        if let Some(updates_obj) = stat_updates.as_object() {
-            if let Some(stats_obj) = updated_stats.as_object_mut() {
+        if let Some(updates_obj) = stat_updates.as_object()
+            && let Some(stats_obj) = updated_stats.as_object_mut() {
                 for (key, value) in updates_obj {
                     stats_obj.insert(key.clone(), value.clone());
                 }
@@ -36,7 +36,6 @@ impl crate::domain::groups::core::GroupStorage {
                     Value::String(env::block_timestamp().to_string()),
                 );
             }
-        }
 
         platform.storage_set(&stats_path, &updated_stats)?;
 

@@ -13,8 +13,8 @@ impl Contract {
             return Ok(());
         }
 
-        if let Some(app) = app_id {
-            if let Some(mut pool) = self.app_pools.remove(app) {
+        if let Some(app) = app_id
+            && let Some(mut pool) = self.app_pools.remove(app) {
                 let usage_key = format!("{}:{}", account_id, app);
                 let user_used = self.app_user_usage.get(&usage_key).copied().unwrap_or(0);
 
@@ -40,7 +40,6 @@ impl Contract {
 
                 self.app_pools.insert(app.to_string(), pool);
             }
-        }
 
         if app_id.is_none() {
             let cost = (bytes_used as u128) * storage_byte_cost();
@@ -85,12 +84,11 @@ impl Contract {
                 self.app_pools.insert(app.to_string(), pool);
 
                 let remainder = bytes_freed.saturating_sub(returnable);
-                if remainder > 0 {
-                    if let Some(mut user) = self.user_storage.remove(account_id) {
+                if remainder > 0
+                    && let Some(mut user) = self.user_storage.remove(account_id) {
                         user.used_bytes = user.used_bytes.saturating_sub(remainder);
                         self.user_storage.insert(account_id.clone(), user);
                     }
-                }
                 return;
             }
             let pool_bytes = self.app_user_usage.get(&usage_key).copied().unwrap_or(0);
@@ -98,12 +96,11 @@ impl Contract {
             let from_user = bytes_freed.saturating_sub(from_pool);
             self.app_user_usage
                 .insert(usage_key, pool_bytes.saturating_sub(from_pool));
-            if from_user > 0 {
-                if let Some(mut user) = self.user_storage.remove(account_id) {
+            if from_user > 0
+                && let Some(mut user) = self.user_storage.remove(account_id) {
                     user.used_bytes = user.used_bytes.saturating_sub(from_user);
                     self.user_storage.insert(account_id.clone(), user);
                 }
-            }
             return;
         }
 

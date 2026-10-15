@@ -37,11 +37,10 @@ impl crate::domain::groups::core::GroupStorage {
         let is_private = cfg.is_private;
         Self::assert_member_driven_private_invariant(is_member_driven, is_private)?;
 
-        if is_member_driven && is_private.is_none() {
-            if let Some(obj) = config.as_object_mut() {
+        if is_member_driven && is_private.is_none()
+            && let Some(obj) = config.as_object_mut() {
                 obj.insert("is_private".to_string(), Value::Bool(true));
             }
-        }
 
         Ok(())
     }

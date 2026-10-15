@@ -192,7 +192,7 @@ pub fn emit_collection_airdrop(
 ) {
     // Emission invariant: NEP-171 `nft_mint` is owner-scoped; airdrops emit per recipient.
     for (token_id, receiver) in token_ids.iter().zip(receivers.iter()) {
-        nep171::emit_mint(receiver.as_str(), &[token_id.clone()], None);
+        nep171::emit_mint(receiver.as_str(), std::slice::from_ref(token_id), None);
     }
     EventBuilder::new(COLLECTION, "airdrop", actor_id)
         .field("collection_id", collection_id)

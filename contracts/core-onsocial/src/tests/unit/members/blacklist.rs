@@ -44,8 +44,8 @@ mod blacklist_tests {
         ));
 
         // This should either succeed (no-op) or fail gracefully
-        if unblacklist_result.is_err() {
-            let error_msg = format!("{:?}", unblacklist_result.unwrap_err());
+        if let Err(err) = unblacklist_result {
+            let error_msg = format!("{:?}", err);
             assert!(
                 error_msg.contains("not blacklisted") || error_msg.contains("not found"),
                 "Should get appropriate error for non-blacklisted user: {}",
@@ -321,15 +321,15 @@ mod blacklist_tests {
         ));
 
         // Check result and provide informative output
-        if blacklist_result.is_ok() {
-            println!("✅ Admin with MANAGE permission successfully blacklisted member");
-            assert!(contract.is_blacklisted("test_group".to_string(), regular_member.clone()));
-        } else {
-            println!(
-                "⚠️ Admin blacklist failed: {:?}",
-                blacklist_result.as_ref().unwrap_err()
-            );
-            // This might be expected depending on implementation
+        match blacklist_result {
+            Ok(_) => {
+                println!("✅ Admin with MANAGE permission successfully blacklisted member");
+                assert!(contract.is_blacklisted("test_group".to_string(), regular_member.clone()));
+            }
+            Err(err) => {
+                println!("⚠️ Admin blacklist failed: {:?}", err);
+                // This might be expected depending on implementation
+            }
         }
     }
 

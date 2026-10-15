@@ -52,15 +52,20 @@ mod member_performance_tests {
             ));
             let gas_after = env::used_gas();
 
-            if add_result.is_ok() {
-                successful_adds += 1;
-                total_gas_add += gas_after.as_gas() - gas_before.as_gas();
+            match add_result {
+                Ok(_) => {
+                    successful_adds += 1;
+                    total_gas_add += gas_after.as_gas() - gas_before.as_gas();
 
-                // Verify member was added correctly
-                assert!(contract.is_group_member("bulk_test_group".to_string(), member_id.clone()));
-            } else {
-                println!("Failed to add member {}: {:?}", i, add_result.unwrap_err());
-                break;
+                    // Verify member was added correctly
+                    assert!(
+                        contract.is_group_member("bulk_test_group".to_string(), member_id.clone())
+                    );
+                }
+                Err(err) => {
+                    println!("Failed to add member {}: {:?}", i, err);
+                    break;
+                }
             }
         }
 
@@ -596,11 +601,7 @@ mod member_performance_tests {
         let storage_used_for_member = post_add_balance.used_bytes - initial_used;
 
         // Handle potential balance changes (could increase due to deposits)
-        let balance_change = if post_add_balance.balance.0 >= initial_total_balance {
-            post_add_balance.balance.0 - initial_total_balance // Balance increased
-        } else {
-            initial_total_balance - post_add_balance.balance.0 // Balance decreased
-        };
+        let balance_change = post_add_balance.balance.0.abs_diff(initial_total_balance);
 
         // NEAR storage economics validation (based on official documentation)
         // Storage cost: 1E19 yoctoNEAR per byte = 100KB per 1 NEAR

@@ -8,4 +8,4 @@ description = "Minimal NEP-141 mock FT for integration testing"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-near-sdk = "5.24"
+near-sdk = "5.29.1"

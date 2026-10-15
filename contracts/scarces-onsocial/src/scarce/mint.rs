@@ -88,11 +88,10 @@ impl Contract {
             burnable,
         } = options;
 
-        if let Some(ref app) = app_id {
-            if !self.app_pools.contains_key(app) {
+        if let Some(ref app) = app_id
+            && !self.app_pools.contains_key(app) {
                 return Err(MarketplaceError::NotFound("App pool not found".into()));
             }
-        }
 
         let merged_royalty = self.merge_royalties(app_id.as_deref(), royalty)?;
         let id = self.next_token_id;
@@ -255,11 +254,10 @@ impl Contract {
 
         metadata.issued_at = Some(timestamp);
 
-        if metadata.copies.is_none() {
-            if let Some(collection) = self.collections.get(collection_id) {
+        if metadata.copies.is_none()
+            && let Some(collection) = self.collections.get(collection_id) {
                 metadata.copies = Some(collection.total_supply as u64);
             }
-        }
 
         crate::validation::validate_token_metadata(&metadata)?;
         Ok(metadata)

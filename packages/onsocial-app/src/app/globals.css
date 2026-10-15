@@ -846,6 +846,8 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 }
 
 .protocol-face-pager {
+  position: relative;
+  z-index: 0;
   display: flex;
   height: 100%;
   overflow-x: auto;
@@ -879,12 +881,24 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   pointer-events: none;
 }
 
+/*
+ * Pill is a sibling of the pager; sheets portal into `.portfolio-frame`
+ * inside the pager. Any pill z-index above the pager buries drawers and
+ * overlay pages. Keep the pill above identity chrome only; lift the pager
+ * when a hosted sheet or slide-over is open.
+ */
 .protocol-face-pair-pill {
   position: absolute;
-  z-index: 6;
+  z-index: 1;
   left: 50%;
   transform: translateX(-50%);
   visibility: hidden;
+}
+
+.protocol-face-pair:has(.glass-sheet-root.is-visible) .protocol-face-pager,
+.protocol-face-pair:has([data-os-slide-over='true']:not(.is-closing))
+  .protocol-face-pager {
+  z-index: 2;
 }
 
 .protocol-face-pair-pill[data-placed='true'] {

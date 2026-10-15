@@ -95,11 +95,10 @@ pub fn revoke_permissions(
         ))
     };
 
-    if let Some(key) = key_opt.as_deref() {
-        if let Some(entry) = platform.get_entry(key) {
+    if let Some(key) = key_opt.as_deref()
+        && let Some(entry) = platform.get_entry(key) {
             deleted = crate::storage::soft_delete_entry(platform, key, entry)?;
         }
-    }
 
     let mut builder = EventBuilder::new(
         crate::constants::EVENT_TYPE_PERMISSION_UPDATE,

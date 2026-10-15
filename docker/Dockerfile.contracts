@@ -29,7 +29,7 @@ ENV RUSTUP_HOME=/usr/local/rustup
 ENV CARGO_HOME=/usr/local/cargo
 ENV PATH="/usr/local/cargo/bin:$PATH"
 
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.86.0 \
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.93.0 \
     && rustup target add wasm32-unknown-unknown \
     && rustup component add rustfmt clippy \
     && chmod -R a+rx /usr/local/rustup /usr/local/cargo \
@@ -37,7 +37,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.86.0 \
     && cargo --version
 
 # Install cargo-near (this is the slowest step - separate for better caching)
-RUN cargo install --locked --verbose cargo-near@0.17.0 \
+RUN cargo install --locked --verbose cargo-near@0.22.0 \
     && chmod -R a+rx /usr/local/cargo
 
 # Set environment variables

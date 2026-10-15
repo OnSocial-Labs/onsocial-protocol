@@ -155,11 +155,10 @@ impl crate::domain::groups::core::GroupStorage {
             return Ok(());
         }
 
-        if let Some(entry) = platform.get_entry(&blacklist_path) {
-            if matches!(entry.value, crate::state::models::DataValue::Value(_)) {
+        if let Some(entry) = platform.get_entry(&blacklist_path)
+            && matches!(entry.value, crate::state::models::DataValue::Value(_)) {
                 let _ = crate::storage::soft_delete_entry(platform, &blacklist_path, entry)?;
             }
-        }
 
         let unblacklist_event_data = Value::Object(serde_json::Map::from_iter([
             ("blacklisted".to_string(), Value::Bool(false)),
