@@ -1,5 +1,16 @@
 FROM caddy:2-builder AS builder
-RUN xcaddy build --with github.com/mholt/caddy-ratelimit
+# sum.golang.org sometimes drops the checksum stream mid-verify.
+RUN set -eu; \
+    ok=0; \
+    for i in 1 2 3; do \
+      if xcaddy build --with github.com/mholt/caddy-ratelimit; then \
+        ok=1; \
+        break; \
+      fi; \
+      echo "xcaddy build failed (attempt ${i}), retrying..."; \
+      sleep $((i * 5)); \
+    done; \
+    test "$ok" = 1
 
 FROM caddy:2-alpine
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy

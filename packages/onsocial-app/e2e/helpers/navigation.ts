@@ -249,6 +249,30 @@ export async function switchStandingView(
   page: Page,
   label: string
 ): Promise<void> {
-  await page.getByRole('button', { name: 'Open standing menu' }).click();
-  await page.getByRole('option', { name: label }).click();
+  // The list swap (skeleton → rows or the rate-limit error) remounts the
+  // portaled menu. Open it only after that swap has finished.
+  await page
+    .locator(
+      '.standing-row:not(.standing-row--skeleton), .standing-panel-empty-state, .standing-panel-error'
+    )
+    .first()
+    .waitFor({ state: 'visible', timeout: 20_000 });
+
+  const option = page.getByRole('option', { name: label });
+  const openMenu = page.getByRole('button', { name: 'Open standing menu' });
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (
+      (await option.count()) === 0 &&
+      (await openMenu.isVisible().catch(() => false))
+    ) {
+      await openMenu.click();
+    }
+    try {
+      await option.click({ timeout: 10_000 });
+      return;
+    } catch (error) {
+      if (attempt === 1) throw error;
+    }
+  }
 }

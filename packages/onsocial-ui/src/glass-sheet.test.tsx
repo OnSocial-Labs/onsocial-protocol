@@ -5,6 +5,7 @@ import {
   SheetHeader,
   sheetPresenceCloseShouldFinish,
   hugEnterNeedsArming,
+  hugEnterShouldArm,
   nextHugEnterStableSample,
   GLASS_SHEET_MEDIA_FACE_LIFT,
   resolveBackdropPresentation,
@@ -69,6 +70,12 @@ describe('hug enter', () => {
     const second = nextHugEnterStableSample(first.state, 480);
     expect(second.armed).toBe(true);
     expect(second.state.lastHeightPx).toBe(480);
+  });
+
+  it('slides in once the arming wait has run long enough', () => {
+    expect(hugEnterShouldArm(false, 79)).toBe(false);
+    expect(hugEnterShouldArm(false, 80)).toBe(true);
+    expect(hugEnterShouldArm(true, 0)).toBe(true);
   });
 
   it('resets when height changes mid-settle', () => {

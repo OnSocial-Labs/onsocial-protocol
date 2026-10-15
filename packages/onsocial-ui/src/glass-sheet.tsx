@@ -64,6 +64,11 @@ const SHEET_TRANSITION_MS = 320;
 const DRAG_ACTIVATION_PX = 4;
 /** Consecutive equal hug height samples before arming enter (avoids open→shrink). */
 const HUG_ENTER_STABLE_MATCHES = 2;
+/**
+ * Stop waiting and slide in. A list that keeps changing height (skeleton,
+ * then an error) must not leave the panel translated off-screen.
+ */
+export const HUG_ENTER_ARM_DEADLINE_MS = 80;
 /** Inline on sheet nodes — Tailwind/Lightning CSS drops unprefixed backdrop-filter. */
 export const GLASS_SHEET_BACKDROP_OPACITY = 0.28;
 export const GLASS_SHEET_BACKDROP_BLUR_PX = 16;
@@ -121,6 +126,15 @@ export function nextHugEnterStableSample(
     state: { lastHeightPx: heightPx, matches: 1 },
     armed: neededMatches <= 1,
   };
+}
+
+/** Arm on a settled height, or once the wait has run long enough to slide in. */
+export function hugEnterShouldArm(
+  sampleArmed: boolean,
+  elapsedMs: number,
+  deadlineMs = HUG_ENTER_ARM_DEADLINE_MS
+): boolean {
+  return sampleArmed || elapsedMs >= deadlineMs;
 }
 
 /** 0 = fully presented, 1 = sheet fully translated down (portfolio revealed). */
@@ -795,14 +809,16 @@ export function GlassSheet({
     typeof document !== 'undefined' &&
     portalTarget !== document.body;
   const reduceTransparency = usePrefersReducedTransparency();
-  const sheetReady = open && !!portalTarget;
   const [openedAboveMediaFace, setOpenedAboveMediaFace] = useState(false);
   const [enterAnimationDone, setEnterAnimationDone] = useState(false);
   const [hugEnterArmed, setHugEnterArmed] = useState(false);
   const [panelHeightPx, setPanelHeightPx] = useState(0);
   const [isDesktopSheet, setIsDesktopSheet] = useState(false);
+  // Presence follows the caller's `open`, not portal readiness. A one-frame
+  // host gap must not run the close timer — that calls `onClosed` and a
+  // choice menu stays shut after the option unmounts.
   const { mounted, visible, handlePanelTransitionEnd } = useSheetPresence(
-    sheetReady,
+    open,
     onClosed,
     presentation
   );
@@ -886,6 +902,7 @@ export function GlassSheet({
     let cancelled = false;
     let sampleState: HugEnterSampleState = { lastHeightPx: 0, matches: 0 };
     let raf = 0;
+    const startedAt = performance.now();
 
     const arm = () => {
       if (cancelled) return;
@@ -896,7 +913,7 @@ export function GlassSheet({
       if (cancelled) return;
       const next = nextHugEnterStableSample(sampleState, panel.offsetHeight);
       sampleState = next.state;
-      if (next.armed) {
+      if (hugEnterShouldArm(next.armed, performance.now() - startedAt)) {
         arm();
         return;
       }
@@ -927,7 +944,7 @@ export function GlassSheet({
       window.cancelAnimationFrame(raf);
       if (fontsTimer) window.clearTimeout(fontsTimer);
     };
-  }, [mounted, visible, hugEnterPending, hugEnterArmed]);
+  }, [mounted, visible, hugEnterPending, hugEnterArmed, portalTarget]);
 
   useEffect(() => {
     const mq = window.matchMedia(`(min-width: ${MOBILE_MAX_WIDTH_PX + 1}px)`);
@@ -1019,7 +1036,7 @@ export function GlassSheet({
     return () => window.clearTimeout(timer);
   }, [finishEnterAnimation, showEnterAnimation]);
 
-  useSheetFocusTrap(visible, panelRef);
+  useSheetFocusTrap(visible && portalTarget != null, panelRef);
 
   useLayoutEffect(() => {
     if (!mounted) {
@@ -1059,7 +1076,12 @@ export function GlassSheet({
         <button
           type="button"
           className="glass-sheet-backdrop"
-          onClick={onClose}
+          onClick={() => {
+            // Off-screen while hug enter is still arming — a click here is
+            // the gesture that opened the menu, not a dismiss.
+            if (!panelIsOpen) return;
+            onClose();
+          }}
           aria-label={backdropLabel}
           style={glassSheetBackdropFilterStyle(backdropPresentation.filter, {
             opacity: showEnterAnimation
