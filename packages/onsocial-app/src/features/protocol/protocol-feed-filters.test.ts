@@ -4,6 +4,7 @@ import {
   buildProtocolProposalAppId,
   getVisibleProtocolBatch,
   isProtocolRemovedFromChainPlaceholder,
+  proposalDrawerContentReady,
   sortProtocolApplicationsForFeed,
   upsertProtocolProposalApplication,
 } from '@/features/protocol/protocol-feed-filters';
@@ -11,6 +12,51 @@ import type {
   ProtocolApplication,
   ProtocolDaoProposal,
 } from '@/features/protocol/types';
+
+describe('proposalDrawerContentReady', () => {
+  it('waits for DAO config and a settled policy before showing proposals', () => {
+    expect(
+      proposalDrawerContentReady({
+        feedState: 'ready',
+        syncing: false,
+        hasPolicy: true,
+        configSettled: false,
+      })
+    ).toBe(false);
+    expect(
+      proposalDrawerContentReady({
+        feedState: 'loading',
+        syncing: true,
+        hasPolicy: false,
+        configSettled: true,
+      })
+    ).toBe(false);
+    expect(
+      proposalDrawerContentReady({
+        feedState: 'ready',
+        syncing: true,
+        hasPolicy: false,
+        configSettled: true,
+      })
+    ).toBe(false);
+    expect(
+      proposalDrawerContentReady({
+        feedState: 'ready',
+        syncing: true,
+        hasPolicy: true,
+        configSettled: true,
+      })
+    ).toBe(true);
+    expect(
+      proposalDrawerContentReady({
+        feedState: 'ready',
+        syncing: false,
+        hasPolicy: false,
+        configSettled: true,
+      })
+    ).toBe(true);
+  });
+});
 
 describe('getVisibleProtocolBatch', () => {
   it('paints the first page and reports remaining rows', () => {

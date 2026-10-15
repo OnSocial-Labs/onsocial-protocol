@@ -83,6 +83,7 @@ export function ProtocolDaoInfoSheet({
   daoAccountId,
   accountId,
   daoPolicy,
+  factsReady = true,
   onOpenStake,
   onOpenSettings,
 }: {
@@ -91,6 +92,8 @@ export function ProtocolDaoInfoSheet({
   daoAccountId: string | null;
   accountId: string | null;
   daoPolicy: ProtocolDaoPolicy | null;
+  /** False while the proposals drawer is still waiting on DAO config or policy. */
+  factsReady?: boolean;
   onOpenStake: () => void;
   onOpenSettings: () => void;
 }) {
@@ -119,7 +122,9 @@ export function ProtocolDaoInfoSheet({
           getProtocolDaoConfig(daoAccountId),
           face || !accountId
             ? Promise.resolve(null)
-            : getProtocolGovernanceEligibility(accountId, daoAccountId),
+            : getProtocolGovernanceEligibility(accountId, daoAccountId).catch(
+                () => null
+              ),
           fetchProtocolDaoTransferAssets(daoAccountId).catch(() => []),
         ]);
         if (cancelled) return;
@@ -183,6 +188,13 @@ export function ProtocolDaoInfoSheet({
     ? `Delegated ${formatSocialCompact(eligibility.delegatedWeight)} · wallet ${formatSocialCompact(eligibility.walletBalance)} SOCIAL · ${formatNearCompact(eligibility.nearBalance)} NEAR`
     : null;
 
+  const infoLoading =
+    !factsReady || loadState === 'idle' || loadState === 'loading';
+  const showFacts =
+    !infoLoading &&
+    daoPolicy != null &&
+    (loadState === 'ready' || loadState === 'error');
+
   if (!daoAccountId) return null;
 
   const footer = (
@@ -234,22 +246,15 @@ export function ProtocolDaoInfoSheet({
       contentClassName="dao-info-sheet os-sheet-facts"
       footer={footer}
     >
-      <p className="dao-info-lead">
-        On-chain policy snapshot for this board.
-      </p>
+      <p className="dao-info-lead">On-chain policy snapshot for this board.</p>
 
-      {loadState === 'loading' ? (
-        <p className="dao-info-empty">Loading DAO info…</p>
+      {infoLoading ? <p className="dao-info-empty">Loading DAO info…</p> : null}
+
+      {!infoLoading && !showFacts ? (
+        <p className="dao-info-empty">DAO info is unavailable right now.</p>
       ) : null}
 
-      {loadState === 'error' ? (
-        <p className="dao-info-warn" role="alert">
-          Could not load DAO config. Policy below still reflects the feed
-          snapshot.
-        </p>
-      ) : null}
-
-      {configPurpose ? (
+      {showFacts && configPurpose ? (
         <>
           <SheetFactSection title="About">
             <SheetFactCopy>{configPurpose}</SheetFactCopy>
@@ -258,40 +263,42 @@ export function ProtocolDaoInfoSheet({
         </>
       ) : null}
 
-      <SheetFactSection title="Policy">
-        <SheetFactRow
-          label="Bond"
-          value={bondNear ? `${bondNear} NEAR` : '—'}
-        />
-        <SheetFactRow
-          label="Period"
-          value={periodDays ? `${periodDays}d` : '—'}
-        />
-        <SheetFactRow
-          label="NEAR treasury"
-          value={
-            treasuryBalances
-              ? `${formatNearCompact(treasuryBalances.nearYocto)} NEAR`
-              : '—'
-          }
-        />
-        <SheetFactRow
-          label="SOCIAL treasury"
-          value={
-            treasuryBalances
-              ? `${formatSocialCompact(treasuryBalances.socialYocto)} SOCIAL`
-              : '—'
-          }
-        />
-        <SheetFactRow label="Vote policy" value={voteSummary} />
-        <SheetFactCopy>
-          Quorum {quorum}
-          {councilNote ? ` · ${councilNote}` : ''}
-        </SheetFactCopy>
-        {roleList ? <SheetFactRow label="Roles" value={roleList} /> : null}
-      </SheetFactSection>
+      {showFacts ? (
+        <SheetFactSection title="Policy">
+          <SheetFactRow
+            label="Bond"
+            value={bondNear ? `${bondNear} NEAR` : '—'}
+          />
+          <SheetFactRow
+            label="Period"
+            value={periodDays ? `${periodDays}d` : '—'}
+          />
+          <SheetFactRow
+            label="NEAR treasury"
+            value={
+              treasuryBalances
+                ? `${formatNearCompact(treasuryBalances.nearYocto)} NEAR`
+                : '—'
+            }
+          />
+          <SheetFactRow
+            label="SOCIAL treasury"
+            value={
+              treasuryBalances
+                ? `${formatSocialCompact(treasuryBalances.socialYocto)} SOCIAL`
+                : '—'
+            }
+          />
+          <SheetFactRow label="Vote policy" value={voteSummary} />
+          <SheetFactCopy>
+            Quorum {quorum}
+            {councilNote ? ` · ${councilNote}` : ''}
+          </SheetFactCopy>
+          {roleList ? <SheetFactRow label="Roles" value={roleList} /> : null}
+        </SheetFactSection>
+      ) : null}
 
-      {positionValue ? (
+      {showFacts && positionValue ? (
         <>
           <Divider variant="detail" />
           <SheetFactSection title="Your position">
@@ -301,13 +308,11 @@ export function ProtocolDaoInfoSheet({
             ) : null}
           </SheetFactSection>
         </>
-      ) : accountId && loadState === 'loading' ? (
-        <p className="dao-info-empty">Checking your position…</p>
-      ) : accountId ? null : (
+      ) : showFacts && !accountId ? (
         <p className="dao-info-empty">
           Connect a wallet to see your stake position.
         </p>
-      )}
+      ) : null}
     </DaoOrgHugSheet>
   );
 }

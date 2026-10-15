@@ -45104,13 +45104,6 @@ a.protocol-board-chip {
   color: rgb(var(--fg-rgb) / 0.55);
 }
 
-.dao-info-warn {
-  margin: 0;
-  font-size: 0.84rem;
-  line-height: 1.4;
-  color: color-mix(in srgb, var(--protocol-red, #c45c5c) 82%, transparent);
-}
-
 .dao-info-position-lead {
   margin: 0;
   font-size: 0.95rem;

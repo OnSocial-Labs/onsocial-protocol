@@ -210,6 +210,23 @@ export function countProtocolApplicationsByFamily(
   return counts;
 }
 
+/**
+ * Proposal drawer body stays on the skeleton until DAO config has settled
+ * and policy is either in hand or the feed has finished without one.
+ * A still-syncing feed with no policy is not ready — that window is what
+ * painted the orange “no roles / closed” hint before the list.
+ */
+export function proposalDrawerContentReady(input: {
+  feedState: 'loading' | 'ready' | 'error';
+  syncing: boolean;
+  hasPolicy: boolean;
+  configSettled: boolean;
+}): boolean {
+  if (!input.configSettled || input.feedState === 'loading') return false;
+  if (input.hasPolicy) return true;
+  return !input.syncing;
+}
+
 export function findProtocolApplicationByProposalId(
   applications: ProtocolApplication[],
   proposalId: number
@@ -276,7 +293,10 @@ export function upsertProtocolProposalApplication(
   const proposalId = proposal.id ?? null;
   if (proposalId == null) return applications;
 
-  const existing = findProtocolApplicationByProposalId(applications, proposalId);
+  const existing = findProtocolApplicationByProposalId(
+    applications,
+    proposalId
+  );
   if (existing) {
     return applications.map((row) => {
       if (row.app_id !== existing.app_id) return row;

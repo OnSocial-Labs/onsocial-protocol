@@ -33,6 +33,7 @@ export function ProtocolSettingsActionSheet({
   daoAccountId,
   accountId,
   daoPolicy,
+  factsReady = true,
   lastAction = null,
   onSelectAction,
   onOpenStake,
@@ -42,6 +43,8 @@ export function ProtocolSettingsActionSheet({
   daoAccountId: string | null;
   accountId: string | null;
   daoPolicy: ProtocolDaoPolicy | null;
+  /** False while DAO config or policy is still loading. */
+  factsReady?: boolean;
   /** Highlighted action from the previous settings flow (does not skip the drawer). */
   lastAction?: ProtocolPolicyActionId | null;
   onSelectAction: (actionId: ProtocolPolicyActionId) => void;
@@ -59,8 +62,17 @@ export function ProtocolSettingsActionSheet({
     return lastAction ?? readLastProtocolPolicyAction();
   }, [open, lastAction]);
 
+  const policyMissing = Boolean(accountId) && factsReady && daoPolicy == null;
+  const statusLoadState = !accountId
+    ? eligibility.loadState
+    : policyMissing || !factsReady || eligibility.loadState === 'loading'
+      ? 'loading'
+      : eligibility.loadState;
   const filterReady =
-    Boolean(accountId) && eligibility.loadState === 'ready';
+    Boolean(accountId) &&
+    factsReady &&
+    daoPolicy != null &&
+    eligibility.loadState === 'ready';
 
   const { common, grouped, hasVisible } = useMemo(
     () =>
@@ -92,7 +104,7 @@ export function ProtocolSettingsActionSheet({
       buildProtocolPickerActionItems({
         sections,
         accountId,
-        loadState: eligibility.loadState,
+        loadState: policyMissing ? 'loading' : statusLoadState,
         highlightedId: highlightedAction,
         onSelect: (actionId) => {
           rememberProtocolPolicyAction(actionId);
@@ -101,10 +113,11 @@ export function ProtocolSettingsActionSheet({
       }),
     [
       accountId,
-      eligibility.loadState,
       highlightedAction,
       onSelectAction,
+      policyMissing,
       sections,
+      statusLoadState,
     ]
   );
 
@@ -118,32 +131,42 @@ export function ProtocolSettingsActionSheet({
       backdropLabel="Close settings"
       items={items}
     >
-      <ProtocolPickerStatus
-        accountId={accountId}
-        loadState={eligibility.loadState}
-        connectEmpty="Connect a wallet to propose settings."
-        loadingEmpty="Checking what you can change…"
-        errorNote="Could not verify settings eligibility. Close and try again."
-        stakeBlocked={eligibility.stakeBlocked}
-        stakeMessage={protocolPickerStakeGateMessage(
-          eligibility.remainingLabel,
-          'settings'
-        )}
-        foreignStakeBlocked={eligibility.foreignStakeBlocked}
-        foreignStakeMessage={protocolPickerForeignStakeMessage(
-          eligibility.foreignStakeTokenLabel,
-          'settings'
-        )}
-        roleBlocked={eligibility.roleBlocked}
-        onOpenStake={onOpenStake}
-        onClose={onClose}
-      />
+      {policyMissing ? (
+        <p className="protocol-empty">DAO policy is unavailable.</p>
+      ) : (
+        <>
+          <ProtocolPickerStatus
+            accountId={accountId}
+            loadState={statusLoadState}
+            connectEmpty="Connect a wallet to propose settings."
+            loadingEmpty={
+              factsReady
+                ? 'Checking what you can change…'
+                : 'Loading DAO policy…'
+            }
+            errorNote="Could not verify settings eligibility. Close and try again."
+            stakeBlocked={filterReady && eligibility.stakeBlocked}
+            stakeMessage={protocolPickerStakeGateMessage(
+              eligibility.remainingLabel,
+              'settings'
+            )}
+            foreignStakeBlocked={filterReady && eligibility.foreignStakeBlocked}
+            foreignStakeMessage={protocolPickerForeignStakeMessage(
+              eligibility.foreignStakeTokenLabel,
+              'settings'
+            )}
+            roleBlocked={filterReady && eligibility.roleBlocked}
+            onOpenStake={onOpenStake}
+            onClose={onClose}
+          />
 
-      {accountId && eligibility.loadState === 'ready' && !hasVisible ? (
-        <p className="protocol-compose-note is-warn">
-          No settings actions match your roles on this DAO.
-        </p>
-      ) : null}
+          {filterReady && !hasVisible ? (
+            <p className="protocol-compose-note is-warn">
+              No settings actions match your roles on this DAO.
+            </p>
+          ) : null}
+        </>
+      )}
     </ProtocolPickerSheet>
   );
 }

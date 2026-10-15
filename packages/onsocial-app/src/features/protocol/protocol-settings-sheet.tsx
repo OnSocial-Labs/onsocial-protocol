@@ -93,6 +93,7 @@ export function ProtocolSettingsSheet({
   daoAccountId,
   accountId,
   daoPolicy,
+  factsReady = true,
   pending,
   initialAction = 'update_vote_policy',
   onSubmit,
@@ -104,6 +105,8 @@ export function ProtocolSettingsSheet({
   daoAccountId: string | null;
   accountId: string | null;
   daoPolicy: ProtocolDaoPolicy | null;
+  /** False while DAO config or policy is still loading. */
+  factsReady?: boolean;
   pending: boolean;
   initialAction?: ProtocolPolicyActionId;
   onSubmit: (payload: ProtocolProposalPayload) => void;
@@ -295,99 +298,103 @@ export function ProtocolSettingsSheet({
     ? `${baselinePeriodDays.trim()}d`
     : '—';
 
-  useEffect(() => {
-    if (!open) {
-      setActionId(initialAction);
-      setDescription('');
-      setBondNear('');
-      setPeriodDays('');
-      setBaselineBondNear('');
-      setBaselinePeriodDays('');
-      setConfigName('');
-      setConfigPurpose('');
-      setBaselineConfigName('');
-      setBaselineConfigPurpose('');
-      setVoteThresholdPresetId('pct_50');
-      setVoteQuorum('0');
-      setNewRoleName('');
-      setAddRoleAccessMode('full_access');
-      setAddRolePermissions(['call:AddProposal']);
-      setRemoveRoleId('');
-      setPermissionsRoleId('');
-      setPermissions([]);
-      setFetchedEligibility(null);
-      setLoadState('idle');
-      setFormError(null);
-      setProposeConfirmOpen(false);
-      setPendingPayload(null);
-      return;
-    }
-
-    setActionId(initialAction);
-
-    const threshold = readDefaultVotePolicyThreshold(
-      daoPolicy?.default_vote_policy
-    );
-    const thresholdPresetId =
-      resolveVoteThresholdPresetId(threshold) ?? 'pct_50';
-    setVoteThresholdPresetId(thresholdPresetId);
-    const nextThreshold =
-      resolveProtocolVoteThresholdPreset(thresholdPresetId)?.threshold ??
-      threshold;
-    const quorum = readDefaultVotePolicyQuorum(daoPolicy?.default_vote_policy);
-    setVoteQuorum(
-      resolveSelectableVoteQuorum(
-        quorum,
-        resolveCouncilVotePoolSize(daoPolicy),
-        nextThreshold
-      )
-    );
-
-    const bond = daoPolicy?.proposal_bond
-      ? yoctoToNear(daoPolicy.proposal_bond)
-      : '';
-    const period = proposalPeriodNsToDays(daoPolicy?.proposal_period);
-    setBondNear(bond);
-    setPeriodDays(period);
-    setBaselineBondNear(bond);
-    setBaselinePeriodDays(period);
-
-    if (!daoAccountId) {
-      setLoadState('ready');
-      return;
-    }
-
-    let cancelled = false;
-    setLoadState('loading');
-    void Promise.all([
-      face || !accountId
-        ? Promise.resolve(face?.eligibility ?? null)
-        : getProtocolGovernanceEligibility(accountId, daoAccountId),
-      getProtocolDaoConfig(daoAccountId),
-    ])
-      .then(([nextEligibility, config]) => {
-        if (cancelled) return;
-        setFetchedEligibility(nextEligibility);
-        const name = config?.name ?? '';
-        const purpose = config?.purpose ?? '';
-        setConfigName(name);
-        setConfigPurpose(purpose);
-        setBaselineConfigName(name);
-        setBaselineConfigPurpose(purpose);
-        setLoadState('ready');
-      })
-      .catch(() => {
-        if (cancelled) return;
+  useEffect(
+    () => {
+      if (!open) {
+        setActionId(initialAction);
+        setDescription('');
+        setBondNear('');
+        setPeriodDays('');
+        setBaselineBondNear('');
+        setBaselinePeriodDays('');
+        setConfigName('');
+        setConfigPurpose('');
+        setBaselineConfigName('');
+        setBaselineConfigPurpose('');
+        setVoteThresholdPresetId('pct_50');
+        setVoteQuorum('0');
+        setNewRoleName('');
+        setAddRoleAccessMode('full_access');
+        setAddRolePermissions(['call:AddProposal']);
+        setRemoveRoleId('');
+        setPermissionsRoleId('');
+        setPermissions([]);
         setFetchedEligibility(null);
-        setLoadState('error');
-      });
-    return () => {
-      cancelled = true;
-    };
-  },
-  // Face snapshot is read at render so this form is not reset on arrival.
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- face snapshot
-  [open, daoAccountId, accountId, daoPolicy, initialAction]);
+        setLoadState('idle');
+        setFormError(null);
+        setProposeConfirmOpen(false);
+        setPendingPayload(null);
+        return;
+      }
+
+      setActionId(initialAction);
+
+      const threshold = readDefaultVotePolicyThreshold(
+        daoPolicy?.default_vote_policy
+      );
+      const thresholdPresetId =
+        resolveVoteThresholdPresetId(threshold) ?? 'pct_50';
+      setVoteThresholdPresetId(thresholdPresetId);
+      const nextThreshold =
+        resolveProtocolVoteThresholdPreset(thresholdPresetId)?.threshold ??
+        threshold;
+      const quorum = readDefaultVotePolicyQuorum(
+        daoPolicy?.default_vote_policy
+      );
+      setVoteQuorum(
+        resolveSelectableVoteQuorum(
+          quorum,
+          resolveCouncilVotePoolSize(daoPolicy),
+          nextThreshold
+        )
+      );
+
+      const bond = daoPolicy?.proposal_bond
+        ? yoctoToNear(daoPolicy.proposal_bond)
+        : '';
+      const period = proposalPeriodNsToDays(daoPolicy?.proposal_period);
+      setBondNear(bond);
+      setPeriodDays(period);
+      setBaselineBondNear(bond);
+      setBaselinePeriodDays(period);
+
+      if (!daoAccountId) {
+        setLoadState('ready');
+        return;
+      }
+
+      let cancelled = false;
+      setLoadState('loading');
+      void Promise.all([
+        face || !accountId
+          ? Promise.resolve(face?.eligibility ?? null)
+          : getProtocolGovernanceEligibility(accountId, daoAccountId),
+        getProtocolDaoConfig(daoAccountId),
+      ])
+        .then(([nextEligibility, config]) => {
+          if (cancelled) return;
+          setFetchedEligibility(nextEligibility);
+          const name = config?.name ?? '';
+          const purpose = config?.purpose ?? '';
+          setConfigName(name);
+          setConfigPurpose(purpose);
+          setBaselineConfigName(name);
+          setBaselineConfigPurpose(purpose);
+          setLoadState('ready');
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setFetchedEligibility(null);
+          setLoadState('error');
+        });
+      return () => {
+        cancelled = true;
+      };
+    },
+    // Face snapshot is read at render so this form is not reset on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- face snapshot
+    [open, daoAccountId, accountId, daoPolicy, initialAction]
+  );
 
   // Action is chosen in ProtocolSettingsActionSheet — only fall back if the
   // selected action is no longer permissioned for this viewer.
@@ -462,8 +469,10 @@ export function ProtocolSettingsSheet({
     eligibility && BigInt(eligibility.remainingToThreshold) > 0n
       ? formatSocialCompact(eligibility.remainingToThreshold)
       : null;
+  const settingsReady =
+    factsReady && daoPolicy != null && loadState === 'ready';
   const permissionBlock =
-    loadState === 'ready' && accountId && !hasActionPermission
+    settingsReady && accountId && !hasActionPermission
       ? getProtocolPolicyActionBlockReason(actionId)
       : null;
   const addRoleBlock =
@@ -472,8 +481,8 @@ export function ProtocolSettingsSheet({
       : '';
 
   const formReady =
+    settingsReady &&
     Boolean(accountId) &&
-    loadState === 'ready' &&
     hasActionPermission &&
     !addRoleBlock &&
     !noChangesYet;
@@ -488,9 +497,8 @@ export function ProtocolSettingsSheet({
       pending,
       disabled:
         pending ||
+        !settingsReady ||
         !accountId ||
-        loadState === 'loading' ||
-        loadState === 'error' ||
         !hasActionPermission ||
         Boolean(addRoleBlock) ||
         noChangesYet,
@@ -500,8 +508,8 @@ export function ProtocolSettingsSheet({
     open,
     pending,
     formReady,
+    settingsReady,
     accountId,
-    loadState,
     hasActionPermission,
     addRoleBlock,
     noChangesYet,
@@ -509,491 +517,521 @@ export function ProtocolSettingsSheet({
 
   return (
     <>
-    <ProtocolTaskSheet
-      open={open}
-      onClose={onClose}
-      verb={protocolPolicyActionLabel(actionId)}
-      handle={daoAccountId ?? undefined}
-      whisper="Fill the fields, then confirm bond and submit."
-      closeAriaLabel="Close settings"
-      backdropLabel="Close settings"
-      formId={formId}
-      footerState={footerState}
-    >
-      <form
-        id={formId}
-        className="protocol-compose protocol-task-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (pending || !accountId || !formReady) {
-            return;
-          }
-          try {
-            const payload = buildProtocolPolicyPayload({
-              actionId,
-              policy: daoPolicy,
-              description,
-              proposalBondYocto: bondChanged
-                ? (nextBondYocto ?? undefined)
-                : undefined,
-              proposalPeriodNs: periodChanged
-                ? (nextPeriodNs ?? undefined)
-                : undefined,
-              configName,
-              configPurpose,
-              voteThreshold:
-                actionId === 'update_vote_policy'
-                  ? (nextVoteThreshold ?? undefined)
-                  : undefined,
-              voteQuorum: usesRoleWeightVotePolicy ? voteQuorum : undefined,
-              newRoleName,
-              addRoleAccessMode,
-              addRolePermissions,
-              removeRoleId,
-              permissionsRoleId,
-              permissions,
-            });
-            setFormError(null);
-            setPendingPayload(payload);
-            setProposeConfirmOpen(true);
-          } catch (error) {
-            setFormError(
-              error instanceof Error
-                ? error.message
-                : 'Could not build settings proposal.'
-            );
-          }
-        }}
+      <ProtocolTaskSheet
+        open={open}
+        onClose={onClose}
+        verb={protocolPolicyActionLabel(actionId)}
+        handle={daoAccountId ?? undefined}
+        whisper="Fill the fields, then confirm bond and submit."
+        closeAriaLabel="Close settings"
+        backdropLabel="Close settings"
+        formId={formId}
+        footerState={footerState}
       >
-        {!accountId ? (
-          <p className="protocol-empty">
-            Connect a wallet to propose settings.
-          </p>
-        ) : null}
-
-        {accountId && loadState === 'loading' ? (
-          <p className="protocol-empty">Loading DAO settings…</p>
-        ) : null}
-
-        {accountId && loadState === 'error' ? (
-          <p className="protocol-compose-note is-warn">
-            Could not verify settings eligibility. Close and try again.
-          </p>
-        ) : null}
-
-        {needsStake ? (
-          <p className="protocol-compose-note is-warn">
-            Need {shortfall ?? 'more'} SOCIAL delegated — you can still fill
-            this form; confirm will offer Stake.
-          </p>
-        ) : null}
-
-        {needsForeignStake ? (
-          <p className="protocol-compose-note is-warn">
-            Need {eligibility?.foreignStakeTokenLabel ?? "this DAO's token"}{' '}
-            stake to propose.
-          </p>
-        ) : null}
-
-        {permissionBlock ? (
-          <p className="protocol-compose-note is-warn">{permissionBlock}</p>
-        ) : null}
-
-        {loadState === 'ready' &&
-        accountId &&
-        availableActions.length === 0 ? (
-          <p className="protocol-compose-note is-warn">
-            No settings actions are available for your roles on this DAO.
-          </p>
-        ) : null}
-
-        {loadState === 'ready' ? (
-          <div className="protocol-policy-summary" aria-label="Current policy">
-            <div className="protocol-policy-summary-cell">
-              <span className="protocol-policy-summary-label">Bond</span>
-              <span className="protocol-policy-summary-value">
-                {bondSummary}
-              </span>
-            </div>
-            <div className="protocol-policy-summary-cell">
-              <span className="protocol-policy-summary-label">Period</span>
-              <span className="protocol-policy-summary-value">
-                {periodSummary}
-              </span>
-            </div>
-            <div className="protocol-policy-summary-cell">
-              <span className="protocol-policy-summary-label">Roles</span>
-              <span className="protocol-policy-summary-value">{roleCount}</span>
-            </div>
-          </div>
-        ) : null}
-
-        {onChangeAction ? (
-          <ProtocolComposeChangeTypeRow
-            hint={
-              PROTOCOL_POLICY_ACTION_OPTIONS.find(
-                (option) => option.id === actionId
-              )?.hint ?? ''
+        <form
+          id={formId}
+          className="protocol-compose protocol-task-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (pending || !accountId || !formReady) {
+              return;
             }
-            pending={pending}
-            onChangeKind={onChangeAction}
-          />
-        ) : null}
-
-        {actionId === 'update_parameters' ? (
-          <>
-            <label className="guild-field">
-              <span>Proposal bond (NEAR)</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={bondNear}
-                onChange={(event) => setBondNear(event.target.value)}
-                disabled={pending}
-                className={osFieldBorderedClassName}
-              />
-            </label>
-            <label className="guild-field">
-              <span>Voting period (days)</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={periodDays}
-                onChange={(event) => setPeriodDays(event.target.value)}
-                disabled={pending}
-                className={osFieldBorderedClassName}
-              />
-            </label>
-          </>
-        ) : null}
-
-        {actionId === 'update_config' ? (
-          <>
-            <label className="guild-field">
-              <span>Name</span>
-              <input
-                type="text"
-                value={configName}
-                onChange={(event) => setConfigName(event.target.value)}
-                disabled={pending}
-                className={osFieldBorderedClassName}
-              />
-            </label>
-            <label className="guild-field">
-              <span>Purpose</span>
-              <textarea
-                rows={3}
-                value={configPurpose}
-                onChange={(event) => setConfigPurpose(event.target.value)}
-                disabled={pending}
-                className={osFieldBorderedClassName}
-              />
-            </label>
-          </>
-        ) : null}
-
-        {actionId === 'update_vote_policy' ? (
-          <>
-            <div className="guild-field">
-              <ChoiceDrawerField
-                label="Approval threshold"
-                value={voteThresholdPresetId}
-                options={PROTOCOL_VOTE_THRESHOLD_PRESETS.map(
-                  (
-                    preset
-                  ): ChoiceOption<ProtocolVoteThresholdPresetId> => {
-                    const isCurrent = preset.id === currentThresholdPresetId;
-                    return {
-                      value: preset.id,
-                      label: formatVoteThresholdOptionLabel(
-                        preset,
-                        isCurrent
-                          ? (currentVoteThreshold ?? preset.threshold)
-                          : preset.threshold
-                      ),
-                      description: isCurrent ? 'Current' : undefined,
-                    };
-                  }
-                )}
-                onChange={(next) => {
-                  setVoteThresholdPresetId(next);
-                  setFormError(null);
-                }}
-                disabled={pending}
-                zIndex={PROTOCOL_NESTED_CHOICE_Z}
-              />
-            </div>
-
-            {usesRoleWeightVotePolicy ? (
-              <>
-                <div className="guild-field">
-                  <ChoiceDrawerField
-                    label="Minimum approvals"
-                    value={voteQuorum}
-                    options={voteQuorumOptions.map(
-                      (option): ChoiceOption<string> => {
-                        const isCurrent = option.quorum === currentVoteQuorum;
-                        return {
-                          value: option.quorum,
-                          label: formatVoteQuorumOptionLabel(option),
-                          description: isCurrent ? 'Current' : undefined,
-                        };
-                      }
-                    )}
-                    onChange={(next) => {
-                      setVoteQuorum(next);
-                      setFormError(null);
-                    }}
-                    disabled={pending}
-                    hint="Uses whichever is stricter: this floor or the approval threshold."
-                    zIndex={PROTOCOL_NESTED_CHOICE_Z}
-                  />
-                </div>
-                <p className="protocol-compose-note">
-                  Uses whichever is stricter: this floor or the approval
-                  threshold.
-                </p>
-                {selectedVoteQuorumRisk.message ? (
-                  <p className="protocol-compose-note is-warn">
-                    Risk: {selectedVoteQuorumRisk.message}
-                  </p>
-                ) : null}
-              </>
-            ) : null}
-          </>
-        ) : null}
-
-        {actionId === 'update_permissions' ? (
-          <>
-            {editableRoles.length === 0 ? (
-              <p className="protocol-compose-note">No editable roles.</p>
-            ) : (
-              <div className="guild-field">
-                <ChoiceDrawerField
-                  label="Role"
-                  value={permissionsRoleId}
-                  options={editableRoles.map(
-                    (role): ChoiceOption<string> => ({
-                      value: role,
-                      label: role,
-                    })
-                  )}
-                  onChange={setPermissionsRoleId}
-                  disabled={pending}
-                  zIndex={PROTOCOL_NESTED_CHOICE_Z}
-                />
-              </div>
-            )}
-
-            <div
-              className="protocol-preset-rail"
-              role="group"
-              aria-label="Permission presets"
-            >
-              {permissionsBaseline.length > 0 ? (
-                <button
-                  type="button"
-                  className={`protocol-board-chip${matchesPermissionsBaseline ? ' is-active' : ''}`}
-                  disabled={pending}
-                  onClick={() => setPermissions([...permissionsBaseline])}
-                >
-                  Reset
-                  <span className="sr-only">
-                    {matchesPermissionsBaseline
-                      ? ` · on-chain ${baselinePermissionPresetLabel}`
-                      : ` · restore on-chain ${baselinePermissionPresetLabel}`}
-                  </span>
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className={`protocol-board-chip${matchesAllPublic && !matchesPermissionsBaseline ? ' is-active' : ''}`}
-                disabled={pending}
-                onClick={() =>
-                  setPermissions([...PROTOCOL_ALL_PUBLIC_PERMISSIONS])
-                }
-              >
-                All public
-              </button>
-              <button
-                type="button"
-                className={`protocol-board-chip${matchesActionsOnly && !matchesPermissionsBaseline ? ' is-active' : ''}`}
-                disabled={pending}
-                onClick={() =>
-                  setPermissions([...PROTOCOL_ACTIONS_ONLY_PERMISSIONS])
-                }
-              >
-                Actions only
-              </button>
-            </div>
-
-            <div className="protocol-permission-list">
-              {PROTOCOL_EDITABLE_PERMISSIONS.map((option) => {
-                const checked = permissions.includes(option.id);
-                const sole =
-                  checked &&
-                  permissions.length === 1 &&
-                  permissions[0] === option.id;
-                return (
-                  <label key={option.id} className="protocol-permission-item">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={pending || sole}
-                      onChange={() => {
-                        setPermissions((current) =>
-                          checked
-                            ? current.filter((id) => id !== option.id)
-                            : [...current, option.id]
-                        );
-                      }}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </>
-        ) : null}
-
-        {actionId === 'add_role' ? (
-          <>
-            <label className="guild-field">
-              <span>New role name</span>
-              <input
-                type="text"
-                value={newRoleName}
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                placeholder="reviewers"
-                onChange={(event) => setNewRoleName(event.target.value)}
-                disabled={pending}
-                className={osFieldBorderedClassName}
-              />
-            </label>
-            <div className="guild-field">
-              <ChoiceDrawerField
-                label="Access"
-                value={addRoleAccessMode}
-                options={PROTOCOL_ADD_ROLE_ACCESS_OPTIONS.map(
-                  (option): ChoiceOption<ProtocolAddRoleAccessMode> => ({
-                    value: option.id,
-                    label: option.label,
-                    description: option.hint,
-                  })
-                )}
-                onChange={setAddRoleAccessMode}
-                disabled={pending}
-                zIndex={PROTOCOL_NESTED_CHOICE_Z}
-              />
-            </div>
-            <p className="protocol-compose-note">
-              {
-                PROTOCOL_ADD_ROLE_ACCESS_OPTIONS.find(
-                  (option) => option.id === addRoleAccessMode
-                )?.hint
-              }
+            try {
+              const payload = buildProtocolPolicyPayload({
+                actionId,
+                policy: daoPolicy,
+                description,
+                proposalBondYocto: bondChanged
+                  ? (nextBondYocto ?? undefined)
+                  : undefined,
+                proposalPeriodNs: periodChanged
+                  ? (nextPeriodNs ?? undefined)
+                  : undefined,
+                configName,
+                configPurpose,
+                voteThreshold:
+                  actionId === 'update_vote_policy'
+                    ? (nextVoteThreshold ?? undefined)
+                    : undefined,
+                voteQuorum: usesRoleWeightVotePolicy ? voteQuorum : undefined,
+                newRoleName,
+                addRoleAccessMode,
+                addRolePermissions,
+                removeRoleId,
+                permissionsRoleId,
+                permissions,
+              });
+              setFormError(null);
+              setPendingPayload(payload);
+              setProposeConfirmOpen(true);
+            } catch (error) {
+              setFormError(
+                error instanceof Error
+                  ? error.message
+                  : 'Could not build settings proposal.'
+              );
+            }
+          }}
+        >
+          {!accountId ? (
+            <p className="protocol-empty">
+              Connect a wallet to propose settings.
             </p>
-            {addRoleAccessMode === 'custom' ? (
-              <div className="protocol-permission-list">
-                {PROTOCOL_EDITABLE_PERMISSIONS.map((option) => {
-                  const checked = addRolePermissions.includes(option.id);
-                  return (
-                    <label key={option.id} className="protocol-permission-item">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        disabled={pending}
-                        onChange={() => {
-                          setAddRolePermissions((current) =>
-                            checked
-                              ? current.filter((id) => id !== option.id)
-                              : [...current, option.id]
-                          );
-                        }}
-                      />
-                      <span>{option.label}</span>
-                    </label>
-                  );
-                })}
+          ) : null}
+
+          {accountId &&
+          factsReady &&
+          daoPolicy == null &&
+          loadState !== 'error' ? (
+            <p className="protocol-empty">DAO policy is unavailable.</p>
+          ) : null}
+
+          {accountId && !factsReady ? (
+            <p className="protocol-empty">Loading DAO policy…</p>
+          ) : null}
+
+          {accountId &&
+          factsReady &&
+          daoPolicy != null &&
+          !settingsReady &&
+          loadState !== 'error' ? (
+            <p className="protocol-empty">Loading DAO settings…</p>
+          ) : null}
+
+          {accountId && factsReady && loadState === 'error' ? (
+            <p className="protocol-compose-note is-warn">
+              Could not verify settings eligibility. Close and try again.
+            </p>
+          ) : null}
+
+          {settingsReady && needsStake ? (
+            <p className="protocol-compose-note is-warn">
+              Need {shortfall ?? 'more'} SOCIAL delegated — you can still fill
+              this form; confirm will offer Stake.
+            </p>
+          ) : null}
+
+          {settingsReady && needsForeignStake ? (
+            <p className="protocol-compose-note is-warn">
+              Need {eligibility?.foreignStakeTokenLabel ?? "this DAO's token"}{' '}
+              stake to propose.
+            </p>
+          ) : null}
+
+          {settingsReady && permissionBlock ? (
+            <p className="protocol-compose-note is-warn">{permissionBlock}</p>
+          ) : null}
+
+          {settingsReady && accountId && availableActions.length === 0 ? (
+            <p className="protocol-compose-note is-warn">
+              No settings actions are available for your roles on this DAO.
+            </p>
+          ) : null}
+
+          {settingsReady ? (
+            <>
+              <div
+                className="protocol-policy-summary"
+                aria-label="Current policy"
+              >
+                <div className="protocol-policy-summary-cell">
+                  <span className="protocol-policy-summary-label">Bond</span>
+                  <span className="protocol-policy-summary-value">
+                    {bondSummary}
+                  </span>
+                </div>
+                <div className="protocol-policy-summary-cell">
+                  <span className="protocol-policy-summary-label">Period</span>
+                  <span className="protocol-policy-summary-value">
+                    {periodSummary}
+                  </span>
+                </div>
+                <div className="protocol-policy-summary-cell">
+                  <span className="protocol-policy-summary-label">Roles</span>
+                  <span className="protocol-policy-summary-value">
+                    {roleCount}
+                  </span>
+                </div>
               </div>
-            ) : null}
-            {addRoleBlock ? (
-              <p className="protocol-compose-note is-warn">{addRoleBlock}</p>
-            ) : null}
-          </>
-        ) : null}
 
-        {actionId === 'remove_role' ? (
-          removableRoles.length === 0 ? (
-            <p className="protocol-compose-note">No removable roles.</p>
-          ) : (
-            <div className="guild-field">
-              <ChoiceDrawerField
-                label="Role"
-                value={removeRoleId}
-                options={removableRoles.map(
-                  (role): ChoiceOption<string> => ({
-                    value: role,
-                    label: role,
-                  })
-                )}
-                onChange={setRemoveRoleId}
-                disabled={pending}
-                zIndex={PROTOCOL_NESTED_CHOICE_Z}
-              />
-            </div>
-          )
-        ) : null}
+              {onChangeAction ? (
+                <ProtocolComposeChangeTypeRow
+                  hint={
+                    PROTOCOL_POLICY_ACTION_OPTIONS.find(
+                      (option) => option.id === actionId
+                    )?.hint ?? ''
+                  }
+                  pending={pending}
+                  onChangeKind={onChangeAction}
+                />
+              ) : null}
 
-        <label className="guild-field">
-          <span>Description</span>
-          <textarea
-            rows={3}
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder="Optional rationale"
-            disabled={pending}
-            className={osFieldBorderedClassName}
-          />
-        </label>
+              {actionId === 'update_parameters' ? (
+                <>
+                  <label className="guild-field">
+                    <span>Proposal bond (NEAR)</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={bondNear}
+                      onChange={(event) => setBondNear(event.target.value)}
+                      disabled={pending}
+                      className={osFieldBorderedClassName}
+                    />
+                  </label>
+                  <label className="guild-field">
+                    <span>Voting period (days)</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={periodDays}
+                      onChange={(event) => setPeriodDays(event.target.value)}
+                      disabled={pending}
+                      className={osFieldBorderedClassName}
+                    />
+                  </label>
+                </>
+              ) : null}
 
-        {noChangesYet &&
-        loadState === 'ready' &&
-        accountId &&
-        hasActionPermission ? (
-          <p className="protocol-compose-note">No changes yet.</p>
-        ) : null}
+              {actionId === 'update_config' ? (
+                <>
+                  <label className="guild-field">
+                    <span>Name</span>
+                    <input
+                      type="text"
+                      value={configName}
+                      onChange={(event) => setConfigName(event.target.value)}
+                      disabled={pending}
+                      className={osFieldBorderedClassName}
+                    />
+                  </label>
+                  <label className="guild-field">
+                    <span>Purpose</span>
+                    <textarea
+                      rows={3}
+                      value={configPurpose}
+                      onChange={(event) => setConfigPurpose(event.target.value)}
+                      disabled={pending}
+                      className={osFieldBorderedClassName}
+                    />
+                  </label>
+                </>
+              ) : null}
 
-        {formError ? (
-          <p className="protocol-compose-note is-warn">{formError}</p>
-        ) : null}
-      </form>
-    </ProtocolTaskSheet>
-    <DaoProposeConfirmSheet
-      open={proposeConfirmOpen}
-      title={`Propose ${protocolPolicyActionLabel(actionId)}?`}
-      body="Submit this settings proposal to the DAO. It goes live after approval."
-      eligibility={eligibility}
-      eligibilityLoading={eligibilityLoading}
-      pending={pending}
-      proposeLabel="Propose"
-      zIndex={PROTOCOL_CONFIRM_Z}
-      onDiscard={() => {
-        setProposeConfirmOpen(false);
-        setPendingPayload(null);
-      }}
-      onPropose={() => {
-        if (!pendingPayload) return;
-        onSubmit(pendingPayload);
-      }}
-      onStake={() => {
-        setProposeConfirmOpen(false);
-        setPendingPayload(null);
-        onOpenStake();
-      }}
-    />
+              {actionId === 'update_vote_policy' ? (
+                <>
+                  <div className="guild-field">
+                    <ChoiceDrawerField
+                      label="Approval threshold"
+                      value={voteThresholdPresetId}
+                      options={PROTOCOL_VOTE_THRESHOLD_PRESETS.map(
+                        (
+                          preset
+                        ): ChoiceOption<ProtocolVoteThresholdPresetId> => {
+                          const isCurrent =
+                            preset.id === currentThresholdPresetId;
+                          return {
+                            value: preset.id,
+                            label: formatVoteThresholdOptionLabel(
+                              preset,
+                              isCurrent
+                                ? (currentVoteThreshold ?? preset.threshold)
+                                : preset.threshold
+                            ),
+                            description: isCurrent ? 'Current' : undefined,
+                          };
+                        }
+                      )}
+                      onChange={(next) => {
+                        setVoteThresholdPresetId(next);
+                        setFormError(null);
+                      }}
+                      disabled={pending}
+                      zIndex={PROTOCOL_NESTED_CHOICE_Z}
+                    />
+                  </div>
+
+                  {usesRoleWeightVotePolicy ? (
+                    <>
+                      <div className="guild-field">
+                        <ChoiceDrawerField
+                          label="Minimum approvals"
+                          value={voteQuorum}
+                          options={voteQuorumOptions.map(
+                            (option): ChoiceOption<string> => {
+                              const isCurrent =
+                                option.quorum === currentVoteQuorum;
+                              return {
+                                value: option.quorum,
+                                label: formatVoteQuorumOptionLabel(option),
+                                description: isCurrent ? 'Current' : undefined,
+                              };
+                            }
+                          )}
+                          onChange={(next) => {
+                            setVoteQuorum(next);
+                            setFormError(null);
+                          }}
+                          disabled={pending}
+                          hint="Uses whichever is stricter: this floor or the approval threshold."
+                          zIndex={PROTOCOL_NESTED_CHOICE_Z}
+                        />
+                      </div>
+                      <p className="protocol-compose-note">
+                        Uses whichever is stricter: this floor or the approval
+                        threshold.
+                      </p>
+                      {selectedVoteQuorumRisk.message ? (
+                        <p className="protocol-compose-note is-warn">
+                          Risk: {selectedVoteQuorumRisk.message}
+                        </p>
+                      ) : null}
+                    </>
+                  ) : null}
+                </>
+              ) : null}
+
+              {actionId === 'update_permissions' ? (
+                <>
+                  {editableRoles.length === 0 ? (
+                    <p className="protocol-compose-note">No editable roles.</p>
+                  ) : (
+                    <div className="guild-field">
+                      <ChoiceDrawerField
+                        label="Role"
+                        value={permissionsRoleId}
+                        options={editableRoles.map(
+                          (role): ChoiceOption<string> => ({
+                            value: role,
+                            label: role,
+                          })
+                        )}
+                        onChange={setPermissionsRoleId}
+                        disabled={pending}
+                        zIndex={PROTOCOL_NESTED_CHOICE_Z}
+                      />
+                    </div>
+                  )}
+
+                  <div
+                    className="protocol-preset-rail"
+                    role="group"
+                    aria-label="Permission presets"
+                  >
+                    {permissionsBaseline.length > 0 ? (
+                      <button
+                        type="button"
+                        className={`protocol-board-chip${matchesPermissionsBaseline ? ' is-active' : ''}`}
+                        disabled={pending}
+                        onClick={() => setPermissions([...permissionsBaseline])}
+                      >
+                        Reset
+                        <span className="sr-only">
+                          {matchesPermissionsBaseline
+                            ? ` · on-chain ${baselinePermissionPresetLabel}`
+                            : ` · restore on-chain ${baselinePermissionPresetLabel}`}
+                        </span>
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className={`protocol-board-chip${matchesAllPublic && !matchesPermissionsBaseline ? ' is-active' : ''}`}
+                      disabled={pending}
+                      onClick={() =>
+                        setPermissions([...PROTOCOL_ALL_PUBLIC_PERMISSIONS])
+                      }
+                    >
+                      All public
+                    </button>
+                    <button
+                      type="button"
+                      className={`protocol-board-chip${matchesActionsOnly && !matchesPermissionsBaseline ? ' is-active' : ''}`}
+                      disabled={pending}
+                      onClick={() =>
+                        setPermissions([...PROTOCOL_ACTIONS_ONLY_PERMISSIONS])
+                      }
+                    >
+                      Actions only
+                    </button>
+                  </div>
+
+                  <div className="protocol-permission-list">
+                    {PROTOCOL_EDITABLE_PERMISSIONS.map((option) => {
+                      const checked = permissions.includes(option.id);
+                      const sole =
+                        checked &&
+                        permissions.length === 1 &&
+                        permissions[0] === option.id;
+                      return (
+                        <label
+                          key={option.id}
+                          className="protocol-permission-item"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={pending || sole}
+                            onChange={() => {
+                              setPermissions((current) =>
+                                checked
+                                  ? current.filter((id) => id !== option.id)
+                                  : [...current, option.id]
+                              );
+                            }}
+                          />
+                          <span>{option.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : null}
+
+              {actionId === 'add_role' ? (
+                <>
+                  <label className="guild-field">
+                    <span>New role name</span>
+                    <input
+                      type="text"
+                      value={newRoleName}
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      placeholder="reviewers"
+                      onChange={(event) => setNewRoleName(event.target.value)}
+                      disabled={pending}
+                      className={osFieldBorderedClassName}
+                    />
+                  </label>
+                  <div className="guild-field">
+                    <ChoiceDrawerField
+                      label="Access"
+                      value={addRoleAccessMode}
+                      options={PROTOCOL_ADD_ROLE_ACCESS_OPTIONS.map(
+                        (option): ChoiceOption<ProtocolAddRoleAccessMode> => ({
+                          value: option.id,
+                          label: option.label,
+                          description: option.hint,
+                        })
+                      )}
+                      onChange={setAddRoleAccessMode}
+                      disabled={pending}
+                      zIndex={PROTOCOL_NESTED_CHOICE_Z}
+                    />
+                  </div>
+                  <p className="protocol-compose-note">
+                    {
+                      PROTOCOL_ADD_ROLE_ACCESS_OPTIONS.find(
+                        (option) => option.id === addRoleAccessMode
+                      )?.hint
+                    }
+                  </p>
+                  {addRoleAccessMode === 'custom' ? (
+                    <div className="protocol-permission-list">
+                      {PROTOCOL_EDITABLE_PERMISSIONS.map((option) => {
+                        const checked = addRolePermissions.includes(option.id);
+                        return (
+                          <label
+                            key={option.id}
+                            className="protocol-permission-item"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={pending}
+                              onChange={() => {
+                                setAddRolePermissions((current) =>
+                                  checked
+                                    ? current.filter((id) => id !== option.id)
+                                    : [...current, option.id]
+                                );
+                              }}
+                            />
+                            <span>{option.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  {addRoleBlock ? (
+                    <p className="protocol-compose-note is-warn">
+                      {addRoleBlock}
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
+
+              {actionId === 'remove_role' ? (
+                removableRoles.length === 0 ? (
+                  <p className="protocol-compose-note">No removable roles.</p>
+                ) : (
+                  <div className="guild-field">
+                    <ChoiceDrawerField
+                      label="Role"
+                      value={removeRoleId}
+                      options={removableRoles.map(
+                        (role): ChoiceOption<string> => ({
+                          value: role,
+                          label: role,
+                        })
+                      )}
+                      onChange={setRemoveRoleId}
+                      disabled={pending}
+                      zIndex={PROTOCOL_NESTED_CHOICE_Z}
+                    />
+                  </div>
+                )
+              ) : null}
+
+              <label className="guild-field">
+                <span>Description</span>
+                <textarea
+                  rows={3}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Optional rationale"
+                  disabled={pending}
+                  className={osFieldBorderedClassName}
+                />
+              </label>
+
+              {noChangesYet &&
+              loadState === 'ready' &&
+              accountId &&
+              hasActionPermission ? (
+                <p className="protocol-compose-note">No changes yet.</p>
+              ) : null}
+
+              {formError ? (
+                <p className="protocol-compose-note is-warn">{formError}</p>
+              ) : null}
+            </>
+          ) : null}
+        </form>
+      </ProtocolTaskSheet>
+      <DaoProposeConfirmSheet
+        open={proposeConfirmOpen}
+        title={`Propose ${protocolPolicyActionLabel(actionId)}?`}
+        body="Submit this settings proposal to the DAO. It goes live after approval."
+        eligibility={eligibility}
+        eligibilityLoading={eligibilityLoading}
+        pending={pending}
+        proposeLabel="Propose"
+        zIndex={PROTOCOL_CONFIRM_Z}
+        onDiscard={() => {
+          setProposeConfirmOpen(false);
+          setPendingPayload(null);
+        }}
+        onPropose={() => {
+          if (!pendingPayload) return;
+          onSubmit(pendingPayload);
+        }}
+        onStake={() => {
+          setProposeConfirmOpen(false);
+          setPendingPayload(null);
+          onOpenStake();
+        }}
+      />
     </>
   );
 }
