@@ -1,17 +1,8 @@
 'use client';
 
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { formatSocialFutureStamp } from '@onsocial/ui';
-import { socialTimeProps } from '@/lib/post-display';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsRowAction } from '@/lib/os-row-action';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
@@ -49,13 +40,14 @@ import {
   dropsShopActionLabel,
   dropsShopMintable,
 } from '@/features/drops/drops-page-view';
+import { dropListClock } from '@/features/drops/drops-row-clock';
+import { socialTimeProps } from '@/lib/post-display';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
   MARKET_MEDIUM_FILTERS,
   type MarketMediumFilter,
 } from '@/features/market/market-medium';
-import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { fetchAllowlistRemaining } from '@/features/scarces/collections-data';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import {
@@ -122,21 +114,6 @@ const UPCOMING_SECTIONS: ReadonlyArray<{
   { id: 'later', label: 'Later' },
 ];
 
-function formatDropWindow(
-  ms: number,
-  kind: 'opens' | 'ends',
-  nowMs: number
-): string {
-  if (kind === 'ends' && ms <= nowMs) {
-    const rel = formatMarketRelativeTime(ms, nowMs);
-    return rel ? `Ended ${rel}` : 'Ended';
-  }
-  const rel = formatSocialFutureStamp(ms, nowMs);
-  if (!rel) return '';
-  if (rel === 'soon') return kind === 'opens' ? 'Opens soon' : 'Ends soon';
-  return kind === 'opens' ? `Opens ${rel}` : `Ends ${rel}`;
-}
-
 /**
  * Primary Drop mediums — Market taxonomy minus listing-only noise
  * (coupons / memberships / custom).
@@ -168,14 +145,8 @@ function dropRowFormatLabel(item: DropDiscoveryItem): string | null {
   return null;
 }
 
-type DropMetaBit = {
-  text: string;
-  /** Set when this bit is a clock, so hover can show the exact instant. */
-  atMs?: number;
-};
-
 type DropRowMetaBits = {
-  bits: DropMetaBit[];
+  bits: string[];
   format: string | null;
 };
 
@@ -196,20 +167,15 @@ function dropRowMetaBits(
   }
 
   if (sort === 'upcoming') {
-    const bits: DropMetaBit[] = [];
+    const bits: string[] = [];
     if (item.hasAllowlist) {
-      bits.push({
-        text:
-          allowlistRemaining != null && allowlistRemaining > 0
-            ? "You're in"
-            : 'Allowlist',
-      });
+      bits.push(
+        allowlistRemaining != null && allowlistRemaining > 0
+          ? "You're in"
+          : 'Allowlist'
+      );
     } else if (item.startTimeMs == null) {
-      bits.push({ text: 'Upcoming' });
-    }
-    if (item.startTimeMs != null) {
-      const opens = formatDropWindow(item.startTimeMs, 'opens', nowMs);
-      if (opens) bits.push({ text: opens, atMs: item.startTimeMs });
+      bits.push('Upcoming');
     }
     return { bits, format: formatLabel };
   }
@@ -218,41 +184,30 @@ function dropRowMetaBits(
     const soldOut =
       item.status === 'sold_out' ||
       (item.remaining != null && item.remaining <= 0);
-    const bits: DropMetaBit[] = [];
-    if (soldOut) {
-      bits.push({ text: 'Sold out' });
-    } else if (item.endTimeMs != null) {
-      const ended =
-        `Ended ${formatMarketRelativeTime(item.endTimeMs, nowMs)}`.trim();
-      bits.push({ text: ended || 'Ended', atMs: item.endTimeMs });
-    } else {
-      bits.push({ text: 'Ended' });
-    }
-    bits.push({ text: supply });
+    const bits: string[] = [];
+    if (soldOut) bits.push('Sold out');
+    else if (item.endTimeMs == null) bits.push('Ended');
+    bits.push(supply);
     return { bits, format: formatLabel };
   }
 
   if (sort === 'live' || sort === 'closing') {
-    const bits: DropMetaBit[] = [];
+    const bits: string[] = [];
     if (sort === 'closing' || isDropClosing(item, nowMs)) {
-      bits.push({ text: 'Closing' });
+      bits.push('Closing');
     }
     if (item.remaining != null && item.remaining > 0) {
-      bits.push({ text: `${item.remaining} left` });
+      bits.push(`${item.remaining} left`);
     } else {
-      bits.push({ text: supply });
-    }
-    if (item.endTimeMs != null) {
-      const ends = formatDropWindow(item.endTimeMs, 'ends', nowMs);
-      if (ends) bits.push({ text: ends, atMs: item.endTimeMs });
+      bits.push(supply);
     }
     return { bits, format: formatLabel };
   }
 
   if (item.remaining != null && item.remaining > 0) {
-    return { bits: [{ text: `${item.remaining} left` }], format: formatLabel };
+    return { bits: [`${item.remaining} left`], format: formatLabel };
   }
-  return { bits: [{ text: supply }], format: formatLabel };
+  return { bits: [supply], format: formatLabel };
 }
 
 function DropRow({
@@ -304,16 +259,15 @@ function DropRow({
   ) : (
     <span className="market-listing-thumb-fallback" />
   );
-  const droppedLabel =
-    item.createdAtMs != null
-      ? formatMarketRelativeTime(item.createdAtMs, nowMs)
-      : '';
+  const corner = dropListClock({
+    sort,
+    nowMs,
+    createdAtMs: item.createdAtMs,
+    startTimeMs: item.startTimeMs,
+    endTimeMs: item.endTimeMs,
+  });
   // Fans render as facepile (or text fallback) — keep out of the spaced bits.
-  const dealBits = [
-    priceLabel,
-    ...meta.bits.map((bit) => bit.text),
-    meta.format,
-  ].filter(Boolean);
+  const dealBits = [priceLabel, ...meta.bits, meta.format].filter(Boolean);
   const fanCount =
     item.fanCount != null && item.fanCount > 0 ? item.fanCount : null;
   const action = dropsShopActionLabel(
@@ -367,26 +321,7 @@ function DropRow({
                 scroll={false}
                 className="drops-discovery-deal-bits"
               >
-                {[
-                  priceLabel ? { key: 'price', node: priceLabel } : null,
-                  ...meta.bits.map((bit, index) => ({
-                    key: `bit-${index}`,
-                    node:
-                      bit.atMs != null ? (
-                        <time {...socialTimeProps(bit.atMs)}>{bit.text}</time>
-                      ) : (
-                        bit.text
-                      ),
-                  })),
-                  meta.format ? { key: 'format', node: meta.format } : null,
-                ]
-                  .filter((part) => part != null)
-                  .map((part, index) => (
-                    <Fragment key={part.key}>
-                      {index > 0 ? ' · ' : null}
-                      {part.node}
-                    </Fragment>
-                  ))}
+                {dealBits.join(' · ')}
               </Link>
             ) : null}
             {fanCount != null ? (
@@ -410,12 +345,12 @@ function DropRow({
       </div>
       <div className="market-listing-action-col drops-discovery-action-col">
         <div className="drops-discovery-head-trail">
-          {droppedLabel && item.createdAtMs != null ? (
+          {corner ? (
             <time
               className="market-listing-meta-right"
-              {...socialTimeProps(item.createdAtMs)}
+              {...socialTimeProps(corner.atMs)}
             >
-              {droppedLabel}
+              {corner.label}
             </time>
           ) : null}
           <DropsDiscoveryRowMenu
