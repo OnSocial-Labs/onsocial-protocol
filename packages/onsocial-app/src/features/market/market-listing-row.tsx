@@ -11,7 +11,7 @@ import {
   type MarketListingItem,
 } from '@/features/market/market-listings';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
-import { formatAuctionCountdown } from '@/features/scarces/scarce-auction';
+import { marketAuctionClockLabel } from '@/features/scarces/scarce-auction';
 import {
   postScarceKey,
   setScarceEmbedOverride,
@@ -107,24 +107,14 @@ export function MarketListingRow({
   const confirmTimerRef = useRef<number | null>(null);
   const confirmingCancel =
     confirmRowKey === rowKey && isOwnListing && !cancelPending;
-  const auctionCountdown =
-    item.kind === 'auction' && typeof nowMs === 'number'
-      ? formatAuctionCountdown(item.expiresAtNs ?? null, nowMs)
-      : null;
   const bidCount =
     item.kind === 'auction' && item.bidCount != null && item.bidCount > 0
       ? item.bidCount
       : null;
   const auctionClockLabel =
-    item.kind !== 'auction'
-      ? null
-      : auctionCountdown == null
-        ? item.expiresAtNs == null
-          ? 'Starts on first bid'
-          : null
-        : auctionCountdown === 'Ended'
-          ? 'Ended'
-          : `Ends in ${auctionCountdown}`;
+    item.kind === 'auction' && typeof nowMs === 'number'
+      ? marketAuctionClockLabel(item.expiresAtNs, nowMs)
+      : null;
   const listedTime = formatMarketRelativeTime(item.blockTimestamp);
   const timeLabel = auctionClockLabel
     ? auctionClockLabel

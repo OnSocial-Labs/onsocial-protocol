@@ -202,6 +202,8 @@ export interface OwnedScarceItem {
   burnable?: boolean;
   /** Auction clock (`Sale.expires_at`, ns) when listed as auction. */
   expiresAtNs?: number | null;
+  /** When this listing was posted (ms). Absent when the catalog has no listed clock. */
+  listedAtMs?: number | null;
   /** Mint time (ms or indexer ns). Absent when the catalog has no mint clock. */
   mintedAtMs?: number | null;
   /** Original post path from token `metadata.extra` when present. */
@@ -736,6 +738,7 @@ export function ownedListedItemsFromViewerListings(
       ...(item.usdE6?.trim() ? { listedUsdE6: item.usdE6.trim() } : {}),
       ...(item.bidCount != null ? { bidCount: item.bidCount } : {}),
       ...(item.expiresAtNs != null ? { expiresAtNs: item.expiresAtNs } : {}),
+      ...(item.blockTimestamp > 0 ? { listedAtMs: item.blockTimestamp } : {}),
       ...(item.sourcePostPath ? { sourcePostPath: item.sourcePostPath } : {}),
       ...(item.postHref ? { postHref: item.postHref } : {}),
     });
@@ -1377,7 +1380,15 @@ type OwnedListedState = {
   usdE6?: string | null;
   bidCount?: number;
   expiresAtNs?: number | null;
+  listedAtMs?: number | null;
 };
+
+function listedAtField(
+  raw: number | string | null | undefined
+): { listedAtMs: number } | Record<string, never> {
+  const ms = timestampMs(raw);
+  return ms > 0 ? { listedAtMs: ms } : {};
+}
 
 async function fetchOwnerListedStates(
   owner: string,
@@ -1401,6 +1412,7 @@ async function fetchOwnerListedStates(
             kind: 'fixed',
             priceNear,
             ...(row.usdE6?.trim() ? { usdE6: row.usdE6.trim() } : {}),
+            ...listedAtField(row.listedBlockTimestamp),
           });
         }
         continue;
@@ -1421,6 +1433,7 @@ async function fetchOwnerListedStates(
             ? { bidCount: row.bidCount }
             : {}),
           ...(row.expiresAt != null ? { expiresAtNs: row.expiresAt } : {}),
+          ...listedAtField(row.listedBlockTimestamp),
         });
       }
     }
@@ -1446,7 +1459,13 @@ async function fetchOwnerListedStates(
     if (!tokenId) continue;
     if (isFixedPriceNativeSale(sale)) {
       const priceNear = priceNearFromYocto(sale.sale_conditions);
-      if (priceNear) listedByToken.set(tokenId, { kind: 'fixed', priceNear });
+      if (priceNear) {
+        listedByToken.set(tokenId, {
+          kind: 'fixed',
+          priceNear,
+          ...listedAtField(sale.created_at),
+        });
+      }
       continue;
     }
     if (isNativeAuctionSale(sale)) {
@@ -1457,6 +1476,7 @@ async function fetchOwnerListedStates(
           priceNear,
           bidCount: auctionBidCount(sale),
           expiresAtNs: saleExpiresAtNs(sale),
+          ...listedAtField(sale.created_at),
         });
       }
     }
@@ -1512,6 +1532,9 @@ function ownedItemsFromTokens(
           : {}),
         ...(listed?.kind === 'auction' && listed.expiresAtNs != null
           ? { expiresAtNs: listed.expiresAtNs }
+          : {}),
+        ...(listed?.listedAtMs != null
+          ? { listedAtMs: listed.listedAtMs }
           : {}),
         ...(sourcePostPath ? { sourcePostPath } : {}),
         ...(playable ? { playable } : {}),
@@ -1712,6 +1735,7 @@ async function fetchOwnedScarcesPageFromIndexer(
       ...(listed?.kind === 'auction' && listed.expiresAtNs != null
         ? { expiresAtNs: listed.expiresAtNs }
         : {}),
+      ...(listed?.listedAtMs != null ? { listedAtMs: listed.listedAtMs } : {}),
       ...(sourcePostPathFromExtra(extra)
         ? { sourcePostPath: sourcePostPathFromExtra(extra)! }
         : {}),

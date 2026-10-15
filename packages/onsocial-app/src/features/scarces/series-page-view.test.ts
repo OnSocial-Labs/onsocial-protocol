@@ -15,6 +15,7 @@ import {
   seriesRouteLoadingBackHref,
   seriesRouteYieldsLoadingSkeleton,
   seriesShopActionLabel,
+  seriesShopClock,
   seriesUseFirst,
   shopRowCreatorLabel,
 } from '@/features/scarces/series-page-view';
@@ -118,15 +119,15 @@ describe('series page view', () => {
   });
 
   it('is use-first for owners and confirmed holders only', () => {
-    expect(
-      seriesUseFirst({ isOwner: true, holdsEditionInSeries: false })
-    ).toBe(true);
-    expect(
-      seriesUseFirst({ isOwner: false, holdsEditionInSeries: true })
-    ).toBe(true);
-    expect(
-      seriesUseFirst({ isOwner: false, holdsEditionInSeries: null })
-    ).toBe(false);
+    expect(seriesUseFirst({ isOwner: true, holdsEditionInSeries: false })).toBe(
+      true
+    );
+    expect(seriesUseFirst({ isOwner: false, holdsEditionInSeries: true })).toBe(
+      true
+    );
+    expect(seriesUseFirst({ isOwner: false, holdsEditionInSeries: null })).toBe(
+      false
+    );
     expect(
       seriesUseFirst({ isOwner: false, holdsEditionInSeries: false })
     ).toBe(false);
@@ -245,5 +246,35 @@ describe('series page view', () => {
         collectionIds: ['night-drive'],
       })
     ).toBe(false);
+  });
+});
+
+describe('seriesShopClock', () => {
+  const now = Date.parse('2026-06-15T12:00:00.000Z');
+
+  it('names the window and leaves sold out as a word', () => {
+    expect(
+      seriesShopClock(
+        { status: 'upcoming', startTimeMs: now + 2 * 86_400_000 },
+        now
+      )?.label
+    ).toBe('Opens 2d');
+    expect(
+      seriesShopClock({ status: 'live', endTimeMs: now + 3 * 3_600_000 }, now)
+        ?.label
+    ).toBe('Ends 3h');
+    expect(
+      seriesShopClock({ status: 'ended', endTimeMs: now - 4 * 86_400_000 }, now)
+        ?.label
+    ).toBe('Ended 4d');
+    expect(
+      seriesShopClock(
+        { status: 'sold_out', endTimeMs: now - 4 * 86_400_000 },
+        now
+      )
+    ).toBeNull();
+    expect(
+      seriesShopClock({ status: 'live', endTimeMs: null }, now)
+    ).toBeNull();
   });
 });

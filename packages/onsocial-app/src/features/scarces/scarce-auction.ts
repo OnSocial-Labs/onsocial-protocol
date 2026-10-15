@@ -78,7 +78,11 @@ export function formatAuctionCountdown(
   expiresAtNs: number | null,
   nowMs: number = Date.now()
 ): string | null {
-  if (expiresAtNs == null || !Number.isFinite(expiresAtNs) || expiresAtNs <= 0) {
+  if (
+    expiresAtNs == null ||
+    !Number.isFinite(expiresAtNs) ||
+    expiresAtNs <= 0
+  ) {
     return null;
   }
   const endsAtMs =
@@ -98,6 +102,19 @@ export function formatAuctionCountdown(
   if (hours > 0) return `${hours}h ${mins}m`;
   if (mins > 0) return `${mins}m ${secs}s`;
   return `${secs}s`;
+}
+
+/** Catalog and Yours corner. One word only when the instant is not “listed”. */
+export function marketAuctionClockLabel(
+  expiresAtNs: number | null | undefined,
+  nowMs: number
+): string | null {
+  const countdown = formatAuctionCountdown(expiresAtNs ?? null, nowMs);
+  if (countdown == null) {
+    return expiresAtNs == null ? 'Starts on first bid' : null;
+  }
+  if (countdown === 'Ended') return 'Ended';
+  return `Ends in ${countdown}`;
 }
 
 export async function fetchScarceAuctionView(

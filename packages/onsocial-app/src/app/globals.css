@@ -28515,6 +28515,13 @@ a.os-surface-row {
     flex-shrink: 0;
   }
 
+  .scarce-bid-history-end {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
   .scarce-buy-summary > .scarce-offer-list {
     list-style: none;
     margin: 0;
