@@ -45,6 +45,34 @@ export function protocolFacePairProgress(
   return Math.min(1, Math.max(0, scrollLeft / pageWidth));
 }
 
+type LayoutNode = {
+  offsetTop: number;
+  offsetParent: LayoutNode | null;
+};
+
+/**
+ * Layout top of `node` inside `root`. Walks offsetParent, so a CSS transform
+ * on an ancestor (the portfolio rise-in) does not shift the result.
+ */
+export function protocolFacePairLayoutTop(
+  node: LayoutNode,
+  root: LayoutNode
+): number | null {
+  let top = 0;
+  let current: LayoutNode | null = node;
+  const seen = new Set<LayoutNode>();
+  while (current && current !== root) {
+    if (seen.has(current)) return null;
+    seen.add(current);
+    if (!Number.isFinite(current.offsetTop)) return null;
+    top += current.offsetTop;
+    const parent = current.offsetParent;
+    if (!parent) return null;
+    current = parent;
+  }
+  return current === root ? top : null;
+}
+
 export function protocolFacePairThumbBox(
   progress: number,
   boxes: ReadonlyArray<{ left: number; width: number }>

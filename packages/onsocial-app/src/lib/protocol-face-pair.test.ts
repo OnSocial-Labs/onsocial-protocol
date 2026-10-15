@@ -3,6 +3,7 @@ import { GOVERNANCE_DAO_ACCOUNT, TREASURY_DAO_ACCOUNT } from '@/lib/app-config';
 import {
   protocolFacePairIndex,
   protocolFacePairKindFromPager,
+  protocolFacePairLayoutTop,
   protocolFacePairProgress,
   protocolFacePairSibling,
   protocolFacePairThumbBox,
@@ -44,5 +45,16 @@ describe('protocol face pair', () => {
       width: 70,
     });
     expect(protocolFacePairThumbBox(0, [])).toBeNull();
+  });
+
+  it('measures pill top from layout, ignoring a transformed ancestor', () => {
+    const pair = { offsetTop: 0, offsetParent: null };
+    const identity = { offsetTop: 120, offsetParent: pair };
+    const spacer = { offsetTop: 48, offsetParent: identity };
+    expect(protocolFacePairLayoutTop(spacer, pair)).toBe(168);
+    expect(protocolFacePairLayoutTop(spacer, spacer)).toBe(0);
+    expect(
+      protocolFacePairLayoutTop(spacer, { offsetTop: 0, offsetParent: null })
+    ).toBeNull();
   });
 });
