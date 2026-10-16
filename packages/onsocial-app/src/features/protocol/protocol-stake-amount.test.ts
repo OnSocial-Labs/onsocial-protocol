@@ -9,6 +9,7 @@ import {
   protocolStakeActionBlocked,
   protocolStakeAmountError,
   protocolStakeAmountMeta,
+  protocolStakeQuickFill,
   protocolStakeCtaLabel,
   protocolStakeWhisper,
   resolveProtocolStakeMaxYocto,
@@ -41,6 +42,45 @@ describe('protocol-stake-amount', () => {
     expect(max).toBe(1100n * 10n ** 18n);
     expect(applyProtocolStakeAmountInput('2000', max)).toBe('1100');
     expect(applyProtocolStakeAmountInput('400abc', max)).toBe('400');
+  });
+
+  it('fills the delegate gap, then the amount they can still add', () => {
+    const max = resolveProtocolStakeMaxYocto(baseEligibility, 'delegate');
+    expect(
+      protocolStakeQuickFill({
+        mode: 'delegate',
+        remainingToThresholdYocto: 400n * 10n ** 18n,
+        maxYocto: max,
+      })
+    ).toEqual({ kind: 'amount', value: '400' });
+    expect(
+      protocolStakeQuickFill({
+        mode: 'delegate',
+        remainingToThresholdYocto: 0n,
+        maxYocto: max,
+      })
+    ).toEqual({ kind: 'amount', value: '1100' });
+    expect(
+      protocolStakeQuickFill({
+        mode: 'delegate',
+        remainingToThresholdYocto: 0n,
+        maxYocto: 0n,
+      })
+    ).toBeNull();
+    expect(
+      protocolStakeQuickFill({
+        mode: 'undelegate',
+        remainingToThresholdYocto: 0n,
+        maxYocto: 50n * 10n ** 18n,
+      })
+    ).toEqual({ kind: 'max' });
+    expect(
+      protocolStakeQuickFill({
+        mode: 'withdraw',
+        remainingToThresholdYocto: 0n,
+        maxYocto: 25n * 10n ** 18n,
+      })
+    ).toEqual({ kind: 'max' });
   });
 
   it('defaults delegate amount to remaining threshold', () => {
@@ -112,9 +152,7 @@ describe('protocol-stake-amount', () => {
 
   it('formats cooldown remaining from next action timestamp', () => {
     const nowMs = Date.UTC(2026, 0, 1, 12, 0, 0);
-    const endsAt = String(
-      BigInt(nowMs + 90 * 60 * 1000) * 1_000_000n
-    );
+    const endsAt = String(BigInt(nowMs + 90 * 60 * 1000) * 1_000_000n);
     expect(formatProtocolStakeCooldownRemaining(endsAt, nowMs)).toBe(
       '1h 30m left'
     );
@@ -122,7 +160,9 @@ describe('protocol-stake-amount', () => {
 
   it('formats cooldown remaining from remaining ns', () => {
     expect(
-      formatProtocolStakeCooldownRemainingFromNs(String(2n * 60n * 60n * 1_000_000_000n))
+      formatProtocolStakeCooldownRemainingFromNs(
+        String(2n * 60n * 60n * 1_000_000_000n)
+      )
     ).toBe('2h left');
   });
 

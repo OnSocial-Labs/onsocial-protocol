@@ -256,6 +256,35 @@ export function formatProtocolStakeMaxAmount(maxYocto: bigint): string {
   return finalizeProtocolStakeAmountInput(yoctoToSocial(maxYocto.toString()));
 }
 
+/**
+ * Quick fill under the amount field.
+ * Delegate while short of the propose threshold: the gap.
+ * Delegate once that threshold is met: how much they can still add.
+ * Undelegate and withdraw: Max, the whole balance.
+ */
+export type ProtocolStakeQuickFill =
+  | { kind: 'amount'; value: string }
+  | { kind: 'max' };
+
+export function protocolStakeQuickFill(opts: {
+  mode: ProtocolStakeMode;
+  remainingToThresholdYocto: bigint;
+  maxYocto: bigint;
+}): ProtocolStakeQuickFill | null {
+  if (opts.mode !== 'delegate') return { kind: 'max' };
+
+  if (opts.remainingToThresholdYocto > 0n) {
+    const value = finalizeProtocolStakeAmountInput(
+      yoctoToSocial(opts.remainingToThresholdYocto.toString())
+    );
+    return value ? { kind: 'amount', value } : null;
+  }
+
+  if (opts.maxYocto <= 0n) return null;
+  const value = formatProtocolStakeMaxAmount(opts.maxYocto);
+  return value ? { kind: 'amount', value } : null;
+}
+
 export function protocolStakeAmountError(
   amountYocto: bigint,
   maxYocto: bigint,

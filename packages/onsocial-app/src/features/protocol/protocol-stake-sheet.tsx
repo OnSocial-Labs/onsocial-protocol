@@ -1,11 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import {
-  AmountField,
-  AmountFieldMetaRow,
-  TokenIcon,
-} from '@onsocial/ui';
+import { AmountField, AmountFieldMetaRow, TokenIcon } from '@onsocial/ui';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
 import {
@@ -21,6 +17,7 @@ import {
   protocolStakeActionBlocked,
   protocolStakeAmountError,
   protocolStakeAmountMeta,
+  protocolStakeQuickFill,
   protocolStakeShowsAmountField,
   protocolStakeCtaLabel,
   protocolStakeWhisper,
@@ -30,7 +27,6 @@ import {
 import { ProtocolStakeFacts } from '@/features/protocol/protocol-stake-facts';
 import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
 import { useSocialTokenIcon } from '@/hooks/use-social-token-icon';
-import { yoctoToSocial } from '@/lib/format-social-balance';
 import { SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS } from '@/lib/social-spend-profile';
 
 type StakeMode = ProtocolStakeMode;
@@ -133,8 +129,7 @@ export function ProtocolStakeSheet({
   );
 
   const maxYocto = useMemo(
-    () =>
-      eligibility ? resolveProtocolStakeMaxYocto(eligibility, mode) : 0n,
+    () => (eligibility ? resolveProtocolStakeMaxYocto(eligibility, mode) : 0n),
     [eligibility, mode]
   );
 
@@ -162,16 +157,11 @@ export function ProtocolStakeSheet({
     Boolean(eligibility?.isInCooldown)
   );
   const remainingToThreshold = BigInt(eligibility?.remainingToThreshold ?? '0');
-  const thresholdPreset =
-    mode === 'delegate' &&
-    !eligibility?.isInCooldown &&
-    remainingToThreshold > 0n &&
-    eligibility
-      ? finalizeProtocolStakeAmountInput(
-          yoctoToSocial(eligibility.remainingToThreshold)
-        )
-      : null;
-  const amountPresets = thresholdPreset ? [thresholdPreset] : undefined;
+  const quickFill = protocolStakeQuickFill({
+    mode,
+    remainingToThresholdYocto: remainingToThreshold,
+    maxYocto,
+  });
 
   const applyMaxAmount = useCallback(() => {
     setFormError(null);
@@ -370,13 +360,19 @@ export function ProtocolStakeSheet({
 
                 <AmountFieldMetaRow
                   tone="support"
-                  presets={amountPresets}
+                  presets={
+                    quickFill?.kind === 'amount' ? [quickFill.value] : undefined
+                  }
                   selectedValue={normalizedAmount}
                   onSelectPreset={applyAmountInput}
-                  max={{
-                    onClick: applyMaxAmount,
-                    disabled: maxYocto <= 0n,
-                  }}
+                  max={
+                    quickFill?.kind === 'max'
+                      ? {
+                          onClick: applyMaxAmount,
+                          disabled: maxYocto <= 0n,
+                        }
+                      : undefined
+                  }
                   disabled={pending}
                   meta={amountMeta}
                 />
