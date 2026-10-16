@@ -48252,51 +48252,64 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   );
 }
 
-/* Create guild / Open a hub — footer rides the keys above the dock. */
+/*
+ * Open a hub / Create guild / Create DAO — tuck the launcher while a field
+ * is focused so the action sits on the keys. An open launcher stays put.
+ */
 .os-app-screen:has(
-    :is(.hub-create-form, .guild-create-form)[data-keyboard='open']
+    :is(
+      .hub-create-form,
+      .guild-create-form,
+      .dao-create-form
+    )[data-keyboard='open']
   )
   .os-app-screen-footer {
-  bottom: calc(
-    var(--drop-create-keyboard-lift, 0px) +
-      var(--portfolio-dock-clearance, 4.75rem)
-  );
+  bottom: var(--drop-create-keyboard-lift, 0px);
 }
 
-.os-app-screen:has(
-    :is(.hub-create-form, .guild-create-form)[data-keyboard='open']
+.os-app-screen[data-screen-footer='true']:has(
+    :is(
+      .hub-create-form,
+      .guild-create-form,
+      .dao-create-form
+    )[data-keyboard='open']
   )
   .os-app-screen-body {
   padding-bottom: calc(
-    var(--drop-create-keyboard-lift, 0px) +
-      var(--portfolio-dock-clearance, 4.75rem) + var(--os-screen-footer-band)
+    var(--drop-create-keyboard-lift, 0px) + var(--os-screen-footer-band)
   );
 }
 
-/* Create DAO — footer rides the keys above the dock. */
-.os-app-screen:has(.dao-create-form[data-keyboard='open'])
-  .os-app-screen-footer {
-  bottom: calc(
-    var(--drop-create-keyboard-lift, 0px) +
-      var(--portfolio-dock-clearance, 4.75rem)
-  );
-}
-
-.os-app-screen:has(.dao-create-form[data-keyboard='open']) .os-app-screen-body {
-  padding-bottom: calc(
-    var(--drop-create-keyboard-lift, 0px) +
-      var(--portfolio-dock-clearance, 4.75rem) + var(--os-screen-footer-band)
-  );
-}
-
-/* New drop / create places — lift dock while a field is focused. */
 .os-app-screen:has(
     :is(
-      .drop-create-form,
-      .guild-create-form,
       .hub-create-form,
+      .guild-create-form,
       .dao-create-form
     )[data-keyboard='open']
+  )
+  > .portfolio-summon-dock:not(.is-launcher-open) {
+  transform: translateX(-50%)
+    translateY(calc(100% + env(safe-area-inset-bottom)));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.os-app-screen:has(
+    :is(
+      .hub-create-form,
+      .guild-create-form,
+      .dao-create-form
+    )[data-keyboard='open']
+  )
+  > .portfolio-summon-dock:not(.is-launcher-open)
+  .portfolio-summon {
+  pointer-events: none;
+}
+
+/* New drop — lift the dock while a field is focused. Hub create shares the
+   drop form class and keeps the tuck above. */
+.os-app-screen:has(
+    .drop-create-form[data-keyboard='open']:not(.hub-create-form)
   )
   > .portfolio-summon-dock {
   bottom: var(--drop-create-keyboard-lift, 0px);
