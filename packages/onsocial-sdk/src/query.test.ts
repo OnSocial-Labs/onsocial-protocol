@@ -449,9 +449,7 @@ describe('QueryModule', () => {
         String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
       ) as { query: string; variables: Record<string, unknown> };
       expect(body.query).toContain('distinctOn: [accountId]');
-      expect(body.query).toContain(
-        'orderBy: [{accountId: ASC}, {since: ASC}]'
-      );
+      expect(body.query).toContain('orderBy: [{accountId: ASC}, {since: ASC}]');
       expect(body.variables).toMatchObject({
         ids: ['alice.near'],
         limit: 1,
@@ -507,14 +505,16 @@ describe('QueryModule', () => {
           ],
         },
       });
-      await expect(os.query.jobs.leadTitles(['clinic.near', ''])).resolves.toEqual([
-        { accountId: 'clinic.near', title: 'Nurse' },
-      ]);
+      await expect(
+        os.query.jobs.leadTitles(['clinic.near', ''])
+      ).resolves.toEqual([{ accountId: 'clinic.near', title: 'Nurse' }]);
       const body = JSON.parse(
         String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
       ) as { query: string; variables: Record<string, unknown> };
       expect(body.query).toContain('distinctOn: [orgAccountId]');
-      expect(body.query).toContain('orderBy: [{orgAccountId: ASC}, {ends: ASC}]');
+      expect(body.query).toContain(
+        'orderBy: [{orgAccountId: ASC}, {ends: ASC}]'
+      );
       expect(body.variables).toMatchObject({
         ids: ['clinic.near'],
         limit: 1,
