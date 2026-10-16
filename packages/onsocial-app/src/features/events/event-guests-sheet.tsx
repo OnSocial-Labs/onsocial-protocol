@@ -132,6 +132,9 @@ export function EventGuestsSheet({
       errorCopy={copy.errorCopy}
       closeAriaLabel="Back"
       backdropLabel={copy.backdropLabel}
+      searchPlaceholder={copy.searchPlaceholder}
+      searchAriaLabel={copy.searchAriaLabel}
+      searchClearAriaLabel={copy.searchClearAriaLabel}
     />
   );
 }

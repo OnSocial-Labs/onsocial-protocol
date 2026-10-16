@@ -7,12 +7,41 @@ import {
   eventGuestCountAria,
   eventGuestCountLabel,
   eventGuestKind,
+  eventGuestSheetCopy,
   eventGuestTallyLine,
   loadHeldCollectionIdsFrom,
   resolveEventGuestCount,
   showEventGuestCount,
   uniqueAccountIds,
 } from '@/features/events/event-guests';
+import { filterGuestRoster } from '@/lib/profile-list-account';
+
+describe('guest roster search', () => {
+  const roster = [
+    { accountId: 'maya.near', name: 'Maya Chen' },
+    { accountId: 'alex.near', name: null },
+  ];
+
+  it('keeps everyone when the query is blank', () => {
+    expect(filterGuestRoster(roster, '  ')).toEqual(roster);
+  });
+
+  it('matches a name or an account', () => {
+    expect(filterGuestRoster(roster, 'chen')).toEqual([roster[0]]);
+    expect(filterGuestRoster(roster, 'ALEX')).toEqual([roster[1]]);
+    expect(filterGuestRoster(roster, 'nobody')).toEqual([]);
+  });
+
+  it('names the search for each window', () => {
+    expect(eventGuestSheetCopy('going').searchPlaceholder).toBe(
+      'Search who’s going'
+    );
+    expect(eventGuestSheetCopy('in').searchPlaceholder).toBe('Search who’s in');
+    expect(eventGuestSheetCopy('attended').searchPlaceholder).toBe(
+      'Search who attended'
+    );
+  });
+});
 
 describe('event guest counts', () => {
   it('names the count for each window', () => {

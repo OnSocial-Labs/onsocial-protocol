@@ -3,6 +3,18 @@ import type { DiscoverProfileSummary } from '@/lib/discover-profiles';
 import { isStandingAccountDisplayReady } from '@/lib/profile-list-display';
 import type { StandingAccountSummary } from '@/lib/profile-social-standings';
 
+/** Roster search — name or account. A blank query keeps the full list. */
+export function filterGuestRoster<
+  T extends { accountId: string; name?: string | null },
+>(accounts: readonly T[], query: string): T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [...accounts];
+  return accounts.filter((account) => {
+    const name = account.name?.trim().toLowerCase() ?? '';
+    return account.accountId.toLowerCase().includes(q) || name.includes(q);
+  });
+}
+
 export function positiveListReputation(
   value: number | null | undefined
 ): number | undefined {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeftIcon, Divider, OsHugSheet } from '@onsocial/ui';
+import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { osChromePageClassName } from '@/lib/os-chrome-page';
 import {
@@ -13,8 +14,11 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { accountIdsEqual } from '@/lib/account-match';
 import { loadProfileListAccounts } from '@/lib/load-profile-list-accounts';
-import type { ProfileListAccount } from '@/lib/profile-list-account';
-import { profileListAccountToStandingSummary } from '@/lib/profile-list-account';
+import {
+  filterGuestRoster,
+  profileListAccountToStandingSummary,
+  type ProfileListAccount,
+} from '@/lib/profile-list-account';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
@@ -24,7 +28,7 @@ export type ScarceFansSheetProps = {
   fanIds: string[];
   fanCount: number;
   dropTitle?: string | null;
-  /** Quiet totals. On a page this is the header subtitle. */
+  /** Quiet totals above the roster. */
   lede?: string | null;
   /** Hug card for fans. Page for a guest list that has to clear the dock. */
   frame?: 'hug' | 'page';
@@ -39,6 +43,10 @@ export type ScarceFansSheetProps = {
   errorCopy?: string;
   closeAriaLabel?: string;
   backdropLabel?: string;
+  /** Page roster search. Hug fans sheets leave these unused. */
+  searchPlaceholder?: string;
+  searchAriaLabel?: string;
+  searchClearAriaLabel?: string;
   zIndex?: number;
   onClosed?: () => void;
 };
@@ -64,6 +72,9 @@ export function ScarceFansSheet({
   errorCopy = 'Couldn’t load fans.',
   closeAriaLabel = 'Close fans',
   backdropLabel = 'Close fans',
+  searchPlaceholder = 'Search',
+  searchAriaLabel = 'Search by name',
+  searchClearAriaLabel = 'Clear search',
   zIndex = SHEET_Z.list,
   onClosed,
 }: ScarceFansSheetProps) {
@@ -71,6 +82,7 @@ export function ScarceFansSheet({
   const { setTxResult } = useAppTransactionFeedback();
   const { updateStanding, isStandingPendingForTarget } =
     useViewerStanding('scarce-fans');
+  const [query, setQuery] = useState('');
 
   const fanIdsKey = fanIds.join('\n');
   const requestKey = open ? `${fanIdsKey}\0${viewerAccountId ?? ''}` : '';
@@ -102,6 +114,7 @@ export function ScarceFansSheet({
 
   const handleClose = useCallback(() => {
     setFetched(null);
+    setQuery('');
     onClose();
   }, [onClose]);
 
@@ -149,6 +162,11 @@ export function ScarceFansSheet({
     if (fetched?.key !== requestKey) return null;
     return fetched.accounts;
   }, [fanIds.length, fetched, idsLoading, open, requestKey]);
+  const visible = useMemo(() => {
+    if (!accounts) return null;
+    if (frame !== 'page') return accounts;
+    return filterGuestRoster(accounts, query);
+  }, [accounts, frame, query]);
   const loadError =
     Boolean(open) &&
     !idsLoading &&
@@ -160,16 +178,15 @@ export function ScarceFansSheet({
     Math.max(fanIds.length || fanCount || 1, 1)
   );
   const tally = lede?.trim() || '';
+  const searching = frame === 'page' && query.trim().length > 0;
   const list = (
     <>
-      {frame === 'hug' && tally ? (
-        <p className="scarce-fans-lede">{tally}</p>
-      ) : null}
+      {tally ? <p className="scarce-fans-lede">{tally}</p> : null}
       {showSkeleton ? (
         <ProfileSocialListSkeleton count={skeletonCount} rowVariant="person" />
-      ) : accounts && accounts.length > 0 ? (
+      ) : visible && visible.length > 0 ? (
         <div className="standing-list scarce-fans-standing">
-          {accounts.map((account, index) => {
+          {visible.map((account, index) => {
             const isSelf =
               Boolean(viewerAccountId) &&
               accountIdsEqual(viewerAccountId!, account.accountId);
@@ -192,7 +209,9 @@ export function ScarceFansSheet({
           })}
         </div>
       ) : (
-        <p className="scarce-fans-empty">{loadError ? errorCopy : emptyCopy}</p>
+        <p className="scarce-fans-empty">
+          {loadError ? errorCopy : searching ? 'No matches.' : emptyCopy}
+        </p>
       )}
     </>
   );
@@ -204,7 +223,17 @@ export function ScarceFansSheet({
         onClose={handleClose}
         onClosed={onClosed}
         title={dropTitle?.trim() || label}
-        subtitle={tally || undefined}
+        compactChrome
+        heading={
+          <OsAppChromeNavSearch
+            value={query}
+            onValueChange={setQuery}
+            placeholder={searchPlaceholder}
+            clearAriaLabel={searchClearAriaLabel}
+            ariaLabel={searchAriaLabel}
+            idleClassName="discover-nav-search-field"
+          />
+        }
         closeAriaLabel={closeAriaLabel}
         closeIcon={
           <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />

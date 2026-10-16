@@ -79,6 +79,9 @@ export function eventGuestSheetCopy(kind: EventGuestKind): {
   errorCopy: string;
   closeAriaLabel: string;
   backdropLabel: string;
+  searchPlaceholder: string;
+  searchAriaLabel: string;
+  searchClearAriaLabel: string;
 } {
   if (kind === 'in') {
     return {
@@ -89,6 +92,9 @@ export function eventGuestSheetCopy(kind: EventGuestKind): {
       errorCopy: 'Couldn’t load who’s in.',
       closeAriaLabel: 'Close who’s in',
       backdropLabel: 'Close who’s in',
+      searchPlaceholder: 'Search who’s in',
+      searchAriaLabel: 'Search who’s in by name',
+      searchClearAriaLabel: 'Clear search',
     };
   }
   if (kind === 'attended') {
@@ -100,6 +106,9 @@ export function eventGuestSheetCopy(kind: EventGuestKind): {
       errorCopy: 'Couldn’t load who attended.',
       closeAriaLabel: 'Close who attended',
       backdropLabel: 'Close who attended',
+      searchPlaceholder: 'Search who attended',
+      searchAriaLabel: 'Search who attended by name',
+      searchClearAriaLabel: 'Clear search',
     };
   }
   return {
@@ -110,6 +119,9 @@ export function eventGuestSheetCopy(kind: EventGuestKind): {
     errorCopy: 'Couldn’t load who’s going.',
     closeAriaLabel: 'Close who’s going',
     backdropLabel: 'Close who’s going',
+    searchPlaceholder: 'Search who’s going',
+    searchAriaLabel: 'Search who’s going by name',
+    searchClearAriaLabel: 'Clear search',
   };
 }
 

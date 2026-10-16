@@ -446,4 +446,74 @@ test.describe('collection drop page', () => {
     expect(download.suggestedFilename()).toBe('gate-pass-pass.png');
     await expect(pass.getByText('Downloaded', { exact: true })).toBeVisible();
   });
+
+  test('See who searches the guest roster', async ({ page }) => {
+    await setE2eGraphDrop(page, 'default');
+    await stubCollectionPageGraph(page);
+    await page.route('**/api/onapi/graph/query', async (route) => {
+      const raw = route.request().postData() ?? '';
+      let query = '';
+      try {
+        query = String((JSON.parse(raw) as { query?: string }).query ?? '');
+      } catch {
+        query = raw;
+      }
+      if (query.includes('EventHolders')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: {
+              scarcesTokenOwners: [
+                { ownerId: 'maya.near' },
+                { ownerId: 'alex.near' },
+              ],
+            },
+          }),
+        });
+        return;
+      }
+      if (query.includes('ProfileStatsBatch')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: {
+              profileSearch: [
+                { accountId: 'maya.near', name: 'Maya Chen' },
+                { accountId: 'alex.near', name: null },
+              ],
+              profileKinds: [],
+              reputationScores: [],
+            },
+          }),
+        });
+        return;
+      }
+      await route.fallback();
+    });
+
+    await gotoApp(page, '/collection/gate-pass');
+    await expectCollectionPageSettled(page);
+    await page.getByRole('button', { name: 'See who', exact: true }).click();
+
+    const sheet = page.getByRole('dialog', { name: 'Gate Pass' });
+    await expect(sheet).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    const search = sheet.getByRole('textbox', {
+      name: 'Search who’s going by name',
+    });
+    await expect(search).toBeVisible();
+    await expect(sheet.getByText('2 sold · 2 going')).toBeVisible();
+    await expect(sheet.getByText('Maya Chen')).toBeVisible();
+    await expect(sheet.getByText('alex.near').first()).toBeVisible();
+
+    await search.fill('chen');
+    await expect(sheet.getByText('Maya Chen')).toBeVisible();
+    await expect(sheet.getByText('alex.near')).toHaveCount(0);
+    await expect(sheet.getByText('2 sold · 2 going')).toBeVisible();
+
+    await search.fill('nobody');
+    await expect(sheet.getByText('No matches.', { exact: true })).toBeVisible();
+    await expect(sheet.getByText('Maya Chen')).toHaveCount(0);
+  });
 });
