@@ -10027,8 +10027,8 @@ a.os-surface-row {
     color: var(--mood-muted, hsl(var(--muted-foreground)));
   }
 
-  .portfolio-offer-link + .portfolio-hiring-detail-meta {
-    margin-top: 0.35rem;
+  .portfolio-hiring-detail-copy + .portfolio-offer-link {
+    margin-top: 0.45rem;
   }
 
   .portfolio-hiring-meta {

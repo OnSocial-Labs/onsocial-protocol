@@ -72,23 +72,23 @@ function OfferDetailSheet({
           <PortfolioBioBlocks text={description} headingAs="p" />
         </div>
       ) : null}
-      {url || offer.since ? (
+      {url ? (
+        <a
+          className="portfolio-hiring-meta portfolio-hiring-detail-meta portfolio-offer-link"
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {offerHost(url)}
+        </a>
+      ) : null}
+      {offer.since ? (
         <>
-          {description ? (
+          {description || url ? (
             <Divider
               variant="detail"
               className="portfolio-hiring-detail-divider"
             />
-          ) : null}
-          {url ? (
-            <a
-              className="portfolio-hiring-meta portfolio-hiring-detail-meta portfolio-offer-link"
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {offerHost(url)}
-            </a>
           ) : null}
           <OfferAddedTime
             since={offer.since}
@@ -171,6 +171,11 @@ export function PortfolioOffersSheet({
                       {profileBioPlainPreview(offer.description, {
                         maxBlocks: 1,
                       })}
+                    </p>
+                  ) : null}
+                  {offer.url ? (
+                    <p className="portfolio-hiring-meta">
+                      {offerHost(offer.url)}
                     </p>
                   ) : null}
                 </button>
