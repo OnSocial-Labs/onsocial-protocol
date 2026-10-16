@@ -49,9 +49,6 @@ function OfferDetailSheet({
       onClose={onClose}
       label={offer.title}
       copy={profileName}
-      titleAccessory={
-        <OfferAddedTime since={offer.since} className="portfolio-offer-added" />
-      }
       closeAriaLabel="Close offer"
       backdropLabel="Close offer"
       zIndex={zIndex}
@@ -75,20 +72,28 @@ function OfferDetailSheet({
           <PortfolioBioBlocks text={description} headingAs="p" />
         </div>
       ) : null}
-      {url ? (
+      {url || offer.since ? (
         <>
-          <Divider
-            variant="detail"
-            className="portfolio-hiring-detail-divider"
+          {description ? (
+            <Divider
+              variant="detail"
+              className="portfolio-hiring-detail-divider"
+            />
+          ) : null}
+          {url ? (
+            <a
+              className="portfolio-hiring-meta portfolio-hiring-detail-meta portfolio-offer-link"
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {offerHost(url)}
+            </a>
+          ) : null}
+          <OfferAddedTime
+            since={offer.since}
+            className="portfolio-hiring-meta portfolio-hiring-detail-meta"
           />
-          <a
-            className="portfolio-hiring-meta portfolio-hiring-detail-meta portfolio-offer-link"
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {offerHost(url)}
-          </a>
         </>
       ) : null}
     </OsHugSheet>

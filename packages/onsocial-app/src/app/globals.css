@@ -9961,19 +9961,6 @@ a.os-surface-row {
     flex-shrink: 0;
   }
 
-  /* Detail header: stamp sits on the title line, close stays the control. */
-  .glass-sheet-header-title-row > .portfolio-offer-added {
-    margin-inline-start: auto;
-    align-self: flex-start;
-    padding-top: calc((2.75rem - 1.2em) / 2);
-  }
-
-  .glass-sheet-header-title-row
-    > .portfolio-offer-added
-    + .glass-sheet-icon-action {
-    margin-inline-start: 0.15rem;
-  }
-
   .portfolio-hiring-title {
     margin: 0;
     font-size: 0.95rem;
@@ -10038,6 +10025,10 @@ a.os-surface-row {
     line-height: 1.4;
     text-align: left;
     color: var(--mood-muted, hsl(var(--muted-foreground)));
+  }
+
+  .portfolio-offer-link + .portfolio-hiring-detail-meta {
+    margin-top: 0.35rem;
   }
 
   .portfolio-hiring-meta {
