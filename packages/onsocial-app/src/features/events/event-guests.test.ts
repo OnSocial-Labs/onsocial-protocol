@@ -8,6 +8,7 @@ import {
   eventGuestCountLabel,
   eventGuestKind,
   eventGuestSheetCopy,
+  collectionGuestRoster,
   eventGuestTallyLine,
   passGuestKind,
   loadHeldCollectionIdsFrom,
@@ -93,6 +94,57 @@ describe('event guest counts', () => {
     expect(eventGuestCountLabel('going', 4, { redeemed: true })).toBe(
       '4 holding'
     );
+    expect(
+      collectionGuestRoster({
+        kind: 'audio',
+        window: 'upcoming',
+        nowMs: 10,
+      })
+    ).toEqual({ kind: 'going', holders: true });
+    for (const kind of ['art', 'writing', 'thought', 'video', 'custom', 'music']) {
+      expect(
+        collectionGuestRoster({ kind, window: 'past', nowMs: 10 }).holders
+      ).toBe(true);
+    }
+    expect(
+      collectionGuestRoster({
+        kind: 'ticket',
+        window: 'now',
+        nowMs: 10,
+      })
+    ).toEqual({ kind: 'in', holders: false });
+    expect(
+      collectionGuestRoster({
+        kind: 'coupon',
+        window: 'upcoming',
+        accessEndsAtMs: 50,
+        nowMs: 10,
+      })
+    ).toEqual({ kind: 'going', holders: false });
+    expect(
+      collectionGuestRoster({
+        kind: 'coupon',
+        window: 'upcoming',
+        accessEndsAtMs: 5,
+        nowMs: 10,
+      })
+    ).toEqual({ kind: 'attended', holders: false });
+    expect(
+      collectionGuestRoster({
+        kind: 'membership',
+        window: 'upcoming',
+        nowMs: 10,
+      })
+    ).toEqual({ kind: 'going', holders: true });
+    expect(
+      collectionGuestRoster({
+        kind: 'membership',
+        window: 'now',
+        eventStartsAtMs: 1,
+        eventEndsAtMs: 20,
+        nowMs: 10,
+      })
+    ).toEqual({ kind: 'in', holders: false });
     expect(eventGuestCountLabel('in', 1)).toBe('1 in');
     expect(eventGuestCountLabel('in', 42)).toBe('42 in');
     expect(eventGuestCountLabel('in', 0)).toBe('0 in');

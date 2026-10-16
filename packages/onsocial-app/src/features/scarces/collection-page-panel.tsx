@@ -120,7 +120,7 @@ import {
 } from '@/features/scarces/ticket-pass-payload';
 import { fetchIsCollectionRedeemer } from '@/features/scarces/ticket-redeemers';
 import { CollectionEventGuests } from '@/features/events/event-guests-sheet';
-import { passGuestKind } from '@/features/events/event-guests';
+import { collectionGuestRoster } from '@/features/events/event-guests';
 import { eventWindowFor } from '@/features/events/events-catalog';
 import { TicketShowPassSheet } from '@/features/scarces/ticket-show-pass-sheet';
 import { CollectionDoorLogSheet } from '@/features/scarces/collection-door-log-sheet';
@@ -1576,20 +1576,20 @@ export function CollectionPagePanel({
           </section>
         ) : null}
 
-        {isPassKind ? (
-          <CollectionEventGuests
-            collectionId={view.collectionId}
-            title={view.title}
-            sold={view.minted}
-            kind={passGuestKind({
-              voice: staffVoice,
-              window: eventWindowFor({ view }, nowMs),
-              accessEndsAtMs: view.accessEndsAtMs,
-              nowMs,
-            })}
-            voice={staffVoice}
-          />
-        ) : null}
+        <CollectionEventGuests
+          collectionId={view.collectionId}
+          title={view.title}
+          sold={view.minted}
+          {...collectionGuestRoster({
+            kind: view.kind,
+            window: eventWindowFor({ view }, nowMs),
+            accessEndsAtMs: view.accessEndsAtMs,
+            eventStartsAtMs: view.eventStartsAtMs,
+            eventEndsAtMs: view.eventEndsAtMs,
+            nowMs,
+          })}
+          voice={staffVoice}
+        />
 
         {canDoor || (isOwner && status === 'upcoming') ? (
           <section

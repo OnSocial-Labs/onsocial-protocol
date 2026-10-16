@@ -76,6 +76,7 @@ export function EventGuestsSheet({
   kind,
   sold,
   voice = 'admit',
+  holders = false,
   ids,
   loading = false,
   error = false,
@@ -87,6 +88,8 @@ export function EventGuestsSheet({
   kind: EventGuestKind;
   sold: number | null;
   voice?: PassStaffVoice;
+  /** Current owners, with holding words. Passes leave this off. */
+  holders?: boolean;
   /** When the parent already has the roster, skip a second read. */
   ids?: string[] | null;
   loading?: boolean;
@@ -102,14 +105,15 @@ export function EventGuestsSheet({
   const roster = owned ? fetched.ids : ids;
   const rosterError = owned ? fetched.error : error;
   const rosterLoading = owned ? open && roster == null && !rosterError : loading;
-  const copy = eventGuestSheetCopy(kind, { redeemed: voice === 'redeem' });
+  const holderWords = holders || voice === 'redeem';
+  const copy = eventGuestSheetCopy(kind, { redeemed: holderWords });
   const lede =
     roster != null
       ? eventGuestTallyLine({
           kind,
           present: roster.length,
           sold,
-          redeemed: voice === 'redeem',
+          redeemed: holderWords,
         })
       : null;
 
@@ -146,12 +150,15 @@ export function CollectionEventGuests({
   sold,
   kind,
   voice,
+  holders = false,
 }: {
   collectionId: string;
   title: string;
   sold: number;
   kind: EventGuestKind;
   voice: PassStaffVoice;
+  /** Current owners, with holding words. Passes leave this off. */
+  holders?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const roster = useGuestIds(
@@ -160,14 +167,15 @@ export function CollectionEventGuests({
     true,
     kind === 'in' ? LIVE_MS : 0
   );
-  const copy = eventGuestSheetCopy(kind, { redeemed: voice === 'redeem' });
+  const holderWords = holders || voice === 'redeem';
+  const copy = eventGuestSheetCopy(kind, { redeemed: holderWords });
   const tally =
     roster.ids != null
       ? eventGuestTallyLine({
           kind,
           present: roster.ids.length,
           sold,
-          redeemed: voice === 'redeem',
+          redeemed: holderWords,
         })
       : null;
 
@@ -187,6 +195,7 @@ export function CollectionEventGuests({
         kind={kind}
         sold={sold}
         voice={voice}
+        holders={holders}
         ids={roster.ids}
         loading={roster.ids == null && !roster.error}
         error={roster.error}

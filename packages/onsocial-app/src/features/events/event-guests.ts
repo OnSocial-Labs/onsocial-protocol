@@ -74,6 +74,53 @@ export function passGuestKind(opts: {
   return eventGuestKind(opts.window);
 }
 
+function hasShowDate(
+  start: number | null | undefined,
+  end: number | null | undefined
+): boolean {
+  return (
+    (start != null && Number.isFinite(start) && start > 0) ||
+    (end != null && Number.isFinite(end) && end > 0)
+  );
+}
+
+/**
+ * Drop-page roster. Tickets follow the show. Coupons follow access.
+ * Memberships follow the show only when a date is set. Every other scarce
+ * stays on who holds one now.
+ */
+export function collectionGuestRoster(opts: {
+  kind: string | null | undefined;
+  window: EventWindow;
+  accessEndsAtMs?: number | null;
+  eventStartsAtMs?: number | null;
+  eventEndsAtMs?: number | null;
+  nowMs: number;
+}): { kind: EventGuestKind; holders: boolean } {
+  const medium = (opts.kind ?? '').trim().toLowerCase();
+  if (medium === 'coupon') {
+    return {
+      kind: passGuestKind({
+        voice: 'redeem',
+        window: opts.window,
+        accessEndsAtMs: opts.accessEndsAtMs,
+        nowMs: opts.nowMs,
+      }),
+      holders: false,
+    };
+  }
+  if (medium === 'ticket') {
+    return { kind: eventGuestKind(opts.window), holders: false };
+  }
+  if (
+    medium === 'membership' &&
+    hasShowDate(opts.eventStartsAtMs, opts.eventEndsAtMs)
+  ) {
+    return { kind: eventGuestKind(opts.window), holders: false };
+  }
+  return { kind: 'going', holders: true };
+}
+
 /**
  * Quiet totals for the guest list. Sold is passes minted. Present is the
  * people on the list. Coupons say holding until access ends, then redeemed.

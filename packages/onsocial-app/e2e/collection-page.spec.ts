@@ -522,4 +522,71 @@ test.describe('collection drop page', () => {
     await expect(sheet.getByText('Maya Chen')).toHaveCount(0);
     await expect(sheet.getByText('2 sold · 2 going')).toHaveCount(0);
   });
+
+  test('audio See who lists who is holding', async ({ page }) => {
+    await setE2eGraphDrop(page, 'default');
+    await stubCollectionPageGraph(page);
+    await page.route('**/api/onapi/graph/query', async (route) => {
+      const raw = route.request().postData() ?? '';
+      let query = '';
+      try {
+        query = String((JSON.parse(raw) as { query?: string }).query ?? '');
+      } catch {
+        query = raw;
+      }
+      if (query.includes('EventHolders')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: {
+              scarcesTokenOwners: [
+                { ownerId: 'maya.near' },
+                { ownerId: 'alex.near' },
+              ],
+            },
+          }),
+        });
+        return;
+      }
+      if (query.includes('ProfileStatsBatch')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: {
+              profileSearch: [
+                { accountId: 'maya.near', name: 'Maya Chen' },
+                { accountId: 'alex.near', name: null },
+              ],
+              profileKinds: [],
+              reputationScores: [],
+            },
+          }),
+        });
+        return;
+      }
+      await route.fallback();
+    });
+
+    await gotoApp(page, '/collection/night-drive');
+    await expectCollectionPageSettled(page);
+    await expect(page.getByText('2 sold · 2 holding')).toBeVisible();
+    await page.getByRole('button', { name: 'See who', exact: true }).click();
+
+    const sheet = page.getByRole('dialog', { name: 'Night Drive' });
+    await expect(sheet).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    const search = sheet.getByRole('textbox', {
+      name: 'Search who has one by name',
+    });
+    await expect(search).toBeVisible();
+    await expect(sheet.getByText('Maya Chen')).toBeVisible();
+    await expect(sheet.getByText('alex.near').first()).toBeVisible();
+
+    await search.fill('@maya');
+    await expect(sheet.getByText('Maya Chen')).toBeVisible();
+    await expect(sheet.getByText('1 match', { exact: true })).toBeVisible();
+    await expect(sheet.getByText('alex.near')).toHaveCount(0);
+    await expect(sheet.getByText('2 sold · 2 holding')).toHaveCount(0);
+  });
 });
