@@ -102,7 +102,7 @@ export function EventGuestsSheet({
   const roster = owned ? fetched.ids : ids;
   const rosterError = owned ? fetched.error : error;
   const rosterLoading = owned ? open && roster == null && !rosterError : loading;
-  const copy = eventGuestSheetCopy(kind);
+  const copy = eventGuestSheetCopy(kind, { redeemed: voice === 'redeem' });
   const lede =
     roster != null
       ? eventGuestTallyLine({
@@ -160,7 +160,7 @@ export function CollectionEventGuests({
     true,
     kind === 'in' ? LIVE_MS : 0
   );
-  const copy = eventGuestSheetCopy(kind);
+  const copy = eventGuestSheetCopy(kind, { redeemed: voice === 'redeem' });
   const tally =
     roster.ids != null
       ? eventGuestTallyLine({

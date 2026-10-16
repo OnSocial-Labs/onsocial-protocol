@@ -510,10 +510,16 @@ test.describe('collection drop page', () => {
     await search.fill('chen');
     await expect(sheet.getByText('Maya Chen')).toBeVisible();
     await expect(sheet.getByText('alex.near')).toHaveCount(0);
-    await expect(sheet.getByText('2 sold · 2 going')).toBeVisible();
+    await expect(sheet.getByText('1 match', { exact: true })).toBeVisible();
+    await expect(sheet.getByText('2 sold · 2 going')).toHaveCount(0);
+
+    await search.fill('@maya');
+    await expect(sheet.getByText('Maya Chen')).toBeVisible();
+    await expect(sheet.getByText('1 match', { exact: true })).toBeVisible();
 
     await search.fill('nobody');
     await expect(sheet.getByText('No matches.', { exact: true })).toBeVisible();
     await expect(sheet.getByText('Maya Chen')).toHaveCount(0);
+    await expect(sheet.getByText('2 sold · 2 going')).toHaveCount(0);
   });
 });

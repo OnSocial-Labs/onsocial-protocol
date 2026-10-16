@@ -126,6 +126,7 @@ describe('ticket-door-log', () => {
     ]);
     expect(filterDoorLogEntries(entries, 'pass 9')).toHaveLength(1);
     expect(filterDoorLogEntries(entries, 'door.near')).toHaveLength(1);
+    expect(filterDoorLogEntries(entries, '@door.near')).toHaveLength(1);
     expect(
       filterDoorLogEntries(entries, 'alex', {
         'guest.near': 'Alex Night',

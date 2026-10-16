@@ -6,6 +6,7 @@ import {
   type PassStaffVoice,
 } from '@/features/scarces/ticket-pass-payload';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { rosterSearchNeedle } from '@/lib/profile-list-account';
 
 export interface DoorLogEntry {
   key: string;
@@ -127,7 +128,7 @@ export function filterDoorLogEntries(
   query: string,
   nameByAccount?: Record<string, string | null | undefined>
 ): DoorLogEntry[] {
-  const q = query.trim().toLowerCase();
+  const q = rosterSearchNeedle(query);
   if (!q) return entries;
   return entries.filter((entry) => {
     const guestName =

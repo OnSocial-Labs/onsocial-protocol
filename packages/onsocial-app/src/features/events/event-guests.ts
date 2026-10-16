@@ -38,9 +38,14 @@ export function showEventGuestCount(
 
 export function eventGuestCountLabel(
   kind: EventGuestKind,
-  count: number
+  count: number,
+  opts?: { redeemed?: boolean }
 ): string {
   const n = Math.max(0, Math.floor(count));
+  if (opts?.redeemed) {
+    if (kind === 'going') return n === 1 ? '1 holding' : `${n} holding`;
+    return n === 1 ? '1 redeemed' : `${n} redeemed`;
+  }
   if (kind === 'in') return n === 1 ? '1 in' : `${n} in`;
   if (kind === 'attended') {
     return n === 1 ? '1 attended' : `${n} attended`;
@@ -49,8 +54,29 @@ export function eventGuestCountLabel(
 }
 
 /**
+ * Which people See who lists.
+ * Tickets follow the show. Coupons follow access: holders until it ends,
+ * then the people who were redeemed.
+ */
+export function passGuestKind(opts: {
+  voice: 'admit' | 'redeem';
+  window: EventWindow;
+  accessEndsAtMs?: number | null;
+  nowMs: number;
+}): EventGuestKind {
+  if (opts.voice === 'redeem') {
+    const end = opts.accessEndsAtMs;
+    if (end != null && Number.isFinite(end) && end > 0 && end <= opts.nowMs) {
+      return 'attended';
+    }
+    return 'going';
+  }
+  return eventGuestKind(opts.window);
+}
+
+/**
  * Quiet totals for the guest list. Sold is passes minted. Present is the
- * people on the list. Coupons say redeemed once the event is underway.
+ * people on the list. Coupons say holding until access ends, then redeemed.
  */
 export function eventGuestTallyLine(opts: {
   kind: EventGuestKind;
@@ -59,19 +85,19 @@ export function eventGuestTallyLine(opts: {
   redeemed?: boolean;
 }): string {
   const present = Math.max(0, Math.floor(opts.present));
-  const presentLabel =
-    opts.redeemed && opts.kind !== 'going'
-      ? present === 1
-        ? '1 redeemed'
-        : `${present} redeemed`
-      : eventGuestCountLabel(opts.kind, present);
+  const presentLabel = eventGuestCountLabel(opts.kind, present, {
+    redeemed: opts.redeemed,
+  });
   if (opts.sold == null || !Number.isFinite(opts.sold)) return presentLabel;
   const sold = Math.max(0, Math.floor(opts.sold));
   const soldLabel = sold === 1 ? '1 sold' : `${sold} sold`;
   return `${soldLabel} · ${presentLabel}`;
 }
 
-export function eventGuestSheetCopy(kind: EventGuestKind): {
+export function eventGuestSheetCopy(
+  kind: EventGuestKind,
+  opts?: { redeemed?: boolean }
+): {
   label: string;
   countSingular: string;
   countPlural: string;
@@ -83,6 +109,37 @@ export function eventGuestSheetCopy(kind: EventGuestKind): {
   searchAriaLabel: string;
   searchClearAriaLabel: string;
 } {
+  if (opts?.redeemed) {
+    if (kind === 'going') {
+      return {
+        label: 'Holding',
+        countSingular: 'holding',
+        countPlural: 'holding',
+        emptyCopy: 'No one is holding one yet.',
+        errorCopy: 'Couldn’t load who has one.',
+        closeAriaLabel: 'Close who has one',
+        backdropLabel: 'Close who has one',
+        searchPlaceholder: 'Search who has one',
+        searchAriaLabel: 'Search who has one by name',
+        searchClearAriaLabel: 'Clear search',
+      };
+    }
+    return {
+      label: 'Redeemed',
+      countSingular: 'redeemed',
+      countPlural: 'redeemed',
+      emptyCopy:
+        kind === 'attended'
+          ? 'No one redeemed.'
+          : 'No one has redeemed yet.',
+      errorCopy: 'Couldn’t load who redeemed.',
+      closeAriaLabel: 'Close who redeemed',
+      backdropLabel: 'Close who redeemed',
+      searchPlaceholder: 'Search who redeemed',
+      searchAriaLabel: 'Search who redeemed by name',
+      searchClearAriaLabel: 'Clear search',
+    };
+  }
   if (kind === 'in') {
     return {
       label: 'In',

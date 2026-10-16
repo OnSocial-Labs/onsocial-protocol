@@ -16,6 +16,7 @@ import { accountIdsEqual } from '@/lib/account-match';
 import { loadProfileListAccounts } from '@/lib/load-profile-list-accounts';
 import {
   filterGuestRoster,
+  guestRosterMatchLine,
   profileListAccountToStandingSummary,
   type ProfileListAccount,
 } from '@/lib/profile-list-account';
@@ -179,9 +180,12 @@ export function ScarceFansSheet({
   );
   const tally = lede?.trim() || '';
   const searching = frame === 'page' && query.trim().length > 0;
+  const matchLine =
+    searching && visible ? guestRosterMatchLine(visible.length) : null;
+  const headLine = searching ? (matchLine ?? '') : tally;
   const list = (
     <>
-      {tally ? <p className="scarce-fans-lede">{tally}</p> : null}
+      {headLine ? <p className="scarce-fans-lede">{headLine}</p> : null}
       {showSkeleton ? (
         <ProfileSocialListSkeleton count={skeletonCount} rowVariant="person" />
       ) : visible && visible.length > 0 ? (

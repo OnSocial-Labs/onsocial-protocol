@@ -9,12 +9,16 @@ import {
   eventGuestKind,
   eventGuestSheetCopy,
   eventGuestTallyLine,
+  passGuestKind,
   loadHeldCollectionIdsFrom,
   resolveEventGuestCount,
   showEventGuestCount,
   uniqueAccountIds,
 } from '@/features/events/event-guests';
-import { filterGuestRoster } from '@/lib/profile-list-account';
+import {
+  filterGuestRoster,
+  guestRosterMatchLine,
+} from '@/lib/profile-list-account';
 
 describe('guest roster search', () => {
   const roster = [
@@ -29,7 +33,15 @@ describe('guest roster search', () => {
   it('matches a name or an account', () => {
     expect(filterGuestRoster(roster, 'chen')).toEqual([roster[0]]);
     expect(filterGuestRoster(roster, 'ALEX')).toEqual([roster[1]]);
+    expect(filterGuestRoster(roster, '@alex')).toEqual([roster[1]]);
+    expect(filterGuestRoster(roster, '@')).toEqual(roster);
     expect(filterGuestRoster(roster, 'nobody')).toEqual([]);
+  });
+
+  it('counts matches instead of the event while a search is on', () => {
+    expect(guestRosterMatchLine(0)).toBeNull();
+    expect(guestRosterMatchLine(1)).toBe('1 match');
+    expect(guestRosterMatchLine(2)).toBe('2 matches');
   });
 
   it('names the search for each window', () => {
@@ -40,6 +52,12 @@ describe('guest roster search', () => {
     expect(eventGuestSheetCopy('attended').searchPlaceholder).toBe(
       'Search who attended'
     );
+    expect(
+      eventGuestSheetCopy('going', { redeemed: true }).searchPlaceholder
+    ).toBe('Search who has one');
+    expect(
+      eventGuestSheetCopy('attended', { redeemed: true }).searchPlaceholder
+    ).toBe('Search who redeemed');
   });
 });
 
@@ -48,6 +66,33 @@ describe('event guest counts', () => {
     expect(eventGuestKind('now')).toBe('in');
     expect(eventGuestKind('upcoming')).toBe('going');
     expect(eventGuestKind('past')).toBe('attended');
+    expect(
+      passGuestKind({
+        voice: 'admit',
+        window: 'now',
+        accessEndsAtMs: 1,
+        nowMs: 10,
+      })
+    ).toBe('in');
+    expect(
+      passGuestKind({
+        voice: 'redeem',
+        window: 'upcoming',
+        accessEndsAtMs: 50,
+        nowMs: 10,
+      })
+    ).toBe('going');
+    expect(
+      passGuestKind({
+        voice: 'redeem',
+        window: 'upcoming',
+        accessEndsAtMs: 5,
+        nowMs: 10,
+      })
+    ).toBe('attended');
+    expect(eventGuestCountLabel('going', 4, { redeemed: true })).toBe(
+      '4 holding'
+    );
     expect(eventGuestCountLabel('in', 1)).toBe('1 in');
     expect(eventGuestCountLabel('in', 42)).toBe('42 in');
     expect(eventGuestCountLabel('in', 0)).toBe('0 in');
@@ -79,7 +124,7 @@ describe('event guest counts', () => {
         sold: 9,
         redeemed: true,
       })
-    ).toBe('9 sold · 4 going');
+    ).toBe('9 sold · 4 holding');
     expect(
       eventGuestTallyLine({ kind: 'attended', present: 3, sold: null })
     ).toBe('3 attended');

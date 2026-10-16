@@ -3,11 +3,23 @@ import type { DiscoverProfileSummary } from '@/lib/discover-profiles';
 import { isStandingAccountDisplayReady } from '@/lib/profile-list-display';
 import type { StandingAccountSummary } from '@/lib/profile-social-standings';
 
+/** Name or account needle. A leading @ is the handle, not part of the id. */
+export function rosterSearchNeedle(query: string): string {
+  return query.trim().toLowerCase().replace(/^@+/, '');
+}
+
+/** How many roster rows the current search kept. Blank when nothing matched. */
+export function guestRosterMatchLine(count: number): string | null {
+  const n = Math.max(0, Math.floor(count));
+  if (n <= 0) return null;
+  return n === 1 ? '1 match' : `${n} matches`;
+}
+
 /** Roster search — name or account. A blank query keeps the full list. */
 export function filterGuestRoster<
   T extends { accountId: string; name?: string | null },
 >(accounts: readonly T[], query: string): T[] {
-  const q = query.trim().toLowerCase();
+  const q = rosterSearchNeedle(query);
   if (!q) return [...accounts];
   return accounts.filter((account) => {
     const name = account.name?.trim().toLowerCase() ?? '';
