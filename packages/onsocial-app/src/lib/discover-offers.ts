@@ -4,6 +4,7 @@ import type {
   ProfileDiscoverPageResult,
   ProfileSearchRow,
 } from '@onsocial/sdk';
+import { leadTitleByAccount } from '@/lib/discover-face-line';
 
 const OFFER_POOL_MAX = 480;
 
@@ -57,7 +58,11 @@ export async function fetchOfferAccountPage(
   query: string,
   offset: number,
   limit: number
-): Promise<{ ids: string[]; hasMore: boolean }> {
+): Promise<{
+  ids: string[];
+  hasMore: boolean;
+  leadTitles: Record<string, string>;
+}> {
   const needle = query.trim();
   const poolLimit = Math.min(
     OFFER_POOL_MAX,
@@ -76,6 +81,7 @@ export async function fetchOfferAccountPage(
   return {
     ids: page.ids,
     hasMore: page.hasMore || offers.length === poolLimit,
+    leadTitles: leadTitleByAccount(offers),
   };
 }
 
@@ -87,8 +93,13 @@ export async function loadOffersDiscoverPage(
     offset: number;
     limit: number;
   }
-): Promise<ProfileDiscoverPageResult & { hasMore: boolean }> {
-  const { ids, hasMore } = await fetchOfferAccountPage(
+): Promise<
+  ProfileDiscoverPageResult & {
+    hasMore: boolean;
+    leadTitles: Record<string, string>;
+  }
+> {
+  const { ids, hasMore, leadTitles } = await fetchOfferAccountPage(
     os,
     opts.query,
     opts.offset,
@@ -106,6 +117,7 @@ export async function loadOffersDiscoverPage(
       profiles: [],
       viewer: opts.viewerAccountId ? emptyViewer : null,
       hasMore: false,
+      leadTitles,
     };
   }
 
@@ -113,7 +125,7 @@ export async function loadOffersDiscoverPage(
   const profiles = orderRowsByAccountIds(rows, ids);
   const viewerAccountId = opts.viewerAccountId?.trim() || null;
   if (!viewerAccountId) {
-    return { profiles, viewer: null, hasMore };
+    return { profiles, viewer: null, hasMore, leadTitles };
   }
 
   const [outgoing, incomingAccountIds, endorsementIssuers, endorsementTargets] =
@@ -138,5 +150,6 @@ export async function loadOffersDiscoverPage(
       endorsementTargets,
     },
     hasMore,
+    leadTitles,
   };
 }

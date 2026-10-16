@@ -169,6 +169,41 @@ export class JobsQuery {
     return (res.data?.jobsSearch ?? []).map(mapJobRow);
   }
 
+  /**
+   * Soonest-closing open role title per org.
+   * One row each, for directory lines.
+   */
+  async leadTitles(
+    accountIds: readonly string[]
+  ): Promise<Array<{ accountId: string; title: string }>> {
+    const ids = [
+      ...new Set(accountIds.map((id) => id.trim()).filter(Boolean)),
+    ].slice(0, 40);
+    if (ids.length === 0) return [];
+    const res = await this._q.graphql<{
+      jobsSearch: Array<{ orgAccountId?: string; title?: string }>;
+    }>({
+      query: `query JobLeadTitles($ids: [String!]!, $limit: Int!) {
+        jobsSearch(
+          distinctOn: [orgAccountId]
+          where: {orgAccountId: {_in: $ids}}
+          orderBy: [{orgAccountId: ASC}, {ends: ASC}]
+          limit: $limit
+        ) {
+          orgAccountId
+          title
+        }
+      }`,
+      variables: { ids, limit: ids.length },
+    });
+    return (res.data?.jobsSearch ?? [])
+      .map((row) => ({
+        accountId: String(row.orgAccountId ?? '').trim(),
+        title: String(row.title ?? '').trim(),
+      }))
+      .filter((row) => row.accountId && row.title);
+  }
+
   /** Open roles only (`jobs_search` — closed rows are excluded in SQL). */
   async openForAccount(
     accountId: string,

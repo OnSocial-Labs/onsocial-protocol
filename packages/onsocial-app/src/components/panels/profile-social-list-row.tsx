@@ -276,6 +276,7 @@ export function ProfileSocialListRow({
   isPending,
   viewerRelationshipLoading,
   onUpdateStanding,
+  directoryLine,
 }: {
   account: ProfileListAccount;
   showSolidarityBadge?: boolean;
@@ -287,6 +288,8 @@ export function ProfileSocialListRow({
   isPending?: boolean;
   viewerRelationshipLoading?: boolean;
   onUpdateStanding?: (shouldStand: boolean) => void;
+  /** Offers and Hiring replace the bio with the offer or role. */
+  directoryLine?: 'offers' | 'hiring';
 }) {
   const ledger = density === 'ledger';
 
@@ -326,6 +329,13 @@ export function ProfileSocialListRow({
     (account.offerCount ?? 0) > 0
       ? offerLineLabel(account.offerCount ?? 0)
       : null;
+  const directoryFaceLine = account.faceLine?.trim() || null;
+  const directoryFallback =
+    directoryLine === 'offers'
+      ? offerHint
+      : directoryLine === 'hiring'
+        ? hiringHint
+        : null;
   const timeMeta = isResolvingViewerRelationship
     ? null
     : resolveStandingTimeMeta(account, standingTimeMode);
@@ -401,26 +411,36 @@ export function ProfileSocialListRow({
             />
           }
         >
-          {ledger && bio ? (
-            <span className="standing-row-bio">
-              <PostRichText
-                text={bio}
-                emptyFallback=""
-                showLinkIcon
-                inlineMarks
-              />
-            </span>
-          ) : null}
-          {ledger && offerHint ? (
-            <span className="standing-row-bio standing-row-offer">
-              {offerHint}
-            </span>
-          ) : null}
-          {ledger && hiringHint ? (
-            <span className="standing-row-bio standing-row-hiring">
-              {hiringHint}
-            </span>
-          ) : null}
+          {ledger && directoryLine ? (
+            directoryFaceLine || directoryFallback ? (
+              <span className="standing-row-bio">
+                {directoryFaceLine || directoryFallback}
+              </span>
+            ) : null
+          ) : (
+            <>
+              {ledger && bio ? (
+                <span className="standing-row-bio">
+                  <PostRichText
+                    text={bio}
+                    emptyFallback=""
+                    showLinkIcon
+                    inlineMarks
+                  />
+                </span>
+              ) : null}
+              {ledger && offerHint ? (
+                <span className="standing-row-bio standing-row-offer">
+                  {offerHint}
+                </span>
+              ) : null}
+              {ledger && hiringHint ? (
+                <span className="standing-row-bio standing-row-hiring">
+                  {hiringHint}
+                </span>
+              ) : null}
+            </>
+          )}
           {ledger ? (
             <ProfileRowMetrics account={account} isDao={isDaoTarget} />
           ) : null}

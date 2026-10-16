@@ -61,6 +61,8 @@ export interface DiscoverProfileSummary {
   offerCount?: number;
   /** Portfolio reputation score. Omitted at zero. */
   reputation?: number;
+  /** Offer or role line on the Offers and Hiring faces. */
+  faceLine?: string | null;
   standingCount: number;
   standingWithCount: number;
   mutualStandingCount: number;

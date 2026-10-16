@@ -21,6 +21,10 @@ import {
 import { getGlobalViewerEndorsementLedger } from '@/lib/viewer-endorsement-global';
 import { overlayViewerEndorsedOnAccounts } from '@/lib/viewer-endorsement-ledger';
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
+import {
+  loadDiscoverFaceTitles,
+  withDiscoverFaceLines,
+} from '@/lib/discover-face-line';
 import type { ProfileListAccount } from '@/lib/profile-list-account';
 
 export function DiscoverRecommendedPeek({
@@ -47,6 +51,10 @@ export function DiscoverRecommendedPeek({
   const [hydrated, setHydrated] = useState<{
     viewerId: string;
     rows: ProfileListAccount[];
+  } | null>(null);
+  const [faceTitles, setFaceTitles] = useState<{
+    face: 'offers' | 'hiring';
+    titles: Record<string, string>;
   } | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const enabled =
@@ -106,16 +114,41 @@ export function DiscoverRecommendedPeek({
     muteBlockSyncVersion,
     rowsForViewer,
   ]);
+  const directoryLine = face === 'offers' || face === 'hiring' ? face : null;
+  const listed = useMemo(() => {
+    if (!directoryLine) return visible;
+    const titles =
+      faceTitles?.face === directoryLine ? faceTitles.titles : {};
+    return withDiscoverFaceLines(visible, titles, directoryLine);
+  }, [directoryLine, faceTitles, visible]);
 
   useEffect(() => {
-    onShownIdsChange?.(visible.map((row) => row.accountId));
+    if (!directoryLine || visible.length === 0) return;
+    let cancelled = false;
+    const client = createReadOnlyOnSocialClient();
+    void loadDiscoverFaceTitles(
+      client,
+      visible.map((row) => row.accountId),
+      directoryLine
+    )
+      .then((titles) => {
+        if (!cancelled) setFaceTitles({ face: directoryLine, titles });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [directoryLine, visible]);
+
+  useEffect(() => {
+    onShownIdsChange?.(listed.map((row) => row.accountId));
     return () => {
       onShownIdsChange?.([]);
     };
-  }, [onShownIdsChange, visible]);
+  }, [listed, onShownIdsChange]);
 
   // Pending / empty — never reserve flow (chrome spacing contract).
-  if (!enabled || rowsForViewer == null || visible.length === 0) return null;
+  if (!enabled || rowsForViewer == null || listed.length === 0) return null;
   return (
     <section
       className="discover-trending-section discover-recommended-peek"
@@ -125,7 +158,7 @@ export function DiscoverRecommendedPeek({
         <h2 className="discover-trending-heading">Recommended</h2>
       </div>
       <ProfileSocialList
-        accounts={visible}
+        accounts={listed}
         listKey={`discover-recommended:${face}:${industry || '__any__'}`}
         viewerAccountId={viewerAccountId}
         showSolidarityBadge
@@ -160,6 +193,7 @@ export function DiscoverRecommendedPeek({
         footerSummary={null}
         isLoadingMore={false}
         showLoadMoreSentinel={false}
+        directoryLine={directoryLine ?? undefined}
       />
     </section>
   );

@@ -230,6 +230,9 @@ export function DiscoverPanelContent() {
                   footerSummary={footerSummary}
                   isLoadingMore={showAppendSkeleton}
                   showLoadMoreSentinel={showLoadMoreSentinel}
+                  directoryLine={
+                    face === 'offers' || face === 'hiring' ? face : undefined
+                  }
                 />
               )}
             </div>

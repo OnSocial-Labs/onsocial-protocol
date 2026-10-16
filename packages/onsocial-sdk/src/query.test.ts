@@ -434,6 +434,30 @@ describe('QueryModule', () => {
       expect(body.query).not.toContain('{discoverScore: DESC}');
     });
 
+    it('loads one offer title per account', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          offersSearch: [{ accountId: 'alice.near', title: 'Brand identity' }],
+        },
+      });
+      await expect(
+        os.query.offers.leadTitles(['alice.near', 'alice.near'])
+      ).resolves.toEqual([
+        { accountId: 'alice.near', title: 'Brand identity' },
+      ]);
+      const body = JSON.parse(
+        String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
+      ) as { query: string; variables: Record<string, unknown> };
+      expect(body.query).toContain('distinctOn: [accountId]');
+      expect(body.query).toContain(
+        'orderBy: [{accountId: ASC}, {since: ASC}]'
+      );
+      expect(body.variables).toMatchObject({
+        ids: ['alice.near'],
+        limit: 1,
+      });
+    });
+
     it('searches open jobs by text, industry, and org', async () => {
       const row = {
         orgAccountId: 'studio.near',
@@ -472,6 +496,35 @@ describe('QueryModule', () => {
         industry: 'Fashion',
         orgAccountId: 'studio.near',
       });
+    });
+
+    it('loads one open role title per org', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          jobsSearch: [
+            { orgAccountId: 'clinic.near', title: 'Nurse' },
+            { orgAccountId: '  ', title: 'Skip' },
+          ],
+        },
+      });
+      await expect(os.query.jobs.leadTitles(['clinic.near', ''])).resolves.toEqual([
+        { accountId: 'clinic.near', title: 'Nurse' },
+      ]);
+      const body = JSON.parse(
+        String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
+      ) as { query: string; variables: Record<string, unknown> };
+      expect(body.query).toContain('distinctOn: [orgAccountId]');
+      expect(body.query).toContain('orderBy: [{orgAccountId: ASC}, {ends: ASC}]');
+      expect(body.variables).toMatchObject({
+        ids: ['clinic.near'],
+        limit: 1,
+      });
+    });
+
+    it('skips the jobs title query when no orgs are asked', async () => {
+      const { os, fetch } = makeOs({ data: {} });
+      await expect(os.query.jobs.leadTitles(['  '])).resolves.toEqual([]);
+      expect(fetch).not.toHaveBeenCalled();
     });
 
     it('lists closed jobs for an account via jobsCurrent', async () => {

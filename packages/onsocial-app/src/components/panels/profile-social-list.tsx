@@ -26,6 +26,7 @@ export function ProfileSocialList({
   footerSummary,
   isLoadingMore,
   showLoadMoreSentinel,
+  directoryLine,
 }: {
   accounts: ProfileListAccount[];
   listKey: string;
@@ -44,6 +45,8 @@ export function ProfileSocialList({
   footerSummary?: string | null;
   isLoadingMore: boolean;
   showLoadMoreSentinel: boolean;
+  /** Offers and Hiring replace the bio with the offer or role. */
+  directoryLine?: 'offers' | 'hiring';
 }) {
   return (
     <div key={listKey} className="profile-social-list">
@@ -62,6 +65,7 @@ export function ProfileSocialList({
               onUpdateStanding={(shouldStand) =>
                 onUpdateStanding(account, shouldStand)
               }
+              directoryLine={directoryLine}
             />
           </div>
         ))}

@@ -4,6 +4,7 @@ import type {
   ProfileDiscoverPageResult,
   ProfileSearchRow,
 } from '@onsocial/sdk';
+import { leadTitleByAccount } from '@/lib/discover-face-line';
 
 const HIRING_JOB_POOL_MAX = 480;
 
@@ -58,7 +59,11 @@ export async function fetchHiringOrgPageFromJobs(
   industry: string,
   offset: number,
   limit: number
-): Promise<{ ids: string[]; hasMore: boolean }> {
+): Promise<{
+  ids: string[];
+  hasMore: boolean;
+  leadTitles: Record<string, string>;
+}> {
   const needle = query.trim();
   const sector = industry.trim();
   const poolLimit = Math.min(
@@ -75,6 +80,9 @@ export async function fetchHiringOrgPageFromJobs(
   return {
     ids: page.ids,
     hasMore: page.hasMore || jobs.length === poolLimit,
+    leadTitles: leadTitleByAccount(
+      jobs.map((job) => ({ accountId: job.orgAccountId, title: job.title }))
+    ),
   };
 }
 
@@ -87,8 +95,13 @@ export async function loadHiringDiscoverPage(
     offset: number;
     limit: number;
   }
-): Promise<ProfileDiscoverPageResult & { hasMore: boolean }> {
-  const { ids, hasMore } = await fetchHiringOrgPageFromJobs(
+): Promise<
+  ProfileDiscoverPageResult & {
+    hasMore: boolean;
+    leadTitles: Record<string, string>;
+  }
+> {
+  const { ids, hasMore, leadTitles } = await fetchHiringOrgPageFromJobs(
     os,
     opts.query,
     opts.industry,
@@ -107,6 +120,7 @@ export async function loadHiringDiscoverPage(
       profiles: [],
       viewer: opts.viewerAccountId ? emptyViewer : null,
       hasMore: false,
+      leadTitles,
     };
   }
 
@@ -114,7 +128,7 @@ export async function loadHiringDiscoverPage(
   const profiles = orderRowsByAccountIds(rows, ids);
   const viewerAccountId = opts.viewerAccountId?.trim() || null;
   if (!viewerAccountId) {
-    return { profiles, viewer: null, hasMore };
+    return { profiles, viewer: null, hasMore, leadTitles };
   }
 
   const [outgoing, incomingAccountIds, endorsementIssuers, endorsementTargets] =
@@ -139,5 +153,6 @@ export async function loadHiringDiscoverPage(
       endorsementTargets,
     },
     hasMore,
+    leadTitles,
   };
 }

@@ -64,6 +64,8 @@ export interface ProfileListAccount {
   offerCount?: number;
   /** Portfolio reputation score. Omitted at zero. */
   reputation?: number;
+  /** Offer or role line on the Offers and Hiring faces. */
+  faceLine?: string | null;
 }
 
 export function standingAccountToProfileListAccount(
@@ -118,6 +120,7 @@ export function discoverProfileToProfileListAccount(
     openJobsCount: profile.openJobsCount,
     offerCount: profile.offerCount,
     reputation: positiveListReputation(profile.reputation),
+    faceLine: profile.faceLine,
   };
 }
 

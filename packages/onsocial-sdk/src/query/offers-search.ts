@@ -105,4 +105,39 @@ export class OffersSearchQuery {
     });
     return (res.data?.offersSearch ?? []).map(mapOfferRow);
   }
+
+  /**
+   * First offer title per account (`since` ascending, same order as the list).
+   * One row each, for directory lines.
+   */
+  async leadTitles(
+    accountIds: readonly string[]
+  ): Promise<Array<{ accountId: string; title: string }>> {
+    const ids = [
+      ...new Set(accountIds.map((id) => id.trim()).filter(Boolean)),
+    ].slice(0, 40);
+    if (ids.length === 0) return [];
+    const res = await this._q.graphql<{
+      offersSearch: Array<{ accountId?: string; title?: string }>;
+    }>({
+      query: `query OfferLeadTitles($ids: [String!]!, $limit: Int!) {
+        offersSearch(
+          distinctOn: [accountId]
+          where: {accountId: {_in: $ids}}
+          orderBy: [{accountId: ASC}, {since: ASC}]
+          limit: $limit
+        ) {
+          accountId
+          title
+        }
+      }`,
+      variables: { ids, limit: ids.length },
+    });
+    return (res.data?.offersSearch ?? [])
+      .map((row) => ({
+        accountId: String(row.accountId ?? '').trim(),
+        title: String(row.title ?? '').trim(),
+      }))
+      .filter((row) => row.accountId && row.title);
+  }
 }
