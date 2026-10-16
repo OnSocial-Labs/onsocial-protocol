@@ -1785,6 +1785,7 @@ export function CollectionPagePanel({
           eventEndsAtMs={view.eventEndsAtMs}
           whenLabel={aboutEvent.when}
           placeLabel={aboutEvent.place}
+          voice={staffVoice}
         />
       ) : null}
 

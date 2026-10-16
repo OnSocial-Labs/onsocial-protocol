@@ -178,7 +178,7 @@ export function TicketDoorWorkbench({
       ) : null}
       {lastAdmittedTokenId ? (
         <p className="ticket-door-hint is-success">
-          {lastLine} · {ticketPassSeatLabel(lastAdmittedTokenId)}
+          {lastLine} · {ticketPassSeatLabel(lastAdmittedTokenId, voice)}
         </p>
       ) : null}
 
@@ -187,7 +187,7 @@ export function TicketDoorWorkbench({
           <Divider variant="detail" />
           <div
             className="ticket-door-preview"
-            aria-label={`Pass for ${previewLabel}`}
+            aria-label={`${voice === 'redeem' ? 'Coupon' : 'Pass'} for ${previewLabel}`}
           >
             {ownerId ? (
               <div className="ticket-door-preview-holder">
@@ -225,7 +225,7 @@ export function TicketDoorWorkbench({
                     {previewLine}
                   </p>
                   <p className="ticket-door-preview-seat">
-                    {ticketPassSeatLabel(status.tokenId)}
+                    {ticketPassSeatLabel(status.tokenId, voice)}
                   </p>
                   {confirmCue ? (
                     <p
@@ -255,7 +255,7 @@ export function TicketDoorWorkbench({
                   {previewLine}
                 </p>
                 <p className="ticket-door-preview-seat">
-                  {ticketPassSeatLabel(status.tokenId)}
+                  {ticketPassSeatLabel(status.tokenId, voice)}
                 </p>
                 {confirmCue ? (
                   <p

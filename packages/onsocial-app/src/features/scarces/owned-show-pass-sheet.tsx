@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
-import { TicketShowPassSheet } from '@/features/scarces/ticket-show-pass-sheet';
 import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
+import { passStaffVoice } from '@/features/scarces/ticket-pass-payload';
+import { TicketShowPassSheet } from '@/features/scarces/ticket-show-pass-sheet';
 
 /**
  * Show pass over the page that opened it (Collectibles, Market).
@@ -33,6 +34,7 @@ export function OwnedShowPassSheet({
     eventEndsAtMs: number | null;
     when: string | null;
     place: string | null;
+    kind: string | null;
   } | null>(null);
 
   useEffect(() => {
@@ -48,6 +50,7 @@ export function OwnedShowPassSheet({
         eventEndsAtMs: view.eventEndsAtMs,
         when: facts.when,
         place: facts.place,
+        kind: view.kind,
       });
     });
     return () => {
@@ -68,6 +71,7 @@ export function OwnedShowPassSheet({
       eventEndsAtMs={facts?.eventEndsAtMs ?? null}
       whenLabel={facts?.when ?? null}
       placeLabel={facts?.place ?? null}
+      voice={facts ? passStaffVoice(facts.kind) : undefined}
     />
   );
 }

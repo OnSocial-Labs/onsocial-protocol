@@ -34,6 +34,7 @@ import {
   ticketPassLiveCodePreview,
   ticketPassSeatLabel,
   ticketPassStatusLabel,
+  type PassStaffVoice,
 } from '@/features/scarces/ticket-pass-payload';
 import { TicketPassQr } from '@/features/scarces/ticket-pass-qr';
 import { TicketClaimRefundAction } from '@/features/scarces/ticket-claim-refund-action';
@@ -69,6 +70,7 @@ export function TicketShowPassSheet({
   eventEndsAtMs = null,
   whenLabel = null,
   placeLabel = null,
+  voice,
 }: {
   open: boolean;
   onClose: () => void;
@@ -79,6 +81,8 @@ export function TicketShowPassSheet({
   eventEndsAtMs?: number | null;
   whenLabel?: string | null;
   placeLabel?: string | null;
+  /** Coupon drops use redeem wording. Tickets and memberships stay on check-in. */
+  voice?: PassStaffVoice;
 }) {
   const [wasOpen, setWasOpen] = useState(open);
   const [status, setStatus] = useState<TicketTokenStatus | null>(null);
@@ -355,6 +359,7 @@ export function TicketShowPassSheet({
         isRefunded: status.isRefunded,
         redeemCount: status.redeemCount,
         maxRedeems: status.maxRedeems,
+        voice,
       })
     : !passCode && statusLoading
       ? 'Checking…'
@@ -388,7 +393,7 @@ export function TicketShowPassSheet({
       whenLabel,
       placeLabel,
       statusLabel: statusLine,
-      seatLabel: ticketPassSeatLabel(tokenId),
+      seatLabel: ticketPassSeatLabel(tokenId, voice),
       holderName: holderName || null,
       holderAccount: holderAccount || null,
       qrValue: passCode,
@@ -405,6 +410,7 @@ export function TicketShowPassSheet({
     status?.isValid,
     statusLine,
     tokenId,
+    voice,
     whenLabel,
   ]);
 
@@ -531,7 +537,7 @@ export function TicketShowPassSheet({
 
             <div className="ticket-show-pass-meta">
               <span className="ticket-show-pass-seat">
-                {ticketPassSeatLabel(tokenId)}
+                {ticketPassSeatLabel(tokenId, voice)}
               </span>
               {passCode ? (
                 <button

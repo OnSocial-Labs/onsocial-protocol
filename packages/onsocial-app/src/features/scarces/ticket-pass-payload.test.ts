@@ -116,12 +116,39 @@ describe('ticket-pass-payload', () => {
         voice: 'redeem',
       })
     ).toBe('Fully redeemed');
+
+    expect(
+      ticketPassStatusLabel({
+        isValid: true,
+        isFullyRedeemed: false,
+        isRevoked: false,
+        isExpired: false,
+        redeemCount: 7,
+        maxRedeems: 10,
+        voice: 'redeem',
+      })
+    ).toBe('3 redeems left · used 7');
+
+    expect(
+      ticketPassStatusLabel({
+        isValid: true,
+        isFullyRedeemed: false,
+        isRevoked: false,
+        isExpired: false,
+        redeemCount: 7,
+        maxRedeems: 10,
+        voice: 'admit',
+      })
+    ).toBe('3 check-ins left · used 7');
   });
 
   it('shows a guest seat label instead of collection:id', () => {
     expect(ticketPassSeatLabel('onsocial-14oliw:1')).toBe('Pass 1');
     expect(ticketPassSeatLabel('night-drive:12')).toBe('Pass 12');
     expect(ticketPassSeatLabel('')).toBe('Pass');
+    expect(ticketPassSeatLabel('night-drive:12', 'admit')).toBe('Pass 12');
+    expect(ticketPassSeatLabel('night-drive:12', 'redeem')).toBe('Coupon 12');
+    expect(ticketPassSeatLabel('', 'redeem')).toBe('Coupon');
   });
 
   it('previews live pass codes without truncating short values', () => {

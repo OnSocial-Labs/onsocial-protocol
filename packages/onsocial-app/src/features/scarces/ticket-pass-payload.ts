@@ -112,11 +112,15 @@ export function parseTicketPassPayload(
 }
 
 /** Guest-facing seat line — hide the collection:id eng form. */
-export function ticketPassSeatLabel(tokenId: string): string {
+export function ticketPassSeatLabel(
+  tokenId: string,
+  voice?: PassStaffVoice
+): string {
+  const noun = voice === 'redeem' ? 'Coupon' : 'Pass';
   const id = tokenId.trim();
-  if (!id) return 'Pass';
+  if (!id) return noun;
   const seat = id.includes(':') ? id.slice(id.lastIndexOf(':') + 1).trim() : '';
-  if (/^\d+$/.test(seat)) return `Pass ${seat}`;
+  if (/^\d+$/.test(seat)) return `${noun} ${seat}`;
   return id;
 }
 
