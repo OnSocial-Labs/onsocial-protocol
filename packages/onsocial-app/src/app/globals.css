@@ -33156,7 +33156,9 @@ a.os-surface-row {
   .guild-structure-advanced .guild-field,
   .token-create-form .guild-field,
   /* Offer and role sheets share this plain stack. */
-  .account-editor-sheet-form .guild-field {
+  .account-editor-sheet-form .guild-field,
+  /* Scarce transfer "To" — same plain stack; don't card the account shell. */
+  .scarce-transfer-recipient.guild-field {
     padding: 0;
     gap: 0.4rem;
     border: 0;

@@ -214,7 +214,10 @@ export function ScarceTransferForm({
         <p className="scarce-buy-title">{title}</p>
       </div>
 
-      <label className="guild-field" htmlFor={`${formId}-to`}>
+      <label
+        className="guild-field scarce-transfer-recipient"
+        htmlFor={`${formId}-to`}
+      >
         <span>To</span>
         <NearAccountField
           id={`${formId}-to`}
