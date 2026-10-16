@@ -757,7 +757,6 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
-  height: auto;
   overflow: hidden;
   padding: 0;
 }
@@ -769,7 +768,6 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   width: 100%;
   min-width: 0;
   min-height: 0;
-  height: auto;
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
@@ -789,7 +787,6 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   width: 100%;
   min-width: 100%;
   min-height: 0;
-  height: auto;
   overflow: hidden;
   scroll-snap-align: start;
   scroll-snap-stop: always;
@@ -802,12 +799,11 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 
 .glass-sheet-panel.leaderboard-page-sheet .leaderboard-pager-scroll {
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
-  height: auto;
   overflow-x: hidden;
   overflow-y: auto;
   overflow-anchor: none;
-  scrollbar-gutter: stable;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   padding: 0.1rem var(--os-screen-body-pad-x, 1rem)

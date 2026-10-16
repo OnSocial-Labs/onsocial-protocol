@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  overlayScrollThumbInFrame,
   overlayScrollThumbIsVisible,
   overlayThumbDragScroll,
   resolveOverlayScrollThumb,
@@ -54,5 +55,46 @@ describe('resolveOverlayScrollThumb', () => {
     expect(overlayScrollThumbIsVisible(1821, 80, 2395, 1079, 1920, 1080)).toBe(
       false
     );
+  });
+
+  it('hides neighbor tracks that are inside the window but outside the column', () => {
+    const columnLeft = 673;
+    const columnRight = 1247;
+    expect(
+      overlayScrollThumbInFrame(
+        673,
+        80,
+        1247,
+        1079,
+        columnLeft,
+        0,
+        columnRight,
+        1080
+      )
+    ).toBe(true);
+    expect(
+      overlayScrollThumbInFrame(
+        99,
+        80,
+        673,
+        1079,
+        columnLeft,
+        0,
+        columnRight,
+        1080
+      )
+    ).toBe(false);
+    expect(
+      overlayScrollThumbInFrame(
+        1247,
+        80,
+        1821,
+        1079,
+        columnLeft,
+        0,
+        columnRight,
+        1080
+      )
+    ).toBe(false);
   });
 });

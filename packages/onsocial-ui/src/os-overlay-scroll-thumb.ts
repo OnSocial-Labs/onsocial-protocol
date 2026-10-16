@@ -56,6 +56,32 @@ export function resolveOverlayScrollThumbRight(
   return Math.max(0, viewportWidth - scrollerRight + inset);
 }
 
+/**
+ * A pager page can sit inside the desktop window and still be outside the
+ * column. The thumb belongs to the visible page only.
+ */
+export function overlayScrollThumbInFrame(
+  left: number,
+  top: number,
+  right: number,
+  bottom: number,
+  frameLeft: number,
+  frameTop: number,
+  frameRight: number,
+  frameBottom: number
+): boolean {
+  const width = right - left;
+  const height = bottom - top;
+  const frameWidth = frameRight - frameLeft;
+  const frameHeight = frameBottom - frameTop;
+  if (width < 1 || height < 1 || frameWidth <= 0 || frameHeight <= 0) {
+    return false;
+  }
+  const visibleWidth = Math.min(right, frameRight) - Math.max(left, frameLeft);
+  const visibleHeight = Math.min(bottom, frameBottom) - Math.max(top, frameTop);
+  return visibleWidth >= width * 0.6 && visibleHeight >= height * 0.6;
+}
+
 /** Off-screen pager pages must not pin a thumb to the viewport edge. */
 export function overlayScrollThumbIsVisible(
   left: number,
@@ -65,14 +91,54 @@ export function overlayScrollThumbIsVisible(
   viewportWidth: number,
   viewportHeight: number
 ): boolean {
-  const width = right - left;
-  const height = bottom - top;
-  if (width < 1 || height < 1 || viewportWidth <= 0 || viewportHeight <= 0) {
-    return false;
+  return overlayScrollThumbInFrame(
+    left,
+    top,
+    right,
+    bottom,
+    0,
+    0,
+    viewportWidth,
+    viewportHeight
+  );
+}
+
+function clipsOverflow(value: string): boolean {
+  return (
+    value === 'hidden' ||
+    value === 'clip' ||
+    value === 'auto' ||
+    value === 'scroll'
+  );
+}
+
+/** Visible window: the viewport, cut by every ancestor that actually clips. */
+function scrollClipFrame(scroller: HTMLElement): {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+} {
+  const viewport = scroller.ownerDocument.documentElement;
+  let left = 0;
+  let top = 0;
+  let right = viewport.clientWidth;
+  let bottom = viewport.clientHeight;
+  let node = scroller.parentElement;
+  while (node && node !== scroller.ownerDocument.body) {
+    const style = getComputedStyle(node);
+    const rect = node.getBoundingClientRect();
+    if (clipsOverflow(style.overflowX)) {
+      left = Math.max(left, rect.left);
+      right = Math.min(right, rect.right);
+    }
+    if (clipsOverflow(style.overflowY)) {
+      top = Math.max(top, rect.top);
+      bottom = Math.min(bottom, rect.bottom);
+    }
+    node = node.parentElement;
   }
-  const visibleWidth = Math.min(right, viewportWidth) - Math.max(left, 0);
-  const visibleHeight = Math.min(bottom, viewportHeight) - Math.max(top, 0);
-  return visibleWidth >= width * 0.6 && visibleHeight >= height * 0.6;
+  return { left, top, right, bottom };
 }
 
 export function resolveOverlayScrollThumb(
@@ -147,15 +213,17 @@ function hasOverflowingInnerScroller(scroller: HTMLElement): boolean {
     if (overflowY !== 'auto' && overflowY !== 'scroll') continue;
     if (node.scrollHeight - node.clientHeight <= 1) continue;
     const rect = node.getBoundingClientRect();
-    const viewport = node.ownerDocument.documentElement;
+    const frame = scrollClipFrame(node);
     if (
-      overlayScrollThumbIsVisible(
+      overlayScrollThumbInFrame(
         rect.left,
         rect.top,
         rect.right,
         rect.bottom,
-        viewport.clientWidth,
-        viewport.clientHeight
+        frame.left,
+        frame.top,
+        frame.right,
+        frame.bottom
       )
     ) {
       return true;
@@ -219,17 +287,19 @@ function placeOverlayScrollThumb(scroller: HTMLElement, thumb: HTMLElement) {
     return;
   }
   const rect = scroller.getBoundingClientRect();
-  const viewport = scroller.ownerDocument.documentElement;
+  const frame = scrollClipFrame(scroller);
   if (
     rect.width < 1 ||
     rect.height < 1 ||
-    !overlayScrollThumbIsVisible(
+    !overlayScrollThumbInFrame(
       rect.left,
       rect.top,
       rect.right,
       rect.bottom,
-      viewport.clientWidth,
-      viewport.clientHeight
+      frame.left,
+      frame.top,
+      frame.right,
+      frame.bottom
     )
   ) {
     hideOverlayScrollThumb(thumb);
@@ -254,12 +324,13 @@ function placeOverlayScrollThumb(scroller: HTMLElement, thumb: HTMLElement) {
     ? Number.parseInt(getComputedStyle(sheet).zIndex, 10)
     : 0;
   const viewportWidth = scroller.ownerDocument.documentElement.clientWidth;
+  const visibleRight = Math.min(rect.right, frame.right);
   thumb.style.zIndex = String(
     Number.isFinite(sheetZ) && sheetZ > 0 ? sheetZ + 1 : 4
   );
   thumb.classList.add('is-overflow');
   thumb.style.top = `${local.top}px`;
-  thumb.style.right = `${resolveOverlayScrollThumbRight(viewportWidth, rect.right)}px`;
+  thumb.style.right = `${resolveOverlayScrollThumbRight(viewportWidth, visibleRight)}px`;
   thumb.style.height = `${local.height}px`;
 }
 
