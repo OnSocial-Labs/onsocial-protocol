@@ -3,6 +3,14 @@ import type { DiscoverProfileSummary } from '@/lib/discover-profiles';
 import { isStandingAccountDisplayReady } from '@/lib/profile-list-display';
 import type { StandingAccountSummary } from '@/lib/profile-social-standings';
 
+export function positiveListReputation(
+  value: number | null | undefined
+): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
+}
+
 /** Neutral list row model for discover, standing, and future social lists. */
 export interface ProfileListAccount {
   accountId: string;
@@ -30,6 +38,8 @@ export interface ProfileListAccount {
   openJobsCount?: number;
   /** Standing services. Omitted until the directory count is known. */
   offerCount?: number;
+  /** Portfolio reputation score. Omitted at zero. */
+  reputation?: number;
 }
 
 export function standingAccountToProfileListAccount(
@@ -55,6 +65,7 @@ export function standingAccountToProfileListAccount(
     rowHydrated: isStandingAccountDisplayReady(account),
     isDao: account.isDao,
     kind: account.kind,
+    reputation: positiveListReputation(account.reputation),
   };
 }
 
@@ -82,6 +93,7 @@ export function discoverProfileToProfileListAccount(
     industry: profile.industry,
     openJobsCount: profile.openJobsCount,
     offerCount: profile.offerCount,
+    reputation: positiveListReputation(profile.reputation),
   };
 }
 
@@ -107,5 +119,6 @@ export function profileListAccountToStandingSummary(
     standingBlockTimestamp: account.standingBlockTimestamp,
     isDao: account.isDao,
     kind: account.kind,
+    reputation: positiveListReputation(account.reputation),
   };
 }

@@ -6,7 +6,9 @@
 import type { QueryModule } from './index.js';
 import {
   applyProfileSearchKinds,
+  positiveReputationByAccount,
   profileKindsFromCurrentRows,
+  withPositiveReputation,
   type ProfileSearchRow,
 } from './profiles.js';
 
@@ -924,6 +926,10 @@ export class StandingsQuery {
       const res = await this._q.graphql<{
         profileSearch: ProfileSearchRow[];
         profileKinds: Array<{ accountId: string; value: string }>;
+        reputationScores?: Array<{
+          accountId?: string | null;
+          reputation?: number | string | null;
+        }>;
       }>({
         query: `query StandingPeerProfiles($ids: [String!]!, $limit: Int!) {
           profileSearch(where: {accountId: {_in: $ids}}, limit: $limit) {
@@ -939,13 +945,20 @@ export class StandingsQuery {
           ) {
             accountId value
           }
+          reputationScores(where: {accountId: {_in: $ids}}, limit: $limit) {
+            accountId
+            reputation
+          }
         }`,
         variables: { ids: peers, limit: peers.length },
       });
       return {
-        profiles: applyProfileSearchKinds(
-          res.data?.profileSearch ?? [],
-          profileKindsFromCurrentRows(res.data?.profileKinds)
+        profiles: withPositiveReputation(
+          applyProfileSearchKinds(
+            res.data?.profileSearch ?? [],
+            profileKindsFromCurrentRows(res.data?.profileKinds)
+          ),
+          positiveReputationByAccount(res.data?.reputationScores)
         ),
         ...emptyViewerLines(),
       };
@@ -955,6 +968,10 @@ export class StandingsQuery {
       {
         profileSearch: ProfileSearchRow[];
         profileKinds: Array<{ accountId: string; value: string }>;
+        reputationScores?: Array<{
+          accountId?: string | null;
+          reputation?: number | string | null;
+        }>;
       } & StandingViewerLineRows
     >({
       query: `query StandingPeerEnrichment($viewer: String!, $peerIds: [String!]!, $limit: Int!) {
@@ -971,15 +988,22 @@ export class StandingsQuery {
         ) {
           accountId value
         }
+        reputationScores(where: {accountId: {_in: $peerIds}}, limit: $limit) {
+          accountId
+          reputation
+        }
         ${STANDING_VIEWER_LINE_SELECTION}
       }`,
       variables: { viewer, peerIds: peers, limit: peers.length },
     });
 
     return {
-      profiles: applyProfileSearchKinds(
-        res.data?.profileSearch ?? [],
-        profileKindsFromCurrentRows(res.data?.profileKinds)
+      profiles: withPositiveReputation(
+        applyProfileSearchKinds(
+          res.data?.profileSearch ?? [],
+          profileKindsFromCurrentRows(res.data?.profileKinds)
+        ),
+        positiveReputationByAccount(res.data?.reputationScores)
       ),
       ...viewerLinesFromRows(res.data, viewer),
     };

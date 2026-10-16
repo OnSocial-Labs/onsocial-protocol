@@ -58,6 +58,10 @@ export async function mapDiscoverPageToResponse(
       industry: row.industry ?? null,
       openJobsCount: row.openJobsCount ?? 0,
       offerCount: row.offerCount,
+      reputation:
+        typeof row.reputation === 'number' && row.reputation > 0
+          ? row.reputation
+          : undefined,
       standingCount: row.standingCount,
       standingWithCount: row.standingWithCount,
       mutualStandingCount: row.mutualStandingCount,

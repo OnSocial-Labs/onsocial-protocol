@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ProtocolMotionArrow } from '@onsocial/ui';
 import { endorsementsPath } from '@/lib/overlay-routes';
 import { standingPath } from '@/lib/profile-social-standings';
-import { formatCount } from '@/lib/profile-display';
+import { formatCount, formatFaceReputation } from '@/lib/profile-display';
 import type { ProfileSignals } from '@/lib/profile-signals';
 
 interface PortfolioSignalsProps {
@@ -22,13 +22,6 @@ interface PortfolioSignalsProps {
 
 const metricInnerClass = 'signal-metric-inner';
 const arrowClass = 'signal-metric-arrow';
-
-function formatReputation(value: number): string {
-  if (value >= 1000) {
-    return formatCount(Math.round(value));
-  }
-  return value.toFixed(value >= 100 ? 0 : 1);
-}
 
 function signalValueClass(value: number): string {
   return value === 0 ? 'signal-value is-zero' : 'signal-value';
@@ -188,7 +181,7 @@ export function PortfolioSignals({
                 <button
                   type="button"
                   className={metricClassName()}
-                  aria-label={`Reputation ${formatReputation(signals.reputation.reputation)}${
+                  aria-label={`Reputation ${formatFaceReputation(signals.reputation.reputation)}${
                     signals.reputation.rank > 0
                       ? `, rank ${signals.reputation.rank}`
                       : ''
@@ -207,7 +200,7 @@ export function PortfolioSignals({
                         Math.round(signals.reputation.reputation)
                       )}
                     >
-                      {formatReputation(signals.reputation.reputation)}
+                      {formatFaceReputation(signals.reputation.reputation)}
                     </span>
                   </span>
                 </button>

@@ -23,7 +23,9 @@ export function parseStandingKind(raw: string | undefined): StanceDetailKind {
 export function parseStandingKindFromPathname(
   pathname: string
 ): StanceDetailKind | null {
-  const match = pathname.match(/\/standing\/(incoming|outgoing|mutual)(?:\/|$|\?)/);
+  const match = pathname.match(
+    /\/standing\/(incoming|outgoing|mutual)(?:\/|$|\?)/
+  );
   return match ? parseStandingKind(match[1]) : null;
 }
 
@@ -60,6 +62,8 @@ export interface StandingAccountSummary {
   moodId?: PageMoodId;
   /** Server-enriched when peer is a DAO org. */
   isDao?: boolean;
+  /** Portfolio reputation score. Omitted at zero. */
+  reputation?: number;
 }
 
 export interface ProfileSocialStandingsResponse {
@@ -120,16 +124,14 @@ export async function fetchViewerStandingRelationship(
     `/api/profile/social/relationship?${search.toString()}`,
     { cache: 'no-store' }
   );
-  const body = (await response.json().catch(() => null)) as
-    | ({
-        viewerStanding?: boolean;
-        theyStandWithViewer?: boolean;
-        viewerEndorsed?: boolean;
-        viewerEndorsementTopics?: string[];
-        error?: string;
-        detail?: string;
-      })
-    | null;
+  const body = (await response.json().catch(() => null)) as {
+    viewerStanding?: boolean;
+    theyStandWithViewer?: boolean;
+    viewerEndorsed?: boolean;
+    viewerEndorsementTopics?: string[];
+    error?: string;
+    detail?: string;
+  } | null;
 
   if (!response.ok) {
     throw new Error(

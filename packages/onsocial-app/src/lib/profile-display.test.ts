@@ -3,6 +3,7 @@ import {
   accountDrawerPrimaryLabel,
   displayName,
   fallbackLabel,
+  formatFaceReputation,
   normalizeProfileLinks,
   normalizeProfileTags,
   portfolioHandleForMood,
@@ -143,5 +144,14 @@ describe('displayName', () => {
     expect(displayName('alice.near')).toBe('Alice');
     expect(displayName('alice.tg', 'alice.tg')).toBe('Alice');
     expect(displayName('green-ghost.near')).toBe('Green Ghost');
+  });
+});
+
+describe('formatFaceReputation', () => {
+  it('matches the portfolio mark', () => {
+    expect(formatFaceReputation(12.4)).toBe('12.4');
+    expect(formatFaceReputation(12)).toBe('12.0');
+    expect(formatFaceReputation(120)).toBe('120');
+    expect(formatFaceReputation(12500)).toBe((12500).toLocaleString());
   });
 });

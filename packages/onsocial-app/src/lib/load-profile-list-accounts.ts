@@ -12,9 +12,7 @@ export async function loadProfileListAccounts(
   accountIds: readonly string[],
   viewerAccountId: string | null
 ): Promise<ProfileListAccount[]> {
-  const ids = [
-    ...new Set(accountIds.map((id) => id.trim()).filter(Boolean)),
-  ];
+  const ids = [...new Set(accountIds.map((id) => id.trim()).filter(Boolean))];
   if (ids.length === 0) return [];
 
   const client = createReadOnlyOnSocialClient();
@@ -111,6 +109,10 @@ export async function loadProfileListAccounts(
       viewerEndorsed: endorsementTargets.has(accountId),
       rowHydrated: true,
       kind: row?.kind ?? null,
+      reputation:
+        typeof row?.reputation === 'number' && row.reputation > 0
+          ? row.reputation
+          : undefined,
     } satisfies ProfileListAccount;
   });
 }

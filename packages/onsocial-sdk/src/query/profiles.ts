@@ -196,6 +196,35 @@ const PROFILE_DISCOVER_FIELDS_WITHOUT_OFFERS = `
   discoverScore reputation confidenceScore
 `;
 
+export function positiveReputationByAccount(
+  rows:
+    | Array<{ accountId?: string | null; reputation?: number | string | null }>
+    | null
+    | undefined
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const row of rows ?? []) {
+    const id = String(row.accountId ?? '')
+      .trim()
+      .toLowerCase();
+    const score = Number(row.reputation);
+    if (!id || !Number.isFinite(score) || score <= 0) continue;
+    out.set(id, score);
+  }
+  return out;
+}
+
+export function withPositiveReputation<T extends { accountId: string }>(
+  rows: T[],
+  scores: Map<string, number>
+): T[] {
+  if (scores.size === 0) return rows;
+  return rows.map((row) => {
+    const score = scores.get(row.accountId.trim().toLowerCase());
+    return score == null ? row : { ...row, reputation: score };
+  });
+}
+
 function missingOfferCountField(error: unknown): boolean {
   const message = error instanceof Error ? error.message : '';
   return /offer[_ ]?count/i.test(message);
@@ -449,18 +478,29 @@ export class ProfilesQuery {
       const res = await this._q.graphql<{
         profileSearch: ProfileSearchRow[];
         profileKinds: Array<{ accountId: string; value: string }>;
+        reputationScores?: Array<{
+          accountId?: string | null;
+          reputation?: number | string | null;
+        }>;
       }>({
         query: `query ProfileStatsBatch($ids: [String!]!, $limit: Int!) {
           profileSearch(where: {accountId: {_in: $ids}}, limit: $limit) {
             ${fields}
           }
           ${PROFILE_KINDS_SELECTION}
+          reputationScores(where: {accountId: {_in: $ids}}, limit: $limit) {
+            accountId
+            reputation
+          }
         }`,
         variables: { ids, limit: ids.length },
       });
-      return applyProfileSearchKinds(
-        res.data?.profileSearch ?? [],
-        profileKindsFromCurrentRows(res.data?.profileKinds)
+      return withPositiveReputation(
+        applyProfileSearchKinds(
+          res.data?.profileSearch ?? [],
+          profileKindsFromCurrentRows(res.data?.profileKinds)
+        ),
+        positiveReputationByAccount(res.data?.reputationScores)
       );
     };
     try {

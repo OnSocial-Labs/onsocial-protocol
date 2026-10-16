@@ -36,6 +36,8 @@ export interface StandingAccountSummary {
   moodId: PageMoodId;
   /** True when this peer is a DAO org (catalog / heuristic). */
   isDao: boolean;
+  /** Portfolio reputation score. Omitted at zero. */
+  reputation?: number;
 }
 
 export interface StandingListItem {
@@ -76,6 +78,10 @@ function profileStatsFromSearchRow(row: ProfileSearchRow) {
     mutualStandingCount: Number(row.mutualStandingCount) || 0,
     endorsementsReceivedCount: Number(row.endorsementsReceivedCount) || 0,
     endorsementsGivenCount: Number(row.endorsementsGivenCount) || 0,
+    reputation:
+      typeof row.reputation === 'number' && row.reputation > 0
+        ? row.reputation
+        : undefined,
   };
 }
 
@@ -120,6 +126,7 @@ function mapStandingRowsToSummaries(
       mutualStandingCount: stats?.mutualStandingCount ?? 0,
       endorsementsReceivedCount: stats?.endorsementsReceivedCount ?? 0,
       endorsementsGivenCount: stats?.endorsementsGivenCount ?? 0,
+      reputation: stats?.reputation,
       viewerStanding: viewerOutgoingSet.has(id),
       theyStandWithViewer: viewerIncomingSet.has(id),
       targetEndorsedViewer: viewerEndorsementIssuerSet.has(id),

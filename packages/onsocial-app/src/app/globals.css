@@ -18794,6 +18794,10 @@ a.os-surface-row {
     color: color-mix(in srgb, var(--signal-endorse) 65%, transparent);
   }
 
+  .standing-row-metric-arrow--reputation {
+    color: color-mix(in srgb, var(--signal-reputation) 65%, transparent);
+  }
+
   .standing-row-metric-value {
     font-weight: 700;
   }
@@ -18808,6 +18812,10 @@ a.os-surface-row {
 
   .standing-row-metric-value--endorse {
     color: color-mix(in srgb, var(--signal-endorse) 85%, transparent);
+  }
+
+  .standing-row-metric-value--reputation {
+    color: color-mix(in srgb, var(--signal-reputation) 85%, transparent);
   }
 
   .standing-row-metric-value.is-zero {

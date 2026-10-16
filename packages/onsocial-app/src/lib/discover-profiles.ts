@@ -11,6 +11,7 @@ import {
 } from '@onsocial/sdk';
 import {
   discoverProfileToProfileListAccount as toProfileListAccount,
+  positiveListReputation,
   profileListAccountToStandingSummary,
   type ProfileListAccount,
 } from '@/lib/profile-list-account';
@@ -58,6 +59,8 @@ export interface DiscoverProfileSummary {
   industry?: string | null;
   openJobsCount?: number;
   offerCount?: number;
+  /** Portfolio reputation score. Omitted at zero. */
+  reputation?: number;
   standingCount: number;
   standingWithCount: number;
   mutualStandingCount: number;
@@ -221,6 +224,7 @@ export function discoverPageToProfileListAccounts(
       viewerEndorsed: viewerEndorsementTargetSet.has(row.accountId),
       standingSince: outgoing?.since ?? null,
       standingBlockTimestamp: outgoing?.blockTimestamp ?? null,
+      reputation: positiveListReputation(row.reputation),
     });
   });
 }

@@ -396,6 +396,34 @@ describe('QueryModule', () => {
       );
     });
 
+    it('attaches a positive reputation to profile stats', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          profileSearch: [
+            {
+              accountId: 'alice.near',
+              name: 'Alice',
+              standingCount: 2,
+              standingWithCount: 1,
+              mutualStandingCount: 0,
+              endorsementsReceivedCount: 0,
+              endorsementsGivenCount: 0,
+            },
+          ],
+          reputationScores: [
+            { accountId: 'alice.near', reputation: 12.4 },
+            { accountId: 'quiet.near', reputation: 0 },
+          ],
+        },
+      });
+      const rows = await os.query.profiles.statsForAccounts(['alice.near']);
+      expect(rows[0]?.reputation).toBe(12.4);
+      const body = JSON.parse(
+        String((fetch.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
+      ) as { query: string };
+      expect(body.query).toContain('reputationScores');
+    });
+
     it('orders discover by last activity when requested', async () => {
       const { os, fetch } = makeOs({ data: { profileDiscover: [] } });
       await os.query.profiles.search({ order: 'activity', limit: 6 });
@@ -2574,11 +2602,41 @@ describe('QueryModule', () => {
       expect(enrichment.viewerOutgoingPeerIds).toEqual(['bob.near']);
       expect(enrichment.viewerEndorsementIssuerIds).toEqual(['bob.near']);
       expect(enrichment.viewerEndorsementTargetIds).toEqual([]);
+      expect(enrichment.profiles[0]?.reputation).toBeUndefined();
       expect(fetch).toHaveBeenCalledTimes(1);
       const body = JSON.parse(fetch.mock.calls[0][1].body);
       expect(body.query).toContain('StandingPeerEnrichment');
       expect(body.query).toContain('endorsementIssuers');
       expect(body.query).toContain('endorsementTargets');
+      expect(body.query).toContain('reputationScores');
+    });
+
+    it('keeps a positive reputation on the peer row', async () => {
+      const { os } = makeOs({
+        data: {
+          profileSearch: [
+            {
+              accountId: 'bob.near',
+              name: 'Bob',
+              standingCount: 1,
+              standingWithCount: 0,
+              mutualStandingCount: 0,
+              endorsementsReceivedCount: 0,
+              endorsementsGivenCount: 0,
+            },
+          ],
+          reputationScores: [{ accountId: 'Bob.near', reputation: '12.4' }],
+          viewerOutgoing: [],
+          viewerIncoming: [],
+          endorsementIssuers: [],
+          endorsementTargets: [],
+        },
+      });
+
+      const enrichment = await os.query.standings.enrichPeers('carol.near', [
+        'bob.near',
+      ]);
+      expect(enrichment.profiles[0]?.reputation).toBe(12.4);
     });
   });
 

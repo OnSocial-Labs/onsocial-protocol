@@ -175,6 +175,12 @@ export function formatCount(value: number): string {
   return value.toLocaleString();
 }
 
+/** Portfolio reputation mark: `12.4`, whole numbers from 100, grouped from 1000. */
+export function formatFaceReputation(value: number): string {
+  if (value >= 1000) return formatCount(Math.round(value));
+  return value.toFixed(value >= 100 ? 0 : 1);
+}
+
 export interface ProfileLinkItem {
   label: string;
   url: string;

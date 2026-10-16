@@ -19,6 +19,7 @@ import { hiringLineLabel } from '@/lib/profile-jobs';
 import type { ProfileListAccount } from '@/lib/profile-list-account';
 import { isProfileListAccountDisplayReady } from '@/lib/profile-list-display';
 import { standingTimeMeta } from '@/lib/standing-list-meta';
+import { formatFaceReputation } from '@/lib/profile-display';
 import { formatProfileCount } from '@/lib/profile-social-standings';
 
 export type ProfileStandingTimeMode = 'always' | 'viewer-only' | 'never';
@@ -50,7 +51,7 @@ function MetricCount({
   tone,
 }: {
   value: number;
-  tone: 'standing' | 'solidarity' | 'endorse';
+  tone: 'standing' | 'solidarity' | 'endorse' | 'reputation';
 }) {
   return (
     <span
@@ -141,6 +142,28 @@ function ProfileRowMetrics({
           className="standing-row-metric-arrow standing-row-metric-arrow--endorse"
         />
       </span>
+      {!isDao &&
+      account.kind !== 'dao' &&
+      typeof account.reputation === 'number' &&
+      account.reputation > 0 ? (
+        <>
+          <span className="standing-row-metric-sep" aria-hidden>
+            ·
+          </span>
+          <span
+            className="standing-row-metric"
+            aria-label={`Reputation ${formatFaceReputation(account.reputation)}`}
+          >
+            <ProtocolMotionArrow
+              static
+              className="standing-row-metric-arrow standing-row-metric-arrow--reputation"
+            />
+            <span className="standing-row-metric-value standing-row-metric-value--reputation">
+              {formatFaceReputation(account.reputation)}
+            </span>
+          </span>
+        </>
+      ) : null}
     </div>
   );
 }
