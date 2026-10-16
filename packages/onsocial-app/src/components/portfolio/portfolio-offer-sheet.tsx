@@ -9,6 +9,7 @@ import {
   OsSheetActions,
   OsSheetFooter,
 } from '@onsocial/ui';
+import { OfferAddedTime } from '@/components/portfolio/offer-added-time';
 import { PortfolioBioBlocks } from '@/components/portfolio/portfolio-bio-blocks';
 import { DmComposeSheet } from '@/features/messages/dm-compose-sheet';
 import type { ResolvedMood } from '@/lib/moods/types';
@@ -48,6 +49,9 @@ function OfferDetailSheet({
       onClose={onClose}
       label={offer.title}
       copy={profileName}
+      titleAccessory={
+        <OfferAddedTime since={offer.since} className="portfolio-offer-added" />
+      }
       closeAriaLabel="Close offer"
       backdropLabel="Close offer"
       zIndex={zIndex}
@@ -152,7 +156,10 @@ export function PortfolioOffersSheet({
                   className="portfolio-hiring-row"
                   onClick={() => setSelectedId(offer.offerId)}
                 >
-                  <p className="portfolio-hiring-title">{offer.title}</p>
+                  <span className="portfolio-hiring-title-row">
+                    <p className="portfolio-hiring-title">{offer.title}</p>
+                    <OfferAddedTime since={offer.since} />
+                  </span>
                   {offer.description ? (
                     <p className="portfolio-hiring-teaser">
                       {profileBioPlainPreview(offer.description, {

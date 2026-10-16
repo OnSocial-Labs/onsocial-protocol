@@ -9942,6 +9942,38 @@ a.os-surface-row {
     color: var(--signal-reputation, var(--protocol-green, #00ec97));
   }
 
+  .portfolio-hiring-title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .portfolio-hiring-title-row .portfolio-hiring-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .portfolio-hiring-title-row .standing-row-time {
+    flex-shrink: 0;
+  }
+
+  /* Detail header: stamp sits on the title line, close stays the control. */
+  .glass-sheet-header-title-row > .portfolio-offer-added {
+    margin-inline-start: auto;
+    align-self: flex-start;
+    padding-top: calc((2.75rem - 1.2em) / 2);
+  }
+
+  .glass-sheet-header-title-row
+    > .portfolio-offer-added
+    + .glass-sheet-icon-action {
+    margin-inline-start: 0.15rem;
+  }
+
   .portfolio-hiring-title {
     margin: 0;
     font-size: 0.95rem;

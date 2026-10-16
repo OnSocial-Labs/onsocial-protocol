@@ -20,6 +20,7 @@ import {
   OsSheetFooter,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
+import { OfferAddedTime } from '@/components/portfolio/offer-added-time';
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -284,7 +285,10 @@ export function ProfileOffersEditor({
                 disabled={busy}
                 onClick={() => openEdit(offer)}
               >
-                <p className="portfolio-hiring-title">{offer.title}</p>
+                <span className="portfolio-hiring-title-row">
+                  <p className="portfolio-hiring-title">{offer.title}</p>
+                  <OfferAddedTime since={offer.since} />
+                </span>
                 {teaser ? (
                   <p className="portfolio-hiring-teaser">{teaser}</p>
                 ) : null}
