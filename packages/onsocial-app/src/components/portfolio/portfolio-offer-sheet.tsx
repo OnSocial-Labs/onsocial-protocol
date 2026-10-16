@@ -92,6 +92,7 @@ function OfferDetailSheet({
           ) : null}
           <OfferAddedTime
             since={offer.since}
+            labeled
             className="portfolio-hiring-meta portfolio-hiring-detail-meta"
           />
         </>
