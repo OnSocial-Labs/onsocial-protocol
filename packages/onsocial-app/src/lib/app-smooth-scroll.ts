@@ -70,8 +70,9 @@ export function isAppSmoothScrollLocked(dataset: {
 /**
  * Leaderboard pages scroll inside `.leaderboard-pager-scroll` (in the
  * selector above). Lenis on the sheet body or the screen body would take
- * the wheel and the sideways pager would not move. Vertical gesture
- * orientation leaves a sideways wheel on the pager.
+ * the wheel and the sideways pager would not move. The Governance/Treasury
+ * face is the same kind of sideways pager, except its proposals page is a
+ * vertical list and should coast like every other screen.
  */
 /** Hidden shells must not take the wheel from the list inside them. */
 export function shouldBindAppSmoothScrollRoot(
@@ -83,11 +84,13 @@ export function shouldBindAppSmoothScrollRoot(
 }
 
 export function isAppSmoothScrollPagerHost(element: HTMLElement): boolean {
-  if (
-    typeof element.closest === 'function' &&
-    element.closest('.protocol-face-pair')
-  ) {
-    return true;
+  if (typeof element.closest === 'function') {
+    if (
+      element.closest('.protocol-face-pair') &&
+      !element.closest('.dao-proposals-page')
+    ) {
+      return true;
+    }
   }
   if (!element.querySelector('.leaderboard-pager')) return false;
   return (

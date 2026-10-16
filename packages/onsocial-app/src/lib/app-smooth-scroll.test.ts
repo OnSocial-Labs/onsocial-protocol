@@ -64,6 +64,16 @@ describe('app smooth scroll', () => {
         selector === '.protocol-face-pair' ? {} : null,
     } as unknown as HTMLElement;
     expect(isAppSmoothScrollPagerHost(facePage)).toBe(true);
+    const proposals = {
+      classList: { contains: () => false },
+      querySelector: () => null,
+      closest: (selector: string) =>
+        selector === '.protocol-face-pair' ||
+        selector === '.dao-proposals-page'
+          ? {}
+          : null,
+    } as unknown as HTMLElement;
+    expect(isAppSmoothScrollPagerHost(proposals)).toBe(false);
     expect(provider).toContain('isAppSmoothScrollPagerHost');
   });
 
