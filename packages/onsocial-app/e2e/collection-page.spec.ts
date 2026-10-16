@@ -106,7 +106,9 @@ test.describe('collection drop page', () => {
         collectionPageRoot(page).locator('.collection-title')
       ).toHaveText('Chapter One');
       await expectCollectionVisitorChrome(page);
-      await expect(page.locator('.collection-reading')).toBeVisible();
+      await expect(
+        page.getByRole('region', { name: 'Reading' })
+      ).toBeVisible();
       const read = page.getByRole('button', { name: 'Read', exact: true });
       await expect(read).toBeVisible();
       await expectOsRowAction(read);
