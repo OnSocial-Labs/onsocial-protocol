@@ -274,8 +274,9 @@ async function resolveStakeTokenContext(
 export async function getProtocolDaoStakeProposePath(
   daoAccountId: string
 ): Promise<boolean> {
-  // Throw on RPC miss so callers fail-open (keep Stake) instead of treating
-  // a swallowed view error as "this board has no staking contract".
+  // Throw on RPC miss so callers can hide Stake. A swallowed view error
+  // must not be read as "this board has no staking contract" inside this
+  // function, and it must not be treated as a SOCIAL stake path either.
   const [policy, stakingContractRaw] = await Promise.all([
     viewNearContract<ProtocolDaoPolicy>(daoAccountId, 'get_policy'),
     viewNearContract<string>(daoAccountId, 'get_staking_contract'),

@@ -61,8 +61,9 @@ export function useDaoPageCapability(
         })
         .catch(() => {
           if (cancelled) return;
-          // Fail open — hide Stake only after a definitive "no path" answer.
-          setHasStakeProposePath(true);
+          // Hide Stake when the path cannot be confirmed. A view error is
+          // not evidence this DAO stakes SOCIAL.
+          setHasStakeProposePath(false);
           setStakePathReady(true);
         });
       return () => {
@@ -81,7 +82,7 @@ export function useDaoPageCapability(
       .catch(() => {
         if (cancelled) return;
         setEligibility(null);
-        setHasStakeProposePath(true);
+        setHasStakeProposePath(false);
         setStakePathReady(true);
       })
       .finally(() => {

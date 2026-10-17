@@ -10,7 +10,7 @@ const src = readFileSync(
 );
 
 describe('getProtocolDaoStakeProposePath', () => {
-  it('throws on RPC miss so Manage can fail-open Stake', () => {
+  it('throws on RPC miss so Manage can hide Stake', () => {
     expect(src).toContain(
       "viewNearContract<ProtocolDaoPolicy>(daoAccountId, 'get_policy')"
     );
