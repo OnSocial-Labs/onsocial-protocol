@@ -102,9 +102,9 @@ export interface MarketListingItem {
    * Omitted when equal to `creatorId` (primary listings).
    */
   artistId?: string;
-  /** Creator profile avatar (mint artist when set, else seller). */
+  /** Seller profile avatar. */
   creatorAvatarUrl?: string | null;
-  /** Creator display name when distinct from handle. */
+  /** Seller display name when distinct from handle. */
   creatorDisplayName?: string | null;
   title: string;
   /** NEP-177 description — full post text when minted from a post. */
@@ -940,11 +940,11 @@ async function withResolvedPostHrefs(
   });
 }
 
-/** Account shown on the row — mint artist when set, else seller. */
+/** Account shown on a Market row — the seller. */
 export function listingCreatorAccountId(
-  item: Pick<MarketListingItem, 'creatorId' | 'artistId'>
+  item: Pick<MarketListingItem, 'creatorId'>
 ): string {
-  return item.artistId?.trim() || item.creatorId.trim();
+  return item.creatorId.trim();
 }
 
 /** Soft-attach creator avatar + display name (same path as Drops). */

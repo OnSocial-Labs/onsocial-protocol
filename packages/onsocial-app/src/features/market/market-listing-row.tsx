@@ -93,8 +93,6 @@ export function MarketListingRow({
   const openMarketPost = useMarketPostLayer();
   const rowKey = marketListingRowKey(item);
   const sellerId = item.creatorId;
-  // Provenance: distinct mint creator when set, else the seller is the creator.
-  const creatorId = item.artistId?.trim() || sellerId;
   const postHref = item.postHref ?? postHrefFromSourcePath(item.sourcePostPath);
   // The row opens the drop. Show pass / Mint stay on the button.
   // A post scarce with no drop still opens the post.
@@ -119,7 +117,7 @@ export function MarketListingRow({
   const timeLabel = auctionClockLabel
     ? auctionClockLabel
     : item.kind !== 'auction' && listedTime
-      ? `Listed ${listedTime}`
+      ? listedTime
       : null;
   const timeAt =
     item.kind === 'auction' ? (item.expiresAtNs ?? null) : item.blockTimestamp;
@@ -231,9 +229,10 @@ export function MarketListingRow({
           <p className="market-listing-title">{item.title}</p>
         </div>
         <DiscoveryPartyStack
-          accountId={creatorId}
+          accountId={sellerId}
           displayName={item.creatorDisplayName}
           avatarUrl={item.creatorAvatarUrl}
+          lead="listed by"
         />
         <p className="market-listing-meta market-listing-meta--price">
           <span className="market-listing-price">

@@ -20,18 +20,19 @@ export function DiscoveryPartyStack({
   accountId: string;
   displayName?: string | null;
   avatarUrl?: string | null;
-  /** Quiet word above the name. `false` leaves the name alone. */
-  lead?: 'by' | 'bought by' | false;
+  /** Quiet line above the face. `false` leaves the name alone. */
+  lead?: 'by' | 'bought by' | 'listed by' | false;
 }) {
   const href = portfolioPath(accountId);
   const handle = fallbackLabel(accountId);
   const name = collectionCreatorNameLine(accountId, profileDisplayName);
+  const leadText = lead === 'listed by' ? 'Listed by' : lead ? lead : null;
 
   return (
     <Link
       href={href}
       scroll={false}
-      className={`drops-discovery-party${lead ? ' drops-discovery-party--lead' : ''}`}
+      className={`drops-discovery-party${leadText ? ' drops-discovery-party--lead' : ''}`}
     >
       <AccountAvatar
         accountId={accountId}
@@ -41,7 +42,9 @@ export function DiscoveryPartyStack({
         className="drops-discovery-party-avatar"
       />
       <span className="drops-discovery-party-stack">
-        {lead ? <span className="drops-discovery-lead">{lead}</span> : null}
+        {leadText ? (
+          <span className="drops-discovery-lead">{leadText}</span>
+        ) : null}
         <span className="drops-discovery-by">{name}</span>
         <span className="drops-discovery-sub">@{handle}</span>
       </span>

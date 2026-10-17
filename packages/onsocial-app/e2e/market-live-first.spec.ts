@@ -39,7 +39,9 @@ test.describe('market live-first browse', () => {
     await expect(
       endedRow.getByRole('button', { name: /^Settle / })
     ).toBeVisible();
-    await expect(liveRow.locator('.drops-discovery-lead')).toHaveText('by');
+    await expect(liveRow.locator('.drops-discovery-lead')).toHaveText(
+      'Listed by'
+    );
     await expect(liveRow.locator('.drops-discovery-by')).toHaveText('E2e');
     await expect(liveRow.locator('.drops-discovery-sub')).toHaveText(
       '@e2e.market.testnet'
