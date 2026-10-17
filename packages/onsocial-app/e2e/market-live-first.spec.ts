@@ -17,13 +17,15 @@ test.describe('market live-first browse', () => {
     await search.fill('e2e-live-first');
 
     const results = page.locator('#market-listing-results');
-    await expect(results.locator('[data-market-listing-group="live"]')).toBeVisible(
-      { timeout: E2E_CHROME_TIMEOUT_MS }
-    );
+    await expect(
+      results.locator('[data-market-listing-group="live"]')
+    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await expect(
       results.locator('[data-market-listing-group="ended"]')
     ).toBeVisible();
-    await expect(results.locator('[data-market-ended-label]')).toHaveText('Ended');
+    await expect(results.locator('[data-market-ended-label]')).toHaveText(
+      'Ended'
+    );
 
     const liveRow = results.locator(
       '[data-market-listing-group="live"] .market-listing-row'
@@ -34,8 +36,11 @@ test.describe('market live-first browse', () => {
     await expect(liveRow).toHaveCount(1);
     await expect(endedRow).toHaveCount(1);
     await expect(liveRow.getByRole('button', { name: /^Buy / })).toBeVisible();
-    await expect(endedRow.getByRole('button', { name: /^Settle / })).toBeVisible();
-    await expect(liveRow.locator('.drops-discovery-by')).toHaveText('by E2e');
+    await expect(
+      endedRow.getByRole('button', { name: /^Settle / })
+    ).toBeVisible();
+    await expect(liveRow.locator('.drops-discovery-lead')).toHaveText('by');
+    await expect(liveRow.locator('.drops-discovery-by')).toHaveText('E2e');
     await expect(liveRow.locator('.drops-discovery-sub')).toHaveText(
       '@e2e.market.testnet'
     );
@@ -48,7 +53,9 @@ test.describe('market live-first browse', () => {
     expect(endedBox).toBeTruthy();
     expect(liveBox!.y).toBeLessThan(endedBox!.y);
 
-    await expect(page.getByRole('tablist', { name: 'Listing type' })).toBeVisible();
+    await expect(
+      page.getByRole('tablist', { name: 'Listing type' })
+    ).toBeVisible();
     await expect(page.getByRole('tab', { name: 'All' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Fixed' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Auctions' })).toBeVisible();

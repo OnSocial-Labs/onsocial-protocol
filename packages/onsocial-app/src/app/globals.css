@@ -38598,6 +38598,53 @@ a.os-surface-row {
     gap: 0.06rem;
   }
 
+  /* Verb above the name, in the text column. The face stays with the name. */
+  .drops-discovery-party--lead {
+    display: grid;
+    grid-template-columns: auto minmax(0, max-content);
+    column-gap: 0.4rem;
+    row-gap: 0.06rem;
+    align-items: start;
+  }
+
+  .drops-discovery-party--lead .drops-discovery-party-stack {
+    display: contents;
+  }
+
+  .drops-discovery-party--lead .drops-discovery-party-avatar {
+    grid-column: 1;
+    grid-row: 2 / span 2;
+  }
+
+  .drops-discovery-lead {
+    grid-column: 2;
+    grid-row: 1;
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .drops-discovery-party:hover .drops-discovery-lead,
+  .drops-discovery-party:focus-within .drops-discovery-lead {
+    text-decoration: underline;
+  }
+
+  .drops-discovery-party--lead .drops-discovery-by {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .drops-discovery-party--lead .drops-discovery-sub {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
   .drops-discovery-by {
     display: block;
     max-width: 100%;

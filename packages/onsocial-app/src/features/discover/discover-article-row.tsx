@@ -94,7 +94,7 @@ export function DiscoverArticleRow({
             </time>
           ) : null}
         </div>
-        <span className="drops-discovery-party">
+        <span className="drops-discovery-party drops-discovery-party--lead">
           <AccountAvatar
             accountId={accountId}
             src={avatarUrl}
@@ -103,7 +103,8 @@ export function DiscoverArticleRow({
             className="drops-discovery-party-avatar"
           />
           <span className="drops-discovery-party-stack">
-            <span className="drops-discovery-by">by {party.name}</span>
+            <span className="drops-discovery-lead">by</span>
+            <span className="drops-discovery-by">{party.name}</span>
             <span className="drops-discovery-sub">@{party.handle}</span>
           </span>
         </span>

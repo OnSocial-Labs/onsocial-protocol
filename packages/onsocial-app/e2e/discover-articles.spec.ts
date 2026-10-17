@@ -24,13 +24,16 @@ test.describe('discover articles', () => {
     const night = results.getByRole('link', { name: 'Night drive' });
     await expect(night).toBeVisible();
     await expect(
-      night.locator('.portfolio-writing-cover-card, .portfolio-writing-cover-photo')
+      night.locator(
+        '.portfolio-writing-cover-card, .portfolio-writing-cover-photo'
+      )
     ).toBeVisible();
     await expect(
       night.locator('.drops-discovery-party .profile-avatar__initial')
     ).toHaveText('A');
     await expect(night.locator('.profile-avatar--lg')).toHaveCount(0);
-    await expect(night.locator('.drops-discovery-by')).toHaveText('by Alice');
+    await expect(night.locator('.drops-discovery-lead')).toHaveText('by');
+    await expect(night.locator('.drops-discovery-by')).toHaveText('Alice');
     await expect(night.locator('.drops-discovery-sub')).toHaveText(
       '@alice.testnet'
     );
@@ -104,7 +107,8 @@ test.describe('discover articles', () => {
       harbor.locator('.drops-discovery-party .profile-avatar__initial')
     ).toHaveText('A');
     await expect(harbor.locator('.profile-avatar--lg')).toHaveCount(0);
-    await expect(harbor.locator('.drops-discovery-by')).toHaveText('by Alice');
+    await expect(harbor.locator('.drops-discovery-lead')).toHaveText('by');
+    await expect(harbor.locator('.drops-discovery-by')).toHaveText('Alice');
     await expect(harbor.locator('.drops-discovery-sub')).toHaveText(
       '@alice.testnet'
     );

@@ -8,7 +8,8 @@ import { fallbackLabel } from '@/lib/profile-display';
 
 /**
  * Creator party chrome for Market / Drops catalog rows —
- * avatar + “by Name” + @handle (same as the drop page).
+ * avatar beside the name, @handle under it.
+ * “by” / “bought by” sit above the name in the quiet repost voice.
  */
 export function DiscoveryPartyStack({
   accountId,
@@ -19,7 +20,7 @@ export function DiscoveryPartyStack({
   accountId: string;
   displayName?: string | null;
   avatarUrl?: string | null;
-  /** Listings say “by Name”. A buyer says “bought by Name”. `false` is the name alone. */
+  /** Quiet word above the name. `false` leaves the name alone. */
   lead?: 'by' | 'bought by' | false;
 }) {
   const href = portfolioPath(accountId);
@@ -27,7 +28,11 @@ export function DiscoveryPartyStack({
   const name = collectionCreatorNameLine(accountId, profileDisplayName);
 
   return (
-    <Link href={href} scroll={false} className="drops-discovery-party">
+    <Link
+      href={href}
+      scroll={false}
+      className={`drops-discovery-party${lead ? ' drops-discovery-party--lead' : ''}`}
+    >
       <AccountAvatar
         accountId={accountId}
         src={avatarUrl}
@@ -36,9 +41,8 @@ export function DiscoveryPartyStack({
         className="drops-discovery-party-avatar"
       />
       <span className="drops-discovery-party-stack">
-        <span className="drops-discovery-by">
-          {lead ? `${lead} ${name}` : name}
-        </span>
+        {lead ? <span className="drops-discovery-lead">{lead}</span> : null}
+        <span className="drops-discovery-by">{name}</span>
         <span className="drops-discovery-sub">@{handle}</span>
       </span>
     </Link>
