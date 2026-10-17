@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { OsRowAction } from '@/lib/os-row-action';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { DropFansButton } from '@/components/drops/drop-row-fans';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
@@ -37,8 +36,6 @@ import {
 import {
   dropsListCoverAction,
   dropsListCoverLabel,
-  dropsShopActionLabel,
-  dropsShopMintable,
 } from '@/features/drops/drops-page-view';
 import { dropListClock } from '@/features/drops/drops-row-clock';
 import { socialTimeProps } from '@/lib/post-display';
@@ -270,16 +267,15 @@ function DropRow({
   const dealBits = [priceLabel, ...meta.bits, meta.format].filter(Boolean);
   const fanCount =
     item.fanCount != null && item.fanCount > 0 ? item.fanCount : null;
-  const action = dropsShopActionLabel(
-    dropsShopMintable({
-      status: item.status,
-      hasAllowlist: item.hasAllowlist,
-      allowlistRemaining,
-    })
-  );
 
   return (
     <div className="market-listing-row drops-discovery-row" role="listitem">
+      <Link
+        href={href}
+        scroll={false}
+        className="market-listing-row-open"
+        aria-label={`Open ${item.title}`}
+      />
       {coverAction && onOpenCover ? (
         <button
           type="button"
@@ -293,55 +289,42 @@ function DropRow({
           ) : null}
         </button>
       ) : (
-        <Link
-          href={href}
-          scroll={false}
-          className={thumbClass}
-          aria-label={`Open ${item.title}`}
-        >
+        <div className={thumbClass} aria-hidden>
           {thumb}
-        </Link>
+        </div>
       )}
       <div className="market-listing-copy drops-discovery-copy">
         <div className="market-listing-head drops-discovery-head">
-          <Link href={href} scroll={false} className="market-listing-title">
-            {item.title}
-          </Link>
+          <p className="market-listing-title">{item.title}</p>
         </div>
         <DiscoveryPartyStack
           accountId={item.creatorId}
           displayName={item.creatorDisplayName}
           avatarUrl={item.creatorAvatarUrl}
         />
-        {dealBits.length > 0 || fanCount != null ? (
-          <div className="drops-discovery-deal">
-            {dealBits.length > 0 ? (
-              <Link
-                href={href}
-                scroll={false}
-                className="drops-discovery-deal-bits"
-              >
-                {dealBits.join(' · ')}
-              </Link>
-            ) : null}
-            {fanCount != null ? (
-              <>
-                {dealBits.length > 0 ? (
-                  <span className="drops-discovery-deal-sep" aria-hidden>
-                    {' · '}
-                  </span>
-                ) : null}
-                <DropFansButton
-                  creatorId={item.creatorId}
-                  collectionId={item.collectionId}
-                  title={item.title}
-                  fanIds={item.fanIds}
-                  fanCount={fanCount}
-                />
-              </>
-            ) : null}
-          </div>
-        ) : null}
+        <div className="drops-discovery-deal">
+          {dealBits.length > 0 ? (
+            <span className="drops-discovery-deal-bits">
+              {dealBits.join(' · ')}
+            </span>
+          ) : null}
+          {fanCount != null ? (
+            <>
+              {dealBits.length > 0 ? (
+                <span className="drops-discovery-deal-sep" aria-hidden>
+                  {' · '}
+                </span>
+              ) : null}
+              <DropFansButton
+                creatorId={item.creatorId}
+                collectionId={item.collectionId}
+                title={item.title}
+                fanIds={item.fanIds}
+                fanCount={fanCount}
+              />
+            </>
+          ) : null}
+        </div>
       </div>
       <div className="market-listing-action-col drops-discovery-action-col">
         <div className="drops-discovery-head-trail">
@@ -361,13 +344,6 @@ function DropRow({
             onOwnerManaged={onOwnerManaged}
           />
         </div>
-        <OsRowAction
-          href={href}
-          className="collectibles-holding-action"
-          aria-label={`${action} ${item.title}`}
-        >
-          {action}
-        </OsRowAction>
       </div>
     </div>
   );

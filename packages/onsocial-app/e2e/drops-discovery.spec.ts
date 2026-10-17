@@ -6,7 +6,6 @@ import {
   expectDropsChrome,
   expectMarketFilterSummary,
   expectMediumSelected,
-  expectOsRowAction,
   expectTabSelected,
   expectTabVisible,
   gotoApp,
@@ -28,9 +27,7 @@ test.describe('drops discovery', () => {
     ).toBeVisible();
   });
 
-  test('list uses Collect/Open house pills, not mint or featured chrome', async ({
-    page,
-  }) => {
+  test('the row opens the drop, without a Collect pill', async ({ page }) => {
     await gotoApp(page, '/drops');
     await expectDropsChrome(page);
     await expect(
@@ -39,13 +36,14 @@ test.describe('drops discovery', () => {
     await expect(page.locator('.drops-discovery-row--featured')).toHaveCount(0);
     await expect(page.getByText('Featured · Closing')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Mint / })).toHaveCount(0);
-    const shopPills = page.locator(
-      '.drops-discovery-row .os-row-action .os-sheet-action'
-    );
+    await expect(
+      page.locator('.drops-discovery-row .os-row-action')
+    ).toHaveCount(0);
     const rowCount = await page.locator('.drops-discovery-row').count();
     if (rowCount > 0) {
-      await expectOsRowAction(shopPills.first());
-      await expect(shopPills.first()).toHaveText(/^(Collect|Open)$/);
+      await expect(
+        page.locator('.drops-discovery-row .market-listing-row-open').first()
+      ).toHaveAttribute('href', /\/collection\//);
     }
   });
 
@@ -125,11 +123,14 @@ test.describe('drops discovery', () => {
     await expect(read).toBeVisible();
     await expect(view).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Night Drive', exact: true })
+      page.getByRole('link', { name: 'Open Night Drive' })
     ).toHaveAttribute('href', '/collection/night-drive');
     await expect(
-      page.getByRole('link', { name: 'Collect Chapter One' })
+      page.getByRole('link', { name: 'Open Chapter One' })
     ).toHaveAttribute('href', '/collection/chapter-one');
+    await expect(
+      page.getByRole('link', { name: 'Collect Chapter One' })
+    ).toHaveCount(0);
 
     await listen.click();
     await expect(
@@ -154,7 +155,7 @@ test.describe('drops discovery', () => {
     await art.getByRole('button', { name: 'Back' }).click();
     await expect(view).toBeVisible();
 
-    await page.getByRole('link', { name: 'Chapter One', exact: true }).click();
+    await page.getByRole('link', { name: 'Open Chapter One' }).click();
     await expect(page).toHaveURL(/\/collection\/chapter-one(?:\?|$)/);
   });
 });

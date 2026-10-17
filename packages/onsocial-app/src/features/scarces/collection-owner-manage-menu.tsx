@@ -3,10 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CancelIcon,
+  DotsVerticalIcon,
   DownloadIcon,
   InformationCircleIcon,
-  OsSheetAction,
-  OsSheetActions,
   PauseFillIcon,
   PlayFillIcon,
   TimeIcon,
@@ -59,9 +58,7 @@ const SCARCES_CONTRACT =
 type ManagePanel = 'menu' | 'cancel' | 'delete' | 'withdraw' | 'extend';
 
 /**
- * Owner Drop page control — compact Sell-style pill beside bookmark / share.
- * Pause / Resume / Cancel / Delete / Withdraw / Postpone entry, and Door staff
- * for a pass, live in one drawer.
+ * Drop page ⋮ — Drop facts for everyone. Owner tools join the same drawer.
  */
 export function CollectionOwnerManageMenu({
   collectionId,
@@ -73,6 +70,8 @@ export function CollectionOwnerManageMenu({
   renewable = false,
   eventEndsAtMs = null,
   doorStaff = null,
+  owner = false,
+  onOpenFacts,
   onManaged,
   zIndex,
 }: {
@@ -86,6 +85,9 @@ export function CollectionOwnerManageMenu({
   eventEndsAtMs?: number | null;
   /** Pass drops: Door staff / Redeem staff opens from this drawer. */
   doorStaff?: { creatorId: string; voice: PassStaffVoice } | null;
+  /** Owner tools. Visitors still get the ⋮ when facts is set. */
+  owner?: boolean;
+  onOpenFacts?: () => void;
   zIndex?: number;
   onManaged: (
     change:
@@ -377,7 +379,25 @@ export function CollectionOwnerManageMenu({
 
   const items = useMemo<ActionDrawerItem[]>(() => {
     const list: ActionDrawerItem[] = [];
-    if (showExtend) {
+    if (onOpenFacts) {
+      list.push({
+        id: 'facts',
+        section: 'Drop',
+        label: 'Drop facts',
+        description: 'Supply, price, and rules',
+        leading: (
+          <InformationCircleIcon
+            className="os-action-drawer-icon"
+            aria-hidden
+          />
+        ),
+        onSelect: () => {
+          close();
+          onOpenFacts();
+        },
+      });
+    }
+    if (owner && showExtend) {
       list.push({
         id: 'extend',
         section: 'Event',
@@ -390,7 +410,7 @@ export function CollectionOwnerManageMenu({
         },
       });
     }
-    if (doorStaff) {
+    if (owner && doorStaff) {
       const redeem = doorStaff.voice === 'redeem';
       list.push({
         id: 'door-staff',
@@ -407,7 +427,7 @@ export function CollectionOwnerManageMenu({
         },
       });
     }
-    if (showPause) {
+    if (owner && showPause) {
       list.push({
         id: 'pause',
         section: 'Sale',
@@ -422,7 +442,7 @@ export function CollectionOwnerManageMenu({
         },
       });
     }
-    if (showResume) {
+    if (owner && showResume) {
       list.push({
         id: 'resume',
         section: 'Sale',
@@ -435,7 +455,7 @@ export function CollectionOwnerManageMenu({
         },
       });
     }
-    if (showDelete) {
+    if (owner && showDelete) {
       list.push({
         id: 'delete',
         section: 'Sale',
@@ -449,7 +469,7 @@ export function CollectionOwnerManageMenu({
         },
       });
     }
-    if (showCancel) {
+    if (owner && showCancel) {
       list.push({
         id: 'cancel',
         section: 'Refunds',
@@ -463,7 +483,7 @@ export function CollectionOwnerManageMenu({
         },
       });
     }
-    if (showWithdraw) {
+    if (owner && showWithdraw) {
       list.push({
         id: 'withdraw',
         section: 'Refunds',
@@ -475,7 +495,7 @@ export function CollectionOwnerManageMenu({
           setPanel('withdraw');
         },
       });
-    } else if (status === 'cancelled') {
+    } else if (owner && status === 'cancelled') {
       list.push({
         id: 'refunds-open',
         section: 'Refunds',
@@ -495,6 +515,8 @@ export function CollectionOwnerManageMenu({
   }, [
     close,
     doorStaff,
+    onOpenFacts,
+    owner,
     ownerPending,
     runLifecycle,
     showCancel,
@@ -506,18 +528,17 @@ export function CollectionOwnerManageMenu({
     status,
   ]);
 
-  if (
-    !showPause &&
-    !showResume &&
-    !showDelete &&
-    !showCancel &&
-    !showWithdraw &&
-    !showExtend &&
-    !doorStaff &&
-    status !== 'cancelled'
-  ) {
-    return null;
-  }
+  const hasOwnerTools =
+    owner &&
+    (showPause ||
+      showResume ||
+      showDelete ||
+      showCancel ||
+      showWithdraw ||
+      showExtend ||
+      Boolean(doorStaff) ||
+      status === 'cancelled');
+  if (!hasOwnerTools && !onOpenFacts) return null;
 
   const deleteConfirm = dropDeleteConfirmCopy({ title: dropTitle });
 
@@ -533,25 +554,21 @@ export function CollectionOwnerManageMenu({
             : dropTitle;
 
   return (
-    <div className="collection-product-manage">
-      <OsSheetActions
-        layout="row-compact"
-        tone="frosted-primary"
-        size="sm"
-        borderless
-        className="collectibles-play-sell-action"
+    <div
+      className={`drops-discovery-row-menu post-card-menu collection-product-manage${
+        open ? ' is-open' : ''
+      }`}
+    >
+      <button
+        type="button"
+        className={`post-card-menu-trigger${open ? ' is-open' : ''}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`More for ${dropTitle}`}
+        onClick={() => setOpen(true)}
       >
-        <OsSheetAction
-          type="button"
-          variant="primary"
-          ready
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          onClick={() => setOpen(true)}
-        >
-          Manage
-        </OsSheetAction>
-      </OsSheetActions>
+        <DotsVerticalIcon className="post-card-menu-icon" aria-hidden />
+      </button>
       <ActionDrawer
         open={open}
         onClose={
@@ -562,7 +579,13 @@ export function CollectionOwnerManageMenu({
               }
         }
         label={drawerLabel}
-        copy={panel === 'menu' ? 'Owner controls' : undefined}
+        copy={
+          panel === 'menu'
+            ? hasOwnerTools
+              ? 'Owner controls'
+              : 'This drop'
+            : undefined
+        }
         listAriaLabel={panel === 'menu' ? `Manage ${dropTitle}` : drawerLabel}
         closeAriaLabel={panel === 'menu' ? 'Close' : 'Back to manage'}
         items={panel === 'menu' ? items : undefined}

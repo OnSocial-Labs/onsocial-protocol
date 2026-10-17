@@ -85,10 +85,9 @@ test.describe('collection drop page', () => {
     await expect(
       page.getByRole('button', { name: 'Open listen' })
     ).toBeVisible();
-    await expect(page.locator('.collection-meta-creator-name')).toHaveText(
-      'by Alice'
-    );
-    await expect(page.locator('.collection-meta-handle')).toHaveText(
+    await expect(page.locator('.drops-discovery-lead')).toHaveText('by');
+    await expect(page.locator('.drops-discovery-by')).toHaveText('Alice');
+    await expect(page.locator('.drops-discovery-sub')).toHaveText(
       '@alice.near'
     );
   });

@@ -30016,7 +30016,28 @@ a.os-surface-row {
   .collection-title-row {
     display: flex;
     align-items: flex-start;
-    gap: 0.15rem;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .collection-meta-series {
+    display: block;
+    max-width: calc(100% - 1.75rem);
+    margin-top: 0.12rem;
+    margin-left: calc(1.35rem + 0.4rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: rgb(var(--fg-rgb) / 0.62);
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.3;
+    text-decoration: none;
+  }
+
+  .collection-meta-series:hover,
+  .collection-meta-series:focus-visible {
+    color: var(--os-surface-emphasis);
   }
 
   .collection-title {
@@ -38628,11 +38649,7 @@ a.os-surface-row {
     font-weight: 600;
     line-height: 1.3;
     color: rgb(var(--fg-rgb) / 0.42);
-  }
-
-  .drops-discovery-party:hover .drops-discovery-lead,
-  .drops-discovery-party:focus-within .drops-discovery-lead {
-    text-decoration: underline;
+    text-decoration: none;
   }
 
   .drops-discovery-party--lead .drops-discovery-by {
@@ -38687,6 +38704,11 @@ a.os-surface-row {
    *   1 NEAR · 8 left · Album · [faces] 3 fans
    * Fan faces match author avatar (1.25rem); count hugs the pile.
    */
+  .drops-discovery-row .drops-discovery-deal {
+    /* Face pile is 1.25rem. Reserve it so fans do not grow the row. */
+    min-height: 1.25rem;
+  }
+
   .drops-discovery-deal {
     display: flex;
     flex-wrap: nowrap;
@@ -38910,6 +38932,12 @@ a.os-surface-row {
   }
 
   .market-listing-row:has(.market-listing-row-open) .drops-discovery-party {
+    pointer-events: auto;
+  }
+
+  /* The cover is the row child that the stretched link would otherwise swallow. */
+  .drops-discovery-row.market-listing-row:has(.market-listing-row-open)
+    > button.drops-discovery-thumb {
     pointer-events: auto;
   }
 
@@ -39207,6 +39235,8 @@ a.os-surface-row {
   .market-listing-shimmer-title {
     width: 52%;
     max-width: 10rem;
+    /* .market-listing-title is 0.9rem at line-height 1.25. */
+    height: 1.125rem;
   }
 
   .market-listing-shimmer-time {
@@ -39221,10 +39251,27 @@ a.os-surface-row {
     height: 0.62rem;
   }
 
+  /*
+   * Catalog rows (Market listings, sales, Drops) grow a by / name / @id stack.
+   * Match it so the list does not drop when the shimmer is replaced.
+   */
+  .market-listing-row--skeleton .market-listing-shimmer-identity {
+    width: 9rem;
+    max-width: 70%;
+    height: 3rem;
+  }
+
   .market-listing-shimmer-meta {
     width: 62%;
     max-width: 12rem;
-    height: 0.62rem;
+    /* Price line on a listing / sale row. */
+    height: 1.17rem;
+  }
+
+  /* Drops reserve the fan faces on the deal line. */
+  .drops-discovery-row--skeleton .market-listing-shimmer-meta {
+    height: 1.25rem;
+    margin-top: 0.12rem;
   }
 
   .market-listing-shimmer-action {

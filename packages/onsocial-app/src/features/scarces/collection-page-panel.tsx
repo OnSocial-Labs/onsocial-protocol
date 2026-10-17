@@ -17,7 +17,6 @@ import {
   OsHugSheet,
   HeartFillIcon,
   HeartIcon,
-  InformationCircleIcon,
   BookmarkFillIcon,
   BookmarkIcon,
   ScaleUpIcon,
@@ -1089,100 +1088,15 @@ export function CollectionPagePanel({
               <h1 className="collection-title" ref={heroTitleRef}>
                 {view.title}
               </h1>
-            </div>
-            <div className="collection-meta">
-              <Link
-                href={portfolioPath(view.creatorId)}
-                scroll={false}
-                className="collection-meta-avatar-link"
-                tabIndex={creatorShellLoading ? undefined : -1}
-                aria-hidden={creatorShellLoading ? undefined : true}
-              >
-                <AccountAvatar
-                  accountId={view.creatorId}
-                  src={resolvedCreatorAvatar}
-                  fallbackInitial={creatorNameLine}
-                  shellLoading={creatorShellLoading}
-                  size="sm"
-                  className="collection-meta-avatar"
-                />
-              </Link>
-              <div className="collection-meta-copy">
-                {creatorShellLoading ? (
-                  <span
-                    className="standing-row-shimmer collection-skeleton-creator-name"
-                    aria-hidden
-                  />
-                ) : (
-                  <Link
-                    href={portfolioPath(view.creatorId)}
-                    scroll={false}
-                    className="collection-meta-creator-name"
+              <div className="drops-discovery-head-trail">
+                {createdRel ? (
+                  <time
+                    className="market-listing-meta-right collection-meta-time"
+                    {...socialTimeProps(view.createdAtMs)}
                   >
-                    by {creatorNameLine}
-                  </Link>
-                )}
-                <div className="collection-meta-sub">
-                  <Link
-                    href={portfolioPath(view.creatorId)}
-                    scroll={false}
-                    className="collection-meta-handle"
-                  >
-                    @{fallbackLabel(view.creatorId)}
-                  </Link>
-                  {view.seriesId ? (
-                    <>
-                      <span className="collection-meta-sep" aria-hidden>
-                        ·
-                      </span>
-                      <Link
-                        href={seriesPagePath(view.creatorId, view.seriesId)}
-                        scroll={false}
-                        className="collection-meta-link"
-                      >
-                        {view.seriesTitle ?? view.seriesId}
-                      </Link>
-                    </>
-                  ) : null}
-                  {createdRel ? (
-                    <>
-                      <span className="collection-meta-sep" aria-hidden>
-                        ·
-                      </span>
-                      <time
-                        className="collection-meta-time"
-                        {...socialTimeProps(view.createdAtMs)}
-                      >
-                        {createdRel}
-                      </time>
-                    </>
-                  ) : null}
-                  <span className="collection-meta-sep" aria-hidden>
-                    ·
-                  </span>
-                  <button
-                    type="button"
-                    className="guild-hero-facts-button collectibles-play-facts"
-                    aria-label="Drop facts"
-                    onClick={() => setFactsOpen(true)}
-                  >
-                    <InformationCircleIcon
-                      className="guild-hero-facts-icon"
-                      aria-hidden
-                    />
-                  </button>
-                </div>
-              </div>
-            </div>
-            {description ? (
-              <CollectionAboutTeaser
-                text={description}
-                hasMore={aboutHasMore}
-                onReadMore={() => setAboutOpen(true)}
-              />
-            ) : null}
-            <div className="collection-commerce-actions">
-              {showOwnerManage ? (
+                    {createdRel}
+                  </time>
+                ) : null}
                 <CollectionOwnerManageMenu
                   collectionId={view.collectionId}
                   title={view.title}
@@ -1192,6 +1106,8 @@ export function CollectionPagePanel({
                   kind={view.kind}
                   renewable={view.renewable}
                   eventEndsAtMs={view.eventEndsAtMs}
+                  owner={showOwnerManage}
+                  onOpenFacts={() => setFactsOpen(true)}
                   doorStaff={
                     isPassKind && view.maxRedeems != null && view.maxRedeems > 0
                       ? { creatorId: view.creatorId, voice: staffVoice }
@@ -1199,7 +1115,53 @@ export function CollectionPagePanel({
                   }
                   onManaged={handleOwnerManaged}
                 />
-              ) : null}
+              </div>
+            </div>
+            <Link
+              href={portfolioPath(view.creatorId)}
+              scroll={false}
+              className="drops-discovery-party drops-discovery-party--lead"
+            >
+              <AccountAvatar
+                accountId={view.creatorId}
+                src={resolvedCreatorAvatar}
+                fallbackInitial={creatorNameLine}
+                shellLoading={creatorShellLoading}
+                size="sm"
+                className="drops-discovery-party-avatar"
+              />
+              <span className="drops-discovery-party-stack">
+                <span className="drops-discovery-lead">by</span>
+                {creatorShellLoading ? (
+                  <span
+                    className="standing-row-shimmer collection-skeleton-creator-name drops-discovery-by"
+                    aria-hidden
+                  />
+                ) : (
+                  <span className="drops-discovery-by">{creatorNameLine}</span>
+                )}
+                <span className="drops-discovery-sub">
+                  @{fallbackLabel(view.creatorId)}
+                </span>
+              </span>
+            </Link>
+            {view.seriesId ? (
+              <Link
+                href={seriesPagePath(view.creatorId, view.seriesId)}
+                scroll={false}
+                className="collection-meta-series"
+              >
+                {view.seriesTitle ?? view.seriesId}
+              </Link>
+            ) : null}
+            {description ? (
+              <CollectionAboutTeaser
+                text={description}
+                hasMore={aboutHasMore}
+                onReadMore={() => setAboutOpen(true)}
+              />
+            ) : null}
+            <div className="collection-commerce-actions">
               {showDropLove && dropLoves.fanCount > 0 ? (
                 <div className="collection-drop-fans">
                   <GuildFacepile

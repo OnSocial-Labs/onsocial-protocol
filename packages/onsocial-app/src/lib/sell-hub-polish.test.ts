@@ -7,7 +7,6 @@ const appSrc = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const sellHubSites = [
   'features/collectibles/collectibles-holding-row-menu.tsx',
-  'features/scarces/collection-owner-manage-menu.tsx',
   'features/scarces/hub-publish-requests-sheet.tsx',
   'features/scarces/app-page-panel.tsx',
 ] as const;

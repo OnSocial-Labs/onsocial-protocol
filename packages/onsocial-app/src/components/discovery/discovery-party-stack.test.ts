@@ -24,6 +24,9 @@ describe('DiscoveryPartyStack lead', () => {
     expect(css).toContain('grid-column: 1 / -1');
     expect(css).toContain('grid-row: 2 / span 2');
     expect(css).toContain('color: rgb(var(--fg-rgb) / 0.42)');
+    expect(css).not.toContain(
+      '.drops-discovery-party:hover .drops-discovery-lead'
+    );
     expect(css).toMatch(/\.drops-discovery-lead \{[^}]*font-size: 0\.72rem;/s);
     const row = readFileSync(
       join(here, '../../features/market/market-listing-row.tsx'),

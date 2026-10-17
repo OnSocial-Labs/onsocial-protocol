@@ -82,7 +82,11 @@ import {
   peekOwnedVaultPage,
 } from '@/features/market/owned-vault-cache';
 import { MarketOfferRow } from '@/features/market/market-offer-row';
-import { MarketOwnedRow } from '@/features/market/market-owned-row';
+import {
+  MarketOwnedRow,
+  ownedAuthorAccountId,
+} from '@/features/market/market-owned-row';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { MarketSaleRow } from '@/features/market/market-sale-row';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import type { ScarceBidSuccessDetail } from '@/features/scarces/scarce-bid-form';
@@ -1127,6 +1131,18 @@ export function MarketPagePanel({
       ),
     [listings, ownedState.items, viewerAccountId]
   );
+  const ownedAuthorIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          owned
+            .map((item) => ownedAuthorAccountId(item))
+            .filter((id) => id.length > 0)
+        )
+      ),
+    [owned]
+  );
+  const ownedAuthorProfiles = usePostAuthorProfiles(ownedAuthorIds);
   const salesRows = sales ?? [];
   const ownedTokenIdSet = new Set(owned.map((item) => item.tokenId));
   // Default All = drops + secondary. Primary thought post-mints live under Thoughts.
@@ -2133,11 +2149,17 @@ export function MarketPagePanel({
             <div className="market-listing-list" role="list">
               {owned.map((item) => {
                 const offerSummary = offerByToken.get(item.tokenId);
+                const authorId = ownedAuthorAccountId(item);
+                const author = authorId
+                  ? ownedAuthorProfiles[authorId]
+                  : undefined;
                 return (
                   <MarketOwnedRow
                     key={item.tokenId}
                     item={item}
                     nowMs={nowMs}
+                    authorDisplayName={author?.displayName}
+                    authorAvatarUrl={author?.avatarUrl}
                     highestOfferNear={offerSummary?.highestAmountNear ?? null}
                     offerCount={offerSummary?.offerCount ?? 0}
                     settlePending={settleTokenId === item.tokenId}

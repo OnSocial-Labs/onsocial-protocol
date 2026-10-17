@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import {
   marketPostLayerLinkHandlers,
   useMarketPostLayer,
@@ -46,24 +47,32 @@ interface MarketOwnedRowProps {
   onChanged?: () => void;
   onSettle?: (item: OwnedScarceItem) => void;
   onOffers?: (item: OwnedScarceItem) => void;
+  /** Maker face. The account id comes from the item. */
+  authorDisplayName?: string | null;
+  authorAvatarUrl?: string | null;
 }
 
-/** Corner clock for a listing you own. Bare status stays only when the clock is missing. */
+/** Corner clock. Listed rows say Listed / Ended / Ends in. The rest say when it arrived. */
 export function ownedListingClock(
-  item: Pick<OwnedScarceItem, 'listingKind' | 'expiresAtNs' | 'listedAtMs'>,
+  item: Pick<
+    OwnedScarceItem,
+    'listingKind' | 'expiresAtNs' | 'listedAtMs' | 'mintedAtMs'
+  >,
   nowMs: number
 ): { label: string; atMs: number | null } | null {
   if (item.listingKind === 'auction') {
     const label = marketAuctionClockLabel(item.expiresAtNs, nowMs);
-    if (!label) return null;
-    return { label, atMs: auctionExpiresAtMs(item.expiresAtNs) };
+    if (label) return { label, atMs: auctionExpiresAtMs(item.expiresAtNs) };
+  } else if (item.listingKind === 'fixed') {
+    const atMs = normalizeSocialTimestamp(item.listedAtMs);
+    const rel = atMs ? formatMarketRelativeTime(atMs, nowMs) : '';
+    if (atMs && rel) return { label: `Listed ${rel}`, atMs };
   }
-  if (item.listingKind !== 'fixed') return null;
-  const atMs = normalizeSocialTimestamp(item.listedAtMs);
-  if (!atMs) return null;
-  const rel = formatMarketRelativeTime(atMs, nowMs);
+  const mintedAtMs = normalizeSocialTimestamp(item.mintedAtMs);
+  if (!mintedAtMs) return null;
+  const rel = formatMarketRelativeTime(mintedAtMs, nowMs);
   if (!rel) return null;
-  return { label: `Listed ${rel}`, atMs };
+  return { label: rel, atMs: mintedAtMs };
 }
 
 /** Line under the title. The corner already says Listed / Ended / Ends in. */
@@ -86,6 +95,17 @@ function formatPriceNear(priceNear: string): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
 
+/** Maker on a Yours row: drop creator, otherwise the post author. */
+export function ownedAuthorAccountId(
+  item: Pick<OwnedScarceItem, 'creatorId' | 'sourcePostPath'>
+): string {
+  const creatorId = item.creatorId?.trim();
+  if (creatorId) return creatorId;
+  const path = item.sourcePostPath?.trim();
+  const author = path?.match(/^(.+)\/post\/(.+)$/)?.[1]?.trim();
+  return author || '';
+}
+
 /** Owned scarce in Market “Yours” — Manage; Post when listed (Drop or resale). */
 export function MarketOwnedRow({
   item,
@@ -98,6 +118,8 @@ export function MarketOwnedRow({
   onChanged,
   onSettle,
   onOffers,
+  authorDisplayName = null,
+  authorAvatarUrl = null,
 }: MarketOwnedRowProps) {
   const router = useRouter();
   const openMarketPost = useMarketPostLayer();
@@ -146,6 +168,7 @@ export function MarketOwnedRow({
   const [brokenMediaUrl, setBrokenMediaUrl] = useState<string | null>(null);
   const [passOpen, setPassOpen] = useState(false);
   const [passMounted, setPassMounted] = useState(false);
+  const authorId = ownedAuthorAccountId(item);
   const showThumb = Boolean(item.mediaUrl) && brokenMediaUrl !== item.mediaUrl;
   const passCollectionId = item.collectionId?.trim() || '';
   const opensPass =
@@ -216,11 +239,19 @@ export function MarketOwnedRow({
           {thumb}
         </div>
       )}
-      <div className="market-listing-copy">
-        <div className="market-listing-head">
+      <div className="market-listing-copy drops-discovery-copy">
+        <div className="market-listing-head drops-discovery-head">
           <p className="market-listing-title">{title}</p>
         </div>
-        <p className="market-listing-meta">
+        {authorId ? (
+          <DiscoveryPartyStack
+            accountId={authorId}
+            displayName={authorDisplayName}
+            avatarUrl={authorAvatarUrl}
+            lead="by"
+          />
+        ) : null}
+        <p className="market-listing-meta market-listing-meta--price">
           {showPrice ? (
             <span className="market-listing-price">
               {auction ? 'Reserve · ' : ''}
@@ -244,15 +275,24 @@ export function MarketOwnedRow({
           ) : null}
         </p>
       </div>
-      <div className="market-listing-action-col">
-        {clock ? (
-          <time
-            className="market-listing-meta-right"
-            {...socialTimeProps(clock.atMs)}
-          >
-            {clock.label}
-          </time>
-        ) : null}
+      <div className="market-listing-action-col drops-discovery-action-col">
+        <div className="drops-discovery-head-trail">
+          {clock ? (
+            <time
+              className="market-listing-meta-right"
+              {...socialTimeProps(clock.atMs)}
+            >
+              {clock.label}
+            </time>
+          ) : null}
+          <CollectiblesHoldingRowMenu
+            item={item}
+            showOpenInMarket={false}
+            onList={() => onSell(item)}
+            onTransfer={onTransfer ? () => onTransfer(item) : undefined}
+            onDelisted={onChanged}
+          />
+        </div>
         {opensPass ? (
           <OsRowAction
             className="collectibles-holding-action"
@@ -300,16 +340,7 @@ export function MarketOwnedRow({
               Complete
             </OsSheetAction>
           </OsSheetActions>
-        ) : (
-          <CollectiblesHoldingRowMenu
-            item={item}
-            trigger="label"
-            showOpenInMarket={false}
-            onList={() => onSell(item)}
-            onTransfer={onTransfer ? () => onTransfer(item) : undefined}
-            onDelisted={onChanged}
-          />
-        )}
+        ) : null}
         {showPostCompose ? (
           <OsSheetActions
             layout="row-compact"

@@ -50,7 +50,9 @@ export function MarketListSkeleton({
             }`}
           >
             <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-time" />
-            <span className="standing-row-shimmer market-listing-shimmer-action" />
+            {isDrops ? null : (
+              <span className="standing-row-shimmer market-listing-shimmer-action" />
+            )}
           </div>
         </div>
       ))}
