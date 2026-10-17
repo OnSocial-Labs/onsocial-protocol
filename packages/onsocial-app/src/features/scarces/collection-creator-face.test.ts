@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  catalogProfileFace,
   collectionCreatorNameLine,
   commercePartyLines,
   resolveCollectionCreatorFace,
@@ -13,12 +14,10 @@ describe('collectionCreatorNameLine', () => {
   it('fills the name slot from the account local part', () => {
     expect(collectionCreatorNameLine('alice.near')).toBe('Alice');
     expect(collectionCreatorNameLine('alice.near', '  ')).toBe('Alice');
-    expect(collectionCreatorNameLine('alice.near', 'alice.near')).toBe(
-      'Alice'
+    expect(collectionCreatorNameLine('alice.near', 'alice.near')).toBe('Alice');
+    expect(collectionCreatorNameLine('governance.onsocial.testnet')).toBe(
+      'Governance'
     );
-    expect(
-      collectionCreatorNameLine('governance.onsocial.testnet')
-    ).toBe('Governance');
     expect(collectionCreatorNameLine('green-ghost.near')).toBe('Green Ghost');
   });
 });
@@ -36,6 +35,30 @@ describe('commercePartyLines', () => {
       name: 'Night',
       handle: 'alice.near',
     });
+  });
+});
+
+describe('catalogProfileFace', () => {
+  it('keeps a chosen name and a hosted avatar from the catalog join', () => {
+    expect(
+      catalogProfileFace('alice.near', {
+        name: 'Night',
+        avatar: 'https://cdn.example/a.png',
+      })
+    ).toEqual({
+      creatorDisplayName: 'Night',
+      creatorAvatarUrl: 'https://cdn.example/a.png',
+    });
+  });
+
+  it('leaves an empty join for the stats batch', () => {
+    expect(catalogProfileFace('alice.near', null)).toBeNull();
+    expect(
+      catalogProfileFace('alice.near', { name: null, avatar: null })
+    ).toBeNull();
+    expect(
+      catalogProfileFace('alice.near', { name: 'alice.near', avatar: null })
+    ).toBeNull();
   });
 });
 

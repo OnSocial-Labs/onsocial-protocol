@@ -5,7 +5,10 @@ import {
   type CollectionStatus,
   type CollectionView,
 } from '@/features/scarces/collections-data';
-import { fetchCollectionCreatorFaces } from '@/features/scarces/collection-creator-face';
+import {
+  catalogProfileFace,
+  fetchCollectionCreatorFaces,
+} from '@/features/scarces/collection-creator-face';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { yoctoToNear } from '@/lib/app-near-rpc';
 import { parseScarceCollectionSavePath } from '@/lib/scarce-save-content-path';
@@ -92,7 +95,11 @@ function rowMatchesMedium(
   return rowMediumKind(row) === mediumKind;
 }
 
-export type DropAudioFormatFilter = 'single' | 'album' | 'podcast' | 'audiobook';
+export type DropAudioFormatFilter =
+  | 'single'
+  | 'album'
+  | 'podcast'
+  | 'audiobook';
 
 function itemMatchesAudioFormat(
   item: DropDiscoveryItem,
@@ -163,6 +170,7 @@ function rowToDiscoveryItem(
     createdAtMs:
       view?.createdAtMs && view.createdAtMs > 0 ? view.createdAtMs : null,
     ...(extras?.fanCount != null ? { fanCount: extras.fanCount } : {}),
+    ...(catalogProfileFace(row.creatorId, row.creatorProfile) ?? {}),
     view,
   };
 }
@@ -227,9 +235,7 @@ export async function fetchDropFanRostersByCollectionIds(
   // merge in preference order: roster rows before counts-only, current
   // views before legacy album views.
   const [loveFanIds, loveFans, albumFanIds, albumFans] = await Promise.all([
-    os.query.scarces
-      .collectionLoveFanIdsByCollectionIds(ids)
-      .catch(() => []),
+    os.query.scarces.collectionLoveFanIdsByCollectionIds(ids).catch(() => []),
     os.query.scarces.collectionLoveFansByCollectionIds(ids).catch(() => []),
     os.query.scarces.albumLoveFanIdsByCollectionIds(ids).catch(() => []),
     os.query.scarces.albumLoveFansByCollectionIds(ids).catch(() => []),
@@ -271,12 +277,27 @@ async function withDropCreatorFaces(
 ): Promise<DropDiscoveryItem[]> {
   if (items.length === 0) return items;
   const creatorIds = [
-    ...new Set(items.map((item) => item.creatorId.trim()).filter(Boolean)),
+    ...new Set(
+      items
+        .filter(
+          (item) =>
+            item.creatorDisplayName === undefined &&
+            item.creatorAvatarUrl === undefined
+        )
+        .map((item) => item.creatorId.trim())
+        .filter(Boolean)
+    ),
   ];
   if (creatorIds.length === 0) return items;
   try {
     const faces = await fetchCollectionCreatorFaces(client, creatorIds);
     return items.map((item) => {
+      if (
+        item.creatorDisplayName !== undefined ||
+        item.creatorAvatarUrl !== undefined
+      ) {
+        return item;
+      }
       const face = faces.get(item.creatorId.trim());
       if (!face) return item;
       return {

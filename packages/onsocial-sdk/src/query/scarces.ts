@@ -20,6 +20,12 @@
 
 import type { QueryModule } from './index.js';
 
+/** Name and avatar from `profile_search`, nested on a catalog row. */
+export interface ScarcesCatalogProfile {
+  name: string | null;
+  avatar: string | null;
+}
+
 /**
  * A single row from `scarces_events`. Every event populates `eventType`,
  * `operation`, `author`, `blockHeight` and `blockTimestamp`; everything else
@@ -120,6 +126,8 @@ export interface ScarcesActiveListingRow {
   listedBlockTimestamp: number;
   updatedBlockHeight: number;
   updatedBlockTimestamp: number;
+  /** Seller face when Hasura nests `profile_search` on `seller_id`. */
+  sellerProfile?: ScarcesCatalogProfile | null;
 }
 
 const SCARCES_ACTIVE_LISTING_FIELDS = `
@@ -153,6 +161,7 @@ const SCARCES_ACTIVE_LISTING_FIELDS = `
   listedBlockTimestamp
   updatedBlockHeight
   updatedBlockTimestamp
+  sellerProfile { name avatar }
 `;
 
 /** Live drop shell from sink-maintained `scarces_collections_current`. */
@@ -198,6 +207,8 @@ export interface ScarcesCollectionCurrentRow {
   createdBlockTimestamp: number;
   updatedBlockHeight: number;
   updatedBlockTimestamp: number;
+  /** Creator face when Hasura nests `profile_search` on `creator_id`. */
+  creatorProfile?: ScarcesCatalogProfile | null;
 }
 
 const SCARCES_COLLECTION_CURRENT_FIELDS = `
@@ -237,6 +248,7 @@ const SCARCES_COLLECTION_CURRENT_FIELDS = `
   createdBlockTimestamp
   updatedBlockHeight
   updatedBlockTimestamp
+  creatorProfile { name avatar }
 `;
 
 /** Current ownership row from live view `scarces_token_owners`. */

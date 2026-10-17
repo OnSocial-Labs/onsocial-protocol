@@ -967,6 +967,60 @@ async function syncPermissions(): Promise<void> {
   console.log(`   ✓ Sync applied\n`);
 }
 
+/**
+ * Nest `profile_search` on the live catalog so a listing or drop row brings
+ * its name and avatar back in the same read. Manual, because both sides are
+ * views/tables without a foreign key.
+ */
+async function ensureCatalogProfileRelationships(): Promise<void> {
+  console.log('🔗 Ensuring catalog profile relationships...');
+  const relationships: BulkOp[] = [
+    {
+      type: 'pg_create_object_relationship',
+      args: {
+        source: 'default',
+        table: { schema: 'public', name: 'scarces_active_listings' },
+        name: 'sellerProfile',
+        using: {
+          manual_configuration: {
+            remote_table: { schema: 'public', name: 'profile_search' },
+            column_mapping: { seller_id: 'account_id' },
+          },
+        },
+      },
+    },
+    {
+      type: 'pg_create_object_relationship',
+      args: {
+        source: 'default',
+        table: { schema: 'public', name: 'scarces_collections_current' },
+        name: 'creatorProfile',
+        using: {
+          manual_configuration: {
+            remote_table: { schema: 'public', name: 'profile_search' },
+            column_mapping: { creator_id: 'account_id' },
+          },
+        },
+      },
+    },
+  ];
+  const results = await hasuraBulk(relationships);
+  for (let i = 0; i < relationships.length; i++) {
+    const name = relationships[i].args.name as string;
+    const error = (results[i] as { error?: string } | undefined)?.error;
+    if (!error) {
+      console.log(`   ✓ ${name}`);
+      continue;
+    }
+    if (/already exists|already-exists|already tracked/i.test(error)) {
+      console.log(`   ✓ ${name} already exists`);
+      continue;
+    }
+    console.warn(`   ✗ ${name}: ${error}`);
+  }
+  console.log('');
+}
+
 async function main(): Promise<void> {
   const action = process.argv[2] || 'create';
 
@@ -984,6 +1038,7 @@ async function main(): Promise<void> {
         break;
       case 'create':
         await trackTables();
+        await ensureCatalogProfileRelationships();
         await trackFunctions();
         await createPermissions();
         await createFunctionPermissions();
@@ -991,6 +1046,7 @@ async function main(): Promise<void> {
       case 'reset':
         await snapshotMetadata();
         await trackTables();
+        await ensureCatalogProfileRelationships();
         await trackFunctions();
         await refreshTrackedSqlViews();
         await reloadHasuraSources();
@@ -1004,6 +1060,7 @@ async function main(): Promise<void> {
       case 'sync':
         await snapshotMetadata();
         await trackTables();
+        await ensureCatalogProfileRelationships();
         await trackFunctions();
         if (SKIP_VIEW_REFRESH) {
           console.log(

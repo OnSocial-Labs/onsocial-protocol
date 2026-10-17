@@ -29,7 +29,10 @@ import {
   peekOwnedVaultPage,
   putOwnedVaultPage,
 } from '@/features/market/owned-vault-cache';
-import { fetchCollectionCreatorFaces } from '@/features/scarces/collection-creator-face';
+import {
+  catalogProfileFace,
+  fetchCollectionCreatorFaces,
+} from '@/features/scarces/collection-creator-face';
 
 /**
  * Market data plane (indexer-first, same pattern as feed/standings):
@@ -955,13 +958,26 @@ async function withMarketCreatorFaces(
   if (items.length === 0) return items;
   const creatorIds = [
     ...new Set(
-      items.map((item) => listingCreatorAccountId(item)).filter(Boolean)
+      items
+        .filter(
+          (item) =>
+            item.creatorDisplayName === undefined &&
+            item.creatorAvatarUrl === undefined
+        )
+        .map((item) => listingCreatorAccountId(item))
+        .filter(Boolean)
     ),
   ];
   if (creatorIds.length === 0) return items;
   try {
     const faces = await fetchCollectionCreatorFaces(client, creatorIds);
     return items.map((item) => {
+      if (
+        item.creatorDisplayName !== undefined ||
+        item.creatorAvatarUrl !== undefined
+      ) {
+        return item;
+      }
       const face = faces.get(listingCreatorAccountId(item));
       if (!face) return item;
       return {
@@ -979,8 +995,23 @@ async function decorateMarketListings(
   items: MarketListingItem[],
   client: OnSocial
 ): Promise<MarketListingItem[]> {
-  const withHrefs = await withResolvedPostHrefs(items);
-  return withMarketCreatorFaces(withHrefs, client);
+  const [withHrefs, withFaces] = await Promise.all([
+    withResolvedPostHrefs(items),
+    withMarketCreatorFaces(items, client),
+  ]);
+  return withHrefs.map((item, index) => {
+    const faced = withFaces[index];
+    if (!faced) return item;
+    return {
+      ...item,
+      ...(faced.creatorDisplayName !== undefined
+        ? { creatorDisplayName: faced.creatorDisplayName }
+        : {}),
+      ...(faced.creatorAvatarUrl !== undefined
+        ? { creatorAvatarUrl: faced.creatorAvatarUrl }
+        : {}),
+    };
+  });
 }
 
 /** Drop id for album / collection lookups — edition tokens or lazy listing id. */
@@ -2227,6 +2258,7 @@ function listingFromActiveRow(
     ...discovery,
     ...(copies != null ? { copies } : {}),
     ...(remaining != null ? { remaining } : {}),
+    ...(catalogProfileFace(sellerId, row.sellerProfile) ?? {}),
     ...(kind === 'auction'
       ? {
           expiresAtNs:

@@ -4383,6 +4383,7 @@ describe('QueryModule', () => {
         (fetch.mock.calls[0][1] as RequestInit).body as string
       );
       expect(body.query).toContain('scarcesActiveListings');
+      expect(body.query).toContain('sellerProfile { name avatar }');
       expect(body.query).toMatch(/orderBy: \[\{listedBlockTimestamp: DESC\}\]/);
       expect(body.variables).toEqual({
         limit: 40,
@@ -4490,6 +4491,7 @@ describe('QueryModule', () => {
         (fetch.mock.calls[0][1] as RequestInit).body as string
       );
       expect(body.query).toContain('scarcesCollectionsCurrent');
+      expect(body.query).toContain('creatorProfile { name avatar }');
       expect(body.variables).toEqual({ collectionId: 'drop-1' });
     });
 

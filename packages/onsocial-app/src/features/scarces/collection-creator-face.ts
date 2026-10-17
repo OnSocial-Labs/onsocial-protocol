@@ -36,6 +36,30 @@ export function resolveCollectionCreatorFace(
 }
 
 /**
+ * Face nested on a catalog row (`sellerProfile` / `creatorProfile`).
+ * Null when that account has no name or avatar on the row, so stats can
+ * still fill the face.
+ */
+export function catalogProfileFace(
+  accountId: string,
+  profile: { name?: string | null; avatar?: string | null } | null | undefined
+): {
+  creatorDisplayName: string | null;
+  creatorAvatarUrl: string | null;
+} | null {
+  if (!profile) return null;
+  const face = resolveCollectionCreatorFace(accountId, {
+    profileName: profile.name ?? null,
+    profileAvatarUrl: resolveProfileMediaUrl(profile.avatar),
+  });
+  if (!face.displayName && !face.avatarUrl) return null;
+  return {
+    creatorDisplayName: face.displayName,
+    creatorAvatarUrl: face.avatarUrl,
+  };
+}
+
+/**
  * Commerce identity name — chosen name, else DAO-style local-part title.
  * Used by drop / player, DiscoveryPartyStack, Collectibles headings,
  * Hub facts/creators, Series / Market shop StandingIdentity, shop titles.
@@ -77,9 +101,7 @@ export async function fetchCollectionCreatorFaces(
   client: OnSocial,
   creatorIds: ReadonlyArray<string>
 ): Promise<Map<string, CollectionCreatorFace>> {
-  const ids = [
-    ...new Set(creatorIds.map((id) => id.trim()).filter(Boolean)),
-  ];
+  const ids = [...new Set(creatorIds.map((id) => id.trim()).filter(Boolean))];
   const out = new Map<string, CollectionCreatorFace>();
   if (ids.length === 0) return out;
   try {
