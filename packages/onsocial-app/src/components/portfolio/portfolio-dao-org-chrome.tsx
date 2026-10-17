@@ -347,7 +347,8 @@ function PortfolioDaoOrgChromeInner({
         canEdit={canEdit}
         canPropose={canPropose}
         canProposeCall={canProposeCall}
-        showStake={!stakePathReady || hasStakeProposePath}
+        showStake={hasStakeProposePath}
+        stakePathReady={stakePathReady}
         claimSupportLabel={claimSupportLabel}
         councilAccessPending={councilAccessPending}
         onClose={() =>

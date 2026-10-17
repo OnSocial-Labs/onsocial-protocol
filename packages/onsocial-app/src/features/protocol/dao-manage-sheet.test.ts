@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { nextHeldStake } from '@/features/protocol/dao-manage-sheet';
 
 const src = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), 'dao-manage-sheet.tsx'),
@@ -32,9 +33,86 @@ describe('DaoManageSheet chrome', () => {
     );
   });
 
-  it('freezes Stake on the open sheet so a late path fetch cannot yank the row', () => {
-    expect(src).toContain('heldShowStake');
-    expect(src).toContain('stakeInMenu');
-    expect(src).toContain('if (open) setHeldShowStake(showStake)');
+  it('freezes Stake only after the path check settles', () => {
+    expect(src).toContain('nextHeldStake');
+    expect(src).toContain('stakePathReady');
+    expect(src).toContain('heldShowStake === true');
+  });
+});
+
+describe('nextHeldStake', () => {
+  it('stays hidden until the path check settles', () => {
+    expect(
+      nextHeldStake({
+        open: true,
+        wasOpen: false,
+        held: null,
+        stakePathReady: false,
+        showStake: false,
+      })
+    ).toBeNull();
+    expect(
+      nextHeldStake({
+        open: true,
+        wasOpen: true,
+        held: null,
+        stakePathReady: false,
+        showStake: true,
+      })
+    ).toBeNull();
+  });
+
+  it('adopts the first settled answer while Manage is open', () => {
+    expect(
+      nextHeldStake({
+        open: true,
+        wasOpen: true,
+        held: null,
+        stakePathReady: true,
+        showStake: true,
+      })
+    ).toBe(true);
+    expect(
+      nextHeldStake({
+        open: true,
+        wasOpen: true,
+        held: null,
+        stakePathReady: true,
+        showStake: false,
+      })
+    ).toBe(false);
+  });
+
+  it('keeps that answer when a later fetch disagrees', () => {
+    expect(
+      nextHeldStake({
+        open: true,
+        wasOpen: true,
+        held: true,
+        stakePathReady: true,
+        showStake: false,
+      })
+    ).toBe(true);
+    expect(
+      nextHeldStake({
+        open: true,
+        wasOpen: true,
+        held: false,
+        stakePathReady: true,
+        showStake: true,
+      })
+    ).toBe(false);
+  });
+
+  it('clears the hold when Manage closes', () => {
+    expect(
+      nextHeldStake({
+        open: false,
+        wasOpen: true,
+        held: true,
+        stakePathReady: true,
+        showStake: true,
+      })
+    ).toBeNull();
   });
 });

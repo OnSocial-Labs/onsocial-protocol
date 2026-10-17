@@ -19,6 +19,28 @@ export type DaoManageAction =
   | 'boost';
 
 /**
+ * Stake row for one open of Manage.
+ * Hidden until the path check settles. The first settled answer is kept for
+ * the rest of that open, so a later fetch cannot pull the row.
+ */
+export function nextHeldStake(input: {
+  open: boolean;
+  wasOpen: boolean;
+  held: boolean | null;
+  stakePathReady: boolean;
+  showStake: boolean;
+}): boolean | null {
+  if (!input.open) return null;
+  if (!input.wasOpen) {
+    return input.stakePathReady ? input.showStake : null;
+  }
+  if (input.held === null && input.stakePathReady) {
+    return input.showStake;
+  }
+  return input.held;
+}
+
+/**
  * Portfolio Manage hub — Propose / Stake / Settings / Info / edit / publish /
  * claim / mood / boost.
  * Same ActionDrawer chrome as guild Manage. Members and Treasury stay on the
@@ -30,7 +52,8 @@ export function DaoManageSheet({
   canEdit,
   canPropose = false,
   canProposeCall = false,
-  showStake = true,
+  showStake = false,
+  stakePathReady = false,
   claimSupportLabel,
   councilAccessPending = false,
   onClose,
@@ -44,8 +67,10 @@ export function DaoManageSheet({
   canPropose?: boolean;
   /** FunctionCall — Publish OnSocial / mood / Boost / claim. */
   canProposeCall?: boolean;
-  /** Member + staking contract on this DAO — hide for council-only boards. */
+  /** Confirmed SOCIAL stake path. Shown only after `stakePathReady`. */
   showStake?: boolean;
+  /** Stake-path check has settled, including an RPC error. */
+  stakePathReady?: boolean;
   /** When set, council can propose claiming the Support pot. */
   claimSupportLabel?: string | null;
   /** Connected viewer — council rows may still be resolving. */
@@ -55,16 +80,25 @@ export function DaoManageSheet({
 }) {
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
-  const [heldShowStake, setHeldShowStake] = useState(showStake);
+  const [heldShowStake, setHeldShowStake] = useState<boolean | null>(null);
   const sheetOpen = open && !closing;
   const showClaimSupport = Boolean(canProposeCall && claimSupportLabel);
+  const nextStake = nextHeldStake({
+    open,
+    wasOpen,
+    held: heldShowStake,
+    stakePathReady,
+    showStake,
+  });
 
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setHeldShowStake(showStake);
+  }
+  if (nextStake !== heldShowStake) {
+    setHeldShowStake(nextStake);
   }
 
-  const stakeInMenu = open ? heldShowStake : showStake;
+  const stakeInMenu = heldShowStake === true;
 
   const requestClose = useCallback(() => {
     if (closing) return;
