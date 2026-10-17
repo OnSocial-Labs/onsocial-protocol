@@ -11,7 +11,7 @@ import {
 } from '@/features/market/market-listings';
 import { marketListingRowTarget } from '@/features/market/market-row-targets';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
-import { ScarceEditionHistoryButton } from '@/features/scarces/scarce-token-history-sheet';
+import { MarketListingRowMenu } from '@/features/market/market-listing-row-menu';
 import { marketAuctionClockLabel } from '@/features/scarces/scarce-auction';
 import {
   postScarceKey,
@@ -270,20 +270,17 @@ export function MarketListingRow({
         </p>
       </div>
       <div className="market-listing-action-col">
-        {item.tokenId?.trim() ? (
-          <ScarceEditionHistoryButton
-            tokenId={item.tokenId}
-            title={item.title}
-          />
-        ) : null}
-        {timeLabel ? (
-          <time
-            className="market-listing-meta-right"
-            {...socialTimeProps(timeAt)}
-          >
-            {timeLabel}
-          </time>
-        ) : null}
+        <div className="drops-discovery-head-trail">
+          {timeLabel ? (
+            <time
+              className="market-listing-meta-right"
+              {...socialTimeProps(timeAt)}
+            >
+              {timeLabel}
+            </time>
+          ) : null}
+          <MarketListingRowMenu item={item} sharePath={rowTarget?.href ?? null} />
+        </div>
         <OsSheetActions
           layout="row-compact"
           tone="frosted-primary"

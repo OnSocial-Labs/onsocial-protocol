@@ -151,13 +151,17 @@ describe('edition history entry points', () => {
     expect(source).toContain("label: 'History'");
   });
 
-  it('offers History on a market listing only when the row is one edition', () => {
+  it('puts the listing ⋮ beside the time', () => {
     const source = readFileSync(
       join(appSrc, 'features/market/market-listing-row.tsx'),
       'utf8'
     );
-    expect(source).toContain('ScarceEditionHistoryButton');
-    expect(source).toContain('item.tokenId?.trim()');
-    expect(source).toContain('market-listing-action-col');
+    const trailAt = source.indexOf('drops-discovery-head-trail');
+    const menuAt = source.indexOf('<MarketListingRowMenu');
+    const buyAt = source.indexOf('className="market-listing-action"');
+    expect(trailAt).toBeGreaterThan(-1);
+    expect(menuAt).toBeGreaterThan(trailAt);
+    expect(buyAt).toBeGreaterThan(menuAt);
+    expect(source).not.toContain('ScarceEditionHistoryButton');
   });
 });
