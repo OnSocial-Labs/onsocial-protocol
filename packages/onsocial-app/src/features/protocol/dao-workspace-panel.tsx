@@ -268,7 +268,7 @@ export function DaoWorkspacePanel({
   const [settingsActionOpen, setSettingsActionOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsAction, setSettingsAction] = useState<ProtocolPolicyActionId>(
-    () => readLastProtocolPolicyAction() ?? 'update_vote_policy'
+    () => readLastProtocolPolicyAction(daoAccountId) ?? 'update_vote_policy'
   );
   const [infoOpen, setInfoOpen] = useState(false);
   const [toolsHostSession, setToolsHostSession] = useState(false);
@@ -1642,7 +1642,7 @@ export function DaoWorkspacePanel({
         factsReady={drawerContentReady}
         lastAction={settingsAction}
         onSelectAction={(actionId) => {
-          rememberProtocolPolicyAction(actionId);
+          rememberProtocolPolicyAction(daoAccountId, actionId);
           setSettingsAction(actionId);
           closeAllSheets();
           setSettingsOpen(true);

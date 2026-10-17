@@ -95,10 +95,22 @@ export function isProtocolPolicyActionId(
 
 const LAST_POLICY_ACTION_KEY = 'onsocial.protocol.lastPolicyAction';
 
-export function readLastProtocolPolicyAction(): ProtocolPolicyActionId | null {
+function lastPolicyActionStorageKey(
+  daoAccountId: string | null | undefined
+): string | null {
+  const id = daoAccountId?.trim().toLowerCase() ?? '';
+  if (!id) return null;
+  return `${LAST_POLICY_ACTION_KEY}.${id}`;
+}
+
+export function readLastProtocolPolicyAction(
+  daoAccountId: string | null | undefined
+): ProtocolPolicyActionId | null {
   if (typeof window === 'undefined') return null;
+  const key = lastPolicyActionStorageKey(daoAccountId);
+  if (!key) return null;
   try {
-    const raw = window.localStorage.getItem(LAST_POLICY_ACTION_KEY)?.trim() ?? '';
+    const raw = window.localStorage.getItem(key)?.trim() ?? '';
     return isProtocolPolicyActionId(raw) ? raw : null;
   } catch {
     return null;
@@ -106,11 +118,14 @@ export function readLastProtocolPolicyAction(): ProtocolPolicyActionId | null {
 }
 
 export function rememberProtocolPolicyAction(
+  daoAccountId: string | null | undefined,
   actionId: ProtocolPolicyActionId
 ): void {
   if (typeof window === 'undefined') return;
+  const key = lastPolicyActionStorageKey(daoAccountId);
+  if (!key) return;
   try {
-    window.localStorage.setItem(LAST_POLICY_ACTION_KEY, actionId);
+    window.localStorage.setItem(key, actionId);
   } catch {
     // ignore quota / private mode
   }

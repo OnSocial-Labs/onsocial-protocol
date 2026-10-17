@@ -59,8 +59,8 @@ export function ProtocolSettingsActionSheet({
 
   const highlightedAction = useMemo(() => {
     if (!open) return lastAction;
-    return lastAction ?? readLastProtocolPolicyAction();
-  }, [open, lastAction]);
+    return lastAction ?? readLastProtocolPolicyAction(daoAccountId);
+  }, [daoAccountId, open, lastAction]);
 
   const policyMissing = Boolean(accountId) && factsReady && daoPolicy == null;
   const statusLoadState = !accountId
@@ -107,12 +107,13 @@ export function ProtocolSettingsActionSheet({
         loadState: policyMissing ? 'loading' : statusLoadState,
         highlightedId: highlightedAction,
         onSelect: (actionId) => {
-          rememberProtocolPolicyAction(actionId);
+          rememberProtocolPolicyAction(daoAccountId, actionId);
           onSelectAction(actionId);
         },
       }),
     [
       accountId,
+      daoAccountId,
       highlightedAction,
       onSelectAction,
       policyMissing,
