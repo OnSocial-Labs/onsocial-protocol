@@ -19,6 +19,7 @@ describe('DiscoveryPartyStack lead', () => {
     expect(source).toContain('{lead}');
     expect(source).toContain('{name}');
     expect(source).not.toContain('`${lead} ${name}`');
+    expect(css).toContain('grid-column: 1 / -1');
     expect(css).toContain('grid-row: 2 / span 2');
     expect(css).toContain('color: rgb(var(--fg-rgb) / 0.42)');
     expect(css).toMatch(/\.drops-discovery-lead \{[^}]*font-size: 0\.72rem;/s);

@@ -9,7 +9,7 @@ import { fallbackLabel } from '@/lib/profile-display';
 /**
  * Creator party chrome for Market / Drops catalog rows —
  * avatar beside the name, @handle under it.
- * “by” / “bought by” sit above the name in the quiet repost voice.
+ * “by” / “bought by” sit above the face, in line with the title.
  */
 export function DiscoveryPartyStack({
   accountId,

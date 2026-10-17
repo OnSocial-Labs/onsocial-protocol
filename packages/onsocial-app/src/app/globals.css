@@ -38598,7 +38598,7 @@ a.os-surface-row {
     gap: 0.06rem;
   }
 
-  /* Verb above the name, in the text column. The face stays with the name. */
+  /* Verb on its own line, starting where the title starts. The face stays with the name. */
   .drops-discovery-party--lead {
     display: grid;
     grid-template-columns: auto minmax(0, max-content);
@@ -38617,7 +38617,7 @@ a.os-surface-row {
   }
 
   .drops-discovery-lead {
-    grid-column: 2;
+    grid-column: 1 / -1;
     grid-row: 1;
     display: block;
     max-width: 100%;
