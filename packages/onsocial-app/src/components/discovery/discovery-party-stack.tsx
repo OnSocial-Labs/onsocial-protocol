@@ -26,7 +26,14 @@ export function DiscoveryPartyStack({
   const href = portfolioPath(accountId);
   const handle = fallbackLabel(accountId);
   const name = collectionCreatorNameLine(accountId, profileDisplayName);
-  const leadText = lead === 'listed by' ? 'Listed by' : lead ? lead : null;
+  const leadText =
+    lead === 'listed by'
+      ? 'Listed by'
+      : lead === 'bought by'
+        ? 'Bought by'
+        : lead
+          ? lead
+          : null;
 
   return (
     <Link

@@ -18,6 +18,7 @@ describe('DiscoveryPartyStack lead', () => {
     expect(nameAt).toBeGreaterThan(leadAt);
     expect(source).toContain('{leadText}');
     expect(source).toContain("'Listed by'");
+    expect(source).toContain("'Bought by'");
     expect(source).toContain('{name}');
     expect(source).not.toContain('`${lead} ${name}`');
     expect(css).toContain('grid-column: 1 / -1');
