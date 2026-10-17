@@ -20,7 +20,6 @@ describe('os row action', () => {
     const wiring = [
       'features/collectibles/collectibles-holding-row.tsx',
       'features/collectibles/collectibles-play-panel.tsx',
-      'features/drops/drops-page-panel.tsx',
       'features/market/market-page-panel.tsx',
       'features/market/market-creator-drop-row.tsx',
       'features/scarces/series-shop-row.tsx',
