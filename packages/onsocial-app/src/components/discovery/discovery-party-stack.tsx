@@ -14,10 +14,13 @@ export function DiscoveryPartyStack({
   accountId,
   displayName: profileDisplayName,
   avatarUrl,
+  showBy = true,
 }: {
   accountId: string;
   displayName?: string | null;
   avatarUrl?: string | null;
+  /** Listings say “by Name”. A buyer line is the name alone. */
+  showBy?: boolean;
 }) {
   const href = portfolioPath(accountId);
   const handle = fallbackLabel(accountId);
@@ -33,7 +36,9 @@ export function DiscoveryPartyStack({
         className="drops-discovery-party-avatar"
       />
       <span className="drops-discovery-party-stack">
-        <span className="drops-discovery-by">by {name}</span>
+        <span className="drops-discovery-by">
+          {showBy ? `by ${name}` : name}
+        </span>
         <span className="drops-discovery-sub">@{handle}</span>
       </span>
     </Link>

@@ -13,10 +13,7 @@ import {
 } from '@/components/ui/action-drawer';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import {
-  collectionIdFromTokenId,
-  type MarketListingItem,
-} from '@/features/market/market-listings';
+import { collectionIdFromTokenId } from '@/features/market/market-listings';
 import {
   isDropComposeDraftReady,
   requestDropCompose,
@@ -53,12 +50,24 @@ function absoluteAppUrl(path: string): string {
   return `${window.location.origin}${href.startsWith('/') ? href : `/${href}`}`;
 }
 
+/** Fields the listing ⋮ needs. A sale row passes the same shape. */
+export interface ListingOverflowSubject {
+  title: string;
+  tokenId?: string | null;
+  collectionId?: string | null;
+  mediaUrl?: string | null;
+  mediumKind?: string | null;
+  sourcePostPath?: string | null;
+  /** Primary mint copy. Resales and sales share the title. */
+  kind?: string | null;
+}
+
 /** Listing overflow beside the time — History, Share, Share to post. */
 export function MarketListingRowMenu({
   item,
   sharePath,
 }: {
-  item: MarketListingItem;
+  item: ListingOverflowSubject;
   /** Row destination (drop, or the post when there is no drop). */
   sharePath?: string | null;
 }) {
