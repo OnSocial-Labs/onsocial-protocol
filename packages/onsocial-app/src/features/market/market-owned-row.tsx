@@ -223,7 +223,7 @@ export function MarketOwnedRow({
         <p className="market-listing-meta">
           {showPrice ? (
             <span className="market-listing-price">
-              {auction ? 'Reserve' : 'Ask'} ·{' '}
+              {auction ? 'Reserve · ' : ''}
               {dollarStickerLabel(item.listedUsdE6) ??
                 `${formatPriceNear(item.listedPriceNear!)} NEAR`}
             </span>

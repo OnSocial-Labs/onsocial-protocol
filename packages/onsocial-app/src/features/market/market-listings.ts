@@ -1224,7 +1224,7 @@ function listingFromNativeSale(
     title,
     ...(description && description !== title ? { description } : {}),
     priceNear,
-    priceLabel: isAuction ? auctionPriceLabel(sale) : 'Ask',
+    ...(isAuction ? { priceLabel: auctionPriceLabel(sale) } : {}),
     blockTimestamp: timestampMs(sale.created_at),
     mediaUrl,
     sourcePostPath,
@@ -2192,9 +2192,7 @@ function listingFromActiveRow(
       ? highest > 0n
         ? ('High bid' as const)
         : ('Reserve' as const)
-      : kind === 'native'
-        ? ('Ask' as const)
-        : undefined;
+      : undefined;
 
   const mediumKind = resolveListingMediumKind(row);
   const extra = parseExtra(row.extraJson ?? null);

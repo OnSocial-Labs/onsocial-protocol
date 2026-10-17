@@ -68,16 +68,7 @@ export function marketSalePriceLabel(input: {
   return `${sticker ? `${sticker} · ` : ''}${amount} NEAR`;
 }
 
-/** Settled price line. Sold stays even when the amount is missing. */
-export function marketSalePriceLine(input: {
-  usdE6?: string | null;
-  priceNear?: string | null;
-}): string {
-  const amount = marketSalePriceLabel(input);
-  return amount ? `Sold · ${amount}` : 'Sold';
-}
-
-/** Recent sale in the listing row: buyer, Sold price, time and the same ⋮. */
+/** Recent sale in the listing row: buyer, the amount, time and the same ⋮. */
 export function MarketSaleRow({ sale }: { sale: MarketSaleItem }) {
   const openMarketPost = useMarketPostLayer();
   const partyId = salePartyAccountId(sale);
@@ -88,7 +79,7 @@ export function MarketSaleRow({ sale }: { sale: MarketSaleItem }) {
   const postHandlers = detail
     ? marketPostLayerLinkHandlers(detail.href, openMarketPost)
     : null;
-  const priceLine = marketSalePriceLine(sale);
+  const priceLine = marketSalePriceLabel(sale);
   const title = sale.title.trim() || 'Scarce';
   const thumbClass = `market-listing-thumb${sale.mediaUrl ? ' has-media' : ''}`;
   const thumbArt = sale.mediaUrl ? (
@@ -127,9 +118,11 @@ export function MarketSaleRow({ sale }: { sale: MarketSaleItem }) {
             lead={salePartyLead(sale)}
           />
         ) : null}
-        <p className="market-listing-meta market-listing-meta--price">
-          <span className="market-listing-price">{priceLine}</span>
-        </p>
+        {priceLine ? (
+          <p className="market-listing-meta market-listing-meta--price">
+            <span className="market-listing-price">{priceLine}</span>
+          </p>
+        ) : null}
       </div>
       <div className="market-listing-action-col">
         <div className="drops-discovery-head-trail">

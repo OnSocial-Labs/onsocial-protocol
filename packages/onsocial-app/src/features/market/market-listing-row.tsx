@@ -237,7 +237,9 @@ export function MarketListingRow({
         />
         <p className="market-listing-meta market-listing-meta--price">
           <span className="market-listing-price">
-            {item.priceLabel ? `${item.priceLabel} · ` : ''}
+            {item.priceLabel && item.priceLabel !== 'Ask'
+              ? `${item.priceLabel} · `
+              : ''}
             {dollarStickerLabel(item.usdE6) ??
               `${formatPriceNear(item.priceNear)} NEAR`}
           </span>
@@ -279,7 +281,10 @@ export function MarketListingRow({
               {timeLabel}
             </time>
           ) : null}
-          <MarketListingRowMenu item={item} sharePath={rowTarget?.href ?? null} />
+          <MarketListingRowMenu
+            item={item}
+            sharePath={rowTarget?.href ?? null}
+          />
         </div>
         <OsSheetActions
           layout="row-compact"
