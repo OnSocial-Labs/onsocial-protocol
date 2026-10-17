@@ -37,7 +37,7 @@ test.describe('DAO manage shell', () => {
     ).toBeVisible();
     await expect(
       manageDialog.getByRole('menuitem', { name: /Propose/ })
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(
       manageDialog.getByRole('menuitem', { name: /Stake/ })
     ).toBeVisible({
@@ -59,7 +59,7 @@ test.describe('DAO manage shell', () => {
     await expect(manageButton).toHaveAttribute('aria-expanded', 'false');
   });
 
-  test('Propose opens a compact hug picker, not a page overlay', async ({
+  test('visitor Manage hides Propose until the wallet can propose', async ({
     page,
   }) => {
     await gotoApp(page, daoPath);
@@ -67,22 +67,13 @@ test.describe('DAO manage shell', () => {
     await waitForPortfolioClientReady(page);
 
     await page.getByRole('button', { name: 'Manage' }).click();
-    await page.getByRole('menuitem', { name: /Propose/ }).click();
-    await expectGlassSheetVisible(page);
-    const propose = page.getByRole('dialog', { name: 'Propose' });
-    await expect(propose).toBeVisible({ timeout: 30_000 });
-    await expect(propose).toHaveAttribute('data-sizing', 'hug');
-    await expect(propose).toHaveClass(/os-choice-sheet-panel/);
-    await expect(propose).toHaveClass(/os-sheet-cap-short/);
-    await expect(propose).not.toHaveAttribute('data-surface', 'page');
+    const manageDialog = page.getByRole('dialog', { name: 'Manage' });
+    await expect(manageDialog).toBeVisible();
     await expect(
-      propose.getByRole('button', { name: 'Close propose' })
-    ).toBeVisible();
-    await expect(
-      propose.getByText('Connect a wallet to propose.')
-    ).toBeVisible();
-    await expect(propose.getByText('COMMON')).toHaveCount(0);
-    await expect(propose.getByText('Signal')).toHaveCount(0);
+      manageDialog.getByRole('menuitem', { name: /Propose/ })
+    ).toHaveCount(0);
+    await expect(page.getByRole('dialog', { name: 'Propose' })).toHaveCount(0);
+    await expect(page.getByText('Connect a wallet to propose.')).toHaveCount(0);
   });
 
   test('Manage Info opens the policy snapshot', async ({ page }) => {

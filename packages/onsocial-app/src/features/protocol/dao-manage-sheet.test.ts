@@ -25,6 +25,13 @@ describe('DaoManageSheet chrome', () => {
     expect(src).toMatch(/canProposeCall[\s\S]*run\('publish-social'\)/);
   });
 
+  it('hides Propose until this DAO confirms the viewer can propose', () => {
+    expect(src).toMatch(/canPropose\s*\?[\s\S]*run\('propose'\)/);
+    expect(src).not.toMatch(
+      /items: ActionDrawerItem\[\] = \[\s*\{\s*id: 'propose'/
+    );
+  });
+
   it('freezes Stake on the open sheet so a late path fetch cannot yank the row', () => {
     expect(src).toContain('heldShowStake');
     expect(src).toContain('stakeInMenu');

@@ -345,6 +345,7 @@ function PortfolioDaoOrgChromeInner({
         open={overlay === 'manage'}
         daoName={title}
         canEdit={canEdit}
+        canPropose={canPropose}
         canProposeCall={canProposeCall}
         showStake={!stakePathReady || hasStakeProposePath}
         claimSupportLabel={claimSupportLabel}

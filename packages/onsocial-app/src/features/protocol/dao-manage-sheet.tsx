@@ -28,6 +28,7 @@ export function DaoManageSheet({
   open,
   daoName,
   canEdit,
+  canPropose = false,
   canProposeCall = false,
   showStake = true,
   claimSupportLabel,
@@ -39,6 +40,8 @@ export function DaoManageSheet({
   daoName?: string;
   /** ChangeConfig — Edit profile (face branding). */
   canEdit: boolean;
+  /** This DAO's policy says the viewer can add a proposal. Guests stay hidden. */
+  canPropose?: boolean;
   /** FunctionCall — Publish OnSocial / mood / Boost / claim. */
   canProposeCall?: boolean;
   /** Member + staking contract on this DAO — hide for council-only boards. */
@@ -79,12 +82,16 @@ export function DaoManageSheet({
   };
 
   const items: ActionDrawerItem[] = [
-    {
-      id: 'propose',
-      label: 'Propose',
-      description: 'Create a governance proposal',
-      onSelect: () => run('propose'),
-    },
+    ...(canPropose
+      ? [
+          {
+            id: 'propose',
+            label: 'Propose',
+            description: 'Create a governance proposal',
+            onSelect: () => run('propose'),
+          } satisfies ActionDrawerItem,
+        ]
+      : []),
     ...(stakeInMenu
       ? [
           {
