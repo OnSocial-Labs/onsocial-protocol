@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 import {
   expectGlassSheetVisible,
   expectPortfolioIdentityOrSkip,
@@ -6,12 +6,73 @@ import {
   waitForPortfolioClientReady,
 } from './helpers';
 
+function nearViewResult(value: unknown) {
+  const bytes = Array.from(Buffer.from(JSON.stringify(value), 'utf8'));
+  return {
+    jsonrpc: '2.0',
+    id: 'onsocial-bff',
+    result: { result: bytes },
+  };
+}
+
+/** Settles the Manage stake-path check as a SOCIAL member path. */
+async function stubConfirmedSocialStakePath(page: Page) {
+  await page.route('**/api/near/rpc', async (route: Route) => {
+    let method = '';
+    let accountId = '';
+    try {
+      const body = route.request().postDataJSON() as {
+        params?: { method_name?: string; account_id?: string };
+      };
+      method = body.params?.method_name ?? '';
+      accountId = body.params?.account_id ?? '';
+    } catch {
+      await route.continue();
+      return;
+    }
+    if (accountId !== DAO_ACCOUNT) {
+      await route.continue();
+      return;
+    }
+    if (method === 'get_staking_contract') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          nearViewResult('staking-governance.onsocial.testnet')
+        ),
+      });
+      return;
+    }
+    if (method === 'get_policy') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          nearViewResult({
+            roles: [
+              {
+                name: 'delegated_proposers',
+                kind: { Member: '1000' },
+                permissions: ['*:AddProposal'],
+              },
+            ],
+          })
+        ),
+      });
+      return;
+    }
+    await route.continue();
+  });
+}
+
 const DAO_ACCOUNT =
   process.env.E2E_DAO_ACCOUNT ?? 'governance.onsocial.testnet';
 const daoPath = `/@${DAO_ACCOUNT}`;
 
 test.describe('DAO manage shell', () => {
   test('face chips open Manage with visitor tools', async ({ page }) => {
+    await stubConfirmedSocialStakePath(page);
     await gotoApp(page, daoPath);
     await expectPortfolioIdentityOrSkip(page, DAO_ACCOUNT);
     await waitForPortfolioClientReady(page);
