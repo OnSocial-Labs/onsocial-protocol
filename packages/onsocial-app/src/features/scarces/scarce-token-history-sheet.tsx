@@ -28,24 +28,25 @@ export function ScarceTokenHistorySheet({
 }) {
   const id = tokenId.trim();
   const heading = title.trim() || 'Scarce';
-  const [phase, setPhase] = useState<HistoryPhase>('loading');
+  const [trackedId, setTrackedId] = useState(id);
+  const [phase, setPhase] = useState<HistoryPhase>(id ? 'loading' : 'ready');
   const [rows, setRows] = useState<ReturnType<typeof mapTokenHistoryRows>>([]);
 
-  useEffect(() => {
-    if (!open) return;
-    if (!id) {
-      setRows([]);
-      setPhase('ready');
-      return;
-    }
-    let cancelled = false;
+  if (trackedId !== id) {
+    setTrackedId(id);
+    setPhase(id ? 'loading' : 'ready');
     setRows([]);
-    setPhase('loading');
+  }
+
+  useEffect(() => {
+    if (!open || !id) return;
+    let cancelled = false;
+    const token = id;
     void (async () => {
       try {
         const client = createReadOnlyOnSocialClient();
         const history: TokenHistoryEvent[] =
-          await client.query.scarces.tokenHistory(id, { limit: 200 });
+          await client.query.scarces.tokenHistory(token, { limit: 200 });
         if (cancelled) return;
         setRows(mapTokenHistoryRows(history));
         setPhase('ready');
