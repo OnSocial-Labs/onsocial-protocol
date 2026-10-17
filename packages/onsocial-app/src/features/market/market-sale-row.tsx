@@ -40,6 +40,13 @@ export function salePartyAccountId(
   );
 }
 
+/** “bought by” only when the person on the row is the buyer. */
+export function salePartyLead(
+  sale: Pick<MarketSaleItem, 'buyerId'>
+): 'bought by' | false {
+  return sale.buyerId?.trim() ? 'bought by' : false;
+}
+
 function formatSalePriceNear(priceNear: string, fractionDigits: 2 | 4): string {
   const n = Number.parseFloat(priceNear);
   if (!Number.isFinite(n)) return priceNear;
@@ -117,7 +124,7 @@ export function MarketSaleRow({ sale }: { sale: MarketSaleItem }) {
             accountId={partyId}
             displayName={profile?.displayName}
             avatarUrl={profile?.avatarUrl}
-            showBy={false}
+            lead={salePartyLead(sale)}
           />
         ) : null}
         <p className="market-listing-meta market-listing-meta--price">

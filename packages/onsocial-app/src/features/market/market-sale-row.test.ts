@@ -7,6 +7,7 @@ import {
   marketSalePriceLabel,
   marketSalePriceLine,
   salePartyAccountId,
+  salePartyLead,
 } from '@/features/market/market-sale-row';
 
 const rowSrc = join(
@@ -80,6 +81,14 @@ describe('salePartyAccountId', () => {
   });
 });
 
+describe('salePartyLead', () => {
+  it('says bought by only when the sale names a buyer', () => {
+    expect(salePartyLead({ buyerId: ' buyer.near ' })).toBe('bought by');
+    expect(salePartyLead({ buyerId: '   ' })).toBe(false);
+    expect(salePartyLead({})).toBe(false);
+  });
+});
+
 describe('marketSalePriceLine', () => {
   it('marks a dollar sale Sold and keeps the 2dp sticker', () => {
     expect(
@@ -104,7 +113,8 @@ describe('MarketSaleRow layout', () => {
     const source = readFileSync(rowSrc, 'utf8');
     expect(source).toContain('className="market-listing-row market-sale-row"');
     expect(source).toContain('className="market-listing-row-open"');
-    expect(source).toContain('showBy={false}');
+    expect(source).toContain('lead={salePartyLead(sale)}');
+    expect(source).toContain("'bought by'");
     expect(source).toContain('marketSalePriceLine');
     const trailAt = source.indexOf('drops-discovery-head-trail');
     const menuAt = source.indexOf('<MarketListingRowMenu');
