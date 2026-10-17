@@ -39053,6 +39053,25 @@ a.os-surface-row {
     width: 100%;
   }
 
+  .market-listing-action-col > .market-listing-history {
+    align-self: flex-end;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 0.72rem;
+    line-height: 1.2;
+    color: var(--os-surface-muted);
+    cursor: pointer;
+  }
+
+  .market-listing-action-col > .market-listing-history:hover,
+  .market-listing-action-col > .market-listing-history:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.78);
+    outline: none;
+  }
+
   .market-listing-meta,
   .market-sale-meta {
     margin: 0;

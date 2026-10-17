@@ -75,12 +75,18 @@ export function CollectionPageSkeleton({
 }
 
 /** Compact activity placeholders while mint history loads. */
-export function CollectionActivitySkeleton({ rows = 3 }: { rows?: number }) {
+export function CollectionActivitySkeleton({
+  rows = 3,
+  label = 'Loading activity',
+}: {
+  rows?: number;
+  label?: string;
+}) {
   return (
     <div
       className="collection-skeleton-activity-list"
       aria-busy="true"
-      aria-label="Loading activity"
+      aria-label={label}
     >
       {Array.from({ length: rows }, (_, index) => (
         <div key={index} className="collection-skeleton-activity-row" aria-hidden>

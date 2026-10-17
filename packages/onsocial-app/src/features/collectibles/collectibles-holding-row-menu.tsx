@@ -12,6 +12,7 @@ import {
   OsSheetAction,
   OsSheetActions,
   ShopIcon,
+  TimeIcon,
   TrashIcon,
   osActionDrawerConfirmBodyClassName,
 } from '@onsocial/ui';
@@ -32,6 +33,7 @@ import {
   scarcePriceChangeHint,
   scarcePriceChangeReady,
 } from '@/features/scarces/scarce-price';
+import { ScarceTokenHistorySheet } from '@/features/scarces/scarce-token-history-sheet';
 import {
   ownedScarceCanBurn,
   ownedScarceCanTransfer,
@@ -69,6 +71,7 @@ export function CollectiblesHoldingRowMenu({
   const { getSigningWallet } = useAppWallet();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const [open, setOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [confirm, setConfirm] = useState<'burn' | 'delist' | 'price' | null>(
     null
@@ -272,7 +275,19 @@ export function CollectiblesHoldingRowMenu({
   });
 
   const items = useMemo<ActionDrawerItem[]>(() => {
-    const list: ActionDrawerItem[] = [];
+    const list: ActionDrawerItem[] = [
+      {
+        id: 'history',
+        section: 'History',
+        label: 'History',
+        description: "This edition's life",
+        leading: <TimeIcon className="os-action-drawer-icon" aria-hidden />,
+        onSelect: () => {
+          setOpen(false);
+          setHistoryOpen(true);
+        },
+      },
+    ];
 
     if (onTransfer && ownedScarceCanTransfer(item)) {
       list.push({
@@ -491,6 +506,12 @@ export function CollectiblesHoldingRowMenu({
           </OsActionDrawerConfirm>
         ) : undefined}
       </ActionDrawer>
+      <ScarceTokenHistorySheet
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        tokenId={item.tokenId}
+        title={title}
+      />
     </div>
   );
 }
