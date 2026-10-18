@@ -26112,6 +26112,45 @@ a.os-surface-row {
     text-align: center;
   }
 
+  .os-rolling-number {
+    display: inline-flex;
+    align-items: stretch;
+    height: 1em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .os-rolling-digit {
+    display: inline-block;
+    width: 1ch;
+    height: 1em;
+    overflow: hidden;
+    line-height: 1;
+  }
+
+  .os-rolling-digit-strip {
+    display: flex;
+    flex-direction: column;
+    will-change: transform;
+  }
+
+  .os-rolling-digit-strip.is-rolling {
+    transition: transform 320ms ease;
+  }
+
+  .os-rolling-digit-cell {
+    display: block;
+    height: 1em;
+    line-height: 1;
+    text-align: center;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .os-rolling-digit-strip.is-rolling {
+      transition: none;
+    }
+  }
+
   .post-card-stat svg,
   .post-card-react svg,
   .post-card-amplify svg,
@@ -30429,6 +30468,15 @@ a.os-surface-row {
   .collection-commerce-supply {
     font-weight: 650;
     color: var(--os-surface-emphasis);
+  }
+
+  .collection-commerce-supply-figures {
+    display: inline-flex;
+    align-items: baseline;
+  }
+
+  .collection-commerce-supply-sep {
+    line-height: 1;
   }
 
   .collection-commerce-chips {

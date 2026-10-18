@@ -772,6 +772,102 @@ export function isCollectionMintable(status: CollectionStatus): boolean {
   return status === 'live';
 }
 
+/** Commerce fields a live re-read may replace on an open drop. */
+export interface DropCommercePatch {
+  minted: number;
+  remaining: number;
+  totalSupply: number;
+  soldOut: boolean;
+  paused: boolean;
+  cancelled: boolean;
+  priceYocto: string;
+  priceNear: string | null;
+  usdE6: string | null;
+}
+
+function wholeCount(value: number): number | null {
+  if (!Number.isFinite(value)) return null;
+  return Math.max(0, Math.floor(value));
+}
+
+/**
+ * Minted, left, and ask from one `collectionCurrent` row.
+ * Banned or unreadable counts return null so the open page keeps its number.
+ */
+export function dropCommerceFromCurrent(row: {
+  mintedCount: number;
+  remaining: number;
+  totalSupply: number;
+  paused: boolean;
+  cancelled: boolean;
+  banned: boolean;
+  price: string | null;
+  usdE6?: string | null;
+}): DropCommercePatch | null {
+  if (row.banned) return null;
+  const minted = wholeCount(row.mintedCount);
+  const remaining = wholeCount(row.remaining);
+  const totalSupply = wholeCount(row.totalSupply);
+  if (minted == null || remaining == null || totalSupply == null) return null;
+  const priceYocto = yoctoString(row.price);
+  const usd = row.usdE6?.trim();
+  return {
+    minted,
+    remaining,
+    totalSupply,
+    soldOut: totalSupply > 0 && remaining === 0,
+    paused: Boolean(row.paused),
+    cancelled: Boolean(row.cancelled),
+    priceYocto,
+    priceNear: priceDisplay(priceYocto),
+    usdE6: usd ? usd : null,
+  };
+}
+
+/** Patch ask and supply. Leaves writing, media, and scroll state alone. */
+export function applyDropCommerce(
+  view: CollectionView,
+  patch: DropCommercePatch
+): CollectionView {
+  const usdE6 = view.usdE6?.trim() ? view.usdE6.trim() : null;
+  if (
+    view.minted === patch.minted &&
+    view.remaining === patch.remaining &&
+    view.totalSupply === patch.totalSupply &&
+    view.soldOut === patch.soldOut &&
+    view.paused === patch.paused &&
+    view.cancelled === patch.cancelled &&
+    view.priceYocto === patch.priceYocto &&
+    view.priceNear === patch.priceNear &&
+    usdE6 === patch.usdE6
+  ) {
+    return view;
+  }
+  return {
+    ...view,
+    minted: patch.minted,
+    remaining: patch.remaining,
+    totalSupply: patch.totalSupply,
+    soldOut: patch.soldOut,
+    paused: patch.paused,
+    cancelled: patch.cancelled,
+    priceYocto: patch.priceYocto,
+    priceNear: patch.priceNear,
+    usdE6: patch.usdE6,
+  };
+}
+
+/** Keep the open-drop re-read going while editions can still move. */
+export function dropSupplyShouldPoll(
+  view: CollectionView,
+  nowMs = Date.now()
+): boolean {
+  if (view.cancelled || view.paused || view.soldOut) return false;
+  if (view.remaining <= 0) return false;
+  if (view.endTimeMs != null && view.endTimeMs <= nowMs) return false;
+  return true;
+}
+
 /**
  * Map indexer `scarces_collections_current` row → CollectionView.
  * Banned / incomplete shells return null (caller falls back to RPC).

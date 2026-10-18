@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   appCatalogCursor,
+  applyDropCommerce,
+  dropCommerceFromCurrent,
+  dropSupplyShouldPoll,
   toCollectionView,
   type LazyCollectionRecord,
 } from './collections-data';
@@ -310,5 +313,128 @@ describe('toCollectionView cover seat', () => {
       toCollectionView(variationRecord({ burnable: true }))?.burnable
     ).toBe(true);
     expect(toCollectionView(variationRecord())?.burnable).toBeNull();
+  });
+});
+
+const ONE_NEAR = '1000000000000000000000000';
+const TWO_NEAR = '2000000000000000000000000';
+
+describe('drop commerce patch', () => {
+  it('moves minted and price onto the open drop and leaves the title', () => {
+    const view = toCollectionView(
+      variationRecord({
+        total_supply: 10,
+        minted_count: 2,
+        price_near: ONE_NEAR,
+      })
+    );
+    expect(view).not.toBeNull();
+    const patch = dropCommerceFromCurrent({
+      mintedCount: 5,
+      remaining: 5,
+      totalSupply: 10,
+      paused: false,
+      cancelled: false,
+      banned: false,
+      price: TWO_NEAR,
+      usdE6: '2500000',
+    });
+    expect(patch?.priceNear).toBe('2');
+    const next = applyDropCommerce(view!, patch!);
+    expect(next.minted).toBe(5);
+    expect(next.remaining).toBe(5);
+    expect(next.priceYocto).toBe(TWO_NEAR);
+    expect(next.priceNear).toBe('2');
+    expect(next.usdE6).toBe('2500000');
+    expect(next.soldOut).toBe(false);
+    expect(next.title).toBe(view!.title);
+    expect(next.mediaUrl).toBe(view!.mediaUrl);
+  });
+
+  it('marks the drop sold out when nothing is left', () => {
+    const view = toCollectionView(
+      variationRecord({ total_supply: 10, minted_count: 2 })
+    )!;
+    const patch = dropCommerceFromCurrent({
+      mintedCount: 10,
+      remaining: 0,
+      totalSupply: 10,
+      paused: false,
+      cancelled: false,
+      banned: false,
+      price: ONE_NEAR,
+    });
+    expect(applyDropCommerce(view, patch!).soldOut).toBe(true);
+  });
+
+  it('keeps the same view when the read matches', () => {
+    const view = toCollectionView(
+      variationRecord({
+        total_supply: 10,
+        minted_count: 2,
+        price_near: ONE_NEAR,
+      })
+    )!;
+    const patch = dropCommerceFromCurrent({
+      mintedCount: view.minted,
+      remaining: view.remaining,
+      totalSupply: view.totalSupply,
+      paused: view.paused,
+      cancelled: view.cancelled,
+      banned: false,
+      price: view.priceYocto,
+      usdE6: view.usdE6,
+    });
+    expect(applyDropCommerce(view, patch!)).toBe(view);
+  });
+
+  it('ignores a banned or unreadable read', () => {
+    expect(
+      dropCommerceFromCurrent({
+        mintedCount: 1,
+        remaining: 1,
+        totalSupply: 2,
+        paused: false,
+        cancelled: false,
+        banned: true,
+        price: ONE_NEAR,
+      })
+    ).toBeNull();
+    expect(
+      dropCommerceFromCurrent({
+        mintedCount: Number.NaN,
+        remaining: 1,
+        totalSupply: 2,
+        paused: false,
+        cancelled: false,
+        banned: false,
+        price: ONE_NEAR,
+      })
+    ).toBeNull();
+  });
+
+  it('polls while editions can still move, including before Opens', () => {
+    const now = 1_700_000_000_000;
+    const live = toCollectionView(
+      variationRecord({ total_supply: 10, minted_count: 2 })
+    )!;
+    expect(dropSupplyShouldPoll(live, now)).toBe(true);
+    expect(
+      dropSupplyShouldPoll(
+        {
+          ...live,
+          startTimeMs: now + 60_000,
+        },
+        now
+      )
+    ).toBe(true);
+    expect(
+      dropSupplyShouldPoll({ ...live, remaining: 0, soldOut: true }, now)
+    ).toBe(false);
+    expect(dropSupplyShouldPoll({ ...live, paused: true }, now)).toBe(false);
+    expect(dropSupplyShouldPoll({ ...live, cancelled: true }, now)).toBe(false);
+    expect(dropSupplyShouldPoll({ ...live, endTimeMs: now - 1 }, now)).toBe(
+      false
+    );
   });
 });
