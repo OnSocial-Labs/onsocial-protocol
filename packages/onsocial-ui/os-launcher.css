@@ -346,9 +346,7 @@
   --os-launcher-frost: var(--glass-surface, rgb(var(--bg-rgb) / 0.32));
   background: var(--os-launcher-frost);
   box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.1);
-  transition:
-    background 160ms ease,
-    transform 160ms ease;
+  transition: background 160ms ease;
 }
 
 .os-launcher-item-icon {
@@ -454,10 +452,6 @@
 .os-launcher-item.is-current .os-launcher-item-label {
   color: rgb(var(--fg-rgb) / 0.9);
   font-weight: 600;
-}
-
-.os-launcher-item:not(.is-soon):active .os-launcher-item-icon-shell {
-  transform: scale(0.96);
 }
 
 .os-launcher-item.is-soon {
