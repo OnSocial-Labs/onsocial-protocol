@@ -18,7 +18,7 @@ import {
 } from '@onsocial/ui';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { PostLikesSheet } from '@/components/panels/post-likes-sheet';
-import { StableCount } from '@/components/ui/stable-count';
+import { RollingNumber } from '@/components/ui/rolling-number';
 import { PortfolioBioBlocks } from '@/components/portfolio/portfolio-bio-blocks';
 import {
   PortfolioWritingCover,
@@ -172,16 +172,21 @@ export function PortfolioWritingArticleActions({
             <HeartIcon className="portfolio-writing-article-action-icon" />
           )}
         </button>
-        {likeLabel ? (
-          <button
-            type="button"
-            className="portfolio-writing-article-like-count"
-            aria-label={`View who liked — ${likeLabel}`}
-            onClick={() => setLikesOpen(true)}
-          >
-            <StableCount value={likeCount} />
-          </button>
-        ) : null}
+        <button
+          type="button"
+          className={`portfolio-writing-article-like-count${
+            likeLabel ? '' : ' is-idle'
+          }`}
+          aria-label={likeLabel ? `View who liked — ${likeLabel}` : undefined}
+          aria-hidden={likeLabel ? undefined : true}
+          tabIndex={likeLabel ? undefined : -1}
+          onClick={() => {
+            if (!likeLabel) return;
+            setLikesOpen(true);
+          }}
+        >
+          <RollingNumber value={likeCount} rollSignal={row.reactionRoll} />
+        </button>
       </span>
       <button
         type="button"

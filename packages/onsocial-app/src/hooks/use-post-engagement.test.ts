@@ -18,7 +18,7 @@ describe('reaction confirmation', () => {
       row({ viewerReacted: true, reactionCount: 3 })
     );
     expect(confirmedReactionEngagement(previous, true)).toEqual(
-      row({ viewerReacted: true, reactionCount: 4 })
+      row({ viewerReacted: true, reactionCount: 4, reactionRoll: 1 })
     );
   });
 
@@ -28,7 +28,7 @@ describe('reaction confirmation', () => {
       row({ viewerReacted: false, reactionCount: 4 })
     );
     expect(confirmedReactionEngagement(previous, false)).toEqual(
-      row({ viewerReacted: false, reactionCount: 3 })
+      row({ viewerReacted: false, reactionCount: 3, reactionRoll: 1 })
     );
   });
 });
@@ -85,6 +85,19 @@ describe('mergeEngagementSoftUpgrade', () => {
     );
     expect(merged[key]?.viewerAmplified).toBe(true);
     expect(merged[key]?.amplifyCount).toBe(5);
+  });
+
+  it('keeps a confirm roll when a later read changes the count', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      { [key]: row({ reactionCount: 4, reactionRoll: 1, amplifyRoll: 2 }) },
+      { [key]: row({ reactionCount: 9, amplifyCount: 1 }) },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.reactionCount).toBe(9);
+    expect(merged[key]?.reactionRoll).toBe(1);
+    expect(merged[key]?.amplifyRoll).toBe(2);
   });
 
   it('preserves confirmed save until indexer catches up', () => {

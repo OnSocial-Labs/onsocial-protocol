@@ -38,6 +38,8 @@ export function useLiveProfileSignals(
       getGlobalViewerStandingLedgerVersion() +
       getGlobalViewerEndorsementLedgerVersion()
   );
+  const [openedAtLedgerVersion] = useState(ledgerVersion);
+  const countRoll = ledgerVersion - openedAtLedgerVersion;
 
   useEffect(() => {
     const bump = () => {
@@ -59,6 +61,10 @@ export function useLiveProfileSignals(
   );
 
   const signals = useMemo(() => {
+    // ledgerVersion reticks this read. The ledgers are module maps, not state.
+    if (ledgerVersion < 0) return baseSignals;
+    const standingLedger = getGlobalViewerStandingLedger();
+    const endorsementLedger = getGlobalViewerEndorsementLedger();
     const baseCounts = {
       incoming: baseSignals.standingCount,
       outgoing: baseSignals.standingWithCount,
@@ -71,7 +77,7 @@ export function useLiveProfileSignals(
       counts: baseCounts,
       apiViewerStanding,
       theyStandWithViewer,
-      ledger: getGlobalViewerStandingLedger(),
+      ledger: standingLedger,
       relationshipKnown: isSelf || !relationshipLoading,
     });
 
@@ -84,7 +90,7 @@ export function useLiveProfileSignals(
       },
       apiViewerEndorsed,
       apiViewerEndorsementTopics,
-      ledger: getGlobalViewerEndorsementLedger(),
+      ledger: endorsementLedger,
       relationshipKnown: isSelf || !relationshipLoading,
     });
 
@@ -114,6 +120,7 @@ export function useLiveProfileSignals(
     viewerStanding,
     theyStandWithViewer,
     relationshipLoading: isLoading,
+    countRoll,
   };
 }
 
@@ -131,10 +138,10 @@ const EMPTY_DAO_SIGNALS = (standingCount: number) => ({
 export function useLiveIncomingStandingCount(
   accountId: string,
   baseCount: number
-): number {
-  const { signals } = useLiveProfileSignals(
+): { count: number; countRoll: number } {
+  const { signals, countRoll } = useLiveProfileSignals(
     accountId,
     EMPTY_DAO_SIGNALS(baseCount)
   );
-  return signals.standingCount;
+  return { count: signals.standingCount, countRoll };
 }

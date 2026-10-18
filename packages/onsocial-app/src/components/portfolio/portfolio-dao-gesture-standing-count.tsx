@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { ProtocolMotionArrow } from '@onsocial/ui';
+import { RollingNumber } from '@/components/ui/rolling-number';
 import { useLiveIncomingStandingCount } from '@/hooks/use-live-profile-signals';
-import { formatCount } from '@/lib/profile-display';
 import { standingPath } from '@/lib/profile-social-standings';
 
 /** Incoming stand count inline on DAO Stand · Support rows. */
@@ -14,7 +14,10 @@ export function PortfolioDaoGestureStandingCount({
   accountId: string;
   baseCount: number;
 }) {
-  const count = useLiveIncomingStandingCount(accountId, baseCount);
+  const { count, countRoll } = useLiveIncomingStandingCount(
+    accountId,
+    baseCount
+  );
   if (count <= 0) {
     return null;
   }
@@ -28,7 +31,9 @@ export function PortfolioDaoGestureStandingCount({
     >
       <span className="signal-group signal-group-standing" aria-hidden>
         <ProtocolMotionArrow className="signal-metric-arrow" />
-        <span className="signal-value">{formatCount(count)}</span>
+        <span className="signal-value">
+          <RollingNumber value={count} rollSignal={countRoll} grouped />
+        </span>
       </span>
     </Link>
   );

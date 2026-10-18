@@ -12,6 +12,37 @@ export function integerDigits(value: number): number[] {
   return Array.from(String(n), (glyph) => Number(glyph));
 }
 
+export type RollingGlyph =
+  | { kind: 'digit'; digit: number; key: string }
+  | { kind: 'sep'; key: string };
+
+/** Digits, with a comma before each thousands group when `grouped` is set. */
+export function rollingGlyphs(value: number, grouped: boolean): RollingGlyph[] {
+  const digits = integerDigits(value);
+  const glyphs: RollingGlyph[] = [];
+  digits.forEach((digit, index) => {
+    const place = digits.length - 1 - index;
+    glyphs.push({ kind: 'digit', digit, key: `d-${place}` });
+    if (grouped && place > 0 && place % 3 === 0) {
+      glyphs.push({ kind: 'sep', key: `sep-${place}` });
+    }
+  });
+  return glyphs;
+}
+
+/**
+ * Drop supply omits the signal and rolls on every value change.
+ * A confirm signal rolls only when that signal changes, so a later
+ * refetch of the same card snaps instead of turning.
+ */
+export function rollingMotion(
+  rollSignal: number | undefined,
+  previousSignal: number | undefined
+): 'roll' | 'snap' {
+  if (rollSignal === undefined) return 'roll';
+  return rollSignal === previousSignal ? 'snap' : 'roll';
+}
+
 export function mod10(n: number): number {
   return ((Math.trunc(n) % 10) + 10) % 10;
 }

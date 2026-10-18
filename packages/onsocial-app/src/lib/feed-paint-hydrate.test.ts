@@ -84,6 +84,10 @@ describe('feed-paint-hydrate', () => {
       viewerReposted: false,
       viewerRepostId: null,
       viewerRepostGroupId: null,
+      reactionRoll: 0,
+      amplifyRoll: 0,
+      replyRoll: 0,
+      shareRoll: 0,
     });
     expect(countsByPaths).toHaveBeenCalledTimes(1);
     expect(statesForPosts).toHaveBeenCalledTimes(1);

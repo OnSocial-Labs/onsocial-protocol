@@ -3,6 +3,8 @@ import {
   integerDigits,
   nextDigitPosition,
   parkedDigitPosition,
+  rollingGlyphs,
+  rollingMotion,
   shortestDigitDelta,
 } from './rolling-digits';
 
@@ -23,6 +25,29 @@ describe('shortestDigitDelta', () => {
   it('prefers the forward turn when the two ways are equal', () => {
     expect(shortestDigitDelta(0, 5)).toBe(5);
     expect(shortestDigitDelta(5, 0)).toBe(5);
+  });
+});
+
+describe('rollingGlyphs', () => {
+  it('groups thousands with a comma and keeps digit places', () => {
+    expect(rollingGlyphs(1250, true).map((glyph) => glyph.kind === 'sep' ? ',' : glyph.digit)).toEqual([
+      1, ',', 2, 5, 0,
+    ]);
+    expect(rollingGlyphs(999, true).map((glyph) => glyph.kind === 'sep' ? ',' : glyph.digit)).toEqual([
+      9, 9, 9,
+    ]);
+  });
+
+  it('leaves an ungrouped count as bare digits', () => {
+    expect(rollingGlyphs(1250, false).every((glyph) => glyph.kind === 'digit')).toBe(true);
+  });
+});
+
+describe('rollingMotion', () => {
+  it('rolls every supply change and only a confirm signal', () => {
+    expect(rollingMotion(undefined, undefined)).toBe('roll');
+    expect(rollingMotion(1, 0)).toBe('roll');
+    expect(rollingMotion(1, 1)).toBe('snap');
   });
 });
 

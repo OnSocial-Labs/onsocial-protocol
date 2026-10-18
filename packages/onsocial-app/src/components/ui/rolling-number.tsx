@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   ROLLING_DIGIT_MS,
-  integerDigits,
   mod10,
   nextDigitPosition,
   parkedDigitPosition,
+  rollingGlyphs,
+  rollingMotion,
 } from '@/components/ui/rolling-digits';
 
 const STRIP_LENGTH = 30;
@@ -25,20 +26,29 @@ function usePrefersReducedMotion(): boolean {
   );
 }
 
-function DigitRoll({ digit }: { digit: number }) {
+function DigitRoll({
+  digit,
+  rollSignal,
+}: {
+  digit: number;
+  rollSignal?: number;
+}) {
   const reduced = usePrefersReducedMotion();
   const target = mod10(digit);
   const [pos, setPos] = useState(() => parkedDigitPosition(target));
   const [motion, setMotion] = useState(false);
   const posRef = useRef(pos);
   const skipRef = useRef(true);
+  const signalRef = useRef(rollSignal);
 
   useEffect(() => {
     if (skipRef.current) {
       skipRef.current = false;
+      signalRef.current = rollSignal;
       return;
     }
 
+    const motionKind = rollingMotion(rollSignal, signalRef.current);
     const from = posRef.current;
     let cancelled = false;
     let timer = 0;
@@ -53,9 +63,11 @@ function DigitRoll({ digit }: { digit: number }) {
 
     const frame = window.requestAnimationFrame(() => {
       if (cancelled) return;
-      if (reduced || mod10(from) === target) {
+      signalRef.current = rollSignal;
+      if (reduced || motionKind === 'snap' || mod10(from) === target) {
         const parked = parkedDigitPosition(target);
         if (posRef.current !== parked) park(parked);
+        else setMotion(false);
         return;
       }
 
@@ -87,7 +99,7 @@ function DigitRoll({ digit }: { digit: number }) {
       window.cancelAnimationFrame(follow);
       window.clearTimeout(timer);
     };
-  }, [reduced, target]);
+  }, [reduced, rollSignal, target]);
 
   return (
     <span className="os-rolling-digit">
@@ -109,14 +121,36 @@ function DigitRoll({ digit }: { digit: number }) {
   );
 }
 
-/** Integer wheel. First paint is still. Later changes roll each digit the short way. */
-export function RollingNumber({ value }: { value: number }) {
-  const digits = integerDigits(value);
+/**
+ * Integer wheel. First paint is still. Later changes roll each digit the short way.
+ * Pass `rollSignal` to roll only when the viewer's own confirm bumps it.
+ * Omit it to roll on every value change (the open drop supply).
+ */
+export function RollingNumber({
+  value,
+  rollSignal,
+  grouped = false,
+}: {
+  value: number;
+  rollSignal?: number;
+  grouped?: boolean;
+}) {
+  const glyphs = rollingGlyphs(value, grouped);
   return (
     <span className="os-rolling-number" aria-hidden="true">
-      {digits.map((digit, index) => (
-        <DigitRoll key={digits.length - 1 - index} digit={digit} />
-      ))}
+      {glyphs.map((glyph) =>
+        glyph.kind === 'sep' ? (
+          <span className="os-rolling-sep" key={glyph.key}>
+            ,
+          </span>
+        ) : (
+          <DigitRoll
+            key={glyph.key}
+            digit={glyph.digit}
+            rollSignal={rollSignal}
+          />
+        )
+      )}
     </span>
   );
 }

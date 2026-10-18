@@ -11748,6 +11748,14 @@ a.os-surface-row {
     outline: none;
   }
 
+  .portfolio-writing-article-like-count.is-idle {
+    width: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
   .portfolio-writing-article-action-icon {
     display: block;
     width: 1.05rem;
@@ -26066,7 +26074,8 @@ a.os-surface-row {
     cursor: pointer;
   }
 
-  .post-card-react-cluster:has(.post-card-like-count) .post-card-react-heart {
+  .post-card-react-cluster:has(.post-card-like-count:not(.is-idle))
+    .post-card-react-heart {
     padding-right: 0.16rem;
   }
 
@@ -26092,6 +26101,29 @@ a.os-surface-row {
   .post-card-like-count:focus-visible {
     color: inherit;
     outline: none;
+  }
+
+  .post-card-like-count.is-idle {
+    width: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .post-card-count-slot {
+    display: inline-flex;
+    height: 1em;
+    overflow: hidden;
+    vertical-align: bottom;
+  }
+
+  .post-card-count-slot:not(.is-visible) {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    pointer-events: none;
   }
 
   .post-card-engagement-count {
@@ -26143,6 +26175,12 @@ a.os-surface-row {
     height: 1em;
     line-height: 1;
     text-align: center;
+  }
+
+  .os-rolling-sep {
+    display: inline-block;
+    height: 1em;
+    line-height: 1;
   }
 
   @media (prefers-reduced-motion: reduce) {

@@ -1081,6 +1081,7 @@ export function LiveGuildPostPanel({
                     )}
                     label={shareRow.label}
                     count={shareRow.count}
+                    rollSignal={rootEngagement?.shareRoll ?? 0}
                   />
                 ) : null}
               </div>

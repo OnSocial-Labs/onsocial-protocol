@@ -21,6 +21,7 @@ export function PortfolioSignalsShell({
     viewerStanding,
     theyStandWithViewer,
     relationshipLoading,
+    countRoll,
   } = useLiveProfileSignals(accountId, signals);
 
   if (!profileSignalsHaveFaceMetrics(liveSignals)) {
@@ -34,6 +35,7 @@ export function PortfolioSignalsShell({
       viewerStanding={viewerStanding}
       theyStandWithViewer={theyStandWithViewer}
       relationshipLoading={relationshipLoading}
+      countRoll={countRoll}
     />
   );
 }
