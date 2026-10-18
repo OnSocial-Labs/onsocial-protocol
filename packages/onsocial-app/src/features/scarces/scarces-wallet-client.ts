@@ -1,5 +1,6 @@
 import type { NearWalletBase } from '@hot-labs/near-connect';
 import type { OnSocial } from '@onsocial/sdk';
+import { fixedSaleAskYocto } from '@/features/scarces/scarce-buy-quote';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { viewNearContract } from '@/lib/app-near-rpc';
 import { createAppOnSocialClient } from '@/lib/create-app-onsocial-client';
@@ -41,6 +42,22 @@ export class LazyListingNotFoundError extends Error {
     super(`Listing ${listingId} is no longer available.`);
     this.name = 'LazyListingNotFoundError';
   }
+}
+
+/**
+ * Fixed-price ask in yoctoNEAR from `get_sale`, or null when that token has
+ * no fixed listing. Throws when the contract view itself fails.
+ */
+export async function readFixedSalePriceYocto(
+  tokenId: string
+): Promise<string | null> {
+  const id = tokenId.trim();
+  if (!id) return null;
+  const sale = await viewNearContract<unknown>(SCARCES_CONTRACT, 'get_sale', {
+    scarce_contract_id: SCARCES_CONTRACT,
+    token_id: id,
+  });
+  return fixedSaleAskYocto(sale);
 }
 
 /** Listing price in yoctoNEAR from the live contract, or null if missing. */

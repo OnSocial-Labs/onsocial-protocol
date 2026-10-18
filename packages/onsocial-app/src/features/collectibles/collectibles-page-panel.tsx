@@ -22,6 +22,11 @@ import {
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { accountIdsEqual } from '@/lib/account-match';
+import {
+  forgetCollectiblesPlace,
+  registerCollectiblesForget,
+} from '@/lib/catalog-trade';
 import {
   invalidateOwnedVaultCache,
   peekOwnedVaultFaces,
@@ -45,7 +50,6 @@ import {
   MARKET_MEDIUM_FILTERS,
   type MarketMediumFilter,
 } from '@/features/market/market-medium';
-import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_DROP_CREATE_PATH,
   APP_HOME_PATH,
@@ -57,6 +61,11 @@ import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsLoadMore } from '@/lib/os-load-more';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { usePlaceScroll } from '@/hooks/use-place-scroll';
+import {
+  CATALOG_PLACE_MEMORY_TTL_MS,
+  mergeCatalogHead,
+} from '@/lib/catalog-place-memory';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
 import {
   listOfflineAlbums,
@@ -108,6 +117,49 @@ const EMPTY_HOLDINGS: HoldingsState = {
   loadKey: null,
   failed: false,
 };
+
+type CollectiblesPlaceEntry = {
+  at: number;
+  holdings: HoldingsState;
+};
+
+/** Full vault list for this tab. Page-zero peek stays the short Market cache. */
+const collectiblesPlaces = new Map<string, CollectiblesPlaceEntry>();
+/** Accounts whose snapshot must not be rewritten until the next successful fetch. */
+const collectiblesVaultDirty = new Set<string>();
+
+function collectiblesPlaceKey(accountId: string): string {
+  return accountId.trim().toLowerCase();
+}
+
+function peekCollectiblesPlace(accountId: string): HoldingsState | null {
+  const key = collectiblesPlaceKey(accountId);
+  if (!key) return null;
+  const hit = collectiblesPlaces.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > CATALOG_PLACE_MEMORY_TTL_MS) {
+    collectiblesPlaces.delete(key);
+    return null;
+  }
+  return hit.holdings;
+}
+
+function writeCollectiblesPlace(
+  accountId: string,
+  holdings: HoldingsState
+): void {
+  const key = collectiblesPlaceKey(accountId);
+  if (!key || holdings.failed || holdings.items.length === 0) return;
+  if (collectiblesVaultDirty.has(key)) return;
+  collectiblesPlaces.set(key, { at: Date.now(), holdings });
+}
+
+registerCollectiblesForget((accountId) => {
+  const key = collectiblesPlaceKey(accountId);
+  if (!key) return;
+  collectiblesVaultDirty.add(key);
+  collectiblesPlaces.delete(key);
+});
 
 function holdingsStateFromItems(
   items: OwnedScarceItem[],
@@ -179,6 +231,10 @@ export function CollectiblesPagePanel({
     const account = ownerAccountId;
     if (!account) return EMPTY_HOLDINGS;
     const loadKey = `${account}:0`;
+    const place = peekCollectiblesPlace(account);
+    if (place && place.items.length > 0 && !place.failed) {
+      return { ...place, loadKey, failed: false };
+    }
     const cached = peekOwnedVaultPage(account);
     if (cached) {
       return holdingsStateFromItems(
@@ -207,6 +263,11 @@ export function CollectiblesPagePanel({
   );
   const [transferOpen, setTransferOpen] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
+  usePlaceScroll(
+    `collectibles:${ownerAccountId ?? ''}`,
+    scrollRootRef,
+    holdings.items.length
+  );
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const [scrollTuckPinned, setScrollTuckPinned] = useState(false);
   const holdingsRef = useRef(holdings);
@@ -216,6 +277,23 @@ export function CollectiblesPagePanel({
   useEffect(() => {
     holdingsRef.current = holdings;
   });
+  useEffect(() => {
+    return registerCollectiblesForget((accountId) => {
+      if (!ownerAccountId || !accountIdsEqual(accountId, ownerAccountId)) {
+        return;
+      }
+      setRetryKey((n) => n + 1);
+    });
+  }, [ownerAccountId]);
+  useEffect(() => {
+    return () => {
+      const snap = holdingsRef.current;
+      const mark = snap.loadKey?.lastIndexOf(':') ?? -1;
+      const account = mark > 0 ? snap.loadKey!.slice(0, mark) : '';
+      if (!account) return;
+      writeCollectiblesPlace(account, snap);
+    };
+  }, []);
   useEffect(() => {
     pageQueryRef.current = pageQuery;
   });
@@ -320,9 +398,7 @@ export function CollectiblesPagePanel({
         ...pageQuery,
         facets: next.facets !== undefined ? next.facets : selectedFacets,
         audioFormat:
-          next.audioFormat !== undefined
-            ? next.audioFormat
-            : audioFormatFilter,
+          next.audioFormat !== undefined ? next.audioFormat : audioFormatFilter,
         creator: next.creator !== undefined ? next.creator : creatorFilter,
         series: next.series !== undefined ? next.series : seriesFilter,
       });
@@ -350,6 +426,15 @@ export function CollectiblesPagePanel({
     // Client-side filter is enough once this owner's vault is fully in memory.
     if (sameKeyReady && (!urlDiscoveryActive || !current.hasMore)) {
       return;
+    }
+    if (current.items.length === 0 && !current.failed) {
+      const place = peekCollectiblesPlace(ownerAccountId);
+      if (place && place.items.length > 0 && !place.failed) {
+        const restored = { ...place, loadKey, failed: false as const };
+        holdingsRef.current = restored;
+        setHoldings(restored);
+        if (!urlDiscoveryActive || !restored.hasMore) return;
+      }
     }
 
     let cancelled = false;
@@ -379,9 +464,33 @@ export function CollectiblesPagePanel({
         },
         faces && faces.size > 0 ? Object.fromEntries(faces) : undefined
       );
-      setHoldings(
-        holdingsStateFromItems(items, nextFromEnd, hasMore, loadKey)
-      );
+      setHoldings((prev) => {
+        const keepTail =
+          !urlDiscoveryActive &&
+          prev.loadKey?.startsWith(`${ownerAccountId}:`) &&
+          prev.items.length > items.length;
+        const next = keepTail
+          ? {
+              items: mergeCatalogHead(
+                prev.items,
+                items.map(toPortfolioHoldingPeek),
+                (item) => item.tokenId
+              ),
+              owned: mergeCatalogHead(
+                prev.owned,
+                items,
+                (item) => item.tokenId
+              ),
+              nextFromEnd: prev.nextFromEnd,
+              hasMore: prev.hasMore,
+              loadKey,
+              failed: false,
+            }
+          : holdingsStateFromItems(items, nextFromEnd, hasMore, loadKey);
+        collectiblesVaultDirty.delete(collectiblesPlaceKey(ownerAccountId));
+        writeCollectiblesPlace(ownerAccountId, next);
+        return next;
+      });
     };
 
     const facesForItems = async (
@@ -398,10 +507,7 @@ export function CollectiblesPagePanel({
       const { fetchCollectionCreatorFaces } = await import(
         '@/features/scarces/collection-creator-face'
       );
-      return fetchCollectionCreatorFaces(
-        createReadOnlyOnSocialClient(),
-        ids
-      );
+      return fetchCollectionCreatorFaces(createReadOnlyOnSocialClient(), ids);
     };
 
     void (async () => {
@@ -414,9 +520,7 @@ export function CollectiblesPagePanel({
           data.accountId &&
           data.accountId === ownerAccountId
         ) {
-          const seedFaces = new Map(
-            Object.entries(data.creatorFaces ?? {})
-          );
+          const seedFaces = new Map(Object.entries(data.creatorFaces ?? {}));
           const faces =
             seedFaces.size > 0
               ? seedFaces
@@ -521,13 +625,15 @@ export function CollectiblesPagePanel({
               nextOwned.push(row);
             }
           }
-          return {
+          const next = {
             ...prev,
             items: nextItems,
             owned: nextOwned,
             nextFromEnd: page.nextFromEnd,
             hasMore: page.hasMore,
           };
+          writeCollectiblesPlace(ownerAccountId, next);
+          return next;
         });
       })
       .catch(() => {
@@ -556,25 +662,19 @@ export function CollectiblesPagePanel({
   const selfOfflineReady = isSelf ? offlineReady : true;
   const vaultItems = useMemo(
     () =>
-      sameOwnerHoldings
-        ? holdings.items
-        : isSelf
-          ? selfOfflineHoldings
-          : [],
+      sameOwnerHoldings ? holdings.items : isSelf ? selfOfflineHoldings : [],
     [sameOwnerHoldings, holdings.items, isSelf, selfOfflineHoldings]
   );
   const usingOfflineLibrary =
     isSelf && !sameOwnerHoldings && selfOfflineHoldings.length > 0;
   const hasPaintedRows = vaultItems.length > 0;
-  const loadingPresentation =
-    loadingMore
-      ? resolveAppLoadingPresentation('appending', { hasPaintedRows })
-      : status === 'loading'
-        ? resolveAppLoadingPresentation(
-            hasPaintedRows ? 'refreshing' : 'cold',
-            { hasPaintedRows }
-          )
-        : null;
+  const loadingPresentation = loadingMore
+    ? resolveAppLoadingPresentation('appending', { hasPaintedRows })
+    : status === 'loading'
+      ? resolveAppLoadingPresentation(hasPaintedRows ? 'refreshing' : 'cold', {
+          hasPaintedRows,
+        })
+      : null;
   const errorPresentation =
     status === 'error' || liveListError
       ? resolveAppLoadingPresentation('error', { hasPaintedRows })
@@ -652,11 +752,7 @@ export function CollectiblesPagePanel({
         if (ownerAccountId) {
           const cached = peekOwnedVaultPage(ownerAccountId);
           if (cached) {
-            putOwnedVaultPage(
-              ownerAccountId,
-              cached,
-              Object.fromEntries(next)
-            );
+            putOwnedVaultPage(ownerAccountId, cached, Object.fromEntries(next));
           }
         }
         return next;
@@ -679,7 +775,11 @@ export function CollectiblesPagePanel({
 
   const displayGroups = useMemo(
     () =>
-      sortHoldingsLibrary(groupHoldingsLibrary(filtered), librarySort, displayNames),
+      sortHoldingsLibrary(
+        groupHoldingsLibrary(filtered),
+        librarySort,
+        displayNames
+      ),
     [filtered, librarySort, displayNames]
   );
   const inventorySource = useMemo(
@@ -730,8 +830,9 @@ export function CollectiblesPagePanel({
   }, [holdings.owned]);
 
   const refreshOwned = useCallback(() => {
-    if (viewerAccountId) invalidateOwnedVaultCache(viewerAccountId);
-    setRetryKey((n) => n + 1);
+    if (!viewerAccountId) return;
+    invalidateOwnedVaultCache(viewerAccountId);
+    forgetCollectiblesPlace(viewerAccountId);
   }, [viewerAccountId]);
 
   const clientDiscoveryFilterActive =
@@ -818,10 +919,7 @@ export function CollectiblesPagePanel({
   const dockBackHref = portfolioBackHref ?? APP_HOME_PATH;
 
   const body = (
-    <div
-      className={VAULT_PAGE_CLASS}
-      data-collectibles-back={dockBackHref}
-    >
+    <div className={VAULT_PAGE_CLASS} data-collectibles-back={dockBackHref}>
       {/*
        * One-pane frost owner — zero-height sticky band; its ::before sheets
        * the header zone + one strip slot below the rail, so a docking account
@@ -893,22 +991,24 @@ export function CollectiblesPagePanel({
           </p>
           {isSelf ? (
             <div className="collectibles-empty-actions">
-              <OsEmptyAction href={APP_MARKET_PATH}>Browse Market</OsEmptyAction>
+              <OsEmptyAction href={APP_MARKET_PATH}>
+                Browse Market
+              </OsEmptyAction>
               <OsEmptyAction href={APP_DROP_CREATE_PATH}>
                 Create a drop
               </OsEmptyAction>
             </div>
           ) : (
             <div className="collectibles-empty-actions">
-              <OsEmptyAction href={APP_MARKET_PATH}>Browse Market</OsEmptyAction>
+              <OsEmptyAction href={APP_MARKET_PATH}>
+                Browse Market
+              </OsEmptyAction>
             </div>
           )}
         </div>
       ) : null}
 
-      {emptySearch ? (
-        <p className="market-page-status">No matches.</p>
-      ) : null}
+      {emptySearch ? <p className="market-page-status">No matches.</p> : null}
 
       {emptyFilter ? (
         <div className="market-page-empty">
@@ -1026,9 +1126,7 @@ export function CollectiblesPagePanel({
               selectedSeries={seriesFilter}
               sort={librarySort}
               jumpCreators={jumpCreators}
-              onSortChange={(sort) =>
-                replacePageQuery({ ...pageQuery, sort })
-              }
+              onSortChange={(sort) => replacePageQuery({ ...pageQuery, sort })}
               onMediumChange={setMediumFilter}
               onAudioFormatChange={(format) =>
                 replaceDiscoveryParams({ audioFormat: format })
@@ -1046,34 +1144,34 @@ export function CollectiblesPagePanel({
       </OsAppScreen>
       {isSelf ? (
         <>
-        <ScarceSellSheet
-          open={sellOpen && sellItem != null}
-          item={sellItem}
-          sellerAccountId={viewerAccountId}
-          onOpenChange={(open) => {
-            setSellOpen(open);
-            if (!open) setSellItem(null);
-          }}
-          onListed={() => {
-            setSellOpen(false);
-            setSellItem(null);
-            refreshOwned();
-          }}
-        />
-        <ScarceTransferSheet
-          open={transferOpen && transferItem != null}
-          item={transferItem}
-          ownerAccountId={viewerAccountId}
-          onOpenChange={(open) => {
-            setTransferOpen(open);
-            if (!open) setTransferItem(null);
-          }}
-          onTransferred={() => {
-            setTransferOpen(false);
-            setTransferItem(null);
-            refreshOwned();
-          }}
-        />
+          <ScarceSellSheet
+            open={sellOpen && sellItem != null}
+            item={sellItem}
+            sellerAccountId={viewerAccountId}
+            onOpenChange={(open) => {
+              setSellOpen(open);
+              if (!open) setSellItem(null);
+            }}
+            onListed={() => {
+              setSellOpen(false);
+              setSellItem(null);
+              refreshOwned();
+            }}
+          />
+          <ScarceTransferSheet
+            open={transferOpen && transferItem != null}
+            item={transferItem}
+            ownerAccountId={viewerAccountId}
+            onOpenChange={(open) => {
+              setTransferOpen(open);
+              if (!open) setTransferItem(null);
+            }}
+            onTransferred={() => {
+              setTransferOpen(false);
+              setTransferItem(null);
+              refreshOwned();
+            }}
+          />
         </>
       ) : null}
     </>

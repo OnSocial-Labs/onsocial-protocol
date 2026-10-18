@@ -1,6 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePlaceScroll } from '@/hooks/use-place-scroll';
+import {
+  CATALOG_PLACE_MEMORY_TTL_MS,
+  mergeCatalogHead,
+} from '@/lib/catalog-place-memory';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -63,6 +68,7 @@ import { DROPS_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
+import { registerDropForget, registerDropReprice } from '@/lib/catalog-trade';
 import {
   EMPTY_DROPS_PAGE_QUERY,
   dropsQueryPath,
@@ -74,8 +80,8 @@ import {
 /** Debounce before search keystrokes hit the indexer (snappy, still typed). */
 const SEARCH_DEBOUNCE_MS = 200;
 
-/** Keep recent catalog pages so flipping back is instant. */
-const CATALOG_CACHE_TTL_MS = 90_000;
+/** Same lifetime as the scroll line for this tab. */
+const CATALOG_CACHE_TTL_MS = CATALOG_PLACE_MEMORY_TTL_MS;
 const CATALOG_CACHE_MAX_ENTRIES = 12;
 
 type CatalogCacheEntry = {
@@ -83,6 +89,50 @@ type CatalogCacheEntry = {
   hasMore: boolean;
   at: number;
 };
+
+/** Survives leaving Drops so a return paints the pages already loaded. */
+const dropsCatalogPages = new Map<string, CatalogCacheEntry>();
+
+function peekFreshDropsCatalog(
+  key: string,
+  now: number = Date.now()
+): CatalogCacheEntry | null {
+  const hit = dropsCatalogPages.get(key);
+  if (!hit) return null;
+  if (now - hit.at > CATALOG_CACHE_TTL_MS) {
+    dropsCatalogPages.delete(key);
+    return null;
+  }
+  return hit;
+}
+
+function forgetDropCatalog(collectionId: string): void {
+  for (const [key, entry] of dropsCatalogPages) {
+    const items = entry.items.filter(
+      (item) => item.collectionId !== collectionId
+    );
+    if (items.length === entry.items.length) continue;
+    if (items.length === 0) dropsCatalogPages.delete(key);
+    else dropsCatalogPages.set(key, { ...entry, items });
+  }
+}
+
+function repriceDropCatalog(collectionId: string, priceNear: string): void {
+  for (const [key, entry] of dropsCatalogPages) {
+    let changed = false;
+    const items = entry.items.map((item) => {
+      if (item.collectionId !== collectionId || item.priceNear === priceNear) {
+        return item;
+      }
+      changed = true;
+      return { ...item, priceNear };
+    });
+    if (changed) dropsCatalogPages.set(key, { ...entry, items });
+  }
+}
+
+registerDropForget(forgetDropCatalog);
+registerDropReprice(repriceDropCatalog);
 
 function dropsCatalogCacheKey(opts: {
   sort: DropsSort;
@@ -528,24 +578,28 @@ export function DropsPagePanel({
 
   const [query, setQuery] = useState(initialSearch);
   const [debouncedQuery, setDebouncedQuery] = useState(initialSearch);
-  const [items, setItems] = useState<DropDiscoveryItem[]>([]);
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const seedCatalogKey = dropsCatalogCacheKey({
+    sort: seedQuery.sort,
+    medium: seedQuery.kind,
+    audioFormat: seedQuery.audioFormat,
+    search: initialSearch,
+    viewer: '',
+  });
+  const seededCatalog = peekFreshDropsCatalog(seedCatalogKey);
+  const [items, setItems] = useState<DropDiscoveryItem[]>(
+    () => seededCatalog?.items ?? []
+  );
+  const [offset, setOffset] = useState(() => seededCatalog?.items.length ?? 0);
+  const [hasMore, setHasMore] = useState(() => seededCatalog?.hasMore ?? false);
+  const [loading, setLoading] = useState(() => seededCatalog == null);
   const [refreshing, setRefreshing] = useState(false);
   const [failed, setFailed] = useState(false);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const [activeCatalogKey, setActiveCatalogKey] = useState(() =>
-    dropsCatalogCacheKey({
-      sort: seedQuery.sort,
-      medium: seedQuery.kind,
-      audioFormat: seedQuery.audioFormat,
-      search: '',
-      viewer: '',
-    })
+  const [activeCatalogKey, setActiveCatalogKey] = useState(
+    () => seedCatalogKey
   );
-  const catalogCacheRef = useRef<Map<string, CatalogCacheEntry>>(new Map());
+  usePlaceScroll(`drops:${activeCatalogKey}`, scrollRootRef, items.length);
   const reloadGenRef = useRef(0);
   const fanFillAttemptedRef = useRef<Set<string>>(new Set());
   const [allowlistById, setAllowlistById] = useState<
@@ -629,18 +683,18 @@ export function DropsPagePanel({
       key: string,
       patch: (entry: CatalogCacheEntry) => CatalogCacheEntry | null
     ) => {
-      const current = catalogCacheRef.current.get(key);
+      const current = dropsCatalogPages.get(key);
       if (!current) return;
       const next = patch(current);
-      if (next) catalogCacheRef.current.set(key, next);
-      else catalogCacheRef.current.delete(key);
+      if (next) dropsCatalogPages.set(key, next);
+      else dropsCatalogPages.delete(key);
     },
     []
   );
 
   const writeCatalogCache = useCallback(
     (key: string, entry: CatalogCacheEntry) => {
-      const cache = catalogCacheRef.current;
+      const cache = dropsCatalogPages;
       cache.set(key, entry);
       if (cache.size <= CATALOG_CACHE_MAX_ENTRIES) return;
       // Drop oldest by `at` (Map insertion order is not age after patches).
@@ -656,6 +710,51 @@ export function DropsPagePanel({
     },
     []
   );
+
+  const dropsLeaveRef = useRef({
+    key: activeCatalogKey,
+    items,
+    hasMore,
+  });
+  useEffect(() => {
+    dropsLeaveRef.current = { key: activeCatalogKey, items, hasMore };
+  });
+  useEffect(() => {
+    return () => {
+      const snap = dropsLeaveRef.current;
+      if (!snap.key || snap.items.length === 0) return;
+      writeCatalogCache(snap.key, {
+        items: snap.items,
+        hasMore: snap.hasMore,
+        at: Date.now(),
+      });
+    };
+  }, [writeCatalogCache]);
+  useEffect(() => {
+    const unforget = registerDropForget((collectionId) => {
+      const leave = dropsLeaveRef.current;
+      dropsLeaveRef.current = {
+        ...leave,
+        items: leave.items.filter((item) => item.collectionId !== collectionId),
+      };
+      setItems((current) =>
+        current.filter((item) => item.collectionId !== collectionId)
+      );
+    });
+    const unreprice = registerDropReprice((collectionId, priceNear) => {
+      const retag = (rows: DropDiscoveryItem[]) =>
+        rows.map((item) =>
+          item.collectionId === collectionId ? { ...item, priceNear } : item
+        );
+      const leave = dropsLeaveRef.current;
+      dropsLeaveRef.current = { ...leave, items: retag(leave.items) };
+      setItems((current) => retag(current));
+    });
+    return () => {
+      unforget();
+      unreprice();
+    };
+  }, []);
 
   const reload = useCallback(
     async (
@@ -678,9 +777,8 @@ export function DropsPagePanel({
       setLoadMoreFailed(false);
       fanFillAttemptedRef.current = new Set();
 
-      const cached = catalogCacheRef.current.get(cacheKey);
-      const cacheFresh =
-        cached != null && Date.now() - cached.at < CATALOG_CACHE_TTL_MS;
+      const cached = peekFreshDropsCatalog(cacheKey);
+      const cacheFresh = cached != null;
       if (cacheFresh && cached) {
         // Instant flip-back — paint cache, then soft-revalidate.
         setItems(cached.items);
@@ -712,18 +810,34 @@ export function DropsPagePanel({
         });
         const useSeed =
           Boolean(seedPromise) && !nextSearch && nextKey === seedKey;
+        const adoptPage = (
+          pageItems: DropDiscoveryItem[],
+          pageHasMore: boolean
+        ) => {
+          const prior = cacheFresh && cached ? cached.items : [];
+          const nextItems = mergeCatalogHead(
+            prior,
+            pageItems,
+            (item) => item.collectionId
+          );
+          const keptTail = nextItems.length > pageItems.length;
+          const nextHasMore = keptTail
+            ? Boolean(cached?.hasMore) || pageHasMore
+            : pageHasMore;
+          writeCatalogCache(cacheKey, {
+            items: nextItems,
+            hasMore: nextHasMore,
+            at: Date.now(),
+          });
+          setItems(nextItems);
+          setOffset(nextItems.length);
+          setHasMore(nextHasMore);
+        };
         if (useSeed && seedPromise) {
           const data = await seedPromise;
           if (gen !== reloadGenRef.current) return;
           if (data) {
-            writeCatalogCache(cacheKey, {
-              items: data.items,
-              hasMore: data.hasMore,
-              at: Date.now(),
-            });
-            setItems(data.items);
-            setOffset(data.items.length);
-            setHasMore(data.hasMore);
+            adoptPage(data.items, data.hasMore);
             return;
           }
         }
@@ -736,14 +850,7 @@ export function DropsPagePanel({
           viewerAccountId: accountId,
         });
         if (gen !== reloadGenRef.current) return;
-        writeCatalogCache(cacheKey, {
-          items: page.items,
-          hasMore: page.hasMore,
-          at: Date.now(),
-        });
-        setItems(page.items);
-        setOffset(page.items.length);
-        setHasMore(page.hasMore);
+        adoptPage(page.items, page.hasMore);
       } catch {
         if (gen !== reloadGenRef.current) return;
         setFailed(true);

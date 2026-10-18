@@ -64,7 +64,9 @@ import { fetchScarceRoyaltyMap } from '@/features/scarces/scarce-royalty-fetch';
 import { ScarceTraits } from '@/features/scarces/scarce-traits';
 import {
   createAppScarcesWalletClient,
+  fetchLazyListingPriceYocto,
   LazyListingNotFoundError,
+  readFixedSalePriceYocto,
   resolveLazyListingDepositYocto,
 } from '@/features/scarces/scarces-wallet-client';
 import {
@@ -87,17 +89,31 @@ import {
   type DollarPayToken,
 } from '@/features/scarces/dollar-purchase';
 import { scarceBuyAfford } from '@/features/scarces/scarce-buy-afford';
+import {
+  judgeDropAsk,
+  judgeNearAsk,
+  settleBuyAsk,
+} from '@/features/scarces/scarce-buy-quote';
+import {
+  forgetCollectiblesPlace,
+  forgetDrop,
+  forgetMarketListing,
+  repriceDrop,
+  repriceMarketListing,
+} from '@/lib/catalog-trade';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   nearToYocto,
+  yoctoToNear,
   normalizeFtBalanceYocto,
   viewNearContract,
 } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { parseDropPaintSnapshot, parsePostText } from '@/lib/post-display';
 import {
+  scarceAskNote,
   txToastConfirming,
   txToastError,
   txToastSuccess,
@@ -107,6 +123,12 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 export interface ScarceBuySuccessDetail {
   listingId?: string;
   tokenId?: string;
+}
+
+export interface ScarceBuyGoneDetail {
+  listingId?: string;
+  tokenId?: string;
+  collectionId?: string;
 }
 
 interface ScarceBuyFormProps {
@@ -144,6 +166,8 @@ interface ScarceBuyFormProps {
   /** Profile display name for text-card preview byline. */
   authorName?: string | null;
   onSuccess?: (detail: ScarceBuySuccessDetail) => void;
+  /** Listing sold or the drop closed before the wallet opened. */
+  onListingGone?: (detail: ScarceBuyGoneDetail) => void;
   /** Secondary path for fixed-price resales — opens offer sheet. */
   onMakeOffer?: (detail?: { amountNear?: string | null }) => void;
   /** Viewer already owns an edition — Mint/Buy another. */
@@ -211,6 +235,7 @@ export function ScarceBuyForm({
   embed = null,
   authorName = null,
   onSuccess,
+  onListingGone,
   onMakeOffer,
   alreadyOwnsEdition: alreadyOwnsEditionProp = false,
   onFooterStateChange,
@@ -274,6 +299,9 @@ export function ScarceBuyForm({
     kind: string | null;
     description: string | null;
   } | null>(null);
+  const [quotedPriceNear, setQuotedPriceNear] = useState<string | null>(null);
+  const [quotedRemaining, setQuotedRemaining] = useState<number | null>(null);
+  const [askNote, setAskNote] = useState<string | null>(null);
   const [openOfferNear, setOpenOfferNear] = useState<string | null>(
     () => listing?.viewerOfferNear?.trim() || null
   );
@@ -289,9 +317,9 @@ export function ScarceBuyForm({
     embed?.collectionId?.trim() ||
     (tokenId ? collectionIdFromTokenId(tokenId) : null) ||
     undefined;
-  const priceNear = listing?.priceNear ?? embed?.priceNear;
+  const priceNear = quotedPriceNear ?? listing?.priceNear ?? embed?.priceNear;
   const copies = listing?.copies ?? embed?.copies;
-  const remaining = listing?.remaining ?? embed?.remaining;
+  const remaining = quotedRemaining ?? listing?.remaining ?? embed?.remaining;
   const mediumKind =
     listing?.mediumKind?.trim() || embed?.mediumKind?.trim() || null;
   const supplyUnit = supplyUnitForMediumKind(mediumKind).unit;
@@ -832,6 +860,8 @@ export function ScarceBuyForm({
         trackTransaction,
       });
       if (!confirmed) return;
+      forgetMarketListing({ tokenId, listingId });
+      forgetCollectiblesPlace(signer);
       onSuccess?.({
         ...(listingId ? { listingId } : {}),
         ...(tokenId ? { tokenId } : {}),
@@ -1002,6 +1032,159 @@ export function ScarceBuyForm({
     resolvedDescription,
   ]);
 
+  function markListingGone() {
+    if (isDropBuy && collectionId) {
+      forgetDrop(collectionId);
+      if (post) {
+        setScarceEmbedOverride(postScarceKey(post.accountId, post.postId), {
+          status: 'sold',
+          collectionId,
+          ...(priceNear ? { priceNear } : {}),
+          events: [],
+        });
+      }
+    } else {
+      forgetMarketListing({ tokenId, listingId });
+      if (post) {
+        setScarceEmbedOverride(postScarceKey(post.accountId, post.postId), {
+          status: 'none',
+          events: [],
+        });
+      }
+    }
+    setTxResult({
+      type: 'error',
+      msg: isDropBuy ? txToastError.dropClosed : txToastError.scarceJustSold,
+    });
+    onListingGone?.({
+      ...(listingId ? { listingId } : {}),
+      ...(tokenId ? { tokenId } : {}),
+      ...(collectionId ? { collectionId } : {}),
+    });
+  }
+
+  function holdNewAsk(price: string, nextRemaining?: number) {
+    setQuotedPriceNear(price);
+    if (nextRemaining != null) setQuotedRemaining(nextRemaining);
+    if (isDropBuy && collectionId) repriceDrop(collectionId, price);
+    else repriceMarketListing({ tokenId, listingId, priceNear: price });
+    setAskNote(scarceAskNote.priceChanged);
+  }
+
+  async function readAskBeforeWallet(): Promise<
+    { proceed: true; yocto: string | null } | { proceed: false }
+  > {
+    type Read =
+      | { kind: 'drop'; verdict: ReturnType<typeof judgeDropAsk> }
+      | { kind: 'near'; verdict: ReturnType<typeof judgeNearAsk> }
+      | { kind: 'skip' }
+      | { kind: 'failed' };
+    let read: Read = { kind: 'skip' };
+    try {
+      if (isDropBuy && collectionId) {
+        const row =
+          await createReadOnlyOnSocialClient().query.scarces.collectionCurrent(
+            collectionId
+          );
+        read = {
+          kind: 'drop',
+          verdict: judgeDropAsk({
+            shownPriceNear: priceNear,
+            row: row
+              ? {
+                  price: row.price,
+                  remaining: row.remaining,
+                  paused: row.paused,
+                  cancelled: row.cancelled,
+                  banned: row.banned,
+                }
+              : null,
+          }),
+        };
+      } else if (isMarketBuy && tokenId) {
+        const quoted = await readFixedSalePriceYocto(tokenId);
+        read = {
+          kind: 'near',
+          verdict: judgeNearAsk({
+            shownPriceNear: priceNear,
+            quotedYocto: quoted,
+          }),
+        };
+      } else if (isLazyBuy && listingId) {
+        const quoted = await fetchLazyListingPriceYocto(listingId);
+        read = {
+          kind: 'near',
+          verdict: judgeNearAsk({
+            shownPriceNear: priceNear,
+            quotedYocto: quoted,
+          }),
+        };
+      }
+    } catch {
+      read = { kind: 'failed' };
+    }
+
+    const ask = settleBuyAsk(read);
+    if (ask.status === 'gone') {
+      markListingGone();
+      return { proceed: false };
+    }
+
+    if (dollarSticker && dollarScope && dollarId) {
+      try {
+        const fresh = await fetchDollarSticker(dollarScope, dollarId);
+        if (!fresh || fresh.usdE6 !== dollarSticker.usdE6) {
+          if (!fresh) {
+            setDollarSticker(null);
+            setDollarOracle(null);
+          } else {
+            setDollarSticker(fresh);
+          }
+          if (ask.status === 'price') {
+            holdNewAsk(ask.priceNear, ask.remaining);
+            return { proceed: false };
+          }
+          if (!fresh && ask.status === 'open') {
+            setQuotedPriceNear(yoctoToNear(ask.yocto));
+            if (ask.remaining != null) setQuotedRemaining(ask.remaining);
+          }
+          setAskNote(scarceAskNote.priceChanged);
+          return { proceed: false };
+        }
+        if (
+          ask.status === 'open' &&
+          ask.remaining != null &&
+          ask.remaining < mintQty
+        ) {
+          setQuotedRemaining(ask.remaining);
+          setAskNote(scarceAskNote.fewerLeft(ask.remaining));
+          return { proceed: false };
+        }
+        if (ask.status === 'open' && ask.remaining != null) {
+          setQuotedRemaining(ask.remaining);
+        }
+        return { proceed: true, yocto: null };
+      } catch {
+        // Sticker lookup failed — buy with the price already on screen.
+      }
+    }
+
+    if (ask.status === 'failed' || ask.status === 'skip') {
+      return { proceed: true, yocto: null };
+    }
+    if (ask.status === 'price') {
+      holdNewAsk(ask.priceNear, ask.remaining);
+      return { proceed: false };
+    }
+    if (ask.remaining != null && ask.remaining < mintQty) {
+      setQuotedRemaining(ask.remaining);
+      setAskNote(scarceAskNote.fewerLeft(ask.remaining));
+      return { proceed: false };
+    }
+    if (ask.remaining != null) setQuotedRemaining(ask.remaining);
+    return { proceed: true, yocto: ask.yocto };
+  }
+
   async function handleSubmit() {
     setFieldError(null);
 
@@ -1028,10 +1211,13 @@ export function ScarceBuyForm({
 
     setPending(true);
     try {
+      const ask = await readAskBeforeWallet();
+      if (!ask.proceed) return;
       // Wallet only — paid scarces must not bootstrap the core social session.
       const { accountId, wallet } = await getSigningWallet();
       const client = createAppScarcesWalletClient(accountId, wallet);
-      const fallbackDeposit = priceNear ? nearToYocto(priceNear) : null;
+      const fallbackDeposit =
+        ask.yocto ?? (priceNear ? nearToYocto(priceNear) : null);
 
       if (dollarSticker && dollarOracle && dollarScope && dollarId) {
         const confirmed = await purchaseDollarScarce({
@@ -1109,19 +1295,27 @@ export function ScarceBuyForm({
         if (!confirmed) return;
       }
 
-      if (post) {
-        const key = postScarceKey(post.accountId, post.postId);
-        if (isDropBuy && collectionId) {
-          const shell = await createReadOnlyOnSocialClient()
-            .query.scarces.collectionCurrent(collectionId)
-            .catch(() => null);
-          const nextRemaining = shell?.remaining;
-          if (nextRemaining != null && nextRemaining > 0) {
+      if (isDropBuy && collectionId) {
+        const shell = await createReadOnlyOnSocialClient()
+          .query.scarces.collectionCurrent(collectionId)
+          .catch(() => null);
+        const nextRemaining = shell?.remaining;
+        const closed =
+          !shell ||
+          shell.paused ||
+          shell.cancelled ||
+          shell.banned ||
+          nextRemaining == null ||
+          nextRemaining <= 0;
+        if (closed) forgetDrop(collectionId);
+        if (post) {
+          const key = postScarceKey(post.accountId, post.postId);
+          if (!closed && shell && nextRemaining != null) {
             setScarceEmbedOverride(key, {
               status: 'drop',
               collectionId,
               ...(priceNear ? { priceNear } : {}),
-              ...(shell?.totalSupply != null
+              ...(shell.totalSupply != null
                 ? { copies: shell.totalSupply }
                 : copies != null
                   ? { copies }
@@ -1137,16 +1331,36 @@ export function ScarceBuyForm({
               events: [],
             });
           }
-        } else {
-          // Multi-copy: keep Buy live while the listing still has editions.
-          const live =
-            isLazyBuy && listingId
-              ? await findLiveListingForPost(
-                  post.accountId,
-                  post.accountId,
-                  post.postId
-                )
-              : null;
+        }
+      } else if (isMarketBuy) {
+        forgetMarketListing({ tokenId, listingId });
+        if (post) {
+          setScarceEmbedOverride(postScarceKey(post.accountId, post.postId), {
+            status: 'sold',
+            ...(listingId ? { listingId } : {}),
+            ...(tokenId ? { tokenId } : {}),
+            ...(priceNear ? { priceNear } : {}),
+            events: [],
+          });
+        }
+      } else if (isLazyBuy && listingId) {
+        const live = post
+          ? await findLiveListingForPost(
+              post.accountId,
+              post.accountId,
+              post.postId
+            )
+          : null;
+        let stillThere = Boolean(live?.listingId);
+        if (!post) {
+          const quoted = await fetchLazyListingPriceYocto(listingId).catch(
+            () => undefined
+          );
+          stillThere = quoted !== null;
+        }
+        if (!stillThere) forgetMarketListing({ tokenId, listingId });
+        if (post) {
+          const key = postScarceKey(post.accountId, post.postId);
           if (live?.listingId) {
             setScarceEmbedOverride(key, {
               status: 'lazy_listing',
@@ -1170,17 +1384,12 @@ export function ScarceBuyForm({
         }
       }
 
+      forgetCollectiblesPlace(accountId);
       onSuccess?.({ listingId, tokenId });
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
       if (cause instanceof LazyListingNotFoundError) {
-        if (post) {
-          setScarceEmbedOverride(postScarceKey(post.accountId, post.postId), {
-            status: 'none',
-            events: [],
-          });
-        }
-        setFieldError('This listing is gone. Refresh and try another.');
+        markListingGone();
         return;
       }
       setTxResult({
@@ -1309,6 +1518,11 @@ export function ScarceBuyForm({
                   onOpenFacts={() => setFactsOpen(true)}
                 />
               </div>
+              {askNote ? (
+                <p className="scarce-buy-ask-note" role="status">
+                  {askNote}
+                </p>
+              ) : null}
               {dollarSticker ? (
                 <p className="profile-support-hint">
                   {!dollarOracle

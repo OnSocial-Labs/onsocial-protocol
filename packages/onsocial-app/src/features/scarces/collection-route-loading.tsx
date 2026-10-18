@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { CollectionPageSkeleton } from '@/features/scarces/collection-page-skeleton';
 import { collectionChildLeaveHref } from '@/features/scarces/collection-page-view';
+import { useCatalogDockBack } from '@/hooks/use-catalog-dock-back';
 import { APP_DROPS_PATH } from '@/lib/app-routes';
 import { DOOR_PAGE_CLASS } from '@/lib/os-chrome-page';
 
@@ -13,12 +14,14 @@ function collectionIdFromParams(params: { collectionId?: string | string[] }) {
   return typeof id === 'string' ? id : '';
 }
 
-/** Route `loading.tsx` — visitor leave is Drops until the panel knows the holder. */
+/** Route `loading.tsx` — cold leave is Drops until the panel knows the holder. */
 export function CollectionPageLoadingScreen() {
+  const onDockBack = useCatalogDockBack(APP_DROPS_PATH);
   return (
     <OsAppScreen
       title="Drop"
       dockBack
+      onDockBack={onDockBack}
       backFallbackHref={APP_DROPS_PATH}
       immersiveHeader
     >

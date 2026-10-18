@@ -4,7 +4,8 @@ import {
   COLLECTIBLES_VAULT_OWNER,
   stubCollectiblesVaultGraph,
 } from './helpers/collectibles-vault';
-import { setE2eGraphVault } from './helpers/e2e-graph';
+import { setE2eGraphMarket, setE2eGraphVault } from './helpers/e2e-graph';
+import { stubMarketLiveFirstBrowse } from './helpers/market-live-first';
 import {
   clickTab,
   closeMarketFilter,
@@ -82,7 +83,9 @@ test.describe('market discovery', () => {
     const emptyTickets = page.getByText(/Nothing in Tickets right now/);
     const ticketRow = marketListingResults(page).locator('.market-listing-row');
     const loadError = page.getByText(/Couldn’t load listings/);
-    await expect(emptyTickets.or(ticketRow.first()).or(loadError)).toBeVisible();
+    await expect(
+      emptyTickets.or(ticketRow.first()).or(loadError)
+    ).toBeVisible();
     await expect(marketListSkeleton(page)).toHaveCount(0);
   });
 
@@ -93,9 +96,13 @@ test.describe('market discovery', () => {
     await expectMarketChrome(page);
     await expectMarketFilterSummary(page, 'Thoughts');
     const emptyThoughts = page.getByText(/Nothing in Thoughts right now/);
-    const thoughtRow = marketListingResults(page).locator('.market-listing-row');
+    const thoughtRow = marketListingResults(page).locator(
+      '.market-listing-row'
+    );
     const loadError = page.getByText(/Couldn’t load listings/);
-    await expect(emptyThoughts.or(thoughtRow.first()).or(loadError)).toBeVisible();
+    await expect(
+      emptyThoughts.or(thoughtRow.first()).or(loadError)
+    ).toBeVisible();
   });
 
   test('deep-links ending soon sort onto Auctions', async ({ page }) => {
@@ -153,5 +160,31 @@ test.describe('market discovery', () => {
       .getByRole('link', { name: 'Open drop for Gate Pass' })
       .click({ position: { x: 16, y: 16 } });
     await expect(page).toHaveURL(/\/collection\/gate-pass/);
+  });
+
+  test('dock Back from a listing drop returns to Market', async ({ page }) => {
+    await setE2eGraphMarket(page, 'live-first');
+    await stubMarketLiveFirstBrowse(page);
+    await gotoApp(page, '/market');
+    await expectMarketChrome(page);
+
+    const search = page.getByRole('textbox', {
+      name: 'Search Market listings',
+    });
+    await search.fill('e2e-live-first');
+    const liveRow = page.locator(
+      '[data-market-listing-group="live"] .market-listing-row'
+    );
+    await expect(liveRow).toBeVisible({ timeout: 30_000 });
+    await liveRow
+      .getByRole('link', { name: 'Open drop for e2e-live-first Live Ask' })
+      .click();
+    await expect(page).toHaveURL(/\/collection\/e2e-live/);
+
+    await page.getByRole('button', { name: 'Back' }).click();
+    await expect(page).toHaveURL(/\/market/);
+    await expect(page).not.toHaveURL(/\/collection\//);
+    await expect(page).not.toHaveURL(/\/drops/);
+    await expect(search).toBeVisible();
   });
 });

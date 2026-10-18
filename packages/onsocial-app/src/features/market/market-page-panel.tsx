@@ -1,6 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePlaceScroll } from '@/hooks/use-place-scroll';
+import {
+  CATALOG_PLACE_MEMORY_TTL_MS,
+  mergeCatalogHead,
+} from '@/lib/catalog-place-memory';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -81,6 +86,15 @@ import {
   invalidateOwnedVaultCache,
   peekOwnedVaultPage,
 } from '@/features/market/owned-vault-cache';
+import {
+  forgetCollectiblesPlace,
+  forgetMarketListing,
+  marketListingMatches,
+  registerDropForget,
+  registerDropReprice,
+  registerMarketForget,
+  registerMarketReprice,
+} from '@/lib/catalog-trade';
 import { MarketOfferRow } from '@/features/market/market-offer-row';
 import {
   MarketOwnedRow,
@@ -170,9 +184,63 @@ const CREATOR_DROPS_PAGE = 48;
 const SEARCH_DEBOUNCE_MS = 300;
 /** Mute last rows only if the live check is still in flight — skip flicker on fast hits. */
 const CATALOG_REFRESH_MUTE_MS = 160;
-/** Keep recent catalog pages so flipping back is instant. */
-const CATALOG_CACHE_TTL_MS = 90_000;
+/** Same lifetime as the scroll line for this tab. */
+const CATALOG_CACHE_TTL_MS = CATALOG_PLACE_MEMORY_TTL_MS;
 const CATALOG_CACHE_MAX_ENTRIES = 12;
+
+/** Survives leaving Market so a return paints the pages already loaded. */
+const marketCatalogPages = new Map<string, MarketCatalogCacheEntry>();
+
+function peekFreshMarketCatalog(
+  key: string,
+  now: number = Date.now()
+): MarketCatalogCacheEntry | null {
+  const hit = marketCatalogPages.get(key);
+  if (!hit) return null;
+  if (now - hit.at > CATALOG_CACHE_TTL_MS) {
+    marketCatalogPages.delete(key);
+    return null;
+  }
+  return hit;
+}
+
+function stripMarketCatalog(target: {
+  tokenId?: string;
+  listingId?: string;
+}): void {
+  for (const [key, entry] of marketCatalogPages) {
+    const items = entry.items.filter(
+      (item) => !marketListingMatches(item, target)
+    );
+    if (items.length === entry.items.length) continue;
+    if (items.length === 0) marketCatalogPages.delete(key);
+    else marketCatalogPages.set(key, { ...entry, items });
+  }
+}
+
+function repriceMarketCatalog(target: {
+  tokenId?: string;
+  listingId?: string;
+  priceNear: string;
+}): void {
+  for (const [key, entry] of marketCatalogPages) {
+    let changed = false;
+    const items = entry.items.map((item) => {
+      if (
+        !marketListingMatches(item, target) ||
+        item.priceNear === target.priceNear
+      ) {
+        return item;
+      }
+      changed = true;
+      return { ...item, priceNear: target.priceNear };
+    });
+    if (changed) marketCatalogPages.set(key, { ...entry, items });
+  }
+}
+
+registerMarketForget(stripMarketCatalog);
+registerMarketReprice(repriceMarketCatalog);
 
 type MarketCatalogCacheEntry = {
   items: MarketListingItem[];
@@ -217,6 +285,39 @@ const EMPTY_LISTINGS: ListingsState = {
   hasMore: false,
   failed: false,
 };
+
+function seedMarketListings(seed: MarketPageQuery): ListingsState {
+  const sort = seed.sort;
+  const listingFilter = seed.creator ? 'all' : listingFilterFromSort(sort);
+  const discoveryParamsKey = `${seed.kind}|${seed.facets.join(',')}|${seed.audioFormat ?? ''}`;
+  const cacheKey = marketCatalogCacheKey({
+    listingFilter,
+    listingSort: sort,
+    search: '',
+    creatorFilter: seed.creator ?? '',
+    appFilter: seed.app ?? '',
+    discoveryParamsKey,
+  });
+  const cached = peekFreshMarketCatalog(cacheKey);
+  if (!cached || cached.items.length === 0) return EMPTY_LISTINGS;
+  return {
+    paramsKey: marketBrowseParamsKey({
+      retryKey: 0,
+      listingFilter,
+      sort,
+      search: '',
+      creator: seed.creator,
+      app: seed.app,
+      kind: seed.kind,
+      facets: seed.facets,
+      audioFormat: seed.audioFormat,
+    }),
+    items: cached.items,
+    nextOffset: cached.nextOffset,
+    hasMore: cached.hasMore,
+    failed: false,
+  };
+}
 
 /** Newest-first pages of wallet-owned scarces (RPC, capped). */
 interface OwnedState {
@@ -296,8 +397,9 @@ export function MarketPagePanel({
   const audioFormatFilter = query.audioFormat;
   const urlSort = query.sort;
   const [retryKey, setRetryKey] = useState(0);
-  const [listingsState, setListingsState] =
-    useState<ListingsState>(EMPTY_LISTINGS);
+  const [listingsState, setListingsState] = useState<ListingsState>(() =>
+    seedMarketListings(seedQuery)
+  );
   const [creatorDrops, setCreatorDrops] = useState<ProfileStoreDrop[]>([]);
   const [creatorDropsHasMore, setCreatorDropsHasMore] = useState(false);
   const [creatorDropOffset, setCreatorDropOffset] = useState(0);
@@ -370,9 +472,6 @@ export function MarketPagePanel({
   const scrollRootRef = useRef<HTMLElement | null>(null);
   /** Bumped on each first-page fetch so in-flight loadMore cannot append stale pages. */
   const listingsFetchGenRef = useRef(0);
-  const catalogCacheRef = useRef<Map<string, MarketCatalogCacheEntry>>(
-    new Map()
-  );
   /** Last non-search catalog — restore instantly when the field X clears a miss. */
   const lastBrowseCatalogRef = useRef<Omit<
     MarketCatalogCacheEntry,
@@ -400,7 +499,7 @@ export function MarketPagePanel({
 
   const writeCatalogCache = useCallback(
     (key: string, entry: Omit<MarketCatalogCacheEntry, 'at'>) => {
-      const cache = catalogCacheRef.current;
+      const cache = marketCatalogPages;
       cache.delete(key);
       cache.set(key, { ...entry, at: Date.now() });
       while (cache.size > CATALOG_CACHE_MAX_ENTRIES) {
@@ -486,6 +585,106 @@ export function MarketPagePanel({
     appFilter,
     discoveryParamsKey,
   });
+  usePlaceScroll(
+    `market:${catalogCacheKey}`,
+    scrollRootRef,
+    listingsState.items.length
+  );
+  const catalogLeaveRef = useRef({
+    key: catalogCacheKey,
+    items: listingsState.items,
+    nextOffset: listingsState.nextOffset,
+    hasMore: listingsState.hasMore,
+  });
+  useEffect(() => {
+    catalogLeaveRef.current = {
+      key: catalogCacheKey,
+      items: listingsState.items,
+      nextOffset: listingsState.nextOffset,
+      hasMore: listingsState.hasMore,
+    };
+  });
+  useEffect(() => {
+    return () => {
+      const snap = catalogLeaveRef.current;
+      if (!snap.key || snap.items.length === 0) return;
+      writeCatalogCache(snap.key, {
+        items: snap.items,
+        nextOffset: snap.nextOffset,
+        hasMore: snap.hasMore,
+      });
+    };
+  }, [writeCatalogCache]);
+  useEffect(() => {
+    const unforget = registerMarketForget((target) => {
+      const strip = (items: MarketListingItem[]) =>
+        items.filter((row) => !marketListingMatches(row, target));
+      const browse = lastBrowseCatalogRef.current;
+      if (browse) {
+        const items = strip(browse.items);
+        lastBrowseCatalogRef.current =
+          items.length > 0 ? { ...browse, items } : null;
+      }
+      const leave = catalogLeaveRef.current;
+      catalogLeaveRef.current = { ...leave, items: strip(leave.items) };
+      setListingsState((current) => {
+        const items = strip(current.items);
+        return items.length === current.items.length
+          ? current
+          : { ...current, items };
+      });
+    });
+    const unreprice = registerMarketReprice((target) => {
+      const retag = (items: MarketListingItem[]) => {
+        let changed = false;
+        const next = items.map((row) => {
+          if (
+            !marketListingMatches(row, target) ||
+            row.priceNear === target.priceNear
+          ) {
+            return row;
+          }
+          changed = true;
+          return { ...row, priceNear: target.priceNear };
+        });
+        return changed ? next : items;
+      };
+      const browse = lastBrowseCatalogRef.current;
+      if (browse) {
+        const items = retag(browse.items);
+        if (items !== browse.items) {
+          lastBrowseCatalogRef.current = { ...browse, items };
+        }
+      }
+      const leave = catalogLeaveRef.current;
+      const leaveItems = retag(leave.items);
+      if (leaveItems !== leave.items) {
+        catalogLeaveRef.current = { ...leave, items: leaveItems };
+      }
+      setListingsState((current) => {
+        const items = retag(current.items);
+        return items === current.items ? current : { ...current, items };
+      });
+    });
+    const unforgetDrop = registerDropForget((collectionId) => {
+      setCreatorDrops((current) =>
+        current.filter((drop) => drop.collectionId !== collectionId)
+      );
+    });
+    const unrepriceDrop = registerDropReprice((collectionId, priceNear) => {
+      setCreatorDrops((current) =>
+        current.map((drop) =>
+          drop.collectionId === collectionId ? { ...drop, priceNear } : drop
+        )
+      );
+    });
+    return () => {
+      unforget();
+      unreprice();
+      unforgetDrop();
+      unrepriceDrop();
+    };
+  }, []);
   const browseListingsParamsKey = marketBrowseParamsKey({
     retryKey,
     listingFilter: shopListingFilter,
@@ -522,11 +721,8 @@ export function MarketPagePanel({
       setListingQuery(next);
       if (next.trim()) return;
       setDebouncedQuery('');
-      const cached = catalogCacheRef.current.get(browseCatalogCacheKey);
-      const snap =
-        cached != null && Date.now() - cached.at < CATALOG_CACHE_TTL_MS
-          ? cached
-          : lastBrowseCatalogRef.current;
+      const cached = peekFreshMarketCatalog(browseCatalogCacheKey);
+      const snap = cached ?? lastBrowseCatalogRef.current;
       if (!snap) return;
       setListingsState({
         paramsKey: browseListingsParamsKey,
@@ -580,11 +776,8 @@ export function MarketPagePanel({
     setListingsError(null);
 
     const bypassCache = retryKey > 0;
-    const cached = bypassCache
-      ? undefined
-      : catalogCacheRef.current.get(catalogCacheKey);
-    const cacheFresh =
-      cached != null && Date.now() - cached.at < CATALOG_CACHE_TTL_MS;
+    const cached = bypassCache ? null : peekFreshMarketCatalog(catalogCacheKey);
+    const cacheFresh = cached != null;
     const browseSnap = lastBrowseCatalogRef.current;
 
     let paintedRows = false;
@@ -637,27 +830,27 @@ export function MarketPagePanel({
     const applyPage = (page: MarketListingsPage) => {
       if (cancelled || gen !== listingsFetchGenRef.current) return;
       setListingsError(null);
-      writeCatalogCache(catalogCacheKey, {
-        items: page.items,
-        nextOffset: page.nextOffset,
-        hasMore: page.hasMore,
-      });
-      if (!debouncedQuery) {
-        rememberBrowseCatalog({
-          items: page.items,
+      setListingsState((current) => {
+        const sameCatalog = current.paramsKey === listingsParamsKey;
+        const items = sameCatalog
+          ? mergeCatalogHead(current.items, page.items, marketListingRowKey)
+          : page.items;
+        const next = {
+          items,
           nextOffset: page.nextOffset,
           hasMore: page.hasMore,
-        });
-      }
-      setListingsState((current) => {
-        if (catalogPageMatches(current, page, listingsParamsKey)) {
+        };
+        writeCatalogCache(catalogCacheKey, next);
+        if (!debouncedQuery) rememberBrowseCatalog(next);
+        if (
+          sameCatalog &&
+          catalogPageMatches(current, { ...page, items }, listingsParamsKey)
+        ) {
           return current.failed ? { ...current, failed: false } : current;
         }
         return {
           paramsKey: listingsParamsKey,
-          items: page.items,
-          nextOffset: page.nextOffset,
-          hasMore: page.hasMore,
+          ...next,
           failed: false,
         };
       });
@@ -1502,7 +1695,10 @@ export function MarketPagePanel({
 
   const handleListed = useCallback(() => {
     setSellItem(null);
-    if (viewerAccountId) invalidateOwnedVaultCache(viewerAccountId);
+    if (viewerAccountId) {
+      invalidateOwnedVaultCache(viewerAccountId);
+      forgetCollectiblesPlace(viewerAccountId);
+    }
     setRetryKey((value) => value + 1);
   }, [viewerAccountId]);
 
@@ -1532,6 +1728,11 @@ export function MarketPagePanel({
         });
         if (!confirmed) return;
 
+        forgetMarketListing({
+          tokenId: item.tokenId,
+          listingId: item.listingId,
+        });
+        if (viewerAccountId) forgetCollectiblesPlace(viewerAccountId);
         setListingsState((current) => ({
           ...current,
           items: current.items.filter(
@@ -1574,7 +1775,13 @@ export function MarketPagePanel({
         setCancelRowKey(null);
       }
     },
-    [cancelRowKey, getSigningWallet, setTxResult, trackTransaction]
+    [
+      cancelRowKey,
+      getSigningWallet,
+      setTxResult,
+      trackTransaction,
+      viewerAccountId,
+    ]
   );
 
   const handleSettleOwned = useCallback(

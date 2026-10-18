@@ -200,7 +200,7 @@ export const OS_LEAVE_MAP = [
     dockBack: true,
     parent: APP_DROPS_PATH,
     verdict: 'matches',
-    note: 'Visitor leave is Drops. Holder leave is the vault. Launcher lights Drops. In-app Discover Just sold opens as an appear page sheet over the current place.',
+    note: 'Cold leave is Drops. A holder’s cold leave is the vault. In this tab, dock Back returns to the screen that opened the drop. Launcher lights Drops. In-app Discover Just sold opens as an appear page sheet over the current place.',
   },
   {
     id: 'drop-loading',
@@ -209,7 +209,7 @@ export const OS_LEAVE_MAP = [
     dockBack: true,
     parent: APP_DROPS_PATH,
     verdict: 'matches',
-    note: 'Route loading uses Drops. Client skeleton uses collectionDropBackHref.',
+    note: 'Cold leave is Drops. In this tab, dock Back returns to the screen that opened the drop. The client skeleton uses the same return, then collectionDropBackHref once the holder is known.',
   },
   {
     id: 'series-loading',
