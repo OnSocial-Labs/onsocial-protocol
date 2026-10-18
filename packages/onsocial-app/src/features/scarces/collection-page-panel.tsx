@@ -25,6 +25,7 @@ import {
   ShopFillIcon,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { RollingNumber } from '@/components/ui/rolling-number';
 import { useCatalogDockBack } from '@/hooks/use-catalog-dock-back';
 import { useImmersiveTitleHandoff } from '@/hooks/use-immersive-title-handoff';
 import {
@@ -87,6 +88,7 @@ import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import {
   collectionStatusLabel,
   deriveCollectionStatus,
+  dropSupplyShouldPoll,
   fetchAllowlistRemaining,
   fetchCollectionPreferIndexer,
   fetchOwnedCollectionTokenId,
@@ -97,6 +99,7 @@ import {
   type CollectionStatus,
   type CollectionView,
 } from '@/features/scarces/collections-data';
+import { useLiveDropSupply } from '@/features/scarces/use-live-drop-supply';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
 import {
   canCancelDrop,
@@ -585,6 +588,9 @@ export function CollectionPagePanel({
     return () => window.clearInterval(id);
   }, [hasClock]);
 
+  const supplyLive = view != null && dropSupplyShouldPoll(view, nowMs);
+  useLiveDropSupply(collectionId, supplyLive, setView);
+
   const handoffKey = collectionCoverImmersive({
     hasMedia: hasImmersiveCover,
     kind: view?.kind,
@@ -609,9 +615,57 @@ export function CollectionPagePanel({
     ((needsAllowlist && allowlistOk && !allowlistPending) ||
       (status === 'live' && mintable));
 
+  const maxQuantity = useMemo(() => {
+    if (!view) return 1;
+    const caps = [view.remaining];
+    if (walletRemaining != null) caps.push(walletRemaining);
+    if (view.maxPerWallet != null) caps.push(view.maxPerWallet);
+    if (needsAllowlist && allowlistRemaining != null) {
+      caps.push(allowlistRemaining);
+    }
+    const positive = caps.filter((n) => n > 0);
+    if (positive.length === 0) return 1;
+    const cap = Math.min(...positive, 10);
+    return Math.max(1, Number.isFinite(cap) ? cap : 1);
+  }, [view, walletRemaining, allowlistRemaining, needsAllowlist]);
+
+  const mintListing = useMemo(() => {
+    if (!view) return null;
+    return {
+      status: 'drop' as const,
+      collectionId: view.collectionId,
+      priceNear: view.priceNear ?? '0',
+      title: view.title,
+      ...(view.description?.trim()
+        ? { description: view.description.trim() }
+        : {}),
+      mediaUrl: view.mediaUrl,
+      creatorId: view.creatorId,
+      artistId: view.creatorId,
+      ...(view.cardBg ? { cardBg: view.cardBg } : {}),
+      copies: view.totalSupply,
+      remaining: view.remaining,
+      mediumKind: view.kind,
+      maxQuantity,
+      ...(view.sourcePostPath ? { sourcePostPath: view.sourcePostPath } : {}),
+      ...(view.playables.length > 0
+        ? {
+            playable: view.playables[0],
+            playables: view.playables,
+          }
+        : {}),
+      alreadyOwnsEdition: holdsEdition === true,
+    };
+  }, [view, holdsEdition, maxQuantity]);
+
+  // The open mint sheet keeps the ask it opened with. The next press re-reads.
+  const [heldMintListing, setHeldMintListing] =
+    useState<typeof mintListing>(null);
+
   const openMintSheet = useCallback(() => {
+    setHeldMintListing(mintListing);
     setMintOpen(true);
-  }, []);
+  }, [mintListing]);
   const openOwnerPost = useCallback(() => {
     if (!view) return;
     requestDropCompose({
@@ -743,49 +797,6 @@ export function CollectionPagePanel({
     setActivityClosing(false);
     setActivityOpen(false);
   }, []);
-
-  const maxQuantity = useMemo(() => {
-    if (!view) return 1;
-    const caps = [view.remaining];
-    if (walletRemaining != null) caps.push(walletRemaining);
-    if (view.maxPerWallet != null) caps.push(view.maxPerWallet);
-    if (needsAllowlist && allowlistRemaining != null) {
-      caps.push(allowlistRemaining);
-    }
-    const positive = caps.filter((n) => n > 0);
-    if (positive.length === 0) return 1;
-    const cap = Math.min(...positive, 10);
-    return Math.max(1, Number.isFinite(cap) ? cap : 1);
-  }, [view, walletRemaining, allowlistRemaining, needsAllowlist]);
-
-  const mintListing = useMemo(() => {
-    if (!view) return null;
-    return {
-      status: 'drop' as const,
-      collectionId: view.collectionId,
-      priceNear: view.priceNear ?? '0',
-      title: view.title,
-      ...(view.description?.trim()
-        ? { description: view.description.trim() }
-        : {}),
-      mediaUrl: view.mediaUrl,
-      creatorId: view.creatorId,
-      artistId: view.creatorId,
-      ...(view.cardBg ? { cardBg: view.cardBg } : {}),
-      copies: view.totalSupply,
-      remaining: view.remaining,
-      mediumKind: view.kind,
-      maxQuantity,
-      ...(view.sourcePostPath ? { sourcePostPath: view.sourcePostPath } : {}),
-      ...(view.playables.length > 0
-        ? {
-            playable: view.playables[0],
-            playables: view.playables,
-          }
-        : {}),
-      alreadyOwnsEdition: holdsEdition === true,
-    };
-  }, [view, holdsEdition, maxQuantity]);
 
   const catalogShell = collectionCatalogShell({
     hasView: view != null,
@@ -1412,7 +1423,17 @@ export function CollectionPagePanel({
                     </>
                   ) : null}
                   <span className="collection-commerce-supply">
-                    {view.minted}/{view.totalSupply}
+                    <span className="sr-only">
+                      {view.minted}/{view.totalSupply}
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="collection-commerce-supply-figures"
+                    >
+                      <RollingNumber value={view.minted} />
+                      <span className="collection-commerce-supply-sep">/</span>
+                      <RollingNumber value={view.totalSupply} />
+                    </span>
                   </span>
                   {dollarStickerLabel(view.usdE6) ||
                   (view.priceNear &&
@@ -1769,7 +1790,7 @@ export function CollectionPagePanel({
 
       <ScarceBuySheet
         open={mintOpen}
-        listing={mintListing}
+        listing={mintOpen ? heldMintListing : mintListing}
         alreadyOwnsEdition={holdsEdition === true}
         onOpenChange={setMintOpen}
         onPurchased={handleMintPurchased}

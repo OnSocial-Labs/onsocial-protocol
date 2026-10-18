@@ -17,6 +17,10 @@ import {
   stubCollectionPageGraph,
 } from './helpers/collection-page';
 import { setE2eGraphDrop, setE2eGraphDrops } from './helpers/e2e-graph';
+import { e2eDropCollectionRow } from '../src/lib/e2e-graph-stubs';
+
+/** Keep in step with `LIVE_DROP_SUPPLY_MS` in use-live-drop-supply.ts. */
+const LIVE_DROP_SUPPLY_MS = 8_000;
 
 const HOLDER_BACK = `/@${COLLECTION_E2E_VIEWER}/collectibles`;
 
@@ -105,9 +109,7 @@ test.describe('collection drop page', () => {
         collectionPageRoot(page).locator('.collection-title')
       ).toHaveText('Chapter One');
       await expectCollectionVisitorChrome(page);
-      await expect(
-        page.getByRole('region', { name: 'Reading' })
-      ).toBeVisible();
+      await expect(page.getByRole('region', { name: 'Reading' })).toBeVisible();
       const read = page.getByRole('button', { name: 'Read', exact: true });
       await expect(read).toBeVisible();
       await expectOsRowAction(read);
@@ -589,5 +591,45 @@ test.describe('collection drop page', () => {
     await expect(sheet.getByText('1 match', { exact: true })).toBeVisible();
     await expect(sheet.getByText('alex.near')).toHaveCount(0);
     await expect(sheet.getByText('2 sold · 2 holding')).toHaveCount(0);
+  });
+
+  test('the open drop supply follows a later read', async ({ page }) => {
+    await setE2eGraphDrop(page, 'default');
+    let mintedCount = 2;
+    await page.route('**/api/onapi/graph/query', async (route) => {
+      const raw = route.request().postData() ?? '';
+      const oneDrop =
+        raw.includes('ScarcesCollectionCurrent') &&
+        !raw.includes('ScarcesCollectionsCurrent');
+      if (!oneDrop) {
+        await route.continue();
+        return;
+      }
+      const row = {
+        ...e2eDropCollectionRow('night-drive'),
+        mintedCount,
+        remaining: 10 - mintedCount,
+      };
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: { scarcesCollectionsCurrent: [row] },
+        }),
+      });
+    });
+
+    await gotoApp(page, '/collection/night-drive');
+    const supply = collectionPageRoot(page).locator(
+      '.collection-commerce-supply .sr-only'
+    );
+    await expect(supply).toHaveText('2/10');
+    mintedCount = 5;
+    await expect(supply).toHaveText('5/10', {
+      timeout: LIVE_DROP_SUPPLY_MS + 4_000,
+    });
+    await expect(
+      collectionPageRoot(page).locator('.os-rolling-number')
+    ).toHaveCount(2);
   });
 });
