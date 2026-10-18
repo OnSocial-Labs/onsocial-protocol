@@ -58,6 +58,10 @@ describe('sortThreadReplyRows', () => {
         viewerReposted: false,
         viewerRepostId: null,
         viewerRepostGroupId: null,
+        reactionRoll: 0,
+        amplifyRoll: 0,
+        replyRoll: 0,
+        shareRoll: 0,
       },
     };
     const sorted = sortThreadReplyRows(rows, 'trending', engagement);

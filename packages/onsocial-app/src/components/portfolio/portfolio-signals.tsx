@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { ProtocolMotionArrow } from '@onsocial/ui';
 import { endorsementsPath } from '@/lib/overlay-routes';
 import { standingPath } from '@/lib/profile-social-standings';
-import { formatCount, formatFaceReputation } from '@/lib/profile-display';
+import { RollingNumber } from '@/components/ui/rolling-number';
+import { formatFaceReputation } from '@/lib/profile-display';
 import type { ProfileSignals } from '@/lib/profile-signals';
 
 interface PortfolioSignalsProps {
@@ -18,6 +19,8 @@ interface PortfolioSignalsProps {
   theyStandWithViewer?: boolean;
   /** Viewer relationship is still resolving; avoid false relationship highlights. */
   relationshipLoading?: boolean;
+  /** Bumps when the viewer's stand or endorsement confirms. */
+  countRoll?: number;
 }
 
 const metricInnerClass = 'signal-metric-inner';
@@ -56,6 +59,7 @@ export function PortfolioSignals({
   viewerStanding = false,
   theyStandWithViewer = false,
   relationshipLoading = false,
+  countRoll = 0,
 }: PortfolioSignalsProps) {
   const relationshipKnown = !relationshipLoading;
   const sharedSolidarity =
@@ -85,7 +89,11 @@ export function PortfolioSignals({
               <span className={metricInnerClass}>
                 <ProtocolMotionArrow className={arrowClass} />
                 <span className={signalValueClass(signals.standingCount)}>
-                  {formatCount(signals.standingCount)}
+                  <RollingNumber
+                    value={signals.standingCount}
+                    rollSignal={countRoll}
+                    grouped
+                  />
                 </span>
               </span>
             </Link>
@@ -100,7 +108,11 @@ export function PortfolioSignals({
             >
               <span className={metricInnerClass}>
                 <span className={signalValueClass(signals.standingWithCount)}>
-                  {formatCount(signals.standingWithCount)}
+                  <RollingNumber
+                    value={signals.standingWithCount}
+                    rollSignal={countRoll}
+                    grouped
+                  />
                 </span>
                 <ProtocolMotionArrow className={arrowClass} />
               </span>
@@ -120,7 +132,11 @@ export function PortfolioSignals({
               <span className={metricInnerClass}>
                 <ProtocolMotionArrow direction="in" className={arrowClass} />
                 <span className={signalValueClass(signals.mutualStandingCount)}>
-                  {formatCount(signals.mutualStandingCount)}
+                  <RollingNumber
+                    value={signals.mutualStandingCount}
+                    rollSignal={countRoll}
+                    grouped
+                  />
                 </span>
                 <ProtocolMotionArrow
                   className={`${arrowClass} signal-metric-arrow--out`}
@@ -147,7 +163,11 @@ export function PortfolioSignals({
                       signals.endorsementsReceivedCount
                     )}
                   >
-                    {formatCount(signals.endorsementsReceivedCount)}
+                    <RollingNumber
+                      value={signals.endorsementsReceivedCount}
+                      rollSignal={countRoll}
+                      grouped
+                    />
                   </span>
                 </span>
               </Link>
@@ -164,7 +184,11 @@ export function PortfolioSignals({
                   <span
                     className={signalValueClass(signals.endorsementsGivenCount)}
                   >
-                    {formatCount(signals.endorsementsGivenCount)}
+                    <RollingNumber
+                      value={signals.endorsementsGivenCount}
+                      rollSignal={countRoll}
+                      grouped
+                    />
                   </span>
                   <ProtocolMotionArrow className={arrowClass} />
                 </span>

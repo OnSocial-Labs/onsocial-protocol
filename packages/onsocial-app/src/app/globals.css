@@ -11748,6 +11748,14 @@ a.os-surface-row {
     outline: none;
   }
 
+  .portfolio-writing-article-like-count.is-idle {
+    width: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
   .portfolio-writing-article-action-icon {
     display: block;
     width: 1.05rem;
@@ -26066,7 +26074,8 @@ a.os-surface-row {
     cursor: pointer;
   }
 
-  .post-card-react-cluster:has(.post-card-like-count) .post-card-react-heart {
+  .post-card-react-cluster:has(.post-card-like-count:not(.is-idle))
+    .post-card-react-heart {
     padding-right: 0.16rem;
   }
 
@@ -26092,6 +26101,29 @@ a.os-surface-row {
   .post-card-like-count:focus-visible {
     color: inherit;
     outline: none;
+  }
+
+  .post-card-like-count.is-idle {
+    width: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .post-card-count-slot {
+    display: inline-flex;
+    height: 1em;
+    overflow: hidden;
+    vertical-align: bottom;
+  }
+
+  .post-card-count-slot:not(.is-visible) {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    pointer-events: none;
   }
 
   .post-card-engagement-count {
@@ -26143,6 +26175,12 @@ a.os-surface-row {
     height: 1em;
     line-height: 1;
     text-align: center;
+  }
+
+  .os-rolling-sep {
+    display: inline-block;
+    height: 1em;
+    line-height: 1;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -42855,11 +42893,19 @@ a.os-surface-row {
    * muted ink, fg on hover.
    */
   .thread-controls-row {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
     margin: 0.1rem 0 0.35rem;
+  }
+
+  .thread-controls-row.is-idle {
+    height: 0;
+    margin: 0;
+    overflow: hidden;
+    pointer-events: none;
   }
 
   .thread-controls-spacer {
@@ -42908,6 +42954,16 @@ a.os-surface-row {
     font-weight: 600;
     text-decoration: none;
     transition: color 160ms ease;
+  }
+
+  .thread-view-quotes.is-idle {
+    position: absolute;
+    width: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    pointer-events: none;
   }
 
   .thread-view-quotes:hover,

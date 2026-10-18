@@ -42,6 +42,7 @@ import {
   submitPersonalUnrepost,
 } from '@/features/home/submit-personal-post';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
+import { dispatchPersonalQuoteConfirmed } from '@/features/scarces/drop-compose-host';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -496,6 +497,9 @@ export function LivePersonalPostPanel({
         } else {
           scheduleReconcile();
         }
+        if (modalMode === 'quote') {
+          dispatchPersonalQuoteConfirmed(target);
+        }
         if (modalMode === 'reply') {
           clearWriteDockDraft(writeDockDraftKey('post', postKey(target)));
         }
@@ -842,28 +846,33 @@ export function LivePersonalPostPanel({
 
           <Divider variant="detail" />
 
-          {replyListRows.length > 0 || shareRow ? (
-            <div className="thread-controls-row">
-              {replyListRows.length > 0 ? (
-                <ThreadRepliesSortButton
-                  sort={replySort}
-                  onChange={setReplySort}
-                />
-              ) : (
-                <span className="thread-controls-spacer" aria-hidden />
-              )}
-              {shareRow ? (
-                <ThreadViewQuotesRow
-                  href={threadShareRowHref(
-                    personalPostQuotesPath(author, postId),
-                    shareRow
-                  )}
-                  label={shareRow.label}
-                  count={shareRow.count}
-                />
-              ) : null}
-            </div>
-          ) : null}
+          <div
+            className={`thread-controls-row${
+              replyListRows.length > 0 || shareRow ? '' : ' is-idle'
+            }`}
+          >
+            {replyListRows.length > 0 ? (
+              <ThreadRepliesSortButton
+                sort={replySort}
+                onChange={setReplySort}
+              />
+            ) : (
+              <span className="thread-controls-spacer" aria-hidden />
+            )}
+            <ThreadViewQuotesRow
+              href={
+                shareRow
+                  ? threadShareRowHref(
+                      personalPostQuotesPath(author, postId),
+                      shareRow
+                    )
+                  : personalPostQuotesPath(author, postId)
+              }
+              label={shareRow?.label ?? 'View quotes'}
+              count={shareRow?.count ?? 0}
+              rollSignal={rootEngagement?.shareRoll ?? 0}
+            />
+          </div>
 
           <div className="guild-connected-stack">
             {replyListRows.length > 0 ? (

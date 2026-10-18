@@ -5,6 +5,7 @@ import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { subscribePersonalQuoteConfirmed } from '@/features/scarces/drop-compose-host';
 import { postKey } from '@/lib/post-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
@@ -23,6 +24,14 @@ export interface PostEngagement {
   viewerReposted: boolean;
   viewerRepostId: string | null;
   viewerRepostGroupId: string | null;
+  /** Bumps only when the viewer's own like confirms, so other cards stay still. */
+  reactionRoll: number;
+  /** Bumps only when the viewer's own amplify confirms. */
+  amplifyRoll: number;
+  /** Bumps only when the viewer's own reply confirms. */
+  replyRoll: number;
+  /** Bumps when the viewer's repost, undo, or quote confirms. */
+  shareRoll: number;
 }
 
 export interface EngagementMap {
@@ -55,6 +64,7 @@ export function confirmedReactionEngagement(
       0,
       previous.reactionCount + (applied ? 1 : -1)
     ),
+    reactionRoll: previous.reactionRoll + 1,
   };
 }
 
@@ -70,6 +80,10 @@ export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
   viewerReposted: false,
   viewerRepostId: null,
   viewerRepostGroupId: null,
+  reactionRoll: 0,
+  amplifyRoll: 0,
+  replyRoll: 0,
+  shareRoll: 0,
 };
 
 /**
@@ -120,6 +134,12 @@ export function mergeEngagementSoftUpgrade(
         replyCount: previous.replyCount,
       };
     }
+    if (previous && next.quoteCount < previous.quoteCount) {
+      next = {
+        ...next,
+        quoteCount: previous.quoteCount,
+      };
+    }
     if (unrepostedKeys.has(key) && next.viewerReposted) {
       next = {
         ...next,
@@ -137,7 +157,15 @@ export function mergeEngagementSoftUpgrade(
         repostCount: Math.max(next.repostCount, previous.repostCount),
       };
     }
-    merged[key] = next;
+    merged[key] = previous
+      ? {
+          ...next,
+          reactionRoll: previous.reactionRoll,
+          amplifyRoll: previous.amplifyRoll,
+          replyRoll: previous.replyRoll,
+          shareRoll: previous.shareRoll,
+        }
+      : next;
   }
   return merged;
 }
@@ -277,6 +305,7 @@ export function usePostEngagement(
         const amplify = amplifyCounts[target.path];
         const viewerRepost = viewerReposts.get(target.path);
         next[target.key] = {
+          ...EMPTY_POST_ENGAGEMENT,
           replyCount: counts?.replyCount ?? 0,
           quoteCount: counts?.quoteCount ?? 0,
           repostCount: counts?.repostCount ?? 0,
@@ -437,6 +466,7 @@ export function usePostEngagement(
           [key]: {
             ...previous,
             amplifyCount: previous.amplifyCount + 1,
+            amplifyRoll: previous.amplifyRoll + 1,
           },
         };
       }
@@ -446,6 +476,7 @@ export function usePostEngagement(
           ...previous,
           viewerAmplified: true,
           amplifyCount: previous.amplifyCount + 1,
+          amplifyRoll: previous.amplifyRoll + 1,
         },
       };
     });
@@ -483,6 +514,7 @@ export function usePostEngagement(
             viewerRepostId: viewerRepost.postId,
             viewerRepostGroupId: viewerRepost.groupId ?? null,
             repostCount: previous.repostCount + 1,
+            shareRoll: previous.shareRoll + 1,
           },
         };
       });
@@ -504,10 +536,30 @@ export function usePostEngagement(
           viewerRepostId: null,
           viewerRepostGroupId: null,
           repostCount: Math.max(0, previous.repostCount - 1),
+          shareRoll: previous.shareRoll + 1,
         },
       };
     });
   }, []);
+
+  const confirmQuote = useCallback((post: PostRow) => {
+    const key = postKey(post);
+    setEngagement((current) => {
+      const previous = current[key] ?? EMPTY_POST_ENGAGEMENT;
+      return {
+        ...current,
+        [key]: {
+          ...previous,
+          quoteCount: previous.quoteCount + 1,
+          shareRoll: previous.shareRoll + 1,
+        },
+      };
+    });
+  }, []);
+
+  useEffect(() => {
+    return subscribePersonalQuoteConfirmed(confirmQuote);
+  }, [confirmQuote]);
 
   const confirmReply = useCallback((post: PostRow) => {
     const key = postKey(post);
@@ -518,6 +570,7 @@ export function usePostEngagement(
         [key]: {
           ...previous,
           replyCount: previous.replyCount + 1,
+          replyRoll: previous.replyRoll + 1,
         },
       };
     });
@@ -567,6 +620,7 @@ export function usePostEngagement(
     confirmAmplify,
     confirmRepost,
     confirmUnrepost,
+    confirmQuote,
     confirmReply,
   };
 }

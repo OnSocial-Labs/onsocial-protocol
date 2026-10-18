@@ -60,7 +60,7 @@ import { PostAmplifySheet } from '@/features/home/post-amplify-sheet';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { PostLikesSheet } from '@/components/panels/post-likes-sheet';
-import { StableCount } from '@/components/ui/stable-count';
+import { RollingNumber } from '@/components/ui/rolling-number';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { formatWritingLikeLabel } from '@/lib/article-post-payload';
 import {
@@ -1222,6 +1222,7 @@ function EngagementStat({
   disabled,
   ariaPressed,
   tone,
+  rollSignal = 0,
 }: {
   icon: React.ReactNode;
   count: number;
@@ -1232,11 +1233,16 @@ function EngagementStat({
   disabled?: boolean;
   ariaPressed?: boolean;
   tone?: 'reply' | 'quote' | 'amplify';
+  /** Bumps when the viewer's own action confirms this count. */
+  rollSignal?: number;
 }) {
-  const countNode =
-    count > 0 ? (
-      <StableCount className="post-card-engagement-count" value={count} />
-    ) : null;
+  const countNode = (
+    <span
+      className={`post-card-count-slot${count > 0 ? ' is-visible' : ''}`}
+    >
+      <RollingNumber value={count} rollSignal={rollSignal} />
+    </span>
+  );
 
   if (onActivate) {
     return (
@@ -1380,6 +1386,7 @@ function PostEngagementRow({
         <EngagementStat
           icon={<MessageRoundIcon aria-hidden />}
           count={engagement.replyCount}
+          rollSignal={engagement.replyRoll}
           label="replies"
           tone="reply"
           actionLabel={onReply ? 'Reply to this post' : undefined}
@@ -1388,6 +1395,7 @@ function PostEngagementRow({
         <EngagementStat
           icon={<RepeatIcon aria-hidden />}
           count={shareCount}
+          rollSignal={engagement.shareRoll}
           label="shares"
           tone="quote"
           className={`os-confirm-icon${
@@ -1445,27 +1453,32 @@ function PostEngagementRow({
               <ReactIcon filled={false} />
             </span>
           )}
-          {likeLabel ? (
-            <button
-              type="button"
-              className="post-card-like-count"
-              aria-label={`View who liked — ${likeLabel}`}
-              onPointerDown={(event) => {
-                event.stopPropagation();
-              }}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setLikesOpen(true);
-              }}
-            >
-              <StableCount value={engagement.reactionCount} />
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className={`post-card-like-count${likeLabel ? '' : ' is-idle'}`}
+            aria-label={likeLabel ? `View who liked — ${likeLabel}` : undefined}
+            aria-hidden={likeLabel ? undefined : true}
+            tabIndex={likeLabel ? undefined : -1}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+            onClick={(event) => {
+              if (!likeLabel) return;
+              event.preventDefault();
+              event.stopPropagation();
+              setLikesOpen(true);
+            }}
+          >
+            <RollingNumber
+              value={engagement.reactionCount}
+              rollSignal={engagement.reactionRoll}
+            />
+          </button>
         </span>
         <EngagementStat
           icon={<AmplifyIcon filled={engagement.viewerAmplified} />}
           count={engagement.amplifyCount}
+          rollSignal={engagement.amplifyRoll}
           label="amplifies"
           tone="amplify"
           className={`post-card-amplify${engagement.viewerAmplified ? ' is-active' : ''}`}

@@ -405,17 +405,12 @@ export async function loadPostEngagementMap(
     const reactions = reactionStates[`${target.owner}:${target.postId}`];
     const amplify = amplifyCounts[target.path];
     next[target.key] = {
+      ...EMPTY_POST_ENGAGEMENT,
       replyCount: counts?.replyCount ?? 0,
       quoteCount: counts?.quoteCount ?? 0,
       repostCount: counts?.repostCount ?? 0,
       reactionCount: reactions?.counts.total ?? 0,
-      viewerReacted: false,
       amplifyCount: amplify?.amplifyCount ?? 0,
-      viewerAmplified: false,
-      viewerSaved: false,
-      viewerReposted: false,
-      viewerRepostId: null,
-      viewerRepostGroupId: null,
     };
   }
   return next;

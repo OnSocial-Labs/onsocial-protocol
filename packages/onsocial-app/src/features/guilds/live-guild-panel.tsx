@@ -133,6 +133,7 @@ import {
   type GuildFeedFilterId,
 } from '@/features/guilds/guild-page-data';
 import { useGuildPageData } from '@/features/guilds/use-guild-page-data';
+import { dispatchPersonalQuoteConfirmed } from '@/features/scarces/drop-compose-host';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
 import {
@@ -910,6 +911,9 @@ export function LiveGuildPanel({
           ...current,
         ]);
         scheduleReconcile();
+        if (mode === 'quote' && target) {
+          dispatchPersonalQuoteConfirmed(target);
+        }
         if (mode === 'reply' && target) {
           clearWriteDockDraft(writeDockDraftKey('post', postKey(target)));
         }

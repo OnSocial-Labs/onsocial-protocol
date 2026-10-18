@@ -39,6 +39,7 @@ import { ThreadViewQuotesRow } from '@/features/home/thread-view-quotes-row';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import { postMetaFromText } from '@/features/home/post-mentions';
 import { placesMetaFromComposer } from '@/lib/post-place';
+import { dispatchPersonalQuoteConfirmed } from '@/features/scarces/drop-compose-host';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import {
   ComposerSheet,
@@ -547,6 +548,9 @@ export function LiveGuildPostPanel({
           );
         } else {
           scheduleReconcile();
+        }
+        if (modalMode === 'quote') {
+          dispatchPersonalQuoteConfirmed(target);
         }
         if (modalMode === 'reply') {
           clearWriteDockDraft(writeDockDraftKey('post', postKey(target)));
@@ -1063,8 +1067,12 @@ export function LiveGuildPostPanel({
 
             <Divider variant="detail" />
 
-            {replyListRows.length > 0 || shareRow ? (
-              <div className="thread-controls-row">
+            {conversation.root ? (
+              <div
+                className={`thread-controls-row${
+                  replyListRows.length > 0 || shareRow ? '' : ' is-idle'
+                }`}
+              >
                 {replyListRows.length > 0 ? (
                   <ThreadRepliesSortButton
                     sort={replySort}
@@ -1073,16 +1081,19 @@ export function LiveGuildPostPanel({
                 ) : (
                   <span className="thread-controls-spacer" aria-hidden />
                 )}
-                {shareRow && conversation.root ? (
-                  <ThreadViewQuotesRow
-                    href={threadShareRowHref(
-                      postQuotesPath(conversation.root),
-                      shareRow
-                    )}
-                    label={shareRow.label}
-                    count={shareRow.count}
-                  />
-                ) : null}
+                <ThreadViewQuotesRow
+                  href={
+                    shareRow
+                      ? threadShareRowHref(
+                          postQuotesPath(conversation.root),
+                          shareRow
+                        )
+                      : postQuotesPath(conversation.root)
+                  }
+                  label={shareRow?.label ?? 'View quotes'}
+                  count={shareRow?.count ?? 0}
+                  rollSignal={rootEngagement?.shareRoll ?? 0}
+                />
               </div>
             ) : null}
 

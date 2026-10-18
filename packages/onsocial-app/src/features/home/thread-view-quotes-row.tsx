@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ChevronRightIcon } from '@onsocial/ui';
+import { RollingNumber } from '@/components/ui/rolling-number';
 import {
   isUnmodifiedPrimaryClick,
   usePostThreadLayer,
@@ -11,6 +12,8 @@ interface ThreadViewQuotesRowProps {
   href: string;
   label: string;
   count: number;
+  /** Same confirm step as the post's share count. */
+  rollSignal?: number;
 }
 
 /**
@@ -21,13 +24,17 @@ export function ThreadViewQuotesRow({
   href,
   label,
   count,
+  rollSignal = 0,
 }: ThreadViewQuotesRowProps) {
   const { openPostQuotes } = usePostThreadLayer();
+  const idle = count <= 0;
 
   return (
     <Link
       href={href}
-      className="thread-view-quotes"
+      className={`thread-view-quotes${idle ? ' is-idle' : ''}`}
+      aria-hidden={idle ? true : undefined}
+      tabIndex={idle ? -1 : undefined}
       scroll={false}
       onClick={(event) => {
         if (!isUnmodifiedPrimaryClick(event)) return;
@@ -36,7 +43,10 @@ export function ThreadViewQuotesRow({
       }}
     >
       <span className="thread-view-quotes-label">{label}</span>
-      <span className="thread-view-quotes-count">{count}</span>
+      <span className="sr-only">{count}</span>
+      <span className="thread-view-quotes-count" aria-hidden="true">
+        <RollingNumber value={count} rollSignal={rollSignal} />
+      </span>
       <ChevronRightIcon className="thread-view-quotes-chevron" aria-hidden />
     </Link>
   );
