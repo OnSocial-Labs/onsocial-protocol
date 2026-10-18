@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { standingIdentityLabel } from '@onsocial/ui';
+import { MultiplyIcon, standingIdentityLabel } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { MarketCreatorDropRow } from '@/features/market/market-creator-drop-row';
 import {
@@ -21,6 +21,7 @@ export function MarketCreatorShop({
   listingCount,
   showDropLabel,
   onMintDrop,
+  onClear,
 }: {
   creatorId: string;
   displayName?: string | null;
@@ -29,6 +30,8 @@ export function MarketCreatorShop({
   listingCount: number;
   showDropLabel: boolean;
   onMintDrop: (drop: ProfileStoreDrop) => void;
+  /** Leave this shop for the full Market catalog. */
+  onClear: () => void;
 }) {
   const creatorNameLine = collectionCreatorNameLine(creatorId, displayName);
   const creatorLabel = standingIdentityLabel(creatorId, creatorNameLine).label;
@@ -54,8 +57,16 @@ export function MarketCreatorShop({
             profileName={creatorNameLine}
             avatarUrl={avatarUrl}
             size="md"
-            copyLeading={
-              <span className="market-creator-shop-role">Shop</span>
+            copyLeading={<span className="market-creator-shop-role">Shop</span>}
+            nameTrailing={
+              <button
+                type="button"
+                className="market-creator-filter-clear market-creator-shop-clear"
+                onClick={onClear}
+                aria-label="Clear creator filter"
+              >
+                <MultiplyIcon aria-hidden />
+              </button>
             }
           >
             {countCopy ? (

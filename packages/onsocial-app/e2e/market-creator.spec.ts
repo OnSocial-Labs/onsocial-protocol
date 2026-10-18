@@ -38,7 +38,7 @@ test.describe('market creator shop', () => {
     );
     await expect(
       page.getByRole('button', { name: 'Clear creator filter' })
-    ).toHaveCount(0);
+    ).toBeVisible();
     await expect(
       page.getByRole('tablist', { name: 'Listing type' })
     ).toHaveCount(0);
@@ -49,6 +49,12 @@ test.describe('market creator shop', () => {
     ).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: /Open sort menu/ })
+    ).toHaveCount(0);
+    await page.getByRole('button', { name: 'Clear creator filter' }).click();
+    await expect(page).toHaveURL(/\/market\/?$/);
+    await expect(page.locator('.market-creator-shop')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Clear creator filter' })
     ).toHaveCount(0);
   });
 

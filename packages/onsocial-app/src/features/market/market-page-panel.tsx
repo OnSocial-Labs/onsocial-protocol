@@ -1889,6 +1889,7 @@ export function MarketPagePanel({
                 shopDrops.length > 0 && discoveryFilteredListings.length > 0
               }
               onMintDrop={handleMintDrop}
+              onClear={clearNarrowFilter}
             />
             {creatorDropsLoadingMore ? <MarketListSkeleton rows={2} /> : null}
             {creatorDropsLoadMoreFailed ? (

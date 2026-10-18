@@ -29518,6 +29518,14 @@ a.os-surface-row {
     color: var(--os-surface-muted);
   }
 
+  /* Name-line × — same control as the hub filter, above the profile hit. */
+  .market-creator-shop-clear {
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+    pointer-events: auto;
+  }
+
   .market-creator-shop-count {
     display: block;
     margin: 0.12rem 0 0;
