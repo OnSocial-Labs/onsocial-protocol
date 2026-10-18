@@ -859,10 +859,7 @@ export function applyDropCommerce(
 
 /** Keep the open-drop re-read going while editions can still move. */
 export function dropSupplyShouldPoll(
-  view: Pick<
-    CollectionView,
-    'cancelled' | 'paused' | 'soldOut' | 'remaining' | 'endTimeMs'
-  >,
+  view: CollectionView,
   nowMs = Date.now()
 ): boolean {
   if (view.cancelled || view.paused || view.soldOut) return false;
