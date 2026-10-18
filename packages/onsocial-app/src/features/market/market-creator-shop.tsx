@@ -57,7 +57,6 @@ export function MarketCreatorShop({
             profileName={creatorNameLine}
             avatarUrl={avatarUrl}
             size="md"
-            copyLeading={<span className="market-creator-shop-role">Shop</span>}
           >
             {countCopy ? (
               <span className="market-creator-shop-count">{countCopy}</span>

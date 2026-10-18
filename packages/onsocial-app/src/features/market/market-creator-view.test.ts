@@ -11,6 +11,7 @@ import {
   marketCreatorBrowseLabel,
   marketCreatorEmptyCopy,
   marketCreatorScreenTitle,
+  marketCreatorSearchPlaceholder,
   marketCreatorShopCountCopy,
   marketCreatorShop,
   marketCreatorShopActionLabel,
@@ -65,14 +66,15 @@ describe('market creator view', () => {
       })
     ).toBe('E2e • Market');
     expect(marketCreatorBackHref()).toBe('/market');
-    expect(marketCreatorEmptyCopy()).toBe('Nothing in this shop yet.');
+    expect(marketCreatorEmptyCopy()).toBe('Nothing here yet.');
+    expect(marketCreatorSearchPlaceholder()).toBe('Search listings');
     expect(marketCreatorBrowseLabel()).toBe('Browse Market');
-    expect(
-      marketCreatorShopCountCopy({ dropCount: 2, listingCount: 1 })
-    ).toBe('2 drops · 1 for sale');
-    expect(
-      marketCreatorShopCountCopy({ dropCount: 1, listingCount: 0 })
-    ).toBe('1 drop');
+    expect(marketCreatorShopCountCopy({ dropCount: 2, listingCount: 1 })).toBe(
+      '2 drops · 1 for sale'
+    );
+    expect(marketCreatorShopCountCopy({ dropCount: 1, listingCount: 0 })).toBe(
+      '1 drop'
+    );
     expect(
       marketCreatorShopCountCopy({ dropCount: 0, listingCount: 0 })
     ).toBeNull();
@@ -183,11 +185,13 @@ describe('market creator view', () => {
 
   it('reads listing collection ids from the row or the token', () => {
     expect(
-      [...listedCollectionIdSet([
-        { collectionId: 'night-drive' },
-        { tokenId: 'dusk-run:1' },
-        { collectionId: '  ', tokenId: null },
-      ])].sort()
+      [
+        ...listedCollectionIdSet([
+          { collectionId: 'night-drive' },
+          { tokenId: 'dusk-run:1' },
+          { collectionId: '  ', tokenId: null },
+        ]),
+      ].sort()
     ).toEqual(['dusk-run', 'night-drive']);
   });
 });

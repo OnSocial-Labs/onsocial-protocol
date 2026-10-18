@@ -29511,14 +29511,7 @@ a.os-surface-row {
     align-items: center;
   }
 
-  .market-creator-shop-role {
-    margin: 0;
-    font-size: 0.72rem;
-    line-height: 1.3;
-    color: var(--os-surface-muted);
-  }
-
-  /* Far side of the shop row — same × as the hub filter. */
+  /* Far side of the person row — same × as the hub filter. */
   .market-creator-shop-clear {
     position: relative;
     z-index: 2;

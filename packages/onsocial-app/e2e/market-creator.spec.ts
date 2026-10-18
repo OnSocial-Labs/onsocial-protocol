@@ -29,7 +29,8 @@ test.describe('market creator shop', () => {
     await expect(page.getByText('From @', { exact: false })).toHaveCount(0);
     await expect(page.getByText('No live listings from')).toHaveCount(0);
     await expect(page.getByText('No drops or listings from')).toHaveCount(0);
-    await expect(page.getByText('Nothing in this shop yet.')).toBeVisible();
+    await expect(page.getByText('Nothing here yet.')).toBeVisible();
+    await expect(page.getByText('Shop', { exact: true })).toHaveCount(0);
     await expect(
       page.getByRole('link', { name: 'Browse Market' })
     ).toBeVisible();
@@ -42,7 +43,7 @@ test.describe('market creator shop', () => {
     await expect(
       page.getByRole('tablist', { name: 'Listing type' })
     ).toHaveCount(0);
-    await expect(page.getByPlaceholder('Search shop')).toBeVisible();
+    await expect(page.getByPlaceholder('Search listings')).toBeVisible();
     await expect(page).toHaveTitle(/E2e • Market/i);
     await expect(
       page.getByRole('button', { name: /Open filter menu/ })
@@ -135,7 +136,7 @@ test.describe('market creator shop', () => {
     await expect(
       page.getByRole('button', { name: 'Mint Night Drive' })
     ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
-    await page.getByPlaceholder('Search shop').fill('night');
+    await page.getByPlaceholder('Search listings').fill('night');
     await expect(
       page.getByRole('button', { name: 'Mint Night Drive' })
     ).toBeVisible();
