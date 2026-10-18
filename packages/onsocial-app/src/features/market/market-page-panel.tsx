@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePlaceScroll } from '@/hooks/use-place-scroll';
+import { mergeCatalogHead } from '@/lib/catalog-place-memory';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -174,6 +176,22 @@ const CATALOG_REFRESH_MUTE_MS = 160;
 const CATALOG_CACHE_TTL_MS = 90_000;
 const CATALOG_CACHE_MAX_ENTRIES = 12;
 
+/** Survives leaving Market so a return paints the pages already loaded. */
+const marketCatalogPages = new Map<string, MarketCatalogCacheEntry>();
+
+function peekFreshMarketCatalog(
+  key: string,
+  now: number = Date.now()
+): MarketCatalogCacheEntry | null {
+  const hit = marketCatalogPages.get(key);
+  if (!hit) return null;
+  if (now - hit.at > CATALOG_CACHE_TTL_MS) {
+    marketCatalogPages.delete(key);
+    return null;
+  }
+  return hit;
+}
+
 type MarketCatalogCacheEntry = {
   items: MarketListingItem[];
   nextOffset: number;
@@ -217,6 +235,39 @@ const EMPTY_LISTINGS: ListingsState = {
   hasMore: false,
   failed: false,
 };
+
+function seedMarketListings(seed: MarketPageQuery): ListingsState {
+  const sort = seed.sort;
+  const listingFilter = seed.creator ? 'all' : listingFilterFromSort(sort);
+  const discoveryParamsKey = `${seed.kind}|${seed.facets.join(',')}|${seed.audioFormat ?? ''}`;
+  const cacheKey = marketCatalogCacheKey({
+    listingFilter,
+    listingSort: sort,
+    search: '',
+    creatorFilter: seed.creator ?? '',
+    appFilter: seed.app ?? '',
+    discoveryParamsKey,
+  });
+  const cached = peekFreshMarketCatalog(cacheKey);
+  if (!cached || cached.items.length === 0) return EMPTY_LISTINGS;
+  return {
+    paramsKey: marketBrowseParamsKey({
+      retryKey: 0,
+      listingFilter,
+      sort,
+      search: '',
+      creator: seed.creator,
+      app: seed.app,
+      kind: seed.kind,
+      facets: seed.facets,
+      audioFormat: seed.audioFormat,
+    }),
+    items: cached.items,
+    nextOffset: cached.nextOffset,
+    hasMore: cached.hasMore,
+    failed: false,
+  };
+}
 
 /** Newest-first pages of wallet-owned scarces (RPC, capped). */
 interface OwnedState {
@@ -296,8 +347,9 @@ export function MarketPagePanel({
   const audioFormatFilter = query.audioFormat;
   const urlSort = query.sort;
   const [retryKey, setRetryKey] = useState(0);
-  const [listingsState, setListingsState] =
-    useState<ListingsState>(EMPTY_LISTINGS);
+  const [listingsState, setListingsState] = useState<ListingsState>(() =>
+    seedMarketListings(seedQuery)
+  );
   const [creatorDrops, setCreatorDrops] = useState<ProfileStoreDrop[]>([]);
   const [creatorDropsHasMore, setCreatorDropsHasMore] = useState(false);
   const [creatorDropOffset, setCreatorDropOffset] = useState(0);
@@ -370,9 +422,6 @@ export function MarketPagePanel({
   const scrollRootRef = useRef<HTMLElement | null>(null);
   /** Bumped on each first-page fetch so in-flight loadMore cannot append stale pages. */
   const listingsFetchGenRef = useRef(0);
-  const catalogCacheRef = useRef<Map<string, MarketCatalogCacheEntry>>(
-    new Map()
-  );
   /** Last non-search catalog — restore instantly when the field X clears a miss. */
   const lastBrowseCatalogRef = useRef<Omit<
     MarketCatalogCacheEntry,
@@ -400,7 +449,7 @@ export function MarketPagePanel({
 
   const writeCatalogCache = useCallback(
     (key: string, entry: Omit<MarketCatalogCacheEntry, 'at'>) => {
-      const cache = catalogCacheRef.current;
+      const cache = marketCatalogPages;
       cache.delete(key);
       cache.set(key, { ...entry, at: Date.now() });
       while (cache.size > CATALOG_CACHE_MAX_ENTRIES) {
@@ -486,6 +535,11 @@ export function MarketPagePanel({
     appFilter,
     discoveryParamsKey,
   });
+  usePlaceScroll(
+    `market:${catalogCacheKey}`,
+    scrollRootRef,
+    listingsState.items.length
+  );
   const browseListingsParamsKey = marketBrowseParamsKey({
     retryKey,
     listingFilter: shopListingFilter,
@@ -522,11 +576,8 @@ export function MarketPagePanel({
       setListingQuery(next);
       if (next.trim()) return;
       setDebouncedQuery('');
-      const cached = catalogCacheRef.current.get(browseCatalogCacheKey);
-      const snap =
-        cached != null && Date.now() - cached.at < CATALOG_CACHE_TTL_MS
-          ? cached
-          : lastBrowseCatalogRef.current;
+      const cached = peekFreshMarketCatalog(browseCatalogCacheKey);
+      const snap = cached ?? lastBrowseCatalogRef.current;
       if (!snap) return;
       setListingsState({
         paramsKey: browseListingsParamsKey,
@@ -580,11 +631,8 @@ export function MarketPagePanel({
     setListingsError(null);
 
     const bypassCache = retryKey > 0;
-    const cached = bypassCache
-      ? undefined
-      : catalogCacheRef.current.get(catalogCacheKey);
-    const cacheFresh =
-      cached != null && Date.now() - cached.at < CATALOG_CACHE_TTL_MS;
+    const cached = bypassCache ? null : peekFreshMarketCatalog(catalogCacheKey);
+    const cacheFresh = cached != null;
     const browseSnap = lastBrowseCatalogRef.current;
 
     let paintedRows = false;
@@ -637,27 +685,27 @@ export function MarketPagePanel({
     const applyPage = (page: MarketListingsPage) => {
       if (cancelled || gen !== listingsFetchGenRef.current) return;
       setListingsError(null);
-      writeCatalogCache(catalogCacheKey, {
-        items: page.items,
-        nextOffset: page.nextOffset,
-        hasMore: page.hasMore,
-      });
-      if (!debouncedQuery) {
-        rememberBrowseCatalog({
-          items: page.items,
+      setListingsState((current) => {
+        const sameCatalog = current.paramsKey === listingsParamsKey;
+        const items = sameCatalog
+          ? mergeCatalogHead(current.items, page.items, marketListingRowKey)
+          : page.items;
+        const next = {
+          items,
           nextOffset: page.nextOffset,
           hasMore: page.hasMore,
-        });
-      }
-      setListingsState((current) => {
-        if (catalogPageMatches(current, page, listingsParamsKey)) {
+        };
+        writeCatalogCache(catalogCacheKey, next);
+        if (!debouncedQuery) rememberBrowseCatalog(next);
+        if (
+          sameCatalog &&
+          catalogPageMatches(current, { ...page, items }, listingsParamsKey)
+        ) {
           return current.failed ? { ...current, failed: false } : current;
         }
         return {
           paramsKey: listingsParamsKey,
-          items: page.items,
-          nextOffset: page.nextOffset,
-          hasMore: page.hasMore,
+          ...next,
           failed: false,
         };
       });

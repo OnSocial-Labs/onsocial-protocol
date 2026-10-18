@@ -25,6 +25,7 @@ import {
   ShopFillIcon,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { useCatalogDockBack } from '@/hooks/use-catalog-dock-back';
 import { useImmersiveTitleHandoff } from '@/hooks/use-immersive-title-handoff';
 import {
   isUnmodifiedPrimaryClick,
@@ -149,10 +150,7 @@ import {
   formatMarketRelativePhrase,
   formatMarketRelativeTime,
 } from '@/features/market/market-listings';
-import {
-  portfolioCollectiblesPath,
-  portfolioPath,
-} from '@/lib/overlay-routes';
+import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import { isAppPostSheetHref } from '@/lib/post-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import { holdingsActionLabel } from '@/lib/portfolio-holdings';
@@ -794,10 +792,12 @@ export function CollectionPagePanel({
     ssrMiss: initial == null,
     clientSettled,
   });
+  const { onDockBack, fallbackRef } = useCatalogDockBack();
   const catalogLeaveHref = collectionDropBackHref({
     useFirst: peekHoldsCollectionForDropPage(viewerAccountId, collectionId),
     viewerAccountId,
   });
+  if (!embedded) fallbackRef.current = catalogLeaveHref;
   if (catalogShell === 'skeleton') {
     if (
       collectionRouteYieldsLoadingSkeleton({
@@ -812,6 +812,7 @@ export function CollectionPagePanel({
         title="Drop"
         embedded={embedded}
         dockBack={!embedded}
+        onDockBack={embedded ? undefined : onDockBack}
         backFallbackHref={catalogLeaveHref}
         leading={embedded ? collectionOverlayBack(onClose) : undefined}
         immersiveHeader
@@ -826,6 +827,7 @@ export function CollectionPagePanel({
         title="Drop"
         embedded={embedded}
         dockBack={!embedded}
+        onDockBack={embedded ? undefined : onDockBack}
         backFallbackHref={catalogLeaveHref}
         leading={embedded ? collectionOverlayBack(onClose) : undefined}
       >
@@ -947,6 +949,7 @@ export function CollectionPagePanel({
     useFirst,
     viewerAccountId,
   });
+  if (!embedded) fallbackRef.current = dropBackHref;
   const vaultHref = viewerAccountId
     ? portfolioCollectiblesPath(viewerAccountId)
     : null;
@@ -1007,6 +1010,7 @@ export function CollectionPagePanel({
       title={view.title}
       embedded={embedded}
       dockBack={!embedded}
+      onDockBack={embedded ? undefined : onDockBack}
       backFallbackHref={dropBackHref}
       leading={embedded ? collectionOverlayBack(onClose) : undefined}
       immersiveHeader={immersive}
