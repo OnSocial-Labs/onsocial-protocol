@@ -27,11 +27,14 @@ export function ThreadViewQuotesRow({
   rollSignal = 0,
 }: ThreadViewQuotesRowProps) {
   const { openPostQuotes } = usePostThreadLayer();
+  const idle = count <= 0;
 
   return (
     <Link
       href={href}
-      className="thread-view-quotes"
+      className={`thread-view-quotes${idle ? ' is-idle' : ''}`}
+      aria-hidden={idle ? true : undefined}
+      tabIndex={idle ? -1 : undefined}
       scroll={false}
       onClick={(event) => {
         if (!isUnmodifiedPrimaryClick(event)) return;

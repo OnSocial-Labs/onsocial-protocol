@@ -295,3 +295,26 @@ export function subscribePersonalReplyConfirmed(
 }
 
 export { dispatchPersonalReplyConfirmed };
+
+const PERSONAL_QUOTE_CONFIRMED = 'onsocial:personal-quote-confirmed';
+
+function dispatchPersonalQuoteConfirmed(parent: PostRow) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent(PERSONAL_QUOTE_CONFIRMED, { detail: parent })
+  );
+}
+
+export function subscribePersonalQuoteConfirmed(
+  listener: (parent: PostRow) => void
+): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+  const handler = (event: Event) => {
+    const detail = (event as CustomEvent<PostRow>).detail;
+    if (detail) listener(detail);
+  };
+  window.addEventListener(PERSONAL_QUOTE_CONFIRMED, handler);
+  return () => window.removeEventListener(PERSONAL_QUOTE_CONFIRMED, handler);
+}
+
+export { dispatchPersonalQuoteConfirmed };

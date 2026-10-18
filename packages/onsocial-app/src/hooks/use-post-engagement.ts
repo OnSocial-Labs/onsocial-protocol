@@ -5,6 +5,7 @@ import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { subscribePersonalQuoteConfirmed } from '@/features/scarces/drop-compose-host';
 import { postKey } from '@/lib/post-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
@@ -29,7 +30,7 @@ export interface PostEngagement {
   amplifyRoll: number;
   /** Bumps only when the viewer's own reply confirms. */
   replyRoll: number;
-  /** Bumps when the viewer's repost confirms or an undo confirms. */
+  /** Bumps when the viewer's repost, undo, or quote confirms. */
   shareRoll: number;
 }
 
@@ -131,6 +132,12 @@ export function mergeEngagementSoftUpgrade(
       next = {
         ...next,
         replyCount: previous.replyCount,
+      };
+    }
+    if (previous && next.quoteCount < previous.quoteCount) {
+      next = {
+        ...next,
+        quoteCount: previous.quoteCount,
       };
     }
     if (unrepostedKeys.has(key) && next.viewerReposted) {
@@ -535,6 +542,25 @@ export function usePostEngagement(
     });
   }, []);
 
+  const confirmQuote = useCallback((post: PostRow) => {
+    const key = postKey(post);
+    setEngagement((current) => {
+      const previous = current[key] ?? EMPTY_POST_ENGAGEMENT;
+      return {
+        ...current,
+        [key]: {
+          ...previous,
+          quoteCount: previous.quoteCount + 1,
+          shareRoll: previous.shareRoll + 1,
+        },
+      };
+    });
+  }, []);
+
+  useEffect(() => {
+    return subscribePersonalQuoteConfirmed(confirmQuote);
+  }, [confirmQuote]);
+
   const confirmReply = useCallback((post: PostRow) => {
     const key = postKey(post);
     setEngagement((current) => {
@@ -594,6 +620,7 @@ export function usePostEngagement(
     confirmAmplify,
     confirmRepost,
     confirmUnrepost,
+    confirmQuote,
     confirmReply,
   };
 }

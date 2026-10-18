@@ -100,6 +100,18 @@ describe('mergeEngagementSoftUpgrade', () => {
     expect(merged[key]?.amplifyRoll).toBe(2);
   });
 
+  it('keeps a confirmed quote count until the indexer catches up', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      { [key]: row({ quoteCount: 3, shareRoll: 1 }) },
+      { [key]: row({ quoteCount: 2 }) },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.quoteCount).toBe(3);
+    expect(merged[key]?.shareRoll).toBe(1);
+  });
+
   it('preserves confirmed save until indexer catches up', () => {
     const key = 'alice.near:p1';
     const merged = mergeEngagementSoftUpgrade(

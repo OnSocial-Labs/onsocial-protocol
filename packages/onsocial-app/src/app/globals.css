@@ -42893,11 +42893,19 @@ a.os-surface-row {
    * muted ink, fg on hover.
    */
   .thread-controls-row {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
     margin: 0.1rem 0 0.35rem;
+  }
+
+  .thread-controls-row.is-idle {
+    height: 0;
+    margin: 0;
+    overflow: hidden;
+    pointer-events: none;
   }
 
   .thread-controls-spacer {
@@ -42946,6 +42954,16 @@ a.os-surface-row {
     font-weight: 600;
     text-decoration: none;
     transition: color 160ms ease;
+  }
+
+  .thread-view-quotes.is-idle {
+    position: absolute;
+    width: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    pointer-events: none;
   }
 
   .thread-view-quotes:hover,

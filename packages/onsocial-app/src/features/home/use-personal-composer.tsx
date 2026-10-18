@@ -55,7 +55,10 @@ import {
   dispatchGuildPostConfirmed,
   submitGuildRootPost,
 } from '@/features/scarces/submit-guild-drop-post';
-import { dispatchPersonalReplyConfirmed } from '@/features/scarces/drop-compose-host';
+import {
+  dispatchPersonalQuoteConfirmed,
+  dispatchPersonalReplyConfirmed,
+} from '@/features/scarces/drop-compose-host';
 import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
 import {
   usePostAuthorProfiles,
@@ -486,6 +489,9 @@ export function usePersonalComposer({
           });
           clearWriteDockDraft(writeDockDraftKey('post', postKey(target)));
           clearReply();
+        }
+        if (result.optimisticPost && mode === 'quote' && target) {
+          dispatchPersonalQuoteConfirmed(target);
         }
         for (const post of landed) {
           onConfirmed?.(post, mode === 'reply' ? target : undefined);
