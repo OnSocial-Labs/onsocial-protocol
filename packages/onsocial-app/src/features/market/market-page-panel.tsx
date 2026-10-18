@@ -86,8 +86,14 @@ import {
   MarketOwnedRow,
   ownedAuthorAccountId,
 } from '@/features/market/market-owned-row';
-import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { MarketSaleRow } from '@/features/market/market-sale-row';
+import {
+  arePostAuthorProfilesResolved,
+  usePostAuthorProfiles,
+} from '@/hooks/use-post-author-profiles';
+import {
+  MarketSaleRow,
+  salePartyAccountId,
+} from '@/features/market/market-sale-row';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import type { ScarceBidSuccessDetail } from '@/features/scarces/scarce-bid-form';
 import {
@@ -1687,6 +1693,16 @@ export function MarketPagePanel({
       ? salesRows
       : salesRows.slice(0, RECENT_SALES_PREVIEW);
   const hiddenSalesCount = Math.max(0, salesRows.length - visibleSales.length);
+  const salePartyIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const sale of visibleSales) {
+      const id = salePartyAccountId(sale);
+      if (id && !ids.includes(id)) ids.push(id);
+    }
+    return ids;
+  }, [visibleSales]);
+  const saleProfiles = usePostAuthorProfiles(salePartyIds);
+  const saleFacesReady = arePostAuthorProfilesResolved(salePartyIds);
 
   const shouldShowListSkeleton = creatorFilter
     ? creatorShopShell === 'skeleton'
@@ -2228,14 +2244,27 @@ export function MarketPagePanel({
             <h2 id="market-sales" className="market-section-title">
               Recent sales
             </h2>
-            <ul className="market-sales-list">
-              {visibleSales.map((sale, index) => (
-                <MarketSaleRow
-                  key={`${sale.listingId ?? sale.tokenId ?? 'sale'}:${sale.blockTimestamp}:${index}`}
-                  sale={sale}
-                />
-              ))}
-            </ul>
+            {saleFacesReady ? (
+              <ul className="market-sales-list">
+                {visibleSales.map((sale, index) => {
+                  const partyId = salePartyAccountId(sale);
+                  const profile = partyId ? saleProfiles[partyId] : undefined;
+                  return (
+                    <MarketSaleRow
+                      key={`${sale.listingId ?? sale.tokenId ?? 'sale'}:${sale.blockTimestamp}:${index}`}
+                      sale={sale}
+                      displayName={profile?.displayName}
+                      avatarUrl={profile?.avatarUrl}
+                    />
+                  );
+                })}
+              </ul>
+            ) : (
+              <MarketListSkeleton
+                rows={Math.min(visibleSales.length, 8)}
+                variant="drops"
+              />
+            )}
             {hiddenSalesCount > 0 ? (
               <OsLoadMore onClick={() => setSalesExpanded(true)}>
                 Show {hiddenSalesCount} more

@@ -94,6 +94,8 @@ describe('MarketSaleRow layout', () => {
     expect(source).toContain('className="market-listing-row market-sale-row"');
     expect(source).toContain('className="market-listing-row-open"');
     expect(source).toContain('lead={salePartyLead(sale)}');
+    expect(source).toContain('avatarUrl={avatarUrl}');
+    expect(source).not.toContain('usePostAuthorProfiles');
     expect(source).toContain("'bought by'");
     expect(source).toContain('marketSalePriceLabel');
     expect(source).not.toContain('Sold ·');

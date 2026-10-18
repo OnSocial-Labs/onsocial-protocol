@@ -13,7 +13,6 @@ import {
   useMarketPostLayer,
 } from '@/features/market/market-post-layer';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
-import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { collectionPath } from '@/lib/app-routes';
 import { socialTimeProps } from '@/lib/post-display';
 
@@ -69,11 +68,17 @@ export function marketSalePriceLabel(input: {
 }
 
 /** Recent sale in the listing row: buyer, the amount, time and the same ⋮. */
-export function MarketSaleRow({ sale }: { sale: MarketSaleItem }) {
+export function MarketSaleRow({
+  sale,
+  displayName,
+  avatarUrl,
+}: {
+  sale: MarketSaleItem;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+}) {
   const openMarketPost = useMarketPostLayer();
   const partyId = salePartyAccountId(sale);
-  const profiles = usePostAuthorProfiles(partyId ? [partyId] : []);
-  const profile = partyId ? profiles[partyId] : undefined;
   const saleTime = formatMarketRelativeTime(sale.blockTimestamp);
   const detail = marketSaleDetailHref(sale);
   const postHandlers = detail
@@ -113,8 +118,8 @@ export function MarketSaleRow({ sale }: { sale: MarketSaleItem }) {
         {partyId ? (
           <DiscoveryPartyStack
             accountId={partyId}
-            displayName={profile?.displayName}
-            avatarUrl={profile?.avatarUrl}
+            displayName={displayName}
+            avatarUrl={avatarUrl}
             lead={salePartyLead(sale)}
           />
         ) : null}
