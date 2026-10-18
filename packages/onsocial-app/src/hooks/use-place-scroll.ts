@@ -32,8 +32,10 @@ export function usePlaceScroll(
   }, [placeKey]);
 
   useLayoutEffect(() => {
+    const node = scrollRootRef.current;
+    const memory = memoryRef.current;
     return () => {
-      persistPlace(keyRef.current, scrollRootRef.current, memoryRef.current);
+      persistPlace(keyRef.current, node, memory);
     };
   }, [scrollRootRef]);
 

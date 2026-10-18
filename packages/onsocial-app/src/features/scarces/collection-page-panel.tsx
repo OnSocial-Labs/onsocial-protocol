@@ -792,12 +792,25 @@ export function CollectionPagePanel({
     ssrMiss: initial == null,
     clientSettled,
   });
-  const { onDockBack, fallbackRef } = useCatalogDockBack();
   const catalogLeaveHref = collectionDropBackHref({
     useFirst: peekHoldsCollectionForDropPage(viewerAccountId, collectionId),
     viewerAccountId,
   });
-  if (!embedded) fallbackRef.current = catalogLeaveHref;
+  const dockFallbackHref = view
+    ? collectionDropBackHref({
+        useFirst: collectionUseFirst(
+          resolveCollectionOwnership({
+            isOwner,
+            holdsEdition,
+            walletLoading,
+            viewerAccountId,
+            playSessionMatches: isNowPlayingThisDrop,
+          })
+        ),
+        viewerAccountId,
+      })
+    : catalogLeaveHref;
+  const onDockBack = useCatalogDockBack(dockFallbackHref);
   if (catalogShell === 'skeleton') {
     if (
       collectionRouteYieldsLoadingSkeleton({
@@ -949,7 +962,6 @@ export function CollectionPagePanel({
     useFirst,
     viewerAccountId,
   });
-  if (!embedded) fallbackRef.current = dropBackHref;
   const vaultHref = viewerAccountId
     ? portfolioCollectiblesPath(viewerAccountId)
     : null;

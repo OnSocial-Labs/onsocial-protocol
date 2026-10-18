@@ -16,8 +16,7 @@ function collectionIdFromParams(params: { collectionId?: string | string[] }) {
 
 /** Route `loading.tsx` — cold leave is Drops until the panel knows the holder. */
 export function CollectionPageLoadingScreen() {
-  const { onDockBack, fallbackRef } = useCatalogDockBack();
-  fallbackRef.current = APP_DROPS_PATH;
+  const onDockBack = useCatalogDockBack(APP_DROPS_PATH);
   return (
     <OsAppScreen
       title="Drop"
