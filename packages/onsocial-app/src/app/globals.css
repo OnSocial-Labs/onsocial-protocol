@@ -29518,11 +29518,13 @@ a.os-surface-row {
     color: var(--os-surface-muted);
   }
 
-  /* Name-line × — same control as the hub filter, above the profile hit. */
+  /* Far side of the shop row — same × as the hub filter. */
   .market-creator-shop-clear {
     position: relative;
     z-index: 2;
     flex-shrink: 0;
+    align-self: center;
+    margin-left: auto;
     pointer-events: auto;
   }
 

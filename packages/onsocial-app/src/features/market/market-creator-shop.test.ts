@@ -6,15 +6,15 @@ import { describe, expect, it } from 'vitest';
 const here = dirname(fileURLToPath(import.meta.url));
 
 describe('MarketCreatorShop clear', () => {
-  it('puts the hub-filter × on the name under Shop', () => {
+  it('puts the hub-filter × on the far side of the shop row', () => {
     const shop = readFileSync(join(here, 'market-creator-shop.tsx'), 'utf8');
     const panel = readFileSync(join(here, 'market-page-panel.tsx'), 'utf8');
     const css = readFileSync(join(here, '../../app/globals.css'), 'utf8');
-    const shopAt = shop.indexOf('market-creator-shop-role');
+    const mainAt = shop.indexOf('standing-row-main');
     const clearAt = shop.indexOf('market-creator-shop-clear');
-    expect(shopAt).toBeGreaterThan(-1);
-    expect(clearAt).toBeGreaterThan(shopAt);
-    expect(shop).toContain('nameTrailing=');
+    expect(mainAt).toBeGreaterThan(-1);
+    expect(clearAt).toBeGreaterThan(mainAt);
+    expect(shop).not.toContain('nameTrailing');
     expect(shop).toContain('aria-label="Clear creator filter"');
     expect(shop).toContain(
       'className="market-creator-filter-clear market-creator-shop-clear"'

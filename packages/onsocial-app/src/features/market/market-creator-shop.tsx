@@ -58,22 +58,20 @@ export function MarketCreatorShop({
             avatarUrl={avatarUrl}
             size="md"
             copyLeading={<span className="market-creator-shop-role">Shop</span>}
-            nameTrailing={
-              <button
-                type="button"
-                className="market-creator-filter-clear market-creator-shop-clear"
-                onClick={onClear}
-                aria-label="Clear creator filter"
-              >
-                <MultiplyIcon aria-hidden />
-              </button>
-            }
           >
             {countCopy ? (
               <span className="market-creator-shop-count">{countCopy}</span>
             ) : null}
           </StandingIdentity>
         </div>
+        <button
+          type="button"
+          className="market-creator-filter-clear market-creator-shop-clear"
+          onClick={onClear}
+          aria-label="Clear creator filter"
+        >
+          <MultiplyIcon aria-hidden />
+        </button>
       </div>
       {drops.length > 0 ? (
         <section className="market-creator-shop-drops" aria-label="Drops">
