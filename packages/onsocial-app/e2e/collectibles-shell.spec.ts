@@ -105,8 +105,8 @@ test.describe('collectibles shell', () => {
     });
     await expect(nightRow).toContainText('Audio');
     await expect(nightRow).toContainText('×2');
+    await expect(nightRow).toContainText('2 NEAR');
     await expect(nightRow).not.toContainText('Listed');
-    await expect(nightRow).not.toContainText('NEAR');
     await expect(nightRow).not.toContainText('@alice.near');
     await expect(
       nightRow.getByRole('link', { name: /Play Night Drive/ })

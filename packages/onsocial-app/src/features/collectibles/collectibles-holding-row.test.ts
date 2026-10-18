@@ -16,13 +16,22 @@ describe('collectiblesHoldingFact', () => {
     expect(collectiblesHoldingFact(ticket, 3)).toBe('Ticket · ×3');
   });
 
-  it('replaces the seat with the list price', () => {
+  it('replaces a single copy with the list price', () => {
     expect(
       collectiblesHoldingFact(
         { ...ticket, listedPriceNear: '0.1', listingKind: 'fixed' },
         1
       )
     ).toBe('Ticket · 0.1 NEAR');
+  });
+
+  it('keeps the folded count beside a list price', () => {
+    expect(
+      collectiblesHoldingFact(
+        { ...ticket, listedPriceNear: '2', listingKind: 'fixed' },
+        2
+      )
+    ).toBe('Ticket · ×2 · 2 NEAR');
   });
 
   it('marks an auction as the reserve', () => {

@@ -38,17 +38,15 @@ export function collectiblesHoldingFact(
   editionCount = 1
 ): string {
   const kind = item.kindLabel.trim();
+  const count = editionCount > 1 ? `×${editionCount}` : '';
   const price = item.listedPriceNear?.trim();
+  const parts = [kind, count];
   if (price) {
     const amount = `${formatHoldingPrice(price)} NEAR`;
-    const listed =
-      item.listingKind === 'auction' ? `Reserve · ${amount}` : amount;
-    return kind ? `${kind} · ${listed}` : listed;
+    if (item.listingKind === 'auction') parts.push('Reserve');
+    parts.push(amount);
   }
-  if (editionCount > 1) {
-    return kind ? `${kind} · ×${editionCount}` : `×${editionCount}`;
-  }
-  return kind;
+  return parts.filter(Boolean).join(' · ');
 }
 
 /** Owned scarce in the Collectibles vault — use-first CTA (Read / Play / …). */
