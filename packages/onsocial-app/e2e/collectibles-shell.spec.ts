@@ -115,7 +115,8 @@ test.describe('collectibles shell', () => {
     const chapterRow = page.locator('.collectibles-holding-row').filter({
       hasText: 'Chapter One',
     });
-    await expect(chapterRow).toContainText('#4');
+    await expect(chapterRow).toContainText('Writing');
+    await expect(chapterRow).not.toContainText('No.');
     await expect(chapterRow).not.toContainText('@alice.near');
     await expect(
       chapterRow.getByRole('link', { name: /Read Chapter One/ })
@@ -262,7 +263,7 @@ test.describe('collectibles shell', () => {
         name: 'Memberships',
       })
     ).toHaveCount(0);
-    await expect(page.locator('.market-listing-shimmer-time')).toHaveCount(0);
+    await expect(page.locator('.market-listing-shimmer-time')).toHaveCount(6);
     await expect(page.getByRole('button', { name: /A–Z/ })).toBeVisible();
     await expect(page.locator('[data-collectibles-back]')).toHaveAttribute(
       'data-collectibles-back',

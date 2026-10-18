@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
+import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
 import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { socialTimeProps } from '@/lib/post-display';
-import { displayName } from '@/lib/profile-display';
 import type { PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
 import { collectionPath } from '@/lib/app-routes';
 import { OsRowAction } from '@/lib/os-row-action';
@@ -15,10 +15,40 @@ interface CollectiblesHoldingRowProps {
   item: PortfolioHoldingPeek;
   /** Collapsed edition count when several tokens share one collection. */
   editionCount?: number;
-  /** Owner-only manage menu — rendered beside the use CTA. */
+  /** Owner-only manage menu — rendered beside the received time. */
   ownerMenu?: ReactNode;
-  /** Hide the creator when the row already sits under a creator heading. */
+  /** Hide the maker when the row already sits under a creator heading. */
   hideCreator?: boolean;
+  authorDisplayName?: string | null;
+  authorAvatarUrl?: string | null;
+}
+
+function formatHoldingPrice(priceNear: string): string {
+  const n = Number.parseFloat(priceNear);
+  if (!Number.isFinite(n)) return priceNear;
+  return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
+}
+
+/** Kind, collapsed count, or the list price when this copy is for sale. */
+export function collectiblesHoldingFact(
+  item: Pick<
+    PortfolioHoldingPeek,
+    'kindLabel' | 'listedPriceNear' | 'listingKind'
+  >,
+  editionCount = 1
+): string {
+  const kind = item.kindLabel.trim();
+  const price = item.listedPriceNear?.trim();
+  if (price) {
+    const amount = `${formatHoldingPrice(price)} NEAR`;
+    const listed =
+      item.listingKind === 'auction' ? `Reserve · ${amount}` : amount;
+    return kind ? `${kind} · ${listed}` : listed;
+  }
+  if (editionCount > 1) {
+    return kind ? `${kind} · ×${editionCount}` : `×${editionCount}`;
+  }
+  return kind;
 }
 
 /** Owned scarce in the Collectibles vault — use-first CTA (Read / Play / …). */
@@ -27,6 +57,8 @@ export function CollectiblesHoldingRow({
   editionCount = 1,
   ownerMenu = null,
   hideCreator = false,
+  authorDisplayName = null,
+  authorAvatarUrl = null,
 }: CollectiblesHoldingRowProps) {
   const creatorId = item.creatorId?.trim() || null;
   const mintedRel =
@@ -40,13 +72,8 @@ export function CollectiblesHoldingRow({
   const collectionId = item.collectionId?.trim() || '';
   const opensPass = isPassMediumKind(item.mediumKind) && Boolean(collectionId);
   const dropHref = collectionId ? collectionPath(collectionId) : null;
-  const titleHint = [
-    item.title,
-    item.actionLabel,
-    editionCount > 1 ? `×${editionCount}` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const fact = collectiblesHoldingFact(item, editionCount);
+  const showMaker = Boolean(creatorId) && !hideCreator;
 
   const mainBody = (
     <>
@@ -64,30 +91,23 @@ export function CollectiblesHoldingRow({
           <span className="market-listing-thumb-fallback" />
         )}
       </div>
-      <div className="market-listing-copy">
-        <div className="market-listing-head">
+      <div className="market-listing-copy drops-discovery-copy">
+        <div className="market-listing-head drops-discovery-head">
           <p className="market-listing-title">{item.title}</p>
         </div>
-        <p className="market-listing-meta">
-          <span className="market-listing-own">{item.kindLabel}</span>
-          {editionCount > 1 ? (
-            <span className="market-listing-own"> · ×{editionCount}</span>
-          ) : item.editionSeat != null ? (
-            <span className="market-listing-own"> · #{item.editionSeat}</span>
-          ) : null}
-          {creatorId && !hideCreator ? (
-            <span className="market-listing-own">
-              {' · '}
-              {displayName(creatorId)}
-            </span>
-          ) : null}
-          {mintedRel && item.mintedAtMs != null ? (
-            <span className="market-listing-own">
-              {' · '}
-              <time {...socialTimeProps(item.mintedAtMs)}>{mintedRel}</time>
-            </span>
-          ) : null}
-        </p>
+        {showMaker && creatorId ? (
+          <DiscoveryPartyStack
+            accountId={creatorId}
+            displayName={authorDisplayName}
+            avatarUrl={authorAvatarUrl}
+            lead="by"
+          />
+        ) : null}
+        {fact ? (
+          <p className="market-listing-meta market-listing-meta--price">
+            <span className="market-listing-own">{fact}</span>
+          </p>
+        ) : null}
       </div>
     </>
   );
@@ -103,7 +123,6 @@ export function CollectiblesHoldingRow({
           scroll={false}
           className="market-listing-row-open"
           aria-label={`Open drop for ${item.title}`}
-          title={titleHint}
         />
       ) : null}
       {opensPass ? (
@@ -113,15 +132,23 @@ export function CollectiblesHoldingRow({
           href={item.href}
           scroll={false}
           className="collectibles-holding-row-main"
-          title={titleHint}
+          title={item.title}
         >
           {mainBody}
         </Link>
       )}
-      <div className="market-listing-action-col collectibles-holding-action-col">
-        {ownerMenu ? (
-          <div className="drops-discovery-head-trail">{ownerMenu}</div>
-        ) : null}
+      <div className="market-listing-action-col drops-discovery-action-col collectibles-holding-action-col">
+        <div className="drops-discovery-head-trail">
+          {mintedRel && item.mintedAtMs != null ? (
+            <time
+              className="market-listing-meta-right"
+              {...socialTimeProps(item.mintedAtMs)}
+            >
+              {mintedRel}
+            </time>
+          ) : null}
+          {ownerMenu}
+        </div>
         {opensPass ? (
           <OsRowAction
             className="collectibles-holding-action"

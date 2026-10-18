@@ -15,7 +15,7 @@ describe('CollectiblesLibrarySkeleton', () => {
     expect(html).toContain('collectibles-library-heading-face--skeleton');
     expect(html).toContain('collectibles-holding-row--skeleton');
     expect(html).toContain('market-listing-shimmer-action');
-    expect(html).not.toContain('market-listing-shimmer-time');
+    expect(html).toContain('market-listing-shimmer-time');
     expect(html.match(/collectibles-library-heading--skeleton/g)?.length).toBe(
       2
     );

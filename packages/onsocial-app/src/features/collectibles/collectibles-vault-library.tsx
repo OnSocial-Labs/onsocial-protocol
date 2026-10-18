@@ -349,12 +349,17 @@ export function CollectiblesVaultLibrary({
                     <div className="market-listing-list" role="list">
                       {series.drops.map((item) => {
                         const owned = ownedByToken.get(item.tokenId);
+                        const face = creator.creatorId
+                          ? creatorFaces?.get(creator.creatorId)
+                          : undefined;
                         return (
                           <CollectiblesHoldingRow
                             key={item.tokenId}
                             item={item}
                             editionCount={item.editionCount}
                             hideCreator={showCreatorHeadings}
+                            authorDisplayName={face?.displayName}
+                            authorAvatarUrl={face?.avatarUrl}
                             ownerMenu={
                               owned && renderOwnerMenu
                                 ? renderOwnerMenu(owned)

@@ -19,7 +19,7 @@ function SeriesHeadingBone() {
   );
 }
 
-/** Use-first row bone — thumb, title, meta, one Play/Read pill. No Market time. */
+/** Use-first row bone — thumb, title, holding line, corner time, Play/Read pill. */
 function HoldingRowBone() {
   return (
     <div className="market-listing-row market-listing-row--skeleton collectibles-holding-row--skeleton">
@@ -31,6 +31,7 @@ function HoldingRowBone() {
         <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-meta" />
       </div>
       <div className="market-listing-action-col">
+        <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-time" />
         <span className="standing-row-shimmer market-listing-shimmer-action" />
       </div>
     </div>
