@@ -11,6 +11,41 @@ function yoctoDigits(raw: string | null | undefined): string | null {
   return value;
 }
 
+function yoctoFromConditions(raw: unknown): string | null {
+  if (typeof raw === 'string' && /^\d+$/.test(raw)) return raw;
+  if (typeof raw === 'number' && Number.isSafeInteger(raw) && raw >= 0) {
+    return String(raw);
+  }
+  if (raw && typeof raw === 'object' && '0' in raw) {
+    return yoctoFromConditions((raw as { 0?: unknown })['0']);
+  }
+  return null;
+}
+
+function isNativeFixedSale(sale: Record<string, unknown>): boolean {
+  if (sale.auction != null) return false;
+  const saleType = sale.sale_type ?? sale.saleType;
+  if (!saleType || typeof saleType !== 'object') return false;
+  const record = saleType as Record<string, unknown>;
+  const native =
+    record.NativeScarce ?? record.native_scarce ?? record.nativeScarce;
+  if (!native || typeof native !== 'object') return false;
+  const token = native as { token_id?: unknown; tokenId?: unknown };
+  const tokenId = token.token_id ?? token.tokenId;
+  return typeof tokenId === 'string' && tokenId.trim().length > 0;
+}
+
+/**
+ * Yocto ask from a `get_sale` record. Null means there is no fixed-price sale
+ * (missing, auction, or not a native listing).
+ */
+export function fixedSaleAskYocto(sale: unknown): string | null {
+  if (!sale || typeof sale !== 'object') return null;
+  const row = sale as Record<string, unknown>;
+  if (!isNativeFixedSale(row)) return null;
+  return yoctoFromConditions(row.sale_conditions ?? row.saleConditions);
+}
+
 /** Shown NEAR ask against one live yocto quote. Null quote means the listing is gone. */
 export function judgeNearAsk(opts: {
   shownPriceNear: string | null | undefined;

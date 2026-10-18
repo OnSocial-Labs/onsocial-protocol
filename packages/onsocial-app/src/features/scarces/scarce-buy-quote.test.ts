@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { nearToYocto } from '@/lib/app-near-rpc';
-import { judgeDropAsk, judgeNearAsk, settleBuyAsk } from './scarce-buy-quote';
+import {
+  fixedSaleAskYocto,
+  judgeDropAsk,
+  judgeNearAsk,
+  settleBuyAsk,
+} from './scarce-buy-quote';
 
 const TWO = nearToYocto('2');
 const TWO_POINT_FIVE = nearToYocto('2.5');
@@ -12,6 +17,36 @@ const liveDrop = {
   cancelled: false,
   banned: false,
 };
+
+describe('fixedSaleAskYocto', () => {
+  const two = nearToYocto('2');
+
+  it('reads a native fixed sale and ignores a missing, auction, or external sale', () => {
+    expect(
+      fixedSaleAskYocto({
+        sale_conditions: two,
+        sale_type: { NativeScarce: { token_id: 's:1' } },
+        auction: null,
+      })
+    ).toBe(two);
+    expect(fixedSaleAskYocto(null)).toBeNull();
+    expect(
+      fixedSaleAskYocto({
+        sale_conditions: two,
+        sale_type: { NativeScarce: { token_id: 's:1' } },
+        auction: { bid_count: 1 },
+      })
+    ).toBeNull();
+    expect(
+      fixedSaleAskYocto({
+        sale_conditions: two,
+        sale_type: {
+          External: { scarce_contract_id: 'other.near', token_id: '1' },
+        },
+      })
+    ).toBeNull();
+  });
+});
 
 describe('judgeNearAsk', () => {
   it('opens when 2 and 2.0 are the same yocto', () => {

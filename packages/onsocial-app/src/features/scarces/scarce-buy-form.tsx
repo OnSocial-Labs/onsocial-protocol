@@ -66,6 +66,7 @@ import {
   createAppScarcesWalletClient,
   fetchLazyListingPriceYocto,
   LazyListingNotFoundError,
+  readFixedSalePriceYocto,
   resolveLazyListingDepositYocto,
 } from '@/features/scarces/scarces-wallet-client';
 import {
@@ -112,6 +113,7 @@ import {
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { parseDropPaintSnapshot, parsePostText } from '@/lib/post-display';
 import {
+  scarceAskNote,
   txToastConfirming,
   txToastError,
   txToastSuccess,
@@ -299,6 +301,7 @@ export function ScarceBuyForm({
   } | null>(null);
   const [quotedPriceNear, setQuotedPriceNear] = useState<string | null>(null);
   const [quotedRemaining, setQuotedRemaining] = useState<number | null>(null);
+  const [askNote, setAskNote] = useState<string | null>(null);
   const [openOfferNear, setOpenOfferNear] = useState<string | null>(
     () => listing?.viewerOfferNear?.trim() || null
   );
@@ -1065,7 +1068,7 @@ export function ScarceBuyForm({
     if (nextRemaining != null) setQuotedRemaining(nextRemaining);
     if (isDropBuy && collectionId) repriceDrop(collectionId, price);
     else repriceMarketListing({ tokenId, listingId, priceNear: price });
-    setTxResult({ type: 'error', msg: txToastError.scarcePriceMoved });
+    setAskNote(scarceAskNote.priceChanged);
   }
 
   async function readAskBeforeWallet(): Promise<
@@ -1099,18 +1102,12 @@ export function ScarceBuyForm({
           }),
         };
       } else if (isMarketBuy && tokenId) {
-        const rows =
-          await createReadOnlyOnSocialClient().query.scarces.activeListings({
-            tokenIds: [tokenId],
-            kinds: ['native'],
-            limit: 1,
-          });
-        const row = rows.find((entry) => entry.tokenId === tokenId) ?? null;
+        const quoted = await readFixedSalePriceYocto(tokenId);
         read = {
           kind: 'near',
           verdict: judgeNearAsk({
             shownPriceNear: priceNear,
-            quotedYocto: row?.price ?? null,
+            quotedYocto: quoted,
           }),
         };
       } else if (isLazyBuy && listingId) {
@@ -1151,7 +1148,7 @@ export function ScarceBuyForm({
             setQuotedPriceNear(yoctoToNear(ask.yocto));
             if (ask.remaining != null) setQuotedRemaining(ask.remaining);
           }
-          setTxResult({ type: 'error', msg: txToastError.scarcePriceMoved });
+          setAskNote(scarceAskNote.priceChanged);
           return { proceed: false };
         }
         if (
@@ -1160,10 +1157,7 @@ export function ScarceBuyForm({
           ask.remaining < mintQty
         ) {
           setQuotedRemaining(ask.remaining);
-          setTxResult({
-            type: 'error',
-            msg: txToastError.scarceFewerLeft,
-          });
+          setAskNote(scarceAskNote.fewerLeft(ask.remaining));
           return { proceed: false };
         }
         if (ask.status === 'open' && ask.remaining != null) {
@@ -1184,7 +1178,7 @@ export function ScarceBuyForm({
     }
     if (ask.remaining != null && ask.remaining < mintQty) {
       setQuotedRemaining(ask.remaining);
-      setTxResult({ type: 'error', msg: txToastError.scarceFewerLeft });
+      setAskNote(scarceAskNote.fewerLeft(ask.remaining));
       return { proceed: false };
     }
     if (ask.remaining != null) setQuotedRemaining(ask.remaining);
@@ -1524,6 +1518,11 @@ export function ScarceBuyForm({
                   onOpenFacts={() => setFactsOpen(true)}
                 />
               </div>
+              {askNote ? (
+                <p className="scarce-buy-ask-note" role="status">
+                  {askNote}
+                </p>
+              ) : null}
               {dollarSticker ? (
                 <p className="profile-support-hint">
                   {!dollarOracle

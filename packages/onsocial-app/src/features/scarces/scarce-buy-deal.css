@@ -11,10 +11,16 @@
   min-width: 0;
 }
 
+.scarce-buy-ask-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: rgb(var(--fg-rgb) / 0.62);
+}
+
 .scarce-buy-deal-row .scarce-buy-meta-row {
   margin: 0 0 0 auto;
   width: auto;
   flex: 0 1 auto;
   justify-content: flex-end;
 }
-

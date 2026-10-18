@@ -293,6 +293,12 @@ export const txToastSuccess = {
   offerRemoved: 'Offer removed.',
 } as const;
 
+/** Quiet line on the open buy sheet when the ask moved and the wallet waits. */
+export const scarceAskNote = {
+  priceChanged: 'Price changed.',
+  fewerLeft: (count: number) => (count === 1 ? '1 left.' : `${count} left.`),
+} as const;
+
 export const txToastError = {
   collectSocialFailed: 'Could not collect SOCIAL.',
   joinRallyFailed: 'Could not join the rally.',
@@ -350,8 +356,6 @@ export const txToastError = {
   buyScarceFailed: 'Could not buy scarce.',
   scarceJustSold: 'Just sold.',
   dropClosed: 'That drop is closed.',
-  scarcePriceMoved: 'Price changed. Review it, then buy.',
-  scarceFewerLeft: 'Fewer left. Review it, then mint.',
   fundNearFailed: 'Could not swap to NEAR.',
   unwrapNearFailed: 'Could not unwrap NEAR.',
   bidScarceFailed: 'Could not place bid.',
