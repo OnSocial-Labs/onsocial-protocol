@@ -18083,10 +18083,6 @@ a.os-surface-row {
     .page-drawer-media-rail {
       grid-auto-columns: minmax(9rem, 28%);
     }
-
-    .page-drawer-media-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
   }
 
   /* ── Standing sheet (fixed toolbar + scrollable list) ─── */
