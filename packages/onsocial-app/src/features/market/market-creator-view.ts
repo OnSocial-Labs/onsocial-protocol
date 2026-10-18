@@ -21,9 +21,7 @@ const BUCKET_LABEL: Record<MarketCreatorDropBucket, string> = {
 };
 
 /** Public Market in creator-shop mode (`?creator=`). */
-export function marketCreatorShop(
-  creator: string | null | undefined
-): boolean {
+export function marketCreatorShop(creator: string | null | undefined): boolean {
   return Boolean(creator?.trim());
 }
 
@@ -37,7 +35,7 @@ export function marketCreatorScreenTitle(opts: {
   creatorId: string;
 }): string {
   const id = opts.creatorId.trim();
-  if (!id) return 'Shop';
+  if (!id) return 'Market';
   return collectionCreatorNameLine(id, opts.displayName);
 }
 
@@ -49,7 +47,7 @@ export function marketCreatorDocumentTitle(opts: {
 }
 
 export function marketCreatorEmptyCopy(): string {
-  return 'Nothing in this shop yet.';
+  return 'Nothing here yet.';
 }
 
 export function marketCreatorBrowseLabel(): string {
@@ -67,7 +65,7 @@ export function marketCreatorShopCountCopy(opts: {
 }
 
 export function marketCreatorSearchPlaceholder(): string {
-  return 'Search shop';
+  return 'Search listings';
 }
 
 /**
@@ -138,9 +136,7 @@ export function groupMarketCreatorDrops(
     buckets[marketCreatorDropBucket(drop.status)].push(drop);
   }
   for (const bucket of BUCKET_ORDER) {
-    buckets[bucket].sort(
-      (a, b) => (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0)
-    );
+    buckets[bucket].sort((a, b) => (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0));
   }
   return BUCKET_ORDER.filter((bucket) => buckets[bucket].length > 0).map(
     (bucket) => ({
