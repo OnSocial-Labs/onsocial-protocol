@@ -7,7 +7,7 @@ import {
   mod10,
   nextDigitPosition,
   parkedDigitPosition,
-} from '@/components/ui/rolling-number';
+} from '@/components/ui/rolling-digits';
 
 const STRIP_LENGTH = 30;
 

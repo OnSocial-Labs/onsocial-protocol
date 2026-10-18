@@ -4,7 +4,7 @@ import {
   nextDigitPosition,
   parkedDigitPosition,
   shortestDigitDelta,
-} from './rolling-number';
+} from './rolling-digits';
 
 describe('shortestDigitDelta', () => {
   it('rolls forward through the in-between digits', () => {
