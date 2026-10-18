@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePlaceScroll } from '@/hooks/use-place-scroll';
-import { mergeCatalogHead } from '@/lib/catalog-place-memory';
+import {
+  CATALOG_PLACE_MEMORY_TTL_MS,
+  mergeCatalogHead,
+} from '@/lib/catalog-place-memory';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -172,8 +175,8 @@ const CREATOR_DROPS_PAGE = 48;
 const SEARCH_DEBOUNCE_MS = 300;
 /** Mute last rows only if the live check is still in flight — skip flicker on fast hits. */
 const CATALOG_REFRESH_MUTE_MS = 160;
-/** Keep recent catalog pages so flipping back is instant. */
-const CATALOG_CACHE_TTL_MS = 90_000;
+/** Same lifetime as the scroll line for this tab. */
+const CATALOG_CACHE_TTL_MS = CATALOG_PLACE_MEMORY_TTL_MS;
 const CATALOG_CACHE_MAX_ENTRIES = 12;
 
 /** Survives leaving Market so a return paints the pages already loaded. */
@@ -540,6 +543,31 @@ export function MarketPagePanel({
     scrollRootRef,
     listingsState.items.length
   );
+  const catalogLeaveRef = useRef({
+    key: catalogCacheKey,
+    items: listingsState.items,
+    nextOffset: listingsState.nextOffset,
+    hasMore: listingsState.hasMore,
+  });
+  useEffect(() => {
+    catalogLeaveRef.current = {
+      key: catalogCacheKey,
+      items: listingsState.items,
+      nextOffset: listingsState.nextOffset,
+      hasMore: listingsState.hasMore,
+    };
+  });
+  useEffect(() => {
+    return () => {
+      const snap = catalogLeaveRef.current;
+      if (!snap.key || snap.items.length === 0) return;
+      writeCatalogCache(snap.key, {
+        items: snap.items,
+        nextOffset: snap.nextOffset,
+        hasMore: snap.hasMore,
+      });
+    };
+  }, [writeCatalogCache]);
   const browseListingsParamsKey = marketBrowseParamsKey({
     retryKey,
     listingFilter: shopListingFilter,

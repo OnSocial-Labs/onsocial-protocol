@@ -40,6 +40,12 @@ describe('catalog place memory', () => {
     ]);
   });
 
+  it('clears paged rows when a refresh comes back empty', () => {
+    expect(
+      mergeCatalogHead([{ id: 'a' }, { id: 'b' }], [], (item) => item.id)
+    ).toEqual([]);
+  });
+
   it('uses the new page when nothing was paged further', () => {
     expect(
       mergeCatalogHead(

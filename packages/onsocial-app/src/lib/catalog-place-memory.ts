@@ -37,14 +37,15 @@ export function writePlaceScroll(
 
 /**
  * Quiet refresh replaces the first page and keeps rows the reader already
- * paged in. A shorter current list is just the new page.
+ * paged in. A successful empty page clears the list. A shorter current
+ * list is just the new page.
  */
 export function mergeCatalogHead<T>(
   current: readonly T[],
   page: readonly T[],
   keyOf: (item: T) => string
 ): T[] {
-  if (page.length === 0) return [...current];
+  if (page.length === 0) return [];
   if (current.length <= page.length) return [...page];
   const seen = new Set(page.map(keyOf));
   const tail = current.filter((item) => !seen.has(keyOf(item)));

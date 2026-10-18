@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePlaceScroll } from '@/hooks/use-place-scroll';
-import { mergeCatalogHead } from '@/lib/catalog-place-memory';
+import {
+  CATALOG_PLACE_MEMORY_TTL_MS,
+  mergeCatalogHead,
+} from '@/lib/catalog-place-memory';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -76,8 +79,8 @@ import {
 /** Debounce before search keystrokes hit the indexer (snappy, still typed). */
 const SEARCH_DEBOUNCE_MS = 200;
 
-/** Keep recent catalog pages so flipping back is instant. */
-const CATALOG_CACHE_TTL_MS = 90_000;
+/** Same lifetime as the scroll line for this tab. */
+const CATALOG_CACHE_TTL_MS = CATALOG_PLACE_MEMORY_TTL_MS;
 const CATALOG_CACHE_MAX_ENTRIES = 12;
 
 type CatalogCacheEntry = {
@@ -678,6 +681,26 @@ export function DropsPagePanel({
     },
     []
   );
+
+  const dropsLeaveRef = useRef({
+    key: activeCatalogKey,
+    items,
+    hasMore,
+  });
+  useEffect(() => {
+    dropsLeaveRef.current = { key: activeCatalogKey, items, hasMore };
+  });
+  useEffect(() => {
+    return () => {
+      const snap = dropsLeaveRef.current;
+      if (!snap.key || snap.items.length === 0) return;
+      writeCatalogCache(snap.key, {
+        items: snap.items,
+        hasMore: snap.hasMore,
+        at: Date.now(),
+      });
+    };
+  }, [writeCatalogCache]);
 
   const reload = useCallback(
     async (
