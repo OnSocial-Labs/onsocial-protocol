@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
+  PageDrawerMediaGrid,
+  PageDrawerMediaGridSkeleton,
+} from '@/components/portfolio/page-drawer-media-grid';
+import {
   PersonalFeedList,
   insertOptimisticFeedPost,
   shouldPrependOptimisticFeedPost,
@@ -16,6 +20,7 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { postKey } from '@/lib/post-display';
 import {
   parsePostMedia,
+  postVisualMedia,
   revokeOptimisticMediaPreviewUrls,
 } from '@/lib/post-media';
 import { isRepostRefType } from '@/lib/post-relation';
@@ -189,7 +194,9 @@ export function ProfileFeedClient({
     if (tab === 'reposts') {
       return posts.filter((post) => isRepostRefType(post.refType));
     }
-    return posts.filter((post) => parsePostMedia(post.value).length > 0);
+    return posts.filter(
+      (post) => postVisualMedia(parsePostMedia(post.value)).length > 0
+    );
   }, [posts, tab]);
 
   const emptyTitle = tab
@@ -212,7 +219,11 @@ export function ProfileFeedClient({
     if (tab && pendingTab === tab) {
       return (
         <>
-          <PostRowSkeleton rows={3} />
+          {tab === 'media' ? (
+            <PageDrawerMediaGridSkeleton />
+          ) : (
+            <PostRowSkeleton rows={3} />
+          )}
           {sheet}
         </>
       );
@@ -242,16 +253,20 @@ export function ProfileFeedClient({
           {total > posts.length ? ` · showing ${posts.length}` : null}.
         </p>
       ) : null}
-      <PersonalFeedList
-        posts={visiblePosts}
-        includeForeignReplies={tab === 'replies'}
-        onReply={replyHandler}
-        onExpandReply={openFullReply}
-        onQuote={quoteHandler}
-        onRepost={repostHandler}
-        onUndoRepost={undoRepostHandler}
-        className="home-feed-list"
-      />
+      {tab === 'media' ? (
+        <PageDrawerMediaGrid posts={visiblePosts} />
+      ) : (
+        <PersonalFeedList
+          posts={visiblePosts}
+          includeForeignReplies={tab === 'replies'}
+          onReply={replyHandler}
+          onExpandReply={openFullReply}
+          onQuote={quoteHandler}
+          onRepost={repostHandler}
+          onUndoRepost={undoRepostHandler}
+          className="home-feed-list"
+        />
+      )}
       {sheet}
     </>
   );

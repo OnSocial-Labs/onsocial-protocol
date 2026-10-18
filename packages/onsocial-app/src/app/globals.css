@@ -17473,6 +17473,12 @@ a.os-surface-row {
     padding: 0.85rem 0 0.95rem;
   }
 
+  /* Vault preview — the chip names the section; the row keeps its own pad. */
+  .page-drawer-section.is-vault {
+    gap: 0.55rem;
+    padding-top: 0;
+  }
+
   .page-drawer-sections > .divider-detail {
     margin: 0;
   }
@@ -17614,11 +17620,28 @@ a.os-surface-row {
     transform: translateY(-2px);
   }
 
-  .page-drawer-media-cover img {
+  .page-drawer-media-cover img,
+  .page-drawer-media-cover video {
     display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  .page-drawer-media-cover video {
+    pointer-events: none;
+  }
+
+  /* Profile Media — same cover card as created works, wrapped so you can scan. */
+  .page-drawer-media-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    padding-top: 0.35rem;
+  }
+
+  .page-drawer-media-grid .page-drawer-media-card {
+    scroll-snap-align: unset;
   }
 
   .page-drawer-media-badge {
@@ -18059,6 +18082,10 @@ a.os-surface-row {
   @media (min-width: 640px) {
     .page-drawer-media-rail {
       grid-auto-columns: minmax(9rem, 28%);
+    }
+
+    .page-drawer-media-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
   }
 

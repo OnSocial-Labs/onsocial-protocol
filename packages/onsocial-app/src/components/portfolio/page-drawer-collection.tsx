@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ProtocolMotionArrow } from '@onsocial/ui';
 import { CollectiblesHoldingRowMenu } from '@/features/collectibles/collectibles-holding-row-menu';
-import { OsRowAction } from '@/lib/os-row-action';
+import { CollectiblesLibrarySkeleton } from '@/features/collectibles/collectibles-library-skeleton';
 import { CollectiblesVaultLibrary } from '@/features/collectibles/collectibles-vault-library';
-import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
+import { OsRowAction } from '@/lib/os-row-action';
 import {
   fetchOwnedScarcesPage,
   type OwnedScarceItem,
@@ -153,7 +153,7 @@ export function PageDrawerCollectionList({
     initialHoldings.length === 0
   ) {
     return (
-      <div className="page-drawer-section">
+      <div className="page-drawer-section is-vault">
         <p className="page-drawer-section-empty">Nothing held yet.</p>
       </div>
     );
@@ -161,46 +161,44 @@ export function PageDrawerCollectionList({
 
   return (
     <>
-      <div className="page-drawer-section">
-        <section className="market-section" aria-labelledby="page-drawer-collection">
-          <h3 id="page-drawer-collection" className="market-section-title">
-            Collectibles
-          </h3>
-          {loading ? <MarketListSkeleton rows={3} /> : null}
-          {!loading && previewRows > 0 ? (
-            <CollectiblesVaultLibrary
-              embedded
-              groups={library.groups}
-              ownedByToken={ownedByToken}
-              showCreatorHeadings={library.groups.length > 1}
-              renderOwnerMenu={
-                isSelf
-                  ? (owned) => (
-                      <CollectiblesHoldingRowMenu
-                        item={owned}
-                        onList={() => {
-                          setSellItem(owned);
-                          setSellOpen(true);
-                        }}
-                        onTransfer={() => {
-                          setTransferItem(owned);
-                          setTransferOpen(true);
-                        }}
-                        onDelisted={refreshOwned}
-                      />
-                    )
-                  : undefined
-              }
-            />
-          ) : null}
-          {!loading && showSeeAll ? (
-            <OsRowAction href={seeAllHref}>
-              {seeAllCopy.action} · {seeAllCopy.count}
-              <ProtocolMotionArrow className="os-row-action-arrow" />
-            </OsRowAction>
-          ) : null}
-        </section>
-      </div>
+      <section
+        className="page-drawer-section is-vault"
+        aria-label="Collectibles"
+      >
+        {loading ? <CollectiblesLibrarySkeleton /> : null}
+        {!loading && previewRows > 0 ? (
+          <CollectiblesVaultLibrary
+            embedded
+            groups={library.groups}
+            ownedByToken={ownedByToken}
+            showCreatorHeadings={library.groups.length > 1}
+            renderOwnerMenu={
+              isSelf
+                ? (owned) => (
+                    <CollectiblesHoldingRowMenu
+                      item={owned}
+                      onList={() => {
+                        setSellItem(owned);
+                        setSellOpen(true);
+                      }}
+                      onTransfer={() => {
+                        setTransferItem(owned);
+                        setTransferOpen(true);
+                      }}
+                      onDelisted={refreshOwned}
+                    />
+                  )
+                : undefined
+            }
+          />
+        ) : null}
+        {!loading && showSeeAll ? (
+          <OsRowAction href={seeAllHref}>
+            {seeAllCopy.action} · {seeAllCopy.count}
+            <ProtocolMotionArrow className="os-row-action-arrow" />
+          </OsRowAction>
+        ) : null}
+      </section>
 
       <ScarceSellSheet
         open={sellOpen && sellItem != null}
