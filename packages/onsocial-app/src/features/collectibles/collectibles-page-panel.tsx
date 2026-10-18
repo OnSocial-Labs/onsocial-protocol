@@ -22,6 +22,11 @@ import {
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { accountIdsEqual } from '@/lib/account-match';
+import {
+  forgetCollectiblesPlace,
+  registerCollectiblesForget,
+} from '@/lib/catalog-trade';
 import {
   invalidateOwnedVaultCache,
   peekOwnedVaultFaces,
@@ -45,7 +50,6 @@ import {
   MARKET_MEDIUM_FILTERS,
   type MarketMediumFilter,
 } from '@/features/market/market-medium';
-import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_DROP_CREATE_PATH,
   APP_HOME_PATH,
@@ -121,6 +125,8 @@ type CollectiblesPlaceEntry = {
 
 /** Full vault list for this tab. Page-zero peek stays the short Market cache. */
 const collectiblesPlaces = new Map<string, CollectiblesPlaceEntry>();
+/** Accounts whose snapshot must not be rewritten until the next successful fetch. */
+const collectiblesVaultDirty = new Set<string>();
 
 function collectiblesPlaceKey(accountId: string): string {
   return accountId.trim().toLowerCase();
@@ -144,8 +150,16 @@ function writeCollectiblesPlace(
 ): void {
   const key = collectiblesPlaceKey(accountId);
   if (!key || holdings.failed || holdings.items.length === 0) return;
+  if (collectiblesVaultDirty.has(key)) return;
   collectiblesPlaces.set(key, { at: Date.now(), holdings });
 }
+
+registerCollectiblesForget((accountId) => {
+  const key = collectiblesPlaceKey(accountId);
+  if (!key) return;
+  collectiblesVaultDirty.add(key);
+  collectiblesPlaces.delete(key);
+});
 
 function holdingsStateFromItems(
   items: OwnedScarceItem[],
@@ -263,6 +277,14 @@ export function CollectiblesPagePanel({
   useEffect(() => {
     holdingsRef.current = holdings;
   });
+  useEffect(() => {
+    return registerCollectiblesForget((accountId) => {
+      if (!ownerAccountId || !accountIdsEqual(accountId, ownerAccountId)) {
+        return;
+      }
+      setRetryKey((n) => n + 1);
+    });
+  }, [ownerAccountId]);
   useEffect(() => {
     return () => {
       const snap = holdingsRef.current;
@@ -465,6 +487,7 @@ export function CollectiblesPagePanel({
               failed: false,
             }
           : holdingsStateFromItems(items, nextFromEnd, hasMore, loadKey);
+        collectiblesVaultDirty.delete(collectiblesPlaceKey(ownerAccountId));
         writeCollectiblesPlace(ownerAccountId, next);
         return next;
       });
@@ -807,8 +830,9 @@ export function CollectiblesPagePanel({
   }, [holdings.owned]);
 
   const refreshOwned = useCallback(() => {
-    if (viewerAccountId) invalidateOwnedVaultCache(viewerAccountId);
-    setRetryKey((n) => n + 1);
+    if (!viewerAccountId) return;
+    invalidateOwnedVaultCache(viewerAccountId);
+    forgetCollectiblesPlace(viewerAccountId);
   }, [viewerAccountId]);
 
   const clientDiscoveryFilterActive =

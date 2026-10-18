@@ -20,6 +20,15 @@ import {
 } from '@/features/market/market-listings';
 import { invalidateOwnedVaultCache } from '@/features/market/owned-vault-cache';
 import {
+  forgetCollectiblesPlace,
+  forgetMarketListing,
+  marketListingMatches,
+  registerDropForget,
+  registerDropReprice,
+  registerMarketForget,
+  registerMarketReprice,
+} from '@/lib/catalog-trade';
+import {
   ScarceBidSheet,
   type ScarceBidListing,
 } from '@/features/scarces/scarce-bid-sheet';
@@ -149,6 +158,12 @@ export function PageDrawerStoreList({
   const [buyListing, setBuyListing] = useState<ScarceBuyListing | null>(null);
   const [bidListing, setBidListing] = useState<ScarceBidListing | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [hiddenDropIds, setHiddenDropIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
+  const [dropPrices, setDropPrices] = useState<ReadonlyMap<string, string>>(
+    () => new Map()
+  );
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -177,6 +192,56 @@ export function PageDrawerStoreList({
     };
   }, [pageAccountId, retryKey]);
 
+  useEffect(() => {
+    const unforget = registerMarketForget((target) => {
+      setListingsState((current) => {
+        const items = current.items.filter(
+          (row) => !marketListingMatches(row, target)
+        );
+        return items.length === current.items.length
+          ? current
+          : { ...current, items };
+      });
+    });
+    const unreprice = registerMarketReprice((target) => {
+      setListingsState((current) => {
+        let changed = false;
+        const items = current.items.map((row) => {
+          if (
+            !marketListingMatches(row, target) ||
+            row.priceNear === target.priceNear
+          ) {
+            return row;
+          }
+          changed = true;
+          return { ...row, priceNear: target.priceNear };
+        });
+        return changed ? { ...current, items } : current;
+      });
+    });
+    const unforgetDrop = registerDropForget((collectionId) => {
+      setHiddenDropIds((current) => {
+        if (current.has(collectionId)) return current;
+        const next = new Set(current);
+        next.add(collectionId);
+        return next;
+      });
+    });
+    const unrepriceDrop = registerDropReprice((collectionId, priceNear) => {
+      setDropPrices((current) => {
+        const next = new Map(current);
+        next.set(collectionId, priceNear);
+        return next;
+      });
+    });
+    return () => {
+      unforget();
+      unreprice();
+      unforgetDrop();
+      unrepriceDrop();
+    };
+  }, []);
+
   const hasLiveAuctionClocks = useMemo(
     () =>
       listingsState.items.some(
@@ -196,8 +261,13 @@ export function PageDrawerStoreList({
       filterDropsNotListed(
         filterBuyableStoreDrops(shelf.drops),
         listedCollectionIds(listingsState.items)
-      ),
-    [listingsState.items, shelf.drops]
+      )
+        .filter((drop) => !hiddenDropIds.has(drop.collectionId))
+        .map((drop) => {
+          const priceNear = dropPrices.get(drop.collectionId);
+          return priceNear ? { ...drop, priceNear } : drop;
+        }),
+    [dropPrices, hiddenDropIds, listingsState.items, shelf.drops]
   );
   const fanRosters = useDropFanRosters(drops.map((drop) => drop.collectionId));
   const dropCollectionIds = useMemo(
@@ -375,6 +445,11 @@ export function PageDrawerStoreList({
         });
         if (!confirmed) return;
 
+        forgetMarketListing({
+          tokenId: item.tokenId,
+          listingId: item.listingId,
+        });
+        forgetCollectiblesPlace(accountId);
         setListingsState((current) => ({
           ...current,
           items: current.items.filter(

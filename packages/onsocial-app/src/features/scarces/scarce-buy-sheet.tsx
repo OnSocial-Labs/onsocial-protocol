@@ -12,6 +12,7 @@ import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
 import {
   ScarceBuyForm,
+  type ScarceBuyGoneDetail,
   type ScarceBuySuccessDetail,
 } from '@/features/scarces/scarce-buy-form';
 import { isPrimaryMintStatus } from '@/features/scarces/post-drop-cta';
@@ -65,6 +66,7 @@ interface ScarceBuySheetProps {
   alreadyOwnsEdition?: boolean;
   onOpenChange: (open: boolean) => void;
   onPurchased?: (detail: ScarceBuySuccessDetail) => void;
+  onListingGone?: (detail: ScarceBuyGoneDetail) => void;
   onMakeOffer?: (detail?: { amountNear?: string | null }) => void;
   /** Stack above the listen/read shell (z-index 80) when opened from the player. */
   zIndex?: number;
@@ -80,6 +82,7 @@ export function ScarceBuySheet({
   alreadyOwnsEdition = false,
   onOpenChange,
   onPurchased,
+  onListingGone,
   onMakeOffer,
   zIndex = 56,
 }: ScarceBuySheetProps) {
@@ -142,6 +145,14 @@ export function ScarceBuySheet({
     [onPurchased, requestClose]
   );
 
+  const handleGone = useCallback(
+    (detail: ScarceBuyGoneDetail) => {
+      onListingGone?.(detail);
+      requestClose();
+    },
+    [onListingGone, requestClose]
+  );
+
   const handleMakeOffer = useCallback(
     (detail?: { amountNear?: string | null }) => {
       onMakeOffer?.(detail);
@@ -189,6 +200,7 @@ export function ScarceBuySheet({
           alreadyOwnsEdition={alreadyOwnsEdition}
           onFooterStateChange={handleFooterStateChange}
           onSuccess={handleSuccess}
+          onListingGone={handleGone}
           onMakeOffer={onMakeOffer ? handleMakeOffer : undefined}
         />
       ) : null}

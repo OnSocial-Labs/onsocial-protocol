@@ -86,6 +86,15 @@ import {
   invalidateOwnedVaultCache,
   peekOwnedVaultPage,
 } from '@/features/market/owned-vault-cache';
+import {
+  forgetCollectiblesPlace,
+  forgetMarketListing,
+  marketListingMatches,
+  registerDropForget,
+  registerDropReprice,
+  registerMarketForget,
+  registerMarketReprice,
+} from '@/lib/catalog-trade';
 import { MarketOfferRow } from '@/features/market/market-offer-row';
 import {
   MarketOwnedRow,
@@ -194,6 +203,44 @@ function peekFreshMarketCatalog(
   }
   return hit;
 }
+
+function stripMarketCatalog(target: {
+  tokenId?: string;
+  listingId?: string;
+}): void {
+  for (const [key, entry] of marketCatalogPages) {
+    const items = entry.items.filter(
+      (item) => !marketListingMatches(item, target)
+    );
+    if (items.length === entry.items.length) continue;
+    if (items.length === 0) marketCatalogPages.delete(key);
+    else marketCatalogPages.set(key, { ...entry, items });
+  }
+}
+
+function repriceMarketCatalog(target: {
+  tokenId?: string;
+  listingId?: string;
+  priceNear: string;
+}): void {
+  for (const [key, entry] of marketCatalogPages) {
+    let changed = false;
+    const items = entry.items.map((item) => {
+      if (
+        !marketListingMatches(item, target) ||
+        item.priceNear === target.priceNear
+      ) {
+        return item;
+      }
+      changed = true;
+      return { ...item, priceNear: target.priceNear };
+    });
+    if (changed) marketCatalogPages.set(key, { ...entry, items });
+  }
+}
+
+registerMarketForget(stripMarketCatalog);
+registerMarketReprice(repriceMarketCatalog);
 
 type MarketCatalogCacheEntry = {
   items: MarketListingItem[];
@@ -568,6 +615,76 @@ export function MarketPagePanel({
       });
     };
   }, [writeCatalogCache]);
+  useEffect(() => {
+    const unforget = registerMarketForget((target) => {
+      const strip = (items: MarketListingItem[]) =>
+        items.filter((row) => !marketListingMatches(row, target));
+      const browse = lastBrowseCatalogRef.current;
+      if (browse) {
+        const items = strip(browse.items);
+        lastBrowseCatalogRef.current =
+          items.length > 0 ? { ...browse, items } : null;
+      }
+      const leave = catalogLeaveRef.current;
+      catalogLeaveRef.current = { ...leave, items: strip(leave.items) };
+      setListingsState((current) => {
+        const items = strip(current.items);
+        return items.length === current.items.length
+          ? current
+          : { ...current, items };
+      });
+    });
+    const unreprice = registerMarketReprice((target) => {
+      const retag = (items: MarketListingItem[]) => {
+        let changed = false;
+        const next = items.map((row) => {
+          if (
+            !marketListingMatches(row, target) ||
+            row.priceNear === target.priceNear
+          ) {
+            return row;
+          }
+          changed = true;
+          return { ...row, priceNear: target.priceNear };
+        });
+        return changed ? next : items;
+      };
+      const browse = lastBrowseCatalogRef.current;
+      if (browse) {
+        const items = retag(browse.items);
+        if (items !== browse.items) {
+          lastBrowseCatalogRef.current = { ...browse, items };
+        }
+      }
+      const leave = catalogLeaveRef.current;
+      const leaveItems = retag(leave.items);
+      if (leaveItems !== leave.items) {
+        catalogLeaveRef.current = { ...leave, items: leaveItems };
+      }
+      setListingsState((current) => {
+        const items = retag(current.items);
+        return items === current.items ? current : { ...current, items };
+      });
+    });
+    const unforgetDrop = registerDropForget((collectionId) => {
+      setCreatorDrops((current) =>
+        current.filter((drop) => drop.collectionId !== collectionId)
+      );
+    });
+    const unrepriceDrop = registerDropReprice((collectionId, priceNear) => {
+      setCreatorDrops((current) =>
+        current.map((drop) =>
+          drop.collectionId === collectionId ? { ...drop, priceNear } : drop
+        )
+      );
+    });
+    return () => {
+      unforget();
+      unreprice();
+      unforgetDrop();
+      unrepriceDrop();
+    };
+  }, []);
   const browseListingsParamsKey = marketBrowseParamsKey({
     retryKey,
     listingFilter: shopListingFilter,
@@ -1578,7 +1695,10 @@ export function MarketPagePanel({
 
   const handleListed = useCallback(() => {
     setSellItem(null);
-    if (viewerAccountId) invalidateOwnedVaultCache(viewerAccountId);
+    if (viewerAccountId) {
+      invalidateOwnedVaultCache(viewerAccountId);
+      forgetCollectiblesPlace(viewerAccountId);
+    }
     setRetryKey((value) => value + 1);
   }, [viewerAccountId]);
 
@@ -1608,6 +1728,11 @@ export function MarketPagePanel({
         });
         if (!confirmed) return;
 
+        forgetMarketListing({
+          tokenId: item.tokenId,
+          listingId: item.listingId,
+        });
+        if (viewerAccountId) forgetCollectiblesPlace(viewerAccountId);
         setListingsState((current) => ({
           ...current,
           items: current.items.filter(
@@ -1650,7 +1775,13 @@ export function MarketPagePanel({
         setCancelRowKey(null);
       }
     },
-    [cancelRowKey, getSigningWallet, setTxResult, trackTransaction]
+    [
+      cancelRowKey,
+      getSigningWallet,
+      setTxResult,
+      trackTransaction,
+      viewerAccountId,
+    ]
   );
 
   const handleSettleOwned = useCallback(

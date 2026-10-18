@@ -68,6 +68,7 @@ import { DROPS_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
+import { registerDropForget, registerDropReprice } from '@/lib/catalog-trade';
 import {
   EMPTY_DROPS_PAGE_QUERY,
   dropsQueryPath,
@@ -104,6 +105,34 @@ function peekFreshDropsCatalog(
   }
   return hit;
 }
+
+function forgetDropCatalog(collectionId: string): void {
+  for (const [key, entry] of dropsCatalogPages) {
+    const items = entry.items.filter(
+      (item) => item.collectionId !== collectionId
+    );
+    if (items.length === entry.items.length) continue;
+    if (items.length === 0) dropsCatalogPages.delete(key);
+    else dropsCatalogPages.set(key, { ...entry, items });
+  }
+}
+
+function repriceDropCatalog(collectionId: string, priceNear: string): void {
+  for (const [key, entry] of dropsCatalogPages) {
+    let changed = false;
+    const items = entry.items.map((item) => {
+      if (item.collectionId !== collectionId || item.priceNear === priceNear) {
+        return item;
+      }
+      changed = true;
+      return { ...item, priceNear };
+    });
+    if (changed) dropsCatalogPages.set(key, { ...entry, items });
+  }
+}
+
+registerDropForget(forgetDropCatalog);
+registerDropReprice(repriceDropCatalog);
 
 function dropsCatalogCacheKey(opts: {
   sort: DropsSort;
@@ -701,6 +730,31 @@ export function DropsPagePanel({
       });
     };
   }, [writeCatalogCache]);
+  useEffect(() => {
+    const unforget = registerDropForget((collectionId) => {
+      const leave = dropsLeaveRef.current;
+      dropsLeaveRef.current = {
+        ...leave,
+        items: leave.items.filter((item) => item.collectionId !== collectionId),
+      };
+      setItems((current) =>
+        current.filter((item) => item.collectionId !== collectionId)
+      );
+    });
+    const unreprice = registerDropReprice((collectionId, priceNear) => {
+      const retag = (rows: DropDiscoveryItem[]) =>
+        rows.map((item) =>
+          item.collectionId === collectionId ? { ...item, priceNear } : item
+        );
+      const leave = dropsLeaveRef.current;
+      dropsLeaveRef.current = { ...leave, items: retag(leave.items) };
+      setItems((current) => retag(current));
+    });
+    return () => {
+      unforget();
+      unreprice();
+    };
+  }, []);
 
   const reload = useCallback(
     async (
