@@ -432,9 +432,7 @@ fn connect_rpc(url: &str, bearer: Option<&str>) -> JsonRpcClient {
 fn is_rate_limited_error(err: &impl std::fmt::Display) -> bool {
     let message = err.to_string();
     let lower = message.to_ascii_lowercase();
-    message.contains("429")
-        || lower.contains("rate limit")
-        || lower.contains("too many requests")
+    message.contains("429") || lower.contains("rate limit") || lower.contains("too many requests")
 }
 
 #[cfg(test)]
@@ -471,6 +469,7 @@ mod tests {
         assert!(fastnear_bearer("https://rpc.testnet.fastnear.com", Some("  ")).is_none());
     }
 
+    #[test]
     fn rate_limit_message_is_detected() {
         assert!(is_rate_limited_error(
             &"HTTP 429: You've reached your RPC rate limit."

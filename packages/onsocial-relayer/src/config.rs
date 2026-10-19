@@ -439,12 +439,8 @@ mod tests {
 
     #[test]
     fn missing_fastnear_key_keeps_lava_primary() {
-        let primary = defaults::resolve_primary_rpc_url(
-            "mainnet",
-            None,
-            Some("lava-key".into()),
-            None,
-        );
+        let primary =
+            defaults::resolve_primary_rpc_url("mainnet", None, Some("lava-key".into()), None);
 
         assert_eq!(
             primary,
