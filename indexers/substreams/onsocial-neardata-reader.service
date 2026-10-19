@@ -12,7 +12,12 @@ Type=simple
 # command line (same pattern as the old sink unit).
 LoadCredential=db_url:/etc/onsocial/credentials/onsocial-neardata-reader/db_url
 LoadCredential=network:/etc/onsocial/credentials/onsocial-neardata-reader/network
-ExecStart=/bin/bash -lc 'exec /usr/local/bin/neardata_reader --db-url "$(cat "${CREDENTIALS_DIRECTORY}/db_url")" --network "$(cat "${CREDENTIALS_DIRECTORY}/network")"'
+# --prefetch 3 overlaps block downloads with decode+commit so the fetch RTT
+# is hidden. Keep it low: the neardata cap is 180 req/min/IP and this box
+# shares that IP with anything else polling neardata; deep pipelining against
+# a shared cap just converts into 429s. Raise --max-rpm and --prefetch
+# together only if FastNear grants a private higher tier.
+ExecStart=/bin/bash -lc 'exec /usr/local/bin/neardata_reader --db-url "$(cat "${CREDENTIALS_DIRECTORY}/db_url")" --network "$(cat "${CREDENTIALS_DIRECTORY}/network")" --prefetch 3'
 # Restart on any failure (network blip, neardata 5xx, DB hiccup). The reader
 # is crash-safe: each block commits rows + cursor in one transaction, so a
 # restart replays at most one partially-applied block, which upserts absorb.
