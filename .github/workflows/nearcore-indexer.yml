@@ -20,6 +20,11 @@ defaults:
     working-directory: indexers/node-indexer
 
 env:
+  # Repo rust-toolchain.toml pins 1.93.0. nearcore 2.14.0-rc.2 declares
+  # rust-version 1.95, so cargo refuses to resolve it on that pin. This
+  # variable outranks rust-toolchain.toml; stable is what the node box
+  # already builds with (1.99). Other CI jobs stay on 1.93.
+  RUSTUP_TOOLCHAIN: stable
   # Keep the target dir small enough for the GH cache: no debuginfo, no
   # incremental. A cold nearcore check is 60–90 min; a warm one is minutes.
   RUSTFLAGS: '-C debuginfo=0'
