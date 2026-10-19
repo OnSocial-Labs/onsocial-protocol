@@ -4,12 +4,15 @@ import { useEffect, type RefObject } from 'react';
 
 export function useInfiniteScrollSentinel({
   scrollRootRef,
+  root,
   sentinelRef,
   enabled,
   onIntersect,
   rootMargin = '160px 0px',
 }: {
   scrollRootRef?: RefObject<Element | null>;
+  /** Drawer scroller, when it is state rather than a ref. */
+  root?: Element | null;
   sentinelRef: RefObject<Element | null>;
   enabled: boolean;
   onIntersect: () => void;
@@ -21,7 +24,7 @@ export function useInfiniteScrollSentinel({
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
 
-    const root = scrollRootRef?.current ?? null;
+    const scrollRoot = root !== undefined ? root : (scrollRootRef?.current ?? null);
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -29,10 +32,10 @@ export function useInfiniteScrollSentinel({
           onIntersect();
         }
       },
-      { root, rootMargin, threshold: 0 }
+      { root: scrollRoot, rootMargin, threshold: 0 }
     );
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [enabled, onIntersect, rootMargin, scrollRootRef, sentinelRef]);
+  }, [enabled, onIntersect, root, rootMargin, scrollRootRef, sentinelRef]);
 }

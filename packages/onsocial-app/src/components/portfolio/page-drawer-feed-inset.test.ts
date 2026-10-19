@@ -10,6 +10,10 @@ const feedClient = readFileSync(
   'utf8'
 );
 const rail = readFileSync(join(here, 'page-drawer-rail.tsx'), 'utf8');
+const collection = readFileSync(
+  join(here, 'page-drawer-collection.tsx'),
+  'utf8'
+);
 
 describe('page drawer feed inset', () => {
   it('uses the app column token, not a 1.15rem sheet pad', () => {
@@ -38,6 +42,17 @@ describe('page drawer feed inset', () => {
     );
     expect(globalsCss).toMatch(
       /\.page-drawer-scroll-end \{[\s\S]*?height: var\(--portfolio-dock-clearance, 4\.75rem\);/
+    );
+  });
+
+  it('starts the collectibles preview on the vault row', () => {
+    expect(collection).toContain('CollectiblesLibrarySkeleton');
+    expect(collection).toContain('page-drawer-section is-vault');
+    expect(collection).toContain('CollectiblesVaultLibrary');
+    expect(collection).not.toContain('market-section-title');
+    expect(collection).not.toContain('MarketListSkeleton');
+    expect(globalsCss).toMatch(
+      /\.page-drawer-section\.is-vault \{[\s\S]*?padding-top: 0;/
     );
   });
 
