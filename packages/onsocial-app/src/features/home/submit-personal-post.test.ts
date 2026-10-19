@@ -222,7 +222,8 @@ describe('submitPersonalPost', () => {
     expect(reply).toHaveBeenCalledWith(
       { author: 'bob.testnet', postId: '42' },
       expect.objectContaining({ text: 'nice' }),
-      expect.any(String)
+      expect.any(String),
+      { wait: true }
     );
     expect(result.optimisticPost?.parentAuthor).toBe('bob.testnet');
     expect(result.optimisticPost?.parentPath).toBe('bob.testnet/post/42');
@@ -312,7 +313,8 @@ describe('submitPersonalPost', () => {
         files: [videoFile],
         kind: 'video',
       }),
-      expect.any(String)
+      expect.any(String),
+      { wait: true }
     );
     expect(result.optimisticPost?.kind).toBe('video');
   });

@@ -490,7 +490,11 @@ export async function waitForNearTransactionBatchConfirmation({
   const uniqueHashes = [...new Set(txHashes.filter(Boolean))];
 
   if (uniqueHashes.length === 0) {
-    return { ok: true, txHash: '' };
+    return {
+      ok: false,
+      txHash: '',
+      errorMessage: 'Transaction did not send.',
+    };
   }
 
   const results = await Promise.all(

@@ -231,7 +231,7 @@ async function submitPersonalThreadBatch(args: {
 
   let response: unknown;
   try {
-    response = await client.social.set(entries);
+    response = await client.social.set(entries, { wait: true });
   } catch {
     if (!args.silent) {
       await trackTransaction({
@@ -537,7 +537,8 @@ export async function submitPersonalPost(args: {
         ...contentLabels,
         ...filePayload,
       },
-      newPostId
+      newPostId,
+      { wait: true }
     );
   } else if (target!.groupId) {
     await assertCanReplyToGuildPost(client, accountId, target!);
@@ -589,8 +590,8 @@ export async function submitPersonalPost(args: {
     };
     response =
       mode === 'quote'
-        ? await client.posts.quote(ref, postData, newPostId)
-        : await client.posts.reply(ref, postData, newPostId);
+        ? await client.posts.quote(ref, postData, newPostId, { wait: true })
+        : await client.posts.reply(ref, postData, newPostId, { wait: true });
   }
 
   const txHashes = collectRelayTxHashes(response);

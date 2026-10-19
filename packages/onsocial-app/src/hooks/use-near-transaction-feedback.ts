@@ -73,24 +73,15 @@ export function useNearTransactionFeedback(
       }
 
       if (uniqueHashes.length === 0) {
+        const msg =
+          toastKind === 'error'
+            ? (failureMessage ?? successMessage)
+            : (failureMessage ?? 'Transaction did not send.');
         if (!silent) {
-          setTxResult(
-            toastKind === 'error'
-              ? {
-                  type: 'error',
-                  msg: failureMessage ?? successMessage,
-                  explorerHref,
-                }
-              : {
-                  type: 'success',
-                  msg: successMessage,
-                  explorerHref,
-                  actionHref,
-                  actionLabel,
-                }
-          );
+          setTxResult({ type: 'error', msg, explorerHref });
         }
-        return toastKind !== 'error';
+        onFailure?.(msg);
+        return false;
       }
 
       // No pending/blue toast — button stays pulsing until settle.
