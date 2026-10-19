@@ -1,0 +1,42 @@
+[package]
+name = "onsocial-node-indexer"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.93"
+description = "OnSocial indexer on a self-hosted NEAR node (StreamerMessage → shared decode path)"
+
+[dependencies]
+# The shared decode path: StreamerMessage JSON → protobuf Block → decoders →
+# DatabaseChanges. Same source of truth the neardata reader uses.
+onsocial-substreams = { path = "../substreams" }
+substreams-near = "0.10.2"
+serde_json = "1"
+tracing = "0.1"
+
+# Optional: the self-hosted-node rail. `rev` matches the pin proven by
+# near-firehose-indexer branch release/v2.x — the exact nearcore build
+# testnet validators run (protocol 87). Default builds (and all existing CI)
+# never fetch or compile nearcore; the nearcore-enabled build gets its own
+# CI job with a dedicated cache (cold build is tens of minutes).
+near-indexer-primitives = { git = "https://github.com/near/nearcore", rev = "2.14.0-rc.2", optional = true }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"], optional = true }
+clap = { version = "4", features = ["derive"], optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
+
+[features]
+# Opt-in — same pattern as `native` in onsocial-substreams: keeps the heavy
+# dependency out of every build that does not explicitly ask for it.
+nearcore = [
+    "dep:near-indexer-primitives",
+    "dep:tokio",
+    "dep:clap",
+    "dep:tracing-subscriber",
+]
+
+[[bin]]
+name = "node_indexer"
+path = "src/bin/node_indexer.rs"
+required-features = ["nearcore"]
+
+[profile.release]
+strip = "debuginfo"

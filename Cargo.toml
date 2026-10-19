@@ -27,7 +27,8 @@ members = [
     "packages/onsocial-relayer"
 ]
 exclude = [
-    "indexers/substreams"  # Standalone WASM module with its own deps
+    "indexers/substreams",  # Standalone WASM module with its own deps
+    "indexers/node-indexer"  # Standalone; nearcore is an optional heavy dep
 ]
 resolver = "2"
 
