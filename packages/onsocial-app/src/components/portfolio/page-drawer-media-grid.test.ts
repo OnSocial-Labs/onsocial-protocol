@@ -1,7 +1,10 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { PostRow } from '@onsocial/sdk';
 import {
   PROFILE_MEDIA_PAGE_SIZE,
+  PageDrawerMediaGrid,
   profileMediaAdvance,
   profileMediaCovers,
 } from '@/components/portfolio/page-drawer-media-grid';
@@ -104,5 +107,67 @@ describe('profileMediaCovers', () => {
 
     expect(covers[0]?.href).toBe('/@alice.testnet/writing/essay');
     expect(covers[0]?.title).toBe('Field notes');
+  });
+});
+
+describe('PageDrawerMediaGrid', () => {
+  it('keeps the caption and the video pill, and drops the kind word', () => {
+    const html = renderToStaticMarkup(
+      createElement(PageDrawerMediaGrid, {
+        posts: [
+          row(
+            'photo',
+            JSON.stringify({
+              text: 'Evening light on the river',
+              media: [
+                { cid: 'https://cdn.example/a.jpg', mime: 'image/jpeg' },
+                { cid: 'https://cdn.example/b.jpg', mime: 'image/jpeg' },
+              ],
+            })
+          ),
+          row(
+            'clip',
+            JSON.stringify({
+              media: [{ cid: 'https://cdn.example/c.mp4', mime: 'video/mp4' }],
+            })
+          ),
+        ],
+      })
+    );
+
+    expect(html).toContain('Evening light on the river');
+    expect(html).toContain('×2');
+    expect(html).toContain('page-drawer-media-badge">Video');
+    expect(html).toContain('href="/@alice.testnet/posts/photo"');
+    expect(html).toContain('href="/@alice.testnet/posts/clip"');
+    expect(html).toContain(
+      'aria-label="Evening light on the river, Photo, 2 items"'
+    );
+    expect(html).toContain('aria-label="Video"');
+    expect(html).not.toContain('page-drawer-media-kind');
+    expect(html).not.toContain('>Photo<');
+    expect(html).not.toContain('page-drawer-media-title">Video');
+    expect(html).not.toContain('page-drawer-media-title">Photo');
+  });
+
+  it('shows no title line on a captionless photo', () => {
+    const html = renderToStaticMarkup(
+      createElement(PageDrawerMediaGrid, {
+        posts: [
+          row(
+            'still',
+            JSON.stringify({
+              media: [{ cid: 'https://cdn.example/d.jpg', mime: 'image/jpeg' }],
+            })
+          ),
+        ],
+      })
+    );
+
+    expect(html).toContain('href="/@alice.testnet/posts/still"');
+    expect(html).toContain('aria-label="Photo"');
+    expect(html).not.toContain('page-drawer-media-body');
+    expect(html).not.toContain('page-drawer-media-badge');
+    expect(html).not.toContain('>Photo<');
   });
 });

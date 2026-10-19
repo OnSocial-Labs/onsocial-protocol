@@ -101,13 +101,17 @@ export function PageDrawerMediaGrid({ posts }: { posts: readonly PostRow[] }) {
     <div className="page-drawer-media-grid" aria-label="Media">
       {covers.map((cover) => {
         const countLabel = cover.count > 1 ? `, ${cover.count} items` : '';
+        const caption = cover.title === cover.kind ? '' : cover.title;
+        const ariaLabel = caption
+          ? `${caption}, ${cover.kind}${countLabel}`
+          : `${cover.kind}${countLabel}`;
         return (
           <Link
             key={cover.key}
             href={cover.href}
             scroll={false}
             className="page-drawer-media-card group"
-            aria-label={`${cover.title}, ${cover.kind}${countLabel}`}
+            aria-label={ariaLabel}
           >
             <span className="page-drawer-media-cover has-media" aria-hidden>
               <CoverMedia cover={cover} />
@@ -115,19 +119,20 @@ export function PageDrawerMediaGrid({ posts }: { posts: readonly PostRow[] }) {
                 <span className="page-drawer-media-badge">Video</span>
               ) : null}
             </span>
-            <span className="page-drawer-media-body">
-              <span className="page-drawer-media-title">{cover.title}</span>
-              <span className="page-drawer-media-meta">
-                {cover.title === cover.kind ? null : (
-                  <span className="page-drawer-media-kind">{cover.kind}</span>
-                )}
+            {caption || cover.count > 1 ? (
+              <span className="page-drawer-media-body">
+                {caption ? (
+                  <span className="page-drawer-media-title">{caption}</span>
+                ) : null}
                 {cover.count > 1 ? (
-                  <span className="page-drawer-media-editions">
-                    ×{cover.count}
+                  <span className="page-drawer-media-meta">
+                    <span className="page-drawer-media-editions">
+                      ×{cover.count}
+                    </span>
                   </span>
                 ) : null}
               </span>
-            </span>
+            ) : null}
           </Link>
         );
       })}
