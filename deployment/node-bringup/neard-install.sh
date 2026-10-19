@@ -54,7 +54,15 @@ fi
 # RPC on loopback only (ufw has no 3030 either — belt and braces). GC stays at
 # the default 5 epochs: this box has no spare cold disk; deep history is the
 # S3 archive tier's job, not live disk.
-jq '.rpc.addr = "127.0.0.1:3030"' "$NEAR_HOME/config.json" > "$NEAR_HOME/config.json.new"
+#
+# tracked_shards_config=AllShards is NOT optional: the downloadable rpc config
+# ships "NoShards" (no chunk application, no state — fine for a view-call
+# proxy, useless for an indexer). StreamerMessage needs chunks + outcomes, and
+# near-indexer hard-panics on NoShards. Switching shards config on an EXISTING
+# db also panics (flat-storage inconsistency) — set it before first sync, or
+# wipe data/ when changing it.
+jq '.rpc.addr = "127.0.0.1:3030" | .tracked_shards_config = "AllShards"' \
+  "$NEAR_HOME/config.json" > "$NEAR_HOME/config.json.new"
 mv "$NEAR_HOME/config.json.new" "$NEAR_HOME/config.json"
 chown -R near:near "$NEAR_HOME"
 

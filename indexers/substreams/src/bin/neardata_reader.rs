@@ -3,8 +3,10 @@
 //! Polls finalized blocks from `https://{network}.neardata.xyz/v0/block/{h}`,
 //! decodes them through the exact production pipeline
 //! (`map_combined_output_impl` → `combined_db_out_impl`), and applies the
-//! resulting `DatabaseChanges` to Postgres. Hasura, the views, and the app
-//! read the same tables unchanged.
+//! resulting `DatabaseChanges` to Postgres through the SHARED writer
+//! (`onsocial_substreams::writer`) — the same writer `node_indexer` uses, so
+//! there is one writer and two sources, never two writers to keep in sync.
+//! Hasura, the views, and the app read the same tables unchanged.
 //!
 //! Two modes:
 //!
@@ -24,17 +26,24 @@ use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
-use substreams_database_change::pb::database::table_change::{Operation, PrimaryKey};
-use substreams_database_change::pb::database::{DatabaseChanges, TableChange};
+use substreams_database_change::pb::database::table_change::PrimaryKey;
+use substreams_database_change::pb::database::TableChange;
 use tokio_postgres::{Client, NoTls};
 use tracing::{info, warn};
 
-use onsocial_substreams::combined_db_out::combined_db_out_impl;
-use onsocial_substreams::map_combined_output_impl;
+use onsocial_substreams::neardata::parse_neardata_block;
+use onsocial_substreams::pipeline::changes_for_block;
+use onsocial_substreams::writer::{self, Schema};
 
-/// The six protocol contracts the combined map decodes (same params string
-/// the systemd unit passes to the Substreams sink).
-const PARAMS: &str = "core=core.onsocial.testnet&boost=boost.onsocial.testnet&rewards=rewards.onsocial.testnet&token=token.onsocial.testnet&scarces=scarces.onsocial.testnet&social_spend=social-spend.onsocial.testnet";
+/// Cursor id inside the sink's existing `cursors` table. Reusing `cursors`
+/// (not a separate table) means the deploy smoke test's
+/// `SELECT MAX(block_num) FROM cursors` and any cursor tooling keep working
+/// unchanged.
+const READER_CURSOR_ID: &str = "neardata_reader";
+
+/// Cursor token stored alongside the block hash (provenance: which source
+/// wrote this cursor row).
+const CURSOR_TOKEN: &str = "neardata";
 
 #[derive(Parser, Debug)]
 #[command(name = "neardata_reader", about = "OnSocial indexer on neardata")]
@@ -79,40 +88,6 @@ struct Args {
 fn base_url(network: &str) -> String {
     format!("https://{}.neardata.xyz", network)
 }
-
-/// Cursor id inside the sink's existing `cursors` table. Reusing `cursors`
-/// (not a separate table) means the deploy smoke test's
-/// `SELECT MAX(block_num) FROM cursors` and any cursor tooling keep working
-/// unchanged.
-const READER_CURSOR_ID: &str = "neardata_reader";
-
-/// Highest block the Substreams sink reached before it was cut off. We resume
-/// one past this.
-async fn read_sink_cursor(client: &Client) -> Result<Option<u64>> {
-    let row = client
-        .query_opt("SELECT MAX(block_num) AS h FROM cursors", &[])
-        .await
-        .context("read cursors")?;
-    Ok(row.and_then(|r| r.get::<_, Option<i64>>("h")).map(|h| h as u64))
-}
-
-/// The reader's own cursor row, if it has run before.
-async fn read_reader_cursor(client: &Client) -> Result<Option<u64>> {
-    let row = client
-        .query_opt(
-            "SELECT block_num FROM cursors WHERE id = $1",
-            &[&READER_CURSOR_ID],
-        )
-        .await
-        .context("read reader cursor")?;
-    Ok(row.map(|r| r.get::<_, i64>(0) as u64))
-}
-
-// The reader cursor is advanced inside the same transaction that applies a
-// block's rows (see `apply_block`), so a crash can never record a block as
-// done without its data. The `cursors` table shape is `(id TEXT PK,
-// block_num BIGINT, cursor TEXT)`; the reader stores a stable placeholder
-// cursor token since it has no Substreams cursor.
 
 /// Slot-reserving rate limiter shared by all fetch workers. Each caller
 /// reserves a start instant spaced `cur_interval` after the previous one, so
@@ -277,15 +252,6 @@ impl Fetcher {
     }
 }
 
-fn decode_block(body: &str) -> Result<substreams_near::pb::sf::near::r#type::v1::Block> {
-    onsocial_substreams::neardata::parse_neardata_block(body).context("parse block")
-}
-
-fn changes_for_block(block: &substreams_near::pb::sf::near::r#type::v1::Block) -> DatabaseChanges {
-    let output = map_combined_output_impl(PARAMS, block);
-    combined_db_out_impl(output)
-}
-
 // ---------------------------------------------------------------------------
 // Parity mode
 // ---------------------------------------------------------------------------
@@ -353,7 +319,7 @@ async fn run_parity(client: &Client, fetcher: &Fetcher, block: u64, tables: &[St
         .block(block)
         .await?
         .ok_or_else(|| anyhow!("block {block} not found on neardata"))?;
-    let blk = decode_block(&body)?;
+    let blk = parse_neardata_block(&body).context("parse block")?;
     let changes = changes_for_block(&blk);
 
     // Group generated rows by table.
@@ -430,283 +396,6 @@ async fn run_parity(client: &Client, fetcher: &Fetcher, block: u64, tables: &[St
 // Live mode
 // ---------------------------------------------------------------------------
 
-/// Live picture of the public schema, loaded once at startup from
-/// information_schema. Needed because `DatabaseChanges` carries every value
-/// as a string — Postgres will not implicitly cast a text parameter into a
-/// BIGINT/BOOLEAN column, so the writer must cast explicitly per column type.
-struct Schema {
-    /// table -> column -> information_schema data_type (e.g. "bigint", "ARRAY")
-    tables: BTreeMap<String, BTreeMap<String, String>>,
-    /// udt name per array column, e.g. "_text" -> cast target "text[]"
-    array_udts: BTreeMap<(String, String), String>,
-}
-
-impl Schema {
-    async fn load(client: &Client) -> Result<Self> {
-        let rows = client
-            .query(
-                "SELECT table_name, column_name, data_type, udt_name
-                 FROM information_schema.columns
-                 WHERE table_schema = 'public'",
-                &[],
-            )
-            .await
-            .context("load information_schema")?;
-        let mut tables: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
-        let mut array_udts = BTreeMap::new();
-        for r in rows {
-            let table: String = r.get(0);
-            let column: String = r.get(1);
-            let data_type: String = r.get(2);
-            let udt: String = r.get(3);
-            if data_type == "ARRAY" {
-                // "_text" -> "text[]"
-                let target = format!("{}[]", udt.trim_start_matches('_'));
-                array_udts.insert((table.clone(), column.clone()), target);
-            }
-            tables.entry(table).or_default().insert(column, data_type);
-        }
-        Ok(Self { tables, array_udts })
-    }
-
-    fn column_type(&self, table: &str, column: &str) -> Option<&str> {
-        self.tables
-            .get(table)
-            .and_then(|t| t.get(column))
-            .map(String::as_str)
-    }
-}
-
-/// SQL placeholder expression for one field, with the cast Postgres needs.
-/// `NULLIF($n,'')` turns empty strings into NULL for non-text columns — the
-/// decoders only set present fields, so '' on a numeric/bool column means
-/// "no value", while '' on a text column is a real empty string.
-fn value_expr(schema: &Schema, table: &str, column: &str, idx: usize) -> String {
-    match schema.column_type(table, column) {
-        Some("bigint") => format!("NULLIF(${idx}, '')::bigint"),
-        Some("integer") | Some("smallint") => format!("NULLIF(${idx}, '')::integer"),
-        Some("boolean") => format!("NULLIF(${idx}, '')::boolean"),
-        Some("numeric") | Some("double precision") | Some("real") => {
-            format!("NULLIF(${idx}, '')::numeric")
-        }
-        Some("ARRAY") => {
-            let target = schema
-                .array_udts
-                .get(&(table.to_string(), column.to_string()))
-                .cloned()
-                .unwrap_or_else(|| "text[]".to_string());
-            format!("NULLIF(${idx}, '')::{target}")
-        }
-        _ => format!("${idx}"),
-    }
-}
-
-/// Field values arrive as strings; array columns arrive as a psql literal
-/// wrapped in single quotes by `set_psql_array` (`'{a,b}'`). Strip those
-/// outer quotes so the `::text[]` cast sees a bare literal.
-fn normalize_value(schema: &Schema, table: &str, column: &str, value: &str) -> String {
-    if matches!(schema.column_type(table, column), Some("ARRAY")) {
-        value
-            .strip_prefix('\'')
-            .and_then(|v| v.strip_suffix('\''))
-            .unwrap_or(value)
-            .to_string()
-    } else {
-        value.to_string()
-    }
-}
-
-/// PK column for the tables that use a *single-column* primary key.
-/// (Composite-PK tables — posts_current, reactions_current, saves_current —
-/// carry their key columns inside the TableChange itself.)
-fn single_pk_column(table: &str) -> Result<&'static str> {
-    Ok(match table {
-        "booster_state" | "user_reward_state" | "token_balances" => "account_id",
-        "scarces_active_listings" => "listing_key",
-        "scarces_active_offers" => "offer_key",
-        "scarces_apps" => "app_id",
-        "scarces_collections_current" => "collection_id",
-        "data_updates" | "storage_updates" | "group_updates" | "contract_updates"
-        | "permission_updates" | "boost_events" | "boost_credit_purchases" | "rewards_events"
-        | "token_events" | "scarces_events" | "scarces_app_creators" | "social_spend_events" => {
-            "id"
-        }
-        other => bail!("no single-pk mapping for table {other}"),
-    })
-}
-
-/// Resolve a TableChange's primary key to concrete (column, value) pairs.
-fn pk_pairs(change: &TableChange) -> Result<Vec<(String, String)>> {
-    match &change.primary_key {
-        Some(PrimaryKey::Pk(s)) => Ok(vec![(single_pk_column(&change.table)?.to_string(), s.clone())]),
-        Some(PrimaryKey::CompositePk(c)) => {
-            let mut pairs: Vec<(String, String)> =
-                c.keys.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-            pairs.sort();
-            Ok(pairs)
-        }
-        None => bail!("missing primary key on {}", change.table),
-    }
-}
-
-/// Quote a bare identifier that is known to be a simple [a-z_][a-z0-9_]* name.
-fn ident(name: &str) -> Result<String> {
-    if name
-        .chars()
-        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
-        && !name.is_empty()
-    {
-        Ok(format!("\"{name}\""))
-    } else {
-        bail!("unsafe identifier {name:?}")
-    }
-}
-
-async fn apply_change(
-    client: &impl tokio_postgres::GenericClient,
-    schema: &Schema,
-    change: &TableChange,
-) -> Result<()> {
-    let table = ident(&change.table)?;
-    let pk = pk_pairs(change)?;
-
-    let op = Operation::try_from(change.operation).unwrap_or(Operation::Unspecified);
-    if op == Operation::Delete {
-        let mut where_clause: Vec<String> = Vec::new();
-        for (i, (col, _)) in pk.iter().enumerate() {
-            where_clause.push(format!("{} = ${}", ident(col)?, i + 1));
-        }
-        let sql = format!("DELETE FROM {table} WHERE {}", where_clause.join(" AND "));
-        let params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = pk
-            .iter()
-            .map(|(_, v)| v as &(dyn tokio_postgres::types::ToSql + Sync))
-            .collect();
-        client.execute(sql.as_str(), &params).await?;
-        return Ok(());
-    }
-
-    // Keep only fields that exist in the live schema. A field for an unknown
-    // column means the deployed schema lags the decoders — warn loudly and
-    // skip that field rather than crash-loop the block (the deploy workflow
-    // applies schema first, so this should never fire).
-    //
-    // `Tables` does not emit the primary key as a field (the sink inserts the
-    // pk itself), so merge any missing pk pair into the column list —
-    // otherwise NOT NULL pk columns (id, listing_key, ...) insert as NULL.
-    let mut cols: Vec<String> = Vec::new();
-    let mut col_names: Vec<String> = Vec::new();
-    let mut values: Vec<String> = Vec::new();
-    for f in &change.fields {
-        if schema.column_type(&change.table, &f.name).is_none() {
-            warn!(table = %change.table, column = %f.name, "field not in live schema, skipped");
-            continue;
-        }
-        cols.push(ident(&f.name)?);
-        col_names.push(f.name.clone());
-        values.push(normalize_value(schema, &change.table, &f.name, &f.new_value));
-    }
-    for (pk_col, pk_val) in &pk {
-        if !col_names.contains(pk_col) {
-            if schema.column_type(&change.table, pk_col).is_none() {
-                bail!("pk column {pk_col} not in live schema for {}", change.table);
-            }
-            cols.push(ident(pk_col)?);
-            col_names.push(pk_col.clone());
-            values.push(normalize_value(schema, &change.table, pk_col, pk_val));
-        }
-    }
-    if cols.is_empty() {
-        return Ok(());
-    }
-
-    let col_list = cols.join(", ");
-    let placeholders: Vec<String> = col_names
-        .iter()
-        .enumerate()
-        .map(|(i, name)| value_expr(schema, &change.table, name, i + 1))
-        .collect();
-    // ON CONFLICT updates never touch pk columns.
-    let pk_cols: Vec<&str> = pk.iter().map(|(c, _)| c.as_str()).collect();
-    let updates: Vec<String> = col_names
-        .iter()
-        .enumerate()
-        .filter(|(_, name)| !pk_cols.contains(&name.as_str()))
-        .map(|(i, name)| {
-            Ok(format!(
-                "{} = {}",
-                ident(name)?,
-                value_expr(schema, &change.table, name, i + 1)
-            ))
-        })
-        .collect::<Result<_>>()?;
-    let conflict: Vec<String> = pk
-        .iter()
-        .map(|(col, _)| ident(col))
-        .collect::<Result<_>>()?;
-
-    // Always upsert: a Create that hits an existing row (replay from an old
-    // cursor) must not crash the reader.
-    let sql = format!(
-        "INSERT INTO {table} ({col_list}) VALUES ({}) ON CONFLICT ({}) DO UPDATE SET {}",
-        placeholders.join(", "),
-        conflict.join(", "),
-        updates.join(", ")
-    );
-    let params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = values
-        .iter()
-        .map(|v| v as &(dyn tokio_postgres::types::ToSql + Sync))
-        .collect();
-    client.execute(sql.as_str(), &params).await?;
-    Ok(())
-}
-
-/// Apply all rows for one block and advance the cursor in a single
-/// transaction. If any row fails, nothing from this block is committed and
-/// the cursor does not move, so a restart replays the block cleanly. This is
-/// what makes the reader crash-safe.
-///
-/// The cursor upsert adapts to the sink's `cursors` table shape: if the
-/// table has a `block_id` column (substreams-sink-sql does), the block hash
-/// is stored too.
-async fn apply_block(
-    client: &mut Client,
-    schema: &Schema,
-    changes: &DatabaseChanges,
-    height: u64,
-    block_hash: &str,
-) -> Result<usize> {
-    let tx = client.transaction().await.context("begin tx")?;
-    let mut applied = 0;
-    for change in &changes.table_changes {
-        apply_change(&tx, schema, change)
-            .await
-            .with_context(|| format!("table {}", change.table))?;
-        applied += 1;
-    }
-
-    let has_block_id = schema.column_type("cursors", "block_id").is_some();
-    let cursor_sql = if has_block_id {
-        "INSERT INTO cursors (id, block_num, cursor, block_id) VALUES ($1, $2, $3, $4)
-         ON CONFLICT (id) DO UPDATE SET block_num = EXCLUDED.block_num, block_id = EXCLUDED.block_id, cursor = EXCLUDED.cursor"
-    } else {
-        "INSERT INTO cursors (id, block_num, cursor) VALUES ($1, $2, $3)
-         ON CONFLICT (id) DO UPDATE SET block_num = EXCLUDED.block_num, cursor = EXCLUDED.cursor"
-    };
-    tx.execute(
-        cursor_sql,
-        &[
-            &READER_CURSOR_ID as &(dyn tokio_postgres::types::ToSql + Sync),
-            &(height as i64),
-            &"neardata",
-            &block_hash,
-        ],
-    )
-    .await
-    .context("write cursor")?;
-    tx.commit().await.context("commit block")?;
-    Ok(applied)
-}
-
 /// Live pipeline: up to `--prefetch` blocks download concurrently while the
 /// consumer decodes and commits strictly in height order. Crash-safety is
 /// unchanged — a block's rows + cursor still commit in one transaction, so a
@@ -714,14 +403,14 @@ async fn apply_block(
 /// idempotent upserts.
 async fn run_live(client: &mut Client, fetcher: &Fetcher, args: &Args) -> Result<()> {
     let schema = Schema::load(client).await?;
-    info!(tables = schema.tables.len(), "schema loaded");
+    info!(tables = schema.tables_len(), "schema loaded");
 
     let start = if let Some(b) = args.start_block {
         b
-    } else if let Some(b) = read_reader_cursor(client).await? {
+    } else if let Some(b) = writer::read_cursor(client, READER_CURSOR_ID).await? {
         b + 1
-    } else if let Some(b) = read_sink_cursor(client).await? {
-        info!(sink_cursor = b, "resuming from Substreams sink cursor");
+    } else if let Some(b) = writer::read_sink_cursor(client).await? {
+        info!(sink_cursor = b, "resuming from shared sink cursor");
         b + 1
     } else {
         bail!("no cursor found; pass --start-block");
@@ -814,10 +503,12 @@ async fn run_live(client: &mut Client, fetcher: &Fetcher, args: &Args) -> Result
 
         // Commit every contiguous block now available, in order.
         while let Some(body) = buffered.remove(&next) {
-            let blk = decode_block(&body)?;
+            let blk = parse_neardata_block(&body).context("parse block")?;
             let hash = onsocial_substreams::neardata::block_hash(&blk);
             let changes = changes_for_block(&blk);
-            let n = apply_block(client, &schema, &changes, next, &hash).await?;
+            let n =
+                writer::apply_block(client, &schema, &changes, next, &hash, READER_CURSOR_ID, CURSOR_TOKEN)
+                    .await?;
             if n > 0 {
                 info!(block = next, rows = n, "indexed");
             }
