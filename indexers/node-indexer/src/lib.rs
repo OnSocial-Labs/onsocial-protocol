@@ -8,9 +8,10 @@
 //!   `StreamerMessage`s at the tip — the primary source after cutover.
 //!
 //! Both feed the SAME decode path (`parse_neardata_block` →
-//! `map_combined_output_impl` → `combined_db_out_impl` → Postgres), so table
-//! contents are bit-identical regardless of source. The only source-specific
-//! code in this crate is the compatibility shim below plus the runner (PR 2).
+//! `map_combined_output_impl` → `combined_db_out_impl` → Postgres) through
+//! the SAME writer (`onsocial_substreams::writer`), so table contents are
+//! bit-identical regardless of source. The only source-specific code in this
+//! crate is the compatibility shim below plus the `node_indexer` runner bin.
 //!
 //! The nearcore pin follows `near-firehose-indexer` branch `release/v2.x`
 //! (`rev = "2.14.0-rc.2"`), which matches what testnet validators run

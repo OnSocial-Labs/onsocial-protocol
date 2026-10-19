@@ -19,17 +19,24 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0"
 bs58 = "0.5.1"
 
-# Native-only deps for the neardata reader binary. Target-gated so the wasm
-# .spkg build never compiles them — tokio/reqwest/tokio-postgres do not build
-# for wasm32-unknown-unknown.
+# Native-only deps. Target-gated so the wasm .spkg build never compiles them
+# — tokio/reqwest/tokio-postgres do not build for wasm32-unknown-unknown.
+#
+# The lib's shared writer/pipeline need only tokio-postgres/anyhow/tracing.
+# reqwest+tokio+clap+tracing-subscriber are the reader BIN's own deps and sit
+# behind the `native` feature: the node-indexer links this crate's lib.
+# reqwest uses native-tls (openssl), NOT rustls: cargo resolves the union of
+# all optional deps into Cargo.lock, and rustls' aws-lc-rs requirement
+# conflicts with near-crypto's exact `=1.16.2` aws-lc-rs pin in the nearcore
+# graph — keeping rustls out of the lock entirely is the only clean fix.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "signal"] }
 tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"] }
 anyhow = "1"
-clap = { version = "4", features = ["derive"] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+reqwest = { version = "0.12", default-features = false, features = ["native-tls", "json"], optional = true }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "signal"], optional = true }
+clap = { version = "4", features = ["derive"], optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
 
 [build-dependencies]
 prost-build = "0.13"
@@ -39,7 +46,7 @@ prost-build = "0.13"
 # out of the default features means `cargo build --target wasm32-unknown-unknown`
 # (all targets, as CI and pack.sh run it) silently skips the native-only bin
 # instead of failing on tokio/reqwest, which do not compile for wasm.
-native = []
+native = ["reqwest", "tokio", "clap", "tracing-subscriber"]
 
 [dev-dependencies]
 tempfile = "3"

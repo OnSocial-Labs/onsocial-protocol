@@ -1,0 +1,70 @@
+name: Nearcore Indexer CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'indexers/node-indexer/**'
+      # The shared decode path (codec, writer, pipeline) feeds the node
+      # indexer too — a drift there must run this job.
+      - 'indexers/substreams/**'
+      - '.github/workflows/nearcore-indexer.yml'
+  pull_request:
+    paths:
+      - 'indexers/node-indexer/**'
+      - 'indexers/substreams/**'
+      - '.github/workflows/nearcore-indexer.yml'
+
+defaults:
+  run:
+    working-directory: indexers/node-indexer
+
+env:
+  # Keep the target dir small enough for the GH cache: no debuginfo, no
+  # incremental. A cold nearcore check is 60–90 min; a warm one is minutes.
+  RUSTFLAGS: '-C debuginfo=0'
+  CARGO_INCREMENTAL: '0'
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Check & Test
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      # Dedicated cache namespace: nearcore artifacts are GBs and must not
+      # evict (or be evicted by) the other Rust jobs' caches.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: indexers/node-indexer -> target
+          key: nearcore-indexer
+
+      - name: Install protoc
+        run: bash "${GITHUB_WORKSPACE}/.github/scripts/install-protoc.sh"
+
+      # Same build deps neard itself needs (aws-lc-sys, wasmtime, rocksdb).
+      - name: Install system build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake clang libssl-dev pkg-config protobuf-compiler
+
+      - name: Cargo check (default features)
+        run: cargo check --all-targets
+
+      - name: Cargo test (default features)
+        run: cargo test
+
+      # The nearcore-enabled build: embeds neard via near-indexer. Verifies
+      # the pinned nearcore rev still compiles with our runner and that the
+      # rustls pin keeps the dependency graph resolvable.
+      - name: Cargo check (nearcore feature)
+        run: cargo check --features nearcore --all-targets
+
+      # Includes the fixture round-trip: a real testnet block must decode
+      # identically through the neardata codec and the StreamerMessage shim.
+      - name: Cargo test (nearcore feature)
+        run: cargo test --features nearcore

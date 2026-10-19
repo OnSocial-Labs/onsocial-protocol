@@ -19,7 +19,18 @@ tracing = "0.1"
 # never fetch or compile nearcore; the nearcore-enabled build gets its own
 # CI job with a dedicated cache (cold build is tens of minutes).
 near-indexer-primitives = { git = "https://github.com/near/nearcore", rev = "2.14.0-rc.2", optional = true }
+# The framework crate: embeds a full neard (it owns the RocksDB — never run
+# alongside a separate neard on the same home) and yields StreamerMessages.
+# Same pinned rev as the primitives.
+near-indexer = { git = "https://github.com/near/nearcore", rev = "2.14.0-rc.2", optional = true }
+# Fresh resolution grabs rustls 0.23.46 (via near-client's reqwest ^0.13),
+# whose aws-lc-rs ^1.18 requirement conflicts with near-crypto's exact
+# `=1.16.2` pin. nearcore's own committed lock holds rustls 0.23.28, which
+# accepts 1.16.2 — mirror that exact pin so the union graph resolves.
+rustls = { version = "=0.23.28", optional = true }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"], optional = true }
+tokio-postgres = { version = "0.7", optional = true }
+anyhow = { version = "1", optional = true }
 clap = { version = "4", features = ["derive"], optional = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
 
@@ -28,7 +39,11 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = tr
 # dependency out of every build that does not explicitly ask for it.
 nearcore = [
     "dep:near-indexer-primitives",
+    "dep:near-indexer",
+    "dep:rustls",
     "dep:tokio",
+    "dep:tokio-postgres",
+    "dep:anyhow",
     "dep:clap",
     "dep:tracing-subscriber",
 ]
@@ -37,6 +52,18 @@ nearcore = [
 name = "node_indexer"
 path = "src/bin/node_indexer.rs"
 required-features = ["nearcore"]
+
+# The fixture round-trip compiles only with nearcore enabled (it
+# deserializes a real StreamerMessage); default CI skips it.
+[[test]]
+name = "streamer_roundtrip"
+path = "tests/streamer_roundtrip.rs"
+required-features = ["nearcore"]
+
+[dev-dependencies]
+# Type names for the round-trip test's normalization helper (already in the
+# graph via onsocial-substreams — this adds no new resolution weight).
+substreams-database-change = "3"
 
 [profile.release]
 strip = "debuginfo"
