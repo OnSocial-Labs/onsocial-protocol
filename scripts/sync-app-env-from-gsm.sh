@@ -81,6 +81,7 @@ get_pulled() {
 
 ONAPI_KEY="$(get_pulled ONSOCIAL_API_KEY)"
 LAVA_KEY="$(get_pulled LAVA_API_KEY)"
+FASTNEAR_KEY="$(get_pulled FASTNEAR_API_KEY)"
 REWARDS_KEY="$(get_pulled ONSOCIAL_PORTAL_REWARDS_API_KEY)"
 REWARDS_APP="$(get_pulled ONSOCIAL_PORTAL_REWARDS_APP_ID)"
 
@@ -103,6 +104,9 @@ if [ -n "$LAVA_KEY" ]; then
   # Prefer OnSocial Lava RPC over ad-hoc public NEAR_RPC_URL overrides.
   remove_env_key "$ENV_FILE" "NEAR_RPC_URL"
 fi
+if [ -n "$FASTNEAR_KEY" ]; then
+  upsert_env "$ENV_FILE" "FASTNEAR_API_KEY" "$FASTNEAR_KEY"
+fi
 if [ -n "$REWARDS_KEY" ]; then
   upsert_env "$ENV_FILE" "ONSOCIAL_PORTAL_REWARDS_API_KEY" "$REWARDS_KEY"
 fi
@@ -121,6 +125,9 @@ if [ -n "$LAVA_KEY" ]; then
   echo "   LAVA_API_KEY: set (OnSocial RPC via /api/near/rpc BFF)"
 else
   echo "   ⚠️  LAVA_API_KEY missing — server RPC will fall back to public FastNear"
+fi
+if [ -n "$FASTNEAR_KEY" ]; then
+  echo "   FASTNEAR_API_KEY: set (server primary; not sent to the browser)"
 fi
 echo "   API URL: $PUBLIC_API"
 echo ""

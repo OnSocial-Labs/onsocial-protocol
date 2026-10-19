@@ -165,6 +165,7 @@ services:
       NEARBLOCKS_API_KEY: ${NEARBLOCKS_API_KEY:-}
       LAVA_API_KEY: ${LAVA_API_KEY:-}
       NEAR_RPC_URL: ${NEAR_RPC_URL:-}
+      FASTNEAR_API_KEY: ${FASTNEAR_API_KEY:-}
       RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
       ADMIN_WALLETS: ${ADMIN_WALLETS:-}
@@ -228,6 +229,7 @@ services:
       NEARBLOCKS_API_URL: ${NEARBLOCKS_API_URL:-https://api.nearblocks.io}
       NEARBLOCKS_API_KEY: ${NEARBLOCKS_API_KEY:-}
       LAVA_API_KEY: ${LAVA_API_KEY:-}
+      FASTNEAR_API_KEY: ${FASTNEAR_API_KEY:-}
       RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
       ADMIN_WALLETS: ${ADMIN_WALLETS:-}
@@ -269,6 +271,7 @@ services:
       BOT_USERNAME: ${BOT_USERNAME:-onsocial_pulse_bot}
       NEAR_NETWORK: ${NEAR_NETWORK:-testnet}
       LAVA_API_KEY: ${LAVA_API_KEY:-}
+      FASTNEAR_API_KEY: ${FASTNEAR_API_KEY:-}
       NEAR_RPC_URL: ${NEAR_RPC_URL:-}
       RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
@@ -328,6 +331,7 @@ services:
       RELAYER_ALLOWED_CONTRACTS: ${RELAYER_ALLOWED_CONTRACTS:-core.onsocial.testnet,scarces.onsocial.testnet,rewards.onsocial.testnet}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
       LAVA_API_KEY: ${LAVA_API_KEY:-}
+      FASTNEAR_API_KEY: ${FASTNEAR_API_KEY:-}
       GCP_KMS_PROJECT: ${GCP_KMS_PROJECT:-onsocial-protocol}
       GCP_KMS_LOCATION: ${GCP_KMS_LOCATION:-global}
       GCP_KMS_ADMIN_KEY: admin-key

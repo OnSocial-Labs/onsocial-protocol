@@ -41,13 +41,23 @@ pub struct RpcClient {
 
 impl RpcClient {
     pub fn new(primary_url: &str, fallback_url: &str) -> Self {
+        Self::with_primary_bearer(primary_url, fallback_url, None)
+    }
+
+    pub fn with_primary_bearer(
+        primary_url: &str,
+        fallback_url: &str,
+        fastnear_api_key: Option<&str>,
+    ) -> Self {
+        let bearer = fastnear_bearer(primary_url, fastnear_api_key);
         info!(
             primary = primary_url,
             fallback = fallback_url,
+            fastnear_auth = bearer.is_some(),
             "RPC client initialized with failover"
         );
         Self {
-            primary: JsonRpcClient::connect(primary_url),
+            primary: connect_rpc(primary_url, bearer.as_deref()),
             fallback: JsonRpcClient::connect(fallback_url),
             primary_url: primary_url.to_string(),
             fallback_url: fallback_url.to_string(),
@@ -394,6 +404,31 @@ fn now_ms() -> u64 {
         .as_millis() as u64
 }
 
+fn fastnear_bearer(url: &str, api_key: Option<&str>) -> Option<String> {
+    let key = api_key.map(str::trim).filter(|key| !key.is_empty())?;
+    let keyed = url.starts_with("https://rpc.testnet.fastnear.com")
+        || url.starts_with("https://rpc.mainnet.fastnear.com");
+    if keyed {
+        Some(format!("Bearer {key}"))
+    } else {
+        None
+    }
+}
+
+fn connect_rpc(url: &str, bearer: Option<&str>) -> JsonRpcClient {
+    let client = JsonRpcClient::connect(url);
+    let Some(token) = bearer else {
+        return client;
+    };
+    match client.header(("authorization", token)) {
+        Ok(authed) => authed,
+        Err(_) => {
+            warn!("FastNear authorization header was rejected");
+            JsonRpcClient::connect(url)
+        }
+    }
+}
+
 fn is_rate_limited_error(err: &impl std::fmt::Display) -> bool {
     let message = err.to_string();
     let lower = message.to_ascii_lowercase();
@@ -427,6 +462,15 @@ mod tests {
     }
 
     #[test]
+    fn fastnear_key_is_a_header_on_the_keyed_host_only() {
+        assert_eq!(
+            fastnear_bearer("https://rpc.testnet.fastnear.com", Some("secret-key")).as_deref(),
+            Some("Bearer secret-key")
+        );
+        assert!(fastnear_bearer("https://test.rpc.fastnear.com", Some("secret-key")).is_none());
+        assert!(fastnear_bearer("https://rpc.testnet.fastnear.com", Some("  ")).is_none());
+    }
+
     fn rate_limit_message_is_detected() {
         assert!(is_rate_limited_error(
             &"HTTP 429: You've reached your RPC rate limit."

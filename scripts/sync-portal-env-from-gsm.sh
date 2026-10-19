@@ -71,6 +71,7 @@ get_pulled() {
 
 ONAPI_KEY="$(get_pulled ONSOCIAL_API_KEY)"
 LAVA_KEY="$(get_pulled LAVA_API_KEY)"
+FASTNEAR_KEY="$(get_pulled FASTNEAR_API_KEY)"
 REWARDS_KEY="$(get_pulled ONSOCIAL_PORTAL_REWARDS_API_KEY)"
 REWARDS_APP="$(get_pulled ONSOCIAL_PORTAL_REWARDS_APP_ID)"
 ADMIN_WALLETS="$(get_pulled ADMIN_WALLETS)"
@@ -92,6 +93,9 @@ upsert_env "$ENV_FILE" "NEXT_PUBLIC_BACKEND_URL" "$PUBLIC_API"
 upsert_env "$ENV_FILE" "ONSOCIAL_API_KEY" "$ONAPI_KEY"
 if [ -n "$LAVA_KEY" ]; then
   upsert_env "$ENV_FILE" "LAVA_API_KEY" "$LAVA_KEY"
+fi
+if [ -n "$FASTNEAR_KEY" ]; then
+  upsert_env "$ENV_FILE" "FASTNEAR_API_KEY" "$FASTNEAR_KEY"
 fi
 # Remove deprecated alias if present from older syncs.
 if grep -q '^GATEWAY_SERVICE_KEY=' "$ENV_FILE" 2>/dev/null; then

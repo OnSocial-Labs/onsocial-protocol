@@ -42,8 +42,11 @@ these contracts.
 RPC resolution order:
 
 1. `RELAYER_RPC_URL`
-2. keyed Lava URL built from `LAVA_API_KEY`
-3. FastNEAR default for the active network
+2. keyed FastNear (`https://rpc.testnet.fastnear.com` or `https://rpc.mainnet.fastnear.com`) when `FASTNEAR_API_KEY` is set. The key is an `Authorization: Bearer` header, not part of the URL.
+3. keyed Lava URL built from `LAVA_API_KEY`
+4. public FastNear for the active network
+
+With both keys set, FastNear is primary and Lava is the fallback. With only `LAVA_API_KEY`, Lava stays primary.
 
 Optional fallback override:
 
