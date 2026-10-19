@@ -75,7 +75,7 @@ jobs:
           ls -la "$GITHUB_WORKSPACE/reader-upload"
 
       - name: Upload reader artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: neardata-reader
           path: reader-upload/*
@@ -91,7 +91,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Download reader artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: neardata-reader
           path: reader-upload
