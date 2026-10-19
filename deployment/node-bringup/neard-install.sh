@@ -21,7 +21,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq \
   build-essential clang cmake pkg-config libssl-dev libclang-dev \
-  git curl protobuf-compiler
+  git curl protobuf-compiler jq
 
 echo "=== [2/5] rust toolchain ==="
 if ! command -v rustup >/dev/null 2>&1; then
