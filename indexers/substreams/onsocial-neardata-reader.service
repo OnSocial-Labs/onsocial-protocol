@@ -17,7 +17,15 @@ LoadCredential=network:/etc/onsocial/credentials/onsocial-neardata-reader/networ
 # shares that IP with anything else polling neardata; deep pipelining against
 # a shared cap just converts into 429s. Raise --max-rpm and --prefetch
 # together only if FastNear grants a private higher tier.
-ExecStart=/bin/bash -lc 'exec /usr/local/bin/neardata_reader --db-url "$(cat "${CREDENTIALS_DIRECTORY}/db_url")" --network "$(cat "${CREDENTIALS_DIRECTORY}/network")" --prefetch 3'
+#
+# Optional FastNear API key: if
+# /etc/onsocial/credentials/onsocial-neardata-reader/api_key exists and is
+# non-empty, it is sent as `Authorization: Bearer` (the neardata auth shape
+# per the FastNear docs). Read directly rather than via LoadCredential
+# because LoadCredential fails the whole unit when the file is absent, and
+# the key is optional. When a key is provisioned, also raise --max-rpm /
+# --prefetch to whatever the paid tier allows.
+ExecStart=/bin/bash -lc 'args=(--db-url "$(cat "${CREDENTIALS_DIRECTORY}/db_url")" --network "$(cat "${CREDENTIALS_DIRECTORY}/network")" --prefetch 3); k=/etc/onsocial/credentials/onsocial-neardata-reader/api_key; if [[ -s "$k" ]]; then args+=(--api-key "$(cat "$k")"); fi; exec /usr/local/bin/neardata_reader "${args[@]}"'
 # Restart on any failure (network blip, neardata 5xx, DB hiccup). The reader
 # is crash-safe: each block commits rows + cursor in one transaction, so a
 # restart replays at most one partially-applied block, which upserts absorb.

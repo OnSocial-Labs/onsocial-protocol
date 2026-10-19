@@ -68,6 +68,12 @@ struct Args {
     /// this only overlaps network latency. 1 = old serial behavior.
     #[arg(long, default_value_t = 6)]
     prefetch: usize,
+
+    /// FastNear API key, sent as `Authorization: Bearer`. Optional — the
+    /// public tier needs none — but required if FastNear grants a private
+    /// rate tier keyed to an API key.
+    #[arg(long)]
+    api_key: Option<String>,
 }
 
 fn base_url(network: &str) -> String {
@@ -163,24 +169,82 @@ impl RateLimiter {
 #[derive(Clone)]
 struct Fetcher {
     client: reqwest::Client,
+    no_redirect: reqwest::Client,
     base: String,
+    api_key: Option<String>,
     limiter: std::sync::Arc<RateLimiter>,
 }
 
 impl Fetcher {
-    fn new(base: String, max_rpm: u32) -> Self {
+    fn new(base: String, max_rpm: u32, api_key: Option<String>) -> Self {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
             .expect("reqwest client");
-        Self { client, base, limiter: std::sync::Arc::new(RateLimiter::new(max_rpm)) }
+        let no_redirect = reqwest::Client::builder()
+            .timeout(Duration::from_secs(15))
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .expect("reqwest no-redirect client");
+        Self {
+            client,
+            no_redirect,
+            base,
+            api_key,
+            limiter: std::sync::Arc::new(RateLimiter::new(max_rpm)),
+        }
     }
 
-    /// Finalized block at `height`. `Ok(None)` means not available yet (404).
+    fn authed(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        match &self.api_key {
+            Some(k) => req.bearer_auth(k),
+            None => req,
+        }
+    }
+
+    /// Latest finalized height via the `/v0/last_block/final` redirect helper
+    /// (302, no body — the cheapest head probe the API offers).
+    async fn head(&self) -> Result<u64> {
+        self.limiter.wait_turn().await;
+        let url = format!("{}/v0/last_block/final", self.base);
+        let resp = self
+            .authed(self.no_redirect.get(&url))
+            .send()
+            .await
+            .with_context(|| format!("GET {url}"))?;
+        if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            self.limiter.on_rate_limited().await;
+            bail!("rate limited (429)");
+        }
+        if !resp.status().is_redirection() {
+            bail!("neardata {url} -> {} (expected 302)", resp.status());
+        }
+        let loc = resp
+            .headers()
+            .get(reqwest::header::LOCATION)
+            .and_then(|v| v.to_str().ok())
+            .context("last_block/final: missing location")?;
+        let height: u64 = loc
+            .rsplit('/')
+            .next()
+            .and_then(|s| s.split('?').next())
+            .and_then(|s| s.parse().ok())
+            .with_context(|| format!("last_block/final: bad location {loc}"))?;
+        self.limiter.on_success().await;
+        Ok(height)
+    }
+
+    /// Finalized block at `height`. `Ok(None)` means not available: either a
+    /// 404 (height beyond the finalized head / before genesis) or a `200`
+    /// with a JSON `null` body, which the API spec returns when "the selected
+    /// slice is absent". Both mean "try again later", never "skip".
     async fn block(&self, height: u64) -> Result<Option<String>> {
         self.limiter.wait_turn().await;
         let url = format!("{}/v0/block/{}", self.base, height);
-        let resp = self.client.get(&url).send().await
+        let resp = self
+            .authed(self.client.get(&url))
+            .send()
+            .await
             .with_context(|| format!("GET {url}"))?;
         if resp.status() == reqwest::StatusCode::NOT_FOUND {
             self.limiter.on_success().await;
@@ -203,6 +267,12 @@ impl Fetcher {
         // neardata redirects finalized requests; body is the StreamerMessage.
         let body = resp.text().await.context("read body")?;
         self.limiter.on_success().await;
+        // Per the API spec a 200 can carry a JSON `null` when the slice is
+        // absent. Treat it exactly like the 404 case — otherwise decode would
+        // fail and this height would poison the consumer into a crash loop.
+        if body.trim() == "null" {
+            return Ok(None);
+        }
         Ok(Some(body))
     }
 }
@@ -661,6 +731,12 @@ async fn run_live(client: &mut Client, fetcher: &Fetcher, args: &Args) -> Result
 
     let mut next = start;
     let mut fetch_next = start;
+    // Latest finalized height known to exist, from `/v0/last_block/final`.
+    // Never spawn fetches past it: the API 404s future heights, which just
+    // burns rate-limit budget. Refreshed only when the pipeline starves, so
+    // the steady-state cost at the tip is one 302 probe per second instead
+    // of a 404 per pending height.
+    let mut known_head: u64 = 0;
     let mut in_flight: tokio::task::JoinSet<(u64, Result<Option<String>, String>)> =
         tokio::task::JoinSet::new();
     let mut task_heights: std::collections::HashMap<tokio::task::Id, u64> =
@@ -674,6 +750,9 @@ async fn run_live(client: &mut Client, fetcher: &Fetcher, args: &Args) -> Result
             let h = match retry.pop_front() {
                 Some(h) => h,
                 None => {
+                    if fetch_next > known_head {
+                        break;
+                    }
                     let h = fetch_next;
                     fetch_next += 1;
                     h
@@ -685,6 +764,18 @@ async fn run_live(client: &mut Client, fetcher: &Fetcher, args: &Args) -> Result
                 (h, r)
             });
             task_heights.insert(handle.id(), h);
+        }
+
+        if in_flight.is_empty() {
+            // Starved: caught up with everything we know about. Wait for the
+            // chain to advance, then learn the new tip from the cheap 302
+            // redirect helper (no body) rather than probing heights.
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            match fetcher.head().await {
+                Ok(h) => known_head = known_head.max(h),
+                Err(e) => warn!(error = %e, "head refresh failed"),
+            }
+            continue;
         }
 
         let joined = in_flight
@@ -709,7 +800,9 @@ async fn run_live(client: &mut Client, fetcher: &Fetcher, args: &Args) -> Result
                 buffered.insert(h, body);
             }
             Ok(None) => {
-                // Not finalized yet — back off before asking again.
+                // Height was <= known_head but the slice came back absent
+                // (404 or 200-null) — usually a brief cache race right at the
+                // tip. Back off and retry; never skip a height.
                 tokio::time::sleep(Duration::from_millis(600)).await;
                 retry.push_back(h);
             }
@@ -755,7 +848,7 @@ async fn main() -> Result<()> {
         }
     });
 
-    let fetcher = Fetcher::new(base, args.max_rpm);
+    let fetcher = Fetcher::new(base, args.max_rpm, args.api_key.clone());
 
     if let Some(block) = args.parity_block {
         return run_parity(&client, &fetcher, block, &args.parity_tables).await;
