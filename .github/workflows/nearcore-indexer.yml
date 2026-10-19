@@ -51,11 +51,19 @@ jobs:
       - name: Install protoc
         run: bash "${GITHUB_WORKSPACE}/.github/scripts/install-protoc.sh"
 
-      # Same build deps neard itself needs (aws-lc-sys, wasmtime, rocksdb).
+      # Same build deps neard itself needs (aws-lc-sys, wasmtime, rocksdb,
+      # clang-sys). clang-sys shells out to `llvm-config` and then dlopens
+      # libclang.so; the bare `clang` package has neither.
       - name: Install system build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake clang libssl-dev pkg-config protobuf-compiler
+          sudo apt-get install -y cmake clang libclang-dev llvm-dev libssl-dev pkg-config protobuf-compiler
+          if ! command -v llvm-config >/dev/null; then
+            cfg=$(compgen -c llvm-config- | head -1)
+            sudo ln -sf "$(command -v "$cfg")" /usr/local/bin/llvm-config
+          fi
+          echo "LLVM_CONFIG_PATH=$(command -v llvm-config)" >> "$GITHUB_ENV"
+          echo "LIBCLANG_PATH=$(llvm-config --libdir)" >> "$GITHUB_ENV"
 
       - name: Cargo check (default features)
         run: cargo check --all-targets
