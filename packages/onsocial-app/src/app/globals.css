@@ -17652,15 +17652,21 @@ a.os-surface-row {
     position: absolute;
     top: 0.4rem;
     left: 0.4rem;
-    padding: 0.12rem 0.42rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.45rem;
+    height: 1.45rem;
     border-radius: 9999px;
     background: var(--app-scrim-media-hover);
     color: rgb(255 255 255 / 0.92);
-    font-size: 0.6rem;
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
     backdrop-filter: blur(6px);
+  }
+
+  .page-drawer-media-badge svg {
+    display: block;
+    width: 0.95rem;
+    height: 0.95rem;
   }
 
   .page-drawer-media-body {

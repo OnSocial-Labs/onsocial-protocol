@@ -137,7 +137,10 @@ describe('PageDrawerMediaGrid', () => {
 
     expect(html).toContain('Evening light on the river');
     expect(html).toContain('×2');
-    expect(html).toContain('page-drawer-media-badge">Video');
+    expect(html).toContain('page-drawer-media-badge');
+    expect(html).toContain('M3.196 7.873h17.608');
+    expect(html).not.toContain('page-drawer-media-badge">Video');
+    expect(html).not.toContain('M16.24 3.5h-8.5');
     expect(html).toContain('href="/@alice.testnet/posts/photo"');
     expect(html).toContain('href="/@alice.testnet/posts/clip"');
     expect(html).toContain(

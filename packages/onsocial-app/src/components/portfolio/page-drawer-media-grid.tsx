@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { PostRow } from '@onsocial/sdk';
+import { VideoPlayerIcon } from '@onsocial/ui';
 import { parseArticleSnapshot } from '@/lib/article-post-payload';
 import { writingArticlePath } from '@/lib/overlay-routes';
 import {
@@ -116,7 +117,9 @@ export function PageDrawerMediaGrid({ posts }: { posts: readonly PostRow[] }) {
             <span className="page-drawer-media-cover has-media" aria-hidden>
               <CoverMedia cover={cover} />
               {cover.kind === 'Video' ? (
-                <span className="page-drawer-media-badge">Video</span>
+                <span className="page-drawer-media-badge">
+                  <VideoPlayerIcon aria-hidden />
+                </span>
               ) : null}
             </span>
             {caption || cover.count > 1 ? (
