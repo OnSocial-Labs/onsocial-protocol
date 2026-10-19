@@ -6,9 +6,10 @@
 mod block_walker;
 mod boost_db_out;
 mod boost_decoder;
-mod combined_db_out;
+pub mod combined_db_out;
 mod core_db_out;
 mod core_decoder;
+pub mod neardata;
 mod pb;
 mod rewards_db_out;
 mod rewards_decoder;
@@ -339,8 +340,14 @@ fn map_combined_output(
     params: String,
     block: Block,
 ) -> Result<CombinedOutput, substreams::errors::Error> {
-    let contracts = parse_multi_contract_filter(&params);
-    let ctx = block_context(&block);
+    Ok(map_combined_output_impl(&params, &block))
+}
+
+/// The full combined decode, callable from native binaries (neardata reader)
+/// without the wasm FFI wrapper. Identical logic to `map_combined_output`.
+pub fn map_combined_output_impl(params: &str, block: &Block) -> CombinedOutput {
+    let contracts = parse_multi_contract_filter(params);
+    let ctx = block_context(block);
 
     // Core accumulators
     let mut data_updates = Vec::new();
@@ -427,7 +434,7 @@ fn map_combined_output(
         _ => {}
     });
 
-    Ok(CombinedOutput {
+    CombinedOutput {
         core: Some(Output {
             data_updates,
             storage_updates,
@@ -468,7 +475,7 @@ fn map_combined_output(
             block_timestamp: ctx.block_timestamp,
             block_hash: ctx.block_hash.clone(),
         }),
-    })
+    }
 }
 
 fn extract_data_update(

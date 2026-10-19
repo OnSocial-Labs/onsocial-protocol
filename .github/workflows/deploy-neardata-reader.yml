@@ -1,0 +1,227 @@
+name: Deploy neardata Reader (Testnet)
+
+# Replaces Deploy Substreams (Testnet). Builds the neardata reader binary,
+# ships it to the testnet data host, verifies parity against the rows the
+# Substreams sink already stored, then swaps the systemd service over.
+#
+# The old `onsocial-sink-combined` unit is stopped and disabled, not deleted,
+# so the cutover is reversible.
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_host:
+        description: "Optional override for testnet data host/IP"
+        required: false
+      ssh_secret_name:
+        description: "GSM secret name for the testnet host SSH key"
+        required: true
+        default: "hetzner-testnet-ssh-key"
+      db_secret_name:
+        description: "GSM secret name for the indexer DB URL"
+        required: true
+        default: "substreams-testnet-db-url"
+      parity_block:
+        description: "Historical block to verify against stored rows before cutover"
+        required: true
+        default: "273239505"
+      start_block:
+        description: "Optional explicit start height (overrides sink cursor)"
+        required: false
+      network:
+        description: "NEAR network the reader polls"
+        required: true
+        default: "testnet"
+
+env:
+  TESTNET_DATA_DEPLOY_HOST: ${{ inputs.deploy_host != '' && inputs.deploy_host || vars.TESTNET_DATA_DEPLOY_HOST != '' && vars.TESTNET_DATA_DEPLOY_HOST || '135.181.110.183' }}
+  SERVICE: onsocial-neardata-reader
+  OLD_SERVICE: onsocial-sink-combined
+
+concurrency:
+  group: hasura-testnet
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build:
+    name: Build reader binary
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: indexers/substreams -> target
+
+      - name: Install protoc
+        run: bash "${GITHUB_WORKSPACE}/.github/scripts/install-protoc.sh"
+
+      - name: Build release binary
+        working-directory: indexers/substreams
+        run: cargo build --release --bin neardata_reader --features native
+
+      - name: Stage artifacts
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/reader-upload"
+          cp indexers/substreams/target/release/neardata_reader "$GITHUB_WORKSPACE/reader-upload/"
+          cp indexers/substreams/onsocial-neardata-reader.service "$GITHUB_WORKSPACE/reader-upload/"
+          ls -la "$GITHUB_WORKSPACE/reader-upload"
+
+      - name: Upload reader artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: neardata-reader
+          path: reader-upload/*
+          retention-days: 1
+
+  deploy:
+    name: Deploy + cutover on data host
+    needs: build
+    runs-on: ubuntu-26.04
+    environment:
+      name: testnet
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download reader artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: neardata-reader
+          path: reader-upload
+
+      - name: Authenticate to GCP (Workload Identity Federation)
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: "projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc"
+          service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
+
+      - name: Fetch SSH key from Secret Manager
+        id: ssh
+        run: |
+          gcloud secrets versions access latest \
+            --secret="${{ inputs.ssh_secret_name || 'hetzner-testnet-ssh-key' }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          while IFS= read -r line; do
+            [ -n "$line" ] && echo "::add-mask::$line"
+          done < /tmp/deploy_key
+          echo "key<<SSHEOF" >> "$GITHUB_OUTPUT"
+          cat /tmp/deploy_key >> "$GITHUB_OUTPUT"
+          echo "SSHEOF" >> "$GITHUB_OUTPUT"
+          rm -f /tmp/deploy_key
+
+      - name: Fetch DB URL from Secret Manager
+        id: db
+        run: |
+          DB_URL=$(gcloud secrets versions access latest \
+            --secret="${{ inputs.db_secret_name || 'substreams-testnet-db-url' }}")
+          echo "::add-mask::$DB_URL"
+          echo "url=$DB_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Upload binary + unit
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ env.TESTNET_DATA_DEPLOY_HOST }}
+          username: root
+          key: ${{ steps.ssh.outputs.key }}
+          source: reader-upload/*
+          target: /tmp/onsocial-reader-upload/
+          strip_components: 1
+          overwrite: true
+
+      - name: Verify parity, then cut over
+        uses: appleboy/ssh-action@v1
+        env:
+          DB_URL: ${{ steps.db.outputs.url }}
+          PARITY_BLOCK: ${{ inputs.parity_block || '273239505' }}
+          START_BLOCK: ${{ inputs.start_block || '' }}
+          NETWORK: ${{ inputs.network || 'testnet' }}
+          SERVICE: ${{ env.SERVICE }}
+          OLD_SERVICE: ${{ env.OLD_SERVICE }}
+        with:
+          host: ${{ env.TESTNET_DATA_DEPLOY_HOST }}
+          username: root
+          key: ${{ steps.ssh.outputs.key }}
+          envs: DB_URL,PARITY_BLOCK,START_BLOCK,NETWORK,SERVICE,OLD_SERVICE
+          command_timeout: 15m
+          script: |
+            set -euo pipefail
+            UPLOAD=/tmp/onsocial-reader-upload
+
+            echo "=== neardata reader deploy (parity block ${PARITY_BLOCK}) ==="
+
+            # Install binary
+            install -m 755 "${UPLOAD}/neardata_reader" /usr/local/bin/neardata_reader
+            echo "✓ binary installed"
+
+            # ---- Gate 1: parity check against rows Substreams already stored.
+            # Read-only: replays the historical block and diffs generated rows
+            # against the DB. Aborts the cutover if they do not match.
+            echo "🧪 parity check on block ${PARITY_BLOCK}..."
+            if ! /usr/local/bin/neardata_reader \
+                  --db-url "${DB_URL}" \
+                  --network "${NETWORK}" \
+                  --parity-block "${PARITY_BLOCK}"; then
+              echo "❌ parity FAILED — not cutting over. Old sink left untouched."
+              exit 1
+            fi
+            echo "✓ parity OK"
+
+            # ---- Gate 2: stop the dead Substreams sink, install the reader unit.
+            systemctl stop "${OLD_SERVICE}" 2>/dev/null || true
+            systemctl disable "${OLD_SERVICE}" 2>/dev/null || true
+            echo "✓ old sink ${OLD_SERVICE} stopped + disabled (unit left on disk)"
+
+            install -d -m 700 /etc/onsocial/credentials/${SERVICE}
+            printf '%s' "${DB_URL}" > /etc/onsocial/credentials/${SERVICE}/db_url
+            printf '%s' "${NETWORK}" > /etc/onsocial/credentials/${SERVICE}/network
+            chmod 600 /etc/onsocial/credentials/${SERVICE}/*
+            install -m 644 "${UPLOAD}/onsocial-neardata-reader.service" \
+              "/etc/systemd/system/${SERVICE}.service"
+            systemctl daemon-reload
+            systemctl enable "${SERVICE}"
+            echo "✓ systemd unit installed"
+
+            systemctl start "${SERVICE}"
+            echo "✓ reader started"
+
+            # ---- Gate 3: smoke — the reader cursor must advance.
+            PSQL="docker exec -i postgres psql -v ON_ERROR_STOP=1 -U onsocial -d onsocial_indexer"
+            BASE=$($PSQL -tAc \
+              "SELECT COALESCE(MAX(block_num),0) FROM cursors WHERE id='neardata_reader'" \
+              2>/dev/null | tr -d '[:space:]' || echo "0")
+            echo "  cursor base: ${BASE}"
+            WAIT=0
+            MAX=180
+            while [ $WAIT -lt $MAX ]; do
+              sleep 10
+              WAIT=$((WAIT+10))
+              if ! systemctl is-active --quiet "${SERVICE}"; then
+                echo "❌ reader crashed during smoke wait"
+                journalctl -u "${SERVICE}" --no-pager -n 60 || true
+                exit 1
+              fi
+              NOW=$($PSQL -tAc \
+                "SELECT COALESCE(MAX(block_num),0) FROM cursors WHERE id='neardata_reader'" \
+                2>/dev/null | tr -d '[:space:]' || echo "0")
+              if [ -n "$NOW" ] && [ "$NOW" -gt "${BASE:-0}" ]; then
+                echo "  ✅ cursor advancing: ${BASE} → ${NOW} after ${WAIT}s"
+                break
+              fi
+              echo "  ⏱ ${WAIT}s waiting for cursor (now=${NOW:-0})"
+            done
+            if [ -z "${NOW:-}" ] || [ "$NOW" -le "${BASE:-0}" ]; then
+              echo "❌ smoke failed: cursor did not advance in ${MAX}s"
+              journalctl -u "${SERVICE}" --no-pager -n 60 || true
+              exit 1
+            fi
+
+            rm -rf "$UPLOAD"
+            echo ""
+            echo "✅ neardata reader live (network=${NETWORK}, parity=${PARITY_BLOCK})"

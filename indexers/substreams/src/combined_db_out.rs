@@ -13,6 +13,13 @@ use substreams_database_change::pb::database::DatabaseChanges;
 pub fn combined_db_out(
     output: CombinedOutput,
 ) -> Result<DatabaseChanges, substreams::errors::Error> {
+    Ok(combined_db_out_impl(output))
+}
+
+/// The full merge across all six contracts, callable from native binaries
+/// (neardata reader) without the wasm FFI wrapper. Identical logic to
+/// `combined_db_out`.
+pub fn combined_db_out_impl(output: CombinedOutput) -> DatabaseChanges {
     let mut changes = DatabaseChanges::default();
 
     if let Some(core) = output.core {
@@ -42,5 +49,5 @@ pub fn combined_db_out(
             .extend(social_spend_changes.table_changes);
     }
 
-    Ok(changes)
+    changes
 }
