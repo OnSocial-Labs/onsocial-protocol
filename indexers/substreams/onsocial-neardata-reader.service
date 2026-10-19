@@ -1,0 +1,29 @@
+[Unit]
+# OnSocial neardata reader — replaces the dead StreamingFast Substreams sink.
+# Polls finalized blocks from neardata and writes them through the same
+# decoders into the same Postgres tables. Hasura/app unchanged.
+Description=OnSocial neardata reader (testnet indexer)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# DB URL comes from a root-only credential file, never the process env or
+# command line (same pattern as the old sink unit).
+LoadCredential=db_url:/etc/onsocial/credentials/onsocial-neardata-reader/db_url
+LoadCredential=network:/etc/onsocial/credentials/onsocial-neardata-reader/network
+ExecStart=/bin/bash -lc 'exec /usr/local/bin/neardata_reader --db-url "$(cat "${CREDENTIALS_DIRECTORY}/db_url")" --network "$(cat "${CREDENTIALS_DIRECTORY}/network")"'
+# Restart on any failure (network blip, neardata 5xx, DB hiccup). The reader
+# is crash-safe: each block commits rows + cursor in one transaction, so a
+# restart replays at most one partially-applied block, which upserts absorb.
+Restart=always
+RestartSec=10
+# Give up only if it cannot stay up for 30s across 5 tries (config error).
+StartLimitIntervalSec=150
+StartLimitBurst=5
+# Reasonable resource ceiling; the reader is light (~tens of MB).
+MemoryMax=512M
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

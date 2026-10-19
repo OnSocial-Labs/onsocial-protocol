@@ -1,10 +1,11 @@
 name: Deploy Substreams (Testnet)
 
+# StreamingFast discontinued NEAR Firehose/Substreams in Oct 2026 — the
+# endpoint 502s and this sink cannot index. The neardata reader
+# (deploy-neardata-reader.yml) replaces it. This workflow is kept for
+# reference/rollback but no longer auto-fires on Substreams CI; run it only
+# by hand if ever needed.
 on:
-  workflow_run:
-    workflows: ["Substreams CI"]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
     inputs:
       clean_deploy:
