@@ -18,6 +18,25 @@ import { postThreadPath } from '@/lib/post-routes';
 
 const MEDIA_CAPTION_CHARS = 72;
 
+/** One author-feed page while Media has no indexed column. */
+export const PROFILE_MEDIA_PAGE_SIZE = 72;
+
+/**
+ * Next offset for the author feed. A short page is the end. A full page that
+ * was already in the pool is also the end, so a repeated window cannot loop.
+ */
+export function profileMediaAdvance(opts: {
+  offset: number;
+  pageSize: number;
+  itemCount: number;
+  addedCount: number;
+}): { offset: number; hasMore: boolean } {
+  if (opts.itemCount < opts.pageSize || opts.addedCount <= 0) {
+    return { offset: opts.offset, hasMore: false };
+  }
+  return { offset: opts.offset + opts.pageSize, hasMore: true };
+}
+
 export interface ProfileMediaCover {
   key: string;
   href: string;

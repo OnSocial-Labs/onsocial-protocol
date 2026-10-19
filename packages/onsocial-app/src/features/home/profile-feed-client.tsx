@@ -3,10 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import {
   PageDrawerMediaGrid,
   PageDrawerMediaGridSkeleton,
+  PROFILE_MEDIA_PAGE_SIZE,
+  profileMediaAdvance,
 } from '@/components/portfolio/page-drawer-media-grid';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { OsLoadMore } from '@/lib/os-load-more';
 import {
   PersonalFeedList,
   insertOptimisticFeedPost,
@@ -75,9 +80,21 @@ export function ProfileFeedClient({
   tab,
 }: ProfileFeedClientProps) {
   const { accountId: viewerId, isConnected } = useAppWallet();
+  const { scrollNode } = usePageContentDrawer();
   const [posts, setPosts] = useState(initialPosts);
   const postsRef = useRef(posts);
   const total = Math.max(postCount, posts.length);
+  const [mediaPage, setMediaPage] = useState({
+    nextOffset: 0,
+    hasMore: false,
+    started: false,
+  });
+  const [mediaPaging, setMediaPaging] = useState(false);
+  const [mediaFailed, setMediaFailed] = useState(false);
+  const mediaPagingRef = useRef(false);
+  const mediaRequestRef = useRef(0);
+  const mediaSentinelRef = useRef<HTMLDivElement | null>(null);
+  const mediaAccountRef = useRef(accountId);
 
   useEffect(() => {
     postsRef.current = posts;
@@ -89,23 +106,87 @@ export function ProfileFeedClient({
   const fetchedTabsRef = useRef<Set<ProfileFeedTab>>(new Set());
   const [pendingTab, setPendingTab] = useState<ProfileFeedTab | null>(null);
 
+  const fetchMediaPage = useCallback((offset: number) => {
+    if (mediaPagingRef.current) return;
+    mediaPagingRef.current = true;
+    const requestId = mediaRequestRef.current;
+    queueMicrotask(() => {
+      setMediaPaging(true);
+      if (offset === 0) setPendingTab('media');
+    });
+    const client = createReadOnlyOnSocialClient();
+    void client.query.feed
+      .recent({
+        author: accountId,
+        limit: PROFILE_MEDIA_PAGE_SIZE,
+        offset,
+      })
+      .then((page) => {
+        if (requestId !== mediaRequestRef.current) return;
+        const seen = new Set(postsRef.current.map(postKey));
+        const addedCount = page.items.filter(
+          (row) => !seen.has(postKey(row))
+        ).length;
+        setPosts((current) => mergePostRows(current, page.items));
+        setMediaFailed(false);
+        const advance = profileMediaAdvance({
+          offset,
+          pageSize: PROFILE_MEDIA_PAGE_SIZE,
+          itemCount: page.items.length,
+          addedCount,
+        });
+        setMediaPage((current) => {
+          // A repeated first window can land after paging has already moved on.
+          if (addedCount <= 0 && current.nextOffset > offset) return current;
+          return {
+            nextOffset: advance.offset,
+            hasMore: advance.hasMore,
+            started: true,
+          };
+        });
+      })
+      .catch(() => {
+        if (requestId !== mediaRequestRef.current) return;
+        setMediaFailed(true);
+        setMediaPage((current) => ({
+          ...current,
+          started: true,
+          hasMore: true,
+        }));
+      })
+      .finally(() => {
+        if (requestId !== mediaRequestRef.current) return;
+        mediaPagingRef.current = false;
+        setMediaPaging(false);
+        setPendingTab((current) => (current === 'media' ? null : current));
+      });
+  }, [accountId]);
+
   useEffect(() => {
-    if (!tab || fetchedTabsRef.current.has(tab)) return;
+    if (mediaAccountRef.current === accountId) return;
+    mediaAccountRef.current = accountId;
+    mediaRequestRef.current += 1;
+    mediaPagingRef.current = false;
+    queueMicrotask(() => {
+      setMediaFailed(false);
+      setMediaPaging(false);
+      setMediaPage({ nextOffset: 0, hasMore: false, started: false });
+    });
+  }, [accountId]);
+
+  useEffect(() => {
+    if (!tab || tab === 'media' || fetchedTabsRef.current.has(tab)) return;
     fetchedTabsRef.current.add(tab);
     const requested = tab;
     queueMicrotask(() => {
       setPendingTab(requested);
     });
     const client = createReadOnlyOnSocialClient();
-    // Media has no indexed column — widen the window and filter client-side.
-    const request =
-      tab === 'media'
-        ? client.query.feed.recent({ author: accountId, limit: 72 })
-        : client.query.feed.recent({
-            author: accountId,
-            limit: 24,
-            section: tab,
-          });
+    const request = client.query.feed.recent({
+      author: accountId,
+      limit: 24,
+      section: tab,
+    });
     void request
       .then((page) => setPosts((current) => mergePostRows(current, page.items)))
       .catch(() => undefined)
@@ -113,6 +194,11 @@ export function ProfileFeedClient({
         setPendingTab((current) => (current === tab ? null : current))
       );
   }, [tab, accountId]);
+
+  useEffect(() => {
+    if (tab !== 'media' || mediaPage.started) return;
+    fetchMediaPage(0);
+  }, [tab, mediaPage.started, fetchMediaPage]);
 
   useEffect(() => {
     return () => {
@@ -199,6 +285,36 @@ export function ProfileFeedClient({
     );
   }, [posts, tab]);
 
+  const mediaLooking =
+    tab === 'media' &&
+    visiblePosts.length === 0 &&
+    mediaPage.hasMore &&
+    !mediaFailed;
+
+  const loadOlderMedia = useCallback(() => {
+    if (tab !== 'media' || !mediaPage.hasMore || mediaPagingRef.current) return;
+    setMediaFailed(false);
+    fetchMediaPage(mediaPage.nextOffset);
+  }, [tab, mediaPage.hasMore, mediaPage.nextOffset, fetchMediaPage]);
+
+  // No covers yet — keep walking so an older photo is not reported missing.
+  useEffect(() => {
+    if (!mediaLooking || mediaPaging) return;
+    fetchMediaPage(mediaPage.nextOffset);
+  }, [mediaLooking, mediaPaging, mediaPage.nextOffset, fetchMediaPage]);
+
+  useInfiniteScrollSentinel({
+    root: scrollNode,
+    sentinelRef: mediaSentinelRef,
+    enabled:
+      tab === 'media' &&
+      mediaPage.hasMore &&
+      !mediaFailed &&
+      !mediaPaging &&
+      visiblePosts.length > 0,
+    onIntersect: loadOlderMedia,
+  });
+
   const emptyTitle = tab
     ? FEED_TAB_EMPTY[tab]
     : total > 0
@@ -216,7 +332,11 @@ export function ProfileFeedClient({
 
   if (visiblePosts.length === 0) {
     // Don't claim "No replies yet" while the section fetch is in flight.
-    if (tab && pendingTab === tab) {
+    if (
+      (tab && pendingTab === tab) ||
+      mediaLooking ||
+      (tab === 'media' && mediaPaging && visiblePosts.length === 0)
+    ) {
       return (
         <>
           {tab === 'media' ? (
@@ -224,6 +344,20 @@ export function ProfileFeedClient({
           ) : (
             <PostRowSkeleton rows={3} />
           )}
+          {sheet}
+        </>
+      );
+    }
+    if (tab === 'media' && mediaFailed) {
+      return (
+        <>
+          <div className="home-feed-state">
+            <span>{emptyTitle}</span>
+            <span>{emptyHint}</span>
+          </div>
+          <OsLoadMore onClick={loadOlderMedia} pending={mediaPaging}>
+            Show earlier
+          </OsLoadMore>
           {sheet}
         </>
       );
@@ -254,7 +388,21 @@ export function ProfileFeedClient({
         </p>
       ) : null}
       {tab === 'media' ? (
-        <PageDrawerMediaGrid posts={visiblePosts} />
+        <>
+          <PageDrawerMediaGrid posts={visiblePosts} />
+          {mediaPaging ? <PageDrawerMediaGridSkeleton cards={2} /> : null}
+          {mediaFailed ? (
+            <OsLoadMore onClick={loadOlderMedia} pending={mediaPaging}>
+              Show earlier
+            </OsLoadMore>
+          ) : (
+            <div
+              ref={mediaSentinelRef}
+              className="page-drawer-media-sentinel"
+              aria-hidden
+            />
+          )}
+        </>
       ) : (
         <PersonalFeedList
           posts={visiblePosts}

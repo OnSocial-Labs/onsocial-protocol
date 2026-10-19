@@ -17644,6 +17644,10 @@ a.os-surface-row {
     scroll-snap-align: unset;
   }
 
+  .page-drawer-media-sentinel {
+    height: 1px;
+  }
+
   .page-drawer-media-badge {
     position: absolute;
     top: 0.4rem;

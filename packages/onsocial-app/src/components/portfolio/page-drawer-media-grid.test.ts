@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { PostRow } from '@onsocial/sdk';
-import { profileMediaCovers } from '@/components/portfolio/page-drawer-media-grid';
+import {
+  PROFILE_MEDIA_PAGE_SIZE,
+  profileMediaAdvance,
+  profileMediaCovers,
+} from '@/components/portfolio/page-drawer-media-grid';
 
 function row(postId: string, value: string): PostRow {
   return {
@@ -11,6 +15,38 @@ function row(postId: string, value: string): PostRow {
     blockTimestamp: 1,
   };
 }
+
+describe('profileMediaAdvance', () => {
+  it('steps forward while a page is full and new', () => {
+    expect(
+      profileMediaAdvance({
+        offset: 0,
+        pageSize: PROFILE_MEDIA_PAGE_SIZE,
+        itemCount: PROFILE_MEDIA_PAGE_SIZE,
+        addedCount: 40,
+      })
+    ).toEqual({ offset: PROFILE_MEDIA_PAGE_SIZE, hasMore: true });
+  });
+
+  it('stops on a short page and on a repeated window', () => {
+    expect(
+      profileMediaAdvance({
+        offset: 72,
+        pageSize: 72,
+        itemCount: 12,
+        addedCount: 12,
+      })
+    ).toEqual({ offset: 72, hasMore: false });
+    expect(
+      profileMediaAdvance({
+        offset: 144,
+        pageSize: 72,
+        itemCount: 72,
+        addedCount: 0,
+      })
+    ).toEqual({ offset: 144, hasMore: false });
+  });
+});
 
 describe('profileMediaCovers', () => {
   it('keeps one cover per post and opens the post', () => {
