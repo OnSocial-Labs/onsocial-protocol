@@ -9,7 +9,7 @@
 //! source crash-safe.
 //!
 //! Cursor convention: each source owns one row in the sink's `cursors` table
-//! (`id` = source name, e.g. "neardata_reader" / "node_indexer"), so either
+//! (`id` = source name, e.g. "neardata_reader" / "indexer"), so either
 //! source can resume where the other stopped.
 
 use std::collections::BTreeMap;
@@ -283,7 +283,7 @@ async fn apply_change(
 /// The cursor upsert adapts to the sink's `cursors` table shape: if the
 /// table has a `block_id` column (substreams-sink-sql does), the block hash
 /// is stored too. `cursor_id` / `cursor_token` identify the writing source
-/// (e.g. "neardata_reader"/"neardata", "node_indexer"/"node").
+/// (e.g. "neardata_reader"/"neardata", "indexer"/"node").
 pub async fn apply_block(
     client: &mut Client,
     schema: &Schema,

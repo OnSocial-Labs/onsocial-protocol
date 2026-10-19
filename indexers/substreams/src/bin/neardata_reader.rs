@@ -4,7 +4,7 @@
 //! decodes them through the exact production pipeline
 //! (`map_combined_output_impl` → `combined_db_out_impl`), and applies the
 //! resulting `DatabaseChanges` to Postgres through the SHARED writer
-//! (`onsocial_substreams::writer`) — the same writer `node_indexer` uses, so
+//! (`onsocial_substreams::writer`) — the same writer `onsocial-indexer` uses, so
 //! there is one writer and two sources, never two writers to keep in sync.
 //! Hasura, the views, and the app read the same tables unchanged.
 //!

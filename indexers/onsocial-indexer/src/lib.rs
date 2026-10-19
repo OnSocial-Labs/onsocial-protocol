@@ -1,17 +1,19 @@
-//! onsocial-node-indexer — the self-hosted-node rail of the OnSocial indexer.
+//! onsocial-indexer — the self-hosted-node rail of the OnSocial indexer.
 //!
 //! Dual-source end state:
 //!
 //! - `neardata_reader` (bin in `onsocial-substreams`) polls neardata.xyz —
-//!   the managed source, kept as backup.
-//! - `node_indexer` (this crate) embeds a NEAR node and consumes its
+//!   the managed source, kept as backup. Renamed to
+//!   `onsocial-indexer-backfill` only after cutover, with its cursor id.
+//! - `onsocial-indexer` (this crate) embeds a NEAR node and consumes its
 //!   `StreamerMessage`s at the tip — the primary source after cutover.
+//!   Cursor id is `indexer`.
 //!
 //! Both feed the SAME decode path (`parse_neardata_block` →
 //! `map_combined_output_impl` → `combined_db_out_impl` → Postgres) through
 //! the SAME writer (`onsocial_substreams::writer`), so table contents are
 //! bit-identical regardless of source. The only source-specific code in this
-//! crate is the compatibility shim below plus the `node_indexer` runner bin.
+//! crate is the compatibility shim below plus the `onsocial-indexer` runner bin.
 //!
 //! The nearcore pin follows `near-firehose-indexer` branch `release/v2.x`
 //! (`rev = "2.14.0-rc.2"`), which matches what testnet validators run

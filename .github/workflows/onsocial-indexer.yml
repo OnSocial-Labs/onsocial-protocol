@@ -1,23 +1,23 @@
-name: Nearcore Indexer CI
+name: OnSocial Indexer CI
 
 on:
   push:
     branches: [main]
     paths:
-      - 'indexers/node-indexer/**'
-      # The shared decode path (codec, writer, pipeline) feeds the node
-      # indexer too — a drift there must run this job.
+      - 'indexers/onsocial-indexer/**'
+      # The shared decode path (codec, writer, pipeline) feeds the indexer
+      # too — a drift there must run this job.
       - 'indexers/substreams/**'
-      - '.github/workflows/nearcore-indexer.yml'
+      - '.github/workflows/onsocial-indexer.yml'
   pull_request:
     paths:
-      - 'indexers/node-indexer/**'
+      - 'indexers/onsocial-indexer/**'
       - 'indexers/substreams/**'
-      - '.github/workflows/nearcore-indexer.yml'
+      - '.github/workflows/onsocial-indexer.yml'
 
 defaults:
   run:
-    working-directory: indexers/node-indexer
+    working-directory: indexers/onsocial-indexer
 
 env:
   # Repo rust-toolchain.toml pins 1.93.0. nearcore 2.14.0-rc.2 declares
@@ -45,7 +45,9 @@ jobs:
       # evict (or be evicted by) the other Rust jobs' caches.
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: indexers/node-indexer -> target
+          workspaces: indexers/onsocial-indexer -> target
+          # Keep this key across the directory rename so a green nearcore
+          # build on the old path is reused instead of compiling cold again.
           key: nearcore-indexer
 
       - name: Install protoc

@@ -24,7 +24,7 @@ bs58 = "0.5.1"
 #
 # The lib's shared writer/pipeline need only tokio-postgres/anyhow/tracing.
 # reqwest+tokio+clap+tracing-subscriber are the reader BIN's own deps and sit
-# behind the `native` feature: the node-indexer links this crate's lib.
+# behind the `native` feature: onsocial-indexer links this crate's lib.
 # reqwest uses native-tls (openssl), NOT rustls: cargo resolves the union of
 # all optional deps into Cargo.lock, and rustls' aws-lc-rs requirement
 # conflicts with near-crypto's exact `=1.16.2` aws-lc-rs pin in the nearcore

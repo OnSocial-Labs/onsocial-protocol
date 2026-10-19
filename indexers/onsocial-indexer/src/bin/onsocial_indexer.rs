@@ -1,4 +1,4 @@
-//! node_indexer — OnSocial indexer driven by a self-hosted NEAR node.
+//! onsocial-indexer — OnSocial indexer driven by a self-hosted NEAR node.
 //!
 //! The runner EMBEDS the node: near-indexer starts a full neard inside this
 //! process against `--home` (it owns the RocksDB — never run this alongside a
@@ -11,7 +11,7 @@
 //! the SHARED writer (`onsocial_substreams::writer`) — one writer, two
 //! sources (reader + this), never two writers to keep in sync.
 //!
-//! Cursor: advances its own `cursors` row (`id = "node_indexer"`) inside the
+//! Cursor: advances its own `cursors` row (`id = "indexer"`) inside the
 //! same transaction as each block's rows — identical crash semantics to the
 //! reader, so either source can resume after the other stopped.
 //!
@@ -29,20 +29,20 @@ use tracing::{info, warn};
 use near_indexer::near_primitives::types::Finality;
 use near_indexer::{AwaitForNodeSyncedEnum, Indexer, IndexerConfig, SyncModeEnum};
 
-use onsocial_node_indexer::streamer_message_to_block;
+use onsocial_indexer::streamer_message_to_block;
 use onsocial_substreams::neardata::block_hash;
 use onsocial_substreams::pipeline::changes_for_block;
 use onsocial_substreams::writer::{self, Schema};
 
 /// Cursor row this source owns in the shared `cursors` table.
-const NODE_CURSOR_ID: &str = "node_indexer";
+const NODE_CURSOR_ID: &str = "indexer";
 /// Cursor token (provenance) stored alongside the block hash.
 const CURSOR_TOKEN: &str = "node";
 /// The reader's cursor id — valid resume source (same writer, same tables).
 const READER_CURSOR_ID: &str = "neardata_reader";
 
 #[derive(Parser, Debug)]
-#[command(name = "node_indexer", about = "OnSocial indexer on a self-hosted NEAR node")]
+#[command(name = "onsocial-indexer", about = "OnSocial indexer on a self-hosted NEAR node")]
 struct Args {
     /// NEAR node home directory (holds config.json, data/).
     #[arg(long, default_value = "/var/lib/near")]
@@ -94,7 +94,7 @@ async fn main() -> Result<()> {
     } else {
         bail!("no cursor found; pass --start-block (inside the GC window)");
     };
-    info!(start, home = %args.home, "node_indexer: embedding node, then streaming");
+    info!(start, home = %args.home, "onsocial-indexer: embedding node, then streaming");
 
     let indexer = Indexer::new(IndexerConfig {
         home_dir: std::path::PathBuf::from(&args.home),
@@ -112,7 +112,7 @@ async fn main() -> Result<()> {
     .context("start embedded node (is another neard holding this home?)")?;
 
     let mut stream = indexer.streamer();
-    info!("node_indexer: streaming");
+    info!("onsocial-indexer: streaming");
     while let Some(msg) = stream.recv().await {
         let height = msg.block.header.height;
         let block = streamer_message_to_block(&msg).context("convert StreamerMessage")?;

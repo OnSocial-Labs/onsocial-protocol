@@ -1,5 +1,5 @@
 [package]
-name = "onsocial-node-indexer"
+name = "onsocial-indexer"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.93"
@@ -49,8 +49,8 @@ nearcore = [
 ]
 
 [[bin]]
-name = "node_indexer"
-path = "src/bin/node_indexer.rs"
+name = "onsocial-indexer"
+path = "src/bin/onsocial_indexer.rs"
 required-features = ["nearcore"]
 
 # The fixture round-trip compiles only with nearcore enabled (it

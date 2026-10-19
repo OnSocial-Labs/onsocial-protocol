@@ -9,7 +9,7 @@
 
 #![cfg(feature = "nearcore")]
 
-use onsocial_node_indexer::streamer_message_to_block;
+use onsocial_indexer::streamer_message_to_block;
 use onsocial_substreams::neardata::parse_neardata_block;
 use onsocial_substreams::pipeline::changes_for_block;
 use substreams_database_change::pb::database::DatabaseChanges;
