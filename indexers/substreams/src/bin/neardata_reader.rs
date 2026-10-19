@@ -63,6 +63,17 @@ struct Args {
     /// Max requests per minute to neardata (public cap is 180).
     #[arg(long, default_value_t = 150)]
     max_rpm: u32,
+
+    /// Blocks to download concurrently. Applies are still strictly in order;
+    /// this only overlaps network latency. 1 = old serial behavior.
+    #[arg(long, default_value_t = 6)]
+    prefetch: usize,
+
+    /// FastNear API key, sent as `Authorization: Bearer`. Optional — the
+    /// public tier needs none — but required if FastNear grants a private
+    /// rate tier keyed to an API key.
+    #[arg(long)]
+    api_key: Option<String>,
 }
 
 fn base_url(network: &str) -> String {
@@ -103,57 +114,140 @@ async fn read_reader_cursor(client: &Client) -> Result<Option<u64>> {
 // block_num BIGINT, cursor TEXT)`; the reader stores a stable placeholder
 // cursor token since it has no Substreams cursor.
 
+/// Slot-reserving rate limiter shared by all fetch workers. Each caller
+/// reserves a start instant spaced `cur_interval` after the previous one, so
+/// requests can overlap in flight while the *start rate* stays paced. AIMD:
+/// the interval doubles on 429 (cap 4s) and decays 5% per success (floor
+/// `base_interval`), because neardata's limiter is per-IP.
+struct RateLimiter {
+    state: tokio::sync::Mutex<RateState>,
+    base_interval: Duration,
+}
+
+struct RateState {
+    next_slot: std::time::Instant,
+    cur_interval: Duration,
+}
+
+impl RateLimiter {
+    fn new(max_rpm: u32) -> Self {
+        let base = Duration::from_secs_f64(60.0 / max_rpm as f64);
+        Self {
+            state: tokio::sync::Mutex::new(RateState {
+                next_slot: std::time::Instant::now(),
+                cur_interval: base,
+            }),
+            base_interval: base,
+        }
+    }
+
+    async fn wait_turn(&self) {
+        let start = {
+            let mut s = self.state.lock().await;
+            let now = std::time::Instant::now();
+            let start = s.next_slot.max(now);
+            s.next_slot = start + s.cur_interval;
+            start
+        };
+        let delay = start.saturating_duration_since(std::time::Instant::now());
+        if !delay.is_zero() {
+            tokio::time::sleep(delay).await;
+        }
+    }
+
+    async fn on_rate_limited(&self) {
+        let mut s = self.state.lock().await;
+        s.cur_interval = (s.cur_interval * 2).min(Duration::from_secs(4));
+    }
+
+    async fn on_success(&self) {
+        let mut s = self.state.lock().await;
+        s.cur_interval = (s.cur_interval.mul_f64(0.95)).max(self.base_interval);
+    }
+}
+
+#[derive(Clone)]
 struct Fetcher {
     client: reqwest::Client,
+    no_redirect: reqwest::Client,
     base: String,
-    /// Configured steady-state spacing (from --max-rpm).
-    base_interval: Duration,
-    /// Adaptive spacing: grows on 429, decays on success (AIMD). neardata's
-    /// limiter is per-IP, so a warm/shared IP needs to back off below the
-    /// nominal public cap.
-    cur_interval: Duration,
-    last: Option<std::time::Instant>,
+    api_key: Option<String>,
+    limiter: std::sync::Arc<RateLimiter>,
 }
 
 impl Fetcher {
-    fn new(base: String, max_rpm: u32) -> Self {
+    fn new(base: String, max_rpm: u32, api_key: Option<String>) -> Self {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
             .expect("reqwest client");
-        let base_interval = Duration::from_secs_f64(60.0 / max_rpm as f64);
-        Self { client, base, base_interval, cur_interval: base_interval, last: None }
-    }
-
-    async fn throttle(&self) {
-        if let Some(t) = self.last {
-            let elapsed = t.elapsed();
-            if elapsed < self.cur_interval {
-                tokio::time::sleep(self.cur_interval - elapsed).await;
-            }
+        let no_redirect = reqwest::Client::builder()
+            .timeout(Duration::from_secs(15))
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .expect("reqwest no-redirect client");
+        Self {
+            client,
+            no_redirect,
+            base,
+            api_key,
+            limiter: std::sync::Arc::new(RateLimiter::new(max_rpm)),
         }
     }
 
-    fn on_rate_limited(&mut self) {
-        // Multiplicative increase, capped at 4s (~15 req/min).
-        self.cur_interval = (self.cur_interval * 2).min(Duration::from_secs(4));
+    fn authed(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        match &self.api_key {
+            Some(k) => req.bearer_auth(k),
+            None => req,
+        }
     }
 
-    fn on_success(&mut self) {
-        // Additive decay back toward the configured rate.
-        let decayed = self.cur_interval.mul_f64(0.95);
-        self.cur_interval = decayed.max(self.base_interval);
+    /// Latest finalized height via the `/v0/last_block/final` redirect helper
+    /// (302, no body — the cheapest head probe the API offers).
+    async fn head(&self) -> Result<u64> {
+        self.limiter.wait_turn().await;
+        let url = format!("{}/v0/last_block/final", self.base);
+        let resp = self
+            .authed(self.no_redirect.get(&url))
+            .send()
+            .await
+            .with_context(|| format!("GET {url}"))?;
+        if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            self.limiter.on_rate_limited().await;
+            bail!("rate limited (429)");
+        }
+        if !resp.status().is_redirection() {
+            bail!("neardata {url} -> {} (expected 302)", resp.status());
+        }
+        let loc = resp
+            .headers()
+            .get(reqwest::header::LOCATION)
+            .and_then(|v| v.to_str().ok())
+            .context("last_block/final: missing location")?;
+        let height: u64 = loc
+            .rsplit('/')
+            .next()
+            .and_then(|s| s.split('?').next())
+            .and_then(|s| s.parse().ok())
+            .with_context(|| format!("last_block/final: bad location {loc}"))?;
+        self.limiter.on_success().await;
+        Ok(height)
     }
 
-    /// Finalized block at `height`. `Ok(None)` means not available yet (404).
-    async fn block(&mut self, height: u64) -> Result<Option<String>> {
-        self.throttle().await;
+    /// Finalized block at `height`. `Ok(None)` means not available: either a
+    /// 404 (height beyond the finalized head / before genesis) or a `200`
+    /// with a JSON `null` body, which the API spec returns when "the selected
+    /// slice is absent". Both mean "try again later", never "skip".
+    async fn block(&self, height: u64) -> Result<Option<String>> {
+        self.limiter.wait_turn().await;
         let url = format!("{}/v0/block/{}", self.base, height);
-        let resp = self.client.get(&url).send().await;
-        self.last = Some(std::time::Instant::now());
-        let resp = resp.with_context(|| format!("GET {url}"))?;
+        let resp = self
+            .authed(self.client.get(&url))
+            .send()
+            .await
+            .with_context(|| format!("GET {url}"))?;
         if resp.status() == reqwest::StatusCode::NOT_FOUND {
-            self.on_success();
+            self.limiter.on_success().await;
             return Ok(None);
         }
         if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
@@ -162,9 +256,8 @@ impl Fetcher {
                 .get("retry-after")
                 .and_then(|v| v.to_str().ok())
                 .and_then(|v| v.parse::<u64>().ok());
-            self.on_rate_limited();
+            self.limiter.on_rate_limited().await;
             let wait = retry_after.unwrap_or(5).max(2);
-            warn!(wait_s = wait, interval_ms = self.cur_interval.as_millis(), "rate limited, backing off");
             tokio::time::sleep(Duration::from_secs(wait)).await;
             bail!("rate limited (429)");
         }
@@ -173,21 +266,14 @@ impl Fetcher {
         }
         // neardata redirects finalized requests; body is the StreamerMessage.
         let body = resp.text().await.context("read body")?;
-        self.on_success();
+        self.limiter.on_success().await;
+        // Per the API spec a 200 can carry a JSON `null` when the slice is
+        // absent. Treat it exactly like the 404 case — otherwise decode would
+        // fail and this height would poison the consumer into a crash loop.
+        if body.trim() == "null" {
+            return Ok(None);
+        }
         Ok(Some(body))
-    }
-
-    /// Chain head height (final).
-    async fn head(&mut self) -> Result<u64> {
-        self.throttle().await;
-        let url = format!("{}/v0/last_block/final", self.base);
-        let resp = self.client.get(&url).send().await;
-        self.last = Some(std::time::Instant::now());
-        let resp = resp.with_context(|| format!("GET {url}"))?;
-        let body: serde_json::Value = resp.json().await.context("head json")?;
-        body["block"]["header"]["height"]
-            .as_u64()
-            .ok_or_else(|| anyhow!("no height in last_block/final"))
     }
 }
 
@@ -261,7 +347,7 @@ async fn db_rows_at_block(
     Ok(out)
 }
 
-async fn run_parity(client: &Client, fetcher: &mut Fetcher, block: u64, tables: &[String]) -> Result<()> {
+async fn run_parity(client: &Client, fetcher: &Fetcher, block: u64, tables: &[String]) -> Result<()> {
     info!(block, "parity: fetching block");
     let body = fetcher
         .block(block)
@@ -621,7 +707,12 @@ async fn apply_block(
     Ok(applied)
 }
 
-async fn run_live(client: &mut Client, fetcher: &mut Fetcher, args: &Args) -> Result<()> {
+/// Live pipeline: up to `--prefetch` blocks download concurrently while the
+/// consumer decodes and commits strictly in height order. Crash-safety is
+/// unchanged — a block's rows + cursor still commit in one transaction, so a
+/// restart resumes at the first uncommitted height and buffered refetches are
+/// idempotent upserts.
+async fn run_live(client: &mut Client, fetcher: &Fetcher, args: &Args) -> Result<()> {
     let schema = Schema::load(client).await?;
     info!(tables = schema.tables.len(), "schema loaded");
 
@@ -635,34 +726,102 @@ async fn run_live(client: &mut Client, fetcher: &mut Fetcher, args: &Args) -> Re
     } else {
         bail!("no cursor found; pass --start-block");
     };
-    info!(start, "live mode start");
+    let depth = args.prefetch.max(1);
+    info!(start, depth, "live mode start");
 
     let mut next = start;
+    let mut fetch_next = start;
+    // Latest finalized height known to exist, from `/v0/last_block/final`.
+    // Never spawn fetches past it: the API 404s future heights, which just
+    // burns rate-limit budget. Refreshed only when the pipeline starves, so
+    // the steady-state cost at the tip is one 302 probe per second instead
+    // of a 404 per pending height.
+    let mut known_head: u64 = 0;
+    let mut in_flight: tokio::task::JoinSet<(u64, Result<Option<String>, String>)> =
+        tokio::task::JoinSet::new();
+    let mut task_heights: std::collections::HashMap<tokio::task::Id, u64> =
+        std::collections::HashMap::new();
+    let mut buffered: BTreeMap<u64, String> = BTreeMap::new();
+    let mut retry: std::collections::VecDeque<u64> = std::collections::VecDeque::new();
+
     loop {
-        match fetcher.block(next).await {
-            Ok(Some(body)) => {
-                let blk = decode_block(&body)?;
-                let hash = onsocial_substreams::neardata::block_hash(&blk);
-                let changes = changes_for_block(&blk);
-                let n = apply_block(client, &schema, &changes, next, &hash).await?;
-                if n > 0 {
-                    info!(block = next, rows = n, "indexed");
+        // Keep the window full: retries first, then fresh heights.
+        while in_flight.len() < depth {
+            let h = match retry.pop_front() {
+                Some(h) => h,
+                None => {
+                    if fetch_next > known_head {
+                        break;
+                    }
+                    let h = fetch_next;
+                    fetch_next += 1;
+                    h
                 }
-                next += 1;
+            };
+            let f = fetcher.clone();
+            let handle = in_flight.spawn(async move {
+                let r = f.block(h).await.map_err(|e| format!("{e:#}"));
+                (h, r)
+            });
+            task_heights.insert(handle.id(), h);
+        }
+
+        if in_flight.is_empty() {
+            // Starved: caught up with everything we know about. Wait for the
+            // chain to advance, then learn the new tip from the cheap 302
+            // redirect helper (no body) rather than probing heights.
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            match fetcher.head().await {
+                Ok(h) => known_head = known_head.max(h),
+                Err(e) => warn!(error = %e, "head refresh failed"),
             }
-            Ok(None) => {
-                // Not finalized yet — poll the head and wait.
-                let head = fetcher.head().await.unwrap_or(next);
-                if next > head {
-                    tokio::time::sleep(Duration::from_millis(600)).await;
-                } else {
-                    tokio::time::sleep(Duration::from_millis(200)).await;
-                }
+            continue;
+        }
+
+        let joined = in_flight
+            .join_next_with_id()
+            .await
+            .context("fetch set unexpectedly empty")?;
+        let (h, res) = match joined {
+            Ok((id, v)) => {
+                task_heights.remove(&id);
+                v
             }
             Err(e) => {
-                warn!(block = next, error = %e, "fetch failed, retrying");
-                tokio::time::sleep(Duration::from_secs(2)).await;
+                let h = task_heights.remove(&e.id()).unwrap_or(0);
+                warn!(block = h, error = %e, "fetch task failed, requeueing");
+                retry.push_back(h);
+                continue;
             }
+        };
+
+        match res {
+            Ok(Some(body)) => {
+                buffered.insert(h, body);
+            }
+            Ok(None) => {
+                // Height was <= known_head but the slice came back absent
+                // (404 or 200-null) — usually a brief cache race right at the
+                // tip. Back off and retry; never skip a height.
+                tokio::time::sleep(Duration::from_millis(600)).await;
+                retry.push_back(h);
+            }
+            Err(e) => {
+                warn!(block = h, error = %e, "fetch failed, requeueing");
+                retry.push_back(h);
+            }
+        }
+
+        // Commit every contiguous block now available, in order.
+        while let Some(body) = buffered.remove(&next) {
+            let blk = decode_block(&body)?;
+            let hash = onsocial_substreams::neardata::block_hash(&blk);
+            let changes = changes_for_block(&blk);
+            let n = apply_block(client, &schema, &changes, next, &hash).await?;
+            if n > 0 {
+                info!(block = next, rows = n, "indexed");
+            }
+            next += 1;
         }
     }
 }
@@ -689,11 +848,11 @@ async fn main() -> Result<()> {
         }
     });
 
-    let mut fetcher = Fetcher::new(base, args.max_rpm);
+    let fetcher = Fetcher::new(base, args.max_rpm, args.api_key.clone());
 
     if let Some(block) = args.parity_block {
-        return run_parity(&client, &mut fetcher, block, &args.parity_tables).await;
+        return run_parity(&client, &fetcher, block, &args.parity_tables).await;
     }
 
-    run_live(&mut client, &mut fetcher, &args).await
+    run_live(&mut client, &fetcher, &args).await
 }
