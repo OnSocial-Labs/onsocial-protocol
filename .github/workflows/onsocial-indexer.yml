@@ -1,0 +1,85 @@
+name: OnSocial Indexer CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'indexers/onsocial-indexer/**'
+      # The shared decode path (codec, writer, pipeline) feeds the indexer
+      # too — a drift there must run this job.
+      - 'indexers/substreams/**'
+      - '.github/workflows/onsocial-indexer.yml'
+  pull_request:
+    paths:
+      - 'indexers/onsocial-indexer/**'
+      - 'indexers/substreams/**'
+      - '.github/workflows/onsocial-indexer.yml'
+
+defaults:
+  run:
+    working-directory: indexers/onsocial-indexer
+
+env:
+  # Repo rust-toolchain.toml pins 1.93.0. nearcore 2.14.0-rc.2 declares
+  # rust-version 1.95, so cargo refuses to resolve it on that pin. This
+  # variable outranks rust-toolchain.toml; stable is what the node box
+  # already builds with (1.99). Other CI jobs stay on 1.93.
+  RUSTUP_TOOLCHAIN: stable
+  # Keep the target dir small enough for the GH cache: no debuginfo, no
+  # incremental. A cold nearcore check is 60–90 min; a warm one is minutes.
+  RUSTFLAGS: '-C debuginfo=0'
+  CARGO_INCREMENTAL: '0'
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Check & Test
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      # Dedicated cache namespace: nearcore artifacts are GBs and must not
+      # evict (or be evicted by) the other Rust jobs' caches.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: indexers/onsocial-indexer -> target
+          # Keep this key across the directory rename so a green nearcore
+          # build on the old path is reused instead of compiling cold again.
+          key: nearcore-indexer
+
+      - name: Install protoc
+        run: bash "${GITHUB_WORKSPACE}/.github/scripts/install-protoc.sh"
+
+      # Same build deps neard itself needs (aws-lc-sys, wasmtime, rocksdb,
+      # clang-sys). clang-sys shells out to `llvm-config` and then dlopens
+      # libclang.so; the bare `clang` package has neither.
+      - name: Install system build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake clang libclang-dev llvm-dev libssl-dev pkg-config protobuf-compiler
+          if ! command -v llvm-config >/dev/null; then
+            cfg=$(compgen -c llvm-config- | head -1)
+            sudo ln -sf "$(command -v "$cfg")" /usr/local/bin/llvm-config
+          fi
+          echo "LLVM_CONFIG_PATH=$(command -v llvm-config)" >> "$GITHUB_ENV"
+          echo "LIBCLANG_PATH=$(llvm-config --libdir)" >> "$GITHUB_ENV"
+
+      - name: Cargo check (default features)
+        run: cargo check --all-targets
+
+      - name: Cargo test (default features)
+        run: cargo test
+
+      # The nearcore-enabled build: embeds neard via near-indexer. Verifies
+      # the pinned nearcore rev still compiles with our runner and that the
+      # rustls pin keeps the dependency graph resolvable.
+      - name: Cargo check (nearcore feature)
+        run: cargo check --features nearcore --all-targets
+
+      # Includes the fixture round-trip: a real testnet block must decode
+      # identically through the neardata codec and the StreamerMessage shim.
+      - name: Cargo test (nearcore feature)
+        run: cargo test --features nearcore

@@ -3,3 +3,7 @@
 *.sh text eol=lf
 *.bash text eol=lf
 *.sql text eol=lf
+# Same class of bug: installimage.conf shipped CRLF once and crashed the
+# Hetzner installer parser mid-run (remote box, no editor). Cover it too.
+*.conf text eol=lf
+*.service text eol=lf

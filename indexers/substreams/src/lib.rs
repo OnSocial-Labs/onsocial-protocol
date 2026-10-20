@@ -11,6 +11,13 @@ mod core_db_out;
 mod core_decoder;
 pub mod neardata;
 mod pb;
+// Shared native surface (pipeline composition + the ONE Postgres writer).
+// Native-only: tokio-postgres does not build for wasm32 — matches the
+// target-gated deps in Cargo.toml.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod pipeline;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod writer;
 mod rewards_db_out;
 mod rewards_decoder;
 mod scarces_db_out;

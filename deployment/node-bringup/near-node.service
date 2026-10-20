@@ -1,0 +1,27 @@
+[Unit]
+# NEAR node (testnet) — the indexer rail. The unit's resource leashes exist so
+# a re-sync can degrade but never starve the co-located Postgres/app stack
+# (which lands in the app-migration phase).
+Description=NEAR node (testnet)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=near
+ExecStart=/usr/local/bin/neard --home /var/lib/near run
+Restart=always
+RestartSec=10
+
+# Leash: state sync on this 64 GB box was OOM-killed at 28 GB and restarted
+# the snapshot. 48 GB leaves the rest for the OS. Postgres is not on this host.
+MemoryMax=48G
+CPUWeight=100
+IOWeight=500
+
+LimitNOFILE=65536
+TimeoutStopSec=120
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target

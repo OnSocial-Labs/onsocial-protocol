@@ -1,0 +1,69 @@
+[package]
+name = "onsocial-indexer"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.93"
+description = "OnSocial indexer on a self-hosted NEAR node (StreamerMessage → shared decode path)"
+
+[dependencies]
+# The shared decode path: StreamerMessage JSON → protobuf Block → decoders →
+# DatabaseChanges. Same source of truth the neardata reader uses.
+onsocial-substreams = { path = "../substreams" }
+substreams-near = "0.10.2"
+serde_json = "1"
+tracing = "0.1"
+
+# Optional: the self-hosted-node rail. `rev` matches the pin proven by
+# near-firehose-indexer branch release/v2.x — the exact nearcore build
+# testnet validators run (protocol 87). Default builds (and all existing CI)
+# never fetch or compile nearcore; the nearcore-enabled build gets its own
+# CI job with a dedicated cache (cold build is tens of minutes).
+near-indexer-primitives = { git = "https://github.com/near/nearcore", rev = "2.14.0-rc.2", optional = true }
+# The framework crate: embeds a full neard (it owns the RocksDB — never run
+# alongside a separate neard on the same home) and yields StreamerMessages.
+# Same pinned rev as the primitives.
+near-indexer = { git = "https://github.com/near/nearcore", rev = "2.14.0-rc.2", optional = true }
+# Fresh resolution grabs rustls 0.23.46 (via near-client's reqwest ^0.13),
+# whose aws-lc-rs ^1.18 requirement conflicts with near-crypto's exact
+# `=1.16.2` pin. nearcore's own committed lock holds rustls 0.23.28, which
+# accepts 1.16.2 — mirror that exact pin so the union graph resolves.
+rustls = { version = "=0.23.28", optional = true }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"], optional = true }
+tokio-postgres = { version = "0.7", optional = true }
+anyhow = { version = "1", optional = true }
+clap = { version = "4", features = ["derive"], optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
+
+[features]
+# Opt-in — same pattern as `native` in onsocial-substreams: keeps the heavy
+# dependency out of every build that does not explicitly ask for it.
+nearcore = [
+    "dep:near-indexer-primitives",
+    "dep:near-indexer",
+    "dep:rustls",
+    "dep:tokio",
+    "dep:tokio-postgres",
+    "dep:anyhow",
+    "dep:clap",
+    "dep:tracing-subscriber",
+]
+
+[[bin]]
+name = "onsocial-indexer"
+path = "src/bin/onsocial_indexer.rs"
+required-features = ["nearcore"]
+
+# The fixture round-trip compiles only with nearcore enabled (it
+# deserializes a real StreamerMessage); default CI skips it.
+[[test]]
+name = "streamer_roundtrip"
+path = "tests/streamer_roundtrip.rs"
+required-features = ["nearcore"]
+
+[dev-dependencies]
+# Type names for the round-trip test's normalization helper (already in the
+# graph via onsocial-substreams — this adds no new resolution weight).
+substreams-database-change = "3"
+
+[profile.release]
+strip = "debuginfo"
