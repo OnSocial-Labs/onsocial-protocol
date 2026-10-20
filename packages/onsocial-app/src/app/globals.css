@@ -15982,18 +15982,19 @@ a.os-surface-row {
     z-index: 49;
   }
 
-  /* Post sheet is overlayHost (50). Lift the reply pill above it, same as
-     a keep-dock media face. A parked post stays under the portfolio. */
-  body:has(
+  /* Post sheet is overlayHost (50). Launcher band is 51: above the post,
+     under account, share, and the full composer. A parked post stays put.
+     A keep-dock media face keeps its own lift at 90. */
+  body:not(:has([data-os-slide-over='true'][data-keep-dock='true'])):has(
       .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked):has(
           .post-thread-sheet-panel
         )
     )
     .portfolio-summon-dock {
-    z-index: 90;
+    z-index: 51;
   }
 
-  body:has(
+  body:not(:has([data-os-slide-over='true'][data-keep-dock='true'])):has(
       .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked):has(
           .post-thread-sheet-panel
         )
