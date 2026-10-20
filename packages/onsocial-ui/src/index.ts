@@ -219,9 +219,15 @@ export {
 } from './os-sheet-action.js';
 export {
   OsField,
+  OsFieldPlainValue,
+  osAffixChromeClassName,
   osFieldBorderedClassName,
   osFieldClassName,
+  osFieldPlainClassName,
+  osFieldPlainRuleClassName,
+  osFieldPlainValueClassName,
   osFieldSoftClassName,
+  type OsAffixChrome,
   type OsFieldChrome,
   type OsFieldProps,
 } from './os-field.js';

@@ -38066,7 +38066,7 @@ a.os-surface-row {
     gap: 1.15rem;
   }
 
-  /* Supply · price as one spoken line. Baseline so units sit with the digits. */
+  /* Supply · price as one spoken line. Plain chrome inherits this size. */
   .drop-create-deal-line {
     display: flex;
     flex-wrap: nowrap;
@@ -38074,6 +38074,10 @@ a.os-surface-row {
     gap: 0.15rem 0.35rem;
     min-width: 0;
     max-width: 100%;
+    font-size: 1.15rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
   }
 
   .drop-create-deal-sep {
@@ -38103,71 +38107,6 @@ a.os-surface-row {
     font-weight: 600;
     line-height: 1.2;
     color: rgb(var(--fg-rgb) / 0.48);
-  }
-
-  .drop-create-form .drop-create-deal-line .suffix-field,
-  .drop-create-form .drop-create-deal-line .os-amount-field {
-    flex: 0 0 auto !important;
-    width: auto !important;
-    min-width: 0 !important;
-    align-items: baseline !important;
-    gap: 0.35rem !important;
-    padding: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-
-  .drop-create-form .drop-create-deal-line .suffix-field-divider,
-  .drop-create-form .drop-create-deal-line .os-amount-field-divider {
-    display: none !important;
-  }
-
-  .drop-create-form .drop-create-deal-line .suffix-field-input,
-  .drop-create-form .drop-create-deal-line .os-amount-field-input {
-    width: auto !important;
-    min-width: 1ch !important;
-    max-width: 14ch !important;
-    field-sizing: content;
-    flex: 0 0 auto !important;
-    padding: 0 0 0.15rem !important;
-    height: calc(1.2em + 0.15rem) !important;
-    min-height: calc(1.2em + 0.15rem) !important;
-    box-sizing: border-box !important;
-    background-color: transparent !important;
-    background-image: var(--divider-h-detail) !important;
-    background-repeat: no-repeat !important;
-    background-position: center bottom !important;
-    background-size: max(100%, 8rem) 1px !important;
-    font-size: 1.15rem !important;
-    font-weight: 650 !important;
-    letter-spacing: -0.02em !important;
-    line-height: 1.2 !important;
-    font-family: inherit !important;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .drop-create-form .drop-create-deal-line .suffix-field-input::placeholder,
-  .drop-create-form .drop-create-deal-line .os-amount-field-input::placeholder {
-    color: rgb(var(--fg-rgb) / 0.32);
-    font-weight: 650;
-  }
-
-  .drop-create-form .drop-create-deal-line .suffix-field-input:focus,
-  .drop-create-form .drop-create-deal-line .os-amount-field-input:focus {
-    outline: none !important;
-    box-shadow: none !important;
-  }
-
-  .drop-create-form .drop-create-deal-line .suffix-field-unit,
-  .drop-create-form .drop-create-deal-line .os-amount-field-unit,
-  .drop-create-form .drop-create-deal-line .account-card-balance-unit {
-    align-self: baseline !important;
-    font-size: 1.05rem !important;
-    font-weight: 600 !important;
-    line-height: 1.2 !important;
-    color: rgb(var(--fg-rgb) / 0.48) !important;
   }
 
   /* Mode pills sit on the piece — no Artwork/(i) form label.
@@ -38242,11 +38181,12 @@ a.os-surface-row {
   }
 
   .drop-create-field-rule {
-    opacity: 0;
+    opacity: var(--os-field-plain-rule-rest, 0.45);
+    transition: opacity 160ms ease;
   }
 
   .drop-create-title:focus-within > .drop-create-field-rule {
-    opacity: 1;
+    opacity: var(--os-field-plain-rule-focus, 1);
   }
 
   .drop-create-form .drop-create-title-input::selection {
@@ -44403,73 +44343,6 @@ a.os-surface-row {
   .profile-support-error {
     color: var(--signal-error, var(--protocol-red));
   }
-}
-
-/*
- * New drop deal line — unlayered so it beats imported os-field / os-amount-field
- * (layered rules lose to those unlayered imports).
- */
-.drop-create-form .drop-create-deal-line .suffix-field,
-.drop-create-form .drop-create-deal-line .os-amount-field {
-  flex: 0 0 auto;
-  width: auto;
-  min-width: 0;
-  align-items: baseline;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.drop-create-form .drop-create-deal-line .suffix-field-divider,
-.drop-create-form .drop-create-deal-line .os-amount-field-divider {
-  display: none;
-}
-
-.drop-create-form .drop-create-deal-line .suffix-field-input,
-.drop-create-form .drop-create-deal-line .os-amount-field-input {
-  width: auto;
-  min-width: 1ch;
-  max-width: 14ch;
-  field-sizing: content;
-  flex: 0 0 auto;
-  padding: 0 0 0.15rem;
-  height: calc(1.2em + 0.15rem);
-  min-height: calc(1.2em + 0.15rem);
-  box-sizing: border-box;
-  background-color: transparent;
-  background-image: var(--divider-h-detail);
-  background-repeat: no-repeat;
-  background-position: center bottom;
-  background-size: max(100%, 8rem) 1px;
-  font-size: 1.15rem;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-  font-family: inherit;
-}
-
-.drop-create-form .drop-create-deal-line .suffix-field-input::placeholder,
-.drop-create-form .drop-create-deal-line .os-amount-field-input::placeholder {
-  color: rgb(var(--fg-rgb) / 0.32);
-  font-weight: 650;
-}
-
-.drop-create-form .drop-create-deal-line .suffix-field-input:focus,
-.drop-create-form .drop-create-deal-line .os-amount-field-input:focus {
-  outline: none;
-  box-shadow: none;
-}
-
-.drop-create-form .drop-create-deal-line .suffix-field-unit,
-.drop-create-form .drop-create-deal-line .os-amount-field-unit,
-.drop-create-form .drop-create-deal-line .account-card-balance-unit {
-  align-self: baseline;
-  font-size: 1.05rem;
-  font-weight: 600;
-  line-height: 1.2;
-  color: rgb(var(--fg-rgb) / 0.48);
 }
 
 /* NEAR / USD sit in the unit slot. Unlayered so the quiet word stays a choice. */

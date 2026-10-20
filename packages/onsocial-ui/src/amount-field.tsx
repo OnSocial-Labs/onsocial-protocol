@@ -3,10 +3,14 @@
 import type { FocusEventHandler, ReactNode } from 'react';
 import { Divider } from './divider.js';
 import { finalizeAmountInput, normalizeAmountInput } from './amount-input.js';
-import { osFieldBorderedClassName, osFieldSoftClassName } from './os-field.js';
+import {
+  OsFieldPlainValue,
+  osAffixChromeClassName,
+  type OsAffixChrome,
+} from './os-field.js';
 import { cn } from './cn.js';
 
-export type AmountFieldChrome = 'bordered' | 'soft';
+export type AmountFieldChrome = OsAffixChrome;
 
 export const osAmountFieldClassName = 'os-amount-field';
 export const osAmountFieldInputClassName = 'os-amount-field-input';
@@ -14,7 +18,8 @@ export const osAmountFieldDividerClassName = 'os-amount-field-divider';
 export const osAmountFieldUnitClassName = 'os-amount-field-unit';
 
 /**
- * Shared money input shell — bordered (default) or soft chrome.
+ * Shared money input shell — bordered (default), soft, or plain.
+ * Plain is the spoken line: page face, no box, detail rule under the digits.
  * Pair with host meta rows for presets / Max / balance.
  * Use `display` for read-only legs (swap receive).
  *
@@ -60,8 +65,7 @@ export function AmountField({
   /** Read-only content instead of an input (swap receive / estimating). */
   display?: ReactNode;
 }) {
-  const chromeClass =
-    chrome === 'soft' ? osFieldSoftClassName : osFieldBorderedClassName;
+  const plain = chrome === 'plain';
 
   const affix =
     trailing != null ? (
@@ -93,49 +97,57 @@ export function AmountField({
     onValueChange(finalizeAmountInput(value, maxDecimals));
   };
 
+  const input = (
+    <input
+      id={id}
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      value={value}
+      onChange={(event) => emit(event.target.value)}
+      onBlur={emitBlur}
+      onFocus={onFocus}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      aria-invalid={invalid || undefined}
+      className={cn(
+        osAmountFieldInputClassName,
+        'app-storage-amount-input',
+        inputClassName
+      )}
+      disabled={disabled}
+    />
+  );
+
   return (
     <div
       className={cn(
         osAmountFieldClassName,
         'app-storage-amount-field',
-        chromeClass,
+        osAffixChromeClassName(chrome),
         className
       )}
       aria-label={display != null ? ariaLabel : undefined}
     >
       {display != null ? (
         display
+      ) : plain ? (
+        <OsFieldPlainValue>{input}</OsFieldPlainValue>
       ) : (
-        <input
-          id={id}
-          type="text"
-          inputMode="decimal"
-          autoComplete="off"
-          value={value}
-          onChange={(event) => emit(event.target.value)}
-          onBlur={emitBlur}
-          onFocus={onFocus}
-          placeholder={placeholder}
-          aria-label={ariaLabel}
-          aria-invalid={invalid || undefined}
-          className={cn(
-            osAmountFieldInputClassName,
-            'app-storage-amount-input',
-            inputClassName
-          )}
-          disabled={disabled}
-        />
+        input
       )}
       {affix != null ? (
         <>
-          <Divider
-            orientation="vertical"
-            variant="detail"
-            className={cn(
-              osAmountFieldDividerClassName,
-              'app-storage-amount-divider'
-            )}
-          />
+          {plain ? null : (
+            <Divider
+              orientation="vertical"
+              variant="detail"
+              className={cn(
+                osAmountFieldDividerClassName,
+                'app-storage-amount-divider'
+              )}
+            />
+          )}
           {affix}
         </>
       ) : null}

@@ -1,8 +1,9 @@
 /**
  * @onsocial/ui — amount / suffix affix field shells.
  *
- * Chrome via .os-field-bordered | .os-field-soft on the shell.
- * Shell keeps os-field pad; children pad 0 + detail divider rail.
+ * Chrome via .os-field-bordered | .os-field-soft | .os-field-plain on the shell.
+ * Bordered and soft keep os-field pad; children pad 0 + detail divider rail.
+ * Plain drops the box and the rail. The detail rule sits under the digits.
  *
  * Canonical: .os-amount-field / .os-suffix-field
  * Legacy aliases: .app-storage-amount-field / .suffix-field
@@ -155,4 +156,95 @@
   color: rgb(var(--fg-rgb) / 0.52);
   text-align: right;
   white-space: nowrap;
+}
+
+/*
+ * Plain — spoken supply / price. No box, page face, rule under the digits.
+ * Size comes from the parent (create-drop sets 1.15rem on the deal line).
+ */
+.os-amount-field.os-field-plain,
+.app-storage-amount-field.os-field-plain,
+.os-suffix-field.os-field-plain,
+.suffix-field.os-field-plain {
+  align-items: baseline;
+  gap: 0.35rem;
+  width: auto;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.os-field-plain-value {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 1ch;
+  max-width: 14ch;
+  vertical-align: baseline;
+}
+
+.os-field-plain .os-amount-field-input,
+.os-field-plain .app-storage-amount-input,
+.os-field-plain .os-suffix-field-input,
+.os-field-plain .suffix-field-input {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 1ch;
+  max-width: 14ch;
+  field-sizing: content;
+  padding: 0 0 0.15rem;
+  height: auto;
+  min-height: 0;
+  box-sizing: border-box;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.os-field-plain .os-amount-field-input::placeholder,
+.os-field-plain .app-storage-amount-input::placeholder,
+.os-field-plain .os-suffix-field-input::placeholder,
+.os-field-plain .suffix-field-input::placeholder {
+  color: rgb(var(--fg-rgb) / 0.32);
+  font-weight: 650;
+}
+
+/* Solid center of the detail rule. A fade squeezed under one glyph disappears. */
+.divider-detail.os-field-plain-rule {
+  background-image: none;
+  background-color: var(--os-field-plain-rule-ink, rgb(var(--fg-rgb) / 0.55));
+  opacity: var(--os-field-plain-rule-rest, 0.4);
+  transition: opacity 160ms ease;
+}
+
+.os-field-plain-value:focus-within > .os-field-plain-rule {
+  opacity: var(--os-field-plain-rule-focus, 1);
+}
+
+.os-field-plain > .os-suffix-field-unit,
+.os-field-plain > .suffix-field-unit,
+.os-field-plain > .os-amount-field-unit,
+.os-field-plain > .account-card-balance-unit,
+.os-field-plain > .profile-support-token-unit {
+  align-self: baseline;
+  padding: 0;
+  font-size: 0.91em;
+  font-weight: 600;
+  line-height: 1.2;
+  color: rgb(var(--fg-rgb) / 0.48);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-field-plain-rule {
+    transition: none;
+  }
 }

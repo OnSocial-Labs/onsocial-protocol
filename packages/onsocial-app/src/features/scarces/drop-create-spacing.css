@@ -1,3 +1,20 @@
+/* Title uses the same ink as the deal rule. Full width, so the ends fade.
+ * Unlayered so this beats the divider utility. */
+.drop-create-field-rule.divider-detail {
+  background-image: linear-gradient(
+    to right,
+    transparent,
+    var(--os-field-plain-rule-ink, rgb(var(--fg-rgb) / 0.55)),
+    transparent
+  );
+  opacity: var(--os-field-plain-rule-rest, 0.4);
+  transition: opacity 160ms ease;
+}
+
+.drop-create-title:focus-within > .drop-create-field-rule {
+  opacity: var(--os-field-plain-rule-focus, 1);
+}
+
 /* Unlayered so it beats the leftover contents rule in layered globals.
  * Sections stay one group — children must not inherit the form 1.15rem gap. */
 .drop-create-section,
@@ -93,7 +110,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .drop-create-disclosure-chevron {
+  .drop-create-disclosure-chevron,
+  .drop-create-field-rule {
     transition: none;
   }
 }

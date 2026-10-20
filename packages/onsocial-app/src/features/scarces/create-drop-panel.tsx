@@ -3507,7 +3507,7 @@ export function CreateDropPanel() {
                   placeholder="0"
                   aria-label="Total supply"
                   suffix={template.unit}
-                  chrome="soft"
+                  chrome="plain"
                   disabled={pending}
                 />
                 <span className="drop-create-deal-sep" aria-hidden>
@@ -3540,7 +3540,7 @@ export function CreateDropPanel() {
                   ? `Price per ${template.unitSingular} in dollars`
                   : `Price per ${template.unitSingular} in NEAR`
               }
-              chrome="soft"
+              chrome="plain"
               disabled={pending}
               trailing={
                 <span

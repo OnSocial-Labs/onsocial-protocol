@@ -7,6 +7,7 @@
  *   os-field-bordered  — transparent fill, cool border + inset lip
  *                        (typing fields on mood surfaces — tint shows through)
  *   os-field-soft      — quiet wash, no border (dense / quiet OS sheets, no mood)
+ *   os-field-plain     — spoken line: no box, detail rule under the digits
  *   os-field           — optional label stack (label + control + hint)
  *   OsFieldRemove      — compact × beside field rows (poll / recipients / lists)
  */
@@ -31,6 +32,12 @@
     --os-field-soft-bg-focus: rgb(var(--fg-rgb) / 0.055);
     --os-field-soft-lip: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
     --os-field-soft-lip-focus: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+
+    /* Foreground ink, so the rule reads on black and on white.
+       Quiet at rest, solid while focused. */
+    --os-field-plain-rule-ink: rgb(var(--fg-rgb) / 0.55);
+    --os-field-plain-rule-rest: 0.4;
+    --os-field-plain-rule-focus: 1;
   }
 
   /* 16px — iOS zooms the page when a focused field is under 16px. */
