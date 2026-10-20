@@ -26203,16 +26203,24 @@ a.os-surface-row {
     transition: transform 320ms ease;
   }
 
+  /* Digits sit high in the em square. Padding drops the ink into the
+     window; overflow keeps the next digit from painting across the edge. */
   .os-rolling-digit-cell {
     display: block;
+    box-sizing: border-box;
     height: 1em;
+    padding-top: 0.08em;
+    overflow: hidden;
     line-height: 1;
     text-align: center;
   }
 
   .os-rolling-sep {
     display: inline-block;
+    box-sizing: border-box;
     height: 1em;
+    padding-top: 0.08em;
+    overflow: hidden;
     line-height: 1;
   }
 
