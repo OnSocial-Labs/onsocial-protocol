@@ -89,7 +89,8 @@ function coreContractIdForNetwork(): string | undefined {
   return resolveContractId(ACTIVE_NEAR_NETWORK, 'core');
 }
 
-function buildAddKeyConnectOptions(
+/** Wallet connect options that add the pending session key in the same sheet. */
+export function portalSessionConnectOptions(
   pendingSessionKey: GeneratedSessionKey
 ): NearConnector_ConnectOptions | null {
   const coreContractId = coreContractIdForNetwork();
@@ -229,8 +230,17 @@ async function persistPortalSessionAfterSignIn(
   });
 }
 
+export interface PortalSessionLoginHooks {
+  /** Balance is ready. The next wallet sheet is the session key. */
+  onWalletPrompt?: () => void;
+  /** Wallet returned. Stay pending while the key is confirmed on chain. */
+  onConfirming?: () => void;
+}
+
 /**
- * After sign-in: welcome NEAR when balance is low, then AddKey-only wallet connect.
+ * After sign-in: welcome NEAR when balance is low, then one AddKey connect.
+ * The sponsor drip is not a user signature. `onWalletPrompt` runs before that
+ * signature. `onConfirming` runs after the wallet returns.
  */
 export async function finishPortalSessionLogin(
   accountId: string,
@@ -238,7 +248,8 @@ export async function finishPortalSessionLogin(
   signInWelcome: Promise<void> | null | undefined,
   connectWithOptions: (
     options: NearConnector_ConnectOptions
-  ) => Promise<NearWalletBase>
+  ) => Promise<NearWalletBase>,
+  hooks?: PortalSessionLoginHooks
 ): Promise<void> {
   if (await restorePortalSocialSession(accountId)) {
     return;
@@ -247,12 +258,14 @@ export async function finishPortalSessionLogin(
   await signInWelcome?.catch(() => undefined);
   await requestWelcomeNearIfNeeded(accountId);
 
-  const addKeyOptions = buildAddKeyConnectOptions(pendingSessionKey);
+  const addKeyOptions = portalSessionConnectOptions(pendingSessionKey);
   if (!addKeyOptions) {
     return;
   }
 
+  hooks?.onWalletPrompt?.();
   await connectWithOptions(addKeyOptions);
+  hooks?.onConfirming?.();
   await completePortalSessionAfterConnect(accountId, pendingSessionKey);
 }
 

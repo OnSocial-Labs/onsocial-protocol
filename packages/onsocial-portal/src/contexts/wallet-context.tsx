@@ -17,18 +17,26 @@ import {
 } from '@/components/ui/transaction-feedback-toast';
 import { isIgnorableWalletError } from '@/lib/wallet-errors';
 import {
+  runPortalConnect,
+  type PortalSessionFeedback,
+} from '@/lib/portal-connect-flow';
+import {
   clearPortalSocialSession,
+  completePortalSessionAfterConnect,
   finishPortalSessionLogin,
+  portalSessionConnectOptions,
   restorePortalSocialSession,
   resolvePortalSessionPlan,
-  type PortalSessionPlan,
 } from '@/lib/portal-social-session';
 import {
   txToastConnectError,
   txToastConnectPending,
   txToastConnectSuccess,
 } from '@/lib/transaction-toast-copy';
-import { requestWelcomeNearIfNeeded } from '@/lib/welcome-near';
+import {
+  accountNeedsWelcomeNearFunding,
+  requestWelcomeNearIfNeeded,
+} from '@/lib/welcome-near';
 
 const PORTAL_WALLET_ACCOUNT_KEY = 'onsocial.portal.wallet.accountId';
 
@@ -56,6 +64,32 @@ interface WalletContextType {
 
 function isIgnorableConnectError(error: unknown): boolean {
   return isIgnorableWalletError(error);
+}
+
+function toTransactionFeedback(
+  feedback: PortalSessionFeedback | null
+): TransactionFeedback | null {
+  if (!feedback) return null;
+  if (feedback.type === 'pending') {
+    return {
+      type: 'pending',
+      pendingPhase: feedback.pendingPhase,
+      msg:
+        feedback.pendingMessage === 'approveInWallet'
+          ? txToastConnectPending.approveInWallet
+          : txToastConnectPending.settingUpSession,
+    };
+  }
+  if (feedback.type === 'success') {
+    return {
+      type: 'success',
+      msg: txToastConnectSuccess.sessionReady,
+    };
+  }
+  return {
+    type: 'error',
+    msg: txToastConnectError.sessionSetupFailed,
+  };
 }
 
 function readStoredWalletAccountId(): string | null {
@@ -156,68 +190,6 @@ export function WalletProvider({
     setConnectFeedback(null);
   }, []);
 
-  const bootstrapPortalSession = useCallback(
-    async (
-      connector: NearConnector,
-      nextAccountId: string,
-      sessionPlan: PortalSessionPlan,
-      signInWelcome?: Promise<void> | null
-    ) => {
-      if (sessionPlan.sessionReady || !sessionPlan.pendingSessionKey) {
-        return;
-      }
-
-      setIsBootstrappingSocialSession(true);
-      setConnectFeedback({
-        type: 'pending',
-        pendingPhase: 'chain',
-        msg: txToastConnectPending.settingUpSession,
-      });
-
-      try {
-        await finishPortalSessionLogin(
-          nextAccountId,
-          sessionPlan.pendingSessionKey,
-          signInWelcome,
-          (connectOptions) => {
-            setConnectFeedback({
-              type: 'pending',
-              pendingPhase: 'wallet',
-              msg: txToastConnectPending.approveInWallet,
-            });
-            return connector.connect(connectOptions);
-          }
-        );
-
-        const session = await restorePortalSocialSession(nextAccountId);
-        if (session) {
-          setConnectFeedback({
-            type: 'success',
-            msg: txToastConnectSuccess.sessionReady,
-          });
-        } else {
-          clearConnectFeedback();
-        }
-      } catch (error) {
-        if (isIgnorableConnectError(error)) {
-          clearConnectFeedback();
-        } else {
-          console.warn(
-            'OnSocial session setup failed after wallet connect',
-            error
-          );
-          setConnectFeedback({
-            type: 'error',
-            msg: txToastConnectError.sessionSetupFailed,
-          });
-        }
-      } finally {
-        setIsBootstrappingSocialSession(false);
-      }
-    },
-    [clearConnectFeedback]
-  );
-
   const tryReuseConnectedWallet = useCallback(
     async (
       connector: NearConnector,
@@ -248,69 +220,56 @@ export function WalletProvider({
         throw new Error('Wallet is still loading. Try again in a moment.');
       }
 
-      if (!options?.forcePicker) {
-        const existing = await tryReuseConnectedWallet(c, storedHint);
-        if (existing) {
-          const sessionPlan = await resolvePortalSessionPlan(
-            existing.accountId
-          );
-          applyWalletConnection(existing.wallet, existing.accountId);
-          if (!sessionPlan.sessionReady) {
-            await bootstrapPortalSession(c, existing.accountId, sessionPlan);
-          }
-          return { wallet: existing.wallet, accountId: existing.accountId };
-        }
-      }
-
-      let signedInAccounts: Array<{ accountId: string }> = [];
-      let signInWelcomePromise: Promise<void> | null = null;
-      const captureSignIn = (event: {
-        accounts: Array<{ accountId: string }>;
-      }) => {
-        signedInAccounts = event.accounts;
-        const signedInAccountId = event.accounts[0]?.accountId;
-        if (signedInAccountId) {
-          signInWelcomePromise = requestWelcomeNearIfNeeded(signedInAccountId);
-        }
-      };
-      c.once('wallet:signIn', captureSignIn);
-
-      try {
-        const connectedWallet = await c.connect({});
-        const accounts =
-          signedInAccounts.length > 0
-            ? signedInAccounts
-            : await connectedWallet.getAccounts({ network });
-        const nextAccountId = pickRestoredAccountId(accounts, storedHint, {
-          freshSignIn: signedInAccounts.length > 0,
-        });
-
-        if (!nextAccountId) {
-          throw new Error('Select a wallet account, then try again.');
-        }
-
-        const sessionPlan = await resolvePortalSessionPlan(nextAccountId);
-        applyWalletConnection(connectedWallet, nextAccountId);
-        if (!sessionPlan.sessionReady) {
-          await bootstrapPortalSession(
-            c,
+      return runPortalConnect({
+        storedHint,
+        forcePicker: options?.forcePicker,
+        tryReuseConnectedWallet: () => tryReuseConnectedWallet(c, storedHint),
+        resolveSessionPlan: resolvePortalSessionPlan,
+        accountNeedsWelcomeNearFunding,
+        sessionConnectOptions: portalSessionConnectOptions,
+        connect: (connectOptions) => c.connect(connectOptions ?? {}),
+        subscribeSignIn: (listener) => {
+          const handler = (event: {
+            accounts: Array<{ accountId: string }>;
+          }) => {
+            listener(event.accounts);
+          };
+          c.once('wallet:signIn', handler);
+          return () => {
+            c.off('wallet:signIn', handler);
+          };
+        },
+        getAccounts: (connectedWallet) =>
+          connectedWallet.getAccounts({ network }),
+        pickAccountId: (accounts, hint, freshSignIn) =>
+          pickRestoredAccountId(accounts, hint, { freshSignIn }),
+        requestWelcomeNearIfNeeded,
+        finishSessionLogin: (
+          nextAccountId,
+          pendingSessionKey,
+          signInWelcome,
+          hooks
+        ) =>
+          finishPortalSessionLogin(
             nextAccountId,
-            sessionPlan,
-            signInWelcomePromise
-          );
-        }
-
-        return { wallet: connectedWallet, accountId: nextAccountId };
-      } finally {
-        c.off('wallet:signIn', captureSignIn);
-      }
+            pendingSessionKey,
+            signInWelcome,
+            (connectOptions) => c.connect(connectOptions),
+            hooks
+          ),
+        completeSession: completePortalSessionAfterConnect,
+        hasSession: async (nextAccountId) =>
+          Boolean(await restorePortalSocialSession(nextAccountId)),
+        onConnected: (connectedWallet, nextAccountId) => {
+          applyWalletConnection(connectedWallet, nextAccountId);
+        },
+        onFeedback: (feedback) => {
+          setConnectFeedback(toTransactionFeedback(feedback));
+        },
+        onBootstrapping: setIsBootstrappingSocialSession,
+      });
     },
-    [
-      applyWalletConnection,
-      bootstrapPortalSession,
-      network,
-      tryReuseConnectedWallet,
-    ]
+    [applyWalletConnection, network, tryReuseConnectedWallet]
   );
 
   useEffect(() => {
