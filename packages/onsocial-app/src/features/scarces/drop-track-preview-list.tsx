@@ -62,8 +62,10 @@ export function DropTrackPreviewList({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const nowPlaying = useCollectiblesNowPlayingOptional();
   const dockRef = useRef(nowPlaying);
-  dockRef.current = nowPlaying;
   const holdingDockRef = useRef(false);
+  useEffect(() => {
+    dockRef.current = nowPlaying;
+  });
   const urlsRef = useRef<Map<string, string>>(new Map());
   const dragFromRef = useRef<number | null>(null);
   const [playingKey, setPlayingKey] = useState<string | null>(null);
