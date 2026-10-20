@@ -30,12 +30,28 @@ export function shouldAdoptPlaybackSession(opts: {
   return currentId == null || currentId === nextId;
 }
 
-/** Play on a different release takes the dock. The same release stays put. */
+/** Play on a different audio release takes the dock. Video stays on its own element. */
 export function shouldTakeOverPlayback(opts: {
   sessionId: string | null;
   surfaceId: string | null;
+  isAudio?: boolean;
 }): boolean {
+  if (opts.isAudio === false) return false;
   const surfaceId = opts.surfaceId?.trim() || null;
   const sessionId = opts.sessionId?.trim() || null;
   return Boolean(surfaceId && sessionId && sessionId !== surfaceId);
+}
+
+/** Bind a face to the shared audio element. Video never binds. */
+export function shouldBindPlaybackSession(opts: {
+  hasNowPlaying: boolean;
+  persistId: string | null;
+  sessionId: string | null;
+  isAudio: boolean;
+}): boolean {
+  if (!opts.hasNowPlaying || !opts.isAudio) return false;
+  const persistId = opts.persistId?.trim() || null;
+  if (!persistId) return false;
+  const sessionId = opts.sessionId?.trim() || null;
+  return sessionId == null || sessionId === persistId;
 }

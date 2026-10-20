@@ -26,6 +26,7 @@ import {
   shouldApplyPlaybackSrc,
 } from '@/lib/playback-load';
 import { isRenderablePostAudioMime } from '@/lib/post-media';
+import { nextDockHoldForForeignMedia } from '@/features/scarces/drop-preview-dock';
 import { shouldAdoptPlaybackSession } from '@/features/scarces/scarce-playback-session';
 
 export interface CollectiblesNowPlayingSession {
@@ -134,6 +135,104 @@ export function CollectiblesNowPlayingProvider({
     audio.muted = false;
     audio.volume = 1;
   }, []);
+
+  // Audible video (a scarce, a post, a message) borrows the dock.
+  // Create-drop preview sets data-os-dock-borrow and handles itself.
+  useEffect(() => {
+    const active = new Set<HTMLMediaElement>();
+    let holding = false;
+    let resumeTimer = 0;
+
+    const foreign = (target: EventTarget | null): HTMLMediaElement | null => {
+      if (!(target instanceof HTMLMediaElement)) return null;
+      if (target === audioRef.current) return null;
+      if (target.dataset.osDockBorrow) return null;
+      return target;
+    };
+
+    const audible = (media: HTMLMediaElement) =>
+      !media.muted && media.volume > 0 && !media.paused && !media.ended;
+
+    const apply = () => {
+      const audio = audioRef.current;
+      const next = nextDockHoldForForeignMedia({
+        dockPaused: audio ? audio.paused : true,
+        holdingDock: holding,
+        activeForeign: active.size,
+      });
+      holding = next.holdingDock;
+      if (next.pauseDock) audio?.pause();
+      if (next.resumeDock && audio) {
+        armAudible(audio);
+        void audio
+          .play()
+          .then(() => {
+            if (active.size > 0 && !audio.paused) {
+              holding = true;
+              audio.pause();
+            }
+          })
+          .catch(() => setPlaying(false));
+      }
+    };
+
+    const cancelResume = () => {
+      if (!resumeTimer) return;
+      window.clearTimeout(resumeTimer);
+      resumeTimer = 0;
+    };
+
+    const release = (media: HTMLMediaElement) => {
+      if (!active.delete(media)) return;
+      cancelResume();
+      if (active.size > 0) {
+        apply();
+        return;
+      }
+      resumeTimer = window.setTimeout(() => {
+        resumeTimer = 0;
+        apply();
+      }, 50);
+    };
+
+    const onPlay = (event: Event) => {
+      const media = foreign(event.target);
+      if (!media || !audible(media)) return;
+      cancelResume();
+      active.add(media);
+      apply();
+    };
+
+    const onStop = (event: Event) => {
+      const media = foreign(event.target);
+      if (!media) return;
+      release(media);
+    };
+
+    const onVolume = (event: Event) => {
+      const media = foreign(event.target);
+      if (!media) return;
+      if (audible(media)) {
+        cancelResume();
+        active.add(media);
+        apply();
+        return;
+      }
+      release(media);
+    };
+
+    document.addEventListener('play', onPlay, true);
+    document.addEventListener('pause', onStop, true);
+    document.addEventListener('ended', onStop, true);
+    document.addEventListener('volumechange', onVolume, true);
+    return () => {
+      cancelResume();
+      document.removeEventListener('play', onPlay, true);
+      document.removeEventListener('pause', onStop, true);
+      document.removeEventListener('ended', onStop, true);
+      document.removeEventListener('volumechange', onVolume, true);
+    };
+  }, [armAudible]);
 
   useEffect(() => {
     const audio = getAudio();

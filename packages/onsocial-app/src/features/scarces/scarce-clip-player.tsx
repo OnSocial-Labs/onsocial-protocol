@@ -19,7 +19,10 @@ import {
 import { MediaDownloadControl } from '@/components/ui/media-download-control';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
-import { shouldTakeOverPlayback } from '@/features/scarces/scarce-playback-session';
+import {
+  shouldBindPlaybackSession,
+  shouldTakeOverPlayback,
+} from '@/features/scarces/scarce-playback-session';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import { ScarceClipListenSheet } from '@/features/scarces/scarce-clip-listen-sheet';
@@ -190,14 +193,15 @@ export function ScarceClipPlayer({
   const isAudio = isRenderablePostAudioMime(active.mime);
   const sessionId = nowPlaying?.session?.collectionId ?? null;
   const persistId = persist?.collectionId?.trim() || null;
-  // Bind when this release is the dock, or the dock is empty. A different
-  // release stays on its own paused face until Play takes the dock.
-  const persistMode = Boolean(
-    nowPlaying &&
-      persistId &&
-      (sessionId == null || sessionId === persistId) &&
-      (isAudio || hostSession != null)
-  );
+  // Bind when this audio release is the dock, or the dock is empty. A different
+  // release stays on its own paused face until Play takes the dock. Video
+  // never binds — it borrows the speakers while it is audible.
+  const persistMode = shouldBindPlaybackSession({
+    hasNowPlaying: Boolean(nowPlaying),
+    persistId,
+    sessionId,
+    isAudio,
+  });
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const durationByUrlRef = useRef<Map<string, number>>(new Map());
   const scrubbingRef = useRef(false);
@@ -616,6 +620,8 @@ export function ScarceClipPlayer({
   useEffect(() => {
     return () => {
       clearKnobPeekTimer();
+      const media = mediaRef.current;
+      if (media instanceof HTMLVideoElement) media.pause();
     };
   }, []);
 
@@ -645,6 +651,7 @@ export function ScarceClipPlayer({
       !shouldTakeOverPlayback({
         sessionId: nowPlaying.session?.collectionId ?? null,
         surfaceId: persist.collectionId,
+        isAudio,
       })
     ) {
       return false;

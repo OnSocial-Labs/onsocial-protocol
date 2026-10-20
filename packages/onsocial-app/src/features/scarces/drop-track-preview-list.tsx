@@ -388,6 +388,7 @@ export function DropTrackPreviewList({
       <audio
         ref={audioRef}
         className="drop-track-preview-audio"
+        data-os-dock-borrow="preview"
         preload="auto"
         playsInline
         onEnded={() => {

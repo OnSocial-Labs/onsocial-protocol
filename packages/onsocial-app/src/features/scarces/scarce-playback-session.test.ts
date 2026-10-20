@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { nextDockHoldForPreview } from '@/features/scarces/drop-preview-dock';
+import {
+  nextDockHoldForForeignMedia,
+  nextDockHoldForPreview,
+} from '@/features/scarces/drop-preview-dock';
 import {
   scarcePlaybackSessionId,
   shouldAdoptPlaybackSession,
+  shouldBindPlaybackSession,
   shouldTakeOverPlayback,
 } from '@/features/scarces/scarce-playback-session';
 
@@ -61,6 +65,53 @@ describe('shouldTakeOverPlayback', () => {
     expect(
       shouldTakeOverPlayback({ sessionId: null, surfaceId: 'drop-2' })
     ).toBe(false);
+    expect(
+      shouldTakeOverPlayback({
+        sessionId: 'drop-1',
+        surfaceId: 'drop-2',
+        isAudio: false,
+      })
+    ).toBe(false);
+  });
+});
+
+describe('shouldBindPlaybackSession', () => {
+  it('binds audio when the dock is empty or already this release', () => {
+    expect(
+      shouldBindPlaybackSession({
+        hasNowPlaying: true,
+        persistId: 'drop-1',
+        sessionId: null,
+        isAudio: true,
+      })
+    ).toBe(true);
+    expect(
+      shouldBindPlaybackSession({
+        hasNowPlaying: true,
+        persistId: 'drop-1',
+        sessionId: 'drop-1',
+        isAudio: true,
+      })
+    ).toBe(true);
+  });
+
+  it('leaves a video on its own element', () => {
+    expect(
+      shouldBindPlaybackSession({
+        hasNowPlaying: true,
+        persistId: 'drop-9',
+        sessionId: 'drop-9',
+        isAudio: false,
+      })
+    ).toBe(false);
+    expect(
+      shouldBindPlaybackSession({
+        hasNowPlaying: true,
+        persistId: 'drop-9',
+        sessionId: null,
+        isAudio: false,
+      })
+    ).toBe(false);
   });
 });
 
@@ -91,6 +142,58 @@ describe('nextDockHoldForPreview', () => {
         dockPlaying: true,
         holdingDock: true,
         previewPlaying: false,
+      })
+    ).toEqual({ holdingDock: false, pauseDock: false, resumeDock: false });
+  });
+});
+
+describe('nextDockHoldForForeignMedia', () => {
+  it('pauses the dock when the first audible video starts', () => {
+    expect(
+      nextDockHoldForForeignMedia({
+        dockPaused: false,
+        holdingDock: false,
+        activeForeign: 1,
+      })
+    ).toEqual({ holdingDock: true, pauseDock: true, resumeDock: false });
+  });
+
+  it('does not pause again for a second audible video', () => {
+    expect(
+      nextDockHoldForForeignMedia({
+        dockPaused: true,
+        holdingDock: true,
+        activeForeign: 2,
+      })
+    ).toEqual({ holdingDock: true, pauseDock: false, resumeDock: false });
+  });
+
+  it('leaves a dock that was already paused', () => {
+    expect(
+      nextDockHoldForForeignMedia({
+        dockPaused: true,
+        holdingDock: false,
+        activeForeign: 1,
+      })
+    ).toEqual({ holdingDock: false, pauseDock: false, resumeDock: false });
+  });
+
+  it('resumes when the last video stops and the dock is still paused', () => {
+    expect(
+      nextDockHoldForForeignMedia({
+        dockPaused: true,
+        holdingDock: true,
+        activeForeign: 0,
+      })
+    ).toEqual({ holdingDock: false, pauseDock: false, resumeDock: true });
+  });
+
+  it('leaves a dock the listener started again during the video', () => {
+    expect(
+      nextDockHoldForForeignMedia({
+        dockPaused: false,
+        holdingDock: true,
+        activeForeign: 0,
       })
     ).toEqual({ holdingDock: false, pauseDock: false, resumeDock: false });
   });
