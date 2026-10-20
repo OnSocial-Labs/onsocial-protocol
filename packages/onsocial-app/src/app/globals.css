@@ -15982,6 +15982,28 @@ a.os-surface-row {
     z-index: 49;
   }
 
+  /* Post sheet is overlayHost (50). Launcher band is 51: above the post,
+     under account, share, and the full composer. A parked post stays put.
+     A keep-dock media face keeps its own lift at 90. */
+  body:not(:has([data-os-slide-over='true'][data-keep-dock='true'])):has(
+      .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked):has(
+          .post-thread-sheet-panel
+        )
+    )
+    .portfolio-summon-dock {
+    z-index: 51;
+  }
+
+  body:not(:has([data-os-slide-over='true'][data-keep-dock='true'])):has(
+      .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked):has(
+          .post-thread-sheet-panel
+        )
+    )
+    .portfolio-summon-dock
+    .portfolio-summon {
+    pointer-events: auto;
+  }
+
   /* Room for the portfolio dock under a keep-dock mood page. */
   .glass-sheet-root[data-keep-dock='true'] .glass-sheet-body {
     padding-bottom: var(--portfolio-dock-clearance, 4.75rem);

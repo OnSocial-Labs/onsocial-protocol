@@ -257,6 +257,7 @@ export function ProfileFeedClient({
     sheet,
   } = usePersonalComposer({
     registerPen: false,
+    replyDockEnabled: true,
     destinationLabel,
     onConfirmed,
     onUnreposted,
