@@ -18,10 +18,17 @@ import {
 import type { NearWalletBase } from '@hot-labs/near-connect';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { extractNearTransactionHashes } from '@/lib/app-near-rpc';
+import { FULL_SESSION_KEY_ALLOWANCE_YOCTO } from '@/lib/app-session-sponsor';
 import { viewFunctionCallAccessKey } from '@/lib/near-access-key';
+import {
+  accountNeedsAppSessionSponsor,
+  fundAppSessionIfNeeded,
+  resolveAppSessionKeyAllowanceYocto,
+} from '@/lib/welcome-near';
 
 export const APP_SOCIAL_SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000;
-const FUNCTION_CALL_KEY_ALLOWANCE_YOCTO = '250000000000000000000000';
+const FUNCTION_CALL_KEY_ALLOWANCE_YOCTO =
+  FULL_SESSION_KEY_ALLOWANCE_YOCTO.toString();
 const SESSION_KEY_ON_CHAIN_POLL_MS = 500;
 const SESSION_KEY_ON_CHAIN_TIMEOUT_MS = 15_000;
 const PENDING_SESSION_KEY_PREFIX = 'onsocial.app.session.pending.';
@@ -83,8 +90,10 @@ function coreContractIdForNetwork(): string | undefined {
   return resolveContractId(ACTIVE_NEAR_NETWORK, 'core');
 }
 
-function buildAddKeyConnectOptions(
-  pendingSessionKey: GeneratedSessionKey
+/** Wallet connect options that add the session key in the same sheet. */
+export function appSessionConnectOptions(
+  pendingSessionKey: GeneratedSessionKey,
+  allowanceYocto: string = FUNCTION_CALL_KEY_ALLOWANCE_YOCTO
 ): NearConnector_ConnectOptions | null {
   const coreContractId = coreContractIdForNetwork();
   if (!coreContractId) {
@@ -96,6 +105,7 @@ function buildAddKeyConnectOptions(
       contractId: coreContractId,
       publicKey: pendingSessionKey.publicKey,
       allowMethods: { anyMethod: false, methodNames: ['execute'] },
+      gasAllowance: { kind: 'limited', amount: allowanceYocto },
     },
   };
 }
@@ -118,7 +128,9 @@ function readStoredPendingSessionKey(
   accountId: string
 ): StoredPendingSessionKey | null {
   try {
-    const raw = window.localStorage.getItem(pendingSessionStorageKey(accountId));
+    const raw = window.localStorage.getItem(
+      pendingSessionStorageKey(accountId)
+    );
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<StoredPendingSessionKey>;
     if (
@@ -387,12 +399,13 @@ export async function renewAppSocialSession(input: {
     input.accountId,
     sessionKey.publicKey
   );
+  await fundAppSessionIfNeeded(input.accountId);
   const allowanceYocto = onChain
     ? await resolveOnChainSessionAllowanceYocto(
         input.accountId,
         sessionKey.publicKey
       )
-    : FUNCTION_CALL_KEY_ALLOWANCE_YOCTO;
+    : await resolveAppSessionKeyAllowanceYocto(input.accountId);
 
   const adapter = nearConnectAdapter(input.wallet, input.accountId, {
     network: ACTIVE_NEAR_NETWORK,
@@ -436,11 +449,20 @@ export async function grantAppSocialSession(input: {
     return renewAppSocialSession(input);
   }
 
-  const pendingSessionKey = await loadOrCreatePendingSessionKey(input.accountId);
-  if (await sessionKeyValidOnChain(input.accountId, pendingSessionKey.publicKey)) {
+  const pendingSessionKey = await loadOrCreatePendingSessionKey(
+    input.accountId
+  );
+  if (
+    await sessionKeyValidOnChain(input.accountId, pendingSessionKey.publicKey)
+  ) {
     await persistAppSessionAfterSignIn(input.accountId, pendingSessionKey);
     return { ready: true, txHashes: [] };
   }
+
+  await fundAppSessionIfNeeded(input.accountId);
+  const allowanceYocto = await resolveAppSessionKeyAllowanceYocto(
+    input.accountId
+  );
 
   const adapter = nearConnectAdapter(input.wallet, input.accountId, {
     network: ACTIVE_NEAR_NETWORK,
@@ -448,7 +470,10 @@ export async function grantAppSocialSession(input: {
 
   let grantResult: unknown;
   await bootstrapSession({
-    ...appSessionBootstrapInput(input.accountId),
+    ...appSessionBootstrapInput(
+      input.accountId,
+      appSessionFunctionCallKey(allowanceYocto)
+    ),
     wallet: adapter,
     accountId: input.accountId,
     sessionKey: pendingSessionKey,
@@ -520,11 +545,21 @@ export async function completeAppSessionAfterConnect(
   }
 }
 
+export interface AppSessionBootstrapHooks {
+  /** Balance is short. The sponsor gift is about to be sent. */
+  onFunding?: () => void;
+  /** The next wallet sheet is the session key. */
+  onWalletPrompt?: () => void;
+  /** Wallet returned. Stay pending while the key is confirmed. */
+  onConfirming?: () => void;
+}
+
 export async function bootstrapAppSocialSession(
   accountId: string,
   connectWithOptions: (
     options: NearConnector_ConnectOptions
-  ) => Promise<unknown>
+  ) => Promise<unknown>,
+  hooks?: AppSessionBootstrapHooks
 ): Promise<boolean> {
   if (await restoreAppSocialSession(accountId)) {
     clearStoredPendingSessionKey(accountId);
@@ -544,12 +579,23 @@ export async function bootstrapAppSocialSession(
     return true;
   }
 
-  const addKeyOptions = buildAddKeyConnectOptions(pendingSessionKey);
+  if (await accountNeedsAppSessionSponsor(accountId)) {
+    hooks?.onFunding?.();
+    await fundAppSessionIfNeeded(accountId);
+  }
+
+  const allowanceYocto = await resolveAppSessionKeyAllowanceYocto(accountId);
+  const addKeyOptions = appSessionConnectOptions(
+    pendingSessionKey,
+    allowanceYocto
+  );
   if (!addKeyOptions) {
     return false;
   }
 
+  hooks?.onWalletPrompt?.();
   await connectWithOptions(addKeyOptions);
+  hooks?.onConfirming?.();
   await completeAppSessionAfterConnect(accountId, pendingSessionKey);
   return Boolean(await restoreAppSocialSession(accountId));
 }

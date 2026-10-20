@@ -3,6 +3,54 @@ export const TX_TOAST_EYEBROW = {
   confirming: 'Confirming',
 } as const;
 
+/** Wallet connect / session key. The sponsor gift has no line of its own. */
+export const txToastSession = {
+  settingUpSession: 'Setting up your session…',
+  approveInWallet: 'Approve in your wallet…',
+  ready: "You're set to post on-chain.",
+  failed: 'Session setup did not finish. Try connecting again.',
+} as const;
+
+export type SessionPendingPhase = 'setup' | 'wallet' | 'confirming';
+
+export type SessionPendingFeedback = {
+  type: 'pending';
+  pendingPhase: 'wallet' | 'chain';
+  eyebrow: string;
+  msg: string;
+};
+
+/**
+ * Setup is the gift only. After the wallet returns, the body stays
+ * "Approve in your wallet…" and the eyebrow switches to Confirming.
+ */
+export function sessionPendingFeedback(
+  phase: SessionPendingPhase
+): SessionPendingFeedback {
+  if (phase === 'wallet') {
+    return {
+      type: 'pending',
+      pendingPhase: 'wallet',
+      eyebrow: TX_TOAST_EYEBROW.wallet,
+      msg: txToastSession.approveInWallet,
+    };
+  }
+  if (phase === 'confirming') {
+    return {
+      type: 'pending',
+      pendingPhase: 'chain',
+      eyebrow: TX_TOAST_EYEBROW.confirming,
+      msg: txToastSession.approveInWallet,
+    };
+  }
+  return {
+    type: 'pending',
+    pendingPhase: 'chain',
+    eyebrow: TX_TOAST_EYEBROW.confirming,
+    msg: txToastSession.settingUpSession,
+  };
+}
+
 /** Chain-confirmation lines — shown in toast after wallet submit. */
 export const txToastConfirming = {
   collectingSocial: 'Confirming collection…',
