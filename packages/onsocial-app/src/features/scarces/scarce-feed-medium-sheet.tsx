@@ -27,6 +27,7 @@ import type {
   WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
+import { scarcePlaybackSessionId } from '@/features/scarces/scarce-playback-session';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
@@ -122,6 +123,7 @@ export function ScarceFeedMediumSheet({
   const writingFormat = writingFormatProp ?? hydratedWritingFormat;
   const bookPdf = bookPdfProp ?? hydratedBookPdf;
   const clip = playables[0] ?? null;
+  const playbackSessionId = scarcePlaybackSessionId({ collectionId, tokenId });
   /** Audio with a playable uses the real listen enlarge. */
   const immersiveAudio = mode === 'audio' && clip != null && open;
   /** Writing uses the dedicated read screen. */
@@ -287,7 +289,9 @@ export function ScarceFeedMediumSheet({
         immersiveListen
         listenFooter={postChrome}
         onListenClose={() => onOpenChange(false)}
-        {...(collectionId ? { persist: { collectionId, title: name } } : {})}
+        {...(playbackSessionId
+          ? { persist: { collectionId: playbackSessionId, title: name } }
+          : {})}
       />
     );
   }

@@ -1,7 +1,5 @@
-import {
-  collectionIdFromTokenId,
-  type OwnedScarceItem,
-} from '@/features/market/market-listings';
+import type { OwnedScarceItem } from '@/features/market/market-listings';
+import { scarcePlaybackSessionId } from '@/features/scarces/scarce-playback-session';
 import type { NearAccountStatus } from '@/hooks/use-near-account-status';
 import { accountIdsEqual } from '@/lib/account-match';
 import { normalizeNearAccountId } from '@/lib/app-near-account';
@@ -17,10 +15,7 @@ export interface ScarceTransferClipSession {
   facets?: string[];
 }
 
-/**
- * Drop id the clip player uses to bind the shared audio element.
- * Post scarces (`s:`) have no collection session.
- */
+/** Session id the clip player uses to bind the shared audio element. */
 export function scarceTransferClipSession(
   item: Pick<
     OwnedScarceItem,
@@ -34,8 +29,10 @@ export function scarceTransferClipSession(
     | 'facets'
   >
 ): ScarceTransferClipSession | null {
-  const collectionId =
-    item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
+  const collectionId = scarcePlaybackSessionId({
+    collectionId: item.collectionId,
+    tokenId: item.tokenId,
+  });
   if (!collectionId) return null;
   const session: ScarceTransferClipSession = {
     collectionId,

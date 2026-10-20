@@ -102,13 +102,16 @@ describe('scarceTransferClipSession', () => {
     });
   });
 
-  it('leaves post scarces off the shared player', () => {
+  it('uses a post scarce token as its own session', () => {
     expect(
       scarceTransferClipSession({
         tokenId: 's:319',
         title: 'Post',
       })
-    ).toBeNull();
+    ).toEqual({
+      collectionId: 's:319',
+      title: 'Post',
+    });
   });
 });
 

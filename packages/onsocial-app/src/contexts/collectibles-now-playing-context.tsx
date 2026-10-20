@@ -26,6 +26,7 @@ import {
   shouldApplyPlaybackSrc,
 } from '@/lib/playback-load';
 import { isRenderablePostAudioMime } from '@/lib/post-media';
+import { shouldAdoptPlaybackSession } from '@/features/scarces/scarce-playback-session';
 
 export interface CollectiblesNowPlayingSession {
   collectionId: string;
@@ -44,7 +45,7 @@ interface CollectiblesNowPlayingContextValue {
   playing: boolean;
   engaged: boolean;
   getAudio: () => HTMLAudioElement;
-  /** Register / refresh album session (does not autoplay). */
+  /** Register this release when the dock is free or already on it. Does not autoplay, and does not replace a different release. */
   ensureSession: (session: CollectiblesNowPlayingSession) => void;
   /** Replace the dock with this release and start the opening track. One source load. */
   playSession: (session: CollectiblesNowPlayingSession) => void;
@@ -199,6 +200,14 @@ export function CollectiblesNowPlayingProvider({
     (next: CollectiblesNowPlayingSession) => {
       const audio = getAudio();
       const prev = sessionRef.current;
+      if (
+        !shouldAdoptPlaybackSession({
+          currentId: prev?.collectionId ?? null,
+          nextId: next.collectionId,
+        })
+      ) {
+        return;
+      }
       const sameCollection =
         prev != null && prev.collectionId === next.collectionId;
       const sameTracks =

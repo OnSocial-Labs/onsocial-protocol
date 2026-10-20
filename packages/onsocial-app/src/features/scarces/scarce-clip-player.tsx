@@ -19,6 +19,7 @@ import {
 import { MediaDownloadControl } from '@/components/ui/media-download-control';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
+import { shouldTakeOverPlayback } from '@/features/scarces/scarce-playback-session';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import { ScarceClipListenSheet } from '@/features/scarces/scarce-clip-listen-sheet';
@@ -187,10 +188,15 @@ export function ScarceClipPlayer({
   });
   const active = playlist[Math.min(activeIndex, playlist.length - 1)] ?? clip;
   const isAudio = isRenderablePostAudioMime(active.mime);
-  // Bind to the host whenever this drop is already playing — never mount a
-  // second <audio> beside the page player (even if mime hydrate lags).
+  const sessionId = nowPlaying?.session?.collectionId ?? null;
+  const persistId = persist?.collectionId?.trim() || null;
+  // Bind when this release is the dock, or the dock is empty. A different
+  // release stays on its own paused face until Play takes the dock.
   const persistMode = Boolean(
-    persist?.collectionId && nowPlaying && (isAudio || hostSession != null)
+    nowPlaying &&
+      persistId &&
+      (sessionId == null || sessionId === persistId) &&
+      (isAudio || hostSession != null)
   );
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const durationByUrlRef = useRef<Map<string, number>>(new Map());
@@ -633,11 +639,32 @@ export function ScarceClipPlayer({
     }
   }
 
+  function takeOverPlayback(index: number): boolean {
+    if (!persist || !nowPlaying) return false;
+    if (
+      !shouldTakeOverPlayback({
+        sessionId: nowPlaying.session?.collectionId ?? null,
+        surfaceId: persist.collectionId,
+      })
+    ) {
+      return false;
+    }
+    nowPlaying.playSession({
+      collectionId: persist.collectionId,
+      title: persist.title,
+      poster: poster?.trim() || null,
+      tracks: playlist,
+      startIndex: index,
+    });
+    return true;
+  }
+
   async function togglePlayback() {
     if (restrictToCached) {
       const cid = trackCidFromPlayable(active);
       if (!cid || !cachedCids.has(cid)) return;
     }
+    if (takeOverPlayback(activeIndex)) return;
     const media = mediaRef.current;
     if (!media) return;
     if (playing) {
@@ -672,6 +699,7 @@ export function ScarceClipPlayer({
       return;
     }
     if (!canSelectIndex(index)) return;
+    if (takeOverPlayback(index)) return;
     const next = playlist[index];
     const cached = next ? durationByUrlRef.current.get(next.url) : undefined;
     setActiveIndex(index);
