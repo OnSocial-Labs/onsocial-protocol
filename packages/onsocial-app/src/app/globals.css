@@ -38066,12 +38066,13 @@ a.os-surface-row {
     gap: 1.15rem;
   }
 
-  /* Supply · price as one spoken line. Plain chrome inherits this size. */
+  /* Supply · price as one spoken line. Plain chrome inherits this size.
+     Column gap clears the number rule's equal tail on each side of the dot. */
   .drop-create-deal-line {
     display: flex;
     flex-wrap: nowrap;
     align-items: baseline;
-    gap: 0.15rem 0.35rem;
+    gap: 0.15rem 0.975rem;
     min-width: 0;
     max-width: 100%;
     font-size: 1.15rem;
