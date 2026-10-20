@@ -17,15 +17,18 @@ export function AppTransactionFeedbackProvider({
 }: {
   children: ReactNode;
 }) {
-  const { accountId } = useAppWallet();
+  const { accountId, sessionFeedback, clearSessionFeedback } = useAppWallet();
   const feedback = useNearTransactionFeedback(accountId);
+  const result = sessionFeedback ?? feedback.txResult;
 
   return (
     <AppTransactionFeedbackContext.Provider value={feedback}>
       {children}
       <TransactionFeedbackToast
-        result={feedback.txResult}
-        onClose={feedback.clearTxResult}
+        result={result}
+        onClose={
+          sessionFeedback ? clearSessionFeedback : feedback.clearTxResult
+        }
       />
     </AppTransactionFeedbackContext.Provider>
   );

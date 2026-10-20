@@ -3,6 +3,14 @@ export const TX_TOAST_EYEBROW = {
   confirming: 'Confirming',
 } as const;
 
+/** Wallet connect / session key. The sponsor gift has no line of its own. */
+export const txToastSession = {
+  settingUpSession: 'Setting up your session…',
+  approveInWallet: 'Approve in your wallet…',
+  ready: "You're set to post on-chain.",
+  failed: 'Session setup did not finish. Try connecting again.',
+} as const;
+
 /** Chain-confirmation lines — shown in toast after wallet submit. */
 export const txToastConfirming = {
   collectingSocial: 'Confirming collection…',

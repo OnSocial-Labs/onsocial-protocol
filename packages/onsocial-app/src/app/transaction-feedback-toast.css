@@ -28,7 +28,8 @@
  * While a sheet is mounted, pin it to the top of the column (scrim).
  * Parked post threads stay in the DOM and must not move the toast.
  */
-body:has(.glass-sheet-root:not(.post-thread-sheet-parked)) .app-tx-toast-anchor {
+body:has(.glass-sheet-root:not(.post-thread-sheet-parked))
+  .app-tx-toast-anchor {
   top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
   bottom: auto;
 }
@@ -106,6 +107,19 @@ body:has(.glass-sheet-root:not(.post-thread-sheet-parked)) .app-tx-toast-anchor 
   width: 1rem;
   height: 1rem;
   color: var(--protocol-red);
+}
+
+.app-tx-toast-icon--pending {
+  width: 1rem;
+  height: 1rem;
+  color: var(--protocol-blue, #3b82f6);
+  animation: app-tx-toast-spin 0.8s linear infinite;
+}
+
+@keyframes app-tx-toast-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .app-tx-toast-copy {
@@ -204,7 +218,8 @@ body:has(.glass-sheet-root:not(.post-thread-sheet-parked)) .app-tx-toast-anchor 
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-tx-toast {
+  .app-tx-toast,
+  .app-tx-toast-icon--pending {
     animation: none;
   }
 

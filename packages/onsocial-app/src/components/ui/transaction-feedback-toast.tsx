@@ -6,14 +6,17 @@ import {
   CheckIcon,
   ExternalLinkIcon,
   MultiplyIcon,
+  RefreshIcon,
 } from '@onsocial/ui';
 import { useToastDismissTimer } from '@/hooks/use-toast-dismiss-timer';
 
 export type TransactionFeedback = {
-  type: 'success' | 'error';
+  type: 'success' | 'error' | 'pending';
   msg: string;
-  /** Optional override — default toast is one-line (no eyebrow). */
+  /** Optional override — default success/error toast is one-line (no eyebrow). */
   eyebrow?: string;
+  /** Session setup only. Wallet = approve the key. Chain = gift or key confirm. */
+  pendingPhase?: 'wallet' | 'chain';
   /** Nearblocks tx link — icon only; omit when an in-app action is shown. */
   explorerHref?: string | null;
   /** In-app follow-up (e.g. View thread) — text link under the message. */
@@ -28,6 +31,14 @@ function ToastStatusIcon({ type }: { type: TransactionFeedback['type'] }) {
     return (
       <CheckIcon
         className="app-tx-toast-icon app-tx-toast-icon--success"
+        aria-hidden
+      />
+    );
+  }
+  if (type === 'pending') {
+    return (
+      <RefreshIcon
+        className="app-tx-toast-icon app-tx-toast-icon--pending"
         aria-hidden
       />
     );
@@ -53,9 +64,11 @@ export function TransactionFeedbackToast({
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  const dismissMs = result ? DISMISS_MS[result.type] : 0;
+  const canDismiss = Boolean(result && result.type !== 'pending');
+  const dismissMs =
+    result && result.type !== 'pending' ? DISMISS_MS[result.type] : 0;
   const { paused, barRef, hostRef, pauseProps } = useToastDismissTimer({
-    active: Boolean(result),
+    active: canDismiss,
     durationMs: dismissMs,
     onDone: () => onCloseRef.current(),
   });
@@ -105,20 +118,24 @@ export function TransactionFeedbackToast({
               />
             </a>
           ) : null}
-          <button
-            type="button"
-            className="app-tx-toast-close"
-            onClick={onClose}
-            aria-label="Dismiss"
-          >
-            <MultiplyIcon className="app-tx-toast-close-icon" aria-hidden />
-          </button>
+          {result.type === 'pending' ? null : (
+            <button
+              type="button"
+              className="app-tx-toast-close"
+              onClick={onClose}
+              aria-label="Dismiss"
+            >
+              <MultiplyIcon className="app-tx-toast-close-icon" aria-hidden />
+            </button>
+          )}
         </div>
-        <div
-          ref={barRef}
-          className={`app-tx-toast-progress app-tx-toast-progress--${result.type}`}
-          aria-hidden
-        />
+        {result.type === 'pending' ? null : (
+          <div
+            ref={barRef}
+            className={`app-tx-toast-progress app-tx-toast-progress--${result.type}`}
+            aria-hidden
+          />
+        )}
       </div>
     </div>,
     document.body
