@@ -133,7 +133,7 @@ describe('resolvePortalConnectRoute', () => {
 });
 
 describe('portal session toast phases', () => {
-  it('uses the chain phase for the gift and for the post-approval confirm', () => {
+  it('uses the setup line only for the gift, then keeps the approval line', () => {
     expect(portalSessionToastForOpening('none')).toBeNull();
     expect(portalSessionToastForOpening('setup')).toEqual({
       pendingPhase: 'chain',
@@ -145,7 +145,7 @@ describe('portal session toast phases', () => {
     });
     expect(portalSessionToastAfterWalletApproval()).toEqual({
       pendingPhase: 'chain',
-      pendingMessage: 'settingUpSession',
+      pendingMessage: 'approveInWallet',
     });
   });
 });

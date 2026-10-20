@@ -134,7 +134,7 @@ describe('runPortalConnect', () => {
     expect(harness.welcomed).toEqual([]);
     expect(harness.feedback).toEqual([
       'wallet:approveInWallet',
-      'chain:settingUpSession',
+      'chain:approveInWallet',
       'success:sessionReady',
     ]);
     expect(harness.bootstrapping).toEqual([true, false]);
@@ -187,7 +187,7 @@ describe('runPortalConnect', () => {
     expect(harness.feedback).toEqual([
       'chain:settingUpSession',
       'wallet:approveInWallet',
-      'chain:settingUpSession',
+      'chain:approveInWallet',
       'success:sessionReady',
     ]);
   });
@@ -207,7 +207,7 @@ describe('runPortalConnect', () => {
     expect(harness.feedback).toEqual([
       'wallet:approveInWallet',
       'wallet:approveInWallet',
-      'chain:settingUpSession',
+      'chain:approveInWallet',
       'success:sessionReady',
     ]);
   });
@@ -231,7 +231,7 @@ describe('runPortalConnect', () => {
     expect(harness.feedback).toEqual([
       'chain:settingUpSession',
       'wallet:approveInWallet',
-      'chain:settingUpSession',
+      'chain:approveInWallet',
       'success:sessionReady',
     ]);
   });
@@ -296,7 +296,7 @@ describe('runPortalConnect', () => {
     expect(result.accountId).toBe('rich.testnet');
     expect(harness.feedback).toEqual([
       'wallet:approveInWallet',
-      'chain:settingUpSession',
+      'chain:approveInWallet',
       'clear',
     ]);
   });

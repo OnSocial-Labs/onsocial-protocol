@@ -85,10 +85,13 @@ export function portalSessionToastForOpening(
   };
 }
 
-/** After the wallet returns the session key, stay pending until the key is on chain. */
+/**
+ * After the wallet returns, keep "Approve in your wallet…" and switch the
+ * eyebrow to Confirming. The setup sentence stays on the gift only.
+ */
 export function portalSessionToastAfterWalletApproval(): PortalSessionPendingToast {
   return {
     pendingPhase: 'chain',
-    pendingMessage: 'settingUpSession',
+    pendingMessage: 'approveInWallet',
   };
 }
