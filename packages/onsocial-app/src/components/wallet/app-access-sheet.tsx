@@ -20,10 +20,15 @@ import {
 } from '@/lib/app-social-session';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
+  sessionPendingFeedback,
   txToastConfirming,
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
+import {
+  accountNeedsAppSessionSponsor,
+  fundAppSessionIfNeeded,
+} from '@/lib/welcome-near';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 interface AppAccessSheetProps {
@@ -112,9 +117,14 @@ export function AppAccessSheet({
   const handleAllowOrRenew = useCallback(async () => {
     if (pending || isBootstrappingSession) return;
     const renewing = lifecycle === 'expired';
-    setPending(true);
     try {
       const { wallet, accountId: signerId } = await getSigningWallet();
+      if (await accountNeedsAppSessionSponsor(signerId)) {
+        setTxResult(sessionPendingFeedback('setup'));
+        await fundAppSessionIfNeeded(signerId);
+      }
+      setPending(true);
+      setTxResult(sessionPendingFeedback('wallet'));
       const result = renewing
         ? await renewAppSocialSession({
             accountId: signerId,
@@ -133,6 +143,7 @@ export function AppAccessSheet({
         return;
       }
 
+      setTxResult(sessionPendingFeedback('confirming'));
       const confirmed = await trackTransaction({
         txHashes: result.txHashes,
         submittedMessage: renewing
@@ -158,7 +169,10 @@ export function AppAccessSheet({
       });
       await refreshStatus();
     } catch (error) {
-      if (isWalletUserCancellation(error)) return;
+      if (isWalletUserCancellation(error)) {
+        setTxResult(null);
+        return;
+      }
       setTxResult({
         type: 'error',
         msg:
