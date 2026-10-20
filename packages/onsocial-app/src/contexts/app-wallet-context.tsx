@@ -23,7 +23,10 @@ import {
   restoreAppSocialSession,
 } from '@/lib/app-social-session';
 import { resolveAppConnectRoute } from '@/lib/app-session-sponsor';
-import { TX_TOAST_EYEBROW, txToastSession } from '@/lib/transaction-toast-copy';
+import {
+  sessionPendingFeedback,
+  txToastSession,
+} from '@/lib/transaction-toast-copy';
 import {
   accountNeedsAppSessionSponsor,
   resolveAppSessionKeyAllowanceYocto,
@@ -188,21 +191,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
   const showSessionPending = useCallback(
     (phase: 'setup' | 'wallet' | 'confirming') => {
-      if (phase === 'wallet') {
-        setSessionFeedback({
-          type: 'pending',
-          pendingPhase: 'wallet',
-          eyebrow: TX_TOAST_EYEBROW.wallet,
-          msg: txToastSession.approveInWallet,
-        });
-        return;
-      }
-      setSessionFeedback({
-        type: 'pending',
-        pendingPhase: 'chain',
-        eyebrow: TX_TOAST_EYEBROW.confirming,
-        msg: txToastSession.settingUpSession,
-      });
+      setSessionFeedback(sessionPendingFeedback(phase));
     },
     []
   );

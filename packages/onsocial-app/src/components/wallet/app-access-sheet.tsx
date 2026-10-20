@@ -20,10 +20,9 @@ import {
 } from '@/lib/app-social-session';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
-  TX_TOAST_EYEBROW,
+  sessionPendingFeedback,
   txToastConfirming,
   txToastError,
-  txToastSession,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import {
@@ -121,21 +120,11 @@ export function AppAccessSheet({
     try {
       const { wallet, accountId: signerId } = await getSigningWallet();
       if (await accountNeedsAppSessionSponsor(signerId)) {
-        setTxResult({
-          type: 'pending',
-          pendingPhase: 'chain',
-          eyebrow: TX_TOAST_EYEBROW.confirming,
-          msg: txToastSession.settingUpSession,
-        });
+        setTxResult(sessionPendingFeedback('setup'));
         await fundAppSessionIfNeeded(signerId);
       }
       setPending(true);
-      setTxResult({
-        type: 'pending',
-        pendingPhase: 'wallet',
-        eyebrow: TX_TOAST_EYEBROW.wallet,
-        msg: txToastSession.approveInWallet,
-      });
+      setTxResult(sessionPendingFeedback('wallet'));
       const result = renewing
         ? await renewAppSocialSession({
             accountId: signerId,
@@ -154,12 +143,7 @@ export function AppAccessSheet({
         return;
       }
 
-      setTxResult({
-        type: 'pending',
-        pendingPhase: 'chain',
-        eyebrow: TX_TOAST_EYEBROW.confirming,
-        msg: txToastSession.settingUpSession,
-      });
+      setTxResult(sessionPendingFeedback('confirming'));
       const confirmed = await trackTransaction({
         txHashes: result.txHashes,
         submittedMessage: renewing
