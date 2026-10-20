@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ownedScarceCanBurn,
   ownedScarceCanTransfer,
+  scarceTransferClipSession,
   scarceTransferReady,
 } from '@/features/scarces/scarce-transfer';
 
@@ -65,6 +66,49 @@ describe('ownedScarceCanBurn', () => {
         bidCount: 2,
       })
     ).toBe(false);
+  });
+});
+
+describe('scarceTransferClipSession', () => {
+  it('joins the drop the edition belongs to', () => {
+    expect(
+      scarceTransferClipSession({
+        tokenId: 'drop-1:3',
+        title: 'Night',
+        collectionId: null,
+        creatorId: 'artist.testnet',
+        audioFormat: 'album',
+        facets: ['jazz'],
+      })
+    ).toEqual({
+      collectionId: 'drop-1',
+      title: 'Night',
+      creatorId: 'artist.testnet',
+      audioFormat: 'album',
+      facets: ['jazz'],
+    });
+  });
+
+  it('keeps an explicit collection id', () => {
+    expect(
+      scarceTransferClipSession({
+        tokenId: 'other:1',
+        title: '  Day  ',
+        collectionId: 'drop-9',
+      })
+    ).toEqual({
+      collectionId: 'drop-9',
+      title: 'Day',
+    });
+  });
+
+  it('leaves post scarces off the shared player', () => {
+    expect(
+      scarceTransferClipSession({
+        tokenId: 's:319',
+        title: 'Post',
+      })
+    ).toBeNull();
   });
 });
 

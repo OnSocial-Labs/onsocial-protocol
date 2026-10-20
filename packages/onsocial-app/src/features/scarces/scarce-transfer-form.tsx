@@ -7,14 +7,21 @@ import { NearAccountField } from '@/components/ui/near-account-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
-import type { OwnedScarceItem } from '@/features/market/market-listings';
+import {
+  fetchScarceListingMeta,
+  type OwnedScarceItem,
+  type ScarcePlayableMedia,
+} from '@/features/market/market-listings';
 import {
   useSyncCommerceSheetFooter,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
 import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
-import { scarceTransferReady } from '@/features/scarces/scarce-transfer';
+import {
+  scarceTransferClipSession,
+  scarceTransferReady,
+} from '@/features/scarces/scarce-transfer';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import {
   nearAccountStatusClass,
@@ -71,6 +78,11 @@ export function ScarceTransferForm({
   );
   const [searchPending, setSearchPending] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [hydratedPlayable, setHydratedPlayable] =
+    useState<ScarcePlayableMedia | null>(null);
+  const [hydratedPlayables, setHydratedPlayables] = useState<
+    ScarcePlayableMedia[] | null
+  >(null);
 
   const ownerId =
     ownerAccountId?.trim() ||
@@ -126,6 +138,26 @@ export function ScarceTransferForm({
       window.clearTimeout(timer);
     };
   }, [normalizedQuery, ownerId, searchActive]);
+
+  useEffect(() => {
+    if (item.playable && item.playables?.length) return;
+    const tokenId = item.tokenId?.trim();
+    if (!tokenId) return;
+    let cancelled = false;
+    void (async () => {
+      const meta = await fetchScarceListingMeta({ tokenId });
+      if (cancelled || !meta) return;
+      if (!item.playable && meta.playable) {
+        setHydratedPlayable(meta.playable);
+      }
+      if (!item.playables?.length && meta.playables?.length) {
+        setHydratedPlayables(meta.playables);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [item.playable, item.playables, item.tokenId]);
 
   const visibleProfiles = useMemo(
     () =>
@@ -187,7 +219,9 @@ export function ScarceTransferForm({
 
   const title = item.title?.trim() || 'Scarce';
   const mediaUrl = item.mediaUrl?.trim() || null;
-  const playable = item.playable;
+  const playable = item.playable ?? hydratedPlayable;
+  const playables = item.playables ?? hydratedPlayables ?? undefined;
+  const clipSession = scarceTransferClipSession(item);
 
   return (
     <form
@@ -198,13 +232,20 @@ export function ScarceTransferForm({
         void handleSubmit();
       }}
     >
+      {/* Same cover plane as Buy and Sell — persist keeps playback continuous. */}
       {playable ? (
         <ScarceClipPlayer
           key={playable.url}
           clip={playable}
-          {...(item.playables?.length ? { tracks: item.playables } : {})}
+          {...(playables?.length ? { tracks: playables } : {})}
           poster={mediaUrl}
           commerce
+          {...(clipSession
+            ? {
+                persist: clipSession,
+                creatorId: clipSession.creatorId ?? null,
+              }
+            : {})}
         />
       ) : mediaUrl ? (
         <ScarceBuyCover src={mediaUrl} label={title} />
