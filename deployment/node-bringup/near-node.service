@@ -13,8 +13,9 @@ ExecStart=/usr/local/bin/neard --home /var/lib/near run
 Restart=always
 RestartSec=10
 
-# Leashes: node may use most of the box but never all of it.
-MemoryMax=28G
+# Leash: state sync on this 64 GB box was OOM-killed at 28 GB and restarted
+# the snapshot. 48 GB leaves the rest for the OS. Postgres is not on this host.
+MemoryMax=48G
 CPUWeight=100
 IOWeight=500
 
