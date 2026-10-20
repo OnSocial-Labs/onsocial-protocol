@@ -9,7 +9,7 @@ import {
   type RefObject,
 } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   postContentPath,
   type Paginated,
@@ -30,7 +30,7 @@ import { HomeFeedChipBar } from '@/features/home/home-feed-chip-bar';
 import { HomeFeedNewPostsChip } from '@/features/home/home-feed-new-posts-chip';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { HomeFeedSortToggle } from '@/features/home/home-feed-sort-toggle';
-import { APP_DISCOVER_PATH } from '@/lib/app-routes';
+import { APP_DISCOVER_PATH, APP_HOME_PATH } from '@/lib/app-routes';
 import {
   collectOutgoingStandingSources,
   fetchCircleFeedPage,
@@ -1161,6 +1161,7 @@ export function HomePagePanel({
     [onConfirmed]
   );
 
+  const pathname = usePathname();
   const {
     openReply,
     openFullReply,
@@ -1170,6 +1171,7 @@ export function HomePagePanel({
     sheet,
   } = usePersonalComposer({
     registerPen: Boolean(isConnected && accountId),
+    replyDockEnabled: pathname === APP_HOME_PATH,
     destinationLabel,
     onConfirmed,
     onUnreposted,

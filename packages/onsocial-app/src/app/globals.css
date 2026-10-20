@@ -15982,6 +15982,27 @@ a.os-surface-row {
     z-index: 49;
   }
 
+  /* Post sheet is overlayHost (50). Lift the reply pill above it, same as
+     a keep-dock media face. A parked post stays under the portfolio. */
+  body:has(
+      .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked):has(
+          .post-thread-sheet-panel
+        )
+    )
+    .portfolio-summon-dock {
+    z-index: 90;
+  }
+
+  body:has(
+      .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked):has(
+          .post-thread-sheet-panel
+        )
+    )
+    .portfolio-summon-dock
+    .portfolio-summon {
+    pointer-events: auto;
+  }
+
   /* Room for the portfolio dock under a keep-dock mood page. */
   .glass-sheet-root[data-keep-dock='true'] .glass-sheet-body {
     padding-bottom: var(--portfolio-dock-clearance, 4.75rem);

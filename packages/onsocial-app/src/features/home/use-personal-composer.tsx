@@ -84,6 +84,12 @@ interface UsePersonalComposerOptions {
   destinationLabel?: string;
   /** Optional author map already loaded by the host feed. */
   authorProfiles?: Record<string, PostAuthorProfile>;
+  /**
+   * Reply message field on the dock. Home passes this only on /home so a
+   * covered home feed does not keep the field. The portfolio drawer passes
+   * it live. Omitted callers stay on the home path.
+   */
+  replyDockEnabled?: boolean;
   onConfirmed?: (post: PostRow, parent?: PostRow | null) => void;
   onUnreposted?: (target: PostRow) => void;
 }
@@ -97,6 +103,7 @@ export function usePersonalComposer({
   registerPen,
   dockPen = 'post',
   authorProfiles,
+  replyDockEnabled,
   onConfirmed,
   onUnreposted,
 }: UsePersonalComposerOptions) {
@@ -200,7 +207,7 @@ export function usePersonalComposer({
   );
 
   const { startReply, clearReply, replyTarget } = useFeedReplyWriteDock({
-    enabled: pathname === APP_HOME_PATH,
+    enabled: replyDockEnabled ?? pathname === APP_HOME_PATH,
     sheetOpen: Boolean(composer),
     authorNameFor: (accountId) => authorProfiles?.[accountId]?.displayName,
     onExpand: openFullReply,
