@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { pollIndexConfirm } from '@/lib/index-confirm-poll';
 import { connectBefore } from '@/lib/connect-continue-voice';
 import {
   creditAppPlatformReward,
@@ -167,6 +169,18 @@ export function useViewerStanding(listAccountId: string) {
           await client.standings.remove(targetAccount.accountId, {
             wait: true,
           });
+        }
+
+        if (viewerAccountId) {
+          const reader = createReadOnlyOnSocialClient();
+          await pollIndexConfirm(
+            () =>
+              reader.query.standings.viewerStandsWith(
+                viewerAccountId,
+                targetAccount.accountId
+              ),
+            (stands) => stands === shouldStand
+          );
         }
 
         recordViewerStanding(

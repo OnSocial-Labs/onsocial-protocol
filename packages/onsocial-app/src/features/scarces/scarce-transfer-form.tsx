@@ -15,13 +15,18 @@ import {
 import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { scarceTransferReady } from '@/features/scarces/scarce-transfer';
+import { pollTransferOwner } from '@/features/scarces/transfer-index-confirm';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import {
   nearAccountStatusClass,
   useNearAccountStatus,
 } from '@/hooks/use-near-account-status';
 import { accountIdsEqual } from '@/lib/account-match';
-import { nearAccountPlaceholder, normalizeNearAccountId } from '@/lib/app-near-account';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import {
+  nearAccountPlaceholder,
+  normalizeNearAccountId,
+} from '@/lib/app-near-account';
 import {
   fetchDiscoverProfiles,
   type DiscoverProfileSummary,
@@ -66,9 +71,9 @@ export function ScarceTransferForm({
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [receiverId, setReceiverId] = useState('');
   const [pending, setPending] = useState(false);
-  const [searchProfiles, setSearchProfiles] = useState<DiscoverProfileSummary[]>(
-    []
-  );
+  const [searchProfiles, setSearchProfiles] = useState<
+    DiscoverProfileSummary[]
+  >([]);
   const [searchPending, setSearchPending] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
@@ -80,7 +85,9 @@ export function ScarceTransferForm({
   const accountStatus = useNearAccountStatus(receiverId);
   const normalized = normalizeNearAccountId(receiverId);
   const isSelf = Boolean(ownerId && accountIdsEqual(normalized, ownerId));
-  const statusClass = isSelf ? 'is-taken' : nearAccountStatusClass(accountStatus);
+  const statusClass = isSelf
+    ? 'is-taken'
+    : nearAccountStatusClass(accountStatus);
   const canSubmit =
     !pending &&
     scarceTransferReady({
@@ -101,12 +108,7 @@ export function ScarceTransferForm({
     const timer = window.setTimeout(() => {
       setSearchPending(true);
       setSearchError(null);
-      void fetchDiscoverProfiles(
-        normalizedQuery,
-        ownerId,
-        0,
-        controller.signal
-      )
+      void fetchDiscoverProfiles(normalizedQuery, ownerId, 0, controller.signal)
         .then((response) => {
           if (controller.signal.aborted) return;
           setSearchProfiles(response.profiles);
@@ -164,12 +166,18 @@ export function ScarceTransferForm({
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
         submittedMessage: txToastConfirming.transferringScarce,
-        successMessage: txToastSuccess.scarceTransferred(
-          displayName(receiver)
-        ),
+        successMessage: txToastSuccess.scarceTransferred(displayName(receiver)),
         failureMessage: txToastError.transferScarceFailed,
       });
       if (!confirmed) return;
+      const reader = createReadOnlyOnSocialClient();
+      await pollTransferOwner({
+        receiverId: receiver,
+        readOwnerId: async () => {
+          const rows = await reader.query.scarces.tokensByIds([item.tokenId]);
+          return rows[0]?.ownerId ?? null;
+        },
+      });
       onSuccess?.({ tokenId: item.tokenId, receiverId: receiver });
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
@@ -228,9 +236,7 @@ export function ScarceTransferForm({
           status={isSelf ? 'found' : accountStatus}
           statusClass={statusClass}
           aria-invalid={
-            isSelf ||
-            accountStatus === 'invalid' ||
-            accountStatus === 'missing'
+            isSelf || accountStatus === 'invalid' || accountStatus === 'missing'
           }
         />
       </label>
