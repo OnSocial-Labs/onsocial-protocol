@@ -34,9 +34,14 @@ near deploy <account> ./target/near/token_onsocial/token_onsocial.wasm
 
 ## Publish as the creator-token template (app Create token)
 
-The app's Create-token flow deploys user FTs with `UseGlobalContract` — no
-per-user WASM upload. Ops publishes this crate as a **global contract** once
-per network, then points the app at the code hash.
+Ops publishes this crate as a **global contract** once per network, then
+points the app at the code hash. The creator's wallet never signs
+`UseGlobalContract`. It creates the subaccount, funds it, and adds the
+server factory key. That key installs this code, mints to the creator, and
+deletes itself in one transaction.
+
+Set `FT_FACTORY_SECRET_KEY` (`ed25519:…`) on the app server only. It is not
+the relayer key and must not be `NEXT_PUBLIC`.
 
 ```bash
 # Build + publish (immutable hash mode) and print the env line:
@@ -50,8 +55,10 @@ Then set in `packages/onsocial-app` env (`.env.local` / Vercel):
 NEXT_PUBLIC_FT_TEMPLATE_CODE_HASH=<printed hash>
 ```
 
-Rebuild the app; `/api/ft-template` should report `ready` and the Create
-button enables. Mint a throwaway token on testnet before announcing.
+Rebuild the app. `/api/ft-template` should report `ready`, and
+`/api/ft-factory` should report `ready` once `FT_FACTORY_SECRET_KEY` is set.
+The Create button enables only when both are ready. Mint a throwaway token
+on testnet before announcing.
 
 Notes:
 
