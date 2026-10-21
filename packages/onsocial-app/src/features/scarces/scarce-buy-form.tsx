@@ -37,6 +37,11 @@ import {
 } from '@/features/scarces/scarce-buy-deal';
 import { supplyUnitForMediumKind } from '@/features/scarces/drop-templates';
 import {
+  mintSupplyClosed,
+  pollDropRemaining,
+  pollLazyListing,
+} from '@/features/scarces/mint-index-confirm';
+import {
   ScarceListingFactsSheet,
   type ScarceListingFacts,
 } from '@/features/scarces/scarce-listing-facts-sheet';
@@ -1296,26 +1301,24 @@ export function ScarceBuyForm({
       }
 
       if (isDropBuy && collectionId) {
-        const shell = await createReadOnlyOnSocialClient()
-          .query.scarces.collectionCurrent(collectionId)
-          .catch(() => null);
-        const nextRemaining = shell?.remaining;
-        const closed =
-          !shell ||
-          shell.paused ||
-          shell.cancelled ||
-          shell.banned ||
-          nextRemaining == null ||
-          nextRemaining <= 0;
+        const reader = createReadOnlyOnSocialClient();
+        const confirmedSupply = await pollDropRemaining({
+          beforeRemaining: remaining,
+          quantity: mintQty,
+          readShell: () => reader.query.scarces.collectionCurrent(collectionId),
+        });
+        const nextRemaining = confirmedSupply.remaining;
+        const closed = mintSupplyClosed(confirmedSupply);
         if (closed) forgetDrop(collectionId);
         if (post) {
           const key = postScarceKey(post.accountId, post.postId);
-          if (!closed && shell && nextRemaining != null) {
+          const shell = confirmedSupply.shell;
+          if (!closed && nextRemaining != null) {
             setScarceEmbedOverride(key, {
               status: 'drop',
               collectionId,
               ...(priceNear ? { priceNear } : {}),
-              ...(shell.totalSupply != null
+              ...(shell?.totalSupply != null
                 ? { copies: shell.totalSupply }
                 : copies != null
                   ? { copies }
@@ -1343,45 +1346,42 @@ export function ScarceBuyForm({
             events: [],
           });
         }
+      } else if (isLazyBuy && listingId && post) {
+        const face = await pollLazyListing({
+          beforeRemaining: remaining,
+          quantity: 1,
+          readListing: () =>
+            findLiveListingForPost(post.accountId, post.accountId, post.postId),
+        });
+        const key = postScarceKey(post.accountId, post.postId);
+        const stillListed =
+          face.remaining != null ? face.remaining > 0 : Boolean(face.listingId);
+        if (stillListed) {
+          setScarceEmbedOverride(key, {
+            status: 'lazy_listing',
+            listingId: face.listingId ?? listingId,
+            ...(priceNear || face.priceNear
+              ? { priceNear: face.priceNear || priceNear }
+              : {}),
+            ...(face.copies != null ? { copies: face.copies } : {}),
+            ...(face.remaining != null ? { remaining: face.remaining } : {}),
+            events: [],
+          });
+        } else {
+          forgetMarketListing({ tokenId, listingId });
+          setScarceEmbedOverride(key, {
+            status: 'sold',
+            ...(listingId ? { listingId } : {}),
+            ...(tokenId ? { tokenId } : {}),
+            ...(priceNear ? { priceNear } : {}),
+            events: [],
+          });
+        }
       } else if (isLazyBuy && listingId) {
-        const live = post
-          ? await findLiveListingForPost(
-              post.accountId,
-              post.accountId,
-              post.postId
-            )
-          : null;
-        let stillThere = Boolean(live?.listingId);
-        if (!post) {
-          const quoted = await fetchLazyListingPriceYocto(listingId).catch(
-            () => undefined
-          );
-          stillThere = quoted !== null;
-        }
-        if (!stillThere) forgetMarketListing({ tokenId, listingId });
-        if (post) {
-          const key = postScarceKey(post.accountId, post.postId);
-          if (live?.listingId) {
-            setScarceEmbedOverride(key, {
-              status: 'lazy_listing',
-              listingId: live.listingId,
-              ...(priceNear || live.priceNear
-                ? { priceNear: live.priceNear || priceNear }
-                : {}),
-              ...(live.copies != null ? { copies: live.copies } : {}),
-              ...(live.remaining != null ? { remaining: live.remaining } : {}),
-              events: [],
-            });
-          } else {
-            setScarceEmbedOverride(key, {
-              status: 'sold',
-              ...(listingId ? { listingId } : {}),
-              ...(tokenId ? { tokenId } : {}),
-              ...(priceNear ? { priceNear } : {}),
-              events: [],
-            });
-          }
-        }
+        const quoted = await fetchLazyListingPriceYocto(listingId).catch(
+          () => undefined
+        );
+        if (quoted === null) forgetMarketListing({ tokenId, listingId });
       }
 
       forgetCollectiblesPlace(accountId);
