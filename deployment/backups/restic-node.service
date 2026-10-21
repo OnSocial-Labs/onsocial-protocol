@@ -1,0 +1,18 @@
+[Unit]
+Description=Restic backup of NEAR node identity to the Storage Box
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=RESTIC_PASSWORD_FILE=/etc/onsocial/restic-password
+Environment=RESTIC_REPOSITORY=sftp:storagebox:testnet/node
+# Identity and the unit that runs the node. Chain data and genesis stay on the RAID.
+ExecStart=/usr/bin/restic backup --tag node \
+  /var/lib/near/config.json \
+  /var/lib/near/node_key.json \
+  /etc/systemd/system/near-node.service \
+  /etc/systemd/system.control/near-node.service.d/50-MemoryMax.conf
+ExecStart=/usr/bin/restic forget --tag node --prune --keep-daily 7 --keep-weekly 4
+Nice=10
+IOSchedulingClass=idle

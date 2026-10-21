@@ -1,0 +1,13 @@
+[Unit]
+Description=Tunnel testnet Postgres to localhost for the indexer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ssh -N -i /root/.ssh/indexer_db_tunnel -o BatchMode=yes -o IdentitiesOnly=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -L 127.0.0.1:5432:127.0.0.1:5432 root@135.181.110.183
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

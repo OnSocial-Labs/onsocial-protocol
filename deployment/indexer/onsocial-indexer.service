@@ -1,0 +1,19 @@
+[Unit]
+Description=OnSocial indexer (embedded NEAR node)
+After=network-online.target indexer-db-tunnel.service
+Requires=indexer-db-tunnel.service
+
+[Service]
+Type=simple
+User=near
+Group=near
+ExecStart=/usr/local/sbin/onsocial-indexer-run
+Restart=always
+RestartSec=10
+MemoryMax=48G
+LimitNOFILE=65536
+TimeoutStopSec=120
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target

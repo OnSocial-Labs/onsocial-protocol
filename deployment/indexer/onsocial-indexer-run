@@ -1,0 +1,14 @@
+#!/bin/bash
+# Starts onsocial-indexer. Passes --start-block only until this source has
+# its own cursor, so a restart resumes at the tip instead of rewinding.
+set -euo pipefail
+
+db_url=$(cat /etc/onsocial/credentials/onsocial-indexer/db_url)
+args=(--home /var/lib/near --db-url "$db_url")
+
+has_cursor=$(psql "$db_url" -tAc "SELECT 1 FROM cursors WHERE id = 'indexer' LIMIT 1")
+if [[ "$has_cursor" != *1* ]]; then
+  args+=(--start-block "$(cat /etc/onsocial/indexer-start-block)")
+fi
+
+exec /usr/local/bin/onsocial-indexer "${args[@]}"

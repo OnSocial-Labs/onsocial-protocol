@@ -5,6 +5,9 @@
 Description=OnSocial neardata reader (testnet indexer)
 After=network-online.target docker.service
 Wants=network-online.target
+# Give up only if it cannot stay up for 30s across 5 tries (config error).
+StartLimitIntervalSec=150
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -12,11 +15,11 @@ Type=simple
 # command line (same pattern as the old sink unit).
 LoadCredential=db_url:/etc/onsocial/credentials/onsocial-neardata-reader/db_url
 LoadCredential=network:/etc/onsocial/credentials/onsocial-neardata-reader/network
-# --prefetch 3 overlaps block downloads with decode+commit so the fetch RTT
-# is hidden. Keep it low: the neardata cap is 180 req/min/IP and this box
-# shares that IP with anything else polling neardata; deep pipelining against
-# a shared cap just converts into 429s. Raise --max-rpm and --prefetch
-# together only if FastNear grants a private higher tier.
+# One block at a time, 60 requests a minute. Faster than that returns 429
+# from the public FastNear cap on this IP. --end-block is the height the
+# node indexer already owns; the reader exits there and must stay stopped.
+# Remove --end-block only after that exit, if a later backfill should follow
+# the chain. $${} keeps systemd from eating the bash array.
 #
 # Optional FastNear API key: if
 # /etc/onsocial/credentials/onsocial-neardata-reader/api_key exists and is
@@ -25,15 +28,12 @@ LoadCredential=network:/etc/onsocial/credentials/onsocial-neardata-reader/networ
 # because LoadCredential fails the whole unit when the file is absent, and
 # the key is optional. When a key is provisioned, also raise --max-rpm /
 # --prefetch to whatever the paid tier allows.
-ExecStart=/bin/bash -lc 'args=(--db-url "$(cat "${CREDENTIALS_DIRECTORY}/db_url")" --network "$(cat "${CREDENTIALS_DIRECTORY}/network")" --prefetch 3); k=/etc/onsocial/credentials/onsocial-neardata-reader/api_key; if [[ -s "$k" ]]; then args+=(--api-key "$(cat "$k")"); fi; exec /usr/local/bin/neardata_reader "${args[@]}"'
-# Restart on any failure (network blip, neardata 5xx, DB hiccup). The reader
-# is crash-safe: each block commits rows + cursor in one transaction, so a
-# restart replays at most one partially-applied block, which upserts absorb.
-Restart=always
+ExecStart=/bin/bash -lc 'args=(--db-url "$(cat "${CREDENTIALS_DIRECTORY}/db_url")" --network "$(cat "${CREDENTIALS_DIRECTORY}/network")" --prefetch 1 --max-rpm 60 --end-block 273994469); k=/etc/onsocial/credentials/onsocial-neardata-reader/api_key; if [[ -s "$k" ]]; then args+=(--api-key "$(cat "$k")"); fi; exec /usr/local/bin/neardata_reader "$${args[@]}"'
+# A clean exit means the end height was reached. Crashes still restart.
+# Each block commits rows and the cursor in one transaction, so a restart
+# replays at most one partially-applied block, which upserts absorb.
+Restart=on-failure
 RestartSec=10
-# Give up only if it cannot stay up for 30s across 5 tries (config error).
-StartLimitIntervalSec=150
-StartLimitBurst=5
 # Reasonable resource ceiling; the reader is light (~tens of MB).
 MemoryMax=512M
 TimeoutStopSec=20

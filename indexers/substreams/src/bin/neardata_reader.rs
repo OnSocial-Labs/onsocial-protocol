@@ -65,6 +65,11 @@ struct Args {
     #[arg(long)]
     start_block: Option<u64>,
 
+    /// Stop before this height. The node indexer owns this height and
+    /// everything after it. Omit to follow the chain.
+    #[arg(long)]
+    end_block: Option<u64>,
+
     /// Tables to compare in parity mode.
     #[arg(long, default_values = &["boost_events", "token_events", "rewards_events", "scarces_events", "social_spend_events", "data_updates", "storage_updates", "group_updates", "contract_updates", "permission_updates"])]
     parity_tables: Vec<String>,
@@ -92,8 +97,10 @@ fn base_url(network: &str) -> String {
 /// Slot-reserving rate limiter shared by all fetch workers. Each caller
 /// reserves a start instant spaced `cur_interval` after the previous one, so
 /// requests can overlap in flight while the *start rate* stays paced. AIMD:
-/// the interval doubles on 429 (cap 4s) and decays 5% per success (floor
-/// `base_interval`), because neardata's limiter is per-IP.
+/// the interval doubles on 429 (cap 2s) and the next start is pushed out so
+/// in-flight workers cannot burst when the penalty lands. It creeps back 1%
+/// per success (floor `base_interval`). A 5% decay snapped back to the
+/// ceiling in a handful of blocks and tripped 429 again.
 struct RateLimiter {
     state: tokio::sync::Mutex<RateState>,
     base_interval: Duration,
@@ -132,12 +139,14 @@ impl RateLimiter {
 
     async fn on_rate_limited(&self) {
         let mut s = self.state.lock().await;
-        s.cur_interval = (s.cur_interval * 2).min(Duration::from_secs(4));
+        s.cur_interval = (s.cur_interval * 2).min(Duration::from_secs(2));
+        let now = std::time::Instant::now();
+        s.next_slot = s.next_slot.max(now + s.cur_interval);
     }
 
     async fn on_success(&self) {
         let mut s = self.state.lock().await;
-        s.cur_interval = (s.cur_interval.mul_f64(0.95)).max(self.base_interval);
+        s.cur_interval = s.cur_interval.mul_f64(0.99).max(self.base_interval);
     }
 }
 
@@ -434,11 +443,19 @@ async fn run_live(client: &mut Client, fetcher: &Fetcher, args: &Args) -> Result
     let mut retry: std::collections::VecDeque<u64> = std::collections::VecDeque::new();
 
     loop {
+        if args.end_block.is_some_and(|end| next >= end) {
+            info!(stopped_before = args.end_block, "gap fill complete");
+            return Ok(());
+        }
+
         // Keep the window full: retries first, then fresh heights.
         while in_flight.len() < depth {
             let h = match retry.pop_front() {
                 Some(h) => h,
                 None => {
+                    if args.end_block.is_some_and(|end| fetch_next >= end) {
+                        break;
+                    }
                     if fetch_next > known_head {
                         break;
                     }

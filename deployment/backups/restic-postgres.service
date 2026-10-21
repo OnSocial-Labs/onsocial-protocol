@@ -1,0 +1,14 @@
+[Unit]
+Description=Restic backup of testnet Postgres dumps to the Storage Box
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=RESTIC_PASSWORD_FILE=/etc/onsocial/restic-password
+Environment=RESTIC_REPOSITORY=sftp:storagebox:testnet/postgres
+# The daily pg_dump volume. The live database directory stays on this host.
+ExecStart=/usr/bin/restic backup --tag postgres /var/lib/docker/volumes/onsocial_postgres_backups/_data
+ExecStart=/usr/bin/restic forget --tag postgres --prune --keep-daily 7 --keep-weekly 4
+Nice=10
+IOSchedulingClass=idle

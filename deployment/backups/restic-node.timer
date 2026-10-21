@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily restic backup of NEAR node identity
+
+[Timer]
+OnCalendar=*-*-* 03:45:00 UTC
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target
