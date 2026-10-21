@@ -62,20 +62,21 @@ export function resolveNearArchivalRpcUrl(network: Network = 'testnet'): string 
 }
 
 export function isHistoricalBlockQuery(method: string, params: unknown): boolean {
-  if (!params || typeof params !== 'object') {
+  // gas_price takes `[block_id]`. null means the tip; a height or hash is history.
+  if (method === 'gas_price' && Array.isArray(params)) {
+    return params[0] != null;
+  }
+
+  if (!params || typeof params !== 'object' || Array.isArray(params)) {
     return false;
   }
 
   const blockParams = params as Record<string, unknown>;
-  if (method === 'block') {
-    return blockParams.block_id != null || blockParams.block_hash != null;
-  }
+  const pinned = blockParams.block_id != null || blockParams.block_hash != null;
+  if (!pinned) return false;
 
-  if (method !== 'query') {
-    return false;
-  }
-
-  return blockParams.block_id != null || blockParams.block_hash != null;
+  // A pinned height is history. Finality ("final" / "optimistic") is the tip.
+  return method === 'block' || method === 'query' || method === 'gas_price';
 }
 
 export function isGarbageCollectedRpcError(

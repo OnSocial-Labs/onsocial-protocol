@@ -164,6 +164,7 @@ services:
       NEARBLOCKS_API_URL: ${NEARBLOCKS_API_URL:-https://api.nearblocks.io}
       NEARBLOCKS_API_KEY: ${NEARBLOCKS_API_KEY:-}
       LAVA_API_KEY: ${LAVA_API_KEY:-}
+      NEAR_RPC_URL: ${NEAR_RPC_URL:-}
       RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
       ADMIN_WALLETS: ${ADMIN_WALLETS:-}

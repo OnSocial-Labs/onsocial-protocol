@@ -18,8 +18,8 @@ const network = (config.nearNetwork as Network) || 'testnet';
 /**
  * Shared NEAR RPC client for the gateway process.
  *
- * Primary:   NEAR_RPC_URL env var (Lava in production)
- * Secondary: Built-in per-network endpoint (automatic failover)
+ * Primary:   NEAR_RPC_URL when set (the private node), otherwise Lava
+ * Secondary: public FastNear. A pinned historical block fails over to archival.
  */
 export const nearRpc: NearRpc = createConfiguredNearRpc({
   network,

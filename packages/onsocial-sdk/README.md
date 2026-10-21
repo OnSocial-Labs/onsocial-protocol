@@ -32,6 +32,7 @@ Every module hangs off a single `OnSocial` instance. Use this table to find the 
 | `os.token`               | OnSocial token transfers + state                       | `transfer`, `balance`, `events`                                                                                         |
 | `os.storageAccount`      | Storage balances, sponsorships, pools                  | `balance`, `withdraw`, `tip`, `sponsor`, `fundPlatform`, …                                                              |
 | `os.chain`               | On-chain reads (status, version, config)               | `getContractStatus`, `getVersion`, `getGovernanceConfig`, `getContractInfo`                                             |
+| `os.rpc`                 | Raw NEAR JSON-RPC on the same host and key             | `call`, `nearProvider`, `url`                                                                                           |
 | `os.query.*`             | Indexer (Hasura) reads — feeds, social graph, stats, … | `feed.*`, `profiles.discoverPage`, `standings.*`, `endorsements.*`, `scarces.*`                                         |
 | `os.social`              | Low-level NEAR-Social KV primitives                    | `set`, `get`, `getOne`, `listKeys`, `countKeys`                                                                         |
 | `os.raw.*`               | Direct contract calls (escape hatch)                   | varies                                                                                                                  |

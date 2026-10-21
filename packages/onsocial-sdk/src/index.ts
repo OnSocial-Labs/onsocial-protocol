@@ -481,6 +481,8 @@ export type { AttestationListItem } from './modules/attestations.js';
 export { PermissionsModule } from './modules/permissions.js';
 export { PERMISSION, type PermissionName } from './modules/permissions.js';
 export { ChainModule } from './modules/chain.js';
+export { RpcModule, RpcError } from './modules/rpc.js';
+export type { NearProviderOptions, RpcResponse } from './modules/rpc.js';
 export { TokenModule } from './modules/token.js';
 export type { FtMetadata, FtStorageBalance } from './modules/token.js';
 export { BoostModule } from './modules/boost.js';

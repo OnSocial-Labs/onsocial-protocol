@@ -39,6 +39,11 @@ __SERVER_NAMES__ {
 		reverse_proxy __BACKEND_UPSTREAM__
 	}
 
+	# NEAR JSON-RPC is the gateway. Every other /v1 path is the backend.
+	handle /v1/rpc {
+		reverse_proxy __GATEWAY_UPSTREAM__
+	}
+
 	# Partner Rewards SDK API → backend
 	handle /v1/* {
 		reverse_proxy __BACKEND_UPSTREAM__

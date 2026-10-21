@@ -383,6 +383,7 @@ describe('restrictAppScopedSession', () => {
       appId: 'tracker',
     });
     expect((await request(app).get('/developer/dm')).status).toBe(403);
+    expect((await request(app).post('/v1/rpc')).status).toBe(403);
     const refresh = await request(app).post('/auth/refresh');
     expect(refresh.status).toBe(403);
     expect(refresh.body.error).toMatch(/app-scoped/i);

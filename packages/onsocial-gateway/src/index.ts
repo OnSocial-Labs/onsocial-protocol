@@ -27,6 +27,7 @@ import { relayRouter } from './routes/relay.js';
 import { composeRouter } from './routes/compose/index.js';
 import { dataRouter } from './routes/data.js';
 import { intentsRouter } from './routes/intents.js';
+import { rpcRouter } from './routes/rpc.js';
 import { storageRouter } from './services/storage/index.js';
 
 const app = express();
@@ -72,6 +73,7 @@ app.get('/health', (_req, res) => {
       'relay',
       'compose',
       'data',
+      'rpc',
       'subscriptions',
     ],
   });
@@ -132,6 +134,7 @@ app.use('/relay', rateLimitMiddleware, relayRouter);
 app.use('/compose', rateLimitMiddleware, composeRouter);
 app.use('/data', rateLimitMiddleware, dataRouter);
 app.use('/intents', rateLimitMiddleware, intentsRouter);
+app.use('/v1/rpc', rateLimitMiddleware, rpcRouter);
 
 // 404 handler
 app.use((_req, res) => {

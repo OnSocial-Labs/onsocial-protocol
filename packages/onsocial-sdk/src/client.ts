@@ -28,6 +28,7 @@ import { ReactionsModule } from './modules/reactions.js';
 import { SavesModule } from './modules/saves.js';
 import { PermissionsModule } from './modules/permissions.js';
 import { ChainModule } from './modules/chain.js';
+import { RpcModule } from './modules/rpc.js';
 import { TokenModule } from './modules/token.js';
 import { BoostModule } from './modules/boost.js';
 import { SocialSpendModule } from './modules/social-spend.js';
@@ -165,6 +166,7 @@ function findMintedTokenId(value: unknown, depth = 0): string | undefined {
  * | `os.storage`          | IPFS file/JSON upload                                        |
  * | `os.pages`            | onsocial.id page configuration                               |
  * | `os.chain`            | On-chain storage + contract introspection                    |
+ * | `os.rpc`              | Raw NEAR JSON-RPC on this same host and key                  |
  * | `os.webhooks`         | Webhook endpoints (pro+)                                     |
  * | `os.notifications`    | Inbox read (all tiers); events/rules (pro+)                  |
  * | `os.query`            | Typed GraphQL helpers over indexed data (see below)          |
@@ -297,6 +299,8 @@ export class OnSocial {
   readonly permissions: PermissionsModule;
   /** Chain — on-chain storage management and contract introspection. */
   readonly chain: ChainModule;
+  /** Raw NEAR JSON-RPC on the same host and OnAPI key. */
+  readonly rpc: RpcModule;
   /** Token — SOCIAL fungible-token (NEP-141) view reads. */
   readonly token: TokenModule;
   /** Boost — boost contract view reads (account, lock status, reward rate). */
@@ -496,6 +500,7 @@ export class OnSocial {
       getBroadcast
     );
     this.chain = new ChainModule(this.http);
+    this.rpc = new RpcModule(this.http);
     this.token = new TokenModule(this.http);
     this.boost = new BoostModule(this.http);
     this.socialSpend = new SocialSpendModule(this.http, getBroadcast);

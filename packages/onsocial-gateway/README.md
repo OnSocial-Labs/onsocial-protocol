@@ -18,12 +18,12 @@ Configure via environment variables (see `src/config/index.ts`). Default port **
 
 Tiers come from **Revolut subscriptions** (or admin wallets → `service`), not from staked SOCIAL:
 
-| Tier      | Rate limit (req/min) | Graph row limit |
-| --------- | -------------------- | --------------- |
-| `free`    | 60                   | 100             |
-| `pro`     | 600                  | 1_000           |
-| `scale`   | 3_000                | 10_000          |
-| `service` | 10_000               | 10_000          |
+| Tier      | Rate limit (req/min) | Graph row limit | RPC                                        |
+| --------- | -------------------- | --------------- | ------------------------------------------ |
+| `free`    | 60                   | 100             | Recent chain state                         |
+| `pro`     | 600                  | 1_000           | Recent state plus pinned historical blocks |
+| `scale`   | 3_000                | 10_000          | Recent state plus pinned historical blocks |
+| `service` | 10_000               | 10_000          | Recent state plus pinned historical blocks |
 
 `ADMIN_WALLETS` always resolve to `service`.
 
@@ -40,7 +40,10 @@ Tiers come from **Revolut subscriptions** (or admin wallets → `service`), not 
 | Webhooks      | `/webhooks/*`      | Outbound delivery                            |
 | Subscription  | `/subscription/*`  | Revolut billing plans                        |
 | Developer     | `/developer/*`     | OnAPI / developer tooling                    |
+| RPC           | `POST /v1/rpc`     | NEAR JSON-RPC. Same OnAPI key and minute cap |
 | Analytics     | `/analytics/*`     | Usage metrics                                |
+
+`POST /v1/rpc` takes one JSON-RPC object and the same OnAPI key as GraphQL (`x-api-key: onsocial_…`, or a session JWT). It spends the tier's minute cap. A free key can read or broadcast any recent account on the gateway's network. A request that pins `block_id` or `block_hash` is archival and requires Pro, Scale, or service. `NEAR_RPC_URL` is the private node; until that variable is set, Lava and then FastNear answer.
 
 Prefer the [@onsocial/sdk](../onsocial-sdk) over calling these routes raw.
 

@@ -47,6 +47,7 @@ services:
       NEARBLOCKS_API_URL: ${NEARBLOCKS_API_URL:-https://api.nearblocks.io}
       NEARBLOCKS_API_KEY: ${NEARBLOCKS_API_KEY:-}
       LAVA_API_KEY: ${LAVA_API_KEY:-}
+      NEAR_RPC_URL: ${NEAR_RPC_URL:-}
       RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
       ADMIN_WALLETS: ${ADMIN_WALLETS:-}
@@ -109,6 +110,7 @@ services:
       NEARBLOCKS_API_URL: ${NEARBLOCKS_API_URL:-https://api.nearblocks.io}
       NEARBLOCKS_API_KEY: ${NEARBLOCKS_API_KEY:-}
       LAVA_API_KEY: ${LAVA_API_KEY:-}
+      NEAR_RPC_URL: ${NEAR_RPC_URL:-}
       RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
       ADMIN_WALLETS: ${ADMIN_WALLETS:-}
@@ -134,7 +136,7 @@ services:
     image: ghcr.io/onsocial-labs/onsocial-protocol/gateway:${IMAGE_TAG:-latest}
     container_name: notification-worker
     restart: unless-stopped
-    command: ["node", "packages/onsocial-gateway/dist/scripts/run-notification-worker.js"]
+      command: ["node", "packages/onsocial-gateway/dist/scripts/run-notification-worker.js"]
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}

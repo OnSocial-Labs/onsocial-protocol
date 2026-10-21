@@ -45,6 +45,11 @@ export class HttpClient {
     return this._token !== null || this._apiKey !== null;
   }
 
+  /** Auth headers for a caller that posts to the gateway itself. */
+  authHeaders(): Record<string, string> {
+    return { ...this._headers() };
+  }
+
   /** Current actor account injected for API-key write flows, if configured. */
   get actorId(): string | null {
     return this._actorId;
