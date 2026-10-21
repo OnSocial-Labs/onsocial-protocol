@@ -53,6 +53,7 @@ import {
 import { ScarceCommerceSummary } from '@/features/scarces/scarce-commerce-summary';
 import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
+import { scarcePlaybackSessionId } from '@/features/scarces/scarce-playback-session';
 import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
 import {
   resolveScarcePartyIds,
@@ -322,6 +323,10 @@ export function ScarceBuyForm({
     embed?.collectionId?.trim() ||
     (tokenId ? collectionIdFromTokenId(tokenId) : null) ||
     undefined;
+  const playbackSessionId = scarcePlaybackSessionId({
+    collectionId,
+    tokenId,
+  });
   const priceNear = quotedPriceNear ?? listing?.priceNear ?? embed?.priceNear;
   const copies = listing?.copies ?? embed?.copies;
   const remaining = quotedRemaining ?? listing?.remaining ?? embed?.remaining;
@@ -1426,10 +1431,10 @@ export function ScarceBuyForm({
               : {})}
             poster={resolvedMediaUrl}
             commerce
-            {...(collectionId
+            {...(playbackSessionId
               ? {
                   persist: {
-                    collectionId,
+                    collectionId: playbackSessionId,
                     title,
                   },
                   creatorId: artistId ?? sellerId,

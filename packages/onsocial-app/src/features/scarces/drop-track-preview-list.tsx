@@ -14,10 +14,12 @@ import {
   PlayFillIcon,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
+import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
 import {
   DROP_LYRICS_MAX_CHARS,
   trackTitleFromFile,
 } from '@/features/scarces/drop-audio';
+import { nextDockHoldForPreview } from '@/features/scarces/drop-preview-dock';
 import { reorderByInsert } from '@/features/scarces/drop-track-order';
 
 interface DropTrackPreviewListProps {
@@ -58,6 +60,12 @@ export function DropTrackPreviewList({
 }: DropTrackPreviewListProps) {
   const listRef = useRef<HTMLUListElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const nowPlaying = useCollectiblesNowPlayingOptional();
+  const dockRef = useRef(nowPlaying);
+  const holdingDockRef = useRef(false);
+  useEffect(() => {
+    dockRef.current = nowPlaying;
+  });
   const urlsRef = useRef<Map<string, string>>(new Map());
   const dragFromRef = useRef<number | null>(null);
   const [playingKey, setPlayingKey] = useState<string | null>(null);
@@ -85,6 +93,18 @@ export function DropTrackPreviewList({
     }
   }, [files]);
 
+  function syncDock(previewPlaying: boolean) {
+    const dock = dockRef.current;
+    const next = nextDockHoldForPreview({
+      dockPlaying: Boolean(dock?.playing),
+      holdingDock: holdingDockRef.current,
+      previewPlaying,
+    });
+    if (next.pauseDock) dock?.pause();
+    if (next.resumeDock) void dock?.toggle();
+    holdingDockRef.current = next.holdingDock;
+  }
+
   useEffect(() => {
     const audio = audioRef.current;
     const urls = urlsRef.current;
@@ -95,6 +115,7 @@ export function DropTrackPreviewList({
         while (audio.firstChild) audio.removeChild(audio.firstChild);
         audio.load();
       }
+      syncDock(false);
       for (const url of urls.values()) {
         URL.revokeObjectURL(url);
       }
@@ -113,6 +134,7 @@ export function DropTrackPreviewList({
     if (playingKey === key && !audio.paused) {
       audio.pause();
       setPlayingKey(null);
+      syncDock(false);
       return;
     }
 
@@ -129,10 +151,15 @@ export function DropTrackPreviewList({
         audio.appendChild(source);
         audio.load();
       }
+      syncDock(true);
       setPlayingKey(key);
       await audio.play();
     } catch {
       setPlayingKey(null);
+      if (holdingDockRef.current) {
+        holdingDockRef.current = false;
+        void dockRef.current?.toggle();
+      }
     }
   }
 
@@ -361,9 +388,13 @@ export function DropTrackPreviewList({
       <audio
         ref={audioRef}
         className="drop-track-preview-audio"
+        data-os-dock-borrow="preview"
         preload="auto"
         playsInline
-        onEnded={() => setPlayingKey(null)}
+        onEnded={() => {
+          setPlayingKey(null);
+          syncDock(false);
+        }}
       />
     </>
   );

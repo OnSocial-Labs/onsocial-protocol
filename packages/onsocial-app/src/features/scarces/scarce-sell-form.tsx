@@ -19,6 +19,7 @@ import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-dat
 import { ScarceCommerceSummary } from '@/features/scarces/scarce-commerce-summary';
 import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
+import { scarcePlaybackSessionId } from '@/features/scarces/scarce-playback-session';
 import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
 import {
   resolveScarcePartyIds,
@@ -128,6 +129,10 @@ export function ScarceSellForm({
 
   const collectionId =
     item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
+  const playbackSessionId = scarcePlaybackSessionId({
+    collectionId,
+    tokenId: item.tokenId,
+  });
 
   useEffect(() => {
     const id = collectionId?.trim();
@@ -418,10 +423,10 @@ export function ScarceSellForm({
           {...(resolvedPlayables?.length ? { tracks: resolvedPlayables } : {})}
           poster={mediaUrl}
           commerce
-          {...(collectionId
+          {...(playbackSessionId
             ? {
                 persist: {
-                  collectionId,
+                  collectionId: playbackSessionId,
                   title,
                 },
                 creatorId: authorId,
