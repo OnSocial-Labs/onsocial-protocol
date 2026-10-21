@@ -445,6 +445,7 @@ export const SDK_METHOD_FAMILIES: SdkMethodFamily[] = [
       'buildPostSetData/buildReplySetData/buildGroupPostSetData',
       'os.execute({ type: ... })',
       'os.raw.social, os.raw.http, os.raw.execute',
+      'os.rpc.* — NEAR JSON-RPC on the same host and OnAPI key',
       'defaultBroadcast: gateway, relayer, or wallet',
     ],
     href: '/sdk/advanced-control',
