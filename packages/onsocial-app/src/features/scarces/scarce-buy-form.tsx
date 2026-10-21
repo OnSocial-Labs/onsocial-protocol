@@ -1364,7 +1364,7 @@ export function ScarceBuyForm({
               ? { priceNear: face.priceNear || priceNear }
               : {}),
             ...(face.copies != null ? { copies: face.copies } : {}),
-            remaining: face.remaining,
+            ...(face.remaining != null ? { remaining: face.remaining } : {}),
             events: [],
           });
         } else {
