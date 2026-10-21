@@ -33,26 +33,36 @@ describe('HttpClient mutation response normalization', () => {
     expect(result.txHash).toBe('alt-hash');
   });
 
-  it('marks successful writes ok when no txHash is returned', async () => {
+  it('rejects a relay response that has no transaction hash', async () => {
     const fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ status: 'accepted' }),
     });
     const http = new HttpClient({ fetch, apiKey: 'key' });
 
-    const result = await http.post<{
-      ok?: boolean;
-      status?: string;
-      raw?: unknown;
-      txHash?: string;
-    }>('/relay/delegate', {
+    await expect(
+      http.post('/relay/delegate', { signed_delegate: 'BASE64_BLOB' })
+    ).rejects.toMatchObject({
+      name: 'RelayExecutionError',
+      message: 'Transaction did not send.',
+    });
+  });
+
+  it('reads a wallet outcome hash nested on the relay body', async () => {
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          transaction_outcome: { id: 'outcome-hash' },
+        }),
+    });
+    const http = new HttpClient({ fetch, apiKey: 'key' });
+
+    const result = await http.post<{ txHash?: string }>('/relay/delegate', {
       signed_delegate: 'BASE64_BLOB',
     });
 
-    expect(result.ok).toBe(true);
-    expect(result.status).toBe('accepted');
-    expect(result.txHash).toBeUndefined();
-    expect(result.raw).toEqual({ status: 'accepted' });
+    expect(result.txHash).toBe('outcome-hash');
   });
 
   it('normalizes reward and claim endpoints without txHash', async () => {

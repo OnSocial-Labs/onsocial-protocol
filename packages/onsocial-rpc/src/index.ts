@@ -9,6 +9,11 @@ export interface NearRpcConfig {
   primaryUrl: string;
   fallbackUrl?: string;
   network?: Network;
+  /**
+   * Authorization header for the primary URL only.
+   * The fallback request stays unauthenticated. Never put this value in a URL.
+   */
+  primaryAuthorization?: string;
   /** @default 5000 */
   timeoutMs?: number;
   /** Retries per provider before failover. @default 2 */
@@ -19,18 +24,30 @@ export interface NearRpcConfig {
   circuitBreakerThreshold?: number;
   /** Half-open window in ms. @default 30000 */
   circuitBreakerWindowMs?: number;
-  onLog?: (level: 'info' | 'warn' | 'error', msg: string, meta?: Record<string, unknown>) => void;
+  onLog?: (
+    level: 'info' | 'warn' | 'error',
+    msg: string,
+    meta?: Record<string, unknown>
+  ) => void;
 }
 
 export interface NearRpcResponse<T = unknown> {
   jsonrpc: '2.0';
   id: string;
   result?: T;
-  error?: { code: number; message: string; data?: unknown; cause?: { name: string } };
+  error?: {
+    code: number;
+    message: string;
+    data?: unknown;
+    cause?: { name: string };
+  };
 }
 
 export interface NearRpc {
-  call<T = unknown>(method: string, params: unknown): Promise<NearRpcResponse<T>>;
+  call<T = unknown>(
+    method: string,
+    params: unknown
+  ): Promise<NearRpcResponse<T>>;
   getActiveUrl(): string;
   resetCircuit(): void;
 }
@@ -48,20 +65,36 @@ export const NEAR_ORG_RPC_URLS: Record<Network, string> = {
   mainnet: 'https://rpc.mainnet.near.org',
 };
 
+/**
+ * Keyed FastNear hosts. The API key is sent as `Authorization: Bearer`,
+ * not in the URL, so logs and `getActiveUrl()` stay free of the secret.
+ */
+export const KEYED_FASTNEAR_RPC_URLS: Record<Network, string> = {
+  testnet: 'https://rpc.testnet.fastnear.com',
+  mainnet: 'https://rpc.mainnet.fastnear.com',
+};
+
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+
 /** Public archival nodes for historical `block_id` / `block_hash` queries. */
 export const ARCHIVAL_RPC_URLS: Record<Network, string> = {
   testnet: 'https://archival-rpc.testnet.near.org',
   mainnet: 'https://archival-rpc.mainnet.near.org',
 };
 
-export function resolveNearArchivalRpcUrl(network: Network = 'testnet'): string {
+export function resolveNearArchivalRpcUrl(
+  network: Network = 'testnet'
+): string {
   if (typeof process !== 'undefined' && process.env?.NEAR_ARCHIVAL_RPC_URL) {
     return process.env.NEAR_ARCHIVAL_RPC_URL;
   }
   return ARCHIVAL_RPC_URLS[network];
 }
 
-export function isHistoricalBlockQuery(method: string, params: unknown): boolean {
+export function isHistoricalBlockQuery(
+  method: string,
+  params: unknown
+): boolean {
   // gas_price takes `[block_id]`. null means the tip; a height or hash is history.
   if (method === 'gas_price' && Array.isArray(params)) {
     return params[0] != null;
@@ -117,22 +150,51 @@ const LAVA_GATEWAY_BASE: Record<Network, string> = {
 };
 
 /** Build private Lava URL. Returns `undefined` when no key is provided. */
-export function buildLavaUrl(apiKey: string | undefined, network: Network): string | undefined {
+export function buildLavaUrl(
+  apiKey: string | undefined,
+  network: Network
+): string | undefined {
   if (!apiKey) return undefined;
   return `${LAVA_GATEWAY_BASE[network]}/${apiKey}`;
 }
 
 export interface ResolveOptions {
   lavaApiKey?: string;
+  fastnearApiKey?: string;
+}
+
+export function fastnearAuthorizationHeader(
+  apiKey: string | undefined
+): string | undefined {
+  const key = apiKey?.trim();
+  if (!key) return undefined;
+  return `Bearer ${key}`;
+}
+
+export function isKeyedFastNearRpcUrl(url: string): boolean {
+  try {
+    const host = new URL(url).host;
+    return (
+      host === 'rpc.testnet.fastnear.com' || host === 'rpc.mainnet.fastnear.com'
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Resolve primary RPC URL.
- * Priority: NEAR_RPC_URL env → lavaApiKey → LAVA_API_KEY env → FASTNEAR.
+ * Priority: NEAR_RPC_URL → keyed FastNear → keyed Lava → public FastNear.
+ * A missing FastNear key leaves Lava as the primary.
  */
-export function resolveNearRpcUrl(network: Network = 'testnet', opts?: ResolveOptions): string {
+export function resolveNearRpcUrl(
+  network: Network = 'testnet',
+  opts?: ResolveOptions
+): string {
   if (typeof process !== 'undefined') {
     if (process.env?.NEAR_RPC_URL) return process.env.NEAR_RPC_URL;
+    const fastnearKey = opts?.fastnearApiKey || process.env?.FASTNEAR_API_KEY;
+    if (fastnearKey?.trim()) return KEYED_FASTNEAR_RPC_URLS[network];
     const key = opts?.lavaApiKey || process.env?.LAVA_API_KEY;
     const lavaUrl = buildLavaUrl(key, network);
     if (lavaUrl) return lavaUrl;
@@ -154,8 +216,8 @@ export interface ConfiguredNearRpcUrlOptions {
 
 /**
  * Standard primary URL for OnSocial services.
- * Server: NEAR_RPC_URL → Lava (key) → FastNear.
- * Browser (default): public FastNear only.
+ * Server: NEAR_RPC_URL → keyed FastNear → Lava → public FastNear.
+ * Browser (default): public FastNear only. The server key never reaches this path.
  */
 export function resolveConfiguredNearRpcUrl(
   network: Network,
@@ -172,6 +234,7 @@ export interface ConfiguredNearRpcOptions
   network: Network;
   publicOnly?: boolean;
   lavaApiKey?: string;
+  fastnearApiKey?: string;
   primaryUrl?: string;
   fallbackUrl?: string;
 }
@@ -182,6 +245,7 @@ interface CircuitState {
   failures: number;
   lastFailure: number;
   open: boolean;
+  openWindowMs: number;
 }
 
 // --- Factory ---
@@ -201,27 +265,42 @@ export function createNearRpc(config: NearRpcConfig): NearRpc {
   } = config;
 
   const fallbackUrl = config.fallbackUrl ?? FALLBACK_RPC_URLS[network];
-  const circuit: CircuitState = { failures: 0, lastFailure: 0, open: false };
+  const primaryAuthorization = config.primaryAuthorization?.trim() || undefined;
+  const circuit: CircuitState = {
+    failures: 0,
+    lastFailure: 0,
+    open: false,
+    openWindowMs: circuitBreakerWindowMs,
+  };
 
   function isCircuitOpen(): boolean {
     if (!circuit.open) return false;
-    if (Date.now() - circuit.lastFailure > circuitBreakerWindowMs) {
+    if (Date.now() - circuit.lastFailure > circuit.openWindowMs) {
       circuit.open = false;
       circuit.failures = 0;
-      onLog('info', 'Circuit breaker half-open, retrying primary', { primaryUrl });
+      onLog('info', 'Circuit breaker half-open, retrying primary', {
+        primaryUrl,
+      });
       return false;
     }
     return true;
   }
 
-  function recordFailure(): void {
+  function recordFailure(rateLimited = false): void {
     circuit.failures++;
     circuit.lastFailure = Date.now();
-    if (circuit.failures >= circuitBreakerThreshold) {
+    if (rateLimited) {
+      circuit.failures = Math.max(circuit.failures, circuitBreakerThreshold);
+      circuit.openWindowMs = RATE_LIMIT_WINDOW_MS;
+    } else if (!circuit.open) {
+      circuit.openWindowMs = circuitBreakerWindowMs;
+    }
+    if (circuit.failures >= circuitBreakerThreshold && !circuit.open) {
       circuit.open = true;
       onLog('warn', 'Circuit breaker opened — routing to fallback', {
         failures: circuit.failures,
         fallbackUrl,
+        rateLimited,
       });
     }
   }
@@ -233,13 +312,26 @@ export function createNearRpc(config: NearRpcConfig): NearRpc {
     }
   }
 
-  async function fetchWithTimeout(url: string, body: string): Promise<Response> {
+  function headersFor(url: string): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (primaryAuthorization && url === primaryUrl) {
+      headers.Authorization = primaryAuthorization;
+    }
+    return headers;
+  }
+
+  async function fetchWithTimeout(
+    url: string,
+    body: string
+  ): Promise<Response> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       return await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headersFor(url),
         body,
         signal: controller.signal,
         // Opt out of Next.js patched fetch dedupe/cache (avoids body.tee clone bugs).
@@ -269,7 +361,7 @@ export function createNearRpc(config: NearRpcConfig): NearRpc {
   async function tryProvider(
     url: string,
     body: string,
-    retries: number,
+    retries: number
   ): Promise<NearRpcResponse> {
     let lastError: Error | null = null;
 
@@ -302,12 +394,12 @@ export function createNearRpc(config: NearRpcConfig): NearRpc {
           }
           if (isRateLimitedRpcError(code)) {
             throw new Error(
-              `RPC rate limit [${code}]: ${json.error.message || JSON.stringify(json.error)}`,
+              `RPC rate limit [${code}]: ${json.error.message || JSON.stringify(json.error)}`
             );
           }
           if (isRetryableRpcError(code)) {
             throw new Error(
-              `RPC error [${code}]: ${json.error.message || JSON.stringify(json.error)}`,
+              `RPC error [${code}]: ${json.error.message || JSON.stringify(json.error)}`
             );
           }
           return json; // non-retryable (e.g. invalid params)
@@ -320,10 +412,14 @@ export function createNearRpc(config: NearRpcConfig): NearRpc {
           break;
         }
         if (attempt < retries) {
-          onLog('warn', `Attempt ${attempt + 1}/${retries + 1} failed, retrying`, {
-            url,
-            error: lastError.message,
-          });
+          onLog(
+            'warn',
+            `Attempt ${attempt + 1}/${retries + 1} failed, retrying`,
+            {
+              url,
+              error: lastError.message,
+            }
+          );
         }
       }
     }
@@ -344,7 +440,9 @@ export function createNearRpc(config: NearRpcConfig): NearRpc {
 
     const archivalUrl = resolveNearArchivalRpcUrl(network);
     try {
-      onLog('info', 'Trying archival RPC for historical query', { archivalUrl });
+      onLog('info', 'Trying archival RPC for historical query', {
+        archivalUrl,
+      });
       const result = await tryProvider(archivalUrl, body, 1);
       if (result.error && isGarbageCollectedRpcError(result.error)) {
         return null;
@@ -356,15 +454,31 @@ export function createNearRpc(config: NearRpcConfig): NearRpc {
   }
 
   return {
-    async call<T = unknown>(method: string, params: unknown): Promise<NearRpcResponse<T>> {
-      const body = JSON.stringify({ jsonrpc: '2.0', id: 'onsocial', method, params });
+    async call<T = unknown>(
+      method: string,
+      params: unknown
+    ): Promise<NearRpcResponse<T>> {
+      const body = JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'onsocial',
+        method,
+        params,
+      });
       const historical = isHistoricalBlockQuery(method, params);
 
       if (!isCircuitOpen()) {
         try {
           const result = await tryProvider(primaryUrl, body, maxRetries);
-          if (result.error && historical && isGarbageCollectedRpcError(result.error)) {
-            const archival = await tryArchivalHistoricalQuery<T>(method, params, body);
+          if (
+            result.error &&
+            historical &&
+            isGarbageCollectedRpcError(result.error)
+          ) {
+            const archival = await tryArchivalHistoricalQuery<T>(
+              method,
+              params,
+              body
+            );
             if (archival?.result != null) {
               recordSuccess();
               return archival;
@@ -376,10 +490,14 @@ export function createNearRpc(config: NearRpcConfig): NearRpc {
           recordSuccess();
           return result as NearRpcResponse<T>;
         } catch (err) {
-          recordFailure();
           const msg = err instanceof Error ? err.message : String(err);
+          recordFailure(/RPC rate limit|HTTP 429/i.test(msg));
           if (historical && isGarbageCollectedRpcMessage(msg)) {
-            const archival = await tryArchivalHistoricalQuery<T>(method, params, body);
+            const archival = await tryArchivalHistoricalQuery<T>(
+              method,
+              params,
+              body
+            );
             if (archival?.result != null) {
               return archival;
             }
@@ -394,8 +512,16 @@ export function createNearRpc(config: NearRpcConfig): NearRpc {
 
       try {
         const result = await tryProvider(fallbackUrl, body, maxRetries);
-        if (result.error && historical && isGarbageCollectedRpcError(result.error)) {
-          const archival = await tryArchivalHistoricalQuery<T>(method, params, body);
+        if (
+          result.error &&
+          historical &&
+          isGarbageCollectedRpcError(result.error)
+        ) {
+          const archival = await tryArchivalHistoricalQuery<T>(
+            method,
+            params,
+            body
+          );
           if (archival?.result != null) {
             return archival;
           }
@@ -407,12 +533,20 @@ export function createNearRpc(config: NearRpcConfig): NearRpc {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (historical && isGarbageCollectedRpcMessage(msg)) {
-          const archival = await tryArchivalHistoricalQuery<T>(method, params, body);
+          const archival = await tryArchivalHistoricalQuery<T>(
+            method,
+            params,
+            body
+          );
           if (archival?.result != null) {
             return archival;
           }
         }
-        onLog('error', 'All RPC providers failed', { primaryUrl, fallbackUrl, error: msg });
+        onLog('error', 'All RPC providers failed', {
+          primaryUrl,
+          fallbackUrl,
+          error: msg,
+        });
         throw new Error(`All NEAR RPC providers failed. Last error: ${msg}`);
       }
     },
@@ -425,6 +559,7 @@ export function createNearRpc(config: NearRpcConfig): NearRpc {
       circuit.failures = 0;
       circuit.lastFailure = 0;
       circuit.open = false;
+      circuit.openWindowMs = circuitBreakerWindowMs;
     },
   };
 }
@@ -432,35 +567,63 @@ export function createNearRpc(config: NearRpcConfig): NearRpc {
 function resolveConfiguredNearRpcFallbackUrl(
   network: Network,
   primaryUrl: string,
-  explicitFallback?: string
+  explicitFallback?: string,
+  lavaApiKey?: string
 ): string {
   if (explicitFallback) return explicitFallback;
+  const lava = buildLavaUrl(lavaApiKey, network);
+  if (lava && lava !== primaryUrl) return lava;
   const fastNear = FALLBACK_RPC_URLS[network];
   return primaryUrl === fastNear ? NEAR_ORG_RPC_URLS[network] : fastNear;
 }
 
 /**
- * Create a NEAR RPC client with OnSocial defaults:
- * Lava (or NEAR_RPC_URL) primary on server, FastNear fallback.
+ * Create a NEAR RPC client with OnSocial defaults.
+ * Server: keyed FastNear, then Lava, then public FastNear.
+ * Browser (`publicOnly`): public FastNear only.
  */
-export function createConfiguredNearRpc(options: ConfiguredNearRpcOptions): NearRpc {
-  const { network, publicOnly, lavaApiKey, primaryUrl, fallbackUrl, ...rest } =
-    options;
-
-  const resolvedPrimary = resolveConfiguredNearRpcUrl(network, {
+export function createConfiguredNearRpc(
+  options: ConfiguredNearRpcOptions
+): NearRpc {
+  const {
+    network,
     publicOnly,
+    lavaApiKey,
+    fastnearApiKey,
+    primaryUrl,
+    fallbackUrl,
+    ...rest
+  } = options;
+
+  const resolvedPublicOnly = publicOnly ?? isBrowserNearRpcContext();
+  const resolvedPrimary = resolveConfiguredNearRpcUrl(network, {
+    publicOnly: resolvedPublicOnly,
     lavaApiKey,
     primaryUrl,
   });
+  const serverFastnearKey = resolvedPublicOnly
+    ? undefined
+    : fastnearApiKey ||
+      (typeof process !== 'undefined'
+        ? process.env?.FASTNEAR_API_KEY
+        : undefined);
+  const serverLavaKey = resolvedPublicOnly
+    ? undefined
+    : lavaApiKey ||
+      (typeof process !== 'undefined' ? process.env?.LAVA_API_KEY : undefined);
 
   return createNearRpc({
     ...rest,
     network,
     primaryUrl: resolvedPrimary,
+    primaryAuthorization: isKeyedFastNearRpcUrl(resolvedPrimary)
+      ? fastnearAuthorizationHeader(serverFastnearKey)
+      : undefined,
     fallbackUrl: resolveConfiguredNearRpcFallbackUrl(
       network,
       resolvedPrimary,
-      fallbackUrl
+      fallbackUrl,
+      serverLavaKey
     ),
   });
 }
@@ -496,7 +659,9 @@ export interface BffNearRpcClientOptions {
 }
 
 /** Browser-safe {@link NearRpc} — POSTs JSON-RPC to a server BFF route. */
-export function createBffNearRpcClient(options: BffNearRpcClientOptions): NearRpc {
+export function createBffNearRpcClient(
+  options: BffNearRpcClientOptions
+): NearRpc {
   const { endpoint, network, fetchImpl = fetch } = options;
 
   return {
@@ -605,7 +770,9 @@ export async function handleNearJsonRpcRequest(
     body.network === 'mainnet' || body.network === 'testnet'
       ? body.network
       : options.defaultNetwork;
-  const response = await options.getRpc(network).call(method, body.params ?? {});
+  const response = await options
+    .getRpc(network)
+    .call(method, body.params ?? {});
 
   return {
     jsonrpc: '2.0',
@@ -620,7 +787,9 @@ export async function handleNearJsonRpcPost(
   options: HandleNearJsonRpcOptions
 ): Promise<NearRpcResponse<unknown> | NearRpcResponse<unknown>[]> {
   if (Array.isArray(body)) {
-    return Promise.all(body.map((entry) => handleNearJsonRpcRequest(entry, options)));
+    return Promise.all(
+      body.map((entry) => handleNearJsonRpcRequest(entry, options))
+    );
   }
   return handleNearJsonRpcRequest(body, options);
 }
@@ -688,7 +857,8 @@ export function isNearRpcBffAuthorized(
   headers: NearRpcBffHeaders,
   options: NearRpcBffAuthOptions
 ): boolean {
-  const internalHeader = options.internalHeaderName ?? 'x-onsocial-internal-rpc';
+  const internalHeader =
+    options.internalHeaderName ?? 'x-onsocial-internal-rpc';
   const internalSecret = options.internalSecret?.trim();
   if (internalSecret) {
     const provided = headers.get(internalHeader)?.trim();

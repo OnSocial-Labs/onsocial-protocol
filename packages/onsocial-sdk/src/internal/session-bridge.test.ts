@@ -480,6 +480,60 @@ describe('composeAndSign — broadcast routing', () => {
     expect(firstCall[0].actions[0]?.deposit).toBe('100000000000000000000000');
   });
 
+  it('wallet target: rejects a signer result with no transaction hash', async () => {
+    const http = makeHttp({
+      '/compose/prepare/set-confirmed': {
+        action: { type: 'set_confirmed' },
+        target_account: 'core.onsocial.testnet',
+      },
+    });
+    const signer = vi.fn(async () => ({ ok: true }));
+
+    await expect(
+      composeAndSign(http, null, 'set-confirmed', {}, 'x', {
+        broadcast: { kind: 'wallet', signer },
+      })
+    ).rejects.toThrow('Transaction did not send.');
+  });
+
+  it('wallet target: reads the hash from a chain outcome', async () => {
+    const http = makeHttp({
+      '/compose/prepare/set-confirmed': {
+        action: { type: 'set_confirmed' },
+        target_account: 'core.onsocial.testnet',
+      },
+    });
+    const signer = vi.fn(async () => ({
+      transaction_outcome: { id: 'outcome-hash' },
+      status: { SuccessValue: '' },
+    }));
+
+    const result = await composeAndSign(http, null, 'set-confirmed', {}, 'x', {
+      broadcast: { kind: 'wallet', signer },
+    });
+
+    expect(result.txHash).toBe('outcome-hash');
+  });
+
+  it('wallet target: surfaces a reverted execution', async () => {
+    const http = makeHttp({
+      '/compose/prepare/set-confirmed': {
+        action: { type: 'set_confirmed' },
+        target_account: 'core.onsocial.testnet',
+      },
+    });
+    const signer = vi.fn(async () => ({
+      transaction_outcome: { id: 'failed-hash' },
+      status: { Failure: { ActionError: {} } },
+    }));
+
+    await expect(
+      composeAndSign(http, null, 'set-confirmed', {}, 'x', {
+        broadcast: { kind: 'wallet', signer },
+      })
+    ).rejects.toThrow('Transaction reverted on-chain');
+  });
+
   it('wallet target: per-call depositYocto wins over target.deposit default', async () => {
     const http = makeHttp({
       '/compose/prepare/purchase-lazy-list': {

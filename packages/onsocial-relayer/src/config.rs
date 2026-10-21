@@ -19,6 +19,11 @@ pub struct Config {
     #[serde(default = "defaults::fallback_rpc_url")]
     pub fallback_rpc_url: String,
 
+    /// Server-only FastNear key. Empty until GSM has `FASTNEAR_API_KEY`.
+    /// Sent as `Authorization: Bearer`, never placed in `rpc_url`.
+    #[serde(default = "defaults::fastnear_api_key")]
+    pub fastnear_api_key: String,
+
     #[serde(default = "defaults::relayer_account_id")]
     pub relayer_account_id: String,
 
@@ -85,6 +90,7 @@ impl Default for Config {
         Self {
             rpc_url: defaults::rpc_url(),
             fallback_rpc_url: defaults::fallback_rpc_url(),
+            fastnear_api_key: defaults::fastnear_api_key(),
             relayer_account_id: defaults::relayer_account_id(),
             instance_name: defaults::instance_name(),
             keys_path: defaults::keys_path(),
@@ -160,6 +166,66 @@ mod defaults {
         }
     }
 
+    fn keyed_fastnear_url(network: &str) -> String {
+        if network.contains("mainnet") {
+            "https://rpc.mainnet.fastnear.com".into()
+        } else {
+            "https://rpc.testnet.fastnear.com".into()
+        }
+    }
+
+    fn nonempty(value: Option<String>) -> Option<String> {
+        value.filter(|item| !item.trim().is_empty())
+    }
+
+    pub fn fastnear_api_key() -> String {
+        std::env::var("FASTNEAR_API_KEY")
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_default()
+    }
+
+    pub(super) fn resolve_primary_rpc_url(
+        network: &str,
+        explicit_url: Option<String>,
+        lava_api_key: Option<String>,
+        fastnear_api_key: Option<String>,
+    ) -> String {
+        if let Some(url) = nonempty(explicit_url) {
+            return url;
+        }
+        if nonempty(fastnear_api_key).is_some() {
+            return keyed_fastnear_url(network);
+        }
+        resolve_rpc_url(network, None, lava_api_key)
+    }
+
+    pub(super) fn resolve_fallback_rpc_url(
+        network: &str,
+        primary_url: &str,
+        explicit_url: Option<String>,
+        lava_api_key: Option<String>,
+    ) -> String {
+        if let Some(url) = nonempty(explicit_url) {
+            return url;
+        }
+        if let Some(lava) = build_lava_url(network, lava_api_key.as_deref()) {
+            if lava != primary_url {
+                return lava;
+            }
+        }
+        let public_fastnear = default_fastnear_url(network);
+        if public_fastnear != primary_url {
+            return public_fastnear;
+        }
+        if network.contains("mainnet") {
+            "https://rpc.mainnet.near.org".into()
+        } else {
+            "https://rpc.testnet.near.org".into()
+        }
+    }
+
     pub(super) fn resolve_rpc_url(
         network: &str,
         explicit_url: Option<String>,
@@ -178,16 +244,23 @@ mod defaults {
 
     pub fn rpc_url() -> String {
         let net = network();
-        resolve_rpc_url(
+        resolve_primary_rpc_url(
             &net,
             std::env::var("RELAYER_RPC_URL").ok(),
             std::env::var("LAVA_API_KEY").ok(),
+            std::env::var("FASTNEAR_API_KEY").ok(),
         )
     }
 
     pub fn fallback_rpc_url() -> String {
         let net = network();
-        resolve_rpc_url(&net, std::env::var("RELAYER_FALLBACK_RPC_URL").ok(), None)
+        let primary = rpc_url();
+        resolve_fallback_rpc_url(
+            &net,
+            &primary,
+            std::env::var("RELAYER_FALLBACK_RPC_URL").ok(),
+            std::env::var("LAVA_API_KEY").ok(),
+        )
     }
 
     pub fn relayer_account_id() -> String {
@@ -343,6 +416,36 @@ mod tests {
         let url = defaults::resolve_rpc_url("testnet", None, None);
 
         assert_eq!(url, "https://test.rpc.fastnear.com");
+    }
+
+    #[test]
+    fn keyed_fastnear_is_primary_and_lava_is_fallback() {
+        let primary = defaults::resolve_primary_rpc_url(
+            "testnet",
+            None,
+            Some("lava-key".into()),
+            Some("fastnear-key".into()),
+        );
+        let fallback =
+            defaults::resolve_fallback_rpc_url("testnet", &primary, None, Some("lava-key".into()));
+
+        assert_eq!(primary, "https://rpc.testnet.fastnear.com");
+        assert_eq!(
+            fallback,
+            "https://g.w.lavanet.xyz/gateway/neart/rpc-http/lava-key"
+        );
+        assert!(!primary.contains("fastnear-key"));
+    }
+
+    #[test]
+    fn missing_fastnear_key_keeps_lava_primary() {
+        let primary =
+            defaults::resolve_primary_rpc_url("mainnet", None, Some("lava-key".into()), None);
+
+        assert_eq!(
+            primary,
+            "https://g.w.lavanet.xyz/gateway/near/rpc-http/lava-key"
+        );
     }
 
     #[test]

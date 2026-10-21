@@ -130,6 +130,20 @@ export class HttpClient {
         return response as T;
       }
 
+      const pathname = path.split('?')[0] ?? '';
+      if (pathname.startsWith('/relay/')) {
+        const txHash = readRelayTxHash(response);
+        if (!txHash) {
+          const message =
+            typeof response.error === 'string' && response.error.trim()
+              ? response.error
+              : 'Transaction did not send.';
+          throw new RelayExecutionError(message, undefined, payload);
+        }
+        response.txHash = txHash;
+        return response as T;
+      }
+
       if (response.ok === undefined) response.ok = true;
       if (response.raw === undefined) response.raw = payload;
       return response as T;
@@ -298,6 +312,61 @@ export class OnSocialError extends Error {
     this.details = body.details;
     this.retryAfter = body.retryAfter;
   }
+}
+
+/** Hash from a relay body or a wallet execution outcome. */
+export function readRelayTxHash(value: unknown, depth = 0): string | undefined {
+  if (!value || typeof value !== 'object' || depth > 4) return undefined;
+  const record = value as Record<string, unknown>;
+  for (const key of [
+    'txHash',
+    'tx_hash',
+    'transactionHash',
+    'transaction_hash',
+    'hash',
+  ]) {
+    const item = record[key];
+    if (typeof item === 'string' && item.trim()) return item.trim();
+  }
+  const transaction = record.transaction;
+  if (transaction && typeof transaction === 'object') {
+    const hash = (transaction as Record<string, unknown>).hash;
+    if (typeof hash === 'string' && hash.trim()) return hash.trim();
+  }
+  const outcome = record.transaction_outcome;
+  if (outcome && typeof outcome === 'object') {
+    const id = (outcome as Record<string, unknown>).id;
+    if (typeof id === 'string' && id.trim()) return id.trim();
+  }
+  if (Array.isArray(record.transactions) && record.transactions[0]) {
+    const nested = readRelayTxHash(record.transactions[0], depth + 1);
+    if (nested) return nested;
+  }
+  if (record.raw && record.raw !== value) {
+    return readRelayTxHash(record.raw, depth + 1);
+  }
+  return undefined;
+}
+
+/** Chain revert carried on a wallet execution outcome. */
+export function executionFailureMessage(
+  value: unknown,
+  depth = 0
+): string | null {
+  if (!value || typeof value !== 'object' || depth > 4) return null;
+  const record = value as Record<string, unknown>;
+  const status = record.status;
+  if (status && typeof status === 'object' && 'Failure' in status) {
+    return 'Transaction reverted on-chain';
+  }
+  if (Array.isArray(record.transactions) && record.transactions[0]) {
+    const nested = executionFailureMessage(record.transactions[0], depth + 1);
+    if (nested) return nested;
+  }
+  if (record.raw && record.raw !== value) {
+    return executionFailureMessage(record.raw, depth + 1);
+  }
+  return null;
 }
 
 /**

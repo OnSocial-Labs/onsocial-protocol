@@ -19,10 +19,13 @@ const BLOCK_HASH_TTL_SECS: u64 = 30;
 
 const CIRCUIT_BREAKER_THRESHOLD: u64 = 5;
 const CIRCUIT_BREAKER_WINDOW_MS: u64 = 30_000;
+/// Lava answers 429 for the whole plan. Stay on the fallback until that quota recovers.
+const RATE_LIMIT_WINDOW_MS: u64 = 10 * 60 * 1000;
 struct CircuitState {
     failures: u64,
     last_failure_ms: u64,
     open: bool,
+    open_window_ms: u64,
 }
 
 pub struct RpcClient {
@@ -38,13 +41,23 @@ pub struct RpcClient {
 
 impl RpcClient {
     pub fn new(primary_url: &str, fallback_url: &str) -> Self {
+        Self::with_primary_bearer(primary_url, fallback_url, None)
+    }
+
+    pub fn with_primary_bearer(
+        primary_url: &str,
+        fallback_url: &str,
+        fastnear_api_key: Option<&str>,
+    ) -> Self {
+        let bearer = fastnear_bearer(primary_url, fastnear_api_key);
         info!(
             primary = primary_url,
             fallback = fallback_url,
+            fastnear_auth = bearer.is_some(),
             "RPC client initialized with failover"
         );
         Self {
-            primary: JsonRpcClient::connect(primary_url),
+            primary: connect_rpc(primary_url, bearer.as_deref()),
             fallback: JsonRpcClient::connect(fallback_url),
             primary_url: primary_url.to_string(),
             fallback_url: fallback_url.to_string(),
@@ -52,6 +65,7 @@ impl RpcClient {
                 failures: 0,
                 last_failure_ms: 0,
                 open: false,
+                open_window_ms: CIRCUIT_BREAKER_WINDOW_MS,
             }),
             total_failovers: AtomicU64::new(0),
             cached_block_hash: RwLock::new(None),
@@ -80,20 +94,21 @@ impl RpcClient {
                 }
             }
         }
-        // Slow path: RPC with failover
+        // Slow path: RPC with failover. An open circuit skips a rate-limited primary.
+        let from_primary = !self.is_circuit_open();
         let block = match self
-            .primary
+            .active()
             .call(methods::block::RpcBlockRequest {
                 block_reference: BlockReference::Finality(Finality::Final),
             })
             .await
         {
             Ok(b) => {
-                self.record_success();
+                self.record_success(from_primary);
                 b
             }
             Err(e) => {
-                self.record_failure();
+                self.record_failure(is_rate_limited_error(&e));
                 warn!(error = %e, "Primary RPC block query failed, trying fallback");
                 self.fallback
                     .call(methods::block::RpcBlockRequest {
@@ -122,13 +137,14 @@ impl RpcClient {
         let req = || methods::block::RpcBlockRequest {
             block_reference: BlockReference::Finality(Finality::Final),
         };
+        let from_primary = !self.is_circuit_open();
         let block = match self.active().call(req()).await {
             Ok(b) => {
-                self.record_success();
+                self.record_success(from_primary);
                 b
             }
             Err(e) => {
-                self.record_failure();
+                self.record_failure(is_rate_limited_error(&e));
                 warn!(error = %e, "Primary RPC latest_block failed, trying fallback");
                 self.fallback.call(req()).await.map_err(|e2| {
                     crate::Error::Rpc(format!("latest_block failed: primary={e}, fallback={e2}"))
@@ -152,13 +168,14 @@ impl RpcClient {
             },
         };
 
+        let from_primary = !self.is_circuit_open();
         let resp = match self.active().call(make_request()).await {
             Ok(r) => {
-                self.record_success();
+                self.record_success(from_primary);
                 r
             }
             Err(e) => {
-                self.record_failure();
+                self.record_failure(is_rate_limited_error(&e));
                 warn!(error = %e, "RPC access_key query failed, trying fallback");
                 self.fallback.call(make_request()).await.map_err(|e2| {
                     crate::Error::Rpc(format!(
@@ -181,6 +198,7 @@ impl RpcClient {
         &self,
         signed_tx: SignedTransaction,
     ) -> Result<FinalExecutionOutcomeView, crate::Error> {
+        let from_primary = !self.is_circuit_open();
         let client = self.active();
         match client
             .call(methods::broadcast_tx_commit::RpcBroadcastTxCommitRequest {
@@ -189,11 +207,11 @@ impl RpcClient {
             .await
         {
             Ok(outcome) => {
-                self.record_success();
+                self.record_success(from_primary);
                 Ok(outcome)
             }
             Err(e) => {
-                self.record_failure();
+                self.record_failure(is_rate_limited_error(&e));
                 warn!(error = %e, "Primary broadcast_tx_commit failed, trying fallback");
                 let outcome = self
                     .fallback
@@ -216,6 +234,7 @@ impl RpcClient {
         &self,
         signed_tx: SignedTransaction,
     ) -> Result<CryptoHash, crate::Error> {
+        let from_primary = !self.is_circuit_open();
         match self
             .active()
             .call(methods::broadcast_tx_async::RpcBroadcastTxAsyncRequest {
@@ -224,11 +243,11 @@ impl RpcClient {
             .await
         {
             Ok(hash) => {
-                self.record_success();
+                self.record_success(from_primary);
                 Ok(hash)
             }
             Err(e) => {
-                self.record_failure();
+                self.record_failure(is_rate_limited_error(&e));
                 warn!(error = %e, "Primary send_tx_async failed, trying fallback");
                 let hash = self
                     .fallback
@@ -259,13 +278,14 @@ impl RpcClient {
             wait_until: near_primitives::views::TxExecutionStatus::Final,
         };
 
+        let from_primary = !self.is_circuit_open();
         let resp = match self.active().call(make_request()).await {
             Ok(r) => {
-                self.record_success();
+                self.record_success(from_primary);
                 r
             }
             Err(e) => {
-                self.record_failure();
+                self.record_failure(is_rate_limited_error(&e));
                 self.fallback.call(make_request()).await.map_err(|e2| {
                     crate::Error::Rpc(format!("tx_status failed: primary={e}, fallback={e2}"))
                 })?
@@ -311,20 +331,30 @@ impl RpcClient {
         }
     }
 
-    fn record_success(&self) {
+    /// A fallback success must not clear the breaker. Lava can 429 while FastNear is fine.
+    fn record_success(&self, from_primary: bool) {
+        if !from_primary {
+            return;
+        }
         let mut circuit = self.circuit.lock().unwrap_or_else(|e| e.into_inner());
-        if circuit.failures > 0 {
+        if circuit.failures > 0 || circuit.open {
             info!(primary = %self.primary_url, "Primary RPC recovered");
             circuit.failures = 0;
             circuit.open = false;
         }
     }
 
-    fn record_failure(&self) {
+    fn record_failure(&self, rate_limited: bool) {
         METRICS.rpc_errors.fetch_add(1, Ordering::Relaxed);
         let mut circuit = self.circuit.lock().unwrap_or_else(|e| e.into_inner());
         circuit.failures += 1;
         circuit.last_failure_ms = now_ms();
+        if rate_limited {
+            circuit.failures = circuit.failures.max(CIRCUIT_BREAKER_THRESHOLD);
+            circuit.open_window_ms = RATE_LIMIT_WINDOW_MS;
+        } else if !circuit.open {
+            circuit.open_window_ms = CIRCUIT_BREAKER_WINDOW_MS;
+        }
         if circuit.failures >= CIRCUIT_BREAKER_THRESHOLD && !circuit.open {
             circuit.open = true;
             self.total_failovers.fetch_add(1, Ordering::Relaxed);
@@ -333,6 +363,7 @@ impl RpcClient {
             self.block_hash_stale.store(true, Ordering::Relaxed);
             warn!(
                 failures = circuit.failures,
+                rate_limited,
                 fallback = %self.fallback_url,
                 "Circuit breaker opened — routing to fallback"
             );
@@ -344,7 +375,7 @@ impl RpcClient {
         if !circuit.open {
             return false;
         }
-        if now_ms() - circuit.last_failure_ms > CIRCUIT_BREAKER_WINDOW_MS {
+        if now_ms() - circuit.last_failure_ms > circuit.open_window_ms {
             circuit.open = false;
             circuit.failures = 0;
             info!(primary = %self.primary_url, "Circuit breaker half-open, retrying primary");
@@ -371,4 +402,78 @@ fn now_ms() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64
+}
+
+fn fastnear_bearer(url: &str, api_key: Option<&str>) -> Option<String> {
+    let key = api_key.map(str::trim).filter(|key| !key.is_empty())?;
+    let keyed = url.starts_with("https://rpc.testnet.fastnear.com")
+        || url.starts_with("https://rpc.mainnet.fastnear.com");
+    if keyed {
+        Some(format!("Bearer {key}"))
+    } else {
+        None
+    }
+}
+
+fn connect_rpc(url: &str, bearer: Option<&str>) -> JsonRpcClient {
+    let client = JsonRpcClient::connect(url);
+    let Some(token) = bearer else {
+        return client;
+    };
+    match client.header(("authorization", token)) {
+        Ok(authed) => authed,
+        Err(_) => {
+            warn!("FastNear authorization header was rejected");
+            JsonRpcClient::connect(url)
+        }
+    }
+}
+
+fn is_rate_limited_error(err: &impl std::fmt::Display) -> bool {
+    let message = err.to_string();
+    let lower = message.to_ascii_lowercase();
+    message.contains("429") || lower.contains("rate limit") || lower.contains("too many requests")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rate_limit_opens_the_circuit_and_a_fallback_success_leaves_it_open() {
+        let rpc = RpcClient::new("http://primary.invalid", "http://fallback.invalid");
+        rpc.record_failure(true);
+        rpc.record_success(false);
+        assert!(rpc.is_circuit_open());
+        assert_eq!(rpc.active_url(), "http://fallback.invalid");
+        assert_eq!(rpc.failover_count(), 1);
+    }
+
+    #[test]
+    fn primary_success_closes_the_circuit() {
+        let rpc = RpcClient::new("http://primary.invalid", "http://fallback.invalid");
+        rpc.record_failure(true);
+        assert!(rpc.is_circuit_open());
+        rpc.record_success(true);
+        assert!(!rpc.is_circuit_open());
+        assert_eq!(rpc.active_url(), "http://primary.invalid");
+    }
+
+    #[test]
+    fn fastnear_key_is_a_header_on_the_keyed_host_only() {
+        assert_eq!(
+            fastnear_bearer("https://rpc.testnet.fastnear.com", Some("secret-key")).as_deref(),
+            Some("Bearer secret-key")
+        );
+        assert!(fastnear_bearer("https://test.rpc.fastnear.com", Some("secret-key")).is_none());
+        assert!(fastnear_bearer("https://rpc.testnet.fastnear.com", Some("  ")).is_none());
+    }
+
+    #[test]
+    fn rate_limit_message_is_detected() {
+        assert!(is_rate_limited_error(
+            &"HTTP 429: You've reached your RPC rate limit."
+        ));
+        assert!(!is_rate_limited_error(&"connection timed out"));
+    }
 }

@@ -29,7 +29,11 @@ pub struct AppState {
 
 impl AppState {
     pub async fn new(config: Config) -> Result<Self, crate::Error> {
-        let rpc = RpcClient::new(&config.rpc_url, &config.fallback_rpc_url);
+        let rpc = RpcClient::with_primary_bearer(
+            &config.rpc_url,
+            &config.fallback_rpc_url,
+            Some(config.fastnear_api_key.as_str()),
+        );
 
         let allowed_contracts: Vec<near_primitives::types::AccountId> = config
             .allowed_contracts

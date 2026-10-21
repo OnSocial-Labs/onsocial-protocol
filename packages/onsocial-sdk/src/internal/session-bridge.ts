@@ -1,6 +1,10 @@
 // Compose-to-delegate relay helpers.
 
-import type { HttpClient } from './http.js';
+import {
+  executionFailureMessage,
+  readRelayTxHash,
+  type HttpClient,
+} from './http.js';
 import {
   NeedsWalletConfirmationError,
   type Session,
@@ -491,16 +495,11 @@ export async function broadcastViaWalletBatch(
     actions,
   });
 
-  const txHash =
-    result?.txHash ??
-    (typeof result?.transaction === 'object'
-      ? result.transaction?.hash
-      : undefined);
-  return {
-    ...(txHash !== undefined && { txHash }),
-    ok: true,
-    raw: result,
-  };
+  const failure = executionFailureMessage(result);
+  if (failure) throw new Error(failure);
+  const txHash = readRelayTxHash(result);
+  if (!txHash) throw new Error('Transaction did not send.');
+  return { txHash, ok: true, raw: result };
 }
 
 /** Prepare a JSON compose verb without signing. */
