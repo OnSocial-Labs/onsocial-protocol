@@ -16030,7 +16030,8 @@ a.os-surface-row {
     --portfolio-summon-avatar-size: 1.35rem;
   }
 
-  /* Launcher stays centered. Play and book sit on its line, to the right, same pill. */
+  /* Idle line hugs the pill so play and book sit beside it.
+     Write mode takes the dock column, matching Home. */
   .portfolio-summon-line {
     position: relative;
     display: flex;
@@ -16038,6 +16039,10 @@ a.os-surface-row {
     justify-content: center;
     max-width: 100%;
     pointer-events: none;
+  }
+
+  .portfolio-summon-dock.is-writing .portfolio-summon-line {
+    width: 100%;
   }
 
   .portfolio-dock-marks {
