@@ -4,6 +4,7 @@ import {
   EMPTY_POST_ENGAGEMENT,
   mergeEngagementSoftUpgrade,
   pendingReactionEngagement,
+  reactionCountAfterToggle,
   type PostEngagement,
 } from '@/hooks/use-post-engagement';
 
@@ -30,6 +31,12 @@ describe('reaction confirmation', () => {
     expect(confirmedReactionEngagement(previous, false)).toEqual(
       row({ viewerReacted: false, reactionCount: 3, reactionRoll: 1 })
     );
+  });
+
+  it('rolls the same total the indexer is asked to match', () => {
+    expect(reactionCountAfterToggle(3, true)).toBe(4);
+    expect(reactionCountAfterToggle(4, false)).toBe(3);
+    expect(reactionCountAfterToggle(0, false)).toBe(0);
   });
 });
 
