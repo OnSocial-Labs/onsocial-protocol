@@ -5,6 +5,7 @@ import { postContentPath, type PostRow } from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { pollIndexConfirm } from '@/lib/index-confirm-poll';
 import { subscribePersonalQuoteConfirmed } from '@/features/scarces/drop-compose-host';
 import { postKey } from '@/lib/post-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
@@ -39,8 +40,8 @@ export interface EngagementMap {
 }
 
 /**
- * Heart moves immediately. The count stays until the chain confirms,
- * so a cancel or a failed like never flashes a number.
+ * Heart moves immediately. The count stays until the like is final and the
+ * indexer agrees, or that short wait ends, so a cancel never flashes a number.
  */
 export function pendingReactionEngagement(
   previous: PostEngagement,
@@ -52,7 +53,15 @@ export function pendingReactionEngagement(
   };
 }
 
-/** Count moves once the like is confirmed and the heart can stop pulsing. */
+/** Local like total. The indexer match and the timeout fallback both use this. */
+export function reactionCountAfterToggle(
+  count: number,
+  applied: boolean
+): number {
+  return Math.max(0, count + (applied ? 1 : -1));
+}
+
+/** Count moves once the like is settled and the heart can stop pulsing. */
 export function confirmedReactionEngagement(
   previous: PostEngagement,
   applied: boolean
@@ -60,10 +69,7 @@ export function confirmedReactionEngagement(
   return {
     ...previous,
     viewerReacted: applied,
-    reactionCount: Math.max(
-      0,
-      previous.reactionCount + (applied ? 1 : -1)
-    ),
+    reactionCount: reactionCountAfterToggle(previous.reactionCount, applied),
     reactionRoll: previous.reactionRoll + 1,
   };
 }
@@ -370,14 +376,33 @@ export function usePostEngagement(
           DEFAULT_REACTION_KIND,
           { viewer: accountId, wait: true }
         );
+        const expected = reactionCountAfterToggle(
+          previous.reactionCount,
+          applied
+        );
+        const reader = createReadOnlyOnSocialClient();
+        const indexed = await pollIndexConfirm(
+          async () => {
+            const counts = await reader.query.reactions.counts(
+              post.accountId,
+              `post/${post.postId}`
+            );
+            return counts.total ?? 0;
+          },
+          (count) => count === expected
+        );
         setEngagement((current) => {
           const live = current[key] ?? previous;
+          const confirmed = confirmedReactionEngagement(
+            { ...live, reactionCount: previous.reactionCount },
+            applied
+          );
           return {
             ...current,
-            [key]: confirmedReactionEngagement(
-              { ...live, reactionCount: previous.reactionCount },
-              applied
-            ),
+            [key]:
+              indexed === expected
+                ? { ...confirmed, reactionCount: indexed }
+                : confirmed,
           };
         });
       } catch (cause) {
