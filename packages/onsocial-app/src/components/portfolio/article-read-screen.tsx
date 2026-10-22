@@ -149,7 +149,7 @@ function hintForArticle(
 }
 
 export type ArticleReadFooterProps = {
-  /** Feed owns buy sheets. Omit to resolve listed Drop on the reader. */
+  /** Feed passes its own row. Omit to open Mint, Buy, and Bid sheets here. */
   commerce?: ReactNode;
   onReply?: () => void;
   shareExtras?: ActionDrawerItem[];

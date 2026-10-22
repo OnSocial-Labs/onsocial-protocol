@@ -306,6 +306,7 @@ function collectionRow(opts: {
   coverMedia?: string;
   extra?: Record<string, unknown>;
   series?: { id: string; title: string };
+  sourcePostPath?: string | null;
   endTime?: number | null;
   remaining?: number;
   maxRedeems?: number | null;
@@ -337,7 +338,7 @@ function collectionRow(opts: {
     description: null,
     kind: opts.kind,
     mediumKind: opts.kind,
-    sourcePostPath: null,
+    sourcePostPath: opts.sourcePostPath ?? null,
     metadataTemplate: JSON.stringify({
       title: opts.title,
       ...(opts.coverMedia ? { media: opts.coverMedia } : {}),
@@ -995,6 +996,19 @@ export function e2eWritingReaderRows() {
   ];
 }
 
+/** Night drive is a live writing drop so the reader can mint it in place. */
+export function e2eWritingDropRow() {
+  return collectionRow({
+    collectionId: 'night-essay',
+    creatorId: E2E_WRITING_ACCOUNT,
+    appId: 'alice-press',
+    title: 'Night drive',
+    kind: 'writing',
+    series: { id: 'night-roads', title: 'Night roads' },
+    sourcePostPath: `${E2E_WRITING_ACCOUNT}/post/night`,
+  });
+}
+
 /** Writing shelf fixture — distinct titles so fast search can miss on purpose. */
 export function e2eWritingShelfRows() {
   return [
@@ -1150,6 +1164,25 @@ export function resolveE2eGraphStub(opts: {
   }
   if (writingRows && isPostsCurrentQuery(opts.query)) {
     return { data: { postsCurrent: writingRows } };
+  }
+  if (writingRows && isScarcesEventsQuery(opts.query)) {
+    return { data: { scarcesEvents: [] } };
+  }
+  if (writingRows && isActiveListingsQuery(opts.query)) {
+    return { data: { scarcesActiveListings: [] } };
+  }
+  if (writingRows && isCreatorCatalogQuery(opts.query)) {
+    return { data: { scarcesCollectionsCurrent: [e2eWritingDropRow()] } };
+  }
+  if (writingRows && isCollectionCurrentQuery(opts.query)) {
+    const collectionId =
+      typeof variables.collectionId === 'string' ? variables.collectionId : '';
+    return {
+      data: {
+        scarcesCollectionsCurrent:
+          collectionId === 'night-essay' ? [e2eWritingDropRow()] : [],
+      },
+    };
   }
 
   if (parsed.hub && isAppRowQuery(opts.query)) {
