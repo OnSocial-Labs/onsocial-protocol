@@ -5,7 +5,6 @@ import {
 } from '@/features/market/owned-vault-cache';
 import {
   collectionCatalogShell,
-  collectionCoverArtChip,
   collectionCoverExpandAction,
   collectionCoverImmersive,
   collectionCoverSquare,
@@ -41,7 +40,7 @@ describe('collection page view', () => {
     );
   });
 
-  it('opens Read for writing covers even before chapters hydrate', () => {
+  it('opens the larger cover from the picture and keeps Read on the labeled action', () => {
     expect(
       collectionOpensWritingReader({ kind: 'writing', hasReadables: false })
     ).toBe(true);
@@ -51,106 +50,8 @@ describe('collection page view', () => {
     expect(
       collectionOpensWritingReader({ kind: 'art', hasReadables: true })
     ).toBe(true);
-    expect(
-      collectionCoverExpandAction({
-        kind: 'writing',
-        hasReadables: false,
-        canShowPass: false,
-        isAudio: false,
-        hasMedia: true,
-      })
-    ).toBe('read');
-    expect(
-      collectionCoverExpandAction({
-        kind: 'writing',
-        hasReadables: false,
-        canShowPass: false,
-        isAudio: false,
-        hasMedia: false,
-      })
-    ).toBe('read');
-    expect(
-      collectionCoverExpandAction({
-        kind: 'art',
-        hasReadables: false,
-        canShowPass: false,
-        isAudio: false,
-        hasMedia: true,
-      })
-    ).toBe('artwork');
-    expect(
-      collectionCoverExpandAction({
-        kind: 'audio',
-        hasReadables: false,
-        canShowPass: false,
-        isAudio: true,
-        hasPlayables: true,
-        hasMedia: true,
-      })
-    ).toBe('listen');
-    expect(
-      collectionCoverExpandAction({
-        kind: 'audio',
-        hasReadables: false,
-        canShowPass: false,
-        isAudio: true,
-        hasPlayables: false,
-        hasMedia: true,
-      })
-    ).toBe(null);
-    expect(
-      collectionCoverExpandAction({
-        kind: 'audio',
-        hasReadables: false,
-        canShowPass: false,
-        isAudio: true,
-        hasPlayables: true,
-        hasMedia: true,
-        listenOnCover: false,
-      })
-    ).toBe(null);
-    expect(
-      collectionCoverExpandAction({
-        kind: 'ticket',
-        hasReadables: false,
-        canShowPass: true,
-        isAudio: false,
-        hasMedia: true,
-      })
-    ).toBe('pass');
-    expect(
-      collectionCoverExpandAction({
-        kind: 'ticket',
-        hasReadables: false,
-        canShowPass: false,
-        isAudio: false,
-        hasMedia: true,
-      })
-    ).toBe('artwork');
-  });
-
-  it('opens the full picture from a cropped cover only', () => {
-    expect(
-      collectionCoverArtChip({ hasMedia: true, kind: 'audio' })
-    ).toBe(true);
-    expect(
-      collectionCoverArtChip({ hasMedia: true, kind: 'writing' })
-    ).toBe(true);
-    expect(
-      collectionCoverArtChip({ hasMedia: true, kind: 'video' })
-    ).toBe(true);
-    expect(collectionCoverArtChip({ hasMedia: true, kind: 'art' })).toBe(
-      false
-    );
-    expect(collectionCoverArtChip({ hasMedia: true, kind: 'ticket' })).toBe(
-      false
-    );
-    expect(
-      collectionCoverArtChip({ hasMedia: true, kind: 'membership' })
-    ).toBe(false);
-    expect(collectionCoverArtChip({ hasMedia: false, kind: 'audio' })).toBe(
-      false
-    );
+    expect(collectionCoverExpandAction({ hasMedia: true })).toBe('artwork');
+    expect(collectionCoverExpandAction({ hasMedia: false })).toBe(null);
   });
 
   it('resolves ownership to holder / visitor / unknown', () => {

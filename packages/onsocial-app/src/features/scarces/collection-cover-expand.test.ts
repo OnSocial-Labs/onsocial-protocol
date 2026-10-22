@@ -11,25 +11,23 @@ const reader = readFileSync(
 );
 
 describe('drop cover expand wiring', () => {
-  it('routes the drop cover through collectionCoverExpandAction', () => {
+  it('opens the larger cover from the picture and keeps Read and Play labeled', () => {
     expect(panel).toContain('collectionCoverExpandAction');
-    expect(panel).toContain("listenOnCover: ownership === 'visitor'");
-    expect(panel).toContain('collectionOpensWritingReader');
-    expect(panel).toContain("coverExpand === 'read'");
-    expect(panel).toContain("coverExpand === 'listen'");
-    expect(panel).toContain('collection-cover-read-hit');
-    expect(panel).toContain("'Open reader'");
-    expect(panel).toContain("'Open listen'");
-    expect(panel).toContain("'View artwork'");
-    expect(panel).toContain('collectionCoverArtChip');
-    expect(panel).toContain('ScaleUpIcon');
+    expect(panel).toContain("coverExpand === 'artwork'");
     expect(panel).toContain('View full cover');
-    expect(panel).not.toContain('collection-cover-read-hit-chip');
+    expect(panel).toContain('setMediaOverlayOpen(true)');
+    expect(panel).toContain('collectionOpensWritingReader');
+    expect(panel).toContain('openWritingRead');
+    expect(panel).toContain('>Read</OsRowAction>');
+    expect(panel).toContain('setCoverListenOpen(true)');
+    expect(panel).toContain('collectiblesPlayPath');
+    expect(panel).not.toContain('collectionCoverArtChip');
+    expect(panel).not.toContain('ScaleUpIcon');
+    expect(panel).not.toContain("'Open reader'");
+    expect(panel).not.toContain("'Open listen'");
+    expect(panel).not.toContain('listenOnCover');
     expect(panel).toContain('coverListenOpen');
     expect(panel).toContain('immersiveListen');
-    expect(panel).not.toContain(
-      'hasReadables || canShowPass || (!isAudio && Boolean(view.mediaUrl))'
-    );
   });
 
   it('yields the route SSR skeleton to loading.tsx', () => {

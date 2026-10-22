@@ -4,7 +4,6 @@ import { collectionIdFromTokenId } from '@/features/market/market-listings';
 import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
 import type { CollectiblesNowPlayingSession } from '@/contexts/collectibles-now-playing-context';
 import type { CollectionView } from '@/features/scarces/collections-data';
-import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 
 /** Art matches create-drop / wallets: inset 1×1. Audio is also square. */
 export function collectionCoverSquare(opts: {
@@ -24,27 +23,7 @@ export function collectionCoverImmersive(opts: {
   return (opts.kind ?? '').trim().toLowerCase() !== 'art';
 }
 
-/**
- * Corner control on a cropped cover. It opens the full picture only.
- * Art already fills its square and opens large from the picture. A pass
- * expands from the thumbnail inside Show pass.
- */
-export function collectionCoverArtChip(opts: {
-  hasMedia: boolean;
-  kind?: string | null;
-}): boolean {
-  if (!opts.hasMedia) return false;
-  const kind = (opts.kind ?? '').trim().toLowerCase();
-  if (kind === 'art' || isPassMediumKind(kind)) return false;
-  return true;
-}
-
-export type CollectionCoverExpandAction =
-  | 'read'
-  | 'listen'
-  | 'pass'
-  | 'artwork'
-  | null;
+export type CollectionCoverExpandAction = 'artwork' | null;
 
 /** Writing kind always opens Read — even before chapters hydrate. */
 export function collectionOpensWritingReader(opts: {
@@ -56,32 +35,13 @@ export function collectionOpensWritingReader(opts: {
 }
 
 /**
- * Drop cover hit.
- * Writing reads. A held pass opens the pass. A visitor with tracks listens.
- * Holders listen from Play on the Collectibles player, so their cover stays
- * a picture. Any other picture opens large.
+ * Drop cover hit. The picture opens the larger picture.
+ * Read, Play, and Show pass stay on the labeled actions under the cover.
  */
 export function collectionCoverExpandAction(opts: {
-  kind?: string | null;
-  hasReadables: boolean;
-  canShowPass: boolean;
-  isAudio: boolean;
-  hasPlayables?: boolean;
   hasMedia: boolean;
-  /** False once the viewer holds the drop. Defaults to a visitor listen. */
-  listenOnCover?: boolean;
 }): CollectionCoverExpandAction {
-  if (collectionOpensWritingReader(opts)) return 'read';
-  if (opts.canShowPass) return 'pass';
-  if (
-    opts.isAudio &&
-    (opts.hasPlayables ?? false) &&
-    opts.listenOnCover !== false
-  ) {
-    return 'listen';
-  }
-  if (!opts.isAudio && opts.hasMedia) return 'artwork';
-  return null;
+  return opts.hasMedia ? 'artwork' : null;
 }
 
 /**
