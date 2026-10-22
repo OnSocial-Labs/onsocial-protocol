@@ -30,7 +30,10 @@ export function PortfolioWritingArticleCommerce({ post }: { post: PostRow }) {
   const [bidOpen, setBidOpen] = useState(false);
   const [sellOpen, setSellOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
-  const [owned, setOwned] = useState<OwnedScarceItem | null>(null);
+  const [ownedState, setOwnedState] = useState<{
+    key: string;
+    item: OwnedScarceItem | null;
+  } | null>(null);
   const [ownedTick, setOwnedTick] = useState(0);
 
   const collectionId =
@@ -38,12 +41,13 @@ export function PortfolioWritingArticleCommerce({ post }: { post: PostRow }) {
   const tokenId = embed?.tokenId?.trim() || '';
   const sourcePostPath = `${post.accountId}/post/${post.postId}`;
   const status = embed?.status ?? 'none';
+  const ownershipKey =
+    isConnected && viewerId && status !== 'none'
+      ? `${viewerId}|${sourcePostPath}|${tokenId}|${collectionId}|${ownedTick}`
+      : null;
 
   useEffect(() => {
-    if (!isConnected || !viewerId || status === 'none') {
-      setOwned(null);
-      return;
-    }
+    if (!ownershipKey || !viewerId) return;
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       return;
     }
@@ -60,23 +64,18 @@ export function PortfolioWritingArticleCommerce({ post }: { post: PostRow }) {
         if (!item) {
           item = await fetchOwnedScarceForSourcePost(viewerId, sourcePostPath);
         }
-        if (!cancelled) setOwned(item);
+        if (!cancelled) setOwnedState({ key: ownershipKey, item });
       } catch {
-        if (!cancelled) setOwned(null);
+        if (!cancelled) setOwnedState({ key: ownershipKey, item: null });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [
-    collectionId,
-    isConnected,
-    ownedTick,
-    sourcePostPath,
-    status,
-    tokenId,
-    viewerId,
-  ]);
+  }, [collectionId, ownershipKey, sourcePostPath, tokenId, viewerId]);
+
+  const owned =
+    ownershipKey && ownedState?.key === ownershipKey ? ownedState.item : null;
 
   if (!embed || embed.status === 'none') {
     return null;
