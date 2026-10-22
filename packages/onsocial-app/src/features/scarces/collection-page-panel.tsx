@@ -491,7 +491,9 @@ export function CollectionPagePanel({
       router.push(href);
       return;
     }
-    setWritingReadOpen(true);
+    queueMicrotask(() => {
+      setWritingReadOpen(true);
+    });
   }, [
     collectionId,
     router,

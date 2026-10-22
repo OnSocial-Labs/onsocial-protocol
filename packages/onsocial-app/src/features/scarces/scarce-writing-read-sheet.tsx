@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -97,7 +98,9 @@ export function WritingReadDocument({
   const [fetchedPublishedAt, setFetchedPublishedAt] = useState<number | null>(
     null
   );
-  const [readLabel, setReadLabel] = useState<string | null>(null);
+  const [fetchedReadLabel, setFetchedReadLabel] = useState<string | null>(
+    null
+  );
   const authorId = creatorId?.trim() || '';
   const authorProfiles = usePostAuthorProfiles(authorId ? [authorId] : []);
   const authorProfile = authorId ? authorProfiles[authorId] : undefined;
@@ -109,7 +112,7 @@ export function WritingReadDocument({
     setWasOpen(open);
     if (open) {
       setCoverOpen(false);
-      setReadLabel(null);
+      setFetchedReadLabel(null);
       setFetchedPublishedAt(null);
     }
   }
@@ -135,25 +138,34 @@ export function WritingReadDocument({
     };
   }, [open, issuedAt, collectionId]);
 
+  const inlineChapterText = useMemo(
+    () =>
+      readables
+        .map((chapter) => chapter.text?.trim() || '')
+        .filter(Boolean),
+    [readables]
+  );
+  const pendingChapters = useMemo(
+    () =>
+      readables.filter(
+        (chapter) =>
+          !chapter.text?.trim() &&
+          Boolean(chapter.url) &&
+          !isWritingPdfMime(chapter.mime, chapter.title)
+      ),
+    [readables]
+  );
+  const inlineReadLabel =
+    open && canRead && pendingChapters.length === 0
+      ? formatWritingReadLabel(inlineChapterText.join('\n\n'))
+      : null;
+
   useEffect(() => {
-    if (!open || !canRead) return;
+    if (!open || !canRead || pendingChapters.length === 0) return;
     let cancelled = false;
-    const inline = readables
-      .map((chapter) => chapter.text?.trim() || '')
-      .filter(Boolean);
-    const pending = readables.filter(
-      (chapter) =>
-        !chapter.text?.trim() &&
-        Boolean(chapter.url) &&
-        !isWritingPdfMime(chapter.mime, chapter.title)
-    );
-    if (pending.length === 0) {
-      setReadLabel(formatWritingReadLabel(inline.join('\n\n')));
-      return;
-    }
     void (async () => {
-      const chunks = [...inline];
-      for (const chapter of pending) {
+      const chunks = [...inlineChapterText];
+      for (const chapter of pendingChapters) {
         if (cancelled) return;
         if (!chapter.url) continue;
         try {
@@ -164,12 +176,16 @@ export function WritingReadDocument({
           /* a missing chapter does not invent a time */
         }
       }
-      if (!cancelled) setReadLabel(formatWritingReadLabel(chunks.join('\n\n')));
+      if (!cancelled) {
+        setFetchedReadLabel(formatWritingReadLabel(chunks.join('\n\n')));
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, canRead, readables]);
+  }, [open, canRead, pendingChapters, inlineChapterText]);
+
+  const readLabel = inlineReadLabel ?? fetchedReadLabel;
 
   const workTitle = visibleWorkTitle(title) || readables[0]?.title?.trim() || '';
   const dialogName = workTitle || authorName || 'Writing';

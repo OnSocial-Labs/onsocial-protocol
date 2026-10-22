@@ -32,6 +32,7 @@ import {
 
 /** First owned page for the drawer preview — full vault is PanelPage collectibles. */
 const PAGE_DRAWER_COLLECTION_FETCH = 24;
+const EMPTY_CREATOR_FACES = new Map<string, CollectionCreatorFace>();
 
 interface CollectionState {
   items: PortfolioHoldingPeek[];
@@ -82,9 +83,10 @@ export function PageDrawerCollectionList({
     null
   );
   const [transferOpen, setTransferOpen] = useState(false);
-  const [creatorFaces, setCreatorFaces] = useState<
-    Map<string, CollectionCreatorFace>
-  >(() => new Map());
+  const [creatorFaceLoad, setCreatorFaceLoad] = useState<{
+    key: string;
+    faces: Map<string, CollectionCreatorFace>;
+  } | null>(null);
 
   const refreshOwned = useCallback(() => {
     void fetchOwnedScarcesPage(pageAccountId, {
@@ -140,21 +142,23 @@ export function PageDrawerCollectionList({
   }, [state.items]);
 
   useEffect(() => {
-    if (!creatorIdsKey) {
-      setCreatorFaces(new Map());
-      return;
-    }
+    if (!creatorIdsKey) return;
     let cancelled = false;
     void fetchCollectionCreatorFaces(
       createReadOnlyOnSocialClient(),
       creatorIdsKey.split('|')
     ).then((faces) => {
-      if (!cancelled) setCreatorFaces(faces);
+      if (!cancelled) setCreatorFaceLoad({ key: creatorIdsKey, faces });
     });
     return () => {
       cancelled = true;
     };
   }, [creatorIdsKey]);
+
+  const creatorFaces =
+    creatorIdsKey && creatorFaceLoad?.key === creatorIdsKey
+      ? creatorFaceLoad.faces
+      : EMPTY_CREATOR_FACES;
 
   const ownedByToken = useMemo(() => {
     const map = new Map<string, OwnedScarceItem>();
