@@ -1,0 +1,9 @@
+[Unit]
+Description=Build or stage the next testnet nearcore release
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/nearcore-upgrade
+# The compile itself is backgrounded. This job only starts it.
+TimeoutStartSec=90

@@ -1,0 +1,13 @@
+[Unit]
+Description=Publish the node RPC on the Docker bridge only
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/sbin/onsocial-rpc-bridge 172.18.0.1 3030 127.0.0.1 3030
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

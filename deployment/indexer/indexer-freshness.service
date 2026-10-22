@@ -1,0 +1,10 @@
+[Unit]
+Description=Check that the OnSocial indexer is still advancing
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/indexer-freshness
+# A restart of the indexer waits out its stop timeout. This check only
+# schedules that restart, so it should return well inside this bound.
+TimeoutStartSec=60

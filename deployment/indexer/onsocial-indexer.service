@@ -2,6 +2,11 @@
 Description=OnSocial indexer (embedded NEAR node)
 After=network-online.target indexer-db-tunnel.service
 Requires=indexer-db-tunnel.service
+# A wedged process is restarted by indexer-freshness.timer. Three starts in
+# an hour is the budget; after that systemd refuses another start so a poison
+# block cannot boot-loop RocksDB. The timer records the same stop.
+StartLimitIntervalSec=3600
+StartLimitBurst=3
 
 [Service]
 Type=simple
