@@ -29,6 +29,7 @@ import { dataRouter } from './routes/data.js';
 import { intentsRouter } from './routes/intents.js';
 import { rpcRouter } from './routes/rpc.js';
 import { storageRouter } from './services/storage/index.js';
+import { loadLiveHealth } from './services/live-health-probe.js';
 
 const app = express();
 const revolutBilling = validateRevolutBillingConfig();
@@ -108,6 +109,14 @@ app.get('/health/ready', async (_req, res) => {
     status: allOk ? 'ready' : 'degraded',
     checks,
   });
+});
+
+// Public chain pulse. No key, no node address, no provider URL.
+// `rpc.ms` is how long the gateway waited for our node, not the visitor's ping.
+app.get('/health/live', async (_req, res) => {
+  const body = await loadLiveHealth();
+  res.set('Cache-Control', 'public, max-age=10');
+  res.json(body);
 });
 
 // Auth middleware (parses JWT, attaches to req.auth)

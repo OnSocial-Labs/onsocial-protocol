@@ -108,10 +108,74 @@
   animation: support-heart-pop 0.5s ease-out;
 }
 
+@keyframes portal-live-tick {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+    opacity: 0.4;
+  }
+
+  45% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.portal-live-tick {
+  height: 10px;
+  transform-origin: bottom;
+}
+
+.portal-live-tick-run {
+  animation: portal-live-tick 1.2s ease-in-out infinite;
+}
+
+.portal-live-tick-catching {
+  animation-duration: 1.8s;
+}
+
+@keyframes portal-rpc-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.portal-rpc-pulse {
+  animation: portal-rpc-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes portal-live-ms {
+  from {
+    opacity: 0.35;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.portal-live-ms {
+  animation: portal-live-ms 0.35s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .support-ring-burst,
-  .support-heart-pop {
+  .support-heart-pop,
+  .portal-live-tick-run,
+  .portal-rpc-pulse,
+  .portal-live-ms {
     animation: none;
+  }
+
+  .portal-live-tick-run,
+  .portal-rpc-pulse {
+    opacity: 1;
+    transform: none;
   }
 }
 
