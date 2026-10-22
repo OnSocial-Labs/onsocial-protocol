@@ -88,7 +88,10 @@ test.describe('collection drop page', () => {
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Open listen' })
-    ).toBeVisible();
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'View full cover' })
+    ).toHaveCount(0);
     await expect(page.locator('.drops-discovery-lead')).toHaveText('by');
     await expect(page.locator('.drops-discovery-by')).toHaveText('Alice');
     await expect(page.locator('.drops-discovery-sub')).toHaveText(
@@ -121,9 +124,12 @@ test.describe('collection drop page', () => {
       ).toHaveCount(0);
       await expect(
         page.getByRole('button', { name: 'Open reader' })
-      ).toBeVisible();
+      ).toHaveCount(0);
       await expect(
         page.getByRole('button', { name: 'View artwork' })
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole('button', { name: 'View full cover' })
       ).toHaveCount(0);
       await read.click();
       const sheet = page.locator('.scarce-read-slide');
@@ -161,67 +167,73 @@ test.describe('collection drop page', () => {
       expect(insets?.slideParentIsCard).toBe(true);
     });
 
-    test('visitor writing cover opens the reader, not artwork zoom', async ({
+    test('visitor writing cover opens the larger picture, and Read opens the reader', async ({
       page,
     }) => {
-      await setE2eGraphDrop(page, 'default');
-      await stubCollectionPageGraph(page);
+      await setE2eGraphDrops(page, 'covers');
       await gotoApp(page, '/collection/chapter-one');
 
       await expectCollectionPageSettled(page);
+      const cover = page.getByRole('region', { name: 'Drop cover' });
+      const openCover = cover.getByRole('button', { name: 'View full cover' });
+      await expect(openCover).toBeVisible();
+      await expect(
+        cover.getByRole('button', { name: 'Open reader' })
+      ).toHaveCount(0);
       await expect(
         page.getByRole('button', { name: 'View artwork' })
       ).toHaveCount(0);
-      const cover = page.getByRole('region', { name: 'Drop cover' });
-      const openReader = cover.getByRole('button', { name: 'Open reader' });
-      await expect(openReader).toBeVisible();
+      const coverBox = await cover.locator('.collection-cover').boundingBox();
+      const hitBox = await openCover.boundingBox();
+      expect(coverBox).toBeTruthy();
+      expect(hitBox).toBeTruthy();
+      expect(hitBox!.width).toBeGreaterThan(coverBox!.width * 0.9);
+      expect(hitBox!.height).toBeGreaterThan(coverBox!.height * 0.9);
+
+      await dismissNextDevOverlay(page);
+      await openCover.click({ force: true });
+      await expect(page.locator('.drop-art-page-sheet-panel')).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Close preview' })
+      ).toBeVisible();
+      await expect(page.locator('.scarce-read-slide')).toHaveCount(0);
+      await page.getByRole('button', { name: 'Close preview' }).click();
+      await expect(page.locator('.drop-art-page-sheet-panel')).toHaveCount(0);
+
+      const read = page.getByRole('button', { name: 'Read', exact: true });
+      await read.click();
       const sheet = page.locator('.scarce-read-slide');
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        await dismissNextDevOverlay(page);
-        await openReader.click({ force: true });
-        try {
-          await expect(sheet).toBeVisible({ timeout: 8_000 });
-          await expect(sheet).toHaveClass(/is-open/);
-          await expect(
-            sheet.locator('.collection-writing-work-title')
-          ).toBeInViewport();
-          await expect
-            .poll(async () =>
-              sheet.evaluate((el) => {
-                const t = getComputedStyle(el).transform;
-                return (
-                  t === 'none' ||
-                  /^matrix\(1,\s*0,\s*0,\s*1,\s*0(\.0+)?,\s*0(\.0+)?\)$/.test(t)
-                );
-              })
-            )
-            .toBe(true);
-          break;
-        } catch (error) {
-          if (attempt === 1) throw error;
-        }
-      }
-      await expect(sheet.locator('.os-media-face-title')).toHaveCount(0);
+      await expect(sheet).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+      await expect(sheet).toHaveClass(/is-open/);
       await expect(sheet.locator('.collection-writing-work-title')).toHaveText(
         'Chapter One'
       );
-      await expect(page.locator('.drop-art-page-sheet-panel')).toHaveCount(0);
     });
   });
 
-  test('cropped cover opens the full picture from the corner', async ({
-    page,
-  }) => {
+  test('pictured cover opens the larger picture', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await setE2eGraphDrops(page, 'covers');
     await gotoApp(page, '/collection/night-drive');
     await expectCollectionPageSettled(page);
-    const chip = page.getByRole('button', { name: 'View full cover' });
-    await expect(chip).toBeVisible();
+    const cover = page.getByRole('region', { name: 'Drop cover' });
+    const openCover = cover.getByRole('button', { name: 'View full cover' });
+    await expect(openCover).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Open listen' })
+    ).toHaveCount(0);
+    await expect(
+      page
+        .locator('.collection-use-actions')
+        .getByRole('button', { name: 'Play', exact: true })
     ).toBeVisible();
-    await chip.click();
+    const coverBox = await cover.locator('.collection-cover').boundingBox();
+    const hitBox = await openCover.boundingBox();
+    expect(coverBox).toBeTruthy();
+    expect(hitBox).toBeTruthy();
+    expect(hitBox!.width).toBeGreaterThan(coverBox!.width * 0.9);
+    expect(hitBox!.height).toBeGreaterThan(coverBox!.height * 0.9);
+    await openCover.click();
     await expect(page.locator('.drop-art-page-sheet-panel')).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Close preview' })
@@ -234,12 +246,15 @@ test.describe('collection drop page', () => {
 
     await gotoApp(page, '/collection/quiet-print');
     await expectCollectionPageSettled(page);
-    await expect(
-      page.getByRole('button', { name: 'View full cover' })
-    ).toHaveCount(0);
+    const artCover = page
+      .getByRole('region', { name: 'Drop cover' })
+      .getByRole('button', { name: 'View full cover' });
+    await expect(artCover).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'View artwork' })
-    ).toBeVisible();
+    ).toHaveCount(0);
+    await artCover.click();
+    await expect(page.locator('.drop-art-page-sheet-panel')).toBeVisible();
   });
 
   test('held audio drop puts Play above the product row', async ({ page }) => {

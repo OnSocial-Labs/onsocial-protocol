@@ -19,7 +19,6 @@ import {
   HeartIcon,
   BookmarkFillIcon,
   BookmarkIcon,
-  ScaleUpIcon,
   ShareIcon,
   OsIconAction,
   ShopFillIcon,
@@ -55,7 +54,6 @@ import {
 import { CollectionOwnerManageMenu } from '@/features/scarces/collection-owner-manage-menu';
 import {
   collectionCatalogShell,
-  collectionCoverArtChip,
   collectionCoverExpandAction,
   collectionCoverImmersive,
   collectionCoverSquare,
@@ -948,17 +946,7 @@ export function CollectionPagePanel({
   const canShowPass =
     isPassKind && holdsEdition === true && Boolean(ownedPassTokenId);
   const coverExpand = collectionCoverExpandAction({
-    kind: view.kind,
-    hasReadables,
-    canShowPass,
-    isAudio,
-    hasPlayables,
     hasMedia: Boolean(view.mediaUrl),
-    listenOnCover: ownership === 'visitor',
-  });
-  const showCoverArtChip = collectionCoverArtChip({
-    hasMedia: Boolean(view.mediaUrl),
-    kind: view.kind,
   });
   const passActionLabel = holdingsActionLabel(mediumKind);
   const showCommerceMeter = collectionShowCommerceMeter({
@@ -1071,42 +1059,13 @@ export function CollectionPagePanel({
               : {})}
           >
             {view.mediaUrl ? <img src={view.mediaUrl} alt="" /> : null}
-            {coverExpand ? (
+            {coverExpand === 'artwork' ? (
               <button
                 type="button"
                 className="scarce-clip-cover-expand collection-cover-read-expand collection-cover-read-hit"
-                aria-label={
-                  coverExpand === 'read'
-                    ? 'Open reader'
-                    : coverExpand === 'listen'
-                      ? 'Open listen'
-                      : coverExpand === 'pass'
-                        ? passActionLabel
-                        : 'View artwork'
-                }
-                onClick={
-                  coverExpand === 'read'
-                    ? openWritingRead
-                    : coverExpand === 'listen'
-                      ? () => setCoverListenOpen(true)
-                      : coverExpand === 'pass'
-                        ? openOwnedPass
-                        : () => setMediaOverlayOpen(true)
-                }
-              />
-            ) : null}
-            {showCoverArtChip ? (
-              <button
-                type="button"
-                className="scarce-clip-cover-expand collection-cover-art-expand"
                 aria-label="View full cover"
                 onClick={() => setMediaOverlayOpen(true)}
-              >
-                <ScaleUpIcon
-                  className="scarce-clip-cover-expand-icon"
-                  aria-hidden
-                />
-              </button>
+              />
             ) : null}
           </div>
 
