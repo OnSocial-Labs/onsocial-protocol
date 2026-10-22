@@ -56,14 +56,14 @@ describe('article reader commerce', () => {
     );
   });
 
-  it('keeps Drop, Series, Hub, and Market as navigation', () => {
+  it('keeps Drop, Hub, and Market as navigation', () => {
     expect(cta).toContain("label: 'Drop'");
-    expect(cta).toContain("label: embed.seriesTitle?.trim() || 'Series'");
     expect(cta).toContain("label: 'Hub'");
     expect(cta).toContain("label: 'Market'");
     expect(cta).toContain('Open Drop');
     expect(cta).toContain('collectionPath(collectionId)');
-    expect(cta).toContain('seriesPagePath');
     expect(cta).toContain('marketCreatorPath');
+    expect(cta).not.toContain('seriesPagePath');
+    expect(cta).not.toContain("label: embed.seriesTitle?.trim() || 'Series'");
   });
 });

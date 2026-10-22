@@ -14,7 +14,6 @@ import {
   collectionPath,
   marketAppPath,
   marketCreatorPath,
-  seriesPagePath,
 } from '@/lib/app-routes';
 
 interface PostScarceCtaProps {
@@ -117,16 +116,10 @@ function commerceLinks(
   const collectionId =
     embed.collectionId?.trim() || embed.latest?.collectionId?.trim();
   const appId = embed.appId?.trim() || embed.latest?.appId?.trim();
-  const seriesId = embed.seriesId?.trim();
   // Drop link only for real collections — never invent one for lazy listings.
+  // Series stays on the drop page, under the creator.
   if (collectionId) {
     links.push({ href: collectionPath(collectionId), label: 'Drop' });
-  }
-  if (seriesId && authorAccountId?.trim()) {
-    links.push({
-      href: seriesPagePath(authorAccountId, seriesId),
-      label: embed.seriesTitle?.trim() || 'Series',
-    });
   }
   if (appId) {
     links.push({ href: appPath(appId), label: 'Hub' });

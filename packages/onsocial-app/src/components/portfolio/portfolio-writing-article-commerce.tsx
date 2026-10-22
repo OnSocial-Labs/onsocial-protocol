@@ -21,7 +21,7 @@ import { accountIdsEqual } from '@/lib/account-match';
 
 /**
  * Article reader commerce. Mint, Buy, and Bid open their sheets above the
- * reader. Drop, Series, Hub, and Market stay links inside the row.
+ * reader. Drop, Hub, and Market stay links inside the row. Series stays on the drop.
  */
 export function PortfolioWritingArticleCommerce({ post }: { post: PostRow }) {
   const { accountId: viewerId, isConnected } = useAppWallet();

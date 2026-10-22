@@ -21,10 +21,7 @@ test.describe('article reader commerce', () => {
       'href',
       '/collection/night-essay'
     );
-    await expect(page.getByRole('link', { name: 'Night roads' })).toHaveAttribute(
-      'href',
-      `/series/${ACCOUNT}/night-roads`
-    );
+    await expect(page.getByRole('link', { name: 'Night roads' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Hub' })).toHaveAttribute(
       'href',
       '/apps/alice-press'
@@ -43,5 +40,9 @@ test.describe('article reader commerce', () => {
     await expect(page).toHaveURL(/\/collection\/night-essay\/?$/);
     await expect(page.getByRole('dialog', { name: 'Mint' })).toHaveCount(0);
     await expect(page.locator('.collection-title')).toHaveText('Night drive');
+    await expect(page.getByRole('link', { name: 'Night roads' })).toHaveAttribute(
+      'href',
+      `/series/${ACCOUNT}/night-roads`
+    );
   });
 });
