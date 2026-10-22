@@ -119,7 +119,7 @@ test.describe('collectibles shell', () => {
     await expect(chapterRow).not.toContainText('No.');
     await expect(chapterRow).not.toContainText('@alice.near');
     await expect(
-      chapterRow.getByRole('link', { name: /Read Chapter One/ })
+      chapterRow.getByRole('button', { name: /Read Chapter One/ })
     ).toBeVisible();
     const aliceHeading = page.locator('#collectibles-from-alice-near');
     const bobHeading = page.locator('#collectibles-from-bob-near');

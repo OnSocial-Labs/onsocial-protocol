@@ -142,10 +142,10 @@ test.describe('drops discovery', () => {
 
     await read.click();
     await expect(
-      page.getByRole('button', { name: 'Back from reader' })
+      page.getByRole('button', { name: 'Back from article' })
     ).toBeVisible();
     await expect(page).toHaveURL(/\/drops(?:\?|$)/);
-    await page.getByRole('button', { name: 'Back from reader' }).click();
+    await page.getByRole('button', { name: 'Back from article' }).click();
     await expect(read).toBeVisible();
 
     await view.click();

@@ -132,10 +132,13 @@ test.describe('collection drop page', () => {
         page.getByRole('button', { name: 'View full cover' })
       ).toHaveCount(0);
       await read.click();
-      const sheet = page.locator('.scarce-read-slide');
+      const sheet = page.locator('.feed-article-slide');
       await expect(sheet).toBeVisible({
         timeout: E2E_CHROME_TIMEOUT_MS,
       });
+      await expect(
+        sheet.locator('.portfolio-writing-article-title')
+      ).toHaveText('Chapter One');
       await expect(
         sheet.locator('.os-sheet-footer').getByRole('button', {
           name: 'Connect',
@@ -145,26 +148,21 @@ test.describe('collection drop page', () => {
       await expect(page.getByText('Connect wallet')).toHaveCount(0);
       await expect(page.getByText('Manuscript')).toHaveCount(0);
       const insets = await sheet.evaluate((root) => {
-        const title = root.querySelector('.collection-writing-work-title');
-        const readCol = root.querySelector('.scarce-writing-read');
-        if (!title || !readCol) return null;
+        const title = root.querySelector('.portfolio-writing-article-title');
+        const progress = root.querySelector('.article-read-progress');
+        if (!title || !progress) return null;
         return {
           viewport: window.innerWidth,
-          titleX: title.getBoundingClientRect().x,
-          readPad: Number.parseFloat(getComputedStyle(readCol).paddingLeft),
-          progressPosition: getComputedStyle(
-            root.querySelector('.scarce-writing-read-progress') ?? root
-          ).position,
-          slideParentIsCard: Boolean(
-            root.parentElement?.classList.contains('app-surface')
-          ),
+          progressPosition: getComputedStyle(progress).position,
+          slideIsSurface: root.classList.contains('app-surface'),
+          slideOpen: root.classList.contains('is-open'),
         };
       });
       expect(insets).toBeTruthy();
       expect(insets?.viewport).toBe(390);
-      expect(insets?.readPad).toBeCloseTo(16, 0);
       expect(insets?.progressPosition).toBe('sticky');
-      expect(insets?.slideParentIsCard).toBe(true);
+      expect(insets?.slideIsSurface).toBe(true);
+      expect(insets?.slideOpen).toBe(true);
     });
 
     test('visitor writing cover opens the larger picture, and Read opens the reader', async ({
@@ -196,16 +194,16 @@ test.describe('collection drop page', () => {
       await expect(
         page.getByRole('button', { name: 'Close preview' })
       ).toBeVisible();
-      await expect(page.locator('.scarce-read-slide')).toHaveCount(0);
+      await expect(page.locator('.feed-article-slide')).toHaveCount(0);
       await page.getByRole('button', { name: 'Close preview' }).click();
       await expect(page.locator('.drop-art-page-sheet-panel')).toHaveCount(0);
 
       const read = page.getByRole('button', { name: 'Read', exact: true });
       await read.click();
-      const sheet = page.locator('.scarce-read-slide');
+      const sheet = page.locator('.feed-article-slide');
       await expect(sheet).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
       await expect(sheet).toHaveClass(/is-open/);
-      await expect(sheet.locator('.collection-writing-work-title')).toHaveText(
+      await expect(sheet.locator('.portfolio-writing-article-title')).toHaveText(
         'Chapter One'
       );
     });
