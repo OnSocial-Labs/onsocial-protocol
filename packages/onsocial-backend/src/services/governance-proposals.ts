@@ -1,4 +1,5 @@
 import { config } from '../config/index.js';
+import { getBackendNearRpc } from './near-rpc-client.js';
 
 const SOCIAL_DECIMALS = 18;
 const DEFAULT_FUNCTION_CALL_GAS = '250000000000000';
@@ -243,34 +244,24 @@ export function buildRegisterAppGovernanceProposal({
 }
 
 export async function isRewardsAppRegistered(appId: string): Promise<boolean> {
-  const response = await fetch(config.nearRpcUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 'onsocial-governance-activation',
-      method: 'query',
-      params: {
-        request_type: 'call_function',
-        finality: 'final',
-        account_id: config.rewardsContract,
-        method_name: 'get_app_config',
-        args_base64: Buffer.from(
-          JSON.stringify({ app_id: appId }),
-          'utf8'
-        ).toString('base64'),
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to query rewards contract');
-  }
-
-  const body = (await response.json()) as {
+  let body: {
     result?: { result?: number[] };
     error?: { message?: string };
   };
+  try {
+    body = await getBackendNearRpc().call<{ result?: number[] }>('query', {
+      request_type: 'call_function',
+      finality: 'final',
+      account_id: config.rewardsContract,
+      method_name: 'get_app_config',
+      args_base64: Buffer.from(
+        JSON.stringify({ app_id: appId }),
+        'utf8'
+      ).toString('base64'),
+    });
+  } catch {
+    throw new Error('Failed to query rewards contract');
+  }
 
   if (body.error) {
     return false;

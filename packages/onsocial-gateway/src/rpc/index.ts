@@ -18,14 +18,16 @@ const network = (config.nearNetwork as Network) || 'testnet';
 /**
  * Shared NEAR RPC client for the gateway process.
  *
- * Primary:   NEAR_RPC_URL when set (the private node), otherwise keyed FastNear
- *            when FASTNEAR_API_KEY is set, otherwise Lava.
- * Secondary: the other provider, then public FastNear. A pinned historical
- *            block fails over to archival.
+ * Order: private node when NEAR_RPC_URL is set, then keyed FastNear when
+ * FASTNEAR_API_KEY is set, then Lava, then public FastNear, then NEAR.org.
+ * A healthy call stops at the first provider that answers. After repeated
+ * failures the circuit stays on the backup. A pinned historical block that
+ * this node has pruned fails over to archival.
  */
 export const nearRpc: NearRpc = createConfiguredNearRpc({
   network,
   lavaApiKey: config.lavaApiKey,
+  fastnearApiKey: config.fastnearApiKey,
   primaryUrl: config.nearRpcUrl,
   publicOnly: false,
   onLog: (

@@ -186,7 +186,10 @@ export const config = {
   nearNetwork: process.env.NEAR_NETWORK || 'testnet',
   nearRpcUrl: resolveNearRpcUrl(
     (process.env.NEAR_NETWORK || 'testnet') as Network,
-    { lavaApiKey: env('LAVA_API_KEY') }
+    {
+      lavaApiKey: env('LAVA_API_KEY'),
+      fastnearApiKey: env('FASTNEAR_API_KEY'),
+    }
   ),
   socialTokenContract:
     process.env.SOCIAL_TOKEN_CONTRACT ||
@@ -214,6 +217,8 @@ export const config = {
 
   // Lava RPC — private endpoint key, auto-pulled from GSM in dev
   lavaApiKey: env('LAVA_API_KEY'),
+  /** FastNear bearer token. Stays on the server; never sent to the browser. */
+  fastnearApiKey: env('FASTNEAR_API_KEY'),
 
   // Nearblocks — optional API key for higher limits
   nearblocksApiUrl:

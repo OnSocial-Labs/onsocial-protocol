@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'crypto';
 import nacl from 'tweetnacl';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
+import { getBackendNearRpc } from './near-rpc-client.js';
 
 const CLAIM_PREFIX = 'OnSocial Partner Key Claim';
 const CLAIM_RECIPIENT = 'OnSocial Partner Portal';
@@ -191,28 +192,13 @@ async function verifyKeyBelongsToAccount(
   publicKey: string
 ): Promise<boolean> {
   try {
-    const response = await fetch(config.nearRpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 'onsocial-partner-key-claim',
-        method: 'query',
-        params: {
-          request_type: 'view_access_key_list',
-          account_id: accountId,
-          finality: 'final',
-        },
-      }),
+    const body = await getBackendNearRpc().call<{
+      keys?: Array<{ public_key: string }>;
+    }>('query', {
+      request_type: 'view_access_key_list',
+      account_id: accountId,
+      finality: 'final',
     });
-
-    if (!response.ok) {
-      return false;
-    }
-
-    const body = (await response.json()) as {
-      result?: { keys?: Array<{ public_key: string }> };
-    };
 
     return Boolean(
       body.result?.keys?.some((key) => key.public_key === publicKey)

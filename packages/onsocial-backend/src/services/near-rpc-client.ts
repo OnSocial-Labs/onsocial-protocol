@@ -13,10 +13,11 @@ function getNearNetwork(): Network {
 
 export function getBackendNearRpc(): NearRpc {
   if (!nearRpc) {
+    const explicitNearRpcUrl = process.env.NEAR_RPC_URL?.trim();
     nearRpc = createConfiguredNearRpc({
       network: getNearNetwork(),
       publicOnly: false,
-      primaryUrl: config.nearRpcUrl,
+      ...(explicitNearRpcUrl ? { primaryUrl: explicitNearRpcUrl } : {}),
       timeoutMs: 10_000,
       maxRetries: 1,
     });

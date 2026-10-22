@@ -1,6 +1,8 @@
 # @onsocial/rpc
 
-NEAR JSON-RPC client with retry, failover, and circuit breaker. Zero runtime deps (native `fetch`). Callers inject a Lava API key when using Lava endpoints.
+NEAR JSON-RPC client with retry, failover, and circuit breaker. Zero runtime deps (native `fetch`).
+
+Server order: private node (`NEAR_RPC_URL`), keyed FastNear (`FASTNEAR_API_KEY` as a bearer header), Lava, public FastNear, then `rpc.*.near.org`. A call stops at the first provider that answers. The browser path is public FastNear, then NEAR.org, and never receives either key.
 
 ## Install
 

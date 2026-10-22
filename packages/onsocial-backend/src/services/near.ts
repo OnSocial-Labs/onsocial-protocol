@@ -4,7 +4,10 @@
 
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
-import { nearQueryCallFunctionRaw } from './near-rpc-client.js';
+import {
+  getBackendNearRpc,
+  nearQueryCallFunctionRaw,
+} from './near-rpc-client.js';
 import { relayRewardsAction, type RewardsAction } from './rewards-relay.js';
 
 /**
@@ -113,25 +116,11 @@ export async function viewAccountBalance(
   accountId: string
 ): Promise<string | null> {
   try {
-    const response = await fetch(config.nearRpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(5_000),
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 'view-balance',
-        method: 'query',
-        params: {
-          request_type: 'view_account',
-          finality: 'final',
-          account_id: accountId,
-        },
-      }),
+    const data = await getBackendNearRpc().call<{ amount?: string }>('query', {
+      request_type: 'view_account',
+      finality: 'final',
+      account_id: accountId,
     });
-    const data = (await response.json()) as {
-      result?: { amount?: string };
-      error?: unknown;
-    };
     if (!data.result || data.error) {
       return null;
     }
@@ -146,25 +135,11 @@ export async function viewAccountBalance(
  */
 export async function accountExists(accountId: string): Promise<boolean> {
   try {
-    const response = await fetch(config.nearRpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(5_000),
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 'check',
-        method: 'query',
-        params: {
-          request_type: 'view_account',
-          finality: 'final',
-          account_id: accountId,
-        },
-      }),
+    const data = await getBackendNearRpc().call('query', {
+      request_type: 'view_account',
+      finality: 'final',
+      account_id: accountId,
     });
-    const data = (await response.json()) as {
-      result?: unknown;
-      error?: unknown;
-    };
     return !!data.result;
   } catch {
     // Network error — don't block linking, just skip validation
@@ -178,26 +153,12 @@ export async function accessKeyExists(
   publicKey: string
 ): Promise<boolean> {
   try {
-    const response = await fetch(config.nearRpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(5_000),
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 'check-access-key',
-        method: 'query',
-        params: {
-          request_type: 'view_access_key',
-          finality: 'final',
-          account_id: accountId,
-          public_key: publicKey,
-        },
-      }),
+    const data = await getBackendNearRpc().call('query', {
+      request_type: 'view_access_key',
+      finality: 'final',
+      account_id: accountId,
+      public_key: publicKey,
     });
-    const data = (await response.json()) as {
-      result?: unknown;
-      error?: unknown;
-    };
     return Boolean(data.result && !data.error);
   } catch {
     return false;

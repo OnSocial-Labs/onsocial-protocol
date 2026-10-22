@@ -43,7 +43,7 @@ Tiers come from **Revolut subscriptions** (or admin wallets → `service`), not 
 | RPC           | `POST /v1/rpc`     | NEAR JSON-RPC. Same OnAPI key and minute cap |
 | Analytics     | `/analytics/*`     | Usage metrics                                |
 
-`POST /v1/rpc` takes one JSON-RPC object and the same OnAPI key as GraphQL (`x-api-key: onsocial_…`, or a session JWT). It spends the tier's minute cap. A free key can read or broadcast any recent account on the gateway's network. A request that pins `block_id` or `block_hash` is archival and requires Pro, Scale, or service. `NEAR_RPC_URL` is the private node; until that variable is set, Lava and then FastNear answer.
+`POST /v1/rpc` takes one JSON-RPC object and the same OnAPI key as GraphQL (`x-api-key: onsocial_…`, or a session JWT). It spends the tier's minute cap. A free key can read or broadcast any recent account on the gateway's network. A request that pins `block_id` or `block_hash` is archival and requires Pro, Scale, or service. The gateway tries the private node (`NEAR_RPC_URL`), then keyed FastNear, then Lava, then public FastNear.
 
 Prefer the [@onsocial/sdk](../onsocial-sdk) over calling these routes raw.
 

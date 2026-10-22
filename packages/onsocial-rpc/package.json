@@ -14,7 +14,8 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
-    "check": "pnpm build"
+    "check": "pnpm build",
+    "test": "pnpm build && node chain-check.mjs"
   },
   "dependencies": {},
   "devDependencies": {

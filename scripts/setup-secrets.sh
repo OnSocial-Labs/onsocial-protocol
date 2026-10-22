@@ -36,7 +36,6 @@ SECRETS=(
   "LAVA_API_KEY:Lava RPC private endpoint key"
   "GRAPH_API_KEY:Graph indexer API key"
   "GRAPH_DEPLOY_KEY:Graph deploy key"
-  "SUBSTREAMS_API_TOKEN:StreamingFast Substreams API token"
   "TELEGRAM_BOT_TOKEN_TESTNET:Telegram bot token for the testnet OnSocial Pulse rewards bot"
   "TELEGRAM_BOT_TOKEN_MAINNET:Telegram bot token for the mainnet OnSocial Pulse rewards bot"
   "ADMIN_SECRET:Backend admin API secret for partner approval (min 32 chars)"
@@ -91,6 +90,22 @@ for entry in "${SECRETS[@]}"; do
       --data-file=- 2>/dev/null
     echo -e "  ${GREEN}✅ $name — created${NC} ($desc)"
     created=$((created + 1))
+  fi
+done
+
+echo ""
+echo "Optional secrets are not created with a placeholder."
+OPTIONAL=(
+  "FASTNEAR_API_KEY:FastNear RPC bearer token"
+)
+for entry in "${OPTIONAL[@]}"; do
+  name="${entry%%:*}"
+  desc="${entry#*:}"
+  if gcloud secrets describe "$name" --project="$PROJECT" &>/dev/null; then
+    echo -e "  ${YELLOW}⚠ $name — already exists${NC} ($desc)"
+  else
+    echo -e "  ${YELLOW}… $name — missing${NC} ($desc)"
+    echo "    printf '%s' 'VALUE' | gcloud secrets create $name --data-file=- --replication-policy=automatic --project=$PROJECT"
   fi
 done
 
