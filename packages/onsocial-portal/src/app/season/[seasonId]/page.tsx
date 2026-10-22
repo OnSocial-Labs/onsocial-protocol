@@ -1,13 +1,12 @@
-'use client';
+import { redirect } from 'next/navigation';
+import { getPublicAppRallyUrl } from '@/lib/portal-config';
 
-import { use } from 'react';
-import { SeasonRallyPage } from '@/features/season/season-zero-page';
-
-export default function SeasonByIdPage({
+/** A season id opens that rally in the app. /season/admin stays on the portal. */
+export default async function SeasonByIdPage({
   params,
 }: {
   params: Promise<{ seasonId: string }>;
 }) {
-  const { seasonId } = use(params);
-  return <SeasonRallyPage seasonId={decodeURIComponent(seasonId)} />;
+  const { seasonId } = await params;
+  redirect(getPublicAppRallyUrl(null, decodeURIComponent(seasonId)));
 }

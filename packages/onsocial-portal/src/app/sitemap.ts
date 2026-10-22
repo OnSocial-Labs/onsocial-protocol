@@ -5,7 +5,6 @@ import { SDK_METHOD_GUIDES } from '@/data/sdk-method-guides';
 const STATIC_ROUTES = [
   '',
   '/about',
-  '/boost/leaderboard',
   '/governance',
   '/governance/policy',
   '/onapi',
@@ -13,8 +12,6 @@ const STATIC_ROUTES = [
   '/partners',
   '/playground',
   '/sdk',
-  '/season',
-  '/season-zero',
   '/swap',
   '/transparency',
 ];

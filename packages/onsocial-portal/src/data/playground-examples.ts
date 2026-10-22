@@ -1,3 +1,15 @@
+import {
+  AppWindow,
+  Building2,
+  Database,
+  FileText,
+  Palette,
+  Shield,
+  User,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
+
 export interface ExampleSnippet {
   id: string;
   title: string;
@@ -9,51 +21,35 @@ export interface ExampleSnippet {
     | 'groups'
     | 'permissions'
     | 'storage'
-    | 'apps';
+    | 'apps'
+    | 'scarces';
   code: string;
 }
 
 export const playgroundExamples: ExampleSnippet[] = [
   {
     id: 'create-profile',
-    title: 'Create Your Profile',
-    description: 'Set up a profile scoped to the connected account',
+    title: 'Create a Profile',
+    description: 'Set a name, bio, and tags, then read the profile',
     category: 'profile',
-    code: `// The playground provides \`os\` and \`portalNetwork\`.
-const accountId = wallet.accountId;
-const network = portalNetwork;
-const handle = accountId
-  .replace(/\\.(testnet|near)$/, "")
-  .replace(/[^a-z0-9_-]/gi, "_")
-  .replace(/_+/g, "_")
-  .replace(/^_+|_+$/g, "") || "builder";
+    code: `const accountId = wallet.accountId;
 
 const result = await os.profiles.update({
-  name: "Playground " + handle,
-  bio: "Testing the OnSocial SDK on " + network + " as " + accountId + ".",
-  tags: ["playground", "sdk", network]
+  name: "Builder",
+  bio: "Building on OnSocial.",
+  tags: ["near", "sdk"]
 });
 
-// These public profile paths are what the example writes and reads back.
-const fields = await os.social.get(
-  [
-    "profile/v",
-    "profile/name",
-    "profile/bio",
-    "profile/tags"
-  ],
-  accountId
-);
+const profile = await os.profiles.get(accountId);
 
-console.log({ result, accountId, fields });`,
+console.log({ result, profile });`,
   },
   {
     id: 'create-post',
     title: 'Create a Post',
-    description: 'Publish a post with text, media, and tags',
+    description: 'Publish a post with text and tags',
     category: 'content',
-    code: `// Create a new post with the SDK
-const accountId = wallet.accountId;
+    code: `const accountId = wallet.accountId;
 const postId = Date.now().toString();
 
 const result = await os.posts.create({
@@ -68,12 +64,10 @@ console.log({ result, entry });`,
   {
     id: 'app-item-and-query',
     title: 'Set an App Item',
-    description:
-      'Write under apps/<appId>, query it, then list and hand off a Community session',
+    description: 'Write under apps/<appId>, then query it',
     category: 'apps',
-    code: `// Custom app JSON — indexed automatically, no schema PR.
-const accountId = wallet.accountId;
-const appId = "playground";
+    code: `const accountId = wallet.accountId;
+const appId = "my-app";
 const itemId = Date.now().toString(36);
 const path = \`apps/\${appId}/item/\${itemId}\`;
 
@@ -83,93 +77,39 @@ const result = await os.social.set({
 
 const item = await os.social.getOne(path, accountId);
 const rows = await os.query.raw.byAppId(appId, { accountId, limit: 10 });
-const planned = await os.query.raw.byAppJsonContains(
-  appId,
-  { status: "planned" },
-  { accountId, limit: 10 }
-);
 
-// List on Portal → OnAPI → Apps, then on your site:
-// try {
-//   const session = await os.auth.completeAppHandoff({ osOrigin, appId });
-// } catch (error) {
-//   if (isAppHandoffRedirect(error)) return;
-//   throw error;
-// }
-console.log({ result, item, rows, planned, listOnPortal: "/onapi/apps" });`,
+console.log({ result, item, rows });`,
   },
   {
     id: 'reply-to-post',
     title: 'Reply to a Post',
-    description: 'Create a reply and check the indexed thread view',
+    description: 'Reply to a post, then read the reply back',
     category: 'content',
-    code: `// Reply to a post
-const accountId = wallet.accountId;
-const rootPostId = "playground_thread_root";
+    code: `const accountId = wallet.accountId;
+const parentPostId = "root_post";
 const replyId = \`reply_\${Date.now().toString(36)}\`;
-const now = Date.now();
 
-const result = await os.social.set({
-  [\`post/\${rootPostId}\`]: {
-    v: 1,
-    text: "Playground thread root for reply examples.",
-    tags: ["playground", "thread"],
-    access: "public",
-    kind: "text",
-    timestamp: now
-  },
-  [\`post/\${replyId}\`]: {
-    v: 1,
-    text: "Replying from the OnSocial SDK playground.",
+const result = await os.posts.reply(
+  { author: accountId, postId: parentPostId },
+  {
+    text: "Replying from the OnSocial SDK.",
     tags: ["reply", "sdk"],
-    access: "public",
-    kind: "text",
-    parent: \`\${accountId}/post/\${rootPostId}\`,
-    parentType: "post",
-    timestamp: now + 1
+    access: "public"
   },
-});
+  replyId
+);
 
-const [rootEntry, replyEntry] = await Promise.all([
-  os.social.getOne(\`post/\${rootPostId}\`, accountId),
-  os.social.getOne(\`post/\${replyId}\`, accountId)
-]);
-let indexedReplies = [];
-let indexedStatus = "pending_indexer";
+const entry = await os.social.getOne(\`post/\${replyId}\`, accountId);
 
-try {
-  indexedReplies = await os.query.threads.replies(accountId, rootPostId, {
-    limit: 10
-  });
-  indexedStatus = indexedReplies.some((post) => post.postId === replyId)
-    ? "indexed"
-    : "pending_indexer";
-} catch (error) {
-  indexedStatus = "query_unavailable";
-}
-
-console.log({
-  result,
-  mode: "batched root + reply set",
-  root: { postId: rootPostId, entry: rootEntry },
-  reply: { postId: replyId, entry: replyEntry },
-  indexed: {
-    source: "os.query.threads.replies",
-    status: indexedStatus,
-    replies: indexedReplies
-  }
-});`,
+console.log({ result, entry });`,
   },
   {
     id: 'stand-with-user',
     title: 'Stand With a User',
-    description: 'Stand with another user to see their content',
+    description: 'Record a stand with another account',
     category: 'social',
-    code: `// Stand with a user
-const accountId = wallet.accountId;
-const userToStandWith = portalNetwork === "mainnet"
-  ? "onsocial.near"
-  : "test-user.testnet";
+    code: `const accountId = wallet.accountId;
+const userToStandWith = "test-user.testnet";
 
 const result = await os.standings.add(userToStandWith);
 const standing = await os.social.getOne(
@@ -184,11 +124,8 @@ console.log({ result, standing });`,
     title: 'React to a Post',
     description: 'React to content from another user',
     category: 'social',
-    code: `// React to a post
-const accountId = wallet.accountId;
-const postOwner = portalNetwork === "mainnet"
-  ? "onsocial.near"
-  : "test-user.testnet";
+    code: `const accountId = wallet.accountId;
+const postOwner = "test-user.testnet";
 const postId = "example_post_1";
 const reactionKind = "like";
 
@@ -208,161 +145,65 @@ console.log({ result, reaction });`,
     title: 'Create a Group',
     description: 'Create a community group with configuration',
     category: 'groups',
-    code: `// Create a community group
-const accountId = wallet.accountId;
-const ownerSlug = accountId
-  .toLowerCase()
-  .replace(/[^a-z0-9_-]/g, "_")
-  .replace(/_+/g, "_")
-  .replace(/^_+|_+$/g, "")
-  .slice(0, 44) || "user";
-const groupId = \`playground_\${ownerSlug}_\${Date.now().toString(36)}\`;
+    code: `const groupId = \`builders_\${Date.now().toString(36)}\`;
 
 const result = await os.groups.create(groupId, {
   v: 1,
   name: "Web3 Builders",
-  description: "A " + portalNetwork + " group for SDK builders",
+  description: "A testnet group for SDK builders",
   isPrivate: false,
   memberDriven: false,
   topics: ["web3", "near", "builders"]
 });
 
 const config = await os.groups.getConfig(groupId);
-const memberDriven = config?.member_driven === true || config?.memberDriven === true;
-const visibleConfig = config
-  ? {
-      name: config.name,
-      description: config.description,
-      owner: config.owner,
-      memberDriven,
-      isPrivate: config.is_private ?? config.isPrivate,
-      createdAt: config.created_at ?? config.createdAt,
-      topics: config.topics,
-      governanceActive: memberDriven,
-      ...(memberDriven
-        ? { votingConfig: config.voting_config ?? config.votingConfig ?? null }
-        : {})
-    }
-  : null;
 
-console.log({ result, groupId, config: visibleConfig });`,
+console.log({ result, groupId, config });`,
   },
   {
     id: 'add-group-member',
     title: 'Add Group Member',
-    description: 'Add a member to your group',
+    description: 'Add a member to a group',
     category: 'groups',
-    code: `// Add member to group
-const accountId = wallet.accountId;
-const ownerSlug = accountId
-  .toLowerCase()
-  .replace(/[^a-z0-9_-]/g, "_")
-  .replace(/_+/g, "_")
-  .replace(/^_+|_+$/g, "")
-  .slice(0, 44) || "user";
-const groupId = \`playground_\${ownerSlug}\`;
-const playgroundMember = \`member.\${accountId}\`;
-if (playgroundMember.length > 64) {
-  throw new Error("Generated member ID is too long; edit newMember before running this example.");
-}
-const newMember = playgroundMember;
+    code: `const groupId = "builders";
+const memberId = "bob.testnet";
 
-if (!(await os.groups.getConfig(groupId))) {
-  await os.groups.create(groupId, {
-    v: 1,
-    name: "Playground Builders",
-    description: "A reusable " + portalNetwork + " group for SDK playground examples.",
-    isPrivate: false,
-    memberDriven: false,
-    topics: ["playground", "sdk"]
-  });
-}
+const result = await os.groups.addMember(groupId, memberId);
+const member = await os.groups.getMember(groupId, memberId);
 
-const result = await os.groups.addMember(groupId, newMember);
-const [member, isMember] = await Promise.all([
-  os.groups.getMember(groupId, newMember),
-  os.groups.isMember(groupId, newMember)
-]);
-
-console.log({ result, groupId, newMember, isMember, member });`,
+console.log({ result, groupId, memberId, member });`,
   },
   {
     id: 'post-to-group',
     title: 'Post to Group',
     description: 'Create a post in a group',
     category: 'groups',
-    code: `// Post to a group
-const accountId = wallet.accountId;
-const ownerSlug = accountId
-  .toLowerCase()
-  .replace(/[^a-z0-9_-]/g, "_")
-  .replace(/_+/g, "_")
-  .replace(/^_+|_+$/g, "")
-  .slice(0, 44) || "user";
-const groupId = \`playground_\${ownerSlug}\`;
+    code: `const accountId = wallet.accountId;
+const groupId = "builders";
 const postId = Date.now().toString();
-
-if (!(await os.groups.getConfig(groupId))) {
-  await os.groups.create(groupId, {
-    v: 1,
-    name: "Playground Builders",
-    description: "A reusable " + portalNetwork + " group for SDK playground examples.",
-    isPrivate: false,
-    memberDriven: false,
-    topics: ["playground", "sdk"]
-  });
-}
 
 const result = await os.posts.groupPost(groupId, {
   text: "Check out this new NEAR feature!",
   tags: ["near", "update"]
 }, postId);
 
-const directPath = \`groups/\${groupId}/content/post/\${postId}\`;
-const directEntry = await os.social.getOne(directPath, accountId);
-let indexedPost = null;
-let indexedStatus = "pending_indexer";
+const entry = await os.social.getOne(
+  \`groups/\${groupId}/content/post/\${postId}\`,
+  accountId
+);
 
-try {
-  indexedPost = await os.query.groups.post({
-    author: accountId,
-    groupId,
-    postId
-  });
-  indexedStatus = indexedPost ? "indexed" : "pending_indexer";
-} catch (error) {
-  indexedStatus = "query_unavailable";
-}
-
-console.log({
-  result,
-  groupId,
-  postId,
-  direct: { path: directPath, entry: directEntry },
-  indexed: {
-    source: "os.query.groups.post",
-    status: indexedStatus,
-    post: indexedPost
-  }
-});`,
+console.log({ result, entry });`,
   },
   {
     id: 'grant-permission',
-    title: 'Grant Demo Write Permission',
-    description:
-      'Practice a path-scoped write permission safely on your account',
+    title: 'Grant a Permission',
+    description: 'Grant write on a path, then read the level',
     category: 'permissions',
-    code: `// Grant a demo write permission to an account-owned playground namespace.
-// For production delegation, replace grantee with your app account.
-import { PERMISSION } from "@onsocial/sdk";
+    code: `import { PERMISSION } from "@onsocial/sdk";
 
 const accountId = wallet.accountId;
-const playgroundGrantee = \`playground.\${accountId}\`;
-if (playgroundGrantee.length > 64) {
-  throw new Error("Generated grantee ID is too long; edit grantee before running this example.");
-}
-const grantee = playgroundGrantee;
-const path = "playground/permissions/write/";
+const grantee = "app.onsocial.testnet";
+const path = "apps/my-app/";
 
 const result = await os.permissions.grant(
   grantee,
@@ -374,155 +215,11 @@ const level = await os.permissions.get(accountId, grantee, path);
 console.log({ result, level });`,
   },
   {
-    id: 'revoke-permission',
-    title: 'Revoke Demo Write Permission',
-    description:
-      'Remove the playground write permission grant from your account',
-    category: 'permissions',
-    code: `// Revoke the demo write permission.
-import { PERMISSION } from "@onsocial/sdk";
-
-const accountId = wallet.accountId;
-const playgroundGrantee = \`playground.\${accountId}\`;
-if (playgroundGrantee.length > 64) {
-  throw new Error("Generated grantee ID is too long; edit grantee before running this example.");
-}
-const grantee = playgroundGrantee;
-const path = "playground/permissions/write/";
-
-const result = await os.permissions.revoke(grantee, path);
-const [hasPermission, currentLevel] = await Promise.all([
-  os.permissions.has(accountId, grantee, path, PERMISSION.WRITE),
-  os.permissions.get(accountId, grantee, path)
-]);
-
-console.log({
-  result,
-  owner: accountId,
-  grantee,
-  path,
-  requiredLevel: PERMISSION.WRITE,
-  currentLevel,
-  hasPermission
-});`,
-  },
-  {
-    id: 'grant-moderate-permission',
-    title: 'Grant Demo Moderate Permission',
-    description:
-      'Practice the contract MODERATE permission level on a playground-only path',
-    category: 'permissions',
-    code: `// Grant the contract MODERATE permission level to an account-owned playground namespace.
-// Apps may label this however they want, but the contract stores numeric levels.
-import { PERMISSION } from "@onsocial/sdk";
-
-const accountId = wallet.accountId;
-const playgroundGrantee = \`playground.\${accountId}\`;
-if (playgroundGrantee.length > 64) {
-  throw new Error("Generated grantee ID is too long; edit grantee before running this example.");
-}
-const grantee = playgroundGrantee;
-const path = "playground/permissions/moderate/";
-
-const result = await os.permissions.grant(
-  grantee,
-  path,
-  PERMISSION.MODERATE
-);
-const level = await os.permissions.get(accountId, grantee, path);
-
-console.log({ result, level });`,
-  },
-  {
-    id: 'revoke-moderate-permission',
-    title: 'Revoke Demo Moderate Permission',
-    description: 'Remove the playground MODERATE permission grant',
-    category: 'permissions',
-    code: `// Revoke the demo MODERATE permission.
-import { PERMISSION } from "@onsocial/sdk";
-
-const accountId = wallet.accountId;
-const playgroundGrantee = \`playground.\${accountId}\`;
-if (playgroundGrantee.length > 64) {
-  throw new Error("Generated grantee ID is too long; edit grantee before running this example.");
-}
-const grantee = playgroundGrantee;
-const path = "playground/permissions/moderate/";
-
-const result = await os.permissions.revoke(grantee, path);
-const [hasPermission, currentLevel] = await Promise.all([
-  os.permissions.has(accountId, grantee, path, PERMISSION.MODERATE),
-  os.permissions.get(accountId, grantee, path)
-]);
-
-console.log({
-  result,
-  owner: accountId,
-  grantee,
-  path,
-  requiredLevel: PERMISSION.MODERATE,
-  currentLevel,
-  hasPermission
-});`,
-  },
-  {
-    id: 'check-permission',
-    title: 'Check Permission Levels',
-    description: 'Verify WRITE and MODERATE grants for playground paths',
-    category: 'permissions',
-    code: `// Check contract permission levels.
-// WRITE, MODERATE, and MANAGE are numeric contract levels, not custom role names.
-import { PERMISSION } from "@onsocial/sdk";
-
-const owner = wallet?.accountId ?? (portalNetwork === "mainnet" ? "onsocial.near" : "onsocial.testnet");
-const playgroundGrantee = \`playground.\${owner}\`;
-if (playgroundGrantee.length > 64) {
-  throw new Error("Generated grantee ID is too long; edit grantee before running this example.");
-}
-const grantee = playgroundGrantee;
-const writePath = "playground/permissions/write/";
-const moderatePath = "playground/permissions/moderate/";
-
-const [canWrite, writeLevel, canModerate, moderateLevel] = await Promise.all([
-  os.permissions.has(owner, grantee, writePath, PERMISSION.WRITE),
-  os.permissions.get(owner, grantee, writePath),
-  os.permissions.has(owner, grantee, moderatePath, PERMISSION.MODERATE),
-  os.permissions.get(owner, grantee, moderatePath)
-]);
-
-console.log({
-  owner,
-  grantee,
-  levels: {
-    WRITE: PERMISSION.WRITE,
-    MODERATE: PERMISSION.MODERATE,
-    MANAGE: PERMISSION.MANAGE
-  },
-  checks: [
-    {
-      permission: "WRITE",
-      path: writePath,
-      requiredLevel: PERMISSION.WRITE,
-      currentLevel: writeLevel,
-      hasPermission: canWrite
-    },
-    {
-      permission: "MODERATE",
-      path: moderatePath,
-      requiredLevel: PERMISSION.MODERATE,
-      currentLevel: moderateLevel,
-      hasPermission: canModerate
-    }
-  ]
-});`,
-  },
-  {
     id: 'deposit-storage',
     title: 'Deposit Storage',
-    description: 'Add storage deposit for your account',
+    description: 'Deposit storage, then read the balance',
     category: 'storage',
-    code: `// Deposit storage for account
-import { NEAR } from "@onsocial/sdk";
+    code: `import { NEAR } from "@onsocial/sdk";
 
 const accountId = wallet.accountId;
 const result = await os.storageAccount.deposit(NEAR("0.1"));
@@ -532,11 +229,10 @@ console.log({ result, balance });`,
   },
   {
     id: 'check-storage',
-    title: 'Check Storage Balance',
-    description: 'View your account storage information',
+    title: 'Read Storage Balance',
+    description: 'Read how much storage an account has',
     category: 'storage',
-    code: `// Check storage balance
-const accountId = wallet?.accountId ?? (portalNetwork === "mainnet" ? "onsocial.near" : "onsocial.testnet");
+    code: `const accountId = wallet.accountId;
 
 const balance = await os.storageAccount.balance(accountId);
 
@@ -544,54 +240,35 @@ console.log({ balance });`,
   },
   {
     id: 'get-profile',
-    title: 'Get User Profile',
-    description: 'Retrieve profile data for any user',
+    title: 'Read a Profile',
+    description: 'Read the profile for an account',
     category: 'profile',
-    code: `// Get user profile
-const accountId = wallet?.accountId ?? (portalNetwork === "mainnet" ? "onsocial.near" : "onsocial.testnet");
+    code: `const accountId = wallet.accountId;
 
 const profile = await os.profiles.get(accountId);
-const publicProfile = profile && {
-  accountId: profile.accountId,
-  name: profile.name,
-  bio: profile.bio,
-  avatar: profile.avatar,
-  banner: profile.banner,
-  links: profile.links,
-  tags: profile.tags,
-  customFieldsHidden: Object.keys(profile.extra ?? {}).length
-};
 
-console.log({ profile: publicProfile });`,
+console.log({ profile });`,
   },
   {
     id: 'get-posts',
-    title: 'Query User Posts',
-    description: 'Fetch indexed posts from a user with os.query',
+    title: 'Read Recent Posts',
+    description: 'Read the latest posts for an account',
     category: 'content',
-    code: `// Query indexed user posts
-const accountId = wallet?.accountId ?? (portalNetwork === "mainnet" ? "onsocial.near" : "onsocial.testnet");
+    code: `const accountId = wallet.accountId;
 
 const feed = await os.query.feed.recent({ author: accountId, limit: 10 });
 
-console.log({
-  accountId,
-  source: "os.query.feed.recent",
-  posts: feed.items,
-  nextOffset: feed.nextOffset ?? null
-});`,
+console.log({ feed });`,
   },
   {
     id: 'query-post-thread',
     title: 'Query Post Thread',
-    description: 'Fetch replies and quotes for a post from the indexer',
+    description: 'Read a post and its thread',
     category: 'content',
-    code: `// Query a post thread
-const accountId = wallet?.accountId ?? (portalNetwork === "mainnet" ? "onsocial.near" : "onsocial.testnet");
-const rootPostId = "playground_thread_root";
-const rootPath = \`\${accountId}/post/\${rootPostId}\`;
+    code: `const accountId = wallet.accountId;
+const rootPostId = "root_post";
 
-const [rootEntry, thread] = await Promise.all([
+const [entry, thread] = await Promise.all([
   os.social.getOne(\`post/\${rootPostId}\`, accountId),
   os.query.threads.tree(accountId, rootPostId, {
     depth: 3,
@@ -601,31 +278,14 @@ const [rootEntry, thread] = await Promise.all([
   })
 ]);
 
-console.log({
-  root: {
-    path: rootPath,
-    entry: rootEntry
-  },
-  indexed: {
-    source: "os.query.threads.tree",
-    thread
-  }
-});`,
+console.log({ entry, thread });`,
   },
   {
     id: 'get-group-info',
     title: 'Query Group Info',
     description: 'Read group views and indexed group activity',
     category: 'groups',
-    code: `// Query group information
-const accountId = wallet?.accountId ?? (portalNetwork === "mainnet" ? "onsocial.near" : "onsocial.testnet");
-const ownerSlug = accountId
-  .toLowerCase()
-  .replace(/[^a-z0-9_-]/g, "_")
-  .replace(/_+/g, "_")
-  .replace(/^_+|_+$/g, "")
-  .slice(0, 44) || "user";
-const groupId = \`playground_\${ownerSlug}\`;
+    code: `const groupId = "builders";
 
 const [config, stats, feed, memberEvents] = await Promise.all([
   os.groups.getConfig(groupId),
@@ -633,55 +293,27 @@ const [config, stats, feed, memberEvents] = await Promise.all([
   os.query.groups.feed({ groupId, limit: 10 }),
   os.query.governance.members(groupId, { limit: 10 })
 ]);
-const memberDriven = config?.member_driven === true || config?.memberDriven === true;
-const visibleConfig = config
-  ? {
-      name: config.name,
-      description: config.description,
-      owner: config.owner,
-      memberDriven,
-      isPrivate: config.is_private ?? config.isPrivate,
-      createdAt: config.created_at ?? config.createdAt,
-      topics: config.topics,
-      governanceActive: memberDriven,
-      ...(memberDriven
-        ? { votingConfig: config.voting_config ?? config.votingConfig ?? null }
-        : {})
-    }
-  : null;
-const membershipEvents = memberEvents.map((event) => ({
-  operation: event.operation,
-  author: event.author,
-  groupId: event.groupId,
-  memberId: event.memberId,
-  role: event.role,
-  level: event.level,
-  blockHeight: event.blockHeight,
-  blockTimestamp: event.blockTimestamp
-}));
 
-console.log({
-  groupId,
-  directViews: { config: visibleConfig, stats },
-  indexed: {
-    recentPosts: feed.items,
-    nextPostOffset: feed.nextOffset ?? null,
-    membershipEvents
-  }
-});`,
+console.log({ groupId, config, stats, feed, memberEvents });`,
+  },
+  {
+    id: 'mint-scarce',
+    title: 'Mint a Scarce',
+    description: 'Mint a post as a scarce, then read the mint',
+    category: 'scarces',
+    code: `const accountId = wallet.accountId;
+const postId = "root_post";
+
+const result = await os.scarces.fromPost.mint({
+  author: accountId,
+  postId
+});
+
+const mints = await os.query.scarces.mintsBy(accountId, { limit: 5 });
+
+console.log({ result, mints });`,
   },
 ];
-
-import {
-  User,
-  FileText,
-  Users,
-  Building2,
-  Shield,
-  Database,
-  AppWindow,
-  LucideIcon,
-} from 'lucide-react';
 
 export const categories: { id: string; name: string; icon: LucideIcon }[] = [
   { id: 'profile', name: 'Profile', icon: User },
@@ -691,4 +323,5 @@ export const categories: { id: string; name: string; icon: LucideIcon }[] = [
   { id: 'permissions', name: 'Permissions', icon: Shield },
   { id: 'storage', name: 'Storage', icon: Database },
   { id: 'apps', name: 'Apps', icon: AppWindow },
+  { id: 'scarces', name: 'Scarces', icon: Palette },
 ];

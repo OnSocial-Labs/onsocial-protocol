@@ -51,6 +51,22 @@ const socialAppRedirects = [
     source: '/discover',
     destination: `${publicAppUrl}/discover`,
   },
+  {
+    source: '/boost',
+    destination: `${publicAppUrl}/home?sheet=boost`,
+  },
+  {
+    source: '/boost/leaderboard',
+    destination: `${publicAppUrl}/home?sheet=boost`,
+  },
+  {
+    source: '/season',
+    destination: `${publicAppUrl}/home?sheet=rally`,
+  },
+  {
+    source: '/season-zero',
+    destination: `${publicAppUrl}/home?sheet=rally&season=season-zero`,
+  },
 ].map((redirect) => ({ ...redirect, permanent: false }));
 
 /** @type {import('next').NextConfig} */
@@ -68,14 +84,7 @@ const nextConfig = {
   // Turbopack is the default bundler in Next.js 16
   turbopack: {},
   async redirects() {
-    return [
-      {
-        source: '/boost',
-        destination: '/boost/leaderboard',
-        permanent: true,
-      },
-      ...socialAppRedirects,
-    ];
+    return socialAppRedirects;
   },
   serverExternalPackages: ['@ref-finance/ref-sdk', 'near-api-js'],
   // Keep webpack config as fallback for `next build --webpack`

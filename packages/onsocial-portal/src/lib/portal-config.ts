@@ -176,6 +176,25 @@ export function getPublicAppBoostUrl(accountId?: string | null): string {
   return `${getPublicAppPageUrl(trimmed)}?sheet=boost`;
 }
 
+const RALLY_SEASON_ID = /^[a-z0-9][a-z0-9-]*$/i;
+
+/** Rally sheet in the app. No account → Home with the sheet intent. */
+export function getPublicAppRallyUrl(
+  accountId?: string | null,
+  seasonId?: string | null
+): string {
+  const season = seasonId?.trim() ?? '';
+  const seasonQuery =
+    season && RALLY_SEASON_ID.test(season)
+      ? `&season=${encodeURIComponent(season)}`
+      : '';
+  const trimmed = accountId?.trim();
+  const base = trimmed
+    ? `${getPublicAppPageUrl(trimmed)}?sheet=rally`
+    : `${PUBLIC_APP_URL}/home?sheet=rally`;
+  return `${base}${seasonQuery}`;
+}
+
 export type PublicAppStandingKind = 'incoming' | 'outgoing' | 'mutual';
 
 /** Map legacy portal stand kinds onto the app's standing kinds. */

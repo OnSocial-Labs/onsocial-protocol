@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getPublicAppDiscoverUrl,
   getPublicAppPageUrl,
+  getPublicAppRallyUrl,
   getPublicAppStandingUrl,
   normalizePublicAppStandingKind,
   PUBLIC_APP_URL,
@@ -61,6 +62,18 @@ describe('app URL builders', () => {
   it('discover URL points at app discover', () => {
     expect(getPublicAppDiscoverUrl()).toBe(`${PUBLIC_APP_URL}/discover`);
   });
+
+  it('rally URL opens the app sheet, including a season', () => {
+    expect(getPublicAppRallyUrl(null)).toBe(
+      `${PUBLIC_APP_URL}/home?sheet=rally`
+    );
+    expect(getPublicAppRallyUrl('alice.testnet', 'season-one')).toBe(
+      `${PUBLIC_APP_URL}/@alice.testnet?sheet=rally&season=season-one`
+    );
+    expect(getPublicAppRallyUrl(null, 'not a season')).toBe(
+      `${PUBLIC_APP_URL}/home?sheet=rally`
+    );
+  });
 });
 
 describe('next.config social redirects', () => {
@@ -78,6 +91,10 @@ describe('next.config social redirects', () => {
       '/u/:accountId/stand/standings': `${PUBLIC_APP_URL}/@:accountId/standing/incoming`,
       '/u/:accountId/stand/:kind': `${PUBLIC_APP_URL}/@:accountId/standing/:kind`,
       '/discover': `${PUBLIC_APP_URL}/discover`,
+      '/boost': `${PUBLIC_APP_URL}/home?sheet=boost`,
+      '/boost/leaderboard': `${PUBLIC_APP_URL}/home?sheet=boost`,
+      '/season': `${PUBLIC_APP_URL}/home?sheet=rally`,
+      '/season-zero': `${PUBLIC_APP_URL}/home?sheet=rally&season=season-zero`,
     };
 
     for (const [source, destination] of Object.entries(expectations)) {

@@ -8,6 +8,7 @@ import {
   ACTIVE_API_URL,
   ACTIVE_NEAR_EXPLORER_URL,
   ACTIVE_NEAR_NETWORK,
+  getPublicAppBoostUrl,
   NEAR_ACCOUNT_SUFFIX,
 } from '@/lib/portal-config';
 import type { PortalAccent } from '@/lib/portal-colors';
@@ -84,9 +85,7 @@ export const MARKET_LIQUIDITY_POOLS = [
 ] as const;
 
 export const TRANSPARENCY_ACTION_LINKS = [
-  { label: 'Boost', href: '/boost/leaderboard', hint: 'Open' },
-  { label: 'OnSocial Rally', href: '/season', hint: 'Spend' },
-  { label: 'Discover', href: '/discover', hint: 'Support' },
+  { label: 'Boost', href: getPublicAppBoostUrl(), hint: 'Open' },
   { label: 'Governance', href: '/governance/manage', hint: 'Delegate' },
 ] as const;
 

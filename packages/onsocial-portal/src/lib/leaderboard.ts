@@ -1,92 +1,11 @@
 import { yoctoToNear, yoctoToSocial } from '@/lib/near-rpc';
 import {
-  LEADERBOARD_PAGE_SIZE,
   REPUTATION_SCORES_GRAPHQL_FIELDS,
-  commitmentAccent,
-  commitmentLabel,
-  formatReputation,
-  formatScore,
-  pctOfLeader,
-  reputationBoardMeta,
-  reputationConfidenceLabel,
-  reputationTier,
-  truncateAccountId,
-  type EarnerEntry,
-  type InfluenceEntry,
   type ReputationEntry,
 } from '@onsocial/sdk';
 
-export type { EarnerEntry, InfluenceEntry, ReputationEntry };
-export {
-  LEADERBOARD_PAGE_SIZE,
-  REPUTATION_SCORES_GRAPHQL_FIELDS,
-  commitmentAccent,
-  commitmentLabel,
-  formatReputation,
-  formatScore,
-  pctOfLeader,
-  reputationBoardMeta,
-  reputationConfidenceLabel,
-  reputationTier,
-  truncateAccountId,
-};
-
-/** Homepage compact preview */
-export interface CompactLeaderboard {
-  influence: Pick<
-    InfluenceEntry,
-    'accountId' | 'effectiveBoost' | 'lockMonths' | 'rank'
-  >[];
-  reputation: Pick<
-    ReputationEntry,
-    | 'accountId'
-    | 'reputation'
-    | 'boost'
-    | 'rewardsEarned'
-    | 'totalPosts'
-    | 'activeDays'
-    | 'rank'
-  >[];
-  earners: Pick<EarnerEntry, 'accountId' | 'totalEarned' | 'rank'>[];
-}
-
-async function fetchLeaderboard<T>(
-  scope: string,
-  limit?: number
-): Promise<T | null> {
-  const params = new URLSearchParams({ scope });
-  if (limit != null) params.set('limit', String(limit));
-
-  try {
-    const res = await fetch(`/api/leaderboard?${params.toString()}`);
-    if (!res.ok) return null;
-    return (await res.json()) as T;
-  } catch {
-    return null;
-  }
-}
-
-export function fetchInfluenceBoard(
-  limit = LEADERBOARD_PAGE_SIZE
-): Promise<{ leaderboardBoost: InfluenceEntry[] } | null> {
-  return fetchLeaderboard('influence', limit);
-}
-
-export function fetchReputationBoard(
-  limit = LEADERBOARD_PAGE_SIZE
-): Promise<{ reputationScores: ReputationEntry[] } | null> {
-  return fetchLeaderboard('reputation', limit);
-}
-
-export function fetchEarnerBoard(
-  limit = LEADERBOARD_PAGE_SIZE
-): Promise<{ leaderboardRewards: EarnerEntry[] } | null> {
-  return fetchLeaderboard('earners', limit);
-}
-
-export function fetchCompactBoard(): Promise<CompactLeaderboard | null> {
-  return fetchLeaderboard('compact');
-}
+export type { ReputationEntry };
+export { REPUTATION_SCORES_GRAPHQL_FIELDS };
 
 export function formatNearCompact(yocto: string | number): string {
   const raw = Number.parseFloat(yoctoToNear(String(yocto ?? '0')));

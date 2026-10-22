@@ -4,7 +4,6 @@ import {
   getPublicAppPageUrl,
   PUBLIC_APP_URL,
 } from '@/lib/portal-config';
-import { resolveRouteNavBack } from '@/lib/nav-back-route';
 import { TRANSPARENCY_ACTION_LINKS } from '@/features/transparency/transparency-constants';
 
 describe('getPublicAppBoostUrl', () => {
@@ -25,12 +24,9 @@ describe('getPublicAppBoostUrl', () => {
 });
 
 describe('boost protocol routes', () => {
-  it('sends Boost to the Influence leaderboard, not a lock form', () => {
-    expect(resolveRouteNavBack('/boost/leaderboard')).toEqual({
-      label: 'Back',
-    });
+  it('sends Boost to the app, not a portal ranking', () => {
     expect(
       TRANSPARENCY_ACTION_LINKS.find((link) => link.label === 'Boost')
-    ).toMatchObject({ href: '/boost/leaderboard', hint: 'Open' });
+    ).toMatchObject({ href: getPublicAppBoostUrl(null), hint: 'Open' });
   });
 });

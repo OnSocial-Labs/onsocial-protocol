@@ -4,11 +4,11 @@ import { SdkHubClient } from '@/app/sdk/sdk-hub-client';
 export const metadata: Metadata = {
   title: 'SDK — Build with OnSocial',
   description:
-    'OnSocial SDK docs: on-ramps for community dapps and wallet apps, execution-path decision table, playground recipes, and method family guides.',
+    'OnSocial SDK docs: create an app or use a server key, then every method grouped by noun.',
   openGraph: {
     title: 'SDK — Build with OnSocial',
     description:
-      'On-ramps, starters, decision tables, and method family guides for the OnSocial SDK.',
+      'Create an app or use a server key, then every SDK method grouped by noun.',
     type: 'website',
   },
 };

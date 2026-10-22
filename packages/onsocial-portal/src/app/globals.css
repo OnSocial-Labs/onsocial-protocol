@@ -333,6 +333,14 @@
     font-size: 100%;
   }
 
+  /* Phones use overlay scrollbars. A stable gutter leaves a strip past
+     fixed drawers; 100vw then clips the drawer's right edge. */
+  @media (max-width: 767px) {
+    html {
+      scrollbar-gutter: auto;
+    }
+  }
+
   /* Webkit (Chrome, Safari, Edge) custom scrollbar */
   ::-webkit-scrollbar {
     width: 6px;

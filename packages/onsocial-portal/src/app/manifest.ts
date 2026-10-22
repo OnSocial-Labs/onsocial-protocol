@@ -48,12 +48,6 @@ export default function manifest(): MetadataRoute.Manifest {
         url: '/governance',
         icons: [{ src: '/onsocial_icon_192.png', sizes: '192x192' }],
       },
-      {
-        name: 'Influence',
-        short_name: 'Influence',
-        url: '/boost/leaderboard',
-        icons: [{ src: '/onsocial_icon_192.png', sizes: '192x192' }],
-      },
     ],
   } as ReturnType<typeof manifest>;
 }

@@ -33,6 +33,9 @@ target/
 
 # Security: Private keys
 keys/
+# Portal route, not account key material.
+!packages/onsocial-portal/src/app/onapi/keys/
+!packages/onsocial-portal/src/app/onapi/keys/**
 configs/keys/
 **/account_keys/
 *.pem

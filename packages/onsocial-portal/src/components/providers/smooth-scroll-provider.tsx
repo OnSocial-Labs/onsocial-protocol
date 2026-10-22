@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import Lenis from 'lenis';
 import {
+  getPortalScrollY,
   resetPortalScrollY,
   setPortalScrollY,
 } from '@/lib/portal-scroll-state';
@@ -60,7 +61,9 @@ function SmoothScrollController() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const lenisRef = useRef<Lenis | null>(null);
+  const scrollLockedRef = useRef(false);
   const isPopNavigationRef = useRef(false);
+  const pathnameRef = useRef('');
   const hasMountedRef = useRef(false);
   const routeKeyRef = useRef('');
   const lastScrollYRef = useRef(0);
@@ -100,6 +103,7 @@ function SmoothScrollController() {
     lenisRef.current = lenis;
 
     const emitSmoothScroll = (instance: Lenis) => {
+      if (scrollLockedRef.current) return;
       setPortalScrollY(instance.scroll);
       window.dispatchEvent(
         new CustomEvent('onsocial:smooth-scroll', {
@@ -124,14 +128,22 @@ function SmoothScrollController() {
     window.addEventListener('onsocial:scroll-to', handleScrollTo);
 
     const handleScrollLock = (event: Event) => {
-      const locked = Boolean(
-        (event as CustomEvent<{ locked?: boolean }>).detail?.locked
-      );
+      const detail = (event as CustomEvent<{ locked?: boolean; top?: number }>)
+        .detail;
+      const locked = Boolean(detail?.locked);
       if (locked) {
+        scrollLockedRef.current = true;
         lenis.stop();
-      } else {
-        lenis.start();
+        return;
       }
+      const top =
+        typeof detail?.top === 'number' ? detail.top : lastScrollYRef.current;
+      lastScrollYRef.current = top;
+      scrollLockedRef.current = false;
+      // Body styles are already restored, so start() adopts window.scrollY.
+      // scrollTo would clamp to 0 while Lenis still thinks the page has no height.
+      lenis.start();
+      setPortalScrollY(top);
     };
 
     window.addEventListener('onsocial:scroll-lock', handleScrollLock);
@@ -232,11 +244,12 @@ function SmoothScrollController() {
     }
 
     const saveCurrentRoutePosition = () => {
-      if (!routeKeyRef.current) {
+      if (!routeKeyRef.current || scrollLockedRef.current) {
         return;
       }
-      lastScrollYRef.current = window.scrollY;
-      writeScrollPosition(routeKeyRef.current, window.scrollY);
+      const scrollTop = getPortalScrollY();
+      lastScrollYRef.current = scrollTop;
+      writeScrollPosition(routeKeyRef.current, scrollTop);
     };
 
     const handleScroll = () => {
@@ -274,9 +287,19 @@ function SmoothScrollController() {
 
     clearPendingRestore();
 
+    const pathnameChanged = pathnameRef.current !== pathname;
+    pathnameRef.current = pathname;
+
     if (!hasMountedRef.current) {
       hasMountedRef.current = true;
-      writeScrollPosition(routeKey, window.scrollY);
+      writeScrollPosition(routeKey, getPortalScrollY());
+      return;
+    }
+
+    // Opening or closing a drawer only changes the query. That is not a new
+    // page, so the reader stays where they were.
+    if (!pathnameChanged) {
+      isPopNavigationRef.current = false;
       return;
     }
 
@@ -344,7 +367,7 @@ function SmoothScrollController() {
       clearPendingRestore();
       emitScrollRestored(clampedScrollTop);
     }, 2500);
-  }, [routeKey]);
+  }, [pathname, routeKey]);
 
   return null;
 }

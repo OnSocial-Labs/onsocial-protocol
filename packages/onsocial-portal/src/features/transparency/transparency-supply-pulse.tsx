@@ -6,7 +6,9 @@ import { useState } from 'react';
 import { Check, Copy, ExternalLink } from 'lucide-react';
 import { PortalBadge } from '@/components/ui/portal-badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useWallet } from '@/contexts/wallet-context';
 import { formatSocialCompact } from '@/lib/leaderboard';
+import { getPublicAppBoostUrl } from '@/lib/portal-config';
 import {
   TRANSPARENCY_PULSE_CONTAINER_CLASS,
   TRANSPARENCY_PULSE_STATS_CLASS,
@@ -213,6 +215,7 @@ export function TransparencySupplyPulse({
   lockedLoading?: boolean;
   className?: string;
 }) {
+  const { accountId } = useWallet();
   const supply = supplyDisplay ?? '—';
   const burned = burnedDisplay ?? '—';
   const holders =
@@ -252,7 +255,7 @@ export function TransparencySupplyPulse({
           />
           <PulseItem
             label="Locked"
-            href="/boost/leaderboard"
+            href={getPublicAppBoostUrl(accountId)}
             value={locked}
             loading={lockedLoading}
             external={false}

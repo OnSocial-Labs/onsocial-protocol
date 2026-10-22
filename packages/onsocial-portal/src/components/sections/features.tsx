@@ -50,9 +50,9 @@ const tools = [
     status: 'Live',
   },
   {
-    title: 'Playground',
+    title: 'Examples',
     description:
-      'A live testnet editor for connecting a wallet, running real transactions, and testing the flow before shipping.',
+      'Example SDK calls you can copy into an app and run on an account you choose.',
     icon: Terminal,
     accent: 'purple' as PortalAccent,
     status: 'Live',

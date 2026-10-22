@@ -165,7 +165,7 @@ export function FamilyGuideClient({ guide }: { guide: SdkMethodGuide }) {
         {guide.playgroundHref ? (
           <Button variant="outline" asChild>
             <Link href={guide.playgroundHref}>
-              Open playground
+              View example
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>

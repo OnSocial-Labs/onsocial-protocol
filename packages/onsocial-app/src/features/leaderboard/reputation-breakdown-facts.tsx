@@ -3,9 +3,9 @@
 import type { ReactNode } from 'react';
 import { SheetFactRow, SheetFactSection } from '@onsocial/ui';
 import {
-  commitmentLabel,
   formatReputationComponent,
   formatReputationScore,
+  influenceBoardMeta,
 } from '@/lib/leaderboard';
 import type { ProfileReputation } from '@/lib/profile-signals';
 
@@ -39,9 +39,9 @@ export function ReputationBreakdownFacts({
     );
   }
 
-  const rankLabel =
-    reputation.rank > 0 ? `#${reputation.rank}` : null;
-  const lock = commitmentLabel(reputation.lockMonths);
+  const rankLabel = reputation.rank > 0 ? `#${reputation.rank}` : null;
+  const lock =
+    influenceBoardMeta({ lockMonths: reputation.lockMonths }) || 'Unlocked';
 
   const factors: { title: string; hint: string; value: string }[] = [
     {
@@ -51,7 +51,7 @@ export function ReputationBreakdownFacts({
     },
     {
       title: 'Commitment',
-      hint: `Boost lock · ${lock}`,
+      hint: lock,
       value: formatReputationComponent(reputation.commitmentScore),
     },
     {
@@ -95,18 +95,13 @@ export function ReputationBreakdownFacts({
           <SheetFactRow
             key={factor.title}
             className="reputation-facts-factor-row"
-            label={
-              <FactorLabel title={factor.title} hint={factor.hint} />
-            }
+            label={<FactorLabel title={factor.title} hint={factor.hint} />}
             value={factor.value}
           />
         ))}
       </SheetFactSection>
 
-      <SheetFactSection
-        title="Activity"
-        className="reputation-facts-activity"
-      >
+      <SheetFactSection title="Activity" className="reputation-facts-activity">
         {activity.map((row) => (
           <SheetFactRow
             key={row.label}

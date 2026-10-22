@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import {
   useCallback,
   useEffect,
@@ -34,7 +33,6 @@ import {
 import {
   useSeasonRegistry,
   type SeasonPhase,
-  resolvePromoSeasonEntry,
   resolvePromoSeasonId,
 } from '@/lib/season-registry';
 import { fadeMotion, fadeUpMotion } from '@/lib/motion';
@@ -51,7 +49,7 @@ import {
 } from '@/lib/rally-join-copy';
 import { resolveRallyHeroTimingMeta } from '@/lib/rally-hero-timing';
 import { readTimestampNs } from '@/lib/relative-duration';
-import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
+import { ACTIVE_NEAR_NETWORK, getPublicAppRallyUrl } from '@/lib/portal-config';
 import {
   txToastError,
   txToastPending,
@@ -344,11 +342,9 @@ export function GenesisRallyStrip({
     () => getSeasonPresentation(seasonId, registryEntry),
     [registryEntry, seasonId]
   );
-  const promoEntry =
-    variant === 'promo' ? resolvePromoSeasonEntry(registry) : null;
   const promoHref =
     variant === 'promo'
-      ? (promoEntry?.rallyPath ?? seasonPresentation.rallyPath)
+      ? getPublicAppRallyUrl(accountId, seasonId)
       : seasonPresentation.rallyPath;
 
   const refresh = useCallback(async () => {
@@ -1277,9 +1273,8 @@ export function GenesisRallyStrip({
   const stripBody = (
     <>
       {variant === 'promo' ? (
-        <Link
+        <a
           href={promoHref}
-          prefetch
           aria-label={promoAriaLabel}
           className="absolute inset-0 z-0 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--portal-gold-accent)]"
         />
@@ -1347,7 +1342,14 @@ export function GenesisRallyStrip({
         </motion.div>
       ) : null}
 
-      {variant === 'promo' ? actionFooter : null}
+      {variant === 'promo' ? (
+        <div className="pointer-events-none relative z-[1] flex justify-center px-3 py-2.5 md:px-4">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
+            Open in OnSocial
+            <ProtocolMotionArrow className="h-3 w-3" />
+          </span>
+        </div>
+      ) : null}
     </>
   );
 

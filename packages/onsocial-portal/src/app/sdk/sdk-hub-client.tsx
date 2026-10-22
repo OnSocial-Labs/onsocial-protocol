@@ -7,8 +7,8 @@ import {
   ArrowRight,
   BookOpen,
   CheckCircle2,
+  Code2,
   ExternalLink,
-  Play,
   Terminal,
   Zap,
 } from 'lucide-react';
@@ -21,12 +21,10 @@ import { PortalBadge } from '@/components/ui/portal-badge';
 import { ProtocolMotionArrow } from '@onsocial/ui';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import {
-  SDK_BROWSER_STARTER_CODE,
   SDK_BUILD_PATHS,
   SDK_COMMUNITY_STARTER_CODE,
-  SDK_DECISIONS,
+  SDK_KEY_STARTER_CODE,
   SDK_METHOD_FAMILIES,
-  SDK_ON_RAMPS,
   SDK_PACKAGES,
   SDK_PLAYGROUND_RECIPES,
   SDK_PRODUCTION_CHECKS,
@@ -51,14 +49,14 @@ export function SdkHubClient() {
         badgeAccent="purple"
         glowAccents={['purple', 'blue', 'green']}
         title="Build with the OnSocial SDK"
-        description="Listed community dapps use Continue with OnSocial. Wallet apps and this playground sign a challenge. Same client after that: write, read fresh, then query."
+        description="Create an app with OnSocial sign-in, or put a key on a server. Same client after that."
       >
         <Link
           href="/playground"
           className="portal-action-link inline-flex items-center gap-2 text-sm font-medium"
         >
-          <Play className="h-4 w-4" />
-          Open playground
+          <Code2 className="h-4 w-4" />
+          Examples
         </Link>
         <a
           href="https://github.com/OnSocial-Labs/onsocial-protocol"
@@ -73,77 +71,17 @@ export function SdkHubClient() {
       </SecondaryPageHeader>
 
       <motion.section
-        id="start"
+        id="build-path"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, delay: 0.05 }}
         className="mb-8"
       >
         <SectionHeader
-          badge="Start Here"
-          badgeAccent="blue"
-          title="Pick the on-ramp"
-          description="A listed community site does not connect a wallet on its origin. Wallet apps and the playground do. After auth, writes and queries are the same."
-        />
-        <div className="grid gap-4 lg:grid-cols-2">
-          {SDK_ON_RAMPS.map((ramp) => {
-            const Icon = ramp.icon;
-            return (
-              <SurfacePanel
-                key={ramp.title}
-                radius="xl"
-                tone="soft"
-                padding="roomy"
-                className="min-w-0"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <PortalBadge accent={ramp.accent} size="sm">
-                    {ramp.badge}
-                  </PortalBadge>
-                  <Icon
-                    className="h-5 w-5"
-                    style={{ color: portalColors[ramp.accent] }}
-                  />
-                </div>
-                <h2 className="mt-4 text-lg font-semibold tracking-[-0.02em]">
-                  {ramp.title}
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {ramp.body}
-                </p>
-                <ul className="mt-4 grid gap-2 text-sm leading-6 text-muted-foreground">
-                  {ramp.steps.map((step) => (
-                    <li key={step} className="flex gap-2">
-                      <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-400" />
-                      <span>{step}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href={ramp.href}
-                  className="portal-action-link mt-4 inline-flex items-center gap-2 text-sm font-medium"
-                >
-                  {ramp.hrefLabel}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </SurfacePanel>
-            );
-          })}
-        </div>
-      </motion.section>
-
-      <motion.section
-        id="build-path"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, delay: 0.1 }}
-        className="mb-8"
-      >
-        <SectionHeader
           badge="Build Path"
           badgeAccent="green"
-          title="Then the app shape"
-          description="Community is the default for a public https site on the launcher. Wallet broadcast is the default for first-party apps. Add a backend or session key only when the flow needs it."
+          title="Pick a build path"
+          description="Create an app with no API key, or use a key on a server."
         />
         <div className="grid gap-4 lg:grid-cols-2">
           {SDK_BUILD_PATHS.map((path) => {
@@ -180,6 +118,13 @@ export function SdkHubClient() {
                     </li>
                   ))}
                 </ul>
+                <Link
+                  href={path.href}
+                  className="portal-action-link mt-4 inline-flex items-center gap-2 text-sm font-medium"
+                >
+                  {path.hrefLabel}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
               </SurfacePanel>
             );
           })}
@@ -207,67 +152,18 @@ export function SdkHubClient() {
             className="min-w-0"
           >
             <SectionHeader
-              badge="Wallet starter"
-              badgeAccent="green"
-              title="Challenge plus broadcast"
-              description="The playground shape: wallet, OnAPI JWT, one write, fresh read, indexed feed."
+              badge="Key starter"
+              badgeAccent="purple"
+              title="Server only"
+              description="The key stays in the server environment. Query, credit rewards, or relay from there."
               className="mb-0"
             />
-            <CodeBlock code={SDK_BROWSER_STARTER_CODE} />
+            <CodeBlock code={SDK_KEY_STARTER_CODE} />
           </SurfacePanel>
         </div>
-      </motion.section>
-
-      <motion.section
-        id="choices"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, delay: 0.12 }}
-        className="mb-8"
-      >
-        <SectionHeader
-          badge="Choices"
-          badgeAccent="green"
-          title="Pick the right execution path"
-          description="Most confusion comes from mixing these surfaces. Treat this as the decision table before choosing a method."
-        />
-        <div className="overflow-hidden rounded-[1.25rem] border border-border/45 bg-background/35">
-          <div className="grid grid-cols-12 border-b border-border/35 bg-muted/20 px-4 py-3 portal-eyebrow text-muted-foreground">
-            <div className="col-span-12 md:col-span-3">Choice</div>
-            <div className="hidden md:col-span-3 md:block">Use for</div>
-            <div className="hidden md:col-span-2 md:block">Wallet</div>
-            <div className="hidden md:col-span-2 md:block">Auth</div>
-            <div className="hidden md:col-span-2 md:block">Methods</div>
-          </div>
-          {SDK_DECISIONS.map((decision) => (
-            <div
-              key={decision.choice}
-              className="grid grid-cols-12 gap-3 border-b border-border/25 px-4 py-4 last:border-b-0"
-            >
-              <div className="col-span-12 md:col-span-3">
-                <div className="flex items-center gap-2 font-medium text-foreground">
-                  <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: portalColors[decision.accent] }}
-                  />
-                  {decision.choice}
-                </div>
-              </div>
-              <div className="col-span-12 text-sm leading-6 text-muted-foreground md:col-span-3">
-                {decision.use}
-              </div>
-              <div className="col-span-6 text-sm text-portal-neutral md:col-span-2">
-                {decision.wallet}
-              </div>
-              <div className="col-span-6 text-sm text-portal-neutral md:col-span-2">
-                {decision.auth}
-              </div>
-              <div className="col-span-12 font-mono text-xs leading-5 text-portal-neutral md:col-span-2">
-                {decision.method}
-              </div>
-            </div>
-          ))}
-        </div>
+        <p className="mt-4 text-sm leading-6 text-muted-foreground">
+          A wallet-signed app uses a visitor JWT, not a key.
+        </p>
       </motion.section>
 
       <motion.section
@@ -278,16 +174,16 @@ export function SdkHubClient() {
         className="mb-8"
       >
         <SectionHeader
-          badge="Playground"
+          badge="Examples"
           badgeAccent="amber"
-          title="Live recipes that teach the real API"
-          description="The playground should stay recipe-first. Each example should show the method, whether it writes, how it reads back, and when the indexer may lag."
+          title="Calls you can copy"
+          description="Open an example and copy the call into your app."
           aside={
             <Link
               href="/playground"
               className="portal-action-link inline-flex items-center gap-2 text-sm font-medium"
             >
-              Try the examples
+              View the examples
               <ArrowRight className="h-4 w-4" />
             </Link>
           }
@@ -313,7 +209,7 @@ export function SdkHubClient() {
                   </h2>
                   <PortalBadge accent={recipe.accent} size="sm">
                     <span className="inline-flex items-center gap-1">
-                      Open
+                      View
                       <ProtocolMotionArrow className="h-3 w-3" />
                     </span>
                   </PortalBadge>
@@ -349,7 +245,7 @@ export function SdkHubClient() {
           badge="Methods"
           badgeAccent="purple"
           title="SDK method families"
-          description="Use the noun modules first. Drop down to raw social data, builders, or execute only when your app needs composition the higher-level methods do not express yet."
+          description="Every method sits on its noun. Writes first, then the reads for that same noun."
         />
         <div className="grid gap-4 lg:grid-cols-2">
           {SDK_METHOD_FAMILIES.map((family) => {
@@ -467,7 +363,7 @@ await os.social.set({
           badge="Packages"
           badgeAccent="neutral"
           title="Installable surfaces"
-          description="@onsocial/sdk is the unified client. It is not on npm yet — this repo uses workspace:*. The rewards package is on npm for partner-only integrations."
+          description="@onsocial/sdk is the client. It publishes to npm with the public launch. @onsocial-id/rewards is on npm now for partners."
         />
         <div className="grid gap-4 md:grid-cols-2">
           {SDK_PACKAGES.map((pkg) => (

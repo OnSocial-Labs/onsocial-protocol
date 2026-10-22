@@ -25,7 +25,7 @@ export type SdkMethodGuide = {
 export const SDK_METHOD_GUIDES: SdkMethodGuide[] = [
   {
     slug: 'identity-content',
-    title: 'Identity and content',
+    title: 'Profiles and posts',
     badge: 'Content',
     accent: 'blue',
     summary:
@@ -61,6 +61,8 @@ export const SDK_METHOD_GUIDES: SdkMethodGuide[] = [
     ],
     readMethods: [
       'os.social.getOne("post/" + postId, authorId) for fresh source-of-truth reads.',
+      'os.query.feed.recent/fromAccounts/pulse/byHashtag/byTicker/byPlace',
+      'os.query.threads.replies/tree',
       'os.query.feed.recent({ author, limit }) for indexed feed surfaces.',
       'os.query.threads.replies(author, postId) and os.query.threads.tree(author, postId) for thread views.',
       'os.query.reactions.counts(author, path) for aggregate reaction counts.',
@@ -111,7 +113,7 @@ const indexedThread = await os.query.threads.tree(accountId, postId, {
   },
   {
     slug: 'groups-governance',
-    title: 'Groups and governance',
+    title: 'Groups',
     badge: 'Spaces',
     accent: 'purple',
     summary:
@@ -144,8 +146,9 @@ const indexedThread = await os.query.threads.tree(accountId, postId, {
     readMethods: [
       'os.groups.getConfig(groupId) for current group settings.',
       'os.groups.isMember(groupId, accountId) before showing member-only actions.',
-      'os.query.groups.feed(groupId, { limit }) for indexed group timelines.',
-      'os.query.groups.post(author, groupId, postId) for indexed group post rows.',
+      'os.query.groups.feed({ groupId, limit }) for indexed group timelines.',
+      'os.query.groups.post({ author, groupId, postId }) for indexed group post rows.',
+      'os.query.groups.membersOf(groupId) and os.query.groups.memberCountsFor(groupIds).',
     ],
     transactionModel: [
       'Group lifecycle and member management writes are wallet or session signed contract actions.',
@@ -179,7 +182,7 @@ await os.posts.groupPost(
 
 const config = await os.groups.getConfig(groupId);
 const isMember = await os.groups.isMember(groupId, accountId);
-const feed = await os.query.groups.feed(groupId, { limit: 20 });`,
+const feed = await os.query.groups.feed({ groupId, limit: 20 });`,
       },
     ],
     notes: [
@@ -245,7 +248,7 @@ const path = 'playground/permissions/write/';
 const grantee = 'app.' + accountId;
 
 const before = await os.storageAccount.balance(accountId);
-if (!before || before.available === '0') {
+if (!before || before.balance === '0') {
   await os.storageAccount.deposit(NEAR('0.1'));
 }
 
@@ -289,12 +292,12 @@ const history = await os.query.permissions.history(accountId, { limit: 20 });`,
     ],
     primaryMethods: [
       'os.query.feed.recent(opts)',
-      'os.query.feed.* — personal, following, media, byHashtag/byTicker/byPlace, pulse, and more',
+      'os.query.feed.* — recent, fromAccounts, pulse, byHashtag, byTicker, byPlace',
       'os.query.threads.replies(author, postId, opts)',
       'os.query.threads.tree(author, postId, opts)',
       'os.query.threads.* — quotes, reposters, counts, and path-based variants',
-      'os.query.groups.feed(groupId, opts)',
-      'os.query.groups.* — browse, members, conversation, thread, quotes, and counts',
+      'os.query.groups.feed({ groupId, limit })',
+      'os.query.groups.* — browse, membersOf, memberCountsFor, conversation, thread, quotes',
       'os.query.profiles.*',
       'os.query.reactions.counts(author, path)',
       'os.query.reactions.* — statesForPosts and other reaction reads',
@@ -335,7 +338,9 @@ const [profileFeed, thread, reactions] = await Promise.all([
   os.query.reactions.counts(authorId, 'post/' + postId),
 ]);
 
-const pendingIndexer = Boolean(freshPost) && !thread.root;`,
+const pendingIndexer =
+  Boolean(freshPost) &&
+  !profileFeed.items.some((row) => row.postId === postId);`,
       },
     ],
     notes: [
@@ -347,7 +352,7 @@ const pendingIndexer = Boolean(freshPost) && !thread.root;`,
   },
   {
     slug: 'economy',
-    title: 'Economy',
+    title: 'Scarces',
     badge: 'Value',
     accent: 'pink',
     summary:
@@ -444,10 +449,11 @@ const recentSales = await os.query.scarces.recentSales({ limit: 20 });`,
       'Keep marketplace and reward flows behind explicit user confirmation.',
       'Server-side reward crediting should use trusted auth and should not expose API keys to browsers.',
     ],
+    playgroundHref: '/playground?example=mint-scarce',
   },
   {
     slug: 'advanced-control',
-    title: 'Advanced control',
+    title: 'Low-level',
     badge: 'Low level',
     accent: 'neutral',
     summary:
@@ -494,7 +500,7 @@ const recentSales = await os.query.scarces.recentSales({ limit: 20 });`,
       {
         title: 'Batch root post and reply into one wallet transaction',
         description:
-          'This is the pattern behind the playground reply example that avoids two wallet modals.',
+          'This batches the root post and the reply into one wallet transaction.',
         code: `import { buildPostSetData, buildReplySetData } from '@onsocial/sdk';
 
 const rootPostId = 'root_' + Date.now().toString(36);
@@ -568,7 +574,7 @@ const planned = await os.query.raw.byAppJsonContains(
   },
   {
     slug: 'platform-services',
-    title: 'Platform services',
+    title: 'Auth and services',
     badge: 'Platform',
     accent: 'amber',
     summary:

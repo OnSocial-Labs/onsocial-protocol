@@ -2,6 +2,8 @@
 
 import { useEffect, type RefObject } from 'react';
 
+import { getPortalScrollY } from '@/lib/portal-scroll-state';
+
 let lockCount = 0;
 let savedScrollY = 0;
 let savedBodyStyle: {
@@ -20,7 +22,12 @@ function getScrollbarWidth(): number {
 function lockBody(): void {
   if (typeof document === 'undefined') return;
 
-  savedScrollY = window.scrollY;
+  savedScrollY = getPortalScrollY();
+  // Stop smooth scroll before the body is fixed. Otherwise the lock's jump
+  // to 0 becomes the remembered position and close returns to the top.
+  window.dispatchEvent(
+    new CustomEvent('onsocial:scroll-lock', { detail: { locked: true } })
+  );
   const scrollbarWidth = getScrollbarWidth();
   savedBodyStyle = {
     overflow: document.body.style.overflow,
@@ -49,6 +56,11 @@ function unlockBody(): void {
   document.body.style.width = savedBodyStyle.width;
   document.body.style.paddingRight = savedBodyStyle.paddingRight;
   window.scrollTo(0, savedScrollY);
+  window.dispatchEvent(
+    new CustomEvent('onsocial:scroll-lock', {
+      detail: { locked: false, top: savedScrollY },
+    })
+  );
   savedBodyStyle = null;
 }
 

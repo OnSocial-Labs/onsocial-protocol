@@ -92,6 +92,27 @@ export function Sheet({
 }) {
   const reduceMotion = useReducedMotion();
   const isMobile = useIsMobile();
+  // Declared before the scroll lock so focus returns while the page is still
+  // fixed. Returning focus without preventScroll sends the window to the top.
+  useEffect(() => {
+    if (!open) return;
+    const active = document.activeElement;
+    const previouslyFocused =
+      active instanceof HTMLElement &&
+      active !== document.body &&
+      active !== document.documentElement
+        ? active
+        : null;
+    return () => {
+      if (
+        previouslyFocused &&
+        previouslyFocused.isConnected &&
+        document.contains(previouslyFocused)
+      ) {
+        previouslyFocused.focus({ preventScroll: true });
+      }
+    };
+  }, [open]);
   useBodyScrollLock(open);
   const viewport = useVisualViewportSheetMetrics(open && isMobile);
 
@@ -186,7 +207,7 @@ export function Sheet({
         <motion.div
           {...fadeMotion(reduceMotion ? 0 : 0.18)}
           data-lenis-prevent
-          className="fixed inset-0 z-[2147483645] flex items-end justify-center md:items-center md:px-4 md:py-6"
+          className="fixed inset-0 z-[2147483645] flex items-end justify-center md:w-screen md:items-center md:px-4 md:py-6"
         >
           <button
             type="button"

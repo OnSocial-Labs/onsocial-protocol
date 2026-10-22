@@ -35,7 +35,9 @@ describe('ReputationBreakdownFacts', () => {
     expect(html).not.toContain('80%');
     expect(html).not.toContain('Limited data');
     expect(html).toContain('Stands, endorsements, paid support');
-    expect(html).toContain('Boost lock · Scout');
+    expect(html).toContain('3 mo lock');
+    expect(html).not.toContain('Scout');
+    expect(html).not.toContain('Citadel');
     expect(html).toContain('Reactions, conversations, amplifies');
     expect(html).toContain('Creates, sales, fans');
     expect(html).toContain('Factors');
@@ -44,7 +46,9 @@ describe('ReputationBreakdownFacts', () => {
     expect(html).toContain('Peers');
     expect(html).not.toContain('Reputation · rank');
     expect(html).not.toContain('How much signal backs this score');
-    expect(html).not.toContain('Backed by a broad set of indexed protocol signals');
+    expect(html).not.toContain(
+      'Backed by a broad set of indexed protocol signals'
+    );
   });
 
   it('explains empty state in plain language', () => {

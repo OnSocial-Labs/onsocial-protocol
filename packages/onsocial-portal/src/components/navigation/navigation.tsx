@@ -9,17 +9,13 @@ import {
   ArrowLeftRight,
   ArrowUpRight,
   ChevronDown,
+  Code2,
   Eye,
-  Flame,
   Handshake,
-  Trophy,
-  Landmark,
   Key,
+  Landmark,
   Package,
-  Play,
-  Search,
   Shield,
-  User,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/brand-logo';
 import { PwaInstallButton } from '@/components/pwa-install-button';
@@ -56,11 +52,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useNavVisibility } from '@/components/providers/nav-visibility-context';
 import { useWallet } from '@/contexts/wallet-context';
 import { useGatewayAuth } from '@/contexts/gateway-auth-context';
-import {
-  isGovernanceWallet,
-  getPublicAppDiscoverUrl,
-  getPublicAppPageUrl,
-} from '@/lib/portal-config';
+import { isGovernanceWallet } from '@/lib/portal-config';
 
 /* ── Grouped navigation structure ────────────────────────────── */
 
@@ -97,18 +89,6 @@ const baseNavGroups: NavGroup[] = [
         icon: ArrowLeftRight,
       },
       {
-        label: 'Influence',
-        href: '/boost/leaderboard',
-        description: 'Locked SOCIAL × time',
-        icon: Flame,
-      },
-      {
-        label: 'OnSocial Rally',
-        href: '/season',
-        description: 'Live standings, earn points, claim rewards',
-        icon: Trophy,
-      },
-      {
         label: 'Partners',
         href: '/partners',
         description: 'Ecosystem collaborations',
@@ -140,10 +120,10 @@ const baseNavGroups: NavGroup[] = [
         icon: Package,
       },
       {
-        label: 'Playground',
+        label: 'Examples',
         href: '/playground',
-        description: 'Interactive code sandbox',
-        icon: Play,
+        description: 'SDK calls to copy',
+        icon: Code2,
       },
     ],
   },
@@ -179,19 +159,11 @@ const homepageSections = [
 
 const SCROLL_HIDE_THRESHOLD = 12;
 
-function isSocialRoute(pathname: string) {
-  return pathname === '/discover' || pathname.startsWith('/u/');
-}
-
 function isGroupActive(
   group: NavGroup,
   pathname: string,
   isActiveItem: (href: string) => boolean
 ) {
-  if (group.label === 'Social') {
-    return isSocialRoute(pathname);
-  }
-
   return group.items.some((item) => isActiveItem(item.href));
 }
 
@@ -241,7 +213,6 @@ export function Navigation() {
   const desktopActionsRef = useRef<HTMLDivElement | null>(null);
   const mobileMenuScrollRef = useRef<HTMLDivElement | null>(null);
   const protocolDropdown = useDropdown();
-  const socialDropdown = useDropdown();
   const servicesDropdown = useDropdown();
   const internalDropdown = useDropdown();
   const {
@@ -259,20 +230,14 @@ export function Navigation() {
   const dropdownByGroupLabel = useMemo(
     () => ({
       Protocol: protocolDropdown,
-      Social: socialDropdown,
       Services: servicesDropdown,
       Internal: internalDropdown,
     }),
-    [protocolDropdown, socialDropdown, servicesDropdown, internalDropdown]
+    [protocolDropdown, servicesDropdown, internalDropdown]
   );
   const groupDropdowns = useMemo(
-    () => [
-      protocolDropdown,
-      socialDropdown,
-      servicesDropdown,
-      internalDropdown,
-    ],
-    [protocolDropdown, socialDropdown, servicesDropdown, internalDropdown]
+    () => [protocolDropdown, servicesDropdown, internalDropdown],
+    [protocolDropdown, servicesDropdown, internalDropdown]
   );
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
@@ -280,39 +245,13 @@ export function Navigation() {
   const effectiveNavBack = navBack ?? resolveRouteNavBack(pathname);
   const router = useRouter();
   const showInternalOps = isGovernanceWallet(accountId) || Boolean(jwt);
-  const socialGroup = useMemo((): NavGroup => {
-    const items: NavGroupItem[] = [
-      {
-        label: 'Discover profiles',
-        href: getPublicAppDiscoverUrl(),
-        description: 'Browse identities in the app',
-        icon: Search,
-      },
-    ];
-
-    if (accountId) {
-      items.push({
-        label: 'Your profile',
-        href: getPublicAppPageUrl(accountId),
-        description: 'Open your profile in the app',
-        icon: User,
-      });
-    }
-
-    return {
-      label: 'Social',
-      accent: 'blue',
-      items,
-    };
-  }, [accountId]);
   const navGroups = useMemo(
     () => [
       baseNavGroups[0],
-      socialGroup,
       baseNavGroups[1],
       ...(showInternalOps ? [internalOpsGroup] : []),
     ],
-    [showInternalOps, socialGroup]
+    [showInternalOps]
   );
   const isOpen = openPathname === pathname;
   const isActiveItem = useCallback(
