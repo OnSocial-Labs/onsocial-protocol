@@ -17,12 +17,15 @@ export interface PortalLiveHealth {
     status: SystemStatusWord;
     lagBlocks: number | null;
     height: number | null;
+    updateNeeded: boolean;
   };
 }
 
 export function indexerLiveLabel(
-  status: SystemStatusWord | null | undefined
+  status: SystemStatusWord | null | undefined,
+  updateNeeded?: boolean
 ): string {
+  if (updateNeeded) return 'Update needed';
   if (status === 'up') return 'At tip';
   if (status === 'degraded') return 'Catching up';
   if (status === 'down') return 'Down';
@@ -74,6 +77,8 @@ export function parseLiveHealthPayload(body: unknown): PortalLiveHealth | null {
         (record.indexer as { lagBlocks?: unknown }).lagBlocks
       ),
       height: nonNegative((record.indexer as { height?: unknown }).height),
+      updateNeeded:
+        (record.indexer as { updateNeeded?: unknown }).updateNeeded === true,
     },
   };
 }

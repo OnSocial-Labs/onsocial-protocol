@@ -9,6 +9,8 @@ export interface LiveHealthSnapshot {
     status: LiveWord;
     lagBlocks: number | null;
     height: number | null;
+    /** Our node speaks an older protocol than the chain. */
+    updateNeeded: boolean;
   };
 }
 
@@ -40,6 +42,25 @@ export function parseStatusHead(result: unknown): number | null {
   return parseBlockNum(height);
 }
 
+export function parseStatusProtocol(result: unknown): number | null {
+  if (!result || typeof result !== 'object') return null;
+  return parseBlockNum(
+    (result as { protocol_version?: unknown }).protocol_version
+  );
+}
+
+/** True only when our node and the public chain both answered, and ours is older. */
+export function deriveProtocolUpdateNeeded(input: {
+  nodeProtocol: number | null;
+  chainProtocol: number | null;
+}): boolean {
+  return (
+    input.nodeProtocol != null &&
+    input.chainProtocol != null &&
+    input.nodeProtocol < input.chainProtocol
+  );
+}
+
 export function deriveRpcLiveStatus(
   answered: boolean,
   primary: boolean
@@ -55,13 +76,43 @@ export function deriveRpcLiveStatus(
 export function deriveIndexerLiveStatus(input: {
   cursor: number | null;
   head: number | null;
-}): { status: LiveWord; lagBlocks: number | null; height: number | null } {
+  updateNeeded?: boolean;
+}): {
+  status: LiveWord;
+  lagBlocks: number | null;
+  height: number | null;
+  updateNeeded: boolean;
+} {
+  const updateNeeded = input.updateNeeded === true;
   if (input.cursor == null || input.head == null) {
-    return { status: 'down', lagBlocks: null, height: input.cursor };
+    return {
+      status: updateNeeded ? 'degraded' : 'down',
+      lagBlocks: null,
+      height: input.cursor,
+      updateNeeded,
+    };
   }
   const lag = input.head - input.cursor;
-  if (lag <= INDEXER_AT_TIP_LAG) {
-    return { status: 'up', lagBlocks: Math.max(0, lag), height: input.cursor };
+  if (updateNeeded) {
+    return {
+      status: 'degraded',
+      lagBlocks: Math.max(0, lag),
+      height: input.cursor,
+      updateNeeded: true,
+    };
   }
-  return { status: 'degraded', lagBlocks: lag, height: input.cursor };
+  if (lag <= INDEXER_AT_TIP_LAG) {
+    return {
+      status: 'up',
+      lagBlocks: Math.max(0, lag),
+      height: input.cursor,
+      updateNeeded: false,
+    };
+  }
+  return {
+    status: 'degraded',
+    lagBlocks: lag,
+    height: input.cursor,
+    updateNeeded: false,
+  };
 }

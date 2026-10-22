@@ -91,6 +91,7 @@ describe('live health labels', () => {
     expect(rpcLiveLabel('degraded', 400)).toBe('Backup');
     expect(indexerLiveLabel('up')).toBe('At tip');
     expect(indexerLiveLabel('degraded')).toBe('Catching up');
+    expect(indexerLiveLabel('degraded', true)).toBe('Update needed');
   });
 
   it('accepts a live payload and drops a bad one', () => {
@@ -101,8 +102,24 @@ describe('live health labels', () => {
       })
     ).toEqual({
       rpc: { status: 'up', ms: 14 },
-      indexer: { status: 'degraded', lagBlocks: 40, height: 10 },
+      indexer: {
+        status: 'degraded',
+        lagBlocks: 40,
+        height: 10,
+        updateNeeded: false,
+      },
     });
+    expect(
+      parseLiveHealthPayload({
+        rpc: { status: 'up', ms: 14 },
+        indexer: {
+          status: 'degraded',
+          lagBlocks: 12,
+          height: 10,
+          updateNeeded: true,
+        },
+      })?.indexer.updateNeeded
+    ).toBe(true);
     expect(parseLiveHealthPayload({ error: 'Not found' })).toBeNull();
   });
 });

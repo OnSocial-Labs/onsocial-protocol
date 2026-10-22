@@ -40,8 +40,14 @@ function wordColor(status: string | null | undefined): string {
   return 'text-muted-foreground';
 }
 
-function LiveTicks({ tone }: { tone: SystemStatusWord | null }) {
-  const moving = tone === 'up' || tone === 'degraded';
+function LiveTicks({
+  tone,
+  still = false,
+}: {
+  tone: SystemStatusWord | null;
+  still?: boolean;
+}) {
+  const moving = !still && (tone === 'up' || tone === 'degraded');
   return (
     <span className="inline-flex h-3 items-end gap-[3px]" aria-hidden="true">
       {[0, 1, 2, 3].map((bar) => (
@@ -235,7 +241,12 @@ export function SystemStatus() {
         if (liveRef.current) return;
         const failed: PortalLiveHealth = {
           rpc: { status: 'down', ms: null },
-          indexer: { status: 'down', lagBlocks: null, height: null },
+          indexer: {
+            status: 'down',
+            lagBlocks: null,
+            height: null,
+            updateNeeded: false,
+          },
         };
         liveRef.current = failed;
         setLive(failed);
@@ -249,7 +260,12 @@ export function SystemStatus() {
       if (!liveSupportedRef.current || liveRef.current) return;
       const failed: PortalLiveHealth = {
         rpc: { status: 'down', ms: null },
-        indexer: { status: 'down', lagBlocks: null, height: null },
+        indexer: {
+          status: 'down',
+          lagBlocks: null,
+          height: null,
+          updateNeeded: false,
+        },
       };
       liveRef.current = failed;
       setLive(failed);
@@ -365,7 +381,7 @@ export function SystemStatus() {
                   </div>
                   <div
                     className="flex items-center justify-between gap-3 py-2.5 last:pb-0"
-                    aria-label={`Indexer, ${indexerLiveLabel(live.indexer.status)}`}
+                    aria-label={`Indexer, ${indexerLiveLabel(live.indexer.status, live.indexer.updateNeeded)}`}
                   >
                     <div className="flex min-w-0 items-center gap-2.5">
                       <span
@@ -383,11 +399,17 @@ export function SystemStatus() {
                       </div>
                     </div>
                     <span className="inline-flex shrink-0 items-center gap-2">
-                      <LiveTicks tone={live.indexer.status} />
+                      <LiveTicks
+                        tone={live.indexer.status}
+                        still={live.indexer.updateNeeded}
+                      />
                       <span
                         className={`text-xs font-medium ${wordColor(live.indexer.status)}`}
                       >
-                        {indexerLiveLabel(live.indexer.status)}
+                        {indexerLiveLabel(
+                          live.indexer.status,
+                          live.indexer.updateNeeded
+                        )}
                       </span>
                     </span>
                   </div>

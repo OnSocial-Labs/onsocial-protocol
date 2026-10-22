@@ -28,6 +28,8 @@ STAGED_META = STAGED_DIR / "current.json"
 BUILD_LOCK = Path("/var/lib/onsocial/nearcore-build.lock")
 BUILD_LOG = Path("/var/log/onsocial-nearcore-build.log")
 BUILD_PID = Path("/var/lib/onsocial/nearcore-build.pid")
+# Present until the first binary swap has been watched. The job still builds.
+SWAP_HOLD = Path("/var/lib/onsocial/nearcore-swap-hold")
 SRC = Path("/root/src/onsocial-indexer-build/indexers/onsocial-indexer")
 CARGO_TOML = SRC / "Cargo.toml"
 BINARY_NAME = "onsocial-indexer"
@@ -52,6 +54,13 @@ def version_key(tag: str) -> tuple[int, int, int, int]:
 
 def is_newer(left: str, right: str) -> bool:
     return version_key(left) > version_key(right)
+
+
+def with_swap_hold(decision: str, held: bool) -> str:
+    """A held swap stays staged. Removing the hold file is the watched restart."""
+    if decision == "swap" and held:
+        return "held"
+    return decision
 
 
 def should_swap(
@@ -139,6 +148,9 @@ def _self_test() -> None:
         == "wait_for_sync"
     )
     assert should_swap("2.14.0-rc.5", "2.14.0-rc.5", 88, 88, 10, True) == "current"
+    assert with_swap_hold("swap", True) == "held"
+    assert with_swap_hold("swap", False) == "swap"
+    assert with_swap_hold("staged", True) == "staged"
     releases = [
         {
             "tag_name": "2.14.0-rc.4",
@@ -346,7 +358,10 @@ def _maybe_swap() -> str:
         f"swap={decision} running={running} staged={staged} "
         f"protocol={local_protocol}/{public_protocol} lag={_lag()}"
     )
-    if decision == "swap":
+    decision = with_swap_hold(decision, SWAP_HOLD.exists())
+    if decision == "held":
+        print("swap held until the hold file is removed")
+    elif decision == "swap":
         _swap(str(staged), Path(str(meta.get("path"))))
     return decision
 

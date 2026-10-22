@@ -1,5 +1,6 @@
 import {
   createConfiguredNearRpc,
+  FALLBACK_RPC_URLS,
   rpcEndpointLabel,
   type NearRpc,
   type Network,
@@ -8,9 +9,11 @@ import { config } from '../config/index.js';
 import { logger } from '../logger.js';
 import {
   deriveIndexerLiveStatus,
+  deriveProtocolUpdateNeeded,
   deriveRpcLiveStatus,
   parseHasuraCursorBlock,
   parseStatusHead,
+  parseStatusProtocol,
   type LiveHealthSnapshot,
 } from './live-health.js';
 
@@ -40,16 +43,44 @@ function getHealthRpc(): NearRpc {
   return healthRpc;
 }
 
+async function readStatus(
+  url: string
+): Promise<{ head: number | null; protocol: number | null } | null> {
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(2_000),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'live-health',
+        method: 'status',
+        params: [],
+      }),
+    });
+    if (!response.ok) return null;
+    const body = (await response.json()) as { result?: unknown };
+    return {
+      head: parseStatusHead(body.result),
+      protocol: parseStatusProtocol(body.result),
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function probeRpc(): Promise<{
   status: LiveHealthSnapshot['rpc']['status'];
   ms: number | null;
   head: number | null;
+  protocol: number | null;
 }> {
   const started = Date.now();
   try {
     const rpc = getHealthRpc();
     const response = await rpc.call('status', []);
     const head = parseStatusHead(response.result);
+    const protocol = parseStatusProtocol(response.result);
     const answered = !response.error && head != null;
     const primary =
       rpcEndpointLabel(rpc.getActiveUrl()) ===
@@ -59,10 +90,11 @@ async function probeRpc(): Promise<{
       status,
       ms: status === 'up' ? Math.max(0, Date.now() - started) : null,
       head,
+      protocol: status === 'up' ? protocol : null,
     };
   } catch {
     logger.warn({ component: 'live-health' }, 'RPC live check failed');
-    return { status: 'down', ms: null, head: null };
+    return { status: 'down', ms: null, head: null, protocol: null };
   }
 }
 
@@ -95,8 +127,27 @@ async function readIndexerCursor(): Promise<number | null> {
 }
 
 async function probeLiveHealth(): Promise<LiveHealthSnapshot> {
-  const [rpc, cursor] = await Promise.all([probeRpc(), readIndexerCursor()]);
-  const indexer = deriveIndexerLiveStatus({ cursor, head: rpc.head });
+  const network = (config.nearNetwork as Network) || 'testnet';
+  const chainUrl = FALLBACK_RPC_URLS[network];
+  const nodeIsDistinct =
+    rpcEndpointLabel(config.nearRpcUrl) !== rpcEndpointLabel(chainUrl);
+  const [rpc, cursor, chain] = await Promise.all([
+    probeRpc(),
+    readIndexerCursor(),
+    readStatus(chainUrl),
+  ]);
+  let nodeProtocol = nodeIsDistinct ? rpc.protocol : null;
+  if (nodeIsDistinct && nodeProtocol == null) {
+    const node = await readStatus(config.nearRpcUrl);
+    nodeProtocol = node?.protocol ?? null;
+  }
+  const chainProtocol = chain?.protocol ?? null;
+  const head = chain?.head ?? rpc.head;
+  const indexer = deriveIndexerLiveStatus({
+    cursor,
+    head,
+    updateNeeded: deriveProtocolUpdateNeeded({ nodeProtocol, chainProtocol }),
+  });
   return {
     rpc: { status: rpc.status, ms: rpc.ms },
     indexer,
