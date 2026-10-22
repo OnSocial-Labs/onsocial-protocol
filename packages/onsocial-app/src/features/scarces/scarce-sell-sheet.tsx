@@ -21,6 +21,8 @@ interface ScarceSellSheetProps {
   sellerAccountId?: string | null;
   onOpenChange: (open: boolean) => void;
   onListed?: (detail: ScarceSellSuccessDetail) => void;
+  /** Above a reader or listen shell. Page surfaces stay on the gesture band. */
+  zIndex?: number;
 }
 
 /** Stable first-paint footer so hug height doesn’t jump when the form syncs. */
@@ -40,6 +42,7 @@ export function ScarceSellSheet({
   sellerAccountId = null,
   onOpenChange,
   onListed,
+  zIndex = SHEET_Z.gesture,
 }: ScarceSellSheetProps) {
   const titleId = useId();
   const formId = useId();
@@ -96,7 +99,7 @@ export function ScarceSellSheet({
       panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
-      zIndex={SHEET_Z.gesture}
+      zIndex={zIndex}
       footer={
         <CommerceSheetFooter
           formId={formId}

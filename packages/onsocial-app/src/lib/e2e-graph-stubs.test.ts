@@ -11,6 +11,7 @@ import {
   e2eVaultCollectionRows,
   e2eVaultOwnedRows,
   e2eDiscoverArticleRows,
+  e2eWritingDropRow,
   e2eWritingReaderRows,
   e2eWritingShelfRows,
   extractGraphQuery,
@@ -410,6 +411,36 @@ describe('resolveE2eGraphStub', () => {
         cookieValue: null,
       })
     ).toBeNull();
+  });
+
+  it('gives a writing article its drop without a market row', () => {
+    const cookieValue = 'writing=reader';
+    const drop = resolveE2eGraphStub({
+      query: 'query ScarcesCollectionsCurrent { scarcesCollectionsCurrent { collectionId } }',
+      variables: { sourcePostPath: 'alice.testnet/post/night' },
+      cookieValue,
+    });
+    expect(drop?.data.scarcesCollectionsCurrent).toEqual([e2eWritingDropRow()]);
+    expect(
+      resolveE2eGraphStub({
+        query:
+          'query ScarcesCollectionCurrent { scarcesCollectionsCurrent { collectionId } }',
+        variables: { collectionId: 'night-essay' },
+        cookieValue,
+      })?.data.scarcesCollectionsCurrent
+    ).toEqual([e2eWritingDropRow()]);
+    expect(
+      resolveE2eGraphStub({
+        query: 'query ScarcesEvents { scarcesEvents { tokenId } }',
+        cookieValue,
+      })?.data.scarcesEvents
+    ).toEqual([]);
+    expect(
+      resolveE2eGraphStub({
+        query: 'query ScarcesActiveListings { scarcesActiveListings { listingId } }',
+        cookieValue,
+      })?.data.scarcesActiveListings
+    ).toEqual([]);
   });
 
   it('recognizes gateway and BFF graph/query POSTs', () => {

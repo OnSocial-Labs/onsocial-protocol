@@ -21,6 +21,8 @@ interface ScarceTransferSheetProps {
   ownerAccountId?: string | null;
   onOpenChange: (open: boolean) => void;
   onTransferred?: (detail: ScarceTransferSuccessDetail) => void;
+  /** Above a reader or listen shell. Page surfaces stay on the gesture band. */
+  zIndex?: number;
 }
 
 const TRANSFER_FOOTER_SEED: CommerceSheetFooterState = {
@@ -39,6 +41,7 @@ export function ScarceTransferSheet({
   ownerAccountId = null,
   onOpenChange,
   onTransferred,
+  zIndex = SHEET_Z.gesture,
 }: ScarceTransferSheetProps) {
   const titleId = useId();
   const formId = useId();
@@ -95,7 +98,7 @@ export function ScarceTransferSheet({
       panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
-      zIndex={SHEET_Z.gesture}
+      zIndex={zIndex}
       footer={
         <CommerceSheetFooter
           formId={formId}

@@ -2649,6 +2649,7 @@ export function PostCard({
           retryScarceEmbed();
           refreshOwnedScarce();
         }}
+        zIndex={SCARCE_Z.commerceOverListen}
       />
       <ScarceSellSheet
         open={sellScarceOpen && ownedScarceItem != null}
@@ -2660,6 +2661,7 @@ export function PostCard({
           retryScarceEmbed();
           refreshOwnedScarce();
         }}
+        zIndex={SCARCE_Z.commerceOverListen}
       />
       <FeedPhotoEnlargeScreen
         open={photoOpen}
