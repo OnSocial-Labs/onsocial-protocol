@@ -13,7 +13,8 @@ export type ProtocolStakeMode = 'delegate' | 'undelegate' | 'withdraw';
 
 export function protocolStakeWhisper(
   mode: ProtocolStakeMode,
-  isInCooldown = false
+  isInCooldown = false,
+  cooldownDurationNs?: string | null
 ): string {
   if (isInCooldown && mode === 'delegate') {
     return 'Delegation paused.';
@@ -24,11 +25,42 @@ export function protocolStakeWhisper(
   switch (mode) {
     case 'delegate':
       return 'Turns SOCIAL into proposal weight for this board.';
-    case 'undelegate':
-      return 'Removes proposal weight · cooldown starts';
+    case 'undelegate': {
+      const duration = formatProtocolStakeCooldownDuration(cooldownDurationNs);
+      return duration
+        ? `Removes proposal weight · ${duration} cooldown`
+        : 'Removes proposal weight · cooldown starts';
+    }
     case 'withdraw':
       return 'Unlocked staked SOCIAL → wallet';
   }
+}
+
+/** Configured staking cooldown, as a compound before “cooldown” (`7 day`). */
+export function formatProtocolStakeCooldownDuration(
+  durationNs: string | null | undefined
+): string | null {
+  let ns = 0n;
+  try {
+    ns = BigInt(durationNs || '0');
+  } catch {
+    return null;
+  }
+  if (ns <= 0n) return null;
+
+  const seconds = ns / 1_000_000_000n;
+  if (seconds <= 0n) return null;
+
+  const minute = 60n;
+  const hour = 3_600n;
+  const day = 86_400n;
+
+  if (seconds % day === 0n) return `${seconds / day} day`;
+  if (seconds >= day) return `${(seconds + day - 1n) / day} day`;
+  if (seconds % hour === 0n) return `${seconds / hour} hour`;
+  if (seconds >= hour) return `${(seconds + hour - 1n) / hour} hour`;
+  const minutes = (seconds + minute - 1n) / minute;
+  return `${minutes > 0n ? minutes : 1n} minute`;
 }
 
 export function protocolStakeModeVerb(mode: ProtocolStakeMode): string {
@@ -251,38 +283,37 @@ export function parseProtocolStakeAmountYocto(normalized: string): bigint {
   }
 }
 
-export function formatProtocolStakeMaxAmount(maxYocto: bigint): string {
-  if (maxYocto <= 0n) return '';
-  return finalizeProtocolStakeAmountInput(yoctoToSocial(maxYocto.toString()));
+/**
+ * Delegate weight against the live propose threshold.
+ * `canPropose` is the green status; while short the ratio is the status.
+ */
+export function protocolStakeProgress(opts: {
+  mode: ProtocolStakeMode;
+  delegatedYocto: bigint;
+  requiredYocto: bigint;
+}): { ratio: string; canPropose: boolean } | null {
+  if (opts.mode !== 'delegate' || opts.requiredYocto <= 0n) return null;
+  const delegated = formatSocialCompact(opts.delegatedYocto.toString());
+  const required = formatSocialCompact(opts.requiredYocto.toString());
+  return {
+    ratio: `${delegated} / ${required} delegated`,
+    canPropose:
+      opts.delegatedYocto > 0n && opts.delegatedYocto >= opts.requiredYocto,
+  };
 }
 
-/**
- * Quick fill under the amount field.
- * Delegate while short of the propose threshold: the gap.
- * Delegate once that threshold is met: how much they can still add.
- * Undelegate and withdraw: Max, the whole balance.
- */
-export type ProtocolStakeQuickFill =
-  | { kind: 'amount'; value: string }
-  | { kind: 'max' };
-
+/** Gap still needed to propose. No chip once the threshold is met. */
 export function protocolStakeQuickFill(opts: {
   mode: ProtocolStakeMode;
   remainingToThresholdYocto: bigint;
-  maxYocto: bigint;
-}): ProtocolStakeQuickFill | null {
-  if (opts.mode !== 'delegate') return { kind: 'max' };
-
-  if (opts.remainingToThresholdYocto > 0n) {
-    const value = finalizeProtocolStakeAmountInput(
-      yoctoToSocial(opts.remainingToThresholdYocto.toString())
-    );
-    return value ? { kind: 'amount', value } : null;
+}): string | null {
+  if (opts.mode !== 'delegate' || opts.remainingToThresholdYocto <= 0n) {
+    return null;
   }
-
-  if (opts.maxYocto <= 0n) return null;
-  const value = formatProtocolStakeMaxAmount(opts.maxYocto);
-  return value ? { kind: 'amount', value } : null;
+  const value = finalizeProtocolStakeAmountInput(
+    yoctoToSocial(opts.remainingToThresholdYocto.toString())
+  );
+  return value || null;
 }
 
 export function protocolStakeAmountError(

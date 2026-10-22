@@ -4,6 +4,11 @@ import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { AmountField, AmountFieldMetaRow, TokenIcon } from '@onsocial/ui';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
+import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
+import {
+  resolveDaoDirectoryCrest,
+  resolveDaoDirectoryName,
+} from '@/features/protocol/dao-directory';
 import {
   getProtocolGovernanceEligibility,
   type ProtocolGovernanceEligibility,
@@ -12,19 +17,20 @@ import {
   applyProtocolStakeAmountInput,
   defaultProtocolStakeAmountInput,
   finalizeProtocolStakeAmountInput,
-  formatProtocolStakeMaxAmount,
   parseProtocolStakeAmountYocto,
   protocolStakeActionBlocked,
   protocolStakeAmountError,
   protocolStakeAmountMeta,
+  protocolStakeProgress,
   protocolStakeQuickFill,
   protocolStakeShowsAmountField,
   protocolStakeCtaLabel,
+  protocolStakeModeVerb,
   protocolStakeWhisper,
   resolveProtocolStakeMaxYocto,
   type ProtocolStakeMode,
 } from '@/features/protocol/protocol-stake-amount';
-import { ProtocolStakeFacts } from '@/features/protocol/protocol-stake-facts';
+import { getStakingCooldownDurationNs } from '@/features/protocol/protocol-stake-cooldown';
 import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
 import { useSocialTokenIcon } from '@/hooks/use-social-token-icon';
 import { SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS } from '@/lib/social-spend-profile';
@@ -63,6 +69,9 @@ export function ProtocolStakeSheet({
   >('idle');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [cooldownDurationNs, setCooldownDurationNs] = useState<string | null>(
+    null
+  );
 
   const refresh = async (opts?: { fresh?: boolean }) => {
     if (!daoAccountId || !accountId) {
@@ -106,6 +115,7 @@ export function ProtocolStakeSheet({
       setLoadState('idle');
       setLoadError(null);
       setFormError(null);
+      setCooldownDurationNs(null);
       return;
     }
     void refresh({ fresh: true });
@@ -157,22 +167,39 @@ export function ProtocolStakeSheet({
     Boolean(eligibility?.isInCooldown)
   );
   const remainingToThreshold = BigInt(eligibility?.remainingToThreshold ?? '0');
+  const delegatedYocto = BigInt(eligibility?.delegatedWeight ?? '0');
+  const requiredYocto = BigInt(eligibility?.requiredWeight ?? '0');
+  const progress = protocolStakeProgress({
+    mode,
+    delegatedYocto,
+    requiredYocto,
+  });
   const quickFill = protocolStakeQuickFill({
     mode,
     remainingToThresholdYocto: remainingToThreshold,
-    maxYocto,
   });
-
-  const applyMaxAmount = useCallback(() => {
-    setFormError(null);
-    setAmount(formatProtocolStakeMaxAmount(maxYocto));
-  }, [maxYocto]);
 
   const stakeWhisper = protocolStakeWhisper(
     mode,
-    Boolean(eligibility?.isInCooldown)
+    Boolean(eligibility?.isInCooldown),
+    cooldownDurationNs
   );
   const [cooldownTick, setCooldownTick] = useState(0);
+
+  useEffect(() => {
+    const stakingId = eligibility?.stakingContractId;
+    if (!open || !stakingId) {
+      setCooldownDurationNs(null);
+      return;
+    }
+    let cancelled = false;
+    void getStakingCooldownDurationNs(stakingId).then((duration) => {
+      if (!cancelled) setCooldownDurationNs(duration);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [eligibility?.stakingContractId, open]);
 
   useEffect(() => {
     if (!open || !eligibility?.isInCooldown) return;
@@ -203,6 +230,16 @@ export function ProtocolStakeSheet({
   );
 
   const stakingReady = Boolean(eligibility?.stakingContractId);
+  const verb = protocolStakeModeVerb(mode);
+  const boardName = daoAccountId ? resolveDaoDirectoryName(daoAccountId) : '';
+  const boardLabel =
+    daoAccountId &&
+    boardName.trim().toLowerCase() !== daoAccountId.trim().toLowerCase()
+      ? boardName
+      : null;
+  const boardCrest = daoAccountId
+    ? resolveDaoDirectoryCrest(daoAccountId)
+    : null;
   const ctaLabel = protocolStakeCtaLabel(
     mode,
     amountOk && !amountError ? normalizedAmount : null
@@ -249,11 +286,10 @@ export function ProtocolStakeSheet({
     <ProtocolTaskSheet
       open={open}
       onClose={onClose}
-      verb="Stake"
-      handle={daoAccountId ?? undefined}
+      verb={verb}
       whisper={stakeWhisper}
-      closeAriaLabel="Close stake"
-      backdropLabel="Close stake"
+      closeAriaLabel={`Close ${verb.toLowerCase()}`}
+      backdropLabel={`Close ${verb.toLowerCase()}`}
       formId={formId}
       footerState={footerState}
     >
@@ -283,8 +319,16 @@ export function ProtocolStakeSheet({
           }
         }}
       >
+        {daoAccountId ? (
+          <ScarcePartyLine
+            accountId={daoAccountId}
+            displayNameValue={boardLabel}
+            avatarUrl={boardCrest}
+          />
+        ) : null}
+
         {!accountId ? (
-          <p className="protocol-empty">Connect a wallet to stake.</p>
+          <p className="protocol-empty">Connect a wallet to delegate.</p>
         ) : null}
 
         {accountId && loadState === 'loading' ? (
@@ -312,12 +356,10 @@ export function ProtocolStakeSheet({
 
         {eligibility?.stakingContractId ? (
           <>
-            <ProtocolStakeFacts eligibility={eligibility} />
-
             <div
               className="protocol-mode-rail"
               role="tablist"
-              aria-label="Stake action"
+              aria-label="Delegate, undelegate, or withdraw"
             >
               {(
                 [
@@ -344,6 +386,20 @@ export function ProtocolStakeSheet({
               ))}
             </div>
 
+            {progress ? (
+              <p className="protocol-stake-status">
+                {progress.ratio}
+                {progress.canPropose ? (
+                  <>
+                    {' · '}
+                    <span className="protocol-stake-status-met">
+                      you can propose.
+                    </span>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
+
             {showsAmountField ? (
               <>
                 <AmountField
@@ -360,19 +416,9 @@ export function ProtocolStakeSheet({
 
                 <AmountFieldMetaRow
                   tone="support"
-                  presets={
-                    quickFill?.kind === 'amount' ? [quickFill.value] : undefined
-                  }
+                  presets={quickFill ? [quickFill] : undefined}
                   selectedValue={normalizedAmount}
                   onSelectPreset={applyAmountInput}
-                  max={
-                    quickFill?.kind === 'max'
-                      ? {
-                          onClick: applyMaxAmount,
-                          disabled: maxYocto <= 0n,
-                        }
-                      : undefined
-                  }
                   disabled={pending}
                   meta={amountMeta}
                 />

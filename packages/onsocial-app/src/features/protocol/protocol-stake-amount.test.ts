@@ -9,6 +9,8 @@ import {
   protocolStakeActionBlocked,
   protocolStakeAmountError,
   protocolStakeAmountMeta,
+  formatProtocolStakeCooldownDuration,
+  protocolStakeProgress,
   protocolStakeQuickFill,
   protocolStakeCtaLabel,
   protocolStakeWhisper,
@@ -44,43 +46,78 @@ describe('protocol-stake-amount', () => {
     expect(applyProtocolStakeAmountInput('400abc', max)).toBe('400');
   });
 
-  it('fills the delegate gap, then the amount they can still add', () => {
-    const max = resolveProtocolStakeMaxYocto(baseEligibility, 'delegate');
+  it('offers only the delegate gap, and nothing once the threshold is met', () => {
     expect(
       protocolStakeQuickFill({
         mode: 'delegate',
         remainingToThresholdYocto: 400n * 10n ** 18n,
-        maxYocto: max,
       })
-    ).toEqual({ kind: 'amount', value: '400' });
+    ).toBe('400');
     expect(
       protocolStakeQuickFill({
         mode: 'delegate',
         remainingToThresholdYocto: 0n,
-        maxYocto: max,
-      })
-    ).toEqual({ kind: 'amount', value: '1100' });
-    expect(
-      protocolStakeQuickFill({
-        mode: 'delegate',
-        remainingToThresholdYocto: 0n,
-        maxYocto: 0n,
       })
     ).toBeNull();
     expect(
       protocolStakeQuickFill({
         mode: 'undelegate',
         remainingToThresholdYocto: 0n,
-        maxYocto: 50n * 10n ** 18n,
       })
-    ).toEqual({ kind: 'max' });
+    ).toBeNull();
     expect(
       protocolStakeQuickFill({
         mode: 'withdraw',
-        remainingToThresholdYocto: 0n,
-        maxYocto: 25n * 10n ** 18n,
+        remainingToThresholdYocto: 25n * 10n ** 18n,
       })
-    ).toEqual({ kind: 'max' });
+    ).toBeNull();
+  });
+
+  it('shows delegated weight against the live propose threshold', () => {
+    expect(
+      protocolStakeProgress({
+        mode: 'delegate',
+        delegatedYocto: 500n * 10n ** 18n,
+        requiredYocto: 500n * 10n ** 18n,
+      })
+    ).toEqual({
+      ratio: '500.00 / 500.00 delegated',
+      canPropose: true,
+    });
+    expect(
+      protocolStakeProgress({
+        mode: 'delegate',
+        delegatedYocto: 100n * 10n ** 18n,
+        requiredYocto: 500n * 10n ** 18n,
+      })
+    ).toEqual({
+      ratio: '100.00 / 500.00 delegated',
+      canPropose: false,
+    });
+    expect(
+      protocolStakeProgress({
+        mode: 'delegate',
+        delegatedYocto: 800n * 10n ** 18n,
+        requiredYocto: 500n * 10n ** 18n,
+      })
+    ).toEqual({
+      ratio: '800.00 / 500.00 delegated',
+      canPropose: true,
+    });
+    expect(
+      protocolStakeProgress({
+        mode: 'undelegate',
+        delegatedYocto: 500n * 10n ** 18n,
+        requiredYocto: 500n * 10n ** 18n,
+      })
+    ).toBeNull();
+    expect(
+      protocolStakeProgress({
+        mode: 'delegate',
+        delegatedYocto: 0n,
+        requiredYocto: 0n,
+      })
+    ).toBeNull();
   });
 
   it('defaults delegate amount to remaining threshold', () => {
@@ -107,7 +144,17 @@ describe('protocol-stake-amount', () => {
 
   it('morphs whisper and meta by stake mode', () => {
     expect(protocolStakeWhisper('delegate')).toMatch(/proposal weight/i);
-    expect(protocolStakeWhisper('undelegate')).toMatch(/proposal weight/i);
+    expect(protocolStakeWhisper('undelegate')).toBe(
+      'Removes proposal weight · cooldown starts'
+    );
+    expect(
+      protocolStakeWhisper(
+        'undelegate',
+        false,
+        String(7n * 24n * 60n * 60n * 1_000_000_000n)
+      )
+    ).toBe('Removes proposal weight · 7 day cooldown');
+    expect(formatProtocolStakeCooldownDuration('0')).toBeNull();
     expect(protocolStakeWhisper('withdraw')).toMatch(/wallet/i);
     expect(protocolStakeWhisper('delegate', true)).toMatch(/paused/i);
     expect(protocolStakeCtaLabel('delegate', null)).toBe('Delegate');

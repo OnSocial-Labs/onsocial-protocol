@@ -252,6 +252,28 @@ export async function viewNearContract<T>(
   return JSON.parse(decoded) as T;
 }
 
+export interface NearContractStateEntry {
+  key: string;
+  value: string;
+}
+
+/** Raw contract storage. Keys and values are base64. */
+export async function viewNearContractState(
+  accountId: string,
+  prefix: string
+): Promise<NearContractStateEntry[]> {
+  const result = await nearRpcCall<{ values?: NearContractStateEntry[] }>(
+    'query',
+    {
+      request_type: 'view_state',
+      finality: 'final',
+      account_id: accountId,
+      prefix_base64: btoa(prefix),
+    }
+  );
+  return result.values ?? [];
+}
+
 function decodeViewResultBytes(result: number[] | string | undefined): Uint8Array {
   if (typeof result === 'string') {
     if (!result) return new Uint8Array();
