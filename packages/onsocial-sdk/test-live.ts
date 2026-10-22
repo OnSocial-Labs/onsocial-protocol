@@ -326,7 +326,7 @@ async function main() {
       } else {
         ok(
           'getProfile() [apiKey]',
-          'null (not indexed yet — substreams may need time)'
+          'null (not indexed yet — the indexer may need time)'
         );
       }
     } catch (e) {

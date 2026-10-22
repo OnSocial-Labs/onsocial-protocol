@@ -35,12 +35,12 @@ flowchart LR
   GW --> Relayer[Relayer]
   GW --> Storage[Storage]
   Hasura --> PG[(Postgres)]
-  Substreams[Substreams] --> PG
+  Indexer[Chain index] --> PG
   Relayer --> NEAR[NEAR]
-  Substreams --> NEAR
+  Indexer --> NEAR
 ```
 
-Clients talk HTTP to the **gateway**. Indexed reads come from **Hasura/Postgres** (fed by **substreams**). Writes go on-chain via wallets or the **relayer**. Contracts on NEAR hold the graph, token, boost, social-spend, and scarces logic.
+Clients talk HTTP to the **gateway**. Indexed reads come from **Hasura/Postgres**, filled by the chain index on the NEAR node. Writes go on-chain via wallets or the **relayer**. Contracts on NEAR hold the graph, token, boost, social-spend, and scarces logic.
 
 ---
 
@@ -70,7 +70,7 @@ Clients talk HTTP to the **gateway**. Indexed reads come from **Hasura/Postgres*
 | [packages/onsocial-intents](packages/onsocial-intents) | NEAR Intents / pricing client |
 | [packages/onsocial-rewards](packages/onsocial-rewards) | Rewards credit SDK |
 | **Indexing & infra** | |
-| [indexers/substreams](indexers/substreams) | Real-time chain indexing |
+| [indexers/chain-index](indexers/chain-index) | Real-time chain indexing |
 | [deployment/](deployment) | Docker Compose, Caddy, systemd |
 
 ---

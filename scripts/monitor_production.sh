@@ -225,20 +225,6 @@ else
     echo -e "${YELLOW}⚠ OK${NC} (Service active, test CID may not exist)"
 fi
 
-# Check Substreams API
-echo -n "Checking Substreams API... "
-if [ -n "$SUBSTREAMS_API_TOKEN" ]; then
-    if curl -s --max-time 10 -H "Authorization: Bearer $SUBSTREAMS_API_TOKEN" "https://api.streamingfast.io/v1/health" > /dev/null 2>&1; then
-        echo -e "${GREEN}✓ OK${NC}"
-    else
-        echo -e "${RED}✗ FAILED${NC}"
-        FAILURES=$((FAILURES + 1))
-    fi
-else
-    echo -e "${YELLOW}⚠ Skipped${NC} (API token not configured)"
-fi
-echo ""
-
 echo "4. Relayer Balance Checks"
 echo "-------------------------"
 BALANCE_ALERTS=""

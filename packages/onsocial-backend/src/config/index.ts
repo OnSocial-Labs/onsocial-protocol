@@ -92,7 +92,7 @@ export const config = {
   databaseUrl:
     process.env.DATABASE_URL ||
     'postgresql://postgres:postgres@localhost:5432/onsocial_backend',
-  /** Read-only indexer DB for Substreams materialized tables used by seasons. */
+  /** Read-only indexer DB for chain-index tables used by seasons. */
   indexerDatabaseUrl:
     process.env.INDEXER_DATABASE_URL ||
     process.env.DATABASE_URL ||

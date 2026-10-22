@@ -83,7 +83,7 @@ async function tableExists(
   return result.rows[0]?.reg !== null;
 }
 
-/** Re-apply migrations whose tables were dropped (e.g. substreams clean deploy). */
+/** Re-apply migrations whose tables were dropped (e.g. an indexer schema reset). */
 async function reconcileOrphanedMigrations(
   client: Client,
   appliedFiles: Set<string>

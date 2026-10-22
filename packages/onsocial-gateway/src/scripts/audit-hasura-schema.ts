@@ -12,7 +12,7 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, '../../../..');
-const schemaDir = path.join(repoRoot, 'indexers', 'substreams');
+const schemaDir = path.join(repoRoot, 'indexers', 'chain-index');
 
 const RELATION_REGEX =
   /CREATE\s+(?:OR\s+REPLACE\s+)?(?:(?:MATERIALIZED\s+)?VIEW|TABLE)(?:\s+IF\s+NOT\s+EXISTS)?\s+([a-z_][a-z0-9_]*)/g;

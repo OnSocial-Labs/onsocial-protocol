@@ -80,7 +80,7 @@ COMPONENT_MAP = {
     "packages/onsocial-app": "web app",
     "packages/onsocial-rpc": "RPC package",
     "packages/onsocial-intents": "NEAR Intents integration",
-    "indexers/substreams": "Substreams indexer",
+    "indexers/chain-index": "Indexer",
     "tests": "integration tests",
 }
 

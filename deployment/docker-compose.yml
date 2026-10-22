@@ -4,7 +4,7 @@
 # 
 # Architecture: Internet → Caddy (TLS) → Gateway → Hasura / Relayer
 #               Hasura, Relayer, Postgres are internal-only (not internet-facing).
-#               Substreams sinks run as systemd services.
+#               The node indexer runs on the NEAR node, not in this compose file.
 #
 # Admin access (SSH tunnel from your machine):
 #   ssh -L 8080:localhost:8080 your-server   # Hasura Console

@@ -10,8 +10,8 @@
 #![cfg(feature = "nearcore")]
 
 use onsocial_indexer::streamer_message_to_block;
-use onsocial_substreams::neardata::parse_neardata_block;
-use onsocial_substreams::pipeline::changes_for_block;
+use onsocial_chain_index::neardata::parse_neardata_block;
+use onsocial_chain_index::pipeline::changes_for_block;
 use substreams_database_change::pb::database::DatabaseChanges;
 
 const FIXTURE: &str = include_str!("fixtures/block_273239505.json");

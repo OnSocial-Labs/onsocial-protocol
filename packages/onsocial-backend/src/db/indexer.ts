@@ -15,7 +15,7 @@ indexerPool.on('error', (err) => {
   logger.error({ err }, 'Unexpected indexer Postgres pool error');
 });
 
-/** Run a read query against the Substreams/indexer database. */
+/** Run a read query against the indexer database. */
 export async function indexerQuery<
   T extends pg.QueryResultRow = pg.QueryResultRow,
 >(text: string, params?: unknown[]): Promise<pg.QueryResult<T>> {

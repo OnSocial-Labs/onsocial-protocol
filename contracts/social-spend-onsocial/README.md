@@ -247,7 +247,7 @@ All events use NEP-297 with `standard: "onsocial"`, `version: "1.0.0"`, and the 
 | `OWNER_CHANGED` | Owner transferred |
 | `CONTRACT_UPGRADE` | `migrate` completed |
 
-Primary indexer table: `social_spend_events` (Substreams / Hasura).
+Primary indexer table: `social_spend_events` (Hasura).
 
 ## Errors
 

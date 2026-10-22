@@ -535,7 +535,7 @@ async function smokeTestServiceRole(): Promise<void> {
   const reputationColumns = (await fetchLiveColumns()).get('reputation_scores');
   if (!reputationColumns?.has('mutual_standing')) {
     throw new Error(
-      'Smoke test: Postgres reputation_scores.mutual_standing is missing — run Deploy Substreams (leaderboard_schema_views.sql) before gateway Hasura sync'
+      'Smoke test: Postgres reputation_scores.mutual_standing is missing — apply leaderboard_schema_views.sql before gateway Hasura sync'
     );
   }
 
@@ -1064,7 +1064,7 @@ async function main(): Promise<void> {
         await trackFunctions();
         if (SKIP_VIEW_REFRESH) {
           console.log(
-            '   ⏭ Skipping view refresh (HASURA_SKIP_VIEW_REFRESH set — substreams deploy already retracked views)\n'
+            '   ⏭ Skipping view refresh (HASURA_SKIP_VIEW_REFRESH set — indexer deploy already retracked views)\n'
           );
         } else {
           await refreshTrackedSqlViews();

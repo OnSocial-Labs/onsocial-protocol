@@ -1,0 +1,48 @@
+name: Indexer CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'indexers/chain-index/**'
+      - '.github/workflows/indexer-ci.yml'
+  pull_request:
+    paths:
+      - 'indexers/chain-index/**'
+      - '.github/workflows/indexer-ci.yml'
+
+defaults:
+  run:
+    working-directory: indexers/chain-index
+
+jobs:
+  check:
+    name: Check & Test
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: indexers/chain-index -> target
+
+      - name: Install protoc
+        run: bash "${GITHUB_WORKSPACE}/.github/scripts/install-protoc.sh"
+
+      - name: Cargo check (native)
+        run: cargo check --all-targets
+
+      - name: Cargo test
+        run: cargo test
+
+      - name: Validate event manifest
+        run: python3 scripts/check_event_manifest.py
+
+      - name: Validate DB schema parity
+        run: python3 scripts/check_db_schema_parity.py
+
+      - name: Validate SQL schemas and views
+        run: bash scripts/validate_sql.sh

@@ -8,21 +8,22 @@ description = "OnSocial indexer on a self-hosted NEAR node (StreamerMessage → 
 [dependencies]
 # The shared decode path: StreamerMessage JSON → protobuf Block → decoders →
 # DatabaseChanges. Same source of truth the neardata reader uses.
-onsocial-substreams = { path = "../substreams" }
+onsocial-chain-index = { path = "../chain-index" }
 substreams-near = "0.10.2"
 serde_json = "1"
 tracing = "0.1"
 
-# Optional: the self-hosted-node rail. `rev` matches the pin proven by
-# near-firehose-indexer branch release/v2.x — the exact nearcore build
-# testnet validators run (protocol 87). Default builds (and all existing CI)
-# never fetch or compile nearcore; the nearcore-enabled build gets its own
-# CI job with a dedicated cache (cold build is tens of minutes).
-near-indexer-primitives = { git = "https://github.com/near/nearcore", rev = "2.14.0-rc.2", optional = true }
+# Optional: the self-hosted-node rail. `rev` is the nearcore build testnet
+# validators run. 2.14.0-rc.5 speaks protocol 88 (the 21 Oct 2026 testnet
+# upgrade). rc.2 was protocol 87 and panics once the network is on 88.
+# Default builds (and all existing CI) never fetch or compile nearcore; the
+# nearcore-enabled build gets its own CI job with a dedicated cache (cold
+# build is tens of minutes).
+near-indexer-primitives = { git = "https://github.com/near/nearcore", rev = "2.14.0-rc.5", optional = true }
 # The framework crate: embeds a full neard (it owns the RocksDB — never run
 # alongside a separate neard on the same home) and yields StreamerMessages.
 # Same pinned rev as the primitives.
-near-indexer = { git = "https://github.com/near/nearcore", rev = "2.14.0-rc.2", optional = true }
+near-indexer = { git = "https://github.com/near/nearcore", rev = "2.14.0-rc.5", optional = true }
 # Fresh resolution grabs rustls 0.23.46 (via near-client's reqwest ^0.13),
 # whose aws-lc-rs ^1.18 requirement conflicts with near-crypto's exact
 # `=1.16.2` pin. nearcore's own committed lock holds rustls 0.23.28, which
@@ -35,7 +36,7 @@ clap = { version = "4", features = ["derive"], optional = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
 
 [features]
-# Opt-in — same pattern as `native` in onsocial-substreams: keeps the heavy
+# Opt-in — same pattern as `native` in onsocial-chain-index: keeps the heavy
 # dependency out of every build that does not explicitly ask for it.
 nearcore = [
     "dep:near-indexer-primitives",
@@ -62,7 +63,7 @@ required-features = ["nearcore"]
 
 [dev-dependencies]
 # Type names for the round-trip test's normalization helper (already in the
-# graph via onsocial-substreams — this adds no new resolution weight).
+# graph via onsocial-chain-index — this adds no new resolution weight).
 substreams-database-change = "3"
 
 [profile.release]

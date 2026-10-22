@@ -1,6 +1,6 @@
 name: Deploy neardata Reader (Testnet)
 
-# Replaces Deploy Substreams (Testnet). Builds the neardata reader binary,
+# Builds the neardata reader binary,
 # ships it to the testnet data host, verifies parity against the rows the
 # Substreams sink already stored, then swaps the systemd service over.
 #
@@ -20,13 +20,13 @@ on:
       db_secret_name:
         description: "GSM secret name for the indexer DB URL"
         required: true
-        default: "substreams-testnet-db-url"
+        default: "indexer-testnet-db-url"
       parity_block:
         description: "Historical block to verify against stored rows before cutover"
         required: true
         default: "273239505"
       start_block:
-        description: "Optional explicit start height (overrides sink cursor)"
+        description: "Optional explicit start height (overrides the stored cursor)"
         required: false
       network:
         description: "NEAR network the reader polls"
@@ -58,20 +58,20 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: indexers/substreams -> target
+          workspaces: indexers/chain-index -> target
 
       - name: Install protoc
         run: bash "${GITHUB_WORKSPACE}/.github/scripts/install-protoc.sh"
 
       - name: Build release binary
-        working-directory: indexers/substreams
+        working-directory: indexers/chain-index
         run: cargo build --release --bin neardata_reader --features native
 
       - name: Stage artifacts
         run: |
           mkdir -p "$GITHUB_WORKSPACE/reader-upload"
-          cp indexers/substreams/target/release/neardata_reader "$GITHUB_WORKSPACE/reader-upload/"
-          cp indexers/substreams/onsocial-neardata-reader.service "$GITHUB_WORKSPACE/reader-upload/"
+          cp indexers/chain-index/target/release/neardata_reader "$GITHUB_WORKSPACE/reader-upload/"
+          cp indexers/chain-index/onsocial-neardata-reader.service "$GITHUB_WORKSPACE/reader-upload/"
           ls -la "$GITHUB_WORKSPACE/reader-upload"
 
       - name: Upload reader artifact
@@ -120,7 +120,7 @@ jobs:
         id: db
         run: |
           DB_URL=$(gcloud secrets versions access latest \
-            --secret="${{ inputs.db_secret_name || 'substreams-testnet-db-url' }}")
+            --secret="${{ inputs.db_secret_name || 'indexer-testnet-db-url' }}")
           echo "::add-mask::$DB_URL"
           echo "url=$DB_URL" >> "$GITHUB_OUTPUT"
 

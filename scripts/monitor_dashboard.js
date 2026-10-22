@@ -72,7 +72,6 @@ const HASURA_ADMIN_SECRET = process.env.HASURA_ADMIN_SECRET || '';
 const GATEWAY_URL = process.env.GATEWAY_URL || 'https://api.onsocial.id';
 const POSTGRES_HOST = process.env.POSTGRES_HOST || '135.181.110.183';
 const POSTGRES_PORT = process.env.POSTGRES_PORT || 5432;
-const SUBSTREAMS_API_TOKEN = process.env.SUBSTREAMS_API_TOKEN || '';
 const CHECK_INTERVAL = 30000; // 30 seconds
 
 // Service status cache
@@ -84,7 +83,6 @@ let serviceStatus = {
     gateway: { status: 'unknown', latency: 0, lastCheck: null },
     postgres: { status: 'unknown', latency: 0, lastCheck: null },
     lighthouse: { status: 'unknown', latency: 0, lastCheck: null },
-    substreams: { status: 'unknown', latency: 0, lastCheck: null },
   },
   credits: {
     price: null,
@@ -199,38 +197,6 @@ function checkPostgres(host, port) {
   });
 }
 
-// Substreams API check - just verify the token is valid by checking near.substreams.pinax.network
-function checkSubstreams(apiToken) {
-  return new Promise((resolve) => {
-    const startTime = Date.now();
-    
-    // Check if the Pinax endpoint is reachable (gRPC endpoint, just do TCP check)
-    const net = require('net');
-    const socket = new net.Socket();
-    
-    socket.setTimeout(5000);
-    
-    socket.on('connect', () => {
-      const latency = Date.now() - startTime;
-      socket.destroy();
-      // If we can connect to the endpoint and token is configured, consider it healthy
-      resolve({ success: apiToken && apiToken.length > 0, latency, statusCode: 200 });
-    });
-    
-    socket.on('error', () => {
-      resolve({ success: false, latency: Date.now() - startTime, statusCode: 0 });
-    });
-    
-    socket.on('timeout', () => {
-      socket.destroy();
-      resolve({ success: false, latency: 5000, statusCode: 0 });
-    });
-    
-    // Connect to Pinax NEAR Substreams endpoint
-    socket.connect(443, 'near.substreams.pinax.network');
-  });
-}
-
 // Run all health checks
 async function runHealthChecks() {
   console.log(`[${new Date().toISOString()}] Running health checks...`);
@@ -310,24 +276,6 @@ async function runHealthChecks() {
     lastCheck: new Date().toISOString(),
     note: 'IPFS Storage (Free tier)'
   };
-  
-  // Check Substreams API
-  if (SUBSTREAMS_API_TOKEN) {
-    const substreamsHealth = await checkSubstreams(SUBSTREAMS_API_TOKEN);
-    serviceStatus.services.substreams = {
-      status: substreamsHealth.success ? 'healthy' : 'down',
-      latency: substreamsHealth.latency,
-      lastCheck: new Date().toISOString(),
-      note: 'Indexing service (Free tier - 7M blocks/mo)'
-    };
-  } else {
-    serviceStatus.services.substreams = {
-      status: 'unknown',
-      latency: 0,
-      lastCheck: new Date().toISOString(),
-      note: 'API token not configured'
-    };
-  }
   
   serviceStatus.lastUpdate = new Date().toISOString();
 }
@@ -522,10 +470,6 @@ function generateDashboard() {
                     <div>
                         <strong>Lighthouse:</strong> ${serviceStatus.gatewayConfig.infrastructure.lighthouse.plan} 
                         ($${serviceStatus.gatewayConfig.infrastructure.lighthouse.cost}/mo)
-                    </div>
-                    <div>
-                        <strong>Substreams:</strong> ${serviceStatus.gatewayConfig.infrastructure.substreams.plan} 
-                        ($${serviceStatus.gatewayConfig.infrastructure.substreams.cost}/mo)
                     </div>
                     <div>
                         <strong>Total:</strong> <span style="color: #48bb78; font-weight: 700;">$${serviceStatus.gatewayConfig.infrastructure.totalCost}/mo</span>

@@ -15,7 +15,7 @@ include makefiles/docker.mk
 include makefiles/contracts.mk
 include makefiles/javascript.mk
 include makefiles/relayer.mk
-include makefiles/substreams.mk
+include makefiles/chain-index.mk
 include makefiles/utilities.mk
 
 # =============================================================================
@@ -92,12 +92,12 @@ help:
 	@echo "  run-relayer                   # Run relayer service"
 	@echo "  lint-relayer                  # Lint relayer code"
 	@echo ""
-	@echo "$(PACKAGE) **Substreams Operations:**"
-	@echo "  check-substreams-events       # Validate contract/Substreams event manifest alignment"
-	@echo "  check-substreams-schema       # Validate Substreams DB writes against SQL schemas"
-	@echo "  check-substreams-rust         # Run Substreams Rust correctness tests"
-	@echo "  check-substreams-sql          # Validate Substreams SQL in disposable Postgres"
-	@echo "  check-substreams              # Run Substreams validation checks"
+	@echo "$(PACKAGE) **Indexer:**"
+	@echo "  check-indexer-events          # Validate contract event manifest alignment"
+	@echo "  check-indexer-schema          # Validate indexer DB writes against SQL schemas"
+	@echo "  check-indexer-rust            # Run indexer Rust tests"
+	@echo "  check-indexer-sql             # Validate indexer SQL in disposable Postgres"
+	@echo "  check-indexer                 # Run indexer validation checks"
 	@echo ""
 	@echo "$(TOOLS) **System Management:**"
 	@echo "  status                        # Check system status"

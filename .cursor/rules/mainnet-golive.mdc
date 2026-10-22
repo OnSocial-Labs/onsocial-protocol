@@ -12,7 +12,7 @@ Read [Resources/mainnet-golive.md](../../Resources/mainnet-golive.md) before any
 **Do not**
 
 - Flip app / portal / gateway to mainnet
-- Point public Graph or substreams at mainnet as if core exists
+- Point public Graph or the indexer at mainnet as if core exists
 - Deploy `core` (or any missing account) without following the runbook order
 - Retrack views or `reload_metadata` on the public Hasura engine
 - Allowlist a name that has no wasm

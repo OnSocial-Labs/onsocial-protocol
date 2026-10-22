@@ -2,7 +2,7 @@
 //!
 //! Dual-source end state:
 //!
-//! - `neardata_reader` (bin in `onsocial-substreams`) polls neardata.xyz —
+//! - `neardata_reader` (bin in `onsocial-chain-index`) polls neardata.xyz —
 //!   the managed source, kept as backup. Renamed to
 //!   `onsocial-indexer-backfill` only after cutover, with its cursor id.
 //! - `onsocial-indexer` (this crate) embeds a NEAR node and consumes its
@@ -11,17 +11,17 @@
 //!
 //! Both feed the SAME decode path (`parse_neardata_block` →
 //! `map_combined_output_impl` → `combined_db_out_impl` → Postgres) through
-//! the SAME writer (`onsocial_substreams::writer`), so table contents are
+//! the SAME writer (`onsocial_chain_index::writer`), so table contents are
 //! bit-identical regardless of source. The only source-specific code in this
 //! crate is the compatibility shim below plus the `onsocial-indexer` runner bin.
 //!
-//! The nearcore pin follows `near-firehose-indexer` branch `release/v2.x`
-//! (`rev = "2.14.0-rc.2"`), which matches what testnet validators run
-//! (protocol 87). Bump with nearcore releases; keep the two pins in lockstep.
+//! The nearcore pin is `2.14.0-rc.5`, which is what testnet validators run
+//! (protocol 88 as of 21 Oct 2026). Bump with nearcore releases; keep the
+//! two pins in lockstep.
 
 #[cfg(feature = "nearcore")]
 mod convert {
-    use onsocial_substreams::neardata::parse_neardata_block;
+    use onsocial_chain_index::neardata::parse_neardata_block;
     use substreams_near::pb::sf::near::r#type::v1::Block;
 
     /// near-indexer `StreamerMessage` → the protobuf `Block` the shared
@@ -46,7 +46,7 @@ pub use convert::streamer_message_to_block;
 
 #[cfg(test)]
 mod tests {
-    /// The crate must link `onsocial-substreams` as an rlib and reach the
+    /// The crate must link `onsocial-chain-index` as an rlib and reach the
     /// shared decode path end to end (parse → map → db_out) — the property
     /// every later PR builds on.
     #[test]
@@ -62,14 +62,14 @@ mod tests {
           },
           "shards": []
         }"#;
-        let block = onsocial_substreams::neardata::parse_neardata_block(json).expect("parse");
+        let block = onsocial_chain_index::neardata::parse_neardata_block(json).expect("parse");
         assert_eq!(block.header.as_ref().unwrap().height, 273239505);
 
-        let output = onsocial_substreams::map_combined_output_impl(
+        let output = onsocial_chain_index::map_combined_output_impl(
             "core=core.onsocial.testnet",
             &block,
         );
-        let changes = onsocial_substreams::combined_db_out::combined_db_out_impl(output);
+        let changes = onsocial_chain_index::combined_db_out::combined_db_out_impl(output);
         assert!(changes.table_changes.is_empty());
     }
 }

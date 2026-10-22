@@ -112,7 +112,7 @@ export interface PostV1 extends GroupFeedMetaV1 {
   places?: string[];
   embeds?: Embed[];
 
-  // Indexer-recognised reference fields (substreams expects these names).
+  // Indexer-recognised reference fields (the chain index expects these names).
   parent?: string;
   parentType?: ParentType;
   ref?: string;
@@ -279,7 +279,7 @@ export function validateGroupFeedMetaV1(meta: unknown): string | null {
 // ── Feed metadata helpers ──────────────────────────────────────────────────
 //
 // `channel`, `kind`, and `audiences` are exposed as first-class columns by
-// the substreams indexer. These helpers keep the vocabulary consistent so
+// the chain index. These helpers keep the vocabulary consistent so
 // every client (web app, mobile, third-party dApp) files posts into the
 // same feed buckets.
 
@@ -308,7 +308,7 @@ const CHANNEL_RE = /^[a-z0-9][a-z0-9._-]{0,62}[a-z0-9]$|^[a-z0-9]$/;
 
 /**
  * Normalise a user-supplied channel string to the canonical form stored on
- * chain and indexed by substreams. Returns `undefined` if the channel is
+ * chain and indexed. Returns `undefined` if the channel is
  * missing or invalid — callers should treat undefined as "no channel".
  *
  * Rules: lowercase, trim, max 64 chars, `[a-z0-9._-]`, no leading/trailing

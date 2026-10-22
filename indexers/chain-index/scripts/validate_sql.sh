@@ -1,0 +1,748 @@
+#!/usr/bin/env bash
+# Validate indexer SQL schemas and views against a clean PostgreSQL 16 database.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SUBSTREAMS_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DOCKER_BIN="${DOCKER:-docker}"
+POSTGRES_IMAGE="${SUBSTREAMS_SQL_IMAGE:-postgres:16-alpine}"
+
+if ! command -v "${DOCKER_BIN}" >/dev/null 2>&1; then
+  echo "error: docker is required for SQL validation" >&2
+  exit 1
+fi
+
+if ! "${DOCKER_BIN}" info >/dev/null 2>&1; then
+  echo "error: docker is not running or is not accessible" >&2
+  exit 1
+fi
+
+# Deploy pipes used to hide \ir. Schema views that include a sibling file
+# must be applied with psql -f from the upload directory.
+assert_view_includes_apply_like_deploy() {
+  local apply="${SUBSTREAMS_DIR}/../../scripts/ci-apply-indexer-schema.sh"
+  local view include raw uses_ir=0
+  for view in "${SUBSTREAMS_DIR}"/*_schema_views.sql; do
+    [ -f "$view" ] || continue
+    while IFS= read -r raw; do
+      [ -n "$raw" ] || continue
+      uses_ir=1
+      include="${raw#*\\ir }"
+      include="${include%%;*}"
+      include="$(printf '%s' "$include" | sed "s/^[[:space:]]*//;s/[[:space:]]*$//;s/^['\"]//;s/['\"]$//")"
+      case "$include" in
+        */*)
+          echo "error: $(basename "$view") \\ir ${include} is not a sibling file." >&2
+          echo "error: schema apply copies only *.sql next to the view file." >&2
+          exit 1
+          ;;
+      esac
+      if [ ! -f "${SUBSTREAMS_DIR}/${include}" ]; then
+        echo "error: $(basename "$view") includes missing file: ${include}" >&2
+        exit 1
+      fi
+    done < <(grep -E '^[[:space:]]*\\ir[[:space:]]+' "$view" || true)
+  done
+  if [ "$uses_ir" -eq 0 ]; then
+    return 0
+  fi
+  if ! grep -F -- '-f "$file"' "$apply" >/dev/null; then
+    echo "error: schema views use \\ir but ci-apply-indexer-schema.sh does not apply them with psql -f." >&2
+    exit 1
+  fi
+}
+
+assert_view_includes_apply_like_deploy
+
+echo ">>> Validating indexer SQL with ${POSTGRES_IMAGE}"
+
+"${DOCKER_BIN}" run --rm \
+  --user postgres \
+  -v "${SUBSTREAMS_DIR}:/work:ro" \
+  "${POSTGRES_IMAGE}" \
+  sh -lc '
+    set -eu
+
+    initdb -D /tmp/pgdata >/dev/null
+    pg_ctl -D /tmp/pgdata -o "-k /tmp -c listen_addresses='"'"''"'"'" -w start >/dev/null
+    trap "pg_ctl -D /tmp/pgdata -m fast -w stop >/dev/null 2>&1 || true" EXIT
+
+    apply_sql() {
+      db="$1"
+      sql="$2"
+      if [ -f "$sql" ]; then
+        echo "    ${db}: $(basename "$sql")"
+        psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -f "$sql" >/dev/null
+      fi
+    }
+
+    apply_migrations() {
+      db="$1"
+      for migration in /work/migrations/*.sql; do
+        [ -e "$migration" ] || continue
+        apply_sql "$db" "$migration"
+      done
+    }
+
+    apply_views() {
+      db="$1"
+      apply_sql "$db" /work/core_schema_views.sql
+      apply_sql "$db" /work/leaderboard_schema_views.sql
+      apply_sql "$db" /work/scarces_schema_views.sql
+      # Real amplify heat (replaces stub) when social-spend table is present.
+      has_spend="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT to_regclass('"'"'public.social_spend_events'"'"') IS NOT NULL;
+      ")"
+      if [ "$has_spend" = "t" ] && [ -f /work/social_spend_schema_views.sql ]; then
+        apply_sql "$db" /work/social_spend_schema_views.sql
+        mat_exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT to_regclass('"'"'public.post_amplify_heat_mat'"'"') IS NOT NULL;
+        ")"
+        if [ "$mat_exists" != "t" ]; then
+          echo "error: expected materialized view post_amplify_heat_mat in $db" >&2
+          exit 1
+        fi
+        # Exercise the worker refresh path (unique index makes this valid).
+        psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 \
+          -c "REFRESH MATERIALIZED VIEW CONCURRENTLY post_amplify_heat_mat;" >/dev/null
+      fi
+    }
+
+    validate_expected_objects() {
+      db="$1"
+      view_count="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT '"'"'views='"'"' || COUNT(*)
+        FROM information_schema.views
+        WHERE table_schema = '"'"'public'"'"';
+      ")"
+      snapshot_count="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT '"'"'snapshot_leaderboard_functions='"'"' || COUNT(*)
+        FROM pg_proc
+        WHERE proname = '"'"'snapshot_leaderboard'"'"';
+      ")"
+      echo "$view_count"
+      echo "$snapshot_count"
+
+      views_num="${view_count#views=}"
+      snapshots_num="${snapshot_count#snapshot_leaderboard_functions=}"
+      if [ "$views_num" -lt 20 ]; then
+        echo "error: expected at least 20 public views in $db, found $views_num" >&2
+        exit 1
+      fi
+      if [ "$snapshots_num" -ne 1 ]; then
+        echo "error: expected snapshot_leaderboard() in $db" >&2
+        exit 1
+      fi
+
+      for view_name in apps_current posts_feed standing_counts thread_reply_counts quote_counts repost_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation scarces_token_owners scarces_app_stats scarces_app_stats_hot scarces_collections_trade_stats group_member_counts groups_by_member_count scarce_album_love_fans scarce_album_love_fan_ids scarce_collection_love_fans scarce_collection_love_fan_ids jobs_current jobs_search offers_current offers_search articles_search; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT to_regclass('"'"'public.${view_name}'"'"') IS NOT NULL;
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected view public.${view_name} in $db" >&2
+          exit 1
+        fi
+      done
+
+      apply_sql "$db" /work/tests/fixtures/articles_search_check.sql
+      article_rows="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atf /work/tests/fixtures/articles_search_assert.sql)"
+      apply_sql "$db" /work/tests/fixtures/articles_search_cleanup.sql
+      expected_articles="Night drive|Lisbon
+0"
+      if [ "$article_rows" != "$expected_articles" ]; then
+        echo "error: unexpected articles_search rows in $db" >&2
+        echo "  expected: $expected_articles" >&2
+        echo "  actual:   ${article_rows:-missing}" >&2
+        exit 1
+      fi
+
+      for table_name in posts_current reactions_current saves_current; do
+        is_table="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT EXISTS (
+            SELECT 1
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = '"'"'public'"'"'
+              AND c.relname = '"'"'${table_name}'"'"'
+              AND c.relkind = '"'"'r'"'"'
+          );
+        ")"
+        if [ "$is_table" != "t" ]; then
+          echo "error: expected base table public.${table_name} in $db" >&2
+          exit 1
+        fi
+      done
+
+      for column_name in mutual_standing endorsements_received confidence_score; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = '"'"'public'"'"'
+              AND table_name = '"'"'reputation_scores'"'"'
+              AND column_name = '"'"'${column_name}'"'"'
+          );
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected reputation_scores.${column_name} in $db" >&2
+          exit 1
+        fi
+      done
+
+      unlock_at_exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = '"'"'public'"'"'
+            AND table_name = '"'"'booster_state'"'"'
+            AND column_name = '"'"'unlock_at'"'"'
+        );
+      ")"
+      if [ "$unlock_at_exists" != "t" ]; then
+        echo "error: expected booster_state.unlock_at in $db" >&2
+        exit 1
+      fi
+
+      validate_guild_view_columns "$db"
+      validate_profile_search_jobs_columns "$db"
+      validate_posts_current_root "$db"
+      validate_apps_relpath "$db"
+    }
+
+    validate_boost_live_weight() {
+      db="$1"
+      echo "    ${db}: boost expiry live weight"
+      apply_sql "$db" /work/tests/fixtures/boost_expiry_live.sql
+      actual="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atf /work/tests/fixtures/boost_expiry_live_assert.sql)"
+      expected="boost-live-fixture.near"
+      if [ "$actual" != "$expected" ]; then
+        echo "error: unexpected leaderboard_boost expiry rows in $db" >&2
+        echo "  expected: $expected" >&2
+        echo "  actual:   ${actual:-missing}" >&2
+        exit 1
+      fi
+    }
+
+    validate_apps_relpath() {
+      db="$1"
+      exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = '"'"'public'"'"'
+            AND table_name = '"'"'data_updates'"'"'
+            AND column_name = '"'"'app_relpath'"'"'
+        );
+      ")"
+      if [ "$exists" != "t" ]; then
+        echo "error: expected data_updates.app_relpath in $db" >&2
+        exit 1
+      fi
+
+      for index_name in idx_data_updates_app_relpath idx_data_updates_apps_id_block; do
+        idx_exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT to_regclass('"'"'public.${index_name}'"'"') IS NOT NULL;
+        ")"
+        if [ "$idx_exists" != "t" ]; then
+          echo "error: expected index public.${index_name} in $db" >&2
+          exit 1
+        fi
+      done
+
+      apply_sql "$db" /work/tests/fixtures/apps_relpath_check.sql
+      relpaths="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atf /work/tests/fixtures/apps_relpath_assert.sql)"
+      expected_relpaths="apps-relpath-fixture-1=lot/lot_123
+apps-relpath-fixture-2=
+apps-relpath-fixture-3=
+apps-relpath-fixture-4=<null>
+apps-relpath-fixture-5=lottery/x"
+      if [ "$relpaths" != "$expected_relpaths" ]; then
+        echo "error: unexpected app_relpath values in $db" >&2
+        echo "  expected: $expected_relpaths" >&2
+        echo "  actual:   ${relpaths:-missing}" >&2
+        exit 1
+      fi
+
+      prefix_count="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT COUNT(*)
+        FROM apps_current
+        WHERE data_id = '"'"'acme-track'"'"'
+          AND (app_relpath = '"'"'lot'"'"' OR app_relpath LIKE '"'"'lot/%'"'"');
+      ")"
+      if [ "$prefix_count" != "1" ]; then
+        echo "error: expected apps_current prefix 'lot' to match 1 row in $db, found ${prefix_count:-missing}" >&2
+        exit 1
+      fi
+    }
+
+    validate_posts_current_root() {
+      db="$1"
+      for column_name in root_path root_author; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = '"'"'public'"'"'
+              AND table_name = '"'"'posts_current'"'"'
+              AND column_name = '"'"'${column_name}'"'"'
+          );
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected posts_current.${column_name} in $db" >&2
+          exit 1
+        fi
+      done
+
+      trigger_exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT EXISTS (
+          SELECT 1 FROM pg_trigger
+          WHERE tgname = '"'"'trg_posts_current_set_root'"'"'
+        );
+      ")"
+      if [ "$trigger_exists" != "t" ]; then
+        echo "error: expected trg_posts_current_set_root in $db" >&2
+        exit 1
+      fi
+
+      cascade_exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT EXISTS (
+          SELECT 1 FROM pg_trigger
+          WHERE tgname = '"'"'trg_posts_current_cascade_root'"'"'
+        );
+      ")"
+      if [ "$cascade_exists" != "t" ]; then
+        echo "error: expected trg_posts_current_cascade_root in $db" >&2
+        exit 1
+      fi
+
+      apply_sql "$db" /work/tests/fixtures/posts_current_root_check.sql
+
+      roots="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT concat(post_id, chr(61), root_path)
+        FROM posts_current
+        WHERE post_id IN ('"'"'root'"'"', '"'"'mid'"'"', '"'"'nested'"'"')
+        ORDER BY post_id;
+      ")"
+      expected_roots="mid=bob.near/post/root
+nested=bob.near/post/root
+root=bob.near/post/root"
+      if [ "$roots" != "$expected_roots" ]; then
+        echo "error: unexpected posts_current roots in $db" >&2
+        echo "  expected: $expected_roots" >&2
+        echo "  actual:   ${roots:-missing}" >&2
+        exit 1
+      fi
+
+      feed_has_root="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = '"'"'public'"'"'
+            AND table_name = '"'"'posts_feed'"'"'
+            AND column_name = '"'"'root_path'"'"'
+        );
+      ")"
+      if [ "$feed_has_root" != "t" ]; then
+        echo "error: expected posts_feed.root_path in $db" >&2
+        exit 1
+      fi
+
+      apply_sql "$db" /work/tests/fixtures/posts_current_root_late_parent.sql
+      late_roots="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT concat(post_id, chr(61), root_path)
+        FROM posts_current
+        WHERE post_id IN ('"'"'late_root'"'"', '"'"'late_mid'"'"', '"'"'late_nested'"'"')
+        ORDER BY post_id;
+      ")"
+      expected_late="late_mid=bob.near/post/late_root
+late_nested=bob.near/post/late_root
+late_root=bob.near/post/late_root"
+      if [ "$late_roots" != "$expected_late" ]; then
+        echo "error: late-parent cascade failed in $db" >&2
+        echo "  expected: $expected_late" >&2
+        echo "  actual:   ${late_roots:-missing}" >&2
+        exit 1
+      fi
+
+      pulse_fn="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT COUNT(*) FROM pg_proc WHERE proname = '"'"'feed_pulse'"'"';
+      ")"
+      if [ "$pulse_fn" -lt 1 ]; then
+        echo "error: expected feed_pulse() in $db" >&2
+        exit 1
+      fi
+
+      apply_sql "$db" /work/tests/fixtures/feed_pulse_check.sql
+      pulse_ids="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atf /work/tests/fixtures/feed_pulse_assert.sql)"
+      expected_pulse="summer
+late
+hello
+note
+root
+nested"
+      if [ "$pulse_ids" != "$expected_pulse" ]; then
+        echo "error: unexpected feed_pulse cards in $db" >&2
+        echo "  expected: $expected_pulse" >&2
+        echo "  actual:   ${pulse_ids:-missing}" >&2
+        exit 1
+      fi
+    }
+
+    validate_profile_search_jobs_columns() {
+      db="$1"
+      for column_name in kind industry open_jobs_count offer_count; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = '"'"'public'"'"'
+              AND table_name = '"'"'profile_search'"'"'
+              AND column_name = '"'"'${column_name}'"'"'
+          );
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected profile_search.${column_name} in $db" >&2
+          exit 1
+        fi
+      done
+      for column_name in org_account_id job_id org_industry ends; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = '"'"'public'"'"'
+              AND table_name = '"'"'jobs_search'"'"'
+              AND column_name = '"'"'${column_name}'"'"'
+          );
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected jobs_search.${column_name} in $db" >&2
+          exit 1
+        fi
+      done
+    }
+
+    validate_guild_view_columns() {
+      db="$1"
+      groups_columns="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT string_agg(column_name, '"'"','"'"' ORDER BY ordinal_position)
+        FROM information_schema.columns
+        WHERE table_schema = '"'"'public'"'"'
+          AND table_name = '"'"'groups_current'"'"';
+      ")"
+      expected_groups_columns="group_id,owner_id,group_name,is_public,creator_role,storage_allocation,block_height,block_timestamp,operation,group_description,group_banner_cid,group_badge_cid,is_member_driven,group_topics"
+      if [ "$groups_columns" != "$expected_groups_columns" ]; then
+        echo "error: unexpected groups_current column order in $db" >&2
+        echo "  expected: $expected_groups_columns" >&2
+        echo "  actual:   ${groups_columns:-missing}" >&2
+        exit 1
+      fi
+
+      members_columns="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT string_agg(column_name, '"'"','"'"' ORDER BY ordinal_position)
+        FROM information_schema.columns
+        WHERE table_schema = '"'"'public'"'"'
+          AND table_name = '"'"'group_members_current'"'"';
+      ")"
+      expected_members_columns="group_id,member_id,role,level,is_owner,is_admin,can_moderate,group_name,is_public,block_height,block_timestamp,group_description,group_banner_cid,group_badge_cid,is_member_driven,group_topics"
+      if [ "$members_columns" != "$expected_members_columns" ]; then
+        echo "error: unexpected group_members_current column order in $db" >&2
+        echo "  expected: $expected_members_columns" >&2
+        echo "  actual:   ${members_columns:-missing}" >&2
+        exit 1
+      fi
+
+      blacklist_columns="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT string_agg(column_name, '"'"','"'"' ORDER BY ordinal_position)
+        FROM information_schema.columns
+        WHERE table_schema = '"'"'public'"'"'
+          AND table_name = '"'"'group_blacklist_current'"'"';
+      ")"
+      expected_blacklist_columns="group_id,member_id,block_height,block_timestamp,group_name,is_public,is_member_driven"
+      if [ "$blacklist_columns" != "$expected_blacklist_columns" ]; then
+        echo "error: unexpected group_blacklist_current column order in $db" >&2
+        echo "  expected: $expected_blacklist_columns" >&2
+        echo "  actual:   ${blacklist_columns:-missing}" >&2
+        exit 1
+      fi
+    }
+
+    validate_reputation_view_upgrade() {
+      db="$1"
+      echo ">>> Reputation view upgrade (column reorder)"
+      psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 <<SQLEOF >/dev/null
+DROP VIEW IF EXISTS app_reputation CASCADE;
+DROP VIEW IF EXISTS leaderboard_agent_features CASCADE;
+DROP VIEW IF EXISTS reputation_scores CASCADE;
+CREATE VIEW reputation_scores AS
+SELECT
+  NULL::text AS account_id,
+  0::bigint AS standing_with,
+  0::bigint AS standing_out,
+  0::numeric AS boost,
+  0::integer AS lock_months,
+  0::numeric AS rewards_earned,
+  0::bigint AS total_posts,
+  0::bigint AS reply_count,
+  0::bigint AS reactions_received,
+  0::numeric AS avg_reactions,
+  0::bigint AS active_days,
+  0::bigint AS unique_conversations,
+  0::bigint AS scarces_created,
+  0::bigint AS scarces_sold,
+  0::numeric AS scarces_revenue_near,
+  0::numeric AS social_score,
+  0::numeric AS commitment_score,
+  0::numeric AS quality_score,
+  0::numeric AS consistency_score,
+  0::numeric AS scarces_score,
+  0::numeric AS reputation,
+  1::bigint AS rank
+WHERE false;
+SQLEOF
+      apply_sql "$db" /work/leaderboard_schema_views.sql
+      validate_expected_objects "$db"
+    }
+
+    validate_guild_view_upgrade() {
+      db="$1"
+      echo ">>> Guild view upgrade (append-only columns)"
+      psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 <<SQLEOF >/dev/null
+-- Dependents of groups_current must drop first (posts_feed / members / bans / ranks).
+DROP FUNCTION IF EXISTS feed_pulse(text[], integer, integer, text);
+DROP VIEW IF EXISTS posts_feed;
+DROP VIEW IF EXISTS groups_by_member_count;
+DROP VIEW IF EXISTS group_member_counts;
+DROP VIEW IF EXISTS group_members_current;
+DROP VIEW IF EXISTS group_blacklist_current;
+DROP VIEW IF EXISTS groups_current;
+CREATE VIEW groups_current AS
+SELECT
+  NULL::text AS group_id,
+  NULL::text AS owner_id,
+  NULL::text AS group_name,
+  NULL::boolean AS is_public,
+  NULL::text AS creator_role,
+  NULL::text AS storage_allocation,
+  NULL::bigint AS block_height,
+  NULL::bigint AS block_timestamp,
+  NULL::text AS operation
+WHERE false;
+CREATE VIEW group_members_current AS
+SELECT
+  NULL::text AS group_id,
+  NULL::text AS member_id,
+  NULL::text AS role,
+  NULL::integer AS level,
+  NULL::boolean AS is_owner,
+  NULL::boolean AS is_admin,
+  NULL::boolean AS can_moderate,
+  NULL::text AS group_name,
+  NULL::boolean AS is_public,
+  NULL::bigint AS block_height,
+  NULL::bigint AS block_timestamp
+WHERE false;
+SQLEOF
+      apply_sql "$db" /work/core_schema_views.sql
+      validate_expected_objects "$db"
+    }
+
+    validate_scarces_catalog_upgrade_shape() {
+      db="$1"
+      for column_name in price_numeric app_id medium_kind audio_format facets usd_e6; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = '"'"'public'"'"'
+              AND table_name = '"'"'scarces_active_listings'"'"'
+              AND column_name = '"'"'${column_name}'"'"'
+          );
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected scarces_active_listings.${column_name} after upgrade in $db" >&2
+          exit 1
+        fi
+      done
+
+      for column_name in medium_kind source_post_path usd_e6; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = '"'"'public'"'"'
+              AND table_name = '"'"'scarces_collections_current'"'"'
+              AND column_name = '"'"'${column_name}'"'"'
+          );
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected scarces_collections_current.${column_name} after upgrade in $db" >&2
+          exit 1
+        fi
+      done
+
+      for relation in scarces_apps scarces_app_creators; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT to_regclass('"'"'public.${relation}'"'"') IS NOT NULL;
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected relation public.${relation} after upgrade in $db" >&2
+          exit 1
+        fi
+      done
+
+      for index_name in \
+        idx_scarces_active_listings_price \
+        idx_scarces_active_listings_expires \
+        idx_scarces_active_listings_kind_listed \
+        idx_scarces_active_listings_app \
+        idx_scarces_active_listings_medium_kind \
+        idx_scarces_active_listings_audio_format \
+        idx_scarces_active_listings_facets \
+        idx_scarces_collections_current_medium_kind \
+        idx_scarces_collections_current_source_post \
+        idx_scarces_apps_owner \
+        idx_scarces_app_creators_app_role
+      do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT to_regclass('"'"'public.${index_name}'"'"') IS NOT NULL;
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected index public.${index_name} after upgrade in $db" >&2
+          exit 1
+        fi
+      done
+
+      price_value="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT price_numeric::text
+        FROM scarces_active_listings
+        WHERE listing_key = '"'"'lazy:fixture-listing'"'"';
+      ")"
+      if [ "$price_value" != "1000000000000000000000000" ]; then
+        echo "error: expected generated price_numeric on fixture row in $db, found ${price_value:-missing}" >&2
+        exit 1
+      fi
+    }
+
+    validate_notifications_schema() {
+      db="$1"
+
+      for relation in notifications notification_counts notification_cursors app_notification_events; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT to_regclass('"'"'public.${relation}'"'"') IS NOT NULL;
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected notification relation public.${relation} in $db" >&2
+          exit 1
+        fi
+      done
+
+      id_type="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT data_type
+        FROM information_schema.columns
+        WHERE table_schema = '"'"'public'"'"'
+          AND table_name = '"'"'notifications'"'"'
+          AND column_name = '"'"'id'"'"';
+      ")"
+      if [ "$id_type" != "uuid" ]; then
+        echo "error: expected notifications.id to be uuid in $db, found ${id_type:-missing}" >&2
+        exit 1
+      fi
+
+      for column_name in owner_account_id app_id dedupe_key; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = '"'"'public'"'"'
+              AND table_name = '"'"'notifications'"'"'
+              AND column_name = '"'"'${column_name}'"'"'
+          );
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected notifications.${column_name} in $db" >&2
+          exit 1
+        fi
+      done
+
+      for index_name in idx_notifications_dedupe idx_app_notification_events_dedupe; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT to_regclass('"'"'public.${index_name}'"'"') IS NOT NULL;
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected index public.${index_name} in $db" >&2
+          exit 1
+        fi
+      done
+
+      cursor_count="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT COUNT(*)
+        FROM notification_cursors
+        WHERE source_table IN (
+          '"'"'data_updates'"'"',
+          '"'"'group_updates'"'"',
+          '"'"'rewards_events'"'"',
+          '"'"'boost_events'"'"',
+          '"'"'scarces_events'"'"',
+          '"'"'app_notification_events'"'"'
+        );
+      ")"
+      if [ "$cursor_count" -ne 6 ]; then
+        echo "error: expected six notification cursor seeds in $db, found $cursor_count" >&2
+        exit 1
+      fi
+
+      read_function_count="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT COUNT(*)
+        FROM pg_proc
+        WHERE proname = '"'"'mark_notifications_read'"'"'
+          AND pronargs = 3;
+      ")"
+      if [ "$read_function_count" -ne 1 ]; then
+        echo "error: expected mark_notifications_read(owner, app, recipient) in $db" >&2
+        exit 1
+      fi
+    }
+
+    echo ">>> Combined deploy schema"
+    createdb -h /tmp combined_validate
+    apply_sql combined_validate /work/combined_schema.sql
+    apply_migrations combined_validate
+    apply_views combined_validate
+    validate_expected_objects combined_validate
+    validate_reputation_view_upgrade combined_validate
+    validate_guild_view_upgrade combined_validate
+    validate_boost_live_weight combined_validate
+
+    # Existing testnet DBs keep old CREATE TABLE shapes. Deploy applies
+    # combined_schema (CREATE TABLE IF NOT EXISTS + CREATE INDEX) before
+    # migrations — this path catches indexes that reference columns the
+    # existing table does not yet have.
+    echo ">>> Existing-DB upgrade (baseline → combined_schema → migrations)"
+    createdb -h /tmp upgrade_validate
+    apply_sql upgrade_validate /work/tests/fixtures/upgrade_baseline.sql
+    apply_sql upgrade_validate /work/combined_schema.sql
+    apply_migrations upgrade_validate
+    apply_views upgrade_validate
+    validate_expected_objects upgrade_validate
+    validate_scarces_catalog_upgrade_shape upgrade_validate
+    validate_boost_live_weight upgrade_validate
+
+    echo ">>> Standalone package schemas"
+    createdb -h /tmp standalone_validate
+    apply_sql standalone_validate /work/core_schema.sql
+    apply_sql standalone_validate /work/boost_schema.sql
+    apply_sql standalone_validate /work/rewards_schema.sql
+    apply_sql standalone_validate /work/token_schema.sql
+    apply_sql standalone_validate /work/scarces_schema.sql
+    apply_sql standalone_validate /work/notifications_schema.sql
+    apply_migrations standalone_validate
+    apply_views standalone_validate
+    validate_expected_objects standalone_validate
+    validate_guild_view_upgrade standalone_validate
+    validate_notifications_schema standalone_validate
+    validate_boost_live_weight standalone_validate
+  '
+
+echo ">>> Indexer SQL validation passed"

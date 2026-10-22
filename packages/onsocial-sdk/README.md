@@ -512,7 +512,7 @@ await os.raw.execute([
 ]);
 ```
 
-Substreams indexes every `Action::Set` write into the raw `data_updates` table keyed by `data_type` — no schema migration needed for your custom first-segment namespace to become queryable. Writes under `apps/<appId>/…` also get an indexed `app_relpath` so `byAppPrefix` can list any folder without a leading-wildcard scan. Pass `contains` to filter that folder on JSON (GIN-backed); live `set` rows are the default (`includeDeleted: true` keeps tombstones). Typed Hasura views (for SQL joins, derived counts, leaderboards over your shape) stay opt-in: open a PR adding a view file and a substream module entry. This apps-folder index is the generic path; you do not need a per-app view to list `{account}/apps/<anyAppId>/<anyFolder>/…`.
+The chain index writes every `Action::Set` into the raw `data_updates` table keyed by `data_type` — no schema migration needed for your custom first-segment namespace to become queryable. Writes under `apps/<appId>/…` also get an indexed `app_relpath` so `byAppPrefix` can list any folder without a leading-wildcard scan. Pass `contains` to filter that folder on JSON (GIN-backed); live `set` rows are the default (`includeDeleted: true` keeps tombstones). Typed Hasura views (for SQL joins, derived counts, leaderboards over your shape) stay opt-in: open a PR adding a view file and a decoder entry. This apps-folder index is the generic path; you do not need a per-app view to list `{account}/apps/<anyAppId>/<anyFolder>/…`.
 
 ## Notes
 

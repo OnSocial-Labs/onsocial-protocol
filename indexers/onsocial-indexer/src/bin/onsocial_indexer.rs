@@ -8,7 +8,7 @@
 //! endpoint.
 //!
 //! Per StreamerMessage: `streamer_message_to_block` → `changes_for_block` →
-//! the SHARED writer (`onsocial_substreams::writer`) — one writer, two
+//! the SHARED writer (`onsocial_chain_index::writer`) — one writer, two
 //! sources (reader + this), never two writers to keep in sync.
 //!
 //! Cursor: advances its own `cursors` row (`id = "indexer"`) inside the
@@ -30,9 +30,9 @@ use near_indexer::near_primitives::types::Finality;
 use near_indexer::{AwaitForNodeSyncedEnum, Indexer, IndexerConfig, SyncModeEnum};
 
 use onsocial_indexer::streamer_message_to_block;
-use onsocial_substreams::neardata::block_hash;
-use onsocial_substreams::pipeline::changes_for_block;
-use onsocial_substreams::writer::{self, Schema};
+use onsocial_chain_index::neardata::block_hash;
+use onsocial_chain_index::pipeline::changes_for_block;
+use onsocial_chain_index::writer::{self, Schema};
 
 /// Cursor row this source owns in the shared `cursors` table.
 const NODE_CURSOR_ID: &str = "indexer";
@@ -79,8 +79,8 @@ async fn main() -> Result<()> {
     info!(tables = schema.tables_len(), "schema loaded");
 
     // Resume order: explicit flag > own cursor > reader's cursor (same
-    // writer, so its rows are ours) > any sink cursor. The reader backfills
-    // the deep gap; this binary only ever starts inside the GC window.
+    // writer, so its rows are ours) > highest cursor in the table. The reader
+    // backfills the deep gap; this binary only ever starts inside the GC window.
     let start = if let Some(b) = args.start_block {
         b
     } else if let Some(b) = writer::read_cursor(&client, NODE_CURSOR_ID).await? {
@@ -89,7 +89,7 @@ async fn main() -> Result<()> {
         info!(reader_cursor = b, "resuming from neardata reader cursor");
         b + 1
     } else if let Some(b) = writer::read_sink_cursor(&client).await? {
-        info!(sink_cursor = b, "resuming from shared sink cursor");
+        info!(sink_cursor = b, "resuming from highest cursor");
         b + 1
     } else {
         bail!("no cursor found; pass --start-block (inside the GC window)");

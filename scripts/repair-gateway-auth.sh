@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reconcile gateway auth tables after a substreams clean deploy wiped api_keys.
+# Reconcile gateway auth tables after an indexer schema reset wiped api_keys.
 # Safe to re-run: uses CREATE IF NOT EXISTS and upserts the service API key.
 set -euo pipefail
 

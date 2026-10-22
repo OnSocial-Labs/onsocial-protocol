@@ -1,0 +1,41 @@
+[Unit]
+# OnSocial neardata reader. Polls finalized blocks from neardata and writes them through the same
+# decoders into the same Postgres tables. Hasura/app unchanged.
+Description=OnSocial neardata reader (testnet indexer)
+After=network-online.target docker.service
+Wants=network-online.target
+# Give up only if it cannot stay up for 30s across 5 tries (config error).
+StartLimitIntervalSec=150
+StartLimitBurst=5
+
+[Service]
+Type=simple
+# DB URL comes from a root-only credential file, never the process env or
+# command line (same pattern as the old sink unit).
+LoadCredential=db_url:/etc/onsocial/credentials/onsocial-neardata-reader/db_url
+LoadCredential=network:/etc/onsocial/credentials/onsocial-neardata-reader/network
+# One block at a time, 60 requests a minute. Faster than that returns 429
+# from the public FastNear cap on this IP. --end-block is the height the
+# node indexer already owns; the reader exits there and must stay stopped.
+# Remove --end-block only after that exit, if a later backfill should follow
+# the chain. $${} keeps systemd from eating the bash array.
+#
+# Optional FastNear API key: if
+# /etc/onsocial/credentials/onsocial-neardata-reader/api_key exists and is
+# non-empty, it is sent as `Authorization: Bearer` (the neardata auth shape
+# per the FastNear docs). Read directly rather than via LoadCredential
+# because LoadCredential fails the whole unit when the file is absent, and
+# the key is optional. When a key is provisioned, also raise --max-rpm /
+# --prefetch to whatever the paid tier allows.
+ExecStart=/bin/bash -lc 'args=(--db-url "$(cat "${CREDENTIALS_DIRECTORY}/db_url")" --network "$(cat "${CREDENTIALS_DIRECTORY}/network")" --prefetch 1 --max-rpm 60 --end-block 273994469); k=/etc/onsocial/credentials/onsocial-neardata-reader/api_key; if [[ -s "$k" ]]; then args+=(--api-key "$(cat "$k")"); fi; exec /usr/local/bin/neardata_reader "$${args[@]}"'
+# A clean exit means the end height was reached. Crashes still restart.
+# Each block commits rows and the cursor in one transaction, so a restart
+# replays at most one partially-applied block, which upserts absorb.
+Restart=on-failure
+RestartSec=10
+# Reasonable resource ceiling; the reader is light (~tens of MB).
+MemoryMax=512M
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

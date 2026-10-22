@@ -85,11 +85,11 @@ naming convention enforced.
 
 ### Step 1 — Write a SQL view
 
-Create a view file in `indexers/substreams/custom/<your-app>.sql` (or PR
+Create a view file in `indexers/chain-index/custom/<your-app>.sql` (or PR
 into `core_schema_views.sql` if it's broadly useful):
 
 ```sql
--- indexers/substreams/custom/mygame.sql
+-- indexers/chain-index/custom/mygame.sql
 CREATE OR REPLACE VIEW mygame_scores AS
 SELECT
   account_id,
@@ -108,7 +108,7 @@ WHERE data_type = 'mygame'
 ### Step 2 — Track it in Hasura
 
 After the SQL view exists, the existing
-`indexers/substreams/scripts/sync-hasura-substreams-metadata.sh` flow picks
+`indexers/chain-index/scripts/sync-hasura-substreams-metadata.sh` flow picks
 it up automatically on next sync. Hasura will expose:
 
 ```graphql
@@ -190,5 +190,5 @@ Pick anything else — `mygame`, `myAppName`, `org-x-poll`, `crmContact`, etc.
 
 - [`packages/onsocial-sdk/README.md`](../packages/onsocial-sdk/README.md) — "Build Any dApp" section
 - [`packages/onsocial-sdk/src/query/raw.ts`](../packages/onsocial-sdk/src/query/raw.ts) — `os.query.raw` API
-- [`indexers/substreams/core_schema.sql`](../indexers/substreams/core_schema.sql) — `data_updates` schema
-- [`indexers/substreams/core_schema_views.sql`](../indexers/substreams/core_schema_views.sql) — built-in typed views (reference patterns)
+- [`indexers/chain-index/core_schema.sql`](../indexers/chain-index/core_schema.sql) — `data_updates` schema
+- [`indexers/chain-index/core_schema_views.sql`](../indexers/chain-index/core_schema_views.sql) — built-in typed views (reference patterns)

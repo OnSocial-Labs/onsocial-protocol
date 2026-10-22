@@ -154,15 +154,17 @@ make test-all-contracts  # Run all tests
 |--------|-------------|
 | `keys-relayer` | Setup relayer cryptographic keys |
 
-### 📊 **Substreams Indexer**
+### 📊 **Chain index**
 
 | Target | Description |
 |--------|-------------|
-| `check-substreams-events` | Validate the indexed event manifest against current contract emitters |
-| `check-substreams-schema` | Validate Substreams DB writes against combined and standalone SQL schemas |
-| `check-substreams-rust` | Run Substreams Rust correctness tests |
-| `check-substreams-sql` | Validate Substreams schemas, migrations, and views in a disposable PostgreSQL 16 container |
-| `check-substreams` | Run Substreams validation checks |
+| `check-indexer-events` | Validate the indexed event manifest against current contract emitters |
+| `check-indexer-schema` | Validate indexer DB writes against combined and standalone SQL schemas |
+| `check-indexer-rust` | Run indexer Rust correctness tests |
+| `check-indexer-sql` | Validate indexer schemas, migrations, and views in a disposable PostgreSQL 16 container |
+| `check-indexer` | Run the indexer validation checks |
+
+`check-substreams*` still runs the same checks.
 
 ### 🔴 **Redis Management (for Relayer)**
 

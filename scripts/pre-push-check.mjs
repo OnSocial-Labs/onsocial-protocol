@@ -3,8 +3,8 @@
  * Runs lint, format, build, and test for packages affected by commits being pushed.
  * Checks directly changed packages only by default. Set PRE_PUSH_DEPENDENTS=1 to
  * also check workspace dependents (e.g. rpc → backend/portal/gateway).
- * Also runs substreams SQL validate and/or schema-parity + golden_db when those
- * indexer paths change (mirrors the Substreams CI gaps SQL-only miss).
+ * Also runs indexer SQL validate and/or schema-parity + golden_db when those
+ * indexer paths change (mirrors the Indexer CI gaps SQL-only miss).
  * Cloud agents (CURSOR_AGENT=1) also run App Playwright when App CI paths
  * change — same gap this morning’s main red: husky/check:push is not e2e.
  * Laptop husky stays lint/unit/build. Opt in with PRE_PUSH_E2E=1; skip with 0.
@@ -202,24 +202,24 @@ function getAffectedPackages(changedFiles) {
 function substreamsSqlChanged(changedFiles) {
   return changedFiles.some(
     (file) =>
-      (file.startsWith('indexers/substreams/') && file.endsWith('.sql')) ||
-      file === 'indexers/substreams/scripts/validate_sql.sh' ||
-      file.startsWith('indexers/substreams/tests/fixtures/')
+      (file.startsWith('indexers/chain-index/') && file.endsWith('.sql')) ||
+      file === 'indexers/chain-index/scripts/validate_sql.sh' ||
+      file.startsWith('indexers/chain-index/tests/fixtures/')
   );
 }
 
 /**
- * Sink writer / golden fixture changes — mirrors Substreams CI steps that
+ * Indexer writer / golden fixture changes — mirrors Indexer CI steps that
  * `validate_sql.sh` does not cover (schema parity + golden_db cargo tests).
  */
 function substreamsSinkChanged(changedFiles) {
   return changedFiles.some(
     (file) =>
-      file.startsWith('indexers/substreams/src/') ||
-      file === 'indexers/substreams/tests/golden_db_fixtures.json' ||
-      file === 'indexers/substreams/scripts/check_db_schema_parity.py' ||
-      file === 'indexers/substreams/Cargo.toml' ||
-      file === 'indexers/substreams/Cargo.lock'
+      file.startsWith('indexers/chain-index/src/') ||
+      file === 'indexers/chain-index/tests/golden_db_fixtures.json' ||
+      file === 'indexers/chain-index/scripts/check_db_schema_parity.py' ||
+      file === 'indexers/chain-index/Cargo.toml' ||
+      file === 'indexers/chain-index/Cargo.lock'
   );
 }
 
@@ -296,16 +296,16 @@ function runAppPlaywright() {
 }
 
 function runSubstreamsSqlValidation() {
-  console.log('\n=== indexers/substreams (SQL schema upgrade) ===');
-  run('bash indexers/substreams/scripts/validate_sql.sh');
+  console.log('\n=== indexers/chain-index (SQL schema upgrade) ===');
+  run('bash indexers/chain-index/scripts/validate_sql.sh');
 }
 
 function runSubstreamsSinkValidation() {
-  console.log('\n=== indexers/substreams (schema parity + golden_db) ===');
+  console.log('\n=== indexers/chain-index (schema parity + golden_db) ===');
   run('python3 scripts/check_db_schema_parity.py', {
-    cwd: 'indexers/substreams',
+    cwd: 'indexers/chain-index',
   });
-  run('cargo test golden_db', { cwd: 'indexers/substreams' });
+  run('cargo test golden_db', { cwd: 'indexers/chain-index' });
 }
 
 function main() {
@@ -332,7 +332,7 @@ function main() {
     !checkPrePushGate
   ) {
     console.log(
-      'No monitored package or substreams changes detected; skipping checks.'
+      'No monitored package or indexer changes detected; skipping checks.'
     );
     return;
   }
@@ -357,10 +357,10 @@ function main() {
     console.log(`Dependency packages: ${dependencies.join(', ')}`);
   }
   if (checkSubstreamsSql) {
-    console.log('Changed: indexers/substreams SQL schema / migrations');
+    console.log('Changed: indexers/chain-index SQL schema / migrations');
   }
   if (checkSubstreamsSink) {
-    console.log('Changed: indexers/substreams sink / golden fixtures');
+    console.log('Changed: indexers/chain-index writer / golden fixtures');
   }
   if (checkAppPlaywright) {
     console.log('Changed: App CI Playwright paths');

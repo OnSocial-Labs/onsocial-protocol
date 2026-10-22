@@ -88,7 +88,7 @@ Do this on the three live contracts before deploying anything else.
 ## Do not
 
 - Flip `NEAR_NETWORK=mainnet` on app, portal, or gateway.
-- Point public Graph / Hasura / substreams at mainnet as if the protocol is up.
+- Point public Graph / Hasura / the indexer at mainnet as if the protocol is up.
 - Deploy `core` “just to reserve” without relayer allowlist, indexer start block, and an env freeze.
 - Retrack views or `reload_metadata` on the **public** Hasura engine.
 - Stand up `governance` until token-weight and staking policy are decided. Root-only treasury council is enough for custody.

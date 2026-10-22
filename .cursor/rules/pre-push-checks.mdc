@@ -6,7 +6,7 @@ alwaysApply: true
 
 # Pre-push quality gates
 
-`pnpm check:push` (`scripts/pre-push-check.mjs`, also `.husky/pre-push`) runs lint/format/build/test for **directly changed** monitored packages, plus substreams checks when those paths change. Cloud agents also run **App Playwright** when App CI paths change (`CURSOR_AGENT=1` or `PRE_PUSH_E2E=1`) — same production `next start` job as GitHub OnSocial App CI. Laptop husky does not — that suite is what painted `main` red when only `check` was green.
+`pnpm check:push` (`scripts/pre-push-check.mjs`, also `.husky/pre-push`) runs lint/format/build/test for **directly changed** monitored packages, plus indexer checks when those paths change. Cloud agents also run **App Playwright** when App CI paths change (`CURSOR_AGENT=1` or `PRE_PUSH_E2E=1`) — same production `next start` job as GitHub OnSocial App CI. Laptop husky does not — that suite is what painted `main` red when only `check` was green.
 
 **Agents:** follow [cloud-quality-gates.mdc](cloud-quality-gates.mdc) — run `check:push` in **cloud**, then push with `--no-verify` only after that gate is green. Do not thrash the laptop with a second full suite.
 
@@ -18,10 +18,10 @@ Monitored packages under `packages/`:
 - `onsocial-backend`, `onsocial-gateway`
 - `@onsocial/pages`, `@onsocial/portal`, `@onsocial/app`
 
-Substreams (prefer cloud):
+Indexer (prefer cloud):
 
-- **SQL** — `indexers/substreams/**/*.sql`, `scripts/validate_sql.sh`, `tests/fixtures/**` → `bash indexers/substreams/scripts/validate_sql.sh` (Docker Postgres schema + upgrade)
-- **Sink / golden** — `indexers/substreams/src/**`, `tests/golden_db_fixtures.json`, `scripts/check_db_schema_parity.py`, `Cargo.toml` / `Cargo.lock` → `python3 scripts/check_db_schema_parity.py` + `cargo test golden_db` (same gap Substreams CI caught when SQL-only validate passed)
+- **SQL** — `indexers/chain-index/**/*.sql`, `scripts/validate_sql.sh`, `tests/fixtures/**` → `bash indexers/chain-index/scripts/validate_sql.sh` (Docker Postgres schema + upgrade)
+- **Sink / golden** — `indexers/chain-index/src/**`, `tests/golden_db_fixtures.json`, `scripts/check_db_schema_parity.py`, `Cargo.toml` / `Cargo.lock` → `python3 scripts/check_db_schema_parity.py` + `cargo test golden_db` (same gap Indexer CI caught when SQL-only validate passed)
 
 Diff base is `@{upstream}..HEAD`. Unrelated packages are skipped. Dependents expansion is **off** unless `PRE_PUSH_DEPENDENTS=1`.
 

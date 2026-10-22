@@ -7,12 +7,12 @@ on:
       - 'indexers/onsocial-indexer/**'
       # The shared decode path (codec, writer, pipeline) feeds the indexer
       # too — a drift there must run this job.
-      - 'indexers/substreams/**'
+      - 'indexers/chain-index/**'
       - '.github/workflows/onsocial-indexer.yml'
   pull_request:
     paths:
       - 'indexers/onsocial-indexer/**'
-      - 'indexers/substreams/**'
+      - 'indexers/chain-index/**'
       - '.github/workflows/onsocial-indexer.yml'
 
 defaults:
@@ -20,8 +20,8 @@ defaults:
     working-directory: indexers/onsocial-indexer
 
 env:
-  # Repo rust-toolchain.toml pins 1.93.0. nearcore 2.14.0-rc.2 declares
-  # rust-version 1.95, so cargo refuses to resolve it on that pin. This
+  # Repo rust-toolchain.toml pins 1.93.0. nearcore 2.14.0-rc.5 declares
+  # a newer rust-version, so cargo refuses to resolve it on that pin. This
   # variable outranks rust-toolchain.toml; stable is what the node box
   # already builds with (1.99). Other CI jobs stay on 1.93.
   RUSTUP_TOOLCHAIN: stable
