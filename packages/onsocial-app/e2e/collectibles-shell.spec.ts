@@ -267,7 +267,7 @@ test.describe('collectibles shell', () => {
     await expect(page.getByRole('button', { name: /A–Z/ })).toBeVisible();
     await expect(page.locator('[data-collectibles-back]')).toHaveAttribute(
       'data-collectibles-back',
-      `/@${COLLECTIBLES_VAULT_OWNER}`
+      `/@${COLLECTIBLES_VAULT_OWNER}?tab=collection`
     );
     await page.unroute('**/api/onapi/graph/query');
   });

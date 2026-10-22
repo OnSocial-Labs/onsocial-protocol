@@ -60,7 +60,9 @@ describe('article reader commerce', () => {
     expect(cta).toContain("label: 'Drop'");
     expect(cta).toContain("label: 'Hub'");
     expect(cta).toContain("label: 'Market'");
-    expect(cta).toContain('Open Drop');
+    expect(cta).toContain('linksBesideDropAction');
+    expect(cta).toContain("link.label !== 'Drop'");
+    expect(cta).not.toContain('Open Drop');
     expect(cta).toContain('collectionPath(collectionId)');
     expect(cta).toContain('marketCreatorPath');
     expect(cta).not.toContain('seriesPagePath');

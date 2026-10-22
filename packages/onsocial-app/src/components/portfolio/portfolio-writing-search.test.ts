@@ -22,7 +22,9 @@ describe('Writing shelf search', () => {
     expect(chrome).toContain('PROFILE_SEARCH_MAX_QUERY_LENGTH');
     expect(chrome).toContain('placeholder="Search writing"');
     expect(chrome).not.toContain('type="search"');
-    expect(panel).toContain('WritingSearchHeading query={query}');
+    expect(panel).toContain('WritingSearchHeading');
+    expect(panel).toContain('query={query}');
+    expect(panel).toContain('onQueryChange={search.setDraft}');
     expect(panel).not.toContain('type="search"');
     expect(navSearch).toContain('type="text"');
     expect(navSearch).toContain('inputMode="search"');
@@ -33,7 +35,7 @@ describe('Writing shelf search', () => {
   });
 
   it('keeps typing live and defers the article-card filter', () => {
-    expect(panel).toContain('useDeferredValue');
+    expect(panel).toContain('useSearchDraft');
     expect(panel).toContain('resolveWritingListQuery');
     expect(panel).toContain('resolveWritingShelfCount');
     expect(panel).toContain('query={listQuery}');

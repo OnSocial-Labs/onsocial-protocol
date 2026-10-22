@@ -22,7 +22,7 @@ describe('toProfileCreatedPeek', () => {
       title: 'The Quiet Hours',
       mediaUrl: 'https://cdn.example/cover.png',
       blockTimestamp: 1_700_000_000_000,
-      href: '/collection/quiet-hours?read=1',
+      href: '/collection/quiet-hours',
       kindLabel: 'Writing',
       actionLabel: 'Read',
     });

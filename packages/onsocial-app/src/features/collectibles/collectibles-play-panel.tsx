@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { InformationCircleIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { useCatalogDockBack } from '@/hooks/use-catalog-dock-back';
 import { useImmersiveTitleHandoff } from '@/hooks/use-immersive-title-handoff';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
@@ -385,11 +386,13 @@ export function CollectiblesPlayPanel({
   );
 
   const vaultBackHref = collectiblesPlayBackHref(viewerAccountId);
+  const onDockBack = useCatalogDockBack(vaultBackHref);
 
   return (
     <OsAppScreen
       title={screenTitle}
       dockBack
+      onDockBack={onDockBack}
       backFallbackHref={vaultBackHref}
       immersiveHeader={immersive}
       glassChrome={!immersive}

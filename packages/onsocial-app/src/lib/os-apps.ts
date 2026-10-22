@@ -219,10 +219,17 @@ export function ownerPortfolioOsApps(accountId: string): OsAppLink[] {
   });
 }
 
-export function visitorPortfolioOsApps(accountId: string): OsAppLink[] {
+/** Launcher on someone else's page. Discover stays nested there.
+ *  Collectibles is the signed-in vault; their chip beside Scarces opens theirs. */
+export function visitorPortfolioOsApps(
+  pageAccountId: string,
+  viewerAccountId?: string | null
+): OsAppLink[] {
   return launcherApps({
-    discoverHref: discoverPath(accountId),
-    collectiblesHref: portfolioCollectiblesPath(accountId),
+    discoverHref: discoverPath(pageAccountId),
+    collectiblesHref: viewerAccountId
+      ? portfolioCollectiblesPath(viewerAccountId)
+      : APP_COLLECTIBLES_PATH,
   });
 }
 

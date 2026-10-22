@@ -37,14 +37,14 @@ export function resolvePostDropCta(input: {
     };
   }
 
-  // Holder reference: Buy / Bid when their edition is listed; else Open Drop.
+  // Holder reference: Buy / Bid when their edition is listed; else Drop.
   if (hasTokenId) {
     if (embed.status === 'listed') return { kind: 'buy' };
     if (embed.status === 'auction') return { kind: 'bid' };
     return { kind: 'open' };
   }
 
-  // Creator / primary Drop: Mint while supply left; else Open Drop.
+  // Creator / primary Drop: Mint while supply left; else Drop.
   if (embed.status === 'drop' && (remaining == null || remaining > 0)) {
     return { kind: 'mint' };
   }

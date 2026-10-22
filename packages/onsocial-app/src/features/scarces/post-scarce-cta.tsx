@@ -169,7 +169,7 @@ function CommerceLinkRow({
   );
 }
 
-function OpenDropButton({ collectionId }: { collectionId: string }) {
+function DropPageLink({ collectionId }: { collectionId: string }) {
   return (
     <Link
       href={collectionPath(collectionId)}
@@ -177,14 +177,21 @@ function OpenDropButton({ collectionId }: { collectionId: string }) {
       scroll={false}
       onClick={(event) => event.stopPropagation()}
     >
-      Open Drop
+      Drop
     </Link>
   );
 }
 
+/** Drop is already the action, so the quiet Drop link would repeat it. */
+function linksBesideDropAction(
+  links: { href: string; label: string }[]
+): { href: string; label: string }[] {
+  return links.filter((link) => link.label !== 'Drop');
+}
+
 /**
  * One-line commerce CTA under post media / above engagement.
- * Vocabulary: Mint · Buy · Sell · Open Drop · List (Amplify lives in engagement row).
+ * Vocabulary: Mint · Buy · Sell · Drop · List (Amplify lives in engagement row).
  */
 export function PostScarceCta({
   embed,
@@ -324,9 +331,9 @@ export function PostScarceCta({
     if (dropCta.kind === 'open') {
       return (
         <div className="post-card-scarce-cta">
-          {collectionId ? <OpenDropButton collectionId={collectionId} /> : null}
+          {collectionId ? <DropPageLink collectionId={collectionId} /> : null}
           {listenSlot}
-          <CommerceLinkRow links={links} />
+          <CommerceLinkRow links={linksBesideDropAction(links)} />
         </div>
       );
     }

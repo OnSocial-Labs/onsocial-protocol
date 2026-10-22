@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent,
@@ -62,11 +63,16 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { PostLikesSheet } from '@/components/panels/post-likes-sheet';
 import { RollingNumber } from '@/components/ui/rolling-number';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { formatWritingLikeLabel } from '@/lib/article-post-payload';
+import {
+  formatWritingLikeLabel,
+  isArticlePost,
+} from '@/lib/article-post-payload';
 import {
   useFocusWriteDock,
   type WriteDockSubmit,
 } from '@/contexts/compose-launcher-context';
+import { fetchPersonalPost } from '@/lib/fetch-personal-post';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
 import { writeDockDraftKey } from '@/lib/os-write-dock';
 import { guildPath } from '@/features/guilds/guilds-data';
@@ -76,6 +82,7 @@ import {
   usePostThreadLayer,
 } from '@/features/home/post-thread-layer';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
+import { WritingReadDocument } from '@/features/scarces/scarce-writing-read-sheet';
 import { FeedArticleReadScreen } from '@/features/home/feed-article-read-screen';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
 import { PostMediaStrip } from '@/features/home/post-media';
@@ -87,7 +94,11 @@ import {
   cancelPostScarceListing,
 } from '@/features/scarces/cancel-post-scarce';
 import { PostScarceCta } from '@/features/scarces/post-scarce-cta';
-import { isWritingFolioFormat } from '@/features/scarces/drop-writing';
+import {
+  isWritingFolioFormat,
+  resolveDropReadTarget,
+} from '@/features/scarces/drop-writing';
+import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
 import {
   fetchOwnedScarceByTokenId,
   fetchOwnedScarceForCollection,
@@ -1836,6 +1847,14 @@ export function PostCard({
   const [photoIndex, setPhotoIndex] = useState(0);
   /** Mood / craft article — slide-over reader (stays on feed). */
   const [articleOpen, setArticleOpen] = useState(false);
+  /** Shared drop whose essay lives on another post. */
+  const [feedReadEssay, setFeedReadEssay] = useState<PostRow | null>(null);
+  const [feedBookRead, setFeedBookRead] = useState(false);
+  const [feedBookCoverSvg, setFeedBookCoverSvg] = useState<string | null>(null);
+  const feedReadAuthors = usePostAuthorProfiles(
+    feedReadEssay ? [feedReadEssay.accountId] : []
+  );
+  const dropReadTicket = useRef(0);
   /** Article cover still when it isn’t already in post media. */
   const [enlargeOverride, setEnlargeOverride] = useState<
     PostMediaItem[] | null
@@ -1881,6 +1900,8 @@ export function PostCard({
     playables: collectionPlayables,
     readables: collectionReadables,
     writingFormat: collectionWritingFormat,
+    sourcePostPath: collectionSourcePostPath,
+    writingMetaSettled: collectionWritingSettled,
     bookPdf: collectionBookPdf,
     dropTitle: collectionDropTitle,
     retry: retryCollectionEmbed,
@@ -2087,6 +2108,8 @@ export function PostCard({
   useEffect(() => {
     if (!article) return;
     if (consumeEssayReopen(post.accountId, post.postId)) {
+      setFeedReadEssay(null);
+      setFeedBookRead(false);
       setArticleOpen(true);
     }
   }, [article, post.accountId, post.postId]);
@@ -2193,25 +2216,108 @@ export function PostCard({
   const articleUsesDocumentReader =
     Boolean(article) && !isWritingFolioFormat(collectionWritingFormat);
   /**
-   * Cover tap:
-   * - Article (listed or not) → article reader
-   * - Book / Issue drop → folio reader
-   * - Audio drop face → listen
+   * Read and the drop cover, from the feed:
+   * the post reader, with this post's controls.
+   * - Essay on this post → that essay
+   * - Shared listed article → that essay, this post's footer
+   * - Book / Issue → those pages, this post's footer
+   * The drop page keeps its own reader.
    */
+  const openFeedPostReader = (next?: {
+    essay?: PostRow | null;
+    book?: boolean;
+    coverSvg?: string | null;
+  }) => {
+    setFeedReadEssay(next?.essay ?? null);
+    setFeedBookRead(Boolean(next?.book));
+    setFeedBookCoverSvg(next?.coverSvg ?? null);
+    setArticleOpen(true);
+  };
+  const openDropWriting = (coverSvg: string | null = null) => {
+    const ticket = ++dropReadTicket.current;
+    const paintSource = dropPaint?.sourcePostPath ?? null;
+    const openResolved = (
+      writingFormat: typeof collectionWritingFormat,
+      sourcePostPath: string | null
+    ) => {
+      if (ticket !== dropReadTicket.current) return;
+      const target = resolveDropReadTarget({
+        articleOnPost: Boolean(article),
+        writingFormat,
+        sourcePostPath,
+      });
+      if (target.kind === 'self') {
+        openFeedPostReader();
+        return;
+      }
+      if (target.kind === 'folio') {
+        openFeedPostReader({ book: true, coverSvg });
+        return;
+      }
+      void (async () => {
+        try {
+          const essay = await fetchPersonalPost({
+            author: target.author,
+            postId: target.postId,
+          });
+          if (ticket !== dropReadTicket.current) return;
+          if (essay && isArticlePost(essay)) {
+            openFeedPostReader({ essay });
+            return;
+          }
+        } catch {
+          /* book pages below */
+        }
+        if (ticket !== dropReadTicket.current) return;
+        openFeedPostReader({ book: true, coverSvg });
+      })();
+    };
+
+    if (article && !isWritingFolioFormat(collectionWritingFormat)) {
+      openFeedPostReader();
+      return;
+    }
+
+    const collectionId = scarceEmbed?.collectionId?.trim() || '';
+    if (collectionWritingSettled || !collectionId) {
+      openResolved(
+        collectionWritingFormat,
+        collectionWritingSettled
+          ? (collectionSourcePostPath ?? paintSource)
+          : paintSource
+      );
+      return;
+    }
+
+    void fetchCollectionPreferIndexer(collectionId)
+      .then((view) => {
+        openResolved(
+          view?.writingFormat ?? null,
+          view?.sourcePostPath ?? paintSource
+        );
+      })
+      .catch(() => {
+        openResolved(collectionWritingFormat, paintSource);
+      });
+  };
   const activateArticleCover = () => {
     if (articleUsesDocumentReader) {
-      setArticleOpen(true);
+      openFeedPostReader();
       return;
     }
     if (articleHasScarceFace) {
       const mode = resolveScarceFeedMediumMode(
         scarceEmbed?.mediumKind ?? dropPaint?.mediumKind
       );
-      openFeedMedium(mode === 'audio' ? 'audio' : 'writing');
+      if (mode === 'audio') {
+        openFeedMedium('audio');
+        return;
+      }
+      openDropWriting();
       return;
     }
     if (!article) return;
-    setArticleOpen(true);
+    openFeedPostReader();
   };
   const articleCoverActivatable = Boolean(article && articleCover);
 
@@ -2383,7 +2489,7 @@ export function PostCard({
             }
             onReadArticle={
               article && articleUsesDocumentReader && !preferActionHref
-                ? () => setArticleOpen(true)
+                ? () => openFeedPostReader()
                 : null
             }
           />
@@ -2486,14 +2592,16 @@ export function PostCard({
               disableLiveSvg
               cardBg={scarceEmbed.cardBg}
               creatorDisplayName={authorProfile?.displayName}
-              onActivate={({ coverSvg }) =>
-                openFeedMedium(
-                  resolveScarceFeedMediumMode(
-                    scarceEmbed.mediumKind ?? dropPaint?.mediumKind
-                  ),
-                  coverSvg
-                )
-              }
+              onActivate={({ coverSvg }) => {
+                const mode = resolveScarceFeedMediumMode(
+                  scarceEmbed.mediumKind ?? dropPaint?.mediumKind
+                );
+                if (mode === 'writing') {
+                  openDropWriting(coverSvg);
+                  return;
+                }
+                openFeedMedium(mode, coverSvg);
+              }}
             />
           ) : null}
           {!isRepostShell && (scarceEmbed || canListScarce) ? (
@@ -2526,11 +2634,7 @@ export function PostCard({
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
-                          if (articleUsesDocumentReader) {
-                            setArticleOpen(true);
-                            return;
-                          }
-                          openFeedMedium('writing');
+                          openDropWriting();
                         }}
                       >
                         Read
@@ -2793,13 +2897,44 @@ export function PostCard({
       />
       <FeedArticleReadScreen
         open={articleOpen}
-        onOpenChange={setArticleOpen}
-        post={post}
-        authorProfile={authorProfile}
+        onOpenChange={(next) => {
+          setArticleOpen(next);
+          if (!next) {
+            setFeedReadEssay(null);
+            setFeedBookRead(false);
+            setFeedBookCoverSvg(null);
+          }
+        }}
+        post={feedReadEssay ?? post}
+        authorProfile={
+          feedReadEssay
+            ? feedReadAuthors[feedReadEssay.accountId]
+            : authorProfile
+        }
+        documentTitle={feedBookRead ? dropListenTitle : undefined}
+        renderBody={
+          feedBookRead
+            ? ({ onChromeTap }) => (
+                <WritingReadDocument
+                  open={articleOpen}
+                  title={dropListenTitle}
+                  cover={scarceCoverUrl}
+                  coverSvg={feedBookCoverSvg}
+                  collectionId={scarceEmbed?.collectionId?.trim() || ''}
+                  accountId={viewerAccountId}
+                  creatorId={scarceEmbed?.creatorId ?? post.accountId}
+                  readables={collectionReadables}
+                  bookPdf={collectionBookPdf}
+                  writingFormat={collectionWritingFormat}
+                  canRead
+                  lockedHint=""
+                  onChromeTap={onChromeTap}
+                />
+              )
+            : undefined
+        }
         commerce={
-          articleHasScarceFace &&
-          !isRepostShell &&
-          (scarceEmbed || canListScarce) ? (
+          !isRepostShell && (scarceEmbed || canListScarce) ? (
             <PostScarceCta
               embed={
                 scarceEmbed ?? {

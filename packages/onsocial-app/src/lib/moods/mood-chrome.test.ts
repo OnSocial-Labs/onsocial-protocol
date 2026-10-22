@@ -150,6 +150,15 @@ describe('mood chrome map', () => {
     expect(buySheetTs).not.toContain('osGestureSheetPanelCommerceClassName');
   });
 
+  it('keeps a portfolio launcher on OS type, not the page mood', () => {
+    expect(globalsCss).toContain(
+      '.portfolio-frame > .os-launcher-root {\n  font-family: var(--app-font-sans);'
+    );
+    expect(globalsCss).toContain(
+      '.portfolio-frame > .os-launcher-root .os-launcher-sheet {\n  background: var(--bg);'
+    );
+  });
+
   it('keeps love / player on hard protocol green', () => {
     expect(globalsCss).toMatch(
       /\.scarce-clip-track-love\.is-loved \{\s*color: var\(--protocol-green/

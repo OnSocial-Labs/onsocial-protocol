@@ -17,6 +17,7 @@ import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { useSearchDraft } from '@/hooks/use-search-draft';
 import {
   DropsHeadingActions,
   DropsSearchHeading,
@@ -576,8 +577,11 @@ export function DropsPagePanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- seedKey gates URL sync
   }, [seedKey]);
 
-  const [query, setQuery] = useState(initialSearch);
-  const [debouncedQuery, setDebouncedQuery] = useState(initialSearch);
+  const search = useSearchDraft(initialSearch, {
+    debounceMs: SEARCH_DEBOUNCE_MS,
+  });
+  const query = search.draft;
+  const debouncedQuery = search.committed;
   const seedCatalogKey = dropsCatalogCacheKey({
     sort: seedQuery.sort,
     medium: seedQuery.kind,
@@ -614,13 +618,6 @@ export function DropsPagePanel({
   const { viewerSaved, isSavePending, toggleSave } = useScarceCollectionSaves({
     collectionIds,
   });
-
-  useEffect(() => {
-    const handle = window.setTimeout(() => {
-      setDebouncedQuery(query.trim());
-    }, SEARCH_DEBOUNCE_MS);
-    return () => window.clearTimeout(handle);
-  }, [query]);
 
   const replacePageQuery = useCallback(
     (next: DropsPageQuery) => {
@@ -1185,7 +1182,14 @@ export function DropsPagePanel({
       glassChrome
       scrollRootRef={scrollRootRef}
       backFallbackHref={OS_INDEX_LEAVE_HREF}
-      heading={<DropsSearchHeading query={query} onQueryChange={setQuery} />}
+      heading={
+        <DropsSearchHeading
+          query={query}
+          onQueryChange={search.setDraft}
+          onFocus={search.onFocus}
+          onBlur={search.onBlur}
+        />
+      }
       actions={<DropsHeadingActions />}
       toolbar={
         <DropsListingToolbar

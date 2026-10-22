@@ -6,6 +6,7 @@ import {
   sortHoldingsLibrary,
   holdingsActionLabel,
   holdingsHrefForOwned,
+  holdingsReadHref,
   holdingsKindLabel,
   holdingsMatchCreator,
   holdingsMatchQuery,
@@ -64,7 +65,7 @@ describe('toPortfolioHoldingPeek', () => {
       mediumKind: 'writing',
       listingKind: null,
     });
-    expect(peek.href).toBe('/collection/quiet-hours?read=1');
+    expect(peek.href).toBe('/collection/quiet-hours');
     expect(peek.actionLabel).toBe('Read');
     expect(peek.kindLabel).toBe('Writing');
   });
@@ -168,6 +169,38 @@ describe('toPortfolioHoldingPeek', () => {
     });
     expect(peek.href).toBe('/collection/gate?pass=1&t=gate%3A2');
     expect(peek.actionLabel).toBe('Show pass');
+  });
+
+  it('sends Read for a listed essay to the article, and the cover to the drop', () => {
+    expect(
+      holdingsReadHref({
+        mediumKind: 'writing',
+        sourcePostPath: 'alice.testnet/post/42',
+      })
+    ).toBe('/@alice.testnet/writing/42');
+    expect(
+      holdingsHrefForOwned({
+        tokenId: 'quiet-hours:1',
+        collectionId: 'quiet-hours',
+        mediumKind: 'writing',
+        sourcePostPath: 'alice.testnet/post/42',
+      })
+    ).toBe('/collection/quiet-hours');
+  });
+
+  it('keeps book and issue Read on the page reader', () => {
+    expect(
+      holdingsReadHref({
+        mediumKind: 'book',
+        sourcePostPath: 'alice.testnet/post/42',
+      })
+    ).toBeNull();
+    expect(
+      holdingsReadHref({
+        mediumKind: 'issue',
+        sourcePostPath: 'alice.testnet/post/42',
+      })
+    ).toBeNull();
   });
 
   it('routes post scarces to the source post thread', () => {

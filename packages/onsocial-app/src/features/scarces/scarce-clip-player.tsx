@@ -110,6 +110,10 @@ interface ScarceClipPlayerProps {
   immersiveListen?: boolean;
   /** Mint/Buy + post engagement under love/share in listen mode. */
   listenFooter?: ReactNode;
+  /**
+   * Expanded listen tucks the launcher. Feed passes this true only after Reply.
+   */
+  listenKeepDock?: boolean;
   onListenClose?: () => void;
 }
 
@@ -165,6 +169,7 @@ export function ScarceClipPlayer({
   showDownloads = true,
   immersiveListen = false,
   listenFooter = null,
+  listenKeepDock = false,
   onListenClose,
 }: ScarceClipPlayerProps) {
   const nowPlaying = useCollectiblesNowPlayingOptional();
@@ -1923,6 +1928,7 @@ export function ScarceClipPlayer({
             if (!scrubbingRef.current) showKnobPeek(1100);
           }}
           footer={listenFooter}
+          keepDock={listenKeepDock}
         />
       ) : null}
       <ScarceFansSheet

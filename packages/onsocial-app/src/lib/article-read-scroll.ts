@@ -1,3 +1,5 @@
+import { getAppLenis, type AppLenisScroll } from '@/lib/app-lenis-registry';
+
 export type ArticleScrollMemory = {
   shownKey: string;
   tops: Readonly<Record<string, number>>;
@@ -34,4 +36,28 @@ export function commitArticleScroll(
     memory: { shownKey: nextKey, tops: memory.tops },
     scrollTop: memory.tops[nextKey] ?? 0,
   };
+}
+
+const ARTICLE_SCROLL_JUMP = { immediate: true, force: true } as const;
+
+/**
+ * Lenis keeps coasting after a bare `scrollTop` write, so the next essay
+ * stays where the last one was. A jump to the target it already has is
+ * ignored, so nudge off that target first when the view is still moving.
+ */
+export function applyArticleScroll(root: HTMLElement, top: number): void {
+  const goal = Math.max(0, Math.round(Number.isFinite(top) ? top : 0));
+  const lenis = getAppLenis(root);
+  if (!lenis) {
+    root.scrollTop = goal;
+    return;
+  }
+  jumpArticleScroll(lenis, goal);
+}
+
+function jumpArticleScroll(lenis: AppLenisScroll, goal: number): void {
+  if (Math.round(lenis.scroll) !== goal) {
+    lenis.scrollTo(goal === 0 ? 1 : goal - 1, ARTICLE_SCROLL_JUMP);
+  }
+  lenis.scrollTo(goal, ARTICLE_SCROLL_JUMP);
 }

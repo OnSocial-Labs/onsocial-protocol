@@ -38,14 +38,20 @@ describe('drop cover expand wiring', () => {
     expect(reader).toContain('DropArtOverlay');
     expect(reader).toContain('onOpenCover');
     expect(reader).toContain('setCoverOpen(true)');
+    expect(reader).toContain('portfolio-writing-article-spread');
+    expect(reader).toContain('writingReaderKindLabel');
+    expect(reader).toContain('aria-label="View cover"');
+    expect(reader).not.toContain('onViewCover');
   });
 
-  it('keeps the reader jacket + OS card portal (progress stays on quiet)', () => {
-    expect(reader).toContain('OsMediaFaceShell');
-    expect(reader).toContain('scarce-writing-read-progress');
-    expect(reader).toContain('chromeQuiet={chromeQuiet}');
-    expect(reader).toContain('onScrollDelta');
-    expect(reader).toContain('onChromeTap');
+  it('opens the book in the article reader, still portaled to the OS card', () => {
+    expect(reader).toContain('OsSlideOverScreen');
+    expect(reader).toContain('ARTICLE_READ_CLASS');
+    expect(reader).toContain('ArticleReadProgress');
+    expect(reader).toContain('gestures={false}');
+    expect(reader).toContain('onChromeTap={onChromeTap}');
+    expect(reader).not.toContain('compactChrome');
+    expect(reader).not.toContain('WritingReaderMenu');
     expect(reader).not.toMatch(/^\s*viewport\s*$/m);
   });
 

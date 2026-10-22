@@ -63,6 +63,14 @@ describe('os leave map', () => {
     });
   });
 
+  it('leaves a portfolio vault to that Collectibles drawer', () => {
+    expect(row('collectibles-vault')).toMatchObject({
+      dockBack: true,
+      parent: '/@[accountId]?tab=collection',
+      verdict: 'matches',
+    });
+  });
+
   it('leaves the portfolio face to the origin place, else Home', () => {
     expect(row('portfolio-face')).toMatchObject({
       dockBack: true,

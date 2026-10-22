@@ -1157,6 +1157,30 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   margin-bottom: 0.25rem;
 }
 
+/* One reading face — the book serif, in the article room. */
+.feed-article-slide .portfolio-writing-essay .portfolio-about-bio,
+.feed-article-slide .portfolio-writing-essay .portfolio-about-heading,
+.feed-article-slide .portfolio-writing-essay .portfolio-about-list,
+.portfolio-writing-article-screen .portfolio-writing-essay .portfolio-about-bio,
+.portfolio-writing-article-screen .portfolio-writing-essay .portfolio-about-heading,
+.portfolio-writing-article-screen .portfolio-writing-essay .portfolio-about-list,
+.article-read-screen .collection-writing-markdown,
+.article-read-screen .collection-writing-markdown :is(p, li, blockquote, h1, h2, h3, h4),
+.article-read-screen .collection-writing-chapter-title {
+  font-family: var(--font-newsreader), Georgia, 'Times New Roman', serif;
+}
+
+.feed-article-slide .portfolio-writing-essay .portfolio-about-bio,
+.feed-article-slide .portfolio-writing-essay .portfolio-about-list,
+.portfolio-writing-article-screen .portfolio-writing-essay .portfolio-about-bio,
+.portfolio-writing-article-screen .portfolio-writing-essay .portfolio-about-list,
+.article-read-screen .collection-writing-markdown {
+  font-size: 1.125rem;
+  font-weight: 400;
+  line-height: 1.72;
+  letter-spacing: 0.005em;
+}
+
 .portfolio-writing-article-screen[data-screen-footer='true']
   .os-app-screen-body {
   padding-bottom: calc(
@@ -1220,6 +1244,43 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   width: auto;
   margin-left: auto;
   justify-content: flex-end;
+}
+
+/*
+ * Drop commerce shares the icon row. The words stay one group and wrap
+ * onto their own line when a phone cannot hold them beside the icons.
+ * One weight — Mint, the count, and Drop read as one line. Mint stays green.
+ * Two classes so this beats the column chrome rule later in the file.
+ */
+.scarce-post-medium-chrome.article-read-footer {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.2rem;
+}
+
+.article-read-footer .article-read-footer-lead {
+  flex: 0 1 auto;
+  width: max-content;
+  max-width: 100%;
+}
+
+.article-read-footer .post-card-scarce-cta {
+  width: max-content;
+  max-width: 100%;
+}
+
+.article-read-footer .post-card-scarce-buy-main,
+.article-read-footer .post-card-scarce-buy-meta,
+.article-read-footer .post-card-scarce-link,
+.article-read-footer .post-card-scarce-cta-main {
+  font-weight: 500;
+}
+
+.article-read-footer .portfolio-writing-article-actions {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .feed-article-slide .os-slide-over-footer-inner,
@@ -1466,12 +1527,18 @@ button.market-listing-title-link {
  * Cover editors — float back disc + verb pill on the banner. No full-width
  * frost slab (that reads as a reserved header).
  */
-.os-slide-over[data-immersive-header='true'] .os-app-screen-header {
+.os-slide-over[data-immersive-header='true'] .os-app-screen-header,
+.portfolio-writing-article-screen[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header {
   overflow: visible;
   pointer-events: none;
 }
 
-.os-slide-over[data-immersive-header='true'] .os-app-screen-header::before {
+.os-slide-over[data-immersive-header='true'] .os-app-screen-header::before,
+.portfolio-writing-article-screen[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header::before {
   content: none;
 }
 
@@ -1515,6 +1582,10 @@ button.market-listing-title-link {
 
 .os-slide-over[data-immersive-header='true']
   .os-app-screen-header
+  .glass-sheet-icon-action,
+.portfolio-writing-article-screen[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header
   .glass-sheet-icon-action {
   pointer-events: auto;
 }
@@ -3524,7 +3595,7 @@ a.os-surface-row {
 
 /*
  * Post scarce commerce — unlayered so light never falls back to -ink and so
- * `a { color: inherit }` cannot mute Drop / Open Drop. Same neon both themes.
+ * `a { color: inherit }` cannot mute Drop. Same neon both themes.
  * Edition meta (e.g. 4/5 left) stays muted — layered + unlayered below.
  */
 .post-card-scarce-buy-main {
@@ -3535,9 +3606,18 @@ a.os-surface-row {
   color: rgb(var(--fg-rgb) / 0.38);
 }
 
-.post-card-scarce-buy:hover:not(:disabled) .post-card-scarce-buy-main,
-.post-card-scarce-buy:focus-visible .post-card-scarce-buy-main {
-  color: var(--protocol-green, #00ec97);
+.post-card-scarce-buy:not(.post-card-scarce-buy--secondary):hover:not(:disabled)
+  .post-card-scarce-buy-main,
+.post-card-scarce-buy:not(.post-card-scarce-buy--secondary):focus-visible
+  .post-card-scarce-buy-main {
+  color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
+  text-decoration: none;
+}
+
+.post-card-scarce-buy:not(.post-card-scarce-buy--secondary):focus-visible {
+  outline: 1px solid
+    var(--protocol-green-hover, var(--protocol-green, #00ec97));
+  outline-offset: 3px;
 }
 
 /*
@@ -3563,15 +3643,41 @@ a.os-surface-row {
     .post-card-scarce-link:hover,
     .post-card-scarce-link:focus-visible,
     .scarce-provenance-original-link,
-    .scarce-provenance-original-link:hover,
-    .scarce-provenance-original-link:focus-visible,
     .scarce-provenance-more,
-    .scarce-provenance-more:hover,
     .guild-facts-link.scarce-facts-source-link,
     .guild-facts-link.scarce-facts-source-link:hover,
-    .guild-facts-link.scarce-facts-source-link:focus-visible
+    .guild-facts-link.scarce-facts-source-link:focus-visible,
+    .post-card-scarce-listen
   ) {
   color: var(--signal-reputation, var(--protocol-green, #00ec97));
+}
+
+/* Mint / Buy / Bid on a mood surface — brighten the tint, no underline. */
+:is(
+    .os-app-screen.os-app-screen--mood,
+    .os-page-sheet-panel[data-mood],
+    .glass-sheet-panel[data-mood],
+    .portfolio-os-layer[data-mood],
+    .portfolio-frame[data-mood]
+  )
+  .post-card-scarce-buy:not(.post-card-scarce-buy--secondary):is(
+    :hover,
+    :focus-visible
+  ):not(:disabled)
+  .post-card-scarce-buy-main,
+:is(
+    .os-app-screen.os-app-screen--mood,
+    .os-page-sheet-panel[data-mood],
+    .glass-sheet-panel[data-mood],
+    .portfolio-os-layer[data-mood],
+    .portfolio-frame[data-mood]
+  )
+  .post-card-scarce-listen:is(:hover, :focus-visible) {
+  color: color-mix(
+    in srgb,
+    var(--signal-reputation, var(--protocol-green, #00ec97)) 72%,
+    white
+  );
 }
 
 .post-card-scarce-buy--secondary .post-card-scarce-buy-main,
@@ -3598,20 +3704,45 @@ a.os-surface-row {
   padding-bottom: 0.3rem;
 }
 
-.scarce-provenance-original-link:hover,
-.scarce-provenance-original-link:focus-visible {
-  color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
-  text-decoration: none;
-  outline: none;
-}
-
 .guild-facts-link.scarce-facts-source-link {
   color: var(--protocol-green, #00ec97);
 }
 
+.scarce-provenance-original-link:hover,
+.scarce-provenance-original-link:focus-visible,
+.scarce-provenance-more:hover,
+.scarce-provenance-more:focus-visible,
 .guild-facts-link.scarce-facts-source-link:hover,
 .guild-facts-link.scarce-facts-source-link:focus-visible {
   color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
+  text-decoration: none;
+}
+
+.scarce-provenance-original-link:focus-visible,
+.scarce-provenance-more:focus-visible,
+.guild-facts-link.scarce-facts-source-link:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 2px;
+}
+
+:is(
+    .os-app-screen.os-app-screen--mood,
+    .os-page-sheet-panel[data-mood],
+    .glass-sheet-panel[data-mood],
+    .portfolio-os-layer[data-mood],
+    .portfolio-frame[data-mood]
+  )
+  :is(
+    .scarce-provenance-original-link,
+    .scarce-provenance-more,
+    .guild-facts-link.scarce-facts-source-link
+  ):is(:hover, :focus-visible) {
+  color: color-mix(
+    in srgb,
+    var(--signal-reputation, var(--protocol-green, #00ec97)) 72%,
+    white
+  );
+  text-decoration: none;
 }
 
 /* Buy party identity — unlayered so stacked name/@handle always wins. */
@@ -26434,23 +26565,24 @@ a.os-surface-row {
     cursor: pointer;
     font-family: inherit;
     font-size: 0.72rem;
-    font-weight: 600;
+    font-weight: 400;
     line-height: 1.2;
-    color: rgb(var(--fg-rgb) / 0.55);
+    text-decoration: none;
+    color: var(--protocol-green, #00ec97);
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .post-card-scarce-listen:hover,
-    .post-card-scarce-listen:focus-visible {
-      color: rgb(var(--fg-rgb) / 0.78);
-      text-decoration: underline;
-      text-underline-offset: 0.12em;
-      text-decoration-thickness: from-font;
+    .post-card-scarce-listen:hover {
+      color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
+      text-decoration: none;
     }
   }
 
   .post-card-scarce-listen:focus-visible {
-    outline: none;
+    color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
+    text-decoration: none;
+    outline: 1px solid currentColor;
+    outline-offset: 2px;
   }
 
   .scarce-feed-medium-empty {
@@ -26541,12 +26673,13 @@ a.os-surface-row {
     font-weight: 500;
   }
 
-  /* Desktop: same underline hover as feed tokens. Touch: no sticky hover. */
+  /* Desktop: Mint / Buy / Bid brighten. List / Sell stay a color change only. */
   @media (hover: hover) and (pointer: fine) {
-    .post-card-scarce-buy:hover:not(:disabled) .post-card-scarce-buy-main {
-      text-decoration: underline;
-      text-underline-offset: 0.12em;
-      text-decoration-thickness: from-font;
+    .post-card-scarce-buy:not(.post-card-scarce-buy--secondary):hover:not(
+        :disabled
+      )
+      .post-card-scarce-buy-main {
+      text-decoration: none;
     }
 
     /* List / Sell — match Drop · Hub · Market (green on hover only). */
@@ -26556,11 +26689,10 @@ a.os-surface-row {
     }
   }
 
-  /* Keyboard focus always underlines — not gated on fine pointer. */
-  .post-card-scarce-buy:focus-visible .post-card-scarce-buy-main {
-    text-decoration: underline;
-    text-underline-offset: 0.12em;
-    text-decoration-thickness: from-font;
+  /* Keyboard focus brightens (unlayered) and keeps a thin ring. */
+  .post-card-scarce-buy:not(.post-card-scarce-buy--secondary):focus-visible
+    .post-card-scarce-buy-main {
+    text-decoration: none;
   }
 
   .post-card-scarce-buy--secondary:focus-visible .post-card-scarce-buy-main {
@@ -26642,10 +26774,11 @@ a.os-surface-row {
     transition: opacity 160ms ease;
   }
 
-  /* Feed: integer size vs 1800 mint PNG (÷6). */
+  /* Feed: integer size vs 1800 mint PNG (÷6). Opens the post, same hand as other covers. */
   .scarce-post-preview--feed {
     margin: 0.45rem 0 0;
     width: min(100%, 300px);
+    cursor: pointer;
   }
 
   .scarce-post-preview:focus-visible {
@@ -26773,6 +26906,7 @@ a.os-surface-row {
   .drop-art-overlay-stage {
     position: relative;
     z-index: 1;
+    cursor: default;
     display: flex;
     flex: 0 0 auto;
     align-items: center;
@@ -28864,8 +28998,9 @@ a.os-surface-row {
     cursor: pointer;
   }
 
-  .scarce-provenance-more:hover {
-    text-decoration: underline;
+  .scarce-provenance-more:hover,
+  .scarce-provenance-more:focus-visible {
+    text-decoration: none;
   }
 
   .scarce-provenance-original {
@@ -31109,6 +31244,12 @@ a.os-surface-row {
     justify-content: flex-start;
     gap: 0.65rem;
     min-width: 0;
+  }
+
+  .collection-writing.is-immersive
+    .collection-writing-tools
+    .collection-writing-downloads {
+    margin-left: auto;
   }
 
   .collection-writing.is-immersive .collection-writing-toc-wrap {
@@ -34268,6 +34409,31 @@ a.os-surface-row {
 
   .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
     .scarce-read-slide
+    .os-media-face-footer-glass {
+    bottom: 0;
+  }
+
+  /* Listen hides the reply launcher until Reply — close the empty seat. */
+  .os-slide-over.scarce-listen-slide[data-os-slide-over='true']:not(
+      [data-keep-dock='true']
+    )
+    .os-app-screen-footer {
+    bottom: max(0.45rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .os-slide-over.scarce-listen-slide[data-os-slide-over='true']:not(
+      [data-keep-dock='true']
+    )[data-screen-footer='true']
+    .os-app-screen-body {
+    padding-bottom: calc(
+      max(0.45rem, env(safe-area-inset-bottom, 0px)) +
+        var(--os-screen-footer-band, 4.25rem)
+    );
+  }
+
+  .os-slide-over.scarce-listen-slide[data-os-slide-over='true']:not(
+      [data-keep-dock='true']
+    )
     .os-media-face-footer-glass {
     bottom: 0;
   }
@@ -41481,6 +41647,14 @@ a.os-surface-row {
     );
   }
 
+  /* Empty thread: Join is the reply gate for this post, above More from. */
+  .guild-thread-join-dock.is-with-post {
+    position: static;
+    z-index: auto;
+    padding: 0.15rem 0 0.35rem;
+    background: none;
+  }
+
   .guild-thread-root > .post-card {
     margin: 0;
     padding: 0.35rem 0;
@@ -44635,6 +44809,24 @@ body:has(.feed-photo-slide--thread) .portfolio-summon-dock .portfolio-summon {
   .frame > .os-launcher-root .os-launcher-frost {
     border-radius: inherit;
   }
+}
+
+/*
+ * Launcher on a portfolio page is OS chrome. The page's type and mood wash
+ * stay on the page and its drawer. The dock handle keeps the viewer mood.
+ */
+.portfolio-frame > .os-launcher-root {
+  font-family: var(--app-font-sans);
+  color: rgb(var(--fg-rgb) / 0.96);
+  letter-spacing: normal;
+  --mood-font-body: var(--app-font-sans);
+  --mood-font-display: var(--app-font-sans);
+  --mood-text: rgb(var(--fg-rgb) / 0.96);
+  --mood-bg: var(--bg);
+}
+
+.portfolio-frame > .os-launcher-root .os-launcher-sheet {
+  background: var(--bg);
 }
 
 /*

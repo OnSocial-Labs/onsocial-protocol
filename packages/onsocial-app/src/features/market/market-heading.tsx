@@ -14,6 +14,8 @@ import { APP_DROPS_PATH, dropsPath } from '@/lib/app-routes';
 interface MarketSearchHeadingProps {
   listingQuery?: string;
   onListingQueryChange?: (value: string) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
   /** When false, search ignores input (loading shell). */
   interactive?: boolean;
   searchPlaceholder?: string;
@@ -24,6 +26,8 @@ interface MarketSearchHeadingProps {
 export function MarketSearchHeading({
   listingQuery = '',
   onListingQueryChange,
+  onFocus,
+  onBlur,
   interactive = true,
   searchPlaceholder = 'Search listings',
   searchAriaLabel = 'Search Market listings',
@@ -36,6 +40,8 @@ export function MarketSearchHeading({
           ? onListingQueryChange
           : () => undefined
       }
+      onFocus={onFocus}
+      onBlur={onBlur}
       placeholder={searchPlaceholder}
       clearAriaLabel="Clear search"
       ariaLabel={searchAriaLabel}

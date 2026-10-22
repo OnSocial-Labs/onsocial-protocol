@@ -58,6 +58,7 @@ export function ScarceClipListenSheet({
   onProgressPointerEnter,
   onProgressPointerLeave,
   footer = null,
+  keepDock = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -100,6 +101,8 @@ export function ScarceClipListenSheet({
   onProgressPointerLeave: () => void;
   /** Optional post chrome under love/share (Mint/Buy + engagement). */
   footer?: ReactNode;
+  /** True only while Reply has the compose dock up. */
+  keepDock?: boolean;
 }) {
   const lyricsId = useId();
   const showLove = Boolean(onToggleLove);
@@ -118,7 +121,7 @@ export function ScarceClipListenSheet({
       title={screenTitle}
       closeAriaLabel="Back from listen"
       zIndex={SCARCE_Z.listenShell}
-      keepDock
+      keepDock={keepDock}
       screenHeader
       footer={footer}
       className="scarce-listen-slide"

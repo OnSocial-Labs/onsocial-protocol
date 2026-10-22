@@ -813,7 +813,7 @@ export function PortfolioLauncher({
     accountIdsEqual(accountId!, pageAccountId);
   const apps = isOwner
     ? ownerPortfolioOsApps(pageAccountId)
-    : visitorPortfolioOsApps(pageAccountId);
+    : visitorPortfolioOsApps(pageAccountId, accountId);
 
   return (
     <SummonLauncher

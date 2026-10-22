@@ -57,6 +57,8 @@ export function CollectionWritingReader({
   lockedHint,
   /** Immersive read sheet — denser chrome, body scrolls inside the shell. */
   immersive = false,
+  /** Article reader — chapter list and next/previous, no page turn. */
+  gestures = true,
   textAlign = null,
   onProgress,
   onScrollDelta,
@@ -77,6 +79,7 @@ export function CollectionWritingReader({
   canRead: boolean;
   lockedHint: string;
   immersive?: boolean;
+  gestures?: boolean;
   /** Listed article body alignment — matches Writing shelf. */
   textAlign?: 'left' | 'center' | 'justify' | null;
   /** 0–1 whole Issue / Book progress. */
@@ -95,6 +98,7 @@ export function CollectionWritingReader({
 }) {
   const isBook =
     writingFormat === 'book' ||
+    (writingFormat === 'issue' && readables.length > 1) ||
     (writingFormat == null && readables.length > 1);
 
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -290,7 +294,7 @@ export function CollectionWritingReader({
       setDragDx(0);
       return;
     }
-    if (!immersive || prefersReducedMotion()) {
+    if (!gestures || !immersive || prefersReducedMotion()) {
       applyChapter(next);
       return;
     }
@@ -495,6 +499,7 @@ export function CollectionWritingReader({
   };
 
   const onBodyPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!gestures) return;
     const gesture = gestureRef.current;
     if (gesture.phase === 'turning') return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -512,6 +517,7 @@ export function CollectionWritingReader({
   };
 
   const onBodyPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!gestures) return;
     const gesture = gestureRef.current;
     const start = gesture.start;
     if (!start || gesture.phase !== 'held') return;
@@ -537,6 +543,7 @@ export function CollectionWritingReader({
   };
 
   const onBodyPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!gestures) return;
     const gesture = gestureRef.current;
     const start = gesture.start;
     gesture.start = null;
@@ -742,6 +749,17 @@ export function CollectionWritingReader({
 
   if (readables.length === 0) {
     if (!bookPdf) return null;
+    if (immersive && !gestures) {
+      return (
+        <section className="collection-writing is-immersive" aria-label="Reading">
+          {canRead ? (
+            <div className="collection-writing-tools">{downloads}</div>
+          ) : (
+            <p className="collection-writing-locked">{lockedHint}</p>
+          )}
+        </section>
+      );
+    }
     return (
       <section
         className={`collection-writing${immersive ? ' is-immersive' : ''}`}
@@ -782,32 +800,35 @@ export function CollectionWritingReader({
     >
       {workHead}
       {immersive ? (
-        showChapterChip ? (
+        showChapterChip || (!gestures && downloads) ? (
           <div className="collection-writing-tools">
-            {isBook ? (
-              <div className="collection-writing-toc-wrap">
-                <button
-                  type="button"
-                  className={`collection-writing-chapter-chip${
-                    tocOpen ? ' is-open' : ''
-                  }`}
-                  aria-expanded={tocOpen}
-                  aria-label={`Contents: ${safeIndex + 1} of ${readables.length}`}
-                  onClick={() => setTocOpen((open) => !open)}
-                >
-                  <span className="collection-writing-chapter-chip-meta">
-                    {`${safeIndex + 1} / ${readables.length}${
-                      pdfPageLabel ? ` · ${pdfPageLabel}` : ''
+            {showChapterChip ? (
+              isBook ? (
+                <div className="collection-writing-toc-wrap">
+                  <button
+                    type="button"
+                    className={`collection-writing-chapter-chip${
+                      tocOpen ? ' is-open' : ''
                     }`}
-                  </span>
-                </button>
-                {tocOpen ? tocList : null}
-              </div>
-            ) : (
-              <p className="collection-writing-article-label">
-                {pdfPageLabel ?? chapterLabel}
-              </p>
-            )}
+                    aria-expanded={tocOpen}
+                    aria-label={`Contents: ${safeIndex + 1} of ${readables.length}`}
+                    onClick={() => setTocOpen((open) => !open)}
+                  >
+                    <span className="collection-writing-chapter-chip-meta">
+                      {`${safeIndex + 1} / ${readables.length}${
+                        pdfPageLabel ? ` · ${pdfPageLabel}` : ''
+                      }`}
+                    </span>
+                  </button>
+                  {tocOpen ? tocList : null}
+                </div>
+              ) : (
+                <p className="collection-writing-article-label">
+                  {pdfPageLabel ?? chapterLabel}
+                </p>
+              )
+            ) : null}
+            {!gestures ? downloads : null}
           </div>
         ) : null
       ) : (
@@ -898,7 +919,7 @@ export function CollectionWritingReader({
             </div>
           </div>
 
-          {isBook && !immersive ? (
+          {isBook && (!immersive || !gestures) ? (
             <div
               className="collection-writing-nav"
               role="group"

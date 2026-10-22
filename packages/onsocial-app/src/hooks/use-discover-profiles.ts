@@ -12,6 +12,7 @@ import {
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { useSearchDraft } from '@/hooks/use-search-draft';
 import { useListScrollRestore } from '@/hooks/use-list-scroll-restore';
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
@@ -175,12 +176,15 @@ export function useDiscoverProfiles(
     };
   }, []);
 
-  const [query, setQueryState] = useState(() =>
-    restoreDiscoverQueryFromUrl(
-      parseDiscoverTab(searchParams.get(DISCOVER_TAB_QUERY_KEY)),
-      searchParams.get('q')
-    )
+  const initialQuery = restoreDiscoverQueryFromUrl(
+    parseDiscoverTab(searchParams.get(DISCOVER_TAB_QUERY_KEY)),
+    searchParams.get('q')
   );
+  const {
+    draft: query,
+    setDraft: setSearchDraft,
+    replace: replaceSearch,
+  } = useSearchDraft(initialQuery, { adoptExternal: false });
   const [tab, setTabState] = useState<DiscoverTab>(() => {
     const parsed = parseDiscoverTab(searchParams.get(DISCOVER_TAB_QUERY_KEY));
     const urlQuery = restoreDiscoverQueryFromUrl(parsed, searchParams.get('q'));
@@ -371,12 +375,12 @@ export function useDiscoverProfiles(
 
   const setQuery = useCallback(
     (value: string) => {
-      setQueryState(value);
+      setSearchDraft(value);
       setTabState((current) =>
         commitTab(current, discoverTabForQueryDraft(value, current))
       );
     },
-    [commitTab]
+    [commitTab, setSearchDraft]
   );
 
   const mergedPendingStandingIds = useMemo(() => {
@@ -449,7 +453,7 @@ export function useDiscoverProfiles(
       const params = new URLSearchParams(window.location.search);
       const nextTab = parseDiscoverTab(params.get(DISCOVER_TAB_QUERY_KEY));
       setTabState(nextTab);
-      setQueryState(restoreDiscoverQueryFromUrl(nextTab, params.get('q')));
+      replaceSearch(restoreDiscoverQueryFromUrl(nextTab, params.get('q')));
       const restored = parseDiscoverProfileFilters({
         face: params.get('face'),
         industry: params.get('industry'),
@@ -462,7 +466,7 @@ export function useDiscoverProfiles(
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [replaceSearch]);
 
   const loadPage = useCallback(
     async (
@@ -787,8 +791,8 @@ export function useDiscoverProfiles(
   const listKey = `${normalizedQuery || '__all__'}:${face}:${industry || '__any__'}:${craft || '__any__'}`;
 
   const clearSearch = useCallback(() => {
-    setQueryState('');
-  }, []);
+    setQuery('');
+  }, [setQuery]);
 
   const retryLoad = useCallback(() => {
     setReloadNonce((current) => current + 1);

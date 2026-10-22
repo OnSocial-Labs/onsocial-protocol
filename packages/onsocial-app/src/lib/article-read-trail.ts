@@ -19,3 +19,16 @@ export function popArticleTrail(trail: readonly PostRow[]): PostRow[] | null {
   if (trail.length <= 1) return null;
   return trail.slice(0, -1);
 }
+
+/**
+ * Permalink back. A trail step stays in the reader. Otherwise return to the
+ * screen that opened it (the drop). The author shelf is only a cold open.
+ */
+export function articlePermalinkBack(opts: {
+  poppedTrail: boolean;
+  historyLength: number;
+}): 'trail' | 'history' | 'shelf' {
+  if (opts.poppedTrail) return 'trail';
+  if (opts.historyLength > 1) return 'history';
+  return 'shelf';
+}

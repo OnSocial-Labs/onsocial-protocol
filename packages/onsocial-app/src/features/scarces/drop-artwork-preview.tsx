@@ -133,11 +133,13 @@ export function DropArtOverlay({
         <p id={titleId} className="sr-only">
           {label}
         </p>
-        <div className="drop-art-overlay-stack" onClick={stopSheetClick}>
+        <div className="drop-art-overlay-stack">
           {children ? (
-            <div className="drop-art-overlay-stage">{children}</div>
+            <div className="drop-art-overlay-stage" onClick={stopSheetClick}>
+              {children}
+            </div>
           ) : (
-            <div className="drop-art-overlay-stage">
+            <div className="drop-art-overlay-stage" onClick={stopSheetClick}>
               {inlineSvg ? (
                 <div
                   className="drop-art-overlay-asset drop-art-overlay-svg"
@@ -158,6 +160,7 @@ export function DropArtOverlay({
               className="drop-art-overlay-nav-row"
               role="group"
               aria-label="Cover style"
+              onClick={stopSheetClick}
             >
               {onPrev ? (
                 <button
@@ -186,7 +189,9 @@ export function DropArtOverlay({
             </div>
           ) : null}
           {footer ? (
-            <div className="drop-art-overlay-footer">{footer}</div>
+            <div className="drop-art-overlay-footer" onClick={stopSheetClick}>
+              {footer}
+            </div>
           ) : null}
         </div>
       </div>

@@ -72,6 +72,8 @@ export function usePostCollectionEmbed(
   const [readables, setReadables] = useState<ScarceReadableMedia[]>([]);
   const [writingFormat, setWritingFormat] =
     useState<WritingReleaseFormat | null>(null);
+  const [sourcePostPath, setSourcePostPath] = useState<string | null>(null);
+  const [writingMetaKey, setWritingMetaKey] = useState<string | null>(null);
   const [bookPdf, setBookPdf] = useState<ScarceReadableMedia | null>(null);
   const [dropTitle, setDropTitle] = useState<string | null>(null);
   const [fetchedKey, setFetchedKey] = useState<string | null>(null);
@@ -186,6 +188,13 @@ export function usePostCollectionEmbed(
             setWritingFormat(
               hydrated?.writingFormat ?? view?.writingFormat ?? null
             );
+            setSourcePostPath(
+              hydrated?.sourcePostPath?.trim() ||
+                view?.sourcePostPath?.trim() ||
+                paint?.sourcePostPath ||
+                null
+            );
+            setWritingMetaKey(key);
             setBookPdf(hydrated?.bookPdf ?? view?.bookPdf ?? null);
             setDropTitle(
               hydrated?.title?.trim() ||
@@ -198,6 +207,8 @@ export function usePostCollectionEmbed(
           setPlayables([]);
           setReadables([]);
           setWritingFormat(null);
+          setSourcePostPath(paint?.sourcePostPath ?? null);
+          setWritingMetaKey(key);
           setBookPdf(null);
           setDropTitle(paint?.title ?? null);
         }
@@ -302,6 +313,8 @@ export function usePostCollectionEmbed(
     playables,
     readables,
     writingFormat,
+    sourcePostPath: writingMetaKey === key ? sourcePostPath : null,
+    writingMetaSettled: writingMetaKey === key,
     bookPdf,
     dropTitle,
     hasCollectionEmbed: Boolean(parsed),

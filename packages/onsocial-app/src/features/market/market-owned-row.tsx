@@ -226,7 +226,11 @@ export function MarketOwnedRow({
           href={useHref}
           scroll={false}
           className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
-          aria-label={`${useAction} ${item.title}`}
+          aria-label={
+            useAction === 'Read'
+              ? `Open drop for ${item.title}`
+              : `${useAction} ${item.title}`
+          }
           {...marketPostLayerLinkHandlers(useHref, openMarketPost)}
         >
           {thumb}

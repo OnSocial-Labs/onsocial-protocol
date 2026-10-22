@@ -10,6 +10,8 @@ import {
   isDropWritingChapterMime,
   isDropWritingMime,
   isWritingFolioFormat,
+  writingReaderKindLabel,
+  resolveDropReadTarget,
   listedArticleReaderHref,
   isLikelyIpfsCid,
   parseSourcePostPath,
@@ -117,6 +119,74 @@ describe('isWritingFolioFormat', () => {
     expect(isWritingFolioFormat('issue')).toBe(true);
     expect(isWritingFolioFormat(null)).toBe(false);
     expect(isWritingFolioFormat(undefined)).toBe(false);
+  });
+
+  it('names the reader line Book, Issue, or Writing', () => {
+    expect(
+      writingReaderKindLabel({ writingFormat: 'book', chapterCount: 4 })
+    ).toBe('Book');
+    expect(
+      writingReaderKindLabel({ writingFormat: 'issue', chapterCount: 3 })
+    ).toBe('Issue');
+    expect(
+      writingReaderKindLabel({ writingFormat: null, chapterCount: 2 })
+    ).toBe('Book');
+    expect(
+      writingReaderKindLabel({ writingFormat: null, chapterCount: 1 })
+    ).toBe('Writing');
+  });
+});
+
+describe('resolveDropReadTarget', () => {
+  it('opens the essay on this post in the article reader', () => {
+    expect(
+      resolveDropReadTarget({
+        articleOnPost: true,
+        writingFormat: null,
+        sourcePostPath: 'alice.testnet/post/42',
+      })
+    ).toEqual({ kind: 'self' });
+  });
+
+  it('follows a shared listed article to the source essay', () => {
+    expect(
+      resolveDropReadTarget({
+        articleOnPost: false,
+        writingFormat: null,
+        sourcePostPath: 'alice.testnet/post/42',
+      })
+    ).toEqual({
+      kind: 'source',
+      author: 'alice.testnet',
+      postId: '42',
+    });
+  });
+
+  it('keeps Book and Issue in the folio', () => {
+    expect(
+      resolveDropReadTarget({
+        articleOnPost: false,
+        writingFormat: 'book',
+        sourcePostPath: 'alice.testnet/post/42',
+      })
+    ).toEqual({ kind: 'folio' });
+    expect(
+      resolveDropReadTarget({
+        articleOnPost: true,
+        writingFormat: 'issue',
+        sourcePostPath: 'alice.testnet/post/42',
+      })
+    ).toEqual({ kind: 'folio' });
+  });
+
+  it('uses the folio when a shared drop has no source essay', () => {
+    expect(
+      resolveDropReadTarget({
+        articleOnPost: false,
+        writingFormat: null,
+        sourcePostPath: null,
+      })
+    ).toEqual({ kind: 'folio' });
   });
 });
 

@@ -11,10 +11,15 @@ import {
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import { invalidateOwnedVaultCache } from '@/features/market/owned-vault-cache';
+import {
+  fetchCollectionCreatorFaces,
+  type CollectionCreatorFace,
+} from '@/features/scarces/collection-creator-face';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { accountIdsEqual } from '@/lib/account-match';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
 import {
   countLibraryDrops,
@@ -77,6 +82,9 @@ export function PageDrawerCollectionList({
     null
   );
   const [transferOpen, setTransferOpen] = useState(false);
+  const [creatorFaces, setCreatorFaces] = useState<
+    Map<string, CollectionCreatorFace>
+  >(() => new Map());
 
   const refreshOwned = useCallback(() => {
     void fetchOwnedScarcesPage(pageAccountId, {
@@ -119,6 +127,34 @@ export function PageDrawerCollectionList({
   }, [pageAccountId]);
 
   const fetchingAccount = loadedAccountId !== pageAccountId;
+
+  const creatorIdsKey = useMemo(() => {
+    const ids = [
+      ...new Set(
+        state.items
+          .map((item) => item.creatorId?.trim())
+          .filter((id): id is string => Boolean(id))
+      ),
+    ].sort();
+    return ids.join('|');
+  }, [state.items]);
+
+  useEffect(() => {
+    if (!creatorIdsKey) {
+      setCreatorFaces(new Map());
+      return;
+    }
+    let cancelled = false;
+    void fetchCollectionCreatorFaces(
+      createReadOnlyOnSocialClient(),
+      creatorIdsKey.split('|')
+    ).then((faces) => {
+      if (!cancelled) setCreatorFaces(faces);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [creatorIdsKey]);
 
   const ownedByToken = useMemo(() => {
     const map = new Map<string, OwnedScarceItem>();
@@ -171,6 +207,7 @@ export function PageDrawerCollectionList({
             embedded
             groups={library.groups}
             ownedByToken={ownedByToken}
+            creatorFaces={creatorFaces}
             showCreatorHeadings={library.groups.length > 1}
             renderOwnerMenu={
               isSelf

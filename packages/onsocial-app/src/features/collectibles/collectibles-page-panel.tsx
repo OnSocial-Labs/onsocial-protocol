@@ -54,6 +54,7 @@ import {
   APP_DROP_CREATE_PATH,
   APP_HOME_PATH,
   APP_MARKET_PATH,
+  COLLECTIBLES_SEARCH_PARAM,
 } from '@/lib/app-routes';
 import { VAULT_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
@@ -62,6 +63,7 @@ import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsLoadMore } from '@/lib/os-load-more';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { usePlaceScroll } from '@/hooks/use-place-scroll';
+import { useSearchDraft } from '@/hooks/use-search-draft';
 import {
   CATALOG_PLACE_MEMORY_TTL_MS,
   mergeCatalogHead,
@@ -78,7 +80,8 @@ import {
   type CollectiblesPageData,
   type CollectiblesPageQuery,
 } from '@/lib/load-collectibles-page';
-import { portfolioPath } from '@/lib/overlay-routes';
+import { usePortfolioVaultDockBack } from '@/hooks/use-portfolio-vault-dock-back';
+import { portfolioCollectionDrawerPath } from '@/features/collectibles/collectibles-vault-leave';
 import {
   COLLECTIBLES_CREATOR_OTHER,
   COLLECTIBLES_LIBRARY_JUMP_MIN,
@@ -95,8 +98,6 @@ import {
 } from '@/lib/portfolio-holdings';
 
 /** Debounce search URL writes so seed-key sync does not wipe in-progress typing. */
-const SEARCH_URL_DEBOUNCE_MS = 200;
-
 type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 interface HoldingsState {
@@ -204,7 +205,14 @@ export function CollectiblesPagePanel({
   const router = useRouter();
   const seedKey = collectiblesSeedParamsKey(seedQuery);
   const [pageQuery, setPageQuery] = useState<CollectiblesPageQuery>(seedQuery);
-  const searchQuery = pageQuery.q;
+  const {
+    draft: searchQuery,
+    setDraft: setSearchDraft,
+    committed: settledSearch,
+    onFocus: onSearchFocus,
+    onBlur: onSearchBlur,
+    replace: replaceSearch,
+  } = useSearchDraft(seedQuery.q, { adoptExternal: false });
   const mediumFilter = pageQuery.kind;
   const facetMedium = normalizeDropFacetMedium(mediumFilter);
   const selectedFacets = pageQuery.facets;
@@ -272,7 +280,7 @@ export function CollectiblesPagePanel({
   const [scrollTuckPinned, setScrollTuckPinned] = useState(false);
   const holdingsRef = useRef(holdings);
   const pageQueryRef = useRef(pageQuery);
-  const searchReplaceTimerRef = useRef<number | null>(null);
+  const pushedSearchRef = useRef(seedQuery.q.trim());
 
   useEffect(() => {
     holdingsRef.current = holdings;
@@ -300,29 +308,51 @@ export function CollectiblesPagePanel({
 
   const loadKey = ownerAccountId ? `${ownerAccountId}:${retryKey}` : null;
   const trimmedSearch = searchQuery.trim();
-  const [settledSearch, setSettledSearch] = useState(trimmedSearch);
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      setSettledSearch(trimmedSearch);
-    }, SEARCH_URL_DEBOUNCE_MS);
-    return () => {
-      window.clearTimeout(id);
-    };
-  }, [trimmedSearch]);
 
   useEffect(() => {
-    setPageQuery(seedQuery);
+    setPageQuery(() => {
+      // A replace we started can land behind the latest published text.
+      // Keep that text. Back applies through popstate.
+      if (seedQuery.q.trim() !== pushedSearchRef.current) {
+        return { ...seedQuery, q: pushedSearchRef.current };
+      }
+      return seedQuery;
+    });
     // Key-only: a new seedQuery object with the same URL must not wipe an
-    // optimistic kind / search hop before router.replace lands.
+    // optimistic kind hop before router.replace lands.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- seedKey gates URL sync
   }, [seedKey]);
 
+  useEffect(() => {
+    const onPop = () => {
+      const q = new URLSearchParams(window.location.search)
+        .get(COLLECTIBLES_SEARCH_PARAM)
+        ?.trim() ?? '';
+      pushedSearchRef.current = q;
+      replaceSearch(q);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [replaceSearch]);
+
+  useEffect(() => {
+    const q = settledSearch;
+    if (pageQueryRef.current.q === q) {
+      pushedSearchRef.current = q;
+      return;
+    }
+    const next = { ...pageQueryRef.current, q };
+    pushedSearchRef.current = q;
+    pageQueryRef.current = next;
+    setPageQuery(next);
+    router.replace(collectiblesQueryPath(pageAccountId, next), {
+      scroll: false,
+    });
+  }, [pageAccountId, router, settledSearch]);
+
   const replacePageQuery = useCallback(
     (next: CollectiblesPageQuery) => {
-      if (searchReplaceTimerRef.current != null) {
-        window.clearTimeout(searchReplaceTimerRef.current);
-        searchReplaceTimerRef.current = null;
-      }
+      pushedSearchRef.current = next.q.trim();
       pageQueryRef.current = next;
       setPageQuery(next);
       router.replace(collectiblesQueryPath(pageAccountId, next), {
@@ -331,37 +361,6 @@ export function CollectiblesPagePanel({
     },
     [router, pageAccountId]
   );
-
-  const setSearchQuery = useCallback(
-    (next: string) => {
-      const trimmed = next.trim();
-      setPageQuery((prev) => {
-        if (prev.q === trimmed) return prev;
-        const updated = { ...prev, q: trimmed };
-        pageQueryRef.current = updated;
-        return updated;
-      });
-      if (searchReplaceTimerRef.current != null) {
-        window.clearTimeout(searchReplaceTimerRef.current);
-      }
-      searchReplaceTimerRef.current = window.setTimeout(() => {
-        searchReplaceTimerRef.current = null;
-        router.replace(
-          collectiblesQueryPath(pageAccountId, pageQueryRef.current),
-          { scroll: false }
-        );
-      }, SEARCH_URL_DEBOUNCE_MS);
-    },
-    [router, pageAccountId]
-  );
-
-  useEffect(() => {
-    return () => {
-      if (searchReplaceTimerRef.current != null) {
-        window.clearTimeout(searchReplaceTimerRef.current);
-      }
-    };
-  }, []);
 
   const setMediumFilter = useCallback(
     (next: MarketMediumFilter) => {
@@ -914,9 +913,13 @@ export function CollectiblesPagePanel({
 
   const portfolioBackHref =
     resolvedShell === 'portfolio' && pageAccountId
-      ? portfolioPath(pageAccountId)
+      ? portfolioCollectionDrawerPath(pageAccountId)
       : null;
   const dockBackHref = portfolioBackHref ?? APP_HOME_PATH;
+  const onDockBack = usePortfolioVaultDockBack(
+    resolvedShell === 'portfolio' ? pageAccountId : null,
+    dockBackHref
+  );
 
   const body = (
     <div className={VAULT_PAGE_CLASS} data-collectibles-back={dockBackHref}>
@@ -1095,6 +1098,7 @@ export function CollectiblesPagePanel({
         scrollTuckPinned={scrollTuckPinned}
         dockBack
         leading={null}
+        onDockBack={onDockBack}
         backFallbackHref={dockBackHref}
         glassChrome
         scrollRootRef={scrollRootRef}
@@ -1103,7 +1107,9 @@ export function CollectiblesPagePanel({
           showDiscoveryChrome ? (
             <CollectiblesSearchHeading
               query={searchQuery}
-              onQueryChange={setSearchQuery}
+              onQueryChange={setSearchDraft}
+              onFocus={onSearchFocus}
+              onBlur={onSearchBlur}
             />
           ) : undefined
         }

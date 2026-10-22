@@ -2,7 +2,6 @@
 
 import {
   memo,
-  useDeferredValue,
   useEffect,
   useLayoutEffect,
   useCallback,
@@ -29,6 +28,7 @@ import { useOverlayDismiss } from '@/contexts/overlay-dismiss-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useWritingComposeOpen } from '@/contexts/writing-compose-context';
 import { useEssayReturnSearch } from '@/hooks/use-essay-return-search';
+import { useSearchDraft } from '@/hooks/use-search-draft';
 import {
   articleExcerpt,
   articleMatchesQuery,
@@ -239,13 +239,13 @@ const PortfolioWritingList = memo(function PortfolioWritingList({
 });
 
 function useWritingShelfState(articleCount: number) {
-  const [query, setQuery] = useState('');
-  /* Heading stays live; article cards wait for idle. Clear flushes immediately. */
-  const deferredQuery = useDeferredValue(query);
-  const listQuery = resolveWritingListQuery(query, deferredQuery);
+  const search = useSearchDraft('');
+  const query = search.draft;
+  /* Heading stays live. Cards use the trimmed text after a short pause. */
+  const listQuery = resolveWritingListQuery(query, search.committed);
   const showSearch = shouldShowWritingSearch(articleCount);
   const scrollRootRef = useRef<HTMLDivElement | null>(null);
-  return { query, setQuery, listQuery, showSearch, scrollRootRef };
+  return { query, search, listQuery, showSearch, scrollRootRef };
 }
 
 /** One compact glass shelf — hard refresh and profile overlay share this. */
@@ -287,7 +287,7 @@ function PortfolioWritingShelf({
     [moreHints, panel.coverHints]
   );
 
-  const { query, setQuery, listQuery, showSearch, scrollRootRef } =
+  const { query, search, listQuery, showSearch, scrollRootRef } =
     useWritingShelfState(articles.length);
 
   const [openPost, setOpenPost] = useState<PostRow | null>(null);
@@ -384,7 +384,12 @@ function PortfolioWritingShelf({
         scrollRootRef={scrollRootRef}
         embedded={embedded}
         heading={
-          <WritingSearchHeading query={query} onQueryChange={setQuery} />
+          <WritingSearchHeading
+            query={query}
+            onQueryChange={search.setDraft}
+            onFocus={search.onFocus}
+            onBlur={search.onBlur}
+          />
         }
         toolbar={
           <WritingIdentityToolbar

@@ -11,10 +11,14 @@ import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 export function WritingSearchHeading({
   query = '',
   onQueryChange,
+  onFocus,
+  onBlur,
   interactive = true,
 }: {
   query?: string;
   onQueryChange?: (value: string) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
   interactive?: boolean;
 }) {
   return (
@@ -23,6 +27,8 @@ export function WritingSearchHeading({
       onValueChange={
         interactive && onQueryChange ? onQueryChange : () => undefined
       }
+      onFocus={onFocus}
+      onBlur={onBlur}
       placeholder="Search writing"
       maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
       clearAriaLabel="Clear search"

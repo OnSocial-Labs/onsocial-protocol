@@ -3,50 +3,48 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type ReactNode,
 } from 'react';
 import {
-  ActionDrawer,
-  type ActionDrawerItem,
-  DotsVerticalIcon,
-  DownloadIcon,
-  GiftIcon,
-  ImageIcon,
-  NoteTextIcon,
+  ChevronLeftIcon,
+  Divider,
   OsSheetAction,
   OsSheetActions,
   OsSheetFooter,
-  UserIcon,
 } from '@onsocial/ui';
-import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
-import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
-import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
+import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { ARTICLE_READ_CLASS } from '@/components/portfolio/article-read-screen';
+import { ArticleReadProgress } from '@/components/portfolio/article-read-progress';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
-import {
-  CollectionWritingReader,
-  type WritingReaderActions,
-} from '@/features/scarces/collection-writing-reader';
+import { useArticleReadChrome } from '@/hooks/use-article-read-chrome';
+import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
 import {
   collectionCurrentRowToView,
   hydrateWritingManifest,
 } from '@/features/scarces/collections-data';
 import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
-import type {
-  ScarceReadableMedia,
-  WritingReleaseFormat,
+import {
+  isWritingPdfMime,
+  writingReaderKindLabel,
+  type ScarceReadableMedia,
+  type WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
+import { MediaFaceIdentity } from '@/components/profile/media-face-identity';
+import { MediaFaceStandButton } from '@/components/ui/media-face-stand-button';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import { formatWritingReadLabel } from '@/lib/article-post-payload';
+import { accountIdsEqual } from '@/lib/account-match';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { isDownloadAbort } from '@/lib/media-download';
-import { portfolioPath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
+import {
+  formatWritingShelfTimestamp,
+  postTimestampIso,
+} from '@/lib/post-display';
 
 function visibleWorkTitle(value: string): string {
   const next = value.trim();
@@ -57,166 +55,237 @@ function inlineSvgMarkup(svg: string): string {
   return svg.replace(/^<\?xml[^>]*>\s*/i, '');
 }
 
-function WritingReaderMenu({
+/** Book / issue pages inside the article room. The caller owns the screen and footer. */
+export function WritingReadDocument({
+  open = true,
   title,
-  creatorId,
-  hasCover,
-  readerActions,
-  onOpenCover,
-  onOpenContents,
+  cover = null,
+  coverSvg = null,
+  collectionId,
+  accountId = null,
+  creatorId = null,
+  readables,
+  bookPdf = null,
+  writingFormat = null,
+  textAlign = null,
+  publishedAt = null,
+  canRead,
+  lockedHint,
+  hydrateSettled = true,
+  onChromeTap,
 }: {
+  open?: boolean;
   title: string;
+  cover?: string | null;
+  coverSvg?: string | null;
+  collectionId: string;
+  accountId?: string | null;
   creatorId?: string | null;
-  hasCover: boolean;
-  readerActions: WritingReaderActions | null;
-  onOpenCover: () => void;
-  onOpenContents: () => void;
+  readables: ScarceReadableMedia[];
+  bookPdf?: ScarceReadableMedia | null;
+  writingFormat?: WritingReleaseFormat | null;
+  textAlign?: 'left' | 'center' | 'justify' | null;
+  publishedAt?: number | null;
+  canRead: boolean;
+  lockedHint: string;
+  hydrateSettled?: boolean;
+  onChromeTap?: () => void;
 }) {
-  const { setTxResult } = useAppTransactionFeedback();
-  const [open, setOpen] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const [supportOpen, setSupportOpen] = useState(false);
-  const [downloading, setDownloading] = useState<'chapter' | 'book' | null>(
+  const { accountId: viewerAccountId } = useAppWallet();
+  const [wasOpen, setWasOpen] = useState(open);
+  const [coverOpen, setCoverOpen] = useState(false);
+  const [fetchedPublishedAt, setFetchedPublishedAt] = useState<number | null>(
     null
   );
-  const isOpen = open && !closing;
-  const requestClose = useCallback(() => setClosing(true), []);
-  const handleClosed = useCallback(() => {
-    setClosing(false);
-    setOpen(false);
-  }, []);
+  const [readLabel, setReadLabel] = useState<string | null>(null);
   const authorId = creatorId?.trim() || '';
+  const authorProfiles = usePostAuthorProfiles(authorId ? [authorId] : []);
+  const authorProfile = authorId ? authorProfiles[authorId] : undefined;
+  const authorName = authorId
+    ? displayName(authorId, authorProfile?.displayName)
+    : '';
 
-  const runDownload = async (
-    kind: 'chapter' | 'book',
-    download: () => Promise<void>
-  ) => {
-    if (downloading) return;
-    setDownloading(kind);
-    try {
-      await download();
-      requestClose();
-    } catch (error) {
-      if (isDownloadAbort(error)) return;
-      setTxResult({
-        type: 'error',
-        msg:
-          kind === 'book'
-            ? 'Could not download this book.'
-            : 'Could not download this chapter.',
-      });
-    } finally {
-      setDownloading(null);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setCoverOpen(false);
+      setReadLabel(null);
+      setFetchedPublishedAt(null);
     }
-  };
+  }
 
-  const items = useMemo<ActionDrawerItem[]>(() => {
-    const next: ActionDrawerItem[] = [];
-    if (readerActions?.isBook) {
-      next.push({
-        id: 'contents',
-        label: 'Contents',
-        leading: <NoteTextIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => {
-          onOpenContents();
-          requestClose();
-        },
-      });
-    }
-    if (readerActions?.canDownloadChapter) {
-      next.push({
-        id: 'download-chapter',
-        label: downloading === 'chapter' ? 'Downloading…' : 'Download chapter',
-        disabled: downloading != null,
-        leading: <DownloadIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => void runDownload('chapter', readerActions.downloadChapter),
-      });
-    }
-    if (readerActions?.canDownloadBook) {
-      next.push({
-        id: 'download-book',
-        label: downloading === 'book' ? 'Downloading…' : 'Download book',
-        disabled: downloading != null,
-        leading: <DownloadIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => void runDownload('book', readerActions.downloadBook),
-      });
-    }
-    if (hasCover) {
-      next.push({
-        id: 'cover',
-        label: 'Cover',
-        leading: <ImageIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => {
-          onOpenCover();
-          requestClose();
-        },
-      });
-    }
-    if (authorId) {
-      next.push({
-        id: 'author',
-        label: 'Author',
-        href: portfolioPath(authorId),
-        leading: <UserIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => requestClose(),
-      });
-      next.push({
-        id: 'support',
-        label: 'Support',
-        leading: <GiftIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => {
-          setSupportOpen(true);
-          requestClose();
-        },
-      });
-    }
-    return next;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    authorId,
-    downloading,
-    hasCover,
-    onOpenContents,
-    onOpenCover,
-    readerActions,
-  ]);
+  const issuedAt =
+    (publishedAt && publishedAt > 0 ? publishedAt : null) ?? fetchedPublishedAt;
 
-  if (items.length === 0) return null;
+  useEffect(() => {
+    if (!open || issuedAt) return;
+    const id = collectionId.trim();
+    if (!id) return;
+    let cancelled = false;
+    void (async () => {
+      const rows = await createReadOnlyOnSocialClient()
+        .query.scarces.collectionsCurrentByIds([id])
+        .catch(() => []);
+      if (cancelled) return;
+      const view = rows[0] ? collectionCurrentRowToView(rows[0]) : null;
+      if (view && view.createdAtMs > 0) setFetchedPublishedAt(view.createdAtMs);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, issuedAt, collectionId]);
+
+  useEffect(() => {
+    if (!open || !canRead) return;
+    let cancelled = false;
+    const inline = readables
+      .map((chapter) => chapter.text?.trim() || '')
+      .filter(Boolean);
+    const pending = readables.filter(
+      (chapter) =>
+        !chapter.text?.trim() &&
+        Boolean(chapter.url) &&
+        !isWritingPdfMime(chapter.mime, chapter.title)
+    );
+    if (pending.length === 0) {
+      setReadLabel(formatWritingReadLabel(inline.join('\n\n')));
+      return;
+    }
+    void (async () => {
+      const chunks = [...inline];
+      for (const chapter of pending) {
+        if (cancelled) return;
+        if (!chapter.url) continue;
+        try {
+          const response = await fetch(chapter.url);
+          if (!response.ok) continue;
+          chunks.push(await response.text());
+        } catch {
+          /* a missing chapter does not invent a time */
+        }
+      }
+      if (!cancelled) setReadLabel(formatWritingReadLabel(chunks.join('\n\n')));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, canRead, readables]);
+
+  const workTitle = visibleWorkTitle(title) || readables[0]?.title?.trim() || '';
+  const dialogName = workTitle || authorName || 'Writing';
+  const inlineSvg = coverSvg?.trim() ? inlineSvgMarkup(coverSvg.trim()) : null;
+  const rasterCover = cover?.trim() || null;
+  const canZoomCover = Boolean(rasterCover || inlineSvg);
+  const kindLabel = writingReaderKindLabel({
+    writingFormat,
+    chapterCount: readables.length,
+  });
+  const dateline = issuedAt ? formatWritingShelfTimestamp(issuedAt) : null;
+  const datelineIso = issuedAt ? postTimestampIso(issuedAt) : undefined;
+  const hasWriting = readables.length > 0 || bookPdf != null;
+  const onOpenCover = useCallback(() => setCoverOpen(true), []);
+  const showAuthorStand = Boolean(
+    authorId &&
+      !(viewerAccountId && accountIdsEqual(viewerAccountId, authorId))
+  );
 
   return (
     <>
-      <div className={`post-card-menu${isOpen ? ' is-open' : ''}`}>
-        <button
-          type="button"
-          className={`post-card-menu-trigger${isOpen ? ' is-open' : ''}`}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            setOpen(true);
-          }}
-          aria-haspopup="dialog"
-          aria-expanded={isOpen}
-          aria-label="More"
-        >
-          <DotsVerticalIcon className="glass-sheet-close-icon" aria-hidden />
-        </button>
-        <ActionDrawer
-          open={isOpen}
-          onClose={requestClose}
-          onClosed={handleClosed}
-          label={title}
-          listAriaLabel={title}
-          closeAriaLabel="Close"
-          items={items}
-          zIndex={SCARCE_Z.nestedOverCommerce}
-        />
-      </div>
-      {authorId ? (
-        <ProfileSupportSheet
-          open={supportOpen}
-          pageAccountId={authorId}
-          onOpenChange={setSupportOpen}
-          zIndex={SCARCE_Z.nestedOverCommerce}
+      <article className="portfolio-writing portfolio-writing-article">
+        <div className="portfolio-writing-article-spread">
+          {canZoomCover ? (
+            <button
+              type="button"
+              className="portfolio-writing-article-cover is-photo"
+              aria-label="View cover"
+              onClick={onOpenCover}
+            >
+              {rasterCover ? (
+                <img
+                  src={rasterCover}
+                  alt=""
+                  className="portfolio-writing-cover-photo"
+                />
+              ) : (
+                <span
+                  className="portfolio-writing-cover-card"
+                  dangerouslySetInnerHTML={{ __html: inlineSvg ?? '' }}
+                />
+              )}
+            </button>
+          ) : (
+            <div className="portfolio-writing-article-cover is-card" aria-hidden />
+          )}
+          <header className="portfolio-writing-masthead">
+            <h1 className="portfolio-writing-article-title">{dialogName}</h1>
+            <Divider variant="detail" className="portfolio-writing-article-rule" />
+            <div className="portfolio-writing-article-meta">
+              {dateline && datelineIso ? (
+                <time className="portfolio-writing-dateline" dateTime={datelineIso}>
+                  {dateline}
+                </time>
+              ) : null}
+              <p className="portfolio-writing-byline">
+                <span>{kindLabel}</span>
+                {readLabel ? (
+                  <>
+                    <span className="portfolio-writing-byline-sep" aria-hidden>
+                      ·
+                    </span>
+                    <span>{readLabel}</span>
+                  </>
+                ) : null}
+              </p>
+            </div>
+          </header>
+        </div>
+        {authorId ? (
+          <div className="portfolio-writing-article-author">
+            <MediaFaceIdentity
+              accountId={authorId}
+              profileName={authorName}
+              avatarUrl={authorProfile?.avatarUrl ?? null}
+            />
+            {showAuthorStand ? (
+              <MediaFaceStandButton
+                accountId={authorId}
+                name={authorName}
+                avatarUrl={authorProfile?.avatarUrl ?? null}
+                className="portfolio-writing-article-stand"
+              />
+            ) : null}
+          </div>
+        ) : null}
+        {hasWriting ? (
+          <CollectionWritingReader
+            collectionId={collectionId}
+            accountId={accountId}
+            readables={readables}
+            bookPdf={bookPdf}
+            writingFormat={writingFormat}
+            textAlign={textAlign}
+            canRead={canRead}
+            lockedHint={lockedHint}
+            immersive
+            gestures={false}
+            onChromeTap={onChromeTap}
+            workTitle={null}
+          />
+        ) : (
+          <p className="scarce-feed-medium-empty">
+            {!hydrateSettled
+              ? 'Loading writing…'
+              : 'Writing unavailable for this Drop.'}
+          </p>
+        )}
+      </article>
+      {(rasterCover || inlineSvg) && coverOpen ? (
+        <DropArtOverlay
+          open={coverOpen}
+          src={rasterCover ?? undefined}
+          svg={inlineSvg && !rasterCover ? inlineSvg : null}
+          label={dialogName}
+          onClose={() => setCoverOpen(false)}
         />
       ) : null}
     </>
@@ -242,6 +311,7 @@ export function WritingReadSheet({
   bookPdf: bookPdfProp = null,
   writingFormat: writingFormatProp = null,
   textAlign: textAlignProp = null,
+  publishedAt = null,
   canRead,
   lockedHint,
   footer = null,
@@ -258,19 +328,15 @@ export function WritingReadSheet({
   bookPdf?: ScarceReadableMedia | null;
   writingFormat?: WritingReleaseFormat | null;
   textAlign?: 'left' | 'center' | 'justify' | null;
+  /** Drop created time. Drives the date above Book / Issue. */
+  publishedAt?: number | null;
   canRead: boolean;
   lockedHint: string;
   footer?: ReactNode;
 }) {
   const { isConnected, connect, isLoading } = useAppWallet();
-  const seekProgressRef = useRef<((ratio: number) => void) | null>(null);
-  const scrubbingRef = useRef(false);
-  const chromeQuietAccumRef = useRef(0);
+  const scrollRootRef = useRef<HTMLElement | null>(null);
   const [wasOpen, setWasOpen] = useState(open);
-  const [scrollRatio, setScrollRatio] = useState(0);
-  const [scrubbing, setScrubbing] = useState(false);
-  const [chromeQuiet, setChromeQuiet] = useState(false);
-  const [coverOpen, setCoverOpen] = useState(false);
   const [hydratedReadables, setHydratedReadables] = useState<
     ScarceReadableMedia[]
   >([]);
@@ -282,33 +348,19 @@ export function WritingReadSheet({
     'left' | 'center' | 'justify' | null
   >(null);
   const [hydrateSettled, setHydrateSettled] = useState(false);
-  const authorId = creatorId?.trim() || '';
-  const authorProfiles = usePostAuthorProfiles(authorId ? [authorId] : []);
-  const authorProfile = authorId ? authorProfiles[authorId] : undefined;
-  const authorName = authorId
-    ? displayName(authorId, authorProfile?.displayName)
-    : '';
-  const [readerActions, setReaderActions] =
-    useState<WritingReaderActions | null>(null);
+  const [hydratedPublishedAt, setHydratedPublishedAt] = useState<number | null>(
+    null
+  );
 
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
-      setScrollRatio(0);
-      setCoverOpen(false);
-      setScrubbing(false);
-      scrubbingRef.current = false;
-      setChromeQuiet(false);
-      chromeQuietAccumRef.current = 0;
       setHydratedReadables([]);
       setHydratedBookPdf(null);
       setHydratedWritingFormat(null);
       setHydratedTextAlign(null);
       setHydrateSettled(false);
-      setReaderActions(null);
-    } else {
-      setCoverOpen(false);
-      setReaderActions(null);
+      setHydratedPublishedAt(null);
     }
   }
 
@@ -349,6 +401,7 @@ export function WritingReadSheet({
           setHydratedWritingFormat(hydrated.writingFormat);
         }
         setHydratedTextAlign(hydrated.textAlign ?? null);
+        if (view.createdAtMs > 0) setHydratedPublishedAt(view.createdAtMs);
       } catch {
         /* settled empty below */
       } finally {
@@ -361,87 +414,18 @@ export function WritingReadSheet({
     };
   }, [open, collectionId, readablesProp.length, bookPdfProp?.cid]);
 
-  const onReadingProgress = useCallback((ratio: number) => {
-    if (scrubbingRef.current) return;
-    setScrollRatio(ratio);
-    if (ratio <= 0.015) {
-      chromeQuietAccumRef.current = 0;
-      setChromeQuiet(false);
-    }
-  }, []);
-
-  const endScrub = useCallback(() => {
-    scrubbingRef.current = false;
-    setScrubbing(false);
-  }, []);
-
-  const beginScrub = useCallback(() => {
-    scrubbingRef.current = true;
-    setScrubbing(true);
-  }, []);
-
-  const seekReading = useCallback((ratio: number) => {
-    const next = Math.min(1, Math.max(0, ratio));
-    setScrollRatio(next);
-    seekProgressRef.current?.(next);
-  }, []);
-
-  const onScrollDelta = useCallback((deltaY: number) => {
-    if (scrubbingRef.current) return;
-    const next = Math.max(
-      -48,
-      Math.min(48, chromeQuietAccumRef.current + deltaY)
-    );
-    chromeQuietAccumRef.current = next;
-    if (next > 28) {
-      setChromeQuiet(true);
-      chromeQuietAccumRef.current = 0;
-    } else if (next < -20) {
-      setChromeQuiet(false);
-      chromeQuietAccumRef.current = 0;
-    }
-  }, []);
-
-  const onChromeTap = useCallback(() => {
-    chromeQuietAccumRef.current = 0;
-    setChromeQuiet((quiet) => !quiet);
-  }, []);
-
-  const onReaderActions = useCallback((next: WritingReaderActions | null) => {
-    setReaderActions(next);
-  }, []);
-
-  const onOpenCover = useCallback(() => {
-    setCoverOpen(true);
-  }, []);
-
-  const onOpenContents = useCallback(() => {
-    chromeQuietAccumRef.current = 0;
-    setChromeQuiet(false);
-    readerActions?.openContents();
-  }, [readerActions]);
-
-  useRegisterImmersiveChromeQuiet(open && chromeQuiet);
-
-  /* Reply / compose — wake jacket quiet so dock + icon strip stay paired. */
   const writePinned = useWriteDockPinned();
-  useEffect(() => {
-    if (!open || !writePinned) return;
-    chromeQuietAccumRef.current = 0;
-    setChromeQuiet(false);
-  }, [open, writePinned]);
+  const { chromeQuiet, progress, wakeFooter, onChromeTap } =
+    useArticleReadChrome(scrollRootRef, open, writePinned);
+  const quiet = chromeQuiet && !writePinned;
 
-  const workTitle =
-    visibleWorkTitle(title) || readables[0]?.title?.trim() || '';
-  const dialogName = workTitle || authorName || 'Writing';
-  const inlineSvg = coverSvg?.trim() ? inlineSvgMarkup(coverSvg.trim()) : null;
-  const rasterCover = cover?.trim() || null;
-  const hasWriting = readables.length > 0 || bookPdf != null;
-  const progressPct = Math.round(Math.min(1, Math.max(0, scrollRatio)) * 100);
-  const progressSteps = 1000;
-  const progressValue = Math.round(
-    Math.min(1, Math.max(0, scrollRatio)) * progressSteps
-  );
+  useRegisterImmersiveChromeQuiet(open && quiet);
+
+  const dialogName =
+    visibleWorkTitle(title) || readables[0]?.title?.trim() || 'Writing';
+  const issuedAt =
+    (publishedAt && publishedAt > 0 ? publishedAt : null) ??
+    hydratedPublishedAt;
   const connectLocked = !canRead && !isConnected;
   const showPostFooter = Boolean(footer) && !connectLocked;
   const connectFooter = connectLocked ? (
@@ -461,132 +445,48 @@ export function WritingReadSheet({
       </OsSheetActions>
     </OsSheetFooter>
   ) : null;
-
-  const progress = (
-    <div
-      className={`scarce-writing-read-progress${
-        scrubbing ? ' is-scrubbing' : ''
-      }${!hasWriting ? ' is-disabled' : ''}`}
-    >
-      <div className="scarce-writing-read-progress-rail" aria-hidden>
-        <div className="scarce-writing-read-progress-fill" />
-        <span className="scarce-writing-read-progress-knob" />
-      </div>
-      <input
-        type="range"
-        className="scarce-writing-read-progress-scrub"
-        min={0}
-        max={progressSteps}
-        step={1}
-        value={progressValue}
-        aria-label="Reading progress"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={progressPct}
-        disabled={!hasWriting}
-        onPointerDown={(event) => {
-          if (!hasWriting) return;
-          event.preventDefault();
-          event.currentTarget.focus();
-          event.currentTarget.setPointerCapture(event.pointerId);
-          beginScrub();
-          const rect = event.currentTarget.getBoundingClientRect();
-          if (rect.width > 0) {
-            seekReading((event.clientX - rect.left) / rect.width);
-          }
-        }}
-        onPointerMove={(event) => {
-          if (!scrubbingRef.current || !hasWriting) return;
-          const rect = event.currentTarget.getBoundingClientRect();
-          if (rect.width <= 0) return;
-          seekReading((event.clientX - rect.left) / rect.width);
-        }}
-        onPointerUp={(event) => {
-          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-            event.currentTarget.releasePointerCapture(event.pointerId);
-          }
-          endScrub();
-        }}
-        onPointerCancel={endScrub}
-        onChange={(event) => {
-          seekReading(Number(event.target.value) / progressSteps);
-        }}
-      />
-    </div>
-  );
+  const resolvedFooter = connectFooter ?? (showPostFooter ? footer : null);
+  const showWakeFooter = Boolean(resolvedFooter) && wakeFooter && !writePinned;
 
   return (
-    <OsMediaFaceShell
+    <OsSlideOverScreen
       open={open}
       onClose={onClose}
       title={dialogName}
-      quietTitle
-      closeAriaLabel="Back from reader"
+      heading={<></>}
+      immersiveHeader
+      closeAriaLabel="Back from article"
+      closeIcon={<ChevronLeftIcon className="glass-sheet-close-icon" />}
       zIndex={SCARCE_Z.listenShell}
-      keepDock
-      trailing={
-        <WritingReaderMenu
-          title={authorName || dialogName}
-          creatorId={creatorId}
-          hasCover={Boolean(rasterCover || inlineSvg)}
-          readerActions={readerActions}
-          onOpenCover={onOpenCover}
-          onOpenContents={onOpenContents}
-        />
-      }
-      progress={progress}
-      footer={showPostFooter ? footer : null}
-      footerChrome={connectFooter}
-      chromeQuiet={chromeQuiet}
-      bodyClassName={`scarce-writing-read${
-        connectLocked ? ' is-connect-locked' : ''
-      }`}
-      bodyStyle={
-        {
-          '--scarce-writing-p': String(Math.min(1, Math.max(0, scrollRatio))),
-        } as CSSProperties
-      }
+      keepDock={writePinned}
+      scrollRootRef={scrollRootRef}
+      className={`${ARTICLE_READ_CLASS}${quiet ? ' is-chrome-quiet' : ''}${
+        showWakeFooter ? ' is-wake-footer' : ''
+      }${connectLocked ? ' is-connect-locked' : ''}`}
+      contentClassName="feed-article-slide-body"
+      footer={resolvedFooter}
     >
-      <div className="scarce-writing-read-body">
-        {hasWriting ? (
-          <CollectionWritingReader
-            collectionId={collectionId}
-            accountId={accountId}
-            readables={readables}
-            bookPdf={bookPdf}
-            writingFormat={writingFormat}
-            textAlign={textAlign}
-            canRead={canRead}
-            lockedHint={lockedHint}
-            immersive
-            onProgress={onReadingProgress}
-            onScrollDelta={onScrollDelta}
-            onChromeTap={onChromeTap}
-            seekProgressRef={seekProgressRef}
-            workTitle={workTitle}
-            creatorId={authorId || null}
-            creatorName={authorName || null}
-            creatorAvatarUrl={authorProfile?.avatarUrl ?? null}
-            onReaderActions={onReaderActions}
-          />
-        ) : (
-          <p className="scarce-feed-medium-empty">
-            {!hydrateSettled
-              ? 'Loading writing…'
-              : 'Writing unavailable for this Drop.'}
-          </p>
-        )}
-      </div>
-
-      {(rasterCover || inlineSvg) && coverOpen ? (
-        <DropArtOverlay
-          open={coverOpen}
-          src={rasterCover ?? undefined}
-          svg={inlineSvg && !rasterCover ? inlineSvg : null}
-          label={dialogName}
-          onClose={() => setCoverOpen(false)}
+      <ArticleReadProgress progress={progress} />
+      <div className="feed-article-read">
+        <WritingReadDocument
+          open={open}
+          title={title}
+          cover={cover}
+          coverSvg={coverSvg}
+          collectionId={collectionId}
+          accountId={accountId}
+          creatorId={creatorId}
+          readables={readables}
+          bookPdf={bookPdf}
+          writingFormat={writingFormat}
+          textAlign={textAlign}
+          publishedAt={issuedAt}
+          canRead={canRead}
+          lockedHint={lockedHint}
+          hydrateSettled={hydrateSettled}
+          onChromeTap={onChromeTap}
         />
-      ) : null}
-    </OsMediaFaceShell>
+      </div>
+    </OsSlideOverScreen>
   );
 }

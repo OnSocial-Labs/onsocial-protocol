@@ -797,26 +797,24 @@ export function LiveGuildPostPanel({
     viewerAccessResolved &&
     !effectiveIsMember &&
     !effectiveIsBlacklisted;
-  const joinDock = needsJoinToReply ? (
-    <div className="guild-thread-join-dock">
-      <GuildMembershipJoinButton
-        className="guild-hero-membership guild-thread-nav-membership"
-        label={membershipActionLabel}
-        ready={membershipActionReady}
-        active={effectiveIsMember}
-        pending={joinActionPending}
-        pendingLabel={guildMembershipJoinPendingLabel({
-          accessGated,
-          canceling: effectiveJoinPending,
-          leaving: effectiveIsMember,
-        })}
-        disabled={
-          (effectiveJoinPending && !joinCancelReady) ||
-          (!viewerAccessResolved && Boolean(membershipHint))
-        }
-        onClick={handleMembershipClick}
-      />
-    </div>
+  const joinControl = needsJoinToReply ? (
+    <GuildMembershipJoinButton
+      className="guild-hero-membership guild-thread-nav-membership"
+      label={membershipActionLabel}
+      ready={membershipActionReady}
+      active={effectiveIsMember}
+      pending={joinActionPending}
+      pendingLabel={guildMembershipJoinPendingLabel({
+        accessGated,
+        canceling: effectiveJoinPending,
+        leaving: effectiveIsMember,
+      })}
+      disabled={
+        (effectiveJoinPending && !joinCancelReady) ||
+        (!viewerAccessResolved && Boolean(membershipHint))
+      }
+      onClick={handleMembershipClick}
+    />
   ) : null;
   const membershipDrawer = (
     <GuildMembershipConfirmDrawer
@@ -1098,6 +1096,11 @@ export function LiveGuildPostPanel({
             ) : null}
 
             <div className="guild-connected-stack">
+              {joinControl && replyListRows.length === 0 && !shareRow ? (
+                <div className="guild-thread-join-dock is-with-post">
+                  {joinControl}
+                </div>
+              ) : null}
               {replyListRows.length > 0 ? (
                 replyListRows
               ) : !shareRow ? (
@@ -1124,7 +1127,9 @@ export function LiveGuildPostPanel({
             </div>
           </section>
         ) : null}
-        {joinDock}
+        {joinControl && (replyListRows.length > 0 || shareRow) ? (
+          <div className="guild-thread-join-dock">{joinControl}</div>
+        ) : null}
       </div>
       {modalTarget ? (
         <ComposerSheet

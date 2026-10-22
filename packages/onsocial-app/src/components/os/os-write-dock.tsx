@@ -261,7 +261,13 @@ export function OsWriteDock({
   useEffect(() => {
     if (!registerWriteFocus) return;
     return registerWriteFocus(() => {
-      textRef.current?.focus();
+      const field = textRef.current;
+      if (!field) return;
+      field.focus();
+      // A tucked dock can take focus without the field's onFocus, so pin here.
+      setFieldFocused(true);
+      setTrackKeyboard(true);
+      setComposeExpanded(true);
     });
   }, [registerWriteFocus]);
 

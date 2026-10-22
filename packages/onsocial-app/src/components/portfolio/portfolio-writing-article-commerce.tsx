@@ -97,6 +97,7 @@ export function PortfolioWritingArticleCommerce({ post }: { post: PostRow }) {
 
   return (
     <div
+      className="article-read-footer-lead"
       ref={(node) => {
         rootRef.current = node;
       }}

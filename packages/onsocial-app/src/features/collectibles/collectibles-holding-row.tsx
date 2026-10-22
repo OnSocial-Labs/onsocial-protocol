@@ -1,13 +1,21 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
+import { useAppWallet } from '@/contexts/app-wallet-context';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
+import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
+import { listedArticleReaderHref } from '@/features/scarces/drop-writing';
 import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
+import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
 import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { socialTimeProps } from '@/lib/post-display';
-import type { PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
+import {
+  holdingsReadHref,
+  type PortfolioHoldingPeek,
+} from '@/lib/portfolio-holdings';
 import { collectionPath } from '@/lib/app-routes';
 import { OsRowAction } from '@/lib/os-row-action';
 
@@ -58,6 +66,8 @@ export function CollectiblesHoldingRow({
   authorDisplayName = null,
   authorAvatarUrl = null,
 }: CollectiblesHoldingRowProps) {
+  const router = useRouter();
+  const { accountId: viewerAccountId } = useAppWallet();
   const creatorId = item.creatorId?.trim() || null;
   const mintedRel =
     item.mintedAtMs != null && item.mintedAtMs > 0
@@ -66,12 +76,22 @@ export function CollectiblesHoldingRow({
   const [brokenMediaUrl, setBrokenMediaUrl] = useState<string | null>(null);
   const [passOpen, setPassOpen] = useState(false);
   const [passMounted, setPassMounted] = useState(false);
+  const [readOpen, setReadOpen] = useState(false);
+  const [readMounted, setReadMounted] = useState(false);
+  const [readPending, setReadPending] = useState(false);
   const showThumb = Boolean(item.mediaUrl) && brokenMediaUrl !== item.mediaUrl;
   const collectionId = item.collectionId?.trim() || '';
   const opensPass = isPassMediumKind(item.mediumKind) && Boolean(collectionId);
   const dropHref = collectionId ? collectionPath(collectionId) : null;
+  const articleReadHref = holdingsReadHref({
+    mediumKind: item.mediumKind,
+    sourcePostPath: item.sourcePostPath,
+  });
+  const opensCollectedRead =
+    item.actionLabel === 'Read' && !articleReadHref && Boolean(collectionId);
   const fact = collectiblesHoldingFact(item, editionCount);
   const showMaker = Boolean(creatorId) && !hideCreator;
+  const rowHref = opensPass ? dropHref : item.href;
 
   const mainBody = (
     <>
@@ -115,26 +135,17 @@ export function CollectiblesHoldingRow({
       className="market-listing-row collectibles-holding-row"
       role="listitem"
     >
-      {opensPass && dropHref ? (
+      {rowHref ? (
         <Link
-          href={dropHref}
+          href={rowHref}
           scroll={false}
           className="market-listing-row-open"
-          aria-label={`Open drop for ${item.title}`}
+          aria-label={
+            opensPass ? `Open drop for ${item.title}` : item.title
+          }
         />
       ) : null}
-      {opensPass ? (
-        <div className="collectibles-holding-row-main">{mainBody}</div>
-      ) : (
-        <Link
-          href={item.href}
-          scroll={false}
-          className="collectibles-holding-row-main"
-          title={item.title}
-        >
-          {mainBody}
-        </Link>
-      )}
+      <div className="collectibles-holding-row-main">{mainBody}</div>
       <div className="market-listing-action-col drops-discovery-action-col collectibles-holding-action-col">
         <div className="drops-discovery-head-trail">
           {mintedRel && item.mintedAtMs != null ? (
@@ -158,6 +169,44 @@ export function CollectiblesHoldingRow({
           >
             {item.actionLabel}
           </OsRowAction>
+        ) : articleReadHref ? (
+          <OsRowAction
+            href={articleReadHref}
+            className="collectibles-holding-action"
+            aria-label={`${item.actionLabel} ${item.title}`}
+          >
+            {item.actionLabel}
+          </OsRowAction>
+        ) : opensCollectedRead ? (
+          <OsRowAction
+            className="collectibles-holding-action"
+            aria-label={`${item.actionLabel} ${item.title}`}
+            onClick={() => {
+              if (readPending || !collectionId) return;
+              setReadPending(true);
+              void fetchCollectionPreferIndexer(collectionId)
+                .then((view) => {
+                  const href = listedArticleReaderHref({
+                    writingFormat: view?.writingFormat,
+                    sourcePostPath:
+                      view?.sourcePostPath ?? item.sourcePostPath,
+                  });
+                  if (href) {
+                    router.push(href);
+                    return;
+                  }
+                  setReadMounted(true);
+                  setReadOpen(true);
+                })
+                .catch(() => {
+                  setReadMounted(true);
+                  setReadOpen(true);
+                })
+                .finally(() => setReadPending(false));
+            }}
+          >
+            {item.actionLabel}
+          </OsRowAction>
         ) : (
           <OsRowAction
             href={item.href}
@@ -168,6 +217,25 @@ export function CollectiblesHoldingRow({
           </OsRowAction>
         )}
       </div>
+      {opensCollectedRead && readMounted ? (
+        <WritingReadSheet
+          open={readOpen}
+          onClose={() => setReadOpen(false)}
+          title={item.title}
+          cover={item.mediaUrl}
+          collectionId={collectionId}
+          accountId={viewerAccountId}
+          creatorId={creatorId}
+          readables={[]}
+          canRead
+          lockedHint=""
+          publishedAt={
+            item.mintedAtMs != null && item.mintedAtMs > 0
+              ? item.mintedAtMs
+              : null
+          }
+        />
+      ) : null}
       {opensPass && passMounted ? (
         <OwnedShowPassSheet
           open={passOpen}

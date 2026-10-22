@@ -22,7 +22,8 @@ import {
   parseCollectiblesPageQueryFromSearch,
   type CollectiblesPageQuery,
 } from '@/lib/load-collectibles-page';
-import { portfolioPath } from '@/lib/overlay-routes';
+import { usePortfolioVaultDockBack } from '@/hooks/use-portfolio-vault-dock-back';
+import { portfolioCollectionDrawerPath } from '@/features/collectibles/collectibles-vault-leave';
 
 function subscribeNoop() {
   return () => undefined;
@@ -100,7 +101,10 @@ export function CollectiblesLoadingScreen({
     seedHeldKinds: heldKindsProp,
     cookieSource,
   });
-  const backHref = pageAccountId ? portfolioPath(pageAccountId) : APP_HOME_PATH;
+  const backHref = pageAccountId
+    ? portfolioCollectionDrawerPath(pageAccountId)
+    : APP_HOME_PATH;
+  const onDockBack = usePortfolioVaultDockBack(pageAccountId, backHref);
 
   return (
     <OsAppScreen
@@ -110,6 +114,7 @@ export function CollectiblesLoadingScreen({
       dockBack
       leading={null}
       glassChrome
+      onDockBack={onDockBack}
       backFallbackHref={backHref}
       heading={<CollectiblesSearchHeading query={toolbar.q} interactive={false} />}
       actions={<CollectiblesHeaderActions pageAccountId={pageAccountId || null} />}

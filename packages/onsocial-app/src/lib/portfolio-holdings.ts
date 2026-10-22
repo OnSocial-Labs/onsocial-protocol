@@ -17,6 +17,7 @@ import {
   collectionPath,
   collectiblesPlayPath,
 } from '@/lib/app-routes';
+import { listedArticleReaderHref } from '@/features/scarces/drop-writing';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
 
 /** Vault filter id when a holding has no drop creator. */
@@ -45,8 +46,10 @@ export interface PortfolioHoldingPeek {
   audioFormat?: 'single' | 'album' | 'podcast' | 'audiobook' | null;
   /** Discovery facets (genres / subjects). */
   facets?: string[];
-  /** Deep link into Collectibles / drop / source post when known. */
+  /** Cover and title — the drop page. Read is separate. */
   href: string;
+  /** Listed essay path when Read should open the article, not the drop. */
+  sourcePostPath?: string | null;
   /** Primary use action for this medium. */
   actionLabel: string;
   /** Short medium label for the badge. */
@@ -165,6 +168,9 @@ export function toPortfolioHoldingPeek(
       ? { audioFormat: item.audioFormat }
       : {}),
     ...(item.facets && item.facets.length > 0 ? { facets: item.facets } : {}),
+    ...(item.sourcePostPath?.trim()
+      ? { sourcePostPath: item.sourcePostPath.trim() }
+      : {}),
     ...(item.listingKind
       ? {
           listingKind: item.listingKind,
@@ -210,10 +216,6 @@ export function holdingsHrefForOwned(item: {
   if (collectionId && (isAudioMediumKind(medium) || medium === 'video')) {
     return collectiblesPlayPath(collectionId, { tokenId: item.tokenId });
   }
-  // Writing holdings open the collection with the immersive reader.
-  if (collectionId && (medium === 'writing' || medium === 'book')) {
-    return collectionPath(collectionId, { read: true });
-  }
   // Tickets / memberships / coupons: shareable drop deep link.
   // Collectibles and Market open the pass overlay on the current page.
   if (
@@ -231,6 +233,22 @@ export function holdingsHrefForOwned(item: {
     postHrefFromSourcePath(item.sourcePostPath) ||
     null;
   return postHref;
+}
+
+/**
+ * Collectibles Read for a listed essay. Book and Issue stay on the page
+ * reader. Cover and title use `holdingsHrefForOwned` (the drop page).
+ */
+export function holdingsReadHref(item: {
+  mediumKind?: string | null;
+  sourcePostPath?: string | null;
+}): string | null {
+  const medium = (item.mediumKind ?? '').trim().toLowerCase();
+  if (medium === 'book' || medium === 'issue') return null;
+  if (medium !== 'writing') return null;
+  return listedArticleReaderHref({
+    sourcePostPath: item.sourcePostPath,
+  });
 }
 
 /** Rail card that stands in for every owned edition of one collection. */

@@ -10,6 +10,7 @@ import {
 } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
+import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import { FeedMediaThreadSheet } from '@/features/home/feed-media-thread-sheet';
 import {
@@ -102,6 +103,7 @@ export function ScarceFeedMediumSheet({
   trailing?: ReactNode;
 }) {
   const [wasOpen, setWasOpen] = useState(open);
+  const writePinned = useWriteDockPinned();
   const [hydratedPlayables, setHydratedPlayables] = useState<
     ScarcePlayableMedia[]
   >([]);
@@ -288,6 +290,7 @@ export function ScarceFeedMediumSheet({
         showTracks={false}
         immersiveListen
         listenFooter={postChrome}
+        listenKeepDock={writePinned}
         onListenClose={() => onOpenChange(false)}
         {...(playbackSessionId
           ? { persist: { collectionId: playbackSessionId, title: name } }

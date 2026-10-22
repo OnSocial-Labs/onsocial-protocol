@@ -17,6 +17,8 @@ export function FeedArticleReadScreen({
   authorProfile,
   engagement = null,
   commerce = null,
+  renderBody,
+  documentTitle,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -24,6 +26,9 @@ export function FeedArticleReadScreen({
   authorProfile?: PostAuthorProfile;
   engagement?: ReactNode;
   commerce?: ReactNode;
+  /** Book pages inside this post's reader. Footer stays the post controls. */
+  renderBody?: (chrome: { onChromeTap: () => void }) => ReactNode;
+  documentTitle?: string;
 }) {
   const authorName = displayName(post.accountId, authorProfile?.displayName);
   const hasSocial = Boolean(commerce || engagement);
@@ -36,6 +41,8 @@ export function FeedArticleReadScreen({
       titleLabel={authorName}
       avatarUrl={authorProfile?.avatarUrl}
       post={post}
+      documentTitle={documentTitle}
+      renderBody={renderBody}
       footer={
         hasSocial ? (
           <div className="scarce-post-medium-chrome">

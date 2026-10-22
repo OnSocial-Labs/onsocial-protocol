@@ -24,6 +24,10 @@ import {
   loadOsFaceLeaveState,
   persistOsFaceLeaveState,
 } from '@/lib/os-face-leave-store';
+import {
+  previousOsInAppHref,
+  reduceOsInAppTrail,
+} from '@/lib/os-in-app-trail';
 
 export type OsFaceLeaveContextValue = {
   leaveHref: string;
@@ -35,6 +39,8 @@ type OsFaceLeaveInternalValue = OsFaceLeaveContextValue & {
   noteArrival: (href: string) => void;
   /** True once, and arms the face stack so the return is not a new origin. */
   beginPop: () => boolean;
+  /** Screen under the current one in this tab. Null on a cold open. */
+  previousInAppHref: () => string | null;
 };
 
 const FALLBACK_LEAVE: OsFaceLeaveContextValue = {
@@ -59,6 +65,7 @@ export function OsFaceLeaveProvider({ children }: { children: ReactNode }) {
   const armedRef = useRef(false);
   const popPendingRef = useRef(false);
   const lastNotedRef = useRef<string | null>(null);
+  const trailRef = useRef<string[]>([]);
 
   const trackHref = useCallback((href: string) => {
     const base = sessionLoadedRef.current
@@ -72,22 +79,31 @@ export function OsFaceLeaveProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const noteArrival = useCallback((href: string) => {
-    if (lastNotedRef.current === href && !popPendingRef.current) return;
+    const popping = popPendingRef.current;
+    if (lastNotedRef.current === href && !popping) return;
     if (!armedRef.current) {
       armedRef.current = true;
       lastNotedRef.current = href;
       depthRef.current = 1;
+      trailRef.current = reduceOsInAppTrail([], href, false);
       return;
     }
-    if (popPendingRef.current) {
+    if (popping) {
       popPendingRef.current = false;
       lastNotedRef.current = href;
       depthRef.current = Math.max(1, depthRef.current - 1);
+      trailRef.current = reduceOsInAppTrail(trailRef.current, href, true);
       return;
     }
     lastNotedRef.current = href;
     depthRef.current += 1;
+    trailRef.current = reduceOsInAppTrail(trailRef.current, href, false);
   }, []);
+
+  const previousInAppHref = useCallback(
+    () => previousOsInAppHref(trailRef.current),
+    []
+  );
 
   const beginPop = useCallback(() => {
     if (depthRef.current <= 1) return false;
@@ -114,8 +130,9 @@ export function OsFaceLeaveProvider({ children }: { children: ReactNode }) {
       trackHref,
       noteArrival,
       beginPop,
+      previousInAppHref,
     }),
-    [beginPop, consumeLeave, noteArrival, state, trackHref]
+    [beginPop, consumeLeave, noteArrival, previousInAppHref, state, trackHref]
   );
 
   return (
@@ -141,6 +158,12 @@ function OsFaceLeavePathTracker() {
   }, [href, noteArrival, trackHref]);
 
   return null;
+}
+
+/** Screen under the current one. Null when this tab opened here. */
+export function useOsPreviousInAppHref(): () => string | null {
+  const read = useContext(OsFaceLeaveContext)?.previousInAppHref;
+  return useCallback(() => read?.() ?? null, [read]);
 }
 
 /** Pop one in-tab screen. False on a cold open, so the caller uses the parent. */

@@ -230,13 +230,22 @@ export const OS_LEAVE_MAP = [
     note: 'collectionChildLeaveHref — the drop, else Drops.',
   },
   {
+    id: 'collectibles-vault',
+    place: 'Collectibles vault',
+    route: '/@[accountId]/collectibles',
+    dockBack: true,
+    parent: '/@[accountId]?tab=collection',
+    verdict: 'matches',
+    note: 'Opened from this face, dock Back returns to that screen (the Collectibles drawer when that opened the vault). Otherwise this face’s Collectibles drawer. A vault opened from another face does not return there.',
+  },
+  {
     id: 'collectibles-play-loading',
     place: 'Collectibles play loading',
     route: '/collectibles/play',
     dockBack: true,
     parent: '/@viewer/collectibles',
     verdict: 'matches',
-    note: 'collectiblesPlayBackHref — vault when signed in, OS hop when not.',
+    note: 'Cold leave is the viewer vault, or the OS hop when signed out. In this tab, dock Back returns to the screen that opened the player (drawer, vault, or drop).',
   },
   {
     id: 'portfolio-face',

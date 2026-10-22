@@ -142,6 +142,7 @@ import {
   seriesPagePath,
 } from '@/lib/app-routes';
 import { socialTimeProps } from '@/lib/post-display';
+import { replaceBrowserQueryUrl } from '@/lib/sync-browser-url-query';
 import { MARKET_PAGE_CLASS, osChromePageClassName } from '@/lib/os-chrome-page';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsRowAction } from '@/lib/os-row-action';
@@ -209,6 +210,8 @@ function collectionOverlayBack(onClose?: () => void) {
 const clientMountedSubscribe = () => () => {};
 const getClientMountedSnapshot = () => true;
 const getServerMountedSnapshot = () => false;
+/** ?read=1 already opened the reader this visit — Back must not open it again. */
+const consumedCollectionReadLinks = new Set<string>();
 
 export function CollectionPagePanel({
   collectionId,
@@ -462,31 +465,33 @@ export function CollectionPagePanel({
     };
   }, [collectionId, viewerAccountId, refreshKey, view?.kind]);
 
-  // Holdings "Read" deep-links with ?read=1 → open immersive reader once writing is present.
+  // Old Read links used ?read=1. Open once, then drop the flag so Back stays on the drop.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get(COLLECTION_READ_QUERY) !== '1') return;
+    if (consumedCollectionReadLinks.has(collectionId)) {
+      params.delete(COLLECTION_READ_QUERY);
+      replaceBrowserQueryUrl(window.location.pathname, params);
+      return;
+    }
     const hasWriting = collectionOpensWritingReader({
       kind: view?.kind,
       hasReadables: (view?.readables.length ?? 0) > 0 || view?.bookPdf != null,
     });
     if (!hasWriting) return;
-    if (
-      new URLSearchParams(window.location.search).get(COLLECTION_READ_QUERY) !==
-      '1'
-    ) {
+    consumedCollectionReadLinks.add(collectionId);
+    params.delete(COLLECTION_READ_QUERY);
+    replaceBrowserQueryUrl(window.location.pathname, params);
+    const href = listedArticleReaderHref({
+      writingFormat: view?.writingFormat,
+      sourcePostPath: view?.sourcePostPath,
+    });
+    if (href) {
+      router.push(href);
       return;
     }
-    queueMicrotask(() => {
-      const href = listedArticleReaderHref({
-        writingFormat: view?.writingFormat,
-        sourcePostPath: view?.sourcePostPath,
-      });
-      if (href) {
-        router.push(href);
-        return;
-      }
-      setWritingReadOpen(true);
-    });
+    setWritingReadOpen(true);
   }, [
     collectionId,
     router,
@@ -1695,6 +1700,7 @@ export function CollectionPagePanel({
         bookPdf={view.bookPdf}
         writingFormat={view.writingFormat}
         textAlign={view.textAlign ?? null}
+        publishedAt={view.createdAtMs > 0 ? view.createdAtMs : null}
         canRead={canReadWriting}
         lockedHint=""
       />

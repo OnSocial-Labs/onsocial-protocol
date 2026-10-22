@@ -22,8 +22,8 @@ import { PageDrawerRailPanels } from '@/components/portfolio/page-drawer-rail';
 import {
   PortfolioRailTabs,
   clearPortfolioRailTabParam,
-  isProfileFeedTab,
   normalizeLegacyPortfolioRailUrl,
+  resolvePortfolioRailTab,
   usePortfolioRailTabParam,
   type PortfolioRailAvailability,
 } from '@/components/portfolio/profile-feed-tabs';
@@ -43,6 +43,7 @@ import {
 } from '@/lib/profile-store-types';
 import { isScarcesTabVisible } from '@/lib/profile-store-available';
 import { fetchOwnedScarcesPage } from '@/features/market/market-listings';
+import { peekOwnedVaultPage } from '@/features/market/owned-vault-cache';
 import {
   PAGE_DRAWER_HOLDINGS_PEEK,
   toPortfolioHoldingPeek,
@@ -52,6 +53,16 @@ import { SHEET_Z } from '@/lib/sheet-z';
 
 /** Tall page sheet — thin mood-face strip above (~95dvh). */
 const PAGE_DRAWER_PEEK_RATIO = 0.95;
+
+function seedDrawerHoldings(
+  accountId: string,
+  shelfHoldings: PortfolioHoldingPeek[]
+): PortfolioHoldingPeek[] {
+  if (shelfHoldings.length > 0) return shelfHoldings;
+  const cached = peekOwnedVaultPage(accountId);
+  if (!cached || cached.items.length === 0) return [];
+  return cached.items.map(toPortfolioHoldingPeek);
+}
 
 interface PageContentDrawerProps {
   pageAccountId: string;
@@ -157,7 +168,10 @@ function PageContentDrawerInner({
       ? shelf.storeShelf
       : storeShelf;
   const [ownedHoldings, setOwnedHoldings] = useState<PortfolioHoldingPeek[]>(
-    shelf.holdings
+    () => seedDrawerHoldings(pageAccountId, shelf.holdings)
+  );
+  const [holdingsSettled, setHoldingsSettled] = useState(
+    () => seedDrawerHoldings(pageAccountId, shelf.holdings).length > 0
   );
   const [closing, setClosing] = useState(false);
   const [joinedFactsOpen, setJoinedFactsOpen] = useState(false);
@@ -181,9 +195,7 @@ function PageContentDrawerInner({
    * drawer open used to insert the Collectibles chip after layout.
    */
   useEffect(() => {
-    if (shelf.holdings.length > 0) {
-      return;
-    }
+    if (shelf.holdings.length > 0) return;
     let cancelled = false;
     void fetchOwnedScarcesPage(pageAccountId, {
       pageSize: PAGE_DRAWER_HOLDINGS_PEEK,
@@ -191,9 +203,12 @@ function PageContentDrawerInner({
       .then((page) => {
         if (cancelled) return;
         setOwnedHoldings(page.items.map(toPortfolioHoldingPeek));
+        setHoldingsSettled(true);
       })
       .catch(() => {
-        if (!cancelled) setOwnedHoldings([]);
+        if (cancelled) return;
+        setOwnedHoldings([]);
+        setHoldingsSettled(true);
       });
     return () => {
       cancelled = true;
@@ -216,9 +231,17 @@ function PageContentDrawerInner({
     }),
     [createdCount, holdingsCount, storeShelfResolved]
   );
-  // Deep link to a tab whose content is gone → fall back to Posts.
-  const activeTab =
-    isProfileFeedTab(tab) || availability[tab] ? tab : 'posts';
+  // Holdings arrive after Back. Keep Collectibles until that list is known.
+  const collectionPending =
+    tab === 'collection' &&
+    shelf.holdings.length === 0 &&
+    ownedHoldings.length === 0 &&
+    !holdingsSettled;
+  const activeTab = resolvePortfolioRailTab(
+    tab,
+    availability,
+    collectionPending
+  );
 
   useEffect(() => {
     if (!sheetOpen) return;
@@ -280,6 +303,7 @@ function PageContentDrawerInner({
                   tab={activeTab}
                   onTabChange={handleTabChange}
                   availability={availability}
+                  keep={collectionPending ? 'collection' : null}
                   className="page-drawer-rail-tabs"
                 />
               }

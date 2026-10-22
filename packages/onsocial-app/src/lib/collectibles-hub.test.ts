@@ -128,11 +128,16 @@ describe('collectibles os apps', () => {
     expect(owner.find((app) => app.id === 'collectibles')?.href).toBe(
       '/@alice.near/collectibles'
     );
-    const visitor = visitorPortfolioOsApps('bob.near');
+    const visitor = visitorPortfolioOsApps('bob.near', 'alice.near');
     const dropsIdx = visitor.findIndex((app) => app.id === 'drops');
     expect(visitor[dropsIdx + 1]?.id).toBe('events');
     expect(visitor[dropsIdx + 2]?.id).toBe('collectibles');
-    expect(visitor[dropsIdx + 2]?.href).toBe('/@bob.near/collectibles');
+    expect(visitor[dropsIdx + 2]?.href).toBe('/@alice.near/collectibles');
+    expect(
+      visitorPortfolioOsApps('bob.near').find(
+        (app) => app.id === 'collectibles'
+      )?.href
+    ).toBe('/collectibles');
     expect(visitor[dropsIdx + 3]?.id).toBe('groups');
   });
 

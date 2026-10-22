@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePlaceScroll } from '@/hooks/use-place-scroll';
+import { useSearchDraft } from '@/hooks/use-search-draft';
 import {
   CATALOG_PLACE_MEMORY_TTL_MS,
   mergeCatalogHead,
@@ -439,7 +440,13 @@ export function MarketPagePanel({
   const [listingSort, setListingSort] = useState<MarketListingSort>(
     () => urlSort
   );
-  const [listingQuery, setListingQuery] = useState('');
+  const {
+    draft: listingQuery,
+    setDraft: setListingDraft,
+    committed: debouncedQuery,
+    onFocus: onListingSearchFocus,
+    onBlur: onListingSearchBlur,
+  } = useSearchDraft('', { debounceMs: SEARCH_DEBOUNCE_MS });
   const [salesExpanded, setSalesExpanded] = useState(false);
   useEffect(() => {
     setQuery(seedQuery);
@@ -479,23 +486,6 @@ export function MarketPagePanel({
   > | null>(null);
   const normalizedListingQuery = listingQuery.trim().toLowerCase();
   const searching = normalizedListingQuery.length > 0;
-
-  // Debounced indexer search; client filter covers the typing gap below.
-  // Clearing the field flushes immediately so browse listings do not wait.
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-  useEffect(() => {
-    const trimmed = listingQuery.trim();
-    if (!trimmed) {
-      setDebouncedQuery((current) => (current === '' ? current : ''));
-      return;
-    }
-    const id = window.setTimeout(() => {
-      setDebouncedQuery(trimmed);
-    }, SEARCH_DEBOUNCE_MS);
-    return () => {
-      window.clearTimeout(id);
-    };
-  }, [listingQuery]);
 
   const writeCatalogCache = useCallback(
     (key: string, entry: Omit<MarketCatalogCacheEntry, 'at'>) => {
@@ -718,9 +708,8 @@ export function MarketPagePanel({
 
   const handleListingQueryChange = useCallback(
     (next: string) => {
-      setListingQuery(next);
+      setListingDraft(next);
       if (next.trim()) return;
-      setDebouncedQuery('');
       const cached = peekFreshMarketCatalog(browseCatalogCacheKey);
       const snap = cached ?? lastBrowseCatalogRef.current;
       if (!snap) return;
@@ -733,7 +722,7 @@ export function MarketPagePanel({
       });
       setCatalogRefreshing(false);
     },
-    [browseCatalogCacheKey, browseListingsParamsKey]
+    [browseCatalogCacheKey, browseListingsParamsKey, setListingDraft]
   );
 
   const clearNarrowFilter = useCallback(() => {
@@ -2059,6 +2048,8 @@ export function MarketPagePanel({
         <MarketSearchHeading
           listingQuery={listingQuery}
           onListingQueryChange={handleListingQueryChange}
+          onFocus={onListingSearchFocus}
+          onBlur={onListingSearchBlur}
           searchPlaceholder={
             shopMode ? marketCreatorSearchPlaceholder() : 'Search listings'
           }

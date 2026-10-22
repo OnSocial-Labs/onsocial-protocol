@@ -24,6 +24,7 @@ export interface PortfolioBookMarkModel {
   bookPdf: CollectionView['bookPdf'];
   writingFormat: CollectionView['writingFormat'];
   textAlign: CollectionView['textAlign'];
+  createdAtMs: number;
 }
 
 /** Standard hug drawer: cover, drop byline, Read. */

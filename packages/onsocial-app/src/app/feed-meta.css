@@ -5,9 +5,11 @@
  *
  * Idle (no mood): 300 + protocol green (feed / posts / thread fold)
  * Viewer mood screens (home / Discover / …): reputation signal (viewer tint)
- * Host mood surfaces (portfolio bio, face overlays): reputation signal (page tint)
+ * Host mood surfaces (portfolio bio, page drawer, face overlays): reputation signal (page tint)
  * Selected #/$ (.is-active): 500
- * Desktop (fine pointer): underline on hover / focus-visible — color unchanged
+ * Desktop (fine pointer): @ # $ and links brighten with no underline, same as
+ * Show more. The composer mirror does not highlight.
+ * Keyboard focus on those controls brightens and draws a thin outline.
  * Touch: no hover chrome (avoids sticky :hover after tap)
  * Commerce / buy-sell stay hard protocol green elsewhere — not these tokens.
  *
@@ -58,18 +60,20 @@
 
 /*
  * Viewer-scoped lists (OsAppScreen mood) + host-scoped face overlays
- * (portfolio glass / page sheet with face mood vars): social tokens follow
- * --signal-reputation. Falls back to protocol green when unset.
- * Show more / thread fold only tint on viewer mood screens (not glass).
+ * (portfolio glass / page sheet with face mood vars): social tokens,
+ * Read, and Show more follow --signal-reputation. Falls back to protocol
+ * green when unset.
  */
 :is(
     .os-app-screen.os-app-screen--mood,
     .os-page-sheet-panel[data-mood],
     .glass-sheet-panel[data-mood]
   )
-  :is(.os-hashtag, .os-mention, .os-ticker, .os-link),
-.os-app-screen.os-app-screen--mood
   :is(
+    .os-hashtag,
+    .os-mention,
+    .os-ticker,
+    .os-link,
     button.post-card-show-more,
     .post-card .post-card-show-more,
     .post-thread-more
@@ -96,7 +100,7 @@ button.post-thread-more:not(.post-thread-more--coil-tail) {
 
 /*
  * Portfolio bio — mood owns face / weight / size; tokens only pick the
- * reputation signal color (and underline hover). Do not force feed 300 /
+ * reputation signal color (and brighten on hover). Do not force feed 300 /
  * DM Sans here.
  */
 .portfolio-bio :is(.os-hashtag, .os-mention, .os-ticker, .os-link) {
@@ -161,64 +165,153 @@ button.post-thread-more:not(.post-thread-more--coil-tail) {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  :is(
-      .os-hashtag,
-      .os-mention,
-      .os-ticker,
-      .os-link,
-      .post-thread-more,
-      button.post-card-show-more,
-      .post-card .post-card-show-more
-    ):is(:hover, :focus-visible) {
-    color: var(--protocol-green-ink, var(--protocol-green));
-    text-decoration: underline;
-    text-underline-offset: 0.12em;
-    text-decoration-thickness: from-font;
+  :is(.os-hashtag, .os-mention, .os-ticker, .os-link):hover {
+    color: var(--protocol-green-hover, var(--protocol-green));
+    text-decoration: none;
     outline: none;
   }
 
-  /* Mood scopes keep reputation tint on hover (underline only from above). */
+  /* Show more, Read, thread fold — brighten. Weight stays 300. */
+  :is(
+      .post-thread-more,
+      button.post-card-show-more,
+      .post-card .post-card-show-more
+    ):hover {
+    color: var(--protocol-green-hover, var(--protocol-green));
+    text-decoration: none;
+    outline: none;
+  }
+
+  /* Mood screens and the profile bio brighten the tint. */
+  :is(
+      .os-app-screen.os-app-screen--mood,
+      .os-page-sheet-panel[data-mood],
+      .glass-sheet-panel[data-mood],
+      .portfolio-bio
+    )
+    :is(.os-hashtag, .os-mention, .os-ticker, .os-link):hover {
+    color: color-mix(
+      in srgb,
+      var(
+          --signal-reputation,
+          var(--mood-signal-reputation, var(--protocol-green))
+        )
+        72%,
+      white
+    );
+    text-decoration: none;
+  }
+
   :is(
       .os-app-screen.os-app-screen--mood,
       .os-page-sheet-panel[data-mood],
       .glass-sheet-panel[data-mood]
     )
-    :is(.os-hashtag, .os-mention, .os-ticker, .os-link):is(
-      :hover,
-      :focus-visible
-    ),
-  .os-app-screen.os-app-screen--mood
     :is(
       .post-thread-more,
       button.post-card-show-more,
       .post-card .post-card-show-more
-    ):is(:hover, :focus-visible) {
-    color: var(
-      --signal-reputation,
-      var(--mood-signal-reputation, var(--protocol-green))
+    ):hover {
+    color: color-mix(
+      in srgb,
+      var(
+          --signal-reputation,
+          var(--mood-signal-reputation, var(--protocol-green))
+        )
+        72%,
+      white
     );
   }
 
-  :is(
-      .portfolio-bio,
-      .profile-edit-slide[data-mood] .account-editor-bio-backdrop
-    )
-    :is(.os-hashtag, .os-mention, .os-ticker, .os-link):is(
-      :hover,
-      :focus-visible
-    ) {
+  /* Typing mirrors keep the caret color. They are not hover targets. */
+  :is(.guild-composer-input-backdrop, .account-editor-bio-backdrop)
+    :is(.os-hashtag, .os-mention, .os-ticker, .os-link):hover {
+    color: var(--protocol-green-ink, var(--protocol-green));
+    text-decoration: none;
+  }
+
+  .os-app-screen.os-app-screen--mood
+    .guild-composer-input-backdrop
+    :is(.os-hashtag, .os-mention, .os-ticker, .os-link):hover,
+  .profile-edit-slide[data-mood]
+    .account-editor-bio-backdrop
+    :is(.os-hashtag, .os-mention, .os-ticker, .os-link):hover {
     color: var(
       --signal-reputation,
       var(--mood-signal-reputation, var(--protocol-green))
     );
+    text-decoration: none;
   }
 
   .notifications-activity-list
     .standing-row-bio
-    :is(.os-hashtag, .os-mention, .os-ticker, .os-link):is(
-      :hover,
-      :focus-visible
-    ) {
+    :is(.os-hashtag, .os-mention, .os-ticker, .os-link):hover {
+    color: var(--protocol-green-ink, var(--protocol-green));
     text-decoration: none;
   }
+}
+
+/* Keyboard — brighten and a thin ring. Not an underline, and not hover-gated. */
+:is(
+    .os-hashtag,
+    .os-mention,
+    .os-ticker,
+    .os-link,
+    .post-thread-more,
+    button.post-card-show-more,
+    .post-card .post-card-show-more
+  ):focus-visible {
+  color: var(--protocol-green-hover, var(--protocol-green));
+  text-decoration: none;
+  outline: 1px solid currentColor;
+  outline-offset: 2px;
+}
+
+:is(
+    .os-app-screen.os-app-screen--mood,
+    .os-page-sheet-panel[data-mood],
+    .glass-sheet-panel[data-mood],
+    .portfolio-bio
+  )
+  :is(.os-hashtag, .os-mention, .os-ticker, .os-link):focus-visible,
+:is(
+    .os-app-screen.os-app-screen--mood,
+    .os-page-sheet-panel[data-mood],
+    .glass-sheet-panel[data-mood]
+  )
+  :is(
+    .post-thread-more,
+    button.post-card-show-more,
+    .post-card .post-card-show-more
+  ):focus-visible {
+  color: color-mix(
+    in srgb,
+    var(--signal-reputation, var(--mood-signal-reputation, var(--protocol-green)))
+      72%,
+    white
+  );
+}
+
+:is(.guild-composer-input-backdrop, .account-editor-bio-backdrop)
+  :is(.os-hashtag, .os-mention, .os-ticker, .os-link):focus-visible,
+.notifications-activity-list
+  .standing-row-bio
+  :is(.os-hashtag, .os-mention, .os-ticker, .os-link):focus-visible {
+  color: var(--protocol-green-ink, var(--protocol-green));
+  text-decoration: none;
+  outline: none;
+}
+
+.os-app-screen.os-app-screen--mood
+  .guild-composer-input-backdrop
+  :is(.os-hashtag, .os-mention, .os-ticker, .os-link):focus-visible,
+.profile-edit-slide[data-mood]
+  .account-editor-bio-backdrop
+  :is(.os-hashtag, .os-mention, .os-ticker, .os-link):focus-visible {
+  color: var(
+    --signal-reputation,
+    var(--mood-signal-reputation, var(--protocol-green))
+  );
+  text-decoration: none;
+  outline: none;
 }

@@ -12,6 +12,8 @@ import { APP_MARKET_PATH } from '@/lib/app-routes';
 interface DropsSearchHeadingProps {
   query?: string;
   onQueryChange?: (value: string) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
   interactive?: boolean;
 }
 
@@ -19,6 +21,8 @@ interface DropsSearchHeadingProps {
 export function DropsSearchHeading({
   query = '',
   onQueryChange,
+  onFocus,
+  onBlur,
   interactive = true,
 }: DropsSearchHeadingProps) {
   return (
@@ -27,6 +31,8 @@ export function DropsSearchHeading({
       onValueChange={
         interactive && onQueryChange ? onQueryChange : () => undefined
       }
+      onFocus={onFocus}
+      onBlur={onBlur}
       placeholder="Search drops"
       clearAriaLabel="Clear search"
       ariaLabel="Search drops"

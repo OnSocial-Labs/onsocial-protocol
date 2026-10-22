@@ -22,6 +22,7 @@ import {
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
+import { useSearchDraft } from '@/hooks/use-search-draft';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { ActionDrawer } from '@/components/ui/action-drawer';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
@@ -237,8 +238,9 @@ export function EventsPagePanel({
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [nowMs, setNowMs] = useState(initialNowMs);
-  const [query, setQuery] = useState(initialQuery);
-  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
+  const search = useSearchDraft(initialQuery);
+  const query = search.draft;
+  const debouncedQuery = search.committed;
   const [scope, setScope] = useState<'all' | 'mine'>('all');
   const [styleId, setStyleId] = useState<string | null>(null);
   const [placeId, setPlaceId] = useState<string | null>(null);
@@ -415,14 +417,6 @@ export function EventsPagePanel({
   }, [accountId, heldIds, heldNextPage]);
 
   useEffect(() => {
-    const handle = window.setTimeout(
-      () => setDebouncedQuery(query.trim()),
-      200
-    );
-    return () => window.clearTimeout(handle);
-  }, [query]);
-
-  useEffect(() => {
     void load(0, true);
   }, [load, reloadKey]);
 
@@ -527,7 +521,9 @@ export function EventsPagePanel({
       heading={
         <OsAppChromeNavSearch
           value={query}
-          onValueChange={setQuery}
+          onValueChange={search.setDraft}
+          onFocus={search.onFocus}
+          onBlur={search.onBlur}
           placeholder="Search events"
           clearAriaLabel="Clear search"
           ariaLabel="Search events"

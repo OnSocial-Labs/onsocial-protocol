@@ -39,6 +39,16 @@ export function isWritingFolioFormat(
   return format === 'book' || format === 'issue';
 }
 
+/** Reader meta under the date. A multi-chapter release with no format is a book. */
+export function writingReaderKindLabel(opts: {
+  writingFormat?: WritingReleaseFormat | null;
+  chapterCount: number;
+}): 'Book' | 'Issue' | 'Writing' {
+  if (opts.writingFormat === 'issue') return 'Issue';
+  if (opts.writingFormat === 'book' || opts.chapterCount > 1) return 'Book';
+  return 'Writing';
+}
+
 export interface ScarceReadableRef {
   cid: string;
   mime: string;
@@ -329,6 +339,28 @@ export function listedArticleReaderHref(opts: {
   const coords = parseSourcePostPath(opts.sourcePostPath ?? '');
   if (!coords) return null;
   return writingArticlePath(coords.author, coords.postId);
+}
+
+export type DropReadTarget =
+  | { kind: 'self' }
+  | { kind: 'source'; author: string; postId: string }
+  | { kind: 'folio' };
+
+/**
+ * Feed Read / cover.
+ * The essay on this post opens here. A shared drop follows its source
+ * essay. Book and Issue, or a drop with no source essay, stay in the folio.
+ */
+export function resolveDropReadTarget(opts: {
+  articleOnPost: boolean;
+  writingFormat?: WritingReleaseFormat | null;
+  sourcePostPath?: string | null;
+}): DropReadTarget {
+  if (isWritingFolioFormat(opts.writingFormat)) return { kind: 'folio' };
+  if (opts.articleOnPost) return { kind: 'self' };
+  const coords = parseSourcePostPath(opts.sourcePostPath ?? '');
+  if (!coords) return { kind: 'folio' };
+  return { kind: 'source', author: coords.author, postId: coords.postId };
 }
 
 /** One-chapter readable from a titled Writing post (no manifesto). */

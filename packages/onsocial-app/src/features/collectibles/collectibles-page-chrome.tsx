@@ -24,10 +24,14 @@ import {
 export function CollectiblesSearchHeading({
   query = '',
   onQueryChange,
+  onFocus,
+  onBlur,
   interactive = true,
 }: {
   query?: string;
   onQueryChange?: (value: string) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
   interactive?: boolean;
 }) {
   return (
@@ -36,6 +40,8 @@ export function CollectiblesSearchHeading({
       onValueChange={
         interactive && onQueryChange ? onQueryChange : () => undefined
       }
+      onFocus={onFocus}
+      onBlur={onBlur}
       placeholder="Search collectibles"
       clearAriaLabel="Clear search"
       ariaLabel="Search collectibles"

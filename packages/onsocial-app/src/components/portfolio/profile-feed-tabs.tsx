@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useLayoutEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   GiftIcon,
@@ -63,6 +63,19 @@ function useTabParamState<T extends string>(
   const [tab, setTab] = useState<T>(
     validate(fromUrl) ? fromUrl : defaultTab
   );
+
+  // Next's search params can lag the address bar by a frame on Back.
+  // Read the bar before paint so Collectibles does not open as Posts.
+  useLayoutEffect(() => {
+    const fromWindow = normalizePortfolioRailTab(
+      new URLSearchParams(window.location.search).get(FEED_TAB_PARAM)
+    );
+    if (!fromWindow || !validate(fromWindow)) return;
+    setTab((current) => (current === fromWindow ? current : fromWindow));
+    // Mount only. Later clicks write the URL with replaceState, which does
+    // not update Next search params, so syncing again would undo the click.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const selectTab = useCallback(
     (next: T) => {
@@ -181,12 +194,30 @@ export interface PortfolioRailAvailability {
   collection: boolean;
 }
 
+/**
+ * Deep link whose inventory is still loading stays selected.
+ * A known-empty commerce tab falls back to Posts.
+ */
+export function resolvePortfolioRailTab(
+  tab: PortfolioRailTab,
+  availability: PortfolioRailAvailability,
+  pending = false
+): PortfolioRailTab {
+  if (isProfileFeedTab(tab)) return tab;
+  if (availability[tab]) return tab;
+  if (pending) return tab;
+  return 'posts';
+}
+
 export function resolvePortfolioRailItems(
-  availability: PortfolioRailAvailability
+  availability: PortfolioRailAvailability,
+  keep?: PortfolioRailTab | null
 ): PortfolioRailItem[] {
-  return PORTFOLIO_RAIL_ITEMS.filter((item) =>
-    isProfileFeedTab(item.id) ? true : availability[item.id]
-  );
+  return PORTFOLIO_RAIL_ITEMS.filter((item) => {
+    if (isProfileFeedTab(item.id)) return true;
+    if (keep != null && item.id === keep) return true;
+    return availability[item.id];
+  });
 }
 
 /** Sticky portfolio rail — feed sections + Scarces / Collectibles. */
@@ -194,11 +225,14 @@ export function PortfolioRailTabs({
   tab,
   onTabChange,
   availability,
+  keep,
   className,
 }: {
   tab: PortfolioRailTab;
   onTabChange: (tab: PortfolioRailTab) => void;
   availability: PortfolioRailAvailability;
+  /** Commerce chip to leave in the rail while its inventory is loading. */
+  keep?: PortfolioRailTab | null;
   className?: string;
 }) {
   return (
@@ -210,7 +244,7 @@ export function PortfolioRailTabs({
       value={tab}
       onValueChange={onTabChange}
       tabIdFor={(option) => `profile-feed-tab-${option}`}
-      items={resolvePortfolioRailItems(availability).map(
+      items={resolvePortfolioRailItems(availability, keep).map(
         ({ id, label, Icon }) => ({
           id,
           label: (

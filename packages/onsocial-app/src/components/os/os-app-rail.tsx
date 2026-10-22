@@ -161,7 +161,7 @@ export function PortfolioOsRail({ pageAccountId }: PortfolioOsRailProps) {
   const isOwner = isConnected && accountId === pageAccountId;
   const apps = isOwner
     ? ownerPortfolioOsApps(pageAccountId)
-    : visitorPortfolioOsApps(pageAccountId);
+    : visitorPortfolioOsApps(pageAccountId, accountId);
 
   return (
     <OsAppRail

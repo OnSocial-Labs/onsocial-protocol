@@ -32,11 +32,16 @@ import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { useArticleReadChrome } from '@/hooks/use-article-read-chrome';
 import { useEssayReturnSearch } from '@/hooks/use-essay-return-search';
 import {
+  applyArticleScroll,
   articleScrollMemory,
   commitArticleScroll,
   saveArticleScroll,
 } from '@/lib/article-read-scroll';
-import { popArticleTrail, pushArticleTrail } from '@/lib/article-read-trail';
+import {
+  articlePermalinkBack,
+  popArticleTrail,
+  pushArticleTrail,
+} from '@/lib/article-read-trail';
 import { parseArticleSnapshot } from '@/lib/article-post-payload';
 import { withEssayReturnSearch } from '@/lib/essay-return-href';
 import { writingPath } from '@/lib/overlay-routes';
@@ -45,7 +50,7 @@ import { consumeWritingShelf } from '@/lib/writing-shelf-return';
 import type { PostRow } from '@onsocial/sdk';
 import type { WritingArticleCoverHint } from '@/lib/hydrate-writing-article-covers';
 
-const ARTICLE_READ_CLASS = 'article-read-screen feed-article-slide';
+export const ARTICLE_READ_CLASS = 'article-read-screen feed-article-slide';
 
 /**
  * Articles opened from More by stay in this reader. Back walks the trail.
@@ -100,12 +105,12 @@ function useArticleReadPlace(
     if (!open) return;
     if (reopened) {
       memoryRef.current = articleScrollMemory(currentKey);
-      if (root) root.scrollTop = 0;
+      if (root) applyArticleScroll(root, 0);
       return;
     }
     const moved = commitArticleScroll(memoryRef.current, currentKey);
     memoryRef.current = moved.memory;
-    if (root) root.scrollTop = moved.scrollTop;
+    if (root) applyArticleScroll(root, moved.scrollTop);
   }, [currentKey, open, scrollRootRef]);
   return rememberPlace;
 }
@@ -155,6 +160,10 @@ export type ArticleReadFooterProps = {
   shareExtras?: ActionDrawerItem[];
   /** Feed post controls. Omit for the Writing like / save / reply / share row. */
   footer?: ReactNode;
+  /** Book / issue pages. Replaces the essay and keeps this overlay's footer. */
+  renderBody?: (chrome: { onChromeTap: () => void }) => ReactNode;
+  /** Dialog name when the post has no essay title. */
+  documentTitle?: string;
 };
 
 function ArticleReadBody(
@@ -191,7 +200,7 @@ function ArticleReadFooter({
   post: PortfolioWritingArticlePanelProps['post'];
 }) {
   return (
-    <div className="scarce-post-medium-chrome">
+    <div className="scarce-post-medium-chrome article-read-footer">
       {commerce !== undefined ? (
         commerce
       ) : (
@@ -214,6 +223,8 @@ export function ArticleReadOverlay({
   onReply,
   shareExtras,
   footer,
+  renderBody,
+  documentTitle,
   ...panel
 }: PortfolioWritingArticlePanelProps &
   ArticleReadFooterProps & {
@@ -227,13 +238,12 @@ export function ArticleReadOverlay({
     scrollRootRef
   );
   const articleTitle =
-    parseArticleSnapshot(current.value)?.title?.trim() || 'Article';
+    parseArticleSnapshot(current.value)?.title?.trim() ||
+    documentTitle?.trim() ||
+    'Article';
   const writePinned = useWriteDockPinned();
-  const { chromeQuiet, progress, wakeFooter } = useArticleReadChrome(
-    scrollRootRef,
-    open,
-    writePinned
-  );
+  const { chromeQuiet, progress, wakeFooter, onChromeTap } =
+    useArticleReadChrome(scrollRootRef, open, writePinned);
   const quiet = chromeQuiet && !writePinned;
   const readingRoot = postKey(current) === postKey(panel.post);
   const resolvedFooter = readingRoot ? (
@@ -271,18 +281,25 @@ export function ArticleReadOverlay({
       contentClassName="feed-article-slide-body"
       footer={resolvedFooter}
     >
-      <ArticleReadBody
-        {...panel}
-        post={current}
-        coverHint={hintForArticle(
-          current,
-          panel.post,
-          panel.coverHint,
-          panel.coverHints
-        )}
-        onOpenArticle={openArticle}
-        progress={progress}
-      />
+      {renderBody ? (
+        <>
+          <ArticleReadProgress progress={progress} />
+          <div className="feed-article-read">{renderBody({ onChromeTap })}</div>
+        </>
+      ) : (
+        <ArticleReadBody
+          {...panel}
+          post={current}
+          coverHint={hintForArticle(
+            current,
+            panel.post,
+            panel.coverHint,
+            panel.coverHints
+          )}
+          onOpenArticle={openArticle}
+          progress={progress}
+        />
+      )}
     </OsSlideOverScreen>
   );
 }
@@ -321,7 +338,6 @@ export function ArticleReadPage(panel: PortfolioWritingArticlePanelProps) {
       heading={<></>}
       immersiveHeader
       scrollRootRef={scrollRootRef}
-      compactChrome
       className={`${ARTICLE_READ_CLASS} portfolio-writing-article-screen${
         chromeQuiet ? ' is-chrome-quiet' : ''
       }${wakeFooter ? ' is-wake-footer' : ''}`}
@@ -332,11 +348,19 @@ export function ArticleReadPage(panel: PortfolioWritingArticlePanelProps) {
             scroll={false}
             prefetch={false}
             onClick={(event) => {
-              if (backArticle()) {
-                event.preventDefault();
+              const action = articlePermalinkBack({
+                poppedTrail: backArticle(),
+                historyLength: window.history.length,
+              });
+              if (action === 'shelf') {
+                onShelfBack(event);
                 return;
               }
-              onShelfBack(event);
+              event.preventDefault();
+              if (action === 'history') {
+                consumeWritingShelf(panel.accountId);
+                router.back();
+              }
             }}
           >
             <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
