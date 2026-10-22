@@ -43,12 +43,12 @@ describe('live health', () => {
   });
 
   it('calls a protocol gap an update even when the cursor looks caught up', () => {
-    expect(deriveProtocolUpdateNeeded({ nodeProtocol: 87, chainProtocol: 88 })).toBe(
-      true
-    );
-    expect(deriveProtocolUpdateNeeded({ nodeProtocol: 88, chainProtocol: 88 })).toBe(
-      false
-    );
+    expect(
+      deriveProtocolUpdateNeeded({ nodeProtocol: 87, chainProtocol: 88 })
+    ).toBe(true);
+    expect(
+      deriveProtocolUpdateNeeded({ nodeProtocol: 88, chainProtocol: 88 })
+    ).toBe(false);
     expect(
       deriveIndexerLiveStatus({
         cursor: 100,
