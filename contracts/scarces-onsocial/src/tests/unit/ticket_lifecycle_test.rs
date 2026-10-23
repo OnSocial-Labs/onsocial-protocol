@@ -1,7 +1,8 @@
 //! Guest ticket lifecycle — postpone while the show is still open, then cancel.
 //!
 //! Three clocks:
-//! - sale window (`start_time` / `end_time`, ns)
+//! - sale window (`start_time` / `end_time`, ns) — a close on the event-end
+//!   minute moves with postpone; an earlier close stays
 //! - door access (`metadata.expires_at`, ms) — postpone moves the collection end
 //!   while that end is still ahead
 //! - refund claim window (starts only after `cancel_collection`)
@@ -450,6 +451,11 @@ fn postpone_stops_when_the_end_in_force_is_reached() {
         contract.collections.get(COL).unwrap().event_ends_at,
         Some(postponed_end_ms())
     );
+    // Fixture sale runs 30 days, past the event end, so postpone leaves it.
+    assert_eq!(
+        contract.collections.get(COL).unwrap().end_time,
+        Some(T0_NS + 30 * DAY_NS)
+    );
 
     let later_end_ms = T0_MS + 8 * DAY_MS;
     let before_postponed = postponed_end_ns() - NS_PER_MS;
@@ -473,4 +479,144 @@ fn postpone_stops_when_the_end_in_force_is_reached() {
         Some(later_end_ms)
     );
     assert_eq!(template_expires_at(&contract), later_end_ms);
+    assert_eq!(
+        contract.collections.get(COL).unwrap().end_time,
+        Some(T0_NS + 30 * DAY_NS)
+    );
+}
+
+#[test]
+fn postpone_extends_sale_close_that_matches_the_event_end() {
+    let mut contract = new_contract();
+    let mut cfg = ticket_config();
+    cfg.start_time = Some(T0_NS);
+    cfg.end_time = Some(original_end_ms() * NS_PER_MS);
+    testing_env!(at(creator(), T0_NS).build());
+    contract.create_collection(&creator(), cfg).unwrap();
+
+    testing_env!(at(creator(), T0_NS).build());
+    contract
+        .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
+        .unwrap();
+
+    let col = contract.collections.get(COL).unwrap();
+    assert_eq!(col.start_time, Some(T0_NS));
+    assert_eq!(col.end_time, Some(postponed_end_ms() * NS_PER_MS));
+    let logs = near_sdk::test_utils::get_logs();
+    assert!(
+        logs.iter()
+            .any(|line| line.contains("timing_update") && line.contains("end_time")),
+        "postpone should emit the sale timing event, logs={logs:?}"
+    );
+
+    let after_original = T0_NS + DAY_NS + 1;
+    buy(&mut contract, after_original, 1);
+    assert_eq!(
+        contract
+            .scarces_by_id
+            .get(&seat(1))
+            .unwrap()
+            .metadata
+            .expires_at,
+        Some(postponed_end_ms())
+    );
+
+    let later_end_ms = T0_MS + 8 * DAY_MS;
+    testing_env!(at(creator(), T0_NS + DAY_NS).build());
+    contract
+        .update_collection_template_expiry(&creator(), COL, later_end_ms)
+        .unwrap();
+    assert_eq!(
+        contract.collections.get(COL).unwrap().end_time,
+        Some(later_end_ms * NS_PER_MS)
+    );
+    assert_eq!(
+        contract.collections.get(COL).unwrap().start_time,
+        Some(T0_NS)
+    );
+}
+
+#[test]
+fn postpone_leaves_an_earlier_sale_close() {
+    let mut contract = new_contract();
+    let mut cfg = ticket_config();
+    let earlier_ms = original_end_ms() - 60_000;
+    cfg.end_time = Some(earlier_ms * NS_PER_MS);
+    testing_env!(at(creator(), T0_NS).build());
+    contract.create_collection(&creator(), cfg).unwrap();
+
+    testing_env!(at(creator(), T0_NS).build());
+    contract
+        .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
+        .unwrap();
+
+    let col = contract.collections.get(COL).unwrap();
+    assert_eq!(col.end_time, Some(earlier_ms * NS_PER_MS));
+    assert_eq!(col.start_time, Some(T0_NS));
+    assert_eq!(col.event_ends_at, Some(postponed_end_ms()));
+    let logs = near_sdk::test_utils::get_logs();
+    assert!(
+        logs.iter().all(|line| !line.contains("timing_update")),
+        "an earlier sale close must stay, logs={logs:?}"
+    );
+}
+
+#[test]
+fn postpone_leaves_a_sale_with_no_close() {
+    let mut contract = new_contract();
+    let mut cfg = ticket_config();
+    cfg.end_time = None;
+    testing_env!(at(creator(), T0_NS).build());
+    contract.create_collection(&creator(), cfg).unwrap();
+
+    testing_env!(at(creator(), T0_NS).build());
+    contract
+        .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
+        .unwrap();
+
+    let col = contract.collections.get(COL).unwrap();
+    assert_eq!(col.end_time, None);
+    assert_eq!(col.start_time, Some(T0_NS));
+    assert_eq!(col.event_ends_at, Some(postponed_end_ms()));
+}
+
+#[test]
+fn postpone_refuses_to_move_the_sale_before_it_opens() {
+    let mut contract = new_contract();
+    // Sale is closed at the show, and public sale opens before that show.
+    // Pulling the show to before the open must not invert the sale window.
+    let event_ms = T0_MS + 10 * DAY_MS;
+    let open_ns = T0_NS + 8 * DAY_NS;
+    let mut cfg = ticket_config();
+    let extra = near_sdk::serde_json::json!({
+        "kind": "ticket",
+        "eventEndsAt": event_ms,
+    });
+    cfg.metadata_template = near_sdk::serde_json::json!({
+        "title": "Guest #{seat_number}",
+        "expires_at": event_ms,
+        "extra": extra.to_string(),
+    })
+    .to_string();
+    cfg.start_time = Some(open_ns);
+    cfg.end_time = Some(event_ms * NS_PER_MS);
+    testing_env!(at(creator(), T0_NS).build());
+    contract.create_collection(&creator(), cfg).unwrap();
+
+    let pulled_ms = T0_MS + 5 * DAY_MS;
+    testing_env!(at(creator(), T0_NS).build());
+    let err = contract
+        .update_collection_template_expiry(&creator(), COL, pulled_ms)
+        .unwrap_err();
+    match err {
+        MarketplaceError::InvalidInput(msg) => {
+            assert_eq!(msg, "New event end must stay after the sale open.");
+        }
+        other => panic!("expected sale open guard, got {other:?}"),
+    }
+    let col = contract.collections.get(COL).unwrap();
+    assert_eq!(col.event_ends_at, None);
+    assert_eq!(col.end_time, Some(event_ms * NS_PER_MS));
+    assert_eq!(col.start_time, Some(open_ns));
+    assert_eq!(template_expires_at(&contract), event_ms);
 }
