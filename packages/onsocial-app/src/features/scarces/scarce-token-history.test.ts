@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { mapTokenHistoryRows } from '@/features/scarces/scarce-token-history';
+import {
+  mapTokenHistoryRows,
+  tokenHistoryLogIndex,
+} from '@/features/scarces/scarce-token-history';
 
 const appSrc = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const ONE_NEAR = '1000000000000000000000000';
@@ -64,7 +67,7 @@ describe('mapTokenHistoryRows', () => {
     expect(rows.map((row) => row.actor)).toEqual([
       'bob.near',
       'bob.near',
-      'bob.near',
+      'minter.near',
       'minter.near',
       'minter.near',
     ]);
@@ -78,7 +81,7 @@ describe('mapTokenHistoryRows', () => {
     expect(rows[0]?.timeTitle).toContain('2026');
   });
 
-  it('labels a secondary purchase as Bought and keeps a failed ask', () => {
+  it('labels a secondary purchase as Bought and leaves a failed ask out', () => {
     const rows = mapTokenHistoryRows([
       {
         eventType: 'SCARCE_UPDATE',
@@ -99,6 +102,19 @@ describe('mapTokenHistoryRows', () => {
         extraData: JSON.stringify({ attempted_price: TWO_NEAR }),
       },
       {
+        operation: 'royalty_paid',
+        creatorId: 'artist.near',
+        blockHeight: 2,
+        blockTimestamp: Date.parse('2026-06-02T00:00:00Z'),
+        amount: ONE_NEAR,
+      },
+      {
+        operation: 'approval_granted',
+        ownerId: 'seller.near',
+        blockHeight: 4,
+        blockTimestamp: Date.parse('2026-06-04T00:00:00Z'),
+      },
+      {
         operation: 'auction_bid',
         bidder: 'bidder.near',
         blockHeight: 3,
@@ -107,17 +123,106 @@ describe('mapTokenHistoryRows', () => {
       },
     ]);
 
+    expect(rows.map((row) => row.label)).toEqual(['Bid', 'Bought']);
+    expect(rows.map((row) => row.actor)).toEqual(['bidder.near', 'buyer.near']);
+    expect(rows.map((row) => row.priceNear)).toEqual(['1', '1']);
+  });
+
+  it('shows a drop mint as this edition’s share, and an external list price', () => {
+    const rows = mapTokenHistoryRows(
+      [
+        {
+          eventType: 'COLLECTION_UPDATE',
+          operation: 'purchase',
+          buyerId: 'fan.near',
+          author: 'fan.near',
+          blockHeight: 1,
+          blockTimestamp: Date.parse('2026-07-01T00:00:00Z'),
+          price: TWO_NEAR,
+          quantity: 2,
+          extraData: JSON.stringify({
+            token_ids: ['drop:1', 'drop:2'],
+            quantity: 2,
+          }),
+        },
+        {
+          operation: 'list',
+          ownerId: 'fan.near',
+          author: 'fan.near',
+          blockHeight: 2,
+          blockTimestamp: Date.parse('2026-07-02T00:00:00Z'),
+          extraData: JSON.stringify({
+            token_ids: ['drop:1', 'drop:2'],
+            prices: [ONE_NEAR, TWO_NEAR],
+          }),
+        },
+        {
+          operation: 'airdrop',
+          author: 'artist.near',
+          blockHeight: 3,
+          blockTimestamp: Date.parse('2026-07-03T00:00:00Z'),
+          extraData: JSON.stringify({
+            token_ids: ['drop:1', 'drop:2'],
+            receivers: ['ann.near', 'bob.near'],
+          }),
+        },
+      ],
+      'drop:2'
+    );
+
     expect(rows.map((row) => row.label)).toEqual([
-      'Bid',
-      'Purchase failed',
-      'Bought',
+      'Airdropped',
+      'Listed',
+      'Minted',
     ]);
     expect(rows.map((row) => row.actor)).toEqual([
-      'bidder.near',
-      'buyer.near',
-      'buyer.near',
+      'bob.near',
+      'fan.near',
+      'fan.near',
     ]);
-    expect(rows.map((row) => row.priceNear)).toEqual(['1', '2', '1']);
+    expect(rows.map((row) => row.priceNear)).toEqual([null, '2', '1']);
+  });
+
+  it('keeps a later log above an earlier one in the same block', () => {
+    const rows = mapTokenHistoryRows([
+      {
+        id: 'receipt-1-SCARCE_UPDATE-list_native',
+        operation: 'list_native',
+        ownerId: 'seller.near',
+        blockHeight: 9,
+        blockTimestamp: Date.parse('2026-08-01T00:00:00Z'),
+        price: ONE_NEAR,
+      },
+      {
+        id: 'receipt-2-SCARCE_UPDATE-purchase',
+        eventType: 'SCARCE_UPDATE',
+        operation: 'purchase',
+        buyerId: 'buyer.near',
+        blockHeight: 9,
+        blockTimestamp: Date.parse('2026-08-01T00:00:00Z'),
+        price: ONE_NEAR,
+      },
+    ]);
+    expect(tokenHistoryLogIndex('receipt-2-SCARCE_UPDATE-purchase')).toBe(2);
+    expect(rows.map((row) => row.label)).toEqual(['Bought', 'Listed']);
+  });
+
+  it('names the person a transfer left', () => {
+    const rows = mapTokenHistoryRows([
+      {
+        operation: 'transfer',
+        author: 'operator.near',
+        blockHeight: 1,
+        blockTimestamp: Date.parse('2026-08-02T00:00:00Z'),
+        extraData: JSON.stringify({
+          old_owner_id: 'alice.near',
+          sender_id: 'operator.near',
+          receiver_id: 'bob.near',
+        }),
+      },
+    ]);
+    expect(rows[0]?.label).toBe('Transferred');
+    expect(rows[0]?.actor).toBe('alice.near');
   });
 
   it('humanizes an unknown operation and skips a missing price', () => {
@@ -149,6 +254,16 @@ describe('edition history entry points', () => {
     expect(manageAt).toBeGreaterThan(historyAt);
     expect(source).toContain('ScarceTokenHistorySheet');
     expect(source).toContain("label: 'History'");
+  });
+
+  it('loads the newest page first and offers Older', () => {
+    const source = readFileSync(
+      join(appSrc, 'features/scarces/scarce-token-history-sheet.tsx'),
+      'utf8'
+    );
+    expect(source).toContain('newestFirst: true');
+    expect(source).toContain('TOKEN_HISTORY_OMIT_OPERATIONS');
+    expect(source).toMatch(/>\s*Older\s*</);
   });
 
   it('puts the listing ⋮ beside the time', () => {

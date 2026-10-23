@@ -19,6 +19,7 @@
 // ---------------------------------------------------------------------------
 
 import type { QueryModule } from './index.js';
+import { escapeLike } from './raw.js';
 
 /** Name and avatar from `profile_search`, nested on a catalog row. */
 export interface ScarcesCatalogProfile {
@@ -32,6 +33,8 @@ export interface ScarcesCatalogProfile {
  * is sparse.
  */
 export interface ScarcesEventRow {
+  /** Indexer row id. Encodes receipt and log index (`receipt-log-TYPE-op`). */
+  id?: string | null;
   /** Top-level event family (`SCARCE_UPDATE`, `COLLECTION_UPDATE`, …). */
   eventType: string;
   /** Specific operation within that family (`quick_mint`, `purchase`, …). */
@@ -515,8 +518,10 @@ export class ScarcesQuery {
   }
 
   /**
-   * Full event timeline for a single token, in chronological order
-   * (mint → transfers → list/delist → burn …).
+   * Event timeline for one edition.
+   * Matches `tokenId` and events whose `tokenIds` list contains that id
+   * (a drop mint, creator mint, airdrop, or external list).
+   * Default order is oldest first. `newestFirst` is the history drawer.
    *
    * ```ts
    * const history = await os.query.scarces.tokenHistory('s:42');
@@ -524,19 +529,45 @@ export class ScarcesQuery {
    */
   async tokenHistory(
     tokenId: string,
-    opts: { limit?: number } = {}
+    opts: {
+      limit?: number;
+      offset?: number;
+      newestFirst?: boolean;
+      omitOperations?: readonly string[];
+    } = {}
   ): Promise<ScarcesEventRow[]> {
+    const omit = (opts.omitOperations ?? [])
+      .map((op) => op.trim())
+      .filter(Boolean);
+    const order = opts.newestFirst
+      ? '[{blockHeight: DESC}, {id: DESC}]'
+      : '[{blockHeight: ASC}, {id: ASC}]';
+    const where = omit.length
+      ? `_and: [{_or: [{tokenId: {_eq: $tokenId}}, {tokenIds: {_like: $tokenIdLike}}]}, {operation: {_nin: $omit}}]`
+      : `_or: [{tokenId: {_eq: $tokenId}}, {tokenIds: {_like: $tokenIdLike}}]`;
+    const params = omit.length
+      ? '$tokenId: String!, $tokenIdLike: String!, $omit: [String!]!, $limit: Int!, $offset: Int!'
+      : '$tokenId: String!, $tokenIdLike: String!, $limit: Int!, $offset: Int!';
     const res = await this._q.graphql<{
       scarcesEvents: ScarcesEventRow[];
     }>({
-      query: `query TokenHistory($tokenId: String!, $limit: Int!) {
+      query: `query TokenHistory(${params}) {
         scarcesEvents(
-          where: { tokenId: {_eq: $tokenId} },
+          where: { ${where} },
           limit: $limit,
-          orderBy: [{blockHeight: ASC}]
-        ) { ${SCARCES_EVENT_FIELDS} }
+          offset: $offset,
+          orderBy: ${order}
+        ) { ${SCARCES_EVENT_FIELDS}
+          id
+        }
       }`,
-      variables: { tokenId, limit: opts.limit ?? 200 },
+      variables: {
+        tokenId,
+        tokenIdLike: `%"${escapeLike(tokenId)}"%`,
+        limit: opts.limit ?? 200,
+        offset: opts.offset ?? 0,
+        ...(omit.length ? { omit } : {}),
+      },
     });
     return res.data?.scarcesEvents ?? [];
   }

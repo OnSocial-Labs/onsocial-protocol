@@ -1,18 +1,40 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { OsHugSheet } from '@onsocial/ui';
 import { CollectionActivityRows } from '@/features/scarces/collection-activity-rows';
 import { CollectionActivitySkeleton } from '@/features/scarces/collection-page-skeleton';
 import {
   mapTokenHistoryRows,
+  TOKEN_HISTORY_OMIT_OPERATIONS,
   type TokenHistoryEvent,
 } from '@/features/scarces/scarce-token-history';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { OsLoadMore } from '@/lib/os-load-more';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 type HistoryPhase = 'loading' | 'ready' | 'error';
+
+/** First screen. Older loads the next page, back to the mint. */
+const HISTORY_PAGE = 40;
+
+async function fetchHistoryPage(
+  tokenId: string,
+  offset: number
+): Promise<{ events: TokenHistoryEvent[]; hasOlder: boolean }> {
+  const client = createReadOnlyOnSocialClient();
+  const page = await client.query.scarces.tokenHistory(tokenId, {
+    limit: HISTORY_PAGE + 1,
+    offset,
+    newestFirst: true,
+    omitOperations: TOKEN_HISTORY_OMIT_OPERATIONS,
+  });
+  return {
+    events: page.slice(0, HISTORY_PAGE),
+    hasOlder: page.length > HISTORY_PAGE,
+  };
+}
 
 /** Edition timeline — same standing rows as drop activity. */
 export function ScarceTokenHistorySheet({
@@ -30,37 +52,68 @@ export function ScarceTokenHistorySheet({
   const heading = title.trim() || 'Scarce';
   const [trackedId, setTrackedId] = useState(id);
   const [phase, setPhase] = useState<HistoryPhase>(id ? 'loading' : 'ready');
-  const [rows, setRows] = useState<ReturnType<typeof mapTokenHistoryRows>>([]);
+  const [events, setEvents] = useState<TokenHistoryEvent[]>([]);
+  const [hasOlder, setHasOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const fetchedRef = useRef(0);
+  const generationRef = useRef(0);
 
   if (trackedId !== id) {
     setTrackedId(id);
     setPhase(id ? 'loading' : 'ready');
-    setRows([]);
+    setEvents([]);
+    setHasOlder(false);
+    setLoadingOlder(false);
+    fetchedRef.current = 0;
   }
 
   useEffect(() => {
     if (!open || !id) return;
-    let cancelled = false;
+    const generation = generationRef.current + 1;
+    generationRef.current = generation;
     const token = id;
     void (async () => {
       try {
-        const client = createReadOnlyOnSocialClient();
-        const history: TokenHistoryEvent[] =
-          await client.query.scarces.tokenHistory(token, { limit: 200 });
-        if (cancelled) return;
-        setRows(mapTokenHistoryRows(history));
+        const page = await fetchHistoryPage(token, 0);
+        if (generationRef.current !== generation) return;
+        fetchedRef.current = page.events.length;
+        setEvents(page.events);
+        setHasOlder(page.hasOlder);
         setPhase('ready');
       } catch {
-        if (cancelled) return;
-        setRows([]);
+        if (generationRef.current !== generation) return;
+        fetchedRef.current = 0;
+        setEvents([]);
+        setHasOlder(false);
         setPhase('error');
       }
     })();
     return () => {
-      cancelled = true;
+      generationRef.current += 1;
     };
   }, [open, id]);
 
+  const loadOlder = () => {
+    if (!id || phase !== 'ready' || loadingOlder || !hasOlder) return;
+    const generation = generationRef.current;
+    const offset = fetchedRef.current;
+    setLoadingOlder(true);
+    void (async () => {
+      try {
+        const page = await fetchHistoryPage(id, offset);
+        if (generationRef.current !== generation) return;
+        fetchedRef.current = offset + page.events.length;
+        setEvents((prev) => [...prev, ...page.events]);
+        setHasOlder(page.hasOlder);
+      } catch {
+        if (generationRef.current !== generation) return;
+      } finally {
+        if (generationRef.current === generation) setLoadingOlder(false);
+      }
+    })();
+  };
+
+  const rows = useMemo(() => mapTokenHistoryRows(events, id), [events, id]);
   const actors = useMemo(
     () => rows.map((row) => row.actor?.trim() || '').filter(Boolean),
     [rows]
@@ -86,7 +139,14 @@ export function ScarceTokenHistorySheet({
           History isn&apos;t available right now.
         </p>
       ) : rows.length > 0 ? (
-        <CollectionActivityRows rows={rows} profiles={profiles} />
+        <>
+          <CollectionActivityRows rows={rows} profiles={profiles} />
+          {hasOlder ? (
+            <OsLoadMore onClick={loadOlder} pending={loadingOlder}>
+              Older
+            </OsLoadMore>
+          ) : null}
+        </>
       ) : (
         <p className="collection-activity-empty">No history yet.</p>
       )}

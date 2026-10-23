@@ -460,6 +460,29 @@ function stringField(
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
+/** This edition's mint ask. A batch mint's `price` is the total. */
+function mintAskYocto(row: {
+  price: string | null;
+  amount: string | null;
+  quantity: number | null;
+  extraData: string | null;
+}): string | null {
+  const unit = parseExtra(row.extraData)?.unit_price;
+  if (typeof unit === 'string' && /^\d+$/.test(unit)) return unit;
+  const total = row.price ?? row.amount;
+  const quantity = row.quantity;
+  if (
+    quantity != null &&
+    Number.isInteger(quantity) &&
+    quantity > 1 &&
+    total &&
+    /^\d+$/.test(total)
+  ) {
+    return (BigInt(total) / BigInt(quantity)).toString();
+  }
+  return total;
+}
+
 function priceNearFromYocto(raw: unknown): string | null {
   const priceYocto =
     typeof raw === 'string'
@@ -2082,8 +2105,7 @@ export async function fetchScarceMintSummary(
     const mint =
       history.find((row) => SCARCE_MINT_OPS.has(row.operation)) ?? history[0];
     const ms = timestampMs(mint.blockTimestamp);
-    const mintPriceNear =
-      priceNearFromYocto(mint.price) ?? priceNearFromYocto(mint.amount);
+    const mintPriceNear = priceNearFromYocto(mintAskYocto(mint));
     return {
       mintedAtMs: ms > 0 ? ms : null,
       mintPriceNear,

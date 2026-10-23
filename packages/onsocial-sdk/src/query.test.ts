@@ -4206,16 +4206,49 @@ describe('QueryModule', () => {
       expect(body.query).toMatch(/operation: \{_in: \$operation\}/);
     });
 
-    it('tokenHistory filters by tokenId and orders ASC', async () => {
+    it('tokenHistory matches the id list and orders ASC', async () => {
       const { os, fetch } = makeOs({ data: { scarcesEvents: [sampleEvent] } });
       await os.query.scarces.tokenHistory('s:1');
 
       const body = JSON.parse(
         (fetch.mock.calls[0][1] as RequestInit).body as string
       );
-      expect(body.variables).toEqual({ tokenId: 's:1', limit: 200 });
+      expect(body.variables).toEqual({
+        tokenId: 's:1',
+        tokenIdLike: '%"s:1"%',
+        limit: 200,
+        offset: 0,
+      });
       expect(body.query).toMatch(/tokenId: \{_eq: \$tokenId\}/);
-      expect(body.query).toMatch(/orderBy: \[\{blockHeight: ASC\}\]/);
+      expect(body.query).toMatch(/tokenIds: \{_like: \$tokenIdLike\}/);
+      expect(body.query).toMatch(
+        /orderBy: \[\{blockHeight: ASC\}, \{id: ASC\}\]/
+      );
+    });
+
+    it('tokenHistory can page newest first and omit plumbing', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesEvents: [] } });
+      await os.query.scarces.tokenHistory('drop:1', {
+        limit: 40,
+        offset: 40,
+        newestFirst: true,
+        omitOperations: ['royalty_paid', 'purchase_failed'],
+      });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toMatchObject({
+        tokenId: 'drop:1',
+        tokenIdLike: '%"drop:1"%',
+        limit: 40,
+        offset: 40,
+        omit: ['royalty_paid', 'purchase_failed'],
+      });
+      expect(body.query).toMatch(/operation: \{_nin: \$omit\}/);
+      expect(body.query).toMatch(
+        /orderBy: \[\{blockHeight: DESC\}, \{id: DESC\}\]/
+      );
     });
 
     it('collection narrows by collectionId', async () => {
