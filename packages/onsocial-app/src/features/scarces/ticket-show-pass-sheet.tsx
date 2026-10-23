@@ -396,12 +396,14 @@ export function TicketShowPassSheet({
       seatLabel: ticketPassSeatLabel(tokenId, voice),
       holderName: holderName || null,
       holderAccount: holderAccount || null,
+      holderAvatarUrl: holderFaceForOwner?.avatarUrl ?? null,
       qrValue: passCode,
       coverUrl: media,
       valid: Boolean(status?.isValid),
     });
   }, [
     holderAccount,
+    holderFaceForOwner?.avatarUrl,
     holderName,
     media,
     name,

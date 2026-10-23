@@ -1,5 +1,5 @@
 /**
- * Saved Show-pass picture — small cover, event name, and a high-contrast QR.
+ * Saved Show-pass picture — small cover, event name, holder face, and a QR.
  * Download writes the PNG. Save shares that file so the guest can keep it
  * in Photos. This app has no wallet pass certificates.
  */
@@ -22,6 +22,8 @@ export interface TicketPassPictureInput {
   seatLabel: string;
   holderName?: string | null;
   holderAccount?: string | null;
+  /** Same face the pass shows beside the holder name. */
+  holderAvatarUrl?: string | null;
   qrValue: string;
   coverUrl?: string | null;
   /** Valid passes use the protocol green. Everything else stays quiet. */
@@ -82,7 +84,7 @@ export function ticketPassPictureStatusLine(label: string): string {
 
 export type TicketPassShareResult = 'shared' | 'dismissed' | 'unavailable';
 
-function loadCover(url: string): Promise<HTMLImageElement | null> {
+function loadImage(url: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -90,6 +92,34 @@ function loadCover(url: string): Promise<HTMLImageElement | null> {
     img.onerror = () => resolve(null);
     img.src = url;
   });
+}
+
+/**
+ * A blob is same-origin, so the canvas can export it. A cross-origin
+ * image without CORS headers would otherwise strip the face from the file.
+ */
+async function loadCanvasImage(
+  url: string,
+  releases: Array<() => void>
+): Promise<HTMLImageElement | null> {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  try {
+    const response = await fetch(trimmed);
+    if (response.ok) {
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const img = await loadImage(objectUrl);
+      if (img) {
+        releases.push(() => URL.revokeObjectURL(objectUrl));
+        return img;
+      }
+      URL.revokeObjectURL(objectUrl);
+    }
+  } catch {
+    /* gateway blocked the fetch — try the image element */
+  }
+  return loadImage(trimmed);
 }
 
 function wrapLine(
@@ -166,10 +196,95 @@ function drawQr(
   }
 }
 
+function drawAvatar(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  size: number
+) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+  ctx.clip();
+  drawCover(ctx, img, x, y, size, size);
+  ctx.restore();
+}
+
+function inkBox(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  font: string
+): { width: number; ascent: number; descent: number; height: number } {
+  ctx.textBaseline = 'alphabetic';
+  ctx.font = font;
+  const metrics = ctx.measureText(text);
+  const fontSize = Number(font.match(/(\d+)px/)?.[1] ?? 40);
+  const ascent = metrics.actualBoundingBoxAscent || fontSize * 0.75;
+  const descent = metrics.actualBoundingBoxDescent || fontSize * 0.2;
+  return {
+    width: metrics.width,
+    ascent,
+    descent,
+    height: ascent + descent,
+  };
+}
+
+/** Avatar centered on the name and account ink. Text stays centered when there is no face. */
+function paintHolder(
+  ctx: CanvasRenderingContext2D,
+  holder: string,
+  account: string,
+  avatar: HTMLImageElement | null,
+  y: number
+): number {
+  const nameFont = `600 40px ${FONT}`;
+  const accountFont = holder ? `500 30px ${FONT}` : `600 40px ${FONT}`;
+  const nameInk = holder ? inkBox(ctx, holder, nameFont) : null;
+  const accountInk = account ? inkBox(ctx, account, accountFont) : null;
+  const lineGap = 8;
+  const textW = Math.max(nameInk?.width ?? 0, accountInk?.width ?? 0);
+  const textH =
+    (nameInk?.height ?? 0) +
+    (nameInk && accountInk ? lineGap : 0) +
+    (accountInk?.height ?? 0);
+  const avatarSize = 88;
+  const gap = 24;
+  const hasAvatar = Boolean(avatar);
+  const groupW = (hasAvatar ? avatarSize + gap : 0) + textW;
+  const groupX = (PICTURE_WIDTH - groupW) / 2;
+  const blockH = Math.max(hasAvatar ? avatarSize : 0, textH);
+  const midY = y + blockH / 2;
+
+  if (avatar) {
+    drawAvatar(ctx, avatar, groupX, midY - avatarSize / 2, avatarSize);
+  }
+
+  const textX = hasAvatar ? groupX + avatarSize + gap : PICTURE_WIDTH / 2;
+  ctx.textAlign = hasAvatar ? 'left' : 'center';
+  ctx.textBaseline = 'alphabetic';
+  let inkTop = midY - textH / 2;
+  if (nameInk && holder) {
+    ctx.fillStyle = PICTURE_FG;
+    ctx.font = nameFont;
+    ctx.fillText(holder, textX, inkTop + nameInk.ascent);
+    inkTop += nameInk.height + lineGap;
+  }
+  if (accountInk && account) {
+    ctx.fillStyle = holder ? PICTURE_MUTED : PICTURE_FG;
+    ctx.font = accountFont;
+    ctx.fillText(account, textX, inkTop + accountInk.ascent);
+  }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  return y + blockH;
+}
+
 function paintTicketPass(
   ctx: CanvasRenderingContext2D,
   input: TicketPassPictureInput,
   cover: HTMLImageElement | null,
+  avatar: HTMLImageElement | null,
   matrix: QrCodeGenerateResult
 ): number {
   const pad = 72;
@@ -237,17 +352,9 @@ function paintTicketPass(
 
   const holder = input.holderName?.trim() || '';
   const account = input.holderAccount?.trim() || '';
-  if (holder) {
-    ctx.fillStyle = PICTURE_FG;
-    ctx.font = `600 40px ${FONT}`;
-    ctx.fillText(holder, PICTURE_WIDTH / 2, y);
-    y += 50;
-  }
-  if (account) {
-    ctx.fillStyle = holder ? PICTURE_MUTED : PICTURE_FG;
-    ctx.font = holder ? `500 30px ${FONT}` : `600 40px ${FONT}`;
-    ctx.fillText(account, PICTURE_WIDTH / 2, y);
-    y += holder ? 42 : 50;
+  if (holder || account) {
+    y = paintHolder(ctx, holder, account, avatar, y);
+    y += 28;
   }
 
   ctx.fillStyle = PICTURE_MUTED;
@@ -263,7 +370,8 @@ function paintTicketPass(
 
 async function canvasBlob(
   input: TicketPassPictureInput,
-  cover: HTMLImageElement | null
+  cover: HTMLImageElement | null,
+  avatar: HTMLImageElement | null
 ): Promise<Blob | null> {
   if (typeof document === 'undefined') return null;
   const matrix = ticketPassQrMatrix(input.qrValue);
@@ -274,7 +382,7 @@ async function canvasBlob(
   if (!scratchCtx) return null;
   scratchCtx.fillStyle = PICTURE_BG;
   scratchCtx.fillRect(0, 0, scratch.width, scratch.height);
-  const end = paintTicketPass(scratchCtx, input, cover, matrix);
+  const end = paintTicketPass(scratchCtx, input, cover, avatar, matrix);
 
   const canvas = document.createElement('canvas');
   canvas.width = PICTURE_WIDTH;
@@ -306,18 +414,36 @@ export async function renderTicketPassPicture(
   const qr = input.qrValue.trim();
   if (!qr) return null;
   const coverUrl = input.coverUrl?.trim() || '';
-  const cover = coverUrl ? await loadCover(coverUrl) : null;
+  const avatarUrl = input.holderAvatarUrl?.trim() || '';
+  const releases: Array<() => void> = [];
+  const load = (url: string) => loadCanvasImage(url, releases);
+  const cover = coverUrl ? await load(coverUrl) : null;
+  const avatar = avatarUrl ? await load(avatarUrl) : null;
+  const attempts: Array<{
+    cover: HTMLImageElement | null;
+    avatar: HTMLImageElement | null;
+  }> = [
+    { cover, avatar },
+    { cover, avatar: null },
+    { cover: null, avatar },
+    { cover: null, avatar: null },
+  ];
   try {
-    const blob = await canvasBlob(input, cover);
-    if (blob) return blob;
-  } catch {
-    /* tainted canvas when the cover host blocks export */
-  }
-  if (!cover) return null;
-  try {
-    return await canvasBlob(input, null);
-  } catch {
+    const seen = new Set<string>();
+    for (const attempt of attempts) {
+      const key = `${attempt.cover ? 1 : 0}${attempt.avatar ? 1 : 0}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      try {
+        const blob = await canvasBlob(input, attempt.cover, attempt.avatar);
+        if (blob) return blob;
+      } catch {
+        /* tainted canvas — try the next picture without the blocked image */
+      }
+    }
     return null;
+  } finally {
+    for (const release of releases) release();
   }
 }
 
