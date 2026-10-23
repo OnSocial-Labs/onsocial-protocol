@@ -41,6 +41,8 @@ import {
   dropCreateAllowlistNeedsSaleOpen,
   dropCreateSaleWindowSummary,
   dropCreateSaleCloseDisplay,
+  DROP_CREATE_EARLIER_SALE_CLOSE_HINT,
+  dropCreateEarlierSaleCloseStays,
   dropCreateTicketSaleWindow,
   dropCreateTransferableSummary,
   dropCreateBurnableSummary,
@@ -391,6 +393,17 @@ describe('dropCreate summaries', () => {
         eventEndsMs: null,
       })
     ).toEqual({ error: null, closesMs: null });
+    expect(dropCreateEarlierSaleCloseStays(null, eventEndsMs)).toBe(false);
+    expect(dropCreateEarlierSaleCloseStays(eventEndsMs, eventEndsMs)).toBe(
+      false
+    );
+    expect(
+      dropCreateEarlierSaleCloseStays(eventEndsMs + 30_000, eventEndsMs)
+    ).toBe(false);
+    expect(
+      dropCreateEarlierSaleCloseStays(eventEndsMs - 60_000, eventEndsMs)
+    ).toBe(true);
+    expect(DROP_CREATE_EARLIER_SALE_CLOSE_HINT).toMatch(/postponed/);
     expect(
       dropCreateSaleCloseDisplay({
         isTicket: true,

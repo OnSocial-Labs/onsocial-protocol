@@ -451,6 +451,35 @@ export function dropCreateTicketSaleWindow(input: {
   return { error: null, closesMs: saleClosesMs ?? eventEndsMs };
 }
 
+const SALE_CLOSE_MINUTE_MS = 60_000;
+
+export const DROP_CREATE_EARLIER_SALE_CLOSE_HINT =
+  'This close stays if the event is postponed. Selling stops here.';
+
+/**
+ * A ticket close on an earlier minute does not move when the event is postponed.
+ * The same minute, or an empty close, stays with the event end.
+ */
+export function dropCreateEarlierSaleCloseStays(
+  saleClosesMs: number | null | undefined,
+  eventEndsMs: number | null | undefined
+): boolean {
+  if (
+    saleClosesMs == null ||
+    eventEndsMs == null ||
+    !Number.isFinite(saleClosesMs) ||
+    !Number.isFinite(eventEndsMs) ||
+    saleClosesMs <= 0 ||
+    eventEndsMs <= 0
+  ) {
+    return false;
+  }
+  return (
+    Math.floor(saleClosesMs / SALE_CLOSE_MINUTE_MS) <
+    Math.floor(eventEndsMs / SALE_CLOSE_MINUTE_MS)
+  );
+}
+
 /** Shown close. A ticket with no sale close uses the event end. */
 export function dropCreateSaleCloseDisplay(input: {
   isTicket: boolean;

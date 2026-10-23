@@ -163,7 +163,9 @@ import {
   dropCreateRenewalsSummary,
   dropCreateRoyaltySummary,
   DROP_CREATE_ALLOWLIST_OPEN_HINT,
+  DROP_CREATE_EARLIER_SALE_CLOSE_HINT,
   DROP_CREATE_OPENS_REQUIRED,
+  dropCreateEarlierSaleCloseStays,
   dropCreateAllowlistNeedsSaleOpen,
   dropCreateSaleWindowSummary,
   dropCreateSaleCloseDisplay,
@@ -2566,6 +2568,12 @@ export function CreateDropPanel() {
     draftAllowlist.length,
     startTime
   );
+  const earlierSaleCloseStays =
+    isTicket &&
+    dropCreateEarlierSaleCloseStays(
+      endTime.trim() ? localDateTimeToMs(endTime) : null,
+      eventEnds.trim() ? localDateTimeToMs(eventEnds) : null
+    );
   const saleRowValue = allowlistNeedsOpen
     ? DROP_CREATE_OPENS_REQUIRED
     : dropCreateSaleWindowSummary(
@@ -3787,6 +3795,11 @@ export function CreateDropPanel() {
                   {DROP_CREATE_ALLOWLIST_OPEN_HINT}
                 </p>
               ) : null}
+              {earlierSaleCloseStays ? (
+                <p className="drop-create-advanced-hint">
+                  {DROP_CREATE_EARLIER_SALE_CLOSE_HINT}
+                </p>
+              ) : null}
             </div>
             <DropCreateExtraRow
               label={dropCreateExtraRowLabel('transferable')}
@@ -4129,30 +4142,37 @@ export function CreateDropPanel() {
                   </button>
                 ) : null}
               </div>
-              <div
-                className={`drop-schedule-cell${endTime ? ' has-value' : ''}`}
-              >
-                <button
-                  type="button"
-                  className="drop-schedule-cell-main"
-                  disabled={pending}
-                  onClick={() => setScheduleField('closes')}
+              <div>
+                <div
+                  className={`drop-schedule-cell${endTime ? ' has-value' : ''}`}
                 >
-                  <span className="drop-schedule-cell-label">Closes</span>
-                  <span className="drop-schedule-cell-value">
-                    {endTime ? formatScheduleLabel(endTime) : 'No end'}
-                  </span>
-                </button>
-                {endTime ? (
                   <button
                     type="button"
-                    className="drop-schedule-cell-clear"
+                    className="drop-schedule-cell-main"
                     disabled={pending}
-                    aria-label="Clear close time"
-                    onClick={() => setEndTime('')}
+                    onClick={() => setScheduleField('closes')}
                   >
-                    ✕
+                    <span className="drop-schedule-cell-label">Closes</span>
+                    <span className="drop-schedule-cell-value">
+                      {endTime ? formatScheduleLabel(endTime) : 'No end'}
+                    </span>
                   </button>
+                  {endTime ? (
+                    <button
+                      type="button"
+                      className="drop-schedule-cell-clear"
+                      disabled={pending}
+                      aria-label="Clear close time"
+                      onClick={() => setEndTime('')}
+                    >
+                      ✕
+                    </button>
+                  ) : null}
+                </div>
+                {earlierSaleCloseStays ? (
+                  <p className="drop-create-advanced-hint drop-create-sale-open-hint">
+                    {DROP_CREATE_EARLIER_SALE_CLOSE_HINT}
+                  </p>
                 ) : null}
               </div>
             </div>
