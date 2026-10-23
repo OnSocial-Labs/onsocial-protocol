@@ -129,7 +129,7 @@ describe('page moods', () => {
       'var(--app-font-sans)'
     );
     expect(PAGE_MOOD_PRESETS.noir.label).toBe('Noir');
-    expect(PAGE_MOOD_PRESETS.noir.tagline).toContain('dimmed corners');
+    expect(PAGE_MOOD_PRESETS.noir.tagline).toContain('quiet grain');
     expect(PAGE_MOOD_PRESETS.journal.tagline).toContain('Longform');
   });
 
