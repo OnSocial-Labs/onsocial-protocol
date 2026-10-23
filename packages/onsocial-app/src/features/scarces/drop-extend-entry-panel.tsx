@@ -15,15 +15,62 @@ import {
 } from '@/features/scarces/drop-sale-window-sheet';
 import { SHEET_Z } from '@/lib/sheet-z';
 
+const SALE_CLOSE_MINUTE_MS = 60_000;
+
+/** Same minute the contract uses when a sale close follows a postpone. */
+export function saleCloseMatchesEventEnd(
+  saleClosesAtMs: number | null | undefined,
+  eventEndsAtMs: number | null | undefined
+): boolean {
+  if (
+    saleClosesAtMs == null ||
+    eventEndsAtMs == null ||
+    !Number.isFinite(saleClosesAtMs) ||
+    !Number.isFinite(eventEndsAtMs) ||
+    saleClosesAtMs <= 0 ||
+    eventEndsAtMs <= 0
+  ) {
+    return false;
+  }
+  return (
+    Math.floor(saleClosesAtMs / SALE_CLOSE_MINUTE_MS) ===
+    Math.floor(eventEndsAtMs / SALE_CLOSE_MINUTE_MS)
+  );
+}
+
+/** What the owner reads before they confirm a new entry end. */
+export function postponeEntryLead(
+  eventEndsAtMs: number | null | undefined,
+  saleClosesAtMs: number | null | undefined
+): string {
+  if (
+    saleClosesAtMs == null ||
+    !Number.isFinite(saleClosesAtMs) ||
+    saleClosesAtMs <= 0
+  ) {
+    return 'Passes stay valid until this end. The sale stays open until sold out.';
+  }
+  if (saleCloseMatchesEventEnd(saleClosesAtMs, eventEndsAtMs)) {
+    return 'The sale stays open until this new end. Passes already sold stay valid.';
+  }
+  const label = formatScheduleLabel(
+    toDatetimeLocalValue(new Date(saleClosesAtMs))
+  );
+  return `Passes stay valid until this end. The sale still closes ${label}.`;
+}
+
 /**
  * Owner rain-day panel — pick a new entry / redeem end, then confirm.
  */
 export function DropExtendEntryPanel({
   currentEndsAtMs,
+  saleClosesAtMs = null,
   pending,
   onConfirm,
 }: {
   currentEndsAtMs?: number | null;
+  /** Sale `end_time` in ms. Empty means the sale has no close. */
+  saleClosesAtMs?: number | null;
   pending: boolean;
   onConfirm: (newExpiresAtMs: number) => void;
 }) {
@@ -46,7 +93,7 @@ export function DropExtendEntryPanel({
   return (
     <div className={osActionDrawerConfirmClassName}>
       <p className={osActionDrawerConfirmBodyClassName}>
-        Sold passes and later sales use this end.
+        {postponeEntryLead(currentEndsAtMs, saleClosesAtMs)}
       </p>
       {currentEndsAtMs != null && currentLocal ? (
         <p className={osActionDrawerConfirmBodyClassName}>

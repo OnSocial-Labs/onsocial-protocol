@@ -29,14 +29,12 @@ describe('ticket event metadata', () => {
     });
   });
 
-  it('names the previous end and the end doors use now', () => {
+  it('names the original end, then the postponed end', () => {
     expect(postponeNotice(1_700_000_000_000, 1_700_000_000_000)).toBeNull();
-    expect(postponeNotice(1_700_000_000_000, 1_800_000_000_000)).toContain(
-      'Doors were set for'
-    );
-    expect(postponeNotice(1_700_000_000_000, 1_800_000_000_000)).toContain(
-      'They stay open until'
-    );
+    expect(postponeNotice(null, 1_800_000_000_000)).toBeNull();
+    const notice = postponeNotice(1_700_000_000_000, 1_800_000_000_000);
+    expect(notice).toMatch(/^Doors were set for .+\. Postponed to .+\.$/);
+    expect(notice).toMatch(/\d:\d{2}/);
   });
 
   it('prefers collection metadata rain-day override', () => {
@@ -52,7 +50,10 @@ describe('ticket event metadata', () => {
 
   it('merges event end into metadata without dropping series', () => {
     const next = mergeEventEndsIntoCollectionMetadata(
-      JSON.stringify({ series: { id: 's1', title: 'Season' }, cover: { seat: 1 } }),
+      JSON.stringify({
+        series: { id: 's1', title: 'Season' },
+        cover: { seat: 1 },
+      }),
       1_900_000_000_000
     );
     expect(JSON.parse(next)).toEqual({
@@ -115,30 +116,52 @@ describe('ticket event metadata', () => {
 
   it('keeps a relative hint for a show that is soon or on now', () => {
     const now = 1_700_000_000_000;
-    expect(eventScheduleHint(now + 3 * 60 * 60 * 1000, now + 6 * 60 * 60 * 1000, now)).toMatch(
-      /^Starts in /
-    );
-    expect(eventScheduleHint(now + 10 * 24 * 60 * 60 * 1000, now + 11 * 24 * 60 * 60 * 1000, now)).toBeNull();
-    expect(eventScheduleHint(now - 60 * 60 * 1000, now + 2 * 60 * 60 * 1000, now)).toBe('On now');
-    expect(eventScheduleHint(null, now + 10 * 24 * 60 * 60 * 1000, now)).toBeNull();
+    expect(
+      eventScheduleHint(now + 3 * 60 * 60 * 1000, now + 6 * 60 * 60 * 1000, now)
+    ).toMatch(/^Starts in /);
+    expect(
+      eventScheduleHint(
+        now + 10 * 24 * 60 * 60 * 1000,
+        now + 11 * 24 * 60 * 60 * 1000,
+        now
+      )
+    ).toBeNull();
+    expect(
+      eventScheduleHint(now - 60 * 60 * 1000, now + 2 * 60 * 60 * 1000, now)
+    ).toBe('On now');
+    expect(
+      eventScheduleHint(null, now + 10 * 24 * 60 * 60 * 1000, now)
+    ).toBeNull();
   });
 
   it('uses a day on the list and a relative line only when the show is soon', () => {
     const now = 1_700_000_000_000;
-    expect(eventListWhenLabel(now + 3 * 60 * 60 * 1000, now + 6 * 60 * 60 * 1000, now)).toMatch(
-      /^Starts in /
+    expect(
+      eventListWhenLabel(
+        now + 3 * 60 * 60 * 1000,
+        now + 6 * 60 * 60 * 1000,
+        now
+      )
+    ).toMatch(/^Starts in /);
+    expect(
+      eventListWhenLabel(now - 60 * 60 * 1000, now + 2 * 60 * 60 * 1000, now)
+    ).toBe('On now');
+    expect(eventListWhenLabel(null, now + 3 * 60 * 60 * 1000, now)).not.toBe(
+      'On now'
     );
-    expect(eventListWhenLabel(now - 60 * 60 * 1000, now + 2 * 60 * 60 * 1000, now)).toBe('On now');
-    expect(eventListWhenLabel(null, now + 3 * 60 * 60 * 1000, now)).not.toBe('On now');
     const later = eventListWhenLabel(
       now + 10 * 24 * 60 * 60 * 1000,
       now + 11 * 24 * 60 * 60 * 1000,
       now
     );
     expect(later).not.toMatch(/Ends in|Starts in|:/);
-    expect(eventListWhenLabel(now - 10 * 24 * 60 * 60 * 1000, now - 9 * 24 * 60 * 60 * 1000, now)).not.toMatch(
-      /:/
-    );
+    expect(
+      eventListWhenLabel(
+        now - 10 * 24 * 60 * 60 * 1000,
+        now - 9 * 24 * 60 * 60 * 1000,
+        now
+      )
+    ).not.toMatch(/:/);
   });
 });
 

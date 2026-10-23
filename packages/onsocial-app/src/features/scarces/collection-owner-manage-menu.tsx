@@ -69,6 +69,7 @@ export function CollectionOwnerManageMenu({
   kind = null,
   renewable = false,
   eventEndsAtMs = null,
+  saleClosesAtMs = null,
   doorStaff = null,
   owner = false,
   onOpenFacts,
@@ -83,6 +84,8 @@ export function CollectionOwnerManageMenu({
   kind?: string | null;
   renewable?: boolean;
   eventEndsAtMs?: number | null;
+  /** Sale close in ms. Empty when the sale has no end. */
+  saleClosesAtMs?: number | null;
   /** Pass drops: Door staff / Redeem staff opens from this drawer. */
   doorStaff?: { creatorId: string; voice: PassStaffVoice } | null;
   /** Owner tools. Visitors still get the ⋮ when facts is set. */
@@ -627,6 +630,7 @@ export function CollectionOwnerManageMenu({
         {panel === 'extend' ? (
           <DropExtendEntryPanel
             currentEndsAtMs={eventEndsAtMs}
+            saleClosesAtMs={saleClosesAtMs}
             pending={ownerPending}
             onConfirm={(newExpiresAtMs) => {
               void runExtend(newExpiresAtMs);
