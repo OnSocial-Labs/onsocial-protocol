@@ -169,6 +169,7 @@ import {
   dropCreateAllowlistNeedsSaleOpen,
   dropCreateSaleWindowSummary,
   dropCreateSaleCloseDisplay,
+  dropCreateSaleCloseEmptyLabel,
   dropCreateTicketSaleWindow,
   dropCreateScreenTitle,
   dropCreateTransferableSummary,
@@ -2582,7 +2583,7 @@ export function CreateDropPanel() {
           isTicket,
           endTimeLabel: endTime ? formatScheduleLabel(endTime) : '',
           eventEndsLabel: eventEnds ? formatScheduleLabel(eventEnds) : '',
-          emptyLabel: 'no end',
+          emptyLabel: isTicket ? 'Event end' : 'no end',
         })
       );
   const perWalletRowValue = dropCreatePerWalletSummary(
@@ -4154,7 +4155,9 @@ export function CreateDropPanel() {
                   >
                     <span className="drop-schedule-cell-label">Closes</span>
                     <span className="drop-schedule-cell-value">
-                      {endTime ? formatScheduleLabel(endTime) : 'No end'}
+                      {endTime
+                        ? formatScheduleLabel(endTime)
+                        : dropCreateSaleCloseEmptyLabel(isTicket)}
                     </span>
                   </button>
                   {endTime ? (
@@ -4389,6 +4392,9 @@ export function CreateDropPanel() {
                   ? eventEnds
                   : startTime
         }
+        clearLabel={
+          scheduleField === 'closes' && isTicket ? 'Event end' : undefined
+        }
         minValue={
           scheduleField === 'closes' && startTime
             ? startTime
@@ -4399,9 +4405,17 @@ export function CreateDropPanel() {
         maxValue={
           scheduleField === 'opens'
             ? earlierScheduleBound(endTime, isTicket ? eventEnds : '')
-            : scheduleField === 'eventStarts' && eventEnds
+            : scheduleField === 'closes' && isTicket && eventEnds
               ? eventEnds
-              : undefined
+              : scheduleField === 'eventStarts' && eventEnds
+                ? eventEnds
+                : undefined
+        }
+        maxInclusive={scheduleField === 'closes' && isTicket}
+        maxError={
+          scheduleField === 'closes' && isTicket
+            ? 'Must be on or before the event end.'
+            : undefined
         }
         onClose={() => setScheduleField(null)}
         onChange={(next) => {

@@ -777,6 +777,49 @@ test.describe('create drop', () => {
     ).toBeVisible();
   });
 
+  test('a ticket sale with no close is the event end', async ({ page }) => {
+    await openCreateDrop(page);
+    await clickKindTab(page, 'Tickets');
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+
+    const event = page.getByRole('group', { name: 'Event' });
+    await event.getByText('Required', { exact: true }).click();
+    const ends = page.getByRole('dialog', { name: 'Event ends' });
+    await expect(
+      ends.getByRole('button', { name: 'Clear', exact: true })
+    ).toBeVisible();
+    await expect(
+      ends.getByRole('button', { name: 'No end', exact: true })
+    ).toHaveCount(0);
+    await ends.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(ends).toBeHidden();
+
+    await page.getByRole('button', { name: 'Sale: Now · Event end' }).click();
+    const sale = page.getByRole('dialog', { name: 'Sale' });
+    await expect(
+      sale.getByText(
+        'Opens now. Closes at the event end unless you set an earlier close.'
+      )
+    ).toBeVisible();
+    await expect(sale.getByText('Event end', { exact: true })).toBeVisible();
+    await expect(sale.getByText('No end', { exact: true })).toHaveCount(0);
+    await sale.getByText('Event end', { exact: true }).click();
+    const closes = page.getByRole('dialog', { name: 'Closes' });
+    await expect(
+      closes.getByRole('button', { name: 'Event end', exact: true })
+    ).toBeVisible();
+    await expect(
+      closes.getByRole('button', { name: 'No end', exact: true })
+    ).toHaveCount(0);
+    await closes.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(closes).toBeHidden();
+    await sale.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(sale).toBeHidden();
+    await expect(
+      page.getByRole('button', { name: 'Sale: Now · Event end' })
+    ).toBeVisible();
+  });
+
   test('an earlier ticket close stays if the event is postponed', async ({
     page,
   }) => {
