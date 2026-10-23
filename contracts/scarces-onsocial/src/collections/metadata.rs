@@ -7,6 +7,46 @@ fn template_event_ends_at(template: &serde_json::Value) -> Option<u64> {
     extra.get("eventEndsAt")?.as_u64()
 }
 
+const SALE_CLOSE_MINUTE_MS: u64 = 60_000;
+
+/// A sale close stored in nanoseconds sits on the same minute as an event end
+/// in milliseconds. The app signs a blank ticket close as that event end.
+fn sale_close_matches_event_end(end_time_ns: u64, event_end_ms: u64) -> bool {
+    let end_ms = end_time_ns / crate::NS_PER_MS;
+    end_ms / SALE_CLOSE_MINUTE_MS == event_end_ms / SALE_CLOSE_MINUTE_MS
+}
+
+/// New sale close, in nanoseconds, when postpone should carry the sale with
+/// the event. `None` leaves the sale clock alone: no close, or a close on an
+/// earlier minute. The open time is never cleared.
+fn sale_end_after_postpone(
+    start_time_ns: Option<u64>,
+    end_time_ns: Option<u64>,
+    event_end_ms: Option<u64>,
+    new_event_end_ms: u64,
+) -> Result<Option<u64>, MarketplaceError> {
+    let (Some(end_ns), Some(anchor_ms)) = (end_time_ns, event_end_ms) else {
+        return Ok(None);
+    };
+    if !sale_close_matches_event_end(end_ns, anchor_ms) {
+        return Ok(None);
+    }
+    let next_ns = new_event_end_ms
+        .checked_mul(crate::NS_PER_MS)
+        .ok_or_else(|| {
+            MarketplaceError::InvalidInput("New event end is too far to set the sale close.".into())
+        })?;
+    if start_time_ns.is_some_and(|start| next_ns <= start) {
+        return Err(MarketplaceError::InvalidInput(
+            "New event end must stay after the sale open.".into(),
+        ));
+    }
+    if next_ns == end_ns {
+        return Ok(None);
+    }
+    Ok(Some(next_ns))
+}
+
 /// Keep series, cover, and the rest of freeform metadata. Record the end
 /// this postpone replaced so the drop can say what moved.
 fn merge_event_end_previous(
@@ -162,12 +202,25 @@ impl Contract {
         let prior_end = collection
             .event_ends_at
             .or_else(|| template_event_ends_at(&template));
+        // Door end the sale may be pinned to. Prefer the postpone override,
+        // then the template expiry buyers already see.
+        let sale_anchor_ms = collection
+            .event_ends_at
+            .or(template_exp)
+            .or_else(|| template_event_ends_at(&template));
+        let followed_sale_end = sale_end_after_postpone(
+            collection.start_time,
+            collection.end_time,
+            sale_anchor_ms,
+            expires_at_ms,
+        )?;
         if let Some(prior) = prior_end
-            && prior != expires_at_ms {
-                let next_meta = merge_event_end_previous(collection.metadata.as_deref(), prior)?;
-                crate::validation::validate_metadata_json(&next_meta)?;
-                collection.metadata = Some(next_meta);
-            }
+            && prior != expires_at_ms
+        {
+            let next_meta = merge_event_end_previous(collection.metadata.as_deref(), prior)?;
+            crate::validation::validate_metadata_json(&next_meta)?;
+            collection.metadata = Some(next_meta);
+        }
         let obj = template.as_object_mut().ok_or_else(|| {
             MarketplaceError::InvalidState("Collection template is not a JSON object".into())
         })?;
@@ -177,16 +230,15 @@ impl Contract {
         // `extra` is a JSON string field; sync eventEndsAt when it exists.
         if let Some(extra_str) = obj.get("extra").and_then(|v| v.as_str())
             && let Ok(mut extra_json) = serde_json::from_str::<serde_json::Value>(extra_str)
-                && let Some(extra_obj) = extra_json.as_object_mut()
-                    && extra_obj.contains_key("eventEndsAt") {
-                        extra_obj.insert("eventEndsAt".into(), expires_at_ms.into());
-                        let next_extra = serde_json::to_string(&extra_json).map_err(|_| {
-                            MarketplaceError::InternalError(
-                                "Failed to serialize template extra".into(),
-                            )
-                        })?;
-                        obj.insert("extra".into(), serde_json::Value::String(next_extra));
-                    }
+            && let Some(extra_obj) = extra_json.as_object_mut()
+            && extra_obj.contains_key("eventEndsAt")
+        {
+            extra_obj.insert("eventEndsAt".into(), expires_at_ms.into());
+            let next_extra = serde_json::to_string(&extra_json).map_err(|_| {
+                MarketplaceError::InternalError("Failed to serialize template extra".into())
+            })?;
+            obj.insert("extra".into(), serde_json::Value::String(next_extra));
+        }
 
         let next_template = serde_json::to_string(&template)
             .map_err(|_| MarketplaceError::InternalError("Failed to serialize template".into()))?;
@@ -198,6 +250,9 @@ impl Contract {
         }
         collection.metadata_template = next_template;
         collection.event_ends_at = Some(expires_at_ms);
+        if let Some(end_ns) = followed_sale_end {
+            collection.end_time = Some(end_ns);
+        }
 
         let before = self.storage_usage_flushed();
         self.collections
@@ -238,6 +293,14 @@ impl Contract {
                 kind.as_deref(),
             ),
         );
+        if let Some(end_ns) = followed_sale_end {
+            events::emit_collection_timing_updated(
+                actor_id,
+                collection_id,
+                collection.start_time,
+                Some(end_ns),
+            );
+        }
         Ok(())
     }
 
@@ -313,5 +376,53 @@ impl Contract {
             collection.app_metadata.as_deref(),
         );
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod sale_follow_tests {
+    use super::{sale_close_matches_event_end, sale_end_after_postpone};
+    use crate::NS_PER_MS;
+
+    const EVENT_MS: u64 = 1_700_086_400_000;
+    const NEW_EVENT_MS: u64 = 1_700_345_600_000;
+    const OPEN_NS: u64 = 1_700_000_000_000_000_000;
+
+    #[test]
+    fn same_minute_follows_and_an_earlier_minute_stays() {
+        let same_ns = EVENT_MS * NS_PER_MS;
+        assert!(sale_close_matches_event_end(same_ns, EVENT_MS));
+        assert!(!sale_close_matches_event_end(
+            (EVENT_MS - 60_000) * NS_PER_MS,
+            EVENT_MS
+        ));
+        assert_eq!(
+            sale_end_after_postpone(Some(OPEN_NS), Some(same_ns), Some(EVENT_MS), NEW_EVENT_MS)
+                .unwrap(),
+            Some(NEW_EVENT_MS * NS_PER_MS)
+        );
+        assert_eq!(
+            sale_end_after_postpone(
+                Some(OPEN_NS),
+                Some((EVENT_MS - 60_000) * NS_PER_MS),
+                Some(EVENT_MS),
+                NEW_EVENT_MS
+            )
+            .unwrap(),
+            None
+        );
+        assert_eq!(
+            sale_end_after_postpone(None, None, Some(EVENT_MS), NEW_EVENT_MS).unwrap(),
+            None
+        );
+        assert!(
+            sale_end_after_postpone(
+                Some(NEW_EVENT_MS * NS_PER_MS),
+                Some(same_ns),
+                Some(EVENT_MS),
+                NEW_EVENT_MS
+            )
+            .is_err()
+        );
     }
 }
