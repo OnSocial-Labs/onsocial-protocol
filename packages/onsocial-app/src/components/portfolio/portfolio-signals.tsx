@@ -30,6 +30,22 @@ function signalValueClass(value: number): string {
   return value === 0 ? 'signal-value is-zero' : 'signal-value';
 }
 
+/** Same digit column as the rolling counts, including the decimal. */
+function FaceFigures({ text }: { text: string }) {
+  return (
+    <span className="signal-figures">
+      {Array.from(text).map((glyph, index) => (
+        <span
+          className={glyph === '.' ? 'signal-figure is-dot' : 'signal-figure'}
+          key={`${glyph}-${index}`}
+        >
+          {glyph}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 const ReputationFaceFacts = dynamic(
   () =>
     import('@/components/portfolio/reputation-face-facts').then(
@@ -93,6 +109,7 @@ export function PortfolioSignals({
                     value={signals.standingCount}
                     rollSignal={countRoll}
                     grouped
+                    textRest
                   />
                 </span>
               </span>
@@ -112,6 +129,7 @@ export function PortfolioSignals({
                     value={signals.standingWithCount}
                     rollSignal={countRoll}
                     grouped
+                    textRest
                   />
                 </span>
                 <ProtocolMotionArrow className={arrowClass} />
@@ -136,6 +154,7 @@ export function PortfolioSignals({
                     value={signals.mutualStandingCount}
                     rollSignal={countRoll}
                     grouped
+                    textRest
                   />
                 </span>
                 <ProtocolMotionArrow
@@ -167,6 +186,7 @@ export function PortfolioSignals({
                       value={signals.endorsementsReceivedCount}
                       rollSignal={countRoll}
                       grouped
+                      textRest
                     />
                   </span>
                 </span>
@@ -188,6 +208,7 @@ export function PortfolioSignals({
                       value={signals.endorsementsGivenCount}
                       rollSignal={countRoll}
                       grouped
+                      textRest
                     />
                   </span>
                   <ProtocolMotionArrow className={arrowClass} />
@@ -224,7 +245,11 @@ export function PortfolioSignals({
                         Math.round(signals.reputation.reputation)
                       )}
                     >
-                      {formatFaceReputation(signals.reputation.reputation)}
+                      <FaceFigures
+                        text={formatFaceReputation(
+                          signals.reputation.reputation
+                        )}
+                      />
                     </span>
                   </span>
                 </button>

@@ -29,16 +29,25 @@ function usePrefersReducedMotion(): boolean {
 function DigitRoll({
   digit,
   rollSignal,
+  playFrom,
+  stepPx,
 }: {
   digit: number;
   rollSignal?: number;
+  /** Mount already on this digit and roll to `digit`. */
+  playFrom?: number;
+  /** Fixed line height so the roll cannot change the count's box. */
+  stepPx?: number;
 }) {
   const reduced = usePrefersReducedMotion();
   const target = mod10(digit);
-  const [pos, setPos] = useState(() => parkedDigitPosition(target));
+  const [pos, setPos] = useState(() =>
+    parkedDigitPosition(playFrom === undefined ? target : mod10(playFrom))
+  );
   const [motion, setMotion] = useState(false);
   const posRef = useRef(pos);
-  const skipRef = useRef(true);
+  const skipRef = useRef(playFrom === undefined);
+  const playedRef = useRef(false);
   const signalRef = useRef(rollSignal);
 
   useEffect(() => {
@@ -61,10 +70,19 @@ function DigitRoll({
       setPos(parked);
     };
 
+    const mountPlay =
+      playFrom !== undefined &&
+      !playedRef.current &&
+      mod10(playFrom) !== target;
+
     const frame = window.requestAnimationFrame(() => {
       if (cancelled) return;
+      playedRef.current = true;
       signalRef.current = rollSignal;
-      if (reduced || motionKind === 'snap' || mod10(from) === target) {
+      if (
+        !mountPlay &&
+        (reduced || motionKind === 'snap' || mod10(from) === target)
+      ) {
         const parked = parkedDigitPosition(target);
         if (posRef.current !== parked) park(parked);
         else setMotion(false);
@@ -99,20 +117,42 @@ function DigitRoll({
       window.cancelAnimationFrame(follow);
       window.clearTimeout(timer);
     };
-  }, [reduced, rollSignal, target]);
+  }, [playFrom, reduced, rollSignal, target]);
 
+  const step = stepPx && stepPx > 0 ? stepPx : null;
   return (
-    <span className="os-rolling-digit">
+    <span
+      className="os-rolling-digit"
+      style={step ? { height: step } : undefined}
+    >
       <span
         className={
           motion
             ? 'os-rolling-digit-strip is-rolling'
             : 'os-rolling-digit-strip'
         }
-        style={{ transform: `translate3d(0, ${-pos}em, 0)` }}
+        style={{
+          transform: step
+            ? `translate3d(0, ${-pos * step}px, 0)`
+            : `translate3d(0, ${-pos}em, 0)`,
+        }}
       >
         {Array.from({ length: STRIP_LENGTH }, (_, index) => (
-          <span className="os-rolling-digit-cell" key={index}>
+          <span
+            className="os-rolling-digit-cell"
+            key={index}
+            style={
+              step
+                ? {
+                    height: step,
+                    padding: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }
+                : undefined
+            }
+          >
             {index % 10}
           </span>
         ))}
@@ -125,19 +165,29 @@ function DigitRoll({
  * Integer wheel. First paint is still. Later changes roll each digit the short way.
  * Pass `rollSignal` to roll only when the viewer's own confirm bumps it.
  * Omit it to roll on every value change (the open drop supply).
+ * `textRest` keeps each face digit in one fixed column. The column does not
+ * change width when the digit changes, and the glyph is never squeezed.
  */
 export function RollingNumber({
   value,
   rollSignal,
   grouped = false,
+  textRest = false,
 }: {
   value: number;
   rollSignal?: number;
   grouped?: boolean;
+  /** Face count: stable digit columns, parked and while rolling. */
+  textRest?: boolean;
 }) {
   const glyphs = rollingGlyphs(value, grouped);
   return (
-    <span className="os-rolling-number" aria-hidden="true">
+    <span
+      className={
+        textRest ? 'os-rolling-number is-face' : 'os-rolling-number'
+      }
+      aria-hidden="true"
+    >
       {glyphs.map((glyph) =>
         glyph.kind === 'sep' ? (
           <span className="os-rolling-sep" key={glyph.key}>

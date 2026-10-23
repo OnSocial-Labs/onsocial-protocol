@@ -3772,24 +3772,27 @@ a.os-surface-row {
   text-decoration: none;
 }
 
-/* Buy party identity — unlayered so stacked name/@handle always wins. */
+/* Buy party identity — same small face as the drop page creator. */
 .scarce-buy-author-line {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.15rem;
+  gap: 0.06rem;
   margin: 0;
   font-size: 0.72rem;
-  color: rgb(var(--fg-rgb) / 0.45);
+  color: rgb(var(--fg-rgb) / 0.42);
 }
 
 .scarce-buy-author-label {
-  line-height: 1.25;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: rgb(var(--fg-rgb) / 0.42);
 }
 
 .scarce-buy-party {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.4rem;
   min-width: 0;
   max-width: 100%;
@@ -3824,8 +3827,7 @@ a.os-surface-row {
 
 .scarce-buy-party-avatar {
   flex-shrink: 0;
-  width: 1.5rem !important;
-  height: 1.5rem !important;
+  margin-top: 0.08rem;
 }
 
 .scarce-buy-party-text {
@@ -3837,7 +3839,7 @@ a.os-surface-row {
   justify-content: center;
   gap: 0.06rem;
   /* Name + handle — reserve both lines before profile name arrives. */
-  min-height: calc(0.82rem * 1.25 + 0.06rem + 0.68rem * 1.2);
+  min-height: calc(0.875rem * 1.25 + 0.06rem + 0.72rem * 1.2);
 }
 
 .scarce-buy-party-skel-name {
@@ -3866,7 +3868,7 @@ a.os-surface-row {
 }
 
 .scarce-buy-party-name {
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   font-weight: var(--os-identity-name-weight, 600);
   letter-spacing: -0.01em;
   line-height: 1.25;
@@ -3875,7 +3877,7 @@ a.os-surface-row {
 }
 
 .scarce-buy-party-handle {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: var(--os-identity-handle-weight, 400);
   line-height: 1.2;
   color: var(--os-identity-handle);
@@ -8587,6 +8589,34 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.46);
   }
 
+  .portfolio-rally-strip .os-media-face-identity {
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+
+  .portfolio-rally-strip .os-media-face-identity .profile-avatar {
+    width: 1.35rem;
+    height: 1.35rem;
+    margin-top: 0.08rem;
+  }
+
+  .portfolio-rally-strip .os-media-face-identity-copy {
+    gap: 0.06rem;
+  }
+
+  .portfolio-rally-strip .os-media-face-identity-name,
+  .portfolio-rally-strip .os-media-face-identity-name-row {
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+  }
+
+  .portfolio-rally-strip .os-media-face-identity-handle {
+    font-size: 0.72rem;
+    line-height: 1.2;
+  }
+
   .rally-sheet-back {
     align-self: flex-start;
     margin-block: auto;
@@ -11792,6 +11822,37 @@ a.os-surface-row {
     width: max-content;
     max-width: 100%;
     min-width: 0;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  /* Same face as a standing row: 2.25rem avatar, name line, @id under it. */
+  .portfolio-writing-article-author .os-media-face-identity .profile-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+    margin-top: 0.05rem;
+  }
+
+  .portfolio-writing-article-author .os-media-face-identity-copy {
+    gap: 0.05rem;
+  }
+
+  .portfolio-writing-article-author .os-media-face-identity-name-row {
+    gap: 0.3em;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.5;
+  }
+
+  .portfolio-writing-article-author .os-media-face-identity-name {
+    font-size: 1em;
+    line-height: inherit;
+  }
+
+  .portfolio-writing-article-author .os-media-face-identity-handle {
+    font-size: 0.72rem;
+    line-height: 1.45;
   }
 
   .portfolio-writing-article-stand {
@@ -12262,14 +12323,20 @@ a.os-surface-row {
     margin-bottom: calc(var(--portfolio-shelf-pull, 0.44rem) * -1);
     container-type: inline-size;
     container-name: portfolio-signals;
-    /* Fluid min/max — balanced: neither edge-stretched nor crushed. */
-    --signals-metrics-gap-x: clamp(0.08rem, 1.8cqi, 0.22rem);
-    --signals-metrics-gap-y: clamp(0.08rem, 1cqi, 0.18rem);
+    /*
+     * One line at every width. The preferred size tracks the column;
+     * the floor only applies once the window is narrower than a phone.
+     */
+    --signals-metrics-gap-x: clamp(0.03rem, 0.85cqi, 0.22rem);
+    --signals-metrics-gap-y: clamp(0.04rem, 0.6cqi, 0.18rem);
     --signals-group-gap: var(--signals-metrics-gap-x);
-    --signals-metric-pad-x: clamp(0.06rem, 1.4cqi, 0.24rem);
-    --signals-metric-inner-gap: clamp(0.04rem, 0.7cqi, 0.1rem);
-    --signals-value-size: clamp(0.88rem, 3.8cqi, 0.92rem);
-    --signals-arrow-size: clamp(0.5625rem, 2.6cqi, 0.625rem);
+    --signals-metric-pad-x: clamp(0.02rem, 0.85cqi, 0.24rem);
+    --signals-metric-inner-gap: clamp(0.02rem, 0.45cqi, 0.1rem);
+    --signals-value-size: clamp(0.62rem, 4.7cqi, 0.92rem);
+    /* Shared digit column. A little inside 1ch, still wide enough for 0 and 8. */
+    --signals-figure-track: -0.05em;
+    --signals-figure: calc(1ch + var(--signals-figure-track));
+    --signals-arrow-size: clamp(0.42rem, 2.15cqi, 0.625rem);
     --signals-caption-size: clamp(0.54rem, 2.2cqi, 0.62rem);
     --signals-caption-tracking: clamp(0.03em, 0.18cqi, 0.07em);
   }
@@ -12290,10 +12357,10 @@ a.os-surface-row {
 
   .portfolio-signals-metrics {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: baseline;
     justify-content: center;
-    width: fit-content;
+    width: max-content;
     max-width: 100%;
     margin-inline: auto;
     gap: var(--signals-metrics-gap-y) var(--signals-metrics-gap-x);
@@ -12455,10 +12522,39 @@ a.os-surface-row {
     color: inherit;
   }
 
-  /* Reputation is plain text beside the wheels. Same em box and the
-     same 0.08em ink drop the digit cells use, so resize keeps one baseline. */
-  .signal-value:not(:has(.os-rolling-number)) {
-    padding-top: 0.08em;
+  /*
+   * The parent does not clip. Each digit column clips only the wheel
+   * turning above and below the line.
+   */
+  .portfolio-signals .signal-value,
+  .portfolio-signals .signal-value:not(:has(.os-rolling-number)) {
+    display: inline;
+    height: auto;
+    overflow: visible;
+    padding: 0;
+    line-height: 1;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .portfolio-signals .portfolio-signals-metrics,
+  .portfolio-signals .signal-metrics-chunk,
+  .portfolio-signals .signal-group,
+  .portfolio-signals .signal-metric,
+  .portfolio-signals .signal-metric-inner {
+    align-items: center;
+  }
+
+  .portfolio-signals .signal-metric-inner {
+    gap: 0.08em;
+  }
+
+  .portfolio-signals .signal-metric-arrow {
+    align-self: center;
+  }
+
+  .portfolio-signals .signal-metric-solidarity .signal-metric-inner {
+    padding-inline-end: 0;
   }
 
   .signal-value.is-zero {
@@ -12471,6 +12567,15 @@ a.os-surface-row {
     font-size: 0.78rem;
     line-height: 1;
     flex-shrink: 0;
+  }
+
+  /* Separators sit on the digit baseline, same size, quieter ink. */
+  .portfolio-signals .signal-dot,
+  .portfolio-signals .signal-sep {
+    font-size: var(--signals-value-size);
+    font-weight: 500;
+    line-height: 1;
+    color: rgb(var(--fg-rgb) / 0.28);
   }
 
   .signal-sep {
@@ -13256,10 +13361,10 @@ a.os-surface-row {
     .portfolio-frame .portfolio-signals {
       gap: 0.03rem;
       margin-bottom: calc(var(--portfolio-shelf-pull, 0.48rem) * -1);
-      --signals-metrics-gap-x: clamp(0.04rem, 1.4cqi, 0.12rem);
-      --signals-metrics-gap-y: clamp(0.03rem, 0.75cqi, 0.08rem);
-      --signals-metric-pad-x: clamp(0.03rem, 1.1cqi, 0.12rem);
-      --signals-value-size: clamp(0.8125rem, 3.4cqi, 0.875rem);
+      --signals-metrics-gap-x: clamp(0.02rem, 0.75cqi, 0.12rem);
+      --signals-metrics-gap-y: clamp(0.02rem, 0.5cqi, 0.08rem);
+      --signals-metric-pad-x: clamp(0.02rem, 0.7cqi, 0.12rem);
+      --signals-value-size: clamp(0.62rem, 4.4cqi, 0.875rem);
       --signals-caption-size: clamp(0.48rem, 1.9cqi, 0.54rem);
       --signals-caption-tracking: clamp(0.02em, 0.14cqi, 0.05em);
     }
@@ -24977,7 +25082,7 @@ a.os-surface-row {
     flex-direction: column;
     flex-wrap: nowrap;
     align-items: flex-start;
-    gap: 0.08rem;
+    gap: 0.05rem;
     overflow: visible;
   }
 
@@ -24989,8 +25094,9 @@ a.os-surface-row {
   .post-identity--stacked .post-identity-handle {
     flex: 0 1 auto;
     max-width: 100%;
-    font-size: var(--os-identity-handle-size, 0.72rem);
+    font-size: 0.72rem;
     font-weight: var(--os-identity-handle-weight, 400);
+    line-height: 1.45;
     color: var(--os-identity-handle);
     text-decoration: none;
     transition: color 160ms ease;
@@ -25158,7 +25264,7 @@ a.os-surface-row {
   .post-identity--stacked .post-identity-main--stacked {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.08rem;
+    gap: 0.05rem;
   }
 
   .post-identity--stacked .post-identity-name,
@@ -26384,6 +26490,79 @@ a.os-surface-row {
     height: 1em;
     line-height: 1;
     font-variant-numeric: tabular-nums;
+  }
+
+  .portfolio-signals .signal-group-reputation .signal-value {
+    display: inline;
+    height: auto;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+  }
+
+  /*
+   * Face digits keep one column each. A 1 turning into an 8 stays the
+   * same width. The window hides the wheel, not the glyph in the line.
+   */
+  .portfolio-signals .os-rolling-number.is-face {
+    display: inline-flex;
+    align-items: center;
+    height: 1em;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .portfolio-signals .os-rolling-number.is-face .os-rolling-digit,
+  .portfolio-signals .signal-figure {
+    width: var(--signals-figure);
+    min-width: var(--signals-figure);
+    max-width: var(--signals-figure);
+    flex: 0 0 var(--signals-figure);
+    height: 1em;
+    overflow: hidden;
+    letter-spacing: 0;
+  }
+
+  .portfolio-signals .signal-figure {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .portfolio-signals .os-rolling-number.is-face .os-rolling-digit-strip {
+    width: 100%;
+  }
+
+  .portfolio-signals .signal-figures {
+    display: inline-flex;
+    align-items: center;
+    height: 1em;
+    letter-spacing: 0;
+  }
+
+  .portfolio-signals .signal-figure.is-dot {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .portfolio-signals .os-rolling-number.is-face .os-rolling-digit-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 1em;
+    padding: 0;
+    letter-spacing: 0;
+  }
+
+  .portfolio-signals .os-rolling-number.is-face .os-rolling-sep {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    height: 1em;
+    padding: 0;
   }
 
   .os-rolling-digit {
@@ -30371,21 +30550,21 @@ a.os-surface-row {
     margin: 0;
     display: flex;
     align-items: flex-start;
-    gap: 0.45rem;
+    gap: 0.4rem;
     min-width: 0;
   }
 
   .collection-meta-avatar-link {
     flex-shrink: 0;
-    margin-top: 0.05rem;
+    margin-top: 0.08rem;
     line-height: 0;
     text-decoration: none;
     color: inherit;
   }
 
-  .collection-meta-avatar {
-    width: 1.55rem;
-    height: 1.55rem;
+  .collection-meta-avatar.profile-avatar {
+    width: 1.35rem;
+    height: 1.35rem;
   }
 
   .collection-meta-copy {
@@ -30394,7 +30573,7 @@ a.os-surface-row {
     flex: 1;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.12rem;
+    gap: 0.06rem;
   }
 
   .collection-meta-creator-name {
@@ -30472,8 +30651,9 @@ a.os-surface-row {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: var(--os-identity-handle-size, 0.72rem);
+    font-size: 0.72rem;
     font-weight: var(--os-identity-handle-weight, 400);
+    line-height: 1.2;
     color: var(--os-identity-handle);
     text-decoration: none;
     cursor: pointer;
@@ -31392,6 +31572,40 @@ a.os-surface-row {
     min-width: 0;
   }
 
+  /* Same face as a standing row. */
+  .collection-writing-byline .os-media-face-identity {
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .collection-writing-byline .os-media-face-identity .profile-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+    margin-top: 0.05rem;
+  }
+
+  .collection-writing-byline .os-media-face-identity-copy {
+    gap: 0.05rem;
+  }
+
+  .collection-writing-byline .os-media-face-identity-name-row {
+    gap: 0.3em;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.5;
+  }
+
+  .collection-writing-byline .os-media-face-identity-name {
+    font-size: 1em;
+    line-height: inherit;
+  }
+
+  .collection-writing-byline .os-media-face-identity-handle {
+    font-size: 0.72rem;
+    line-height: 1.45;
+  }
+
   .collection-writing.is-immersive .collection-writing-downloads {
     margin-top: 0.05rem;
     opacity: 0.72;
@@ -32270,7 +32484,7 @@ a.os-surface-row {
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    gap: 0.6rem;
+    gap: 0.4rem;
     width: 100%;
     min-width: 0;
     /* Holder arrives with token status. Keep the row so the QR stays put. */
@@ -32296,22 +32510,23 @@ a.os-surface-row {
     flex: 0 1 auto;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.02rem;
+    gap: 0.06rem;
     min-width: 0;
     max-width: 100%;
   }
 
+  /* Same small face as the drop page creator. */
   .ticket-show-pass-holder-name {
     margin: 0;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.88rem;
-    font-weight: 650;
-    letter-spacing: -0.015em;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
     line-height: 1.25;
-    color: rgb(var(--fg-rgb) / 0.9);
+    color: var(--os-identity-name);
   }
 
   .ticket-show-pass-holder-account {
@@ -32320,10 +32535,10 @@ a.os-surface-row {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.74rem;
-    font-weight: 550;
-    line-height: 1.25;
-    color: rgb(var(--fg-rgb) / 0.58);
+    font-size: 0.72rem;
+    font-weight: 400;
+    line-height: 1.2;
+    color: var(--os-identity-handle);
   }
 
   /* Account is the sole identity line — keep it readable for the door. */
@@ -35442,6 +35657,38 @@ a.os-surface-row {
     flex: 1 1 auto;
     min-width: 0;
     max-width: none;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .feed-photo-caption-identity .os-media-face-identity .profile-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+    margin-top: 0.05rem;
+  }
+
+  .feed-photo-caption-identity .os-media-face-identity-copy {
+    width: 100%;
+    gap: 0.05rem;
+  }
+
+  .feed-photo-caption-identity .os-media-face-identity-name-row {
+    gap: 0.3em;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.5;
+  }
+
+  .feed-photo-caption-identity .os-media-face-identity-name {
+    font-size: 1em;
+    line-height: inherit;
+  }
+
+  .feed-photo-caption-identity .os-media-face-identity-handle {
+    max-width: 100%;
+    font-size: 0.72rem;
+    line-height: 1.45;
   }
 
   .feed-photo-caption-stand {
@@ -35455,13 +35702,6 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.12);
   }
 
-  .feed-photo-caption-identity .os-media-face-identity-copy {
-    width: 100%;
-  }
-
-  .feed-photo-caption-identity .os-media-face-identity-handle {
-    max-width: 100%;
-  }
 
   .feed-photo-caption-text {
     display: block;
