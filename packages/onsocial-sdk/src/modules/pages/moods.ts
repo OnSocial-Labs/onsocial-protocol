@@ -460,7 +460,7 @@ export const PAGE_MOOD_PRESETS: Record<BuiltInPageMoodId, PageMoodPreset> = {
   noir: {
     id: 'noir',
     label: 'Noir',
-    tagline: 'Silver screen — true black, hard light, film grain.',
+    tagline: 'Silver screen — true black, hard light, dimmed corners.',
     theme: {
       background: '#000000',
       backgroundLight: '#ffffff',

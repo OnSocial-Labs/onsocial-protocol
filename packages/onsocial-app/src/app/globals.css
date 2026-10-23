@@ -5602,8 +5602,8 @@ a.os-surface-row {
   }
 
   /*
-   * Noir — old-movie treatment on top of the true-black/white palette:
-   * silver-screen media (grayscale), edge vignette, and animated film grain.
+   * Noir — silver screen on the true-black/white palette.
+   * Pictures stay grayscale. Corners fall off. The page stays still.
    * Signal hues stay chromatic — spot color reads harder on a grayscale page.
    */
   .portfolio-frame[data-mood='noir'] .portfolio-page :is(img, video) {
@@ -5630,22 +5630,10 @@ a.os-surface-row {
     );
   }
 
-  .portfolio-frame[data-mood='noir'] .portfolio-page::after {
-    content: '';
-    position: absolute;
-    inset: -4%;
-    z-index: 2;
-    pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    opacity: 0.2;
-    mix-blend-mode: screen;
-    animation: mood-noir-grain 0.48s steps(4) infinite;
-  }
-
-  /* Outranks the generic mood-only preview bloom's `opacity: 1`. */
-  .portfolio-frame[data-mood='noir'][data-mood-preview='true'][data-mood-only='true']
+  /* Empty hero is the page color. The vignette is the only treatment. */
+  .portfolio-frame[data-mood-only='true'][data-mood='noir']
     .portfolio-page::after {
-    opacity: 0.2;
+    content: none;
   }
 
   :root[data-theme='light'] .portfolio-frame[data-mood='noir']::before {
@@ -5656,13 +5644,6 @@ a.os-surface-row {
     );
   }
 
-  :root[data-theme='light']
-    .portfolio-frame[data-mood='noir']
-    .portfolio-page::after {
-    opacity: 0.1;
-    mix-blend-mode: multiply;
-  }
-
   @media (prefers-color-scheme: light) {
     :root:not([data-theme]) .portfolio-frame[data-mood='noir']::before {
       background: radial-gradient(
@@ -5670,37 +5651,6 @@ a.os-surface-row {
         transparent 55%,
         rgb(17 19 24 / 0.16) 100%
       );
-    }
-
-    :root:not([data-theme])
-      .portfolio-frame[data-mood='noir']
-      .portfolio-page::after {
-      opacity: 0.1;
-      mix-blend-mode: multiply;
-    }
-  }
-
-  @keyframes mood-noir-grain {
-    0% {
-      transform: translate(0, 0);
-    }
-    25% {
-      transform: translate(-1.5%, 1%);
-    }
-    50% {
-      transform: translate(1%, -1.5%);
-    }
-    75% {
-      transform: translate(-1%, -1%);
-    }
-    100% {
-      transform: translate(0, 0);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .portfolio-frame[data-mood='noir'] .portfolio-page::after {
-      animation: none;
     }
   }
 
