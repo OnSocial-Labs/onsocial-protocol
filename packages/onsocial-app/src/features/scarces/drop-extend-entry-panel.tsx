@@ -43,14 +43,14 @@ export function postponeEntryLead(
   eventEndsAtMs: number | null | undefined,
   saleClosesAtMs: number | null | undefined
 ): string {
+  // A missing close is still capped by the door. Tickets store the event
+  // end as that close; either way buying stops at the end being set.
   if (
     saleClosesAtMs == null ||
     !Number.isFinite(saleClosesAtMs) ||
-    saleClosesAtMs <= 0
+    saleClosesAtMs <= 0 ||
+    saleCloseMatchesEventEnd(saleClosesAtMs, eventEndsAtMs)
   ) {
-    return 'Passes stay valid until this end. The sale stays open until sold out.';
-  }
-  if (saleCloseMatchesEventEnd(saleClosesAtMs, eventEndsAtMs)) {
     return 'The sale stays open until this new end. Passes already sold stay valid.';
   }
   const label = formatScheduleLabel(

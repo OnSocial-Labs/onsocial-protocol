@@ -43,12 +43,12 @@ describe('postpone entry lead', () => {
     );
   });
 
-  it('leaves a sale with no close open until sold out', () => {
+  it('stops a sale with no close at the new event end', () => {
     expect(postponeEntryLead(EVENT_END_MS, null)).toBe(
-      'Passes stay valid until this end. The sale stays open until sold out.'
+      'The sale stays open until this new end. Passes already sold stay valid.'
     );
     expect(postponeEntryLead(EVENT_END_MS, undefined)).toBe(
-      'Passes stay valid until this end. The sale stays open until sold out.'
+      'The sale stays open until this new end. Passes already sold stay valid.'
     );
   });
 });
