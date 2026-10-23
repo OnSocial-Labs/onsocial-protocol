@@ -23,16 +23,19 @@ import type { DiscoverDirectoryDrawers } from '@/features/discover/discover-dire
 type DrawersComponent = typeof DiscoverDirectoryDrawers;
 
 /**
- * See offers / See hiring on Offers and Hiring rows.
- * The row link still opens the profile. Each verb is omitted at count zero.
+ * See offers on the Offers face, See hiring on the Hiring face.
+ * The other drawer stays on the profile. Omitted when that count is zero.
+ * The row link still opens the profile.
  */
 export function DiscoverDirectoryActions({
   account,
+  face,
 }: {
   account: ProfileListAccount;
+  face: 'offers' | 'hiring';
 }) {
   const { accountId: viewerId, isConnected } = useAppWallet();
-  const visibility = discoverDirectoryActionVisibility(account);
+  const visibility = discoverDirectoryActionVisibility(account, face);
   const profileName = standingIdentityLabel(
     account.accountId,
     account.name

@@ -356,7 +356,7 @@ export function ProfileSocialListRow({
     ? `View ${accountLabel(account)} DAO`
     : `View ${accountLabel(account)}'s profile`;
   const directoryActions = directoryLine
-    ? discoverDirectoryActionVisibility(account)
+    ? discoverDirectoryActionVisibility(account, directoryLine)
     : null;
   const showDirectoryActions = Boolean(
     directoryActions && (directoryActions.offers || directoryActions.hiring)
@@ -464,8 +464,8 @@ export function ProfileSocialListRow({
             : ''
         }`}
       >
-        {showDirectoryActions ? (
-          <DiscoverDirectoryActions account={account} />
+        {showDirectoryActions && directoryLine ? (
+          <DiscoverDirectoryActions account={account} face={directoryLine} />
         ) : null}
         {timeMeta ? (
           <span className="standing-row-time" aria-label={timeMeta.description}>

@@ -194,14 +194,11 @@ test.describe('discover directory actions', () => {
       page.getByRole('button', { name: 'See offers from Studio' })
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'See hiring at Studio' })
-    ).toBeVisible();
-    await expect(
       page.getByRole('button', { name: 'See offers from Quiet' })
     ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'See hiring at Quiet' })
-    ).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /See hiring/ })).toHaveCount(
+      0
+    );
 
     await expect(
       page.getByRole('link', { name: "View Studio's profile" })
@@ -225,6 +222,17 @@ test.describe('discover directory actions', () => {
     await portrait.getByRole('button', { name: 'Close offer' }).click();
     await expect(portrait).toBeHidden();
 
+    await clickTab(page, 'Filter profiles', 'Hiring');
+    await expect(
+      page.getByRole('button', { name: 'See hiring at Studio' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'See hiring at Clinic' })
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /See offers/ })).toHaveCount(
+      0
+    );
+
     await page.getByRole('button', { name: 'See hiring at Studio' }).click();
     const hiringSheet = page.getByRole('dialog', { name: 'Hiring' });
     await expect(hiringSheet).toBeVisible();
@@ -232,20 +240,9 @@ test.describe('discover directory actions', () => {
     await expect
       .poll(async () => sheetInViewport(page, hiringSheet))
       .toBe(true);
-    await expect(page).toHaveURL(/face=offers/);
+    await expect(page).toHaveURL(/face=hiring/);
     await hiringSheet.getByRole('button', { name: 'Close hiring' }).click();
     await expect(hiringSheet).toBeHidden();
-
-    await clickTab(page, 'Filter profiles', 'Hiring');
-    await expect(
-      page.getByRole('button', { name: 'See hiring at Clinic' })
-    ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'See offers from Clinic' })
-    ).toHaveCount(0);
-    await expect(
-      page.getByRole('button', { name: 'See offers from Studio' })
-    ).toBeVisible();
 
     await clickTab(page, 'Filter profiles', 'People');
     await expect(

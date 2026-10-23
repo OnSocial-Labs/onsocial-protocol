@@ -4,35 +4,44 @@ import { discoverDirectoryActionVisibility } from './discover-directory-action-v
 describe('discoverDirectoryActionVisibility', () => {
   it('hides a verb when its count is zero or unknown', () => {
     expect(
-      discoverDirectoryActionVisibility({
-        offerCount: 0,
-        openJobsCount: 0,
-      })
+      discoverDirectoryActionVisibility(
+        { offerCount: 0, openJobsCount: 0 },
+        'offers'
+      )
     ).toEqual({ offers: false, hiring: false });
-    expect(discoverDirectoryActionVisibility({})).toEqual({
+    expect(discoverDirectoryActionVisibility({}, 'hiring')).toEqual({
       offers: false,
       hiring: false,
     });
   });
 
-  it('shows each verb on its own count', () => {
+  it('shows only the verb for the face, even when both counts are above zero', () => {
     expect(
-      discoverDirectoryActionVisibility({
-        offerCount: 2,
-        openJobsCount: 0,
-      })
+      discoverDirectoryActionVisibility(
+        { offerCount: 2, openJobsCount: 3 },
+        'offers'
+      )
     ).toEqual({ offers: true, hiring: false });
     expect(
-      discoverDirectoryActionVisibility({
-        offerCount: 0,
-        openJobsCount: 1,
-      })
+      discoverDirectoryActionVisibility(
+        { offerCount: 2, openJobsCount: 3 },
+        'hiring'
+      )
     ).toEqual({ offers: false, hiring: true });
+  });
+
+  it('hides the face verb when that count is zero', () => {
     expect(
-      discoverDirectoryActionVisibility({
-        offerCount: 1,
-        openJobsCount: 3,
-      })
-    ).toEqual({ offers: true, hiring: true });
+      discoverDirectoryActionVisibility(
+        { offerCount: 0, openJobsCount: 1 },
+        'offers'
+      )
+    ).toEqual({ offers: false, hiring: false });
+    expect(
+      discoverDirectoryActionVisibility(
+        { offerCount: 1, openJobsCount: 0 },
+        'hiring'
+      )
+    ).toEqual({ offers: false, hiring: false });
   });
 });
