@@ -805,7 +805,13 @@ test.describe('create drop', () => {
     await closes.getByRole('button', { name: '24h', exact: true }).click();
     await expect(closes).toHaveCount(0);
     await expect(sale.getByText(hint)).toBeVisible();
+    await expect(
+      page.locator('.drop-create-sale-row').getByText(hint)
+    ).toBeVisible();
     await sale.getByRole('button', { name: 'Done', exact: true }).click();
-    await expect(page.getByText(hint)).toBeVisible();
+    await expect(sale).toBeHidden();
+    await expect(
+      page.locator('.drop-create-sale-row').getByText(hint)
+    ).toBeVisible();
   });
 });
