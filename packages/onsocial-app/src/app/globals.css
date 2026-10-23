@@ -4310,7 +4310,7 @@ a.os-surface-row {
     color: var(--mood-text, rgb(var(--fg-rgb) / 0.96));
   }
 
-  /* Profile phone card clips; `.portfolio-page` scrolls (hubs pattern). */
+  /* Profile phone card clips. The face itself does not scroll. */
   .frame.portfolio-frame {
     overflow: hidden;
   }
@@ -4557,7 +4557,7 @@ a.os-surface-row {
     min-height: 100dvh;
     flex-direction: column;
     isolation: isolate;
-    /* Hub model: frame clips to the phone radius; `.portfolio-page` scrolls. */
+    /* Face is a locked card. The page drawer owns scrolling. */
     overflow: hidden;
     --portfolio-avatar-size: 5rem;
     /* Name sits just below the hero band; Card avatar straddles the dissolve seam. */
@@ -4662,7 +4662,7 @@ a.os-surface-row {
           rgb(var(--fg-rgb) / 0.06)
         );
       border-radius: 1.25rem;
-      /* Clip only — inner `.portfolio-page` owns the scrollbar (hubs pattern). */
+      /* Clip only. The face does not grow a rail of its own. */
       overflow: hidden;
       box-shadow: none;
       transition: border-color var(--mood-transition-duration, 450ms)
@@ -4910,8 +4910,16 @@ a.os-surface-row {
 
   .portfolio-frame[data-mood-only='true'][data-mood='glass']
     .portfolio-page::after {
-    height: auto;
-    inset: -3%;
+    /*
+     * Stay inside the face. A negative inset becomes scroll height, and
+     * `height: auto` is dropped by the CSS pipeline so the hero-band
+     * height would win. 2% + 96% leaves room for the glint drift.
+     */
+    top: 2%;
+    right: 2%;
+    bottom: auto;
+    left: 2%;
+    height: 96%;
     background: var(--glass-card-glint);
   }
 
@@ -5034,7 +5042,12 @@ a.os-surface-row {
   .portfolio-frame[data-mood='glass'] .portfolio-page::after {
     content: '';
     position: absolute;
-    inset: -3%;
+    /* Inset covers the glint drift so the layer never leaves the face. */
+    top: 2%;
+    right: 2%;
+    bottom: auto;
+    left: 2%;
+    height: 96%;
     z-index: 1;
     pointer-events: none;
     background: var(--glass-card-glint);
@@ -5656,15 +5669,18 @@ a.os-surface-row {
 
   /*
    * Still grain, half the old strength. Screen on black so the specks
-   * read across the page, not only the hero band. Preview opacity is
-   * pinned outside this layer, next to the mood-only bloom.
+   * read across the page, not only the hero band. The layer fills the
+   * face exactly — hanging past the edge is what opened a scrollbar.
+   * Preview opacity is pinned outside this layer, next to the mood-only bloom.
    */
   .portfolio-frame[data-mood='noir'] .portfolio-page::after {
     content: '';
     position: absolute;
-    inset: -4%;
-    /* Empty-hero bloom pins this pseudo to the hero band. Cover the page. */
-    height: calc(100% + 8%);
+    top: 0;
+    right: 0;
+    bottom: auto;
+    left: 0;
+    height: 100%;
     z-index: 2;
     pointer-events: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -7473,10 +7489,8 @@ a.os-surface-row {
     min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+    /* Locked face. A wheel or swipe opens the page drawer; this box does not scroll. */
+    overflow: hidden;
     padding-top: env(safe-area-inset-top, 0px);
   }
 
@@ -12276,7 +12290,7 @@ a.os-surface-row {
   .portfolio-signals-metrics {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: baseline;
     justify-content: center;
     width: fit-content;
     max-width: 100%;
@@ -12293,7 +12307,7 @@ a.os-surface-row {
 
   .signal-metrics-chunk {
     display: inline-flex;
-    align-items: center;
+    align-items: baseline;
     flex-wrap: nowrap;
     gap: var(--signals-metrics-gap-x);
     max-width: 100%;
@@ -12302,7 +12316,7 @@ a.os-surface-row {
 
   .signal-group {
     display: inline-flex;
-    align-items: center;
+    align-items: baseline;
     flex-wrap: nowrap;
     gap: var(--signals-group-gap);
     overflow: visible;
@@ -12322,7 +12336,7 @@ a.os-surface-row {
 
   .signal-metric {
     display: inline-flex;
-    align-items: center;
+    align-items: baseline;
     justify-content: center;
     min-height: auto;
     padding: 0.06rem var(--signals-metric-pad-x);
@@ -12364,7 +12378,7 @@ a.os-surface-row {
 
   .signal-metric-inner {
     display: inline-flex;
-    align-items: center;
+    align-items: baseline;
     gap: var(--signals-metric-inner-gap);
     overflow: visible;
   }
@@ -12373,16 +12387,17 @@ a.os-surface-row {
     width: var(--signals-arrow-size);
     height: var(--signals-arrow-size);
     flex-shrink: 0;
+    align-self: center;
     color: inherit;
   }
 
   /*
    * Solidarity pair needs room for the outward arrow’s hover nudge
-   * (translate-x/y) so zoom/clip doesn’t eat it.
+   * (translate-x) so zoom doesn’t eat it. Inline only, so this count
+   * stays on the same baseline as the other numbers.
    */
   .signal-metric-solidarity .signal-metric-inner {
     padding-inline-end: 0.2rem;
-    padding-block-start: 0.12rem;
   }
 
   /* Active standing/solidarity — color emphasis on the digit only (no pill/glow/underline). */
@@ -12427,11 +12442,22 @@ a.os-surface-row {
   }
 
   .signal-value {
+    display: inline-block;
+    box-sizing: border-box;
+    height: 1em;
+    overflow: hidden;
     font-size: var(--signals-value-size);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
+    line-height: 1;
     color: inherit;
+  }
+
+  /* Reputation is plain text beside the wheels. Same em box and the
+     same 0.08em ink drop the digit cells use, so resize keeps one baseline. */
+  .signal-value:not(:has(.os-rolling-number)) {
+    padding-top: 0.08em;
   }
 
   .signal-value.is-zero {
