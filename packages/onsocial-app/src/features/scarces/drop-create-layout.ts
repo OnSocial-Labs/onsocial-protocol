@@ -321,7 +321,9 @@ export function dropCreateExtraHint(
     case 'royalty':
       return 'Creator cut on resales.';
     case 'saleRules':
-      return 'When collectors can mint.';
+      return opts.isTicket
+        ? 'Opens now. Closes at the event end unless you set an earlier close.'
+        : 'When collectors can mint.';
     case 'perWallet':
       return 'Cap how many one wallet can collect, up to the edition count.';
     case 'transferable':
@@ -449,6 +451,13 @@ export function dropCreateTicketSaleWindow(input: {
     };
   }
   return { error: null, closesMs: saleClosesMs ?? eventEndsMs };
+}
+
+/** Empty Closes cell. A ticket sale ends with the event. Other drops run until sold out. */
+export function dropCreateSaleCloseEmptyLabel(
+  isTicket: boolean
+): 'Event end' | 'No end' {
+  return isTicket ? 'Event end' : 'No end';
 }
 
 /** Shown close. A ticket with no sale close uses the event end. */

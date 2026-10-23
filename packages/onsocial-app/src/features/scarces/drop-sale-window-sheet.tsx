@@ -41,16 +41,22 @@ interface DropSaleWindowSheetProps {
   value: string;
   /** Exclusive lower bound (datetime-local) — e.g. Opens when picking Closes. */
   minValue?: string;
-  /** Exclusive upper bound (datetime-local) — e.g. Closes when picking Opens. */
+  /** Upper bound (datetime-local). Exclusive unless `maxInclusive`. */
   maxValue?: string;
+  /** When set, this exact time is allowed. Opens stay strictly before the bound. */
+  maxInclusive?: boolean;
   onClose: () => void;
   onChange: (value: string) => void;
   /** Shown above the calendar when this open time is still required. */
   note?: string;
   /** Hide Clear / No end. Postpone must pick a later time. */
   allowClear?: boolean;
+  /** Replaces Clear / No end. A ticket sale close uses “Event end”. */
+  clearLabel?: string;
   /** Replaces the default “too early” line when a minimum is set. */
   minError?: string;
+  /** Replaces the default “too late” line when a maximum is set. */
+  maxError?: string;
   /** Above the sheet that opened this picker. Manage sits at 60. */
   zIndex?: number;
 }
@@ -283,7 +289,9 @@ function resolveOpenTime(
 
 function drumItemHeight(list: HTMLElement): number {
   const option = list.querySelector<HTMLElement>('[data-drum-index]');
-  return option?.offsetHeight || Math.round(list.clientHeight / TIME_DRUM_VISIBLE);
+  return (
+    option?.offsetHeight || Math.round(list.clientHeight / TIME_DRUM_VISIBLE)
+  );
 }
 
 function scrollDrumToIndex(
@@ -320,8 +328,7 @@ function buildMonthWeeks(
   month: number,
   weekStart: number
 ): CalCell[][] {
-  const firstWeekday =
-    (new Date(year, month, 1).getDay() - weekStart + 7) % 7;
+  const firstWeekday = (new Date(year, month, 1).getDay() - weekStart + 7) % 7;
   // Anchor on the first visible cell (may be in the previous month).
   const start = new Date(year, month, 1 - firstWeekday);
   const weeks: CalCell[][] = [];
@@ -343,6 +350,27 @@ function buildMonthWeeks(
     weeks.push(row);
   }
   return weeks;
+}
+
+/** Chip for an empty schedule. Event end is required, so it clears rather than meaning no end. */
+export function saleWindowClearLabel(
+  field: SaleWindowField
+): 'Clear' | 'No end' {
+  return field === 'closes' || field === 'access' ? 'No end' : 'Clear';
+}
+
+/**
+ * True when `value` is past the upper bound.
+ * Inclusive allows an equal time, so a sale can close when the event ends.
+ */
+export function saleWindowExceedsMax(
+  value: string,
+  maxValue: string | undefined,
+  inclusive = false
+): boolean {
+  const bound = maxValue?.trim();
+  if (!bound || !value) return false;
+  return inclusive ? value > bound : value >= bound;
 }
 
 /**
@@ -411,7 +439,6 @@ function DropTimePickerSheet({
   const seed = resolveOpenTime(value, isBlocked);
   const [hour, setHour] = useState(seed.hour);
   const [minute, setMinute] = useState(seed.minute);
-
 
   const hourBlocked = useMemo(() => {
     return Array.from({ length: 24 }, (_, nextHour) =>
@@ -539,7 +566,11 @@ function DropTimePickerSheet({
         </div>
       }
     >
-      <div className="drop-time-sheet" role="group" aria-label="Hour and minute">
+      <div
+        className="drop-time-sheet"
+        role="group"
+        aria-label="Hour and minute"
+      >
         <div className="drop-time-drums">
           <div className="drop-time-drum">
             <p className="drop-time-column-label">Hour</p>
@@ -642,7 +673,10 @@ interface DraftBodyProps {
   onApply: (value: string) => void;
   note?: string;
   allowClear?: boolean;
+  clearLabel?: string;
   minError?: string;
+  maxError?: string;
+  maxInclusive?: boolean;
   zIndex?: number;
 }
 
@@ -663,7 +697,10 @@ function DropSaleWindowDraftBody({
   onApply,
   note,
   allowClear = true,
+  clearLabel: clearLabelOverride,
   minError,
+  maxError,
+  maxInclusive = false,
   zIndex = SHEET_Z.list,
 }: DraftBodyProps) {
   const seed = initialDraft(field, initialValue);
@@ -716,8 +753,7 @@ function DropSaleWindowDraftBody({
           : field === 'eventEnds'
             ? 'Event ends'
             : 'Opens';
-  const clearLabel =
-    field === 'opens' || field === 'eventStarts' ? 'Clear' : 'No end';
+  const clearLabel = clearLabelOverride ?? saleWindowClearLabel(field);
   const presets =
     field === 'access'
       ? ([
@@ -740,7 +776,9 @@ function DropSaleWindowDraftBody({
     .filter((preset) => {
       if (!preset.value) return false;
       if (minValue && preset.value <= minValue) return false;
-      if (maxValue && preset.value >= maxValue) return false;
+      if (saleWindowExceedsMax(preset.value, maxValue, maxInclusive)) {
+        return false;
+      }
       return true;
     });
 
@@ -761,16 +799,17 @@ function DropSaleWindowDraftBody({
       if (isPastDateTime(draftDate, time)) return true;
       const joined = joinLocal(draftDate, time);
       if (minValue && joined <= minValue) return true;
-      if (maxValue && joined >= maxValue) return true;
+      if (saleWindowExceedsMax(joined, maxValue, maxInclusive)) return true;
       return false;
     },
-    [draftDate, minValue, maxValue]
+    [draftDate, minValue, maxValue, maxInclusive]
   );
 
   const draft = joinLocal(draftDate, draftTime);
   const pastInvalid = !keepingClear && isPastDateTime(draftDate, draftTime);
   const belowMin = !keepingClear && Boolean(minValue && draft <= minValue);
-  const aboveMax = !keepingClear && Boolean(maxValue && draft >= maxValue);
+  const aboveMax =
+    !keepingClear && saleWindowExceedsMax(draft, maxValue, maxInclusive);
   const draftInvalid = pastInvalid || belowMin || aboveMax;
   const pastError =
     field === 'access'
@@ -788,9 +827,10 @@ function DropSaleWindowDraftBody({
         ? 'Must be after the event start.'
         : 'Must be after the open time.'))
     : aboveMax
-      ? field === 'eventStarts'
-        ? 'Must be before the event end.'
-        : 'Must be before the close time.'
+      ? (maxError ??
+        (field === 'eventStarts'
+          ? 'Must be before the event end.'
+          : 'Must be before the close time.'))
       : pastInvalid
         ? pastError
         : null;
@@ -871,291 +911,301 @@ function DropSaleWindowDraftBody({
 
   return (
     <>
-    <OsHugSheet
-      open={open}
-      onClose={onRequestClose}
-      onClosed={onClosed}
-      label={title}
-      copy={
-        keepingClear
-          ? clearLabel
-          : draftDate && draftTime
-            ? formatScheduleLabel(joinLocal(draftDate, draftTime))
-            : clearLabel
-      }
-      closeAriaLabel="Close"
-      backdropLabel={`Close ${title.toLowerCase()} picker`}
-      zIndex={zIndex}
-      presentation="enter"
-      titleId={titleId}
-      panelClassName="drop-schedule-sheet-panel os-sheet-cap-tall"
-      bodyClassName="drop-schedule-sheet-body"
-      footer={
-        <div className="drop-schedule-sheet-footer">
-          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetAction
-              type="button"
-              ready={!draftInvalid}
-              disabled={draftInvalid}
-              onClick={() => {
-                if (draftInvalid) return;
-                onApply(keepingClear ? '' : joinLocal(draftDate, draftTime));
-              }}
-            >
-              Set {title.toLowerCase()}
-            </OsSheetAction>
-          </OsSheetActions>
-        </div>
-      }
-    >
-      <div className="drop-schedule-sheet">
-        {note ? (
-          <p className="drop-create-advanced-hint drop-create-sale-open-hint">
-            {note}
-          </p>
-        ) : null}
-        {allowClear || quickChips.length > 0 ? (
-          <div
-            className="app-storage-presets"
-            role="group"
-            aria-label="Quick times"
-          >
-            {allowClear ? (
-              <button
+      <OsHugSheet
+        open={open}
+        onClose={onRequestClose}
+        onClosed={onClosed}
+        label={title}
+        copy={
+          keepingClear
+            ? clearLabel
+            : draftDate && draftTime
+              ? formatScheduleLabel(joinLocal(draftDate, draftTime))
+              : clearLabel
+        }
+        closeAriaLabel="Close"
+        backdropLabel={`Close ${title.toLowerCase()} picker`}
+        zIndex={zIndex}
+        presentation="enter"
+        titleId={titleId}
+        panelClassName="drop-schedule-sheet-panel os-sheet-cap-tall"
+        bodyClassName="drop-schedule-sheet-body"
+        footer={
+          <div className="drop-schedule-sheet-footer">
+            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+              <OsSheetAction
                 type="button"
-                className={`os-surface-chip${
-                  keepingClear ? ' is-selected' : ''
-                }`}
-                onClick={() => onApply('')}
+                ready={!draftInvalid}
+                disabled={draftInvalid}
+                onClick={() => {
+                  if (draftInvalid) return;
+                  onApply(keepingClear ? '' : joinLocal(draftDate, draftTime));
+                }}
               >
-                {clearLabel}
-              </button>
-            ) : null}
-            {quickChips.map((preset) => (
-              <button
-                key={preset.label}
-                type="button"
-                className="os-surface-chip"
-                onClick={() => onApply(preset.value)}
-              >
-                {preset.label}
-              </button>
-            ))}
+                Set {title.toLowerCase()}
+              </OsSheetAction>
+            </OsSheetActions>
           </div>
-        ) : null}
-
-        <div className="drop-cal">
-          <div className="drop-cal-nav">
-            <button
-              type="button"
-              className="drop-cal-nav-btn"
-              aria-label="Previous month"
-              onClick={() => shiftMonth(-1)}
-            >
-              <ChevronLeftIcon className="drop-cal-nav-icon" aria-hidden />
-            </button>
-            <button
-              type="button"
-              className={`drop-cal-month-btn${pickerOpen ? ' is-open' : ''}`}
-              aria-expanded={pickerOpen}
-              aria-controls="drop-cal-picker"
-              onClick={() => setPickerOpen((next) => !next)}
-            >
-              <span className="drop-cal-month">
-                {monthLabel(viewYear, viewMonth)}
-              </span>
-              <ChevronDownIcon className="drop-cal-month-chevron" aria-hidden />
-            </button>
-            <button
-              type="button"
-              className="drop-cal-nav-btn"
-              aria-label="Next month"
-              onClick={() => shiftMonth(1)}
-            >
-              <ChevronRightIcon className="drop-cal-nav-icon" aria-hidden />
-            </button>
-          </div>
-
-          {pickerOpen ? (
+        }
+      >
+        <div className="drop-schedule-sheet">
+          {note ? (
+            <p className="drop-create-advanced-hint drop-create-sale-open-hint">
+              {note}
+            </p>
+          ) : null}
+          {allowClear || quickChips.length > 0 ? (
             <div
-              id="drop-cal-picker"
-              className="drop-cal-picker"
+              className="app-storage-presets"
               role="group"
-              aria-label="Choose month and year"
+              aria-label="Quick times"
             >
-              <div className="drop-cal-year-row">
+              {allowClear ? (
                 <button
                   type="button"
-                  className="drop-cal-nav-btn"
-                  aria-label="Earlier years"
-                  disabled={years[0] <= minYear}
-                  onClick={() =>
-                    setViewYear((y) => Math.max(minYear, y - YEAR_WINDOW))
-                  }
+                  className={`os-surface-chip${
+                    keepingClear ? ' is-selected' : ''
+                  }`}
+                  onClick={() => onApply('')}
                 >
-                  <ChevronLeftIcon className="drop-cal-nav-icon" aria-hidden />
+                  {clearLabel}
                 </button>
-                <div
-                  className="drop-cal-year-chips"
-                  role="listbox"
-                  aria-label="Year"
+              ) : null}
+              {quickChips.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  className="os-surface-chip"
+                  onClick={() => onApply(preset.value)}
                 >
-                  {years.map((year) => (
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="drop-cal">
+            <div className="drop-cal-nav">
+              <button
+                type="button"
+                className="drop-cal-nav-btn"
+                aria-label="Previous month"
+                onClick={() => shiftMonth(-1)}
+              >
+                <ChevronLeftIcon className="drop-cal-nav-icon" aria-hidden />
+              </button>
+              <button
+                type="button"
+                className={`drop-cal-month-btn${pickerOpen ? ' is-open' : ''}`}
+                aria-expanded={pickerOpen}
+                aria-controls="drop-cal-picker"
+                onClick={() => setPickerOpen((next) => !next)}
+              >
+                <span className="drop-cal-month">
+                  {monthLabel(viewYear, viewMonth)}
+                </span>
+                <ChevronDownIcon
+                  className="drop-cal-month-chevron"
+                  aria-hidden
+                />
+              </button>
+              <button
+                type="button"
+                className="drop-cal-nav-btn"
+                aria-label="Next month"
+                onClick={() => shiftMonth(1)}
+              >
+                <ChevronRightIcon className="drop-cal-nav-icon" aria-hidden />
+              </button>
+            </div>
+
+            {pickerOpen ? (
+              <div
+                id="drop-cal-picker"
+                className="drop-cal-picker"
+                role="group"
+                aria-label="Choose month and year"
+              >
+                <div className="drop-cal-year-row">
+                  <button
+                    type="button"
+                    className="drop-cal-nav-btn"
+                    aria-label="Earlier years"
+                    disabled={years[0] <= minYear}
+                    onClick={() =>
+                      setViewYear((y) => Math.max(minYear, y - YEAR_WINDOW))
+                    }
+                  >
+                    <ChevronLeftIcon
+                      className="drop-cal-nav-icon"
+                      aria-hidden
+                    />
+                  </button>
+                  <div
+                    className="drop-cal-year-chips"
+                    role="listbox"
+                    aria-label="Year"
+                  >
+                    {years.map((year) => (
+                      <button
+                        key={year}
+                        type="button"
+                        role="option"
+                        aria-selected={year === viewYear}
+                        className={`drop-cal-chip${
+                          year === viewYear ? ' is-selected' : ''
+                        }`}
+                        onClick={() => setViewYear(year)}
+                      >
+                        {year}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    className="drop-cal-nav-btn"
+                    aria-label="Later years"
+                    onClick={() => setViewYear((y) => y + YEAR_WINDOW)}
+                  >
+                    <ChevronRightIcon
+                      className="drop-cal-nav-icon"
+                      aria-hidden
+                    />
+                  </button>
+                </div>
+                <div
+                  className="drop-cal-month-chips"
+                  role="listbox"
+                  aria-label="Month"
+                >
+                  {Array.from({ length: 12 }, (_, month) => (
                     <button
-                      key={year}
+                      key={month}
                       type="button"
                       role="option"
-                      aria-selected={year === viewYear}
+                      aria-selected={month === viewMonth}
                       className={`drop-cal-chip${
-                        year === viewYear ? ' is-selected' : ''
+                        month === viewMonth ? ' is-selected' : ''
                       }`}
-                      onClick={() => setViewYear(year)}
+                      onClick={() => {
+                        setViewMonth(month);
+                        setPickerOpen(false);
+                      }}
                     >
-                      {year}
+                      {new Date(2021, month, 1).toLocaleString(undefined, {
+                        month: 'short',
+                      })}
                     </button>
                   ))}
                 </div>
-                <button
-                  type="button"
-                  className="drop-cal-nav-btn"
-                  aria-label="Later years"
-                  onClick={() => setViewYear((y) => y + YEAR_WINDOW)}
+              </div>
+            ) : (
+              <>
+                <div className="drop-cal-weekdays" aria-hidden>
+                  {weekdays.map((day) => (
+                    <span key={day}>{day}</span>
+                  ))}
+                </div>
+
+                <div
+                  ref={gridRef}
+                  className="drop-cal-grid"
+                  role="grid"
+                  aria-label="Choose a day"
+                  onKeyDown={handleGridKeyDown}
                 >
-                  <ChevronRightIcon className="drop-cal-nav-icon" aria-hidden />
-                </button>
-              </div>
-              <div
-                className="drop-cal-month-chips"
-                role="listbox"
-                aria-label="Month"
-              >
-                {Array.from({ length: 12 }, (_, month) => (
-                  <button
-                    key={month}
-                    type="button"
-                    role="option"
-                    aria-selected={month === viewMonth}
-                    className={`drop-cal-chip${
-                      month === viewMonth ? ' is-selected' : ''
-                    }`}
-                    onClick={() => {
-                      setViewMonth(month);
-                      setPickerOpen(false);
-                    }}
-                  >
-                    {new Date(2021, month, 1).toLocaleString(undefined, {
-                      month: 'short',
-                    })}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="drop-cal-weekdays" aria-hidden>
-                {weekdays.map((day) => (
-                  <span key={day}>{day}</span>
-                ))}
-              </div>
+                  {weeks.map((week, weekIndex) => (
+                    <div
+                      key={`w-${weekIndex}`}
+                      role="row"
+                      className="drop-cal-week"
+                    >
+                      {week.map((cell) => {
+                        const selected =
+                          !keepingClear && cell.date === draftDate;
+                        const blocked = isDayBlocked(cell.date);
+                        const isToday = cell.date === today;
+                        return (
+                          <button
+                            key={cell.date}
+                            data-date={cell.date}
+                            type="button"
+                            role="gridcell"
+                            aria-selected={selected}
+                            aria-disabled={blocked || undefined}
+                            tabIndex={cell.date === gridFocusDate ? 0 : -1}
+                            className={`drop-cal-day${
+                              selected ? ' is-selected' : ''
+                            }${isToday ? ' is-today' : ''}${
+                              !cell.inMonth ? ' is-outside' : ''
+                            }${blocked ? ' is-disabled' : ''}`}
+                            onClick={() => {
+                              if (blocked) return;
+                              setPickedSchedule(true);
+                              setDraftDate(cell.date);
+                              setFocusDate(cell.date);
+                              // Jump the header into the month you tapped.
+                              if (!cell.inMonth) {
+                                setViewYear(Number(cell.date.slice(0, 4)));
+                                setViewMonth(Number(cell.date.slice(5, 7)) - 1);
+                              }
+                            }}
+                          >
+                            {cell.day}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
 
-              <div
-                ref={gridRef}
-                className="drop-cal-grid"
-                role="grid"
-                aria-label="Choose a day"
-                onKeyDown={handleGridKeyDown}
-              >
-                {weeks.map((week, weekIndex) => (
-                  <div
-                    key={`w-${weekIndex}`}
-                    role="row"
-                    className="drop-cal-week"
-                  >
-                    {week.map((cell) => {
-                      const selected = !keepingClear && cell.date === draftDate;
-                      const blocked = isDayBlocked(cell.date);
-                      const isToday = cell.date === today;
-                      return (
-                        <button
-                          key={cell.date}
-                          data-date={cell.date}
-                          type="button"
-                          role="gridcell"
-                          aria-selected={selected}
-                          aria-disabled={blocked || undefined}
-                          tabIndex={cell.date === gridFocusDate ? 0 : -1}
-                          className={`drop-cal-day${
-                            selected ? ' is-selected' : ''
-                          }${isToday ? ' is-today' : ''}${
-                            !cell.inMonth ? ' is-outside' : ''
-                          }${blocked ? ' is-disabled' : ''}`}
-                          onClick={() => {
-                            if (blocked) return;
-                            setPickedSchedule(true);
-                            setDraftDate(cell.date);
-                            setFocusDate(cell.date);
-                            // Jump the header into the month you tapped.
-                            if (!cell.inMonth) {
-                              setViewYear(Number(cell.date.slice(0, 4)));
-                              setViewMonth(Number(cell.date.slice(5, 7)) - 1);
-                            }
-                          }}
-                        >
-                          {cell.day}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+          <div className="drop-schedule-time">
+            <span className="drop-schedule-time-label">Time</span>
+            <button
+              type="button"
+              className={`drop-schedule-time-field${
+                timeSheetVisible ? ' is-open' : ''
+              }`}
+              aria-haspopup="dialog"
+              aria-expanded={timeSheetActive}
+              aria-label={`Time: ${formatTimeChip(draftTime)} local`}
+              onClick={() => {
+                setTimeSheetSession((id) => id + 1);
+                setTimeSheetOpen(true);
+              }}
+            >
+              <span className="drop-schedule-time-field-value">
+                {formatTimeChip(draftTime)}
+              </span>
+              <span className="drop-schedule-time-field-suffix">local</span>
+              <ChevronDownIcon
+                className="drop-schedule-time-field-chevron"
+                aria-hidden
+              />
+            </button>
+            {draftError ? <small>{draftError}</small> : null}
+          </div>
         </div>
+      </OsHugSheet>
 
-        <div className="drop-schedule-time">
-          <span className="drop-schedule-time-label">Time</span>
-          <button
-            type="button"
-            className={`drop-schedule-time-field${
-              timeSheetVisible ? ' is-open' : ''
-            }`}
-            aria-haspopup="dialog"
-            aria-expanded={timeSheetActive}
-            aria-label={`Time: ${formatTimeChip(draftTime)} local`}
-            onClick={() => {
-              setTimeSheetSession((id) => id + 1);
-              setTimeSheetOpen(true);
-            }}
-          >
-            <span className="drop-schedule-time-field-value">
-              {formatTimeChip(draftTime)}
-            </span>
-            <span className="drop-schedule-time-field-suffix">local</span>
-            <ChevronDownIcon
-              className="drop-schedule-time-field-chevron"
-              aria-hidden
-            />
-          </button>
-          {draftError ? <small>{draftError}</small> : null}
-        </div>
-      </div>
-    </OsHugSheet>
-
-    {timeSheetVisible ? (
-      <DropTimePickerSheet
-        key={timeSheetSession}
-        open={timeSheetActive}
-        value={draftTime}
-        isBlocked={timeBlocked}
-        onClose={closeTimeSheet}
-        onClosed={handleTimeSheetClosed}
-        onChange={(time) => {
-          setPickedSchedule(true);
-          setDraftTime(time);
-        }}
-        zIndex={zIndex + 2}
-      />
-    ) : null}
+      {timeSheetVisible ? (
+        <DropTimePickerSheet
+          key={timeSheetSession}
+          open={timeSheetActive}
+          value={draftTime}
+          isBlocked={timeBlocked}
+          onClose={closeTimeSheet}
+          onClosed={handleTimeSheetClosed}
+          onChange={(time) => {
+            setPickedSchedule(true);
+            setDraftTime(time);
+          }}
+          zIndex={zIndex + 2}
+        />
+      ) : null}
     </>
   );
 }
@@ -1166,11 +1216,14 @@ export function DropSaleWindowSheet({
   value,
   minValue,
   maxValue,
+  maxInclusive = false,
   onClose,
   onChange,
   note,
   allowClear = true,
+  clearLabel,
   minError,
+  maxError,
   zIndex = SHEET_Z.list,
 }: DropSaleWindowSheetProps) {
   const titleId = useId();
@@ -1210,7 +1263,6 @@ export function DropSaleWindowSheet({
   const showSheet = activeSession != null && (open || closing);
   const sheetOpen = Boolean(open && !closing && activeSession);
 
-
   const requestClose = useCallback(() => {
     if (closing) return;
     setClosing(true);
@@ -1246,7 +1298,10 @@ export function DropSaleWindowSheet({
       onApply={applyAndClose}
       note={note}
       allowClear={allowClear}
+      clearLabel={clearLabel}
       minError={minError}
+      maxError={maxError}
+      maxInclusive={maxInclusive}
       zIndex={zIndex}
     />
   );
