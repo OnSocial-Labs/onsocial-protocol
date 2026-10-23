@@ -244,6 +244,37 @@ export function glassSheetBackdropFilterStyle(
   };
 }
 
+export type BackdropEnterStyle = {
+  opacity?: number;
+  filter: string;
+  transition?: string;
+};
+
+/**
+ * Scrim for one open.
+ * A hug drawer stays off-screen until its height settles. The page stays
+ * clear for that wait, then the enter animation fades the scrim once.
+ * After the animation, inline opacity follows drag and close.
+ */
+export function resolveBackdropEnterStyle(input: {
+  holdScrim: boolean;
+  showEnterAnimation: boolean;
+  presented: { opacity: number; filter: string };
+  transition: string;
+}): BackdropEnterStyle {
+  if (input.holdScrim) {
+    return { opacity: 0, filter: 'blur(0px)', transition: 'none' };
+  }
+  if (input.showEnterAnimation) {
+    return { filter: input.presented.filter };
+  }
+  return {
+    opacity: input.presented.opacity,
+    filter: input.presented.filter,
+    transition: input.transition,
+  };
+}
+
 /** Photo / listen face band. Sheets opened while a face is already up rise by this. */
 export const GLASS_SHEET_MEDIA_FACE_LIFT = 80;
 
@@ -979,6 +1010,12 @@ export function GlassSheet({
     : resolveBackdropPresentation(coverProgress, {
         reduceTransparency,
       });
+  const backdropEnter = resolveBackdropEnterStyle({
+    holdScrim: visible && !panelIsOpen,
+    showEnterAnimation,
+    presented: backdropPresentation,
+    transition: presentationTransition,
+  });
   const panelFilter = opaquePage
     ? 'blur(0px)'
     : resolvePanelPresentation(coverProgress, tone, moodId, {
@@ -1083,11 +1120,9 @@ export function GlassSheet({
             onClose();
           }}
           aria-label={backdropLabel}
-          style={glassSheetBackdropFilterStyle(backdropPresentation.filter, {
-            opacity: showEnterAnimation
-              ? undefined
-              : backdropPresentation.opacity,
-            transition: showEnterAnimation ? undefined : presentationTransition,
+          style={glassSheetBackdropFilterStyle(backdropEnter.filter, {
+            opacity: backdropEnter.opacity,
+            transition: backdropEnter.transition,
           })}
         />
       )}

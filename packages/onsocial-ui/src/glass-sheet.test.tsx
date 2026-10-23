@@ -8,6 +8,7 @@ import {
   hugEnterShouldArm,
   nextHugEnterStableSample,
   GLASS_SHEET_MEDIA_FACE_LIFT,
+  resolveBackdropEnterStyle,
   resolveBackdropPresentation,
   resolveGlassSheetZIndex,
   resolvePanelPresentation,
@@ -158,6 +159,48 @@ describe('resolveSheetOffsetPx', () => {
 
   it('skips peek offset when content is shorter than the peek window', () => {
     expect(resolveSheetOffsetPx(null, 'peek', 320, 0.46, false, 800)).toBe(0);
+  });
+});
+
+describe('resolveBackdropEnterStyle', () => {
+  const presented = { opacity: 1, filter: 'blur(16px) saturate(1.12)' };
+  const transition = 'opacity 320ms linear';
+
+  it('keeps the page clear while a hug drawer is still arming', () => {
+    expect(
+      resolveBackdropEnterStyle({
+        holdScrim: true,
+        showEnterAnimation: false,
+        presented,
+        transition,
+      })
+    ).toEqual({ opacity: 0, filter: 'blur(0px)', transition: 'none' });
+  });
+
+  it('lets the enter animation fade the scrim once', () => {
+    expect(
+      resolveBackdropEnterStyle({
+        holdScrim: false,
+        showEnterAnimation: true,
+        presented,
+        transition,
+      })
+    ).toEqual({ filter: presented.filter });
+  });
+
+  it('follows the presented scrim after the animation', () => {
+    expect(
+      resolveBackdropEnterStyle({
+        holdScrim: false,
+        showEnterAnimation: false,
+        presented: { opacity: 0.5, filter: 'blur(8px)' },
+        transition,
+      })
+    ).toEqual({
+      opacity: 0.5,
+      filter: 'blur(8px)',
+      transition,
+    });
   });
 });
 
