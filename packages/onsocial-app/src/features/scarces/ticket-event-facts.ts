@@ -6,10 +6,7 @@ import type { CollectionView } from '@/features/scarces/collections-data';
 import { ticketEventPlaceLabel } from '@/features/scarces/ticket-event-meta';
 import { formatFutureRelativeTime } from '@/features/market/market-listings';
 import { normalizeSocialTimestamp } from '@onsocial/ui';
-import {
-  formatPageDrawerJoinedDateTimeLabel,
-  formatPageDrawerJoinedFullLabel,
-} from '@/lib/page-drawer-meta';
+import { formatPageDrawerJoinedDateTimeLabel } from '@/lib/page-drawer-meta';
 
 const SOON_MS = 48 * 60 * 60 * 1000;
 
@@ -147,12 +144,13 @@ export function eventListWhenLabel(
     }
     return formatEventWeekday(start);
   }
-  if (start != null && start <= now && (end == null || end > now)) return 'On now';
+  if (start != null && start <= now && (end == null || end > now))
+    return 'On now';
   if (end != null && end > now) return formatEventWeekday(end);
   return 'Time to be set';
 }
 
-/** One line for a postpone: the end that moved, and the end doors use now. */
+/** One line for a postpone: the original end, then the end doors use now. */
 export function postponeNotice(
   previousMs: number | null | undefined,
   nextMs: number | null | undefined
@@ -168,14 +166,14 @@ export function postponeNotice(
   ) {
     return null;
   }
-  return `Doors were set for ${formatPageDrawerJoinedFullLabel(previousMs)}. They stay open until ${formatPageDrawerJoinedFullLabel(nextMs)}.`;
+  const previous = formatPageDrawerJoinedDateTimeLabel(previousMs);
+  const next = formatPageDrawerJoinedDateTimeLabel(nextMs);
+  if (!previous || !next) return null;
+  return `Doors were set for ${previous}. Postponed to ${next}.`;
 }
 
 export function ticketEventScheduleFacts(
-  view: Pick<
-    CollectionView,
-    'eventStartsAtMs' | 'eventEndsAtMs' | 'place'
-  >,
+  view: Pick<CollectionView, 'eventStartsAtMs' | 'eventEndsAtMs' | 'place'>,
   nowMs: number
 ): {
   place: string | null;
@@ -193,7 +191,10 @@ export function ticketEventScheduleFacts(
   const now = eventInstant(nowMs) ?? nowMs;
   const starts =
     startMs != null
-      ? withEventZone(formatPageDrawerJoinedDateTimeLabel(startMs) ?? '', startMs)
+      ? withEventZone(
+          formatPageDrawerJoinedDateTimeLabel(startMs) ?? '',
+          startMs
+        )
       : null;
   const ends =
     endMs != null
@@ -220,7 +221,10 @@ export function ticketEventScheduleFacts(
 }
 
 export function collectionHasTicketEvent(
-  view: Pick<CollectionView, 'kind' | 'eventStartsAtMs' | 'eventEndsAtMs' | 'place'>
+  view: Pick<
+    CollectionView,
+    'kind' | 'eventStartsAtMs' | 'eventEndsAtMs' | 'place'
+  >
 ): boolean {
   if (view.kind === 'ticket') return true;
   return (

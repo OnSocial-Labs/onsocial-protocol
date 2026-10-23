@@ -1099,6 +1099,7 @@ export function CollectionPagePanel({
                   kind={view.kind}
                   renewable={view.renewable}
                   eventEndsAtMs={view.eventEndsAtMs}
+                  saleClosesAtMs={view.endTimeMs}
                   owner={showOwnerManage}
                   onOpenFacts={() => setFactsOpen(true)}
                   doorStaff={
@@ -1360,10 +1361,16 @@ export function CollectionPagePanel({
               </div>
             ) : null}
             {view.kind === 'ticket' &&
-            (aboutEvent.when || aboutEvent.place || aboutEvent.next) ? (
+            (aboutEvent.when ||
+              aboutEvent.place ||
+              aboutEvent.next ||
+              movedNotice) ? (
               <div className="collection-event-lines">
                 {aboutEvent.when ? (
                   <p className="collection-product-line">{aboutEvent.when}</p>
+                ) : null}
+                {movedNotice ? (
+                  <p className="collection-product-line">{movedNotice}</p>
                 ) : null}
                 {aboutEvent.place ? (
                   <p className="collection-product-line">{aboutEvent.place}</p>
@@ -1468,9 +1475,6 @@ export function CollectionPagePanel({
             ) : null}
             {showCommerceMeter && personalMintHint && !isOwner ? (
               <p className="collection-mint-hint">{personalMintHint}</p>
-            ) : null}
-            {movedNotice ? (
-              <p className="collection-mint-hint">{movedNotice}</p>
             ) : null}
           </header>
         </section>
