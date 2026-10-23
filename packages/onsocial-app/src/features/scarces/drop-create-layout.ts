@@ -321,7 +321,9 @@ export function dropCreateExtraHint(
     case 'royalty':
       return 'Creator cut on resales.';
     case 'saleRules':
-      return 'When collectors can mint.';
+      return opts.isTicket
+        ? 'Opens now. Closes at the event end unless you set an earlier close.'
+        : 'When collectors can mint.';
     case 'perWallet':
       return 'Cap how many one wallet can collect, up to the edition count.';
     case 'transferable':
@@ -449,6 +451,42 @@ export function dropCreateTicketSaleWindow(input: {
     };
   }
   return { error: null, closesMs: saleClosesMs ?? eventEndsMs };
+}
+
+const SALE_CLOSE_MINUTE_MS = 60_000;
+
+export const DROP_CREATE_EARLIER_SALE_CLOSE_HINT =
+  'This close stays if the event is postponed. Selling stops here.';
+
+/**
+ * A ticket close on an earlier minute does not move when the event is postponed.
+ * The same minute, or an empty close, stays with the event end.
+ */
+export function dropCreateEarlierSaleCloseStays(
+  saleClosesMs: number | null | undefined,
+  eventEndsMs: number | null | undefined
+): boolean {
+  if (
+    saleClosesMs == null ||
+    eventEndsMs == null ||
+    !Number.isFinite(saleClosesMs) ||
+    !Number.isFinite(eventEndsMs) ||
+    saleClosesMs <= 0 ||
+    eventEndsMs <= 0
+  ) {
+    return false;
+  }
+  return (
+    Math.floor(saleClosesMs / SALE_CLOSE_MINUTE_MS) <
+    Math.floor(eventEndsMs / SALE_CLOSE_MINUTE_MS)
+  );
+}
+
+/** Empty Closes cell. A ticket sale ends with the event. */
+export function dropCreateSaleCloseEmptyLabel(
+  isTicket: boolean
+): 'Event end' | 'No end' {
+  return isTicket ? 'Event end' : 'No end';
 }
 
 /** Shown close. A ticket with no sale close uses the event end. */

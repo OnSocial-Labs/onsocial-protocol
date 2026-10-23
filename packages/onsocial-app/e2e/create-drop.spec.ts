@@ -160,16 +160,16 @@ test.describe('create drop', () => {
         .getByLabel('Price per edition in NEAR')
     ).toBeVisible();
     await expect(page.locator('.drop-create-deal-sep')).toHaveText('·');
-    const numberGap = await page.locator('.drop-create-deal-line').evaluate(
-      (line) => {
+    const numberGap = await page
+      .locator('.drop-create-deal-line')
+      .evaluate((line) => {
         const input = line.querySelector('input');
         const unit = line.querySelector('.suffix-field-unit');
         if (!input || !unit) return 0;
         const inputBox = input.getBoundingClientRect();
         const unitBox = unit.getBoundingClientRect();
         return unitBox.left - inputBox.right;
-      }
-    );
+      });
     expect(numberGap).toBeGreaterThan(4);
     const supply = page.getByLabel('Total supply');
     const twoDigits = await supply.boundingBox();
@@ -197,10 +197,12 @@ test.describe('create drop', () => {
       (el) => getComputedStyle(el).textDecorationLine
     );
     expect(descriptionDecoration).not.toContain('underline');
-    await expect(page.locator('.drop-create-description-reveal')).not.toHaveClass(
-      /\bis-open\b/
-    );
-    await page.getByRole('button', { name: 'Description', exact: true }).click();
+    await expect(
+      page.locator('.drop-create-description-reveal')
+    ).not.toHaveClass(/\bis-open\b/);
+    await page
+      .getByRole('button', { name: 'Description', exact: true })
+      .click();
     await expect(page.locator('.drop-create-description-reveal')).toHaveClass(
       /\bis-open\b/
     );
@@ -213,10 +215,12 @@ test.describe('create drop', () => {
       page.getByRole('button', { name: 'About Description' })
     ).toHaveCount(0);
     await page.locator('#drop-create-description').fill('Short public line.');
-    await page.getByRole('button', { name: 'Description', exact: true }).click();
-    await expect(page.locator('.drop-create-description-reveal')).not.toHaveClass(
-      /\bis-open\b/
-    );
+    await page
+      .getByRole('button', { name: 'Description', exact: true })
+      .click();
+    await expect(
+      page.locator('.drop-create-description-reveal')
+    ).not.toHaveClass(/\bis-open\b/);
     await expect(page.locator('.drop-create-description-toggle')).toHaveText(
       'Description'
     );
@@ -319,7 +323,9 @@ test.describe('create drop', () => {
       page.locator('[data-drop-create-attach="audio"]')
     ).toBeVisible();
     await expect(
-      page.locator('[data-drop-create-attach="audio"] .drop-create-attach-action')
+      page.locator(
+        '[data-drop-create-attach="audio"] .drop-create-attach-action'
+      )
     ).toHaveText('Add track');
     await expect(
       page.locator('[data-drop-create-attach="audio"] .drop-create-attach-hint')
@@ -334,7 +340,9 @@ test.describe('create drop', () => {
     ).toHaveCount(0);
     await page.getByRole('radio', { name: 'Album' }).click();
     await expect(
-      page.locator('[data-drop-create-attach="audio"] .drop-create-attach-action')
+      page.locator(
+        '[data-drop-create-attach="audio"] .drop-create-attach-action'
+      )
     ).toHaveText('Add tracks');
     await expect(
       page.locator('[data-drop-create-attach="audio"] .drop-create-attach-hint')
@@ -443,7 +451,9 @@ test.describe('create drop', () => {
     const wallet = page.locator('.hot-connector-popup');
     await expect(wallet).toBeAttached();
     await expect(wallet).toContainText('Select wallet');
-    await expect(page.getByRole('dialog', { name: 'Allowlist' })).toHaveCount(0);
+    await expect(page.getByRole('dialog', { name: 'Allowlist' })).toHaveCount(
+      0
+    );
     await wallet.evaluate((el) => el.remove());
     await expect(
       page.getByRole('button', { name: 'About Allowlist' })
@@ -558,14 +568,16 @@ test.describe('create drop', () => {
     await expect(page.locator('.drop-kind-lede')).toHaveText(
       'Event entry — one redeem per ticket.'
     );
-    await expect(page.getByRole('button', { name: 'More', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'More', exact: true })
+    ).toBeVisible();
     await expect(page.getByRole('group', { name: 'Event' })).toBeVisible();
     await page.getByRole('button', { name: 'More', exact: true }).click();
     await expect(page.getByText('Starts', { exact: true })).toBeVisible();
     await expect(page.getByText('Ends', { exact: true })).toBeVisible();
-    await expect(page.locator('.drop-create-terms .drop-create-extra-list')).toHaveCount(
-      1
-    );
+    await expect(
+      page.locator('.drop-create-terms .drop-create-extra-list')
+    ).toHaveCount(1);
     await expect(page.getByRole('button', { name: 'About Event' })).toHaveCount(
       0
     );
@@ -660,9 +672,9 @@ test.describe('create drop', () => {
     await expect(
       renewals.getByText('Yes lets holders renew after it expires.')
     ).toBeVisible();
-    await expect(renewals.getByText('Access ends', { exact: true })).toHaveCount(
-      0
-    );
+    await expect(
+      renewals.getByText('Access ends', { exact: true })
+    ).toHaveCount(0);
     await renewals.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
       page.getByRole('button', { name: 'Renewable: Yes', exact: true })
@@ -762,6 +774,87 @@ test.describe('create drop', () => {
     await royalty.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(
       page.getByRole('button', { name: 'Royalty: 10%' })
+    ).toBeVisible();
+  });
+
+  test('a ticket sale with no close is the event end', async ({ page }) => {
+    await openCreateDrop(page);
+    await clickKindTab(page, 'Tickets');
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+
+    const event = page.getByRole('group', { name: 'Event' });
+    await event.getByText('Required', { exact: true }).click();
+    const ends = page.getByRole('dialog', { name: 'Event ends' });
+    await expect(
+      ends.getByRole('button', { name: 'Clear', exact: true })
+    ).toBeVisible();
+    await expect(
+      ends.getByRole('button', { name: 'No end', exact: true })
+    ).toHaveCount(0);
+    await ends.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(ends).toBeHidden();
+
+    await page.getByRole('button', { name: 'Sale: Now · Event end' }).click();
+    const sale = page.getByRole('dialog', { name: 'Sale' });
+    await expect(
+      sale.getByText(
+        'Opens now. Closes at the event end unless you set an earlier close.'
+      )
+    ).toBeVisible();
+    await expect(sale.getByText('Event end', { exact: true })).toBeVisible();
+    await expect(sale.getByText('No end', { exact: true })).toHaveCount(0);
+    await sale.getByText('Event end', { exact: true }).click();
+    const closes = page.getByRole('dialog', { name: 'Closes' });
+    await expect(
+      closes.getByRole('button', { name: 'Event end', exact: true })
+    ).toBeVisible();
+    await expect(
+      closes.getByRole('button', { name: 'No end', exact: true })
+    ).toHaveCount(0);
+    await closes.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(closes).toBeHidden();
+    await sale.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(sale).toBeHidden();
+    await expect(
+      page.getByRole('button', { name: 'Sale: Now · Event end' })
+    ).toBeVisible();
+  });
+
+  test('an earlier ticket close stays if the event is postponed', async ({
+    page,
+  }) => {
+    const hint =
+      'This close stays if the event is postponed. Selling stops here.';
+    await openCreateDrop(page);
+    await clickKindTab(page, 'Tickets');
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await expect(page.getByText(hint)).toHaveCount(0);
+
+    await page
+      .getByRole('group', { name: 'Event' })
+      .getByRole('button', { name: /^Ends/ })
+      .click();
+    const eventEnds = page.getByRole('dialog', { name: 'Event ends' });
+    await eventEnds
+      .getByRole('button', { name: '7 days', exact: true })
+      .click();
+    await expect(eventEnds).toHaveCount(0);
+
+    await page.getByRole('button', { name: /^Sale:/ }).click();
+    const sale = page.getByRole('dialog', { name: 'Sale' });
+    await expect(sale.getByText(hint)).toHaveCount(0);
+    await sale.getByRole('button', { name: /^Closes/ }).click();
+    const closes = page.getByRole('dialog', { name: 'Closes' });
+    await closes.getByRole('button', { name: '24h', exact: true }).click();
+    await expect(closes).toHaveCount(0);
+    await expect(sale.getByText(hint)).toBeVisible();
+    await expect(
+      page.locator('.drop-create-sale-row').getByText(hint)
+    ).toBeVisible();
+    await sale.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(sale).toBeHidden();
+    await expect(
+      page.locator('.drop-create-sale-row').getByText(hint)
     ).toBeVisible();
   });
 });

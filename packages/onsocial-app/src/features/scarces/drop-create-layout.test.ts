@@ -41,6 +41,9 @@ import {
   dropCreateAllowlistNeedsSaleOpen,
   dropCreateSaleWindowSummary,
   dropCreateSaleCloseDisplay,
+  dropCreateSaleCloseEmptyLabel,
+  DROP_CREATE_EARLIER_SALE_CLOSE_HINT,
+  dropCreateEarlierSaleCloseStays,
   dropCreateTicketSaleWindow,
   dropCreateTransferableSummary,
   dropCreateBurnableSummary,
@@ -297,6 +300,9 @@ describe('dropCreateExtraHint', () => {
       dropCreateRenewalsHint(true)
     );
     expect(dropCreateExtraHint('saleRules')).toBe('When collectors can mint.');
+    expect(dropCreateExtraHint('saleRules', { isTicket: true })).toBe(
+      'Opens now. Closes at the event end unless you set an earlier close.'
+    );
     expect(dropCreateExtraHint('perWallet')).toMatch(/one wallet/);
     expect(dropCreateExtraHint('transferable')).toBe(
       'Yes lets them transfer and resell. No keeps the edition with them.'
@@ -391,6 +397,17 @@ describe('dropCreate summaries', () => {
         eventEndsMs: null,
       })
     ).toEqual({ error: null, closesMs: null });
+    expect(dropCreateEarlierSaleCloseStays(null, eventEndsMs)).toBe(false);
+    expect(dropCreateEarlierSaleCloseStays(eventEndsMs, eventEndsMs)).toBe(
+      false
+    );
+    expect(
+      dropCreateEarlierSaleCloseStays(eventEndsMs + 30_000, eventEndsMs)
+    ).toBe(false);
+    expect(
+      dropCreateEarlierSaleCloseStays(eventEndsMs - 60_000, eventEndsMs)
+    ).toBe(true);
+    expect(DROP_CREATE_EARLIER_SALE_CLOSE_HINT).toMatch(/postponed/);
     expect(
       dropCreateSaleCloseDisplay({
         isTicket: true,
@@ -407,6 +424,8 @@ describe('dropCreate summaries', () => {
         emptyLabel: 'no end',
       })
     ).toBe('no end');
+    expect(dropCreateSaleCloseEmptyLabel(true)).toBe('Event end');
+    expect(dropCreateSaleCloseEmptyLabel(false)).toBe('No end');
     expect(dropCreatePerWalletSummary('', 'editions')).toBe('No limit');
     expect(dropCreatePerWalletSummary('0', 'editions')).toBe('No limit');
     expect(dropCreatePerWalletSummary('2', 'editions')).toBe('2 editions');
