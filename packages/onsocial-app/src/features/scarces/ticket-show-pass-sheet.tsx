@@ -21,7 +21,7 @@ import {
   downloadTicketPassPicture,
   renderTicketPassPicture,
   shareTicketPassPicture,
-  ticketPassCanSavePicture,
+  ticketPassOffersSavePicture,
   ticketPassPictureFilename,
 } from '@/features/scarces/ticket-pass-picture';
 import {
@@ -56,7 +56,7 @@ import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 /**
  * Show pass — small cover, event name, then a saved QR.
  * The code is signed once and kept on this device. Download writes the PNG.
- * Save shares that picture so the guest can keep it in Photos.
+ * On a phone, Save shares that picture so the guest can keep it in Photos.
  * Copy puts the signed code on the clipboard for the door paste field.
  * The seat row shows a short preview, never the full string.
  */
@@ -208,7 +208,7 @@ export function TicketShowPassSheet({
 
   useEffect(() => {
     if (!open) return;
-    setCanSave(ticketPassCanSavePicture());
+    setCanSave(ticketPassOffersSavePicture());
   }, [open]);
 
   useEffect(() => {
@@ -425,7 +425,8 @@ export function TicketShowPassSheet({
         return;
       }
       downloadTicketPassPicture(blob, ticketPassPictureFilename(name));
-      noteExport('Downloaded');
+      // The browser Save dialog or download tray is the confirmation.
+      // "Downloaded" was landing before that dialog was confirmed.
     } catch {
       noteExport('Could not download');
     } finally {
@@ -487,23 +488,31 @@ export function TicketShowPassSheet({
             </button>
           ) : null}
           <p className="ticket-show-pass-name">{name}</p>
-          {statusLine ? (
-            <p className={`ticket-show-pass-status${toneClass}`}>
-              {statusLine}
-            </p>
-          ) : null}
+          {/* One line from the first paint, so a late status cannot drop the QR. */}
+          <div className="ticket-show-pass-status-slot">
+            {statusLine ? (
+              <p className={`ticket-show-pass-status${toneClass}`}>
+                {statusLine}
+              </p>
+            ) : null}
+          </div>
 
-          {livePayload ? (
-            <TicketPassQr
-              value={livePayload}
-              title={`QR for ${name}`}
-              className="ticket-show-pass-qr"
-            />
-          ) : (
-            <p className="ticket-show-pass-hint">
-              {qrHint ?? 'Pass code unavailable.'}
-            </p>
-          )}
+          <div
+            className="ticket-show-pass-qr"
+            aria-busy={livePayload ? undefined : true}
+          >
+            {livePayload ? (
+              <TicketPassQr
+                value={livePayload}
+                title={`QR for ${name}`}
+                className="ticket-show-pass-qr-code"
+              />
+            ) : (
+              <p className="ticket-show-pass-hint">
+                {qrHint ?? 'Pass code unavailable.'}
+              </p>
+            )}
+          </div>
 
           <div className="ticket-show-pass-footer">
             <div
@@ -565,8 +574,8 @@ export function TicketShowPassSheet({
               ) : null}
             </div>
 
-            {passCode ? (
-              <div className="ticket-show-pass-actions">
+            <div className="ticket-show-pass-actions">
+              {passCode ? (
                 <button
                   type="button"
                   className="ticket-show-pass-action"
@@ -575,24 +584,26 @@ export function TicketShowPassSheet({
                 >
                   {exporting === 'download' ? 'Downloading…' : 'Download'}
                 </button>
-                {canSave ? (
-                  <button
-                    type="button"
-                    className="ticket-show-pass-action"
-                    onClick={() => void savePicture()}
-                    disabled={exporting != null}
-                  >
-                    {exporting === 'save' ? 'Saving…' : 'Save'}
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
+              ) : (
+                <span className="ticket-show-pass-action is-reserved" aria-hidden>
+                  Download
+                </span>
+              )}
+              {canSave && passCode ? (
+                <button
+                  type="button"
+                  className="ticket-show-pass-action"
+                  onClick={() => void savePicture()}
+                  disabled={exporting != null}
+                >
+                  {exporting === 'save' ? 'Saving…' : 'Save'}
+                </button>
+              ) : null}
+            </div>
             {exportNote ? (
               <p
                 className={`ticket-show-pass-export-note${
-                  exportNote === 'Saved' || exportNote === 'Downloaded'
-                    ? ' is-saved'
-                    : ''
+                  exportNote === 'Saved' ? ' is-saved' : ''
                 }`}
                 role="status"
               >

@@ -38,7 +38,7 @@ export function ticketPassPictureFilename(title: string): string {
   return `${slug || 'onsocial'}-pass.png`;
 }
 
-/** Save is the Photos path. It exists only when the device can share a file. */
+/** True when this browser can hand a picture file to the share sheet. */
 export function ticketPassCanSavePicture(): boolean {
   if (
     typeof navigator === 'undefined' ||
@@ -55,6 +55,18 @@ export function ticketPassCanSavePicture(): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Save is share-into-Photos. A phone shows it. A computer already has
+ * Download, and a desktop share sheet is a second save window.
+ */
+export function ticketPassOffersSavePicture(): boolean {
+  if (!ticketPassCanSavePicture()) return false;
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return false;
+  }
+  return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 }
 
 export function ticketPassQrMatrix(value: string): QrCodeGenerateResult {

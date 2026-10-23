@@ -460,7 +460,6 @@ test.describe('collection drop page', () => {
     await pass.getByRole('button', { name: 'Download' }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe('gate-pass-pass.png');
-    await expect(pass.getByText('Downloaded', { exact: true })).toBeVisible();
   });
 
   test('See who searches the guest roster', async ({ page }) => {

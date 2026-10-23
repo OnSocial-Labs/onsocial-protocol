@@ -1444,6 +1444,10 @@ button.market-listing-title-link {
   cursor: default;
 }
 
+.ticket-show-pass-action.is-reserved {
+  visibility: hidden;
+}
+
 .ticket-show-pass-export-note {
   margin: 0;
   text-align: center;
@@ -32053,15 +32057,22 @@ a.os-surface-row {
     --pass-pad-r: max(0.85rem, env(safe-area-inset-right, 0px));
     --pass-pad-t: max(0.55rem, env(safe-area-inset-top, 0px));
     --pass-pad-b: max(0.85rem, env(safe-area-inset-bottom, 0px));
-    --pass-qr: min(100%, 12.75rem);
+    /*
+     * One size for the whole window. Floor stays scannable, cap stays
+     * inside the column. svh tracks a resize without snapping, and stays
+     * put when mobile browser chrome shows or hides.
+     */
+    --pass-qr: min(100%, clamp(9.5rem, calc(100svh - 24.5rem), 13.5rem));
     --pass-gap-header: 0.35rem;
     --pass-gap-qr: 0.9rem;
     position: relative;
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: safe center;
     width: 100%;
-    height: 100%;
-    min-height: 0;
+    min-height: 100%;
+    height: auto;
     box-sizing: border-box;
     padding: var(--pass-pad-t) var(--pass-pad-r) var(--pass-pad-b)
       var(--pass-pad-x);
@@ -32082,9 +32093,9 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: min(100%, 20rem);
+    flex-shrink: 0;
+    width: min(100%, 22rem);
     max-height: none;
-    min-height: 0;
     margin: 0;
     padding: 0.35rem 0.15rem 0.55rem;
     overflow: visible;
@@ -32092,8 +32103,13 @@ a.os-surface-row {
     -webkit-overflow-scrolling: touch;
   }
 
-  .ticket-show-pass-body > .ticket-show-pass-status {
-    text-align: center;
+  .ticket-show-pass-status-slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 100%;
+    min-height: calc(0.84rem * 1.3);
     margin: 0.35rem 0 0;
   }
 
@@ -32106,6 +32122,7 @@ a.os-surface-row {
     border-radius: 0.7rem;
     overflow: hidden;
     line-height: 0;
+    flex-shrink: 0;
   }
 
   .ticket-show-pass-mark-btn:focus-visible {
@@ -32124,7 +32141,8 @@ a.os-surface-row {
 
   .ticket-show-pass-name {
     margin: 0.55rem 0 0;
-    max-width: var(--pass-qr);
+    max-width: 100%;
+    flex-shrink: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -32138,6 +32156,11 @@ a.os-surface-row {
 
   .ticket-show-pass-status {
     margin: 0;
+    max-width: 100%;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     text-align: center;
     font-size: 0.84rem;
     font-weight: 600;
@@ -32155,6 +32178,8 @@ a.os-surface-row {
   }
 
   .ticket-show-pass-qr {
+    display: grid;
+    place-items: center;
     width: var(--pass-qr);
     max-width: 100%;
     aspect-ratio: 1 / 1;
@@ -32166,6 +32191,13 @@ a.os-surface-row {
     box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
   }
 
+  .ticket-show-pass-qr-code {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+  }
+
   .ticket-show-pass-qr svg {
     display: block;
     width: 100%;
@@ -32174,19 +32206,22 @@ a.os-surface-row {
 
   .ticket-pass-qr-fallback,
   .ticket-show-pass-hint {
-    margin: var(--pass-gap-qr, 0.9rem) 0;
+    margin: 0;
+    padding: 0 0.85rem;
     text-align: center;
     font-size: 0.8rem;
     line-height: 1.35;
-    color: rgb(var(--fg-rgb) / 0.58);
+    /* Sits on the white QR plate, not the mood wash. */
+    color: rgb(17 17 17 / 0.62);
   }
 
   .ticket-show-pass-footer {
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    flex-shrink: 0;
     gap: 0.55rem;
-    width: var(--pass-qr);
+    width: 100%;
     max-width: 100%;
     min-width: 0;
     margin-top: 0.15rem;
@@ -32195,10 +32230,12 @@ a.os-surface-row {
   .ticket-show-pass-identity {
     display: flex;
     align-items: flex-start;
-    justify-content: flex-start;
+    justify-content: center;
     gap: 0.6rem;
     width: 100%;
     min-width: 0;
+    /* Holder arrives with token status. Keep the row so the QR stays put. */
+    min-height: 2.15rem;
   }
 
   .ticket-show-pass-identity.is-solo {
@@ -32217,11 +32254,12 @@ a.os-surface-row {
 
   .ticket-show-pass-identity-copy {
     display: flex;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     flex-direction: column;
     align-items: flex-start;
     gap: 0.02rem;
     min-width: 0;
+    max-width: 100%;
   }
 
   .ticket-show-pass-holder-name {
@@ -32259,17 +32297,21 @@ a.os-surface-row {
   }
 
   .ticket-show-pass-divider {
-    width: 100%;
+    width: var(--pass-qr);
+    max-width: 100%;
+    align-self: center;
     margin: 0;
   }
 
-  /* Pass N · live code — full QR width, opposite ends. */
+  /* Pass N · live code — the QR's width, opposite ends. Not the pass column. */
   .ticket-show-pass-meta {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    align-self: center;
     gap: 0.65rem;
-    width: 100%;
+    width: var(--pass-qr);
+    max-width: 100%;
     min-width: 0;
     margin: 0;
   }
@@ -32330,75 +32372,17 @@ a.os-surface-row {
     color: var(--protocol-green, rgb(var(--fg-rgb) / 0.72));
   }
 
-  @media (max-height: 720px) {
-    .ticket-show-pass {
-      --pass-qr: min(100%, 11.25rem);
-      --pass-gap-qr: 0.7rem;
-    }
-
-    .ticket-show-pass-body {
-      padding: 0.25rem 0.1rem 0.4rem;
-    }
-
-    .ticket-show-pass-mark {
-      width: 3.25rem;
-      height: 3.25rem;
-    }
-
-    .ticket-show-pass-name {
-      margin-top: 0.35rem;
-      font-size: 0.95rem;
-    }
-  }
-
-  @media (max-height: 560px) {
-    .ticket-show-pass {
-      --pass-qr: min(100%, 9.5rem);
-      --pass-gap-header: 0.25rem;
-      --pass-gap-qr: 0.55rem;
-    }
-
-    .ticket-show-pass-mark {
-      width: 2.5rem;
-      height: 2.5rem;
-    }
-
-    .ticket-show-pass-name {
-      margin-top: 0.25rem;
-      font-size: 0.88rem;
-    }
-
-    .ticket-show-pass-status {
-      font-size: 0.78rem;
-    }
-
-    .ticket-show-pass-holder-name {
-      font-size: 0.82rem;
-    }
-
-    .ticket-show-pass-seat {
-      font-size: 0.74rem;
-    }
-  }
-
   @media (min-width: 640px) {
     .ticket-show-pass {
       --pass-pad-x: max(1.25rem, env(safe-area-inset-left, 0px));
       --pass-pad-r: max(1.25rem, env(safe-area-inset-right, 0px));
       --pass-pad-t: max(1rem, env(safe-area-inset-top, 0px));
       --pass-pad-b: max(1.15rem, env(safe-area-inset-bottom, 0px));
-      --pass-qr: min(100%, 13.5rem);
-      --pass-gap-qr: 1rem;
     }
 
     .ticket-show-pass-body {
-      width: min(100%, 21.5rem);
+      width: min(100%, 22rem);
       padding: 0.45rem 0.2rem 0.65rem;
-    }
-
-    .ticket-show-pass-mark {
-      width: 5rem;
-      height: 5rem;
     }
   }
 
@@ -34607,7 +34591,9 @@ a.os-surface-row {
 
   .scarce-listen-slide .os-slide-over-content.scarce-listen-slide-body,
   .ticket-pass-slide .os-slide-over-content.ticket-pass-slide-body {
-    flex: 0 0 auto;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
     min-height: 100%;
     height: auto;
     padding: 0;
@@ -35857,6 +35843,11 @@ a.os-surface-row {
       padding: 0 1.25rem 0.75rem;
     }
 
+    .ticket-pass-slide .os-media-face-body {
+      width: 100%;
+      padding: 0;
+    }
+
     .feed-article-slide .os-slide-over-content.feed-article-slide-body {
       padding: 0;
     }
@@ -35886,8 +35877,24 @@ a.os-surface-row {
     padding: 0;
   }
 
+  .ticket-pass-slide .os-slide-over-content.ticket-pass-slide-body {
+    flex: 1 0 auto;
+  }
+
+  .ticket-pass-slide .os-media-face-body {
+    flex: 1 0 auto;
+    width: 100%;
+    min-height: 100%;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    gap: 0;
+  }
+
   .ticket-pass-slide .ticket-show-pass {
     --pass-pad-t: 0.55rem;
+    flex: 1 0 auto;
+    min-height: 100%;
     height: auto;
   }
 

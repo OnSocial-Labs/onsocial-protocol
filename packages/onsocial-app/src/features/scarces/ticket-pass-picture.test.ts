@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ticketPassCanSavePicture,
+  ticketPassOffersSavePicture,
   ticketPassPictureFilename,
   ticketPassPictureStatusLine,
   ticketPassQrMatrix,
@@ -16,6 +17,7 @@ describe('ticket-pass-picture', () => {
 
   it('hides Save when the device cannot share a picture file', () => {
     expect(ticketPassCanSavePicture()).toBe(false);
+    expect(ticketPassOffersSavePicture()).toBe(false);
   });
 
   it('keeps a real status and drops the filler word Pass', () => {
