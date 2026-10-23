@@ -9023,8 +9023,9 @@ a.os-surface-row {
     flex: 0 0 auto;
   }
 
+  /* Do not grow — a royalty "of N NEAR" suffix must sit against the title. */
   .portfolio-scarce-earnings-kind-title {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
