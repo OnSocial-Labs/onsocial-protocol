@@ -11,6 +11,8 @@ import { StandingRelationshipSignal } from '@/components/ui/standing-relationshi
 import { StandingToggle } from '@/components/ui/standing-toggle';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
+import { DiscoverDirectoryActions } from '@/features/discover/discover-directory-actions';
+import { discoverDirectoryActionVisibility } from '@/features/discover/discover-directory-action-visibility';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { daoPath } from '@/lib/app-routes';
 import { isDaoStandingTarget } from '@/lib/dao-standing-account';
@@ -353,6 +355,12 @@ export function ProfileSocialListRow({
   const targetAriaLabel = isDaoTarget
     ? `View ${accountLabel(account)} DAO`
     : `View ${accountLabel(account)}'s profile`;
+  const directoryActions = directoryLine
+    ? discoverDirectoryActionVisibility(account)
+    : null;
+  const showDirectoryActions = Boolean(
+    directoryActions && (directoryActions.offers || directoryActions.hiring)
+  );
 
   return (
     <div className={`standing-row${isDaoTarget ? ' standing-row--dao' : ''}`}>
@@ -449,11 +457,16 @@ export function ProfileSocialListRow({
 
       <div
         className={`standing-row-aside${
-          !timeMeta && !(canUpdateStanding && onUpdateStanding)
+          !timeMeta &&
+          !(canUpdateStanding && onUpdateStanding) &&
+          !showDirectoryActions
             ? ' is-empty'
             : ''
         }`}
       >
+        {showDirectoryActions ? (
+          <DiscoverDirectoryActions account={account} />
+        ) : null}
         {timeMeta ? (
           <span className="standing-row-time" aria-label={timeMeta.description}>
             {timeMeta.label}

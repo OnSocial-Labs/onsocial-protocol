@@ -25,6 +25,7 @@ import {
   loadDiscoverFaceTitles,
   withDiscoverFaceLines,
 } from '@/lib/discover-face-line';
+import { fetchOfferCounts } from '@/lib/profile-offers';
 import type { ProfileListAccount } from '@/lib/profile-list-account';
 
 export function DiscoverRecommendedPeek({
@@ -115,12 +116,39 @@ export function DiscoverRecommendedPeek({
     rowsForViewer,
   ]);
   const directoryLine = face === 'offers' || face === 'hiring' ? face : null;
-  const listed = useMemo(() => {
+  const offerAccountKey =
+    directoryLine == null
+      ? ''
+      : visible
+          .filter((account) => account.offerCount == null)
+          .map((account) => account.accountId)
+          .slice(0, 40)
+          .join(',');
+  const [offerCounts, setOfferCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const ids = offerAccountKey ? offerAccountKey.split(',') : [];
+    if (ids.length === 0) return;
+    const controller = new AbortController();
+    void fetchOfferCounts(ids, controller.signal)
+      .then((counts) => {
+        if (!controller.signal.aborted) setOfferCounts(counts);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [offerAccountKey]);
+  const counted = useMemo(() => {
     if (!directoryLine) return visible;
-    const titles =
-      faceTitles?.face === directoryLine ? faceTitles.titles : {};
-    return withDiscoverFaceLines(visible, titles, directoryLine);
-  }, [directoryLine, faceTitles, visible]);
+    return visible.map((account) => {
+      if (account.offerCount != null) return account;
+      const offerCount = offerCounts[account.accountId];
+      return offerCount ? { ...account, offerCount } : account;
+    });
+  }, [directoryLine, offerCounts, visible]);
+  const listed = useMemo(() => {
+    if (!directoryLine) return counted;
+    const titles = faceTitles?.face === directoryLine ? faceTitles.titles : {};
+    return withDiscoverFaceLines(counted, titles, directoryLine);
+  }, [counted, directoryLine, faceTitles]);
 
   useEffect(() => {
     if (!directoryLine || visible.length === 0) return;

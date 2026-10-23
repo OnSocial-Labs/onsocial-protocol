@@ -19243,6 +19243,14 @@ a.os-surface-row {
     cursor: pointer;
   }
 
+  /* See offers / See hiring — action column, same idea as Show pass on a row. */
+  .standing-row-aside .discover-directory-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.35rem;
+  }
+
   .standing-row--skeleton {
     pointer-events: none;
   }
