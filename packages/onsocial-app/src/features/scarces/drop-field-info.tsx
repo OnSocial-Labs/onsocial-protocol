@@ -91,7 +91,7 @@ const DROP_FIELD_INFO: Record<
     title: 'Sale window',
     summary: 'When collectors can mint. Opens now by default.',
     detail:
-      'Tap Opens or Closes to set a time. A ticket with no close ends with the event. Other drops stay open until sold out. Allowlists need Opens set to mint early.',
+      'Tap Opens or Closes to set a time. A ticket with no close ends with the event. A coupon or membership with an access end closes then. Other drops stay open until sold out. Allowlists need Opens set to mint early.',
   },
   eventWindow: {
     title: 'Event window',

@@ -163,8 +163,11 @@ import {
   dropCreateRenewalsSummary,
   dropCreateRoyaltySummary,
   DROP_CREATE_ALLOWLIST_OPEN_HINT,
+  DROP_CREATE_COUPON_EARLIER_CLOSE_HINT,
   DROP_CREATE_EARLIER_SALE_CLOSE_HINT,
+  DROP_CREATE_MEMBERSHIP_EARLIER_CLOSE_HINT,
   DROP_CREATE_OPENS_REQUIRED,
+  dropCreateAccessSaleWindow,
   dropCreateEarlierSaleCloseStays,
   dropCreateAllowlistNeedsSaleOpen,
   dropCreateSaleWindowSummary,
@@ -977,6 +980,10 @@ export function CreateDropPanel() {
   const isAudio = templateId === 'audio';
   const isWriting = templateId === 'writing';
   const isTicket = templateId === 'ticket';
+  const isCoupon = templateId === 'coupon';
+  const isMembership = templateId === 'membership';
+  const accessSaleAnchored =
+    isCoupon || (isMembership && accessEnds.trim().length > 0);
   const createFacetMedium = isAudio
     ? ('audio' as const)
     : isWriting
@@ -1711,11 +1718,24 @@ export function CreateDropPanel() {
                   emptyLabel: 'Sold out',
                 }
               )}`
-            : startTime || endTime
-              ? `${startTime ? formatScheduleLabel(startTime) : 'Now'} → ${
-                  endTime ? formatScheduleLabel(endTime) : 'Sold out'
-                }`
-              : 'Now → sold out',
+            : accessSaleAnchored
+              ? `${startTime ? formatScheduleLabel(startTime) : 'Now'} → ${dropCreateSaleCloseDisplay(
+                  {
+                    isTicket: false,
+                    endTimeLabel: endTime ? formatScheduleLabel(endTime) : '',
+                    eventEndsLabel: '',
+                    accessAnchored: true,
+                    accessEndsLabel: accessEnds
+                      ? formatScheduleLabel(accessEnds)
+                      : '',
+                    emptyLabel: 'Access end',
+                  }
+                )}`
+              : startTime || endTime
+                ? `${startTime ? formatScheduleLabel(startTime) : 'Now'} → ${
+                    endTime ? formatScheduleLabel(endTime) : 'Sold out'
+                  }`
+                : 'Now → sold out',
       },
     ];
 
@@ -1814,6 +1834,7 @@ export function CreateDropPanel() {
     eventEnds,
     placeDraft,
     isTicket,
+    accessSaleAnchored,
     seriesName,
     accessEnds,
     maxRedeemsInput,
@@ -1985,6 +2006,23 @@ export function CreateDropPanel() {
         return;
       }
     }
+    if (accessSaleAnchored) {
+      const accessSale = dropCreateAccessSaleWindow({
+        saleOpensMs: startTime.trim()
+          ? (localDateTimeToMs(startTime) ?? null)
+          : null,
+        saleClosesMs: endTime.trim()
+          ? (localDateTimeToMs(endTime) ?? null)
+          : null,
+        accessEndsMs: accessEnds.trim()
+          ? (localDateTimeToMs(accessEnds) ?? null)
+          : null,
+      });
+      if (accessSale.error) {
+        setError(accessSale.error);
+        return;
+      }
+    }
     if (expiresAtMs != null && expiresAtMs <= nowMs) {
       setError(
         isTicket
@@ -2061,6 +2099,7 @@ export function CreateDropPanel() {
     eventEnds,
     eventStarts,
     isTicket,
+    accessSaleAnchored,
     renewable,
     accessEnds,
     startTime,
@@ -2569,12 +2608,21 @@ export function CreateDropPanel() {
     draftAllowlist.length,
     startTime
   );
-  const earlierSaleCloseStays =
-    isTicket &&
-    dropCreateEarlierSaleCloseStays(
-      endTime.trim() ? localDateTimeToMs(endTime) : null,
-      eventEnds.trim() ? localDateTimeToMs(eventEnds) : null
-    );
+  const earlierSaleCloseStays = dropCreateEarlierSaleCloseStays(
+    endTime.trim() ? localDateTimeToMs(endTime) : null,
+    isTicket
+      ? eventEnds.trim()
+        ? localDateTimeToMs(eventEnds)
+        : null
+      : accessSaleAnchored && accessEnds.trim()
+        ? localDateTimeToMs(accessEnds)
+        : null
+  );
+  const earlierSaleCloseHint = isTicket
+    ? DROP_CREATE_EARLIER_SALE_CLOSE_HINT
+    : isCoupon
+      ? DROP_CREATE_COUPON_EARLIER_CLOSE_HINT
+      : DROP_CREATE_MEMBERSHIP_EARLIER_CLOSE_HINT;
   const saleRowValue = allowlistNeedsOpen
     ? DROP_CREATE_OPENS_REQUIRED
     : dropCreateSaleWindowSummary(
@@ -2583,7 +2631,13 @@ export function CreateDropPanel() {
           isTicket,
           endTimeLabel: endTime ? formatScheduleLabel(endTime) : '',
           eventEndsLabel: eventEnds ? formatScheduleLabel(eventEnds) : '',
-          emptyLabel: isTicket ? 'Event end' : 'no end',
+          accessAnchored: accessSaleAnchored,
+          accessEndsLabel: accessEnds ? formatScheduleLabel(accessEnds) : '',
+          emptyLabel: isTicket
+            ? 'Event end'
+            : accessSaleAnchored
+              ? 'Access end'
+              : 'no end',
         })
       );
   const perWalletRowValue = dropCreatePerWalletSummary(
@@ -3798,7 +3852,7 @@ export function CreateDropPanel() {
               ) : null}
               {earlierSaleCloseStays ? (
                 <p className="drop-create-advanced-hint">
-                  {DROP_CREATE_EARLIER_SALE_CLOSE_HINT}
+                  {earlierSaleCloseHint}
                 </p>
               ) : null}
             </div>
@@ -4034,7 +4088,10 @@ export function CreateDropPanel() {
         }
         hint={
           extraSheet && extraSheet !== 'royalty'
-            ? dropCreateExtraHint(extraSheet, { isTicket })
+            ? dropCreateExtraHint(extraSheet, {
+                isTicket,
+                accessAnchored: accessSaleAnchored,
+              })
             : undefined
         }
         onDone={() => setExtraSheet(null)}
@@ -4157,7 +4214,13 @@ export function CreateDropPanel() {
                     <span className="drop-schedule-cell-value">
                       {endTime
                         ? formatScheduleLabel(endTime)
-                        : dropCreateSaleCloseEmptyLabel(isTicket)}
+                        : dropCreateSaleCloseEmptyLabel(
+                            isTicket
+                              ? 'event'
+                              : accessSaleAnchored
+                                ? 'access'
+                                : 'none'
+                          )}
                     </span>
                   </button>
                   {endTime ? (
@@ -4174,7 +4237,7 @@ export function CreateDropPanel() {
                 </div>
                 {earlierSaleCloseStays ? (
                   <p className="drop-create-advanced-hint drop-create-sale-open-hint">
-                    {DROP_CREATE_EARLIER_SALE_CLOSE_HINT}
+                    {earlierSaleCloseHint}
                   </p>
                 ) : null}
               </div>
@@ -4393,7 +4456,13 @@ export function CreateDropPanel() {
                   : startTime
         }
         clearLabel={
-          scheduleField === 'closes' && isTicket ? 'Event end' : undefined
+          scheduleField === 'closes' && isTicket
+            ? 'Event end'
+            : scheduleField === 'closes' && accessSaleAnchored
+              ? 'Access end'
+              : scheduleField === 'access' && template.requiresAccessEnd
+                ? 'Clear'
+                : undefined
         }
         minValue={
           scheduleField === 'closes' && startTime
@@ -4404,18 +4473,30 @@ export function CreateDropPanel() {
         }
         maxValue={
           scheduleField === 'opens'
-            ? earlierScheduleBound(endTime, isTicket ? eventEnds : '')
+            ? earlierScheduleBound(
+                endTime,
+                isTicket ? eventEnds : accessSaleAnchored ? accessEnds : ''
+              )
             : scheduleField === 'closes' && isTicket && eventEnds
               ? eventEnds
-              : scheduleField === 'eventStarts' && eventEnds
-                ? eventEnds
-                : undefined
+              : scheduleField === 'closes' && accessSaleAnchored && accessEnds
+                ? accessEnds
+                : scheduleField === 'eventStarts' && eventEnds
+                  ? eventEnds
+                  : undefined
         }
-        maxInclusive={scheduleField === 'closes' && isTicket}
+        maxInclusive={
+          (scheduleField === 'closes' && isTicket) ||
+          (scheduleField === 'closes' &&
+            accessSaleAnchored &&
+            Boolean(accessEnds))
+        }
         maxError={
           scheduleField === 'closes' && isTicket
             ? 'Must be on or before the event end.'
-            : undefined
+            : scheduleField === 'closes' && accessSaleAnchored && accessEnds
+              ? 'Must be on or before the access end.'
+              : undefined
         }
         onClose={() => setScheduleField(null)}
         onChange={(next) => {

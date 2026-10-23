@@ -42,7 +42,10 @@ import {
   dropCreateSaleWindowSummary,
   dropCreateSaleCloseDisplay,
   dropCreateSaleCloseEmptyLabel,
+  DROP_CREATE_COUPON_EARLIER_CLOSE_HINT,
   DROP_CREATE_EARLIER_SALE_CLOSE_HINT,
+  DROP_CREATE_MEMBERSHIP_EARLIER_CLOSE_HINT,
+  dropCreateAccessSaleWindow,
   dropCreateEarlierSaleCloseStays,
   dropCreateTicketSaleWindow,
   dropCreateTransferableSummary,
@@ -303,6 +306,9 @@ describe('dropCreateExtraHint', () => {
     expect(dropCreateExtraHint('saleRules', { isTicket: true })).toBe(
       'Opens now. Closes at the event end unless you set an earlier close.'
     );
+    expect(dropCreateExtraHint('saleRules', { accessAnchored: true })).toBe(
+      'Opens now. Closes when access ends unless you set an earlier close.'
+    );
     expect(dropCreateExtraHint('perWallet')).toMatch(/one wallet/);
     expect(dropCreateExtraHint('transferable')).toBe(
       'Yes lets them transfer and resell. No keeps the edition with them.'
@@ -408,6 +414,42 @@ describe('dropCreate summaries', () => {
       dropCreateEarlierSaleCloseStays(eventEndsMs - 60_000, eventEndsMs)
     ).toBe(true);
     expect(DROP_CREATE_EARLIER_SALE_CLOSE_HINT).toMatch(/postponed/);
+    expect(DROP_CREATE_COUPON_EARLIER_CLOSE_HINT).toBe(
+      'Selling stops here. Coupons already sold stay valid until access ends.'
+    );
+    expect(DROP_CREATE_MEMBERSHIP_EARLIER_CLOSE_HINT).toBe(
+      'Selling stops here. Passes already sold stay valid until access ends.'
+    );
+    expect(DROP_CREATE_COUPON_EARLIER_CLOSE_HINT).not.toMatch(/postponed/i);
+    expect(DROP_CREATE_MEMBERSHIP_EARLIER_CLOSE_HINT).not.toMatch(/postponed/i);
+    expect(
+      dropCreateAccessSaleWindow({
+        saleOpensMs: afterEvent,
+        saleClosesMs: null,
+        accessEndsMs: eventEndsMs,
+      }).error
+    ).toBe('The open time must be before access ends.');
+    expect(
+      dropCreateAccessSaleWindow({
+        saleOpensMs: null,
+        saleClosesMs: afterEvent,
+        accessEndsMs: eventEndsMs,
+      }).error
+    ).toBe('The close time must be on or before the access end.');
+    expect(
+      dropCreateAccessSaleWindow({
+        saleOpensMs: null,
+        saleClosesMs: eventEndsMs,
+        accessEndsMs: eventEndsMs,
+      })
+    ).toEqual({ error: null });
+    expect(
+      dropCreateAccessSaleWindow({
+        saleOpensMs: null,
+        saleClosesMs: null,
+        accessEndsMs: eventEndsMs,
+      })
+    ).toEqual({ error: null });
     expect(
       dropCreateSaleCloseDisplay({
         isTicket: true,
@@ -424,8 +466,40 @@ describe('dropCreate summaries', () => {
         emptyLabel: 'no end',
       })
     ).toBe('no end');
+    expect(
+      dropCreateSaleCloseDisplay({
+        isTicket: false,
+        endTimeLabel: '',
+        eventEndsLabel: '',
+        accessAnchored: true,
+        accessEndsLabel: 'Sep 30, 2026, 9:54 PM',
+        emptyLabel: 'Access end',
+      })
+    ).toBe('Sep 30, 2026, 9:54 PM');
+    expect(
+      dropCreateSaleCloseDisplay({
+        isTicket: false,
+        endTimeLabel: 'Sep 24, 2026, 9:54 PM',
+        eventEndsLabel: '',
+        accessAnchored: true,
+        accessEndsLabel: 'Sep 30, 2026, 9:54 PM',
+        emptyLabel: 'Access end',
+      })
+    ).toBe('Sep 24, 2026, 9:54 PM');
+    expect(
+      dropCreateSaleCloseDisplay({
+        isTicket: false,
+        endTimeLabel: '',
+        eventEndsLabel: '',
+        accessAnchored: true,
+        accessEndsLabel: '',
+        emptyLabel: 'Access end',
+      })
+    ).toBe('Access end');
     expect(dropCreateSaleCloseEmptyLabel(true)).toBe('Event end');
     expect(dropCreateSaleCloseEmptyLabel(false)).toBe('No end');
+    expect(dropCreateSaleCloseEmptyLabel('access')).toBe('Access end');
+    expect(dropCreateSaleCloseEmptyLabel('none')).toBe('No end');
     expect(dropCreatePerWalletSummary('', 'editions')).toBe('No limit');
     expect(dropCreatePerWalletSummary('0', 'editions')).toBe('No limit');
     expect(dropCreatePerWalletSummary('2', 'editions')).toBe('2 editions');

@@ -857,4 +857,162 @@ test.describe('create drop', () => {
       page.locator('.drop-create-sale-row').getByText(hint)
     ).toBeVisible();
   });
+
+  test('a coupon sale with no close is the access end', async ({ page }) => {
+    await openCreateDrop(page);
+    await clickKindTab(page, 'Coupons');
+    await expect(
+      page.getByRole('button', { name: 'Sale: Now · Access end' })
+    ).toBeVisible();
+
+    await page.getByRole('button', { name: 'Sale: Now · Access end' }).click();
+    const sale = page.getByRole('dialog', { name: 'Sale' });
+    await expect(
+      sale.getByText(
+        'Opens now. Closes when access ends unless you set an earlier close.'
+      )
+    ).toBeVisible();
+    await expect(sale.getByText('Access end', { exact: true })).toBeVisible();
+    await expect(sale.getByText('No end', { exact: true })).toHaveCount(0);
+    await sale.getByText('Access end', { exact: true }).click();
+    const closes = page.getByRole('dialog', { name: 'Closes' });
+    await expect(
+      closes.getByRole('button', { name: 'Access end', exact: true })
+    ).toBeVisible();
+    await expect(
+      closes.getByRole('button', { name: 'No end', exact: true })
+    ).toHaveCount(0);
+    await closes.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(closes).toBeHidden();
+    await sale.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(sale).toBeHidden();
+
+    await page
+      .getByRole('group', { name: 'Access ends' })
+      .getByText('Required', { exact: true })
+      .click();
+    const accessEnds = page.getByRole('dialog', { name: 'Access ends' });
+    await expect(
+      accessEnds.getByRole('button', { name: 'Clear', exact: true })
+    ).toBeVisible();
+    await expect(
+      accessEnds.getByRole('button', { name: 'No end', exact: true })
+    ).toHaveCount(0);
+    await accessEnds
+      .getByRole('button', { name: 'Close', exact: true })
+      .click();
+    await expect(accessEnds).toBeHidden();
+    await expect(
+      page.getByRole('button', { name: 'Sale: Now · Access end' })
+    ).toBeVisible();
+  });
+
+  test('an earlier coupon close stops selling before access ends', async ({
+    page,
+  }) => {
+    const hint =
+      'Selling stops here. Coupons already sold stay valid until access ends.';
+    await openCreateDrop(page);
+    await clickKindTab(page, 'Coupons');
+    await expect(page.getByText(hint)).toHaveCount(0);
+
+    await page
+      .getByRole('group', { name: 'Access ends' })
+      .getByRole('button', { name: /^Ends/ })
+      .click();
+    const accessEnds = page.getByRole('dialog', { name: 'Access ends' });
+    await accessEnds
+      .getByRole('button', { name: '30 days', exact: true })
+      .click();
+    await expect(accessEnds).toHaveCount(0);
+
+    await page.getByRole('button', { name: /^Sale:/ }).click();
+    const sale = page.getByRole('dialog', { name: 'Sale' });
+    await expect(sale.getByText(hint)).toHaveCount(0);
+    await sale.getByRole('button', { name: /^Closes/ }).click();
+    const closes = page.getByRole('dialog', { name: 'Closes' });
+    await closes.getByRole('button', { name: '24h', exact: true }).click();
+    await expect(closes).toHaveCount(0);
+    await expect(sale.getByText(hint)).toBeVisible();
+    await expect(
+      page.locator('.drop-create-sale-row').getByText(hint)
+    ).toBeVisible();
+    await sale.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(sale).toBeHidden();
+    await expect(
+      page.locator('.drop-create-sale-row').getByText(hint)
+    ).toBeVisible();
+  });
+
+  test('a membership sale stays open until an access end is set', async ({
+    page,
+  }) => {
+    const hint =
+      'Selling stops here. Passes already sold stay valid until access ends.';
+    await openCreateDrop(page);
+    await clickKindTab(page, 'Memberships');
+    await expect(
+      page.getByRole('button', { name: 'Sale: Now · no end' })
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Sale: Now · no end' }).click();
+    const sale = page.getByRole('dialog', { name: 'Sale' });
+    await expect(sale.getByText('When collectors can mint.')).toBeVisible();
+    await expect(sale.getByText('No end', { exact: true })).toBeVisible();
+    await sale.getByText('No end', { exact: true }).click();
+    const closes = page.getByRole('dialog', { name: 'Closes' });
+    await expect(
+      closes.getByRole('button', { name: 'No end', exact: true })
+    ).toBeVisible();
+    await closes.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(closes).toBeHidden();
+    await sale.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(sale).toBeHidden();
+
+    await page.getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('button', { name: 'Renewable: Yes' }).click();
+    const renewals = page.getByRole('dialog', { name: 'Renewable' });
+    await renewals.getByRole('button', { name: /^Access ends/ }).click();
+    const accessEnds = page.getByRole('dialog', { name: 'Access ends' });
+    await expect(
+      accessEnds.getByRole('button', { name: 'No end', exact: true })
+    ).toBeVisible();
+    await expect(
+      accessEnds.getByRole('button', { name: 'Clear', exact: true })
+    ).toHaveCount(0);
+    await accessEnds
+      .getByRole('button', { name: '30 days', exact: true })
+      .click();
+    await expect(accessEnds).toHaveCount(0);
+    await renewals.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(renewals).toBeHidden();
+
+    await page.getByRole('button', { name: /^Sale:/ }).click();
+    const anchored = page.getByRole('dialog', { name: 'Sale' });
+    await expect(
+      anchored.getByText(
+        'Opens now. Closes when access ends unless you set an earlier close.'
+      )
+    ).toBeVisible();
+    await expect(
+      anchored.getByText('Access end', { exact: true })
+    ).toBeVisible();
+    await anchored.getByRole('button', { name: /^Closes/ }).click();
+    const anchoredCloses = page.getByRole('dialog', { name: 'Closes' });
+    await expect(
+      anchoredCloses.getByRole('button', { name: 'Access end', exact: true })
+    ).toBeVisible();
+    await anchoredCloses
+      .getByRole('button', { name: '24h', exact: true })
+      .click();
+    await expect(anchoredCloses).toHaveCount(0);
+    await expect(anchored.getByText(hint)).toBeVisible();
+    await expect(
+      page.locator('.drop-create-sale-row').getByText(hint)
+    ).toBeVisible();
+    await anchored.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(anchored).toBeHidden();
+    await expect(
+      page.locator('.drop-create-sale-row').getByText(hint)
+    ).toBeVisible();
+  });
 });

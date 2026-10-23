@@ -309,7 +309,7 @@ export function dropCreateExtraRowLabel(
 /** One quiet line in the extra drawer — not a second InfoDrawer. */
 export function dropCreateExtraHint(
   kind: DropCreateExtraSheetId | 'event' | 'access' | 'allowlist',
-  opts: { isTicket?: boolean } = {}
+  opts: { isTicket?: boolean; accessAnchored?: boolean } = {}
 ): string {
   switch (kind) {
     case 'dropId':
@@ -321,9 +321,13 @@ export function dropCreateExtraHint(
     case 'royalty':
       return 'Creator cut on resales.';
     case 'saleRules':
-      return opts.isTicket
-        ? 'Opens now. Closes at the event end unless you set an earlier close.'
-        : 'When collectors can mint.';
+      if (opts.isTicket) {
+        return 'Opens now. Closes at the event end unless you set an earlier close.';
+      }
+      if (opts.accessAnchored) {
+        return 'Opens now. Closes when access ends unless you set an earlier close.';
+      }
+      return 'When collectors can mint.';
     case 'perWallet':
       return 'Cap how many one wallet can collect, up to the edition count.';
     case 'transferable':
@@ -453,10 +457,37 @@ export function dropCreateTicketSaleWindow(input: {
   return { error: null, closesMs: saleClosesMs ?? eventEndsMs };
 }
 
+/**
+ * A coupon or membership sale cannot outlast its access end.
+ * An empty close stays empty — the door already stops mint at that end.
+ * Times are milliseconds. A null open means Now.
+ */
+export function dropCreateAccessSaleWindow(input: {
+  saleOpensMs: number | null;
+  saleClosesMs: number | null;
+  accessEndsMs: number | null;
+}): { error: string | null } {
+  const { saleOpensMs, saleClosesMs, accessEndsMs } = input;
+  if (accessEndsMs == null) return { error: null };
+  if (saleOpensMs != null && saleOpensMs >= accessEndsMs) {
+    return { error: 'The open time must be before access ends.' };
+  }
+  if (saleClosesMs != null && saleClosesMs > accessEndsMs) {
+    return { error: 'The close time must be on or before the access end.' };
+  }
+  return { error: null };
+}
+
 const SALE_CLOSE_MINUTE_MS = 60_000;
 
 export const DROP_CREATE_EARLIER_SALE_CLOSE_HINT =
   'This close stays if the event is postponed. Selling stops here.';
+
+export const DROP_CREATE_COUPON_EARLIER_CLOSE_HINT =
+  'Selling stops here. Coupons already sold stay valid until access ends.';
+
+export const DROP_CREATE_MEMBERSHIP_EARLIER_CLOSE_HINT =
+  'Selling stops here. Passes already sold stay valid until access ends.';
 
 /**
  * A ticket close on an earlier minute does not move when the event is postponed.
@@ -482,23 +513,38 @@ export function dropCreateEarlierSaleCloseStays(
   );
 }
 
-/** Empty Closes cell. A ticket sale ends with the event. */
+/**
+ * Empty Closes cell.
+ * A ticket sale ends with the event. A coupon, or a membership that
+ * already has an access end, ends with that access end.
+ */
 export function dropCreateSaleCloseEmptyLabel(
-  isTicket: boolean
-): 'Event end' | 'No end' {
-  return isTicket ? 'Event end' : 'No end';
+  anchor: boolean | 'event' | 'access' | 'none'
+): 'Event end' | 'Access end' | 'No end' {
+  if (anchor === true || anchor === 'event') return 'Event end';
+  if (anchor === 'access') return 'Access end';
+  return 'No end';
 }
 
-/** Shown close. A ticket with no sale close uses the event end. */
+/**
+ * Shown close. An empty ticket close uses the event end.
+ * An empty coupon or membership close uses the access end once that date exists.
+ * The field itself stays empty.
+ */
 export function dropCreateSaleCloseDisplay(input: {
   isTicket: boolean;
   endTimeLabel: string;
   eventEndsLabel: string;
   emptyLabel: string;
+  accessAnchored?: boolean;
+  accessEndsLabel?: string;
 }): string {
   if (input.endTimeLabel.trim()) return input.endTimeLabel.trim();
   if (input.isTicket && input.eventEndsLabel.trim()) {
     return input.eventEndsLabel.trim();
+  }
+  if (input.accessAnchored && input.accessEndsLabel?.trim()) {
+    return input.accessEndsLabel.trim();
   }
   return input.emptyLabel;
 }
