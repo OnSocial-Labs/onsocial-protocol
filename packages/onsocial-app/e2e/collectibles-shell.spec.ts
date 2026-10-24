@@ -128,6 +128,8 @@ test.describe('collectibles shell', () => {
     await expect(
       editions.getByRole('button', { name: 'Open Edition 3' })
     ).toBeVisible();
+    await expect(editions.locator('time')).toHaveCount(0);
+    await expect(editions.getByText(/night-drive:/)).toHaveCount(0);
     const editionThree = editions.getByRole('button', {
       name: 'Open Edition 3',
     });
@@ -168,22 +170,32 @@ test.describe('collectibles shell', () => {
       })
       .toBe(true);
     const history = actions.getByRole('menuitem', { name: 'History' });
+    const factsItem = actions.getByRole('menuitem', { name: 'Facts' });
     await expect(history).toBeVisible();
-    const historyBox = await history.boundingBox();
+    await expect(factsItem).toBeVisible();
+    await expect(
+      actions.getByRole('menuitem', { name: 'Transfer' })
+    ).toHaveCount(0);
+    const factsBox = await factsItem.boundingBox();
     const menuBox = await actions.boundingBox();
     const menuDock = await page
       .locator('.portfolio-summon-dock')
       .first()
       .boundingBox();
-    expect(historyBox).toBeTruthy();
+    expect(factsBox).toBeTruthy();
     expect(menuBox).toBeTruthy();
     expect(menuDock).toBeTruthy();
-    expect(historyBox!.y + historyBox!.height).toBeLessThanOrEqual(
-      menuDock!.y + 1
-    );
-    expect(menuBox!.height).toBeLessThan(220);
-    await actions.getByRole('button', { name: 'Close' }).click();
+    expect(factsBox!.y + factsBox!.height).toBeLessThanOrEqual(menuDock!.y + 1);
+    expect(menuBox!.height).toBeLessThan(260);
+    await factsItem.click();
     await expect(actions).toBeHidden();
+    const facts = page.getByRole('dialog', { name: 'Facts' });
+    await expect(facts.getByText('night-drive:1')).toBeVisible();
+    await expect(facts.getByText('Minted')).toBeVisible();
+    await expect(facts.getByText('Listed')).toHaveCount(0);
+    await facts.getByRole('button', { name: 'Close facts' }).click();
+    await expect(facts).toBeHidden();
+    await expect(editions).toBeVisible();
     await expect(editions.getByText(/night-drive:/)).toHaveCount(0);
     await editions.getByRole('button', { name: 'Close editions' }).click();
     await expect(editions).toBeHidden();

@@ -4,8 +4,10 @@ import { describe, expect, it } from 'vitest';
 import { HeldEditionList } from '@/features/collectibles/held-editions-sheet';
 import {
   heldEditionCoversDiffer,
+  heldEditionFactRows,
   heldEditionLabel,
   heldEditionSheetTitle,
+  heldEditionTrailTimesDiffer,
 } from '@/features/collectibles/held-editions';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
 
@@ -111,5 +113,94 @@ describe('held editions', () => {
     expect(varied).toContain('aria-label="Open Edition 3"');
     expect(varied).toContain('aria-label="More for Edition 1"');
     expect(varied).not.toContain('night-drive:');
+  });
+
+  it('shows a trail time only when the stamps do not read the same', () => {
+    expect(heldEditionTrailTimesDiffer(['2d', '1y'])).toBe(true);
+    expect(heldEditionTrailTimesDiffer(['2d', '2d'])).toBe(false);
+    expect(heldEditionTrailTimesDiffer(['2d', null])).toBe(true);
+    expect(heldEditionTrailTimesDiffer([null, ''])).toBe(false);
+    expect(heldEditionTrailTimesDiffer(["Jan 1 '70", "Jan 1 '70"])).toBe(false);
+
+    const now = Date.now();
+    const shared = renderToStaticMarkup(
+      createElement(HeldEditionList, {
+        editions: [
+          { ...edition('night-drive:1'), mintedAtMs: now },
+          { ...edition('night-drive:3'), mintedAtMs: now },
+        ],
+        choose: 'open',
+        onChoose: () => {},
+      })
+    );
+    expect(shared).not.toContain('<time');
+    expect(shared).not.toContain('night-drive:');
+
+    const split = renderToStaticMarkup(
+      createElement(HeldEditionList, {
+        editions: [
+          { ...edition('night-drive:1'), mintedAtMs: now },
+          {
+            ...edition('night-drive:3'),
+            mintedAtMs: now - 400 * 86_400_000,
+          },
+        ],
+        choose: 'open',
+        onChoose: () => {},
+      })
+    );
+    expect(split).toContain('<time');
+    expect(split).not.toContain('night-drive:');
+
+    const partial = renderToStaticMarkup(
+      createElement(HeldEditionList, {
+        editions: [
+          { ...edition('night-drive:1'), mintedAtMs: now },
+          edition('night-drive:3'),
+        ],
+        choose: 'open',
+        onChoose: () => {},
+      })
+    );
+    expect(partial.match(/<time/g)).toHaveLength(1);
+  });
+
+  it('keeps the token id in facts, with a sale line only when listed', () => {
+    expect(
+      heldEditionFactRows({
+        tokenId: ' night-drive:4 ',
+        listingKind: null,
+      })
+    ).toEqual([{ label: 'Token', value: 'night-drive:4' }]);
+
+    const minted = heldEditionFactRows({
+      tokenId: 'night-drive:4',
+      mintedAtMs: Date.UTC(2024, 0, 15, 12),
+      listingKind: null,
+    });
+    expect(minted.map((row) => row.label)).toEqual(['Token', 'Minted']);
+    expect(minted[1]?.value).toMatch(/2024/);
+
+    expect(
+      heldEditionFactRows({
+        tokenId: 'night-drive:4',
+        listingKind: 'fixed',
+        listedPriceNear: '2',
+      })
+    ).toContainEqual({ label: 'Listed', value: '2 NEAR' });
+
+    expect(
+      heldEditionFactRows({
+        tokenId: 'night-drive:4',
+        listingKind: 'auction',
+      })
+    ).toContainEqual({ label: 'Listed', value: 'For sale' });
+
+    const dollars = heldEditionFactRows({
+      tokenId: 'night-drive:4',
+      listingKind: 'fixed',
+      listedUsdE6: '2500000',
+    });
+    expect(dollars.find((row) => row.label === 'Listed')?.value).toBe('$2.5');
   });
 });

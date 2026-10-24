@@ -1,16 +1,27 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Divider, DotsVerticalIcon, OsHugSheet } from '@onsocial/ui';
+import {
+  Divider,
+  DotsVerticalIcon,
+  OsHugSheet,
+  SheetFactRow,
+} from '@onsocial/ui';
 import { ActionDrawer } from '@/components/ui/action-drawer';
 import {
   heldEditionCoversDiffer,
+  heldEditionFactRows,
   heldEditionLabel,
   heldEditionSheetTitle,
+  heldEditionTrailTimesDiffer,
 } from '@/features/collectibles/held-editions';
-import type { OwnedScarceItem } from '@/features/market/market-listings';
+import {
+  formatMarketRelativeTime,
+  type OwnedScarceItem,
+} from '@/features/market/market-listings';
 import { ScarceTokenHistorySheet } from '@/features/scarces/scarce-token-history-sheet';
 import { ownedScarceCanTransfer } from '@/features/scarces/scarce-transfer';
+import { socialTimeProps } from '@/lib/post-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 /** Per-edition face. A missing file leaves the label, with no empty tile. */
@@ -32,11 +43,13 @@ function HeldEditionMenu({
   onTransfer,
   onSell,
   onHistory,
+  onFacts,
 }: {
   label: string;
   onTransfer?: () => void;
   onSell?: () => void;
   onHistory?: () => void;
+  onFacts?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const items = useMemo(() => {
@@ -75,8 +88,18 @@ function HeldEditionMenu({
         },
       });
     }
+    if (onFacts) {
+      list.push({
+        id: 'facts',
+        label: 'Facts',
+        onSelect: () => {
+          setOpen(false);
+          onFacts();
+        },
+      });
+    }
     return list;
-  }, [onHistory, onSell, onTransfer]);
+  }, [onFacts, onHistory, onSell, onTransfer]);
 
   if (items.length === 0) return null;
 
@@ -107,10 +130,42 @@ function HeldEditionMenu({
   );
 }
 
+/** Id, mint date, and a sale line for this copy. The edition list stays open. */
+function HeldEditionFactsSheet({
+  item,
+  onClose,
+}: {
+  item: OwnedScarceItem | null;
+  onClose: () => void;
+}) {
+  const label = item ? heldEditionLabel(item.tokenId) : 'Edition';
+  const rows = item ? heldEditionFactRows(item) : [];
+  return (
+    <OsHugSheet
+      open={item != null}
+      onClose={onClose}
+      label="Facts"
+      copy={label}
+      closeAriaLabel="Close facts"
+      backdropLabel="Close facts"
+      zIndex={SHEET_Z.overShell}
+      keepDock
+      panelClassName="held-edition-dock-panel"
+    >
+      <div className="guild-facts held-edition-facts">
+        {rows.map((row) => (
+          <SheetFactRow key={row.label} label={row.label} value={row.value} />
+        ))}
+      </div>
+    </OsHugSheet>
+  );
+}
+
 /**
  * Editions of one drop. Tap the row to open or send that edition.
- * Transfer, Sell, and History sit in one menu.
+ * Transfer, Sell, History, and Facts sit in one menu.
  * Covers appear only when the editions resolve to different images.
+ * A mint time appears only when the copies do not share one stamp.
  */
 export function HeldEditionList({
   editions,
@@ -119,6 +174,7 @@ export function HeldEditionList({
   onTransfer,
   onSell,
   onHistory,
+  onFacts,
 }: {
   editions: OwnedScarceItem[];
   /** Row tap opens the edition, or sends it when the sheet was opened to transfer. */
@@ -127,7 +183,13 @@ export function HeldEditionList({
   onTransfer?: (item: OwnedScarceItem) => void;
   onSell?: (item: OwnedScarceItem) => void;
   onHistory?: (item: OwnedScarceItem) => void;
+  onFacts?: (item: OwnedScarceItem) => void;
 }) {
+  const timeLabels = editions.map((item) =>
+    item.mintedAtMs != null ? formatMarketRelativeTime(item.mintedAtMs) : ''
+  );
+  const showTimes = heldEditionTrailTimesDiffer(timeLabels);
+
   if (editions.length === 0) {
     return <p className="held-edition-empty">No editions to choose.</p>;
   }
@@ -141,6 +203,7 @@ export function HeldEditionList({
         const canSell = Boolean(onSell) && item.listingKind == null;
         const label = heldEditionLabel(item.tokenId);
         const cover = item.mediaUrl?.trim() || '';
+        const timeLabel = timeLabels[index]?.trim() || '';
         const canChoose = choose === 'send' ? canTransfer : Boolean(onChoose);
         const chooseName =
           choose === 'send' ? `Send ${label}` : `Open ${label}`;
@@ -170,12 +233,25 @@ export function HeldEditionList({
               ) : (
                 <span className="held-edition-choose">{face}</span>
               )}
-              <HeldEditionMenu
-                label={label}
-                onTransfer={canTransfer ? () => onTransfer?.(item) : undefined}
-                onSell={canSell ? () => onSell?.(item) : undefined}
-                onHistory={onHistory ? () => onHistory(item) : undefined}
-              />
+              <div className="drops-discovery-head-trail">
+                {showTimes && timeLabel ? (
+                  <time
+                    className="market-listing-meta-right"
+                    {...socialTimeProps(item.mintedAtMs)}
+                  >
+                    {timeLabel}
+                  </time>
+                ) : null}
+                <HeldEditionMenu
+                  label={label}
+                  onTransfer={
+                    canTransfer ? () => onTransfer?.(item) : undefined
+                  }
+                  onSell={canSell ? () => onSell?.(item) : undefined}
+                  onHistory={onHistory ? () => onHistory(item) : undefined}
+                  onFacts={onFacts ? () => onFacts(item) : undefined}
+                />
+              </div>
             </div>
           </div>
         );
@@ -204,6 +280,7 @@ export function HeldEditionsSheet({
   onSell?: (item: OwnedScarceItem) => void;
 }) {
   const [historyItem, setHistoryItem] = useState<OwnedScarceItem | null>(null);
+  const [factsItem, setFactsItem] = useState<OwnedScarceItem | null>(null);
   const heading = title.trim() || 'Editions';
   const sheetTitle = heldEditionSheetTitle(choose);
   const chooseEdition = onChoose
@@ -246,7 +323,14 @@ export function HeldEditionsSheet({
                 }
               : undefined
           }
-          onHistory={setHistoryItem}
+          onHistory={(item) => {
+            setFactsItem(null);
+            setHistoryItem(item);
+          }}
+          onFacts={(item) => {
+            setHistoryItem(null);
+            setFactsItem(item);
+          }}
         />
       </OsHugSheet>
       <ScarceTokenHistorySheet
@@ -254,6 +338,10 @@ export function HeldEditionsSheet({
         onClose={() => setHistoryItem(null)}
         tokenId={historyItem?.tokenId ?? ''}
         title={historyItem ? heldEditionLabel(historyItem.tokenId) : heading}
+      />
+      <HeldEditionFactsSheet
+        item={factsItem}
+        onClose={() => setFactsItem(null)}
       />
     </>
   );

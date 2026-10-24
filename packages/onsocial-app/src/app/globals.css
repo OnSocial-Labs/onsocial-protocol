@@ -29720,6 +29720,11 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.62);
   }
 
+  .held-edition-facts {
+    gap: 0.55rem;
+    padding: 0.55rem 0 0.15rem;
+  }
+
   .collectibles-holding-row-main {
     display: flex;
     min-width: 0;
