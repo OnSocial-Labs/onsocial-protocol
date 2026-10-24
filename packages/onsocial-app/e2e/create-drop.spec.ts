@@ -783,7 +783,7 @@ test.describe('create drop', () => {
     await page.getByRole('button', { name: 'More', exact: true }).click();
 
     const event = page.getByRole('group', { name: 'Event' });
-    await event.getByText('Required', { exact: true }).click();
+    await event.getByRole('button', { name: /^Ends/ }).click();
     const ends = page.getByRole('dialog', { name: 'Event ends' });
     await expect(
       ends.getByRole('button', { name: 'Clear', exact: true })
