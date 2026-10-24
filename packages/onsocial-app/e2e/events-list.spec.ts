@@ -6,6 +6,15 @@ test('a two dollar ticket shows $2 and the row opens', async ({ page }) => {
   await setE2eGraphDrops(page, 'events');
   await gotoApp(page, '/events');
 
+  const create = page
+    .locator('.os-app-screen-actions')
+    .getByRole('link', { name: 'New event' });
+  await expect(create).toBeVisible();
+  await expect(create).toHaveClass(/os-sheet-action/);
+  const createBox = await create.boundingBox();
+  expect(createBox && createBox.height).toBeGreaterThan(24);
+  expect(createBox && createBox.height).toBeLessThan(34);
+
   const row = page
     .locator('.drops-discovery-row')
     .filter({ hasText: 'Gate Pass' });

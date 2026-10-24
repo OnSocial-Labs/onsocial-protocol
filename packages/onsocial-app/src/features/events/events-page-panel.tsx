@@ -79,6 +79,7 @@ import {
   collectionPath,
 } from '@/lib/app-routes';
 import { DROPS_INDEX_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { OsRowAction } from '@/lib/os-row-action';
 
 const PAGE_SIZE = 48;
 
@@ -531,15 +532,7 @@ export function EventsPagePanel({
           }
         />
       }
-      actions={
-        <Link
-          href={APP_EVENTS_NEW_PATH}
-          scroll={false}
-          className="os-surface-chip"
-        >
-          New event
-        </Link>
-      }
+      actions={<OsRowAction href={APP_EVENTS_NEW_PATH}>New event</OsRowAction>}
       toolbar={
         <OsAppChromeToolbarRail className="market-listing-toolbar">
           <div className="market-listing-filter-stack">
