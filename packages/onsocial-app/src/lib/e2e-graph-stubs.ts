@@ -5,7 +5,7 @@
  *
  * Tests opt in with cookie `onsocial.e2e.graph`
  * (`catalog=night-roads`, `vault=default`, `hub=catalog`, `guild=empty`,
- * `market=shop`, `drop=default`, `drops=covers`, `writing=shelf`, `writing=reader`, or combined).
+ * `market=shop`, `drop=default`, `drops=covers`, `drops=events`, `writing=shelf`, `writing=reader`, or combined).
  * No cookie → live indexer / existing `page.route` only (SSR miss still works).
  */
 
@@ -30,7 +30,7 @@ export type E2eGraphHub = 'catalog' | 'empty' | 'held' | 'staff';
 export type E2eGraphGuild = 'empty' | 'missing' | 'member' | 'banned' | 'owner';
 export type E2eGraphMarket = 'shop' | 'shop-empty' | 'live-first';
 export type E2eGraphDrop = 'default' | 'held' | 'missing';
-export type E2eGraphDrops = 'covers';
+export type E2eGraphDrops = 'covers' | 'events';
 export type E2eGraphWriting = 'shelf' | 'reader';
 export type E2eGraphArticles = 'list';
 export type E2eDropCollectionId =
@@ -114,7 +114,7 @@ export function parseE2eGraphCookie(
     parsed.drop = drop;
   }
   const drops = params.get('drops');
-  if (drops === 'covers') parsed.drops = drops;
+  if (drops === 'covers' || drops === 'events') parsed.drops = drops;
   const writing = params.get('writing');
   if (writing === 'shelf' || writing === 'reader') {
     parsed.writing = writing;
@@ -310,12 +310,17 @@ function collectionRow(opts: {
   endTime?: number | null;
   remaining?: number;
   maxRedeems?: number | null;
+  /** Ask in yoctoNEAR. Dollar tickets leave this at zero. */
+  price?: string;
+  /** Dollar sticker in millionths. `$2` is `2000000`. */
+  usdE6?: string;
 }) {
   return {
     collectionId: opts.collectionId,
     creatorId: opts.creatorId ?? 'alice.near',
     appId: opts.appId ?? null,
-    price: TWO_NEAR_YOCTO,
+    price: opts.price ?? TWO_NEAR_YOCTO,
+    ...(opts.usdE6 ? { usdE6: opts.usdE6 } : {}),
     allowlistPrice: null,
     totalSupply: 10,
     mintedCount: 2,
@@ -926,6 +931,36 @@ export function e2eDropsCoverCatalogRows(): ReturnType<typeof collectionRow>[] {
   ];
 }
 
+/** One $2 ticket. NEAR ask stays 0, the same way a dollar ticket is stored. */
+export function e2eEventsCatalogRows(): ReturnType<typeof collectionRow>[] {
+  const start = Date.now() + 2 * 60 * 60 * 1000;
+  return [
+    collectionRow({
+      collectionId: 'gate-pass',
+      title: 'Gate Pass',
+      kind: 'ticket',
+      price: '0',
+      usdE6: '2000000',
+      extra: {
+        kind: 'ticket',
+        place: 'lisbon',
+        eventStartsAt: start,
+        eventEndsAt: start + 3 * 60 * 60 * 1000,
+      },
+      maxRedeems: 1,
+      coverMedia: DROPS_COVER_MEDIA,
+    }),
+  ];
+}
+
+function e2eDropsListRows(
+  drops: E2eGraphDrops
+): ReturnType<typeof collectionRow>[] {
+  return drops === 'events'
+    ? e2eEventsCatalogRows()
+    : e2eDropsCoverCatalogRows();
+}
+
 export const E2E_WRITING_ACCOUNT = 'alice.testnet';
 
 function e2eWritingArticleRow(opts: {
@@ -1308,29 +1343,29 @@ export function resolveE2eGraphStub(opts: {
     };
   }
   if (
-    parsed.drops === 'covers' &&
+    parsed.drops &&
     isCreatorCatalogQuery(opts.query) &&
     !isAppCatalogQuery(opts.query, variables)
   ) {
     return {
-      data: { scarcesCollectionsCurrent: e2eDropsCoverCatalogRows() },
+      data: { scarcesCollectionsCurrent: e2eDropsListRows(parsed.drops) },
     };
   }
-  if (parsed.drops === 'covers' && isCollectionCurrentQuery(opts.query)) {
+  if (parsed.drops && isCollectionCurrentQuery(opts.query)) {
     const collectionId =
       typeof variables.collectionId === 'string' ? variables.collectionId : '';
     const row =
-      e2eDropsCoverCatalogRows().find(
+      e2eDropsListRows(parsed.drops).find(
         (entry) => entry.collectionId === collectionId
       ) ?? null;
     return {
       data: { scarcesCollectionsCurrent: row ? [row] : [] },
     };
   }
-  if (parsed.drops === 'covers' && opts.query.includes('query Profiles(')) {
+  if (parsed.drops && opts.query.includes('query Profiles(')) {
     return { data: { profilesCurrent: [] } };
   }
-  if (parsed.drops === 'covers' && isProfileBatchQuery(opts.query)) {
+  if (parsed.drops && isProfileBatchQuery(opts.query)) {
     return {
       data: {
         profileSearch: [
@@ -1340,7 +1375,7 @@ export function resolveE2eGraphStub(opts: {
       },
     };
   }
-  if (parsed.drops === 'covers' && opts.query.includes('LoveFan')) {
+  if (parsed.drops && opts.query.includes('LoveFan')) {
     return {
       data: {
         scarceAlbumLoveFans: [],

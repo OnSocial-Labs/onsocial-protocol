@@ -28,6 +28,7 @@ import {
   dropCreateExtraRowLabel,
   dropCreateFacetsSummary,
   dropCreateOptionalSummary,
+  dropCreatePlaceSummary,
   dropCreateRenewalsChoice,
   dropCreateRenewalsHint,
   dropCreateRenewalsSummary,
@@ -250,6 +251,9 @@ describe('dropCreateAdvancedExtraAction', () => {
     );
     expect(dropCreateAdvancedExtraAction('allowlist')).toBe('Add an allowlist');
     expect(dropCreateAdvancedExtraAction('place')).toBe('Add a place');
+    expect(dropCreateAdvancedExtraAction('place', { isTicket: true })).toBe(
+      'Add a location'
+    );
     expect(dropCreateAdvancedExtraAction('burnable')).toBe('Set burnable');
   });
 });
@@ -276,6 +280,10 @@ describe('dropCreateExtraRowLabel', () => {
       'Style'
     );
     expect(dropCreateExtraRowLabel('setSource')).toBe('Images');
+    expect(dropCreateExtraRowLabel('place')).toBe('Place');
+    expect(dropCreateExtraRowLabel('place', { isTicket: true })).toBe(
+      'Location'
+    );
   });
 });
 
@@ -331,6 +339,9 @@ describe('dropCreate summaries', () => {
     expect(dropCreateDropIdSummary('ink-studies')).toBe('ink-studies');
     expect(dropCreateOptionalSummary('')).toBe('None');
     expect(dropCreateOptionalSummary('Ink Studies')).toBe('Ink Studies');
+    expect(dropCreatePlaceSummary('', true)).toBe('Required');
+    expect(dropCreatePlaceSummary('Lisbon', true)).toBe('Lisbon');
+    expect(dropCreatePlaceSummary('')).toBe('None');
     expect(dropCreateFacetsSummary([])).toBe('None');
     expect(dropCreateFacetsSummary(['generative'])).toBe('generative');
     expect(

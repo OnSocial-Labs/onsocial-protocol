@@ -588,7 +588,7 @@ test.describe('create drop', () => {
       0
     );
     await expect(
-      page.getByRole('button', { name: 'Place: None' })
+      page.getByRole('button', { name: 'Location: Required' })
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Postpone: Yes' })
@@ -597,7 +597,7 @@ test.describe('create drop', () => {
       .getByRole('group', { name: 'Event' })
       .boundingBox();
     const placeBox = await page
-      .getByRole('button', { name: 'Place: None' })
+      .getByRole('button', { name: 'Location: Required' })
       .boundingBox();
     const dropIdBox = await page
       .getByRole('button', { name: 'Drop ID: From title' })
