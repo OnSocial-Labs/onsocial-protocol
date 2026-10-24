@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { CheckIcon, ShareIcon } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
+import { scarceClipShareHref } from '@/lib/scarce-share-href';
 import { shareUrl } from '@/lib/share-url';
 
 export function ScarceClipShareButton({
@@ -32,23 +33,23 @@ export function ScarceClipShareButton({
   const dropId = collectionId?.trim() || '';
   const postButton =
     dropId && showFeedPost ? (
-        <button
-          type="button"
-          className="media-download-control scarce-clip-post-feed"
-          aria-label="Post to feed"
-          onClick={() => {
-            requestDropCompose({
-              collectionId: dropId,
-              title: name,
-              ...(mediaUrl?.trim() ? { mediaUrl: mediaUrl.trim() } : {}),
-              ...(mediumKind?.trim()
-                ? { mediumKind: mediumKind.trim().toLowerCase() }
-                : { mediumKind: 'audio' }),
-            });
-          }}
-        >
-          <span className="scarce-clip-post-feed-label">Post</span>
-        </button>
+      <button
+        type="button"
+        className="media-download-control scarce-clip-post-feed"
+        aria-label="Post to feed"
+        onClick={() => {
+          requestDropCompose({
+            collectionId: dropId,
+            title: name,
+            ...(mediaUrl?.trim() ? { mediaUrl: mediaUrl.trim() } : {}),
+            ...(mediumKind?.trim()
+              ? { mediumKind: mediumKind.trim().toLowerCase() }
+              : { mediumKind: 'audio' }),
+          });
+        }}
+      >
+        <span className="scarce-clip-post-feed-label">Post</span>
+      </button>
     ) : null;
 
   return (
@@ -62,10 +63,11 @@ export function ScarceClipShareButton({
         aria-label={copied ? 'Link copied' : 'Share'}
         onClick={() => {
           void (async () => {
-            const pageUrl =
+            const pageHref =
               typeof window === 'undefined' ? '' : window.location.href;
+            const url = scarceClipShareHref(dropId, pageHref);
             const result = await shareUrl({
-              url: pageUrl,
+              url,
               title: name,
               text: `Check out ${name} on OnSocial`,
             });

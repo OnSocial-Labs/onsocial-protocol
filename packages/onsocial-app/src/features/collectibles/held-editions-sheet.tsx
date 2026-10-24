@@ -2,15 +2,35 @@
 
 import { useState } from 'react';
 import { Divider, OsHugSheet } from '@onsocial/ui';
-import { heldEditionLabel } from '@/features/collectibles/held-editions';
+import {
+  heldEditionCoversDiffer,
+  heldEditionLabel,
+} from '@/features/collectibles/held-editions';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
 import { ScarceTokenHistorySheet } from '@/features/scarces/scarce-token-history-sheet';
 import { ownedScarceCanTransfer } from '@/features/scarces/scarce-transfer';
 import { SHEET_Z } from '@/lib/sheet-z';
 
+/** Per-edition face. Empty when that seat has no resolved image. */
+function HeldEditionCover({ src }: { src: string }) {
+  const [broken, setBroken] = useState(false);
+  if (!src || broken) {
+    return <span className="held-edition-cover is-empty" aria-hidden />;
+  }
+  return (
+    <img
+      className="held-edition-cover"
+      src={src}
+      alt=""
+      onError={() => setBroken(true)}
+    />
+  );
+}
+
 /**
  * Editions of one drop. The grouped row stays `×N` with no token ids.
  * Each edition carries its own Transfer, Sell, and History.
+ * Covers appear only when the editions resolve to different images.
  */
 export function HeldEditionList({
   editions,
@@ -27,18 +47,22 @@ export function HeldEditionList({
     return <p className="held-edition-empty">No editions to choose.</p>;
   }
 
+  const showCovers = heldEditionCoversDiffer(editions);
+
   return (
     <div className="held-edition-list">
       {editions.map((item, index) => {
-        const canTransfer =
-          Boolean(onTransfer) && ownedScarceCanTransfer(item);
+        const canTransfer = Boolean(onTransfer) && ownedScarceCanTransfer(item);
         const canSell = Boolean(onSell) && item.listingKind == null;
+        const label = heldEditionLabel(item.tokenId);
+        const cover = item.mediaUrl?.trim() || '';
         return (
           <div key={item.tokenId}>
             {index > 0 ? <Divider variant="item" /> : null}
             <div className="held-edition-row">
-              <span className="held-edition-label">
-                {heldEditionLabel(item.tokenId)}
+              <span className="held-edition-main">
+                {showCovers ? <HeldEditionCover src={cover} /> : null}
+                <span className="held-edition-label">{label}</span>
               </span>
               <span className="held-edition-actions">
                 {canTransfer ? (

@@ -29665,6 +29665,23 @@ a.os-surface-row {
     padding: 0.7rem 0;
   }
 
+  .held-edition-main {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .held-edition-cover {
+    display: block;
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.45rem;
+    object-fit: cover;
+    background: rgb(var(--fg-rgb) / 0.08);
+  }
+
   .held-edition-label {
     min-width: 0;
     font-weight: 600;
