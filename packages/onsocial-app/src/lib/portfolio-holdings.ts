@@ -1,3 +1,4 @@
+import { compareHeldEditionTokenIds } from '@/features/collectibles/held-editions';
 import {
   collectionIdFromTokenId,
   editionSeatFromTokenId,
@@ -255,6 +256,8 @@ export function holdingsReadHref(item: {
 export type PortfolioHoldingRailCard = PortfolioHoldingPeek & {
   /** Owned editions represented by this card (1 = unique token). */
   editionCount: number;
+  /** Every owned edition, seat order. The card fields stay the first one seen. */
+  editions: PortfolioHoldingPeek[];
 };
 
 /**
@@ -271,13 +274,17 @@ export function groupHoldingsForRail(
     const existing = byKey.get(key);
     if (existing) {
       existing.editionCount += 1;
+      existing.editions.push(item);
+      existing.editions.sort((a, b) =>
+        compareHeldEditionTokenIds(a.tokenId, b.tokenId)
+      );
       if (!existing.listedPriceNear?.trim() && item.listedPriceNear?.trim()) {
         existing.listingKind = item.listingKind ?? null;
         existing.listedPriceNear = item.listedPriceNear;
       }
       continue;
     }
-    byKey.set(key, { ...item, editionCount: 1 });
+    byKey.set(key, { ...item, editionCount: 1, editions: [item] });
   }
   return [...byKey.values()];
 }

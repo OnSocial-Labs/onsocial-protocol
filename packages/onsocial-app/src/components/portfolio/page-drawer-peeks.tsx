@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { type ProfileCreatedPeek } from '@/lib/fetch-profile-peeks';
+import { QuantityCount } from '@/features/scarces/quantity-count';
 import {
   groupHoldingsForRail,
   type PortfolioHoldingPeek,
@@ -39,11 +40,10 @@ export function PageDrawerHoldingsRail({
               {item.kindLabel ? (
                 <span className="page-drawer-media-kind">{item.kindLabel}</span>
               ) : null}
-              {item.editionCount > 1 ? (
-                <span className="page-drawer-media-editions">
-                  ×{item.editionCount}
-                </span>
-              ) : null}
+              <QuantityCount
+                quantity={item.editionCount}
+                className="page-drawer-media-editions"
+              />
             </span>
           </span>
         </Link>

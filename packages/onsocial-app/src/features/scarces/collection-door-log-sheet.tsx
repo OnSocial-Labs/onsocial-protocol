@@ -15,7 +15,6 @@ import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { CollectionActivitySkeleton } from '@/features/scarces/collection-page-skeleton';
 import {
   doorLogEntryIso,
-  doorLogEntrySeatLine,
   doorLogStaffVerb,
   fetchCollectionDoorLog,
   filterDoorLogEntries,
@@ -25,6 +24,8 @@ import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { eventGuestTallyLine } from '@/features/events/event-guests';
 import { fetchCollectionRedeemAttendance } from '@/features/scarces/ticket-attendance';
+import { QuantityCount } from '@/features/scarces/quantity-count';
+import { visibleQuantity } from '@/features/scarces/quantity-count-format';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { osChromePageClassName } from '@/lib/os-chrome-page';
 import { SHEET_Z } from '@/lib/sheet-z';
@@ -247,7 +248,7 @@ export function CollectionDoorLogSheet({
               entry.staffId,
               staffProfile?.displayName
             ).label;
-            const seatLine = doorLogEntrySeatLine(entry);
+            const countVerb = redeemVoice ? 'redeemed' : 'admitted';
             const timeIso = doorLogEntryIso(entry.blockTimestamp);
 
             return (
@@ -268,7 +269,16 @@ export function CollectionDoorLogSheet({
                     >
                       <span className="collection-door-log-meta">
                         <span className="collection-door-log-seat">
-                          {seatLine}
+                          {entry.seatLabel}
+                          {visibleQuantity(entry.redeemCount) ? (
+                            <>
+                              {' · '}
+                              <QuantityCount
+                                quantity={entry.redeemCount}
+                                verb={countVerb}
+                              />
+                            </>
+                          ) : null}
                         </span>
                         <span className="collection-door-log-staff-line">
                           {staffVerb}{' '}

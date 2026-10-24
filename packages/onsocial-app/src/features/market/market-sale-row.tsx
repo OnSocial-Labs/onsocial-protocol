@@ -13,6 +13,8 @@ import {
   useMarketPostLayer,
 } from '@/features/market/market-post-layer';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
+import { QuantityCount } from '@/features/scarces/quantity-count';
+import { appendEach } from '@/features/scarces/quantity-count-format';
 import { collectionPath } from '@/lib/app-routes';
 import { socialTimeProps } from '@/lib/post-display';
 
@@ -59,12 +61,16 @@ function formatSalePriceNear(priceNear: string, fractionDigits: 2 | 4): string {
 export function marketSalePriceLabel(input: {
   usdE6?: string | null;
   priceNear?: string | null;
+  quantity?: number | null;
 }): string | null {
   const sticker = dollarStickerLabel(input.usdE6);
   const near = input.priceNear?.trim();
-  if (!near) return sticker;
+  if (!near) return sticker ? appendEach(sticker, input.quantity) : null;
   const amount = formatSalePriceNear(near, sticker ? 2 : 4);
-  return `${sticker ? `${sticker} · ` : ''}${amount} NEAR`;
+  return appendEach(
+    `${sticker ? `${sticker} · ` : ''}${amount} NEAR`,
+    input.quantity
+  );
 }
 
 /** Recent sale in the listing row: buyer, the amount, time and the same ⋮. */
@@ -123,9 +129,13 @@ export function MarketSaleRow({
             lead={salePartyLead(sale)}
           />
         ) : null}
-        {priceLine ? (
+        {priceLine || sale.quantity ? (
           <p className="market-listing-meta market-listing-meta--price">
-            <span className="market-listing-price">{priceLine}</span>
+            <QuantityCount quantity={sale.quantity} verb="minted" />
+            {sale.quantity && sale.quantity > 1 && priceLine ? ' · ' : null}
+            {priceLine ? (
+              <span className="market-listing-price">{priceLine}</span>
+            ) : null}
           </p>
         ) : null}
       </div>

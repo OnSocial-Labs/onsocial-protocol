@@ -6,6 +6,7 @@ import {
   type PassStaffVoice,
 } from '@/features/scarces/ticket-pass-payload';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { quantityCountPhrase } from '@/features/scarces/quantity-count-format';
 import { rosterSearchNeedle } from '@/lib/profile-list-account';
 
 export interface DoorLogEntry {
@@ -94,15 +95,19 @@ export function mapDoorLogEntries(
   return out;
 }
 
-/** Seat (+ multi-redeem) line under the guest name. */
-export function doorLogEntrySeatLine(entry: DoorLogEntry): string {
-  const multi =
-    entry.maxRedeems != null &&
-    entry.maxRedeems > 1 &&
-    entry.redeemCount != null
-      ? ` · ${entry.redeemCount}/${entry.maxRedeems}`
-      : '';
-  return `${entry.seatLabel}${multi}`;
+/**
+ * Seat under the guest name.
+ * A single check-in stays the seat. More than one says `2 admitted`.
+ */
+export function doorLogEntrySeatLine(
+  entry: DoorLogEntry,
+  voice: PassStaffVoice = 'admit'
+): string {
+  const count = quantityCountPhrase(
+    entry.redeemCount,
+    voice === 'redeem' ? 'redeemed' : 'admitted'
+  );
+  return count ? `${entry.seatLabel} · ${count}` : entry.seatLabel;
 }
 
 export function doorLogStaffVerb(voice: PassStaffVoice = 'admit'): string {
@@ -119,7 +124,7 @@ export function doorLogEntryMeta(
   voice: PassStaffVoice = 'admit'
 ): string {
   const by = staffLabel.trim() || entry.staffId;
-  return `${doorLogEntrySeatLine(entry)} · ${doorLogStaffVerb(voice)} ${by}`;
+  return `${doorLogEntrySeatLine(entry, voice)} · ${doorLogStaffVerb(voice)} ${by}`;
 }
 
 /** Filter by guest, staff, seat, or display names. */

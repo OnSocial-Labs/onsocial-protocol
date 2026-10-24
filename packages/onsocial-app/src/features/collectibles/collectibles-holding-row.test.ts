@@ -31,7 +31,7 @@ describe('collectiblesHoldingFact', () => {
         { ...ticket, listedPriceNear: '2', listingKind: 'fixed' },
         2
       )
-    ).toBe('Ticket · ×2 · 2 NEAR');
+    ).toBe('Ticket · ×2 · 2 NEAR each');
   });
 
   it('marks an auction as the reserve', () => {

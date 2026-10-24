@@ -21,9 +21,11 @@ import {
   fetchCollectionPreferIndexer,
   type CollectionView,
 } from '@/features/scarces/collections-data';
+import { HeldEditionsSheet } from '@/features/collectibles/held-editions-sheet';
 import {
   fetchOwnedScarceByTokenId,
   fetchOwnedScarceForCollection,
+  fetchOwnedScarcesForCollection,
   formatMarketRelativeTime,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
@@ -174,6 +176,9 @@ export function CollectiblesPlayPanel({
   } | null>(null);
   const [sellOpen, setSellOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [editionPickerOpen, setEditionPickerOpen] = useState(false);
+  const [heldEditions, setHeldEditions] = useState<OwnedScarceItem[]>([]);
+  const [actionItem, setActionItem] = useState<OwnedScarceItem | null>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
   const ownershipKey =
@@ -493,8 +498,34 @@ export function CollectiblesPlayPanel({
                         : sellItem
                   }
                   trigger="label"
-                  onList={() => setSellOpen(true)}
-                  onTransfer={() => setTransferOpen(true)}
+                  onList={() => {
+                    setActionItem(null);
+                    setSellOpen(true);
+                  }}
+                  onTransfer={() => {
+                    if (!viewerAccountId || !collectionId) {
+                      setActionItem(null);
+                      setTransferOpen(true);
+                      return;
+                    }
+                    void fetchOwnedScarcesForCollection(
+                      viewerAccountId,
+                      collectionId
+                    )
+                      .then((editions) => {
+                        if (editions.length > 1) {
+                          setHeldEditions(editions);
+                          setEditionPickerOpen(true);
+                          return;
+                        }
+                        setActionItem(null);
+                        setTransferOpen(true);
+                      })
+                      .catch(() => {
+                        setActionItem(null);
+                        setTransferOpen(true);
+                      });
+                  }}
                   onDelisted={() => {
                     if (!ownershipKey || !viewerAccountId || !collectionId)
                       return;
@@ -632,9 +663,23 @@ export function CollectiblesPlayPanel({
         </>
       ) : null}
 
+      <HeldEditionsSheet
+        open={editionPickerOpen}
+        title={view?.title ?? sellItem?.title ?? ''}
+        editions={heldEditions}
+        onClose={() => setEditionPickerOpen(false)}
+        onTransfer={(item) => {
+          setActionItem(item);
+          setTransferOpen(true);
+        }}
+        onSell={(item) => {
+          setActionItem(item);
+          setSellOpen(true);
+        }}
+      />
       <ScarceTransferSheet
-        open={transferOpen && sellItem != null}
-        item={sellItem}
+        open={transferOpen && (actionItem ?? sellItem) != null}
+        item={actionItem ?? sellItem}
         ownerAccountId={viewerAccountId}
         onOpenChange={setTransferOpen}
         onTransferred={() => {
@@ -652,8 +697,8 @@ export function CollectiblesPlayPanel({
         }}
       />
       <ScarceSellSheet
-        open={sellOpen && sellItem != null}
-        item={sellItem}
+        open={sellOpen && (actionItem ?? sellItem) != null}
+        item={actionItem ?? sellItem}
         sellerAccountId={viewerAccountId}
         onOpenChange={setSellOpen}
         onListed={() => {

@@ -100,12 +100,12 @@ describe('ticket-door-log', () => {
         maxRedeems: 3,
       }),
     ])[0]!;
-    expect(doorLogEntrySeatLine(entry)).toBe('Pass 3 · 2/3');
+    expect(doorLogEntrySeatLine(entry)).toBe('Pass 3 · 2 admitted');
     expect(doorLogEntryMeta(entry, 'Door Lead', 'admit')).toBe(
-      'Pass 3 · 2/3 · Admitted by Door Lead'
+      'Pass 3 · 2 admitted · Admitted by Door Lead'
     );
     expect(doorLogEntryMeta(entry, 'Door Lead', 'redeem')).toBe(
-      'Pass 3 · 2/3 · Redeemed by Door Lead'
+      'Pass 3 · 2 redeemed · Redeemed by Door Lead'
     );
   });
 
