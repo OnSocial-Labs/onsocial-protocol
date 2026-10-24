@@ -3,6 +3,7 @@ import {
   e2eGraphStubsAllowed,
   e2eDropCurrentRows,
   e2eDropsCoverCatalogRows,
+  e2eEventsCatalogRows,
   e2eGuildCurrentRows,
   e2eGuildMemberRows,
   e2eHubCatalogRows,
@@ -391,9 +392,11 @@ describe('resolveE2eGraphStub', () => {
     const rows = resolveE2eGraphStub({
       query: catalogQuery,
       cookieValue: 'drops=events',
-    })?.data.scarcesCollectionsCurrent;
+    })?.data.scarcesCollectionsCurrent as ReturnType<
+      typeof e2eEventsCatalogRows
+    >;
     expect(rows).toHaveLength(1);
-    expect(rows?.[0]).toMatchObject({
+    expect(rows[0]).toMatchObject({
       collectionId: 'gate-pass',
       kind: 'ticket',
       mediumKind: 'ticket',
@@ -401,7 +404,7 @@ describe('resolveE2eGraphStub', () => {
       usdE6: '2000000',
       title: 'Gate Pass',
     });
-    expect(String(rows?.[0]?.extraJson)).toContain('lisbon');
+    expect(rows[0]?.extraJson).toContain('lisbon');
   });
 
   it('returns audio, writing, and art rows for the Drops list', () => {
