@@ -29669,8 +29669,6 @@ a.os-surface-row {
   .held-edition-list {
     display: flex;
     flex-direction: column;
-    /* The summon dock paints above this hug sheet. Keep the last edition clear of it. */
-    padding-bottom: var(--portfolio-dock-clearance, 4.75rem);
   }
 
   .held-edition-row {
@@ -44903,8 +44901,8 @@ a.os-surface-row {
   }
 }
 
-/* Rest the edition menu on the dock. Padding inside the body left an empty well. */
-.glass-sheet-panel.held-edition-menu-panel {
+/* Rest edition sheets on the dock. Padding inside the body left an empty well. */
+.glass-sheet-panel.held-edition-dock-panel {
   margin-bottom: var(--portfolio-dock-clearance, 4.75rem);
 }
 

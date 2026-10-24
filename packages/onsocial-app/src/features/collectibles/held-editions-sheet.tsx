@@ -100,7 +100,7 @@ function HeldEditionMenu({
         closeAriaLabel="Close"
         zIndex={SHEET_Z.nested}
         keepDock
-        panelClassName="held-edition-menu-panel"
+        panelClassName="held-edition-dock-panel"
         items={items}
       />
     </div>
@@ -224,6 +224,7 @@ export function HeldEditionsSheet({
         backdropLabel={choose === 'send' ? 'Close' : 'Close editions'}
         zIndex={SHEET_Z.list}
         keepDock
+        panelClassName="held-edition-dock-panel"
       >
         <HeldEditionList
           editions={editions}
