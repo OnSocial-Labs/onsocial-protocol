@@ -3,7 +3,9 @@
 import { useEffect, type Dispatch, type SetStateAction } from 'react';
 import {
   applyDropCommerce,
+  applyDropSupply,
   dropCommerceFromCurrent,
+  readCollectionSupply,
   type CollectionView,
   type DropCommercePatch,
 } from '@/features/scarces/collections-data';
@@ -47,13 +49,17 @@ export function useLiveDropSupply(
 
     const tick = () => {
       const gen = ++generation;
-      void readDropCommerce(id).then((patch) => {
-        if (stopped || gen !== generation || !patch) return;
-        setView((prev) => {
-          if (!prev || prev.collectionId !== id) return prev;
-          return applyDropCommerce(prev, patch);
-        });
-      });
+      void Promise.all([readDropCommerce(id), readCollectionSupply(id)]).then(
+        ([indexed, chain]) => {
+          if (stopped || gen !== generation) return;
+          if (!indexed && !chain) return;
+          setView((prev) => {
+            if (!prev || prev.collectionId !== id) return prev;
+            const priced = indexed ? applyDropCommerce(prev, indexed) : prev;
+            return chain ? applyDropSupply(priced, chain) : priced;
+          });
+        }
+      );
     };
 
     const arm = () => {
@@ -73,6 +79,7 @@ export function useLiveDropSupply(
       arm();
     };
 
+    if (!document.hidden) tick();
     arm();
     document.addEventListener('visibilitychange', onVisibility);
     return () => {

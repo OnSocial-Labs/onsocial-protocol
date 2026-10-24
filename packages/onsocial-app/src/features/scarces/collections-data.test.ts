@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   appCatalogCursor,
   applyDropCommerce,
+  applyDropSupply,
+  collectionSupplyFromRecord,
   dropCommerceFromCurrent,
   dropSupplyShouldPoll,
   toCollectionView,
@@ -318,6 +320,61 @@ describe('toCollectionView cover seat', () => {
 
 const ONE_NEAR = '1000000000000000000000000';
 const TWO_NEAR = '2000000000000000000000000';
+
+describe('drop supply patch', () => {
+  it('takes minted from the chain and leaves the dollar ask', () => {
+    const view = toCollectionView(
+      variationRecord({
+        total_supply: 5,
+        minted_count: 1,
+        price_near: '1',
+      })
+    )!;
+    const withAsk = { ...view, priceNear: null, usdE6: '2000000' };
+    const patch = collectionSupplyFromRecord({
+      total_supply: 5,
+      minted_count: 3,
+      paused: false,
+      cancelled: false,
+    });
+    expect(patch).toEqual({
+      minted: 3,
+      remaining: 2,
+      totalSupply: 5,
+      paused: false,
+      cancelled: false,
+    });
+    const next = applyDropSupply(withAsk, patch!);
+    expect(next.minted).toBe(3);
+    expect(next.remaining).toBe(2);
+    expect(next.usdE6).toBe('2000000');
+    expect(next.priceNear).toBeNull();
+    expect(next.title).toBe(view.title);
+  });
+
+  it('keeps the same view when the chain count matches', () => {
+    const view = toCollectionView(
+      variationRecord({ total_supply: 5, minted_count: 1 })
+    )!;
+    const patch = collectionSupplyFromRecord({
+      total_supply: view.totalSupply,
+      minted_count: view.minted,
+      paused: view.paused,
+      cancelled: view.cancelled,
+    });
+    expect(applyDropSupply(view, patch!)).toBe(view);
+  });
+
+  it('ignores a banned chain record', () => {
+    expect(
+      collectionSupplyFromRecord({
+        total_supply: 5,
+        minted_count: 1,
+        banned: true,
+      })
+    ).toBeNull();
+  });
+});
 
 describe('drop commerce patch', () => {
   it('moves minted and price onto the open drop and leaves the title', () => {

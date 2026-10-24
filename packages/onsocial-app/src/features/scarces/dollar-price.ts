@@ -70,6 +70,21 @@ export function buyerMaxNear(unitYocto: bigint, quantity = 1): bigint {
   return buffered > total ? buffered : total + 1n;
 }
 
+/**
+ * Mint stays quiet until the dollar lookup has settled and, when the ask is
+ * in dollars, the NEAR line for that sticker is ready. A missing oracle is
+ * not this wait — the sheet already explains that checkout cannot open.
+ */
+export function dollarBuyPricePending(input: {
+  lookupSettled: boolean;
+  hasSticker: boolean;
+  hasOracle: boolean;
+  quoteSettled: boolean;
+}): boolean {
+  if (!input.lookupSettled) return true;
+  return input.hasSticker && input.hasOracle && !input.quoteSettled;
+}
+
 /** Spoken NEAR for a dollar sticker at an indicative quote. The chain oracle still settles. */
 export function dollarNearEstimateLabel(
   unitYocto: bigint,

@@ -7,6 +7,14 @@ export type EventGuestKind = 'going' | 'in' | 'attended';
 const PAGE_SIZE = 80;
 const MAX_PAGES = 5;
 
+/** Upcoming and live lists stay fresh. A finished list does not. */
+export function guestRosterShouldLive(
+  kind: EventGuestKind,
+  live: boolean
+): boolean {
+  return kind === 'in' || live;
+}
+
 export function eventGuestKind(window: EventWindow): EventGuestKind {
   if (window === 'now') return 'in';
   if (window === 'past') return 'attended';

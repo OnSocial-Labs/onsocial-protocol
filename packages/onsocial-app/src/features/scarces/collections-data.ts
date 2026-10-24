@@ -824,6 +824,83 @@ export function dropCommerceFromCurrent(row: {
   };
 }
 
+/** Counts a live page may take from the chain without touching the ask. */
+export interface DropSupplyPatch {
+  minted: number;
+  remaining: number;
+  totalSupply: number;
+  paused: boolean;
+  cancelled: boolean;
+}
+
+/**
+ * Minted and left from `get_collection`. The indexer ask stays put.
+ * A banned or unreadable record returns null so the open page keeps its number.
+ */
+export function collectionSupplyFromRecord(
+  record: Pick<
+    LazyCollectionRecord,
+    'total_supply' | 'minted_count' | 'paused' | 'cancelled' | 'banned'
+  > | null
+): DropSupplyPatch | null {
+  if (!record || record.banned) return null;
+  const minted = wholeCount(Number(record.minted_count));
+  const totalSupply = wholeCount(Number(record.total_supply));
+  if (minted == null || totalSupply == null) return null;
+  return {
+    minted,
+    remaining: Math.max(0, totalSupply - minted),
+    totalSupply,
+    paused: Boolean(record.paused),
+    cancelled: Boolean(record.cancelled),
+  };
+}
+
+/** Chain supply for an open drop. A failed view keeps the number on screen. */
+export async function readCollectionSupply(
+  collectionId: string
+): Promise<DropSupplyPatch | null> {
+  const id = collectionId.trim();
+  if (!id) return null;
+  try {
+    const record = await viewNearContract<LazyCollectionRecord | null>(
+      SCARCES_CONTRACT,
+      'get_collection',
+      { collection_id: id }
+    );
+    return collectionSupplyFromRecord(record);
+  } catch {
+    return null;
+  }
+}
+
+/** Patch minted and left. Leaves the ask, writing, and media alone. */
+export function applyDropSupply(
+  view: CollectionView,
+  patch: DropSupplyPatch
+): CollectionView {
+  const soldOut = patch.totalSupply > 0 && patch.remaining === 0;
+  if (
+    view.minted === patch.minted &&
+    view.remaining === patch.remaining &&
+    view.totalSupply === patch.totalSupply &&
+    view.soldOut === soldOut &&
+    view.paused === patch.paused &&
+    view.cancelled === patch.cancelled
+  ) {
+    return view;
+  }
+  return {
+    ...view,
+    minted: patch.minted,
+    remaining: patch.remaining,
+    totalSupply: patch.totalSupply,
+    soldOut,
+    paused: patch.paused,
+    cancelled: patch.cancelled,
+  };
+}
+
 /** Patch ask and supply. Leaves writing, media, and scroll state alone. */
 export function applyDropCommerce(
   view: CollectionView,

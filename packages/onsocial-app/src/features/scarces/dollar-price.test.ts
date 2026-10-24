@@ -3,6 +3,7 @@ import {
   ORACLE_CALL_FEE,
   buyerMaxNear,
   dollarPurchaseDeposit,
+  dollarBuyPricePending,
   dollarNearEstimateLabel,
   dollarStickerLabel,
   formatUsdE6,
@@ -34,6 +35,46 @@ describe('buyerMaxNear', () => {
     const quoted = yoctoForUsd(5_000_000n, 470_000_000n, -8);
     const oracle = yoctoForUsd(5_000_000n, 467_613_333n, -8);
     expect(buyerMaxNear(quoted)).toBeGreaterThan(oracle);
+  });
+});
+
+describe('dollarBuyPricePending', () => {
+  it('holds Mint until the sticker lookup and the NEAR line settle', () => {
+    expect(
+      dollarBuyPricePending({
+        lookupSettled: false,
+        hasSticker: false,
+        hasOracle: false,
+        quoteSettled: false,
+      })
+    ).toBe(true);
+    expect(
+      dollarBuyPricePending({
+        lookupSettled: true,
+        hasSticker: true,
+        hasOracle: true,
+        quoteSettled: false,
+      })
+    ).toBe(true);
+    expect(
+      dollarBuyPricePending({
+        lookupSettled: true,
+        hasSticker: true,
+        hasOracle: true,
+        quoteSettled: true,
+      })
+    ).toBe(false);
+  });
+
+  it('lets a NEAR ask through once the lookup finds no dollar sticker', () => {
+    expect(
+      dollarBuyPricePending({
+        lookupSettled: true,
+        hasSticker: false,
+        hasOracle: false,
+        quoteSettled: false,
+      })
+    ).toBe(false);
   });
 });
 

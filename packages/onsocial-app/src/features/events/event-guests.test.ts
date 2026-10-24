@@ -7,6 +7,7 @@ import {
   eventGuestCountAria,
   eventGuestCountLabel,
   eventGuestKind,
+  guestRosterShouldLive,
   eventGuestSheetCopy,
   collectionGuestRoster,
   eventGuestTallyLine,
@@ -64,6 +65,10 @@ describe('guest roster search', () => {
 
 describe('event guest counts', () => {
   it('names the count for each window', () => {
+    expect(guestRosterShouldLive('going', true)).toBe(true);
+    expect(guestRosterShouldLive('going', false)).toBe(false);
+    expect(guestRosterShouldLive('in', false)).toBe(true);
+    expect(guestRosterShouldLive('attended', false)).toBe(false);
     expect(eventGuestKind('now')).toBe('in');
     expect(eventGuestKind('upcoming')).toBe('going');
     expect(eventGuestKind('past')).toBe('attended');

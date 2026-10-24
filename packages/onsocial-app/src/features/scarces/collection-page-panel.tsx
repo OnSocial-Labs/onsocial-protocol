@@ -84,11 +84,13 @@ import {
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import {
+  applyDropSupply,
   collectionStatusLabel,
   deriveCollectionStatus,
   dropSupplyShouldPoll,
   fetchAllowlistRemaining,
   fetchCollectionPreferIndexer,
+  readCollectionSupply,
   fetchOwnedCollectionTokenId,
   fetchOwnsCollectionEdition,
   fetchWalletMintRemaining,
@@ -97,7 +99,10 @@ import {
   type CollectionStatus,
   type CollectionView,
 } from '@/features/scarces/collections-data';
-import { useLiveDropSupply } from '@/features/scarces/use-live-drop-supply';
+import {
+  LIVE_DROP_SUPPLY_MS,
+  useLiveDropSupply,
+} from '@/features/scarces/use-live-drop-supply';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
 import {
   canCancelDrop,
@@ -333,9 +338,11 @@ export function CollectionPagePanel({
     if (refreshKey === 0 && initial != null) return;
     let cancelled = false;
     void fetchCollectionPreferIndexer(collectionId)
-      .then((next) => {
+      .then(async (next) => {
+        if (cancelled || !next) return;
+        const supply = await readCollectionSupply(collectionId);
         if (cancelled) return;
-        if (next) setView(next);
+        setView(supply ? applyDropSupply(next, supply) : next);
       })
       .finally(() => {
         if (cancelled) return;
@@ -595,6 +602,56 @@ export function CollectionPagePanel({
 
   const supplyLive = view != null && dropSupplyShouldPoll(view, nowMs);
   useLiveDropSupply(collectionId, supplyLive, setView);
+
+  useEffect(() => {
+    if (!supplyLive) return;
+    const id = collectionId.trim();
+    if (!id) return;
+    let stopped = false;
+    let timer = 0;
+
+    const load = () => {
+      const client = createReadOnlyOnSocialClient();
+      void client.query.scarces
+        .collection(id, { limit: 48 })
+        .then((rows) => {
+          if (stopped) return;
+          setActivityFetched((prev) => ({
+            key: prev?.key ?? `${id}:0`,
+            rows: mapCollectionActivityRows(rows),
+          }));
+        })
+        .catch(() => {
+          // Keep the rows already on screen.
+        });
+    };
+
+    const arm = () => {
+      window.clearInterval(timer);
+      timer = 0;
+      if (document.hidden) return;
+      timer = window.setInterval(load, LIVE_DROP_SUPPLY_MS);
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        window.clearInterval(timer);
+        timer = 0;
+        return;
+      }
+      load();
+      arm();
+    };
+
+    if (!document.hidden) load();
+    arm();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [collectionId, supplyLive]);
 
   const handoffKey = collectionCoverImmersive({
     hasMedia: hasImmersiveCover,
@@ -1544,6 +1601,7 @@ export function CollectionPagePanel({
           collectionId={view.collectionId}
           title={view.title}
           sold={view.minted}
+          live={supplyLive}
           {...collectionGuestRoster({
             kind: view.kind,
             window: eventWindowFor({ view }, nowMs),

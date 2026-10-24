@@ -77,6 +77,7 @@ import {
 } from '@/features/scarces/scarces-wallet-client';
 import {
   buyerMaxNear,
+  dollarBuyPricePending,
   dollarNearEstimateLabel,
   fetchDollarOracle,
   fetchDollarSticker,
@@ -261,6 +262,8 @@ export function ScarceBuyForm({
   );
   const [dollarOracle, setDollarOracle] = useState<DollarOracle | null>(null);
   const [dollarUnitYocto, setDollarUnitYocto] = useState<bigint | null>(null);
+  const [dollarLookupSettled, setDollarLookupSettled] = useState(false);
+  const [dollarQuoteSettled, setDollarQuoteSettled] = useState(false);
   const [payAssetId, setPayAssetId] = useState('near');
   const [payTokens, setPayTokens] = useState<DollarPayToken[]>([]);
   const [tokenFunding, setTokenFunding] = useState<{
@@ -565,9 +568,11 @@ export function ScarceBuyForm({
     if (!dollarScope || !dollarId) {
       setDollarSticker(null);
       setDollarOracle(null);
+      setDollarLookupSettled(true);
       return;
     }
     let cancelled = false;
+    setDollarLookupSettled(false);
     void (async () => {
       try {
         const sticker = await fetchDollarSticker(dollarScope, dollarId);
@@ -586,6 +591,8 @@ export function ScarceBuyForm({
         if (cancelled) return;
         setDollarSticker(null);
         setDollarOracle(null);
+      } finally {
+        if (!cancelled) setDollarLookupSettled(true);
       }
     })();
     return () => {
@@ -599,6 +606,7 @@ export function ScarceBuyForm({
       return;
     }
     let cancelled = false;
+    setDollarQuoteSettled(false);
     void fetchNearUsdQuote()
       .then((quote) => {
         if (cancelled) return;
@@ -608,6 +616,9 @@ export function ScarceBuyForm({
       })
       .catch(() => {
         if (!cancelled) setDollarUnitYocto(null);
+      })
+      .finally(() => {
+        if (!cancelled) setDollarQuoteSettled(true);
       });
     return () => {
       cancelled = true;
@@ -809,10 +820,19 @@ export function ScarceBuyForm({
       : 'Connect';
 
   const dollarCheckoutBlocked = dollarSticker != null && dollarOracle == null;
+  const dollarPricePending =
+    Boolean(dollarScope && dollarId) &&
+    dollarBuyPricePending({
+      lookupSettled: dollarLookupSettled,
+      hasSticker: dollarSticker != null,
+      hasOracle: dollarOracle != null,
+      quoteSettled: dollarQuoteSettled,
+    });
   const canSubmit =
     isConnected &&
     !pending &&
     isBuyable &&
+    !dollarPricePending &&
     !dollarCheckoutBlocked &&
     !afford.blocked;
 
@@ -944,6 +964,7 @@ export function ScarceBuyForm({
       canSubmit: isConnected ? canSubmit : true,
       pending,
       disabled: pending || (isConnected && !canSubmit),
+      primaryLoading: Boolean(dollarPricePending && isConnected),
       leadingKey: showMintQty ? `qty:${mintQty}:${maxQuantity}` : undefined,
       leading: showMintQty ? (
         <CollectionQtyStepper
@@ -970,6 +991,7 @@ export function ScarceBuyForm({
   }, [
     canManageOwnListing,
     canSubmit,
+    dollarPricePending,
     clearDelistConfirm,
     confirmDelist,
     handleManageOwnListing,
@@ -1084,6 +1106,7 @@ export function ScarceBuyForm({
   async function readAskBeforeWallet(): Promise<
     { proceed: true; yocto: string | null } | { proceed: false }
   > {
+    if (dollarPricePending) return { proceed: false };
     type Read =
       | { kind: 'drop'; verdict: ReturnType<typeof judgeDropAsk> }
       | { kind: 'near'; verdict: ReturnType<typeof judgeNearAsk> }
@@ -1211,6 +1234,8 @@ export function ScarceBuyForm({
       );
       return;
     }
+
+    if (dollarPricePending) return;
 
     if (dollarSticker && !dollarOracle) {
       setFieldError('Dollar checkout opens when the price oracle is set.');

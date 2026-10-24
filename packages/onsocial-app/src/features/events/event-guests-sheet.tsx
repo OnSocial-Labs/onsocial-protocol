@@ -7,19 +7,20 @@ import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import {
   eventGuestSheetCopy,
   eventGuestTallyLine,
+  guestRosterShouldLive,
   loadEventCheckInIds,
   loadEventHolderIds,
   type EventGuestKind,
 } from '@/features/events/event-guests';
+import { LIVE_DROP_SUPPLY_MS } from '@/features/scarces/use-live-drop-supply';
 import { SHEET_Z } from '@/lib/sheet-z';
-
-const LIVE_MS = 12_000;
 
 function useGuestIds(
   collectionId: string,
   kind: EventGuestKind,
   active: boolean,
-  refreshMs: number
+  refreshMs: number,
+  reloadKey: number
 ): { ids: string[] | null; error: boolean } {
   const key = `${collectionId.trim()}\0${kind}`;
   const [pack, setPack] = useState<{
@@ -58,7 +59,7 @@ function useGuestIds(
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [active, collectionId, key, kind, refreshMs]);
+  }, [active, collectionId, key, kind, refreshMs, reloadKey]);
 
   if (pack.key !== key) return { ids: null, error: false };
   return { ids: pack.ids, error: pack.error };
@@ -100,7 +101,10 @@ export function EventGuestsSheet({
     collectionId,
     kind,
     open && owned,
-    open && owned && kind === 'in' ? LIVE_MS : 0
+    open && owned && guestRosterShouldLive(kind, false)
+      ? LIVE_DROP_SUPPLY_MS
+      : 0,
+    sold ?? 0
   );
   const roster = owned ? fetched.ids : ids;
   const rosterError = owned ? fetched.error : error;
@@ -151,6 +155,7 @@ export function CollectionEventGuests({
   kind,
   voice,
   holders = false,
+  live = false,
 }: {
   collectionId: string;
   title: string;
@@ -159,13 +164,16 @@ export function CollectionEventGuests({
   voice: PassStaffVoice;
   /** Current owners, with holding words. Passes leave this off. */
   holders?: boolean;
+  /** Drop can still be minted — keep sold's people list with it. */
+  live?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const roster = useGuestIds(
     collectionId,
     kind,
     true,
-    kind === 'in' ? LIVE_MS : 0
+    guestRosterShouldLive(kind, live) ? LIVE_DROP_SUPPLY_MS : 0,
+    sold
   );
   const holderWords = holders || voice === 'redeem';
   const copy = eventGuestSheetCopy(kind, { redeemed: holderWords });
