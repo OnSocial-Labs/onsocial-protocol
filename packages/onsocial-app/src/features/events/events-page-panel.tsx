@@ -143,22 +143,24 @@ function EventRow({
       <Link
         href={href}
         scroll={false}
+        className="market-listing-row-open"
+        aria-label={`Open ${item.title}`}
+      />
+      <div
         className={`market-listing-thumb drops-discovery-thumb${
           item.mediaUrl ? ' has-media' : ''
         }`}
-        aria-label={`Open ${item.title}`}
+        aria-hidden
       >
         {item.mediaUrl ? (
           <img src={item.mediaUrl} alt="" />
         ) : (
           <span className="market-listing-thumb-fallback" />
         )}
-      </Link>
+      </div>
       <div className="market-listing-copy drops-discovery-copy">
         <div className="market-listing-head drops-discovery-head">
-          <Link href={href} scroll={false} className="market-listing-title">
-            {item.title}
-          </Link>
+          <p className="market-listing-title">{item.title}</p>
         </div>
         <DiscoveryPartyStack
           accountId={item.creatorId}
@@ -168,18 +170,14 @@ function EventRow({
         {dealParts.length > 0 || guestLabel ? (
           <div className="drops-discovery-deal">
             {dealParts.length > 0 ? (
-              <Link
-                href={href}
-                scroll={false}
-                className="drops-discovery-deal-bits"
-              >
+              <span className="drops-discovery-deal-bits">
                 {dealParts.map((part, index) => (
                   <Fragment key={index}>
                     {index > 0 ? ' · ' : null}
                     {part}
                   </Fragment>
                 ))}
-              </Link>
+              </span>
             ) : null}
             {guestLabel ? (
               <>
@@ -749,9 +747,9 @@ export function EventsPagePanel({
         />
         {places.length > 0 ? (
           <>
-            <p className="market-section-title">Place</p>
+            <p className="market-section-title">Location</p>
             <OsChipRail
-              ariaLabel="Event place"
+              ariaLabel="Event location"
               value={placeId ?? 'all'}
               onValueChange={(next) => setPlaceId(next === 'all' ? null : next)}
               items={[

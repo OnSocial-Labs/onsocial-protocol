@@ -75,8 +75,27 @@ describe('event windows', () => {
     ]);
   });
 
-  it('treats a blank price as free', () => {
+  it('treats a blank price as free and keeps a dollar sticker', () => {
     expect(eventRowPrice(item('free', {}))).toBe('Free');
+    expect(eventRowPrice({ ...item('near', {}), priceNear: '2' })).toBe(
+      '2 NEAR'
+    );
+    expect(eventRowPrice({ ...item('usd', {}), usdE6: '2000000' })).toBe('$2');
+    expect(
+      eventRowPrice({
+        ...item('usd-zero', {}),
+        priceNear: '0',
+        usdE6: '2000000',
+      })
+    ).toBe('$2');
+    const onView = item('usd-view', {});
+    expect(
+      eventRowPrice({
+        ...onView,
+        priceNear: '0',
+        view: { ...onView.view!, usdE6: '2000000' },
+      })
+    ).toBe('$2');
   });
 
   it('matches a place or a style in one search', () => {

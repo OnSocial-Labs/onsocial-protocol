@@ -1,4 +1,5 @@
 import type { DropDiscoveryItem } from '@/features/drops/drops-data';
+import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { TICKET_EVENT_SUGGESTIONS } from '@/features/scarces/drop-facets';
 import { eventListWhenLabel } from '@/features/scarces/ticket-event-facts';
 import { ticketEventPlaceLabel } from '@/features/scarces/ticket-event-meta';
@@ -110,6 +111,8 @@ export function eventRowPlace(item: DropDiscoveryItem): string | null {
 }
 
 export function eventRowPrice(item: DropDiscoveryItem): string {
+  const sticker = dollarStickerLabel(item.usdE6 ?? item.view?.usdE6);
+  if (sticker) return sticker;
   const price = item.priceNear?.trim();
   if (!price || price === '0') return 'Free';
   return `${price} NEAR`;

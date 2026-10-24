@@ -155,6 +155,7 @@ import {
   dropCreateExtraRowLabel,
   dropCreateFacetsSummary,
   dropCreateOptionalSummary,
+  dropCreatePlaceSummary,
   dropCreateExtraHint,
   dropCreatePerWalletInput,
   dropCreatePerWalletSummary,
@@ -1750,7 +1751,7 @@ export function CreateDropPanel() {
     const placeSlug = normalizePlaceSlug(placeDraft);
     if (isTicket && placeSlug) {
       rows.push({
-        label: 'Place',
+        label: 'Location',
         value: placeLabel(placeSlug) ?? placeSlug,
       });
     }
@@ -1943,6 +1944,10 @@ export function CreateDropPanel() {
       setError('Set when the event ends — tickets need an event window.');
       return;
     }
+    if (isTicket && !normalizePlaceSlug(placeDraft)) {
+      setError('Add a location — tickets need a where.');
+      return;
+    }
     if (template.requiresAccessEnd && !accessEnds) {
       setError(`Set when access ends — ${template.unit} need an expiry date.`);
       return;
@@ -2098,6 +2103,7 @@ export function CreateDropPanel() {
     endTime,
     eventEnds,
     eventStarts,
+    placeDraft,
     isTicket,
     accessSaleAnchored,
     renewable,
@@ -3778,8 +3784,8 @@ export function CreateDropPanel() {
                   </div>
                 </div>
                 <DropCreateExtraRow
-                  label={dropCreateExtraRowLabel('place')}
-                  value={dropCreateOptionalSummary(placeDraft)}
+                  label={dropCreateExtraRowLabel('place', { isTicket: true })}
+                  value={dropCreatePlaceSummary(placeDraft, true)}
                   disabled={pending}
                   onClick={() => setExtraSheet('place')}
                 />
@@ -4324,7 +4330,7 @@ export function CreateDropPanel() {
         ) : null}
         {extraSheet === 'place' ? (
           <label className="guild-field" htmlFor={fieldId('place')}>
-            <span>Place</span>
+            <span>{isTicket ? 'Location' : 'Place'}</span>
             <input
               id={fieldId('place')}
               ref={placeFieldRef}

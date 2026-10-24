@@ -387,6 +387,23 @@ describe('resolveE2eGraphStub', () => {
     ).toBeNull();
   });
 
+  it('returns a two-dollar ticket for the Events list', () => {
+    const rows = resolveE2eGraphStub({
+      query: catalogQuery,
+      cookieValue: 'drops=events',
+    })?.data.scarcesCollectionsCurrent;
+    expect(rows).toHaveLength(1);
+    expect(rows?.[0]).toMatchObject({
+      collectionId: 'gate-pass',
+      kind: 'ticket',
+      mediumKind: 'ticket',
+      price: '0',
+      usdE6: '2000000',
+      title: 'Gate Pass',
+    });
+    expect(String(rows?.[0]?.extraJson)).toContain('lisbon');
+  });
+
   it('returns audio, writing, and art rows for the Drops list', () => {
     expect(
       resolveE2eGraphStub({
@@ -416,7 +433,8 @@ describe('resolveE2eGraphStub', () => {
   it('gives a writing article its drop without a market row', () => {
     const cookieValue = 'writing=reader';
     const drop = resolveE2eGraphStub({
-      query: 'query ScarcesCollectionsCurrent { scarcesCollectionsCurrent { collectionId } }',
+      query:
+        'query ScarcesCollectionsCurrent { scarcesCollectionsCurrent { collectionId } }',
       variables: { sourcePostPath: 'alice.testnet/post/night' },
       cookieValue,
     });
@@ -437,7 +455,8 @@ describe('resolveE2eGraphStub', () => {
     ).toEqual([]);
     expect(
       resolveE2eGraphStub({
-        query: 'query ScarcesActiveListings { scarcesActiveListings { listingId } }',
+        query:
+          'query ScarcesActiveListings { scarcesActiveListings { listingId } }',
         cookieValue,
       })?.data.scarcesActiveListings
     ).toEqual([]);

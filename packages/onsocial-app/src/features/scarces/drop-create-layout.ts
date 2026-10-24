@@ -249,7 +249,7 @@ export function dropCreateAdvancedExtraAction(
     case 'allowlist':
       return 'Add an allowlist';
     case 'place':
-      return 'Add a place';
+      return opts.isTicket ? 'Add a location' : 'Add a place';
     case 'burnable':
       return 'Set burnable';
   }
@@ -298,7 +298,7 @@ export function dropCreateExtraRowLabel(
     case 'allowlist':
       return 'Allowlist';
     case 'place':
-      return 'Place';
+      return opts.isTicket ? 'Location' : 'Place';
     case 'burnable':
       return 'Burnable';
     case 'setSource':
@@ -337,7 +337,9 @@ export function dropCreateExtraHint(
         ? 'Push the event end later if the show moves.'
         : 'Yes lets holders renew after it expires.';
     case 'place':
-      return 'Optional venue — city, festival, or room.';
+      return opts.isTicket
+        ? 'Where it happens — city, venue, or room.'
+        : 'Optional venue — city, festival, or room.';
     case 'allowlist':
       return 'Early mint. Needs Opens in Sale.';
     case 'event':
@@ -368,6 +370,16 @@ export function dropCreateDropIdSummary(slug: string): string {
 
 export function dropCreateOptionalSummary(value: string): string {
   return value.trim() || 'None';
+}
+
+/** Ticket location is required. Other places stay optional. */
+export function dropCreatePlaceSummary(
+  value: string,
+  isTicket = false
+): string {
+  const trimmed = value.trim();
+  if (trimmed) return trimmed;
+  return isTicket ? 'Required' : 'None';
 }
 
 export function dropCreateFacetsSummary(

@@ -39468,7 +39468,8 @@ a.os-surface-row {
     z-index: 1;
   }
 
-  .market-listing-row:has(.market-listing-row-open) .drops-discovery-party {
+  .market-listing-row:has(.market-listing-row-open) .drops-discovery-party,
+  .market-listing-row:has(.market-listing-row-open) .events-guest-count {
     pointer-events: auto;
   }
 
@@ -43535,12 +43536,11 @@ a.os-surface-row {
   }
 
   /*
-   * Drops already starts the list below the header, and the header frost
-   * covers that chrome once the list scrolls. The shared band grows downward
-   * from the content line and veils the first row, so Drops leaves it clear.
-   * Events shares .drops-screen-body; #drops-catalog keeps this to Drops.
+   * Drops and Events already start the list below the header, and the header
+   * frost covers that chrome once the list scrolls. The shared band grows
+   * downward from the content line and veils the first row, so both leave it clear.
    */
-  .drops-screen-body:has(#drops-catalog) > .os-chrome-glass::before {
+  .drops-screen-body > .os-chrome-glass::before {
     content: none;
   }
 
