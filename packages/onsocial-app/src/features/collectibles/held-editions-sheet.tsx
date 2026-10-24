@@ -51,39 +51,20 @@ function HeldEditionCover({ src }: { src: string }) {
 
 function HeldEditionMenu({
   label,
-  sharePath,
-  shareTitle,
   onTransfer,
   onSell,
+  onShare,
   onHistory,
   onFacts,
 }: {
   label: string;
-  sharePath?: string;
-  shareTitle?: string;
   onTransfer?: () => void;
   onSell?: () => void;
+  onShare?: () => void;
   onHistory?: () => void;
   onFacts?: () => void;
 }) {
-  const { setTxResult } = useAppTransactionFeedback();
   const [open, setOpen] = useState(false);
-  const share = useCallback(async () => {
-    const path = sharePath?.trim() || '';
-    if (!path) return;
-    setOpen(false);
-    const title = shareTitle?.trim() || label;
-    const result = await shareUrl({
-      url: absoluteAppUrl(path),
-      title,
-      text: `${title} on OnSocial`,
-    });
-    if (result === 'copied') {
-      setTxResult({ type: 'success', msg: 'Link copied.' });
-    } else if (result === 'failed') {
-      setTxResult({ type: 'error', msg: "Couldn't share this copy." });
-    }
-  }, [label, setTxResult, sharePath, shareTitle]);
   const items = useMemo(() => {
     const list: {
       id: string;
@@ -110,12 +91,13 @@ function HeldEditionMenu({
         },
       });
     }
-    if (sharePath?.trim()) {
+    if (onShare) {
       list.push({
         id: 'share',
         label: 'Share',
         onSelect: () => {
-          void share();
+          setOpen(false);
+          onShare();
         },
       });
     }
@@ -140,7 +122,7 @@ function HeldEditionMenu({
       });
     }
     return list;
-  }, [onFacts, onHistory, onSell, onTransfer, share, sharePath]);
+  }, [onFacts, onHistory, onSell, onShare, onTransfer]);
 
   if (items.length === 0) return null;
 
@@ -216,6 +198,7 @@ export function HeldEditionList({
   onChoose,
   onTransfer,
   onSell,
+  onShare,
   onHistory,
   onFacts,
 }: {
@@ -225,6 +208,7 @@ export function HeldEditionList({
   onChoose?: (item: OwnedScarceItem) => void;
   onTransfer?: (item: OwnedScarceItem) => void;
   onSell?: (item: OwnedScarceItem) => void;
+  onShare?: (item: OwnedScarceItem) => void;
   onHistory?: (item: OwnedScarceItem) => void;
   onFacts?: (item: OwnedScarceItem) => void;
 }) {
@@ -247,7 +231,7 @@ export function HeldEditionList({
         const label = heldEditionLabel(item.tokenId, item.mediumKind);
         const cover = item.mediaUrl?.trim() || '';
         const timeLabel = timeLabels[index]?.trim() || '';
-        const sharePath = heldEditionHref(item) ?? undefined;
+        const canShare = Boolean(onShare) && Boolean(heldEditionHref(item));
         const canChoose = choose === 'send' ? canTransfer : Boolean(onChoose);
         const chooseName =
           choose === 'send' ? `Send ${label}` : `Open ${label}`;
@@ -288,11 +272,10 @@ export function HeldEditionList({
                 ) : null}
                 <HeldEditionMenu
                   label={label}
-                  sharePath={sharePath}
-                  shareTitle={item.title}
                   onTransfer={
                     canTransfer ? () => onTransfer?.(item) : undefined
                   }
+                  onShare={canShare ? () => onShare?.(item) : undefined}
                   onSell={canSell ? () => onSell?.(item) : undefined}
                   onHistory={onHistory ? () => onHistory(item) : undefined}
                   onFacts={onFacts ? () => onFacts(item) : undefined}
@@ -325,8 +308,28 @@ export function HeldEditionsSheet({
   onTransfer?: (item: OwnedScarceItem) => void;
   onSell?: (item: OwnedScarceItem) => void;
 }) {
+  const { setTxResult } = useAppTransactionFeedback();
   const [historyItem, setHistoryItem] = useState<OwnedScarceItem | null>(null);
   const [factsItem, setFactsItem] = useState<OwnedScarceItem | null>(null);
+  const shareEdition = useCallback(
+    async (item: OwnedScarceItem) => {
+      const path = heldEditionHref(item);
+      if (!path) return;
+      const title =
+        item.title.trim() || heldEditionLabel(item.tokenId, item.mediumKind);
+      const result = await shareUrl({
+        url: absoluteAppUrl(path),
+        title,
+        text: `${title} on OnSocial`,
+      });
+      if (result === 'copied') {
+        setTxResult({ type: 'success', msg: 'Link copied.' });
+      } else if (result === 'failed') {
+        setTxResult({ type: 'error', msg: "Couldn't share this copy." });
+      }
+    },
+    [setTxResult]
+  );
   const heading = title.trim() || 'Editions';
   const sheetTitle = heldEditionSheetTitle(choose);
   const chooseEdition = onChoose
@@ -369,6 +372,9 @@ export function HeldEditionsSheet({
                 }
               : undefined
           }
+          onShare={(item) => {
+            void shareEdition(item);
+          }}
           onHistory={(item) => {
             setFactsItem(null);
             setHistoryItem(item);
