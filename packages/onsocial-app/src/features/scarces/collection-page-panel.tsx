@@ -1831,6 +1831,7 @@ export function CollectionPagePanel({
         title={view.title}
         cover={coverSrc}
         collectionId={view.collectionId}
+        tokenId={editionToken}
         accountId={viewerAccountId}
         creatorId={view.creatorId}
         readables={readables}

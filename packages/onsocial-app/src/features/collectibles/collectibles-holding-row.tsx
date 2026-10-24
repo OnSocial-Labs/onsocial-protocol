@@ -246,6 +246,7 @@ export function CollectiblesHoldingRow({
           title={item.title}
           cover={item.mediaUrl}
           collectionId={collectionId}
+          tokenId={item.tokenId}
           accountId={viewerAccountId}
           creatorId={creatorId}
           readables={[]}

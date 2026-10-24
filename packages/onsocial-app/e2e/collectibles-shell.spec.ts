@@ -231,6 +231,15 @@ test.describe('collectibles shell', () => {
     await expect(
       chapterRow.getByRole('button', { name: /Read Chapter One/ })
     ).toBeVisible();
+    await chapterRow.getByRole('button', { name: /Read Chapter One/ }).click();
+    const bookShare = page.getByRole('button', { name: 'Share this book' });
+    await expect(bookShare).toBeVisible();
+    await bookShare.click();
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toContain('t=chapter-one');
+    await page.getByRole('button', { name: 'Back from article' }).click();
+    await expect(bookShare).toBeHidden();
     const aliceHeading = page.locator('#collectibles-from-alice-near');
     const bobHeading = page.locator('#collectibles-from-bob-near');
     await expect(aliceHeading).toBeVisible();

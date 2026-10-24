@@ -118,6 +118,7 @@ export function HeldEditionFollow({
           title={reader.title}
           cover={reader.mediaUrl}
           collectionId={readerId}
+          tokenId={reader.tokenId}
           accountId={accountId}
           creatorId={reader.creatorId}
           readables={[]}

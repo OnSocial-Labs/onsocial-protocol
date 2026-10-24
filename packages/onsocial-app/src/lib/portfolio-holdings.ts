@@ -253,6 +253,25 @@ export function heldEditionHref(
   return collectionPath(collectionId, { tokenId: item.tokenId });
 }
 
+/**
+ * Book reader share. A known copy includes `t` so the drop shows that image.
+ * Without a copy, the link is the drop page.
+ */
+export function bookReaderSharePath(
+  collectionId: string,
+  tokenId?: string | null
+): string | null {
+  const id = collectionId.trim();
+  if (!id) return null;
+  const token = tokenId?.trim();
+  if (!token) return collectionPath(id);
+  return heldEditionHref({
+    tokenId: token,
+    collectionId: id,
+    mediumKind: 'book',
+  });
+}
+
 export type HeldEditionDestination =
   | { type: 'pass' }
   | { type: 'article'; href: string }

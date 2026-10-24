@@ -9,15 +9,19 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  CheckIcon,
   ChevronLeftIcon,
   Divider,
+  OsIconAction,
   OsSheetAction,
   OsSheetActions,
   OsSheetFooter,
+  ShareIcon,
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { ARTICLE_READ_CLASS } from '@/components/portfolio/article-read-screen';
 import { ArticleReadProgress } from '@/components/portfolio/article-read-progress';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
@@ -41,7 +45,9 @@ import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { formatWritingReadLabel } from '@/lib/article-post-payload';
 import { accountIdsEqual } from '@/lib/account-match';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { bookReaderSharePath } from '@/lib/portfolio-holdings';
 import { displayName } from '@/lib/profile-display';
+import { shareUrl } from '@/lib/share-url';
 import {
   formatWritingShelfTimestamp,
   postTimestampIso,
@@ -98,9 +104,7 @@ export function WritingReadDocument({
   const [fetchedPublishedAt, setFetchedPublishedAt] = useState<number | null>(
     null
   );
-  const [fetchedReadLabel, setFetchedReadLabel] = useState<string | null>(
-    null
-  );
+  const [fetchedReadLabel, setFetchedReadLabel] = useState<string | null>(null);
   const authorId = creatorId?.trim() || '';
   const authorProfiles = usePostAuthorProfiles(authorId ? [authorId] : []);
   const authorProfile = authorId ? authorProfiles[authorId] : undefined;
@@ -140,9 +144,7 @@ export function WritingReadDocument({
 
   const inlineChapterText = useMemo(
     () =>
-      readables
-        .map((chapter) => chapter.text?.trim() || '')
-        .filter(Boolean),
+      readables.map((chapter) => chapter.text?.trim() || '').filter(Boolean),
     [readables]
   );
   const pendingChapters = useMemo(
@@ -187,7 +189,8 @@ export function WritingReadDocument({
 
   const readLabel = inlineReadLabel ?? fetchedReadLabel;
 
-  const workTitle = visibleWorkTitle(title) || readables[0]?.title?.trim() || '';
+  const workTitle =
+    visibleWorkTitle(title) || readables[0]?.title?.trim() || '';
   const dialogName = workTitle || authorName || 'Writing';
   const inlineSvg = coverSvg?.trim() ? inlineSvgMarkup(coverSvg.trim()) : null;
   const rasterCover = cover?.trim() || null;
@@ -201,8 +204,7 @@ export function WritingReadDocument({
   const hasWriting = readables.length > 0 || bookPdf != null;
   const onOpenCover = useCallback(() => setCoverOpen(true), []);
   const showAuthorStand = Boolean(
-    authorId &&
-      !(viewerAccountId && accountIdsEqual(viewerAccountId, authorId))
+    authorId && !(viewerAccountId && accountIdsEqual(viewerAccountId, authorId))
   );
 
   return (
@@ -230,14 +232,23 @@ export function WritingReadDocument({
               )}
             </button>
           ) : (
-            <div className="portfolio-writing-article-cover is-card" aria-hidden />
+            <div
+              className="portfolio-writing-article-cover is-card"
+              aria-hidden
+            />
           )}
           <header className="portfolio-writing-masthead">
             <h1 className="portfolio-writing-article-title">{dialogName}</h1>
-            <Divider variant="detail" className="portfolio-writing-article-rule" />
+            <Divider
+              variant="detail"
+              className="portfolio-writing-article-rule"
+            />
             <div className="portfolio-writing-article-meta">
               {dateline && datelineIso ? (
-                <time className="portfolio-writing-dateline" dateTime={datelineIso}>
+                <time
+                  className="portfolio-writing-dateline"
+                  dateTime={datelineIso}
+                >
                   {dateline}
                 </time>
               ) : null}
@@ -308,6 +319,66 @@ export function WritingReadDocument({
   );
 }
 
+function absoluteBookUrl(path: string): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return new URL(path, window.location.origin).toString();
+  } catch {
+    return '';
+  }
+}
+
+/** Header share. Sends this book's page, including `t` when a copy is known. */
+function BookReaderShareAction({
+  open,
+  title,
+  path,
+}: {
+  open: boolean;
+  title: string;
+  path: string;
+}) {
+  const { setTxResult } = useAppTransactionFeedback();
+  const [copied, setCopied] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (!open) setCopied(false);
+  }
+  const name = title.trim() || 'this book';
+
+  return (
+    <OsIconAction
+      ariaLabel={copied ? 'Link copied' : 'Share this book'}
+      title={copied ? 'Link copied' : 'Share'}
+      onClick={() => {
+        const url = absoluteBookUrl(path);
+        if (!url) return;
+        void (async () => {
+          const result = await shareUrl({
+            url,
+            title: title.trim() || 'Book',
+            text: `Read “${name}” on OnSocial`,
+          });
+          if (result === 'copied') {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1600);
+            return;
+          }
+          if (result === 'failed') {
+            setTxResult({
+              type: 'error',
+              msg: 'Couldn’t share this book.',
+            });
+          }
+        })();
+      }}
+    >
+      {copied ? <CheckIcon aria-hidden /> : <ShareIcon aria-hidden />}
+    </OsIconAction>
+  );
+}
+
 /**
  * Writing reader — OS phone-card page scroll (body scroller, not a nested
  * text viewport). Jacket sticks at the top; post icons use the OS screen
@@ -321,6 +392,7 @@ export function WritingReadSheet({
   cover = null,
   coverSvg = null,
   collectionId,
+  tokenId = null,
   accountId = null,
   creatorId = null,
   readables: readablesProp,
@@ -338,6 +410,8 @@ export function WritingReadSheet({
   cover?: string | null;
   coverSvg?: string | null;
   collectionId: string;
+  /** When set, the share link names this copy (`?t=`). */
+  tokenId?: string | null;
   accountId?: string | null;
   creatorId?: string | null;
   readables: ScarceReadableMedia[];
@@ -439,6 +513,7 @@ export function WritingReadSheet({
 
   const dialogName =
     visibleWorkTitle(title) || readables[0]?.title?.trim() || 'Writing';
+  const sharePath = bookReaderSharePath(collectionId, tokenId);
   const issuedAt =
     (publishedAt && publishedAt > 0 ? publishedAt : null) ??
     hydratedPublishedAt;
@@ -473,6 +548,15 @@ export function WritingReadSheet({
       immersiveHeader
       closeAriaLabel="Back from article"
       closeIcon={<ChevronLeftIcon className="glass-sheet-close-icon" />}
+      actions={
+        sharePath ? (
+          <BookReaderShareAction
+            open={open}
+            title={dialogName}
+            path={sharePath}
+          />
+        ) : null
+      }
       zIndex={SCARCE_Z.listenShell}
       keepDock={writePinned}
       scrollRootRef={scrollRootRef}

@@ -5,6 +5,7 @@ import {
   groupHoldingsLibrary,
   sortHoldingsLibrary,
   holdingsActionLabel,
+  bookReaderSharePath,
   heldEditionDestination,
   heldEditionHref,
   holdingsHrefForOwned,
@@ -201,6 +202,15 @@ describe('toPortfolioHoldingPeek', () => {
         sourcePostPath: 'alice.near/post/42',
       })
     ).toBe('/@alice.near/posts/42');
+  });
+
+  it('shares the book page, and the copy when one is known', () => {
+    expect(bookReaderSharePath('novel', 'novel:2')).toBe(
+      '/collection/novel?t=novel%3A2'
+    );
+    expect(bookReaderSharePath('novel', null)).toBe('/collection/novel');
+    expect(bookReaderSharePath('novel', '  ')).toBe('/collection/novel');
+    expect(bookReaderSharePath('  ', 'novel:2')).toBeNull();
   });
 
   it('follows the copy the way one holding already does', () => {
