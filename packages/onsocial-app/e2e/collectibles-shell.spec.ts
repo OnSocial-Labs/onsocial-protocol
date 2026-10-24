@@ -171,6 +171,9 @@ test.describe('collectibles shell', () => {
       .toBe(true);
     const history = actions.getByRole('menuitem', { name: 'History' });
     const factsItem = actions.getByRole('menuitem', { name: 'Facts' });
+    await expect(
+      actions.getByRole('menuitem', { name: 'Share' })
+    ).toBeVisible();
     await expect(history).toBeVisible();
     await expect(factsItem).toBeVisible();
     await expect(
@@ -186,7 +189,7 @@ test.describe('collectibles shell', () => {
     expect(menuBox).toBeTruthy();
     expect(menuDock).toBeTruthy();
     expect(factsBox!.y + factsBox!.height).toBeLessThanOrEqual(menuDock!.y + 1);
-    expect(menuBox!.height).toBeLessThan(260);
+    expect(menuBox!.height).toBeLessThan(320);
     await factsItem.click();
     await expect(actions).toBeHidden();
     const facts = page.getByRole('dialog', { name: 'Facts' });
@@ -197,6 +200,17 @@ test.describe('collectibles shell', () => {
     await expect(facts).toBeHidden();
     await expect(editions).toBeVisible();
     await expect(editions.getByText(/night-drive:/)).toHaveCount(0);
+    await page
+      .context()
+      .grantPermissions(['clipboard-read', 'clipboard-write']);
+    await editions.getByRole('button', { name: 'More for Edition 1' }).click();
+    const shareMenu = page.getByRole('dialog', { name: 'Edition 1' });
+    await shareMenu.getByRole('menuitem', { name: 'Share' }).click();
+    await expect(shareMenu).toBeHidden();
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toContain('t=night-drive');
+    await expect(editions).toBeVisible();
     await editions.getByRole('button', { name: 'Close editions' }).click();
     await expect(editions).toBeHidden();
     await expect(nightRow).not.toContainText('@alice.near');

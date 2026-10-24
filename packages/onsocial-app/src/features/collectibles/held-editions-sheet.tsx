@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Divider,
   DotsVerticalIcon,
@@ -8,6 +8,7 @@ import {
   SheetFactRow,
 } from '@onsocial/ui';
 import { ActionDrawer } from '@/components/ui/action-drawer';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
   heldEditionCoversDiffer,
   heldEditionFactRows,
@@ -21,8 +22,18 @@ import {
 } from '@/features/market/market-listings';
 import { ScarceTokenHistorySheet } from '@/features/scarces/scarce-token-history-sheet';
 import { ownedScarceCanTransfer } from '@/features/scarces/scarce-transfer';
+import { heldEditionHref } from '@/lib/portfolio-holdings';
 import { socialTimeProps } from '@/lib/post-display';
+import { shareUrl } from '@/lib/share-url';
 import { SHEET_Z } from '@/lib/sheet-z';
+
+function absoluteAppUrl(path: string): string {
+  const href = path.trim();
+  if (!href) return '';
+  if (/^https?:\/\//.test(href)) return href;
+  if (typeof window === 'undefined') return href;
+  return `${window.location.origin}${href.startsWith('/') ? href : `/${href}`}`;
+}
 
 /** Per-edition face. A missing file leaves the label, with no empty tile. */
 function HeldEditionCover({ src }: { src: string }) {
@@ -40,18 +51,39 @@ function HeldEditionCover({ src }: { src: string }) {
 
 function HeldEditionMenu({
   label,
+  sharePath,
+  shareTitle,
   onTransfer,
   onSell,
   onHistory,
   onFacts,
 }: {
   label: string;
+  sharePath?: string;
+  shareTitle?: string;
   onTransfer?: () => void;
   onSell?: () => void;
   onHistory?: () => void;
   onFacts?: () => void;
 }) {
+  const { setTxResult } = useAppTransactionFeedback();
   const [open, setOpen] = useState(false);
+  const share = useCallback(async () => {
+    const path = sharePath?.trim() || '';
+    if (!path) return;
+    setOpen(false);
+    const title = shareTitle?.trim() || label;
+    const result = await shareUrl({
+      url: absoluteAppUrl(path),
+      title,
+      text: `${title} on OnSocial`,
+    });
+    if (result === 'copied') {
+      setTxResult({ type: 'success', msg: 'Link copied.' });
+    } else if (result === 'failed') {
+      setTxResult({ type: 'error', msg: "Couldn't share this copy." });
+    }
+  }, [label, setTxResult, sharePath, shareTitle]);
   const items = useMemo(() => {
     const list: {
       id: string;
@@ -78,6 +110,15 @@ function HeldEditionMenu({
         },
       });
     }
+    if (sharePath?.trim()) {
+      list.push({
+        id: 'share',
+        label: 'Share',
+        onSelect: () => {
+          void share();
+        },
+      });
+    }
     if (onHistory) {
       list.push({
         id: 'history',
@@ -99,7 +140,7 @@ function HeldEditionMenu({
       });
     }
     return list;
-  }, [onFacts, onHistory, onSell, onTransfer]);
+  }, [onFacts, onHistory, onSell, onTransfer, share, sharePath]);
 
   if (items.length === 0) return null;
 
@@ -165,7 +206,7 @@ function HeldEditionFactsSheet({
 
 /**
  * Editions of one drop. Tap the row to open or send that edition.
- * Transfer, Sell, History, and Facts sit in one menu.
+ * Transfer, Sell, Share, History, and Facts sit in one menu.
  * Covers appear only when the editions resolve to different images.
  * A mint time appears only when the copies do not share one stamp.
  */
@@ -206,6 +247,7 @@ export function HeldEditionList({
         const label = heldEditionLabel(item.tokenId, item.mediumKind);
         const cover = item.mediaUrl?.trim() || '';
         const timeLabel = timeLabels[index]?.trim() || '';
+        const sharePath = heldEditionHref(item) ?? undefined;
         const canChoose = choose === 'send' ? canTransfer : Boolean(onChoose);
         const chooseName =
           choose === 'send' ? `Send ${label}` : `Open ${label}`;
@@ -246,6 +288,8 @@ export function HeldEditionList({
                 ) : null}
                 <HeldEditionMenu
                   label={label}
+                  sharePath={sharePath}
+                  shareTitle={item.title}
                   onTransfer={
                     canTransfer ? () => onTransfer?.(item) : undefined
                   }
