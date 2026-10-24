@@ -620,3 +620,40 @@ fn postpone_refuses_to_move_the_sale_before_it_opens() {
     assert_eq!(col.start_time, Some(open_ns));
     assert_eq!(template_expires_at(&contract), event_ms);
 }
+
+#[test]
+fn token_status_stays_open_until_the_postponed_end() {
+    let mut contract = new_contract();
+    testing_env!(at(creator(), T0_NS).build());
+    contract
+        .create_collection(&creator(), ticket_config())
+        .unwrap();
+    buy(&mut contract, T0_NS, 1);
+
+    testing_env!(at(creator(), T0_NS).build());
+    contract
+        .update_collection_template_expiry(&creator(), COL, postponed_end_ms(), None)
+        .unwrap();
+    assert_eq!(
+        contract
+            .scarces_by_id
+            .get(&seat(1))
+            .unwrap()
+            .metadata
+            .expires_at,
+        Some(original_end_ms())
+    );
+
+    // Original close has passed. The postponed drop end is still ahead.
+    testing_env!(at(creator(), T0_NS + DAY_NS + 1).build());
+    let during = contract.get_token_status(seat(1)).unwrap();
+    assert!(!during.is_expired);
+    assert!(during.is_valid);
+    assert!(contract.is_token_valid(seat(1)));
+
+    testing_env!(at(creator(), postponed_end_ns()).build());
+    let closed = contract.get_token_status(seat(1)).unwrap();
+    assert!(closed.is_expired);
+    assert!(!closed.is_valid);
+    assert!(!contract.is_token_valid(seat(1)));
+}

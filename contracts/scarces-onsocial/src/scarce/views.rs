@@ -18,11 +18,9 @@ impl Contract {
         {
             return false;
         }
-        if token
-            .metadata
-            .expires_at
-            .is_some_and(|exp| crate::time::now_ms() >= exp)
-        {
+        // Same clock as the door: a postpone keeps sold passes open until
+        // the later of the stamp on the pass and the drop's new end.
+        if self.token_door_closed(token, &token_id) {
             return false;
         }
         true
@@ -61,10 +59,7 @@ impl Contract {
 
         let max_redeems = collection.as_ref().and_then(|c| c.max_redeems);
         let is_fully_redeemed = max_redeems.is_some_and(|max| token.redeem_count >= max);
-        let is_expired = token
-            .metadata
-            .expires_at
-            .is_some_and(|exp| crate::time::now_ms() >= exp);
+        let is_expired = self.token_door_closed(token, &token_id);
         let is_revoked = token.revoked_at.is_some();
 
         Some(TokenStatus {
