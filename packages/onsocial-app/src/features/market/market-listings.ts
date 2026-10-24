@@ -369,6 +369,8 @@ export interface MarketSaleItem {
   creatorId?: string;
   title: string;
   priceNear: string;
+  /** Copies in the batch when more than one. The price is the unit, not the total. */
+  quantity?: number;
   /** Dollar sticker (millionths) when the sale settled against one. */
   usdE6?: string;
   blockTimestamp: number;
@@ -1654,6 +1656,44 @@ export async function fetchOwnedScarceForCollection(
 }
 
 /**
+ * Every edition of one drop the viewer still holds, seat order.
+ * Used so Transfer can ask which copy to send.
+ */
+export async function fetchOwnedScarcesForCollection(
+  accountId: string,
+  collectionId: string
+): Promise<OwnedScarceItem[]> {
+  const owner = accountId.trim();
+  const target = collectionId.trim();
+  if (!owner || !target) return [];
+
+  const found: OwnedScarceItem[] = [];
+  let fromEnd = 0;
+  for (let i = 0; i < 8; i++) {
+    const page = await fetchOwnedScarcesPage(owner, {
+      fromEnd,
+      pageSize: OWNED_PAGE_SIZE,
+    });
+    for (const item of page.items) {
+      const id =
+        item.collectionId?.trim() ||
+        collectionIdFromTokenId(item.tokenId) ||
+        '';
+      if (id === target) found.push(item);
+    }
+    if (!page.hasMore) break;
+    fromEnd = page.nextFromEnd;
+  }
+  found.sort((a, b) => {
+    const seatA = editionSeatFromTokenId(a.tokenId) ?? Number.MAX_SAFE_INTEGER;
+    const seatB = editionSeatFromTokenId(b.tokenId) ?? Number.MAX_SAFE_INTEGER;
+    if (seatA !== seatB) return seatA - seatB;
+    return a.tokenId.localeCompare(b.tokenId);
+  });
+  return found;
+}
+
+/**
  * Find the viewer’s owned edition linked to a source post path
  * (`author/post/{id}`). Used so post CTAs can offer Sell after mint/buy.
  */
@@ -2508,6 +2548,15 @@ export async function fetchMarketSales(
     const mediaUrl = saleMediaFromRow(row);
     const sourcePostPath = saleSourcePostFromRow(row);
     const usdE6 = saleUsdE6(row);
+    const batchQuantity =
+      row.quantity != null &&
+      Number.isInteger(row.quantity) &&
+      row.quantity > 1
+        ? row.quantity
+        : undefined;
+    const priceNear = batchQuantity
+      ? (priceNearFromYocto(mintAskYocto(row)) ?? priceNearFromRow(row))
+      : priceNearFromRow(row);
     return {
       listingId: row.listingId?.trim() || undefined,
       tokenId: row.tokenId?.trim() || undefined,
@@ -2515,7 +2564,8 @@ export async function fetchMarketSales(
       sellerId: accountFromRow(row.sellerId),
       creatorId: accountFromRow(row.creatorId, row.author),
       title: saleTitle(row),
-      priceNear: priceNearFromRow(row),
+      priceNear,
+      ...(batchQuantity ? { quantity: batchQuantity } : {}),
       ...(usdE6 ? { usdE6 } : {}),
       blockTimestamp: row.blockTimestamp,
       ...(mediaUrl ? { mediaUrl } : {}),

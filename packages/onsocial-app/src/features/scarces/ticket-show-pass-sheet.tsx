@@ -43,6 +43,8 @@ import {
   fetchTicketTokenStatus,
   type TicketTokenStatus,
 } from '@/features/scarces/ticket-token-status';
+import { QuantityCount } from '@/features/scarces/quantity-count';
+import { visibleQuantity } from '@/features/scarces/quantity-count-format';
 import { resolveScarceMediaUrl } from '@/features/market/market-listings';
 import { accountIdsEqual } from '@/lib/account-match';
 import { restoreAppSocialSession } from '@/lib/app-social-session';
@@ -549,6 +551,15 @@ export function TicketShowPassSheet({
             <div className="ticket-show-pass-meta">
               <span className="ticket-show-pass-seat">
                 {ticketPassSeatLabel(tokenId, voice)}
+                {visibleQuantity(status?.redeemCount) ? (
+                  <>
+                    {' · '}
+                    <QuantityCount
+                      quantity={status?.redeemCount}
+                      verb={voice === 'redeem' ? 'redeemed' : 'admitted'}
+                    />
+                  </>
+                ) : null}
               </span>
               {passCode ? (
                 <button

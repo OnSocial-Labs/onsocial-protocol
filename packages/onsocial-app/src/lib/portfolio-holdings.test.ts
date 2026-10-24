@@ -266,6 +266,10 @@ describe('groupHoldingsForRail', () => {
     expect(grouped).toHaveLength(2);
     // First occurrence keeps its slot; later editions fold into it.
     expect(grouped[0]).toMatchObject({ tokenId: 'album:1', editionCount: 2 });
+    expect(grouped[0]?.editions.map((edition) => edition.tokenId)).toEqual([
+      'album:1',
+      'album:2',
+    ]);
     expect(grouped[1]).toMatchObject({ tokenId: 's:post-1', editionCount: 1 });
   });
 

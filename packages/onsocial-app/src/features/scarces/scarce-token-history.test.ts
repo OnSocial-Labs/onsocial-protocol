@@ -175,6 +175,8 @@ describe('mapTokenHistoryRows', () => {
       'Listed',
       'Minted',
     ]);
+    expect(rows.map((row) => row.quantity)).toEqual([2, 2, 2]);
+    expect(rows.map((row) => row.uniformBatch)).toEqual([false, false, true]);
     expect(rows.map((row) => row.actor)).toEqual([
       'bob.near',
       'fan.near',

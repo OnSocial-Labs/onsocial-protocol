@@ -30,6 +30,12 @@ import {
   viewerOfferCtaLabel,
 } from '@/features/scarces/scarce-offers';
 import { ScarceBuyFactsMeta } from '@/features/scarces/scarce-buy-facts-meta';
+import { QuantityCount } from '@/features/scarces/quantity-count';
+import {
+  appendEach,
+  quantityPriceLine,
+  visibleQuantity,
+} from '@/features/scarces/quantity-count-format';
 import {
   formatScarceBuyPrice,
   scarceBuyDealParts,
@@ -698,21 +704,22 @@ export function ScarceBuyForm({
       : 'Buy';
   const isPaidAsk =
     Boolean(priceNear?.trim()) && Number.parseFloat(priceNear!) > 0;
-  const footerPriceNear = isDropBuy
-    ? totalPriceNear
-    : isMarketBuy
-      ? priceNear
-      : undefined;
-  const dollarTotalLabel = dollarSticker
-    ? formatUsdE6(dollarSticker.usdE6, mintQty)
+  const unitDollarLabel = dollarSticker
+    ? formatUsdE6(dollarSticker.usdE6, 1)
     : null;
   const dollarNearLabel =
     dollarUnitYocto != null
       ? dollarNearEstimateLabel(dollarUnitYocto, mintQty)
       : null;
-  const sheetPriceLabel = scarceBuyPriceLine({
-    priceLabel: dollarTotalLabel,
-    priceNear: footerPriceNear,
+  const dealVerb = isPrimaryMint ? 'minted' : 'bought';
+  const unitAskLabel = scarceBuyPriceLine({
+    priceLabel: unitDollarLabel,
+    priceNear: isDropBuy || isMarketBuy ? priceNear : undefined,
+  });
+  const pricedDeal = quantityPriceLine({
+    quantity: mintQty,
+    verb: dealVerb,
+    amount: unitAskLabel,
   });
   const nearDepositYocto = useMemo((): bigint | null => {
     if (dollarSticker) {
@@ -810,11 +817,11 @@ export function ScarceBuyForm({
       cancelled = true;
     };
   }, [nearDepositYocto, payWithToken, selectedPayToken, viewerAccountId]);
-  const showFooterPrice = dollarTotalLabel
+  const showFooterPrice = unitDollarLabel
     ? isConnected && (isLazyBuy || isDropBuy || isMarketBuy)
     : isConnected && ((isDropBuy && isPaidMint) || (isMarketBuy && isPaidAsk));
   const primaryLabelWithPrice = showFooterPrice
-    ? `${primaryActionLabel} · ${dollarTotalLabel || formatScarceBuyPrice(footerPriceNear) || '—'}`
+    ? `${primaryActionLabel} · ${pricedDeal || '—'}`
     : isConnected
       ? primaryActionLabel
       : 'Connect';
@@ -1531,8 +1538,12 @@ export function ScarceBuyForm({
           price={
             <>
               <div className="scarce-buy-deal-row">
-                {sheetPriceLabel ? (
-                  <p className="scarce-buy-price">{sheetPriceLabel}</p>
+                {pricedDeal ? (
+                  <p className="scarce-buy-price">
+                    <QuantityCount quantity={mintQty} verb={dealVerb} />
+                    {visibleQuantity(mintQty) && unitAskLabel ? ' · ' : null}
+                    {unitAskLabel ? appendEach(unitAskLabel, mintQty) : null}
+                  </p>
                 ) : null}
                 <ScarceBuyFactsMeta
                   parts={scarceBuyDealParts({

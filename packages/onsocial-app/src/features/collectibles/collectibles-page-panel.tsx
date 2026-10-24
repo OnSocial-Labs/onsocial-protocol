@@ -1067,6 +1067,22 @@ export function CollectiblesPagePanel({
                 )
               : undefined
           }
+          onTransferEdition={
+            isSelf
+              ? (owned) => {
+                  setTransferItem(owned);
+                  setTransferOpen(true);
+                }
+              : undefined
+          }
+          onSellEdition={
+            isSelf
+              ? (owned) => {
+                  setSellItem(owned);
+                  setSellOpen(true);
+                }
+              : undefined
+          }
         />
       ) : null}
 

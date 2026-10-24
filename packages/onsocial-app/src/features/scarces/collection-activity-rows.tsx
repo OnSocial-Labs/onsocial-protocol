@@ -6,6 +6,8 @@ import { standingIdentityLabel } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { ActivityQuantityLabel } from '@/features/scarces/quantity-count';
+import { activityPriceLabel } from '@/features/scarces/quantity-count-format';
 
 export interface CollectionActivityRow {
   key: string;
@@ -14,7 +16,12 @@ export interface CollectionActivityRow {
   actor: string | null;
   time: string;
   timeTitle?: string;
+  /** Unit price. A batch total is divided before it reaches this field. */
   priceNear: string | null;
+  /** Copies in the event. One stays quiet on the row. */
+  quantity?: number | null;
+  /** The price is the same unit for every copy in the batch. */
+  uniformBatch?: boolean;
 }
 
 /**
@@ -58,14 +65,22 @@ export function CollectionActivityRows({
                       avatarUrl={profile?.avatarUrl}
                     >
                       <span className="collection-activity-standing-kind">
-                        {row.label}
+                        <ActivityQuantityLabel
+                          label={row.label}
+                          quantity={row.quantity}
+                        />
                       </span>
                     </StandingIdentity>
                   </>
                 ) : (
                   <div className="standing-row-copy collection-activity-standing-system">
                     <span className="standing-row-name-row">
-                      <span className="standing-row-name">{row.label}</span>
+                      <span className="standing-row-name">
+                        <ActivityQuantityLabel
+                          label={row.label}
+                          quantity={row.quantity}
+                        />
+                      </span>
                     </span>
                   </div>
                 )}
@@ -81,7 +96,11 @@ export function CollectionActivityRows({
                 ) : null}
                 {row.priceNear ? (
                   <span className="collection-activity-price">
-                    {row.priceNear} NEAR
+                    {activityPriceLabel(
+                      row.priceNear,
+                      row.quantity,
+                      row.uniformBatch === true
+                    )}
                   </span>
                 ) : null}
               </div>

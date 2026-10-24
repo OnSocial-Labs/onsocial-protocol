@@ -105,8 +105,21 @@ test.describe('collectibles shell', () => {
     });
     await expect(nightRow).toContainText('Audio');
     await expect(nightRow).toContainText('×2');
-    await expect(nightRow).toContainText('2 NEAR');
+    await expect(nightRow).toContainText('2 NEAR each');
     await expect(nightRow).not.toContainText('Listed');
+    await expect(nightRow).not.toContainText('night-drive:');
+    await nightRow
+      .getByRole('button', { name: 'Choose an edition of Night Drive' })
+      .click();
+    const editions = page.getByRole('dialog', { name: 'Editions' });
+    await expect(editions.getByText('Edition 1', { exact: true })).toBeVisible();
+    await expect(editions.getByText('Edition 3', { exact: true })).toBeVisible();
+    await expect(editions.getByRole('button', { name: 'History' })).toHaveCount(
+      2
+    );
+    await expect(editions.getByText(/night-drive:/)).toHaveCount(0);
+    await page.getByRole('button', { name: 'Close editions' }).click();
+    await expect(editions).toBeHidden();
     await expect(nightRow).not.toContainText('@alice.near');
     await expect(
       nightRow.getByRole('link', { name: /Play Night Drive/ })

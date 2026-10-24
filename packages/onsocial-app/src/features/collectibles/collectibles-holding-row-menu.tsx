@@ -40,6 +40,7 @@ import {
 } from '@/features/scarces/scarce-transfer';
 import { scarcesContractIdForNetwork } from '@/features/scarces/drop-compose-draft';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
+import { useHeldEditionPicker } from '@/features/collectibles/collectibles-vault-library';
 import { APP_MARKET_PATH } from '@/lib/app-routes';
 import {
   txToastConfirming,
@@ -69,6 +70,7 @@ export function CollectiblesHoldingRowMenu({
   showOpenInMarket = true,
 }: CollectiblesHoldingRowMenuProps) {
   const { getSigningWallet } = useAppWallet();
+  const openHeldEditions = useHeldEditionPicker();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const [open, setOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -294,12 +296,18 @@ export function CollectiblesHoldingRowMenu({
         id: 'transfer',
         section: 'Manage',
         label: 'Transfer',
-        description: listed
-          ? 'Send it on. This comes off sale.'
-          : 'Send this scarce to another account',
+        description: openHeldEditions
+          ? 'Choose which edition to send'
+          : listed
+            ? 'Send it on. This comes off sale.'
+            : 'Send this scarce to another account',
         leading: <GiftIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           close();
+          if (openHeldEditions) {
+            openHeldEditions();
+            return;
+          }
           onTransfer();
         },
       });
@@ -384,6 +392,7 @@ export function CollectiblesHoldingRowMenu({
     listed,
     onList,
     onTransfer,
+    openHeldEditions,
     pending,
     showOpenInMarket,
   ]);

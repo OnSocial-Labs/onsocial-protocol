@@ -328,6 +328,32 @@ function historyPrice(
   );
 }
 
+function historyBatchQuantity(row: TokenHistoryEvent): number | null {
+  if (
+    row.quantity != null &&
+    Number.isInteger(row.quantity) &&
+    row.quantity > 0
+  ) {
+    return row.quantity;
+  }
+  const ids = extraStringArray(row.extraData, 'token_ids');
+  return ids.length > 1 ? ids.length : null;
+}
+
+/** True when every copy in the batch carried the same price. */
+function historyBatchUniform(
+  row: TokenHistoryEvent,
+  quantity: number | null
+): boolean {
+  if (quantity == null || quantity <= 1) return false;
+  const unit = extraString(row.extraData, 'unit_price');
+  if (unit && /^\d+$/.test(unit)) return true;
+  const prices = extraStringArray(row.extraData, 'prices');
+  if (prices.length > 1) return prices.every((price) => price === prices[0]);
+  const total = row.price ?? row.amount;
+  return Boolean(total && /^\d+$/.test(total));
+}
+
 /**
  * One edition's timeline, newest first.
  * Inside one block, the later log stays above the earlier one.
@@ -355,6 +381,7 @@ export function mapTokenHistoryRows(
       const eventType = row.eventType?.trim() || '';
       const at = timestampNumber(row.blockTimestamp);
       const id = row.id?.trim();
+      const quantity = historyBatchQuantity(row);
       return {
         key: id || `${operation}:${row.blockHeight ?? 0}:${index}`,
         operation,
@@ -363,6 +390,8 @@ export function mapTokenHistoryRows(
         time: formatMarketRelativeTime(at) ?? '',
         timeTitle: at > 0 ? formatPostTimestamp(at) : undefined,
         priceNear: historyPrice(row, operation, tokenId),
+        quantity,
+        uniformBatch: historyBatchUniform(row, quantity),
       };
     });
 }

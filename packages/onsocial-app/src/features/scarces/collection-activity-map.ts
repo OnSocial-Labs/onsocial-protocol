@@ -40,11 +40,15 @@ export function mapCollectionActivityRows(
     author?: string | null;
     price?: string | null;
     amount?: string | null;
+    quantity?: number | null;
+    extraData?: string | null;
   }>
 ): CollectionActivityRow[] {
   return rows.map((row, index) => {
     const operation = row.operation?.trim() || 'unknown';
     const isCreate = operation === 'create';
+    const quantity = isCreate ? null : activityBatchQuantity(row);
+    const unitYocto = isCreate ? null : activityUnitYocto(row, quantity);
     return {
       key: `${operation}:${row.blockTimestamp}:${index}`,
       operation,
@@ -59,7 +63,65 @@ export function mapCollectionActivityRows(
         row.blockTimestamp != null && row.blockTimestamp > 0
           ? formatPostTimestamp(row.blockTimestamp)
           : undefined,
-      priceNear: isCreate ? null : yoctoToNearDisplay(row.price ?? row.amount),
+      priceNear: yoctoToNearDisplay(unitYocto),
+      quantity,
+      uniformBatch: quantity != null && quantity > 1,
     };
   });
+}
+
+function activityExtra(
+  extraData: string | null | undefined
+): Record<string, unknown> | null {
+  if (!extraData?.trim()) return null;
+  try {
+    const parsed = JSON.parse(extraData) as unknown;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function activityBatchQuantity(row: {
+  quantity?: number | null;
+  extraData?: string | null;
+}): number | null {
+  if (
+    row.quantity != null &&
+    Number.isInteger(row.quantity) &&
+    row.quantity > 0
+  ) {
+    return row.quantity;
+  }
+  const ids = activityExtra(row.extraData)?.token_ids;
+  if (!Array.isArray(ids)) return null;
+  const count = ids.filter(
+    (id) => typeof id === 'string' && id.trim().length > 0
+  ).length;
+  return count > 1 ? count : null;
+}
+
+/** Unit yocto. A batch `price` is the total and is split before display. */
+function activityUnitYocto(
+  row: {
+    price?: string | null;
+    amount?: string | null;
+    extraData?: string | null;
+  },
+  quantity: number | null
+): string | null {
+  const unit = activityExtra(row.extraData)?.unit_price;
+  if (typeof unit === 'string' && /^\d+$/.test(unit)) return unit;
+  const total = row.price ?? row.amount ?? null;
+  if (
+    quantity != null &&
+    quantity > 1 &&
+    total &&
+    /^\d+$/.test(total)
+  ) {
+    return (BigInt(total) / BigInt(quantity)).toString();
+  }
+  return total;
 }

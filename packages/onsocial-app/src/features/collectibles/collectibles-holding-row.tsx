@@ -10,6 +10,10 @@ import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-dat
 import { listedArticleReaderHref } from '@/features/scarces/drop-writing';
 import { OwnedShowPassSheet } from '@/features/scarces/owned-show-pass-sheet';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
+import {
+  appendEach,
+  quantityMark,
+} from '@/features/scarces/quantity-count-format';
 import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { socialTimeProps } from '@/lib/post-display';
 import {
@@ -23,6 +27,8 @@ interface CollectiblesHoldingRowProps {
   item: PortfolioHoldingPeek;
   /** Collapsed edition count when several tokens share one collection. */
   editionCount?: number;
+  /** Grouped drop: the row opens the edition list instead of the drop. */
+  onOpenEditions?: () => void;
   /** Owner-only manage menu — rendered beside the received time. */
   ownerMenu?: ReactNode;
   /** Hide the maker when the row already sits under a creator heading. */
@@ -46,11 +52,14 @@ export function collectiblesHoldingFact(
   editionCount = 1
 ): string {
   const kind = item.kindLabel.trim();
-  const count = editionCount > 1 ? `×${editionCount}` : '';
+  const count = quantityMark(editionCount) ?? '';
   const price = item.listedPriceNear?.trim();
   const parts = [kind, count];
   if (price) {
-    const amount = `${formatHoldingPrice(price)} NEAR`;
+    const amount = appendEach(
+      `${formatHoldingPrice(price)} NEAR`,
+      editionCount
+    );
     if (item.listingKind === 'auction') parts.push('Reserve');
     parts.push(amount);
   }
@@ -61,6 +70,7 @@ export function collectiblesHoldingFact(
 export function CollectiblesHoldingRow({
   item,
   editionCount = 1,
+  onOpenEditions,
   ownerMenu = null,
   hideCreator = false,
   authorDisplayName = null,
@@ -135,7 +145,14 @@ export function CollectiblesHoldingRow({
       className="market-listing-row collectibles-holding-row"
       role="listitem"
     >
-      {rowHref ? (
+      {onOpenEditions ? (
+        <button
+          type="button"
+          className="market-listing-row-open"
+          aria-label={`Choose an edition of ${item.title}`}
+          onClick={onOpenEditions}
+        />
+      ) : rowHref ? (
         <Link
           href={rowHref}
           scroll={false}

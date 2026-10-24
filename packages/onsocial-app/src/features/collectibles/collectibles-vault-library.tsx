@@ -1,10 +1,21 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import Link from 'next/link';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { OsChipRail } from '@/components/os/os-chip-rail';
+import { compareHeldEditionTokenIds } from '@/features/collectibles/held-editions';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
+import { HeldEditionsSheet } from '@/features/collectibles/held-editions-sheet';
 import {
   collectionCreatorNameLine,
   type CollectionCreatorFace,
@@ -17,9 +28,30 @@ import {
   collectiblesLibraryHeadingId,
   countLibraryCreatorDrops,
   type CollectiblesLibraryCreatorGroup,
+  type CollectiblesLibraryDrop,
 } from '@/lib/portfolio-holdings';
 
 export { collectiblesLibraryHeadingId };
+
+/**
+ * Set on a grouped drop row. The ⋮ Transfer action opens that row's edition
+ * list instead of sending the representative token.
+ */
+const HeldEditionPickerContext = createContext<(() => void) | null>(null);
+
+export function useHeldEditionPicker(): (() => void) | null {
+  return useContext(HeldEditionPickerContext);
+}
+
+function ownedEditionsForDrop(
+  drop: CollectiblesLibraryDrop,
+  ownedByToken: Map<string, OwnedScarceItem>
+): OwnedScarceItem[] {
+  return drop.editions
+    .map((edition) => ownedByToken.get(edition.tokenId))
+    .filter((row): row is OwnedScarceItem => row != null)
+    .sort((a, b) => compareHeldEditionTokenIds(a.tokenId, b.tokenId));
+}
 
 function jumpToHeading(headingId: string) {
   document
@@ -231,6 +263,8 @@ export function CollectiblesVaultLibrary({
   ownedByToken,
   showCreatorHeadings,
   renderOwnerMenu,
+  onTransferEdition,
+  onSellEdition,
   onSelectCreator,
   selectedCreator = null,
   creatorFaces,
@@ -241,6 +275,9 @@ export function CollectiblesVaultLibrary({
   ownedByToken: Map<string, OwnedScarceItem>;
   showCreatorHeadings: boolean;
   renderOwnerMenu?: (owned: OwnedScarceItem) => ReactNode;
+  /** Transfer / Sell from the edition list, after the holder picks a copy. */
+  onTransferEdition?: (item: OwnedScarceItem) => void;
+  onSellEdition?: (item: OwnedScarceItem) => void;
   onSelectCreator?: (creatorKey: string) => void;
   selectedCreator?: string | null;
   creatorFaces?: ReadonlyMap<string, CollectionCreatorFace>;
@@ -253,6 +290,13 @@ export function CollectiblesVaultLibrary({
     !embedded && showCreatorHeadings && groups.length >= COLLECTIBLES_LIBRARY_JUMP_MIN;
   const stackRef = useRef<HTMLDivElement | null>(null);
   useAccountStripChrome(stackRef, embedded, groups);
+  const [pickerDrop, setPickerDrop] = useState<CollectiblesLibraryDrop | null>(
+    null
+  );
+  const pickerEditions = useMemo(
+    () => (pickerDrop ? ownedEditionsForDrop(pickerDrop, ownedByToken) : []),
+    [ownedByToken, pickerDrop]
+  );
   const stack = (
       <div
         ref={stackRef}
@@ -352,11 +396,17 @@ export function CollectiblesVaultLibrary({
                         const face = creator.creatorId
                           ? creatorFaces?.get(creator.creatorId)
                           : undefined;
-                        return (
+                        const grouped = item.editionCount > 1;
+                        const row = (
                           <CollectiblesHoldingRow
                             key={item.tokenId}
                             item={item}
                             editionCount={item.editionCount}
+                            onOpenEditions={
+                              grouped
+                                ? () => setPickerDrop(item)
+                                : undefined
+                            }
                             hideCreator={showCreatorHeadings}
                             authorDisplayName={face?.displayName}
                             authorAvatarUrl={face?.avatarUrl}
@@ -366,6 +416,15 @@ export function CollectiblesVaultLibrary({
                                 : null
                             }
                           />
+                        );
+                        if (!grouped) return row;
+                        return (
+                          <HeldEditionPickerContext.Provider
+                            key={item.tokenId}
+                            value={() => setPickerDrop(item)}
+                          >
+                            {row}
+                          </HeldEditionPickerContext.Provider>
                         );
                       })}
                     </div>
@@ -378,8 +437,24 @@ export function CollectiblesVaultLibrary({
       </div>
   );
 
+  const editionSheet = (
+    <HeldEditionsSheet
+      open={pickerDrop != null}
+      title={pickerDrop?.title ?? ''}
+      editions={pickerEditions}
+      onClose={() => setPickerDrop(null)}
+      onTransfer={onTransferEdition}
+      onSell={onSellEdition}
+    />
+  );
+
   if (embedded) {
-    return <div className="collectibles-library">{stack}</div>;
+    return (
+      <div className="collectibles-library">
+        {stack}
+        {editionSheet}
+      </div>
+    );
   }
 
   return (
@@ -391,6 +466,7 @@ export function CollectiblesVaultLibrary({
       aria-busy={refreshing || undefined}
     >
       {stack}
+      {editionSheet}
     </section>
   );
 }
