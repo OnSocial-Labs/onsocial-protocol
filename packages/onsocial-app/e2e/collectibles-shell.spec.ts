@@ -200,9 +200,13 @@ test.describe('collectibles shell', () => {
     await editions.getByRole('button', { name: 'Close editions' }).click();
     await expect(editions).toBeHidden();
     await expect(nightRow).not.toContainText('@alice.near');
-    await expect(
-      nightRow.getByRole('link', { name: /Play Night Drive/ })
-    ).toBeVisible();
+    await nightRow.getByRole('button', { name: 'Play Night Drive' }).click();
+    await expect(page.getByRole('dialog', { name: 'Editions' })).toBeVisible();
+    await page
+      .getByRole('dialog', { name: 'Editions' })
+      .getByRole('button', { name: 'Close editions' })
+      .click();
+    await expect(page.getByRole('dialog', { name: 'Editions' })).toBeHidden();
 
     const chapterRow = page.locator('.collectibles-holding-row').filter({
       hasText: 'Chapter One',

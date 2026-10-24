@@ -23,6 +23,7 @@ import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
+import { HeldEditionFollow } from '@/features/collectibles/held-edition-follow';
 import {
   fetchOwnedScarcesPage,
   type OwnedScarceItem,
@@ -62,6 +63,7 @@ import { OsRowAction } from '@/lib/os-row-action';
 import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import {
   groupHoldingsForRail,
+  ownedScarceFromPeek,
   toPortfolioHoldingPeek,
 } from '@/lib/portfolio-holdings';
 
@@ -113,6 +115,10 @@ export function SeriesPagePanel({
   );
   const [seriesLoadingMore, setSeriesLoadingMore] = useState(false);
   const [seriesLoadMoreFailed, setSeriesLoadMoreFailed] = useState(false);
+  const [editionPick, setEditionPick] = useState<{
+    title: string;
+    editions: OwnedScarceItem[];
+  } | null>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const seriesSentinelRef = useRef<HTMLDivElement | null>(null);
   const collectionIds = useMemo(
@@ -417,6 +423,15 @@ export function SeriesPagePanel({
                 item={item}
                 editionCount={item.editionCount}
                 hideCreator
+                onOpenEditions={
+                  item.editionCount > 1
+                    ? () =>
+                        setEditionPick({
+                          title: item.title,
+                          editions: item.editions.map(ownedScarceFromPeek),
+                        })
+                    : undefined
+                }
               />
             ))}
           </div>
@@ -519,6 +534,12 @@ export function SeriesPagePanel({
           onSaved={setBranding}
         />
       ) : null}
+      <HeldEditionFollow
+        open={editionPick != null}
+        title={editionPick?.title ?? ''}
+        editions={editionPick?.editions ?? []}
+        onClose={() => setEditionPick(null)}
+      />
     </OsAppScreen>
   );
 }

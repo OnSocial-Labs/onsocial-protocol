@@ -11,12 +11,11 @@ import {
   type RefObject,
 } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { compareHeldEditionTokenIds } from '@/features/collectibles/held-editions';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
-import { HeldEditionsSheet } from '@/features/collectibles/held-editions-sheet';
+import { HeldEditionFollow } from '@/features/collectibles/held-edition-follow';
 import {
   collectionCreatorNameLine,
   type CollectionCreatorFace,
@@ -29,7 +28,6 @@ import {
   collectiblesLibraryHeadingId,
   countLibraryCreatorDrops,
   type CollectiblesLibraryCreatorGroup,
-  heldEditionHref,
   type CollectiblesLibraryDrop,
 } from '@/lib/portfolio-holdings';
 
@@ -50,7 +48,12 @@ function ownedEditionsForDrop(
   ownedByToken: Map<string, OwnedScarceItem>
 ): OwnedScarceItem[] {
   return drop.editions
-    .map((edition) => ownedByToken.get(edition.tokenId))
+    .map((edition) => {
+      const row = ownedByToken.get(edition.tokenId);
+      if (!row) return null;
+      if (row.mediumKind || !edition.mediumKind) return row;
+      return { ...row, mediumKind: edition.mediumKind };
+    })
     .filter((row): row is OwnedScarceItem => row != null)
     .sort((a, b) => compareHeldEditionTokenIds(a.tokenId, b.tokenId));
 }
@@ -294,7 +297,6 @@ export function CollectiblesVaultLibrary({
     groups.length >= COLLECTIBLES_LIBRARY_JUMP_MIN;
   const stackRef = useRef<HTMLDivElement | null>(null);
   useAccountStripChrome(stackRef, embedded, groups);
-  const router = useRouter();
   const [pickerDrop, setPickerDrop] = useState<CollectiblesLibraryDrop | null>(
     null
   );
@@ -444,20 +446,12 @@ export function CollectiblesVaultLibrary({
   );
 
   const editionSheet = (
-    <HeldEditionsSheet
+    <HeldEditionFollow
       open={pickerDrop != null}
       title={pickerDrop?.title ?? ''}
       editions={pickerEditions}
       choose={pickerChoose}
       onClose={() => setPickerDrop(null)}
-      onChoose={(item) => {
-        if (pickerChoose === 'send') {
-          onTransferEdition?.(item);
-          return;
-        }
-        const href = heldEditionHref(item);
-        if (href) router.push(href);
-      }}
       onTransfer={onTransferEdition}
       onSell={onSellEdition}
     />

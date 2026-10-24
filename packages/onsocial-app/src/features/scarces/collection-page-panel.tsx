@@ -318,7 +318,7 @@ export function CollectionPagePanel({
     view?.isVariations &&
     editionToken &&
     editionSeatFromTokenId(editionToken) != null
-      ? heldEditionLabel(editionToken)
+      ? heldEditionLabel(editionToken, view.kind)
       : '';
   /** Album / multi-clip drops love per track in the player — no Drop-level heart. */
   const showDropLove = (view?.playables.length ?? 0) === 0;

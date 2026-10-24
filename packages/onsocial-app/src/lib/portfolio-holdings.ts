@@ -19,6 +19,7 @@ import {
   collectiblesPlayPath,
 } from '@/lib/app-routes';
 import { listedArticleReaderHref } from '@/features/scarces/drop-writing';
+import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
 
 /** Vault filter id when a holding has no drop creator. */
@@ -250,6 +251,56 @@ export function heldEditionHref(
     item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
   if (!collectionId) return href;
   return collectionPath(collectionId, { tokenId: item.tokenId });
+}
+
+export type HeldEditionDestination =
+  | { type: 'pass' }
+  | { type: 'article'; href: string }
+  | { type: 'reader' }
+  | { type: 'href'; href: string | null };
+
+/**
+ * What one chosen copy should do. Passes stay on the page.
+ * Read opens the reader. Play, Watch, and Open follow the copy's link.
+ */
+export function heldEditionDestination(
+  item: Parameters<typeof holdingsHrefForOwned>[0]
+): HeldEditionDestination {
+  if (isPassMediumKind(item.mediumKind)) return { type: 'pass' };
+  const article = holdingsReadHref({
+    mediumKind: item.mediumKind,
+    sourcePostPath: item.sourcePostPath,
+  });
+  if (article) return { type: 'article', href: article };
+  const medium = (item.mediumKind ?? '').trim().toLowerCase();
+  const collectionId =
+    item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
+  if (
+    collectionId &&
+    (medium === 'writing' || medium === 'book' || medium === 'issue')
+  ) {
+    return { type: 'reader' };
+  }
+  return { type: 'href', href: heldEditionHref(item) };
+}
+
+/** Sheet row from a grouped peek. The pass and reader only need this copy. */
+export function ownedScarceFromPeek(
+  peek: PortfolioHoldingPeek
+): OwnedScarceItem {
+  return {
+    tokenId: peek.tokenId,
+    title: peek.title,
+    ownerId: '',
+    listingKind: peek.listingKind ?? null,
+    mediaUrl: peek.mediaUrl,
+    collectionId: peek.collectionId,
+    ...(peek.creatorId ? { creatorId: peek.creatorId } : {}),
+    mediumKind: peek.mediumKind,
+    ...(peek.sourcePostPath ? { sourcePostPath: peek.sourcePostPath } : {}),
+    ...(peek.mintedAtMs != null ? { mintedAtMs: peek.mintedAtMs } : {}),
+    ...(peek.listedPriceNear ? { listedPriceNear: peek.listedPriceNear } : {}),
+  };
 }
 
 /**

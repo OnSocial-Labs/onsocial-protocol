@@ -5,6 +5,7 @@ import {
   groupHoldingsLibrary,
   sortHoldingsLibrary,
   holdingsActionLabel,
+  heldEditionDestination,
   heldEditionHref,
   holdingsHrefForOwned,
   holdingsReadHref,
@@ -200,6 +201,64 @@ describe('toPortfolioHoldingPeek', () => {
         sourcePostPath: 'alice.near/post/42',
       })
     ).toBe('/@alice.near/posts/42');
+  });
+
+  it('follows the copy the way one holding already does', () => {
+    expect(
+      heldEditionDestination({
+        tokenId: 'gate:2',
+        collectionId: 'gate',
+        mediumKind: 'ticket',
+      }).type
+    ).toBe('pass');
+    expect(
+      heldEditionDestination({
+        tokenId: 'save:2',
+        collectionId: 'save',
+        mediumKind: 'coupon',
+      }).type
+    ).toBe('pass');
+    expect(
+      heldEditionDestination({
+        tokenId: 'quiet-hours:2',
+        collectionId: 'quiet-hours',
+        mediumKind: 'writing',
+        sourcePostPath: 'alice.testnet/post/42',
+      })
+    ).toEqual({
+      type: 'article',
+      href: holdingsReadHref({
+        mediumKind: 'writing',
+        sourcePostPath: 'alice.testnet/post/42',
+      }),
+    });
+    expect(
+      heldEditionDestination({
+        tokenId: 'novel:2',
+        collectionId: 'novel',
+        mediumKind: 'book',
+      }).type
+    ).toBe('reader');
+    expect(
+      heldEditionDestination({
+        tokenId: 'print:2',
+        collectionId: 'print',
+        mediumKind: 'art',
+      })
+    ).toEqual({
+      type: 'href',
+      href: '/collection/print?t=print%3A2',
+    });
+    expect(
+      heldEditionDestination({
+        tokenId: 'night-drive:2',
+        collectionId: 'night-drive',
+        mediumKind: 'audio',
+      })
+    ).toEqual({
+      type: 'href',
+      href: '/collectibles/play?c=night-drive&t=night-drive%3A2',
+    });
   });
 
   it('sends Read for a listed essay to the article, and the cover to the drop', () => {

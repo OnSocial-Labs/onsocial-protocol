@@ -138,7 +138,9 @@ function HeldEditionFactsSheet({
   item: OwnedScarceItem | null;
   onClose: () => void;
 }) {
-  const label = item ? heldEditionLabel(item.tokenId) : 'Edition';
+  const label = item
+    ? heldEditionLabel(item.tokenId, item.mediumKind)
+    : 'Edition';
   const rows = item ? heldEditionFactRows(item) : [];
   return (
     <OsHugSheet
@@ -201,7 +203,7 @@ export function HeldEditionList({
       {editions.map((item, index) => {
         const canTransfer = Boolean(onTransfer) && ownedScarceCanTransfer(item);
         const canSell = Boolean(onSell) && item.listingKind == null;
-        const label = heldEditionLabel(item.tokenId);
+        const label = heldEditionLabel(item.tokenId, item.mediumKind);
         const cover = item.mediaUrl?.trim() || '';
         const timeLabel = timeLabels[index]?.trim() || '';
         const canChoose = choose === 'send' ? canTransfer : Boolean(onChoose);
@@ -337,7 +339,11 @@ export function HeldEditionsSheet({
         open={historyItem != null}
         onClose={() => setHistoryItem(null)}
         tokenId={historyItem?.tokenId ?? ''}
-        title={historyItem ? heldEditionLabel(historyItem.tokenId) : heading}
+        title={
+          historyItem
+            ? heldEditionLabel(historyItem.tokenId, historyItem.mediumKind)
+            : heading
+        }
       />
       <HeldEditionFactsSheet
         item={factsItem}

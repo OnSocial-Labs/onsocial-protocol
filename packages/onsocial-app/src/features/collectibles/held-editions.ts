@@ -1,5 +1,9 @@
 import { editionSeatFromTokenId } from '@/features/market/market-listings';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
+import {
+  isCouponMediumKind,
+  isPassMediumKind,
+} from '@/features/scarces/ticket-pass-payload';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
 
 /** Sheet title. Send when the row will transfer. Editions when the row opens. */
@@ -7,10 +11,21 @@ export function heldEditionSheetTitle(choose: 'open' | 'send'): string {
   return choose === 'send' ? 'Send' : 'Editions';
 }
 
-/** `Edition 4`. A token without a seat stays unlabeled — never the raw id. */
-export function heldEditionLabel(tokenId: string): string {
+/** Pass and Coupon match the pass. Every other kind stays Edition. */
+export function heldEditionNoun(mediumKind?: string | null): string {
+  if (isCouponMediumKind(mediumKind)) return 'Coupon';
+  if (isPassMediumKind(mediumKind)) return 'Pass';
+  return 'Edition';
+}
+
+/** `Edition 4`, `Pass 2`, or `Coupon 3`. Never the raw id. */
+export function heldEditionLabel(
+  tokenId: string,
+  mediumKind?: string | null
+): string {
+  const noun = heldEditionNoun(mediumKind);
   const seat = editionSeatFromTokenId(tokenId);
-  return seat != null ? `Edition ${seat}` : 'Edition';
+  return seat != null ? `${noun} ${seat}` : noun;
 }
 
 /**

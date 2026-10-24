@@ -496,7 +496,7 @@ export function CollectiblesPlayPanel({
                 tokenIdParam &&
                 editionSeatFromTokenId(tokenIdParam) != null ? (
                   <p className="collectibles-play-edition">
-                    {heldEditionLabel(tokenIdParam)}
+                    {heldEditionLabel(tokenIdParam, view.kind)}
                   </p>
                 ) : null}
               </div>

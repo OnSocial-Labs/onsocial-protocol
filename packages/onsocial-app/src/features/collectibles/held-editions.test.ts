@@ -29,9 +29,13 @@ describe('held editions', () => {
 
   it('names the seat and never the token id', () => {
     expect(heldEditionLabel('night-drive:4')).toBe('Edition 4');
-    expect(heldEditionLabel('night-drive:5')).toBe('Edition 5');
+    expect(heldEditionLabel('night-drive:5', 'audio')).toBe('Edition 5');
+    expect(heldEditionLabel('gate:2', 'ticket')).toBe('Pass 2');
+    expect(heldEditionLabel('gate:2', 'membership')).toBe('Pass 2');
+    expect(heldEditionLabel('save:3', 'coupon')).toBe('Coupon 3');
     expect(heldEditionLabel('s:post')).toBe('Edition');
     expect(heldEditionLabel('night-drive:4')).not.toContain('night-drive');
+    expect(heldEditionLabel('gate:2', 'ticket')).not.toContain('gate');
   });
 
   it('opens an edition from the row and keeps actions in one menu', () => {
