@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Divider,
   DotsVerticalIcon,
@@ -49,6 +49,8 @@ function HeldEditionCover({ src }: { src: string }) {
   );
 }
 
+let heldEditionMenuClosedAt = 0;
+
 function HeldEditionMenu({
   label,
   menuLabel,
@@ -70,10 +72,9 @@ function HeldEditionMenu({
 }) {
   const menu = menuLabel?.trim() || label;
   const [open, setOpen] = useState(false);
-  const closedAtMs = useRef(0);
   const choose = useCallback((action?: () => void) => {
     // The sheet leaves under the pointer, so this tap can land on More and reopen it.
-    closedAtMs.current = Date.now();
+    heldEditionMenuClosedAt = Date.now();
     setOpen(false);
     action?.();
   }, []);
@@ -132,7 +133,7 @@ function HeldEditionMenu({
         aria-expanded={open}
         aria-label={`More for ${label}`}
         onClick={() => {
-          if (Date.now() - closedAtMs.current < 400) return;
+          if (Date.now() - heldEditionMenuClosedAt < 400) return;
           setOpen(true);
         }}
       >
