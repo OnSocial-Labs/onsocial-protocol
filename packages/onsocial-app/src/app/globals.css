@@ -44903,9 +44903,9 @@ a.os-surface-row {
   }
 }
 
-/* Edition actions sit in a hug body whose padding is unlayered. Match that layer. */
-.os-hug-sheet-body.held-edition-actions {
-  padding-bottom: calc(var(--portfolio-dock-clearance, 4.75rem) + 0.85rem);
+/* Rest the edition menu on the dock. Padding inside the body left an empty well. */
+.glass-sheet-panel.held-edition-menu-panel {
+  margin-bottom: var(--portfolio-dock-clearance, 4.75rem);
 }
 
 /* NEAR / USD sit in the unit slot. Unlayered so the quiet word stays a choice. */

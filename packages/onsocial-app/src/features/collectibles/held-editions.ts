@@ -1,5 +1,10 @@
 import { editionSeatFromTokenId } from '@/features/market/market-listings';
 
+/** Sheet title. Send when the row will transfer. Editions when the row opens. */
+export function heldEditionSheetTitle(choose: 'open' | 'send'): string {
+  return choose === 'send' ? 'Send' : 'Editions';
+}
+
 /** `Edition 4`. A token without a seat stays unlabeled — never the raw id. */
 export function heldEditionLabel(tokenId: string): string {
   const seat = editionSeatFromTokenId(tokenId);

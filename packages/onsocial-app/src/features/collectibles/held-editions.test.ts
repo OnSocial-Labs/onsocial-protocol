@@ -5,6 +5,7 @@ import { HeldEditionList } from '@/features/collectibles/held-editions-sheet';
 import {
   heldEditionCoversDiffer,
   heldEditionLabel,
+  heldEditionSheetTitle,
 } from '@/features/collectibles/held-editions';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
 
@@ -19,6 +20,11 @@ function edition(tokenId: string, mediaUrl?: string | null): OwnedScarceItem {
 }
 
 describe('held editions', () => {
+  it('names a send sheet by the tap, and a browse sheet by the list', () => {
+    expect(heldEditionSheetTitle('send')).toBe('Send');
+    expect(heldEditionSheetTitle('open')).toBe('Editions');
+  });
+
   it('names the seat and never the token id', () => {
     expect(heldEditionLabel('night-drive:4')).toBe('Edition 4');
     expect(heldEditionLabel('night-drive:5')).toBe('Edition 5');

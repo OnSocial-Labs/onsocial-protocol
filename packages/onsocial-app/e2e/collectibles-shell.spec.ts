@@ -156,22 +156,32 @@ test.describe('collectibles shell', () => {
     const actions = page.getByRole('dialog', { name: 'Edition 1' });
     await expect
       .poll(async () => {
-        const box = await actions.boundingBox();
-        return box != null && box.y + box.height <= 846 && box.y < 800;
+        const first = await actions.boundingBox();
+        await page.waitForTimeout(80);
+        const second = await actions.boundingBox();
+        return (
+          first != null &&
+          second != null &&
+          Math.abs(first.y - second.y) < 0.5 &&
+          second.y + second.height <= 846
+        );
       })
       .toBe(true);
     const history = actions.getByRole('menuitem', { name: 'History' });
     await expect(history).toBeVisible();
     const historyBox = await history.boundingBox();
+    const menuBox = await actions.boundingBox();
     const menuDock = await page
       .locator('.portfolio-summon-dock')
       .first()
       .boundingBox();
     expect(historyBox).toBeTruthy();
+    expect(menuBox).toBeTruthy();
     expect(menuDock).toBeTruthy();
     expect(historyBox!.y + historyBox!.height).toBeLessThanOrEqual(
       menuDock!.y + 1
     );
+    expect(menuBox!.height).toBeLessThan(220);
     await actions.getByRole('button', { name: 'Close' }).click();
     await expect(actions).toBeHidden();
     await expect(editions.getByText(/night-drive:/)).toHaveCount(0);

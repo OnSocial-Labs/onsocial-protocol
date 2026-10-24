@@ -6,6 +6,7 @@ import { ActionDrawer } from '@/components/ui/action-drawer';
 import {
   heldEditionCoversDiffer,
   heldEditionLabel,
+  heldEditionSheetTitle,
 } from '@/features/collectibles/held-editions';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
 import { ScarceTokenHistorySheet } from '@/features/scarces/scarce-token-history-sheet';
@@ -99,7 +100,7 @@ function HeldEditionMenu({
         closeAriaLabel="Close"
         zIndex={SHEET_Z.nested}
         keepDock
-        bodyClassName="held-edition-actions"
+        panelClassName="held-edition-menu-panel"
         items={items}
       />
     </div>
@@ -204,6 +205,7 @@ export function HeldEditionsSheet({
 }) {
   const [historyItem, setHistoryItem] = useState<OwnedScarceItem | null>(null);
   const heading = title.trim() || 'Editions';
+  const sheetTitle = heldEditionSheetTitle(choose);
   const chooseEdition = onChoose
     ? (item: OwnedScarceItem) => {
         onClose();
@@ -216,10 +218,10 @@ export function HeldEditionsSheet({
       <OsHugSheet
         open={open}
         onClose={onClose}
-        label="Editions"
+        label={sheetTitle}
         copy={heading}
-        closeAriaLabel="Close editions"
-        backdropLabel="Close editions"
+        closeAriaLabel={choose === 'send' ? 'Close' : 'Close editions'}
+        backdropLabel={choose === 'send' ? 'Close' : 'Close editions'}
         zIndex={SHEET_Z.list}
         keepDock
       >
