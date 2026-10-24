@@ -6,6 +6,10 @@ import { AmountField, normalizeSocialTimestamp } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import '@/features/scarces/scarce-buy-deal.css';
+import {
+  heldCopySuccessLine,
+  heldEditionMark,
+} from '@/features/collectibles/held-editions';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   fetchScarceListingMeta,
@@ -600,7 +604,8 @@ export function ScarceBidForm({
           ? txToastConfirming.buyingScarceNow
           : txToastConfirming.biddingScarce,
         successMessage: settlesImmediately
-          ? txToastSuccess.scarceBoughtNow
+          ? (heldCopySuccessLine(tokenId, embed?.mediumKind, 'collected') ??
+            txToastSuccess.scarceBoughtNow)
           : txToastSuccess.scarceBidPlaced,
         failureMessage: settlesImmediately
           ? txToastError.buyScarceNowFailed
@@ -689,7 +694,8 @@ export function ScarceBidForm({
         submittedMessage: txToastConfirming.settlingScarceAuction,
         successMessage:
           isHighestBidder && !isOwnAuction
-            ? txToastSuccess.scarceAuctionCollected
+            ? (heldCopySuccessLine(tokenId, embed?.mediumKind, 'collected') ??
+              txToastSuccess.scarceAuctionCollected)
             : txToastSuccess.scarceAuctionSettled,
         failureMessage: txToastError.settleScarceAuctionFailed,
       });
@@ -894,6 +900,7 @@ export function ScarceBidForm({
 
         <ScarceCommerceSummary
           title={title}
+          mark={heldEditionMark(tokenId)}
           story={
             <ScarceProvenanceCopy
               title={title}

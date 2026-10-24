@@ -1,3 +1,4 @@
+import { heldEditionMark } from '@/features/collectibles/held-editions';
 import type { CollectionActivityRow } from '@/features/scarces/collection-activity-rows';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { formatPostTimestamp } from '@/lib/post-display';
@@ -28,13 +29,20 @@ const OPERATION_LABEL: Record<string, string> = {
   redeemer_removed: 'Door staff removed',
   pause: 'Paused',
   resume: 'Resumed',
+  quick_mint: 'Minted',
+  transfer: 'Transferred',
 };
+
+/** A single mint, buy, or transfer can name its seat. A batch stays a count. */
+const SEAT_LABELS = new Set(['Minted', 'Bought', 'Transferred']);
 
 /** Map indexer scarces event rows → drop activity list rows. */
 export function mapCollectionActivityRows(
   rows: Array<{
     operation?: string | null;
+    eventType?: string | null;
     blockTimestamp?: number | null;
+    tokenId?: string | null;
     buyerId?: string | null;
     ownerId?: string | null;
     author?: string | null;
@@ -49,10 +57,11 @@ export function mapCollectionActivityRows(
     const isCreate = operation === 'create';
     const quantity = isCreate ? null : activityBatchQuantity(row);
     const unitYocto = isCreate ? null : activityUnitYocto(row, quantity);
+    const label = activityLabel(row, operation, quantity);
     return {
       key: `${operation}:${row.blockTimestamp}:${index}`,
       operation,
-      label: OPERATION_LABEL[operation] ?? operation,
+      label,
       actor:
         row.buyerId?.trim() ||
         row.ownerId?.trim() ||
@@ -103,6 +112,53 @@ function activityBatchQuantity(row: {
   return count > 1 ? count : null;
 }
 
+function activityVerb(
+  operation: string,
+  eventType: string | null | undefined
+): string {
+  if (operation === 'purchase' && eventType === 'SCARCE_UPDATE')
+    return 'Bought';
+  return OPERATION_LABEL[operation] ?? operation;
+}
+
+/** One id, and only when this row is not a batch. */
+function activitySeatTokenId(
+  row: {
+    tokenId?: string | null;
+    extraData?: string | null;
+  },
+  quantity: number | null
+): string | null {
+  if (quantity != null && quantity > 1) return null;
+  const ids = new Set<string>();
+  const direct = row.tokenId?.trim();
+  if (direct) ids.add(direct);
+  const listed = activityExtra(row.extraData)?.token_ids;
+  if (Array.isArray(listed)) {
+    for (const id of listed) {
+      if (typeof id === 'string' && id.trim()) ids.add(id.trim());
+    }
+  }
+  if (ids.size !== 1) return null;
+  return [...ids][0] ?? null;
+}
+
+function activityLabel(
+  row: {
+    eventType?: string | null;
+    tokenId?: string | null;
+    extraData?: string | null;
+  },
+  operation: string,
+  quantity: number | null
+): string {
+  const verb = activityVerb(operation, row.eventType);
+  if (!SEAT_LABELS.has(verb)) return verb;
+  const tokenId = activitySeatTokenId(row, quantity);
+  const mark = tokenId ? heldEditionMark(tokenId) : null;
+  return mark ? `${verb} ${mark}` : verb;
+}
+
 /** Unit yocto. A batch `price` is the total and is split before display. */
 function activityUnitYocto(
   row: {
@@ -115,12 +171,7 @@ function activityUnitYocto(
   const unit = activityExtra(row.extraData)?.unit_price;
   if (typeof unit === 'string' && /^\d+$/.test(unit)) return unit;
   const total = row.price ?? row.amount ?? null;
-  if (
-    quantity != null &&
-    quantity > 1 &&
-    total &&
-    /^\d+$/.test(total)
-  ) {
+  if (quantity != null && quantity > 1 && total && /^\d+$/.test(total)) {
     return (BigInt(total) / BigInt(quantity)).toString();
   }
   return total;

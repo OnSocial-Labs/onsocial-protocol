@@ -10,7 +10,6 @@ import {
 import { ActionDrawer } from '@/components/ui/action-drawer';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
-  heldEditionCoversDiffer,
   heldEditionFactRows,
   heldEditionLabel,
   heldEditionMark,
@@ -151,8 +150,6 @@ function HeldEditionMenu({
         listAriaLabel={`Actions for ${menu}`}
         closeAriaLabel="Close"
         zIndex={SHEET_Z.nested}
-        keepDock
-        panelClassName="held-edition-dock-panel"
         items={items}
       />
     </div>
@@ -175,13 +172,14 @@ function HeldEditionFactsSheet({
     <OsHugSheet
       open={item != null}
       onClose={onClose}
+      chrome="facts"
       label="Facts"
       copy={label}
       closeAriaLabel="Close facts"
       backdropLabel="Close facts"
       zIndex={SHEET_Z.overShell}
-      keepDock
-      panelClassName="held-edition-dock-panel"
+      panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
+      bodyClassName="guild-facts-sheet-body"
     >
       <div className="guild-facts held-edition-facts">
         {rows.map((row) => (
@@ -195,7 +193,7 @@ function HeldEditionFactsSheet({
 /**
  * Editions of one drop. Tap the row to open or send that edition.
  * Transfer, Sell, Share, History, and Facts sit in one menu.
- * Covers appear only when the editions resolve to different images.
+ * More than one copy shows its cover, even when the art matches.
  * A mint time appears only when the copies do not share one stamp.
  */
 export function HeldEditionList({
@@ -227,7 +225,7 @@ export function HeldEditionList({
     return <p className="held-edition-empty">No editions to choose.</p>;
   }
 
-  const showCovers = heldEditionCoversDiffer(editions);
+  const showCovers = editions.length > 1;
 
   return (
     <div className="held-edition-list">
@@ -357,8 +355,8 @@ export function HeldEditionsSheet({
         closeAriaLabel={choose === 'send' ? 'Close' : 'Close editions'}
         backdropLabel={choose === 'send' ? 'Close' : 'Close editions'}
         zIndex={SHEET_Z.list}
-        keepDock
-        panelClassName="held-edition-dock-panel"
+        panelClassName="collection-activity-sheet-panel os-sheet-cap-standard"
+        bodyClassName="collection-activity-sheet-body"
       >
         <HeldEditionList
           editions={editions}

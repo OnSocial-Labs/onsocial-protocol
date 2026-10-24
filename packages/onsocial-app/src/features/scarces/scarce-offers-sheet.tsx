@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { Divider, OsGestureSheet } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { heldEditionMark } from '@/features/collectibles/held-editions';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
 import {
@@ -242,7 +243,14 @@ export function ScarceOffersSheet({
           ) : null}
 
           <div className="scarce-buy-summary">
-            <p className="scarce-buy-title">{item.title}</p>
+            <div className="scarce-buy-identity">
+              <p className="scarce-buy-title">{item.title}</p>
+              {heldEditionMark(item.tokenId) ? (
+                <p className="collection-edition-line">
+                  {heldEditionMark(item.tokenId)}
+                </p>
+              ) : null}
+            </div>
             {loading ? (
               <p className="profile-support-hint">Loading offers…</p>
             ) : offers.length === 0 ? (

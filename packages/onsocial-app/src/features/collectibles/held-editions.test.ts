@@ -3,8 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { HeldEditionList } from '@/features/collectibles/held-editions-sheet';
 import {
-  heldEditionCoversDiffer,
   heldEditionFactRows,
+  heldCopySuccessLine,
   heldEditionLabel,
   heldEditionMark,
   heldEditionRowMark,
@@ -44,6 +44,30 @@ describe('held editions', () => {
     expect(heldEditionLabel('gate:2', 'ticket')).not.toContain('gate');
   });
 
+  it('names the seat on a success line only when that copy is known', () => {
+    expect(heldCopySuccessLine('gate:3', 'ticket', 'collected')).toBe(
+      'Pass #3 collected.'
+    );
+    expect(heldCopySuccessLine('save:3', 'coupon', 'collected')).toBe(
+      'Coupon #3 collected.'
+    );
+    expect(heldCopySuccessLine('night:3', 'audio', 'collected')).toBe(
+      'Collected #3.'
+    );
+    expect(heldCopySuccessLine('night:3', null, 'minted')).toBe('Minted #3.');
+    expect(heldCopySuccessLine('gate:3', 'membership', 'minted')).toBe(
+      'Minted Pass #3.'
+    );
+    expect(heldCopySuccessLine('save:3', 'coupon', 'sent', 'Ada')).toBe(
+      'Sent Coupon #3 to Ada.'
+    );
+    expect(heldCopySuccessLine('night:3', null, 'sent', 'Ada')).toBe(
+      'Sent #3 to Ada.'
+    );
+    expect(heldCopySuccessLine('s:post', null, 'collected')).toBeNull();
+    expect(heldCopySuccessLine('night:3', null, 'sent', '  ')).toBeNull();
+  });
+
   it('opens an edition from the row and keeps actions in one menu', () => {
     const html = renderToStaticMarkup(
       createElement(HeldEditionList, {
@@ -80,20 +104,7 @@ describe('held editions', () => {
     expect(html).toContain('aria-label="More for #4"');
   });
 
-  it('shows each cover only when the editions resolve to different art', () => {
-    expect(
-      heldEditionCoversDiffer([
-        { mediaUrl: 'https://cdn.example/1.png' },
-        { mediaUrl: 'https://cdn.example/1.png' },
-      ])
-    ).toBe(false);
-    expect(
-      heldEditionCoversDiffer([
-        { mediaUrl: 'https://cdn.example/1.png' },
-        { mediaUrl: null },
-      ])
-    ).toBe(false);
-
+  it('shows a cover on every copy once there is more than one', () => {
     const shared = renderToStaticMarkup(
       createElement(HeldEditionList, {
         editions: [
@@ -104,7 +115,16 @@ describe('held editions', () => {
         onChoose: () => {},
       })
     );
-    expect(shared).not.toContain('<img');
+    expect(shared.match(/<img /g)?.length).toBe(2);
+
+    const alone = renderToStaticMarkup(
+      createElement(HeldEditionList, {
+        editions: [edition('night-drive:1', 'https://cdn.example/cover.png')],
+        choose: 'open',
+        onChoose: () => {},
+      })
+    );
+    expect(alone).not.toContain('<img');
 
     const varied = renderToStaticMarkup(
       createElement(HeldEditionList, {

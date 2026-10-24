@@ -7,6 +7,10 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import '@/features/scarces/scarce-buy-deal.css';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
+import {
+  heldCopySuccessLine,
+  heldEditionMark,
+} from '@/features/collectibles/held-editions';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   collectionIdFromTokenId,
@@ -557,6 +561,7 @@ export function ScarceBuyForm({
 
   const isLazyBuy = status === 'lazy_listing' && Boolean(listingId);
   const isDropBuy = status === 'drop' && Boolean(collectionId);
+  const copyMark = !isDropBuy && tokenId ? heldEditionMark(tokenId) : null;
   const isMarketBuy = status === 'listed' && Boolean(tokenId);
   const isPrimaryMint = isLazyBuy || isDropBuy;
   const dollarScope: DollarScope | null = isMarketBuy
@@ -1267,6 +1272,15 @@ export function ScarceBuyForm({
       const fallbackDeposit =
         ask.yocto ?? (priceNear ? nearToYocto(priceNear) : null);
 
+      const knownCopyLine =
+        mintQty === 1 && !isDropBuy && tokenId?.trim()
+          ? heldCopySuccessLine(
+              tokenId,
+              mediumKind,
+              isPrimaryMint ? 'minted' : 'collected'
+            )
+          : null;
+
       if (dollarSticker && dollarOracle && dollarScope && dollarId) {
         const confirmed = await purchaseDollarScarce({
           wallet,
@@ -1281,7 +1295,7 @@ export function ScarceBuyForm({
             trackTransaction({
               txHashes,
               submittedMessage: copy.submittedMessage,
-              successMessage: copy.successMessage,
+              successMessage: knownCopyLine ?? copy.successMessage,
               failureMessage: copy.failureMessage,
             }),
         });
@@ -1333,9 +1347,11 @@ export function ScarceBuyForm({
           submittedMessage: isPrimaryMint
             ? txToastConfirming.mintingCollection
             : txToastConfirming.buyingScarce,
-          successMessage: isPrimaryMint
-            ? txToastSuccess.collectionMinted
-            : txToastSuccess.scarcePurchased,
+          successMessage:
+            knownCopyLine ??
+            (isPrimaryMint
+              ? txToastSuccess.collectionMinted
+              : txToastSuccess.scarcePurchased),
           failureMessage: isPrimaryMint
             ? txToastError.mintCollectionFailed
             : txToastError.buyScarceFailed,
@@ -1494,6 +1510,7 @@ export function ScarceBuyForm({
 
         <ScarceCommerceSummary
           title={title}
+          mark={copyMark}
           story={
             <ScarceProvenanceCopy
               title={title}

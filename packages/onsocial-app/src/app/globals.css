@@ -29111,6 +29111,10 @@ a.os-surface-row {
     gap: 0.35rem;
   }
 
+  .scarce-buy-identity .collection-edition-line {
+    margin: -0.15rem 0 0;
+  }
+
   .scarce-buy-story {
     display: flex;
     flex-direction: column;
@@ -29722,7 +29726,7 @@ a.os-surface-row {
 
   .held-edition-facts {
     gap: 0.55rem;
-    padding: 0.55rem 0 0.15rem;
+    padding: 0.55rem 0 0;
   }
 
   .collectibles-holding-row-main {
@@ -44932,11 +44936,6 @@ a.os-surface-row {
   .profile-support-error {
     color: var(--signal-error, var(--protocol-red));
   }
-}
-
-/* Rest edition sheets on the dock. Padding inside the body left an empty well. */
-.glass-sheet-panel.held-edition-dock-panel {
-  margin-bottom: var(--portfolio-dock-clearance, 4.75rem);
 }
 
 /* NEAR / USD sit in the unit slot. Unlayered so the quiet word stays a choice. */

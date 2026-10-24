@@ -48,4 +48,45 @@ describe('mapCollectionActivityRows', () => {
     expect(row?.priceNear).toBe('1');
     expect(row?.uniformBatch).toBe(false);
   });
+
+  it('names the seat on one mint, buy, or transfer', () => {
+    const [minted] = mapCollectionActivityRows([
+      {
+        operation: 'purchase',
+        tokenId: 'catlands:3',
+        quantity: 1,
+        price: ONE,
+      },
+    ]);
+    const [bought] = mapCollectionActivityRows([
+      {
+        eventType: 'SCARCE_UPDATE',
+        operation: 'purchase',
+        extraData: JSON.stringify({ token_ids: ['catlands:4'] }),
+        quantity: 1,
+        price: ONE,
+      },
+    ]);
+    const [sent] = mapCollectionActivityRows([
+      { operation: 'transfer', tokenId: 'catlands:5' },
+    ]);
+    expect(minted?.label).toBe('Minted #3');
+    expect(bought?.label).toBe('Bought #4');
+    expect(sent?.label).toBe('Transferred #5');
+  });
+
+  it('keeps a batch as a count', () => {
+    const [row] = mapCollectionActivityRows([
+      {
+        operation: 'creator_mint',
+        tokenId: 'catlands:3',
+        quantity: 2,
+        extraData: JSON.stringify({
+          token_ids: ['catlands:3', 'catlands:4'],
+        }),
+      },
+    ]);
+    expect(row?.label).toBe('Minted');
+    expect(row?.quantity).toBe(2);
+  });
 });

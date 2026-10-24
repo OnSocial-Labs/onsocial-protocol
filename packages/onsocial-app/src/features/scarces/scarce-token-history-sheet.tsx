@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { OsHugSheet } from '@onsocial/ui';
+import { heldEditionMark } from '@/features/collectibles/held-editions';
 import { CollectionActivityRows } from '@/features/scarces/collection-activity-rows';
 import { CollectionActivitySkeleton } from '@/features/scarces/collection-page-skeleton';
 import {
@@ -50,6 +51,7 @@ export function ScarceTokenHistorySheet({
 }) {
   const id = tokenId.trim();
   const heading = title.trim() || 'Scarce';
+  const mark = id ? heldEditionMark(id) : null;
   const [trackedId, setTrackedId] = useState(id);
   const [phase, setPhase] = useState<HistoryPhase>(id ? 'loading' : 'ready');
   const [events, setEvents] = useState<TokenHistoryEvent[]>([]);
@@ -125,7 +127,7 @@ export function ScarceTokenHistorySheet({
       open={open}
       onClose={onClose}
       label="History"
-      copy={heading}
+      copy={mark ? `${heading} ${mark}` : heading}
       closeAriaLabel="Close history"
       backdropLabel="Close history"
       zIndex={SHEET_Z.overShell}

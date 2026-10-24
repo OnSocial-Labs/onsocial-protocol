@@ -6,6 +6,10 @@ import { StandingIdentity } from '@/components/profile/standing-identity';
 import { NearAccountField } from '@/components/ui/near-account-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  heldCopySuccessLine,
+  heldEditionMark,
+} from '@/features/collectibles/held-editions';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   fetchScarceListingMeta,
@@ -198,7 +202,13 @@ export function ScarceTransferForm({
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
         submittedMessage: txToastConfirming.transferringScarce,
-        successMessage: txToastSuccess.scarceTransferred(displayName(receiver)),
+        successMessage:
+          heldCopySuccessLine(
+            item.tokenId,
+            item.mediumKind,
+            'sent',
+            displayName(receiver)
+          ) ?? txToastSuccess.scarceTransferred(displayName(receiver)),
         failureMessage: txToastError.transferScarceFailed,
       });
       if (!confirmed) return;
@@ -226,6 +236,7 @@ export function ScarceTransferForm({
   }
 
   const title = item.title?.trim() || 'Scarce';
+  const copyMark = heldEditionMark(item.tokenId);
   const mediaUrl = item.mediaUrl?.trim() || null;
   const playable = item.playable ?? hydratedPlayable;
   const playables = item.playables ?? hydratedPlayables ?? undefined;
@@ -260,7 +271,12 @@ export function ScarceTransferForm({
       ) : null}
 
       <div className="scarce-buy-summary">
-        <p className="scarce-buy-title">{title}</p>
+        <div className="scarce-buy-identity">
+          <p className="scarce-buy-title">{title}</p>
+          {copyMark ? (
+            <p className="collection-edition-line">{copyMark}</p>
+          ) : null}
+        </div>
       </div>
 
       <label

@@ -47,20 +47,32 @@ export function heldEditionLabel(
 }
 
 /**
- * True when owned editions resolve to more than one image.
- * A shared cover (or no art) stays unlabeled in the picker.
+ * Toast once this copy's seat is known.
+ * Pass and Coupon name themselves. Every other kind stays the hash.
+ * Null when there is no seat, so the caller keeps the generic line.
  */
-export function heldEditionCoversDiffer(
-  editions: readonly { mediaUrl?: string | null }[]
-): boolean {
-  const urls = new Set<string>();
-  for (const edition of editions) {
-    const url = edition.mediaUrl?.trim();
-    if (!url) continue;
-    urls.add(url);
-    if (urls.size > 1) return true;
+export function heldCopySuccessLine(
+  tokenId: string | null | undefined,
+  mediumKind: string | null | undefined,
+  action: 'minted' | 'collected' | 'sent',
+  recipient?: string | null
+): string | null {
+  const id = tokenId?.trim() ?? '';
+  const mark = id ? heldEditionMark(id) : null;
+  if (!mark) return null;
+  const noun = heldEditionNoun(mediumKind);
+  const named = noun === 'Pass' || noun === 'Coupon';
+  if (action === 'minted') {
+    return named ? `Minted ${noun} ${mark}.` : `Minted ${mark}.`;
   }
-  return false;
+  if (action === 'sent') {
+    const who = recipient?.trim();
+    if (!who) return null;
+    return named
+      ? `Sent ${noun} ${mark} to ${who}.`
+      : `Sent ${mark} to ${who}.`;
+  }
+  return named ? `${noun} ${mark} collected.` : `Collected ${mark}.`;
 }
 
 /**

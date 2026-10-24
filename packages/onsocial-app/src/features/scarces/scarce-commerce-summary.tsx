@@ -8,11 +8,14 @@ import type { ReactNode } from 'react';
  */
 export function ScarceCommerceSummary({
   title,
+  mark,
   story,
   parties,
   price,
 }: {
   title: string;
+  /** `#3` under the title. Omitted when this sheet is the drop, not one copy. */
+  mark?: string | null;
   story?: ReactNode;
   parties?: ReactNode;
   price?: ReactNode;
@@ -21,6 +24,7 @@ export function ScarceCommerceSummary({
     <div className="scarce-buy-summary">
       <div className="scarce-buy-identity">
         <p className="scarce-buy-title">{title}</p>
+        {mark ? <p className="collection-edition-line">{mark}</p> : null}
         {parties ? <div className="scarce-buy-parties">{parties}</div> : null}
       </div>
       {story ? <div className="scarce-buy-story">{story}</div> : null}
