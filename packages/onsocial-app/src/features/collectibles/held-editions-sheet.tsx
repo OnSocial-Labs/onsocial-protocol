@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Divider,
   DotsVerticalIcon,
@@ -70,6 +70,13 @@ function HeldEditionMenu({
 }) {
   const menu = menuLabel?.trim() || label;
   const [open, setOpen] = useState(false);
+  const closedAtMs = useRef(0);
+  const choose = useCallback((action?: () => void) => {
+    // The sheet leaves under the pointer, so this tap can land on More and reopen it.
+    closedAtMs.current = Date.now();
+    setOpen(false);
+    action?.();
+  }, []);
   const items = useMemo(() => {
     const list: {
       id: string;
@@ -80,54 +87,39 @@ function HeldEditionMenu({
       list.push({
         id: 'transfer',
         label: 'Transfer',
-        onSelect: () => {
-          setOpen(false);
-          onTransfer();
-        },
+        onSelect: () => choose(onTransfer),
       });
     }
     if (onSell) {
       list.push({
         id: 'sell',
         label: 'Sell',
-        onSelect: () => {
-          setOpen(false);
-          onSell();
-        },
+        onSelect: () => choose(onSell),
       });
     }
     if (onShare) {
       list.push({
         id: 'share',
         label: 'Share',
-        onSelect: () => {
-          setOpen(false);
-          onShare();
-        },
+        onSelect: () => choose(onShare),
       });
     }
     if (onHistory) {
       list.push({
         id: 'history',
         label: 'History',
-        onSelect: () => {
-          setOpen(false);
-          onHistory();
-        },
+        onSelect: () => choose(onHistory),
       });
     }
     if (onFacts) {
       list.push({
         id: 'facts',
         label: 'Facts',
-        onSelect: () => {
-          setOpen(false);
-          onFacts();
-        },
+        onSelect: () => choose(onFacts),
       });
     }
     return list;
-  }, [onFacts, onHistory, onSell, onShare, onTransfer]);
+  }, [choose, onFacts, onHistory, onSell, onShare, onTransfer]);
 
   if (items.length === 0) return null;
 
@@ -139,7 +131,10 @@ function HeldEditionMenu({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={`More for ${label}`}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          if (Date.now() - closedAtMs.current < 400) return;
+          setOpen(true);
+        }}
       >
         <DotsVerticalIcon className="post-card-menu-icon" aria-hidden />
       </button>

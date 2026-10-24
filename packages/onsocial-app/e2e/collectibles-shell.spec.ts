@@ -155,7 +155,9 @@ test.describe('collectibles shell', () => {
       dockBox!.y + 1
     );
     await editions.getByRole('button', { name: 'More for #1' }).click();
-    const actions = page.getByRole('dialog', { name: 'Edition #1' });
+    const actions = page
+      .getByRole('dialog', { name: 'Edition #1' })
+      .filter({ has: page.getByRole('menu') });
     await expect
       .poll(async () => {
         const first = await actions.boundingBox();
@@ -192,7 +194,9 @@ test.describe('collectibles shell', () => {
     expect(menuBox!.height).toBeLessThan(320);
     await factsItem.click();
     await expect(actions).toBeHidden();
-    const facts = page.getByRole('dialog', { name: 'Facts' });
+    const facts = page
+      .getByRole('dialog', { name: 'Edition #1' })
+      .filter({ hasText: 'night-drive:1' });
     await expect(facts.getByText('night-drive:1')).toBeVisible();
     await expect(facts.getByText('Minted')).toBeVisible();
     await expect(facts.getByText('Listed')).toHaveCount(0);
