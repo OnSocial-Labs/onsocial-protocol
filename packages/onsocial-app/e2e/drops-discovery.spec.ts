@@ -145,6 +145,18 @@ test.describe('drops discovery', () => {
       page.getByRole('button', { name: 'Back from article' })
     ).toBeVisible();
     await expect(page).toHaveURL(/\/drops(?:\?|$)/);
+    const shareBook = page.getByRole('button', { name: 'Share this book' });
+    await expect(shareBook).toBeVisible();
+    await page
+      .context()
+      .grantPermissions(['clipboard-read', 'clipboard-write']);
+    await shareBook.click();
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toContain('/collection/chapter-one');
+    expect(
+      await page.evaluate(() => navigator.clipboard.readText())
+    ).not.toContain('t=');
     await page.getByRole('button', { name: 'Back from article' }).click();
     await expect(read).toBeVisible();
 

@@ -5,6 +5,9 @@ import {
   groupHoldingsLibrary,
   sortHoldingsLibrary,
   holdingsActionLabel,
+  bookReaderSharePath,
+  heldEditionDestination,
+  heldEditionHref,
   holdingsHrefForOwned,
   holdingsReadHref,
   holdingsKindLabel,
@@ -169,6 +172,103 @@ describe('toPortfolioHoldingPeek', () => {
     });
     expect(peek.href).toBe('/collection/gate?pass=1&t=gate%3A2');
     expect(peek.actionLabel).toBe('Show pass');
+  });
+
+  it('opens one edition on a link that can show that image', () => {
+    expect(
+      heldEditionHref({
+        tokenId: 'quiet-hours:2',
+        collectionId: 'quiet-hours',
+        mediumKind: 'writing',
+      })
+    ).toBe('/collection/quiet-hours?t=quiet-hours%3A2');
+    expect(
+      heldEditionHref({
+        tokenId: 'night-drive:2',
+        collectionId: 'night-drive',
+        mediumKind: 'audio',
+      })
+    ).toBe('/collectibles/play?c=night-drive&t=night-drive%3A2');
+    expect(
+      heldEditionHref({
+        tokenId: 'gate:2',
+        collectionId: 'gate',
+        mediumKind: 'ticket',
+      })
+    ).toBe('/collection/gate?pass=1&t=gate%3A2');
+    expect(
+      heldEditionHref({
+        tokenId: 's:abc',
+        sourcePostPath: 'alice.near/post/42',
+      })
+    ).toBe('/@alice.near/posts/42');
+  });
+
+  it('shares the book page, and the copy when one is known', () => {
+    expect(bookReaderSharePath('novel', 'novel:2')).toBe(
+      '/collection/novel?t=novel%3A2'
+    );
+    expect(bookReaderSharePath('novel', null)).toBe('/collection/novel');
+    expect(bookReaderSharePath('novel', '  ')).toBe('/collection/novel');
+    expect(bookReaderSharePath('  ', 'novel:2')).toBeNull();
+  });
+
+  it('follows the copy the way one holding already does', () => {
+    expect(
+      heldEditionDestination({
+        tokenId: 'gate:2',
+        collectionId: 'gate',
+        mediumKind: 'ticket',
+      }).type
+    ).toBe('pass');
+    expect(
+      heldEditionDestination({
+        tokenId: 'save:2',
+        collectionId: 'save',
+        mediumKind: 'coupon',
+      }).type
+    ).toBe('pass');
+    expect(
+      heldEditionDestination({
+        tokenId: 'quiet-hours:2',
+        collectionId: 'quiet-hours',
+        mediumKind: 'writing',
+        sourcePostPath: 'alice.testnet/post/42',
+      })
+    ).toEqual({
+      type: 'article',
+      href: holdingsReadHref({
+        mediumKind: 'writing',
+        sourcePostPath: 'alice.testnet/post/42',
+      }),
+    });
+    expect(
+      heldEditionDestination({
+        tokenId: 'novel:2',
+        collectionId: 'novel',
+        mediumKind: 'book',
+      }).type
+    ).toBe('reader');
+    expect(
+      heldEditionDestination({
+        tokenId: 'print:2',
+        collectionId: 'print',
+        mediumKind: 'art',
+      })
+    ).toEqual({
+      type: 'href',
+      href: '/collection/print?t=print%3A2',
+    });
+    expect(
+      heldEditionDestination({
+        tokenId: 'night-drive:2',
+        collectionId: 'night-drive',
+        mediumKind: 'audio',
+      })
+    ).toEqual({
+      type: 'href',
+      href: '/collectibles/play?c=night-drive&t=night-drive%3A2',
+    });
   });
 
   it('sends Read for a listed essay to the article, and the cover to the drop', () => {

@@ -36,6 +36,9 @@ describe('collectibles routes', () => {
     expect(collectionPath('gate', { pass: true, tokenId: 'gate:2' })).toBe(
       '/collection/gate?pass=1&t=gate%3A2'
     );
+    expect(collectionPath('egg', { tokenId: 'egg:2' })).toBe(
+      '/collection/egg?t=egg%3A2'
+    );
     expect(collectionPath('gate', { door: true })).toBe(
       '/collection/gate/door'
     );

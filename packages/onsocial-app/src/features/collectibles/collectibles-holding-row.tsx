@@ -157,9 +157,7 @@ export function CollectiblesHoldingRow({
           href={rowHref}
           scroll={false}
           className="market-listing-row-open"
-          aria-label={
-            opensPass ? `Open drop for ${item.title}` : item.title
-          }
+          aria-label={opensPass ? `Open drop for ${item.title}` : item.title}
         />
       ) : null}
       <div className="collectibles-holding-row-main">{mainBody}</div>
@@ -175,7 +173,15 @@ export function CollectiblesHoldingRow({
           ) : null}
           {ownerMenu}
         </div>
-        {opensPass ? (
+        {onOpenEditions ? (
+          <OsRowAction
+            className="collectibles-holding-action"
+            aria-label={`${item.actionLabel} ${item.title}`}
+            onClick={onOpenEditions}
+          >
+            {item.actionLabel}
+          </OsRowAction>
+        ) : opensPass ? (
           <OsRowAction
             className="collectibles-holding-action"
             aria-label={`${item.actionLabel} ${item.title}`}
@@ -205,8 +211,7 @@ export function CollectiblesHoldingRow({
                 .then((view) => {
                   const href = listedArticleReaderHref({
                     writingFormat: view?.writingFormat,
-                    sourcePostPath:
-                      view?.sourcePostPath ?? item.sourcePostPath,
+                    sourcePostPath: view?.sourcePostPath ?? item.sourcePostPath,
                   });
                   if (href) {
                     router.push(href);
@@ -241,6 +246,7 @@ export function CollectiblesHoldingRow({
           title={item.title}
           cover={item.mediaUrl}
           collectionId={collectionId}
+          tokenId={item.tokenId}
           accountId={viewerAccountId}
           creatorId={creatorId}
           readables={[]}

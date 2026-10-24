@@ -19,6 +19,7 @@ import {
   collectiblesPlayPath,
 } from '@/lib/app-routes';
 import { listedArticleReaderHref } from '@/features/scarces/drop-writing';
+import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
 
 /** Vault filter id when a holding has no drop creator. */
@@ -237,6 +238,91 @@ export function holdingsHrefForOwned(item: {
 }
 
 /**
+ * Open one edition. Play and pass links already name the token.
+ * Other drops use `?t=` so the page can show that edition's image.
+ */
+export function heldEditionHref(
+  item: Parameters<typeof holdingsHrefForOwned>[0]
+): string | null {
+  const href = holdingsHrefForOwned(item);
+  if (!href) return null;
+  if (/[?&]t=/.test(href)) return href;
+  const collectionId =
+    item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
+  if (!collectionId) return href;
+  return collectionPath(collectionId, { tokenId: item.tokenId });
+}
+
+/**
+ * Book reader share. A known copy includes `t` so the drop shows that image.
+ * Without a copy, the link is the drop page.
+ */
+export function bookReaderSharePath(
+  collectionId: string,
+  tokenId?: string | null
+): string | null {
+  const id = collectionId.trim();
+  if (!id) return null;
+  const token = tokenId?.trim();
+  if (!token) return collectionPath(id);
+  return heldEditionHref({
+    tokenId: token,
+    collectionId: id,
+    mediumKind: 'book',
+  });
+}
+
+export type HeldEditionDestination =
+  | { type: 'pass' }
+  | { type: 'article'; href: string }
+  | { type: 'reader' }
+  | { type: 'href'; href: string | null };
+
+/**
+ * What one chosen copy should do. Passes stay on the page.
+ * Read opens the reader. Play, Watch, and Open follow the copy's link.
+ */
+export function heldEditionDestination(
+  item: Parameters<typeof holdingsHrefForOwned>[0]
+): HeldEditionDestination {
+  if (isPassMediumKind(item.mediumKind)) return { type: 'pass' };
+  const article = holdingsReadHref({
+    mediumKind: item.mediumKind,
+    sourcePostPath: item.sourcePostPath,
+  });
+  if (article) return { type: 'article', href: article };
+  const medium = (item.mediumKind ?? '').trim().toLowerCase();
+  const collectionId =
+    item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
+  if (
+    collectionId &&
+    (medium === 'writing' || medium === 'book' || medium === 'issue')
+  ) {
+    return { type: 'reader' };
+  }
+  return { type: 'href', href: heldEditionHref(item) };
+}
+
+/** Sheet row from a grouped peek. The pass and reader only need this copy. */
+export function ownedScarceFromPeek(
+  peek: PortfolioHoldingPeek
+): OwnedScarceItem {
+  return {
+    tokenId: peek.tokenId,
+    title: peek.title,
+    ownerId: '',
+    listingKind: peek.listingKind ?? null,
+    mediaUrl: peek.mediaUrl,
+    collectionId: peek.collectionId,
+    ...(peek.creatorId ? { creatorId: peek.creatorId } : {}),
+    mediumKind: peek.mediumKind,
+    ...(peek.sourcePostPath ? { sourcePostPath: peek.sourcePostPath } : {}),
+    ...(peek.mintedAtMs != null ? { mintedAtMs: peek.mintedAtMs } : {}),
+    ...(peek.listedPriceNear ? { listedPriceNear: peek.listedPriceNear } : {}),
+  };
+}
+
+/**
  * Collectibles Read for a listed essay. Book and Issue stay on the page
  * reader. Cover and title use `holdingsHrefForOwned` (the drop page).
  */
@@ -289,9 +375,7 @@ export function groupHoldingsForRail(
   return [...byKey.values()];
 }
 
-export function holdingsCreatorKey(
-  creatorId?: string | null
-): string {
+export function holdingsCreatorKey(creatorId?: string | null): string {
   return creatorId?.trim() || COLLECTIBLES_CREATOR_OTHER;
 }
 
@@ -453,11 +537,11 @@ export function sortHoldingsLibrary(
     .sort((a, b) => {
       const left = libraryCreatorSortLabel(
         a,
-        a.creatorId ? displayNames?.get(a.creatorId) ?? null : null
+        a.creatorId ? (displayNames?.get(a.creatorId) ?? null) : null
       );
       const right = libraryCreatorSortLabel(
         b,
-        b.creatorId ? displayNames?.get(b.creatorId) ?? null : null
+        b.creatorId ? (displayNames?.get(b.creatorId) ?? null) : null
       );
       return left.localeCompare(right);
     });
@@ -559,9 +643,10 @@ export function vaultHeldKindFilters(
 }
 
 /** Kind-tab filter for the Collectibles hub (unknown kinds only appear in All). */
-export function filterHoldingsByMedium<
-  T extends { mediumKind: string | null },
->(items: T[], medium: MarketMediumFilter): T[] {
+export function filterHoldingsByMedium<T extends { mediumKind: string | null }>(
+  items: T[],
+  medium: MarketMediumFilter
+): T[] {
   if (medium === 'all') return items;
   if (medium === 'audio') {
     return items.filter((item) => isAudioMediumKind(item.mediumKind));
