@@ -37,6 +37,7 @@ import {
   type AppView,
 } from '@/features/scarces/apps-data';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
+import { HeldEditionFollow } from '@/features/collectibles/held-edition-follow';
 import { GuildDescriptionClamp } from '@/features/guilds/guild-description-clamp';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import { guildCoverStyle } from '@/features/guilds/guild-visual';
@@ -98,6 +99,7 @@ import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import {
   groupHoldingsForRail,
+  ownedScarceFromPeek,
   toPortfolioHoldingPeek,
 } from '@/lib/portfolio-holdings';
 import { displayName } from '@/lib/profile-display';
@@ -162,6 +164,10 @@ export function AppPagePanel({
   const [publishAccessRefreshKey, setPublishAccessRefreshKey] = useState(0);
   const [myPublishPending, setMyPublishPending] = useState(false);
   const [factsOpen, setFactsOpen] = useState(false);
+  const [editionPick, setEditionPick] = useState<{
+    title: string;
+    editions: OwnedScarceItem[];
+  } | null>(null);
   const [creatorsOpen, setCreatorsOpen] = useState(false);
   const [pendingPublishSnapshot, setPendingPublishSnapshot] = useState<{
     appId: string;
@@ -579,10 +585,7 @@ export function AppPagePanel({
       immersiveHeader
       scrollRootRef={scrollRootRef}
     >
-      <div
-        aria-hidden
-        className="os-chrome-glass"
-      />
+      <div aria-hidden className="os-chrome-glass" />
       <div
         className={osChromePageClassName(
           'app-page',
@@ -718,6 +721,15 @@ export function AppPagePanel({
                 item={item}
                 editionCount={item.editionCount}
                 hideCreator
+                onOpenEditions={
+                  item.editionCount > 1
+                    ? () =>
+                        setEditionPick({
+                          title: item.title,
+                          editions: item.editions.map(ownedScarceFromPeek),
+                        })
+                    : undefined
+                }
               />
             ))}
           </div>
@@ -910,6 +922,12 @@ export function AppPagePanel({
           onChanged={onManaged}
         />
       ) : null}
+      <HeldEditionFollow
+        open={editionPick != null}
+        title={editionPick?.title ?? ''}
+        editions={editionPick?.editions ?? []}
+        onClose={() => setEditionPick(null)}
+      />
     </OsAppScreen>
   );
 }

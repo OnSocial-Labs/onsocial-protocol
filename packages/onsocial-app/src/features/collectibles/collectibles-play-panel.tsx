@@ -18,11 +18,14 @@ import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet'
 import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
 import {
   deriveCollectionStatus,
+  editionCoverUrl,
   fetchCollectionPreferIndexer,
   type CollectionView,
 } from '@/features/scarces/collections-data';
+import { heldEditionLabel } from '@/features/collectibles/held-editions';
 import { HeldEditionsSheet } from '@/features/collectibles/held-editions-sheet';
 import {
+  editionSeatFromTokenId,
   fetchOwnedScarceByTokenId,
   fetchOwnedScarceForCollection,
   fetchOwnedScarcesForCollection,
@@ -452,7 +455,7 @@ export function CollectiblesPlayPanel({
                 key={playables[0]!.url}
                 clip={playables[0]!}
                 tracks={playables}
-                poster={view.mediaUrl}
+                poster={editionCoverUrl(view, tokenIdParam)}
                 layout="cover"
                 persist={{
                   collectionId: view.collectionId,
@@ -485,9 +488,18 @@ export function CollectiblesPlayPanel({
             )}
 
             <div className="collectibles-play-title-row collection-title-row">
-              <h1 className="collectibles-play-title" ref={heroTitleRef}>
-                {view.title}
-              </h1>
+              <div className="collectibles-play-title-block">
+                <h1 className="collectibles-play-title" ref={heroTitleRef}>
+                  {view.title}
+                </h1>
+                {view.isVariations &&
+                tokenIdParam &&
+                editionSeatFromTokenId(tokenIdParam) != null ? (
+                  <p className="collectibles-play-edition">
+                    {heldEditionLabel(tokenIdParam, view.kind)}
+                  </p>
+                ) : null}
+              </div>
               {sellItem ? (
                 <CollectiblesHoldingRowMenu
                   item={
@@ -667,7 +679,12 @@ export function CollectiblesPlayPanel({
         open={editionPickerOpen}
         title={view?.title ?? sellItem?.title ?? ''}
         editions={heldEditions}
+        choose="send"
         onClose={() => setEditionPickerOpen(false)}
+        onChoose={(item) => {
+          setActionItem(item);
+          setTransferOpen(true);
+        }}
         onTransfer={(item) => {
           setActionItem(item);
           setTransferOpen(true);

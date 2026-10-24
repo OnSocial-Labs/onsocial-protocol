@@ -539,7 +539,7 @@ export const COLLECTION_DOOR_QUERY = 'door';
  */
 export const COLLECTION_REDEEM_QUERY = 'redeem';
 
-/** Optional owned edition for Show pass (`?t=tokenId`). */
+/** Edition on a drop or Show pass link (`?t=tokenId`). */
 export const COLLECTION_PASS_TOKEN_PARAM = COLLECTIBLES_PLAY_TOKEN_PARAM;
 
 /** Fullscreen Door Admit page for event staff. */
@@ -576,9 +576,7 @@ export function collectionPath(
   if (opts?.read) params.set(COLLECTION_READ_QUERY, '1');
   if (opts?.pass) params.set(COLLECTION_PASS_QUERY, '1');
   const tokenId = opts?.tokenId?.trim();
-  if (tokenId && opts?.pass) {
-    params.set(COLLECTION_PASS_TOKEN_PARAM, tokenId);
-  }
+  if (tokenId) params.set(COLLECTION_PASS_TOKEN_PARAM, tokenId);
   const query = params.toString();
   return query ? `${base}?${query}` : base;
 }

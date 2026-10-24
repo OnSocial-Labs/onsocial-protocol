@@ -112,18 +112,115 @@ test.describe('collectibles shell', () => {
       .getByRole('button', { name: 'Choose an edition of Night Drive' })
       .click();
     const editions = page.getByRole('dialog', { name: 'Editions' });
-    await expect(editions.getByText('Edition 1', { exact: true })).toBeVisible();
-    await expect(editions.getByText('Edition 3', { exact: true })).toBeVisible();
-    await expect(editions.getByRole('button', { name: 'History' })).toHaveCount(
-      2
-    );
+    await expect(
+      editions.getByText('Edition 1', { exact: true })
+    ).toBeVisible();
+    await expect(
+      editions.getByText('Edition 3', { exact: true })
+    ).toBeVisible();
+    const covers = editions.locator('img.held-edition-cover');
+    await expect(covers).toHaveCount(2);
+    await expect(covers.nth(0)).toHaveAttribute('src', /111/);
+    await expect(covers.nth(1)).toHaveAttribute('src', /333/);
+    await expect(
+      editions.getByRole('button', { name: 'Open Edition 1' })
+    ).toBeVisible();
+    await expect(
+      editions.getByRole('button', { name: 'Open Edition 3' })
+    ).toBeVisible();
+    await expect(editions.locator('time')).toHaveCount(0);
     await expect(editions.getByText(/night-drive:/)).toHaveCount(0);
+    const editionThree = editions.getByRole('button', {
+      name: 'Open Edition 3',
+    });
+    await expect
+      .poll(async () => {
+        const first = await editions.boundingBox();
+        await page.waitForTimeout(80);
+        const second = await editions.boundingBox();
+        return (
+          first != null &&
+          second != null &&
+          Math.abs(first.y - second.y) < 0.5 &&
+          second.y + second.height <= 846
+        );
+      })
+      .toBe(true);
+    const dock = page.locator('.portfolio-summon-dock').first();
+    const editionBox = await editionThree.boundingBox();
+    const dockBox = await dock.boundingBox();
+    expect(editionBox).toBeTruthy();
+    expect(dockBox).toBeTruthy();
+    expect(editionBox!.y + editionBox!.height).toBeLessThanOrEqual(
+      dockBox!.y + 1
+    );
+    await editions.getByRole('button', { name: 'More for Edition 1' }).click();
+    const actions = page.getByRole('dialog', { name: 'Edition 1' });
+    await expect
+      .poll(async () => {
+        const first = await actions.boundingBox();
+        await page.waitForTimeout(80);
+        const second = await actions.boundingBox();
+        return (
+          first != null &&
+          second != null &&
+          Math.abs(first.y - second.y) < 0.5 &&
+          second.y + second.height <= 846
+        );
+      })
+      .toBe(true);
+    const history = actions.getByRole('menuitem', { name: 'History' });
+    const factsItem = actions.getByRole('menuitem', { name: 'Facts' });
+    await expect(
+      actions.getByRole('menuitem', { name: 'Share' })
+    ).toBeVisible();
+    await expect(history).toBeVisible();
+    await expect(factsItem).toBeVisible();
+    await expect(
+      actions.getByRole('menuitem', { name: 'Transfer' })
+    ).toHaveCount(0);
+    const factsBox = await factsItem.boundingBox();
+    const menuBox = await actions.boundingBox();
+    const menuDock = await page
+      .locator('.portfolio-summon-dock')
+      .first()
+      .boundingBox();
+    expect(factsBox).toBeTruthy();
+    expect(menuBox).toBeTruthy();
+    expect(menuDock).toBeTruthy();
+    expect(factsBox!.y + factsBox!.height).toBeLessThanOrEqual(menuDock!.y + 1);
+    expect(menuBox!.height).toBeLessThan(320);
+    await factsItem.click();
+    await expect(actions).toBeHidden();
+    const facts = page.getByRole('dialog', { name: 'Facts' });
+    await expect(facts.getByText('night-drive:1')).toBeVisible();
+    await expect(facts.getByText('Minted')).toBeVisible();
+    await expect(facts.getByText('Listed')).toHaveCount(0);
+    await facts.getByRole('button', { name: 'Close facts' }).click();
+    await expect(facts).toBeHidden();
+    await expect(editions).toBeVisible();
+    await expect(editions.getByText(/night-drive:/)).toHaveCount(0);
+    await page
+      .context()
+      .grantPermissions(['clipboard-read', 'clipboard-write']);
+    await editions.getByRole('button', { name: 'More for Edition 1' }).click();
+    const shareMenu = page.getByRole('dialog', { name: 'Edition 1' });
+    await shareMenu.getByRole('menuitem', { name: 'Share' }).click();
+    await expect(shareMenu).toBeHidden();
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toContain('t=night-drive');
+    await expect(editions).toBeVisible();
     await editions.getByRole('button', { name: 'Close editions' }).click();
     await expect(editions).toBeHidden();
     await expect(nightRow).not.toContainText('@alice.near');
-    await expect(
-      nightRow.getByRole('link', { name: /Play Night Drive/ })
-    ).toBeVisible();
+    await nightRow.getByRole('button', { name: 'Play Night Drive' }).click();
+    await expect(page.getByRole('dialog', { name: 'Editions' })).toBeVisible();
+    await page
+      .getByRole('dialog', { name: 'Editions' })
+      .getByRole('button', { name: 'Close editions' })
+      .click();
+    await expect(page.getByRole('dialog', { name: 'Editions' })).toBeHidden();
 
     const chapterRow = page.locator('.collectibles-holding-row').filter({
       hasText: 'Chapter One',
@@ -134,6 +231,15 @@ test.describe('collectibles shell', () => {
     await expect(
       chapterRow.getByRole('button', { name: /Read Chapter One/ })
     ).toBeVisible();
+    await chapterRow.getByRole('button', { name: /Read Chapter One/ }).click();
+    const bookShare = page.getByRole('button', { name: 'Share this book' });
+    await expect(bookShare).toBeVisible();
+    await bookShare.click();
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toContain('t=chapter-one');
+    await page.getByRole('button', { name: 'Back from article' }).click();
+    await expect(bookShare).toBeHidden();
     const aliceHeading = page.locator('#collectibles-from-alice-near');
     const bobHeading = page.locator('#collectibles-from-bob-near');
     await expect(aliceHeading).toBeVisible();

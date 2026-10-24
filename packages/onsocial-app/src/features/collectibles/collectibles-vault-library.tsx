@@ -15,7 +15,7 @@ import { AccountAvatar } from '@/components/profile/account-avatar';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { compareHeldEditionTokenIds } from '@/features/collectibles/held-editions';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
-import { HeldEditionsSheet } from '@/features/collectibles/held-editions-sheet';
+import { HeldEditionFollow } from '@/features/collectibles/held-edition-follow';
 import {
   collectionCreatorNameLine,
   type CollectionCreatorFace,
@@ -48,7 +48,12 @@ function ownedEditionsForDrop(
   ownedByToken: Map<string, OwnedScarceItem>
 ): OwnedScarceItem[] {
   return drop.editions
-    .map((edition) => ownedByToken.get(edition.tokenId))
+    .map((edition) => {
+      const row = ownedByToken.get(edition.tokenId);
+      if (!row) return null;
+      if (row.mediumKind || !edition.mediumKind) return row;
+      return { ...row, mediumKind: edition.mediumKind };
+    })
     .filter((row): row is OwnedScarceItem => row != null)
     .sort((a, b) => compareHeldEditionTokenIds(a.tokenId, b.tokenId));
 }
@@ -287,161 +292,165 @@ export function CollectiblesVaultLibrary({
   refreshing?: boolean;
 }) {
   const showJump =
-    !embedded && showCreatorHeadings && groups.length >= COLLECTIBLES_LIBRARY_JUMP_MIN;
+    !embedded &&
+    showCreatorHeadings &&
+    groups.length >= COLLECTIBLES_LIBRARY_JUMP_MIN;
   const stackRef = useRef<HTMLDivElement | null>(null);
   useAccountStripChrome(stackRef, embedded, groups);
   const [pickerDrop, setPickerDrop] = useState<CollectiblesLibraryDrop | null>(
     null
   );
+  const [pickerChoose, setPickerChoose] = useState<'open' | 'send'>('open');
+  const openPicker = (
+    drop: CollectiblesLibraryDrop,
+    choose: 'open' | 'send'
+  ) => {
+    setPickerChoose(choose);
+    setPickerDrop(drop);
+  };
   const pickerEditions = useMemo(
     () => (pickerDrop ? ownedEditionsForDrop(pickerDrop, ownedByToken) : []),
     [ownedByToken, pickerDrop]
   );
   const stack = (
-      <div
-        ref={stackRef}
-        id={embedded ? undefined : 'collectibles-results'}
-        className="collectibles-library-stack"
-      >
-        {showJump ? (
-          <nav className="collectibles-library-jump" aria-label="Jump to creator">
-            <OsChipRail<string | null>
-              selection="option"
-              className="collectibles-library-jump-rail"
-              ariaLabel="Jump to creator"
-              value={null}
-              onValueChange={(id) => {
-                if (!id) return;
-                jumpToHeading(collectiblesLibraryHeadingId('from', id));
-              }}
-              items={groups.map((creator) => {
-                const face = creator.creatorId
-                  ? creatorFaces?.get(creator.creatorId)
-                  : undefined;
-                const label = creator.creatorId
-                  ? collectionCreatorNameLine(
-                      creator.creatorId,
-                      face?.displayName
-                    )
-                  : 'Other';
-                return { id: creator.creatorKey, label };
-              })}
-            />
-          </nav>
-        ) : null}
-        {groups.map((creator) => {
-          const creatorHeadingId = collectiblesLibraryHeadingId(
-            'from',
-            creator.creatorKey
-          );
-          const face = creator.creatorId
-            ? creatorFaces?.get(creator.creatorId)
-            : undefined;
-          return (
-            <section
-              key={creator.creatorKey}
-              className="collectibles-library-creator"
-              aria-labelledby={
-                showCreatorHeadings ? creatorHeadingId : undefined
-              }
-            >
-              {showCreatorHeadings ? (
-                <CreatorHeading
-                  creatorId={creator.creatorId}
-                  headingId={creatorHeadingId}
-                  dropCount={countLibraryCreatorDrops(creator)}
-                  face={face}
-                  selected={selectedCreator === creator.creatorKey}
-                  filterable={Boolean(onSelectCreator)}
-                  onSelect={
-                    onSelectCreator
-                      ? () => onSelectCreator(creator.creatorKey)
-                      : undefined
-                  }
-                />
-              ) : null}
-              {creator.series.map((series) => {
-                const seriesHeadingId = series.seriesKey
-                  ? collectiblesLibraryHeadingId(
-                      'series',
-                      `${creator.creatorKey}-${series.seriesKey}`
-                    )
-                  : undefined;
-                return (
-                  <div
-                    key={series.seriesKey ?? `open:${creator.creatorKey}`}
-                    className="collectibles-library-series"
-                  >
-                    {series.seriesTitle && seriesHeadingId ? (
-                      <SeriesHeading
-                        title={seriesDisplayTitle({
-                          dropSeriesTitle: series.seriesTitle,
-                          seriesId: series.seriesId ?? series.seriesKey ?? '',
-                        })}
-                        headingId={seriesHeadingId}
-                        dropCount={series.drops.length}
-                        href={
-                          creator.creatorId && series.seriesId
-                            ? seriesPagePath(
-                                creator.creatorId,
-                                series.seriesId
-                              )
-                            : undefined
-                        }
-                      />
-                    ) : null}
-                    <div className="market-listing-list" role="list">
-                      {series.drops.map((item) => {
-                        const owned = ownedByToken.get(item.tokenId);
-                        const face = creator.creatorId
-                          ? creatorFaces?.get(creator.creatorId)
-                          : undefined;
-                        const grouped = item.editionCount > 1;
-                        const row = (
-                          <CollectiblesHoldingRow
-                            key={item.tokenId}
-                            item={item}
-                            editionCount={item.editionCount}
-                            onOpenEditions={
-                              grouped
-                                ? () => setPickerDrop(item)
-                                : undefined
-                            }
-                            hideCreator={showCreatorHeadings}
-                            authorDisplayName={face?.displayName}
-                            authorAvatarUrl={face?.avatarUrl}
-                            ownerMenu={
-                              owned && renderOwnerMenu
-                                ? renderOwnerMenu(owned)
-                                : null
-                            }
-                          />
-                        );
-                        if (!grouped) return row;
-                        return (
-                          <HeldEditionPickerContext.Provider
-                            key={item.tokenId}
-                            value={() => setPickerDrop(item)}
-                          >
-                            {row}
-                          </HeldEditionPickerContext.Provider>
-                        );
+    <div
+      ref={stackRef}
+      id={embedded ? undefined : 'collectibles-results'}
+      className="collectibles-library-stack"
+    >
+      {showJump ? (
+        <nav className="collectibles-library-jump" aria-label="Jump to creator">
+          <OsChipRail<string | null>
+            selection="option"
+            className="collectibles-library-jump-rail"
+            ariaLabel="Jump to creator"
+            value={null}
+            onValueChange={(id) => {
+              if (!id) return;
+              jumpToHeading(collectiblesLibraryHeadingId('from', id));
+            }}
+            items={groups.map((creator) => {
+              const face = creator.creatorId
+                ? creatorFaces?.get(creator.creatorId)
+                : undefined;
+              const label = creator.creatorId
+                ? collectionCreatorNameLine(
+                    creator.creatorId,
+                    face?.displayName
+                  )
+                : 'Other';
+              return { id: creator.creatorKey, label };
+            })}
+          />
+        </nav>
+      ) : null}
+      {groups.map((creator) => {
+        const creatorHeadingId = collectiblesLibraryHeadingId(
+          'from',
+          creator.creatorKey
+        );
+        const face = creator.creatorId
+          ? creatorFaces?.get(creator.creatorId)
+          : undefined;
+        return (
+          <section
+            key={creator.creatorKey}
+            className="collectibles-library-creator"
+            aria-labelledby={showCreatorHeadings ? creatorHeadingId : undefined}
+          >
+            {showCreatorHeadings ? (
+              <CreatorHeading
+                creatorId={creator.creatorId}
+                headingId={creatorHeadingId}
+                dropCount={countLibraryCreatorDrops(creator)}
+                face={face}
+                selected={selectedCreator === creator.creatorKey}
+                filterable={Boolean(onSelectCreator)}
+                onSelect={
+                  onSelectCreator
+                    ? () => onSelectCreator(creator.creatorKey)
+                    : undefined
+                }
+              />
+            ) : null}
+            {creator.series.map((series) => {
+              const seriesHeadingId = series.seriesKey
+                ? collectiblesLibraryHeadingId(
+                    'series',
+                    `${creator.creatorKey}-${series.seriesKey}`
+                  )
+                : undefined;
+              return (
+                <div
+                  key={series.seriesKey ?? `open:${creator.creatorKey}`}
+                  className="collectibles-library-series"
+                >
+                  {series.seriesTitle && seriesHeadingId ? (
+                    <SeriesHeading
+                      title={seriesDisplayTitle({
+                        dropSeriesTitle: series.seriesTitle,
+                        seriesId: series.seriesId ?? series.seriesKey ?? '',
                       })}
-                    </div>
+                      headingId={seriesHeadingId}
+                      dropCount={series.drops.length}
+                      href={
+                        creator.creatorId && series.seriesId
+                          ? seriesPagePath(creator.creatorId, series.seriesId)
+                          : undefined
+                      }
+                    />
+                  ) : null}
+                  <div className="market-listing-list" role="list">
+                    {series.drops.map((item) => {
+                      const owned = ownedByToken.get(item.tokenId);
+                      const face = creator.creatorId
+                        ? creatorFaces?.get(creator.creatorId)
+                        : undefined;
+                      const grouped = item.editionCount > 1;
+                      const row = (
+                        <CollectiblesHoldingRow
+                          key={item.tokenId}
+                          item={item}
+                          editionCount={item.editionCount}
+                          onOpenEditions={
+                            grouped ? () => openPicker(item, 'open') : undefined
+                          }
+                          hideCreator={showCreatorHeadings}
+                          authorDisplayName={face?.displayName}
+                          authorAvatarUrl={face?.avatarUrl}
+                          ownerMenu={
+                            owned && renderOwnerMenu
+                              ? renderOwnerMenu(owned)
+                              : null
+                          }
+                        />
+                      );
+                      if (!grouped) return row;
+                      return (
+                        <HeldEditionPickerContext.Provider
+                          key={item.tokenId}
+                          value={() => openPicker(item, 'send')}
+                        >
+                          {row}
+                        </HeldEditionPickerContext.Provider>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </section>
-          );
-        })}
-      </div>
+                </div>
+              );
+            })}
+          </section>
+        );
+      })}
+    </div>
   );
 
   const editionSheet = (
-    <HeldEditionsSheet
+    <HeldEditionFollow
       open={pickerDrop != null}
       title={pickerDrop?.title ?? ''}
       editions={pickerEditions}
+      choose={pickerChoose}
       onClose={() => setPickerDrop(null)}
       onTransfer={onTransferEdition}
       onSell={onSellEdition}

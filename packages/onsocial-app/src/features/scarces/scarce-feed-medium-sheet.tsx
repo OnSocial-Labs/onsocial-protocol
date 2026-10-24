@@ -214,8 +214,14 @@ export function ScarceFeedMediumSheet({
   const dismissThread = useCallback(() => {
     onDismissThread?.();
   }, [onDismissThread]);
-  const { band: threadBand, dragging: threadDragging, gripHandlers } =
-    useFeedThreadBand(Boolean(open && isOverlay && threadOpen), dismissThread);
+  const {
+    band: threadBand,
+    dragging: threadDragging,
+    gripHandlers,
+  } = useFeedThreadBand(
+    Boolean(open && isOverlay && threadOpen),
+    dismissThread
+  );
   const jacketT = threadJacketT(
     Boolean(open && isOverlay && threadOpen),
     threadBand
@@ -308,6 +314,7 @@ export function ScarceFeedMediumSheet({
         cover={rasterCover}
         coverSvg={coverSvg}
         collectionId={collectionId?.trim() || ''}
+        tokenId={tokenId}
         accountId={viewerAccountId}
         creatorId={creatorId}
         readables={readables}

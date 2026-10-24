@@ -151,7 +151,7 @@ test.describe('series page', () => {
       page.getByRole('link', { name: 'Shop this creator' })
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Play Night Drive' })
+      page.getByRole('button', { name: 'Play Night Drive' })
     ).toBeVisible();
     await expect(
       page.getByRole('link', { name: 'Play Dusk Run' })
