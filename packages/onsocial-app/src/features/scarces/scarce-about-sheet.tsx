@@ -14,13 +14,19 @@ import {
   accessEndsScheduleFacts,
   collectionShouldShowAccessEnds,
 } from '@/features/scarces/access-ends-facts';
-import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
+import {
+  eventHintLive,
+  postponeNotice,
+  ticketEventScheduleFacts,
+} from '@/features/scarces/ticket-event-facts';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 
 export type ScarceAboutEvent = {
   eventStartsAtMs?: number | null;
   eventEndsAtMs?: number | null;
+  eventStartsAtPreviousMs?: number | null;
+  eventEndsAtPreviousMs?: number | null;
   place?: string | null;
   /** NEP-177 expires_at — coupons / memberships. */
   accessEndsAtMs?: number | null;
@@ -62,6 +68,10 @@ export function ScarceAboutSheet({
     },
     nowMs
   );
+  const movedNotice = postponeNotice({
+    previousEndsAtMs: event?.eventEndsAtPreviousMs,
+    previousStartsAtMs: event?.eventStartsAtPreviousMs,
+  });
   const showEvent = !schedule.empty;
   const access = accessEndsScheduleFacts(event?.accessEndsAtMs, nowMs);
   const showAccess =
@@ -106,9 +116,7 @@ export function ScarceAboutSheet({
       bodyClassName="guild-facts-sheet-body"
     >
       <div className="guild-facts collection-about-sheet">
-        {trimmed ? (
-          <p className="collection-about-body">{trimmed}</p>
-        ) : null}
+        {trimmed ? <p className="collection-about-body">{trimmed}</p> : null}
         {showEvent ? (
           <>
             {trimmed ? <Divider variant="detail" /> : null}
@@ -120,10 +128,24 @@ export function ScarceAboutSheet({
                 <SheetFactRow label="Starts" value={schedule.starts} />
               ) : null}
               {schedule.ends ? (
-                <SheetFactRow label={schedule.endsLabel} value={schedule.ends} />
+                <SheetFactRow
+                  label={schedule.endsLabel}
+                  value={schedule.ends}
+                />
+              ) : null}
+              {movedNotice ? (
+                <SheetFactCopy>{movedNotice}</SheetFactCopy>
               ) : null}
               {schedule.next ? (
-                <SheetFactCopy>{schedule.next}</SheetFactCopy>
+                <SheetFactCopy>
+                  {eventHintLive(schedule.next) ? (
+                    <span className="collection-product-status is-live">
+                      {schedule.next}
+                    </span>
+                  ) : (
+                    schedule.next
+                  )}
+                </SheetFactCopy>
               ) : null}
             </SheetFactSection>
           </>
@@ -135,7 +157,9 @@ export function ScarceAboutSheet({
               {access.ends ? (
                 <SheetFactRow label={access.endsLabel} value={access.ends} />
               ) : null}
-              {access.next ? <SheetFactCopy>{access.next}</SheetFactCopy> : null}
+              {access.next ? (
+                <SheetFactCopy>{access.next}</SheetFactCopy>
+              ) : null}
             </SheetFactSection>
           </>
         ) : null}

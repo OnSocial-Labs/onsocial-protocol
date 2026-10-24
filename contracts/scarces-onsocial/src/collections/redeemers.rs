@@ -35,14 +35,15 @@ impl Contract {
         let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
         if bytes_used > 0
-            && let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_deref()) {
-                // Roll back the roster write if storage charge fails.
-                if let Some(mut rolled) = self.collections.get(collection_id).cloned() {
-                    rolled.redeemers.retain(|id| id != &account_id);
-                    self.collections.insert(collection_id.to_string(), rolled);
-                }
-                return Err(e);
+            && let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_deref())
+        {
+            // Roll back the roster write if storage charge fails.
+            if let Some(mut rolled) = self.collections.get(collection_id).cloned() {
+                rolled.redeemers.retain(|id| id != &account_id);
+                self.collections.insert(collection_id.to_string(), rolled);
             }
+            return Err(e);
+        }
 
         events::emit_redeemer_added(actor_id, collection_id, &account_id);
         Ok(())
@@ -127,13 +128,14 @@ impl Contract {
 
         let bytes_used = after.saturating_sub(before);
         if bytes_used > 0
-            && let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_deref()) {
-                if let Some(mut rolled) = self.collections.get(collection_id).cloned() {
-                    rolled.redeemers = previous;
-                    self.collections.insert(collection_id.to_string(), rolled);
-                }
-                return Err(e);
+            && let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_deref())
+        {
+            if let Some(mut rolled) = self.collections.get(collection_id).cloned() {
+                rolled.redeemers = previous;
+                self.collections.insert(collection_id.to_string(), rolled);
             }
+            return Err(e);
+        }
         let bytes_freed = before.saturating_sub(after);
         if bytes_freed > 0 {
             self.release_storage_waterfall(actor_id, bytes_freed, app_id.as_deref());

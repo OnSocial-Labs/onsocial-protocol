@@ -22,10 +22,9 @@ import {
   fetchCollectionPreferIndexer,
   type CollectionView,
 } from '@/features/scarces/collections-data';
-import { heldEditionLabel } from '@/features/collectibles/held-editions';
+import { heldEditionMark } from '@/features/collectibles/held-editions';
 import { HeldEditionsSheet } from '@/features/collectibles/held-editions-sheet';
 import {
-  editionSeatFromTokenId,
   fetchOwnedScarceByTokenId,
   fetchOwnedScarceForCollection,
   fetchOwnedScarcesForCollection,
@@ -120,6 +119,7 @@ function collectionViewFromOfflineAlbum(
     eventStartsAtMs: null,
     eventEndsAtMs: null,
     eventEndsAtPreviousMs: null,
+    eventStartsAtPreviousMs: null,
     place: null,
     accessEndsAtMs: null,
     royalty: null,
@@ -152,6 +152,7 @@ export function CollectiblesPlayPanel({
     searchParams.get(COLLECTIBLES_PLAY_TOKEN_PARAM)?.trim() ||
     initialTokenId?.trim() ||
     '';
+  const editionMark = tokenIdParam ? heldEditionMark(tokenIdParam) : null;
   const hasSsrLoad =
     Boolean(collectionId) &&
     initialCollectionId?.trim() === collectionId &&
@@ -492,12 +493,8 @@ export function CollectiblesPlayPanel({
                 <h1 className="collectibles-play-title" ref={heroTitleRef}>
                   {view.title}
                 </h1>
-                {view.isVariations &&
-                tokenIdParam &&
-                editionSeatFromTokenId(tokenIdParam) != null ? (
-                  <p className="collectibles-play-edition">
-                    {heldEditionLabel(tokenIdParam, view.kind)}
-                  </p>
+                {editionMark ? (
+                  <p className="collectibles-play-edition">{editionMark}</p>
                 ) : null}
               </div>
               {sellItem ? (

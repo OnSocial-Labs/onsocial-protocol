@@ -6,6 +6,8 @@ import {
   heldEditionCoversDiffer,
   heldEditionFactRows,
   heldEditionLabel,
+  heldEditionMark,
+  heldEditionRowMark,
   heldEditionSheetTitle,
   heldEditionTrailTimesDiffer,
 } from '@/features/collectibles/held-editions';
@@ -28,11 +30,15 @@ describe('held editions', () => {
   });
 
   it('names the seat and never the token id', () => {
-    expect(heldEditionLabel('night-drive:4')).toBe('Edition 4');
-    expect(heldEditionLabel('night-drive:5', 'audio')).toBe('Edition 5');
-    expect(heldEditionLabel('gate:2', 'ticket')).toBe('Pass 2');
-    expect(heldEditionLabel('gate:2', 'membership')).toBe('Pass 2');
-    expect(heldEditionLabel('save:3', 'coupon')).toBe('Coupon 3');
+    expect(heldEditionMark('night-drive:4')).toBe('#4');
+    expect(heldEditionMark('s:post')).toBeNull();
+    expect(heldEditionRowMark('night-drive:41', 1)).toBe('#41');
+    expect(heldEditionRowMark('night-drive:41', 3)).toBeNull();
+    expect(heldEditionLabel('night-drive:4')).toBe('Edition #4');
+    expect(heldEditionLabel('night-drive:5', 'audio')).toBe('Edition #5');
+    expect(heldEditionLabel('gate:2', 'ticket')).toBe('Pass #2');
+    expect(heldEditionLabel('gate:2', 'membership')).toBe('Pass #2');
+    expect(heldEditionLabel('save:3', 'coupon')).toBe('Coupon #3');
     expect(heldEditionLabel('s:post')).toBe('Edition');
     expect(heldEditionLabel('night-drive:4')).not.toContain('night-drive');
     expect(heldEditionLabel('gate:2', 'ticket')).not.toContain('gate');
@@ -49,12 +55,13 @@ describe('held editions', () => {
         onHistory: () => {},
       })
     );
-    expect(html).toContain('Edition 5');
-    expect(html).toContain('Edition 4');
-    expect(html).toContain('aria-label="Open Edition 5"');
-    expect(html).toContain('aria-label="Open Edition 4"');
-    expect(html).toContain('aria-label="More for Edition 5"');
-    expect(html).toContain('aria-label="More for Edition 4"');
+    expect(html).toContain('#5');
+    expect(html).toContain('#4');
+    expect(html).toContain('aria-label="Open #5"');
+    expect(html).toContain('aria-label="Open #4"');
+    expect(html).toContain('aria-label="More for #5"');
+    expect(html).toContain('aria-label="More for #4"');
+    expect(html).not.toContain('Edition #');
     expect(html).not.toContain('night-drive:4');
     expect(html).not.toContain('night-drive:5');
     expect(html).not.toContain('<img');
@@ -69,8 +76,8 @@ describe('held editions', () => {
         onTransfer: () => {},
       })
     );
-    expect(html).toContain('aria-label="Send Edition 4"');
-    expect(html).toContain('aria-label="More for Edition 4"');
+    expect(html).toContain('aria-label="Send #4"');
+    expect(html).toContain('aria-label="More for #4"');
   });
 
   it('shows each cover only when the editions resolve to different art', () => {
@@ -113,9 +120,9 @@ describe('held editions', () => {
     );
     expect(varied).toContain('src="https://cdn.example/1.png"');
     expect(varied).toContain('src="https://cdn.example/3.png"');
-    expect(varied).toContain('aria-label="Open Edition 1"');
-    expect(varied).toContain('aria-label="Open Edition 3"');
-    expect(varied).toContain('aria-label="More for Edition 1"');
+    expect(varied).toContain('aria-label="Open #1"');
+    expect(varied).toContain('aria-label="Open #3"');
+    expect(varied).toContain('aria-label="More for #1"');
     expect(varied).not.toContain('night-drive:');
   });
 

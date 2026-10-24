@@ -6,7 +6,6 @@ import type { CollectionView } from '@/features/scarces/collections-data';
 import { ticketEventPlaceLabel } from '@/features/scarces/ticket-event-meta';
 import { formatFutureRelativeTime } from '@/features/market/market-listings';
 import { normalizeSocialTimestamp } from '@onsocial/ui';
-import { formatPageDrawerJoinedDateTimeLabel } from '@/lib/page-drawer-meta';
 
 const SOON_MS = 48 * 60 * 60 * 1000;
 
@@ -46,20 +45,6 @@ function formatEventClock(ms: number): string {
   }).format(new Date(ms));
 }
 
-function formatEventZone(ms: number): string {
-  const zone = new Intl.DateTimeFormat('en-US', {
-    timeZoneName: 'short',
-  })
-    .formatToParts(new Date(ms))
-    .find((part) => part.type === 'timeZoneName')?.value;
-  return zone?.trim() ?? '';
-}
-
-function withEventZone(label: string, ms: number): string {
-  const zone = formatEventZone(ms);
-  return zone ? `${label} ${zone}` : label;
-}
-
 function sameLocalDay(a: number, b: number): boolean {
   const left = new Date(a);
   const right = new Date(b);
@@ -78,32 +63,16 @@ export function eventScheduleLine(
   const start = eventInstant(startMs);
   const end = eventInstant(endMs);
   if (start && end && sameLocalDay(start, end)) {
-    return withEventZone(
-      `${formatEventWeekday(start)} · ${formatEventClock(start)} – ${formatEventClock(end)}`,
-      start
-    );
+    return `${formatEventWeekday(start)} · ${formatEventClock(start)} – ${formatEventClock(end)}`;
   }
   if (start && end) {
-    const startZone = formatEventZone(start);
-    const endZone = formatEventZone(end);
-    if (startZone && startZone === endZone) {
-      return `${formatEventMonthDay(start)} – ${formatEventMonthDay(end)} ${startZone}`;
-    }
-    return [formatEventMonthDay(start), formatEventMonthDay(end)]
-      .map((label, index) => withEventZone(label, index === 0 ? start : end))
-      .join(' – ');
+    return `${formatEventMonthDay(start)} – ${formatEventMonthDay(end)}`;
   }
   if (start) {
-    return withEventZone(
-      `${formatEventWeekday(start)} · ${formatEventClock(start)}`,
-      start
-    );
+    return `${formatEventWeekday(start)} · ${formatEventClock(start)}`;
   }
   if (end) {
-    return withEventZone(
-      `Until ${formatEventWeekday(end)} · ${formatEventClock(end)}`,
-      end
-    );
+    return `Until ${formatEventWeekday(end)} · ${formatEventClock(end)}`;
   }
   return null;
 }
@@ -150,26 +119,51 @@ export function eventListWhenLabel(
   return 'Time to be set';
 }
 
-/** One line for a postpone: the original end, then the end doors use now. */
-export function postponeNotice(
-  previousMs: number | null | undefined,
-  nextMs: number | null | undefined
-): string | null {
-  if (
-    previousMs == null ||
-    nextMs == null ||
-    !Number.isFinite(previousMs) ||
-    !Number.isFinite(nextMs) ||
-    previousMs <= 0 ||
-    nextMs <= 0 ||
-    previousMs === nextMs
-  ) {
-    return null;
+function postponeInstant(ms: number | null | undefined): number | null {
+  if (ms == null || !Number.isFinite(ms) || ms <= 0) return null;
+  return ms;
+}
+
+/** Page clock for one instant: `Oct 24, 9:32 PM`. */
+export function eventClockLabel(ms: number): string {
+  const instant = eventInstant(ms);
+  if (instant == null) return '';
+  return formatEventMonthDay(instant);
+}
+
+/** Page clock for a window. Same night keeps the second date off. */
+export function eventClockRange(startMs: number, endMs: number): string | null {
+  const start = eventInstant(startMs);
+  const end = eventInstant(endMs);
+  if (start == null || end == null) return null;
+  return postponeWasRange(start, end);
+}
+
+function postponeWasRange(startMs: number, endMs: number): string {
+  if (sameLocalDay(startMs, endMs)) {
+    return `${formatEventMonthDay(startMs)} – ${formatEventClock(endMs)}`;
   }
-  const previous = formatPageDrawerJoinedDateTimeLabel(previousMs);
-  const next = formatPageDrawerJoinedDateTimeLabel(nextMs);
-  if (!previous || !next) return null;
-  return `Doors were set for ${previous}. Postponed to ${next}.`;
+  return `${formatEventMonthDay(startMs)} – ${formatEventMonthDay(endMs)}`;
+}
+
+/** What changed. The range above already shows the window in use. */
+export function postponeNotice(input: {
+  previousEndsAtMs?: number | null;
+  previousStartsAtMs?: number | null;
+}): string | null {
+  const end = postponeInstant(input.previousEndsAtMs);
+  const start = postponeInstant(input.previousStartsAtMs);
+  if (start != null && end != null) {
+    return `Postponed. Was ${postponeWasRange(start, end)}.`;
+  }
+  if (end != null) return `Postponed. Was closing ${formatEventMonthDay(end)}.`;
+  if (start != null)
+    return `Postponed. Was opening ${formatEventMonthDay(start)}.`;
+  return null;
+}
+
+export function eventHintLive(hint: string | null | undefined): boolean {
+  return hint === 'On now';
 }
 
 export function ticketEventScheduleFacts(
@@ -189,17 +183,8 @@ export function ticketEventScheduleFacts(
   const startMs = eventInstant(view.eventStartsAtMs);
   const endMs = eventInstant(view.eventEndsAtMs);
   const now = eventInstant(nowMs) ?? nowMs;
-  const starts =
-    startMs != null
-      ? withEventZone(
-          formatPageDrawerJoinedDateTimeLabel(startMs) ?? '',
-          startMs
-        )
-      : null;
-  const ends =
-    endMs != null
-      ? withEventZone(formatPageDrawerJoinedDateTimeLabel(endMs) ?? '', endMs)
-      : null;
+  const starts = startMs != null ? formatEventMonthDay(startMs) : null;
+  const ends = endMs != null ? formatEventMonthDay(endMs) : null;
   const endsLabel: 'Ends' | 'Ended' =
     endMs != null && endMs <= now ? 'Ended' : 'Ends';
   const when = eventScheduleLine(view.eventStartsAtMs, view.eventEndsAtMs);

@@ -253,6 +253,9 @@ const updateTemplateExpiry = actionHandlers(
     buildUpdateCollectionTemplateExpiryAction({
       collectionId: String(b.collectionId || ''),
       expiresAtMs: Number(b.expiresAtMs),
+      ...(b.startsAtMs != null && b.startsAtMs !== ''
+        ? { startsAtMs: Number(b.startsAtMs) }
+        : {}),
       targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
     }),
   'update-collection-template-expiry'

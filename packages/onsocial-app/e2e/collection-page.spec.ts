@@ -427,7 +427,7 @@ test.describe('collection drop page', () => {
       'Gate Pass'
     );
     await expect(pass.locator('.ticket-show-pass-status')).toHaveCount(0);
-    await expect(pass.getByText('Pass 1', { exact: true })).toBeVisible();
+    await expect(pass.getByText('Pass #1', { exact: true })).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Back from pass' })
     ).toBeVisible();
@@ -438,7 +438,7 @@ test.describe('collection drop page', () => {
     });
     await expect(copy).toBeVisible();
     const seatBox = await pass
-      .getByText('Pass 1', { exact: true })
+      .getByText('Pass #1', { exact: true })
       .boundingBox();
     const copyBox = await copy.boundingBox();
     expect(seatBox && copyBox && copyBox.x > seatBox.x).toBe(true);

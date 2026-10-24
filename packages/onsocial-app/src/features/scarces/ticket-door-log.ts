@@ -143,7 +143,7 @@ export function filterDoorLogEntries(
     return (
       entry.guestId.toLowerCase().includes(q) ||
       entry.staffId.toLowerCase().includes(q) ||
-      entry.seatLabel.toLowerCase().includes(q) ||
+      entry.seatLabel.toLowerCase().replace(/#/g, '').includes(q.replace(/#/g, '')) ||
       entry.tokenId.toLowerCase().includes(q) ||
       guestName.includes(q) ||
       staffName.includes(q)

@@ -113,12 +113,13 @@ fn validate_hash_pair(
     }
 
     if let Some(hash) = hash
-        && hash.0.len() != 32 {
-            return Err(MarketplaceError::InvalidInput(format!(
-                "{} must decode to a 32-byte SHA-256 hash",
-                hash_name
-            )));
-        }
+        && hash.0.len() != 32
+    {
+        return Err(MarketplaceError::InvalidInput(format!(
+            "{} must decode to a 32-byte SHA-256 hash",
+            hash_name
+        )));
+    }
 
     Ok(())
 }

@@ -309,6 +309,8 @@ export function ScarceBuyForm({
   const [hydratedEvent, setHydratedEvent] = useState<{
     eventStartsAtMs: number | null;
     eventEndsAtMs: number | null;
+    eventStartsAtPreviousMs: number | null;
+    eventEndsAtPreviousMs: number | null;
     place: string | null;
     accessEndsAtMs: number | null;
     kind: string | null;
@@ -413,6 +415,8 @@ export function ScarceBuyForm({
             ? {
                 eventStartsAtMs: view.eventStartsAtMs,
                 eventEndsAtMs: view.eventEndsAtMs,
+                eventStartsAtPreviousMs: view.eventStartsAtPreviousMs,
+                eventEndsAtPreviousMs: view.eventEndsAtPreviousMs,
                 place: view.place,
                 accessEndsAtMs: view.accessEndsAtMs,
                 kind: view.kind,
@@ -1042,6 +1046,8 @@ export function ScarceBuyForm({
       mintLoading: !mintSettled,
       eventStartsAtMs: hydratedEvent?.eventStartsAtMs ?? null,
       eventEndsAtMs: hydratedEvent?.eventEndsAtMs ?? null,
+      eventStartsAtPreviousMs: hydratedEvent?.eventStartsAtPreviousMs ?? null,
+      eventEndsAtPreviousMs: hydratedEvent?.eventEndsAtPreviousMs ?? null,
       place: hydratedEvent?.place ?? null,
       accessEndsAtMs: hydratedEvent?.accessEndsAtMs ?? null,
       description: resolvedDescription ?? hydratedEvent?.description ?? null,
@@ -1506,6 +1512,10 @@ export function ScarceBuyForm({
                   ? {
                       eventStartsAtMs: hydratedEvent.eventStartsAtMs,
                       eventEndsAtMs: hydratedEvent.eventEndsAtMs,
+                      eventStartsAtPreviousMs:
+                        hydratedEvent.eventStartsAtPreviousMs,
+                      eventEndsAtPreviousMs:
+                        hydratedEvent.eventEndsAtPreviousMs,
                       place: hydratedEvent.place,
                       accessEndsAtMs: hydratedEvent.accessEndsAtMs,
                       kind: hydratedEvent.kind,

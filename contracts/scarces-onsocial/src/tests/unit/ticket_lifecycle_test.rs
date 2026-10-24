@@ -146,7 +146,7 @@ fn guest_ticket_rain_day_postpone_cancel_and_refunds() {
     // --- Postpone while the original end is still ahead ---
     testing_env!(at(creator(), T0_NS).build());
     contract
-        .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
+        .update_collection_template_expiry(&creator(), COL, postponed_end_ms(), None)
         .unwrap();
     assert_eq!(
         contract.collections.get(COL).unwrap().event_ends_at,
@@ -305,7 +305,7 @@ fn postpone_does_not_open_refunds() {
 
     testing_env!(at(creator(), T0_NS).build());
     contract
-        .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
+        .update_collection_template_expiry(&creator(), COL, postponed_end_ms(), None)
         .unwrap();
 
     testing_env!(at(buyer(), T0_NS).build());
@@ -379,7 +379,7 @@ fn postponed_show_mints_until_the_new_door_then_closes() {
 
     testing_env!(at(creator(), T0_NS).build());
     contract
-        .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
+        .update_collection_template_expiry(&creator(), COL, postponed_end_ms(), None)
         .unwrap();
 
     let after_original = T0_NS + DAY_NS + 1;
@@ -436,7 +436,7 @@ fn postpone_stops_when_the_end_in_force_is_reached() {
     let at_original = T0_NS + DAY_NS;
     testing_env!(at(creator(), at_original).build());
     let err = contract
-        .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
+        .update_collection_template_expiry(&creator(), COL, postponed_end_ms(), None)
         .unwrap_err();
     assert_event_ended(err);
     assert_eq!(contract.collections.get(COL).unwrap().event_ends_at, None);
@@ -445,7 +445,7 @@ fn postpone_stops_when_the_end_in_force_is_reached() {
     let before_original = T0_NS + DAY_NS - NS_PER_MS;
     testing_env!(at(creator(), before_original).build());
     contract
-        .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
+        .update_collection_template_expiry(&creator(), COL, postponed_end_ms(), None)
         .unwrap();
     assert_eq!(
         contract.collections.get(COL).unwrap().event_ends_at,
@@ -461,7 +461,7 @@ fn postpone_stops_when_the_end_in_force_is_reached() {
     let before_postponed = postponed_end_ns() - NS_PER_MS;
     testing_env!(at(creator(), before_postponed).build());
     contract
-        .update_collection_template_expiry(&creator(), COL, later_end_ms)
+        .update_collection_template_expiry(&creator(), COL, later_end_ms, None)
         .unwrap();
     assert_eq!(
         contract.collections.get(COL).unwrap().event_ends_at,
@@ -471,7 +471,7 @@ fn postpone_stops_when_the_end_in_force_is_reached() {
 
     testing_env!(at(creator(), later_end_ms * NS_PER_MS).build());
     let err = contract
-        .update_collection_template_expiry(&creator(), COL, T0_MS + 12 * DAY_MS)
+        .update_collection_template_expiry(&creator(), COL, T0_MS + 12 * DAY_MS, None)
         .unwrap_err();
     assert_event_ended(err);
     assert_eq!(
@@ -496,7 +496,7 @@ fn postpone_extends_sale_close_that_matches_the_event_end() {
 
     testing_env!(at(creator(), T0_NS).build());
     contract
-        .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
+        .update_collection_template_expiry(&creator(), COL, postponed_end_ms(), None)
         .unwrap();
 
     let col = contract.collections.get(COL).unwrap();
@@ -524,7 +524,7 @@ fn postpone_extends_sale_close_that_matches_the_event_end() {
     let later_end_ms = T0_MS + 8 * DAY_MS;
     testing_env!(at(creator(), T0_NS + DAY_NS).build());
     contract
-        .update_collection_template_expiry(&creator(), COL, later_end_ms)
+        .update_collection_template_expiry(&creator(), COL, later_end_ms, None)
         .unwrap();
     assert_eq!(
         contract.collections.get(COL).unwrap().end_time,
@@ -547,7 +547,7 @@ fn postpone_leaves_an_earlier_sale_close() {
 
     testing_env!(at(creator(), T0_NS).build());
     contract
-        .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
+        .update_collection_template_expiry(&creator(), COL, postponed_end_ms(), None)
         .unwrap();
 
     let col = contract.collections.get(COL).unwrap();
@@ -571,7 +571,7 @@ fn postpone_leaves_a_sale_with_no_close() {
 
     testing_env!(at(creator(), T0_NS).build());
     contract
-        .update_collection_template_expiry(&creator(), COL, postponed_end_ms())
+        .update_collection_template_expiry(&creator(), COL, postponed_end_ms(), None)
         .unwrap();
 
     let col = contract.collections.get(COL).unwrap();
@@ -606,7 +606,7 @@ fn postpone_refuses_to_move_the_sale_before_it_opens() {
     let pulled_ms = T0_MS + 5 * DAY_MS;
     testing_env!(at(creator(), T0_NS).build());
     let err = contract
-        .update_collection_template_expiry(&creator(), COL, pulled_ms)
+        .update_collection_template_expiry(&creator(), COL, pulled_ms, None)
         .unwrap_err();
     match err {
         MarketplaceError::InvalidInput(msg) => {

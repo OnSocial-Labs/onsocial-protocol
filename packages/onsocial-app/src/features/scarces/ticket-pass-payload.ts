@@ -120,7 +120,7 @@ export function ticketPassSeatLabel(
   const id = tokenId.trim();
   if (!id) return noun;
   const seat = id.includes(':') ? id.slice(id.lastIndexOf(':') + 1).trim() : '';
-  if (/^\d+$/.test(seat)) return `${noun} ${seat}`;
+  if (/^\d+$/.test(seat)) return `${noun} #${seat}`;
   return id;
 }
 

@@ -13,6 +13,7 @@ import {
   heldEditionCoversDiffer,
   heldEditionFactRows,
   heldEditionLabel,
+  heldEditionMark,
   heldEditionSheetTitle,
   heldEditionTrailTimesDiffer,
 } from '@/features/collectibles/held-editions';
@@ -51,19 +52,24 @@ function HeldEditionCover({ src }: { src: string }) {
 
 function HeldEditionMenu({
   label,
+  menuLabel,
   onTransfer,
   onSell,
   onShare,
   onHistory,
   onFacts,
 }: {
+  /** Row mark under the drop title, such as `#4`. */
   label: string;
+  /** Copy name for the menu, such as `Edition #4`, where the title is gone. */
+  menuLabel?: string;
   onTransfer?: () => void;
   onSell?: () => void;
   onShare?: () => void;
   onHistory?: () => void;
   onFacts?: () => void;
 }) {
+  const menu = menuLabel?.trim() || label;
   const [open, setOpen] = useState(false);
   const items = useMemo(() => {
     const list: {
@@ -141,8 +147,8 @@ function HeldEditionMenu({
       <ActionDrawer
         open={open}
         onClose={() => setOpen(false)}
-        label={label}
-        listAriaLabel={`Actions for ${label}`}
+        label={menu}
+        listAriaLabel={`Actions for ${menu}`}
         closeAriaLabel="Close"
         zIndex={SHEET_Z.nested}
         keepDock
@@ -228,7 +234,8 @@ export function HeldEditionList({
       {editions.map((item, index) => {
         const canTransfer = Boolean(onTransfer) && ownedScarceCanTransfer(item);
         const canSell = Boolean(onSell) && item.listingKind == null;
-        const label = heldEditionLabel(item.tokenId, item.mediumKind);
+        const named = heldEditionLabel(item.tokenId, item.mediumKind);
+        const label = heldEditionMark(item.tokenId) ?? named;
         const cover = item.mediaUrl?.trim() || '';
         const timeLabel = timeLabels[index]?.trim() || '';
         const canShare = Boolean(onShare) && Boolean(heldEditionHref(item));
@@ -272,6 +279,7 @@ export function HeldEditionList({
                 ) : null}
                 <HeldEditionMenu
                   label={label}
+                  menuLabel={named}
                   onTransfer={
                     canTransfer ? () => onTransfer?.(item) : undefined
                   }

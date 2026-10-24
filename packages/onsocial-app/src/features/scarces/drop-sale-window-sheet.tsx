@@ -57,6 +57,8 @@ interface DropSaleWindowSheetProps {
   minError?: string;
   /** Replaces the default “too late” line when a maximum is set. */
   maxError?: string;
+  /** Replaces the field title. Postpone uses Doors open / Doors close. */
+  title?: string;
   /** Above the sheet that opened this picker. Manage sits at 60. */
   zIndex?: number;
 }
@@ -676,6 +678,7 @@ interface DraftBodyProps {
   clearLabel?: string;
   minError?: string;
   maxError?: string;
+  title?: string;
   maxInclusive?: boolean;
   zIndex?: number;
 }
@@ -700,6 +703,7 @@ function DropSaleWindowDraftBody({
   clearLabel: clearLabelOverride,
   minError,
   maxError,
+  title: titleOverride,
   maxInclusive = false,
   zIndex = SHEET_Z.list,
 }: DraftBodyProps) {
@@ -744,7 +748,8 @@ function DropSaleWindowDraftBody({
   const weeks = buildMonthWeeks(viewYear, viewMonth, weekStart);
 
   const title =
-    field === 'closes'
+    titleOverride ??
+    (field === 'closes'
       ? 'Closes'
       : field === 'access'
         ? 'Access ends'
@@ -752,7 +757,7 @@ function DropSaleWindowDraftBody({
           ? 'Event starts'
           : field === 'eventEnds'
             ? 'Event ends'
-            : 'Opens';
+            : 'Opens');
   const clearLabel = clearLabelOverride ?? saleWindowClearLabel(field);
   const presets =
     field === 'access'
@@ -1224,6 +1229,7 @@ export function DropSaleWindowSheet({
   clearLabel,
   minError,
   maxError,
+  title,
   zIndex = SHEET_Z.list,
 }: DropSaleWindowSheetProps) {
   const titleId = useId();
@@ -1301,6 +1307,7 @@ export function DropSaleWindowSheet({
       clearLabel={clearLabel}
       minError={minError}
       maxError={maxError}
+      title={title}
       maxInclusive={maxInclusive}
       zIndex={zIndex}
     />

@@ -130,11 +130,12 @@ impl Contract {
         }
 
         if let Some(deadline) = collection.refund_deadline
-            && env::block_timestamp() > deadline {
-                return Err(MarketplaceError::InvalidState(
-                    "Refund claim window has expired".into(),
-                ));
-            }
+            && env::block_timestamp() > deadline
+        {
+            return Err(MarketplaceError::InvalidState(
+                "Refund claim window has expired".into(),
+            ));
+        }
 
         let mut token = self
             .scarces_by_id
@@ -155,11 +156,12 @@ impl Contract {
         }
 
         if let Some(max) = collection.max_redeems
-            && token.redeem_count >= max {
-                return Err(MarketplaceError::InvalidState(
-                    "Cannot claim refund for a fully redeemed token".into(),
-                ));
-            }
+            && token.redeem_count >= max
+        {
+            return Err(MarketplaceError::InvalidState(
+                "Cannot claim refund for a fully redeemed token".into(),
+            ));
+        }
 
         let refund_amount = collection.refund_per_token.0;
         if collection.refund_pool.0 < refund_amount {

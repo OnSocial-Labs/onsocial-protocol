@@ -448,6 +448,7 @@ fn update_template_expiry_happy_syncs_extra_event_end() {
         .execute(make_request(Action::UpdateCollectionTemplateExpiry {
             collection_id: "tik".to_string(),
             expires_at_ms: 1_800_000_000_000,
+            starts_at_ms: None,
         }))
         .unwrap();
 
@@ -467,6 +468,83 @@ fn update_template_expiry_happy_syncs_extra_event_end() {
     assert_eq!(meta["eventEndsAtPrevious"], 1_750_000_000_000u64);
 }
 
+fn setup_ticket_with_start(id: &str, start_ms: u64) -> Contract {
+    let mut contract = setup_contract();
+    testing_env!(context(creator()).build());
+    let mut cfg = minimal_config(id);
+    cfg.renewable = true;
+    let extra = near_sdk::serde_json::json!({
+        "kind": "ticket",
+        "eventStartsAt": start_ms,
+        "eventEndsAt": 1_750_000_000_000u64,
+    });
+    cfg.metadata_template = near_sdk::serde_json::json!({
+        "title": "Ticket #{seat_number}",
+        "expires_at": 1_750_000_000_000u64,
+        "extra": extra.to_string(),
+    })
+    .to_string();
+    contract
+        .execute(make_request(Action::CreateCollection { params: cfg }))
+        .unwrap();
+    contract
+}
+
+#[test]
+fn update_template_expiry_can_move_a_future_start() {
+    let mut contract = setup_ticket_with_start("tik", 1_720_000_000_000);
+
+    testing_env!(context_with_deposit(creator(), 1).build());
+    contract
+        .execute(make_request(Action::UpdateCollectionTemplateExpiry {
+            collection_id: "tik".to_string(),
+            expires_at_ms: 1_800_000_000_000,
+            starts_at_ms: Some(1_740_000_000_000),
+        }))
+        .unwrap();
+
+    let col = contract.collections.get("tik").unwrap();
+    let template: near_sdk::serde_json::Value =
+        near_sdk::serde_json::from_str(&col.metadata_template).unwrap();
+    let extra: near_sdk::serde_json::Value =
+        near_sdk::serde_json::from_str(template["extra"].as_str().unwrap()).unwrap();
+    assert_eq!(extra["eventStartsAt"], 1_740_000_000_000u64);
+    assert_eq!(extra["eventEndsAt"], 1_800_000_000_000u64);
+    let meta: near_sdk::serde_json::Value =
+        near_sdk::serde_json::from_str(col.metadata.as_deref().unwrap()).unwrap();
+    assert_eq!(meta["eventStartsAt"], 1_740_000_000_000u64);
+    assert_eq!(meta["eventStartsAtPrevious"], 1_720_000_000_000u64);
+    assert_eq!(meta["eventEndsAtPrevious"], 1_750_000_000_000u64);
+}
+
+#[test]
+fn update_template_expiry_refuses_start_after_the_show_began() {
+    let mut contract = setup_ticket_with_start("tik", 1_690_000_000_000);
+    testing_env!(context_with_deposit(creator(), 1).build());
+    let err = contract
+        .execute(make_request(Action::UpdateCollectionTemplateExpiry {
+            collection_id: "tik".to_string(),
+            expires_at_ms: 1_800_000_000_000,
+            starts_at_ms: Some(1_740_000_000_000),
+        }))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidState(_)));
+}
+
+#[test]
+fn update_template_expiry_refuses_start_that_is_not_before_the_end() {
+    let mut contract = setup_ticket_with_start("tik", 1_720_000_000_000);
+    testing_env!(context_with_deposit(creator(), 1).build());
+    let err = contract
+        .execute(make_request(Action::UpdateCollectionTemplateExpiry {
+            collection_id: "tik".to_string(),
+            expires_at_ms: 1_800_000_000_000,
+            starts_at_ms: Some(1_800_000_000_000),
+        }))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidInput(_)));
+}
+
 #[test]
 fn update_template_expiry_without_extra_sets_expiry_only() {
     let mut contract = setup_contract();
@@ -482,6 +560,7 @@ fn update_template_expiry_without_extra_sets_expiry_only() {
         .execute(make_request(Action::UpdateCollectionTemplateExpiry {
             collection_id: "plain".to_string(),
             expires_at_ms: 1_800_000_000_000,
+            starts_at_ms: None,
         }))
         .unwrap();
 
@@ -501,6 +580,7 @@ fn update_template_expiry_non_renewable_fails() {
         .execute(make_request(Action::UpdateCollectionTemplateExpiry {
             collection_id: "col1".to_string(),
             expires_at_ms: 1_800_000_000_000,
+            starts_at_ms: None,
         }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
@@ -515,6 +595,7 @@ fn update_template_expiry_non_creator_fails() {
         .execute(make_request(Action::UpdateCollectionTemplateExpiry {
             collection_id: "tik".to_string(),
             expires_at_ms: 1_800_000_000_000,
+            starts_at_ms: None,
         }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
@@ -529,6 +610,7 @@ fn update_template_expiry_past_fails() {
         .execute(make_request(Action::UpdateCollectionTemplateExpiry {
             collection_id: "tik".to_string(),
             expires_at_ms: 1_600_000_000_000,
+            starts_at_ms: None,
         }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));

@@ -113,25 +113,25 @@ test.describe('collectibles shell', () => {
       .click();
     const editions = page.getByRole('dialog', { name: 'Editions' });
     await expect(
-      editions.getByText('Edition 1', { exact: true })
+      editions.getByText('#1', { exact: true })
     ).toBeVisible();
     await expect(
-      editions.getByText('Edition 3', { exact: true })
+      editions.getByText('#3', { exact: true })
     ).toBeVisible();
     const covers = editions.locator('img.held-edition-cover');
     await expect(covers).toHaveCount(2);
     await expect(covers.nth(0)).toHaveAttribute('src', /111/);
     await expect(covers.nth(1)).toHaveAttribute('src', /333/);
     await expect(
-      editions.getByRole('button', { name: 'Open Edition 1' })
+      editions.getByRole('button', { name: 'Open #1' })
     ).toBeVisible();
     await expect(
-      editions.getByRole('button', { name: 'Open Edition 3' })
+      editions.getByRole('button', { name: 'Open #3' })
     ).toBeVisible();
     await expect(editions.locator('time')).toHaveCount(0);
     await expect(editions.getByText(/night-drive:/)).toHaveCount(0);
     const editionThree = editions.getByRole('button', {
-      name: 'Open Edition 3',
+      name: 'Open #3',
     });
     await expect
       .poll(async () => {
@@ -154,8 +154,8 @@ test.describe('collectibles shell', () => {
     expect(editionBox!.y + editionBox!.height).toBeLessThanOrEqual(
       dockBox!.y + 1
     );
-    await editions.getByRole('button', { name: 'More for Edition 1' }).click();
-    const actions = page.getByRole('dialog', { name: 'Edition 1' });
+    await editions.getByRole('button', { name: 'More for #1' }).click();
+    const actions = page.getByRole('dialog', { name: 'Edition #1' });
     await expect
       .poll(async () => {
         const first = await actions.boundingBox();
@@ -203,8 +203,8 @@ test.describe('collectibles shell', () => {
     await page
       .context()
       .grantPermissions(['clipboard-read', 'clipboard-write']);
-    await editions.getByRole('button', { name: 'More for Edition 1' }).click();
-    const shareMenu = page.getByRole('dialog', { name: 'Edition 1' });
+    await editions.getByRole('button', { name: 'More for #1' }).click();
+    const shareMenu = page.getByRole('dialog', { name: 'Edition #1' });
     await shareMenu.getByRole('menuitem', { name: 'Share' }).click();
     await expect(shareMenu).toBeHidden();
     await expect

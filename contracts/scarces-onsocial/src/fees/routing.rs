@@ -20,10 +20,11 @@ impl Contract {
             let app_commission = self.calculate_app_commission(price, app_id, commission_bps);
             if app_commission > 0
                 && let Some(aid) = app_id
-                    && let Some(pool) = self.app_pools.get(aid) {
-                        let _ = Promise::new(pool.owner_id.clone())
-                            .transfer(NearToken::from_yoctonear(app_commission));
-                    }
+                && let Some(pool) = self.app_pools.get(aid)
+            {
+                let _ = Promise::new(pool.owner_id.clone())
+                    .transfer(NearToken::from_yoctonear(app_commission));
+            }
 
             let total_deductions = rev + app_amt + app_commission;
             let creator_payment = price.saturating_sub(total_deductions);
@@ -115,12 +116,13 @@ impl Contract {
         let total_fee = (price * self.fee_config.total_fee_bps as u128) / BASIS_POINTS as u128;
 
         if let Some(app) = app_id
-            && self.app_pools.contains_key(app) {
-                let app_amount =
-                    (price * self.fee_config.app_pool_fee_bps as u128) / BASIS_POINTS as u128;
-                let revenue = total_fee.saturating_sub(app_amount);
-                return (total_fee, app_amount, 0, revenue);
-            }
+            && self.app_pools.contains_key(app)
+        {
+            let app_amount =
+                (price * self.fee_config.app_pool_fee_bps as u128) / BASIS_POINTS as u128;
+            let revenue = total_fee.saturating_sub(app_amount);
+            return (total_fee, app_amount, 0, revenue);
+        }
 
         let platform_amount =
             (price * self.fee_config.platform_storage_fee_bps as u128) / BASIS_POINTS as u128;
@@ -133,19 +135,20 @@ impl Contract {
         let (_, app_amount, platform_amount, revenue) = self.calculate_fee_split(price, app_id);
 
         if app_amount > 0
-            && let Some(app) = app_id {
-                if let Some(mut pool) = self.app_pools.remove(app) {
-                    pool.balance.0 = pool.balance.0.saturating_add(app_amount);
-                    self.app_pools.insert(app.to_string(), pool);
-                } else {
-                    env::log_str(&format!(
-                        "WARN: app pool '{}' missing during route_fee; {} yN → platform pool",
-                        app, app_amount
-                    ));
-                    self.platform_storage_balance =
-                        self.platform_storage_balance.saturating_add(app_amount);
-                }
+            && let Some(app) = app_id
+        {
+            if let Some(mut pool) = self.app_pools.remove(app) {
+                pool.balance.0 = pool.balance.0.saturating_add(app_amount);
+                self.app_pools.insert(app.to_string(), pool);
+            } else {
+                env::log_str(&format!(
+                    "WARN: app pool '{}' missing during route_fee; {} yN → platform pool",
+                    app, app_amount
+                ));
+                self.platform_storage_balance =
+                    self.platform_storage_balance.saturating_add(app_amount);
             }
+        }
 
         if platform_amount > 0 {
             self.platform_storage_balance = self

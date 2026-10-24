@@ -2,16 +2,8 @@
 
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
-import {
-  Divider,
-  OsHugSheet,
-  ProtocolMotionArrow,
-} from '@onsocial/ui';
-import {
-  SheetFactCopy,
-  SheetFactRow,
-  SheetFactSection,
-} from '@onsocial/ui';
+import { Divider, OsHugSheet, ProtocolMotionArrow } from '@onsocial/ui';
+import { SheetFactCopy, SheetFactRow, SheetFactSection } from '@onsocial/ui';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { supplyUnitForMediumKind } from '@/features/scarces/drop-templates';
 import { marketMediumLabel } from '@/features/market/market-medium';
@@ -20,7 +12,11 @@ import {
   MARKETPLACE_FEE_BPS,
   totalRoyaltyBps,
 } from '@/features/scarces/scarce-royalty';
-import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
+import {
+  eventHintLive,
+  postponeNotice,
+  ticketEventScheduleFacts,
+} from '@/features/scarces/ticket-event-facts';
 import {
   accessEndsScheduleFacts,
   collectionShouldShowAccessEnds,
@@ -72,6 +68,8 @@ export interface ScarceListingFacts {
   /** Ticket event window — from drop template / rain-day override. */
   eventStartsAtMs?: number | null;
   eventEndsAtMs?: number | null;
+  eventStartsAtPreviousMs?: number | null;
+  eventEndsAtPreviousMs?: number | null;
   place?: string | null;
   /** NEP-177 expires_at — coupons / memberships. */
   accessEndsAtMs?: number | null;
@@ -207,6 +205,10 @@ export function ScarceListingFactsSheet({
       facts.tokenId?.trim() ||
       facts.listingId?.trim()
   );
+  const movedNotice = postponeNotice({
+    previousEndsAtMs: facts.eventEndsAtPreviousMs,
+    previousStartsAtMs: facts.eventStartsAtPreviousMs,
+  });
   const event = ticketEventScheduleFacts(
     {
       eventStartsAtMs: facts.eventStartsAtMs ?? null,
@@ -268,20 +270,32 @@ export function ScarceListingFactsSheet({
                   {event.ends ? (
                     <SheetFactRow label={event.endsLabel} value={event.ends} />
                   ) : null}
+                  {movedNotice ? (
+                    <SheetFactCopy>{movedNotice}</SheetFactCopy>
+                  ) : null}
                   {event.next ? (
-                    <SheetFactCopy>{event.next}</SheetFactCopy>
+                    <SheetFactCopy>
+                      {eventHintLive(event.next) ? (
+                        <span className="collection-product-status is-live">
+                          {event.next}
+                        </span>
+                      ) : (
+                        event.next
+                      )}
+                    </SheetFactCopy>
                   ) : null}
                 </SheetFactSection>
               </>
             ) : null}
             {showAccess ? (
               <>
-                {description || showEvent ? (
-                  <Divider variant="detail" />
-                ) : null}
+                {description || showEvent ? <Divider variant="detail" /> : null}
                 <SheetFactSection title="Access">
                   {access.ends ? (
-                    <SheetFactRow label={access.endsLabel} value={access.ends} />
+                    <SheetFactRow
+                      label={access.endsLabel}
+                      value={access.ends}
+                    />
                   ) : null}
                   {access.next ? (
                     <SheetFactCopy>{access.next}</SheetFactCopy>
@@ -391,9 +405,7 @@ export function ScarceListingFactsSheet({
               {mintedAbs ? (
                 <SheetFactRow
                   label="Minted"
-                  value={
-                    mintedRel ? `${mintedAbs} · ${mintedRel}` : mintedAbs
-                  }
+                  value={mintedRel ? `${mintedAbs} · ${mintedRel}` : mintedAbs}
                 />
               ) : facts.mintLoading ? (
                 <SheetFactRow
@@ -409,9 +421,7 @@ export function ScarceListingFactsSheet({
               {listedAbs ? (
                 <SheetFactRow
                   label="Listed"
-                  value={
-                    listedRel ? `${listedAbs} · ${listedRel}` : listedAbs
-                  }
+                  value={listedRel ? `${listedAbs} · ${listedRel}` : listedAbs}
                 />
               ) : null}
               {sourceHref ? (
@@ -451,7 +461,9 @@ export function ScarceListingFactsSheet({
                 <SheetFactRow
                   label="Token"
                   value={
-                    <span className="guild-facts-id">{facts.tokenId.trim()}</span>
+                    <span className="guild-facts-id">
+                      {facts.tokenId.trim()}
+                    </span>
                   }
                 />
               ) : null}

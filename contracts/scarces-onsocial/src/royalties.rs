@@ -94,11 +94,12 @@ impl Contract {
         }
 
         if let Some(max_len) = max_len
-            && payout_map.len() > max_len as usize {
-                return Err(MarketplaceError::InvalidInput(
-                    "Payout exceeds max_len_payout".to_string(),
-                ));
-            }
+            && payout_map.len() > max_len as usize
+        {
+            return Err(MarketplaceError::InvalidInput(
+                "Payout exceeds max_len_payout".to_string(),
+            ));
+        }
 
         Ok(Payout { payout: payout_map })
     }

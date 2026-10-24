@@ -25,16 +25,22 @@ describe('ticket event metadata', () => {
       eventStartsAtMs: 1_700_000_000_000,
       eventEndsAtMs: 1_700_003_600_000,
       eventEndsAtPreviousMs: null,
+      eventStartsAtPreviousMs: null,
       place: 'lisbon',
     });
   });
 
-  it('names the original end, then the postponed end', () => {
-    expect(postponeNotice(1_700_000_000_000, 1_700_000_000_000)).toBeNull();
-    expect(postponeNotice(null, 1_800_000_000_000)).toBeNull();
-    const notice = postponeNotice(1_700_000_000_000, 1_800_000_000_000);
-    expect(notice).toMatch(/^Doors were set for .+\. Postponed to .+\.$/);
-    expect(notice).toMatch(/\d:\d{2}/);
+  it('names the previous close, and the previous window when the start moved', () => {
+    expect(postponeNotice({})).toBeNull();
+    expect(postponeNotice({ previousEndsAtMs: null })).toBeNull();
+    const end = new Date(2026, 9, 24, 21, 10).getTime();
+    const start = new Date(2026, 9, 24, 20, 10).getTime();
+    expect(postponeNotice({ previousEndsAtMs: end })).toMatch(
+      /^Postponed\. Was closing .+9:10 PM\.$/
+    );
+    expect(
+      postponeNotice({ previousStartsAtMs: start, previousEndsAtMs: end })
+    ).toMatch(/^Postponed\. Was .+8:10 PM – 9:10 PM\.$/);
   });
 
   it('prefers collection metadata rain-day override', () => {
@@ -75,6 +81,7 @@ describe('ticket event metadata', () => {
     expect(facts.place).toBeTruthy();
     expect(facts.starts).toBeNull();
     expect(facts.ends).toMatch(/\d:\d{2}/);
+    expect(facts.ends).not.toMatch(/GMT|\d{4}/);
     expect(facts.endsLabel).toBe('Ends');
     expect(facts.when).toMatch(/Until .+\d:\d{2}/);
     expect(facts.empty).toBe(false);
@@ -100,14 +107,12 @@ describe('ticket event metadata', () => {
     const nextMorning = new Date(2026, 9, 3, 1, 0).getTime();
     const same = eventScheduleLine(start, sameNight);
     const over = eventScheduleLine(start, nextMorning);
-    const zone = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' })
-      .formatToParts(new Date(start))
-      .find((part) => part.type === 'timeZoneName')?.value;
     expect(same).toContain('Fri, Oct 2');
     expect(same).toContain('8:00');
     expect(same).toContain('11:00');
     expect(same).toContain('–');
-    if (zone) expect(same).toContain(zone);
+    expect(same).not.toMatch(/GMT/);
+    expect(over).not.toMatch(/GMT/);
     expect(over).toContain('8:00');
     expect(over).toContain('1:00');
     expect(over).toContain('–');

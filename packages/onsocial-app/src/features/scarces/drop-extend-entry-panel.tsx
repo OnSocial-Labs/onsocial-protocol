@@ -9,10 +9,13 @@ import {
 } from '@onsocial/ui';
 import {
   DropSaleWindowSheet,
-  formatScheduleLabel,
   localDateTimeToMs,
   toDatetimeLocalValue,
 } from '@/features/scarces/drop-sale-window-sheet';
+import {
+  eventClockLabel,
+  eventClockRange,
+} from '@/features/scarces/ticket-event-facts';
 import { SHEET_Z } from '@/lib/sheet-z';
 
 const SALE_CLOSE_MINUTE_MS = 60_000;
@@ -38,6 +41,66 @@ export function saleCloseMatchesEventEnd(
   );
 }
 
+/** Later of now, the current close, and a chosen open. Datetime-local sorts. */
+export function postponeCloseBound(
+  currentCloseLocal: string,
+  openDraft: string,
+  floor: string
+): string {
+  return (
+    [floor, currentCloseLocal, openDraft]
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .sort()
+      .at(-1) ?? floor
+  );
+}
+
+/** Current window, in the same clock as the drop page. */
+export function postponeNowLine(
+  currentStartsAtMs: number | null | undefined,
+  currentEndsAtMs: number | null | undefined
+): string | null {
+  const start =
+    currentStartsAtMs != null &&
+    Number.isFinite(currentStartsAtMs) &&
+    currentStartsAtMs > 0
+      ? currentStartsAtMs
+      : null;
+  const end =
+    currentEndsAtMs != null &&
+    Number.isFinite(currentEndsAtMs) &&
+    currentEndsAtMs > 0
+      ? currentEndsAtMs
+      : null;
+  if (start != null && end != null) {
+    const range = eventClockRange(start, end);
+    return range ? `Now ${range}.` : null;
+  }
+  if (end != null) return `Now closes ${eventClockLabel(end)}.`;
+  if (start != null) return `Now opens ${eventClockLabel(start)}.`;
+  return null;
+}
+
+/** Cell clock. Empty until a draft is chosen. */
+export function postponeDraftLabel(local: string): string {
+  const ms = localDateTimeToMs(local);
+  if (ms == null) return '';
+  return eventClockLabel(ms);
+}
+
+/** Start can move only while the original start is still ahead. */
+export function postponeStartOpen(
+  currentStartsAtMs: number | null | undefined,
+  nowMs: number
+): boolean {
+  return (
+    currentStartsAtMs != null &&
+    Number.isFinite(currentStartsAtMs) &&
+    currentStartsAtMs > nowMs
+  );
+}
+
 /** What the owner reads before they confirm a new entry end. */
 export function postponeEntryLead(
   eventEndsAtMs: number | null | undefined,
@@ -53,10 +116,7 @@ export function postponeEntryLead(
   ) {
     return 'The sale stays open until this new end. Passes already sold stay valid.';
   }
-  const label = formatScheduleLabel(
-    toDatetimeLocalValue(new Date(saleClosesAtMs))
-  );
-  return `Passes stay valid until this end. The sale still closes ${label}.`;
+  return `Passes stay valid until this end. The sale still closes ${eventClockLabel(saleClosesAtMs)}.`;
 }
 
 /**
@@ -64,15 +124,20 @@ export function postponeEntryLead(
  */
 export function DropExtendEntryPanel({
   currentEndsAtMs,
+  currentStartsAtMs = null,
   saleClosesAtMs = null,
   pending,
   onConfirm,
 }: {
   currentEndsAtMs?: number | null;
-  /** Sale `end_time` in ms. Empty means the sale has no close. */
+  currentStartsAtMs?: number | null;
+  /** Sale `end_time` in ms. Empty when the sale has no close. */
   saleClosesAtMs?: number | null;
   pending: boolean;
-  onConfirm: (newExpiresAtMs: number) => void;
+  onConfirm: (input: {
+    newExpiresAtMs: number;
+    newStartsAtMs?: number;
+  }) => void;
 }) {
   const [nowMs] = useState(() => Date.now());
   const floor = toDatetimeLocalValue(new Date(nowMs + 60_000));
@@ -80,25 +145,47 @@ export function DropExtendEntryPanel({
     currentEndsAtMs != null
       ? toDatetimeLocalValue(new Date(currentEndsAtMs))
       : '';
-  const minValue = currentLocal > floor ? currentLocal : floor;
+  const canMoveStart = postponeStartOpen(currentStartsAtMs, nowMs);
   const [draft, setDraft] = useState('');
+  const [startDraft, setStartDraft] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [startPickerOpen, setStartPickerOpen] = useState(false);
 
   const endsMs = draft ? localDateTimeToMs(draft) : undefined;
+  const startsMs = startDraft ? localDateTimeToMs(startDraft) : undefined;
   const laterThanCurrent =
     currentEndsAtMs == null || (endsMs != null && endsMs > currentEndsAtMs);
+  const startOk =
+    !canMoveStart ||
+    startsMs == null ||
+    (startsMs > nowMs && endsMs != null && startsMs < endsMs);
   const canConfirm =
-    endsMs != null && endsMs > nowMs && laterThanCurrent && !pending;
+    endsMs != null && endsMs > nowMs && laterThanCurrent && startOk && !pending;
+  const closeMin = postponeCloseBound(currentLocal, startDraft, floor);
+  const nowLine = postponeNowLine(currentStartsAtMs, currentEndsAtMs);
 
   return (
     <div className={osActionDrawerConfirmClassName}>
       <p className={osActionDrawerConfirmBodyClassName}>
         {postponeEntryLead(currentEndsAtMs, saleClosesAtMs)}
       </p>
-      {currentEndsAtMs != null && currentLocal ? (
-        <p className={osActionDrawerConfirmBodyClassName}>
-          Current end · {formatScheduleLabel(currentLocal)}
-        </p>
+      {nowLine ? (
+        <p className={osActionDrawerConfirmBodyClassName}>{nowLine}</p>
+      ) : null}
+      {canMoveStart ? (
+        <div className={`drop-schedule-cell${startDraft ? ' has-value' : ''}`}>
+          <button
+            type="button"
+            className="drop-schedule-cell-main"
+            disabled={pending}
+            onClick={() => setStartPickerOpen(true)}
+          >
+            <span className="drop-schedule-cell-label">Doors open</span>
+            <span className="drop-schedule-cell-value">
+              {startDraft ? postponeDraftLabel(startDraft) : 'Keep current'}
+            </span>
+          </button>
+        </div>
       ) : null}
       <div className={`drop-schedule-cell${draft ? ' has-value' : ''}`}>
         <button
@@ -107,9 +194,9 @@ export function DropExtendEntryPanel({
           disabled={pending}
           onClick={() => setPickerOpen(true)}
         >
-          <span className="drop-schedule-cell-label">New entry end</span>
+          <span className="drop-schedule-cell-label">Doors close</span>
           <span className="drop-schedule-cell-value">
-            {draft ? formatScheduleLabel(draft) : 'Pick a time'}
+            {draft ? postponeDraftLabel(draft) : 'Pick a time'}
           </span>
         </button>
       </div>
@@ -123,19 +210,45 @@ export function DropExtendEntryPanel({
           disabled={!canConfirm}
           onClick={() => {
             if (endsMs == null) return;
-            onConfirm(endsMs);
+            onConfirm({
+              newExpiresAtMs: endsMs,
+              ...(startsMs != null ? { newStartsAtMs: startsMs } : {}),
+            });
           }}
         >
-          Postpone entry
+          Postpone
         </OsSheetAction>
       </OsSheetActions>
+      {canMoveStart ? (
+        <DropSaleWindowSheet
+          open={startPickerOpen}
+          field="eventStarts"
+          value={startDraft}
+          minValue={floor}
+          maxValue={draft || undefined}
+          allowClear
+          title="Doors open"
+          maxError="Must be before doors close."
+          zIndex={SHEET_Z.nestedConfirm}
+          onClose={() => setStartPickerOpen(false)}
+          onChange={(next) => {
+            setStartDraft(next);
+            setStartPickerOpen(false);
+          }}
+        />
+      ) : null}
       <DropSaleWindowSheet
         open={pickerOpen}
         field="eventEnds"
         value={draft}
-        minValue={minValue}
+        minValue={closeMin}
         allowClear={false}
-        minError="Must be later than the current end."
+        title="Doors close"
+        minError={
+          startDraft && startDraft === closeMin
+            ? 'Must be later than doors open.'
+            : 'Must be later than the current close.'
+        }
         zIndex={SHEET_Z.nestedConfirm}
         onClose={() => setPickerOpen(false)}
         onChange={(next) => {

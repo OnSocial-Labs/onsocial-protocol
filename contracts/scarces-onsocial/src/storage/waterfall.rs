@@ -14,32 +14,33 @@ impl Contract {
         }
 
         if let Some(app) = app_id
-            && let Some(mut pool) = self.app_pools.remove(app) {
-                let usage_key = format!("{}:{}", account_id, app);
-                let user_used = self.app_user_usage.get(&usage_key).copied().unwrap_or(0);
+            && let Some(mut pool) = self.app_pools.remove(app)
+        {
+            let usage_key = format!("{}:{}", account_id, app);
+            let user_used = self.app_user_usage.get(&usage_key).copied().unwrap_or(0);
 
-                let remaining_allowance = pool.max_user_bytes.saturating_sub(user_used);
-                let can_cover_bytes = remaining_allowance.min(bytes_used);
-                let can_cover_cost = (can_cover_bytes as u128) * storage_byte_cost();
+            let remaining_allowance = pool.max_user_bytes.saturating_sub(user_used);
+            let can_cover_bytes = remaining_allowance.min(bytes_used);
+            let can_cover_cost = (can_cover_bytes as u128) * storage_byte_cost();
 
-                if can_cover_cost > 0 && pool.balance.0 >= can_cover_cost {
-                    pool.balance.0 -= can_cover_cost;
-                    pool.used_bytes += can_cover_bytes;
-                    self.app_pools.insert(app.to_string(), pool);
-                    self.app_user_usage
-                        .insert(usage_key, user_used + can_cover_bytes);
+            if can_cover_cost > 0 && pool.balance.0 >= can_cover_cost {
+                pool.balance.0 -= can_cover_cost;
+                pool.used_bytes += can_cover_bytes;
+                self.app_pools.insert(app.to_string(), pool);
+                self.app_user_usage
+                    .insert(usage_key, user_used + can_cover_bytes);
 
-                    if can_cover_bytes >= bytes_used {
-                        return Ok(());
-                    }
-
-                    let remaining_bytes = bytes_used - can_cover_bytes;
-                    self.charge_user_storage(account_id, remaining_bytes)?;
+                if can_cover_bytes >= bytes_used {
                     return Ok(());
                 }
 
-                self.app_pools.insert(app.to_string(), pool);
+                let remaining_bytes = bytes_used - can_cover_bytes;
+                self.charge_user_storage(account_id, remaining_bytes)?;
+                return Ok(());
             }
+
+            self.app_pools.insert(app.to_string(), pool);
+        }
 
         if app_id.is_none() {
             let cost = (bytes_used as u128) * storage_byte_cost();
@@ -85,10 +86,11 @@ impl Contract {
 
                 let remainder = bytes_freed.saturating_sub(returnable);
                 if remainder > 0
-                    && let Some(mut user) = self.user_storage.remove(account_id) {
-                        user.used_bytes = user.used_bytes.saturating_sub(remainder);
-                        self.user_storage.insert(account_id.clone(), user);
-                    }
+                    && let Some(mut user) = self.user_storage.remove(account_id)
+                {
+                    user.used_bytes = user.used_bytes.saturating_sub(remainder);
+                    self.user_storage.insert(account_id.clone(), user);
+                }
                 return;
             }
             let pool_bytes = self.app_user_usage.get(&usage_key).copied().unwrap_or(0);
@@ -97,10 +99,11 @@ impl Contract {
             self.app_user_usage
                 .insert(usage_key, pool_bytes.saturating_sub(from_pool));
             if from_user > 0
-                && let Some(mut user) = self.user_storage.remove(account_id) {
-                    user.used_bytes = user.used_bytes.saturating_sub(from_user);
-                    self.user_storage.insert(account_id.clone(), user);
-                }
+                && let Some(mut user) = self.user_storage.remove(account_id)
+            {
+                user.used_bytes = user.used_bytes.saturating_sub(from_user);
+                self.user_storage.insert(account_id.clone(), user);
+            }
             return;
         }
 

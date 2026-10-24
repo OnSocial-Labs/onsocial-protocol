@@ -114,10 +114,11 @@ impl Contract {
         self.scarces_by_id.insert(token_id.clone(), token);
 
         if let Some(app) = app_for_index
-            && previous_owner_id != receiver_id {
-                self.untrack_app_owner(&app, &receiver_id);
-                self.track_app_owner(&app, &previous_owner_id);
-            }
+            && previous_owner_id != receiver_id
+        {
+            self.untrack_app_owner(&app, &receiver_id);
+            self.track_app_owner(&app, &previous_owner_id);
+        }
 
         events::emit_scarce_transfer(
             &receiver_id,
@@ -195,10 +196,11 @@ impl Contract {
         self.scarces_by_id.insert(token_id.to_string(), token);
 
         if let Some(app) = app_for_index
-            && &old_owner_id != receiver_id {
-                self.untrack_app_owner(&app, &old_owner_id);
-                self.track_app_owner(&app, receiver_id);
-            }
+            && &old_owner_id != receiver_id
+        {
+            self.untrack_app_owner(&app, &old_owner_id);
+            self.track_app_owner(&app, receiver_id);
+        }
 
         self.remove_sale_listing(token_id, &old_owner_id, "owner_changed");
         events::emit_scarce_transfer(

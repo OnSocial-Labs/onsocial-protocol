@@ -1,10 +1,24 @@
 use crate::*;
 use near_sdk::serde_json;
 
-fn template_event_ends_at(template: &serde_json::Value) -> Option<u64> {
+fn template_extra_u64(template: &serde_json::Value, key: &str) -> Option<u64> {
     let extra_str = template.get("extra")?.as_str()?;
     let extra: serde_json::Value = serde_json::from_str(extra_str).ok()?;
-    extra.get("eventEndsAt")?.as_u64()
+    extra.get(key)?.as_u64()
+}
+
+fn template_event_ends_at(template: &serde_json::Value) -> Option<u64> {
+    template_extra_u64(template, "eventEndsAt")
+}
+
+fn template_event_starts_at(template: &serde_json::Value) -> Option<u64> {
+    template_extra_u64(template, "eventStartsAt")
+}
+
+fn metadata_event_starts_at(existing: Option<&str>) -> Option<u64> {
+    let raw = existing.map(str::trim).filter(|s| !s.is_empty())?;
+    let meta: serde_json::Value = serde_json::from_str(raw).ok()?;
+    meta.get("eventStartsAt")?.as_u64()
 }
 
 const SALE_CLOSE_MINUTE_MS: u64 = 60_000;
@@ -47,11 +61,11 @@ fn sale_end_after_postpone(
     Ok(Some(next_ns))
 }
 
-/// Keep series, cover, and the rest of freeform metadata. Record the end
-/// this postpone replaced so the drop can say what moved.
-fn merge_event_end_previous(
+/// Keep series, cover, and the rest of freeform metadata. Record what moved.
+fn merge_postpone_metadata(
     existing: Option<&str>,
-    previous_ms: u64,
+    previous_end: Option<u64>,
+    start_move: Option<(u64, u64)>,
 ) -> Result<String, MarketplaceError> {
     let mut meta = match existing.map(str::trim).filter(|s| !s.is_empty()) {
         Some(raw) => {
@@ -65,10 +79,19 @@ fn merge_event_end_previous(
     let obj = meta.as_object_mut().ok_or_else(|| {
         MarketplaceError::InternalError("Collection metadata is not a JSON object".into())
     })?;
-    obj.insert(
-        "eventEndsAtPrevious".into(),
-        serde_json::Value::from(previous_ms),
-    );
+    if let Some(previous_ms) = previous_end {
+        obj.insert(
+            "eventEndsAtPrevious".into(),
+            serde_json::Value::from(previous_ms),
+        );
+    }
+    if let Some((previous_ms, next_ms)) = start_move {
+        obj.insert(
+            "eventStartsAtPrevious".into(),
+            serde_json::Value::from(previous_ms),
+        );
+        obj.insert("eventStartsAt".into(), serde_json::Value::from(next_ms));
+    }
     serde_json::to_string(&meta).map_err(|_| {
         MarketplaceError::InternalError("Failed to serialize collection metadata".into())
     })
@@ -165,6 +188,7 @@ impl Contract {
         actor_id: &AccountId,
         collection_id: &str,
         expires_at_ms: u64,
+        starts_at_ms: Option<u64>,
     ) -> Result<(), MarketplaceError> {
         let mut collection = self
             .collections
@@ -202,6 +226,31 @@ impl Contract {
         let prior_end = collection
             .event_ends_at
             .or_else(|| template_event_ends_at(&template));
+        let current_start = metadata_event_starts_at(collection.metadata.as_deref())
+            .or_else(|| template_event_starts_at(&template));
+        let start_move = match starts_at_ms {
+            Some(next_start) if current_start != Some(next_start) => {
+                let Some(current_start) = current_start else {
+                    return Err(MarketplaceError::InvalidInput("Event has no start".into()));
+                };
+                if crate::time::now_ms() >= current_start {
+                    return Err(MarketplaceError::InvalidState("Event has started".into()));
+                }
+                if next_start <= crate::time::now_ms() {
+                    return Err(MarketplaceError::InvalidInput(
+                        "New start must be in the future".into(),
+                    ));
+                }
+                if next_start >= expires_at_ms {
+                    return Err(MarketplaceError::InvalidInput(
+                        "New start must be before the new end".into(),
+                    ));
+                }
+                crate::validation::validate_nep177_timestamp_ms("starts_at", Some(next_start))?;
+                Some((current_start, next_start))
+            }
+            _ => None,
+        };
         // Door end the sale may be pinned to. Prefer the postpone override,
         // then the template expiry buyers already see.
         let sale_anchor_ms = collection
@@ -214,10 +263,10 @@ impl Contract {
             sale_anchor_ms,
             expires_at_ms,
         )?;
-        if let Some(prior) = prior_end
-            && prior != expires_at_ms
-        {
-            let next_meta = merge_event_end_previous(collection.metadata.as_deref(), prior)?;
+        let end_move = prior_end.filter(|prior| *prior != expires_at_ms);
+        if end_move.is_some() || start_move.is_some() {
+            let next_meta =
+                merge_postpone_metadata(collection.metadata.as_deref(), end_move, start_move)?;
             crate::validation::validate_metadata_json(&next_meta)?;
             collection.metadata = Some(next_meta);
         }
@@ -227,17 +276,27 @@ impl Contract {
 
         obj.insert("expires_at".into(), expires_at_ms.into());
 
-        // `extra` is a JSON string field; sync eventEndsAt when it exists.
         if let Some(extra_str) = obj.get("extra").and_then(|v| v.as_str())
             && let Ok(mut extra_json) = serde_json::from_str::<serde_json::Value>(extra_str)
             && let Some(extra_obj) = extra_json.as_object_mut()
-            && extra_obj.contains_key("eventEndsAt")
         {
-            extra_obj.insert("eventEndsAt".into(), expires_at_ms.into());
-            let next_extra = serde_json::to_string(&extra_json).map_err(|_| {
-                MarketplaceError::InternalError("Failed to serialize template extra".into())
-            })?;
-            obj.insert("extra".into(), serde_json::Value::String(next_extra));
+            let mut changed = false;
+            if extra_obj.contains_key("eventEndsAt") {
+                extra_obj.insert("eventEndsAt".into(), expires_at_ms.into());
+                changed = true;
+            }
+            if let Some((_, next_start)) = start_move
+                && extra_obj.contains_key("eventStartsAt")
+            {
+                extra_obj.insert("eventStartsAt".into(), next_start.into());
+                changed = true;
+            }
+            if changed {
+                let next_extra = serde_json::to_string(&extra_json).map_err(|_| {
+                    MarketplaceError::InternalError("Failed to serialize template extra".into())
+                })?;
+                obj.insert("extra".into(), serde_json::Value::String(next_extra));
+            }
         }
 
         let next_template = serde_json::to_string(&template)

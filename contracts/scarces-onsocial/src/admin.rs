@@ -105,11 +105,12 @@ impl Contract {
         crate::guards::check_one_yocto()?;
         self.check_contract_owner(&env::predecessor_account_id())?;
         if let Some(ref secondary) = fee_recipient_secondary
-            && secondary == &self.fee_recipient {
-                return Err(MarketplaceError::InvalidInput(
-                    "Secondary fee recipient must differ from primary".to_string(),
-                ));
-            }
+            && secondary == &self.fee_recipient
+        {
+            return Err(MarketplaceError::InvalidInput(
+                "Secondary fee recipient must differ from primary".to_string(),
+            ));
+        }
         let old = self.fee_recipient_secondary.clone();
         self.fee_recipient_secondary = fee_recipient_secondary;
         events::emit_fee_recipient_secondary_changed(

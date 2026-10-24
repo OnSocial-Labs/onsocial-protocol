@@ -69,6 +69,7 @@ export function CollectionOwnerManageMenu({
   kind = null,
   renewable = false,
   eventEndsAtMs = null,
+  eventStartsAtMs = null,
   saleClosesAtMs = null,
   doorStaff = null,
   owner = false,
@@ -84,6 +85,7 @@ export function CollectionOwnerManageMenu({
   kind?: string | null;
   renewable?: boolean;
   eventEndsAtMs?: number | null;
+  eventStartsAtMs?: number | null;
   /** Sale close in ms. Empty when the sale has no end. */
   saleClosesAtMs?: number | null;
   /** Pass drops: Door staff / Redeem staff opens from this drawer. */
@@ -336,14 +338,15 @@ export function CollectionOwnerManageMenu({
   ]);
 
   const runExtend = useCallback(
-    async (newExpiresAtMs: number) => {
+    async (input: { newExpiresAtMs: number; newStartsAtMs?: number }) => {
       if (!isConnected || ownerPending) return;
       setOwnerPending(true);
       try {
         const { accountId: signerId, wallet } = await getSigningWallet();
         const { responses } = await extendTicketEntryAccess(signerId, wallet, {
           collectionId,
-          newExpiresAtMs,
+          newExpiresAtMs: input.newExpiresAtMs,
+          newStartsAtMs: input.newStartsAtMs,
         });
         const confirmed = await trackTransaction({
           txHashes: responses.flatMap((r) => collectRelayTxHashes(r)),
@@ -553,7 +556,7 @@ export function CollectionOwnerManageMenu({
         : panel === 'withdraw'
           ? `Withdraw unclaimed from ${dropTitle}?`
           : panel === 'extend'
-            ? `Postpone entry · ${dropTitle}`
+            ? `Postpone · ${dropTitle}`
             : dropTitle;
 
   return (
@@ -630,10 +633,11 @@ export function CollectionOwnerManageMenu({
         {panel === 'extend' ? (
           <DropExtendEntryPanel
             currentEndsAtMs={eventEndsAtMs}
+            currentStartsAtMs={eventStartsAtMs}
             saleClosesAtMs={saleClosesAtMs}
             pending={ownerPending}
-            onConfirm={(newExpiresAtMs) => {
-              void runExtend(newExpiresAtMs);
+            onConfirm={(input) => {
+              void runExtend(input);
             }}
           />
         ) : null}

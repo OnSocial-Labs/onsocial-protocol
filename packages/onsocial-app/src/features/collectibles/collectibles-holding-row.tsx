@@ -14,6 +14,7 @@ import {
   appendEach,
   quantityMark,
 } from '@/features/scarces/quantity-count-format';
+import { heldEditionRowMark } from '@/features/collectibles/held-editions';
 import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { socialTimeProps } from '@/lib/post-display';
 import {
@@ -100,6 +101,7 @@ export function CollectiblesHoldingRow({
   const opensCollectedRead =
     item.actionLabel === 'Read' && !articleReadHref && Boolean(collectionId);
   const fact = collectiblesHoldingFact(item, editionCount);
+  const seatMark = heldEditionRowMark(item.tokenId, editionCount);
   const showMaker = Boolean(creatorId) && !hideCreator;
   const rowHref = opensPass ? dropHref : item.href;
 
@@ -121,7 +123,12 @@ export function CollectiblesHoldingRow({
       </div>
       <div className="market-listing-copy drops-discovery-copy">
         <div className="market-listing-head drops-discovery-head">
-          <p className="market-listing-title">{item.title}</p>
+          <div className="collectibles-holding-title-block">
+            <p className="market-listing-title">{item.title}</p>
+            {seatMark ? (
+              <p className="collectibles-holding-edition">{seatMark}</p>
+            ) : null}
+          </div>
         </div>
         {showMaker && creatorId ? (
           <DiscoveryPartyStack

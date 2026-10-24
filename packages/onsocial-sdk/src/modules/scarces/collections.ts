@@ -678,7 +678,8 @@ export class ScarcesCollectionsApi {
    */
   async updateTemplateExpiry(
     collectionId: string,
-    expiresAtMs: number
+    expiresAtMs: number,
+    startsAtMs?: number
   ): Promise<RelayResponse> {
     return composeAndSign(
       this._http,
@@ -687,6 +688,7 @@ export class ScarcesCollectionsApi {
       {
         collectionId,
         expiresAtMs,
+        ...(startsAtMs != null ? { startsAtMs } : {}),
       },
       'scarces.updateCollectionTemplateExpiry',
       this._relayOpts({ confirmation: true })

@@ -48,11 +48,12 @@ impl Contract {
         }
 
         if let Some(exp) = expires_at
-            && exp <= env::block_timestamp() {
-                return Err(MarketplaceError::InvalidInput(
-                    "Offer expiry must be in the future".into(),
-                ));
-            }
+            && exp <= env::block_timestamp()
+        {
+            return Err(MarketplaceError::InvalidInput(
+                "Offer expiry must be in the future".into(),
+            ));
+        }
 
         let key = collection_offer_key(collection_id, buyer_id);
 
@@ -138,13 +139,14 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Collection offer not found".into()))?;
 
         if let Some(exp) = offer.expires_at
-            && env::block_timestamp() > exp {
-                let _ = Promise::new(offer.buyer_id)
-                    .transfer(NearToken::from_yoctonear(offer.amount.0));
-                return Err(MarketplaceError::InvalidState(
-                    "Collection offer has expired".into(),
-                ));
-            }
+            && env::block_timestamp() > exp
+        {
+            let _ =
+                Promise::new(offer.buyer_id).transfer(NearToken::from_yoctonear(offer.amount.0));
+            return Err(MarketplaceError::InvalidState(
+                "Collection offer has expired".into(),
+            ));
+        }
 
         let amount = offer.amount.0;
 

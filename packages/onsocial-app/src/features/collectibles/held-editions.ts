@@ -18,14 +18,32 @@ export function heldEditionNoun(mediumKind?: string | null): string {
   return 'Edition';
 }
 
-/** `Edition 4`, `Pass 2`, or `Coupon 3`. Never the raw id. */
+/** `#41` — the seat, under a title that is already on screen. */
+export function heldEditionMark(tokenId: string): string | null {
+  const seat = editionSeatFromTokenId(tokenId);
+  return seat != null ? `#${seat}` : null;
+}
+
+/**
+ * Hash under a collectibles title. Several copies of one drop stay a count,
+ * so the row does not pretend one seat is the holding.
+ */
+export function heldEditionRowMark(
+  tokenId: string,
+  editionCount: number
+): string | null {
+  if (editionCount !== 1) return null;
+  return heldEditionMark(tokenId);
+}
+
+/** `Edition #4`, `Pass #2`, or `Coupon #3`. The copy when its title is not already shown. */
 export function heldEditionLabel(
   tokenId: string,
   mediumKind?: string | null
 ): string {
   const noun = heldEditionNoun(mediumKind);
-  const seat = editionSeatFromTokenId(tokenId);
-  return seat != null ? `${noun} ${seat}` : noun;
+  const mark = heldEditionMark(tokenId);
+  return mark ? `${noun} ${mark}` : noun;
 }
 
 /**

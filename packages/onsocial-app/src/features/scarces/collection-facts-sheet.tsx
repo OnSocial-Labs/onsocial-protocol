@@ -16,6 +16,8 @@ import {
 import { dropRightsFacts } from '@/features/scarces/drop-create-layout';
 import {
   collectionHasTicketEvent,
+  eventHintLive,
+  postponeNotice,
   ticketEventScheduleFacts,
 } from '@/features/scarces/ticket-event-facts';
 import {
@@ -131,6 +133,10 @@ export function CollectionFactsSheet({
   const status = deriveCollectionStatus(view, nowMs);
   const schedule = scheduleFacts(view, nowMs);
   const event = ticketEventScheduleFacts(view, nowMs);
+  const movedNotice = postponeNotice({
+    previousEndsAtMs: view.eventEndsAtPreviousMs,
+    previousStartsAtMs: view.eventStartsAtPreviousMs,
+  });
   const showEvent = collectionHasTicketEvent(view) && !event.empty;
   const access = accessEndsScheduleFacts(view.accessEndsAtMs, nowMs);
   const showAccess =
@@ -198,7 +204,20 @@ export function CollectionFactsSheet({
               {event.ends ? (
                 <SheetFactRow label={event.endsLabel} value={event.ends} />
               ) : null}
-              {event.next ? <SheetFactCopy>{event.next}</SheetFactCopy> : null}
+              {movedNotice ? (
+                <SheetFactCopy>{movedNotice}</SheetFactCopy>
+              ) : null}
+              {event.next ? (
+                <SheetFactCopy>
+                  {eventHintLive(event.next) ? (
+                    <span className="collection-product-status is-live">
+                      {event.next}
+                    </span>
+                  ) : (
+                    event.next
+                  )}
+                </SheetFactCopy>
+              ) : null}
             </SheetFactSection>
             <Divider variant="detail" />
           </>

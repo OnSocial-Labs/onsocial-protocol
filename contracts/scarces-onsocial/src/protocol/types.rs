@@ -123,6 +123,8 @@ pub enum Action {
     UpdateCollectionTemplateExpiry {
         collection_id: String,
         expires_at_ms: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        starts_at_ms: Option<u64>,
     },
     SetCollectionAppMetadata {
         app_id: String,

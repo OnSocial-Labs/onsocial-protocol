@@ -71,7 +71,8 @@ export function canExtendTicketEntry(input: {
   if (input.status === 'cancelled') return false;
   const end = input.eventEndsAtMs;
   const now = input.nowMs ?? Date.now();
-  if (end != null && Number.isFinite(end) && end > 0 && now >= end) return false;
+  if (end != null && Number.isFinite(end) && end > 0 && now >= end)
+    return false;
   return true;
 }
 
@@ -158,17 +159,29 @@ export async function extendTicketEntryAccess(
   input: {
     collectionId: string;
     newExpiresAtMs: number;
+    newStartsAtMs?: number | null;
   }
 ): Promise<{ responses: RelayResponse[]; eventEndsAtMs: number }> {
   const eventEndsAtMs = Math.floor(input.newExpiresAtMs);
   if (!Number.isFinite(eventEndsAtMs) || eventEndsAtMs <= Date.now()) {
     throw new Error('New entry end must be in the future.');
   }
+  const eventStartsAtMs =
+    input.newStartsAtMs != null ? Math.floor(input.newStartsAtMs) : undefined;
+  if (
+    eventStartsAtMs != null &&
+    (!Number.isFinite(eventStartsAtMs) ||
+      eventStartsAtMs <= Date.now() ||
+      eventStartsAtMs >= eventEndsAtMs)
+  ) {
+    throw new Error('New start must be in the future and before the new end.');
+  }
 
   const client = createAppScarcesWalletClient(accountId, wallet);
   const response = await client.scarces.collections.updateTemplateExpiry(
     input.collectionId,
-    eventEndsAtMs
+    eventEndsAtMs,
+    eventStartsAtMs
   );
 
   return { responses: [response], eventEndsAtMs };

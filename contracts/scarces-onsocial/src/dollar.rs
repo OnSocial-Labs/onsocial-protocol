@@ -142,19 +142,21 @@ impl Contract {
         if scope == DOLLAR_SCOPE_SALE {
             let sale_id = Contract::make_sale_id(&env::current_account_id(), id);
             if let Some(sale) = self.sales.get(&sale_id)
-                && sale.auction.is_some() {
-                    return Err(MarketplaceError::InvalidInput(
-                        "Auctions stay priced in NEAR".into(),
-                    ));
-                }
+                && sale.auction.is_some()
+            {
+                return Err(MarketplaceError::InvalidInput(
+                    "Auctions stay priced in NEAR".into(),
+                ));
+            }
         }
         if scope == DOLLAR_SCOPE_COLLECTION
             && let Some(collection) = self.collections.get(&id.to_string())
-                && collection.start_price.is_some() {
-                    return Err(MarketplaceError::InvalidInput(
-                        "A Dutch auction stays priced in NEAR".into(),
-                    ));
-                }
+            && collection.start_price.is_some()
+        {
+            return Err(MarketplaceError::InvalidInput(
+                "A Dutch auction stays priced in NEAR".into(),
+            ));
+        }
         Ok(())
     }
 

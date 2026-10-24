@@ -342,17 +342,27 @@ export function buildSetCollectionMetadataAction(params: {
 export function buildUpdateCollectionTemplateExpiryAction(params: {
   collectionId: string;
   expiresAtMs: number;
+  startsAtMs?: number;
   targetAccount?: string;
 }): SimpleActionResult {
   if (!params.collectionId) throw new ComposeError(400, 'Missing collectionId');
   if (!Number.isFinite(params.expiresAtMs) || params.expiresAtMs <= 0) {
     throw new ComposeError(400, 'Invalid expiresAtMs');
   }
+  if (
+    params.startsAtMs != null &&
+    (!Number.isFinite(params.startsAtMs) || params.startsAtMs <= 0)
+  ) {
+    throw new ComposeError(400, 'Invalid startsAtMs');
+  }
   return {
     action: {
       type: 'update_collection_template_expiry',
       collection_id: params.collectionId,
       expires_at_ms: Math.floor(params.expiresAtMs),
+      ...(params.startsAtMs != null
+        ? { starts_at_ms: Math.floor(params.startsAtMs) }
+        : {}),
     },
     targetAccount: resolveScarcesTarget(params.targetAccount),
   };

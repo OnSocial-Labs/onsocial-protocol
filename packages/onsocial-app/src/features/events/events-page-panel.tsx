@@ -54,6 +54,7 @@ import {
   groupEvents,
   type EventWindow,
 } from '@/features/events/events-catalog';
+import { eventHintLive } from '@/features/scarces/ticket-event-facts';
 import {
   eventGuestCountAria,
   eventGuestCountLabel,
@@ -127,7 +128,13 @@ function EventRow({
   const whenAt = eventRowWhenAt(item, nowMs);
   const dealParts = [
     when ? (
-      <time key="when" {...(whenAt != null ? socialTimeProps(whenAt) : {})}>
+      <time
+        key="when"
+        className={
+          eventHintLive(when) ? 'collection-product-status is-live' : undefined
+        }
+        {...(whenAt != null ? socialTimeProps(whenAt) : {})}
+      >
         {when}
       </time>
     ) : null,

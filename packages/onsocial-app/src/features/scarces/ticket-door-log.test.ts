@@ -78,7 +78,7 @@ describe('ticket-door-log', () => {
     expect(entries[0]).toMatchObject({
       guestId: 'guest.near',
       staffId: 'door.near',
-      seatLabel: 'Pass 3',
+      seatLabel: 'Pass #3',
       tokenId: 'night-drive:3',
     });
     expect(entries[0]!.timeLabel.length).toBeGreaterThan(0);
@@ -100,12 +100,12 @@ describe('ticket-door-log', () => {
         maxRedeems: 3,
       }),
     ])[0]!;
-    expect(doorLogEntrySeatLine(entry)).toBe('Pass 3 · 2 admitted');
+    expect(doorLogEntrySeatLine(entry)).toBe('Pass #3 · 2 admitted');
     expect(doorLogEntryMeta(entry, 'Door Lead', 'admit')).toBe(
-      'Pass 3 · 2 admitted · Admitted by Door Lead'
+      'Pass #3 · 2 admitted · Admitted by Door Lead'
     );
     expect(doorLogEntryMeta(entry, 'Door Lead', 'redeem')).toBe(
-      'Pass 3 · 2 redeemed · Redeemed by Door Lead'
+      'Pass #3 · 2 redeemed · Redeemed by Door Lead'
     );
   });
 

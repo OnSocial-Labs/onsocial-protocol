@@ -143,11 +143,11 @@ describe('ticket-pass-payload', () => {
   });
 
   it('shows a guest seat label instead of collection:id', () => {
-    expect(ticketPassSeatLabel('onsocial-14oliw:1')).toBe('Pass 1');
-    expect(ticketPassSeatLabel('night-drive:12')).toBe('Pass 12');
+    expect(ticketPassSeatLabel('onsocial-14oliw:1')).toBe('Pass #1');
+    expect(ticketPassSeatLabel('night-drive:12')).toBe('Pass #12');
     expect(ticketPassSeatLabel('')).toBe('Pass');
-    expect(ticketPassSeatLabel('night-drive:12', 'admit')).toBe('Pass 12');
-    expect(ticketPassSeatLabel('night-drive:12', 'redeem')).toBe('Coupon 12');
+    expect(ticketPassSeatLabel('night-drive:12', 'admit')).toBe('Pass #12');
+    expect(ticketPassSeatLabel('night-drive:12', 'redeem')).toBe('Coupon #12');
     expect(ticketPassSeatLabel('', 'redeem')).toBe('Coupon');
   });
 

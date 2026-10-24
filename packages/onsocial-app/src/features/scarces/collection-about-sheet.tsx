@@ -1,28 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
-import {
-  Divider,
-  OsHugSheet,
-  ProtocolMotionArrow,
-} from '@onsocial/ui';
-import {
-  SheetFactCopy,
-  SheetFactRow,
-  SheetFactSection,
-} from '@onsocial/ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Divider, OsHugSheet, ProtocolMotionArrow } from '@onsocial/ui';
+import { SheetFactCopy, SheetFactRow, SheetFactSection } from '@onsocial/ui';
 import type { CollectionView } from '@/features/scarces/collections-data';
 import {
   accessEndsScheduleFacts,
   collectionShouldShowAccessEnds,
 } from '@/features/scarces/access-ends-facts';
 import {
+  eventHintLive,
   postponeNotice,
   ticketEventScheduleFacts,
 } from '@/features/scarces/ticket-event-facts';
@@ -128,13 +116,14 @@ export function CollectionAboutSheet({
     view.createdAtMs > 0 ? formatMarketRelativeTime(view.createdAtMs) : null;
   const [nowMs] = useState(() => Date.now());
   const event = ticketEventScheduleFacts(view, nowMs);
-  const movedNotice = postponeNotice(
-    view.eventEndsAtPreviousMs,
-    view.eventEndsAtMs
-  );
+  const movedNotice = postponeNotice({
+    previousEndsAtMs: view.eventEndsAtPreviousMs,
+    previousStartsAtMs: view.eventStartsAtPreviousMs,
+  });
   const showEvent = !event.empty;
   const access = accessEndsScheduleFacts(view.accessEndsAtMs, nowMs);
-  const showAccess = collectionShouldShowAccessEnds(view, nowMs) && !access.empty;
+  const showAccess =
+    collectionShouldShowAccessEnds(view, nowMs) && !access.empty;
   const showStory = showEvent || showAccess;
 
   return (
@@ -169,8 +158,20 @@ export function CollectionAboutSheet({
               {event.ends ? (
                 <SheetFactRow label={event.endsLabel} value={event.ends} />
               ) : null}
-              {event.next ? <SheetFactCopy>{event.next}</SheetFactCopy> : null}
-              {movedNotice ? <SheetFactCopy>{movedNotice}</SheetFactCopy> : null}
+              {movedNotice ? (
+                <SheetFactCopy>{movedNotice}</SheetFactCopy>
+              ) : null}
+              {event.next ? (
+                <SheetFactCopy>
+                  {eventHintLive(event.next) ? (
+                    <span className="collection-product-status is-live">
+                      {event.next}
+                    </span>
+                  ) : (
+                    event.next
+                  )}
+                </SheetFactCopy>
+              ) : null}
             </SheetFactSection>
           </>
         ) : null}
@@ -182,7 +183,9 @@ export function CollectionAboutSheet({
               {access.ends ? (
                 <SheetFactRow label={access.endsLabel} value={access.ends} />
               ) : null}
-              {access.next ? <SheetFactCopy>{access.next}</SheetFactCopy> : null}
+              {access.next ? (
+                <SheetFactCopy>{access.next}</SheetFactCopy>
+              ) : null}
             </SheetFactSection>
           </>
         ) : null}

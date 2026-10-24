@@ -243,6 +243,7 @@ export type ScarcesAction =
       type: 'update_collection_template_expiry';
       collection_id: string;
       expires_at_ms: number;
+      starts_at_ms?: number;
     }
   | {
       type: 'set_collection_app_metadata';

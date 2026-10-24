@@ -131,8 +131,14 @@ impl Contract {
             Action::UpdateCollectionTemplateExpiry {
                 collection_id,
                 expires_at_ms,
+                starts_at_ms,
             } => {
-                self.update_collection_template_expiry(actor_id, &collection_id, expires_at_ms)?;
+                self.update_collection_template_expiry(
+                    actor_id,
+                    &collection_id,
+                    expires_at_ms,
+                    starts_at_ms,
+                )?;
                 Ok(Value::Null)
             }
             Action::SetCollectionAppMetadata {

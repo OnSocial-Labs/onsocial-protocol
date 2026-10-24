@@ -17,7 +17,11 @@ import { type CollectionRedeemAttendance } from '@/features/scarces/ticket-atten
 import { eventGuestTallyLine } from '@/features/events/event-guests';
 import { CollectionDoorLogSheet } from '@/features/scarces/collection-door-log-sheet';
 import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
-import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
+import {
+  eventHintLive,
+  postponeNotice,
+  ticketEventScheduleFacts,
+} from '@/features/scarces/ticket-event-facts';
 import {
   formatFutureRelativeTime,
   formatMarketRelativePhrase,
@@ -102,6 +106,10 @@ export function TicketDoorEventSheet({
   const [nowMs] = useState(() => Date.now());
   const sale = saleScheduleLines(view, nowMs);
   const event = ticketEventScheduleFacts(view, nowMs);
+  const movedNotice = postponeNotice({
+    previousEndsAtMs: view.eventEndsAtPreviousMs,
+    previousStartsAtMs: view.eventStartsAtPreviousMs,
+  });
   const status = deriveCollectionStatus(view, nowMs);
   const hasEvent = !event.empty;
   const maxRedeems = attendance?.maxRedeems ?? view.maxRedeems;
@@ -200,7 +208,20 @@ export function TicketDoorEventSheet({
               {event.ends ? (
                 <SheetFactRow label={event.endsLabel} value={event.ends} />
               ) : null}
-              {event.next ? <SheetFactCopy>{event.next}</SheetFactCopy> : null}
+              {movedNotice ? (
+                <SheetFactCopy>{movedNotice}</SheetFactCopy>
+              ) : null}
+              {event.next ? (
+                <SheetFactCopy>
+                  {eventHintLive(event.next) ? (
+                    <span className="collection-product-status is-live">
+                      {event.next}
+                    </span>
+                  ) : (
+                    event.next
+                  )}
+                </SheetFactCopy>
+              ) : null}
             </SheetFactSection>
           ) : null}
 

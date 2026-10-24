@@ -22,11 +22,12 @@ impl Contract {
         }
 
         if let Some(sp) = &collection.start_price
-            && new_price_near.0 >= sp.0 {
-                return Err(MarketplaceError::InvalidInput(
-                    "price_near must remain below start_price for Dutch auction".into(),
-                ));
-            }
+            && new_price_near.0 >= sp.0
+        {
+            return Err(MarketplaceError::InvalidInput(
+                "price_near must remain below start_price for Dutch auction".into(),
+            ));
+        }
 
         let old_price = collection.price_near;
         collection.price_near = new_price_near;
@@ -49,11 +50,12 @@ impl Contract {
         end_time: Option<u64>,
     ) -> Result<(), MarketplaceError> {
         if let (Some(start), Some(end)) = (start_time, end_time)
-            && end <= start {
-                return Err(MarketplaceError::InvalidInput(
-                    "End time must be after start time".into(),
-                ));
-            }
+            && end <= start
+        {
+            return Err(MarketplaceError::InvalidInput(
+                "End time must be after start time".into(),
+            ));
+        }
 
         let mut collection = self
             .collections
@@ -89,13 +91,15 @@ impl Contract {
             return false;
         }
         if let Some(start) = collection.start_time
-            && now < start {
-                return false;
-            }
+            && now < start
+        {
+            return false;
+        }
         if let Some(end) = collection.end_time
-            && now > end {
-                return false;
-            }
+            && now > end
+        {
+            return false;
+        }
         true
     }
 

@@ -79,6 +79,7 @@ import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet'
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { VariationSetPeek } from '@/features/scarces/variation-set-peek';
 import {
+  eventHintLive,
   postponeNotice,
   ticketEventScheduleFacts,
 } from '@/features/scarces/ticket-event-facts';
@@ -156,14 +157,13 @@ import { OsRowAction } from '@/lib/os-row-action';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   collectionIdFromTokenId,
-  editionSeatFromTokenId,
   formatFutureRelativeTime,
   formatMarketRelativePhrase,
   formatMarketRelativeTime,
 } from '@/features/market/market-listings';
 import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import { isAppPostSheetHref } from '@/lib/post-routes';
-import { heldEditionLabel } from '@/features/collectibles/held-editions';
+import { heldEditionMark } from '@/features/collectibles/held-editions';
 import { fallbackLabel } from '@/lib/profile-display';
 import { holdingsActionLabel } from '@/lib/portfolio-holdings';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
@@ -314,12 +314,7 @@ export function CollectionPagePanel({
     return null;
   });
   const coverSrc = view ? editionCoverUrl(view, editionToken) : null;
-  const editionLine =
-    view?.isVariations &&
-    editionToken &&
-    editionSeatFromTokenId(editionToken) != null
-      ? heldEditionLabel(editionToken, view.kind)
-      : '';
+  const editionLine = editionToken ? (heldEditionMark(editionToken) ?? '') : '';
   /** Album / multi-clip drops love per track in the player — no Drop-level heart. */
   const showDropLove = (view?.playables.length ?? 0) === 0;
   const dropLoves = useScarceDropLoves({
@@ -1098,10 +1093,10 @@ export function CollectionPagePanel({
   };
   const description = view.description?.trim() ?? '';
   const aboutEvent = ticketEventScheduleFacts(view, nowMs);
-  const movedNotice = postponeNotice(
-    view.eventEndsAtPreviousMs,
-    view.eventEndsAtMs
-  );
+  const movedNotice = postponeNotice({
+    previousEndsAtMs: view.eventEndsAtPreviousMs,
+    previousStartsAtMs: view.eventStartsAtPreviousMs,
+  });
   const aboutHasMore =
     !aboutEvent.empty ||
     (view.accessEndsAtMs != null && view.accessEndsAtMs > 0) ||
@@ -1229,6 +1224,7 @@ export function CollectionPagePanel({
                   kind={view.kind}
                   renewable={view.renewable}
                   eventEndsAtMs={view.eventEndsAtMs}
+                  eventStartsAtMs={view.eventStartsAtMs}
                   saleClosesAtMs={view.endTimeMs}
                   owner={showOwnerManage}
                   onOpenFacts={() => setFactsOpen(true)}
@@ -1506,7 +1502,15 @@ export function CollectionPagePanel({
                   <p className="collection-product-line">{aboutEvent.place}</p>
                 ) : null}
                 {aboutEvent.next ? (
-                  <p className="collection-product-line">{aboutEvent.next}</p>
+                  <p className="collection-product-line">
+                    {eventHintLive(aboutEvent.next) ? (
+                      <span className="collection-product-status is-live">
+                        {aboutEvent.next}
+                      </span>
+                    ) : (
+                      aboutEvent.next
+                    )}
+                  </p>
                 ) : null}
               </div>
             ) : null}

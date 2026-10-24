@@ -283,7 +283,7 @@ fn ticket_non_renewable_cannot_postpone() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
     let err = contract
-        .update_collection_template_expiry(&creator(), COL, T0_MS + 4 * DAY_MS)
+        .update_collection_template_expiry(&creator(), COL, T0_MS + 4 * DAY_MS, None)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }

@@ -492,6 +492,12 @@ export function TicketShowPassSheet({
             </button>
           ) : null}
           <p className="ticket-show-pass-name">{name}</p>
+          {whenLabel ? (
+            <p className="ticket-show-pass-when">{whenLabel}</p>
+          ) : null}
+          {placeLabel ? (
+            <p className="ticket-show-pass-when">{placeLabel}</p>
+          ) : null}
           {/* One line from the first paint, so a late status cannot drop the QR. */}
           <div className="ticket-show-pass-status-slot">
             {statusLine ? (
@@ -598,7 +604,10 @@ export function TicketShowPassSheet({
                   {exporting === 'download' ? 'Downloading…' : 'Download'}
                 </button>
               ) : (
-                <span className="ticket-show-pass-action is-reserved" aria-hidden>
+                <span
+                  className="ticket-show-pass-action is-reserved"
+                  aria-hidden
+                >
                   Download
                 </span>
               )}

@@ -9,6 +9,7 @@ export type TicketEventMeta = {
   eventStartsAtMs: number | null;
   eventEndsAtMs: number | null;
   eventEndsAtPreviousMs: number | null;
+  eventStartsAtPreviousMs: number | null;
   place: string | null;
 };
 
@@ -32,6 +33,7 @@ export function parseTicketEventFromExtra(
       eventStartsAtMs: null,
       eventEndsAtMs: null,
       eventEndsAtPreviousMs: null,
+      eventStartsAtPreviousMs: null,
       place: null,
     };
   }
@@ -39,6 +41,7 @@ export function parseTicketEventFromExtra(
     eventStartsAtMs: asPositiveMs(extra.eventStartsAt),
     eventEndsAtMs: asPositiveMs(extra.eventEndsAt),
     eventEndsAtPreviousMs: asPositiveMs(extra.eventEndsAtPrevious),
+    eventStartsAtPreviousMs: asPositiveMs(extra.eventStartsAtPrevious),
     place: normalizePlaceSlug(extra.place),
   };
 }
@@ -90,11 +93,13 @@ export function parseTicketEventFromCollectionMetadata(
     const eventStartsAtMs = asPositiveMs(meta.eventStartsAt);
     const eventEndsAtMs = asPositiveMs(meta.eventEndsAt);
     const eventEndsAtPreviousMs = asPositiveMs(meta.eventEndsAtPrevious);
+    const eventStartsAtPreviousMs = asPositiveMs(meta.eventStartsAtPrevious);
     const place = normalizePlaceSlug(meta.place);
     return {
       ...(eventStartsAtMs != null ? { eventStartsAtMs } : {}),
       ...(eventEndsAtMs != null ? { eventEndsAtMs } : {}),
       ...(eventEndsAtPreviousMs != null ? { eventEndsAtPreviousMs } : {}),
+      ...(eventStartsAtPreviousMs != null ? { eventStartsAtPreviousMs } : {}),
       ...(place ? { place } : {}),
     };
   } catch {
