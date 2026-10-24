@@ -118,7 +118,7 @@ test.describe('collectibles shell', () => {
       2
     );
     await expect(editions.getByText(/night-drive:/)).toHaveCount(0);
-    await page.getByRole('button', { name: 'Close editions' }).click();
+    await editions.getByRole('button', { name: 'Close editions' }).click();
     await expect(editions).toBeHidden();
     await expect(nightRow).not.toContainText('@alice.near');
     await expect(
