@@ -5,6 +5,7 @@ import {
   groupHoldingsLibrary,
   sortHoldingsLibrary,
   holdingsActionLabel,
+  heldEditionHref,
   holdingsHrefForOwned,
   holdingsReadHref,
   holdingsKindLabel,
@@ -169,6 +170,36 @@ describe('toPortfolioHoldingPeek', () => {
     });
     expect(peek.href).toBe('/collection/gate?pass=1&t=gate%3A2');
     expect(peek.actionLabel).toBe('Show pass');
+  });
+
+  it('opens one edition on a link that can show that image', () => {
+    expect(
+      heldEditionHref({
+        tokenId: 'quiet-hours:2',
+        collectionId: 'quiet-hours',
+        mediumKind: 'writing',
+      })
+    ).toBe('/collection/quiet-hours?t=quiet-hours%3A2');
+    expect(
+      heldEditionHref({
+        tokenId: 'night-drive:2',
+        collectionId: 'night-drive',
+        mediumKind: 'audio',
+      })
+    ).toBe('/collectibles/play?c=night-drive&t=night-drive%3A2');
+    expect(
+      heldEditionHref({
+        tokenId: 'gate:2',
+        collectionId: 'gate',
+        mediumKind: 'ticket',
+      })
+    ).toBe('/collection/gate?pass=1&t=gate%3A2');
+    expect(
+      heldEditionHref({
+        tokenId: 's:abc',
+        sourcePostPath: 'alice.near/post/42',
+      })
+    ).toBe('/@alice.near/posts/42');
   });
 
   it('sends Read for a listed essay to the article, and the cover to the drop', () => {

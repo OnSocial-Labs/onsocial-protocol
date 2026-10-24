@@ -1,6 +1,7 @@
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { viewNearContract, yoctoToNear } from '@/lib/app-near-rpc';
 import {
+  editionSeatFromTokenId,
   resolveScarceMediaUrl,
   type ScarcePlayableMedia,
 } from '@/features/market/market-listings';
@@ -137,6 +138,8 @@ export interface CollectionView {
   maxRedeems: number | null;
   /** True when every token resolves its own artwork (media has a seat placeholder). */
   isVariations: boolean;
+  /** Unresolved media template when `isVariations` (`…/{seat_number}.png`). */
+  variationMediaTemplate?: string | null;
   /** Sample piece URLs from the sealed variation set (cover + spread). */
   variationSamples?: string[];
   /** Trait JSON template with `{seat_number}`, when the set has a reference folder. */
@@ -366,6 +369,30 @@ export function variationSampleSeats(
     }
   }
   return [...seats].sort((a, b) => a - b).slice(0, cap);
+}
+
+/**
+ * Public face for one edition. A variation set uses that seat's file.
+ * Everyone else sees the drop cover.
+ */
+export function editionCoverUrl(
+  view: {
+    collectionId: string;
+    mediaUrl: string | null;
+    isVariations?: boolean;
+    variationMediaTemplate?: string | null;
+  },
+  tokenId: string | null | undefined
+): string | null {
+  const template = view.variationMediaTemplate?.trim() || '';
+  const token = tokenId?.trim() || '';
+  if (!view.isVariations || !template || !token) return view.mediaUrl;
+  const seat = editionSeatFromTokenId(token);
+  if (seat == null) return view.mediaUrl;
+  return (
+    resolveScarceMediaUrl(substituteSeat(template, view.collectionId, seat)) ??
+    view.mediaUrl
+  );
 }
 
 /**
@@ -705,6 +732,7 @@ export function toCollectionView(
     renewable: Boolean(record.renewable),
     maxRedeems,
     isVariations: template.isVariations,
+    variationMediaTemplate: template.rawMedia,
     variationSamples:
       template.isVariations && template.rawMedia
         ? variationSampleSeats(totalSupply, coverSeat)

@@ -237,6 +237,22 @@ export function holdingsHrefForOwned(item: {
 }
 
 /**
+ * Open one edition. Play and pass links already name the token.
+ * Other drops use `?t=` so the page can show that edition's image.
+ */
+export function heldEditionHref(
+  item: Parameters<typeof holdingsHrefForOwned>[0]
+): string | null {
+  const href = holdingsHrefForOwned(item);
+  if (!href) return null;
+  if (/[?&]t=/.test(href)) return href;
+  const collectionId =
+    item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
+  if (!collectionId) return href;
+  return collectionPath(collectionId, { tokenId: item.tokenId });
+}
+
+/**
  * Collectibles Read for a listed essay. Book and Issue stay on the page
  * reader. Cover and title use `holdingsHrefForOwned` (the drop page).
  */
@@ -289,9 +305,7 @@ export function groupHoldingsForRail(
   return [...byKey.values()];
 }
 
-export function holdingsCreatorKey(
-  creatorId?: string | null
-): string {
+export function holdingsCreatorKey(creatorId?: string | null): string {
   return creatorId?.trim() || COLLECTIBLES_CREATOR_OTHER;
 }
 
@@ -453,11 +467,11 @@ export function sortHoldingsLibrary(
     .sort((a, b) => {
       const left = libraryCreatorSortLabel(
         a,
-        a.creatorId ? displayNames?.get(a.creatorId) ?? null : null
+        a.creatorId ? (displayNames?.get(a.creatorId) ?? null) : null
       );
       const right = libraryCreatorSortLabel(
         b,
-        b.creatorId ? displayNames?.get(b.creatorId) ?? null : null
+        b.creatorId ? (displayNames?.get(b.creatorId) ?? null) : null
       );
       return left.localeCompare(right);
     });
@@ -559,9 +573,10 @@ export function vaultHeldKindFilters(
 }
 
 /** Kind-tab filter for the Collectibles hub (unknown kinds only appear in All). */
-export function filterHoldingsByMedium<
-  T extends { mediumKind: string | null },
->(items: T[], medium: MarketMediumFilter): T[] {
+export function filterHoldingsByMedium<T extends { mediumKind: string | null }>(
+  items: T[],
+  medium: MarketMediumFilter
+): T[] {
   if (medium === 'all') return items;
   if (medium === 'audio') {
     return items.filter((item) => isAudioMediumKind(item.mediumKind));

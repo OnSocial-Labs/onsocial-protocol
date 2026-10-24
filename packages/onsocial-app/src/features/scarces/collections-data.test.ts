@@ -6,6 +6,7 @@ import {
   collectionSupplyFromRecord,
   dropCommerceFromCurrent,
   dropSupplyShouldPoll,
+  editionCoverUrl,
   toCollectionView,
   type LazyCollectionRecord,
 } from './collections-data';
@@ -46,6 +47,17 @@ describe('toCollectionView cover seat', () => {
     const view = toCollectionView(variationRecord());
     expect(view?.isVariations).toBe(true);
     expect(view?.mediaUrl).toContain('/1.png');
+  });
+
+  it('resolves a public edition link to that seat, and keeps the drop cover otherwise', () => {
+    const view = toCollectionView(variationRecord());
+    expect(view?.variationMediaTemplate).toContain('{seat_number}.png');
+    expect(editionCoverUrl(view!, 'egg-1:3')).toContain('/3.png');
+    expect(editionCoverUrl(view!, null)).toBe(view!.mediaUrl);
+    expect(editionCoverUrl(view!, 's:post')).toBe(view!.mediaUrl);
+    expect(editionCoverUrl({ ...view!, isVariations: false }, 'egg-1:3')).toBe(
+      view!.mediaUrl
+    );
   });
 
   it('uses the creator-chosen cover seat from metadata', () => {

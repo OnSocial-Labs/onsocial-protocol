@@ -26,10 +26,12 @@ describe('held editions', () => {
     expect(heldEditionLabel('night-drive:4')).not.toContain('night-drive');
   });
 
-  it('lists each edition with Transfer, Sell, and History', () => {
+  it('opens an edition from the row and keeps actions in one menu', () => {
     const html = renderToStaticMarkup(
       createElement(HeldEditionList, {
         editions: [edition('night-drive:5'), edition('night-drive:4')],
+        choose: 'open',
+        onChoose: () => {},
         onTransfer: () => {},
         onSell: () => {},
         onHistory: () => {},
@@ -37,12 +39,26 @@ describe('held editions', () => {
     );
     expect(html).toContain('Edition 5');
     expect(html).toContain('Edition 4');
-    expect(html).toContain('Transfer');
-    expect(html).toContain('Sell');
-    expect(html).toContain('History');
+    expect(html).toContain('aria-label="Open Edition 5"');
+    expect(html).toContain('aria-label="Open Edition 4"');
+    expect(html).toContain('aria-label="More for Edition 5"');
+    expect(html).toContain('aria-label="More for Edition 4"');
     expect(html).not.toContain('night-drive:4');
     expect(html).not.toContain('night-drive:5');
     expect(html).not.toContain('<img');
+  });
+
+  it('sends the edition from the row when the sheet was opened to transfer', () => {
+    const html = renderToStaticMarkup(
+      createElement(HeldEditionList, {
+        editions: [edition('night-drive:4')],
+        choose: 'send',
+        onChoose: () => {},
+        onTransfer: () => {},
+      })
+    );
+    expect(html).toContain('aria-label="Send Edition 4"');
+    expect(html).toContain('aria-label="More for Edition 4"');
   });
 
   it('shows each cover only when the editions resolve to different art', () => {
@@ -65,6 +81,8 @@ describe('held editions', () => {
           edition('night-drive:1', 'https://cdn.example/cover.png'),
           edition('night-drive:3', 'https://cdn.example/cover.png'),
         ],
+        choose: 'open',
+        onChoose: () => {},
       })
     );
     expect(shared).not.toContain('<img');
@@ -75,16 +93,17 @@ describe('held editions', () => {
           edition('night-drive:1', 'https://cdn.example/1.png'),
           edition('night-drive:3', 'https://cdn.example/3.png'),
         ],
+        choose: 'open',
+        onChoose: () => {},
         onTransfer: () => {},
         onHistory: () => {},
       })
     );
     expect(varied).toContain('src="https://cdn.example/1.png"');
     expect(varied).toContain('src="https://cdn.example/3.png"');
-    expect(varied).toContain('Edition 1');
-    expect(varied).toContain('Edition 3');
-    expect(varied).toContain('Transfer');
-    expect(varied).toContain('History');
+    expect(varied).toContain('aria-label="Open Edition 1"');
+    expect(varied).toContain('aria-label="Open Edition 3"');
+    expect(varied).toContain('aria-label="More for Edition 1"');
     expect(varied).not.toContain('night-drive:');
   });
 });

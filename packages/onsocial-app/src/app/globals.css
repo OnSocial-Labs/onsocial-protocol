@@ -29485,6 +29485,11 @@ a.os-surface-row {
     width: 100%;
   }
 
+  .collectibles-play-title-block {
+    flex: 1;
+    min-width: 0;
+  }
+
   .collectibles-play-title {
     margin: 0;
     flex: 1;
@@ -29493,6 +29498,15 @@ a.os-surface-row {
     font-weight: 650;
     letter-spacing: -0.02em;
     line-height: 1.25;
+  }
+
+  .collectibles-play-edition,
+  .collection-edition-line {
+    margin: 0.2rem 0 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--fg-rgb) / 0.62);
   }
 
   .collectibles-play-page.is-immersive .collectibles-play-creator,
@@ -29655,6 +29669,8 @@ a.os-surface-row {
   .held-edition-list {
     display: flex;
     flex-direction: column;
+    /* The summon dock paints above this hug sheet. Keep the last edition clear of it. */
+    padding-bottom: var(--portfolio-dock-clearance, 4.75rem);
   }
 
   .held-edition-row {
@@ -29665,11 +29681,24 @@ a.os-surface-row {
     padding: 0.7rem 0;
   }
 
-  .held-edition-main {
+  .held-edition-choose {
     display: flex;
     align-items: center;
     gap: 0.75rem;
     min-width: 0;
+    flex: 1;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  span.held-edition-choose {
+    cursor: default;
   }
 
   .held-edition-cover {
@@ -29686,24 +29715,6 @@ a.os-surface-row {
     min-width: 0;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-  }
-
-  .held-edition-actions {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-    gap: 0.65rem;
-  }
-
-  .held-edition-action {
-    border: 0;
-    background: none;
-    padding: 0.15rem 0;
-    font: inherit;
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--os-surface-emphasis);
-    cursor: pointer;
   }
 
   .held-edition-empty {
@@ -44890,6 +44901,11 @@ a.os-surface-row {
   .profile-support-error {
     color: var(--signal-error, var(--protocol-red));
   }
+}
+
+/* Edition actions sit in a hug body whose padding is unlayered. Match that layer. */
+.os-hug-sheet-body.held-edition-actions {
+  padding-bottom: calc(var(--portfolio-dock-clearance, 4.75rem) + 0.85rem);
 }
 
 /* NEAR / USD sit in the unit slot. Unlayered so the quiet word stays a choice. */

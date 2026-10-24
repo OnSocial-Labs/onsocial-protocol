@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -10,7 +11,7 @@ import {
   type MouseEvent,
 } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ChevronLeftIcon,
   Divider,
@@ -89,6 +90,7 @@ import {
   deriveCollectionStatus,
   dropSupplyShouldPoll,
   fetchAllowlistRemaining,
+  editionCoverUrl,
   fetchCollectionPreferIndexer,
   readCollectionSupply,
   fetchOwnedCollectionTokenId,
@@ -153,12 +155,15 @@ import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsRowAction } from '@/lib/os-row-action';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
+  collectionIdFromTokenId,
+  editionSeatFromTokenId,
   formatFutureRelativeTime,
   formatMarketRelativePhrase,
   formatMarketRelativeTime,
 } from '@/features/market/market-listings';
 import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import { isAppPostSheetHref } from '@/lib/post-routes';
+import { heldEditionLabel } from '@/features/collectibles/held-editions';
 import { fallbackLabel } from '@/lib/profile-display';
 import { holdingsActionLabel } from '@/lib/portfolio-holdings';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
@@ -212,6 +217,35 @@ function collectionOverlayBack(onClose?: () => void) {
   );
 }
 
+/** `?t=` only when it names this drop. */
+function editionTokenForCollection(
+  collectionId: string,
+  raw: string | null | undefined
+): string {
+  const token = raw?.trim() || '';
+  const owner = collectionIdFromTokenId(token);
+  return owner != null && owner === collectionId.trim() ? token : '';
+}
+
+/** Live `?t=` after navigation. Isolated so the drop page can still render on the server. */
+function EditionQueryToken({
+  collectionId,
+  onToken,
+}: {
+  collectionId: string;
+  onToken: (token: string) => void;
+}) {
+  const searchParams = useSearchParams();
+  const token = editionTokenForCollection(
+    collectionId,
+    searchParams.get(COLLECTION_PASS_TOKEN_PARAM)
+  );
+  useEffect(() => {
+    onToken(token);
+  }, [onToken, token]);
+  return null;
+}
+
 const clientMountedSubscribe = () => () => {};
 const getClientMountedSnapshot = () => true;
 const getServerMountedSnapshot = () => false;
@@ -223,6 +257,7 @@ export function CollectionPagePanel({
   initial,
   initialCreator = null,
   initialActivity = EMPTY_ACTIVITY,
+  initialEditionToken = null,
   embedded = false,
   onClose,
 }: {
@@ -230,6 +265,8 @@ export function CollectionPagePanel({
   initial: CollectionView | null;
   initialCreator?: CollectionCreatorFace | null;
   initialActivity?: CollectionActivityRow[];
+  /** `?t=` from the drop page request, so the first paint is that edition. */
+  initialEditionToken?: string | null;
   /** Nested in an appear page sheet — sheet Back, not launcher leave. */
   embedded?: boolean;
   onClose?: () => void;
@@ -251,6 +288,24 @@ export function CollectionPagePanel({
   const collectionSavePending = collectionSaves.isSavePending(collectionId);
   const isNowPlayingThisDrop =
     nowPlaying?.session?.collectionId?.trim() === collectionId.trim();
+  const [liveEditionToken, setLiveEditionToken] = useState<{
+    id: string;
+    token: string;
+  } | null>(null);
+  const rememberEditionToken = useCallback(
+    (token: string) => {
+      setLiveEditionToken((current) =>
+        current?.id === collectionId && current.token === token
+          ? current
+          : { id: collectionId, token }
+      );
+    },
+    [collectionId]
+  );
+  const editionToken =
+    liveEditionToken?.id === collectionId
+      ? liveEditionToken.token
+      : editionTokenForCollection(collectionId, initialEditionToken);
   const [view, setView] = useState<CollectionView | null>(() => {
     if (initial) return initial;
     if (isNowPlayingThisDrop && nowPlaying?.session) {
@@ -258,6 +313,13 @@ export function CollectionPagePanel({
     }
     return null;
   });
+  const coverSrc = view ? editionCoverUrl(view, editionToken) : null;
+  const editionLine =
+    view?.isVariations &&
+    editionToken &&
+    editionSeatFromTokenId(editionToken) != null
+      ? heldEditionLabel(editionToken)
+      : '';
   /** Album / multi-clip drops love per track in the player — no Drop-level heart. */
   const showDropLove = (view?.playables.length ?? 0) === 0;
   const dropLoves = useScarceDropLoves({
@@ -1010,7 +1072,7 @@ export function CollectionPagePanel({
   const canShowPass =
     isPassKind && holdsEdition === true && Boolean(ownedPassTokenId);
   const coverExpand = collectionCoverExpandAction({
-    hasMedia: Boolean(view.mediaUrl),
+    hasMedia: Boolean(coverSrc),
   });
   const passActionLabel = holdingsActionLabel(mediumKind);
   const showCommerceMeter = collectionShowCommerceMeter({
@@ -1070,7 +1132,7 @@ export function CollectionPagePanel({
     isAudio,
   });
   const immersive = collectionCoverImmersive({
-    hasMedia: Boolean(view.mediaUrl || view.cardBg),
+    hasMedia: Boolean(coverSrc || view.cardBg),
     kind: view.kind,
   });
   const createdRel =
@@ -1103,6 +1165,12 @@ export function CollectionPagePanel({
         </>
       }
     >
+      <Suspense fallback={null}>
+        <EditionQueryToken
+          collectionId={collectionId}
+          onToken={rememberEditionToken}
+        />
+      </Suspense>
       <div
         className={osChromePageClassName(
           'collection-page',
@@ -1113,16 +1181,16 @@ export function CollectionPagePanel({
       >
         <section className="collection-hero" aria-label="Drop cover">
           <div
-            className={`collection-cover${view.mediaUrl ? ' has-media' : ''}${
+            className={`collection-cover${coverSrc ? ' has-media' : ''}${
               isSquareCover ? ' is-square' : ''
             }${isTextCardCover ? ' is-card' : ''}${
               immersive ? ' is-immersive' : ''
             }${coverExpand ? ' has-read' : ''}`}
-            {...(view.cardBg && !view.mediaUrl
+            {...(view.cardBg && !coverSrc
               ? { style: { background: view.cardBg } }
               : {})}
           >
-            {view.mediaUrl ? <img src={view.mediaUrl} alt="" /> : null}
+            {coverSrc ? <img src={coverSrc} alt="" /> : null}
             {coverExpand === 'artwork' ? (
               <button
                 type="button"
@@ -1135,9 +1203,14 @@ export function CollectionPagePanel({
 
           <header className="collection-head">
             <div className="collection-title-row">
-              <h1 className="collection-title" ref={heroTitleRef}>
-                {view.title}
-              </h1>
+              <div className="collectibles-play-title-block">
+                <h1 className="collection-title" ref={heroTitleRef}>
+                  {view.title}
+                </h1>
+                {editionLine ? (
+                  <p className="collection-edition-line">{editionLine}</p>
+                ) : null}
+              </div>
               <div className="drops-discovery-head-trail">
                 {createdRel ? (
                   <time
@@ -1557,7 +1630,7 @@ export function CollectionPagePanel({
               key={`tracks-${playables[0]!.url}`}
               clip={playables[0]!}
               tracks={playables}
-              poster={view.mediaUrl}
+              poster={coverSrc}
               layout="tracks"
               showTransport={false}
               showFeedPost={false}
@@ -1756,7 +1829,7 @@ export function CollectionPagePanel({
         open={writingReadOpen}
         onClose={() => setWritingReadOpen(false)}
         title={view.title}
-        cover={view.mediaUrl}
+        cover={coverSrc}
         collectionId={view.collectionId}
         accountId={viewerAccountId}
         creatorId={view.creatorId}
@@ -1774,7 +1847,7 @@ export function CollectionPagePanel({
           key={`cover-listen-${playables[0].url}`}
           clip={playables[0]}
           tracks={playables}
-          poster={view.mediaUrl}
+          poster={coverSrc}
           layout="cover"
           showTransport
           showTracks={false}
@@ -1807,7 +1880,7 @@ export function CollectionPagePanel({
           open={showPassOpen}
           onClose={() => setShowPassOpen(false)}
           title={view.title}
-          cover={view.mediaUrl}
+          cover={editionCoverUrl(view, showPassTokenId)}
           collectionId={view.collectionId}
           tokenId={showPassTokenId}
           eventEndsAtMs={view.eventEndsAtMs}
@@ -1836,10 +1909,10 @@ export function CollectionPagePanel({
         />
       ) : null}
 
-      {view.mediaUrl && mediaOverlayOpen ? (
+      {coverSrc && mediaOverlayOpen ? (
         <DropArtOverlay
           open={mediaOverlayOpen}
-          src={view.mediaUrl}
+          src={coverSrc}
           label={view.title}
           onClose={() => setMediaOverlayOpen(false)}
         />
