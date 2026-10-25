@@ -1,12 +1,13 @@
 'use client';
 
-import { Suspense, useId, useMemo } from 'react';
+import { Suspense, useId, useMemo, type CSSProperties } from 'react';
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
 } from 'react';
 import dynamic from 'next/dynamic';
 import type { PostRow } from '@onsocial/sdk';
+import { useFeedThreadBand } from '@/features/home/use-feed-thread-band';
 import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
 
 const LivePersonalPostPanel = dynamic(
@@ -94,6 +95,45 @@ export function FeedMediaThreadSheet({
           />
         </Suspense>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Reply thread over a reader. The page keeps scrolling underneath.
+ * Drag the grip down to return to the same place.
+ */
+export function FeedFaceThreadPane({
+  open,
+  onDismiss,
+  author,
+  postId,
+  initialRoot = null,
+}: {
+  open: boolean;
+  onDismiss: () => void;
+  author: string | null;
+  postId: string | null;
+  initialRoot?: PostRow | null;
+}) {
+  const { band, dragging, gripHandlers } = useFeedThreadBand(open, onDismiss);
+  if (!open || !author || !postId) return null;
+  return (
+    <div
+      className={`feed-face-thread-pane${dragging ? ' is-thread-dragging' : ''}`}
+      style={
+        {
+          '--feed-thread-band': `${(band * 100).toFixed(1)}%`,
+        } as CSSProperties
+      }
+    >
+      <FeedMediaThreadSheet
+        author={author}
+        postId={postId}
+        initialRoot={initialRoot}
+        band={band}
+        gripHandlers={gripHandlers}
+      />
     </div>
   );
 }

@@ -106,7 +106,9 @@ export function useFeedThreadBand(open: boolean, onDismiss: () => void) {
   }, [open]);
 
   const onPointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    const face = event.currentTarget.closest('.os-media-face-body');
+    const face =
+      event.currentTarget.closest('.os-media-face-body') ??
+      event.currentTarget.closest('.os-app-screen-column');
     const faceH = face instanceof HTMLElement ? face.clientHeight : 0;
     if (faceH <= 0) return;
     dragRef.current = {

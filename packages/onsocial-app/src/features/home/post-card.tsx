@@ -12,7 +12,7 @@ import {
   type PointerEvent,
 } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import {
   BookmarkFillIcon,
@@ -67,14 +67,9 @@ import {
   formatWritingLikeLabel,
   isArticlePost,
 } from '@/lib/article-post-payload';
-import {
-  useFocusWriteDock,
-  type WriteDockSubmit,
-} from '@/contexts/compose-launcher-context';
+import { type WriteDockSubmit } from '@/contexts/compose-launcher-context';
 import { fetchPersonalPost } from '@/lib/fetch-personal-post';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
-import { writeDockDraftKey } from '@/lib/os-write-dock';
 import { guildPath } from '@/features/guilds/guilds-data';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import {
@@ -147,7 +142,6 @@ import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { parsePostContentLabels } from '@/lib/post-content-labels';
 import { accountIdsEqual } from '@/lib/account-match';
 import { consumeEssayReopen } from '@/lib/essay-return';
-import { APP_HOME_PATH } from '@/lib/app-routes';
 import { portfolioPath, writingArticlePath } from '@/lib/overlay-routes';
 import {
   articleTeaseSource,
@@ -1790,7 +1784,6 @@ export function PostCard({
   onToggleSave,
   onAmplifyConfirmed,
   onReply,
-  onExpandReply,
   onQuote,
   onRepost,
   onUndoRepost,
@@ -1863,34 +1856,14 @@ export function PostCard({
   const [enlargeOverride, setEnlargeOverride] = useState<
     PostMediaItem[] | null
   >(null);
-  /** Photo/video / card-art face — Reply opens the thread drawer (write dock lives there). */
+  /** Reply on an open photo, drop, player, or writing — same thread drawer. */
   const [photoThreadOpen, setPhotoThreadOpen] = useState(false);
-  const enlargeWrite =
-    articleOpen || (feedMediumOpen && feedMediumMode !== 'viewer');
-  const pathname = usePathname();
-  const focusWriteDock = useFocusWriteDock();
   const openPhotoThread = useCallback(() => {
     setPhotoThreadOpen(true);
   }, []);
   const dismissPhotoThread = useCallback(() => {
     setPhotoThreadOpen(false);
   }, []);
-  useReplyWriteDock({
-    target: post,
-    enabled: enlargeWrite && pathname === APP_HOME_PATH,
-    placeholder: 'Add a reply…',
-    revision: enlargeWrite ? postKey(post) : '',
-    draftKey: writeDockDraftKey('post', postKey(post)),
-    onExpand: onExpandReply
-      ? (payload) => {
-          setPhotoOpen(false);
-          setPhotoThreadOpen(false);
-          setFeedMediumOpen(false);
-          setArticleOpen(false);
-          onExpandReply(post, payload);
-        }
-      : undefined,
-  });
   const [menuForceEmbed, setMenuForceEmbed] = useState(false);
   const [cancelScarcePending, setCancelScarcePending] = useState(false);
   const isSelf =
@@ -2907,6 +2880,7 @@ export function PostCard({
             setFeedReadEssay(null);
             setFeedBookRead(false);
             setFeedBookCoverSvg(null);
+            setPhotoThreadOpen(false);
           }
         }}
         post={feedReadEssay ?? post}
@@ -2916,6 +2890,11 @@ export function PostCard({
             : authorProfile
         }
         documentTitle={feedBookRead ? dropListenTitle : undefined}
+        threadOpen={photoThreadOpen}
+        onDismissThread={dismissPhotoThread}
+        threadAuthor={post.accountId}
+        threadPostId={post.postId}
+        threadRoot={post}
         renderBody={
           feedBookRead
             ? ({ onChromeTap }) => (
@@ -2970,9 +2949,7 @@ export function PostCard({
               reactionPending={reactionPending}
               savePending={savePending}
               sharePending={sharePending}
-              onReply={() => {
-                focusWriteDock();
-              }}
+              onReply={openPhotoThread}
               onQuote={
                 onQuote
                   ? (target) => {
@@ -3123,13 +3100,7 @@ export function PostCard({
               reactionPending={reactionPending}
               savePending={savePending}
               sharePending={sharePending}
-              onReply={
-                feedMediumMode === 'viewer'
-                  ? openPhotoThread
-                  : () => {
-                      focusWriteDock();
-                    }
-              }
+              onReply={openPhotoThread}
               onQuote={
                 onQuote
                   ? (target) => {
