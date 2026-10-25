@@ -75,7 +75,7 @@ interface SeriesPagePanelProps {
   creatorId: string;
   seriesId: string;
   initialBranding: SeriesBranding | null;
-  /** Creator profile avatar — logo fallback for unbranded series (SSR). */
+  /** Creator profile avatar — Series by row only, not the series mark. */
   creatorAvatarUrl: string | null;
   /** Creator display name when known (SSR profile shell). */
   creatorDisplayName?: string | null;
@@ -204,8 +204,8 @@ export function SeriesPagePanel({
     dropSeriesTitle: fallbackTitle,
     seriesId,
   });
-  // Unbranded series inherit the creator's identity instead of a bare letter.
-  const logoUrl = branding?.logoUrl ?? creatorAvatarUrl;
+  // No series logo: the initial on a plain square. The creator face stays on Series by.
+  const logoUrl = branding?.logoUrl ?? null;
   const shopHref = marketCreatorPath(creatorId);
   const seriesBackHref = seriesPageBackHref({
     useFirst,
