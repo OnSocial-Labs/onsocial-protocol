@@ -62,32 +62,38 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 /** Indicative NEAR for a dollar ask. The dollar amount in the field stays put. */
 function DollarAskHint({ amount }: { amount: string }) {
   const e6 = usdAmountToE6(amount);
-  const [label, setLabel] = useState<string | null>(null);
+  const [quote, setQuote] = useState<{
+    e6: bigint;
+    label: string | null;
+  } | null>(null);
 
   useEffect(() => {
-    if (e6 == null) {
-      setLabel(null);
-      return;
-    }
+    if (e6 == null) return;
+    const asked = e6;
     let cancelled = false;
     void fetchNearUsdQuote()
-      .then((quote) => {
+      .then((result) => {
         if (cancelled) return;
         try {
-          setLabel(
-            dollarNearEstimateLabel(yoctoForUsd(e6, quote.price, quote.expo))
-          );
+          setQuote({
+            e6: asked,
+            label: dollarNearEstimateLabel(
+              yoctoForUsd(asked, result.price, result.expo)
+            ),
+          });
         } catch {
-          setLabel(null);
+          setQuote({ e6: asked, label: null });
         }
       })
       .catch(() => {
-        if (!cancelled) setLabel(null);
+        if (!cancelled) setQuote({ e6: asked, label: null });
       });
     return () => {
       cancelled = true;
     };
   }, [e6]);
+
+  const label = e6 != null && quote?.e6 === e6 ? quote.label : null;
 
   return (
     <p className="profile-support-hint">
