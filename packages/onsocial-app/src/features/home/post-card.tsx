@@ -1706,7 +1706,9 @@ function PostCardBody({
           {foldBody && bodyOverflows ? (
             <button
               type="button"
-              className="post-card-show-more"
+              className={`post-card-show-more${
+                expanded ? '' : ' post-card-show-more--fold'
+              }`}
               aria-expanded={expanded}
               onClick={(event) => {
                 event.preventDefault();

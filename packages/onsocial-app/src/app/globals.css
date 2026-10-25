@@ -25499,6 +25499,7 @@ a.os-surface-row {
   }
 
   .post-card-body-block {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -25561,6 +25562,35 @@ a.os-surface-row {
   .post-card .post-card-show-more:focus-visible,
   button.post-card-show-more:focus-visible {
     outline: none;
+  }
+
+  /*
+   * Closed fold — Show more rides on the last body line, fading the text
+   * into the surface, so its late appearance never pushes the card taller.
+   * Expanded it steps back into the flow under the full body. The fg layer
+   * keeps the fade exact when a card hover lifts the surface.
+   */
+  .post-card .post-card-body-block .post-card-show-more--fold {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    padding-left: 2.1rem;
+    background:
+      linear-gradient(
+        to right,
+        rgb(var(--fg-rgb) / var(--post-fold-scrim-lift, 0)),
+        rgb(var(--fg-rgb) / var(--post-fold-scrim-lift, 0)) 55%
+      ),
+      linear-gradient(
+        to right,
+        rgb(var(--bg-rgb) / 0),
+        rgb(var(--bg-rgb)) 55%
+      );
+  }
+
+  .post-card--openable:hover .post-card-show-more--fold,
+  .post-card--openable:focus-within .post-card-show-more--fold {
+    --post-fold-scrim-lift: 0.03;
   }
 
   .post-sensitive-content {
