@@ -27,6 +27,7 @@ import {
   getGlobalViewerStandingLedger,
   getGlobalViewerStandingLedgerVersion,
   isGlobalStandingPending,
+  recordViewerStandConfirmed,
   setGlobalStandingPending,
   subscribeGlobalViewerStandingLedger,
 } from '@/lib/viewer-standing-global';
@@ -191,6 +192,7 @@ export function useViewerStanding(listAccountId: string) {
           Boolean(targetAccount.theyStandWithViewer)
         );
         bumpStandingSync();
+        recordViewerStandConfirmed();
       } catch (error) {
         if (!isWalletUserCancellation(error)) {
           throw error;

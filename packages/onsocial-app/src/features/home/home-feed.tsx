@@ -129,6 +129,10 @@ import {
 } from '@/lib/home-feed-session';
 import { scrollFeedToNewest } from '@/lib/feed-scroll-to-newest';
 import {
+  getViewerStandEpoch,
+  subscribeViewerStandConfirmed,
+} from '@/lib/viewer-standing-global';
+import {
   createListScrollMemory,
   scrollLineOnLeave,
   scrollTopToPersist,
@@ -462,6 +466,7 @@ export function HomePagePanel({
       standingNetworkIds: standingSourcesRef.current,
       offsetShiftApplied: offsetShiftAppliedRef.current,
       scrollTop: scrollTopToPersist(memory, line),
+      standEpoch: getViewerStandEpoch(),
     });
   }, []);
 
@@ -721,11 +726,17 @@ export function HomePagePanel({
       accountId,
     });
     const restored = restoredSessionRef.current;
+    // A stand confirmed after the snapshot was written makes its standing
+    // sources stale — social lenses re-resolve instead of adopting it.
+    const restoredStandStale =
+      isHomeFeedSocialLens(activeLens) &&
+      (restored?.standEpoch ?? 0) !== getViewerStandEpoch();
     if (
       restored &&
       restored.posts.length > 0 &&
       restored.sessionKey === sessionKey &&
-      reloadNonce === sessionRestoreReloadNonceRef.current
+      reloadNonce === sessionRestoreReloadNonceRef.current &&
+      !restoredStandStale
     ) {
       standingSourcesRef.current = restored.standingNetworkIds
         ? [...restored.standingNetworkIds]
@@ -1301,6 +1312,14 @@ export function HomePagePanel({
       }),
     [onConfirmed]
   );
+
+  // A stand confirmed anywhere in the tab re-resolves social-lens sources.
+  useEffect(() => {
+    if (!isHomeFeedSocialLens(activeLens)) return;
+    return subscribeViewerStandConfirmed(() => {
+      setReloadNonce((value) => value + 1);
+    });
+  }, [activeLens]);
 
   const pathname = usePathname();
   const {

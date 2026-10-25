@@ -26,6 +26,12 @@ export type HomeFeedSessionSnapshot = {
   offsetShiftApplied: number;
   scrollTop: number;
   savedAt: number;
+  /**
+   * Viewer stand epoch at write time. A stand confirmed after the snapshot
+   * was written makes its standing sources stale — optional so older copies
+   * stay readable.
+   */
+  standEpoch?: number;
 };
 
 export function homeFeedSessionKey(input: {
@@ -123,6 +129,7 @@ export function writeHomeFeedSession(input: {
   standingNetworkIds: readonly string[] | null;
   offsetShiftApplied: number;
   scrollTop: number;
+  standEpoch?: number;
   now?: number;
 }): void {
   const sessionKey = input.sessionKey?.trim();
@@ -137,6 +144,7 @@ export function writeHomeFeedSession(input: {
     offsetShiftApplied: input.offsetShiftApplied,
     scrollTop: Math.max(0, input.scrollTop),
     savedAt: input.now ?? Date.now(),
+    standEpoch: input.standEpoch,
   };
   writeStorage(snapshot);
 }
