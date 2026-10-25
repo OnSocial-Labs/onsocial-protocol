@@ -31,8 +31,17 @@ import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { heldEditionNoun } from '@/features/collectibles/held-editions';
 import { fetchCollection } from '@/features/scarces/collections-data';
 import {
+  dollarNearEstimateLabel,
+  fetchNearUsdQuote,
+  yoctoForUsd,
+} from '@/features/scarces/dollar-price';
+import {
   scarcePriceChangeHint,
   scarcePriceChangeReady,
+  scarcePriceChangeSeed,
+  scarcePriceInputDecimals,
+  usdAmountToE6,
+  type ScarcePriceUnit,
 } from '@/features/scarces/scarce-price';
 import { ScarceTokenHistorySheet } from '@/features/scarces/scarce-token-history-sheet';
 import {
@@ -49,6 +58,44 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+
+/** Indicative NEAR for a dollar ask. The dollar amount in the field stays put. */
+function DollarAskHint({ amount }: { amount: string }) {
+  const e6 = usdAmountToE6(amount);
+  const [label, setLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (e6 == null) {
+      setLabel(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchNearUsdQuote()
+      .then((quote) => {
+        if (cancelled) return;
+        try {
+          setLabel(
+            dollarNearEstimateLabel(yoctoForUsd(e6, quote.price, quote.expo))
+          );
+        } catch {
+          setLabel(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLabel(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [e6]);
+
+  return (
+    <p className="profile-support-hint">
+      {label ??
+        'Price stays in dollars. You pay the NEAR it is worth right now.'}
+    </p>
+  );
+}
 
 interface CollectiblesHoldingRowMenuProps {
   item: OwnedScarceItem;
@@ -80,6 +127,7 @@ export function CollectiblesHoldingRowMenu({
     null
   );
   const [priceInput, setPriceInput] = useState('');
+  const [priceUnit, setPriceUnit] = useState<ScarcePriceUnit>('near');
   const [priceDirty, setPriceDirty] = useState(false);
   const [burnable, setBurnable] = useState<boolean | null>(
     typeof item.burnable === 'boolean' ? item.burnable : null
@@ -90,15 +138,20 @@ export function CollectiblesHoldingRowMenu({
   const auction = item.listingKind === 'auction';
   const auctionHasBids = auction && (item.bidCount ?? 0) > 0;
   const fixedListing = item.listingKind === 'fixed';
+  const priceDecimals = scarcePriceInputDecimals(priceUnit, priceInput);
   const priceReady = scarcePriceChangeReady({
     listingKind: item.listingKind,
     currentPriceNear: item.listedPriceNear,
     nextPriceNear: priceInput,
+    unit: priceUnit,
+    currentUsdE6: priceUnit === 'usd' ? item.listedUsdE6 : null,
   });
   const priceHint = scarcePriceChangeHint({
     currentPriceNear: item.listedPriceNear,
     nextPriceNear: priceInput,
     revealUnchanged: priceDirty,
+    unit: priceUnit,
+    currentUsdE6: priceUnit === 'usd' ? item.listedUsdE6 : null,
   });
 
   const close = useCallback(() => {
@@ -174,15 +227,19 @@ export function CollectiblesHoldingRowMenu({
   ]);
 
   const openPriceConfirm = useCallback(() => {
-    const current = item.listedPriceNear?.trim() ?? '';
-    setPriceInput(current === '—' ? '' : current);
+    const seed = scarcePriceChangeSeed({
+      listedPriceNear: item.listedPriceNear,
+      listedUsdE6: item.listedUsdE6,
+    });
+    setPriceUnit(seed.unit);
+    setPriceInput(seed.amount);
     setPriceDirty(false);
     setConfirm('price');
-  }, [item.listedPriceNear]);
+  }, [item.listedPriceNear, item.listedUsdE6]);
 
   const handleChangePrice = useCallback(async () => {
     if (pending || !priceReady) return;
-    const nextPrice = finalizeAmountInput(priceInput, 5);
+    const nextPrice = finalizeAmountInput(priceInput, priceDecimals);
     if (!nextPrice) return;
     setPending(true);
     try {
@@ -191,7 +248,8 @@ export function CollectiblesHoldingRowMenu({
       const response = await client.scarces.market.updateSalePrice(
         scarcesContractIdForNetwork(),
         item.tokenId,
-        nextPrice
+        nextPrice,
+        priceUnit === 'usd' ? { priceUsd: nextPrice } : undefined
       );
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
@@ -220,8 +278,10 @@ export function CollectiblesHoldingRowMenu({
     item.tokenId,
     onDelisted,
     pending,
+    priceDecimals,
     priceInput,
     priceReady,
+    priceUnit,
     setTxResult,
     trackTransaction,
   ]);
@@ -498,19 +558,44 @@ export function CollectiblesHoldingRowMenu({
             onConfirm={() => void handleChangePrice()}
             onCancel={() => setConfirm(null)}
           >
+            <div
+              className="app-storage-presets"
+              role="group"
+              aria-label="Price unit"
+            >
+              <button
+                type="button"
+                className={`os-surface-chip${priceUnit === 'near' ? ' is-selected' : ''}`}
+                disabled={pending}
+                onClick={() => setPriceUnit('near')}
+              >
+                NEAR
+              </button>
+              <button
+                type="button"
+                className={`os-surface-chip${priceUnit === 'usd' ? ' is-selected' : ''}`}
+                disabled={pending}
+                onClick={() => setPriceUnit('usd')}
+              >
+                USD
+              </button>
+            </div>
             <AmountField
               value={priceInput}
               onValueChange={(raw) => {
                 setPriceDirty(true);
-                setPriceInput(normalizeAmountInput(raw, 5));
+                setPriceInput(normalizeAmountInput(raw, priceDecimals));
               }}
-              maxDecimals={5}
-              placeholder="0.01"
-              aria-label="Price in NEAR"
-              unit="NEAR"
+              maxDecimals={priceDecimals}
+              placeholder={priceUnit === 'usd' ? '1' : '0.01'}
+              aria-label={
+                priceUnit === 'usd' ? 'Price in dollars' : 'Price in NEAR'
+              }
+              unit={priceUnit === 'usd' ? 'USD' : 'NEAR'}
               disabled={pending}
               invalid={Boolean(priceHint)}
             />
+            {priceUnit === 'usd' ? <DollarAskHint amount={priceInput} /> : null}
             {priceHint ? (
               <p className={osActionDrawerConfirmBodyClassName}>{priceHint}</p>
             ) : null}

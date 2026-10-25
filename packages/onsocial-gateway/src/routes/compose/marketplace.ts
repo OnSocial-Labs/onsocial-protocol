@@ -62,7 +62,8 @@ const updatePrice = actionHandlers(
     buildUpdateSalePriceAction({
       scarceContractId: String(b.scarceContractId || ''),
       tokenId: String(b.tokenId || ''),
-      priceNear: String(b.priceNear || ''),
+      priceNear: b.priceNear != null ? String(b.priceNear) : undefined,
+      priceUsd: b.priceUsd != null ? String(b.priceUsd) : undefined,
       targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
     }),
   'update-sale-price'
