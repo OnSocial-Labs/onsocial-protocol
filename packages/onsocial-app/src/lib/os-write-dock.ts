@@ -1,5 +1,7 @@
 import {
   POST_TEXT_MAX_LENGTH,
+  parsePostText,
+  truncatePostPreview,
 } from '@/lib/post-display';
 import { displayName } from '@/lib/profile-display';
 
@@ -107,6 +109,13 @@ export function writeDockReplySpokenName(
   profileName?: string | null
 ): string {
   return displayName(accountId, profileName);
+}
+
+/** Reply chip — one quiet line of the post being answered. */
+export function writeDockReplyPreview(value: string, maxChars = 96): string {
+  const text = parsePostText(value);
+  if (!text) return '';
+  return truncatePostPreview(text, maxChars);
 }
 
 export function writeDockIsThoughtEnlarge(

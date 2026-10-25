@@ -16,6 +16,7 @@ import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
 import {
   writeDockDraftKey,
   WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
+  writeDockReplyPreview,
   writeDockReplySpokenName,
 } from '@/lib/os-write-dock';
 import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
@@ -100,6 +101,61 @@ const QUOTE_PAGE_SIZE = THREAD_QUOTE_PAGE_SIZE;
 const REPLY_TREE_DEPTH = THREAD_REPLY_TREE_DEPTH;
 const REPLY_TREE_MAX_NODES = THREAD_REPLY_TREE_MAX_NODES;
 const RECONCILE_DELAYS_MS = [2_000, 5_000];
+
+/*
+ * Reply reveal — the dock glides up over ~260ms (and the keyboard keeps
+ * rising after), so check twice and only scroll when the answered post
+ * actually ends up covered. Never moves a post that is already in view.
+ */
+const REPLY_REVEAL_MARGIN_PX = 12;
+const REPLY_REVEAL_CHECKS_MS = [340, 780];
+
+function replyRevealScrollable(node: HTMLElement): HTMLElement | null {
+  let current = node.parentElement;
+  while (current) {
+    const style = getComputedStyle(current);
+    if (
+      /(auto|scroll)/.test(style.overflowY) &&
+      current.scrollHeight > current.clientHeight
+    ) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return null;
+}
+
+function scheduleReplyTargetReveal(post: Pick<PostRow, 'postId'>) {
+  if (typeof window === 'undefined') return;
+  const id = post.postId.trim();
+  if (!id) return;
+  const behavior: ScrollBehavior = window.matchMedia(
+    '(prefers-reduced-motion: reduce)'
+  ).matches
+    ? 'auto'
+    : 'smooth';
+  const reveal = () => {
+    const escaped = CSS.escape(id);
+    const node = document.querySelector<HTMLElement>(
+      `[data-thread-focus-reply="${escaped}"], [data-thread-opened-post="${escaped}"]`
+    );
+    const dock = document.querySelector<HTMLElement>(
+      '.portfolio-summon-dock:has(.os-write-dock)'
+    );
+    if (!node || !dock) return;
+    const overlap =
+      node.getBoundingClientRect().bottom +
+      REPLY_REVEAL_MARGIN_PX -
+      dock.getBoundingClientRect().top;
+    if (overlap <= 0) return;
+    const scroller = replyRevealScrollable(node);
+    if (scroller) scroller.scrollBy({ top: overlap, behavior });
+    else window.scrollBy({ top: overlap, behavior });
+  };
+  for (const delay of REPLY_REVEAL_CHECKS_MS) {
+    window.setTimeout(reveal, delay);
+  }
+}
 
 interface LivePersonalPostPanelProps {
   author: string;
@@ -530,6 +586,7 @@ export function LivePersonalPostPanel({
   const replyHandler = (post: PostRow) => {
     setDockTarget(post);
     focusWriteDock();
+    scheduleReplyTargetReveal(post);
   };
   const quoteHandler = canPostInThread
     ? (post: PostRow) => {
@@ -613,10 +670,15 @@ export function LivePersonalPostPanel({
     ? writeDockDraftKey('post', postKey(root))
     : undefined;
   const nestMenuZ = embedded ? SHEET_Z.confirm : undefined;
+  const writePreview =
+    nestedDockReply && writeTarget
+      ? writeDockReplyPreview(writeTarget.value)
+      : '';
   const writeAbove =
     nestedDockReply && writeName ? (
       <OsWriteDockReplyChip
         label={writeName}
+        preview={writePreview || null}
         onCancel={() => setDockTarget(null)}
       />
     ) : null;
@@ -755,6 +817,8 @@ export function LivePersonalPostPanel({
               <div
                 className={`guild-thread-ancestor post-thread-item post-thread-item--down${index > 0 ? ' post-thread-item--up' : ''}`}
                 key={postKey(ancestor)}
+                data-thread-focus-reply={ancestor.postId}
+                data-thread-focus-key={postKey(ancestor)}
               >
                 <PostCard
                   post={ancestor}

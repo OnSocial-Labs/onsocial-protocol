@@ -12,6 +12,7 @@ import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
   writeDockDraftKey,
   writeDockReplyPlaceholder,
+  writeDockReplyPreview,
   writeDockReplySpokenName,
 } from '@/lib/os-write-dock';
 import { clearWriteDockDraft } from '@/lib/os-write-dock-draft';
@@ -65,6 +66,7 @@ export function useFeedReplyWriteDock({
     return (
       <OsWriteDockReplyChip
         label={name}
+        preview={writeDockReplyPreview(target.value) || null}
         onCancel={clearReply}
       />
     );

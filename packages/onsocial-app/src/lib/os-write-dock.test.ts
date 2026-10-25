@@ -8,6 +8,7 @@ import {
   writeDockInputMaxLines,
   writeDockIsThoughtEnlarge,
   writeDockReplyPlaceholder,
+  writeDockReplyPreview,
   writeDockReplySpokenName,
   writeDockShouldSendOnEnter,
   writeDockShowCompactBarTools,
@@ -60,6 +61,21 @@ describe('os write dock helpers', () => {
     expect(writeDockReplySpokenName('alice.testnet', 'alice.testnet')).toBe(
       'Alice'
     );
+  });
+
+  it('previews the answered post as one truncated line', () => {
+    expect(writeDockReplyPreview('')).toBe('');
+    expect(writeDockReplyPreview('   ')).toBe('');
+    expect(writeDockReplyPreview('plain words')).toBe('plain words');
+    expect(
+      writeDockReplyPreview(JSON.stringify({ text: 'that drop was unreal' }))
+    ).toBe('that drop was unreal');
+    expect(writeDockReplyPreview('line one\n\nline two')).toBe(
+      'line one line two'
+    );
+    const long = writeDockReplyPreview('x'.repeat(140));
+    expect(long.endsWith('…')).toBe(true);
+    expect(long.length).toBeLessThanOrEqual(97);
   });
 
   it('namespaces draft keys by surface', () => {

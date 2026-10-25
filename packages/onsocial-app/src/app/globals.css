@@ -16960,13 +16960,55 @@ a.os-surface-row {
     justify-content: flex-start;
   }
 
+  /*
+   * Chip / toolbar chrome — always mounted, collapsed to a 0fr track so the
+   * dock glides taller instead of popping. Height, fade, and the slight rise
+   * share the keyboard curve (280ms) so chrome and keys land as one motion.
+   */
+  .os-write-dock-above-shell,
+  .os-write-dock-footer-shell {
+    display: grid;
+    grid-template-rows: 0fr;
+    min-width: 0;
+    visibility: hidden;
+    transition:
+      grid-template-rows 260ms cubic-bezier(0.32, 0.72, 0, 1),
+      visibility 260ms;
+  }
+
+  .os-write-dock-above-shell.is-open,
+  .os-write-dock-footer-shell.is-open {
+    grid-template-rows: 1fr;
+    visibility: visible;
+  }
+
+  .os-write-dock-above,
+  .os-write-dock-footer-clip {
+    min-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(4px);
+    transition:
+      opacity 200ms ease,
+      transform 260ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .os-write-dock-above-shell.is-open > .os-write-dock-above,
+  .os-write-dock-footer-shell.is-open > .os-write-dock-footer-clip {
+    opacity: 1;
+    transform: none;
+  }
+
   .os-write-dock-above {
     display: flex;
     align-items: center;
     gap: 0.45rem;
     min-width: 0;
     padding: 0.28rem 0.45rem 0;
-    transition: padding 220ms ease;
+    transition:
+      padding 220ms ease,
+      opacity 200ms ease,
+      transform 260ms cubic-bezier(0.32, 0.72, 0, 1);
   }
 
   .os-write-dock.is-expanded .os-write-dock-above {
@@ -17105,10 +17147,12 @@ a.os-surface-row {
   @media (prefers-reduced-motion: reduce) {
     .os-dock-pill.is-writing,
     .os-write-dock-above,
+    .os-write-dock-above-shell,
     .os-write-dock-bar,
     .os-write-dock-field,
     .os-write-dock-divider,
     .os-write-dock-footer,
+    .os-write-dock-footer-clip,
     .os-write-dock-footer-shell {
       transition: none;
     }
@@ -17360,9 +17404,20 @@ a.os-surface-row {
   }
 
   .os-write-dock-reply-name {
+    flex: 0 1 auto;
+    max-width: 46%;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* The line being answered — quieter than the name, truncates first. */
+  .os-write-dock-reply-preview {
+    flex: 0 2 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: rgb(var(--fg-rgb) / 0.5);
   }
 
   .os-write-dock-error {
@@ -17405,7 +17460,7 @@ a.os-surface-row {
     padding-inline: 0 0.08rem;
   }
 
-  .os-write-dock-footer-shell {
+  .os-write-dock-footer-clip {
     display: flex;
     flex-direction: column;
     min-width: 0;

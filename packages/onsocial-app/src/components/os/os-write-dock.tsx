@@ -78,9 +78,11 @@ function syncWriteKeyboardChrome(
 
 export function OsWriteDockReplyChip({
   label,
+  preview = null,
   onCancel,
 }: {
   label: string;
+  preview?: string | null;
   onCancel: () => void;
 }) {
   const dismiss = () => onCancel();
@@ -90,6 +92,9 @@ export function OsWriteDockReplyChip({
       <p className="os-write-dock-reply-copy">
         <span className="os-write-dock-reply-kicker">Replying</span>
         <span className="os-write-dock-reply-name">{label}</span>
+        {preview ? (
+          <span className="os-write-dock-reply-preview">— {preview}</span>
+        ) : null}
       </p>
       <button
         type="button"
@@ -258,6 +263,13 @@ export function OsWriteDock({
     }
   };
 
+  /* The footer arrives with a draft, not with focus — an empty reply tap
+     grows the dock by the chip alone. It then stays for the session so
+     deleting back to empty mid-edit never collapses the tools. */
+  useEffect(() => {
+    if (hasContent) setComposeExpanded(true);
+  }, [hasContent]);
+
   useEffect(() => {
     if (!registerWriteFocus) return;
     return registerWriteFocus(() => {
@@ -267,7 +279,6 @@ export function OsWriteDock({
       // A tucked dock can take focus without the field's onFocus, so pin here.
       setFieldFocused(true);
       setTrackKeyboard(true);
-      setComposeExpanded(true);
     });
   }, [registerWriteFocus]);
 
@@ -449,7 +460,12 @@ export function OsWriteDock({
       onSubmit={(event) => void handleSubmit(event)}
       aria-label={ariaLabel}
     >
-      {above || chromeError ? (
+      {/* Always mounted — the shell collapses to 0fr so the chip/error can
+          glide in and out instead of popping the dock taller. */}
+      <div
+        className={`os-write-dock-above-shell${above || chromeError ? ' is-open' : ''}`}
+        aria-hidden={!(above || chromeError)}
+      >
         <div className="os-write-dock-above">
           {above}
           {chromeError ? (
@@ -458,7 +474,7 @@ export function OsWriteDock({
             </p>
           ) : null}
         </div>
-      ) : null}
+      </div>
 
       {/* Outside the bar flex — `hidden` + display:none (WebKit paints
           "No file chosen" through sr-only and inflates the dock). */}
@@ -501,7 +517,6 @@ export function OsWriteDock({
             onFocus={(event) => {
               setFieldFocused(true);
               setTrackKeyboard(true);
-              setComposeExpanded(true);
               const dock =
                 event.currentTarget.closest<HTMLElement>(
                   '.portfolio-summon-dock'
@@ -550,8 +565,13 @@ export function OsWriteDock({
           </div>
         ) : null}
       </div>
-      {footerOpen ? (
-        <div className="os-write-dock-footer-shell">
+      {/* Always mounted like the chip shell — the toolbar rises with the
+          first character and settles away when the session ends. */}
+      <div
+        className={`os-write-dock-footer-shell${footerOpen ? ' is-open' : ''}`}
+        aria-hidden={!footerOpen}
+      >
+        <div className="os-write-dock-footer-clip">
           <Divider
             orientation="horizontal"
             variant="detail"
@@ -613,7 +633,7 @@ export function OsWriteDock({
               </div>
           </div>
         </div>
-      ) : null}
+      </div>
     </form>
   );
 }

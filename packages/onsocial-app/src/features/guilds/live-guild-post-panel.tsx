@@ -21,6 +21,7 @@ import { useReplyWriteDock } from '@/hooks/use-reply-write-dock';
 import {
   writeDockDraftKey,
   WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
+  writeDockReplyPreview,
   writeDockReplySpokenName,
 } from '@/lib/os-write-dock';
 import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
@@ -677,10 +678,15 @@ export function LiveGuildPostPanel({
   const threadDraftKey = root
     ? writeDockDraftKey('post', postKey(root))
     : undefined;
+  const writePreview =
+    nestedDockReply && writeTarget
+      ? writeDockReplyPreview(writeTarget.value)
+      : '';
   const writeAbove =
     nestedDockReply && writeName ? (
       <OsWriteDockReplyChip
         label={writeName}
+        preview={writePreview || null}
         onCancel={() => setDockTarget(null)}
       />
     ) : null;
