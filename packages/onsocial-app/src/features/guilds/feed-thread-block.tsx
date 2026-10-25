@@ -16,6 +16,7 @@ import {
 } from '@/hooks/use-post-engagement';
 import type { PollTally } from '@/lib/poll-votes';
 import { parsePostText } from '@/lib/post-display';
+import { resolveThreadFoldLabel } from '@/lib/thread-fold-label';
 import { isRepostRefType } from '@/lib/post-relation';
 import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
 import { postThreadPath } from '@/lib/post-routes';
@@ -117,6 +118,13 @@ export function FeedThreadBlock({
   const [expanded, setExpanded] = useState(false);
   const collapsed = !expanded && block.length > BLOCK_MAX_UNCOLLAPSED;
   const hiddenCount = collapsed ? block.length - 1 - BLOCK_TAIL_VISIBLE : 0;
+  const foldLabel = collapsed
+    ? resolveThreadFoldLabel(block.slice(1, block.length - BLOCK_TAIL_VISIBLE), {
+        noun: 'post',
+        earlier: true,
+        profiles: postAuthorProfiles,
+      })
+    : null;
   const coilTailHref =
     standingCoilTail && standingPeek ? postThreadPath(standingPeek) : undefined;
 
@@ -247,14 +255,21 @@ export function FeedThreadBlock({
       {head.map(renderRow)}
       {collapsed ? (
         <ThreadFoldButton onClick={() => setExpanded(true)}>
-          {hiddenCount === 1
-            ? 'Show 1 earlier post in thread'
-            : `Show ${hiddenCount} earlier posts in thread`}
+          {foldLabel ??
+            (hiddenCount === 1
+              ? 'Show 1 earlier post in thread'
+              : `Show ${hiddenCount} earlier posts in thread`)}
         </ThreadFoldButton>
       ) : null}
       {tail.map(renderRow)}
       {standingPeekRow ? renderRow(standingPeekRow) : null}
-      {coilTailHref ? <ThreadCoilTailLink href={coilTailHref} /> : null}
+      {coilTailHref ? (
+        <ThreadCoilTailLink
+          href={coilTailHref}
+          root={standingPeek}
+          context={sheetContext}
+        />
+      ) : null}
     </div>
   );
 }

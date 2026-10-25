@@ -27,7 +27,7 @@ function row(
 describe('sortThreadReplyRows', () => {
   const rows: ThreadReplyRow[] = [
     row('a.near', 'p1', 100),
-    { kind: 'more', branchKey: 'x', hiddenCount: 2 },
+    { kind: 'more', branchKey: 'x', hiddenCount: 2, hidden: [] },
     row('b.near', 'p2', 300),
     row('c.near', 'p3', 200),
   ];
