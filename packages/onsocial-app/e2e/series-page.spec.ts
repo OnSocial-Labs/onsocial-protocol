@@ -30,9 +30,11 @@ test.describe('series page', () => {
     await stubSeriesCreatorCatalog(page, { rows: 'empty' });
     await gotoApp(page, SERIES_PATH);
 
-    await expect(
-      page.getByRole('heading', { level: 1, name: SERIES_TITLE })
-    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(page.locator('h1.sr-only')).toHaveText(SERIES_TITLE, {
+      timeout: E2E_CHROME_TIMEOUT_MS,
+    });
+    await expect(page.locator('.os-app-screen-title')).toHaveCount(0);
+    await expect(page.locator('.os-app-screen-subtitle')).toHaveCount(0);
     await expect(
       page
         .locator('.series-hero-title')

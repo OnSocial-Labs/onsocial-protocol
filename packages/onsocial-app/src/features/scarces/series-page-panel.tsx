@@ -316,6 +316,7 @@ export function SeriesPagePanel({
     return (
       <OsAppScreen
         title={title}
+        heading={<></>}
         dockBack
         backFallbackHref={seriesBackHref}
         glassChrome
@@ -330,7 +331,7 @@ export function SeriesPagePanel({
   return (
     <OsAppScreen
       title={title}
-      subtitle={dropCountLabel}
+      heading={<></>}
       dockBack
       backFallbackHref={seriesBackHref}
       glassChrome
