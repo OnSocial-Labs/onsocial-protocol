@@ -24810,6 +24810,29 @@ a.os-surface-row {
     text-align: center;
   }
 
+  .profile-feed-compose-teaser {
+    width: 100%;
+    margin-top: 0.35rem;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 1rem;
+    background: rgb(0 0 0 / 0.18);
+    color: rgb(var(--fg-rgb) / 0.46);
+    font: inherit;
+    text-align: left;
+    cursor: text;
+    transition:
+      border-color 120ms ease,
+      color 120ms ease;
+  }
+
+  .profile-feed-compose-teaser:hover,
+  .profile-feed-compose-teaser:focus-visible {
+    border-color: rgb(var(--fg-rgb) / 0.2);
+    color: rgb(var(--fg-rgb) / 0.72);
+    outline: none;
+  }
+
   .discover-state-primary,
   .discover-state-secondary {
     margin: 0;

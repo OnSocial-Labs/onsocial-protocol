@@ -40,8 +40,8 @@ const FEED_TAB_EMPTY: Record<ProfileFeedTab, string> = {
   media: 'No media yet',
 };
 
-const FEED_TAB_OWNER_HINT: Record<ProfileFeedTab, string> = {
-  posts: 'Nothing published yet. Use the pen to post.',
+// Posts has no owner hint — the empty state renders a compose action instead.
+const FEED_TAB_OWNER_HINT: Partial<Record<ProfileFeedTab, string>> = {
   replies: 'Reply to a post and it will show up here.',
   reposts: 'Repost something and it will show up here.',
   media: 'Posts with photos or video will show up here.',
@@ -106,61 +106,64 @@ export function ProfileFeedClient({
   const fetchedTabsRef = useRef<Set<ProfileFeedTab>>(new Set());
   const [pendingTab, setPendingTab] = useState<ProfileFeedTab | null>(null);
 
-  const fetchMediaPage = useCallback((offset: number) => {
-    if (mediaPagingRef.current) return;
-    mediaPagingRef.current = true;
-    const requestId = mediaRequestRef.current;
-    queueMicrotask(() => {
-      setMediaPaging(true);
-      if (offset === 0) setPendingTab('media');
-    });
-    const client = createReadOnlyOnSocialClient();
-    void client.query.feed
-      .recent({
-        author: accountId,
-        limit: PROFILE_MEDIA_PAGE_SIZE,
-        offset,
-      })
-      .then((page) => {
-        if (requestId !== mediaRequestRef.current) return;
-        const seen = new Set(postsRef.current.map(postKey));
-        const addedCount = page.items.filter(
-          (row) => !seen.has(postKey(row))
-        ).length;
-        setPosts((current) => mergePostRows(current, page.items));
-        setMediaFailed(false);
-        const advance = profileMediaAdvance({
-          offset,
-          pageSize: PROFILE_MEDIA_PAGE_SIZE,
-          itemCount: page.items.length,
-          addedCount,
-        });
-        setMediaPage((current) => {
-          // A repeated first window can land after paging has already moved on.
-          if (addedCount <= 0 && current.nextOffset > offset) return current;
-          return {
-            nextOffset: advance.offset,
-            hasMore: advance.hasMore,
-            started: true,
-          };
-        });
-      })
-      .catch(() => {
-        if (requestId !== mediaRequestRef.current) return;
-        setMediaFailed(true);
-        setMediaPage((current) => ({
-          ...current,
-          started: true,
-          hasMore: true,
-        }));
-      })
-      .finally(() => {
-        if (requestId !== mediaRequestRef.current) return;
-        mediaPagingRef.current = false;
-        setMediaPaging(false);
-        setPendingTab((current) => (current === 'media' ? null : current));
+  const fetchMediaPage = useCallback(
+    (offset: number) => {
+      if (mediaPagingRef.current) return;
+      mediaPagingRef.current = true;
+      const requestId = mediaRequestRef.current;
+      queueMicrotask(() => {
+        setMediaPaging(true);
+        if (offset === 0) setPendingTab('media');
       });
-  }, [accountId]);
+      const client = createReadOnlyOnSocialClient();
+      void client.query.feed
+        .recent({
+          author: accountId,
+          limit: PROFILE_MEDIA_PAGE_SIZE,
+          offset,
+        })
+        .then((page) => {
+          if (requestId !== mediaRequestRef.current) return;
+          const seen = new Set(postsRef.current.map(postKey));
+          const addedCount = page.items.filter(
+            (row) => !seen.has(postKey(row))
+          ).length;
+          setPosts((current) => mergePostRows(current, page.items));
+          setMediaFailed(false);
+          const advance = profileMediaAdvance({
+            offset,
+            pageSize: PROFILE_MEDIA_PAGE_SIZE,
+            itemCount: page.items.length,
+            addedCount,
+          });
+          setMediaPage((current) => {
+            // A repeated first window can land after paging has already moved on.
+            if (addedCount <= 0 && current.nextOffset > offset) return current;
+            return {
+              nextOffset: advance.offset,
+              hasMore: advance.hasMore,
+              started: true,
+            };
+          });
+        })
+        .catch(() => {
+          if (requestId !== mediaRequestRef.current) return;
+          setMediaFailed(true);
+          setMediaPage((current) => ({
+            ...current,
+            started: true,
+            hasMore: true,
+          }));
+        })
+        .finally(() => {
+          if (requestId !== mediaRequestRef.current) return;
+          mediaPagingRef.current = false;
+          setMediaPaging(false);
+          setPendingTab((current) => (current === 'media' ? null : current));
+        });
+    },
+    [accountId]
+  );
 
   useEffect(() => {
     if (mediaAccountRef.current === accountId) return;
@@ -249,6 +252,7 @@ export function ProfileFeedClient({
   );
 
   const {
+    openPost,
     openReply,
     openFullReply,
     openQuote,
@@ -321,14 +325,17 @@ export function ProfileFeedClient({
     : total > 0
       ? `${total} indexed`
       : 'No posts yet';
-  const emptyHint = tab
-    ? isOwner
-      ? FEED_TAB_OWNER_HINT[tab]
-      : 'Nothing here yet.'
-    : total > 0
-      ? 'Indexed posts could not be loaded right now.'
-      : isOwner
-        ? 'Nothing published yet. Use the pen to post.'
+  /** One tappable action on the main posts empty state; other tabs keep hints. */
+  const showOwnerComposeAction =
+    isOwner && (tab ? tab === 'posts' : total === 0);
+  const emptyHint = showOwnerComposeAction
+    ? null
+    : tab
+      ? isOwner
+        ? FEED_TAB_OWNER_HINT[tab]
+        : 'Nothing here yet.'
+      : total > 0
+        ? 'Indexed posts could not be loaded right now.'
         : 'Nothing published yet.';
 
   if (visiblePosts.length === 0) {
@@ -373,7 +380,17 @@ export function ProfileFeedClient({
         ) : null}
         <div className="home-feed-state">
           <span>{emptyTitle}</span>
-          <span>{emptyHint}</span>
+          {showOwnerComposeAction ? (
+            <button
+              type="button"
+              className="profile-feed-compose-teaser"
+              onClick={() => openPost()}
+            >
+              Write your first post.
+            </button>
+          ) : (
+            <span>{emptyHint}</span>
+          )}
         </div>
         {sheet}
       </>
