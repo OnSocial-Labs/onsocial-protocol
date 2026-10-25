@@ -381,6 +381,28 @@ export class FeedQuery {
   }
 
   /**
+   * Current rows for the given (accountId, postId) pairs. Pairs whose row no
+   * longer exists come back absent, so callers can reconcile deleted or
+   * edited feed rows without refetching a whole page.
+   *
+   * ```ts
+   * const fresh = await os.query.feed.statesByIds([{ accountId: 'alice.near', postId: '1' }]);
+   * ```
+   */
+  async statesByIds(
+    pairs: Array<{ accountId: string; postId: string }>
+  ): Promise<PostRow[]> {
+    const unique = new Map<string, { accountId: string; postId: string }>();
+    for (const pair of pairs) {
+      if (!pair.accountId || !pair.postId) continue;
+      unique.set(`${pair.accountId}:${pair.postId}`, pair);
+    }
+    const stubs = [...unique.values()];
+    if (stubs.length === 0) return [];
+    return this.hydrateStubRows('PostStatesByIds', stubs, stubs.length);
+  }
+
+  /**
    * Feed from a list of accounts (e.g. accounts you stand with).
    *
    * `nativeOnly` drops replies whose parent author is outside `accounts`

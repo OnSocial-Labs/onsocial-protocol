@@ -129,6 +129,10 @@ import {
 } from '@/lib/home-feed-session';
 import { scrollFeedToNewest } from '@/lib/feed-scroll-to-newest';
 import {
+  reconcileFeedRows,
+  selectFeedReconcileTargets,
+} from '@/lib/home-feed-reconcile';
+import {
   getViewerStandEpoch,
   subscribeViewerStandConfirmed,
 } from '@/lib/viewer-standing-global';
@@ -1222,6 +1226,35 @@ export function HomePagePanel({
         }
       );
       setUnseenPosts(summary);
+
+      // The head probe only sees new posts — reconcile edits/deletions of
+      // rows already on screen. Runs inside the try: a failed state query
+      // must never remove rows.
+      const reconcileTargets = selectFeedReconcileTargets(postsRef.current);
+      if (
+        reconcileTargets.length > 0 &&
+        !isLoadingRef.current &&
+        !isRefreshingRef.current &&
+        postsLengthRef.current > 0
+      ) {
+        const reader = createReadOnlyOnSocialClient();
+        const freshRows = await reader.query.feed.statesByIds(reconcileTargets);
+        if (
+          !isLoadingRef.current &&
+          !isRefreshingRef.current &&
+          postsLengthRef.current > 0
+        ) {
+          const { next, removedKeys, updatedKeys } = reconcileFeedRows(
+            postsRef.current,
+            freshRows,
+            reconcileTargets
+          );
+          // The posts-effect sync resyncs postsRef/length/seen keys.
+          if (removedKeys.length > 0 || updatedKeys.length > 0) {
+            setPosts(next);
+          }
+        }
+      }
     } catch {
       // Quiet — pill is best-effort; list stays as-is.
     } finally {
