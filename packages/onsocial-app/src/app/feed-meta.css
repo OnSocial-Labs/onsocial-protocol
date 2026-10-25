@@ -173,10 +173,10 @@ button.post-thread-more:not(.post-thread-more--coil-tail) {
 
   /* Show more, Read, thread fold — brighten. Weight stays 300. */
   :is(
-      .post-thread-more,
-      button.post-card-show-more,
-      .post-card .post-card-show-more
-    ):hover {
+    .post-thread-more,
+    button.post-card-show-more,
+    .post-card .post-card-show-more
+  ):hover {
     color: var(--protocol-green-hover, var(--protocol-green));
     text-decoration: none;
     outline: none;
@@ -253,14 +253,14 @@ button.post-thread-more:not(.post-thread-more--coil-tail) {
 
 /* Keyboard — brighten and a thin ring. Not an underline, and not hover-gated. */
 :is(
-    .os-hashtag,
-    .os-mention,
-    .os-ticker,
-    .os-link,
-    .post-thread-more,
-    button.post-card-show-more,
-    .post-card .post-card-show-more
-  ):focus-visible {
+  .os-hashtag,
+  .os-mention,
+  .os-ticker,
+  .os-link,
+  .post-thread-more,
+  button.post-card-show-more,
+  .post-card .post-card-show-more
+):focus-visible {
   color: var(--protocol-green-hover, var(--protocol-green));
   text-decoration: none;
   outline: 1px solid currentColor;
@@ -286,7 +286,10 @@ button.post-thread-more:not(.post-thread-more--coil-tail) {
   ):focus-visible {
   color: color-mix(
     in srgb,
-    var(--signal-reputation, var(--mood-signal-reputation, var(--protocol-green)))
+    var(
+        --signal-reputation,
+        var(--mood-signal-reputation, var(--protocol-green))
+      )
       72%,
     white
   );
@@ -314,4 +317,57 @@ button.post-thread-more:not(.post-thread-more--coil-tail) {
   );
   text-decoration: none;
   outline: none;
+}
+
+/*
+ * Ellipsis affordance (…) — the feed fold toggle and the article read
+ * control. Muted secondary gray like a handle / timestamp, never the
+ * accent. Last in the file so it beats the accent rules above on ties.
+ */
+:is(button.post-card-show-more--dots, .post-card .post-card-show-more--dots) {
+  color: var(--os-identity-handle, rgb(var(--fg-rgb) / 0.42));
+  font-weight: 600;
+}
+
+:is(
+    .os-app-screen.os-app-screen--mood,
+    .os-page-sheet-panel[data-mood],
+    .glass-sheet-panel[data-mood]
+  )
+  :is(button.post-card-show-more--dots, .post-card .post-card-show-more--dots) {
+  color: var(--os-identity-handle, rgb(var(--fg-rgb) / 0.42));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :is(
+    button.post-card-show-more--dots,
+    .post-card .post-card-show-more--dots
+  ):hover,
+  :is(
+      .os-app-screen.os-app-screen--mood,
+      .os-page-sheet-panel[data-mood],
+      .glass-sheet-panel[data-mood]
+    )
+    :is(
+      button.post-card-show-more--dots,
+      .post-card .post-card-show-more--dots
+    ):hover {
+    color: var(--os-identity-handle-hover, rgb(var(--fg-rgb) / 0.62));
+  }
+}
+
+:is(
+  button.post-card-show-more--dots,
+  .post-card .post-card-show-more--dots
+):focus-visible,
+:is(
+    .os-app-screen.os-app-screen--mood,
+    .os-page-sheet-panel[data-mood],
+    .glass-sheet-panel[data-mood]
+  )
+  :is(
+    button.post-card-show-more--dots,
+    .post-card .post-card-show-more--dots
+  ):focus-visible {
+  color: var(--os-identity-handle-hover, rgb(var(--fg-rgb) / 0.62));
 }

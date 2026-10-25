@@ -1162,10 +1162,16 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 .feed-article-slide .portfolio-writing-essay .portfolio-about-heading,
 .feed-article-slide .portfolio-writing-essay .portfolio-about-list,
 .portfolio-writing-article-screen .portfolio-writing-essay .portfolio-about-bio,
-.portfolio-writing-article-screen .portfolio-writing-essay .portfolio-about-heading,
-.portfolio-writing-article-screen .portfolio-writing-essay .portfolio-about-list,
+.portfolio-writing-article-screen
+  .portfolio-writing-essay
+  .portfolio-about-heading,
+.portfolio-writing-article-screen
+  .portfolio-writing-essay
+  .portfolio-about-list,
 .article-read-screen .collection-writing-markdown,
-.article-read-screen .collection-writing-markdown :is(p, li, blockquote, h1, h2, h3, h4),
+.article-read-screen
+  .collection-writing-markdown
+  :is(p, li, blockquote, h1, h2, h3, h4),
 .article-read-screen .collection-writing-chapter-title {
   font-family: var(--font-newsreader), Georgia, 'Times New Roman', serif;
 }
@@ -1173,7 +1179,9 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 .feed-article-slide .portfolio-writing-essay .portfolio-about-bio,
 .feed-article-slide .portfolio-writing-essay .portfolio-about-list,
 .portfolio-writing-article-screen .portfolio-writing-essay .portfolio-about-bio,
-.portfolio-writing-article-screen .portfolio-writing-essay .portfolio-about-list,
+.portfolio-writing-article-screen
+  .portfolio-writing-essay
+  .portfolio-about-list,
 .article-read-screen .collection-writing-markdown {
   font-size: 1.125rem;
   font-weight: 400;
@@ -3642,8 +3650,7 @@ a.os-surface-row {
 }
 
 .post-card-scarce-buy:not(.post-card-scarce-buy--secondary):focus-visible {
-  outline: 1px solid
-    var(--protocol-green-hover, var(--protocol-green, #00ec97));
+  outline: 1px solid var(--protocol-green-hover, var(--protocol-green, #00ec97));
   outline-offset: 3px;
 }
 
@@ -5698,7 +5705,9 @@ a.os-surface-row {
     );
   }
 
-  :root[data-theme='light'] .portfolio-frame[data-mood='noir'] .portfolio-page::after,
+  :root[data-theme='light']
+    .portfolio-frame[data-mood='noir']
+    .portfolio-page::after,
   :root[data-theme='light']
     .portfolio-frame[data-mood='noir'][data-mood-preview='true'][data-mood-only='true']
     .portfolio-page::after {
@@ -16257,18 +16266,18 @@ a.os-surface-row {
      under account, share, and the full composer. A parked post stays put.
      A keep-dock media face keeps its own lift at 90. */
   body:not(:has([data-os-slide-over='true'][data-keep-dock='true'])):has(
-      .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked):has(
-          .post-thread-sheet-panel
-        )
+      .glass-sheet-root[data-keep-dock='true']:not(
+          .post-thread-sheet-parked
+        ):has(.post-thread-sheet-panel)
     )
     .portfolio-summon-dock {
     z-index: 51;
   }
 
   body:not(:has([data-os-slide-over='true'][data-keep-dock='true'])):has(
-      .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked):has(
-          .post-thread-sheet-panel
-        )
+      .glass-sheet-root[data-keep-dock='true']:not(
+          .post-thread-sheet-parked
+        ):has(.post-thread-sheet-panel)
     )
     .portfolio-summon-dock
     .portfolio-summon {
@@ -25565,7 +25574,7 @@ a.os-surface-row {
   }
 
   /*
-   * Closed fold — Show more rides on the last body line, fading the text
+   * Closed fold — the ellipsis rides on the last body line, fading the text
    * into the surface, so its late appearance never pushes the card taller.
    * Expanded it steps back into the flow under the full body. The fg layer
    * keeps the fade exact when a card hover lifts the surface.
@@ -25574,23 +25583,40 @@ a.os-surface-row {
     position: absolute;
     right: 0;
     bottom: 0;
-    padding-left: 2.1rem;
+    padding-left: 1.5rem;
     background:
       linear-gradient(
         to right,
         rgb(var(--fg-rgb) / var(--post-fold-scrim-lift, 0)),
         rgb(var(--fg-rgb) / var(--post-fold-scrim-lift, 0)) 55%
       ),
-      linear-gradient(
-        to right,
-        rgb(var(--bg-rgb) / 0),
-        rgb(var(--bg-rgb)) 55%
-      );
+      linear-gradient(to right, rgb(var(--bg-rgb) / 0), rgb(var(--bg-rgb)) 55%);
   }
 
   .post-card--openable:hover .post-card-show-more--fold,
   .post-card--openable:focus-within .post-card-show-more--fold {
     --post-fold-scrim-lift: 0.03;
+  }
+
+  /*
+   * The visible dots stay small and muted; the hit area grows to the
+   * 44×44 touch-target minimum via an invisible pad centered on them.
+   * The pad is out of flow, so the body text and the fold line never
+   * reflow. The fold variant is already absolutely positioned; the inline
+   * article variant needs a containing block for the pad.
+   */
+  .post-card-show-more--dots:not(.post-card-show-more--fold) {
+    position: relative;
+  }
+
+  .post-card-show-more--dots::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
   }
 
   .post-sensitive-content {
@@ -35883,7 +35909,6 @@ a.os-surface-row {
   .feed-photo-caption-stand.is-standing {
     background: rgb(var(--fg-rgb) / 0.12);
   }
-
 
   .feed-photo-caption-text {
     display: block;

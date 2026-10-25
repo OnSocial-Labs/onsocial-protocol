@@ -1641,19 +1641,21 @@ function PostCardBody({
     showArticleRead && onReadArticle ? (
       <button
         type="button"
-        className="post-card-show-more"
+        className="post-card-show-more post-card-show-more--dots"
+        aria-label="Read article"
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
           onReadArticle();
         }}
       >
-        Read
+        …
       </button>
     ) : showArticleRead && articleHref ? (
       <Link
         href={articleHref}
-        className="post-card-show-more"
+        className="post-card-show-more post-card-show-more--dots"
+        aria-label="Read article"
         scroll={false}
         onClick={(event) => {
           event.stopPropagation();
@@ -1661,9 +1663,12 @@ function PostCardBody({
         }}
         onNavigate={onArticleHrefNavigate ?? undefined}
       >
-        Read
+        …
       </Link>
     ) : null;
+  // The tease's static trailing ellipsis is replaced by the ellipsis
+  // affordance itself, so the dots sit exactly at the truncation point.
+  const teaseDisplay = readControl ? tease.replace(/…$/u, '') : tease;
 
   return (
     <>
@@ -1700,26 +1705,29 @@ function PostCardBody({
             </OsTextFold>
           ) : (
             <p className="post-card-body">
-              <PostRichText text={tease} inlineMarks={isArticle} />
+              <PostRichText text={teaseDisplay} inlineMarks={isArticle} />
+              {readControl}
             </p>
           )}
           {foldBody && bodyOverflows ? (
             <button
               type="button"
               className={`post-card-show-more${
-                expanded ? '' : ' post-card-show-more--fold'
+                expanded
+                  ? ''
+                  : ' post-card-show-more--fold post-card-show-more--dots'
               }`}
               aria-expanded={expanded}
+              aria-label={expanded ? 'Show less' : 'Show more'}
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 setExpanded((current) => !current);
               }}
             >
-              {expanded ? 'Show less' : 'Show more'}
+              {expanded ? 'Show less' : '…'}
             </button>
           ) : null}
-          {readControl}
         </div>
       ) : readControl ? (
         <div className="post-card-body-block">{readControl}</div>

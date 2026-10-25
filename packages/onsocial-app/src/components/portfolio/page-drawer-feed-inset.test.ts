@@ -64,7 +64,7 @@ describe('page drawer feed inset', () => {
 
   it('lifts the reply pill above an open post sheet', () => {
     expect(globalsCss).toMatch(
-      /body:not\(:has\(\[data-os-slide-over='true'\]\[data-keep-dock='true'\]\)\):has\(\s*\.glass-sheet-root\[data-keep-dock='true'\]:not\(\.post-thread-sheet-parked\):has\(\s*\.post-thread-sheet-panel\s*\)\s*\)\s*\.portfolio-summon-dock \{\s*z-index: 51;/
+      /body:not\(:has\(\[data-os-slide-over='true'\]\[data-keep-dock='true'\]\)\):has\(\s*\.glass-sheet-root\[data-keep-dock='true'\]:not\(\s*\.post-thread-sheet-parked\s*\):has\(\s*\.post-thread-sheet-panel\s*\)\s*\)\s*\.portfolio-summon-dock \{\s*z-index: 51;/
     );
   });
 

@@ -1063,7 +1063,9 @@ export function HomePagePanel({
     enabled:
       showLoadMoreSentinel && !isLoading && !isLoadingMore && !isRefreshing,
     onIntersect: loadMore,
-    rootMargin: '200px 0px',
+    // ~1–1.5 viewports of lead: page two starts fetching well before the
+    // append skeleton can scroll into view on cold visits.
+    rootMargin: '1400px 0px',
   });
 
   useEffect(() => {
