@@ -178,6 +178,7 @@ import {
   parsePostPollEmbed,
   parsePostText,
   parsePostTokenEmbed,
+  postFeedBodyOverflows,
   postFeedPreviewLimit,
   postKey,
   postKindBadge,
@@ -1248,9 +1249,7 @@ function EngagementStat({
   rollSignal?: number;
 }) {
   const countNode = (
-    <span
-      className={`post-card-count-slot${count > 0 ? ' is-visible' : ''}`}
-    >
+    <span className={`post-card-count-slot${count > 0 ? ' is-visible' : ''}`}>
       <RollingNumber value={count} rollSignal={rollSignal} />
     </span>
   );
@@ -1627,7 +1626,9 @@ function PostCardBody({
   onArticleHrefNavigate?: ((event: { preventDefault(): void }) => void) | null;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [bodyOverflows, setBodyOverflows] = useState(false);
+  const [bodyOverflows, setBodyOverflows] = useState(() =>
+    postFeedBodyOverflows(text, hasMedia)
+  );
   const previewLimit = postFeedPreviewLimit(hasMedia);
   const isArticle = Boolean(articleTitle && articleHref);
   /** Photo posts peek shorter. The full text stays mounted; the clip folds it. */
@@ -1694,7 +1695,10 @@ function PostCardBody({
             <OsTextFold
               open={expanded}
               closedLines={closedLines}
-              onOverflow={setBodyOverflows}
+              capped
+              onOverflow={(overflows) => {
+                if (overflows) setBodyOverflows(true);
+              }}
             >
               <p className="post-card-body">
                 <PostRichText text={text} />

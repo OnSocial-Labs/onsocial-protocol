@@ -3,6 +3,7 @@
 import {
   useCallback,
   useLayoutEffect,
+  type CSSProperties,
   type ReactNode,
   type RefObject,
 } from 'react';
@@ -16,11 +17,14 @@ import { useOsReveal } from '@onsocial/ui';
 export function OsTextFold({
   open,
   closedLines,
+  capped = false,
   onOverflow,
   children,
 }: {
   open: boolean;
   closedLines: number;
+  /** Cap at `closedLines` before measure. Short copy keeps its own height. */
+  capped?: boolean;
   onOverflow?: (overflows: boolean) => void;
   children: ReactNode;
 }) {
@@ -67,8 +71,18 @@ export function OsTextFold({
     return () => observer.disconnect();
   }, [innerRef, sync]);
 
+  const capStyle = capped
+    ? ({ '--os-fold-lines': String(closedLines) } as CSSProperties)
+    : undefined;
+
   return (
-    <div ref={hostRef} className={`os-reveal${open ? ' is-open' : ''}`}>
+    <div
+      ref={hostRef}
+      className={`os-reveal${capped ? ' os-reveal--capped' : ''}${
+        open ? ' is-open' : ''
+      }`}
+      style={capStyle}
+    >
       <div ref={clipRef} className="os-reveal-clip">
         <div ref={innerRef} className="os-reveal-inner">
           {children}

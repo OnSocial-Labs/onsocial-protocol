@@ -469,6 +469,20 @@ export function postPreviewNeedsExpand(
 }
 
 /**
+ * Feed body will not fit the closed line cap. Character length is the same
+ * check as an article Read control. Extra hard breaks count too, because a
+ * short line still takes a row.
+ */
+export function postFeedBodyOverflows(
+  text: string,
+  hasMedia: boolean
+): boolean {
+  const closedLines = hasMedia ? 3 : 6;
+  if (text.split(/\r?\n/).length > closedLines) return true;
+  return postPreviewNeedsExpand(text, postFeedPreviewLimit(hasMedia));
+}
+
+/**
  * Kind pill on a feed card. Media speaks for itself; a titled article
  * already has a title — do not stamp `longform`.
  */

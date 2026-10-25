@@ -39,8 +39,25 @@
   height: 0;
 }
 
+/*
+ * Capped fold — the closed size is in the first paint. max-height leaves a
+ * short body at its own height. The open size is the measured full height.
+ */
+.os-reveal--capped .os-reveal-clip {
+  height: auto;
+  max-height: calc(var(--os-fold-lines, 6) * 1.5em);
+  transition: max-height var(--os-motion-overlay, 320ms)
+    var(--os-motion-ease-soft, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.os-reveal--capped.is-open .os-reveal-clip {
+  height: auto;
+  max-height: var(--os-reveal-open, none);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .os-reveal-clip {
+  .os-reveal-clip,
+  .os-reveal--capped .os-reveal-clip {
     transition: none;
   }
 }

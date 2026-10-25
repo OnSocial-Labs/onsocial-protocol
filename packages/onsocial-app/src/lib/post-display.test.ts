@@ -10,6 +10,7 @@ import {
   parsePostCollectionEmbed,
   parsePostPollEmbed,
   parsePostText,
+  postFeedBodyOverflows,
   postFeedPreviewLimit,
   postKindBadge,
   postPreviewNeedsExpand,
@@ -149,6 +150,18 @@ describe('post text preview', () => {
     expect(truncatePostPreview('a'.repeat(200), 120).length).toBe(121);
     expect(postPreviewNeedsExpand('a'.repeat(140), 140)).toBe(false);
     expect(postPreviewNeedsExpand('a'.repeat(141), 140)).toBe(true);
+  });
+
+  it('knows a feed body needs Show more before it is measured', () => {
+    expect(postFeedBodyOverflows('short', false)).toBe(false);
+    expect(postFeedBodyOverflows('a'.repeat(280), false)).toBe(false);
+    expect(postFeedBodyOverflows('a'.repeat(281), false)).toBe(true);
+    expect(postFeedBodyOverflows('a'.repeat(140), true)).toBe(false);
+    expect(postFeedBodyOverflows('a'.repeat(141), true)).toBe(true);
+    expect(postFeedBodyOverflows('1\n2\n3\n4\n5\n6', false)).toBe(false);
+    expect(postFeedBodyOverflows('1\n2\n3\n4\n5\n6\n7', false)).toBe(true);
+    expect(postFeedBodyOverflows('1\n2\n3', true)).toBe(false);
+    expect(postFeedBodyOverflows('1\n2\n3\n4', true)).toBe(true);
   });
 });
 

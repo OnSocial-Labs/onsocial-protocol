@@ -25699,8 +25699,23 @@ a.os-surface-row {
     background: transparent;
   }
 
+  /*
+   * One feed photo — a fixed frame before the file arrives. The picture
+   * fills it. The real ratio does not resize the slot.
+   */
   .post-media-strip--1 .post-media-tile--compact {
+    width: 100%;
+    aspect-ratio: 4 / 3;
     max-height: 14rem;
+  }
+
+  .post-media-strip--1 .post-media-tile--compact .post-media-element {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    object-fit: cover;
   }
 
   /* Article face — reuse scarce feed jacket (300px · 1:1); face fills it. */
