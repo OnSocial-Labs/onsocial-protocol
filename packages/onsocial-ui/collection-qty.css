@@ -72,6 +72,15 @@
   margin: 0;
 }
 
+.collection-qty-max {
+  font-size: 0.86rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--os-surface-emphasis);
+  opacity: 0.5;
+  line-height: 1;
+}
+
 .collection-qty-suffix {
   font-size: 0.86rem;
   font-weight: 600;

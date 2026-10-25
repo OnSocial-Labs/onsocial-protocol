@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { HeldEditionsSheet } from '@/features/collectibles/held-editions-sheet';
@@ -26,6 +26,7 @@ export function HeldEditionFollow({
   onClose,
   onTransfer,
   onSell,
+  renderOwnerMenu,
 }: {
   open: boolean;
   title: string;
@@ -34,6 +35,8 @@ export function HeldEditionFollow({
   onClose: () => void;
   onTransfer?: (item: OwnedScarceItem) => void;
   onSell?: (item: OwnedScarceItem) => void;
+  /** Listed copies swap the row menu for the owner's sale manage menu. */
+  renderOwnerMenu?: (item: OwnedScarceItem) => ReactNode;
 }) {
   const router = useRouter();
   const { accountId } = useAppWallet();
@@ -87,6 +90,7 @@ export function HeldEditionFollow({
         editions={editions}
         choose={choose}
         onClose={onClose}
+        renderOwnerMenu={renderOwnerMenu}
         onChoose={(item) => {
           if (choose === 'send') {
             onTransfer?.(item);

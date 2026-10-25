@@ -1,11 +1,12 @@
 import type { PostScarceEmbed } from '@onsocial/sdk';
+import { heldEditionNoun } from '@/features/collectibles/held-editions';
 
 export type PostDropCtaKind = 'mint' | 'buy' | 'bid' | 'open' | 'muted';
 
 export interface PostDropCtaResolution {
   kind: PostDropCtaKind;
   /** Author-facing muted copy when kind is muted. */
-  mutedLabel?: 'Your Drop' | 'Your edition';
+  mutedLabel?: string;
 }
 
 /** Primary sale — Mint (not Buy). Secondary market uses Buy. */
@@ -33,7 +34,9 @@ export function resolvePostDropCta(input: {
   if (isPostAuthor) {
     return {
       kind: 'muted',
-      mutedLabel: hasTokenId ? 'Your edition' : 'Your Drop',
+      mutedLabel: hasTokenId
+        ? `Your ${heldEditionNoun(embed.mediumKind).toLowerCase()}`
+        : 'Your Drop',
     };
   }
 

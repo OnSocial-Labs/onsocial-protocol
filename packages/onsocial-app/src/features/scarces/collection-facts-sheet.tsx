@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import { Divider, OsHugSheet, ProtocolMotionArrow } from '@onsocial/ui';
 import { SheetFactCopy, SheetFactRow, SheetFactSection } from '@onsocial/ui';
+import { heldEditionPlural } from '@/features/collectibles/held-editions';
 import {
   collectionStatusLabel,
   deriveCollectionStatus,
@@ -294,7 +295,10 @@ export function CollectionFactsSheet({
                 : mintModeLabel(view.mintMode)
             }
           />
-          <SheetFactRow label="Editions" value={editionLabel} />
+          <SheetFactRow
+            label={heldEditionPlural(view.kind)}
+            value={editionLabel}
+          />
           <SheetFactRow
             label="Resale royalty"
             value={

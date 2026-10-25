@@ -202,7 +202,7 @@ export function CollectionQtyStepper({
           value={display}
           disabled={disabled}
           maxLength={Math.max(String(max).length, String(min).length, 1)}
-          aria-label={ariaLabel}
+          aria-label={`${ariaLabel}, ${value} of ${max}`}
           onFocus={(event) => {
             setDraft(String(valueRef.current));
             event.currentTarget.select();
@@ -244,6 +244,9 @@ export function CollectionQtyStepper({
             }
           }}
         />
+        <span className="collection-qty-max" aria-hidden>
+          /{max}
+        </span>
         {suffix ? (
           <span className="collection-qty-suffix" aria-hidden>
             {suffix}

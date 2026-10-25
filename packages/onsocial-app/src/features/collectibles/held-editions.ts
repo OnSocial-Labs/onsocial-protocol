@@ -6,9 +6,19 @@ import {
 } from '@/features/scarces/ticket-pass-payload';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
 
-/** Sheet title. Send when the row will transfer. Editions when the row opens. */
-export function heldEditionSheetTitle(choose: 'open' | 'send'): string {
-  return choose === 'send' ? 'Send' : 'Editions';
+/** Sheet title. Send when the row will transfer. The kind's own plural when the row opens. */
+export function heldEditionSheetTitle(
+  choose: 'open' | 'send',
+  mediumKind?: string | null
+): string {
+  if (choose === 'send') return 'Send';
+  return heldEditionPlural(mediumKind);
+}
+
+/** Editions / Passes / Coupons — the unit name where several copies are meant. */
+export function heldEditionPlural(mediumKind?: string | null): string {
+  const noun = heldEditionNoun(mediumKind);
+  return noun === 'Pass' ? 'Passes' : `${noun}s`;
 }
 
 /** Pass and Coupon match the pass. Every other kind stays Edition. */
@@ -110,14 +120,42 @@ export function heldEditionFactRows(item: {
     : null;
   if (minted) rows.push({ label: 'Minted', value: minted });
   if (item.listingKind) {
-    const near = item.listedPriceNear?.trim();
-    const dollars = near ? null : dollarStickerLabel(item.listedUsdE6);
     rows.push({
       label: 'Listed',
-      value: near ? `${near} NEAR` : (dollars ?? 'For sale'),
+      value: heldEditionAsk(item) ?? 'For sale',
     });
   }
   return rows;
+}
+
+/** The ask on a listed copy — dollar sticker first, then NEAR. Null for a zero ask. */
+export function heldEditionAsk(item: {
+  listedPriceNear?: string | null;
+  listedUsdE6?: string | null;
+}): string | null {
+  const dollars = dollarStickerLabel(item.listedUsdE6);
+  if (dollars) return dollars;
+  const near = item.listedPriceNear?.trim() || '';
+  const amount = Number.parseFloat(near);
+  if (!near || !Number.isFinite(amount) || amount <= 0) return null;
+  return `${near} NEAR`;
+}
+
+/**
+ * Sale state for the row: a badge on the mark line (like the role pill on a
+ * guild member), the ask quiet underneath. Null when the copy is not on sale.
+ */
+export function heldEditionListedState(item: {
+  listingKind?: 'fixed' | 'auction' | null;
+  listedPriceNear?: string | null;
+  listedUsdE6?: string | null;
+}): { badge: 'Listed' | 'Auction'; ask: string | null } | null {
+  if (!item.listingKind) return null;
+  const ask = heldEditionAsk(item);
+  if (item.listingKind === 'auction') {
+    return { badge: 'Auction', ask: ask ? `Reserve · ${ask}` : null };
+  }
+  return { badge: 'Listed', ask };
 }
 
 export function compareHeldEditionTokenIds(a: string, b: string): number {

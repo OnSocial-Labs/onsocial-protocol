@@ -15,6 +15,7 @@ import {
   quantityMark,
 } from '@/features/scarces/quantity-count-format';
 import { heldEditionRowMark } from '@/features/collectibles/held-editions';
+import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { socialTimeProps } from '@/lib/post-display';
 import {
@@ -25,7 +26,7 @@ import { collectionPath } from '@/lib/app-routes';
 import { OsRowAction } from '@/lib/os-row-action';
 
 interface CollectiblesHoldingRowProps {
-  item: PortfolioHoldingPeek;
+  item: PortfolioHoldingPeek & { editions?: PortfolioHoldingPeek[] };
   /** Collapsed edition count when several tokens share one collection. */
   editionCount?: number;
   /** Grouped drop: the row opens the edition list instead of the drop. */
@@ -44,23 +45,68 @@ function formatHoldingPrice(priceNear: string): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
 
-/** Kind, collapsed count, or the list price when this copy is for sale. */
+/** Ask for the row. The dollar sticker wins; a zero NEAR ask stays quiet. */
+export function collectiblesHoldingAsk(
+  item: Pick<PortfolioHoldingPeek, 'listedPriceNear' | 'listedUsdE6'>
+): string | null {
+  const dollars = dollarStickerLabel(item.listedUsdE6);
+  if (dollars) return dollars;
+  const near = item.listedPriceNear?.trim() || '';
+  if (!near || !Number.isFinite(Number.parseFloat(near))) return null;
+  if (Number.parseFloat(near) <= 0) return null;
+  return `${formatHoldingPrice(near)} NEAR`;
+}
+
+type HoldingSalePeek = Pick<
+  PortfolioHoldingPeek,
+  'listedPriceNear' | 'listedUsdE6' | 'listingKind'
+>;
+
+/** How many folded copies are on sale, and whether they share one ask. */
+export function collectiblesFoldedSale(
+  editions: readonly HoldingSalePeek[]
+): { listedCount: number; ask: string | null; allAuction: boolean } {
+  const listed = editions.filter((entry) => entry.listingKind != null);
+  const asks = new Set(
+    listed.map((entry) => collectiblesHoldingAsk(entry) ?? '')
+  );
+  return {
+    listedCount: listed.length,
+    ask: asks.size === 1 ? [...asks][0] || null : null,
+    allAuction:
+      listed.length > 0 && listed.every((e) => e.listingKind === 'auction'),
+  };
+}
+
+/**
+ * Kind, collapsed count, and the sale state. `×2 · $1 each` only when every
+ * folded copy is really listed at that ask — otherwise a quiet listed count.
+ */
 export function collectiblesHoldingFact(
-  item: Pick<
-    PortfolioHoldingPeek,
-    'kindLabel' | 'listedPriceNear' | 'listingKind'
-  >,
-  editionCount = 1
+  item: Pick<PortfolioHoldingPeek, 'kindLabel'> & HoldingSalePeek,
+  editionCount = 1,
+  editions?: readonly HoldingSalePeek[]
 ): string {
   const kind = item.kindLabel.trim();
   const count = quantityMark(editionCount) ?? '';
-  const price = item.listedPriceNear?.trim();
   const parts = [kind, count];
-  if (price) {
-    const amount = appendEach(
-      `${formatHoldingPrice(price)} NEAR`,
-      editionCount
-    );
+  if (editionCount > 1 && editions && editions.length > 1) {
+    const folded = collectiblesFoldedSale(editions);
+    if (folded.listedCount === 0) return parts.filter(Boolean).join(' · ');
+    const allListed = folded.listedCount === editionCount;
+    if (allListed && folded.ask) {
+      if (folded.allAuction) parts.push('Reserve');
+      parts.push(appendEach(folded.ask, editionCount));
+    } else {
+      parts.push(
+        folded.listedCount === 1 ? '1 listed' : `${folded.listedCount} listed`
+      );
+    }
+    return parts.filter(Boolean).join(' · ');
+  }
+  const ask = collectiblesHoldingAsk(item);
+  if (ask) {
+    const amount = appendEach(ask, editionCount);
     if (item.listingKind === 'auction') parts.push('Reserve');
     parts.push(amount);
   }
@@ -100,7 +146,7 @@ export function CollectiblesHoldingRow({
   });
   const opensCollectedRead =
     item.actionLabel === 'Read' && !articleReadHref && Boolean(collectionId);
-  const fact = collectiblesHoldingFact(item, editionCount);
+  const fact = collectiblesHoldingFact(item, editionCount, item.editions);
   const seatMark = heldEditionRowMark(item.tokenId, editionCount);
   const showMaker = Boolean(creatorId) && !hideCreator;
   const rowHref = opensPass ? dropHref : item.href;

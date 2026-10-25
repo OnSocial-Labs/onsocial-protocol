@@ -28,6 +28,7 @@ import {
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
+import { heldEditionNoun } from '@/features/collectibles/held-editions';
 import { fetchCollection } from '@/features/scarces/collections-data';
 import {
   scarcePriceChangeHint,
@@ -277,12 +278,13 @@ export function CollectiblesHoldingRowMenu({
   });
 
   const items = useMemo<ActionDrawerItem[]>(() => {
+    const noun = heldEditionNoun(item.mediumKind).toLowerCase();
     const list: ActionDrawerItem[] = [
       {
         id: 'history',
         section: 'History',
         label: 'History',
-        description: "This edition's life",
+        description: `This ${noun}'s life`,
         leading: <TimeIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           setOpen(false);
@@ -297,7 +299,7 @@ export function CollectiblesHoldingRowMenu({
         section: 'Manage',
         label: 'Transfer',
         description: openHeldEditions
-          ? 'Choose which edition to send'
+          ? `Choose which ${noun} to send`
           : listed
             ? 'Send it on. This comes off sale.'
             : 'Send this scarce to another account',

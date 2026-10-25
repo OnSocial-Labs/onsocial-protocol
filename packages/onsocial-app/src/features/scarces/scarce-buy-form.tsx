@@ -34,12 +34,7 @@ import {
   viewerOfferCtaLabel,
 } from '@/features/scarces/scarce-offers';
 import { ScarceBuyFactsMeta } from '@/features/scarces/scarce-buy-facts-meta';
-import { QuantityCount } from '@/features/scarces/quantity-count';
-import {
-  appendEach,
-  quantityPriceLine,
-  visibleQuantity,
-} from '@/features/scarces/quantity-count-format';
+
 import {
   formatScarceBuyPrice,
   scarceBuyDealParts,
@@ -720,15 +715,9 @@ export function ScarceBuyForm({
     dollarUnitYocto != null
       ? dollarNearEstimateLabel(dollarUnitYocto, mintQty)
       : null;
-  const dealVerb = isPrimaryMint ? 'minted' : 'bought';
   const unitAskLabel = scarceBuyPriceLine({
     priceLabel: unitDollarLabel,
     priceNear: isDropBuy || isMarketBuy ? priceNear : undefined,
-  });
-  const pricedDeal = quantityPriceLine({
-    quantity: mintQty,
-    verb: dealVerb,
-    amount: unitAskLabel,
   });
   const nearDepositYocto = useMemo((): bigint | null => {
     if (dollarSticker) {
@@ -830,7 +819,7 @@ export function ScarceBuyForm({
     ? isConnected && (isLazyBuy || isDropBuy || isMarketBuy)
     : isConnected && ((isDropBuy && isPaidMint) || (isMarketBuy && isPaidAsk));
   const primaryLabelWithPrice = showFooterPrice
-    ? `${primaryActionLabel} · ${pricedDeal || '—'}`
+    ? `${primaryActionLabel} · ${formatScarceBuyPrice(totalPriceNear) || '—'}`
     : isConnected
       ? primaryActionLabel
       : 'Connect';
@@ -1565,13 +1554,7 @@ export function ScarceBuyForm({
           price={
             <>
               <div className="scarce-buy-deal-row">
-                {pricedDeal ? (
-                  <p className="scarce-buy-price">
-                    <QuantityCount quantity={mintQty} verb={dealVerb} />
-                    {visibleQuantity(mintQty) && unitAskLabel ? ' · ' : null}
-                    {unitAskLabel ? appendEach(unitAskLabel, mintQty) : null}
-                  </p>
-                ) : null}
+                {unitAskLabel ? <p className="scarce-buy-price">{unitAskLabel}</p> : null}
                 <ScarceBuyFactsMeta
                   parts={scarceBuyDealParts({
                     isPrimaryMint,

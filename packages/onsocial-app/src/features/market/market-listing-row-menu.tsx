@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/action-drawer';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { heldEditionNoun } from '@/features/collectibles/held-editions';
 import { collectionIdFromTokenId } from '@/features/market/market-listings';
 import {
   isDropComposeDraftReady,
@@ -140,7 +141,7 @@ export function MarketListingRowMenu({
         id: 'history',
         section: 'History',
         label: 'History',
-        description: "This edition's life",
+        description: `This ${heldEditionNoun(item.mediumKind).toLowerCase()}'s life`,
         leading: <TimeIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           setOpen(false);
@@ -171,7 +172,7 @@ export function MarketListingRowMenu({
       });
     }
     return list;
-  }, [actions, handleShare, handleShareToPost]);
+  }, [actions, handleShare, handleShareToPost, item.mediumKind]);
 
   if (items.length === 0) return null;
 

@@ -61,6 +61,8 @@ export interface PortfolioHoldingPeek {
   /** Resale listing state when this token is on Market. */
   listingKind?: 'fixed' | 'auction' | null;
   listedPriceNear?: string | null;
+  /** Dollar sticker (usd_e6 millionths) when the ask is in dollars. */
+  listedUsdE6?: string | null;
 }
 
 /** Holder-facing primary action for a medium kind. */
@@ -177,6 +179,9 @@ export function toPortfolioHoldingPeek(
       ? {
           listingKind: item.listingKind,
           listedPriceNear: item.listedPriceNear ?? null,
+          ...(item.listedUsdE6?.trim()
+            ? { listedUsdE6: item.listedUsdE6.trim() }
+            : {}),
         }
       : item.listedPriceNear?.trim()
         ? { listingKind: null, listedPriceNear: item.listedPriceNear }
@@ -319,6 +324,7 @@ export function ownedScarceFromPeek(
     ...(peek.sourcePostPath ? { sourcePostPath: peek.sourcePostPath } : {}),
     ...(peek.mintedAtMs != null ? { mintedAtMs: peek.mintedAtMs } : {}),
     ...(peek.listedPriceNear ? { listedPriceNear: peek.listedPriceNear } : {}),
+    ...(peek.listedUsdE6?.trim() ? { listedUsdE6: peek.listedUsdE6.trim() } : {}),
   };
 }
 
@@ -367,6 +373,9 @@ export function groupHoldingsForRail(
       if (!existing.listedPriceNear?.trim() && item.listedPriceNear?.trim()) {
         existing.listingKind = item.listingKind ?? null;
         existing.listedPriceNear = item.listedPriceNear;
+        if (item.listedUsdE6?.trim()) {
+          existing.listedUsdE6 = item.listedUsdE6.trim();
+        }
       }
       continue;
     }

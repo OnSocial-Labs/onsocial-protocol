@@ -6,6 +6,7 @@ import {
   heldEditionFactRows,
   heldCopySuccessLine,
   heldEditionLabel,
+  heldEditionListedState,
   heldEditionMark,
   heldEditionRowMark,
   heldEditionSheetTitle,
@@ -24,9 +25,13 @@ function edition(tokenId: string, mediaUrl?: string | null): OwnedScarceItem {
 }
 
 describe('held editions', () => {
-  it('names a send sheet by the tap, and a browse sheet by the list', () => {
+  it('names a send sheet by the tap, and a browse sheet by the kind', () => {
     expect(heldEditionSheetTitle('send')).toBe('Send');
     expect(heldEditionSheetTitle('open')).toBe('Editions');
+    expect(heldEditionSheetTitle('open', 'audio')).toBe('Editions');
+    expect(heldEditionSheetTitle('open', 'ticket')).toBe('Passes');
+    expect(heldEditionSheetTitle('open', 'membership')).toBe('Passes');
+    expect(heldEditionSheetTitle('open', 'coupon')).toBe('Coupons');
   });
 
   it('names the seat and never the token id', () => {
@@ -233,5 +238,64 @@ describe('held editions', () => {
       listedUsdE6: '2500000',
     });
     expect(dollars.find((row) => row.label === 'Listed')?.value).toBe('$2.5');
+
+    const dollarsWithZeroNear = heldEditionFactRows({
+      tokenId: 'night-drive:4',
+      listingKind: 'fixed',
+      listedPriceNear: '0',
+      listedUsdE6: '1000000',
+    });
+    expect(
+      dollarsWithZeroNear.find((row) => row.label === 'Listed')?.value
+    ).toBe('$1');
+  });
+
+  it('names the sale state only for a listed copy', () => {
+    expect(heldEditionListedState({ listingKind: null })).toBeNull();
+    expect(
+      heldEditionListedState({ listingKind: 'fixed', listedPriceNear: '2' })
+    ).toEqual({ badge: 'Listed', ask: '2 NEAR' });
+    expect(
+      heldEditionListedState({
+        listingKind: 'fixed',
+        listedPriceNear: '0',
+        listedUsdE6: '1000000',
+      })
+    ).toEqual({ badge: 'Listed', ask: '$1' });
+    expect(
+      heldEditionListedState({ listingKind: 'auction', listedPriceNear: '2' })
+    ).toEqual({ badge: 'Auction', ask: 'Reserve · 2 NEAR' });
+    expect(heldEditionListedState({ listingKind: 'fixed' })).toEqual({
+      badge: 'Listed',
+      ask: null,
+    });
+  });
+
+  it('badges a listed row, keeps the ask quiet, and hands its menu to the owner', () => {
+    const listedItem = {
+      ...edition('gate:2'),
+      mediumKind: 'ticket',
+      listingKind: 'fixed' as const,
+      listedPriceNear: '0',
+      listedUsdE6: '1000000',
+    };
+    const html = renderToStaticMarkup(
+      createElement(HeldEditionList, {
+        editions: [listedItem, edition('gate:3')],
+        choose: 'open',
+        onChoose: () => {},
+        onSell: () => {},
+        renderOwnerMenu: () => createElement('span', null, 'OWNER-MENU'),
+      })
+    );
+    expect(html).toContain('held-edition-listed-badge');
+    expect(html).toContain('>Listed</span>');
+    expect(html).toContain('held-edition-listed">$1</span>');
+    expect(html).toContain('aria-label="Open #2, listed at $1"');
+    expect(html).toContain('aria-label="Open #3"');
+    expect(html).toContain('OWNER-MENU');
+    // The unlisted copy keeps the sheet menu; only the listed one swaps.
+    expect(html.match(/aria-label="More for #/g)).toHaveLength(1);
+    expect(html).toContain('aria-label="More for #3"');
   });
 });

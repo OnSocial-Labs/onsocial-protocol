@@ -31,6 +31,32 @@ export function isScarceDropLovePostPath(
 
 export type DropLoveLedger = { loved: boolean } | null;
 
+/**
+ * Fans are other people. `indexedFanCount` is `scarce_drop_love_fans`, which
+ * already leaves the creator out. When that read fails, a creator's own love
+ * is taken off the raw reaction total.
+ */
+export function dropFanCount(opts: {
+  indexedFanCount: number | null;
+  reactionCount: number;
+  creatorLoved: boolean;
+}): number {
+  if (opts.indexedFanCount != null && Number.isFinite(opts.indexedFanCount)) {
+    return Math.max(0, Math.floor(opts.indexedFanCount));
+  }
+  const raw = Math.max(0, Math.floor(opts.reactionCount) || 0);
+  return opts.creatorLoved ? Math.max(0, raw - 1) : raw;
+}
+
+/** The drawer lists these people. An empty roster means there are no fans. */
+export function dropFanCountMatchingRoster(opts: {
+  fanCount: number;
+  fanIds: readonly string[];
+}): number {
+  if (opts.fanIds.length === 0) return 0;
+  return Math.max(Math.max(0, opts.fanCount), opts.fanIds.length);
+}
+
 export function nextDropFanCountAfterToggle(opts: {
   fanCount: number;
   creatorId: string;

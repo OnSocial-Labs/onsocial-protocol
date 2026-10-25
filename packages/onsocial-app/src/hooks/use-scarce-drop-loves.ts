@@ -4,10 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { accountIdsEqual } from '@/lib/account-match';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import {
   dedupeDropFanIds,
+  dropFanCount,
+  dropFanCountMatchingRoster,
   nextDropFanCountAfterToggle,
   nextDropFanIdsAfterToggle,
   scarceDropContentPath,
@@ -85,7 +88,7 @@ export function useScarceDropLoves(opts: {
     const path = scarceDropContentPath(collectionId);
     const like = scarceDropLovePathLike(collectionId);
     try {
-      const [countRows, viewerRows] = await Promise.all([
+      const [countResult, viewerResult, fanCountResult] = await Promise.allSettled([
         client.query.graphql<{
           reactionCounts: Array<{ postPath: string; reactionCount: number }>;
         }>({
@@ -125,8 +128,32 @@ export function useScarceDropLoves(opts: {
               },
             })
           : Promise.resolve(null),
+        client.query.graphql<{
+          scarceDropLoveFans: Array<{ fanCount: number | string }>;
+        }>({
+          query: `query ScarceDropFanCount($owner: String!, $collectionId: String!) {
+            scarceDropLoveFans(where: {
+              postOwner: {_eq: $owner},
+              collectionId: {_eq: $collectionId}
+            }) {
+              fanCount
+            }
+          }`,
+          variables: {
+            owner: creatorId,
+            collectionId,
+          },
+        }),
       ]);
+      if (countResult.status !== 'fulfilled') {
+        throw countResult.reason;
+      }
       if (loadId !== loadIdRef.current) return;
+      const countRows = countResult.value;
+      const viewerRows =
+        viewerResult.status === 'fulfilled' ? viewerResult.value : null;
+      const fanRows =
+        fanCountResult.status === 'fulfilled' ? fanCountResult.value : null;
 
       const apiCount =
         Number(countRows.data?.reactionCounts?.[0]?.reactionCount ?? 0) || 0;
@@ -146,8 +173,19 @@ export function useScarceDropLoves(opts: {
       const loved = resolveLoved(apiLoved);
       const loveCount =
         loved === apiLoved ? apiCount : Math.max(0, apiCount + (loved ? 1 : -1));
+      const indexedFanCount =
+        fanRows == null
+          ? null
+          : Number(fanRows.data?.scarceDropLoveFans?.[0]?.fanCount ?? 0) || 0;
       const fanCount = nextDropFanCountAfterToggle({
-        fanCount: apiCount,
+        fanCount: dropFanCount({
+          indexedFanCount,
+          reactionCount: apiCount,
+          creatorLoved:
+            accountId != null &&
+            accountIdsEqual(accountId, creatorId) &&
+            loved,
+        }),
         creatorId,
         viewerId: accountId,
         apiLoved,
@@ -207,7 +245,14 @@ export function useScarceDropLoves(opts: {
           apiLoved,
           nextLoved: loved,
         });
-        setState((previous) => ({ ...previous, fanIds }));
+        setState((previous) => ({
+          ...previous,
+          fanIds,
+          fanCount: dropFanCountMatchingRoster({
+            fanCount,
+            fanIds,
+          }),
+        }));
       } catch {
         if (loadId !== loadIdRef.current) return;
       } finally {

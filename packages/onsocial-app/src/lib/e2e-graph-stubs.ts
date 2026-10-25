@@ -1382,6 +1382,8 @@ export function resolveE2eGraphStub(opts: {
       data: {
         scarceAlbumLoveFans: [],
         scarceAlbumLoveFanIds: [],
+        scarceDropLoveFans: [],
+        scarceDropLoveFanIds: [],
         scarceCollectionLoveFans: [],
         scarceCollectionLoveFanIds: [],
       },

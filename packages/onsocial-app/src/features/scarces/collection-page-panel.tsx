@@ -163,7 +163,10 @@ import {
 } from '@/features/market/market-listings';
 import { portfolioCollectiblesPath, portfolioPath } from '@/lib/overlay-routes';
 import { isAppPostSheetHref } from '@/lib/post-routes';
-import { heldEditionMark } from '@/features/collectibles/held-editions';
+import {
+  heldEditionMark,
+  heldEditionPlural,
+} from '@/features/collectibles/held-editions';
 import { fallbackLabel } from '@/lib/profile-display';
 import { holdingsActionLabel } from '@/lib/portfolio-holdings';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
@@ -1595,7 +1598,7 @@ export function CollectionPagePanel({
                 aria-valuenow={progressPct}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-label="Editions minted"
+                aria-label={`${heldEditionPlural(view.kind)} minted`}
               >
                 <Divider
                   variant="detail"
@@ -1910,6 +1913,7 @@ export function CollectionPagePanel({
           onClose={() => setDropFansOpen(false)}
           fanIds={dropLoves.fanIds}
           fanCount={dropLoves.fanCount}
+          idsLoading={dropLoves.fansLoading && dropLoves.fanIds.length === 0}
           dropTitle={view.title}
         />
       ) : null}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   Divider,
   DotsVerticalIcon,
@@ -12,6 +12,7 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import {
   heldEditionFactRows,
   heldEditionLabel,
+  heldEditionListedState,
   heldEditionMark,
   heldEditionSheetTitle,
   heldEditionTrailTimesDiffer,
@@ -201,6 +202,7 @@ export function HeldEditionList({
   onShare,
   onHistory,
   onFacts,
+  renderOwnerMenu,
 }: {
   editions: OwnedScarceItem[];
   /** Row tap opens the edition, or sends it when the sheet was opened to transfer. */
@@ -211,6 +213,8 @@ export function HeldEditionList({
   onShare?: (item: OwnedScarceItem) => void;
   onHistory?: (item: OwnedScarceItem) => void;
   onFacts?: (item: OwnedScarceItem) => void;
+  /** Listed copies swap the row menu for the owner's sale manage menu. */
+  renderOwnerMenu?: (item: OwnedScarceItem) => ReactNode;
 }) {
   const timeLabels = editions.map((item) =>
     item.mintedAtMs != null ? formatMarketRelativeTime(item.mintedAtMs) : ''
@@ -218,7 +222,7 @@ export function HeldEditionList({
   const showTimes = heldEditionTrailTimesDiffer(timeLabels);
 
   if (editions.length === 0) {
-    return <p className="held-edition-empty">No editions to choose.</p>;
+    return <p className="held-edition-empty">Nothing to choose.</p>;
   }
 
   const showCovers = editions.length > 1;
@@ -226,20 +230,37 @@ export function HeldEditionList({
   return (
     <div className="held-edition-list">
       {editions.map((item, index) => {
+        const listed = item.listingKind != null;
         const canTransfer = Boolean(onTransfer) && ownedScarceCanTransfer(item);
-        const canSell = Boolean(onSell) && item.listingKind == null;
+        const canSell = Boolean(onSell) && !listed;
         const named = heldEditionLabel(item.tokenId, item.mediumKind);
         const label = heldEditionMark(item.tokenId) ?? named;
         const cover = item.mediaUrl?.trim() || '';
         const timeLabel = timeLabels[index]?.trim() || '';
+        const listedState = heldEditionListedState(item);
         const canShare = Boolean(onShare) && Boolean(heldEditionHref(item));
         const canChoose = choose === 'send' ? canTransfer : Boolean(onChoose);
-        const chooseName =
-          choose === 'send' ? `Send ${label}` : `Open ${label}`;
+        const chooseVerb = choose === 'send' ? 'Send' : 'Open';
+        const chooseState = listedState
+          ? `, ${listedState.badge === 'Auction' ? 'on auction' : 'listed'}${listedState.ask ? ` at ${listedState.ask}` : ''}`
+          : '';
+        const chooseName = `${chooseVerb} ${label}${chooseState}`;
         const face = (
           <>
             {showCovers ? <HeldEditionCover src={cover} /> : null}
-            <span className="held-edition-label">{label}</span>
+            <span className="held-edition-label-block">
+              <span className="held-edition-label-row">
+                <span className="held-edition-label">{label}</span>
+                {listedState ? (
+                  <span className="os-surface-row-badge held-edition-listed-badge">
+                    {listedState.badge}
+                  </span>
+                ) : null}
+              </span>
+              {listedState?.ask ? (
+                <span className="held-edition-listed">{listedState.ask}</span>
+              ) : null}
+            </span>
           </>
         );
         return (
@@ -271,17 +292,21 @@ export function HeldEditionList({
                     {timeLabel}
                   </time>
                 ) : null}
-                <HeldEditionMenu
-                  label={label}
-                  menuLabel={named}
-                  onTransfer={
-                    canTransfer ? () => onTransfer?.(item) : undefined
-                  }
-                  onShare={canShare ? () => onShare?.(item) : undefined}
-                  onSell={canSell ? () => onSell?.(item) : undefined}
-                  onHistory={onHistory ? () => onHistory(item) : undefined}
-                  onFacts={onFacts ? () => onFacts(item) : undefined}
-                />
+                {listed && renderOwnerMenu ? (
+                  renderOwnerMenu(item)
+                ) : (
+                  <HeldEditionMenu
+                    label={label}
+                    menuLabel={named}
+                    onTransfer={
+                      canTransfer ? () => onTransfer?.(item) : undefined
+                    }
+                    onShare={canShare ? () => onShare?.(item) : undefined}
+                    onSell={canSell ? () => onSell?.(item) : undefined}
+                    onHistory={onHistory ? () => onHistory(item) : undefined}
+                    onFacts={onFacts ? () => onFacts(item) : undefined}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -300,6 +325,7 @@ export function HeldEditionsSheet({
   onChoose,
   onTransfer,
   onSell,
+  renderOwnerMenu,
 }: {
   open: boolean;
   title: string;
@@ -309,6 +335,8 @@ export function HeldEditionsSheet({
   onChoose?: (item: OwnedScarceItem) => void;
   onTransfer?: (item: OwnedScarceItem) => void;
   onSell?: (item: OwnedScarceItem) => void;
+  /** Listed copies swap the row menu for the owner's sale manage menu. */
+  renderOwnerMenu?: (item: OwnedScarceItem) => ReactNode;
 }) {
   const { setTxResult } = useAppTransactionFeedback();
   const [historyItem, setHistoryItem] = useState<OwnedScarceItem | null>(null);
@@ -332,8 +360,8 @@ export function HeldEditionsSheet({
     },
     [setTxResult]
   );
-  const heading = title.trim() || 'Editions';
-  const sheetTitle = heldEditionSheetTitle(choose);
+  const sheetTitle = heldEditionSheetTitle(choose, editions[0]?.mediumKind);
+  const heading = title.trim() || sheetTitle;
   const chooseEdition = onChoose
     ? (item: OwnedScarceItem) => {
         onClose();
@@ -348,8 +376,12 @@ export function HeldEditionsSheet({
         onClose={onClose}
         label={sheetTitle}
         copy={heading}
-        closeAriaLabel={choose === 'send' ? 'Close' : 'Close editions'}
-        backdropLabel={choose === 'send' ? 'Close' : 'Close editions'}
+        closeAriaLabel={
+          choose === 'send' ? 'Close' : `Close ${sheetTitle.toLowerCase()}`
+        }
+        backdropLabel={
+          choose === 'send' ? 'Close' : `Close ${sheetTitle.toLowerCase()}`
+        }
         zIndex={SHEET_Z.list}
         panelClassName="collection-activity-sheet-panel os-sheet-cap-standard"
         bodyClassName="collection-activity-sheet-body"
@@ -357,6 +389,7 @@ export function HeldEditionsSheet({
         <HeldEditionList
           editions={editions}
           choose={choose}
+          renderOwnerMenu={renderOwnerMenu}
           onChoose={chooseEdition}
           onTransfer={
             onTransfer

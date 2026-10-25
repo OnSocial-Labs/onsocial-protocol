@@ -35,6 +35,29 @@ describe('resolvePostDropCta', () => {
     ).toEqual({ kind: 'muted', mutedLabel: 'Your edition' });
   });
 
+  it('names the held unit on a pass or coupon drop', () => {
+    expect(
+      resolvePostDropCta({
+        embed: drop({
+          tokenId: 'gate:2',
+          status: 'listed',
+          mediumKind: 'ticket',
+        }),
+        isPostAuthor: true,
+      })
+    ).toEqual({ kind: 'muted', mutedLabel: 'Your pass' });
+    expect(
+      resolvePostDropCta({
+        embed: drop({
+          tokenId: 'save:3',
+          status: 'listed',
+          mediumKind: 'coupon',
+        }),
+        isPostAuthor: true,
+      })
+    ).toEqual({ kind: 'muted', mutedLabel: 'Your coupon' });
+  });
+
   it('mints for viewers when primary supply remains', () => {
     expect(
       resolvePostDropCta({ embed: drop(), isPostAuthor: false })

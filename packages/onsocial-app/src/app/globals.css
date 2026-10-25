@@ -29680,7 +29680,7 @@ a.os-surface-row {
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.7rem 0;
+    padding: 0.8rem 0;
   }
 
   .held-edition-choose {
@@ -29713,10 +29713,38 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.08);
   }
 
+  .held-edition-label-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.16rem;
+    min-width: 0;
+  }
+
+  .held-edition-label-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
   .held-edition-label {
     min-width: 0;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+  }
+
+  .held-edition-listed-badge {
+    font-size: 0.62rem;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    padding: 0.18rem 0.46rem;
+    line-height: 1.15;
+  }
+
+  .held-edition-listed {
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--fg-rgb) / 0.62);
   }
 
   .held-edition-empty {

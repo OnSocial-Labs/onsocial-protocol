@@ -454,6 +454,7 @@ export function CollectiblesVaultLibrary({
       onClose={() => setPickerDrop(null)}
       onTransfer={onTransferEdition}
       onSell={onSellEdition}
+      renderOwnerMenu={renderOwnerMenu}
     />
   );
 
