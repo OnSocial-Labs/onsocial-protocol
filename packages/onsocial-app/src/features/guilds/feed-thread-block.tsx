@@ -254,7 +254,13 @@ export function FeedThreadBlock({
       ) : null}
       {tail.map(renderRow)}
       {standingPeekRow ? renderRow(standingPeekRow) : null}
-      {coilTailHref ? <ThreadCoilTailLink href={coilTailHref} /> : null}
+      {coilTailHref ? (
+        <ThreadCoilTailLink
+          href={coilTailHref}
+          root={standingPeek}
+          context={sheetContext}
+        />
+      ) : null}
     </div>
   );
 }
