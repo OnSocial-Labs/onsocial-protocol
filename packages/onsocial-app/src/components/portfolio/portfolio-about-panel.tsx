@@ -3,6 +3,7 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Divider } from '@onsocial/ui';
+import { PortfolioAboutCraftPrompt } from '@/components/portfolio/portfolio-about-craft-prompt';
 import { PortfolioBioBlocks } from '@/components/portfolio/portfolio-bio-blocks';
 import { PortfolioAboutWorkLink } from '@/components/portfolio/portfolio-about-link';
 import { PortfolioWritingLink } from '@/components/portfolio/portfolio-writing-link';
@@ -122,15 +123,12 @@ export function PortfolioAboutPanel({
     hasEssay,
     stillCount: viewer.length,
   });
-  const viewerPhotos = useMemo(
-    () => viewer.map(stillToPostMedia),
-    [viewer]
-  );
+  const viewerPhotos = useMemo(() => viewer.map(stillToPostMedia), [viewer]);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
-  const openStill = useCallback((index: number) => {
+  const openStill = (index: number) => {
     setViewerIndex(index);
-  }, []);
+  };
 
   return (
     <article
@@ -144,6 +142,11 @@ export function PortfolioAboutPanel({
       data-has-film-lead={filmLead ? 'true' : 'false'}
       data-testid="portfolio-about-panel"
     >
+      <PortfolioAboutCraftPrompt
+        accountId={accountId}
+        tags={tags}
+        showsCrafts={profileKindShowsCrafts(displayKind)}
+      />
       {print || showType ? (
         <div className="portfolio-about-spread">
           {print ? (
@@ -189,10 +192,7 @@ export function PortfolioAboutPanel({
       ) : null}
 
       {film.length > 0 ? (
-        <ul
-          className="portfolio-about-film"
-          data-count={String(film.length)}
-        >
+        <ul className="portfolio-about-film" data-count={String(film.length)}>
           {film.map((still, index) => (
             <li key={`${still.url}-${index}`}>
               <AboutFilmStill

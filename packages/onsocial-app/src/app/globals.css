@@ -10789,6 +10789,76 @@ a.os-surface-row {
       var(--portfolio-about-inset);
   }
 
+  /* Owner craft prompt — one quiet line at the top of About; × skips. */
+  .portfolio-about-craft-prompt {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 1rem;
+    padding: 0 0.15rem 0.55rem;
+    border-bottom: 1px dashed rgb(var(--fg-rgb) / 0.12);
+  }
+
+  .portfolio-about-craft-prompt-field {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: baseline;
+    gap: 0.5rem;
+    min-width: 0;
+    cursor: text;
+  }
+
+  .portfolio-about-craft-prompt-label {
+    flex: 0 0 auto;
+    font-size: 0.82rem;
+    color: var(--portfolio-about-quiet);
+    white-space: nowrap;
+  }
+
+  .portfolio-about-craft-prompt-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    padding: 0.1rem 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 0.88rem;
+    color: var(--portfolio-about-ink);
+    outline: none;
+  }
+
+  .portfolio-about-craft-prompt-input::placeholder {
+    color: rgb(var(--fg-rgb) / 0.32);
+  }
+
+  .portfolio-about-craft-prompt-skip {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--portfolio-about-quiet);
+    cursor: pointer;
+  }
+
+  .portfolio-about-craft-prompt-skip-icon {
+    width: 0.8rem;
+    height: 0.8rem;
+  }
+
+  .portfolio-about-craft-prompt-error {
+    flex-basis: 100%;
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--protocol-red);
+  }
+
   /*
    * Bookmark print: flush top, side inset kept. Film sits in the same
    * column as print / essay — inset gallery tiles, not edge bleed.
@@ -24738,6 +24808,29 @@ a.os-surface-row {
     font-size: 0.88rem;
     color: rgb(var(--fg-rgb) / 0.58);
     text-align: center;
+  }
+
+  .profile-feed-compose-teaser {
+    width: 100%;
+    margin-top: 0.35rem;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 1rem;
+    background: rgb(0 0 0 / 0.18);
+    color: rgb(var(--fg-rgb) / 0.46);
+    font: inherit;
+    text-align: left;
+    cursor: text;
+    transition:
+      border-color 120ms ease,
+      color 120ms ease;
+  }
+
+  .profile-feed-compose-teaser:hover,
+  .profile-feed-compose-teaser:focus-visible {
+    border-color: rgb(var(--fg-rgb) / 0.2);
+    color: rgb(var(--fg-rgb) / 0.72);
+    outline: none;
   }
 
   .discover-state-primary,
