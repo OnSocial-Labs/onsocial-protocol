@@ -15,6 +15,7 @@ import {
   fetchCollectionCreatorFaces,
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
+import { sellSheetZIndex } from '@/features/collectibles/edition-sheet-stack';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -79,6 +80,7 @@ export function PageDrawerCollectionList({
   const [loadedAccountId, setLoadedAccountId] = useState<string | null>(null);
   const [sellItem, setSellItem] = useState<OwnedScarceItem | null>(null);
   const [sellOpen, setSellOpen] = useState(false);
+  const [editionListOpen, setEditionListOpen] = useState(false);
   const [transferItem, setTransferItem] = useState<OwnedScarceItem | null>(
     null
   );
@@ -247,6 +249,7 @@ export function PageDrawerCollectionList({
                   }
                 : undefined
             }
+            onEditionListOpenChange={setEditionListOpen}
           />
         ) : null}
         {!loading && showSeeAll ? (
@@ -261,6 +264,7 @@ export function PageDrawerCollectionList({
         open={sellOpen && sellItem != null}
         item={sellItem}
         sellerAccountId={viewerAccountId}
+        zIndex={sellSheetZIndex(editionListOpen)}
         onOpenChange={(open) => {
           setSellOpen(open);
           if (!open) setSellItem(null);

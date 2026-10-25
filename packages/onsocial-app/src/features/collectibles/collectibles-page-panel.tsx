@@ -37,6 +37,7 @@ import {
   rememberCollectiblesHeldKinds,
   resolveCollectiblesHeldKinds,
 } from '@/lib/collectibles-held-kinds';
+import { sellSheetZIndex } from '@/features/collectibles/edition-sheet-stack';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
@@ -266,6 +267,7 @@ export function CollectiblesPagePanel({
   >(() => (ownerAccountId ? peekOwnedVaultFaces(ownerAccountId) : new Map()));
   const [sellItem, setSellItem] = useState<OwnedScarceItem | null>(null);
   const [sellOpen, setSellOpen] = useState(false);
+  const [editionListOpen, setEditionListOpen] = useState(false);
   const [transferItem, setTransferItem] = useState<OwnedScarceItem | null>(
     null
   );
@@ -325,9 +327,10 @@ export function CollectiblesPagePanel({
 
   useEffect(() => {
     const onPop = () => {
-      const q = new URLSearchParams(window.location.search)
-        .get(COLLECTIBLES_SEARCH_PARAM)
-        ?.trim() ?? '';
+      const q =
+        new URLSearchParams(window.location.search)
+          .get(COLLECTIBLES_SEARCH_PARAM)
+          ?.trim() ?? '';
       pushedSearchRef.current = q;
       replaceSearch(q);
     };
@@ -1083,6 +1086,7 @@ export function CollectiblesPagePanel({
                 }
               : undefined
           }
+          onEditionListOpenChange={setEditionListOpen}
         />
       ) : null}
 
@@ -1170,6 +1174,7 @@ export function CollectiblesPagePanel({
             open={sellOpen && sellItem != null}
             item={sellItem}
             sellerAccountId={viewerAccountId}
+            zIndex={sellSheetZIndex(editionListOpen)}
             onOpenChange={(open) => {
               setSellOpen(open);
               if (!open) setSellItem(null);

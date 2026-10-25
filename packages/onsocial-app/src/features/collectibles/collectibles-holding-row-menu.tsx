@@ -50,6 +50,8 @@ import {
 } from '@/features/scarces/scarce-transfer';
 import { scarcesContractIdForNetwork } from '@/features/scarces/drop-compose-draft';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
+import { runListedCopyTransfer } from '@/features/collectibles/edition-sheet-stack';
+import { useHeldEditionListClose } from '@/features/collectibles/held-editions-sheet';
 import { useHeldEditionPicker } from '@/features/collectibles/collectibles-vault-library';
 import { APP_MARKET_PATH } from '@/lib/app-routes';
 import {
@@ -125,6 +127,7 @@ export function CollectiblesHoldingRowMenu({
 }: CollectiblesHoldingRowMenuProps) {
   const { getSigningWallet } = useAppWallet();
   const openHeldEditions = useHeldEditionPicker();
+  const closeHeldEditionList = useHeldEditionListClose();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const [open, setOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -172,9 +175,7 @@ export function CollectiblesHoldingRowMenu({
     }
     if (!open) return;
     const collectionId =
-      item.collectionId?.trim() ||
-      collectionIdFromTokenId(item.tokenId) ||
-      '';
+      item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId) || '';
     if (!collectionId) {
       setBurnable(false);
       return;
@@ -293,7 +294,10 @@ export function CollectiblesHoldingRowMenu({
   ]);
 
   const handleBurn = useCallback(async () => {
-    if (pending || !ownedScarceCanBurn({ ...item, burnable: burnable === true })) {
+    if (
+      pending ||
+      !ownedScarceCanBurn({ ...item, burnable: burnable === true })
+    ) {
       return;
     }
     setPending(true);
@@ -322,7 +326,9 @@ export function CollectiblesHoldingRowMenu({
       setTxResult({
         type: 'error',
         msg:
-          cause instanceof Error ? cause.message : txToastError.burnScarceFailed,
+          cause instanceof Error
+            ? cause.message
+            : txToastError.burnScarceFailed,
       });
     } finally {
       setPending(false);
@@ -372,11 +378,11 @@ export function CollectiblesHoldingRowMenu({
         leading: <GiftIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           close();
-          if (openHeldEditions) {
-            openHeldEditions();
-            return;
-          }
-          onTransfer();
+          runListedCopyTransfer({
+            openPicker: openHeldEditions,
+            closeList: closeHeldEditionList,
+            onTransfer,
+          });
         },
       });
     }
@@ -456,6 +462,7 @@ export function CollectiblesHoldingRowMenu({
     openPriceConfirm,
     canBurn,
     close,
+    closeHeldEditionList,
     item,
     listed,
     onList,

@@ -270,6 +270,7 @@ export function CollectiblesVaultLibrary({
   renderOwnerMenu,
   onTransferEdition,
   onSellEdition,
+  onEditionListOpenChange,
   onSelectCreator,
   selectedCreator = null,
   creatorFaces,
@@ -283,6 +284,8 @@ export function CollectiblesVaultLibrary({
   /** Transfer / Sell from the edition list, after the holder picks a copy. */
   onTransferEdition?: (item: OwnedScarceItem) => void;
   onSellEdition?: (item: OwnedScarceItem) => void;
+  /** Copy list opened or closed, so a sell sheet can sit above it. */
+  onEditionListOpenChange?: (open: boolean) => void;
   onSelectCreator?: (creatorKey: string) => void;
   selectedCreator?: string | null;
   creatorFaces?: ReadonlyMap<string, CollectionCreatorFace>;
@@ -307,6 +310,7 @@ export function CollectiblesVaultLibrary({
   ) => {
     setPickerChoose(choose);
     setPickerDrop(drop);
+    onEditionListOpenChange?.(true);
   };
   const pickerEditions = useMemo(
     () => (pickerDrop ? ownedEditionsForDrop(pickerDrop, ownedByToken) : []),
@@ -451,7 +455,10 @@ export function CollectiblesVaultLibrary({
       title={pickerDrop?.title ?? ''}
       editions={pickerEditions}
       choose={pickerChoose}
-      onClose={() => setPickerDrop(null)}
+      onClose={() => {
+        setPickerDrop(null);
+        onEditionListOpenChange?.(false);
+      }}
       onTransfer={onTransferEdition}
       onSell={onSellEdition}
       renderOwnerMenu={renderOwnerMenu}
