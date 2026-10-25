@@ -42,7 +42,7 @@ import {
 } from '@/features/scarces/collection-creator-face';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { CollectiblesHoldingRowMenu } from '@/features/collectibles/collectibles-holding-row-menu';
-import { sellSheetZIndex } from '@/features/collectibles/edition-sheet-stack';
+import { sheetZIndexOverCopyList } from '@/features/collectibles/edition-sheet-stack';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -696,6 +696,7 @@ export function CollectiblesPlayPanel({
         open={transferOpen && (actionItem ?? sellItem) != null}
         item={actionItem ?? sellItem}
         ownerAccountId={viewerAccountId}
+        zIndex={sheetZIndexOverCopyList(editionPickerOpen)}
         onOpenChange={setTransferOpen}
         onTransferred={() => {
           setTransferOpen(false);
@@ -715,7 +716,7 @@ export function CollectiblesPlayPanel({
         open={sellOpen && (actionItem ?? sellItem) != null}
         item={actionItem ?? sellItem}
         sellerAccountId={viewerAccountId}
-        zIndex={sellSheetZIndex(editionPickerOpen)}
+        zIndex={sheetZIndexOverCopyList(editionPickerOpen)}
         onOpenChange={setSellOpen}
         onListed={() => {
           setSellOpen(false);

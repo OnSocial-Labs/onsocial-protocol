@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   Divider,
   DotsVerticalIcon,
@@ -58,13 +51,6 @@ function HeldEditionCover({ src }: { src: string }) {
 }
 
 let heldEditionMenuClosedAt = 0;
-
-/** Set while the copy list is open, so an owner menu can dismiss it. */
-const HeldEditionListCloseContext = createContext<(() => void) | null>(null);
-
-export function useHeldEditionListClose(): (() => void) | null {
-  return useContext(HeldEditionListCloseContext);
-}
 
 function HeldEditionMenu({
   label,
@@ -384,72 +370,70 @@ export function HeldEditionsSheet({
     : undefined;
 
   return (
-    <HeldEditionListCloseContext.Provider value={onClose}>
-      <>
-        <OsHugSheet
-          open={open}
-          onClose={onClose}
-          label={sheetTitle}
-          copy={heading}
-          closeAriaLabel={
-            choose === 'send' ? 'Close' : `Close ${sheetTitle.toLowerCase()}`
+    <>
+      <OsHugSheet
+        open={open}
+        onClose={onClose}
+        label={sheetTitle}
+        copy={heading}
+        closeAriaLabel={
+          choose === 'send' ? 'Close' : `Close ${sheetTitle.toLowerCase()}`
+        }
+        backdropLabel={
+          choose === 'send' ? 'Close' : `Close ${sheetTitle.toLowerCase()}`
+        }
+        zIndex={SHEET_Z.list}
+        panelClassName="collection-activity-sheet-panel os-sheet-cap-standard"
+        bodyClassName="collection-activity-sheet-body"
+      >
+        <HeldEditionList
+          editions={editions}
+          choose={choose}
+          renderOwnerMenu={renderOwnerMenu}
+          onChoose={chooseEdition}
+          onTransfer={
+            onTransfer
+              ? (item) => {
+                  onClose();
+                  onTransfer(item);
+                }
+              : undefined
           }
-          backdropLabel={
-            choose === 'send' ? 'Close' : `Close ${sheetTitle.toLowerCase()}`
+          onSell={
+            onSell
+              ? (item) => {
+                  onClose();
+                  onSell(item);
+                }
+              : undefined
           }
-          zIndex={SHEET_Z.list}
-          panelClassName="collection-activity-sheet-panel os-sheet-cap-standard"
-          bodyClassName="collection-activity-sheet-body"
-        >
-          <HeldEditionList
-            editions={editions}
-            choose={choose}
-            renderOwnerMenu={renderOwnerMenu}
-            onChoose={chooseEdition}
-            onTransfer={
-              onTransfer
-                ? (item) => {
-                    onClose();
-                    onTransfer(item);
-                  }
-                : undefined
-            }
-            onSell={
-              onSell
-                ? (item) => {
-                    onClose();
-                    onSell(item);
-                  }
-                : undefined
-            }
-            onShare={(item) => {
-              void shareEdition(item);
-            }}
-            onHistory={(item) => {
-              setFactsItem(null);
-              setHistoryItem(item);
-            }}
-            onFacts={(item) => {
-              setHistoryItem(null);
-              setFactsItem(item);
-            }}
-          />
-        </OsHugSheet>
-        <ScarceTokenHistorySheet
-          open={historyItem != null}
-          onClose={() => setHistoryItem(null)}
-          tokenId={historyItem?.tokenId ?? ''}
-          title={
-            historyItem
-              ? heldEditionLabel(historyItem.tokenId, historyItem.mediumKind)
-              : heading
-          }
+          onShare={(item) => {
+            void shareEdition(item);
+          }}
+          onHistory={(item) => {
+            setFactsItem(null);
+            setHistoryItem(item);
+          }}
+          onFacts={(item) => {
+            setHistoryItem(null);
+            setFactsItem(item);
+          }}
         />
-        <HeldEditionFactsSheet
-          item={factsItem}
-          onClose={() => setFactsItem(null)}
-        />
-      </>
-    </HeldEditionListCloseContext.Provider>
+      </OsHugSheet>
+      <ScarceTokenHistorySheet
+        open={historyItem != null}
+        onClose={() => setHistoryItem(null)}
+        tokenId={historyItem?.tokenId ?? ''}
+        title={
+          historyItem
+            ? heldEditionLabel(historyItem.tokenId, historyItem.mediumKind)
+            : heading
+        }
+      />
+      <HeldEditionFactsSheet
+        item={factsItem}
+        onClose={() => setFactsItem(null)}
+      />
+    </>
   );
 }

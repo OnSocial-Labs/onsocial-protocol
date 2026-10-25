@@ -51,7 +51,6 @@ import {
 import { scarcesContractIdForNetwork } from '@/features/scarces/drop-compose-draft';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { runListedCopyTransfer } from '@/features/collectibles/edition-sheet-stack';
-import { useHeldEditionListClose } from '@/features/collectibles/held-editions-sheet';
 import { useHeldEditionPicker } from '@/features/collectibles/collectibles-vault-library';
 import { APP_MARKET_PATH } from '@/lib/app-routes';
 import {
@@ -127,7 +126,6 @@ export function CollectiblesHoldingRowMenu({
 }: CollectiblesHoldingRowMenuProps) {
   const { getSigningWallet } = useAppWallet();
   const openHeldEditions = useHeldEditionPicker();
-  const closeHeldEditionList = useHeldEditionListClose();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const [open, setOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -380,7 +378,6 @@ export function CollectiblesHoldingRowMenu({
           close();
           runListedCopyTransfer({
             openPicker: openHeldEditions,
-            closeList: closeHeldEditionList,
             onTransfer,
           });
         },
@@ -462,7 +459,6 @@ export function CollectiblesHoldingRowMenu({
     openPriceConfirm,
     canBurn,
     close,
-    closeHeldEditionList,
     item,
     listed,
     onList,

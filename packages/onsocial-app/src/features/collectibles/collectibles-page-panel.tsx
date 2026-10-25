@@ -37,7 +37,7 @@ import {
   rememberCollectiblesHeldKinds,
   resolveCollectiblesHeldKinds,
 } from '@/lib/collectibles-held-kinds';
-import { sellSheetZIndex } from '@/features/collectibles/edition-sheet-stack';
+import { sheetZIndexOverCopyList } from '@/features/collectibles/edition-sheet-stack';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
 import { normalizeDropFacetMedium } from '@/features/scarces/drop-facets';
@@ -1174,7 +1174,7 @@ export function CollectiblesPagePanel({
             open={sellOpen && sellItem != null}
             item={sellItem}
             sellerAccountId={viewerAccountId}
-            zIndex={sellSheetZIndex(editionListOpen)}
+            zIndex={sheetZIndexOverCopyList(editionListOpen)}
             onOpenChange={(open) => {
               setSellOpen(open);
               if (!open) setSellItem(null);
@@ -1189,6 +1189,7 @@ export function CollectiblesPagePanel({
             open={transferOpen && transferItem != null}
             item={transferItem}
             ownerAccountId={viewerAccountId}
+            zIndex={sheetZIndexOverCopyList(editionListOpen)}
             onOpenChange={(open) => {
               setTransferOpen(open);
               if (!open) setTransferItem(null);

@@ -15,7 +15,7 @@ import {
   fetchCollectionCreatorFaces,
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
-import { sellSheetZIndex } from '@/features/collectibles/edition-sheet-stack';
+import { sheetZIndexOverCopyList } from '@/features/collectibles/edition-sheet-stack';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -264,7 +264,7 @@ export function PageDrawerCollectionList({
         open={sellOpen && sellItem != null}
         item={sellItem}
         sellerAccountId={viewerAccountId}
-        zIndex={sellSheetZIndex(editionListOpen)}
+        zIndex={sheetZIndexOverCopyList(editionListOpen)}
         onOpenChange={(open) => {
           setSellOpen(open);
           if (!open) setSellItem(null);
@@ -280,6 +280,7 @@ export function PageDrawerCollectionList({
         open={transferOpen && transferItem != null}
         item={transferItem}
         ownerAccountId={viewerAccountId}
+        zIndex={sheetZIndexOverCopyList(editionListOpen)}
         onOpenChange={(open) => {
           setTransferOpen(open);
           if (!open) setTransferItem(null);
