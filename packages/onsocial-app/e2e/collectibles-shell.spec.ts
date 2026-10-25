@@ -105,8 +105,8 @@ test.describe('collectibles shell', () => {
     });
     await expect(nightRow).toContainText('Audio');
     await expect(nightRow).toContainText('×2');
-    await expect(nightRow).toContainText('2 NEAR each');
-    await expect(nightRow).not.toContainText('Listed');
+    await expect(nightRow).toContainText('1 listed');
+    await expect(nightRow).not.toContainText('NEAR each');
     await expect(nightRow).not.toContainText('night-drive:');
     await nightRow
       .getByRole('button', { name: 'Choose an edition of Night Drive' })
@@ -126,12 +126,12 @@ test.describe('collectibles shell', () => {
       editions.getByRole('button', { name: 'Open #1' })
     ).toBeVisible();
     await expect(
-      editions.getByRole('button', { name: 'Open #3' })
+      editions.getByRole('button', { name: 'Open #3, listed at 2 NEAR' })
     ).toBeVisible();
     await expect(editions.locator('time')).toHaveCount(0);
     await expect(editions.getByText(/night-drive:/)).toHaveCount(0);
     const editionThree = editions.getByRole('button', {
-      name: 'Open #3',
+      name: 'Open #3, listed at 2 NEAR',
     });
     await expect
       .poll(async () => {
