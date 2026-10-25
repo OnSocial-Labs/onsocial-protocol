@@ -12,7 +12,10 @@ import type { PostRow } from '@onsocial/sdk';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
-import { FeedMediaThreadSheet } from '@/features/home/feed-media-thread-sheet';
+import {
+  FeedFaceThreadPane,
+  FeedMediaThreadSheet,
+} from '@/features/home/feed-media-thread-sheet';
 import {
   threadJacketT,
   useFeedThreadBand,
@@ -47,8 +50,8 @@ function inlineSvgMarkup(svg: string): string {
 /**
  * Feed / Drops cover tap → shared media-face enlarge.
  *
- * Audio opens Listen. Writing opens Read. Thought/art uses the same jacket
- * + frost footer; Reply opens the video-style thread drawer and write dock.
+ * Audio opens Listen. Writing opens Read. Reply on each opens the same
+ * thread drawer as a photo. Thought/art uses that drawer on the jacket.
  */
 export function ScarceFeedMediumSheet({
   open,
@@ -296,7 +299,12 @@ export function ScarceFeedMediumSheet({
         showTracks={false}
         immersiveListen
         listenFooter={postChrome}
-        listenKeepDock={writePinned}
+        listenKeepDock={writePinned || threadOpen}
+        threadOpen={threadOpen}
+        onDismissThread={dismissThread}
+        threadAuthor={threadAuthor}
+        threadPostId={threadPostId}
+        threadRoot={threadRoot}
         onListenClose={() => onOpenChange(false)}
         {...(playbackSessionId
           ? { persist: { collectionId: playbackSessionId, title: name } }
@@ -328,6 +336,17 @@ export function ScarceFeedMediumSheet({
             : writingLockedHint
         }
         footer={postChrome}
+        threadOpen={threadOpen}
+        onDismissThread={dismissThread}
+        pane={
+          <FeedFaceThreadPane
+            open={Boolean(open && threadOpen)}
+            onDismiss={dismissThread}
+            author={threadAuthor}
+            postId={threadPostId}
+            initialRoot={threadRoot}
+          />
+        }
       />
     );
   }

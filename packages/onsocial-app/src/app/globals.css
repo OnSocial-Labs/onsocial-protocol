@@ -35925,6 +35925,7 @@ a.os-surface-row {
   .feed-photo-slide--cinema .os-media-face-hero,
   .feed-photo-slide.is-chrome-quiet .os-app-screen-footer,
   .feed-photo-slide--thread .os-app-screen-footer,
+  .feed-face-thread .os-app-screen-footer,
   .feed-photo-slide.is-chrome-quiet .os-media-face-footer,
   .feed-photo-slide.is-chrome-quiet .os-media-face-footer-glass {
     opacity: 0;
@@ -36036,8 +36037,71 @@ a.os-surface-row {
     transition: none;
   }
 
+  /*
+   * Listen + reply — same drawer as a photo. Art yields; scrub and play
+   * stay in the band above the thread. The track keeps playing.
+   */
+  .scarce-listen-slide.feed-photo-slide--thread.os-media-face--fixed-stage
+    .os-slide-over-content.scarce-listen-slide-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .scarce-listen-slide.feed-photo-slide--thread .scarce-clip-listen {
+    --scarce-listen-cover-dvh: 16dvh;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    overflow: hidden;
+    padding-bottom: 0.35rem;
+  }
+
+  .scarce-listen-slide.feed-photo-slide--thread
+    .scarce-clip-listen.is-lyrics
+    .scarce-clip-listen-art {
+    flex: 1 1 auto;
+  }
+
+  .scarce-listen-slide.feed-photo-slide--thread .scarce-clip-listen-lyrics,
+  .scarce-listen-slide.feed-photo-slide--thread .scarce-clip-lyrics-toggle {
+    display: none;
+  }
+
+  /* Reader reply — page stays put under the drawer. Back stays clear. */
+  .feed-face-thread-pane {
+    position: absolute;
+    z-index: 8;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: var(--feed-thread-band, 58%);
+    max-height: calc(
+      100% - var(--os-app-screen-nav-row-height, 2.75rem) -
+        env(safe-area-inset-top, 0px)
+    );
+    overflow: hidden;
+    border-radius: 1.1rem 1.1rem 0 0;
+    pointer-events: auto;
+    transition:
+      height 320ms cubic-bezier(0.2, 0.9, 0.24, 1),
+      max-height 320ms cubic-bezier(0.2, 0.9, 0.24, 1);
+  }
+
+  .feed-face-thread-pane.is-thread-dragging {
+    transition: none;
+  }
+
+  .feed-face-thread-pane .feed-photo-thread-sheet {
+    height: 100%;
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .feed-photo-thread-host {
+    .feed-photo-thread-host,
+    .feed-face-thread-pane {
       transition: none;
     }
   }
@@ -45153,11 +45217,13 @@ a.os-surface-row {
 /*
  * Media-face thread — unlayered so dock + film transport stay above the pane.
  */
-body:has(.feed-photo-slide--thread) .portfolio-summon-dock {
+body:has(.feed-photo-slide--thread) .portfolio-summon-dock,
+body:has(.feed-face-thread) .portfolio-summon-dock {
   z-index: 95;
 }
 
-body:has(.feed-photo-slide--thread) .portfolio-summon-dock .portfolio-summon {
+body:has(.feed-photo-slide--thread) .portfolio-summon-dock .portfolio-summon,
+body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
   pointer-events: auto;
 }
 

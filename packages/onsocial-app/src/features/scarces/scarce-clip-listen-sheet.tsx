@@ -1,6 +1,13 @@
 'use client';
 
-import { useId, type ReactNode, type RefObject } from 'react';
+import {
+  useCallback,
+  useId,
+  type CSSProperties,
+  type ReactNode,
+  type RefObject,
+} from 'react';
+import type { PostRow } from '@onsocial/sdk';
 import {
   HeartFillIcon,
   HeartIcon,
@@ -12,6 +19,8 @@ import {
   PreviousFillIcon,
 } from '@onsocial/ui';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
+import { FeedMediaThreadSheet } from '@/features/home/feed-media-thread-sheet';
+import { useFeedThreadBand } from '@/features/home/use-feed-thread-band';
 import { ScarceClipShareButton } from '@/features/scarces/scarce-clip-share-button';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
@@ -59,6 +68,11 @@ export function ScarceClipListenSheet({
   onProgressPointerLeave,
   footer = null,
   keepDock = false,
+  threadOpen = false,
+  onDismissThread,
+  threadAuthor = null,
+  threadPostId = null,
+  threadRoot = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -103,6 +117,12 @@ export function ScarceClipListenSheet({
   footer?: ReactNode;
   /** True only while Reply has the compose dock up. */
   keepDock?: boolean;
+  /** Feed reply drawer. The track keeps playing; transport stays above it. */
+  threadOpen?: boolean;
+  onDismissThread?: () => void;
+  threadAuthor?: string | null;
+  threadPostId?: string | null;
+  threadRoot?: PostRow | null;
 }) {
   const lyricsId = useId();
   const showLove = Boolean(onToggleLove);
@@ -113,19 +133,44 @@ export function ScarceClipListenSheet({
   const album = albumTitle.trim();
   const screenTitle = track || album || 'Listen';
   const albumLine = album && album !== screenTitle ? album : '';
+  const threadActive = Boolean(threadOpen && threadAuthor && threadPostId);
+  const dismissThread = useCallback(() => {
+    onDismissThread?.();
+  }, [onDismissThread]);
+  const { band, dragging, gripHandlers } = useFeedThreadBand(
+    threadActive,
+    dismissThread
+  );
+  const requestClose = useCallback(() => {
+    if (threadOpen) {
+      onDismissThread?.();
+      return;
+    }
+    onClose();
+  }, [onClose, onDismissThread, threadOpen]);
 
   return (
     <OsMediaFaceShell
       open={open}
-      onClose={onClose}
+      onClose={requestClose}
       title={screenTitle}
       closeAriaLabel="Back from listen"
       zIndex={SCARCE_Z.listenShell}
-      keepDock={keepDock}
+      keepDock={keepDock || threadActive}
       screenHeader
-      footer={footer}
-      className="scarce-listen-slide"
+      footer={threadActive ? null : footer}
+      stageLayout={threadActive ? 'fixed' : 'scroll'}
+      className={`scarce-listen-slide${
+        threadActive ? ' feed-photo-slide--thread' : ''
+      }${dragging ? ' is-thread-dragging' : ''}`}
       contentClassName="scarce-listen-slide-body"
+      bodyStyle={
+        threadActive
+          ? ({
+              '--feed-thread-band': `${(band * 100).toFixed(1)}%`,
+            } as CSSProperties)
+          : undefined
+      }
     >
       <div className={`scarce-clip-listen${lyricsOpen ? ' is-lyrics' : ''}`}>
         <div className="scarce-clip-listen-art">
@@ -366,6 +411,17 @@ export function ScarceClipListenSheet({
           ) : null}
         </div>
       </div>
+      {threadActive && threadAuthor && threadPostId ? (
+        <div className="feed-photo-thread-host">
+          <FeedMediaThreadSheet
+            author={threadAuthor}
+            postId={threadPostId}
+            initialRoot={threadRoot}
+            band={band}
+            gripHandlers={gripHandlers}
+          />
+        </div>
+      ) : null}
     </OsMediaFaceShell>
   );
 }

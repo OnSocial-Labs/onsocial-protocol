@@ -403,6 +403,9 @@ export function WritingReadSheet({
   canRead,
   lockedHint,
   footer = null,
+  threadOpen = false,
+  onDismissThread,
+  pane = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -423,6 +426,10 @@ export function WritingReadSheet({
   canRead: boolean;
   lockedHint: string;
   footer?: ReactNode;
+  /** Feed reply drawer. A Drop or profile reader leaves these unset. */
+  threadOpen?: boolean;
+  onDismissThread?: () => void;
+  pane?: ReactNode;
 }) {
   const { isConnected, connect, isLoading } = useAppWallet();
   const scrollRootRef = useRef<HTMLElement | null>(null);
@@ -538,11 +545,18 @@ export function WritingReadSheet({
   ) : null;
   const resolvedFooter = connectFooter ?? (showPostFooter ? footer : null);
   const showWakeFooter = Boolean(resolvedFooter) && wakeFooter && !writePinned;
+  const requestClose = useCallback(() => {
+    if (threadOpen) {
+      onDismissThread?.();
+      return;
+    }
+    onClose();
+  }, [onClose, onDismissThread, threadOpen]);
 
   return (
     <OsSlideOverScreen
       open={open}
-      onClose={onClose}
+      onClose={requestClose}
       title={dialogName}
       heading={<></>}
       immersiveHeader
@@ -558,13 +572,16 @@ export function WritingReadSheet({
         ) : null
       }
       zIndex={SCARCE_Z.listenShell}
-      keepDock={writePinned}
+      keepDock={writePinned || threadOpen}
       scrollRootRef={scrollRootRef}
       className={`${ARTICLE_READ_CLASS}${quiet ? ' is-chrome-quiet' : ''}${
         showWakeFooter ? ' is-wake-footer' : ''
-      }${connectLocked ? ' is-connect-locked' : ''}`}
+      }${connectLocked ? ' is-connect-locked' : ''}${
+        threadOpen ? ' feed-face-thread' : ''
+      }`}
       contentClassName="feed-article-slide-body"
       footer={resolvedFooter}
+      pane={pane}
     >
       <ArticleReadProgress progress={progress} />
       <div className="feed-article-read">

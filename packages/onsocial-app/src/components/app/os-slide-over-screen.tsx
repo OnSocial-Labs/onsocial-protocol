@@ -74,6 +74,8 @@ export interface OsSlideOverScreenProps {
   viewport?: boolean;
   toolbar?: ReactNode;
   footer?: ReactNode;
+  /** Pinned over the column, outside the scroll (reply thread on a reader). */
+  pane?: ReactNode;
   children: ReactNode;
   /**
    * Overlay chrome on top media (guild page recipe). Banner starts at the
@@ -139,6 +141,7 @@ export function OsSlideOverScreen({
   viewport = false,
   toolbar,
   footer,
+  pane = null,
   children,
   immersiveHeader = false,
   headerElevated = false,
@@ -400,6 +403,7 @@ export function OsSlideOverScreen({
               <div className="os-slide-over-footer-inner">{footer}</div>
             </div>
           ) : null}
+          {pane}
         </div>
       </div>
     </OsSlideOverCloseContext.Provider>,

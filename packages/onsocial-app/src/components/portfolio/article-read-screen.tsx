@@ -225,11 +225,18 @@ export function ArticleReadOverlay({
   footer,
   renderBody,
   documentTitle,
+  pane = null,
+  threadOpen = false,
+  onDismissThread,
   ...panel
 }: PortfolioWritingArticlePanelProps &
   ArticleReadFooterProps & {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    /** Reply thread pinned over the page. Profile omits this. */
+    pane?: ReactNode;
+    threadOpen?: boolean;
+    onDismissThread?: () => void;
   }) {
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const { current, openArticle, backArticle } = useArticleReader(
@@ -266,20 +273,27 @@ export function ArticleReadOverlay({
     <OsSlideOverScreen
       open={open}
       onClose={() => onOpenChange(false)}
-      onBeforeClose={() => !backArticle()}
       title={articleTitle}
       heading={<></>}
       immersiveHeader
       closeAriaLabel="Back from article"
       closeIcon={<ChevronLeftIcon className="glass-sheet-close-icon" />}
       zIndex={SCARCE_Z.listenShell}
-      keepDock={writePinned}
+      keepDock={writePinned || threadOpen}
       scrollRootRef={scrollRootRef}
       className={`${ARTICLE_READ_CLASS}${quiet ? ' is-chrome-quiet' : ''}${
         showWakeFooter ? ' is-wake-footer' : ''
-      }`}
+      }${threadOpen ? ' feed-face-thread' : ''}`}
       contentClassName="feed-article-slide-body"
       footer={resolvedFooter}
+      pane={pane}
+      onBeforeClose={() => {
+        if (threadOpen) {
+          onDismissThread?.();
+          return false;
+        }
+        return !backArticle();
+      }}
     >
       {renderBody ? (
         <>

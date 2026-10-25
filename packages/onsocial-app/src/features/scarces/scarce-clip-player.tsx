@@ -7,6 +7,7 @@ import {
   type ReactNode,
   type SyntheticEvent,
 } from 'react';
+import type { PostRow } from '@onsocial/sdk';
 import {
   HeartFillIcon,
   HeartIcon,
@@ -115,6 +116,12 @@ interface ScarceClipPlayerProps {
    */
   listenKeepDock?: boolean;
   onListenClose?: () => void;
+  /** Feed reply drawer over listen. Omitted on the Drop page player. */
+  threadOpen?: boolean;
+  onDismissThread?: () => void;
+  threadAuthor?: string | null;
+  threadPostId?: string | null;
+  threadRoot?: PostRow | null;
 }
 
 function useBrowserOnline(): boolean {
@@ -171,6 +178,11 @@ export function ScarceClipPlayer({
   listenFooter = null,
   listenKeepDock = false,
   onListenClose,
+  threadOpen = false,
+  onDismissThread,
+  threadAuthor = null,
+  threadPostId = null,
+  threadRoot = null,
 }: ScarceClipPlayerProps) {
   const nowPlaying = useCollectiblesNowPlayingOptional();
   const { setTxResult } = useAppTransactionFeedback();
@@ -1929,6 +1941,11 @@ export function ScarceClipPlayer({
           }}
           footer={listenFooter}
           keepDock={listenKeepDock}
+          threadOpen={threadOpen}
+          onDismissThread={onDismissThread}
+          threadAuthor={threadAuthor}
+          threadPostId={threadPostId}
+          threadRoot={threadRoot}
         />
       ) : null}
       <ScarceFansSheet
