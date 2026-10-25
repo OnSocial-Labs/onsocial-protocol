@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -44,6 +45,11 @@ import {
   homeFeedIncludeForeignReplies,
   homeFeedShowsTimelineChrome,
 } from '@/features/home/home-feed-visible';
+import {
+  shouldAdoptSpeculativeFeedPage,
+  shouldRequestSpeculativeFeedPage,
+  speculativeFeedKeepsPaint,
+} from '@/features/home/home-feed-speculative';
 import {
   homeFeedLensEmptyCopy,
   readStoredHomeFeedLens,
@@ -311,7 +317,11 @@ export function HomePagePanel({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { accountId, isConnected, isLoading: walletLoading } = useAppWallet();
-  const restoredSessionRef = useRef(peekHomeFeedSession());
+  // Memory only — a storage read here would render the list where SSR
+  // rendered the shell, a hydration mismatch. Storage joins post-hydration.
+  const restoredSessionRef = useRef(
+    peekHomeFeedSession(undefined, { hydrateStorage: false })
+  );
   const restoredSession = restoredSessionRef.current;
   const sessionRestoreReloadNonceRef = useRef(0);
   const scrollMemoryRef = useRef(
@@ -437,25 +447,121 @@ export function HomePagePanel({
       (initialPage != null ? HOME_FEED_SSR_SESSION_KEY : null)
   );
 
-  useEffect(() => {
-    return () => {
-      const node = scrollRootRef.current;
-      const memory = scrollMemoryRef.current;
-      const live = node?.scrollTop ?? 0;
-      const lenisTop = node ? (getAppLenis(node)?.scroll ?? 0) : 0;
-      const line = memory.userAdjusted
-        ? memory.landed
-        : scrollLineOnLeave(Math.max(live, lenisTop), memory.landed);
-      writeHomeFeedSession({
-        sessionKey: feedSessionKeyRef.current,
-        posts: postsRef.current,
-        nextOffset: nextOffsetRef.current,
-        standingNetworkIds: standingSourcesRef.current,
-        offsetShiftApplied: offsetShiftAppliedRef.current,
-        scrollTop: scrollTopToPersist(memory, line),
-      });
-    };
+  const persistFeedSession = useCallback(() => {
+    const node = scrollRootRef.current;
+    const memory = scrollMemoryRef.current;
+    const live = node?.scrollTop ?? 0;
+    const lenisTop = node ? (getAppLenis(node)?.scroll ?? 0) : 0;
+    const line = memory.userAdjusted
+      ? memory.landed
+      : scrollLineOnLeave(Math.max(live, lenisTop), memory.landed);
+    writeHomeFeedSession({
+      sessionKey: feedSessionKeyRef.current,
+      posts: postsRef.current,
+      nextOffset: nextOffsetRef.current,
+      standingNetworkIds: standingSourcesRef.current,
+      offsetShiftApplied: offsetShiftAppliedRef.current,
+      scrollTop: scrollTopToPersist(memory, line),
+    });
   }, []);
+
+  useEffect(() => () => persistFeedSession(), [persistFeedSession]);
+
+  // A refresh or closed tab never runs the unmount cleanup — pagehide does.
+  useEffect(() => {
+    window.addEventListener('pagehide', persistFeedSession);
+    return () => window.removeEventListener('pagehide', persistFeedSession);
+  }, [persistFeedSession]);
+
+  /**
+   * Hard refresh — hydrate the tab-storage snapshot after the first render
+   * (SSR and hydration both show the shell), then swap the list in before
+   * paint. The main load effect sees the ref and skips a duplicate fetch.
+   */
+  useLayoutEffect(() => {
+    if (restoredSessionRef.current) return;
+    const snap = peekHomeFeedSession();
+    if (!snap) return;
+    restoredSessionRef.current = snap;
+    postsRef.current = snap.posts;
+    postsLengthRef.current = snap.posts.length;
+    seenPostKeysRef.current = feedPostKeySet(snap.posts);
+    standingSourcesRef.current = snap.standingNetworkIds
+      ? [...snap.standingNetworkIds]
+      : null;
+    nextOffsetRef.current = snap.nextOffset;
+    offsetShiftAppliedRef.current = snap.offsetShiftApplied;
+    feedSessionKeyRef.current = snap.sessionKey;
+    scrollMemoryRef.current = createListScrollMemory(snap.scrollTop);
+    ssrBootstrapDoneRef.current = true;
+    isLoadingRef.current = false;
+    setPosts(snap.posts);
+    setStandingNetworkIds(
+      snap.standingNetworkIds ? [...snap.standingNetworkIds] : null
+    );
+    setNextOffset(snap.nextOffset);
+    setSsrBootstrapDone(true);
+    setIsLoading(false);
+  }, []);
+
+  /**
+   * Cold first visit — ask for the public hot page before the wallet and
+   * lens resolve. The main load adopts it like the SSR hot seed, or
+   * soft-refreshes into the stored lens/sort while these rows stay up.
+   */
+  const [speculativePage, setSpeculativePage] =
+    useState<Paginated<PostRow> | null>(null);
+  const speculativeRequestedRef = useRef(false);
+  useEffect(() => {
+    if (speculativeRequestedRef.current) return;
+    const focus = parseHomeFeedFocus({
+      tag: tagParam,
+      ticker: tickerParam,
+      place: placeParam,
+    });
+    if (
+      !shouldRequestSpeculativeFeedPage({
+        restoredSession: restoredSessionRef.current,
+        initialPage,
+        hasFocus: focus != null,
+      })
+    ) {
+      return;
+    }
+    speculativeRequestedRef.current = true;
+    let cancelled = false;
+    void fetchHomeFeedPageClient('global', null, 0, null, 'hot')
+      .then((result) => {
+        if (!cancelled) setSpeculativePage(result.page);
+      })
+      .catch(() => {
+        // The gated load that follows owns the error surface.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /**
+   * Warm the reply-thread chunk once the feed has painted, so the first
+   * Reply opens with the conversation instead of an empty drawer.
+   */
+  const threadWarmRef = useRef(false);
+  useEffect(() => {
+    if (threadWarmRef.current || posts.length === 0) return;
+    threadWarmRef.current = true;
+    const warm = () => {
+      void import('@/features/home/live-personal-post-panel');
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      const idleId = window.requestIdleCallback(warm, { timeout: 4000 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+    const timerId = window.setTimeout(warm, 2000);
+    return () => window.clearTimeout(timerId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posts.length > 0]);
 
   useListScrollRestore(scrollRootRef, scrollMemoryRef, visiblePosts.length);
 
@@ -633,6 +739,38 @@ export function HomePagePanel({
       setIsLoading(false);
       setIsRefreshing(false);
       return;
+    }
+
+    // Speculative cold-start page — same adoption as the SSR hot seed below.
+    if (
+      shouldAdoptSpeculativeFeedPage({
+        speculativePage,
+        initialPage,
+        hasFocus: focus != null,
+        postsLength: postsLengthRef.current,
+        bootstrapDone: ssrBootstrapDoneRef.current,
+      }) &&
+      speculativePage
+    ) {
+      setPosts(speculativePage.items);
+      postsRef.current = speculativePage.items;
+      postsLengthRef.current = speculativePage.items.length;
+      setNextOffset(speculativePage.nextOffset);
+      nextOffsetRef.current = speculativePage.nextOffset;
+      feedSessionKeyRef.current = HOME_FEED_SSR_SESSION_KEY;
+      if (speculativeFeedKeepsPaint(activeLens, sort)) {
+        ssrHotGlobalSkipRef.current = true;
+        ssrHotGlobalReloadNonceRef.current = reloadNonce;
+        setSsrBootstrapDone(true);
+        ssrBootstrapDoneRef.current = true;
+        isLoadingRef.current = false;
+        isRefreshingRef.current = false;
+        setIsLoading(false);
+        setIsRefreshing(false);
+        return;
+      }
+      // Stored standing lens or Recent sort — keep these rows on screen
+      // while the gated load below soft-refreshes into them.
     }
 
     // Paint SSR hot feed immediately; standing / non-hot sorts soft-upgrade.
@@ -814,6 +952,7 @@ export function HomePagePanel({
     lensReady,
     reloadNonce,
     sort,
+    speculativePage,
     tagParam,
     tickerParam,
     placeParam,
