@@ -239,7 +239,10 @@ describe('home feed session storage mirror', () => {
 
     map.set(
       'onsocial.home-feed-session',
-      JSON.stringify({ v: 999, snapshot: { sessionKey: 'x', posts: [{}], savedAt: 1 } })
+      JSON.stringify({
+        v: 999,
+        snapshot: { sessionKey: 'x', posts: [{}], savedAt: 1 },
+      })
     );
     vi.resetModules();
     fresh = await import('./home-feed-session');
@@ -300,7 +303,10 @@ describe('home feed session wiring', () => {
       join(libDir, '../features/home/home-feed.tsx'),
       'utf8'
     );
-    const sessionSrc = readFileSync(join(libDir, 'home-feed-session.ts'), 'utf8');
+    const sessionSrc = readFileSync(
+      join(libDir, 'home-feed-session.ts'),
+      'utf8'
+    );
     const hostSrc = readFileSync(
       join(libDir, '../components/providers/feed-session-host.tsx'),
       'utf8'

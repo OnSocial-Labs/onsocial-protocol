@@ -298,76 +298,75 @@ export function usePostEngagement(
         savesResult,
         viewerRepostResult,
       ]) => {
-      if (loadIdRef.current !== loadId) return;
-      if (
-        threadResult.status === 'rejected' &&
-        reactionResult.status === 'rejected' &&
-        amplifyResult.status === 'rejected'
-      ) {
-        return;
-      }
+        if (loadIdRef.current !== loadId) return;
+        if (
+          threadResult.status === 'rejected' &&
+          reactionResult.status === 'rejected' &&
+          amplifyResult.status === 'rejected'
+        ) {
+          return;
+        }
 
-      const threadCounts =
-        threadResult.status === 'fulfilled' ? threadResult.value : {};
-      const reactionStates =
-        reactionResult.status === 'fulfilled' ? reactionResult.value : {};
-      const amplifyCounts =
-        amplifyResult.status === 'fulfilled' ? amplifyResult.value : {};
-      const savedPaths = new Set(
-        savesResult.status === 'fulfilled'
-          ? savesResult.value.map((row) => row.contentPath)
-          : []
-      );
-      const viewerReposts = new Map(
-        (
-          viewerRepostResult.status === 'fulfilled'
+        const threadCounts =
+          threadResult.status === 'fulfilled' ? threadResult.value : {};
+        const reactionStates =
+          reactionResult.status === 'fulfilled' ? reactionResult.value : {};
+        const amplifyCounts =
+          amplifyResult.status === 'fulfilled' ? amplifyResult.value : {};
+        const savedPaths = new Set(
+          savesResult.status === 'fulfilled'
+            ? savesResult.value.map((row) => row.contentPath)
+            : []
+        );
+        const viewerReposts = new Map(
+          (viewerRepostResult.status === 'fulfilled'
             ? viewerRepostResult.value
             : []
-        ).map((row) => [row.refPath, row])
-      );
+          ).map((row) => [row.refPath, row])
+        );
 
-      const next: EngagementMap = {};
-      for (const target of targets) {
-        const counts = threadCounts[target.path];
-        const reactions = reactionStates[`${target.owner}:${target.postId}`];
-        const amplify = amplifyCounts[target.path];
-        const viewerRepost = viewerReposts.get(target.path);
-        next[target.key] = {
-          ...EMPTY_POST_ENGAGEMENT,
-          replyCount: counts?.replyCount ?? 0,
-          quoteCount: counts?.quoteCount ?? 0,
-          repostCount: counts?.repostCount ?? 0,
-          reactionCount: reactions?.counts.total ?? 0,
-          viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
-          amplifyCount: amplify?.amplifyCount ?? 0,
-          viewerAmplified: amplify?.viewerAmplified ?? false,
-          viewerSaved: savedPaths.has(target.path),
-          viewerReposted: Boolean(viewerRepost),
-          viewerRepostId: viewerRepost?.repostId ?? null,
-          viewerRepostGroupId: viewerRepost?.groupId ?? null,
-        };
-      }
-      setEngagement((current) =>
-        mergeEngagementSoftUpgrade(
-          current,
-          next,
-          pendingReactionKeysRef.current,
-          pendingSaveKeysRef.current,
-          unrepostedKeysRef.current
-        )
-      );
-      setUnrepostedKeys((current) => {
-        if (current.size === 0) return current;
-        const nextKeys = new Set(current);
+        const next: EngagementMap = {};
         for (const target of targets) {
+          const counts = threadCounts[target.path];
+          const reactions = reactionStates[`${target.owner}:${target.postId}`];
+          const amplify = amplifyCounts[target.path];
           const viewerRepost = viewerReposts.get(target.path);
-          if (nextKeys.has(target.key) && !viewerRepost) {
-            nextKeys.delete(target.key);
-          }
+          next[target.key] = {
+            ...EMPTY_POST_ENGAGEMENT,
+            replyCount: counts?.replyCount ?? 0,
+            quoteCount: counts?.quoteCount ?? 0,
+            repostCount: counts?.repostCount ?? 0,
+            reactionCount: reactions?.counts.total ?? 0,
+            viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
+            amplifyCount: amplify?.amplifyCount ?? 0,
+            viewerAmplified: amplify?.viewerAmplified ?? false,
+            viewerSaved: savedPaths.has(target.path),
+            viewerReposted: Boolean(viewerRepost),
+            viewerRepostId: viewerRepost?.repostId ?? null,
+            viewerRepostGroupId: viewerRepost?.groupId ?? null,
+          };
         }
-        return nextKeys;
-      });
-    }
+        setEngagement((current) =>
+          mergeEngagementSoftUpgrade(
+            current,
+            next,
+            pendingReactionKeysRef.current,
+            pendingSaveKeysRef.current,
+            unrepostedKeysRef.current
+          )
+        );
+        setUnrepostedKeys((current) => {
+          if (current.size === 0) return current;
+          const nextKeys = new Set(current);
+          for (const target of targets) {
+            const viewerRepost = viewerReposts.get(target.path);
+            if (nextKeys.has(target.key) && !viewerRepost) {
+              nextKeys.delete(target.key);
+            }
+          }
+          return nextKeys;
+        });
+      }
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetsSignature]);
@@ -639,7 +638,10 @@ export function usePostEngagement(
   );
 
   const withSharePending = useCallback(
-    async <T,>(post: PostRow, task: () => Promise<T>): Promise<T | undefined> => {
+    async <T>(
+      post: PostRow,
+      task: () => Promise<T>
+    ): Promise<T | undefined> => {
       const key = postKey(post);
       if (pendingShareKeysRef.current.has(key)) return undefined;
       setPendingShareKeys((current) => new Set(current).add(key));

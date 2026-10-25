@@ -100,7 +100,10 @@ function writeStorage(next: HomeFeedSessionSnapshot): void {
     };
     sessionStorage.setItem(
       HOME_FEED_SESSION_STORAGE_KEY,
-      JSON.stringify({ v: HOME_FEED_SESSION_STORAGE_VERSION, snapshot: persisted })
+      JSON.stringify({
+        v: HOME_FEED_SESSION_STORAGE_VERSION,
+        snapshot: persisted,
+      })
     );
   } catch {
     // Quota or private-mode denial — the in-memory copy still works.
