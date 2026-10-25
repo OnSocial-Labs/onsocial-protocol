@@ -122,6 +122,29 @@ describe('home feed session snapshot', () => {
       HOME_FEED_COLD_PROBE_DELAY_MS
     );
   });
+
+  it('round-trips the stand epoch when present, absent otherwise', () => {
+    writeHomeFeedSession({
+      sessionKey: HOME_FEED_SSR_SESSION_KEY,
+      posts: [row('a.near', '1')],
+      nextOffset: 24,
+      standingNetworkIds: ['alice.near'],
+      offsetShiftApplied: 0,
+      scrollTop: 0,
+      standEpoch: 3,
+    });
+    expect(peekHomeFeedSession()?.standEpoch).toBe(3);
+
+    writeHomeFeedSession({
+      sessionKey: HOME_FEED_SSR_SESSION_KEY,
+      posts: [row('a.near', '1')],
+      nextOffset: 24,
+      standingNetworkIds: ['alice.near'],
+      offsetShiftApplied: 0,
+      scrollTop: 0,
+    });
+    expect(peekHomeFeedSession()?.standEpoch).toBeUndefined();
+  });
 });
 
 describe('home feed session storage mirror', () => {
@@ -171,6 +194,23 @@ describe('home feed session storage mirror', () => {
     expect(restored?.scrollTop).toBe(640);
   });
 
+  it('keeps the stand epoch across a reload', async () => {
+    stubSessionStorage();
+    writeHomeFeedSession({
+      sessionKey: HOME_FEED_SSR_SESSION_KEY,
+      posts: [row('a.near', '1')],
+      nextOffset: 24,
+      standingNetworkIds: ['alice.near'],
+      offsetShiftApplied: 0,
+      scrollTop: 0,
+      standEpoch: 2,
+      now: 1_000,
+    });
+    vi.resetModules();
+    const fresh = await import('./home-feed-session');
+    expect(fresh.peekHomeFeedSession(2_000)?.standEpoch).toBe(2);
+  });
+
   it('drops an expired copy from storage too', async () => {
     const map = stubSessionStorage();
     writeHomeFeedSession({
@@ -199,7 +239,10 @@ describe('home feed session storage mirror', () => {
 
     map.set(
       'onsocial.home-feed-session',
-      JSON.stringify({ v: 999, snapshot: { sessionKey: 'x', posts: [{}], savedAt: 1 } })
+      JSON.stringify({
+        v: 999,
+        snapshot: { sessionKey: 'x', posts: [{}], savedAt: 1 },
+      })
     );
     vi.resetModules();
     fresh = await import('./home-feed-session');
@@ -260,7 +303,10 @@ describe('home feed session wiring', () => {
       join(libDir, '../features/home/home-feed.tsx'),
       'utf8'
     );
-    const sessionSrc = readFileSync(join(libDir, 'home-feed-session.ts'), 'utf8');
+    const sessionSrc = readFileSync(
+      join(libDir, 'home-feed-session.ts'),
+      'utf8'
+    );
     const hostSrc = readFileSync(
       join(libDir, '../components/providers/feed-session-host.tsx'),
       'utf8'
@@ -274,5 +320,25 @@ describe('home feed session wiring', () => {
     expect(pageSrc).not.toContain('localStorage');
     expect(hostSrc).toContain('HomePagePanel');
     expect(hostSrc).not.toContain('loadHomeFeedPage');
+  });
+
+  it('invalidates standing sources when a stand confirms after the snapshot', () => {
+    const libDir = dirname(fileURLToPath(import.meta.url));
+    const pageSrc = readFileSync(
+      join(libDir, '../features/home/home-feed.tsx'),
+      'utf8'
+    );
+    const standingSrc = readFileSync(
+      join(libDir, '../hooks/use-viewer-standing.ts'),
+      'utf8'
+    );
+
+    // Snapshot records the epoch; restore adoption rejects a stale one.
+    expect(pageSrc).toContain('standEpoch: getViewerStandEpoch()');
+    expect(pageSrc).toContain('restoredStandStale');
+    // Live stands soft-reload a mounted social lens.
+    expect(pageSrc).toContain('subscribeViewerStandConfirmed');
+    // The single stand funnel emits the event on confirm.
+    expect(standingSrc).toContain('recordViewerStandConfirmed()');
   });
 });
