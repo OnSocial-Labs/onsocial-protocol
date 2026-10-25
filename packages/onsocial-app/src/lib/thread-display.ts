@@ -10,7 +10,13 @@ export type ThreadReplyRow =
       /** Drawn with the rail into the previous row (conversation run). */
       connectedToPrevious: boolean;
     }
-  | { kind: 'more'; branchKey: string; hiddenCount: number };
+  | {
+      kind: 'more';
+      branchKey: string;
+      hiddenCount: number;
+      /** Folded posts, conversation order — feeds the coil's contextual label. */
+      hidden: PostRow[];
+    };
 
 /**
  * Flatten the reply tree into display rows for the thread page:
@@ -78,7 +84,14 @@ export function buildReplyRows(
 
     pushPost(line[0]!.post, true);
     const hiddenCount = line.length - 1;
-    if (hiddenCount > 0) rows.push({ kind: 'more', branchKey, hiddenCount });
+    if (hiddenCount > 0) {
+      rows.push({
+        kind: 'more',
+        branchKey,
+        hiddenCount,
+        hidden: line.slice(1).map((node) => node.post),
+      });
+    }
   };
 
   const authorNodes = rootAuthor

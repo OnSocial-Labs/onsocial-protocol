@@ -88,6 +88,7 @@ import {
   leafThreadNode,
   withoutIndexedPosts,
 } from '@/lib/thread-display';
+import { resolveThreadFoldLabel } from '@/lib/thread-fold-label';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { playPostFocusVideo } from '@/hooks/use-post-list-video';
 import { readPostMediaUnmuteIndex } from '@/lib/post-media';
@@ -212,6 +213,11 @@ export function LivePersonalPostPanel({
         .join('\n'),
     [replyRows]
   );
+  // Fold labels flag the thread author as the notable name in mixed folds.
+  const foldNotableIds = useMemo(() => {
+    const rootAuthorId = conversation.root?.accountId;
+    return rootAuthorId ? new Set([rootAuthorId]) : undefined;
+  }, [conversation.root?.accountId]);
   const threadFocus = useThreadFocusReply(loadState === 'ready', replyFocusKey);
   const quotes = useMemo(
     () => [
@@ -640,6 +646,14 @@ export function LivePersonalPostPanel({
 
   const replyListRows = sortedReplyRows.map((row, index) => {
     if (row.kind === 'more') {
+      const foldLabel =
+        resolveThreadFoldLabel(row.hidden, {
+          profiles: postAuthorProfiles,
+          notableAccountIds: foldNotableIds,
+        }) ??
+        (row.hiddenCount === 1
+          ? 'Show 1 more reply'
+          : `Show ${row.hiddenCount} more replies`);
       return (
         <ThreadFoldButton
           key={`more-${row.branchKey}`}
@@ -649,9 +663,7 @@ export function LivePersonalPostPanel({
             )
           }
         >
-          {row.hiddenCount === 1
-            ? 'Show 1 more reply'
-            : `Show ${row.hiddenCount} more replies`}
+          {foldLabel}
         </ThreadFoldButton>
       );
     }

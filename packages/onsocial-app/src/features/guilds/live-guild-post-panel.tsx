@@ -103,6 +103,7 @@ import {
   withoutIndexedPosts,
   type ThreadReplyRow,
 } from '@/lib/thread-display';
+import { resolveThreadFoldLabel } from '@/lib/thread-fold-label';
 import {
   applyMediaKindOverride,
   buildOptimisticMediaEntries,
@@ -294,6 +295,11 @@ export function LiveGuildPostPanel({
         .join('\n'),
     [replyRows]
   );
+  // Fold labels flag the thread author as the notable name in mixed folds.
+  const foldNotableIds = useMemo(() => {
+    const rootAuthorId = conversation.root?.accountId;
+    return rootAuthorId ? new Set([rootAuthorId]) : undefined;
+  }, [conversation.root?.accountId]);
   const threadFocus = useThreadFocusReply(loadState === 'ready', replyFocusKey);
   // Quotes read newest-first — your fresh quote leads the list.
   const quotes = useMemo(
@@ -828,6 +834,14 @@ export function LiveGuildPostPanel({
 
   const replyListRows = sortedReplyRows.map((row, index) => {
     if (row.kind === 'more') {
+      const foldLabel =
+        resolveThreadFoldLabel(row.hidden, {
+          profiles: postAuthorProfiles,
+          notableAccountIds: foldNotableIds,
+        }) ??
+        (row.hiddenCount === 1
+          ? 'Show 1 more reply'
+          : `Show ${row.hiddenCount} more replies`);
       return (
         <ThreadFoldButton
           key={`more-${row.branchKey}`}
@@ -837,9 +851,7 @@ export function LiveGuildPostPanel({
             )
           }
         >
-          {row.hiddenCount === 1
-            ? 'Show 1 more reply'
-            : `Show ${row.hiddenCount} more replies`}
+          {foldLabel}
         </ThreadFoldButton>
       );
     }
