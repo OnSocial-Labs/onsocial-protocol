@@ -42,12 +42,21 @@
 /*
  * Capped fold — the closed size is in the first paint. max-height leaves a
  * short body at its own height. The open size is the measured full height.
+ * The inner line clamp cuts at exactly `closedLines` rendered lines, so the
+ * closed body never depends on em math, width, or font metrics.
  */
 .os-reveal--capped .os-reveal-clip {
   height: auto;
-  max-height: calc(var(--os-fold-lines, 6) * 1.5em);
+  max-height: var(--os-reveal-closed, calc(var(--os-fold-lines, 6) * 1.5em));
   transition: max-height var(--os-motion-overlay, 320ms)
     var(--os-motion-ease-soft, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.os-reveal--capped:not(.is-open) .os-reveal-inner {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--os-fold-lines, 6);
+  overflow: hidden;
 }
 
 .os-reveal--capped.is-open .os-reveal-clip {
