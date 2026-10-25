@@ -5,6 +5,7 @@ import {
   mergeEngagementSoftUpgrade,
   pendingReactionEngagement,
   reactionCountAfterToggle,
+  seededEngagementCoversTargets,
   type PostEngagement,
 } from '@/hooks/use-post-engagement';
 
@@ -37,6 +38,28 @@ describe('reaction confirmation', () => {
     expect(reactionCountAfterToggle(3, true)).toBe(4);
     expect(reactionCountAfterToggle(4, false)).toBe(3);
     expect(reactionCountAfterToggle(0, false)).toBe(0);
+  });
+});
+
+describe('seededEngagementCoversTargets', () => {
+  it('covers when every visible row came from the SSR seed', () => {
+    const seed = { 'alice.near:p1': row(), 'bob.near:p2': row() };
+    expect(
+      seededEngagementCoversTargets(seed, ['alice.near:p1', 'bob.near:p2'])
+    ).toBe(true);
+  });
+
+  it('does not cover restored rows the SSR seed never saw', () => {
+    const seed = { 'alice.near:p1': row() };
+    expect(
+      seededEngagementCoversTargets(seed, ['alice.near:p1', 'carol.near:p3'])
+    ).toBe(false);
+    expect(seededEngagementCoversTargets(seed, ['carol.near:p3'])).toBe(false);
+  });
+
+  it('does not cover an empty or missing seed', () => {
+    expect(seededEngagementCoversTargets(null, ['alice.near:p1'])).toBe(false);
+    expect(seededEngagementCoversTargets({}, ['alice.near:p1'])).toBe(false);
   });
 });
 

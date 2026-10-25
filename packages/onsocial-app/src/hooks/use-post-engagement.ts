@@ -177,6 +177,19 @@ export function mergeEngagementSoftUpgrade(
 }
 
 /**
+ * The SSR seed covers a feed only when every visible row came from that seed.
+ * A restored session snapshot can swap in rows the seed never rendered — those
+ * must fetch, or they paint zeros until the list changes.
+ */
+export function seededEngagementCoversTargets(
+  initial: EngagementMap | null,
+  targetKeys: readonly string[]
+): boolean {
+  if (!initial) return false;
+  return targetKeys.every((key) => key in initial);
+}
+
+/**
  * Batched engagement state (reply/quote/reaction/amplify/save + viewer flags)
  * for a list of visible posts, plus optimistic reaction / save toggles.
  * Reaction and save writes use `wait: true` so the faded pending state lasts
@@ -217,6 +230,7 @@ export function usePostEngagement(
   unrepostedKeysRef.current = unrepostedKeys;
   pendingShareKeysRef.current = pendingShareKeys;
   const loadIdRef = useRef(0);
+  const initialRef = useRef<EngagementMap | null>(opts.initial ?? null);
   const ssrSkipRef = useRef(
     Boolean(opts.initial && Object.keys(opts.initial).length > 0)
   );
@@ -241,10 +255,18 @@ export function usePostEngagement(
   useEffect(() => {
     if (targets.length === 0) return;
 
-    // SSR already seeded public counts — skip one duplicate until wallet/viewer.
+    // SSR already seeded public counts — skip one duplicate until wallet/viewer,
+    // but only when the seed covers these exact rows (snapshot restores can swap them).
     if (ssrSkipRef.current && !accountId) {
       ssrSkipRef.current = false;
-      return;
+      if (
+        seededEngagementCoversTargets(
+          initialRef.current,
+          targets.map((t) => t.key)
+        )
+      ) {
+        return;
+      }
     }
     ssrSkipRef.current = false;
 
