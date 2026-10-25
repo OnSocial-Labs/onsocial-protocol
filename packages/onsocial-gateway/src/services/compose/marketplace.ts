@@ -102,12 +102,26 @@ export function buildDelistExternalScarceAction(params: {
 export function buildUpdateSalePriceAction(params: {
   scarceContractId: string;
   tokenId: string;
-  priceNear: string;
+  priceNear?: string;
+  priceUsd?: string;
   targetAccount?: string;
 }): SimpleActionResult {
   if (!params.scarceContractId)
     throw new ComposeError(400, 'Missing scarceContractId');
   if (!params.tokenId) throw new ComposeError(400, 'Missing tokenId');
+  const targetAccount = resolveScarcesTarget(params.targetAccount);
+  if (params.priceUsd) {
+    return {
+      action: {
+        type: 'update_price',
+        scarce_contract_id: params.scarceContractId,
+        token_id: params.tokenId,
+        price: '1',
+        usd_e6: usdToE6(params.priceUsd),
+      },
+      targetAccount,
+    };
+  }
   if (!params.priceNear) throw new ComposeError(400, 'Missing priceNear');
   return {
     action: {
@@ -116,7 +130,7 @@ export function buildUpdateSalePriceAction(params: {
       token_id: params.tokenId,
       price: nearToYocto(params.priceNear),
     },
-    targetAccount: resolveScarcesTarget(params.targetAccount),
+    targetAccount,
   };
 }
 

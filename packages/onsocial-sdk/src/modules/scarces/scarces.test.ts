@@ -787,6 +787,20 @@ describe('ScarcesModule.market — management helpers', () => {
     });
   });
 
+  it('updateSalePrice keeps a dollar sticker', async () => {
+    const http = makeHttp();
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
+    await mod.market.updateSalePrice('scarces.near', 't1', '1', {
+      priceUsd: '1',
+    });
+    expect(prepareBodyFor(http.post, 'update-sale-price')).toEqual({
+      scarceContractId: 'scarces.near',
+      tokenId: 't1',
+      priceUsd: '1',
+    });
+  });
+
   it('delistExternal', async () => {
     const http = makeHttp();
     const { getter } = makeSessionGetter();

@@ -80,12 +80,17 @@ export class ScarcesMarketApi {
     );
   }
 
-  /** Update the asking price of an external (cross-contract) listing. */
+  /**
+   * Update the asking price of an external (cross-contract) listing.
+   * Pass `priceUsd` to keep a dollar sticker. The NEAR argument is ignored then.
+   */
   async updateSalePrice(
     scarceContractId: string,
     tokenId: string,
-    priceNear: string
+    priceNear: string,
+    opts?: { priceUsd?: string }
   ): Promise<RelayResponse> {
+    const priceUsd = opts?.priceUsd?.trim() ?? '';
     return composeAndSign(
       this._http,
       this._getSession(),
@@ -93,7 +98,7 @@ export class ScarcesMarketApi {
       {
         scarceContractId,
         tokenId,
-        priceNear,
+        ...(priceUsd ? { priceUsd } : { priceNear }),
       },
       'scarces.updateSalePrice',
       this._relayOpts({ confirmation: true })

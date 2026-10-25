@@ -131,6 +131,21 @@ describe('buildUpdateSalePriceAction', () => {
       price: '5000000000000000000000000',
     });
   });
+
+  it('stores a dollar sticker and a 1 yocto NEAR floor', () => {
+    const result = buildUpdateSalePriceAction({
+      scarceContractId: 'nft.near',
+      tokenId: '42',
+      priceUsd: '0.05',
+    });
+    expect(result.action).toEqual({
+      type: 'update_price',
+      scarce_contract_id: 'nft.near',
+      token_id: '42',
+      price: '1',
+      usd_e6: '50000',
+    });
+  });
 });
 
 // ── Auction ─────────────────────────────────────────────────────────────────
