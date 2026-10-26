@@ -27451,8 +27451,7 @@ a.os-surface-row {
   }
 
   .collectibles-play-page.is-immersive,
-  .collection-cover.is-immersive.is-square,
-  .collection-music-hero.is-immersive {
+  .collection-cover.is-immersive.is-square {
     --scarce-play-cover-band: min(52dvh, clamp(12rem, 78vw, 20rem));
   }
 
@@ -27471,8 +27470,7 @@ a.os-surface-row {
     }
 
     .collectibles-play-page.is-immersive,
-    .collection-cover.is-immersive.is-square,
-    .collection-music-hero.is-immersive {
+    .collection-cover.is-immersive.is-square {
       --scarce-play-cover-band: min(40dvh, clamp(12rem, 78vw, 19.5rem));
     }
 
@@ -27491,8 +27489,7 @@ a.os-surface-row {
     }
 
     .collectibles-play-page.is-immersive,
-    .collection-cover.is-immersive.is-square,
-    .collection-music-hero.is-immersive {
+    .collection-cover.is-immersive.is-square {
       --scarce-play-cover-band: min(28dvh, clamp(8.5rem, 62vw, 12rem));
     }
 
@@ -29072,27 +29069,6 @@ a.os-surface-row {
     gap: 0.28rem;
   }
 
-  .collection-skeleton-mint {
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-    margin-top: 0.35rem;
-  }
-
-  .collection-skeleton-progress {
-    display: block;
-    width: 100%;
-    height: 0.35rem;
-    border-radius: 9999px;
-  }
-
-  .collection-skeleton-mint-btn {
-    display: block;
-    width: 100%;
-    height: 2.75rem;
-    border-radius: 9999px;
-  }
-
   .collection-meta-copy .collection-skeleton-line,
   .collection-meta-copy .collection-skeleton-line-sm {
     margin-top: 0.12rem;
@@ -29186,30 +29162,6 @@ a.os-surface-row {
     bottom: max(0.85rem, env(safe-area-inset-bottom, 0px));
   }
 
-  .collection-status {
-    position: absolute;
-    z-index: 2;
-    top: 0.65rem;
-    left: 0.65rem;
-    display: inline-flex;
-    align-items: center;
-    padding: 0.2rem 0.55rem;
-    border-radius: 9999px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    backdrop-filter: blur(8px);
-    background: var(--app-scrim-media);
-    color: var(--app-on-media-ink);
-  }
-
-  /* Keep Live clear of immersive back / shop chips (static art covers). */
-  .collection-cover.is-immersive .collection-status {
-    top: auto;
-    bottom: 0.7rem;
-    left: 0.7rem;
-  }
-
   /* Header status — next to shop. Live = green fill + dark text (cover recipe). */
   .os-app-screen-actions .collection-header-status {
     display: inline-flex;
@@ -29267,64 +29219,6 @@ a.os-surface-row {
     filter: none;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-  }
-
-  /* Music drop hero — same cover player as Collectibles play. */
-  .collection-music-hero {
-    position: relative;
-    width: 100%;
-  }
-
-  .collection-music-hero.is-immersive .scarce-clip-player-shell {
-    width: 100%;
-    margin: 0;
-  }
-
-  .collection-music-hero.is-immersive .scarce-clip-player {
-    width: calc(100% + (2 * var(--os-screen-body-pad-x, 1rem)));
-    max-width: none;
-    margin: 0 calc(-1 * var(--os-screen-body-pad-x, 1rem));
-    height: calc(env(safe-area-inset-top, 0px) + var(--scarce-play-cover-band));
-  }
-
-  .collection-music-hero.is-immersive .scarce-clip-player-cover,
-  .collection-music-hero.is-immersive .scarce-clip-player-video {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    aspect-ratio: auto;
-    border-radius: 0;
-    object-fit: cover;
-  }
-
-  .collection-music-hero.is-immersive .scarce-clip-player::after {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto;
-    z-index: 1;
-    height: calc(env(safe-area-inset-top, 0px) + 4.25rem);
-    pointer-events: none;
-    background: linear-gradient(
-      180deg,
-      rgb(0 0 0 / 0.48) 0%,
-      rgb(0 0 0 / 0.22) 55%,
-      transparent 100%
-    );
-  }
-
-  .collection-music-hero.is-immersive .scarce-clip-player-play {
-    z-index: 2;
-  }
-
-  .collection-status.is-live {
-    background: color-mix(in srgb, var(--protocol-green) 92%, transparent);
-    color: #05130d;
-  }
-
-  .collection-status.is-closed {
-    background: var(--app-scrim-media-hover);
-    color: rgb(255 255 255 / 0.86);
   }
 
   .collection-head {
@@ -29468,12 +29362,6 @@ a.os-surface-row {
     height: 1em;
   }
 
-  .collection-meta-link {
-    color: var(--os-surface-muted-strong);
-    font-weight: 500;
-    text-decoration: none;
-  }
-
   .collection-meta-handle {
     min-width: 0;
     overflow: hidden;
@@ -29509,11 +29397,6 @@ a.os-surface-row {
   a.collection-meta-handle:hover,
   a.collection-meta-handle:focus-visible {
     color: var(--os-identity-handle-hover);
-  }
-
-  .collection-meta-link:hover,
-  .collection-meta-link:focus-visible {
-    color: var(--os-surface-emphasis);
   }
 
   .collection-about-teaser {
@@ -29635,15 +29518,6 @@ a.os-surface-row {
     gap: 0.28rem;
   }
 
-  .collection-commerce-line {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.78rem;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.2;
-  }
-
   .collection-product-row {
     display: flex;
     align-items: center;
@@ -29735,15 +29609,6 @@ a.os-surface-row {
     margin-top: 0.45rem;
   }
 
-  .collection-commerce-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.3rem;
-    min-width: 0;
-    flex: 1;
-  }
-
   .collection-commerce-supply {
     font-weight: 650;
     color: var(--os-surface-emphasis);
@@ -29793,27 +29658,6 @@ a.os-surface-row {
   .ticket-claim-refund-actions {
     margin-top: 0.55rem;
     width: 100%;
-  }
-
-  .collection-commerce-post-feed {
-    border: 0;
-    background: transparent;
-    padding: 0;
-    margin: 0;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 0.72rem;
-    font-weight: 600;
-    line-height: 1.2;
-    color: rgb(var(--fg-rgb) / 0.55);
-  }
-
-  .collection-commerce-post-feed:hover,
-  .collection-commerce-post-feed:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.85);
-    outline: none;
-    text-decoration: underline;
-    text-underline-offset: 0.12em;
   }
 
   .collection-commerce-share {
@@ -29982,12 +29826,6 @@ a.os-surface-row {
     );
     transition: width 320ms ease;
     pointer-events: none;
-  }
-
-  .collection-owner-tools {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
   }
 
   .collection-section-label {
@@ -30190,13 +30028,6 @@ a.os-surface-row {
     background: rgb(0 100 255 / 0.28);
   }
 
-  .collection-writing-pdf-nav {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.55rem;
-  }
-
   .collection-writing-pdf-count {
     margin: 0;
     min-width: 4.5rem;
@@ -30342,12 +30173,6 @@ a.os-surface-row {
     text-underline-offset: 0.12em;
   }
 
-  .collection-writing-chapter-chip:focus-visible
-    .collection-writing-chapter-chip-title {
-    text-decoration: underline;
-    text-underline-offset: 0.12em;
-  }
-
   .collection-writing-chapter-chip-meta {
     flex-shrink: 0;
     font-size: 0.68rem;
@@ -30355,21 +30180,6 @@ a.os-surface-row {
     letter-spacing: 0.04em;
     font-variant-numeric: tabular-nums;
     color: rgb(var(--fg-rgb) / 0.42);
-  }
-
-  .collection-writing-chapter-chip-title {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.72);
-  }
-
-  .collection-writing-chapter-chip.is-open
-    .collection-writing-chapter-chip-title {
-    color: rgb(var(--fg-rgb) / 0.92);
   }
 
   .collection-writing-article-label {
@@ -30439,21 +30249,6 @@ a.os-surface-row {
     opacity: 0.72;
   }
 
-  .collection-writing-toc-downloads {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    padding: 0.2rem 0 0.1rem;
-    border-top: 1px solid rgb(var(--fg-rgb) / 0.08);
-  }
-
-  .collection-writing.is-immersive
-    .collection-writing-toc-downloads
-    .collection-writing-downloads {
-    opacity: 1;
-    margin: 0;
-  }
-
   .collection-writing-download-row {
     display: flex;
     align-items: center;
@@ -30465,10 +30260,6 @@ a.os-surface-row {
     font-size: 0.82rem;
     font-weight: 600;
     color: rgb(var(--fg-rgb) / 0.72);
-  }
-
-  .collection-writing-toc-downloads .collection-writing-download-copy {
-    display: inline;
   }
 
   /*
@@ -31760,14 +31551,6 @@ a.os-surface-row {
     gap: 0.75rem;
   }
 
-  .collection-allowlist-footer {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-    padding: 0.35rem var(--os-screen-body-pad-x, 1rem)
-      calc(0.85rem + env(safe-area-inset-bottom, 0px));
-  }
-
   .collection-allowlist-sources {
     display: flex;
     flex-direction: column;
@@ -31932,17 +31715,11 @@ a.os-surface-row {
     color: var(--os-surface-muted);
   }
 
-  .collection-allowlist-copy,
-  .collection-allowlist-known,
   .collection-allowlist-note {
     margin: 0;
     font-size: 0.78rem;
     line-height: 1.4;
     color: var(--os-surface-muted);
-  }
-
-  .collection-allowlist-known {
-    color: var(--os-surface-muted-strong);
   }
 
   .collection-allowlist-guilds {
@@ -31956,12 +31733,6 @@ a.os-surface-row {
     align-items: baseline;
     justify-content: space-between;
     gap: 0.75rem;
-  }
-
-  .collection-allowlist-member-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.65rem;
   }
 
   .collection-allowlist-text-btn {
@@ -31988,31 +31759,8 @@ a.os-surface-row {
     cursor: default;
   }
 
-  .collection-allowlist-member-list {
-    margin: 0;
-  }
-
   .collection-allowlist-member {
     width: 100%;
-  }
-
-  .collection-allowlist-check {
-    flex-shrink: 0;
-    width: 1.15rem;
-    height: 1.15rem;
-    margin-left: auto;
-    border-radius: 9999px;
-    border: 1.5px solid rgb(var(--fg-rgb) / 0.22);
-    background: transparent;
-  }
-
-  .collection-allowlist-check.is-on {
-    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.95);
-    background: radial-gradient(
-      circle at center,
-      rgb(var(--signal-reputation-rgb, 0 236 151) / 0.95) 0 35%,
-      transparent 36%
-    );
   }
 
   .collection-allowlist-field {
@@ -32034,11 +31782,6 @@ a.os-surface-row {
   .collection-allowlist-field small {
     font-size: 0.72rem;
     color: var(--os-surface-muted);
-  }
-
-  .collection-allowlist-paste-add {
-    align-self: flex-start;
-    margin-top: 0.15rem;
   }
 
   .collection-allowlist-edit {
