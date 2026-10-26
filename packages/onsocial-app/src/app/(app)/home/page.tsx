@@ -1,6 +1,12 @@
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
+import Link from 'next/link';
 import { Suspense } from 'react';
+import {
+  OnSocialMark,
+  OsAppChromePage,
+  OsAppChromeToolbarRail,
+} from '@onsocial/ui';
 import {
   HOME_FEED_COLD_SKELETON_FRAMES,
   PostRowSkeleton,
@@ -8,7 +14,9 @@ import {
 import { parseHomeFeedFocus } from '@/features/home/home-feed-focus';
 import { HomeFeedRoute } from '@/features/home/home-feed-route';
 import { shouldSeedHomeFeedPage } from '@/features/home/home-feed-speculative';
+import { OsAppScreen } from '@/components/app/os-app-screen';
 import { loadHomeFeedPage } from '@/lib/load-home-feed-page';
+import { APP_DISCOVER_PATH } from '@/lib/app-routes';
 import {
   HOME_FEED_SESSION_HINT_COOKIE,
   homeFeedSessionHintPresent,
@@ -38,13 +46,41 @@ function firstParam(value: string | string[] | undefined): string | null {
  * A saved list still wins, including the line you left. A focused URL skips
  * the hot seed.
  */
-export default function HomePage({ searchParams }: HomePageProps) {
+/**
+ * Streamed cold-load shell — the same OsAppScreen column the live feed paints
+ * in, so skeletons hold the 36rem app column instead of the full page width.
+ * The interactive chip bar waits for hydration; the rail keeps chrome height.
+ */
+function HomeFeedFallback() {
   return (
-    <Suspense
-      fallback={
-        <PostRowSkeleton rows={4} frames={HOME_FEED_COLD_SKELETON_FRAMES} />
+    <OsAppScreen
+      title="Home"
+      compactChrome
+      glassChrome
+      leading={null}
+      toolbar={
+        <OsAppChromeToolbarRail className="home-feed-compact-chrome">
+          <Link
+            href={APP_DISCOVER_PATH}
+            className="home-feed-discover-link"
+            scroll={false}
+          >
+            <OnSocialMark className="home-feed-discover-mark" aria-hidden />
+            Discover
+          </Link>
+        </OsAppChromeToolbarRail>
       }
     >
+      <OsAppChromePage className="home-feed">
+        <PostRowSkeleton rows={4} frames={HOME_FEED_COLD_SKELETON_FRAMES} />
+      </OsAppChromePage>
+    </OsAppScreen>
+  );
+}
+
+export default function HomePage({ searchParams }: HomePageProps) {
+  return (
+    <Suspense fallback={<HomeFeedFallback />}>
       <HomeFeedSeed searchParams={searchParams} />
     </Suspense>
   );
