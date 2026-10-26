@@ -17689,18 +17689,6 @@ a.os-surface-row {
     box-shadow: 0 0 0 1px var(--os-surface-ring);
   }
 
-  .sheet-control--icon {
-    width: 2rem;
-    height: 2rem;
-    padding: 0;
-    color: rgb(var(--fg-rgb) / 0.62);
-  }
-
-  .sheet-control--icon:hover,
-  .sheet-control--icon:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.82);
-  }
-
   /* Base .search-field styles live in @onsocial/ui/search-field.css. */
 
   .standing-view-menu {
