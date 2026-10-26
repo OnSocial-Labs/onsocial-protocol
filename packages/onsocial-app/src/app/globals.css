@@ -177,15 +177,6 @@
   box-sizing: border-box;
 }
 
-/* Suggest list still anchors under the search field / heading. */
-.os-app-screen-heading .discover-omni-suggest {
-  position: absolute;
-  top: calc(100% + 0.35rem);
-  left: 0;
-  right: 0;
-  z-index: 6;
-}
-
 /*
  * App chrome rail — see @onsocial/ui/os-app-chrome.css (OsAppChromeToolbarRail).
  */
@@ -14531,13 +14522,6 @@ a.os-surface-row {
     outline: none;
   }
 
-  .discover-trending-strip {
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-    margin-bottom: 0.65rem;
-  }
-
   .discover-trending-panel {
     display: flex;
     flex-direction: column;
@@ -14592,12 +14576,6 @@ a.os-surface-row {
     align-items: baseline;
     justify-content: space-between;
     gap: 0.75rem;
-  }
-
-  .discover-trending-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
   }
 
   .discover-trending-heading-row {
@@ -14838,29 +14816,6 @@ a.os-surface-row {
   .discover-omni-search-form {
     display: block;
     min-width: 0;
-  }
-
-  .discover-omni-suggest {
-    position: absolute;
-    top: calc(100% + 0.35rem);
-    left: 0;
-    right: 0;
-  }
-
-  .discover-topic-draft-hint {
-    margin: 0 0 0.5rem;
-    font-size: 0.75rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.55);
-  }
-
-  .discover-people-heading {
-    margin: 0 0 0.45rem;
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.5);
   }
 
   /* Text tabs — pill chips (same language as SearchField); no underline / rail. */
@@ -17649,12 +17604,6 @@ a.os-surface-row {
     justify-content: space-between;
     gap: 0.65rem;
     min-width: 0;
-  }
-
-  .discover-sheet-heading {
-    min-width: 0;
-    flex: 1;
-    padding-top: 0.12rem;
   }
 
   .discover-sheet-title {
@@ -23188,8 +23137,7 @@ a.os-surface-row {
     width: 2.2rem;
   }
 
-  .home-feed-state,
-  .discover-state {
+  .home-feed-state {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
@@ -23224,25 +23172,7 @@ a.os-surface-row {
     outline: none;
   }
 
-  .discover-state-primary,
-  .discover-state-secondary {
-    margin: 0;
-  }
-
-  .discover-state-primary {
-    font-size: 0.8125rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.72);
-  }
-
-  .discover-state-secondary {
-    font-size: 0.75rem;
-    line-height: 1.4;
-    color: rgb(var(--fg-rgb) / 0.48);
-  }
-
-  .home-feed-state.is-error,
-  .discover-state.is-error {
+  .home-feed-state.is-error {
     border-style: solid;
     border-color: var(--protocol-red-border);
     color: color-mix(in srgb, var(--protocol-red) 85%, rgb(var(--fg-rgb)));
@@ -37984,17 +37914,6 @@ a.os-surface-row {
     color: var(--protocol-amber);
   }
 
-  .discover-search-input {
-    width: 100%;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: inherit;
-    font: inherit;
-    padding: 0.75rem 1rem;
-    outline: none;
-  }
-
   .discover-list {
     list-style: none;
     margin: 0;
@@ -38013,17 +37932,6 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.025);
   }
 
-  .discover-row-name {
-    font-size: 0.95rem;
-    font-weight: 600;
-  }
-
-  .discover-row-head {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-  }
-
   .discover-mood-dot {
     flex-shrink: 0;
     width: 0.4rem;
@@ -38031,27 +37939,6 @@ a.os-surface-row {
     border-radius: 50%;
     background: var(--mood-accent, rgb(var(--fg-rgb) / 0.42));
     box-shadow: 0 0 8px color-mix(in srgb, var(--mood-accent) 45%, transparent);
-  }
-
-  .discover-row-handle {
-    font-size: 0.78rem;
-    color: rgb(var(--fg-rgb) / 0.48);
-  }
-
-  .discover-row-bio {
-    font-size: 0.84rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.62);
-  }
-
-  .discover-row-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.85rem;
-    margin-top: 0.2rem;
-    font-size: 0.72rem;
-    letter-spacing: 0.04em;
-    color: rgb(var(--fg-rgb) / 0.42);
   }
 
   .guilds-page,
