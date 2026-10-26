@@ -27,6 +27,8 @@ services:
     depends_on:
       relayer-lb:
         condition: service_healthy
+      imgproxy:
+        condition: service_started
 
   gateway-blue:
     image: ghcr.io/onsocial-labs/onsocial-protocol/gateway:${IMAGE_TAG:-latest}
@@ -253,6 +255,32 @@ services:
     restart: unless-stopped
     mem_limit: 128m
     cpus: 0.25
+
+  # =========================================================================
+  # IMGPROXY — On-the-fly image variants for the CDN (/img/<w>/ipfs/<cid>)
+  # =========================================================================
+  # Internal-only: Caddy reverse-proxies /img/* to it after locking the
+  # width to the variant allowlist (128/384/1080/1920). Sources are
+  # restricted to the IPFS upstream below (SSRF guard); GIF/SVG pass
+  # through unprocessed. No port is exposed to the host.
+  imgproxy:
+    image: darthsim/imgproxy:v3.30.0
+    container_name: imgproxy
+    expose:
+      - "8080"
+    restart: unless-stopped
+    environment:
+      IMGPROXY_BIND: ":8080"
+      IMGPROXY_ALLOWED_SOURCES: https://${LIGHTHOUSE_CDN_UPSTREAM:-statistical-barnacle-3ny44.lighthouseweb3.xyz}/ipfs/*
+      IMGPROXY_AUTO_WEBP: "true"
+      IMGPROXY_AUTO_AVIF: "true"
+      IMGPROXY_QUALITY: "80"
+      IMGPROXY_MAX_SRC_RESOLUTION: "50"        # megapixels
+      IMGPROXY_MAX_SRC_FILE_SIZE: "20971520"   # 20 MB
+      IMGPROXY_SKIP_PROCESSING_FORMATS: "gif,svg"
+      IMGPROXY_LOG_LEVEL: "info"
+    mem_limit: 512m
+    cpus: 1.0
 
 volumes:
   caddy_data:
