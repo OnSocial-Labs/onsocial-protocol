@@ -3944,104 +3944,11 @@ a.os-surface-row {
     height: 100%;
   }
 
-  .gate-panel {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .gate-form {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
   .gate-label {
     font-size: 0.68rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: hsl(var(--muted-foreground));
-  }
-
-  .gate-field-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.03);
-    padding: 0.35rem 0.35rem 0.35rem 0.9rem;
-  }
-
-  .gate-prefix {
-    color: rgb(var(--fg-rgb) / 0.35);
-    font-size: 0.9rem;
-  }
-
-  .gate-input {
-    min-width: 0;
-    flex: 1;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    outline: none;
-  }
-
-  .gate-cta {
-    border: 0;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.92);
-    color: var(--bg);
-    font-size: 0.82rem;
-    font-weight: 600;
-    padding: 0.65rem 1rem;
-    cursor: pointer;
-    transition:
-      background 160ms ease,
-      transform 120ms ease;
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .gate-cta:hover:not(:disabled) {
-      background: rgb(var(--fg-rgb));
-    }
-  }
-
-  .gate-cta:focus-visible {
-    outline: none;
-    box-shadow: var(
-      --os-focus-ring,
-      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
-    );
-  }
-
-  .gate-cta:active:not(:disabled) {
-    transform: scale(0.985);
-  }
-
-  .gate-cta:disabled {
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
-  }
-
-  .gate-hints {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    justify-content: center;
-  }
-
-  .gate-chip {
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 9999px;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.55);
-    font-size: 0.78rem;
-    padding: 0.45rem 0.75rem;
-    cursor: pointer;
   }
 
   .gate-dapp-rail {
@@ -4121,8 +4028,7 @@ a.os-surface-row {
     text-align: center;
   }
 
-  .gate-connect-button,
-  .gate-connect-link {
+  .gate-connect-button {
     pointer-events: auto;
     border: 1px solid rgb(var(--fg-rgb) / 0.1);
     border-radius: 9999px;
@@ -4144,16 +4050,14 @@ a.os-surface-row {
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .gate-connect-button:hover,
-    .gate-connect-link:hover {
+    .gate-connect-button:hover {
       border-color: rgb(var(--fg-rgb) / 0.2);
       background: rgb(var(--fg-rgb) / 0.07);
       color: rgb(var(--fg-rgb) / 0.92);
     }
   }
 
-  .gate-connect-button:focus-visible,
-  .gate-connect-link:focus-visible {
+  .gate-connect-button:focus-visible {
     outline: none;
     border-color: rgb(var(--fg-rgb) / 0.2);
     color: rgb(var(--fg-rgb) / 0.92);
@@ -4166,19 +4070,6 @@ a.os-surface-row {
 
   .gate-connect-button:active:not(:disabled) {
     transform: scale(0.985);
-  }
-
-  .gate-connect-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.65rem;
-  }
-
-  .gate-connect-handle {
-    color: rgb(var(--fg-rgb) / 0.96);
-    letter-spacing: 0.04em;
-    text-transform: none;
-    font-size: 0.82rem;
   }
 
   .gate-connect-booting {
