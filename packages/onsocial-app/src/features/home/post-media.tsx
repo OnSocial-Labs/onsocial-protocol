@@ -22,6 +22,32 @@ import {
 
 export type PostMediaSize = 'compact' | 'page' | 'preview' | 'quote';
 
+/**
+ * Fade a feed image or video in once it can paint. Cached files resolve on
+ * bind so a reload does not flash the skeleton again.
+ */
+export function useFeedMediaResolved(src: string) {
+  const [resolved, setResolved] = useState(false);
+  const [trackedSrc, setTrackedSrc] = useState(src);
+  if (trackedSrc !== src) {
+    setTrackedSrc(src);
+    setResolved(false);
+  }
+  const markResolved = useCallback(() => {
+    setResolved(true);
+  }, []);
+  const bind = useCallback((node: HTMLImageElement | HTMLVideoElement | null) => {
+    if (!node) return;
+    if (node instanceof HTMLImageElement) {
+      if (node.complete && node.naturalWidth > 0) setResolved(true);
+      return;
+    }
+    if (node.readyState >= 1) setResolved(true);
+  }, []);
+
+  return { resolved, markResolved, bind };
+}
+
 interface PostMediaBlockProps {
   item: PostMediaItem;
   index?: number;
@@ -90,6 +116,7 @@ export function PostMediaBlock({
   const activateAsControl =
     isActivatable && Boolean(activateLabel) && !isDetailVideo;
   const [soundOff, setSoundOff] = useState(focusedVideoMuted);
+  const { resolved, markResolved, bind } = useFeedMediaResolved(item.url);
 
   useEffect(() => {
     setSoundOff(focusedVideoMuted);
@@ -114,34 +141,52 @@ export function PostMediaBlock({
     event.stopPropagation();
     onActivate?.();
   };
+  const mediaClassName = [
+    'post-media-element',
+    resolved ? 'is-resolved' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const bindVideo = (node: HTMLVideoElement | null) => {
+    bind(node);
+    if (playbackMode) videoRef.current = node;
+  };
   const media = (
     <>
+      {resolved ? null : (
+        <span className="post-media-skeleton standing-row-shimmer" aria-hidden />
+      )}
       {isVideo ? (
         <video
-          ref={playbackMode ? videoRef : undefined}
+          ref={bindVideo}
           src={item.url}
           playsInline
           muted={isListVideo || playbackDisabled || (isDetailVideo && soundOff)}
           loop={isListVideo || isDetailVideo}
           preload="metadata"
           data-post-focus-video={isDetailVideo ? String(index) : undefined}
-          className="post-media-element"
+          className={mediaClassName}
           onLoadedMetadata={(event) => {
             const video = event.currentTarget;
             rememberRatio(video.videoWidth, video.videoHeight);
+            markResolved();
           }}
+          onError={markResolved}
         />
       ) : (
         <img
+          ref={bind}
           src={item.url}
           alt={item.alt?.trim() || ''}
-          className="post-media-element"
+          className={mediaClassName}
           loading={item.url.startsWith('blob:') ? 'eager' : 'lazy'}
           decoding="async"
           onLoad={(event) => {
             const img = event.currentTarget;
             rememberRatio(img.naturalWidth, img.naturalHeight);
+            markResolved();
           }}
+          onError={markResolved}
         />
       )}
       {isDetailVideo ? (

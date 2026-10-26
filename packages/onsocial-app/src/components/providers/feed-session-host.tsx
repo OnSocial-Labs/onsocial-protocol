@@ -45,11 +45,17 @@ const FRONT_READY_SELECTOR =
   '.portfolio-page, .portfolio-frame, .os-app-screen, .protocol-face-pair';
 
 /**
- * Home mounts while you are on it. Leaving saves the list and the line in
- * memory, then removes the feed from the page. Coming back paints that same
- * list. A hard refresh starts from the server.
+ * Home mounts while you are on it. The route paints the server seed. Leaving
+ * keeps a feed on screen from the saved list until the next screen exists,
+ * then drops it. Coming back paints that same list.
  */
-export function FeedSessionHost({ children }: { children: ReactNode }) {
+export function FeedSessionHost({
+  page,
+  children,
+}: {
+  page: ReactNode;
+  children?: ReactNode;
+}) {
   const pathname = usePathname();
   const onFeed = isFeedSessionPath(pathname);
   const shelfHop = useSyncExternalStore(
@@ -61,6 +67,7 @@ export function FeedSessionHost({ children }: { children: ReactNode }) {
   const notePortalHosts = useNoteOsPortalHosts();
   const hostRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
+  const feedTree = onFeed ? page : <HomePagePanel />;
 
   if (onFeed && !keepFeed) {
     setKeepFeed(true);
@@ -130,9 +137,7 @@ export function FeedSessionHost({ children }: { children: ReactNode }) {
           data-feed-session="live"
           style={shelfCover ? SHELF_FEED_STYLE : undefined}
         >
-          <Suspense fallback={null}>
-            <HomePagePanel />
-          </Suspense>
+          <Suspense fallback={null}>{feedTree}</Suspense>
         </div>
       ) : null}
       <div
@@ -140,6 +145,7 @@ export function FeedSessionHost({ children }: { children: ReactNode }) {
         className="feed-session-front"
         style={showFeed ? { display: 'contents' } : FRONT_FILL_STYLE}
       >
+        {onFeed ? null : page}
         {children}
       </div>
     </>

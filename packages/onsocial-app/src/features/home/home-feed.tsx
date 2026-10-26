@@ -29,6 +29,8 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { HomeFeedChipBar } from '@/features/home/home-feed-chip-bar';
 import { HomeFeedNewPostsChip } from '@/features/home/home-feed-new-posts-chip';
+import { HomeFeedPullIndicator } from '@/features/home/home-feed-pull-indicator';
+import { useHomeFeedPullRefresh } from '@/features/home/use-home-feed-pull-refresh';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { HomeFeedSortToggle } from '@/features/home/home-feed-sort-toggle';
 import { APP_DISCOVER_PATH, APP_HOME_PATH } from '@/lib/app-routes';
@@ -87,7 +89,12 @@ import {
   insertOptimisticFeedPost,
   shouldPrependOptimisticFeedPost,
 } from '@/features/home/personal-feed-list';
-import { PostRowSkeleton, postKey } from '@/features/home/post-card';
+import {
+  HOME_FEED_APPEND_SKELETON_FRAMES,
+  HOME_FEED_COLD_SKELETON_FRAMES,
+  PostRowSkeleton,
+  postKey,
+} from '@/features/home/post-card';
 import { usePersonalComposer } from '@/features/home/use-personal-composer';
 import {
   subscribePersonalPostConfirmed,
@@ -124,6 +131,7 @@ import {
   HOME_FEED_SSR_SESSION_KEY,
   homeFeedSessionKey,
   homeFeedSessionProbeDelayMs,
+  noteHomeFeedSessionScroll,
   peekHomeFeedSession,
   writeHomeFeedSession,
 } from '@/lib/home-feed-session';
@@ -308,7 +316,9 @@ function HomeFeedLoadMoreFooter({
           aria-hidden
         />
       ) : null}
-      {showAppendSkeleton ? <PostRowSkeleton rows={2} /> : null}
+      {showAppendSkeleton ? (
+        <PostRowSkeleton rows={2} frames={HOME_FEED_APPEND_SKELETON_FRAMES} />
+      ) : null}
     </div>
   );
 }
@@ -455,7 +465,7 @@ export function HomePagePanel({
       (initialPage != null ? HOME_FEED_SSR_SESSION_KEY : null)
   );
 
-  const persistFeedSession = useCallback(() => {
+  const persistFeedSession = useCallback((options?: { storage?: boolean }) => {
     const node = scrollRootRef.current;
     const memory = scrollMemoryRef.current;
     const live = node?.scrollTop ?? 0;
@@ -471,16 +481,22 @@ export function HomePagePanel({
       offsetShiftApplied: offsetShiftAppliedRef.current,
       scrollTop: scrollTopToPersist(memory, line),
       standEpoch: getViewerStandEpoch(),
+      storage: options?.storage !== false,
     });
   }, []);
 
-  useEffect(() => () => persistFeedSession(), [persistFeedSession]);
+  const persistFeedSessionToStorage = useCallback(() => {
+    persistFeedSession();
+  }, [persistFeedSession]);
+
+  useEffect(() => () => persistFeedSessionToStorage(), [persistFeedSessionToStorage]);
 
   // A refresh or closed tab never runs the unmount cleanup — pagehide does.
   useEffect(() => {
-    window.addEventListener('pagehide', persistFeedSession);
-    return () => window.removeEventListener('pagehide', persistFeedSession);
-  }, [persistFeedSession]);
+    window.addEventListener('pagehide', persistFeedSessionToStorage);
+    return () =>
+      window.removeEventListener('pagehide', persistFeedSessionToStorage);
+  }, [persistFeedSessionToStorage]);
 
   /**
    * Hard refresh — hydrate the tab-storage snapshot after the first render
@@ -512,6 +528,23 @@ export function HomePagePanel({
     setSsrBootstrapDone(true);
     setIsLoading(false);
   }, []);
+
+  // After the storage read above. Memory only, so a cold seed cannot
+  // overwrite a saved tab list. Leaving remounts from this copy.
+  useLayoutEffect(() => {
+    persistFeedSession({ storage: false });
+  });
+
+  useEffect(() => {
+    const node = scrollRootRef.current;
+    if (!(node instanceof HTMLElement)) return;
+    const onScroll = (event: Event) => {
+      if (!event.isTrusted) return;
+      noteHomeFeedSessionScroll(node.scrollTop);
+    };
+    node.addEventListener('scroll', onScroll, { passive: true });
+    return () => node.removeEventListener('scroll', onScroll);
+  }, [posts.length]);
 
   /**
    * Cold first visit — ask for the public hot page before the wallet and
@@ -1402,6 +1435,14 @@ export function HomePagePanel({
     visibleCardCount === 0 &&
     (!hasMore || hiddenWalkGaveUp);
   const showFeed = visibleCardCount > 0;
+  const pullRefresh = useHomeFeedPullRefresh({
+    scrollRootRef,
+    refreshing: isRefreshing,
+    loading: isLoading,
+    loadingMore: isLoadingMore,
+    hasRows: showFeed,
+    onRefresh: retryLoad,
+  });
   const newPostsCountLabel = homeFeedNewPostsCountLabel(unseenPosts.count);
   const showNewPostsPill =
     Boolean(newPostsCountLabel) && showFeed && !isRefreshing && !isLoading;
@@ -1457,7 +1498,12 @@ export function HomePagePanel({
             <OsChromeListAlert message={engagementError} />
           ) : null}
 
-          {showColdSkeleton ? <PostRowSkeleton rows={4} /> : null}
+          {showColdSkeleton ? (
+            <PostRowSkeleton
+              rows={4}
+              frames={HOME_FEED_COLD_SKELETON_FRAMES}
+            />
+          ) : null}
 
           {showEmpty ? (
             <div className="home-feed-state">{emptyCopy}</div>
@@ -1491,6 +1537,8 @@ export function HomePagePanel({
 
           {sheet}
         </OsAppChromePage>
+
+        <HomeFeedPullIndicator subscribe={pullRefresh.subscribe} />
 
         {showNewPostsPill ? (
           <HomeFeedNewPostsChip

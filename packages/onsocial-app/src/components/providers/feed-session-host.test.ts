@@ -26,13 +26,22 @@ describe('feed session host wiring', () => {
       'utf8'
     );
 
-    expect(host).toContain('HomePagePanel');
+    expect(host).toContain('<HomePagePanel />');
+    expect(host).toContain('onFeed ? page');
     expect(host).toContain('setKeepFeed');
     expect(host).toContain('if (onFeed && !keepFeed)');
     expect(host).not.toContain("display: 'none'");
+    expect(host).not.toContain('loadHomeFeedPage');
     expect(host).toContain('data-feed-session');
     expect(providers).toContain('FeedSessionHost');
+    expect(providers).toContain('page={children}');
+    expect(route).toContain('loadHomeFeedPage');
+    expect(route).toContain('shouldSeedHomeFeedPage');
+    expect(route).toContain("headers()).get('rsc')");
+    expect(route).toContain('HOME_FEED_SESSION_HINT_COOKIE');
+    expect(route).toContain('hasSavedList');
+    expect(route).toContain('HomeFeedRoute');
+    expect(route).toContain('parseHomeFeedFocus');
     expect(route).not.toContain('HomePagePanel');
-    expect(route).not.toContain('loadHomeFeedPage');
   });
 });

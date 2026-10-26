@@ -21,9 +21,14 @@ export function useSummonDockOccupiedHeight(
     /* Portfolio card host may be `.app-surface` without `.os-app-screen`. */
     const host = dock.parentElement;
 
+    let published: string | null = null;
     const sync = () => {
       const height = Math.ceil(dock.getBoundingClientRect().height);
       const value = `${Math.max(0, height)}px`;
+      /* ResizeObserver also fires when the box did not change. Rewriting the
+         variable restyles the scroller, which jiggles a list mid-scroll. */
+      if (value === published) return;
+      published = value;
       dock.style.setProperty(OCCUPIED_VAR, value);
       screen?.style.setProperty(OCCUPIED_VAR, value);
       if (host && host !== screen) {

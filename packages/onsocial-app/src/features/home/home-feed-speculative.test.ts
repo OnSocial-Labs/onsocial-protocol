@@ -6,6 +6,7 @@ import type { Paginated, PostRow } from '@onsocial/sdk';
 import {
   shouldAdoptSpeculativeFeedPage,
   shouldRequestSpeculativeFeedPage,
+  shouldSeedHomeFeedPage,
   speculativeFeedKeepsPaint,
 } from './home-feed-speculative';
 
@@ -83,6 +84,56 @@ describe('shouldAdoptSpeculativeFeedPage', () => {
     ).toBe(false);
     expect(
       shouldAdoptSpeculativeFeedPage({ ...base, speculativePage: null })
+    ).toBe(false);
+  });
+});
+
+describe('shouldSeedHomeFeedPage', () => {
+  it('seeds a document load and a first in-app open', () => {
+    expect(
+      shouldSeedHomeFeedPage({
+        rscHeader: null,
+        hasFocus: false,
+        hasSavedList: false,
+      })
+    ).toBe(true);
+    expect(
+      shouldSeedHomeFeedPage({
+        rscHeader: null,
+        hasFocus: false,
+        hasSavedList: true,
+      })
+    ).toBe(true);
+    expect(
+      shouldSeedHomeFeedPage({
+        rscHeader: '1',
+        hasFocus: false,
+        hasSavedList: false,
+      })
+    ).toBe(true);
+  });
+
+  it('skips an in-app return that already has a saved list, and any focused URL', () => {
+    expect(
+      shouldSeedHomeFeedPage({
+        rscHeader: '1',
+        hasFocus: false,
+        hasSavedList: true,
+      })
+    ).toBe(false);
+    expect(
+      shouldSeedHomeFeedPage({
+        rscHeader: null,
+        hasFocus: true,
+        hasSavedList: false,
+      })
+    ).toBe(false);
+    expect(
+      shouldSeedHomeFeedPage({
+        rscHeader: '1',
+        hasFocus: true,
+        hasSavedList: false,
+      })
     ).toBe(false);
   });
 });
