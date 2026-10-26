@@ -19560,112 +19560,8 @@ a.os-surface-row {
     width: 2.5rem;
   }
 
-  .account-wallet-metrics {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.55rem;
-  }
-
-  .account-wallet-metrics-divider {
-    margin: 0.05rem 0 0;
-  }
-
-  .account-wallet-metrics:has(> :only-child) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .account-action-toggles:has(> :only-child) {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .account-wallet-metric-cell {
-    display: flex;
-    min-width: 0;
-    height: 100%;
-    flex-direction: column;
-    gap: 0.28rem;
-    padding: 0;
-    background: transparent;
-  }
-
-  /* Reserve caption lane so Activity | Storage stay equal height. */
-  .account-wallet-metric-cell::after {
-    content: '';
-    display: block;
-    flex: 0 0 auto;
-    min-height: 1.15rem;
-  }
-
-  .account-wallet-metric-cell:has(> .account-wallet-caption)::after {
-    display: none;
-  }
-
-  .account-wallet-metric-cell-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.35rem;
-    min-width: 0;
-  }
-
-  .account-wallet-metric-cell-track {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    min-width: 0;
-  }
-
-  .account-wallet-balance-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.35rem;
-    min-height: 1.25rem;
-  }
-
-  .account-wallet-balance-accessories {
-    display: inline-flex;
-    flex-shrink: 0;
-    align-items: center;
-    gap: 0.22rem;
-  }
-
-  .account-wallet-accessory {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.4rem;
-    height: 1.4rem;
-    border: 0;
-    border-radius: 0.4rem;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.48);
-    cursor: pointer;
-    transition: color 160ms ease;
-  }
-
-  .account-wallet-accessory:hover,
-  .account-wallet-accessory:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.82);
-    outline: none;
-  }
-
-  .account-wallet-accessory.is-active {
-    color: rgb(var(--fg-rgb) / 0.88);
-  }
-
-  .account-wallet-accessory-icon {
-    width: 0.95rem;
-    height: 0.95rem;
-  }
-
-  .account-wallet-earning-ready {
-    flex-shrink: 0;
-    font-size: 0.58rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--protocol-green);
   }
 
   .account-wallet-metric-label {
@@ -19675,24 +19571,6 @@ a.os-surface-row {
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.42);
-  }
-
-  .account-wallet-metric-label--wide {
-    max-width: 3.4rem;
-    line-height: 1.15;
-    white-space: normal;
-  }
-
-  .account-wallet-metric-status {
-    min-width: 0;
-    flex: 1 1 auto;
-    font-size: 0.58rem;
-    line-height: 1.2;
-    color: rgb(var(--fg-rgb) / 0.45);
-  }
-
-  .account-wallet-metric-status--fill {
-    grid-column: 2 / 4;
   }
 
   .account-wallet-progress-slot {
@@ -19715,27 +19593,6 @@ a.os-surface-row {
   .account-wallet-progress-track.is-loading {
     min-height: 0.22rem;
     animation: account-card-pulse 1.2s ease-in-out infinite;
-  }
-
-  .account-wallet-metric-action {
-    flex: 0 0 auto;
-    min-width: 2.75rem;
-    text-align: center;
-  }
-
-  .account-wallet-metric-action.is-loading {
-    display: block;
-    width: 2.75rem;
-    height: 1.15rem;
-    border-radius: 9999px;
-    border: 0;
-    background: rgb(var(--fg-rgb) / 0.08);
-    animation: account-card-pulse 1.2s ease-in-out infinite;
-  }
-
-  .account-wallet-metric-action--spacer {
-    min-height: 1.15rem;
-    pointer-events: none;
   }
 
   .account-wallet-collect-dots {
@@ -19791,34 +19648,6 @@ a.os-surface-row {
     box-shadow: none;
   }
 
-  .account-wallet-ratio {
-    flex-shrink: 0;
-    max-width: 100%;
-    font-size: 0.54rem;
-    font-weight: 500;
-    letter-spacing: -0.01em;
-    text-align: right;
-    color: rgb(var(--fg-rgb) / 0.45);
-    font-variant-numeric: tabular-nums;
-    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
-  }
-
-  .account-wallet-ratio.is-ready {
-    color: var(--protocol-green);
-  }
-
-  .account-wallet-ratio.is-low {
-    color: var(--protocol-amber);
-  }
-
-  .account-wallet-ratio.is-loading {
-    width: 2rem;
-    height: 0.55rem;
-    border-radius: 0.25rem;
-    background: rgb(var(--fg-rgb) / 0.08);
-    animation: account-card-pulse 1.2s ease-in-out infinite;
-  }
-
   .account-wallet-caption {
     margin: 0;
     font-size: 0.75rem;
@@ -19854,7 +19683,6 @@ a.os-surface-row {
 
   .account-card .account-menu-row,
   .account-card .account-storage-row,
-  .account-card .account-wallet-help,
   .account-card .account-action-toggle {
     min-height: 2.75rem;
   }
@@ -20468,16 +20296,6 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
-  }
-
-  .account-wallet-get-social.os-surface-chip {
-    flex-shrink: 0;
-    min-width: 2.2rem;
-    min-height: 1.25rem;
-    padding: 0.12rem 0.42rem;
-    font-size: 0.58rem;
-    font-weight: 650;
-    letter-spacing: 0.02em;
   }
 
   .app-swap-form {
@@ -23214,7 +23032,6 @@ a.os-surface-row {
 
     .account-card-balance-value.is-loading::after,
     .account-wallet-progress-track.is-loading,
-    .account-wallet-ratio.is-loading,
     .app-storage-readout.is-loading {
       animation: none;
     }
@@ -45086,9 +44903,6 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
     :hover,
     :focus-visible
   ),
-.account-drawer-panel
-  .account-card
-  .account-wallet-help:not(:disabled):is(:hover, :focus-visible),
 .account-drawer-panel
   .account-card
   .os-surface-chip:not(.is-ready):not(.is-selected):not(.is-accent):not(
