@@ -7,20 +7,17 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
 } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import {
   BookmarkFillIcon,
   BookmarkIcon,
   CheckIcon,
   CopyIcon,
-  Divider,
   DotsVerticalIcon,
   DownloadIcon,
   EditPenIcon,
@@ -44,6 +41,7 @@ import {
   UsersFillIcon,
 } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
+import { QuotedPostInset } from '@/features/home/post-card-quote';
 import {
   ActionDrawer,
   type ActionDrawerItem,
@@ -81,10 +79,7 @@ import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing
 import { WritingReadDocument } from '@/features/scarces/scarce-writing-read-sheet';
 import { FeedArticleReadScreen } from '@/features/home/feed-article-read-screen';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
-import {
-  PostMediaStrip,
-  useFeedMediaResolved,
-} from '@/features/home/post-media';
+import { PostMediaStrip } from '@/features/home/post-media';
 import { PostPollEmbedCard } from '@/features/home/post-poll-embed';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
@@ -193,13 +188,8 @@ import {
 import {
   parsePostMedia,
   isRenderablePostVideo,
-  isRenderablePostVideoMime,
-  formatMediaDuration,
   postVisualMedia,
   resolveFeedMediaActivate,
-  truncateQuoteText,
-  collageCellStyle,
-  collageHero,
   type PostMediaItem,
 } from '@/lib/post-media';
 import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
@@ -810,338 +800,6 @@ function postBadges(
 ): string[] {
   const badge = postKindBadge(post.kind, hasPollEmbed);
   return badge ? [badge] : [];
-}
-
-export function QuotedPostInset({
-  post,
-  authorProfile,
-  href,
-  expanded = false,
-  sheetContext = null,
-}: {
-  post: PostRow;
-  authorProfile?: PostAuthorProfile;
-  /** Navigate to the quoted post's own page (feed/thread surfaces). */
-  href?: string;
-  /** Opened post — quoted media at page size. Feed and compose stay the small thumb. */
-  expanded?: boolean;
-  sheetContext?: ThreadSheetContext | null;
-}) {
-  const router = useRouter();
-  const { openPostThread } = usePostThreadLayer();
-  const { safeMode } = useViewerSafeMode();
-  const labels = parsePostContentLabels(post.value);
-  const name = displayName(post.accountId, authorProfile?.displayName);
-  const text = truncateQuoteText(parsePostText(post.value));
-  const mediaItems = parsePostMedia(post.value).slice(0, 4);
-  const compactMedia = !expanded && mediaItems.length > 0 ? mediaItems : null;
-  const interactive = Boolean(href);
-  const [quotePhotoOpen, setQuotePhotoOpen] = useState(false);
-  const [quotePhotoIndex, setQuotePhotoIndex] = useState(0);
-  const [quoteThreadOpen, setQuoteThreadOpen] = useState(false);
-
-  const open = (event: {
-    preventDefault(): void;
-    stopPropagation(): void;
-    target?: EventTarget | null;
-  }) => {
-    if (!href) return;
-    // Let nested # / @ / $ / external links win over the inset navigate.
-    if (
-      event.target instanceof Element &&
-      event.target.closest('a[href], button')
-    ) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    if (isAppPostSheetHref(href)) {
-      openPostThread({ href, root: post, context: sheetContext });
-      return;
-    }
-    router.push(href);
-  };
-
-  return (
-    <>
-      <div
-        className={`post-card-quote-inset${interactive ? ' post-card-quote-inset--link' : ''}`}
-        role={interactive ? 'link' : undefined}
-        tabIndex={interactive ? 0 : undefined}
-        aria-label={interactive ? `View quoted post by ${name}` : undefined}
-        onClick={interactive ? open : undefined}
-        onKeyDown={
-          interactive
-            ? (event) => {
-                if (event.key === 'Enter' || event.key === ' ') open(event);
-              }
-            : undefined
-        }
-      >
-        <Divider orientation="vertical" variant="detail" />
-        <div className="post-card-quote-inset-content">
-          <span className="post-card-quote-inset-head">
-            <AccountAvatar
-              accountId={post.accountId}
-              kind={authorProfile?.kind}
-              src={authorProfile?.avatarUrl ?? null}
-              fallbackInitial={name}
-              size="sm"
-              className="post-card-quote-inset-avatar"
-            />
-            <PostIdentityMeta
-              name={name}
-              accountId={post.accountId}
-              timestamp={post.blockTimestamp}
-            />
-          </span>
-          <PostSensitiveGate labels={labels} safeMode={safeMode} compact>
-            {compactMedia || (expanded && mediaItems.length > 0) || text ? (
-              <div
-                className={[
-                  'post-card-quote-inset-body-row',
-                  compactMedia ? 'has-media' : '',
-                  expanded && mediaItems.length > 0 ? 'is-expanded' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
-                {compactMedia ? <QuoteMediaThumb items={compactMedia} /> : null}
-                {text ? (
-                  <p className="post-card-quote-inset-body">
-                    <PostRichText text={text} />
-                  </p>
-                ) : null}
-                {expanded && mediaItems.length > 0 ? (
-                  <PostMediaStrip
-                    items={mediaItems}
-                    size="page"
-                    onActivate={(index) => {
-                      setQuotePhotoIndex(index);
-                      setQuotePhotoOpen(true);
-                    }}
-                  />
-                ) : null}
-              </div>
-            ) : (
-              <p className="post-card-quote-inset-body">…</p>
-            )}
-          </PostSensitiveGate>
-        </div>
-      </div>
-      {expanded && mediaItems.length > 0 ? (
-        <FeedPhotoEnlargeScreen
-          open={quotePhotoOpen}
-          onOpenChange={(open) => {
-            setQuotePhotoOpen(open);
-            if (!open) setQuoteThreadOpen(false);
-          }}
-          title={
-            mediaItems.some((item) => isRenderablePostVideoMime(item.mime))
-              ? 'Media'
-              : 'Photos'
-          }
-          caption={text.trim() ? text : null}
-          captionDate={
-            post.blockTimestamp
-              ? formatPostTimestamp(post.blockTimestamp)
-              : null
-          }
-          photos={mediaItems}
-          initialIndex={quotePhotoIndex}
-          threadOpen={quoteThreadOpen}
-          onDismissThread={() => setQuoteThreadOpen(false)}
-          threadAuthor={post.accountId}
-          threadPostId={post.postId}
-          threadRoot={post}
-          peekIdentity={
-            <div className="feed-photo-caption-identity-row">
-              <Link
-                href={portfolioPath(post.accountId)}
-                className="os-media-face-identity"
-                scroll={false}
-                aria-label={`View ${name}'s profile`}
-                onClick={() => {
-                  setQuotePhotoOpen(false);
-                  setQuoteThreadOpen(false);
-                }}
-              >
-                <AccountAvatar
-                  accountId={post.accountId}
-                  kind={authorProfile?.kind}
-                  src={authorProfile?.avatarUrl ?? null}
-                  fallbackInitial={name}
-                  size="lg"
-                  className="post-card-avatar"
-                />
-                <span className="os-media-face-identity-copy">
-                  <span className="os-media-face-identity-name-row">
-                    <span className="os-media-face-identity-name">{name}</span>
-                  </span>
-                  <span className="os-media-face-identity-handle">
-                    @{post.accountId}
-                  </span>
-                </span>
-              </Link>
-            </div>
-          }
-          engagement={
-            <div className="post-card-engagement">
-              <div className="post-card-engagement-actions">
-                <button
-                  type="button"
-                  className="post-card-stat post-card-stat-button"
-                  aria-label="Reply to this post"
-                  onClick={() => setQuoteThreadOpen(true)}
-                >
-                  <MessageRoundIcon aria-hidden />
-                  Reply
-                </button>
-              </div>
-            </div>
-          }
-        />
-      ) : null}
-    </>
-  );
-}
-
-function QuoteThumbTile({
-  item,
-  style,
-  onRatio,
-}: {
-  item: PostMediaItem;
-  style?: CSSProperties;
-  onRatio: (url: string, ratio: number) => void;
-}) {
-  const { resolved, markResolved, bind } = useFeedMediaResolved(item.url);
-  const remember = (width: number, height: number) => {
-    if (width > 0 && height > 0) onRatio(item.url, width / height);
-  };
-  const mediaClassName = [
-    'post-card-quote-thumb-media',
-    resolved ? 'is-resolved' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-  return (
-    <span className="post-card-quote-thumb-cell" style={style}>
-      {resolved ? null : (
-        <span
-          className="post-media-skeleton standing-row-shimmer"
-          aria-hidden
-        />
-      )}
-      {isRenderablePostVideoMime(item.mime) ? (
-        <video
-          ref={bind}
-          src={item.url}
-          muted
-          playsInline
-          preload="metadata"
-          className={mediaClassName}
-          onLoadedMetadata={(event) => {
-            const video = event.currentTarget;
-            remember(video.videoWidth, video.videoHeight);
-            markResolved();
-          }}
-          onError={markResolved}
-        />
-      ) : (
-        <img
-          ref={bind}
-          src={item.url}
-          alt=""
-          className={mediaClassName}
-          loading="lazy"
-          decoding="async"
-          onLoad={(event) => {
-            const img = event.currentTarget;
-            remember(img.naturalWidth, img.naturalHeight);
-            markResolved();
-          }}
-          onError={markResolved}
-        />
-      )}
-    </span>
-  );
-}
-
-function QuoteMediaThumb({ items }: { items: PostMediaItem[] }) {
-  const visible = items.slice(0, 4);
-  const [ratios, setRatios] = useState<Record<string, number>>({});
-  const onRatio = useCallback((url: string, ratio: number) => {
-    setRatios((current) =>
-      current[url] === ratio ? current : { ...current, [url]: ratio }
-    );
-  }, []);
-  const hero = collageHero(
-    visible.length,
-    visible.map((item) => ratios[item.url] ?? null)
-  );
-  const singleVideoUrl =
-    visible.length === 1 && isRenderablePostVideoMime(visible[0]?.mime)
-      ? visible[0].url
-      : null;
-  const [durationByUrl, setDurationByUrl] = useState<{
-    url: string;
-    label: string;
-  } | null>(null);
-  const durationLabel =
-    singleVideoUrl && durationByUrl?.url === singleVideoUrl
-      ? durationByUrl.label
-      : '';
-
-  useEffect(() => {
-    if (!singleVideoUrl) return;
-    let cancelled = false;
-    const video = document.createElement('video');
-    video.preload = 'metadata';
-    video.onloadedmetadata = () => {
-      if (cancelled) return;
-      setDurationByUrl({
-        url: singleVideoUrl,
-        label: formatMediaDuration(video.duration),
-      });
-    };
-    video.onerror = () => {
-      if (!cancelled) setDurationByUrl({ url: singleVideoUrl, label: '' });
-    };
-    video.src = singleVideoUrl;
-    return () => {
-      cancelled = true;
-      video.removeAttribute('src');
-      video.load();
-    };
-  }, [singleVideoUrl]);
-
-  if (visible.length === 0) return null;
-
-  return (
-    <div
-      className={[
-        'post-card-quote-thumb',
-        visible.length > 1 ? `is-collage is-${visible.length}` : '',
-        hero ? `is-${hero.mode}` : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      aria-hidden
-    >
-      {visible.map((item, index) => (
-        <QuoteThumbTile
-          key={`${item.cid ?? item.url}:${index}`}
-          item={item}
-          style={collageCellStyle(index, visible.length, hero)}
-          onRatio={onRatio}
-        />
-      ))}
-      {durationLabel ? (
-        <span className="post-card-quote-thumb-duration">{durationLabel}</span>
-      ) : null}
-    </div>
-  );
 }
 
 function ReactIcon({ filled }: { filled: boolean }) {
@@ -3182,3 +2840,4 @@ function postCardPropsEqual(prev: PostCardProps, next: PostCardProps): boolean {
 export const PostCard = memo(PostCardImpl, postCardPropsEqual);
 
 export { postKey };
+export { QuotedPostInset };
