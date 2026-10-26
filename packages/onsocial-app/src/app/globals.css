@@ -15931,13 +15931,6 @@ a.os-surface-row {
     }
   }
 
-  .os-write-dock-tools {
-    display: inline-flex;
-    flex-shrink: 0;
-    align-items: stretch;
-    align-self: stretch;
-  }
-
   .os-write-dock-tool {
     flex-shrink: 0;
     display: inline-flex;
@@ -42092,7 +42085,6 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
 }
 
 /* Account dock key — orange attention (logout uses is-danger). Unlayered twin. */
-.account-shortcut-dock .os-surface-tile.is-attention,
 .account-shortcut-dock .os-surface-row.is-attention,
 .account-card .account-menu-row.is-attention,
 .account-card .account-storage-row.is-attention,
@@ -42105,9 +42097,6 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
   white-space: normal;
 }
 
-.account-shortcut-dock .os-surface-tile.is-attention:not(:disabled):hover,
-.account-shortcut-dock
-  .os-surface-tile.is-attention:not(:disabled):focus-visible,
 .account-shortcut-dock .os-surface-row.is-attention:not(:disabled):hover,
 .account-shortcut-dock
   .os-surface-row.is-attention:not(:disabled):focus-visible,
@@ -42126,11 +42115,6 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
 
 .account-card .account-menu-row.is-danger .os-surface-row-description {
   color: rgb(248 113 113 / 0.72);
-}
-
-.account-shortcut-dock .os-surface-tile.is-attention:not(:disabled):active {
-  background: color-mix(in srgb, var(--protocol-amber) 18%, transparent);
-  color: var(--protocol-amber-ink, var(--protocol-amber));
 }
 
 /*
@@ -42188,7 +42172,6 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
     .post-card-link,
     .post-card-open,
     .os-surface-row,
-    .os-surface-tile,
     .os-surface-chip
   ) {
   transition:
