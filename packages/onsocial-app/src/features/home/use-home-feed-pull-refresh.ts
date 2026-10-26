@@ -92,7 +92,47 @@ export function useHomeFeedPullRefresh({
     };
 
     let tracking = false;
-    const stopTracking = () => {
+    let stopTracking = () => {};
+    const onMove = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      const step = apply({
+        type: 'move',
+        y: event.clientY,
+        scrollTop: readScrollTop(node),
+      });
+      if (step.state.phase !== 'pulling') release(event);
+      if (step.state.phase === 'idle' || step.state.phase === 'refreshing') {
+        pointerId = null;
+        stopTracking();
+        return;
+      }
+      if (!step.claim || !event.cancelable) return;
+      event.preventDefault();
+      if (node.hasPointerCapture(event.pointerId)) return;
+      try {
+        node.setPointerCapture(event.pointerId);
+      } catch {
+        // The pointer can already be gone. The drag still tracks moves.
+      }
+    };
+    const onUp = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      pointerId = null;
+      release(event);
+      stopTracking();
+      apply({
+        type: 'up',
+        input: { ...inputRef.current, scrollTop: readScrollTop(node) },
+      });
+    };
+    const onCancel = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      pointerId = null;
+      release(event);
+      stopTracking();
+      apply({ type: 'cancel' });
+    };
+    stopTracking = () => {
       if (!tracking) return;
       tracking = false;
       window.removeEventListener('pointermove', onMove, true);
@@ -123,48 +163,6 @@ export function useHomeFeedPullRefresh({
       pointerId = event.pointerId;
       startTracking();
     };
-
-    function onMove(event: PointerEvent) {
-      if (event.pointerId !== pointerId) return;
-      const step = apply({
-        type: 'move',
-        y: event.clientY,
-        scrollTop: readScrollTop(node),
-      });
-      if (step.state.phase !== 'pulling') release(event);
-      if (step.state.phase === 'idle' || step.state.phase === 'refreshing') {
-        pointerId = null;
-        stopTracking();
-        return;
-      }
-      if (!step.claim || !event.cancelable) return;
-      event.preventDefault();
-      if (node.hasPointerCapture(event.pointerId)) return;
-      try {
-        node.setPointerCapture(event.pointerId);
-      } catch {
-        // The pointer can already be gone. The drag still tracks moves.
-      }
-    }
-
-    function onUp(event: PointerEvent) {
-      if (event.pointerId !== pointerId) return;
-      pointerId = null;
-      release(event);
-      stopTracking();
-      apply({
-        type: 'up',
-        input: { ...inputRef.current, scrollTop: readScrollTop(node) },
-      });
-    }
-
-    function onCancel(event: PointerEvent) {
-      if (event.pointerId !== pointerId) return;
-      pointerId = null;
-      release(event);
-      stopTracking();
-      apply({ type: 'cancel' });
-    }
 
     node.addEventListener('pointerdown', onDown);
     return () => {
