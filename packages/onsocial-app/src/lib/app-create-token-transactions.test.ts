@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const TEST_HASH = '9pEKLq5UaD3K2Jd1fQe8yH7mN4vR6tXwYzBcDeFgHiJkLm';
+const FACTORY_PUBLIC_KEY = 'ed25519:11111111111111111111111111111111';
 
 interface RecordedCall {
   receiverId: string;
@@ -20,17 +20,32 @@ function mockWallet() {
   return { calls, wallet };
 }
 
+function stubFactory(body: { ready: boolean; publicKey?: string }) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({
+      ok: true,
+      json: async () => body,
+    }))
+  );
+}
+
 describe('sendCreateUserTokenTransaction', () => {
   beforeEach(() => {
     vi.resetModules();
-    vi.stubEnv('NEXT_PUBLIC_FT_TEMPLATE_CODE_HASH', TEST_HASH);
+    vi.stubEnv(
+      'NEXT_PUBLIC_FT_TEMPLATE_CODE_HASH',
+      '9pEKLq5UaD3K2Jd1fQe8yH7mN4vR6tXwYzBcDeFgHiJkLm'
+    );
+    stubFactory({ ready: true, publicKey: FACTORY_PUBLIC_KEY });
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
-  it('batches create → fund → global deploy → mint in one tx', async () => {
+  it('signs create, fund, and the factory full-access key', async () => {
     const { sendCreateUserTokenTransaction } = await import(
       '@/lib/app-create-token-transactions'
     );
@@ -38,90 +53,41 @@ describe('sendCreateUserTokenTransaction', () => {
 
     const hashes = await sendCreateUserTokenTransaction(
       async () => ({ wallet: wallet as never, accountId: 'alice.testnet' }),
-      {
-        contractId: 'cool.alice.testnet',
-        name: 'Cool Token',
-        symbol: 'COOL',
-        totalSupply: '1000000000000000000000000',
-        icon: 'data:image/svg+xml,x',
-      }
+      { contractId: 'cool.alice.testnet' }
     );
 
     expect(hashes).toEqual(['tx-hash-1']);
     expect(calls).toHaveLength(1);
     const call = calls[0]!;
     expect(call.receiverId).toBe('cool.alice.testnet');
-    expect(call.actions.map((a) => a.type)).toEqual([
+    expect(call.actions.map((action) => action.type)).toEqual([
       'CreateAccount',
       'Transfer',
-      'UseGlobalContract',
-      'FunctionCall',
+      'AddKey',
     ]);
-
-    const deploy = call.actions[2]!;
-    expect(deploy.params).toEqual({
-      contractIdentifier: { codeHash: TEST_HASH },
+    expect(call.actions[2]!.params).toEqual({
+      publicKey: FACTORY_PUBLIC_KEY,
+      accessKey: { permission: 'FullAccess' },
     });
-
-    const mint = call.actions[3]!;
-    expect(mint.params?.methodName).toBe('new');
-    expect(mint.params?.args).toMatchObject({
-      owner_id: 'alice.testnet',
-      name: 'Cool Token',
-      symbol: 'COOL',
-    });
+    expect(JSON.stringify(call.actions)).not.toContain('UseGlobalContract');
+    expect(JSON.stringify(call.actions)).not.toContain('renounce_owner');
   });
 
-  it('appends renounce_owner only when lock admin is chosen', async () => {
-    const { sendCreateUserTokenTransaction } = await import(
-      '@/lib/app-create-token-transactions'
-    );
-    const { calls, wallet } = mockWallet();
-
-    await sendCreateUserTokenTransaction(
-      async () => ({ wallet: wallet as never, accountId: 'alice.testnet' }),
-      {
-        contractId: 'cool.alice.testnet',
-        name: 'Cool Token',
-        symbol: 'COOL',
-        totalSupply: '1000000000000000000',
-        icon: 'data:image/svg+xml,x',
-        renounceOwner: true,
-      }
-    );
-
-    const actions = calls[0]!.actions;
-    expect(actions).toHaveLength(5);
-    expect(actions[4]!.params?.methodName).toBe('renounce_owner');
-  });
-
-  it('uses the published testnet hash when env is empty', async () => {
-    vi.stubEnv('NEXT_PUBLIC_NEAR_NETWORK', 'testnet');
-    vi.stubEnv('NEXT_PUBLIC_FT_TEMPLATE_CODE_HASH', '');
-    vi.stubEnv('NEXT_PUBLIC_FT_TEMPLATE_GLOBAL_ACCOUNT', '');
+  it('does not sign when the factory key is missing', async () => {
+    stubFactory({ ready: false });
     vi.resetModules();
     const { sendCreateUserTokenTransaction } = await import(
       '@/lib/app-create-token-transactions'
     );
-    const { TESTNET_FT_TEMPLATE_CODE_HASH } = await import(
-      '@/lib/app-ft-template-config'
-    );
     const { calls, wallet } = mockWallet();
 
-    await sendCreateUserTokenTransaction(
-      async () => ({ wallet: wallet as never, accountId: 'alice.testnet' }),
-      {
-        contractId: 'cool.alice.testnet',
-        name: 'Cool Token',
-        symbol: 'COOL',
-        totalSupply: '1000000000000000000',
-        icon: 'data:image/svg+xml,x',
-      }
-    );
-
-    expect(calls[0]!.actions[2]!.params).toEqual({
-      contractIdentifier: { codeHash: TESTNET_FT_TEMPLATE_CODE_HASH },
-    });
+    await expect(
+      sendCreateUserTokenTransaction(
+        async () => ({ wallet: wallet as never, accountId: 'alice.testnet' }),
+        { contractId: 'cool.alice.testnet' }
+      )
+    ).rejects.toThrow(/factory is not ready/i);
+    expect(calls).toHaveLength(0);
   });
 
   it('throws when the template is not configured', async () => {
@@ -137,13 +103,7 @@ describe('sendCreateUserTokenTransaction', () => {
     await expect(
       sendCreateUserTokenTransaction(
         async () => ({ wallet: wallet as never, accountId: 'alice.testnet' }),
-        {
-          contractId: 'cool.alice.testnet',
-          name: 'Cool Token',
-          symbol: 'COOL',
-          totalSupply: '1000000000000000000',
-          icon: 'data:image/svg+xml,x',
-        }
+        { contractId: 'cool.alice.testnet' }
       )
     ).rejects.toThrow(/not configured/i);
     expect(calls).toHaveLength(0);

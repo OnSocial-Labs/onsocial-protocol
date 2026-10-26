@@ -4,15 +4,9 @@ import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import {
   FT_CREATE_FUND_NEAR,
   resolveFtTemplateIdentifier,
-  type FtTemplateIdentifier,
 } from '@/lib/app-ft-template-config';
-import {
-  extractNearTransactionHashes,
-  nearToYocto,
-} from '@/lib/app-near-rpc';
-
-const FT_INIT_GAS = '100000000000000';
-const FT_RENOUNCE_GAS = '30000000000000';
+import { extractNearTransactionHashes, nearToYocto } from '@/lib/app-near-rpc';
+import { loadFtFactoryPublicKey } from '@/lib/ft-factory-client';
 
 export interface SigningWallet {
   wallet: NearWalletBase;
@@ -22,37 +16,14 @@ export interface SigningWallet {
 export interface CreateUserTokenParams {
   /** Full contract account id, e.g. `cool.alice.near`. */
   contractId: string;
-  name: string;
-  symbol: string;
-  /** Smallest units (18 decimals). */
-  totalSupply: string;
-  icon: string;
-  /** When true, call `renounce_owner` in the same batch. */
-  renounceOwner?: boolean;
   /** NEAR attached to fund the new account (human). */
   fundNear?: string;
 }
 
-function buildUseGlobalContractAction(
-  template: FtTemplateIdentifier
-): ConnectorAction {
-  if (template.kind === 'codeHash') {
-    return {
-      type: 'UseGlobalContract',
-      params: {
-        contractIdentifier: { codeHash: template.codeHash },
-      },
-    };
-  }
-  return {
-    type: 'UseGlobalContract',
-    params: {
-      contractIdentifier: { accountId: template.accountId },
-    },
-  };
-}
-
-/** Batched create subaccount → global deploy → init → optional renounce. */
+/**
+ * Wallet half of creator-token create. Every wallet can sign these actions.
+ * The server factory key installs the global contract and then deletes itself.
+ */
 export async function sendCreateUserTokenTransaction(
   getSigningWallet: () => Promise<SigningWallet>,
   params: CreateUserTokenParams
@@ -71,8 +42,8 @@ export async function sendCreateUserTokenTransaction(
     throw new Error('Fund amount must be greater than zero.');
   }
 
+  const factoryPublicKey = await loadFtFactoryPublicKey();
   const { wallet, accountId: signerId } = await getSigningWallet();
-  const ownerId = signerId;
 
   const actions: ConnectorAction[] = [
     { type: 'CreateAccount' },
@@ -80,35 +51,14 @@ export async function sendCreateUserTokenTransaction(
       type: 'Transfer',
       params: { deposit },
     },
-    buildUseGlobalContractAction(template),
     {
-      type: 'FunctionCall',
+      type: 'AddKey',
       params: {
-        methodName: 'new',
-        args: {
-          owner_id: ownerId,
-          name: params.name,
-          symbol: params.symbol,
-          total_supply: params.totalSupply,
-          icon: params.icon,
-        },
-        gas: FT_INIT_GAS,
-        deposit: '0',
+        publicKey: factoryPublicKey,
+        accessKey: { permission: 'FullAccess' },
       },
     },
   ];
-
-  if (params.renounceOwner) {
-    actions.push({
-      type: 'FunctionCall',
-      params: {
-        methodName: 'renounce_owner',
-        args: {},
-        gas: FT_RENOUNCE_GAS,
-        deposit: '0',
-      },
-    });
-  }
 
   const result = await wallet.signAndSendTransaction({
     network: ACTIVE_NEAR_NETWORK,
