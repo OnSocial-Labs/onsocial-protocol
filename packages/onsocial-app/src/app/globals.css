@@ -3807,7 +3807,6 @@ a.os-surface-row {
     color: color-mix(in srgb, var(--protocol-red) 92%, transparent);
   }
 
-  .app-success-dot[data-active='true'],
   .profile-dot[data-active='true'] {
     background: color-mix(in srgb, var(--protocol-green) 80%, transparent);
     box-shadow: 0 0 8px var(--protocol-green-glow);
@@ -4380,20 +4379,6 @@ a.os-surface-row {
   .gate-dapp-link.is-soon {
     opacity: 0.28 !important;
     cursor: default;
-  }
-
-  .app-topbar-minimal {
-    justify-content: space-between;
-  }
-
-  .app-back-link {
-    font-size: 0.82rem;
-    letter-spacing: 0.02em;
-    color: rgb(var(--fg-rgb) / 0.58);
-  }
-
-  .app-back-link:hover {
-    color: rgb(var(--fg-rgb) / 0.92);
   }
 
   .app-shell-os-rail {
@@ -15268,18 +15253,6 @@ a.os-surface-row {
     height: 0.7rem;
   }
 
-  .app-wallet-icon-slot.is-loading {
-    pointer-events: none;
-    background: linear-gradient(
-      90deg,
-      rgb(var(--fg-rgb) / 0.04) 0%,
-      rgb(var(--fg-rgb) / 0.08) 50%,
-      rgb(var(--fg-rgb) / 0.04) 100%
-    );
-    background-size: 200% 100%;
-    animation: standing-shimmer 1.2s ease-in-out infinite;
-  }
-
   .app-wallet-connect-glyph {
     display: block;
     width: 1.1rem;
@@ -15287,38 +15260,6 @@ a.os-surface-row {
     border: 1.5px solid currentColor;
     border-radius: 9999px;
     opacity: 0.72;
-  }
-
-  .app-wallet-icon-initial {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.12);
-    font-size: 0.72rem;
-    font-weight: 600;
-    line-height: 1;
-  }
-
-  .app-topbar {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: calc(env(safe-area-inset-top, 0px) + 0.75rem)
-      max(1rem, env(safe-area-inset-right, 0px)) 0.75rem
-      max(1rem, env(safe-area-inset-left, 0px));
-    border-bottom: 1px solid rgb(var(--fg-rgb) / 0.06);
-    background: rgb(5 5 5 / 0.82);
-    backdrop-filter: blur(16px);
-  }
-
-  .app-topbar-logo {
-    display: none;
   }
 
   /* ── Summon launcher ───────────────────────────────────
@@ -19805,10 +19746,6 @@ a.os-surface-row {
     cursor: default;
   }
 
-  .app-storage-mode-divider {
-    margin: 0;
-  }
-
   .app-storage-form {
     display: flex;
     flex-direction: column;
@@ -20067,27 +20004,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.35);
   }
 
-  /* Quick-row / presets / Max / meta: @onsocial/ui/os-amount-field.css */
-
-  .app-storage-submit {
-    border: 0;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.92);
-    color: rgb(var(--bg-rgb) / 0.98);
-    font: inherit;
-    font-size: 0.78rem;
-    font-weight: 600;
-    padding: 0.65rem 1rem;
-    cursor: pointer;
-    transition: opacity 160ms ease;
-  }
-
-  .app-storage-submit:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
-  }
-
   .app-storage-share-panel {
     display: flex;
     flex-direction: column;
@@ -20186,7 +20102,6 @@ a.os-surface-row {
     font-size: 0.75rem;
   }
 
-  .app-storage-share-ratio,
   .app-storage-grants-summary,
   .app-storage-grant-bytes,
   .app-storage-recipient-status {
@@ -20341,47 +20256,6 @@ a.os-surface-row {
       var(--mood-accent, var(--protocol-blue)) 70%,
       white 4%
     );
-  }
-
-  .app-storage-context-strip {
-    display: flex;
-    flex-direction: column;
-    gap: 0.22rem;
-    padding: 0.15rem 0 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-  }
-
-  .app-storage-context-divider {
-    margin: 0 0 0.25rem;
-  }
-
-  .app-storage-context-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
-    margin: 0;
-    color: rgb(var(--fg-rgb) / 0.42);
-    font-size: 0.62rem;
-    line-height: 1.25;
-  }
-
-  .app-storage-context-row > span {
-    flex-shrink: 0;
-    font-weight: 650;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .app-storage-context-row > strong {
-    min-width: 0;
-    color: rgb(var(--fg-rgb) / 0.55);
-    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
-    font-weight: 550;
-    text-align: right;
-    overflow-wrap: anywhere;
   }
 
   .account-editor-form {
@@ -22607,8 +22481,7 @@ a.os-surface-row {
   }
 
   .messages-panel,
-  .notifications-panel,
-  .app-soon-page {
+  .notifications-panel {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
@@ -23057,13 +22930,6 @@ a.os-surface-row {
 
   .home-saved-feed-sheet-list .home-hashtag-suggest-item.is-saved {
     background: var(--os-surface-fill);
-  }
-
-  .app-soon-copy {
-    margin: 0;
-    font-size: 0.92rem;
-    line-height: 1.55;
-    color: rgb(var(--fg-rgb) / 0.58);
   }
 
   .post-composer {
@@ -36739,12 +36605,6 @@ a.os-surface-row {
     color: var(--os-surface-emphasis);
   }
 
-  .app-page-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
   /* Edge-bleed hub cover — guild hero look inside the OS screen body. */
   .app-hub-cover {
     position: relative;
@@ -36801,59 +36661,6 @@ a.os-surface-row {
 
   .app-page-head--overlap .app-page-headings {
     padding-bottom: 0.15rem;
-  }
-
-  .app-drop-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 0.55rem;
-  }
-
-  /* Series sections inside a hub catalog. */
-  .app-drop-groups {
-    display: flex;
-    flex-direction: column;
-    gap: 0.9rem;
-  }
-
-  .app-drop-series {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .app-drop-series-title {
-    margin: 0;
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-  }
-
-  .app-drop-series-count {
-    font-weight: 500;
-    color: var(--os-surface-muted);
-  }
-
-  .app-drop-series-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: inherit;
-    text-decoration: none;
-  }
-
-  .app-drop-series-link:hover,
-  .app-drop-series-link:focus-visible {
-    color: var(--os-surface-emphasis);
-  }
-
-  .app-drop-series-logo {
-    width: 1.25rem;
-    height: 1.25rem;
-    border-radius: 0.4rem;
-    object-fit: cover;
   }
 
   /* Series page — brand-first catalog for a creator drop line. */
@@ -37064,42 +36871,6 @@ a.os-surface-row {
     object-fit: cover;
   }
 
-  .app-page-roster {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .app-page-roster-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-  }
-
-  .app-page-roster-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.25rem 0.6rem;
-    border-radius: 9999px;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--os-surface-emphasis);
-    text-decoration: none;
-  }
-
-  .app-page-roster-role {
-    font-size: 0.68rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--os-surface-muted);
-  }
-
   /* ── Hub manage sheets ─── */
 
   .glass-sheet-panel.hub-manage-sheet-panel {
@@ -37224,13 +36995,6 @@ a.os-surface-row {
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--os-surface-emphasis);
-  }
-
-  .app-manage-secondary {
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-    margin-top: 0.25rem;
   }
 
   .app-roster-editor {
@@ -42803,12 +42567,6 @@ a.os-surface-row {
     color: color-mix(in srgb, var(--protocol-red) 86%, rgb(var(--fg-rgb)));
     font-size: 0.82rem;
     line-height: 1.45;
-  }
-
-  .app-soon-page {
-    min-height: 50vh;
-    justify-content: center;
-    align-items: flex-start;
   }
 
   /* ── Endorsements overlay ───────────────────────────────── */
