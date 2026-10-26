@@ -11,6 +11,7 @@ import {
   HOME_FEED_SSR_SESSION_KEY,
   homeFeedSessionKey,
   homeFeedSessionProbeDelayMs,
+  noteHomeFeedSessionScroll,
   peekHomeFeedSession,
   readHomeFeedSession,
   writeHomeFeedSession,
@@ -144,6 +145,25 @@ describe('home feed session snapshot', () => {
       scrollTop: 0,
     });
     expect(peekHomeFeedSession()?.standEpoch).toBeUndefined();
+  });
+
+  it('keeps a memory copy without touching tab storage', () => {
+    writeHomeFeedSession({
+      sessionKey: HOME_FEED_SSR_SESSION_KEY,
+      posts: [row('a.near', '1')],
+      nextOffset: 24,
+      standingNetworkIds: null,
+      offsetShiftApplied: 0,
+      scrollTop: 80,
+      storage: false,
+    });
+    expect(peekHomeFeedSession(undefined, { hydrateStorage: false })?.scrollTop).toBe(
+      80
+    );
+    noteHomeFeedSessionScroll(140);
+    expect(peekHomeFeedSession(undefined, { hydrateStorage: false })?.scrollTop).toBe(
+      140
+    );
   });
 });
 
@@ -312,14 +332,22 @@ describe('home feed session wiring', () => {
       'utf8'
     );
     expect(pageSrc).toContain('peekHomeFeedSession');
+    expect(pageSrc).toContain('restoredSession?.posts ?? initialPage?.items');
     expect(pageSrc).toContain('writeHomeFeedSession');
     expect(pageSrc).toContain('homeFeedSessionProbeDelayMs');
     expect(pageSrc).toContain('pagehide');
     expect(sessionSrc).toContain('sessionStorage');
     expect(sessionSrc).not.toContain('localStorage');
     expect(pageSrc).not.toContain('localStorage');
-    expect(hostSrc).toContain('HomePagePanel');
+    expect(hostSrc).toContain('<HomePagePanel />');
+    expect(hostSrc).toContain('onFeed ? page');
     expect(hostSrc).not.toContain('loadHomeFeedPage');
+    const routeSrc = readFileSync(
+      join(libDir, '../features/home/home-feed-route.tsx'),
+      'utf8'
+    );
+    expect(routeSrc).toContain('HomePagePanel');
+    expect(routeSrc).toContain('initialPage={paint?.page ?? null}');
   });
 
   it('invalidates standing sources when a stand confirms after the snapshot', () => {

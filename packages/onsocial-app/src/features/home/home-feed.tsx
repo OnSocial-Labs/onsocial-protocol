@@ -129,6 +129,7 @@ import {
   HOME_FEED_SSR_SESSION_KEY,
   homeFeedSessionKey,
   homeFeedSessionProbeDelayMs,
+  noteHomeFeedSessionScroll,
   peekHomeFeedSession,
   writeHomeFeedSession,
 } from '@/lib/home-feed-session';
@@ -462,7 +463,7 @@ export function HomePagePanel({
       (initialPage != null ? HOME_FEED_SSR_SESSION_KEY : null)
   );
 
-  const persistFeedSession = useCallback(() => {
+  const persistFeedSession = useCallback((options?: { storage?: boolean }) => {
     const node = scrollRootRef.current;
     const memory = scrollMemoryRef.current;
     const live = node?.scrollTop ?? 0;
@@ -478,6 +479,7 @@ export function HomePagePanel({
       offsetShiftApplied: offsetShiftAppliedRef.current,
       scrollTop: scrollTopToPersist(memory, line),
       standEpoch: getViewerStandEpoch(),
+      storage: options?.storage !== false,
     });
   }, []);
 
@@ -519,6 +521,23 @@ export function HomePagePanel({
     setSsrBootstrapDone(true);
     setIsLoading(false);
   }, []);
+
+  // After the storage read above. Memory only, so a cold seed cannot
+  // overwrite a saved tab list. Leaving remounts from this copy.
+  useLayoutEffect(() => {
+    persistFeedSession({ storage: false });
+  });
+
+  useEffect(() => {
+    const node = scrollRootRef.current;
+    if (!(node instanceof HTMLElement)) return;
+    const onScroll = (event: Event) => {
+      if (!event.isTrusted) return;
+      noteHomeFeedSessionScroll(node.scrollTop);
+    };
+    node.addEventListener('scroll', onScroll, { passive: true });
+    return () => node.removeEventListener('scroll', onScroll);
+  }, [posts.length]);
 
   /**
    * Cold first visit — ask for the public hot page before the wallet and

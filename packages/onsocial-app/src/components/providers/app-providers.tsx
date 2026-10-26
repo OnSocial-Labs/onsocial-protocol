@@ -97,8 +97,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                                             <DmUnreadHost>
                                               <NotificationsHost>
                                                 <WebPushProvider>
-                                                  <FeedSessionHost>
-                                                    {children}
+                                                  <FeedSessionHost page={children}>
                                                     <NetworkStandingHandoffHost />
                                                   </FeedSessionHost>
                                                   <ViewerMuteBlockHost />

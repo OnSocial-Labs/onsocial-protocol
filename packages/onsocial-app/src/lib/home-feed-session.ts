@@ -134,6 +134,8 @@ export function writeHomeFeedSession(input: {
   scrollTop: number;
   standEpoch?: number;
   now?: number;
+  /** False keeps the in-memory copy only. Tab storage stays on leave and pagehide. */
+  storage?: boolean;
 }): void {
   const sessionKey = input.sessionKey?.trim();
   if (!sessionKey || input.posts.length === 0) return;
@@ -149,7 +151,13 @@ export function writeHomeFeedSession(input: {
     savedAt: input.now ?? Date.now(),
     standEpoch: input.standEpoch,
   };
-  writeStorage(snapshot);
+  if (input.storage !== false) writeStorage(snapshot);
+}
+
+/** Scroll moved without a React render. Leave can remount from this line. */
+export function noteHomeFeedSessionScroll(scrollTop: number): void {
+  if (!snapshot) return;
+  snapshot.scrollTop = Math.max(0, scrollTop);
 }
 
 export function peekHomeFeedSession(
