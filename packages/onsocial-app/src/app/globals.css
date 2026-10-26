@@ -2155,31 +2155,6 @@ button.post-media-tile {
   --glass-sheet-body-opacity: 0.62;
 }
 
-/* Full detent even while skeleton loads (height:auto shrank to content). */
-.glass-sheet-panel.account-editor-panel {
-  height: min(96dvh, 44rem);
-  max-height: min(96dvh, 44rem);
-  --glass-sheet-body-opacity: 0.64;
-  --glass-header-scrim-height: 0;
-}
-
-/* Editor media owns the sheet top; the mobile grip floats over the banner. */
-.glass-sheet-panel.account-editor-panel .glass-sheet-drag {
-  position: absolute;
-  z-index: 6;
-  top: 0;
-  left: 0;
-  right: 0;
-  min-height: 0;
-  padding: calc(0.55rem + env(safe-area-inset-top, 0px)) 0 0.25rem;
-  background: transparent;
-  pointer-events: auto;
-}
-
-.glass-sheet-panel.account-editor-panel .glass-sheet-body {
-  border-radius: inherit;
-}
-
 /*
  * Unlayered: imported profile-editor-media.css docks reserve 0.75rem under the
  * tile. Editor hint lives on the banner host — kill that gap so “Photo or video”
@@ -2194,73 +2169,6 @@ button.post-media-tile {
   z-index: 4;
 }
 
-/*
- * Editor × over banner — glass chip like camera/bin (and guild immersive header).
- * Unlayered so it beats glass-sheet flat transparent icons on light banners.
- */
-.account-editor-hero-chrome .glass-sheet-icon-action {
-  box-sizing: border-box;
-  width: 1.75rem;
-  height: 1.75rem;
-  min-width: 1.75rem;
-  min-height: 1.75rem;
-  max-width: 1.75rem;
-  max-height: 1.75rem;
-  padding: 0;
-  border-radius: 9999px;
-  background: color-mix(
-    in srgb,
-    rgb(var(--bg-rgb) / 0.72) 88%,
-    rgb(0 0 0 / 0.35)
-  );
-  color: rgb(var(--fg-rgb) / 0.9);
-  filter: none;
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  backdrop-filter: blur(16px) saturate(1.4);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.12),
-    0 4px 12px -6px rgb(0 0 0 / 0.35);
-}
-
-.account-editor-hero-chrome .glass-sheet-close-icon {
-  width: 0.95rem;
-  height: 0.95rem;
-}
-
-.account-editor-hero-chrome .glass-sheet-icon-action:hover,
-.account-editor-hero-chrome .glass-sheet-icon-action:focus-visible {
-  background: color-mix(
-    in srgb,
-    rgb(var(--bg-rgb) / 0.82) 82%,
-    var(--app-scrim-media)
-  );
-  color: rgb(var(--fg-rgb) / 0.96);
-  outline: none;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.14),
-    0 4px 12px -6px rgb(0 0 0 / 0.4);
-}
-
-.account-editor-cover-stage.has-media
-  .account-editor-hero-chrome
-  .glass-sheet-icon-action {
-  background: var(--app-scrim-media);
-  color: rgb(255 255 255 / 0.94);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.12),
-    0 4px 12px -6px rgb(0 0 0 / 0.35);
-}
-
-.account-editor-cover-stage.has-media
-  .account-editor-hero-chrome
-  .glass-sheet-icon-action:hover,
-.account-editor-cover-stage.has-media
-  .account-editor-hero-chrome
-  .glass-sheet-icon-action:focus-visible {
-  background: var(--app-scrim-media-hover);
-  color: rgb(255 255 255 / 1);
-}
-
 .glass-sheet-panel.customize-sheet-panel,
 .glass-sheet-panel.mood-sheet-panel {
   --glass-sheet-body-opacity: 0.64;
@@ -2269,8 +2177,6 @@ button.post-media-tile {
 .account-sheet-panel--page-mood.glass-sheet-panel[data-tone='os']
   .glass-sheet-grip,
 .account-storage-panel--page-mood.glass-sheet-panel[data-tone='os']
-  .glass-sheet-grip,
-.account-editor-panel--page-mood.glass-sheet-panel[data-tone='os']
   .glass-sheet-grip,
 .glass-sheet-panel.customize-sheet-panel[data-tone='mood-thread']
   .glass-sheet-grip,
@@ -3140,12 +3046,6 @@ a.os-surface-row {
     );
 
     /* Short viewports — tighter hero rhythm and dock room. */
-    @media (max-height: 42rem) {
-      --portfolio-dock-clearance: calc(
-        4.1rem + env(safe-area-inset-bottom, 0px)
-      );
-      --portfolio-hero-gap: 0.65rem;
-    }
 
     /* Preset page wash — bg carries atmosphere; text/muted stay closer to OS base for readability. */
     --mood-bg-preset-mix: 25%;
@@ -9757,34 +9657,6 @@ a.os-surface-row {
     opacity: 0.35;
   }
 
-  .account-editor-topics-draft {
-    display: inline-flex;
-    min-width: 0;
-  }
-
-  .account-editor-topics-input {
-    width: 7.5rem;
-    max-width: 100%;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-size: inherit;
-    letter-spacing: inherit;
-    text-align: center;
-    padding: 0;
-    opacity: 0.55;
-  }
-
-  .account-editor-topics-input:focus {
-    outline: none;
-    opacity: 0.92;
-  }
-
-  .account-editor-topics-input::placeholder {
-    color: rgb(var(--fg-rgb) / 0.38);
-  }
-
   .account-editor-topic-remove {
     display: inline-flex;
     align-items: center;
@@ -10425,54 +10297,13 @@ a.os-surface-row {
   }
 
   .account-editor-jobs-label,
-  .account-editor-jobs-empty,
-  .account-editor-jobs-meta {
+  .account-editor-jobs-empty {
     margin: 0;
     font-size: 0.78rem;
     color: var(--mood-muted, hsl(var(--muted-foreground)));
   }
 
-  .account-editor-jobs-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.12rem 0.08rem;
-  }
-
-  .account-editor-jobs-meta-sep {
-    margin: 0 0.28em 0 0.18em;
-    color: rgb(var(--fg-rgb) / 0.28);
-    user-select: none;
-  }
-
-  .account-editor-jobs-url {
-    font-weight: 500;
-  }
-
-  .account-editor-jobs-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .account-editor-jobs-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-
-  .account-editor-jobs-title {
-    margin: 0;
-    font-size: 0.88rem;
-    font-weight: 600;
-  }
-
-  .account-editor-jobs-add,
-  .account-editor-jobs-remove {
+  .account-editor-jobs-add {
     appearance: none;
     background: none;
     border: 0;
@@ -21488,51 +21319,6 @@ a.os-surface-row {
     overflow-wrap: anywhere;
   }
 
-  /* ── Nested profile editor — stacks on account drawer ─ */
-
-  .account-editor-panel .glass-sheet-body {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
-    border-radius: inherit;
-  }
-
-  .account-editor-panel .glass-sheet-drag {
-    position: absolute;
-    z-index: 6;
-    top: 0;
-    left: 0;
-    right: 0;
-    padding: calc(0.55rem + env(safe-area-inset-top, 0px)) 0 0.25rem;
-    background: transparent;
-    pointer-events: auto;
-  }
-
-  .account-editor-panel .glass-sheet-grip {
-    opacity: 0.72;
-  }
-
-  .account-editor-panel:not(.account-editor-panel--page-mood):has(
-      .account-editor-cover-stage.has-media
-    )
-    .glass-sheet-grip {
-    background: rgb(255 255 255 / 0.42);
-    opacity: 0.85;
-  }
-
-  .account-editor-body {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
-    min-height: 0;
-    padding: 0;
-    overflow: hidden;
-    border-radius: inherit;
-  }
-
   .account-editor-form {
     display: flex;
     flex-direction: column;
@@ -21684,21 +21470,6 @@ a.os-surface-row {
     gap: 0.48rem;
     padding: 0.05rem max(1rem, env(safe-area-inset-right, 0px)) 0.35rem
       max(1rem, env(safe-area-inset-left, 0px));
-  }
-
-  .account-editor-subject {
-    min-width: 0;
-    flex: 1;
-  }
-
-  .account-editor-subject .discover-sheet-title {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .account-editor-sheet-header {
-    gap: 0;
   }
 
   @media (min-width: 768px) {
@@ -21935,34 +21706,6 @@ a.os-surface-row {
     background: transparent;
   }
 
-  .account-editor-hero-chrome {
-    position: absolute;
-    inset: 0 0 auto;
-    z-index: 3;
-    padding: calc(1.55rem + env(safe-area-inset-top, 0px))
-      max(0.65rem, env(safe-area-inset-right, 0px)) 0.15rem
-      max(0.65rem, env(safe-area-inset-left, 0px));
-    pointer-events: none;
-  }
-
-  .account-editor-chrome-row {
-    display: flex;
-    justify-content: flex-end;
-    pointer-events: auto;
-  }
-
-  .account-editor-loading-chrome {
-    flex-shrink: 0;
-    position: relative;
-    padding: 1.55rem max(0.65rem, env(safe-area-inset-right, 0px)) 0.35rem
-      max(0.65rem, env(safe-area-inset-left, 0px));
-  }
-
-  .account-editor-loading-chrome .account-editor-chrome-row {
-    display: flex;
-    justify-content: flex-end;
-  }
-
   .account-editor-avatar-wrap {
     position: relative;
     flex-shrink: 0;
@@ -22181,26 +21924,6 @@ a.os-surface-row {
     max-width: 100%;
   }
 
-  .account-editor-industry-trigger,
-  .account-editor-industry-mark {
-    pointer-events: auto;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .account-editor-industry-trigger:disabled,
-  .account-editor-industry-mark:disabled {
-    cursor: default;
-  }
-
-  .account-editor-industry-trigger .account-editor-location.is-placeholder {
-    color: rgb(var(--fg-rgb) / 0.32);
-  }
-
   .account-editor-location {
     display: block;
     width: auto;
@@ -22221,15 +21944,6 @@ a.os-surface-row {
   }
 
   .account-editor-location::placeholder {
-    color: rgb(var(--fg-rgb) / 0.32);
-  }
-
-  .account-editor-handle-hint {
-    margin: -0.1rem 0 0;
-    max-width: min(100%, 20rem);
-    font-size: 0.62rem;
-    line-height: 1.35;
-    letter-spacing: 0.02em;
     color: rgb(var(--fg-rgb) / 0.32);
   }
 
@@ -22262,31 +21976,6 @@ a.os-surface-row {
     line-height: 1.35;
     text-align: center;
     color: rgb(var(--fg-rgb) / 0.38);
-  }
-
-  button.account-editor-about-hint-action {
-    appearance: none;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    background: none;
-    color: inherit;
-    font: inherit;
-    font-weight: 650;
-    text-decoration: underline;
-    text-underline-offset: 0.12em;
-    cursor: pointer;
-  }
-
-  button.account-editor-about-hint-action:hover,
-  button.account-editor-about-hint-action:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.62);
-    outline: none;
-  }
-
-  button.account-editor-about-hint-action:disabled {
-    cursor: default;
-    opacity: 0.55;
   }
 
   .account-editor-about-trigger {
@@ -23303,19 +22992,6 @@ a.os-surface-row {
     );
   }
 
-  .account-editor-bio-backdrop .account-editor-bio-bold-run {
-    font-weight: 700;
-  }
-
-  .account-editor-bio-backdrop .account-editor-bio-italic-run {
-    font-style: italic;
-  }
-
-  .account-editor-bio-backdrop .account-editor-bio-mark {
-    /* Marks stay in the string for caret sync — invisible in the box. */
-    color: transparent;
-  }
-
   .account-editor-bio-field {
     position: relative;
     width: 100%;
@@ -23457,32 +23133,6 @@ a.os-surface-row {
     margin: 0 0.25rem;
   }
 
-  .account-editor-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  .account-editor-label {
-    font-size: 0.62rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.42);
-  }
-
-  .account-editor-counter {
-    align-self: flex-end;
-    font-size: 0.62rem;
-    color: rgb(var(--fg-rgb) / 0.38);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .account-editor-section-divider {
-    flex-shrink: 0;
-    margin: 0;
-  }
-
   .account-editor-section {
     display: flex;
     flex-direction: column;
@@ -23491,39 +23141,11 @@ a.os-surface-row {
     width: 100%;
   }
 
-  .account-editor-section-meta {
-    margin: 0;
-    font-size: 0.62rem;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.04em;
-    color: rgb(var(--fg-rgb) / 0.32);
-  }
-
-  .account-editor-section-meta-sep {
-    margin: 0 0.3rem;
-  }
-
-  .account-editor-tags-section .portfolio-tags {
-    margin: 0;
-    cursor: text;
-  }
-
-  .account-editor-tags-section .portfolio-tags.is-full {
-    cursor: default;
-  }
-
   .account-editor-tag.portfolio-tag {
     display: inline-flex;
     align-items: center;
     gap: 0.12rem;
     padding: 0.18rem 0.28rem 0.18rem 0.42rem;
-  }
-
-  .account-editor-tag--draft {
-    border-style: dashed;
-    border-color: rgb(var(--fg-rgb) / 0.18);
-    background: transparent;
-    padding: 0.12rem 0.45rem;
   }
 
   .account-editor-tag-remove {
@@ -23575,25 +23197,6 @@ a.os-surface-row {
   .account-editor-links-section {
     align-items: stretch;
     gap: 0.3rem;
-  }
-
-  .account-editor-links-scroll {
-    margin-bottom: 0.05rem;
-  }
-
-  .account-editor-links-preview {
-    margin: 0 auto;
-    gap: 0.5rem;
-    padding: 0.08rem 0.2rem;
-  }
-
-  .account-editor-link-chip {
-    cursor: pointer;
-  }
-
-  .account-editor-link-chip:hover {
-    color: rgb(var(--fg-rgb) / 0.92);
-    transform: scale(1.1);
   }
 
   .account-editor-links-actions {
@@ -23735,53 +23338,8 @@ a.os-surface-row {
     );
   }
 
-  .account-editor-link-inline-error {
-    flex-shrink: 0;
-    padding-right: 0.15rem;
-    font-size: 0.62rem;
-    line-height: 1;
-    letter-spacing: 0.01em;
-    color: var(--protocol-red);
-    white-space: nowrap;
-  }
-
-  .account-editor-link-inline-status {
-    flex-shrink: 0;
-    padding-right: 0.15rem;
-    font-size: 0.62rem;
-    line-height: 1;
-    letter-spacing: 0.01em;
-    color: hsl(var(--muted-foreground));
-    white-space: nowrap;
-  }
-
   .account-editor-link-input.is-probing {
     opacity: 0.88;
-  }
-
-  .account-editor-link-cancel {
-    display: inline-flex;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    width: 1.65rem;
-    height: 1.65rem;
-    margin-right: 0.05rem;
-    border: 0;
-    border-radius: 9999px;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.34);
-    cursor: pointer;
-    transition: color 160ms ease;
-  }
-
-  .account-editor-link-cancel:hover {
-    color: rgb(var(--fg-rgb) / 0.72);
-  }
-
-  .account-editor-link-cancel-icon {
-    width: 0.75rem;
-    height: 0.75rem;
   }
 
   .account-editor-link-icon-slot {
@@ -23795,91 +23353,6 @@ a.os-surface-row {
 
   .account-editor-link-input:focus-within .account-editor-link-icon-slot {
     color: rgb(var(--fg-rgb) / 0.62);
-  }
-
-  .account-editor-link-value {
-    flex: 1;
-    min-width: 0;
-    border: 0;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.82);
-    font: inherit;
-    font-size: 0.82rem;
-    padding: 0.45rem 0.2rem 0.45rem 0;
-  }
-
-  .account-editor-link-value::placeholder {
-    color: rgb(var(--fg-rgb) / 0.32);
-  }
-
-  .account-editor-link-value:focus {
-    outline: none;
-    color: rgb(var(--fg-rgb) / 0.94);
-  }
-
-  .account-editor-link-title {
-    width: 100%;
-    margin: 0;
-    padding: 0 1.7rem 0.4rem 2.05rem;
-    border: 0;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.52);
-    font: inherit;
-    font-size: 0.72rem;
-    font-weight: 500;
-    letter-spacing: 0.01em;
-  }
-
-  .account-editor-link-title::placeholder {
-    color: rgb(var(--fg-rgb) / 0.3);
-  }
-
-  .account-editor-link-title:focus {
-    outline: none;
-    color: rgb(var(--fg-rgb) / 0.72);
-  }
-
-  .account-editor-websites {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    width: 100%;
-    max-width: min(100%, 20rem);
-    margin-inline: auto;
-    padding: 0;
-    list-style: none;
-  }
-
-  button.account-editor-website-row {
-    appearance: none;
-    width: 100%;
-    border: 0;
-    background: none;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .account-editor-website-url-spacer {
-    visibility: hidden;
-  }
-
-  .account-editor-website-photo-btn {
-    border: 0;
-    margin: 0;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-    border-radius: 999px;
-  }
-
-  .account-editor-website-photo-btn:hover {
-    color: rgb(var(--fg-rgb) / 0.82);
-  }
-
-  .account-editor-website-photo-btn:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.28);
   }
 
   .account-editor-website-photo,
@@ -23918,10 +23391,6 @@ a.os-surface-row {
     color: var(--protocol-red);
   }
 
-  .account-editor-websites-add {
-    align-self: center;
-  }
-
   .account-editor-form-main {
     position: relative;
     flex: 1 1 auto;
@@ -23932,25 +23401,6 @@ a.os-surface-row {
     -webkit-overflow-scrolling: touch;
     background: var(--mood-bg, var(--bg));
     border-radius: inherit;
-  }
-
-  /* Page mood — sheet carries tint; form continues the Card hard cut. */
-  .account-editor-panel--page-mood.glass-sheet-panel[data-tone='os'] {
-    background: var(--mood-bg, var(--glass-surface-os, var(--glass-surface)));
-    border-color: color-mix(
-      in srgb,
-      var(--mood-accent, rgb(var(--fg-rgb))) 14%,
-      rgb(var(--fg-rgb) / 0.1)
-    );
-    color: var(--mood-text, rgb(var(--fg-rgb) / 0.96));
-  }
-
-  .account-editor-panel--page-mood .glass-sheet-body {
-    background: transparent;
-  }
-
-  .account-editor-panel--page-mood .account-editor-form-main {
-    background: transparent;
   }
 
   .profile-edit-slide[data-mood] .account-editor-bio.is-rich-overlay {
@@ -23970,37 +23420,12 @@ a.os-surface-row {
     letter-spacing: var(--mood-body-tracking, normal);
   }
 
-  .profile-edit-slide[data-mood] .account-editor-link-chip {
-    color: var(--mood-muted, rgb(var(--fg-rgb) / 0.72));
-  }
-
-  .profile-edit-slide[data-mood] .account-editor-link-chip:hover {
-    color: var(--mood-text, rgb(var(--fg-rgb) / 0.92));
-  }
-
   .profile-edit-slide[data-mood] .account-editor-link-icon-slot {
     color: color-mix(
       in srgb,
       var(--mood-muted, rgb(var(--fg-rgb) / 0.48)) 88%,
       var(--mood-accent, transparent)
     );
-  }
-
-  .profile-edit-slide[data-mood] .account-editor-link-value {
-    color: var(--mood-text, rgb(var(--fg-rgb) / 0.82));
-  }
-
-  .profile-edit-slide[data-mood] .account-editor-link-value::placeholder,
-  .profile-edit-slide[data-mood] .account-editor-link-title::placeholder {
-    color: color-mix(
-      in srgb,
-      var(--mood-muted, rgb(var(--fg-rgb) / 0.32)) 70%,
-      transparent
-    );
-  }
-
-  .profile-edit-slide[data-mood] .account-editor-link-title {
-    color: var(--mood-muted, rgb(var(--fg-rgb) / 0.52));
   }
 
   .profile-edit-slide[data-mood] .account-editor-links-add {
@@ -24022,10 +23447,6 @@ a.os-surface-row {
     color: var(--mood-text, rgb(var(--fg-rgb) / 0.82));
   }
 
-  .account-editor-panel--page-mood.account-editor-panel--glass.glass-sheet-panel[data-tone='os'] {
-    background: var(--bg);
-  }
-
   @media (prefers-reduced-transparency: reduce) {
     .profile-editor-media-host:hover .account-editor-banner-overlay.has-media,
     .profile-editor-media-host:focus-within
@@ -24037,37 +23458,6 @@ a.os-surface-row {
       backdrop-filter: none;
       background: rgb(0 0 0 / 0.52);
     }
-  }
-
-  .account-editor-tag-hint {
-    color: var(--protocol-red);
-  }
-
-  .account-editor-footer {
-    position: relative;
-    flex-shrink: 0;
-    z-index: 3;
-    margin-top: 0;
-    padding: 0.5rem max(1rem, env(safe-area-inset-right, 0px))
-      calc(0.25rem + env(safe-area-inset-bottom, 0px))
-      max(1rem, env(safe-area-inset-left, 0px));
-    background: transparent;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    box-shadow: none;
-  }
-
-  .account-editor-footer::before {
-    content: none;
-  }
-
-  .account-editor-footer > * {
-    position: relative;
-    z-index: 1;
-  }
-
-  .account-editor-footer::after {
-    content: none;
   }
 
   .account-editor-file-input {
@@ -24988,7 +24378,8 @@ a.os-surface-row {
     grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr);
   }
 
-  .post-row-skeleton-media--collage-3 .post-row-skeleton-media-cell:first-child {
+  .post-row-skeleton-media--collage-3
+    .post-row-skeleton-media-cell:first-child {
     grid-column: 1 / -1;
   }
 
