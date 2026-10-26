@@ -13237,7 +13237,6 @@ a.os-surface-row {
     border-bottom: 0;
   }
 
-  .customize-sheet-status,
   .customize-sheet-error {
     padding: 0;
   }
@@ -13272,7 +13271,6 @@ a.os-surface-row {
       );
   }
 
-  .customize-sheet-status,
   .customize-sheet-error {
     padding: 0;
   }
@@ -13315,34 +13313,6 @@ a.os-surface-row {
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.38);
-  }
-
-  .customize-song-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-
-  .customize-song-clear {
-    border: 0;
-    background: transparent;
-    padding: 0;
-    font: inherit;
-    font-size: 0.78rem;
-    color: rgb(var(--fg-rgb) / 0.62);
-    cursor: pointer;
-  }
-
-  .customize-song-clear:hover,
-  .customize-song-clear:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.92);
-    outline: none;
-  }
-
-  .customize-song-clear:disabled {
-    opacity: 0.4;
-    cursor: default;
   }
 
   .customize-song-find {
@@ -13472,95 +13442,6 @@ a.os-surface-row {
 
   .customize-sheet-panel .os-surface-row:disabled {
     cursor: progress;
-  }
-
-  .customize-hero-fields {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-top: 0.75rem;
-  }
-
-  .customize-hero-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  .customize-hero-field-label {
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.45);
-  }
-
-  .customize-hero-input {
-    width: 100%;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 0.75rem;
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: inherit;
-    font: inherit;
-    font-size: 0.85rem;
-    padding: 0.65rem 0.75rem;
-  }
-
-  .customize-hero-input:focus {
-    outline: 2px solid
-      color-mix(
-        in srgb,
-        var(--mood-accent, rgb(var(--fg-rgb) / 0.5)) 45%,
-        transparent
-      );
-    outline-offset: 1px;
-  }
-
-  .customize-sheet-actions--inline {
-    margin-top: 0.85rem;
-    padding-top: 0;
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-
-  .customize-sheet-secondary {
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 9999px;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.72);
-    font: inherit;
-    font-size: 0.82rem;
-    padding: 0.55rem 1rem;
-    cursor: pointer;
-    transition:
-      border-color 160ms ease,
-      background 160ms ease,
-      color 160ms ease;
-  }
-
-  .customize-sheet-secondary:not(:disabled):hover,
-  .customize-sheet-secondary:not(:disabled):focus-visible {
-    border-color: rgb(var(--fg-rgb) / 0.16);
-    background: rgb(var(--fg-rgb) / 0.045);
-    color: rgb(var(--fg-rgb) / 0.9);
-    outline: none;
-  }
-
-  .customize-sheet-secondary:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: not-allowed;
-  }
-
-  .customize-media-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.55rem;
-    margin-top: 0.75rem;
-  }
-
-  .customize-media-input {
-    display: none;
   }
 
   /* Full-viewport OS glass app surface (Home, Discover, Market, Guilds). */
