@@ -15247,16 +15247,17 @@ a.os-surface-row {
     /* Short clearance only — feed scrolls under the floating dock pill. */
     padding-bottom: calc(3.25rem + env(safe-area-inset-bottom, 0px));
     /* Do not set scrollbar-gutter here. A stable rail narrows the column and wraps a line down. */
-    transition: padding-bottom var(--os-motion-dock, 260ms) ease;
+    /* No padding-bottom transition. The pill tucks with a transform; animating
+       this padding shifts the list under the finger. */
   }
 
   /*
    * Constant air above the dock — pad tracks measured dock height
    * (`--os-summon-dock-occupied` from useSummonDockOccupiedHeight).
-   * Dock stays pinned; only the scroller clearance changes.
+   * Scroll-hide does not change this. The pill translates away; the
+   * scroller clearance stays so the rows do not jump.
    */
-  .os-app-screen:has(> .portfolio-summon-dock:not(.is-scroll-hidden))
-    .os-app-screen-body {
+  .os-app-screen:has(> .portfolio-summon-dock) .os-app-screen-body {
     padding-bottom: calc(
       var(--os-summon-dock-occupied, var(--portfolio-dock-clearance, 4.75rem)) +
         0.4rem
@@ -25998,6 +25999,7 @@ a.os-surface-row {
   }
 
   .post-media-strip.is-collage .post-media-tile {
+    position: relative;
     border: 0;
     border-radius: 0.25rem;
     overflow: hidden;
@@ -26008,7 +26010,11 @@ a.os-surface-row {
     background: transparent;
   }
 
+  /* The file fills a frame that already has its size. Intrinsic pixels
+     must not grow the row when the image arrives. */
   .post-media-strip.is-collage .post-media-element {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     max-height: none;
@@ -26017,27 +26023,27 @@ a.os-surface-row {
   }
 
   .post-media-strip.is-collage.post-media-strip--2 {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     height: 12.5rem;
   }
 
   .post-media-strip.is-collage.post-media-strip--3 {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
     height: 12.5rem;
   }
 
   .post-media-strip.is-collage.post-media-strip--3.is-wide {
-    grid-template-rows: 1.15fr 1fr;
+    grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr);
   }
 
   .post-media-strip.is-collage.post-media-strip--3.is-tall {
-    grid-template-columns: 1.15fr 1fr;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   }
 
   .post-media-strip.is-collage.post-media-strip--4 {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
     height: 14rem;
   }
 
@@ -26473,19 +26479,31 @@ a.os-surface-row {
 
   .post-card-quote-thumb {
     position: relative;
-    flex: 0 0 auto;
+    flex: 0 0 3.6rem;
     width: 3.6rem;
+    min-width: 3.6rem;
+    max-width: 3.6rem;
     height: 3.6rem;
+    min-height: 3.6rem;
+    max-height: 3.6rem;
     overflow: hidden;
     border-radius: 0.45rem;
     border: 0;
     background: var(--bg);
   }
 
+  /* A single thumb is one frame. The file sits in it and cannot stretch it. */
+  .post-card-quote-thumb:not(.is-collage) .post-card-quote-thumb-media {
+    position: absolute;
+    inset: 0;
+  }
+
   .post-card-quote-thumb-media {
     display: block;
     width: 100%;
     height: 100%;
+    min-width: 0;
+    min-height: 0;
     object-fit: cover;
   }
 
@@ -26497,25 +26515,25 @@ a.os-surface-row {
   }
 
   .post-card-quote-thumb.is-collage.is-2 {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
   .post-card-quote-thumb.is-collage.is-3 {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   }
 
   .post-card-quote-thumb.is-collage.is-3.is-wide {
-    grid-template-rows: 1.15fr 1fr;
+    grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr);
   }
 
   .post-card-quote-thumb.is-collage.is-3.is-tall {
-    grid-template-columns: 1.15fr 1fr;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   }
 
   .post-card-quote-thumb.is-collage.is-4 {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   }
 
   .post-card-quote-thumb.is-collage > .post-card-quote-thumb-media {
