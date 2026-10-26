@@ -103,12 +103,13 @@ export function PostMediaBlock({
             : 'detail-unmuted'
           : 'list'
         : null;
-  const { containerRef, videoRef, videoPreload } = usePostVideoPlayback(
-    playbackMode,
-    focused
-      ? { initialTime: initialVideoTime, resume: resumeFocusedVideo }
-      : undefined
-  );
+  const { containerRef, bindVideoEl, videoPreload, videoMounted } =
+    usePostVideoPlayback(
+      playbackMode,
+      focused
+        ? { initialTime: initialVideoTime, resume: resumeFocusedVideo }
+        : undefined
+    );
   const isListVideo = playbackMode === 'list';
   const isDetailVideo =
     playbackMode === 'detail-muted' || playbackMode === 'detail-unmuted';
@@ -147,9 +148,11 @@ export function PostMediaBlock({
   ]
     .filter(Boolean)
     .join(' ');
+  const videoElementRef = useRef<HTMLVideoElement | null>(null);
   const bindVideo = (node: HTMLVideoElement | null) => {
     bind(node);
-    if (playbackMode) videoRef.current = node;
+    videoElementRef.current = node;
+    if (playbackMode) bindVideoEl(node);
   };
   const media = (
     <>
@@ -157,22 +160,28 @@ export function PostMediaBlock({
         <span className="post-media-skeleton standing-row-shimmer" aria-hidden />
       )}
       {isVideo ? (
-        <video
-          ref={bindVideo}
-          src={item.url}
-          playsInline
-          muted={isListVideo || playbackDisabled || (isDetailVideo && soundOff)}
-          loop={isListVideo || isDetailVideo}
-          preload={videoPreload}
-          data-post-focus-video={isDetailVideo ? String(index) : undefined}
-          className={mediaClassName}
-          onLoadedMetadata={(event) => {
-            const video = event.currentTarget;
-            rememberRatio(video.videoWidth, video.videoHeight);
-            markResolved();
-          }}
-          onError={markResolved}
-        />
+        // Far-off list videos unmount — the ratio-held box stays, the
+        // decoder and buffers go. Remounts warm up a viewport before paint.
+        videoMounted ? (
+          <video
+            ref={bindVideo}
+            src={item.url}
+            playsInline
+            muted={
+              isListVideo || playbackDisabled || (isDetailVideo && soundOff)
+            }
+            loop={isListVideo || isDetailVideo}
+            preload={videoPreload}
+            data-post-focus-video={isDetailVideo ? String(index) : undefined}
+            className={mediaClassName}
+            onLoadedMetadata={(event) => {
+              const video = event.currentTarget;
+              rememberRatio(video.videoWidth, video.videoHeight);
+              markResolved();
+            }}
+            onError={markResolved}
+          />
+        ) : null
       ) : (
         <img
           ref={bind}
@@ -200,7 +209,7 @@ export function PostMediaBlock({
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            const video = videoRef.current;
+            const video = videoElementRef.current;
             const next = !soundOff;
             if (video) {
               video.muted = next;

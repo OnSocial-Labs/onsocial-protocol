@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 import { Divider } from '@onsocial/ui';
 import {
@@ -84,10 +85,6 @@ export function PersonalFeedList({
   initialEngagement = null,
   initialScarceEmbeds = null,
 }: PersonalFeedListProps) {
-  seedPostAuthorProfilesFromFeed(posts);
-  seedGuildDisplayNamesFromFeed(posts);
-  seedScarceEmbedsFromSsr(initialScarceEmbeds);
-
   const feedBlocks = useMemo(
     () =>
       coalesceFeedThreads(posts, {
@@ -97,8 +94,35 @@ export function PersonalFeedList({
     [includeForeignReplies, posts, stoodWithAccountIds]
   );
   const quotedPosts = useQuotedPosts(posts);
-  seedPostAuthorProfilesFromFeed(Object.values(quotedPosts));
-  seedGuildDisplayNamesFromFeed(Object.values(quotedPosts));
+
+  /*
+   * Hydration parity: SSR paints bylines and guild chips from a warm
+   * server-side cache, so the first client render must seed synchronously
+   * too. Every later reseed (appended pages, resolved quotes, fresh SSR
+   * embeds) goes through the layout effects below with notify — module
+   * caches are no longer written on every render.
+   */
+  useState(() => {
+    seedPostAuthorProfilesFromFeed(posts);
+    seedGuildDisplayNamesFromFeed(posts);
+    seedScarceEmbedsFromSsr(initialScarceEmbeds);
+    const quoted = Object.values(quotedPosts);
+    seedPostAuthorProfilesFromFeed(quoted);
+    seedGuildDisplayNamesFromFeed(quoted);
+    return null;
+  });
+
+  useLayoutEffect(() => {
+    seedPostAuthorProfilesFromFeed(posts, { notify: true });
+    seedGuildDisplayNamesFromFeed(posts, { notify: true });
+    seedScarceEmbedsFromSsr(initialScarceEmbeds, { notify: true });
+  }, [posts, initialScarceEmbeds]);
+
+  useLayoutEffect(() => {
+    const quoted = Object.values(quotedPosts);
+    seedPostAuthorProfilesFromFeed(quoted, { notify: true });
+    seedGuildDisplayNamesFromFeed(quoted, { notify: true });
+  }, [quotedPosts]);
 
   const authorIds = useMemo(() => {
     const ids = new Set<string>();
@@ -232,7 +256,11 @@ export function PersonalFeedList({
     <div className={className ?? 'home-feed-list'}>
       {feedBlocks.map(
         ({ posts, standingPeek, standingCoilTail }, blockIndex) => (
-          <div key={postKey(posts[0]!)} className="home-feed-block">
+          <div
+            key={postKey(posts[0]!)}
+            className="home-feed-block"
+            data-feed-key={postKey(posts[0]!)}
+          >
             <Divider
               variant="item"
               className={

@@ -35,6 +35,11 @@ import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { HomeFeedSortToggle } from '@/features/home/home-feed-sort-toggle';
 import { APP_DISCOVER_PATH, APP_HOME_PATH } from '@/lib/app-routes';
 import {
+  captureVisibleFeedAnchor,
+  restoreFeedAnchor,
+  type FeedScrollAnchor,
+} from '@/features/home/home-feed-scroll-anchor';
+import {
   collectOutgoingStandingSources,
   fetchCircleFeedPage,
   fetchPulseFeedPage,
@@ -425,6 +430,7 @@ export function HomePagePanel({
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const loadIdRef = useRef(0);
   const appendInFlightRef = useRef(false);
+  const reRankAnchorRef = useRef<FeedScrollAnchor | null>(null);
   const standingSourcesRef = useRef<string[] | null>(
     restoredSession?.standingNetworkIds
       ? [...restoredSession.standingNetworkIds]
@@ -534,6 +540,15 @@ export function HomePagePanel({
   useLayoutEffect(() => {
     persistFeedSession({ storage: false });
   });
+
+  // Append re-rank captured an anchor just before setPosts; put the row
+  // back at its viewport offset before paint so the merge is invisible.
+  useLayoutEffect(() => {
+    const pending = reRankAnchorRef.current;
+    if (!pending) return;
+    reRankAnchorRef.current = null;
+    restoreFeedAnchor(scrollRootRef.current, pending);
+  }, [posts]);
 
   useEffect(() => {
     const node = scrollRootRef.current;
@@ -1064,10 +1079,17 @@ export function HomePagePanel({
         if (pendingShift > 0) {
           offsetShiftAppliedRef.current += pendingShift;
         }
+        if (focus != null && sort === 'hot') {
+          // Focus Hot re-ranks the whole accumulated list on append, so a
+          // hot post from a later page can outrank painted rows. Hold the
+          // first visible row at its offset — the merge must not shift
+          // content under the reader. The layout effect below applies it.
+          reRankAnchorRef.current = captureVisibleFeedAnchor(
+            scrollRootRef.current
+          );
+        }
         setPosts((current) => {
           const merged = mergeFeedPosts(current, result.page.items);
-          // Focus Hot pages arrive chrono; re-rank the whole list so a hot
-          // post from a later page can outrank cold rows from earlier pages.
           return focus != null && sort === 'hot'
             ? sortPostsByHot(merged)
             : merged;
