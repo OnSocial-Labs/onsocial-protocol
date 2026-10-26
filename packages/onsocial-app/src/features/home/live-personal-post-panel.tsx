@@ -483,19 +483,37 @@ export function LivePersonalPostPanel({
         offset: conversation.replies.length,
       });
       paginatedRef.current = true;
-      setConversation((current) => ({
-        ...current,
-        replies: [...current.replies, ...page],
-      }));
-      setReplyTree((current) => [
-        ...current,
-        ...page.map((post) =>
-          leafThreadNode(
-            post,
-            personalPostContentPath(post.accountId, post.postId)
-          )
-        ),
-      ]);
+      /* Offset paging with no cursor: replies landing between fetches shift
+       * the window, so drop rows we already have (same merge rule as the
+       * main feed's mergeFeedPosts) instead of painting duplicates. */
+      setConversation((current) => {
+        const seen = new Set(current.replies.map(postKey));
+        const fresh = page.filter((post) => {
+          const key = postKey(post);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        return { ...current, replies: [...current.replies, ...fresh] };
+      });
+      setReplyTree((current) => {
+        const seen = new Set(current.map((node) => postKey(node.post)));
+        const fresh = page.filter((post) => {
+          const key = postKey(post);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        return [
+          ...current,
+          ...fresh.map((post) =>
+            leafThreadNode(
+              post,
+              personalPostContentPath(post.accountId, post.postId)
+            )
+          ),
+        ];
+      });
       setHasMoreReplies(page.length >= REPLY_PAGE_SIZE);
     } catch {
       // Keep the current list; the button stays available to retry.
