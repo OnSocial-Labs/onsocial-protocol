@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from 'react';
 import { cn } from './cn.js';
+import { ipfsImgSrcSet } from './ipfs-img-variants.js';
 
 export type ProfileAvatarSize = 'sm' | 'md' | 'lg';
 export type ProfileAvatarShape = 'circle' | 'squircle' | 'square';
@@ -19,6 +20,16 @@ export function profileAvatarShapeClassName(
   return `profile-avatar--${shape}`;
 }
 
+/** Two rungs cover every avatar slot: ≤36px base sizes and ~96px heroes at 3x. */
+const AVATAR_VARIANT_WIDTHS = [128, 384] as const;
+
+/** Rendered width per base size — profile-avatar--sm/md/lg at 16px root. */
+const AVATAR_IMG_SIZES: Record<ProfileAvatarSize, string> = {
+  sm: '22px',
+  md: '32px',
+  lg: '36px',
+};
+
 export interface ProfileAvatarProps {
   src?: string | null;
   fallbackInitial?: string;
@@ -27,6 +38,8 @@ export interface ProfileAvatarProps {
   size?: ProfileAvatarSize;
   /** Omit / circle keeps today’s look for renderers that do not know kind. */
   shape?: ProfileAvatarShape;
+  /** `sizes` override for CSS-enlarged avatars (e.g. a 96px profile hero). */
+  imgSizes?: string;
   className?: string;
 }
 
@@ -47,6 +60,7 @@ export function ProfileAvatar({
   shellLoading = false,
   size = 'md',
   shape = 'circle',
+  imgSizes,
   className,
 }: ProfileAvatarProps) {
   const imgRef = useRef<HTMLImageElement>(null);
@@ -72,6 +86,7 @@ export function ProfileAvatar({
   }, [src]);
 
   const hasSrc = Boolean(src) && !mediaError;
+  const srcSet = hasSrc ? ipfsImgSrcSet(src, AVATAR_VARIANT_WIDTHS) : undefined;
   const showShellLoading = shellLoading && !hasSrc;
   const showMediaLoading = hasSrc && !mediaLoaded;
   const showShimmer = showShellLoading || showMediaLoading;
@@ -98,6 +113,8 @@ export function ProfileAvatar({
         <img
           ref={imgRef}
           src={src ?? undefined}
+          srcSet={srcSet}
+          sizes={srcSet ? (imgSizes ?? AVATAR_IMG_SIZES[size]) : undefined}
           alt=""
           className="profile-avatar__img"
           loading="lazy"
