@@ -29,6 +29,8 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { HomeFeedChipBar } from '@/features/home/home-feed-chip-bar';
 import { HomeFeedNewPostsChip } from '@/features/home/home-feed-new-posts-chip';
+import { HomeFeedPullIndicator } from '@/features/home/home-feed-pull-indicator';
+import { useHomeFeedPullRefresh } from '@/features/home/use-home-feed-pull-refresh';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { HomeFeedSortToggle } from '@/features/home/home-feed-sort-toggle';
 import { APP_DISCOVER_PATH, APP_HOME_PATH } from '@/lib/app-routes';
@@ -1433,6 +1435,14 @@ export function HomePagePanel({
     visibleCardCount === 0 &&
     (!hasMore || hiddenWalkGaveUp);
   const showFeed = visibleCardCount > 0;
+  const pullRefresh = useHomeFeedPullRefresh({
+    scrollRootRef,
+    refreshing: isRefreshing,
+    loading: isLoading,
+    loadingMore: isLoadingMore,
+    hasRows: showFeed,
+    onRefresh: retryLoad,
+  });
   const newPostsCountLabel = homeFeedNewPostsCountLabel(unseenPosts.count);
   const showNewPostsPill =
     Boolean(newPostsCountLabel) && showFeed && !isRefreshing && !isLoading;
@@ -1527,6 +1537,8 @@ export function HomePagePanel({
 
           {sheet}
         </OsAppChromePage>
+
+        <HomeFeedPullIndicator subscribe={pullRefresh.subscribe} />
 
         {showNewPostsPill ? (
           <HomeFeedNewPostsChip
