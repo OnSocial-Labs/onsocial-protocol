@@ -271,4 +271,43 @@ test.describe('thread reply dock', () => {
     await expect(page.locator('.os-write-dock-reply')).toHaveCount(0);
     await expect(field).toHaveValue('');
   });
+
+  test('nested reply send parents the write under the picked reply', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await seedE2eMockSigner(page, 'dave.near', { succeed: true });
+    await stubE2eComposePrepare(page);
+    await stubNearRpcFinal(page);
+    await stubThreadGraph(page);
+
+    const drawer = await openThreadDrawer(page);
+
+    // Pick Bob's reply — the chip names the nested target.
+    await drawer
+      .getByRole('button', { name: 'Reply to this post' })
+      .nth(1)
+      .click();
+    const chip = page.locator('.os-write-dock-reply');
+    await expect(chip).toBeVisible({ timeout: 10_000 });
+    await expect(chip).toContainText('Bob');
+
+    const field = page.getByRole('textbox', { name: 'Add a reply…' });
+    await field.fill('Nested dock reply');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+
+    // The write parents under Bob's reply, not the root.
+    await expectE2eSignerWrite(page, (recorded) => {
+      const blob = JSON.stringify(recorded);
+      expect(blob).toContain('bob.near/post/reply-one');
+      expect(blob).toContain('Nested dock reply');
+      expect(blob).not.toContain('alice.near/post/root-post');
+    });
+
+    // Confirmed — chip and field reset. A nested reply waits for the indexer
+    // reconcile instead of painting optimistically.
+    await expect(page.locator('.os-write-dock-reply')).toHaveCount(0);
+    await expect(field).toHaveValue('');
+    await expect(drawer.getByText('Nested dock reply')).toHaveCount(0);
+  });
 });
