@@ -177,15 +177,6 @@
   box-sizing: border-box;
 }
 
-/* Suggest list still anchors under the search field / heading. */
-.os-app-screen-heading .discover-omni-suggest {
-  position: absolute;
-  top: calc(100% + 0.35rem);
-  left: 0;
-  right: 0;
-  z-index: 6;
-}
-
 /*
  * App chrome rail — see @onsocial/ui/os-app-chrome.css (OsAppChromeToolbarRail).
  */
@@ -205,18 +196,6 @@
 .os-app-chrome-rail.collectibles-filter-toolbar > .market-listing-sort-menu {
   margin-left: auto;
   flex: 0 0 auto;
-}
-
-.os-app-screen:has(.market-listing-sort-menu-panel) .os-app-screen-header {
-  z-index: 40;
-}
-
-.os-app-screen:has(.market-listing-sort-menu-panel) .os-app-screen-body {
-  z-index: 0;
-}
-
-.market-listing-sort-menu-panel.os-floating-panel-menu {
-  z-index: 50;
 }
 
 /*
@@ -1512,10 +1491,6 @@ button.market-listing-title-link {
 .os-app-screen[data-immersive-header='true']
   > .os-app-screen-column
   > .os-app-screen-header
-  .contextual-back,
-.os-app-screen[data-immersive-header='true']
-  > .os-app-screen-column
-  > .os-app-screen-header
   .glass-sheet-icon-action {
   box-sizing: border-box;
   width: 1.85rem;
@@ -1683,11 +1658,6 @@ button.market-listing-title-link {
  * Immersive cover discs are scoped to the host screen’s own header (see
  * above) so portaled slides don’t inherit white/scrim from album/play pages.
  */
-
-.os-app-screen[data-immersive-header='true']
-  > .os-app-screen-column
-  > .os-app-screen-header:not(.is-elevated)
-  .contextual-back:hover,
 .os-app-screen[data-immersive-header='true']
   > .os-app-screen-column
   > .os-app-screen-header:not(.is-elevated)
@@ -1970,9 +1940,6 @@ button.post-media-tile {
 .app-page-hero
   .guild-hero-membership-slot
   .guild-hero-membership.os-sheet-actions--row-compact
-  .os-sheet-action,
-.guild-thread-nav-membership-slot
-  .guild-thread-nav-membership.os-sheet-actions--row-compact
   .os-sheet-action {
   flex: 0 0 auto;
   width: 100%;
@@ -2091,9 +2058,6 @@ button.post-media-tile {
 .app-page-hero
   .guild-hero-membership-slot
   .guild-hero-membership.os-sheet-actions--row-compact
-  .os-sheet-action__shell,
-.guild-thread-nav-membership-slot
-  .guild-thread-nav-membership.os-sheet-actions--row-compact
   .os-sheet-action__shell {
   width: 100%;
 }
@@ -3808,13 +3772,10 @@ a.os-surface-row {
 @layer components {
   /* Semantic feedback — protocol token backed */
   .app-error-text,
-  .mood-sheet-error,
-  .customize-sheet-error,
-  .portfolio-face-preview-error {
+  .customize-sheet-error {
     color: color-mix(in srgb, var(--protocol-red) 92%, transparent);
   }
 
-  .app-success-dot[data-active='true'],
   .profile-dot[data-active='true'] {
     background: color-mix(in srgb, var(--protocol-green) 80%, transparent);
     box-shadow: 0 0 8px var(--protocol-green-glow);
@@ -3843,7 +3804,6 @@ a.os-surface-row {
   .os-app-screen,
   .gate,
   .glass-sheet-panel[data-tone='os'],
-  .portfolio-os-dock,
   .portfolio-face-preview-bar,
   .portfolio-mood-preview-bar,
   .portfolio-summon-dock {
@@ -3962,104 +3922,11 @@ a.os-surface-row {
     height: 100%;
   }
 
-  .gate-panel {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .gate-form {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
   .gate-label {
     font-size: 0.68rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: hsl(var(--muted-foreground));
-  }
-
-  .gate-field-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.03);
-    padding: 0.35rem 0.35rem 0.35rem 0.9rem;
-  }
-
-  .gate-prefix {
-    color: rgb(var(--fg-rgb) / 0.35);
-    font-size: 0.9rem;
-  }
-
-  .gate-input {
-    min-width: 0;
-    flex: 1;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    outline: none;
-  }
-
-  .gate-cta {
-    border: 0;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.92);
-    color: var(--bg);
-    font-size: 0.82rem;
-    font-weight: 600;
-    padding: 0.65rem 1rem;
-    cursor: pointer;
-    transition:
-      background 160ms ease,
-      transform 120ms ease;
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .gate-cta:hover:not(:disabled) {
-      background: rgb(var(--fg-rgb));
-    }
-  }
-
-  .gate-cta:focus-visible {
-    outline: none;
-    box-shadow: var(
-      --os-focus-ring,
-      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
-    );
-  }
-
-  .gate-cta:active:not(:disabled) {
-    transform: scale(0.985);
-  }
-
-  .gate-cta:disabled {
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
-  }
-
-  .gate-hints {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    justify-content: center;
-  }
-
-  .gate-chip {
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 9999px;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.55);
-    font-size: 0.78rem;
-    padding: 0.45rem 0.75rem;
-    cursor: pointer;
   }
 
   .gate-dapp-rail {
@@ -4139,8 +4006,7 @@ a.os-surface-row {
     text-align: center;
   }
 
-  .gate-connect-button,
-  .gate-connect-link {
+  .gate-connect-button {
     pointer-events: auto;
     border: 1px solid rgb(var(--fg-rgb) / 0.1);
     border-radius: 9999px;
@@ -4162,16 +4028,14 @@ a.os-surface-row {
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .gate-connect-button:hover,
-    .gate-connect-link:hover {
+    .gate-connect-button:hover {
       border-color: rgb(var(--fg-rgb) / 0.2);
       background: rgb(var(--fg-rgb) / 0.07);
       color: rgb(var(--fg-rgb) / 0.92);
     }
   }
 
-  .gate-connect-button:focus-visible,
-  .gate-connect-link:focus-visible {
+  .gate-connect-button:focus-visible {
     outline: none;
     border-color: rgb(var(--fg-rgb) / 0.2);
     color: rgb(var(--fg-rgb) / 0.92);
@@ -4186,19 +4050,6 @@ a.os-surface-row {
     transform: scale(0.985);
   }
 
-  .gate-connect-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.65rem;
-  }
-
-  .gate-connect-handle {
-    color: rgb(var(--fg-rgb) / 0.96);
-    letter-spacing: 0.04em;
-    text-transform: none;
-    font-size: 0.82rem;
-  }
-
   .gate-connect-booting {
     pointer-events: none;
     color: rgb(var(--fg-rgb) / 0.5);
@@ -4206,21 +4057,6 @@ a.os-surface-row {
     letter-spacing: 0.14em;
     text-transform: uppercase;
     padding: 0.65rem 1rem;
-  }
-
-  .capsule {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.04);
-    padding: 0.5rem 0.9rem;
-    font-size: 0.68rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground));
-    backdrop-filter: blur(12px);
   }
 
   .frame {
@@ -4385,27 +4221,9 @@ a.os-surface-row {
 /* ─── Portfolio onpage ─────────────────────────────────── */
 
 @layer components {
-  .portfolio-topbar {
-    display: none;
-  }
-
   .gate-dapp-link.is-soon {
     opacity: 0.28 !important;
     cursor: default;
-  }
-
-  .app-topbar-minimal {
-    justify-content: space-between;
-  }
-
-  .app-back-link {
-    font-size: 0.82rem;
-    letter-spacing: 0.02em;
-    color: rgb(var(--fg-rgb) / 0.58);
-  }
-
-  .app-back-link:hover {
-    color: rgb(var(--fg-rgb) / 0.92);
   }
 
   .app-shell-os-rail {
@@ -4423,23 +4241,6 @@ a.os-surface-row {
   .app-shell-os-rail .gate-dapp-rail {
     pointer-events: auto;
     width: min(100%, 14rem);
-  }
-
-  .portfolio-home-link {
-    display: inline-flex;
-    width: 2rem;
-    height: 2rem;
-    color: rgb(var(--fg-rgb) / 0.55);
-    transition: color 180ms ease;
-  }
-
-  .portfolio-home-link:hover {
-    color: rgb(var(--fg-rgb) / 0.92);
-  }
-
-  .portfolio-home-link svg {
-    width: 100%;
-    height: 100%;
   }
 
   .portfolio-owner-profile-prompt {
@@ -4849,21 +4650,6 @@ a.os-surface-row {
     content: none;
   }
 
-  .portfolio-mood-wash {
-    display: none;
-  }
-
-  /*
-   * Premium finish materials — Gold · Glass · Carbon · Holographic.
-   * Palette lives in SDK presets; this layer adds material chrome on the shell.
-   */
-  .portfolio-frame[data-mood='glass'] .portfolio-mood-wash,
-  .portfolio-frame[data-mood='gold'] .portfolio-mood-wash,
-  .portfolio-frame[data-mood='carbon'] .portfolio-mood-wash,
-  .portfolio-frame[data-mood='holographic'] .portfolio-mood-wash {
-    display: none;
-  }
-
   /*
    * Glass finish — one frosted pane inside the card (drawer tokens). Material =
    * tinted blur + top-edge catch light only. No bottom glow (avoids the lump).
@@ -5248,7 +5034,6 @@ a.os-surface-row {
   }
 
   .portfolio-frame[data-mood='glass'] .portfolio-banner-region,
-  .portfolio-frame[data-mood='glass'] .portfolio-mood-wash,
   .portfolio-frame[data-mood='glass'] .portfolio-hero,
   .portfolio-frame[data-mood='glass'] .portfolio-avatar-cover,
   .portfolio-frame[data-mood='glass'] .portfolio-profile-banner,
@@ -7189,7 +6974,6 @@ a.os-surface-row {
     .portfolio-frame[data-mood] .portfolio-signals-rank,
     .portfolio-frame[data-mood] .signal-metric,
     .portfolio-frame[data-mood] .portfolio-banner-region,
-    .portfolio-frame[data-mood] .portfolio-mood-wash,
     .portfolio-frame[data-mood-only='true'] .portfolio-page::after,
     .portfolio-frame[data-mood] .portfolio-profile-banner,
     .portfolio-frame[data-mood] .portfolio-avatar-cover,
@@ -7245,23 +7029,6 @@ a.os-surface-row {
 
   .page-drawer-scarces-segments {
     margin-bottom: 0.15rem;
-  }
-
-  .portfolio-os-dock {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 25;
-    display: flex;
-    justify-content: center;
-    padding: 0 1rem calc(1.25rem + env(safe-area-inset-bottom));
-    pointer-events: none;
-  }
-
-  .portfolio-os-dock .gate-dapp-rail {
-    pointer-events: auto;
-    width: min(100%, 14rem);
   }
 
   .portfolio-container {
@@ -7489,16 +7256,6 @@ a.os-surface-row {
     display: inline-flex;
     flex-shrink: 0;
     gap: 0;
-  }
-
-  /* Owner collect — green gift mark (signal-arrow role); Collect = quiet text. */
-  .portfolio-identity-gesture--collect {
-    color: rgb(var(--fg-rgb) / 0.72);
-  }
-
-  .portfolio-identity-gesture--collect:hover:not(:disabled),
-  .portfolio-identity-gesture--collect:focus-visible:not(:disabled) {
-    color: rgb(var(--fg-rgb) / 0.92);
   }
 
   .portfolio-payout-sheet-eyebrow {
@@ -8049,14 +7806,6 @@ a.os-surface-row {
     border-radius: 0.3rem;
   }
 
-  .portfolio-payout-mark-amount-shimmer {
-    display: inline-block;
-    width: 2.6rem;
-    height: 0.85rem;
-    border-radius: 0.3rem;
-    vertical-align: middle;
-  }
-
   .portfolio-payout-sheet-sub {
     margin: 0.28rem 0 0;
     max-width: 22rem;
@@ -8550,94 +8299,10 @@ a.os-surface-row {
     color: inherit;
   }
 
-  /*
-   * Legacy gift mark (kept for any residual collect chrome).
-   */
-  .portfolio-identity-gesture-gift-mark {
-    display: inline-flex;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    width: 0.875rem;
-    height: 0.875rem;
-    color: var(--protocol-green);
-    transform-origin: 50% 60%;
-    animation: portfolio-gift-nudge 11s ease-in-out infinite;
-  }
-
-  .portfolio-identity-gesture-gift {
-    display: block;
-    width: 0.875rem !important;
-    height: 0.875rem !important;
-    min-width: 0.875rem;
-    min-height: 0.875rem;
-    color: inherit;
-  }
-
-  .portfolio-identity-gesture-gift path {
-    stroke: currentColor;
-  }
-
-  .portfolio-support-collect-info-button {
-    display: inline-grid;
-    place-items: center;
-    flex-shrink: 0;
-    width: 1.35rem;
-    height: 1.35rem;
-    margin: -0.3rem -0.15rem -0.3rem 0.05rem;
-    padding: 0;
-    border: 0;
-    border-radius: 9999px;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.5);
-    cursor: pointer;
-    line-height: 0;
-    transition: color 160ms ease;
-  }
-
-  .portfolio-support-collect-info-button:hover,
-  .portfolio-support-collect-info-button:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.92);
-    outline: none;
-  }
-
-  .portfolio-support-collect-info-icon {
-    display: block;
-    width: 0.88rem;
-    height: 0.88rem;
-  }
-
   .portfolio-support-collect-info-body {
     display: flex;
     flex-direction: column;
     gap: 0.15rem;
-  }
-
-  .portfolio-support-collect-info-legend {
-    list-style: none;
-    margin: 0;
-    padding: 0.55rem 0 0.65rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-  }
-
-  .portfolio-support-collect-info-legend li {
-    display: flex;
-    flex-direction: column;
-    gap: 0.12rem;
-  }
-
-  .portfolio-support-collect-info-legend-label {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.9);
-  }
-
-  .portfolio-support-collect-info-legend-detail {
-    font-size: 0.75rem;
-    line-height: 1.4;
-    color: rgb(var(--fg-rgb) / 0.55);
   }
 
   .portfolio-support-collect-info-block {
@@ -8787,13 +8452,6 @@ a.os-surface-row {
     text-decoration: none;
   }
 
-  .portfolio-scarce-earnings-avatar-link {
-    flex-shrink: 0;
-    line-height: 0;
-    color: inherit;
-    text-decoration: none;
-  }
-
   .portfolio-scarce-earnings-post-link {
     pointer-events: auto;
     position: relative;
@@ -8810,21 +8468,6 @@ a.os-surface-row {
     height: 1px;
     width: 100%;
     pointer-events: none;
-  }
-
-  .portfolio-identity-gesture--collect:hover:not(:disabled)
-    .portfolio-identity-gesture-gift-mark,
-  .portfolio-identity-gesture--collect:focus-visible:not(:disabled)
-    .portfolio-identity-gesture-gift-mark,
-  .portfolio-identity-gesture--collect:disabled
-    .portfolio-identity-gesture-gift-mark {
-    animation: none;
-  }
-
-  .portfolio-identity-gesture-amount {
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
-    color: inherit;
   }
 
   .portfolio-identity-gesture-standing-count {
@@ -8870,29 +8513,6 @@ a.os-surface-row {
     color: inherit;
   }
 
-  .portfolio-identity-gesture-mid {
-    color: rgb(var(--fg-rgb) / 0.22);
-    font-size: 0.62rem;
-    font-weight: 500;
-    line-height: 1;
-    user-select: none;
-  }
-
-  .portfolio-identity-gesture-collect-label {
-    color: rgb(var(--fg-rgb) / 0.68);
-  }
-
-  .portfolio-identity-gesture--collect:hover:not(:disabled)
-    .portfolio-identity-gesture-collect-label,
-  .portfolio-identity-gesture--collect:focus-visible:not(:disabled)
-    .portfolio-identity-gesture-collect-label {
-    color: rgb(var(--fg-rgb) / 0.92);
-  }
-
-  .portfolio-identity-gesture-collect-dots {
-    color: var(--protocol-green);
-  }
-
   /* Rare soft wiggle — not a loop shake. */
   @keyframes portfolio-gift-nudge {
     0%,
@@ -8931,18 +8551,8 @@ a.os-surface-row {
     animation: standing-shimmer 1.2s ease-in-out infinite;
   }
 
-  .portfolio-identity-gestures-error {
-    margin: 0;
-    max-width: 16rem;
-    font-size: 0.68rem;
-    line-height: 1.35;
-    text-align: center;
-    color: var(--signal-error, var(--protocol-red));
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .portfolio-identity-gesture-shimmer,
-    .portfolio-identity-gesture-gift-mark {
+    .portfolio-identity-gesture-shimmer {
       animation: none;
     }
   }
@@ -9082,14 +8692,6 @@ a.os-surface-row {
     .portfolio-entity-kind-option.is-active:focus-visible {
     color: var(--mood-text);
     background: color-mix(in srgb, var(--mood-text) 16%, transparent);
-  }
-
-  button.portfolio-stats-link {
-    appearance: none;
-    border: 0;
-    background: transparent;
-    font: inherit;
-    cursor: pointer;
   }
 
   /* Page-column cutout — tracks --mood-bg; Minimal uses accent glow instead. */
@@ -9840,7 +9442,6 @@ a.os-surface-row {
   }
 
   .portfolio-hiring-teaser,
-  .portfolio-hiring-copy,
   .portfolio-hiring-meta {
     margin: 0;
     font-size: 0.82rem;
@@ -11085,76 +10686,6 @@ a.os-surface-row {
     margin: 0 0 1.15rem;
   }
 
-  .portfolio-writing-kicker {
-    margin: 0 0 0.55rem;
-    font-size: 0.72rem;
-    font-weight: 650;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.5);
-  }
-
-  .portfolio-writing-kicker a {
-    color: inherit;
-    text-decoration: none;
-  }
-
-  /* Owner face — avatar + name + @id; name wraps, handle ellipsizes. */
-  .portfolio-writing-owner {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    width: 100%;
-    min-width: 0;
-  }
-
-  .portfolio-writing-owner-face {
-    flex: 0 0 auto;
-    margin-top: 0.12rem;
-    line-height: 0;
-    color: inherit;
-    text-decoration: none;
-  }
-
-  .portfolio-writing-owner-copy {
-    display: flex;
-    flex: 1 1 auto;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.12rem;
-    min-width: 0;
-  }
-
-  .portfolio-writing-name {
-    margin: 0;
-    max-width: 100%;
-    font-size: clamp(1.25rem, 5.5vw, 1.65rem);
-    font-weight: 650;
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-    overflow-wrap: anywhere;
-    text-wrap: balance;
-  }
-
-  .portfolio-writing-handle {
-    display: block;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.82rem;
-    font-weight: 550;
-    letter-spacing: 0.01em;
-    line-height: 1.3;
-    color: rgb(var(--fg-rgb) / 0.45);
-    text-decoration: none;
-  }
-
-  .portfolio-writing-handle:hover,
-  .portfolio-writing-handle:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.72);
-  }
-
   /*
    * Article title — About name face. Beside the print it uses the type
    * column's cqi, same as the About name next to the first photo.
@@ -11269,7 +10800,6 @@ a.os-surface-row {
 
   .portfolio-writing-cover-photo,
   .portfolio-writing-cover-card,
-  .portfolio-writing-cover-mark,
   .portfolio-writing-cover-fallback {
     position: absolute;
     inset: 0;
@@ -11278,28 +10808,6 @@ a.os-surface-row {
     height: 100%;
     object-fit: cover;
     object-position: center;
-  }
-
-  .portfolio-writing-cover-mark {
-    box-sizing: border-box;
-    display: flex;
-    align-items: flex-end;
-    justify-content: flex-start;
-    padding: 0.55rem 0.65rem 0.5rem;
-    background: linear-gradient(
-      165deg,
-      rgb(var(--fg-rgb) / 0.1) 0%,
-      rgb(var(--fg-rgb) / 0.04) 55%,
-      rgb(var(--fg-rgb) / 0.08) 100%
-    );
-  }
-
-  .portfolio-writing-cover-mark-initial {
-    font-size: 2.05rem;
-    font-weight: 650;
-    letter-spacing: -0.04em;
-    line-height: 0.9;
-    color: rgb(var(--fg-rgb) / 0.72);
   }
 
   .portfolio-writing-cover-card svg {
@@ -11492,27 +11000,6 @@ a.os-surface-row {
 
   .portfolio-writing-article .portfolio-writing-byline a {
     color: inherit;
-  }
-
-  .portfolio-writing-byline-likes {
-    margin: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    font: inherit;
-    letter-spacing: inherit;
-    line-height: inherit;
-    color: inherit;
-    cursor: pointer;
-    text-decoration: none;
-  }
-
-  .portfolio-writing-byline-likes:hover,
-  .portfolio-writing-byline-likes:focus-visible {
-    color: inherit;
-    text-decoration: underline;
-    text-underline-offset: 0.16em;
-    outline: none;
   }
 
   .portfolio-writing-byline-sep {
@@ -11757,12 +11244,10 @@ a.os-surface-row {
   .os-app-screen--mood .portfolio-about-bio,
   .os-app-screen--mood .portfolio-about-heading,
   .os-app-screen--mood .portfolio-about-list,
-  .os-app-screen--mood .portfolio-about-handle-row,
   .os-app-screen--mood .portfolio-about-masthead .portfolio-topics,
   .glass-sheet-panel .portfolio-about-bio,
   .glass-sheet-panel .portfolio-about-heading,
   .glass-sheet-panel .portfolio-about-list,
-  .glass-sheet-panel .portfolio-about-handle-row,
   .glass-sheet-panel .portfolio-about-masthead .portfolio-topics {
     font-family: var(
       --mood-font-body,
@@ -11881,19 +11366,6 @@ a.os-surface-row {
     text-transform: none;
   }
 
-  .portfolio-stats-inline {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
-    width: 100%;
-    max-width: var(--portfolio-content-width);
-    margin: 0;
-    font-size: 0.8125rem;
-    color: rgb(var(--fg-rgb) / 0.48);
-  }
-
   /* DAO org tools — tighter on mobile; trailing · avoids orphaned dots on wrap. */
   .portfolio-dao-tools-inline {
     display: flex;
@@ -11962,41 +11434,6 @@ a.os-surface-row {
     }
   }
 
-  .portfolio-stats-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-
-  .portfolio-stats-sep {
-    color: rgb(var(--fg-rgb) / 0.22);
-  }
-
-  .portfolio-stats-link {
-    min-height: 2.75rem;
-    display: inline-flex;
-    align-items: center;
-    padding: 0.2rem 0.35rem;
-    color: rgb(var(--fg-rgb) / 0.72);
-    text-decoration: none;
-    transition: color 160ms ease;
-  }
-
-  .portfolio-stats-link:hover {
-    color: rgb(var(--fg-rgb) / 0.96);
-  }
-
-  .portfolio-stats-text {
-    min-height: 2.75rem;
-    display: inline-flex;
-    align-items: center;
-    padding: 0.2rem 0.35rem;
-  }
-
-  .portfolio-frame[data-mood] .portfolio-stats-inline {
-    color: color-mix(in srgb, var(--mood-muted) 88%, var(--mood-text));
-  }
-
   .portfolio-frame[data-mood] .portfolio-dao-tools-inline {
     color: color-mix(in srgb, var(--mood-muted) 88%, var(--mood-text));
   }
@@ -12013,18 +11450,6 @@ a.os-surface-row {
   .portfolio-frame[data-mood] .portfolio-dao-tools-link[aria-expanded='true'],
   .portfolio-frame[data-mood] .portfolio-dao-tools-link:hover,
   .portfolio-frame[data-mood] .portfolio-dao-tools-link:focus-visible {
-    color: var(--mood-text);
-  }
-
-  .portfolio-frame[data-mood] .portfolio-stats-sep {
-    color: color-mix(in srgb, var(--mood-muted) 45%, transparent);
-  }
-
-  .portfolio-frame[data-mood] .portfolio-stats-link {
-    color: color-mix(in srgb, var(--mood-muted) 62%, var(--mood-text));
-  }
-
-  .portfolio-frame[data-mood] .portfolio-stats-link:hover {
     color: var(--mood-text);
   }
 
@@ -12220,10 +11645,6 @@ a.os-surface-row {
 
   .signal-metric.signal-metric-solidarity {
     color: var(--signal-solidarity);
-  }
-
-  .signal-metric-readonly {
-    cursor: default;
   }
 
   .signal-value {
@@ -13124,35 +12545,6 @@ a.os-surface-row {
       height: 1.125rem;
     }
   }
-
-  .portfolio-loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.85rem;
-    padding-top: 4rem;
-  }
-
-  .portfolio-loading-avatar {
-    width: var(--portfolio-avatar-size, 5rem);
-    height: var(--portfolio-avatar-size, 5rem);
-    border-radius: 50%;
-    background: rgb(var(--fg-rgb) / 0.06);
-  }
-
-  .portfolio-loading-line {
-    height: 0.85rem;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.05);
-  }
-
-  .portfolio-loading-line-lg {
-    width: 9rem;
-  }
-
-  .portfolio-loading-line-sm {
-    width: 6rem;
-  }
 }
 
 /* ─── Full-page panels + overlay content ───────────────── */
@@ -13190,13 +12582,6 @@ a.os-surface-row {
     border: 1px dashed rgb(var(--fg-rgb) / 0.12);
     border-radius: 1rem;
     background: rgb(var(--fg-rgb) / 0.02);
-  }
-
-  .panel-placeholder-label {
-    font-size: 0.68rem;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.38);
   }
 
   .panel-action {
@@ -13264,11 +12649,6 @@ a.os-surface-row {
     font-size: 0.76rem;
     line-height: 1.45;
     color: rgb(var(--fg-rgb) / 0.44);
-  }
-
-  .mood-sheet-status {
-    margin: 0 1rem 0.5rem;
-    color: var(--mood-accent, var(--protocol-blue));
   }
 
   .mood-sheet-list {
@@ -13632,12 +13012,6 @@ a.os-surface-row {
     cursor: pointer;
   }
 
-  .mood-sheet-error {
-    margin: 0 1rem 0.75rem;
-    font-size: 0.78rem;
-    line-height: 1.45;
-  }
-
   /* ── Customize sheet (GlassSheet panel) ──────────────── */
 
   .customize-sheet-panel .glass-sheet-body {
@@ -13695,7 +13069,6 @@ a.os-surface-row {
     border-bottom: 0;
   }
 
-  .customize-sheet-status,
   .customize-sheet-error {
     padding: 0;
   }
@@ -13730,7 +13103,6 @@ a.os-surface-row {
       );
   }
 
-  .customize-sheet-status,
   .customize-sheet-error {
     padding: 0;
   }
@@ -13773,34 +13145,6 @@ a.os-surface-row {
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.38);
-  }
-
-  .customize-song-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-
-  .customize-song-clear {
-    border: 0;
-    background: transparent;
-    padding: 0;
-    font: inherit;
-    font-size: 0.78rem;
-    color: rgb(var(--fg-rgb) / 0.62);
-    cursor: pointer;
-  }
-
-  .customize-song-clear:hover,
-  .customize-song-clear:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.92);
-    outline: none;
-  }
-
-  .customize-song-clear:disabled {
-    opacity: 0.4;
-    cursor: default;
   }
 
   .customize-song-find {
@@ -13930,95 +13274,6 @@ a.os-surface-row {
 
   .customize-sheet-panel .os-surface-row:disabled {
     cursor: progress;
-  }
-
-  .customize-hero-fields {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-top: 0.75rem;
-  }
-
-  .customize-hero-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  .customize-hero-field-label {
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.45);
-  }
-
-  .customize-hero-input {
-    width: 100%;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 0.75rem;
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: inherit;
-    font: inherit;
-    font-size: 0.85rem;
-    padding: 0.65rem 0.75rem;
-  }
-
-  .customize-hero-input:focus {
-    outline: 2px solid
-      color-mix(
-        in srgb,
-        var(--mood-accent, rgb(var(--fg-rgb) / 0.5)) 45%,
-        transparent
-      );
-    outline-offset: 1px;
-  }
-
-  .customize-sheet-actions--inline {
-    margin-top: 0.85rem;
-    padding-top: 0;
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-
-  .customize-sheet-secondary {
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 9999px;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.72);
-    font: inherit;
-    font-size: 0.82rem;
-    padding: 0.55rem 1rem;
-    cursor: pointer;
-    transition:
-      border-color 160ms ease,
-      background 160ms ease,
-      color 160ms ease;
-  }
-
-  .customize-sheet-secondary:not(:disabled):hover,
-  .customize-sheet-secondary:not(:disabled):focus-visible {
-    border-color: rgb(var(--fg-rgb) / 0.16);
-    background: rgb(var(--fg-rgb) / 0.045);
-    color: rgb(var(--fg-rgb) / 0.9);
-    outline: none;
-  }
-
-  .customize-sheet-secondary:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: not-allowed;
-  }
-
-  .customize-media-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.55rem;
-    margin-top: 0.75rem;
-  }
-
-  .customize-media-input {
-    display: none;
   }
 
   /* Full-viewport OS glass app surface (Home, Discover, Market, Guilds). */
@@ -14980,13 +14235,6 @@ a.os-surface-row {
     outline: none;
   }
 
-  .discover-trending-strip {
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-    margin-bottom: 0.65rem;
-  }
-
   .discover-trending-panel {
     display: flex;
     flex-direction: column;
@@ -15041,12 +14289,6 @@ a.os-surface-row {
     align-items: baseline;
     justify-content: space-between;
     gap: 0.75rem;
-  }
-
-  .discover-trending-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
   }
 
   .discover-trending-heading-row {
@@ -15287,29 +14529,6 @@ a.os-surface-row {
   .discover-omni-search-form {
     display: block;
     min-width: 0;
-  }
-
-  .discover-omni-suggest {
-    position: absolute;
-    top: calc(100% + 0.35rem);
-    left: 0;
-    right: 0;
-  }
-
-  .discover-topic-draft-hint {
-    margin: 0 0 0.5rem;
-    font-size: 0.75rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.55);
-  }
-
-  .discover-people-heading {
-    margin: 0 0 0.45rem;
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.5);
   }
 
   /* Text tabs — pill chips (same language as SearchField); no underline / rail. */
@@ -15702,18 +14921,6 @@ a.os-surface-row {
     height: 0.7rem;
   }
 
-  .app-wallet-icon-slot.is-loading {
-    pointer-events: none;
-    background: linear-gradient(
-      90deg,
-      rgb(var(--fg-rgb) / 0.04) 0%,
-      rgb(var(--fg-rgb) / 0.08) 50%,
-      rgb(var(--fg-rgb) / 0.04) 100%
-    );
-    background-size: 200% 100%;
-    animation: standing-shimmer 1.2s ease-in-out infinite;
-  }
-
   .app-wallet-connect-glyph {
     display: block;
     width: 1.1rem;
@@ -15721,38 +14928,6 @@ a.os-surface-row {
     border: 1.5px solid currentColor;
     border-radius: 9999px;
     opacity: 0.72;
-  }
-
-  .app-wallet-icon-initial {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.12);
-    font-size: 0.72rem;
-    font-weight: 600;
-    line-height: 1;
-  }
-
-  .app-topbar {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: calc(env(safe-area-inset-top, 0px) + 0.75rem)
-      max(1rem, env(safe-area-inset-right, 0px)) 0.75rem
-      max(1rem, env(safe-area-inset-left, 0px));
-    border-bottom: 1px solid rgb(var(--fg-rgb) / 0.06);
-    background: rgb(5 5 5 / 0.82);
-    backdrop-filter: blur(16px);
-  }
-
-  .app-topbar-logo {
-    display: none;
   }
 
   /* ── Summon launcher ───────────────────────────────────
@@ -16281,29 +15456,6 @@ a.os-surface-row {
     opacity: 0.88;
   }
 
-  .portfolio-summon-account-initial {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--portfolio-summon-avatar-size);
-    height: var(--portfolio-summon-avatar-size);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.12);
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.88);
-  }
-
-  .portfolio-summon-account-avatar {
-    display: block;
-    width: var(--portfolio-summon-avatar-size);
-    height: var(--portfolio-summon-avatar-size);
-    border-radius: 9999px;
-    object-fit: cover;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    background: rgb(var(--fg-rgb) / 0.06);
-  }
-
   .portfolio-summon-account.is-loading {
     opacity: 0.35;
     pointer-events: none;
@@ -16730,13 +15882,6 @@ a.os-surface-row {
     .os-write-dock-footer-shell {
       transition: none;
     }
-  }
-
-  .os-write-dock-tools {
-    display: inline-flex;
-    flex-shrink: 0;
-    align-items: stretch;
-    align-self: stretch;
   }
 
   .os-write-dock-tool {
@@ -17789,8 +16934,7 @@ a.os-surface-row {
   }
 
   /* Same flush stack as .standing-list — gap reads as floating cards. */
-  .community-summary-card-grid,
-  .guild-summary-card-grid {
+  .community-summary-card-grid {
     display: flex;
     flex-direction: column;
     gap: 0;
@@ -17799,8 +16943,7 @@ a.os-surface-row {
   /* Standing-like row: media left, facts right — no plate, no lift. */
   .community-summary-card,
   .community-summary-card--grid,
-  .guild-summary-card,
-  .guild-summary-card--grid {
+  .guild-summary-card {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
@@ -17824,9 +16967,7 @@ a.os-surface-row {
   .community-summary-card--grid:hover,
   .community-summary-card--grid:focus-visible,
   .guild-summary-card:hover,
-  .guild-summary-card:focus-visible,
-  .guild-summary-card--grid:hover,
-  .guild-summary-card--grid:focus-visible {
+  .guild-summary-card:focus-visible {
     background: var(--os-surface-row-hover);
     box-shadow: none;
     outline: none;
@@ -17864,8 +17005,7 @@ a.os-surface-row {
     min-height: 3.85rem;
   }
 
-  .community-summary-cover,
-  .guild-summary-card-cover {
+  .community-summary-cover {
     position: relative;
     display: block;
     width: 100%;
@@ -17876,8 +17016,7 @@ a.os-surface-row {
     border-radius: var(--os-catalog-cover-radius, 0.75rem);
   }
 
-  .community-summary-cover img,
-  .guild-summary-card-cover img {
+  .community-summary-cover img {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -17902,8 +17041,7 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  .community-summary-mark,
-  .guild-summary-card-badge {
+  .community-summary-mark {
     flex-shrink: 0;
     display: grid;
     place-items: center;
@@ -17919,8 +17057,7 @@ a.os-surface-row {
     border-radius: 0.32rem;
   }
 
-  .community-summary-mark img,
-  .guild-summary-card-badge img {
+  .community-summary-mark img {
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -17950,8 +17087,7 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
-  .community-summary-copy,
-  .guild-summary-card-copy {
+  .community-summary-copy {
     display: -webkit-box;
     overflow: hidden;
     color: rgb(var(--fg-rgb) / 0.5);
@@ -18037,7 +17173,6 @@ a.os-surface-row {
     align-self: center;
   }
 
-  .guild-summary-card--rail .guild-summary-card-cover,
   .guild-summary-card--rail .community-summary-cover {
     min-height: 3.25rem;
     height: 3.25rem;
@@ -18051,10 +17186,6 @@ a.os-surface-row {
 
   .guild-summary-card--rail .guild-summary-card-name {
     font-size: 0.78rem;
-  }
-
-  .guild-summary-card--rail .guild-summary-card-copy {
-    display: none;
   }
 
   .guild-summary-card--rail .guild-summary-card-meta {
@@ -18115,14 +17246,6 @@ a.os-surface-row {
     border: 0;
   }
 
-  .glass-sheet-toolbar-row {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0 max(1rem, env(safe-area-inset-right, 0px)) 0.65rem
-      max(1rem, env(safe-area-inset-left, 0px));
-  }
-
   .overlay-panel-outlet {
     animation: overlay-panel-crossfade 180ms ease-out;
   }
@@ -18158,11 +17281,6 @@ a.os-surface-row {
     }
   }
 
-  .glass-sheet-toolbar-row .standing-list-toolbar {
-    flex: 1;
-    min-width: 0;
-  }
-
   .standing-sheet-header {
     display: flex;
     flex-direction: column;
@@ -18179,12 +17297,6 @@ a.os-surface-row {
     justify-content: space-between;
     gap: 0.65rem;
     min-width: 0;
-  }
-
-  .discover-sheet-heading {
-    min-width: 0;
-    flex: 1;
-    padding-top: 0.12rem;
   }
 
   .discover-sheet-title {
@@ -18262,43 +17374,6 @@ a.os-surface-row {
     overflow: hidden;
     border: 1px solid rgb(var(--fg-rgb) / 0.1);
     background: rgb(var(--fg-rgb) / 0.04);
-  }
-
-  .standing-sheet-subject-avatar.is-loading .standing-sheet-subject-avatar-img {
-    opacity: 0;
-  }
-
-  .standing-sheet-subject-avatar.is-loading
-    .standing-sheet-subject-avatar-fallback.standing-row-shimmer {
-    position: absolute;
-    inset: 0;
-    border-radius: 9999px;
-  }
-
-  .standing-sheet-subject-avatar-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .standing-sheet-subject-avatar-fallback {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(
-      145deg,
-      rgb(var(--fg-rgb) / 0.08),
-      rgb(var(--fg-rgb) / 0.16)
-    );
-  }
-
-  .standing-sheet-subject-avatar-initial {
-    font-size: 0.72rem;
-    font-weight: 650;
-    line-height: 1;
-    color: rgb(var(--fg-rgb) / 0.62);
   }
 
   .standing-sheet-subject-copy {
@@ -18570,18 +17645,6 @@ a.os-surface-row {
     box-shadow: 0 0 0 1px var(--os-surface-ring);
   }
 
-  .sheet-control--icon {
-    width: 2rem;
-    height: 2rem;
-    padding: 0;
-    color: rgb(var(--fg-rgb) / 0.62);
-  }
-
-  .sheet-control--icon:hover,
-  .sheet-control--icon:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.82);
-  }
-
   /* Base .search-field styles live in @onsocial/ui/search-field.css. */
 
   .standing-view-menu {
@@ -18590,18 +17653,10 @@ a.os-surface-row {
     z-index: 2;
   }
 
-  .standing-view-menu:has(.standing-view-menu-panel) {
-    z-index: 4;
-  }
-
   .standing-sheet-header,
   .standing-sheet-toolbar-row,
   .standing-list-toolbar {
     overflow: visible;
-  }
-
-  .standing-view-menu-panel {
-    width: 15rem;
   }
 
   @media (max-width: 639px) {
@@ -18681,8 +17736,6 @@ a.os-surface-row {
     }
   }
 
-  .standing-panel-summary,
-  .standing-panel-loading-more,
   .standing-panel-load-more-summary {
     margin: 0;
     font-size: 0.72rem;
@@ -18748,26 +17801,6 @@ a.os-surface-row {
     gap: 0.35rem 0.5rem;
     margin-bottom: 0.15rem;
     min-height: 0.95rem;
-  }
-
-  .standing-row-signals--reserved {
-    visibility: hidden;
-    pointer-events: none;
-  }
-
-  .standing-row-metrics--loading {
-    min-height: 0.85rem;
-    padding-top: 0.1rem;
-  }
-
-  .standing-row-shimmer-metrics {
-    height: 0.62rem;
-    width: 72%;
-    max-width: 14rem;
-  }
-
-  .standing-row-aside--pending {
-    min-width: 5.75rem;
   }
 
   .standing-relationship-signal {
@@ -18997,51 +18030,9 @@ a.os-surface-row {
     transition: box-shadow 160ms ease;
   }
 
-  .standing-row-avatar.is-loading .standing-row-avatar-img {
-    opacity: 0;
-  }
-
-  .standing-row-avatar.is-loading
-    .standing-row-avatar-fallback.standing-row-shimmer {
-    position: absolute;
-    inset: 0;
-    border-radius: 9999px;
-  }
-
   .standing-row:hover .standing-row-avatar,
   .standing-row:focus-within .standing-row-avatar {
     box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
-  }
-
-  .standing-row-avatar-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .standing-row-avatar-fallback {
-    display: block;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(
-      135deg,
-      rgb(var(--fg-rgb) / 0.08),
-      rgb(var(--fg-rgb) / 0.02)
-    );
-  }
-
-  /* Identity cluster (.standing-row-copy / name / handle): ui CSS. */
-
-  .standing-row-meta {
-    display: block;
-    min-width: 0;
-    flex-shrink: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.72rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.48);
   }
 
   .standing-row-sep {
@@ -19675,72 +18666,10 @@ a.os-surface-row {
     min-height: 2.75rem;
   }
 
-  .account-shortcut-dock-icon {
-    width: 0.9rem;
-    height: 0.9rem;
-  }
-
   .account-action-stack {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-  }
-
-  .account-action-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.35rem;
-  }
-
-  .account-action-chip.os-surface-chip,
-  .account-action-chip {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 0.08rem;
-    width: 100%;
-    min-height: 2.35rem;
-    margin: 0;
-    padding: 0.32rem 0.5rem;
-    border: 0;
-    border-radius: var(--os-surface-radius-row, 0.85rem);
-    background: var(--os-surface-fill);
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    text-decoration: none;
-    cursor: pointer;
-    transition: background 160ms ease;
-  }
-
-  .account-action-chip:hover,
-  .account-action-chip:focus-visible {
-    background: var(--os-surface-fill-hover);
-    outline: none;
-  }
-
-  /* Wallet control hover — unlayered block at file end (beats os-surface-interactive). */
-
-  .account-action-chip-label {
-    min-width: 0;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.72rem;
-    font-weight: 600;
-  }
-
-  .account-action-chip-hint {
-    min-width: 0;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.58rem;
-    line-height: 1.2;
-    color: rgb(var(--fg-rgb) / 0.45);
   }
 
   .account-action-toggles {
@@ -19811,18 +18740,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.62);
   }
 
-  .account-safe-mode-row {
-    appearance: none;
-    width: 100%;
-    margin: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-
   .account-safe-mode-switch {
     position: relative;
     flex-shrink: 0;
@@ -19858,71 +18775,12 @@ a.os-surface-row {
     white-space: normal;
   }
 
-  .account-card-wallet-zone-head,
-  .account-card-earning-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-
   .account-card-wallet-label {
     font-size: 0.62rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.42);
-  }
-
-  .account-card-earning-ready {
-    font-size: 0.62rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--protocol-green);
-  }
-
-  .account-card-copy {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 1.5rem;
-    height: 1.5rem;
-    border: 0;
-    border-radius: 9999px;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.48);
-    cursor: pointer;
-    transition: color 160ms ease;
-  }
-
-  .account-card-copy:hover {
-    color: rgb(var(--fg-rgb) / 0.82);
-  }
-
-  .account-card-copy-icon {
-    width: 0.78rem;
-    height: 0.78rem;
-  }
-
-  .account-card-metrics {
-    display: contents;
-  }
-
-  .account-card-balance-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-
-  .account-card-balance-copy {
-    display: flex;
-    min-width: 0;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.35rem 0.45rem;
   }
 
   .account-card-balance-kicker {
@@ -19984,44 +18842,6 @@ a.os-surface-row {
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.45);
     font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
-  }
-
-  .account-card-hint {
-    margin: 0;
-    font-size: 0.68rem;
-    line-height: 1.35;
-    color: rgb(var(--fg-rgb) / 0.48);
-  }
-
-  .account-card-storage-block {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    margin-top: 0.15rem;
-  }
-
-  .account-card-storage-row {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
-    align-items: center;
-    gap: 0.45rem;
-    min-height: 1.5rem;
-  }
-
-  .account-card-storage-row--inactive {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-  }
-
-  .account-card-storage-row--sheet {
-    grid-template-columns: minmax(0, 1fr) auto;
-    margin-top: 0.35rem;
-  }
-
-  .account-card-storage-status {
-    min-width: 0;
-    font-size: 0.62rem;
-    line-height: 1.2;
-    color: rgb(var(--fg-rgb) / 0.45);
   }
 
   .app-storage-sheet {
@@ -20274,10 +19094,6 @@ a.os-surface-row {
     opacity: 1;
     color: rgb(var(--fg-rgb) / 0.26);
     cursor: default;
-  }
-
-  .app-storage-mode-divider {
-    margin: 0;
   }
 
   .app-storage-form {
@@ -20538,27 +19354,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.35);
   }
 
-  /* Quick-row / presets / Max / meta: @onsocial/ui/os-amount-field.css */
-
-  .app-storage-submit {
-    border: 0;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.92);
-    color: rgb(var(--bg-rgb) / 0.98);
-    font: inherit;
-    font-size: 0.78rem;
-    font-weight: 600;
-    padding: 0.65rem 1rem;
-    cursor: pointer;
-    transition: opacity 160ms ease;
-  }
-
-  .app-storage-submit:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
-  }
-
   .app-storage-share-panel {
     display: flex;
     flex-direction: column;
@@ -20657,7 +19452,6 @@ a.os-surface-row {
     font-size: 0.75rem;
   }
 
-  .app-storage-share-ratio,
   .app-storage-grants-summary,
   .app-storage-grant-bytes,
   .app-storage-recipient-status {
@@ -20812,47 +19606,6 @@ a.os-surface-row {
       var(--mood-accent, var(--protocol-blue)) 70%,
       white 4%
     );
-  }
-
-  .app-storage-context-strip {
-    display: flex;
-    flex-direction: column;
-    gap: 0.22rem;
-    padding: 0.15rem 0 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-  }
-
-  .app-storage-context-divider {
-    margin: 0 0 0.25rem;
-  }
-
-  .app-storage-context-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
-    margin: 0;
-    color: rgb(var(--fg-rgb) / 0.42);
-    font-size: 0.62rem;
-    line-height: 1.25;
-  }
-
-  .app-storage-context-row > span {
-    flex-shrink: 0;
-    font-weight: 650;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .app-storage-context-row > strong {
-    min-width: 0;
-    color: rgb(var(--fg-rgb) / 0.55);
-    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
-    font-weight: 550;
-    text-align: right;
-    overflow-wrap: anywhere;
   }
 
   .account-editor-form {
@@ -23011,7 +21764,6 @@ a.os-surface-row {
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .account-card-copy,
     .os-surface-row,
     .os-surface-chip,
     .account-wallet-progress-fill {
@@ -23023,29 +21775,6 @@ a.os-surface-row {
     .app-storage-readout.is-loading {
       animation: none;
     }
-  }
-
-  .contextual-back {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 9999px;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    background: rgb(var(--fg-rgb) / 0.04);
-    backdrop-filter: blur(12px);
-    color: rgb(var(--fg-rgb) / 0.72);
-    font-size: 1.1rem;
-    cursor: pointer;
-    transition:
-      background 160ms ease,
-      color 160ms ease;
-  }
-
-  .contextual-back:hover {
-    background: rgb(var(--fg-rgb) / 0.1);
-    color: rgb(var(--fg-rgb) / 0.95);
   }
 
   /* Quiet tech air: flat black/white base. No mesh / no dots / no corner wash. */
@@ -23078,8 +21807,7 @@ a.os-surface-row {
   }
 
   .messages-panel,
-  .notifications-panel,
-  .app-soon-page {
+  .notifications-panel {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
@@ -23091,18 +21819,8 @@ a.os-surface-row {
   }
 
   /* Same toolbar offset as Discover tab rail. */
-  .os-app-screen-toolbar:has(.home-feed-chip-bar),
-  .os-app-screen-toolbar:has(.home-feed-header-toolbar) {
+  .os-app-screen-toolbar:has(.home-feed-chip-bar) {
     margin-top: var(--os-app-chrome-chip-gap, 0.28rem);
-  }
-
-  .os-app-screen-header:has(.home-feed-header-toolbar) {
-    overflow: visible;
-  }
-
-  .home-feed-header-toolbar {
-    min-width: 0;
-    margin: 0;
   }
 
   .home-feed-compact-chrome {
@@ -23120,21 +21838,6 @@ a.os-surface-row {
 
   .home-feed-compact-chrome .home-feed-sort-toggle {
     flex-shrink: 0;
-  }
-
-  /* Home has no title chrome — collapse the flex heading so Discover ↔ sort balance. */
-  .os-app-screen-heading:has(.home-feed-nav-empty) {
-    flex: 0 0 0;
-    width: 0;
-    min-width: 0;
-    overflow: hidden;
-    pointer-events: none;
-  }
-
-  .home-feed-nav-empty {
-    display: block;
-    width: 0;
-    height: 0;
   }
 
   /* Discover jump — soft-filled chip (not a feed tab). */
@@ -23528,13 +22231,6 @@ a.os-surface-row {
 
   .home-saved-feed-sheet-list .home-hashtag-suggest-item.is-saved {
     background: var(--os-surface-fill);
-  }
-
-  .app-soon-copy {
-    margin: 0;
-    font-size: 0.92rem;
-    line-height: 1.55;
-    color: rgb(var(--fg-rgb) / 0.58);
   }
 
   .post-composer {
@@ -23965,8 +22661,7 @@ a.os-surface-row {
     width: 2.2rem;
   }
 
-  .home-feed-state,
-  .discover-state {
+  .home-feed-state {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
@@ -24001,25 +22696,7 @@ a.os-surface-row {
     outline: none;
   }
 
-  .discover-state-primary,
-  .discover-state-secondary {
-    margin: 0;
-  }
-
-  .discover-state-primary {
-    font-size: 0.8125rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.72);
-  }
-
-  .discover-state-secondary {
-    font-size: 0.75rem;
-    line-height: 1.4;
-    color: rgb(var(--fg-rgb) / 0.48);
-  }
-
-  .home-feed-state.is-error,
-  .discover-state.is-error {
+  .home-feed-state.is-error {
     border-style: solid;
     border-color: var(--protocol-red-border);
     color: color-mix(in srgb, var(--protocol-red) 85%, rgb(var(--fg-rgb)));
@@ -26212,39 +24889,11 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.55);
   }
 
-  /*
-   * Post-origin scarce medium — same canvas as listen enlarge (28rem cover).
-   * Audio mounts ScarceClipListenSheet directly; viewer / loading reuse
-   * listen chrome with Mint/Buy + post engagement under the art.
-   */
-
-  .scarce-post-medium-listen {
-    gap: 0.55rem;
-  }
-
-  .scarce-post-medium-cover--svg {
-    overflow: hidden;
-  }
-
-  .scarce-post-medium-cover--svg svg {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
-
   .scarce-post-medium-chrome {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
     width: 100%;
-  }
-
-  .scarce-post-medium-dismiss {
-    display: flex;
-    justify-content: center;
-    flex: 0 0 auto;
-    width: min(100%, 28rem);
-    margin-inline: auto;
   }
 
   .scarce-post-medium-chrome .post-card-scarce-cta,
@@ -26702,10 +25351,6 @@ a.os-surface-row {
     grid-template-columns: 1fr 1fr;
     gap: 0.55rem;
     margin-bottom: 0;
-  }
-
-  .scarce-mood-picker--single {
-    grid-template-columns: 1fr;
   }
 
   .scarce-mood-picker-hint {
@@ -27179,14 +25824,6 @@ a.os-surface-row {
     line-height: 1.45;
     color: rgb(var(--fg-rgb) / 0.55);
     white-space: pre-wrap;
-  }
-
-  .scarce-mood-picker-field {
-    position: relative;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
   }
 
   .scarce-mood-picker-label {
@@ -28096,8 +26733,7 @@ a.os-surface-row {
   }
 
   .collectibles-play-page.is-immersive,
-  .collection-cover.is-immersive.is-square,
-  .collection-music-hero.is-immersive {
+  .collection-cover.is-immersive.is-square {
     --scarce-play-cover-band: min(52dvh, clamp(12rem, 78vw, 20rem));
   }
 
@@ -28116,8 +26752,7 @@ a.os-surface-row {
     }
 
     .collectibles-play-page.is-immersive,
-    .collection-cover.is-immersive.is-square,
-    .collection-music-hero.is-immersive {
+    .collection-cover.is-immersive.is-square {
       --scarce-play-cover-band: min(40dvh, clamp(12rem, 78vw, 19.5rem));
     }
 
@@ -28136,17 +26771,12 @@ a.os-surface-row {
     }
 
     .collectibles-play-page.is-immersive,
-    .collection-cover.is-immersive.is-square,
-    .collection-music-hero.is-immersive {
+    .collection-cover.is-immersive.is-square {
       --scarce-play-cover-band: min(28dvh, clamp(8.5rem, 62vw, 12rem));
     }
 
     .collection-cover.is-immersive {
       --scarce-banner-cover-band: min(22dvh, clamp(7.5rem, 48vw, 10.5rem));
-    }
-
-    .scarce-clip-listen-track {
-      font-size: 1rem;
     }
 
     .scarce-clip-listen-actions {
@@ -28168,7 +26798,6 @@ a.os-surface-row {
 
   .scarce-clip-listen-controls,
   .scarce-clip-listen-actions,
-  .scarce-clip-listen-copy,
   .scarce-clip-listen-footer {
     flex-shrink: 0;
   }
@@ -28180,21 +26809,6 @@ a.os-surface-row {
 
   .scarce-clip-listen-cover--empty {
     background: rgb(var(--fg-rgb) / 0.08);
-  }
-
-  .scarce-clip-listen-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    text-align: center;
-  }
-
-  .scarce-clip-listen-track {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 700;
-    line-height: 1.25;
-    color: var(--os-surface-emphasis);
   }
 
   .scarce-clip-listen-album {
@@ -28591,23 +27205,6 @@ a.os-surface-row {
     line-height: 1.3;
   }
 
-  .scarce-provenance-body-block {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.2rem;
-    min-width: 0;
-  }
-
-  .scarce-provenance-body {
-    margin: 0;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    font-size: 0.88rem;
-    line-height: 1.45;
-    color: var(--os-surface-fg, inherit);
-  }
-
   .scarce-provenance-more {
     margin: 0;
     padding: 0;
@@ -28639,16 +27236,8 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.78);
   }
 
-  .scarce-buy-price-row {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-
   /* Beat `.profile-support-hint` line-height so ⓘ centers like Drop hub meta. */
-  .profile-support-hint.scarce-buy-meta-with-facts,
   .profile-support-hint.scarce-buy-meta-row,
-  .scarce-buy-meta-with-facts,
   .scarce-buy-meta-row {
     display: flex;
     flex-wrap: wrap;
@@ -28692,7 +27281,6 @@ a.os-surface-row {
   }
 
   /* Same 1em box as the sep; lift ⓘ — Mage circle ink reads low vs the disc. */
-  .scarce-buy-meta-with-facts .scarce-buy-facts-button.collectibles-play-facts,
   .scarce-buy-meta-row .scarce-buy-facts-button.collectibles-play-facts {
     display: inline-flex;
     align-items: center;
@@ -28705,7 +27293,6 @@ a.os-surface-row {
     transform: translateY(-0.1em);
   }
 
-  .scarce-buy-meta-with-facts .guild-hero-facts-icon,
   .scarce-buy-meta-row .guild-hero-facts-icon {
     display: block;
     width: 1em;
@@ -29764,27 +28351,6 @@ a.os-surface-row {
     gap: 0.28rem;
   }
 
-  .collection-skeleton-mint {
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-    margin-top: 0.35rem;
-  }
-
-  .collection-skeleton-progress {
-    display: block;
-    width: 100%;
-    height: 0.35rem;
-    border-radius: 9999px;
-  }
-
-  .collection-skeleton-mint-btn {
-    display: block;
-    width: 100%;
-    height: 2.75rem;
-    border-radius: 9999px;
-  }
-
   .collection-meta-copy .collection-skeleton-line,
   .collection-meta-copy .collection-skeleton-line-sm {
     margin-top: 0.12rem;
@@ -29878,30 +28444,6 @@ a.os-surface-row {
     bottom: max(0.85rem, env(safe-area-inset-bottom, 0px));
   }
 
-  .collection-status {
-    position: absolute;
-    z-index: 2;
-    top: 0.65rem;
-    left: 0.65rem;
-    display: inline-flex;
-    align-items: center;
-    padding: 0.2rem 0.55rem;
-    border-radius: 9999px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    backdrop-filter: blur(8px);
-    background: var(--app-scrim-media);
-    color: var(--app-on-media-ink);
-  }
-
-  /* Keep Live clear of immersive back / shop chips (static art covers). */
-  .collection-cover.is-immersive .collection-status {
-    top: auto;
-    bottom: 0.7rem;
-    left: 0.7rem;
-  }
-
   /* Header status — next to shop. Live = green fill + dark text (cover recipe). */
   .os-app-screen-actions .collection-header-status {
     display: inline-flex;
@@ -29959,64 +28501,6 @@ a.os-surface-row {
     filter: none;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-  }
-
-  /* Music drop hero — same cover player as Collectibles play. */
-  .collection-music-hero {
-    position: relative;
-    width: 100%;
-  }
-
-  .collection-music-hero.is-immersive .scarce-clip-player-shell {
-    width: 100%;
-    margin: 0;
-  }
-
-  .collection-music-hero.is-immersive .scarce-clip-player {
-    width: calc(100% + (2 * var(--os-screen-body-pad-x, 1rem)));
-    max-width: none;
-    margin: 0 calc(-1 * var(--os-screen-body-pad-x, 1rem));
-    height: calc(env(safe-area-inset-top, 0px) + var(--scarce-play-cover-band));
-  }
-
-  .collection-music-hero.is-immersive .scarce-clip-player-cover,
-  .collection-music-hero.is-immersive .scarce-clip-player-video {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    aspect-ratio: auto;
-    border-radius: 0;
-    object-fit: cover;
-  }
-
-  .collection-music-hero.is-immersive .scarce-clip-player::after {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto;
-    z-index: 1;
-    height: calc(env(safe-area-inset-top, 0px) + 4.25rem);
-    pointer-events: none;
-    background: linear-gradient(
-      180deg,
-      rgb(0 0 0 / 0.48) 0%,
-      rgb(0 0 0 / 0.22) 55%,
-      transparent 100%
-    );
-  }
-
-  .collection-music-hero.is-immersive .scarce-clip-player-play {
-    z-index: 2;
-  }
-
-  .collection-status.is-live {
-    background: color-mix(in srgb, var(--protocol-green) 92%, transparent);
-    color: #05130d;
-  }
-
-  .collection-status.is-closed {
-    background: var(--app-scrim-media-hover);
-    color: rgb(255 255 255 / 0.86);
   }
 
   .collection-head {
@@ -30160,12 +28644,6 @@ a.os-surface-row {
     height: 1em;
   }
 
-  .collection-meta-link {
-    color: var(--os-surface-muted-strong);
-    font-weight: 500;
-    text-decoration: none;
-  }
-
   .collection-meta-handle {
     min-width: 0;
     overflow: hidden;
@@ -30201,11 +28679,6 @@ a.os-surface-row {
   a.collection-meta-handle:hover,
   a.collection-meta-handle:focus-visible {
     color: var(--os-identity-handle-hover);
-  }
-
-  .collection-meta-link:hover,
-  .collection-meta-link:focus-visible {
-    color: var(--os-surface-emphasis);
   }
 
   .collection-about-teaser {
@@ -30327,15 +28800,6 @@ a.os-surface-row {
     gap: 0.28rem;
   }
 
-  .collection-commerce-line {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.78rem;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.2;
-  }
-
   .collection-product-row {
     display: flex;
     align-items: center;
@@ -30427,15 +28891,6 @@ a.os-surface-row {
     margin-top: 0.45rem;
   }
 
-  .collection-commerce-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.3rem;
-    min-width: 0;
-    flex: 1;
-  }
-
   .collection-commerce-supply {
     font-weight: 650;
     color: var(--os-surface-emphasis);
@@ -30485,27 +28940,6 @@ a.os-surface-row {
   .ticket-claim-refund-actions {
     margin-top: 0.55rem;
     width: 100%;
-  }
-
-  .collection-commerce-post-feed {
-    border: 0;
-    background: transparent;
-    padding: 0;
-    margin: 0;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 0.72rem;
-    font-weight: 600;
-    line-height: 1.2;
-    color: rgb(var(--fg-rgb) / 0.55);
-  }
-
-  .collection-commerce-post-feed:hover,
-  .collection-commerce-post-feed:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.85);
-    outline: none;
-    text-decoration: underline;
-    text-underline-offset: 0.12em;
   }
 
   .collection-commerce-share {
@@ -30674,12 +29108,6 @@ a.os-surface-row {
     );
     transition: width 320ms ease;
     pointer-events: none;
-  }
-
-  .collection-owner-tools {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
   }
 
   .collection-section-label {
@@ -30882,13 +29310,6 @@ a.os-surface-row {
     background: rgb(0 100 255 / 0.28);
   }
 
-  .collection-writing-pdf-nav {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.55rem;
-  }
-
   .collection-writing-pdf-count {
     margin: 0;
     min-width: 4.5rem;
@@ -31034,12 +29455,6 @@ a.os-surface-row {
     text-underline-offset: 0.12em;
   }
 
-  .collection-writing-chapter-chip:focus-visible
-    .collection-writing-chapter-chip-title {
-    text-decoration: underline;
-    text-underline-offset: 0.12em;
-  }
-
   .collection-writing-chapter-chip-meta {
     flex-shrink: 0;
     font-size: 0.68rem;
@@ -31047,21 +29462,6 @@ a.os-surface-row {
     letter-spacing: 0.04em;
     font-variant-numeric: tabular-nums;
     color: rgb(var(--fg-rgb) / 0.42);
-  }
-
-  .collection-writing-chapter-chip-title {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.72);
-  }
-
-  .collection-writing-chapter-chip.is-open
-    .collection-writing-chapter-chip-title {
-    color: rgb(var(--fg-rgb) / 0.92);
   }
 
   .collection-writing-article-label {
@@ -31131,21 +29531,6 @@ a.os-surface-row {
     opacity: 0.72;
   }
 
-  .collection-writing-toc-downloads {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    padding: 0.2rem 0 0.1rem;
-    border-top: 1px solid rgb(var(--fg-rgb) / 0.08);
-  }
-
-  .collection-writing.is-immersive
-    .collection-writing-toc-downloads
-    .collection-writing-downloads {
-    opacity: 1;
-    margin: 0;
-  }
-
   .collection-writing-download-row {
     display: flex;
     align-items: center;
@@ -31157,10 +29542,6 @@ a.os-surface-row {
     font-size: 0.82rem;
     font-weight: 600;
     color: rgb(var(--fg-rgb) / 0.72);
-  }
-
-  .collection-writing-toc-downloads .collection-writing-download-copy {
-    display: inline;
   }
 
   /*
@@ -31273,12 +29654,6 @@ a.os-surface-row {
     min-width: 5.5rem;
     justify-content: center;
     opacity: 0.88;
-  }
-
-  .scarce-writing-read-top {
-    display: flex;
-    justify-content: flex-end;
-    transition: opacity 220ms ease;
   }
 
   .os-media-face-hero {
@@ -31452,55 +29827,6 @@ a.os-surface-row {
     }
   }
 
-  .scarce-writing-read-art {
-    flex-shrink: 0;
-  }
-
-  button.scarce-writing-read-art {
-    margin: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    cursor: pointer;
-    color: inherit;
-    font: inherit;
-  }
-
-  .scarce-writing-read-cover {
-    display: block;
-    /*
-     * Thumb in the compact one-line jacket — same aspect, never cropped.
-     * Tap enlarges. Width follows ratio, capped so it doesn't crowd the title.
-     */
-    height: 1.85rem;
-    width: auto;
-    max-width: 2.6rem;
-    border-radius: 0.22rem;
-    object-fit: contain;
-    background: rgb(var(--fg-rgb) / 0.08);
-    box-shadow: 0 0.12rem 0.35rem rgb(0 0 0 / 0.16);
-  }
-
-  /* Text cards are natively 1:1 — square jacket, not a cropped portrait. */
-  .scarce-writing-read-cover--svg {
-    aspect-ratio: 1 / 1;
-    overflow: hidden;
-  }
-
-  .scarce-writing-read-cover--svg svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-
-  .scarce-writing-read-cover--empty {
-    background: linear-gradient(
-      160deg,
-      rgb(var(--fg-rgb) / 0.14),
-      rgb(var(--fg-rgb) / 0.05)
-    );
-  }
-
   .os-media-face-copy {
     display: flex;
     flex-direction: column;
@@ -31508,7 +29834,6 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  .scarce-writing-read-eyebrow,
   .os-media-face-eyebrow {
     margin: 0;
     font-size: 0.66rem;
@@ -31642,19 +29967,7 @@ a.os-surface-row {
     white-space: nowrap;
   }
 
-  .scarce-writing-read-body {
-    display: block;
-    min-width: 0;
-    overflow: visible;
-  }
-
-  .scarce-writing-read-body > .collection-writing {
-    min-width: 0;
-    width: 100%;
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .scarce-writing-read-top,
     .os-media-face-hero,
     .os-media-face-footer,
     .collection-writing-folio.is-turn-out-next,
@@ -31698,13 +30011,6 @@ a.os-surface-row {
     box-sizing: border-box;
     padding: var(--pass-pad-t) var(--pass-pad-r) var(--pass-pad-b)
       var(--pass-pad-x);
-  }
-
-  .ticket-show-pass-top {
-    position: absolute;
-    top: var(--pass-pad-t);
-    right: var(--pass-pad-r);
-    z-index: 2;
   }
 
   /*
@@ -32096,22 +30402,6 @@ a.os-surface-row {
     opacity: 0;
   }
 
-  .ticket-door-camera-empty {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    padding: 1rem;
-    text-align: center;
-    color: rgb(var(--fg-rgb) / 0.58);
-    font-size: 0.86rem;
-    line-height: 1.4;
-  }
-
-  .ticket-door-camera-empty p {
-    margin: 0;
-  }
-
   .ticket-door-hint {
     margin: 0;
     font-size: 0.8rem;
@@ -32124,16 +30414,6 @@ a.os-surface-row {
       var(--signal-reputation, rgb(46 160 90)) 78%,
       rgb(var(--fg-rgb))
     );
-  }
-
-  .ticket-door-attendance {
-    margin: 0;
-    font-size: 0.86rem;
-    font-weight: 650;
-    letter-spacing: -0.01em;
-    line-height: 1.35;
-    color: rgb(var(--fg-rgb) / 0.82);
-    font-variant-numeric: tabular-nums;
   }
 
   /* Admit page — same market-page inset; camera taller for staff scanning. */
@@ -32310,55 +30590,6 @@ a.os-surface-row {
     padding: 0.15rem 0 0.5rem;
   }
 
-  .ticket-door-staff-list {
-    list-style: none;
-    margin: 0.35rem 0 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-  }
-
-  /* Same language as poll options / Support amount — border + lip, no wash. */
-  .ticket-door-staff-row {
-    display: flex;
-    align-items: center;
-    gap: 0.7rem;
-    min-width: 0;
-    padding: 0.45rem 0.55rem;
-    border-radius: 0.85rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    background: transparent;
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.12);
-  }
-
-  .ticket-door-staff-copy {
-    min-width: 0;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-  }
-
-  .ticket-door-staff-name {
-    margin: 0;
-    font-size: 0.9rem;
-    font-weight: 650;
-    color: rgb(var(--fg-rgb) / 0.94);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .ticket-door-staff-handle {
-    margin: 0;
-    font-size: 0.76rem;
-    color: rgb(var(--fg-rgb) / 0.55);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   .ticket-door-staff .hub-publish-request-actions {
     flex-shrink: 0;
   }
@@ -32518,14 +30749,6 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-  }
-
-  .collection-allowlist-footer {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-    padding: 0.35rem var(--os-screen-body-pad-x, 1rem)
-      calc(0.85rem + env(safe-area-inset-bottom, 0px));
   }
 
   .collection-allowlist-sources {
@@ -32692,17 +30915,11 @@ a.os-surface-row {
     color: var(--os-surface-muted);
   }
 
-  .collection-allowlist-copy,
-  .collection-allowlist-known,
   .collection-allowlist-note {
     margin: 0;
     font-size: 0.78rem;
     line-height: 1.4;
     color: var(--os-surface-muted);
-  }
-
-  .collection-allowlist-known {
-    color: var(--os-surface-muted-strong);
   }
 
   .collection-allowlist-guilds {
@@ -32716,12 +30933,6 @@ a.os-surface-row {
     align-items: baseline;
     justify-content: space-between;
     gap: 0.75rem;
-  }
-
-  .collection-allowlist-member-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.65rem;
   }
 
   .collection-allowlist-text-btn {
@@ -32748,31 +30959,8 @@ a.os-surface-row {
     cursor: default;
   }
 
-  .collection-allowlist-member-list {
-    margin: 0;
-  }
-
   .collection-allowlist-member {
     width: 100%;
-  }
-
-  .collection-allowlist-check {
-    flex-shrink: 0;
-    width: 1.15rem;
-    height: 1.15rem;
-    margin-left: auto;
-    border-radius: 9999px;
-    border: 1.5px solid rgb(var(--fg-rgb) / 0.22);
-    background: transparent;
-  }
-
-  .collection-allowlist-check.is-on {
-    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.95);
-    background: radial-gradient(
-      circle at center,
-      rgb(var(--signal-reputation-rgb, 0 236 151) / 0.95) 0 35%,
-      transparent 36%
-    );
   }
 
   .collection-allowlist-field {
@@ -32794,11 +30982,6 @@ a.os-surface-row {
   .collection-allowlist-field small {
     font-size: 0.72rem;
     color: var(--os-surface-muted);
-  }
-
-  .collection-allowlist-paste-add {
-    align-self: flex-start;
-    margin-top: 0.15rem;
   }
 
   .collection-allowlist-edit {
@@ -34328,15 +32511,6 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.08);
   }
 
-  .scarce-thought-footer {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    flex: 0 0 auto;
-  }
-
-  .scarce-thought-footer .post-card-scarce-cta,
-  .scarce-thought-footer .post-card-engagement,
   .scarce-read-slide .os-media-face-footer .post-card-scarce-cta,
   .scarce-read-slide .os-media-face-footer .post-card-engagement {
     margin-top: 0;
@@ -37210,12 +35384,6 @@ a.os-surface-row {
     color: var(--os-surface-emphasis);
   }
 
-  .app-page-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
   /* Edge-bleed hub cover — guild hero look inside the OS screen body. */
   .app-hub-cover {
     position: relative;
@@ -37272,59 +35440,6 @@ a.os-surface-row {
 
   .app-page-head--overlap .app-page-headings {
     padding-bottom: 0.15rem;
-  }
-
-  .app-drop-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 0.55rem;
-  }
-
-  /* Series sections inside a hub catalog. */
-  .app-drop-groups {
-    display: flex;
-    flex-direction: column;
-    gap: 0.9rem;
-  }
-
-  .app-drop-series {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .app-drop-series-title {
-    margin: 0;
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-  }
-
-  .app-drop-series-count {
-    font-weight: 500;
-    color: var(--os-surface-muted);
-  }
-
-  .app-drop-series-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: inherit;
-    text-decoration: none;
-  }
-
-  .app-drop-series-link:hover,
-  .app-drop-series-link:focus-visible {
-    color: var(--os-surface-emphasis);
-  }
-
-  .app-drop-series-logo {
-    width: 1.25rem;
-    height: 1.25rem;
-    border-radius: 0.4rem;
-    object-fit: cover;
   }
 
   /* Series page — brand-first catalog for a creator drop line. */
@@ -37535,42 +35650,6 @@ a.os-surface-row {
     object-fit: cover;
   }
 
-  .app-page-roster {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .app-page-roster-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-  }
-
-  .app-page-roster-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.25rem 0.6rem;
-    border-radius: 9999px;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--os-surface-emphasis);
-    text-decoration: none;
-  }
-
-  .app-page-roster-role {
-    font-size: 0.68rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--os-surface-muted);
-  }
-
   /* ── Hub manage sheets ─── */
 
   .glass-sheet-panel.hub-manage-sheet-panel {
@@ -37597,75 +35676,6 @@ a.os-surface-row {
       max(1rem, env(safe-area-inset-left, 0px));
   }
 
-  .hub-look-media {
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-  }
-
-  .hub-look-banner-host {
-    position: relative;
-    width: 100%;
-  }
-
-  .hub-look-banner-picker {
-    aspect-ratio: 3 / 1;
-  }
-
-  .hub-look-logo-row {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-  }
-
-  .hub-look-logo-host {
-    flex-shrink: 0;
-    width: 5.25rem;
-    height: 5.25rem;
-  }
-
-  .hub-logo-picker {
-    width: 100%;
-    height: 100%;
-    border: 1px dashed rgb(var(--fg-rgb) / 0.2);
-    border-radius: 1.2rem;
-    background: rgb(var(--fg-rgb) / 0.03);
-    overflow: hidden;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    color: inherit;
-    transition:
-      border-color 160ms ease,
-      background 160ms ease;
-  }
-
-  .hub-logo-picker:hover:not(:disabled),
-  .hub-logo-picker:focus-visible {
-    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.7);
-    background: rgb(var(--fg-rgb) / 0.05);
-    outline: none;
-  }
-
-  .hub-logo-picker.has-media {
-    border-style: solid;
-  }
-
-  .hub-logo-picker img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .hub-logo-placeholder {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--os-surface-muted);
-  }
-
-  .hub-look-logo-hint,
   .hub-manage-hint {
     margin: 0;
     font-size: 0.78rem;
@@ -37675,11 +35685,6 @@ a.os-surface-row {
 
   .hub-manage-hint.is-danger {
     color: color-mix(in srgb, var(--protocol-red) 72%, rgb(var(--fg-rgb)));
-  }
-
-  .hub-look-logo-hint {
-    flex: 1;
-    min-width: 0;
   }
 
   /* ── App manage roster (people sheet) ─── */
@@ -37695,13 +35700,6 @@ a.os-surface-row {
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--os-surface-emphasis);
-  }
-
-  .app-manage-secondary {
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-    margin-top: 0.25rem;
   }
 
   .app-roster-editor {
@@ -37797,63 +35795,6 @@ a.os-surface-row {
     gap: 0.2rem;
   }
 
-  .apps-directory-row {
-    text-decoration: none;
-    color: inherit;
-  }
-
-  .apps-directory-logo {
-    cursor: inherit;
-    border-radius: 0.55rem;
-  }
-
-  .apps-directory-logo-fallback {
-    display: flex;
-    width: 100%;
-    height: 100%;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: rgb(var(--fg-rgb) / 0.55);
-    background: linear-gradient(
-      145deg,
-      rgb(var(--fg-rgb) / 0.14),
-      rgb(var(--fg-rgb) / 0.05)
-    );
-  }
-
-  .apps-directory-more {
-    display: flex;
-    justify-content: center;
-    padding: 0.35rem 0 0;
-  }
-
-  .apps-directory-more-btn {
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: var(--os-surface-emphasis);
-    border-radius: 999px;
-    padding: 0.45rem 1rem;
-    font: inherit;
-    font-size: 0.84rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .apps-directory-more-btn:hover:not(:disabled),
-  .apps-directory-more-btn:focus-visible:not(:disabled) {
-    background: rgb(var(--fg-rgb) / 0.06);
-    outline: none;
-  }
-
-  .apps-directory-more-btn:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
-  }
-
   /* Filter/tab chrome under search — sort menu may escape. */
   .os-app-screen-toolbar:has(.market-listing-toolbar) {
     overflow: visible;
@@ -37903,7 +35844,6 @@ a.os-surface-row {
   }
 
   /* Clear = small text action on the Filter title; X stays alone on the right. */
-  .market-filter-title-row,
   .market-filter-sheet-panel .glass-sheet-header-title-row {
     display: flex;
     align-items: baseline;
@@ -37911,7 +35851,6 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  .market-filter-title-row .glass-sheet-header-title,
   .market-filter-sheet-panel
     .glass-sheet-header-title-row
     .glass-sheet-header-title {
@@ -38391,10 +36330,6 @@ a.os-surface-row {
 
   .market-listing-sort-menu .os-floating-panel-trigger {
     max-width: 7.5rem;
-  }
-
-  .market-listing-sort-menu-panel {
-    width: 11rem;
   }
 
   @media (max-width: 639px) {
@@ -39068,24 +37003,12 @@ a.os-surface-row {
     gap: 0.65rem;
   }
 
-  .market-listing-title,
-  .market-sale-title {
+  .market-listing-title {
     margin: 0;
     min-width: 0;
     font-size: 0.9rem;
     font-weight: 650;
     line-height: 1.25;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .market-listing-creator {
-    margin: 0;
-    min-width: 0;
-    font-size: 0.72rem;
-    line-height: 1.25;
-    color: var(--os-surface-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -39125,8 +37048,7 @@ a.os-surface-row {
     align-self: flex-end;
   }
 
-  .market-listing-meta,
-  .market-sale-meta {
+  .market-listing-meta {
     margin: 0;
     font-size: 0.72rem;
     color: var(--os-surface-muted);
@@ -39134,14 +37056,6 @@ a.os-surface-row {
 
   .market-listing-meta--price {
     display: block;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .market-listing-meta-left {
-    margin: 0;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -39158,17 +37072,6 @@ a.os-surface-row {
     white-space: nowrap;
   }
 
-  .market-listing-handle {
-    color: var(--os-identity-handle);
-    font-weight: var(--os-identity-handle-weight, 400);
-    text-decoration: none;
-  }
-
-  .market-listing-handle:hover {
-    color: var(--os-identity-handle-hover);
-  }
-
-  .market-listing-handle:focus-visible,
   .market-listing-title-link:focus-visible,
   .market-listing-thumb:focus-visible {
     outline: 2px solid rgb(var(--primary-rgb) / 0.8);
@@ -39284,17 +37187,6 @@ a.os-surface-row {
     color: var(--protocol-amber);
   }
 
-  .discover-search-input {
-    width: 100%;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: inherit;
-    font: inherit;
-    padding: 0.75rem 1rem;
-    outline: none;
-  }
-
   .discover-list {
     list-style: none;
     margin: 0;
@@ -39313,17 +37205,6 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.025);
   }
 
-  .discover-row-name {
-    font-size: 0.95rem;
-    font-weight: 600;
-  }
-
-  .discover-row-head {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-  }
-
   .discover-mood-dot {
     flex-shrink: 0;
     width: 0.4rem;
@@ -39333,27 +37214,6 @@ a.os-surface-row {
     box-shadow: 0 0 8px color-mix(in srgb, var(--mood-accent) 45%, transparent);
   }
 
-  .discover-row-handle {
-    font-size: 0.78rem;
-    color: rgb(var(--fg-rgb) / 0.48);
-  }
-
-  .discover-row-bio {
-    font-size: 0.84rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.62);
-  }
-
-  .discover-row-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.85rem;
-    margin-top: 0.2rem;
-    font-size: 0.72rem;
-    letter-spacing: 0.04em;
-    color: rgb(var(--fg-rgb) / 0.42);
-  }
-
   .guilds-page,
   .guilds-page:has(.guild-hero) {
     gap: 0.55rem;
@@ -39361,12 +37221,7 @@ a.os-surface-row {
 
   .guild-hero-card,
   .guild-card,
-  .guild-action-card,
-  .guild-role-card,
-  .guild-channel-card,
-  .guild-phase-card,
-  .guild-field,
-  .guild-toggle-card {
+  .guild-field {
     border: 1px solid rgb(var(--fg-rgb) / 0.08);
     border-radius: 1.25rem;
     background: rgb(var(--fg-rgb) / 0.03);
@@ -39377,16 +37232,6 @@ a.os-surface-row {
     flex-direction: column;
     gap: 0.75rem;
     padding: 1.15rem;
-  }
-
-  .guild-detail-hero {
-    background:
-      radial-gradient(
-        circle at top left,
-        color-mix(in srgb, var(--protocol-purple) 20%, transparent),
-        transparent 56%
-      ),
-      rgb(var(--fg-rgb) / 0.03);
   }
 
   /* Quiet guild page load — hero placeholder then feed rows. */
@@ -39607,10 +37452,6 @@ a.os-surface-row {
     display: block;
   }
 
-  .guild-facts-sheet-header {
-    padding-bottom: 0.45rem;
-  }
-
   /* Sheet fact chrome: @onsocial/ui/os-sheet-facts.css */
 
   .guild-hero-description-wrap,
@@ -39796,10 +37637,6 @@ a.os-surface-row {
     cursor: default;
     opacity: 1;
     color: rgb(var(--fg-rgb) / 0.26);
-  }
-
-  .guild-edit-sheet-body {
-    padding: 0;
   }
 
   .guild-edit-sheet-footer {
@@ -40133,69 +37970,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.56);
   }
 
-  .guild-member-request-row {
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-    padding: 0.85rem 0;
-  }
-
-  .guild-member-request-main {
-    display: flex;
-    gap: 0.75rem;
-    text-decoration: none;
-    color: inherit;
-  }
-
-  .guild-member-request-copy {
-    min-width: 0;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.18rem;
-  }
-
-  .guild-member-request-name {
-    margin: 0;
-    font-size: 0.92rem;
-    font-weight: 650;
-    color: rgb(var(--fg-rgb) / 0.92);
-  }
-
-  .guild-member-request-handle,
-  .guild-member-request-message {
-    margin: 0;
-    font-size: 0.78rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.58);
-  }
-
-  .guild-member-request-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.55rem;
-  }
-
-  .guild-member-request-actions--own {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.65rem;
-  }
-
-  .guild-member-request-actions-row {
-    width: 100%;
-  }
-
-  .guild-member-request-action {
-    min-width: 5.5rem;
-    min-height: 2.15rem;
-    padding-inline: 0.85rem;
-  }
-
-  .guild-member-request-dots {
-    margin-inline: auto;
-  }
-
   .guild-member-row-menu {
     position: relative;
     flex-shrink: 0;
@@ -40220,18 +37994,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.82);
   }
 
-  .guild-member-row-menu:has(.guild-member-row-menu-panel) {
-    z-index: 4;
-  }
-
-  .guild-member-row-menu-panel {
-    width: 15rem;
-  }
-
-  .guild-member-row-menu-panel:has(.guild-member-row-confirm) {
-    width: min(18.5rem, calc(100vw - 2rem));
-  }
-
   .os-floating-panel-item.is-destructive {
     color: var(--signal-error, var(--protocol-red));
   }
@@ -40253,15 +38015,6 @@ a.os-surface-row {
     line-height: 1.35;
     text-align: right;
     color: var(--signal-error, var(--protocol-red));
-  }
-
-  /* Confirm uses OsNoticeCard; keep panel width + error only. */
-  .guild-member-row-confirm {
-    padding: 0.85rem 0.85rem 0.7rem;
-  }
-
-  .guild-member-row-confirm .guild-form-error {
-    margin: 0;
   }
 
   .guild-proposal-list {
@@ -40731,11 +38484,6 @@ a.os-surface-row {
     opacity: 0.94;
   }
 
-  .guild-proposals-requests-link {
-    width: 100%;
-    margin-bottom: 0.75rem;
-  }
-
   .guild-add-member-sheet {
     display: flex;
     flex-direction: column;
@@ -40881,8 +38629,7 @@ a.os-surface-row {
     box-shadow: 0 0 0 2px rgb(var(--bg-rgb));
   }
 
-  .guild-facepile-count,
-  .guild-hero-meta-link {
+  .guild-facepile-count {
     font-size: 0.72rem;
     font-weight: 600;
     color: rgb(var(--fg-rgb) / 0.62);
@@ -40899,16 +38646,7 @@ a.os-surface-row {
     min-height: 0.72rem;
   }
 
-  button.guild-hero-meta-link {
-    border: none;
-    background: none;
-    padding: 0;
-    cursor: pointer;
-    font: inherit;
-  }
-
-  .guild-facepile:hover:not(:disabled) .guild-facepile-count,
-  .guild-hero-meta-link:hover {
+  .guild-facepile:hover:not(:disabled) .guild-facepile-count {
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
@@ -40929,8 +38667,7 @@ a.os-surface-row {
     border-radius: 9999px;
   }
 
-  .guild-eyebrow,
-  .guild-card-eyebrow {
+  .guild-eyebrow {
     margin: 0;
     font-size: 0.68rem;
     font-weight: 600;
@@ -40940,10 +38677,7 @@ a.os-surface-row {
   }
 
   .guild-hero-card h2,
-  .guild-section-head h2,
-  .guild-action-card h3,
-  .guild-role-card h3,
-  .guild-phase-card h3 {
+  .guild-section-head h2 {
     margin: 0;
     letter-spacing: -0.025em;
   }
@@ -40955,17 +38689,13 @@ a.os-surface-row {
   }
 
   .guild-hero-card p,
-  .guild-section-head p,
-  .guild-action-card p,
-  .guild-role-card p,
-  .guild-public-note {
+  .guild-section-head p {
     margin: 0;
     font-size: 0.86rem;
     line-height: 1.55;
     color: rgb(var(--fg-rgb) / 0.62);
   }
 
-  .guild-public-note,
   .guild-state-card {
     border: 1px dashed rgb(var(--fg-rgb) / 0.12);
     border-radius: 1rem;
@@ -40988,14 +38718,6 @@ a.os-surface-row {
     color: color-mix(in srgb, var(--protocol-red) 85%, rgb(var(--fg-rgb)));
   }
 
-  .guild-state-card--inline {
-    padding: 0.45rem 0.85rem;
-    border-radius: 0.75rem;
-    font-size: 0.78rem;
-    line-height: 1.4;
-  }
-
-  .guild-hero-actions,
   .guild-create-actions {
     display: flex;
     flex-wrap: wrap;
@@ -41006,45 +38728,6 @@ a.os-surface-row {
   /* Stable footprint while the label swaps between text and pending dots. */
   .guild-hero-action {
     min-width: 4.25rem;
-  }
-
-  .guild-settings-media {
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-  }
-
-  .guild-settings-banner {
-    position: relative;
-    height: clamp(8rem, 24vw, 10rem);
-    overflow: hidden;
-    border-radius: 1rem;
-  }
-
-  .guild-settings-banner img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .guild-settings-media-button {
-    position: absolute;
-    right: 0.75rem;
-    bottom: 0.75rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 9999px;
-    padding: 0.45rem 0.75rem;
-    background: rgb(var(--bg-rgb) / 0.72);
-    backdrop-filter: blur(12px);
-    font: inherit;
-    font-size: 0.74rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .guild-settings-media-button--ghost {
-    right: auto;
-    left: 0.75rem;
   }
 
   .guild-field input[readonly] {
@@ -41082,18 +38765,6 @@ a.os-surface-row {
     gap: 0.35rem;
   }
 
-  .guild-card-grid,
-  .guild-action-list,
-  .guild-role-grid,
-  .guild-channel-grid,
-  .guild-structure-grid,
-  .guild-permission-list,
-  .guild-toggle-grid,
-  .guild-phase-list {
-    display: grid;
-    gap: 0.75rem;
-  }
-
   .guild-card {
     display: flex;
     flex-direction: column;
@@ -41106,105 +38777,11 @@ a.os-surface-row {
       border-color 160ms ease;
   }
 
-  .guild-list-card {
-    padding: 0;
-    overflow: hidden;
-  }
-
-  .guild-list-card-banner {
-    position: relative;
-    aspect-ratio: 2.4 / 1;
-    overflow: hidden;
-    border-bottom: 1px solid rgb(var(--fg-rgb) / 0.08);
-  }
-
-  .guild-list-card-banner img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .guild-list-card .guild-card-eyebrow,
-  .guild-list-card .guild-card-title,
-  .guild-list-card .guild-card-copy,
-  .guild-list-card .guild-card-meta {
-    padding-inline: 1rem;
-  }
-
-  .guild-list-card .guild-card-meta {
-    padding-bottom: 1rem;
-  }
-
   .guild-card:hover,
-  .guild-card:focus-visible,
-  .guild-detail-nav-link:hover,
-  .guild-detail-nav-link:focus-visible {
+  .guild-card:focus-visible {
     border-color: rgb(var(--fg-rgb) / 0.16);
     background: rgb(var(--fg-rgb) / 0.05);
     outline: none;
-  }
-
-  .guild-card-title {
-    font-size: 1rem;
-    font-weight: 650;
-    letter-spacing: -0.02em;
-  }
-
-  .guild-card-copy {
-    font-size: 0.84rem;
-    line-height: 1.5;
-    color: rgb(var(--fg-rgb) / 0.62);
-  }
-
-  .guild-card-meta,
-  .guild-tag-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-  }
-
-  .guild-card-meta span,
-  .guild-tag-list span,
-  .guild-surface-badge,
-  .guild-contract-action,
-  .guild-role-card span,
-  .guild-phase-card > span {
-    display: inline-flex;
-    width: fit-content;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.06);
-    color: rgb(var(--fg-rgb) / 0.56);
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    padding: 0.28rem 0.48rem;
-  }
-
-  .guild-detail-nav {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    display: flex;
-    gap: 0.45rem;
-    overflow-x: auto;
-    padding: 0.2rem 0 0.35rem;
-    background: linear-gradient(
-      180deg,
-      rgb(var(--bg-rgb) / 0.72),
-      rgb(var(--bg-rgb) / 0)
-    );
-  }
-
-  .guild-detail-nav-link {
-    flex: 0 0 auto;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.035);
-    color: rgb(var(--fg-rgb) / 0.74);
-    font-size: 0.76rem;
-    font-weight: 600;
-    padding: 0.48rem 0.72rem;
-    text-decoration: none;
   }
 
   /* ── Thread rail ─────────────────────────────────────────
@@ -41510,10 +39087,6 @@ a.os-surface-row {
     height: 100%;
     max-height: none;
     object-fit: cover;
-  }
-
-  .guild-composer-destination-whisper {
-    margin: 0.12rem 0 0;
   }
 
   /* Compose dock — tools left, compact Post right (above keyboard). */
@@ -41824,30 +39397,6 @@ a.os-surface-row {
     top: 0;
     right: 0;
     z-index: 2;
-  }
-
-  .guild-composer-muted-preview {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-
-  .guild-composer-muted-title,
-  .guild-composer-muted-text {
-    margin: 0;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-
-  .guild-composer-muted-title {
-    font-weight: 650;
-    margin-bottom: 0.45rem;
-  }
-
-  .guild-composer-muted-text {
-    font-size: 0.92rem;
-    font-weight: 300;
-    line-height: 1.5;
   }
 
   /* Reserved slot beside Post — no layout jump when typing starts. */
@@ -42579,8 +40128,6 @@ a.os-surface-row {
     width: 100%;
   }
 
-  .guild-composer-sheet-form[data-writing='article']
-    .guild-composer-destination-whisper,
   .guild-composer-sheet-form[data-writing='article'] .guild-composer-identity {
     opacity: 0.72;
   }
@@ -42698,49 +40245,6 @@ a.os-surface-row {
   /* Compact Join / Connect opposite the thread title. */
   .guild-thread-nav-membership {
     flex-shrink: 0;
-  }
-
-  .guild-thread-nav-membership-shimmer {
-    display: block;
-    width: 100%;
-    height: 1.65rem;
-    margin: 0;
-    border-radius: 9999px;
-  }
-
-  /* Quiet pseudo-input that opens the composer (thread pages). */
-  .guild-reply-prompt {
-    width: 100%;
-    border: 0;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.05);
-    color: rgb(var(--fg-rgb) / 0.42);
-    cursor: text;
-    font: inherit;
-    font-size: 0.8rem;
-    font-weight: 500;
-    text-align: left;
-    padding: 0.45rem 0.85rem;
-    transition:
-      background 160ms ease,
-      color 160ms ease;
-  }
-
-  .guild-reply-prompt:hover,
-  .guild-reply-prompt:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.08);
-    color: rgb(var(--fg-rgb) / 0.62);
-    outline: none;
-  }
-
-  .guild-reply-prompt-destination {
-    color: rgb(var(--fg-rgb) / 0.72);
-    font-weight: 600;
-  }
-
-  .guild-reply-prompt:hover .guild-reply-prompt-destination,
-  .guild-reply-prompt:focus-visible .guild-reply-prompt-destination {
-    color: rgb(var(--fg-rgb) / 0.88);
   }
 
   /* Destination whisper lives under the title; spaces use .guild-composer-mode chips. */
@@ -42882,12 +40386,6 @@ a.os-surface-row {
   .thread-view-quotes:focus-visible {
     color: rgb(var(--fg-rgb) / 0.85);
     outline: none;
-  }
-
-  .thread-view-quotes-icon {
-    width: 0.85rem;
-    height: 0.85rem;
-    flex-shrink: 0;
   }
 
   .thread-view-quotes-count {
@@ -43163,92 +40661,10 @@ a.os-surface-row {
     height: 0.85rem;
   }
 
-  .guild-room-meta-manage {
-    width: 100%;
-    margin-top: 0.75rem;
-  }
-
-  .guild-action-card,
-  .guild-role-card,
-  .guild-channel-card,
-  .guild-structure-card,
-  .guild-permission-card,
-  .guild-phase-card {
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-    padding: 0.95rem;
-  }
-
-  .guild-action-card-head,
-  .guild-role-card > div,
-  .guild-structure-card-head,
-  .guild-permission-card > div {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.75rem;
-    align-items: flex-start;
-  }
-
-  .guild-structure-card,
-  .guild-permission-card {
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 1.1rem;
-    background: rgb(var(--fg-rgb) / 0.03);
-  }
-
-  .guild-structure-card.is-selected {
-    border-color: color-mix(in srgb, var(--protocol-purple) 38%, transparent);
-    background:
-      radial-gradient(
-        circle at top right,
-        color-mix(in srgb, var(--protocol-purple) 18%, transparent),
-        transparent 52%
-      ),
-      rgb(var(--fg-rgb) / 0.04);
-  }
-
-  .guild-structure-card-head span,
-  .guild-permission-card span {
-    font-size: 0.9rem;
-    font-weight: 650;
-    letter-spacing: -0.01em;
-  }
-
-  .guild-structure-card p,
-  .guild-structure-card small,
-  .guild-permission-card p {
-    margin: 0;
-    color: rgb(var(--fg-rgb) / 0.58);
-    font-size: 0.8rem;
-    line-height: 1.48;
-  }
-
-  .guild-structure-card small {
-    color: rgb(var(--fg-rgb) / 0.46);
-  }
-
-  .guild-structure-card code,
-  .guild-permission-card code {
-    width: fit-content;
-    max-width: 100%;
-    overflow-wrap: anywhere;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 9999px;
-    background: rgb(0 0 0 / 0.2);
-    color: rgb(var(--fg-rgb) / 0.62);
-    font-size: 0.68rem;
-    padding: 0.24rem 0.45rem;
-  }
-
   .guild-structure-settings {
     display: flex;
     flex-direction: column;
     gap: 1rem;
-  }
-
-  .guild-structure-template-row .guild-field {
-    padding: 0;
   }
 
   .guild-structure-space-list {
@@ -43422,57 +40838,6 @@ a.os-surface-row {
     gap: 0.35rem;
   }
 
-  .guild-permission-card strong {
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.06);
-    color: rgb(var(--fg-rgb) / 0.58);
-    font-size: 0.68rem;
-    padding: 0.26rem 0.44rem;
-  }
-
-  .guild-method-stack {
-    display: grid;
-    gap: 0.35rem;
-  }
-
-  .guild-method-stack code,
-  .guild-channel-card code,
-  .guild-code-block {
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 0.85rem;
-    background: rgb(0 0 0 / 0.24);
-    color: rgb(var(--fg-rgb) / 0.72);
-  }
-
-  .guild-method-stack code,
-  .guild-channel-card code {
-    padding: 0.5rem 0.6rem;
-    font-size: 0.72rem;
-    white-space: normal;
-    word-break: break-word;
-  }
-
-  .guild-channel-card span {
-    font-size: 0.9rem;
-    font-weight: 650;
-  }
-
-  .guild-code-block {
-    overflow-x: auto;
-    margin: 0;
-    padding: 0.9rem;
-    font-size: 0.76rem;
-    line-height: 1.55;
-  }
-
-  .guild-phase-card ul {
-    margin: 0;
-    padding-left: 1rem;
-    color: rgb(var(--fg-rgb) / 0.62);
-    font-size: 0.82rem;
-    line-height: 1.5;
-  }
-
   .guild-field {
     display: flex;
     flex-direction: column;
@@ -43559,8 +40924,7 @@ a.os-surface-row {
     border-color: rgb(var(--fg-rgb) / 0.18);
   }
 
-  .guild-field small,
-  .guild-toggle-card small {
+  .guild-field small {
     font-size: 0.74rem;
     line-height: 1.45;
     color: rgb(var(--fg-rgb) / 0.48);
@@ -43756,50 +41120,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.72);
   }
 
-  .guild-composer-structure {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    align-items: center;
-    justify-content: space-between;
-    color: rgb(var(--fg-rgb) / 0.68);
-    font-size: 0.78rem;
-    font-weight: 600;
-  }
-
-  .guild-composer-structure select {
-    min-height: 2.35rem;
-    min-width: 11rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.04);
-    color: rgb(var(--fg-rgb) / 0.86);
-    font: inherit;
-    font-size: 0.84rem;
-    padding: 0.55rem 0.7rem;
-  }
-
-  .guild-toggle-card {
-    display: flex;
-    gap: 0.75rem;
-    align-items: flex-start;
-    padding: 0.95rem;
-  }
-
-  .guild-toggle-card input {
-    margin-top: 0.18rem;
-    accent-color: rgb(var(--fg-rgb) / 0.88);
-  }
-
-  .guild-toggle-card span {
-    display: grid;
-    gap: 0.2rem;
-  }
-
-  .guild-toggle-card strong {
-    font-size: 0.86rem;
-  }
-
   .guild-form-error {
     margin: 0;
     border: 1px solid var(--protocol-red-border);
@@ -43808,12 +41128,6 @@ a.os-surface-row {
     color: color-mix(in srgb, var(--protocol-red) 86%, rgb(var(--fg-rgb)));
     font-size: 0.82rem;
     line-height: 1.45;
-  }
-
-  .app-soon-page {
-    min-height: 50vh;
-    justify-content: center;
-    align-items: flex-start;
   }
 
   /* ── Endorsements overlay ───────────────────────────────── */
@@ -44043,13 +41357,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.58);
   }
 
-  .endorsements-empty-hint {
-    margin: 0;
-    font-size: 0.72rem;
-    line-height: 1.4;
-    color: rgb(var(--fg-rgb) / 0.42);
-  }
-
   /* Gesture sheet header: @onsocial/ui/os-gesture-sheet-header.css */
 
   /* ── Endorse compose sheet ──────────────────────────────── */
@@ -44169,11 +41476,6 @@ a.os-surface-row {
 
   .commerce-sheet-footer-leading {
     flex-shrink: 0;
-  }
-
-  .commerce-sheet-footer-actions {
-    flex: 1;
-    min-width: 0;
   }
 
   .commerce-sheet-action-skel {
@@ -44670,7 +41972,6 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
 }
 
 /* Account dock key — orange attention (logout uses is-danger). Unlayered twin. */
-.account-shortcut-dock .os-surface-tile.is-attention,
 .account-shortcut-dock .os-surface-row.is-attention,
 .account-card .account-menu-row.is-attention,
 .account-card .account-storage-row.is-attention,
@@ -44683,9 +41984,6 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
   white-space: normal;
 }
 
-.account-shortcut-dock .os-surface-tile.is-attention:not(:disabled):hover,
-.account-shortcut-dock
-  .os-surface-tile.is-attention:not(:disabled):focus-visible,
 .account-shortcut-dock .os-surface-row.is-attention:not(:disabled):hover,
 .account-shortcut-dock
   .os-surface-row.is-attention:not(:disabled):focus-visible,
@@ -44706,18 +42004,10 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
   color: rgb(248 113 113 / 0.72);
 }
 
-.account-shortcut-dock .os-surface-tile.is-attention:not(:disabled):active {
-  background: color-mix(in srgb, var(--protocol-amber) 18%, transparent);
-  color: var(--protocol-amber-ink, var(--protocol-amber));
-}
-
 /*
  * Wallet drawer — protocol grey hover on every in-card control (incl. shortcut dock).
  * Unlayered so it beats @onsocial/ui os-surface-interactive (mood --os-surface-fill-hover).
  */
-.account-drawer-panel
-  .account-card
-  .account-action-chip:is(:hover, :focus-visible),
 .account-drawer-panel
   .account-card
   .account-action-toggle:not(:disabled):is(:hover, :focus-visible),
@@ -44769,7 +42059,6 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
     .post-card-link,
     .post-card-open,
     .os-surface-row,
-    .os-surface-tile,
     .os-surface-chip
   ) {
   transition:
@@ -44982,20 +42271,12 @@ button.scarce-clip-cover-expand {
  * Listen sheet — same lighter fill as the play control.
  * Unlayered so these win over the dark frosted cover-chrome defaults above.
  */
-.scarce-clip-cover-time-pill.scarce-clip-listen-time-pill,
-button.scarce-clip-cover-expand.scarce-clip-listen-contract {
+.scarce-clip-cover-time-pill.scarce-clip-listen-time-pill {
   color: var(--os-surface-emphasis);
   background: var(--os-surface-fill-strong);
   filter: none;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
-}
-
-button.scarce-clip-cover-expand.scarce-clip-listen-contract:hover,
-button.scarce-clip-cover-expand.scarce-clip-listen-contract:focus-visible {
-  background: rgb(var(--fg-rgb) / 0.16);
-  color: var(--os-surface-emphasis);
-  outline: none;
 }
 
 /* Immersive back / shop icon circle. */
@@ -46826,10 +44107,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   color: rgb(var(--fg-rgb) / 0.58);
 }
 
-.dao-proposals-slide .dao-workspace {
-  gap: 0.65rem;
-}
-
 .dao-members-sheet,
 .dao-treasury-sheet {
   display: flex;
@@ -46960,18 +44237,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   display: flex;
   flex-direction: column;
   gap: 1.15rem;
-}
-
-.launcher-home-lede {
-  margin: 0;
-  font-size: 0.9rem;
-  line-height: 1.45;
-  color: rgb(var(--fg-rgb) / 0.68);
-}
-
-.launcher-home-lede--tight {
-  margin-bottom: 0.35rem;
-  font-size: 0.84rem;
 }
 
 .launcher-home-divider {
@@ -47584,8 +44849,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   text-underline-offset: 0.15em;
 }
 
-.dao-create-toggle,
-.dao-edit-social-toggle {
+.dao-create-toggle {
   display: flex;
   align-items: flex-start;
   gap: 0.65rem;
@@ -47596,14 +44860,12 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   color: rgb(var(--fg-rgb) / 0.82);
 }
 
-.dao-create-toggle input,
-.dao-edit-social-toggle input {
+.dao-create-toggle input {
   margin-top: 0.2rem;
   flex-shrink: 0;
 }
 
-.dao-create-toggle small,
-.dao-edit-social-toggle small {
+.dao-create-toggle small {
   display: block;
   margin-top: 0.2rem;
   font-size: 0.76rem;
@@ -47654,42 +44916,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 .dao-directory-list {
   display: flex;
   flex-direction: column;
-}
-
-.daos-discover-open {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.2rem;
-  width: 100%;
-  margin: 0;
-  padding: 0.85rem 0.15rem;
-  border: 0;
-  border-bottom: 1px solid rgb(var(--fg-rgb) / 0.1);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.daos-discover-open:hover,
-.daos-discover-open:focus-visible {
-  background: rgb(var(--fg-rgb) / 0.04);
-  outline: none;
-}
-
-.daos-discover-open-title {
-  font-size: 0.95rem;
-  font-weight: 650;
-  color: rgb(var(--fg-rgb) / 0.92);
-}
-
-.daos-discover-open-copy {
-  font-size: 0.8rem;
-  line-height: 1.4;
-  color: rgb(var(--fg-rgb) / 0.55);
 }
 
 .dao-discover-sheet {
@@ -47790,18 +45016,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: rgb(var(--fg-rgb) / 0.45);
-}
-
-.launcher-home-section-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.35rem;
-}
-
-.launcher-home-section-head .launcher-home-heading {
-  margin: 0;
 }
 
 /* ── Private messages ───────────────────────────────────────────────────── */
@@ -48059,21 +45273,14 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   box-shadow: inset 0 0 0 1px rgb(185 28 28 / 0.28);
 }
 
-.messages-panel-empty,
-.messages-panel-error,
 .dm-compose-error {
   margin: 0;
   color: rgb(var(--fg-rgb) / 0.7);
   font-size: 0.9rem;
 }
 
-.messages-panel-error,
 .dm-compose-error {
   color: var(--signal-error, rgb(185 28 28));
-}
-
-.messages-panel > .messages-panel-error {
-  margin: 0;
 }
 
 .messages-unlock {
@@ -48199,14 +45406,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   margin: 0.35rem 0 0;
   font-size: 0.8rem;
   color: rgb(var(--fg-rgb) / 0.55);
-}
-
-.messages-thread-actions {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  margin-top: 0.85rem;
-  flex-wrap: wrap;
 }
 
 .os-app-screen:has(.messages-panel)[data-screen-footer='true'] {
@@ -48415,24 +45614,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-}
-
-.messages-nav-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.15rem;
-  height: 1.15rem;
-  padding: 0 0.3rem;
-  border-radius: 999px;
-  font-size: 0.65rem;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--app-on-media-ink);
-  background: var(
-    --signal-endorse,
-    var(--mood-accent-chrome, var(--mood-accent))
-  );
 }
 
 /* ── Activity / notifications ─────────────────────────────────────────────── */
