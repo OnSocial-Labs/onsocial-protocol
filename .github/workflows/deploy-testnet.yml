@@ -594,6 +594,13 @@ jobs:
               sleep 3
             done
 
+            # ── imgproxy (CDN image variants) — additive; never block the deploy ──
+            echo "Ensuring imgproxy is up..."
+            if ! dc up -d imgproxy </dev/null; then
+              echo "⚠️  imgproxy failed to start — /img variants unavailable (non-blocking)"
+              print_service_logs "imgproxy" || true
+            fi
+
             echo "Reloading caddy..."
             dc up -d --no-deps caddy </dev/null
             if ! check_health "caddy (public)" "https://testnet.onsocial.id/health" 10 5; then
@@ -623,7 +630,7 @@ jobs:
             fi
 
             # ── Bring up any remaining services ──────────────────────
-            FINAL_SERVICES="postgres hasura relayer-lb relayer-0 relayer-1 gateway notification-worker caddy backend pages"
+            FINAL_SERVICES="postgres hasura relayer-lb relayer-0 relayer-1 gateway notification-worker caddy backend pages imgproxy"
             dc up -d --no-deps $FINAL_SERVICES </dev/null
 
             echo ""
