@@ -9,7 +9,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
-import { Divider, MessageRoundIcon } from '@onsocial/ui';
+import { Divider, ipfsImgVariantUrl, MessageRoundIcon } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { displayName } from '@/lib/profile-display';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
@@ -277,7 +277,7 @@ function QuoteThumbTile({
       ) : (
         <img
           ref={bind}
-          src={item.url}
+          src={ipfsImgVariantUrl(item.url, 384, item.mime) ?? item.url}
           alt=""
           className={mediaClassName}
           loading="lazy"

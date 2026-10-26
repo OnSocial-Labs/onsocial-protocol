@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { CSSProperties, MouseEvent } from 'react';
-import { UserIcon } from '@onsocial/ui';
+import { ipfsImgSrcSet, UserIcon } from '@onsocial/ui';
 import { useNetworkOrbit } from '@/components/panels/network-orbit-context';
 import { useOpenNetworkStandingList } from '@/components/panels/network-orbit-sheet-header';
 import { displayName as resolveDisplayName } from '@/lib/profile-display';
@@ -286,6 +286,7 @@ function OrbitCenter({ stageSize }: { stageSize: number }) {
   const layout = orbitStageLayout(stageSize);
   const size = layout.centerAvatar;
   const identity = orbitCenterIdentity(accountId);
+  const avatarSrcSet = ipfsImgSrcSet(avatarUrl, [128, 384]);
 
   const identityVars: CSSProperties = centerMood
     ? ({
@@ -325,7 +326,12 @@ function OrbitCenter({ stageSize }: { stageSize: number }) {
       />
       <span className="network-orbit-center-avatar">
         {avatarUrl ? (
-          <img src={avatarUrl} alt="" />
+          <img
+            src={avatarUrl}
+            srcSet={avatarSrcSet}
+            sizes={avatarSrcSet ? cssPx(Math.round(size)) : undefined}
+            alt=""
+          />
         ) : (
           <span
             className="network-orbit-center-fallback-icon"

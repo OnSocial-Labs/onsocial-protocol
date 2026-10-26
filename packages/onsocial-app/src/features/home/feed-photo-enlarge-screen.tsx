@@ -15,6 +15,8 @@ import { usePathname } from 'next/navigation';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
+  ipfsImgSrcSet,
+  ipfsImgVariantUrl,
   OsIconAction,
   PauseFillIcon,
   PlayFillIcon,
@@ -1306,9 +1308,14 @@ function FeedPhotoMediaStage({
       </div>
     );
   }
+  /* Full-viewport slot — 1920 for large screens, 1080 rung covers phones.
+   * Downloads keep the byte-original via item.cid/item.url (D4). */
+  const stillSrcSet = ipfsImgSrcSet(item.url, [1080, 1920], item.mime);
   return (
     <img
-      src={item.url}
+      src={ipfsImgVariantUrl(item.url, 1920, item.mime) ?? item.url}
+      srcSet={stillSrcSet}
+      sizes={stillSrcSet ? '100vw' : undefined}
       alt={item.alt?.trim() || ''}
       className="feed-photo-image"
       draggable={false}
