@@ -19145,72 +19145,10 @@ a.os-surface-row {
     min-height: 2.75rem;
   }
 
-  .account-shortcut-dock-icon {
-    width: 0.9rem;
-    height: 0.9rem;
-  }
-
   .account-action-stack {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-  }
-
-  .account-action-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.35rem;
-  }
-
-  .account-action-chip.os-surface-chip,
-  .account-action-chip {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 0.08rem;
-    width: 100%;
-    min-height: 2.35rem;
-    margin: 0;
-    padding: 0.32rem 0.5rem;
-    border: 0;
-    border-radius: var(--os-surface-radius-row, 0.85rem);
-    background: var(--os-surface-fill);
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    text-decoration: none;
-    cursor: pointer;
-    transition: background 160ms ease;
-  }
-
-  .account-action-chip:hover,
-  .account-action-chip:focus-visible {
-    background: var(--os-surface-fill-hover);
-    outline: none;
-  }
-
-  /* Wallet control hover — unlayered block at file end (beats os-surface-interactive). */
-
-  .account-action-chip-label {
-    min-width: 0;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.72rem;
-    font-weight: 600;
-  }
-
-  .account-action-chip-hint {
-    min-width: 0;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.58rem;
-    line-height: 1.2;
-    color: rgb(var(--fg-rgb) / 0.45);
   }
 
   .account-action-toggles {
@@ -19281,18 +19219,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.62);
   }
 
-  .account-safe-mode-row {
-    appearance: none;
-    width: 100%;
-    margin: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-
   .account-safe-mode-switch {
     position: relative;
     flex-shrink: 0;
@@ -19328,71 +19254,12 @@ a.os-surface-row {
     white-space: normal;
   }
 
-  .account-card-wallet-zone-head,
-  .account-card-earning-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-
   .account-card-wallet-label {
     font-size: 0.62rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.42);
-  }
-
-  .account-card-earning-ready {
-    font-size: 0.62rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--protocol-green);
-  }
-
-  .account-card-copy {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 1.5rem;
-    height: 1.5rem;
-    border: 0;
-    border-radius: 9999px;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.48);
-    cursor: pointer;
-    transition: color 160ms ease;
-  }
-
-  .account-card-copy:hover {
-    color: rgb(var(--fg-rgb) / 0.82);
-  }
-
-  .account-card-copy-icon {
-    width: 0.78rem;
-    height: 0.78rem;
-  }
-
-  .account-card-metrics {
-    display: contents;
-  }
-
-  .account-card-balance-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-
-  .account-card-balance-copy {
-    display: flex;
-    min-width: 0;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.35rem 0.45rem;
   }
 
   .account-card-balance-kicker {
@@ -19454,44 +19321,6 @@ a.os-surface-row {
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.45);
     font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
-  }
-
-  .account-card-hint {
-    margin: 0;
-    font-size: 0.68rem;
-    line-height: 1.35;
-    color: rgb(var(--fg-rgb) / 0.48);
-  }
-
-  .account-card-storage-block {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    margin-top: 0.15rem;
-  }
-
-  .account-card-storage-row {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
-    align-items: center;
-    gap: 0.45rem;
-    min-height: 1.5rem;
-  }
-
-  .account-card-storage-row--inactive {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-  }
-
-  .account-card-storage-row--sheet {
-    grid-template-columns: minmax(0, 1fr) auto;
-    margin-top: 0.35rem;
-  }
-
-  .account-card-storage-status {
-    min-width: 0;
-    font-size: 0.62rem;
-    line-height: 1.2;
-    color: rgb(var(--fg-rgb) / 0.45);
   }
 
   .app-storage-sheet {
@@ -22414,7 +22243,6 @@ a.os-surface-row {
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .account-card-copy,
     .os-surface-row,
     .os-surface-chip,
     .account-wallet-progress-fill {
@@ -43047,9 +42875,6 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
  * Wallet drawer — protocol grey hover on every in-card control (incl. shortcut dock).
  * Unlayered so it beats @onsocial/ui os-surface-interactive (mood --os-surface-fill-hover).
  */
-.account-drawer-panel
-  .account-card
-  .account-action-chip:is(:hover, :focus-visible),
 .account-drawer-panel
   .account-card
   .account-action-toggle:not(:disabled):is(:hover, :focus-visible),
