@@ -74,6 +74,27 @@ export function confirmedReactionEngagement(
   };
 }
 
+/** All fields are primitives — identity-preserving merges compare by value. */
+function samePostEngagement(a: PostEngagement, b: PostEngagement): boolean {
+  return (
+    a.replyCount === b.replyCount &&
+    a.quoteCount === b.quoteCount &&
+    a.repostCount === b.repostCount &&
+    a.reactionCount === b.reactionCount &&
+    a.viewerReacted === b.viewerReacted &&
+    a.amplifyCount === b.amplifyCount &&
+    a.viewerAmplified === b.viewerAmplified &&
+    a.viewerSaved === b.viewerSaved &&
+    a.viewerReposted === b.viewerReposted &&
+    a.viewerRepostId === b.viewerRepostId &&
+    a.viewerRepostGroupId === b.viewerRepostGroupId &&
+    a.reactionRoll === b.reactionRoll &&
+    a.amplifyRoll === b.amplifyRoll &&
+    a.replyRoll === b.replyRoll &&
+    a.shareRoll === b.shareRoll
+  );
+}
+
 export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
   replyCount: 0,
   quoteCount: 0,
@@ -163,15 +184,25 @@ export function mergeEngagementSoftUpgrade(
         repostCount: Math.max(next.repostCount, previous.repostCount),
       };
     }
-    merged[key] = previous
-      ? {
-          ...next,
-          reactionRoll: previous.reactionRoll,
-          amplifyRoll: previous.amplifyRoll,
-          replyRoll: previous.replyRoll,
-          shareRoll: previous.shareRoll,
-        }
-      : next;
+    if (!previous) {
+      merged[key] = next;
+      continue;
+    }
+    const candidate: PostEngagement = {
+      ...next,
+      reactionRoll: previous.reactionRoll,
+      amplifyRoll: previous.amplifyRoll,
+      replyRoll: previous.replyRoll,
+      shareRoll: previous.shareRoll,
+    };
+    /*
+     * Keep the previous object when nothing actually changed — memoized
+     * cards key off this identity, and an indexer refetch must not
+     * re-render every card whose counts came back identical.
+     */
+    merged[key] = samePostEngagement(candidate, previous)
+      ? previous
+      : candidate;
   }
   return merged;
 }
@@ -225,10 +256,12 @@ export function usePostEngagement(
   const pendingSaveKeysRef = useRef(pendingSaveKeys);
   const unrepostedKeysRef = useRef(unrepostedKeys);
   const pendingShareKeysRef = useRef(pendingShareKeys);
+  const engagementRef = useRef(engagement);
   pendingReactionKeysRef.current = pendingReactionKeys;
   pendingSaveKeysRef.current = pendingSaveKeys;
   unrepostedKeysRef.current = unrepostedKeys;
   pendingShareKeysRef.current = pendingShareKeys;
+  engagementRef.current = engagement;
   const loadIdRef = useRef(0);
   const initialRef = useRef<EngagementMap | null>(opts.initial ?? null);
   const ssrSkipRef = useRef(
@@ -374,14 +407,16 @@ export function usePostEngagement(
   const toggleReaction = useCallback(
     async (post: PostRow) => {
       const key = postKey(post);
-      if (pendingReactionKeys.has(key)) return;
+      if (pendingReactionKeysRef.current.has(key)) return;
 
       if (!isConnected || !accountId) {
         await connect();
         return;
       }
 
-      const previous = engagement[key] ?? EMPTY_POST_ENGAGEMENT;
+      /* Read through refs so this callback's identity survives engagement
+       * updates — a like on one card must not re-render every other card. */
+      const previous = engagementRef.current[key] ?? EMPTY_POST_ENGAGEMENT;
       const applied = !previous.viewerReacted;
 
       setPendingReactionKeys((current) => new Set(current).add(key));
@@ -443,27 +478,20 @@ export function usePostEngagement(
         });
       }
     },
-    [
-      accountId,
-      connect,
-      engagement,
-      getClient,
-      isConnected,
-      pendingReactionKeys,
-    ]
+    [accountId, connect, getClient, isConnected]
   );
 
   const toggleSave = useCallback(
     async (post: PostRow) => {
       const key = postKey(post);
-      if (pendingSaveKeys.has(key)) return;
+      if (pendingSaveKeysRef.current.has(key)) return;
 
       if (!isConnected || !accountId) {
         await connect();
         return;
       }
 
-      const previous = engagement[key] ?? EMPTY_POST_ENGAGEMENT;
+      const previous = engagementRef.current[key] ?? EMPTY_POST_ENGAGEMENT;
       const applied = !previous.viewerSaved;
       const contentPath = postContentPath(post);
 
@@ -499,7 +527,7 @@ export function usePostEngagement(
         });
       }
     },
-    [accountId, connect, engagement, getClient, isConnected, pendingSaveKeys]
+    [accountId, connect, getClient, isConnected]
   );
 
   const confirmAmplify = useCallback((post: PostRow) => {
@@ -622,19 +650,21 @@ export function usePostEngagement(
     });
   }, []);
 
+  /* Stable identities (read via ref): these run once per card per render,
+   * so a changing function identity would defeat memoized cards. */
   const isReactionPending = useCallback(
-    (post: PostRow) => pendingReactionKeys.has(postKey(post)),
-    [pendingReactionKeys]
+    (post: PostRow) => pendingReactionKeysRef.current.has(postKey(post)),
+    []
   );
 
   const isSavePending = useCallback(
-    (post: PostRow) => pendingSaveKeys.has(postKey(post)),
-    [pendingSaveKeys]
+    (post: PostRow) => pendingSaveKeysRef.current.has(postKey(post)),
+    []
   );
 
   const isSharePending = useCallback(
-    (post: PostRow) => pendingShareKeys.has(postKey(post)),
-    [pendingShareKeys]
+    (post: PostRow) => pendingShareKeysRef.current.has(postKey(post)),
+    []
   );
 
   const withSharePending = useCallback(
