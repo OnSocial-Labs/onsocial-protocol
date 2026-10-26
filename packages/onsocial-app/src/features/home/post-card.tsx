@@ -215,13 +215,23 @@ interface PostCardProps {
   preferActionHref?: boolean;
 }
 
-
 export {
   HOME_FEED_APPEND_SKELETON_FRAMES,
   HOME_FEED_COLD_SKELETON_FRAMES,
   PostRowSkeleton,
 } from '@/features/home/post-skeleton';
 export type { PostSkeletonFrame } from '@/features/home/post-skeleton';
+
+/**
+ * Mount an overlay sheet on first open and keep it mounted afterwards —
+ * closed sheets cost nothing until first use, while close animations and
+ * internal state survive later closes.
+ */
+function useSheetMounted(open: boolean): boolean {
+  const [mounted, setMounted] = useState(open);
+  if (open && !mounted) setMounted(true);
+  return mounted || open;
+}
 
 function PostCardImpl({
   post,
@@ -306,6 +316,16 @@ function PostCardImpl({
   const [photoIndex, setPhotoIndex] = useState(0);
   /** Mood / craft article — slide-over reader (stays on feed). */
   const [articleOpen, setArticleOpen] = useState(false);
+  // Nine overlays sit under every card; mount each on first open only.
+  const amplifySheetMounted = useSheetMounted(amplifyOpen);
+  const listScarceSheetMounted = useSheetMounted(listScarceOpen);
+  const buyScarceSheetMounted = useSheetMounted(buyScarceOpen);
+  const bidScarceSheetMounted = useSheetMounted(bidScarceOpen);
+  const transferScarceSheetMounted = useSheetMounted(transferScarceOpen);
+  const sellScarceSheetMounted = useSheetMounted(sellScarceOpen);
+  const feedMediumSheetMounted = useSheetMounted(feedMediumOpen);
+  const photoScreenMounted = useSheetMounted(photoOpen);
+  const articleScreenMounted = useSheetMounted(articleOpen);
   /** Shared drop whose essay lives on another post. */
   const [feedReadEssay, setFeedReadEssay] = useState<PostRow | null>(null);
   const [feedBookRead, setFeedBookRead] = useState(false);
@@ -1136,469 +1156,493 @@ function PostCardImpl({
           />
         ) : null}
       </div>
-      <PostAmplifySheet
-        open={amplifyOpen}
-        post={amplifyOpen ? post : null}
-        authorName={authorProfile?.displayName}
-        workTitle={
-          collectionDropTitle?.trim() ||
-          tokenDropTitle?.trim() ||
-          dropPaint?.title?.trim() ||
-          null
-        }
-        onOpenChange={setAmplifyOpen}
-        onAmplified={(amplified, detail) =>
-          onAmplifyConfirmed?.(amplified, detail)
-        }
-        zIndex={SCARCE_Z.commerceOverListen}
-      />
-      <ScarceListSheet
-        open={listScarceOpen}
-        post={listScarceOpen ? post : null}
-        authorName={authorProfile?.displayName}
-        onOpenChange={setListScarceOpen}
-        onListed={() => retryScarceEmbed()}
-        zIndex={SCARCE_Z.commerceOverListen}
-      />
-      <ScarceBuySheet
-        open={buyScarceOpen}
-        post={buyScarceOpen ? post : null}
-        authorName={authorProfile?.displayName}
-        embed={scarceEmbed}
-        alreadyOwnsEdition={Boolean(ownedScarceItem)}
-        onOpenChange={setBuyScarceOpen}
-        onPurchased={() => {
-          retryScarceEmbed();
-          refreshOwnedScarce();
-        }}
-        zIndex={SCARCE_Z.commerceOverListen}
-      />
-      <ScarceBidSheet
-        open={bidScarceOpen}
-        post={bidScarceOpen ? post : null}
-        authorName={authorProfile?.displayName}
-        embed={scarceEmbed}
-        onOpenChange={setBidScarceOpen}
-        onBid={() => retryScarceEmbed()}
-        zIndex={SCARCE_Z.commerceOverListen}
-      />
-      <ScarceTransferSheet
-        open={transferScarceOpen && ownedScarceItem != null}
-        item={ownedScarceItem}
-        ownerAccountId={viewerAccountId}
-        onOpenChange={setTransferScarceOpen}
-        onTransferred={() => {
-          setTransferScarceOpen(false);
-          retryScarceEmbed();
-          refreshOwnedScarce();
-        }}
-        zIndex={SCARCE_Z.commerceOverListen}
-      />
-      <ScarceSellSheet
-        open={sellScarceOpen && ownedScarceItem != null}
-        item={ownedScarceItem}
-        sellerAccountId={viewerAccountId}
-        onOpenChange={setSellScarceOpen}
-        onListed={() => {
-          setSellScarceOpen(false);
-          retryScarceEmbed();
-          refreshOwnedScarce();
-        }}
-        zIndex={SCARCE_Z.commerceOverListen}
-      />
-      <FeedPhotoEnlargeScreen
-        open={photoOpen}
-        onOpenChange={(open) => {
-          setPhotoOpen(open);
-          if (!open) {
-            setEnlargeOverride(null);
-            setPhotoThreadOpen(false);
+      {amplifySheetMounted ? (
+        <PostAmplifySheet
+          open={amplifyOpen}
+          post={amplifyOpen ? post : null}
+          authorName={authorProfile?.displayName}
+          workTitle={
+            collectionDropTitle?.trim() ||
+            tokenDropTitle?.trim() ||
+            dropPaint?.title?.trim() ||
+            null
           }
-        }}
-        title={enlargeTitle}
-        trailing={({ downloadCurrent }) => (
-          <PostCardMenu
-            href={shareHref}
-            openPostHref={postThreadPath(post)}
-            onOpenPost={() => {
-              setPhotoOpen(false);
+          onOpenChange={setAmplifyOpen}
+          onAmplified={(amplified, detail) =>
+            onAmplifyConfirmed?.(amplified, detail)
+          }
+          zIndex={SCARCE_Z.commerceOverListen}
+        />
+      ) : null}
+      {listScarceSheetMounted ? (
+        <ScarceListSheet
+          open={listScarceOpen}
+          post={listScarceOpen ? post : null}
+          authorName={authorProfile?.displayName}
+          onOpenChange={setListScarceOpen}
+          onListed={() => retryScarceEmbed()}
+          zIndex={SCARCE_Z.commerceOverListen}
+        />
+      ) : null}
+      {buyScarceSheetMounted ? (
+        <ScarceBuySheet
+          open={buyScarceOpen}
+          post={buyScarceOpen ? post : null}
+          authorName={authorProfile?.displayName}
+          embed={scarceEmbed}
+          alreadyOwnsEdition={Boolean(ownedScarceItem)}
+          onOpenChange={setBuyScarceOpen}
+          onPurchased={() => {
+            retryScarceEmbed();
+            refreshOwnedScarce();
+          }}
+          zIndex={SCARCE_Z.commerceOverListen}
+        />
+      ) : null}
+      {bidScarceSheetMounted ? (
+        <ScarceBidSheet
+          open={bidScarceOpen}
+          post={bidScarceOpen ? post : null}
+          authorName={authorProfile?.displayName}
+          embed={scarceEmbed}
+          onOpenChange={setBidScarceOpen}
+          onBid={() => retryScarceEmbed()}
+          zIndex={SCARCE_Z.commerceOverListen}
+        />
+      ) : null}
+      {transferScarceSheetMounted ? (
+        <ScarceTransferSheet
+          open={transferScarceOpen && ownedScarceItem != null}
+          item={ownedScarceItem}
+          ownerAccountId={viewerAccountId}
+          onOpenChange={setTransferScarceOpen}
+          onTransferred={() => {
+            setTransferScarceOpen(false);
+            retryScarceEmbed();
+            refreshOwnedScarce();
+          }}
+          zIndex={SCARCE_Z.commerceOverListen}
+        />
+      ) : null}
+      {sellScarceSheetMounted ? (
+        <ScarceSellSheet
+          open={sellScarceOpen && ownedScarceItem != null}
+          item={ownedScarceItem}
+          sellerAccountId={viewerAccountId}
+          onOpenChange={setSellScarceOpen}
+          onListed={() => {
+            setSellScarceOpen(false);
+            retryScarceEmbed();
+            refreshOwnedScarce();
+          }}
+          zIndex={SCARCE_Z.commerceOverListen}
+        />
+      ) : null}
+      {photoScreenMounted ? (
+        <FeedPhotoEnlargeScreen
+          open={photoOpen}
+          onOpenChange={(open) => {
+            setPhotoOpen(open);
+            if (!open) {
+              setEnlargeOverride(null);
               setPhotoThreadOpen(false);
-            }}
-            onDownload={
-              enlargePhotos.length > 0 ? () => downloadCurrent() : undefined
             }
-            accountId={post.accountId}
-            authorProfile={authorProfile}
-            canCancelScarce={canCancelScarce}
-            onCancelScarce={() => {
-              void handleCancelScarce();
-            }}
-            cancelScarcePending={cancelScarcePending}
-            zIndex={SCARCE_Z.commerceOverListen}
-          />
-        )}
-        peekIdentity={
-          <div className="feed-photo-caption-identity-row">
-            <Link
-              href={profileHref}
-              className="os-media-face-identity"
-              scroll={false}
-              aria-label={`View ${name}'s profile`}
-              onClick={() => {
+          }}
+          title={enlargeTitle}
+          trailing={({ downloadCurrent }) => (
+            <PostCardMenu
+              href={shareHref}
+              openPostHref={postThreadPath(post)}
+              onOpenPost={() => {
                 setPhotoOpen(false);
                 setPhotoThreadOpen(false);
               }}
-            >
-              <AccountAvatar
-                accountId={post.accountId}
-                kind={authorProfile?.kind}
-                src={authorProfile?.avatarUrl ?? null}
-                fallbackInitial={name}
-                size="lg"
-                className="post-card-avatar"
-              />
-              <span className="os-media-face-identity-copy">
-                <span className="os-media-face-identity-name-row">
-                  <span className="os-media-face-identity-name">{name}</span>
-                  <span className="post-identity-name-marks">
-                    <ProtocolNameTrailing accountId={post.accountId} />
+              onDownload={
+                enlargePhotos.length > 0 ? () => downloadCurrent() : undefined
+              }
+              accountId={post.accountId}
+              authorProfile={authorProfile}
+              canCancelScarce={canCancelScarce}
+              onCancelScarce={() => {
+                void handleCancelScarce();
+              }}
+              cancelScarcePending={cancelScarcePending}
+              zIndex={SCARCE_Z.commerceOverListen}
+            />
+          )}
+          peekIdentity={
+            <div className="feed-photo-caption-identity-row">
+              <Link
+                href={profileHref}
+                className="os-media-face-identity"
+                scroll={false}
+                aria-label={`View ${name}'s profile`}
+                onClick={() => {
+                  setPhotoOpen(false);
+                  setPhotoThreadOpen(false);
+                }}
+              >
+                <AccountAvatar
+                  accountId={post.accountId}
+                  kind={authorProfile?.kind}
+                  src={authorProfile?.avatarUrl ?? null}
+                  fallbackInitial={name}
+                  size="lg"
+                  className="post-card-avatar"
+                />
+                <span className="os-media-face-identity-copy">
+                  <span className="os-media-face-identity-name-row">
+                    <span className="os-media-face-identity-name">{name}</span>
+                    <span className="post-identity-name-marks">
+                      <ProtocolNameTrailing accountId={post.accountId} />
+                    </span>
+                  </span>
+                  <span className="os-media-face-identity-handle">
+                    @{post.accountId}
                   </span>
                 </span>
-                <span className="os-media-face-identity-handle">
-                  @{post.accountId}
-                </span>
-              </span>
-            </Link>
-            {photoOpen && !isSelf ? (
-              <PostPeekStandButton
-                accountId={post.accountId}
-                name={name}
-                authorProfile={authorProfile}
-              />
-            ) : null}
-          </div>
-        }
-        caption={photoCaption}
-        captionDate={
-          post.blockTimestamp ? formatPostTimestamp(post.blockTimestamp) : null
-        }
-        photos={enlargePhotos}
-        initialIndex={photoIndex}
-        threadOpen={photoThreadOpen}
-        onDismissThread={dismissPhotoThread}
-        threadAuthor={post.accountId}
-        threadPostId={post.postId}
-        threadRoot={post}
-        engagement={
-          engagement ? (
-            <PostEngagementRow
-              engagement={engagement}
-              shareHref={shareHref}
-              shareTitle={name}
-              reactionPending={reactionPending}
-              savePending={savePending}
-              sharePending={sharePending}
-              onReply={openPhotoThread}
-              onQuote={
-                onQuote
-                  ? (target) => {
-                      setPhotoOpen(false);
-                      onQuote(target);
-                    }
-                  : undefined
-              }
-              onRepost={
-                onRepost
-                  ? (target) => {
-                      setPhotoOpen(false);
-                      onRepost(target);
-                    }
-                  : undefined
-              }
-              onUndoRepost={
-                onUndoRepost
-                  ? (target) => {
-                      setPhotoOpen(false);
-                      onUndoRepost(target);
-                    }
-                  : undefined
-              }
-              onToggleReaction={onToggleReaction}
-              onToggleSave={onToggleSave}
-              onAmplify={() => {
-                setAmplifyOpen(true);
-              }}
-              shareDrawerZIndex={SCARCE_Z.commerceOverListen}
-              post={post}
-            />
-          ) : null
-        }
-      />
-      <FeedArticleReadScreen
-        open={articleOpen}
-        onOpenChange={(next) => {
-          setArticleOpen(next);
-          if (!next) {
-            setFeedReadEssay(null);
-            setFeedBookRead(false);
-            setFeedBookCoverSvg(null);
-            setPhotoThreadOpen(false);
-          }
-        }}
-        post={feedReadEssay ?? post}
-        authorProfile={
-          feedReadEssay
-            ? feedReadAuthors[feedReadEssay.accountId]
-            : authorProfile
-        }
-        documentTitle={feedBookRead ? dropListenTitle : undefined}
-        threadOpen={photoThreadOpen}
-        onDismissThread={dismissPhotoThread}
-        threadAuthor={post.accountId}
-        threadPostId={post.postId}
-        threadRoot={post}
-        renderBody={
-          feedBookRead
-            ? ({ onChromeTap }) => (
-                <WritingReadDocument
-                  open={articleOpen}
-                  title={dropListenTitle}
-                  cover={scarceCoverUrl}
-                  coverSvg={feedBookCoverSvg}
-                  collectionId={scarceEmbed?.collectionId?.trim() || ''}
-                  accountId={viewerAccountId}
-                  creatorId={scarceEmbed?.creatorId ?? post.accountId}
-                  readables={collectionReadables}
-                  bookPdf={collectionBookPdf}
-                  writingFormat={collectionWritingFormat}
-                  canRead
-                  lockedHint=""
-                  onChromeTap={onChromeTap}
+              </Link>
+              {photoOpen && !isSelf ? (
+                <PostPeekStandButton
+                  accountId={post.accountId}
+                  name={name}
+                  authorProfile={authorProfile}
                 />
-              )
-            : undefined
-        }
-        commerce={
-          !isRepostShell && (scarceEmbed || canListScarce) ? (
-            <PostScarceCta
-              embed={
-                scarceEmbed ?? {
-                  status: 'none',
-                  events: [],
+              ) : null}
+            </div>
+          }
+          caption={photoCaption}
+          captionDate={
+            post.blockTimestamp
+              ? formatPostTimestamp(post.blockTimestamp)
+              : null
+          }
+          photos={enlargePhotos}
+          initialIndex={photoIndex}
+          threadOpen={photoThreadOpen}
+          onDismissThread={dismissPhotoThread}
+          threadAuthor={post.accountId}
+          threadPostId={post.postId}
+          threadRoot={post}
+          engagement={
+            engagement ? (
+              <PostEngagementRow
+                engagement={engagement}
+                shareHref={shareHref}
+                shareTitle={name}
+                reactionPending={reactionPending}
+                savePending={savePending}
+                sharePending={sharePending}
+                onReply={openPhotoThread}
+                onQuote={
+                  onQuote
+                    ? (target) => {
+                        setPhotoOpen(false);
+                        onQuote(target);
+                      }
+                    : undefined
                 }
-              }
-              isAuthor={isSelf}
-              authorAccountId={scarceEmbed?.creatorId?.trim() || post.accountId}
-              canList={canListScarce}
-              onList={() => setListScarceOpen(true)}
-              canSell={canSellScarce}
-              onSell={() => setSellScarceOpen(true)}
-              canTransfer={canTransferScarce}
-              onTransfer={() => setTransferScarceOpen(true)}
-              sellListed={sellListedScarce}
-              alreadyOwnsEdition={Boolean(ownedScarceItem)}
-              onBuy={() => setBuyScarceOpen(true)}
-              onBid={() => setBidScarceOpen(true)}
-            />
-          ) : null
-        }
-        engagement={
-          engagement ? (
-            <PostEngagementRow
-              engagement={engagement}
-              shareHref={shareHref}
-              shareTitle={name}
-              reactionPending={reactionPending}
-              savePending={savePending}
-              sharePending={sharePending}
-              onReply={openPhotoThread}
-              onQuote={
-                onQuote
-                  ? (target) => {
-                      setArticleOpen(false);
-                      onQuote(target);
-                    }
-                  : undefined
-              }
-              onRepost={
-                onRepost
-                  ? (target) => {
-                      setArticleOpen(false);
-                      onRepost(target);
-                    }
-                  : undefined
-              }
-              onUndoRepost={
-                onUndoRepost
-                  ? (target) => {
-                      setArticleOpen(false);
-                      onUndoRepost(target);
-                    }
-                  : undefined
-              }
-              onToggleReaction={onToggleReaction}
-              onToggleSave={onToggleSave}
-              onAmplify={() => {
-                setAmplifyOpen(true);
-              }}
-              shareDrawerZIndex={SCARCE_Z.commerceOverListen}
-              post={post}
-            />
-          ) : null
-        }
-      />
-      <ScarceFeedMediumSheet
-        open={feedMediumOpen}
-        onOpenChange={(next) => {
-          setFeedMediumOpen(next);
-          if (!next) setPhotoThreadOpen(false);
-        }}
-        mode={feedMediumMode}
-        threadOpen={photoThreadOpen}
-        onDismissThread={dismissPhotoThread}
-        threadAuthor={post.accountId}
-        threadPostId={post.postId}
-        threadRoot={post}
-        trailing={
-          <PostCardMenu
-            href={shareHref}
-            openPostHref={postThreadPath(post)}
-            onOpenPost={() => {
-              setFeedMediumOpen(false);
+                onRepost={
+                  onRepost
+                    ? (target) => {
+                        setPhotoOpen(false);
+                        onRepost(target);
+                      }
+                    : undefined
+                }
+                onUndoRepost={
+                  onUndoRepost
+                    ? (target) => {
+                        setPhotoOpen(false);
+                        onUndoRepost(target);
+                      }
+                    : undefined
+                }
+                onToggleReaction={onToggleReaction}
+                onToggleSave={onToggleSave}
+                onAmplify={() => {
+                  setAmplifyOpen(true);
+                }}
+                shareDrawerZIndex={SCARCE_Z.commerceOverListen}
+                post={post}
+              />
+            ) : null
+          }
+        />
+      ) : null}
+      {articleScreenMounted ? (
+        <FeedArticleReadScreen
+          open={articleOpen}
+          onOpenChange={(next) => {
+            setArticleOpen(next);
+            if (!next) {
+              setFeedReadEssay(null);
+              setFeedBookRead(false);
+              setFeedBookCoverSvg(null);
               setPhotoThreadOpen(false);
-            }}
-            onDownload={
-              scarceCoverUrl || feedMediumCoverSvg
-                ? async () => {
-                    if (scarceCoverUrl) {
-                      await downloadIpfsMedia({
-                        url: scarceCoverUrl,
-                        mime: 'image/jpeg',
-                        title: dropListenTitle,
-                        fallbackName: 'drop',
-                        exportFile: true,
-                      });
-                      return;
-                    }
-                    const svg = feedMediumCoverSvg?.trim();
-                    if (!svg) {
-                      throw new Error('Could not download this file.');
-                    }
-                    const blob = new Blob([svg], { type: 'image/svg+xml' });
-                    const objectUrl = URL.createObjectURL(blob);
-                    try {
-                      await downloadIpfsMedia({
-                        url: objectUrl,
-                        mime: 'image/svg+xml',
-                        title: dropListenTitle,
-                        fallbackName: 'drop',
-                        exportFile: true,
-                      });
-                    } finally {
-                      URL.revokeObjectURL(objectUrl);
-                    }
-                  }
-                : undefined
             }
-            accountId={post.accountId}
-            authorProfile={authorProfile}
-            canCancelScarce={canCancelScarce}
-            onCancelScarce={() => {
-              void handleCancelScarce();
-            }}
-            cancelScarcePending={cancelScarcePending}
-            zIndex={SCARCE_Z.commerceOverListen}
-          />
-        }
-        title={dropListenTitle}
-        cover={scarceCoverUrl}
-        coverSvg={feedMediumCoverSvg}
-        creatorId={scarceEmbed?.creatorId ?? post.accountId}
-        collectionId={scarceEmbed?.collectionId ?? null}
-        tokenId={scarceEmbed?.tokenId ?? null}
-        playables={listenPlayables}
-        readables={collectionReadables}
-        writingFormat={collectionWritingFormat}
-        bookPdf={collectionBookPdf}
-        viewerAccountId={viewerAccountId}
-        commerce={
-          !isRepostShell && (scarceEmbed || canListScarce) ? (
-            <PostScarceCta
-              embed={
-                scarceEmbed ?? {
-                  status: 'none',
-                  events: [],
+          }}
+          post={feedReadEssay ?? post}
+          authorProfile={
+            feedReadEssay
+              ? feedReadAuthors[feedReadEssay.accountId]
+              : authorProfile
+          }
+          documentTitle={feedBookRead ? dropListenTitle : undefined}
+          threadOpen={photoThreadOpen}
+          onDismissThread={dismissPhotoThread}
+          threadAuthor={post.accountId}
+          threadPostId={post.postId}
+          threadRoot={post}
+          renderBody={
+            feedBookRead
+              ? ({ onChromeTap }) => (
+                  <WritingReadDocument
+                    open={articleOpen}
+                    title={dropListenTitle}
+                    cover={scarceCoverUrl}
+                    coverSvg={feedBookCoverSvg}
+                    collectionId={scarceEmbed?.collectionId?.trim() || ''}
+                    accountId={viewerAccountId}
+                    creatorId={scarceEmbed?.creatorId ?? post.accountId}
+                    readables={collectionReadables}
+                    bookPdf={collectionBookPdf}
+                    writingFormat={collectionWritingFormat}
+                    canRead
+                    lockedHint=""
+                    onChromeTap={onChromeTap}
+                  />
+                )
+              : undefined
+          }
+          commerce={
+            !isRepostShell && (scarceEmbed || canListScarce) ? (
+              <PostScarceCta
+                embed={
+                  scarceEmbed ?? {
+                    status: 'none',
+                    events: [],
+                  }
                 }
-              }
-              isAuthor={isSelf}
-              authorAccountId={scarceEmbed?.creatorId?.trim() || post.accountId}
-              canList={canListScarce}
-              onList={() => {
-                setListScarceOpen(true);
-              }}
-              canSell={canSellScarce}
-              onSell={() => {
-                setSellScarceOpen(true);
-              }}
-              canTransfer={canTransferScarce}
-              onTransfer={() => setTransferScarceOpen(true)}
-              sellListed={sellListedScarce}
-              alreadyOwnsEdition={Boolean(ownedScarceItem)}
-              onBuy={() => {
-                setBuyScarceOpen(true);
-              }}
-              onBid={() => {
-                setBidScarceOpen(true);
-              }}
-            />
-          ) : null
-        }
-        engagement={
-          engagement ? (
-            <PostEngagementRow
-              engagement={engagement}
-              shareHref={shareHref}
-              shareTitle={name}
-              reactionPending={reactionPending}
-              savePending={savePending}
-              sharePending={sharePending}
-              onReply={openPhotoThread}
-              onQuote={
-                onQuote
-                  ? (target) => {
-                      setFeedMediumOpen(false);
-                      onQuote(target);
-                    }
-                  : undefined
-              }
-              onRepost={
-                onRepost
-                  ? (target) => {
-                      setFeedMediumOpen(false);
-                      onRepost(target);
-                    }
-                  : undefined
-              }
-              onUndoRepost={
-                onUndoRepost
-                  ? (target) => {
-                      setFeedMediumOpen(false);
-                      onUndoRepost(target);
-                    }
-                  : undefined
-              }
-              onToggleReaction={onToggleReaction}
-              onToggleSave={onToggleSave}
-              onAmplify={() => {
+                isAuthor={isSelf}
+                authorAccountId={
+                  scarceEmbed?.creatorId?.trim() || post.accountId
+                }
+                canList={canListScarce}
+                onList={() => setListScarceOpen(true)}
+                canSell={canSellScarce}
+                onSell={() => setSellScarceOpen(true)}
+                canTransfer={canTransferScarce}
+                onTransfer={() => setTransferScarceOpen(true)}
+                sellListed={sellListedScarce}
+                alreadyOwnsEdition={Boolean(ownedScarceItem)}
+                onBuy={() => setBuyScarceOpen(true)}
+                onBid={() => setBidScarceOpen(true)}
+              />
+            ) : null
+          }
+          engagement={
+            engagement ? (
+              <PostEngagementRow
+                engagement={engagement}
+                shareHref={shareHref}
+                shareTitle={name}
+                reactionPending={reactionPending}
+                savePending={savePending}
+                sharePending={sharePending}
+                onReply={openPhotoThread}
+                onQuote={
+                  onQuote
+                    ? (target) => {
+                        setArticleOpen(false);
+                        onQuote(target);
+                      }
+                    : undefined
+                }
+                onRepost={
+                  onRepost
+                    ? (target) => {
+                        setArticleOpen(false);
+                        onRepost(target);
+                      }
+                    : undefined
+                }
+                onUndoRepost={
+                  onUndoRepost
+                    ? (target) => {
+                        setArticleOpen(false);
+                        onUndoRepost(target);
+                      }
+                    : undefined
+                }
+                onToggleReaction={onToggleReaction}
+                onToggleSave={onToggleSave}
+                onAmplify={() => {
+                  setAmplifyOpen(true);
+                }}
+                shareDrawerZIndex={SCARCE_Z.commerceOverListen}
+                post={post}
+              />
+            ) : null
+          }
+        />
+      ) : null}
+      {feedMediumSheetMounted ? (
+        <ScarceFeedMediumSheet
+          open={feedMediumOpen}
+          onOpenChange={(next) => {
+            setFeedMediumOpen(next);
+            if (!next) setPhotoThreadOpen(false);
+          }}
+          mode={feedMediumMode}
+          threadOpen={photoThreadOpen}
+          onDismissThread={dismissPhotoThread}
+          threadAuthor={post.accountId}
+          threadPostId={post.postId}
+          threadRoot={post}
+          trailing={
+            <PostCardMenu
+              href={shareHref}
+              openPostHref={postThreadPath(post)}
+              onOpenPost={() => {
                 setFeedMediumOpen(false);
-                setAmplifyOpen(true);
+                setPhotoThreadOpen(false);
               }}
-              shareDrawerZIndex={SCARCE_Z.commerceOverListen}
-              post={post}
+              onDownload={
+                scarceCoverUrl || feedMediumCoverSvg
+                  ? async () => {
+                      if (scarceCoverUrl) {
+                        await downloadIpfsMedia({
+                          url: scarceCoverUrl,
+                          mime: 'image/jpeg',
+                          title: dropListenTitle,
+                          fallbackName: 'drop',
+                          exportFile: true,
+                        });
+                        return;
+                      }
+                      const svg = feedMediumCoverSvg?.trim();
+                      if (!svg) {
+                        throw new Error('Could not download this file.');
+                      }
+                      const blob = new Blob([svg], { type: 'image/svg+xml' });
+                      const objectUrl = URL.createObjectURL(blob);
+                      try {
+                        await downloadIpfsMedia({
+                          url: objectUrl,
+                          mime: 'image/svg+xml',
+                          title: dropListenTitle,
+                          fallbackName: 'drop',
+                          exportFile: true,
+                        });
+                      } finally {
+                        URL.revokeObjectURL(objectUrl);
+                      }
+                    }
+                  : undefined
+              }
+              accountId={post.accountId}
+              authorProfile={authorProfile}
+              canCancelScarce={canCancelScarce}
+              onCancelScarce={() => {
+                void handleCancelScarce();
+              }}
+              cancelScarcePending={cancelScarcePending}
+              zIndex={SCARCE_Z.commerceOverListen}
             />
-          ) : null
-        }
-      />
+          }
+          title={dropListenTitle}
+          cover={scarceCoverUrl}
+          coverSvg={feedMediumCoverSvg}
+          creatorId={scarceEmbed?.creatorId ?? post.accountId}
+          collectionId={scarceEmbed?.collectionId ?? null}
+          tokenId={scarceEmbed?.tokenId ?? null}
+          playables={listenPlayables}
+          readables={collectionReadables}
+          writingFormat={collectionWritingFormat}
+          bookPdf={collectionBookPdf}
+          viewerAccountId={viewerAccountId}
+          commerce={
+            !isRepostShell && (scarceEmbed || canListScarce) ? (
+              <PostScarceCta
+                embed={
+                  scarceEmbed ?? {
+                    status: 'none',
+                    events: [],
+                  }
+                }
+                isAuthor={isSelf}
+                authorAccountId={
+                  scarceEmbed?.creatorId?.trim() || post.accountId
+                }
+                canList={canListScarce}
+                onList={() => {
+                  setListScarceOpen(true);
+                }}
+                canSell={canSellScarce}
+                onSell={() => {
+                  setSellScarceOpen(true);
+                }}
+                canTransfer={canTransferScarce}
+                onTransfer={() => setTransferScarceOpen(true)}
+                sellListed={sellListedScarce}
+                alreadyOwnsEdition={Boolean(ownedScarceItem)}
+                onBuy={() => {
+                  setBuyScarceOpen(true);
+                }}
+                onBid={() => {
+                  setBidScarceOpen(true);
+                }}
+              />
+            ) : null
+          }
+          engagement={
+            engagement ? (
+              <PostEngagementRow
+                engagement={engagement}
+                shareHref={shareHref}
+                shareTitle={name}
+                reactionPending={reactionPending}
+                savePending={savePending}
+                sharePending={sharePending}
+                onReply={openPhotoThread}
+                onQuote={
+                  onQuote
+                    ? (target) => {
+                        setFeedMediumOpen(false);
+                        onQuote(target);
+                      }
+                    : undefined
+                }
+                onRepost={
+                  onRepost
+                    ? (target) => {
+                        setFeedMediumOpen(false);
+                        onRepost(target);
+                      }
+                    : undefined
+                }
+                onUndoRepost={
+                  onUndoRepost
+                    ? (target) => {
+                        setFeedMediumOpen(false);
+                        onUndoRepost(target);
+                      }
+                    : undefined
+                }
+                onToggleReaction={onToggleReaction}
+                onToggleSave={onToggleSave}
+                onAmplify={() => {
+                  setFeedMediumOpen(false);
+                  setAmplifyOpen(true);
+                }}
+                shareDrawerZIndex={SCARCE_Z.commerceOverListen}
+                post={post}
+              />
+            ) : null
+          }
+        />
+      ) : null}
     </article>
   );
 }
