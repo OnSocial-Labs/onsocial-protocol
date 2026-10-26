@@ -11671,10 +11671,6 @@ a.os-surface-row {
     color: var(--signal-solidarity);
   }
 
-  .signal-metric-readonly {
-    cursor: default;
-  }
-
   .signal-value {
     display: inline-block;
     box-sizing: border-box;
