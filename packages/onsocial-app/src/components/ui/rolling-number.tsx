@@ -12,10 +12,27 @@ import {
 
 const STRIP_LENGTH = 30;
 
+/*
+ * One media-query subscription for every digit on the page. Each DigitRoll
+ * used to open its own listener — ~4 counters per feed card meant dozens of
+ * matchMedia subscriptions per screen.
+ */
+const reducedMotionListeners = new Set<() => void>();
+let reducedMotionMedia: MediaQueryList | null = null;
+
 function subscribeReducedMotion(onStoreChange: () => void) {
-  const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-  media.addEventListener('change', onStoreChange);
-  return () => media.removeEventListener('change', onStoreChange);
+  if (!reducedMotionMedia) {
+    reducedMotionMedia = window.matchMedia('(prefers-reduced-motion: reduce)');
+    reducedMotionMedia.addEventListener('change', notifyReducedMotion);
+  }
+  reducedMotionListeners.add(onStoreChange);
+  return () => {
+    reducedMotionListeners.delete(onStoreChange);
+  };
+}
+
+function notifyReducedMotion() {
+  for (const listener of reducedMotionListeners) listener();
 }
 
 function usePrefersReducedMotion(): boolean {
@@ -45,7 +62,14 @@ function DigitRoll({
     parkedDigitPosition(playFrom === undefined ? target : mod10(playFrom))
   );
   const [motion, setMotion] = useState(false);
+  /*
+   * The 30-cell strip only exists mid-roll; a parked digit renders one cell.
+   * Feed cards show several counters, so this keeps hundreds of spans (and
+   * their layout work) out of the resting DOM.
+   */
+  const [stripOn, setStripOn] = useState(false);
   const posRef = useRef(pos);
+  const stripOnRef = useRef(false);
   const skipRef = useRef(playFrom === undefined);
   const playedRef = useRef(false);
   const signalRef = useRef(rollSignal);
@@ -63,11 +87,13 @@ function DigitRoll({
     let timer = 0;
     let follow = 0;
 
-    const park = (parked: number) => {
+    const settle = (parked: number) => {
       if (cancelled) return;
       posRef.current = parked;
+      stripOnRef.current = false;
       setMotion(false);
       setPos(parked);
+      setStripOn(false);
     };
 
     const mountPlay =
@@ -84,7 +110,7 @@ function DigitRoll({
         (reduced || motionKind === 'snap' || mod10(from) === target)
       ) {
         const parked = parkedDigitPosition(target);
-        if (posRef.current !== parked) park(parked);
+        if (posRef.current !== parked || stripOnRef.current) settle(parked);
         else setMotion(false);
         return;
       }
@@ -93,18 +119,30 @@ function DigitRoll({
       const destination = nextDigitPosition(from, target);
       const roll = () => {
         if (cancelled) return;
-        posRef.current = destination;
-        setMotion(true);
-        setPos(destination);
-        timer = window.setTimeout(() => {
-          if (cancelled || posRef.current !== destination) return;
-          park(parkedDigitPosition(target));
-        }, ROLLING_DIGIT_MS + 40);
+        // Mount the strip at the parked face first; turning toward the
+        // destination has to be a later frame or the transition never runs.
+        posRef.current = parkedFrom;
+        stripOnRef.current = true;
+        setMotion(false);
+        setPos(parkedFrom);
+        setStripOn(true);
+        follow = window.requestAnimationFrame(() => {
+          if (cancelled) return;
+          posRef.current = destination;
+          setMotion(true);
+          setPos(destination);
+          timer = window.setTimeout(() => {
+            if (cancelled || posRef.current !== destination) return;
+            settle(parkedDigitPosition(target));
+          }, ROLLING_DIGIT_MS + 40);
+        });
       };
 
       // Sit on the stored destination, then turn toward the newer digit.
       if (from !== parkedFrom) {
-        park(parkedFrom);
+        posRef.current = parkedFrom;
+        setMotion(false);
+        setPos(parkedFrom);
         follow = window.requestAnimationFrame(roll);
         return;
       }
@@ -120,43 +158,48 @@ function DigitRoll({
   }, [playFrom, reduced, rollSignal, target]);
 
   const step = stepPx && stepPx > 0 ? stepPx : null;
+  const cellStyle = step
+    ? {
+        height: step,
+        padding: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }
+    : undefined;
   return (
     <span
       className="os-rolling-digit"
       style={step ? { height: step } : undefined}
     >
-      <span
-        className={
-          motion
-            ? 'os-rolling-digit-strip is-rolling'
-            : 'os-rolling-digit-strip'
-        }
-        style={{
-          transform: step
-            ? `translate3d(0, ${-pos * step}px, 0)`
-            : `translate3d(0, ${-pos}em, 0)`,
-        }}
-      >
-        {Array.from({ length: STRIP_LENGTH }, (_, index) => (
-          <span
-            className="os-rolling-digit-cell"
-            key={index}
-            style={
-              step
-                ? {
-                    height: step,
-                    padding: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }
-                : undefined
-            }
-          >
-            {index % 10}
-          </span>
-        ))}
-      </span>
+      {stripOn ? (
+        <span
+          className={
+            motion
+              ? 'os-rolling-digit-strip is-rolling'
+              : 'os-rolling-digit-strip'
+          }
+          style={{
+            transform: step
+              ? `translate3d(0, ${-pos * step}px, 0)`
+              : `translate3d(0, ${-pos}em, 0)`,
+          }}
+        >
+          {Array.from({ length: STRIP_LENGTH }, (_, index) => (
+            <span
+              className="os-rolling-digit-cell"
+              key={index}
+              style={cellStyle}
+            >
+              {index % 10}
+            </span>
+          ))}
+        </span>
+      ) : (
+        <span className="os-rolling-digit-cell" style={cellStyle}>
+          {target}
+        </span>
+      )}
     </span>
   );
 }
@@ -183,9 +226,7 @@ export function RollingNumber({
   const glyphs = rollingGlyphs(value, grouped);
   return (
     <span
-      className={
-        textRest ? 'os-rolling-number is-face' : 'os-rolling-number'
-      }
+      className={textRest ? 'os-rolling-number is-face' : 'os-rolling-number'}
       aria-hidden="true"
     >
       {glyphs.map((glyph) =>
