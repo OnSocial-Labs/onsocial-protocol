@@ -44369,18 +44369,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   gap: 1.15rem;
 }
 
-.launcher-home-lede {
-  margin: 0;
-  font-size: 0.9rem;
-  line-height: 1.45;
-  color: rgb(var(--fg-rgb) / 0.68);
-}
-
-.launcher-home-lede--tight {
-  margin-bottom: 0.35rem;
-  font-size: 0.84rem;
-}
-
 .launcher-home-divider {
   margin-block: 0.15rem;
 }
@@ -45158,18 +45146,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: rgb(var(--fg-rgb) / 0.45);
-}
-
-.launcher-home-section-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.35rem;
-}
-
-.launcher-home-section-head .launcher-home-heading {
-  margin: 0;
 }
 
 /* ── Private messages ───────────────────────────────────────────────────── */
