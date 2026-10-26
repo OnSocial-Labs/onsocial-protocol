@@ -7,7 +7,7 @@ import {
   useState,
   type CSSProperties,
 } from 'react';
-import { VolumeMuteIcon, VolumeUpIcon } from '@onsocial/ui';
+import { VolumeMuteIcon, VolumeUpIcon, ipfsImgSrcSet } from '@onsocial/ui';
 import {
   usePostVideoPlayback,
   type PostVideoPlaybackMode,
@@ -23,6 +23,22 @@ import {
 export type PostMediaSize = 'compact' | 'page' | 'preview' | 'quote';
 
 /**
+ * `sizes` for the CDN image-variant srcSet — matched to the measured slots
+ * (feed column 553 CSS px, collage cells half that, quote thumbs ~120–160).
+ */
+const IMG_SIZES_SINGLE = '(min-width: 640px) 553px, 100vw';
+const IMG_SIZES_TILE = '(min-width: 640px) 277px, 50vw';
+const IMG_SIZES_QUOTE_SINGLE = '(min-width: 640px) 160px, 28vw';
+const IMG_SIZES_QUOTE_TILE = '(min-width: 640px) 120px, 20vw';
+
+function mediaImgSizes(size: PostMediaSize, collage: boolean): string {
+  if (size === 'quote') {
+    return collage ? IMG_SIZES_QUOTE_TILE : IMG_SIZES_QUOTE_SINGLE;
+  }
+  return collage ? IMG_SIZES_TILE : IMG_SIZES_SINGLE;
+}
+
+/**
  * Fade a feed image or video in once it can paint. Cached files resolve on
  * bind so a reload does not flash the skeleton again.
  */
@@ -36,14 +52,17 @@ export function useFeedMediaResolved(src: string) {
   const markResolved = useCallback(() => {
     setResolved(true);
   }, []);
-  const bind = useCallback((node: HTMLImageElement | HTMLVideoElement | null) => {
-    if (!node) return;
-    if (node instanceof HTMLImageElement) {
-      if (node.complete && node.naturalWidth > 0) setResolved(true);
-      return;
-    }
-    if (node.readyState >= 1) setResolved(true);
-  }, []);
+  const bind = useCallback(
+    (node: HTMLImageElement | HTMLVideoElement | null) => {
+      if (!node) return;
+      if (node instanceof HTMLImageElement) {
+        if (node.complete && node.naturalWidth > 0) setResolved(true);
+        return;
+      }
+      if (node.readyState >= 1) setResolved(true);
+    },
+    []
+  );
 
   return { resolved, markResolved, bind };
 }
@@ -71,6 +90,8 @@ interface PostMediaBlockProps {
   style?: CSSProperties;
   /** Natural width / height once the file has loaded. */
   onRatio?: (ratio: number) => void;
+  /** `sizes` paired with the CDN variant srcSet for this tile's slot. */
+  imgSizes?: string;
 }
 
 /**
@@ -91,6 +112,7 @@ export function PostMediaBlock({
   onRemove,
   style,
   onRatio,
+  imgSizes,
 }: PostMediaBlockProps) {
   const isVideo = isRenderablePostVideoMime(item.mime);
   const playbackMode: PostVideoPlaybackMode =
@@ -118,6 +140,7 @@ export function PostMediaBlock({
     isActivatable && Boolean(activateLabel) && !isDetailVideo;
   const [soundOff, setSoundOff] = useState(focusedVideoMuted);
   const { resolved, markResolved, bind } = useFeedMediaResolved(item.url);
+  const imgSrcSet = isVideo ? undefined : ipfsImgSrcSet(item.url);
 
   useEffect(() => {
     setSoundOff(focusedVideoMuted);
@@ -142,10 +165,7 @@ export function PostMediaBlock({
     event.stopPropagation();
     onActivate?.();
   };
-  const mediaClassName = [
-    'post-media-element',
-    resolved ? 'is-resolved' : '',
-  ]
+  const mediaClassName = ['post-media-element', resolved ? 'is-resolved' : '']
     .filter(Boolean)
     .join(' ');
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
@@ -157,7 +177,10 @@ export function PostMediaBlock({
   const media = (
     <>
       {resolved ? null : (
-        <span className="post-media-skeleton standing-row-shimmer" aria-hidden />
+        <span
+          className="post-media-skeleton standing-row-shimmer"
+          aria-hidden
+        />
       )}
       {isVideo ? (
         // Far-off list videos unmount — the ratio-held box stays, the
@@ -186,6 +209,8 @@ export function PostMediaBlock({
         <img
           ref={bind}
           src={item.url}
+          srcSet={imgSrcSet}
+          sizes={imgSrcSet ? imgSizes : undefined}
           alt={item.alt?.trim() || ''}
           className={mediaClassName}
           loading={item.url.startsWith('blob:') ? 'eager' : 'lazy'}
@@ -356,6 +381,11 @@ export function PostMediaStrip({
           activateLabel={activateLabel}
           style={collageCellStyle(index, visible.length, hero)}
           onRatio={(ratio) => onRatio(item.url, ratio)}
+          imgSizes={mediaImgSizes(
+            size,
+            visible.length > 1 &&
+              !(hero?.mode === 'wide' && hero.index === index)
+          )}
         />
       ))}
     </div>

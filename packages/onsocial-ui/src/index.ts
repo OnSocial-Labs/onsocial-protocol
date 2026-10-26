@@ -527,6 +527,13 @@ export {
   type ProfileAvatarShape,
 } from './profile-avatar.js';
 export {
+  IPFS_IMG_VARIANT_WIDTHS,
+  ipfsImgSrcSet,
+  ipfsImgVariantUrl,
+  isCdnIpfsImgUrl,
+  type IpfsImgVariantWidth,
+} from './ipfs-img-variants.js';
+export {
   TokenIcon,
   osTokenIconClassName,
   type TokenIconProps,
