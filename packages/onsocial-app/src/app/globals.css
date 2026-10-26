@@ -4059,21 +4059,6 @@ a.os-surface-row {
     padding: 0.65rem 1rem;
   }
 
-  .capsule {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.04);
-    padding: 0.5rem 0.9rem;
-    font-size: 0.68rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground));
-    backdrop-filter: blur(12px);
-  }
-
   .frame {
     overflow-x: hidden;
     overflow-y: auto;
