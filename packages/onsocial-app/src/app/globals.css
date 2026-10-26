@@ -198,18 +198,6 @@
   flex: 0 0 auto;
 }
 
-.os-app-screen:has(.market-listing-sort-menu-panel) .os-app-screen-header {
-  z-index: 40;
-}
-
-.os-app-screen:has(.market-listing-sort-menu-panel) .os-app-screen-body {
-  z-index: 0;
-}
-
-.market-listing-sort-menu-panel.os-floating-panel-menu {
-  z-index: 50;
-}
-
 /*
  * Content-sized glass sheets — material only; height via sizing="hug".
  * Max-height comes from three shared tiers, opted in via panelClassName:
@@ -36040,7 +36028,6 @@ a.os-surface-row {
   }
 
   /* Clear = small text action on the Filter title; X stays alone on the right. */
-  .market-filter-title-row,
   .market-filter-sheet-panel .glass-sheet-header-title-row {
     display: flex;
     align-items: baseline;
@@ -36048,7 +36035,6 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  .market-filter-title-row .glass-sheet-header-title,
   .market-filter-sheet-panel
     .glass-sheet-header-title-row
     .glass-sheet-header-title {
@@ -36528,10 +36514,6 @@ a.os-surface-row {
 
   .market-listing-sort-menu .os-floating-panel-trigger {
     max-width: 7.5rem;
-  }
-
-  .market-listing-sort-menu-panel {
-    width: 11rem;
   }
 
   @media (max-width: 639px) {
@@ -37205,24 +37187,12 @@ a.os-surface-row {
     gap: 0.65rem;
   }
 
-  .market-listing-title,
-  .market-sale-title {
+  .market-listing-title {
     margin: 0;
     min-width: 0;
     font-size: 0.9rem;
     font-weight: 650;
     line-height: 1.25;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .market-listing-creator {
-    margin: 0;
-    min-width: 0;
-    font-size: 0.72rem;
-    line-height: 1.25;
-    color: var(--os-surface-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -37262,8 +37232,7 @@ a.os-surface-row {
     align-self: flex-end;
   }
 
-  .market-listing-meta,
-  .market-sale-meta {
+  .market-listing-meta {
     margin: 0;
     font-size: 0.72rem;
     color: var(--os-surface-muted);
@@ -37271,14 +37240,6 @@ a.os-surface-row {
 
   .market-listing-meta--price {
     display: block;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .market-listing-meta-left {
-    margin: 0;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -37295,17 +37256,6 @@ a.os-surface-row {
     white-space: nowrap;
   }
 
-  .market-listing-handle {
-    color: var(--os-identity-handle);
-    font-weight: var(--os-identity-handle-weight, 400);
-    text-decoration: none;
-  }
-
-  .market-listing-handle:hover {
-    color: var(--os-identity-handle-hover);
-  }
-
-  .market-listing-handle:focus-visible,
   .market-listing-title-link:focus-visible,
   .market-listing-thumb:focus-visible {
     outline: 2px solid rgb(var(--primary-rgb) / 0.8);
