@@ -3781,7 +3781,6 @@ a.os-surface-row {
 @layer components {
   /* Semantic feedback — protocol token backed */
   .app-error-text,
-  .mood-sheet-error,
   .customize-sheet-error {
     color: color-mix(in srgb, var(--protocol-red) 92%, transparent);
   }
@@ -12687,11 +12686,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.44);
   }
 
-  .mood-sheet-status {
-    margin: 0 1rem 0.5rem;
-    color: var(--mood-accent, var(--protocol-blue));
-  }
-
   .mood-sheet-list {
     list-style: none;
     margin: 0;
@@ -13051,12 +13045,6 @@ a.os-surface-row {
     font-weight: 600;
     padding: 0.65rem 1rem;
     cursor: pointer;
-  }
-
-  .mood-sheet-error {
-    margin: 0 1rem 0.75rem;
-    font-size: 0.78rem;
-    line-height: 1.45;
   }
 
   /* ── Customize sheet (GlassSheet panel) ──────────────── */
