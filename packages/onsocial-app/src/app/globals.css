@@ -41493,11 +41493,6 @@ a.os-surface-row {
     flex-shrink: 0;
   }
 
-  .commerce-sheet-footer-actions {
-    flex: 1;
-    min-width: 0;
-  }
-
   .commerce-sheet-action-skel {
     pointer-events: none;
     cursor: default;
