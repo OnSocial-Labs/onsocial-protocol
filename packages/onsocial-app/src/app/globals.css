@@ -30152,13 +30152,6 @@ a.os-surface-row {
       var(--pass-pad-x);
   }
 
-  .ticket-show-pass-top {
-    position: absolute;
-    top: var(--pass-pad-t);
-    right: var(--pass-pad-r);
-    z-index: 2;
-  }
-
   /*
    * Open on the slide mood wash — no frosted ticket card.
    * QR stays stark white; everything else sits on full viewer mood.
@@ -30548,22 +30541,6 @@ a.os-surface-row {
     opacity: 0;
   }
 
-  .ticket-door-camera-empty {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    padding: 1rem;
-    text-align: center;
-    color: rgb(var(--fg-rgb) / 0.58);
-    font-size: 0.86rem;
-    line-height: 1.4;
-  }
-
-  .ticket-door-camera-empty p {
-    margin: 0;
-  }
-
   .ticket-door-hint {
     margin: 0;
     font-size: 0.8rem;
@@ -30576,16 +30553,6 @@ a.os-surface-row {
       var(--signal-reputation, rgb(46 160 90)) 78%,
       rgb(var(--fg-rgb))
     );
-  }
-
-  .ticket-door-attendance {
-    margin: 0;
-    font-size: 0.86rem;
-    font-weight: 650;
-    letter-spacing: -0.01em;
-    line-height: 1.35;
-    color: rgb(var(--fg-rgb) / 0.82);
-    font-variant-numeric: tabular-nums;
   }
 
   /* Admit page — same market-page inset; camera taller for staff scanning. */
@@ -30760,55 +30727,6 @@ a.os-surface-row {
     flex-direction: column;
     gap: 0.85rem;
     padding: 0.15rem 0 0.5rem;
-  }
-
-  .ticket-door-staff-list {
-    list-style: none;
-    margin: 0.35rem 0 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-  }
-
-  /* Same language as poll options / Support amount — border + lip, no wash. */
-  .ticket-door-staff-row {
-    display: flex;
-    align-items: center;
-    gap: 0.7rem;
-    min-width: 0;
-    padding: 0.45rem 0.55rem;
-    border-radius: 0.85rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    background: transparent;
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.12);
-  }
-
-  .ticket-door-staff-copy {
-    min-width: 0;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-  }
-
-  .ticket-door-staff-name {
-    margin: 0;
-    font-size: 0.9rem;
-    font-weight: 650;
-    color: rgb(var(--fg-rgb) / 0.94);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .ticket-door-staff-handle {
-    margin: 0;
-    font-size: 0.76rem;
-    color: rgb(var(--fg-rgb) / 0.55);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .ticket-door-staff .hub-publish-request-actions {
