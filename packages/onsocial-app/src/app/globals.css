@@ -5272,8 +5272,7 @@ a.os-surface-row {
    * Glass typography + chips — solid ink on frosted pane (no transparent mood mixes).
    */
   .portfolio-frame[data-mood='glass'] .portfolio-bio,
-  .profile-edit-slide[data-mood='glass'] .account-editor-bio,
-  .portfolio-frame[data-mood='glass'] .mood-indicator-note {
+  .profile-edit-slide[data-mood='glass'] .account-editor-bio {
     color: var(--mood-muted);
   }
 
@@ -5285,20 +5284,6 @@ a.os-surface-row {
     color: rgb(230 238 248);
   }
 
-  .portfolio-frame[data-mood='glass'] .mood-indicator {
-    color: rgb(160 175 195);
-    background: rgb(255 255 255 / 0.08);
-    border: 1px solid rgb(255 255 255 / 0.14);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    box-shadow: none;
-  }
-
-  .portfolio-frame[data-mood='glass'] .mood-indicator-dot {
-    background: rgb(200 215 235);
-    box-shadow: none;
-  }
-
   .mood-sheet-item[data-mood='glass'] .mood-sheet-item-label {
     color: rgb(248 250 252);
   }
@@ -5306,10 +5291,7 @@ a.os-surface-row {
   :root[data-theme='light'] .portfolio-frame[data-mood='glass'] .portfolio-bio,
   :root[data-theme='light']
     .profile-edit-slide[data-mood='glass']
-    .account-editor-bio,
-  :root[data-theme='light']
-    .portfolio-frame[data-mood='glass']
-    .mood-indicator-note {
+    .account-editor-bio {
     color: var(--mood-muted);
   }
 
@@ -5323,20 +5305,6 @@ a.os-surface-row {
     .portfolio-frame[data-mood='glass']
     .portfolio-link:hover {
     color: rgb(17 19 24);
-  }
-
-  :root[data-theme='light']
-    .portfolio-frame[data-mood='glass']
-    .mood-indicator {
-    color: rgb(70 80 95);
-    background: rgb(17 19 24 / 0.06);
-    border-color: rgb(17 19 24 / 0.1);
-  }
-
-  :root[data-theme='light']
-    .portfolio-frame[data-mood='glass']
-    .mood-indicator-dot {
-    background: rgb(75 85 100);
   }
 
   :root[data-theme='light']
@@ -5448,10 +5416,7 @@ a.os-surface-row {
     :root:not([data-theme]) .portfolio-frame[data-mood='glass'] .portfolio-bio,
     :root:not([data-theme])
       .profile-edit-slide[data-mood='glass']
-      .account-editor-bio,
-    :root:not([data-theme])
-      .portfolio-frame[data-mood='glass']
-      .mood-indicator-note {
+      .account-editor-bio {
       color: var(--mood-muted);
     }
 
@@ -5465,20 +5430,6 @@ a.os-surface-row {
       .portfolio-frame[data-mood='glass']
       .portfolio-link:hover {
       color: rgb(17 19 24);
-    }
-
-    :root:not([data-theme])
-      .portfolio-frame[data-mood='glass']
-      .mood-indicator {
-      color: rgb(70 80 95);
-      background: rgb(17 19 24 / 0.06);
-      border-color: rgb(17 19 24 / 0.1);
-    }
-
-    :root:not([data-theme])
-      .portfolio-frame[data-mood='glass']
-      .mood-indicator-dot {
-      background: rgb(75 85 100);
     }
 
     :root:not([data-theme])
@@ -6422,12 +6373,6 @@ a.os-surface-row {
     }
   }
 
-  .portfolio-frame[data-mood='gold'] .mood-indicator-dot {
-    box-shadow:
-      0 0 8px color-mix(in srgb, var(--mood-accent) 42%, transparent),
-      0 0 14px color-mix(in srgb, var(--mood-accent) 20%, transparent);
-  }
-
   /*
    * Gold finish — champagne foil sheet (Carbon pattern). Base + horizontal
    * brush + raking specular band; the foil name gradient stays the hero cue.
@@ -6662,8 +6607,7 @@ a.os-surface-row {
   }
 
   .portfolio-frame[data-mood='carbon'] .portfolio-bio,
-  .profile-edit-slide[data-mood='carbon'] .account-editor-bio,
-  .portfolio-frame[data-mood='carbon'] .mood-indicator-note {
+  .profile-edit-slide[data-mood='carbon'] .account-editor-bio {
     color: var(--mood-muted);
   }
 
@@ -6675,27 +6619,10 @@ a.os-surface-row {
     color: rgb(248 250 252);
   }
 
-  .portfolio-frame[data-mood='carbon'] .mood-indicator {
-    color: rgb(168 176 188);
-    background: rgb(255 255 255 / 0.06);
-    border: 1px solid rgb(255 255 255 / 0.1);
-    box-shadow: none;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-
-  .portfolio-frame[data-mood='carbon'] .mood-indicator-dot {
-    background: rgb(186 194 206);
-    box-shadow: none;
-  }
-
   :root[data-theme='light'] .portfolio-frame[data-mood='carbon'] .portfolio-bio,
   :root[data-theme='light']
     .profile-edit-slide[data-mood='carbon']
-    .account-editor-bio,
-  :root[data-theme='light']
-    .portfolio-frame[data-mood='carbon']
-    .mood-indicator-note {
+    .account-editor-bio {
     color: var(--mood-muted);
   }
 
@@ -6711,28 +6638,11 @@ a.os-surface-row {
     color: rgb(17 19 24);
   }
 
-  :root[data-theme='light']
-    .portfolio-frame[data-mood='carbon']
-    .mood-indicator {
-    color: rgb(70 80 95);
-    background: rgb(17 19 24 / 0.05);
-    border-color: rgb(17 19 24 / 0.08);
-  }
-
-  :root[data-theme='light']
-    .portfolio-frame[data-mood='carbon']
-    .mood-indicator-dot {
-    background: rgb(90 100 115);
-  }
-
   @media (prefers-color-scheme: light) {
     :root:not([data-theme]) .portfolio-frame[data-mood='carbon'] .portfolio-bio,
     :root:not([data-theme])
       .profile-edit-slide[data-mood='carbon']
-      .account-editor-bio,
-    :root:not([data-theme])
-      .portfolio-frame[data-mood='carbon']
-      .mood-indicator-note {
+      .account-editor-bio {
       color: var(--mood-muted);
     }
 
@@ -6746,20 +6656,6 @@ a.os-surface-row {
       .portfolio-frame[data-mood='carbon']
       .portfolio-link:hover {
       color: rgb(17 19 24);
-    }
-
-    :root:not([data-theme])
-      .portfolio-frame[data-mood='carbon']
-      .mood-indicator {
-      color: rgb(70 80 95);
-      background: rgb(17 19 24 / 0.05);
-      border-color: rgb(17 19 24 / 0.08);
-    }
-
-    :root:not([data-theme])
-      .portfolio-frame[data-mood='carbon']
-      .mood-indicator-dot {
-      background: rgb(90 100 115);
     }
   }
 
@@ -6798,12 +6694,6 @@ a.os-surface-row {
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-  }
-
-  .portfolio-frame[data-mood='holographic'] .mood-indicator-dot {
-    box-shadow:
-      0 0 10px rgb(180 140 255 / 0.45),
-      0 0 18px rgb(80 220 255 / 0.28);
   }
 
   /*
@@ -6861,8 +6751,7 @@ a.os-surface-row {
   }
 
   .portfolio-frame[data-mood='signature'] .portfolio-bio,
-  .profile-edit-slide[data-mood='signature'] .account-editor-bio,
-  .portfolio-frame[data-mood='signature'] .mood-indicator-note {
+  .profile-edit-slide[data-mood='signature'] .account-editor-bio {
     color: var(--mood-muted);
     line-height: 1.55;
   }
@@ -6877,20 +6766,6 @@ a.os-surface-row {
 
   .portfolio-frame[data-mood='signature'] .portfolio-tag {
     font-family: var(--mood-font-body, var(--app-font-sans));
-  }
-
-  .portfolio-frame[data-mood='signature'] .mood-indicator {
-    margin-top: 0.45rem;
-    border-color: color-mix(
-      in srgb,
-      var(--mood-accent-chrome, var(--mood-accent)) 38%,
-      rgb(var(--fg-rgb) / 0.12)
-    );
-    background: color-mix(
-      in srgb,
-      var(--mood-surface, rgb(var(--fg-rgb) / 0.04)) 92%,
-      transparent
-    );
   }
 
   .portfolio-summon-dock[data-mood='signature'] .portfolio-summon-grip {
@@ -6909,10 +6784,7 @@ a.os-surface-row {
 
   :root[data-theme='light']
     .portfolio-frame[data-mood='signature']
-    .portfolio-bio,
-  :root[data-theme='light']
-    .portfolio-frame[data-mood='signature']
-    .mood-indicator-note {
+    .portfolio-bio {
     color: var(--mood-muted);
   }
 
@@ -6931,10 +6803,7 @@ a.os-surface-row {
   @media (prefers-color-scheme: light) {
     :root:not([data-theme='dark'])
       .portfolio-frame[data-mood='signature']
-      .portfolio-bio,
-    :root:not([data-theme='dark'])
-      .portfolio-frame[data-mood='signature']
-      .mood-indicator-note {
+      .portfolio-bio {
       color: var(--mood-muted);
     }
 
@@ -6980,8 +6849,7 @@ a.os-surface-row {
   }
 
   .portfolio-frame[data-mood='broadsheet'] .portfolio-bio,
-  .profile-edit-slide[data-mood='broadsheet'] .account-editor-bio,
-  .portfolio-frame[data-mood='broadsheet'] .mood-indicator-note {
+  .profile-edit-slide[data-mood='broadsheet'] .account-editor-bio {
     color: var(--mood-muted);
   }
 
@@ -6998,21 +6866,6 @@ a.os-surface-row {
     border-style: dashed;
   }
 
-  .portfolio-frame[data-mood='broadsheet'] .mood-indicator {
-    margin-top: 0.4rem;
-    border-style: dashed;
-    border-color: color-mix(
-      in srgb,
-      var(--mood-accent-chrome, var(--mood-accent)) 42%,
-      rgb(var(--fg-rgb) / 0.14)
-    );
-    background: color-mix(
-      in srgb,
-      var(--mood-surface, rgb(var(--fg-rgb) / 0.04)) 88%,
-      transparent
-    );
-  }
-
   .portfolio-summon-dock[data-mood='broadsheet'] .portfolio-summon-grip {
     width: 2rem;
     height: 0.2rem;
@@ -7027,10 +6880,7 @@ a.os-surface-row {
 
   :root[data-theme='light']
     .portfolio-frame[data-mood='broadsheet']
-    .portfolio-bio,
-  :root[data-theme='light']
-    .portfolio-frame[data-mood='broadsheet']
-    .mood-indicator-note {
+    .portfolio-bio {
     color: var(--mood-muted);
   }
 
@@ -7049,10 +6899,7 @@ a.os-surface-row {
   @media (prefers-color-scheme: light) {
     :root:not([data-theme='dark'])
       .portfolio-frame[data-mood='broadsheet']
-      .portfolio-bio,
-    :root:not([data-theme='dark'])
-      .portfolio-frame[data-mood='broadsheet']
-      .mood-indicator-note {
+      .portfolio-bio {
       color: var(--mood-muted);
     }
 
@@ -7110,8 +6957,7 @@ a.os-surface-row {
   }
 
   .portfolio-frame[data-mood='terminal'] .portfolio-bio,
-  .profile-edit-slide[data-mood='terminal'] .account-editor-bio,
-  .portfolio-frame[data-mood='terminal'] .mood-indicator-note {
+  .profile-edit-slide[data-mood='terminal'] .account-editor-bio {
     color: var(--mood-muted);
   }
 
@@ -7141,31 +6987,6 @@ a.os-surface-row {
     opacity: 0.55;
   }
 
-  .portfolio-frame[data-mood='terminal'] .mood-indicator {
-    margin-top: 0.38rem;
-    border-radius: 0;
-    border-color: color-mix(
-      in srgb,
-      var(--mood-accent-chrome, var(--mood-accent)) 48%,
-      rgb(var(--fg-rgb) / 0.12)
-    );
-    background: color-mix(
-      in srgb,
-      var(--mood-surface, rgb(var(--fg-rgb) / 0.04)) 86%,
-      transparent
-    );
-  }
-
-  .portfolio-frame[data-mood='terminal'] .mood-indicator-dot + span::before {
-    content: '[ ';
-    opacity: 0.62;
-  }
-
-  .portfolio-frame[data-mood='terminal'] .mood-indicator-dot + span::after {
-    content: ' ]';
-    opacity: 0.62;
-  }
-
   .portfolio-summon-dock[data-mood='terminal'] .portfolio-summon-grip {
     width: 0.52rem;
     height: 0.92rem;
@@ -7182,10 +7003,7 @@ a.os-surface-row {
 
   :root[data-theme='light']
     .portfolio-frame[data-mood='terminal']
-    .portfolio-bio,
-  :root[data-theme='light']
-    .portfolio-frame[data-mood='terminal']
-    .mood-indicator-note {
+    .portfolio-bio {
     color: var(--mood-muted);
   }
 
@@ -7210,10 +7028,7 @@ a.os-surface-row {
 
     :root:not([data-theme='dark'])
       .portfolio-frame[data-mood='terminal']
-      .portfolio-bio,
-    :root:not([data-theme='dark'])
-      .portfolio-frame[data-mood='terminal']
-      .mood-indicator-note {
+      .portfolio-bio {
       color: var(--mood-muted);
     }
 
@@ -7227,24 +7042,6 @@ a.os-surface-row {
       .portfolio-frame[data-mood='terminal']
       .portfolio-link:hover {
       color: rgb(17 19 24);
-    }
-  }
-
-  :root[data-theme='light']
-    .portfolio-frame[data-mood='holographic']
-    .mood-indicator-dot {
-    box-shadow:
-      0 0 8px rgb(160 120 255 / 0.32),
-      0 0 14px rgb(80 200 255 / 0.2);
-  }
-
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme])
-      .portfolio-frame[data-mood='holographic']
-      .mood-indicator-dot {
-      box-shadow:
-        0 0 8px rgb(160 120 255 / 0.32),
-        0 0 14px rgb(80 200 255 / 0.2);
     }
   }
 
@@ -7403,8 +7200,6 @@ a.os-surface-row {
     .portfolio-frame[data-mood] .portfolio-signals-caption,
     .portfolio-frame[data-mood] .portfolio-signals-rank,
     .portfolio-frame[data-mood] .signal-metric,
-    .portfolio-frame[data-mood] .mood-indicator,
-    .portfolio-frame[data-mood] .mood-indicator-dot,
     .portfolio-frame[data-mood] .portfolio-banner-region,
     .portfolio-frame[data-mood] .portfolio-mood-wash,
     .portfolio-frame[data-mood-only='true'] .portfolio-page::after,
@@ -13342,12 +13137,6 @@ a.os-surface-row {
     }
   }
 
-  .mood-indicator-compact {
-    margin-top: 0.15rem;
-    padding: 0.2rem 0.55rem;
-    font-size: 0.68rem;
-  }
-
   .portfolio-loading {
     display: flex;
     flex-direction: column;
@@ -13470,65 +13259,6 @@ a.os-surface-row {
 /* ─── Moods ────────────────────────────────────────────── */
 
 @layer components {
-  .mood-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    margin-top: 0.35rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 9999px;
-    background: var(--mood-surface, rgb(var(--fg-rgb) / 0.04));
-    color: var(
-      --mood-accent-chrome,
-      var(--mood-accent, rgb(var(--fg-rgb) / 0.72))
-    );
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 0.35rem 0.7rem;
-    cursor: pointer;
-  }
-
-  .portfolio-frame[data-mood] .mood-indicator {
-    transition:
-      border-color var(--mood-transition-duration, 450ms)
-        var(--mood-transition-ease, cubic-bezier(0.4, 0, 0.2, 1)),
-      background var(--mood-transition-duration, 450ms)
-        var(--mood-transition-ease, cubic-bezier(0.4, 0, 0.2, 1)),
-      color var(--mood-transition-duration, 450ms)
-        var(--mood-transition-ease, cubic-bezier(0.4, 0, 0.2, 1));
-  }
-
-  .mood-indicator-dot {
-    width: 0.45rem;
-    height: 0.45rem;
-    border-radius: 50%;
-    background: var(
-      --mood-accent-chrome,
-      var(--mood-accent, rgb(var(--fg-rgb) / 0.72))
-    );
-    box-shadow: 0 0 10px
-      color-mix(
-        in srgb,
-        var(--mood-accent-chrome, var(--mood-accent)) 50%,
-        transparent
-      );
-  }
-
-  .portfolio-frame[data-mood] .mood-indicator-dot {
-    transition:
-      background var(--mood-transition-duration, 450ms)
-        var(--mood-transition-ease, cubic-bezier(0.4, 0, 0.2, 1)),
-      box-shadow var(--mood-transition-duration, 450ms)
-        var(--mood-transition-ease, cubic-bezier(0.4, 0, 0.2, 1));
-  }
-
-  .mood-indicator-note {
-    text-transform: none;
-    letter-spacing: 0;
-    color: var(--mood-muted, rgb(var(--fg-rgb) / 0.42));
-  }
-
   /* ── Mood sheet (GlassSheet panel) ───────────────────── */
 
   .mood-sheet-panel .glass-sheet-body {
