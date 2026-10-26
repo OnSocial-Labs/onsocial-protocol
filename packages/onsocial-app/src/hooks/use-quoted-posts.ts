@@ -15,8 +15,21 @@ const GROUP_POST_PATH_PATTERN =
 /** Personal post content path: `{account}/post/{postId}`. */
 const PERSONAL_POST_PATH_PATTERN = /^([^/]+)\/post\/(.+)$/;
 
+/** Long sessions walk thousands of quoted/parent posts — bound the cache. */
+const QUOTED_POST_CACHE_CAP = 200;
+
 const quotedPostCache = new Map<string, PostRow | null>();
 const quotedPostInFlight = new Map<string, Promise<PostRow | null>>();
+
+/** LRU write: refresh recency on hit, evict oldest (Map insertion order). */
+function cacheQuotedPost(refPath: string, post: PostRow | null): void {
+  if (quotedPostCache.has(refPath)) quotedPostCache.delete(refPath);
+  quotedPostCache.set(refPath, post);
+  if (quotedPostCache.size > QUOTED_POST_CACHE_CAP) {
+    const oldest = quotedPostCache.keys().next().value;
+    if (oldest !== undefined) quotedPostCache.delete(oldest);
+  }
+}
 
 /** Parse an indexed group content path into a typed post reference. */
 export function parseGroupPostPath(path: string): GroupPostRef | null {
@@ -45,7 +58,7 @@ async function fetchQuotedPost(refPath: string): Promise<PostRow | null> {
   const groupRef = parseGroupPostPath(refPath);
   const personalRef = groupRef ? null : parsePersonalPostPath(refPath);
   if (!groupRef && !personalRef) {
-    quotedPostCache.set(refPath, null);
+    cacheQuotedPost(refPath, null);
     return null;
   }
 
@@ -55,7 +68,7 @@ async function fetchQuotedPost(refPath: string): Promise<PostRow | null> {
       : fetchPersonalPost(personalRef!)
   )
     .then((post) => {
-      quotedPostCache.set(refPath, post);
+      cacheQuotedPost(refPath, post);
       return post;
     })
     .catch(() => {
@@ -114,7 +127,7 @@ export function useResolvedGroupPosts(paths: Array<string | undefined>) {
         if (personalRef) {
           personalMisses.set(path, personalRef);
         } else {
-          quotedPostCache.set(path, null);
+          cacheQuotedPost(path, null);
           entries.push([path, null]);
         }
       }
@@ -143,7 +156,7 @@ export function useResolvedGroupPosts(paths: Array<string | undefined>) {
       for (const [path, ref] of personalMisses) {
         const post =
           byRef.get(indexedPostRefKey(ref.author, ref.postId)) ?? null;
-        quotedPostCache.set(path, post);
+        cacheQuotedPost(path, post);
         entries.push([path, post]);
       }
       entries.push(...groupEntries);
