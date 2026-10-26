@@ -12608,13 +12608,6 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.02);
   }
 
-  .panel-placeholder-label {
-    font-size: 0.68rem;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.38);
-  }
-
   .panel-action {
     margin-top: 0.5rem;
     border: 0;
