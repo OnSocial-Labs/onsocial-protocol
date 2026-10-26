@@ -4,70 +4,30 @@ import {
   memo,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
 } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
-import {
-  BookmarkFillIcon,
-  BookmarkIcon,
-  CheckIcon,
-  CopyIcon,
-  Divider,
-  DotsVerticalIcon,
-  DownloadIcon,
-  EditPenIcon,
-  FireBFillIcon,
-  FireBIcon,
-  GiftIcon,
-  HeartFillIcon,
-  HeartIcon,
-  MessageRoundIcon,
-  NoteTextIcon,
-  RepeatIcon,
-  ShareIcon,
-  TrashIcon,
-  UserCheckIcon,
-  UserCrossIcon,
-  UserIcon,
-  UserMinusIcon,
-  UserPlusIcon,
-  VolumeMuteIcon,
-  VolumeUpIcon,
-  UsersFillIcon,
-} from '@onsocial/ui';
+import { RepeatIcon, UsersFillIcon } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
+import { QuotedPostInset } from '@/features/home/post-card-quote';
 import {
-  ActionDrawer,
-  type ActionDrawerItem,
-} from '@/components/ui/action-drawer';
-import { BlockConfirmPanel } from '@/components/wallet/block-confirm-panel';
-import { EndorseComposeSheet } from '@/components/panels/endorse-compose-sheet';
-import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
-import {
-  BLOCK_ACTION_DESCRIPTION,
-  MUTE_ACTION_DESCRIPTION,
-  blockConfirmCopy,
-} from '@/lib/block-confirm-copy';
+  PostEngagementRow,
+  PostPeekStandButton,
+} from '@/features/home/post-card-engagement';
+import { PostCardMenu } from '@/features/home/post-card-menu';
+import { PostCardBody, postBadges } from '@/features/home/post-card-body';
 import { displayName } from '@/lib/profile-display';
-import { downloadIpfsMedia, isDownloadAbort } from '@/lib/media-download';
+import { downloadIpfsMedia } from '@/lib/media-download';
 import { PostAmplifySheet } from '@/features/home/post-amplify-sheet';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
-import { PostLikesSheet } from '@/components/panels/post-likes-sheet';
-import { RollingNumber } from '@/components/ui/rolling-number';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import {
-  formatWritingLikeLabel,
-  isArticlePost,
-} from '@/lib/article-post-payload';
+import { isArticlePost } from '@/lib/article-post-payload';
 import { type WriteDockSubmit } from '@/contexts/compose-launcher-context';
 import { fetchPersonalPost } from '@/lib/fetch-personal-post';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -81,12 +41,8 @@ import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing
 import { WritingReadDocument } from '@/features/scarces/scarce-writing-read-sheet';
 import { FeedArticleReadScreen } from '@/features/home/feed-article-read-screen';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
-import {
-  PostMediaStrip,
-  useFeedMediaResolved,
-} from '@/features/home/post-media';
+import { PostMediaStrip } from '@/features/home/post-media';
 import { PostPollEmbedCard } from '@/features/home/post-poll-embed';
-import { PostRichText } from '@/features/home/post-rich-text';
 import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
 import {
   canCancelPostScarce,
@@ -136,19 +92,12 @@ import { usePostScarceEmbed } from '@/features/scarces/use-post-scarce-embed';
 import { usePostTokenEmbed } from '@/features/scarces/use-post-token-embed';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
-import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
-import { useViewerStanding } from '@/hooks/use-viewer-standing';
-import { useViewerMute } from '@/hooks/use-viewer-mute';
-import { useViewerBlock } from '@/hooks/use-viewer-block';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
-import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { parsePostContentLabels } from '@/lib/post-content-labels';
 import { accountIdsEqual } from '@/lib/account-match';
 import { consumeEssayReopen } from '@/lib/essay-return';
 import { portfolioPath, writingArticlePath } from '@/lib/overlay-routes';
 import {
-  articleTeaseSource,
   parseArticleSnapshot,
   resolveArticleCover,
   resolvePostCardOpenHref,
@@ -159,16 +108,7 @@ import {
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
-import { OsTextFold } from '@/components/ui/os-text-fold';
-import { StandingToggle } from '@/components/ui/standing-toggle';
-import {
-  isDaoStandingTarget,
-  rememberDaoStandingTarget,
-} from '@/lib/dao-standing-account';
-import {
-  formatStandingActionError,
-  isWalletUserCancellation,
-} from '@/lib/wallet-errors';
+import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
   formatPostTimestamp,
   parseDropPaintSnapshot,
@@ -176,35 +116,19 @@ import {
   parsePostPollEmbed,
   parsePostText,
   parsePostTokenEmbed,
-  postFeedBodyOverflows,
-  postFeedPreviewLimit,
   postKey,
-  postKindBadge,
-  postPreviewNeedsExpand,
   postTimestampIso,
-  truncatePostPreview,
 } from '@/lib/post-display';
-import {
-  isRepostRefType,
-  postRelationContext,
-  formatPostRelationTarget,
-  type PostRelationContext,
-} from '@/lib/post-relation';
+import { isRepostRefType, postRelationContext } from '@/lib/post-relation';
 import {
   parsePostMedia,
   isRenderablePostVideo,
-  isRenderablePostVideoMime,
-  formatMediaDuration,
   postVisualMedia,
   resolveFeedMediaActivate,
-  truncateQuoteText,
-  collageCellStyle,
-  collageHero,
   type PostMediaItem,
 } from '@/lib/post-media';
 import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
 import { isAppPostSheetHref, postThreadPath } from '@/lib/post-routes';
-import { shareUrl } from '@/lib/share-url';
 import type { PollTally } from '@/lib/poll-votes';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
@@ -291,1581 +215,22 @@ interface PostCardProps {
   preferActionHref?: boolean;
 }
 
-function PostCardMenu({
-  href,
-  openPostHref,
-  onOpenPost,
-  onDownload,
-  accountId,
-  authorProfile,
-  canCancelScarce = false,
-  onCancelScarce,
-  cancelScarcePending = false,
-  onMenuOpen,
-  zIndex,
-}: {
-  href?: string;
-  /** Thread page — enlarge ⋯ “Open post”. */
-  openPostHref?: string;
-  onOpenPost?: () => void;
-  onDownload?: () => void | Promise<void>;
-  accountId: string;
-  authorProfile?: PostAuthorProfile;
-  canCancelScarce?: boolean;
-  onCancelScarce?: () => void;
-  cancelScarcePending?: boolean;
-  onMenuOpen?: () => void;
-  zIndex?: number;
-}) {
-  const { accountId: viewerAccountId, isConnected } = useAppWallet();
-  const { setTxResult } = useAppTransactionFeedback();
-  // Arm relationship fetch only after the menu opens — avoids N fetches per feed.
-  const [gesturesArmed, setGesturesArmed] = useState(false);
-  const relationshipAccountId = gesturesArmed ? accountId : '';
-  const { viewerStanding, viewerEndorsed, isLoading } = useViewerRelationship(
-    relationshipAccountId
-  );
-  const { updateStanding, isStandingPendingForTarget } = useViewerStanding(
-    relationshipAccountId || accountId
-  );
-  const { isEndorsePendingForTarget } = useViewerEndorsement(
-    relationshipAccountId || accountId
-  );
-  const { updateMute, isMuting, isMutePendingForTarget } = useViewerMute();
-  const { updateBlock, isBlocking, isBlockPendingForTarget } = useViewerBlock();
-  const [supportOpen, setSupportOpen] = useState(false);
-  const [endorseOpen, setEndorseOpen] = useState(false);
-  const [confirmBlock, setConfirmBlock] = useState(false);
-  const [open, setOpen] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const [downloading, setDownloading] = useState(false);
-  const isOpen = open && !closing;
-  const requestClose = useCallback(() => {
-    setClosing(true);
-  }, []);
-  const handleClosed = useCallback(() => {
-    setClosing(false);
-    setOpen(false);
-    setConfirmBlock(false);
-  }, []);
-  const close = requestClose;
-  const authorLabel = displayName(accountId, authorProfile?.displayName);
+export {
+  HOME_FEED_APPEND_SKELETON_FRAMES,
+  HOME_FEED_COLD_SKELETON_FRAMES,
+  PostRowSkeleton,
+} from '@/features/home/post-skeleton';
+export type { PostSkeletonFrame } from '@/features/home/post-skeleton';
 
-  const isSelf =
-    Boolean(viewerAccountId) && accountIdsEqual(viewerAccountId!, accountId);
-  const showGestures = isConnected && !isSelf;
-  const showCancelScarce =
-    isConnected && isSelf && canCancelScarce && onCancelScarce;
-  const pending = isStandingPendingForTarget(accountId);
-  const endorsePending = isEndorsePendingForTarget(accountId);
-  const profileHref = portfolioPath(accountId);
-
-  const copyLink = async () => {
-    if (!href || typeof window === 'undefined') return;
-    const url = new URL(href, window.location.origin).toString();
-    try {
-      if (!document.hasFocus()) window.focus?.();
-      if (document.hasFocus()) {
-        await navigator.clipboard.writeText(url);
-      }
-    } catch {
-      // Clipboard can fail when unfocused or insecure — still close the menu.
-    }
-    close();
-  };
-
-  async function handleDownload() {
-    if (!onDownload || downloading) return;
-    setDownloading(true);
-    try {
-      await onDownload();
-      requestClose();
-    } catch (error) {
-      if (isDownloadAbort(error)) return;
-      setTxResult({
-        type: 'error',
-        msg: 'Could not download this file.',
-      });
-    } finally {
-      setDownloading(false);
-    }
-  }
-
-  async function handleStandToggle() {
-    if (pending || isLoading || !gesturesArmed) return;
-    if (isBlockEitherWay(accountId)) {
-      setTxResult({
-        type: 'error',
-        msg: 'Standing is unavailable while a block is in place.',
-      });
-      close();
-      return;
-    }
-    try {
-      await updateStanding(
-        {
-          accountId,
-          name: authorProfile?.displayName?.trim() || null,
-          bio: null,
-          avatarUrl: authorProfile?.avatarUrl ?? null,
-        },
-        !viewerStanding
-      );
-    } catch (error) {
-      if (isWalletUserCancellation(error)) return;
-      setTxResult({
-        type: 'error',
-        msg:
-          error instanceof Error ? error.message : 'Could not update standing.',
-      });
-    } finally {
-      close();
-    }
-  }
-
-  async function handleMuteToggle() {
-    if (isMutePendingForTarget(accountId)) return;
-    const next = !isMuting(accountId);
-    try {
-      await updateMute(accountId, next);
-      setTxResult({
-        type: 'success',
-        msg: next ? txToastSuccess.accountMuted : txToastSuccess.accountUnmuted,
-      });
-    } catch (error) {
-      if (isWalletUserCancellation(error)) return;
-      setTxResult({
-        type: 'error',
-        msg:
-          error instanceof Error
-            ? error.message
-            : next
-              ? txToastError.muteAccountFailed
-              : txToastError.unmuteAccountFailed,
-      });
-    } finally {
-      close();
-    }
-  }
-
-  async function handleBlockToggle(shouldBlock: boolean) {
-    if (isBlockPendingForTarget(accountId)) return;
-    try {
-      await updateBlock(accountId, shouldBlock);
-    } catch (error) {
-      if (isWalletUserCancellation(error)) return;
-      setTxResult({
-        type: 'error',
-        msg:
-          error instanceof Error
-            ? error.message
-            : shouldBlock
-              ? txToastError.blockAccountFailed
-              : txToastError.unblockAccountFailed,
-      });
-    } finally {
-      setConfirmBlock(false);
-      close();
-    }
-  }
-
-  const standLabel = isLoading
-    ? '…'
-    : pending
-      ? viewerStanding
-        ? 'Stepping back…'
-        : 'Standing…'
-      : viewerStanding
-        ? 'Step back'
-        : 'Stand with';
-
-  const endorseLabel = isLoading
-    ? '…'
-    : endorsePending
-      ? viewerEndorsed
-        ? 'Updating…'
-        : 'Endorsing…'
-      : viewerEndorsed
-        ? 'Edit endorsement'
-        : 'Endorse';
-
-  const muted = isMuting(accountId);
-  const blocked = isBlocking(accountId);
-  const mutePending = isMutePendingForTarget(accountId);
-  const blockPending = isBlockPendingForTarget(accountId);
-
-  const menuItems = useMemo<ActionDrawerItem[]>(() => {
-    const items: ActionDrawerItem[] = [];
-    if (openPostHref) {
-      items.push({
-        id: 'open-post',
-        label: 'Open post',
-        href: openPostHref,
-        leading: <NoteTextIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => {
-          onOpenPost?.();
-          requestClose();
-        },
-      });
-    }
-    if (showGestures) {
-      items.push({
-        id: 'stand',
-        label: standLabel,
-        disabled: pending || isLoading || isBlockEitherWay(accountId),
-        leading: viewerStanding ? (
-          <UserMinusIcon className="os-action-drawer-icon" aria-hidden />
-        ) : (
-          <UserPlusIcon className="os-action-drawer-icon" aria-hidden />
-        ),
-        onSelect: () => void handleStandToggle(),
-      });
-      items.push({
-        id: 'support',
-        label: 'Support',
-        leading: <GiftIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => {
-          setSupportOpen(true);
-          requestClose();
-        },
-      });
-      items.push({
-        id: 'endorse',
-        label: endorseLabel,
-        disabled: endorsePending || isLoading,
-        leading: viewerEndorsed ? (
-          <EditPenIcon className="os-action-drawer-icon" aria-hidden />
-        ) : (
-          <UserCheckIcon className="os-action-drawer-icon" aria-hidden />
-        ),
-        onSelect: () => {
-          if (isBlockEitherWay(accountId)) {
-            setTxResult({
-              type: 'error',
-              msg: 'Endorsement is unavailable while a block is in place.',
-            });
-            requestClose();
-            return;
-          }
-          setEndorseOpen(true);
-          requestClose();
-        },
-      });
-      items.push({
-        id: 'mute',
-        label: mutePending
-          ? muted
-            ? 'Unmuting…'
-            : 'Muting…'
-          : muted
-            ? 'Unmute'
-            : 'Mute',
-        description: muted ? undefined : MUTE_ACTION_DESCRIPTION,
-        disabled: mutePending,
-        leading: muted ? (
-          <VolumeUpIcon className="os-action-drawer-icon" aria-hidden />
-        ) : (
-          <VolumeMuteIcon className="os-action-drawer-icon" aria-hidden />
-        ),
-        onSelect: () => void handleMuteToggle(),
-      });
-      items.push({
-        id: 'block',
-        label: blockPending
-          ? blocked
-            ? 'Unblocking…'
-            : 'Blocking…'
-          : blocked
-            ? 'Unblock'
-            : 'Block',
-        description: blocked ? undefined : BLOCK_ACTION_DESCRIPTION,
-        destructive: !blocked,
-        disabled: blockPending,
-        leading: (
-          <UserCrossIcon className="os-action-drawer-icon" aria-hidden />
-        ),
-        onSelect: () => {
-          if (blocked) {
-            void handleBlockToggle(false);
-            return;
-          }
-          setConfirmBlock(true);
-        },
-      });
-    }
-    // List is a primary card CTA (Buy · List · Amplify) — keep Cancel
-    // in the ⋮ menu for managing an active listing.
-    if (showCancelScarce) {
-      items.push({
-        id: 'cancel-scarce',
-        label: cancelScarcePending ? 'Canceling…' : 'Cancel listing',
-        destructive: true,
-        disabled: cancelScarcePending,
-        leading: <TrashIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => {
-          requestClose();
-          onCancelScarce();
-        },
-      });
-    }
-    items.push({
-      id: 'view-profile',
-      label: 'View profile',
-      href: profileHref,
-      leading: <UserIcon className="os-action-drawer-icon" aria-hidden />,
-      onSelect: () => requestClose(),
-    });
-    if (href) {
-      items.push({
-        id: 'copy-link',
-        label: 'Copy link',
-        leading: <CopyIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => void copyLink(),
-      });
-    }
-    if (onDownload) {
-      items.push({
-        id: 'download',
-        label: downloading ? 'Downloading…' : 'Download',
-        disabled: downloading,
-        leading: <DownloadIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => void handleDownload(),
-      });
-    }
-    return items;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    showGestures,
-    standLabel,
-    viewerStanding,
-    endorseLabel,
-    viewerEndorsed,
-    pending,
-    endorsePending,
-    isLoading,
-    muted,
-    blocked,
-    mutePending,
-    blockPending,
-    showCancelScarce,
-    cancelScarcePending,
-    href,
-    profileHref,
-    openPostHref,
-    onDownload,
-    downloading,
-  ]);
-
-  return (
-    <>
-      <div className={`post-card-menu${isOpen ? ' is-open' : ''}`}>
-        <button
-          type="button"
-          className={`post-card-menu-trigger${isOpen ? ' is-open' : ''}`}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            if (!isOpen) {
-              if (showGestures) setGesturesArmed(true);
-              onMenuOpen?.();
-            }
-            setOpen(true);
-          }}
-          aria-haspopup="dialog"
-          aria-expanded={isOpen}
-          aria-label="More"
-        >
-          <DotsVerticalIcon
-            className={
-              openPostHref ? 'glass-sheet-close-icon' : 'post-card-menu-icon'
-            }
-            aria-hidden
-          />
-        </button>
-
-        <ActionDrawer
-          open={isOpen}
-          onClose={confirmBlock ? () => setConfirmBlock(false) : requestClose}
-          onClosed={handleClosed}
-          label={
-            confirmBlock
-              ? blockConfirmCopy({
-                  accountId,
-                  profileName: authorProfile?.displayName,
-                }).title
-              : authorLabel
-          }
-          copy={confirmBlock ? authorLabel : undefined}
-          listAriaLabel={authorLabel}
-          closeAriaLabel={confirmBlock ? 'Back' : 'Close'}
-          items={confirmBlock ? undefined : menuItems}
-          {...(zIndex != null ? { zIndex } : {})}
-        >
-          {confirmBlock ? (
-            <BlockConfirmPanel
-              accountId={accountId}
-              profileName={authorProfile?.displayName}
-              pending={blockPending}
-              onConfirm={() => void handleBlockToggle(true)}
-              onCancel={() => setConfirmBlock(false)}
-            />
-          ) : null}
-        </ActionDrawer>
-      </div>
-      <EndorseComposeSheet
-        open={endorseOpen}
-        pageAccountId={accountId}
-        profileName={authorProfile?.displayName}
-        avatarUrl={authorProfile?.avatarUrl}
-        intent={viewerEndorsed ? 'auto' : 'create'}
-        onOpenChange={setEndorseOpen}
-        {...(zIndex != null ? { zIndex } : {})}
-      />
-      <ProfileSupportSheet
-        open={supportOpen}
-        pageAccountId={accountId}
-        profileName={authorProfile?.displayName}
-        avatarUrl={authorProfile?.avatarUrl}
-        onOpenChange={setSupportOpen}
-        {...(zIndex != null ? { zIndex } : {})}
-      />
-    </>
-  );
-}
-
-function PostPeekStandButton({
-  accountId,
-  name,
-  authorProfile,
-}: {
-  accountId: string;
-  name: string;
-  authorProfile?: PostAuthorProfile;
-}) {
-  const { isConnected, connect } = useAppWallet();
-  const { setTxResult } = useAppTransactionFeedback();
-  const { viewerStanding, theyStandWithViewer } =
-    useViewerRelationship(accountId);
-  const { updateStanding, isStandingPendingForTarget } =
-    useViewerStanding(accountId);
-  const pending = isStandingPendingForTarget(accountId);
-  const isDao = isDaoStandingTarget(accountId, authorProfile?.kind === 'dao');
-
-  async function handleStandToggle() {
-    if (pending) return;
-    if (!isConnected) {
-      await connect();
-      return;
-    }
-    if (isBlockEitherWay(accountId)) {
-      setTxResult({
-        type: 'error',
-        msg: 'Standing is unavailable while a block is in place.',
-      });
-      return;
-    }
-    if (isDao) rememberDaoStandingTarget(accountId);
-    try {
-      await updateStanding(
-        {
-          accountId,
-          name: authorProfile?.displayName?.trim() || name || null,
-          bio: null,
-          avatarUrl: authorProfile?.avatarUrl ?? null,
-          isDao: isDao || undefined,
-          theyStandWithViewer,
-        },
-        !viewerStanding
-      );
-    } catch (error) {
-      if (isWalletUserCancellation(error)) return;
-      setTxResult({
-        type: 'error',
-        msg: formatStandingActionError(error),
-      });
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      className={`standing-action feed-photo-caption-stand group${
-        viewerStanding ? ' is-standing' : ''
-      }`}
-      disabled={pending}
-      onClick={() => void handleStandToggle()}
-      aria-label={
-        viewerStanding ? `Step back from ${name}` : `Stand with ${name}`
-      }
-    >
-      <StandingToggle active={viewerStanding} pending={pending} />
-    </button>
-  );
-}
-
-function postBadges(
-  post: PostRow,
-  hasPollEmbed: boolean,
-  _hasMediaStrip: boolean
-): string[] {
-  const badge = postKindBadge(post.kind, hasPollEmbed);
-  return badge ? [badge] : [];
-}
-
-export function QuotedPostInset({
-  post,
-  authorProfile,
-  href,
-  expanded = false,
-  sheetContext = null,
-}: {
-  post: PostRow;
-  authorProfile?: PostAuthorProfile;
-  /** Navigate to the quoted post's own page (feed/thread surfaces). */
-  href?: string;
-  /** Opened post — quoted media at page size. Feed and compose stay the small thumb. */
-  expanded?: boolean;
-  sheetContext?: ThreadSheetContext | null;
-}) {
-  const router = useRouter();
-  const { openPostThread } = usePostThreadLayer();
-  const { safeMode } = useViewerSafeMode();
-  const labels = parsePostContentLabels(post.value);
-  const name = displayName(post.accountId, authorProfile?.displayName);
-  const text = truncateQuoteText(parsePostText(post.value));
-  const mediaItems = parsePostMedia(post.value).slice(0, 4);
-  const compactMedia = !expanded && mediaItems.length > 0 ? mediaItems : null;
-  const interactive = Boolean(href);
-  const [quotePhotoOpen, setQuotePhotoOpen] = useState(false);
-  const [quotePhotoIndex, setQuotePhotoIndex] = useState(0);
-  const [quoteThreadOpen, setQuoteThreadOpen] = useState(false);
-
-  const open = (event: {
-    preventDefault(): void;
-    stopPropagation(): void;
-    target?: EventTarget | null;
-  }) => {
-    if (!href) return;
-    // Let nested # / @ / $ / external links win over the inset navigate.
-    if (
-      event.target instanceof Element &&
-      event.target.closest('a[href], button')
-    ) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    if (isAppPostSheetHref(href)) {
-      openPostThread({ href, root: post, context: sheetContext });
-      return;
-    }
-    router.push(href);
-  };
-
-  return (
-    <>
-      <div
-        className={`post-card-quote-inset${interactive ? ' post-card-quote-inset--link' : ''}`}
-        role={interactive ? 'link' : undefined}
-        tabIndex={interactive ? 0 : undefined}
-        aria-label={interactive ? `View quoted post by ${name}` : undefined}
-        onClick={interactive ? open : undefined}
-        onKeyDown={
-          interactive
-            ? (event) => {
-                if (event.key === 'Enter' || event.key === ' ') open(event);
-              }
-            : undefined
-        }
-      >
-        <Divider orientation="vertical" variant="detail" />
-        <div className="post-card-quote-inset-content">
-          <span className="post-card-quote-inset-head">
-            <AccountAvatar
-              accountId={post.accountId}
-              kind={authorProfile?.kind}
-              src={authorProfile?.avatarUrl ?? null}
-              fallbackInitial={name}
-              size="sm"
-              className="post-card-quote-inset-avatar"
-            />
-            <PostIdentityMeta
-              name={name}
-              accountId={post.accountId}
-              timestamp={post.blockTimestamp}
-            />
-          </span>
-          <PostSensitiveGate labels={labels} safeMode={safeMode} compact>
-            {compactMedia || (expanded && mediaItems.length > 0) || text ? (
-              <div
-                className={[
-                  'post-card-quote-inset-body-row',
-                  compactMedia ? 'has-media' : '',
-                  expanded && mediaItems.length > 0 ? 'is-expanded' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
-                {compactMedia ? <QuoteMediaThumb items={compactMedia} /> : null}
-                {text ? (
-                  <p className="post-card-quote-inset-body">
-                    <PostRichText text={text} />
-                  </p>
-                ) : null}
-                {expanded && mediaItems.length > 0 ? (
-                  <PostMediaStrip
-                    items={mediaItems}
-                    size="page"
-                    onActivate={(index) => {
-                      setQuotePhotoIndex(index);
-                      setQuotePhotoOpen(true);
-                    }}
-                  />
-                ) : null}
-              </div>
-            ) : (
-              <p className="post-card-quote-inset-body">…</p>
-            )}
-          </PostSensitiveGate>
-        </div>
-      </div>
-      {expanded && mediaItems.length > 0 ? (
-        <FeedPhotoEnlargeScreen
-          open={quotePhotoOpen}
-          onOpenChange={(open) => {
-            setQuotePhotoOpen(open);
-            if (!open) setQuoteThreadOpen(false);
-          }}
-          title={
-            mediaItems.some((item) => isRenderablePostVideoMime(item.mime))
-              ? 'Media'
-              : 'Photos'
-          }
-          caption={text.trim() ? text : null}
-          captionDate={
-            post.blockTimestamp
-              ? formatPostTimestamp(post.blockTimestamp)
-              : null
-          }
-          photos={mediaItems}
-          initialIndex={quotePhotoIndex}
-          threadOpen={quoteThreadOpen}
-          onDismissThread={() => setQuoteThreadOpen(false)}
-          threadAuthor={post.accountId}
-          threadPostId={post.postId}
-          threadRoot={post}
-          peekIdentity={
-            <div className="feed-photo-caption-identity-row">
-              <Link
-                href={portfolioPath(post.accountId)}
-                className="os-media-face-identity"
-                scroll={false}
-                aria-label={`View ${name}'s profile`}
-                onClick={() => {
-                  setQuotePhotoOpen(false);
-                  setQuoteThreadOpen(false);
-                }}
-              >
-                <AccountAvatar
-                  accountId={post.accountId}
-                  kind={authorProfile?.kind}
-                  src={authorProfile?.avatarUrl ?? null}
-                  fallbackInitial={name}
-                  size="lg"
-                  className="post-card-avatar"
-                />
-                <span className="os-media-face-identity-copy">
-                  <span className="os-media-face-identity-name-row">
-                    <span className="os-media-face-identity-name">{name}</span>
-                  </span>
-                  <span className="os-media-face-identity-handle">
-                    @{post.accountId}
-                  </span>
-                </span>
-              </Link>
-            </div>
-          }
-          engagement={
-            <div className="post-card-engagement">
-              <div className="post-card-engagement-actions">
-                <button
-                  type="button"
-                  className="post-card-stat post-card-stat-button"
-                  aria-label="Reply to this post"
-                  onClick={() => setQuoteThreadOpen(true)}
-                >
-                  <MessageRoundIcon aria-hidden />
-                  Reply
-                </button>
-              </div>
-            </div>
-          }
-        />
-      ) : null}
-    </>
-  );
-}
-
-function QuoteThumbTile({
-  item,
-  style,
-  onRatio,
-}: {
-  item: PostMediaItem;
-  style?: CSSProperties;
-  onRatio: (url: string, ratio: number) => void;
-}) {
-  const { resolved, markResolved, bind } = useFeedMediaResolved(item.url);
-  const remember = (width: number, height: number) => {
-    if (width > 0 && height > 0) onRatio(item.url, width / height);
-  };
-  const mediaClassName = [
-    'post-card-quote-thumb-media',
-    resolved ? 'is-resolved' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-  return (
-    <span className="post-card-quote-thumb-cell" style={style}>
-      {resolved ? null : (
-        <span
-          className="post-media-skeleton standing-row-shimmer"
-          aria-hidden
-        />
-      )}
-      {isRenderablePostVideoMime(item.mime) ? (
-        <video
-          ref={bind}
-          src={item.url}
-          muted
-          playsInline
-          preload="metadata"
-          className={mediaClassName}
-          onLoadedMetadata={(event) => {
-            const video = event.currentTarget;
-            remember(video.videoWidth, video.videoHeight);
-            markResolved();
-          }}
-          onError={markResolved}
-        />
-      ) : (
-        <img
-          ref={bind}
-          src={item.url}
-          alt=""
-          className={mediaClassName}
-          loading="lazy"
-          decoding="async"
-          onLoad={(event) => {
-            const img = event.currentTarget;
-            remember(img.naturalWidth, img.naturalHeight);
-            markResolved();
-          }}
-          onError={markResolved}
-        />
-      )}
-    </span>
-  );
-}
-
-function QuoteMediaThumb({ items }: { items: PostMediaItem[] }) {
-  const visible = items.slice(0, 4);
-  const [ratios, setRatios] = useState<Record<string, number>>({});
-  const onRatio = useCallback((url: string, ratio: number) => {
-    setRatios((current) =>
-      current[url] === ratio ? current : { ...current, [url]: ratio }
-    );
-  }, []);
-  const hero = collageHero(
-    visible.length,
-    visible.map((item) => ratios[item.url] ?? null)
-  );
-  const singleVideoUrl =
-    visible.length === 1 && isRenderablePostVideoMime(visible[0]?.mime)
-      ? visible[0].url
-      : null;
-  const [durationByUrl, setDurationByUrl] = useState<{
-    url: string;
-    label: string;
-  } | null>(null);
-  const durationLabel =
-    singleVideoUrl && durationByUrl?.url === singleVideoUrl
-      ? durationByUrl.label
-      : '';
-
-  useEffect(() => {
-    if (!singleVideoUrl) return;
-    let cancelled = false;
-    const video = document.createElement('video');
-    video.preload = 'metadata';
-    video.onloadedmetadata = () => {
-      if (cancelled) return;
-      setDurationByUrl({
-        url: singleVideoUrl,
-        label: formatMediaDuration(video.duration),
-      });
-    };
-    video.onerror = () => {
-      if (!cancelled) setDurationByUrl({ url: singleVideoUrl, label: '' });
-    };
-    video.src = singleVideoUrl;
-    return () => {
-      cancelled = true;
-      video.removeAttribute('src');
-      video.load();
-    };
-  }, [singleVideoUrl]);
-
-  if (visible.length === 0) return null;
-
-  return (
-    <div
-      className={[
-        'post-card-quote-thumb',
-        visible.length > 1 ? `is-collage is-${visible.length}` : '',
-        hero ? `is-${hero.mode}` : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      aria-hidden
-    >
-      {visible.map((item, index) => (
-        <QuoteThumbTile
-          key={`${item.cid ?? item.url}:${index}`}
-          item={item}
-          style={collageCellStyle(index, visible.length, hero)}
-          onRatio={onRatio}
-        />
-      ))}
-      {durationLabel ? (
-        <span className="post-card-quote-thumb-duration">{durationLabel}</span>
-      ) : null}
-    </div>
-  );
-}
-
-function ReactIcon({ filled }: { filled: boolean }) {
-  return filled ? <HeartFillIcon aria-hidden /> : <HeartIcon aria-hidden />;
-}
-
-function AmplifyIcon({ filled }: { filled: boolean }) {
-  return filled ? <FireBFillIcon aria-hidden /> : <FireBIcon aria-hidden />;
-}
-
-function BookmarkGlyph({ filled }: { filled: boolean }) {
-  return filled ? (
-    <BookmarkFillIcon aria-hidden />
-  ) : (
-    <BookmarkIcon aria-hidden />
-  );
-}
-
-function absolutePostUrl(href: string): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return new URL(href, window.location.origin).toString();
-  } catch {
-    return null;
-  }
-}
-
-function PostShareControl({
-  href,
-  title,
-}: {
-  href: string;
-  title?: string | null;
-}) {
-  const { setTxResult } = useAppTransactionFeedback();
-  const [copied, setCopied] = useState(false);
-  const label = title?.trim() || 'post';
-
-  return (
-    <button
-      type="button"
-      className={`post-card-stat post-card-stat-button post-card-share${
-        copied ? ' is-copied' : ''
-      }`}
-      aria-label={copied ? 'Link copied' : 'Share this post'}
-      title={copied ? 'Link copied' : 'Share'}
-      onPointerDown={(event) => {
-        event.stopPropagation();
-      }}
-      onClick={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const url = absolutePostUrl(href);
-        if (!url) return;
-        void (async () => {
-          const result = await shareUrl({
-            url,
-            title: label,
-            text: `Check out this post on OnSocial`,
-          });
-          if (result === 'copied') {
-            setCopied(true);
-            window.setTimeout(() => setCopied(false), 1600);
-            return;
-          }
-          if (result === 'failed') {
-            setTxResult({
-              type: 'error',
-              msg: 'Couldn’t share this post.',
-            });
-          }
-        })();
-      }}
-    >
-      {copied ? <CheckIcon aria-hidden /> : <ShareIcon aria-hidden />}
-    </button>
-  );
-}
-
-function engagementStatClassName(
-  tone: 'reply' | 'quote' | 'amplify' | undefined,
-  interactive: boolean,
-  className?: string
-) {
-  const toneClass =
-    tone === 'reply'
-      ? ' post-card-stat--reply'
-      : tone === 'quote'
-        ? ' post-card-stat--quote'
-        : tone === 'amplify'
-          ? ' post-card-stat--amplify'
-          : '';
-  const base = interactive
-    ? `post-card-stat post-card-stat-button${toneClass}`
-    : `post-card-stat${toneClass}`;
-  return className ? `${base} ${className}` : base;
-}
-
-function EngagementStat({
-  icon,
-  count,
-  label,
-  actionLabel,
-  onActivate,
-  className,
-  disabled,
-  ariaPressed,
-  tone,
-  rollSignal = 0,
-}: {
-  icon: React.ReactNode;
-  count: number;
-  label: string;
-  actionLabel?: string;
-  onActivate?: () => void;
-  className?: string;
-  disabled?: boolean;
-  ariaPressed?: boolean;
-  tone?: 'reply' | 'quote' | 'amplify';
-  /** Bumps when the viewer's own action confirms this count. */
-  rollSignal?: number;
-}) {
-  const countNode = (
-    <span className={`post-card-count-slot${count > 0 ? ' is-visible' : ''}`}>
-      <RollingNumber value={count} rollSignal={rollSignal} />
-    </span>
-  );
-
-  if (onActivate) {
-    return (
-      <button
-        type="button"
-        className={engagementStatClassName(tone, true, className)}
-        disabled={disabled}
-        aria-pressed={ariaPressed}
-        aria-label={actionLabel ?? label}
-        title={actionLabel ?? label}
-        onPointerDown={(event) => {
-          event.stopPropagation();
-        }}
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onActivate();
-        }}
-      >
-        {icon}
-        {countNode}
-      </button>
-    );
-  }
-
-  return (
-    <span
-      className={engagementStatClassName(tone, false, className)}
-      aria-label={`${count} ${label}`}
-      title={label}
-    >
-      {icon}
-      {countNode}
-    </span>
-  );
-}
-
-function PostEngagementRow({
-  engagement,
-  shareHref,
-  shareTitle,
-  reactionPending,
-  savePending,
-  sharePending,
-  onReply,
-  onQuote,
-  onRepost,
-  onUndoRepost,
-  onToggleReaction,
-  onToggleSave,
-  onAmplify,
-  shareDrawerZIndex,
-  post,
-}: {
-  engagement: PostEngagement;
-  shareHref: string;
-  shareTitle?: string | null;
-  reactionPending?: boolean;
-  savePending?: boolean;
-  sharePending?: boolean;
-  onReply?: (post: PostRow) => void;
-  onQuote?: (post: PostRow) => void;
-  onRepost?: (post: PostRow) => void;
-  onUndoRepost?: (post: PostRow) => void;
-  onToggleReaction?: (post: PostRow) => void;
-  onToggleSave?: (post: PostRow) => void;
-  onAmplify: () => void;
-  /** Quote / repost drawer — raise when this row sits on an OS enlarge. */
-  shareDrawerZIndex?: number;
-  post: PostRow;
-}) {
-  const [shareOpen, setShareOpen] = useState(false);
-  const [likesOpen, setLikesOpen] = useState(false);
-  const { accountId: viewerAccountId } = useAppWallet();
-  const likeLabel = formatWritingLikeLabel(engagement.reactionCount);
-  const canShare = Boolean(onQuote || onRepost || onUndoRepost);
-  const closeShare = () => setShareOpen(false);
-  const shareCount =
-    (engagement.repostCount ?? 0) + (engagement.quoteCount ?? 0);
-  const shareItems = useMemo<ActionDrawerItem[]>(() => {
-    const items: ActionDrawerItem[] = [];
-    if (
-      engagement.viewerReposted &&
-      onUndoRepost &&
-      engagement.viewerRepostId
-    ) {
-      items.push({
-        id: 'unrepost',
-        label: 'Undo repost',
-        description: 'Remove from your feed',
-        leading: <RepeatIcon className="os-action-drawer-icon" aria-hidden />,
-        disabled: sharePending,
-        onSelect: () => {
-          closeShare();
-          onUndoRepost(post);
-        },
-      });
-    } else if (onRepost && !engagement.viewerReposted) {
-      items.push({
-        id: 'repost',
-        label: 'Repost',
-        description: post.groupId
-          ? 'Share in this guild'
-          : 'Share to your feed',
-        leading: <RepeatIcon className="os-action-drawer-icon" aria-hidden />,
-        disabled: sharePending,
-        onSelect: () => {
-          closeShare();
-          onRepost(post);
-        },
-      });
-    }
-    if (onQuote) {
-      items.push({
-        id: 'quote',
-        label: 'Quote',
-        description: 'Add a comment',
-        leading: (
-          <MessageRoundIcon className="os-action-drawer-icon" aria-hidden />
-        ),
-        onSelect: () => {
-          closeShare();
-          onQuote(post);
-        },
-      });
-    }
-    return items;
-  }, [
-    engagement.viewerReposted,
-    engagement.viewerRepostId,
-    onQuote,
-    onRepost,
-    onUndoRepost,
-    post,
-    sharePending,
-  ]);
-
-  return (
-    <div className="post-card-engagement">
-      <div className="post-card-engagement-actions">
-        <EngagementStat
-          icon={<MessageRoundIcon aria-hidden />}
-          count={engagement.replyCount}
-          rollSignal={engagement.replyRoll}
-          label="replies"
-          tone="reply"
-          actionLabel={onReply ? 'Reply to this post' : undefined}
-          onActivate={onReply ? () => onReply(post) : undefined}
-        />
-        <EngagementStat
-          icon={<RepeatIcon aria-hidden />}
-          count={shareCount}
-          rollSignal={engagement.shareRoll}
-          label="shares"
-          tone="quote"
-          className={`os-confirm-icon${
-            engagement.viewerReposted && !sharePending ? ' is-active' : ''
-          }${sharePending ? ' is-pending' : ''}`}
-          disabled={sharePending}
-          ariaPressed={
-            sharePending ? undefined : engagement.viewerReposted || undefined
-          }
-          actionLabel={
-            sharePending
-              ? 'Confirming share'
-              : canShare
-                ? engagement.viewerReposted
-                  ? 'Undo repost or quote'
-                  : 'Quote or repost'
-                : undefined
-          }
-          onActivate={
-            canShare && !sharePending ? () => setShareOpen(true) : undefined
-          }
-        />
-        <span
-          className={`post-card-react-cluster post-card-react${
-            engagement.viewerReacted ? ' is-active' : ''
-          }`}
-        >
-          {onToggleReaction ? (
-            <button
-              type="button"
-              className={`os-confirm-icon post-card-react-heart${
-                reactionPending ? ' is-pending' : ''
-              }`}
-              disabled={reactionPending}
-              aria-pressed={engagement.viewerReacted}
-              aria-label={
-                engagement.viewerReacted
-                  ? 'Remove your reaction'
-                  : 'React to this post'
-              }
-              title={engagement.viewerReacted ? 'Liked' : 'Like'}
-              onPointerDown={(event) => {
-                event.stopPropagation();
-              }}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                onToggleReaction(post);
-              }}
-            >
-              <ReactIcon filled={engagement.viewerReacted} />
-            </button>
-          ) : (
-            <span className="post-card-react-heart" aria-hidden>
-              <ReactIcon filled={false} />
-            </span>
-          )}
-          <button
-            type="button"
-            className={`post-card-like-count${likeLabel ? '' : ' is-idle'}`}
-            aria-label={likeLabel ? `View who liked — ${likeLabel}` : undefined}
-            aria-hidden={likeLabel ? undefined : true}
-            tabIndex={likeLabel ? undefined : -1}
-            onPointerDown={(event) => {
-              event.stopPropagation();
-            }}
-            onClick={(event) => {
-              if (!likeLabel) return;
-              event.preventDefault();
-              event.stopPropagation();
-              setLikesOpen(true);
-            }}
-          >
-            <RollingNumber
-              value={engagement.reactionCount}
-              rollSignal={engagement.reactionRoll}
-            />
-          </button>
-        </span>
-        <EngagementStat
-          icon={<AmplifyIcon filled={engagement.viewerAmplified} />}
-          count={engagement.amplifyCount}
-          rollSignal={engagement.amplifyRoll}
-          label="amplifies"
-          tone="amplify"
-          className={`post-card-amplify${engagement.viewerAmplified ? ' is-active' : ''}`}
-          ariaPressed={engagement.viewerAmplified}
-          actionLabel={
-            engagement.viewerAmplified ? 'Amplify again' : 'Amplify this post'
-          }
-          onActivate={onAmplify}
-        />
-      </div>
-      <div className="post-card-engagement-trailing">
-        {onToggleSave ? (
-          <button
-            type="button"
-            className={`os-confirm-icon post-card-stat post-card-stat-button post-card-save${
-              engagement.viewerSaved ? ' is-active' : ''
-            }${savePending ? ' is-pending' : ''}`}
-            disabled={savePending}
-            aria-pressed={engagement.viewerSaved}
-            aria-label={
-              engagement.viewerSaved ? 'Remove from saved' : 'Save this post'
-            }
-            title={engagement.viewerSaved ? 'Saved' : 'Save'}
-            onPointerDown={(event) => {
-              event.stopPropagation();
-            }}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onToggleSave(post);
-            }}
-          >
-            <BookmarkGlyph filled={engagement.viewerSaved} />
-          </button>
-        ) : null}
-        <PostShareControl href={shareHref} title={shareTitle} />
-      </div>
-      <PostLikesSheet
-        open={likesOpen}
-        onClose={() => setLikesOpen(false)}
-        postOwner={post.accountId}
-        postId={post.postId}
-        groupId={post.groupId}
-        likeCount={engagement.reactionCount}
-        viewerAccountId={viewerAccountId}
-        viewerLiked={!reactionPending && engagement.viewerReacted}
-        {...(shareDrawerZIndex != null ? { zIndex: shareDrawerZIndex } : {})}
-      />
-      {canShare ? (
-        <ActionDrawer
-          open={shareOpen}
-          onClose={() => setShareOpen(false)}
-          label="Quote or repost"
-          items={shareItems}
-          {...(shareDrawerZIndex != null ? { zIndex: shareDrawerZIndex } : {})}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function PostCardRelationLine({
-  relationContext,
-  relationTargetProfileName,
-}: {
-  relationContext: PostRelationContext;
-  relationTargetProfileName?: string | null;
-}) {
-  if (relationContext.kind === 'repost') {
-    return (
-      <span className="post-card-relation">
-        <RepeatIcon className="post-card-relation-icon" aria-hidden />
-        {relationContext.label}
-      </span>
-    );
-  }
-
-  const target = formatPostRelationTarget(
-    relationContext.handle,
-    relationTargetProfileName
-  );
-
-  return (
-    <span className="post-card-relation">
-      {relationContext.verb}{' '}
-      <Link
-        href={portfolioPath(relationContext.handle)}
-        className="os-mention post-card-relation-target"
-        scroll={false}
-        onClick={(event) => {
-          event.stopPropagation();
-        }}
-      >
-        {target.name ? (
-          <>
-            <span className="post-card-relation-name">{target.name}</span>{' '}
-            <span className="post-card-relation-handle">@{target.handle}</span>
-          </>
-        ) : (
-          <span className="post-card-relation-handle">@{target.handle}</span>
-        )}
-      </Link>
-    </span>
-  );
-}
-
-function PostCardBody({
-  relationContext,
-  relationTargetProfileName,
-  badges,
-  text,
-  hideText = false,
-  hasMedia = false,
-  /** Thread focus / detail — show full copy, no Show more. */
-  expandDisabled = false,
-  articleTitle = null,
-  articleHref = null,
-  onReadArticle = null,
-  onArticleHrefClick = null,
-  onArticleHrefNavigate = null,
-}: {
-  relationContext: PostRelationContext | null;
-  relationTargetProfileName?: string | null;
-  badges: string[];
-  text: string;
-  /** When the poll card already shows the question, skip duplicate body text. */
-  hideText?: boolean;
-  hasMedia?: boolean;
-  expandDisabled?: boolean;
-  articleTitle?: string | null;
-  articleHref?: string | null;
-  /** Feed overlay reader — preferred over hard-nav when set. */
-  onReadArticle?: (() => void) | null;
-  onArticleHrefClick?: ((event: MouseEvent<HTMLAnchorElement>) => void) | null;
-  onArticleHrefNavigate?: ((event: { preventDefault(): void }) => void) | null;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [bodyOverflows, setBodyOverflows] = useState(() =>
-    postFeedBodyOverflows(text, hasMedia)
-  );
-  const previewLimit = postFeedPreviewLimit(hasMedia);
-  const isArticle = Boolean(articleTitle && articleHref);
-  /** Photo posts peek shorter. The full text stays mounted; the clip folds it. */
-  const closedLines = hasMedia ? 3 : 6;
-  const foldBody =
-    !isArticle && !expandDisabled && !hideText && text.trim().length > 0;
-  const tease = isArticle
-    ? truncatePostPreview(articleTeaseSource(text), previewLimit)
-    : text;
-  const showArticleRead =
-    isArticle &&
-    (Boolean(articleHref) || Boolean(onReadArticle)) &&
-    (postPreviewNeedsExpand(text, previewLimit) || Boolean(articleTitle));
-
-  const readControl =
-    showArticleRead && onReadArticle ? (
-      <button
-        type="button"
-        className="post-card-show-more post-card-show-more--dots"
-        aria-label="Read article"
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onReadArticle();
-        }}
-      >
-        …
-      </button>
-    ) : showArticleRead && articleHref ? (
-      <Link
-        href={articleHref}
-        className="post-card-show-more post-card-show-more--dots"
-        aria-label="Read article"
-        scroll={false}
-        onClick={(event) => {
-          event.stopPropagation();
-          onArticleHrefClick?.(event);
-        }}
-        onNavigate={onArticleHrefNavigate ?? undefined}
-      >
-        …
-      </Link>
-    ) : null;
-  // The tease's static trailing ellipsis is replaced by the ellipsis
-  // affordance itself, so the dots sit exactly at the truncation point.
-  const teaseDisplay = readControl ? tease.replace(/…$/u, '') : tease;
-
-  return (
-    <>
-      {relationContext ? (
-        <PostCardRelationLine
-          relationContext={relationContext}
-          relationTargetProfileName={relationTargetProfileName}
-        />
-      ) : null}
-      {badges.length > 0 ? (
-        <div className="post-card-badges">
-          {badges.map((badge) => (
-            <span key={badge}>{badge}</span>
-          ))}
-        </div>
-      ) : null}
-      {articleTitle ? (
-        <p className="post-card-article-title">{articleTitle}</p>
-      ) : null}
-      {!hideText && tease.trim() ? (
-        <div className="post-card-body-block">
-          {foldBody ? (
-            <OsTextFold
-              open={expanded}
-              closedLines={closedLines}
-              capped
-              onOverflow={(overflows) => {
-                if (overflows) setBodyOverflows(true);
-              }}
-            >
-              <p className="post-card-body">
-                <PostRichText text={text} />
-              </p>
-            </OsTextFold>
-          ) : (
-            <p className="post-card-body">
-              <PostRichText text={teaseDisplay} inlineMarks={isArticle} />
-              {readControl}
-            </p>
-          )}
-          {foldBody && bodyOverflows ? (
-            <button
-              type="button"
-              className={`post-card-show-more${
-                expanded
-                  ? ''
-                  : ' post-card-show-more--fold post-card-show-more--dots'
-              }`}
-              aria-expanded={expanded}
-              aria-label={expanded ? 'Show less' : 'Show more'}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setExpanded((current) => !current);
-              }}
-            >
-              {expanded ? 'Show less' : '…'}
-            </button>
-          ) : null}
-        </div>
-      ) : readControl ? (
-        <div className="post-card-body-block">{readControl}</div>
-      ) : null}
-    </>
-  );
-}
-
-export type PostSkeletonFrame =
-  | 'text'
-  | 'single'
-  | 'collage-2'
-  | 'collage-3'
-  | 'collage-4'
-  | 'quote';
-
-/** Home cold load — one frame per row, same boxes the live cards reserve. */
-export const HOME_FEED_COLD_SKELETON_FRAMES = [
-  'single',
-  'quote',
-  'collage-2',
-  'collage-4',
-] as const satisfies readonly PostSkeletonFrame[];
-
-/** Next page — same reserved media boxes, shorter list. */
-export const HOME_FEED_APPEND_SKELETON_FRAMES = [
-  'single',
-  'collage-2',
-] as const satisfies readonly PostSkeletonFrame[];
-
-function PostSkeletonMedia({ frame }: { frame: PostSkeletonFrame }) {
-  if (frame === 'text') return null;
-  if (frame === 'quote') {
-    return (
-      <div className="post-row-skeleton-quote">
-        <div className="standing-row-shimmer post-row-skeleton-quote-thumb" />
-        <div className="post-row-skeleton-quote-copy">
-          <div className="standing-row-shimmer post-row-skeleton-line" />
-          <div className="standing-row-shimmer post-row-skeleton-line-sm" />
-        </div>
-      </div>
-    );
-  }
-  if (frame === 'single') {
-    return (
-      <div className="post-row-skeleton-media post-row-skeleton-media--single">
-        <div className="standing-row-shimmer post-row-skeleton-media-fill" />
-      </div>
-    );
-  }
-  const cells = frame === 'collage-2' ? 2 : frame === 'collage-3' ? 3 : 4;
-  return (
-    <div
-      className={`post-row-skeleton-media post-row-skeleton-media--${frame}`}
-    >
-      {Array.from({ length: cells }, (_, cell) => (
-        <div
-          key={cell}
-          className="standing-row-shimmer post-row-skeleton-media-cell"
-        />
-      ))}
-    </div>
-  );
-}
-
-export function PostRowSkeleton({
-  rows = 3,
-  /** Reserve the room row under identity (guild All feed) so posts don’t jump. */
-  showChannel = false,
-  /**
-   * Per-row frame. Omitted rows stay text-only so other feeds keep their
-   * current skeleton height.
-   */
-  frames,
-}: {
-  rows?: number;
-  showChannel?: boolean;
-  frames?: readonly PostSkeletonFrame[];
-}) {
-  return (
-    <div className="post-row-skeleton-list" aria-hidden>
-      {Array.from({ length: rows }, (_, index) => {
-        const frame = frames?.[index] ?? 'text';
-        return (
-          <div key={index}>
-            {index > 0 ? (
-              <div className="post-row-skeleton-divider" aria-hidden />
-            ) : null}
-            <div className="post-card post-card--skeleton">
-              <div className="post-card-avatar post-row-skeleton-avatar standing-row-shimmer" />
-              <div className="post-card-copy">
-                {/* One identity row — matches live Name @handle · time. */}
-                <div className="post-row-skeleton-identity">
-                  <div className="standing-row-shimmer post-row-skeleton-line" />
-                  <div className="standing-row-shimmer post-row-skeleton-line-sm" />
-                </div>
-                {showChannel ? (
-                  <div className="standing-row-shimmer post-row-skeleton-channel" />
-                ) : null}
-                <div className="standing-row-shimmer post-row-skeleton-line-body" />
-                <PostSkeletonMedia frame={frame} />
-                {frame === 'text' ? null : (
-                  <div className="post-row-skeleton-actions">
-                    <div className="standing-row-shimmer post-row-skeleton-action" />
-                    <div className="standing-row-shimmer post-row-skeleton-action" />
-                    <div className="standing-row-shimmer post-row-skeleton-action" />
-                    <div className="standing-row-shimmer post-row-skeleton-action" />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
+/**
+ * Mount an overlay sheet on first open and keep it mounted afterwards —
+ * closed sheets cost nothing until first use, while close animations and
+ * internal state survive later closes.
+ */
+function useSheetMounted(open: boolean): boolean {
+  const [mounted, setMounted] = useState(open);
+  if (open && !mounted) setMounted(true);
+  return mounted || open;
 }
 
 function PostCardImpl({
@@ -1951,6 +316,16 @@ function PostCardImpl({
   const [photoIndex, setPhotoIndex] = useState(0);
   /** Mood / craft article — slide-over reader (stays on feed). */
   const [articleOpen, setArticleOpen] = useState(false);
+  // Nine overlays sit under every card; mount each on first open only.
+  const amplifySheetMounted = useSheetMounted(amplifyOpen);
+  const listScarceSheetMounted = useSheetMounted(listScarceOpen);
+  const buyScarceSheetMounted = useSheetMounted(buyScarceOpen);
+  const bidScarceSheetMounted = useSheetMounted(bidScarceOpen);
+  const transferScarceSheetMounted = useSheetMounted(transferScarceOpen);
+  const sellScarceSheetMounted = useSheetMounted(sellScarceOpen);
+  const feedMediumSheetMounted = useSheetMounted(feedMediumOpen);
+  const photoScreenMounted = useSheetMounted(photoOpen);
+  const articleScreenMounted = useSheetMounted(articleOpen);
   /** Shared drop whose essay lives on another post. */
   const [feedReadEssay, setFeedReadEssay] = useState<PostRow | null>(null);
   const [feedBookRead, setFeedBookRead] = useState(false);
@@ -2781,469 +1156,493 @@ function PostCardImpl({
           />
         ) : null}
       </div>
-      <PostAmplifySheet
-        open={amplifyOpen}
-        post={amplifyOpen ? post : null}
-        authorName={authorProfile?.displayName}
-        workTitle={
-          collectionDropTitle?.trim() ||
-          tokenDropTitle?.trim() ||
-          dropPaint?.title?.trim() ||
-          null
-        }
-        onOpenChange={setAmplifyOpen}
-        onAmplified={(amplified, detail) =>
-          onAmplifyConfirmed?.(amplified, detail)
-        }
-        zIndex={SCARCE_Z.commerceOverListen}
-      />
-      <ScarceListSheet
-        open={listScarceOpen}
-        post={listScarceOpen ? post : null}
-        authorName={authorProfile?.displayName}
-        onOpenChange={setListScarceOpen}
-        onListed={() => retryScarceEmbed()}
-        zIndex={SCARCE_Z.commerceOverListen}
-      />
-      <ScarceBuySheet
-        open={buyScarceOpen}
-        post={buyScarceOpen ? post : null}
-        authorName={authorProfile?.displayName}
-        embed={scarceEmbed}
-        alreadyOwnsEdition={Boolean(ownedScarceItem)}
-        onOpenChange={setBuyScarceOpen}
-        onPurchased={() => {
-          retryScarceEmbed();
-          refreshOwnedScarce();
-        }}
-        zIndex={SCARCE_Z.commerceOverListen}
-      />
-      <ScarceBidSheet
-        open={bidScarceOpen}
-        post={bidScarceOpen ? post : null}
-        authorName={authorProfile?.displayName}
-        embed={scarceEmbed}
-        onOpenChange={setBidScarceOpen}
-        onBid={() => retryScarceEmbed()}
-        zIndex={SCARCE_Z.commerceOverListen}
-      />
-      <ScarceTransferSheet
-        open={transferScarceOpen && ownedScarceItem != null}
-        item={ownedScarceItem}
-        ownerAccountId={viewerAccountId}
-        onOpenChange={setTransferScarceOpen}
-        onTransferred={() => {
-          setTransferScarceOpen(false);
-          retryScarceEmbed();
-          refreshOwnedScarce();
-        }}
-        zIndex={SCARCE_Z.commerceOverListen}
-      />
-      <ScarceSellSheet
-        open={sellScarceOpen && ownedScarceItem != null}
-        item={ownedScarceItem}
-        sellerAccountId={viewerAccountId}
-        onOpenChange={setSellScarceOpen}
-        onListed={() => {
-          setSellScarceOpen(false);
-          retryScarceEmbed();
-          refreshOwnedScarce();
-        }}
-        zIndex={SCARCE_Z.commerceOverListen}
-      />
-      <FeedPhotoEnlargeScreen
-        open={photoOpen}
-        onOpenChange={(open) => {
-          setPhotoOpen(open);
-          if (!open) {
-            setEnlargeOverride(null);
-            setPhotoThreadOpen(false);
+      {amplifySheetMounted ? (
+        <PostAmplifySheet
+          open={amplifyOpen}
+          post={amplifyOpen ? post : null}
+          authorName={authorProfile?.displayName}
+          workTitle={
+            collectionDropTitle?.trim() ||
+            tokenDropTitle?.trim() ||
+            dropPaint?.title?.trim() ||
+            null
           }
-        }}
-        title={enlargeTitle}
-        trailing={({ downloadCurrent }) => (
-          <PostCardMenu
-            href={shareHref}
-            openPostHref={postThreadPath(post)}
-            onOpenPost={() => {
-              setPhotoOpen(false);
+          onOpenChange={setAmplifyOpen}
+          onAmplified={(amplified, detail) =>
+            onAmplifyConfirmed?.(amplified, detail)
+          }
+          zIndex={SCARCE_Z.commerceOverListen}
+        />
+      ) : null}
+      {listScarceSheetMounted ? (
+        <ScarceListSheet
+          open={listScarceOpen}
+          post={listScarceOpen ? post : null}
+          authorName={authorProfile?.displayName}
+          onOpenChange={setListScarceOpen}
+          onListed={() => retryScarceEmbed()}
+          zIndex={SCARCE_Z.commerceOverListen}
+        />
+      ) : null}
+      {buyScarceSheetMounted ? (
+        <ScarceBuySheet
+          open={buyScarceOpen}
+          post={buyScarceOpen ? post : null}
+          authorName={authorProfile?.displayName}
+          embed={scarceEmbed}
+          alreadyOwnsEdition={Boolean(ownedScarceItem)}
+          onOpenChange={setBuyScarceOpen}
+          onPurchased={() => {
+            retryScarceEmbed();
+            refreshOwnedScarce();
+          }}
+          zIndex={SCARCE_Z.commerceOverListen}
+        />
+      ) : null}
+      {bidScarceSheetMounted ? (
+        <ScarceBidSheet
+          open={bidScarceOpen}
+          post={bidScarceOpen ? post : null}
+          authorName={authorProfile?.displayName}
+          embed={scarceEmbed}
+          onOpenChange={setBidScarceOpen}
+          onBid={() => retryScarceEmbed()}
+          zIndex={SCARCE_Z.commerceOverListen}
+        />
+      ) : null}
+      {transferScarceSheetMounted ? (
+        <ScarceTransferSheet
+          open={transferScarceOpen && ownedScarceItem != null}
+          item={ownedScarceItem}
+          ownerAccountId={viewerAccountId}
+          onOpenChange={setTransferScarceOpen}
+          onTransferred={() => {
+            setTransferScarceOpen(false);
+            retryScarceEmbed();
+            refreshOwnedScarce();
+          }}
+          zIndex={SCARCE_Z.commerceOverListen}
+        />
+      ) : null}
+      {sellScarceSheetMounted ? (
+        <ScarceSellSheet
+          open={sellScarceOpen && ownedScarceItem != null}
+          item={ownedScarceItem}
+          sellerAccountId={viewerAccountId}
+          onOpenChange={setSellScarceOpen}
+          onListed={() => {
+            setSellScarceOpen(false);
+            retryScarceEmbed();
+            refreshOwnedScarce();
+          }}
+          zIndex={SCARCE_Z.commerceOverListen}
+        />
+      ) : null}
+      {photoScreenMounted ? (
+        <FeedPhotoEnlargeScreen
+          open={photoOpen}
+          onOpenChange={(open) => {
+            setPhotoOpen(open);
+            if (!open) {
+              setEnlargeOverride(null);
               setPhotoThreadOpen(false);
-            }}
-            onDownload={
-              enlargePhotos.length > 0 ? () => downloadCurrent() : undefined
             }
-            accountId={post.accountId}
-            authorProfile={authorProfile}
-            canCancelScarce={canCancelScarce}
-            onCancelScarce={() => {
-              void handleCancelScarce();
-            }}
-            cancelScarcePending={cancelScarcePending}
-            zIndex={SCARCE_Z.commerceOverListen}
-          />
-        )}
-        peekIdentity={
-          <div className="feed-photo-caption-identity-row">
-            <Link
-              href={profileHref}
-              className="os-media-face-identity"
-              scroll={false}
-              aria-label={`View ${name}'s profile`}
-              onClick={() => {
+          }}
+          title={enlargeTitle}
+          trailing={({ downloadCurrent }) => (
+            <PostCardMenu
+              href={shareHref}
+              openPostHref={postThreadPath(post)}
+              onOpenPost={() => {
                 setPhotoOpen(false);
                 setPhotoThreadOpen(false);
               }}
-            >
-              <AccountAvatar
-                accountId={post.accountId}
-                kind={authorProfile?.kind}
-                src={authorProfile?.avatarUrl ?? null}
-                fallbackInitial={name}
-                size="lg"
-                className="post-card-avatar"
-              />
-              <span className="os-media-face-identity-copy">
-                <span className="os-media-face-identity-name-row">
-                  <span className="os-media-face-identity-name">{name}</span>
-                  <span className="post-identity-name-marks">
-                    <ProtocolNameTrailing accountId={post.accountId} />
+              onDownload={
+                enlargePhotos.length > 0 ? () => downloadCurrent() : undefined
+              }
+              accountId={post.accountId}
+              authorProfile={authorProfile}
+              canCancelScarce={canCancelScarce}
+              onCancelScarce={() => {
+                void handleCancelScarce();
+              }}
+              cancelScarcePending={cancelScarcePending}
+              zIndex={SCARCE_Z.commerceOverListen}
+            />
+          )}
+          peekIdentity={
+            <div className="feed-photo-caption-identity-row">
+              <Link
+                href={profileHref}
+                className="os-media-face-identity"
+                scroll={false}
+                aria-label={`View ${name}'s profile`}
+                onClick={() => {
+                  setPhotoOpen(false);
+                  setPhotoThreadOpen(false);
+                }}
+              >
+                <AccountAvatar
+                  accountId={post.accountId}
+                  kind={authorProfile?.kind}
+                  src={authorProfile?.avatarUrl ?? null}
+                  fallbackInitial={name}
+                  size="lg"
+                  className="post-card-avatar"
+                />
+                <span className="os-media-face-identity-copy">
+                  <span className="os-media-face-identity-name-row">
+                    <span className="os-media-face-identity-name">{name}</span>
+                    <span className="post-identity-name-marks">
+                      <ProtocolNameTrailing accountId={post.accountId} />
+                    </span>
+                  </span>
+                  <span className="os-media-face-identity-handle">
+                    @{post.accountId}
                   </span>
                 </span>
-                <span className="os-media-face-identity-handle">
-                  @{post.accountId}
-                </span>
-              </span>
-            </Link>
-            {photoOpen && !isSelf ? (
-              <PostPeekStandButton
-                accountId={post.accountId}
-                name={name}
-                authorProfile={authorProfile}
-              />
-            ) : null}
-          </div>
-        }
-        caption={photoCaption}
-        captionDate={
-          post.blockTimestamp ? formatPostTimestamp(post.blockTimestamp) : null
-        }
-        photos={enlargePhotos}
-        initialIndex={photoIndex}
-        threadOpen={photoThreadOpen}
-        onDismissThread={dismissPhotoThread}
-        threadAuthor={post.accountId}
-        threadPostId={post.postId}
-        threadRoot={post}
-        engagement={
-          engagement ? (
-            <PostEngagementRow
-              engagement={engagement}
-              shareHref={shareHref}
-              shareTitle={name}
-              reactionPending={reactionPending}
-              savePending={savePending}
-              sharePending={sharePending}
-              onReply={openPhotoThread}
-              onQuote={
-                onQuote
-                  ? (target) => {
-                      setPhotoOpen(false);
-                      onQuote(target);
-                    }
-                  : undefined
-              }
-              onRepost={
-                onRepost
-                  ? (target) => {
-                      setPhotoOpen(false);
-                      onRepost(target);
-                    }
-                  : undefined
-              }
-              onUndoRepost={
-                onUndoRepost
-                  ? (target) => {
-                      setPhotoOpen(false);
-                      onUndoRepost(target);
-                    }
-                  : undefined
-              }
-              onToggleReaction={onToggleReaction}
-              onToggleSave={onToggleSave}
-              onAmplify={() => {
-                setAmplifyOpen(true);
-              }}
-              shareDrawerZIndex={SCARCE_Z.commerceOverListen}
-              post={post}
-            />
-          ) : null
-        }
-      />
-      <FeedArticleReadScreen
-        open={articleOpen}
-        onOpenChange={(next) => {
-          setArticleOpen(next);
-          if (!next) {
-            setFeedReadEssay(null);
-            setFeedBookRead(false);
-            setFeedBookCoverSvg(null);
-            setPhotoThreadOpen(false);
-          }
-        }}
-        post={feedReadEssay ?? post}
-        authorProfile={
-          feedReadEssay
-            ? feedReadAuthors[feedReadEssay.accountId]
-            : authorProfile
-        }
-        documentTitle={feedBookRead ? dropListenTitle : undefined}
-        threadOpen={photoThreadOpen}
-        onDismissThread={dismissPhotoThread}
-        threadAuthor={post.accountId}
-        threadPostId={post.postId}
-        threadRoot={post}
-        renderBody={
-          feedBookRead
-            ? ({ onChromeTap }) => (
-                <WritingReadDocument
-                  open={articleOpen}
-                  title={dropListenTitle}
-                  cover={scarceCoverUrl}
-                  coverSvg={feedBookCoverSvg}
-                  collectionId={scarceEmbed?.collectionId?.trim() || ''}
-                  accountId={viewerAccountId}
-                  creatorId={scarceEmbed?.creatorId ?? post.accountId}
-                  readables={collectionReadables}
-                  bookPdf={collectionBookPdf}
-                  writingFormat={collectionWritingFormat}
-                  canRead
-                  lockedHint=""
-                  onChromeTap={onChromeTap}
+              </Link>
+              {photoOpen && !isSelf ? (
+                <PostPeekStandButton
+                  accountId={post.accountId}
+                  name={name}
+                  authorProfile={authorProfile}
                 />
-              )
-            : undefined
-        }
-        commerce={
-          !isRepostShell && (scarceEmbed || canListScarce) ? (
-            <PostScarceCta
-              embed={
-                scarceEmbed ?? {
-                  status: 'none',
-                  events: [],
+              ) : null}
+            </div>
+          }
+          caption={photoCaption}
+          captionDate={
+            post.blockTimestamp
+              ? formatPostTimestamp(post.blockTimestamp)
+              : null
+          }
+          photos={enlargePhotos}
+          initialIndex={photoIndex}
+          threadOpen={photoThreadOpen}
+          onDismissThread={dismissPhotoThread}
+          threadAuthor={post.accountId}
+          threadPostId={post.postId}
+          threadRoot={post}
+          engagement={
+            engagement ? (
+              <PostEngagementRow
+                engagement={engagement}
+                shareHref={shareHref}
+                shareTitle={name}
+                reactionPending={reactionPending}
+                savePending={savePending}
+                sharePending={sharePending}
+                onReply={openPhotoThread}
+                onQuote={
+                  onQuote
+                    ? (target) => {
+                        setPhotoOpen(false);
+                        onQuote(target);
+                      }
+                    : undefined
                 }
-              }
-              isAuthor={isSelf}
-              authorAccountId={scarceEmbed?.creatorId?.trim() || post.accountId}
-              canList={canListScarce}
-              onList={() => setListScarceOpen(true)}
-              canSell={canSellScarce}
-              onSell={() => setSellScarceOpen(true)}
-              canTransfer={canTransferScarce}
-              onTransfer={() => setTransferScarceOpen(true)}
-              sellListed={sellListedScarce}
-              alreadyOwnsEdition={Boolean(ownedScarceItem)}
-              onBuy={() => setBuyScarceOpen(true)}
-              onBid={() => setBidScarceOpen(true)}
-            />
-          ) : null
-        }
-        engagement={
-          engagement ? (
-            <PostEngagementRow
-              engagement={engagement}
-              shareHref={shareHref}
-              shareTitle={name}
-              reactionPending={reactionPending}
-              savePending={savePending}
-              sharePending={sharePending}
-              onReply={openPhotoThread}
-              onQuote={
-                onQuote
-                  ? (target) => {
-                      setArticleOpen(false);
-                      onQuote(target);
-                    }
-                  : undefined
-              }
-              onRepost={
-                onRepost
-                  ? (target) => {
-                      setArticleOpen(false);
-                      onRepost(target);
-                    }
-                  : undefined
-              }
-              onUndoRepost={
-                onUndoRepost
-                  ? (target) => {
-                      setArticleOpen(false);
-                      onUndoRepost(target);
-                    }
-                  : undefined
-              }
-              onToggleReaction={onToggleReaction}
-              onToggleSave={onToggleSave}
-              onAmplify={() => {
-                setAmplifyOpen(true);
-              }}
-              shareDrawerZIndex={SCARCE_Z.commerceOverListen}
-              post={post}
-            />
-          ) : null
-        }
-      />
-      <ScarceFeedMediumSheet
-        open={feedMediumOpen}
-        onOpenChange={(next) => {
-          setFeedMediumOpen(next);
-          if (!next) setPhotoThreadOpen(false);
-        }}
-        mode={feedMediumMode}
-        threadOpen={photoThreadOpen}
-        onDismissThread={dismissPhotoThread}
-        threadAuthor={post.accountId}
-        threadPostId={post.postId}
-        threadRoot={post}
-        trailing={
-          <PostCardMenu
-            href={shareHref}
-            openPostHref={postThreadPath(post)}
-            onOpenPost={() => {
-              setFeedMediumOpen(false);
+                onRepost={
+                  onRepost
+                    ? (target) => {
+                        setPhotoOpen(false);
+                        onRepost(target);
+                      }
+                    : undefined
+                }
+                onUndoRepost={
+                  onUndoRepost
+                    ? (target) => {
+                        setPhotoOpen(false);
+                        onUndoRepost(target);
+                      }
+                    : undefined
+                }
+                onToggleReaction={onToggleReaction}
+                onToggleSave={onToggleSave}
+                onAmplify={() => {
+                  setAmplifyOpen(true);
+                }}
+                shareDrawerZIndex={SCARCE_Z.commerceOverListen}
+                post={post}
+              />
+            ) : null
+          }
+        />
+      ) : null}
+      {articleScreenMounted ? (
+        <FeedArticleReadScreen
+          open={articleOpen}
+          onOpenChange={(next) => {
+            setArticleOpen(next);
+            if (!next) {
+              setFeedReadEssay(null);
+              setFeedBookRead(false);
+              setFeedBookCoverSvg(null);
               setPhotoThreadOpen(false);
-            }}
-            onDownload={
-              scarceCoverUrl || feedMediumCoverSvg
-                ? async () => {
-                    if (scarceCoverUrl) {
-                      await downloadIpfsMedia({
-                        url: scarceCoverUrl,
-                        mime: 'image/jpeg',
-                        title: dropListenTitle,
-                        fallbackName: 'drop',
-                        exportFile: true,
-                      });
-                      return;
-                    }
-                    const svg = feedMediumCoverSvg?.trim();
-                    if (!svg) {
-                      throw new Error('Could not download this file.');
-                    }
-                    const blob = new Blob([svg], { type: 'image/svg+xml' });
-                    const objectUrl = URL.createObjectURL(blob);
-                    try {
-                      await downloadIpfsMedia({
-                        url: objectUrl,
-                        mime: 'image/svg+xml',
-                        title: dropListenTitle,
-                        fallbackName: 'drop',
-                        exportFile: true,
-                      });
-                    } finally {
-                      URL.revokeObjectURL(objectUrl);
-                    }
-                  }
-                : undefined
             }
-            accountId={post.accountId}
-            authorProfile={authorProfile}
-            canCancelScarce={canCancelScarce}
-            onCancelScarce={() => {
-              void handleCancelScarce();
-            }}
-            cancelScarcePending={cancelScarcePending}
-            zIndex={SCARCE_Z.commerceOverListen}
-          />
-        }
-        title={dropListenTitle}
-        cover={scarceCoverUrl}
-        coverSvg={feedMediumCoverSvg}
-        creatorId={scarceEmbed?.creatorId ?? post.accountId}
-        collectionId={scarceEmbed?.collectionId ?? null}
-        tokenId={scarceEmbed?.tokenId ?? null}
-        playables={listenPlayables}
-        readables={collectionReadables}
-        writingFormat={collectionWritingFormat}
-        bookPdf={collectionBookPdf}
-        viewerAccountId={viewerAccountId}
-        commerce={
-          !isRepostShell && (scarceEmbed || canListScarce) ? (
-            <PostScarceCta
-              embed={
-                scarceEmbed ?? {
-                  status: 'none',
-                  events: [],
+          }}
+          post={feedReadEssay ?? post}
+          authorProfile={
+            feedReadEssay
+              ? feedReadAuthors[feedReadEssay.accountId]
+              : authorProfile
+          }
+          documentTitle={feedBookRead ? dropListenTitle : undefined}
+          threadOpen={photoThreadOpen}
+          onDismissThread={dismissPhotoThread}
+          threadAuthor={post.accountId}
+          threadPostId={post.postId}
+          threadRoot={post}
+          renderBody={
+            feedBookRead
+              ? ({ onChromeTap }) => (
+                  <WritingReadDocument
+                    open={articleOpen}
+                    title={dropListenTitle}
+                    cover={scarceCoverUrl}
+                    coverSvg={feedBookCoverSvg}
+                    collectionId={scarceEmbed?.collectionId?.trim() || ''}
+                    accountId={viewerAccountId}
+                    creatorId={scarceEmbed?.creatorId ?? post.accountId}
+                    readables={collectionReadables}
+                    bookPdf={collectionBookPdf}
+                    writingFormat={collectionWritingFormat}
+                    canRead
+                    lockedHint=""
+                    onChromeTap={onChromeTap}
+                  />
+                )
+              : undefined
+          }
+          commerce={
+            !isRepostShell && (scarceEmbed || canListScarce) ? (
+              <PostScarceCta
+                embed={
+                  scarceEmbed ?? {
+                    status: 'none',
+                    events: [],
+                  }
                 }
-              }
-              isAuthor={isSelf}
-              authorAccountId={scarceEmbed?.creatorId?.trim() || post.accountId}
-              canList={canListScarce}
-              onList={() => {
-                setListScarceOpen(true);
-              }}
-              canSell={canSellScarce}
-              onSell={() => {
-                setSellScarceOpen(true);
-              }}
-              canTransfer={canTransferScarce}
-              onTransfer={() => setTransferScarceOpen(true)}
-              sellListed={sellListedScarce}
-              alreadyOwnsEdition={Boolean(ownedScarceItem)}
-              onBuy={() => {
-                setBuyScarceOpen(true);
-              }}
-              onBid={() => {
-                setBidScarceOpen(true);
-              }}
-            />
-          ) : null
-        }
-        engagement={
-          engagement ? (
-            <PostEngagementRow
-              engagement={engagement}
-              shareHref={shareHref}
-              shareTitle={name}
-              reactionPending={reactionPending}
-              savePending={savePending}
-              sharePending={sharePending}
-              onReply={openPhotoThread}
-              onQuote={
-                onQuote
-                  ? (target) => {
-                      setFeedMediumOpen(false);
-                      onQuote(target);
-                    }
-                  : undefined
-              }
-              onRepost={
-                onRepost
-                  ? (target) => {
-                      setFeedMediumOpen(false);
-                      onRepost(target);
-                    }
-                  : undefined
-              }
-              onUndoRepost={
-                onUndoRepost
-                  ? (target) => {
-                      setFeedMediumOpen(false);
-                      onUndoRepost(target);
-                    }
-                  : undefined
-              }
-              onToggleReaction={onToggleReaction}
-              onToggleSave={onToggleSave}
-              onAmplify={() => {
+                isAuthor={isSelf}
+                authorAccountId={
+                  scarceEmbed?.creatorId?.trim() || post.accountId
+                }
+                canList={canListScarce}
+                onList={() => setListScarceOpen(true)}
+                canSell={canSellScarce}
+                onSell={() => setSellScarceOpen(true)}
+                canTransfer={canTransferScarce}
+                onTransfer={() => setTransferScarceOpen(true)}
+                sellListed={sellListedScarce}
+                alreadyOwnsEdition={Boolean(ownedScarceItem)}
+                onBuy={() => setBuyScarceOpen(true)}
+                onBid={() => setBidScarceOpen(true)}
+              />
+            ) : null
+          }
+          engagement={
+            engagement ? (
+              <PostEngagementRow
+                engagement={engagement}
+                shareHref={shareHref}
+                shareTitle={name}
+                reactionPending={reactionPending}
+                savePending={savePending}
+                sharePending={sharePending}
+                onReply={openPhotoThread}
+                onQuote={
+                  onQuote
+                    ? (target) => {
+                        setArticleOpen(false);
+                        onQuote(target);
+                      }
+                    : undefined
+                }
+                onRepost={
+                  onRepost
+                    ? (target) => {
+                        setArticleOpen(false);
+                        onRepost(target);
+                      }
+                    : undefined
+                }
+                onUndoRepost={
+                  onUndoRepost
+                    ? (target) => {
+                        setArticleOpen(false);
+                        onUndoRepost(target);
+                      }
+                    : undefined
+                }
+                onToggleReaction={onToggleReaction}
+                onToggleSave={onToggleSave}
+                onAmplify={() => {
+                  setAmplifyOpen(true);
+                }}
+                shareDrawerZIndex={SCARCE_Z.commerceOverListen}
+                post={post}
+              />
+            ) : null
+          }
+        />
+      ) : null}
+      {feedMediumSheetMounted ? (
+        <ScarceFeedMediumSheet
+          open={feedMediumOpen}
+          onOpenChange={(next) => {
+            setFeedMediumOpen(next);
+            if (!next) setPhotoThreadOpen(false);
+          }}
+          mode={feedMediumMode}
+          threadOpen={photoThreadOpen}
+          onDismissThread={dismissPhotoThread}
+          threadAuthor={post.accountId}
+          threadPostId={post.postId}
+          threadRoot={post}
+          trailing={
+            <PostCardMenu
+              href={shareHref}
+              openPostHref={postThreadPath(post)}
+              onOpenPost={() => {
                 setFeedMediumOpen(false);
-                setAmplifyOpen(true);
+                setPhotoThreadOpen(false);
               }}
-              shareDrawerZIndex={SCARCE_Z.commerceOverListen}
-              post={post}
+              onDownload={
+                scarceCoverUrl || feedMediumCoverSvg
+                  ? async () => {
+                      if (scarceCoverUrl) {
+                        await downloadIpfsMedia({
+                          url: scarceCoverUrl,
+                          mime: 'image/jpeg',
+                          title: dropListenTitle,
+                          fallbackName: 'drop',
+                          exportFile: true,
+                        });
+                        return;
+                      }
+                      const svg = feedMediumCoverSvg?.trim();
+                      if (!svg) {
+                        throw new Error('Could not download this file.');
+                      }
+                      const blob = new Blob([svg], { type: 'image/svg+xml' });
+                      const objectUrl = URL.createObjectURL(blob);
+                      try {
+                        await downloadIpfsMedia({
+                          url: objectUrl,
+                          mime: 'image/svg+xml',
+                          title: dropListenTitle,
+                          fallbackName: 'drop',
+                          exportFile: true,
+                        });
+                      } finally {
+                        URL.revokeObjectURL(objectUrl);
+                      }
+                    }
+                  : undefined
+              }
+              accountId={post.accountId}
+              authorProfile={authorProfile}
+              canCancelScarce={canCancelScarce}
+              onCancelScarce={() => {
+                void handleCancelScarce();
+              }}
+              cancelScarcePending={cancelScarcePending}
+              zIndex={SCARCE_Z.commerceOverListen}
             />
-          ) : null
-        }
-      />
+          }
+          title={dropListenTitle}
+          cover={scarceCoverUrl}
+          coverSvg={feedMediumCoverSvg}
+          creatorId={scarceEmbed?.creatorId ?? post.accountId}
+          collectionId={scarceEmbed?.collectionId ?? null}
+          tokenId={scarceEmbed?.tokenId ?? null}
+          playables={listenPlayables}
+          readables={collectionReadables}
+          writingFormat={collectionWritingFormat}
+          bookPdf={collectionBookPdf}
+          viewerAccountId={viewerAccountId}
+          commerce={
+            !isRepostShell && (scarceEmbed || canListScarce) ? (
+              <PostScarceCta
+                embed={
+                  scarceEmbed ?? {
+                    status: 'none',
+                    events: [],
+                  }
+                }
+                isAuthor={isSelf}
+                authorAccountId={
+                  scarceEmbed?.creatorId?.trim() || post.accountId
+                }
+                canList={canListScarce}
+                onList={() => {
+                  setListScarceOpen(true);
+                }}
+                canSell={canSellScarce}
+                onSell={() => {
+                  setSellScarceOpen(true);
+                }}
+                canTransfer={canTransferScarce}
+                onTransfer={() => setTransferScarceOpen(true)}
+                sellListed={sellListedScarce}
+                alreadyOwnsEdition={Boolean(ownedScarceItem)}
+                onBuy={() => {
+                  setBuyScarceOpen(true);
+                }}
+                onBid={() => {
+                  setBidScarceOpen(true);
+                }}
+              />
+            ) : null
+          }
+          engagement={
+            engagement ? (
+              <PostEngagementRow
+                engagement={engagement}
+                shareHref={shareHref}
+                shareTitle={name}
+                reactionPending={reactionPending}
+                savePending={savePending}
+                sharePending={sharePending}
+                onReply={openPhotoThread}
+                onQuote={
+                  onQuote
+                    ? (target) => {
+                        setFeedMediumOpen(false);
+                        onQuote(target);
+                      }
+                    : undefined
+                }
+                onRepost={
+                  onRepost
+                    ? (target) => {
+                        setFeedMediumOpen(false);
+                        onRepost(target);
+                      }
+                    : undefined
+                }
+                onUndoRepost={
+                  onUndoRepost
+                    ? (target) => {
+                        setFeedMediumOpen(false);
+                        onUndoRepost(target);
+                      }
+                    : undefined
+                }
+                onToggleReaction={onToggleReaction}
+                onToggleSave={onToggleSave}
+                onAmplify={() => {
+                  setFeedMediumOpen(false);
+                  setAmplifyOpen(true);
+                }}
+                shareDrawerZIndex={SCARCE_Z.commerceOverListen}
+                post={post}
+              />
+            ) : null
+          }
+        />
+      ) : null}
     </article>
   );
 }
@@ -3285,3 +1684,4 @@ function postCardPropsEqual(prev: PostCardProps, next: PostCardProps): boolean {
 export const PostCard = memo(PostCardImpl, postCardPropsEqual);
 
 export { postKey };
+export { QuotedPostInset };
