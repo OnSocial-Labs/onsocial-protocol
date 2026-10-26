@@ -41404,13 +41404,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.58);
   }
 
-  .endorsements-empty-hint {
-    margin: 0;
-    font-size: 0.72rem;
-    line-height: 1.4;
-    color: rgb(var(--fg-rgb) / 0.42);
-  }
-
   /* Gesture sheet header: @onsocial/ui/os-gesture-sheet-header.css */
 
   /* ── Endorse compose sheet ──────────────────────────────── */
