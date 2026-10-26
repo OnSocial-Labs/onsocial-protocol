@@ -6,6 +6,7 @@ import type { Paginated, PostRow } from '@onsocial/sdk';
 import {
   shouldAdoptSpeculativeFeedPage,
   shouldRequestSpeculativeFeedPage,
+  shouldSeedHomeFeedPage,
   speculativeFeedKeepsPaint,
 } from './home-feed-speculative';
 
@@ -83,6 +84,23 @@ describe('shouldAdoptSpeculativeFeedPage', () => {
     ).toBe(false);
     expect(
       shouldAdoptSpeculativeFeedPage({ ...base, speculativePage: null })
+    ).toBe(false);
+  });
+});
+
+describe('shouldSeedHomeFeedPage', () => {
+  it('seeds a document load and skips in-app flights and focused URLs', () => {
+    expect(
+      shouldSeedHomeFeedPage({ rscHeader: null, hasFocus: false })
+    ).toBe(true);
+    expect(
+      shouldSeedHomeFeedPage({ rscHeader: '1', hasFocus: false })
+    ).toBe(false);
+    expect(
+      shouldSeedHomeFeedPage({ rscHeader: null, hasFocus: true })
+    ).toBe(false);
+    expect(
+      shouldSeedHomeFeedPage({ rscHeader: '1', hasFocus: true })
     ).toBe(false);
   });
 });

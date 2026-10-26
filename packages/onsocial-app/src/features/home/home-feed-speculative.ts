@@ -36,6 +36,19 @@ export function shouldAdoptSpeculativeFeedPage(input: {
   );
 }
 
+/**
+ * A full page load seeds the public hot page. An in-app flight (`rsc: 1`)
+ * already has the saved list, so the fetch would only delay the return.
+ * A focused URL skips the hot seed either way.
+ */
+export function shouldSeedHomeFeedPage(input: {
+  rscHeader: string | null;
+  hasFocus: boolean;
+}): boolean {
+  if (input.hasFocus) return false;
+  return input.rscHeader !== '1';
+}
+
 /** Global/hot already IS the speculative page — anything else refreshes over it. */
 export function speculativeFeedKeepsPaint(
   lens: HomeFeedLens,

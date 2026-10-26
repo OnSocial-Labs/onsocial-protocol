@@ -36,6 +36,8 @@ describe('feed session host wiring', () => {
     expect(providers).toContain('FeedSessionHost');
     expect(providers).toContain('page={children}');
     expect(route).toContain('loadHomeFeedPage');
+    expect(route).toContain('shouldSeedHomeFeedPage');
+    expect(route).toContain("headers()).get('rsc')");
     expect(route).toContain('HomeFeedRoute');
     expect(route).toContain('parseHomeFeedFocus');
     expect(route).not.toContain('HomePagePanel');

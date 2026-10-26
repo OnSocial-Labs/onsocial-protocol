@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { Suspense } from 'react';
 import {
   HOME_FEED_COLD_SKELETON_FRAMES,
@@ -6,6 +7,7 @@ import {
 } from '@/features/home/post-card';
 import { parseHomeFeedFocus } from '@/features/home/home-feed-focus';
 import { HomeFeedRoute } from '@/features/home/home-feed-route';
+import { shouldSeedHomeFeedPage } from '@/features/home/home-feed-speculative';
 import { loadHomeFeedPage } from '@/lib/load-home-feed-page';
 
 export const metadata: Metadata = {
@@ -27,8 +29,9 @@ function firstParam(value: string | string[] | undefined): string | null {
 }
 
 /**
- * Cold visit renders the public hot page into the feed session slot.
- * A saved list still wins after hydration. A focused URL skips the hot seed.
+ * A full load renders the public hot page into the feed session slot.
+ * Opening Home from inside the app skips that fetch. A saved list still
+ * wins, including the line you left. A focused URL skips the hot seed.
  */
 export default function HomePage({ searchParams }: HomePageProps) {
   return (
@@ -53,6 +56,12 @@ async function HomeFeedSeed({
     ticker: firstParam(resolved?.ticker),
     place: firstParam(resolved?.place),
   });
-  const paint = focus ? null : await loadHomeFeedPage();
+  const rscHeader = (await headers()).get('rsc');
+  const paint = shouldSeedHomeFeedPage({
+    rscHeader,
+    hasFocus: focus != null,
+  })
+    ? await loadHomeFeedPage()
+    : null;
   return <HomeFeedRoute paint={paint} />;
 }
