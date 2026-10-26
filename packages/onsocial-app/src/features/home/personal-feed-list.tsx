@@ -232,7 +232,11 @@ export function PersonalFeedList({
     <div className={className ?? 'home-feed-list'}>
       {feedBlocks.map(
         ({ posts, standingPeek, standingCoilTail }, blockIndex) => (
-          <div key={postKey(posts[0]!)} className="home-feed-block">
+          <div
+            key={postKey(posts[0]!)}
+            className="home-feed-block"
+            data-feed-key={postKey(posts[0]!)}
+          >
             <Divider
               variant="item"
               className={
