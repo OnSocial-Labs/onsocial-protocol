@@ -394,6 +394,9 @@ export function LiveGuildPostPanel({
     [guildStructure, viewerAccess]
   );
   const canPostInThread = canPostInChannel(threadChannel);
+  /* Structure and ACL arrive after the sheet paints. Until then a signed-in
+     reply still opens the dock; a resolved denial hides it. */
+  const postAccessReady = Boolean(guildStructure) && viewerAccessResolved;
 
   const performSubmit = async (
     target: PostRow,
@@ -582,7 +585,7 @@ export function LiveGuildPostPanel({
   const focusWriteDock = useFocusWriteDock();
   const replyHandler = (post: PostRow) => {
     const channel = post.channel ?? threadChannel;
-    if (accountId && !canPostInChannel(channel)) return;
+    if (accountId && postAccessReady && !canPostInChannel(channel)) return;
     setDockTarget(post);
     focusWriteDock();
   };
@@ -693,7 +696,9 @@ export function LiveGuildPostPanel({
   useReplyWriteDock({
     target: writeTarget,
     enabled:
-      replyDockEnabled && Boolean(root) && (!accountId || canPostInThread),
+      replyDockEnabled &&
+      Boolean(root) &&
+      (!accountId || !postAccessReady || canPostInThread),
     disabled: Boolean(modalTarget),
     placeholder: WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
     above: writeAbove,

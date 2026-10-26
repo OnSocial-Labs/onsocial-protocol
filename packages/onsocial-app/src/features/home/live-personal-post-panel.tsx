@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -196,7 +196,6 @@ export function LivePersonalPostPanel({
   const { getClient } = useAppOnSocialClient();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const mediaUnmuted = searchParams.get('media') === 'unmute';
   const mediaResumeIndex = readPostMediaUnmuteIndex(searchParams);
@@ -684,10 +683,7 @@ export function LivePersonalPostPanel({
     ) : null;
   useReplyWriteDock({
     target: writeTarget,
-    enabled:
-      Boolean(root) &&
-      replyDockEnabled &&
-      !(hideRootMedia && pathname !== APP_HOME_PATH),
+    enabled: Boolean(root) && replyDockEnabled,
     disabled: Boolean(modalTarget),
     placeholder: WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
     above: writeAbove,

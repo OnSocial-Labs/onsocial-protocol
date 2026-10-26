@@ -28,6 +28,7 @@ import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
+import { useSummonDockOccupiedHeight } from '@/hooks/use-summon-dock-occupied-height';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
@@ -74,6 +75,8 @@ export function PortfolioSummonDock({
   } = usePageContentDrawer();
   const { accountId, isConnected } = useAppWallet();
   const compose = useComposeLauncher();
+  const dockRef = useRef<HTMLDivElement>(null);
+  useSummonDockOccupiedHeight(dockRef, true);
   const writePinned = useWriteDockPinned();
   const writeMorph = useWriteDockMorph();
   const write = compose?.type === 'write' ? compose.entry : null;
@@ -244,6 +247,7 @@ export function PortfolioSummonDock({
   return (
     <>
       <div
+        ref={dockRef}
         className={`portfolio-summon-dock${osOpen ? ' is-launcher-open' : ''}${
           scrollHidden ? ' is-scroll-hidden' : ''
         }${pageDrawerOpen ? ' is-drawer-overlay' : ''}${

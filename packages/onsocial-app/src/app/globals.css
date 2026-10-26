@@ -536,6 +536,30 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   overflow: hidden;
 }
 
+/* Dock clearance sits outside the post scroller. Padding inside the
+   scrollport painted a bar when the thread already fit above the pill. */
+.glass-sheet-panel.post-thread-sheet-panel
+  > .glass-sheet-body.post-thread-sheet-body {
+  /* 1px under the measured pill absorbs subpixel rounding so a thread
+     that ends on the dock does not grow a rail. */
+  padding-bottom: calc(
+    var(--os-summon-dock-occupied, var(--portfolio-dock-clearance, 4.75rem)) -
+      1px
+  );
+}
+
+.glass-sheet-panel.post-thread-sheet-panel
+  .os-app-screen--embedded
+  > .os-app-screen-column
+  > .os-app-screen-body {
+  padding-bottom: 0;
+  scrollbar-width: none;
+}
+
+.glass-sheet-panel.post-thread-sheet-panel .os-app-chrome-page {
+  padding-bottom: 0;
+}
+
 .glass-sheet-panel.post-thread-sheet-panel .post-thread-sheet-fill {
   display: flex;
   flex: 1 1 auto;
@@ -16334,21 +16358,21 @@ a.os-surface-row {
 
   /* Post sheet is overlayHost (50). Launcher band is 51: above the post,
      under account, share, and the full composer. A parked post stays put.
-     A keep-dock media face keeps its own lift at 90. */
-  body:not(:has([data-os-slide-over='true'][data-keep-dock='true'])):has(
-      .glass-sheet-root[data-keep-dock='true']:not(
-          .post-thread-sheet-parked
-        ):has(.post-thread-sheet-panel)
-    )
+     A keep-dock media face keeps its own lift at 90.
+     Nested :has() is dropped by the browser, which left this rule unloaded
+     and the drawer dock under the post sheet. */
+  body:has(
+      .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
+        .post-thread-sheet-panel
+    ):not(:has([data-os-slide-over='true'][data-keep-dock='true']))
     .portfolio-summon-dock {
     z-index: 51;
   }
 
-  body:not(:has([data-os-slide-over='true'][data-keep-dock='true'])):has(
-      .glass-sheet-root[data-keep-dock='true']:not(
-          .post-thread-sheet-parked
-        ):has(.post-thread-sheet-panel)
-    )
+  body:has(
+      .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
+        .post-thread-sheet-panel
+    ):not(:has([data-os-slide-over='true'][data-keep-dock='true']))
     .portfolio-summon-dock
     .portfolio-summon {
     pointer-events: auto;

@@ -12,6 +12,15 @@ describe('compose launcher stack', () => {
     expect(topComposeStack(stack)?.id).toBe('thread');
   });
 
+  it('keeps an open reply dock above a pen that registers later', () => {
+    const stack = upsertComposeStack(
+      [{ id: 'reply', type: 'write' }],
+      { id: 'pen', type: 'action' }
+    );
+    expect(stack.map((row) => row.id)).toEqual(['pen', 'reply']);
+    expect(topComposeStack(stack)?.id).toBe('reply');
+  });
+
   it('updates an existing id in place so a child stays on top', () => {
     const stack = upsertComposeStack(
       [

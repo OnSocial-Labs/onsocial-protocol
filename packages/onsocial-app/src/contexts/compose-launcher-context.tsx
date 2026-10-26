@@ -212,12 +212,28 @@ export function useRegisterComposeAction(
   const upsertCompose = context?.upsertCompose;
   const popCompose = context?.popCompose;
   const id = useId();
+  const actionRef = useRef(action);
+  useLayoutEffect(() => {
+    actionRef.current = action;
+  }, [action]);
+  const enabled = action != null;
 
+  /* Identity of `action` changes every render on some surfaces. Popping on
+     that change appends the pen back on top of an open reply dock. */
   useEffect(() => {
-    if (!upsertCompose || !popCompose || !action) return;
-    upsertCompose({ id, type: 'action', entry: { action, kind } });
+    if (!upsertCompose || !popCompose || !enabled) return;
+    upsertCompose({
+      id,
+      type: 'action',
+      entry: {
+        action: () => {
+          actionRef.current?.();
+        },
+        kind,
+      },
+    });
     return () => popCompose(id);
-  }, [action, id, kind, popCompose, upsertCompose]);
+  }, [enabled, id, kind, popCompose, upsertCompose]);
 }
 
 /** Morph the dock action into the compact write bar. */
