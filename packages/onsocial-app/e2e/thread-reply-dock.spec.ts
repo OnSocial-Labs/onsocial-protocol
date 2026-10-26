@@ -1,5 +1,11 @@
-import { expect, test, type Route } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 import { dismissNextDevOverlay, gotoApp } from './helpers';
+import {
+  expectE2eSignerWrite,
+  extractPreparedAction,
+  seedE2eMockSigner,
+  stubE2eComposePrepare,
+} from './helpers/e2e-mock-signer';
 
 type GraphBody = {
   query?: string;
@@ -89,6 +95,111 @@ const REPLY_TWO = {
   authorName: 'Cara',
 };
 
+/** Feed shows the root post; the root path returns both replies. */
+async function stubThreadGraph(page: Page): Promise<void> {
+  await page.route('**/api/onapi/graph/query', async (route: Route) => {
+    const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody;
+    const query = body.query ?? '';
+    const field = graphField(query);
+
+    // Feed list — root post only.
+    if (field) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { [field]: [feedRow(ROOT)] } }),
+      });
+      return;
+    }
+
+    // Thread tree — replies under the root. The tree is built recursively:
+    // the root path returns both replies, each reply's own path returns none.
+    if (query.includes('threadReplies')) {
+      const parentPath =
+        (route.request().postDataJSON() as GraphBody & {
+          variables?: { parentPath?: string };
+        }).variables?.parentPath ?? '';
+      const replies =
+        parentPath === 'alice.near/post/root-post'
+          ? [
+              replyRow({
+                accountId: REPLY_ONE.accountId,
+                postId: REPLY_ONE.postId,
+                text: REPLY_ONE.text,
+                parentAuthor: REPLY_ONE.parentAuthor,
+                parentPath: REPLY_ONE.parentPath,
+              }),
+              replyRow({
+                accountId: REPLY_TWO.accountId,
+                postId: REPLY_TWO.postId,
+                text: REPLY_TWO.text,
+                parentAuthor: REPLY_TWO.parentAuthor,
+                parentPath: REPLY_TWO.parentPath,
+              }),
+            ]
+          : [];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { threadReplies: replies } }),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: {} }),
+    });
+  });
+}
+
+/** The chain-confirmation poll answers FINAL so the reply paints optimistically. */
+async function stubNearRpcFinal(page: Page): Promise<void> {
+  await page.route('**/api/near/rpc', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'e2e',
+        result: {
+          final_execution_status: 'FINAL',
+          status: { SuccessValue: '' },
+          receipts_outcome: [],
+        },
+      }),
+    });
+  });
+}
+
+async function openThreadDrawer(page: Page) {
+  await gotoApp(page, '/home');
+  await dismissNextDevOverlay(page);
+
+  // Signed-in viewers land on Pulse; the stub feeds Global.
+  const globalTab = page.getByRole('tab', { name: 'Global' });
+  if ((await globalTab.count()) > 0) {
+    await globalTab.click();
+  }
+
+  const feed = page.locator('.home-feed-list');
+  await expect(feed).toContainText('Root post');
+
+  // Open the thread drawer from the post link (Open post / timestamp).
+  await feed.getByRole('link', { name: 'Open post' }).first().click();
+
+  // The drawer shows the seeded root immediately, then loads replies.
+  const drawer = page.locator('.post-thread-sheet-panel');
+  await expect(drawer).toBeVisible({ timeout: 15_000 });
+  await expect(drawer).toContainText('Root post');
+  await expect(drawer).toContainText('First reply from Bob', {
+    timeout: 15_000,
+  });
+  await expect(drawer).toContainText('Second reply from Cara');
+  return drawer;
+}
+
 /**
  * Open the thread drawer from a feed post, then Reply inside the drawer points
  * the write dock at that reply (chip + focus) without losing the feed behind it.
@@ -98,80 +209,9 @@ test.describe('thread reply dock', () => {
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await stubThreadGraph(page);
 
-    await page.route('**/api/onapi/graph/query', async (route: Route) => {
-      const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody;
-      const query = body.query ?? '';
-      const field = graphField(query);
-
-      // Feed list — root post only.
-      if (field) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ data: { [field]: [feedRow(ROOT)] } }),
-        });
-        return;
-      }
-
-      // Thread tree — replies under the root. The tree is built recursively:
-      // the root path returns both replies, each reply's own path returns none.
-      if (query.includes('threadReplies')) {
-        const parentPath =
-          (route.request().postDataJSON() as GraphBody & {
-            variables?: { parentPath?: string };
-          }).variables?.parentPath ?? '';
-        const replies =
-          parentPath === 'alice.near/post/root-post'
-            ? [
-                replyRow({
-                  accountId: REPLY_ONE.accountId,
-                  postId: REPLY_ONE.postId,
-                  text: REPLY_ONE.text,
-                  parentAuthor: REPLY_ONE.parentAuthor,
-                  parentPath: REPLY_ONE.parentPath,
-                }),
-                replyRow({
-                  accountId: REPLY_TWO.accountId,
-                  postId: REPLY_TWO.postId,
-                  text: REPLY_TWO.text,
-                  parentAuthor: REPLY_TWO.parentAuthor,
-                  parentPath: REPLY_TWO.parentPath,
-                }),
-              ]
-            : [];
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ data: { threadReplies: replies } }),
-        });
-        return;
-      }
-
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ data: {} }),
-      });
-    });
-
-    await gotoApp(page, '/home');
-    await dismissNextDevOverlay(page);
-
-    const feed = page.locator('.home-feed-list');
-    await expect(feed).toContainText('Root post');
-
-    // Open the thread drawer from the post link (Open post / timestamp).
-    await feed.getByRole('link', { name: 'Open post' }).first().click();
-
-    // The drawer shows the seeded root immediately, then loads replies.
-    const drawer = page.locator('.post-thread-sheet-panel');
-    await expect(drawer).toBeVisible({ timeout: 15_000 });
-    await expect(drawer).toContainText('Root post');
-    await expect(drawer).toContainText('First reply from Bob', {
-      timeout: 15_000,
-    });
-    await expect(drawer).toContainText('Second reply from Cara');
+    const drawer = await openThreadDrawer(page);
 
     // Click Reply on Bob's reply inside the drawer.
     await drawer
@@ -193,5 +233,42 @@ test.describe('thread reply dock', () => {
     // Cancelling the chip returns the dock to the root target.
     await page.getByRole('button', { name: 'Cancel reply' }).click();
     await expect(page.locator('.os-write-dock-reply')).toHaveCount(0);
+  });
+
+  test('dock reply send records the write and paints the optimistic reply', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await seedE2eMockSigner(page, 'dave.near', { succeed: true });
+    await stubE2eComposePrepare(page);
+    await stubNearRpcFinal(page);
+    await stubThreadGraph(page);
+
+    const drawer = await openThreadDrawer(page);
+
+    // In an open thread the dock replies to the root by default — the reply
+    // chip only appears once a nested reply is picked (covered above).
+    const field = page.getByRole('textbox', { name: 'Add a reply…' });
+    await field.fill('Dock reply from the thread');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+
+    // The wallet recorded one batched set for the reply under the root.
+    await expectE2eSignerWrite(page, (recorded) => {
+      const prepared = recorded.map(extractPreparedAction);
+      expect(recorded.some((call) => call.methodName === 'execute')).toBe(
+        true
+      );
+      expect(prepared.some((action) => action?.e2eVerb === 'set')).toBe(true);
+      const blob = JSON.stringify(recorded);
+      expect(blob).toContain('alice.near/post/root-post');
+      expect(blob).toContain('Dock reply from the thread');
+    });
+
+    // Confirmed — the optimistic reply paints in the open thread, dock resets.
+    await expect(drawer).toContainText('Dock reply from the thread', {
+      timeout: 15_000,
+    });
+    await expect(page.locator('.os-write-dock-reply')).toHaveCount(0);
+    await expect(field).toHaveValue('');
   });
 });
