@@ -6,6 +6,7 @@ import type { PostRow } from '@onsocial/sdk';
 import {
   clearHomeFeedSession,
   HOME_FEED_COLD_PROBE_DELAY_MS,
+  HOME_FEED_SESSION_HINT_COOKIE,
   HOME_FEED_SESSION_PROBE_DELAY_MS,
   HOME_FEED_SESSION_TTL_MS,
   HOME_FEED_SSR_SESSION_KEY,
@@ -164,6 +165,40 @@ describe('home feed session snapshot', () => {
     expect(peekHomeFeedSession(undefined, { hydrateStorage: false })?.scrollTop).toBe(
       140
     );
+  });
+
+  it('marks a saved list for the server and clears the mark with the session', () => {
+    const writes: string[] = [];
+    Object.defineProperty(globalThis, 'document', {
+      configurable: true,
+      value: {
+        get cookie() {
+          return writes.at(-1) ?? '';
+        },
+        set cookie(value: string) {
+          writes.push(value);
+        },
+      },
+    });
+    try {
+      writeHomeFeedSession({
+        sessionKey: HOME_FEED_SSR_SESSION_KEY,
+        posts: [row('a.near', '1')],
+        nextOffset: 24,
+        standingNetworkIds: null,
+        offsetShiftApplied: 0,
+        scrollTop: 10,
+        storage: false,
+      });
+      expect(writes.at(-1)).toContain(`${HOME_FEED_SESSION_HINT_COOKIE}=1`);
+      expect(writes.at(-1)).toContain('Max-Age=1800');
+      clearHomeFeedSession();
+      expect(writes.at(-1)).toContain(`${HOME_FEED_SESSION_HINT_COOKIE}=`);
+      expect(writes.at(-1)).toContain('Max-Age=0');
+    } finally {
+      delete (globalThis as { document?: unknown }).document;
+      clearHomeFeedSession();
+    }
   });
 });
 

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { Suspense } from 'react';
 import {
   HOME_FEED_COLD_SKELETON_FRAMES,
@@ -9,6 +9,10 @@ import { parseHomeFeedFocus } from '@/features/home/home-feed-focus';
 import { HomeFeedRoute } from '@/features/home/home-feed-route';
 import { shouldSeedHomeFeedPage } from '@/features/home/home-feed-speculative';
 import { loadHomeFeedPage } from '@/lib/load-home-feed-page';
+import {
+  HOME_FEED_SESSION_HINT_COOKIE,
+  homeFeedSessionHintPresent,
+} from '@/lib/home-feed-session';
 
 export const metadata: Metadata = {
   title: 'Home • OnSocial',
@@ -30,8 +34,9 @@ function firstParam(value: string | string[] | undefined): string | null {
 
 /**
  * A full load renders the public hot page into the feed session slot.
- * Opening Home from inside the app skips that fetch. A saved list still
- * wins, including the line you left. A focused URL skips the hot seed.
+ * Opening Home from inside the app seeds only when no saved list is marked.
+ * A saved list still wins, including the line you left. A focused URL skips
+ * the hot seed.
  */
 export default function HomePage({ searchParams }: HomePageProps) {
   return (
@@ -57,9 +62,11 @@ async function HomeFeedSeed({
     place: firstParam(resolved?.place),
   });
   const rscHeader = (await headers()).get('rsc');
+  const savedList = (await cookies()).get(HOME_FEED_SESSION_HINT_COOKIE)?.value;
   const paint = shouldSeedHomeFeedPage({
     rscHeader,
     hasFocus: focus != null,
+    hasSavedList: homeFeedSessionHintPresent(savedList),
   })
     ? await loadHomeFeedPage()
     : null;

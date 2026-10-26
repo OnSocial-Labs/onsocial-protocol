@@ -9,6 +9,9 @@ import type { HomeFeedSort } from '@/features/home/home-feed-sort';
 export const HOME_FEED_SESSION_TTL_MS = 30 * 60 * 1000;
 
 const HOME_FEED_SESSION_STORAGE_KEY = 'onsocial.home-feed-session';
+/** Presence only. The server uses it to skip a fetch the client will discard. */
+export const HOME_FEED_SESSION_HINT_COOKIE = 'os-home-feed';
+const HOME_FEED_SESSION_HINT_REFRESH_MS = 30_000;
 /** Bump when the snapshot shape changes — old copies are ignored. */
 const HOME_FEED_SESSION_STORAGE_VERSION = 1;
 /** Longform values are large; a deep back-catalogue can blow the 5MB quota. */
@@ -57,6 +60,28 @@ export const HOME_FEED_SSR_SESSION_KEY = homeFeedSessionKey({
 let snapshot: HomeFeedSessionSnapshot | null = null;
 /** True once a storage read was attempted this page load. */
 let storageRead = false;
+let hintSetAt = 0;
+
+export function homeFeedSessionHintPresent(
+  value: string | null | undefined
+): boolean {
+  return value === '1';
+}
+
+function touchHomeFeedSessionHint(force: boolean): void {
+  if (typeof document === 'undefined') return;
+  const now = Date.now();
+  if (!force && now - hintSetAt < HOME_FEED_SESSION_HINT_REFRESH_MS) return;
+  hintSetAt = now;
+  const maxAge = Math.floor(HOME_FEED_SESSION_TTL_MS / 1000);
+  document.cookie = `${HOME_FEED_SESSION_HINT_COOKIE}=1; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
+}
+
+function clearHomeFeedSessionHint(): void {
+  hintSetAt = 0;
+  if (typeof document === 'undefined') return;
+  document.cookie = `${HOME_FEED_SESSION_HINT_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
 
 function readStorage(): HomeFeedSessionSnapshot | null {
   storageRead = true;
@@ -123,6 +148,7 @@ export function clearHomeFeedSession(): void {
   snapshot = null;
   storageRead = false;
   clearStorage();
+  clearHomeFeedSessionHint();
 }
 
 export function writeHomeFeedSession(input: {
@@ -152,6 +178,7 @@ export function writeHomeFeedSession(input: {
     standEpoch: input.standEpoch,
   };
   if (input.storage !== false) writeStorage(snapshot);
+  touchHomeFeedSessionHint(input.storage !== false);
 }
 
 /** Scroll moved without a React render. Leave can remount from this line. */
@@ -174,6 +201,7 @@ export function peekHomeFeedSession(
   if (now - snapshot.savedAt > HOME_FEED_SESSION_TTL_MS) {
     snapshot = null;
     clearStorage();
+    clearHomeFeedSessionHint();
     return null;
   }
   if (snapshot.posts.length === 0) return null;

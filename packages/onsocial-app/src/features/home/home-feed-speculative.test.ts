@@ -89,18 +89,51 @@ describe('shouldAdoptSpeculativeFeedPage', () => {
 });
 
 describe('shouldSeedHomeFeedPage', () => {
-  it('seeds a document load and skips in-app flights and focused URLs', () => {
+  it('seeds a document load and a first in-app open', () => {
     expect(
-      shouldSeedHomeFeedPage({ rscHeader: null, hasFocus: false })
+      shouldSeedHomeFeedPage({
+        rscHeader: null,
+        hasFocus: false,
+        hasSavedList: false,
+      })
     ).toBe(true);
     expect(
-      shouldSeedHomeFeedPage({ rscHeader: '1', hasFocus: false })
+      shouldSeedHomeFeedPage({
+        rscHeader: null,
+        hasFocus: false,
+        hasSavedList: true,
+      })
+    ).toBe(true);
+    expect(
+      shouldSeedHomeFeedPage({
+        rscHeader: '1',
+        hasFocus: false,
+        hasSavedList: false,
+      })
+    ).toBe(true);
+  });
+
+  it('skips an in-app return that already has a saved list, and any focused URL', () => {
+    expect(
+      shouldSeedHomeFeedPage({
+        rscHeader: '1',
+        hasFocus: false,
+        hasSavedList: true,
+      })
     ).toBe(false);
     expect(
-      shouldSeedHomeFeedPage({ rscHeader: null, hasFocus: true })
+      shouldSeedHomeFeedPage({
+        rscHeader: null,
+        hasFocus: true,
+        hasSavedList: false,
+      })
     ).toBe(false);
     expect(
-      shouldSeedHomeFeedPage({ rscHeader: '1', hasFocus: true })
+      shouldSeedHomeFeedPage({
+        rscHeader: '1',
+        hasFocus: true,
+        hasSavedList: false,
+      })
     ).toBe(false);
   });
 });
