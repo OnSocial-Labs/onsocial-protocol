@@ -1347,18 +1347,6 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   gap: 0;
 }
 
-.scarce-read-slide:has(.scarce-writing-read) .scarce-writing-read-progress {
-  height: 0;
-  margin: 0 -1rem;
-  overflow: visible;
-}
-
-.scarce-read-slide:has(.scarce-writing-read)
-  .scarce-writing-read-progress-scrub {
-  inset: 0 0 auto;
-  height: 0.85rem;
-}
-
 .feed-photo-slide .os-media-face-close.glass-sheet-icon-action,
 .feed-photo-slide .os-media-face-trailing .glass-sheet-icon-action,
 .feed-photo-slide .os-media-face-trailing .post-card-menu-trigger,
@@ -31287,156 +31275,6 @@ a.os-surface-row {
     opacity: 0.88;
   }
 
-  /* Sticky on the OS page scroller — flush to the card rim. */
-  .scarce-read-slide .scarce-writing-read-progress {
-    position: sticky;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 6;
-    height: 1.1rem;
-    margin: 0 -0.9rem;
-    width: auto;
-    display: flex;
-    align-items: flex-start;
-    border-radius: 0;
-    background: transparent;
-    overflow: visible;
-    pointer-events: auto;
-    touch-action: none;
-    cursor: pointer;
-  }
-
-  @media (min-width: 640px) {
-    .scarce-read-slide .scarce-writing-read-progress {
-      margin-inline: -1.25rem;
-    }
-  }
-
-  .scarce-writing-read-progress.is-disabled {
-    cursor: default;
-    pointer-events: none;
-    opacity: 0.45;
-  }
-
-  .scarce-writing-read-progress-rail {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    z-index: 1;
-    height: 0.12rem;
-    border-radius: 0;
-    background: rgb(var(--fg-rgb) / 0.08);
-    pointer-events: none;
-  }
-
-  .scarce-writing-read-progress-fill {
-    width: 100%;
-    height: 100%;
-    border-radius: 0;
-    background: color-mix(in srgb, var(--protocol-green) 70%, transparent);
-    transform: scaleX(var(--scarce-writing-p, 0));
-    transform-origin: left center;
-    will-change: transform;
-    transition: transform 120ms ease-out;
-    pointer-events: none;
-  }
-
-  .scarce-writing-read-progress.is-scrubbing
-    .scarce-writing-read-progress-fill {
-    transition: none;
-  }
-
-  .scarce-writing-read-progress-knob {
-    position: absolute;
-    top: 0;
-    left: calc(var(--scarce-writing-p, 0) * 100%);
-    width: 0.72rem;
-    height: 0.72rem;
-    border-radius: 9999px;
-    background: color-mix(in srgb, var(--protocol-green) 88%, white 12%);
-    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.12);
-    transform: translate(-50%, calc(0.12rem / 2 - 50%));
-    pointer-events: none;
-    opacity: 0;
-    transition:
-      opacity 140ms ease,
-      transform 120ms ease;
-  }
-
-  .scarce-writing-read-progress:hover .scarce-writing-read-progress-knob,
-  .scarce-writing-read-progress.is-scrubbing .scarce-writing-read-progress-knob,
-  .scarce-writing-read-progress:has(
-      .scarce-writing-read-progress-scrub:focus-visible
-    )
-    .scarce-writing-read-progress-knob {
-    opacity: 1;
-  }
-
-  .scarce-writing-read-progress.is-scrubbing
-    .scarce-writing-read-progress-knob {
-    transform: translate(-50%, calc(0.12rem / 2 - 50%)) scale(1.28);
-  }
-
-  .scarce-writing-read-progress-scrub {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    cursor: inherit;
-    appearance: none;
-    -webkit-appearance: none;
-  }
-
-  .scarce-writing-read-progress-scrub:disabled {
-    cursor: default;
-  }
-
-  .scarce-writing-read-progress-scrub::-webkit-slider-runnable-track {
-    height: 1.1rem;
-    background: transparent;
-    border: 0;
-  }
-
-  .scarce-writing-read-progress-scrub::-moz-range-track {
-    height: 1.1rem;
-    background: transparent;
-    border: 0;
-  }
-
-  .scarce-writing-read-progress-scrub::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 1.1rem;
-    height: 1.1rem;
-    margin: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    opacity: 0;
-  }
-
-  .scarce-writing-read-progress-scrub::-moz-range-thumb {
-    width: 1.1rem;
-    height: 1.1rem;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    opacity: 0;
-  }
-
-  .scarce-writing-read-progress-scrub:focus-visible {
-    outline: none;
-  }
-
   .scarce-writing-read-top {
     display: flex;
     justify-content: flex-end;
@@ -31819,7 +31657,6 @@ a.os-surface-row {
     .scarce-writing-read-top,
     .os-media-face-hero,
     .os-media-face-footer,
-    .scarce-writing-read-progress-fill,
     .collection-writing-folio.is-turn-out-next,
     .collection-writing-folio.is-turn-out-prev,
     .collection-writing-folio.is-turn-in-next,
