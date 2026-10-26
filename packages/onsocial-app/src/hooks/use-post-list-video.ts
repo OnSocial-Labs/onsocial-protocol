@@ -80,11 +80,20 @@ export function usePostVideoPlayback(
   detailOptions: PostVideoDetailOptions = {}
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const enabled = mode !== null;
   const initialTime = detailOptions.initialTime ?? 0;
   const resume = detailOptions.resume ?? false;
   const [nearViewport, setNearViewport] = useState(false);
+  const [nearMount, setNearMount] = useState(false);
+  const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
+
+  // The element identity swaps on every far-off unmount/remount, so effects
+  // bind to state, not a ref — ref reads stay valid between renders.
+  const bindVideoEl = (node: HTMLVideoElement | null) => {
+    videoRef.current = node;
+    setVideoEl(node);
+  };
 
   // List videos fetch metadata only within two viewport heights of the
   // fold — an unbounded feed otherwise holds a decoder/fetch per video
@@ -101,10 +110,25 @@ export function usePostVideoPlayback(
     return () => observer.disconnect();
   }, [mode]);
 
+  // Further out the element itself unmounts, releasing the decoder and any
+  // buffered data. The 300% margin leaves a full viewport between mounting
+  // and the 200% preload gate, so scroll-back remounts are warm before
+  // they could paint.
   useEffect(() => {
-    if (!enabled) return;
-    const video = videoRef.current;
-    if (!video) return;
+    if (mode !== 'list') return;
+    const node = containerRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setNearMount(Boolean(entry?.isIntersecting)),
+      { rootMargin: '300% 0px' }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [mode]);
+
+  useEffect(() => {
+    if (!enabled || !videoEl) return;
+    const video = videoEl;
 
     const onPlay = () => claimActiveVideo(video);
     const onPause = () => {
@@ -123,7 +147,7 @@ export function usePostVideoPlayback(
       video.pause();
       releaseActiveVideo(video);
     };
-  }, [enabled, mode]);
+  }, [enabled, mode, videoEl]);
 
   useEffect(() => {
     if (mode !== 'list') return;
@@ -181,5 +205,9 @@ export function usePostVideoPlayback(
   const videoPreload: 'metadata' | 'none' =
     mode === 'list' && !nearViewport ? 'none' : 'metadata';
 
-  return { containerRef, videoRef, videoPreload };
+  // Far-off list videos drop the element entirely; everything else stays
+  // mounted. The ratio box is remembered, so the row height never moves.
+  const videoMounted = mode !== 'list' || nearMount;
+
+  return { containerRef, bindVideoEl, videoPreload, videoMounted };
 }
