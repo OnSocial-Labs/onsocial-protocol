@@ -483,13 +483,18 @@ export function HomePagePanel({
     });
   }, []);
 
-  useEffect(() => () => persistFeedSession(), [persistFeedSession]);
+  const persistFeedSessionToStorage = useCallback(() => {
+    persistFeedSession();
+  }, [persistFeedSession]);
+
+  useEffect(() => () => persistFeedSessionToStorage(), [persistFeedSessionToStorage]);
 
   // A refresh or closed tab never runs the unmount cleanup — pagehide does.
   useEffect(() => {
-    window.addEventListener('pagehide', persistFeedSession);
-    return () => window.removeEventListener('pagehide', persistFeedSession);
-  }, [persistFeedSession]);
+    window.addEventListener('pagehide', persistFeedSessionToStorage);
+    return () =>
+      window.removeEventListener('pagehide', persistFeedSessionToStorage);
+  }, [persistFeedSessionToStorage]);
 
   /**
    * Hard refresh — hydrate the tab-storage snapshot after the first render
