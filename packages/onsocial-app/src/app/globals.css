@@ -1491,10 +1491,6 @@ button.market-listing-title-link {
 .os-app-screen[data-immersive-header='true']
   > .os-app-screen-column
   > .os-app-screen-header
-  .contextual-back,
-.os-app-screen[data-immersive-header='true']
-  > .os-app-screen-column
-  > .os-app-screen-header
   .glass-sheet-icon-action {
   box-sizing: border-box;
   width: 1.85rem;
@@ -1662,11 +1658,6 @@ button.market-listing-title-link {
  * Immersive cover discs are scoped to the host screen’s own header (see
  * above) so portaled slides don’t inherit white/scrim from album/play pages.
  */
-
-.os-app-screen[data-immersive-header='true']
-  > .os-app-screen-column
-  > .os-app-screen-header:not(.is-elevated)
-  .contextual-back:hover,
 .os-app-screen[data-immersive-header='true']
   > .os-app-screen-column
   > .os-app-screen-header:not(.is-elevated)
@@ -21799,29 +21790,6 @@ a.os-surface-row {
     .app-storage-readout.is-loading {
       animation: none;
     }
-  }
-
-  .contextual-back {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 9999px;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    background: rgb(var(--fg-rgb) / 0.04);
-    backdrop-filter: blur(12px);
-    color: rgb(var(--fg-rgb) / 0.72);
-    font-size: 1.1rem;
-    cursor: pointer;
-    transition:
-      background 160ms ease,
-      color 160ms ease;
-  }
-
-  .contextual-back:hover {
-    background: rgb(var(--fg-rgb) / 0.1);
-    color: rgb(var(--fg-rgb) / 0.95);
   }
 
   /* Quiet tech air: flat black/white base. No mesh / no dots / no corner wash. */
