@@ -21921,18 +21921,8 @@ a.os-surface-row {
   }
 
   /* Same toolbar offset as Discover tab rail. */
-  .os-app-screen-toolbar:has(.home-feed-chip-bar),
-  .os-app-screen-toolbar:has(.home-feed-header-toolbar) {
+  .os-app-screen-toolbar:has(.home-feed-chip-bar) {
     margin-top: var(--os-app-chrome-chip-gap, 0.28rem);
-  }
-
-  .os-app-screen-header:has(.home-feed-header-toolbar) {
-    overflow: visible;
-  }
-
-  .home-feed-header-toolbar {
-    min-width: 0;
-    margin: 0;
   }
 
   .home-feed-compact-chrome {
@@ -21950,21 +21940,6 @@ a.os-surface-row {
 
   .home-feed-compact-chrome .home-feed-sort-toggle {
     flex-shrink: 0;
-  }
-
-  /* Home has no title chrome — collapse the flex heading so Discover ↔ sort balance. */
-  .os-app-screen-heading:has(.home-feed-nav-empty) {
-    flex: 0 0 0;
-    width: 0;
-    min-width: 0;
-    overflow: hidden;
-    pointer-events: none;
-  }
-
-  .home-feed-nav-empty {
-    display: block;
-    width: 0;
-    height: 0;
   }
 
   /* Discover jump — soft-filled chip (not a feed tab). */
