@@ -42358,14 +42358,6 @@ button.scarce-clip-cover-expand.collection-cover-read-hit:focus-visible {
     0 1px 2px rgb(0 0 0 / 0.14);
 }
 
-/* —— Protocol (DAO governance / treasury) —— */
-.protocol-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
-  /* Horizontal/vertical inset: shared OsAppScreen body padding. */
-}
-
 /* Embedded DAO workspace feed (DaoWorkspacePanel) — inset owned by the host. */
 .dao-workspace {
   display: flex;
@@ -42373,20 +42365,6 @@ button.scarce-clip-cover-expand.collection-cover-read-hit:focus-visible {
   gap: 1.1rem;
 }
 
-.protocol-page-head {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.protocol-page-lede {
-  margin: 0;
-  font-size: 0.88rem;
-  line-height: 1.45;
-  color: var(--os-surface-muted-strong);
-}
-
-.protocol-board-rail,
 .protocol-tools,
 .protocol-status-rail,
 .protocol-family-rail,
@@ -43609,33 +43587,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   font: inherit;
 }
 
-.protocol-action-facts {
-  display: grid;
-  gap: 0.55rem;
-  margin: 0;
-}
-
-.protocol-action-facts dt {
-  margin: 0;
-  font-size: 0.68rem;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgb(var(--fg-rgb) / 0.42);
-}
-
-.protocol-action-facts dd {
-  margin: 0.15rem 0 0;
-  font-size: 0.86rem;
-  color: rgb(var(--fg-rgb) / 0.86);
-}
-
-.protocol-action-facts-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 1rem;
-}
-
 .protocol-stake-status {
   margin: 0;
   font-size: 0.82rem;
@@ -43650,13 +43601,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-}
-
-.protocol-propose-kind-block {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.55rem;
 }
 
 .protocol-propose-kind-current {
@@ -43674,12 +43618,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 .protocol-propose-kind-current .protocol-compose-note {
   margin: 0;
   flex: 1 1 12rem;
-}
-
-.protocol-create-kind-bar {
-  display: flex;
-  justify-content: flex-end;
-  margin: 0;
 }
 
 .protocol-create-fields {
@@ -44008,22 +43946,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 .protocol-compose-note.is-warn {
   color: rgb(160 110 30 / 0.98);
   font-weight: 650;
-}
-
-.protocol-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.78rem;
-  font-weight: 650;
-  color: rgb(var(--fg-rgb) / 0.62);
-}
-
-.protocol-field textarea,
-.protocol-field input {
-  width: 100%;
-  /* Bordered chrome via .os-field-bordered on the control. */
-  font-weight: 500;
 }
 
 /* Feed avatars — flat faces (unlayered so nothing reintroduces under-shadow). */
