@@ -24877,6 +24877,95 @@ a.os-surface-row {
     margin-top: 0.35rem;
   }
 
+  /* Same boxes the live card reserves, so the list does not jump on swap. */
+  .post-row-skeleton-media {
+    position: relative;
+    width: 100%;
+    margin-top: 0.35rem;
+    overflow: hidden;
+    border-radius: 0.65rem;
+    background: var(--bg);
+  }
+
+  .post-row-skeleton-media--single {
+    aspect-ratio: 4 / 3;
+    max-height: 14rem;
+  }
+
+  .post-row-skeleton-media-fill {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+
+  .post-row-skeleton-media--collage-2,
+  .post-row-skeleton-media--collage-3,
+  .post-row-skeleton-media--collage-4 {
+    display: grid;
+    gap: 2px;
+  }
+
+  .post-row-skeleton-media--collage-2,
+  .post-row-skeleton-media--collage-3 {
+    height: 12.5rem;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .post-row-skeleton-media--collage-3 {
+    grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr);
+  }
+
+  .post-row-skeleton-media--collage-3 .post-row-skeleton-media-cell:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .post-row-skeleton-media--collage-4 {
+    height: 14rem;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .post-row-skeleton-media-cell {
+    min-width: 0;
+    min-height: 0;
+    border-radius: 0.25rem;
+  }
+
+  .post-row-skeleton-quote {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-top: 0.35rem;
+    min-width: 0;
+  }
+
+  .post-row-skeleton-quote-thumb {
+    flex: 0 0 3.6rem;
+    width: 3.6rem;
+    height: 3.6rem;
+    border-radius: 0.45rem;
+  }
+
+  .post-row-skeleton-quote-copy {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.28rem;
+    min-width: 0;
+  }
+
+  .post-row-skeleton-actions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 2.4rem));
+    gap: 0.65rem;
+    margin-top: 0.45rem;
+  }
+
+  .post-row-skeleton-action {
+    height: 0.7rem;
+    width: 2.2rem;
+  }
+
   .home-feed-state,
   .discover-state {
     display: flex;
@@ -25933,6 +26022,7 @@ a.os-surface-row {
    * fills it. The real ratio does not resize the slot.
    */
   .post-media-strip--1 .post-media-tile--compact {
+    position: relative;
     width: 100%;
     aspect-ratio: 4 / 3;
     max-height: 14rem;
@@ -26197,6 +26287,28 @@ a.os-surface-row {
     max-height: inherit;
     object-fit: cover;
     border-radius: inherit;
+    opacity: 0;
+    transition: opacity 160ms ease;
+  }
+
+  .post-media-element.is-resolved,
+  .post-card-quote-thumb-media.is-resolved {
+    opacity: 1;
+  }
+
+  .post-media-skeleton {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .post-media-element,
+    .post-card-quote-thumb-media {
+      transition: none;
+    }
   }
 
   .post-media-remove {
@@ -26498,6 +26610,23 @@ a.os-surface-row {
     inset: 0;
   }
 
+  .post-card-quote-thumb-cell {
+    position: relative;
+    display: block;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .post-card-quote-thumb:not(.is-collage) .post-card-quote-thumb-cell {
+    position: absolute;
+    inset: 0;
+  }
+
+  .post-card-quote-thumb.is-collage > .post-card-quote-thumb-cell {
+    height: 100%;
+  }
+
   .post-card-quote-thumb-media {
     display: block;
     width: 100%;
@@ -26505,6 +26634,14 @@ a.os-surface-row {
     min-width: 0;
     min-height: 0;
     object-fit: cover;
+    opacity: 0;
+    transition: opacity 160ms ease;
+  }
+
+  .post-card-quote-thumb-cell .post-card-quote-thumb-media {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
   }
 
   /* Hairline seam uses the page background, inside the video-sized thumb. */
@@ -26543,7 +26680,7 @@ a.os-surface-row {
 
   .post-card-quote-thumb-duration {
     position: absolute;
-    z-index: 1;
+    z-index: 2;
     right: 0.22rem;
     bottom: 0.22rem;
     padding: 0.08rem 0.28rem;

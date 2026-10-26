@@ -42,4 +42,27 @@ describe('feed scroll clearance', () => {
       /\.post-card-quote-thumb:not\(\.is-collage\) \.post-card-quote-thumb-media \{[^}]*position:\s*absolute;/
     );
   });
+
+  it('sizes home skeletons to the live media and quote frames', () => {
+    expect(globalsCss).toMatch(
+      /\.post-row-skeleton-media--single \{[^}]*aspect-ratio:\s*4 \/ 3;[^}]*max-height:\s*14rem;/
+    );
+    expect(globalsCss).toMatch(
+      /\.post-row-skeleton-media--collage-2,[\s\S]*?\.post-row-skeleton-media--collage-3 \{[^}]*height:\s*12\.5rem;/
+    );
+    expect(globalsCss).toMatch(
+      /\.post-row-skeleton-media--collage-4 \{[^}]*height:\s*14rem;/
+    );
+    expect(globalsCss).toMatch(
+      /\.post-row-skeleton-quote-thumb \{[^}]*width:\s*3\.6rem;[^}]*height:\s*3\.6rem;/
+    );
+  });
+
+  it('fades feed images in once they can paint', () => {
+    expect(globalsCss).toMatch(
+      /\.post-media-element \{[^}]*opacity:\s*0;[^}]*transition:\s*opacity 160ms ease;/
+    );
+    expect(globalsCss).toContain('.post-media-element.is-resolved');
+    expect(globalsCss).toContain('.post-card-quote-thumb-media.is-resolved');
+  });
 });

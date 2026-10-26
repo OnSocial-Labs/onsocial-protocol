@@ -87,7 +87,12 @@ import {
   insertOptimisticFeedPost,
   shouldPrependOptimisticFeedPost,
 } from '@/features/home/personal-feed-list';
-import { PostRowSkeleton, postKey } from '@/features/home/post-card';
+import {
+  HOME_FEED_APPEND_SKELETON_FRAMES,
+  HOME_FEED_COLD_SKELETON_FRAMES,
+  PostRowSkeleton,
+  postKey,
+} from '@/features/home/post-card';
 import { usePersonalComposer } from '@/features/home/use-personal-composer';
 import {
   subscribePersonalPostConfirmed,
@@ -308,7 +313,9 @@ function HomeFeedLoadMoreFooter({
           aria-hidden
         />
       ) : null}
-      {showAppendSkeleton ? <PostRowSkeleton rows={2} /> : null}
+      {showAppendSkeleton ? (
+        <PostRowSkeleton rows={2} frames={HOME_FEED_APPEND_SKELETON_FRAMES} />
+      ) : null}
     </div>
   );
 }
@@ -1457,7 +1464,12 @@ export function HomePagePanel({
             <OsChromeListAlert message={engagementError} />
           ) : null}
 
-          {showColdSkeleton ? <PostRowSkeleton rows={4} /> : null}
+          {showColdSkeleton ? (
+            <PostRowSkeleton
+              rows={4}
+              frames={HOME_FEED_COLD_SKELETON_FRAMES}
+            />
+          ) : null}
 
           {showEmpty ? (
             <div className="home-feed-state">{emptyCopy}</div>
