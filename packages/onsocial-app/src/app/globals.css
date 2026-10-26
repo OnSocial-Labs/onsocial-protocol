@@ -35815,75 +35815,6 @@ a.os-surface-row {
       max(1rem, env(safe-area-inset-left, 0px));
   }
 
-  .hub-look-media {
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-  }
-
-  .hub-look-banner-host {
-    position: relative;
-    width: 100%;
-  }
-
-  .hub-look-banner-picker {
-    aspect-ratio: 3 / 1;
-  }
-
-  .hub-look-logo-row {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-  }
-
-  .hub-look-logo-host {
-    flex-shrink: 0;
-    width: 5.25rem;
-    height: 5.25rem;
-  }
-
-  .hub-logo-picker {
-    width: 100%;
-    height: 100%;
-    border: 1px dashed rgb(var(--fg-rgb) / 0.2);
-    border-radius: 1.2rem;
-    background: rgb(var(--fg-rgb) / 0.03);
-    overflow: hidden;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    color: inherit;
-    transition:
-      border-color 160ms ease,
-      background 160ms ease;
-  }
-
-  .hub-logo-picker:hover:not(:disabled),
-  .hub-logo-picker:focus-visible {
-    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.7);
-    background: rgb(var(--fg-rgb) / 0.05);
-    outline: none;
-  }
-
-  .hub-logo-picker.has-media {
-    border-style: solid;
-  }
-
-  .hub-logo-picker img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .hub-logo-placeholder {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--os-surface-muted);
-  }
-
-  .hub-look-logo-hint,
   .hub-manage-hint {
     margin: 0;
     font-size: 0.78rem;
@@ -35893,11 +35824,6 @@ a.os-surface-row {
 
   .hub-manage-hint.is-danger {
     color: color-mix(in srgb, var(--protocol-red) 72%, rgb(var(--fg-rgb)));
-  }
-
-  .hub-look-logo-hint {
-    flex: 1;
-    min-width: 0;
   }
 
   /* ── App manage roster (people sheet) ─── */
