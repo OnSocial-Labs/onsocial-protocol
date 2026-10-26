@@ -17,8 +17,9 @@ describe('article place layer', () => {
     expect(layer).not.toContain("kind: 'face'");
   });
 
-  it('keeps one post sheet and steps the header back through replies', () => {
-    expect(layer).toContain('key="post-reader"');
+  it('keeps trail sheets mounted and steps the header back through replies', () => {
+    expect(layer).toContain('key={entry.id}');
+    expect(layer).toContain('parked={onProfileHop || !isTop}');
     expect(layer).toContain('const trail = [...stackRef.current, next]');
     expect(layer).toContain(
       'Header back walks one step: a reply, then quotes, then the post.'

@@ -100,6 +100,7 @@ export function ProfileAvatar({
           src={src ?? undefined}
           alt=""
           className="profile-avatar__img"
+          loading="lazy"
           decoding="async"
           onLoad={() => {
             markAvatarSrcLoaded(src);

@@ -379,6 +379,7 @@ function PostThreadSheet({
 
   useLayoutEffect(() => {
     if (!parked) return;
+    ensurePostThreadParkedStyle();
     let hushed = false;
     let sheetRoot: HTMLElement | null = null;
     const quiet = (event: Event) => {
@@ -419,8 +420,11 @@ function PostThreadSheet({
       root.addEventListener('play', quiet, true);
     };
     apply();
+    // Re-apply only when a top-level portal root mounts/unmounts (this
+    // sheet's glass root re-mounting resets the inline hide + play hush).
+    // Subtree-wide observation ran `apply` on every feed DOM mutation.
     const observer = new MutationObserver(apply);
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, { childList: true });
     window.addEventListener('wheel', allowScroll, true);
     window.addEventListener('touchmove', allowScroll, true);
     return () => {
@@ -1089,20 +1093,27 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           moodStyle={viewerMood.style}
         />
       ) : null}
-      {topPlace?.kind === 'post' || topPlace?.kind === 'quotes' ? (
-        <PostThreadSheet
-          key="post-reader"
-          layer={topPlace}
-          parked={onProfileHop}
-          onOpenProfile={openProfileFromLayer}
-          open={topOpen}
-          onClose={closePostThread}
-          onClosed={() => handleSheetClosed(topPlace.id)}
-          zIndex={topPlace.zIndex}
-          moodId={viewerMood.moodId ?? undefined}
-          moodStyle={viewerMood.style}
-        />
-      ) : null}
+      {stack.map((entry) => {
+        if (entry.kind !== 'post' && entry.kind !== 'quotes') return null;
+        // Trail entries below the top stay mounted (parked), so header back
+        // unparks the previous panel with its scroll, sort, and fold state
+        // intact instead of remounting it.
+        const isTop = entry.id === topPlace?.id;
+        return (
+          <PostThreadSheet
+            key={entry.id}
+            layer={entry}
+            parked={onProfileHop || !isTop}
+            onOpenProfile={openProfileFromLayer}
+            open={entry.id !== closingId}
+            onClose={closePostThread}
+            onClosed={() => handleSheetClosed(entry.id)}
+            zIndex={entry.zIndex}
+            moodId={viewerMood.moodId ?? undefined}
+            moodStyle={viewerMood.style}
+          />
+        );
+      })}
     </PostThreadLayerContext.Provider>
   );
 }

@@ -103,7 +103,7 @@ export function PostMediaBlock({
             : 'detail-unmuted'
           : 'list'
         : null;
-  const { containerRef, videoRef } = usePostVideoPlayback(
+  const { containerRef, videoRef, videoPreload } = usePostVideoPlayback(
     playbackMode,
     focused
       ? { initialTime: initialVideoTime, resume: resumeFocusedVideo }
@@ -163,7 +163,7 @@ export function PostMediaBlock({
           playsInline
           muted={isListVideo || playbackDisabled || (isDetailVideo && soundOff)}
           loop={isListVideo || isDetailVideo}
-          preload="metadata"
+          preload={videoPreload}
           data-post-focus-video={isDetailVideo ? String(index) : undefined}
           className={mediaClassName}
           onLoadedMetadata={(event) => {
