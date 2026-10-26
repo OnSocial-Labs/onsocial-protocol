@@ -419,8 +419,11 @@ function PostThreadSheet({
       root.addEventListener('play', quiet, true);
     };
     apply();
+    // Re-apply only when a top-level portal root mounts/unmounts (this
+    // sheet's glass root re-mounting resets the inline hide + play hush).
+    // Subtree-wide observation ran `apply` on every feed DOM mutation.
     const observer = new MutationObserver(apply);
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, { childList: true });
     window.addEventListener('wheel', allowScroll, true);
     window.addEventListener('touchmove', allowScroll, true);
     return () => {
