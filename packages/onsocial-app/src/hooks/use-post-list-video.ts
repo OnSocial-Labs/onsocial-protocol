@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export type PostVideoPlaybackMode =
   | 'list'
@@ -84,6 +84,22 @@ export function usePostVideoPlayback(
   const enabled = mode !== null;
   const initialTime = detailOptions.initialTime ?? 0;
   const resume = detailOptions.resume ?? false;
+  const [nearViewport, setNearViewport] = useState(false);
+
+  // List videos fetch metadata only within two viewport heights of the
+  // fold — an unbounded feed otherwise holds a decoder/fetch per video
+  // ever loaded. The 200% margin settles collage ratios before they paint.
+  useEffect(() => {
+    if (mode !== 'list') return;
+    const node = containerRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setNearViewport(Boolean(entry?.isIntersecting)),
+      { rootMargin: '200% 0px' }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [mode]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -160,5 +176,10 @@ export function usePostVideoPlayback(
     return () => video.removeEventListener('loadedmetadata', begin);
   }, [mode, initialTime, resume]);
 
-  return { containerRef, videoRef };
+  // Detail modes are on screen; quote/compose posters need their first
+  // frame — only list videos defer.
+  const videoPreload: 'metadata' | 'none' =
+    mode === 'list' && !nearViewport ? 'none' : 'metadata';
+
+  return { containerRef, videoRef, videoPreload };
 }
