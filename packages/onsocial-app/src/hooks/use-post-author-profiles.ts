@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ProfileKind, ProfileSearchRow } from '@onsocial/sdk';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
@@ -13,7 +13,18 @@ export interface PostAuthorProfile {
 }
 
 const profileCache = new Map<string, PostAuthorProfile | null>();
-const batchInFlight = new Map<string, Promise<Record<string, PostAuthorProfile>>>();
+const batchInFlight = new Map<
+  string,
+  Promise<Record<string, PostAuthorProfile>>
+>();
+const EMPTY_PROFILE_RECORD: Record<string, PostAuthorProfile> = {};
+/*
+ * Bumped on every cache write. `usePostAuthorProfiles` reads it during
+ * render as a useMemo dependency, so any render still picks up fresh seeds
+ * immediately while an unchanged cache returns the same record identity —
+ * that identity is what lets memoized feed cards skip re-rendering.
+ */
+let profileCacheVersion = 0;
 
 function toPostAuthorProfile(
   accountId: string,
@@ -68,12 +79,24 @@ export function seedPostAuthorProfile(profile: PostAuthorProfile): void {
   const existing = profileCache.get(profile.accountId);
   // Never downgrade — Hot re-sort / reconcile can reseed name-only rows
   // and would wipe avatars that already loaded.
-  profileCache.set(profile.accountId, {
+  const merged: PostAuthorProfile = {
     accountId: profile.accountId,
     displayName: displayName || existing?.displayName || '',
     avatarUrl: avatarUrl || existing?.avatarUrl || null,
     kind: profile.kind ?? existing?.kind ?? null,
-  });
+  };
+  // Feed seeding runs every render; keep the cached object when nothing
+  // changed so dependent props keep their identity.
+  if (
+    existing &&
+    existing.displayName === merged.displayName &&
+    existing.avatarUrl === merged.avatarUrl &&
+    existing.kind === merged.kind
+  ) {
+    return;
+  }
+  profileCache.set(profile.accountId, merged);
+  profileCacheVersion += 1;
 }
 
 export function peekPostAuthorKind(
@@ -97,9 +120,7 @@ type FeedAuthorSeed = {
   refAuthorAvatar?: string | null;
 };
 
-export function seedPostAuthorProfilesFromFeed(
-  posts: FeedAuthorSeed[]
-): void {
+export function seedPostAuthorProfilesFromFeed(posts: FeedAuthorSeed[]): void {
   for (const post of posts) {
     const main = toPostAuthorProfile(
       post.accountId,
@@ -161,6 +182,7 @@ async function fetchPostAuthorProfilesBatch(
           next[accountId] = author;
         } else if (!profileCache.has(accountId)) {
           profileCache.set(accountId, null);
+          profileCacheVersion += 1;
         }
       }
       return next;
@@ -179,6 +201,7 @@ async function fetchPostAuthorProfilesBatch(
         if (merged) next[accountId] = merged;
       } else if (!profileCache.has(accountId)) {
         profileCache.set(accountId, null);
+        profileCacheVersion += 1;
       }
     }
 
@@ -199,9 +222,8 @@ export function usePostAuthorProfiles(
     .sort()
     .join('\n');
   const uniqueAccountIds = accountIdsKey ? accountIdsKey.split('\n') : [];
-  // Re-read module cache each render so feed seeding paints names immediately.
-  const fromCache = readCachedProfiles(uniqueAccountIds);
-  const [fetched, setFetched] = useState<Record<string, PostAuthorProfile>>({});
+  const [fetched, setFetched] =
+    useState<Record<string, PostAuthorProfile>>(EMPTY_PROFILE_RECORD);
   const [fetchedKey, setFetchedKey] = useState('');
 
   useEffect(() => {
@@ -209,21 +231,31 @@ export function usePostAuthorProfiles(
 
     let cancelled = false;
 
-    void fetchPostAuthorProfilesBatch(uniqueAccountIds).then((next) => {
-      if (cancelled) return;
-      setFetched(next);
-      setFetchedKey(accountIdsKey);
-    });
+    void fetchPostAuthorProfilesBatch(accountIdsKey.split('\n')).then(
+      (next) => {
+        if (cancelled) return;
+        setFetched(next);
+        setFetchedKey(accountIdsKey);
+      }
+    );
 
     return () => {
       cancelled = true;
     };
   }, [accountIdsKey]);
 
-  if (!accountIdsKey) {
-    return {};
-  }
-
-  const activeFetched = fetchedKey === accountIdsKey ? fetched : {};
-  return mergeProfileRecords(fromCache, activeFetched);
+  /*
+   * Read the cache version during render: seeding bumps it, so this render
+   * still paints fresh names immediately, while an untouched cache returns
+   * the previous record (stable identity for memoized consumers).
+   */
+  const version = profileCacheVersion;
+  return useMemo(() => {
+    if (!accountIdsKey) return EMPTY_PROFILE_RECORD;
+    const fromCache = readCachedProfiles(uniqueAccountIds);
+    const activeFetched =
+      fetchedKey === accountIdsKey ? fetched : EMPTY_PROFILE_RECORD;
+    return mergeProfileRecords(fromCache, activeFetched);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountIdsKey, version, fetched, fetchedKey]);
 }

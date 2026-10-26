@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -80,7 +81,10 @@ import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing
 import { WritingReadDocument } from '@/features/scarces/scarce-writing-read-sheet';
 import { FeedArticleReadScreen } from '@/features/home/feed-article-read-screen';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
-import { PostMediaStrip, useFeedMediaResolved } from '@/features/home/post-media';
+import {
+  PostMediaStrip,
+  useFeedMediaResolved,
+} from '@/features/home/post-media';
 import { PostPollEmbedCard } from '@/features/home/post-poll-embed';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
@@ -1024,7 +1028,10 @@ function QuoteThumbTile({
   return (
     <span className="post-card-quote-thumb-cell" style={style}>
       {resolved ? null : (
-        <span className="post-media-skeleton standing-row-shimmer" aria-hidden />
+        <span
+          className="post-media-skeleton standing-row-shimmer"
+          aria-hidden
+        />
       )}
       {isRenderablePostVideoMime(item.mime) ? (
         <video
@@ -1795,7 +1802,9 @@ function PostSkeletonMedia({ frame }: { frame: PostSkeletonFrame }) {
   }
   const cells = frame === 'collage-2' ? 2 : frame === 'collage-3' ? 3 : 4;
   return (
-    <div className={`post-row-skeleton-media post-row-skeleton-media--${frame}`}>
+    <div
+      className={`post-row-skeleton-media post-row-skeleton-media--${frame}`}
+    >
       {Array.from({ length: cells }, (_, cell) => (
         <div
           key={cell}
@@ -1859,7 +1868,7 @@ export function PostRowSkeleton({
   );
 }
 
-export function PostCard({
+function PostCardImpl({
   post,
   actionHref,
   authorProfile,
@@ -3238,5 +3247,41 @@ export function PostCard({
     </article>
   );
 }
+
+function repostedByEqual(
+  a: PostCardProps['repostedBy'],
+  b: PostCardProps['repostedBy']
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.accountId === b.accountId &&
+    (a.displayName ?? null) === (b.displayName ?? null)
+  );
+}
+
+/*
+ * Feed rows re-render whenever any shared feed-level state moves (an
+ * engagement toggle, a profile fetch landing, the new-posts probe). Card
+ * props are per-post slices with stable identities, so a shallow compare
+ * lets untouched cards skip this render entirely. `repostedBy` is rebuilt
+ * per render for repost rows — compare it by value.
+ */
+function postCardPropsEqual(prev: PostCardProps, next: PostCardProps): boolean {
+  const keys = new Set<keyof PostCardProps>([
+    ...(Object.keys(prev) as Array<keyof PostCardProps>),
+    ...(Object.keys(next) as Array<keyof PostCardProps>),
+  ]);
+  for (const key of keys) {
+    if (key === 'repostedBy') {
+      if (!repostedByEqual(prev.repostedBy, next.repostedBy)) return false;
+      continue;
+    }
+    if (!Object.is(prev[key], next[key])) return false;
+  }
+  return true;
+}
+
+export const PostCard = memo(PostCardImpl, postCardPropsEqual);
 
 export { postKey };

@@ -24663,6 +24663,17 @@ a.os-surface-row {
     gap: 0;
   }
 
+  /*
+   * Skip layout/paint for offscreen feed blocks. Cards are heavy subtrees
+   * (media, observers, overlay sheets) and the list is unbounded; `auto`
+   * remembers each block's rendered height so the scrollbar stays stable.
+   * Overlays are portaled sheets, so paint containment clips nothing.
+   */
+  .home-feed-block {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 20rem;
+  }
+
   .home-feed-list.is-refreshing {
     opacity: 0.72;
     transition: opacity 160ms ease;

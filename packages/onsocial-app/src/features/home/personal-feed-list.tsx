@@ -1,6 +1,12 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import { Divider } from '@onsocial/ui';
 import {
   postContentPath,
@@ -157,13 +163,76 @@ export function PersonalFeedList({
     });
   }, [confirmReply]);
 
+  /*
+   * Stable per-card callbacks — the engagement map changes identity on every
+   * toggle, so closures over it would re-render every memoized card.
+   */
+  const engagementRef = useRef(engagement);
+  useLayoutEffect(() => {
+    engagementRef.current = engagement;
+  }, [engagement]);
+
+  const handleAmplifyConfirmed = useCallback(
+    (post: PostRow, detail: PostAmplifySuccessDetail) => {
+      const previous = engagementRef.current[postKey(post)];
+      confirmAmplify(post);
+      onAmplified?.(post, {
+        ...detail,
+        isRepeatFromViewer: Boolean(previous?.viewerAmplified),
+      });
+    },
+    [confirmAmplify, onAmplified]
+  );
+
+  const handlePollVote = useCallback(
+    (post: PostRow, optionIndex: number) => {
+      void castVote(post, optionIndex);
+    },
+    [castVote]
+  );
+
+  const handleRepost = useCallback(
+    (post: PostRow) => {
+      if (!onRepost) return;
+      void withSharePending(post, async () => {
+        const result = await onRepost(post);
+        if (result?.confirmed && result.optimisticPost) {
+          confirmRepost(post, {
+            postId: result.optimisticPost.postId,
+            groupId: result.optimisticPost.groupId,
+          });
+        }
+        return result;
+      });
+    },
+    [confirmRepost, onRepost, withSharePending]
+  );
+
+  const handleUndoRepost = useCallback(
+    (post: PostRow) => {
+      if (!onUndoRepost) return;
+      const viewer = engagementRef.current[postKey(post)];
+      const viewerRepostId = viewer?.viewerRepostId;
+      if (!viewerRepostId) return;
+      void withSharePending(post, async () => {
+        const result = await onUndoRepost(post, {
+          postId: viewerRepostId,
+          groupId: viewer.viewerRepostGroupId,
+        });
+        if (result?.confirmed) confirmUnrepost(post);
+        return result;
+      });
+    },
+    [confirmUnrepost, onUndoRepost, withSharePending]
+  );
+
   if (feedBlocks.length === 0) return null;
 
   return (
     <div className={className ?? 'home-feed-list'}>
       {feedBlocks.map(
         ({ posts, standingPeek, standingCoilTail }, blockIndex) => (
-          <div key={postKey(posts[0]!)}>
+          <div key={postKey(posts[0]!)} className="home-feed-block">
             <Divider
               variant="item"
               className={
@@ -184,55 +253,15 @@ export function PersonalFeedList({
               isSharePending={isSharePending}
               onToggleReaction={toggleReaction}
               onToggleSave={toggleSave}
-              onAmplifyConfirmed={(post, detail: PostAmplifySuccessDetail) => {
-                const previous = engagement[postKey(post)];
-                confirmAmplify(post);
-                onAmplified?.(post, {
-                  ...detail,
-                  isRepeatFromViewer: Boolean(previous?.viewerAmplified),
-                });
-              }}
+              onAmplifyConfirmed={handleAmplifyConfirmed}
               pollTallyFor={pollTallyFor}
               isPollVotePending={isPollVotePending}
-              onPollVote={(post, optionIndex) => {
-                void castVote(post, optionIndex);
-              }}
+              onPollVote={handlePollVote}
               onReply={onReply}
               onExpandReply={onExpandReply}
               onQuote={onQuote}
-              onRepost={
-                onRepost
-                  ? (post) => {
-                      void withSharePending(post, async () => {
-                        const result = await onRepost(post);
-                        if (result?.confirmed && result.optimisticPost) {
-                          confirmRepost(post, {
-                            postId: result.optimisticPost.postId,
-                            groupId: result.optimisticPost.groupId,
-                          });
-                        }
-                        return result;
-                      });
-                    }
-                  : undefined
-              }
-              onUndoRepost={
-                onUndoRepost
-                  ? (post) => {
-                      const viewer = engagement[postKey(post)];
-                      const viewerRepostId = viewer?.viewerRepostId;
-                      if (!viewerRepostId) return;
-                      void withSharePending(post, async () => {
-                        const result = await onUndoRepost(post, {
-                          postId: viewerRepostId,
-                          groupId: viewer.viewerRepostGroupId,
-                        });
-                        if (result?.confirmed) confirmUnrepost(post);
-                        return result;
-                      });
-                    }
-                  : undefined
-              }
+              onRepost={onRepost ? handleRepost : undefined}
+              onUndoRepost={onUndoRepost ? handleUndoRepost : undefined}
               showGuildAttribution={showGuildAttribution}
               guildNameById={guildNameById}
             />

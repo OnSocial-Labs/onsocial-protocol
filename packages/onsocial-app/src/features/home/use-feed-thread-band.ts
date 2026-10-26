@@ -46,7 +46,9 @@ export function snapThreadBand(
     return 'dismiss';
   }
   if (velocity < -FLICK_PX_PER_MS) {
-    return band >= FEED_THREAD_EXPANDED ? FEED_THREAD_FULL : FEED_THREAD_EXPANDED;
+    return band >= FEED_THREAD_EXPANDED
+      ? FEED_THREAD_FULL
+      : FEED_THREAD_EXPANDED;
   }
   const peekMid = (FEED_THREAD_PEEK + FEED_THREAD_EXPANDED) / 2;
   const fullMid = (FEED_THREAD_EXPANDED + FEED_THREAD_FULL) / 2;
@@ -75,11 +77,44 @@ export function useFeedThreadBand(open: boolean, onDismiss: () => void) {
     faceH: number;
     active: boolean;
   } | null>(null);
+  /*
+   * During a pointer drag the band is written straight to the DOM (no React
+   * render per frame). `varHost` is the element React writes the band vars
+   * to — the reader pane or the media-face body; `slideEl` carries the
+   * jacket class for media-face consumers. Survives `dragRef` teardown so
+   * the post-snap effect can stamp the committed state back on.
+   */
+  const hostRef = useRef<{
+    varHost: HTMLElement;
+    slideEl: HTMLElement | null;
+    jacket: boolean;
+  } | null>(null);
   const dismissRef = useRef(onDismiss);
+  /*
+   * Bumped on every snap so the stamp effect commits even when the snap
+   * lands on the pre-drag value (setBand alone would bail out, stranding
+   * the last imperative frame).
+   */
+  const [snapTick, setSnapTick] = useState(0);
 
   useLayoutEffect(() => {
     bandRef.current = band;
-  }, [band]);
+    const host = hostRef.current;
+    if (!host) return;
+    hostRef.current = null;
+    host.varHost.style.setProperty(
+      '--feed-thread-band',
+      `${(band * 100).toFixed(1)}%`
+    );
+    if (host.jacket) {
+      const t = threadJacketT(true, band);
+      host.varHost.style.setProperty('--feed-jacket-t', t.toFixed(3));
+      host.slideEl?.classList.toggle(
+        'feed-photo-slide--thread-jacket',
+        t > 0.4
+      );
+    }
+  }, [band, snapTick]);
 
   useLayoutEffect(() => {
     dismissRef.current = onDismiss;
@@ -93,11 +128,11 @@ export function useFeedThreadBand(open: boolean, onDismiss: () => void) {
       return;
     }
     if (prefersReducedMotion()) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- snap open without motion
+      // Snap open without motion.
       setBand(FEED_THREAD_PEEK);
       return;
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- paint closed, then ease to peek
+    // Paint closed, then ease to peek.
     setBand(0);
     const id = requestAnimationFrame(() => {
       requestAnimationFrame(() => setBand(FEED_THREAD_PEEK));
@@ -130,6 +165,25 @@ export function useFeedThreadBand(open: boolean, onDismiss: () => void) {
     if (!state.active && Math.abs(deltaY) < DRAG_ACTIVATION_PX) return;
     if (!state.active) {
       state.active = true;
+      const varHost =
+        event.currentTarget.closest('.feed-face-thread-pane') ??
+        event.currentTarget.closest('.os-media-face-body');
+      if (varHost instanceof HTMLElement) {
+        const slideEl = event.currentTarget.closest(
+          '.feed-photo-slide--thread'
+        );
+        hostRef.current = {
+          varHost,
+          slideEl: slideEl instanceof HTMLElement ? slideEl : null,
+          jacket: varHost.style.getPropertyValue('--feed-jacket-t') !== '',
+        };
+        /* Cut transitions this same frame — waiting on the React commit
+         * would ease the first drag delta. React re-adds the class when
+         * the `dragging` state lands and owns removal on release. */
+        (hostRef.current.slideEl ?? varHost).classList.add(
+          'is-thread-dragging'
+        );
+      }
       setDragging(true);
     }
     const dt = event.timeStamp - state.lastT;
@@ -139,7 +193,25 @@ export function useFeedThreadBand(open: boolean, onDismiss: () => void) {
     state.lastY = event.clientY;
     state.lastT = event.timeStamp;
     /* Finger up grows the drawer; finger down grows the film. */
-    setBand(clampThreadBand(state.startBand - deltaY / state.faceH));
+    const next = clampThreadBand(state.startBand - deltaY / state.faceH);
+    bandRef.current = next;
+    const host = hostRef.current;
+    if (host) {
+      host.varHost.style.setProperty(
+        '--feed-thread-band',
+        `${(next * 100).toFixed(1)}%`
+      );
+      if (host.jacket) {
+        const t = threadJacketT(true, next);
+        host.varHost.style.setProperty('--feed-jacket-t', t.toFixed(3));
+        host.slideEl?.classList.toggle(
+          'feed-photo-slide--thread-jacket',
+          t > 0.4
+        );
+      }
+    } else {
+      setBand(next);
+    }
   }, []);
 
   const finishDrag = useCallback(() => {
@@ -150,10 +222,15 @@ export function useFeedThreadBand(open: boolean, onDismiss: () => void) {
     if (!state.active) return;
     const next = snapThreadBand(bandRef.current, state.velocity);
     if (next === 'dismiss') {
+      /* Unmount / style teardown clears the imperative writes with it. */
+      hostRef.current = null;
       dismissRef.current();
       return;
     }
+    /* The [band, snapTick] effect stamps the snapped value post-commit, so
+     * the eased transition runs from the exact frame the finger left. */
     setBand(next);
+    setSnapTick((tick) => tick + 1);
   }, []);
 
   const onKeyDown = useCallback((event: ReactKeyboardEvent<HTMLElement>) => {
