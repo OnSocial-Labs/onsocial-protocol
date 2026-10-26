@@ -45060,42 +45060,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   flex-direction: column;
 }
 
-.daos-discover-open {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.2rem;
-  width: 100%;
-  margin: 0;
-  padding: 0.85rem 0.15rem;
-  border: 0;
-  border-bottom: 1px solid rgb(var(--fg-rgb) / 0.1);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.daos-discover-open:hover,
-.daos-discover-open:focus-visible {
-  background: rgb(var(--fg-rgb) / 0.04);
-  outline: none;
-}
-
-.daos-discover-open-title {
-  font-size: 0.95rem;
-  font-weight: 650;
-  color: rgb(var(--fg-rgb) / 0.92);
-}
-
-.daos-discover-open-copy {
-  font-size: 0.8rem;
-  line-height: 1.4;
-  color: rgb(var(--fg-rgb) / 0.55);
-}
-
 .dao-discover-sheet {
   display: flex;
   flex-direction: column;
