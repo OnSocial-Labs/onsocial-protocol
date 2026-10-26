@@ -40471,12 +40471,6 @@ a.os-surface-row {
     outline: none;
   }
 
-  .thread-view-quotes-icon {
-    width: 0.85rem;
-    height: 0.85rem;
-    flex-shrink: 0;
-  }
-
   .thread-view-quotes-count {
     min-width: 1.1rem;
     border-radius: 9999px;
