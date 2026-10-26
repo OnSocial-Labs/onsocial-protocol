@@ -1,11 +1,31 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 
 const nameCache = new Map<string, string>();
 const batchInFlight = new Map<string, Promise<Record<string, string>>>();
+/*
+ * Same external-store contract as the author-profile cache: the version is
+ * the useSyncExternalStore snapshot, and seed writes only notify when the
+ * caller passes `{ notify: true }` (effects / async hydrate — never render).
+ */
+let nameCacheVersion = 0;
+const nameCacheListeners = new Set<() => void>();
+
+function notifyNameCacheListeners(): void {
+  for (const listener of nameCacheListeners) listener();
+}
+
+export function subscribeGuildDisplayNames(
+  listener: () => void
+): () => void {
+  nameCacheListeners.add(listener);
+  return () => {
+    nameCacheListeners.delete(listener);
+  };
+}
 
 function readCachedNames(groupIds: string[]): Record<string, string> {
   const out: Record<string, string> = {};
@@ -16,17 +36,29 @@ function readCachedNames(groupIds: string[]): Record<string, string> {
   return out;
 }
 
-export function seedGuildDisplayNames(entries: Record<string, string>): void {
+export function seedGuildDisplayNames(
+  entries: Record<string, string>,
+  options?: { notify?: boolean }
+): void {
+  let changed = false;
   for (const [groupId, name] of Object.entries(entries)) {
     if (!groupId) continue;
     const trimmed = name.trim();
     if (!trimmed) continue;
-    nameCache.set(groupId, guildDisplayName(trimmed, groupId));
+    const label = guildDisplayName(trimmed, groupId);
+    if (nameCache.get(groupId) === label) continue;
+    nameCache.set(groupId, label);
+    changed = true;
+  }
+  if (changed) {
+    nameCacheVersion += 1;
+    if (options?.notify) notifyNameCacheListeners();
   }
 }
 
 export function seedGuildDisplayNamesFromFeed(
-  posts: Array<{ groupId?: string; groupName?: string | null }>
+  posts: Array<{ groupId?: string; groupName?: string | null }>,
+  options?: { notify?: boolean }
 ): void {
   const entries: Record<string, string> = {};
   for (const post of posts) {
@@ -35,7 +67,7 @@ export function seedGuildDisplayNamesFromFeed(
     if (!groupId || !groupName) continue;
     entries[groupId] = groupName;
   }
-  seedGuildDisplayNames(entries);
+  seedGuildDisplayNames(entries, options);
 }
 
 async function fetchGuildDisplayNamesBatch(
@@ -91,8 +123,13 @@ export function useGuildDisplayNames(
     .sort()
     .join('\n');
   const ids = groupIdsKey ? groupIdsKey.split('\n') : [];
-  // Re-read module cache each render so feed seeding paints labels immediately.
-  const fromCache = readCachedNames(ids);
+  // Version snapshot: same-render seeds are read in this pass, effect seeds
+  // notify and re-render before paint, an untouched cache keeps identity.
+  const version = useSyncExternalStore(
+    subscribeGuildDisplayNames,
+    () => nameCacheVersion,
+    () => nameCacheVersion
+  );
   const [fetched, setFetched] = useState<Record<string, string>>({});
   const [fetchedKey, setFetchedKey] = useState('');
 
@@ -101,7 +138,7 @@ export function useGuildDisplayNames(
 
     let cancelled = false;
 
-    void fetchGuildDisplayNamesBatch(ids).then((next) => {
+    void fetchGuildDisplayNamesBatch(groupIdsKey.split('\n')).then((next) => {
       if (cancelled) return;
       setFetched(next);
       setFetchedKey(groupIdsKey);
@@ -112,6 +149,10 @@ export function useGuildDisplayNames(
     };
   }, [groupIdsKey]);
 
-  const activeFetched = fetchedKey === groupIdsKey ? fetched : {};
-  return { ...fromCache, ...activeFetched };
+  return useMemo(() => {
+    const fromCache = readCachedNames(ids);
+    const activeFetched = fetchedKey === groupIdsKey ? fetched : {};
+    return { ...fromCache, ...activeFetched };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupIdsKey, version, fetched, fetchedKey]);
 }

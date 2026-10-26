@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { ProfileKind, ProfileSearchRow } from '@onsocial/sdk';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
@@ -19,12 +19,32 @@ const batchInFlight = new Map<
 >();
 const EMPTY_PROFILE_RECORD: Record<string, PostAuthorProfile> = {};
 /*
- * Bumped on every cache write. `usePostAuthorProfiles` reads it during
- * render as a useMemo dependency, so any render still picks up fresh seeds
- * immediately while an unchanged cache returns the same record identity —
- * that identity is what lets memoized feed cards skip re-rendering.
+ * Bumped on every cache write. `usePostAuthorProfiles` subscribes to it as
+ * an external store, so any render still picks up fresh seeds immediately
+ * while an unchanged cache returns the same record identity — that identity
+ * is what lets memoized feed cards skip re-rendering.
  */
 let profileCacheVersion = 0;
+const profileCacheListeners = new Set<() => void>();
+
+function notifyProfileCacheListeners(): void {
+  for (const listener of profileCacheListeners) listener();
+}
+
+/**
+ * Store subscription for `usePostAuthorProfiles`. Seed writes only notify
+ * when the caller passes `{ notify: true }` — render-phase callers must not
+ * (emitting would setState in subscribed cards during another component's
+ * render; their snapshot reads already pick up the write in the same pass).
+ */
+export function subscribePostAuthorProfiles(
+  listener: () => void
+): () => void {
+  profileCacheListeners.add(listener);
+  return () => {
+    profileCacheListeners.delete(listener);
+  };
+}
 
 function toPostAuthorProfile(
   accountId: string,
@@ -72,7 +92,10 @@ function mergeProfileRecords(
   return out;
 }
 
-export function seedPostAuthorProfile(profile: PostAuthorProfile): void {
+export function seedPostAuthorProfile(
+  profile: PostAuthorProfile,
+  options?: { notify?: boolean }
+): void {
   const displayName = profile.displayName.trim();
   const avatarUrl = profile.avatarUrl ?? null;
   if (!displayName && !avatarUrl && !profile.kind) return;
@@ -85,8 +108,8 @@ export function seedPostAuthorProfile(profile: PostAuthorProfile): void {
     avatarUrl: avatarUrl || existing?.avatarUrl || null,
     kind: profile.kind ?? existing?.kind ?? null,
   };
-  // Feed seeding runs every render; keep the cached object when nothing
-  // changed so dependent props keep their identity.
+  // Keep the cached object when nothing changed so dependent props keep
+  // their identity and subscribers are not woken for a no-op reseed.
   if (
     existing &&
     existing.displayName === merged.displayName &&
@@ -97,6 +120,7 @@ export function seedPostAuthorProfile(profile: PostAuthorProfile): void {
   }
   profileCache.set(profile.accountId, merged);
   profileCacheVersion += 1;
+  if (options?.notify) notifyProfileCacheListeners();
 }
 
 export function peekPostAuthorKind(
@@ -105,9 +129,12 @@ export function peekPostAuthorKind(
   return profileCache.get(accountId)?.kind;
 }
 
-export function seedPostAuthorProfiles(profiles: PostAuthorProfile[]): void {
+export function seedPostAuthorProfiles(
+  profiles: PostAuthorProfile[],
+  options?: { notify?: boolean }
+): void {
   for (const profile of profiles) {
-    seedPostAuthorProfile(profile);
+    seedPostAuthorProfile(profile, options);
   }
 }
 
@@ -120,14 +147,17 @@ type FeedAuthorSeed = {
   refAuthorAvatar?: string | null;
 };
 
-export function seedPostAuthorProfilesFromFeed(posts: FeedAuthorSeed[]): void {
+export function seedPostAuthorProfilesFromFeed(
+  posts: FeedAuthorSeed[],
+  options?: { notify?: boolean }
+): void {
   for (const post of posts) {
     const main = toPostAuthorProfile(
       post.accountId,
       post.authorName,
       post.authorAvatar
     );
-    if (main) seedPostAuthorProfile(main);
+    if (main) seedPostAuthorProfile(main, options);
 
     if (post.refAuthor) {
       const quoted = toPostAuthorProfile(
@@ -135,7 +165,7 @@ export function seedPostAuthorProfilesFromFeed(posts: FeedAuthorSeed[]): void {
         post.refAuthorName,
         post.refAuthorAvatar
       );
-      if (quoted) seedPostAuthorProfile(quoted);
+      if (quoted) seedPostAuthorProfile(quoted, options);
     }
   }
 }
@@ -245,11 +275,16 @@ export function usePostAuthorProfiles(
   }, [accountIdsKey]);
 
   /*
-   * Read the cache version during render: seeding bumps it, so this render
-   * still paints fresh names immediately, while an untouched cache returns
+   * Subscribe to the cache version: same-render seeds bump it before this
+   * snapshot reads (fresh names paint immediately), effect seeds notify and
+   * re-render subscribed cards before paint, and an untouched cache returns
    * the previous record (stable identity for memoized consumers).
    */
-  const version = profileCacheVersion;
+  const version = useSyncExternalStore(
+    subscribePostAuthorProfiles,
+    () => profileCacheVersion,
+    () => profileCacheVersion
+  );
   return useMemo(() => {
     if (!accountIdsKey) return EMPTY_PROFILE_RECORD;
     const fromCache = readCachedProfiles(uniqueAccountIds);
