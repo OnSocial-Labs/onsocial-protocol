@@ -44237,10 +44237,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   color: rgb(var(--fg-rgb) / 0.58);
 }
 
-.dao-proposals-slide .dao-workspace {
-  gap: 0.65rem;
-}
-
 .dao-members-sheet,
 .dao-treasury-sheet {
   display: flex;
@@ -44995,8 +44991,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   text-underline-offset: 0.15em;
 }
 
-.dao-create-toggle,
-.dao-edit-social-toggle {
+.dao-create-toggle {
   display: flex;
   align-items: flex-start;
   gap: 0.65rem;
@@ -45007,14 +45002,12 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   color: rgb(var(--fg-rgb) / 0.82);
 }
 
-.dao-create-toggle input,
-.dao-edit-social-toggle input {
+.dao-create-toggle input {
   margin-top: 0.2rem;
   flex-shrink: 0;
 }
 
-.dao-create-toggle small,
-.dao-edit-social-toggle small {
+.dao-create-toggle small {
   display: block;
   margin-top: 0.2rem;
   font-size: 0.76rem;
