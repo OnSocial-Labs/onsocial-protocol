@@ -35897,63 +35897,6 @@ a.os-surface-row {
     gap: 0.2rem;
   }
 
-  .apps-directory-row {
-    text-decoration: none;
-    color: inherit;
-  }
-
-  .apps-directory-logo {
-    cursor: inherit;
-    border-radius: 0.55rem;
-  }
-
-  .apps-directory-logo-fallback {
-    display: flex;
-    width: 100%;
-    height: 100%;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: rgb(var(--fg-rgb) / 0.55);
-    background: linear-gradient(
-      145deg,
-      rgb(var(--fg-rgb) / 0.14),
-      rgb(var(--fg-rgb) / 0.05)
-    );
-  }
-
-  .apps-directory-more {
-    display: flex;
-    justify-content: center;
-    padding: 0.35rem 0 0;
-  }
-
-  .apps-directory-more-btn {
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: var(--os-surface-emphasis);
-    border-radius: 999px;
-    padding: 0.45rem 1rem;
-    font: inherit;
-    font-size: 0.84rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .apps-directory-more-btn:hover:not(:disabled),
-  .apps-directory-more-btn:focus-visible:not(:disabled) {
-    background: rgb(var(--fg-rgb) / 0.06);
-    outline: none;
-  }
-
-  .apps-directory-more-btn:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
-  }
-
   /* Filter/tab chrome under search — sort menu may escape. */
   .os-app-screen-toolbar:has(.market-listing-toolbar) {
     overflow: visible;
