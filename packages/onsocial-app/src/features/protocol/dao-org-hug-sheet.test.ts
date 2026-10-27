@@ -87,7 +87,7 @@ describe('DAO org hug drawers', () => {
   it('batches OnSocial publish on config Edit with a wallet slider', () => {
     expect(edit).toContain('resolveDaoEditBaseline');
     expect(edit).toContain('submitProtocolProposals');
-    expect(edit).toContain('account-action-toggle dao-edit-publish');
+    expect(edit).toContain('account-action-toggle os-disabled-ink dao-edit-publish');
     expect(edit).toContain('account-safe-mode-switch');
     expect(edit).toContain('DAO_CREATE_PUBLISH');
     expect(edit).toContain('DAO_EDIT_PUBLISH_HINT');
