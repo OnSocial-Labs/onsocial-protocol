@@ -24,6 +24,12 @@ function MediaFaceClose({ ariaLabel }: { ariaLabel: string }) {
 export type OsMediaFaceShellProps = {
   open: boolean;
   onClose: () => void;
+  /**
+   * Called when the shell's own close controls (× / Escape) start the exit
+   * slide — a last chance to measure the stage before it unmounts (e.g.
+   * the photo zoom return flight). Return `false` to veto the close.
+   */
+  onBeforeClose?: () => boolean;
   /** Dialog / a11y name. Also the jacket headline unless `faceTitle` is set. */
   title: string;
   /** Jacket headline — e.g. author name while `title` stays the article. */
@@ -87,6 +93,7 @@ export type OsMediaFaceShellProps = {
 export function OsMediaFaceShell({
   open,
   onClose,
+  onBeforeClose,
   title,
   faceTitle = null,
   eyebrow = null,
@@ -164,6 +171,7 @@ export function OsMediaFaceShell({
     <OsSlideOverScreen
       open={open}
       onClose={onClose}
+      onBeforeClose={onBeforeClose}
       title={dialogName}
       hideNav={!screenHeader}
       elevateChrome={screenHeader}

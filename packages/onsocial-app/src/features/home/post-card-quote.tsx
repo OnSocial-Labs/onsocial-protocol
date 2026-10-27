@@ -13,6 +13,10 @@ import { Divider, ipfsImgVariantUrl, MessageRoundIcon } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { displayName } from '@/lib/profile-display';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
+import {
+  zoomOriginFromTile,
+  type FeedPhotoZoomOrigin,
+} from '@/features/home/feed-photo-zoom';
 import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { parsePostContentLabels } from '@/lib/post-content-labels';
@@ -64,6 +68,8 @@ export function QuotedPostInset({
   const interactive = Boolean(href);
   const [quotePhotoOpen, setQuotePhotoOpen] = useState(false);
   const [quotePhotoIndex, setQuotePhotoIndex] = useState(0);
+  const [quoteZoomOrigin, setQuoteZoomOrigin] =
+    useState<FeedPhotoZoomOrigin | null>(null);
   const [quoteThreadOpen, setQuoteThreadOpen] = useState(false);
 
   const open = (event: {
@@ -142,7 +148,8 @@ export function QuotedPostInset({
                   <PostMediaStrip
                     items={mediaItems}
                     size="page"
-                    onActivate={(index) => {
+                    onActivate={(index, tile) => {
+                      setQuoteZoomOrigin(zoomOriginFromTile(tile, index));
                       setQuotePhotoIndex(index);
                       setQuotePhotoOpen(true);
                     }}
@@ -175,6 +182,7 @@ export function QuotedPostInset({
           }
           photos={mediaItems}
           initialIndex={quotePhotoIndex}
+          zoomOrigin={quoteZoomOrigin}
           threadOpen={quoteThreadOpen}
           onDismissThread={() => setQuoteThreadOpen(false)}
           threadAuthor={post.accountId}

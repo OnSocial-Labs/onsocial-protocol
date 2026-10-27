@@ -46,6 +46,10 @@ import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing
 import { WritingReadDocument } from '@/features/scarces/scarce-writing-read-sheet';
 import { FeedArticleReadScreen } from '@/features/home/feed-article-read-screen';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
+import {
+  zoomOriginFromTile,
+  type FeedPhotoZoomOrigin,
+} from '@/features/home/feed-photo-zoom';
 import { PostMediaStrip } from '@/features/home/post-media';
 import { PostPollEmbedCard } from '@/features/home/post-poll-embed';
 import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
@@ -347,6 +351,9 @@ function PostCardImpl({
   );
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
+  /** Tapped thumbnail the enlarge face zooms out of (still photos only). */
+  const [photoZoomOrigin, setPhotoZoomOrigin] =
+    useState<FeedPhotoZoomOrigin | null>(null);
   /** Mood / craft article — slide-over reader (stays on feed). */
   const [articleOpen, setArticleOpen] = useState(false);
   // Nine overlays sit under every card; mount each on first open only.
@@ -1225,13 +1232,16 @@ function PostCardImpl({
               resumeMediaIndex={mediaResumeIndex}
               onActivate={
                 hasMedia
-                  ? (index) => {
+                  ? (index, tile) => {
                       const action = resolveFeedMediaActivate(
                         mediaItems,
                         index
                       );
                       if (action.kind === 'enlarge') {
                         setEnlargeOverride(null);
+                        setPhotoZoomOrigin(
+                          zoomOriginFromTile(tile, action.mediaIndex)
+                        );
                         setPhotoIndex(action.mediaIndex);
                         setPhotoOpen(true);
                       }
@@ -1482,6 +1492,7 @@ function PostCardImpl({
           }
           photos={enlargePhotos}
           initialIndex={photoIndex}
+          zoomOrigin={photoZoomOrigin}
           threadOpen={photoThreadOpen}
           onDismissThread={dismissPhotoThread}
           threadAuthor={post.accountId}

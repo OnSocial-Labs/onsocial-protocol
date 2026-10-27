@@ -79,8 +79,8 @@ interface PostMediaBlockProps {
   resumeFocusedVideo?: boolean;
   /** Static poster only — quote insets / compose previews. */
   playbackDisabled?: boolean;
-  /** List: open detail (optionally with sound for video). */
-  onActivate?: () => void;
+  /** List: open detail — receives the tile element for zoom-origin capture. */
+  onActivate?: (tile: HTMLElement | null) => void;
   /**
    * Accessible name when the tile is the control. Omitted on detail video,
    * which already has a mute button inside the tile.
@@ -178,10 +178,15 @@ export function PostMediaBlock({
   const handleActivate = (event: {
     preventDefault(): void;
     stopPropagation(): void;
+    currentTarget: unknown;
   }) => {
     event.preventDefault();
     event.stopPropagation();
-    onActivate?.();
+    onActivate?.(
+      event.currentTarget instanceof HTMLElement
+        ? event.currentTarget
+        : null
+    );
   };
   const mediaClassName = ['post-media-element', resolved ? 'is-resolved' : '']
     .filter(Boolean)
@@ -328,7 +333,8 @@ interface PostMediaStripProps {
   resumeMediaIndex?: number;
   /** Quote insets — static thumbs, no list autoplay. */
   playbackDisabled?: boolean;
-  onActivate?: (index: number) => void;
+  /** Tile tap — index plus the tile element (zoom-origin capture). */
+  onActivate?: (index: number, tile: HTMLElement | null) => void;
   /** Accessible name for a single still. Detail video keeps its mute control. */
   activateLabel?: string;
 }
@@ -397,7 +403,9 @@ export function PostMediaStrip({
               : focusedVideoMuted
           }
           resumeFocusedVideo={resumeFocusedVideo && index === resumeMediaIndex}
-          onActivate={onActivate ? () => onActivate(index) : undefined}
+          onActivate={
+            onActivate ? (tile) => onActivate(index, tile) : undefined
+          }
           activateLabel={activateLabel}
           style={collageCellStyle(index, visible.length, hero)}
           onRatio={(ratio) => onRatio(item.url, ratio)}

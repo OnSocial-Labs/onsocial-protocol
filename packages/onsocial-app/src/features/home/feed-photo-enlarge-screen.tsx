@@ -11,6 +11,7 @@ import {
   type MutableRefObject,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
 import {
   ChevronLeftIcon,
@@ -44,6 +45,13 @@ import {
   stepFeedPhotoIndex,
   type PostMediaItem,
 } from '@/lib/post-media';
+import {
+  containFitRect,
+  rectFromRectLike,
+  zoomRectsEqual,
+  type FeedPhotoZoomOrigin,
+  type FeedPhotoZoomRect,
+} from '@/features/home/feed-photo-zoom';
 
 function clampIndex(value: number, last: number): number {
   if (last < 0) return 0;
@@ -61,6 +69,21 @@ function prefersReducedMotion(): boolean {
 function clampRatio(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.min(1, Math.max(0, value));
+}
+
+/** The img the enlarge stage paints for `index` (null for video / unloaded). */
+function activeStageImage(
+  stage: HTMLElement,
+  index: number,
+  multi: boolean
+): HTMLImageElement | null {
+  if (multi) {
+    const page = stage.querySelector('.feed-photo-track')?.children[index];
+    const img = page?.querySelector('.feed-photo-image');
+    return img instanceof HTMLImageElement ? img : null;
+  }
+  const img = stage.querySelector(':scope > .feed-photo-image');
+  return img instanceof HTMLImageElement ? img : null;
 }
 
 /** Release OS fullscreen if we hold it (DOM only — no React state). */
@@ -118,6 +141,7 @@ export function FeedPhotoEnlargeScreen({
   mast = null,
   peekIdentity = null,
   trailing = null,
+  zoomOrigin = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -154,6 +178,11 @@ export function FeedPhotoEnlargeScreen({
   trailing?:
     | ReactNode
     | ((helpers: { downloadCurrent: () => Promise<void> }) => ReactNode);
+  /**
+   * Tapped card thumbnail — flies a cover-cropped clone into the stage on
+   * open and back on close (reduced motion and videos keep the plain pop).
+   */
+  zoomOrigin?: FeedPhotoZoomOrigin | null;
 }) {
   const last = photos.length - 1;
   const [wasOpen, setWasOpen] = useState(open);
@@ -177,6 +206,21 @@ export function FeedPhotoEnlargeScreen({
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
   const pathname = usePathname();
+  /** Zoom-from-card flight — clone rects while the shared element travels. */
+  const [zoomFlight, setZoomFlight] = useState<{
+    phase: 'enter' | 'exit';
+    from: FeedPhotoZoomRect;
+    to: FeedPhotoZoomRect;
+    fromRadius: string;
+    toRadius: string;
+    src: string;
+  } | null>(null);
+  const [zoomFlying, setZoomFlying] = useState(false);
+  const zoomOriginRef = useRef<FeedPhotoZoomOrigin | null>(null);
+  const zoomOriginIndexRef = useRef(0);
+  const hiddenThumbRef = useRef<HTMLImageElement | null>(null);
+  const zoomEnteredRef = useRef(false);
+  const zoomExitedRef = useRef(false);
   /** True when this film was playing before Home was covered. */
   const wasPlayingBeforeCoverRef = useRef(false);
   const skipSnapRef = useRef(false);
@@ -268,6 +312,8 @@ export function FeedPhotoEnlargeScreen({
     threadOpen ? 'feed-photo-slide--thread' : '',
     jacketT > 0.4 ? 'feed-photo-slide--thread-jacket' : '',
     threadDragging ? 'is-thread-dragging' : '',
+    zoomFlight?.phase === 'enter' ? 'feed-photo-slide--zoom-enter' : '',
+    zoomFlight?.phase === 'exit' ? 'feed-photo-slide--zoom-exit' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -280,10 +326,215 @@ export function FeedPhotoEnlargeScreen({
       setVideoMuted(false);
       setScrubbing(false);
       setCinema(false);
+      setZoomFlight(null);
+      setZoomFlying(false);
     } else {
       setCinema(false);
     }
   }
+
+  const restoreHiddenThumb = useCallback(() => {
+    const el = hiddenThumbRef.current;
+    hiddenThumbRef.current = null;
+    if (el) el.style.visibility = '';
+  }, []);
+
+  /* Thumbnail → stage shared-element flight (still photos, full motion). */
+  useLayoutEffect(() => {
+    if (!open) return;
+    if (zoomEnteredRef.current) return;
+    zoomEnteredRef.current = true;
+    zoomOriginRef.current = zoomOrigin;
+    const origin = zoomOrigin;
+    if (!origin || prefersReducedMotion()) return;
+    const originIndex = clampIndex(origin.mediaIndex, photos.length - 1);
+    zoomOriginIndexRef.current = originIndex;
+    const item = photos[originIndex];
+    if (!item || isRenderablePostVideo(item)) return;
+    const stage = stageRef.current;
+    if (!stage) return;
+    /* Re-measure post scroll-lock — the captured rect predates face layout. */
+    const from = rectFromRectLike(origin.element.getBoundingClientRect());
+    if (from.width < 2 || from.height < 2) return;
+    hiddenThumbRef.current = origin.element;
+    origin.element.style.visibility = 'hidden';
+    setZoomFlight({
+      phase: 'enter',
+      from,
+      to: containFitRect(stage.getBoundingClientRect(), origin.aspect),
+      fromRadius: origin.radius,
+      toRadius: '0.85rem',
+      src: origin.src,
+    });
+    // Capture-once per open; rects re-measured fresh at each transition.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, zoomOrigin]);
+
+  /*
+   * Stage → thumbnail return flight. Runs at close INTENT (onBeforeClose —
+   * the shell's own × / Escape only report onClose after the exit slide,
+   * when the stage is gone) and again on an external open=false flip (the
+   * stage still lives through the shell's closing window then). Plain fade
+   * when the origin is gone.
+   */
+  const startZoomExit = useCallback(() => {
+    if (zoomExitedRef.current) return;
+    zoomExitedRef.current = true;
+    const origin = zoomOriginRef.current;
+    if (!origin) return;
+    const originIndex = zoomOriginIndexRef.current;
+    const item = photos[originIndex];
+    const stage = stageRef.current;
+    const canFly =
+      !prefersReducedMotion() &&
+      origin.element.isConnected &&
+      Boolean(item) &&
+      !isRenderablePostVideo(item ?? {}) &&
+      index === originIndex &&
+      !threadOpen &&
+      !cinema &&
+      Boolean(stage);
+    if (!canFly || !stage) {
+      restoreHiddenThumb();
+      return;
+    }
+    const stageImg = activeStageImage(stage, originIndex, photos.length > 1);
+    const imgBox = stageImg?.getBoundingClientRect();
+    const from =
+      imgBox && imgBox.width > 1 && imgBox.height > 1
+        ? rectFromRectLike(imgBox)
+        : containFitRect(stage.getBoundingClientRect(), origin.aspect);
+    const to = rectFromRectLike(origin.element.getBoundingClientRect());
+    if (to.width < 2 || to.height < 2) {
+      restoreHiddenThumb();
+      return;
+    }
+    setZoomFlight({
+      phase: 'exit',
+      from,
+      to,
+      fromRadius: '0.85rem',
+      toRadius: origin.radius,
+      src: origin.src,
+    });
+  }, [photos, index, threadOpen, cinema, restoreHiddenThumb]);
+
+  useLayoutEffect(() => {
+    if (open) {
+      zoomExitedRef.current = false;
+      return;
+    }
+    startZoomExit();
+  }, [open, startZoomExit]);
+
+  const handleBeforeShellClose = useCallback(() => {
+    startZoomExit();
+    return true;
+  }, [startZoomExit]);
+
+  /* Two frames so the start rect paints before the transition flips on. */
+  useEffect(() => {
+    if (!zoomFlight || zoomFlying) return;
+    let second = 0;
+    const first = window.requestAnimationFrame(() => {
+      second = window.requestAnimationFrame(() => setZoomFlying(true));
+    });
+    return () => {
+      window.cancelAnimationFrame(first);
+      window.cancelAnimationFrame(second);
+    };
+  }, [zoomFlight, zoomFlying]);
+
+  /*
+   * Flight end. Exit: restore the thumbnail and drop the clone. Enter: swap
+   * to the real stage image once it can paint (1080/1920 variant may trail
+   * the cached thumbnail the clone shows) — poll briefly, then force.
+   */
+  useEffect(() => {
+    if (!zoomFlight || !zoomFlying) return;
+    let poll = 0;
+    const settle = window.setTimeout(
+      () => {
+        if (zoomFlight.phase === 'exit') {
+          setZoomFlight(null);
+          setZoomFlying(false);
+          restoreHiddenThumb();
+          return;
+        }
+        const trySwap = (): boolean => {
+          const stage = stageRef.current;
+          const img = stage
+            ? activeStageImage(
+                stage,
+                zoomOriginIndexRef.current,
+                photos.length > 1
+              )
+            : null;
+          if (img && img.complete && img.naturalWidth > 0) {
+            setZoomFlight(null);
+            setZoomFlying(false);
+            return true;
+          }
+          return false;
+        };
+        if (trySwap()) return;
+        let tries = 0;
+        poll = window.setInterval(() => {
+          tries += 1;
+          if (trySwap() || tries >= 12) {
+            window.clearInterval(poll);
+            setZoomFlight(null);
+            setZoomFlying(false);
+          }
+        }, 120);
+      },
+      zoomFlight.phase === 'enter' ? 310 : 250
+    );
+    return () => {
+      window.clearTimeout(settle);
+      if (poll) window.clearInterval(poll);
+    };
+    // stageRef/photos.length read at settle time; refs stay current.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomFlight, zoomFlying, restoreHiddenThumb]);
+
+  /* Keep the landed clone aligned if the stage flexes (caption, resize). */
+  const zoomEnterActive = Boolean(
+    zoomFlight && zoomFlight.phase === 'enter'
+  );
+  useEffect(() => {
+    if (!zoomEnterActive) return;
+    const stage = stageRef.current;
+    if (!stage || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      const aspect = zoomOriginRef.current?.aspect;
+      if (!aspect) return;
+      const next = containFitRect(stage.getBoundingClientRect(), aspect);
+      setZoomFlight((cur) =>
+        cur && cur.phase === 'enter' && !zoomRectsEqual(cur.to, next)
+          ? { ...cur, to: next }
+          : cur
+      );
+    });
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [zoomEnterActive]);
+
+  /* Swiped to another photo mid-hold — the landed clone is stale; drop it. */
+  useEffect(() => {
+    if (zoomFlight?.phase !== 'enter') return;
+    if (index === zoomOriginIndexRef.current) return;
+    setZoomFlight(null);
+    setZoomFlying(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index]);
+
+  /*
+   * No unmount-restore guard on purpose: every consumer unmounts the face
+   * together with the card subtree that owns the thumbnail, and a detached
+   * node needs no restore. A passive-effect cleanup would also fire on
+   * StrictMode's mount double-invoke and undo the hide on open (dev).
+   */
 
   /* Per-item playback state resets when the active item changes. */
   const [trackedIndex, setTrackedIndex] = useState(index);
@@ -1103,10 +1354,49 @@ export function FeedPhotoEnlargeScreen({
   const trailingNode =
     typeof trailing === 'function' ? trailing({ downloadCurrent }) : trailing;
 
+  /*
+   * Shared-element clone — portaled above the face (shell z + 1) so it can
+   * fly over the fading chrome. Cover-cropped like the thumbnail; the box
+   * morphs to the contain-fitted stage rect, ending pixel-aligned with the
+   * real image it swaps with.
+   */
+  const zoomRect = zoomFlight ? (zoomFlying ? zoomFlight.to : zoomFlight.from) : null;
+  const zoomLayer =
+    zoomFlight && zoomRect && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            className="feed-photo-zoom-layer"
+            style={{ zIndex: SCARCE_Z.listenShell + 1 }}
+            aria-hidden
+          >
+            <div
+              className="feed-photo-zoom-clone"
+              style={{
+                left: zoomRect.left,
+                top: zoomRect.top,
+                width: zoomRect.width,
+                height: zoomRect.height,
+                borderRadius: zoomFlying
+                  ? zoomFlight.toRadius
+                  : zoomFlight.fromRadius,
+                transitionDuration:
+                  zoomFlight.phase === 'enter' ? '300ms' : '250ms',
+              }}
+            >
+              <img src={zoomFlight.src} alt="" draggable={false} />
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+
   return (
-    <OsMediaFaceShell
+    <>
+      {zoomLayer}
+      <OsMediaFaceShell
       open={open}
       onClose={handleClose}
+      onBeforeClose={handleBeforeShellClose}
       title={title}
       quietTitle
       mast={mast}
@@ -1248,7 +1538,8 @@ export function FeedPhotoEnlargeScreen({
           />
         </div>
       ) : null}
-    </OsMediaFaceShell>
+      </OsMediaFaceShell>
+    </>
   );
 }
 

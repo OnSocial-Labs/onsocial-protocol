@@ -31966,6 +31966,49 @@ a.os-surface-row,
     max-height: 100%;
   }
 
+  /*
+   * Shared-element zoom — thumbnail clone flying to/from the enlarge stage.
+   * Fixed in viewport space (portaled to body), above the face chrome.
+   */
+  .feed-photo-zoom-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .feed-photo-zoom-clone {
+    position: fixed;
+    box-sizing: border-box;
+    overflow: hidden;
+    transition-property: left, top, width, height, border-radius;
+    transition-timing-function: var(
+      --os-motion-ease-out,
+      cubic-bezier(0.2, 0.9, 0.24, 1)
+    );
+    background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .feed-photo-zoom-clone > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* Real media stays parked under the clone until the swap. */
+  .feed-photo-slide--zoom-enter .feed-photo-image,
+  .feed-photo-slide--zoom-enter .feed-photo-video-wrap,
+  .feed-photo-slide--zoom-exit .feed-photo-image,
+  .feed-photo-slide--zoom-exit .feed-photo-video-wrap {
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .feed-photo-zoom-layer {
+      display: none;
+    }
+  }
+
   .feed-photo-stage > .feed-photo-video-wrap {
     display: flex;
     align-items: center;
