@@ -14799,6 +14799,9 @@ a.os-surface-row,
     z-index: 51;
   }
 
+  /* Post layer over a keep-dock media face: the unlayered rule lives with
+     the media-face thread band at the end of this file (layers lose). */
+
   /* Room for the portfolio dock under a keep-dock mood page. */
   .glass-sheet-root[data-keep-dock='true'] .glass-sheet-body,
   .glass-sheet-root--hosted[data-keep-dock='true'],
@@ -40862,6 +40865,22 @@ a.os-surface-row,
 body:has(.feed-photo-slide--thread) .portfolio-summon-dock,
 body:has(.feed-face-thread) .portfolio-summon-dock {
   z-index: 95;
+}
+
+/*
+ * Post layer opened above a keep-dock media face — the sheet resolves to 170
+ * (overShell 90 + the glass media-face lift), past every constant dock band,
+ * so the reply dock ended up under the sheet and reply taps only scrolled.
+ * The layer host publishes the live sheet's resolved z + 1 as
+ * --os-thread-dock-z; 95 matches the face-thread band until it does.
+ * Unlayered like the band above — a @layer rule always loses to it.
+ */
+body:has(
+    .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
+      .post-thread-sheet-panel
+  ):has([data-os-slide-over='true'][data-keep-dock='true'])
+  .portfolio-summon-dock {
+  z-index: var(--os-thread-dock-z, 95);
 }
 
 body:has(.feed-photo-slide--thread) .portfolio-summon-dock .portfolio-summon,

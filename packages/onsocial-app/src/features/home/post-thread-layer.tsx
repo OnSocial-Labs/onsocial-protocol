@@ -17,7 +17,12 @@ import {
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
-import { ChevronLeftIcon, OsIconAction, OsPageSheet } from '@onsocial/ui';
+import {
+  ChevronLeftIcon,
+  GLASS_SHEET_MEDIA_FACE_LIFT,
+  OsIconAction,
+  OsPageSheet,
+} from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { PostQuotesTrackHostProvider } from '@/features/home/post-quotes-track-host';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
@@ -671,6 +676,37 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     setClosingId(top.id);
     return true;
   }, []);
+
+  /*
+   * Reply dock lift for a layer opened above a keep-dock media face. The
+   * face lifts this sheet by GLASS_SHEET_MEDIA_FACE_LIFT (90 → 170), past
+   * the dock's constant face bands (90/95), which buried the reply dock
+   * under the sheet. Publish the resolved z + 1 so the summon-dock rule in
+   * globals.css sits the dock on the live sheet. A layer at overlayHost was
+   * never face-lifted, and a face opened after the sheet stays above it —
+   * both keep the constant bands.
+   */
+  useLayoutEffect(() => {
+    if (typeof document === 'undefined') return;
+    const top = stack[stack.length - 1];
+    const faceLifted =
+      top != null &&
+      top.kind !== 'drop' &&
+      top.id !== closingId &&
+      !onProfileHop &&
+      top.zIndex >= SHEET_Z.overShell;
+    if (faceLifted) {
+      document.body.style.setProperty(
+        '--os-thread-dock-z',
+        String(top.zIndex + GLASS_SHEET_MEDIA_FACE_LIFT + 1)
+      );
+    } else {
+      document.body.style.removeProperty('--os-thread-dock-z');
+    }
+    return () => {
+      document.body.style.removeProperty('--os-thread-dock-z');
+    };
+  }, [closingId, onProfileHop, stack]);
 
   const syncOverlayUrl = useCallback((href: string) => {
     if (typeof window === 'undefined') return;

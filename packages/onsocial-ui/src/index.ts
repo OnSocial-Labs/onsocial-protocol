@@ -19,6 +19,7 @@ export {
   GLASS_SHEET_PANEL_SATURATE,
   GlassSheet,
   GlassSheetPortalProvider,
+  GLASS_SHEET_MEDIA_FACE_LIFT,
   SheetCloseButton,
   SheetHeader,
   glassSheetBackdropFilterStyle,

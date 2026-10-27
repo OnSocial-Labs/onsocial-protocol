@@ -116,9 +116,11 @@ async function stubThreadGraph(page: Page): Promise<void> {
     // the root path returns both replies, each reply's own path returns none.
     if (query.includes('threadReplies')) {
       const parentPath =
-        (route.request().postDataJSON() as GraphBody & {
-          variables?: { parentPath?: string };
-        }).variables?.parentPath ?? '';
+        (
+          route.request().postDataJSON() as GraphBody & {
+            variables?: { parentPath?: string };
+          }
+        ).variables?.parentPath ?? '';
       const replies =
         parentPath === 'alice.near/post/root-post'
           ? [
@@ -255,9 +257,7 @@ test.describe('thread reply dock', () => {
     // The wallet recorded one batched set for the reply under the root.
     await expectE2eSignerWrite(page, (recorded) => {
       const prepared = recorded.map(extractPreparedAction);
-      expect(recorded.some((call) => call.methodName === 'execute')).toBe(
-        true
-      );
+      expect(recorded.some((call) => call.methodName === 'execute')).toBe(true);
       expect(prepared.some((action) => action?.e2eVerb === 'set')).toBe(true);
       const blob = JSON.stringify(recorded);
       expect(blob).toContain('alice.near/post/root-post');
@@ -309,5 +309,197 @@ test.describe('thread reply dock', () => {
     await expect(page.locator('.os-write-dock-reply')).toHaveCount(0);
     await expect(field).toHaveValue('');
     await expect(drawer.getByText('Nested dock reply')).toHaveCount(0);
+  });
+});
+
+/**
+ * Media-face trail — photo enlarge → reply drawer → tap a reply. The post
+ * layer opened above the keep-dock face resolves to z 170 (overShell 90 +
+ * the glass media-face lift), past the dock's constant face bands (90/95):
+ * the reply dock ended up under the sheet and reply taps only scrolled.
+ * The layer host publishes the sheet's resolved z + 1 as --os-thread-dock-z
+ * so the dock rides one above the live sheet.
+ */
+test.describe('thread reply dock over the media face', () => {
+  const CDN = 'https://cdn.testnet.onsocial.id';
+  const CID_JPEG =
+    'bafkreihnbre4v4i7wpwxsepdmxbm6dy7zhyb5cw7dds6x6jz7fr6lin5ni';
+  const VARIANT_SVG =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8">` +
+    `<rect width="8" height="8" fill="#36c"/></svg>`;
+
+  const PHOTO_ROOT = {
+    accountId: 'alice.near',
+    postId: 'root-post',
+    text: 'Root photo post',
+  };
+  const FACE_REPLY = {
+    accountId: 'bob.near',
+    postId: 'reply-one',
+    text: 'First reply from Bob',
+    parentPath: 'alice.near/post/root-post',
+  };
+  const NESTED_REPLY = {
+    accountId: 'cara.near',
+    postId: 'reply-two',
+    text: 'Nested reply from Cara',
+    parentPath: 'bob.near/post/reply-one',
+  };
+
+  async function stubMediaThreadGraph(page: Page): Promise<void> {
+    await page.route('**/api/onapi/graph/query', async (route: Route) => {
+      const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody;
+      const query = body.query ?? '';
+      const field = graphField(query);
+      if (field) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: {
+              [field]: [
+                {
+                  ...feedRow({
+                    accountId: PHOTO_ROOT.accountId,
+                    postId: PHOTO_ROOT.postId,
+                    text: PHOTO_ROOT.text,
+                  }),
+                  value: JSON.stringify({
+                    v: 1,
+                    text: PHOTO_ROOT.text,
+                    media: [
+                      { cid: CID_JPEG, mime: 'image/jpeg', size: 200_000 },
+                    ],
+                  }),
+                },
+              ],
+            },
+          }),
+        });
+        return;
+      }
+      if (query.includes('threadReplies')) {
+        const parentPath =
+          (
+            route.request().postDataJSON() as GraphBody & {
+              variables?: { parentPath?: string };
+            }
+          ).variables?.parentPath ?? '';
+        const rows =
+          parentPath === FACE_REPLY.parentPath
+            ? [
+                replyRow({
+                  accountId: FACE_REPLY.accountId,
+                  postId: FACE_REPLY.postId,
+                  text: FACE_REPLY.text,
+                  parentAuthor: PHOTO_ROOT.accountId,
+                  parentPath: FACE_REPLY.parentPath,
+                }),
+              ]
+            : parentPath === NESTED_REPLY.parentPath
+              ? [
+                  replyRow({
+                    accountId: NESTED_REPLY.accountId,
+                    postId: NESTED_REPLY.postId,
+                    text: NESTED_REPLY.text,
+                    parentAuthor: FACE_REPLY.accountId,
+                    parentPath: NESTED_REPLY.parentPath,
+                  }),
+                ]
+              : [];
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: { threadReplies: rows } }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: {} }),
+      });
+    });
+  }
+
+  async function stubMediaCdn(page: Page): Promise<void> {
+    await page.route(`${CDN}/**`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/svg+xml',
+        body: VARIANT_SVG,
+      });
+    });
+  }
+
+  test('post layer over the media face keeps the reply dock on top', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await stubMediaThreadGraph(page);
+    await stubMediaCdn(page);
+    await gotoApp(page, '/home');
+    await dismissNextDevOverlay(page);
+    const globalTab = page.getByRole('tab', { name: 'Global' });
+    if ((await globalTab.count()) > 0) {
+      await globalTab.click();
+    }
+    const feed = page.locator('.home-feed-list');
+    await expect(feed).toContainText(PHOTO_ROOT.text);
+
+    // Open the photo enlarge face, then Reply — the in-face thread drawer.
+    await feed.locator('.post-media-tile').first().click();
+    const face = page.locator('[data-os-slide-over="true"]').first();
+    await expect(face).toBeVisible({ timeout: 10_000 });
+    await face
+      .getByRole('button', { name: 'Reply to this post' })
+      .first()
+      .click();
+    const drawer = page.locator('.feed-photo-thread-sheet');
+    await expect(drawer).toBeVisible({ timeout: 10_000 });
+    await expect(drawer).toContainText(FACE_REPLY.text, { timeout: 15_000 });
+
+    // Tap Bob's reply in the drawer — the post layer opens above the face.
+    await drawer.getByRole('link', { name: 'Open post' }).first().click();
+    const layer = page.locator('.post-thread-sheet-panel');
+    await expect(layer).toBeVisible({ timeout: 10_000 });
+    await expect(layer).toContainText(NESTED_REPLY.text, { timeout: 15_000 });
+
+    // The dock rides above the face-lifted sheet, not under it.
+    const z = await page.evaluate(() => {
+      const dock = document.querySelector('.portfolio-summon-dock');
+      const sheet = document.querySelector(
+        '.glass-sheet-root:has(.post-thread-sheet-panel)'
+      );
+      if (!dock || !sheet) return null;
+      return {
+        dock: Number(getComputedStyle(dock).zIndex),
+        sheet: Number(getComputedStyle(sheet).zIndex),
+      };
+    });
+    expect(z).not.toBeNull();
+    expect(z!.dock).toBeGreaterThan(z!.sheet);
+
+    // Reply on Cara's nested reply — chip names her and the field types.
+    await layer
+      .getByRole('button', { name: 'Reply to this post' })
+      .nth(1)
+      .click();
+    const chip = page.locator('.os-write-dock-reply');
+    await expect(chip).toBeVisible({ timeout: 10_000 });
+    await expect(chip).toContainText('Cara');
+    const field = page.getByRole('textbox', { name: 'Add a reply…' });
+    await field.fill('Reply from the trail layer');
+    await expect(field).toHaveValue('Reply from the trail layer');
+
+    // Closing the layer hands the dock back to the face drawer band.
+    await layer.getByRole('button', { name: 'Back' }).first().click();
+    await expect(layer).toHaveCount(0, { timeout: 8_000 });
+    await expect(drawer).toBeVisible();
+    const restored = await page.evaluate(() => {
+      const dock = document.querySelector('.portfolio-summon-dock');
+      return dock ? Number(getComputedStyle(dock).zIndex) : null;
+    });
+    expect(restored).toBeLessThan(170);
   });
 });
