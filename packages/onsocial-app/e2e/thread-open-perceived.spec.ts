@@ -202,12 +202,12 @@ async function openThreadFromFeed(page: Page) {
 test('skeleton rows hold the reply slot while the tree loads — the discover peek never flashes', async ({
   page,
 }) => {
-  await stubGraph(page, { treeDelayMs: () => 900 });
+  await stubGraph(page, { treeDelayMs: () => 1_500 });
   await gotoFeedWithRoot(page);
   const layer = await openThreadFromFeed(page);
 
   // Loading window: reply-shaped skeletons, and the peek stays unmounted
-  // even though its own fetch would resolve sooner (250ms < 900ms).
+  // even though its own fetch would resolve sooner (250ms < 1.5s).
   await expect(layer.locator('.post-row-skeleton-list')).toBeVisible();
   await page.waitForTimeout(500);
   await expect(layer.locator('.thread-discover-peek')).toHaveCount(0);
@@ -263,7 +263,7 @@ test('re-opening a thread paints replies instantly from the session cache', asyn
 test('an empty thread swaps skeletons for the discover peek only after loading', async ({
   page,
 }) => {
-  await stubGraph(page, { replies: false, treeDelayMs: () => 400 });
+  await stubGraph(page, { replies: false, treeDelayMs: () => 1_200 });
   await gotoFeedWithRoot(page);
   const layer = await openThreadFromFeed(page);
 

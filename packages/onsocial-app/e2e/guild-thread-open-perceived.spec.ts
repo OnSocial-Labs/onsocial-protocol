@@ -196,7 +196,7 @@ test('skeleton rows hold the reply slot while the tree loads — the discover pe
   page,
 }) => {
   await stubGuildPage(page, { feedRows: GUILD_E2E_FEED_ROWS });
-  await stubGuildThreadGraph(page, { treeDelayMs: () => 900 });
+  await stubGuildThreadGraph(page, { treeDelayMs: () => 1_500 });
   await gotoGuildFeedWithRoot(page);
   const layer = await openThreadFromFeed(page);
 
@@ -265,7 +265,7 @@ test('an empty thread swaps skeletons for the discover peek only after loading',
   page,
 }) => {
   await stubGuildPage(page, { feedRows: GUILD_E2E_FEED_ROWS });
-  await stubGuildThreadGraph(page, { replies: false, treeDelayMs: () => 400 });
+  await stubGuildThreadGraph(page, { replies: false, treeDelayMs: () => 1_200 });
   await gotoGuildFeedWithRoot(page);
   const layer = await openThreadFromFeed(page);
 
