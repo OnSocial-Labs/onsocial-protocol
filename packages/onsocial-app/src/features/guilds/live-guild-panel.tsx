@@ -60,6 +60,7 @@ import {
 } from '@/features/guilds/guild-structure';
 import { inheritedGuildReplyFeedMeta } from '@/features/guilds/guild-post-feed-meta';
 import { FeedThreadBlock } from '@/features/guilds/feed-thread-block';
+import { useFeedWindow } from '@/features/home/use-feed-window';
 import {
   collaborativeJoinNeedsStorage,
   guildMembershipStatusHint,
@@ -413,6 +414,26 @@ export function LiveGuildPanel({
     setComposerSpaceId(space.id);
   }, [selectedFeedFilterId, config, postableSpaces]);
   const feedBlocks = useMemo(() => coalesceFeedThreads(feedPosts), [feedPosts]);
+  const feedBlockKeys = useMemo(
+    () => feedBlocks.map((block) => postKey(block.posts[0]!)),
+    [feedBlocks]
+  );
+  const feedListRef = useRef<HTMLDivElement | null>(null);
+  /*
+   * Feed windowing — the home feed integration, unchanged: past the row
+   * threshold far blocks collapse into spacers, and height corrections
+   * anchor on .home-feed-block[data-feed-key] via the default
+   * FEED_ANCHOR_QUERY. The guild feed renders the same FeedThreadBlock
+   * rows into the same home-feed-list chrome, so the same classes apply.
+   */
+  const {
+    windowed: feedWindowed,
+    start: feedWindowStart,
+    end: feedWindowEnd,
+    topSpacer: feedTopSpacer,
+    bottomSpacer: feedBottomSpacer,
+    registerRow: registerFeedRow,
+  } = useFeedWindow({ keys: feedBlockKeys, hostRef: feedListRef });
   const quotedPosts = useQuotedPosts(feedPosts);
   const shellPresentation = resolveAppLoadingPresentation(
     loadState === 'loading'
@@ -1245,6 +1266,7 @@ export function LiveGuildPanel({
 
               {feedPosts.length > 0 ? (
                 <div
+                  ref={feedListRef}
                   className={`home-feed-list${
                     showFeedRefreshing ? ' is-refreshing' : ''
                   }`}
@@ -1255,50 +1277,79 @@ export function LiveGuildPanel({
                       onRetry={() => void refreshFeed()}
                     />
                   ) : null}
-                  {feedBlocks.map(({ posts }, blockIndex) => (
-                    <div key={postKey(posts[0]!)}>
-                      <Divider
-                        variant="item"
-                        className={
-                          blockIndex > 0
-                            ? 'post-row-divider'
-                            : 'post-row-divider post-row-divider--leading-hidden'
-                        }
-                      />
-                      <FeedThreadBlock
-                        block={posts}
-                        groupId={groupId}
-                        showChannel={selectedFeedFilterId === 'all'}
-                        sheetContext={{
-                          guildId: groupId,
-                          roomId:
-                            selectedFeedFilterId === 'all'
-                              ? null
-                              : selectedFeedFilterId,
-                        }}
-                        channelTitleById={channelTitleById}
-                        postAuthorProfiles={postAuthorProfiles}
-                        quotedPosts={quotedPosts}
-                        engagement={engagement}
-                        isReactionPending={isReactionPending}
-                        isSavePending={isSavePending}
-                        isSharePending={isSharePending}
-                        onToggleReaction={toggleReaction}
-                        onToggleSave={toggleSave}
-                        onAmplifyConfirmed={confirmAmplify}
-                        pollTallyFor={pollTallyFor}
-                        isPollVotePending={isPollVotePending}
-                        onPollVote={(post, optionIndex) => {
-                          void castVote(post, optionIndex);
-                        }}
-                        onReply={replyHandler}
-                        onExpandReply={openFullReply}
-                        onQuote={quoteHandler}
-                        onRepost={repostHandler}
-                        onUndoRepost={undoRepostHandler}
-                      />
-                    </div>
-                  ))}
+                  {feedWindowed && feedTopSpacer > 0 ? (
+                    <div
+                      style={{ height: feedTopSpacer }}
+                      aria-hidden="true"
+                      data-feed-window-spacer="top"
+                    />
+                  ) : null}
+                  {feedBlocks
+                    .slice(feedWindowStart, feedWindowEnd)
+                    .map(({ posts }, sliceIndex) => {
+                      const blockIndex = feedWindowStart + sliceIndex;
+                      const key = feedBlockKeys[blockIndex]!;
+                      return (
+                        <div
+                          key={key}
+                          ref={registerFeedRow(key)}
+                          className={
+                            feedWindowed
+                              ? 'home-feed-block home-feed-block--windowed'
+                              : 'home-feed-block'
+                          }
+                          data-feed-key={key}
+                        >
+                          <Divider
+                            variant="item"
+                            className={
+                              blockIndex > 0
+                                ? 'post-row-divider'
+                                : 'post-row-divider post-row-divider--leading-hidden'
+                            }
+                          />
+                          <FeedThreadBlock
+                            block={posts}
+                            groupId={groupId}
+                            showChannel={selectedFeedFilterId === 'all'}
+                            sheetContext={{
+                              guildId: groupId,
+                              roomId:
+                                selectedFeedFilterId === 'all'
+                                  ? null
+                                  : selectedFeedFilterId,
+                            }}
+                            channelTitleById={channelTitleById}
+                            postAuthorProfiles={postAuthorProfiles}
+                            quotedPosts={quotedPosts}
+                            engagement={engagement}
+                            isReactionPending={isReactionPending}
+                            isSavePending={isSavePending}
+                            isSharePending={isSharePending}
+                            onToggleReaction={toggleReaction}
+                            onToggleSave={toggleSave}
+                            onAmplifyConfirmed={confirmAmplify}
+                            pollTallyFor={pollTallyFor}
+                            isPollVotePending={isPollVotePending}
+                            onPollVote={(post, optionIndex) => {
+                              void castVote(post, optionIndex);
+                            }}
+                            onReply={replyHandler}
+                            onExpandReply={openFullReply}
+                            onQuote={quoteHandler}
+                            onRepost={repostHandler}
+                            onUndoRepost={undoRepostHandler}
+                          />
+                        </div>
+                      );
+                    })}
+                  {feedWindowed && feedBottomSpacer > 0 ? (
+                    <div
+                      style={{ height: feedBottomSpacer }}
+                      aria-hidden="true"
+                      data-feed-window-spacer="bottom"
+                    />
+                  ) : null}
                   {loadMoreError ? (
                     <OsChromeListAlert
                       message={GUILD_FEED_LOAD_MORE_ERROR}
