@@ -128,6 +128,7 @@ export function OsChipRail<TId extends string | null = string>(
       <div
         className={joinClassNames(
           'discover-tab-bar-scroller',
+          'os-scrollbar-none',
           scrollerClassName
         )}
         ref={setScroller}

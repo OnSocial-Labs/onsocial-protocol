@@ -19,7 +19,7 @@ export function PageDrawerHoldingsRail({
   }
 
   return (
-    <div className="page-drawer-media-rail" aria-label="Collectibles">
+    <div className="page-drawer-media-rail os-scrollbar-none" aria-label="Collectibles">
       {groupHoldingsForRail(holdings).map((item) => (
         <Link
           key={item.tokenId}
@@ -63,7 +63,7 @@ export function PageDrawerCreatedRail({
   }
 
   return (
-    <div className="page-drawer-media-rail" aria-label="Created scarces">
+    <div className="page-drawer-media-rail os-scrollbar-none" aria-label="Created scarces">
       {created.map((item) => {
         const titleHint = item.kindLabel
           ? `${item.title} · ${item.kindLabel}`

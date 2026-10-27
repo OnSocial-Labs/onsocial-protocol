@@ -1360,7 +1360,7 @@ export function LeaderboardSheet({
           <div className="leaderboard-sheet-content">
             <div
               ref={setPagerNode}
-              className="leaderboard-pager"
+              className="leaderboard-pager os-scrollbar-none"
               onScroll={handlePagerScroll}
             >
               {LEADERBOARD_TRACKS.map((item) => (

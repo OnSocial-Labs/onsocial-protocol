@@ -29,7 +29,7 @@ export function PortfolioLinks({
   }
 
   return (
-    <div className="portfolio-links-scroll">
+    <div className="portfolio-links-scroll os-scrollbar-none">
       <ul className="portfolio-links" data-portfolio-link-mode={face.mode}>
         {face.mode === 'drawer' ? (
           <li>

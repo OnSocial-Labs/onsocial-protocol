@@ -1140,7 +1140,7 @@ export function FeedPhotoEnlargeScreen({
           {showStage ? (
             stage
           ) : photos.length > 1 ? (
-            <div ref={trackRef} className="feed-photo-track">
+            <div ref={trackRef} className="feed-photo-track os-scrollbar-none">
               {photos.map((item, photoIndex) => (
                 <div
                   key={`${item.cid ?? item.url}:${photoIndex}`}

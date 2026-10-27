@@ -21,7 +21,7 @@ export function TopicSuggestionSlider({
 }) {
   return (
     <div
-      className="topic-chip-slider"
+      className="topic-chip-slider os-scrollbar-none"
       role="group"
       aria-label={ariaLabel}
     >

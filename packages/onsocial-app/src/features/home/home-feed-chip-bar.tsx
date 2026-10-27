@@ -74,7 +74,7 @@ export function HomeFeedChipBar({
       aria-label="Feed"
     >
       <div
-        className="discover-tab-bar-scroller"
+        className="discover-tab-bar-scroller os-scrollbar-none"
         ref={(node) => {
           scrollerRef.current = node;
           setScrollerNode(node);

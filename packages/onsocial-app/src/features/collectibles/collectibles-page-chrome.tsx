@@ -131,7 +131,7 @@ export function CollectiblesFilterToolbar({
       aria-hidden={shellInert || undefined}
       style={shellInert ? { pointerEvents: 'none' } : undefined}
     >
-      <div className="market-listing-filter-stack">
+      <div className="market-listing-filter-stack os-scrollbar-none">
         <OsChipRail
           className="market-listing-filters"
           ariaLabel="Collectible kind"

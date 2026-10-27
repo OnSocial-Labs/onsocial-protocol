@@ -542,7 +542,7 @@ export function EventsPagePanel({
       actions={<OsRowAction href={APP_EVENTS_NEW_PATH}>New event</OsRowAction>}
       toolbar={
         <OsAppChromeToolbarRail className="market-listing-toolbar">
-          <div className="market-listing-filter-stack">
+          <div className="market-listing-filter-stack os-scrollbar-none">
             <OsChipRail
               className="market-listing-filters"
               ariaLabel="Event list"

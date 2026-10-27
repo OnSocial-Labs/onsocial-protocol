@@ -204,7 +204,7 @@ export function GuildFeedFilterSkeleton() {
   return (
     <div className="guild-feed-filter-pin" data-guild-room-rail-skeleton>
       <div className="guild-feed-filter-pin-inner">
-        <div className="guild-feed-filter-list" aria-hidden>
+        <div className="guild-feed-filter-list os-scrollbar-none" aria-hidden>
           <span className="guild-feed-filter-button is-active">All</span>
           <span className="standing-row-shimmer guild-feed-filter-chip-shimmer" />
           <span className="standing-row-shimmer guild-feed-filter-chip-shimmer" />
@@ -270,7 +270,7 @@ export function GuildFeedFilterList({
         >
           <div
             ref={scrollerRef}
-            className="guild-feed-filter-list"
+            className="guild-feed-filter-list os-scrollbar-none"
             role="tablist"
             aria-label="Guild rooms"
           >

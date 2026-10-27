@@ -649,7 +649,7 @@ export function ProfileLinksEditor({
       <h3 className="sr-only">Links</h3>
 
       {showGlobe || faceFields.length > 0 ? (
-        <div className="portfolio-links-scroll">
+        <div className="portfolio-links-scroll os-scrollbar-none">
           <ul className="portfolio-links">
             {showGlobe ? (
               <li>

@@ -1288,7 +1288,7 @@ export function ComposerSheet({
     >
       <div className="guild-composer-toolbar">
         <div
-          className="guild-composer-toolbar-tools"
+          className="guild-composer-toolbar-tools os-scrollbar-none"
           role="group"
           aria-label="Add to post"
         >

@@ -74,7 +74,7 @@ export function MarketListingToolbar({
       style={shellInert ? { pointerEvents: 'none' } : undefined}
     >
       {hideListingTypes ? null : (
-        <div className="standing-view-menu market-listing-filter-stack">
+        <div className="standing-view-menu market-listing-filter-stack os-scrollbar-none">
           <OsChipRail
             className="market-listing-filters"
             ariaLabel="Listing type"

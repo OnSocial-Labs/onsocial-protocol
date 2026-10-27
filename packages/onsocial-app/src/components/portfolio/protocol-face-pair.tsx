@@ -292,7 +292,7 @@ export function ProtocolFacePair({
               Treasury
             </button>
           </div>
-          <div ref={pagerRef} className="protocol-face-pager">
+          <div ref={pagerRef} className="protocol-face-pager os-scrollbar-none">
             <div
               id="protocol-face-governance"
               className={`protocol-face-page${settled === 'governance' ? ' is-active' : ''}`}

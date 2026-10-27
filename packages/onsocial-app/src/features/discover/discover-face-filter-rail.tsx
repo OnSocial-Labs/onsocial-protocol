@@ -97,7 +97,7 @@ export function DiscoverFaceFilterRail() {
             role="group"
             aria-label="Craft"
           >
-            <div className="discover-tab-bar-scroller">
+            <div className="discover-tab-bar-scroller os-scrollbar-none">
               <button
                 type="button"
                 className={craft ? 'is-active' : undefined}
@@ -117,7 +117,7 @@ export function DiscoverFaceFilterRail() {
             role="group"
             aria-label="Industry"
           >
-            <div className="discover-tab-bar-scroller">
+            <div className="discover-tab-bar-scroller os-scrollbar-none">
               <button
                 type="button"
                 className={industry ? 'is-active' : undefined}

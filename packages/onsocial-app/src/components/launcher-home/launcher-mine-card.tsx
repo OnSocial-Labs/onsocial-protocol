@@ -14,14 +14,14 @@ import { communityMonogram } from '@/components/community-cards/community-monogr
 const MINE_BANNER_SIZES = '(max-width: 640px) 42vw, 232px';
 
 export function LauncherMineRail({ children }: { children: ReactNode }) {
-  return <ul className="launcher-mine-rail">{children}</ul>;
+  return <ul className="launcher-mine-rail os-scrollbar-none">{children}</ul>;
 }
 
 /** Horizontal card shimmer while mine membership loads. */
 export function LauncherMineRailSkeleton({ count = 4 }: { count?: number }) {
   return (
     <ul
-      className="launcher-mine-rail launcher-mine-rail--skeleton"
+      className="launcher-mine-rail launcher-mine-rail--skeleton os-scrollbar-none"
       aria-busy="true"
       aria-label="Loading your spaces"
     >

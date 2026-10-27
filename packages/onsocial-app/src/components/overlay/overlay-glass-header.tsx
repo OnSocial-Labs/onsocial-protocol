@@ -83,7 +83,7 @@ function OverlayHeaderFallback({
       <div className="standing-sheet-header profile-feed-sheet-header overlay-header-fallback">
         <div className="discover-sheet-title-row" aria-hidden>
           <div className="discover-tab-bar discover-tab-bar--header profile-feed-tab-bar">
-            <div className="discover-tab-bar-scroller">
+            <div className="discover-tab-bar-scroller os-scrollbar-none">
               <span className="standing-row-shimmer profile-feed-tab-fallback-chip" />
               <span className="standing-row-shimmer profile-feed-tab-fallback-chip" />
               <span className="standing-row-shimmer profile-feed-tab-fallback-chip" />

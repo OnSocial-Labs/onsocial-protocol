@@ -384,7 +384,7 @@ export function PostQuotesPanel({
       ) : null}
 
       {loadState === 'ready' && root ? (
-        <div ref={pagerRef} className="post-quotes-pager">
+        <div ref={pagerRef} className="post-quotes-pager os-scrollbar-none">
           <div
             id="post-quotes-page-quotes"
             className="post-quotes-page"

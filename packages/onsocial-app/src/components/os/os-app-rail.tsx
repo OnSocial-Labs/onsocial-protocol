@@ -81,7 +81,7 @@ export function OsAppRail({
 
   return (
     <nav className={rootClassName} aria-label={ariaLabel}>
-      <ul ref={listRef} className="gate-dapp-list">
+      <ul ref={listRef} className="gate-dapp-list os-scrollbar-none">
         {apps.map((app, index) => {
           const distance = Math.abs(index - activeIndex);
           const opacity =

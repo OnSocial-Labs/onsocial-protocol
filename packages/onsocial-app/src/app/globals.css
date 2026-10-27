@@ -618,12 +618,8 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
   overscroll-behavior-x: contain;
-  scrollbar-width: none;
 }
 
-.post-quotes-pager::-webkit-scrollbar,
-.glass-sheet-panel.leaderboard-page-sheet .leaderboard-pager::-webkit-scrollbar,
-.protocol-face-pager::-webkit-scrollbar,
 .collection-cover.is-card.is-immersive::after {
   display: none;
 }
@@ -748,7 +744,6 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
   overscroll-behavior-x: contain;
-  scrollbar-width: none;
 }
 
 .glass-sheet-panel.leaderboard-page-sheet .leaderboard-pager-page {
@@ -821,7 +816,6 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
   overscroll-behavior-x: contain;
-  scrollbar-width: none;
 }
 
 .protocol-face-page {
@@ -3324,6 +3318,19 @@ a.os-surface-row,
     }
   }
 
+  /*
+   * Scrollers that never show a rail — one shared pair for both engine paths
+   * (Chromium/WebKit pseudo + Firefox keyword). Overrides stay possible in
+   * later layers; nothing in the app competes on these two declarations.
+   */
+  .os-scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .os-scrollbar-none {
+    scrollbar-width: none;
+  }
+
   html,
   body {
     min-height: 100%;
@@ -3837,7 +3844,6 @@ a.os-surface-row,
     max-height: 9.5rem;
     overflow-y: auto;
     scroll-snap-type: y mandatory;
-    scrollbar-width: none;
     mask-image: linear-gradient(
       to bottom,
       transparent,
@@ -3847,7 +3853,6 @@ a.os-surface-row,
     );
   }
 
-  .gate-dapp-list::-webkit-scrollbar,
   .portfolio-frame[data-avatar-cover='true']
     .portfolio-identity
     > .portfolio-avatar,
@@ -12124,7 +12129,6 @@ a.os-surface-row,
     margin-inline: auto;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
     mask-image: linear-gradient(
       to right,
       transparent,
@@ -12132,10 +12136,6 @@ a.os-surface-row,
       black 92%,
       transparent
     );
-  }
-
-  .portfolio-links-scroll::-webkit-scrollbar {
-    display: none;
   }
 
   .portfolio-links {
@@ -14324,12 +14324,7 @@ a.os-surface-row,
     display: flex;
     gap: 0.2rem;
     overflow-x: auto;
-    scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
-  }
-
-  .discover-tab-bar-scroller::-webkit-scrollbar {
-    display: none;
   }
 
   /*
@@ -15721,11 +15716,6 @@ a.os-surface-row,
     min-width: 0;
     max-width: 100%;
     overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .os-write-dock-preview-strip::-webkit-scrollbar {
-    display: none;
   }
 
   .os-write-dock-preview-strip .os-write-dock-preview {
@@ -16414,16 +16404,11 @@ a.os-surface-row,
     padding: 0.05rem 0.1rem 0.35rem;
     scroll-padding-inline: 0.1rem;
     scroll-snap-type: x proximity;
-    scrollbar-width: none;
   }
 
   /* One live listing — do not leave a lonely 42% carousel card. */
   .page-drawer-media-rail.is-sparse {
     grid-auto-columns: minmax(12rem, 72%);
-  }
-
-  .page-drawer-media-rail::-webkit-scrollbar {
-    display: none;
   }
 
   .page-drawer-media-card {
@@ -32014,11 +31999,6 @@ a.os-surface-row,
     scroll-snap-stop: always;
     overscroll-behavior-x: contain;
     touch-action: pan-x;
-    scrollbar-width: none;
-  }
-
-  .feed-photo-track::-webkit-scrollbar {
-    display: none;
   }
 
   .feed-photo-page {
@@ -34307,12 +34287,7 @@ a.os-surface-row,
     scroll-snap-type: y mandatory;
     scroll-padding-block: calc(var(--drop-time-item) * 2);
     padding-block: calc(var(--drop-time-item) * 2);
-    scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
-  }
-
-  .drop-time-drum-list::-webkit-scrollbar {
-    display: none;
   }
 
   .drop-time-drum-option {
@@ -35700,11 +35675,6 @@ a.os-surface-row,
     align-items: center;
     gap: 0.35rem;
     overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .market-listing-filter-stack::-webkit-scrollbar {
-    display: none;
   }
 
   .market-listing-filters {
@@ -38422,13 +38392,8 @@ a.os-surface-row,
     overflow-y: hidden;
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
     padding-bottom: 0.15rem;
     touch-action: pan-x;
-  }
-
-  .guild-composer-media-preview::-webkit-scrollbar {
-    display: none;
   }
 
   .guild-composer-media-preview > [role='listitem'] {
@@ -38477,11 +38442,6 @@ a.os-surface-row,
     min-width: 0;
     overflow-x: auto;
     overflow-y: hidden;
-    scrollbar-width: none;
-  }
-
-  .guild-composer-toolbar-tools::-webkit-scrollbar {
-    display: none;
   }
 
   /*
@@ -39921,11 +39881,6 @@ a.os-surface-row,
     overflow-x: auto;
     margin-inline: -0.15rem;
     padding: 0.28rem 0.15rem 0.35rem;
-    scrollbar-width: none;
-  }
-
-  .guild-feed-filter-list::-webkit-scrollbar {
-    display: none;
   }
 
   .guild-feed-filter-button {
@@ -40298,7 +40253,6 @@ a.os-surface-row,
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
     gap: 0.35rem;
     padding-bottom: 0.15rem;
     mask-image: linear-gradient(
@@ -40307,11 +40261,6 @@ a.os-surface-row,
       #000 calc(100% - 1.25rem),
       transparent 100%
     );
-  }
-
-  .hub-categories-editor .topic-chip-slider::-webkit-scrollbar,
-  .guild-tags-editor .topic-chip-slider::-webkit-scrollbar {
-    display: none;
   }
 
   .topic-chip-slider-chip {
@@ -43472,11 +43421,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   padding: 0.05rem 0.1rem 0.35rem;
   scroll-padding-inline: 0.1rem;
   scroll-snap-type: x proximity;
-  scrollbar-width: none;
-}
-
-.launcher-mine-rail::-webkit-scrollbar {
-  display: none;
 }
 
 .launcher-mine-rail--skeleton {

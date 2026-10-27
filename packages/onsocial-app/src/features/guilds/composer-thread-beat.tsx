@@ -257,7 +257,7 @@ export function ComposerThreadBeat({
           {row.previews.length > 0 && !rowCanArticle ? (
             <div
               ref={focused ? mediaStripRef : undefined}
-              className="guild-composer-media-preview"
+              className="guild-composer-media-preview os-scrollbar-none"
               role="list"
               aria-label="Attached media"
             >
@@ -292,7 +292,7 @@ export function ComposerThreadBeat({
           ) : null}
           {row.drop ? (
             <div
-              className="guild-composer-media-preview"
+              className="guild-composer-media-preview os-scrollbar-none"
               role="list"
               aria-label={`Attached Drop: ${row.drop.title}`}
             >

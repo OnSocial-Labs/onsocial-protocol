@@ -381,7 +381,7 @@ export function OsWriteDock({
 
   const mediaPreviews =
     mediaFiles.length > 0 ? (
-      <div className="os-write-dock-preview-strip" role="list">
+      <div className="os-write-dock-preview-strip os-scrollbar-none" role="list">
         {mediaFiles.map((file, index) => {
           const previewUrl = postMediaLocalPreviewUrl(file);
           return (
