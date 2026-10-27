@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeftIcon, Divider, OsHugSheet } from '@onsocial/ui';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
@@ -9,6 +9,8 @@ import {
   ProfileSocialListRow,
   ProfileSocialListSkeleton,
 } from '@/components/panels/profile-social-list-row';
+import { useFeedWindow } from '@/features/home/use-feed-window';
+import { STANDING_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
@@ -168,6 +170,26 @@ export function ScarceFansSheet({
     if (frame !== 'page') return accounts;
     return filterGuestRoster(accounts, query);
   }, [accounts, frame, query]);
+  /*
+   * List windowing — same core as the social lists (#633) and the DM inbox
+   * (#644): past the row threshold, far roster rows collapse into spacers so
+   * a long guest list stops paying DOM cost offscreen. Rows are the short
+   * standing rows (~76px estimate); the measured cache corrects it after
+   * first paint. Keys follow the search filter — the hook re-syncs on
+   * mutation before paint.
+   */
+  const rowKeys = useMemo(
+    () => (visible ?? []).map((account) => account.accountId),
+    [visible]
+  );
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
+    useFeedWindow({
+      keys: rowKeys,
+      hostRef: listRef,
+      anchorQuery: STANDING_ANCHOR_QUERY,
+      estimate: 76,
+    });
   const loadError =
     Boolean(open) &&
     !idsLoading &&
@@ -189,13 +211,25 @@ export function ScarceFansSheet({
       {showSkeleton ? (
         <ProfileSocialListSkeleton count={skeletonCount} rowVariant="person" />
       ) : visible && visible.length > 0 ? (
-        <div className="standing-list scarce-fans-standing">
-          {visible.map((account, index) => {
+        <div className="standing-list scarce-fans-standing" ref={listRef}>
+          {windowed && topSpacer > 0 ? (
+            <div
+              style={{ height: topSpacer }}
+              aria-hidden="true"
+              data-feed-window-spacer="top"
+            />
+          ) : null}
+          {visible.slice(start, end).map((account, sliceIndex) => {
+            const index = start + sliceIndex;
             const isSelf =
               Boolean(viewerAccountId) &&
               accountIdsEqual(viewerAccountId!, account.accountId);
             return (
-              <div key={account.accountId}>
+              <div
+                key={account.accountId}
+                ref={registerRow(account.accountId)}
+                data-standing-key={account.accountId}
+              >
                 {index > 0 ? <Divider variant="item" /> : null}
                 <ProfileSocialListRow
                   account={account}
@@ -211,6 +245,13 @@ export function ScarceFansSheet({
               </div>
             );
           })}
+          {windowed && bottomSpacer > 0 ? (
+            <div
+              style={{ height: bottomSpacer }}
+              aria-hidden="true"
+              data-feed-window-spacer="bottom"
+            />
+          ) : null}
         </div>
       ) : (
         <p className="scarce-fans-empty">
