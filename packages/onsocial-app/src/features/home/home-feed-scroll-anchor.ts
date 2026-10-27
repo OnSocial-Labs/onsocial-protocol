@@ -90,6 +90,17 @@ export const STANDING_ANCHOR_QUERY: FeedAnchorQuery = {
   rowSelectorForKey: (key) => `[data-standing-key="${CSS.escape(key)}"]`,
 };
 
+/**
+ * Secondary infinite lists — every windowed wrapper carries
+ * `[data-secondary-key]`, shared by leaderboard tracks, endorsements,
+ * DAO proposals, discover guild/DAO/article rows, and quotes/reposters.
+ */
+export const SECONDARY_ANCHOR_QUERY: FeedAnchorQuery = {
+  rowSelector: '[data-secondary-key]',
+  rowKey: (el) => el.dataset.secondaryKey,
+  rowSelectorForKey: (key) => `[data-secondary-key="${CSS.escape(key)}"]`,
+};
+
 /** First row whose bottom edge is still inside the scroll root. */
 export function captureVisibleFeedAnchor(
   root: HTMLElement | null,

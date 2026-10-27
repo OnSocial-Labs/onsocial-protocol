@@ -16,6 +16,8 @@ import {
   OsProposalCardList,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { SECONDARY_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
+import { useFeedWindow } from '@/features/home/use-feed-window';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useMatchingDaoFaceEligibility } from '@/contexts/dao-face-eligibility-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -468,6 +470,25 @@ export function DaoWorkspacePanel({
     () => getVisibleProtocolBatch(filteredApplications, visibleCount),
     [filteredApplications, visibleCount]
   );
+
+  const proposalListHostRef = useRef<HTMLDivElement>(null);
+  const proposalKeys = useMemo(
+    () => paintedApplications.map((application) => String(application.app_id)),
+    [paintedApplications]
+  );
+  const {
+    windowed: proposalsWindowed,
+    start: proposalsStart,
+    end: proposalsEnd,
+    topSpacer: proposalsTopSpacer,
+    bottomSpacer: proposalsBottomSpacer,
+    registerRow: registerProposalRow,
+  } = useFeedWindow({
+    keys: proposalKeys,
+    hostRef: proposalListHostRef,
+    anchorQuery: SECONDARY_ANCHOR_QUERY,
+    estimate: 240,
+  });
 
   const loadMorePainted = useCallback(() => {
     setVisibleCount((count) =>
@@ -1903,11 +1924,35 @@ export function DaoWorkspacePanel({
       !inProposalDetail &&
       paintedApplications.length > 0 ? (
         <>
-          <OsProposalCardList className="protocol-card-list">
-            {paintedApplications.map((application) =>
-              renderProposalCard(application)
-            )}
-          </OsProposalCardList>
+          <div ref={proposalListHostRef}>
+            <OsProposalCardList className="protocol-card-list">
+              {proposalsWindowed && proposalsTopSpacer > 0 ? (
+                <div
+                  style={{ height: proposalsTopSpacer }}
+                  aria-hidden="true"
+                  data-feed-window-spacer="top"
+                />
+              ) : null}
+              {paintedApplications
+                .slice(proposalsStart, proposalsEnd)
+                .map((application) => (
+                  <div
+                    key={application.app_id}
+                    ref={registerProposalRow(String(application.app_id))}
+                    data-secondary-key={String(application.app_id)}
+                  >
+                    {renderProposalCard(application)}
+                  </div>
+                ))}
+              {proposalsWindowed && proposalsBottomSpacer > 0 ? (
+                <div
+                  style={{ height: proposalsBottomSpacer }}
+                  aria-hidden="true"
+                  data-feed-window-spacer="bottom"
+                />
+              ) : null}
+            </OsProposalCardList>
+          </div>
           {hasMorePainted || feedEndSummary ? (
             <div className="protocol-feed-load-more">
               {hasMorePainted ? (

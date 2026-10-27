@@ -37,6 +37,8 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useViewerEndorsement } from '@/hooks/use-viewer-endorsement';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
+import { SECONDARY_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
+import { useFeedWindow } from '@/features/home/use-feed-window';
 import { accountIdsEqual } from '@/lib/account-match';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { buildEndorsementEmptyState } from '@/lib/endorsement-empty-state';
@@ -140,6 +142,9 @@ async function fetchEndorsementsModePage(
 function rowKey(item: EndorsementPanelItem): string {
   return `${item.issuer}:${item.target}:${item.topic ?? ''}:${item.blockHeight}`;
 }
+
+/** Identity + topic rows run a little taller than the 76px standing row. */
+const ENDORSEMENT_ROW_ESTIMATE_PX = 96;
 
 function EndorsementCountBadge({ count }: { count: number }) {
   return (
@@ -316,6 +321,16 @@ export function EndorsementsPanel({
     );
   }, [items, mode, query]);
   const searching = query.trim().length > 0;
+
+  const listRef = useRef<HTMLDivElement>(null);
+  const itemKeys = useMemo(() => visibleItems.map(rowKey), [visibleItems]);
+  const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
+    useFeedWindow({
+      keys: itemKeys,
+      hostRef: listRef,
+      anchorQuery: SECONDARY_ANCHOR_QUERY,
+      estimate: ENDORSEMENT_ROW_ESTIMATE_PX,
+    });
 
   useEffect(() => {
     if (!focusOpen || !focusItem) return;
@@ -529,10 +544,21 @@ export function EndorsementsPanel({
           </div>
         </div>
       ) : (
-        <div className="standing-list endorsement-list">
-          {visibleItems.map((item, index) => (
-            <div key={rowKey(item)}>
-              {index > 0 ? <Divider variant="item" /> : null}
+        <div ref={listRef} className="standing-list endorsement-list">
+          {windowed && topSpacer > 0 ? (
+            <div
+              style={{ height: topSpacer }}
+              aria-hidden="true"
+              data-feed-window-spacer="top"
+            />
+          ) : null}
+          {visibleItems.slice(start, end).map((item, index) => (
+            <div
+              key={rowKey(item)}
+              ref={registerRow(rowKey(item))}
+              data-secondary-key={rowKey(item)}
+            >
+              {start + index > 0 ? <Divider variant="item" /> : null}
               <EndorsementListRow
                 item={item}
                 pageAccountId={accountId}
@@ -544,6 +570,13 @@ export function EndorsementsPanel({
               />
             </div>
           ))}
+          {windowed && bottomSpacer > 0 ? (
+            <div
+              style={{ height: bottomSpacer }}
+              aria-hidden="true"
+              data-feed-window-spacer="bottom"
+            />
+          ) : null}
           <div ref={loadMoreRef} className="endorsements-load-more" />
           {loadingMore ? (
             <p className="endorsements-loading-more">Loading more…</p>

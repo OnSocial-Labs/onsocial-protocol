@@ -91,10 +91,15 @@ import {
 } from '@/lib/moods/resolve';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
+import { SECONDARY_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
+import { useFeedWindow } from '@/features/home/use-feed-window';
 
 function topRankClass(rank: number): string {
   return rank <= 3 ? ' is-top' : '';
 }
+
+/** Standing-row height — the boards share the 76px social-row contract. */
+const LEADERBOARD_ROW_ESTIMATE_PX = 76;
 
 function rowsWithRankPresentation<T extends { rank: number }>(
   rows: T[]
@@ -209,10 +214,53 @@ function BoardRow({
   );
 }
 
-function BoardList({ children }: { children: React.ReactNode }) {
+/**
+ * One windowed board list. Far ranks collapse into spacers past the 30-row
+ * floor; the viewer row keeps its `role="listitem"` wrapper so measurement
+ * and anchors stay stable as pages append.
+ */
+function BoardWindowedList<T extends { accountId: string }>({
+  rows,
+  renderRow,
+}: {
+  rows: readonly T[];
+  renderRow: (row: T) => React.ReactNode;
+}) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const keys = useMemo(() => rows.map((row) => row.accountId), [rows]);
+  const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
+    useFeedWindow({
+      keys,
+      hostRef,
+      anchorQuery: SECONDARY_ANCHOR_QUERY,
+      estimate: LEADERBOARD_ROW_ESTIMATE_PX,
+    });
   return (
-    <div className="standing-list leaderboard-list" role="list">
-      {children}
+    <div ref={hostRef} className="standing-list leaderboard-list" role="list">
+      {windowed && topSpacer > 0 ? (
+        <div
+          style={{ height: topSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="top"
+        />
+      ) : null}
+      {rows.slice(start, end).map((row) => (
+        <div
+          key={row.accountId}
+          role="listitem"
+          ref={registerRow(row.accountId)}
+          data-secondary-key={row.accountId}
+        >
+          {renderRow(row)}
+        </div>
+      ))}
+      {windowed && bottomSpacer > 0 ? (
+        <div
+          style={{ height: bottomSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="bottom"
+        />
+      ) : null}
     </div>
   );
 }
@@ -231,31 +279,30 @@ function InfluenceRows({
   viewerRowRef?: Ref<HTMLDivElement>;
 }) {
   const leader = rows[0]?.effectiveBoost ?? '1';
-  const presented = rowsWithRankPresentation(rows);
+  const presented = useMemo(() => rowsWithRankPresentation(rows), [rows]);
   return (
-    <BoardList>
-      {presented.map((entry) => {
+    <BoardWindowedList
+      rows={presented}
+      renderRow={(entry) => {
         const isViewer = Boolean(findViewerEntry([entry], viewerAccountId));
         return (
-          <div key={entry.accountId} role="listitem">
-            <BoardRow
-              accountId={entry.accountId}
-              rank={entry.rank}
-              rankLabel={entry.rankLabel}
-              denseIndex={entry.denseIndex}
-              rankTied={entry.tied}
-              primary={formatLeaderboardAmount(entry.effectiveBoost)}
-              pct={pctOfLeader(entry.effectiveBoost, leader)}
-              track="influence"
-              profile={profiles[entry.accountId]}
-              onNavigate={onNavigate}
-              isViewer={isViewer}
-              rowRef={isViewer ? viewerRowRef : undefined}
-            />
-          </div>
+          <BoardRow
+            accountId={entry.accountId}
+            rank={entry.rank}
+            rankLabel={entry.rankLabel}
+            denseIndex={entry.denseIndex}
+            rankTied={entry.tied}
+            primary={formatLeaderboardAmount(entry.effectiveBoost)}
+            pct={pctOfLeader(entry.effectiveBoost, leader)}
+            track="influence"
+            profile={profiles[entry.accountId]}
+            onNavigate={onNavigate}
+            isViewer={isViewer}
+            rowRef={isViewer ? viewerRowRef : undefined}
+          />
         );
-      })}
-    </BoardList>
+      }}
+    />
   );
 }
 
@@ -275,32 +322,31 @@ function ReputationRows({
   onOpenFacts: (entry: ReputationEntry) => void;
 }) {
   const leader = rows[0]?.reputation ?? '1';
-  const presented = rowsWithRankPresentation(rows);
+  const presented = useMemo(() => rowsWithRankPresentation(rows), [rows]);
   return (
-    <BoardList>
-      {presented.map((entry) => {
+    <BoardWindowedList
+      rows={presented}
+      renderRow={(entry) => {
         const isViewer = Boolean(findViewerEntry([entry], viewerAccountId));
         return (
-          <div key={entry.accountId} role="listitem">
-            <BoardRow
-              accountId={entry.accountId}
-              rank={entry.rank}
-              rankLabel={entry.rankLabel}
-              denseIndex={entry.denseIndex}
-              rankTied={entry.tied}
-              primary={formatReputationScore(entry.reputation)}
-              pct={pctOfLeader(entry.reputation, leader)}
-              track="reputation"
-              profile={profiles[entry.accountId]}
-              onNavigate={onNavigate}
-              onOpenFacts={() => onOpenFacts(entry)}
-              isViewer={isViewer}
-              rowRef={isViewer ? viewerRowRef : undefined}
-            />
-          </div>
+          <BoardRow
+            accountId={entry.accountId}
+            rank={entry.rank}
+            rankLabel={entry.rankLabel}
+            denseIndex={entry.denseIndex}
+            rankTied={entry.tied}
+            primary={formatReputationScore(entry.reputation)}
+            pct={pctOfLeader(entry.reputation, leader)}
+            track="reputation"
+            profile={profiles[entry.accountId]}
+            onNavigate={onNavigate}
+            onOpenFacts={() => onOpenFacts(entry)}
+            isViewer={isViewer}
+            rowRef={isViewer ? viewerRowRef : undefined}
+          />
         );
-      })}
-    </BoardList>
+      }}
+    />
   );
 }
 
@@ -318,31 +364,30 @@ function EarnerRows({
   viewerRowRef?: Ref<HTMLDivElement>;
 }) {
   const leader = rows[0]?.totalEarned ?? '1';
-  const presented = rowsWithRankPresentation(rows);
+  const presented = useMemo(() => rowsWithRankPresentation(rows), [rows]);
   return (
-    <BoardList>
-      {presented.map((entry) => {
+    <BoardWindowedList
+      rows={presented}
+      renderRow={(entry) => {
         const isViewer = Boolean(findViewerEntry([entry], viewerAccountId));
         return (
-          <div key={entry.accountId} role="listitem">
-            <BoardRow
-              accountId={entry.accountId}
-              rank={entry.rank}
-              rankLabel={entry.rankLabel}
-              denseIndex={entry.denseIndex}
-              rankTied={entry.tied}
-              primary={formatLeaderboardAmount(entry.totalEarned)}
-              pct={pctOfLeader(entry.totalEarned, leader)}
-              track="earners"
-              profile={profiles[entry.accountId]}
-              onNavigate={onNavigate}
-              isViewer={isViewer}
-              rowRef={isViewer ? viewerRowRef : undefined}
-            />
-          </div>
+          <BoardRow
+            accountId={entry.accountId}
+            rank={entry.rank}
+            rankLabel={entry.rankLabel}
+            denseIndex={entry.denseIndex}
+            rankTied={entry.tied}
+            primary={formatLeaderboardAmount(entry.totalEarned)}
+            pct={pctOfLeader(entry.totalEarned, leader)}
+            track="earners"
+            profile={profiles[entry.accountId]}
+            onNavigate={onNavigate}
+            isViewer={isViewer}
+            rowRef={isViewer ? viewerRowRef : undefined}
+          />
         );
-      })}
-    </BoardList>
+      }}
+    />
   );
 }
 
@@ -594,6 +639,10 @@ function LeaderboardTrackPage({
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const viewerRowRef = useRef<HTMLDivElement | null>(null);
+  // State so the pin observer re-attaches when the window remounts the row.
+  const [viewerRowNode, setViewerRowNode] = useState<HTMLDivElement | null>(
+    null
+  );
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const settledViewerRef = useRef(false);
   const loadingMoreRef = useRef(false);
@@ -619,6 +668,7 @@ function LeaderboardTrackPage({
   const setViewerNode = useCallback(
     (node: HTMLDivElement | null) => {
       viewerRowRef.current = node;
+      setViewerRowNode(node);
       registerViewerRow(track, node);
     },
     [registerViewerRow, track]
@@ -639,9 +689,8 @@ function LeaderboardTrackPage({
       if (active) onPinnedChange(track, false);
       return;
     }
-    const row = viewerRowRef.current;
     const root = scrollRef.current;
-    if (!row || !root) return;
+    if (!viewerRowNode || !root) return;
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
@@ -654,9 +703,9 @@ function LeaderboardTrackPage({
         rootMargin: '0px 0px -6% 0px',
       }
     );
-    observer.observe(row);
+    observer.observe(viewerRowNode);
     return () => observer.disconnect();
-  }, [active, onPinnedChange, rows, track, viewerInListRow]);
+  }, [active, onPinnedChange, rows, track, viewerInListRow, viewerRowNode]);
 
   useEffect(() => {
     if (!active || settledViewerRef.current) return;
@@ -664,12 +713,11 @@ function LeaderboardTrackPage({
       if (rows) settledViewerRef.current = true;
       return;
     }
-    const row = viewerRowRef.current;
     const scroller = scrollRef.current;
-    if (!row || !scroller) return;
+    if (!viewerRowNode || !scroller) return;
     settledViewerRef.current = true;
-    scrollRowIntoPage(scroller, row);
-  }, [active, rows, viewerInListRow]);
+    scrollRowIntoPage(scroller, viewerRowNode);
+  }, [active, rows, viewerInListRow, viewerRowNode]);
 
   const loadMore = useCallback(async () => {
     if (!hasMore || loadingMoreRef.current || !rows) return;
@@ -1198,10 +1246,26 @@ export function LeaderboardSheet({
 
   const scrollToViewer = useCallback(() => {
     const scroller = pageScrollRefs.current[track];
+    if (!scroller) return;
     const row = viewerRowRefs.current[track];
-    if (!scroller || !row) return;
-    scrollRowIntoPage(scroller, row);
-  }, [track]);
+    if (row) {
+      scrollRowIntoPage(scroller, row);
+      return;
+    }
+    // Deep boards window the viewer row out — land on its estimated slot so
+    // the window remounts it there (rows share the uniform 76px contract).
+    const index = (rows ?? []).findIndex(
+      (entry) => entry.accountId === viewerId
+    );
+    if (index < 0) return;
+    scroller.scrollTo({
+      top: Math.max(
+        0,
+        (index + 0.5) * LEADERBOARD_ROW_ESTIMATE_PX - scroller.clientHeight / 2
+      ),
+      behavior: leaderboardPagerMotion(),
+    });
+  }, [rows, track, viewerId]);
 
   const stickyFooter =
     stickyViewer && rows && !pageErrors[track] ? (

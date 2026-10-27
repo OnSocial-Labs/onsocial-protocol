@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from 'react';
 import { ChevronLeftIcon, NoteTextFillIcon } from '@onsocial/ui';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
@@ -23,6 +30,8 @@ import {
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { SECONDARY_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
+import { useFeedWindow } from '@/features/home/use-feed-window';
 import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 import { SHEET_Z } from '@/lib/sheet-z';
 
@@ -58,6 +67,18 @@ export function DiscoverArticlesList({
   const authors = usePostAuthorProfiles(rows.map((row) => row.accountId));
   const { covers, posts } = useDiscoverArticleCovers(rows);
   const { engagement } = usePostEngagement(posts);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const rowKeys = useMemo(
+    () => rows.map((row) => `${row.accountId}/${row.postId}`),
+    [rows]
+  );
+  const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
+    useFeedWindow({
+      keys: rowKeys,
+      hostRef: listRef,
+      anchorQuery: SECONDARY_ANCHOR_QUERY,
+      estimate: 112,
+    });
 
   useEffect(() => {
     if (!open) return;
@@ -178,28 +199,47 @@ export function DiscoverArticlesList({
       {!loading && isDiscoverCatalogQuery(trimmed) && rows.length === 0 ? (
         <p className="market-section-title">Nothing matches.</p>
       ) : null}
-      <div role="list">
-        {rows.map((article) => (
-          <DiscoverArticleRow
-            key={`${article.accountId}/${article.postId}`}
-            accountId={article.accountId}
-            postId={article.postId}
-            title={article.title}
-            profileName={authors[article.accountId]?.displayName}
-            avatarUrl={authors[article.accountId]?.avatarUrl}
-            cover={
-              covers[
-                discoverArticleCoverKey(article.accountId, article.postId)
-              ]
-            }
-            blockTimestamp={article.blockTimestamp}
-            likeCount={
-              engagement[`${article.accountId}:${article.postId}`]
-                ?.reactionCount
-            }
-            onOpen={(event) => openRow(article, event)}
+      <div ref={listRef} role="list">
+        {windowed && topSpacer > 0 ? (
+          <div
+            style={{ height: topSpacer }}
+            aria-hidden="true"
+            data-feed-window-spacer="top"
           />
+        ) : null}
+        {rows.slice(start, end).map((article) => (
+          <div
+            key={`${article.accountId}/${article.postId}`}
+            ref={registerRow(`${article.accountId}/${article.postId}`)}
+            data-secondary-key={`${article.accountId}/${article.postId}`}
+          >
+            <DiscoverArticleRow
+              accountId={article.accountId}
+              postId={article.postId}
+              title={article.title}
+              profileName={authors[article.accountId]?.displayName}
+              avatarUrl={authors[article.accountId]?.avatarUrl}
+              cover={
+                covers[
+                  discoverArticleCoverKey(article.accountId, article.postId)
+                ]
+              }
+              blockTimestamp={article.blockTimestamp}
+              likeCount={
+                engagement[`${article.accountId}:${article.postId}`]
+                  ?.reactionCount
+              }
+              onOpen={(event) => openRow(article, event)}
+            />
+          </div>
         ))}
+        {windowed && bottomSpacer > 0 ? (
+          <div
+            style={{ height: bottomSpacer }}
+            aria-hidden="true"
+            data-feed-window-spacer="bottom"
+          />
+        ) : null}
       </div>
       {loadingMore ? <MarketListSkeleton rows={2} /> : null}
       {loadMoreFailed ? (

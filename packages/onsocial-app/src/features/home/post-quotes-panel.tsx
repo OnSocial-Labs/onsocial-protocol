@@ -28,6 +28,8 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { OsLoadMore } from '@/lib/os-load-more';
+import { SECONDARY_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
+import { useFeedWindow } from '@/features/home/use-feed-window';
 import { fetchIndexedPost } from '@/lib/fetch-personal-post';
 import {
   POST_QUOTES_PAGE_SIZE,
@@ -237,6 +239,27 @@ export function PostQuotesPanel({
   const thumbRef = useRef<HTMLSpanElement>(null);
   const settledRef = useRef<QuotesTab>(activeTab);
 
+  // Each tab page owns a vertical scroller; the window hosts sit inside them.
+  const quotesListRef = useRef<HTMLDivElement>(null);
+  const repostersListRef = useRef<HTMLDivElement>(null);
+  const quoteKeys = useMemo(() => quotes.map(postKey), [quotes]);
+  const reposterKeys = useMemo(
+    () => reposters.map((row) => `${row.accountId}:${row.repostId}`),
+    [reposters]
+  );
+  const quotesWindow = useFeedWindow({
+    keys: quoteKeys,
+    hostRef: quotesListRef,
+    anchorQuery: SECONDARY_ANCHOR_QUERY,
+    estimate: 320,
+  });
+  const repostersWindow = useFeedWindow({
+    keys: reposterKeys,
+    hostRef: repostersListRef,
+    anchorQuery: SECONDARY_ANCHOR_QUERY,
+    estimate: 76,
+  });
+
   const placeThumb = useCallback(() => {
     const pager = pagerRef.current;
     const track = trackRef.current;
@@ -394,50 +417,76 @@ export function PostQuotesPanel({
             inert={activeTab !== 'quotes'}
           >
             <div className={`${GUILDS_PAGE_CLASS} post-quotes-page-scroll`}>
-              {quotes.length > 0 ? (
-                quotes.map((quote, index) => {
-                  const quoted = resolveQuotedInset(quote, {}, root);
-                  return (
-                    <div key={postKey(quote)}>
-                      <Divider
-                        variant="item"
-                        className={
-                          index > 0
-                            ? 'post-row-divider'
-                            : 'post-row-divider post-row-divider--leading-hidden'
-                        }
-                      />
-                      <PostCard
-                        post={quote}
-                        authorProfile={postAuthorProfiles[quote.accountId]}
-                        actionHref={postThreadPath(quote)}
-                        showRelationBadge={false}
-                        quotedPost={quoted}
-                        quotedAuthorProfile={
-                          quoted
-                            ? postAuthorProfiles[quoted.accountId]
-                            : undefined
-                        }
-                        quotedHref={quoted ? postThreadPath(quoted) : undefined}
-                        engagement={
-                          engagement[postKey(quote)] ?? EMPTY_POST_ENGAGEMENT
-                        }
-                        reactionPending={isReactionPending(quote)}
-                        savePending={isSavePending(quote)}
-                        onToggleReaction={toggleReaction}
-                        onToggleSave={toggleSave}
-                        pollTally={pollTallyFor(quote)}
-                        pollVotePending={isPollVotePending(quote)}
-                        onPollVote={(post, optionIndex) => {
-                          void castVote(post, optionIndex);
-                        }}
-                      />
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="guild-state-card">No quotes yet.</div>
-              )}
+              <div ref={quotesListRef}>
+                {quotesWindow.windowed && quotesWindow.topSpacer > 0 ? (
+                  <div
+                    style={{ height: quotesWindow.topSpacer }}
+                    aria-hidden="true"
+                    data-feed-window-spacer="top"
+                  />
+                ) : null}
+                {quotes.length > 0 ? (
+                  quotes
+                    .slice(quotesWindow.start, quotesWindow.end)
+                    .map((quote, sliceIndex) => {
+                      const index = quotesWindow.start + sliceIndex;
+                      const quoted = resolveQuotedInset(quote, {}, root);
+                      return (
+                        <div
+                          key={postKey(quote)}
+                          ref={quotesWindow.registerRow(postKey(quote))}
+                          data-secondary-key={postKey(quote)}
+                        >
+                          <Divider
+                            variant="item"
+                            className={
+                              index > 0
+                                ? 'post-row-divider'
+                                : 'post-row-divider post-row-divider--leading-hidden'
+                            }
+                          />
+                          <PostCard
+                            post={quote}
+                            authorProfile={postAuthorProfiles[quote.accountId]}
+                            actionHref={postThreadPath(quote)}
+                            showRelationBadge={false}
+                            quotedPost={quoted}
+                            quotedAuthorProfile={
+                              quoted
+                                ? postAuthorProfiles[quoted.accountId]
+                                : undefined
+                            }
+                            quotedHref={
+                              quoted ? postThreadPath(quoted) : undefined
+                            }
+                            engagement={
+                              engagement[postKey(quote)] ??
+                              EMPTY_POST_ENGAGEMENT
+                            }
+                            reactionPending={isReactionPending(quote)}
+                            savePending={isSavePending(quote)}
+                            onToggleReaction={toggleReaction}
+                            onToggleSave={toggleSave}
+                            pollTally={pollTallyFor(quote)}
+                            pollVotePending={isPollVotePending(quote)}
+                            onPollVote={(post, optionIndex) => {
+                              void castVote(post, optionIndex);
+                            }}
+                          />
+                        </div>
+                      );
+                    })
+                ) : (
+                  <div className="guild-state-card">No quotes yet.</div>
+                )}
+                {quotesWindow.windowed && quotesWindow.bottomSpacer > 0 ? (
+                  <div
+                    style={{ height: quotesWindow.bottomSpacer }}
+                    aria-hidden="true"
+                    data-feed-window-spacer="bottom"
+                  />
+                ) : null}
+              </div>
               {hasMoreQuotes ? (
                 <OsLoadMore
                   onClick={() => void loadMore('quotes')}
@@ -458,44 +507,75 @@ export function PostQuotesPanel({
             inert={activeTab !== 'reposts'}
           >
             <div className={`${GUILDS_PAGE_CLASS} post-quotes-page-scroll`}>
-              {reposters.length > 0 ? (
-                reposters.map((row, index) => {
-                  const profile = postAuthorProfiles[row.accountId];
-                  const name = displayName(row.accountId, profile?.displayName);
-                  return (
-                    <div key={`${row.accountId}:${row.repostId}`}>
-                      {index > 0 ? (
-                        <Divider variant="item" className="post-row-divider" />
-                      ) : null}
-                      <Link
-                        href={portfolioPath(row.accountId)}
-                        className="post-quotes-repost-row"
-                        scroll={false}
-                      >
-                        <AccountAvatar
-                          accountId={row.accountId}
-                          kind={profile?.kind}
-                          src={profile?.avatarUrl ?? null}
-                          fallbackInitial={name}
-                          size="lg"
-                          className="post-card-avatar"
-                        />
-                        <PostIdentityMeta
-                          name={name}
-                          accountId={row.accountId}
-                          timestamp={row.blockTimestamp}
-                        />
-                        <RepeatIcon
-                          className="post-quotes-repost-row-icon"
-                          aria-hidden
-                        />
-                      </Link>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="guild-state-card">No reposts yet.</div>
-              )}
+              <div ref={repostersListRef}>
+                {repostersWindow.windowed && repostersWindow.topSpacer > 0 ? (
+                  <div
+                    style={{ height: repostersWindow.topSpacer }}
+                    aria-hidden="true"
+                    data-feed-window-spacer="top"
+                  />
+                ) : null}
+                {reposters.length > 0 ? (
+                  reposters
+                    .slice(repostersWindow.start, repostersWindow.end)
+                    .map((row, sliceIndex) => {
+                      const index = repostersWindow.start + sliceIndex;
+                      const rowKey = `${row.accountId}:${row.repostId}`;
+                      const profile = postAuthorProfiles[row.accountId];
+                      const name = displayName(
+                        row.accountId,
+                        profile?.displayName
+                      );
+                      return (
+                        <div
+                          key={rowKey}
+                          ref={repostersWindow.registerRow(rowKey)}
+                          data-secondary-key={rowKey}
+                        >
+                          {index > 0 ? (
+                            <Divider
+                              variant="item"
+                              className="post-row-divider"
+                            />
+                          ) : null}
+                          <Link
+                            href={portfolioPath(row.accountId)}
+                            className="post-quotes-repost-row"
+                            scroll={false}
+                          >
+                            <AccountAvatar
+                              accountId={row.accountId}
+                              kind={profile?.kind}
+                              src={profile?.avatarUrl ?? null}
+                              fallbackInitial={name}
+                              size="lg"
+                              className="post-card-avatar"
+                            />
+                            <PostIdentityMeta
+                              name={name}
+                              accountId={row.accountId}
+                              timestamp={row.blockTimestamp}
+                            />
+                            <RepeatIcon
+                              className="post-quotes-repost-row-icon"
+                              aria-hidden
+                            />
+                          </Link>
+                        </div>
+                      );
+                    })
+                ) : (
+                  <div className="guild-state-card">No reposts yet.</div>
+                )}
+                {repostersWindow.windowed &&
+                repostersWindow.bottomSpacer > 0 ? (
+                  <div
+                    style={{ height: repostersWindow.bottomSpacer }}
+                    aria-hidden="true"
+                    data-feed-window-spacer="bottom"
+                  />
+                ) : null}
+              </div>
               {hasMoreReposters ? (
                 <OsLoadMore
                   onClick={() => void loadMore('reposts')}

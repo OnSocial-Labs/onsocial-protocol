@@ -26,6 +26,8 @@ import {
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { SECONDARY_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
+import { useFeedWindow } from '@/features/home/use-feed-window';
 import { APP_GROUPS_PATH } from '@/lib/app-routes';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import {
@@ -263,7 +265,8 @@ export function DiscoverGuildsPanel() {
   useInfiniteScrollSentinel({
     scrollRootRef,
     sentinelRef: loadMoreRef,
-    enabled: paging && !moreLoading && !pending && !searchPending && !loadMoreError,
+    enabled:
+      paging && !moreLoading && !pending && !searchPending && !loadMoreError,
     onIntersect: loadMore,
   });
 
@@ -335,6 +338,18 @@ export function DiscoverGuildsPanel() {
   }, [activeSearchResults, activeTopicFilter, browseGuilds, searchQuery]);
 
   const showSkeleton = browseGuilds == null && pending;
+  const listRef = useRef<HTMLDivElement>(null);
+  const guildKeys = useMemo(
+    () => visibleGuilds.map((guild) => guild.groupId),
+    [visibleGuilds]
+  );
+  const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
+    useFeedWindow({
+      keys: guildKeys,
+      hostRef: listRef,
+      anchorQuery: SECONDARY_ANCHOR_QUERY,
+      estimate: 112,
+    });
   const isSearchEmpty =
     Boolean(searchQuery) &&
     !searchPending &&
@@ -443,14 +458,30 @@ export function DiscoverGuildsPanel() {
       ) : null}
 
       {!showSkeleton && visibleGuilds.length > 0 ? (
-        <div className="community-summary-card-grid">
-          {visibleGuilds.map((guild) => (
-            <GuildSummaryCard
-              key={guild.groupId}
-              guild={guild}
-              variant="grid"
+        <div ref={listRef} className="community-summary-card-grid">
+          {windowed && topSpacer > 0 ? (
+            <div
+              style={{ height: topSpacer }}
+              aria-hidden="true"
+              data-feed-window-spacer="top"
             />
+          ) : null}
+          {visibleGuilds.slice(start, end).map((guild) => (
+            <div
+              key={guild.groupId}
+              ref={registerRow(guild.groupId)}
+              data-secondary-key={guild.groupId}
+            >
+              <GuildSummaryCard guild={guild} variant="grid" />
+            </div>
           ))}
+          {windowed && bottomSpacer > 0 ? (
+            <div
+              style={{ height: bottomSpacer }}
+              aria-hidden="true"
+              data-feed-window-spacer="bottom"
+            />
+          ) : null}
         </div>
       ) : null}
 
