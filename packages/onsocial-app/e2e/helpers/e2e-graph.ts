@@ -12,6 +12,7 @@ import {
   type E2eGraphMarket,
   type E2eGraphVault,
   type E2eGraphArticles,
+  type E2eGraphProfile,
   type E2eGraphWriting,
 } from '../../src/lib/e2e-graph-stubs';
 
@@ -104,6 +105,14 @@ export async function setE2eGraphArticles(
   articles: E2eGraphArticles
 ): Promise<void> {
   await setE2eGraphCookie(page, { articles });
+}
+
+/** Opt SSR profile-shell reads into a fixture (banner image for hero tests). */
+export async function setE2eGraphProfile(
+  page: Page,
+  profile: E2eGraphProfile
+): Promise<void> {
+  await setE2eGraphCookie(page, { profile });
 }
 
 /** Opt SSR into Writing shelf articles. */

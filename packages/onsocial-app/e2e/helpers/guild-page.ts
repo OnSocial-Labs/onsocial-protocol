@@ -50,7 +50,12 @@ function guildFixture(opts?: {
   return 'empty';
 }
 
-function groupConfig(opts?: { ownerId?: string; accessGated?: boolean }) {
+function groupConfig(opts?: {
+  ownerId?: string;
+  accessGated?: boolean;
+  bannerCid?: string;
+  badgeCid?: string;
+}) {
   const ownerId = opts?.ownerId ?? GUILD_E2E_OWNER;
   return {
     name: GUILD_E2E_STORED_NAME,
@@ -61,6 +66,10 @@ function groupConfig(opts?: { ownerId?: string; accessGated?: boolean }) {
     topics: ['builders'],
     x: {
       onsocial: {
+        /* RPC config wins on reconciliation — hero media must match the
+         * indexed row or the painted banner unmounts. */
+        ...(opts?.bannerCid ? { banner: { cid: opts.bannerCid } } : {}),
+        ...(opts?.badgeCid ? { badge: { cid: opts.badgeCid } } : {}),
         structure: {
           v: 1,
           defaultSpaceId: 'general',
@@ -111,6 +120,9 @@ export async function stubGuildPage(
     bannedId?: string;
     /** Marks the guild access-gated (isPublic: false) across stubs. */
     accessGated?: boolean;
+    /** Banner / badge CIDs on the indexed group row (hero + cover art). */
+    bannerCid?: string;
+    badgeCid?: string;
   }
 ): Promise<void> {
   const rows = opts?.rows ?? 'empty';
@@ -147,6 +159,8 @@ export async function stubGuildPage(
           data: {
             groupsCurrent: e2eGuildCurrentRows(guild, {
               isPublic: !opts?.accessGated,
+              bannerCid: opts?.bannerCid ?? null,
+              badgeCid: opts?.badgeCid ?? null,
             }),
           },
         })
@@ -242,7 +256,8 @@ export async function stubGuildPage(
       url.searchParams.get('requesterId') ??
       '';
     const isOwnerViewer = Boolean(userId) && userId === ownerId;
-    const isBannedViewer = Boolean(userId) && bannedId != null && userId === bannedId;
+    const isBannedViewer =
+      Boolean(userId) && bannedId != null && userId === bannedId;
     const isMemberViewer =
       Boolean(userId) &&
       !isBannedViewer &&
@@ -253,7 +268,12 @@ export async function stubGuildPage(
         json(
           missing
             ? null
-            : groupConfig({ ownerId, accessGated: opts?.accessGated })
+            : groupConfig({
+                ownerId,
+                accessGated: opts?.accessGated,
+                bannerCid: opts?.bannerCid,
+                badgeCid: opts?.badgeCid,
+              })
         )
       );
       return;

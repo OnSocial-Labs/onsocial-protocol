@@ -23,6 +23,9 @@ export const E2E_GUILD_OWNER = 'alice.near';
 export const E2E_MARKET_CREATOR = 'e2e.market.testnet';
 export const E2E_MARKET_LIVE_ASK = 'e2e-live-first Live Ask';
 export const E2E_MARKET_ENDED_LOT = 'e2e-live-first Ended Lot';
+export const E2E_PROFILE_ACCOUNT = 'banner-e2e.testnet';
+export const E2E_PROFILE_BANNER_CID =
+  'bafkreihnbre4v4i7wpwxsepdmxbm6dy7zhyb5cw7dds6x6jz7fr6lin5ni';
 
 export type E2eGraphCatalog = 'night-roads' | 'empty';
 export type E2eGraphVault = 'default' | 'many-creators' | 'empty';
@@ -33,6 +36,8 @@ export type E2eGraphDrop = 'default' | 'held' | 'missing';
 export type E2eGraphDrops = 'covers' | 'events';
 export type E2eGraphWriting = 'shelf' | 'reader';
 export type E2eGraphArticles = 'list';
+/** SSR profile shell fixture — `banner` carries a CDN banner image. */
+export type E2eGraphProfile = 'banner';
 export type E2eDropCollectionId =
   | 'night-drive'
   | 'chapter-one'
@@ -49,6 +54,7 @@ export type E2eGraphCookieValue = {
   drops?: E2eGraphDrops;
   writing?: E2eGraphWriting;
   articles?: E2eGraphArticles;
+  profile?: E2eGraphProfile;
 };
 
 const TWO_NEAR_YOCTO = '2000000000000000000000000';
@@ -121,6 +127,8 @@ export function parseE2eGraphCookie(
   }
   const articles = params.get('articles');
   if (articles === 'list') parsed.articles = articles;
+  const profile = params.get('profile');
+  if (profile === 'banner') parsed.profile = profile;
   return parsed;
 }
 
@@ -142,6 +150,7 @@ export function serializeE2eGraphCookie(opts: E2eGraphCookieValue): string {
   if (opts.drops) params.set('drops', opts.drops);
   if (opts.writing) params.set('writing', opts.writing);
   if (opts.articles) params.set('articles', opts.articles);
+  if (opts.profile) params.set('profile', opts.profile);
   return params.toString();
 }
 
@@ -642,7 +651,11 @@ function e2eGuildMemberRow(opts: {
 
 export function e2eGuildCurrentRows(
   guild: E2eGraphGuild,
-  opts?: { isPublic?: boolean }
+  opts?: {
+    isPublic?: boolean;
+    bannerCid?: string | null;
+    badgeCid?: string | null;
+  }
 ) {
   if (guild === 'missing') return [];
   return [
@@ -651,8 +664,8 @@ export function e2eGuildCurrentRows(
       ownerId: e2eGuildOwnerId(guild),
       groupName: E2E_GUILD_STORED_NAME,
       groupDescription: 'A stub guild for e2e.',
-      groupBannerCid: null,
-      groupBadgeCid: null,
+      groupBannerCid: opts?.bannerCid ?? null,
+      groupBadgeCid: opts?.badgeCid ?? null,
       isPublic: opts?.isPublic ?? true,
       isMemberDriven: false,
       groupTopics: ['builders'],
@@ -660,6 +673,36 @@ export function e2eGuildCurrentRows(
       blockTimestamp: 1,
     },
   ];
+}
+
+/**
+ * `profilesCurrent` field rows for the banner profile fixture — enough for
+ * `rowsToProfile` to materialise name + banner (image kind via ipfs://).
+ */
+export function e2eProfileBannerRows() {
+  return [
+    {
+      accountId: E2E_PROFILE_ACCOUNT,
+      field: 'name',
+      value: 'Banner E2E',
+      blockHeight: 1,
+      blockTimestamp: 1,
+      operation: 'add',
+    },
+    {
+      accountId: E2E_PROFILE_ACCOUNT,
+      field: 'banner',
+      value: `ipfs://${E2E_PROFILE_BANNER_CID}`,
+      blockHeight: 1,
+      blockTimestamp: 1,
+      operation: 'add',
+    },
+  ];
+}
+
+/** Single-account shell read (`os.profiles.get`) — not the batch variants. */
+export function isProfileGetQuery(query: string): boolean {
+  return query.includes('query Profile(');
 }
 
 export function e2eGuildMemberRows(guild: E2eGraphGuild) {
@@ -1240,6 +1283,10 @@ export function resolveE2eGraphStub(opts: {
     return {
       data: { scarcesCollectionsCurrent: e2eHubCatalogRows(parsed.hub) },
     };
+  }
+
+  if (parsed.profile === 'banner' && isProfileGetQuery(opts.query)) {
+    return { data: { profilesCurrent: e2eProfileBannerRows() } };
   }
 
   if (parsed.guild && isGroupsByIdsQuery(opts.query)) {
