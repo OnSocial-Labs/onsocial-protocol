@@ -125,6 +125,7 @@ import {
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { playPostFocusVideo } from '@/hooks/use-post-list-video';
 import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
+import type { PostEngagementMap } from '@/lib/feed-paint-hydrate';
 import type { GuildPostPageData } from '@/lib/load-guild-post-page';
 
 interface LiveGuildPostPanelProps {
@@ -211,9 +212,16 @@ export function LiveGuildPostPanel({
   const searchParams = useSearchParams();
   const mediaUnmuted = searchParams.get('media') === 'unmute';
   const mediaResumeIndex = readPostMediaUnmuteIndex(searchParams);
+  /*
+   * The hook writes session snapshots after fetches; it reads the live
+   * engagement map through this ref so cached counts match what painted.
+   */
+  const engagementLatestRef = useRef<PostEngagementMap | null>(null);
   const {
     loadState,
     error,
+    repliesResolved,
+    seededEngagement,
     conversation,
     replyTree,
     localReplies,
@@ -246,6 +254,7 @@ export function LiveGuildPostPanel({
     initial,
     accountId,
     walletLoading,
+    engagementLatestRef,
   });
   const [modalTarget, setModalTarget] = useState<PostRow | null>(null);
   const [modalMode, setModalMode] = useState<ComposerMode>('quote');
@@ -361,9 +370,10 @@ export function LiveGuildPostPanel({
     confirmRepost,
     confirmUnrepost,
   } = usePostEngagement(engagementPosts, {
-    initial: initial?.engagement ?? null,
+    initial: seededEngagement,
     onError: (message) => setTxResult({ type: 'error', msg: message }),
   });
+  engagementLatestRef.current = engagement;
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
     engagementPosts,
     {
@@ -1174,6 +1184,9 @@ export function LiveGuildPostPanel({
               ) : null}
               {replyListRows.length > 0 ? (
                 replyListRows.slice(replyWindowStart, replyWindowEnd)
+              ) : !repliesResolved ? (
+                // Reply-shaped placeholders — incoming replies never shove content.
+                <PostRowSkeleton rows={2} />
               ) : !shareRow ? (
                 <ThreadDiscoverPeek
                   author={author}

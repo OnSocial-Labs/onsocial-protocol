@@ -27,7 +27,12 @@ import {
 import { resolveViewerAllowlistSpaceIds } from '@/features/guilds/guild-space-write';
 import { resolveGuildViewerAccess } from '@/features/guilds/guild-viewer-access';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import type { PostEngagementMap } from '@/lib/feed-paint-hydrate';
 import { planThreadLoad } from '@/lib/thread-open';
+import {
+  readGuildThreadSession,
+  writeGuildThreadSession,
+} from '@/lib/thread-session-cache';
 import { writeGuildMembershipCache } from '@/lib/guild-membership-cache';
 import type { GuildPostPageData } from '@/lib/load-guild-post-page';
 import {
@@ -66,6 +71,7 @@ export function useGuildThreadData({
   initial = null,
   accountId,
   walletLoading,
+  engagementLatestRef = null,
 }: {
   groupId: string;
   author: string;
@@ -73,9 +79,15 @@ export function useGuildThreadData({
   initial?: GuildPostPageData | null;
   accountId: string | null;
   walletLoading: boolean;
+  /** Live engagement map from the panel, read when snapshots are written. */
+  engagementLatestRef?: { current: PostEngagementMap | null } | null;
 }): {
   loadState: GuildThreadLoadState;
   error: string | null;
+  /** False until the first tree fetch resolves — gates the discover peek. */
+  repliesResolved: boolean;
+  /** Engagement the panel's `usePostEngagement` should seed from. */
+  seededEngagement: PostEngagementMap | null;
   conversation: GroupConversation;
   replyTree: ThreadNode[];
   localReplies: PostRow[];
@@ -105,21 +117,61 @@ export function useGuildThreadData({
   const threadKey = `${groupId}/${author}/${postId}`;
   const threadKeyRef = useRef(threadKey);
   threadKeyRef.current = threadKey;
+  const rootPath = groupPostContentPath(author, groupId, postId);
+  /*
+   * Stale-while-revalidate seed, mirroring the personal thread panel: a
+   * guild thread opened earlier this session paints its replies instantly
+   * from the session cache while `refresh` revalidates in the background.
+   * Full SSR data (direct page load) is fresher and wins; the tapped feed
+   * row always stays the root — it is what the user saw.
+   */
+  const [sessionSeed] = useState(() => {
+    const cached =
+      initial && initial.replyTree.length > 0
+        ? null
+        : readGuildThreadSession(rootPath);
+    if (!cached) return { data: initial, fromCache: false };
+    return {
+      fromCache: true,
+      data: {
+        root: initial?.root ?? cached.root,
+        replies: cached.replies,
+        quotes: cached.quotes,
+        replyTree: cached.replyTree,
+        hasMoreReplies: cached.hasMoreReplies,
+        guildName: initial?.guildName ?? cached.guildName,
+        memberDriven: initial?.memberDriven ?? cached.memberDriven,
+        accessGated: initial?.accessGated ?? cached.accessGated,
+        engagement: { ...cached.engagement, ...(initial?.engagement ?? {}) },
+        scarceEmbeds: initial?.scarceEmbeds ?? {},
+      } satisfies GuildPostPageData,
+    };
+  });
+  const seeded = sessionSeed.data;
   const [loadState, setLoadState] = useState<GuildThreadLoadState>(() =>
-    initial ? 'ready' : 'loading'
+    seeded ? 'ready' : 'loading'
   );
   const [conversation, setConversation] = useState<GroupConversation>(() =>
-    conversationFromInitial(initial)
+    conversationFromInitial(seeded)
   );
   const [replyTree, setReplyTree] = useState<ThreadNode[]>(
-    () => initial?.replyTree ?? []
+    () => seeded?.replyTree ?? []
+  );
+  /*
+   * Discover-peek gate. Until the first tree fetch resolves we cannot know
+   * whether replies exist — mounting the peek in that window flashes a
+   * "More from …" card that the incoming replies then replace. A cache hit
+   * counts as resolved: the empty tree it holds is real data.
+   */
+  const [repliesResolved, setRepliesResolved] = useState(
+    () => sessionSeed.fromCache
   );
   const [localReplies, setLocalReplies] = useState<PostRow[]>([]);
   const [localQuotes, setLocalQuotes] = useState<PostRow[]>([]);
   const [guildStructure, setGuildStructure] =
     useState<GuildStructureDocument | null>(null);
   const [guildName, setGuildName] = useState<string | null>(
-    () => initial?.guildName ?? null
+    () => seeded?.guildName ?? null
   );
   const [viewerAccess, setViewerAccess] = useState<GuildViewerAccess>(
     EMPTY_GUILD_THREAD_ACCESS
@@ -127,10 +179,10 @@ export function useGuildThreadData({
   const [isMember, setIsMember] = useState(false);
   const [isBlacklisted, setIsBlacklisted] = useState(false);
   const [accessGated, setAccessGated] = useState(
-    () => initial?.accessGated ?? false
+    () => seeded?.accessGated ?? false
   );
   const [memberDriven, setMemberDriven] = useState(
-    () => initial?.memberDriven ?? false
+    () => seeded?.memberDriven ?? false
   );
   const [joinPending, setJoinPending] = useState(false);
   const [joinCancelReady, setJoinCancelReady] = useState(false);
@@ -139,18 +191,22 @@ export function useGuildThreadData({
   >(null);
   const [viewerAccessResolved, setViewerAccessResolved] = useState(false);
   const [hasMoreReplies, setHasMoreReplies] = useState(
-    () => initial?.hasMoreReplies ?? false
+    () => seeded?.hasMoreReplies ?? false
   );
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const paginatedRef = useRef(false);
   const reconcileTimersRef = useRef<number[]>([]);
-  const paintedKeyRef = useRef<string | null>(initial ? threadKey : null);
+  const paintedKeyRef = useRef<string | null>(seeded ? threadKey : null);
   const loadMoreInFlightRef = useRef(false);
   const refreshRequestIdRef = useRef(0);
-
-  const rootPath = groupPostContentPath(author, groupId, postId);
+  /*
+   * Snapshot-writes need guild meta even when this fetch's config leg
+   * failed; mirror the current state so refresh can read it off-render.
+   */
+  const guildMetaRef = useRef({ guildName, memberDriven, accessGated });
+  guildMetaRef.current = { guildName, memberDriven, accessGated };
 
   const refresh = useCallback(
     async (options: { background?: boolean } = {}) => {
@@ -234,6 +290,31 @@ export function useGuildThreadData({
           setMemberDriven(false);
         }
 
+        if (root && (!options.background || !paginatedRef.current)) {
+          writeGuildThreadSession(rootPath, {
+            root,
+            replies: fetchedTree.map((node) => node.post),
+            quotes: fetchedQuotes,
+            replyTree: fetchedTree,
+            hasMoreReplies: fetchedTree.length >= REPLY_PAGE_SIZE,
+            guildName:
+              rawConfig && typeof rawConfig.name === 'string'
+                ? rawConfig.name
+                : guildMetaRef.current.guildName,
+            memberDriven: rawConfig
+              ? rawConfig.member_driven === true ||
+                rawConfig.memberDriven === true
+              : guildMetaRef.current.memberDriven,
+            accessGated: rawConfig
+              ? rawConfig.is_private === true || rawConfig.isPrivate === true
+              : guildMetaRef.current.accessGated,
+            engagement: engagementLatestRef?.current ?? {},
+            // Scarce embeds only ever seed from SSR; the ledger refetches.
+            scarceEmbeds: {},
+          });
+        }
+        setRepliesResolved(true);
+
         // Thread/conversation first; compose affordances hydrate with viewer.
         if (!options.background) {
           setLoadState(root ? 'ready' : 'missing');
@@ -298,11 +379,12 @@ export function useGuildThreadData({
         if (options.background) return;
         if (threadKeyRef.current !== threadKey) return;
         if (refreshRequestIdRef.current !== requestId) return;
+        setRepliesResolved(true);
         setLoadState('error');
         setError(guildThreadLoadError(cause));
       }
     },
-    [accountId, author, groupId, postId, threadKey]
+    [accountId, author, engagementLatestRef, groupId, postId, rootPath, threadKey]
   );
 
   useEffect(() => {
@@ -416,6 +498,8 @@ export function useGuildThreadData({
   return {
     loadState,
     error,
+    repliesResolved,
+    seededEngagement: seeded?.engagement ?? null,
     conversation,
     replyTree,
     localReplies,

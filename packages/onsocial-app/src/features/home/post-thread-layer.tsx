@@ -269,7 +269,10 @@ function placeLayerHref(layer: PlaceLayerTarget): string {
   return personalPostPath(layer.accountId, layer.postId);
 }
 
-function seedGuildThread(root: PostRow): GuildPostPageData {
+function seedGuildThread(
+  root: PostRow,
+  rootEngagement?: PostEngagement | null
+): GuildPostPageData {
   return {
     root,
     replies: [],
@@ -279,7 +282,7 @@ function seedGuildThread(root: PostRow): GuildPostPageData {
     guildName: null,
     memberDriven: false,
     accessGated: false,
-    engagement: {},
+    engagement: rootEngagement ? { [postKey(root)]: rootEngagement } : {},
     scarceEmbeds: {},
   };
 }
@@ -554,7 +557,11 @@ function PostThreadSheet({
                 groupId={layer.groupId}
                 author={layer.accountId}
                 postId={layer.postId}
-                initial={layer.root ? seedGuildThread(layer.root) : null}
+                initial={
+                  layer.root
+                    ? seedGuildThread(layer.root, layer.rootEngagement)
+                    : null
+                }
                 embedded
                 replyDockEnabled={open && !parked}
                 showGuildLine={guildCard?.showGuildLine ?? true}
