@@ -86,7 +86,7 @@ const REPLY = {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function stubGraph(
+async function stubGraph(
   page: Page,
   opts: {
     replies?: boolean;
@@ -95,7 +95,7 @@ function stubGraph(
   }
 ): Promise<void> {
   const withReplies = opts.replies ?? true;
-  return page.route('**/api/onapi/graph/query', async (route: Route) => {
+  await page.route('**/api/onapi/graph/query', async (route: Route) => {
     const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody;
     const query = body.query ?? '';
     const vars = body.variables ?? {};
