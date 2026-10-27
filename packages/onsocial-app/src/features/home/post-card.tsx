@@ -4,6 +4,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
@@ -11,15 +12,19 @@ import {
   type PointerEvent,
 } from 'react';
 import Link from 'next/link';
-import type { PostRow } from '@onsocial/sdk';
+import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import { RepeatIcon, UsersFillIcon } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { QuotedPostInset } from '@/features/home/post-card-quote';
 import {
   PostEngagementRow,
   PostPeekStandButton,
+  type PostEngagementRowBaseProps,
 } from '@/features/home/post-card-engagement';
-import { PostCardMenu } from '@/features/home/post-card-menu';
+import {
+  PostCardMenu,
+  type PostCardMenuPostProps,
+} from '@/features/home/post-card-menu';
 import { PostCardBody, postBadges } from '@/features/home/post-card-body';
 import { displayName } from '@/lib/profile-display';
 import { downloadIpfsMedia } from '@/lib/media-download';
@@ -48,7 +53,10 @@ import {
   canCancelPostScarce,
   cancelPostScarceListing,
 } from '@/features/scarces/cancel-post-scarce';
-import { PostScarceCta } from '@/features/scarces/post-scarce-cta';
+import {
+  PostScarceCta,
+  type PostScarceCtaActionProps,
+} from '@/features/scarces/post-scarce-cta';
 import {
   isWritingFolioFormat,
   resolveDropReadTarget,
@@ -133,42 +141,8 @@ import type { PollTally } from '@/lib/poll-votes';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
 
-interface PostCardProps {
-  post: PostRow;
-  actionHref?: string;
-  authorProfile?: PostAuthorProfile;
-  /** Extra classes, e.g. thread chain position modifiers. */
-  className?: string;
-  /**
-   * Repost attribution — the card body IS the original post; this credits
-   * the reposter with `You reposted` / `{name} reposted` above the card.
-   */
-  repostedBy?: { accountId: string; displayName?: string | null };
-  /** Compact inset preview of the post this one quotes. */
-  quotedPost?: PostRow;
-  quotedAuthorProfile?: PostAuthorProfile;
-  /** Click-through to the quoted post's own page. */
-  quotedHref?: string;
-  /** Hide the `Replying to @x` context line (redundant inside thread tabs). */
-  showRelationBadge?: boolean;
-  /** Profile shells for reply / quote targets (`@{handle}` lines). */
-  authorProfiles?: Record<string, PostAuthorProfile>;
-  /** Show room under identity (guild “All” / thread root). */
-  showChannel?: boolean;
-  /** Prefer room title when `channel` is an id. */
-  channelLabel?: string;
-  /**
-   * Mixed feeds (Home / hashtag): muted Users + guild name above the author.
-   * Skip inside a guild room where context is already the guild.
-   */
-  showGuildAttribution?: boolean;
-  /** Resolved guild display name when `showGuildAttribution` is on. */
-  guildName?: string;
-  /**
-   * Feed this card was opened from. A guild feed skips the guild line the
-   * screen already shows.
-   */
-  sheetContext?: ThreadSheetContext | null;
+/** Engagement data + per-post actions a feed host wires into the card. */
+export interface PostCardEngagementProps {
   engagement?: PostEngagement;
   reactionPending?: boolean;
   savePending?: boolean;
@@ -190,19 +164,72 @@ interface PostCardProps {
   onRepost?: (post: PostRow) => void;
   /** Undo the viewer's existing repost. */
   onUndoRepost?: (post: PostRow) => void;
+}
+
+/** Poll tally + vote wiring for an embedded poll. */
+export interface PostCardPollProps {
   pollTally?: PollTally;
   pollVotePending?: boolean;
   onPollVote?: (post: PostRow, optionIndex: number) => void;
+}
+
+/** Focused-media playback options (thread root / detail deep links). */
+export interface PostCardMediaProps {
   /** Thread root — page-sized focused media playback. */
   mediaFocused?: boolean;
   /** Hide photo / video / cover — used when the film already sits above. */
   hideMedia?: boolean;
-  /** Stack the ⋮ menu above a host sheet (media-face thread drawer). */
-  menuZIndex?: number;
   /** Detail opened with `?media=unmute` — resume video with sound. */
   mediaUnmuted?: boolean;
   /** Collage tile index to unmute (`?mi=`). */
   mediaResumeIndex?: number;
+}
+
+/** Compact inset preview of the post this one quotes. */
+export interface PostCardQuoteProps {
+  quotedPost?: PostRow;
+  quotedAuthorProfile?: PostAuthorProfile;
+  /** Click-through to the quoted post's own page. */
+  quotedHref?: string;
+}
+
+interface PostCardProps
+  extends PostCardEngagementProps,
+    PostCardPollProps,
+    PostCardMediaProps,
+    PostCardQuoteProps {
+  post: PostRow;
+  actionHref?: string;
+  authorProfile?: PostAuthorProfile;
+  /** Extra classes, e.g. thread chain position modifiers. */
+  className?: string;
+  /**
+   * Repost attribution — the card body IS the original post; this credits
+   * the reposter with `You reposted` / `{name} reposted` above the card.
+   */
+  repostedBy?: { accountId: string; displayName?: string | null };
+  /** Hide the `Replying to @x` context line (redundant inside thread tabs). */
+  showRelationBadge?: boolean;
+  /** Profile shells for reply / quote targets (`@{handle}` lines). */
+  authorProfiles?: Record<string, PostAuthorProfile>;
+  /** Show room under identity (guild “All” / thread root). */
+  showChannel?: boolean;
+  /** Prefer room title when `channel` is an id. */
+  channelLabel?: string;
+  /**
+   * Mixed feeds (Home / hashtag): muted Users + guild name above the author.
+   * Skip inside a guild room where context is already the guild.
+   */
+  showGuildAttribution?: boolean;
+  /** Resolved guild display name when `showGuildAttribution` is on. */
+  guildName?: string;
+  /**
+   * Feed this card was opened from. A guild feed skips the guild line the
+   * screen already shows.
+   */
+  sheetContext?: ThreadSheetContext | null;
+  /** Stack the ⋮ menu above a host sheet (media-face thread drawer). */
+  menuZIndex?: number;
   /**
    * Open post / thread root: stacked name + @handle, full timestamp under
    * the body above engagement icons.
@@ -232,6 +259,12 @@ function useSheetMounted(open: boolean): boolean {
   if (open && !mounted) setMounted(true);
   return mounted || open;
 }
+
+/** Shared fallback so the scarce-CTA bundle keeps a stable embed identity. */
+const EMPTY_SCARCE_EMBED: PostScarceEmbed = {
+  status: 'none',
+  events: [],
+};
 
 function PostCardImpl({
   post,
@@ -818,6 +851,178 @@ function PostCardImpl({
     .filter(Boolean)
     .join(' ');
 
+  /*
+   * Bundle the props drilled to repeated children so memoized rows/menus
+   * skip shell re-renders they don't care about (sheet opens, photo nav).
+   */
+  const openAmplify = useCallback(() => setAmplifyOpen(true), []);
+  const openListScarce = useCallback(() => setListScarceOpen(true), []);
+  const openSellScarce = useCallback(() => setSellScarceOpen(true), []);
+  const openTransferScarce = useCallback(() => setTransferScarceOpen(true), []);
+  const openBuyScarce = useCallback(() => setBuyScarceOpen(true), []);
+  const openBidScarce = useCallback(() => setBidScarceOpen(true), []);
+  // handleCancelScarce re-identifies per render; the menu only fires it on
+  // interaction, so a ref trampoline keeps the bundle stable.
+  const cancelScarceRef = useRef(handleCancelScarce);
+  useEffect(() => {
+    cancelScarceRef.current = handleCancelScarce;
+  });
+  const cancelScarceFromMenu = useCallback(() => {
+    void cancelScarceRef.current();
+  }, []);
+  const handleMenuOpen = useCallback(() => {
+    if (isSelf) setMenuForceEmbed(true);
+  }, [isSelf]);
+  // Overlay rows close their own sheet before running the shared action.
+  const photoQuote = useCallback(
+    (target: PostRow) => {
+      setPhotoOpen(false);
+      onQuote?.(target);
+    },
+    [onQuote]
+  );
+  const photoRepost = useCallback(
+    (target: PostRow) => {
+      setPhotoOpen(false);
+      onRepost?.(target);
+    },
+    [onRepost]
+  );
+  const photoUndoRepost = useCallback(
+    (target: PostRow) => {
+      setPhotoOpen(false);
+      onUndoRepost?.(target);
+    },
+    [onUndoRepost]
+  );
+  const articleQuote = useCallback(
+    (target: PostRow) => {
+      setArticleOpen(false);
+      onQuote?.(target);
+    },
+    [onQuote]
+  );
+  const articleRepost = useCallback(
+    (target: PostRow) => {
+      setArticleOpen(false);
+      onRepost?.(target);
+    },
+    [onRepost]
+  );
+  const articleUndoRepost = useCallback(
+    (target: PostRow) => {
+      setArticleOpen(false);
+      onUndoRepost?.(target);
+    },
+    [onUndoRepost]
+  );
+  const mediumQuote = useCallback(
+    (target: PostRow) => {
+      setFeedMediumOpen(false);
+      onQuote?.(target);
+    },
+    [onQuote]
+  );
+  const mediumRepost = useCallback(
+    (target: PostRow) => {
+      setFeedMediumOpen(false);
+      onRepost?.(target);
+    },
+    [onRepost]
+  );
+  const mediumUndoRepost = useCallback(
+    (target: PostRow) => {
+      setFeedMediumOpen(false);
+      onUndoRepost?.(target);
+    },
+    [onUndoRepost]
+  );
+  const mediumAmplify = useCallback(() => {
+    setFeedMediumOpen(false);
+    setAmplifyOpen(true);
+  }, []);
+
+  const engagementActions = useMemo<
+    Omit<PostEngagementRowBaseProps, 'engagement'>
+  >(
+    () => ({
+      post,
+      reactionPending,
+      savePending,
+      sharePending,
+      onReply,
+      onQuote,
+      onRepost,
+      onUndoRepost,
+      onToggleReaction,
+      onToggleSave,
+    }),
+    [
+      post,
+      reactionPending,
+      savePending,
+      sharePending,
+      onReply,
+      onQuote,
+      onRepost,
+      onUndoRepost,
+      onToggleReaction,
+      onToggleSave,
+    ]
+  );
+
+  const scarceCtaActions = useMemo<PostScarceCtaActionProps>(
+    () => ({
+      embed: scarceEmbed ?? EMPTY_SCARCE_EMBED,
+      isAuthor: isSelf,
+      authorAccountId: scarceEmbed?.creatorId?.trim() || post.accountId,
+      canList: canListScarce,
+      onList: openListScarce,
+      canSell: canSellScarce,
+      onSell: openSellScarce,
+      canTransfer: canTransferScarce,
+      onTransfer: openTransferScarce,
+      sellListed: sellListedScarce,
+      alreadyOwnsEdition: Boolean(ownedScarceItem),
+      onBuy: openBuyScarce,
+      onBid: openBidScarce,
+    }),
+    [
+      scarceEmbed,
+      isSelf,
+      post.accountId,
+      canListScarce,
+      openListScarce,
+      canSellScarce,
+      openSellScarce,
+      canTransferScarce,
+      openTransferScarce,
+      sellListedScarce,
+      ownedScarceItem,
+      openBuyScarce,
+      openBidScarce,
+    ]
+  );
+
+  const menuPostProps = useMemo<PostCardMenuPostProps>(
+    () => ({
+      href: shareHref,
+      accountId: post.accountId,
+      authorProfile,
+      canCancelScarce,
+      onCancelScarce: cancelScarceFromMenu,
+      cancelScarcePending,
+    }),
+    [
+      shareHref,
+      post.accountId,
+      authorProfile,
+      canCancelScarce,
+      cancelScarceFromMenu,
+      cancelScarcePending,
+    ]
+  );
+
   return (
     <article className={cardClassName} ref={scarceEmbedMergedRef}>
       {openHref ? (
@@ -903,17 +1108,8 @@ function PostCardImpl({
                     />
                   ) : null}
                   <PostCardMenu
-                    href={shareHref}
-                    accountId={post.accountId}
-                    authorProfile={authorProfile}
-                    canCancelScarce={canCancelScarce}
-                    onCancelScarce={() => {
-                      void handleCancelScarce();
-                    }}
-                    cancelScarcePending={cancelScarcePending}
-                    onMenuOpen={() => {
-                      if (isSelf) setMenuForceEmbed(true);
-                    }}
+                    {...menuPostProps}
+                    onMenuOpen={handleMenuOpen}
                     {...(menuZIndex != null ? { zIndex: menuZIndex } : {})}
                   />
                 </div>
@@ -1065,24 +1261,7 @@ function PostCardImpl({
           ) : null}
           {!isRepostShell && (scarceEmbed || canListScarce) ? (
             <PostScarceCta
-              embed={
-                scarceEmbed ?? {
-                  status: 'none',
-                  events: [],
-                }
-              }
-              isAuthor={isSelf}
-              authorAccountId={scarceEmbed?.creatorId?.trim() || post.accountId}
-              canList={canListScarce}
-              onList={() => setListScarceOpen(true)}
-              canSell={canSellScarce}
-              onSell={() => setSellScarceOpen(true)}
-              canTransfer={canTransferScarce}
-              onTransfer={() => setTransferScarceOpen(true)}
-              sellListed={sellListedScarce}
-              alreadyOwnsEdition={Boolean(ownedScarceItem)}
-              onBuy={() => setBuyScarceOpen(true)}
-              onBid={() => setBidScarceOpen(true)}
+              {...scarceCtaActions}
               listenSlot={
                 showDropListen || showDropRead ? (
                   <>
@@ -1138,20 +1317,11 @@ function PostCardImpl({
         ) : null}
         {engagement ? (
           <PostEngagementRow
+            {...engagementActions}
             engagement={engagement}
             shareHref={shareHref}
             shareTitle={name}
-            reactionPending={reactionPending}
-            savePending={savePending}
-            sharePending={sharePending}
-            onReply={onReply}
-            onQuote={onQuote}
-            onRepost={onRepost}
-            onUndoRepost={onUndoRepost}
-            onToggleReaction={onToggleReaction}
-            onToggleSave={onToggleSave}
-            onAmplify={() => setAmplifyOpen(true)}
-            post={post}
+            onAmplify={openAmplify}
             {...(menuZIndex != null ? { shareDrawerZIndex: menuZIndex } : {})}
           />
         ) : null}
@@ -1251,7 +1421,7 @@ function PostCardImpl({
           title={enlargeTitle}
           trailing={({ downloadCurrent }) => (
             <PostCardMenu
-              href={shareHref}
+              {...menuPostProps}
               openPostHref={postThreadPath(post)}
               onOpenPost={() => {
                 setPhotoOpen(false);
@@ -1260,13 +1430,6 @@ function PostCardImpl({
               onDownload={
                 enlargePhotos.length > 0 ? () => downloadCurrent() : undefined
               }
-              accountId={post.accountId}
-              authorProfile={authorProfile}
-              canCancelScarce={canCancelScarce}
-              onCancelScarce={() => {
-                void handleCancelScarce();
-              }}
-              cancelScarcePending={cancelScarcePending}
               zIndex={SCARCE_Z.commerceOverListen}
             />
           )}
@@ -1327,44 +1490,16 @@ function PostCardImpl({
           engagement={
             engagement ? (
               <PostEngagementRow
+                {...engagementActions}
                 engagement={engagement}
                 shareHref={shareHref}
                 shareTitle={name}
-                reactionPending={reactionPending}
-                savePending={savePending}
-                sharePending={sharePending}
                 onReply={openPhotoThread}
-                onQuote={
-                  onQuote
-                    ? (target) => {
-                        setPhotoOpen(false);
-                        onQuote(target);
-                      }
-                    : undefined
-                }
-                onRepost={
-                  onRepost
-                    ? (target) => {
-                        setPhotoOpen(false);
-                        onRepost(target);
-                      }
-                    : undefined
-                }
-                onUndoRepost={
-                  onUndoRepost
-                    ? (target) => {
-                        setPhotoOpen(false);
-                        onUndoRepost(target);
-                      }
-                    : undefined
-                }
-                onToggleReaction={onToggleReaction}
-                onToggleSave={onToggleSave}
-                onAmplify={() => {
-                  setAmplifyOpen(true);
-                }}
+                onQuote={onQuote ? photoQuote : undefined}
+                onRepost={onRepost ? photoRepost : undefined}
+                onUndoRepost={onUndoRepost ? photoUndoRepost : undefined}
+                onAmplify={openAmplify}
                 shareDrawerZIndex={SCARCE_Z.commerceOverListen}
-                post={post}
               />
             ) : null
           }
@@ -1417,71 +1552,22 @@ function PostCardImpl({
           }
           commerce={
             !isRepostShell && (scarceEmbed || canListScarce) ? (
-              <PostScarceCta
-                embed={
-                  scarceEmbed ?? {
-                    status: 'none',
-                    events: [],
-                  }
-                }
-                isAuthor={isSelf}
-                authorAccountId={
-                  scarceEmbed?.creatorId?.trim() || post.accountId
-                }
-                canList={canListScarce}
-                onList={() => setListScarceOpen(true)}
-                canSell={canSellScarce}
-                onSell={() => setSellScarceOpen(true)}
-                canTransfer={canTransferScarce}
-                onTransfer={() => setTransferScarceOpen(true)}
-                sellListed={sellListedScarce}
-                alreadyOwnsEdition={Boolean(ownedScarceItem)}
-                onBuy={() => setBuyScarceOpen(true)}
-                onBid={() => setBidScarceOpen(true)}
-              />
+              <PostScarceCta {...scarceCtaActions} />
             ) : null
           }
           engagement={
             engagement ? (
               <PostEngagementRow
+                {...engagementActions}
                 engagement={engagement}
                 shareHref={shareHref}
                 shareTitle={name}
-                reactionPending={reactionPending}
-                savePending={savePending}
-                sharePending={sharePending}
                 onReply={openPhotoThread}
-                onQuote={
-                  onQuote
-                    ? (target) => {
-                        setArticleOpen(false);
-                        onQuote(target);
-                      }
-                    : undefined
-                }
-                onRepost={
-                  onRepost
-                    ? (target) => {
-                        setArticleOpen(false);
-                        onRepost(target);
-                      }
-                    : undefined
-                }
-                onUndoRepost={
-                  onUndoRepost
-                    ? (target) => {
-                        setArticleOpen(false);
-                        onUndoRepost(target);
-                      }
-                    : undefined
-                }
-                onToggleReaction={onToggleReaction}
-                onToggleSave={onToggleSave}
-                onAmplify={() => {
-                  setAmplifyOpen(true);
-                }}
+                onQuote={onQuote ? articleQuote : undefined}
+                onRepost={onRepost ? articleRepost : undefined}
+                onUndoRepost={onUndoRepost ? articleUndoRepost : undefined}
+                onAmplify={openAmplify}
                 shareDrawerZIndex={SCARCE_Z.commerceOverListen}
-                post={post}
               />
             ) : null
           }
@@ -1502,7 +1588,7 @@ function PostCardImpl({
           threadRoot={post}
           trailing={
             <PostCardMenu
-              href={shareHref}
+              {...menuPostProps}
               openPostHref={postThreadPath(post)}
               onOpenPost={() => {
                 setFeedMediumOpen(false);
@@ -1541,13 +1627,6 @@ function PostCardImpl({
                     }
                   : undefined
               }
-              accountId={post.accountId}
-              authorProfile={authorProfile}
-              canCancelScarce={canCancelScarce}
-              onCancelScarce={() => {
-                void handleCancelScarce();
-              }}
-              cancelScarcePending={cancelScarcePending}
               zIndex={SCARCE_Z.commerceOverListen}
             />
           }
@@ -1564,80 +1643,22 @@ function PostCardImpl({
           viewerAccountId={viewerAccountId}
           commerce={
             !isRepostShell && (scarceEmbed || canListScarce) ? (
-              <PostScarceCta
-                embed={
-                  scarceEmbed ?? {
-                    status: 'none',
-                    events: [],
-                  }
-                }
-                isAuthor={isSelf}
-                authorAccountId={
-                  scarceEmbed?.creatorId?.trim() || post.accountId
-                }
-                canList={canListScarce}
-                onList={() => {
-                  setListScarceOpen(true);
-                }}
-                canSell={canSellScarce}
-                onSell={() => {
-                  setSellScarceOpen(true);
-                }}
-                canTransfer={canTransferScarce}
-                onTransfer={() => setTransferScarceOpen(true)}
-                sellListed={sellListedScarce}
-                alreadyOwnsEdition={Boolean(ownedScarceItem)}
-                onBuy={() => {
-                  setBuyScarceOpen(true);
-                }}
-                onBid={() => {
-                  setBidScarceOpen(true);
-                }}
-              />
+              <PostScarceCta {...scarceCtaActions} />
             ) : null
           }
           engagement={
             engagement ? (
               <PostEngagementRow
+                {...engagementActions}
                 engagement={engagement}
                 shareHref={shareHref}
                 shareTitle={name}
-                reactionPending={reactionPending}
-                savePending={savePending}
-                sharePending={sharePending}
                 onReply={openPhotoThread}
-                onQuote={
-                  onQuote
-                    ? (target) => {
-                        setFeedMediumOpen(false);
-                        onQuote(target);
-                      }
-                    : undefined
-                }
-                onRepost={
-                  onRepost
-                    ? (target) => {
-                        setFeedMediumOpen(false);
-                        onRepost(target);
-                      }
-                    : undefined
-                }
-                onUndoRepost={
-                  onUndoRepost
-                    ? (target) => {
-                        setFeedMediumOpen(false);
-                        onUndoRepost(target);
-                      }
-                    : undefined
-                }
-                onToggleReaction={onToggleReaction}
-                onToggleSave={onToggleSave}
-                onAmplify={() => {
-                  setFeedMediumOpen(false);
-                  setAmplifyOpen(true);
-                }}
+                onQuote={onQuote ? mediumQuote : undefined}
+                onRepost={onRepost ? mediumRepost : undefined}
+                onUndoRepost={onUndoRepost ? mediumUndoRepost : undefined}
+                onAmplify={mediumAmplify}
                 shareDrawerZIndex={SCARCE_Z.commerceOverListen}
-                post={post}
               />
             ) : null
           }
