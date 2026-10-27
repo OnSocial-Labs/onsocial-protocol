@@ -3,6 +3,7 @@ import {
   captureVisibleFeedAnchor,
   DM_ANCHOR_QUERY,
   NOTIFICATION_ANCHOR_QUERY,
+  STANDING_ANCHOR_QUERY,
   restoreFeedAnchor,
   THREAD_ANCHOR_QUERY,
 } from './home-feed-scroll-anchor';
@@ -304,6 +305,77 @@ describe('custom anchor queries (DM thread rows)', () => {
     restoreFeedAnchor(root, { key: 'msg-2', top: -140 }, DM_ANCHOR_QUERY);
     expect(root.querySelector).toHaveBeenCalledWith(
       '[data-dm-row-key="msg-2"]'
+    );
+    expect(root.scrollTop).toBe(340);
+  });
+});
+
+type FakeStandingRow = {
+  top: number;
+  height: number;
+  key?: string;
+};
+
+function fakeStandingRow({ top, height, key }: FakeStandingRow) {
+  return {
+    getBoundingClientRect: () => ({ top, bottom: top + height }),
+    dataset: key === undefined ? {} : { standingKey: key },
+  };
+}
+
+function fakeStandingRoot(
+  rootTop: number,
+  rows: ReturnType<typeof fakeStandingRow>[]
+) {
+  const root = {
+    scrollTop: 0,
+    getBoundingClientRect: () => ({ top: rootTop }),
+    querySelectorAll: (selector: string) =>
+      selector === '[data-standing-key]' ? rows : [],
+    querySelector: vi.fn((selector: string) => {
+      const match = /\[data-standing-key="([^"]+)"\]/.exec(selector);
+      return rows.find((r) => r.dataset.standingKey === match?.[1]) ?? null;
+    }),
+  };
+  return root as unknown as HTMLElement & {
+    scrollTop: number;
+    querySelector: ReturnType<typeof vi.fn>;
+  };
+}
+
+describe('custom anchor queries (standing rows)', () => {
+  it('captures the first visible standing row by its account key', () => {
+    const root = fakeStandingRoot(100, [
+      fakeStandingRow({ top: -300, height: 76, key: 'a.testnet' }), // above
+      fakeStandingRow({ top: 40, height: 76, key: 'b.testnet' }), // bottom 116
+    ]);
+    expect(captureVisibleFeedAnchor(root, STANDING_ANCHOR_QUERY)).toEqual({
+      key: 'b.testnet',
+      top: -60,
+    });
+  });
+
+  it('skips rows without a key instead of anchoring on them', () => {
+    const root = fakeStandingRoot(100, [
+      fakeStandingRow({ top: -40, height: 76 }), // visible but keyless
+      fakeStandingRow({ top: 160, height: 76, key: 'c.testnet' }),
+    ]);
+    expect(captureVisibleFeedAnchor(root, STANDING_ANCHOR_QUERY)?.key).toBe(
+      'c.testnet'
+    );
+  });
+
+  it('restores via the standing-key lookup selector', () => {
+    const root = fakeStandingRoot(100, [
+      fakeStandingRow({ top: 300, height: 76, key: 'b.testnet' }),
+    ]);
+    restoreFeedAnchor(
+      root,
+      { key: 'b.testnet', top: -140 },
+      STANDING_ANCHOR_QUERY
+    );
+    expect(root.querySelector).toHaveBeenCalledWith(
+      '[data-standing-key="b.testnet"]'
     );
     expect(root.scrollTop).toBe(340);
   });
