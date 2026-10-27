@@ -1,6 +1,12 @@
 'use client';
 
-import { Fragment, type ReactNode } from 'react';
+import {
+  Fragment,
+  useMemo,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import type { DmThreadSummary } from '@onsocial/sdk';
 import {
   Divider,
@@ -11,6 +17,8 @@ import {
   formatRelativeDmTime,
 } from '@/features/messages/dm-time';
 import type { MessagesSearchBlockReason } from '@/features/messages/messages-inbox-search';
+import { useFeedWindow } from '@/features/home/use-feed-window';
+import { MESSAGES_INBOX_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
@@ -19,11 +27,13 @@ export function MessagesInboxList({
   'aria-label': ariaLabel,
   refreshing = false,
   skeleton = false,
+  listRef,
 }: {
   children: ReactNode;
   'aria-label': string;
   refreshing?: boolean;
   skeleton?: boolean;
+  listRef?: RefObject<HTMLDivElement | null>;
 }) {
   return (
     <div
@@ -33,6 +43,7 @@ export function MessagesInboxList({
       role="list"
       aria-label={ariaLabel}
       aria-busy={refreshing || skeleton || undefined}
+      ref={listRef}
     >
       {children}
     </div>
@@ -218,15 +229,53 @@ export function MessagesInboxThreadRows({
   refreshing?: boolean;
   onOpenThread: (threadId: string) => void;
 }) {
+  /*
+   * List windowing — same core as the feed, thread panels, and notification
+   * inbox: past the row threshold, far rows collapse into spacers so a long
+   * conversation list stops paying DOM cost offscreen. The gateway list is
+   * cursor-less, so every known thread is a window key. Rows are short
+   * standing rows (~76px estimate); the measured cache corrects it after
+   * first paint. Each list instance (main / search / sealed) windows
+   * independently.
+   */
+  const rowKeys = useMemo(
+    () => threads.map((thread) => thread.threadId),
+    [threads]
+  );
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
+    useFeedWindow({
+      keys: rowKeys,
+      hostRef: listRef,
+      anchorQuery: MESSAGES_INBOX_ANCHOR_QUERY,
+      estimate: 76,
+    });
+
   return (
-    <MessagesInboxList aria-label={ariaLabel} refreshing={refreshing}>
-      {threads.map((thread, index) => {
+    <MessagesInboxList
+      aria-label={ariaLabel}
+      refreshing={refreshing}
+      listRef={listRef}
+    >
+      {windowed && topSpacer > 0 ? (
+        <div
+          style={{ height: topSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="top"
+        />
+      ) : null}
+      {threads.slice(start, end).map((thread, sliceIndex) => {
+        const index = start + sliceIndex;
         const sealed =
           treatAllAsSealed ||
           (sealedThreadIds?.has(thread.threadId) ?? false);
         const profile = profiles[thread.peerAccountId];
         return (
-          <Fragment key={thread.threadId}>
+          <div
+            key={thread.threadId}
+            ref={registerRow(thread.threadId)}
+            data-inbox-thread-key={thread.threadId}
+          >
             {index > 0 ? <Divider variant="item" /> : null}
             <MessagesInboxThreadRow
               peerAccountId={thread.peerAccountId}
@@ -239,9 +288,16 @@ export function MessagesInboxThreadRows({
               active={thread.threadId === activeThreadId}
               onOpen={() => onOpenThread(thread.threadId)}
             />
-          </Fragment>
+          </div>
         );
       })}
+      {windowed && bottomSpacer > 0 ? (
+        <div
+          style={{ height: bottomSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="bottom"
+        />
+      ) : null}
     </MessagesInboxList>
   );
 }

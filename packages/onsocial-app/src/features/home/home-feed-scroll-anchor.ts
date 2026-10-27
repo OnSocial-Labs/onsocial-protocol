@@ -58,6 +58,17 @@ export const DM_ANCHOR_QUERY: FeedAnchorQuery = {
 };
 
 /**
+ * DM inbox rows — every conversation wrapper carries
+ * `[data-inbox-thread-key]` (threadId), shared by the main list, search
+ * results, and the sealed archive.
+ */
+export const MESSAGES_INBOX_ANCHOR_QUERY: FeedAnchorQuery = {
+  rowSelector: '[data-inbox-thread-key]',
+  rowKey: (el) => el.dataset.inboxThreadKey,
+  rowSelectorForKey: (key) => `[data-inbox-thread-key="${CSS.escape(key)}"]`,
+};
+
+/**
  * Standing / social rows — every wrapper in ProfileSocialList carries
  * `[data-standing-key]` (accountId), shared by discover profiles/search,
  * standing panels, and the recommended peek.
