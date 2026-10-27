@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { PostRow } from '@onsocial/sdk';
 import { VideoPlayerIcon } from '@onsocial/ui';
 import { CatalogCoverImage } from '@/components/ui/catalog-thumb-image';
+import { usePostVideoPlayback } from '@/hooks/use-post-list-video';
 import { parseArticleSnapshot } from '@/lib/article-post-payload';
 import { writingArticlePath } from '@/lib/overlay-routes';
 import {
@@ -79,19 +80,34 @@ export function profileMediaCovers(
   return covers;
 }
 
-function CoverMedia({ cover }: { cover: ProfileMediaCover }) {
-  if (cover.kind === 'Video') {
-    return (
-      <video
-        src={cover.coverUrl}
-        muted
-        playsInline
-        preload="metadata"
-        aria-hidden
-      />
-    );
-  }
-  return <CatalogCoverImage src={cover.coverUrl} />;
+function MediaCoverBox({ cover }: { cover: ProfileMediaCover }) {
+  const isVideo = cover.kind === 'Video';
+  const { containerRef, bindVideoEl, videoPreload, videoMounted } =
+    usePostVideoPlayback(isVideo ? 'poster' : null);
+  return (
+    <span className="page-drawer-media-cover has-media" aria-hidden ref={containerRef}>
+      {isVideo ? (
+        // Poster gate: far-off covers unmount; the card box holds the grid.
+        videoMounted ? (
+          <video
+            ref={bindVideoEl}
+            src={cover.coverUrl}
+            muted
+            playsInline
+            preload={videoPreload}
+            aria-hidden
+          />
+        ) : null
+      ) : (
+        <CatalogCoverImage src={cover.coverUrl} />
+      )}
+      {isVideo ? (
+        <span className="page-drawer-media-badge">
+          <VideoPlayerIcon aria-hidden />
+        </span>
+      ) : null}
+    </span>
+  );
 }
 
 /** Profile Media tab — cover cards. The link opens the post. */
@@ -115,14 +131,7 @@ export function PageDrawerMediaGrid({ posts }: { posts: readonly PostRow[] }) {
             className="page-drawer-media-card group"
             aria-label={ariaLabel}
           >
-            <span className="page-drawer-media-cover has-media" aria-hidden>
-              <CoverMedia cover={cover} />
-              {cover.kind === 'Video' ? (
-                <span className="page-drawer-media-badge">
-                  <VideoPlayerIcon aria-hidden />
-                </span>
-              ) : null}
-            </span>
+            <MediaCoverBox cover={cover} />
             {caption || cover.count > 1 ? (
               <span className="page-drawer-media-body">
                 {caption ? (

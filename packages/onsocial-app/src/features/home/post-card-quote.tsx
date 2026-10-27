@@ -35,6 +35,7 @@ import {
   PostMediaStrip,
   useFeedMediaResolved,
 } from '@/features/home/post-media';
+import { usePostVideoPlayback } from '@/hooks/use-post-list-video';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { usePostThreadLayer } from '@/features/home/post-thread-layer';
 import { PostRichText } from '@/features/home/post-rich-text';
@@ -249,9 +250,16 @@ function QuoteThumbTile({
   style?: CSSProperties;
   onRatio: (url: string, ratio: number) => void;
 }) {
+  const isVideo = isRenderablePostVideoMime(item.mime);
+  const { containerRef, bindVideoEl, videoPreload, videoMounted } =
+    usePostVideoPlayback(isVideo ? 'poster' : null);
   const { resolved, markResolved, bind } = useFeedMediaResolved(item.url);
   const remember = (width: number, height: number) => {
     if (width > 0 && height > 0) onRatio(item.url, width / height);
+  };
+  const bindVideo = (node: HTMLVideoElement | null) => {
+    bind(node);
+    bindVideoEl(node);
   };
   const mediaClassName = [
     'post-card-quote-thumb-media',
@@ -260,28 +268,32 @@ function QuoteThumbTile({
     .filter(Boolean)
     .join(' ');
   return (
-    <span className="post-card-quote-thumb-cell" style={style}>
+    <span className="post-card-quote-thumb-cell" style={style} ref={containerRef}>
       {resolved ? null : (
         <span
           className="post-media-skeleton standing-row-shimmer"
           aria-hidden
         />
       )}
-      {isRenderablePostVideoMime(item.mime) ? (
-        <video
-          ref={bind}
-          src={item.url}
-          muted
-          playsInline
-          preload="metadata"
-          className={mediaClassName}
-          onLoadedMetadata={(event) => {
-            const video = event.currentTarget;
-            remember(video.videoWidth, video.videoHeight);
-            markResolved();
-          }}
-          onError={markResolved}
-        />
+      {isVideo ? (
+        // Poster gate: far-off quote thumbs unmount; the grid cell holds
+        // the row height. Remounts warm a viewport before paint.
+        videoMounted ? (
+          <video
+            ref={bindVideo}
+            src={item.url}
+            muted
+            playsInline
+            preload={videoPreload}
+            className={mediaClassName}
+            onLoadedMetadata={(event) => {
+              const video = event.currentTarget;
+              remember(video.videoWidth, video.videoHeight);
+              markResolved();
+            }}
+            onError={markResolved}
+          />
+        ) : null
       ) : (
         <img
           ref={bind}

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 export type PostVideoPlaybackMode =
   | 'list'
+  | 'poster'
   | 'detail-muted'
   | 'detail-unmuted'
   | null;
@@ -74,14 +75,20 @@ export function playPostFocusVideo(mediaIndex = 0) {
   void video.play().catch(() => {});
 }
 
-/** List: muted autoplay one-at-a-time. Detail: muted or unmuted, mute only. */
+/**
+ * List: muted autoplay one-at-a-time. Poster: static first frame, same
+ * near/far gates as list but no playback management. Detail: muted or
+ * unmuted, mute only.
+ */
 export function usePostVideoPlayback(
   mode: PostVideoPlaybackMode,
   detailOptions: PostVideoDetailOptions = {}
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const enabled = mode !== null;
+  const enabled = mode !== null && mode !== 'poster';
+  // Poster videos never play — they only take the mount/preload gates.
+  const gated = mode === 'list' || mode === 'poster';
   const initialTime = detailOptions.initialTime ?? 0;
   const resume = detailOptions.resume ?? false;
   const [nearViewport, setNearViewport] = useState(false);
@@ -95,11 +102,11 @@ export function usePostVideoPlayback(
     setVideoEl(node);
   };
 
-  // List videos fetch metadata only within two viewport heights of the
-  // fold — an unbounded feed otherwise holds a decoder/fetch per video
+  // List/poster videos fetch metadata only within two viewport heights of
+  // the fold — an unbounded feed otherwise holds a decoder/fetch per video
   // ever loaded. The 200% margin settles collage ratios before they paint.
   useEffect(() => {
-    if (mode !== 'list') return;
+    if (mode !== 'list' && mode !== 'poster') return;
     const node = containerRef.current;
     if (!node) return;
     const observer = new IntersectionObserver(
@@ -115,7 +122,7 @@ export function usePostVideoPlayback(
   // and the 200% preload gate, so scroll-back remounts are warm before
   // they could paint.
   useEffect(() => {
-    if (mode !== 'list') return;
+    if (mode !== 'list' && mode !== 'poster') return;
     const node = containerRef.current;
     if (!node) return;
     const observer = new IntersectionObserver(
@@ -200,14 +207,15 @@ export function usePostVideoPlayback(
     return () => video.removeEventListener('loadedmetadata', begin);
   }, [mode, initialTime, resume]);
 
-  // Detail modes are on screen; quote/compose posters need their first
-  // frame — only list videos defer.
+  // Detail modes are on screen; compose previews need their first frame —
+  // only list/poster videos defer.
   const videoPreload: 'metadata' | 'none' =
-    mode === 'list' && !nearViewport ? 'none' : 'metadata';
+    gated && !nearViewport ? 'none' : 'metadata';
 
-  // Far-off list videos drop the element entirely; everything else stays
-  // mounted. The ratio box is remembered, so the row height never moves.
-  const videoMounted = mode !== 'list' || nearMount;
+  // Far-off list/poster videos drop the element entirely; everything else
+  // stays mounted. The ratio box is remembered, so the row height never
+  // moves.
+  const videoMounted = !gated || nearMount;
 
   return { containerRef, bindVideoEl, videoPreload, videoMounted };
 }
