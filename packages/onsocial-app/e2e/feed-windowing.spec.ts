@@ -46,9 +46,7 @@ async function stubPagedFeedGraph(page: Page): Promise<void> {
     };
     const query = body.query ?? '';
     if (query.includes('postsFeed') || query.includes('postsCurrent')) {
-      const field = query.includes('postsFeed')
-        ? 'postsFeed'
-        : 'postsCurrent';
+      const field = query.includes('postsFeed') ? 'postsFeed' : 'postsCurrent';
       const offset = body.variables?.offset ?? 0;
       const rows = offset === 0 ? PAGE_ONE : offset === 24 ? PAGE_TWO : [];
       await route.fulfill({
@@ -75,11 +73,9 @@ async function stubPagedFeedGraph(page: Page): Promise<void> {
 }
 
 function scrollFeedTo(page: Page, position: 'top' | 'bottom') {
-  return page
-    .locator('.os-app-screen-body')
-    .evaluate((node, at) => {
-      node.scrollTop = at === 'bottom' ? node.scrollHeight : 0;
-    }, position);
+  return page.locator('.os-app-screen-body').evaluate((node, at) => {
+    node.scrollTop = at === 'bottom' ? node.scrollHeight : 0;
+  }, position);
 }
 
 async function renderedBlockCount(page: Page): Promise<number> {
@@ -102,6 +98,12 @@ test.describe('feed list windowing', () => {
     await expect(page.locator('[data-feed-window-spacer]')).toHaveCount(0);
 
     // Page two appends at the bottom — 48 blocks crosses the threshold.
+    // The first scroll lands mid-list once the append grows the page, so
+    // scroll twice: the second pass reaches the true bottom.
+    await scrollFeedTo(page, 'bottom');
+    await expect(feed).toContainText('Window row win-30', {
+      timeout: 15_000,
+    });
     await scrollFeedTo(page, 'bottom');
     await expect(feed).toContainText('Window row win-47', {
       timeout: 15_000,
@@ -109,9 +111,9 @@ test.describe('feed list windowing', () => {
 
     // Windowed: the DOM holds only the rows near the viewport.
     await expect.poll(() => renderedBlockCount(page)).toBeLessThan(48);
-    await expect(
-      page.locator('[data-feed-window-spacer="top"]')
-    ).toHaveCount(1);
+    await expect(page.locator('[data-feed-window-spacer="top"]')).toHaveCount(
+      1
+    );
     const headKey = 'alice.near:win-00';
     await expect(
       page.locator(`.home-feed-block[data-feed-key="${headKey}"]`)
