@@ -17,8 +17,13 @@ import {
   OsSheetActions,
   OsSheetFooter,
   ShareIcon,
+  ipfsImgSrcSet,
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import {
+  APP_COLUMN_HERO_SIZES,
+  SCARCE_HERO_WIDTHS,
+} from '@/lib/hero-img-variants';
 import { ARTICLE_READ_CLASS } from '@/components/portfolio/article-read-screen';
 import { ArticleReadProgress } from '@/components/portfolio/article-read-progress';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -194,6 +199,7 @@ export function WritingReadDocument({
   const dialogName = workTitle || authorName || 'Writing';
   const inlineSvg = coverSvg?.trim() ? inlineSvgMarkup(coverSvg.trim()) : null;
   const rasterCover = cover?.trim() || null;
+  const rasterCoverSrcSet = ipfsImgSrcSet(rasterCover, SCARCE_HERO_WIDTHS);
   const canZoomCover = Boolean(rasterCover || inlineSvg);
   const kindLabel = writingReaderKindLabel({
     writingFormat,
@@ -221,8 +227,11 @@ export function WritingReadDocument({
               {rasterCover ? (
                 <img
                   src={rasterCover}
+                  srcSet={rasterCoverSrcSet}
+                  sizes={rasterCoverSrcSet ? APP_COLUMN_HERO_SIZES : undefined}
                   alt=""
                   className="portfolio-writing-cover-photo"
+                  decoding="async"
                 />
               ) : (
                 <span

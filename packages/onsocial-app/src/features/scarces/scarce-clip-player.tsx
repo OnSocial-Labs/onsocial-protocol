@@ -16,8 +16,13 @@ import {
   PlayFillIcon,
   PreviousFillIcon,
   ScaleUpIcon,
+  ipfsImgSrcSet,
 } from '@onsocial/ui';
 import { MediaDownloadControl } from '@/components/ui/media-download-control';
+import {
+  SCARCE_HERO_WIDTHS,
+  SQUARE_ART_SIZES,
+} from '@/lib/hero-img-variants';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
 import {
@@ -786,6 +791,7 @@ export function ScarceClipPlayer({
   }
 
   const cover = poster?.trim() || null;
+  const coverSrcSet = ipfsImgSrcSet(cover, SCARCE_HERO_WIDTHS);
   const showTrackList = commerce
     ? false
     : (showTracks ?? (isAudio && (tracksOnly || playlist.length > 1)));
@@ -914,7 +920,10 @@ export function ScarceClipPlayer({
                   <img
                     className="scarce-clip-player-cover"
                     src={cover}
+                    srcSet={coverSrcSet}
+                    sizes={coverSrcSet ? SQUARE_ART_SIZES : undefined}
                     alt=""
+                    decoding="async"
                   />
                 ) : (
                   <div className="scarce-clip-player-cover scarce-clip-player-cover--empty" />

@@ -17,8 +17,13 @@ import {
   OsSheetAction,
   OsSheetActions,
   SettingsIcon,
+  ipfsImgSrcSet,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import {
+  APP_COLUMN_HERO_SIZES,
+  SCARCE_HERO_WIDTHS,
+} from '@/lib/hero-img-variants';
 import { useImmersiveTitleHandoff } from '@/hooks/use-immersive-title-handoff';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -542,6 +547,8 @@ export function AppPagePanel({
   }
 
   const creatorCount = rosterIds.length;
+  const bannerSrcSet = ipfsImgSrcSet(app.bannerUrl, SCARCE_HERO_WIDTHS);
+  const logoSrcSet = ipfsImgSrcSet(app.mediaUrl, [128, 384]);
   const activityMeta =
     stats != null
       ? hubActivityMeta({
@@ -602,7 +609,15 @@ export function AppPagePanel({
             style={guildCoverStyle(app.bannerUrl, app.appId)}
             aria-hidden
           >
-            {app.bannerUrl ? <img src={app.bannerUrl} alt="" /> : null}
+            {app.bannerUrl ? (
+              <img
+                src={app.bannerUrl}
+                srcSet={bannerSrcSet}
+                sizes={bannerSrcSet ? APP_COLUMN_HERO_SIZES : undefined}
+                alt=""
+                decoding="async"
+              />
+            ) : null}
           </div>
 
           <header className="app-page-head app-page-head--overlap">
@@ -611,7 +626,13 @@ export function AppPagePanel({
               aria-hidden
             >
               {app.mediaUrl ? (
-                <img src={app.mediaUrl} alt="" />
+                <img
+                  src={app.mediaUrl}
+                  srcSet={logoSrcSet}
+                  sizes={logoSrcSet ? '80px' : undefined}
+                  alt=""
+                  decoding="async"
+                />
               ) : (
                 <span className="app-page-monogram">{monogram(app.title)}</span>
               )}

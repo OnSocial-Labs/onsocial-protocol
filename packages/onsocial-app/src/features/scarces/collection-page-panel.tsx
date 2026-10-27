@@ -23,8 +23,13 @@ import {
   ShareIcon,
   OsIconAction,
   ShopFillIcon,
+  ipfsImgSrcSet,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import {
+  APP_COLUMN_HERO_SIZES,
+  SCARCE_HERO_WIDTHS,
+} from '@/lib/hero-img-variants';
 import { RollingNumber } from '@/components/ui/rolling-number';
 import { useCatalogDockBack } from '@/hooks/use-catalog-dock-back';
 import { useImmersiveTitleHandoff } from '@/hooks/use-immersive-title-handoff';
@@ -317,6 +322,7 @@ export function CollectionPagePanel({
     return null;
   });
   const coverSrc = view ? editionCoverUrl(view, editionToken) : null;
+  const coverSrcSet = ipfsImgSrcSet(coverSrc, SCARCE_HERO_WIDTHS);
   const editionLine = editionToken ? (heldEditionMark(editionToken) ?? '') : '';
   /** Album / multi-clip drops love per track in the player — no Drop-level heart. */
   const showDropLove = (view?.playables.length ?? 0) === 0;
@@ -1188,7 +1194,15 @@ export function CollectionPagePanel({
               ? { style: { background: view.cardBg } }
               : {})}
           >
-            {coverSrc ? <img src={coverSrc} alt="" /> : null}
+            {coverSrc ? (
+              <img
+                src={coverSrc}
+                srcSet={coverSrcSet}
+                sizes={coverSrcSet ? APP_COLUMN_HERO_SIZES : undefined}
+                alt=""
+                decoding="async"
+              />
+            ) : null}
             {coverExpand === 'artwork' ? (
               <button
                 type="button"

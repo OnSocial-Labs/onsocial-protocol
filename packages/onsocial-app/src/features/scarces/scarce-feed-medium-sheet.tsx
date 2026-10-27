@@ -9,7 +9,12 @@ import {
   type ReactNode,
 } from 'react';
 import type { PostRow } from '@onsocial/sdk';
+import { ipfsImgSrcSet } from '@onsocial/ui';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
+import {
+  SCARCE_HERO_WIDTHS,
+  SQUARE_ART_SIZES,
+} from '@/lib/hero-img-variants';
 import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import {
@@ -260,6 +265,7 @@ export function ScarceFeedMediumSheet({
     !hydrateSettled && !hasWriting ? 'Loading writing…' : '';
   const inlineSvg = coverSvg?.trim() ? inlineSvgMarkup(coverSvg.trim()) : null;
   const rasterCover = cover?.trim() || null;
+  const rasterCoverSrcSet = ipfsImgSrcSet(rasterCover, SCARCE_HERO_WIDTHS);
   const postChrome =
     commerce || engagement ? (
       <div
@@ -278,7 +284,14 @@ export function ScarceFeedMediumSheet({
         dangerouslySetInnerHTML={{ __html: inlineSvg }}
       />
     ) : rasterCover ? (
-      <img src={rasterCover} alt="" className="scarce-thought-art" />
+      <img
+        src={rasterCover}
+        srcSet={rasterCoverSrcSet}
+        sizes={rasterCoverSrcSet ? SQUARE_ART_SIZES : undefined}
+        alt=""
+        className="scarce-thought-art"
+        decoding="async"
+      />
     ) : (
       <div
         className="scarce-thought-art scarce-thought-art--empty"

@@ -17,8 +17,13 @@ import {
   PauseFillIcon,
   PlayFillIcon,
   PreviousFillIcon,
+  ipfsImgSrcSet,
 } from '@onsocial/ui';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
+import {
+  SCARCE_HERO_WIDTHS,
+  SQUARE_ART_SIZES,
+} from '@/lib/hero-img-variants';
 import { FeedMediaThreadSheet } from '@/features/home/feed-media-thread-sheet';
 import { useFeedThreadBand } from '@/features/home/use-feed-thread-band';
 import { ScarceClipShareButton } from '@/features/scarces/scarce-clip-share-button';
@@ -148,6 +153,7 @@ export function ScarceClipListenSheet({
     }
     onClose();
   }, [onClose, onDismissThread, threadOpen]);
+  const coverSrcSet = ipfsImgSrcSet(cover, SCARCE_HERO_WIDTHS);
 
   return (
     <OsMediaFaceShell
@@ -175,7 +181,14 @@ export function ScarceClipListenSheet({
       <div className={`scarce-clip-listen${lyricsOpen ? ' is-lyrics' : ''}`}>
         <div className="scarce-clip-listen-art">
           {cover ? (
-            <img src={cover} alt="" className="scarce-clip-listen-cover" />
+            <img
+              src={cover}
+              srcSet={coverSrcSet}
+              sizes={coverSrcSet ? SQUARE_ART_SIZES : undefined}
+              alt=""
+              className="scarce-clip-listen-cover"
+              decoding="async"
+            />
           ) : (
             <div
               className="scarce-clip-listen-cover scarce-clip-listen-cover--empty"

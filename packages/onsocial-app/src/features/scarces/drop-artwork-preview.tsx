@@ -20,6 +20,7 @@ import {
   OsSheetAction,
   OsSheetActions,
   SheetCloseButton,
+  ipfsImgSrcSet,
 } from '@onsocial/ui';
 import {
   DROP_SET_REORDER_HOLD_MS,
@@ -27,6 +28,10 @@ import {
   dropSetReorderIntent,
 } from '@/features/scarces/drop-create-layout';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
+import {
+  OVERLAY_ART_SIZES,
+  SCARCE_OVERLAY_WIDTHS,
+} from '@/lib/hero-img-variants';
 
 interface DropArtOverlayProps {
   open: boolean;
@@ -97,6 +102,7 @@ export function DropArtOverlay({
   const hasNav = Boolean(onPrev || onNext);
   const inlineSvg = svg?.trim() || null;
   const rasterSrc = src?.trim() || null;
+  const rasterSrcSet = ipfsImgSrcSet(rasterSrc, SCARCE_OVERLAY_WIDTHS);
   const pageFillStyle: CSSProperties | undefined =
     surface === 'page'
       ? ({
@@ -150,7 +156,10 @@ export function DropArtOverlay({
                   key={rasterSrc}
                   className="drop-art-overlay-asset"
                   src={rasterSrc}
+                  srcSet={rasterSrcSet}
+                  sizes={rasterSrcSet ? OVERLAY_ART_SIZES : undefined}
                   alt=""
+                  decoding="async"
                 />
               ) : null}
             </div>

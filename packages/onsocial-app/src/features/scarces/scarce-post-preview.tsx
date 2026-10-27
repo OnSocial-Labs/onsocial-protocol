@@ -14,7 +14,9 @@ import {
   previewTextCard,
 } from '@onsocial/text-card';
 import type { PostRow } from '@onsocial/sdk';
+import { ipfsImgSrcSet } from '@onsocial/ui';
 import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
+import { SCARCE_HERO_WIDTHS } from '@/lib/hero-img-variants';
 import { parsePostText } from '@/lib/post-display';
 import { displayName } from '@/lib/profile-display';
 import {
@@ -193,6 +195,11 @@ export function ScarcePostPreview({
   const inlineSvg = textCardSvg ? inlineSvgMarkup(textCardSvg) : null;
   if (!rasterSrc && !inlineSvg) return null;
   const isPhotoCover = Boolean(rasterSrc);
+  const previewSrcSet = ipfsImgSrcSet(rasterSrc, SCARCE_HERO_WIDTHS);
+  const previewSizes =
+    variant === 'feed'
+      ? '(min-width: 640px) 300px, 62vw'
+      : '(min-width: 640px) 180px, 40vw';
 
   return (
     <>
@@ -233,7 +240,11 @@ export function ScarcePostPreview({
             key={rasterSrc!}
             className="scarce-post-preview-asset"
             src={rasterSrc!}
+            srcSet={previewSrcSet}
+            sizes={previewSrcSet ? previewSizes : undefined}
             alt=""
+            loading="lazy"
+            decoding="async"
           />
         )}
       </button>
