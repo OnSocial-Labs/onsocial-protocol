@@ -1,6 +1,17 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SocialModule, resolvePostMedia } from './social.js';
 import type { StorageProvider } from '../storage/provider.js';
+import { probeBlobDimensions } from '../internal/media-dimensions.js';
+
+vi.mock('../internal/media-dimensions.js', () => ({
+  probeBlobDimensions: vi.fn(async () => ({})),
+}));
+
+const probeMock = vi.mocked(probeBlobDimensions);
+
+afterEach(() => {
+  probeMock.mockReset().mockResolvedValue({});
+});
 
 function makeProvider(): StorageProvider & { uploads: Array<Blob | File> } {
   const uploads: Array<Blob | File> = [];
@@ -94,6 +105,64 @@ describe('resolvePostMedia', () => {
     expect(out.x).toEqual({ myApp: { gameId: 'g1' } });
     expect(out.customTopLevel).toBe('keep me');
   });
+
+  it('attaches probed width/height hints to files[] media refs', async () => {
+    probeMock.mockImplementation(async (_blob, mime) =>
+      mime.startsWith('image/') ? { width: 3000, height: 2000 } : {}
+    );
+    const provider = makeProvider();
+    const audio = new File(['audio'], 'song.mp3', { type: 'audio/mpeg' });
+    const cover = new File(['cover'], 'cover.webp', { type: 'image/webp' });
+    const out = await resolvePostMedia(
+      { text: 'new track', files: [audio, cover] },
+      provider
+    );
+    expect(probeMock).toHaveBeenCalledTimes(2);
+    expect(out.media).toEqual([
+      { cid: 'bafy-1', mime: 'audio/mpeg', size: audio.size },
+      {
+        cid: 'bafy-2',
+        mime: 'image/webp',
+        size: cover.size,
+        width: 3000,
+        height: 2000,
+      },
+    ]);
+  });
+
+  it('probes and uploads each file concurrently', async () => {
+    let resolveUpload: ((v: unknown) => void) | undefined;
+    const provider = {
+      uploads: [],
+      upload: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveUpload = resolve;
+          })
+      ),
+      uploadJson: vi.fn(),
+      url: (cid: string) => `https://cdn/${cid}`,
+    } as unknown as StorageProvider & { uploads: Array<Blob | File> };
+    let probeSettled = false;
+    probeMock.mockImplementation(async () => {
+      // If the probe were awaited before the upload started, this would only
+      // settle after the upload — resolve the upload from inside the probe
+      // instead and assert the pipeline still completes.
+      probeSettled = true;
+      return { width: 100, height: 50 };
+    });
+    const pending = resolvePostMedia(
+      { text: 'gm', files: [new File(['x'], 'x.png', { type: 'image/png' })] },
+      provider
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    expect(probeSettled).toBe(true); // probe kicked off without upload result
+    resolveUpload!({ cid: 'bafy-1', mime: 'image/png', size: 1 });
+    const out = await pending;
+    expect(out.media).toEqual([
+      { cid: 'bafy-1', mime: 'image/png', size: 1, width: 100, height: 50 },
+    ]);
+  });
 });
 
 describe('SocialModule.post with files[]', () => {
@@ -155,5 +224,59 @@ describe('SocialModule.post with files[]', () => {
     expect(stored.channel).toBe('music');
     expect(stored.kind).toBe('audio'); // inferKind saw audio/* mime
     expect(stored.files).toBeUndefined();
+  });
+
+  it('persists probed dimension hints in the stored post body', async () => {
+    probeMock.mockResolvedValue({ width: 1920, height: 1080 });
+    const postSpy = vi.fn(async (path: string) => {
+      if (path.startsWith('/compose/prepare/')) {
+        const calls = postSpy.mock.calls as unknown as Array<
+          [string, Record<string, unknown>]
+        >;
+        const last = calls[calls.length - 1][1];
+        return {
+          action: { type: 'set', __body: last },
+          target_account: 'core.onsocial.testnet',
+        };
+      }
+      if (path === '/relay/delegate') return { txHash: 'tx' };
+      throw new Error(`unexpected POST ${path}`);
+    });
+    const session = {
+      signComposeDelegate: vi.fn(async () => ({
+        base64: 'BASE64_DELEGATE_BLOB',
+        nonce: 1,
+      })),
+    };
+    const provider = makeProvider();
+    const social = new SocialModule(
+      {
+        get: vi.fn(async (path: string) => {
+          if (path === '/relay/latest-block') return { block_height: 100 };
+          throw new Error(`unexpected GET ${path}`);
+        }),
+        post: postSpy,
+        network: 'testnet',
+      } as never,
+      () => session as never,
+      provider
+    );
+
+    await social.post(
+      {
+        text: 'gm',
+        files: [new File(['x'], 'x.png', { type: 'image/png' })],
+      },
+      'p-2'
+    );
+
+    const calls = postSpy.mock.calls as unknown as Array<
+      [string, { path: string; value: string }]
+    >;
+    const prepCall = calls.find(([p]) => p === '/compose/prepare/set');
+    const stored = JSON.parse(prepCall![1].value);
+    expect(stored.media).toEqual([
+      { cid: 'bafy-1', mime: 'image/png', size: 1, width: 1920, height: 1080 },
+    ]);
   });
 });

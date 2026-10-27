@@ -6,6 +6,7 @@ import { SCHEMA_VERSION } from '../schema/v1.js';
 import type { MediaRef } from '../schema/v1.js';
 import type { PostData } from '../types.js';
 import type { StorageProvider } from '../storage/provider.js';
+import { probeBlobDimensions } from '../internal/media-dimensions.js';
 import { applyFeedMeta, type SocialSetData } from './_shared.js';
 
 export function buildPostSetData(
@@ -108,6 +109,11 @@ export function isFileLike(value: unknown): value is Blob | File {
  * `image` or `files`; all uploads have been performed via the supplied
  * StorageProvider.
  *
+ * In browser runtimes each `files` entry is also probed for intrinsic
+ * dimensions (image natural size / video metadata) so the stored MediaRef
+ * carries `width` / `height` renderer hints. Probing is best-effort and
+ * never blocks or fails the write — non-browser runtimes simply omit hints.
+ *
  * Exported so callers that don't go through `SocialModule` (e.g. custom
  * flows, contract-direct devs) can reuse the same media-resolution rules.
  */
@@ -130,10 +136,17 @@ export async function resolvePostMedia(
   }
   if (hasFiles && post.files) {
     const uploads = await Promise.all(
-      (post.files as Array<Blob | File>).map((f) => storage.upload(f))
+      (post.files as Array<Blob | File>).map(async (f) => {
+        const mime = typeof f.type === 'string' && f.type ? f.type : '';
+        const [u, dims] = await Promise.all([
+          storage.upload(f),
+          probeBlobDimensions(f, mime),
+        ]);
+        return { u, dims };
+      })
     );
-    for (const u of uploads) {
-      prepended.push({ cid: u.cid, mime: u.mime, size: u.size });
+    for (const { u, dims } of uploads) {
+      prepended.push({ cid: u.cid, mime: u.mime, size: u.size, ...dims });
     }
   }
 

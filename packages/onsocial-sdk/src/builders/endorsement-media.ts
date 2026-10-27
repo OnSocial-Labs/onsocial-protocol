@@ -4,6 +4,7 @@
 
 import type { MediaRef } from '../schema/v1.js';
 import type { StorageProvider } from '../storage/provider.js';
+import { probeBlobDimensions } from '../internal/media-dimensions.js';
 import { isFileLike } from './post.js';
 import type { EndorsementBuildInput } from './endorsement.js';
 
@@ -74,11 +75,17 @@ export async function resolveEndorsementBuildInput(
   if (rawMedia === null) {
     media = undefined;
   } else if (isFileLike(rawMedia)) {
-    const uploaded = await storage.upload(rawMedia);
+    const mime =
+      typeof rawMedia.type === 'string' && rawMedia.type ? rawMedia.type : '';
+    const [uploaded, dims] = await Promise.all([
+      storage.upload(rawMedia),
+      probeBlobDimensions(rawMedia, mime),
+    ]);
     media = {
       cid: uploaded.cid,
       mime: uploaded.mime,
       size: uploaded.size,
+      ...dims,
     };
   } else if (isMediaRef(rawMedia)) {
     media = rawMedia;
