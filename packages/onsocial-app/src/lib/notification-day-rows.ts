@@ -14,7 +14,9 @@ export type NotificationItemRow<T> = {
   item: T;
 };
 
-export type NotificationListRow<T> = NotificationDayRow | NotificationItemRow<T>;
+export type NotificationListRow<T> =
+  | NotificationDayRow
+  | NotificationItemRow<T>;
 
 /** Insert a day rule whenever the local calendar day changes. */
 export function buildNotificationDayRows<
@@ -34,4 +36,14 @@ export function buildNotificationDayRows<
     rows.push({ kind: 'item', item });
   }
   return rows;
+}
+
+/**
+ * Window key for a notification list row — day rules key on the day,
+ * items on their notification id (`day:` prefixes never collide).
+ */
+export function notificationRowKey<T extends { id: string }>(
+  row: NotificationListRow<T>
+): string {
+  return row.kind === 'day' ? row.key : row.item.id;
 }

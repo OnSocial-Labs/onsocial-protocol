@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useRef } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import {
   Divider,
@@ -36,7 +37,12 @@ import {
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
-import { buildNotificationDayRows } from '@/lib/notification-day-rows';
+import {
+  buildNotificationDayRows,
+  notificationRowKey,
+} from '@/lib/notification-day-rows';
+import { useFeedWindow } from '@/features/home/use-feed-window';
+import { NOTIFICATION_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import { displayName } from '@/lib/profile-display';
 import './notification-activity-badges.css';
 
@@ -106,7 +112,11 @@ function NotificationActivitySkeletonRow() {
 }
 
 /** Standing-style shimmer while the inbox loads. */
-export function NotificationActivitySkeleton({ count = 6 }: { count?: number }) {
+export function NotificationActivitySkeleton({
+  count = 6,
+}: {
+  count?: number;
+}) {
   return (
     <div
       className="standing-list notifications-activity-list standing-list-skeleton"
@@ -247,7 +257,23 @@ export function NotificationActivityRows({
   onOpen: (item: Notification) => void;
   refreshing?: boolean;
 }) {
-  const rows = buildNotificationDayRows(items);
+  const rows = useMemo(() => buildNotificationDayRows(items), [items]);
+
+  /*
+   * List windowing — same core as the feed and thread panels: past the row
+   * threshold, far rows collapse into spacers so a long inbox stops paying
+   * DOM cost for offscreen history. Rows are short (~76px estimate vs the
+   * feed's 320); the measured cache corrects it after first paint.
+   */
+  const rowKeys = useMemo(() => rows.map(notificationRowKey), [rows]);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
+    useFeedWindow({
+      keys: rowKeys,
+      hostRef: listRef,
+      anchorQuery: NOTIFICATION_ANCHOR_QUERY,
+      estimate: 76,
+    });
 
   return (
     <div
@@ -256,12 +282,23 @@ export function NotificationActivityRows({
       }`}
       role="list"
       aria-busy={refreshing || undefined}
+      ref={listRef}
     >
-      {rows.map((row, index) => {
+      {windowed && topSpacer > 0 ? (
+        <div
+          style={{ height: topSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="top"
+        />
+      ) : null}
+      {rows.slice(start, end).map((row, sliceIndex) => {
+        const index = start + sliceIndex;
         if (row.kind === 'day') {
           return (
             <div
               key={row.key}
+              ref={registerRow(row.key)}
+              data-notification-key={row.key}
               className="notifications-activity-day"
               aria-label={row.label}
             >
@@ -297,8 +334,7 @@ export function NotificationActivityRows({
         const placeName = placeAccountId
           ? displayName(placeAccountId, placeProfile?.displayName)
           : placeGroupId
-            ? guildNames?.[placeGroupId] ||
-              guildDisplayName(null, placeGroupId)
+            ? guildNames?.[placeGroupId] || guildDisplayName(null, placeGroupId)
             : placeCollectionId
               ? collectionNames?.[placeCollectionId] || placeCollectionId
               : null;
@@ -316,7 +352,9 @@ export function NotificationActivityRows({
               <SystemMark family={chrome.family} />
               <div className="standing-row-copy notifications-activity-system">
                 <span className="standing-row-name-row">
-                  <span className="standing-row-name">{chrome.familyLabel}</span>
+                  <span className="standing-row-name">
+                    {chrome.familyLabel}
+                  </span>
                 </span>
                 <ActivityVerb verb={chrome.action} />
                 <ActivityHint place={placeName} snippet={snippet} />
@@ -331,7 +369,9 @@ export function NotificationActivityRows({
           const identityLabel = leadAccount
             ? standingIdentityLabel(leadAccount, profile?.displayName).label
             : name;
-          ariaLead = [identityLabel, verb, placeName].filter(Boolean).join(', ');
+          ariaLead = [identityLabel, verb, placeName]
+            .filter(Boolean)
+            .join(', ');
           body = leadAccount ? (
             <StandingIdentity
               accountId={leadAccount}
@@ -368,7 +408,12 @@ export function NotificationActivityRows({
         const aria = when.label ? `${ariaLead}, ${when.label}` : ariaLead;
 
         return (
-          <div key={item.id} role="listitem">
+          <div
+            key={item.id}
+            ref={registerRow(item.id)}
+            data-notification-key={item.id}
+            role="listitem"
+          >
             {previous?.kind === 'item' ? <Divider variant="item" /> : null}
             <div className="standing-row notifications-activity-row">
               <div className="standing-row-main">
@@ -399,6 +444,13 @@ export function NotificationActivityRows({
           </div>
         );
       })}
+      {windowed && bottomSpacer > 0 ? (
+        <div
+          style={{ height: bottomSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="bottom"
+        />
+      ) : null}
     </div>
   );
 }

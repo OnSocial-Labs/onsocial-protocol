@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   captureVisibleFeedAnchor,
+  NOTIFICATION_ANCHOR_QUERY,
   restoreFeedAnchor,
   THREAD_ANCHOR_QUERY,
 } from './home-feed-scroll-anchor';
@@ -167,6 +168,77 @@ describe('custom anchor queries (thread rows)', () => {
     );
     expect(root.querySelector).toHaveBeenCalledWith(
       '[data-thread-focus-key="a.near:p2"]'
+    );
+    expect(root.scrollTop).toBe(340);
+  });
+});
+
+type FakeNotificationRow = {
+  top: number;
+  height: number;
+  key?: string;
+};
+
+function fakeNotificationRow({ top, height, key }: FakeNotificationRow) {
+  return {
+    getBoundingClientRect: () => ({ top, bottom: top + height }),
+    dataset: key === undefined ? {} : { notificationKey: key },
+  };
+}
+
+function fakeNotificationRoot(
+  rootTop: number,
+  rows: ReturnType<typeof fakeNotificationRow>[]
+) {
+  const root = {
+    scrollTop: 0,
+    getBoundingClientRect: () => ({ top: rootTop }),
+    querySelectorAll: (selector: string) =>
+      selector === '[data-notification-key]' ? rows : [],
+    querySelector: vi.fn((selector: string) => {
+      const match = /\[data-notification-key="([^"]+)"\]/.exec(selector);
+      return rows.find((r) => r.dataset.notificationKey === match?.[1]) ?? null;
+    }),
+  };
+  return root as unknown as HTMLElement & {
+    scrollTop: number;
+    querySelector: ReturnType<typeof vi.fn>;
+  };
+}
+
+describe('custom anchor queries (notification rows)', () => {
+  it('captures the first visible row by its notification key', () => {
+    const root = fakeNotificationRoot(100, [
+      fakeNotificationRow({ top: -300, height: 80, key: 'day:2026-08-25' }), // above
+      fakeNotificationRow({ top: 40, height: 80, key: 'n-2' }), // bottom 120
+    ]);
+    expect(captureVisibleFeedAnchor(root, NOTIFICATION_ANCHOR_QUERY)).toEqual({
+      key: 'n-2',
+      top: -60,
+    });
+  });
+
+  it('skips rows without a key instead of anchoring on them', () => {
+    const root = fakeNotificationRoot(100, [
+      fakeNotificationRow({ top: -40, height: 80 }), // visible but keyless
+      fakeNotificationRow({ top: 160, height: 80, key: 'n-3' }),
+    ]);
+    expect(captureVisibleFeedAnchor(root, NOTIFICATION_ANCHOR_QUERY)?.key).toBe(
+      'n-3'
+    );
+  });
+
+  it('restores via the notification-key lookup selector', () => {
+    const root = fakeNotificationRoot(100, [
+      fakeNotificationRow({ top: 300, height: 80, key: 'n-2' }),
+    ]);
+    restoreFeedAnchor(
+      root,
+      { key: 'n-2', top: -140 },
+      NOTIFICATION_ANCHOR_QUERY
+    );
+    expect(root.querySelector).toHaveBeenCalledWith(
+      '[data-notification-key="n-2"]'
     );
     expect(root.scrollTop).toBe(340);
   });

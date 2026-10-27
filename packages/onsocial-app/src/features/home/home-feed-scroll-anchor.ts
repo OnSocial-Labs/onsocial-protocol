@@ -36,6 +36,16 @@ export const THREAD_ANCHOR_QUERY: FeedAnchorQuery = {
   rowSelectorForKey: (key) => `[data-thread-focus-key="${CSS.escape(key)}"]`,
 };
 
+/**
+ * Notification activity rows — every day rule and item wrapper carries
+ * `[data-notification-key]` (notificationRowKey).
+ */
+export const NOTIFICATION_ANCHOR_QUERY: FeedAnchorQuery = {
+  rowSelector: '[data-notification-key]',
+  rowKey: (el) => el.dataset.notificationKey,
+  rowSelectorForKey: (key) => `[data-notification-key="${CSS.escape(key)}"]`,
+};
+
 /** First row whose bottom edge is still inside the scroll root. */
 export function captureVisibleFeedAnchor(
   root: HTMLElement | null,
