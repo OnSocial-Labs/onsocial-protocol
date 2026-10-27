@@ -62,6 +62,34 @@ describe('ipfsImgVariantUrl', () => {
       `https://cdn.onsocial.id/img/128/ipfs/${MAINNET_CID}`
     );
   });
+
+  it('bypasses gif and svg — imgproxy serves those byte-identical (D3)', () => {
+    expect(ipfsImgVariantUrl(MAINNET_URL, 384, 'image/gif')).toBeNull();
+    expect(ipfsImgVariantUrl(MAINNET_URL, 384, 'image/svg+xml')).toBeNull();
+  });
+
+  it('matches pass-through MIMEs case-insensitively', () => {
+    expect(ipfsImgVariantUrl(MAINNET_URL, 384, ' Image/GIF ')).toBeNull();
+  });
+
+  it('still rewrites for resizable MIMEs and when MIME is unknown', () => {
+    for (const mime of [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/avif',
+    ]) {
+      expect(ipfsImgVariantUrl(MAINNET_URL, 384, mime)).toBe(
+        `https://cdn.onsocial.id/img/384/ipfs/${MAINNET_CID}`
+      );
+    }
+    expect(ipfsImgVariantUrl(MAINNET_URL, 384, null)).toBe(
+      `https://cdn.onsocial.id/img/384/ipfs/${MAINNET_CID}`
+    );
+    expect(ipfsImgVariantUrl(MAINNET_URL, 384)).toBe(
+      `https://cdn.onsocial.id/img/384/ipfs/${MAINNET_CID}`
+    );
+  });
 });
 
 describe('ipfsImgSrcSet', () => {
@@ -88,6 +116,22 @@ describe('ipfsImgSrcSet', () => {
   it('returns undefined for non-CDN URLs', () => {
     expect(ipfsImgSrcSet('blob:https://app.onsocial.id/1234')).toBeUndefined();
     expect(ipfsImgSrcSet(null)).toBeUndefined();
+  });
+
+  it('returns undefined for gif/svg MIMEs (D3 passthrough)', () => {
+    expect(
+      ipfsImgSrcSet(MAINNET_URL, [384, 1080], 'image/gif')
+    ).toBeUndefined();
+    expect(
+      ipfsImgSrcSet(MAINNET_URL, [384, 1080], 'image/svg+xml')
+    ).toBeUndefined();
+    expect(ipfsImgSrcSet(MAINNET_URL, undefined, 'image/gif')).toBeUndefined();
+  });
+
+  it('keeps the full rung set for resizable MIMEs', () => {
+    expect(ipfsImgSrcSet(MAINNET_URL, undefined, 'image/jpeg')).toContain(
+      '1080w'
+    );
   });
 });
 

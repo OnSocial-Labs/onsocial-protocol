@@ -11,6 +11,16 @@ export const IPFS_IMG_VARIANT_WIDTHS = [128, 384, 1080, 1920] as const;
 
 export type IpfsImgVariantWidth = (typeof IPFS_IMG_VARIANT_WIDTHS)[number];
 
+/**
+ * Formats imgproxy serves byte-identical from source (D3). A variant URL
+ * would work but adds a resize hop for zero benefit — bypass it.
+ */
+const PASSTHROUGH_MIMES = new Set(['image/gif', 'image/svg+xml']);
+
+function isPassthroughMime(mime: string | null | undefined): boolean {
+  return mime ? PASSTHROUGH_MIMES.has(mime.trim().toLowerCase()) : false;
+}
+
 /** Root CIDs only — the CDN route does not match subpaths, queries, or CID-in-path forms. */
 const CDN_IPFS_URL =
   /^https:\/\/(cdn(?:\.testnet)?\.onsocial\.id)\/ipfs\/([A-Za-z0-9]+)$/;
@@ -30,15 +40,17 @@ export function isCdnIpfsImgUrl(url: string | null | undefined): boolean {
 
 /**
  * Variant URL for one locked width, or `null` when the URL is not a CDN
- * IPFS original (blob previews, external hosts, subpaths) — callers fall
- * back to the original `src` with no `srcSet`.
+ * IPFS original (blob previews, external hosts, subpaths) or the MIME is
+ * pass-through (gif/svg, D3) — callers fall back to the original `src`
+ * with no `srcSet`.
  */
 export function ipfsImgVariantUrl(
   url: string | null | undefined,
-  width: IpfsImgVariantWidth
+  width: IpfsImgVariantWidth,
+  mime?: string | null
 ): string | null {
   const parts = splitCdnIpfsUrl(url);
-  if (!parts) return null;
+  if (!parts || isPassthroughMime(mime)) return null;
   return `https://${parts.host}/img/${width}/ipfs/${parts.cid}`;
 }
 
@@ -49,9 +61,10 @@ export function ipfsImgVariantUrl(
  */
 export function ipfsImgSrcSet(
   url: string | null | undefined,
-  widths: readonly IpfsImgVariantWidth[] = IPFS_IMG_VARIANT_WIDTHS
+  widths: readonly IpfsImgVariantWidth[] = IPFS_IMG_VARIANT_WIDTHS,
+  mime?: string | null
 ): string | undefined {
-  if (!splitCdnIpfsUrl(url)) return undefined;
+  if (!splitCdnIpfsUrl(url) || isPassthroughMime(mime)) return undefined;
   return widths
     .map((width) => `${ipfsImgVariantUrl(url, width)} ${width}w`)
     .join(', ');

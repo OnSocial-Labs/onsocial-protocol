@@ -140,7 +140,9 @@ export function PostMediaBlock({
     isActivatable && Boolean(activateLabel) && !isDetailVideo;
   const [soundOff, setSoundOff] = useState(focusedVideoMuted);
   const { resolved, markResolved, bind } = useFeedMediaResolved(item.url);
-  const imgSrcSet = isVideo ? undefined : ipfsImgSrcSet(item.url);
+  const imgSrcSet = isVideo
+    ? undefined
+    : ipfsImgSrcSet(item.url, undefined, item.mime);
 
   useEffect(() => {
     setSoundOff(focusedVideoMuted);

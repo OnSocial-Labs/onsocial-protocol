@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { ipfsImgSrcSet } from '@onsocial/ui';
 import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kind-switch';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { PortfolioDepthLinks } from '@/components/portfolio/portfolio-depth-links';
@@ -92,6 +93,7 @@ export function PortfolioIdentity({
     tagCount,
   });
   const handleLabel = portfolioHandleForMood(accountId, mood.id);
+  const avatarSrcSet = ipfsImgSrcSet(avatarUrl, [128, 384]);
 
   useEffect(() => {
     if (!isDao) return;
@@ -104,7 +106,13 @@ export function PortfolioIdentity({
       data-profile-kind={displayKind}
     >
       {avatarUrl ? (
-        <img alt={titleLabel} className="portfolio-avatar" src={avatarUrl} />
+        <img
+          alt={titleLabel}
+          className="portfolio-avatar"
+          src={avatarUrl}
+          srcSet={avatarSrcSet}
+          sizes={avatarSrcSet ? '104px' : undefined}
+        />
       ) : (
         <div className="portfolio-avatar portfolio-avatar-fallback">
           {initials(titleLabel)}
