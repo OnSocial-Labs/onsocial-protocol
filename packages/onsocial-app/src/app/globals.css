@@ -3854,8 +3854,7 @@ a.os-surface-row,
   .portfolio-frame[data-avatar-cover='true']
     .portfolio-identity
     > .portfolio-avatar-fallback,
-  .account-editor-link-sheet input.account-editor-website-file,
-  .post-media-strip.is-carousel::-webkit-scrollbar {
+  .account-editor-link-sheet input.account-editor-website-file {
     display: none;
   }
 
@@ -23485,42 +23484,6 @@ a.os-surface-row,
    * Thread / detail — one-by-one horizontal snap slides.
    * Letterbox / pillarbox stays transparent — no tile chrome.
    */
-  .post-media-strip.is-carousel {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 0;
-    width: 100%;
-    min-width: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory;
-    scrollbar-width: none;
-    touch-action: pan-x;
-    background: transparent;
-  }
-
-  .post-media-strip.is-carousel .post-media-tile {
-    flex: 0 0 100%;
-    width: 100%;
-    max-width: 100%;
-    height: min(28rem, 70vh);
-    max-height: min(28rem, 70vh);
-    scroll-snap-align: center;
-    scroll-snap-stop: always;
-    border: 0;
-    border-radius: 0.65rem;
-    background: transparent;
-  }
-
-  .post-media-strip.is-carousel .post-media-element {
-    width: 100%;
-    height: 100%;
-    max-height: none;
-    object-fit: contain;
-    background: transparent;
-  }
 
   .post-media-tile {
     position: relative;
