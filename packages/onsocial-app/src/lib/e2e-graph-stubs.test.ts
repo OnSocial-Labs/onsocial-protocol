@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  E2E_ARTICLES_WINDOW_COUNT,
   e2eGraphStubsAllowed,
   e2eDropCurrentRows,
   e2eDropsCoverCatalogRows,
@@ -386,6 +387,29 @@ describe('resolveE2eGraphStub', () => {
         cookieValue: null,
       })
     ).toBeNull();
+  });
+
+  it('paginates the Articles window fixture across the cursor', () => {
+    const first = resolveE2eGraphStub({
+      query: 'query DiscoverArticles { articlesSearch }',
+      cookieValue: 'articles=window',
+    })?.data.articlesSearch as Array<{ blockHeight: number; postId: string }>;
+    expect(first).toHaveLength(25);
+    expect(first[0]?.postId).toBe('e2e-win-article-1');
+    const cursor = first[23]!;
+    const rest = resolveE2eGraphStub({
+      query: 'query DiscoverArticles { articlesSearch }',
+      variables: { before: cursor.blockHeight, beforeId: cursor.postId },
+      cookieValue: 'articles=window',
+    })?.data.articlesSearch as Array<{ blockHeight: number; postId: string }>;
+    expect(rest).toHaveLength(E2E_ARTICLES_WINDOW_COUNT - 24);
+    expect(rest[0]?.postId).toBe('e2e-win-article-25');
+    expect(
+      resolveE2eGraphStub({
+        query: 'query ProfileStatsBatch { profileSearch profileKinds }',
+        cookieValue: 'articles=window',
+      })?.data.profileSearch
+    ).toEqual([{ accountId: 'alice.testnet', name: 'Alice', avatar: null }]);
   });
 
   it('returns a two-dollar ticket for the Events list', () => {

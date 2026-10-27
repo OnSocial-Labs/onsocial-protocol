@@ -5,7 +5,7 @@
  *
  * Tests opt in with cookie `onsocial.e2e.graph`
  * (`catalog=night-roads`, `vault=default`, `hub=catalog`, `guild=empty`,
- * `market=shop`, `market=window`, `drop=default`, `drops=covers`, `drops=events`, `drops=window`, `writing=shelf`, `writing=reader`, or combined).
+ * `market=shop`, `market=window`, `drop=default`, `drops=covers`, `drops=events`, `drops=window`, `writing=shelf`, `writing=reader`, `articles=window`, or combined).
  * No cookie → live indexer / existing `page.route` only (SSR miss still works).
  */
 
@@ -35,7 +35,7 @@ export type E2eGraphMarket = 'shop' | 'shop-empty' | 'live-first' | 'window';
 export type E2eGraphDrop = 'default' | 'held' | 'missing';
 export type E2eGraphDrops = 'covers' | 'events' | 'window';
 export type E2eGraphWriting = 'shelf' | 'reader';
-export type E2eGraphArticles = 'list';
+export type E2eGraphArticles = 'list' | 'window';
 /** SSR profile shell fixture — `banner` carries a CDN banner image. */
 export type E2eGraphProfile = 'banner';
 export type E2eDropCollectionId =
@@ -133,7 +133,7 @@ export function parseE2eGraphCookie(
     parsed.writing = writing;
   }
   const articles = params.get('articles');
-  if (articles === 'list') parsed.articles = articles;
+  if (articles === 'list' || articles === 'window') parsed.articles = articles;
   const profile = params.get('profile');
   if (profile === 'banner') parsed.profile = profile;
   return parsed;
@@ -1221,6 +1221,31 @@ export function e2eDiscoverArticleRows() {
   }));
 }
 
+/** Enough rows to cross the 30-row window floor in the Articles sheet. */
+export const E2E_ARTICLES_WINDOW_COUNT = 44;
+
+function e2eArticlesWindowRows() {
+  return Array.from({ length: E2E_ARTICLES_WINDOW_COUNT }, (_, index) => ({
+    accountId: E2E_WRITING_ACCOUNT,
+    postId: `e2e-win-article-${index + 1}`,
+    title: `Window article ${index + 1}`,
+    blockHeight: 1000 - index,
+    blockTimestamp: 1_700_000_000_000,
+  }));
+}
+
+/**
+ * Mirror the indexed-search pagination: the first call gets one look-ahead
+ * page (25 → 24 shown + hasMore), the cursor call gets the rest (20 → end).
+ */
+function e2eArticlesWindowPage(variables: Record<string, unknown>) {
+  const rows = e2eArticlesWindowRows();
+  const before =
+    typeof variables.before === 'number' ? variables.before : null;
+  if (before == null) return rows.slice(0, 25);
+  return rows.filter((row) => row.blockHeight < before);
+}
+
 function e2eDiscoverArticlePost(postId: string) {
   const row =
     E2E_DISCOVER_ARTICLES.find((item) => item.postId === postId) ??
@@ -1319,6 +1344,49 @@ export function resolveE2eGraphStub(opts: {
     const postId =
       typeof variables.postId === 'string' ? variables.postId : 'night';
     return { data: { postsCurrent: [e2eDiscoverArticlePost(postId)] } };
+  }
+
+  if (parsed.articles === 'window' && opts.query.includes('articlesSearch')) {
+    return { data: { articlesSearch: e2eArticlesWindowPage(variables) } };
+  }
+  if (parsed.articles === 'window' && isProfileBatchQuery(opts.query)) {
+    return {
+      data: {
+        profileSearch: [
+          {
+            accountId: E2E_WRITING_ACCOUNT,
+            name: 'Alice',
+            avatar: null,
+          },
+        ],
+        profileKinds: [],
+      },
+    };
+  }
+  if (parsed.articles === 'window' && opts.query.includes('IndexedPostsByRefs')) {
+    return { data: { postsCurrent: [] } };
+  }
+  if (
+    parsed.articles === 'window' &&
+    (opts.query.includes('ViewerPostReactions') ||
+      opts.query.includes('SocialSpendEvents'))
+  ) {
+    return { data: { reactionsCurrent: [], socialSpendEvents: [] } };
+  }
+  if (parsed.articles === 'window' && opts.query.includes('PostReactionCounts')) {
+    return { data: { reactionCounts: [] } };
+  }
+  if (
+    parsed.articles === 'window' &&
+    opts.query.includes('ThreadCountsByPaths')
+  ) {
+    return {
+      data: {
+        threadReplyCounts: [],
+        quoteCounts: [],
+        repostCounts: [],
+      },
+    };
   }
 
   const writingRows = e2eWritingRows(parsed.writing);
