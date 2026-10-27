@@ -111,7 +111,8 @@
   padding: 0;
 }
 
-.os-app-screen-nav-row .glass-sheet-icon-action > svg {
+.os-app-screen-nav-row .glass-sheet-icon-action > svg,
+.standing-sheet-header--compact .glass-sheet-icon-action > svg {
   display: block;
   flex-shrink: 0;
   width: 1.25rem;
@@ -275,11 +276,7 @@
   --glass-sheet-body-opacity: 0.62;
 }
 
-.glass-sheet-panel.page-joined-facts-panel {
-  --glass-header-scrim-height: min(5rem, 24%);
-  --glass-sheet-body-opacity: 0.64;
-}
-
+.glass-sheet-panel.page-joined-facts-panel,
 .glass-sheet-panel.guild-facts-sheet-panel {
   --glass-header-scrim-height: min(5rem, 24%);
   --glass-sheet-body-opacity: 0.64;
@@ -333,13 +330,6 @@
   height: var(--os-app-screen-nav-row-height, 2.35rem);
   min-width: var(--os-app-screen-nav-row-height, 2.35rem);
   min-height: var(--os-app-screen-nav-row-height, 2.35rem);
-}
-
-.standing-sheet-header--compact .glass-sheet-icon-action > svg {
-  display: block;
-  flex-shrink: 0;
-  width: 1.25rem;
-  height: 1.25rem;
 }
 
 .standing-sheet-header--compact .standing-sheet-subject-name {
@@ -407,7 +397,8 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   --glass-sheet-body-opacity: 0.64;
 }
 
-.glass-sheet-panel.collection-allowlist-edit-sheet-panel > .glass-sheet-footer {
+.glass-sheet-panel.collection-allowlist-edit-sheet-panel > .glass-sheet-footer,
+.glass-sheet-panel.collection-allowlist-sheet-panel > .glass-sheet-footer {
   flex-shrink: 0;
 }
 
@@ -431,10 +422,6 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 .glass-sheet-panel.collection-allowlist-sheet-panel {
   --glass-header-scrim-height: min(5rem, 24%);
   --glass-sheet-body-opacity: 0.64;
-}
-
-.glass-sheet-panel.collection-allowlist-sheet-panel > .glass-sheet-footer {
-  flex-shrink: 0;
 }
 
 .glass-sheet-panel.portfolio-support-collect-info-panel {
@@ -467,17 +454,12 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
  * Unlayered height overrides beat `.os-app-screen { height: 100dvh }`.
  */
 .glass-sheet-panel.guild-composer-sheet-panel
-  > .glass-sheet-body.guild-composer-sheet-body {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  flex: 1 1 auto;
-  padding: 0;
-  overflow: hidden;
-}
-
+  > .glass-sheet-body.guild-composer-sheet-body,
 .glass-sheet-panel.leaderboard-page-sheet
-  > .glass-sheet-body.leaderboard-page-body {
+  > .glass-sheet-body.leaderboard-page-body,
+.glass-sheet-panel.post-thread-sheet-panel
+  > .glass-sheet-body.post-thread-sheet-body,
+.glass-sheet-panel.drop-sheet-panel > .glass-sheet-body.drop-sheet-body {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -486,7 +468,9 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   overflow: hidden;
 }
 
-.glass-sheet-root.post-thread-sheet-parked {
+.glass-sheet-root.post-thread-sheet-parked,
+.protocol-face-page:not(.is-active) .portfolio-os-layer,
+.protocol-face-page .portfolio-entity-kind-switch {
   visibility: hidden;
   pointer-events: none;
 }
@@ -502,17 +486,6 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   background: transparent;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
-}
-
-.glass-sheet-panel.post-thread-sheet-panel
-  > .glass-sheet-body.post-thread-sheet-body,
-.glass-sheet-panel.drop-sheet-panel > .glass-sheet-body.drop-sheet-body {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  flex: 1 1 auto;
-  padding: 0;
-  overflow: hidden;
 }
 
 /* Dock clearance sits outside the post scroller. Padding inside the
@@ -553,6 +526,10 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
  * absolute glass header.
  */
 .os-app-screen.post-quotes-screen-chrome[data-glass-chrome='true']
+  > .os-app-screen-column
+  > .os-app-screen-header,
+.glass-sheet-panel.leaderboard-page-sheet
+  .os-app-screen[data-glass-chrome='true']
   > .os-app-screen-column
   > .os-app-screen-header {
   position: relative;
@@ -644,7 +621,10 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   scrollbar-width: none;
 }
 
-.post-quotes-pager::-webkit-scrollbar {
+.post-quotes-pager::-webkit-scrollbar,
+.glass-sheet-panel.leaderboard-page-sheet .leaderboard-pager::-webkit-scrollbar,
+.protocol-face-pager::-webkit-scrollbar,
+.collection-cover.is-card.is-immersive::after {
   display: none;
 }
 
@@ -695,13 +675,6 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
  * Side inset stays on the header, the same column as the user lines.
  * The fill is the only thing that travels; it is positioned from the pager.
  */
-.glass-sheet-panel.leaderboard-page-sheet
-  .os-app-screen[data-glass-chrome='true']
-  > .os-app-screen-column
-  > .os-app-screen-header {
-  position: relative;
-  inset: auto;
-}
 
 .glass-sheet-panel.leaderboard-page-sheet .os-app-screen-toolbar,
 .glass-sheet-panel.leaderboard-page-sheet .leaderboard-toolbar,
@@ -778,11 +751,6 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   scrollbar-width: none;
 }
 
-.glass-sheet-panel.leaderboard-page-sheet
-  .leaderboard-pager::-webkit-scrollbar {
-  display: none;
-}
-
 .glass-sheet-panel.leaderboard-page-sheet .leaderboard-pager-page {
   display: flex;
   flex: 0 0 100%;
@@ -856,10 +824,6 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   scrollbar-width: none;
 }
 
-.protocol-face-pager::-webkit-scrollbar {
-  display: none;
-}
-
 .protocol-face-page {
   flex: 0 0 100%;
   width: 100%;
@@ -868,16 +832,6 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   overflow: hidden;
   scroll-snap-align: start;
   scroll-snap-stop: always;
-}
-
-.protocol-face-page:not(.is-active) .portfolio-os-layer {
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.protocol-face-page .portfolio-entity-kind-switch {
-  visibility: hidden;
-  pointer-events: none;
 }
 
 /*
@@ -975,12 +929,11 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   .os-app-screen-column,
 .glass-sheet-panel.drop-sheet-panel
   .os-app-screen--embedded
-  .os-app-screen-column {
-  max-width: none;
-  height: 100%;
-}
-
+  .os-app-screen-column,
 .glass-sheet-panel.leaderboard-page-sheet
+  .os-app-screen--embedded
+  .os-app-screen-column,
+.glass-sheet-panel.dao-proposals-page
   .os-app-screen--embedded
   .os-app-screen-column {
   max-width: none;
@@ -1009,13 +962,6 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   background: transparent;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
-}
-
-.glass-sheet-panel.dao-proposals-page
-  .os-app-screen--embedded
-  .os-app-screen-column {
-  max-width: none;
-  height: 100%;
 }
 
 /*
@@ -1201,6 +1147,7 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 
 .portfolio-writing-article-screen .os-app-screen-footer {
   bottom: env(safe-area-inset-bottom, 0px);
+  padding: 0.45rem 1rem 0.55rem;
 }
 
 /*
@@ -1228,7 +1175,9 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 }
 
 .feed-article-slide.is-wake-footer .os-app-screen-footer::before,
-.portfolio-writing-article-screen.is-wake-footer .os-app-screen-footer::before {
+.portfolio-writing-article-screen.is-wake-footer .os-app-screen-footer::before,
+.portfolio-frame[data-mood-preview='true'][data-mood-only='true']
+  .portfolio-page::after {
   opacity: 1;
 }
 
@@ -1245,10 +1194,6 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 .feed-article-slide.is-wake-footer .os-app-screen-footer > *,
 .portfolio-writing-article-screen.is-wake-footer .os-app-screen-footer > * {
   pointer-events: auto;
-}
-
-.portfolio-writing-article-screen .os-app-screen-footer {
-  padding: 0.45rem 1rem 0.55rem;
 }
 
 .portfolio-writing-article-screen .portfolio-writing-article-actions {
@@ -1443,7 +1388,8 @@ button.market-listing-title-link {
   cursor: default;
 }
 
-.ticket-show-pass-action.is-reserved {
+.ticket-show-pass-action.is-reserved,
+.scarce-provenance-pending-ghost {
   visibility: hidden;
 }
 
@@ -1739,7 +1685,16 @@ button.market-listing-title-link {
   gap: 0;
 }
 
-.market-listing-action.os-sheet-actions--row-compact .os-sheet-action {
+.market-listing-action.os-sheet-actions--row-compact .os-sheet-action,
+.endorsements-endorse-action.os-sheet-actions--row-compact .os-sheet-action,
+.guild-hero
+  .guild-hero-membership-slot
+  .guild-hero-membership.os-sheet-actions--row-compact
+  .os-sheet-action,
+.app-page-hero
+  .guild-hero-membership-slot
+  .guild-hero-membership.os-sheet-actions--row-compact
+  .os-sheet-action {
   flex: 0 0 auto;
   width: 100%;
   min-width: 0;
@@ -1785,12 +1740,6 @@ button.post-media-tile {
   width: auto;
   min-width: 5.25rem;
   gap: 0;
-}
-
-.endorsements-endorse-action.os-sheet-actions--row-compact .os-sheet-action {
-  flex: 0 0 auto;
-  width: 100%;
-  min-width: 0;
 }
 
 /*
@@ -1914,10 +1863,6 @@ button.post-media-tile {
   border-radius: inherit;
 }
 
-.collection-cover.is-card.is-immersive::after {
-  display: none;
-}
-
 /* Create-drop header Start pill — same compact family as the market Buy pill. */
 .drop-create-header-cta.os-sheet-actions--row-compact {
   flex-shrink: 0;
@@ -1933,18 +1878,6 @@ button.post-media-tile {
 }
 
 /* Dimensions come from OsSheetActions size="sm"; slots own width only. */
-.guild-hero
-  .guild-hero-membership-slot
-  .guild-hero-membership.os-sheet-actions--row-compact
-  .os-sheet-action,
-.app-page-hero
-  .guild-hero-membership-slot
-  .guild-hero-membership.os-sheet-actions--row-compact
-  .os-sheet-action {
-  flex: 0 0 auto;
-  width: 100%;
-  min-width: 0;
-}
 
 /*
  * Add-space share segments — unlayered so grid/gap beat button resets and
@@ -2182,6 +2115,14 @@ button.post-media-tile {
   .os-surface-row-badge,
 .customize-sheet-panel
   .os-surface-row--navigate:not(.is-active):not(:disabled):focus-visible
+  .os-surface-row-badge,
+.customize-sheet-panel
+  .os-surface-row.is-active.os-surface-row--navigate:not(:disabled):hover
+  .os-surface-row-badge,
+.customize-sheet-panel
+  .os-surface-row.is-active.os-surface-row--navigate:not(
+    :disabled
+  ):focus-visible
   .os-surface-row-badge {
   background: rgb(var(--fg-rgb) / 0.12);
   color: rgb(var(--fg-rgb) / 0.78);
@@ -2237,18 +2178,6 @@ button.post-media-tile {
     var(--os-surface-halo-fill) 84%,
     rgb(var(--fg-rgb) / 0.08)
   );
-}
-
-.customize-sheet-panel
-  .os-surface-row.is-active.os-surface-row--navigate:not(:disabled):hover
-  .os-surface-row-badge,
-.customize-sheet-panel
-  .os-surface-row.is-active.os-surface-row--navigate:not(
-    :disabled
-  ):focus-visible
-  .os-surface-row-badge {
-  background: rgb(var(--fg-rgb) / 0.12);
-  color: rgb(var(--fg-rgb) / 0.78);
 }
 
 @media (prefers-reduced-transparency: reduce) {
@@ -2451,11 +2380,16 @@ button.post-media-tile {
   background-clip: unset;
 }
 
-.mood-sheet-panel .mood-sheet-item:not(.is-active) .mood-sheet-item-badge {
-  color: var(--mood-muted);
-}
-
-.mood-sheet-panel .mood-sheet-item:not(.is-active) .mood-sheet-item-tagline {
+.mood-sheet-panel .mood-sheet-item:not(.is-active) .mood-sheet-item-badge,
+.mood-sheet-panel .mood-sheet-item:not(.is-active) .mood-sheet-item-tagline,
+:root[data-theme='light']
+  .mood-sheet-panel
+  .mood-sheet-item:not(.is-active)
+  .mood-sheet-item-badge,
+:root[data-theme='light']
+  .mood-sheet-panel
+  .mood-sheet-item:not(.is-active)
+  .mood-sheet-item-tagline {
   color: var(--mood-muted);
 }
 
@@ -2467,17 +2401,6 @@ button.post-media-tile {
     --mood-row-accent-light,
     var(--mood-row-accent, var(--mood-accent))
   );
-}
-
-:root[data-theme='light']
-  .mood-sheet-panel
-  .mood-sheet-item:not(.is-active)
-  .mood-sheet-item-badge,
-:root[data-theme='light']
-  .mood-sheet-panel
-  .mood-sheet-item:not(.is-active)
-  .mood-sheet-item-tagline {
-  color: var(--mood-muted);
 }
 
 @media (prefers-color-scheme: light) {
@@ -2512,7 +2435,21 @@ button.post-media-tile {
 .mood-sheet-panel
   .mood-sheet-item:not(.is-active):not([data-mood='gold']):not(
     [data-mood='glass']
-  ):not([data-mood='carbon']):not([data-mood='holographic'])::before {
+  ):not([data-mood='carbon']):not([data-mood='holographic'])::before,
+.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='gold']::before,
+.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='glass']::before,
+.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='carbon']::before,
+.mood-sheet-panel
+  .mood-sheet-item:not(.is-active)[data-mood='holographic']::before,
+.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='gold']::after,
+.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='glass']::after,
+.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='carbon']::after,
+.mood-sheet-panel
+  .mood-sheet-item:not(.is-active)[data-mood='holographic']::after,
+.mood-sheet-panel .mood-sheet-item.is-active[data-mood='gold']::before,
+.mood-sheet-panel .mood-sheet-item.is-active[data-mood='glass']::before,
+.mood-sheet-panel .mood-sheet-item.is-active[data-mood='carbon']::before,
+.mood-sheet-panel .mood-sheet-item.is-active[data-mood='holographic']::before {
   content: none;
   display: none;
 }
@@ -2523,20 +2460,6 @@ button.post-media-tile {
 .mood-sheet-panel .mood-sheet-item[data-mood='carbon'],
 .mood-sheet-panel .mood-sheet-item[data-mood='holographic'] {
   padding: 0.78rem 0.85rem;
-}
-
-.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='gold']::before,
-.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='glass']::before,
-.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='carbon']::before,
-.mood-sheet-panel
-  .mood-sheet-item:not(.is-active)[data-mood='holographic']::before,
-.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='gold']::after,
-.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='glass']::after,
-.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='carbon']::after,
-.mood-sheet-panel
-  .mood-sheet-item:not(.is-active)[data-mood='holographic']::after {
-  content: none;
-  display: none;
 }
 
 .mood-sheet-panel .mood-sheet-item.is-active {
@@ -2558,14 +2481,6 @@ button.post-media-tile {
 
 .mood-sheet-panel .mood-sheet-item.is-active .mood-sheet-item-tagline {
   color: rgb(var(--fg-rgb) / 0.62);
-}
-
-.mood-sheet-panel .mood-sheet-item.is-active[data-mood='gold']::before,
-.mood-sheet-panel .mood-sheet-item.is-active[data-mood='glass']::before,
-.mood-sheet-panel .mood-sheet-item.is-active[data-mood='carbon']::before,
-.mood-sheet-panel .mood-sheet-item.is-active[data-mood='holographic']::before {
-  content: none;
-  display: none;
 }
 
 :root[data-theme='light']
@@ -2613,12 +2528,7 @@ button.post-media-tile {
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .mood-sheet-panel .mood-sheet-item.is-active {
-    box-shadow:
-      0 0 12px color-mix(in srgb, var(--mood-row-accent) 12%, transparent),
-      0 10px 28px -16px rgb(0 0 0 / 0.3);
-  }
-
+  .mood-sheet-panel .mood-sheet-item.is-active,
   .mood-sheet-panel .mood-sheet-item.is-selectable:not(:disabled):hover,
   .mood-sheet-panel
     .mood-sheet-item.is-selectable:not(:disabled):focus-visible {
@@ -2632,11 +2542,6 @@ button.post-media-tile {
 .portfolio-frame[data-mood-preview='true'],
 .portfolio-os-layer[data-mood-preview='true'] {
   --mood-banner-active: var(--mood-banner);
-}
-
-.portfolio-frame[data-mood-preview='true'][data-mood-only='true']
-  .portfolio-page::after {
-  opacity: 1;
 }
 
 /*
@@ -2663,7 +2568,13 @@ button.post-media-tile {
 }
 
 /* Account sheet — row copy sizing + trailing arrows. */
-a.os-surface-row {
+a.os-surface-row,
+.scarce-buy-party:hover,
+.scarce-buy-party:focus-visible,
+.scarce-buy-party:hover .scarce-buy-party-name,
+.scarce-buy-party:hover .scarce-buy-party-handle,
+.scarce-buy-party:focus-visible .scarce-buy-party-name,
+.scarce-buy-party:focus-visible .scarce-buy-party-handle {
   text-decoration: none;
 }
 
@@ -3133,6 +3044,8 @@ a.os-surface-row {
     --os-chrome-elev-shadow: 0 10px 32px -12px rgb(0 0 0 / 0.14);
     --os-chrome-elev-shadow-hover: 0 12px 36px -10px rgb(0 0 0 / 0.18);
     --os-chrome-sheet-shadow: inset 0 1px 0 rgb(0 0 0 / 0.06);
+    --mood-light-tone: 68%;
+    --mood-light-ink: rgb(var(--fg-rgb));
   }
   .portfolio-frame,
   .portfolio-os-layer,
@@ -3195,10 +3108,6 @@ a.os-surface-row {
    * Light theme — keep mood tints, nudge toward ink for contrast on washed backgrounds.
    * Tune --mood-light-tone on :root (lower = darker). Shared by signals + accent chrome.
    */
-  :root[data-theme='light'] {
-    --mood-light-tone: 68%;
-    --mood-light-ink: rgb(var(--fg-rgb));
-  }
 
   :root[data-theme='light'] .portfolio-frame[data-mood],
   :root[data-theme='light'] .portfolio-os-layer[data-mood],
@@ -3369,17 +3278,14 @@ a.os-surface-row {
     height: 0;
   }
 
-  ::-webkit-scrollbar-track {
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
     background: transparent;
   }
 
   ::-webkit-scrollbar-thumb {
     background: transparent;
     border-radius: 9999px;
-  }
-
-  ::-webkit-scrollbar-corner {
-    background: transparent;
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -3429,27 +3335,19 @@ a.os-surface-row {
   }
 
   html:has(.portfolio-frame),
-  html:has(.os-app-screen) {
+  html:has(.os-app-screen),
+  html:has(.glass-sheet-root) {
     /* Stable gutter + overflow:hidden leaves a dead strip on the right in desktop browsers. */
     scrollbar-gutter: auto;
   }
 
   html:has(.portfolio-frame),
-  html:has(.portfolio-frame) body {
-    height: 100%;
-    overflow: hidden;
-    overflow-x: clip;
-  }
-
+  html:has(.portfolio-frame) body,
   html:has(.os-app-screen),
   html:has(.os-app-screen) body {
     height: 100%;
     overflow: hidden;
     overflow-x: clip;
-  }
-
-  html:has(.glass-sheet-root) {
-    scrollbar-gutter: auto;
   }
 
   a {
@@ -3473,10 +3371,6 @@ a.os-surface-row {
 /* Same one-line box as `.collection-about-teaser-line` while the story hydrates. */
 .scarce-provenance-pending-line {
   position: relative;
-}
-
-.scarce-provenance-pending-ghost {
-  visibility: hidden;
 }
 
 .scarce-provenance-pending-story {
@@ -3683,15 +3577,6 @@ a.os-surface-row {
   text-decoration: none;
 }
 
-.scarce-buy-party:hover,
-.scarce-buy-party:focus-visible,
-.scarce-buy-party:hover .scarce-buy-party-name,
-.scarce-buy-party:hover .scarce-buy-party-handle,
-.scarce-buy-party:focus-visible .scarce-buy-party-name,
-.scarce-buy-party:focus-visible .scarce-buy-party-handle {
-  text-decoration: none;
-}
-
 .scarce-buy-party:hover .scarce-buy-party-name,
 .scarce-buy-party:focus-visible .scarce-buy-party-name {
   color: var(--os-identity-name-hover);
@@ -3823,7 +3708,15 @@ a.os-surface-row {
   /* Light theme header scrim — set on :root (see glass tokens block). */
 
   @media (prefers-reduced-transparency: reduce) {
-    .os-app-screen::before {
+    .os-app-screen::before,
+    .portfolio-frame[data-mood='glass'] .portfolio-page::before,
+    .portfolio-frame[data-mood='glass'] .portfolio-page::after,
+    :root[data-theme='light']
+      .portfolio-frame[data-mood='glass']
+      .portfolio-page::before,
+    :root:not([data-theme])
+      .portfolio-frame[data-mood='glass']
+      .portfolio-page::before {
       display: none;
     }
   }
@@ -3917,7 +3810,8 @@ a.os-surface-row {
     }
   }
 
-  .gate-logo svg {
+  .gate-logo svg,
+  .not-found-logo svg {
     width: 100%;
     height: 100%;
   }
@@ -3953,7 +3847,15 @@ a.os-surface-row {
     );
   }
 
-  .gate-dapp-list::-webkit-scrollbar {
+  .gate-dapp-list::-webkit-scrollbar,
+  .portfolio-frame[data-avatar-cover='true']
+    .portfolio-identity
+    > .portfolio-avatar,
+  .portfolio-frame[data-avatar-cover='true']
+    .portfolio-identity
+    > .portfolio-avatar-fallback,
+  .account-editor-link-sheet input.account-editor-website-file,
+  .post-media-strip.is-carousel::-webkit-scrollbar {
     display: none;
   }
 
@@ -4192,11 +4094,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.18);
   }
 
-  .not-found-logo svg {
-    width: 100%;
-    height: 100%;
-  }
-
   .not-found-title {
     font-size: 2rem;
     font-weight: 700;
@@ -4391,7 +4288,11 @@ a.os-surface-row {
         var(--mood-transition-ease, cubic-bezier(0.4, 0, 0.2, 1));
     }
 
-    :root[data-theme='light'] .portfolio-frame.app-surface[data-mood] {
+    :root[data-theme='light'] .portfolio-frame.app-surface[data-mood],
+    :root[data-theme='light']
+      .os-app-screen.app-surface.os-app-screen--mood:not(.os-slide-over),
+    :root[data-theme='light']
+      .os-app-screen.app-surface[data-mood]:not(.os-slide-over) {
       border-color: color-mix(
         in srgb,
         var(
@@ -4414,21 +4315,6 @@ a.os-surface-row {
         );
       border-radius: 1.25rem;
       box-shadow: none;
-    }
-
-    :root[data-theme='light']
-      .os-app-screen.app-surface.os-app-screen--mood:not(.os-slide-over),
-    :root[data-theme='light']
-      .os-app-screen.app-surface[data-mood]:not(.os-slide-over) {
-      border-color: color-mix(
-        in srgb,
-        var(
-            --mood-preset-bg-light,
-            var(--mood-preset-bg, var(--mood-bg, var(--bg)))
-          )
-          26%,
-        rgb(var(--fg-rgb) / 0.06)
-      );
     }
 
     .portfolio-frame.app-surface .portfolio-page {
@@ -4601,7 +4487,10 @@ a.os-surface-row {
   }
 
   /* Minimal — empty region reserves hero height; bloom paints on .portfolio-page. */
-  .portfolio-banner-region--mood-only {
+  .portfolio-banner-region--mood-only,
+  .portfolio-frame[data-mood='glass'].frame,
+  .portfolio-identity-gesture--stand.is-standing,
+  .portfolio-identity-gesture--endorse.is-endorsed {
     background: transparent;
   }
 
@@ -4646,7 +4535,11 @@ a.os-surface-row {
   }
 
   .portfolio-frame[data-mood-only='true'][data-mood='carbon']
-    .portfolio-page::after {
+    .portfolio-page::after,
+  .portfolio-frame[data-mood-only='true'][data-mood='business']
+    .portfolio-page::after,
+  .discover-tab-bar button::before,
+  .discover-tab-bar button::after {
     content: none;
   }
 
@@ -5000,21 +4893,6 @@ a.os-surface-row {
         var(--bg) 100%
       );
     }
-
-    .portfolio-frame[data-mood='glass'] .portfolio-page::before,
-    .portfolio-frame[data-mood='glass'] .portfolio-page::after,
-    :root[data-theme='light']
-      .portfolio-frame[data-mood='glass']
-      .portfolio-page::before,
-    :root:not([data-theme])
-      .portfolio-frame[data-mood='glass']
-      .portfolio-page::before {
-      display: none;
-    }
-  }
-
-  .portfolio-frame[data-mood='glass'].frame {
-    background: transparent;
   }
 
   .portfolio-frame[data-mood='glass'] .portfolio-page {
@@ -5045,7 +4923,11 @@ a.os-surface-row {
    * Glass typography + chips — solid ink on frosted pane (no transparent mood mixes).
    */
   .portfolio-frame[data-mood='glass'] .portfolio-bio,
-  .profile-edit-slide[data-mood='glass'] .account-editor-bio {
+  .profile-edit-slide[data-mood='glass'] .account-editor-bio,
+  :root[data-theme='light'] .portfolio-frame[data-mood='glass'] .portfolio-bio,
+  :root[data-theme='light']
+    .profile-edit-slide[data-mood='glass']
+    .account-editor-bio {
     color: var(--mood-muted);
   }
 
@@ -5061,13 +4943,6 @@ a.os-surface-row {
     color: rgb(248 250 252);
   }
 
-  :root[data-theme='light'] .portfolio-frame[data-mood='glass'] .portfolio-bio,
-  :root[data-theme='light']
-    .profile-edit-slide[data-mood='glass']
-    .account-editor-bio {
-    color: var(--mood-muted);
-  }
-
   :root[data-theme='light']
     .portfolio-frame[data-mood='glass']
     .portfolio-link {
@@ -5076,10 +4951,7 @@ a.os-surface-row {
 
   :root[data-theme='light']
     .portfolio-frame[data-mood='glass']
-    .portfolio-link:hover {
-    color: rgb(17 19 24);
-  }
-
+    .portfolio-link:hover,
   :root[data-theme='light']
     .mood-sheet-item[data-mood='glass']
     .mood-sheet-item-label {
@@ -5201,10 +5073,7 @@ a.os-surface-row {
 
     :root:not([data-theme])
       .portfolio-frame[data-mood='glass']
-      .portfolio-link:hover {
-      color: rgb(17 19 24);
-    }
-
+      .portfolio-link:hover,
     :root:not([data-theme])
       .mood-sheet-item[data-mood='glass']
       .mood-sheet-item-label {
@@ -5438,10 +5307,6 @@ a.os-surface-row {
   }
 
   /* The sheet replaces the generic mood-only accent bloom. */
-  .portfolio-frame[data-mood-only='true'][data-mood='business']
-    .portfolio-page::after {
-    content: none;
-  }
 
   :root[data-theme='light'] .portfolio-frame[data-mood='business'] {
     --business-sheet-base: linear-gradient(
@@ -5500,7 +5365,32 @@ a.os-surface-row {
   .portfolio-frame[data-mood='business'] .portfolio-hero,
   .portfolio-frame[data-mood='business'] .portfolio-avatar-cover,
   .portfolio-frame[data-mood='business'] .portfolio-profile-banner,
-  .portfolio-frame[data-mood='business'] .portfolio-hero-video {
+  .portfolio-frame[data-mood='business'] .portfolio-hero-video,
+  .portfolio-frame[data-mood='summer'] .portfolio-banner-region,
+  .portfolio-frame[data-mood='summer'] .portfolio-hero,
+  .portfolio-frame[data-mood='summer'] .portfolio-avatar-cover,
+  .portfolio-frame[data-mood='summer'] .portfolio-profile-banner,
+  .portfolio-frame[data-mood='summer'] .portfolio-hero-video,
+  .portfolio-frame[data-mood='autumn'] .portfolio-banner-region,
+  .portfolio-frame[data-mood='autumn'] .portfolio-hero,
+  .portfolio-frame[data-mood='autumn'] .portfolio-avatar-cover,
+  .portfolio-frame[data-mood='autumn'] .portfolio-profile-banner,
+  .portfolio-frame[data-mood='autumn'] .portfolio-hero-video,
+  .portfolio-frame[data-mood='winter'] .portfolio-banner-region,
+  .portfolio-frame[data-mood='winter'] .portfolio-hero,
+  .portfolio-frame[data-mood='winter'] .portfolio-avatar-cover,
+  .portfolio-frame[data-mood='winter'] .portfolio-profile-banner,
+  .portfolio-frame[data-mood='winter'] .portfolio-hero-video,
+  .portfolio-frame[data-mood='spring'] .portfolio-banner-region,
+  .portfolio-frame[data-mood='spring'] .portfolio-hero,
+  .portfolio-frame[data-mood='spring'] .portfolio-avatar-cover,
+  .portfolio-frame[data-mood='spring'] .portfolio-profile-banner,
+  .portfolio-frame[data-mood='spring'] .portfolio-hero-video,
+  .portfolio-frame[data-mood='carbon'] .portfolio-banner-region,
+  .portfolio-frame[data-mood='carbon'] .portfolio-hero,
+  .portfolio-frame[data-mood='carbon'] .portfolio-avatar-cover,
+  .portfolio-frame[data-mood='carbon'] .portfolio-profile-banner,
+  .portfolio-frame[data-mood='carbon'] .portfolio-hero-video {
     z-index: 1;
   }
 
@@ -5644,14 +5534,6 @@ a.os-surface-row {
     background-attachment: fixed;
   }
 
-  .portfolio-frame[data-mood='summer'] .portfolio-banner-region,
-  .portfolio-frame[data-mood='summer'] .portfolio-hero,
-  .portfolio-frame[data-mood='summer'] .portfolio-avatar-cover,
-  .portfolio-frame[data-mood='summer'] .portfolio-profile-banner,
-  .portfolio-frame[data-mood='summer'] .portfolio-hero-video {
-    z-index: 1;
-  }
-
   :root[data-theme='light'] .portfolio-frame[data-mood='summer'] {
     --summer-sheet-base: linear-gradient(
       180deg,
@@ -5789,14 +5671,6 @@ a.os-surface-row {
     background-attachment: fixed;
   }
 
-  .portfolio-frame[data-mood='autumn'] .portfolio-banner-region,
-  .portfolio-frame[data-mood='autumn'] .portfolio-hero,
-  .portfolio-frame[data-mood='autumn'] .portfolio-avatar-cover,
-  .portfolio-frame[data-mood='autumn'] .portfolio-profile-banner,
-  .portfolio-frame[data-mood='autumn'] .portfolio-hero-video {
-    z-index: 1;
-  }
-
   :root[data-theme='light'] .portfolio-frame[data-mood='autumn'] {
     --autumn-sheet-base: linear-gradient(
       180deg,
@@ -5908,14 +5782,6 @@ a.os-surface-row {
       var(--winter-flake-d) no-repeat 69% 96.5% / 1rem,
       var(--winter-flake-e) no-repeat 82% 97.5% / 0.8rem;
     background-attachment: fixed;
-  }
-
-  .portfolio-frame[data-mood='winter'] .portfolio-banner-region,
-  .portfolio-frame[data-mood='winter'] .portfolio-hero,
-  .portfolio-frame[data-mood='winter'] .portfolio-avatar-cover,
-  .portfolio-frame[data-mood='winter'] .portfolio-profile-banner,
-  .portfolio-frame[data-mood='winter'] .portfolio-hero-video {
-    z-index: 1;
   }
 
   :root[data-theme='light'] .portfolio-frame[data-mood='winter'] {
@@ -6031,14 +5897,6 @@ a.os-surface-row {
       var(--spring-blossom-d) no-repeat 69% 96.5% / 1rem,
       var(--spring-blossom-e) no-repeat 82% 97.5% / 0.8rem;
     background-attachment: fixed;
-  }
-
-  .portfolio-frame[data-mood='spring'] .portfolio-banner-region,
-  .portfolio-frame[data-mood='spring'] .portfolio-hero,
-  .portfolio-frame[data-mood='spring'] .portfolio-avatar-cover,
-  .portfolio-frame[data-mood='spring'] .portfolio-profile-banner,
-  .portfolio-frame[data-mood='spring'] .portfolio-hero-video {
-    z-index: 1;
   }
 
   :root[data-theme='light'] .portfolio-frame[data-mood='spring'] {
@@ -6364,14 +6222,6 @@ a.os-surface-row {
     }
   }
 
-  .portfolio-frame[data-mood='carbon'] .portfolio-banner-region,
-  .portfolio-frame[data-mood='carbon'] .portfolio-hero,
-  .portfolio-frame[data-mood='carbon'] .portfolio-avatar-cover,
-  .portfolio-frame[data-mood='carbon'] .portfolio-profile-banner,
-  .portfolio-frame[data-mood='carbon'] .portfolio-hero-video {
-    z-index: 1;
-  }
-
   .portfolio-frame[data-mood='carbon'] .portfolio-name,
   .profile-edit-slide[data-mood='carbon'] .account-editor-name,
   .mood-sheet-item[data-mood='carbon'] .mood-sheet-item-label {
@@ -6474,7 +6324,11 @@ a.os-surface-row {
    * context below (@handle, bio, signals). Accent stays on pill + line tail.
    */
   .portfolio-frame[data-mood='signature'] .portfolio-identity-copy,
-  .profile-edit-slide[data-mood='signature'] .account-editor-identity-copy {
+  .profile-edit-slide[data-mood='signature'] .account-editor-identity-copy,
+  .portfolio-frame[data-mood='broadsheet'] .portfolio-identity-copy,
+  .profile-edit-slide[data-mood='broadsheet'] .account-editor-identity-copy,
+  .portfolio-frame[data-mood='terminal'] .portfolio-identity-copy,
+  .profile-edit-slide[data-mood='terminal'] .account-editor-identity-copy {
     gap: var(--portfolio-identity-gap);
   }
 
@@ -6597,10 +6451,6 @@ a.os-surface-row {
    * Broadsheet — Erica Type typewriter: wire dispatch on newsprint zinc ink.
    * Journal keeps Newsreader editorial; Terminal stays phosphor mono.
    */
-  .portfolio-frame[data-mood='broadsheet'] .portfolio-identity-copy,
-  .profile-edit-slide[data-mood='broadsheet'] .account-editor-identity-copy {
-    gap: var(--portfolio-identity-gap);
-  }
 
   .portfolio-frame[data-mood='broadsheet'] .portfolio-name,
   .profile-edit-slide[data-mood='broadsheet'] .account-editor-name,
@@ -6693,10 +6543,6 @@ a.os-surface-row {
    * Terminal — phosphor CRT session: prompt line, ~/path handle, bracket pill.
    * Build keeps protocol green craft; Terminal is the premium SSH moment.
    */
-  .portfolio-frame[data-mood='terminal'] .portfolio-identity-copy,
-  .profile-edit-slide[data-mood='terminal'] .account-editor-identity-copy {
-    gap: var(--portfolio-identity-gap);
-  }
 
   .portfolio-frame[data-mood='terminal'] .portfolio-name,
   .profile-edit-slide[data-mood='terminal'] .account-editor-name,
@@ -7055,14 +6901,6 @@ a.os-surface-row {
   }
 
   /* Cover — avatar is the hero; circle hidden, name below the dissolve band. */
-  .portfolio-frame[data-avatar-cover='true']
-    .portfolio-identity
-    > .portfolio-avatar,
-  .portfolio-frame[data-avatar-cover='true']
-    .portfolio-identity
-    > .portfolio-avatar-fallback {
-    display: none;
-  }
 
   .portfolio-frame[data-avatar-cover='true'] .portfolio-identity {
     margin-top: 0;
@@ -7187,7 +7025,8 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
-  .portfolio-identity-gesture:focus-visible:not(:disabled) {
+  .portfolio-identity-gesture:focus-visible:not(:disabled),
+  .dao-boost-mode-chip:focus-visible {
     outline: none;
     box-shadow: var(
       --os-focus-ring,
@@ -7197,9 +7036,6 @@ a.os-surface-row {
 
   /* Standing on the face is naked — dot + word at the same ink as the
      gestures beside it; the signal dot alone carries the on-state. */
-  .portfolio-identity-gesture--stand.is-standing {
-    background: transparent;
-  }
 
   .portfolio-identity-gesture--stand.is-standing:hover:not(:disabled),
   .portfolio-identity-gesture--stand.is-standing:focus-visible:not(:disabled) {
@@ -7209,10 +7045,6 @@ a.os-surface-row {
       transparent
     );
     color: rgb(var(--fg-rgb) / 0.92);
-  }
-
-  .portfolio-identity-gesture--endorse.is-endorsed {
-    background: transparent;
   }
 
   .portfolio-identity-gesture--endorse.is-endorsed:hover:not(:disabled),
@@ -7552,7 +7384,15 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.5);
   }
 
-  .portfolio-boost-collect-rate.is-celebrating {
+  .portfolio-boost-collect-rate.is-celebrating,
+  html[data-standing-handoff='open'] .portfolio-page,
+  html[data-standing-handoff='close']
+    .network-orbit-screen
+    > .os-app-screen-column,
+  html[data-standing-early='open'] .glass-sheet-root:not(.standing-early-sheet),
+  .standing-toggle-state--ghost,
+  .account-drawer-handle.is-copied .account-drawer-handle-copy-icon,
+  .app-storage-pending-ghost {
     visibility: hidden;
   }
 
@@ -7638,14 +7478,6 @@ a.os-surface-row {
     background: color-mix(in srgb, currentColor 6%, transparent);
   }
 
-  .dao-boost-mode-chip:focus-visible {
-    outline: none;
-    box-shadow: var(
-      --os-focus-ring,
-      0 0 0 2px color-mix(in srgb, var(--protocol-blue) 35%, transparent)
-    );
-  }
-
   .dao-boost-mode-chip:disabled {
     opacity: 1;
     color: rgb(var(--fg-rgb) / 0.26);
@@ -7691,7 +7523,9 @@ a.os-surface-row {
     font-size: 0.85rem;
   }
 
-  .portfolio-boost-summary-label {
+  .portfolio-boost-summary-label,
+  .portfolio-payout-kind-filter.is-dimmed:hover,
+  .portfolio-payout-kind-filter.is-dimmed:focus-visible {
     color: rgb(var(--fg-rgb) / 0.55);
   }
 
@@ -7850,11 +7684,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.28);
   }
 
-  .portfolio-payout-kind-filter.is-dimmed:hover,
-  .portfolio-payout-kind-filter.is-dimmed:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.55);
-  }
-
   .standing-sheet-actions--payout {
     display: inline-flex;
     align-items: center;
@@ -7901,7 +7730,8 @@ a.os-surface-row {
   }
 
   /* Soft nudge only when there’s something to do (collect / settle / unlock). */
-  .portfolio-payout-mark-icon--nudge {
+  .portfolio-payout-mark-icon--nudge,
+  .os-launcher-rally-mark.is-nudge .os-launcher-rally-mark-icon {
     animation: portfolio-gift-nudge 11s ease-in-out infinite;
   }
 
@@ -7991,10 +7821,6 @@ a.os-surface-row {
     font-variant-numeric: tabular-nums;
   }
 
-  .os-launcher-rally-mark.is-nudge .os-launcher-rally-mark-icon {
-    animation: portfolio-gift-nudge 11s ease-in-out infinite;
-  }
-
   .portfolio-rally-view {
     display: flex;
     flex-direction: column;
@@ -8043,7 +7869,9 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.62);
   }
 
-  .portfolio-rally-strip-row.is-top .portfolio-rally-strip-rank {
+  .portfolio-rally-strip-row.is-top .portfolio-rally-strip-rank,
+  .rally-past-entry:hover,
+  .rally-past-entry:focus-visible {
     color: rgb(var(--fg-rgb) / 0.9);
   }
 
@@ -8104,11 +7932,6 @@ a.os-surface-row {
     letter-spacing: -0.015em;
     text-align: left;
     cursor: pointer;
-  }
-
-  .rally-past-entry:hover,
-  .rally-past-entry:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.9);
   }
 
   .rally-past-entry-label {
@@ -8220,11 +8043,17 @@ a.os-surface-row {
     text-align: left;
   }
 
-  button.portfolio-listing-action-hit {
+  button.portfolio-listing-action-hit,
+  .mood-sheet-item.is-locked.is-selectable:not(:disabled),
+  .mood-sheet-item.is-locked:not(:disabled),
+  .post-poll-option.has-results:not(:disabled) {
     cursor: pointer;
   }
 
-  .portfolio-listing-action-hit:not(:disabled):focus-visible {
+  .portfolio-listing-action-hit:not(:disabled):focus-visible,
+  button.account-editor-org-meta-part:focus-visible,
+  .account-editor-org-meta button.portfolio-org-meta-hiring:focus-visible,
+  .account-editor-org-meta button.portfolio-org-meta-offers:focus-visible {
     outline: none;
   }
 
@@ -8278,7 +8107,8 @@ a.os-surface-row {
 
   .portfolio-identity-gesture--payout:hover .portfolio-payout-mark-icon--nudge,
   .portfolio-identity-gesture--payout:focus-visible
-    .portfolio-payout-mark-icon--nudge {
+    .portfolio-payout-mark-icon--nudge,
+  .standing-panel .profile-social-list {
     animation: none;
   }
 
@@ -8393,7 +8223,10 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.52);
   }
 
-  .portfolio-support-collect-info-list {
+  .portfolio-support-collect-info-list,
+  .portfolio-writing-empty p,
+  .account-editor-bio--wysiwyg p,
+  .collection-writing-markdown p {
     margin: 0;
   }
 
@@ -8450,9 +8283,6 @@ a.os-surface-row {
   .portfolio-scarce-earnings-post-link {
     color: inherit;
     text-decoration: none;
-  }
-
-  .portfolio-scarce-earnings-post-link {
     pointer-events: auto;
     position: relative;
     z-index: 2;
@@ -8651,11 +8481,7 @@ a.os-surface-row {
     outline: none;
   }
 
-  .portfolio-entity-kind-option.is-active {
-    color: rgb(var(--fg-rgb) / 0.94);
-    background: var(--os-surface-fill);
-  }
-
+  .portfolio-entity-kind-option.is-active,
   .portfolio-entity-kind-option.is-active:hover,
   .portfolio-entity-kind-option.is-active:focus-visible {
     color: rgb(var(--fg-rgb) / 0.94);
@@ -8682,11 +8508,7 @@ a.os-surface-row {
     background: color-mix(in srgb, var(--mood-text) 8%, transparent);
   }
 
-  .portfolio-frame[data-mood] .portfolio-entity-kind-option.is-active {
-    color: var(--mood-text);
-    background: color-mix(in srgb, var(--mood-text) 16%, transparent);
-  }
-
+  .portfolio-frame[data-mood] .portfolio-entity-kind-option.is-active,
   .portfolio-frame[data-mood] .portfolio-entity-kind-option.is-active:hover,
   .portfolio-frame[data-mood]
     .portfolio-entity-kind-option.is-active:focus-visible {
@@ -8891,7 +8713,15 @@ a.os-surface-row {
   }
 
   /* Re-enable mark taps above standing-row hit overlay. */
-  .standing-row-main:has(.standing-row-hit) .protocol-identity-mark {
+  .standing-row-main:has(.standing-row-hit) .protocol-identity-mark,
+  body:has(
+      .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
+        .post-thread-sheet-panel
+    ):not(:has([data-os-slide-over='true'][data-keep-dock='true']))
+    .portfolio-summon-dock
+    .portfolio-summon,
+  #standing-handoff-hold .standing-early-sheet,
+  #standing-handoff-hold .standing-early-sheet * {
     pointer-events: auto;
   }
 
@@ -8979,7 +8809,9 @@ a.os-surface-row {
   }
 
   .portfolio-topics-link:hover,
-  .portfolio-topics-link:focus-visible {
+  .portfolio-topics-link:focus-visible,
+  a.portfolio-org-meta-industry:hover,
+  a.portfolio-org-meta-industry:focus-visible {
     opacity: 1;
     text-decoration: underline;
     text-underline-offset: 0.16em;
@@ -9105,7 +8937,9 @@ a.os-surface-row {
     grid-template-columns: 1fr 1fr;
   }
 
-  .account-editor-about-photos-list[data-count='3'] > :first-child {
+  .account-editor-about-photos-list[data-count='3'] > :first-child,
+  .post-row-skeleton-media--collage-3
+    .post-row-skeleton-media-cell:first-child {
     grid-column: 1 / -1;
   }
 
@@ -9312,13 +9146,6 @@ a.os-surface-row {
     text-decoration: none;
   }
 
-  a.portfolio-org-meta-industry:hover,
-  a.portfolio-org-meta-industry:focus-visible {
-    opacity: 1;
-    text-decoration: underline;
-    text-underline-offset: 0.16em;
-  }
-
   .portfolio-location-mark {
     flex: none;
     display: block;
@@ -9338,7 +9165,12 @@ a.os-surface-row {
   }
 
   button.portfolio-hiring:hover,
-  button.portfolio-hiring:focus-visible {
+  button.portfolio-hiring:focus-visible,
+  .portfolio-hiring-apply-action:hover .portfolio-hiring-apply-arrow,
+  .portfolio-hiring-apply-action:focus-visible .portfolio-hiring-apply-arrow,
+  .os-app-screen[data-glass-chrome='true']
+    > .os-app-screen-column
+    > .os-app-screen-header.is-elevated::before {
     opacity: 1;
   }
 
@@ -9361,12 +9193,26 @@ a.os-surface-row {
   button.portfolio-org-meta-hiring:hover,
   button.portfolio-org-meta-hiring:focus-visible,
   button.portfolio-org-meta-offers:hover,
-  button.portfolio-org-meta-offers:focus-visible {
+  button.portfolio-org-meta-offers:focus-visible,
+  .portfolio-hiring-row:hover .portfolio-hiring-title,
+  .portfolio-hiring-row:focus-visible .portfolio-hiring-title,
+  .account-editor-hiring-row:hover .portfolio-hiring-title,
+  .account-editor-hiring-row:focus-visible .portfolio-hiring-title,
+  .account-editor-org-meta button.account-editor-org-meta-part:hover,
+  .account-editor-org-meta button.account-editor-org-meta-part:focus-visible,
+  .account-editor-org-meta button.portfolio-org-meta-hiring:hover,
+  .account-editor-org-meta button.portfolio-org-meta-hiring:focus-visible,
+  .account-editor-org-meta button.portfolio-org-meta-offers:hover,
+  .account-editor-org-meta button.portfolio-org-meta-offers:focus-visible {
     color: var(--signal-reputation, var(--protocol-green, #00ec97));
   }
 
   button.portfolio-org-meta-hiring:disabled,
-  button.portfolio-org-meta-offers:disabled {
+  button.portfolio-org-meta-offers:disabled,
+  .account-editor-hiring-row:disabled,
+  button.account-editor-org-meta-part:disabled,
+  .account-editor-org-meta button.portfolio-org-meta-hiring:disabled,
+  .account-editor-org-meta button.portfolio-org-meta-offers:disabled {
     opacity: 0.45;
     cursor: not-allowed;
   }
@@ -9406,14 +9252,11 @@ a.os-surface-row {
   }
 
   .portfolio-hiring-row:hover,
-  .portfolio-hiring-row:focus-visible {
+  .portfolio-hiring-row:focus-visible,
+  .account-editor-hiring-row:hover,
+  .account-editor-hiring-row:focus-visible {
     background: var(--os-surface-row-hover);
     outline: none;
-  }
-
-  .portfolio-hiring-row:hover .portfolio-hiring-title,
-  .portfolio-hiring-row:focus-visible .portfolio-hiring-title {
-    color: var(--signal-reputation, var(--protocol-green, #00ec97));
   }
 
   .portfolio-hiring-title-row {
@@ -9431,7 +9274,8 @@ a.os-surface-row {
     white-space: nowrap;
   }
 
-  .portfolio-hiring-title-row .standing-row-time {
+  .portfolio-hiring-title-row .standing-row-time,
+  .scarce-bid-history-row > span:last-child {
     flex-shrink: 0;
   }
 
@@ -9537,11 +9381,6 @@ a.os-surface-row {
     opacity: 0.72;
   }
 
-  .portfolio-hiring-apply-action:hover .portfolio-hiring-apply-arrow,
-  .portfolio-hiring-apply-action:focus-visible .portfolio-hiring-apply-arrow {
-    opacity: 1;
-  }
-
   .portfolio-hiring-apply:hover,
   .portfolio-hiring-apply:focus-visible {
     color: var(--signal-reputation, var(--protocol-green, #00ec97));
@@ -9555,7 +9394,11 @@ a.os-surface-row {
     text-align: left;
   }
 
-  .account-editor-jobs-sheet {
+  .account-editor-jobs-sheet,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    h3:first-child {
     margin-top: 0;
   }
 
@@ -9592,24 +9435,8 @@ a.os-surface-row {
     transition: background 160ms ease;
   }
 
-  .account-editor-hiring-row:hover,
-  .account-editor-hiring-row:focus-visible {
-    background: var(--os-surface-row-hover);
-    outline: none;
-  }
-
-  .account-editor-hiring-row:hover .portfolio-hiring-title,
-  .account-editor-hiring-row:focus-visible .portfolio-hiring-title {
-    color: var(--signal-reputation, var(--protocol-green, #00ec97));
-  }
-
   .account-editor-hiring-row.is-closed .portfolio-hiring-title {
     color: rgb(var(--fg-rgb) / 0.55);
-  }
-
-  .account-editor-hiring-row:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
   }
 
   .account-editor-org-meta {
@@ -9631,35 +9458,14 @@ a.os-surface-row {
     transition: color 0.15s ease;
   }
 
-  button.account-editor-org-meta-part:disabled,
-  .account-editor-org-meta button.portfolio-org-meta-hiring:disabled,
-  .account-editor-org-meta button.portfolio-org-meta-offers:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-
-  .account-editor-org-meta button.account-editor-org-meta-part:hover,
-  .account-editor-org-meta button.account-editor-org-meta-part:focus-visible,
-  .account-editor-org-meta button.portfolio-org-meta-hiring:hover,
-  .account-editor-org-meta button.portfolio-org-meta-hiring:focus-visible,
-  .account-editor-org-meta button.portfolio-org-meta-offers:hover,
-  .account-editor-org-meta button.portfolio-org-meta-offers:focus-visible {
-    color: var(--signal-reputation, var(--protocol-green, #00ec97));
-  }
-
   .account-editor-org-meta
     button.account-editor-org-meta-part:hover
     .account-editor-org-meta-placeholder,
   .account-editor-org-meta
     button.account-editor-org-meta-part:focus-visible
-    .account-editor-org-meta-placeholder {
+    .account-editor-org-meta-placeholder,
+  .portfolio-writing-article .portfolio-writing-byline a {
     color: inherit;
-  }
-
-  button.account-editor-org-meta-part:focus-visible,
-  .account-editor-org-meta button.portfolio-org-meta-hiring:focus-visible,
-  .account-editor-org-meta button.portfolio-org-meta-offers:focus-visible {
-    outline: none;
   }
 
   .account-editor-org-meta-placeholder {
@@ -9925,7 +9731,11 @@ a.os-surface-row {
   }
 
   .portfolio-bio--face .portfolio-about-heading,
-  .portfolio-bio--full .portfolio-about-heading {
+  .portfolio-bio--full .portfolio-about-heading,
+  .portfolio-bio strong,
+  .portfolio-about-bio strong,
+  .portfolio-about-heading strong,
+  .portfolio-about-list strong {
     font-weight: 650;
   }
 
@@ -10110,6 +9920,11 @@ a.os-surface-row {
    * Direct column header only — nested OsSlideOver enlarge keeps ×. */
   .os-app-screen:has(.portfolio-about):not(.os-slide-over)
     > .os-app-screen-column
+    > .os-app-screen-header,
+  .os-app-screen[data-compact-chrome='true']:has(.portfolio-about):not(
+      .os-slide-over
+    )
+    > .os-app-screen-column
     > .os-app-screen-header {
     padding: 0;
     min-height: 0;
@@ -10253,7 +10068,50 @@ a.os-surface-row {
     );
   }
 
-  .portfolio-about-still-open img {
+  .portfolio-about-still-open img,
+  .leaderboard-row--skeleton,
+  .lenis.lenis-scrolling iframe,
+  body:has(
+      [data-os-slide-over='true']:not([data-keep-dock='true']):not(
+          [data-feed-session='covered'] *
+        )
+    )
+    .portfolio-os-layer
+    > .portfolio-summon-dock
+    .portfolio-summon,
+  body:has(
+      [data-os-slide-over='true']:not([data-keep-dock='true']):not(
+          [data-feed-session='covered'] *
+        )
+    )
+    .os-app-screen
+    > .portfolio-summon-dock
+    .portfolio-summon,
+  body:has(
+      .os-slide-over[data-viewport='true']:not([data-keep-dock='true']):not(
+          [data-feed-session='covered'] *
+        )
+    )
+    .portfolio-summon-dock
+    .portfolio-summon,
+  body:has(
+      .glass-sheet-root:not([data-keep-dock='true']):not(
+          [data-feed-session='covered'] *
+        )
+    )
+    .portfolio-os-layer
+    > .portfolio-summon-dock
+    .portfolio-summon,
+  body:has(
+      .glass-sheet-root:not([data-keep-dock='true']):not(
+          [data-feed-session='covered'] *
+        )
+    )
+    .os-app-screen
+    > .portfolio-summon-dock
+    .portfolio-summon,
+  body:has(.os-launcher-root) .portfolio-summon-dock .portfolio-summon,
+  .page-drawer-media-cover video {
     pointer-events: none;
   }
 
@@ -10433,13 +10291,6 @@ a.os-surface-row {
     }
   }
 
-  .portfolio-bio strong,
-  .portfolio-about-bio strong,
-  .portfolio-about-heading strong,
-  .portfolio-about-list strong {
-    font-weight: 650;
-  }
-
   .portfolio-bio em,
   .portfolio-about-bio em,
   .portfolio-about-heading em,
@@ -10543,7 +10394,12 @@ a.os-surface-row {
     overflow-wrap: anywhere;
   }
 
-  .portfolio-about-list li + li {
+  .portfolio-about-list li + li,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    li
+    + li {
     margin-top: 0.4em;
   }
 
@@ -10734,10 +10590,6 @@ a.os-surface-row {
     font-size: 0.95rem;
   }
 
-  .portfolio-writing-empty p {
-    margin: 0;
-  }
-
   .portfolio-writing-list {
     display: grid;
     gap: 1.15rem;
@@ -10879,7 +10731,8 @@ a.os-surface-row {
     list-style: none;
   }
 
-  .portfolio-writing-more-link {
+  .portfolio-writing-more-link,
+  a.portfolio-writing-article-action {
     text-decoration: none;
   }
 
@@ -10995,10 +10848,6 @@ a.os-surface-row {
     font-weight: 500;
     letter-spacing: 0.01em;
     line-height: 1.35;
-    color: inherit;
-  }
-
-  .portfolio-writing-article .portfolio-writing-byline a {
     color: inherit;
   }
 
@@ -11179,10 +11028,6 @@ a.os-surface-row {
     display: block;
     width: 1.05rem;
     height: 1.05rem;
-  }
-
-  a.portfolio-writing-article-action {
-    text-decoration: none;
   }
 
   @container portfolio-writing-article (min-width: 28rem) {
@@ -11948,11 +11793,13 @@ a.os-surface-row {
     --lb-track: var(--signal-reputation);
   }
 
-  .leaderboard-track-row[data-track='influence'] {
+  .leaderboard-track-row[data-track='influence'],
+  .leaderboard-row[data-track='influence'] {
     --lb-track: var(--signal-standing);
   }
 
-  .leaderboard-track-row[data-track='earners'] {
+  .leaderboard-track-row[data-track='earners'],
+  .leaderboard-row[data-track='earners'] {
     --lb-track: var(--signal-endorse);
   }
 
@@ -11985,14 +11832,6 @@ a.os-surface-row {
     --lb-track: var(--signal-reputation);
   }
 
-  .leaderboard-row[data-track='influence'] {
-    --lb-track: var(--signal-standing);
-  }
-
-  .leaderboard-row[data-track='earners'] {
-    --lb-track: var(--signal-endorse);
-  }
-
   /* Share of the leader, read as a background wash rather than a capped meter.
      Tail lands on the row-hover alpha so it dissolves instead of ending hard;
      only the leading corners round, or partial fills read as floating pills. */
@@ -12013,7 +11852,9 @@ a.os-surface-row {
   }
 
   .leaderboard-row > .standing-row-main,
-  .leaderboard-row > .standing-row-aside {
+  .leaderboard-row > .standing-row-aside,
+  .os-app-screen[data-glass-chrome='true'] .os-app-screen-nav-row,
+  .os-app-screen[data-glass-chrome='true'] .os-app-screen-toolbar {
     position: relative;
     z-index: 1;
   }
@@ -12174,10 +12015,6 @@ a.os-surface-row {
     font-size: 0.72rem;
     color: rgb(var(--fg-rgb) / 0.42);
     line-height: 1.4;
-  }
-
-  .leaderboard-row--skeleton {
-    pointer-events: none;
   }
 
   .leaderboard-row--skeleton::before {
@@ -12634,13 +12471,16 @@ a.os-surface-row {
 @layer components {
   /* ── Mood sheet (GlassSheet panel) ───────────────────── */
 
-  .mood-sheet-panel .glass-sheet-body {
+  .mood-sheet-panel .glass-sheet-body,
+  .customize-sheet-panel .glass-sheet-body {
     flex: 1 1 auto;
     min-height: 0;
   }
 
   .mood-sheet-panel .mood-sheet-copy,
-  .mood-sheet-panel .glass-sheet-header-subtitle {
+  .mood-sheet-panel .glass-sheet-header-subtitle,
+  .customize-sheet-panel .customize-sheet-copy,
+  .customize-sheet-panel .glass-sheet-header-subtitle {
     color: var(--mood-muted, rgb(var(--fg-rgb) / 0.44));
   }
 
@@ -12989,11 +12829,6 @@ a.os-surface-row {
     opacity: 0.92;
   }
 
-  .mood-sheet-item.is-locked.is-selectable:not(:disabled),
-  .mood-sheet-item.is-locked:not(:disabled) {
-    cursor: pointer;
-  }
-
   .mood-sheet-actions {
     display: flex;
     flex-direction: column;
@@ -13014,21 +12849,11 @@ a.os-surface-row {
 
   /* ── Customize sheet (GlassSheet panel) ──────────────── */
 
-  .customize-sheet-panel .glass-sheet-body {
-    flex: 1 1 auto;
-    min-height: 0;
-  }
-
   .customize-sheet-body {
     display: flex;
     flex-direction: column;
     gap: 0;
     padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  .customize-sheet-panel .customize-sheet-copy,
-  .customize-sheet-panel .glass-sheet-header-subtitle {
-    color: var(--mood-muted, rgb(var(--fg-rgb) / 0.44));
   }
 
   .customize-sheet-actions::after {
@@ -13171,7 +12996,8 @@ a.os-surface-row {
     );
   }
 
-  .customize-song-list {
+  .customize-song-list,
+  .customize-pin-sheet {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
@@ -13189,12 +13015,6 @@ a.os-surface-row {
     margin: 0;
     font-size: 0.78rem;
     color: rgb(var(--fg-rgb) / 0.46);
-  }
-
-  .customize-pin-sheet {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
   }
 
   .customize-pin-summary .os-surface-row-badge {
@@ -13334,6 +13154,7 @@ a.os-surface-row {
     backdrop-filter: none;
     /* Immersive heroes bleed to the very top — no strip above the banner. */
     --os-screen-body-pad-top: 0px;
+    timeline-scope: --os-immersive-title;
   }
 
   .os-app-screen::before {
@@ -13384,6 +13205,8 @@ a.os-surface-row {
   }
 
   .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
+    .os-app-screen-footer,
+  .os-app-screen[data-launcher='off'][data-screen-footer='true']
     .os-app-screen-footer {
     bottom: env(safe-area-inset-bottom, 0px);
   }
@@ -13414,6 +13237,8 @@ a.os-surface-row {
   .os-app-screen[data-screen-footer='true']:has(
       > .portfolio-summon-dock.is-scroll-hidden
     )
+    .os-app-screen-body,
+  .os-app-screen[data-launcher='off'][data-screen-footer='true']
     .os-app-screen-body {
     padding-bottom: calc(
       env(safe-area-inset-bottom, 0px) + var(--os-screen-footer-band)
@@ -13421,17 +13246,6 @@ a.os-surface-row {
   }
 
   /* Task screens that still omit the launcher — pin footer to the safe edge. */
-  .os-app-screen[data-launcher='off'][data-screen-footer='true']
-    .os-app-screen-footer {
-    bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  .os-app-screen[data-launcher='off'][data-screen-footer='true']
-    .os-app-screen-body {
-    padding-bottom: calc(
-      env(safe-area-inset-bottom, 0px) + var(--os-screen-footer-band)
-    );
-  }
 
   .os-app-screen[data-screen-footer='true'] .collection-page {
     padding-bottom: 0.35rem;
@@ -13529,18 +13343,7 @@ a.os-surface-row {
     background: transparent;
   }
 
-  .os-app-screen[data-glass-chrome='true']
-    > .os-app-screen-column
-    > .os-app-screen-header.is-elevated::before {
-    opacity: 1;
-  }
-
   /* Interactive chrome (search, back) above scrolling under-header bleed. */
-  .os-app-screen[data-glass-chrome='true'] .os-app-screen-nav-row,
-  .os-app-screen[data-glass-chrome='true'] .os-app-screen-toolbar {
-    position: relative;
-    z-index: 1;
-  }
 
   .os-app-screen[data-glass-chrome='true']
     > .os-app-screen-column
@@ -13620,7 +13423,8 @@ a.os-surface-row {
    * Market actions used to stay at OsIconAction's 2.75rem and loft the row —
    * Discover (no actions) stayed 2.35rem, so its search sat higher / chips closer.
    */
-  .os-app-screen[data-compact-chrome='true'] .os-app-screen-nav-row {
+  .os-app-screen[data-compact-chrome='true'] .os-app-screen-nav-row,
+  .os-app-screen[data-immersive-header='true'] .os-app-screen-nav-row {
     align-items: center;
     height: var(--os-app-screen-nav-row-height);
     min-height: var(--os-app-screen-nav-row-height);
@@ -13649,17 +13453,6 @@ a.os-surface-row {
    * header pad must not win — direct column header only so nested enlarge
    * (OsSlideOver) keeps its close chrome.
    */
-  .os-app-screen[data-compact-chrome='true']:has(.portfolio-about):not(
-      .os-slide-over
-    )
-    > .os-app-screen-column
-    > .os-app-screen-header {
-    padding: 0;
-    min-height: 0;
-    height: 0;
-    overflow: hidden;
-    border: 0;
-  }
 
   .os-app-screen[data-compact-chrome='true'] .os-app-screen-toolbar {
     display: flex;
@@ -13774,13 +13567,6 @@ a.os-surface-row {
     }
   }
 
-  .os-app-screen[data-immersive-header='true'] .os-app-screen-nav-row {
-    align-items: center;
-    height: var(--os-app-screen-nav-row-height);
-    min-height: var(--os-app-screen-nav-row-height);
-    max-height: var(--os-app-screen-nav-row-height);
-  }
-
   /* Stable title size — changing it on elevate jumps the nav row. */
   .os-app-screen[data-immersive-header='true'] .os-app-screen-title {
     font-size: 0.95rem;
@@ -13824,10 +13610,6 @@ a.os-surface-row {
     to {
       opacity: 1;
     }
-  }
-
-  .os-app-screen[data-immersive-header='true'] {
-    timeline-scope: --os-immersive-title;
   }
 
   .os-app-screen[data-immersive-header='true']:not(.os-slide-over):not(
@@ -13952,9 +13734,6 @@ a.os-surface-row {
   }
 
   /* Compact search heading — same vertical centering as Market. */
-  .os-app-screen[data-compact-chrome='true'] .os-app-screen-nav-row {
-    align-items: center;
-  }
 
   /* Title + subtitle stack — align to the back control top, then optical nudge. */
   .os-app-screen-nav-row:has(.os-app-screen-subtitle) {
@@ -14080,10 +13859,6 @@ a.os-surface-row {
     overscroll-behavior: contain;
   }
 
-  .lenis.lenis-scrolling iframe {
-    pointer-events: none;
-  }
-
   /* Overlay lock. Text columns use the stable scroller, so there is no rail to collapse. */
   [data-scroll-locked='true']::-webkit-scrollbar-thumb {
     background: transparent;
@@ -14102,7 +13877,8 @@ a.os-surface-row {
 
   @media (prefers-reduced-transparency: reduce) {
     .os-app-screen:not(.os-app-screen--mood) .os-dock-pill,
-    .os-app-screen:not(.os-app-screen--mood) .home-feed-new-posts-pill {
+    .os-app-screen:not(.os-app-screen--mood) .home-feed-new-posts-pill,
+    .home-feed-new-posts-pill {
       --os-dock-fill: rgb(var(--bg-rgb) / 0.94);
     }
   }
@@ -14256,18 +14032,12 @@ a.os-surface-row {
     min-height: 4.55rem;
   }
 
-  .discover-trending-section--focus-skeleton {
-    min-height: 10.5rem;
-  }
-
+  .discover-trending-section--focus-skeleton,
   .discover-trending-section--cover-skeleton {
     min-height: 10.5rem;
   }
 
-  .discover-trending-section--profile-skeleton {
-    min-height: 16.5rem;
-  }
-
+  .discover-trending-section--profile-skeleton,
   .discover-community-list-skeleton {
     min-height: 16.5rem;
   }
@@ -14620,11 +14390,6 @@ a.os-surface-row {
       background var(--os-motion-chip, 160ms) ease;
   }
 
-  .discover-tab-bar button::before,
-  .discover-tab-bar button::after {
-    content: none;
-  }
-
   .discover-tab-bar button:hover,
   .discover-tab-bar button:focus-visible {
     background: var(--os-surface-row-hover);
@@ -14747,7 +14512,9 @@ a.os-surface-row {
   }
 
   .discover-focus-row:hover,
-  .discover-focus-row:focus-visible {
+  .discover-focus-row:focus-visible,
+  .discover-cover-peek:hover,
+  .discover-cover-peek:focus-visible {
     background: rgb(var(--fg-rgb) / 0.05);
     outline: none;
   }
@@ -14793,12 +14560,6 @@ a.os-surface-row {
     color: inherit;
     text-decoration: none;
     transition: background 120ms ease;
-  }
-
-  .discover-cover-peek:hover,
-  .discover-cover-peek:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.05);
-    outline: none;
   }
 
   .discover-cover-peek-thumb.market-listing-thumb,
@@ -14962,24 +14723,7 @@ a.os-surface-row {
   }
 
   /* Scroll-down hides the dock; scroll-up or nearing the top brings it back. */
-  .portfolio-summon-dock.is-scroll-hidden {
-    transform: translateX(-50%)
-      translateY(calc(100% + env(safe-area-inset-bottom)));
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .portfolio-summon-dock.is-scroll-hidden .portfolio-summon {
-    pointer-events: none;
-  }
-
-  /*
-   * Overlays portal into the card; tuck the face dock while other sheets are up.
-   * The page drawer keeps the dock via keepDock (data-keep-dock) — any sheet
-   * without it tucks the dock, including sheets opened above the drawer.
-   * Slide-overs with data-keep-dock (feed video enlarge) keep the dock too.
-   * An article left open on the hidden Home feed is not a sheet on this page.
-   */
+  .portfolio-summon-dock.is-scroll-hidden,
   body:has(
       [data-os-slide-over='true']:not([data-keep-dock='true']):not(
           [data-feed-session='covered'] *
@@ -15021,48 +14765,17 @@ a.os-surface-row {
     pointer-events: none;
   }
 
-  body:has(
-      [data-os-slide-over='true']:not([data-keep-dock='true']):not(
-          [data-feed-session='covered'] *
-        )
-    )
-    .portfolio-os-layer
-    > .portfolio-summon-dock
-    .portfolio-summon,
-  body:has(
-      [data-os-slide-over='true']:not([data-keep-dock='true']):not(
-          [data-feed-session='covered'] *
-        )
-    )
-    .os-app-screen
-    > .portfolio-summon-dock
-    .portfolio-summon,
-  body:has(
-      .os-slide-over[data-viewport='true']:not([data-keep-dock='true']):not(
-          [data-feed-session='covered'] *
-        )
-    )
-    .portfolio-summon-dock
-    .portfolio-summon,
-  body:has(
-      .glass-sheet-root:not([data-keep-dock='true']):not(
-          [data-feed-session='covered'] *
-        )
-    )
-    .portfolio-os-layer
-    > .portfolio-summon-dock
-    .portfolio-summon,
-  body:has(
-      .glass-sheet-root:not([data-keep-dock='true']):not(
-          [data-feed-session='covered'] *
-        )
-    )
-    .os-app-screen
-    > .portfolio-summon-dock
-    .portfolio-summon,
-  body:has(.os-launcher-root) .portfolio-summon-dock .portfolio-summon {
+  .portfolio-summon-dock.is-scroll-hidden .portfolio-summon {
     pointer-events: none;
   }
+
+  /*
+   * Overlays portal into the card; tuck the face dock while other sheets are up.
+   * The page drawer keeps the dock via keepDock (data-keep-dock) — any sheet
+   * without it tucks the dock, including sheets opened above the drawer.
+   * Slide-overs with data-keep-dock (feed video enlarge) keep the dock too.
+   * An article left open on the hidden Home feed is not a sheet on this page.
+   */
 
   /* Video transport / reply write — above media-face slide (z ~80). */
   body:has([data-os-slide-over='true'][data-keep-dock='true'])
@@ -15094,25 +14807,14 @@ a.os-surface-row {
     z-index: 51;
   }
 
-  body:has(
-      .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
-        .post-thread-sheet-panel
-    ):not(:has([data-os-slide-over='true'][data-keep-dock='true']))
-    .portfolio-summon-dock
-    .portfolio-summon {
-    pointer-events: auto;
-  }
-
   /* Room for the portfolio dock under a keep-dock mood page. */
-  .glass-sheet-root[data-keep-dock='true'] .glass-sheet-body {
-    padding-bottom: var(--portfolio-dock-clearance, 4.75rem);
-  }
-
-  /* Hug / choice sheets — sit the panel on the dock, not under it. */
+  .glass-sheet-root[data-keep-dock='true'] .glass-sheet-body,
   .glass-sheet-root--hosted[data-keep-dock='true'],
   .glass-sheet-root[data-keep-dock='true'] {
     padding-bottom: var(--portfolio-dock-clearance, 4.75rem);
   }
+
+  /* Hug / choice sheets — sit the panel on the dock, not under it. */
 
   .glass-sheet-root[data-keep-dock='true'] .dao-proposals-page .dao-workspace {
     padding-bottom: calc(1.25rem + var(--portfolio-dock-clearance, 4.75rem));
@@ -15353,10 +15055,7 @@ a.os-surface-row {
 
   /* Narrow phones — hide activity when dock back is shown to keep the pill on one row. */
   @media (max-width: 380px) {
-    .portfolio-summon:has(.portfolio-summon-back) .portfolio-summon-activity {
-      display: none;
-    }
-
+    .portfolio-summon:has(.portfolio-summon-back) .portfolio-summon-activity,
     .portfolio-summon:has(.portfolio-summon-back)
       .portfolio-summon-activity
       + .portfolio-summon-divider {
@@ -15430,7 +15129,8 @@ a.os-surface-row {
     transition: background 180ms ease;
   }
 
-  .portfolio-summon-account:hover {
+  .portfolio-summon-account:hover,
+  .portfolio-summon-grip-zone.is-interactive:hover {
     background: rgb(var(--fg-rgb) / 0.06);
   }
 
@@ -15488,10 +15188,6 @@ a.os-surface-row {
 
   .portfolio-summon-grip-zone.is-gesture-host {
     touch-action: none;
-  }
-
-  .portfolio-summon-grip-zone.is-interactive:hover {
-    background: rgb(var(--fg-rgb) / 0.06);
   }
 
   .portfolio-summon-grip-zone.is-interactive:active {
@@ -16662,7 +16358,8 @@ a.os-surface-row {
   }
 
   /* Hug the label — same sm pill as Market Buy / OsEmptyAction. */
-  .os-row-action {
+  .os-row-action,
+  .os-chip-action {
     width: fit-content;
     max-width: 100%;
   }
@@ -16676,10 +16373,6 @@ a.os-surface-row {
   }
 
   /* Quiet settings / additive chips — same ghost sm recipe as load-more. */
-  .os-chip-action {
-    width: fit-content;
-    max-width: 100%;
-  }
 
   .guild-thread-column .os-load-more,
   .guild-state-card .os-load-more {
@@ -16745,7 +16438,9 @@ a.os-surface-row {
   }
 
   .page-drawer-media-card:hover .page-drawer-media-action,
-  .page-drawer-media-card:focus-visible .page-drawer-media-action {
+  .page-drawer-media-card:focus-visible .page-drawer-media-action,
+  button.collection-about-teaser.is-expandable:focus-visible
+    .collection-about-teaser-line {
     color: var(--os-surface-emphasis);
   }
 
@@ -16777,10 +16472,6 @@ a.os-surface-row {
     width: 100%;
     height: 100%;
     object-fit: cover;
-  }
-
-  .page-drawer-media-cover video {
-    pointer-events: none;
   }
 
   /* Profile Media — same cover card as created works, wrapped so you can scan. */
@@ -17259,7 +16950,8 @@ a.os-surface-row {
   }
 
   /* About overlay = same studio page as hard-refresh `/about` (no header chrome). */
-  .glass-sheet-panel.portfolio-about-sheet-panel {
+  .glass-sheet-panel.portfolio-about-sheet-panel,
+  .glass-sheet-panel.portfolio-writing-sheet-panel {
     --glass-header-scrim-height: 0px;
   }
 
@@ -17267,9 +16959,6 @@ a.os-surface-row {
    * Writing overlay — header scrim off; layout/height for embedded screen
    * lives unlayered (beats 100dvh + mood-bg).
    */
-  .glass-sheet-panel.portfolio-writing-sheet-panel {
-    --glass-header-scrim-height: 0px;
-  }
 
   @keyframes overlay-panel-crossfade {
     from {
@@ -17425,17 +17114,6 @@ a.os-surface-row {
   }
 
   /* The profile face stays behind the sheet while standing opens from the map. */
-  html[data-standing-handoff='open'] .portfolio-page,
-  html[data-standing-handoff='close']
-    .network-orbit-screen
-    > .os-app-screen-column {
-    visibility: hidden;
-  }
-
-  html[data-standing-early='open']
-    .glass-sheet-root:not(.standing-early-sheet) {
-    visibility: hidden;
-  }
 
   /* Frozen map, under the standing sheet, while that route change paints. */
   #standing-handoff-hold {
@@ -17456,11 +17134,6 @@ a.os-surface-row {
   #standing-handoff-hold .os-app-screen {
     height: 100%;
     min-height: 100%;
-  }
-
-  #standing-handoff-hold .standing-early-sheet,
-  #standing-handoff-hold .standing-early-sheet * {
-    pointer-events: auto;
   }
 
   .standing-sheet-toolbar-row .standing-list-toolbar {
@@ -17711,10 +17384,6 @@ a.os-surface-row {
     animation: standing-panel-body-in 140ms ease;
   }
 
-  .standing-panel .profile-social-list {
-    animation: none;
-  }
-
   .standing-panel-error-block {
     display: flex;
     flex-direction: column;
@@ -17740,9 +17409,6 @@ a.os-surface-row {
     margin: 0;
     font-size: 0.72rem;
     color: rgb(var(--fg-rgb) / 0.48);
-  }
-
-  .standing-panel-load-more-summary {
     padding: 0.75rem 0 0.25rem;
     text-align: center;
   }
@@ -17878,7 +17544,17 @@ a.os-surface-row {
     color: color-mix(in srgb, var(--signal-reputation) 65%, transparent);
   }
 
-  .standing-row-metric-value {
+  .standing-row-metric-value,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    strong,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    b,
+  .account-editor-bio--wysiwyg strong,
+  .account-editor-bio--wysiwyg b {
     font-weight: 700;
   }
 
@@ -17979,11 +17655,10 @@ a.os-surface-row {
     transition: opacity 150ms ease;
   }
 
-  .standing-toggle-state--ghost {
-    visibility: hidden;
-  }
-
-  .standing-toggle-state--hover {
+  .standing-toggle-state--hover,
+  .os-app-screen[data-glass-chrome='true']:has(.collectibles-chrome-glass)
+    > .os-app-screen-column
+    > .os-app-screen-header.is-elevated::before {
     opacity: 0;
   }
 
@@ -18366,10 +18041,6 @@ a.os-surface-row {
     box-shadow: var(--os-focus-ring, 0 0 0 1px rgb(var(--fg-rgb) / 0.08));
   }
 
-  .account-drawer-handle.is-copied .account-drawer-handle-copy-icon {
-    visibility: hidden;
-  }
-
   .account-drawer-handle.is-copied .account-drawer-handle-copy-tick {
     visibility: visible;
   }
@@ -18521,7 +18192,11 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.62);
   }
 
-  .account-wallet-activity-ratio.is-ready {
+  .account-wallet-activity-ratio.is-ready,
+  .os-app-screen[data-immersive-header='true']
+    > .os-app-screen-column
+    > .os-app-screen-header:not(.is-elevated)
+    .collectibles-play-drop-live-label {
     color: var(--protocol-green);
   }
 
@@ -18771,7 +18446,8 @@ a.os-surface-row {
     transform: translateX(0.95rem);
   }
 
-  .account-card .os-surface-row-description {
+  .account-card .os-surface-row-description,
+  .app-storage-sheet .os-surface-row-description {
     white-space: normal;
   }
 
@@ -18902,10 +18578,6 @@ a.os-surface-row {
     display: inline-block;
   }
 
-  .app-storage-pending-ghost {
-    visibility: hidden;
-  }
-
   .app-storage-pending-balance,
   .app-storage-pending-meta {
     position: absolute;
@@ -18993,17 +18665,14 @@ a.os-surface-row {
     min-height: 0;
   }
 
-  .app-storage-status-line {
+  .app-storage-status-line,
+  span.held-edition-choose {
     cursor: default;
   }
 
   .app-storage-status-line.is-attention {
     background: color-mix(in srgb, var(--protocol-amber) 8%, transparent);
     color: var(--protocol-amber-ink, var(--protocol-amber));
-  }
-
-  .app-storage-sheet .os-surface-row-description {
-    white-space: normal;
   }
 
   .app-storage-choice-list {
@@ -19350,7 +19019,8 @@ a.os-surface-row {
     padding: 0;
   }
 
-  .app-storage-amount-input::placeholder {
+  .app-storage-amount-input::placeholder,
+  .account-editor-name::placeholder {
     color: rgb(var(--fg-rgb) / 0.35);
   }
 
@@ -20176,10 +19846,6 @@ a.os-surface-row {
     );
   }
 
-  .account-editor-name::placeholder {
-    color: rgb(var(--fg-rgb) / 0.35);
-  }
-
   .account-editor-handle {
     margin: 0;
     max-width: 100%;
@@ -20682,7 +20348,9 @@ a.os-surface-row {
       .account-editor-about-photos-drag,
     .profile-about-edit-film-item.is-selected
       .profile-about-edit-media-chrome
-      .account-editor-about-photos-remove {
+      .account-editor-about-photos-remove,
+    .scarce-clip-player:hover .scarce-clip-cover-chrome,
+    .scarce-clip-player:focus-within .scarce-clip-cover-chrome {
       opacity: 1;
     }
   }
@@ -21097,17 +20765,6 @@ a.os-surface-row {
   .profile-about-edit-studio
     .profile-about-edit-section--story
     .account-editor-bio--wysiwyg
-    strong,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story
-    .account-editor-bio--wysiwyg
-    b {
-    font-weight: 700;
-  }
-
-  .profile-about-edit-studio
-    .profile-about-edit-section--story
-    .account-editor-bio--wysiwyg
     h3 {
     margin: 0.55em 0 0;
     max-width: none;
@@ -21119,13 +20776,6 @@ a.os-surface-row {
     text-align: start;
     text-wrap: pretty;
     overflow-wrap: anywhere;
-  }
-
-  .profile-about-edit-studio
-    .profile-about-edit-section--story
-    .account-editor-bio--wysiwyg
-    h3:first-child {
-    margin-top: 0;
   }
 
   .profile-about-edit-studio
@@ -21150,7 +20800,22 @@ a.os-surface-row {
     .profile-about-edit-section--story
     .account-editor-bio--wysiwyg
     h3
-    + p {
+    + p,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    p
+    + ul,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    h3
+    + ul,
+  .profile-about-edit-studio
+    .profile-about-edit-section--story
+    .account-editor-bio--wysiwyg
+    ul
+    + ul {
     margin-top: 1.35em;
   }
 
@@ -21173,38 +20838,12 @@ a.os-surface-row {
   .profile-about-edit-studio
     .profile-about-edit-section--story
     .account-editor-bio--wysiwyg
-    p
-    + ul,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story
-    .account-editor-bio--wysiwyg
-    h3
-    + ul,
-  .profile-about-edit-studio
-    .profile-about-edit-section--story
-    .account-editor-bio--wysiwyg
-    ul
-    + ul {
-    margin-top: 1.35em;
-  }
-
-  .profile-about-edit-studio
-    .profile-about-edit-section--story
-    .account-editor-bio--wysiwyg
     li {
     display: list-item;
     margin: 0;
     padding-left: 0.15em;
     overflow-wrap: anywhere;
     text-align: start;
-  }
-
-  .profile-about-edit-studio
-    .profile-about-edit-section--story
-    .account-editor-bio--wysiwyg
-    li
-    + li {
-    margin-top: 0.4em;
   }
 
   .profile-about-edit-studio
@@ -21345,11 +20984,6 @@ a.os-surface-row {
     font-weight: 400 !important;
   }
 
-  .account-editor-bio--wysiwyg strong,
-  .account-editor-bio--wysiwyg b {
-    font-weight: 700;
-  }
-
   .account-editor-bio--wysiwyg em,
   .account-editor-bio--wysiwyg i {
     font-style: italic;
@@ -21378,10 +21012,6 @@ a.os-surface-row {
     font-size: 1em;
     font-weight: 750;
     line-height: inherit;
-  }
-
-  .account-editor-bio--wysiwyg p {
-    margin: 0;
   }
 
   .account-editor-bio--wysiwyg[data-placeholder]:empty:before {
@@ -21524,10 +21154,6 @@ a.os-surface-row {
   .os-choice-sheet-leading > .portfolio-link-icon {
     width: 1.15rem;
     height: 1.15rem;
-  }
-
-  .account-editor-link-sheet input.account-editor-website-file {
-    display: none;
   }
 
   /* Caret reveal must not nudge a short hug drawer. */
@@ -21831,7 +21457,8 @@ a.os-surface-row {
     width: 100%;
   }
 
-  .home-feed-compact-chrome .home-feed-chip-bar {
+  .home-feed-compact-chrome .home-feed-chip-bar,
+  .guild-proposal-card-outcome-row > p {
     flex: 1 1 auto;
     min-width: 0;
   }
@@ -22412,7 +22039,13 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.48);
   }
 
-  .home-feed-new-posts-pill:hover {
+  .home-feed-new-posts-pill:hover,
+  :root[data-theme='light']
+    .feed-photo-slide:not(.feed-photo-slide--cinema)
+    .feed-photo-image,
+  :root[data-theme='light']
+    .feed-photo-slide:not(.feed-photo-slide--cinema)
+    .feed-photo-video {
     filter: brightness(1.03);
   }
 
@@ -22429,12 +22062,6 @@ a.os-surface-row {
     to {
       opacity: 1;
       transform: translateY(0);
-    }
-  }
-
-  @media (prefers-reduced-transparency: reduce) {
-    .home-feed-new-posts-pill {
-      --os-dock-fill: rgb(var(--bg-rgb) / 0.94);
     }
   }
 
@@ -22615,13 +22242,9 @@ a.os-surface-row {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
-  .post-row-skeleton-media--collage-3 {
+  .post-row-skeleton-media--collage-3,
+  .post-media-strip.is-collage.post-media-strip--3.is-wide {
     grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr);
-  }
-
-  .post-row-skeleton-media--collage-3
-    .post-row-skeleton-media-cell:first-child {
-    grid-column: 1 / -1;
   }
 
   .post-row-skeleton-media--collage-4 {
@@ -22781,7 +22404,9 @@ a.os-surface-row {
     text-decoration: none;
   }
 
-  .post-card--openable .post-card-copy {
+  .post-card--openable .post-card-copy,
+  .market-listing-row:has(.market-listing-row-open)
+    > :not(.market-listing-row-open):not(.market-listing-action-col) {
     position: relative;
     z-index: 1;
     pointer-events: none;
@@ -22979,7 +22604,9 @@ a.os-surface-row {
   }
 
   .post-card--openable:hover .post-card-avatar,
-  .post-card--openable:focus-within .post-card-avatar {
+  .post-card--openable:focus-within .post-card-avatar,
+  .post-card--openable:hover:has(.post-card-quote-inset--link:hover)
+    .post-card-avatar {
     box-shadow: none;
   }
 
@@ -23809,10 +23436,6 @@ a.os-surface-row {
     height: 12.5rem;
   }
 
-  .post-media-strip.is-collage.post-media-strip--3.is-wide {
-    grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr);
-  }
-
   .post-media-strip.is-collage.post-media-strip--3.is-tall {
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   }
@@ -23876,10 +23499,6 @@ a.os-surface-row {
     scrollbar-width: none;
     touch-action: pan-x;
     background: transparent;
-  }
-
-  .post-media-strip.is-carousel::-webkit-scrollbar {
-    display: none;
   }
 
   .post-media-strip.is-carousel .post-media-tile {
@@ -24083,10 +23702,6 @@ a.os-surface-row {
     opacity: 1;
   }
 
-  .post-poll-option.has-results:not(:disabled) {
-    cursor: pointer;
-  }
-
   .post-poll-option.is-selected {
     background: rgb(var(--fg-rgb) / 0.1);
   }
@@ -24214,11 +23829,6 @@ a.os-surface-row {
     background: transparent;
   }
 
-  .post-card--openable:hover:has(.post-card-quote-inset--link:hover)
-    .post-card-avatar {
-    box-shadow: none;
-  }
-
   .post-card-quote-inset-content {
     display: flex;
     min-width: 0;
@@ -24291,7 +23901,8 @@ a.os-surface-row {
   }
 
   /* A single thumb is one frame. The file sits in it and cannot stretch it. */
-  .post-card-quote-thumb:not(.is-collage) .post-card-quote-thumb-media {
+  .post-card-quote-thumb:not(.is-collage) .post-card-quote-thumb-media,
+  .post-card-quote-thumb:not(.is-collage) .post-card-quote-thumb-cell {
     position: absolute;
     inset: 0;
   }
@@ -24302,11 +23913,6 @@ a.os-surface-row {
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-  }
-
-  .post-card-quote-thumb:not(.is-collage) .post-card-quote-thumb-cell {
-    position: absolute;
-    inset: 0;
   }
 
   .post-card-quote-thumb.is-collage > .post-card-quote-thumb-cell {
@@ -24341,7 +23947,8 @@ a.os-surface-row {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
-  .post-card-quote-thumb.is-collage.is-3 {
+  .post-card-quote-thumb.is-collage.is-3,
+  .post-card-quote-thumb.is-collage.is-4 {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   }
@@ -24352,11 +23959,6 @@ a.os-surface-row {
 
   .post-card-quote-thumb.is-collage.is-3.is-tall {
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  }
-
-  .post-card-quote-thumb.is-collage.is-4 {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   }
 
   .post-card-quote-thumb.is-collage > .post-card-quote-thumb-media {
@@ -24956,15 +24558,13 @@ a.os-surface-row {
     .post-card-scarce-buy:not(.post-card-scarce-buy--secondary):hover:not(
         :disabled
       )
+      .post-card-scarce-buy-main,
+    .post-card-scarce-buy--secondary:hover:not(:disabled)
       .post-card-scarce-buy-main {
       text-decoration: none;
     }
 
     /* List / Sell — match Drop · Hub · Market (green on hover only). */
-    .post-card-scarce-buy--secondary:hover:not(:disabled)
-      .post-card-scarce-buy-main {
-      text-decoration: none;
-    }
   }
 
   /* Keyboard focus brightens (unlayered) and keeps a thin ring. */
@@ -25202,14 +24802,20 @@ a.os-surface-row {
   }
 
   .drop-art-overlay-stack:has(.drop-art-overlay-footer)
-    .drop-art-overlay-stage:not(:has(.scarce-frame-overlay-stage)) {
+    .drop-art-overlay-stage:not(:has(.scarce-frame-overlay-stage)),
+  .drop-art-overlay-stack:has(.drop-art-overlay-footer)
+    .drop-art-overlay-footer {
     width: min(100cqi, calc(100cqb - 4.2rem));
   }
 
   .drop-art-overlay-stack:has(.drop-art-overlay-nav-row):has(
       .drop-art-overlay-footer
     )
-    .drop-art-overlay-stage:not(:has(.scarce-frame-overlay-stage)) {
+    .drop-art-overlay-stage:not(:has(.scarce-frame-overlay-stage)),
+  .drop-art-overlay-stack:has(.drop-art-overlay-nav-row):has(
+      .drop-art-overlay-footer
+    )
+    .drop-art-overlay-footer {
     width: min(100cqi, calc(100cqb - 7.6rem));
   }
 
@@ -25283,18 +24889,6 @@ a.os-surface-row {
     max-width: 100%;
     padding: 0;
     pointer-events: none;
-  }
-
-  .drop-art-overlay-stack:has(.drop-art-overlay-footer)
-    .drop-art-overlay-footer {
-    width: min(100cqi, calc(100cqb - 4.2rem));
-  }
-
-  .drop-art-overlay-stack:has(.drop-art-overlay-nav-row):has(
-      .drop-art-overlay-footer
-    )
-    .drop-art-overlay-footer {
-    width: min(100cqi, calc(100cqb - 7.6rem));
   }
 
   .drop-art-overlay-footer > * {
@@ -25969,11 +25563,6 @@ a.os-surface-row {
 
   /* Desktop hover exposes controls without requiring a cover click. */
   @media (hover: hover) and (pointer: fine) {
-    .scarce-clip-player:hover .scarce-clip-cover-chrome,
-    .scarce-clip-player:focus-within .scarce-clip-cover-chrome {
-      opacity: 1;
-    }
-
     .scarce-clip-player:hover .scarce-clip-cover-transport,
     .scarce-clip-player:hover .scarce-clip-cover-progress,
     .scarce-clip-player:focus-within .scarce-clip-cover-transport,
@@ -26238,7 +25827,13 @@ a.os-surface-row {
   }
 
   button.scarce-clip-fans-facepile.guild-facepile:hover,
-  button.scarce-clip-fans-facepile.guild-facepile:focus-visible {
+  button.scarce-clip-fans-facepile.guild-facepile:focus-visible,
+  .scarce-clip-track-love:hover,
+  .scarce-clip-track-love:focus-visible,
+  button.collectibles-library-heading--action:hover,
+  button.collectibles-library-heading--action:focus-visible,
+  a.collectibles-library-heading--action:hover,
+  a.collectibles-library-heading--action:focus-visible {
     color: var(--os-surface-emphasis);
     outline: none;
   }
@@ -26259,12 +25854,6 @@ a.os-surface-row {
     color: var(--os-surface-muted);
     cursor: pointer;
     line-height: 1;
-  }
-
-  .scarce-clip-track-love:hover,
-  .scarce-clip-track-love:focus-visible {
-    color: var(--os-surface-emphasis);
-    outline: none;
   }
 
   .scarce-clip-track-love.is-loved {
@@ -26382,7 +25971,9 @@ a.os-surface-row {
     animation: media-download-spin 0.75s linear infinite;
   }
 
-  .media-download-ring.is-indeterminate .media-download-ring-fill {
+  .media-download-ring.is-indeterminate .media-download-ring-fill,
+  .feed-photo-slide--thread.is-thread-dragging .os-media-face-hero,
+  .feed-photo-slide--thread.is-thread-dragging .feed-photo-thread-host {
     transition: none;
   }
 
@@ -26714,6 +26305,12 @@ a.os-surface-row {
       max(1.15rem, env(safe-area-inset-right, 0px))
       max(1.1rem, env(safe-area-inset-bottom, 0px))
       max(1.15rem, env(safe-area-inset-left, 0px));
+    --scarce-listen-cover-dvh: 52dvh;
+    --scarce-listen-cover-size: min(
+      100%,
+      28rem,
+      var(--scarce-listen-cover-dvh)
+    );
   }
 
   .scarce-clip-listen-art {
@@ -26733,14 +26330,6 @@ a.os-surface-row {
    * Extended player cover budgets — Listen (square) + play/music (bleed band).
    * Phone-tall MQs retoken; Listen also flex-shrinks art so controls fit any height.
    */
-  .scarce-clip-listen {
-    --scarce-listen-cover-dvh: 52dvh;
-    --scarce-listen-cover-size: min(
-      100%,
-      28rem,
-      var(--scarce-listen-cover-dvh)
-    );
-  }
 
   .collectibles-play-page.is-immersive,
   .collection-cover.is-immersive.is-square {
@@ -27073,10 +26662,6 @@ a.os-surface-row {
     justify-content: space-between;
     gap: 0.75rem;
     font-size: 0.875rem;
-  }
-
-  .scarce-bid-history-row > span:last-child {
-    flex-shrink: 0;
   }
 
   .scarce-bid-history-end {
@@ -27450,7 +27035,8 @@ a.os-surface-row {
     object-fit: cover;
   }
 
-  .collectibles-play-page.is-immersive .scarce-clip-player::after {
+  .collectibles-play-page.is-immersive .scarce-clip-player::after,
+  .collection-cover.is-immersive::after {
     content: '';
     position: absolute;
     inset: 0 0 auto;
@@ -27471,7 +27057,11 @@ a.os-surface-row {
 
   .collectibles-play-page.is-immersive .scarce-clip-progress,
   .collectibles-play-page.is-immersive .scarce-clip-track-list,
-  .collectibles-play-page.is-immersive .scarce-clip-lyrics {
+  .collectibles-play-page.is-immersive .scarce-clip-lyrics,
+  .collectibles-play-page.is-immersive .collectibles-play-creator,
+  .collectibles-play-page.is-immersive .collectibles-play-gestures,
+  .collectibles-play-page.is-immersive .collection-about-teaser,
+  .collectibles-play-page.is-immersive .collectibles-play-title-row {
     width: min(100%, 22rem);
     margin-inline: auto;
   }
@@ -27505,14 +27095,6 @@ a.os-surface-row {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     color: rgb(var(--fg-rgb) / 0.62);
-  }
-
-  .collectibles-play-page.is-immersive .collectibles-play-creator,
-  .collectibles-play-page.is-immersive .collectibles-play-gestures,
-  .collectibles-play-page.is-immersive .collection-about-teaser,
-  .collectibles-play-page.is-immersive .collectibles-play-title-row {
-    width: min(100%, 22rem);
-    margin-inline: auto;
   }
 
   .collectibles-play-creator {
@@ -27636,16 +27218,13 @@ a.os-surface-row {
 
   .os-app-screen[data-immersive-header='true']
     > .os-app-screen-column
-    > .os-app-screen-header:not(.is-elevated)
-    .collectibles-play-drop-live-label {
-    color: var(--protocol-green);
-  }
-
+    > .os-app-screen-header.is-elevated
+    .collectibles-play-drop-action
+    .os-sheet-action,
   .os-app-screen[data-immersive-header='true']
     > .os-app-screen-column
     > .os-app-screen-header.is-elevated
-    .collectibles-play-drop-action
-    .os-sheet-action {
+    .collection-header-status {
     filter: none;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -27691,10 +27270,6 @@ a.os-surface-row {
     font: inherit;
     text-align: left;
     cursor: pointer;
-  }
-
-  span.held-edition-choose {
-    cursor: default;
   }
 
   .held-edition-cover {
@@ -28009,11 +27584,6 @@ a.os-surface-row {
    * The band owns the frost on this screen — keep the header's own layer
    * clear so the two never double-frost or meet at a seam.
    */
-  .os-app-screen[data-glass-chrome='true']:has(.collectibles-chrome-glass)
-    > .os-app-screen-column
-    > .os-app-screen-header.is-elevated::before {
-    opacity: 0;
-  }
 
   @media (prefers-reduced-transparency: reduce) {
     .collectibles-chrome-glass::before {
@@ -28098,14 +27668,6 @@ a.os-surface-row {
   button.collectibles-library-heading--action,
   a.collectibles-library-heading--action {
     cursor: pointer;
-  }
-
-  button.collectibles-library-heading--action:hover,
-  button.collectibles-library-heading--action:focus-visible,
-  a.collectibles-library-heading--action:hover,
-  a.collectibles-library-heading--action:focus-visible {
-    color: var(--os-surface-emphasis);
-    outline: none;
   }
 
   .collectibles-holding-action {
@@ -28419,20 +27981,6 @@ a.os-surface-row {
   }
 
   /* Soft top scrim so back / shop icons stay readable on bright covers. */
-  .collection-cover.is-immersive::after {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto;
-    z-index: 1;
-    height: calc(env(safe-area-inset-top, 0px) + 4.25rem);
-    pointer-events: none;
-    background: linear-gradient(
-      180deg,
-      rgb(0 0 0 / 0.48) 0%,
-      rgb(0 0 0 / 0.22) 55%,
-      transparent 100%
-    );
-  }
 
   .collection-cover img {
     position: absolute;
@@ -28502,15 +28050,6 @@ a.os-surface-row {
     background: color-mix(in srgb, var(--protocol-green) 92%, transparent);
     color: #05130d;
     filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
-  }
-
-  .os-app-screen[data-immersive-header='true']
-    > .os-app-screen-column
-    > .os-app-screen-header.is-elevated
-    .collection-header-status {
-    filter: none;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
   }
 
   .collection-head {
@@ -28738,11 +28277,6 @@ a.os-surface-row {
     border-radius: 0.25rem;
   }
 
-  button.collection-about-teaser.is-expandable:focus-visible
-    .collection-about-teaser-line {
-    color: var(--os-surface-emphasis);
-  }
-
   .collection-about-sheet .collection-about-body {
     margin: 0;
     padding: 0.55rem 0 0.65rem;
@@ -28788,7 +28322,12 @@ a.os-surface-row {
 
   .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
     .os-app-screen-footer
-    .collection-action-band::before {
+    .collection-action-band::before,
+  .os-slide-over[data-os-slide-over='true'] .os-app-screen-footer,
+  .scarce-read-slide.has-face-transport .os-media-face-footer-glass,
+  .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
+    .scarce-read-slide.has-face-transport
+    .os-media-face-footer-glass {
     bottom: 0;
   }
 
@@ -28971,7 +28510,9 @@ a.os-surface-row {
   }
 
   .collection-commerce-share:hover,
-  .collection-commerce-share:focus-visible {
+  .collection-commerce-share:focus-visible,
+  .collection-commerce-save:hover,
+  .collection-commerce-save:focus-visible {
     color: rgb(var(--fg-rgb) / 0.92);
     outline: none;
   }
@@ -29000,12 +28541,6 @@ a.os-surface-row {
     transition:
       color 160ms ease,
       opacity 160ms ease;
-  }
-
-  .collection-commerce-save:hover,
-  .collection-commerce-save:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.92);
-    outline: none;
   }
 
   /* One saved green across post-card, commerce, and listen surfaces. */
@@ -29568,10 +29103,6 @@ a.os-surface-row {
     touch-action: pan-y;
   }
 
-  .collection-writing.is-immersive {
-    min-height: 0;
-  }
-
   .collection-writing.is-immersive .collection-writing-toc {
     max-height: min(9rem, 28dvh);
     overflow: auto;
@@ -29867,12 +29398,7 @@ a.os-surface-row {
     -webkit-line-clamp: 2;
   }
 
-  .scarce-read-slide:has(.scarce-writing-read) .os-media-face-title {
-    -webkit-line-clamp: 1;
-    white-space: nowrap;
-    display: block;
-  }
-
+  .scarce-read-slide:has(.scarce-writing-read) .os-media-face-title,
   .os-media-face-title--single {
     -webkit-line-clamp: 1;
     white-space: nowrap;
@@ -30668,12 +30194,9 @@ a.os-surface-row {
   }
 
   .collection-writing-markdown h3,
-  .collection-writing-markdown h4 {
+  .collection-writing-markdown h4,
+  .drop-cover-placeholder strong {
     font-size: 0.95rem;
-  }
-
-  .collection-writing-markdown p {
-    margin: 0;
   }
 
   .collection-writing-markdown ul,
@@ -30905,7 +30428,8 @@ a.os-surface-row {
   }
 
   .guild-add-member-result:hover .collection-allowlist-row-add,
-  .guild-add-member-result:focus-visible .collection-allowlist-row-add {
+  .guild-add-member-result:focus-visible .collection-allowlist-row-add,
+  button.guild-add-member-result:focus-visible .collection-allowlist-row-add {
     color: var(--protocol-green-hover, var(--protocol-green));
     opacity: 1;
   }
@@ -31132,7 +30656,8 @@ a.os-surface-row {
     outline: none;
   }
 
-  .glass-sheet-panel.collection-activity-sheet-panel {
+  .glass-sheet-panel.collection-activity-sheet-panel,
+  .glass-sheet-panel.scarce-fans-sheet-panel {
     --glass-header-scrim-height: min(5rem, 24%);
     --glass-sheet-body-opacity: 0.64;
   }
@@ -31161,7 +30686,8 @@ a.os-surface-row {
     margin-top: 0.1rem;
   }
 
-  .collection-door-log-row {
+  .collection-door-log-row,
+  .collection-activity-standing-row {
     padding-block: 0.35rem;
   }
 
@@ -31233,11 +30759,6 @@ a.os-surface-row {
     margin-top: 0.1rem;
   }
 
-  .glass-sheet-panel.scarce-fans-sheet-panel {
-    --glass-header-scrim-height: min(5rem, 24%);
-    --glass-sheet-body-opacity: 0.64;
-  }
-
   .scarce-fans-lede {
     margin: 0 0 0.65rem;
     font-size: 0.78rem;
@@ -31263,10 +30784,6 @@ a.os-surface-row {
     margin-top: 0.1rem;
   }
 
-  .collection-activity-standing-row {
-    padding-block: 0.35rem;
-  }
-
   .collection-activity-standing-system {
     padding-inline-start: 0;
   }
@@ -31282,12 +30799,7 @@ a.os-surface-row {
   /* ── Start a drop form ─── */
 
   .drop-create-form,
-  .drop-studio {
-    display: flex;
-    flex-direction: column;
-    gap: 1.15rem;
-  }
-
+  .drop-studio,
   .guild-create-form {
     display: flex;
     flex-direction: column;
@@ -31362,11 +30874,7 @@ a.os-surface-row {
   .guild-create-form .guild-field > input.is-available,
   .hub-manage-form .guild-field > input.is-available,
   .dao-create-form .guild-field > input.is-available,
-  .token-create-form .guild-field > input.is-available {
-    background: transparent;
-    box-shadow: inset 0 1px 0 var(--protocol-green);
-  }
-
+  .token-create-form .guild-field > input.is-available,
   .drop-create-form .guild-field > input.is-available:focus,
   .guild-create-form .guild-field > input.is-available:focus,
   .hub-manage-form .guild-field > input.is-available:focus,
@@ -31386,11 +30894,7 @@ a.os-surface-row {
   .guild-create-form .guild-field > input.is-taken,
   .hub-manage-form .guild-field > input.is-taken,
   .dao-create-form .guild-field > input.is-taken,
-  .token-create-form .guild-field > input.is-taken {
-    background: transparent;
-    box-shadow: inset 0 1px 0 var(--protocol-red);
-  }
-
+  .token-create-form .guild-field > input.is-taken,
   .drop-create-form .guild-field > input.is-taken:focus,
   .guild-create-form .guild-field > input.is-taken:focus,
   .hub-manage-form .guild-field > input.is-taken:focus,
@@ -31502,10 +31006,6 @@ a.os-surface-row {
     align-items: center;
     gap: 0.25rem;
     color: var(--os-surface-muted-strong);
-  }
-
-  .drop-cover-placeholder strong {
-    font-size: 0.95rem;
   }
 
   .drop-cover-placeholder small {
@@ -31960,25 +31460,7 @@ a.os-surface-row {
    * or light theme stays flat white while portfolio shows the real tint. */
   .os-app-screen.os-slide-over.os-app-screen--mood,
   html[data-theme='light'] .os-app-screen.os-slide-over.os-app-screen--mood,
-  :root[data-theme='light'] .os-app-screen.os-slide-over.os-app-screen--mood {
-    background-color: var(--mood-bg);
-  }
-
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme]) .os-app-screen.os-slide-over.os-app-screen--mood {
-      background-color: var(--mood-bg);
-    }
-  }
-
-  .os-app-screen.os-slide-over.os-app-screen--mood .os-app-screen-column {
-    background: transparent;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-
-  /* Home / in-shell: the .app-surface card IS the phone view.
-   * Beat `html[data-theme=light] .os-app-screen` (#fff flat base)
-   * so home mood wash matches portfolio / slide-over strength. */
+  :root[data-theme='light'] .os-app-screen.os-slide-over.os-app-screen--mood,
   .os-app-screen.os-app-screen--mood:not(.os-slide-over),
   html[data-theme='light']
     .os-app-screen.os-app-screen--mood:not(.os-slide-over),
@@ -31988,17 +31470,23 @@ a.os-surface-row {
   }
 
   @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .os-app-screen.os-slide-over.os-app-screen--mood,
     :root:not([data-theme])
       .os-app-screen.os-app-screen--mood:not(.os-slide-over) {
       background-color: var(--mood-bg);
     }
   }
 
+  .os-app-screen.os-slide-over.os-app-screen--mood .os-app-screen-column,
   .os-app-screen.os-app-screen--mood:not(.os-slide-over) .os-app-screen-column {
     background: transparent;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
+
+  /* Home / in-shell: the .app-surface card IS the phone view.
+   * Beat `html[data-theme=light] .os-app-screen` (#fff flat base)
+   * so home mood wash matches portfolio / slide-over strength. */
 
   @media (prefers-reduced-transparency: reduce) {
     .os-app-screen.os-slide-over.os-app-screen--mood,
@@ -32039,9 +31527,6 @@ a.os-surface-row {
   }
 
   /* No summon dock on the slide layer — pin footer to the safe edge. */
-  .os-slide-over[data-os-slide-over='true'] .os-app-screen-footer {
-    bottom: 0;
-  }
 
   .os-slide-over[data-os-slide-over='true'][data-screen-footer='true']
     .os-app-screen-body {
@@ -32061,6 +31546,12 @@ a.os-surface-row {
       var(--os-summon-dock-occupied, 0px),
       var(--portfolio-dock-clearance, 4.75rem)
     );
+    transition:
+      bottom var(--os-motion-dock, 260ms) ease,
+      opacity 220ms var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1)),
+      transform 220ms
+        var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1));
+    overflow: visible;
   }
 
   .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
@@ -32096,6 +31587,8 @@ a.os-surface-row {
         var(--os-screen-footer-band, 4.25rem)
     );
     transition: padding-bottom var(--os-motion-dock, 260ms) ease;
+    transition: padding-bottom 280ms
+      var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1));
   }
 
   .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
@@ -32174,27 +31667,8 @@ a.os-surface-row {
     );
   }
 
-  .os-slide-over.scarce-read-slide[data-os-slide-over='true']
-    .os-app-screen-footer {
-    transition:
-      bottom var(--os-motion-dock, 260ms) ease,
-      opacity 220ms var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1)),
-      transform 220ms
-        var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1));
-  }
-
-  .os-slide-over.scarce-read-slide[data-os-slide-over='true'][data-screen-footer='true']
-    .os-app-screen-body {
-    transition: padding-bottom 280ms
-      var(--os-motion-ease-slide, cubic-bezier(0.32, 0.72, 0, 1));
-  }
-
   /* Frost under icons — full page width on the footer (not the 28rem strip).
    * Same osChromeFrostStyle() as elevated OS headers. */
-  .os-slide-over.scarce-read-slide[data-os-slide-over='true']
-    .os-app-screen-footer {
-    overflow: visible;
-  }
 
   .scarce-read-slide .os-slide-over-footer-inner {
     position: static;
@@ -32253,12 +31727,6 @@ a.os-surface-row {
   }
 
   /* Video — do not bleed frost under the transport; rail sits on the page. */
-  .scarce-read-slide.has-face-transport .os-media-face-footer-glass,
-  .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
-    .scarce-read-slide.has-face-transport
-    .os-media-face-footer-glass {
-    bottom: 0;
-  }
 
   .scarce-read-slide .os-media-face-footer-stack {
     display: flex;
@@ -32559,15 +32027,6 @@ a.os-surface-row {
   .feed-photo-slide:not(.feed-photo-slide--cinema) .feed-photo-image,
   .feed-photo-slide:not(.feed-photo-slide--cinema) .feed-photo-video {
     filter: brightness(0.94);
-  }
-
-  :root[data-theme='light']
-    .feed-photo-slide:not(.feed-photo-slide--cinema)
-    .feed-photo-image,
-  :root[data-theme='light']
-    .feed-photo-slide:not(.feed-photo-slide--cinema)
-    .feed-photo-video {
-    filter: brightness(1.03);
   }
 
   @media (prefers-color-scheme: light) {
@@ -33019,11 +32478,7 @@ a.os-surface-row {
     cursor: default;
   }
 
-  .feed-photo-video-progress-scrub::-webkit-slider-runnable-track {
-    height: 100%;
-    background: transparent;
-  }
-
+  .feed-photo-video-progress-scrub::-webkit-slider-runnable-track,
   .feed-photo-video-progress-scrub::-moz-range-track {
     height: 100%;
     background: transparent;
@@ -33142,6 +32597,7 @@ a.os-surface-row {
     pointer-events: auto;
     transform: translateZ(0);
     backface-visibility: hidden;
+    position: relative;
   }
 
   /*
@@ -33161,9 +32617,6 @@ a.os-surface-row {
    * Dots overlay the body's bottom pad — pure opacity, never layout.
    * The pad is constant while has-more is on, so nothing shifts.
    */
-  .feed-photo-caption-body {
-    position: relative;
-  }
 
   .feed-photo-caption.has-more .feed-photo-caption-body {
     padding-bottom: 1.45rem;
@@ -33397,10 +32850,6 @@ a.os-surface-row {
     pointer-events: auto;
   }
 
-  .feed-photo-slide--thread.is-thread-dragging .os-media-face-hero {
-    transition: none;
-  }
-
   .feed-photo-slide--thread .feed-photo-listen,
   .feed-photo-slide--thread .scarce-thought-body {
     flex: 1 1 auto;
@@ -33445,10 +32894,6 @@ a.os-surface-row {
       flex-basis 320ms cubic-bezier(0.2, 0.9, 0.24, 1),
       height 320ms cubic-bezier(0.2, 0.9, 0.24, 1),
       max-height 320ms cubic-bezier(0.2, 0.9, 0.24, 1);
-  }
-
-  .feed-photo-slide--thread.is-thread-dragging .feed-photo-thread-host {
-    transition: none;
   }
 
   /*
@@ -33767,7 +33212,8 @@ a.os-surface-row {
    * Bottom / pad tracking lives with the slide-over footer overrides above
    * (must beat `.os-slide-over … bottom: 0`).
    */
-  .scarce-read-slide {
+  .scarce-read-slide,
+  .profile-edit-slide[data-screen-footer='true'] {
     --os-screen-footer-band: 4.25rem;
   }
 
@@ -33857,7 +33303,8 @@ a.os-surface-row {
     padding: 0;
   }
 
-  .guild-edit-slide .account-editor-form-main {
+  .guild-edit-slide .account-editor-form-main,
+  .profile-edit-slide .account-editor-form-main.profile-edit-form-main {
     overflow: visible;
     background: transparent;
   }
@@ -33866,9 +33313,6 @@ a.os-surface-row {
    * Profile edit — identity page, not a nested card: live-face banner scale,
    * square cover, links continue the face, footer owns save.
    */
-  .profile-edit-slide[data-screen-footer='true'] {
-    --os-screen-footer-band: 4.25rem;
-  }
 
   /*
    * Carbon / Glass paint the host frame. Covering them with OS --mood-bg
@@ -33925,11 +33369,6 @@ a.os-surface-row {
   .profile-edit-slide .account-editor-form-body {
     gap: 1rem;
     padding-top: 0.72rem;
-  }
-
-  .profile-edit-slide .account-editor-form-main.profile-edit-form-main {
-    overflow: visible;
-    background: transparent;
   }
 
   .profile-edit-slide .account-editor-cover-stage {
@@ -34620,7 +34059,9 @@ a.os-surface-row {
   }
 
   .drop-cal-nav-btn:hover,
-  .drop-cal-nav-btn:focus-visible {
+  .drop-cal-nav-btn:focus-visible,
+  .drop-cal-chip:hover,
+  .drop-cal-chip:focus-visible {
     background: rgb(var(--fg-rgb) / 0.1);
     outline: none;
   }
@@ -34678,12 +34119,6 @@ a.os-surface-row {
     font-variant-numeric: tabular-nums;
     cursor: pointer;
     padding: 0.2rem 0.15rem;
-  }
-
-  .drop-cal-chip:hover,
-  .drop-cal-chip:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.1);
-    outline: none;
   }
 
   /* Fill-only selection — no inset ring (matches app-access-option chips). */
@@ -35662,7 +35097,8 @@ a.os-surface-row {
 
   /* ── Hub manage sheets ─── */
 
-  .glass-sheet-panel.hub-manage-sheet-panel {
+  .glass-sheet-panel.hub-manage-sheet-panel,
+  .glass-sheet-panel.guild-manage-sheet-panel {
     --glass-sheet-body-opacity: 0.72;
   }
 
@@ -36082,7 +35518,8 @@ a.os-surface-row {
     align-self: flex-start;
   }
 
-  .drop-create-attach-hint {
+  .drop-create-attach-hint,
+  .drop-create-advanced-hint {
     margin: 0;
     font-size: 0.8125rem;
     line-height: 1.45;
@@ -36128,13 +35565,6 @@ a.os-surface-row {
   .drop-create-form .drop-create-advanced-input:focus {
     outline: none;
     box-shadow: inset 0 -1px 0 rgb(var(--fg-rgb) / 0.22);
-  }
-
-  .drop-create-advanced-hint {
-    margin: 0;
-    font-size: 0.8125rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.48);
   }
 
   .drop-create-sale-rules,
@@ -36219,10 +35649,7 @@ a.os-surface-row {
 
   /* Keep focused inputs clear of the sticky chrome and the on-screen
      keyboard when the browser auto-scrolls them into view. */
-  .drop-create-form :is(input, textarea, select):focus {
-    scroll-margin-block: 6rem 10rem;
-  }
-
+  .drop-create-form :is(input, textarea, select):focus,
   .drop-create-form .guild-tags-editor-draft:focus-within {
     scroll-margin-block: 6rem 10rem;
   }
@@ -36632,7 +36059,8 @@ a.os-surface-row {
    *   1 NEAR · 8 left · Album · [faces] 3 fans
    * Fan faces match author avatar (1.25rem); count hugs the pile.
    */
-  .drops-discovery-row .drops-discovery-deal {
+  .drops-discovery-row .drops-discovery-deal,
+  .drops-discovery-fans-facepile.guild-facepile--stable {
     /* Face pile is 1.25rem. Reserve it so fans do not grow the row. */
     min-height: 1.25rem;
   }
@@ -36754,9 +36182,6 @@ a.os-surface-row {
   }
 
   /* Beat .guild-facepile--stable (1.35rem) so author-sized faces aren't padded tall. */
-  .drops-discovery-fans-facepile.guild-facepile--stable {
-    min-height: 1.25rem;
-  }
 
   .drops-discovery-fans-facepile .guild-facepile-avatars--slots {
     --guild-facepile-avatar-size: 1.25rem;
@@ -36852,13 +36277,6 @@ a.os-surface-row {
   .market-listing-row-open:focus-visible {
     outline: 2px solid rgb(var(--primary-rgb) / 0.8);
     outline-offset: -2px;
-  }
-
-  .market-listing-row:has(.market-listing-row-open)
-    > :not(.market-listing-row-open):not(.market-listing-action-col) {
-    position: relative;
-    z-index: 1;
-    pointer-events: none;
   }
 
   /* Above the stretched link, so Show pass, Buy, and the clock stay tappable. */
@@ -37578,10 +36996,6 @@ a.os-surface-row {
       inset 0 1px 0 rgb(255 255 255 / 0.28),
       0 0 0 1px rgb(255 255 255 / 0.12),
       0 2px 6px -1px rgb(0 0 0 / 0.22);
-  }
-
-  .glass-sheet-panel.guild-manage-sheet-panel {
-    --glass-sheet-body-opacity: 0.72;
   }
 
   .glass-sheet-panel.guild-members-sheet-panel {
@@ -38357,7 +37771,9 @@ a.os-surface-row {
   }
 
   .guild-proposal-card-voters-toggle:hover,
-  .guild-proposal-card-voters-toggle:focus-visible {
+  .guild-proposal-card-voters-toggle:focus-visible,
+  .guild-proposal-card-share:hover,
+  .guild-proposal-card-share:focus-visible {
     color: rgb(var(--fg-rgb) / 0.82);
     outline: none;
   }
@@ -38383,11 +37799,6 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  .guild-proposal-card-outcome-row > p {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
   .guild-proposal-card-share {
     display: inline-flex;
     flex: 0 0 auto;
@@ -38406,12 +37817,6 @@ a.os-surface-row {
     vertical-align: middle;
     margin-top: -0.12em;
     transition: color 160ms ease;
-  }
-
-  .guild-proposal-card-share:hover,
-  .guild-proposal-card-share:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.82);
-    outline: none;
   }
 
   .guild-proposal-card-share.is-done {
@@ -38482,10 +37887,7 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.42);
   }
 
-  .guild-proposals-section-label {
-    margin-top: 0.85rem;
-  }
-
+  .guild-proposals-section-label,
   .guild-proposals-section-divider {
     margin-top: 0.85rem;
   }
@@ -38541,11 +37943,6 @@ a.os-surface-row {
   button.guild-add-member-result:focus-visible {
     background: transparent;
     outline: none;
-  }
-
-  button.guild-add-member-result:focus-visible .collection-allowlist-row-add {
-    color: var(--protocol-green-hover, var(--protocol-green));
-    opacity: 1;
   }
 
   button.guild-add-member-result.is-selected {
@@ -38690,10 +38087,6 @@ a.os-surface-row {
   .guild-section-head h2 {
     margin: 0;
     letter-spacing: -0.025em;
-  }
-
-  .guild-hero-card h2,
-  .guild-section-head h2 {
     font-size: clamp(1.35rem, 4vw, 1.85rem);
     font-weight: 600;
   }
@@ -38711,9 +38104,6 @@ a.os-surface-row {
     border-radius: 1rem;
     background: rgb(var(--fg-rgb) / 0.025);
     padding: 0.85rem;
-  }
-
-  .guild-state-card {
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
@@ -39279,6 +38669,8 @@ a.os-surface-row {
     --thread-rail-gap: 0.2rem;
     --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
     padding-top: var(--thread-pad-top);
+    transition: padding-bottom var(--os-motion-chrome, 220ms)
+      var(--os-motion-ease-soft, cubic-bezier(0.22, 1, 0.36, 1));
   }
 
   .guild-composer-thread-item.is-up {
@@ -39311,11 +38703,6 @@ a.os-surface-row {
       var(--thread-pad-top) + var(--thread-avatar) + var(--thread-rail-gap)
     );
     bottom: 0;
-  }
-
-  .guild-composer-thread-item {
-    transition: padding-bottom var(--os-motion-chrome, 220ms)
-      var(--os-motion-ease-soft, cubic-bezier(0.22, 1, 0.36, 1));
   }
 
   /* Next post sits on the rail, under the writing. An article folds it away. */
@@ -39496,12 +38883,7 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  .guild-composer-input-shell {
-    position: relative;
-    width: 100%;
-    min-width: 0;
-  }
-
+  .guild-composer-input-shell,
   .guild-composer-input-field {
     position: relative;
     width: 100%;
@@ -40356,7 +39738,9 @@ a.os-surface-row {
   }
 
   .thread-replies-sort:hover,
-  .thread-replies-sort:focus-visible {
+  .thread-replies-sort:focus-visible,
+  .thread-view-quotes:hover,
+  .thread-view-quotes:focus-visible {
     color: rgb(var(--fg-rgb) / 0.85);
     outline: none;
   }
@@ -40390,12 +39774,6 @@ a.os-surface-row {
     padding: 0;
     overflow: hidden;
     pointer-events: none;
-  }
-
-  .thread-view-quotes:hover,
-  .thread-view-quotes:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.85);
-    outline: none;
   }
 
   .thread-view-quotes-count {
@@ -41718,10 +41096,7 @@ a.os-surface-row {
   padding-inline: 0 0.08rem;
 }
 
-.os-write-dock-footer {
-  align-items: center;
-}
-
+.os-write-dock-footer,
 .os-write-dock-footer-tools,
 .os-write-dock-footer-actions {
   align-items: center;
@@ -41795,7 +41170,8 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
  * Keep the selector distinct from layered `.home-feed-new-posts-pill` so
  * Turbopack does not collapse `::before` into the base rule.
  */
-.home-feed-new-posts-anchor > .home-feed-new-posts-pill::before {
+.home-feed-new-posts-anchor > .home-feed-new-posts-pill::before,
+.home-feed-pull > .home-feed-pull-pill::before {
   content: '';
   z-index: 0;
   border-radius: inherit;
@@ -41814,29 +41190,7 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
   inset: 0;
 }
 
-.home-feed-new-posts-anchor > .home-feed-new-posts-pill > * {
-  z-index: 1;
-  position: relative;
-}
-
-.home-feed-pull > .home-feed-pull-pill::before {
-  content: '';
-  z-index: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background: var(--os-dock-fill, rgb(var(--bg-rgb) / 0.72));
-  -webkit-backdrop-filter: blur(20px) saturate(1.3);
-  backdrop-filter: blur(20px) saturate(1.3);
-  box-shadow:
-    var(
-      --os-dock-shadow,
-      var(--os-chrome-elev-shadow, 0 14px 32px -16px rgb(0 0 0 / 0.28))
-    ),
-    var(--os-dock-lip, inset 0 1px 0 rgb(var(--fg-rgb) / 0.1));
-  position: absolute;
-  inset: 0;
-}
-
+.home-feed-new-posts-anchor > .home-feed-new-posts-pill > *,
 .home-feed-pull > .home-feed-pull-pill > * {
   z-index: 1;
   position: relative;
@@ -41848,12 +41202,7 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
     background: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.94));
   }
 
-  .home-feed-new-posts-anchor > .home-feed-new-posts-pill::before {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    background: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.94));
-  }
-
+  .home-feed-new-posts-anchor > .home-feed-new-posts-pill::before,
   .home-feed-pull > .home-feed-pull-pill::before {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -41990,7 +41339,8 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
   color: var(--protocol-amber-ink, var(--protocol-amber));
 }
 
-.app-storage-sheet .os-surface-row-description {
+.app-storage-sheet .os-surface-row-description,
+.messages-bubble-text .os-link {
   white-space: normal;
 }
 
@@ -42789,7 +42139,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 }
 
 /* Size comes from profile-avatar--sm. Dense packs to the icon slot. */
-.protocol-account-chip-avatar.is-dense.profile-avatar {
+.protocol-account-chip-avatar.is-dense.profile-avatar,
+.protocol-account-chip-icon-slot.is-dense {
   width: 1.2rem;
   height: 1.2rem;
 }
@@ -42826,11 +42177,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   color: rgb(var(--fg-rgb) / 0.48);
 }
 
-.protocol-account-chip-icon-slot.is-dense {
-  width: 1.2rem;
-  height: 1.2rem;
-}
-
 .protocol-account-chip-icon {
   width: 0.75rem;
   height: 0.75rem;
@@ -42860,7 +42206,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   letter-spacing: -0.01em;
 }
 
-.protocol-account-chip-name-row .protocol-account-chip-name {
+.protocol-account-chip-name-row .protocol-account-chip-name,
+.dao-create-form .dao-create-publish > span:first-child {
   min-width: 0;
 }
 
@@ -43126,7 +42473,9 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 .protocol-card-voters-toggle:hover,
 .protocol-card-voters-toggle:focus-visible,
 .protocol-card-onchain:hover,
-.protocol-card-onchain:focus-visible {
+.protocol-card-onchain:focus-visible,
+.protocol-card-share:hover,
+.protocol-card-share:focus-visible {
   color: rgb(var(--fg-rgb) / 0.82);
   outline: none;
 }
@@ -43220,12 +42569,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   cursor: pointer;
   line-height: 0;
   transition: color 160ms ease;
-}
-
-.protocol-card-share:hover,
-.protocol-card-share:focus-visible {
-  color: rgb(var(--fg-rgb) / 0.82);
-  outline: none;
 }
 
 .protocol-card-share.is-done {
@@ -43376,11 +42719,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   color: var(--protocol-red);
 }
 
-.protocol-pill.is-vote.is-remove {
-  background: color-mix(in srgb, var(--protocol-amber) 16%, transparent);
-  color: var(--protocol-amber);
-}
-
+.protocol-pill.is-vote.is-remove,
 .protocol-pill.is-status.is-expired {
   background: color-mix(in srgb, var(--protocol-amber) 16%, transparent);
   color: var(--protocol-amber);
@@ -43630,18 +42969,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   flex: 1 1 12rem;
 }
 
-.protocol-create-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.protocol-compose-transfer-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
+.protocol-create-fields,
+.protocol-compose-transfer-fields,
 .protocol-compose-fund-season-fields,
 .protocol-compose-withdraw-boost-fields,
 .protocol-compose-split-block {
@@ -43797,7 +43126,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   line-height: var(--os-field-line-height, 1.35);
 }
 
-.protocol-task-form .guild-field.protocol-compose-amount .os-token-icon {
+.protocol-task-form .guild-field.protocol-compose-amount .os-token-icon,
+.protocol-permission-item input {
   width: 1rem;
   height: 1rem;
 }
@@ -43941,11 +43271,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   color: rgb(var(--fg-rgb) / 0.82);
 }
 
-.protocol-permission-item input {
-  width: 1rem;
-  height: 1rem;
-}
-
 .protocol-compose-note {
   margin: 0;
   font-size: 0.8rem;
@@ -43980,11 +43305,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 }
 
 .dao-proposals-header-search-wrap,
-.dao-proposals-header-search {
-  width: 100%;
-  min-width: 0;
-}
-
+.dao-proposals-header-search,
 .os-app-screen-heading .dao-proposals-header-search-wrap {
   width: 100%;
   min-width: 0;
@@ -44465,10 +43786,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   font-weight: 600;
   text-align: left;
   cursor: pointer;
-}
-
-.dao-create-form .dao-create-publish > span:first-child {
-  min-width: 0;
 }
 
 .dao-create-form .dao-create-publish .account-safe-mode-switch {
@@ -45052,7 +44369,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   pointer-events: none;
 }
 
-.messages-bubble-list--append-skeleton {
+.messages-bubble-list--append-skeleton,
+.notifications-activity-day:first-child {
   padding-top: 0.1rem;
 }
 
@@ -45107,9 +44425,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 }
 
 /* Host labels wrap in the 78% bubble — feed chips stay nowrap. */
-.messages-bubble-text .os-link {
-  white-space: normal;
-}
 
 .messages-bubble.is-mine {
   align-self: flex-end;
@@ -45209,9 +44524,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   margin: 0;
   color: rgb(var(--fg-rgb) / 0.7);
   font-size: 0.9rem;
-}
-
-.dm-compose-error {
   color: var(--signal-error, rgb(185 28 28));
 }
 
@@ -45583,10 +44895,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 
 .notifications-activity-day {
   padding: 0.75rem 0 0.28rem;
-}
-
-.notifications-activity-day:first-child {
-  padding-top: 0.1rem;
 }
 
 .notifications-activity-day span {
@@ -46426,6 +45734,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 
   .network-orbit-node:focus-visible {
     outline: none;
+    z-index: 40;
   }
 
   .network-orbit-node:focus-visible .network-orbit-node-ring {
@@ -46490,10 +45799,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
     }
   }
 
-  .network-orbit-node:focus-visible {
-    z-index: 40;
-  }
-
   .network-orbit-node:focus-visible .network-orbit-node-label {
     opacity: 1;
   }
@@ -46550,6 +45855,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 
   .network-orbit-center-fallback-icon {
     color: var(--os-surface-muted);
+    display: inline-flex;
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -46620,10 +45926,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 }
 
 @layer components {
-  .network-orbit-center-fallback-icon {
-    display: inline-flex;
-  }
-
   .network-orbit-center-fallback-icon .network-orbit-center-fallback-glyph {
     width: 100%;
     height: 100%;
