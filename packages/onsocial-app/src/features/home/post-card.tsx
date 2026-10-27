@@ -781,7 +781,7 @@ function PostCardImpl({
   const articleCoverActivatable = Boolean(article && articleCover);
 
   const name = displayName(post.accountId, authorProfile?.displayName);
-  const badges = postBadges(post, Boolean(poll), mediaItems.length > 0);
+  const badges = postBadges(post, Boolean(poll));
   const relationContext = showRelationBadge
     ? postRelationContext(post, {
         viewerAccountId,

@@ -20,11 +20,7 @@ import {
 } from '@/lib/post-relation';
 import { PostRichText } from '@/features/home/post-rich-text';
 
-export function postBadges(
-  post: PostRow,
-  hasPollEmbed: boolean,
-  _hasMediaStrip: boolean
-): string[] {
+export function postBadges(post: PostRow, hasPollEmbed: boolean): string[] {
   const badge = postKindBadge(post.kind, hasPollEmbed);
   return badge ? [badge] : [];
 }
