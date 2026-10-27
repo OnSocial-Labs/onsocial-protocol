@@ -8042,10 +8042,24 @@ a.os-surface-row,
     cursor: pointer;
   }
 
+  /* Consolidated focus reset — every element here already shows keyboard focus via a ring, shadow, background, or caret. Do not add a selector unless its focus stays visible without the UA outline. */
+
   .portfolio-listing-action-hit:not(:disabled):focus-visible,
   button.account-editor-org-meta-part:focus-visible,
   .account-editor-org-meta button.portfolio-org-meta-hiring:focus-visible,
-  .account-editor-org-meta button.portfolio-org-meta-offers:focus-visible {
+  .account-editor-org-meta button.portfolio-org-meta-offers:focus-visible,
+  .signal-metric:focus-visible,
+  .account-editor-tags-input:focus,
+  .collectibles-holding-row-main:focus-visible,
+  a.collectibles-holding-row:focus-visible,
+  .collectibles-holding-row:focus-within,
+  .collection-writing-chapter-chip:hover,
+  .collection-writing-chapter-chip:focus-visible,
+  .feed-photo-video-control:focus-visible,
+  .feed-photo-video-progress-scrub:focus-visible,
+  .guild-structure-space-title-input:focus,
+  .network-orbit-node:focus-visible,
+  .network-orbit-center:focus-visible {
     outline: none;
   }
 
@@ -11400,10 +11414,6 @@ a.os-surface-row,
   .signal-metric:where(a) {
     min-height: 1.875rem;
     padding-block: 0.06rem;
-  }
-
-  .signal-metric:focus-visible {
-    outline: none;
   }
 
   .signal-group-standing
@@ -21047,10 +21057,6 @@ a.os-surface-row,
     text-align: center;
   }
 
-  .account-editor-tags-input:focus {
-    outline: none;
-  }
-
   .account-editor-tags-input::placeholder {
     color: rgb(var(--fg-rgb) / 0.35);
   }
@@ -27240,19 +27246,10 @@ a.os-surface-row,
     cursor: pointer;
   }
 
-  .collectibles-holding-row-main:focus-visible {
-    outline: none;
-  }
-
   .collectibles-holding-action-col {
     flex-shrink: 0;
     align-items: flex-end;
     gap: 0.35rem;
-  }
-
-  a.collectibles-holding-row:focus-visible,
-  .collectibles-holding-row:focus-within {
-    outline: none;
   }
 
   .collectibles-holding-row:focus-within {
@@ -28880,11 +28877,6 @@ a.os-surface-row,
     font: inherit;
     text-align: left;
     cursor: pointer;
-  }
-
-  .collection-writing-chapter-chip:hover,
-  .collection-writing-chapter-chip:focus-visible {
-    outline: none;
   }
 
   .collection-writing-chapter-chip:hover .collection-writing-chapter-chip-meta,
@@ -32214,10 +32206,6 @@ a.os-surface-row,
     background: rgb(var(--fg-rgb) / 0.08);
   }
 
-  .feed-photo-video-control:focus-visible {
-    outline: none;
-  }
-
   .feed-photo-video-control-icon {
     width: 1.05rem;
     height: 1.05rem;
@@ -32365,10 +32353,6 @@ a.os-surface-row,
     height: 1px;
     background: transparent;
     border: 0;
-  }
-
-  .feed-photo-video-progress-scrub:focus-visible {
-    outline: none;
   }
 
   .feed-photo-image--empty {
@@ -39904,10 +39888,6 @@ a.os-surface-row,
     padding: 0;
   }
 
-  .guild-structure-space-title-input:focus {
-    outline: none;
-  }
-
   .guild-structure-space-title-input:disabled {
     opacity: 1;
     color: rgb(var(--fg-rgb) / 0.26);
@@ -45430,7 +45410,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   }
 
   .network-orbit-node:focus-visible {
-    outline: none;
     z-index: 40;
   }
 
@@ -45560,10 +45539,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
       border-color: var(--center-identity);
       box-shadow: 0 0 20px var(--center-identity-glow);
     }
-  }
-
-  .network-orbit-center:focus-visible {
-    outline: none;
   }
 
   .network-orbit-center:focus-visible .network-orbit-center-ring {
