@@ -69,6 +69,17 @@ export const MESSAGES_INBOX_ANCHOR_QUERY: FeedAnchorQuery = {
 };
 
 /**
+ * Catalog rows — every windowed listing wrapper carries `[data-catalog-key]`
+ * (marketListingRowKey, collectionId, or tokenId), shared by market, drops,
+ * events, series, hub, and vault lists.
+ */
+export const CATALOG_ANCHOR_QUERY: FeedAnchorQuery = {
+  rowSelector: '[data-catalog-key]',
+  rowKey: (el) => el.dataset.catalogKey,
+  rowSelectorForKey: (key) => `[data-catalog-key="${CSS.escape(key)}"]`,
+};
+
+/**
  * Standing / social rows — every wrapper in ProfileSocialList carries
  * `[data-standing-key]` (accountId), shared by discover profiles/search,
  * standing panels, and the recommended peek.

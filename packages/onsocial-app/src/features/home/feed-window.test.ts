@@ -2,10 +2,27 @@ import { describe, expect, it } from 'vitest';
 import {
   FeedWindowSizeCache,
   buildFeedWindowOffsets,
+  feedWindowKeysEqual,
   feedWindowRangeForScroll,
   feedWindowRangeWithPinned,
   translateFeedWindowRange,
 } from './feed-window';
+
+describe('feedWindowKeysEqual', () => {
+  it('matches same content across fresh array identities', () => {
+    const a = ['x', 'y', 'z'];
+    expect(feedWindowKeysEqual(a, a)).toBe(true);
+    expect(feedWindowKeysEqual(a, ['x', 'y', 'z'])).toBe(true);
+    expect(feedWindowKeysEqual([], [])).toBe(true);
+  });
+
+  it('detects reorder, drift, and length changes', () => {
+    expect(feedWindowKeysEqual(['x', 'y'], ['y', 'x'])).toBe(false);
+    expect(feedWindowKeysEqual(['x', 'y'], ['x', 'z'])).toBe(false);
+    expect(feedWindowKeysEqual(['x'], ['x', 'y'])).toBe(false);
+    expect(feedWindowKeysEqual(['x', 'y'], ['x'])).toBe(false);
+  });
+});
 
 describe('FeedWindowSizeCache', () => {
   it('stores positive finite heights and ignores junk', () => {

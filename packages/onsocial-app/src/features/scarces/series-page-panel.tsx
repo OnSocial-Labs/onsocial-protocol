@@ -8,6 +8,8 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
+import { useFeedWindow } from '@/features/home/use-feed-window';
+import { CATALOG_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import Link from 'next/link';
 import {
   Divider,
@@ -86,6 +88,55 @@ interface SeriesPagePanelProps {
 }
 
 const SERIES_CREATOR_PAGE = 48;
+
+/** One series shop bucket list, windowed per bucket. */
+export function SeriesShopGroupList({
+  drops,
+  nowMs,
+  showCreator = false,
+}: {
+  drops: readonly CollectionView[];
+  nowMs: number;
+  showCreator?: boolean;
+}) {
+  const keys = useMemo(() => drops.map((drop) => drop.collectionId), [drops]);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
+    useFeedWindow({
+      keys,
+      hostRef: listRef,
+      anchorQuery: CATALOG_ANCHOR_QUERY,
+      estimate: 112,
+    });
+
+  return (
+    <div ref={listRef} className="market-listing-list" role="list">
+      {windowed && topSpacer > 0 ? (
+        <div
+          style={{ height: topSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="top"
+        />
+      ) : null}
+      {drops.slice(start, end).map((drop) => (
+        <div
+          key={drop.collectionId}
+          ref={registerRow(drop.collectionId)}
+          data-catalog-key={drop.collectionId}
+        >
+          <SeriesShopRow view={drop} nowMs={nowMs} showCreator={showCreator} />
+        </div>
+      ))}
+      {windowed && bottomSpacer > 0 ? (
+        <div
+          style={{ height: bottomSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="bottom"
+        />
+      ) : null}
+    </div>
+  );
+}
 
 /** Public series page — use-first when held, shop catalog for visitors. */
 export function SeriesPagePanel({
@@ -232,6 +283,17 @@ export function SeriesPagePanel({
     [nowMs, storeDrops]
   );
   const showSectionLabels = groups.length > 1;
+  const heldKeys = useMemo(
+    () => heldRows.map((row) => row.tokenId),
+    [heldRows]
+  );
+  const heldListRef = useRef<HTMLDivElement | null>(null);
+  const heldWindow = useFeedWindow({
+    keys: heldKeys,
+    hostRef: heldListRef,
+    anchorQuery: CATALOG_ANCHOR_QUERY,
+    estimate: 112,
+  });
   const creatorNameLine = collectionCreatorNameLine(
     creatorId,
     creatorDisplayName
@@ -417,24 +479,47 @@ export function SeriesPagePanel({
         </header>
 
         {heldRows.length > 0 ? (
-          <div className="series-held-list market-listing-list" role="list">
-            {heldRows.map((item) => (
-              <CollectiblesHoldingRow
-                key={item.tokenId}
-                item={item}
-                editionCount={item.editionCount}
-                hideCreator
-                onOpenEditions={
-                  item.editionCount > 1
-                    ? () =>
-                        setEditionPick({
-                          title: item.title,
-                          editions: item.editions.map(ownedScarceFromPeek),
-                        })
-                    : undefined
-                }
+          <div
+            ref={heldListRef}
+            className="series-held-list market-listing-list"
+            role="list"
+          >
+            {heldWindow.windowed && heldWindow.topSpacer > 0 ? (
+              <div
+                style={{ height: heldWindow.topSpacer }}
+                aria-hidden="true"
+                data-feed-window-spacer="top"
               />
+            ) : null}
+            {heldRows.slice(heldWindow.start, heldWindow.end).map((item) => (
+              <div
+                key={item.tokenId}
+                ref={heldWindow.registerRow(item.tokenId)}
+                data-catalog-key={item.tokenId}
+              >
+                <CollectiblesHoldingRow
+                  item={item}
+                  editionCount={item.editionCount}
+                  hideCreator
+                  onOpenEditions={
+                    item.editionCount > 1
+                      ? () =>
+                          setEditionPick({
+                            title: item.title,
+                            editions: item.editions.map(ownedScarceFromPeek),
+                          })
+                      : undefined
+                  }
+                />
+              </div>
             ))}
+            {heldWindow.windowed && heldWindow.bottomSpacer > 0 ? (
+              <div
+                style={{ height: heldWindow.bottomSpacer }}
+                aria-hidden="true"
+                data-feed-window-spacer="bottom"
+              />
+            ) : null}
           </div>
         ) : null}
 
@@ -451,15 +536,7 @@ export function SeriesPagePanel({
                   {showSectionLabels ? (
                     <p className="collection-section-label">{group.label}</p>
                   ) : null}
-                  <div className="market-listing-list" role="list">
-                    {group.drops.map((drop) => (
-                      <SeriesShopRow
-                        key={drop.collectionId}
-                        view={drop}
-                        nowMs={nowMs}
-                      />
-                    ))}
-                  </div>
+                  <SeriesShopGroupList drops={group.drops} nowMs={nowMs} />
                 </section>
               ))}
             </div>

@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { usePlaceScroll } from '@/hooks/use-place-scroll';
 import {
   CATALOG_PLACE_MEMORY_TTL_MS,
@@ -19,6 +26,8 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useSearchDraft } from '@/hooks/use-search-draft';
+import { useFeedWindow } from '@/features/home/use-feed-window';
+import { CATALOG_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import {
   DropsHeadingActions,
   DropsSearchHeading,
@@ -531,6 +540,53 @@ function EmptyDropsStatus({
     );
   }
   return <DropsEmptyRecovery copy="No drops yet." />;
+}
+
+/** One keyed drops list, windowed (flat catalog + each upcoming bucket). */
+function DropsWindowedList({
+  rows,
+  renderRow,
+}: {
+  rows: readonly DropDiscoveryItem[];
+  renderRow: (item: DropDiscoveryItem) => ReactNode;
+}) {
+  const keys = useMemo(() => rows.map((item) => item.collectionId), [rows]);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
+    useFeedWindow({
+      keys,
+      hostRef: listRef,
+      anchorQuery: CATALOG_ANCHOR_QUERY,
+      estimate: 112,
+    });
+
+  return (
+    <div ref={listRef} className="market-listing-list" role="list">
+      {windowed && topSpacer > 0 ? (
+        <div
+          style={{ height: topSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="top"
+        />
+      ) : null}
+      {rows.slice(start, end).map((item) => (
+        <div
+          key={item.collectionId}
+          ref={registerRow(item.collectionId)}
+          data-catalog-key={item.collectionId}
+        >
+          {renderRow(item)}
+        </div>
+      ))}
+      {windowed && bottomSpacer > 0 ? (
+        <div
+          style={{ height: bottomSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="bottom"
+        />
+      ) : null}
+    </div>
+  );
 }
 
 export function DropsPagePanel({
@@ -1246,16 +1302,15 @@ export function DropsPagePanel({
                         <h3 className="market-section-title drops-upcoming-label">
                           {section.label}
                         </h3>
-                        <div className="market-listing-list" role="list">
-                          {rows.map((item) => renderRow(item))}
-                        </div>
+                        <DropsWindowedList rows={rows} renderRow={renderRow} />
                       </div>
                     );
                   })
                 ) : (
-                  <div className="market-listing-list" role="list">
-                    {visibleItems.map((item) => renderRow(item))}
-                  </div>
+                  <DropsWindowedList
+                    rows={visibleItems}
+                    renderRow={renderRow}
+                  />
                 )}
                 {showAppendSkeleton ? (
                   <MarketListSkeleton rows={2} variant="drops" />

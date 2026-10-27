@@ -5,7 +5,7 @@
  *
  * Tests opt in with cookie `onsocial.e2e.graph`
  * (`catalog=night-roads`, `vault=default`, `hub=catalog`, `guild=empty`,
- * `market=shop`, `drop=default`, `drops=covers`, `drops=events`, `writing=shelf`, `writing=reader`, or combined).
+ * `market=shop`, `market=window`, `drop=default`, `drops=covers`, `drops=events`, `drops=window`, `writing=shelf`, `writing=reader`, or combined).
  * No cookie → live indexer / existing `page.route` only (SSR miss still works).
  */
 
@@ -31,9 +31,9 @@ export type E2eGraphCatalog = 'night-roads' | 'empty';
 export type E2eGraphVault = 'default' | 'many-creators' | 'empty';
 export type E2eGraphHub = 'catalog' | 'empty' | 'held' | 'staff';
 export type E2eGraphGuild = 'empty' | 'missing' | 'member' | 'banned' | 'owner';
-export type E2eGraphMarket = 'shop' | 'shop-empty' | 'live-first';
+export type E2eGraphMarket = 'shop' | 'shop-empty' | 'live-first' | 'window';
 export type E2eGraphDrop = 'default' | 'held' | 'missing';
-export type E2eGraphDrops = 'covers' | 'events';
+export type E2eGraphDrops = 'covers' | 'events' | 'window';
 export type E2eGraphWriting = 'shelf' | 'reader';
 export type E2eGraphArticles = 'list';
 /** SSR profile shell fixture — `banner` carries a CDN banner image. */
@@ -112,7 +112,12 @@ export function parseE2eGraphCookie(
     parsed.guild = guild;
   }
   const market = params.get('market');
-  if (market === 'shop' || market === 'shop-empty' || market === 'live-first') {
+  if (
+    market === 'shop' ||
+    market === 'shop-empty' ||
+    market === 'live-first' ||
+    market === 'window'
+  ) {
     parsed.market = market;
   }
   const drop = params.get('drop');
@@ -120,7 +125,9 @@ export function parseE2eGraphCookie(
     parsed.drop = drop;
   }
   const drops = params.get('drops');
-  if (drops === 'covers' || drops === 'events') parsed.drops = drops;
+  if (drops === 'covers' || drops === 'events' || drops === 'window') {
+    parsed.drops = drops;
+  }
   const writing = params.get('writing');
   if (writing === 'shelf' || writing === 'reader') {
     parsed.writing = writing;
@@ -787,6 +794,7 @@ export function e2eMarketShopCatalogRows(market: E2eGraphMarket) {
 }
 
 export function e2eMarketListingRows(market: E2eGraphMarket) {
+  if (market === 'window') return e2eMarketWindowRows();
   if (market !== 'live-first') return [];
   const now = Date.now();
   return [
@@ -853,6 +861,68 @@ export function e2eMarketListingRows(market: E2eGraphMarket) {
       updatedBlockTimestamp: now - 86_400_000,
     },
   ];
+}
+
+/**
+ * Windowing fixture — 44 live + 44 ended rows cross the 30-row feed-window
+ * threshold so the stacked Market lists collapse into spacers.
+ */
+export const E2E_MARKET_WINDOW_COUNT = 44;
+
+function e2eMarketWindowRows() {
+  const now = Date.now();
+  const shared = {
+    sellerId: E2E_MARKET_CREATOR,
+    creatorId: E2E_MARKET_CREATOR,
+    appId: null,
+    copies: 1,
+    remaining: 1,
+    mintedCount: 1,
+    media: null,
+    sourcePostPath: null,
+    cardBg: null,
+    extraJson: null,
+    mediumKind: 'art',
+    audioFormat: null,
+    facets: [],
+    listedBlockHeight: 1,
+    updatedBlockHeight: 1,
+  };
+  const live = Array.from({ length: E2E_MARKET_WINDOW_COUNT }, (_, index) => ({
+    ...shared,
+    listingKey: `native:e2e-win-live:${index}`,
+    kind: 'native',
+    listingId: null,
+    tokenId: `e2e-win-live:${index}`,
+    price: TWO_NEAR_YOCTO,
+    priceNumeric: 2,
+    reservePrice: null,
+    buyNowPrice: null,
+    highestBid: null,
+    bidCount: 0,
+    expiresAt: null,
+    title: `Window Live Ask ${String(index).padStart(2, '0')}`,
+    listedBlockTimestamp: now - index * 1000,
+    updatedBlockTimestamp: now - index * 1000,
+  }));
+  const ended = Array.from({ length: E2E_MARKET_WINDOW_COUNT }, (_, index) => ({
+    ...shared,
+    listingKey: `auction:e2e-win-ended:${index}`,
+    kind: 'auction',
+    listingId: null,
+    tokenId: `e2e-win-ended:${index}`,
+    price: SIX_TENTHS_NEAR_YOCTO,
+    priceNumeric: 0.6,
+    reservePrice: SIX_TENTHS_NEAR_YOCTO,
+    buyNowPrice: null,
+    highestBid: SIX_TENTHS_NEAR_YOCTO,
+    bidCount: 1,
+    expiresAt: now - 3_600_000 - index * 1000,
+    title: `Window Ended Lot ${String(index).padStart(2, '0')}`,
+    listedBlockTimestamp: now + index * 1000,
+    updatedBlockTimestamp: now + index * 1000,
+  }));
+  return [...ended, ...live];
 }
 
 function dropExtra(kind: 'audio' | 'writing' | 'art' | 'ticket') {
@@ -998,9 +1068,22 @@ export function e2eEventsCatalogRows(): ReturnType<typeof collectionRow>[] {
   ];
 }
 
+/** Windowing fixture — 44 art drops cross the 30-row feed-window threshold. */
+function e2eDropsWindowCatalogRows(): ReturnType<typeof collectionRow>[] {
+  return Array.from({ length: E2E_MARKET_WINDOW_COUNT }, (_, index) =>
+    collectionRow({
+      collectionId: `e2e-win-drop-${index}`,
+      title: `Window Drop ${String(index).padStart(2, '0')}`,
+      kind: 'art',
+      extra: dropExtra('art'),
+    })
+  );
+}
+
 function e2eDropsListRows(
   drops: E2eGraphDrops
 ): ReturnType<typeof collectionRow>[] {
+  if (drops === 'window') return e2eDropsWindowCatalogRows();
   return drops === 'events'
     ? e2eEventsCatalogRows()
     : e2eDropsCoverCatalogRows();

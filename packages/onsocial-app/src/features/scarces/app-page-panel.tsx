@@ -82,7 +82,9 @@ import {
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { groupSeriesDrops } from '@/features/scarces/series-catalog';
 import { heldCollectionIdSet } from '@/features/scarces/series-page-view';
-import { SeriesShopRow } from '@/features/scarces/series-shop-row';
+import { SeriesShopGroupList } from '@/features/scarces/series-page-panel';
+import { useFeedWindow } from '@/features/home/use-feed-window';
+import { CATALOG_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import {
   fetchMyStorePublishDecision,
   fetchMyStorePublishRequest,
@@ -450,6 +452,17 @@ export function AppPagePanel({
     [nowMs, storeDrops]
   );
   const showSectionLabels = groups.length > 1;
+  const heldKeys = useMemo(
+    () => heldRows.map((row) => row.tokenId),
+    [heldRows]
+  );
+  const heldListRef = useRef<HTMLDivElement | null>(null);
+  const heldWindow = useFeedWindow({
+    keys: heldKeys,
+    hostRef: heldListRef,
+    anchorQuery: CATALOG_ANCHOR_QUERY,
+    estimate: 112,
+  });
   const catalogShell = hubCatalogShell({
     hasCatalog: drops.length > 0,
     hasHeld: heldRows.length > 0,
@@ -735,24 +748,47 @@ export function AppPagePanel({
         ) : null}
 
         {catalogShell === 'ready' && heldRows.length > 0 ? (
-          <div className="series-held-list market-listing-list" role="list">
-            {heldRows.map((item) => (
-              <CollectiblesHoldingRow
-                key={item.tokenId}
-                item={item}
-                editionCount={item.editionCount}
-                hideCreator
-                onOpenEditions={
-                  item.editionCount > 1
-                    ? () =>
-                        setEditionPick({
-                          title: item.title,
-                          editions: item.editions.map(ownedScarceFromPeek),
-                        })
-                    : undefined
-                }
+          <div
+            ref={heldListRef}
+            className="series-held-list market-listing-list"
+            role="list"
+          >
+            {heldWindow.windowed && heldWindow.topSpacer > 0 ? (
+              <div
+                style={{ height: heldWindow.topSpacer }}
+                aria-hidden="true"
+                data-feed-window-spacer="top"
               />
+            ) : null}
+            {heldRows.slice(heldWindow.start, heldWindow.end).map((item) => (
+              <div
+                key={item.tokenId}
+                ref={heldWindow.registerRow(item.tokenId)}
+                data-catalog-key={item.tokenId}
+              >
+                <CollectiblesHoldingRow
+                  item={item}
+                  editionCount={item.editionCount}
+                  hideCreator
+                  onOpenEditions={
+                    item.editionCount > 1
+                      ? () =>
+                          setEditionPick({
+                            title: item.title,
+                            editions: item.editions.map(ownedScarceFromPeek),
+                          })
+                      : undefined
+                  }
+                />
+              </div>
             ))}
+            {heldWindow.windowed && heldWindow.bottomSpacer > 0 ? (
+              <div
+                style={{ height: heldWindow.bottomSpacer }}
+                aria-hidden="true"
+                data-feed-window-spacer="bottom"
+              />
+            ) : null}
           </div>
         ) : null}
 
@@ -771,16 +807,11 @@ export function AppPagePanel({
                   {showSectionLabels ? (
                     <p className="collection-section-label">{group.label}</p>
                   ) : null}
-                  <div className="market-listing-list" role="list">
-                    {group.drops.map((drop) => (
-                      <SeriesShopRow
-                        key={drop.collectionId}
-                        view={drop}
-                        nowMs={nowMs}
-                        showCreator
-                      />
-                    ))}
-                  </div>
+                  <SeriesShopGroupList
+                    drops={group.drops}
+                    nowMs={nowMs}
+                    showCreator
+                  />
                 </section>
               ))}
             </div>

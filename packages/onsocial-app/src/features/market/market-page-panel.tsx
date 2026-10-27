@@ -110,6 +110,8 @@ import {
   salePartyAccountId,
 } from '@/features/market/market-sale-row';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { useFeedWindow } from '@/features/home/use-feed-window';
+import { CATALOG_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import type { ScarceBidSuccessDetail } from '@/features/scarces/scarce-bid-form';
 import {
   executeListingAction,
@@ -1443,6 +1445,37 @@ export function MarketPagePanel({
     partitionMarketListingsLiveFirst(discoveryFilteredListings, nowMs);
   const showEndedGroupLabel =
     liveBrowseListings.length > 0 && endedBrowseListings.length > 0;
+
+  const liveBrowseKeys = useMemo(
+    () => liveBrowseListings.map((item) => marketListingRowKey(item)),
+    [liveBrowseListings]
+  );
+  const endedBrowseKeys = useMemo(
+    () => endedBrowseListings.map((item) => marketListingRowKey(item)),
+    [endedBrowseListings]
+  );
+  const ownedKeys = useMemo(() => owned.map((item) => item.tokenId), [owned]);
+  const liveBrowseListRef = useRef<HTMLDivElement | null>(null);
+  const endedBrowseListRef = useRef<HTMLDivElement | null>(null);
+  const ownedListRef = useRef<HTMLDivElement | null>(null);
+  const liveBrowseWindow = useFeedWindow({
+    keys: liveBrowseKeys,
+    hostRef: liveBrowseListRef,
+    anchorQuery: CATALOG_ANCHOR_QUERY,
+    estimate: 112,
+  });
+  const endedBrowseWindow = useFeedWindow({
+    keys: endedBrowseKeys,
+    hostRef: endedBrowseListRef,
+    anchorQuery: CATALOG_ANCHOR_QUERY,
+    estimate: 112,
+  });
+  const ownedWindow = useFeedWindow({
+    keys: ownedKeys,
+    hostRef: ownedListRef,
+    anchorQuery: CATALOG_ANCHOR_QUERY,
+    estimate: 112,
+  });
   const shopDrops = useMemo(() => {
     if (!creatorFilter) return [];
     return filterDropsNotListed(
@@ -2287,11 +2320,41 @@ export function MarketPagePanel({
             <>
               {liveBrowseListings.length > 0 ? (
                 <div
+                  ref={liveBrowseListRef}
                   className="market-listing-list"
                   role="list"
                   data-market-listing-group="live"
                 >
-                  {liveBrowseListings.map(renderBrowseListingRow)}
+                  {liveBrowseWindow.windowed &&
+                  liveBrowseWindow.topSpacer > 0 ? (
+                    <div
+                      style={{ height: liveBrowseWindow.topSpacer }}
+                      aria-hidden="true"
+                      data-feed-window-spacer="top"
+                    />
+                  ) : null}
+                  {liveBrowseListings
+                    .slice(liveBrowseWindow.start, liveBrowseWindow.end)
+                    .map((item) => {
+                      const key = marketListingRowKey(item);
+                      return (
+                        <div
+                          key={key}
+                          ref={liveBrowseWindow.registerRow(key)}
+                          data-catalog-key={key}
+                        >
+                          {renderBrowseListingRow(item)}
+                        </div>
+                      );
+                    })}
+                  {liveBrowseWindow.windowed &&
+                  liveBrowseWindow.bottomSpacer > 0 ? (
+                    <div
+                      style={{ height: liveBrowseWindow.bottomSpacer }}
+                      aria-hidden="true"
+                      data-feed-window-spacer="bottom"
+                    />
+                  ) : null}
                 </div>
               ) : null}
               {endedBrowseListings.length > 0 ? (
@@ -2305,11 +2368,41 @@ export function MarketPagePanel({
                     </p>
                   ) : null}
                   <div
+                    ref={endedBrowseListRef}
                     className="market-listing-list"
                     role="list"
                     data-market-listing-group="ended"
                   >
-                    {endedBrowseListings.map(renderBrowseListingRow)}
+                    {endedBrowseWindow.windowed &&
+                    endedBrowseWindow.topSpacer > 0 ? (
+                      <div
+                        style={{ height: endedBrowseWindow.topSpacer }}
+                        aria-hidden="true"
+                        data-feed-window-spacer="top"
+                      />
+                    ) : null}
+                    {endedBrowseListings
+                      .slice(endedBrowseWindow.start, endedBrowseWindow.end)
+                      .map((item) => {
+                        const key = marketListingRowKey(item);
+                        return (
+                          <div
+                            key={key}
+                            ref={endedBrowseWindow.registerRow(key)}
+                            data-catalog-key={key}
+                          >
+                            {renderBrowseListingRow(item)}
+                          </div>
+                        );
+                      })}
+                    {endedBrowseWindow.windowed &&
+                    endedBrowseWindow.bottomSpacer > 0 ? (
+                      <div
+                        style={{ height: endedBrowseWindow.bottomSpacer }}
+                        aria-hidden="true"
+                        data-feed-window-spacer="bottom"
+                      />
+                    ) : null}
                   </div>
                 </>
               ) : null}
@@ -2361,33 +2454,52 @@ export function MarketPagePanel({
                 </OsRowAction>
               ) : null}
             </div>
-            <div className="market-listing-list" role="list">
-              {owned.map((item) => {
+            <div ref={ownedListRef} className="market-listing-list" role="list">
+              {ownedWindow.windowed && ownedWindow.topSpacer > 0 ? (
+                <div
+                  style={{ height: ownedWindow.topSpacer }}
+                  aria-hidden="true"
+                  data-feed-window-spacer="top"
+                />
+              ) : null}
+              {owned.slice(ownedWindow.start, ownedWindow.end).map((item) => {
                 const offerSummary = offerByToken.get(item.tokenId);
                 const authorId = ownedAuthorAccountId(item);
                 const author = authorId
                   ? ownedAuthorProfiles[authorId]
                   : undefined;
                 return (
-                  <MarketOwnedRow
+                  <div
                     key={item.tokenId}
-                    item={item}
-                    nowMs={nowMs}
-                    authorDisplayName={author?.displayName}
-                    authorAvatarUrl={author?.avatarUrl}
-                    highestOfferNear={offerSummary?.highestAmountNear ?? null}
-                    offerCount={offerSummary?.offerCount ?? 0}
-                    settlePending={settleTokenId === item.tokenId}
-                    onSell={setSellItem}
-                    onTransfer={setTransferItem}
-                    onChanged={handleListed}
-                    onOffers={setOffersItem}
-                    onSettle={(row) => {
-                      void handleSettleOwned(row);
-                    }}
-                  />
+                    ref={ownedWindow.registerRow(item.tokenId)}
+                    data-catalog-key={item.tokenId}
+                  >
+                    <MarketOwnedRow
+                      item={item}
+                      nowMs={nowMs}
+                      authorDisplayName={author?.displayName}
+                      authorAvatarUrl={author?.avatarUrl}
+                      highestOfferNear={offerSummary?.highestAmountNear ?? null}
+                      offerCount={offerSummary?.offerCount ?? 0}
+                      settlePending={settleTokenId === item.tokenId}
+                      onSell={setSellItem}
+                      onTransfer={setTransferItem}
+                      onChanged={handleListed}
+                      onOffers={setOffersItem}
+                      onSettle={(row) => {
+                        void handleSettleOwned(row);
+                      }}
+                    />
+                  </div>
                 );
               })}
+              {ownedWindow.windowed && ownedWindow.bottomSpacer > 0 ? (
+                <div
+                  style={{ height: ownedWindow.bottomSpacer }}
+                  aria-hidden="true"
+                  data-feed-window-spacer="bottom"
+                />
+              ) : null}
             </div>
             {ownedLoadingMore ? <MarketListSkeleton rows={2} /> : null}
             {ownedLoadMoreFailed ? (

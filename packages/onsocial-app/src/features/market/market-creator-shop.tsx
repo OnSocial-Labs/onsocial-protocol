@@ -1,9 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { useMemo, useRef } from 'react';
 import { MultiplyIcon, standingIdentityLabel } from '@onsocial/ui';
 import { StandingIdentity } from '@/components/profile/standing-identity';
 import { MarketCreatorDropRow } from '@/features/market/market-creator-drop-row';
+import { useFeedWindow } from '@/features/home/use-feed-window';
+import { CATALOG_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import {
   groupMarketCreatorDrops,
   marketCreatorShopCountCopy,
@@ -11,6 +14,59 @@ import {
 import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
 import { portfolioPath } from '@/lib/overlay-routes';
 import type { ProfileStoreDrop } from '@/lib/profile-store-types';
+
+/** One creator-shop bucket list, windowed per bucket. */
+function MarketCreatorDropGroupList({
+  drops,
+  onMintDrop,
+  showStatus,
+}: {
+  drops: readonly ProfileStoreDrop[];
+  onMintDrop: (drop: ProfileStoreDrop) => void;
+  showStatus: boolean;
+}) {
+  const keys = useMemo(() => drops.map((drop) => drop.collectionId), [drops]);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
+    useFeedWindow({
+      keys,
+      hostRef: listRef,
+      anchorQuery: CATALOG_ANCHOR_QUERY,
+      estimate: 112,
+    });
+
+  return (
+    <div ref={listRef} className="market-listing-list" role="list">
+      {windowed && topSpacer > 0 ? (
+        <div
+          style={{ height: topSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="top"
+        />
+      ) : null}
+      {drops.slice(start, end).map((drop) => (
+        <div
+          key={drop.collectionId}
+          ref={registerRow(drop.collectionId)}
+          data-catalog-key={drop.collectionId}
+        >
+          <MarketCreatorDropRow
+            drop={drop}
+            onMint={onMintDrop}
+            showStatus={showStatus}
+          />
+        </div>
+      ))}
+      {windowed && bottomSpacer > 0 ? (
+        <div
+          style={{ height: bottomSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="bottom"
+        />
+      ) : null}
+    </div>
+  );
+}
 
 /** Creator door on `/market?creator=` — identity, then unlisted drops. */
 export function MarketCreatorShop({
@@ -86,16 +142,11 @@ export function MarketCreatorShop({
               {showGroupLabels ? (
                 <p className="collection-section-label">{group.label}</p>
               ) : null}
-              <div className="market-listing-list" role="list">
-                {group.drops.map((drop) => (
-                  <MarketCreatorDropRow
-                    key={drop.collectionId}
-                    drop={drop}
-                    onMint={onMintDrop}
-                    showStatus={!showGroupLabels}
-                  />
-                ))}
-              </div>
+              <MarketCreatorDropGroupList
+                drops={group.drops}
+                onMintDrop={onMintDrop}
+                showStatus={!showGroupLabels}
+              />
             </div>
           ))}
         </section>

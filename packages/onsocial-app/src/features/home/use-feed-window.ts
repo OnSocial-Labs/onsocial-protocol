@@ -15,6 +15,7 @@ import {
   FEED_WINDOW_OVERSCAN_PX,
   FeedWindowSizeCache,
   buildFeedWindowOffsets,
+  feedWindowKeysEqual,
   feedWindowRangeForScroll,
   feedWindowRangeWithPinned,
   translateFeedWindowRange,
@@ -146,21 +147,31 @@ export function useFeedWindow({
   const syncRange = useCallback(() => {
     const node = rootRef.current;
     if (!node) return;
+    // Offsets are list-relative while scrollTop is root-relative. Translate
+    // by the host's offset inside the scroll root so lists stacked below
+    // other content (market live + ended + vault, events windows, hub
+    // sections) window against their own top instead of the root's.
+    const host = hostRef.current;
+    const hostTop = host
+      ? host.getBoundingClientRect().top -
+        node.getBoundingClientRect().top +
+        node.scrollTop
+      : 0;
     const next = feedWindowRangeForScroll({
       offsets: offsetsRef.current.offsets,
-      scrollTop: node.scrollTop,
+      scrollTop: node.scrollTop - hostTop,
       viewportHeight: node.clientHeight,
       overscan: overscanRef.current,
     });
     setRangeState((prev) =>
       prev &&
-      prev.keys === keysRef.current &&
       prev.start === next.start &&
-      prev.end === next.end
+      prev.end === next.end &&
+      feedWindowKeysEqual(prev.keys, keysRef.current)
         ? prev
         : { ...next, keys: keysRef.current }
     );
-  }, []);
+  }, [hostRef]);
 
   // Scroll root detection — every commit, cheap ancestor walk. State bail-out
   // keeps this free once settled; the host node can change without hostRef

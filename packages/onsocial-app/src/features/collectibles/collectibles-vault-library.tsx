@@ -21,6 +21,8 @@ import {
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
+import { useFeedWindow } from '@/features/home/use-feed-window';
+import { CATALOG_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import { seriesDisplayTitle } from '@/features/scarces/series-page-view';
 import { seriesPagePath } from '@/lib/app-routes';
 import {
@@ -262,6 +264,53 @@ function SeriesHeading({
   );
 }
 
+/** One series list inside the vault, windowed per series. */
+function VaultSeriesList({
+  drops,
+  renderRow,
+}: {
+  drops: readonly CollectiblesLibraryDrop[];
+  renderRow: (item: CollectiblesLibraryDrop) => ReactNode;
+}) {
+  const keys = useMemo(() => drops.map((item) => item.tokenId), [drops]);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
+    useFeedWindow({
+      keys,
+      hostRef: listRef,
+      anchorQuery: CATALOG_ANCHOR_QUERY,
+      estimate: 112,
+    });
+
+  return (
+    <div ref={listRef} className="market-listing-list" role="list">
+      {windowed && topSpacer > 0 ? (
+        <div
+          style={{ height: topSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="top"
+        />
+      ) : null}
+      {drops.slice(start, end).map((item) => (
+        <div
+          key={item.tokenId}
+          ref={registerRow(item.tokenId)}
+          data-catalog-key={item.tokenId}
+        >
+          {renderRow(item)}
+        </div>
+      ))}
+      {windowed && bottomSpacer > 0 ? (
+        <div
+          style={{ height: bottomSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="bottom"
+        />
+      ) : null}
+    </div>
+  );
+}
+
 /** Creator → series → use-first drop rows. */
 export function CollectiblesVaultLibrary({
   groups,
@@ -404,8 +453,9 @@ export function CollectiblesVaultLibrary({
                       }
                     />
                   ) : null}
-                  <div className="market-listing-list" role="list">
-                    {series.drops.map((item) => {
+                  <VaultSeriesList
+                    drops={series.drops}
+                    renderRow={(item) => {
                       const owned = ownedByToken.get(item.tokenId);
                       const face = creator.creatorId
                         ? creatorFaces?.get(creator.creatorId)
@@ -413,7 +463,6 @@ export function CollectiblesVaultLibrary({
                       const grouped = item.editionCount > 1;
                       const row = (
                         <CollectiblesHoldingRow
-                          key={item.tokenId}
                           item={item}
                           editionCount={item.editionCount}
                           onOpenEditions={
@@ -432,14 +481,13 @@ export function CollectiblesVaultLibrary({
                       if (!grouped) return row;
                       return (
                         <HeldEditionPickerContext.Provider
-                          key={item.tokenId}
                           value={() => openPicker(item, 'send')}
                         >
                           {row}
                         </HeldEditionPickerContext.Provider>
                       );
-                    })}
-                  </div>
+                    }}
+                  />
                 </div>
               );
             })}

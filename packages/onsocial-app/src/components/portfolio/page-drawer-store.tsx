@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useFeedWindow } from '@/features/home/use-feed-window';
+import { CATALOG_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
@@ -274,6 +276,25 @@ export function PageDrawerStoreList({
     () => drops.map((drop) => drop.collectionId),
     [drops]
   );
+  const listingKeys = useMemo(
+    () => listingsState.items.map((item) => marketListingRowKey(item)),
+    [listingsState.items]
+  );
+  const dropKeys = useMemo(() => drops.map((drop) => drop.key), [drops]);
+  const listingsListRef = useRef<HTMLDivElement | null>(null);
+  const dropsListRef = useRef<HTMLDivElement | null>(null);
+  const listingsWindow = useFeedWindow({
+    keys: listingKeys,
+    hostRef: listingsListRef,
+    anchorQuery: CATALOG_ANCHOR_QUERY,
+    estimate: 112,
+  });
+  const dropsWindow = useFeedWindow({
+    keys: dropKeys,
+    hostRef: dropsListRef,
+    anchorQuery: CATALOG_ANCHOR_QUERY,
+    estimate: 112,
+  });
   const { viewerSaved, isSavePending, toggleSave } = useScarceCollectionSaves({
     collectionIds: dropCollectionIds,
     onError: (message) => setTxResult({ type: 'error', msg: message }),
@@ -502,34 +523,59 @@ export function PageDrawerStoreList({
           <h3 id="page-drawer-store-listings" className="market-section-title">
             For sale
           </h3>
-          <div className="market-listing-list" role="list">
-            {listingsState.items.map((item) => {
-              const rowKey = marketListingRowKey(item);
-              return (
-                <MarketListingRow
-                  key={rowKey}
-                  item={item}
-                  nowMs={nowMs}
-                  isOwnListing={(() => {
-                    if (
-                      !viewerAccountId ||
-                      !accountIdsEqual(viewerAccountId, item.creatorId)
-                    ) {
-                      return false;
-                    }
-                    // Own ended auctions keep Bid/Settle; live own rows are Listed.
-                    if (item.kind !== 'auction') return true;
-                    const endsAtMs = auctionExpiresAtMs(item.expiresAtNs);
-                    return endsAtMs == null || endsAtMs > Date.now();
-                  })()}
-                  cancelPending={cancelRowKey === rowKey}
-                  onBuy={handleBuy}
-                  onCancel={(row) => {
-                    void handleCancel(row);
-                  }}
-                />
-              );
-            })}
+          <div
+            ref={listingsListRef}
+            className="market-listing-list"
+            role="list"
+          >
+            {listingsWindow.windowed && listingsWindow.topSpacer > 0 ? (
+              <div
+                style={{ height: listingsWindow.topSpacer }}
+                aria-hidden="true"
+                data-feed-window-spacer="top"
+              />
+            ) : null}
+            {listingsState.items
+              .slice(listingsWindow.start, listingsWindow.end)
+              .map((item) => {
+                const rowKey = marketListingRowKey(item);
+                return (
+                  <div
+                    key={rowKey}
+                    ref={listingsWindow.registerRow(rowKey)}
+                    data-catalog-key={rowKey}
+                  >
+                    <MarketListingRow
+                      item={item}
+                      nowMs={nowMs}
+                      isOwnListing={(() => {
+                        if (
+                          !viewerAccountId ||
+                          !accountIdsEqual(viewerAccountId, item.creatorId)
+                        ) {
+                          return false;
+                        }
+                        // Own ended auctions keep Bid/Settle; live own rows are Listed.
+                        if (item.kind !== 'auction') return true;
+                        const endsAtMs = auctionExpiresAtMs(item.expiresAtNs);
+                        return endsAtMs == null || endsAtMs > Date.now();
+                      })()}
+                      cancelPending={cancelRowKey === rowKey}
+                      onBuy={handleBuy}
+                      onCancel={(row) => {
+                        void handleCancel(row);
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            {listingsWindow.windowed && listingsWindow.bottomSpacer > 0 ? (
+              <div
+                style={{ height: listingsWindow.bottomSpacer }}
+                aria-hidden="true"
+                data-feed-window-spacer="bottom"
+              />
+            ) : null}
           </div>
           {listingsState.hasMore &&
           listingsState.status !== 'error' &&
@@ -553,30 +599,49 @@ export function PageDrawerStoreList({
           <h3 id="page-drawer-store-drops" className="market-section-title">
             Drops
           </h3>
-          <div className="market-listing-list" role="list">
-            {drops.map((drop) => (
-              <PortfolioDropRow
-                key={drop.key}
-                pageAccountId={pageAccountId}
-                displayName={profileName}
-                avatarUrl={avatarUrl}
-                drop={mergeDropFanRoster(
-                  drop,
-                  fanRosters.get(drop.collectionId.trim())
-                )}
-                saved={viewerSaved(drop.collectionId)}
-                savePending={isSavePending(drop.collectionId)}
-                onToggleSave={() => {
-                  void toggleSave(drop.collectionId);
-                }}
-                onOwnerManaged={handleDropOwnerManaged}
-                onMint={
-                  !viewerIsPageOwner && isDropMintable(drop)
-                    ? handleMintDrop
-                    : undefined
-                }
+          <div ref={dropsListRef} className="market-listing-list" role="list">
+            {dropsWindow.windowed && dropsWindow.topSpacer > 0 ? (
+              <div
+                style={{ height: dropsWindow.topSpacer }}
+                aria-hidden="true"
+                data-feed-window-spacer="top"
               />
+            ) : null}
+            {drops.slice(dropsWindow.start, dropsWindow.end).map((drop) => (
+              <div
+                key={drop.key}
+                ref={dropsWindow.registerRow(drop.key)}
+                data-catalog-key={drop.key}
+              >
+                <PortfolioDropRow
+                  pageAccountId={pageAccountId}
+                  displayName={profileName}
+                  avatarUrl={avatarUrl}
+                  drop={mergeDropFanRoster(
+                    drop,
+                    fanRosters.get(drop.collectionId.trim())
+                  )}
+                  saved={viewerSaved(drop.collectionId)}
+                  savePending={isSavePending(drop.collectionId)}
+                  onToggleSave={() => {
+                    void toggleSave(drop.collectionId);
+                  }}
+                  onOwnerManaged={handleDropOwnerManaged}
+                  onMint={
+                    !viewerIsPageOwner && isDropMintable(drop)
+                      ? handleMintDrop
+                      : undefined
+                  }
+                />
+              </div>
             ))}
+            {dropsWindow.windowed && dropsWindow.bottomSpacer > 0 ? (
+              <div
+                style={{ height: dropsWindow.bottomSpacer }}
+                aria-hidden="true"
+                data-feed-window-spacer="bottom"
+              />
+            ) : null}
           </div>
         </section>
       ) : null}

@@ -107,6 +107,23 @@ export function feedWindowRangeForScroll({
 }
 
 /**
+ * Order-sensitive key-list equality. Some callers derive keys inline per
+ * render (fresh array identity, same content); the range bail-out must not
+ * treat that as a mutation or the resync setState loops every render.
+ */
+export function feedWindowKeysEqual(
+  a: readonly string[],
+  b: readonly string[]
+): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let index = 0; index < a.length; index += 1) {
+    if (a[index] !== b[index]) return false;
+  }
+  return true;
+}
+
+/**
  * Re-anchor a range across a list mutation (prepend / re-rank / removal) so
  * the same rows stay mounted while a scroll-driven resync catches up.
  * Falls back to clamped indices when the anchored keys disappeared.

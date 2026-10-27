@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from 'react';
 import Link from 'next/link';
 import {
@@ -39,6 +40,8 @@ import {
   fetchDropsPage,
   type DropDiscoveryItem,
 } from '@/features/drops/drops-data';
+import { useFeedWindow } from '@/features/home/use-feed-window';
+import { CATALOG_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import {
   EVENT_WINDOW_ORDER,
   eventMatchesScan,
@@ -220,6 +223,53 @@ function EventRow({
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** One time-window event list, windowed per window. */
+function EventsWindowedList({
+  rows,
+  renderRow,
+}: {
+  rows: readonly DropDiscoveryItem[];
+  renderRow: (item: DropDiscoveryItem) => ReactNode;
+}) {
+  const keys = useMemo(() => rows.map((item) => item.collectionId), [rows]);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
+    useFeedWindow({
+      keys,
+      hostRef: listRef,
+      anchorQuery: CATALOG_ANCHOR_QUERY,
+      estimate: 112,
+    });
+
+  return (
+    <div ref={listRef} role="list">
+      {windowed && topSpacer > 0 ? (
+        <div
+          style={{ height: topSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="top"
+        />
+      ) : null}
+      {rows.slice(start, end).map((item) => (
+        <div
+          key={item.collectionId}
+          ref={registerRow(item.collectionId)}
+          data-catalog-key={item.collectionId}
+        >
+          {renderRow(item)}
+        </div>
+      ))}
+      {windowed && bottomSpacer > 0 ? (
+        <div
+          style={{ height: bottomSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="bottom"
+        />
+      ) : null}
     </div>
   );
 }
@@ -634,12 +684,12 @@ export function EventsPagePanel({
                   <h2 id={`events-${window}`} className="market-section-title">
                     {eventWindowLabel(window)}
                   </h2>
-                  <div role="list">
-                    {rows.map((item) => {
+                  <EventsWindowedList
+                    rows={rows}
+                    renderRow={(item) => {
                       const kind = eventGuestKind(window);
                       return (
                         <EventRow
-                          key={item.collectionId}
                           item={item}
                           nowMs={nowMs}
                           window={window}
@@ -662,8 +712,8 @@ export function EventsPagePanel({
                           }
                         />
                       );
-                    })}
-                  </div>
+                    }}
+                  />
                 </section>
               );
             })
