@@ -1207,7 +1207,7 @@ function PostCardImpl({
             >
               <div className="portfolio-writing-cover post-card-article-cover-face">
                 <PortfolioWritingCover
-                  variant="list"
+                  variant="article"
                   title={article.title}
                   coverUrl={articleCover.coverUrl}
                   cardBg={articleCover.cardBg}

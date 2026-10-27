@@ -79,18 +79,52 @@ const GIF_POST = feedRow({
   media: [{ cid: CID_GIF, mime: 'image/gif', size: 3_000_000 }],
 });
 
-async function stubFeedGraph(page: Page): Promise<void> {
+function articleRow(opts: {
+  accountId: string;
+  postId: string;
+  title: string;
+  text: string;
+  media?: Array<{ cid: string; mime: string; size: number }>;
+}) {
+  return {
+    ...feedRow({
+      accountId: opts.accountId,
+      postId: opts.postId,
+      text: opts.text,
+      media: opts.media,
+    }),
+    value: JSON.stringify({
+      v: 1,
+      contentType: 'md',
+      kind: 'longform',
+      text: opts.text,
+      ...(opts.media ? { media: opts.media } : {}),
+      x: { onsocial: { article: { title: opts.title } } },
+    }),
+  };
+}
+
+const ARTICLE_POST = articleRow({
+  accountId: 'carol.near',
+  postId: 'article-post',
+  title: 'Tale of the Blurred Cover',
+  text: 'A long-form story whose photo cover must stay sharp in the feed.',
+  media: [{ cid: CID_JPEG, mime: 'image/jpeg', size: 200_000 }],
+});
+
+async function stubFeedGraph(
+  page: Page,
+  rows: unknown[] = [PHOTO_POST, GIF_POST]
+): Promise<void> {
   await page.route('**/api/onapi/graph/query', async (route) => {
-    const body = JSON.parse(
-      route.request().postData() ?? '{}'
-    ) as GraphBody;
+    const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody;
     const query = body.query ?? '';
     if (query.includes('postsFeed') || query.includes('postsCurrent')) {
       const field = query.includes('postsFeed') ? 'postsFeed' : 'postsCurrent';
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ data: { [field]: [PHOTO_POST, GIF_POST] } }),
+        body: JSON.stringify({ data: { [field]: rows } }),
       });
       return;
     }
@@ -208,9 +242,7 @@ test.describe('feed image variants (phase 2)', () => {
       .poll(() => hits.variantByWidth.get('1080') ?? 0, { timeout: 15_000 })
       .toBeGreaterThan(0);
     await expect
-      .poll(() =>
-        photoTile.evaluate((el: HTMLImageElement) => el.currentSrc)
-      )
+      .poll(() => photoTile.evaluate((el: HTMLImageElement) => el.currentSrc))
       .toContain(`/img/1080/ipfs/${CID_JPEG}`);
     expect(hits.originalByCid.get(CID_JPEG) ?? 0).toBe(0);
 
@@ -248,8 +280,8 @@ test.describe('feed image variants (phase 2)', () => {
     const enlargeImg = page.locator('.feed-photo-image').first();
     await expect(enlargeImg).toBeVisible({ timeout: 10_000 });
     await expect
-      .poll(() =>
-        enlargeImg.evaluate((el: HTMLImageElement) => el.currentSrc),
+      .poll(
+        () => enlargeImg.evaluate((el: HTMLImageElement) => el.currentSrc),
         { timeout: 15_000 }
       )
       .toContain(`/img/1920/ipfs/${CID_JPEG}`);
@@ -263,5 +295,54 @@ test.describe('feed image variants (phase 2)', () => {
         Object.fromEntries(hits.variantByWidth)
       )} (${hits.variantBytes}B served) — original bytes: ${hits.originalBytes}`
     );
+  });
+
+  // Regression: feed article covers rendered with the `list` variant and
+  // fetched the 128px catalog rung into the wide cover slot — visibly
+  // blurred on live posts (e.g. "Tale of Merwuszek and the Silver Forest").
+  test('article photo cover loads the wide-cover rung, never the 128 thumb', async ({
+    page,
+  }) => {
+    await stubFeedGraph(page, [ARTICLE_POST]);
+    const hits = await stubCdn(page);
+    await gotoApp(page, '/home');
+    await dismissNextDevOverlay(page);
+    const globalTab = page.getByRole('tab', { name: 'Global' });
+    if ((await globalTab.count()) > 0) {
+      await globalTab.click();
+    }
+    const feed = page.locator('.home-feed-list');
+    await expect(feed).toContainText('Tale of the Blurred Cover');
+
+    const cover = feed.locator(
+      '.post-card-article-cover .portfolio-writing-cover-photo'
+    );
+    await expect(cover).toBeVisible();
+
+    // Wide-cover rungs + sizes — the 128px list-thumb rung stays out.
+    await expect(cover).toHaveAttribute(
+      'srcset',
+      new RegExp(`/img/384/ipfs/${CID_JPEG} 384w`)
+    );
+    await expect(cover).toHaveAttribute(
+      'srcset',
+      new RegExp(`/img/1080/ipfs/${CID_JPEG} 1080w`)
+    );
+    const srcset = await cover.getAttribute('srcset');
+    expect(srcset).not.toContain('/img/128/');
+    await expect(cover).toHaveAttribute(
+      'sizes',
+      '(max-width: 640px) 100vw, 608px'
+    );
+
+    // Browser resolves the 1080 rung for the ~553px slot; thumb + original
+    // are never requested.
+    await expect
+      .poll(() => cover.evaluate((el: HTMLImageElement) => el.currentSrc), {
+        timeout: 15_000,
+      })
+      .toContain(`/img/1080/ipfs/${CID_JPEG}`);
+    expect(hits.variantByWidth.get('128') ?? 0).toBe(0);
+    expect(hits.originalByCid.get(CID_JPEG) ?? 0).toBe(0);
   });
 });
