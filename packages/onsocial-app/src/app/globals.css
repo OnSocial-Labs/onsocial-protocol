@@ -7059,12 +7059,6 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
-  .portfolio-identity-gesture:disabled {
-    cursor: default;
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-  }
-
   /* Match panel toggle hues — do not override step-back red. */
   .portfolio-identity-gesture--stand
     .standing-toggle-arrow:not(.standing-toggle-arrow--step-back) {
@@ -7480,12 +7474,6 @@ a.os-surface-row,
 
   .dao-boost-mode-chip:hover:not(:disabled):not(.is-selected) {
     background: color-mix(in srgb, currentColor 6%, transparent);
-  }
-
-  .dao-boost-mode-chip:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
   }
 
   .dao-boost-mode-chip.is-selected {
@@ -15647,12 +15635,6 @@ a.os-surface-row,
       color 180ms ease;
   }
 
-  .os-write-dock-send:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
-  }
-
   /* Pending keeps the armed shade — the spinner carries the work signal. */
   .os-write-dock-send.is-pending:disabled {
     color: var(--protocol-green-ink, var(--protocol-green));
@@ -17616,12 +17598,6 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
-  .standing-action:disabled {
-    cursor: default;
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-  }
-
   .standing-toggle {
     display: inline-grid;
     grid-template-columns: 1fr;
@@ -18367,12 +18343,6 @@ a.os-surface-row,
     background: var(--os-surface-fill-active);
   }
 
-  .account-action-toggle:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
-  }
-
   .account-action-toggle-copy {
     display: flex;
     min-width: 0;
@@ -18743,12 +18713,6 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.62);
   }
 
-  .app-storage-mode:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
-  }
-
   .app-storage-form {
     display: flex;
     flex-direction: column;
@@ -19067,12 +19031,6 @@ a.os-surface-row,
   .app-storage-share-add-icon {
     width: 0.875rem;
     height: 0.875rem;
-  }
-
-  .app-storage-share-link:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
   }
 
   .app-storage-share-hero {
@@ -25988,12 +25946,6 @@ a.os-surface-row,
     background: rgb(var(--fg-rgb) / 0.16);
   }
 
-  .scarce-clip-transport-btn:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
-  }
-
   .scarce-clip-transport-icon {
     width: 0.92rem;
     height: 0.92rem;
@@ -30294,12 +30246,6 @@ a.os-surface-row,
     text-align: left;
   }
 
-  .collection-allowlist-chip-main:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
-  }
-
   .collection-allowlist-chip-avatar {
     width: 0.95rem;
     height: 0.95rem;
@@ -30352,12 +30298,6 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.88);
     background: transparent;
     outline: none;
-  }
-
-  .collection-allowlist-chip-remove:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
   }
 
   .collection-allowlist-chip-remove-icon {
@@ -30433,12 +30373,6 @@ a.os-surface-row,
   .collection-allowlist-text-btn:focus-visible {
     color: var(--os-surface-emphasis);
     outline: none;
-  }
-
-  .collection-allowlist-text-btn:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
   }
 
   .collection-allowlist-member {
@@ -31021,12 +30955,6 @@ a.os-surface-row,
   .drop-track-lyrics-toggle.has-lyrics,
   .drop-track-lyrics-toggle.is-open {
     color: rgb(var(--fg-rgb) / 0.82);
-  }
-
-  .drop-track-lyrics-toggle:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
   }
 
   .drop-track-lyrics-editor {
@@ -33521,12 +33449,6 @@ a.os-surface-row,
     outline: none;
   }
 
-  .drop-collage-arrow:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
-  }
-
   .drop-collage-style-swatch {
     --drop-collage-swatch-paper: #f3eee6;
     --drop-collage-swatch-seat: rgb(40 34 28 / 0.38);
@@ -34397,12 +34319,6 @@ a.os-surface-row,
     outline: none;
   }
 
-  .gen-tool:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
-  }
-
   .gen-tool-icon {
     width: 0.85rem;
     height: 0.85rem;
@@ -34650,12 +34566,6 @@ a.os-surface-row,
   .app-access-option.is-selected:focus-visible:not(:disabled) {
     background: var(--os-chip-selected-fill-hover);
     color: var(--os-chip-selected-ink);
-  }
-
-  .app-access-option:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
   }
 
   /* ── App (store) page ─── */
@@ -37841,12 +37751,6 @@ a.os-surface-row,
     background: rgb(var(--fg-rgb) / 0.08);
   }
 
-  button.guild-add-member-result:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
-  }
-
   .guild-add-member-footer {
     display: flex;
     flex-direction: column;
@@ -39087,12 +38991,6 @@ a.os-surface-row,
     outline: none;
   }
 
-  .guild-composer-poll-add:disabled {
-    cursor: default;
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-  }
-
   .guild-composer-poll-duration {
     display: flex;
     flex-wrap: wrap;
@@ -39132,12 +39030,6 @@ a.os-surface-row,
   .guild-composer-poll-chip.is-active {
     background: rgb(var(--fg-rgb) / 0.14);
     color: rgb(var(--fg-rgb) / 0.94);
-  }
-
-  .guild-composer-poll-chip:disabled {
-    cursor: default;
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .guild-composer-labels-sheet-body {
@@ -39219,12 +39111,6 @@ a.os-surface-row,
     .guild-composer-nsfw-switch-track {
     outline: 2px solid rgb(var(--fg-rgb) / 0.35);
     outline-offset: 2px;
-  }
-
-  .guild-composer-nsfw-switch:has(input:disabled) {
-    cursor: default;
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .guild-composer-nsfw-switch-copy {
@@ -39495,12 +39381,6 @@ a.os-surface-row,
   .guild-composer-label-chip:focus-visible:not(:disabled) {
     border-color: rgb(var(--fg-rgb) / 0.22);
     background: rgb(var(--fg-rgb) / 0.08);
-  }
-
-  .guild-composer-label-chip:disabled {
-    cursor: default;
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .guild-composer-reply-text {
@@ -45778,4 +45658,21 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   opacity: 0;
   pointer-events: none;
   transition: opacity 160ms ease;
+}
+
+@layer components {
+  /*
+   * Disabled controls keep full opacity at one shared dim ink — a disabled
+   * state can't drift per surface. Last in the layer on purpose:
+   * same-specificity component rules above yield to it, higher-specificity
+   * state rules (.is-pending:disabled, .is-busy, …) still win, unlayered
+   * rules are unaffected. The :has branch covers switch labels whose input
+   * carries the disabled state.
+   */
+  .os-disabled-ink:disabled,
+  .os-disabled-ink:has(input:disabled) {
+    opacity: 1;
+    color: rgb(var(--fg-rgb) / 0.26);
+    cursor: default;
+  }
 }

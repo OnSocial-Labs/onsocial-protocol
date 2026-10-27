@@ -733,7 +733,7 @@ export function DaoEditSheet({
           {canBatchSocial ? (
             <button
               type="button"
-              className="account-action-toggle dao-edit-publish"
+              className="account-action-toggle os-disabled-ink dao-edit-publish"
               role="switch"
               aria-checked={publishSocial}
               disabled={pending}

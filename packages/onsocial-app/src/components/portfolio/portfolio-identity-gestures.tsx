@@ -190,7 +190,7 @@ function PortfolioIdentityGesturesVisitor({
         >
           <button
             type="button"
-            className={`portfolio-identity-gesture portfolio-identity-gesture--stand group${
+            className={`portfolio-identity-gesture os-disabled-ink portfolio-identity-gesture--stand group${
               viewerStanding ? ' is-standing' : ''
             }`}
             disabled={pending || blockEitherWay}
@@ -217,7 +217,7 @@ function PortfolioIdentityGesturesVisitor({
 
               <button
                 type="button"
-                className={`portfolio-identity-gesture portfolio-identity-gesture--endorse group${
+                className={`portfolio-identity-gesture os-disabled-ink portfolio-identity-gesture--endorse group${
                   viewerEndorsed ? ' is-endorsed' : ''
                 }`}
                 disabled={endorsePending || blockEitherWay}
@@ -251,7 +251,7 @@ function PortfolioIdentityGesturesVisitor({
 
           <button
             type="button"
-            className="portfolio-identity-gesture portfolio-identity-gesture--support group"
+            className="portfolio-identity-gesture os-disabled-ink portfolio-identity-gesture--support group"
             onClick={() => setSupportOpen(true)}
             aria-label={`Support ${label}`}
           >
@@ -269,7 +269,7 @@ function PortfolioIdentityGesturesVisitor({
 
               <button
                 type="button"
-                className="portfolio-identity-gesture portfolio-identity-gesture--message group"
+                className="portfolio-identity-gesture os-disabled-ink portfolio-identity-gesture--message group"
                 disabled={messagingBlocked}
                 onClick={() => {
                   if (messagingBlocked) return;
@@ -335,7 +335,7 @@ function PortfolioIdentityLoggedOutMessage({
     <div className="portfolio-identity-gestures">
       <button
         type="button"
-        className="portfolio-identity-gesture portfolio-identity-gesture--message group"
+        className="portfolio-identity-gesture os-disabled-ink portfolio-identity-gesture--message group"
         onClick={() => setMessageOpen(true)}
         aria-label="Message"
       >

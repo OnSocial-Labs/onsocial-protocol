@@ -324,7 +324,7 @@ export function ScarceTransferForm({
                     type="button"
                     role="option"
                     aria-selected={false}
-                    className="guild-add-member-result"
+                    className="guild-add-member-result os-disabled-ink"
                     onClick={() => setReceiverId(profile.accountId)}
                   >
                     <StandingIdentity

@@ -200,7 +200,7 @@ export function MuteBlockListsSheet({
               type="button"
               role="tab"
               aria-selected={kind === 'muted'}
-              className={`app-storage-mode${kind === 'muted' ? ' is-active' : ''}`}
+              className={`app-storage-mode os-disabled-ink${kind === 'muted' ? ' is-active' : ''}`}
               onClick={() => setKind('muted')}
             >
               Muted
@@ -209,7 +209,7 @@ export function MuteBlockListsSheet({
               type="button"
               role="tab"
               aria-selected={kind === 'blocked'}
-              className={`app-storage-mode${kind === 'blocked' ? ' is-active' : ''}`}
+              className={`app-storage-mode os-disabled-ink${kind === 'blocked' ? ' is-active' : ''}`}
               onClick={() => setKind('blocked')}
             >
               Blocked

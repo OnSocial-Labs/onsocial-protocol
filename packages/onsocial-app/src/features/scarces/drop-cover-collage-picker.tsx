@@ -309,7 +309,7 @@ export function DropCoverCollagePicker({
       <div className="drop-collage-picker-row">
         <button
           type="button"
-          className="drop-collage-arrow"
+          className="drop-collage-arrow os-disabled-ink"
           aria-label="Previous cover style"
           disabled={disabled || rendering}
           onClick={() => cycle(-1)}
@@ -343,7 +343,7 @@ export function DropCoverCollagePicker({
         </div>
         <button
           type="button"
-          className="drop-collage-arrow"
+          className="drop-collage-arrow os-disabled-ink"
           aria-label="Next cover style"
           disabled={disabled || rendering}
           onClick={() => cycle(1)}

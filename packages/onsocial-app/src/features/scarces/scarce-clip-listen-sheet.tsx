@@ -268,7 +268,7 @@ export function ScarceClipListenSheet({
           <div className="scarce-clip-transport scarce-clip-listen-transport">
             <button
               type="button"
-              className="scarce-clip-transport-btn"
+              className="scarce-clip-transport-btn os-disabled-ink"
               aria-label="Previous track"
               disabled={!canPrev}
               onClick={() => onSkip(-1)}
@@ -280,7 +280,7 @@ export function ScarceClipListenSheet({
             </button>
             <button
               type="button"
-              className="scarce-clip-transport-btn scarce-clip-transport-btn--play"
+              className="scarce-clip-transport-btn os-disabled-ink scarce-clip-transport-btn--play"
               aria-label={
                 playDisabled
                   ? 'Unavailable offline'
@@ -305,7 +305,7 @@ export function ScarceClipListenSheet({
             </button>
             <button
               type="button"
-              className="scarce-clip-transport-btn"
+              className="scarce-clip-transport-btn os-disabled-ink"
               aria-label="Next track"
               disabled={!canNext}
               onClick={() => onSkip(1)}

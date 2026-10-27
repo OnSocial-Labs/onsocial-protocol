@@ -291,7 +291,7 @@ export function ScarceRoyaltySplitSheet({
                 {draft.length > 1 ? (
                   <button
                     type="button"
-                    className="collection-allowlist-text-btn"
+                    className="collection-allowlist-text-btn os-disabled-ink"
                     disabled={pending}
                     onClick={() =>
                       setDraft(
@@ -315,7 +315,7 @@ export function ScarceRoyaltySplitSheet({
                     >
                       <button
                         type="button"
-                        className="collection-allowlist-chip-main"
+                        className="collection-allowlist-chip-main os-disabled-ink"
                         disabled={pending}
                         aria-label={`Edit @${fallbackLabel(share.accountId)}, ${share.percent}%`}
                         onClick={() => openEdit(share.accountId)}
@@ -336,7 +336,7 @@ export function ScarceRoyaltySplitSheet({
                       </button>
                       <button
                         type="button"
-                        className="collection-allowlist-chip-remove"
+                        className="collection-allowlist-chip-remove os-disabled-ink"
                         disabled={pending || draft.length <= 1}
                         aria-label={`Remove @${fallbackLabel(share.accountId)}`}
                         onClick={() => removeAccount(share.accountId)}
@@ -387,7 +387,7 @@ export function ScarceRoyaltySplitSheet({
                         type="button"
                         role="option"
                         aria-selected={false}
-                        className="guild-add-member-result"
+                        className="guild-add-member-result os-disabled-ink"
                         disabled={
                           pending || draft.length >= MAX_ROYALTY_RECIPIENTS
                         }

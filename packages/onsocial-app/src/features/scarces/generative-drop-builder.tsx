@@ -663,7 +663,7 @@ export function GenerativeDropBuilder({
               <div className="gen-layer-tools">
                 <button
                   type="button"
-                  className="gen-tool"
+                  className="gen-tool os-disabled-ink"
                   onClick={() => moveLayer(layer.id, -1)}
                   disabled={working || layerIndex === 0}
                   aria-label="Paint this layer earlier"
@@ -675,7 +675,7 @@ export function GenerativeDropBuilder({
                 </button>
                 <button
                   type="button"
-                  className="gen-tool"
+                  className="gen-tool os-disabled-ink"
                   onClick={() => moveLayer(layer.id, 1)}
                   disabled={working || layerIndex === layers.length - 1}
                   aria-label="Paint this layer later"
@@ -695,7 +695,7 @@ export function GenerativeDropBuilder({
                 {layers.length > 1 ? (
                   <button
                     type="button"
-                    className="gen-tool"
+                    className="gen-tool os-disabled-ink"
                     onClick={() => removeLayer(layer.id)}
                     disabled={working}
                     aria-label={`Remove layer ${layerIndex + 1}`}

@@ -454,7 +454,7 @@ export function DaoBoostSheet({
                   type="button"
                   role="tab"
                   aria-selected={mode === chip.id}
-                  className={`dao-boost-mode-chip${
+                  className={`dao-boost-mode-chip os-disabled-ink${
                     mode === chip.id ? ' is-selected' : ''
                   }`}
                   disabled={pending}

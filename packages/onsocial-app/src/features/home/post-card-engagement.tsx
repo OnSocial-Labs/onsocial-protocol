@@ -95,7 +95,7 @@ export function PostPeekStandButton({
   return (
     <button
       type="button"
-      className={`standing-action feed-photo-caption-stand group${
+      className={`standing-action os-disabled-ink feed-photo-caption-stand group${
         viewerStanding ? ' is-standing' : ''
       }`}
       disabled={pending}

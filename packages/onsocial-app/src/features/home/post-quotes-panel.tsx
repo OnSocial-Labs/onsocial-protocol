@@ -337,7 +337,7 @@ export function PostQuotesPanel({
         aria-controls="post-quotes-page-quotes"
         aria-selected={activeTab === 'quotes'}
         tabIndex={activeTab === 'quotes' ? 0 : -1}
-        className={`app-storage-mode${activeTab === 'quotes' ? ' is-active' : ''}`}
+        className={`app-storage-mode os-disabled-ink${activeTab === 'quotes' ? ' is-active' : ''}`}
         onClick={() => selectTab('quotes')}
       >
         Quotes
@@ -350,7 +350,7 @@ export function PostQuotesPanel({
         aria-controls="post-quotes-page-reposts"
         aria-selected={activeTab === 'reposts'}
         tabIndex={activeTab === 'reposts' ? 0 : -1}
-        className={`app-storage-mode${activeTab === 'reposts' ? ' is-active' : ''}`}
+        className={`app-storage-mode os-disabled-ink${activeTab === 'reposts' ? ' is-active' : ''}`}
         onClick={() => selectTab('reposts')}
       >
         Reposts

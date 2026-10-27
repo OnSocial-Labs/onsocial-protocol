@@ -1344,7 +1344,7 @@ export function LeaderboardSheet({
                       role="tab"
                       aria-selected={track === item.id}
                       aria-controls={`leaderboard-panel-${item.id}`}
-                      className={`app-storage-mode${
+                      className={`app-storage-mode os-disabled-ink${
                         track === item.id ? ' is-active' : ''
                       }`}
                       onClick={() => selectTrack(item.id)}

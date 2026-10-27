@@ -291,7 +291,7 @@ export function GuildAddMemberSheet({
                     type="button"
                     role="option"
                     aria-selected={selectedRow}
-                    className={`guild-add-member-result${
+                    className={`guild-add-member-result os-disabled-ink${
                       selectedRow ? ' is-selected' : ''
                     }`}
                     disabled={pending}

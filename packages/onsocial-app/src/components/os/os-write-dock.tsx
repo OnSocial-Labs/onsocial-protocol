@@ -439,7 +439,7 @@ export function OsWriteDock({
   const sendButton = showSend ? (
     <button
       type="submit"
-      className={`os-write-dock-send${pending ? ' is-pending' : ''}`}
+      className={`os-write-dock-send os-disabled-ink${pending ? ' is-pending' : ''}`}
       disabled={disabled || pending}
       onMouseDown={(event) => event.preventDefault()}
       aria-label={

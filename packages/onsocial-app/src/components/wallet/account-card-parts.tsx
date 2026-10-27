@@ -549,7 +549,7 @@ export function AccountActionList({
           {showPushToggle ? (
             <button
               type="button"
-              className="account-action-toggle"
+              className="account-action-toggle os-disabled-ink"
               role="switch"
               aria-checked={pushEnabled}
               disabled={pushBusy}
@@ -580,7 +580,7 @@ export function AccountActionList({
           {onToggleSafeMode != null && safeMode != null ? (
             <button
               type="button"
-              className="account-action-toggle"
+              className="account-action-toggle os-disabled-ink"
               role="switch"
               aria-checked={safeMode}
               onClick={onToggleSafeMode}

@@ -743,7 +743,7 @@ export function PortfolioListingActionsMark({
   return (
     <button
       type="button"
-      className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
+      className="portfolio-identity-gesture os-disabled-ink portfolio-identity-gesture--payout group"
       onClick={onOpen}
       aria-label={
         count === 1

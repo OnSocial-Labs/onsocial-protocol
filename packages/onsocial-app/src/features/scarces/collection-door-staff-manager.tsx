@@ -406,7 +406,7 @@ export function CollectionDoorStaffManager({
               {draft.length > 0 ? (
                 <button
                   type="button"
-                  className="collection-allowlist-text-btn"
+                  className="collection-allowlist-text-btn os-disabled-ink"
                   disabled={pending}
                   onClick={() => setDraft([])}
                 >
@@ -424,7 +424,7 @@ export function CollectionDoorStaffManager({
                 );
                 return (
                   <li key={account} className="collection-allowlist-chip">
-                    <span className="collection-allowlist-chip-main">
+                    <span className="collection-allowlist-chip-main os-disabled-ink">
                       <AccountAvatar
                         accountId={account}
                         kind={face?.kind}
@@ -439,7 +439,7 @@ export function CollectionDoorStaffManager({
                     </span>
                     <button
                       type="button"
-                      className="collection-allowlist-chip-remove"
+                      className="collection-allowlist-chip-remove os-disabled-ink"
                       disabled={pending}
                       aria-label={`Remove @${fallbackLabel(account)}`}
                       onClick={() => removeFromDraft(account)}
@@ -492,7 +492,7 @@ export function CollectionDoorStaffManager({
                       type="button"
                       role="option"
                       aria-selected={false}
-                      className="guild-add-member-result"
+                      className="guild-add-member-result os-disabled-ink"
                       disabled={pending || atCap}
                       onClick={() => addToDraft(profile)}
                     >

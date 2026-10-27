@@ -78,7 +78,7 @@ export function MediaFaceStandButton({
   return (
     <button
       type="button"
-      className={`standing-action group${
+      className={`standing-action os-disabled-ink group${
         className ? ` ${className}` : ''
       }${viewerStanding ? ' is-standing' : ''}`}
       disabled={pending}

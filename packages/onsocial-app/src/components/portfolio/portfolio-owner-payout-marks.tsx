@@ -231,7 +231,7 @@ export function PortfolioOwnerPayoutMarks({
             {showSupport ? (
               <button
                 type="button"
-                className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
+                className="portfolio-identity-gesture os-disabled-ink portfolio-identity-gesture--payout group"
                 onClick={() => setSupportOpen(true)}
                 aria-label={`${supportLabel} SOCIAL ready to collect`}
               >
@@ -258,7 +258,7 @@ export function PortfolioOwnerPayoutMarks({
             {showSales ? (
               <button
                 type="button"
-                className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
+                className="portfolio-identity-gesture os-disabled-ink portfolio-identity-gesture--payout group"
                 onClick={() => setSalesOpen(true)}
                 aria-label={`${salesLabel} NEAR from scarce sales`}
               >
@@ -281,7 +281,7 @@ export function PortfolioOwnerPayoutMarks({
 
             <button
               type="button"
-              className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
+              className="portfolio-identity-gesture os-disabled-ink portfolio-identity-gesture--payout group"
               onClick={() => openBoostSheet()}
               aria-label={
                 boost.hasPosition
@@ -312,7 +312,7 @@ export function PortfolioOwnerPayoutMarks({
                 </span>
                 <button
                   type="button"
-                  className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
+                  className="portfolio-identity-gesture os-disabled-ink portfolio-identity-gesture--payout group"
                   onClick={() => rally.openRallySheet()}
                   aria-label={rally.mark.ariaLabel}
                 >
@@ -345,7 +345,7 @@ export function PortfolioOwnerPayoutMarks({
 
             <button
               type="button"
-              className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
+              className="portfolio-identity-gesture os-disabled-ink portfolio-identity-gesture--payout group"
               onClick={() => router.push(messagesPath())}
               aria-label={
                 dmUnread > 0

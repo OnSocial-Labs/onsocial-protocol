@@ -371,7 +371,7 @@ export function PortfolioCustomize({
               <button
                 key={option.id}
                 type="button"
-                className={`app-storage-mode${
+                className={`app-storage-mode os-disabled-ink${
                   option.id === effectiveAvatarMode ? ' is-active' : ''
                 }`}
                 disabled={controlsDisabled}
@@ -401,7 +401,7 @@ export function PortfolioCustomize({
                 <button
                   key={option.id}
                   type="button"
-                  className={`app-storage-mode${
+                  className={`app-storage-mode os-disabled-ink${
                     option.id === effectiveHeroSource ? ' is-active' : ''
                   }`}
                   disabled={controlsDisabled}

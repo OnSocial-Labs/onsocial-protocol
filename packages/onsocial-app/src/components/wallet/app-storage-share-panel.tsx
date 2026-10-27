@@ -186,7 +186,7 @@ function SharePoolReadout({
         {canAddCapacity ? (
           <button
             type="button"
-            className="app-storage-share-link"
+            className="app-storage-share-link os-disabled-ink"
             onClick={onToggleAddCapacity}
           >
             {showAddCapacity ? 'Hide add' : 'Add more'}
@@ -770,7 +770,7 @@ export function AppStorageSharePanel({
               <span className="account-card-wallet-label">Recipients</span>
               <button
                 type="button"
-                className="app-storage-share-link"
+                className="app-storage-share-link os-disabled-ink"
                 onClick={addRow}
                 disabled={rows.length >= MAX_STORAGE_SHARE_RECIPIENTS}
               >

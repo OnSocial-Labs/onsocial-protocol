@@ -170,7 +170,7 @@ function GroupPoolReadout({
         {canAddCapacity ? (
           <button
             type="button"
-            className="app-storage-share-link"
+            className="app-storage-share-link os-disabled-ink"
             onClick={onToggleAddCapacity}
           >
             {showAddCapacity ? 'Cancel' : 'Add NEAR'}
@@ -357,7 +357,7 @@ function GroupGrantRow({
       </span>
       <button
         type="button"
-        className="app-storage-share-link"
+        className="app-storage-share-link os-disabled-ink"
         disabled={pending || pendingGrant}
         onClick={() => onRevoke(grant.accountId)}
       >
@@ -916,7 +916,7 @@ export function GuildGroupStorageSheet({
                   </span>
                   <button
                     type="button"
-                    className="app-storage-share-link"
+                    className="app-storage-share-link os-disabled-ink"
                     onClick={() => setShowDefaultEditor((current) => !current)}
                     disabled={pending}
                   >
@@ -977,7 +977,7 @@ export function GuildGroupStorageSheet({
                     {defaultEnabled ? (
                       <button
                         type="button"
-                        className="app-storage-share-link"
+                        className="app-storage-share-link os-disabled-ink"
                         disabled={pending}
                         onClick={() => void handleClearDefault()}
                       >
@@ -996,7 +996,7 @@ export function GuildGroupStorageSheet({
                   <span className="account-card-wallet-label">Members</span>
                   <button
                     type="button"
-                    className="app-storage-share-link"
+                    className="app-storage-share-link os-disabled-ink"
                     onClick={() =>
                       setRows((current) =>
                         current.length >= MAX_STORAGE_SHARE_RECIPIENTS

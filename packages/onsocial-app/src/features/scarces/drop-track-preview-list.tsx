@@ -330,7 +330,7 @@ export function DropTrackPreviewList({
                   {onLyricsChange ? (
                     <button
                       type="button"
-                      className={`drop-track-lyrics-toggle${
+                      className={`drop-track-lyrics-toggle os-disabled-ink${
                         hasLyrics ? ' has-lyrics' : ''
                       }${editorOpen ? ' is-open' : ''}`}
                       disabled={disabled}

@@ -378,7 +378,7 @@ export function ComposerThreadBeat({
               {row.pollOptions.length < COMPOSER_MAX_POLL_OPTIONS ? (
                 <button
                   type="button"
-                  className="guild-composer-poll-add"
+                  className="guild-composer-poll-add os-disabled-ink"
                   disabled={pending}
                   onClick={() => {
                     if (row.pollOptions.length >= COMPOSER_MAX_POLL_OPTIONS) {
@@ -402,8 +402,8 @@ export function ComposerThreadBeat({
                   type="button"
                   className={
                     row.pollDurationMs == null
-                      ? 'guild-composer-poll-chip is-active'
-                      : 'guild-composer-poll-chip'
+                      ? 'guild-composer-poll-chip os-disabled-ink is-active'
+                      : 'guild-composer-poll-chip os-disabled-ink'
                   }
                   disabled={pending}
                   onClick={() => onPatch({ pollDurationMs: undefined })}
@@ -416,8 +416,8 @@ export function ComposerThreadBeat({
                     type="button"
                     className={
                       row.pollDurationMs === option.ms
-                        ? 'guild-composer-poll-chip is-active'
-                        : 'guild-composer-poll-chip'
+                        ? 'guild-composer-poll-chip os-disabled-ink is-active'
+                        : 'guild-composer-poll-chip os-disabled-ink'
                     }
                     disabled={pending}
                     onClick={() => onPatch({ pollDurationMs: option.ms })}
@@ -443,7 +443,7 @@ export function ComposerThreadBeat({
               {row.contentWarning.trim() ? (
                 <button
                   type="button"
-                  className="guild-composer-label-chip"
+                  className="guild-composer-label-chip os-disabled-ink"
                   disabled={pending}
                   onClick={() => {
                     onFocusBeat();
@@ -456,7 +456,7 @@ export function ComposerThreadBeat({
               {row.nsfw ? (
                 <button
                   type="button"
-                  className="guild-composer-label-chip is-nsfw"
+                  className="guild-composer-label-chip os-disabled-ink is-nsfw"
                   disabled={pending}
                   onClick={() => {
                     onFocusBeat();

@@ -1057,7 +1057,7 @@ function CollectionAllowlistSheet({
                   {' '}
                   <button
                     type="button"
-                    className="collection-allowlist-text-btn"
+                    className="collection-allowlist-text-btn os-disabled-ink"
                     disabled={pending || pasteBusy}
                     onClick={undoPaste}
                   >
@@ -1114,7 +1114,7 @@ function CollectionAllowlistSheet({
               </p>
               <button
                 type="button"
-                className="collection-allowlist-text-btn"
+                className="collection-allowlist-text-btn os-disabled-ink"
                 disabled={pending || pasteBusy}
                 onClick={clearSelected}
               >
@@ -1133,7 +1133,7 @@ function CollectionAllowlistSheet({
                   >
                     <button
                       type="button"
-                      className="collection-allowlist-chip-main"
+                      className="collection-allowlist-chip-main os-disabled-ink"
                       disabled={pending || pasteBusy}
                       aria-label={
                         removing
@@ -1161,7 +1161,7 @@ function CollectionAllowlistSheet({
                     </button>
                     <button
                       type="button"
-                      className="collection-allowlist-chip-remove"
+                      className="collection-allowlist-chip-remove os-disabled-ink"
                       disabled={pending || pasteBusy}
                       aria-label={`Discard @${fallbackLabel(face.accountId)}`}
                       onClick={() => discardFromSave(face.accountId)}
@@ -1218,7 +1218,7 @@ function CollectionAllowlistSheet({
                         type="button"
                         role="option"
                         aria-selected={false}
-                        className="guild-add-member-result"
+                        className="guild-add-member-result os-disabled-ink"
                         disabled={pending || pasteBusy}
                         onClick={() =>
                           toggleAccount(profile.accountId, {
@@ -1264,7 +1264,7 @@ function CollectionAllowlistSheet({
                       <li key={accountId} className="collection-allowlist-chip">
                         <button
                           type="button"
-                          className="collection-allowlist-chip-main"
+                          className="collection-allowlist-chip-main os-disabled-ink"
                           disabled={pending || pasteBusy}
                           aria-label={
                             cap != null
@@ -1292,7 +1292,7 @@ function CollectionAllowlistSheet({
                         </button>
                         <button
                           type="button"
-                          className="collection-allowlist-chip-remove"
+                          className="collection-allowlist-chip-remove os-disabled-ink"
                           disabled={pending || pasteBusy}
                           aria-label={`Stage remove @${fallbackLabel(accountId)}`}
                           onClick={() => stageRemoveFromList(accountId)}
@@ -1313,7 +1313,7 @@ function CollectionAllowlistSheet({
               <div className="collection-allowlist-section">
                 <button
                   type="button"
-                  className="collection-allowlist-text-btn"
+                  className="collection-allowlist-text-btn os-disabled-ink"
                   disabled={pending || pasteBusy}
                   aria-expanded={guildOpen}
                   onClick={() => setGuildOpen((value) => !value)}
@@ -1351,7 +1351,7 @@ function CollectionAllowlistSheet({
                           {members.length > 0 ? (
                             <button
                               type="button"
-                              className="collection-allowlist-text-btn"
+                              className="collection-allowlist-text-btn os-disabled-ink"
                               disabled={pending || pasteBusy}
                               onClick={selectAllVisible}
                             >
@@ -1391,7 +1391,7 @@ function CollectionAllowlistSheet({
                                       type="button"
                                       role="option"
                                       aria-selected={false}
-                                      className="guild-add-member-result"
+                                      className="guild-add-member-result os-disabled-ink"
                                       disabled={pending || pasteBusy}
                                       onClick={() =>
                                         toggleAccount(row.memberId, {
@@ -1425,7 +1425,7 @@ function CollectionAllowlistSheet({
             <div className="collection-allowlist-section">
               <button
                 type="button"
-                className="collection-allowlist-text-btn"
+                className="collection-allowlist-text-btn os-disabled-ink"
                 disabled={pending || pasteBusy}
                 aria-expanded={pasteOpen}
                 onClick={() => setPasteOpen((value) => !value)}

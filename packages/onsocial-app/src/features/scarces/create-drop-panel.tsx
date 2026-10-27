@@ -2872,7 +2872,7 @@ export function CreateDropPanel() {
                     type="button"
                     role="radio"
                     aria-checked={musicFormat === 'single'}
-                    className={`app-access-option${
+                    className={`app-access-option os-disabled-ink${
                       musicFormat === 'single' ? ' is-selected' : ''
                     }`}
                     disabled={pending}
@@ -2884,7 +2884,7 @@ export function CreateDropPanel() {
                     type="button"
                     role="radio"
                     aria-checked={musicFormat === 'album'}
-                    className={`app-access-option${
+                    className={`app-access-option os-disabled-ink${
                       musicFormat === 'album' ? ' is-selected' : ''
                     }`}
                     disabled={pending}
@@ -2896,7 +2896,7 @@ export function CreateDropPanel() {
                     type="button"
                     role="radio"
                     aria-checked={musicFormat === 'podcast'}
-                    className={`app-access-option${
+                    className={`app-access-option os-disabled-ink${
                       musicFormat === 'podcast' ? ' is-selected' : ''
                     }`}
                     disabled={pending}
@@ -2908,7 +2908,7 @@ export function CreateDropPanel() {
                     type="button"
                     role="radio"
                     aria-checked={musicFormat === 'audiobook'}
-                    className={`app-access-option${
+                    className={`app-access-option os-disabled-ink${
                       musicFormat === 'audiobook' ? ' is-selected' : ''
                     }`}
                     disabled={pending}
@@ -2929,7 +2929,7 @@ export function CreateDropPanel() {
                     type="button"
                     role="radio"
                     aria-checked={writingFormat === 'issue'}
-                    className={`app-access-option${
+                    className={`app-access-option os-disabled-ink${
                       writingFormat === 'issue' ? ' is-selected' : ''
                     }`}
                     disabled={pending}
@@ -2941,7 +2941,7 @@ export function CreateDropPanel() {
                     type="button"
                     role="radio"
                     aria-checked={writingFormat === 'book'}
-                    className={`app-access-option${
+                    className={`app-access-option os-disabled-ink${
                       writingFormat === 'book' ? ' is-selected' : ''
                     }`}
                     disabled={pending}
@@ -2962,7 +2962,7 @@ export function CreateDropPanel() {
                     type="button"
                     role="radio"
                     aria-checked={!isVariations}
-                    className={`app-access-option${
+                    className={`app-access-option os-disabled-ink${
                       !isVariations ? ' is-selected' : ''
                     }`}
                     disabled={pending}
@@ -2974,7 +2974,7 @@ export function CreateDropPanel() {
                     type="button"
                     role="radio"
                     aria-checked={isVariations}
-                    className={`app-access-option${
+                    className={`app-access-option os-disabled-ink${
                       isVariations ? ' is-selected' : ''
                     }`}
                     disabled={pending}
@@ -2993,7 +2993,7 @@ export function CreateDropPanel() {
                       type="button"
                       role="radio"
                       aria-checked={variationSource === 'upload'}
-                      className={`app-access-option${
+                      className={`app-access-option os-disabled-ink${
                         variationSource === 'upload' ? ' is-selected' : ''
                       }`}
                       disabled={pending}
@@ -3005,7 +3005,7 @@ export function CreateDropPanel() {
                       type="button"
                       role="radio"
                       aria-checked={isGeneratedSet || isPinnedSet}
-                      className={`app-access-option${
+                      className={`app-access-option os-disabled-ink${
                         isGeneratedSet || isPinnedSet ? ' is-selected' : ''
                       }`}
                       disabled={pending}
@@ -3212,7 +3212,7 @@ export function CreateDropPanel() {
                     type="button"
                     role="radio"
                     aria-checked={randomAssign}
-                    className={`app-access-option${
+                    className={`app-access-option os-disabled-ink${
                       randomAssign ? ' is-selected' : ''
                     }`}
                     disabled={pending}
@@ -3224,7 +3224,7 @@ export function CreateDropPanel() {
                     type="button"
                     role="radio"
                     aria-checked={!randomAssign}
-                    className={`app-access-option${
+                    className={`app-access-option os-disabled-ink${
                       !randomAssign ? ' is-selected' : ''
                     }`}
                     disabled={pending}
@@ -4278,7 +4278,7 @@ export function CreateDropPanel() {
               type="button"
               role="radio"
               aria-checked={transferable}
-              className={`app-access-option${
+              className={`app-access-option os-disabled-ink${
                 transferable ? ' is-selected' : ''
               }`}
               disabled={pending}
@@ -4290,7 +4290,7 @@ export function CreateDropPanel() {
               type="button"
               role="radio"
               aria-checked={!transferable}
-              className={`app-access-option${
+              className={`app-access-option os-disabled-ink${
                 !transferable ? ' is-selected' : ''
               }`}
               disabled={pending}
@@ -4310,7 +4310,7 @@ export function CreateDropPanel() {
               type="button"
               role="radio"
               aria-checked={!burnable}
-              className={`app-access-option${!burnable ? ' is-selected' : ''}`}
+              className={`app-access-option os-disabled-ink${!burnable ? ' is-selected' : ''}`}
               disabled={pending}
               onClick={() => setBurnable(false)}
             >
@@ -4320,7 +4320,7 @@ export function CreateDropPanel() {
               type="button"
               role="radio"
               aria-checked={burnable}
-              className={`app-access-option${burnable ? ' is-selected' : ''}`}
+              className={`app-access-option os-disabled-ink${burnable ? ' is-selected' : ''}`}
               disabled={pending}
               onClick={() => setBurnable(true)}
             >
@@ -4362,7 +4362,7 @@ export function CreateDropPanel() {
                   type="button"
                   role="radio"
                   aria-checked={renewable}
-                  className={`app-access-option${
+                  className={`app-access-option os-disabled-ink${
                     renewable ? ' is-selected' : ''
                   }`}
                   disabled={pending}
@@ -4374,7 +4374,7 @@ export function CreateDropPanel() {
                   type="button"
                   role="radio"
                   aria-checked={!renewable}
-                  className={`app-access-option${
+                  className={`app-access-option os-disabled-ink${
                     !renewable ? ' is-selected' : ''
                   }`}
                   disabled={pending}

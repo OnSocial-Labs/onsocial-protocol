@@ -480,7 +480,7 @@ export function ProfileSocialListRow({
         ) : canUpdateStanding && onUpdateStanding ? (
           <button
             type="button"
-            className={`standing-action group${viewerStandsWithAccount ? ' is-standing' : ''}`}
+            className={`standing-action os-disabled-ink group${viewerStandsWithAccount ? ' is-standing' : ''}`}
             disabled={isPending}
             onClick={() => onUpdateStanding(!viewerStandsWithAccount)}
             aria-label={

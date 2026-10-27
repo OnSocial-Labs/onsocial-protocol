@@ -1834,7 +1834,7 @@ export function ComposerSheet({
             onFocus={scrollFieldIntoView}
           />
         </label>
-        <label className={`guild-composer-nsfw-switch${nsfw ? ' is-on' : ''}`}>
+        <label className={`guild-composer-nsfw-switch os-disabled-ink${nsfw ? ' is-on' : ''}`}>
           <input
             type="checkbox"
             role="switch"
