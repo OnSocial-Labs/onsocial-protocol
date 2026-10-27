@@ -2,11 +2,15 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { ipfsImgSrcSet, ipfsImgVariantUrl } from '@onsocial/ui';
 import {
   communityCoverClassName,
   communityCoverStyle,
 } from '@/components/community-cards/community-cover';
 import { communityMonogram } from '@/components/community-cards/community-monogram';
+
+/** Banner strip is 4.85rem wide; 128 covers 1x, 384 covers retina. */
+const DISCOVER_BANNER_SIZES = '78px';
 
 export type CommunityMarkVariant = 'badge' | 'crest' | 'logo';
 
@@ -38,6 +42,8 @@ export function CommunityDiscoverRow({
 }) {
   const descriptionLine = description?.trim() || null;
   const mono = communityMonogram(title);
+  const bannerSrcSet = ipfsImgSrcSet(bannerUrl, [128, 384]);
+  const markSrc = markUrl ? (ipfsImgVariantUrl(markUrl, 128) ?? markUrl) : null;
 
   return (
     <Link
@@ -51,7 +57,16 @@ export function CommunityDiscoverRow({
           className={communityCoverClassName(bannerUrl, 'discover')}
           style={communityCoverStyle(bannerUrl, seedId)}
         >
-          {bannerUrl ? <img src={bannerUrl} alt="" /> : null}
+          {bannerUrl ? (
+            <img
+              src={bannerUrl}
+              srcSet={bannerSrcSet}
+              sizes={bannerSrcSet ? DISCOVER_BANNER_SIZES : undefined}
+              alt=""
+              loading="lazy"
+              decoding="async"
+            />
+          ) : null}
         </span>
       </span>
 
@@ -63,8 +78,8 @@ export function CommunityDiscoverRow({
             }`}
             aria-hidden
           >
-            {markUrl ? (
-              <img src={markUrl} alt="" />
+            {markSrc ? (
+              <img src={markSrc} alt="" loading="lazy" decoding="async" />
             ) : (
               <span className="community-mark-mono">{mono}</span>
             )}
@@ -74,9 +89,7 @@ export function CommunityDiscoverRow({
         {descriptionLine ? (
           <span className="community-summary-copy">{descriptionLine}</span>
         ) : null}
-        {meta ? (
-          <span className="community-summary-meta">{meta}</span>
-        ) : null}
+        {meta ? <span className="community-summary-meta">{meta}</span> : null}
       </span>
     </Link>
   );

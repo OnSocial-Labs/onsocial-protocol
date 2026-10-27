@@ -1,7 +1,11 @@
 'use client';
 
 import type { ReactNode, Ref } from 'react';
-import { InformationCircleIcon } from '@onsocial/ui';
+import {
+  InformationCircleIcon,
+  ipfsImgSrcSet,
+  ipfsImgVariantUrl,
+} from '@onsocial/ui';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import { GuildDescriptionClamp } from '@/features/guilds/guild-description-clamp';
 import { guildAccessLabel } from '@/features/guilds/guild-facts';
@@ -49,6 +53,9 @@ export function GuildPageHeroSkeleton() {
   );
 }
 
+/** Full-bleed hero — app column caps at 36rem on sm+, 100vw below. */
+const GUILD_HERO_SIZES = '(max-width: 640px) 100vw, 576px';
+
 /**
  * Presentational guild page hero. Callers own membership, facepile, and sheets.
  */
@@ -71,6 +78,11 @@ export function GuildPageHero({
   membership?: ReactNode;
   statusHint?: string | null;
 }) {
+  const bannerSrcSet = ipfsImgSrcSet(look.bannerUrl, [1080, 1920]);
+  const badgeSrc = look.badgeUrl
+    ? (ipfsImgVariantUrl(look.badgeUrl, 128) ?? look.badgeUrl)
+    : null;
+
   return (
     <section className="guild-hero">
       <div
@@ -78,13 +90,21 @@ export function GuildPageHero({
         style={guildCoverStyle(look.bannerUrl, groupId)}
         aria-hidden
       >
-        {look.bannerUrl ? <img src={look.bannerUrl} alt="" /> : null}
+        {look.bannerUrl ? (
+          <img
+            src={look.bannerUrl}
+            srcSet={bannerSrcSet}
+            sizes={bannerSrcSet ? GUILD_HERO_SIZES : undefined}
+            alt=""
+            decoding="async"
+          />
+        ) : null}
       </div>
 
       <div className="guild-hero-title-row">
-        {look.badgeUrl ? (
+        {badgeSrc ? (
           <span className="guild-hero-badge has-media" aria-hidden>
-            <img src={look.badgeUrl} alt="" />
+            <img src={badgeSrc} alt="" decoding="async" />
           </span>
         ) : null}
         <h2 ref={titleRef}>{guildDisplayName(look.name, groupId)}</h2>

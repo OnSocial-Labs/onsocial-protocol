@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ipfsImgSrcSet } from '@onsocial/ui';
 import { CommunityDiscoverRow } from '@/components/community-cards';
 import {
   formatGuildMemberCountParts,
@@ -121,6 +122,7 @@ export function GuildSummaryCard({
 
   /** Rail thumbs prefer badge (square mark); portfolio peeks stay compact. */
   const coverUrl = guild.badgeUrl ?? guild.bannerUrl;
+  const coverSrcSet = ipfsImgSrcSet(coverUrl, [128, 384]);
 
   return (
     <Link
@@ -133,7 +135,16 @@ export function GuildSummaryCard({
           className={guildCoverClassName(coverUrl)}
           style={guildCoverStyle(coverUrl, guild.groupId)}
         >
-          {coverUrl ? <img src={coverUrl} alt="" /> : null}
+          {coverUrl ? (
+            <img
+              src={coverUrl}
+              srcSet={coverSrcSet}
+              sizes={coverSrcSet ? '78px' : undefined}
+              alt=""
+              loading="lazy"
+              decoding="async"
+            />
+          ) : null}
         </span>
       </span>
 

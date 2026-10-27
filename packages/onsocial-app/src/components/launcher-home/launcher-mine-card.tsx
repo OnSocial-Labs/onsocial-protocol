@@ -2,12 +2,16 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { ipfsImgSrcSet, ipfsImgVariantUrl } from '@onsocial/ui';
 import {
   communityCoverClassName,
   communityCoverStyle,
 } from '@/components/community-cards/community-cover';
 import type { CommunityMarkVariant } from '@/components/community-cards/community-discover-row';
 import { communityMonogram } from '@/components/community-cards/community-monogram';
+
+/** Rail cards span 9.25rem–42% of the ~553px launcher column. */
+const MINE_BANNER_SIZES = '(max-width: 640px) 42vw, 232px';
 
 export function LauncherMineRail({ children }: { children: ReactNode }) {
   return <ul className="launcher-mine-rail">{children}</ul>;
@@ -65,6 +69,8 @@ export function LauncherMineCard({
 }) {
   const cover = bannerUrl ?? null;
   const mono = communityMonogram(title);
+  const bannerSrcSet = ipfsImgSrcSet(cover, [384, 1080]);
+  const markSrc = markUrl ? (ipfsImgVariantUrl(markUrl, 128) ?? markUrl) : null;
 
   return (
     <li>
@@ -79,7 +85,16 @@ export function LauncherMineCard({
             className={communityCoverClassName(cover, 'mine')}
             style={communityCoverStyle(cover, seedId)}
           >
-            {cover ? <img src={cover} alt="" /> : null}
+            {cover ? (
+              <img
+                src={cover}
+                srcSet={bannerSrcSet}
+                sizes={bannerSrcSet ? MINE_BANNER_SIZES : undefined}
+                alt=""
+                loading="lazy"
+                decoding="async"
+              />
+            ) : null}
           </span>
         </span>
         <span className="launcher-mine-rule" aria-hidden />
@@ -90,8 +105,8 @@ export function LauncherMineCard({
             }`}
             aria-hidden
           >
-            {markUrl ? (
-              <img src={markUrl} alt="" />
+            {markSrc ? (
+              <img src={markSrc} alt="" loading="lazy" decoding="async" />
             ) : (
               <span className="community-mark-mono">{mono}</span>
             )}

@@ -14,6 +14,7 @@ import {
   type MarkShape,
   type MoodKey,
 } from '@onsocial/text-card';
+import { ipfsImgSrcSet } from '@onsocial/ui';
 import { displayName as accountDisplayName } from '@/lib/profile-display';
 
 function inlineSvgMarkup(svg: string): string {
@@ -85,6 +86,25 @@ export function previewWritingCoverSvg(
 }
 
 /**
+ * Variant rungs per slot: list thumbs are 88px catalog covers, article
+ * covers span the 40rem writing column, face enlarge is full-viewport.
+ */
+const WRITING_COVER_VARIANT_WIDTHS: Record<
+  PortfolioWritingCoverVariant,
+  readonly [128, 384] | readonly [384, 1080] | readonly [1080, 1920]
+> = {
+  list: [128, 384],
+  article: [384, 1080],
+  face: [1080, 1920],
+};
+
+const WRITING_COVER_IMG_SIZES: Record<PortfolioWritingCoverVariant, string> = {
+  list: '88px',
+  article: '(max-width: 640px) 100vw, 608px',
+  face: '100vw',
+};
+
+/**
  * Raster cover when present. Otherwise regenerate the text-card (create
  * pin / mint theme). List thumbs keep provenance aria-hidden upstream.
  * `face` — contain-fit enlarge (inline SVG so byline avatars load).
@@ -135,6 +155,10 @@ export function PortfolioWritingCover({
   ]);
 
   if (coverUrl) {
+    const srcSet = ipfsImgSrcSet(
+      coverUrl,
+      WRITING_COVER_VARIANT_WIDTHS[variant]
+    );
     return (
       <img
         alt=""
@@ -144,7 +168,11 @@ export function PortfolioWritingCover({
             : 'portfolio-writing-cover-photo'
         }
         src={coverUrl}
+        srcSet={srcSet}
+        sizes={srcSet ? WRITING_COVER_IMG_SIZES[variant] : undefined}
         draggable={variant === 'face' ? false : undefined}
+        loading={variant === 'face' ? undefined : 'lazy'}
+        decoding="async"
       />
     );
   }

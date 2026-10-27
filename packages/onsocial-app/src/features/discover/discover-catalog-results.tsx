@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
+import { ipfsImgSrcSet } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
@@ -62,6 +63,7 @@ function CatalogFace({
 }
 
 function CatalogCover({ src }: { src: string | null }) {
+  const srcSet = ipfsImgSrcSet(src, [128, 384]);
   return (
     <span
       className={`market-listing-thumb drops-discovery-thumb${
@@ -69,7 +71,14 @@ function CatalogCover({ src }: { src: string | null }) {
       }`}
     >
       {src ? (
-        <img src={src} alt="" />
+        <img
+          src={src}
+          srcSet={srcSet}
+          sizes={srcSet ? '88px' : undefined}
+          alt=""
+          loading="lazy"
+          decoding="async"
+        />
       ) : (
         <span className="market-listing-thumb-fallback" />
       )}
@@ -273,9 +282,7 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
                         profileName={
                           articleAuthors[article.accountId]?.displayName
                         }
-                        avatarUrl={
-                          articleAuthors[article.accountId]?.avatarUrl
-                        }
+                        avatarUrl={articleAuthors[article.accountId]?.avatarUrl}
                         cover={
                           articleCovers[
                             discoverArticleCoverKey(

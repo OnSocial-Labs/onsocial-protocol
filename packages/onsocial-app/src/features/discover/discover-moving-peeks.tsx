@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { MouseEvent } from 'react';
 import type { PostRow } from '@onsocial/sdk';
+import { ipfsImgSrcSet } from '@onsocial/ui';
 import {
   LauncherSocialPeekList,
   LauncherSocialPeekRow,
@@ -84,9 +85,17 @@ function MovingCoverThumb({
 }) {
   const art = src?.trim() || '';
   if (art) {
+    const srcSet = ipfsImgSrcSet(art, [128, 384]);
     return (
       <span className="discover-cover-peek-thumb market-listing-thumb has-media">
-        <img src={art} alt="" />
+        <img
+          src={art}
+          srcSet={srcSet}
+          sizes={srcSet ? '56px' : undefined}
+          alt=""
+          loading="lazy"
+          decoding="async"
+        />
       </span>
     );
   }
@@ -95,7 +104,9 @@ function MovingCoverThumb({
       className="discover-cover-peek-thumb market-listing-thumb discover-cover-peek-thumb--mark"
       style={placeFallbackCoverStyle(seedId)}
     >
-      <span className="discover-cover-peek-mark">{communityMonogram(label)}</span>
+      <span className="discover-cover-peek-mark">
+        {communityMonogram(label)}
+      </span>
     </span>
   );
 }
@@ -141,7 +152,9 @@ export function MovingPostPeekSection({
           <LauncherSocialPeekRow
             key={`${heading}-${post.accountId}-${post.postId}`}
             href={
-              why === 'talk' ? talkedAboutThreadHref(post) : postThreadPath(post)
+              why === 'talk'
+                ? talkedAboutThreadHref(post)
+                : postThreadPath(post)
             }
             accountId={post.accountId}
             profileName={post.authorName}
@@ -220,16 +233,14 @@ export function MovingChipPeekSection({
   seeAll,
 }: {
   heading: string;
-  rows:
-    | Array<{
-        key: string;
-        href: string;
-        label: string;
-        count?: number;
-        time?: string;
-        ticker?: boolean;
-      }>
-    | null;
+  rows: Array<{
+    key: string;
+    href: string;
+    label: string;
+    count?: number;
+    time?: string;
+    ticker?: boolean;
+  }> | null;
   seeAll?: { href?: string; onClick?: () => void } | null;
 }) {
   if (rows === null) {
@@ -283,9 +294,7 @@ export function MovingCoverPeekSection({
   const resolvedSeeAll = seeAll ?? (seeAllHref ? { href: seeAllHref } : null);
   if (rows === null) {
     return (
-      <DiscoverCoverPeekSectionSkeleton
-        showSeeAll={Boolean(resolvedSeeAll)}
-      />
+      <DiscoverCoverPeekSectionSkeleton showSeeAll={Boolean(resolvedSeeAll)} />
     );
   }
   if (rows.length === 0) return null;
@@ -409,9 +418,7 @@ export function MovingProposalPeekSection({
 }) {
   const seeAll = seeAllHref ? { href: seeAllHref } : null;
   if (rows === null) {
-    return (
-      <DiscoverCoverPeekSectionSkeleton showSeeAll={Boolean(seeAll)} />
-    );
+    return <DiscoverCoverPeekSectionSkeleton showSeeAll={Boolean(seeAll)} />;
   }
   if (rows.length === 0) return null;
   return (
