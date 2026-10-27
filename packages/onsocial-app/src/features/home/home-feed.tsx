@@ -39,6 +39,7 @@ import {
   restoreFeedAnchor,
   type FeedScrollAnchor,
 } from '@/features/home/home-feed-scroll-anchor';
+import { FeedWindowSizeCache } from '@/features/home/feed-window';
 import {
   collectOutgoingStandingSources,
   fetchCircleFeedPage,
@@ -350,6 +351,14 @@ export function HomePagePanel({
   const scrollMemoryRef = useRef(
     createListScrollMemory(restoredSession?.scrollTop ?? 0)
   );
+  // Row heights measured by the feed window — persisted with the session so
+  // a restore lands on the same content, not on estimate placeholders.
+  const feedWindowCacheRef = useRef<FeedWindowSizeCache | null>(null);
+  if (feedWindowCacheRef.current == null) {
+    const cache = new FeedWindowSizeCache();
+    cache.prime(restoredSession?.blockHeights);
+    feedWindowCacheRef.current = cache;
+  }
   const [posts, setPosts] = useState<PostRow[]>(
     () => restoredSession?.posts ?? initialPage?.items ?? []
   );
@@ -430,7 +439,11 @@ export function HomePagePanel({
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const loadIdRef = useRef(0);
   const appendInFlightRef = useRef(false);
-  const reRankAnchorRef = useRef<FeedScrollAnchor | null>(null);
+  // State, not a ref: the windowed list pins this row's render for the pass
+  // between the re-rank merge and the pre-paint anchor restore.
+  const [reRankAnchor, setReRankAnchor] = useState<FeedScrollAnchor | null>(
+    null
+  );
   const standingSourcesRef = useRef<string[] | null>(
     restoredSession?.standingNetworkIds
       ? [...restoredSession.standingNetworkIds]
@@ -487,6 +500,7 @@ export function HomePagePanel({
       offsetShiftApplied: offsetShiftAppliedRef.current,
       scrollTop: scrollTopToPersist(memory, line),
       standEpoch: getViewerStandEpoch(),
+      blockHeights: feedWindowCacheRef.current?.toJSON(),
       storage: options?.storage !== false,
     });
   }, []);
@@ -495,7 +509,10 @@ export function HomePagePanel({
     persistFeedSession();
   }, [persistFeedSession]);
 
-  useEffect(() => () => persistFeedSessionToStorage(), [persistFeedSessionToStorage]);
+  useEffect(
+    () => () => persistFeedSessionToStorage(),
+    [persistFeedSessionToStorage]
+  );
 
   // A refresh or closed tab never runs the unmount cleanup — pagehide does.
   useEffect(() => {
@@ -514,6 +531,7 @@ export function HomePagePanel({
     const snap = peekHomeFeedSession();
     if (!snap) return;
     restoredSessionRef.current = snap;
+    feedWindowCacheRef.current?.prime(snap.blockHeights);
     postsRef.current = snap.posts;
     postsLengthRef.current = snap.posts.length;
     seenPostKeysRef.current = feedPostKeySet(snap.posts);
@@ -544,11 +562,10 @@ export function HomePagePanel({
   // Append re-rank captured an anchor just before setPosts; put the row
   // back at its viewport offset before paint so the merge is invisible.
   useLayoutEffect(() => {
-    const pending = reRankAnchorRef.current;
-    if (!pending) return;
-    reRankAnchorRef.current = null;
-    restoreFeedAnchor(scrollRootRef.current, pending);
-  }, [posts]);
+    if (!reRankAnchor) return;
+    setReRankAnchor(null);
+    restoreFeedAnchor(scrollRootRef.current, reRankAnchor);
+  }, [posts, reRankAnchor]);
 
   useEffect(() => {
     const node = scrollRootRef.current;
@@ -1084,9 +1101,7 @@ export function HomePagePanel({
           // hot post from a later page can outrank painted rows. Hold the
           // first visible row at its offset — the merge must not shift
           // content under the reader. The layout effect below applies it.
-          reRankAnchorRef.current = captureVisibleFeedAnchor(
-            scrollRootRef.current
-          );
+          setReRankAnchor(captureVisibleFeedAnchor(scrollRootRef.current));
         }
         setPosts((current) => {
           const merged = mergeFeedPosts(current, result.page.items);
@@ -1521,10 +1536,7 @@ export function HomePagePanel({
           ) : null}
 
           {showColdSkeleton ? (
-            <PostRowSkeleton
-              rows={4}
-              frames={HOME_FEED_COLD_SKELETON_FRAMES}
-            />
+            <PostRowSkeleton rows={4} frames={HOME_FEED_COLD_SKELETON_FRAMES} />
           ) : null}
 
           {showEmpty ? (
@@ -1541,6 +1553,8 @@ export function HomePagePanel({
                 className={`home-feed-list${isRefreshing ? ' is-refreshing' : ''}`}
                 initialEngagement={initialEngagement}
                 initialScarceEmbeds={initialScarceEmbeds}
+                windowSizeCache={feedWindowCacheRef.current}
+                pinnedFeedKey={reRankAnchor?.key ?? null}
                 onReply={replyHandler}
                 onExpandReply={openFullReply}
                 onQuote={quoteHandler}

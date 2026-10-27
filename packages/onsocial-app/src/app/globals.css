@@ -22295,6 +22295,16 @@ a.os-surface-row {
     contain-intrinsic-size: auto 20rem;
   }
 
+  /*
+   * Windowed rows are always near the viewport — the window itself is the
+   * off-screen optimization. CV would report placeholder sizes to the
+   * ResizeObserver and corrupt the height cache.
+   */
+  .home-feed-block--windowed {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
+  }
+
   .home-feed-list.is-refreshing {
     opacity: 0.72;
     transition: opacity 160ms ease;

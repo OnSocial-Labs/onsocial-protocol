@@ -148,6 +148,33 @@ describe('home feed session snapshot', () => {
     expect(peekHomeFeedSession()?.standEpoch).toBeUndefined();
   });
 
+  it('round-trips block heights and drops junk entries', () => {
+    writeHomeFeedSession({
+      sessionKey: HOME_FEED_SSR_SESSION_KEY,
+      posts: [row('a.near', '1')],
+      nextOffset: 24,
+      standingNetworkIds: null,
+      offsetShiftApplied: 0,
+      scrollTop: 0,
+      blockHeights: {
+        'a.near:1': 412.6,
+        'b.near:2': 0,
+        'c.near:3': Number.NaN,
+      },
+    });
+    expect(peekHomeFeedSession()?.blockHeights).toEqual({ 'a.near:1': 412.6 });
+
+    writeHomeFeedSession({
+      sessionKey: HOME_FEED_SSR_SESSION_KEY,
+      posts: [row('a.near', '1')],
+      nextOffset: 24,
+      standingNetworkIds: null,
+      offsetShiftApplied: 0,
+      scrollTop: 0,
+    });
+    expect(peekHomeFeedSession()?.blockHeights).toBeUndefined();
+  });
+
   it('keeps a memory copy without touching tab storage', () => {
     writeHomeFeedSession({
       sessionKey: HOME_FEED_SSR_SESSION_KEY,
@@ -158,13 +185,13 @@ describe('home feed session snapshot', () => {
       scrollTop: 80,
       storage: false,
     });
-    expect(peekHomeFeedSession(undefined, { hydrateStorage: false })?.scrollTop).toBe(
-      80
-    );
+    expect(
+      peekHomeFeedSession(undefined, { hydrateStorage: false })?.scrollTop
+    ).toBe(80);
     noteHomeFeedSessionScroll(140);
-    expect(peekHomeFeedSession(undefined, { hydrateStorage: false })?.scrollTop).toBe(
-      140
-    );
+    expect(
+      peekHomeFeedSession(undefined, { hydrateStorage: false })?.scrollTop
+    ).toBe(140);
   });
 
   it('marks a saved list for the server and clears the mark with the session', () => {

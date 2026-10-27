@@ -16,6 +16,24 @@ const HOME_FEED_SESSION_HINT_REFRESH_MS = 30_000;
 const HOME_FEED_SESSION_STORAGE_VERSION = 1;
 /** Longform values are large; a deep back-catalogue can blow the 5MB quota. */
 const HOME_FEED_SESSION_PERSISTED_POSTS = 60;
+/** Same defensive cap as the window cache — heights are tiny but bounded. */
+const HOME_FEED_SESSION_PERSISTED_HEIGHTS = 400;
+
+function sanitizeBlockHeights(
+  input: Record<string, number> | undefined
+): Record<string, number> | undefined {
+  if (!input) return undefined;
+  const entries = Object.entries(input).filter(
+    ([, value]) =>
+      typeof value === 'number' && Number.isFinite(value) && value > 0
+  );
+  if (entries.length === 0) return undefined;
+  const kept =
+    entries.length > HOME_FEED_SESSION_PERSISTED_HEIGHTS
+      ? entries.slice(entries.length - HOME_FEED_SESSION_PERSISTED_HEIGHTS)
+      : entries;
+  return Object.fromEntries(kept);
+}
 
 /** Immediate probe after restore; first visit still waits to avoid a double fetch. */
 export const HOME_FEED_SESSION_PROBE_DELAY_MS = 0;
@@ -35,6 +53,12 @@ export type HomeFeedSessionSnapshot = {
    * stay readable.
    */
   standEpoch?: number;
+  /**
+   * Measured feed block heights (px) keyed by block head post key. Lets a
+   * restored session land the windowed feed on the same content instead of
+   * estimate placeholders. Optional — older copies stay readable.
+   */
+  blockHeights?: Record<string, number>;
 };
 
 export function homeFeedSessionKey(input: {
@@ -159,6 +183,7 @@ export function writeHomeFeedSession(input: {
   offsetShiftApplied: number;
   scrollTop: number;
   standEpoch?: number;
+  blockHeights?: Record<string, number>;
   now?: number;
   /** False keeps the in-memory copy only. Tab storage stays on leave and pagehide. */
   storage?: boolean;
@@ -176,6 +201,7 @@ export function writeHomeFeedSession(input: {
     scrollTop: Math.max(0, input.scrollTop),
     savedAt: input.now ?? Date.now(),
     standEpoch: input.standEpoch,
+    blockHeights: sanitizeBlockHeights(input.blockHeights),
   };
   if (input.storage !== false) writeStorage(snapshot);
   touchHomeFeedSessionHint(input.storage !== false);

@@ -41,6 +41,8 @@ import {
   withRepostOriginals,
   collectRelationTargetAccountIds,
 } from '@/lib/post-relation';
+import { useFeedWindow } from '@/features/home/use-feed-window';
+import type { FeedWindowSizeCache } from '@/features/home/feed-window';
 
 interface PersonalFeedListProps {
   posts: PostRow[];
@@ -66,6 +68,10 @@ interface PersonalFeedListProps {
   initialEngagement?: Record<string, PostEngagement> | null;
   /** SSR scarce CTA seed — Buy/Bid without IntersectionObserver wait. */
   initialScarceEmbeds?: Record<string, PostScarceEmbed> | null;
+  /** Shared row-height cache for windowing (session persistence in home). */
+  windowSizeCache?: FeedWindowSizeCache;
+  /** Row that must stay mounted this pass (re-rank scroll anchor). */
+  pinnedFeedKey?: string | null;
 }
 
 /** Shared home/profile feed rendering — thread blocks + quote insets + polls. */
@@ -84,6 +90,8 @@ export function PersonalFeedList({
   showGuildAttribution = false,
   initialEngagement = null,
   initialScarceEmbeds = null,
+  windowSizeCache,
+  pinnedFeedKey = null,
 }: PersonalFeedListProps) {
   const feedBlocks = useMemo(
     () =>
@@ -250,52 +258,90 @@ export function PersonalFeedList({
     [confirmUnrepost, onUndoRepost, withSharePending]
   );
 
+  const blockKeys = useMemo(
+    () => feedBlocks.map((block) => postKey(block.posts[0]!)),
+    [feedBlocks]
+  );
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const feedWindow = useFeedWindow({
+    keys: blockKeys,
+    hostRef,
+    sizeCache: windowSizeCache,
+    pinnedKey: pinnedFeedKey,
+  });
+
   if (feedBlocks.length === 0) return null;
 
+  const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
+    feedWindow;
+
   return (
-    <div className={className ?? 'home-feed-list'}>
-      {feedBlocks.map(
-        ({ posts, standingPeek, standingCoilTail }, blockIndex) => (
-          <div
-            key={postKey(posts[0]!)}
-            className="home-feed-block"
-            data-feed-key={postKey(posts[0]!)}
-          >
-            <Divider
-              variant="item"
+    <div ref={hostRef} className={className ?? 'home-feed-list'}>
+      {windowed && topSpacer > 0 ? (
+        <div
+          style={{ height: topSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="top"
+        />
+      ) : null}
+      {feedBlocks
+        .slice(start, end)
+        .map(({ posts, standingPeek, standingCoilTail }, sliceIndex) => {
+          const blockIndex = start + sliceIndex;
+          const key = blockKeys[blockIndex]!;
+          return (
+            <div
+              key={key}
+              ref={registerRow(key)}
               className={
-                blockIndex > 0
-                  ? 'post-row-divider'
-                  : 'post-row-divider post-row-divider--leading-hidden'
+                windowed
+                  ? 'home-feed-block home-feed-block--windowed'
+                  : 'home-feed-block'
               }
-            />
-            <FeedThreadBlock
-              block={posts}
-              standingPeek={standingPeek}
-              standingCoilTail={standingCoilTail}
-              postAuthorProfiles={postAuthorProfiles}
-              quotedPosts={quotedPosts}
-              engagement={engagement}
-              isReactionPending={isReactionPending}
-              isSavePending={isSavePending}
-              isSharePending={isSharePending}
-              onToggleReaction={toggleReaction}
-              onToggleSave={toggleSave}
-              onAmplifyConfirmed={handleAmplifyConfirmed}
-              pollTallyFor={pollTallyFor}
-              isPollVotePending={isPollVotePending}
-              onPollVote={handlePollVote}
-              onReply={onReply}
-              onExpandReply={onExpandReply}
-              onQuote={onQuote}
-              onRepost={onRepost ? handleRepost : undefined}
-              onUndoRepost={onUndoRepost ? handleUndoRepost : undefined}
-              showGuildAttribution={showGuildAttribution}
-              guildNameById={guildNameById}
-            />
-          </div>
-        )
-      )}
+              data-feed-key={key}
+            >
+              <Divider
+                variant="item"
+                className={
+                  blockIndex > 0
+                    ? 'post-row-divider'
+                    : 'post-row-divider post-row-divider--leading-hidden'
+                }
+              />
+              <FeedThreadBlock
+                block={posts}
+                standingPeek={standingPeek}
+                standingCoilTail={standingCoilTail}
+                postAuthorProfiles={postAuthorProfiles}
+                quotedPosts={quotedPosts}
+                engagement={engagement}
+                isReactionPending={isReactionPending}
+                isSavePending={isSavePending}
+                isSharePending={isSharePending}
+                onToggleReaction={toggleReaction}
+                onToggleSave={toggleSave}
+                onAmplifyConfirmed={handleAmplifyConfirmed}
+                pollTallyFor={pollTallyFor}
+                isPollVotePending={isPollVotePending}
+                onPollVote={handlePollVote}
+                onReply={onReply}
+                onExpandReply={onExpandReply}
+                onQuote={onQuote}
+                onRepost={onRepost ? handleRepost : undefined}
+                onUndoRepost={onUndoRepost ? handleUndoRepost : undefined}
+                showGuildAttribution={showGuildAttribution}
+                guildNameById={guildNameById}
+              />
+            </div>
+          );
+        })}
+      {windowed && bottomSpacer > 0 ? (
+        <div
+          style={{ height: bottomSpacer }}
+          aria-hidden="true"
+          data-feed-window-spacer="bottom"
+        />
+      ) : null}
     </div>
   );
 }
