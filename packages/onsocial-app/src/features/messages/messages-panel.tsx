@@ -96,8 +96,11 @@ import {
 } from '@/features/messages/dm-outgoing';
 import {
   buildDmThreadRows,
+  dmThreadRowKey,
   formatDmReplyPreview,
 } from '@/features/messages/dm-thread-rows';
+import { useFeedWindow } from '@/features/home/use-feed-window';
+import { DM_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import { DmThreadComposer } from '@/features/messages/dm-thread-composer';
 import { MessagesInboxSearchField } from '@/features/messages/messages-inbox-search-field';
 import { messagesThreadChromeTitle } from '@/features/messages/messages-thread-chrome';
@@ -442,6 +445,33 @@ export function MessagesPanel() {
     () => buildDmThreadRows(displayMessages),
     [displayMessages]
   );
+
+  /*
+   * List windowing — same core as the feed, thread panels, and inbox: past
+   * the row threshold, far rows collapse into spacers so a long conversation
+   * stops paying DOM cost for offscreen history. Bubbles are short (~64px
+   * estimate vs the feed's 320); the measured cache corrects it after first
+   * paint. The thread pins to the latest message — the layout effect below
+   * re-pins whenever spacer math shifts while pinned.
+   */
+  const threadRowKeys = useMemo(
+    () => threadRows.map(dmThreadRowKey),
+    [threadRows]
+  );
+  const bubbleListRef = useRef<HTMLUListElement | null>(null);
+  const {
+    windowed: threadWindowed,
+    start: threadWindowStart,
+    end: threadWindowEnd,
+    topSpacer: threadTopSpacer,
+    bottomSpacer: threadBottomSpacer,
+    registerRow: registerThreadRow,
+  } = useFeedWindow({
+    keys: threadRowKeys,
+    hostRef: bubbleListRef,
+    anchorQuery: DM_ANCHOR_QUERY,
+    estimate: 64,
+  });
 
   const withAuth = useCallback(async () => {
     const { client, session, wallet, accountId: id } = await getClient();
@@ -1375,6 +1405,17 @@ export function MessagesPanel() {
     el.scrollTop = el.scrollHeight;
   }, [threadOpen, displayMessages, keyboardOpen, viewport.lift]);
 
+  /*
+   * Windowed spacer / measurement shifts change scrollHeight without a
+   * message mutation; re-pin before paint so a bottom-pinned reader never
+   * watches the latest bubble drift as heights settle.
+   */
+  useLayoutEffect(() => {
+    const el = scrollRootRef.current;
+    if (!el || !threadOpen || !pinThreadToLatestRef.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [threadOpen, threadTopSpacer, threadBottomSpacer]);
+
   useEffect(() => {
     if (!isUnlocked || !peerFromThread || !hasSocialSession) {
       setPeerMessagingReady('unknown');
@@ -1881,9 +1922,7 @@ export function MessagesPanel() {
                   Pick a conversation.
                 </OsAppChromePageStatus>
               ) : !isUnlocked ? (
-                <OsAppChromePageStatus>
-                  Unlock messages.
-                </OsAppChromePageStatus>
+                <OsAppChromePageStatus>Unlock messages.</OsAppChromePageStatus>
               ) : showThreadSkeleton ? (
                 <MessagesThreadSkeleton />
               ) : (
@@ -1908,157 +1947,181 @@ export function MessagesPanel() {
                         : ''
                     }`}
                     aria-busy={showThreadRefreshing || undefined}
+                    ref={bubbleListRef}
                   >
-                    {threadRows.map((row) => {
-                      if (row.kind === 'day') {
+                    {threadWindowed && threadTopSpacer > 0 ? (
+                      <li
+                        style={{ height: threadTopSpacer }}
+                        aria-hidden="true"
+                        data-feed-window-spacer="top"
+                      />
+                    ) : null}
+                    {threadRows
+                      .slice(threadWindowStart, threadWindowEnd)
+                      .map((row) => {
+                        if (row.kind === 'day') {
+                          return (
+                            <li
+                              key={row.key}
+                              ref={registerThreadRow(row.key)}
+                              data-dm-row-key={row.key}
+                              className="messages-day-rule"
+                              aria-label={row.label}
+                            >
+                              <span>{row.label}</span>
+                            </li>
+                          );
+                        }
+                        const msg = row.message;
+                        const mine =
+                          msg.senderAccountId === accountId.toLowerCase();
+                        const text = plainById[msg.id];
+                        const bubbleTime = formatDmBubbleTime(msg.createdAt);
+                        const absolute = formatAbsoluteDmTime(msg.createdAt);
+                        const parentId = replyToById[msg.id];
+                        const parentText = parentId
+                          ? plainById[parentId]
+                          : undefined;
+                        const parentMine =
+                          parentId != null &&
+                          displayMessages.some(
+                            (item) =>
+                              item.id === parentId &&
+                              item.senderAccountId === accountId.toLowerCase()
+                          );
+                        const draft = outgoingById.get(msg.id);
+                        const localMedia =
+                          localMediaById[msg.id] ??
+                          (draft?.messageId
+                            ? localMediaById[draft.messageId]
+                            : undefined);
+                        const replyMessageId = draft?.messageId ?? msg.id;
+                        const canReply =
+                          (!draft || draft.status === 'confirmed') &&
+                          text != null &&
+                          !isDmDecryptFailureText(text) &&
+                          !isLocalDmMessageId(replyMessageId);
+                        const bubbleClass = [
+                          'messages-bubble',
+                          mine ? 'is-mine' : '',
+                          draft?.status === 'pending' ? 'is-pending' : '',
+                          draft?.status === 'failed' ? 'is-failed' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ');
                         return (
                           <li
-                            key={row.key}
-                            className="messages-day-rule"
-                            aria-label={row.label}
+                            key={msg.id}
+                            ref={registerThreadRow(msg.id)}
+                            data-dm-row-key={msg.id}
+                            className={bubbleClass}
                           >
-                            <span>{row.label}</span>
+                            {parentId ? (
+                              <blockquote className="messages-bubble-quote">
+                                <span>
+                                  {parentText != null
+                                    ? parentMine
+                                      ? 'You'
+                                      : peerName || 'Them'
+                                    : 'Earlier message'}
+                                </span>
+                                {parentText != null ? (
+                                  <p>{formatDmReplyPreview(parentText)}</p>
+                                ) : null}
+                              </blockquote>
+                            ) : null}
+                            {text != null ? (
+                              text ? (
+                                isDmDecryptFailureText(text) ? (
+                                  <p>{text}</p>
+                                ) : (
+                                  <DmBubbleText text={text} />
+                                )
+                              ) : null
+                            ) : (
+                              <p>…</p>
+                            )}
+                            {localMedia ? (
+                              localMedia.mime.startsWith('video/') ? (
+                                <video
+                                  src={localMedia.url}
+                                  className="messages-media"
+                                  muted
+                                  playsInline
+                                  controls
+                                  preload="metadata"
+                                />
+                              ) : (
+                                <img
+                                  src={localMedia.url}
+                                  alt=""
+                                  className="messages-media"
+                                />
+                              )
+                            ) : msg.media?.length ? (
+                              msg.media.map((item) => (
+                                <DmMediaBubble
+                                  key={`${msg.id}-${item.cid}`}
+                                  accountId={accountId}
+                                  senderAccountId={msg.senderAccountId}
+                                  senderPubkey={msg.senderPubkey}
+                                  ephemeralPubkey={msg.ephemeralPubkey}
+                                  cid={item.cid}
+                                  mime={item.mime}
+                                  nonce={item.nonce}
+                                  senderNonce={item.senderNonce}
+                                />
+                              ))
+                            ) : null}
+                            <div className="messages-bubble-meta">
+                              {draft?.status === 'pending' ? (
+                                <PulsingDots size="sm" label="Sending" />
+                              ) : draft?.status === 'failed' ? (
+                                <button
+                                  type="button"
+                                  className="messages-bubble-retry"
+                                  onClick={() => void retryOutgoing(msg.id)}
+                                >
+                                  {draft.error || 'Couldn’t send'} · Retry
+                                </button>
+                              ) : bubbleTime ? (
+                                <time
+                                  dateTime={msg.createdAt}
+                                  title={absolute || undefined}
+                                >
+                                  {bubbleTime}
+                                </time>
+                              ) : null}
+                              {canReply ? (
+                                <button
+                                  type="button"
+                                  className="messages-bubble-reply"
+                                  onClick={() =>
+                                    setReplyDraft({
+                                      messageId: replyMessageId,
+                                      preview: formatDmReplyPreview(
+                                        text,
+                                        Boolean(
+                                          msg.media?.length || draft?.mediaFile
+                                        )
+                                      ),
+                                    })
+                                  }
+                                >
+                                  Reply
+                                </button>
+                              ) : null}
+                            </div>
                           </li>
                         );
-                      }
-                      const msg = row.message;
-                      const mine =
-                        msg.senderAccountId === accountId.toLowerCase();
-                      const text = plainById[msg.id];
-                      const bubbleTime = formatDmBubbleTime(msg.createdAt);
-                      const absolute = formatAbsoluteDmTime(msg.createdAt);
-                      const parentId = replyToById[msg.id];
-                      const parentText = parentId
-                        ? plainById[parentId]
-                        : undefined;
-                      const parentMine =
-                        parentId != null &&
-                        displayMessages.some(
-                          (item) =>
-                            item.id === parentId &&
-                            item.senderAccountId === accountId.toLowerCase()
-                        );
-                      const draft = outgoingById.get(msg.id);
-                      const localMedia =
-                        localMediaById[msg.id] ??
-                        (draft?.messageId
-                          ? localMediaById[draft.messageId]
-                          : undefined);
-                      const replyMessageId = draft?.messageId ?? msg.id;
-                      const canReply =
-                        (!draft || draft.status === 'confirmed') &&
-                        text != null &&
-                        !isDmDecryptFailureText(text) &&
-                        !isLocalDmMessageId(replyMessageId);
-                      const bubbleClass = [
-                        'messages-bubble',
-                        mine ? 'is-mine' : '',
-                        draft?.status === 'pending' ? 'is-pending' : '',
-                        draft?.status === 'failed' ? 'is-failed' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ');
-                      return (
-                        <li key={msg.id} className={bubbleClass}>
-                          {parentId ? (
-                            <blockquote className="messages-bubble-quote">
-                              <span>
-                                {parentText != null
-                                  ? parentMine
-                                    ? 'You'
-                                    : peerName || 'Them'
-                                  : 'Earlier message'}
-                              </span>
-                              {parentText != null ? (
-                                <p>{formatDmReplyPreview(parentText)}</p>
-                              ) : null}
-                            </blockquote>
-                          ) : null}
-                          {text != null ? (
-                            text ? (
-                              isDmDecryptFailureText(text) ? (
-                                <p>{text}</p>
-                              ) : (
-                                <DmBubbleText text={text} />
-                              )
-                            ) : null
-                          ) : (
-                            <p>…</p>
-                          )}
-                          {localMedia ? (
-                            localMedia.mime.startsWith('video/') ? (
-                              <video
-                                src={localMedia.url}
-                                className="messages-media"
-                                muted
-                                playsInline
-                                controls
-                                preload="metadata"
-                              />
-                            ) : (
-                              <img
-                                src={localMedia.url}
-                                alt=""
-                                className="messages-media"
-                              />
-                            )
-                          ) : msg.media?.length ? (
-                            msg.media.map((item) => (
-                              <DmMediaBubble
-                                key={`${msg.id}-${item.cid}`}
-                                accountId={accountId}
-                                senderAccountId={msg.senderAccountId}
-                                senderPubkey={msg.senderPubkey}
-                                ephemeralPubkey={msg.ephemeralPubkey}
-                                cid={item.cid}
-                                mime={item.mime}
-                                nonce={item.nonce}
-                                senderNonce={item.senderNonce}
-                              />
-                            ))
-                          ) : null}
-                          <div className="messages-bubble-meta">
-                            {draft?.status === 'pending' ? (
-                              <PulsingDots size="sm" label="Sending" />
-                            ) : draft?.status === 'failed' ? (
-                              <button
-                                type="button"
-                                className="messages-bubble-retry"
-                                onClick={() => void retryOutgoing(msg.id)}
-                              >
-                                {draft.error || 'Couldn’t send'} · Retry
-                              </button>
-                            ) : bubbleTime ? (
-                              <time
-                                dateTime={msg.createdAt}
-                                title={absolute || undefined}
-                              >
-                                {bubbleTime}
-                              </time>
-                            ) : null}
-                            {canReply ? (
-                              <button
-                                type="button"
-                                className="messages-bubble-reply"
-                                onClick={() =>
-                                  setReplyDraft({
-                                    messageId: replyMessageId,
-                                    preview: formatDmReplyPreview(
-                                      text,
-                                      Boolean(
-                                        msg.media?.length || draft?.mediaFile
-                                      )
-                                    ),
-                                  })
-                                }
-                              >
-                                Reply
-                              </button>
-                            ) : null}
-                          </div>
-                        </li>
-                      );
-                    })}
+                      })}
+                    {threadWindowed && threadBottomSpacer > 0 ? (
+                      <li
+                        style={{ height: threadBottomSpacer }}
+                        aria-hidden="true"
+                        data-feed-window-spacer="bottom"
+                      />
+                    ) : null}
                   </ul>
                   {loadingOlder ? <MessagesThreadAppendSkeleton /> : null}
                 </>

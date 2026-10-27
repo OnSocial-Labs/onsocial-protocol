@@ -46,6 +46,17 @@ export const NOTIFICATION_ANCHOR_QUERY: FeedAnchorQuery = {
   rowSelectorForKey: (key) => `[data-notification-key="${CSS.escape(key)}"]`,
 };
 
+/**
+ * DM thread rows — every day rule and bubble carries `[data-dm-row-key]`
+ * (dmThreadRowKey), so height corrections hold the reader's place in a
+ * bottom-pinned conversation.
+ */
+export const DM_ANCHOR_QUERY: FeedAnchorQuery = {
+  rowSelector: '[data-dm-row-key]',
+  rowKey: (el) => el.dataset.dmRowKey,
+  rowSelectorForKey: (key) => `[data-dm-row-key="${CSS.escape(key)}"]`,
+};
+
 /** First row whose bottom edge is still inside the scroll root. */
 export function captureVisibleFeedAnchor(
   root: HTMLElement | null,

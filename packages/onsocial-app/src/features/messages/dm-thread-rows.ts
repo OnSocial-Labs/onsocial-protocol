@@ -37,6 +37,16 @@ export function buildDmThreadRows<T extends { id: string; createdAt: string }>(
   return rows;
 }
 
+/**
+ * Stable window key for a thread row. Day rows keep their `day:`-prefixed
+ * key so they can never collide with a message id.
+ */
+export function dmThreadRowKey<T extends { id: string }>(
+  row: DmThreadRow<T>
+): string {
+  return row.kind === 'day' ? row.key : row.message.id;
+}
+
 export function formatDmReplyPreview(
   text: string | null | undefined,
   hasMedia = false

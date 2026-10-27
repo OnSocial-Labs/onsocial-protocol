@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { decryptDmMedia } from '@/lib/dm/send';
+import { dmMediaObjectUrls } from '@/features/messages/dm-media-object-urls';
 
 interface DmMediaBubbleProps {
   accountId: string;
@@ -28,11 +29,12 @@ export function DmMediaBubble({
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    let revoked: string | null = null;
     let cancelled = false;
-    void (async () => {
-      try {
-        const opened = await decryptDmMedia({
+    // The cache owns the object URL lifecycle (bounded LRU) so windowed
+    // rows can unmount and remount without re-decrypting the blob.
+    void dmMediaObjectUrls
+      .resolve(`${accountId.trim().toLowerCase()}:${cid}`, () =>
+        decryptDmMedia({
           accountId,
           senderAccountId,
           senderPubkey,
@@ -41,20 +43,16 @@ export function DmMediaBubble({
           nonce,
           senderNonce,
           ephemeralPubkey,
-        });
-        if (cancelled) {
-          URL.revokeObjectURL(opened.objectUrl);
-          return;
-        }
-        revoked = opened.objectUrl;
-        setObjectUrl(opened.objectUrl);
-      } catch {
+        }).then((opened) => opened.objectUrl)
+      )
+      .then((url) => {
+        if (!cancelled) setObjectUrl(url);
+      })
+      .catch(() => {
         if (!cancelled) setError(true);
-      }
-    })();
+      });
     return () => {
       cancelled = true;
-      if (revoked) URL.revokeObjectURL(revoked);
     };
   }, [
     accountId,
