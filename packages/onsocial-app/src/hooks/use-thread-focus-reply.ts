@@ -24,6 +24,9 @@ export function useThreadFocusReply(
   const searchParams = useSearchParams();
   const [highlightKey, setHighlightKey] = useState<string | null>(null);
   const pendingPostIdRef = useRef<string | null>(null);
+  /* State mirror of the ref — readers (reply windowing) re-render to pin
+   * the target row while the focus retry loop looks for it. */
+  const [pendingPostId, setPendingPostId] = useState<string | null>(null);
   const clearedQueryRef = useRef(false);
   const onFocusReplyRef = useRef(options?.onFocusReply);
   useEffect(() => {
@@ -44,6 +47,7 @@ export function useThreadFocusReply(
     if (!replyId) return;
     clearedQueryRef.current = true;
     pendingPostIdRef.current = replyId;
+    setPendingPostId(replyId);
     onFocusReplyRef.current?.();
     const next = new URLSearchParams(source.toString());
     next.delete(THREAD_FOCUS_REPLY_QUERY);
@@ -64,15 +68,20 @@ export function useThreadFocusReply(
   }, [pathname, router, searchParams]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot URL strip mirrors the pending focus target into state so windowing can pin its row
     stripFocusQuery();
   }, [stripFocusQuery]);
 
-  const requestFocus = useCallback((post: Pick<PostRow, 'accountId' | 'postId'>) => {
-    const id = post.postId.trim();
-    if (!id) return;
-    pendingPostIdRef.current = id;
-    onFocusReplyRef.current?.();
-  }, []);
+  const requestFocus = useCallback(
+    (post: Pick<PostRow, 'accountId' | 'postId'>) => {
+      const id = post.postId.trim();
+      if (!id) return;
+      pendingPostIdRef.current = id;
+      setPendingPostId(id);
+      onFocusReplyRef.current?.();
+    },
+    []
+  );
 
   const isHighlighted = useCallback(
     (post: PostRow) => highlightKey !== null && highlightKey === postKey(post),
@@ -94,6 +103,9 @@ export function useThreadFocusReply(
         attempts += 1;
         if (attempts < SCROLL_MAX_ATTEMPTS) {
           window.setTimeout(tryFocus, SCROLL_RETRY_MS);
+        } else {
+          pendingPostIdRef.current = null;
+          setPendingPostId(null);
         }
         return;
       }
@@ -103,16 +115,28 @@ export function useThreadFocusReply(
       const key = node.dataset.threadFocusKey?.trim() || null;
       if (key) {
         setHighlightKey(key);
-        highlightTimer = window.setTimeout(() => setHighlightKey(null), HIGHLIGHT_MS);
       }
+      /*
+       * Keep pending through the smooth scroll + pulse: the reply window
+       * pins the target row mounted while pending, and releasing mid-scroll
+       * could unmount the row the browser is animating toward. The window
+       * re-engages around the landed row once the highlight lifts.
+       */
+      highlightTimer = window.setTimeout(() => {
+        setHighlightKey(null);
+        setPendingPostId(null);
+      }, HIGHLIGHT_MS);
     };
 
     tryFocus();
 
     return () => {
-      if (highlightTimer) window.clearTimeout(highlightTimer);
+      if (highlightTimer) {
+        window.clearTimeout(highlightTimer);
+        setPendingPostId(null);
+      }
     };
   }, [ready, replyPresenceKey]);
 
-  return { requestFocus, isHighlighted };
+  return { requestFocus, isHighlighted, pendingPostId };
 }

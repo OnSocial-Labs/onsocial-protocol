@@ -1,22 +1,53 @@
 /**
- * Scroll anchoring for in-place list re-ranks (Focus Hot append merges).
- * Capture the first painted feed block before the merge, then put it back
- * at its viewport offset before paint so the re-rank is invisible.
+ * Scroll anchoring for in-place list re-ranks (Focus Hot append merges) and
+ * for windowed-list height corrections. Capture the first painted row before
+ * the mutation, then put it back at its viewport offset before paint so the
+ * change is invisible. Row lookup is query-driven so any keyed list (feed
+ * blocks, thread reply rows) can anchor with its own DOM contract.
  */
 export type FeedScrollAnchor = { key: string; top: number };
 
-/** First feed block whose bottom edge is still inside the scroll root. */
+/** How to find anchor-eligible rows and read their stable keys. */
+export type FeedAnchorQuery = {
+  /** Rows eligible as anchors, matched in document order. */
+  rowSelector: string;
+  /** Stable key for a row element; undefined skips the row. */
+  rowKey: (el: HTMLElement) => string | undefined;
+  /** Single-row lookup selector for a captured key. */
+  rowSelectorForKey: (key: string) => string;
+};
+
+/** Feed blocks — `.home-feed-block[data-feed-key]` in the home list. */
+export const FEED_ANCHOR_QUERY: FeedAnchorQuery = {
+  rowSelector: '.home-feed-block[data-feed-key]',
+  rowKey: (el) => el.dataset.feedKey,
+  rowSelectorForKey: (key) =>
+    `.home-feed-block[data-feed-key="${CSS.escape(key)}"]`,
+};
+
+/**
+ * Thread panel rows — every ancestor and reply item carries
+ * `[data-thread-focus-key]` (postKey), so the same attribute that drives
+ * deep-link focus can hold the reader's place while heights settle.
+ */
+export const THREAD_ANCHOR_QUERY: FeedAnchorQuery = {
+  rowSelector: '[data-thread-focus-key]',
+  rowKey: (el) => el.dataset.threadFocusKey,
+  rowSelectorForKey: (key) => `[data-thread-focus-key="${CSS.escape(key)}"]`,
+};
+
+/** First row whose bottom edge is still inside the scroll root. */
 export function captureVisibleFeedAnchor(
-  root: HTMLElement | null
+  root: HTMLElement | null,
+  query: FeedAnchorQuery = FEED_ANCHOR_QUERY
 ): FeedScrollAnchor | null {
   if (!root) return null;
   const rootTop = root.getBoundingClientRect().top;
-  for (const block of root.querySelectorAll<HTMLElement>(
-    '.home-feed-block[data-feed-key]'
-  )) {
+  for (const block of root.querySelectorAll<HTMLElement>(query.rowSelector)) {
     const rect = block.getBoundingClientRect();
     if (rect.bottom > rootTop + 1) {
-      return { key: block.dataset.feedKey!, top: rect.top - rootTop };
+      const key = query.rowKey(block);
+      if (key) return { key, top: rect.top - rootTop };
     }
   }
   return null;
@@ -25,11 +56,12 @@ export function captureVisibleFeedAnchor(
 /** Scroll so the anchored row sits at its captured viewport offset. */
 export function restoreFeedAnchor(
   root: HTMLElement | null,
-  anchor: FeedScrollAnchor
+  anchor: FeedScrollAnchor,
+  query: FeedAnchorQuery = FEED_ANCHOR_QUERY
 ): void {
   if (!root) return;
   const block = root.querySelector<HTMLElement>(
-    `.home-feed-block[data-feed-key="${CSS.escape(anchor.key)}"]`
+    query.rowSelectorForKey(anchor.key)
   );
   if (!block) return;
   const delta =

@@ -23,6 +23,7 @@ import {
 import {
   captureVisibleFeedAnchor,
   restoreFeedAnchor,
+  type FeedAnchorQuery,
   type FeedScrollAnchor,
 } from '@/features/home/home-feed-scroll-anchor';
 
@@ -52,6 +53,8 @@ export type UseFeedWindowOptions = {
   sizeCache?: FeedWindowSizeCache;
   /** Force this key's row to render even outside the window. */
   pinnedKey?: string | null;
+  /** Row lookup for height-change anchoring — defaults to feed blocks. */
+  anchorQuery?: FeedAnchorQuery;
   enabled?: boolean;
   estimate?: number;
   overscan?: number;
@@ -84,6 +87,7 @@ export function useFeedWindow({
   hostRef,
   sizeCache,
   pinnedKey = null,
+  anchorQuery,
   enabled = true,
   estimate = FEED_WINDOW_ESTIMATE_PX,
   overscan = FEED_WINDOW_OVERSCAN_PX,
@@ -132,6 +136,11 @@ export function useFeedWindow({
   const overscanRef = useRef(overscan);
   useLayoutEffect(() => {
     overscanRef.current = overscan;
+  });
+
+  const anchorQueryRef = useRef(anchorQuery);
+  useLayoutEffect(() => {
+    anchorQueryRef.current = anchorQuery;
   });
 
   const syncRange = useCallback(() => {
@@ -209,7 +218,8 @@ export function useFeedWindow({
         // Heights in the DOM already moved; remember where the reader is so
         // the spacer correction below can hold that row in place.
         pendingMeasureAnchorRef.current ??= captureVisibleFeedAnchor(
-          rootRef.current
+          rootRef.current,
+          anchorQueryRef.current
         );
         setOffsetsVersion((version) => version + 1);
       }
@@ -228,7 +238,8 @@ export function useFeedWindow({
     if (offsetsVersion === 0) return;
     const pending = pendingMeasureAnchorRef.current;
     pendingMeasureAnchorRef.current = null;
-    if (pending) restoreFeedAnchor(rootRef.current, pending);
+    if (pending)
+      restoreFeedAnchor(rootRef.current, pending, anchorQueryRef.current);
     syncRange();
   }, [offsetsVersion, syncRange]);
 

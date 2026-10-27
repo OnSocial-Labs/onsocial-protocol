@@ -87,8 +87,11 @@ import {
   buildReplyRows,
   flattenTreePosts,
   leafThreadNode,
+  threadReplyRowKey,
   withoutIndexedPosts,
 } from '@/lib/thread-display';
+import { useFeedWindow } from '@/features/home/use-feed-window';
+import { THREAD_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import { resolveThreadFoldLabel } from '@/lib/thread-fold-label';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { playPostFocusVideo } from '@/hooks/use-post-list-video';
@@ -348,6 +351,44 @@ export function LivePersonalPostPanel({
     () => sortThreadReplyRows(replyRows, replySort, engagement),
     [replyRows, replySort, engagement]
   );
+
+  /*
+   * Reply windowing (same core as the feed list): past the row threshold,
+   * far rows collapse into spacers so a long thread stops mounting every
+   * reply card forever. The scroll root is detected from the stack element
+   * (app screen body full-page, sheet body in the drawer). While a deep-link
+   * focus target is pending, its row is pinned mounted so the focus retry
+   * loop can find it even before it would scroll into the window.
+   */
+  const replyRowKeys = useMemo(
+    () => sortedReplyRows.map(threadReplyRowKey),
+    [sortedReplyRows]
+  );
+  const replyStackRef = useRef<HTMLDivElement | null>(null);
+  const focusPinKey = useMemo(() => {
+    const pending = threadFocus.pendingPostId;
+    if (!pending) return null;
+    for (let index = 0; index < sortedReplyRows.length; index += 1) {
+      const row = sortedReplyRows[index]!;
+      if (row.kind === 'post' && row.post.postId === pending) {
+        return replyRowKeys[index]!;
+      }
+    }
+    return null;
+  }, [sortedReplyRows, replyRowKeys, threadFocus.pendingPostId]);
+  const {
+    windowed: replyWindowed,
+    start: replyWindowStart,
+    end: replyWindowEnd,
+    topSpacer: replyTopSpacer,
+    bottomSpacer: replyBottomSpacer,
+    registerRow: registerReplyRow,
+  } = useFeedWindow({
+    keys: replyRowKeys,
+    hostRef: replyStackRef,
+    pinnedKey: focusPinKey,
+    anchorQuery: THREAD_ANCHOR_QUERY,
+  });
 
   const refresh = useCallback(
     async (options: { background?: boolean } = {}) => {
@@ -730,17 +771,19 @@ export function LivePersonalPostPanel({
         (row.hiddenCount === 1
           ? 'Show 1 more reply'
           : `Show ${row.hiddenCount} more replies`);
+      const foldKey = threadReplyRowKey(row);
       return (
-        <ThreadFoldButton
-          key={`more-${row.branchKey}`}
-          onClick={() =>
-            setExpandedBranches((current) =>
-              new Set(current).add(row.branchKey)
-            )
-          }
-        >
-          {foldLabel}
-        </ThreadFoldButton>
+        <div key={foldKey} ref={registerReplyRow(foldKey)}>
+          <ThreadFoldButton
+            onClick={() =>
+              setExpandedBranches((current) =>
+                new Set(current).add(row.branchKey)
+              )
+            }
+          >
+            {foldLabel}
+          </ThreadFoldButton>
+        </div>
       );
     }
 
@@ -762,8 +805,9 @@ export function LivePersonalPostPanel({
       .filter(Boolean)
       .join(' ');
 
+    const rowKey = threadReplyRowKey(row);
     return (
-      <div key={postKey(row.post)}>
+      <div key={rowKey} ref={registerReplyRow(rowKey)}>
         {index > 0 && !row.connectedToPrevious ? (
           <Divider variant="item" className="post-row-divider" />
         ) : null}
@@ -964,9 +1008,16 @@ export function LivePersonalPostPanel({
             />
           </div>
 
-          <div className="guild-connected-stack">
+          <div className="guild-connected-stack" ref={replyStackRef}>
+            {replyWindowed && replyTopSpacer > 0 ? (
+              <div
+                style={{ height: replyTopSpacer }}
+                aria-hidden="true"
+                data-feed-window-spacer="top"
+              />
+            ) : null}
             {replyListRows.length > 0 ? (
-              replyListRows
+              replyListRows.slice(replyWindowStart, replyWindowEnd)
             ) : !shareRow ? (
               <ThreadDiscoverPeek
                 author={author}
@@ -979,6 +1030,13 @@ export function LivePersonalPostPanel({
                 onRepost={repostHandler}
                 onUndoRepost={undoRepostHandler}
                 onAmplifyConfirmed={confirmAmplify}
+              />
+            ) : null}
+            {replyWindowed && replyBottomSpacer > 0 ? (
+              <div
+                style={{ height: replyBottomSpacer }}
+                aria-hidden="true"
+                data-feed-window-spacer="bottom"
               />
             ) : null}
 

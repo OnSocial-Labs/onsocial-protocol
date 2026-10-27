@@ -2,6 +2,14 @@ import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { postKey } from '@/features/home/post-card';
 import { revokeOptimisticMediaPreviewUrls } from '@/lib/post-media';
 
+/**
+ * Stable render key for a reply row — the same value the row's keyed
+ * wrapper gets, so windowing ranges and height caches track it.
+ */
+export function threadReplyRowKey(row: ThreadReplyRow): string {
+  return row.kind === 'more' ? `more-${row.branchKey}` : postKey(row.post);
+}
+
 /** Display row on a thread page: a post, or a per-branch fold control. */
 export type ThreadReplyRow =
   | {
@@ -61,9 +69,7 @@ export function buildReplyRows(
         cursor.replies.find(
           (reply) => rootAuthor && reply.post.accountId === rootAuthor
         ) ??
-        cursor.replies.find(
-          (reply) => reply.post.accountId === branchAuthor
-        );
+        cursor.replies.find((reply) => reply.post.accountId === branchAuthor);
       if (!next) break;
       line.push(next);
       cursor = next;

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   captureVisibleFeedAnchor,
   restoreFeedAnchor,
+  THREAD_ANCHOR_QUERY,
 } from './home-feed-scroll-anchor';
 
 type FakeBlock = {
@@ -97,5 +98,76 @@ describe('restoreFeedAnchor', () => {
     expect(root.querySelector).toHaveBeenCalledWith(
       '.home-feed-block[data-feed-key="a/2"]'
     );
+  });
+});
+
+type FakeThreadRow = {
+  top: number;
+  height: number;
+  key?: string;
+};
+
+function fakeThreadRow({ top, height, key }: FakeThreadRow) {
+  return {
+    getBoundingClientRect: () => ({ top, bottom: top + height }),
+    dataset: key === undefined ? {} : { threadFocusKey: key },
+  };
+}
+
+function fakeThreadRoot(
+  rootTop: number,
+  rows: ReturnType<typeof fakeThreadRow>[]
+) {
+  const root = {
+    scrollTop: 0,
+    getBoundingClientRect: () => ({ top: rootTop }),
+    querySelectorAll: (selector: string) =>
+      selector === '[data-thread-focus-key]' ? rows : [],
+    querySelector: vi.fn((selector: string) => {
+      const match = /\[data-thread-focus-key="([^"]+)"\]/.exec(selector);
+      return rows.find((r) => r.dataset.threadFocusKey === match?.[1]) ?? null;
+    }),
+  };
+  return root as unknown as HTMLElement & {
+    scrollTop: number;
+    querySelector: ReturnType<typeof vi.fn>;
+  };
+}
+
+describe('custom anchor queries (thread rows)', () => {
+  it('captures the first visible thread row by its focus key', () => {
+    const root = fakeThreadRoot(100, [
+      fakeThreadRow({ top: -300, height: 200, key: 'a.near:p1' }), // above
+      fakeThreadRow({ top: -40, height: 200, key: 'a.near:p2' }),
+    ]);
+    expect(captureVisibleFeedAnchor(root, THREAD_ANCHOR_QUERY)).toEqual({
+      key: 'a.near:p2',
+      top: -140,
+    });
+  });
+
+  it('skips rows without a key instead of anchoring on them', () => {
+    const root = fakeThreadRoot(100, [
+      fakeThreadRow({ top: -40, height: 200 }), // visible but keyless
+      fakeThreadRow({ top: 160, height: 200, key: 'a.near:p3' }),
+    ]);
+    expect(captureVisibleFeedAnchor(root, THREAD_ANCHOR_QUERY)?.key).toBe(
+      'a.near:p3'
+    );
+  });
+
+  it('restores via the focus-key lookup selector', () => {
+    const root = fakeThreadRoot(100, [
+      fakeThreadRow({ top: 300, height: 200, key: 'a.near:p2' }),
+    ]);
+    restoreFeedAnchor(
+      root,
+      { key: 'a.near:p2', top: -140 },
+      THREAD_ANCHOR_QUERY
+    );
+    expect(root.querySelector).toHaveBeenCalledWith(
+      '[data-thread-focus-key="a.near:p2"]'
+    );
+    expect(root.scrollTop).toBe(340);
   });
 });
