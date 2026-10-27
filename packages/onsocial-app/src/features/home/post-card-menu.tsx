@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import {
   CopyIcon,
   DotsVerticalIcon,
@@ -35,10 +35,7 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { accountIdsEqual } from '@/lib/account-match';
 import { portfolioPath } from '@/lib/overlay-routes';
-import {
-  txToastError,
-  txToastSuccess,
-} from '@/lib/transaction-toast-copy';
+import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
@@ -48,7 +45,26 @@ import { useViewerMute } from '@/hooks/use-viewer-mute';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 
-export function PostCardMenu({
+/** Identity + cancel-scarce wiring every menu on the card shares. */
+export type PostCardMenuPostProps = {
+  href?: string;
+  accountId: string;
+  authorProfile?: PostAuthorProfile;
+  canCancelScarce?: boolean;
+  onCancelScarce?: () => void;
+  cancelScarcePending?: boolean;
+};
+
+export type PostCardMenuProps = PostCardMenuPostProps & {
+  /** Thread page — enlarge ⋯ “Open post”. */
+  openPostHref?: string;
+  onOpenPost?: () => void;
+  onDownload?: () => void | Promise<void>;
+  onMenuOpen?: () => void;
+  zIndex?: number;
+};
+
+export const PostCardMenu = memo(function PostCardMenu({
   href,
   openPostHref,
   onOpenPost,
@@ -60,20 +76,7 @@ export function PostCardMenu({
   cancelScarcePending = false,
   onMenuOpen,
   zIndex,
-}: {
-  href?: string;
-  /** Thread page — enlarge ⋯ “Open post”. */
-  openPostHref?: string;
-  onOpenPost?: () => void;
-  onDownload?: () => void | Promise<void>;
-  accountId: string;
-  authorProfile?: PostAuthorProfile;
-  canCancelScarce?: boolean;
-  onCancelScarce?: () => void;
-  cancelScarcePending?: boolean;
-  onMenuOpen?: () => void;
-  zIndex?: number;
-}) {
+}: PostCardMenuProps) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { setTxResult } = useAppTransactionFeedback();
   // Arm relationship fetch only after the menu opens — avoids N fetches per feed.
@@ -488,4 +491,4 @@ export function PostCardMenu({
       />
     </>
   );
-}
+});

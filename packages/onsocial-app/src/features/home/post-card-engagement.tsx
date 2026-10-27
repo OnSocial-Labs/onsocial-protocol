@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import {
   BookmarkFillIcon,
@@ -271,7 +271,22 @@ function EngagementStat({
   );
 }
 
-export function PostEngagementRow({
+/** Engagement data + actions every row on the card shares from the shell. */
+export type PostEngagementRowBaseProps = {
+  engagement: PostEngagement;
+  post: PostRow;
+  reactionPending?: boolean;
+  savePending?: boolean;
+  sharePending?: boolean;
+  onReply?: (post: PostRow) => void;
+  onQuote?: (post: PostRow) => void;
+  onRepost?: (post: PostRow) => void;
+  onUndoRepost?: (post: PostRow) => void;
+  onToggleReaction?: (post: PostRow) => void;
+  onToggleSave?: (post: PostRow) => void;
+};
+
+export const PostEngagementRow = memo(function PostEngagementRow({
   engagement,
   shareHref,
   shareTitle,
@@ -287,23 +302,12 @@ export function PostEngagementRow({
   onAmplify,
   shareDrawerZIndex,
   post,
-}: {
-  engagement: PostEngagement;
+}: PostEngagementRowBaseProps & {
   shareHref: string;
   shareTitle?: string | null;
-  reactionPending?: boolean;
-  savePending?: boolean;
-  sharePending?: boolean;
-  onReply?: (post: PostRow) => void;
-  onQuote?: (post: PostRow) => void;
-  onRepost?: (post: PostRow) => void;
-  onUndoRepost?: (post: PostRow) => void;
-  onToggleReaction?: (post: PostRow) => void;
-  onToggleSave?: (post: PostRow) => void;
   onAmplify: () => void;
   /** Quote / repost drawer — raise when this row sits on an OS enlarge. */
   shareDrawerZIndex?: number;
-  post: PostRow;
 }) {
   const [shareOpen, setShareOpen] = useState(false);
   const [likesOpen, setLikesOpen] = useState(false);
@@ -529,4 +533,4 @@ export function PostEngagementRow({
       ) : null}
     </div>
   );
-}
+});

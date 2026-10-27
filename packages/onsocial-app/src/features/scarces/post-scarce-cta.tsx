@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import Link from 'next/link';
 import type { PostScarceEmbed } from '@onsocial/sdk';
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
@@ -16,7 +16,8 @@ import {
   marketCreatorPath,
 } from '@/lib/app-routes';
 
-interface PostScarceCtaProps {
+/** Commerce data + actions every PostScarceCta host wires the same way. */
+export type PostScarceCtaActionProps = {
   embed: PostScarceEmbed;
   /** Hide Buy / Bid when the viewer authored the post. */
   isAuthor?: boolean;
@@ -40,9 +41,12 @@ interface PostScarceCtaProps {
   alreadyOwnsEdition?: boolean;
   onBuy: () => void;
   onBid?: () => void;
+};
+
+export type PostScarceCtaProps = PostScarceCtaActionProps & {
   /** Compact Listen control rendered beside commerce CTAs when playable. */
   listenSlot?: ReactNode;
-}
+};
 
 function primaryMintLive(embed: PostScarceEmbed): boolean {
   if (embed.status === 'lazy_listing' && Boolean(embed.listingId?.trim())) {
@@ -193,7 +197,7 @@ function linksBesideDropAction(
  * One-line commerce CTA under post media / above engagement.
  * Vocabulary: Mint · Buy · Sell · Drop · List (Amplify lives in engagement row).
  */
-export function PostScarceCta({
+export const PostScarceCta = memo(function PostScarceCta({
   embed,
   isAuthor = false,
   authorAccountId,
@@ -546,4 +550,4 @@ export function PostScarceCta({
       <CommerceLinkRow links={links} />
     </div>
   );
-}
+});
