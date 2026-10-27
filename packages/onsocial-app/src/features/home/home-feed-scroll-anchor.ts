@@ -57,6 +57,17 @@ export const DM_ANCHOR_QUERY: FeedAnchorQuery = {
   rowSelectorForKey: (key) => `[data-dm-row-key="${CSS.escape(key)}"]`,
 };
 
+/**
+ * Standing / social rows — every wrapper in ProfileSocialList carries
+ * `[data-standing-key]` (accountId), shared by discover profiles/search,
+ * standing panels, and the recommended peek.
+ */
+export const STANDING_ANCHOR_QUERY: FeedAnchorQuery = {
+  rowSelector: '[data-standing-key]',
+  rowKey: (el) => el.dataset.standingKey,
+  rowSelectorForKey: (key) => `[data-standing-key="${CSS.escape(key)}"]`,
+};
+
 /** First row whose bottom edge is still inside the scroll root. */
 export function captureVisibleFeedAnchor(
   root: HTMLElement | null,
