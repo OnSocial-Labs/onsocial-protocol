@@ -3426,7 +3426,7 @@ a.os-surface-row,
   text-decoration: none;
 }
 
-.post-card-scarce-buy:not(.post-card-scarce-buy--secondary):focus-visible {
+.post-card-scarce-buy:focus-visible {
   outline: 1px solid var(--protocol-green-hover, var(--protocol-green, #00ec97));
   outline-offset: 3px;
 }
@@ -23087,7 +23087,8 @@ a.os-surface-row,
 
   .post-card .post-card-show-more:focus-visible,
   button.post-card-show-more:focus-visible {
-    outline: none;
+    outline: 1px solid currentColor;
+    outline-offset: 2px;
   }
 
   /*
@@ -24489,10 +24490,6 @@ a.os-surface-row,
 
   .post-card-scarce-buy:disabled .post-card-scarce-buy-main {
     color: rgb(var(--fg-rgb) / 0.26);
-  }
-
-  .post-card-scarce-buy:focus-visible {
-    outline: none;
   }
 
   /*
@@ -32523,7 +32520,8 @@ a.os-surface-row,
   }
 
   .feed-photo-caption-body:focus-visible {
-    outline: none;
+    outline: 2px solid rgb(var(--fg-rgb) / 0.28);
+    outline-offset: 2px;
   }
 
   .feed-photo-caption-identity {
@@ -33748,7 +33746,8 @@ a.os-surface-row,
   }
 
   .drop-schedule-cell-main:focus-visible {
-    outline: none;
+    outline: 2px solid rgb(var(--fg-rgb) / 0.28);
+    outline-offset: 2px;
   }
 
   .drop-schedule-cell-label {
@@ -38097,7 +38096,8 @@ a.os-surface-row,
   }
 
   .post-thread-more:focus-visible {
-    outline: none;
+    outline: 1px solid currentColor;
+    outline-offset: 2px;
   }
 
   /* Spring coil rail — CSS mask (white stroke, alpha). No SVG ids / patterns. */
@@ -38716,7 +38716,8 @@ a.os-surface-row,
   .os-mention:focus-visible,
   .os-ticker:focus-visible,
   .os-link:focus-visible {
-    outline: none;
+    outline: 1px solid currentColor;
+    outline-offset: 1px;
   }
 
   .os-link-icon {
