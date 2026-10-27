@@ -33742,41 +33742,6 @@ a.os-surface-row,
     cursor: default;
   }
 
-  .drop-collage-overlay-step {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 9999px;
-    background: transparent;
-    color: inherit;
-    font-size: 0.95rem;
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  .drop-collage-overlay-step:hover:not(:disabled),
-  .drop-collage-overlay-step:focus-visible:not(:disabled) {
-    background: rgb(var(--fg-rgb) / 0.1);
-    color: var(--os-surface-emphasis);
-    outline: none;
-  }
-
-  .drop-collage-overlay-step:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-    cursor: default;
-  }
-
-  .drop-collage-overlay-value {
-    min-width: 2.75rem;
-    max-width: 5.5rem;
-  }
-
   .scarce-traits {
     display: flex;
     flex-wrap: wrap;
@@ -36990,12 +36955,6 @@ a.os-surface-row,
     padding-bottom: 0.45rem;
   }
 
-  .guild-settings-sheet-list .os-surface-row:disabled {
-    cursor: default;
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-  }
-
   .guild-edit-sheet-footer {
     padding: 0.5rem max(1rem, env(safe-area-inset-right, 0px))
       calc(0.35rem + env(safe-area-inset-bottom, 0px))
@@ -39560,56 +39519,6 @@ a.os-surface-row,
   /* Compact Join / Connect opposite the thread title. */
   .guild-thread-nav-membership {
     flex-shrink: 0;
-  }
-
-  /* Destination whisper lives under the title; spaces use .guild-composer-mode chips. */
-
-  /* Compact chips — same language as All / General (no full-width dark track). */
-  .guild-composer-mode {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 0.3rem;
-    padding: 0;
-    border-radius: 0;
-    background: transparent;
-  }
-
-  .guild-composer-mode button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 1.85rem;
-    border: 0;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.05);
-    color: rgb(var(--fg-rgb) / 0.58);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    padding: 0.32rem 0.72rem;
-    transition:
-      background 160ms ease,
-      color 160ms ease;
-  }
-
-  .guild-composer-mode button:hover,
-  .guild-composer-mode button:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.08);
-    color: rgb(var(--fg-rgb) / 0.82);
-    outline: none;
-  }
-
-  .guild-composer-mode button.is-active {
-    background: rgb(var(--fg-rgb) / 0.1);
-    color: rgb(var(--fg-rgb) / 0.92);
-  }
-
-  .guild-composer-mode button:disabled {
-    cursor: default;
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
   }
 
   .guild-connected-stack {
