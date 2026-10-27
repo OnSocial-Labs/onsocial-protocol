@@ -71,7 +71,14 @@ function endorsementUrlLooksLikeVideo(url: string): boolean {
 export function endorsementStageMedia(input: {
   media?: unknown;
   mediaUrl?: string | null;
-}): { url: string; mime: string; cid?: string; alt?: string } | null {
+}): {
+  url: string;
+  mime: string;
+  cid?: string;
+  alt?: string;
+  width?: number;
+  height?: number;
+} | null {
   const url = resolveEndorsementDisplayMediaUrl(input);
   if (!url) return null;
   const media = parseEndorsementMediaRef(input.media);
@@ -84,6 +91,16 @@ export function endorsementStageMedia(input: {
     mime: resolvedMime,
     ...(media?.cid ? { cid: media.cid } : {}),
     ...(alt ? { alt } : {}),
+    ...(typeof media?.width === 'number' &&
+    Number.isFinite(media.width) &&
+    media.width > 0
+      ? { width: media.width }
+      : {}),
+    ...(typeof media?.height === 'number' &&
+    Number.isFinite(media.height) &&
+    media.height > 0
+      ? { height: media.height }
+      : {}),
   };
 }
 

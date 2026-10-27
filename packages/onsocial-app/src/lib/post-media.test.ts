@@ -12,6 +12,7 @@ import {
   isPostVideoMime,
   mediaKindFromFile,
   parsePostMedia,
+  postMediaItemRatio,
   postMediaStripClassName,
   postStillImageIndex,
   postStillImages,
@@ -78,6 +79,65 @@ describe('parsePostMedia', () => {
       mime: 'image/png',
     }));
     expect(parsePostMedia(JSON.stringify({ media }))).toHaveLength(4);
+  });
+
+  it('carries persisted width/height hints through to items', () => {
+    const items = parsePostMedia(
+      JSON.stringify({
+        media: [
+          {
+            cid: 'bafyimg',
+            mime: 'image/jpeg',
+            size: 10,
+            width: 3000,
+            height: 2000,
+          },
+          { cid: 'bafyvid', mime: 'video/mp4', width: 1080, height: 1920 },
+        ],
+      })
+    );
+    expect(items[0]).toMatchObject({ width: 3000, height: 2000 });
+    expect(items[1]).toMatchObject({ width: 1080, height: 1920 });
+  });
+
+  it('drops non-positive or non-numeric hints per field', () => {
+    const items = parsePostMedia(
+      JSON.stringify({
+        media: [
+          { cid: 'a', mime: 'image/jpeg', width: 0, height: 2000 },
+          { cid: 'b', mime: 'image/jpeg', width: 3000, height: -4 },
+          { cid: 'c', mime: 'image/jpeg', width: '3000', height: null },
+          { cid: 'd', mime: 'image/jpeg' },
+        ],
+      })
+    );
+    // Each field passes through independently — the ratio helper guards pairs.
+    expect(items[0]).toMatchObject({ height: 2000 });
+    expect(items[0]?.width).toBeUndefined();
+    expect(items[1]).toMatchObject({ width: 3000 });
+    expect(items[1]?.height).toBeUndefined();
+    expect(items[2]?.width).toBeUndefined();
+    expect(items[2]?.height).toBeUndefined();
+    expect(items[3]?.width).toBeUndefined();
+    expect(items[3]?.height).toBeUndefined();
+  });
+});
+
+describe('postMediaItemRatio', () => {
+  it('returns width/height for hinted items', () => {
+    expect(postMediaItemRatio({ width: 3000, height: 2000 })).toBe(1.5);
+    expect(postMediaItemRatio({ width: 1080, height: 1920 })).toBeCloseTo(
+      0.5625
+    );
+  });
+
+  it('returns null for missing or invalid hints', () => {
+    expect(postMediaItemRatio({})).toBeNull();
+    expect(postMediaItemRatio({ width: 0, height: 10 })).toBeNull();
+    expect(postMediaItemRatio({ width: 10, height: Number.NaN })).toBeNull();
+    expect(
+      postMediaItemRatio({ width: Number.POSITIVE_INFINITY, height: 10 })
+    ).toBeNull();
   });
 });
 

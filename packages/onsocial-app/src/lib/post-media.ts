@@ -25,6 +25,27 @@ export interface PostMediaItem {
   mime: string;
   cid?: string;
   alt?: string;
+  /** Intrinsic pixel size when the uploader persisted renderer hints. */
+  width?: number;
+  height?: number;
+}
+
+/** Intrinsic width/height ratio from persisted hints, when present + sane. */
+export function postMediaItemRatio(
+  item: Pick<PostMediaItem, 'width' | 'height'>
+): number | null {
+  const { width, height } = item;
+  if (
+    typeof width !== 'number' ||
+    typeof height !== 'number' ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0
+  ) {
+    return null;
+  }
+  return width / height;
 }
 
 export function isPostImageMime(mime: string | null | undefined): boolean {
@@ -273,6 +294,16 @@ export function parsePostMedia(
       mime: ref.mime,
       cid: ref.cid === 'preview' ? undefined : ref.cid,
       alt: ref.alt,
+      ...(typeof ref.width === 'number' &&
+      Number.isFinite(ref.width) &&
+      ref.width > 0
+        ? { width: ref.width }
+        : {}),
+      ...(typeof ref.height === 'number' &&
+      Number.isFinite(ref.height) &&
+      ref.height > 0
+        ? { height: ref.height }
+        : {}),
     });
     if (items.length >= POST_MEDIA_MAX_FILES) break;
   }

@@ -17,6 +17,7 @@ import {
   collageCellStyle,
   collageHero,
   isRenderablePostVideoMime,
+  postMediaItemRatio,
   postMediaStripClassName,
 } from '@/lib/post-media';
 
@@ -92,6 +93,12 @@ interface PostMediaBlockProps {
   onRatio?: (ratio: number) => void;
   /** `sizes` paired with the CDN variant srcSet for this tile's slot. */
   imgSizes?: string;
+  /**
+   * Reserve the intrinsic box from upload-persisted width/height hints so
+   * intrinsically-sized tiles (page / focused / quote singles) do not shift
+   * layout when the file arrives. No hint → no reservation (legacy posts).
+   */
+  reserveRatio?: boolean;
 }
 
 /**
@@ -113,6 +120,7 @@ export function PostMediaBlock({
   style,
   onRatio,
   imgSizes,
+  reserveRatio = false,
 }: PostMediaBlockProps) {
   const isVideo = isRenderablePostVideoMime(item.mime);
   const playbackMode: PostVideoPlaybackMode =
@@ -159,6 +167,14 @@ export function PostMediaBlock({
   ]
     .filter(Boolean)
     .join(' ');
+  const hintRatio = postMediaItemRatio(item);
+  const tileStyle =
+    reserveRatio && hintRatio != null
+      ? ({
+          ...style,
+          aspectRatio: `${Math.round(item.width!)} / ${Math.round(item.height!)}`,
+        } satisfies CSSProperties)
+      : style;
   const handleActivate = (event: {
     preventDefault(): void;
     stopPropagation(): void;
@@ -276,7 +292,7 @@ export function PostMediaBlock({
     return (
       <button
         type="button"
-        style={style}
+        style={tileStyle}
         className={tileClassName}
         aria-label={activateLabel}
         onClick={handleActivate}
@@ -290,7 +306,7 @@ export function PostMediaBlock({
   return (
     <div
       ref={playbackMode ? containerRef : undefined}
-      style={style}
+      style={tileStyle}
       className={tileClassName}
       onClick={isActivatable ? handleActivate : undefined}
       onPointerDown={
@@ -338,9 +354,11 @@ export function PostMediaStrip({
       current[url] === ratio ? current : { ...current, [url]: ratio }
     );
   }, []);
+  // Measured ratios win; upload-persisted hints seed the 3-up layout so the
+  // hero lands on the right cell on first paint instead of flashing over.
   const hero = collageHero(
     visible.length,
-    visible.map((item) => ratios[item.url] ?? null)
+    visible.map((item) => ratios[item.url] ?? postMediaItemRatio(item))
   );
 
   useEffect(() => {
@@ -388,6 +406,10 @@ export function PostMediaStrip({
             visible.length > 1 &&
               !(hero?.mode === 'wide' && hero.index === index)
           )}
+          reserveRatio={
+            visible.length === 1 &&
+            (size === 'page' || size === 'quote' || focused)
+          }
         />
       ))}
     </div>
