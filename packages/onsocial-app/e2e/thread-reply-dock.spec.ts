@@ -207,6 +207,48 @@ async function openThreadDrawer(page: Page) {
  * the write dock at that reply (chip + focus) without losing the feed behind it.
  */
 test.describe('thread reply dock', () => {
+  test('dock crossfades faces on feed reply open and cancel', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await seedE2eMockSigner(page, 'dave.near', { succeed: true });
+    await stubThreadGraph(page);
+    await gotoApp(page, '/home');
+    await dismissNextDevOverlay(page);
+    const globalTab = page.getByRole('tab', { name: 'Global' });
+    if ((await globalTab.count()) > 0) {
+      await globalTab.click();
+    }
+    const feed = page.locator('.home-feed-list');
+    await expect(feed).toContainText('Root post');
+
+    // Arm before the tap — the outgoing rest face rides a 200ms overlay while
+    // the write bar fades in.
+    const overlay = page.locator('.os-dock-pill-swap-out');
+    const overlaySeen = overlay
+      .waitFor({ state: 'visible', timeout: 15_000 })
+      .then(() => true, () => false);
+    await feed.getByRole('button', { name: 'Reply to this post' }).first().click();
+    expect(await overlaySeen).toBe(true);
+
+    // Overlay unmounts after the swap; the write bar + reply chip stay.
+    await expect(overlay).toHaveCount(0, { timeout: 5_000 });
+    const chip = page.locator('.os-write-dock-reply');
+    await expect(chip).toBeVisible({ timeout: 10_000 });
+    await expect(chip).toContainText('Alice');
+
+    // Cancel — the rest face fades back in without an outgoing overlay.
+    const crossfading = page.locator('.os-dock-pill.is-crossfading');
+    const refaded = crossfading
+      .waitFor({ state: 'visible', timeout: 15_000 })
+      .then(() => true, () => false);
+    await page.getByRole('button', { name: 'Cancel reply' }).click();
+    expect(await refaded).toBe(true);
+    await expect(overlay).toHaveCount(0);
+    await expect(chip).toHaveCount(0);
+    await expect(crossfading).toHaveCount(0, { timeout: 5_000 });
+  });
+
   test('drawer opens with replies, reply Reply focuses dock with chip', async ({
     page,
   }) => {
