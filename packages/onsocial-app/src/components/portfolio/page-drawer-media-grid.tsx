@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { PostRow } from '@onsocial/sdk';
 import { VideoPlayerIcon } from '@onsocial/ui';
+import { CatalogCoverImage } from '@/components/ui/catalog-thumb-image';
 import { parseArticleSnapshot } from '@/lib/article-post-payload';
 import { writingArticlePath } from '@/lib/overlay-routes';
 import {
@@ -90,7 +91,7 @@ function CoverMedia({ cover }: { cover: ProfileMediaCover }) {
       />
     );
   }
-  return <img src={cover.coverUrl} alt="" />;
+  return <CatalogCoverImage src={cover.coverUrl} />;
 }
 
 /** Profile Media tab — cover cards. The link opens the post. */

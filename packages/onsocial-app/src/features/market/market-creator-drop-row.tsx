@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import {
   marketCreatorDropMetaBits,
   marketCreatorDropMintable,
@@ -45,9 +46,8 @@ export function MarketCreatorDropRow({
           aria-hidden
         >
           {showThumb ? (
-            <img
+            <CatalogThumbImage
               src={drop.mediaUrl!}
-              alt=""
               onError={() => setBrokenMediaUrl(drop.mediaUrl ?? null)}
             />
           ) : (

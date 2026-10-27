@@ -13,6 +13,7 @@ import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stac
 import { DropFansButton } from '@/components/drops/drop-row-fans';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
+import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
@@ -303,7 +304,7 @@ function DropRow({
     item.mediaUrl ? ' has-media' : ''
   }`;
   const thumb = item.mediaUrl ? (
-    <img src={item.mediaUrl} alt="" />
+    <CatalogThumbImage src={item.mediaUrl} />
   ) : (
     <span className="market-listing-thumb-fallback" />
   );

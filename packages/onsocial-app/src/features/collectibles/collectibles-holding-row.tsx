@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
+import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
@@ -63,9 +64,11 @@ type HoldingSalePeek = Pick<
 >;
 
 /** How many folded copies are on sale, and whether they share one ask. */
-export function collectiblesFoldedSale(
-  editions: readonly HoldingSalePeek[]
-): { listedCount: number; ask: string | null; allAuction: boolean } {
+export function collectiblesFoldedSale(editions: readonly HoldingSalePeek[]): {
+  listedCount: number;
+  ask: string | null;
+  allAuction: boolean;
+} {
   const listed = editions.filter((entry) => entry.listingKind != null);
   const asks = new Set(
     listed.map((entry) => collectiblesHoldingAsk(entry) ?? '')
@@ -158,9 +161,8 @@ export function CollectiblesHoldingRow({
         aria-hidden
       >
         {showThumb ? (
-          <img
+          <CatalogThumbImage
             src={item.mediaUrl!}
-            alt=""
             onError={() => setBrokenMediaUrl(item.mediaUrl ?? null)}
           />
         ) : (

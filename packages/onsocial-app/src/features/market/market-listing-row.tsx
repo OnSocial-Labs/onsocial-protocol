@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
+import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import {
   marketListingRowKey,
   formatMarketRelativeTime,
@@ -180,7 +181,7 @@ export function MarketListingRow({
 
   const thumbClass = `market-listing-thumb${item.mediaUrl ? ' has-media' : ''}`;
   const thumbArt = item.mediaUrl ? (
-    <img src={item.mediaUrl} alt="" />
+    <CatalogThumbImage src={item.mediaUrl} />
   ) : (
     <span className="market-listing-thumb-fallback" aria-hidden />
   );

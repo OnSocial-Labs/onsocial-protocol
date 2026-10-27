@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
+import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import { MarketListingRowMenu } from '@/features/market/market-listing-row-menu';
 import {
   collectionIdFromTokenId,
@@ -94,7 +95,7 @@ export function MarketSaleRow({
   const title = sale.title.trim() || 'Scarce';
   const thumbClass = `market-listing-thumb${sale.mediaUrl ? ' has-media' : ''}`;
   const thumbArt = sale.mediaUrl ? (
-    <img src={sale.mediaUrl} alt="" />
+    <CatalogThumbImage src={sale.mediaUrl} />
   ) : (
     <span className="market-listing-thumb-fallback" aria-hidden />
   );

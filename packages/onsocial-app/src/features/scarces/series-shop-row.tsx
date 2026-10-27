@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import {
   collectionStatusLabel,
   deriveCollectionStatus,
@@ -73,9 +74,8 @@ export function SeriesShopRow({
           aria-hidden
         >
           {showThumb ? (
-            <img
+            <CatalogThumbImage
               src={view.mediaUrl!}
-              alt=""
               onError={() => setBrokenMediaUrl(view.mediaUrl ?? null)}
             />
           ) : (

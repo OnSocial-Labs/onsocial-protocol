@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { DropFansButton } from '@/components/drops/drop-row-fans';
+import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { DropsDiscoveryRowMenu } from '@/features/drops/drops-discovery-row-menu';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
@@ -110,7 +111,7 @@ export function PortfolioDropRow({
         }
       >
         {drop.mediaUrl ? (
-          <img src={drop.mediaUrl} alt="" />
+          <CatalogThumbImage src={drop.mediaUrl} />
         ) : (
           <span className="market-listing-thumb-fallback" aria-hidden />
         )}

@@ -1,6 +1,7 @@
 'use client';
 
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import { offerListClock } from '@/features/scarces/scarce-offers';
 import { socialTimeProps } from '@/lib/post-display';
 
@@ -41,7 +42,7 @@ export function MarketOfferRow({
         aria-hidden
       >
         {mediaUrl ? (
-          <img src={mediaUrl} alt="" />
+          <CatalogThumbImage src={mediaUrl} />
         ) : (
           <span className="market-listing-thumb-fallback" />
         )}

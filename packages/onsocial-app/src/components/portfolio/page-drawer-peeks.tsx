@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { CatalogCoverImage } from '@/components/ui/catalog-thumb-image';
 import { type ProfileCreatedPeek } from '@/lib/fetch-profile-peeks';
 import { QuantityCount } from '@/features/scarces/quantity-count';
 import {
@@ -19,7 +20,10 @@ export function PageDrawerHoldingsRail({
   }
 
   return (
-    <div className="page-drawer-media-rail os-scrollbar-none" aria-label="Collectibles">
+    <div
+      className="page-drawer-media-rail os-scrollbar-none"
+      aria-label="Collectibles"
+    >
       {groupHoldingsForRail(holdings).map((item) => (
         <Link
           key={item.tokenId}
@@ -32,7 +36,7 @@ export function PageDrawerHoldingsRail({
             className={`page-drawer-media-cover${item.mediaUrl ? ' has-media' : ''}`}
             aria-hidden
           >
-            {item.mediaUrl ? <img src={item.mediaUrl} alt="" /> : null}
+            {item.mediaUrl ? <CatalogCoverImage src={item.mediaUrl} /> : null}
           </span>
           <span className="page-drawer-media-body">
             <span className="page-drawer-media-title">{item.title}</span>
@@ -63,7 +67,10 @@ export function PageDrawerCreatedRail({
   }
 
   return (
-    <div className="page-drawer-media-rail os-scrollbar-none" aria-label="Created scarces">
+    <div
+      className="page-drawer-media-rail os-scrollbar-none"
+      aria-label="Created scarces"
+    >
       {created.map((item) => {
         const titleHint = item.kindLabel
           ? `${item.title} · ${item.kindLabel}`
@@ -80,13 +87,15 @@ export function PageDrawerCreatedRail({
               className={`page-drawer-media-cover${item.mediaUrl ? ' has-media' : ''}`}
               aria-hidden
             >
-              {item.mediaUrl ? <img src={item.mediaUrl} alt="" /> : null}
+              {item.mediaUrl ? <CatalogCoverImage src={item.mediaUrl} /> : null}
             </span>
             <span className="page-drawer-media-body">
               <span className="page-drawer-media-title">{item.title}</span>
               <span className="page-drawer-media-meta">
                 {item.kindLabel ? (
-                  <span className="page-drawer-media-kind">{item.kindLabel}</span>
+                  <span className="page-drawer-media-kind">
+                    {item.kindLabel}
+                  </span>
                 ) : null}
               </span>
             </span>

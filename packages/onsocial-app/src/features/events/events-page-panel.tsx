@@ -25,6 +25,7 @@ import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search'
 import { useSearchDraft } from '@/hooks/use-search-draft';
 import { OsChipRail } from '@/components/os/os-chip-rail';
 import { ActionDrawer } from '@/components/ui/action-drawer';
+import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { ListLoadError } from '@/components/panels/list-load-error';
@@ -161,7 +162,7 @@ function EventRow({
         aria-hidden
       >
         {item.mediaUrl ? (
-          <img src={item.mediaUrl} alt="" />
+          <CatalogThumbImage src={item.mediaUrl} />
         ) : (
           <span className="market-listing-thumb-fallback" />
         )}

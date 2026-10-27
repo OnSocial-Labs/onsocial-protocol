@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
+import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import {
   marketPostLayerLinkHandlers,
   useMarketPostLayer,
@@ -180,9 +181,8 @@ export function MarketOwnedRow({
   };
 
   const thumb = showThumb ? (
-    <img
+    <CatalogThumbImage
       src={item.mediaUrl!}
-      alt=""
       onError={() => setBrokenMediaUrl(item.mediaUrl ?? null)}
     />
   ) : (

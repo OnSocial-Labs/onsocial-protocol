@@ -23,6 +23,7 @@ import {
   osIconActionGlyphClassName,
 } from '@onsocial/ui';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
+import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -77,7 +78,9 @@ interface PortfolioListingActionsSheetProps {
   onActionsChanged?: () => void;
 }
 
-function bidListingFromAction(item: ListingActionItem): ScarceBidListing | null {
+function bidListingFromAction(
+  item: ListingActionItem
+): ScarceBidListing | null {
   if (!item.tokenId || !listingActionOpensBidSheet(item.kind)) return null;
   const postHref = postHrefFromSourcePath(item.sourcePostPath);
   return {
@@ -94,7 +97,9 @@ function bidListingFromAction(item: ListingActionItem): ScarceBidListing | null 
   };
 }
 
-function buyListingFromAction(item: ListingActionItem): ScarceBuyListing | null {
+function buyListingFromAction(
+  item: ListingActionItem
+): ScarceBuyListing | null {
   if (!listingActionOpensBuySheet(item.kind)) return null;
   const postHref = postHrefFromSourcePath(item.sourcePostPath);
   const collectionId = item.tokenId
@@ -138,7 +143,9 @@ function buyListingFromAction(item: ListingActionItem): ScarceBuyListing | null 
   return null;
 }
 
-function ownedScarceFromAction(item: ListingActionItem): OwnedScarceItem | null {
+function ownedScarceFromAction(
+  item: ListingActionItem
+): OwnedScarceItem | null {
   const tokenId = item.tokenId?.trim();
   if (!tokenId || !listingActionHasOffers(item)) return null;
   const collectionId = collectionIdFromTokenId(tokenId);
@@ -198,7 +205,7 @@ function ActionRow({
         aria-hidden
       >
         {item.mediaUrl ? (
-          <img src={item.mediaUrl} alt="" />
+          <CatalogThumbImage src={item.mediaUrl} />
         ) : (
           <span className="market-listing-thumb-fallback" />
         )}
@@ -206,7 +213,9 @@ function ActionRow({
       <div className="standing-row-copy portfolio-listing-action-copy">
         <span className="standing-row-name">{item.title}</span>
         {meta ? (
-          <span className="portfolio-support-collect-info-row-kind">{meta}</span>
+          <span className="portfolio-support-collect-info-row-kind">
+            {meta}
+          </span>
         ) : null}
         {seller ? (
           <span className="standing-row-handle portfolio-listing-action-seller">
@@ -380,9 +389,7 @@ export function PortfolioListingActionsSheet({
     const cached =
       cacheRef.current?.accountId === accountId ? cacheRef.current : null;
     const warm = seed ?? cached?.items ?? null;
-    const warmAt = seed
-      ? initialFetchedAt
-      : (cached?.fetchedAt ?? 0);
+    const warmAt = seed ? initialFetchedAt : (cached?.fetchedAt ?? 0);
     if (warm) {
       setItems(warm);
       if (seed) {
@@ -543,13 +550,7 @@ export function PortfolioListingActionsSheet({
         setPendingId(null);
       }
     },
-    [
-      getSigningWallet,
-      pendingId,
-      removeAction,
-      setTxResult,
-      trackTransaction,
-    ]
+    [getSigningWallet, pendingId, removeAction, setTxResult, trackTransaction]
   );
 
   const sections = items ? groupItems(items) : [];

@@ -8,6 +8,7 @@ import {
   OsSheetActions,
   OsSheetFooter,
 } from '@onsocial/ui';
+import { CatalogThumbImage } from '@/components/ui/catalog-thumb-image';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { nearExplorerTxHref } from '@/lib/app-config';
 import { SHEET_Z } from '@/lib/sheet-z';
@@ -245,7 +246,7 @@ function PinCover({ mediaUrl }: { mediaUrl?: string | null }) {
   return (
     <span className="market-listing-thumb" aria-hidden>
       {mediaUrl ? (
-        <img src={mediaUrl} alt="" />
+        <CatalogThumbImage src={mediaUrl} />
       ) : (
         <span className="market-listing-thumb-fallback" />
       )}
