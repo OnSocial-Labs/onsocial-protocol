@@ -49,6 +49,15 @@ import {
 import { guildPostPath } from '@/features/guilds/guilds-data';
 import { POST_REACH_TITLE } from '@/lib/post-reach-title';
 import { isOsMediaFaceOpen, nextPostLayerZIndex, SHEET_Z } from '@/lib/sheet-z';
+import {
+  appendTrailEntry,
+  collapseTrailToTop,
+  isReaderLayerKind,
+  isSameReaderTarget,
+  replaceStackWith,
+  retabTopQuotes,
+  walkBackOneStep,
+} from './post-thread-stack';
 
 const LivePersonalPostPanel = dynamic(
   () =>
@@ -672,17 +681,12 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
 
   const closePostThread = useCallback(() => {
     const current = stackRef.current;
-    const top = current[current.length - 1];
-    // Header back walks one step: a reply, then quotes, then the post.
     // The sheet stays up until the last step.
-    if (
-      current.length > 1 &&
-      (top?.kind === 'post' || top?.kind === 'quotes')
-    ) {
-      const next = current.slice(0, -1);
-      const prev = next[next.length - 1];
-      stackRef.current = next;
-      setStack(next);
+    const walked = walkBackOneStep(current);
+    if (walked) {
+      const prev = walked[walked.length - 1];
+      stackRef.current = walked;
+      setStack(walked);
       if (prev) syncOverlayUrl(placeLayerHref(prev));
       return;
     }
@@ -749,12 +753,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       }
 
       const top = stackRef.current[stackRef.current.length - 1];
-      if (
-        top?.kind === 'post' &&
-        (top.groupId ?? null) === parsed.groupId &&
-        accountIdsEqual(top.accountId, parsed.accountId) &&
-        top.postId === parsed.postId
-      ) {
+      if (top && isSameReaderTarget(top, { kind: 'post', ...parsed })) {
         return true;
       }
 
@@ -771,7 +770,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           root,
           zIndex: stackRef.current[0]?.zIndex ?? SHEET_Z.overlayHost,
         };
-        const trail = [...stackRef.current, next];
+        const trail = appendTrailEntry(stackRef.current, next);
         closingIdRef.current = null;
         setClosingId(null);
         stackRef.current = trail;
@@ -850,18 +849,9 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       );
 
       const top = stackRef.current[stackRef.current.length - 1];
-      if (
-        top?.kind === 'quotes' &&
-        (top.groupId ?? null) === parsed.groupId &&
-        accountIdsEqual(top.accountId, parsed.accountId) &&
-        top.postId === parsed.postId
-      ) {
-        if (top.tab !== tab) {
-          const trail = stackRef.current.map((item, index) =>
-            index === stackRef.current.length - 1 && item.kind === 'quotes'
-              ? { ...item, tab }
-              : item
-          );
+      if (top && isSameReaderTarget(top, { kind: 'quotes', ...parsed })) {
+        if (top.kind === 'quotes' && top.tab !== tab) {
+          const trail = retabTopQuotes(stackRef.current, tab);
           stackRef.current = trail;
           setStack(trail);
           if (typeof window !== 'undefined') {
@@ -886,7 +876,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       };
 
       if (stackRef.current.length > 0) {
-        const trail = [...stackRef.current, next];
+        const trail = appendTrailEntry(stackRef.current, next);
         closingIdRef.current = null;
         setClosingId(null);
         stackRef.current = trail;
@@ -953,10 +943,11 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           collectionId: parsed.collectionId,
           zIndex: stackRef.current[0]?.zIndex ?? SHEET_Z.overlayHost,
         };
+        const replacement = replaceStackWith(next);
         closingIdRef.current = null;
         setClosingId(null);
-        stackRef.current = [next];
-        setStack([next]);
+        stackRef.current = replacement;
+        setStack(replacement);
         if (typeof window === 'undefined') return true;
         getPostLayerPopGuard().depth = 1;
         const currentUrl = `${window.location.pathname}${window.location.search}`;
@@ -1007,8 +998,9 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       if (!top) return;
       // This history entry is the reader. Leaving it drops the reply trail.
       if (stackRef.current.length > 1) {
-        stackRef.current = [top];
-        setStack([top]);
+        const collapsed = collapseTrailToTop(stackRef.current);
+        stackRef.current = collapsed;
+        setStack(collapsed);
       }
       beginCloseTop();
     };
@@ -1060,7 +1052,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     if (profileHop || stack.length === 0 || pathname !== underlayPath) return;
     if (typeof window === 'undefined' || historyHasPostLayer()) return;
     const top = stack[stack.length - 1];
-    if (!top || (top.kind !== 'post' && top.kind !== 'quotes')) return;
+    if (!top || !isReaderLayerKind(top.kind)) return;
     nativeHistoryPushState(withPostLayerHistoryState(), placeLayerHref(top));
     getPostLayerPopGuard().depth = 1;
   }, [pathname, profileHop, stack, underlayPath]);
