@@ -101,9 +101,12 @@ import { readGuildMembershipCache } from '@/lib/guild-membership-cache';
 import {
   buildReplyRows,
   flattenTreePosts,
+  threadReplyRowKey,
   withoutIndexedPosts,
   type ThreadReplyRow,
 } from '@/lib/thread-display';
+import { useFeedWindow } from '@/features/home/use-feed-window';
+import { THREAD_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import { resolveThreadFoldLabel } from '@/lib/thread-fold-label';
 import {
   applyMediaKindOverride,
@@ -379,6 +382,41 @@ export function LiveGuildPostPanel({
     () => sortThreadReplyRows(replyRows, replySort, engagement),
     [replyRows, replySort, engagement]
   );
+
+  /*
+   * Reply windowing — same integration as the personal thread panel: past
+   * the row threshold, far rows collapse into spacers; the deep-link focus
+   * target stays pinned mounted while its retry loop looks for it.
+   */
+  const replyRowKeys = useMemo(
+    () => sortedReplyRows.map(threadReplyRowKey),
+    [sortedReplyRows]
+  );
+  const replyStackRef = useRef<HTMLDivElement | null>(null);
+  const focusPinKey = useMemo(() => {
+    const pending = threadFocus.pendingPostId;
+    if (!pending) return null;
+    for (let index = 0; index < sortedReplyRows.length; index += 1) {
+      const row = sortedReplyRows[index]!;
+      if (row.kind === 'post' && row.post.postId === pending) {
+        return replyRowKeys[index]!;
+      }
+    }
+    return null;
+  }, [sortedReplyRows, replyRowKeys, threadFocus.pendingPostId]);
+  const {
+    windowed: replyWindowed,
+    start: replyWindowStart,
+    end: replyWindowEnd,
+    topSpacer: replyTopSpacer,
+    bottomSpacer: replyBottomSpacer,
+    registerRow: registerReplyRow,
+  } = useFeedWindow({
+    keys: replyRowKeys,
+    hostRef: replyStackRef,
+    pinnedKey: focusPinKey,
+    anchorQuery: THREAD_ANCHOR_QUERY,
+  });
 
   useEffect(() => {
     if (!mediaUnmuted) return;
@@ -853,17 +891,19 @@ export function LiveGuildPostPanel({
         (row.hiddenCount === 1
           ? 'Show 1 more reply'
           : `Show ${row.hiddenCount} more replies`);
+      const foldKey = threadReplyRowKey(row);
       return (
-        <ThreadFoldButton
-          key={`more-${row.branchKey}`}
-          onClick={() =>
-            setExpandedBranches((current) =>
-              new Set(current).add(row.branchKey)
-            )
-          }
-        >
-          {foldLabel}
-        </ThreadFoldButton>
+        <div key={foldKey} ref={registerReplyRow(foldKey)}>
+          <ThreadFoldButton
+            onClick={() =>
+              setExpandedBranches((current) =>
+                new Set(current).add(row.branchKey)
+              )
+            }
+          >
+            {foldLabel}
+          </ThreadFoldButton>
+        </div>
       );
     }
 
@@ -885,8 +925,9 @@ export function LiveGuildPostPanel({
       .filter(Boolean)
       .join(' ');
 
+    const rowKey = threadReplyRowKey(row);
     return (
-      <div key={postKey(row.post)}>
+      <div key={rowKey} ref={registerReplyRow(rowKey)}>
         {index > 0 && !row.connectedToPrevious ? (
           <Divider variant="item" className="post-row-divider" />
         ) : null}
@@ -1118,14 +1159,21 @@ export function LiveGuildPostPanel({
               </div>
             ) : null}
 
-            <div className="guild-connected-stack">
+            <div className="guild-connected-stack" ref={replyStackRef}>
               {joinControl && replyListRows.length === 0 && !shareRow ? (
                 <div className="guild-thread-join-dock is-with-post">
                   {joinControl}
                 </div>
               ) : null}
+              {replyWindowed && replyTopSpacer > 0 ? (
+                <div
+                  style={{ height: replyTopSpacer }}
+                  aria-hidden="true"
+                  data-feed-window-spacer="top"
+                />
+              ) : null}
               {replyListRows.length > 0 ? (
-                replyListRows
+                replyListRows.slice(replyWindowStart, replyWindowEnd)
               ) : !shareRow ? (
                 <ThreadDiscoverPeek
                   author={author}
@@ -1137,6 +1185,13 @@ export function LiveGuildPostPanel({
                   onRepost={repostHandler}
                   onUndoRepost={undoRepostHandler}
                   onAmplifyConfirmed={confirmAmplify}
+                />
+              ) : null}
+              {replyWindowed && replyBottomSpacer > 0 ? (
+                <div
+                  style={{ height: replyBottomSpacer }}
+                  aria-hidden="true"
+                  data-feed-window-spacer="bottom"
                 />
               ) : null}
 
