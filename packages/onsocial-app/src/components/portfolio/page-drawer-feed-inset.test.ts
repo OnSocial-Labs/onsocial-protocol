@@ -71,8 +71,10 @@ describe('page drawer feed inset', () => {
   });
 
   it('uses dock clearance for keep-dock sheet bodies', () => {
+    // Selector may head a shared rule (consolidated identical blocks):
+    // assert it participates in a rule that applies the dock clearance.
     expect(globalsCss).toMatch(
-      /\.glass-sheet-root\[data-keep-dock='true'\] \.glass-sheet-body \{[\s\S]*?padding-bottom: var\(--portfolio-dock-clearance, 4\.75rem\);/
+      /\.glass-sheet-root\[data-keep-dock='true'\] \.glass-sheet-body(?=[^{}]*\{[^}]*?padding-bottom: var\(--portfolio-dock-clearance, 4\.75rem\);)/
     );
     expect(globalsCss).toMatch(
       /\.glass-sheet-root\[data-keep-dock='true'\] \.dao-proposals-page \.dao-workspace \{[\s\S]*?padding-bottom: calc\(1\.25rem \+ var\(--portfolio-dock-clearance, 4\.75rem\)\);/

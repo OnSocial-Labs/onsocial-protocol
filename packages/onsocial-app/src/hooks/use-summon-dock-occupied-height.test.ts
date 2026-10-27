@@ -23,8 +23,10 @@ describe('feed scroll clearance', () => {
     expect(clearance).toBeTruthy();
     expect(clearance).not.toContain('transition:');
     expect(clearance).not.toContain(':not(.is-scroll-hidden)');
-    expect(globalsCss).toContain(
-      '.portfolio-summon-dock.is-scroll-hidden {\n    transform: translateX(-50%)'
+    // Selector may head a shared rule (consolidated identical blocks):
+    // assert it participates in a rule that applies the tuck transform.
+    expect(globalsCss).toMatch(
+      /\.portfolio-summon-dock\.is-scroll-hidden(?=[^{}]*\{[^}]*?transform: translateX\(-50%\))/
     );
   });
 
@@ -39,7 +41,7 @@ describe('feed scroll clearance', () => {
       /\.post-card-quote-thumb \{[^}]*max-width:\s*3\.6rem;/
     );
     expect(globalsCss).toMatch(
-      /\.post-card-quote-thumb:not\(\.is-collage\) \.post-card-quote-thumb-media \{[^}]*position:\s*absolute;/
+      /\.post-card-quote-thumb:not\(\.is-collage\) \.post-card-quote-thumb-media(?=[^{}]*\{[^}]*position:\s*absolute;)/
     );
   });
 
