@@ -131,6 +131,7 @@ import {
   mergeHomeFeedHead,
   pendingFeedOffsetShift,
   summarizeUnseenFeedPosts,
+  unseenFeedSummariesEqual,
   type UnseenFeedSummary,
 } from '@/lib/home-feed-new-posts';
 import {
@@ -1295,7 +1296,11 @@ export function HomePagePanel({
           stoodWithAccountIds: focus ? undefined : stoodWithAccountIds,
         }
       );
-      setUnseenPosts(summary);
+      // A probe with no news must not re-render the feed — keep the prior
+      // state object when the summary is unchanged.
+      setUnseenPosts((prev) =>
+        unseenFeedSummariesEqual(prev, summary) ? prev : summary
+      );
 
       // The head probe only sees new posts — reconcile edits/deletions of
       // rows already on screen. Runs inside the try: a failed state query

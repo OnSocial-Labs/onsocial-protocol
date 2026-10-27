@@ -22,6 +22,18 @@ export const EMPTY_UNSEEN_FEED_SUMMARY: UnseenFeedSummary = {
   authorIds: [],
 };
 
+/** Probe polls reuse the prior summary object when nothing changed. */
+export function unseenFeedSummariesEqual(
+  left: UnseenFeedSummary,
+  right: UnseenFeedSummary
+): boolean {
+  return (
+    left.count === right.count &&
+    left.authorIds.length === right.authorIds.length &&
+    left.authorIds.every((id, index) => id === right.authorIds[index])
+  );
+}
+
 export type SummarizeUnseenFeedOptions = {
   includeForeignReplies?: boolean;
   viewerAccountId?: string | null;

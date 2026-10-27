@@ -9,6 +9,7 @@ import {
   mergeHomeFeedHead,
   pendingFeedOffsetShift,
   summarizeUnseenFeedPosts,
+  unseenFeedSummariesEqual,
 } from './home-feed-new-posts';
 
 function row(accountId: string, postId: string): PostRow {
@@ -156,6 +157,45 @@ describe('summarizeUnseenFeedPosts', () => {
 
   it('shares EMPTY_UNSEEN_FEED_SUMMARY shape for clears', () => {
     expect(EMPTY_UNSEEN_FEED_SUMMARY).toEqual({ count: 0, authorIds: [] });
+  });
+});
+
+describe('unseenFeedSummariesEqual', () => {
+  it('treats same-valued summaries as equal so probes can keep state', () => {
+    expect(
+      unseenFeedSummariesEqual(
+        { count: 2, authorIds: ['a.near', 'b.near'] },
+        { count: 2, authorIds: ['a.near', 'b.near'] }
+      )
+    ).toBe(true);
+    expect(
+      unseenFeedSummariesEqual(EMPTY_UNSEEN_FEED_SUMMARY, {
+        count: 0,
+        authorIds: [],
+      })
+    ).toBe(true);
+  });
+
+  it('spots count, author, and order changes', () => {
+    const base = { count: 2, authorIds: ['a.near', 'b.near'] };
+    expect(
+      unseenFeedSummariesEqual(base, { count: 3, authorIds: base.authorIds })
+    ).toBe(false);
+    expect(
+      unseenFeedSummariesEqual(base, { count: 2, authorIds: ['a.near'] })
+    ).toBe(false);
+    expect(
+      unseenFeedSummariesEqual(base, {
+        count: 2,
+        authorIds: ['b.near', 'a.near'],
+      })
+    ).toBe(false);
+    expect(
+      unseenFeedSummariesEqual(base, {
+        count: 2,
+        authorIds: ['a.near', 'c.near'],
+      })
+    ).toBe(false);
   });
 });
 
