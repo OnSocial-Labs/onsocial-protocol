@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   captureVisibleFeedAnchor,
+  DM_ANCHOR_QUERY,
   NOTIFICATION_ANCHOR_QUERY,
   restoreFeedAnchor,
   THREAD_ANCHOR_QUERY,
@@ -239,6 +240,70 @@ describe('custom anchor queries (notification rows)', () => {
     );
     expect(root.querySelector).toHaveBeenCalledWith(
       '[data-notification-key="n-2"]'
+    );
+    expect(root.scrollTop).toBe(340);
+  });
+});
+
+type FakeDmRow = {
+  top: number;
+  height: number;
+  key?: string;
+};
+
+function fakeDmRow({ top, height, key }: FakeDmRow) {
+  return {
+    getBoundingClientRect: () => ({ top, bottom: top + height }),
+    dataset: key === undefined ? {} : { dmRowKey: key },
+  };
+}
+
+function fakeDmRoot(rootTop: number, rows: ReturnType<typeof fakeDmRow>[]) {
+  const root = {
+    scrollTop: 0,
+    getBoundingClientRect: () => ({ top: rootTop }),
+    querySelectorAll: (selector: string) =>
+      selector === '[data-dm-row-key]' ? rows : [],
+    querySelector: vi.fn((selector: string) => {
+      const match = /\[data-dm-row-key="([^"]+)"\]/.exec(selector);
+      return rows.find((r) => r.dataset.dmRowKey === match?.[1]) ?? null;
+    }),
+  };
+  return root as unknown as HTMLElement & {
+    scrollTop: number;
+    querySelector: ReturnType<typeof vi.fn>;
+  };
+}
+
+describe('custom anchor queries (DM thread rows)', () => {
+  it('captures the first visible bubble by its row key', () => {
+    const root = fakeDmRoot(100, [
+      fakeDmRow({ top: -300, height: 64, key: 'msg-1' }), // above
+      fakeDmRow({ top: 40, height: 64, key: 'msg-2' }), // bottom 104
+    ]);
+    expect(captureVisibleFeedAnchor(root, DM_ANCHOR_QUERY)).toEqual({
+      key: 'msg-2',
+      top: -60,
+    });
+  });
+
+  it('captures day rules alongside bubbles', () => {
+    const root = fakeDmRoot(100, [
+      fakeDmRow({ top: -40, height: 30 }), // visible but keyless
+      fakeDmRow({ top: 120, height: 30, key: 'day:2026-08-25' }),
+    ]);
+    expect(captureVisibleFeedAnchor(root, DM_ANCHOR_QUERY)?.key).toBe(
+      'day:2026-08-25'
+    );
+  });
+
+  it('restores via the dm-row-key lookup selector', () => {
+    const root = fakeDmRoot(100, [
+      fakeDmRow({ top: 300, height: 64, key: 'msg-2' }),
+    ]);
+    restoreFeedAnchor(root, { key: 'msg-2', top: -140 }, DM_ANCHOR_QUERY);
+    expect(root.querySelector).toHaveBeenCalledWith(
+      '[data-dm-row-key="msg-2"]'
     );
     expect(root.scrollTop).toBe(340);
   });
