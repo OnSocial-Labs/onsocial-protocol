@@ -66,6 +66,10 @@ import {
   THREAD_REPLY_TREE_MAX_NODES,
   type PersonalPostPageData,
 } from '@/lib/load-personal-post-page';
+import {
+  readThreadSession,
+  writeThreadSession,
+} from '@/lib/thread-session-cache';
 import { APP_HOME_PATH } from '@/lib/app-routes';
 import {
   appendThreadFocusReply,
@@ -202,20 +206,56 @@ export function LivePersonalPostPanel({
   const searchParams = useSearchParams();
   const mediaUnmuted = searchParams.get('media') === 'unmute';
   const mediaResumeIndex = readPostMediaUnmuteIndex(searchParams);
+  const rootPath = personalPostContentPath(author, postId);
+  /*
+   * Stale-while-revalidate seed: a thread opened earlier this session paints
+   * its replies instantly from the session cache while `refresh` revalidates
+   * in the background. Full SSR data (direct page load) is fresher and wins;
+   * the tapped feed row always stays the root — it is what the user saw.
+   */
+  const [sessionSeed] = useState(() => {
+    const cached =
+      initial && initial.replyTree.length > 0
+        ? null
+        : readThreadSession(rootPath);
+    if (!cached) return { data: initial, fromCache: false };
+    return {
+      fromCache: true,
+      data: {
+        root: initial?.root ?? cached.root,
+        replies: cached.replies,
+        quotes: cached.quotes,
+        replyTree: cached.replyTree,
+        hasMoreReplies: cached.hasMoreReplies,
+        engagement: { ...cached.engagement, ...(initial?.engagement ?? {}) },
+        scarceEmbeds: initial?.scarceEmbeds ?? {},
+      } satisfies PersonalPostPageData,
+    };
+  });
+  const seeded = sessionSeed.data;
   const [loadState, setLoadState] = useState<LoadState>(() =>
-    initial ? 'ready' : 'loading'
+    seeded ? 'ready' : 'loading'
   );
   const [conversation, setConversation] = useState<PersonalConversation>(() =>
-    initial
+    seeded
       ? {
-          root: initial.root,
-          replies: initial.replies,
-          quotes: initial.quotes,
+          root: seeded.root,
+          replies: seeded.replies,
+          quotes: seeded.quotes,
         }
       : { root: null, replies: [], quotes: [] }
   );
   const [replyTree, setReplyTree] = useState<ThreadNode[]>(
-    () => initial?.replyTree ?? []
+    () => seeded?.replyTree ?? []
+  );
+  /*
+   * Discover-peek gate. Until the first tree fetch resolves we cannot know
+   * whether replies exist — mounting the peek in that window flashes a
+   * "More from …" card that the incoming replies then replace. A cache hit
+   * counts as resolved: the empty tree it holds is real data.
+   */
+  const [repliesResolved, setRepliesResolved] = useState(
+    () => sessionSeed.fromCache
   );
   const [localReplies, setLocalReplies] = useState<PostRow[]>([]);
   const [localQuotes, setLocalQuotes] = useState<PostRow[]>([]);
@@ -233,7 +273,7 @@ export function LivePersonalPostPanel({
     () => new Set()
   );
   const [hasMoreReplies, setHasMoreReplies] = useState(
-    () => initial?.hasMoreReplies ?? false
+    () => seeded?.hasMoreReplies ?? false
   );
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -241,8 +281,7 @@ export function LivePersonalPostPanel({
   const reconcileTimersRef = useRef<number[]>([]);
   const openedPostRef = useRef<HTMLDivElement>(null);
 
-  const rootPath = personalPostContentPath(author, postId);
-  const paintedKeyRef = useRef<string | null>(initial ? rootPath : null);
+  const paintedKeyRef = useRef<string | null>(seeded ? rootPath : null);
   const treePosts = useMemo(() => flattenTreePosts(replyTree), [replyTree]);
   const replyRows = useMemo(() => {
     const rows = buildReplyRows(
@@ -330,9 +369,11 @@ export function LivePersonalPostPanel({
     confirmRepost,
     confirmUnrepost,
   } = usePostEngagement(engagementPosts, {
-    initial: initial?.engagement ?? null,
+    initial: seeded?.engagement ?? null,
     onError: (message) => setTxResult({ type: 'error', msg: message }),
   });
+  const engagementLatestRef = useRef(engagement);
+  engagementLatestRef.current = engagement;
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
     engagementPosts,
     {
@@ -454,13 +495,27 @@ export function LivePersonalPostPanel({
           });
           setReplyTree(fetchedTree);
           setHasMoreReplies(fetchedTree.length >= REPLY_PAGE_SIZE);
+          if (root) {
+            writeThreadSession(rootPath, {
+              root,
+              replies: fetchedTree.map((node) => node.post),
+              quotes: fetchedQuotes,
+              replyTree: fetchedTree,
+              hasMoreReplies: fetchedTree.length >= REPLY_PAGE_SIZE,
+              engagement: engagementLatestRef.current,
+              // Scarce embeds only ever seed from SSR; the ledger refetches.
+              scarceEmbeds: {},
+            });
+          }
         }
+        setRepliesResolved(true);
 
         if (!options.background) {
           setLoadState(root ? 'ready' : 'missing');
         }
       } catch (cause) {
         if (options.background) return;
+        setRepliesResolved(true);
         setLoadState('error');
         setError(
           cause instanceof Error ? cause.message : 'Could not load post thread.'
@@ -1018,6 +1073,9 @@ export function LivePersonalPostPanel({
             ) : null}
             {replyListRows.length > 0 ? (
               replyListRows.slice(replyWindowStart, replyWindowEnd)
+            ) : !repliesResolved ? (
+              // Reply-shaped placeholders — incoming replies never shove content.
+              <PostRowSkeleton rows={2} />
             ) : !shareRow ? (
               <ThreadDiscoverPeek
                 author={author}

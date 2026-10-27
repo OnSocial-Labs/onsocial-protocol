@@ -29,6 +29,8 @@ import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
 import type { GuildPostPageData } from '@/lib/load-guild-post-page';
+import type { PostEngagement } from '@/hooks/use-post-engagement';
+import { postKey } from '@/lib/post-display';
 import {
   guildThreadCardContext,
   type ThreadSheetContext,
@@ -167,6 +169,11 @@ type PostThreadLayerTarget = {
   /** Feed the post was opened from, so the card can skip context already on screen. */
   context: ThreadSheetContext | null;
   root: PostRow | null;
+  /**
+   * Counts the tapped card already shows — seeds the sheet so the action row
+   * never flashes zeros while the thread's own engagement fetch is in flight.
+   */
+  rootEngagement?: PostEngagement | null;
   zIndex: number;
 };
 
@@ -200,6 +207,7 @@ type PostThreadLayerValue = {
     href: string;
     root?: PostRow | null;
     context?: ThreadSheetContext | null;
+    rootEngagement?: PostEngagement | null;
   }) => boolean;
   openPostQuotes: (input: { href: string }) => boolean;
   openDrop: (input: { href: string }) => boolean;
@@ -276,14 +284,17 @@ function seedGuildThread(root: PostRow): GuildPostPageData {
   };
 }
 
-function seedEmbeddedThread(root: PostRow): PersonalPostPageData {
+function seedEmbeddedThread(
+  root: PostRow,
+  rootEngagement?: PostEngagement | null
+): PersonalPostPageData {
   return {
     root,
     replies: [],
     quotes: [],
     replyTree: [],
     hasMoreReplies: false,
-    engagement: {},
+    engagement: rootEngagement ? { [postKey(root)]: rootEngagement } : {},
     scarceEmbeds: {},
   };
 }
@@ -386,7 +397,7 @@ function PostThreadSheet({
   const initial = useMemo(
     () =>
       layer.kind === 'post' && layer.root
-        ? seedEmbeddedThread(layer.root)
+        ? seedEmbeddedThread(layer.root, layer.rootEngagement)
         : null,
     [layer]
   );
@@ -743,10 +754,12 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       href,
       root = null,
       context = null,
+      rootEngagement = null,
     }: {
       href: string;
       root?: PostRow | null;
       context?: ThreadSheetContext | null;
+      rootEngagement?: PostEngagement | null;
     }) => {
       const personal = parseInAppPostLayerHref(href);
       const guild = personal ? null : parseGuildPostLayerHref(href);
@@ -804,6 +817,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           groupId: parsed.groupId,
           context,
           root,
+          rootEngagement,
           zIndex: stackRef.current[0]?.zIndex ?? SHEET_Z.overlayHost,
         };
         const trail = appendTrailEntry(stackRef.current, next);
@@ -828,6 +842,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         groupId: parsed.groupId,
         context,
         root,
+        rootEngagement,
         zIndex: nextStackedLayerZ(stackRef.current),
       };
       if (underlayPathRef.current == null) {

@@ -319,18 +319,28 @@ function PostCardImpl({
       if (!isAppPostSheetHref(href)) return;
       event.preventDefault();
       event.stopPropagation();
-      openPostThread({ href, root: post, context: sheetContext });
+      openPostThread({
+        href,
+        root: post,
+        context: sheetContext,
+        rootEngagement: engagement,
+      });
     },
-    [detailLayout, openPostThread, post, sheetContext]
+    [detailLayout, engagement, openPostThread, post, sheetContext]
   );
   const interceptOpenNavigate = useCallback(
     (event: { preventDefault(): void }, href: string) => {
       if (detailLayout) return;
       if (!isAppPostSheetHref(href)) return;
       event.preventDefault();
-      openPostThread({ href, root: post, context: sheetContext });
+      openPostThread({
+        href,
+        root: post,
+        context: sheetContext,
+        rootEngagement: engagement,
+      });
     },
-    [detailLayout, openPostThread, post, sheetContext]
+    [detailLayout, engagement, openPostThread, post, sheetContext]
   );
   const { safeMode } = useViewerSafeMode();
   const [amplifyOpen, setAmplifyOpen] = useState(false);
