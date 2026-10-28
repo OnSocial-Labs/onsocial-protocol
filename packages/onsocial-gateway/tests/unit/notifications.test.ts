@@ -176,6 +176,24 @@ describe('GET /developer/notifications', () => {
     );
   });
 
+  it('forwards a comma-separated type include list', async () => {
+    mockListNotifications.mockResolvedValue({
+      notifications: [],
+      nextCursor: null,
+    });
+
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'apikey' })
+    )
+      .get('/developer/notifications')
+      .query({ recipient: 'bob.testnet', type: 'mention,reply' });
+
+    expect(res.status).toBe(200);
+    expect(mockListNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'mention,reply' })
+    );
+  });
+
   it('allows free-tier read access', async () => {
     mockListNotifications.mockResolvedValue({
       notifications: [],
