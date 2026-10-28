@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { postContentPath, type PostRow } from '@onsocial/sdk';
-import { Divider, OsIconAction, SettingsIcon } from '@onsocial/ui';
+import {
+  Divider,
+  OsIconAction,
+  SettingsIcon,
+  SheetHandoffProvider,
+} from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useOsInAppPop } from '@/components/providers/os-face-leave-provider';
@@ -243,8 +248,7 @@ export function LiveGuildPanel({
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [roomsSheetOpen, setRoomsSheetOpen] = useState(false);
   const [factsSheetOpen, setFactsSheetOpen] = useState(false);
-  const settingsNextRef = useRef<'edit' | 'rooms' | 'storage' | null>(null);
-  const factsNextRef = useRef<'members' | null>(null);
+  const [sheetHandoff, setSheetHandoff] = useState(false);
   const [addSpaceOpen, setAddSpaceOpen] = useState(false);
   const [writersTarget, setWritersTarget] = useState<{
     spaceId: string;
@@ -1113,7 +1117,10 @@ export function LiveGuildPanel({
                 memberDriven={config.memberDriven}
                 canAddMember={canAddMember}
                 canReviewRequests={canManageGuild}
-                onOpenSheet={openManageSheet}
+                onOpenSheet={(sheet) => {
+                  setSheetHandoff(true);
+                  openManageSheet(sheet);
+                }}
               />
             ) : null}
             {canConfigure ? (
@@ -1465,148 +1472,169 @@ export function LiveGuildPanel({
           }
         />
       ) : null}
-      {config && manageSheet === 'requests' ? (
-        <GuildMemberRequestsSheet
-          open
-          groupId={groupId}
-          accountId={accountId}
-          isMember={viewer?.isMember ?? false}
-          memberDriven={config.memberDriven}
-          onClose={() => openManageSheet(null)}
-          onResolved={() => void refresh()}
-        />
-      ) : null}
-      {config && manageSheet === 'members' ? (
-        <GuildMembersSheet
-          open
-          groupId={groupId}
-          seedMembers={state.members}
-          manageContext={{
-            viewerAccountId: accountId,
-            viewerIsOwner: viewer?.isOwner ?? false,
-            viewerIsAdmin: viewer?.isAdmin ?? false,
-            memberDriven: config.memberDriven,
-          }}
-          onClose={() => openManageSheet(null)}
-          onMembersChanged={() => void refresh()}
-          onAddStorage={(memberId) => {
-            setGroupStorageRecipient(memberId);
-            setGroupStorageSheetOpen(true);
-          }}
-        />
-      ) : null}
-      {config && manageSheet === 'proposals' ? (
-        <GuildProposalsSheet
-          open
-          groupId={groupId}
-          accountId={accountId}
-          isMember={viewer?.isMember ?? false}
-          memberDriven={config.memberDriven}
-          accessGated={config.accessGated}
-          focusProposal={initialProposal}
-          onClose={() => openManageSheet(null)}
-          onOpenRequests={
-            viewer?.isMember ? () => openManageSheet('requests') : undefined
-          }
-          onResolved={() => void refresh()}
-        />
-      ) : null}
-      {config && manageSheet === 'add-member' ? (
-        <GuildAddMemberSheet
-          open
-          groupId={groupId}
-          memberIds={state.members.map((member) => member.memberId)}
-          onClose={() => openManageSheet(null)}
-          onAdded={() => void refresh()}
-        />
-      ) : null}
-      {config ? (
-        <GuildFactsSheet
-          open={factsSheetOpen}
-          groupId={groupId}
-          guildName={guildDisplayName(config.name, groupId)}
-          accessGated={config.accessGated}
-          memberDriven={config.memberDriven}
-          memberCount={memberCount}
-          isMember={viewer?.isMember ?? false}
-          isOwner={viewer?.isOwner ?? false}
-          isAdmin={viewer?.isAdmin ?? false}
-          canModerate={viewer?.canModerate ?? false}
-          joinPending={joinPending}
-          ownerId={config.ownerId}
-          memberJoinedAt={viewerJoinedAt}
-          createdAt={readGroupStatsCreatedAt(state.stats)}
-          postCount={state.postCount}
-          roomCount={feedSpaces.length}
-          topics={config.topics}
-          onClose={() => {
-            setFactsSheetOpen(false);
-            const next = factsNextRef.current;
-            factsNextRef.current = null;
-            if (next === 'members') openManageSheet('members');
-          }}
-          onOpenMembers={() => {
-            factsNextRef.current = 'members';
-          }}
-        />
-      ) : null}
-      {canConfigure ? (
-        <GuildSettingsSheet
-          open={settingsSheetOpen}
-          guildName={
-            config ? guildDisplayName(config.name, groupId) : undefined
-          }
-          viewer={viewer}
-          onClose={() => {
-            setSettingsSheetOpen(false);
-            const next = settingsNextRef.current;
-            settingsNextRef.current = null;
-            if (next === 'edit') setEditSheetOpen(true);
-            if (next === 'rooms') setRoomsSheetOpen(true);
-            if (next === 'storage') setGroupStorageSheetOpen(true);
-            router.replace(guildPath(groupId), { scroll: false });
-          }}
-          onEditGuild={() => {
-            settingsNextRef.current = 'edit';
-          }}
-          onOpenRooms={() => {
-            settingsNextRef.current = 'rooms';
-          }}
-          onOpenGroupStorage={() => {
-            settingsNextRef.current = 'storage';
-          }}
-        />
-      ) : null}
-      {canConfigure ? (
-        <GuildGroupStorageSheet
-          open={groupStorageSheetOpen}
-          groupId={groupId}
-          guildName={
-            config ? guildDisplayName(config.name, groupId) : undefined
-          }
-          initialRecipient={groupStorageRecipient}
-          onClose={() => {
-            setGroupStorageSheetOpen(false);
-            setGroupStorageRecipient(null);
-          }}
-        />
-      ) : null}
-      {canConfigure ? (
-        <GuildEditSheet
-          open={editSheetOpen}
-          groupId={groupId}
-          onClose={() => setEditSheetOpen(false)}
-          onSaved={() => void refresh()}
-        />
-      ) : null}
-      {canConfigure ? (
-        <GuildRoomsSheet
-          open={roomsSheetOpen}
-          groupId={groupId}
-          onClose={() => setRoomsSheetOpen(false)}
-          onSaved={() => void refresh()}
-        />
-      ) : null}
+      <SheetHandoffProvider active={sheetHandoff}>
+        {config && manageSheet === 'requests' ? (
+          <GuildMemberRequestsSheet
+            open
+            groupId={groupId}
+            accountId={accountId}
+            isMember={viewer?.isMember ?? false}
+            memberDriven={config.memberDriven}
+            onClose={() => {
+              setSheetHandoff(false);
+              openManageSheet(null);
+            }}
+            onResolved={() => void refresh()}
+          />
+        ) : null}
+        {config && manageSheet === 'members' ? (
+          <GuildMembersSheet
+            open
+            groupId={groupId}
+            seedMembers={state.members}
+            manageContext={{
+              viewerAccountId: accountId,
+              viewerIsOwner: viewer?.isOwner ?? false,
+              viewerIsAdmin: viewer?.isAdmin ?? false,
+              memberDriven: config.memberDriven,
+            }}
+            onClose={() => {
+              setSheetHandoff(false);
+              openManageSheet(null);
+            }}
+            onMembersChanged={() => void refresh()}
+            onAddStorage={(memberId) => {
+              setGroupStorageRecipient(memberId);
+              setGroupStorageSheetOpen(true);
+            }}
+          />
+        ) : null}
+        {config && manageSheet === 'proposals' ? (
+          <GuildProposalsSheet
+            open
+            groupId={groupId}
+            accountId={accountId}
+            isMember={viewer?.isMember ?? false}
+            memberDriven={config.memberDriven}
+            accessGated={config.accessGated}
+            focusProposal={initialProposal}
+            onClose={() => {
+              setSheetHandoff(false);
+              openManageSheet(null);
+            }}
+            onOpenRequests={
+              viewer?.isMember
+                ? () => {
+                    setSheetHandoff(true);
+                    openManageSheet('requests');
+                  }
+                : undefined
+            }
+            onResolved={() => void refresh()}
+          />
+        ) : null}
+        {config && manageSheet === 'add-member' ? (
+          <GuildAddMemberSheet
+            open
+            groupId={groupId}
+            memberIds={state.members.map((member) => member.memberId)}
+            onClose={() => {
+              setSheetHandoff(false);
+              openManageSheet(null);
+            }}
+            onAdded={() => void refresh()}
+          />
+        ) : null}
+        {config && factsSheetOpen ? (
+          <GuildFactsSheet
+            open
+            groupId={groupId}
+            guildName={guildDisplayName(config.name, groupId)}
+            accessGated={config.accessGated}
+            memberDriven={config.memberDriven}
+            memberCount={memberCount}
+            isMember={viewer?.isMember ?? false}
+            isOwner={viewer?.isOwner ?? false}
+            isAdmin={viewer?.isAdmin ?? false}
+            canModerate={viewer?.canModerate ?? false}
+            joinPending={joinPending}
+            ownerId={config.ownerId}
+            memberJoinedAt={viewerJoinedAt}
+            createdAt={readGroupStatsCreatedAt(state.stats)}
+            postCount={state.postCount}
+            roomCount={feedSpaces.length}
+            topics={config.topics}
+            onClose={() => setFactsSheetOpen(false)}
+            onOpenMembers={() => openManageSheet('members')}
+            onHandoffMembers={() => {
+              setSheetHandoff(true);
+              setFactsSheetOpen(false);
+              openManageSheet('members');
+            }}
+          />
+        ) : null}
+        {canConfigure && settingsSheetOpen ? (
+          <GuildSettingsSheet
+            open
+            guildName={
+              config ? guildDisplayName(config.name, groupId) : undefined
+            }
+            viewer={viewer}
+            onClose={() => {
+              setSettingsSheetOpen(false);
+              router.replace(guildPath(groupId), { scroll: false });
+            }}
+            onHandoff={(id) => {
+              setSheetHandoff(true);
+              setSettingsSheetOpen(false);
+              if (id === 'edit') setEditSheetOpen(true);
+              if (id === 'rooms') setRoomsSheetOpen(true);
+              if (id === 'storage') setGroupStorageSheetOpen(true);
+              router.replace(guildPath(groupId), { scroll: false });
+            }}
+            onEditGuild={() => setEditSheetOpen(true)}
+            onOpenRooms={() => setRoomsSheetOpen(true)}
+            onOpenGroupStorage={() => setGroupStorageSheetOpen(true)}
+          />
+        ) : null}
+        {canConfigure ? (
+          <GuildGroupStorageSheet
+            open={groupStorageSheetOpen}
+            groupId={groupId}
+            guildName={
+              config ? guildDisplayName(config.name, groupId) : undefined
+            }
+            initialRecipient={groupStorageRecipient}
+            onClose={() => {
+              setSheetHandoff(false);
+              setGroupStorageSheetOpen(false);
+              setGroupStorageRecipient(null);
+            }}
+          />
+        ) : null}
+        {canConfigure ? (
+          <GuildEditSheet
+            open={editSheetOpen}
+            groupId={groupId}
+            onClose={() => {
+              setSheetHandoff(false);
+              setEditSheetOpen(false);
+            }}
+            onSaved={() => void refresh()}
+          />
+        ) : null}
+        {canConfigure ? (
+          <GuildRoomsSheet
+            open={roomsSheetOpen}
+            groupId={groupId}
+            onClose={() => {
+              setSheetHandoff(false);
+              setRoomsSheetOpen(false);
+            }}
+            onSaved={() => void refresh()}
+          />
+        ) : null}
+      </SheetHandoffProvider>
       {config && addSpaceOpen ? (
         <GuildAddSpaceSheet
           open

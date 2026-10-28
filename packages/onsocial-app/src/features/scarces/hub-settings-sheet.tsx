@@ -21,6 +21,8 @@ interface HubSettingsSheetProps {
   publishRequestCount?: number;
   onClose: () => void;
   onOpenSheet: (sheet: HubManageSheetId) => void;
+  /** Replace this sheet with the next one. Skips the close slide. */
+  onHandoff?: (sheet: HubManageSheetId) => void;
 }
 
 /**
@@ -37,6 +39,7 @@ export function HubSettingsSheet({
   publishRequestCount = 0,
   onClose,
   onOpenSheet,
+  onHandoff,
 }: HubSettingsSheetProps) {
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
@@ -52,6 +55,10 @@ export function HubSettingsSheet({
   }, [onClose]);
 
   const openSheet = (sheet: HubManageSheetId) => {
+    if (onHandoff) {
+      onHandoff(sheet);
+      return;
+    }
     onOpenSheet(sheet);
     requestClose();
   };

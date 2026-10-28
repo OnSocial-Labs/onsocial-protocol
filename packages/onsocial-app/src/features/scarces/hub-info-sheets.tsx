@@ -2,11 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
-import {
-  Divider,
-  OsHugSheet,
-  ProtocolMotionArrow,
-} from '@onsocial/ui';
+import { Divider, OsHugSheet, ProtocolMotionArrow } from '@onsocial/ui';
 import {
   SheetFactCopy,
   SheetFactCount,
@@ -44,12 +40,15 @@ export function HubFactsSheet({
   app,
   stats,
   onOpenCreators,
+  onHandoffCreators,
 }: {
   open: boolean;
   onClose: () => void;
   app: AppView;
   stats: AppStatsView | null;
   onOpenCreators: () => void;
+  /** Replace this sheet with the roster. Skips the close slide. */
+  onHandoffCreators?: () => void;
 }) {
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
@@ -103,7 +102,10 @@ export function HubFactsSheet({
     >
       <div className="guild-facts">
         <SheetFactSection title="Creators">
-          <SheetFactRow label="Access" value={creatorAccessShort(app.creatorAccess)} />
+          <SheetFactRow
+            label="Access"
+            value={creatorAccessShort(app.creatorAccess)}
+          />
           <SheetFactCopy>
             {creatorAccessLabel(app.creatorAccess)}.
           </SheetFactCopy>
@@ -120,6 +122,10 @@ export function HubFactsSheet({
                 type="button"
                 className="guild-facts-link group"
                 onClick={() => {
+                  if (onHandoffCreators) {
+                    onHandoffCreators();
+                    return;
+                  }
                   onOpenCreators();
                   requestClose();
                 }}
@@ -141,7 +147,11 @@ export function HubFactsSheet({
             <>
               <SheetFactRow
                 label="Drops"
-                value={<SheetFactCount count={formatCompactCount(stats.dropsTotal)} />}
+                value={
+                  <SheetFactCount
+                    count={formatCompactCount(stats.dropsTotal)}
+                  />
+                }
               />
               <SheetFactRow
                 label="Minted"

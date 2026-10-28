@@ -13,6 +13,8 @@ interface GuildSettingsSheetProps {
   guildName?: string;
   viewer: { isOwner: boolean; isAdmin: boolean } | null;
   onClose: () => void;
+  /** Replace this sheet with the next one. Skips the close slide. */
+  onHandoff?: (id: GuildSettingsActionId) => void;
   onEditGuild: () => void;
   onOpenRooms: () => void;
   onOpenGroupStorage: () => void;
@@ -27,6 +29,7 @@ export function GuildSettingsSheet({
   guildName,
   viewer,
   onClose,
+  onHandoff,
   onEditGuild,
   onOpenRooms,
   onOpenGroupStorage,
@@ -47,12 +50,16 @@ export function GuildSettingsSheet({
 
   const select = useCallback(
     (id: GuildSettingsActionId) => {
+      if (onHandoff) {
+        onHandoff(id);
+        return;
+      }
       if (id === 'edit') onEditGuild();
       if (id === 'rooms') onOpenRooms();
       if (id === 'storage') onOpenGroupStorage();
       requestClose();
     },
-    [onEditGuild, onOpenGroupStorage, onOpenRooms, requestClose]
+    [onEditGuild, onHandoff, onOpenGroupStorage, onOpenRooms, requestClose]
   );
 
   return (

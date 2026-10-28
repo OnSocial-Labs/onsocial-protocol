@@ -372,6 +372,21 @@
   transform: translateY(var(--sheet-y, 0px));
 }
 
+/* Menu/settings replace — fade in place. Does not slide. */
+.glass-sheet-panel[data-crossfade='true'].is-open {
+  animation: glass-sheet-crossfade 180ms ease-out;
+}
+
+@keyframes glass-sheet-crossfade {
+  from {
+    opacity: 0.72;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 .glass-sheet-panel.is-open.glass-sheet-panel--enter {
   animation: glass-sheet-enter var(--os-motion-overlay, 320ms)
     var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)) forwards;
@@ -887,7 +902,8 @@ html:has(
     opacity: 1;
   }
 
-  .glass-sheet-panel.is-open.glass-sheet-panel--enter {
+  .glass-sheet-panel.is-open.glass-sheet-panel--enter,
+  .glass-sheet-panel[data-crossfade='true'].is-open {
     animation: none;
   }
 

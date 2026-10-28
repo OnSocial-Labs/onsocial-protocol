@@ -48,6 +48,11 @@ export {
   type MoodTheme,
 } from './mood-theme.js';
 export {
+  SheetHandoffProvider,
+  resolveHandoffPresentation,
+  useSheetHandoff,
+} from './sheet-handoff.js';
+export {
   OsPageSheet,
   osPageSheetPanelClassName,
   type OsPageSheetProps,

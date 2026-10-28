@@ -14,6 +14,7 @@ import {
   OsIconAction,
   OsPageSheet,
   OsProposalCardList,
+  SheetHandoffProvider,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { SECONDARY_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
@@ -286,7 +287,14 @@ export function DaoWorkspacePanel({
   const savedListScrollRef = useRef<number | null>(null);
   const useHeaderChrome = sheet != null && !toolsHostOnly;
 
+  const [sheetHandoff, setSheetHandoff] = useState(false);
+  // Set in the replace click, read on that render, cleared after paint so
+  // the next dismiss keeps the sheet mounted and plays the close slide.
+  const skipExitRef = useRef(false);
+  const manageToolsOpenRef = useRef(false);
+
   const closeAllSheets = useCallback(() => {
+    setSheetHandoff(false);
     setProposeKindOpen(false);
     setCreateOpen(false);
     setStakeOpen(false);
@@ -302,11 +310,28 @@ export function DaoWorkspacePanel({
     settingsActionOpen ||
     settingsOpen ||
     infoOpen;
+  manageToolsOpenRef.current = manageToolsOpen;
+
+  const openReplacing = useCallback(
+    (openNext: () => void) => {
+      const replacing = manageToolsOpen;
+      skipExitRef.current = replacing;
+      closeAllSheets();
+      setSheetHandoff(replacing);
+      openNext();
+    },
+    [closeAllSheets, manageToolsOpen]
+  );
+
+  useEffect(() => {
+    skipExitRef.current = false;
+  });
+
+  const showTool = (open: boolean) => !skipExitRef.current || open;
 
   const openProposeFromDock = useCallback(() => {
-    closeAllSheets();
-    setProposeKindOpen(true);
-  }, [closeAllSheets]);
+    openReplacing(() => setProposeKindOpen(true));
+  }, [openReplacing]);
 
   useRegisterComposeAction(
     sheet?.open && !toolsHostOnly && canPropose ? openProposeFromDock : null,
@@ -1328,6 +1353,7 @@ export function DaoWorkspacePanel({
           successMessage: txToastGovSuccess.actionConfirmed('delegation'),
           failureMessage: txToastGovError.actionFailed('delegation'),
         });
+        setSheetHandoff(false);
         setStakeOpen(false);
         void face?.refresh({ fresh: true });
       } catch (error) {
@@ -1380,6 +1406,7 @@ export function DaoWorkspacePanel({
           successMessage: txToastGovSuccess.actionConfirmed('undelegation'),
           failureMessage: txToastGovError.actionFailed('undelegation'),
         });
+        setSheetHandoff(false);
         setStakeOpen(false);
         void face?.refresh({ fresh: true });
       } catch (error) {
@@ -1433,6 +1460,7 @@ export function DaoWorkspacePanel({
           successMessage: txToastGovSuccess.actionConfirmed('stake withdrawal'),
           failureMessage: txToastGovError.actionFailed('stake withdrawal'),
         });
+        setSheetHandoff(false);
         setStakeOpen(false);
         void face?.refresh({ fresh: true });
       } catch (error) {
@@ -1462,7 +1490,10 @@ export function DaoWorkspacePanel({
 
   useEffect(() => {
     if (!toolRequest) return;
+    const replacing = manageToolsOpenRef.current;
+    skipExitRef.current = replacing;
     closeAllSheets();
+    setSheetHandoff(replacing);
     if (toolRequest === 'propose') setProposeKindOpen(true);
     else if (toolRequest === 'stake') setStakeOpen(true);
     else if (toolRequest === 'settings') setSettingsActionOpen(true);
@@ -1595,126 +1626,146 @@ export function DaoWorkspacePanel({
         }}
       />
 
-      <ProtocolProposeKindSheet
-        open={proposeKindOpen}
-        onClose={() => setProposeKindOpen(false)}
-        daoAccountId={daoAccountId}
-        accountId={accountId}
-        daoPolicy={daoPolicy}
-        factsReady={drawerContentReady}
-        lastKind={createKind}
-        onSelectKind={(kind) => {
-          rememberProtocolCreateKind(kind);
-          setCreateKind(kind);
-          closeAllSheets();
-          setCreateOpen(true);
-        }}
-        onOpenStake={() => {
-          closeAllSheets();
-          setStakeOpen(true);
-        }}
-      />
+      <SheetHandoffProvider active={sheetHandoff}>
+        {showTool(proposeKindOpen) ? (
+          <ProtocolProposeKindSheet
+            open={proposeKindOpen}
+            onClose={() => {
+              setSheetHandoff(false);
+              setProposeKindOpen(false);
+            }}
+            daoAccountId={daoAccountId}
+            accountId={accountId}
+            daoPolicy={daoPolicy}
+            factsReady={drawerContentReady}
+            lastKind={createKind}
+            onSelectKind={(kind) => {
+              rememberProtocolCreateKind(kind);
+              setCreateKind(kind);
+              openReplacing(() => setCreateOpen(true));
+            }}
+            onOpenStake={() => {
+              openReplacing(() => setStakeOpen(true));
+            }}
+          />
+        ) : null}
 
-      <ProtocolCreateSheet
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        daoAccountId={daoAccountId}
-        accountId={accountId}
-        daoPolicy={daoPolicy}
-        factsReady={drawerContentReady}
-        pending={createPending}
-        initialKind={createKind}
-        onSubmit={(payload) => {
-          void handleCreate(payload);
-        }}
-        onOpenStake={() => {
-          closeAllSheets();
-          setStakeOpen(true);
-        }}
-        onChangeKind={() => {
-          closeAllSheets();
-          setProposeKindOpen(true);
-        }}
-      />
+        {showTool(createOpen) ? (
+          <ProtocolCreateSheet
+            open={createOpen}
+            onClose={() => {
+              setSheetHandoff(false);
+              setCreateOpen(false);
+            }}
+            daoAccountId={daoAccountId}
+            accountId={accountId}
+            daoPolicy={daoPolicy}
+            factsReady={drawerContentReady}
+            pending={createPending}
+            initialKind={createKind}
+            onSubmit={(payload) => {
+              void handleCreate(payload);
+            }}
+            onOpenStake={() => {
+              openReplacing(() => setStakeOpen(true));
+            }}
+            onChangeKind={() => {
+              openReplacing(() => setProposeKindOpen(true));
+            }}
+          />
+        ) : null}
 
-      <ProtocolStakeSheet
-        open={stakeOpen}
-        onClose={() => setStakeOpen(false)}
-        daoAccountId={daoAccountId}
-        accountId={accountId}
-        pending={stakePending}
-        onDelegate={(amountYocto) => {
-          void handleDelegate(amountYocto);
-        }}
-        onUndelegate={(amounts) => {
-          void handleUndelegate(amounts);
-        }}
-        onWithdraw={(amountYocto) => {
-          void handleWithdraw(amountYocto);
-        }}
-      />
+        {showTool(stakeOpen) ? (
+          <ProtocolStakeSheet
+            open={stakeOpen}
+            onClose={() => {
+              setSheetHandoff(false);
+              setStakeOpen(false);
+            }}
+            daoAccountId={daoAccountId}
+            accountId={accountId}
+            pending={stakePending}
+            onDelegate={(amountYocto) => {
+              void handleDelegate(amountYocto);
+            }}
+            onUndelegate={(amounts) => {
+              void handleUndelegate(amounts);
+            }}
+            onWithdraw={(amountYocto) => {
+              void handleWithdraw(amountYocto);
+            }}
+          />
+        ) : null}
 
-      <ProtocolSettingsActionSheet
-        open={settingsActionOpen}
-        onClose={() => setSettingsActionOpen(false)}
-        daoAccountId={daoAccountId}
-        accountId={accountId}
-        daoPolicy={daoPolicy}
-        factsReady={drawerContentReady}
-        lastAction={settingsAction}
-        onSelectAction={(actionId) => {
-          rememberProtocolPolicyAction(daoAccountId, actionId);
-          setSettingsAction(actionId);
-          closeAllSheets();
-          setSettingsOpen(true);
-        }}
-        onOpenStake={() => {
-          closeAllSheets();
-          setStakeOpen(true);
-        }}
-      />
+        {showTool(settingsActionOpen) ? (
+          <ProtocolSettingsActionSheet
+            open={settingsActionOpen}
+            onClose={() => {
+              setSheetHandoff(false);
+              setSettingsActionOpen(false);
+            }}
+            daoAccountId={daoAccountId}
+            accountId={accountId}
+            daoPolicy={daoPolicy}
+            factsReady={drawerContentReady}
+            lastAction={settingsAction}
+            onSelectAction={(actionId) => {
+              rememberProtocolPolicyAction(daoAccountId, actionId);
+              setSettingsAction(actionId);
+              openReplacing(() => setSettingsOpen(true));
+            }}
+            onOpenStake={() => {
+              openReplacing(() => setStakeOpen(true));
+            }}
+          />
+        ) : null}
 
-      <ProtocolSettingsSheet
-        open={settingsOpen}
-        onClose={() => {
-          setSettingsOpen(false);
-          setSettingsActionOpen(false);
-        }}
-        daoAccountId={daoAccountId}
-        accountId={accountId}
-        daoPolicy={daoPolicy}
-        factsReady={drawerContentReady}
-        pending={settingsPending}
-        initialAction={settingsAction}
-        onSubmit={(payload) => {
-          void handleSettings(payload);
-        }}
-        onOpenStake={() => {
-          closeAllSheets();
-          setStakeOpen(true);
-        }}
-        onChangeAction={() => {
-          closeAllSheets();
-          setSettingsActionOpen(true);
-        }}
-      />
+        {showTool(settingsOpen) ? (
+          <ProtocolSettingsSheet
+            open={settingsOpen}
+            onClose={() => {
+              setSheetHandoff(false);
+              setSettingsOpen(false);
+              setSettingsActionOpen(false);
+            }}
+            daoAccountId={daoAccountId}
+            accountId={accountId}
+            daoPolicy={daoPolicy}
+            factsReady={drawerContentReady}
+            pending={settingsPending}
+            initialAction={settingsAction}
+            onSubmit={(payload) => {
+              void handleSettings(payload);
+            }}
+            onOpenStake={() => {
+              openReplacing(() => setStakeOpen(true));
+            }}
+            onChangeAction={() => {
+              openReplacing(() => setSettingsActionOpen(true));
+            }}
+          />
+        ) : null}
 
-      <ProtocolDaoInfoSheet
-        open={infoOpen}
-        onClose={() => setInfoOpen(false)}
-        daoAccountId={daoAccountId}
-        accountId={accountId}
-        daoPolicy={daoPolicy}
-        factsReady={drawerContentReady}
-        onOpenStake={() => {
-          closeAllSheets();
-          setStakeOpen(true);
-        }}
-        onOpenSettings={() => {
-          closeAllSheets();
-          setSettingsActionOpen(true);
-        }}
-      />
+        {showTool(infoOpen) ? (
+          <ProtocolDaoInfoSheet
+            open={infoOpen}
+            onClose={() => {
+              setSheetHandoff(false);
+              setInfoOpen(false);
+            }}
+            daoAccountId={daoAccountId}
+            accountId={accountId}
+            daoPolicy={daoPolicy}
+            factsReady={drawerContentReady}
+            onOpenStake={() => {
+              openReplacing(() => setStakeOpen(true));
+            }}
+            onOpenSettings={() => {
+              openReplacing(() => setSettingsActionOpen(true));
+            }}
+          />
+        ) : null}
+      </SheetHandoffProvider>
     </>
   );
 
@@ -1726,8 +1777,7 @@ export function DaoWorkspacePanel({
             type="button"
             className="protocol-tool"
             onClick={() => {
-              closeAllSheets();
-              setProposeKindOpen(true);
+              openReplacing(() => setProposeKindOpen(true));
             }}
           >
             Propose
@@ -1736,8 +1786,7 @@ export function DaoWorkspacePanel({
             type="button"
             className="protocol-tool"
             onClick={() => {
-              closeAllSheets();
-              setStakeOpen(true);
+              openReplacing(() => setStakeOpen(true));
             }}
           >
             Stake
@@ -1746,8 +1795,7 @@ export function DaoWorkspacePanel({
             type="button"
             className="protocol-tool"
             onClick={() => {
-              closeAllSheets();
-              setSettingsActionOpen(true);
+              openReplacing(() => setSettingsActionOpen(true));
             }}
           >
             Settings
@@ -1756,8 +1804,7 @@ export function DaoWorkspacePanel({
             type="button"
             className="protocol-tool"
             onClick={() => {
-              closeAllSheets();
-              setInfoOpen(true);
+              openReplacing(() => setInfoOpen(true));
             }}
           >
             Info

@@ -18,6 +18,10 @@ import { createPortal } from 'react-dom';
 import { cn } from './cn.js';
 import { MultiplyIcon } from './mage-stroke-icons.js';
 import { resolveSheetMood, useMoodTheme } from './mood-theme.js';
+import {
+  resolveHandoffPresentation,
+  useSheetHandoff,
+} from './sheet-handoff.js';
 import { OsIconAction, osIconActionClassName } from './os-icon-action.js';
 import { OsStableScrollHost } from './os-stable-scroll-host.js';
 
@@ -844,6 +848,13 @@ export function GlassSheet({
 }: GlassSheetProps) {
   const opaquePage = surface === 'page';
   const band = sizing === 'band';
+  const handoff = useSheetHandoff();
+  const effectivePresentation = band
+    ? 'swap'
+    : resolveHandoffPresentation(presentation, handoff);
+  // Fade only the sheets whose enter slide was replaced. Explicit appear
+  // and swap stay as they are, including inside a handoff provider.
+  const crossfade = handoff && !band && presentation === 'enter';
   const inheritedMood = useMoodTheme();
   const resolvedMood = resolveSheetMood(
     { moodId, style: moodStyle },
@@ -874,7 +885,7 @@ export function GlassSheet({
   const { mounted, visible, handlePanelTransitionEnd } = useSheetPresence(
     open,
     onClosed,
-    band ? 'swap' : presentation
+    effectivePresentation
   );
   const {
     detent,
@@ -894,11 +905,11 @@ export function GlassSheet({
   );
 
   const hugEnterPending =
-    hugEnterNeedsArming(sizing, presentation) && !enterAnimationDone;
+    hugEnterNeedsArming(sizing, effectivePresentation) && !enterAnimationDone;
   const panelIsOpen = visible && (!hugEnterPending || hugEnterArmed);
   const showEnterAnimation =
     !band &&
-    (presentation === 'enter' || presentation === 'appear') &&
+    (effectivePresentation === 'enter' || effectivePresentation === 'appear') &&
     panelIsOpen &&
     !enterAnimationDone;
   const draggingRef = useRef(dragging);
@@ -1135,8 +1146,9 @@ export function GlassSheet({
       data-tone={tone}
       data-mood={moodAttr}
       data-surface={surface}
-      data-presentation={presentation}
+      data-presentation={effectivePresentation}
       data-sizing={sizing}
+      data-crossfade={crossfade ? 'true' : undefined}
       data-keep-dock={keepDock ? 'true' : undefined}
       style={{
         zIndex: resolveGlassSheetZIndex(zIndex, openedAboveMediaFace),
@@ -1183,7 +1195,8 @@ export function GlassSheet({
         data-tone={tone}
         data-mood={moodAttr}
         data-surface={surface}
-        data-presentation={presentation}
+        data-presentation={effectivePresentation}
+        data-crossfade={crossfade ? 'true' : undefined}
         data-sizing={sizing}
         style={
           {
