@@ -208,9 +208,12 @@ export function NotificationsPanel() {
     try {
       const { client, accountId: id } = await withAuth();
       if (accountGenRef.current !== gen || !isCurrentAccount(expected)) return;
+      // Read through a function so the two checks stay independent.
+      // A direct `tabRef.current` compare narrows the ref for the rest of the callback.
+      const openTab = (): ActivityInboxTab => tabRef.current;
       // The open Mentions tab owns its rows. A background write would
       // replace the line the user is already on.
-      if (tabRef.current === 'mentions') return;
+      if (openTab() === 'mentions') return;
       const result = await client.notifications.list({
         recipient: id,
         limit: PAGE_SIZE,
@@ -218,7 +221,7 @@ export function NotificationsPanel() {
         type: activityTabTypeParam('mentions'),
       });
       if (accountGenRef.current !== gen || !isCurrentAccount(expected)) return;
-      if (tabRef.current === 'mentions') {
+      if (openTab() === 'mentions') {
         if (itemsRef.current == null) {
           setItems(result.notifications);
           setNextCursor(result.nextCursor);
