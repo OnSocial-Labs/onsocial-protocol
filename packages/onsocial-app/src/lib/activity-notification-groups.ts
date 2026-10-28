@@ -72,6 +72,22 @@ export function groupActivityNotifications<
   return groups;
 }
 
+/**
+ * Several people stood the same day. One stand still opens that profile.
+ * Likes and reposts stay on the post.
+ */
+export function isActivityStandGroup(
+  items: readonly Pick<Notification, 'type' | 'actor'>[]
+): boolean {
+  if (items.length < 2 || items[0]?.type !== 'standing_new') return false;
+  let withActor = 0;
+  for (const item of items) {
+    if (item.type !== 'standing_new') return false;
+    if (item.actor?.trim()) withActor += 1;
+  }
+  return withActor >= 2;
+}
+
 /** "liked your post" or "and 3 others liked your post". */
 export function activityGroupVerb(
   items: readonly Pick<Notification, 'type' | 'context'>[]

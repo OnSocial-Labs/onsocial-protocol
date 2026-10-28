@@ -463,3 +463,107 @@ test.describe('activity inbox tabs', () => {
     await expect(page.getByText('mentioned you')).toBeVisible();
   });
 });
+
+test.describe('grouped stands sheet', () => {
+  test.use({ timezoneId: 'UTC' });
+
+  test.beforeEach(async ({ page }) => {
+    await seedAuthenticatedNotifications(page);
+  });
+
+  test('lists who stood that day, and one stand still opens their profile', async ({
+    page,
+  }) => {
+    const reads: Array<{ ids?: string[] }> = [];
+    const stand = (id: string, actor: string, createdAt: string) => ({
+      ...appEventNotification,
+      id,
+      actor,
+      type: 'standing_new',
+      dedupeKey: id,
+      context: {},
+      createdAt,
+    });
+
+    await page.route(
+      '**/api/onapi/developer/notifications**',
+      async (route) => {
+        const url = new URL(route.request().url());
+        if (url.pathname.endsWith('/count')) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              recipient: NOTIFICATIONS_E2E_ACCOUNT,
+              unread: 0,
+            }),
+          });
+          return;
+        }
+        if (url.pathname.endsWith('/read')) {
+          reads.push(route.request().postDataJSON() as { ids?: string[] });
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ updated: 1 }),
+          });
+          return;
+        }
+        if (url.pathname.endsWith('/push/status')) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              configured: false,
+              enabled: false,
+              subscriptionCount: 0,
+            }),
+          });
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            notifications: [
+              stand('stand-1', 'carol.testnet', '2026-09-10T09:00:00.000Z'),
+              stand('stand-2', 'dave.testnet', '2026-09-10T08:00:00.000Z'),
+              stand('stand-3', 'erin.testnet', '2026-09-10T07:00:00.000Z'),
+              stand('stand-old', 'frank.testnet', '2026-09-09T09:00:00.000Z'),
+            ],
+            nextCursor: null,
+          }),
+        });
+      }
+    );
+
+    await page.goto('/notifications', { waitUntil: 'domcontentloaded' });
+    await page
+      .getByRole('button', { name: /and 2 others stood with you/ })
+      .click();
+
+    const sheet = page.getByRole('dialog', { name: /Stood with you/ });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByText('Thu, Sep 10')).toBeVisible();
+    await expect(sheet.getByText('@carol.testnet')).toBeVisible();
+    await expect(sheet.getByText('@dave.testnet')).toBeVisible();
+    await expect(sheet.getByText('@erin.testnet')).toBeVisible();
+    await expect(sheet.getByText('@frank.testnet')).toHaveCount(0);
+    await expect(sheet.getByText('9:00 AM')).toBeVisible();
+    await expect(sheet.getByText('8:00 AM')).toBeVisible();
+    await expect(sheet.getByText('7:00 AM')).toBeVisible();
+    await expect.poll(() => reads.length).toBe(1);
+    expect(reads[0]?.ids).toEqual(['stand-1', 'stand-2', 'stand-3']);
+
+    await sheet.getByRole('link', { name: 'Dave, 8:00 AM' }).click();
+    await expect(page).toHaveURL(/\/@dave\.testnet/);
+    await expect(sheet).toHaveCount(0);
+
+    await page.goto('/notifications', { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: /Frank, stood with you/ }).click();
+    await expect(page).toHaveURL(/\/@frank\.testnet/);
+    await expect(
+      page.getByRole('dialog', { name: /Stood with you/ })
+    ).toHaveCount(0);
+  });
+});

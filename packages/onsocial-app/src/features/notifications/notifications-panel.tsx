@@ -46,11 +46,13 @@ import {
   resetListScrollMemory,
   scrollTopToPersist,
 } from '@/lib/list-scroll-restore';
+import { ActivityStandGroupSheet } from '@/features/notifications/activity-stand-group-sheet';
 import {
   NotificationActivityAppendSkeleton,
   NotificationActivityRows,
   NotificationActivitySkeleton,
 } from '@/features/notifications/notification-activity-rows';
+import { isActivityStandGroup } from '@/lib/activity-notification-groups';
 import {
   ACTIVITY_EXCLUDE_TYPE,
   activityTabTypeParam,
@@ -98,6 +100,7 @@ export function NotificationsPanel() {
   const [markingAll, setMarkingAll] = useState(false);
   const [tab, setTab] = useState<ActivityInboxTab>('all');
   const [mentionsUnread, setMentionsUnread] = useState(0);
+  const [standGroup, setStandGroup] = useState<Notification[] | null>(null);
   const accountGenRef = useRef(0);
   const mentionsCountReqRef = useRef(0);
   const accountIdRef = useRef(accountId);
@@ -153,6 +156,7 @@ export function NotificationsPanel() {
 
   useEffect(() => {
     accountGenRef.current += 1;
+    setStandGroup(null);
   }, [accountId]);
 
   const isCurrentAccount = useCallback(
@@ -518,6 +522,10 @@ export function NotificationsPanel() {
           }
         })();
       }
+      if (isActivityStandGroup(group)) {
+        setStandGroup(group);
+        return;
+      }
       if (collect) {
         openAccountSheet();
         return;
@@ -723,20 +731,29 @@ export function NotificationsPanel() {
   }
 
   return (
-    <OsAppScreen
-      title="Activity"
-      compactChrome
-      glassChrome
-      dockBack
-      leading={null}
-      backFallbackHref={APP_HOME_PATH}
-      className="notifications-activity-screen"
-      heading={<p className="os-app-screen-title">Activity</p>}
-      actions={markAllAction}
-      toolbar={activityTabs ?? undefined}
-      scrollRootRef={scrollRootRef}
-    >
-      <OsAppChromePage className="notifications-panel">{body}</OsAppChromePage>
-    </OsAppScreen>
+    <>
+      <OsAppScreen
+        title="Activity"
+        compactChrome
+        glassChrome
+        dockBack
+        leading={null}
+        backFallbackHref={APP_HOME_PATH}
+        className="notifications-activity-screen"
+        heading={<p className="os-app-screen-title">Activity</p>}
+        actions={markAllAction}
+        toolbar={activityTabs ?? undefined}
+        scrollRootRef={scrollRootRef}
+      >
+        <OsAppChromePage className="notifications-panel">
+          {body}
+        </OsAppChromePage>
+      </OsAppScreen>
+      <ActivityStandGroupSheet
+        items={standGroup}
+        profiles={profiles}
+        onClose={() => setStandGroup(null)}
+      />
+    </>
   );
 }

@@ -3,6 +3,7 @@ import type { Notification } from '@onsocial/sdk';
 import {
   activityGroupVerb,
   groupActivityNotifications,
+  isActivityStandGroup,
 } from '@/lib/activity-notification-groups';
 
 function row(
@@ -108,6 +109,40 @@ describe('groupActivityNotifications', () => {
 
     expect(groups).toHaveLength(1);
     expect(activityGroupVerb(groups[0])).toBe('and 2 others stood with you');
+  });
+
+  it('opens a sheet only for several stands', () => {
+    const stands = [
+      row({
+        id: 'stand-1',
+        type: 'standing_new',
+        createdAt: '2026-09-10T09:00:00.000Z',
+      }),
+      row({
+        id: 'stand-2',
+        type: 'standing_new',
+        actor: 'carol.testnet',
+        createdAt: '2026-09-10T07:00:00.000Z',
+      }),
+    ];
+    expect(isActivityStandGroup(stands)).toBe(true);
+    expect(isActivityStandGroup(stands.slice(0, 1))).toBe(false);
+    expect(
+      isActivityStandGroup([
+        row({
+          id: 'like',
+          type: 'reaction',
+          createdAt: '2026-09-10T09:00:00.000Z',
+          context: like,
+        }),
+        row({
+          id: 'like-2',
+          type: 'reaction',
+          createdAt: '2026-09-10T08:00:00.000Z',
+          context: like,
+        }),
+      ])
+    ).toBe(false);
   });
 
   it('keeps a single gesture on its own verb', () => {
