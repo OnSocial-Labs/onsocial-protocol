@@ -330,9 +330,15 @@ test.describe('nested reply media playback', () => {
     );
     const nestedVideo = nested.locator('video');
     await expect
-      .poll(async () => nestedVideo.evaluate((node) => node.paused), {
-        timeout: 5_000,
-      })
+      .poll(
+        async () =>
+          nestedVideo.evaluate(
+            (node) => node instanceof HTMLVideoElement && node.paused
+          ),
+        {
+          timeout: 5_000,
+        }
+      )
       .toBe(true);
 
     await nested.locator('.post-media-tile').click();
