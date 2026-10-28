@@ -143,9 +143,9 @@ describe('NotificationsModule.unreadCount', () => {
       },
     });
     const m = new NotificationsModule(http);
-    expect(
-      await m.unreadCount('alice.near', { type: 'mention,reply' })
-    ).toBe(4);
+    expect(await m.unreadCount('alice.near', { type: 'mention,reply' })).toBe(
+      4
+    );
     expect(spies.get.mock.calls[0]![0]).toContain('type=mention%2Creply');
   });
 });
