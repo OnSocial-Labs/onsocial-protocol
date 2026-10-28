@@ -56,14 +56,18 @@ describe('editor img variants', () => {
     ).toBeUndefined();
   });
 
-  it('external hosts and CDN subpaths stay on the original URL', () => {
+  it('external hosts and non-seat CDN subpaths stay on the original URL', () => {
     expect(
       ipfsImgSrcSet('https://example.com/art.png', SCARCE_HERO_WIDTHS)
     ).toBeUndefined();
-    // Seat-art subpaths are the g9 boundary — the CDN route cannot resize them.
+    // g9 opened seat-art subpaths (`/3.png`); other subpath shapes still
+    // bypass — the route only allows numeric stems with an image extension.
     expect(
       ipfsImgSrcSet(`${CDN_URL}/seat-3.png`, SCARCE_HERO_WIDTHS)
     ).toBeUndefined();
+    expect(ipfsImgSrcSet(`${CDN_URL}/3.png`, SCARCE_HERO_WIDTHS)).toContain(
+      `/img/384/ipfs/${CID}/3.png 384w`
+    );
   });
 
   it('gif/svg pass through byte-identical via the mime gate', () => {

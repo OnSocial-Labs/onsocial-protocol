@@ -33,10 +33,21 @@ describe('ipfsImgVariantUrl', () => {
     );
   });
 
+  it('carries variation seat art through the variant URL (g9)', () => {
+    for (const seat of ['1.png', '42.jpeg', '7.webp', '3.PNG'] as const) {
+      expect(ipfsImgVariantUrl(`${TESTNET_URL}/${seat}`, 384)).toBe(
+        `https://cdn.testnet.onsocial.id/img/384/ipfs/${MAINNET_CID}/${seat}`
+      );
+    }
+  });
+
   it('rejects URLs the CDN route would not match', () => {
     const cases = [
-      // Subpaths — the locked route is root CIDs only.
+      // Non-seat subpaths — the route only allows numeric stems + image ext.
       `${MAINNET_URL}/photo.png`,
+      `${MAINNET_URL}/1.json`,
+      `${MAINNET_URL}/1.png/extra`,
+      `${MAINNET_URL}/../1.png`,
       // Query strings.
       `${MAINNET_URL}?download=1`,
       // Other gateways / hosts.
@@ -109,6 +120,15 @@ describe('ipfsImgSrcSet', () => {
       [
         `https://cdn.testnet.onsocial.id/img/128/ipfs/${MAINNET_CID} 128w`,
         `https://cdn.testnet.onsocial.id/img/384/ipfs/${MAINNET_CID} 384w`,
+      ].join(', ')
+    );
+  });
+
+  it('keeps the seat suffix on every rung of the srcSet (g9)', () => {
+    expect(ipfsImgSrcSet(`${TESTNET_URL}/3.png`, [128, 384])).toBe(
+      [
+        `https://cdn.testnet.onsocial.id/img/128/ipfs/${MAINNET_CID}/3.png 128w`,
+        `https://cdn.testnet.onsocial.id/img/384/ipfs/${MAINNET_CID}/3.png 384w`,
       ].join(', ')
     );
   });

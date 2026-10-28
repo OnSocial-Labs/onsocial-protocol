@@ -46,6 +46,8 @@ import {
 import { QuantityCount } from '@/features/scarces/quantity-count';
 import { visibleQuantity } from '@/features/scarces/quantity-count-format';
 import { resolveScarceMediaUrl } from '@/features/market/market-listings';
+import { ipfsImgSrcSet } from '@onsocial/ui';
+import { EDITOR_MARK_WIDTHS, TICKET_MARK_SIZES } from '@/lib/hero-img-variants';
 import { accountIdsEqual } from '@/lib/account-match';
 import { restoreAppSocialSession } from '@/lib/app-social-session';
 import {
@@ -352,6 +354,8 @@ export function TicketShowPassSheet({
   const coverUrl = resolveScarceMediaUrl(cover?.trim() || null);
   const statusUrl = resolveScarceMediaUrl(status?.mediaUrl?.trim() || null);
   const media = thumbFailed ? null : coverUrl || statusUrl;
+  // Edition seat art variants via the g9 route; plain covers no-op as before.
+  const mediaSrcSet = ipfsImgSrcSet(media, EDITOR_MARK_WIDTHS);
   const statusLine = status
     ? ticketPassStatusLabel({
         isValid: status.isValid,
@@ -485,6 +489,8 @@ export function TicketShowPassSheet({
             >
               <img
                 src={media}
+                srcSet={mediaSrcSet}
+                sizes={mediaSrcSet ? TICKET_MARK_SIZES : undefined}
                 alt=""
                 className="ticket-show-pass-mark"
                 onError={() => setThumbFailed(true)}

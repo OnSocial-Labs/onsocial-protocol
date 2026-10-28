@@ -18,6 +18,10 @@
 #                      notice (exit code stays 0). The dedicated Lighthouse
 #                      gateway only serves pinned CIDs, so pick any image CID
 #                      from a recent post/avatar (copy image address in the app).
+#   VARIANT_PROBE_SUBPATH
+#                      Optional variation seat-art suffix (e.g. "/3.png")
+#                      appended to the CID — probes the subpath variant route
+#                      (g9). Needs a CID whose folder actually holds that file.
 #   VARIANT_WIDTH      default: 384 (must be one of 128/384/1080/1920)
 #
 # Base URL overrides (soak a stack before DNS, e.g. local Docker):
@@ -38,7 +42,7 @@ TESTNET_BASE="${TESTNET_CDN_BASE:-https://cdn.testnet.onsocial.id}"
 MAINNET_BASE="${MAINNET_CDN_BASE:-https://cdn.onsocial.id}"
 
 VARIANT_WIDTH="${VARIANT_WIDTH:-384}"
-VARIANT_CID="${VARIANT_PROBE_CID:-}"
+VARIANT_CID="${VARIANT_PROBE_CID:-}${VARIANT_PROBE_SUBPATH:-}"
 
 probe() {
   local network="$1" base="$2" cid="$3"

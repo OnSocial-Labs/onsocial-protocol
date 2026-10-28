@@ -131,17 +131,20 @@ __CDN_DOMAIN__ {
 		}
 	}
 
-	# ---------- Image variants (/img/<w>/ipfs/<cid>) ----------
+	# ---------- Image variants (/img/<w>/ipfs/<cid>[/<seat>.<ext>]) ----------
 	# Derived resizes via the imgproxy service (docker-compose.yml).
 	# Widths are locked to the agreed variant set — 128 avatars, 384 quote
 	# thumbs/collage cells, 1080 feed tiles, 1920 enlarge overlay — and the
 	# regex below is the allowlist: any other width 404s, so nobody can mint
-	# arbitrary variants to waste CPU or cache. imgproxy re-fetches the
-	# source from the same upstream; animated GIF/SVG pass through untouched
-	# (IMGPROXY_SKIP_PROCESSING_FORMATS). Each variant URL is a distinct
-	# cache key at the Cloudflare edge, so variants are generated once per
-	# cache fill. Canonical /ipfs URLs always serve the byte-original.
-	@imgVariant path_regexp img ^/img/(128|384|1080|1920)/ipfs/([A-Za-z0-9]+)$
+	# arbitrary variants to waste CPU or cache. The optional third group is
+	# variation seat art (`/ipfs/<cid>/3.png`) — strictly numeric stems with
+	# an image extension, so no traversal or arbitrary subpaths. imgproxy
+	# re-fetches the source from the same upstream; animated GIF/SVG pass
+	# through untouched (IMGPROXY_SKIP_PROCESSING_FORMATS). Each variant URL
+	# is a distinct cache key at the Cloudflare edge, so variants are
+	# generated once per cache fill. Canonical /ipfs URLs always serve the
+	# byte-original.
+	@imgVariant path_regexp img ^/img/(128|384|1080|1920)/ipfs/([A-Za-z0-9]+)(/[0-9]+\.(?i:png|jpe?g|webp|gif|svg))?$
 	handle @imgVariant {
 		# Variants of immutable content are immutable too.
 		header Cache-Control "public, max-age=31536000, immutable"
@@ -157,7 +160,7 @@ __CDN_DOMAIN__ {
 			}
 		}
 
-		rewrite * /insecure/resize:fit:{http.regexp.img.1}:0/plain/https://__CDN_UPSTREAM__/ipfs/{http.regexp.img.2}
+		rewrite * /insecure/resize:fit:{http.regexp.img.1}:0/plain/https://__CDN_UPSTREAM__/ipfs/{http.regexp.img.2}{http.regexp.img.3}
 		reverse_proxy imgproxy:8080 {
 			# reverse_proxy appends upstream header values, so drop
 			# imgproxy's copies of anything set above (and its Server

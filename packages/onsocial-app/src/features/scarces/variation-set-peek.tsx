@@ -1,12 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ipfsImgSrcSet } from '@onsocial/ui';
 import { variationSampleSeats } from '@/features/scarces/collections-data';
 import { formatGenerativeRarityLines } from '@/features/scarces/generative-set';
 import {
   fetchGenerativeRarity,
   fetchVariationTraitLabels,
 } from '@/features/scarces/variation-set-traits';
+import {
+  EDITOR_MARK_WIDTHS,
+  VARIATION_PEEK_SIZES,
+} from '@/lib/hero-img-variants';
 
 export function VariationSetPeek({
   collectionId,
@@ -104,9 +109,22 @@ export function VariationSetPeek({
     <section className="collection-set-peek" aria-label="The set">
       {samples.length > 0 ? (
         <div className="gen-preview-grid" aria-label="Sample pieces">
-          {samples.map((src, index) => (
-            <img key={`${src}-${index}`} src={src} alt="" />
-          ))}
+          {samples.map((src, index) => {
+            // Seat-art subpaths variant via the g9 route; anything else
+            // (foreign gateway templates) falls back to the plain original.
+            const srcSet = ipfsImgSrcSet(src, EDITOR_MARK_WIDTHS);
+            return (
+              <img
+                key={`${src}-${index}`}
+                src={src}
+                srcSet={srcSet}
+                sizes={srcSet ? VARIATION_PEEK_SIZES : undefined}
+                alt=""
+                loading="lazy"
+                decoding="async"
+              />
+            );
+          })}
         </div>
       ) : null}
       <p className="collection-set-peek-lead">{lead}</p>

@@ -26,3 +26,12 @@ export const EDITOR_MARK_SIZES = '84px';
  * a 16:9 render stays under ~384px wide inside the sheet.
  */
 export const ENDORSE_MEDIA_SIZES = '(min-width: 640px) 384px, 70vw';
+
+/**
+ * Variation-set peek tiles (g9) — 4-up inside the app column (~131px at
+ * desktop), 4-up at phone width, 2-up under 381px.
+ */
+export const VARIATION_PEEK_SIZES =
+  '(min-width: 640px) 131px, (min-width: 381px) 22vw, 44vw';
+/** Show-pass art mark — fixed 4.5rem square. */
+export const TICKET_MARK_SIZES = '72px';
