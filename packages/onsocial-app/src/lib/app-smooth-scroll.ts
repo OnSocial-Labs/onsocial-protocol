@@ -11,6 +11,12 @@
  * automatically. Lenis mutates each wrapper's `className` (`lenis`) — those
  * nodes use `suppressHydrationWarning` so layout-provider bind cannot race
  * nested Client hydration.
+ *
+ * The last three entries are drawers that scroll their own region instead of
+ * a shared screen body: the media-face thread drawer and the quotes /
+ * reposters lists (paged or not). The paged variant sits inside a sideways
+ * snap pager — post-quotes-panel carries `data-lenis-prevent-horizontal` so
+ * diagonal trackpad swipes still reach the pager natively.
  */
 export const APP_SMOOTH_SCROLL_ROOT_SELECTOR = [
   '.os-app-screen-body',
@@ -19,6 +25,9 @@ export const APP_SMOOTH_SCROLL_ROOT_SELECTOR = [
   '.glass-sheet-body',
   '.os-app-chrome-scroller',
   '.leaderboard-pager-scroll',
+  '.feed-photo-thread-body',
+  '.post-quotes-screen',
+  '.post-quotes-page-scroll',
 ].join(', ');
 
 /**

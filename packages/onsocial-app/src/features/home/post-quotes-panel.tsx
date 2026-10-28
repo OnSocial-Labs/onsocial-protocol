@@ -417,7 +417,10 @@ export function PostQuotesPanel({
             inert={activeTab !== 'quotes'}
           >
             <div className={`${GUILDS_PAGE_CLASS} post-quotes-page-scroll`}>
-              <div ref={quotesListRef}>
+              {/* Lenis guards read the event path below the scroll root, so
+                  the horizontal guard lives one level in — sideways trackpad
+                  swipes keep driving the snap pager natively. */}
+              <div ref={quotesListRef} data-lenis-prevent-horizontal>
                 {quotesWindow.windowed && quotesWindow.topSpacer > 0 ? (
                   <div
                     style={{ height: quotesWindow.topSpacer }}
@@ -507,7 +510,7 @@ export function PostQuotesPanel({
             inert={activeTab !== 'reposts'}
           >
             <div className={`${GUILDS_PAGE_CLASS} post-quotes-page-scroll`}>
-              <div ref={repostersListRef}>
+              <div ref={repostersListRef} data-lenis-prevent-horizontal>
                 {repostersWindow.windowed && repostersWindow.topSpacer > 0 ? (
                   <div
                     style={{ height: repostersWindow.topSpacer }}

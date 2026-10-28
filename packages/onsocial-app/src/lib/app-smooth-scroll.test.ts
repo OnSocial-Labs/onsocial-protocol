@@ -35,6 +35,24 @@ describe('app smooth scroll', () => {
     expect(APP_SMOOTH_SCROLL_ROOT_SELECTOR).toContain(
       '.leaderboard-pager-scroll'
     );
+    // Drawers that scroll their own region, not a shared screen body.
+    expect(APP_SMOOTH_SCROLL_ROOT_SELECTOR).toContain(
+      '.feed-photo-thread-body'
+    );
+    expect(APP_SMOOTH_SCROLL_ROOT_SELECTOR).toContain('.post-quotes-screen');
+    expect(APP_SMOOTH_SCROLL_ROOT_SELECTOR).toContain(
+      '.post-quotes-page-scroll'
+    );
+  });
+
+  it('keeps sideways swipes native on the paged quotes lists', () => {
+    // The quotes pager is a horizontal snap strip; Lenis slices the event
+    // path before the scroll root, so the guard must sit on the list inside.
+    const panel = readFileSync(
+      join(here, '../features/home/post-quotes-panel.tsx'),
+      'utf8'
+    );
+    expect(panel).toContain('data-lenis-prevent-horizontal');
   });
 
   it('keeps Lenis off shells that do not scroll', () => {
