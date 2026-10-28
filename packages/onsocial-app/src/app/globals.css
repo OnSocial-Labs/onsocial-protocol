@@ -44698,7 +44698,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   margin-top: var(--os-app-chrome-chip-gap, 0.28rem);
 }
 
-/* Sliding active-pill thumb (quotes-track recipe; transition, no pager). */
+/* Quotes-track chips: `.post-quotes-track` clears the segmented-pill wash.
+   The thumb is the only fill. Transition stands in for the pager slide. */
 .notifications-activity-tabs {
   position: relative;
 }

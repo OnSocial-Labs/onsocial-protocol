@@ -175,6 +175,13 @@ test.describe('activity inbox tabs', () => {
     });
     await expect(page.getByText('mentioned you')).toBeVisible();
 
+    // Mentions is fetched in the background before the first tap.
+    await expect
+      .poll(() => stub.listTypeParams().includes('mention,reply'), {
+        timeout: 15_000,
+      })
+      .toBe(true);
+
     await mentionsTab.click();
     await expect(mentionsTab).toHaveAttribute('aria-selected', 'true');
     await expect(allTab).toHaveAttribute('aria-selected', 'false');
@@ -198,7 +205,8 @@ test.describe('activity inbox tabs', () => {
     await expect
       .poll(() => stub.listTypeParams().length, { timeout: 15_000 })
       .toBeGreaterThan(callsBeforeBack);
-    expect(stub.listTypeParams().at(-1)).toBeNull();
+    // All refetch is untyped. The Mentions prefetch may follow it.
+    expect(stub.listTypeParams().slice(callsBeforeBack)).toContain(null);
   });
 
   test('filters with arrow keys from the tablist', async ({ page }) => {

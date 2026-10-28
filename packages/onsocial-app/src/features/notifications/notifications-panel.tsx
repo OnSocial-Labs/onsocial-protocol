@@ -201,6 +201,42 @@ export function NotificationsPanel() {
     return { client, accountId: id };
   }, [getClient]);
 
+  const prefetchMentions = useCallback(async () => {
+    if (!accountId) return;
+    const gen = accountGenRef.current;
+    const expected = accountId;
+    try {
+      const { client, accountId: id } = await withAuth();
+      if (accountGenRef.current !== gen || !isCurrentAccount(expected)) return;
+      // The open Mentions tab owns its rows. A background write would
+      // replace the line the user is already on.
+      if (tabRef.current === 'mentions') return;
+      const result = await client.notifications.list({
+        recipient: id,
+        limit: PAGE_SIZE,
+        excludeType: ACTIVITY_EXCLUDE_TYPE,
+        type: activityTabTypeParam('mentions'),
+      });
+      if (accountGenRef.current !== gen || !isCurrentAccount(expected)) return;
+      if (tabRef.current === 'mentions') {
+        if (itemsRef.current == null) {
+          setItems(result.notifications);
+          setNextCursor(result.nextCursor);
+          setLoadingInitial(false);
+        }
+        return;
+      }
+      const previous = tabCacheRef.current.mentions;
+      tabCacheRef.current.mentions = {
+        items: result.notifications,
+        nextCursor: result.nextCursor,
+        scrollTop: previous?.scrollTop ?? 0,
+      };
+    } catch {
+      // Opening Mentions runs its own load.
+    }
+  }, [accountId, isCurrentAccount, withAuth]);
+
   const loadInitial = useCallback(
     async (forTab: ActivityInboxTab) => {
       if (!accountId) return;
@@ -228,6 +264,7 @@ export function NotificationsPanel() {
         setError(null);
         setErrorSource(null);
         requestNotificationsUnreadRefresh();
+        if (forTab === 'all') void prefetchMentions();
       } catch (cause) {
         if (!isLive()) return;
         setError(
@@ -241,7 +278,7 @@ export function NotificationsPanel() {
         }
       }
     },
-    [accountId, isCurrentAccount, withAuth]
+    [accountId, isCurrentAccount, prefetchMentions, withAuth]
   );
 
   const fetchKeyRef = useRef<string | null>(null);
@@ -434,8 +471,9 @@ export function NotificationsPanel() {
     [items]
   );
 
-  const markAllAction =
-    isConnected && hasSocialSession ? (
+  const showActivityChrome = authPending || (isConnected && hasSocialSession);
+
+  const markAllAction = showActivityChrome ? (
       <button
         type="button"
         className={`notifications-mark-all${
@@ -450,7 +488,7 @@ export function NotificationsPanel() {
       </button>
     ) : null;
 
-  const showActivityTabs = isConnected && hasSocialSession;
+  const showActivityTabs = showActivityChrome;
   const activityTabsTrackRef = useRef<HTMLDivElement | null>(null);
   const activityTabsThumbRef = useRef<HTMLSpanElement | null>(null);
 
@@ -485,7 +523,7 @@ export function NotificationsPanel() {
   const activityTabs = showActivityTabs ? (
     <div
       ref={activityTabsTrackRef}
-      className="app-storage-mode-toggle notifications-activity-tabs"
+      className="app-storage-mode-toggle post-quotes-track notifications-activity-tabs"
       role="tablist"
       aria-label="Activity filter"
       onKeyDown={(event) => {
@@ -496,7 +534,7 @@ export function NotificationsPanel() {
     >
       <span
         ref={activityTabsThumbRef}
-        className="notifications-activity-tabs-thumb"
+        className="post-quotes-track-thumb notifications-activity-tabs-thumb"
         aria-hidden
       />
       <button

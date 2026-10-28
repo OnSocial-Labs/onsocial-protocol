@@ -104,6 +104,16 @@ async function stubNotifications(
       return;
     }
 
+    // Background Mentions prefetch must not count as an All refresh.
+    if (url.searchParams.get('type') === 'mention,reply') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ notifications: [], nextCursor: null }),
+      });
+      return;
+    }
+
     const cursor = url.searchParams.get('cursor');
     if (cursor) {
       if (appendFailures > 0) {
@@ -192,6 +202,10 @@ test.describe('authenticated notifications loading', () => {
     await expect(
       page.locator('.notifications-activity-list.standing-list-skeleton')
     ).toBeVisible({ timeout: 30_000 });
+    await expect(
+      page.getByRole('tab', { name: 'All', exact: true })
+    ).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Mentions' })).toBeVisible();
     await expect(
       page.locator('.notifications-activity-row')
     ).toHaveCount(0);
