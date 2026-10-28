@@ -9,6 +9,14 @@ const sheetSource = readFileSync(
   join(here, 'feed-media-thread-sheet.tsx'),
   'utf8'
 );
+const glassSheetSource = readFileSync(
+  join(here, '../../../../onsocial-ui/src/glass-sheet.tsx'),
+  'utf8'
+);
+const glassCss = readFileSync(
+  join(here, '../../../../onsocial-ui/glass-sheet.css'),
+  'utf8'
+);
 const globalsCss = readFileSync(join(here, '../../app/globals.css'), 'utf8');
 
 describe('threadScrimCover', () => {
@@ -26,22 +34,25 @@ describe('threadScrimCover', () => {
 });
 
 describe('reply drawer blur stack', () => {
-  it('mounts the 16px scrim and 12px frost from the shared glass constants', () => {
-    expect(sheetSource).toContain('GLASS_SHEET_BACKDROP_BLUR_PX');
-    expect(sheetSource).toContain('GLASS_SHEET_BACKDROP_SATURATE');
-    expect(sheetSource).toContain('GLASS_SHEET_OS_PANEL_BLUR_PX');
-    expect(sheetSource).toContain('GLASS_SHEET_PANEL_SATURATE');
-    expect(sheetSource).toContain('var(--feed-thread-cover, 1)');
-    expect(sheetSource).toContain('glass-sheet-header');
+  it('uses the band sheet instead of a private scrim and frost', () => {
+    expect(sheetSource).toContain('sizing="band"');
+    expect(sheetSource).toContain('SheetHeader');
+    expect(sheetSource).not.toContain('feed-photo-thread-scrim');
     expect(sheetSource).not.toContain('feed-photo-thread-chrome');
+    expect(glassSheetSource).toContain('glass-sheet-band-scrim');
+    expect(glassSheetSource).toContain('var(--feed-thread-cover, 1)');
+    expect(glassSheetSource).toContain('GLASS_SHEET_BACKDROP_BLUR_PX');
+    expect(glassSheetSource).toContain('GLASS_SHEET_OS_PANEL_BLUR_PX');
   });
 
-  it('clips the scrim to the pane and fills both layers at 56 percent', () => {
-    expect(globalsCss).toContain('.feed-photo-thread-scrim');
-    expect(globalsCss).toContain('background: rgb(var(--bg-rgb) / 0.56)');
-    expect(globalsCss).toContain('--glass-sheet-body-opacity: 0.56');
-    expect(globalsCss).toMatch(
-      /\.feed-photo-thread-sheet \{[\s\S]*?background: transparent/
+  it('keeps one frost opacity and no sheet shadow', () => {
+    expect(globalsCss).toContain('--glass-sheet-frost-opacity: 0.56');
+    expect(globalsCss).toContain('--glass-shadow: none');
+    expect(glassCss).toContain(
+      '--glass-sheet-body-opacity: var(--glass-sheet-frost-opacity, 0.56)'
     );
+    expect(glassCss).toContain('box-shadow: var(--glass-shadow, none)');
+    expect(glassCss).toContain('.glass-sheet-band-scrim');
+    expect(glassCss).not.toContain('--glass-shadow: 0');
   });
 });

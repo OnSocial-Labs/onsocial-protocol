@@ -39,6 +39,15 @@ export {
   type SheetHeaderProps,
 } from './glass-sheet.js';
 export {
+  MOOD_BG_PRESET_MIX,
+  MOOD_BG_PRESET_MIX_LIGHT,
+  MoodThemeProvider,
+  resolveSheetMood,
+  sheetMoodStyle,
+  useMoodTheme,
+  type MoodTheme,
+} from './mood-theme.js';
+export {
   OsPageSheet,
   osPageSheetPanelClassName,
   type OsPageSheetProps,

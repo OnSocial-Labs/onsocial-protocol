@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { SheetCloseButton } from './glass-sheet.js';
+import { SheetHeader } from './glass-sheet.js';
 import { standingIdentityAccountCopy } from './standing-identity.js';
 
 export type GestureSheetSignal =
@@ -37,13 +37,9 @@ export interface GestureSheetHeaderProps {
 }
 
 /**
- * Shared chrome for social / commerce gesture sheets.
- * Person sheets: verb + name; quiet handle; no duplicate face-card strip.
- * Work sheets (Amplify): verb; optional subject. No author face.
- * Title uses a paragraph (not h2) so type matches standing subject — UA
- * heading styles would otherwise beat layered sheet CSS.
- *
- * Pair with `os-gesture-sheet-header.css` (+ host `.standing-sheet-header`).
+ * Gesture copy on the shared sheet header. Verb, person, handle, and
+ * whisper stay gesture-specific. The row, close button, and type come
+ * from `SheetHeader`.
  */
 export function GestureSheetHeader({
   titleId,
@@ -61,46 +57,48 @@ export function GestureSheetHeader({
   const person = personName.trim();
   const workTitle = subject.trim();
   const handleLine = handle.trim() ? standingIdentityAccountCopy(handle) : '';
+  const detail =
+    workTitle || handleLine || whisper ? (
+      <>
+        {workTitle ? (
+          <span className="gesture-sheet-subject">{workTitle}</span>
+        ) : null}
+        {handleLine ? (
+          <span className="gesture-sheet-handle">{handleLine}</span>
+        ) : null}
+        {whisper ? (
+          <span className="gesture-sheet-whisper">{whisper}</span>
+        ) : null}
+      </>
+    ) : undefined;
 
   return (
-    <div className="standing-sheet-header gesture-sheet-header">
-      <div className="gesture-sheet-header-top">
-        <div className="gesture-sheet-header-copy">
-          <p
-            id={titleId}
-            role="heading"
-            aria-level={2}
-            {...(titleLabel ? { 'aria-label': titleLabel } : {})}
-            className="standing-sheet-subject-name gesture-sheet-title"
-          >
-            <span
-              className={`gesture-sheet-verb gesture-sheet-verb--${signal}`}
-            >
-              {verb}
-            </span>
-            {person ? (
-              <>
-                {' '}
-                {personHref ? (
-                  <a className="gesture-sheet-person" href={personHref}>
-                    {person}
-                  </a>
-                ) : (
-                  <span className="gesture-sheet-person">{person}</span>
-                )}
-              </>
-            ) : null}
-          </p>
-          {workTitle ? (
-            <p className="gesture-sheet-subject">{workTitle}</p>
+    <SheetHeader
+      className="gesture-sheet-header"
+      titleId={titleId}
+      {...(titleLabel ? { titleLabel } : {})}
+      title={
+        <>
+          <span className={`gesture-sheet-verb gesture-sheet-verb--${signal}`}>
+            {verb}
+          </span>
+          {person ? (
+            <>
+              {' '}
+              {personHref ? (
+                <a className="gesture-sheet-person" href={personHref}>
+                  {person}
+                </a>
+              ) : (
+                <span className="gesture-sheet-person">{person}</span>
+              )}
+            </>
           ) : null}
-          {handleLine ? (
-            <p className="gesture-sheet-handle">{handleLine}</p>
-          ) : null}
-          {whisper ? <p className="gesture-sheet-whisper">{whisper}</p> : null}
-        </div>
-        <SheetCloseButton onClick={onClose} ariaLabel={closeAriaLabel} />
-      </div>
-    </div>
+        </>
+      }
+      {...(detail ? { subtitle: detail } : {})}
+      onClose={onClose}
+      closeAriaLabel={closeAriaLabel}
+    />
   );
 }

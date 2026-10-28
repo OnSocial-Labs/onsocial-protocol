@@ -2916,9 +2916,11 @@ a.os-surface-row,
        cannot load. Portfolio moods override locally. */
     --app-font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
 
-    /* Frosted sheet material — tune top/body glass from this token group. */
+    /* Frosted sheet material — tune top/body glass from this token group.
+       Screen wash is 0.72. Sheet frost is the single 0.56 token. */
     --glass-scrim: rgb(var(--bg-rgb) / 0.56);
     --glass-scrim-solid: rgb(var(--bg-rgb) / 0.82);
+    --glass-sheet-frost-opacity: 0.56;
     --glass-sheet-body-opacity: 0.72;
     --glass-sheet-header-top-opacity: 0.88;
     --glass-sheet-header-mid-opacity: 0.76;
@@ -3044,11 +3046,6 @@ a.os-surface-row,
   .portfolio-frame,
   .portfolio-os-layer,
   .mood-sheet-item {
-    --mood-bg: color-mix(
-      in srgb,
-      var(--mood-preset-bg, var(--bg)) var(--mood-bg-preset-mix),
-      var(--bg)
-    );
     --mood-text: color-mix(
       in srgb,
       var(--mood-preset-text, var(--mood-text-base)) var(--mood-text-preset-mix),
@@ -3177,12 +3174,6 @@ a.os-surface-row,
   :root[data-theme='light'] .portfolio-frame,
   :root[data-theme='light'] .portfolio-os-layer,
   :root[data-theme='light'] .mood-sheet-item {
-    --mood-bg-preset-mix: 30%;
-    --mood-bg: color-mix(
-      in srgb,
-      var(--mood-preset-bg-light, var(--bg)) var(--mood-bg-preset-mix),
-      var(--bg)
-    );
     --mood-text: color-mix(
       in srgb,
       var(--mood-preset-text-light, var(--mood-text-base))
@@ -3206,12 +3197,6 @@ a.os-surface-row,
     :root:not([data-theme]) .portfolio-frame,
     :root:not([data-theme]) .portfolio-os-layer,
     :root:not([data-theme]) .mood-sheet-item {
-      --mood-bg-preset-mix: 30%;
-      --mood-bg: color-mix(
-        in srgb,
-        var(--mood-preset-bg-light, var(--bg)) var(--mood-bg-preset-mix),
-        var(--bg)
-      );
       --mood-text: color-mix(
         in srgb,
         var(--mood-preset-text-light, var(--mood-text-base))
@@ -31280,42 +31265,7 @@ a.os-surface-row,
    * Same light/dark preset mix as `.portfolio-frame`.
    */
   .os-app-screen.os-app-screen--mood {
-    --mood-bg-preset-mix: 25%;
-    --mood-bg: color-mix(
-      in srgb,
-      var(--mood-preset-bg, var(--bg)) var(--mood-bg-preset-mix),
-      var(--bg)
-    );
-    --mood-accent: var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72));
     box-shadow: none;
-  }
-
-  :root[data-theme='light'] .os-app-screen.os-app-screen--mood {
-    --mood-bg-preset-mix: 30%;
-    --mood-bg: color-mix(
-      in srgb,
-      var(--mood-preset-bg-light, var(--bg)) var(--mood-bg-preset-mix),
-      var(--bg)
-    );
-    --mood-accent: var(
-      --mood-preset-accent-light,
-      var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72))
-    );
-  }
-
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme]) .os-app-screen.os-app-screen--mood {
-      --mood-bg-preset-mix: 30%;
-      --mood-bg: color-mix(
-        in srgb,
-        var(--mood-preset-bg-light, var(--bg)) var(--mood-bg-preset-mix),
-        var(--bg)
-      );
-      --mood-accent: var(
-        --mood-preset-accent-light,
-        var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72))
-      );
-    }
   }
 
   .os-app-screen.os-app-screen--mood::before {
@@ -32862,24 +32812,6 @@ a.os-surface-row,
     .feed-face-thread-pane {
       transition: none;
     }
-
-    .feed-photo-thread-scrim {
-      opacity: 1;
-      transition: none;
-    }
-  }
-
-  @media (prefers-reduced-transparency: reduce) {
-    .feed-photo-thread-scrim {
-      background: var(--glass-scrim-solid, rgb(var(--bg-rgb) / 0.82));
-    }
-
-    .feed-photo-thread-sheet .glass-sheet-frost {
-      background: var(
-        --glass-surface-solid,
-        var(--surface-solid, rgb(var(--bg-rgb) / 0.98))
-      );
-    }
   }
 
   @media (min-width: 640px) {
@@ -32889,60 +32821,16 @@ a.os-surface-row,
     }
   }
 
-  .feed-photo-thread-sheet {
-    /* Same frost fill as `.glass-sheet-panel` (56%), not the page token at 72%. */
-    --glass-sheet-body-opacity: 0.56;
-    --glass-sheet-body-surface: rgb(var(--bg-rgb) / 0.56);
-    --glass-sheet-header-top-opacity: 0.8;
-    --glass-sheet-header-mid-opacity: 0.66;
-    --glass-header-scrim-top: 0.74;
-    --glass-header-scrim-mid: 0.52;
-    --glass-header-scrim-height: min(5.5rem, 24%);
-    position: relative;
-    isolation: isolate;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-width: 0;
-    min-height: 0;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.96);
-    border: 1px solid var(--glass-border, transparent);
-    border-radius: 1.25rem 1.25rem 0 0;
-    clip-path: inset(0 round 1.25rem 1.25rem 0 0);
-    box-shadow: var(--glass-shadow, none);
-    overflow: hidden;
-    pointer-events: auto;
-  }
-
-  .feed-photo-thread-sheet
-    > :not(.feed-photo-thread-scrim):not(.glass-sheet-frost) {
-    position: relative;
-    z-index: 1;
-  }
-
-  /* Dim behind the pane only — the film above this host stays sharp. */
-  .feed-photo-thread-scrim {
+  .feed-photo-thread-header .glass-sheet-header-heading {
     position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background: rgb(var(--bg-rgb) / 0.56);
-    opacity: var(--feed-thread-scrim-opacity, 0);
-    transition:
-      opacity var(--os-motion-overlay, 320ms)
-        var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)),
-      backdrop-filter var(--os-motion-overlay, 320ms)
-        var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
-  }
-
-  .feed-photo-thread-sheet.is-in {
-    --feed-thread-scrim-opacity: 1;
-  }
-
-  .is-thread-dragging .feed-photo-thread-scrim {
-    transition: none;
-    opacity: var(--feed-thread-cover, var(--feed-thread-scrim-opacity, 1));
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .feed-photo-thread-grip:focus-visible .glass-sheet-grip {

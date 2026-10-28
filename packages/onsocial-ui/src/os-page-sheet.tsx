@@ -107,6 +107,7 @@ export function OsPageSheet({
       rootClassName={rootClassName}
       keepDock={keepDock}
       {...(mergedPanelStyle ? { panelStyle: mergedPanelStyle } : {})}
+      {...(moodStyle ? { moodStyle } : {})}
       {...(moodId ? { moodId } : {})}
       {...(portalContainer !== undefined ? { portalContainer } : {})}
       header={header}

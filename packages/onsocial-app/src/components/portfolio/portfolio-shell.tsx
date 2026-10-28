@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import { resolveDisplayProfileKind, type ProfileKind } from '@onsocial/sdk';
+import { MoodThemeProvider } from '@onsocial/ui';
 import { PortfolioHeroTop } from '@/components/portfolio/portfolio-hero-top';
 import { useProtocolFacePairActiveAccount } from '@/components/portfolio/protocol-face-pair';
 import { useRegisterOsPortalHost } from '@/contexts/os-portal-host-context';
@@ -78,45 +79,47 @@ export function PortfolioShell({
   const shellStyle = portfolioMoodShellStyle(mood.cssVars);
 
   return (
-    <main
-      ref={setFrame}
-      className="frame app-surface portfolio-frame"
-      data-page-account={pageAccountId}
-      data-profile-kind={resolveDisplayProfileKind(profileKind, isDao)}
-      data-mood={mood.id}
-      data-mood-preview={isPreviewingMood ? 'true' : undefined}
-      data-has-banner={hasBanner ? 'true' : undefined}
-      data-mood-only={isMoodOnly ? 'true' : undefined}
-      data-avatar-mode={avatarMode}
-      data-avatar-cover={isCoverLayout ? 'true' : undefined}
-      data-face-preview={isPreviewing ? 'true' : undefined}
-      style={shellStyle as CSSProperties}
-    >
-      <div className="portfolio-page" suppressHydrationWarning>
-        {isGlassFinish ? (
-          <div className="portfolio-glass-sheet" aria-hidden="true" />
-        ) : null}
-
-        <div
-          className={
-            hasBanner
-              ? 'portfolio-banner-region'
-              : 'portfolio-banner-region portfolio-banner-region--mood-only'
-          }
-          aria-hidden="true"
-        >
-          {hero && isCoverLayout ? (
-            <PortfolioHeroTop hero={hero} layout="cover" />
+    <MoodThemeProvider moodId={mood.id} style={shellStyle as CSSProperties}>
+      <main
+        ref={setFrame}
+        className="frame app-surface portfolio-frame"
+        data-page-account={pageAccountId}
+        data-profile-kind={resolveDisplayProfileKind(profileKind, isDao)}
+        data-mood={mood.id}
+        data-mood-preview={isPreviewingMood ? 'true' : undefined}
+        data-has-banner={hasBanner ? 'true' : undefined}
+        data-mood-only={isMoodOnly ? 'true' : undefined}
+        data-avatar-mode={avatarMode}
+        data-avatar-cover={isCoverLayout ? 'true' : undefined}
+        data-face-preview={isPreviewing ? 'true' : undefined}
+        style={shellStyle as CSSProperties}
+      >
+        <div className="portfolio-page" suppressHydrationWarning>
+          {isGlassFinish ? (
+            <div className="portfolio-glass-sheet" aria-hidden="true" />
           ) : null}
-          {hero && !isCoverLayout ? (
-            <PortfolioHeroTop hero={hero} layout="banner" />
-          ) : null}
-        </div>
 
-        <div className="portfolio-hero portfolio-hero--strip-overlap">
-          {children}
+          <div
+            className={
+              hasBanner
+                ? 'portfolio-banner-region'
+                : 'portfolio-banner-region portfolio-banner-region--mood-only'
+            }
+            aria-hidden="true"
+          >
+            {hero && isCoverLayout ? (
+              <PortfolioHeroTop hero={hero} layout="cover" />
+            ) : null}
+            {hero && !isCoverLayout ? (
+              <PortfolioHeroTop hero={hero} layout="banner" />
+            ) : null}
+          </div>
+
+          <div className="portfolio-hero portfolio-hero--strip-overlap">
+            {children}
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </MoodThemeProvider>
   );
 }
