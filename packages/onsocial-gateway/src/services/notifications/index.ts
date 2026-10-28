@@ -193,6 +193,7 @@ class MemoryNotificationStore implements NotificationStore {
     excludeType?: string;
   }): Promise<number> {
     const excluded = new Set(parseExcludeTypes(params.excludeType));
+    const included = new Set(parseTypeList(params.type));
     let updated = 0;
     for (const item of this.notifications) {
       const matchesScope =
@@ -200,7 +201,7 @@ class MemoryNotificationStore implements NotificationStore {
         item.appId === params.appId &&
         item.recipient === params.recipient &&
         !item.read;
-      const matchesType = !params.type || item.type === params.type;
+      const matchesType = included.size === 0 || included.has(item.type);
       const matchesExclude = excluded.size === 0 || !excluded.has(item.type);
       const matchesContext =
         !params.contextContains ||
@@ -475,37 +476,39 @@ class HasuraNotificationStore implements NotificationStore {
     }
 
     const excluded = parseExcludeTypes(params.excludeType);
-    const mutation =
-      params.all && excluded.length > 0
-        ? `mutation($owner: String!, $app: String!, $recipient: String!, $excludeTypes: [String!]!, $readAt: timestamptz!) {
+    const included = params.all ? parseTypeList(params.type) : [];
+    const markAllDecls = [
+      '$owner: String!',
+      '$app: String!',
+      '$recipient: String!',
+      '$readAt: timestamptz!',
+    ];
+    const markAllFilters = [
+      'ownerAccountId: { _eq: $owner }',
+      'appId: { _eq: $app }',
+      'recipient: { _eq: $recipient }',
+      'read: { _eq: false }',
+    ];
+    if (included.length > 0) {
+      markAllDecls.push('$includeTypes: [String!]!');
+      markAllFilters.push('notificationType: { _in: $includeTypes }');
+    }
+    if (excluded.length > 0) {
+      markAllDecls.push('$excludeTypes: [String!]!');
+      markAllFilters.push('notificationType: { _nin: $excludeTypes }');
+    }
+    const mutation = params.all
+      ? `mutation(${markAllDecls.join(', ')}) {
           updateNotifications(
             where: {
-              ownerAccountId: { _eq: $owner }
-              appId: { _eq: $app }
-              recipient: { _eq: $recipient }
-              read: { _eq: false }
-              notificationType: { _nin: $excludeTypes }
+              ${markAllFilters.join('\n              ')}
             }
             _set: { read: true, readAt: $readAt }
           ) {
             affectedRows
           }
         }`
-        : params.all
-          ? `mutation($owner: String!, $app: String!, $recipient: String!, $readAt: timestamptz!) {
-          updateNotifications(
-            where: {
-              ownerAccountId: { _eq: $owner }
-              appId: { _eq: $app }
-              recipient: { _eq: $recipient }
-              read: { _eq: false }
-            }
-            _set: { read: true, readAt: $readAt }
-          ) {
-            affectedRows
-          }
-        }`
-          : `mutation($owner: String!, $app: String!, $recipient: String!, $ids: [uuid!]!, $readAt: timestamptz!) {
+      : `mutation($owner: String!, $app: String!, $recipient: String!, $ids: [uuid!]!, $readAt: timestamptz!) {
           updateNotifications(
             where: {
               ownerAccountId: { _eq: $owner }
@@ -527,9 +530,10 @@ class HasuraNotificationStore implements NotificationStore {
       app: params.appId,
       recipient: params.recipient,
       ...(params.all
-        ? excluded.length > 0
-          ? { excludeTypes: excluded }
-          : {}
+        ? {
+            ...(included.length > 0 ? { includeTypes: included } : {}),
+            ...(excluded.length > 0 ? { excludeTypes: excluded } : {}),
+          }
         : { ids: params.ids ?? [] }),
       readAt: new Date().toISOString(),
     });
@@ -622,6 +626,8 @@ export async function markNotificationsRead(params: {
   recipient: string;
   ids?: string[];
   all?: boolean;
+  /** With `all`, only these kinds (`mention,reply`). Single value stays exact. */
+  type?: string;
   excludeType?: string;
 }): Promise<number> {
   return store.markRead({
@@ -630,6 +636,7 @@ export async function markNotificationsRead(params: {
     recipient: params.recipient,
     ids: params.ids,
     all: params.all,
+    type: params.type?.trim() || undefined,
     excludeType: params.excludeType?.trim() || undefined,
   });
 }

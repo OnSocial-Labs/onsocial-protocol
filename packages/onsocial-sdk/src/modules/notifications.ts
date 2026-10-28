@@ -140,6 +140,8 @@ export class NotificationsModule {
       appId?: string;
       /** When set with `all`, leave this kind unread. */
       excludeType?: string;
+      /** When set with `all`, only these kinds (`mention,reply`). */
+      type?: string;
     }
   ): Promise<number> {
     const res = await this.http.post<{ updated: number }>(
@@ -150,6 +152,7 @@ export class NotificationsModule {
         ids: opts.ids,
         all: opts.all,
         ...(opts.excludeType ? { excludeType: opts.excludeType } : {}),
+        ...(opts.type ? { type: opts.type } : {}),
       }
     );
     return res.updated;

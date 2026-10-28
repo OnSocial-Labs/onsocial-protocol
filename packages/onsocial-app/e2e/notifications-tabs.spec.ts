@@ -32,8 +32,11 @@ const mentionNotification = {
 
 async function stubNotificationsWithTabs(page: Page): Promise<{
   listTypeParams: () => Array<string | null>;
+  readBodies: () => Array<{ all?: boolean; type?: string; excludeType?: string }>;
 }> {
   const seenTypes: Array<string | null> = [];
+  const reads: Array<{ all?: boolean; type?: string; excludeType?: string }> =
+    [];
 
   await page.route('**/api/onapi/developer/notifications**', async (route) => {
     const url = new URL(route.request().url());
@@ -61,6 +64,13 @@ async function stubNotificationsWithTabs(page: Page): Promise<{
       return;
     }
     if (url.pathname.endsWith('/read')) {
+      reads.push(
+        route.request().postDataJSON() as {
+          all?: boolean;
+          type?: string;
+          excludeType?: string;
+        }
+      );
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -91,7 +101,10 @@ async function stubNotificationsWithTabs(page: Page): Promise<{
     });
   });
 
-  return { listTypeParams: () => seenTypes };
+  return {
+    listTypeParams: () => seenTypes,
+    readBodies: () => reads,
+  };
 }
 
 /** Tall All list + short Mentions list, so scroll lines are meaningful. */
@@ -295,5 +308,34 @@ test.describe('activity inbox tabs', () => {
     await mentionsTab.click();
     await expect(page.getByText('mentioned you')).toBeVisible();
     await expect.poll(scrollTop).toBeLessThan(50);
+  });
+
+  test('marks read only for the open tab', async ({ page }) => {
+    const stub = await stubNotificationsWithTabs(page);
+    await page.goto('/notifications', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('mentioned you')).toBeVisible({
+      timeout: 30_000,
+    });
+
+    const markAll = page.getByRole('button', { name: 'Mark all read' });
+    await page.getByRole('tab', { name: 'Mentions' }).click();
+    await expect(markAll).toBeVisible();
+    await markAll.click();
+    await expect.poll(() => stub.readBodies().length).toBe(1);
+    expect(stub.readBodies()[0]).toMatchObject({
+      all: true,
+      type: 'mention,reply',
+    });
+    expect(stub.readBodies()[0]?.excludeType).toContain('dm');
+    expect(page.locator('.notifications-activity-pip')).toHaveCount(0);
+
+    await page.getByRole('tab', { name: 'All', exact: true }).click();
+    await expect(page.getByText('First update', { exact: true })).toBeVisible();
+    await expect(markAll).toBeVisible();
+    await markAll.click();
+    await expect.poll(() => stub.readBodies().length).toBe(2);
+    expect(stub.readBodies()[1]?.all).toBe(true);
+    expect(stub.readBodies()[1]?.type).toBeUndefined();
+    expect(stub.readBodies()[1]?.excludeType).toContain('dm');
   });
 });

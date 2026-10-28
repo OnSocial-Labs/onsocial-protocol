@@ -484,6 +484,30 @@ describe('POST /developer/notifications/read', () => {
     );
   });
 
+  it('forwards a comma-separated type include list on mark-all', async () => {
+    mockMarkNotificationsRead.mockResolvedValue(2);
+
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt', tier: 'pro' })
+    )
+      .post('/developer/notifications/read')
+      .send({
+        recipient: 'bob.testnet',
+        all: true,
+        type: 'mention,reply',
+        excludeType: 'dm',
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockMarkNotificationsRead).toHaveBeenCalledWith(
+      expect.objectContaining({
+        all: true,
+        type: 'mention,reply',
+        excludeType: 'dm',
+      })
+    );
+  });
+
   it('requires ids or all=true', async () => {
     const res = await request(
       createApp({ accountId: 'alice.testnet', method: 'jwt', tier: 'pro' })

@@ -268,6 +268,7 @@ notificationRouter.post(
         recipient,
         ids,
         all,
+        ...(typeof req.body?.type === 'string' ? { type: req.body.type } : {}),
         excludeType:
           typeof req.body?.excludeType === 'string'
             ? req.body.excludeType

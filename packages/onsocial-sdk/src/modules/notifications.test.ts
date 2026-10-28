@@ -174,6 +174,26 @@ describe('NotificationsModule.markRead', () => {
       excludeType: 'dm',
     });
   });
+
+  it('forwards a type include list on mark-all', async () => {
+    const { http, spies } = makeHttp({
+      post: { '/developer/notifications/read': { updated: 2 } },
+    });
+    const m = new NotificationsModule(http);
+    await m.markRead('alice.near', {
+      all: true,
+      type: 'mention,reply',
+      excludeType: 'dm',
+    });
+    expect(spies.post.mock.calls[0]![1]).toEqual({
+      appId: 'default',
+      recipient: 'alice.near',
+      ids: undefined,
+      all: true,
+      type: 'mention,reply',
+      excludeType: 'dm',
+    });
+  });
 });
 
 describe('NotificationsModule.sendEvents', () => {

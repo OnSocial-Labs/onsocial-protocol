@@ -421,13 +421,26 @@ export function NotificationsPanel() {
     setErrorSource(null);
     try {
       const { client, accountId: id } = await withAuth();
+      const type = activityTabTypeParam(tabRef.current);
       await client.notifications.markRead(id, {
         all: true,
         excludeType: ACTIVITY_EXCLUDE_TYPE,
+        type,
       });
-      setItems((prev) =>
-        prev ? prev.map((item) => ({ ...item, read: true })) : prev
-      );
+      const included = type ? new Set(type.split(',')) : null;
+      const markRow = (item: Notification) =>
+        included == null || included.has(item.type)
+          ? { ...item, read: true }
+          : item;
+      setItems((prev) => (prev ? prev.map(markRow) : prev));
+      for (const key of ['all', 'mentions'] as const) {
+        const cached = tabCacheRef.current[key];
+        if (!cached?.items) continue;
+        tabCacheRef.current[key] = {
+          ...cached,
+          items: cached.items.map(markRow),
+        };
+      }
       requestNotificationsUnreadRefresh();
     } catch (cause) {
       setError(
