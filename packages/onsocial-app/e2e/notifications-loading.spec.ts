@@ -241,7 +241,8 @@ test.describe('authenticated notifications loading', () => {
     await page.goto('/notifications', { waitUntil: 'domcontentloaded' });
     await expectAuthenticatedActivity(page);
 
-    await page.getByRole('button', { name: 'Load earlier' }).click();
+    // The list is shorter than the viewport, so the sentinel fires the
+    // append on its own — no Load-earlier button anymore.
     await expect(page.getByText('First update', { exact: true })).toBeVisible();
     await expect(
       page.locator('[data-notifications-append-skeleton]')
@@ -261,7 +262,7 @@ test.describe('authenticated notifications loading', () => {
     await page.goto('/notifications', { waitUntil: 'domcontentloaded' });
     await expectAuthenticatedActivity(page);
 
-    await page.getByRole('button', { name: 'Load earlier' }).click();
+    // The sentinel fires the append on its own (short list); it fails.
     const appendError = page
       .getByRole('alert')
       .filter({ hasText: 'Notifications unavailable' });

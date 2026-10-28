@@ -23,6 +23,7 @@ import {
   usePostEngagement,
 } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { GUILDS_PAGE_CLASS } from '@/lib/os-chrome-page';
@@ -88,6 +89,8 @@ export function PostQuotesPanel({
     () => initial?.hasMoreReposters ?? false
   );
   const [loadingMore, setLoadingMore] = useState(false);
+  /** Append failure parks the sentinel; the retry button takes over. */
+  const [loadMoreError, setLoadMoreError] = useState<QuotesTab | null>(null);
   const [activeTab, setActiveTab] = useState<QuotesTab>(
     initialTab === 'reposts' ? 'reposts' : 'quotes'
   );
@@ -213,14 +216,49 @@ export function PostQuotesPanel({
           setReposters((current) => [...current, ...page]);
           setHasMoreReposters(page.length >= POST_REPOSTERS_PAGE_SIZE);
         }
+        setLoadMoreError(null);
       } catch {
-        // Keep the current list; the button stays available to retry.
+        // Keep the current list; the retry button takes over from the sentinel.
+        setLoadMoreError(tab);
       } finally {
         setLoadingMore(false);
       }
     },
     [loadingMore, root, quotes.length, reposters.length]
   );
+
+  const quotesScrollRef = useRef<HTMLDivElement | null>(null);
+  const repostersScrollRef = useRef<HTMLDivElement | null>(null);
+  const quotesSentinelRef = useRef<HTMLDivElement | null>(null);
+  const repostersSentinelRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreQuotes = useCallback(() => {
+    void loadMore('quotes');
+  }, [loadMore]);
+  const loadMoreReposters = useCallback(() => {
+    void loadMore('reposts');
+  }, [loadMore]);
+  useInfiniteScrollSentinel({
+    scrollRootRef: quotesScrollRef,
+    sentinelRef: quotesSentinelRef,
+    enabled:
+      activeTab === 'quotes' &&
+      hasMoreQuotes &&
+      quotes.length > 0 &&
+      !loadingMore &&
+      loadMoreError !== 'quotes',
+    onIntersect: loadMoreQuotes,
+  });
+  useInfiniteScrollSentinel({
+    scrollRootRef: repostersScrollRef,
+    sentinelRef: repostersSentinelRef,
+    enabled:
+      activeTab === 'reposts' &&
+      hasMoreReposters &&
+      reposters.length > 0 &&
+      !loadingMore &&
+      loadMoreError !== 'reposts',
+    onIntersect: loadMoreReposters,
+  });
 
   const backHref = root
     ? postThreadPath(root)
@@ -416,7 +454,10 @@ export function PostQuotesPanel({
             aria-hidden={activeTab !== 'quotes'}
             inert={activeTab !== 'quotes'}
           >
-            <div className={`${GUILDS_PAGE_CLASS} post-quotes-page-scroll`}>
+            <div
+              ref={quotesScrollRef}
+              className={`${GUILDS_PAGE_CLASS} post-quotes-page-scroll`}
+            >
               {/* Lenis guards read the event path below the scroll root, so
                   the horizontal guard lives one level in — sideways trackpad
                   swipes keep driving the snap pager natively. */}
@@ -491,13 +532,24 @@ export function PostQuotesPanel({
                 ) : null}
               </div>
               {hasMoreQuotes ? (
-                <OsLoadMore
-                  onClick={() => void loadMore('quotes')}
-                  pending={loadingMore}
-                  disabled={loadingMore}
-                >
-                  {loadingMore ? 'Loading…' : 'Show more quotes'}
-                </OsLoadMore>
+                loadMoreError === 'quotes' ? (
+                  <OsLoadMore
+                    onClick={() => {
+                      setLoadMoreError(null);
+                      void loadMore('quotes');
+                    }}
+                    pending={loadingMore}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? 'Loading…' : 'Try again'}
+                  </OsLoadMore>
+                ) : (
+                  <div
+                    ref={quotesSentinelRef}
+                    className="post-quotes-load-sentinel"
+                    aria-hidden="true"
+                  />
+                )
               ) : null}
             </div>
           </div>
@@ -509,7 +561,10 @@ export function PostQuotesPanel({
             aria-hidden={activeTab !== 'reposts'}
             inert={activeTab !== 'reposts'}
           >
-            <div className={`${GUILDS_PAGE_CLASS} post-quotes-page-scroll`}>
+            <div
+              ref={repostersScrollRef}
+              className={`${GUILDS_PAGE_CLASS} post-quotes-page-scroll`}
+            >
               <div ref={repostersListRef} data-lenis-prevent-horizontal>
                 {repostersWindow.windowed && repostersWindow.topSpacer > 0 ? (
                   <div
@@ -580,13 +635,24 @@ export function PostQuotesPanel({
                 ) : null}
               </div>
               {hasMoreReposters ? (
-                <OsLoadMore
-                  onClick={() => void loadMore('reposts')}
-                  pending={loadingMore}
-                  disabled={loadingMore}
-                >
-                  {loadingMore ? 'Loading…' : 'Show more reposts'}
-                </OsLoadMore>
+                loadMoreError === 'reposts' ? (
+                  <OsLoadMore
+                    onClick={() => {
+                      setLoadMoreError(null);
+                      void loadMore('reposts');
+                    }}
+                    pending={loadingMore}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? 'Loading…' : 'Try again'}
+                  </OsLoadMore>
+                ) : (
+                  <div
+                    ref={repostersSentinelRef}
+                    className="post-quotes-load-sentinel"
+                    aria-hidden="true"
+                  />
+                )
               ) : null}
             </div>
           </div>

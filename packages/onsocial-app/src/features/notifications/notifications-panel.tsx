@@ -15,7 +15,6 @@ import type { Notification } from '@onsocial/sdk';
 import {
   OsAppChromePage,
   OsAppChromePageStatus,
-  OsSheetAction,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
@@ -23,6 +22,7 @@ import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppAccountSheet } from '@/contexts/app-account-sheet-context';
 import { useActivityPostSnippets } from '@/hooks/use-activity-post-snippets';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useListScrollRestore } from '@/hooks/use-list-scroll-restore';
 import { useCollectionDisplayNames } from '@/hooks/use-collection-display-names';
 import { useGuildDisplayNames } from '@/hooks/use-guild-display-names';
@@ -274,6 +274,19 @@ export function NotificationsPanel() {
     }
   }, [accountId, isCurrentAccount, loadingMore, nextCursor, withAuth]);
 
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  // Append failures gate the sentinel off so a visible sentinel cannot
+  // busy-loop; the append error's Try again retries via retryError.
+  useInfiniteScrollSentinel({
+    scrollRootRef,
+    sentinelRef: loadMoreSentinelRef,
+    enabled:
+      nextCursor != null &&
+      !loadingMore &&
+      !(error != null && errorSource === 'append'),
+    onIntersect: loadMore,
+  });
+
   const markAllRead = useCallback(async () => {
     if (!accountId || markingAll) return;
     setMarkingAll(true);
@@ -412,17 +425,11 @@ export function NotificationsPanel() {
             />
             {showAppendSkeleton ? <NotificationActivityAppendSkeleton /> : null}
             {nextCursor ? (
-              <div className="notifications-load-more">
-                <OsSheetAction
-                  type="button"
-                  ready={!loadingMore}
-                  pending={loadingMore}
-                  pendingLabel="Loading…"
-                  onClick={() => void loadMore()}
-                >
-                  Load earlier
-                </OsSheetAction>
-              </div>
+              <div
+                ref={loadMoreSentinelRef}
+                className="notifications-load-sentinel"
+                aria-hidden="true"
+              />
             ) : null}
           </>
         )}

@@ -44680,10 +44680,9 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   text-underline-offset: 0.15em;
 }
 
-.notifications-load-more {
-  display: flex;
-  justify-content: center;
-  margin-top: 0.35rem;
+.notifications-load-sentinel,
+.post-quotes-load-sentinel {
+  height: 1px;
 }
 
 .notifications-activity-list {

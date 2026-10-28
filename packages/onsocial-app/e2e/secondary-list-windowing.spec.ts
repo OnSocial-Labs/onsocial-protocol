@@ -386,24 +386,25 @@ test.describe('secondary list windowing', () => {
     ).toBeVisible({
       timeout: 30_000,
     });
-    // First page (12) renders fully; three load-more clicks bring in the rest.
+    // First page (12) renders fully; the sentinel pages in the rest as the
+    // scroller reaches the end.
     await expect(quoteRows).toHaveCount(POST_QUOTES_PAGE_SIZE);
-    const showMore = quotesPanel.getByRole('button', {
-      name: 'Show more quotes',
-    });
     const lastQuoteOffset =
       Math.floor((QUOTE_COUNT - 1) / POST_QUOTES_PAGE_SIZE) *
       POST_QUOTES_PAGE_SIZE;
     for (
       let attempt = 0;
-      attempt < 8 && !quoteOffsets.includes(lastQuoteOffset);
+      attempt < 10 && !quoteOffsets.includes(lastQuoteOffset);
       attempt += 1
     ) {
-      if ((await showMore.count()) > 0) await showMore.click();
-      await page.waitForTimeout(400);
+      await scrollScrollerTo(quotesScroller, 'bottom');
+      await page.waitForTimeout(500);
     }
     expect(quoteOffsets).toContain(lastQuoteOffset);
-    await expect(showMore).toHaveCount(0);
+    // All 44 rows in — the sentinel unmounts when hasMore flips false.
+    await expect(
+      quotesScroller.locator('.post-quotes-load-sentinel')
+    ).toHaveCount(0);
     await expect.poll(() => quoteRows.count()).toBeLessThan(QUOTE_COUNT);
 
     await scrollScrollerTo(quotesScroller, 'bottom');
@@ -418,9 +419,8 @@ test.describe('secondary list windowing', () => {
       quotesHost.locator('[data-feed-window-spacer="top"]')
     ).toHaveCount(1);
 
-    // Reposters arrive in a 50-row page; one more click crosses the overscan.
+    // Reposters arrive in a 50-row page; one sentinel page crosses the overscan.
     await page.getByRole('tab', { name: /Reposts/ }).click();
-    const repostersPanel = page.getByRole('tabpanel', { name: /Reposts/ });
     const repostersScroller = page.locator(
       '#post-quotes-page-reposts .post-quotes-page-scroll'
     );
@@ -432,19 +432,18 @@ test.describe('secondary list windowing', () => {
       );
 
     await expect(reposterWrapper(1)).toBeVisible({ timeout: 15_000 });
-    const showMoreReposts = repostersPanel.getByRole('button', {
-      name: 'Show more reposts',
-    });
     for (
       let attempt = 0;
-      attempt < 6 && !reposterOffsets.includes(POST_REPOSTERS_PAGE_SIZE);
+      attempt < 8 && !reposterOffsets.includes(POST_REPOSTERS_PAGE_SIZE);
       attempt += 1
     ) {
-      if ((await showMoreReposts.count()) > 0) await showMoreReposts.click();
-      await page.waitForTimeout(400);
+      await scrollScrollerTo(repostersScroller, 'bottom');
+      await page.waitForTimeout(500);
     }
     expect(reposterOffsets).toContain(POST_REPOSTERS_PAGE_SIZE);
-    await expect(showMoreReposts).toHaveCount(0);
+    await expect(
+      repostersScroller.locator('.post-quotes-load-sentinel')
+    ).toHaveCount(0);
 
     await scrollScrollerTo(repostersScroller, 'top');
     await expect
