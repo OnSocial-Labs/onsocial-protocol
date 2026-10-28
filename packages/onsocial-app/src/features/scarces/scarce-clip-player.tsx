@@ -19,12 +19,10 @@ import {
   ipfsImgSrcSet,
 } from '@onsocial/ui';
 import { MediaDownloadControl } from '@/components/ui/media-download-control';
-import {
-  SCARCE_HERO_WIDTHS,
-  SQUARE_ART_SIZES,
-} from '@/lib/hero-img-variants';
+import { SCARCE_HERO_WIDTHS, SQUARE_ART_SIZES } from '@/lib/hero-img-variants';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
+import { startJoinedMedia } from '@/lib/single-media-playback';
 import {
   shouldBindPlaybackSession,
   shouldTakeOverPlayback,
@@ -585,8 +583,7 @@ export function ScarceClipPlayer({
     showKnobPeek(1400);
     if (resumeAfterScrubRef.current && media) {
       resumeAfterScrubRef.current = false;
-      void media
-        .play()
+      void startJoinedMedia(media, 'explicit')
         .then(() => setPlaying(true))
         .catch(() => setPlaying(false));
     } else {
@@ -605,8 +602,7 @@ export function ScarceClipPlayer({
     let cancelled = false;
     // Same <audio> node across tracks — force load so src swaps don't stall.
     media.load();
-    void media
-      .play()
+    void startJoinedMedia(media, 'explicit')
       .then(() => {
         if (!cancelled) setPlaying(true);
       })
@@ -705,7 +701,7 @@ export function ScarceClipPlayer({
     try {
       media.muted = false;
       media.volume = 1;
-      await media.play();
+      await startJoinedMedia(media, 'explicit');
       setPlaying(true);
     } catch {
       setPlaying(false);

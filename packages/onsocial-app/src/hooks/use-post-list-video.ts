@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { startJoinedMedia } from '@/lib/single-media-playback';
 
 export type PostVideoPlaybackMode =
   | 'list'
@@ -14,29 +15,9 @@ export type PostVideoDetailOptions = {
   resume?: boolean;
 };
 
-let activePostVideo: HTMLVideoElement | null = null;
-
-function claimActiveVideo(video: HTMLVideoElement) {
-  if (
-    activePostVideo &&
-    activePostVideo !== video &&
-    !activePostVideo.paused
-  ) {
-    activePostVideo.pause();
-  }
-  activePostVideo = video;
-}
-
-function releaseActiveVideo(video: HTMLVideoElement) {
-  if (activePostVideo === video) {
-    activePostVideo = null;
-  }
-}
-
 function tryPlayMuted(video: HTMLVideoElement) {
   video.muted = true;
-  claimActiveVideo(video);
-  void video.play().catch(() => {});
+  void startJoinedMedia(video, 'passive').catch(() => {});
 }
 
 function applyInitialTime(video: HTMLVideoElement, initialTime: number) {
@@ -56,8 +37,7 @@ function startDetailPlayback(
   applyInitialTime(video, initialTime);
   video.muted = muted;
   video.loop = true;
-  claimActiveVideo(video);
-  void video.play().catch(() => {});
+  void startJoinedMedia(video, 'passive').catch(() => {});
 }
 
 /** Unmuted play — prefer `mediaIndex` tile; call from a user gesture when possible. */
@@ -67,12 +47,13 @@ export function playPostFocusVideo(mediaIndex = 0) {
   ) as HTMLVideoElement | null;
   const video =
     indexed ??
-    (document.querySelector('[data-post-focus-video]') as HTMLVideoElement | null);
+    (document.querySelector(
+      '[data-post-focus-video]'
+    ) as HTMLVideoElement | null);
   if (!video) return;
   video.muted = false;
   video.loop = true;
-  claimActiveVideo(video);
-  void video.play().catch(() => {});
+  void startJoinedMedia(video, 'explicit').catch(() => {});
 }
 
 /**
@@ -137,30 +118,19 @@ export function usePostVideoPlayback(
     if (!enabled || !videoEl) return;
     const video = videoEl;
 
-    const onPlay = () => claimActiveVideo(video);
-    const onPause = () => {
-      if (video.paused) releaseActiveVideo(video);
-    };
-    const onEnded = () => releaseActiveVideo(video);
-
-    video.addEventListener('play', onPlay);
-    video.addEventListener('pause', onPause);
-    video.addEventListener('ended', onEnded);
-
     return () => {
-      video.removeEventListener('play', onPlay);
-      video.removeEventListener('pause', onPause);
-      video.removeEventListener('ended', onEnded);
       video.pause();
-      releaseActiveVideo(video);
     };
   }, [enabled, mode, videoEl]);
 
   useEffect(() => {
-    if (mode !== 'list') return;
+    if (mode !== 'list' || !videoEl) return;
     const node = containerRef.current;
     if (!node) return;
 
+    // The element mounts after the tile is already on screen. Observing only
+    // the tile misses that first callback, so a clip in view never starts
+    // until the next scroll. Re-bind when the element appears.
     const observer = new IntersectionObserver(
       ([entry]) => {
         const video = videoRef.current;
@@ -182,7 +152,7 @@ export function usePostVideoPlayback(
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [mode]);
+  }, [mode, videoEl]);
 
   useEffect(() => {
     if (mode !== 'detail-muted' && mode !== 'detail-unmuted') return;

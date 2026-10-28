@@ -30,6 +30,7 @@ import { accountIdsEqual } from '@/lib/account-match';
 import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
 import type { GuildPostPageData } from '@/lib/load-guild-post-page';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
+import { startJoinedMedia } from '@/lib/single-media-playback';
 import { postKey } from '@/lib/post-display';
 import {
   guildThreadCardContext,
@@ -468,7 +469,8 @@ function PostThreadSheet({
         root.inert = false;
       }
       for (const node of resumeMediaRef.current) {
-        if (node.isConnected) void node.play().catch(() => undefined);
+        if (node.isConnected)
+          void startJoinedMedia(node, 'explicit').catch(() => undefined);
       }
       resumeMediaRef.current = [];
     };

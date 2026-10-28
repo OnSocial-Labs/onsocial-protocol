@@ -27,6 +27,7 @@ import {
   VolumeMuteIcon,
   VolumeUpIcon,
 } from '@onsocial/ui';
+import { startJoinedMedia } from '@/lib/single-media-playback';
 import type { PostRow } from '@onsocial/sdk';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import { downloadIpfsMedia } from '@/lib/media-download';
@@ -499,9 +500,7 @@ export function FeedPhotoEnlargeScreen({
   }, [zoomFlight, zoomFlying, restoreHiddenThumb]);
 
   /* Keep the landed clone aligned if the stage flexes (caption, resize). */
-  const zoomEnterActive = Boolean(
-    zoomFlight && zoomFlight.phase === 'enter'
-  );
+  const zoomEnterActive = Boolean(zoomFlight && zoomFlight.phase === 'enter');
   useEffect(() => {
     if (!zoomEnterActive) return;
     const stage = stageRef.current;
@@ -658,13 +657,13 @@ export function FeedPhotoEnlargeScreen({
     revealChrome();
     if (video.ended || video.currentTime >= (video.duration || 0) - 0.05) {
       video.currentTime = 0;
-      void video.play().catch(() => {
+      void startJoinedMedia(video, 'restart').catch(() => {
         /* gesture / policy */
       });
       return;
     }
     if (video.paused) {
-      void video.play().catch(() => {
+      void startJoinedMedia(video, 'explicit').catch(() => {
         /* gesture / policy */
       });
     } else {
@@ -947,7 +946,7 @@ export function FeedPhotoEnlargeScreen({
       if (active) {
         active.loop = true;
         active.muted = videoMuted;
-        void active.play().catch(() => {
+        void startJoinedMedia(active, 'explicit').catch(() => {
           setVideoPaused(true);
         });
       }
@@ -957,11 +956,11 @@ export function FeedPhotoEnlargeScreen({
       if (videoIndex === index) {
         video.loop = true;
         video.muted = videoMuted;
-        void video.play().catch(() => {
+        void startJoinedMedia(video, 'explicit').catch(() => {
           if (!videoMuted) {
             video.muted = true;
             setVideoMuted(true);
-            void video.play().catch(() => {
+            void startJoinedMedia(video, 'explicit').catch(() => {
               setVideoPaused(true);
             });
             return;
@@ -1360,7 +1359,11 @@ export function FeedPhotoEnlargeScreen({
    * morphs to the contain-fitted stage rect, ending pixel-aligned with the
    * real image it swaps with.
    */
-  const zoomRect = zoomFlight ? (zoomFlying ? zoomFlight.to : zoomFlight.from) : null;
+  const zoomRect = zoomFlight
+    ? zoomFlying
+      ? zoomFlight.to
+      : zoomFlight.from
+    : null;
   const zoomLayer =
     zoomFlight && zoomRect && typeof document !== 'undefined'
       ? createPortal(
@@ -1394,150 +1397,158 @@ export function FeedPhotoEnlargeScreen({
     <>
       {zoomLayer}
       <OsMediaFaceShell
-      open={open}
-      onClose={handleClose}
-      onBeforeClose={handleBeforeShellClose}
-      title={title}
-      quietTitle
-      mast={mast}
-      trailing={trailingNode}
-      closeAriaLabel={quietClose}
-      zIndex={SCARCE_Z.listenShell}
-      footer={onFilm ? null : engagement}
-      transport={onFilm ? null : videoTransport}
-      stageLayout="fixed"
-      chromeQuiet={chromeQuiet}
-      keepDock={threadOpen || !cinema}
-      className={slideClass}
-      contentClassName="feed-photo-slide-body"
-      bodyStyle={
-        threadOpen
-          ? ({
-              '--feed-thread-band': `${(threadBand * 100).toFixed(1)}%`,
-              '--feed-jacket-t': jacketT.toFixed(3),
-            } as CSSProperties)
-          : undefined
-      }
-    >
-      <div className="feed-photo-listen">
-        {/* Whole-stage tap (letterbox included): leave reply / toggle chrome. */}
-        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
-        <div
-          ref={stageRef}
-          className={`feed-photo-stage${cinema ? ' is-cinema' : ''}`}
-          onClick={handleStageTap}
-        >
-          {showStage ? (
-            stage
-          ) : photos.length > 1 ? (
-            <div ref={trackRef} className="feed-photo-track os-scrollbar-none">
-              {photos.map((item, photoIndex) => (
-                <div
-                  key={`${item.cid ?? item.url}:${photoIndex}`}
-                  className="feed-photo-page"
-                >
-                  <FeedPhotoMediaStage
-                    item={item}
-                    active={open && photoIndex === index}
-                    photoIndex={photoIndex}
-                    videoRefs={videoRefs}
-                    muted={open && photoIndex === index ? videoMuted : true}
-                    buffering={
-                      open && photoIndex === index ? videoBuffering : false
-                    }
-                    onToggleChrome={
-                      open && photoIndex === index ? handleStageTap : undefined
-                    }
-                    transport={
-                      onFilm && open && photoIndex === index
-                        ? videoTransport
-                        : null
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <FeedPhotoMediaStage
-              item={photos[0] ?? null}
-              active={open}
-              photoIndex={0}
-              videoRefs={videoRefs}
-              muted={videoMuted}
-              buffering={videoBuffering}
-              onToggleChrome={handleStageTap}
-              transport={onFilm ? videoTransport : null}
-            />
-          )}
-          {captionNode}
-        </div>
-        {showNav ? (
+        open={open}
+        onClose={handleClose}
+        onBeforeClose={handleBeforeShellClose}
+        title={title}
+        quietTitle
+        mast={mast}
+        trailing={trailingNode}
+        closeAriaLabel={quietClose}
+        zIndex={SCARCE_Z.listenShell}
+        footer={onFilm ? null : engagement}
+        transport={onFilm ? null : videoTransport}
+        stageLayout="fixed"
+        chromeQuiet={chromeQuiet}
+        keepDock={threadOpen || !cinema}
+        className={slideClass}
+        contentClassName="feed-photo-slide-body"
+        bodyStyle={
+          threadOpen
+            ? ({
+                '--feed-thread-band': `${(threadBand * 100).toFixed(1)}%`,
+                '--feed-jacket-t': jacketT.toFixed(3),
+              } as CSSProperties)
+            : undefined
+        }
+      >
+        <div className="feed-photo-listen">
+          {/* Whole-stage tap (letterbox included): leave reply / toggle chrome. */}
+          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
           <div
-            className={`feed-photo-nav${chromeQuiet ? ' is-chrome-quiet' : ''}`}
-            role="group"
-            aria-label={hasVideo ? 'Media' : 'Photos'}
+            ref={stageRef}
+            className={`feed-photo-stage${cinema ? ' is-cinema' : ''}`}
+            onClick={handleStageTap}
           >
-            <OsIconAction
-              ariaLabel="Previous"
-              className="feed-photo-nav-btn"
-              disabled={index <= 0}
-              onClick={() => {
-                revealChrome();
-                goTo(stepFeedPhotoIndex(index, last, -1));
-              }}
-            >
-              <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
-            </OsIconAction>
-            <div className="feed-photo-dots">
-              {photos.map((item, photoIndex) => (
-                <button
-                  key={`${item.cid ?? item.url}:${photoIndex}`}
-                  type="button"
-                  className={
-                    photoIndex === index
-                      ? 'feed-photo-dot is-current'
-                      : 'feed-photo-dot'
-                  }
-                  aria-label={`Go to item ${photoIndex + 1} of ${photos.length}`}
-                  aria-current={photoIndex === index ? 'true' : undefined}
-                  onClick={() => {
-                    revealChrome();
-                    goTo(photoIndex);
-                  }}
-                />
-              ))}
-            </div>
-            <OsIconAction
-              ariaLabel="Next"
-              className="feed-photo-nav-btn"
-              disabled={index >= last}
-              onClick={() => {
-                revealChrome();
-                goTo(stepFeedPhotoIndex(index, last, 1));
-              }}
-            >
-              <ChevronRightIcon
-                className="glass-sheet-close-icon"
-                aria-hidden
+            {showStage ? (
+              stage
+            ) : photos.length > 1 ? (
+              <div
+                ref={trackRef}
+                className="feed-photo-track os-scrollbar-none"
+              >
+                {photos.map((item, photoIndex) => (
+                  <div
+                    key={`${item.cid ?? item.url}:${photoIndex}`}
+                    className="feed-photo-page"
+                  >
+                    <FeedPhotoMediaStage
+                      item={item}
+                      active={open && photoIndex === index}
+                      photoIndex={photoIndex}
+                      videoRefs={videoRefs}
+                      muted={open && photoIndex === index ? videoMuted : true}
+                      buffering={
+                        open && photoIndex === index ? videoBuffering : false
+                      }
+                      onToggleChrome={
+                        open && photoIndex === index
+                          ? handleStageTap
+                          : undefined
+                      }
+                      transport={
+                        onFilm && open && photoIndex === index
+                          ? videoTransport
+                          : null
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <FeedPhotoMediaStage
+                item={photos[0] ?? null}
+                active={open}
+                photoIndex={0}
+                videoRefs={videoRefs}
+                muted={videoMuted}
+                buffering={videoBuffering}
+                onToggleChrome={handleStageTap}
+                transport={onFilm ? videoTransport : null}
               />
-            </OsIconAction>
-            <span className="sr-only" aria-live="polite">
-              {index + 1} of {photos.length}
-            </span>
+            )}
+            {captionNode}
+          </div>
+          {showNav ? (
+            <div
+              className={`feed-photo-nav${chromeQuiet ? ' is-chrome-quiet' : ''}`}
+              role="group"
+              aria-label={hasVideo ? 'Media' : 'Photos'}
+            >
+              <OsIconAction
+                ariaLabel="Previous"
+                className="feed-photo-nav-btn"
+                disabled={index <= 0}
+                onClick={() => {
+                  revealChrome();
+                  goTo(stepFeedPhotoIndex(index, last, -1));
+                }}
+              >
+                <ChevronLeftIcon
+                  className="glass-sheet-close-icon"
+                  aria-hidden
+                />
+              </OsIconAction>
+              <div className="feed-photo-dots">
+                {photos.map((item, photoIndex) => (
+                  <button
+                    key={`${item.cid ?? item.url}:${photoIndex}`}
+                    type="button"
+                    className={
+                      photoIndex === index
+                        ? 'feed-photo-dot is-current'
+                        : 'feed-photo-dot'
+                    }
+                    aria-label={`Go to item ${photoIndex + 1} of ${photos.length}`}
+                    aria-current={photoIndex === index ? 'true' : undefined}
+                    onClick={() => {
+                      revealChrome();
+                      goTo(photoIndex);
+                    }}
+                  />
+                ))}
+              </div>
+              <OsIconAction
+                ariaLabel="Next"
+                className="feed-photo-nav-btn"
+                disabled={index >= last}
+                onClick={() => {
+                  revealChrome();
+                  goTo(stepFeedPhotoIndex(index, last, 1));
+                }}
+              >
+                <ChevronRightIcon
+                  className="glass-sheet-close-icon"
+                  aria-hidden
+                />
+              </OsIconAction>
+              <span className="sr-only" aria-live="polite">
+                {index + 1} of {photos.length}
+              </span>
+            </div>
+          ) : null}
+        </div>
+        {open && threadOpen && threadAuthor && threadPostId ? (
+          <div className="feed-photo-thread-host">
+            <FeedMediaThreadSheet
+              author={threadAuthor}
+              postId={threadPostId}
+              initialRoot={threadRoot}
+              band={threadBand}
+              gripHandlers={gripHandlers}
+            />
           </div>
         ) : null}
-      </div>
-      {open && threadOpen && threadAuthor && threadPostId ? (
-        <div className="feed-photo-thread-host">
-          <FeedMediaThreadSheet
-            author={threadAuthor}
-            postId={threadPostId}
-            initialRoot={threadRoot}
-            band={threadBand}
-            gripHandlers={gripHandlers}
-          />
-        </div>
-      ) : null}
       </OsMediaFaceShell>
     </>
   );

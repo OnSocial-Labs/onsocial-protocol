@@ -8,6 +8,7 @@ import {
   type CSSProperties,
 } from 'react';
 import { VolumeMuteIcon, VolumeUpIcon, ipfsImgSrcSet } from '@onsocial/ui';
+import { startJoinedMedia } from '@/lib/single-media-playback';
 import {
   usePostVideoPlayback,
   type PostVideoPlaybackMode,
@@ -183,9 +184,7 @@ export function PostMediaBlock({
     event.preventDefault();
     event.stopPropagation();
     onActivate?.(
-      event.currentTarget instanceof HTMLElement
-        ? event.currentTarget
-        : null
+      event.currentTarget instanceof HTMLElement ? event.currentTarget : null
     );
   };
   const mediaClassName = ['post-media-element', resolved ? 'is-resolved' : '']
@@ -262,7 +261,8 @@ export function PostMediaBlock({
             if (video) {
               video.muted = next;
               video.loop = true;
-              if (!next) void video.play().catch(() => {});
+              if (!next)
+                void startJoinedMedia(video, 'explicit').catch(() => {});
             }
             setSoundOff(next);
           }}
