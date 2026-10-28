@@ -91,7 +91,8 @@ interface NotificationStore {
     appId: string,
     recipient: string,
     eventType?: string,
-    excludeType?: string
+    excludeType?: string,
+    type?: string
   ): Promise<number>;
   markRead(params: {
     ownerAccountId: string;
@@ -168,15 +169,18 @@ class MemoryNotificationStore implements NotificationStore {
     appId: string,
     recipient: string,
     eventType?: string,
-    excludeType?: string
+    excludeType?: string,
+    type?: string
   ): Promise<number> {
     const excluded = new Set(parseExcludeTypes(excludeType));
+    const included = new Set(parseTypeList(type));
     return this.notifications.filter(
       (item) =>
         item.ownerAccountId === ownerAccountId &&
         item.appId === appId &&
         item.recipient === recipient &&
         (!eventType || item.context.eventType === eventType) &&
+        (included.size === 0 || included.has(item.type)) &&
         (excluded.size === 0 || !excluded.has(item.type)) &&
         !item.read
     ).length;
@@ -375,10 +379,12 @@ class HasuraNotificationStore implements NotificationStore {
     appId: string,
     recipient: string,
     eventType?: string,
-    excludeType?: string
+    excludeType?: string,
+    type?: string
   ): Promise<number> {
     const eventTypeFilter = normalizeEventType(eventType);
     const excluded = parseExcludeTypes(excludeType);
+    const included = parseTypeList(type);
     const whereFields = [
       'ownerAccountId: { _eq: $owner }',
       'appId: { _eq: $app }',
@@ -388,6 +394,9 @@ class HasuraNotificationStore implements NotificationStore {
 
     if (eventTypeFilter) {
       whereFields.push('context: { _contains: $eventContext }');
+    }
+    if (included.length > 0) {
+      whereFields.push('notificationType: { _in: $includeTypes }');
     }
     if (excluded.length > 0) {
       whereFields.push('notificationType: { _nin: $excludeTypes }');
@@ -399,6 +408,7 @@ class HasuraNotificationStore implements NotificationStore {
       '$recipient: String!',
     ];
     if (eventTypeFilter) countVarDecls.push('$eventContext: jsonb');
+    if (included.length > 0) countVarDecls.push('$includeTypes: [String!]!');
     if (excluded.length > 0) countVarDecls.push('$excludeTypes: [String!]!');
 
     const result = await this.gql<{
@@ -420,6 +430,7 @@ class HasuraNotificationStore implements NotificationStore {
         ...(eventTypeFilter
           ? { eventContext: { eventType: eventTypeFilter } }
           : {}),
+        ...(included.length > 0 ? { includeTypes: included } : {}),
         ...(excluded.length > 0 ? { excludeTypes: excluded } : {}),
       }
     );
@@ -610,13 +621,16 @@ export async function getUnreadNotificationCount(params: {
   eventType?: string;
   /** Omit a kind from the unread total (e.g. `dm` when mailbox has its own badge). */
   excludeType?: string;
+  /** Only these kinds (`mention,reply`). */
+  type?: string;
 }): Promise<number> {
   return store.countUnread(
     params.ownerAccountId,
     normalizeAppId(params.appId),
     params.recipient,
     normalizeEventType(params.eventType),
-    params.excludeType?.trim() || undefined
+    params.excludeType?.trim() || undefined,
+    params.type?.trim() || undefined
   );
 }
 

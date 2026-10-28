@@ -132,6 +132,22 @@ describe('NotificationsModule.unreadCount', () => {
     await m.unreadCount('alice.near', { excludeType: 'dm' });
     expect(spies.get.mock.calls[0]![0]).toContain('excludeType=dm');
   });
+
+  it('forwards a type include list for the mentions cue', async () => {
+    const { http, spies } = makeHttp({
+      get: {
+        '/developer/notifications/count': {
+          recipient: 'alice.near',
+          unread: 4,
+        },
+      },
+    });
+    const m = new NotificationsModule(http);
+    expect(
+      await m.unreadCount('alice.near', { type: 'mention,reply' })
+    ).toBe(4);
+    expect(spies.get.mock.calls[0]![0]).toContain('type=mention%2Creply');
+  });
 });
 
 describe('NotificationsModule.markRead', () => {

@@ -117,7 +117,13 @@ export class NotificationsModule {
   /** Get unread notification count. */
   async unreadCount(
     recipient: string,
-    opts?: { appId?: string; eventType?: string; excludeType?: string }
+    opts?: {
+      appId?: string;
+      eventType?: string;
+      excludeType?: string;
+      /** Only these kinds (`mention,reply`). */
+      type?: string;
+    }
   ): Promise<number> {
     const qs = new URLSearchParams({
       appId: this.appId(opts?.appId),
@@ -125,6 +131,7 @@ export class NotificationsModule {
     });
     if (opts?.eventType) qs.set('eventType', opts.eventType);
     if (opts?.excludeType) qs.set('excludeType', opts.excludeType);
+    if (opts?.type) qs.set('type', opts.type);
     const res = await this.http.get<{ recipient: string; unread: number }>(
       `/developer/notifications/count?${qs.toString()}`
     );

@@ -100,7 +100,9 @@ export function NotificationsPanel() {
   >(null);
   const [markingAll, setMarkingAll] = useState(false);
   const [tab, setTab] = useState<ActivityInboxTab>('all');
+  const [mentionsUnread, setMentionsUnread] = useState(0);
   const accountGenRef = useRef(0);
+  const mentionsCountReqRef = useRef(0);
   const accountIdRef = useRef(accountId);
   const tabRef = useRef<ActivityInboxTab>('all');
   /** Per-tab painted rows + scroll line so back-switches land where you left. */
@@ -200,6 +202,29 @@ export function NotificationsPanel() {
     client.auth.setToken(token);
     return { client, accountId: id };
   }, [getClient]);
+
+  const loadMentionsUnread = useCallback(async () => {
+    if (!accountId) return;
+    const gen = accountGenRef.current;
+    const expected = accountId;
+    const req = ++mentionsCountReqRef.current;
+    const stillCurrent = () =>
+      mentionsCountReqRef.current === req &&
+      accountGenRef.current === gen &&
+      isCurrentAccount(expected);
+    try {
+      const { client, accountId: id } = await withAuth();
+      if (!stillCurrent()) return;
+      const count = await client.notifications.unreadCount(id, {
+        excludeType: ACTIVITY_EXCLUDE_TYPE,
+        type: activityTabTypeParam('mentions'),
+      });
+      if (!stillCurrent()) return;
+      setMentionsUnread(Number.isFinite(count) ? count : 0);
+    } catch {
+      // The chip keeps the last count. The dock poll retries.
+    }
+  }, [accountId, isCurrentAccount, withAuth]);
 
   const prefetchMentions = useCallback(async () => {
     if (!accountId) return;
@@ -329,6 +354,20 @@ export function NotificationsPanel() {
     }
   }, [accountId, activityUnread, hasSocialSession, isConnected, loadInitial]);
 
+  useEffect(() => {
+    if (!isConnected || !accountId || !hasSocialSession) {
+      setMentionsUnread(0);
+      return;
+    }
+    void loadMentionsUnread();
+  }, [
+    accountId,
+    activityUnread,
+    hasSocialSession,
+    isConnected,
+    loadMentionsUnread,
+  ]);
+
   const selectTab = useCallback((next: ActivityInboxTab) => {
     if (next === tabRef.current) return;
     tabCacheRef.current[tabRef.current] = {
@@ -441,6 +480,8 @@ export function NotificationsPanel() {
           items: cached.items.map(markRow),
         };
       }
+      mentionsCountReqRef.current += 1;
+      setMentionsUnread(0);
       requestNotificationsUnreadRefresh();
     } catch (cause) {
       setError(
@@ -453,20 +494,27 @@ export function NotificationsPanel() {
   }, [accountId, markingAll, withAuth]);
 
   const openItem = useCallback(
-    (item: Notification) => {
+    (group: Notification[]) => {
+      const item = group[0];
+      if (!item) return;
       const collect = isCollectActivityType(item.type);
-      if (!item.read && accountId) {
-        setItems((prev) =>
-          prev
-            ? prev.map((row) =>
-                row.id === item.id ? { ...row, read: true } : row
-              )
-            : prev
-        );
+      const unreadIds = group.filter((row) => !row.read).map((row) => row.id);
+      if (unreadIds.length > 0 && accountId) {
+        const mark = (row: Notification) =>
+          unreadIds.includes(row.id) ? { ...row, read: true } : row;
+        setItems((prev) => (prev ? prev.map(mark) : prev));
+        for (const key of ['all', 'mentions'] as const) {
+          const cached = tabCacheRef.current[key];
+          if (!cached?.items) continue;
+          tabCacheRef.current[key] = {
+            ...cached,
+            items: cached.items.map(mark),
+          };
+        }
         void (async () => {
           try {
             const { client, accountId: id } = await withAuth();
-            await client.notifications.markRead(id, { ids: [item.id] });
+            await client.notifications.markRead(id, { ids: unreadIds });
             requestNotificationsUnreadRefresh();
           } catch {
             // Read state catches up on next poll; navigation already happened.
@@ -574,6 +622,11 @@ export function NotificationsPanel() {
         onClick={() => selectTab('mentions')}
       >
         Mentions
+        {mentionsUnread > 0 ? (
+          <span className="app-storage-mode-count">
+            {mentionsUnread > 99 ? '99+' : mentionsUnread}
+          </span>
+        ) : null}
       </button>
     </div>
   ) : null;

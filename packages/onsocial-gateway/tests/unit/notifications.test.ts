@@ -277,6 +277,22 @@ describe('GET /developer/notifications/count', () => {
       expect.objectContaining({ excludeType: 'dm' })
     );
   });
+
+  it('forwards a comma-separated type include list on unread count', async () => {
+    mockGetUnreadNotificationCount.mockResolvedValue(2);
+
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'apikey' })
+    )
+      .get('/developer/notifications/count')
+      .query({ recipient: 'bob.testnet', type: 'mention,reply' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.unread).toBe(2);
+    expect(mockGetUnreadNotificationCount).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'mention,reply' })
+    );
+  });
 });
 
 describe('POST /developer/notifications/events', () => {

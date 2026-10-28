@@ -156,6 +156,7 @@ notificationRouter.get(
           typeof req.query.excludeType === 'string'
             ? req.query.excludeType
             : undefined,
+        ...(typeof req.query.type === 'string' ? { type: req.query.type } : {}),
       });
       res.json({ recipient, unread });
     } catch (error) {

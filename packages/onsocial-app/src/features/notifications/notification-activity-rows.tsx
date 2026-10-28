@@ -38,6 +38,10 @@ import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import {
+  activityGroupVerb,
+  groupActivityNotifications,
+} from '@/lib/activity-notification-groups';
+import {
   buildNotificationDayRows,
   notificationRowKey,
 } from '@/lib/notification-day-rows';
@@ -254,10 +258,19 @@ export function NotificationActivityRows({
   guildNames?: Record<string, string>;
   collectionNames?: Record<string, string>;
   postSnippets?: Record<string, string>;
-  onOpen: (item: Notification) => void;
+  onOpen: (items: Notification[]) => void;
   refreshing?: boolean;
 }) {
-  const rows = useMemo(() => buildNotificationDayRows(items), [items]);
+  const rows = useMemo(
+    () =>
+      buildNotificationDayRows(
+        groupActivityNotifications(items).map((group) => ({
+          ...group[0],
+          group,
+        }))
+      ),
+    [items]
+  );
 
   /*
    * List windowing — same core as the feed and thread panels: past the row
@@ -308,13 +321,14 @@ export function NotificationActivityRows({
         }
 
         const item = row.item;
+        const group = item.group;
         const previous = index > 0 ? rows[index - 1] : null;
         const leadAccount = notificationLeadAccountId(item);
         const system = !leadAccount && isSystemNotification(item);
         const when = formatNotificationTime(item.createdAt);
-        const unread = !item.read;
+        const unread = group.some((member) => !member.read);
+        const verb = activityGroupVerb(group);
         const {
-          verb,
           placeAccountId,
           placeGroupId,
           placeCollectionId,
@@ -421,7 +435,7 @@ export function NotificationActivityRows({
                   type="button"
                   className="standing-row-hit"
                   aria-label={aria}
-                  onClick={() => onOpen(item)}
+                  onClick={() => onOpen(group)}
                 />
                 {body}
               </div>
