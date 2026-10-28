@@ -12,10 +12,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Notification } from '@onsocial/sdk';
-import {
-  OsAppChromePage,
-  OsAppChromePageStatus,
-} from '@onsocial/ui';
+import { OsAppChromePage, OsAppChromePageStatus } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -538,19 +535,19 @@ export function NotificationsPanel() {
   const showActivityChrome = authPending || (isConnected && hasSocialSession);
 
   const markAllAction = showActivityChrome ? (
-      <button
-        type="button"
-        className={`notifications-mark-all${
-          unreadCount > 0 ? '' : ' is-slot-reserved'
-        }`}
-        disabled={markingAll || unreadCount === 0}
-        tabIndex={unreadCount > 0 ? undefined : -1}
-        aria-hidden={unreadCount > 0 ? undefined : true}
-        onClick={() => void markAllRead()}
-      >
-        {markingAll ? 'Marking…' : 'Mark all read'}
-      </button>
-    ) : null;
+    <button
+      type="button"
+      className={`notifications-mark-all${
+        unreadCount > 0 ? '' : ' is-slot-reserved'
+      }`}
+      disabled={markingAll || unreadCount === 0}
+      tabIndex={unreadCount > 0 ? undefined : -1}
+      aria-hidden={unreadCount > 0 ? undefined : true}
+      onClick={() => void markAllRead()}
+    >
+      {markingAll ? 'Marking…' : 'Mark all read'}
+    </button>
+  ) : null;
 
   const showActivityTabs = showActivityChrome;
   const activityTabsTrackRef = useRef<HTMLDivElement | null>(null);

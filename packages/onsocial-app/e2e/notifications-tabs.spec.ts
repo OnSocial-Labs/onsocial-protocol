@@ -32,7 +32,11 @@ const mentionNotification = {
 
 async function stubNotificationsWithTabs(page: Page): Promise<{
   listTypeParams: () => Array<string | null>;
-  readBodies: () => Array<{ all?: boolean; type?: string; excludeType?: string }>;
+  readBodies: () => Array<{
+    all?: boolean;
+    type?: string;
+    excludeType?: string;
+  }>;
 }> {
   const seenTypes: Array<string | null> = [];
   const reads: Array<{ all?: boolean; type?: string; excludeType?: string }> =
@@ -341,52 +345,60 @@ test.describe('activity inbox tabs', () => {
 
   test('shows the mentions unread count on the chip', async ({ page }) => {
     await seedAuthenticatedNotifications(page);
-    await page.route('**/api/onapi/developer/notifications**', async (route) => {
-      const url = new URL(route.request().url());
-      if (url.pathname.endsWith('/count')) {
-        const mentions = url.searchParams.get('type') === 'mention,reply';
+    await page.route(
+      '**/api/onapi/developer/notifications**',
+      async (route) => {
+        const url = new URL(route.request().url());
+        if (url.pathname.endsWith('/count')) {
+          const mentions = url.searchParams.get('type') === 'mention,reply';
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              recipient: NOTIFICATIONS_E2E_ACCOUNT,
+              unread: mentions ? 4 : 6,
+            }),
+          });
+          return;
+        }
+        if (
+          url.pathname.endsWith('/push/status') ||
+          url.pathname.endsWith('/read')
+        ) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(
+              url.pathname.endsWith('/read')
+                ? { updated: 1 }
+                : { configured: false, enabled: false, subscriptionCount: 0 }
+            ),
+          });
+          return;
+        }
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({
-            recipient: NOTIFICATIONS_E2E_ACCOUNT,
-            unread: mentions ? 4 : 6,
+            notifications: [appEventNotification],
+            nextCursor: null,
           }),
         });
-        return;
       }
-      if (url.pathname.endsWith('/push/status') || url.pathname.endsWith('/read')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(
-            url.pathname.endsWith('/read')
-              ? { updated: 1 }
-              : { configured: false, enabled: false, subscriptionCount: 0 }
-          ),
-        });
-        return;
-      }
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          notifications: [appEventNotification],
-          nextCursor: null,
-        }),
-      });
-    });
+    );
 
     await page.goto('/notifications', { waitUntil: 'domcontentloaded' });
     const mentions = page.getByRole('tab', { name: 'Mentions' });
     await expect(mentions).toBeVisible({ timeout: 30_000 });
     await expect(mentions).toContainText('4');
-    await expect(page.getByRole('tab', { name: 'All', exact: true })).not.toContainText(
-      '4'
-    );
+    await expect(
+      page.getByRole('tab', { name: 'All', exact: true })
+    ).not.toContainText('4');
   });
 
-  test('folds repeated likes of one post into a single row', async ({ page }) => {
+  test('folds repeated likes of one post into a single row', async ({
+    page,
+  }) => {
     await seedAuthenticatedNotifications(page);
     const like = (id: string, actor: string, createdAt: string) => ({
       ...appEventNotification,
@@ -401,41 +413,47 @@ test.describe('activity inbox tabs', () => {
       createdAt,
     });
 
-    await page.route('**/api/onapi/developer/notifications**', async (route) => {
-      const url = new URL(route.request().url());
-      if (url.pathname.endsWith('/count')) {
+    await page.route(
+      '**/api/onapi/developer/notifications**',
+      async (route) => {
+        const url = new URL(route.request().url());
+        if (url.pathname.endsWith('/count')) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              recipient: NOTIFICATIONS_E2E_ACCOUNT,
+              unread: 0,
+            }),
+          });
+          return;
+        }
+        if (
+          url.pathname.endsWith('/push/status') ||
+          url.pathname.endsWith('/read')
+        ) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ updated: 1 }),
+          });
+          return;
+        }
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({
-            recipient: NOTIFICATIONS_E2E_ACCOUNT,
-            unread: 0,
+            notifications: [
+              like('like-1', 'carol.testnet', '2026-09-10T09:00:00.000Z'),
+              mentionNotification,
+              like('like-2', 'dave.testnet', '2026-09-10T08:00:00.000Z'),
+              like('like-3', 'erin.testnet', '2026-09-10T07:00:00.000Z'),
+            ],
+            nextCursor: null,
           }),
         });
-        return;
       }
-      if (url.pathname.endsWith('/push/status') || url.pathname.endsWith('/read')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ updated: 1 }),
-        });
-        return;
-      }
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          notifications: [
-            like('like-1', 'carol.testnet', '2026-09-10T09:00:00.000Z'),
-            mentionNotification,
-            like('like-2', 'dave.testnet', '2026-09-10T08:00:00.000Z'),
-            like('like-3', 'erin.testnet', '2026-09-10T07:00:00.000Z'),
-          ],
-          nextCursor: null,
-        }),
-      });
-    });
+    );
 
     await page.goto('/notifications', { waitUntil: 'domcontentloaded' });
     await expect(page.getByText('and 2 others liked your post')).toBeVisible({
