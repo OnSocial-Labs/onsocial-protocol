@@ -416,6 +416,7 @@ export function ScarceFeedMediumSheet({
               initialRoot={threadRoot}
               band={threadBand}
               gripHandlers={gripHandlers}
+              onClose={dismissThread}
             />
           </div>
         ) : null}

@@ -1546,6 +1546,7 @@ export function FeedPhotoEnlargeScreen({
               initialRoot={threadRoot}
               band={threadBand}
               gripHandlers={gripHandlers}
+              onClose={dismissThread}
             />
           </div>
         ) : null}

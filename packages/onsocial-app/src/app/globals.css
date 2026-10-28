@@ -32786,7 +32786,7 @@ a.os-surface-row,
     margin-bottom: -0.55rem;
     z-index: 8;
     overflow: hidden;
-    border-radius: 1.1rem 1.1rem 0 0;
+    border-radius: 1.25rem 1.25rem 0 0;
     pointer-events: auto;
     background: transparent;
     transition:
@@ -32842,7 +32842,7 @@ a.os-surface-row,
         env(safe-area-inset-top, 0px)
     );
     overflow: hidden;
-    border-radius: 1.1rem 1.1rem 0 0;
+    border-radius: 1.25rem 1.25rem 0 0;
     pointer-events: auto;
     transition:
       height 320ms cubic-bezier(0.2, 0.9, 0.24, 1),
@@ -32862,6 +32862,24 @@ a.os-surface-row,
     .feed-face-thread-pane {
       transition: none;
     }
+
+    .feed-photo-thread-scrim {
+      opacity: 1;
+      transition: none;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .feed-photo-thread-scrim {
+      background: var(--glass-scrim-solid, rgb(var(--bg-rgb) / 0.82));
+    }
+
+    .feed-photo-thread-sheet .glass-sheet-frost {
+      background: var(
+        --glass-surface-solid,
+        var(--surface-solid, rgb(var(--bg-rgb) / 0.98))
+      );
+    }
   }
 
   @media (min-width: 640px) {
@@ -32872,58 +32890,63 @@ a.os-surface-row,
   }
 
   .feed-photo-thread-sheet {
+    /* Same frost fill as `.glass-sheet-panel` (56%), not the page token at 72%. */
+    --glass-sheet-body-opacity: 0.56;
+    --glass-sheet-body-surface: rgb(var(--bg-rgb) / 0.56);
+    --glass-sheet-header-top-opacity: 0.8;
+    --glass-sheet-header-mid-opacity: 0.66;
+    --glass-header-scrim-top: 0.74;
+    --glass-header-scrim-mid: 0.52;
+    --glass-header-scrim-height: min(5.5rem, 24%);
+    position: relative;
+    isolation: isolate;
     display: flex;
     flex-direction: column;
     height: 100%;
     min-width: 0;
     min-height: 0;
-    background: var(--bg, rgb(var(--bg-rgb)));
-    border-radius: 1.1rem 1.1rem 0 0;
-    /* Lift lived as a rectangular shadow in the host’s square clip. */
-    box-shadow: none;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.96);
+    border: 1px solid var(--glass-border, transparent);
+    border-radius: 1.25rem 1.25rem 0 0;
+    clip-path: inset(0 round 1.25rem 1.25rem 0 0);
+    box-shadow: var(--glass-shadow, none);
     overflow: hidden;
     pointer-events: auto;
   }
 
-  .feed-photo-thread-grip {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    min-height: 1.85rem;
-    padding: 0.55rem 0 0.2rem;
-    touch-action: none;
-    cursor: grab;
-    user-select: none;
-    outline: none;
-    -webkit-tap-highlight-color: transparent;
-    background: transparent;
-    box-shadow: none;
+  .feed-photo-thread-sheet
+    > :not(.feed-photo-thread-scrim):not(.glass-sheet-frost) {
+    position: relative;
+    z-index: 1;
   }
 
-  .feed-photo-thread-grip:active {
-    cursor: grabbing;
+  /* Dim behind the pane only — the film above this host stays sharp. */
+  .feed-photo-thread-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: rgb(var(--bg-rgb) / 0.56);
+    opacity: var(--feed-thread-scrim-opacity, 0);
+    transition:
+      opacity var(--os-motion-overlay, 320ms)
+        var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)),
+      backdrop-filter var(--os-motion-overlay, 320ms)
+        var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
   }
 
-  .feed-photo-thread-grip:focus,
-  .feed-photo-thread-grip:focus-visible,
-  .feed-photo-thread-grip:hover {
-    outline: none;
-    background: transparent;
-    box-shadow: none;
+  .feed-photo-thread-sheet.is-in {
+    --feed-thread-scrim-opacity: 1;
   }
 
-  .feed-photo-thread-grip:focus-visible .feed-photo-thread-grip-bar {
+  .is-thread-dragging .feed-photo-thread-scrim {
+    transition: none;
+    opacity: var(--feed-thread-cover, var(--feed-thread-scrim-opacity, 1));
+  }
+
+  .feed-photo-thread-grip:focus-visible .glass-sheet-grip {
     opacity: 0.9;
-  }
-
-  .feed-photo-thread-grip-bar {
-    display: block;
-    width: 2.25rem;
-    height: 0.1875rem;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.28);
-    opacity: 0.55;
   }
 
   .feed-photo-thread-body {
@@ -32932,8 +32955,6 @@ a.os-surface-row,
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
-    padding-inline: 0;
-    padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
     overscroll-behavior: contain;
   }
 
@@ -32941,7 +32962,7 @@ a.os-surface-row,
     min-width: 0;
     max-width: 100%;
     overflow-x: hidden;
-    padding: 0.1rem 1rem 0.35rem;
+    padding: 0;
   }
 
   .feed-media-thread-embed .guild-thread-column {
@@ -40917,6 +40938,14 @@ a.os-surface-row,
 
 .os-write-dock-footer-actions .os-write-dock-divider {
   margin-inline: 0.05rem;
+}
+
+/*
+ * Hug inset owns the sides. Bottom keeps the summon dock clear — hug sheets
+ * do not sit under that dock. Unlayered so it beats `.os-hug-sheet-body`.
+ */
+.feed-photo-thread-body.os-hug-sheet-body {
+  padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
 }
 
 /*
