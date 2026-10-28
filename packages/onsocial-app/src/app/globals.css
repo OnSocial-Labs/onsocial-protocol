@@ -44685,6 +44685,19 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   height: 1px;
 }
 
+/* Activity All/Mentions tabs — full-width pill row under the nav band. */
+.os-app-screen.notifications-activity-screen .os-app-screen-toolbar,
+.os-app-screen.notifications-activity-screen .notifications-activity-tabs {
+  width: 100%;
+  max-width: none;
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
+.os-app-screen-toolbar:has(.notifications-activity-tabs) {
+  margin-top: var(--os-app-chrome-chip-gap, 0.28rem);
+}
+
 .notifications-activity-list {
   margin: 0;
   min-width: 0;

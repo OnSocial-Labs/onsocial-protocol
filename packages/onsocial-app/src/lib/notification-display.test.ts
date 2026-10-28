@@ -3,6 +3,8 @@ import { homeWalletPath, parseAppWalletSheetParam } from '@/lib/app-routes';
 import { homeRallyPath } from '@/lib/overlay-routes';
 import {
   ACTIVITY_EXCLUDE_TYPE,
+  MENTIONS_ACTIVITY_TYPES,
+  activityTabTypeParam,
   formatNotificationTime,
   isSystemNotification,
   notificationDescription,
@@ -23,6 +25,12 @@ import {
 } from '@/lib/notification-display';
 
 describe('notification display', () => {
+  it('maps activity inbox tabs to list type params', () => {
+    expect(activityTabTypeParam('all')).toBeUndefined();
+    expect(activityTabTypeParam('mentions')).toBe('mention,reply');
+    expect(MENTIONS_ACTIVITY_TYPES).toBe('mention,reply');
+  });
+
   it('parses post content paths', () => {
     expect(parseNotificationPostPath('alice.testnet/post/42')).toEqual({
       author: 'alice.testnet',

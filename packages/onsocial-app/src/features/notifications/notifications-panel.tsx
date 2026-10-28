@@ -55,6 +55,7 @@ import {
 } from '@/features/notifications/notification-activity-rows';
 import {
   ACTIVITY_EXCLUDE_TYPE,
+  activityTabTypeParam,
   isCollectActivityType,
   notificationCollectionIds,
   notificationGroupIds,
@@ -62,6 +63,7 @@ import {
   notificationProfileAccountIds,
   notificationSnippetPostRefs,
 } from '@/lib/notification-display';
+import type { ActivityInboxTab } from '@/lib/notification-display';
 
 const PAGE_SIZE = 40;
 
@@ -96,8 +98,19 @@ export function NotificationsPanel() {
     'initial' | 'append' | 'action' | null
   >(null);
   const [markingAll, setMarkingAll] = useState(false);
+  const [tab, setTab] = useState<ActivityInboxTab>('all');
   const accountGenRef = useRef(0);
   const accountIdRef = useRef(accountId);
+  const tabRef = useRef<ActivityInboxTab>('all');
+  /** Per-tab painted rows so back-switches render instantly before refetch. */
+  const tabCacheRef = useRef<
+    Partial<
+      Record<
+        ActivityInboxTab,
+        { items: Notification[] | null; nextCursor: string | null }
+      >
+    >
+  >({});
   const previousUnreadRef = useRef<number | null>(null);
   const itemsRef = useRef(items);
   const nextCursorRef = useRef(nextCursor);
@@ -110,10 +123,13 @@ export function NotificationsPanel() {
     itemsRef.current = items;
     nextCursorRef.current = nextCursor;
     accountIdRef.current = accountId;
-  }, [accountId, items, nextCursor]);
+    tabRef.current = tab;
+  }, [accountId, items, nextCursor, tab]);
 
   useEffect(() => {
     return () => {
+      // Session restore is All-tab scoped; Mentions rows would paint wrong.
+      if (tabRef.current !== 'all') return;
       const live = scrollRootRef.current?.scrollTop ?? 0;
       writeActivityInboxSession({
         accountId: accountIdRef.current,
@@ -175,59 +191,78 @@ export function NotificationsPanel() {
     return { client, accountId: id };
   }, [getClient]);
 
-  const loadInitial = useCallback(async () => {
-    if (!accountId) return;
-    const gen = accountGenRef.current;
-    const expected = accountId;
-    setError(null);
-    setErrorSource(null);
-    setLoadingInitial(true);
-    try {
-      const { client, accountId: id } = await withAuth();
-      if (accountGenRef.current !== gen || !isCurrentAccount(expected)) return;
-      const result = await client.notifications.list({
-        recipient: id,
-        limit: PAGE_SIZE,
-        excludeType: ACTIVITY_EXCLUDE_TYPE,
-      });
-      if (accountGenRef.current !== gen || !isCurrentAccount(expected)) return;
-      setItems(result.notifications);
-      setNextCursor(result.nextCursor);
+  const loadInitial = useCallback(
+    async (forTab: ActivityInboxTab) => {
+      if (!accountId) return;
+      const gen = accountGenRef.current;
+      const expected = accountId;
+      const isLive = () =>
+        accountGenRef.current === gen &&
+        isCurrentAccount(expected) &&
+        tabRef.current === forTab;
       setError(null);
       setErrorSource(null);
-      requestNotificationsUnreadRefresh();
-    } catch (cause) {
-      if (accountGenRef.current !== gen || !isCurrentAccount(expected)) return;
-      setError(
-        cause instanceof Error ? cause.message : 'Could not load activity.'
-      );
-      setErrorSource('initial');
-      setItems((current) => current ?? []);
-    } finally {
-      if (accountGenRef.current === gen && isCurrentAccount(expected)) {
-        setLoadingInitial(false);
+      setLoadingInitial(true);
+      try {
+        const { client, accountId: id } = await withAuth();
+        if (!isLive()) return;
+        const result = await client.notifications.list({
+          recipient: id,
+          limit: PAGE_SIZE,
+          excludeType: ACTIVITY_EXCLUDE_TYPE,
+          type: activityTabTypeParam(forTab),
+        });
+        if (!isLive()) return;
+        setItems(result.notifications);
+        setNextCursor(result.nextCursor);
+        setError(null);
+        setErrorSource(null);
+        requestNotificationsUnreadRefresh();
+      } catch (cause) {
+        if (!isLive()) return;
+        setError(
+          cause instanceof Error ? cause.message : 'Could not load activity.'
+        );
+        setErrorSource('initial');
+        setItems((current) => current ?? []);
+      } finally {
+        if (isLive()) {
+          setLoadingInitial(false);
+        }
       }
-    }
-  }, [accountId, isCurrentAccount, withAuth]);
+    },
+    [accountId, isCurrentAccount, withAuth]
+  );
 
+  const fetchKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    previousUnreadRef.current = null;
-    if (!isConnected || !accountId || !hasSocialSession) return;
-    const restored = restoredSessionRef.current;
-    if (restored && !accountIdsEqual(restored.accountId, accountId)) {
-      restoredSessionRef.current = null;
-      setItems(null);
-      setNextCursor(null);
-      resetListScrollMemory(scrollMemoryRef.current, 0);
-    } else if (restored) {
-      const matched = readActivityInboxSession(accountId);
-      if (matched) {
-        setItems(matched.items);
-        setNextCursor(matched.nextCursor);
+    if (!isConnected || !accountId || !hasSocialSession) {
+      fetchKeyRef.current = null;
+      return;
+    }
+    const accountChanged =
+      fetchKeyRef.current == null ||
+      !accountIdsEqual(fetchKeyRef.current, accountId);
+    fetchKeyRef.current = accountId;
+    if (accountChanged) {
+      previousUnreadRef.current = null;
+      tabCacheRef.current = {};
+      const restored = restoredSessionRef.current;
+      if (restored && !accountIdsEqual(restored.accountId, accountId)) {
+        restoredSessionRef.current = null;
+        setItems(null);
+        setNextCursor(null);
+        resetListScrollMemory(scrollMemoryRef.current, 0);
+      } else if (restored && tabRef.current === 'all') {
+        const matched = readActivityInboxSession(accountId);
+        if (matched) {
+          setItems(matched.items);
+          setNextCursor(matched.nextCursor);
+        }
       }
     }
-    void loadInitial();
-  }, [accountId, hasSocialSession, isConnected, loadInitial]);
+    void loadInitial(tab);
+  }, [accountId, hasSocialSession, isConnected, loadInitial, tab]);
 
   // Soft refresh when host unread rises while viewing Activity.
   useEffect(() => {
@@ -240,37 +275,68 @@ export function NotificationsPanel() {
       accountId &&
       hasSocialSession
     ) {
-      void loadInitial();
+      void loadInitial(tabRef.current);
     }
   }, [accountId, activityUnread, hasSocialSession, isConnected, loadInitial]);
 
+  const selectTab = useCallback((next: ActivityInboxTab) => {
+    if (next === tabRef.current) return;
+    tabCacheRef.current[tabRef.current] = {
+      items: itemsRef.current,
+      nextCursor: nextCursorRef.current,
+    };
+    const cached = tabCacheRef.current[next];
+    // Flip the ref synchronously so in-flight fetches for the old tab
+    // fail their liveness guard before the state commit lands.
+    tabRef.current = next;
+    setTab(next);
+    setItems(cached?.items ?? null);
+    setNextCursor(cached?.nextCursor ?? null);
+    setError(null);
+    setErrorSource(null);
+    // A mid-flight append on the old tab fails its liveness guard and
+    // never clears the flag — reset here so the new tab's sentinel works.
+    setLoadingMore(false);
+    resetListScrollMemory(scrollMemoryRef.current, 0);
+    scrollRootRef.current?.scrollTo({ top: 0 });
+  }, []);
+
   const loadMore = useCallback(async () => {
     if (!accountId || !nextCursor || loadingMore) return;
+    const forTab = tabRef.current;
+    const gen = accountGenRef.current;
+    const isLive = () =>
+      accountGenRef.current === gen &&
+      isCurrentAccount(accountId) &&
+      tabRef.current === forTab;
     setLoadingMore(true);
     setError(null);
     setErrorSource(null);
     try {
-      const gen = accountGenRef.current;
       const { client, accountId: id } = await withAuth();
-      if (accountGenRef.current !== gen || !isCurrentAccount(accountId)) return;
+      if (!isLive()) return;
       const result = await client.notifications.list({
         recipient: id,
         limit: PAGE_SIZE,
         cursor: nextCursor,
         excludeType: ACTIVITY_EXCLUDE_TYPE,
+        type: activityTabTypeParam(forTab),
       });
-      if (accountGenRef.current !== gen || !isCurrentAccount(accountId)) return;
+      if (!isLive()) return;
       setItems((prev) => [...(prev ?? []), ...result.notifications]);
       setNextCursor(result.nextCursor);
       setError(null);
       setErrorSource(null);
     } catch (cause) {
+      if (!isLive()) return;
       setError(
         cause instanceof Error ? cause.message : 'Could not load more activity.'
       );
       setErrorSource('append');
     } finally {
-      setLoadingMore(false);
+      if (isLive()) {
+        setLoadingMore(false);
+      }
     }
   }, [accountId, isCurrentAccount, loadingMore, nextCursor, withAuth]);
 
@@ -363,6 +429,43 @@ export function NotificationsPanel() {
       </button>
     ) : null;
 
+  const activityTabs =
+    isConnected && hasSocialSession ? (
+      <div
+        className="app-storage-mode-toggle notifications-activity-tabs"
+        role="tablist"
+        aria-label="Activity filter"
+        onKeyDown={(event) => {
+          if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+          event.preventDefault();
+          selectTab(event.key === 'ArrowRight' ? 'mentions' : 'all');
+        }}
+      >
+        <button
+          type="button"
+          role="tab"
+          id="notifications-activity-tab-all"
+          aria-selected={tab === 'all'}
+          tabIndex={tab === 'all' ? 0 : -1}
+          className={`app-storage-mode os-disabled-ink${tab === 'all' ? ' is-active' : ''}`}
+          onClick={() => selectTab('all')}
+        >
+          All
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="notifications-activity-tab-mentions"
+          aria-selected={tab === 'mentions'}
+          tabIndex={tab === 'mentions' ? 0 : -1}
+          className={`app-storage-mode os-disabled-ink${tab === 'mentions' ? ' is-active' : ''}`}
+          onClick={() => selectTab('mentions')}
+        >
+          Mentions
+        </button>
+      </div>
+    ) : null;
+
   const hasPaintedRows = Boolean(items && items.length > 0);
   const hasPaintedContent = items !== null;
   const loadingPresentation = loadingMore
@@ -385,7 +488,7 @@ export function NotificationsPanel() {
     } else if (errorSource === 'action') {
       void markAllRead();
     } else {
-      void loadInitial();
+      void loadInitial(tabRef.current);
     }
   };
 
@@ -410,7 +513,9 @@ export function NotificationsPanel() {
           <NotificationActivitySkeleton />
         ) : items.length === 0 ? (
           error ? null : (
-            <OsAppChromePageStatus>No activity yet.</OsAppChromePageStatus>
+            <OsAppChromePageStatus>
+              {tab === 'mentions' ? 'No mentions yet.' : 'No activity yet.'}
+            </OsAppChromePageStatus>
           )
         ) : (
           <>
@@ -463,8 +568,10 @@ export function NotificationsPanel() {
       dockBack
       leading={null}
       backFallbackHref={APP_HOME_PATH}
+      className="notifications-activity-screen"
       heading={<p className="os-app-screen-title">Activity</p>}
       actions={markAllAction}
+      toolbar={activityTabs ?? undefined}
       scrollRootRef={scrollRootRef}
     >
       <OsAppChromePage className="notifications-panel">{body}</OsAppChromePage>

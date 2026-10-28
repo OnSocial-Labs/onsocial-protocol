@@ -34,6 +34,17 @@ export const ACTIVITY_EXCLUDE_TYPE = [
   'boost_storage_deposited',
 ].join(',');
 
+export type ActivityInboxTab = 'all' | 'mentions';
+
+/** Mentions tab = direct-address kinds (mentions + replies), X-style. */
+export const MENTIONS_ACTIVITY_TYPES = 'mention,reply';
+
+export function activityTabTypeParam(
+  tab: ActivityInboxTab
+): string | undefined {
+  return tab === 'mentions' ? MENTIONS_ACTIVITY_TYPES : undefined;
+}
+
 function textField(
   context: Record<string, unknown> | null | undefined,
   key: string
