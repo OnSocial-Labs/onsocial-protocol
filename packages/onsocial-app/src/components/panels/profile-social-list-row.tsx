@@ -279,6 +279,7 @@ export function ProfileSocialListRow({
   viewerRelationshipLoading,
   onUpdateStanding,
   directoryLine,
+  asideTime,
 }: {
   account: ProfileListAccount;
   showSolidarityBadge?: boolean;
@@ -292,6 +293,11 @@ export function ProfileSocialListRow({
   onUpdateStanding?: (shouldStand: boolean) => void;
   /** Offers and Hiring replace the bio with the offer or role. */
   directoryLine?: 'offers' | 'hiring';
+  /**
+   * Stamp in the shared aside. When set, it replaces the standing-since time
+   * so a roster can keep this row and still show its own clock.
+   */
+  asideTime?: { label: string; description: string } | null;
 }) {
   const ledger = density === 'ledger';
 
@@ -338,9 +344,12 @@ export function ProfileSocialListRow({
       : directoryLine === 'hiring'
         ? hiringHint
         : null;
-  const timeMeta = isResolvingViewerRelationship
-    ? null
-    : resolveStandingTimeMeta(account, standingTimeMode);
+  const timeMeta =
+    asideTime !== undefined
+      ? asideTime
+      : isResolvingViewerRelationship
+        ? null
+        : resolveStandingTimeMeta(account, standingTimeMode);
   const showRelationshipSignals =
     ledger &&
     (sharedSolidarity ||

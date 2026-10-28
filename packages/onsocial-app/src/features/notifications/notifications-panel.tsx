@@ -751,7 +751,6 @@ export function NotificationsPanel() {
       </OsAppScreen>
       <ActivityStandGroupSheet
         items={standGroup}
-        profiles={profiles}
         onClose={() => setStandGroup(null)}
       />
     </>

@@ -555,7 +555,7 @@ test.describe('grouped stands sheet', () => {
     await expect.poll(() => reads.length).toBe(1);
     expect(reads[0]?.ids).toEqual(['stand-1', 'stand-2', 'stand-3']);
 
-    await sheet.getByRole('link', { name: 'Dave, 8:00 AM' }).click();
+    await sheet.getByRole('link', { name: "View Dave's profile" }).click();
     await expect(page).toHaveURL(/\/@dave\.testnet/);
     await expect(sheet).toHaveCount(0);
 

@@ -1,101 +1,167 @@
 'use client';
 
-import Link from 'next/link';
-import { Divider, OsHugSheet, standingIdentityLabel } from '@onsocial/ui';
+import { useCallback, useEffect, useState } from 'react';
+import { Divider, OsHugSheet } from '@onsocial/ui';
 import type { Notification } from '@onsocial/sdk';
-import { StandingIdentity } from '@/components/profile/standing-identity';
-import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
-import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
+import { ProfileSocialListRow } from '@/components/panels/profile-social-list-row';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
+import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { formatDmDaySeparator } from '@/features/messages/dm-time';
+import { accountIdsEqual } from '@/lib/account-match';
 import { formatNotificationTime } from '@/lib/notification-display';
-import { portfolioPath } from '@/lib/overlay-routes';
+import { loadProfileListAccounts } from '@/lib/load-profile-list-accounts';
+import {
+  profileListAccountToStandingSummary,
+  type ProfileListAccount,
+} from '@/lib/profile-list-account';
 import { SHEET_Z } from '@/lib/sheet-z';
+import { isWalletUserCancellation } from '@/lib/wallet-errors';
+
+function fallbackAccount(accountId: string): ProfileListAccount {
+  return {
+    accountId,
+    name: null,
+    avatarUrl: null,
+    standingCount: 0,
+    standingWithCount: 0,
+    mutualStandingCount: 0,
+    endorsementsReceivedCount: 0,
+    endorsementsGivenCount: 0,
+    viewerStanding: false,
+    theyStandWithViewer: false,
+    targetEndorsedViewer: false,
+    viewerEndorsed: false,
+    rowHydrated: true,
+  };
+}
 
 /**
- * Who stood the same day. Newest first, with the Activity clock.
+ * Who stood the same day. Same person row as fans and likes.
  * A single stand never reaches this sheet.
  */
 export function ActivityStandGroupSheet({
   items,
-  profiles,
   onClose,
 }: {
   items: Notification[] | null;
-  profiles: Record<string, PostAuthorProfile>;
   onClose: () => void;
 }) {
   const people = (items ?? []).filter((item) => item.actor?.trim());
   const day = people[0] ? formatDmDaySeparator(people[0].createdAt) : '';
+  const open = people.length > 1;
+  const { accountId: viewerAccountId, isConnected } = useAppWallet();
+  const { setTxResult } = useAppTransactionFeedback();
+  const { updateStanding, isStandingPendingForTarget } = useViewerStanding(
+    'activity-stand-group'
+  );
+  const idsKey = people.map((item) => item.actor?.trim() ?? '').join('\n');
+  const [hydrated, setHydrated] = useState<Record<
+    string,
+    ProfileListAccount
+  > | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const ids = idsKey.split('\n').filter(Boolean);
+    let cancelled = false;
+    void loadProfileListAccounts(ids, viewerAccountId ?? null)
+      .then((rows) => {
+        if (cancelled) return;
+        const next: Record<string, ProfileListAccount> = {};
+        for (const row of rows) next[row.accountId] = row;
+        setHydrated(next);
+      })
+      .catch(() => {
+        if (!cancelled) setHydrated({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [idsKey, open, viewerAccountId]);
+
+  const handleUpdateStanding = useCallback(
+    async (account: ProfileListAccount, shouldStand: boolean) => {
+      try {
+        await updateStanding(
+          profileListAccountToStandingSummary(account),
+          shouldStand
+        );
+        setHydrated((current) =>
+          current
+            ? {
+                ...current,
+                [account.accountId]: {
+                  ...(current[account.accountId] ?? account),
+                  viewerStanding: shouldStand,
+                },
+              }
+            : current
+        );
+      } catch (cause) {
+        if (!isWalletUserCancellation(cause)) {
+          setTxResult({
+            type: 'error',
+            msg:
+              cause instanceof Error
+                ? cause.message
+                : 'Couldn’t update standing.',
+          });
+        }
+      }
+    },
+    [setTxResult, updateStanding]
+  );
 
   return (
     <OsHugSheet
-      open={people.length > 1}
+      open={open}
       onClose={onClose}
       label="Stood with you"
       {...(day ? { copy: day } : {})}
       closeAriaLabel="Close stands"
       backdropLabel="Close stands"
       zIndex={SHEET_Z.list}
-      panelClassName="os-sheet-cap-standard"
+      panelClassName="scarce-fans-sheet-panel os-sheet-cap-standard"
     >
-      <div className="standing-list notifications-activity-list" role="list">
+      <div
+        className="standing-list scarce-fans-standing"
+        role="list"
+        onClick={(event) => {
+          const target = event.target;
+          if (!(target instanceof Element)) return;
+          if (target.closest('a.standing-row-hit')) onClose();
+        }}
+      >
         {people.map((item, index) => {
           const accountId = item.actor?.trim() ?? '';
-          const profile = profiles[accountId];
+          const account = hydrated?.[accountId] ?? fallbackAccount(accountId);
           const when = formatNotificationTime(item.createdAt);
-          const { name, label, handle } = standingIdentityLabel(
-            accountId,
-            profile?.displayName
-          );
-          const aria = when.label ? `${label}, ${when.label}` : label;
+          const isSelf =
+            Boolean(viewerAccountId) &&
+            accountIdsEqual(viewerAccountId!, accountId);
           return (
             <div key={item.id} role="listitem">
               {index > 0 ? <Divider variant="item" /> : null}
-              <div className="standing-row notifications-activity-row">
-                <div className="standing-row-main">
-                  <Link
-                    href={portfolioPath(accountId)}
-                    className="standing-row-hit"
-                    scroll={false}
-                    aria-label={aria}
-                    onClick={onClose}
-                  />
-                  <StandingIdentity
-                    accountId={accountId}
-                    profileName={profile?.displayName}
-                    avatarUrl={profile?.avatarUrl}
-                    showHandle={false}
-                    nameTrailing={
-                      <>
-                        <span className="post-identity-name-marks">
-                          <ProtocolNameTrailing accountId={accountId} />
-                        </span>
-                        {name ? (
-                          <span
-                            className="post-identity-handle"
-                            title={`@${handle}`}
-                          >
-                            @{handle}
-                          </span>
-                        ) : null}
-                      </>
-                    }
-                  />
-                </div>
-                <div className="standing-row-aside">
-                  <span className="notifications-activity-meta">
-                    {when.label ? (
-                      <time
-                        className="standing-row-time"
-                        dateTime={item.createdAt}
-                        title={when.title || undefined}
-                      >
-                        {when.label}
-                      </time>
-                    ) : null}
-                  </span>
-                </div>
-              </div>
+              <ProfileSocialListRow
+                account={account}
+                density="person"
+                standingTimeMode="never"
+                asideTime={
+                  when.label
+                    ? {
+                        label: when.label,
+                        description: when.title || when.label,
+                      }
+                    : null
+                }
+                viewerAccountId={viewerAccountId ?? null}
+                canUpdateStanding={isConnected && !isSelf}
+                isPending={isStandingPendingForTarget(accountId)}
+                onUpdateStanding={(shouldStand) => {
+                  void handleUpdateStanding(account, shouldStand);
+                }}
+              />
             </div>
           );
         })}
