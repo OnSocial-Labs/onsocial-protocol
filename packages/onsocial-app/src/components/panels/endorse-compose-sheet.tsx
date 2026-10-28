@@ -17,6 +17,7 @@ import {
 import {
   DiscardConfirmSheet,
   ImageIcon,
+  ipfsImgSrcSet,
   OsGestureSheet,
   OsSheetAction,
   OsSheetActions,
@@ -43,6 +44,10 @@ import {
   validateEndorsementMediaFile,
 } from '@/lib/endorsement-media';
 import type { EndorseExistingDraft } from '@/lib/endorsements-panel-data';
+import {
+  ENDORSE_MEDIA_SIZES,
+  SCARCE_HERO_WIDTHS,
+} from '@/lib/hero-img-variants';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { commercePartyLines } from '@/features/scarces/collection-creator-face';
@@ -170,6 +175,13 @@ export function EndorseComposeSheet({
       ? existingMediaUrl
       : null;
   const previewMediaMime = mediaFile?.type ?? existingMedia?.mime ?? null;
+  // Fresh picks are blob URLs and bypass; only the existing CDN media
+  // variants (gif passes through byte-identical via the mime gate).
+  const previewImgSrcSet = ipfsImgSrcSet(
+    previewMediaUrl,
+    SCARCE_HERO_WIDTHS,
+    previewMediaMime
+  );
   const currentMediaFp = mediaFile
     ? `file:${mediaFile.name}:${mediaFile.size}:${mediaFile.lastModified}`
     : mediaRemoved
@@ -655,6 +667,8 @@ export function EndorseComposeSheet({
                 ) : (
                   <img
                     src={previewMediaUrl}
+                    srcSet={previewImgSrcSet}
+                    sizes={previewImgSrcSet ? ENDORSE_MEDIA_SIZES : undefined}
                     alt={existingMedia?.alt?.trim() || 'Endorsement media'}
                     className="endorse-compose-media-el"
                   />

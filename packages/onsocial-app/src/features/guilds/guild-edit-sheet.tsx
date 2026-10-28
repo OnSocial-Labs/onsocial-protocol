@@ -12,6 +12,7 @@ import {
 } from 'react';
 import {
   DiscardConfirmSheet,
+  ipfsImgSrcSet,
   OsFieldRemove,
   ProfileEditorMediaToolbar,
   useDiscardConfirm,
@@ -36,6 +37,12 @@ import {
 import { GuildTagsEditor } from '@/features/guilds/guild-tags-editor';
 import { guildCoverStyle } from '@/features/guilds/guild-visual';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import {
+  APP_COLUMN_HERO_SIZES,
+  EDITOR_MARK_SIZES,
+  EDITOR_MARK_WIDTHS,
+  SCARCE_HERO_WIDTHS,
+} from '@/lib/hero-img-variants';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { OsEmptyAction } from '@/lib/os-empty-action';
@@ -185,6 +192,9 @@ export function GuildEditSheet({
   const displayBadgeUrl = badgeRemoved
     ? null
     : (badgePreview ?? snapshot?.badgeUrl ?? null);
+  // Blob picks bypass; only the guild's existing CDN art variants.
+  const bannerSrcSet = ipfsImgSrcSet(displayBannerUrl, SCARCE_HERO_WIDTHS);
+  const badgeSrcSet = ipfsImgSrcSet(displayBadgeUrl, EDITOR_MARK_WIDTHS);
 
   const normalizedTags = useMemo(() => normalizeGuildEditorTags(tags), [tags]);
 
@@ -486,6 +496,10 @@ export function GuildEditSheet({
                         {displayBannerUrl ? (
                           <img
                             src={displayBannerUrl}
+                            srcSet={bannerSrcSet}
+                            sizes={
+                              bannerSrcSet ? APP_COLUMN_HERO_SIZES : undefined
+                            }
                             alt=""
                             className="account-editor-banner-image"
                           />
@@ -535,7 +549,12 @@ export function GuildEditSheet({
                         disabled={pending}
                       >
                         {displayBadgeUrl ? (
-                          <img src={displayBadgeUrl} alt="" />
+                          <img
+                            src={displayBadgeUrl}
+                            srcSet={badgeSrcSet}
+                            sizes={badgeSrcSet ? EDITOR_MARK_SIZES : undefined}
+                            alt=""
+                          />
                         ) : (
                           <span className="guild-edit-badge-empty" aria-hidden>
                             +
@@ -553,7 +572,10 @@ export function GuildEditSheet({
                         />
                       ) : null}
                     </div>
-                    <label className="sr-only" htmlFor={fieldId(formId, 'name')}>
+                    <label
+                      className="sr-only"
+                      htmlFor={fieldId(formId, 'name')}
+                    >
                       Guild name
                     </label>
                     <input

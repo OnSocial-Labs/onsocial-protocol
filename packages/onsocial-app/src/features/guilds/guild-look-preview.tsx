@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, type ChangeEvent } from 'react';
-import { ProfileEditorMediaToolbar } from '@onsocial/ui';
+import { ipfsImgSrcSet, ProfileEditorMediaToolbar } from '@onsocial/ui';
 import {
   GUILD_CREATE_ADD_BADGE,
   GUILD_CREATE_ADD_BANNER,
@@ -10,6 +10,12 @@ import {
   GUILD_CREATE_REMOVE_BADGE,
   GUILD_CREATE_REMOVE_BANNER,
 } from '@/features/guilds/guild-create-voice';
+import {
+  APP_COLUMN_HERO_SIZES,
+  EDITOR_MARK_SIZES,
+  EDITOR_MARK_WIDTHS,
+  SCARCE_HERO_WIDTHS,
+} from '@/lib/hero-img-variants';
 
 const DEFAULT_ACCEPT = 'image/png,image/jpeg,image/webp';
 
@@ -27,6 +33,9 @@ export function GuildLookPreview({
   onRemoveBanner?: () => void;
 }) {
   const bannerInputRef = useRef<HTMLInputElement>(null);
+  // Fresh picks are blob URLs — the helper bypasses them and only the
+  // existing CDN art variants.
+  const bannerSrcSet = ipfsImgSrcSet(bannerUrl, SCARCE_HERO_WIDTHS);
 
   return (
     <section className="guild-look-preview" aria-label="Guild look">
@@ -47,6 +56,8 @@ export function GuildLookPreview({
           {bannerUrl ? (
             <img
               src={bannerUrl}
+              srcSet={bannerSrcSet}
+              sizes={bannerSrcSet ? APP_COLUMN_HERO_SIZES : undefined}
               alt=""
               className="guild-look-preview-banner-image"
             />
@@ -92,6 +103,7 @@ export function GuildBadgeWell({
   onRemoveBadge?: () => void;
 }) {
   const badgeInputRef = useRef<HTMLInputElement>(null);
+  const badgeSrcSet = ipfsImgSrcSet(badgeUrl, EDITOR_MARK_WIDTHS);
 
   return (
     <div
@@ -111,6 +123,8 @@ export function GuildBadgeWell({
         {badgeUrl ? (
           <img
             src={badgeUrl}
+            srcSet={badgeSrcSet}
+            sizes={badgeSrcSet ? EDITOR_MARK_SIZES : undefined}
             alt=""
             className="guild-look-preview-badge-image"
           />

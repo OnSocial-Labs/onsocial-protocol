@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, type ChangeEvent } from 'react';
-import { ProfileEditorMediaToolbar } from '@onsocial/ui';
+import { ipfsImgSrcSet, ProfileEditorMediaToolbar } from '@onsocial/ui';
 import {
   DAO_CREATE_ADD_COVER,
   DAO_CREATE_ADD_CREST,
@@ -10,6 +10,12 @@ import {
   DAO_CREATE_REMOVE_COVER,
   DAO_CREATE_REMOVE_CREST,
 } from '@/features/protocol/dao-create-voice';
+import {
+  APP_COLUMN_HERO_SIZES,
+  EDITOR_MARK_SIZES,
+  EDITOR_MARK_WIDTHS,
+  SCARCE_HERO_WIDTHS,
+} from '@/lib/hero-img-variants';
 
 const COVER_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
 const CREST_ACCEPT = 'image/png,image/jpeg,image/webp';
@@ -38,6 +44,9 @@ export function DaoLookPreview({
 }) {
   const coverInputRef = useRef<HTMLInputElement>(null);
   const crestInputRef = useRef<HTMLInputElement>(null);
+  // Blob picks bypass; only the existing CDN cover/crest variant.
+  const coverSrcSet = ipfsImgSrcSet(coverUrl, SCARCE_HERO_WIDTHS);
+  const crestSrcSet = ipfsImgSrcSet(crestUrl, EDITOR_MARK_WIDTHS);
 
   return (
     <section className="dao-look-preview" aria-label="DAO look">
@@ -49,15 +58,15 @@ export function DaoLookPreview({
         <button
           type="button"
           className="profile-editor-media-backdrop dao-look-preview-cover-hit"
-          aria-label={
-            coverUrl ? DAO_CREATE_CHANGE_COVER : DAO_CREATE_ADD_COVER
-          }
+          aria-label={coverUrl ? DAO_CREATE_CHANGE_COVER : DAO_CREATE_ADD_COVER}
           disabled={disabled}
           onClick={() => coverInputRef.current?.click()}
         >
           {coverUrl ? (
             <img
               src={coverUrl}
+              srcSet={coverSrcSet}
+              sizes={coverSrcSet ? APP_COLUMN_HERO_SIZES : undefined}
               alt=""
               className="dao-look-preview-cover-image"
             />
@@ -91,6 +100,8 @@ export function DaoLookPreview({
             {crestUrl ? (
               <img
                 src={crestUrl}
+                srcSet={crestSrcSet}
+                sizes={crestSrcSet ? EDITOR_MARK_SIZES : undefined}
                 alt=""
                 className="dao-look-preview-crest-image"
               />

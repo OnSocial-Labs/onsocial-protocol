@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, type ChangeEvent } from 'react';
-import { ProfileEditorMediaToolbar } from '@onsocial/ui';
+import { ipfsImgSrcSet, ProfileEditorMediaToolbar } from '@onsocial/ui';
 import { communityMonogram } from '@/components/community-cards/community-monogram';
 import {
   HUB_CREATE_ADD_BANNER,
@@ -11,6 +11,12 @@ import {
   HUB_CREATE_REMOVE_BANNER,
   HUB_CREATE_REMOVE_LOGO,
 } from '@/features/scarces/hub-create-voice';
+import {
+  APP_COLUMN_HERO_SIZES,
+  EDITOR_MARK_SIZES,
+  EDITOR_MARK_WIDTHS,
+  SCARCE_HERO_WIDTHS,
+} from '@/lib/hero-img-variants';
 
 const DEFAULT_ACCEPT = 'image/png,image/jpeg,image/webp';
 
@@ -43,6 +49,9 @@ export function HubLookPreview({
   const logoInputRef = useRef<HTMLInputElement>(null);
   const trimmedName = name.trim();
   const logoFallback = trimmedName ? communityMonogram(trimmedName) : 'Logo';
+  // Blob picks bypass; only the existing CDN banner/logo variant.
+  const bannerSrcSet = ipfsImgSrcSet(bannerUrl, SCARCE_HERO_WIDTHS);
+  const logoSrcSet = ipfsImgSrcSet(logoUrl, EDITOR_MARK_WIDTHS);
 
   return (
     <section className="hub-look-preview" aria-label="Hub look">
@@ -54,13 +63,17 @@ export function HubLookPreview({
         <button
           type="button"
           className="profile-editor-media-backdrop hub-look-preview-banner-hit"
-          aria-label={bannerUrl ? HUB_CREATE_CHANGE_BANNER : HUB_CREATE_ADD_BANNER}
+          aria-label={
+            bannerUrl ? HUB_CREATE_CHANGE_BANNER : HUB_CREATE_ADD_BANNER
+          }
           disabled={disabled}
           onClick={() => bannerInputRef.current?.click()}
         >
           {bannerUrl ? (
             <img
               src={bannerUrl}
+              srcSet={bannerSrcSet}
+              sizes={bannerSrcSet ? APP_COLUMN_HERO_SIZES : undefined}
               alt=""
               className="hub-look-preview-banner-image"
             />
@@ -90,7 +103,13 @@ export function HubLookPreview({
             onClick={() => logoInputRef.current?.click()}
           >
             {logoUrl ? (
-              <img src={logoUrl} alt="" className="hub-look-preview-logo-image" />
+              <img
+                src={logoUrl}
+                srcSet={logoSrcSet}
+                sizes={logoSrcSet ? EDITOR_MARK_SIZES : undefined}
+                alt=""
+                className="hub-look-preview-logo-image"
+              />
             ) : (
               <span className="hub-look-preview-logo-empty" aria-hidden>
                 {logoFallback}

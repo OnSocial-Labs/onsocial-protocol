@@ -25,6 +25,7 @@ import {
 } from '@onsocial/sdk';
 import {
   DiscardConfirmSheet,
+  ipfsImgSrcSet,
   OsSheetAction,
   OsSheetActions,
   ProfileEditorMediaToolbar,
@@ -75,6 +76,12 @@ import {
   readPortfolioWebsites,
   type PortfolioWebsiteDraft,
 } from '@/lib/profile-websites';
+import {
+  APP_COLUMN_HERO_SIZES,
+  EDITOR_MARK_SIZES,
+  EDITOR_MARK_WIDTHS,
+  SCARCE_HERO_WIDTHS,
+} from '@/lib/hero-img-variants';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { isDaoStandingTarget } from '@/lib/dao-standing-account';
@@ -356,6 +363,12 @@ export function AppProfileEditorSheet({
           bannerRemoved
         )
       : null;
+  // Blob picks bypass; only the profile's existing CDN art variants.
+  const bannerSrcSet = ipfsImgSrcSet(
+    displayBannerMedia?.kind === 'image' ? displayBannerMedia.url : null,
+    SCARCE_HERO_WIDTHS
+  );
+  const avatarSrcSet = ipfsImgSrcSet(displayAvatarUrl, EDITOR_MARK_WIDTHS);
 
   const isDirty = useMemo(() => {
     if (!snapshot || seedKey !== loadKey) return false;
@@ -725,6 +738,10 @@ export function AppProfileEditorSheet({
                         ) : displayBannerMedia ? (
                           <img
                             src={displayBannerMedia.url}
+                            srcSet={bannerSrcSet}
+                            sizes={
+                              bannerSrcSet ? APP_COLUMN_HERO_SIZES : undefined
+                            }
                             alt=""
                             className="account-editor-banner-image"
                           />
@@ -785,6 +802,10 @@ export function AppProfileEditorSheet({
                             {displayAvatarUrl ? (
                               <img
                                 src={displayAvatarUrl}
+                                srcSet={avatarSrcSet}
+                                sizes={
+                                  avatarSrcSet ? EDITOR_MARK_SIZES : undefined
+                                }
                                 alt=""
                                 className="account-editor-avatar-image"
                               />
