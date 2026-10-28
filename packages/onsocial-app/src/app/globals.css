@@ -44698,6 +44698,38 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   margin-top: var(--os-app-chrome-chip-gap, 0.28rem);
 }
 
+/* Sliding active-pill thumb (quotes-track recipe; transition, no pager). */
+.notifications-activity-tabs {
+  position: relative;
+}
+
+.notifications-activity-tabs-thumb {
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  top: 0;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: var(--os-surface-fill);
+  transition:
+    transform 160ms ease,
+    width 160ms ease,
+    height 160ms ease;
+}
+
+.notifications-activity-tabs .app-storage-mode,
+.notifications-activity-tabs .app-storage-mode.is-active {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notifications-activity-tabs-thumb {
+    transition: none;
+  }
+}
+
 .notifications-activity-list {
   margin: 0;
   min-width: 0;

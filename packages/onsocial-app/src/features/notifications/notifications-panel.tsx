@@ -35,6 +35,7 @@ import {
   ensureAppGatewayAuth,
   getCachedAppGatewayAuth,
 } from '@/lib/app-gateway-auth';
+import { getAppLenis } from '@/lib/app-lenis-registry';
 import { APP_HOME_PATH, messagesPath } from '@/lib/app-routes';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
@@ -102,12 +103,16 @@ export function NotificationsPanel() {
   const accountGenRef = useRef(0);
   const accountIdRef = useRef(accountId);
   const tabRef = useRef<ActivityInboxTab>('all');
-  /** Per-tab painted rows so back-switches render instantly before refetch. */
+  /** Per-tab painted rows + scroll line so back-switches land where you left. */
   const tabCacheRef = useRef<
     Partial<
       Record<
         ActivityInboxTab,
-        { items: Notification[] | null; nextCursor: string | null }
+        {
+          items: Notification[] | null;
+          nextCursor: string | null;
+          scrollTop: number;
+        }
       >
     >
   >({});
@@ -140,7 +145,12 @@ export function NotificationsPanel() {
     };
   }, []);
 
-  useListScrollRestore(scrollRootRef, scrollMemoryRef, items?.length);
+  // Revision keys on the tab too: equal-length tab swaps must still restore.
+  useListScrollRestore(
+    scrollRootRef,
+    scrollMemoryRef,
+    `${tab}:${items?.length ?? 'cold'}`
+  );
 
   useEffect(() => {
     accountGenRef.current += 1;
@@ -284,6 +294,7 @@ export function NotificationsPanel() {
     tabCacheRef.current[tabRef.current] = {
       items: itemsRef.current,
       nextCursor: nextCursorRef.current,
+      scrollTop: scrollRootRef.current?.scrollTop ?? 0,
     };
     const cached = tabCacheRef.current[next];
     // Flip the ref synchronously so in-flight fetches for the old tab
@@ -297,8 +308,18 @@ export function NotificationsPanel() {
     // A mid-flight append on the old tab fails its liveness guard and
     // never clears the flag — reset here so the new tab's sentinel works.
     setLoadingMore(false);
-    resetListScrollMemory(scrollMemoryRef.current, 0);
-    scrollRootRef.current?.scrollTo({ top: 0 });
+    const targetTop = cached?.scrollTop ?? 0;
+    resetListScrollMemory(scrollMemoryRef.current, targetTop);
+    if (targetTop <= 0) {
+      // Restore hook no-ops at the top line — go through Lenis directly so a
+      // longer cached list cannot keep the previous tab's scrolled line.
+      const node = scrollRootRef.current;
+      if (node) {
+        const lenis = getAppLenis(node);
+        if (lenis) lenis.scrollTo(0, { immediate: true, force: true });
+        else node.scrollTo({ top: 0 });
+      }
+    }
   }, []);
 
   const loadMore = useCallback(async () => {
@@ -429,42 +450,79 @@ export function NotificationsPanel() {
       </button>
     ) : null;
 
-  const activityTabs =
-    isConnected && hasSocialSession ? (
-      <div
-        className="app-storage-mode-toggle notifications-activity-tabs"
-        role="tablist"
-        aria-label="Activity filter"
-        onKeyDown={(event) => {
-          if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
-          event.preventDefault();
-          selectTab(event.key === 'ArrowRight' ? 'mentions' : 'all');
-        }}
+  const showActivityTabs = isConnected && hasSocialSession;
+  const activityTabsTrackRef = useRef<HTMLDivElement | null>(null);
+  const activityTabsThumbRef = useRef<HTMLSpanElement | null>(null);
+
+  // Quotes-track recipe: a thumb span measured under the active tab; the
+  // CSS transition does the slide (no swipe pager on this screen).
+  const placeActivityTabsThumb = useCallback(() => {
+    const track = activityTabsTrackRef.current;
+    const thumb = activityTabsThumbRef.current;
+    if (!track || !thumb) return;
+    const active = track.querySelector<HTMLElement>(
+      '[role="tab"][aria-selected="true"]'
+    );
+    if (!active) return;
+    thumb.style.width = `${active.offsetWidth}px`;
+    thumb.style.height = `${active.offsetHeight}px`;
+    thumb.style.transform = `translate3d(${active.offsetLeft}px, ${active.offsetTop}px, 0)`;
+  }, []);
+
+  useLayoutEffect(() => {
+    placeActivityTabsThumb();
+  });
+
+  useLayoutEffect(() => {
+    if (!showActivityTabs) return undefined;
+    const track = activityTabsTrackRef.current;
+    if (!track || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(() => placeActivityTabsThumb());
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, [showActivityTabs, placeActivityTabsThumb]);
+
+  const activityTabs = showActivityTabs ? (
+    <div
+      ref={activityTabsTrackRef}
+      className="app-storage-mode-toggle notifications-activity-tabs"
+      role="tablist"
+      aria-label="Activity filter"
+      onKeyDown={(event) => {
+        if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+        event.preventDefault();
+        selectTab(event.key === 'ArrowRight' ? 'mentions' : 'all');
+      }}
+    >
+      <span
+        ref={activityTabsThumbRef}
+        className="notifications-activity-tabs-thumb"
+        aria-hidden
+      />
+      <button
+        type="button"
+        role="tab"
+        id="notifications-activity-tab-all"
+        aria-selected={tab === 'all'}
+        tabIndex={tab === 'all' ? 0 : -1}
+        className={`app-storage-mode os-disabled-ink${tab === 'all' ? ' is-active' : ''}`}
+        onClick={() => selectTab('all')}
       >
-        <button
-          type="button"
-          role="tab"
-          id="notifications-activity-tab-all"
-          aria-selected={tab === 'all'}
-          tabIndex={tab === 'all' ? 0 : -1}
-          className={`app-storage-mode os-disabled-ink${tab === 'all' ? ' is-active' : ''}`}
-          onClick={() => selectTab('all')}
-        >
-          All
-        </button>
-        <button
-          type="button"
-          role="tab"
-          id="notifications-activity-tab-mentions"
-          aria-selected={tab === 'mentions'}
-          tabIndex={tab === 'mentions' ? 0 : -1}
-          className={`app-storage-mode os-disabled-ink${tab === 'mentions' ? ' is-active' : ''}`}
-          onClick={() => selectTab('mentions')}
-        >
-          Mentions
-        </button>
-      </div>
-    ) : null;
+        All
+      </button>
+      <button
+        type="button"
+        role="tab"
+        id="notifications-activity-tab-mentions"
+        aria-selected={tab === 'mentions'}
+        tabIndex={tab === 'mentions' ? 0 : -1}
+        className={`app-storage-mode os-disabled-ink${tab === 'mentions' ? ' is-active' : ''}`}
+        onClick={() => selectTab('mentions')}
+      >
+        Mentions
+      </button>
+    </div>
+  ) : null;
 
   const hasPaintedRows = Boolean(items && items.length > 0);
   const hasPaintedContent = items !== null;
