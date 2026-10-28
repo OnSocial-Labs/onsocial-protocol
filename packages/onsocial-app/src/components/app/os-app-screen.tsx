@@ -12,6 +12,7 @@ import {
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useOsScreenChromeHeightSync } from '@/hooks/use-os-screen-chrome-height-sync';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
+import { MoodThemeProvider } from '@onsocial/ui';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 
 /** Scroll tuck target — search+chip screens tuck the nav search; toolbar-only screens tuck chips. */
@@ -219,7 +220,7 @@ export function OsAppScreen({
     headerElevated ||
     (glassMode && (glassChromeAlwaysElevated || glassElevated));
 
-  return (
+  const screen = (
     <div
       ref={embedded ? undefined : portalHostRef}
       className={`os-app-screen app-surface${hasMood ? ' os-app-screen--mood' : ''}${embedded ? ' os-app-screen--embedded' : ''}${className ? ` ${className}` : ''}`}
@@ -300,5 +301,12 @@ export function OsAppScreen({
       </div>
       {embedded || !launcher ? null : <AppShellLauncher />}
     </div>
+  );
+
+  if (!hasMood || !resolvedMoodId) return screen;
+  return (
+    <MoodThemeProvider moodId={resolvedMoodId} style={resolvedMoodStyle}>
+      {screen}
+    </MoodThemeProvider>
   );
 }

@@ -17,6 +17,7 @@ import {
   OsSheetAction,
   OsSheetActions,
   SettingsIcon,
+  SheetHandoffProvider,
   ipfsImgSrcSet,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -181,8 +182,7 @@ export function AppPagePanel({
     count: number;
   } | null>(null);
   const [manageSheet, setManageSheet] = useState<HubManageSheetId | null>(null);
-  const settingsNextRef = useRef<HubManageSheetId | null>(null);
-  const creatorsNextRef = useRef(false);
+  const [sheetHandoff, setSheetHandoff] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
   const dropsKey = `${appId}:${refreshKey}`;
@@ -885,44 +885,48 @@ export function AppPagePanel({
         />
       ) : null}
 
-      <HubFactsSheet
-        open={factsOpen}
-        onClose={() => {
-          setFactsOpen(false);
-          if (creatorsNextRef.current) {
-            creatorsNextRef.current = false;
+      {factsOpen ? (
+        <HubFactsSheet
+          open
+          onClose={() => setFactsOpen(false)}
+          app={app}
+          stats={stats}
+          onOpenCreators={() => setCreatorsOpen(true)}
+          onHandoffCreators={() => {
+            setSheetHandoff(true);
+            setFactsOpen(false);
             setCreatorsOpen(true);
-          }
-        }}
-        app={app}
-        stats={stats}
-        onOpenCreators={() => {
-          creatorsNextRef.current = true;
-        }}
-      />
+          }}
+        />
+      ) : null}
 
-      <HubCreatorsSheet
-        open={creatorsOpen}
-        onClose={() => setCreatorsOpen(false)}
-        app={app}
-      />
+      <SheetHandoffProvider active={sheetHandoff}>
+        {creatorsOpen ? (
+          <HubCreatorsSheet
+            open
+            onClose={() => {
+              setSheetHandoff(false);
+              setCreatorsOpen(false);
+            }}
+            app={app}
+          />
+        ) : null}
+      </SheetHandoffProvider>
 
-      {showSettingsGear ? (
+      {showSettingsGear && settingsOpen ? (
         <HubSettingsSheet
-          open={settingsOpen}
+          open
           hubName={app.title}
           showOwnerTools={owner}
           showPeople={authority && (owner || app.creatorAccess === 'approval')}
           showPublishRequests={canReviewRequests}
           publishRequestCount={pendingPublishCount}
-          onClose={() => {
+          onClose={() => setSettingsOpen(false)}
+          onOpenSheet={() => undefined}
+          onHandoff={(sheet) => {
+            setSheetHandoff(sheet === 'publish-requests');
             setSettingsOpen(false);
-            const next = settingsNextRef.current;
-            settingsNextRef.current = null;
-            if (next) setManageSheet(next);
-          }}
-          onOpenSheet={(sheet) => {
-            settingsNextRef.current = sheet;
+            setManageSheet(sheet);
           }}
         />
       ) : null}
@@ -957,13 +961,18 @@ export function AppPagePanel({
       ) : null}
 
       {canReviewRequests ? (
-        <HubPublishRequestsSheet
-          open={manageSheet === 'publish-requests'}
-          appId={app.appId}
-          approvedCreatorIds={app.approvedCreators}
-          onClose={() => setManageSheet(null)}
-          onChanged={onManaged}
-        />
+        <SheetHandoffProvider active={sheetHandoff}>
+          <HubPublishRequestsSheet
+            open={manageSheet === 'publish-requests'}
+            appId={app.appId}
+            approvedCreatorIds={app.approvedCreators}
+            onClose={() => {
+              setSheetHandoff(false);
+              setManageSheet(null);
+            }}
+            onChanged={onManaged}
+          />
+        </SheetHandoffProvider>
       ) : null}
 
       {owner ? (

@@ -432,6 +432,7 @@ export function ScarceClipListenSheet({
             initialRoot={threadRoot}
             band={band}
             gripHandlers={gripHandlers}
+            onClose={dismissThread}
           />
         </div>
       ) : null}

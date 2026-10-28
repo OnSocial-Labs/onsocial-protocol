@@ -86,7 +86,8 @@ export function GuildManageMenu({
             ),
             onSelect: () => {
               onOpenSheet('requests');
-              requestClose();
+              setClosing(false);
+              setOpen(false);
             },
           },
         ]
@@ -97,7 +98,8 @@ export function GuildManageMenu({
       leading: <CountBadge count={memberCount} />,
       onSelect: () => {
         onOpenSheet('members');
-        requestClose();
+        setClosing(false);
+        setOpen(false);
       },
     },
     {
@@ -106,7 +108,8 @@ export function GuildManageMenu({
       leading: <CountBadge count={activeProposalCount} />,
       onSelect: () => {
         onOpenSheet('proposals');
-        requestClose();
+        setClosing(false);
+        setOpen(false);
       },
     },
     ...(canAddMember
@@ -116,7 +119,8 @@ export function GuildManageMenu({
             label: 'Add member',
             onSelect: () => {
               onOpenSheet('add-member');
-              requestClose();
+              setClosing(false);
+              setOpen(false);
             },
           },
         ]
@@ -149,16 +153,18 @@ export function GuildManageMenu({
         ) : null}
       </OsIconAction>
 
-      <ActionDrawer
-        open={sheetOpen}
-        onClose={requestClose}
-        onClosed={handleClosed}
-        label="Guild"
-        copy="Members & access"
-        listAriaLabel="Guild"
-        items={items}
-        closeAriaLabel="Close guild menu"
-      />
+      {open ? (
+        <ActionDrawer
+          open={sheetOpen}
+          onClose={requestClose}
+          onClosed={handleClosed}
+          label="Guild"
+          copy="Members & access"
+          listAriaLabel="Guild"
+          items={items}
+          closeAriaLabel="Close guild menu"
+        />
+      ) : null}
     </div>
   );
 }

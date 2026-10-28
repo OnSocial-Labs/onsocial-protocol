@@ -7,6 +7,7 @@ import type {
 } from 'react';
 import dynamic from 'next/dynamic';
 import type { PostRow } from '@onsocial/sdk';
+import { GlassSheet, SheetHeader } from '@onsocial/ui';
 import { useFeedThreadBand } from '@/features/home/use-feed-thread-band';
 import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
 
@@ -41,7 +42,9 @@ export type FeedThreadGripHandlers = {
 /**
  * Bottom thread pane on the media enlarge face — same conversation as
  * `/@account/posts/:id`, without a second jacket. Height is owned by the
- * face so the film can scale with the grabber.
+ * face so the film can scale with the grabber. Chrome is the shared
+ * band sheet (frost, scrim, grip, close under the grip) with no title row.
+ * The scrim is clipped to this pane so the film above stays sharp.
  */
 export function FeedMediaThreadSheet({
   author,
@@ -49,12 +52,14 @@ export function FeedMediaThreadSheet({
   initialRoot = null,
   band,
   gripHandlers,
+  onClose,
 }: {
   author: string;
   postId: string;
   initialRoot?: PostRow | null;
   band: number;
   gripHandlers: FeedThreadGripHandlers;
+  onClose: () => void;
 }) {
   const titleId = useId();
   const initial = useMemo(
@@ -63,39 +68,51 @@ export function FeedMediaThreadSheet({
   );
 
   return (
-    <div
-      className="feed-photo-thread-sheet"
-      role="dialog"
-      aria-labelledby={titleId}
+    <GlassSheet
+      open
+      onClose={onClose}
+      sizing="band"
+      dragDismiss={false}
+      ariaLabelledBy={titleId}
+      backdropLabel="Close post"
+      rootClassName="feed-photo-thread-sheet"
+      panelClassName="feed-photo-thread-panel"
+      bodyClassName="feed-photo-thread-body os-hug-sheet-body"
+      header={
+        <SheetHeader
+          className="feed-photo-thread-header"
+          titleId={titleId}
+          title="Post"
+          onClose={onClose}
+          closeAriaLabel="Close post"
+        />
+      }
+      grip={
+        <div
+          className="feed-photo-thread-grip glass-sheet-drag"
+          role="slider"
+          tabIndex={0}
+          aria-label="Resize thread"
+          aria-orientation="vertical"
+          aria-valuemin={20}
+          aria-valuemax={92}
+          aria-valuenow={Math.round(band * 100)}
+          {...gripHandlers}
+        >
+          <span className="glass-sheet-grip" aria-hidden />
+        </div>
+      }
     >
-      <div
-        className="feed-photo-thread-grip"
-        role="slider"
-        tabIndex={0}
-        aria-label="Resize thread"
-        aria-orientation="vertical"
-        aria-valuemin={20}
-        aria-valuemax={92}
-        aria-valuenow={Math.round(band * 100)}
-        {...gripHandlers}
-      >
-        <span className="feed-photo-thread-grip-bar" aria-hidden />
-      </div>
-      <h2 id={titleId} className="sr-only">
-        Post
-      </h2>
-      <div className="feed-photo-thread-body">
-        <Suspense fallback={null}>
-          <LivePersonalPostPanel
-            author={author}
-            postId={postId}
-            initial={initial}
-            embedded
-            hideRootMedia
-          />
-        </Suspense>
-      </div>
-    </div>
+      <Suspense fallback={null}>
+        <LivePersonalPostPanel
+          author={author}
+          postId={postId}
+          initial={initial}
+          embedded
+          hideRootMedia
+        />
+      </Suspense>
+    </GlassSheet>
   );
 }
 
@@ -133,6 +150,7 @@ export function FeedFaceThreadPane({
         initialRoot={initialRoot}
         band={band}
         gripHandlers={gripHandlers}
+        onClose={onDismiss}
       />
     </div>
   );

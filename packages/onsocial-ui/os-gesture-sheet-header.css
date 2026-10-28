@@ -46,28 +46,6 @@
   padding-bottom: 0.55rem;
 }
 
-.gesture-sheet-header-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.65rem;
-  min-width: 0;
-}
-
-.gesture-sheet-header-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 0.05rem;
-  min-width: 0;
-  flex: 1;
-  padding-right: 0.15rem;
-}
-
-/* Same class as standing subject name — keep overrides minimal. */
-.gesture-sheet-title {
-  margin: 0;
-}
-
 .gesture-sheet-verb {
   font-weight: 600;
 }
@@ -124,6 +102,7 @@ a.gesture-sheet-person:focus-visible {
 }
 
 .gesture-sheet-subject {
+  display: block;
   margin: 0.12rem 0 0;
   font-size: 0.86rem;
   font-weight: 600;
@@ -136,6 +115,7 @@ a.gesture-sheet-person:focus-visible {
 }
 
 .gesture-sheet-handle {
+  display: block;
   margin: 0;
   font-size: var(--os-identity-handle-size, 0.72rem);
   font-weight: var(--os-identity-handle-weight, 400);
@@ -147,6 +127,7 @@ a.gesture-sheet-person:focus-visible {
 }
 
 .gesture-sheet-whisper {
+  display: block;
   margin: 0.2rem 0 0;
   font-size: 0.72rem;
   line-height: 1.35;

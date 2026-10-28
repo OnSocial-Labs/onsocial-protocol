@@ -8,11 +8,7 @@ import {
   ProtocolMotionArrow,
   normalizeSocialTimestamp,
 } from '@onsocial/ui';
-import {
-  SheetFactCopy,
-  SheetFactRow,
-  SheetFactSection,
-} from '@onsocial/ui';
+import { SheetFactCopy, SheetFactRow, SheetFactSection } from '@onsocial/ui';
 import {
   guildModeDescription,
   guildModeLabel,
@@ -48,6 +44,8 @@ interface GuildFactsSheetProps {
   roomCount?: number | null;
   topics?: string[];
   onOpenMembers: () => void;
+  /** Open members without playing this sheet's close slide. */
+  onHandoffMembers?: () => void;
 }
 
 function viewerStatusLabel(input: {
@@ -105,6 +103,7 @@ export function GuildFactsSheet({
   roomCount,
   topics = [],
   onOpenMembers,
+  onHandoffMembers,
 }: GuildFactsSheetProps) {
   const topicList = topics;
   const [closing, setClosing] = useState(false);
@@ -181,6 +180,10 @@ export function GuildFactsSheet({
                 type="button"
                 className="guild-facts-link group"
                 onClick={() => {
+                  if (onHandoffMembers) {
+                    onHandoffMembers();
+                    return;
+                  }
                   onOpenMembers();
                   requestClose();
                 }}

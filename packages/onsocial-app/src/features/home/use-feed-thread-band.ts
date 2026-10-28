@@ -37,6 +37,23 @@ export function clampThreadBand(value: number): number {
   return Math.min(FEED_THREAD_MAX, Math.max(FEED_THREAD_MIN, value));
 }
 
+/**
+ * Scrim strength while the grip is dragging. Resting open (peek and above)
+ * stays fully covered so the 16px blur does not grow during the open fade.
+ * Pulling the band below peek scales the blur down with the sheet.
+ */
+export function threadScrimCover(band: number): number {
+  if (band <= 0 || FEED_THREAD_PEEK <= 0) return 0;
+  return Math.min(1, band / FEED_THREAD_PEEK);
+}
+
+function paintThreadScrim(sheet: HTMLElement | null, band: number) {
+  if (!sheet) return;
+  const cover = threadScrimCover(band).toFixed(4);
+  sheet.style.setProperty('--feed-thread-cover', cover);
+  sheet.style.setProperty('--feed-thread-scrim-opacity', cover);
+}
+
 export function snapThreadBand(
   band: number,
   velocity: number
@@ -88,6 +105,7 @@ export function useFeedThreadBand(open: boolean, onDismiss: () => void) {
     varHost: HTMLElement;
     slideEl: HTMLElement | null;
     jacket: boolean;
+    sheet: HTMLElement | null;
   } | null>(null);
   const dismissRef = useRef(onDismiss);
   /*
@@ -114,6 +132,13 @@ export function useFeedThreadBand(open: boolean, onDismiss: () => void) {
         t > 0.4
       );
     }
+    /* One frame with the drag cover still painted, then drop the inline
+     * vars so the 320ms scrim transition eases blur and opacity back. */
+    const sheet = host.sheet;
+    requestAnimationFrame(() => {
+      sheet?.style.removeProperty('--feed-thread-cover');
+      sheet?.style.removeProperty('--feed-thread-scrim-opacity');
+    });
   }, [band, snapTick]);
 
   useLayoutEffect(() => {
@@ -172,10 +197,12 @@ export function useFeedThreadBand(open: boolean, onDismiss: () => void) {
         const slideEl = event.currentTarget.closest(
           '.feed-photo-slide--thread'
         );
+        const sheet = event.currentTarget.closest('.feed-photo-thread-sheet');
         hostRef.current = {
           varHost,
           slideEl: slideEl instanceof HTMLElement ? slideEl : null,
           jacket: varHost.style.getPropertyValue('--feed-jacket-t') !== '',
+          sheet: sheet instanceof HTMLElement ? sheet : null,
         };
         /* Cut transitions this same frame — waiting on the React commit
          * would ease the first drag delta. React re-adds the class when
@@ -212,6 +239,7 @@ export function useFeedThreadBand(open: boolean, onDismiss: () => void) {
     } else {
       setBand(next);
     }
+    paintThreadScrim(hostRef.current?.sheet ?? null, next);
   }, []);
 
   const finishDrag = useCallback(() => {

@@ -16,6 +16,7 @@ import {
   UserPlusIcon,
   VolumeMuteIcon,
   VolumeUpIcon,
+  SheetHandoffProvider,
 } from '@onsocial/ui';
 import {
   ActionDrawer,
@@ -98,6 +99,7 @@ export const PostCardMenu = memo(function PostCardMenu({
   const [confirmBlock, setConfirmBlock] = useState(false);
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [handoff, setHandoff] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const isOpen = open && !closing;
   const requestClose = useCallback(() => {
@@ -285,8 +287,10 @@ export const PostCardMenu = memo(function PostCardMenu({
         label: 'Support',
         leading: <GiftIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
+          setHandoff(true);
           setSupportOpen(true);
-          requestClose();
+          setClosing(false);
+          setOpen(false);
         },
       });
       items.push({
@@ -307,8 +311,10 @@ export const PostCardMenu = memo(function PostCardMenu({
             requestClose();
             return;
           }
+          setHandoff(true);
           setEndorseOpen(true);
-          requestClose();
+          setClosing(false);
+          setOpen(false);
         },
       });
       items.push({
@@ -443,52 +449,62 @@ export const PostCardMenu = memo(function PostCardMenu({
           />
         </button>
 
-        <ActionDrawer
-          open={isOpen}
-          onClose={confirmBlock ? () => setConfirmBlock(false) : requestClose}
-          onClosed={handleClosed}
-          label={
-            confirmBlock
-              ? blockConfirmCopy({
-                  accountId,
-                  profileName: authorProfile?.displayName,
-                }).title
-              : authorLabel
-          }
-          copy={confirmBlock ? authorLabel : undefined}
-          listAriaLabel={authorLabel}
-          closeAriaLabel={confirmBlock ? 'Back' : 'Close'}
-          items={confirmBlock ? undefined : menuItems}
-          {...(zIndex != null ? { zIndex } : {})}
-        >
-          {confirmBlock ? (
-            <BlockConfirmPanel
-              accountId={accountId}
-              profileName={authorProfile?.displayName}
-              pending={blockPending}
-              onConfirm={() => void handleBlockToggle(true)}
-              onCancel={() => setConfirmBlock(false)}
-            />
-          ) : null}
-        </ActionDrawer>
+        {open ? (
+          <ActionDrawer
+            open={isOpen}
+            onClose={confirmBlock ? () => setConfirmBlock(false) : requestClose}
+            onClosed={handleClosed}
+            label={
+              confirmBlock
+                ? blockConfirmCopy({
+                    accountId,
+                    profileName: authorProfile?.displayName,
+                  }).title
+                : authorLabel
+            }
+            copy={confirmBlock ? authorLabel : undefined}
+            listAriaLabel={authorLabel}
+            closeAriaLabel={confirmBlock ? 'Back' : 'Close'}
+            items={confirmBlock ? undefined : menuItems}
+            {...(zIndex != null ? { zIndex } : {})}
+          >
+            {confirmBlock ? (
+              <BlockConfirmPanel
+                accountId={accountId}
+                profileName={authorProfile?.displayName}
+                pending={blockPending}
+                onConfirm={() => void handleBlockToggle(true)}
+                onCancel={() => setConfirmBlock(false)}
+              />
+            ) : null}
+          </ActionDrawer>
+        ) : null}
       </div>
-      <EndorseComposeSheet
-        open={endorseOpen}
-        pageAccountId={accountId}
-        profileName={authorProfile?.displayName}
-        avatarUrl={authorProfile?.avatarUrl}
-        intent={viewerEndorsed ? 'auto' : 'create'}
-        onOpenChange={setEndorseOpen}
-        {...(zIndex != null ? { zIndex } : {})}
-      />
-      <ProfileSupportSheet
-        open={supportOpen}
-        pageAccountId={accountId}
-        profileName={authorProfile?.displayName}
-        avatarUrl={authorProfile?.avatarUrl}
-        onOpenChange={setSupportOpen}
-        {...(zIndex != null ? { zIndex } : {})}
-      />
+      <SheetHandoffProvider active={handoff}>
+        <EndorseComposeSheet
+          open={endorseOpen}
+          pageAccountId={accountId}
+          profileName={authorProfile?.displayName}
+          avatarUrl={authorProfile?.avatarUrl}
+          intent={viewerEndorsed ? 'auto' : 'create'}
+          onOpenChange={(next) => {
+            setEndorseOpen(next);
+            if (!next) setHandoff(false);
+          }}
+          {...(zIndex != null ? { zIndex } : {})}
+        />
+        <ProfileSupportSheet
+          open={supportOpen}
+          pageAccountId={accountId}
+          profileName={authorProfile?.displayName}
+          avatarUrl={authorProfile?.avatarUrl}
+          onOpenChange={(next) => {
+            setSupportOpen(next);
+            if (!next) setHandoff(false);
+          }}
+          {...(zIndex != null ? { zIndex } : {})}
+        />
+      </SheetHandoffProvider>
     </>
   );
 });

@@ -17,6 +17,16 @@ import {
 import { createPortal } from 'react-dom';
 import { cn } from './cn.js';
 import { MultiplyIcon } from './mage-stroke-icons.js';
+import { resolveSheetMood, useMoodTheme } from './mood-theme.js';
+import {
+  decideSheetFocusCapture,
+  decideSheetFocusRelease,
+  readHandoffRestoreTarget,
+  resolveHandoffPresentation,
+  sheetHandoffFocusActive,
+  stashHandoffRestoreTarget,
+  useSheetHandoff,
+} from './sheet-handoff.js';
 import { OsIconAction, osIconActionClassName } from './os-icon-action.js';
 import { OsStableScrollHost } from './os-stable-scroll-host.js';
 
@@ -48,8 +58,12 @@ export const sheetIconActionClassName = osIconActionClassName;
 export type GlassSheetTone = 'os' | 'mood-thread';
 export type GlassSheetDetent = 'peek' | 'full';
 export type GlassSheetPresentation = 'enter' | 'swap' | 'appear';
-/** `hug` = content-sized up to 90dvh; `full` = default near-viewport height. */
-export type GlassSheetSizing = 'hug' | 'full';
+/**
+ * `hug` = content-sized up to 90dvh; `full` = default near-viewport height;
+ * `band` = fill a host whose height is owned outside the sheet (film thread).
+ * Band renders in place: no viewport portal, no slide.
+ */
+export type GlassSheetSizing = 'hug' | 'full' | 'band';
 /**
  * `glass` — frosted panel + dim/blur scrim.
  * `page` — opaque canvas (`--bg`, or an opaque mood mix when `data-mood` is
@@ -351,6 +365,11 @@ export interface GlassSheetProps {
   tone?: GlassSheetTone;
   /** Mood preset id when tone is mood-thread. */
   moodId?: string;
+  /**
+   * Preset CSS vars for this sheet. When omitted, a `MoodThemeProvider`
+   * ancestor supplies the page mood. An explicit `moodId` still wins.
+   */
+  moodStyle?: CSSProperties;
   panelStyle?: CSSProperties;
   peekRatio?: number;
   /** Mobile resting detent when the sheet opens. Desktop always opens full height. */
@@ -364,6 +383,11 @@ export interface GlassSheetProps {
   ariaLabelledBy: string;
   backdropLabel?: string;
   header?: ReactNode;
+  /**
+   * Grip rendered when `dragDismiss` is false. Band sheets pass the host's
+   * resize slider so the sheet does not own the drag.
+   */
+  grip?: ReactNode;
   /** Slot below the scroll body (e.g. action dock). */
   footer?: ReactNode;
   children: ReactNode;
@@ -434,10 +458,14 @@ function useSheetFocusTrap(
       return;
     }
 
-    restoreFocusRef.current =
+    const handed = sheetHandoffFocusActive()
+      ? readHandoffRestoreTarget()
+      : null;
+    const activeElement =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
+    restoreFocusRef.current = decideSheetFocusCapture(handed, activeElement);
 
     const focusables = getFocusableElements(panel);
     const autoFocusTarget = focusables.find((element) =>
@@ -490,7 +518,13 @@ function useSheetFocusTrap(
         panel.removeAttribute('tabindex');
       }
 
-      const restoreTarget = restoreFocusRef.current;
+      const decision = decideSheetFocusRelease({
+        handoffActive: sheetHandoffFocusActive(),
+        panelConnected: panel.isConnected,
+        restoreTarget: restoreFocusRef.current,
+      });
+      if (decision.stashTarget) stashHandoffRestoreTarget(decision.stashTarget);
+      const restoreTarget = decision.focusTarget;
       if (
         restoreTarget &&
         document.contains(restoreTarget) &&
@@ -824,8 +858,23 @@ export function GlassSheet({
   portalContainer,
   surface = 'glass',
   keepDock = false,
+  moodStyle,
+  grip,
 }: GlassSheetProps) {
   const opaquePage = surface === 'page';
+  const band = sizing === 'band';
+  const handoff = useSheetHandoff();
+  const effectivePresentation = band
+    ? 'swap'
+    : resolveHandoffPresentation(presentation, handoff);
+  // Fade only the sheets whose enter slide was replaced. Explicit appear
+  // and swap stay as they are, including inside a handoff provider.
+  const crossfade = handoff && !band && presentation === 'enter';
+  const inheritedMood = useMoodTheme();
+  const resolvedMood = resolveSheetMood(
+    { moodId, style: moodStyle },
+    inheritedMood
+  );
   const panelRef = useRef<HTMLDivElement>(null);
   const setSheetBodyRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -851,7 +900,7 @@ export function GlassSheet({
   const { mounted, visible, handlePanelTransitionEnd } = useSheetPresence(
     open,
     onClosed,
-    presentation
+    effectivePresentation
   );
   const {
     detent,
@@ -871,10 +920,11 @@ export function GlassSheet({
   );
 
   const hugEnterPending =
-    hugEnterNeedsArming(sizing, presentation) && !enterAnimationDone;
+    hugEnterNeedsArming(sizing, effectivePresentation) && !enterAnimationDone;
   const panelIsOpen = visible && (!hugEnterPending || hugEnterArmed);
   const showEnterAnimation =
-    (presentation === 'enter' || presentation === 'appear') &&
+    !band &&
+    (effectivePresentation === 'enter' || effectivePresentation === 'appear') &&
     panelIsOpen &&
     !enterAnimationDone;
   const draggingRef = useRef(dragging);
@@ -1018,10 +1068,10 @@ export function GlassSheet({
   });
   const panelFilter = opaquePage
     ? 'blur(0px)'
-    : resolvePanelPresentation(coverProgress, tone, moodId, {
+    : resolvePanelPresentation(coverProgress, tone, resolvedMood.moodId, {
         reduceTransparency,
       });
-  const moodAttr = moodId ? moodId : undefined;
+  const moodAttr = resolvedMood.moodId;
 
   useEffect(() => {
     if (!open) {
@@ -1073,7 +1123,7 @@ export function GlassSheet({
     return () => window.clearTimeout(timer);
   }, [finishEnterAnimation, showEnterAnimation]);
 
-  useSheetFocusTrap(visible && portalTarget != null, panelRef);
+  useSheetFocusTrap(visible && portalTarget != null && !band, panelRef);
 
   useLayoutEffect(() => {
     if (!mounted) {
@@ -1086,9 +1136,17 @@ export function GlassSheet({
     setOpenedAboveMediaFace((sampled) => sampled || faceOpen);
   }, [mounted, open]);
 
-  if (!mounted || !portalTarget) {
+  if (band) {
+    if (!open) return null;
+  } else if (!mounted || !portalTarget) {
     return null;
   }
+
+  const bandScrimStyle = glassSheetBackdropFilterStyle(
+    reduceTransparency
+      ? 'blur(0px)'
+      : `blur(calc(${GLASS_SHEET_BACKDROP_BLUR_PX}px * var(--feed-thread-cover, 1))) saturate(${GLASS_SHEET_BACKDROP_SATURATE})`
+  );
 
   const sheet = (
     <div
@@ -1096,20 +1154,30 @@ export function GlassSheet({
         'glass-sheet-root',
         visible && 'is-visible',
         showEnterAnimation && 'glass-sheet-root--enter',
-        hostedInClipHost && 'glass-sheet-root--hosted',
+        hostedInClipHost && !band && 'glass-sheet-root--hosted',
+        band && 'glass-sheet-root--band',
         rootClassName
       )}
       data-tone={tone}
       data-mood={moodAttr}
       data-surface={surface}
-      data-presentation={presentation}
+      data-presentation={effectivePresentation}
+      data-sizing={sizing}
+      data-crossfade={crossfade ? 'true' : undefined}
       data-keep-dock={keepDock ? 'true' : undefined}
       style={{
         zIndex: resolveGlassSheetZIndex(zIndex, openedAboveMediaFace),
+        ...resolvedMood.style,
       }}
       role="presentation"
     >
-      {opaquePage ? null : (
+      {opaquePage ? null : band ? (
+        <div
+          className="glass-sheet-backdrop glass-sheet-band-scrim"
+          aria-hidden
+          style={bandScrimStyle}
+        />
+      ) : (
         <button
           type="button"
           className="glass-sheet-backdrop"
@@ -1130,7 +1198,7 @@ export function GlassSheet({
       <div
         ref={panelRef}
         role="dialog"
-        aria-modal="true"
+        aria-modal={band ? undefined : true}
         aria-labelledby={ariaLabelledBy}
         className={cn(
           'glass-sheet-panel',
@@ -1142,7 +1210,8 @@ export function GlassSheet({
         data-tone={tone}
         data-mood={moodAttr}
         data-surface={surface}
-        data-presentation={presentation}
+        data-presentation={effectivePresentation}
+        data-crossfade={crossfade ? 'true' : undefined}
         data-sizing={sizing}
         style={
           {
@@ -1164,7 +1233,7 @@ export function GlassSheet({
           />
         )}
 
-        {dragDismiss ? (
+        {dragDismiss && !band ? (
           <div
             className="glass-sheet-drag"
             onPointerDown={handlePointerDown}
@@ -1174,7 +1243,9 @@ export function GlassSheet({
           >
             <span className="glass-sheet-grip" aria-hidden />
           </div>
-        ) : null}
+        ) : (
+          grip
+        )}
 
         {header}
 
@@ -1192,7 +1263,8 @@ export function GlassSheet({
     </div>
   );
 
-  return createPortal(sheet, portalTarget);
+  if (band) return sheet;
+  return createPortal(sheet, portalTarget as HTMLElement);
 }
 
 export interface SheetCloseButtonProps {
@@ -1228,6 +1300,8 @@ export interface SheetHeaderProps {
   /** Sibling of the title (e.g. Clear) — stays outside the heading. */
   titleAccessory?: ReactNode;
   subtitle?: ReactNode;
+  /** Accessible name when the visible title is not the dialog name. */
+  titleLabel?: string;
   onClose?: () => void;
   closeAriaLabel?: string;
   actions?: ReactNode;
@@ -1240,6 +1314,7 @@ export function SheetHeader({
   eyebrow,
   titleAccessory,
   subtitle,
+  titleLabel,
   onClose,
   closeAriaLabel,
   actions,
@@ -1259,11 +1334,15 @@ export function SheetHeader({
             {eyebrow ? (
               <p className="glass-sheet-header-eyebrow">{eyebrow}</p>
             ) : null}
-            <h2 id={titleId} className="glass-sheet-header-title">
+            <h2
+              id={titleId}
+              className="glass-sheet-header-title"
+              {...(titleLabel ? { 'aria-label': titleLabel } : {})}
+            >
               {title}
             </h2>
             {subtitle ? (
-              <p className="glass-sheet-header-subtitle">{subtitle}</p>
+              <div className="glass-sheet-header-subtitle">{subtitle}</div>
             ) : null}
           </div>
           {titleAccessory}

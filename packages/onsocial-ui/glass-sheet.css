@@ -11,7 +11,69 @@
  * Tones:
  *   data-tone="os"          — protocol overlays (standing, endorse, reputation)
  *   data-tone="mood-thread" — page content drawer (+ data-mood for tint)
+ *
+ * `--glass-shadow` stays none. Sheets do not invent a drop shadow.
+ * Frost fill is `--glass-sheet-frost-opacity` (0.56). Screen wash stays
+ * `--glass-sheet-body-opacity` (0.72) on the page.
  */
+
+@layer base {
+  /*
+   * One mood wash. Preset vars come from the surface. Glass and Carbon
+   * still set `--mood-bg: transparent` on their own, more specific rules.
+   */
+  [data-mood],
+  .os-app-screen--mood,
+  .portfolio-frame,
+  .portfolio-os-layer,
+  .mood-sheet-item {
+    --mood-bg-preset-mix: 25%;
+    --mood-bg: color-mix(
+      in srgb,
+      var(--mood-preset-bg, var(--bg)) var(--mood-bg-preset-mix),
+      var(--bg)
+    );
+    --mood-accent: var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72));
+  }
+
+  :root[data-theme='light'] [data-mood],
+  :root[data-theme='light'] .os-app-screen--mood,
+  :root[data-theme='light'] .portfolio-frame,
+  :root[data-theme='light'] .portfolio-os-layer,
+  :root[data-theme='light'] .mood-sheet-item {
+    --mood-bg-preset-mix: 30%;
+    --mood-bg: color-mix(
+      in srgb,
+      var(--mood-preset-bg-light, var(--mood-preset-bg, var(--bg)))
+        var(--mood-bg-preset-mix),
+      var(--bg)
+    );
+    --mood-accent: var(
+      --mood-preset-accent-light,
+      var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72))
+    );
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) [data-mood],
+    :root:not([data-theme]) .os-app-screen--mood,
+    :root:not([data-theme]) .portfolio-frame,
+    :root:not([data-theme]) .portfolio-os-layer,
+    :root:not([data-theme]) .mood-sheet-item {
+      --mood-bg-preset-mix: 30%;
+      --mood-bg: color-mix(
+        in srgb,
+        var(--mood-preset-bg-light, var(--mood-preset-bg, var(--bg)))
+          var(--mood-bg-preset-mix),
+        var(--bg)
+      );
+      --mood-accent: var(
+        --mood-preset-accent-light,
+        var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72))
+      );
+    }
+  }
+}
 
 .glass-sheet-root {
   position: fixed;
@@ -133,7 +195,7 @@
 }
 
 .glass-sheet-panel {
-  --glass-sheet-body-opacity: 0.56;
+  --glass-sheet-body-opacity: var(--glass-sheet-frost-opacity, 0.56);
   --glass-sheet-header-top-opacity: 0.8;
   --glass-sheet-header-mid-opacity: 0.66;
   --glass-sheet-mood-ambient-strength: 16%;
@@ -163,6 +225,15 @@
   transform: translateY(100%);
   transition: transform var(--os-motion-overlay, 320ms)
     var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
+}
+
+/* Mood wash at the sheet frost opacity. Page surfaces keep their own fill. */
+.glass-sheet-panel[data-mood]:not([data-surface='page']) {
+  --glass-sheet-body-surface: color-mix(
+    in srgb,
+    var(--mood-bg) calc(var(--glass-sheet-frost-opacity, 0.56) * 100%),
+    transparent
+  );
 }
 
 /*
@@ -299,6 +370,21 @@
 
 .glass-sheet-panel.is-open {
   transform: translateY(var(--sheet-y, 0px));
+}
+
+/* Menu/settings replace — fade in place. Does not slide. */
+.glass-sheet-panel[data-crossfade='true'].is-open {
+  animation: glass-sheet-crossfade 180ms ease-out;
+}
+
+@keyframes glass-sheet-crossfade {
+  from {
+    opacity: 0.72;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .glass-sheet-panel.is-open.glass-sheet-panel--enter {
@@ -755,12 +841,69 @@ html:has(
   }
 }
 
+/*
+ * Band — fill a host that owns the height (media reply). Scrim and frost
+ * stay inside the band so the film above stays sharp. No slide.
+ */
+.glass-sheet-root--band {
+  position: relative;
+  inset: auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  pointer-events: none;
+}
+
+.glass-sheet-root--band .glass-sheet-panel,
+.glass-sheet-root--band .glass-sheet-panel.is-open {
+  height: 100%;
+  max-height: none;
+  max-width: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  pointer-events: auto;
+  transform: none;
+}
+
+.glass-sheet-band-scrim {
+  pointer-events: none;
+  cursor: default;
+  background: rgb(var(--bg-rgb) / var(--glass-sheet-frost-opacity, 0.56));
+  opacity: 0;
+  animation: glass-sheet-band-scrim-in var(--os-motion-overlay, 320ms)
+    var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1)) forwards;
+}
+
+@keyframes glass-sheet-band-scrim-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.is-thread-dragging .glass-sheet-band-scrim {
+  animation: none;
+  transition: none;
+  opacity: var(--feed-thread-cover, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .glass-sheet-panel {
     transition: none;
   }
 
-  .glass-sheet-panel.is-open.glass-sheet-panel--enter {
+  .glass-sheet-band-scrim {
+    animation: none;
+    opacity: 1;
+  }
+
+  .glass-sheet-panel.is-open.glass-sheet-panel--enter,
+  .glass-sheet-panel[data-crossfade='true'].is-open {
     animation: none;
   }
 
@@ -779,6 +922,10 @@ html:has(
 }
 
 @media (prefers-reduced-transparency: reduce) {
+  .glass-sheet-band-scrim {
+    background: var(--glass-scrim-solid, rgb(var(--bg-rgb) / 0.82));
+  }
+
   .glass-sheet-backdrop {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
