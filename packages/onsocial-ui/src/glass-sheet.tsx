@@ -19,7 +19,12 @@ import { cn } from './cn.js';
 import { MultiplyIcon } from './mage-stroke-icons.js';
 import { resolveSheetMood, useMoodTheme } from './mood-theme.js';
 import {
+  decideSheetFocusCapture,
+  decideSheetFocusRelease,
+  readHandoffRestoreTarget,
   resolveHandoffPresentation,
+  sheetHandoffFocusActive,
+  stashHandoffRestoreTarget,
   useSheetHandoff,
 } from './sheet-handoff.js';
 import { OsIconAction, osIconActionClassName } from './os-icon-action.js';
@@ -453,10 +458,14 @@ function useSheetFocusTrap(
       return;
     }
 
-    restoreFocusRef.current =
+    const handed = sheetHandoffFocusActive()
+      ? readHandoffRestoreTarget()
+      : null;
+    const activeElement =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
+    restoreFocusRef.current = decideSheetFocusCapture(handed, activeElement);
 
     const focusables = getFocusableElements(panel);
     const autoFocusTarget = focusables.find((element) =>
@@ -509,7 +518,13 @@ function useSheetFocusTrap(
         panel.removeAttribute('tabindex');
       }
 
-      const restoreTarget = restoreFocusRef.current;
+      const decision = decideSheetFocusRelease({
+        handoffActive: sheetHandoffFocusActive(),
+        panelConnected: panel.isConnected,
+        restoreTarget: restoreFocusRef.current,
+      });
+      if (decision.stashTarget) stashHandoffRestoreTarget(decision.stashTarget);
+      const restoreTarget = decision.focusTarget;
       if (
         restoreTarget &&
         document.contains(restoreTarget) &&
