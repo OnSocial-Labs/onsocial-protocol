@@ -82,7 +82,8 @@ import {
   resolveThreadShareRow,
   threadShareRowHref,
 } from '@/lib/thread-share-row';
-import { SHEET_Z } from '@/lib/sheet-z';
+import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
+import { SHEET_Z, postLayerOverlayZ } from '@/lib/sheet-z';
 import {
   sortThreadReplyRows,
   type ThreadReplySort,
@@ -204,6 +205,7 @@ export function LivePersonalPostPanel({
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const ownerZ = usePostLayerOwnerZ();
   const mediaUnmuted = searchParams.get('media') === 'unmute';
   const mediaResumeIndex = readPostMediaUnmuteIndex(searchParams);
   const rootPath = personalPostContentPath(author, postId);
@@ -1127,7 +1129,13 @@ export function LivePersonalPostPanel({
       initialFiles={modalSeed.files}
       pending={modalPending}
       error={modalError}
-      zIndex={embedded ? SHEET_Z.confirm : undefined}
+      zIndex={
+        ownerZ != null
+          ? postLayerOverlayZ(ownerZ).composer
+          : embedded
+            ? SHEET_Z.confirm
+            : undefined
+      }
       onClose={(draft) => {
         if (modalPending) return;
         if (modalMode === 'reply' && draft) {

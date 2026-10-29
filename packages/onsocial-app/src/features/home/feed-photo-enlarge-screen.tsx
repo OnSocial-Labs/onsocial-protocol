@@ -38,7 +38,8 @@ import {
   threadJacketT,
   useFeedThreadBand,
 } from '@/features/home/use-feed-thread-band';
-import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
+import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
+import { postLayerOverlayZ } from '@/lib/sheet-z';
 import {
   feedPhotoIndexFromScroll,
   feedPhotoScrollLeft,
@@ -185,6 +186,7 @@ export function FeedPhotoEnlargeScreen({
    */
   zoomOrigin?: FeedPhotoZoomOrigin | null;
 }) {
+  const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
   const last = photos.length - 1;
   const [wasOpen, setWasOpen] = useState(open);
   const [index, setIndex] = useState(() => clampIndex(initialIndex, last));
@@ -1369,7 +1371,7 @@ export function FeedPhotoEnlargeScreen({
       ? createPortal(
           <div
             className="feed-photo-zoom-layer"
-            style={{ zIndex: SCARCE_Z.listenShell + 1 }}
+            style={{ zIndex: faceZ + 1 }}
             aria-hidden
           >
             <div
@@ -1405,7 +1407,7 @@ export function FeedPhotoEnlargeScreen({
         mast={mast}
         trailing={trailingNode}
         closeAriaLabel={quietClose}
-        zIndex={SCARCE_Z.listenShell}
+        zIndex={faceZ}
         footer={onFilm ? null : engagement}
         transport={onFilm ? null : videoTransport}
         stageLayout="fixed"
@@ -1424,7 +1426,7 @@ export function FeedPhotoEnlargeScreen({
       >
         <div className="feed-photo-listen">
           {/* Whole-stage tap (letterbox included): leave reply / toggle chrome. */}
-          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+          { }
           <div
             ref={stageRef}
             className={`feed-photo-stage${cinema ? ' is-cinema' : ''}`}

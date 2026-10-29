@@ -28,7 +28,8 @@ import {
 } from '@/components/portfolio/portfolio-writing-article-panel';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
-import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
+import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
+import { postLayerOverlayZ } from '@/lib/sheet-z';
 import { useArticleReadChrome } from '@/hooks/use-article-read-chrome';
 import { useEssayReturnSearch } from '@/hooks/use-essay-return-search';
 import {
@@ -238,6 +239,7 @@ export function ArticleReadOverlay({
     threadOpen?: boolean;
     onDismissThread?: () => void;
   }) {
+  const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const { current, openArticle, backArticle } = useArticleReader(
     panel.post,
@@ -278,7 +280,7 @@ export function ArticleReadOverlay({
       immersiveHeader
       closeAriaLabel="Back from article"
       closeIcon={<ChevronLeftIcon className="glass-sheet-close-icon" />}
-      zIndex={SCARCE_Z.listenShell}
+      zIndex={faceZ}
       keepDock={writePinned || threadOpen}
       scrollRootRef={scrollRootRef}
       className={`${ARTICLE_READ_CLASS}${quiet ? ' is-chrome-quiet' : ''}${

@@ -62,6 +62,49 @@ export function nextPostLayerZIndex(
   return Math.max(previousTopZ + 1, SHEET_Z.overShell);
 }
 
+/**
+ * Stack an overlay above a post layer, without dropping below `floor`.
+ * No owner (the feed) keeps the constant band.
+ */
+export function zAboveOwner(ownerZ: number | null, floor: number): number {
+  if (ownerZ == null || !Number.isFinite(ownerZ)) return floor;
+  return Math.max(floor, ownerZ + 1);
+}
+
+/**
+ * Overlays opened from a post layer.
+ *
+ * The feed keeps the constant bands: face 80, card sheets 90, composer 110.
+ * A layer that still sits under those bands does too. A layer lifted over a
+ * media face (rendered ~170) pushes the face, the reply dock, card sheets,
+ * and the composer one step above that layer so a nested reply can still
+ * open a cover and type.
+ */
+export function postLayerOverlayZ(ownerRendered: number | null): {
+  face: number;
+  /** Amplify, share, buy, and the post menu. */
+  sheet: number;
+  composer: number;
+  /** Null keeps the constant dock band (51, or 90/95 over a face). */
+  dock: number | null;
+} {
+  const face = zAboveOwner(ownerRendered, SHEET_Z.shell);
+  const dock =
+    ownerRendered != null && ownerRendered + 1 > SHEET_Z.launcher
+      ? Math.max(SHEET_Z.launcher, face + 1)
+      : null;
+  const sheet = Math.max(
+    zAboveOwner(ownerRendered, SHEET_Z.overShell),
+    face + 1,
+    dock == null ? 0 : dock + 1
+  );
+  const composer = Math.max(
+    zAboveOwner(ownerRendered, SHEET_Z.confirm),
+    sheet + 1
+  );
+  return { face, sheet, composer, dock };
+}
+
 /** True when a photo / thought / listen face is covering the OS card. */
 export function isOsMediaFaceOpen(): boolean {
   if (typeof document === 'undefined') return false;

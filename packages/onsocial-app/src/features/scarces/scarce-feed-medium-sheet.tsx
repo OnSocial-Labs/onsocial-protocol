@@ -11,10 +11,7 @@ import {
 import type { PostRow } from '@onsocial/sdk';
 import { ipfsImgSrcSet } from '@onsocial/ui';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
-import {
-  SCARCE_HERO_WIDTHS,
-  SQUARE_ART_SIZES,
-} from '@/lib/hero-img-variants';
+import { SCARCE_HERO_WIDTHS, SQUARE_ART_SIZES } from '@/lib/hero-img-variants';
 import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import {
@@ -38,7 +35,8 @@ import type {
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { scarcePlaybackSessionId } from '@/features/scarces/scarce-playback-session';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
-import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
+import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
+import { postLayerOverlayZ } from '@/lib/sheet-z';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   resolveScarceFeedMediumMode,
@@ -110,6 +108,7 @@ export function ScarceFeedMediumSheet({
   /** Jacket ⋯ — same post options as video enlarge. */
   trailing?: ReactNode;
 }) {
+  const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
   const [wasOpen, setWasOpen] = useState(open);
   const writePinned = useWriteDockPinned();
   const [hydratedPlayables, setHydratedPlayables] = useState<
@@ -382,7 +381,7 @@ export function ScarceFeedMediumSheet({
         quietTitle
         trailing={trailing}
         closeAriaLabel="Back"
-        zIndex={SCARCE_Z.listenShell}
+        zIndex={faceZ}
         footer={threadActive ? null : postChrome}
         stageLayout="fixed"
         keepDock
@@ -397,7 +396,7 @@ export function ScarceFeedMediumSheet({
             : undefined
         }
       >
-        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+        { }
         <div className="scarce-thought-body" onClick={handleArtTap}>
           <div className="scarce-thought-stage">{coverArt}</div>
           {mode === 'audio' ? (

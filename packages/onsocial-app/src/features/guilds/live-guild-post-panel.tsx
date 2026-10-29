@@ -124,6 +124,8 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { playPostFocusVideo } from '@/hooks/use-post-list-video';
+import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
+import { postLayerOverlayZ } from '@/lib/sheet-z';
 import type { ThreadSheetContext } from '@/lib/guild-thread-card-context';
 import type { PostEngagementMap } from '@/lib/feed-paint-hydrate';
 import type { GuildPostPageData } from '@/lib/load-guild-post-page';
@@ -210,6 +212,7 @@ export function LiveGuildPostPanel({
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const ownerZ = usePostLayerOwnerZ();
   const mediaUnmuted = searchParams.get('media') === 'unmute';
   const mediaResumeIndex = readPostMediaUnmuteIndex(searchParams);
   /*
@@ -1236,6 +1239,9 @@ export function LiveGuildPostPanel({
           initialFiles={modalSeed.files}
           pending={modalPending}
           error={modalError}
+          {...(ownerZ != null
+            ? { zIndex: postLayerOverlayZ(ownerZ).composer }
+            : {})}
           onClose={(draft) => {
             if (modalPending) return;
             if (modalMode === 'reply' && draft) {

@@ -16,7 +16,8 @@ import {
   ShareIcon,
   type ActionDrawerItem,
 } from '@onsocial/ui';
-import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
+import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
+import { postLayerOverlayZ } from '@/lib/sheet-z';
 import { PostLikesSheet } from '@/components/panels/post-likes-sheet';
 import { RollingNumber } from '@/components/ui/rolling-number';
 import { PortfolioBioBlocks } from '@/components/portfolio/portfolio-bio-blocks';
@@ -100,6 +101,7 @@ export function PortfolioWritingArticleActions({
   /** Feed — quote / repost / amplify live in Share. */
   shareExtras?: ActionDrawerItem[];
 }) {
+  const actionZ = postLayerOverlayZ(usePostLayerOwnerZ()).sheet;
   const article = parseArticleSnapshot(post.value);
   const articleHref = writingArticlePath(post.accountId, post.postId);
   const {
@@ -255,7 +257,7 @@ export function PortfolioWritingArticleActions({
           open={shareOpen}
           onClose={() => setShareOpen(false)}
           label="Share"
-          zIndex={SCARCE_Z.commerceOverListen}
+          zIndex={actionZ}
           items={[
             {
               id: 'copy',

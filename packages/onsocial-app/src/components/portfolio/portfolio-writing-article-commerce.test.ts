@@ -30,10 +30,10 @@ describe('article reader commerce', () => {
     expect(commerce).toContain('<ScarceBuySheet');
     expect(commerce).toContain('<ScarceBidSheet');
     expect(sheetBlock(commerce, 'ScarceBuySheet')).toContain(
-      'zIndex={SCARCE_Z.commerceOverListen}'
+      'zIndex={actionZ}'
     );
     expect(sheetBlock(commerce, 'ScarceBidSheet')).toContain(
-      'zIndex={SCARCE_Z.commerceOverListen}'
+      'zIndex={actionZ}'
     );
     expect(commerce).not.toContain('router.push');
     expect(commerce).not.toContain('collectionPath');
@@ -43,16 +43,16 @@ describe('article reader commerce', () => {
     expect(commerce).toContain('onSell={() => setSellOpen(true)}');
     expect(commerce).toContain('onTransfer={() => setTransferOpen(true)}');
     expect(sheetBlock(commerce, 'ScarceSellSheet')).toContain(
-      'zIndex={SCARCE_Z.commerceOverListen}'
+      'zIndex={actionZ}'
     );
     expect(sheetBlock(commerce, 'ScarceTransferSheet')).toContain(
-      'zIndex={SCARCE_Z.commerceOverListen}'
+      'zIndex={actionZ}'
     );
     expect(sheetBlock(postCard, 'ScarceSellSheet')).toContain(
-      'zIndex={SCARCE_Z.commerceOverListen}'
+      'zIndex={actionZ}'
     );
     expect(sheetBlock(postCard, 'ScarceTransferSheet')).toContain(
-      'zIndex={SCARCE_Z.commerceOverListen}'
+      'zIndex={actionZ}'
     );
   });
 

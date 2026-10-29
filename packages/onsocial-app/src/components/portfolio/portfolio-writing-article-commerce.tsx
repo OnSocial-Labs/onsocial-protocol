@@ -12,7 +12,8 @@ import {
 import { PostScarceCta } from '@/features/scarces/post-scarce-cta';
 import { ScarceBidSheet } from '@/features/scarces/scarce-bid-sheet';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
-import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
+import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
+import { postLayerOverlayZ } from '@/lib/sheet-z';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
 import { ownedScarceCanTransfer } from '@/features/scarces/scarce-transfer';
@@ -24,6 +25,7 @@ import { accountIdsEqual } from '@/lib/account-match';
  * reader. Drop, Hub, and Market stay links inside the row. Series stays on the drop.
  */
 export function PortfolioWritingArticleCommerce({ post }: { post: PostRow }) {
+  const actionZ = postLayerOverlayZ(usePostLayerOwnerZ()).sheet;
   const { accountId: viewerId, isConnected } = useAppWallet();
   const { embed, rootRef, retry } = usePostScarceEmbed(post, { force: true });
   const [buyOpen, setBuyOpen] = useState(false);
@@ -104,7 +106,9 @@ export function PortfolioWritingArticleCommerce({ post }: { post: PostRow }) {
     >
       <PostScarceCta
         embed={embed}
-        isAuthor={Boolean(viewerId && accountIdsEqual(viewerId, post.accountId))}
+        isAuthor={Boolean(
+          viewerId && accountIdsEqual(viewerId, post.accountId)
+        )}
         authorAccountId={post.accountId}
         canSell={canSell}
         onSell={() => setSellOpen(true)}
@@ -122,7 +126,7 @@ export function PortfolioWritingArticleCommerce({ post }: { post: PostRow }) {
         alreadyOwnsEdition={owned != null}
         onOpenChange={setBuyOpen}
         onPurchased={refreshOwned}
-        zIndex={SCARCE_Z.commerceOverListen}
+        zIndex={actionZ}
       />
       <ScarceBidSheet
         open={bidOpen}
@@ -130,7 +134,7 @@ export function PortfolioWritingArticleCommerce({ post }: { post: PostRow }) {
         embed={embed}
         onOpenChange={setBidOpen}
         onBid={refreshOwned}
-        zIndex={SCARCE_Z.commerceOverListen}
+        zIndex={actionZ}
       />
       <ScarceSellSheet
         open={sellOpen && owned != null}
@@ -138,7 +142,7 @@ export function PortfolioWritingArticleCommerce({ post }: { post: PostRow }) {
         sellerAccountId={viewerId}
         onOpenChange={setSellOpen}
         onListed={refreshOwned}
-        zIndex={SCARCE_Z.commerceOverListen}
+        zIndex={actionZ}
       />
       <ScarceTransferSheet
         open={transferOpen && owned != null}
@@ -146,7 +150,7 @@ export function PortfolioWritingArticleCommerce({ post }: { post: PostRow }) {
         ownerAccountId={viewerId}
         onOpenChange={setTransferOpen}
         onTransferred={refreshOwned}
-        zIndex={SCARCE_Z.commerceOverListen}
+        zIndex={actionZ}
       />
     </div>
   );

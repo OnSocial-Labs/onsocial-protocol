@@ -84,7 +84,8 @@ import { ScarceListSheet } from '@/features/scarces/scarce-list-sheet';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { ScarceTransferSheet } from '@/features/scarces/scarce-transfer-sheet';
 import { ownedScarceCanTransfer } from '@/features/scarces/scarce-transfer';
-import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
+import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
+import { postLayerOverlayZ } from '@/lib/sheet-z';
 import {
   postScarceAudio,
   postScarceCoverImage,
@@ -312,6 +313,10 @@ function PostCardImpl({
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const { openPostThread } = usePostThreadLayer();
+  const ownerZ = usePostLayerOwnerZ();
+  const actionZ = postLayerOverlayZ(ownerZ).sheet;
+  const resolvedMenuZ =
+    ownerZ == null ? menuZIndex : Math.max(menuZIndex ?? 0, actionZ);
   const interceptOpenHref = useCallback(
     (event: MouseEvent<HTMLAnchorElement>, href: string) => {
       if (detailLayout) return;
@@ -1127,7 +1132,9 @@ function PostCardImpl({
                   <PostCardMenu
                     {...menuPostProps}
                     onMenuOpen={handleMenuOpen}
-                    {...(menuZIndex != null ? { zIndex: menuZIndex } : {})}
+                    {...(resolvedMenuZ != null
+                      ? { zIndex: resolvedMenuZ }
+                      : {})}
                   />
                 </div>
               }
@@ -1342,7 +1349,9 @@ function PostCardImpl({
             shareHref={shareHref}
             shareTitle={name}
             onAmplify={openAmplify}
-            {...(menuZIndex != null ? { shareDrawerZIndex: menuZIndex } : {})}
+            {...(resolvedMenuZ != null
+              ? { shareDrawerZIndex: resolvedMenuZ }
+              : {})}
           />
         ) : null}
       </div>
@@ -1361,7 +1370,7 @@ function PostCardImpl({
           onAmplified={(amplified, detail) =>
             onAmplifyConfirmed?.(amplified, detail)
           }
-          zIndex={SCARCE_Z.commerceOverListen}
+          zIndex={actionZ}
         />
       ) : null}
       {listScarceSheetMounted ? (
@@ -1371,7 +1380,7 @@ function PostCardImpl({
           authorName={authorProfile?.displayName}
           onOpenChange={setListScarceOpen}
           onListed={() => retryScarceEmbed()}
-          zIndex={SCARCE_Z.commerceOverListen}
+          zIndex={actionZ}
         />
       ) : null}
       {buyScarceSheetMounted ? (
@@ -1386,7 +1395,7 @@ function PostCardImpl({
             retryScarceEmbed();
             refreshOwnedScarce();
           }}
-          zIndex={SCARCE_Z.commerceOverListen}
+          zIndex={actionZ}
         />
       ) : null}
       {bidScarceSheetMounted ? (
@@ -1397,7 +1406,7 @@ function PostCardImpl({
           embed={scarceEmbed}
           onOpenChange={setBidScarceOpen}
           onBid={() => retryScarceEmbed()}
-          zIndex={SCARCE_Z.commerceOverListen}
+          zIndex={actionZ}
         />
       ) : null}
       {transferScarceSheetMounted ? (
@@ -1411,7 +1420,7 @@ function PostCardImpl({
             retryScarceEmbed();
             refreshOwnedScarce();
           }}
-          zIndex={SCARCE_Z.commerceOverListen}
+          zIndex={actionZ}
         />
       ) : null}
       {sellScarceSheetMounted ? (
@@ -1425,7 +1434,7 @@ function PostCardImpl({
             retryScarceEmbed();
             refreshOwnedScarce();
           }}
-          zIndex={SCARCE_Z.commerceOverListen}
+          zIndex={actionZ}
         />
       ) : null}
       {photoScreenMounted ? (
@@ -1450,7 +1459,7 @@ function PostCardImpl({
               onDownload={
                 enlargePhotos.length > 0 ? () => downloadCurrent() : undefined
               }
-              zIndex={SCARCE_Z.commerceOverListen}
+              zIndex={actionZ}
             />
           )}
           peekIdentity={
@@ -1520,7 +1529,7 @@ function PostCardImpl({
                 onRepost={onRepost ? photoRepost : undefined}
                 onUndoRepost={onUndoRepost ? photoUndoRepost : undefined}
                 onAmplify={openAmplify}
-                shareDrawerZIndex={SCARCE_Z.commerceOverListen}
+                shareDrawerZIndex={actionZ}
               />
             ) : null
           }
@@ -1588,7 +1597,7 @@ function PostCardImpl({
                 onRepost={onRepost ? articleRepost : undefined}
                 onUndoRepost={onUndoRepost ? articleUndoRepost : undefined}
                 onAmplify={openAmplify}
-                shareDrawerZIndex={SCARCE_Z.commerceOverListen}
+                shareDrawerZIndex={actionZ}
               />
             ) : null
           }
@@ -1648,7 +1657,7 @@ function PostCardImpl({
                     }
                   : undefined
               }
-              zIndex={SCARCE_Z.commerceOverListen}
+              zIndex={actionZ}
             />
           }
           title={dropListenTitle}
@@ -1679,7 +1688,7 @@ function PostCardImpl({
                 onRepost={onRepost ? mediumRepost : undefined}
                 onUndoRepost={onUndoRepost ? mediumUndoRepost : undefined}
                 onAmplify={mediumAmplify}
-                shareDrawerZIndex={SCARCE_Z.commerceOverListen}
+                shareDrawerZIndex={actionZ}
               />
             ) : null
           }

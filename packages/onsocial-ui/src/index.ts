@@ -20,6 +20,7 @@ export {
   GlassSheet,
   GlassSheetPortalProvider,
   GLASS_SHEET_MEDIA_FACE_LIFT,
+  resolveGlassSheetZIndex,
   SheetCloseButton,
   SheetHeader,
   glassSheetBackdropFilterStyle,

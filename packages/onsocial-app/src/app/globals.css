@@ -14773,15 +14773,16 @@ a.os-surface-row,
 
   /* Post sheet is overlayHost (50). Launcher band is 51: above the post,
      under account, share, and the full composer. A parked post stays put.
-     A keep-dock media face keeps its own lift at 90.
-     Nested :has() is dropped by the browser, which left this rule unloaded
-     and the drawer dock under the post sheet. */
+     A keep-dock media face keeps its own lift at 90. A face-lifted sheet
+     publishes --os-thread-dock-z so the dock stays above it after the face
+     closes. Nested :has() is dropped by the browser, which left this rule
+     unloaded and the drawer dock under the post sheet. */
   body:has(
       .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
         .post-thread-sheet-panel
     ):not(:has([data-os-slide-over='true'][data-keep-dock='true']))
     .portfolio-summon-dock {
-    z-index: 51;
+    z-index: var(--os-thread-dock-z, 51);
   }
 
   /* Post layer over a keep-dock media face: the unlayered rule lives with
@@ -41038,8 +41039,8 @@ body:has(.feed-face-thread) .portfolio-summon-dock {
  * Post layer opened above a keep-dock media face — the sheet resolves to 170
  * (overShell 90 + the glass media-face lift), past every constant dock band,
  * so the reply dock ended up under the sheet and reply taps only scrolled.
- * The layer host publishes the live sheet's resolved z + 1 as
- * --os-thread-dock-z; 95 matches the face-thread band until it does.
+ * The layer host publishes --os-thread-dock-z above that sheet and above a
+ * cover opened from it; 95 matches the face-thread band until it does.
  * Unlayered like the band above — a @layer rule always loses to it.
  */
 body:has(

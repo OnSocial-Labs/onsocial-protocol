@@ -227,8 +227,14 @@ test.describe('thread reply dock', () => {
     const overlay = page.locator('.os-dock-pill-swap-out');
     const overlaySeen = overlay
       .waitFor({ state: 'visible', timeout: 15_000 })
-      .then(() => true, () => false);
-    await feed.getByRole('button', { name: 'Reply to this post' }).first().click();
+      .then(
+        () => true,
+        () => false
+      );
+    await feed
+      .getByRole('button', { name: 'Reply to this post' })
+      .first()
+      .click();
     expect(await overlaySeen).toBe(true);
 
     // Overlay unmounts after the swap; the write bar + reply chip stay.
@@ -241,7 +247,10 @@ test.describe('thread reply dock', () => {
     const crossfading = page.locator('.os-dock-pill.is-crossfading');
     const refaded = crossfading
       .waitFor({ state: 'visible', timeout: 15_000 })
-      .then(() => true, () => false);
+      .then(
+        () => true,
+        () => false
+      );
     await page.getByRole('button', { name: 'Cancel reply' }).click();
     expect(await refaded).toBe(true);
     await expect(overlay).toHaveCount(0);
@@ -359,8 +368,8 @@ test.describe('thread reply dock', () => {
  * layer opened above the keep-dock face resolves to z 170 (overShell 90 +
  * the glass media-face lift), past the dock's constant face bands (90/95):
  * the reply dock ended up under the sheet and reply taps only scrolled.
- * The layer host publishes the sheet's resolved z + 1 as --os-thread-dock-z
- * so the dock rides one above the live sheet.
+ * The layer host publishes --os-thread-dock-z above that sheet and above a
+ * cover opened from it.
  */
 test.describe('thread reply dock over the media face', () => {
   const CDN = 'https://cdn.testnet.onsocial.id';
