@@ -374,7 +374,8 @@ export function PortfolioOwnerPayoutMarks({
         )}
       </div>
 
-      {showListings ? (
+      {/* Keep the host up while Buy, Bid, or Offers replaces the list. */}
+      {showListings || listingsOpen ? (
         <PortfolioListingActionsSheet
           open={listingsOpen}
           accountId={accountId}
