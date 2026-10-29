@@ -51,6 +51,18 @@ describe('paintOverlayStack', () => {
     expect(after[1]?.z).toBeGreaterThanOrEqual(170);
   });
 
+  it('lifts the launcher above a face-lifted sheet', () => {
+    const painted = paintOverlayStack(
+      [
+        { id: 1, floor: 170, keepDock: true },
+        { id: 2, floor: 51, keepDock: false },
+      ],
+      172
+    );
+    expect(painted[1]?.z).toBeGreaterThan(170);
+    expect(painted[1]?.z).toBeGreaterThan(172);
+  });
+
   it('lets a cover floor that already clears the sheet stay above it', () => {
     const painted = paintOverlayStack([
       { id: 1, floor: 170, keepDock: true },

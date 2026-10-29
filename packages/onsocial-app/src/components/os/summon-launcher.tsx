@@ -37,6 +37,7 @@ import {
   osLauncherDotClassName,
   resolveBackdropPresentation,
   resolvePanelPresentation,
+  useOverlayStackZ,
   usePrefersReducedTransparency,
   useScrollLock,
 } from '@onsocial/ui';
@@ -70,6 +71,7 @@ import { OsDockPill } from '@/components/wallet/os-dock-pill';
 import { OsDockBackZone } from '@/components/wallet/os-dock-back-zone';
 import { SheetChromeHeader } from '@/components/panels/sheet-chrome-header';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { SHEET_Z } from '@/lib/sheet-z';
 import {
   appShellOsApps,
   isOsAppActive,
@@ -306,6 +308,10 @@ export function SummonLauncher({
     portalTarget != null &&
     typeof document !== 'undefined' &&
     portalTarget !== document.body;
+  const overlay = useOverlayStackZ(
+    Boolean(open && portalTarget),
+    SHEET_Z.launcher
+  );
   const summonDockRef = useRef<HTMLDivElement>(null);
   useSummonDockOccupiedHeight(
     summonDockRef,
@@ -599,6 +605,8 @@ export function SummonLauncher({
                 launcherHosted ? ` ${osLauncherRootHostedClassName}` : ''
               }${showEnterAnimation ? ' is-enter' : ''}`}
               role="presentation"
+              inert={!overlay.top}
+              style={{ zIndex: overlay.z }}
             >
               <button
                 type="button"

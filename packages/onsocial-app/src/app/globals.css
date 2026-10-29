@@ -1291,11 +1291,9 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 /*
  * Show pass and the listen player use the shared screen header. An immersive
  * drop ancestor would otherwise hide the title via --title-handoff.
+ * The launcher z-index comes from the overlay stack (inline), so a sheet
+ * that has already been lifted cannot keep this surface at 51 or 131.
  */
-body:has([data-os-slide-over='true']:not(.is-closing)) .os-launcher-root {
-  z-index: 131;
-}
-
 .ticket-pass-slide .os-app-screen-heading,
 .scarce-listen-slide .os-app-screen-heading {
   opacity: 1;
