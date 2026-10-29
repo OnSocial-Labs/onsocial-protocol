@@ -59,6 +59,7 @@ import { OsWriteDock } from '@/components/os/os-write-dock';
 import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
 import { useNotificationsUnreadCount } from '@/components/providers/notifications-host';
 import { useOsPortalHost } from '@/contexts/os-portal-host-context';
+import { probeOsCardHost, resolveOsOverlayPortal } from '@/lib/os-card-host';
 import { accountIdsEqual } from '@/lib/account-match';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
@@ -102,19 +103,6 @@ const LAUNCHER_DRAG_ACTIVATION_PX = 6;
 const clientMountedSubscribe = () => () => {};
 const getClientMountedSnapshot = () => true;
 const getServerMountedSnapshot = () => false;
-
-function probeOsCardHost(): HTMLElement | null {
-  if (typeof document === 'undefined') return null;
-  const live = document.querySelector<HTMLElement>(
-    '.feed-session-front .portfolio-frame.app-surface, .feed-session-front .os-app-screen.app-surface:not(.os-slide-over)'
-  );
-  if (live) return live;
-  const any = document.querySelector<HTMLElement>(
-    '.portfolio-frame.app-surface, .os-app-screen.app-surface:not(.os-slide-over)'
-  );
-  if (any?.closest('[data-feed-session="covered"]')) return null;
-  return any;
-}
 
 function launcherAppLabel(app: OsAppLink, openingPage: boolean) {
   if (osAppOpensWithWallet(app) && openingPage) {
@@ -302,7 +290,11 @@ export function SummonLauncher({
   // Prefer registered OS / portfolio card. Context can lag a commit behind the
   // card ref — probe the DOM before falling back to body (full-viewport blur).
   const portalTarget = clientMounted
-    ? (portalHost ?? probeOsCardHost() ?? document.body)
+    ? resolveOsOverlayPortal({
+        registered: portalHost,
+        probed: probeOsCardHost(),
+        body: document.body,
+      })
     : null;
   const launcherHosted =
     portalTarget != null &&

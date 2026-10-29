@@ -6,7 +6,8 @@
  * Close with × (same as sheets). Leave a place is the dock chevron.
  *
  * Portals into the registered `OsPortalHost` (OS / portfolio card with
- * overflow clip) so the panel is clipped to that card.
+ * overflow clip) so the panel is clipped to that card. When that host is
+ * still empty, the card already in the DOM is used before `document.body`.
  */
 
 import {
@@ -32,6 +33,7 @@ import {
   useScrollLock,
 } from '@onsocial/ui';
 import { useOsPortalHost } from '@/contexts/os-portal-host-context';
+import { probeOsCardHost, resolveOsOverlayPortal } from '@/lib/os-card-host';
 import { useOsScreenChromeHeightSync } from '@/hooks/use-os-screen-chrome-height-sync';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 
@@ -120,6 +122,11 @@ export interface OsSlideOverScreenProps {
   /** Scroll container for nested lists (`.os-app-screen-body`). */
   scrollRootRef?: RefObject<HTMLElement | null>;
   /**
+   * Painted stack z (after open-order lift). Photo zoom uses this plus one
+   * so the flight stays above the face.
+   */
+  onPaintedZ?: (z: number) => void;
+  /**
    * Keep the summon dock visible above this slide (video transport / reply).
    * Sets `data-keep-dock` so global tuck rules skip this layer.
    */
@@ -159,6 +166,7 @@ export function OsSlideOverScreen({
   contentClassName,
   scrollRootRef,
   keepDock = false,
+  onPaintedZ,
 }: OsSlideOverScreenProps) {
   const titleId = useId();
   const headerRef = useRef<HTMLElement | null>(null);
@@ -185,7 +193,7 @@ export function OsSlideOverScreen({
   if (!renderOpen || viewport) {
     nextPortalHost = null;
   } else if (portalHost == null || !portalHost.isConnected) {
-    nextPortalHost = registeredHost;
+    nextPortalHost = registeredHost ?? probeOsCardHost();
   }
   if (nextPortalHost !== portalHost) {
     setPortalHost(nextPortalHost);
@@ -223,6 +231,11 @@ export function OsSlideOverScreen({
     zIndex,
     keepDock
   );
+  const overlayActive = mounted && renderOpen && !parked;
+  useLayoutEffect(() => {
+    if (!overlayActive) return;
+    onPaintedZ?.(overlay.z);
+  }, [onPaintedZ, overlay.z, overlayActive]);
   useScrollLock(renderOpen && !parked);
 
   useLayoutEffect(() => {
@@ -304,9 +317,12 @@ export function OsSlideOverScreen({
 
   const portalTarget =
     typeof document !== 'undefined'
-      ? viewport || !nextPortalHost
-        ? document.body
-        : nextPortalHost
+      ? resolveOsOverlayPortal({
+          viewport,
+          registered: nextPortalHost,
+          probed: null,
+          body: document.body,
+        })
       : null;
   if (!portalTarget) return null;
 

@@ -38,6 +38,7 @@ import { NotificationsHost } from '@/components/providers/notifications-host';
 import { AppSmoothScrollProvider } from '@/components/providers/app-smooth-scroll-provider';
 import { NetworkStandingHandoffHost } from '@/components/panels/network-standing-handoff-host';
 import { FeedSessionHost } from '@/components/providers/feed-session-host';
+import { probeOsCardHost } from '@/lib/os-card-host';
 import { PwaProvider } from '@/components/providers/pwa-provider';
 import { markAppHydrated } from '@/lib/e2e-portfolio-ready';
 import { WebPushProvider } from '@/components/providers/web-push-provider';
@@ -66,7 +67,7 @@ function AppHydratedMarker() {
 function OsGlassSheetPortalBridge({ children }: { children: React.ReactNode }) {
   const host = useOsPortalHost();
   return (
-    <GlassSheetPortalProvider container={host}>
+    <GlassSheetPortalProvider container={host} resolveHost={probeOsCardHost}>
       {children}
     </GlassSheetPortalProvider>
   );

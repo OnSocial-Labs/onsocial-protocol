@@ -83,6 +83,8 @@ export type OsMediaFaceShellProps = {
   /** Extra class on the face body wrapper. */
   bodyClassName?: string;
   bodyStyle?: CSSProperties;
+  /** Painted stack z of this face, after the overlay stack lifts it. */
+  onPaintedZ?: (z: number) => void;
   children: ReactNode;
 };
 
@@ -116,6 +118,7 @@ export function OsMediaFaceShell({
   contentClassName = 'scarce-read-slide-body',
   bodyClassName,
   bodyStyle,
+  onPaintedZ,
   children,
 }: OsMediaFaceShellProps) {
   const frostStyle = osChromeFrostStyle();
@@ -184,6 +187,7 @@ export function OsMediaFaceShell({
         ) : undefined
       }
       zIndex={zIndex}
+      onPaintedZ={onPaintedZ}
       className={slideClass}
       contentClassName={contentClassName}
       footer={screenFooter}
@@ -191,35 +195,37 @@ export function OsMediaFaceShell({
       <div className={faceBodyClass} style={bodyStyle}>
         {progress}
         {screenHeader ? null : (
-        <div className="os-media-face-hero">
-          <div
-            className="os-media-face-hero-glass"
-            aria-hidden
-            style={frostStyle}
-          />
-          <MediaFaceClose ariaLabel={closeAriaLabel} />
-          <div className="os-media-face-mast">
-            {mast}
-            {quietTitle ? null : (
-              <div className="os-media-face-copy">
-                {brow ? <p className="os-media-face-eyebrow">{brow}</p> : null}
-                <p
-                  className={
-                    faceTitle?.trim()
-                      ? 'os-media-face-title os-media-face-title--single'
-                      : 'os-media-face-title'
-                  }
-                >
-                  {headline}
-                </p>
-                {sub ? <p className="os-media-face-subtitle">{sub}</p> : null}
-              </div>
-            )}
+          <div className="os-media-face-hero">
+            <div
+              className="os-media-face-hero-glass"
+              aria-hidden
+              style={frostStyle}
+            />
+            <MediaFaceClose ariaLabel={closeAriaLabel} />
+            <div className="os-media-face-mast">
+              {mast}
+              {quietTitle ? null : (
+                <div className="os-media-face-copy">
+                  {brow ? (
+                    <p className="os-media-face-eyebrow">{brow}</p>
+                  ) : null}
+                  <p
+                    className={
+                      faceTitle?.trim()
+                        ? 'os-media-face-title os-media-face-title--single'
+                        : 'os-media-face-title'
+                    }
+                  >
+                    {headline}
+                  </p>
+                  {sub ? <p className="os-media-face-subtitle">{sub}</p> : null}
+                </div>
+              )}
+            </div>
+            {trailing ? (
+              <div className="os-media-face-trailing">{trailing}</div>
+            ) : null}
           </div>
-          {trailing ? (
-            <div className="os-media-face-trailing">{trailing}</div>
-          ) : null}
-        </div>
         )}
         {children}
       </div>
