@@ -215,7 +215,12 @@
   flex-direction: column;
   overflow: hidden;
   isolation: isolate;
-  border: 1px solid var(--glass-border, transparent);
+  /*
+   * No layout border. A 1px transparent border insets the frost, and the
+   * inherited radius is then too round for that smaller box, so the scrim
+   * shows as grey wedges on the top corners.
+   */
+  border: none;
   border-radius: 1.25rem 1.25rem 0 0;
   /* Keep frost / shadow from painting a square chip in the rounded corners. */
   clip-path: inset(0 round 1.25rem 1.25rem 0 0);
@@ -854,6 +859,10 @@ html:has(
   height: 100%;
   padding: 0;
   pointer-events: none;
+  overflow: hidden;
+  border-radius: 1.25rem 1.25rem 0 0;
+  /* Scrim blur escapes overflow + radius and leaves grey corner wedges. */
+  clip-path: inset(0 round 1.25rem 1.25rem 0 0);
 }
 
 .glass-sheet-root--band .glass-sheet-panel,

@@ -52,7 +52,23 @@ describe('reply drawer blur stack', () => {
       '--glass-sheet-body-opacity: var(--glass-sheet-frost-opacity, 0.56)'
     );
     expect(glassCss).toContain('box-shadow: var(--glass-shadow, none)');
+    expect(glassCss).toContain('border: none');
+    expect(glassCss).not.toContain(
+      'border: 1px solid var(--glass-border, transparent)'
+    );
     expect(glassCss).toContain('.glass-sheet-band-scrim');
+    expect(glassCss).toContain(
+      '.glass-sheet-root--band {\n  position: relative;'
+    );
+    expect(
+      glassCss.slice(glassCss.indexOf('.glass-sheet-root--band {'))
+    ).toContain('clip-path: inset(0 round 1.25rem 1.25rem 0 0)');
+    expect(globalsCss).toContain(
+      '.feed-photo-thread-host {\n    position: relative;'
+    );
+    expect(
+      globalsCss.slice(globalsCss.indexOf('.feed-photo-thread-host {'))
+    ).toContain('clip-path: inset(0 round 1.25rem 1.25rem 0 0)');
     expect(glassCss).not.toContain('--glass-shadow: 0');
   });
 });
