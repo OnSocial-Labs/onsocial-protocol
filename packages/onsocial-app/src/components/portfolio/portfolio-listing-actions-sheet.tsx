@@ -16,6 +16,7 @@ import {
   OsSheetActions,
   OsSheetFooter,
   SheetCloseButton,
+  SheetHandoffProvider,
   ShopFillIcon,
   TimeFillIcon,
   osActionDrawerConfirmBodyClassName,
@@ -343,9 +344,8 @@ function groupItems(items: ListingActionItem[]): {
 }
 
 /**
- * Owner drawer — quiet header, standing-style time above CTA. Row tap opens
- * the Market buy/bid sheet; Delist / Cancel open the Propose-style confirm
- * (Discard + primary).
+ * Owner drawer — quiet header, standing-style time above CTA. Buy, bid, and
+ * offers replace this sheet. Delist / Cancel stay here as a confirm.
  */
 export function PortfolioListingActionsSheet({
   open,
@@ -358,6 +358,9 @@ export function PortfolioListingActionsSheet({
   const { getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
+  const [handedOff, setHandedOff] = useState(false);
+  const [sheetHandoff, setSheetHandoff] = useState(false);
+  const handedOffRef = useRef(false);
   const [items, setItems] = useState<ListingActionItem[] | null>(null);
   const cacheRef = useRef<{
     accountId: string;
@@ -405,6 +408,7 @@ export function PortfolioListingActionsSheet({
     setLoadError(null);
     setBidListing(null);
     setBuyListing(null);
+    setOffersItem(null);
     setFocusActionId(null);
     setConfirmItem(null);
 
@@ -441,10 +445,34 @@ export function PortfolioListingActionsSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- open/accountId gate
   }, [open, accountId]);
 
+  useEffect(() => {
+    if (open) return;
+    handedOffRef.current = false;
+    setHandedOff(false);
+    setSheetHandoff(false);
+  }, [open]);
+
   const requestClose = useCallback(() => {
     setConfirmItem(null);
     setClosing(true);
   }, []);
+
+  const beginHandoff = useCallback(() => {
+    handedOffRef.current = true;
+    setHandedOff(true);
+    setSheetHandoff(true);
+    setClosing(false);
+    setConfirmItem(null);
+  }, []);
+
+  const finishHandoff = useCallback(() => {
+    setBuyListing(null);
+    setBidListing(null);
+    setOffersItem(null);
+    setFocusActionId(null);
+    setSheetHandoff(false);
+    onOpenChange(false);
+  }, [onOpenChange]);
 
   const handleSheetClosed = useCallback(() => {
     setClosing(false);
@@ -462,24 +490,29 @@ export function PortfolioListingActionsSheet({
         fetchedAt: Date.now(),
       };
       onActionsChanged?.();
-      if (remaining.length === 0) requestClose();
+      if (remaining.length === 0 && !handedOffRef.current) requestClose();
     },
     [accountId, items, onActionsChanged, requestClose]
   );
 
-  const handleOpenDetail = useCallback((item: ListingActionItem) => {
-    if (listingActionOpensBuySheet(item.kind)) {
-      const listing = buyListingFromAction(item);
+  const handleOpenDetail = useCallback(
+    (item: ListingActionItem) => {
+      if (listingActionOpensBuySheet(item.kind)) {
+        const listing = buyListingFromAction(item);
+        if (!listing) return;
+        setFocusActionId(item.id);
+        setBuyListing(listing);
+        beginHandoff();
+        return;
+      }
+      const listing = bidListingFromAction(item);
       if (!listing) return;
       setFocusActionId(item.id);
-      setBuyListing(listing);
-      return;
-    }
-    const listing = bidListingFromAction(item);
-    if (!listing) return;
-    setFocusActionId(item.id);
-    setBidListing(listing);
-  }, []);
+      setBidListing(listing);
+      beginHandoff();
+    },
+    [beginHandoff]
+  );
 
   const handleBidSettled = useCallback(() => {
     const actionId = focusActionId;
@@ -495,12 +528,16 @@ export function PortfolioListingActionsSheet({
     if (actionId) removeAction(actionId);
   }, [focusActionId, removeAction]);
 
-  const handleOpenOffers = useCallback((item: ListingActionItem) => {
-    const owned = ownedScarceFromAction(item);
-    if (!owned) return;
-    setFocusActionId(item.id);
-    setOffersItem(owned);
-  }, []);
+  const handleOpenOffers = useCallback(
+    (item: ListingActionItem) => {
+      const owned = ownedScarceFromAction(item);
+      if (!owned) return;
+      setFocusActionId(item.id);
+      setOffersItem(owned);
+      beginHandoff();
+    },
+    [beginHandoff]
+  );
 
   const handleOfferAccepted = useCallback(() => {
     const actionId = focusActionId;
@@ -564,122 +601,119 @@ export function PortfolioListingActionsSheet({
 
   return (
     <>
-      <OsHugSheet
-        open={sheetOpen}
-        onClose={requestClose}
-        onClosed={handleSheetClosed}
-        label="Listings"
-        {...(subtitle ? { copy: subtitle } : {})}
-        closeAriaLabel="Close listing actions"
-        backdropLabel="Close listing actions"
-        zIndex={SHEET_Z.gesture}
-        {...(mood?.id ? { moodId: mood.id } : {})}
-        bodyClassName="portfolio-support-collect-info-body"
-        panelClassName="portfolio-support-collect-info-panel os-sheet-cap-standard"
-        {...(panelStyle ? { panelStyle } : {})}
-        headerActions={
-          <div className="standing-sheet-actions standing-sheet-actions--payout">
-            <OsIconAction asChild ariaLabel="Open Market">
-              <Link
-                href={APP_MARKET_PATH}
-                scroll={false}
+      {handedOff ? null : (
+        <OsHugSheet
+          open={sheetOpen}
+          onClose={requestClose}
+          onClosed={handleSheetClosed}
+          label="Listings"
+          {...(subtitle ? { copy: subtitle } : {})}
+          closeAriaLabel="Close listing actions"
+          backdropLabel="Close listing actions"
+          zIndex={SHEET_Z.gesture}
+          {...(mood?.id ? { moodId: mood.id } : {})}
+          bodyClassName="portfolio-support-collect-info-body"
+          panelClassName="portfolio-support-collect-info-panel os-sheet-cap-standard"
+          {...(panelStyle ? { panelStyle } : {})}
+          headerActions={
+            <div className="standing-sheet-actions standing-sheet-actions--payout">
+              <OsIconAction asChild ariaLabel="Open Market">
+                <Link
+                  href={APP_MARKET_PATH}
+                  scroll={false}
+                  onClick={requestClose}
+                >
+                  <ShopFillIcon
+                    className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
+                    aria-hidden
+                  />
+                </Link>
+              </OsIconAction>
+              <SheetCloseButton
                 onClick={requestClose}
-              >
-                <ShopFillIcon
-                  className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
-                  aria-hidden
-                />
-              </Link>
-            </OsIconAction>
-            <SheetCloseButton
-              onClick={requestClose}
-              ariaLabel="Close listing actions"
-            />
-          </div>
-        }
-      >
-        <section className="portfolio-support-collect-info-block">
-          {loadError ? (
-            <p className="portfolio-support-collect-info-empty">{loadError}</p>
-          ) : items == null ? (
-            <ProfileSocialListSkeleton count={2} />
-          ) : sections.length === 0 ? (
-            <p className="portfolio-support-collect-info-empty">
-              Nothing needs your attention right now.
-            </p>
-          ) : (
-            sections.map((section) => (
-              <div
-                key={section.title}
-                className="portfolio-listing-action-section"
-              >
-                {section.title ? (
-                  <p className="portfolio-support-collect-info-section-note">
-                    {section.title}
-                  </p>
-                ) : null}
-                <div className="standing-list portfolio-support-collect-info-list">
-                  {section.items.map((item, index) => (
-                    <div key={item.id}>
-                      {index > 0 ? <Divider variant="item" /> : null}
-                      <ActionRow
-                        item={item}
-                        pending={pendingId === item.id}
-                        onAction={(row) => {
-                          void handleAction(row);
-                        }}
-                        onOpenDetail={handleOpenDetail}
-                        onOpenOffers={handleOpenOffers}
-                        onOpenConfirm={handleOpenConfirm}
-                      />
-                    </div>
-                  ))}
+                ariaLabel="Close listing actions"
+              />
+            </div>
+          }
+        >
+          <section className="portfolio-support-collect-info-block">
+            {loadError ? (
+              <p className="portfolio-support-collect-info-empty">
+                {loadError}
+              </p>
+            ) : items == null ? (
+              <ProfileSocialListSkeleton count={2} />
+            ) : sections.length === 0 ? (
+              <p className="portfolio-support-collect-info-empty">
+                Nothing needs your attention right now.
+              </p>
+            ) : (
+              sections.map((section) => (
+                <div
+                  key={section.title}
+                  className="portfolio-listing-action-section"
+                >
+                  {section.title ? (
+                    <p className="portfolio-support-collect-info-section-note">
+                      {section.title}
+                    </p>
+                  ) : null}
+                  <div className="standing-list portfolio-support-collect-info-list">
+                    {section.items.map((item, index) => (
+                      <div key={item.id}>
+                        {index > 0 ? <Divider variant="item" /> : null}
+                        <ActionRow
+                          item={item}
+                          pending={pendingId === item.id}
+                          onAction={(row) => {
+                            void handleAction(row);
+                          }}
+                          onOpenDetail={handleOpenDetail}
+                          onOpenOffers={handleOpenOffers}
+                          onOpenConfirm={handleOpenConfirm}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </section>
-      </OsHugSheet>
+              ))
+            )}
+          </section>
+        </OsHugSheet>
+      )}
 
-      <ScarceBidSheet
-        open={bidListing != null}
-        listing={bidListing}
-        zIndex={SHEET_Z.list}
-        onOpenChange={(next) => {
-          if (!next) {
-            setBidListing(null);
-            setFocusActionId(null);
-          }
-        }}
-        onBid={handleBidSettled}
-      />
+      <SheetHandoffProvider active={sheetHandoff}>
+        <ScarceBidSheet
+          open={bidListing != null}
+          listing={bidListing}
+          zIndex={SHEET_Z.list}
+          onOpenChange={(next) => {
+            if (!next) finishHandoff();
+          }}
+          onBid={handleBidSettled}
+        />
 
-      <ScarceBuySheet
-        open={buyListing != null}
-        listing={buyListing}
-        alreadyOwnsEdition
-        zIndex={SHEET_Z.list}
-        onOpenChange={(next) => {
-          if (!next) {
-            setBuyListing(null);
-            setFocusActionId(null);
-          }
-        }}
-        onPurchased={handleBuyManaged}
-      />
+        <ScarceBuySheet
+          open={buyListing != null}
+          listing={buyListing}
+          alreadyOwnsEdition
+          zIndex={SHEET_Z.list}
+          onOpenChange={(next) => {
+            if (!next) finishHandoff();
+          }}
+          onPurchased={handleBuyManaged}
+        />
 
-      <ScarceOffersSheet
-        open={offersItem != null}
-        item={offersItem}
-        zIndex={SHEET_Z.list}
-        onOpenChange={(open) => {
-          if (!open) {
-            setOffersItem(null);
-            setFocusActionId(null);
-          }
-        }}
-        onAccepted={handleOfferAccepted}
-      />
+        <ScarceOffersSheet
+          open={offersItem != null}
+          item={offersItem}
+          zIndex={SHEET_Z.list}
+          onOpenChange={(next) => {
+            if (!next) finishHandoff();
+          }}
+          onAccepted={handleOfferAccepted}
+        />
+      </SheetHandoffProvider>
 
       <OsHugSheet
         open={confirmItem != null && confirmCopy != null}
