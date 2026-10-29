@@ -6,7 +6,8 @@
  * Close with × (same as sheets). Leave a place is the dock chevron.
  *
  * Portals into the registered `OsPortalHost` (OS / portfolio card with
- * overflow clip) so the panel is clipped to that card.
+ * overflow clip) so the panel is clipped to that card. When that host is
+ * still empty, the card already in the DOM is used before `document.body`.
  */
 
 import {
@@ -28,9 +29,11 @@ import {
   ChevronRightIcon,
   MultiplyIcon,
   OsIconAction,
+  useOverlayStackZ,
   useScrollLock,
 } from '@onsocial/ui';
 import { useOsPortalHost } from '@/contexts/os-portal-host-context';
+import { probeOsCardHost, resolveOsOverlayPortal } from '@/lib/os-card-host';
 import { useOsScreenChromeHeightSync } from '@/hooks/use-os-screen-chrome-height-sync';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 
@@ -119,6 +122,11 @@ export interface OsSlideOverScreenProps {
   /** Scroll container for nested lists (`.os-app-screen-body`). */
   scrollRootRef?: RefObject<HTMLElement | null>;
   /**
+   * Painted stack z (after open-order lift). Photo zoom uses this plus one
+   * so the flight stays above the face.
+   */
+  onPaintedZ?: (z: number) => void;
+  /**
    * Keep the summon dock visible above this slide (video transport / reply).
    * Sets `data-keep-dock` so global tuck rules skip this layer.
    */
@@ -158,10 +166,12 @@ export function OsSlideOverScreen({
   contentClassName,
   scrollRootRef,
   keepDock = false,
+  onPaintedZ,
 }: OsSlideOverScreenProps) {
   const titleId = useId();
   const headerRef = useRef<HTMLElement | null>(null);
   const bodyRef = useRef<HTMLElement | null>(null);
+  const slideRootRef = useRef<HTMLDivElement>(null);
   const [closing, setClosing] = useState(false);
   const [entered, setEntered] = useState(false);
   /** Keep mounted through exit when parent sets `open` false. */
@@ -183,7 +193,7 @@ export function OsSlideOverScreen({
   if (!renderOpen || viewport) {
     nextPortalHost = null;
   } else if (portalHost == null || !portalHost.isConnected) {
-    nextPortalHost = registeredHost;
+    nextPortalHost = registeredHost ?? probeOsCardHost();
   }
   if (nextPortalHost !== portalHost) {
     setPortalHost(nextPortalHost);
@@ -216,7 +226,28 @@ export function OsSlideOverScreen({
   const parked = Boolean(
     nextPortalHost?.closest('[data-feed-session="covered"]')
   );
+  const overlay = useOverlayStackZ(
+    mounted && renderOpen && !parked,
+    zIndex,
+    keepDock
+  );
+  const overlayActive = mounted && renderOpen && !parked;
+  useLayoutEffect(() => {
+    if (!overlayActive) return;
+    onPaintedZ?.(overlay.z);
+  }, [onPaintedZ, overlay.z, overlayActive]);
   useScrollLock(renderOpen && !parked);
+
+  useLayoutEffect(() => {
+    const root = slideRootRef.current;
+    if (!root || !mounted || !renderOpen || parked) return;
+    if (!overlay.top) {
+      root.inert = true;
+      return;
+    }
+    if (root.style.visibility === 'hidden') return;
+    root.inert = false;
+  }, [mounted, overlay.top, parked, renderOpen]);
 
   const finishExit = useCallback(() => {
     setClosing(false);
@@ -286,16 +317,19 @@ export function OsSlideOverScreen({
 
   const portalTarget =
     typeof document !== 'undefined'
-      ? viewport || !nextPortalHost
-        ? document.body
-        : nextPortalHost
+      ? resolveOsOverlayPortal({
+          viewport,
+          registered: nextPortalHost,
+          probed: null,
+          body: document.body,
+        })
       : null;
   if (!portalTarget) return null;
 
   const rootStyle: CSSProperties = {
     ...resolvedMoodStyle,
     ...style,
-    zIndex,
+    zIndex: overlay.z,
   };
 
   return createPortal(
@@ -311,6 +345,7 @@ export function OsSlideOverScreen({
         data-glass-chrome={useGlassChrome ? 'true' : undefined}
         data-compact-chrome={compactChrome ? 'true' : undefined}
         data-screen-footer={hasFooter ? 'true' : undefined}
+        ref={slideRootRef}
         data-os-slide-over="true"
         data-keep-dock={keepDock ? 'true' : undefined}
         data-hide-nav={hideNav ? 'true' : undefined}

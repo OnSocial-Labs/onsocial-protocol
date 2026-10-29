@@ -43,7 +43,8 @@ import {
   type ScarceReadableMedia,
   type WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
-import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
+import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
+import { postLayerOverlayZ } from '@/lib/sheet-z';
 import { MediaFaceIdentity } from '@/components/profile/media-face-identity';
 import { MediaFaceStandButton } from '@/components/ui/media-face-stand-button';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -440,6 +441,7 @@ export function WritingReadSheet({
   onDismissThread?: () => void;
   pane?: ReactNode;
 }) {
+  const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
   const { isConnected, connect, isLoading } = useAppWallet();
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const [wasOpen, setWasOpen] = useState(open);
@@ -580,7 +582,7 @@ export function WritingReadSheet({
           />
         ) : null
       }
-      zIndex={SCARCE_Z.listenShell}
+      zIndex={faceZ}
       keepDock={writePinned || threadOpen}
       scrollRootRef={scrollRootRef}
       className={`${ARTICLE_READ_CLASS}${quiet ? ' is-chrome-quiet' : ''}${

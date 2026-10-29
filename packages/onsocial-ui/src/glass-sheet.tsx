@@ -16,6 +16,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from './cn.js';
+import { useOverlayStackZ } from './overlay-stack.js';
 import { MultiplyIcon } from './mage-stroke-icons.js';
 import { resolveSheetMood, useMoodTheme } from './mood-theme.js';
 import {
@@ -34,18 +35,35 @@ import { OsStableScrollHost } from './os-stable-scroll-host.js';
  * Optional clip host for GlassSheet (e.g. OS phone card). When set, sheets
  * portal into that node instead of `document.body` so backdrop-filter blur
  * cannot paint past the desktop column edges.
+ *
+ * `resolveHost` runs only while `container` is empty, so a card already in
+ * the DOM wins over the window during the commit before the host registers.
  */
-const GlassSheetPortalContext = createContext<HTMLElement | null>(null);
+type GlassSheetPortalContextValue = {
+  container: HTMLElement | null;
+  resolveHost: (() => HTMLElement | null) | null;
+};
+
+const GlassSheetPortalContext = createContext<GlassSheetPortalContextValue>({
+  container: null,
+  resolveHost: null,
+});
 
 export function GlassSheetPortalProvider({
   container,
+  resolveHost = null,
   children,
 }: {
   container: HTMLElement | null;
+  resolveHost?: (() => HTMLElement | null) | null;
   children: ReactNode;
 }) {
+  const value = useMemo(
+    () => ({ container, resolveHost }),
+    [container, resolveHost]
+  );
   return (
-    <GlassSheetPortalContext.Provider value={container}>
+    <GlassSheetPortalContext.Provider value={value}>
       <OsStableScrollHost />
       {children}
     </GlassSheetPortalContext.Provider>
@@ -408,7 +426,8 @@ export interface GlassSheetProps {
   dragDismiss?: boolean;
   /**
    * Portal mount node. Defaults to {@link GlassSheetPortalProvider} host, then
-   * `document.body`. Prefer the OS column host so frost blur stays inside the page frame.
+   * that provider's `resolveHost`, then `document.body`. Prefer the OS column
+   * host so frost blur stays inside the page frame. Pass `null` to force the window.
    */
   portalContainer?: HTMLElement | null;
   /**
@@ -734,7 +753,7 @@ export function usePrefersReducedTransparency(): boolean {
 function useGlassSheetPortalTarget(
   portalContainer?: HTMLElement | null
 ): HTMLElement | null {
-  const contextHost = useContext(GlassSheetPortalContext);
+  const portal = useContext(GlassSheetPortalContext);
   const [body, setBody] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -745,7 +764,8 @@ function useGlassSheetPortalTarget(
     return portalContainer ?? body;
   }
 
-  return contextHost ?? body;
+  if (portal.container) return portal.container;
+  return portal.resolveHost?.() ?? body;
 }
 
 /**
@@ -876,6 +896,7 @@ export function GlassSheet({
     inheritedMood
   );
   const panelRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const setSheetBodyRef = useCallback(
     (node: HTMLDivElement | null) => {
       if (typeof bodyRef === 'function') bodyRef(node);
@@ -1123,7 +1144,25 @@ export function GlassSheet({
     return () => window.clearTimeout(timer);
   }, [finishEnterAnimation, showEnterAnimation]);
 
-  useSheetFocusTrap(visible && portalTarget != null && !band, panelRef);
+  const overlayFloor = resolveGlassSheetZIndex(zIndex, openedAboveMediaFace);
+  const overlayActive = mounted && !band && portalTarget != null;
+  const overlay = useOverlayStackZ(overlayActive, overlayFloor, keepDock);
+
+  useSheetFocusTrap(
+    visible && portalTarget != null && !band && overlay.top,
+    panelRef
+  );
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root || !overlayActive) return;
+    if (!overlay.top) {
+      root.inert = true;
+      return;
+    }
+    if (root.style.visibility === 'hidden') return;
+    root.inert = false;
+  }, [overlay.top, overlayActive]);
 
   useLayoutEffect(() => {
     if (!mounted) {
@@ -1164,9 +1203,10 @@ export function GlassSheet({
       data-presentation={effectivePresentation}
       data-sizing={sizing}
       data-crossfade={crossfade ? 'true' : undefined}
+      ref={rootRef}
       data-keep-dock={keepDock ? 'true' : undefined}
       style={{
-        zIndex: resolveGlassSheetZIndex(zIndex, openedAboveMediaFace),
+        zIndex: overlayActive ? overlay.z : overlayFloor,
         ...resolvedMood.style,
       }}
       role="presentation"

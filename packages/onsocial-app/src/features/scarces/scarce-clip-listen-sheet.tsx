@@ -20,14 +20,12 @@ import {
   ipfsImgSrcSet,
 } from '@onsocial/ui';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
-import {
-  SCARCE_HERO_WIDTHS,
-  SQUARE_ART_SIZES,
-} from '@/lib/hero-img-variants';
+import { SCARCE_HERO_WIDTHS, SQUARE_ART_SIZES } from '@/lib/hero-img-variants';
 import { FeedMediaThreadSheet } from '@/features/home/feed-media-thread-sheet';
 import { useFeedThreadBand } from '@/features/home/use-feed-thread-band';
 import { ScarceClipShareButton } from '@/features/scarces/scarce-clip-share-button';
-import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
+import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
+import { postLayerOverlayZ } from '@/lib/sheet-z';
 
 /**
  * Listen enlarge — shared media-face jacket + frost footer; transport in body.
@@ -129,6 +127,7 @@ export function ScarceClipListenSheet({
   threadPostId?: string | null;
   threadRoot?: PostRow | null;
 }) {
+  const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
   const lyricsId = useId();
   const showLove = Boolean(onToggleLove);
   const showShare = Boolean(shareTitle?.trim());
@@ -161,7 +160,7 @@ export function ScarceClipListenSheet({
       onClose={requestClose}
       title={screenTitle}
       closeAriaLabel="Back from listen"
-      zIndex={SCARCE_Z.listenShell}
+      zIndex={faceZ}
       keepDock={keepDock || threadActive}
       screenHeader
       footer={threadActive ? null : footer}

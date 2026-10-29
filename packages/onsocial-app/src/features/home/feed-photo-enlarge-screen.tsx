@@ -30,6 +30,12 @@ import {
 import { startJoinedMedia } from '@/lib/single-media-playback';
 import type { PostRow } from '@onsocial/sdk';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
+import { useOsPortalHost } from '@/contexts/os-portal-host-context';
+import {
+  probeOsCardHost,
+  resolveOsOverlayPortal,
+  zoomFlightZ,
+} from '@/lib/os-card-host';
 import { downloadIpfsMedia } from '@/lib/media-download';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import { FeedMediaThreadSheet } from '@/features/home/feed-media-thread-sheet';
@@ -38,7 +44,8 @@ import {
   threadJacketT,
   useFeedThreadBand,
 } from '@/features/home/use-feed-thread-band';
-import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
+import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
+import { postLayerOverlayZ } from '@/lib/sheet-z';
 import {
   feedPhotoIndexFromScroll,
   feedPhotoScrollLeft,
@@ -185,6 +192,13 @@ export function FeedPhotoEnlargeScreen({
    */
   zoomOrigin?: FeedPhotoZoomOrigin | null;
 }) {
+  const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
+  const [paintedFaceZ, setPaintedFaceZ] = useState(faceZ);
+  if (faceZ > paintedFaceZ) setPaintedFaceZ(faceZ);
+  const onFacePaintedZ = useCallback((z: number) => {
+    setPaintedFaceZ((current) => (current === z ? current : z));
+  }, []);
+  const registeredPortal = useOsPortalHost();
   const last = photos.length - 1;
   const [wasOpen, setWasOpen] = useState(open);
   const [index, setIndex] = useState(() => clampIndex(initialIndex, last));
@@ -1354,22 +1368,30 @@ export function FeedPhotoEnlargeScreen({
     typeof trailing === 'function' ? trailing({ downloadCurrent }) : trailing;
 
   /*
-   * Shared-element clone — portaled above the face (shell z + 1) so it can
-   * fly over the fading chrome. Cover-cropped like the thumbnail; the box
-   * morphs to the contain-fitted stage rect, ending pixel-aligned with the
-   * real image it swaps with.
+   * Shared-element clone — portaled into the same card as the face, one step
+   * above the z the overlay stack painted. Cover-cropped like the thumbnail;
+   * the box morphs to the contain-fitted stage rect, ending pixel-aligned
+   * with the real image it swaps with.
    */
   const zoomRect = zoomFlight
     ? zoomFlying
       ? zoomFlight.to
       : zoomFlight.from
     : null;
+  const zoomPortal =
+    typeof document === 'undefined'
+      ? null
+      : resolveOsOverlayPortal({
+          registered: registeredPortal,
+          probed: probeOsCardHost(),
+          body: document.body,
+        });
   const zoomLayer =
-    zoomFlight && zoomRect && typeof document !== 'undefined'
+    zoomFlight && zoomRect && zoomPortal
       ? createPortal(
           <div
             className="feed-photo-zoom-layer"
-            style={{ zIndex: SCARCE_Z.listenShell + 1 }}
+            style={{ zIndex: zoomFlightZ(paintedFaceZ) }}
             aria-hidden
           >
             <div
@@ -1389,7 +1411,7 @@ export function FeedPhotoEnlargeScreen({
               <img src={zoomFlight.src} alt="" draggable={false} />
             </div>
           </div>,
-          document.body
+          zoomPortal
         )
       : null;
 
@@ -1405,7 +1427,8 @@ export function FeedPhotoEnlargeScreen({
         mast={mast}
         trailing={trailingNode}
         closeAriaLabel={quietClose}
-        zIndex={SCARCE_Z.listenShell}
+        zIndex={faceZ}
+        onPaintedZ={onFacePaintedZ}
         footer={onFilm ? null : engagement}
         transport={onFilm ? null : videoTransport}
         stageLayout="fixed"
@@ -1424,7 +1447,7 @@ export function FeedPhotoEnlargeScreen({
       >
         <div className="feed-photo-listen">
           {/* Whole-stage tap (letterbox included): leave reply / toggle chrome. */}
-          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+          {}
           <div
             ref={stageRef}
             className={`feed-photo-stage${cinema ? ' is-cinema' : ''}`}

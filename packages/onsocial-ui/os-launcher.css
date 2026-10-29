@@ -70,8 +70,8 @@
 .os-launcher-root {
   position: fixed;
   inset: 0;
-  /* Above overlayHost (50) so Writing / About don't bury apps;
-     below account / gesture sheets (55+). */
+  /* Floor while nothing else is open. The overlay stack sets an inline
+     z-index when the launcher opens over a taller sheet. */
   z-index: 51;
   display: flex;
   align-items: flex-end;

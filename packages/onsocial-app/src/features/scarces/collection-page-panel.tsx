@@ -37,6 +37,8 @@ import {
   isUnmodifiedPrimaryClick,
   usePostThreadLayer,
 } from '@/features/home/post-thread-layer';
+import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
+import { postLayerOverlayZ } from '@/lib/sheet-z';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
@@ -288,6 +290,7 @@ export function CollectionPagePanel({
   const nowPlaying = useCollectiblesNowPlayingOptional();
   const router = useRouter();
   const { openPostThread } = usePostThreadLayer();
+  const ownerZ = usePostLayerOwnerZ();
   const collectionSaves = useScarceCollectionSaves({
     collectionIds: [collectionId],
     onError: (message) => setTxResult({ type: 'error', msg: message }),
@@ -1918,7 +1921,13 @@ export function CollectionPagePanel({
         alreadyOwnsEdition={holdsEdition === true}
         onOpenChange={setMintOpen}
         onPurchased={handleMintPurchased}
-        zIndex={coverListenOpen ? SCARCE_Z.commerceOverListen : SCARCE_Z.sheet}
+        zIndex={
+          coverListenOpen
+            ? postLayerOverlayZ(ownerZ).sheet
+            : ownerZ == null
+              ? SCARCE_Z.sheet
+              : Math.max(SCARCE_Z.sheet, ownerZ + 1)
+        }
       />
 
       {showDropLove ? (

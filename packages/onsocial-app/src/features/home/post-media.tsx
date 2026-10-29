@@ -3,11 +3,18 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
 } from 'react';
-import { VolumeMuteIcon, VolumeUpIcon, ipfsImgSrcSet } from '@onsocial/ui';
+import {
+  PauseFillIcon,
+  PlayFillIcon,
+  VolumeMuteIcon,
+  VolumeUpIcon,
+  ipfsImgSrcSet,
+} from '@onsocial/ui';
 import { startJoinedMedia } from '@/lib/single-media-playback';
 import {
   usePostVideoPlayback,
@@ -17,6 +24,8 @@ import type { PostMediaItem } from '@/lib/post-media';
 import {
   collageCellStyle,
   collageHero,
+  formatMediaDuration,
+  isRenderablePostAudioMime,
   isRenderablePostVideoMime,
   postMediaItemRatio,
   postMediaStripClassName,
@@ -102,11 +111,200 @@ interface PostMediaBlockProps {
   reserveRatio?: boolean;
 }
 
+function audioControlLabel(item: PostMediaItem, playing: boolean): string {
+  const named = item.alt?.trim();
+  if (playing) return named ? `Pause ${named}` : 'Pause audio';
+  return named ? `Play ${named}` : 'Play audio';
+}
+
+/**
+ * Audio attachment — a compact row, never a photo tile.
+ * Playback joins the single-player session on an explicit tap.
+ */
+function PostAudioAttachment({
+  item,
+  size = 'compact',
+  onRemove,
+}: {
+  item: PostMediaItem;
+  size?: PostMediaSize;
+  onRemove?: () => void;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [time, setTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const title = item.alt?.trim() || 'Audio';
+  const playLabel = failed
+    ? 'Audio unavailable'
+    : audioControlLabel(item, playing);
+  const elapsed = formatMediaDuration(time) || '0:00';
+  const total = duration > 0 ? formatMediaDuration(duration) : '';
+  const clock = total ? `${elapsed} / ${total}` : elapsed;
+
+  const toggle = () => {
+    const audio = audioRef.current;
+    if (!audio || failed) return;
+    if (!audio.paused) {
+      audio.pause();
+      return;
+    }
+    void startJoinedMedia(audio, 'explicit').catch(() => {});
+  };
+
+  const engine = (
+    <audio
+      ref={audioRef}
+      className="post-audio-engine"
+      src={item.url}
+      preload="metadata"
+      playsInline
+      onPlay={() => setPlaying(true)}
+      onPause={() => setPlaying(false)}
+      onEnded={() => {
+        setPlaying(false);
+        setTime(0);
+      }}
+      onTimeUpdate={(event) => setTime(event.currentTarget.currentTime)}
+      onLoadedMetadata={(event) => {
+        const next = event.currentTarget.duration;
+        if (Number.isFinite(next)) setDuration(next);
+      }}
+      onDurationChange={(event) => {
+        const next = event.currentTarget.duration;
+        if (Number.isFinite(next)) setDuration(next);
+      }}
+      onError={() => setFailed(true)}
+    />
+  );
+
+  if (size === 'preview') {
+    return (
+      <div className="post-media-tile post-media-tile--preview post-audio-preview">
+        <button
+          type="button"
+          className="post-audio-preview-play"
+          aria-label={playLabel}
+          disabled={failed}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            toggle();
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          {playing ? (
+            <PauseFillIcon aria-hidden />
+          ) : (
+            <PlayFillIcon aria-hidden />
+          )}
+        </button>
+        {engine}
+        {onRemove ? (
+          <button
+            type="button"
+            className="post-media-remove"
+            onClick={onRemove}
+            aria-label="Remove attached media"
+          >
+            ×
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  const rowClass = [
+    'post-audio-row',
+    size === 'page' ? 'post-audio-row--page' : '',
+    size === 'quote' ? 'post-audio-row--quote' : '',
+    onRemove ? 'has-remove' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <div
+      className={rowClass}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <button
+        type="button"
+        className="post-audio-play"
+        aria-label={playLabel}
+        disabled={failed}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          toggle();
+        }}
+      >
+        {playing ? <PauseFillIcon aria-hidden /> : <PlayFillIcon aria-hidden />}
+      </button>
+      <div className="post-audio-meta">
+        <span className="post-audio-label">
+          {failed ? 'Audio unavailable' : title}
+        </span>
+        <span className="post-audio-time">{clock}</span>
+      </div>
+      <input
+        type="range"
+        className="post-audio-scrub"
+        min={0}
+        max={duration > 0 ? duration : 0}
+        step={0.1}
+        value={Math.min(time, duration || 0)}
+        aria-label={title === 'Audio' ? 'Audio position' : `${title} position`}
+        disabled={failed || duration <= 0}
+        onChange={(event) => {
+          const audio = audioRef.current;
+          const next = Number(event.currentTarget.value);
+          if (audio && Number.isFinite(next)) {
+            try {
+              audio.currentTime = next;
+            } catch {
+              /* seek before metadata */
+            }
+          }
+          setTime(next);
+        }}
+      />
+      {engine}
+      {onRemove ? (
+        <button
+          type="button"
+          className="post-media-remove"
+          onClick={onRemove}
+          aria-label="Remove attached media"
+        >
+          ×
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 /**
  * Feed media tile — muted list autoplay for video; tap opens media-face.
  * Open-post video stays inline with mute only; tap still opens the slider.
+ * Audio is a compact player, never an image.
  */
-export function PostMediaBlock({
+export function PostMediaBlock(props: PostMediaBlockProps) {
+  if (isRenderablePostAudioMime(props.item.mime)) {
+    return (
+      <PostAudioAttachment
+        item={props.item}
+        size={props.size}
+        onRemove={props.onRemove}
+      />
+    );
+  }
+  return <PostVisualMediaBlock {...props} />;
+}
+
+function PostVisualMediaBlock({
   item,
   index = 0,
   size = 'compact',
@@ -352,8 +550,18 @@ export function PostMediaStrip({
   activateLabel,
 }: PostMediaStripProps) {
   const stripRef = useRef<HTMLDivElement>(null);
-  const visible = items.slice(0, 4);
-  const isCarousel = focused && visible.length > 1;
+  const slots = useMemo(
+    () =>
+      items.slice(0, 4).map((item, index) => ({
+        item,
+        index,
+        audio: isRenderablePostAudioMime(item.mime),
+      })),
+    [items]
+  );
+  const visual = useMemo(() => slots.filter((slot) => !slot.audio), [slots]);
+  const audio = useMemo(() => slots.filter((slot) => slot.audio), [slots]);
+  const isCarousel = focused && visual.length > 1;
   const [ratios, setRatios] = useState<Record<string, number>>({});
   const onRatio = useCallback((url: string, ratio: number) => {
     setRatios((current) =>
@@ -363,63 +571,79 @@ export function PostMediaStrip({
   // Measured ratios win; upload-persisted hints seed the 3-up layout so the
   // hero lands on the right cell on first paint instead of flashing over.
   const hero = collageHero(
-    visible.length,
-    visible.map((item) => ratios[item.url] ?? postMediaItemRatio(item))
+    visual.length,
+    visual.map((slot) => ratios[slot.item.url] ?? postMediaItemRatio(slot.item))
+  );
+  const resumeSlide = visual.findIndex(
+    (slot) => slot.index === resumeMediaIndex
   );
 
   useEffect(() => {
-    if (!isCarousel) return;
+    if (!isCarousel || resumeSlide < 0) return;
     const strip = stripRef.current;
     if (!strip) return;
-    const slide = strip.children[resumeMediaIndex] as HTMLElement | undefined;
+    const slide = strip.children[resumeSlide] as HTMLElement | undefined;
     if (!slide) return;
     strip.scrollTo({ left: slide.offsetLeft, behavior: 'auto' });
-  }, [isCarousel, resumeMediaIndex, visible.length]);
+  }, [isCarousel, resumeSlide]);
 
-  if (visible.length === 0) return null;
+  if (slots.length === 0) return null;
 
   return (
-    <div
-      ref={stripRef}
-      className={postMediaStripClassName({
-        count: visible.length,
-        focused,
-        page: size === 'page',
-        quote: size === 'quote',
-        layout: hero?.mode,
-      })}
-    >
-      {visible.map((item, index) => (
-        <PostMediaBlock
-          key={`${item.cid ?? item.url}:${index}`}
-          item={item}
-          index={index}
+    <>
+      {visual.length > 0 ? (
+        <div
+          ref={stripRef}
+          className={postMediaStripClassName({
+            count: visual.length,
+            focused,
+            page: size === 'page',
+            quote: size === 'quote',
+            layout: hero?.mode,
+          })}
+        >
+          {visual.map((slot, visualIndex) => (
+            <PostMediaBlock
+              key={`${slot.item.cid ?? slot.item.url}:${slot.index}`}
+              item={slot.item}
+              index={slot.index}
+              size={size}
+              focused={focused}
+              playbackDisabled={playbackDisabled}
+              focusedVideoMuted={
+                resumeFocusedVideo && slot.index !== resumeMediaIndex
+                  ? true
+                  : focusedVideoMuted
+              }
+              resumeFocusedVideo={
+                resumeFocusedVideo && slot.index === resumeMediaIndex
+              }
+              onActivate={
+                onActivate ? (tile) => onActivate(slot.index, tile) : undefined
+              }
+              activateLabel={activateLabel}
+              style={collageCellStyle(visualIndex, visual.length, hero)}
+              onRatio={(ratio) => onRatio(slot.item.url, ratio)}
+              imgSizes={mediaImgSizes(
+                size,
+                visual.length > 1 &&
+                  !(hero?.mode === 'wide' && hero.index === visualIndex)
+              )}
+              reserveRatio={
+                visual.length === 1 &&
+                (size === 'page' || size === 'quote' || focused)
+              }
+            />
+          ))}
+        </div>
+      ) : null}
+      {audio.map((slot) => (
+        <PostAudioAttachment
+          key={`${slot.item.cid ?? slot.item.url}:${slot.index}`}
+          item={slot.item}
           size={size}
-          focused={focused}
-          playbackDisabled={playbackDisabled}
-          focusedVideoMuted={
-            resumeFocusedVideo && index !== resumeMediaIndex
-              ? true
-              : focusedVideoMuted
-          }
-          resumeFocusedVideo={resumeFocusedVideo && index === resumeMediaIndex}
-          onActivate={
-            onActivate ? (tile) => onActivate(index, tile) : undefined
-          }
-          activateLabel={activateLabel}
-          style={collageCellStyle(index, visible.length, hero)}
-          onRatio={(ratio) => onRatio(item.url, ratio)}
-          imgSizes={mediaImgSizes(
-            size,
-            visible.length > 1 &&
-              !(hero?.mode === 'wide' && hero.index === index)
-          )}
-          reserveRatio={
-            visible.length === 1 &&
-            (size === 'page' || size === 'quote' || focused)
-          }
         />
       ))}
-    </div>
+    </>
   );
 }

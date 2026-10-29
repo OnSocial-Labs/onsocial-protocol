@@ -19,9 +19,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import {
   ChevronLeftIcon,
-  GLASS_SHEET_MEDIA_FACE_LIFT,
   OsIconAction,
   OsPageSheet,
+  resolveGlassSheetZIndex,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { PostQuotesTrackHostProvider } from '@/features/home/post-quotes-track-host';
@@ -56,7 +56,13 @@ import {
 } from '@/lib/post-routes';
 import { guildPostPath } from '@/features/guilds/guilds-data';
 import { POST_REACH_TITLE } from '@/lib/post-reach-title';
-import { isOsMediaFaceOpen, nextPostLayerZIndex, SHEET_Z } from '@/lib/sheet-z';
+import {
+  isOsMediaFaceOpen,
+  nextPostLayerZIndex,
+  postLayerOverlayZ,
+  SHEET_Z,
+} from '@/lib/sheet-z';
+import { PostLayerOwnerZProvider } from '@/features/home/post-layer-owner-z';
 import {
   appendTrailEntry,
   collapseTrailToTop,
@@ -176,6 +182,8 @@ type PostThreadLayerTarget = {
    */
   rootEngagement?: PostEngagement | null;
   zIndex: number;
+  /** Glass lifts this sheet when a media face was already open. */
+  openedAboveMediaFace: boolean;
 };
 
 type DropLayerTarget = {
@@ -183,6 +191,7 @@ type DropLayerTarget = {
   kind: 'drop';
   collectionId: string;
   zIndex: number;
+  openedAboveMediaFace: boolean;
 };
 
 type QuotesLayerTarget = {
@@ -194,6 +203,7 @@ type QuotesLayerTarget = {
   groupId: string | null;
   tab: PostQuotesTab;
   zIndex: number;
+  openedAboveMediaFace: boolean;
 };
 
 type PlaceLayerTarget =
@@ -494,96 +504,105 @@ function PostThreadSheet({
     onOpenProfile(href);
   };
 
+  const renderedZ = resolveGlassSheetZIndex(zIndex, layer.openedAboveMediaFace);
+
   return (
-    <OsPageSheet
-      open={open}
-      onClose={onClose}
-      onClosed={onClosed}
-      surface="page"
-      presentation="appear"
-      zIndex={zIndex}
-      ariaLabelledBy={titleId}
-      backdropLabel="Back"
-      keepDock
-      moodId={moodId}
-      moodStyle={moodStyle}
-      panelClassName="post-thread-sheet-panel"
-      bodyClassName="post-thread-sheet-body"
-      rootClassName={parked ? 'post-thread-sheet-parked' : undefined}
-      lockScroll={!parked}
-      header={null}
-    >
-      <div
-        ref={bodyRef}
-        className="post-thread-sheet-fill"
-        onClickCapture={openProfileFromPost}
+    <PostLayerOwnerZProvider value={renderedZ}>
+      <OsPageSheet
+        open={open}
+        onClose={onClose}
+        onClosed={onClosed}
+        surface="page"
+        presentation="appear"
+        zIndex={zIndex}
+        ariaLabelledBy={titleId}
+        backdropLabel="Back"
+        keepDock
+        moodId={moodId}
+        moodStyle={moodStyle}
+        panelClassName="post-thread-sheet-panel"
+        bodyClassName="post-thread-sheet-body"
+        rootClassName={parked ? 'post-thread-sheet-parked' : undefined}
+        lockScroll={!parked}
+        header={null}
       >
-        <OsAppScreen
-          title={title}
-          glassChrome
-          compactChrome
-          embedded
-          nestedScrollChrome={quotes}
-          className={quotes ? 'post-quotes-screen-chrome' : undefined}
-          toolbar={
-            quotes ? (
-              <div
-                className="post-quotes-track-slot"
-                ref={setQuotesTrackHost}
-              />
-            ) : undefined
-          }
-          heading={
-            <span id={titleId} className="os-app-screen-title">
-              {title}
-            </span>
-          }
-          leading={
-            <OsIconAction ariaLabel="Back" onClick={onClose}>
-              <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
-            </OsIconAction>
-          }
+        <div
+          ref={bodyRef}
+          className="post-thread-sheet-fill"
+          onClickCapture={openProfileFromPost}
         >
-          <PostQuotesTrackHostProvider value={quotes ? quotesTrackHost : null}>
-            {layer.kind === 'quotes' ? (
-              <PostQuotesPanel
-                key={`${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}:${layer.tab}`}
-                author={layer.accountId}
-                postId={layer.postId}
-                embedded
-                initialTab={layer.tab}
-              />
-            ) : layer.groupId ? (
-              <LiveGuildPostPanel
-                key={`${layer.groupId}:${layer.accountId}:${layer.postId}`}
-                groupId={layer.groupId}
-                author={layer.accountId}
-                postId={layer.postId}
-                initial={
-                  layer.root
-                    ? seedGuildThread(layer.root, layer.rootEngagement)
-                    : null
-                }
-                embedded
-                replyDockEnabled={open && !parked}
-                showGuildLine={guildCard?.showGuildLine ?? true}
-                showChannel={guildCard?.showChannel ?? true}
-                sheetContext={layer.context}
-              />
-            ) : (
-              <LivePersonalPostPanel
-                key={`${layer.accountId}:${layer.postId}`}
-                author={layer.accountId}
-                postId={layer.postId}
-                initial={initial}
-                embedded
-                replyDockEnabled={open && !parked}
-              />
-            )}
-          </PostQuotesTrackHostProvider>
-        </OsAppScreen>
-      </div>
-    </OsPageSheet>
+          <OsAppScreen
+            title={title}
+            glassChrome
+            compactChrome
+            embedded
+            nestedScrollChrome={quotes}
+            className={quotes ? 'post-quotes-screen-chrome' : undefined}
+            toolbar={
+              quotes ? (
+                <div
+                  className="post-quotes-track-slot"
+                  ref={setQuotesTrackHost}
+                />
+              ) : undefined
+            }
+            heading={
+              <span id={titleId} className="os-app-screen-title">
+                {title}
+              </span>
+            }
+            leading={
+              <OsIconAction ariaLabel="Back" onClick={onClose}>
+                <ChevronLeftIcon
+                  className="glass-sheet-close-icon"
+                  aria-hidden
+                />
+              </OsIconAction>
+            }
+          >
+            <PostQuotesTrackHostProvider
+              value={quotes ? quotesTrackHost : null}
+            >
+              {layer.kind === 'quotes' ? (
+                <PostQuotesPanel
+                  key={`${layer.groupId ?? ''}:${layer.accountId}:${layer.postId}:${layer.tab}`}
+                  author={layer.accountId}
+                  postId={layer.postId}
+                  embedded
+                  initialTab={layer.tab}
+                />
+              ) : layer.groupId ? (
+                <LiveGuildPostPanel
+                  key={`${layer.groupId}:${layer.accountId}:${layer.postId}`}
+                  groupId={layer.groupId}
+                  author={layer.accountId}
+                  postId={layer.postId}
+                  initial={
+                    layer.root
+                      ? seedGuildThread(layer.root, layer.rootEngagement)
+                      : null
+                  }
+                  embedded
+                  replyDockEnabled={open && !parked}
+                  showGuildLine={guildCard?.showGuildLine ?? true}
+                  showChannel={guildCard?.showChannel ?? true}
+                  sheetContext={layer.context}
+                />
+              ) : (
+                <LivePersonalPostPanel
+                  key={`${layer.accountId}:${layer.postId}`}
+                  author={layer.accountId}
+                  postId={layer.postId}
+                  initial={initial}
+                  embedded
+                  replyDockEnabled={open && !parked}
+                />
+              )}
+            </PostQuotesTrackHostProvider>
+          </OsAppScreen>
+        </div>
+      </OsPageSheet>
+    </PostLayerOwnerZProvider>
   );
 }
 
@@ -605,33 +624,36 @@ function DropLayerSheet({
   moodStyle?: CSSProperties;
 }) {
   const titleId = useId();
+  const renderedZ = resolveGlassSheetZIndex(zIndex, layer.openedAboveMediaFace);
   return (
-    <OsPageSheet
-      open={open}
-      onClose={onClose}
-      onClosed={onClosed}
-      surface="page"
-      presentation="appear"
-      zIndex={zIndex}
-      ariaLabelledBy={titleId}
-      backdropLabel="Back"
-      keepDock
-      moodId={moodId}
-      moodStyle={moodStyle}
-      panelClassName="drop-sheet-panel"
-      bodyClassName="drop-sheet-body"
-      header={null}
-    >
-      <span id={titleId} className="sr-only">
-        Drop
-      </span>
-      <CollectionPagePanel
-        collectionId={layer.collectionId}
-        initial={null}
-        embedded
+    <PostLayerOwnerZProvider value={renderedZ}>
+      <OsPageSheet
+        open={open}
         onClose={onClose}
-      />
-    </OsPageSheet>
+        onClosed={onClosed}
+        surface="page"
+        presentation="appear"
+        zIndex={zIndex}
+        ariaLabelledBy={titleId}
+        backdropLabel="Back"
+        keepDock
+        moodId={moodId}
+        moodStyle={moodStyle}
+        panelClassName="drop-sheet-panel"
+        bodyClassName="drop-sheet-body"
+        header={null}
+      >
+        <span id={titleId} className="sr-only">
+          Drop
+        </span>
+        <CollectionPagePanel
+          collectionId={layer.collectionId}
+          initial={null}
+          embedded
+          onClose={onClose}
+        />
+      </OsPageSheet>
+    </PostLayerOwnerZProvider>
   );
 }
 
@@ -698,28 +720,24 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /*
-   * Reply dock lift for a layer opened above a keep-dock media face. The
-   * face lifts this sheet by GLASS_SHEET_MEDIA_FACE_LIFT (90 → 170), past
-   * the dock's constant face bands (90/95), which buried the reply dock
-   * under the sheet. Publish the resolved z + 1 so the summon-dock rule in
-   * globals.css sits the dock on the live sheet. A layer at overlayHost was
-   * never face-lifted, and a face opened after the sheet stays above it —
-   * both keep the constant bands.
+   * Reply dock for the live sheet. A normal post stays under the constant
+   * dock band (51). A sheet lifted over a media face publishes a dock above
+   * that sheet and above a cover opened from it.
    */
   useLayoutEffect(() => {
     if (typeof document === 'undefined') return;
     const top = stack[stack.length - 1];
-    const faceLifted =
+    const live =
       top != null &&
       top.kind !== 'drop' &&
       top.id !== closingId &&
-      !onProfileHop &&
-      top.zIndex >= SHEET_Z.overShell;
-    if (faceLifted) {
-      document.body.style.setProperty(
-        '--os-thread-dock-z',
-        String(top.zIndex + GLASS_SHEET_MEDIA_FACE_LIFT + 1)
-      );
+      !onProfileHop;
+    const rendered = live
+      ? resolveGlassSheetZIndex(top.zIndex, top.openedAboveMediaFace)
+      : null;
+    const dock = postLayerOverlayZ(rendered).dock;
+    if (dock != null) {
+      document.body.style.setProperty('--os-thread-dock-z', String(dock));
     } else {
       document.body.style.removeProperty('--os-thread-dock-z');
     }
@@ -828,6 +846,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           root,
           rootEngagement,
           zIndex: stackRef.current[0]?.zIndex ?? SHEET_Z.overlayHost,
+          openedAboveMediaFace: isOsMediaFaceOpen(),
         };
         const trail = appendTrailEntry(stackRef.current, next);
         closingIdRef.current = null;
@@ -853,6 +872,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         root,
         rootEngagement,
         zIndex: nextStackedLayerZ(stackRef.current),
+        openedAboveMediaFace: isOsMediaFaceOpen(),
       };
       if (underlayPathRef.current == null) {
         underlayPathRef.current = pathname;
@@ -933,6 +953,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         tab,
         zIndex:
           stackRef.current[0]?.zIndex ?? nextStackedLayerZ(stackRef.current),
+        openedAboveMediaFace: isOsMediaFaceOpen(),
       };
 
       if (stackRef.current.length > 0) {
@@ -1002,6 +1023,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           kind: 'drop',
           collectionId: parsed.collectionId,
           zIndex: stackRef.current[0]?.zIndex ?? SHEET_Z.overlayHost,
+          openedAboveMediaFace: isOsMediaFaceOpen(),
         };
         const replacement = replaceStackWith(next);
         closingIdRef.current = null;
@@ -1022,6 +1044,7 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         kind: 'drop',
         collectionId: parsed.collectionId,
         zIndex: nextStackedLayerZ(stackRef.current),
+        openedAboveMediaFace: isOsMediaFaceOpen(),
       };
       if (underlayPathRef.current == null) {
         underlayPathRef.current = pathname;
