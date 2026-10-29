@@ -39,6 +39,7 @@ export {
   type SheetCloseButtonProps,
   type SheetHeaderProps,
 } from './glass-sheet.js';
+export { useOverlayStackZ } from './overlay-stack.js';
 export {
   MOOD_BG_PRESET_MIX,
   MOOD_BG_PRESET_MIX_LIGHT,

@@ -28,6 +28,7 @@ import {
   ChevronRightIcon,
   MultiplyIcon,
   OsIconAction,
+  useOverlayStackZ,
   useScrollLock,
 } from '@onsocial/ui';
 import { useOsPortalHost } from '@/contexts/os-portal-host-context';
@@ -162,6 +163,7 @@ export function OsSlideOverScreen({
   const titleId = useId();
   const headerRef = useRef<HTMLElement | null>(null);
   const bodyRef = useRef<HTMLElement | null>(null);
+  const slideRootRef = useRef<HTMLDivElement>(null);
   const [closing, setClosing] = useState(false);
   const [entered, setEntered] = useState(false);
   /** Keep mounted through exit when parent sets `open` false. */
@@ -216,7 +218,23 @@ export function OsSlideOverScreen({
   const parked = Boolean(
     nextPortalHost?.closest('[data-feed-session="covered"]')
   );
+  const overlay = useOverlayStackZ(
+    mounted && renderOpen && !parked,
+    zIndex,
+    keepDock
+  );
   useScrollLock(renderOpen && !parked);
+
+  useLayoutEffect(() => {
+    const root = slideRootRef.current;
+    if (!root || !mounted || !renderOpen || parked) return;
+    if (!overlay.top) {
+      root.inert = true;
+      return;
+    }
+    if (root.style.visibility === 'hidden') return;
+    root.inert = false;
+  }, [mounted, overlay.top, parked, renderOpen]);
 
   const finishExit = useCallback(() => {
     setClosing(false);
@@ -295,7 +313,7 @@ export function OsSlideOverScreen({
   const rootStyle: CSSProperties = {
     ...resolvedMoodStyle,
     ...style,
-    zIndex,
+    zIndex: overlay.z,
   };
 
   return createPortal(
@@ -311,6 +329,7 @@ export function OsSlideOverScreen({
         data-glass-chrome={useGlassChrome ? 'true' : undefined}
         data-compact-chrome={compactChrome ? 'true' : undefined}
         data-screen-footer={hasFooter ? 'true' : undefined}
+        ref={slideRootRef}
         data-os-slide-over="true"
         data-keep-dock={keepDock ? 'true' : undefined}
         data-hide-nav={hideNav ? 'true' : undefined}

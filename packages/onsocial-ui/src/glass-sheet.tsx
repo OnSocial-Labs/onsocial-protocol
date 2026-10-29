@@ -16,6 +16,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from './cn.js';
+import { useOverlayStackZ } from './overlay-stack.js';
 import { MultiplyIcon } from './mage-stroke-icons.js';
 import { resolveSheetMood, useMoodTheme } from './mood-theme.js';
 import {
@@ -876,6 +877,7 @@ export function GlassSheet({
     inheritedMood
   );
   const panelRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const setSheetBodyRef = useCallback(
     (node: HTMLDivElement | null) => {
       if (typeof bodyRef === 'function') bodyRef(node);
@@ -1123,7 +1125,25 @@ export function GlassSheet({
     return () => window.clearTimeout(timer);
   }, [finishEnterAnimation, showEnterAnimation]);
 
-  useSheetFocusTrap(visible && portalTarget != null && !band, panelRef);
+  const overlayFloor = resolveGlassSheetZIndex(zIndex, openedAboveMediaFace);
+  const overlayActive = mounted && !band && portalTarget != null;
+  const overlay = useOverlayStackZ(overlayActive, overlayFloor, keepDock);
+
+  useSheetFocusTrap(
+    visible && portalTarget != null && !band && overlay.top,
+    panelRef
+  );
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root || !overlayActive) return;
+    if (!overlay.top) {
+      root.inert = true;
+      return;
+    }
+    if (root.style.visibility === 'hidden') return;
+    root.inert = false;
+  }, [overlay.top, overlayActive]);
 
   useLayoutEffect(() => {
     if (!mounted) {
@@ -1164,9 +1184,10 @@ export function GlassSheet({
       data-presentation={effectivePresentation}
       data-sizing={sizing}
       data-crossfade={crossfade ? 'true' : undefined}
+      ref={rootRef}
       data-keep-dock={keepDock ? 'true' : undefined}
       style={{
-        zIndex: resolveGlassSheetZIndex(zIndex, openedAboveMediaFace),
+        zIndex: overlayActive ? overlay.z : overlayFloor,
         ...resolvedMood.style,
       }}
       role="presentation"
