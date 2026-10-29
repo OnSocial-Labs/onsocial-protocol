@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resolveSingleMediaPlayback } from './single-media-playback';
+import {
+  mediaIsQuietUnderCovers,
+  resolveSingleMediaPlayback,
+} from './single-media-playback';
 
 const playing = {
   sameElement: false,
@@ -8,6 +11,7 @@ const playing = {
   audible: true,
   playing: true,
   time: 12.4,
+  stage: false,
 };
 
 describe('resolveSingleMediaPlayback', () => {
@@ -78,6 +82,7 @@ describe('resolveSingleMediaPlayback', () => {
           audible: false,
           playing: true,
           time: 3,
+          stage: false,
         },
       })
     ).toEqual({ allow: true, pauseOwner: true, seekTo: null });
@@ -133,5 +138,104 @@ describe('resolveSingleMediaPlayback', () => {
         owner: { ...playing, sameElement: true },
       })
     ).toEqual({ allow: true, pauseOwner: false, seekTo: null });
+  });
+
+  it('keeps the enlarged film when a different reply video autoplays', () => {
+    expect(
+      resolveSingleMediaPlayback({
+        intent: 'passive',
+        selfQuiet: false,
+        selfMuted: true,
+        atStart: true,
+        savedTime: 0,
+        owner: { ...playing, sameKey: false, audible: false, stage: true },
+      })
+    ).toEqual({ allow: false, pauseOwner: false, seekTo: null });
+  });
+
+  it('still hands the enlarged film to an explicit tap', () => {
+    expect(
+      resolveSingleMediaPlayback({
+        intent: 'explicit',
+        selfQuiet: false,
+        selfMuted: false,
+        atStart: true,
+        savedTime: 4,
+        owner: { ...playing, stage: true },
+      })
+    ).toEqual({ allow: true, pauseOwner: true, seekTo: 12.4 });
+  });
+});
+
+describe('mediaIsQuietUnderCovers', () => {
+  it('does not treat a band reply drawer as a cover of the film above it', () => {
+    expect(
+      mediaIsQuietUnderCovers({
+        connected: true,
+        parkedOrCoveredFeed: false,
+        covers: [
+          {
+            containsNode: false,
+            band: true,
+            inert: false,
+            hidden: false,
+            overlaps: true,
+          },
+          {
+            containsNode: true,
+            band: false,
+            inert: false,
+            hidden: false,
+            overlaps: true,
+          },
+        ],
+      })
+    ).toBe(false);
+  });
+
+  it('quiets media a full sheet actually overlaps', () => {
+    expect(
+      mediaIsQuietUnderCovers({
+        connected: true,
+        parkedOrCoveredFeed: false,
+        covers: [
+          {
+            containsNode: false,
+            band: false,
+            inert: false,
+            hidden: false,
+            overlaps: true,
+          },
+        ],
+      })
+    ).toBe(true);
+  });
+
+  it('ignores a sheet that does not overlap the element', () => {
+    expect(
+      mediaIsQuietUnderCovers({
+        connected: true,
+        parkedOrCoveredFeed: false,
+        covers: [
+          {
+            containsNode: false,
+            band: false,
+            inert: false,
+            hidden: false,
+            overlaps: false,
+          },
+        ],
+      })
+    ).toBe(false);
+  });
+
+  it('stays quiet under a parked trail sheet', () => {
+    expect(
+      mediaIsQuietUnderCovers({
+        connected: true,
+        parkedOrCoveredFeed: true,
+        covers: [],
+      })
+    ).toBe(true);
   });
 });

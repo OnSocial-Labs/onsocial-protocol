@@ -1,15 +1,15 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useState,
-  type CSSProperties,
-} from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
-import { Divider, ipfsImgVariantUrl, MessageRoundIcon } from '@onsocial/ui';
+import {
+  Divider,
+  PlayFillIcon,
+  ipfsImgVariantUrl,
+  MessageRoundIcon,
+} from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { displayName } from '@/lib/profile-display';
 import { FeedPhotoEnlargeScreen } from '@/features/home/feed-photo-enlarge-screen';
@@ -24,6 +24,7 @@ import {
   collageCellStyle,
   collageHero,
   formatMediaDuration,
+  isRenderablePostAudioMime,
   isRenderablePostVideoMime,
   parsePostMedia,
   truncateQuoteText,
@@ -268,7 +269,11 @@ function QuoteThumbTile({
     .filter(Boolean)
     .join(' ');
   return (
-    <span className="post-card-quote-thumb-cell" style={style} ref={containerRef}>
+    <span
+      className="post-card-quote-thumb-cell"
+      style={style}
+      ref={containerRef}
+    >
       {resolved ? null : (
         <span
           className="post-media-skeleton standing-row-shimmer"
@@ -315,7 +320,12 @@ function QuoteThumbTile({
 }
 
 function QuoteMediaThumb({ items }: { items: PostMediaItem[] }) {
-  const visible = items.slice(0, 4);
+  const visible = items
+    .filter((item) => !isRenderablePostAudioMime(item.mime))
+    .slice(0, 4);
+  const audioOnly =
+    visible.length === 0 &&
+    items.some((item) => isRenderablePostAudioMime(item.mime));
   const [ratios, setRatios] = useState<Record<string, number>>({});
   const onRatio = useCallback((url: string, ratio: number) => {
     setRatios((current) =>
@@ -361,6 +371,17 @@ function QuoteMediaThumb({ items }: { items: PostMediaItem[] }) {
       video.load();
     };
   }, [singleVideoUrl]);
+
+  if (audioOnly) {
+    return (
+      <div
+        className="post-card-quote-thumb post-card-quote-thumb--audio"
+        aria-hidden
+      >
+        <PlayFillIcon className="post-card-quote-thumb-audio-icon" />
+      </div>
+    );
+  }
 
   if (visible.length === 0) return null;
 

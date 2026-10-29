@@ -5,6 +5,10 @@
  * is already playing under it. Passive autoplay must not start that copy.
  * An explicit tap takes the clock over instead of starting again at 0.
  * A muted list video must not cut off music that is already audible.
+ *
+ * A band reply drawer shares the media face. It sits under the film and is
+ * not a cover of it. While that face player is still on screen, passive
+ * autoplay in the drawer must not take the clock.
  */
 
 export type SingleMediaIntent = 'passive' | 'explicit' | 'restart';
@@ -21,6 +25,11 @@ export type SingleMediaOwnerView = {
   /** The element has not been paused, even if a drawer is covering it. */
   playing: boolean;
   time: number;
+  /**
+   * Enlarged face player still on screen. Passive copies stay quiet until
+   * the viewer taps one or a real cover hides the face.
+   */
+  stage: boolean;
 };
 
 export function resolveSingleMediaPlayback(input: {
@@ -51,6 +60,12 @@ export function resolveSingleMediaPlayback(input: {
   }
 
   if (input.selfQuiet && input.intent === 'passive') {
+    return { allow: false, pauseOwner: false, seekTo: null };
+  }
+
+  // The enlarged film keeps the clock while it is still on screen.
+  // Scrolling a reply into the band underneath must not start another copy.
+  if (owner.stage && input.intent === 'passive') {
     return { allow: false, pauseOwner: false, seekTo: null };
   }
 
@@ -117,27 +132,83 @@ function readIntent(node: HTMLMediaElement): SingleMediaIntent {
   return 'passive';
 }
 
-/** Covered by a parked trail sheet, a kept feed, or a drawer above this node. */
-export function mediaElementIsQuiet(node: HTMLMediaElement): boolean {
-  if (!node.isConnected) return true;
-  if (
-    node.closest('.post-thread-sheet-parked, [data-feed-session="covered"]')
-  ) {
+export type MediaCoverFact = {
+  containsNode: boolean;
+  /** Bottom band on a media face. Shares the stage; does not cover the film. */
+  band: boolean;
+  inert: boolean;
+  hidden: boolean;
+  /** The cover's box intersects the media box. */
+  overlaps: boolean;
+};
+
+/**
+ * Topmost real cover wins. A band drawer is not a cover. A sheet that does
+ * not overlap this element is not a cover of it either.
+ * `covers` is topmost first.
+ */
+export function mediaIsQuietUnderCovers(input: {
+  connected: boolean;
+  parkedOrCoveredFeed: boolean;
+  covers: readonly MediaCoverFact[];
+}): boolean {
+  if (!input.connected) return true;
+  if (input.parkedOrCoveredFeed) return true;
+  for (const cover of input.covers) {
+    if (cover.inert || cover.hidden || cover.band) continue;
+    if (cover.containsNode) return false;
+    if (!cover.overlaps) continue;
     return true;
   }
-  const doc = node.ownerDocument;
-  if (!doc) return false;
-  const covers = doc.querySelectorAll(
-    '.glass-sheet-root:not(.post-thread-sheet-parked), [data-os-slide-over="true"]:not(.is-closing)'
-  );
-  for (let index = covers.length - 1; index >= 0; index -= 1) {
-    const cover = covers[index];
-    if (!(cover instanceof HTMLElement)) continue;
-    if (cover.inert || cover.getAttribute('aria-hidden') === 'true') continue;
-    if (cover.style.visibility === 'hidden') continue;
-    return !cover.contains(node);
-  }
   return false;
+}
+
+function coverOverlapsMedia(cover: DOMRect, node: DOMRect): boolean {
+  if (node.width <= 0 || node.height <= 0) return true;
+  if (cover.width <= 0 || cover.height <= 0) return false;
+  return (
+    cover.left < node.right &&
+    cover.right > node.left &&
+    cover.top < node.bottom &&
+    cover.bottom > node.top
+  );
+}
+
+/** Enlarged film on the media face, not a list copy inside the reply band. */
+function mediaElementIsStage(node: HTMLMediaElement): boolean {
+  return node.closest('.feed-photo-stage') != null;
+}
+
+/** Covered by a parked trail sheet, a kept feed, or a drawer above this node. */
+export function mediaElementIsQuiet(node: HTMLMediaElement): boolean {
+  const doc = node.ownerDocument;
+  const covers: MediaCoverFact[] = [];
+  if (doc && node.isConnected) {
+    const nodes = doc.querySelectorAll(
+      '.glass-sheet-root:not(.post-thread-sheet-parked), [data-os-slide-over="true"]:not(.is-closing)'
+    );
+    const nodeRect = node.getBoundingClientRect();
+    for (let index = nodes.length - 1; index >= 0; index -= 1) {
+      const cover = nodes[index];
+      if (!(cover instanceof HTMLElement)) continue;
+      covers.push({
+        containsNode: cover.contains(node),
+        band: cover.classList.contains('glass-sheet-root--band'),
+        inert: cover.inert,
+        hidden:
+          cover.getAttribute('aria-hidden') === 'true' ||
+          cover.style.visibility === 'hidden',
+        overlaps: coverOverlapsMedia(cover.getBoundingClientRect(), nodeRect),
+      });
+    }
+  }
+  return mediaIsQuietUnderCovers({
+    connected: node.isConnected,
+    parkedOrCoveredFeed: Boolean(
+      node.closest('.post-thread-sheet-parked, [data-feed-session="covered"]')
+    ),
+    covers,
+  });
 }
 
 function remember(node: HTMLMediaElement) {
@@ -165,10 +236,13 @@ function ownerView(
             !mediaElementIsQuiet(owner.node),
           playing: !owner.node.paused,
           time: owner.node.currentTime,
+          stage:
+            mediaElementIsStage(owner.node) && !mediaElementIsQuiet(owner.node),
         }
       : null;
   }
-  const active = !owner.node.paused && !mediaElementIsQuiet(owner.node);
+  const quiet = mediaElementIsQuiet(owner.node);
+  const active = !owner.node.paused && !quiet;
   return {
     sameElement: false,
     sameKey: Boolean(key) && owner.key === key,
@@ -176,6 +250,7 @@ function ownerView(
     audible: active && !owner.node.muted && owner.node.volume > 0,
     playing: !owner.node.paused,
     time: Number.isFinite(owner.node.currentTime) ? owner.node.currentTime : 0,
+    stage: mediaElementIsStage(owner.node) && !quiet,
   };
 }
 
