@@ -87,11 +87,31 @@ describe('app smooth scroll', () => {
       querySelector: () => null,
       closest: (selector: string) =>
         selector === '.protocol-face-pair' ||
-        selector === '.dao-proposals-page'
+        selector.includes('.dao-proposals-page')
           ? {}
           : null,
     } as unknown as HTMLElement;
     expect(isAppSmoothScrollPagerHost(proposals)).toBe(false);
+    const sheet = {
+      classList: { contains: () => false },
+      querySelector: () => null,
+      closest: (selector: string) =>
+        selector === '.protocol-face-pair' ||
+        selector.includes('.glass-sheet-root')
+          ? {}
+          : null,
+    } as unknown as HTMLElement;
+    expect(isAppSmoothScrollPagerHost(sheet)).toBe(false);
+    const slide = {
+      classList: { contains: () => false },
+      querySelector: () => null,
+      closest: (selector: string) =>
+        selector === '.protocol-face-pair' ||
+        selector.includes('.os-slide-over')
+          ? {}
+          : null,
+    } as unknown as HTMLElement;
+    expect(isAppSmoothScrollPagerHost(slide)).toBe(false);
     expect(provider).toContain('isAppSmoothScrollPagerHost');
   });
 
