@@ -440,7 +440,14 @@ export function PortfolioWritingArticlePanel({
               </time>
             ) : null}
             <p className="portfolio-writing-byline">
-              <AccountPlaceLink href={writingHref} onClick={onWritingClick}>
+              <AccountPlaceLink
+                href={writingHref}
+                onClick={onWritingClick}
+                shelfFace={{
+                  titleLabel: authorName,
+                  avatarUrl: avatarUrl ?? null,
+                }}
+              >
                 Writing
               </AccountPlaceLink>
               {readLabel ? (

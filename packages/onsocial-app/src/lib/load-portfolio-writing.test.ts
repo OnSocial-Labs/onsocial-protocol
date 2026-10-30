@@ -18,6 +18,15 @@ describe('loadPortfolioWritingChrome', () => {
     expect(src).toContain('if (stubChrome) return stubChrome');
   });
 
+  it('paints shelf titles before scarce covers', () => {
+    const shelf = src.slice(
+      src.indexOf('export const loadPortfolioWritingForAccount'),
+      src.indexOf('export async function loadPortfolioWritingPage')
+    );
+    expect(shelf).toContain('coverHints: {}');
+    expect(shelf).not.toContain('hydrateWritingArticleCovers');
+  });
+
   it('paints chrome from shell + page config and never 404s the shelf', () => {
     expect(src).toContain('loadWritingPageConfig');
     expect(src).toContain('loadProfileShell');

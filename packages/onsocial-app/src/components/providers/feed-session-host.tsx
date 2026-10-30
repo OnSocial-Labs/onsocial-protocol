@@ -11,13 +11,18 @@ import {
 } from 'react';
 import { usePathname } from 'next/navigation';
 import { useNoteOsPortalHosts } from '@/contexts/os-portal-host-context';
+import { WritingShelfOpening } from '@/components/portfolio/writing-shelf-opening';
 import { HomePagePanel } from '@/features/home/home-feed';
 import { APP_HOME_PATH } from '@/lib/app-routes';
+import { isWritingShelfPath } from '@/lib/overlay-routes';
 import {
   endPortfolioShelfHop,
+  getPortfolioShelfHopServerSnapshot,
+  getPortfolioShelfHopSnapshot,
   hasShelfHopLeftHome,
-  isPortfolioShelfHop,
   markShelfHopLeftHome,
+  releaseWritingShelfHold,
+  shouldRetainOpenedFeed,
   subscribePortfolioShelfHop,
 } from '@/lib/portfolio-shelf-hop';
 
@@ -27,8 +32,9 @@ export function isFeedSessionPath(pathname: string | null): boolean {
 }
 
 /**
- * Writing hop keeps the article on the feed until the shelf covers it.
- * Every other leave unmounts the feed once the next screen exists.
+ * Writing hop keeps the open reader on the feed until Writing covers it,
+ * and until that shelf closes. Every other leave unmounts the feed once
+ * the next screen exists.
  */
 const SHELF_FEED_STYLE: CSSProperties = {
   position: 'fixed',
@@ -58,16 +64,30 @@ export function FeedSessionHost({
 }) {
   const pathname = usePathname();
   const onFeed = isFeedSessionPath(pathname);
-  const shelfHop = useSyncExternalStore(
+  const hop = useSyncExternalStore(
     subscribePortfolioShelfHop,
-    isPortfolioShelfHop,
-    () => false
+    getPortfolioShelfHopSnapshot,
+    getPortfolioShelfHopServerSnapshot
   );
+  const shelfHop = hop.active;
+  const retainFeed = shouldRetainOpenedFeed({
+    onFeed,
+    shelfHop,
+    holdAccountId: hop.holdAccountId,
+    pathname,
+  });
+  const [openedFeed, setOpenedFeed] = useState<ReactNode>(page);
+  if (onFeed && openedFeed !== page) {
+    setOpenedFeed(page);
+  }
   const [keepFeed, setKeepFeed] = useState(onFeed);
   const notePortalHosts = useNoteOsPortalHosts();
   const hostRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
-  const feedTree = onFeed ? page : <HomePagePanel />;
+  let feedTree = page;
+  if (!onFeed) {
+    feedTree = retainFeed ? openedFeed : <HomePagePanel />;
+  }
 
   if (onFeed && !keepFeed) {
     setKeepFeed(true);
@@ -83,7 +103,13 @@ export function FeedSessionHost({
   }, [onFeed, shelfHop]);
 
   useLayoutEffect(() => {
-    if (onFeed || !keepFeed || shelfHop) return;
+    if (shelfHop || !hop.holdAccountId) return;
+    if (isWritingShelfPath(hop.holdAccountId, pathname)) return;
+    releaseWritingShelfHold();
+  }, [hop.holdAccountId, pathname, shelfHop]);
+
+  useLayoutEffect(() => {
+    if (onFeed || !keepFeed || shelfHop || retainFeed) return;
     const front = frontRef.current;
     if (!front) return;
     let observer: MutationObserver | null = null;
@@ -98,7 +124,7 @@ export function FeedSessionHost({
     observer = new MutationObserver(drop);
     observer.observe(front, { childList: true, subtree: true });
     return () => observer?.disconnect();
-  }, [keepFeed, onFeed, pathname, shelfHop]);
+  }, [keepFeed, onFeed, pathname, retainFeed, shelfHop]);
 
   useLayoutEffect(() => {
     const root = hostRef.current;
@@ -123,7 +149,7 @@ export function FeedSessionHost({
   }, [onFeed, keepFeed]);
 
   const showFeed = onFeed || keepFeed;
-  const shelfCover = showFeed && shelfHop && !onFeed;
+  const pinFeed = showFeed && (shelfHop || retainFeed);
 
   useLayoutEffect(() => {
     notePortalHosts();
@@ -135,7 +161,7 @@ export function FeedSessionHost({
         <div
           ref={hostRef}
           data-feed-session="live"
-          style={shelfCover ? SHELF_FEED_STYLE : undefined}
+          style={pinFeed ? SHELF_FEED_STYLE : undefined}
         >
           <Suspense fallback={null}>{feedTree}</Suspense>
         </div>
@@ -148,6 +174,7 @@ export function FeedSessionHost({
         {onFeed ? null : page}
         {children}
       </div>
+      {shelfHop ? <WritingShelfOpening /> : null}
     </>
   );
 }

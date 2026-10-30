@@ -48,7 +48,10 @@ import type { ResolvedMood } from '@/lib/moods/types';
 import { withEssayReturnSearch } from '@/lib/essay-return-href';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { portfolioPath, writingArticlePath } from '@/lib/overlay-routes';
-import { endPortfolioShelfHop } from '@/lib/portfolio-shelf-hop';
+import {
+  endPortfolioShelfHop,
+  markWritingShelfArrived,
+} from '@/lib/portfolio-shelf-hop';
 import { rememberWritingShelf } from '@/lib/writing-shelf-return';
 import { consumeEssayReopen } from '@/lib/essay-return';
 import {
@@ -263,6 +266,9 @@ function PortfolioWritingShelf({
   const [moreHints, setMoreHints] = useState<
     Record<string, WritingArticleCoverHint>
   >({});
+  const [liveHints, setLiveHints] = useState<
+    Record<string, WritingArticleCoverHint>
+  >({});
   const [nextOffset, setNextOffset] = useState<number | null>(
     panel.articleNextOffset ?? null
   );
@@ -283,8 +289,8 @@ function PortfolioWritingShelf({
     ];
   }, [moreArticles, panel.articles]);
   const coverHints = useMemo(
-    () => ({ ...panel.coverHints, ...moreHints }),
-    [moreHints, panel.coverHints]
+    () => ({ ...liveHints, ...panel.coverHints, ...moreHints }),
+    [liveHints, moreHints, panel.coverHints]
   );
 
   const { query, search, listQuery, showSearch, scrollRootRef } =
@@ -295,9 +301,24 @@ function PortfolioWritingShelf({
   useEffect(() => {
     setMoreArticles([]);
     setMoreHints({});
+    setLiveHints({});
     setNextOffset(panel.articleNextOffset ?? null);
     setMoreFailed(false);
   }, [panel.accountId, panel.articleNextOffset]);
+
+  useEffect(() => {
+    if (panel.articles.length === 0) return;
+    let cancelled = false;
+    const os = createReadOnlyOnSocialClient();
+    void hydrateWritingArticleCovers(panel.articles, os)
+      .then((hints) => {
+        if (!cancelled) setLiveHints((current) => ({ ...current, ...hints }));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [panel.accountId, panel.articles]);
 
   useEffect(() => {
     markPortfolioClientReady();
@@ -475,6 +496,7 @@ export function PortfolioWritingOverlay({
   const dismiss = useOverlayDismiss();
 
   useLayoutEffect(() => {
+    markWritingShelfArrived();
     const hideFaceMs = 320;
     const id = window.setTimeout(() => endPortfolioShelfHop(), hideFaceMs);
     return () => {
