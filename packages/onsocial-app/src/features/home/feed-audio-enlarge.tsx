@@ -188,12 +188,18 @@ export function FeedAudioEnlarge({
     setCaptionExpanded(false);
   }, [resetCaptionScroll]);
 
+  /* Opening the drawer folds the caption during render, same as video.
+   * The timer only swallows the pointer that opened it. */
+  const [trackedThread, setTrackedThread] = useState(threadActive);
+  if (threadActive !== trackedThread) {
+    setTrackedThread(threadActive);
+    if (threadActive) setCaptionExpanded(false);
+  }
   useEffect(() => {
     if (!threadActive) {
       ignoreFilmDismissRef.current = false;
       return;
     }
-    setCaptionExpanded(false);
     ignoreFilmDismissRef.current = true;
     const timer = window.setTimeout(() => {
       ignoreFilmDismissRef.current = false;
