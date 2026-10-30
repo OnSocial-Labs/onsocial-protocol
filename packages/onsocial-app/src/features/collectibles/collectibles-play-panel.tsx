@@ -58,7 +58,10 @@ import {
   getOfflineAlbum,
   playablesFromOfflineAlbum,
 } from '@/lib/collectibles-offline';
-import { collectiblesPlayBackHref } from '@/features/collectibles/collectibles-play-view';
+import {
+  collectiblesPlayBackHref,
+  playTransferOpen,
+} from '@/features/collectibles/collectibles-play-view';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
@@ -182,7 +185,10 @@ export function CollectiblesPlayPanel({
   const [sellOpen, setSellOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [editionPickerOpen, setEditionPickerOpen] = useState(false);
-  const [heldEditions, setHeldEditions] = useState<OwnedScarceItem[]>([]);
+  const [ownedCopies, setOwnedCopies] = useState<{
+    key: string;
+    editions: OwnedScarceItem[];
+  } | null>(null);
   const [actionItem, setActionItem] = useState<OwnedScarceItem | null>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
@@ -373,6 +379,28 @@ export function CollectiblesPlayPanel({
     };
   }, [ownedItem, view]);
   const isListed = ownedItem != null && ownedItem.listingKind != null;
+  const copiesKey =
+    viewerAccountId && collectionId && sellItem
+      ? `${viewerAccountId}:${collectionId}:${sellItem.tokenId}`
+      : '';
+  const copiesForPlay =
+    ownedCopies && ownedCopies.key === copiesKey ? ownedCopies.editions : null;
+
+  // Sibling copies load while the player is up so Transfer only opens.
+  useEffect(() => {
+    if (!copiesKey || !viewerAccountId || !collectionId) return;
+    let cancelled = false;
+    void fetchOwnedScarcesForCollection(viewerAccountId, collectionId)
+      .then((editions) => {
+        if (!cancelled) setOwnedCopies({ key: copiesKey, editions });
+      })
+      .catch(() => {
+        if (!cancelled) setOwnedCopies({ key: copiesKey, editions: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [copiesKey, viewerAccountId, collectionId]);
   const dropIsLive =
     view != null && deriveCollectionStatus(view, nowMs) === 'live';
   const screenTitle = view?.title?.trim() || 'Player';
@@ -513,28 +541,12 @@ export function CollectiblesPlayPanel({
                     setSellOpen(true);
                   }}
                   onTransfer={() => {
-                    if (!viewerAccountId || !collectionId) {
-                      setActionItem(null);
-                      setTransferOpen(true);
+                    if (playTransferOpen(copiesForPlay) === 'picker') {
+                      setEditionPickerOpen(true);
                       return;
                     }
-                    void fetchOwnedScarcesForCollection(
-                      viewerAccountId,
-                      collectionId
-                    )
-                      .then((editions) => {
-                        if (editions.length > 1) {
-                          setHeldEditions(editions);
-                          setEditionPickerOpen(true);
-                          return;
-                        }
-                        setActionItem(null);
-                        setTransferOpen(true);
-                      })
-                      .catch(() => {
-                        setActionItem(null);
-                        setTransferOpen(true);
-                      });
+                    setActionItem(null);
+                    setTransferOpen(true);
                   }}
                   onDelisted={() => {
                     if (!ownershipKey || !viewerAccountId || !collectionId)
@@ -676,7 +688,7 @@ export function CollectiblesPlayPanel({
       <HeldEditionsSheet
         open={editionPickerOpen}
         title={view?.title ?? sellItem?.title ?? ''}
-        editions={heldEditions}
+        editions={copiesForPlay ?? []}
         choose="send"
         onClose={() => setEditionPickerOpen(false)}
         onChoose={(item) => {
