@@ -21,7 +21,7 @@ const emptyActionWiring = [
   'components/panels/list-load-error.tsx',
   'components/panels/standing-panel-content.tsx',
   'components/panels/endorsements-panel.tsx',
-  'components/portfolio/portfolio-writing-panel.tsx',
+  'components/portfolio/portfolio-writing-list.tsx',
   'components/portfolio/page-drawer-store.tsx',
   'components/portfolio/profile-support-form.tsx',
   'components/panels/endorsement-support-form.tsx',
