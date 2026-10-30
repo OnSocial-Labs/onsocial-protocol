@@ -364,8 +364,8 @@ test.describe('thread reply dock', () => {
 });
 
 /**
- * Media reply drawer — tapping a reply opens that reply's thread and
- * leaves the film. The viewer does not stay mounted over the new thread.
+ * Media reply drawer — tapping a reply opens that reply's thread above
+ * the film. The film and its drawer stay mounted. Back returns to them.
  */
 test.describe('thread reply dock over the media face', () => {
   const CDN = 'https://cdn.testnet.onsocial.id';
@@ -395,32 +395,52 @@ test.describe('thread reply dock over the media face', () => {
 
   async function stubMediaThreadGraph(page: Page): Promise<void> {
     await page.route('**/api/onapi/graph/query', async (route: Route) => {
-      const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody;
+      const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody & {
+        variables?: { parentPath?: string; postId?: string };
+      };
       const query = body.query ?? '';
+      const postId = body.variables?.postId;
       const field = graphField(query);
       if (field) {
+        const photoRoot = {
+          ...feedRow({
+            accountId: PHOTO_ROOT.accountId,
+            postId: PHOTO_ROOT.postId,
+            text: PHOTO_ROOT.text,
+          }),
+          value: JSON.stringify({
+            v: 1,
+            text: PHOTO_ROOT.text,
+            media: [{ cid: CID_JPEG, mime: 'image/jpeg', size: 200_000 }],
+          }),
+        };
+        const row =
+          postId === FACE_REPLY.postId
+            ? feedRow({
+                accountId: FACE_REPLY.accountId,
+                postId: FACE_REPLY.postId,
+                text: FACE_REPLY.text,
+                parentAuthor: PHOTO_ROOT.accountId,
+                parentPath: FACE_REPLY.parentPath,
+                authorName: 'Bob',
+              })
+            : postId === NESTED_REPLY.postId
+              ? feedRow({
+                  accountId: NESTED_REPLY.accountId,
+                  postId: NESTED_REPLY.postId,
+                  text: NESTED_REPLY.text,
+                  parentAuthor: FACE_REPLY.accountId,
+                  parentPath: NESTED_REPLY.parentPath,
+                  authorName: 'Cara',
+                })
+              : postId && postId !== PHOTO_ROOT.postId
+                ? null
+                : photoRoot;
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({
-            data: {
-              [field]: [
-                {
-                  ...feedRow({
-                    accountId: PHOTO_ROOT.accountId,
-                    postId: PHOTO_ROOT.postId,
-                    text: PHOTO_ROOT.text,
-                  }),
-                  value: JSON.stringify({
-                    v: 1,
-                    text: PHOTO_ROOT.text,
-                    media: [
-                      { cid: CID_JPEG, mime: 'image/jpeg', size: 200_000 },
-                    ],
-                  }),
-                },
-              ],
-            },
+            data: { [field]: row ? [row] : [] },
           }),
         });
         return;
@@ -479,7 +499,7 @@ test.describe('thread reply dock over the media face', () => {
     });
   }
 
-  test('a reply in the media drawer opens that thread and leaves the film', async ({
+  test('a reply in the media drawer opens above the film', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -520,13 +540,26 @@ test.describe('thread reply dock over the media face', () => {
     expect(drawerDockBox).not.toBeNull();
     expect(drawerDockBox!.y).toBeLessThan(844);
 
-    // Tap Bob's reply. His thread opens. The film does not stay on top of it.
-    await drawer.getByRole('link', { name: 'Open post' }).first().click();
+    // Tap Bob's reply. His thread opens above the film. The film stays.
+    await drawer
+      .locator('article')
+      .filter({ hasText: FACE_REPLY.text })
+      .getByRole('link', { name: 'Open post' })
+      .click();
     const layer = page.locator('.post-thread-sheet-panel');
     await expect(layer).toBeVisible({ timeout: 10_000 });
     await expect(layer).toContainText(FACE_REPLY.text);
-    await expect(
-      page.locator('[data-os-slide-over="true"]:not(.is-closing)')
-    ).toHaveCount(0, { timeout: 8_000 });
+    const film = page.locator(
+      '[data-os-slide-over="true"]:not(.is-closing)'
+    );
+    await expect(film).toHaveCount(1);
+    await expect(drawer).toBeVisible();
+
+    // Header back steps onto the film. The reply drawer is still open.
+    await layer.getByRole('button', { name: 'Back' }).click();
+    await expect(layer).toHaveCount(0, { timeout: 8_000 });
+    await expect(film).toHaveCount(1);
+    await expect(drawer).toBeVisible();
+    await expect(drawer).toContainText(FACE_REPLY.text);
   });
 });
