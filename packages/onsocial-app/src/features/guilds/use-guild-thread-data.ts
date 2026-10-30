@@ -30,8 +30,10 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import type { PostEngagementMap } from '@/lib/feed-paint-hydrate';
 import {
   directRepliesToTree,
+  graftVisibleReplies,
   shouldPaintDirectReplies,
   startThreadFirstPage,
+  visibleReplyPaths,
 } from '@/lib/thread-first-page';
 import { planThreadLoad } from '@/lib/thread-open';
 import {
@@ -261,6 +263,22 @@ export function useGuildThreadData({
               setReplyTree(pageTree);
               setHasMoreReplies(first.hasMore);
               setRepliesResolved(true);
+              const visiblePaths = visibleReplyPaths(first.replies);
+              if (visiblePaths.length > 0) {
+                void client.query.threads
+                  .visibleReplies(visiblePaths)
+                  .then((children) => {
+                    if (threadKeyRef.current !== threadKey) return;
+                    if (refreshRequestIdRef.current !== requestId) return;
+                    if (paginatedRef.current) return;
+                    setReplyTree((current) =>
+                      graftVisibleReplies(current, children)
+                    );
+                  })
+                  .catch(() => {
+                    // The tree walk still fills the line.
+                  });
+              }
               const root = seeded?.root ?? null;
               if (root) {
                 writeGuildThreadSession(rootPath, {

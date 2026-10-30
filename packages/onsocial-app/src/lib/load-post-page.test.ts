@@ -4,6 +4,7 @@ import { THREAD_REPLY_FIRST_PAGE } from '@/lib/thread-first-page';
 
 const mocks = vi.hoisted(() => ({
   repliesByPath: vi.fn(),
+  visibleReplies: vi.fn(),
   treeByPath: vi.fn(),
   quotes: vi.fn(),
   fetchPersonalPost: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock('@/lib/create-server-onsocial-client', () => ({
     query: {
       threads: {
         repliesByPath: mocks.repliesByPath,
+        visibleReplies: mocks.visibleReplies,
         treeByPath: mocks.treeByPath,
         quotes: mocks.quotes,
       },
@@ -61,6 +63,8 @@ function post(postId: string, extra: Partial<PostRow> = {}): PostRow {
 describe('permalink first page', () => {
   beforeEach(() => {
     mocks.repliesByPath.mockReset();
+    mocks.visibleReplies.mockReset();
+    mocks.visibleReplies.mockResolvedValue([]);
     mocks.treeByPath.mockReset();
     mocks.quotes.mockReset();
     mocks.fetchPersonalPost.mockReset();
@@ -87,6 +91,12 @@ describe('permalink first page', () => {
       post('root', { accountId: 'alice.near' })
     );
     mocks.repliesByPath.mockResolvedValue([post('one')]);
+    mocks.visibleReplies.mockResolvedValue([
+      post('line', {
+        accountId: 'alice.near',
+        parentPath: 'bob.near/post/one',
+      }),
+    ]);
 
     const page = await loadPersonalPostPageData('alice.near', 'personal-fit');
 
@@ -96,8 +106,9 @@ describe('permalink first page', () => {
     );
     expect(mocks.treeByPath).not.toHaveBeenCalled();
     expect(page?.replies.map((row) => row.postId)).toEqual(['one']);
-    expect(page?.replyTree[0]?.replies).toEqual([]);
     expect(page?.replyTree[0]?.path).toBe('bob.near/post/one');
+    expect(page?.replyTree[0]?.replies[0]?.post.postId).toBe('line');
+    expect(mocks.visibleReplies).toHaveBeenCalledWith(['bob.near/post/one']);
     expect(page?.hasMoreReplies).toBe(false);
     expect(page?.directRepliesResolved).toBe(true);
     expect(mocks.loadPostEngagementMap).toHaveBeenCalledWith(
@@ -129,6 +140,7 @@ describe('permalink first page', () => {
     expect(page?.replies).toEqual([]);
     expect(page?.directRepliesResolved).toBe(false);
     expect(page?.root.postId).toBe('root');
+    expect(mocks.visibleReplies).not.toHaveBeenCalled();
   });
 
   it('sends a guild post with the direct replies that fit', async () => {

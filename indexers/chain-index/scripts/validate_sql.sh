@@ -387,6 +387,25 @@ nested"
         echo "  actual:   ${pulse_ids:-missing}" >&2
         exit 1
       fi
+
+      visible_fn="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT COUNT(*) FROM pg_proc WHERE proname = '"'"'thread_visible_replies'"'"';
+      ")"
+      if [ "$visible_fn" -lt 1 ]; then
+        echo "error: expected thread_visible_replies() in $db" >&2
+        exit 1
+      fi
+
+      apply_sql "$db" /work/tests/fixtures/thread_visible_replies_check.sql
+      visible_ids="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atf /work/tests/fixtures/thread_visible_replies_assert.sql)"
+      expected_visible="vis_bob
+vis_eve_self"
+      if [ "$visible_ids" != "$expected_visible" ]; then
+        echo "error: unexpected thread_visible_replies rows in $db" >&2
+        echo "  expected: $expected_visible" >&2
+        echo "  actual:   ${visible_ids:-missing}" >&2
+        exit 1
+      fi
     }
 
     validate_profile_search_jobs_columns() {

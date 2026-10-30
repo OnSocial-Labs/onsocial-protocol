@@ -13,6 +13,7 @@ import {
   clearThreadFirstPageCache,
   directReplyPageHasMore,
   directRepliesToTree,
+  graftVisibleReplies,
   shouldPaintDirectReplies,
   startThreadFirstPage,
   THREAD_REPLY_FIRST_PAGE,
@@ -76,6 +77,22 @@ describe('thread first page', () => {
     expect(tree).toHaveLength(1);
     expect(tree[0]?.path).toBe('bob.near/post/one');
     expect(tree[0]?.replies).toEqual([]);
+  });
+
+  it('grafts one child under a direct reply and leaves a walked branch alone', () => {
+    const leaves = directRepliesToTree([reply('one')]);
+    const line = { ...reply('line'), parentPath: 'bob.near/post/one' };
+    const grafted = graftVisibleReplies(leaves, [
+      line,
+      { ...reply('second'), parentPath: 'bob.near/post/one' },
+    ]);
+    expect(grafted[0]?.replies).toHaveLength(1);
+    expect(grafted[0]?.replies[0]?.post.postId).toBe('line');
+
+    const walked = graftVisibleReplies(grafted, [
+      { ...reply('later'), parentPath: 'bob.near/post/one' },
+    ]);
+    expect(walked[0]?.replies[0]?.post.postId).toBe('line');
   });
 
   it('uses the group content path for a guild post', () => {

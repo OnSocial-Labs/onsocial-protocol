@@ -2145,6 +2145,45 @@ describe('QueryModule', () => {
         'alice.near/groups/dao/content/post/root'
       );
     });
+
+    it('loads the visible reply line in one call', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          threadVisibleReplies: [
+            replyRow('alice.near', 'line', 'bob.near/post/one', 11),
+          ],
+        },
+      });
+
+      const rows = await os.query.threads.visibleReplies([
+        'bob.near/post/one',
+        'bob.near/post/one',
+        '',
+      ]);
+      expect(rows.map((row) => row.postId)).toEqual(['line']);
+      const body = JSON.parse(fetch.mock.calls[0][1].body) as {
+        query: string;
+        variables: { paths: string };
+      };
+      expect(body.query).toContain('threadVisibleReplies');
+      expect(body.variables.paths).toBe('{"bob.near/post/one"}');
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns no line when the indexer has not tracked the function', async () => {
+      const { os } = makeOs({
+        errors: [
+          {
+            message:
+              'field "threadVisibleReplies" not found in type: \'query_root\'',
+          },
+        ],
+      });
+
+      await expect(
+        os.query.threads.visibleReplies(['bob.near/post/one'])
+      ).resolves.toEqual([]);
+    });
   });
 
   describe('getGroupThread()', () => {

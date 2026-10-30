@@ -103,6 +103,27 @@ async function stubGraph(
     const query = body.query ?? '';
     const vars = body.variables ?? {};
 
+    if (query.includes('threadVisibleReplies')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            threadVisibleReplies: [
+              replyRow({
+                accountId: 'alice.near',
+                postId: 'line-one',
+                text: 'Alice answered on the line',
+                parentAuthor: 'bob.near',
+                parentPath: 'bob.near/post/reply-one',
+              }),
+            ],
+          },
+        }),
+      });
+      return;
+    }
+
     if (query.includes('threadReplies')) {
       const nested = vars.parentPath && vars.parentPath !== REPLY.parentPath;
       await sleep(nested ? childDelayMs() : opts.treeDelayMs());
@@ -213,6 +234,20 @@ test('direct replies paint while nested reply queries are still in flight', asyn
   await gotoFeedWithRoot(page);
   const layer = await openThreadFromFeed(page);
   await expect(layer.getByText(REPLY.text)).toBeVisible({ timeout: 3_000 });
+});
+
+test('the reply under a direct reply paints before nested queries finish', async ({
+  page,
+}) => {
+  await stubGraph(page, {
+    treeDelayMs: () => 200,
+    childDelayMs: () => 8_000,
+  });
+  await gotoFeedWithRoot(page);
+  const layer = await openThreadFromFeed(page);
+  await expect(layer.getByText('Alice answered on the line')).toBeVisible({
+    timeout: 3_000,
+  });
 });
 
 test('skeleton rows hold the reply slot while the tree loads — the discover peek never flashes', async ({

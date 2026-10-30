@@ -1421,6 +1421,56 @@ FROM posts_current
 WHERE parent_author IS NOT NULL
   AND parent_author != '';
 
+-- One visible reply under each direct reply on the open thread.
+-- The thread page shows the root author's reply when one exists, otherwise
+-- the branch author's own continuation. Other replies stay on the walk.
+-- `paths` is the direct-reply page (at most 12), so this stays one index lookup.
+CREATE OR REPLACE FUNCTION thread_visible_replies(paths text[])
+RETURNS SETOF thread_replies
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT DISTINCT ON (p.parent_path)
+    p.account_id AS reply_author,
+    p.post_id AS reply_id,
+    p.parent_author,
+    p.parent_path,
+    p.parent_type,
+    p.value,
+    p.block_height,
+    p.block_timestamp,
+    p.group_id,
+    p.root_path,
+    p.root_author
+  FROM posts_current p
+  WHERE p.parent_path IN (
+    SELECT btrim(path)
+    FROM unnest(COALESCE(paths, ARRAY[]::text[])) AS path
+    WHERE path IS NOT NULL AND btrim(path) <> ''
+    LIMIT 12
+  )
+    AND p.parent_author IS NOT NULL
+    AND btrim(p.parent_author) <> ''
+    AND (
+      (
+        p.root_author IS NOT NULL
+        AND btrim(p.root_author) <> ''
+        AND p.account_id = p.root_author
+      )
+      OR p.account_id = p.parent_author
+    )
+  ORDER BY
+    p.parent_path,
+    CASE
+      WHEN p.root_author IS NOT NULL
+        AND btrim(p.root_author) <> ''
+        AND p.account_id = p.root_author THEN 0
+      ELSE 1
+    END,
+    p.block_height ASC NULLS LAST,
+    p.post_id ASC;
+$$;
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- 8. quotes — posts that quote another post (commentary share)
 -- ────────────────────────────────────────────────────────────────────────────

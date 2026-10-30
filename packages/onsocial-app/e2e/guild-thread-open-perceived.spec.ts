@@ -142,6 +142,32 @@ async function stubGuildThreadGraph(
       return;
     }
 
+    if (query.includes('threadVisibleReplies')) {
+      await route.fulfill(
+        json({
+          data: {
+            threadVisibleReplies: [
+              {
+                replyAuthor: ROOT_AUTHOR,
+                replyId: 'guild-line-one',
+                value: JSON.stringify({
+                  v: 1,
+                  text: 'Alice answered on the guild line',
+                }),
+                blockHeight: 201,
+                blockTimestamp: 1_700_000_002,
+                groupId: GUILD_E2E_ID,
+                parentAuthor: REPLY.accountId,
+                parentPath: `${REPLY.accountId}/groups/${GUILD_E2E_ID}/content/post/${REPLY.postId}`,
+                parentType: 'post',
+              },
+            ],
+          },
+        })
+      );
+      return;
+    }
+
     if (query.includes('RepliesByPath')) {
       const nested = vars.parentPath && vars.parentPath !== ROOT_PATH;
       await sleep(nested ? childDelayMs() : opts.treeDelayMs());
@@ -207,6 +233,21 @@ test('direct replies paint while nested reply queries are still in flight', asyn
   await gotoGuildFeedWithRoot(page);
   const layer = await openThreadFromFeed(page);
   await expect(layer.getByText(REPLY.text)).toBeVisible({ timeout: 3_000 });
+});
+
+test('the reply under a direct reply paints before nested queries finish', async ({
+  page,
+}) => {
+  await stubGuildPage(page, { feedRows: GUILD_E2E_FEED_ROWS });
+  await stubGuildThreadGraph(page, {
+    treeDelayMs: () => 200,
+    childDelayMs: () => 8_000,
+  });
+  await gotoGuildFeedWithRoot(page);
+  const layer = await openThreadFromFeed(page);
+  await expect(layer.getByText('Alice answered on the guild line')).toBeVisible(
+    { timeout: 3_000 }
+  );
 });
 
 test('skeleton rows hold the reply slot while the tree loads — the discover peek never flashes', async ({
