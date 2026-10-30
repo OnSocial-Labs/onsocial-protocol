@@ -435,10 +435,13 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 
 /* Gesture panel chrome: @onsocial/ui/os-gesture-sheet-header.css */
 
-/* Page drawer — unlayered so these beat imported glass-sheet rules. */
-.glass-sheet-panel.page-drawer-panel {
-  height: min(95dvh, 54rem);
-  max-height: min(95dvh, 54rem);
+/*
+ * Page drawer covers the face. The X and the drag handle close it.
+ * Beats the 720px drawer cap, which left a third of the card empty.
+ */
+.glass-sheet-root .glass-sheet-panel.page-drawer-panel {
+  height: 100%;
+  max-height: none;
   --glass-header-scrim-height: min(6.5rem, 24%);
   /* Same 1rem column as Home / Market — sheet is not inside .os-app-screen. */
   --os-screen-body-pad-x: 1rem;
@@ -2270,12 +2273,6 @@ button.post-media-tile {
 .guild-thread-nav-membership.os-sheet-actions--borderless
   .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded) {
   box-shadow: none;
-}
-
-@media (min-width: 768px) {
-  .glass-sheet-panel.page-drawer-panel {
-    height: min(95dvh, 54rem);
-  }
 }
 
 /* Wallet grip — mood accent color only (same pill shape as standing). */
@@ -16344,28 +16341,6 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.48);
   }
 
-  .page-drawer-meta-sep {
-    margin-inline: 0.28rem;
-    color: rgb(var(--fg-rgb) / 0.22);
-    user-select: none;
-  }
-
-  .page-drawer-fact {
-    white-space: nowrap;
-  }
-
-  .page-drawer-fact-count {
-    font-size: 0.78rem;
-    font-weight: 650;
-    letter-spacing: -0.02em;
-    color: rgb(var(--fg-rgb) / 0.78);
-  }
-
-  .page-drawer-fact-unit {
-    font-weight: 500;
-    color: rgb(var(--fg-rgb) / 0.42);
-  }
-
   .page-drawer-joined {
     display: inline-flex;
     align-items: center;
@@ -16417,30 +16392,6 @@ a.os-surface-row,
     color: color-mix(
       in srgb,
       var(--mood-muted, rgb(var(--fg-rgb) / 0.48)) 92%,
-      transparent
-    );
-  }
-
-  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-fact-count {
-    color: color-mix(
-      in srgb,
-      var(--mood-text, rgb(var(--fg-rgb) / 0.82)) 88%,
-      transparent
-    );
-  }
-
-  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-fact-unit {
-    color: color-mix(
-      in srgb,
-      var(--mood-muted, rgb(var(--fg-rgb) / 0.42)) 90%,
-      transparent
-    );
-  }
-
-  .page-drawer-panel[data-tone='mood-thread'] .page-drawer-meta-sep {
-    color: color-mix(
-      in srgb,
-      var(--mood-muted, rgb(var(--fg-rgb) / 0.3)) 55%,
       transparent
     );
   }

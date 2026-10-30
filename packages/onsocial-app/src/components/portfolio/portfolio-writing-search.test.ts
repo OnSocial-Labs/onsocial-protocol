@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 const here = dirname(fileURLToPath(import.meta.url));
 const chrome = readFileSync(join(here, 'portfolio-writing-chrome.tsx'), 'utf8');
 const panel = readFileSync(join(here, 'portfolio-writing-panel.tsx'), 'utf8');
+const list = readFileSync(join(here, 'portfolio-writing-list.tsx'), 'utf8');
+const opening = readFileSync(join(here, 'writing-shelf-opening.tsx'), 'utf8');
 const globalsCss = readFileSync(join(here, '../../app/globals.css'), 'utf8');
 const navSearch = readFileSync(
   join(here, '../../../../onsocial-ui/src/os-app-chrome-nav-search.tsx'),
@@ -40,6 +42,15 @@ describe('Writing shelf search', () => {
     expect(panel).toContain('resolveWritingShelfCount');
     expect(panel).toContain('query={listQuery}');
     expect(panel).toContain('articleCount={shelfCount}');
-    expect(panel).toContain('memo(function PortfolioWritingList');
+    expect(list).toContain('memo(function PortfolioWritingList');
+  });
+
+  it('opens from the reader with the shelf list, not a second card tree', () => {
+    expect(opening).toContain('<PortfolioWritingList');
+    expect(opening).toContain('<WritingShelfFrame');
+    expect(opening).not.toContain('portfolio-writing-card');
+    expect(opening).not.toContain('parseArticleSnapshot');
+    expect(list).toContain('WritingShelfFrame');
+    expect(list).toContain('portfolio-writing portfolio-writing--list');
   });
 });

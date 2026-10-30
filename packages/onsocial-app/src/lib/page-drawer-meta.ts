@@ -78,51 +78,6 @@ export function formatCompactCount(count: number): string {
   }).format(n);
 }
 
-export function formatCountLabel(
-  count: number,
-  singular: string,
-  plural: string
-): string | null {
-  if (!Number.isFinite(count) || count <= 0) {
-    return null;
-  }
-  const n = Math.floor(count);
-  const unit = n === 1 ? singular : plural;
-  return `${formatCompactCount(n)} ${unit}`;
-}
-
-export interface PageDrawerCountPart {
-  key: string;
-  count: string;
-  unit: string;
-}
-
-/** Non-joined activity chips for the compact meta row. */
-export function pageDrawerActivityParts(meta: {
-  postCount: number;
-  guildCount: number;
-  scarceMintCount: number;
-}): PageDrawerCountPart[] {
-  const parts: PageDrawerCountPart[] = [];
-
-  const push = (key: string, count: number, singular: string, plural: string) => {
-    if (!Number.isFinite(count) || count <= 0) {
-      return;
-    }
-    const n = Math.floor(count);
-    parts.push({
-      key,
-      count: formatCompactCount(n),
-      unit: n === 1 ? singular : plural,
-    });
-  };
-
-  push('posts', meta.postCount, 'post', 'posts');
-  push('guilds', meta.guildCount, 'guild', 'guilds');
-  push('scarces', meta.scarceMintCount, 'scarce', 'scarces');
-  return parts;
-}
-
 /** DAO / protocol roles only — reputation score stays on the face. */
 export function formatPageDrawerCredentialsLine(meta: {
   daoRoleLabels: string[];

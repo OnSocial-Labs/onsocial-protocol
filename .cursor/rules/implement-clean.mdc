@@ -1,0 +1,40 @@
+---
+description: Industry-standard implementation — one layout, stable first paint, tokens, no leftovers
+alwaysApply: true
+---
+
+# Implement to the industry bar
+
+Read the rule and the component that already own the surface. Ship that pattern. A feature-only class, a second copy of a list, or a padding number invented for one screen is a rejected patch — remove it in the same change, before calling the work done.
+
+## Bar
+
+- **One layout.** Compose the component that already paints the settled screen. Do not fork its markup.
+- **Stable first paint.** The first frame is the final layout. A stand-in that then shifts (Cumulative Layout Shift) is a failed open.
+- **Tokens.** Spacing, type, and color come from the existing chrome tokens (`--os-screen-body-pad-x`, sheet heights, the face rule). Do not invent a one-screen number.
+- **Cascade.** A selector that loses in the browser does not exist. Match or beat the rule you must override, then confirm the computed value.
+- **Dismiss stays reachable.** Covering a surface keeps a labeled close and the drag handle. Do not trap the page.
+- **Same-change cleanup.** Delete what this change orphaned: unused exports, duplicate markup, CSS for a class nothing renders, helpers with no callers.
+- **Locked decisions.** When the user changes a product rule, update that rule in the same change.
+
+## Do not
+
+- Mount a stand-in page and restyle it until the real page arrives.
+- Leave the rejected approach in the tree because the new path works.
+- Wait to be asked to clean leftovers.
+
+```tsx
+// Rejected: a second card tree, then a padding rule only that tree uses.
+<ul className="portfolio-writing-list">...</ul>
+
+// The shelf already has the inset. Render it.
+<PortfolioWritingList ... />
+```
+
+```css
+/* Rejected: loses to the 720px drawer cap, so the sheet never grows. */
+.glass-sheet-panel.page-drawer-panel { height: 95dvh; }
+
+/* Wins: same weight as the cap, later in the app sheet. */
+.glass-sheet-root .glass-sheet-panel.page-drawer-panel { height: 100%; }
+```

@@ -1,16 +1,13 @@
 'use client';
 
 import {
-  memo,
   useEffect,
   useLayoutEffect,
   useCallback,
   useMemo,
   useRef,
   useState,
-  type MouseEvent,
 } from 'react';
-import Link from 'next/link';
 import type { PostRow } from '@onsocial/sdk';
 import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -22,49 +19,28 @@ import {
   WritingIdentityToolbar,
   WritingSearchHeading,
 } from '@/components/portfolio/portfolio-writing-chrome';
-import { PortfolioWritingCover } from '@/components/portfolio/portfolio-writing-cover';
-import { PostRichText } from '@/features/home/post-rich-text';
+import {
+  PortfolioWritingList,
+  type PortfolioWritingPanelProps,
+} from '@/components/portfolio/portfolio-writing-list';
 import { useOverlayDismiss } from '@/contexts/overlay-dismiss-context';
-import { useAppWallet } from '@/contexts/app-wallet-context';
-import { useWritingComposeOpen } from '@/contexts/writing-compose-context';
-import { useEssayReturnSearch } from '@/hooks/use-essay-return-search';
 import { useSearchDraft } from '@/hooks/use-search-draft';
 import {
-  articleExcerpt,
   articleMatchesQuery,
-  formatWritingLikeLabel,
-  formatWritingReadLabel,
-  parseArticleSnapshot,
-  resolveArticleCover,
-  resolveWritingEmptyState,
   resolveWritingListQuery,
   resolveWritingShelfCount,
   shouldShowWritingSearch,
 } from '@/lib/article-post-payload';
-import { accountIdsEqual } from '@/lib/account-match';
 import type { WritingArticleCoverHint } from '@/lib/hydrate-writing-article-covers';
 import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
-import { withEssayReturnSearch } from '@/lib/essay-return-href';
-import { OsEmptyAction } from '@/lib/os-empty-action';
-import { portfolioPath, writingArticlePath } from '@/lib/overlay-routes';
+import { portfolioPath } from '@/lib/overlay-routes';
 import {
   endPortfolioShelfHop,
   markWritingShelfArrived,
 } from '@/lib/portfolio-shelf-hop';
-import { rememberWritingShelf } from '@/lib/writing-shelf-return';
 import { consumeEssayReopen } from '@/lib/essay-return';
-import {
-  formatPostTimestamp,
-  formatWritingShelfTimestamp,
-  parsePostText,
-  postKey,
-  postTimestampIso,
-} from '@/lib/post-display';
-import {
-  EMPTY_POST_ENGAGEMENT,
-  usePostEngagement,
-} from '@/hooks/use-post-engagement';
+import { postKey } from '@/lib/post-display';
 import {
   markPortfolioClientReady,
   unmarkPortfolioClientReady,
@@ -77,169 +53,7 @@ import {
   WRITING_SHELF_FETCH_LIMIT,
 } from '@/lib/load-portfolio-writing';
 
-export type PortfolioWritingPanelProps = {
-  accountId: string;
-  titleLabel: string;
-  avatarUrl?: string | null;
-  articles: PostRow[];
-  coverHints?: Record<string, WritingArticleCoverHint>;
-  /** Next post offset. Null when the shelf has the last page. */
-  articleNextOffset?: number | null;
-};
-
-const PortfolioWritingList = memo(function PortfolioWritingList({
-  accountId,
-  titleLabel,
-  avatarUrl,
-  articles,
-  coverHints,
-  query,
-  showSearch,
-  onOpenArticle,
-}: PortfolioWritingPanelProps & {
-  query: string;
-  showSearch: boolean;
-  onOpenArticle: (post: PostRow) => void;
-}) {
-  const { accountId: viewerId } = useAppWallet();
-  const returnSearch = useEssayReturnSearch();
-  const isOwner = Boolean(viewerId && accountIdsEqual(viewerId, accountId));
-  const openPost = useWritingComposeOpen();
-  const { engagement } = usePostEngagement(articles);
-
-  const rows = useMemo(
-    () =>
-      articles.filter((post) =>
-        showSearch ? articleMatchesQuery(post, query) : true
-      ),
-    [articles, query, showSearch]
-  );
-  const emptyState = resolveWritingEmptyState({
-    isOwner,
-    articleCount: articles.length,
-    matchCount: rows.length,
-    canCompose: Boolean(openPost),
-  });
-
-  return (
-    <article className="portfolio-writing portfolio-writing--list">
-      {emptyState ? (
-        <div className="portfolio-writing-empty">
-          <p>
-            {emptyState === 'owner-cta' || emptyState === 'owner-copy'
-              ? 'Longer pieces live here.'
-              : emptyState === 'visitor'
-                ? 'No articles yet.'
-                : 'No matching articles.'}
-          </p>
-          {emptyState === 'owner-cta' && openPost ? (
-            <OsEmptyAction onClick={() => openPost({ article: true })}>
-              Write an article
-            </OsEmptyAction>
-          ) : null}
-        </div>
-      ) : (
-        <ul className="portfolio-writing-list">
-          {rows.map((post) => {
-            const article = parseArticleSnapshot(post.value);
-            if (!article) return null;
-            const hint = coverHints?.[postKey(post)];
-            const cover = resolveArticleCover({
-              value: post.value,
-              scarceMediaUrl: hint?.mediaUrl,
-              scarceCardBg: hint?.cardBg,
-            });
-            const issuedAt =
-              typeof post.blockTimestamp === 'number'
-                ? post.blockTimestamp
-                : Number(post.blockTimestamp) || 0;
-            const absolute = formatPostTimestamp(post.blockTimestamp);
-            const iso = postTimestampIso(post.blockTimestamp);
-            const readLabel = formatWritingReadLabel(parsePostText(post.value));
-            const shelfTime = formatWritingShelfTimestamp(post.blockTimestamp);
-            const likeLabel = formatWritingLikeLabel(
-              (engagement[postKey(post)] ?? EMPTY_POST_ENGAGEMENT).reactionCount
-            );
-            const articleHref = withEssayReturnSearch(
-              writingArticlePath(post.accountId, post.postId),
-              returnSearch
-            );
-            const openArticle = (event: MouseEvent<HTMLAnchorElement>) => {
-              if (
-                event.metaKey ||
-                event.ctrlKey ||
-                event.shiftKey ||
-                event.altKey
-              ) {
-                rememberWritingShelf(accountId);
-                return;
-              }
-              event.preventDefault();
-              onOpenArticle(post);
-            };
-            return (
-              <li key={`${post.accountId}:${post.postId}`}>
-                <Link
-                  href={articleHref}
-                  className="portfolio-writing-card"
-                  prefetch
-                  aria-label={article.title}
-                  onClick={openArticle}
-                >
-                  <div className="portfolio-writing-cover" aria-hidden>
-                    <PortfolioWritingCover
-                      variant="list"
-                      title={article.title}
-                      coverUrl={cover.coverUrl}
-                      cardBg={cover.cardBg}
-                      format={cover.format}
-                      markShape={cover.markShape}
-                      markColor={cover.markColor}
-                      accountId={post.accountId}
-                      displayName={titleLabel}
-                      avatarUrl={avatarUrl}
-                      postId={post.postId}
-                      issuedAt={issuedAt}
-                    />
-                  </div>
-                  <div className="portfolio-writing-card-copy">
-                    <h2 className="portfolio-writing-card-title">
-                      {article.title}
-                    </h2>
-                    <p className="portfolio-writing-card-excerpt">
-                      <PostRichText
-                        text={articleExcerpt(post.value)}
-                        inlineMarks
-                        emptyFallback=""
-                      />
-                    </p>
-                    <p className="portfolio-writing-card-meta">
-                      <time dateTime={iso} title={absolute}>
-                        {shelfTime}
-                      </time>
-                      {readLabel ? (
-                        <>
-                          <span aria-hidden> · </span>
-                          <span>{readLabel}</span>
-                        </>
-                      ) : null}
-                      {likeLabel ? (
-                        <>
-                          <span aria-hidden> · </span>
-                          <span>{likeLabel}</span>
-                        </>
-                      ) : null}
-                    </p>
-                  </div>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </article>
-  );
-});
+export type { PortfolioWritingPanelProps };
 
 function useWritingShelfState(articleCount: number) {
   const search = useSearchDraft('');

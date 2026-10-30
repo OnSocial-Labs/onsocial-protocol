@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { OsPageSheet } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OverlayGlassHeader } from '@/components/overlay/overlay-glass-header';
-import { PortfolioWritingCover } from '@/components/portfolio/portfolio-writing-cover';
-import { PostRichText } from '@/features/home/post-rich-text';
+import {
+  PortfolioWritingList,
+  WritingShelfFrame,
+} from '@/components/portfolio/portfolio-writing-list';
 import {
   WritingIdentityToolbar,
   WritingSearchHeading,
@@ -14,11 +16,7 @@ import {
 import { OverlayChromeProvider } from '@/contexts/overlay-chrome-context';
 import { OverlayDismissProvider } from '@/contexts/overlay-dismiss-context';
 import { APP_HOME_PATH } from '@/lib/app-routes';
-import {
-  articleExcerpt,
-  parseArticleSnapshot,
-  resolveArticleCover,
-} from '@/lib/article-post-payload';
+import { rememberEssayReopen } from '@/lib/essay-return';
 import { displayName } from '@/lib/profile-display';
 import {
   endPortfolioShelfHop,
@@ -51,7 +49,7 @@ export function WritingShelfOpening() {
   );
   const face = hop.face;
   const articles =
-    face && warm.accountId === face.accountId ? (warm.articles ?? []) : [];
+    face && warm.accountId === face.accountId ? warm.articles : null;
   const portal = typeof document === 'undefined' ? null : document.body;
 
   if (!hop.active || hop.arrived || !face || !portal) return null;
@@ -76,7 +74,6 @@ export function WritingShelfOpening() {
             onClose={requestDismiss}
             presentation="appear"
             portalContainer={portal}
-            rootClassName="writing-shelf-opening"
             zIndex={SHEET_Z.overlayHost}
             ariaLabelledBy="overlay-title"
             backdropLabel="Close panel"
@@ -102,64 +99,32 @@ export function WritingShelfOpening() {
                     accountId={face.accountId}
                     titleLabel={titleLabel}
                     avatarUrl={face.avatarUrl}
-                    articleCount={articles.length}
+                    articleCount={articles?.length ?? 0}
                   />
                 }
               >
-                {articles.length > 0 ? (
-                  <ul className="portfolio-writing-list">
-                    {articles.map((post) => {
-                      const article = parseArticleSnapshot(post.value);
-                      if (!article) return null;
-                      const cover = resolveArticleCover({ value: post.value });
-                      const issuedAt =
-                        typeof post.blockTimestamp === 'number'
-                          ? post.blockTimestamp
-                          : Number(post.blockTimestamp) || 0;
-                      return (
-                        <li key={`${post.accountId}:${post.postId}`}>
-                          <div className="portfolio-writing-card">
-                            <div
-                              className="portfolio-writing-cover"
-                              aria-hidden
-                            >
-                              <PortfolioWritingCover
-                                variant="list"
-                                title={article.title}
-                                coverUrl={cover.coverUrl}
-                                cardBg={cover.cardBg}
-                                format={cover.format}
-                                markShape={cover.markShape}
-                                markColor={cover.markColor}
-                                accountId={post.accountId}
-                                displayName={titleLabel}
-                                avatarUrl={face.avatarUrl}
-                                postId={post.postId}
-                                issuedAt={issuedAt}
-                              />
-                            </div>
-                            <div className="portfolio-writing-card-copy">
-                              <h2 className="portfolio-writing-card-title">
-                                {article.title}
-                              </h2>
-                              <p className="portfolio-writing-card-excerpt">
-                                <PostRichText
-                                  text={articleExcerpt(post.value)}
-                                  inlineMarks
-                                  emptyFallback=""
-                                />
-                              </p>
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                {articles ? (
+                  <PortfolioWritingList
+                    accountId={face.accountId}
+                    titleLabel={titleLabel}
+                    avatarUrl={face.avatarUrl}
+                    articles={articles}
+                    query=""
+                    showSearch={false}
+                    onOpenArticle={(post) => {
+                      rememberEssayReopen({
+                        accountId: post.accountId,
+                        postId: post.postId,
+                      });
+                    }}
+                  />
                 ) : (
-                  <div className="portfolio-writing-pending" aria-hidden>
-                    <span className="standing-row-shimmer portfolio-writing-pending-row" />
-                    <span className="standing-row-shimmer portfolio-writing-pending-row" />
-                  </div>
+                  <WritingShelfFrame hidden>
+                    <div className="portfolio-writing-pending">
+                      <span className="standing-row-shimmer portfolio-writing-pending-row" />
+                      <span className="standing-row-shimmer portfolio-writing-pending-row" />
+                    </div>
+                  </WritingShelfFrame>
                 )}
               </OsAppScreen>
             </div>

@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Fragment,
   Suspense,
   useCallback,
   useEffect,
@@ -32,7 +31,6 @@ import { pageContentDrawerPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import {
   formatPageDrawerJoinedLabel,
-  pageDrawerActivityParts,
   type PageDrawerMeta,
 } from '@/lib/page-drawer-meta';
 import type { PublicPageStats } from '@/lib/page-data';
@@ -51,8 +49,8 @@ import {
 } from '@/lib/portfolio-holdings';
 import { SHEET_Z } from '@/lib/sheet-z';
 
-/** Tall page sheet — thin mood-face strip above (~95dvh). */
-const PAGE_DRAWER_PEEK_RATIO = 0.95;
+/** Covers the face. A short drag snaps back; past the dismiss gap the handle closes it. */
+const PAGE_DRAWER_PEEK_RATIO = 1;
 
 function seedDrawerHoldings(
   accountId: string,
@@ -75,15 +73,7 @@ interface PageContentDrawerProps {
   storeShelf?: ProfileStoreShelf;
 }
 
-function MetaSep() {
-  return (
-    <span className="page-drawer-meta-sep" aria-hidden>
-      ·
-    </span>
-  );
-}
-
-/** Compact chrome — name + facts + rail tabs; credentials/tags live in Joined. */
+/** Compact chrome — name + Joined. Counts live in the tabs and the facts sheet. */
 function PageDrawerHeader({
   meta,
   titleId,
@@ -97,9 +87,7 @@ function PageDrawerHeader({
   onOpenJoined: () => void;
   rail: ReactNode;
 }) {
-  const activityParts = pageDrawerActivityParts(meta);
   const joinedLabel = formatPageDrawerJoinedLabel(meta.joinedAt);
-  const hasFactsRow = activityParts.length > 0 || Boolean(joinedLabel);
 
   return (
     <div className="page-drawer-header">
@@ -107,31 +95,17 @@ function PageDrawerHeader({
         <div className="page-drawer-meta">
           <p className="page-drawer-name">{meta.name}</p>
 
-          {hasFactsRow ? (
+          {joinedLabel ? (
             <p className="page-drawer-facts">
-              {activityParts.map((part, index) => (
-                <Fragment key={part.key}>
-                  {index > 0 ? <MetaSep /> : null}
-                  <span className="page-drawer-fact">
-                    <span className="page-drawer-fact-count">{part.count}</span>
-                    <span className="page-drawer-fact-unit"> {part.unit}</span>
-                  </span>
-                </Fragment>
-              ))}
-              {joinedLabel ? (
-                <>
-                  {activityParts.length > 0 ? <MetaSep /> : null}
-                  <button
-                    type="button"
-                    className="page-drawer-joined group"
-                    onClick={onOpenJoined}
-                    aria-label={`Account facts · Joined ${joinedLabel}`}
-                  >
-                    <span>Joined {joinedLabel}</span>
-                    <ProtocolMotionArrow className="page-drawer-joined-arrow" />
-                  </button>
-                </>
-              ) : null}
+              <button
+                type="button"
+                className="page-drawer-joined group"
+                onClick={onOpenJoined}
+                aria-label={`Account facts · Joined ${joinedLabel}`}
+              >
+                <span>Joined {joinedLabel}</span>
+                <ProtocolMotionArrow className="page-drawer-joined-arrow" />
+              </button>
             </p>
           ) : null}
         </div>

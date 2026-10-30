@@ -22,8 +22,8 @@ The portfolio is a **one-page public face**, not a Portal action dashboard.
 
 Extension of the face, not a second portfolio and not a chapter list:
 
-- Tall glass sheet (~95dvh) so a thin strip of mood face stays visible
-- Compact header: **name** + one facts line (non-zero posts · guilds · scarces, then **Joined Mon YYYY ›**). DAO roles / tags live in the Joined account-facts sheet
+- Covers the face. Close with the X, or drag the handle down
+- Compact header: **name** + **Joined Mon YYYY ›**. Posts, guilds, and scarces stay in the rail tabs and in the Joined account-facts sheet. DAO roles / tags live in that sheet
 - **Joined** is clickable → slim account-facts sheet, not a second face card
 - Account facts OnSocial: Joined · fused `Updated Mar 12 · Name · Banner` (omit when same day as Joined) · activity/roles/tags when present; NEAR: Network · Account · Created
 - Header chrome under the facts is **rail tabs**: Posts · Replies · Reposts · Media, plus Scarces and Collectibles only when that account has them. The open tab is the drawer body (`?tab=`). One scroller
@@ -205,5 +205,4 @@ New gesture sheets: `OsGestureSheet` + `bodyClassName="profile-support-sheet-bod
 - Put profile tags on the face — drawer only (quiet text, no pills)
 - Re-introduce the person in the page drawer (no second avatar · name · handle card; no bio bridge)
 - Stack avatar · name · handle **and** a bare verb title on gesture sheets when already on their face
-- Open the page drawer as a full-bleed wipe — keep a mood-face peek
 - Add host-only body padding that fights UI `.os-gesture-sheet-body` or drifts from `.standing-panel`

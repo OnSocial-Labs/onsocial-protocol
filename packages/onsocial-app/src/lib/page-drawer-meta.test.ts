@@ -7,7 +7,6 @@ import {
   formatPageDrawerJoinedFullLabel,
   formatPageDrawerJoinedLabel,
   formatPageDrawerUpdatedFieldsLine,
-  pageDrawerActivityParts,
   resolveLatestProfileUpdateFields,
   shouldShowProfileUpdated,
   sortDaoRoleIds,
@@ -40,31 +39,6 @@ describe('formatPageDrawerJoinedLabel', () => {
   it('returns null for missing timestamps', () => {
     expect(formatPageDrawerJoinedLabel(null)).toBeNull();
     expect(formatPageDrawerJoinedLabel(0)).toBeNull();
-  });
-});
-
-describe('pageDrawerActivityParts', () => {
-  it('omits zero counts', () => {
-    expect(
-      pageDrawerActivityParts({
-        postCount: 18,
-        guildCount: 12,
-        scarceMintCount: 0,
-      })
-    ).toEqual([
-      { key: 'posts', count: '18', unit: 'posts' },
-      { key: 'guilds', count: '12', unit: 'guilds' },
-    ]);
-  });
-
-  it('compacts large counts', () => {
-    expect(
-      pageDrawerActivityParts({
-        postCount: 1540,
-        guildCount: 0,
-        scarceMintCount: 0,
-      })
-    ).toEqual([{ key: 'posts', count: '1.5K', unit: 'posts' }]);
   });
 });
 

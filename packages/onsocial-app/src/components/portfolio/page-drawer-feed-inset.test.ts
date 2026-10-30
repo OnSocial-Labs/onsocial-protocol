@@ -18,7 +18,10 @@ const collection = readFileSync(
 describe('page drawer feed inset', () => {
   it('uses the app column token, not a 1.15rem sheet pad', () => {
     expect(globalsCss).toMatch(
-      /\.glass-sheet-panel\.page-drawer-panel \{[\s\S]*?--os-screen-body-pad-x: 1rem;/
+      /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[\s\S]*?height: 100%;[\s\S]*?max-height: none;[\s\S]*?--os-screen-body-pad-x: 1rem;/
+    );
+    expect(globalsCss).not.toMatch(
+      /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[^}]*54rem/
     );
     expect(globalsCss).toMatch(
       /\.page-drawer-body \{[\s\S]*?padding: 0\.1rem var\(--os-screen-body-pad-x, 1rem\) 0;/

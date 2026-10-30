@@ -349,6 +349,15 @@
   --glass-header-scrim-height: min(5.5rem, 24%);
 }
 
+/* A page on the window is not clipped by the card, so it draws the card radius. */
+@media (min-width: 640px) {
+  .glass-sheet-root:not(.glass-sheet-root--hosted)
+    .glass-sheet-panel.os-page-sheet-panel {
+    border-radius: 1.25rem;
+    overflow: hidden;
+  }
+}
+
 .glass-sheet-root--hosted .glass-sheet-panel.os-page-sheet-panel {
   height: 100%;
   max-height: none;
@@ -841,7 +850,8 @@ html:has(
 }
 
 @media (min-width: 768px) {
-  .glass-sheet-panel:not([data-sizing='hug']) {
+  /* Drawers rest at 720px. A phone page stays the page (`os-page-sheet-panel`). */
+  .glass-sheet-panel:not([data-sizing='hug']):not(.os-page-sheet-panel) {
     height: min(calc(100dvh - env(safe-area-inset-bottom, 0px)), 720px);
   }
 }
