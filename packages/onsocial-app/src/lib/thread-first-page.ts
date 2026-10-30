@@ -38,6 +38,42 @@ export function directRepliesToTree(replies: PostRow[]): ThreadNode[] {
   return replies.map((post) => leafThreadNode(post, postContentPath(post)));
 }
 
+/** Content paths for the direct-reply page passed to `visibleReplies`. */
+export function visibleReplyPaths(replies: PostRow[]): string[] {
+  const paths: string[] = [];
+  for (const post of replies) {
+    const path = postContentPath(post).trim();
+    if (path) paths.push(path);
+  }
+  return paths;
+}
+
+/**
+ * Attach the one visible reply under each direct reply that does not already
+ * have children. A finished walk is left as it is.
+ */
+export function graftVisibleReplies(
+  nodes: ThreadNode[],
+  children: PostRow[]
+): ThreadNode[] {
+  const byParent = new Map<string, PostRow>();
+  for (const child of children) {
+    const parent = child.parentPath?.trim();
+    if (!parent || byParent.has(parent)) continue;
+    byParent.set(parent, child);
+  }
+  if (byParent.size === 0) return nodes;
+  return nodes.map((node) => {
+    if (node.replies.length > 0) return node;
+    const child = byParent.get(node.path);
+    if (!child) return node;
+    return {
+      ...node,
+      replies: [leafThreadNode(child, postContentPath(child))],
+    };
+  });
+}
+
 export function threadContentPath(input: {
   accountId: string;
   postId: string;

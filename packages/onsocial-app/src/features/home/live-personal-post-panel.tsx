@@ -57,8 +57,10 @@ import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
 import {
   directRepliesToTree,
+  graftVisibleReplies,
   shouldPaintDirectReplies,
   startThreadFirstPage,
+  visibleReplyPaths,
 } from '@/lib/thread-first-page';
 import { planThreadLoad } from '@/lib/thread-open';
 import { collectRelationTargetAccountIds } from '@/lib/post-relation';
@@ -480,6 +482,21 @@ export function LivePersonalPostPanel({
               setReplyTree(replyTree);
               setHasMoreReplies(first.hasMore);
               setRepliesResolved(true);
+              const visiblePaths = visibleReplyPaths(first.replies);
+              if (visiblePaths.length > 0) {
+                void client.query.threads
+                  .visibleReplies(visiblePaths)
+                  .then((children) => {
+                    if (refreshRequestIdRef.current !== requestId) return;
+                    if (paginatedRef.current) return;
+                    setReplyTree((current) =>
+                      graftVisibleReplies(current, children)
+                    );
+                  })
+                  .catch(() => {
+                    // The tree walk still fills the line.
+                  });
+              }
               const root = seeded?.root ?? null;
               if (root) {
                 writeThreadSession(rootPath, {

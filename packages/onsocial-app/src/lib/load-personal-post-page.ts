@@ -13,6 +13,8 @@ import {
   THREAD_REPLY_FIRST_PAGE,
   directRepliesToTree,
   directReplyPageHasMore,
+  graftVisibleReplies,
+  visibleReplyPaths,
 } from '@/lib/thread-first-page';
 
 export const THREAD_REPLY_PAGE_SIZE = 50;
@@ -67,9 +69,17 @@ export const loadPersonalPostPageData = cache(
 
       if (!root) return null;
       const replyPage = replyResult.rows;
-      const replyTree = directRepliesToTree(replyPage);
+      const visibleChildren = replyResult.ok
+        ? await os.query.threads
+            .visibleReplies(visibleReplyPaths(replyPage))
+            .catch(() => [] as PostRow[])
+        : [];
+      const replyTree = graftVisibleReplies(
+        directRepliesToTree(replyPage),
+        visibleChildren
+      );
       const quotes = quotesResult;
-      const paintPosts = [root, ...quotes, ...replyPage];
+      const paintPosts = [root, ...quotes, ...replyPage, ...visibleChildren];
       const [engagement, scarceEmbeds] = await Promise.all([
         loadPostEngagementMap(os, paintPosts),
         hydrateScarceEmbedsForPosts(os, paintPosts),

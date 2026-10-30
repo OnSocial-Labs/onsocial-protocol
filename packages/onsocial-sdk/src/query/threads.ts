@@ -5,7 +5,7 @@
 
 import type { QueryModule } from './index.js';
 import type { Paginated, PostRow } from './types.js';
-import { accountFromContentPath } from './_shared.js';
+import { accountFromContentPath, GraphQLValidationError } from './_shared.js';
 
 const DEFAULT_THREAD_LIMIT = 100;
 const DEFAULT_THREAD_TREE_DEPTH = 4;
@@ -13,6 +13,13 @@ const DEFAULT_THREAD_TREE_MAX_NODES = 500;
 const DEFAULT_THREAD_TREE_PAGE_SIZE = 100;
 const MAX_THREAD_TREE_DEPTH = 12;
 const MAX_THREAD_TREE_PAGE_SIZE = 250;
+
+/** Hasura tracks `text[]` as `_text`. Quote each path so it stays one element. */
+function hasuraTextArray(values: readonly string[]): string {
+  return `{${values
+    .map((value) => `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
+    .join(',')}}`;
+}
 
 interface ReplyRow {
   replyAuthor: string;
@@ -261,6 +268,39 @@ export class ThreadsQuery {
     opts: { limit?: number; offset?: number } = {}
   ): Promise<PostRow[]> {
     return (await this._repliesPageByPath(parentPath, opts)).items;
+  }
+
+  /**
+   * The one reply the thread page shows under each direct reply.
+   * One indexer call for the whole page. An untracked function returns [].
+   */
+  async visibleReplies(parentPaths: readonly string[]): Promise<PostRow[]> {
+    const paths = [
+      ...new Set(parentPaths.map((path) => path.trim()).filter(Boolean)),
+    ].slice(0, 12);
+    if (paths.length === 0) return [];
+    try {
+      const res = await this._q.graphql<{
+        threadVisibleReplies?: ReplyRow[];
+      }>({
+        query: `query ThreadVisibleReplies($paths: _text) {
+          threadVisibleReplies(args: { paths: $paths }) {
+            replyAuthor replyId value blockHeight blockTimestamp groupId
+            parentAuthor parentPath parentType
+          }
+        }`,
+        variables: { paths: hasuraTextArray(paths) },
+      });
+      return (res.data?.threadVisibleReplies ?? []).map(mapReply);
+    } catch (err) {
+      if (
+        err instanceof GraphQLValidationError &&
+        /threadVisibleReplies/i.test(err.message)
+      ) {
+        return [];
+      }
+      throw err;
+    }
   }
 
   /**

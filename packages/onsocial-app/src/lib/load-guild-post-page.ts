@@ -12,6 +12,8 @@ import {
   THREAD_REPLY_FIRST_PAGE,
   directRepliesToTree,
   directReplyPageHasMore,
+  graftVisibleReplies,
+  visibleReplyPaths,
 } from '@/lib/thread-first-page';
 
 export type GuildPostPageData = {
@@ -65,10 +67,23 @@ export const loadGuildPostPageData = cache(
 
       if (!rootResult) return null;
       const replyPage = replyResult.rows;
-      const replyTree = directRepliesToTree(replyPage);
+      const visibleChildren = replyResult.ok
+        ? await os.query.threads
+            .visibleReplies(visibleReplyPaths(replyPage))
+            .catch(() => [] as PostRow[])
+        : [];
+      const replyTree = graftVisibleReplies(
+        directRepliesToTree(replyPage),
+        visibleChildren
+      );
       const quotes = quotesResult;
       const shell = shellRows[0] ?? null;
-      const paintPosts = [rootResult, ...quotes, ...replyPage];
+      const paintPosts = [
+        rootResult,
+        ...quotes,
+        ...replyPage,
+        ...visibleChildren,
+      ];
       const [engagement, scarceEmbeds] = await Promise.all([
         loadPostEngagementMap(os, paintPosts),
         hydrateScarceEmbedsForPosts(os, paintPosts),
