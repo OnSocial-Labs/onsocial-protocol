@@ -119,11 +119,14 @@ async function stubGuildThreadGraph(
   opts: {
     replies?: boolean;
     treeDelayMs: () => number;
+    /** Nested reply queries. Defaults to the root delay. */
+    childDelayMs?: () => number;
     countsDelayMs?: number;
     peekDelayMs?: number;
   }
 ): Promise<void> {
   const withReplies = opts.replies ?? true;
+  const childDelayMs = opts.childDelayMs ?? opts.treeDelayMs;
   await page.route('**/api/onapi/graph/query', async (route: Route) => {
     const body = JSON.parse(route.request().postData() ?? '{}') as {
       query?: string;
@@ -140,7 +143,8 @@ async function stubGuildThreadGraph(
     }
 
     if (query.includes('RepliesByPath')) {
-      await sleep(opts.treeDelayMs());
+      const nested = vars.parentPath && vars.parentPath !== ROOT_PATH;
+      await sleep(nested ? childDelayMs() : opts.treeDelayMs());
       const replies =
         withReplies && vars.parentPath === ROOT_PATH ? [replyRow()] : [];
       await route.fulfill(json({ data: { threadReplies: replies } }));
@@ -191,6 +195,19 @@ async function openThreadFromFeed(page: Page) {
   await expect(layer).toBeVisible({ timeout: 15_000 });
   return layer;
 }
+
+test('direct replies paint while nested reply queries are still in flight', async ({
+  page,
+}) => {
+  await stubGuildPage(page, { feedRows: GUILD_E2E_FEED_ROWS });
+  await stubGuildThreadGraph(page, {
+    treeDelayMs: () => 200,
+    childDelayMs: () => 8_000,
+  });
+  await gotoGuildFeedWithRoot(page);
+  const layer = await openThreadFromFeed(page);
+  await expect(layer.getByText(REPLY.text)).toBeVisible({ timeout: 3_000 });
+});
 
 test('skeleton rows hold the reply slot while the tree loads — the discover peek never flashes', async ({
   page,
@@ -265,7 +282,10 @@ test('an empty thread swaps skeletons for the discover peek only after loading',
   page,
 }) => {
   await stubGuildPage(page, { feedRows: GUILD_E2E_FEED_ROWS });
-  await stubGuildThreadGraph(page, { replies: false, treeDelayMs: () => 1_200 });
+  await stubGuildThreadGraph(page, {
+    replies: false,
+    treeDelayMs: () => 1_200,
+  });
   await gotoGuildFeedWithRoot(page);
   const layer = await openThreadFromFeed(page);
 

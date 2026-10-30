@@ -7,13 +7,12 @@ import {
   type PostEngagementMap,
   type PostScarceEmbedMap,
 } from '@/lib/feed-paint-hydrate';
+import { THREAD_QUOTE_PAGE_SIZE } from '@/lib/load-personal-post-page';
 import {
-  THREAD_QUOTE_PAGE_SIZE,
-  THREAD_REPLY_PAGE_SIZE,
-  THREAD_REPLY_TREE_DEPTH,
-  THREAD_REPLY_TREE_MAX_NODES,
-} from '@/lib/load-personal-post-page';
-import { flattenTreePosts } from '@/lib/thread-display';
+  THREAD_REPLY_FIRST_PAGE,
+  directRepliesToTree,
+  directReplyPageHasMore,
+} from '@/lib/thread-first-page';
 
 export type GuildPostPageData = {
   root: PostRow;
@@ -21,6 +20,8 @@ export type GuildPostPageData = {
   quotes: PostRow[];
   replyTree: ThreadNode[];
   hasMoreReplies: boolean;
+  /** The server already fetched the direct-reply page, including an empty one. */
+  directRepliesResolved?: boolean;
   guildName: string | null;
   memberDriven: boolean;
   accessGated: boolean;
@@ -43,7 +44,13 @@ export const loadGuildPostPageData = cache(
     try {
       const os = createServerOnSocialClient();
       const postRef = { author: accountId, groupId: gid, postId: id };
-      const [rootResult, quotesResult, treeResult, shellRows] =
+      const replyFetch = os.query.groups
+        .thread(postRef, { limit: THREAD_REPLY_FIRST_PAGE })
+        .then(
+          (rows) => ({ ok: true as const, rows }),
+          () => ({ ok: false as const, rows: [] as PostRow[] })
+        );
+      const [rootResult, quotesResult, replyResult, shellRows] =
         await Promise.all([
           os.query.groups.post(postRef),
           os.query.groups
@@ -52,36 +59,27 @@ export const loadGuildPostPageData = cache(
               order: 'desc',
             })
             .catch(() => [] as PostRow[]),
-          os.query.groups
-            .threadTree(postRef, {
-              depth: THREAD_REPLY_TREE_DEPTH,
-              includeQuotes: false,
-              replyLimit: THREAD_REPLY_PAGE_SIZE,
-              maxNodes: THREAD_REPLY_TREE_MAX_NODES,
-            })
-            .catch(() => ({ replies: [] as ThreadNode[] })),
+          replyFetch,
           os.query.groups.byIds([gid]).catch(() => []),
         ]);
 
       if (!rootResult) return null;
-      const replyTree = treeResult.replies ?? [];
+      const replyPage = replyResult.rows;
+      const replyTree = directRepliesToTree(replyPage);
       const quotes = quotesResult;
       const shell = shellRows[0] ?? null;
-      const paintPosts = [
-        rootResult,
-        ...quotes,
-        ...flattenTreePosts(replyTree),
-      ];
+      const paintPosts = [rootResult, ...quotes, ...replyPage];
       const [engagement, scarceEmbeds] = await Promise.all([
         loadPostEngagementMap(os, paintPosts),
         hydrateScarceEmbedsForPosts(os, paintPosts),
       ]);
       return {
         root: rootResult,
-        replies: replyTree.map((node) => node.post),
+        replies: replyPage,
         quotes,
         replyTree,
-        hasMoreReplies: replyTree.length >= THREAD_REPLY_PAGE_SIZE,
+        hasMoreReplies: directReplyPageHasMore(replyPage.length),
+        directRepliesResolved: replyResult.ok,
         guildName: shell?.groupName?.trim() || null,
         memberDriven: Boolean(shell?.isMemberDriven),
         accessGated: shell?.isPublic === false,

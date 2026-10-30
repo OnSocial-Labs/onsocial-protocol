@@ -68,6 +68,8 @@ import {
   SHEET_Z,
 } from '@/lib/sheet-z';
 import { PostLayerOwnerZProvider } from '@/features/home/post-layer-owner-z';
+import { PostRowSkeleton } from '@/features/home/post-skeleton';
+import { threadContentPath, warmThreadOpen } from '@/lib/thread-first-page';
 import {
   appendTrailEntry,
   collapseTrailToTop,
@@ -85,7 +87,7 @@ const LivePersonalPostPanel = dynamic(
     import('@/features/home/live-personal-post-panel').then(
       (mod) => mod.LivePersonalPostPanel
     ),
-  { ssr: false }
+  { ssr: false, loading: () => <PostRowSkeleton rows={2} /> }
 );
 
 const CollectionPagePanel = dynamic(
@@ -101,7 +103,7 @@ const LiveGuildPostPanel = dynamic(
     import('@/features/guilds/live-guild-post-panel').then(
       (mod) => mod.LiveGuildPostPanel
     ),
-  { ssr: false }
+  { ssr: false, loading: () => <PostRowSkeleton rows={2} /> }
 );
 
 const PostQuotesPanel = dynamic(
@@ -838,6 +840,10 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
             }
           : null;
       if (!parsed) return false;
+      warmThreadOpen(
+        threadContentPath(parsed),
+        parsed.groupId ? 'guild' : 'personal'
+      );
       const canonical = personal
         ? canonicalizePostLayerHref(href)
         : canonicalizeGuildPostLayerHref(href);

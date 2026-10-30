@@ -9,7 +9,11 @@ import {
 } from '@/lib/feed-paint-hydrate';
 import { fetchPersonalPost } from '@/lib/fetch-personal-post';
 import { personalPostContentPath } from '@/lib/post-routes';
-import { flattenTreePosts } from '@/lib/thread-display';
+import {
+  THREAD_REPLY_FIRST_PAGE,
+  directRepliesToTree,
+  directReplyPageHasMore,
+} from '@/lib/thread-first-page';
 
 export const THREAD_REPLY_PAGE_SIZE = 50;
 export const THREAD_QUOTE_PAGE_SIZE = 12;
@@ -22,6 +26,11 @@ export type PersonalPostPageData = {
   quotes: PostRow[];
   replyTree: ThreadNode[];
   hasMoreReplies: boolean;
+  /**
+   * The server already fetched the direct-reply page. An empty list is a
+   * real empty thread, not a feed seed still waiting on the indexer.
+   */
+  directRepliesResolved?: boolean;
   engagement: PostEngagementMap;
   scarceEmbeds: PostScarceEmbedMap;
 };
@@ -39,7 +48,13 @@ export const loadPersonalPostPageData = cache(
     try {
       const os = createServerOnSocialClient();
       const rootPath = personalPostContentPath(accountId, id);
-      const [root, quotesResult, treeResult] = await Promise.all([
+      const replyFetch = os.query.threads
+        .repliesByPath(rootPath, { limit: THREAD_REPLY_FIRST_PAGE })
+        .then(
+          (rows) => ({ ok: true as const, rows }),
+          () => ({ ok: false as const, rows: [] as PostRow[] })
+        );
+      const [root, quotesResult, replyResult] = await Promise.all([
         fetchPersonalPost({ author: accountId, postId: id }, os),
         os.query.threads
           .quotes(accountId, id, {
@@ -47,30 +62,25 @@ export const loadPersonalPostPageData = cache(
             order: 'desc',
           })
           .catch(() => [] as PostRow[]),
-        os.query.threads
-          .treeByPath(rootPath, {
-            depth: THREAD_REPLY_TREE_DEPTH,
-            includeQuotes: false,
-            replyLimit: THREAD_REPLY_PAGE_SIZE,
-            maxNodes: THREAD_REPLY_TREE_MAX_NODES,
-          })
-          .catch(() => ({ replies: [] as ThreadNode[] })),
+        replyFetch,
       ]);
 
       if (!root) return null;
-      const replyTree = treeResult.replies ?? [];
+      const replyPage = replyResult.rows;
+      const replyTree = directRepliesToTree(replyPage);
       const quotes = quotesResult;
-      const paintPosts = [root, ...quotes, ...flattenTreePosts(replyTree)];
+      const paintPosts = [root, ...quotes, ...replyPage];
       const [engagement, scarceEmbeds] = await Promise.all([
         loadPostEngagementMap(os, paintPosts),
         hydrateScarceEmbedsForPosts(os, paintPosts),
       ]);
       return {
         root,
-        replies: replyTree.map((node) => node.post),
+        replies: replyPage,
         quotes,
         replyTree,
-        hasMoreReplies: replyTree.length >= THREAD_REPLY_PAGE_SIZE,
+        hasMoreReplies: directReplyPageHasMore(replyPage.length),
+        directRepliesResolved: replyResult.ok,
         engagement,
         scarceEmbeds,
       };
