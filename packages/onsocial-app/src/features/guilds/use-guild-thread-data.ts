@@ -162,13 +162,14 @@ export function useGuildThreadData({
     () => seeded?.replyTree ?? []
   );
   /*
-   * Discover-peek gate. Until the first tree fetch resolves we cannot know
+   * Discover-peek gate. Until the first reply page resolves we cannot know
    * whether replies exist — mounting the peek in that window flashes a
    * "More from …" card that the incoming replies then replace. A cache hit
-   * counts as resolved: the empty tree it holds is real data.
+   * or a permalink that already fetched the page counts as resolved.
    */
   const [repliesResolved, setRepliesResolved] = useState(
-    () => sessionSeed.fromCache
+    () =>
+      sessionSeed.fromCache || Boolean(sessionSeed.data?.directRepliesResolved)
   );
   const [localReplies, setLocalReplies] = useState<PostRow[]>([]);
   const [localQuotes, setLocalQuotes] = useState<PostRow[]>([]);
@@ -226,6 +227,7 @@ export function useGuildThreadData({
         const paintDirect = shouldPaintDirectReplies({
           fromCache: sessionSeed.fromCache,
           paginated: paginatedRef.current,
+          directRepliesResolved: sessionSeed.data?.directRepliesResolved,
         });
         const firstPagePromise = paintDirect
           ? startThreadFirstPage(rootPath)
@@ -445,6 +447,7 @@ export function useGuildThreadData({
       postId,
       rootPath,
       seeded,
+      sessionSeed.data?.directRepliesResolved,
       sessionSeed.fromCache,
       threadKey,
     ]

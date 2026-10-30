@@ -22,12 +22,16 @@ export function directReplyPageHasMore(
   return count >= pageSize;
 }
 
-/** A cached thread already shows replies. A paged list must not be replaced by page one. */
+/**
+ * A cached thread already shows replies. A paged list must not be replaced
+ * by page one. A permalink that already fetched this page waits on the walk.
+ */
 export function shouldPaintDirectReplies(input: {
   fromCache: boolean;
   paginated: boolean;
+  directRepliesResolved?: boolean;
 }): boolean {
-  return !input.fromCache && !input.paginated;
+  return !input.fromCache && !input.paginated && !input.directRepliesResolved;
 }
 
 export function directRepliesToTree(replies: PostRow[]): ThreadNode[] {

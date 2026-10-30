@@ -57,6 +57,13 @@ describe('thread first page', () => {
     expect(
       shouldPaintDirectReplies({ fromCache: false, paginated: true })
     ).toBe(false);
+    expect(
+      shouldPaintDirectReplies({
+        fromCache: false,
+        paginated: false,
+        directRepliesResolved: true,
+      })
+    ).toBe(false);
   });
 
   it('treats a full page as more replies', () => {
