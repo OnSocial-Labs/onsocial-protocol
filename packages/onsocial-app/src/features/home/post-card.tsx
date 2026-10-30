@@ -12,7 +12,11 @@ import {
   type PointerEvent,
 } from 'react';
 import Link from 'next/link';
-import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
+import {
+  postContentPath,
+  type PostRow,
+  type PostScarceEmbed,
+} from '@onsocial/sdk';
 import { RepeatIcon, UsersFillIcon } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { QuotedPostInset } from '@/features/home/post-card-quote';
@@ -45,6 +49,7 @@ import {
   isUnmodifiedPrimaryClick,
   usePostThreadLayer,
 } from '@/features/home/post-thread-layer';
+import { warmThreadOpen } from '@/lib/thread-first-page';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { WritingReadDocument } from '@/features/scarces/scarce-writing-read-sheet';
 import { FeedArticleReadScreen } from '@/features/home/feed-article-read-screen';
@@ -427,8 +432,9 @@ function PostCardImpl({
   /** Reply on an open photo, drop, player, or writing — same thread drawer. */
   const [photoThreadOpen, setPhotoThreadOpen] = useState(false);
   const openPhotoThread = useCallback(() => {
+    warmThreadOpen(postContentPath(post), post.groupId ? 'guild' : 'personal');
     setPhotoThreadOpen(true);
-  }, []);
+  }, [post]);
   const dismissPhotoThread = useCallback(() => {
     setPhotoThreadOpen(false);
   }, []);
@@ -839,7 +845,11 @@ function PostCardImpl({
     })();
   };
   const finishDropReadRef = useRef<
-    (ahead: DropReadAhead | null, coverSvg: string | null, ticket: number) => void
+    (
+      ahead: DropReadAhead | null,
+      coverSvg: string | null,
+      ticket: number
+    ) => void
   >(() => {});
   finishDropReadRef.current = (ahead, coverSvg, ticket) => {
     if (ticket !== dropReadTicket.current) return;
@@ -1271,8 +1281,7 @@ function PostCardImpl({
   );
 
   const dropEssayAuthorReady =
-    !feedReadEssay ||
-    arePostAuthorProfilesResolved([feedReadEssay.accountId]);
+    !feedReadEssay || arePostAuthorProfilesResolved([feedReadEssay.accountId]);
   const showDropEssay = Boolean(feedReadEssay) && dropEssayAuthorReady;
   /** Shell is up. The essay page waits until its author face is known. */
   const dropReaderHolding =

@@ -55,6 +55,11 @@ import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useLandOpenedPost } from '@/hooks/use-land-opened-post';
 import { useThreadFocusReply } from '@/hooks/use-thread-focus-reply';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
+import {
+  directRepliesToTree,
+  shouldPaintDirectReplies,
+  startThreadFirstPage,
+} from '@/lib/thread-first-page';
 import { planThreadLoad } from '@/lib/thread-open';
 import { collectRelationTargetAccountIds } from '@/lib/post-relation';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
@@ -195,12 +200,7 @@ export function LivePersonalPostPanel({
   replyDockEnabled = true,
 }: LivePersonalPostPanelProps) {
   seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
-  const {
-    accountId,
-    isConnected,
-    isLoading: walletLoading,
-    connect,
-  } = useAppWallet();
+  const { accountId, isConnected, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const router = useRouter();
@@ -280,6 +280,7 @@ export function LivePersonalPostPanel({
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const paginatedRef = useRef(false);
+  const refreshRequestIdRef = useRef(0);
   const reconcileTimersRef = useRef<number[]>([]);
   const openedPostRef = useRef<HTMLDivElement>(null);
 
@@ -435,6 +436,7 @@ export function LivePersonalPostPanel({
 
   const refresh = useCallback(
     async (options: { background?: boolean } = {}) => {
+      const requestId = ++refreshRequestIdRef.current;
       if (!options.background) {
         setLoadState('loading');
         setError(null);
@@ -442,21 +444,60 @@ export function LivePersonalPostPanel({
 
       try {
         const client = createReadOnlyOnSocialClient();
-        const [rootResult, quotesResult, treeResult] = await Promise.allSettled(
-          [
-            fetchPersonalPost({ author, postId }),
-            client.query.threads.quotes(author, postId, {
-              limit: QUOTE_PAGE_SIZE,
-              order: 'desc',
-            }),
-            client.query.threads.treeByPath(rootPath, {
-              depth: REPLY_TREE_DEPTH,
-              includeQuotes: false,
-              replyLimit: REPLY_PAGE_SIZE,
-              maxNodes: REPLY_TREE_MAX_NODES,
-            }),
-          ]
-        );
+        const paintDirect = shouldPaintDirectReplies({
+          fromCache: sessionSeed.fromCache,
+          paginated: paginatedRef.current,
+        });
+        const firstPagePromise = paintDirect
+          ? startThreadFirstPage(rootPath)
+          : null;
+        const restPromise = Promise.allSettled([
+          fetchPersonalPost({ author, postId }),
+          client.query.threads.quotes(author, postId, {
+            limit: QUOTE_PAGE_SIZE,
+            order: 'desc',
+          }),
+          client.query.threads.treeByPath(rootPath, {
+            depth: REPLY_TREE_DEPTH,
+            includeQuotes: false,
+            replyLimit: REPLY_PAGE_SIZE,
+            maxNodes: REPLY_TREE_MAX_NODES,
+          }),
+        ]);
+
+        if (firstPagePromise) {
+          try {
+            const first = await firstPagePromise;
+            if (refreshRequestIdRef.current !== requestId) return;
+            if (!paginatedRef.current) {
+              const replyTree = directRepliesToTree(first.replies);
+              setConversation((current) => ({
+                ...current,
+                replies: first.replies,
+              }));
+              setReplyTree(replyTree);
+              setHasMoreReplies(first.hasMore);
+              setRepliesResolved(true);
+              const root = seeded?.root ?? null;
+              if (root) {
+                writeThreadSession(rootPath, {
+                  root,
+                  replies: first.replies,
+                  quotes: seeded?.quotes ?? [],
+                  replyTree,
+                  hasMoreReplies: first.hasMore,
+                  engagement: engagementLatestRef.current,
+                  scarceEmbeds: {},
+                });
+              }
+            }
+          } catch {
+            // The tree walk below still resolves the thread.
+          }
+        }
+
+        const [rootResult, quotesResult, treeResult] = await restPromise;
+        if (refreshRequestIdRef.current !== requestId) return;
 
         if (rootResult.status === 'rejected') {
           throw rootResult.reason;
@@ -478,8 +519,8 @@ export function LivePersonalPostPanel({
         }
         const fetchedQuotes =
           quotesResult.status === 'fulfilled' ? quotesResult.value : [];
-        const fetchedTree =
-          treeResult.status === 'fulfilled' ? treeResult.value.replies : [];
+        const treeOk = treeResult.status === 'fulfilled';
+        const fetchedTree = treeOk ? treeResult.value.replies : [];
         const fetchedTreePosts = flattenTreePosts(fetchedTree);
 
         setLocalReplies((current) =>
@@ -490,24 +531,28 @@ export function LivePersonalPostPanel({
         );
 
         if (!options.background || !paginatedRef.current) {
-          setConversation({
+          setConversation((current) => ({
             root,
-            replies: fetchedTree.map((node) => node.post),
+            replies: treeOk
+              ? fetchedTree.map((node) => node.post)
+              : current.replies,
             quotes: fetchedQuotes,
-          });
-          setReplyTree(fetchedTree);
-          setHasMoreReplies(fetchedTree.length >= REPLY_PAGE_SIZE);
-          if (root) {
-            writeThreadSession(rootPath, {
-              root,
-              replies: fetchedTree.map((node) => node.post),
-              quotes: fetchedQuotes,
-              replyTree: fetchedTree,
-              hasMoreReplies: fetchedTree.length >= REPLY_PAGE_SIZE,
-              engagement: engagementLatestRef.current,
-              // Scarce embeds only ever seed from SSR; the ledger refetches.
-              scarceEmbeds: {},
-            });
+          }));
+          if (treeOk) {
+            setReplyTree(fetchedTree);
+            setHasMoreReplies(fetchedTree.length >= REPLY_PAGE_SIZE);
+            if (root) {
+              writeThreadSession(rootPath, {
+                root,
+                replies: fetchedTree.map((node) => node.post),
+                quotes: fetchedQuotes,
+                replyTree: fetchedTree,
+                hasMoreReplies: fetchedTree.length >= REPLY_PAGE_SIZE,
+                engagement: engagementLatestRef.current,
+                // Scarce embeds only ever seed from SSR; the ledger refetches.
+                scarceEmbeds: {},
+              });
+            }
           }
         }
         setRepliesResolved(true);
@@ -517,6 +562,7 @@ export function LivePersonalPostPanel({
         }
       } catch (cause) {
         if (options.background) return;
+        if (refreshRequestIdRef.current !== requestId) return;
         setRepliesResolved(true);
         setLoadState('error');
         setError(
@@ -524,14 +570,22 @@ export function LivePersonalPostPanel({
         );
       }
     },
-    [author, postId, rootPath, router, searchParams]
+    [
+      author,
+      postId,
+      rootPath,
+      router,
+      searchParams,
+      seeded,
+      sessionSeed.fromCache,
+    ]
   );
 
   useEffect(() => {
-    if (walletLoading) return;
     let cancelled = false;
     const key = rootPath;
     // One load per setup. A second effect pass must not blank a painted card.
+    // The read is public, so it does not wait for the wallet.
     queueMicrotask(() => {
       if (cancelled) return;
       const plan = planThreadLoad(paintedKeyRef.current, key);
@@ -541,7 +595,7 @@ export function LivePersonalPostPanel({
     return () => {
       cancelled = true;
     };
-  }, [refresh, rootPath, walletLoading]);
+  }, [refresh, rootPath]);
 
   useEffect(() => {
     const timers = reconcileTimersRef.current;

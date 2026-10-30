@@ -91,17 +91,21 @@ async function stubGraph(
   opts: {
     replies?: boolean;
     treeDelayMs: () => number;
+    /** Nested reply queries. Defaults to the root delay. */
+    childDelayMs?: () => number;
     countsDelayMs?: number;
   }
 ): Promise<void> {
   const withReplies = opts.replies ?? true;
+  const childDelayMs = opts.childDelayMs ?? opts.treeDelayMs;
   await page.route('**/api/onapi/graph/query', async (route: Route) => {
     const body = JSON.parse(route.request().postData() ?? '{}') as GraphBody;
     const query = body.query ?? '';
     const vars = body.variables ?? {};
 
     if (query.includes('threadReplies')) {
-      await sleep(opts.treeDelayMs());
+      const nested = vars.parentPath && vars.parentPath !== REPLY.parentPath;
+      await sleep(nested ? childDelayMs() : opts.treeDelayMs());
       const replies =
         withReplies && vars.parentPath === REPLY.parentPath
           ? [replyRow(REPLY)]
@@ -198,6 +202,18 @@ async function openThreadFromFeed(page: Page) {
   await expect(layer).toBeVisible({ timeout: 10_000 });
   return layer;
 }
+
+test('direct replies paint while nested reply queries are still in flight', async ({
+  page,
+}) => {
+  await stubGraph(page, {
+    treeDelayMs: () => 200,
+    childDelayMs: () => 8_000,
+  });
+  await gotoFeedWithRoot(page);
+  const layer = await openThreadFromFeed(page);
+  await expect(layer.getByText(REPLY.text)).toBeVisible({ timeout: 3_000 });
+});
 
 test('skeleton rows hold the reply slot while the tree loads — the discover peek never flashes', async ({
   page,
