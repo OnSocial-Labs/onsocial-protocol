@@ -20,6 +20,7 @@ import {
   standingSheetAlreadyCovered,
   getNetworkStandingHandoffPhase,
 } from '@/components/panels/network-standing-handoff';
+import { writingShelfAlreadyCovered } from '@/lib/portfolio-shelf-hop';
 import type { OverlaySlotMode } from '@/lib/overlay-slot';
 import {
   portfolioPanelIsFullScreen,
@@ -197,12 +198,15 @@ export function PortfolioGlassHost({
   });
   const [hostMounted, setHostMounted] = useState(false);
   const [presentation, setPresentation] = useState<'appear' | 'swap'>(() =>
-    standingSheetAlreadyCovered() ? 'swap' : 'appear'
+    standingSheetAlreadyCovered() || writingShelfAlreadyCovered()
+      ? 'swap'
+      : 'appear'
   );
   const [trackedPanelKey, setTrackedPanelKey] = useState<string | null>(null);
-  const sheetPresentation = standingSheetAlreadyCovered()
-    ? 'swap'
-    : presentation;
+  const sheetPresentation =
+    standingSheetAlreadyCovered() || writingShelfAlreadyCovered()
+      ? 'swap'
+      : presentation;
 
   if (overlayPresent && !hostMounted) {
     setHostMounted(true);
@@ -237,7 +241,9 @@ export function PortfolioGlassHost({
   if (overlayPresent && panelKey && panelKey !== trackedPanelKey) {
     // A sheet that already covered the map stays put when the route finishes.
     setPresentation(
-      standingSheetAlreadyCovered() || trackedPanelKey != null
+      standingSheetAlreadyCovered() ||
+        writingShelfAlreadyCovered() ||
+        trackedPanelKey != null
         ? 'swap'
         : 'appear'
     );

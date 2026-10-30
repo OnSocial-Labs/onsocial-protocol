@@ -402,7 +402,8 @@ describe('home feed session wiring', () => {
     expect(sessionSrc).not.toContain('localStorage');
     expect(pageSrc).not.toContain('localStorage');
     expect(hostSrc).toContain('<HomePagePanel />');
-    expect(hostSrc).toContain('onFeed ? page');
+    expect(hostSrc).toContain('let feedTree = page');
+    expect(hostSrc).toContain('retainFeed ? openedFeed');
     expect(hostSrc).not.toContain('loadHomeFeedPage');
     const routeSrc = readFileSync(
       join(libDir, '../features/home/home-feed-route.tsx'),

@@ -137,20 +137,12 @@ export const loadPortfolioWritingForAccount = cache(
       loadPortfolioWritingChrome(accountId),
       fetchAccountArticles(accountId),
     ]);
-    const articles = feed.articles;
 
-    let coverHints: Record<string, WritingArticleCoverHint> = {};
-    try {
-      const os = createServerOnSocialClient();
-      coverHints = await hydrateWritingArticleCovers(articles, os);
-    } catch {
-      coverHints = {};
-    }
-
+    // Titles paint with the post payload. Scarce covers fill in on the client.
     return {
       ...chrome,
-      articles,
-      coverHints,
+      articles: feed.articles,
+      coverHints: {},
       articleNextOffset: feed.nextOffset,
     };
   }

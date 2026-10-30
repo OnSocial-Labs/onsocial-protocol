@@ -27,7 +27,10 @@ describe('feed session host wiring', () => {
     );
 
     expect(host).toContain('<HomePagePanel />');
-    expect(host).toContain('onFeed ? page');
+    expect(host).toContain('let feedTree = page');
+    expect(host).toContain('retainFeed ? openedFeed');
+    expect(host).toContain('shouldRetainOpenedFeed');
+    expect(host).toContain('WritingShelfOpening');
     expect(host).toContain('setKeepFeed');
     expect(host).toContain('if (onFeed && !keepFeed)');
     expect(host).not.toContain("display: 'none'");

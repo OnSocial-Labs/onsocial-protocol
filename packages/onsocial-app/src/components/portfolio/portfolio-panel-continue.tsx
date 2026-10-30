@@ -2,8 +2,12 @@
 
 import { Suspense, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { PORTFOLIO_SHELF_PARAM } from '@/components/portfolio/account-place-link';
+import {
+  PORTFOLIO_SHELF_PARAM,
+  prefetchPortfolioHref,
+} from '@/components/portfolio/account-place-link';
 import { isPortfolioOverlayPath, portfolioPath } from '@/lib/overlay-routes';
+import { startWritingShelfWarm } from '@/lib/writing-shelf-warm';
 
 /**
  * Home cannot open Writing directly. The face hop lands here, then this
@@ -17,7 +21,11 @@ function PortfolioPanelContinueInner({ accountId }: { accountId: string }) {
   const startedRef = useRef(false);
 
   useLayoutEffect(() => {
-    if (!shelf?.startsWith('/') || shelf.startsWith('//') || startedRef.current) {
+    if (
+      !shelf?.startsWith('/') ||
+      shelf.startsWith('//') ||
+      startedRef.current
+    ) {
       return;
     }
     const target = `${portfolioPath(accountId)}${shelf}`;
@@ -27,17 +35,19 @@ function PortfolioPanelContinueInner({ accountId }: { accountId: string }) {
     const next = new URLSearchParams(search.toString());
     next.delete(PORTFOLIO_SHELF_PARAM);
     const qs = next.toString();
-    router.replace(qs ? `${target}?${qs}` : target);
+    const href = qs ? `${target}?${qs}` : target;
+    startWritingShelfWarm(accountId);
+    prefetchPortfolioHref(
+      router.prefetch as (href: string, options?: { kind: 'full' }) => void,
+      href
+    );
+    router.replace(href);
   }, [accountId, pathname, router, search, shelf]);
 
   return null;
 }
 
-export function PortfolioPanelContinue({
-  accountId,
-}: {
-  accountId: string;
-}) {
+export function PortfolioPanelContinue({ accountId }: { accountId: string }) {
   return (
     <Suspense fallback={null}>
       <PortfolioPanelContinueInner accountId={accountId} />
@@ -46,11 +56,7 @@ export function PortfolioPanelContinue({
 }
 
 /** Hide the face for the instant before the shelf continues. */
-export function PortfolioShelfHopFrame({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function PortfolioShelfHopFrame({ children }: { children: ReactNode }) {
   return (
     <Suspense fallback={children}>
       <PortfolioShelfHopFrameInner>{children}</PortfolioShelfHopFrameInner>
