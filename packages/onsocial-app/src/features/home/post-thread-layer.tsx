@@ -20,6 +20,7 @@ import type { PostRow } from '@onsocial/sdk';
 import {
   ChevronLeftIcon,
   OsIconAction,
+  GLASS_SHEET_MEDIA_FACE_LIFT,
   OsPageSheet,
   resolveGlassSheetZIndex,
 } from '@onsocial/ui';
@@ -30,6 +31,10 @@ import { accountIdsEqual } from '@/lib/account-match';
 import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
 import type { GuildPostPageData } from '@/lib/load-guild-post-page';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
+import {
+  requestCloseMediaFaces,
+  setMediaFacesHeld,
+} from '@/lib/media-face-session';
 import { startJoinedMedia } from '@/lib/single-media-playback';
 import { postKey } from '@/lib/post-display';
 import {
@@ -66,8 +71,10 @@ import { PostLayerOwnerZProvider } from '@/features/home/post-layer-owner-z';
 import {
   appendTrailEntry,
   collapseTrailToTop,
+  replyOpenedOverMediaFace,
   isReaderLayerKind,
   isSameReaderTarget,
+  revealTrailReader,
   replaceStackWith,
   retabTopQuotes,
   walkBackOneStep,
@@ -219,6 +226,11 @@ type PostThreadLayerValue = {
     root?: PostRow | null;
     context?: ThreadSheetContext | null;
     rootEngagement?: PostEngagement | null;
+    /**
+     * This post sits above the one on screen (an ancestor). Show it again
+     * like a feed open. Do not push another sheet on top of the reply.
+     */
+    returnToPost?: boolean;
   }) => boolean;
   openPostQuotes: (input: { href: string }) => boolean;
   openDrop: (input: { href: string }) => boolean;
@@ -255,6 +267,16 @@ function isOverlayPlacePathname(pathname: string): boolean {
     parseInAppPostLayerHref(pathname) != null ||
     parseInAppDropLayerHref(pathname) != null
   );
+}
+
+function topOpenMediaFaceZ(): number | null {
+  if (typeof document === 'undefined') return null;
+  const node = document.querySelector<HTMLElement>(
+    '[data-os-slide-over="true"]:not(.is-closing)'
+  );
+  if (!node) return null;
+  const z = Number(getComputedStyle(node).zIndex);
+  return Number.isFinite(z) ? z : null;
 }
 
 function nextStackedLayerZ(stack: PlaceLayerTarget[]): number {
@@ -711,6 +733,16 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     setUnderlayPath(null);
   }
 
+  const mediaFaceCovered =
+    stack.some((entry) => entry.id !== closingId) && isOsMediaFaceOpen();
+
+  useLayoutEffect(() => {
+    setMediaFacesHeld(mediaFaceCovered);
+    return () => {
+      if (mediaFaceCovered) setMediaFacesHeld(false);
+    };
+  }, [mediaFaceCovered]);
+
   const beginCloseTop = useCallback(() => {
     const top = stackRef.current[stackRef.current.length - 1];
     if (!top || closingIdRef.current) return false;
@@ -782,11 +814,13 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
       root = null,
       context = null,
       rootEngagement = null,
+      returnToPost = false,
     }: {
       href: string;
       root?: PostRow | null;
       context?: ThreadSheetContext | null;
       rootEngagement?: PostEngagement | null;
+      returnToPost?: boolean;
     }) => {
       const personal = parseInAppPostLayerHref(href);
       const guild = personal ? null : parseGuildPostLayerHref(href);
@@ -828,14 +862,66 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         return true;
       }
 
-      const top = stackRef.current[stackRef.current.length - 1];
-      if (top && isSameReaderTarget(top, { kind: 'post', ...parsed })) {
+      const revealed = revealTrailReader(stackRef.current, {
+        kind: 'post',
+        ...parsed,
+      });
+      if (revealed?.at === 'top') {
+        // Already the open post. Drop a film covering it so this is the post.
+        requestCloseMediaFaces();
+        return true;
+      }
+      if (revealed?.at === 'back') {
+        closingIdRef.current = null;
+        setClosingId(null);
+        stackRef.current = revealed.stack;
+        setStack(revealed.stack);
+        requestCloseMediaFaces();
+        if (typeof window === 'undefined') return true;
+        getPostLayerPopGuard().depth = 1;
+        const currentUrl = `${window.location.pathname}${window.location.search}`;
+        if (currentUrl !== canonical) {
+          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
+        }
+        return true;
+      }
+
+      // An ancestor is not a new step. One sheet, the same as the feed.
+      if (returnToPost && stackRef.current.length > 0) {
+        const only: PostThreadLayerTarget = {
+          id: `post-layer-${++seqRef.current}`,
+          kind: 'post',
+          accountId: parsed.accountId,
+          postId: parsed.postId,
+          groupId: parsed.groupId,
+          context,
+          root,
+          rootEngagement,
+          zIndex: nextPostLayerZIndex(null, false),
+          openedAboveMediaFace: false,
+        };
+        closingIdRef.current = null;
+        setClosingId(null);
+        stackRef.current = [only];
+        setStack([only]);
+        requestCloseMediaFaces();
+        if (typeof window === 'undefined') return true;
+        getPostLayerPopGuard().depth = 1;
+        const currentUrl = `${window.location.pathname}${window.location.search}`;
+        if (currentUrl !== canonical) {
+          nativeHistoryReplaceState(withPostLayerHistoryState(), canonical);
+        }
         return true;
       }
 
       // One sheet. Replies you open are a trail behind it, at the same
       // height, so action drawers stay above the icons.
       if (stackRef.current.length > 0) {
+        const placed = replyOpenedOverMediaFace({
+          trailZ: stackRef.current[0]?.zIndex ?? SHEET_Z.overlayHost,
+          mediaFaceZ: topOpenMediaFaceZ(),
+          lift: GLASS_SHEET_MEDIA_FACE_LIFT,
+        });
         const next: PostThreadLayerTarget = {
           id: `post-layer-${++seqRef.current}`,
           kind: 'post',
@@ -845,14 +931,15 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
           context,
           root,
           rootEngagement,
-          zIndex: stackRef.current[0]?.zIndex ?? SHEET_Z.overlayHost,
-          openedAboveMediaFace: isOsMediaFaceOpen(),
+          zIndex: placed.zIndex,
+          openedAboveMediaFace: placed.openedAboveMediaFace,
         };
         const trail = appendTrailEntry(stackRef.current, next);
         closingIdRef.current = null;
         setClosingId(null);
         stackRef.current = trail;
         setStack(trail);
+        // The film stays up under this reply. Back returns to it.
         if (typeof window === 'undefined') return true;
         getPostLayerPopGuard().depth = 1;
         const currentUrl = `${window.location.pathname}${window.location.search}`;

@@ -15,6 +15,180 @@ export type SingleMediaIntent = 'passive' | 'explicit' | 'restart';
 
 const HANDOFF_FLOOR_SEC = 0.35;
 
+/** Hidden launcher element. Foreign media borrows it; this guard must not pause it. */
+const DOCK_HOST_CLASS = 'collectibles-now-playing-host-audio';
+
+export function mediaElementIsDockHost(node: HTMLMediaElement): boolean {
+  return node.classList.contains(DOCK_HOST_CLASS);
+}
+
+/** The real launcher element, when it is mounted. */
+export function launcherAudioElement(
+  doc: Document | null | undefined
+): HTMLAudioElement | null {
+  if (!doc) return null;
+  const node = doc.querySelector(`audio.${DOCK_HOST_CLASS}`);
+  return node instanceof HTMLAudioElement ? node : null;
+}
+
+/**
+ * An explicit post with sound borrows the launcher.
+ * Muted pictures and the launcher itself do not.
+ */
+export function shouldBorrowSpeakers(opts: {
+  intent: SingleMediaIntent;
+  dockHost: boolean;
+  muted: boolean;
+  volume: number;
+}): boolean {
+  if (opts.intent === 'passive' || opts.dockHost) return false;
+  return !opts.muted && opts.volume > 0;
+}
+
+type DockBorrowListener = (
+  node: HTMLMediaElement,
+  phase: 'start' | 'stop'
+) => void;
+
+let dockBorrowListener: DockBorrowListener | null = null;
+
+/** The launcher registers this so a post can pause it before its play event. */
+export function setDockBorrowListener(
+  listener: DockBorrowListener | null
+): void {
+  dockBorrowListener = listener;
+}
+
+export function notifyDockBorrow(
+  node: HTMLMediaElement,
+  phase: 'start' | 'stop'
+): void {
+  dockBorrowListener?.(node, phase);
+}
+
+/**
+ * The dock hold pauses the launcher when a post becomes audible, and resumes
+ * it when that post goes quiet. Pausing the launcher here happens before the
+ * play event, so the hold never records that it should resume.
+ * Resuming the launcher must not stop a muted picture that is still on screen.
+ */
+export function shouldPauseForeignOwner(opts: {
+  pauseOwner: boolean;
+  incomingIsDockHost: boolean;
+  ownerIsDockHost: boolean;
+}): boolean {
+  if (!opts.pauseOwner) return false;
+  if (opts.ownerIsDockHost || opts.incomingIsDockHost) return false;
+  return true;
+}
+
+/** Feed and detail pictures expose mute, not play. The launcher silences them. */
+export const LAUNCHER_RECLAIM_EVENT = 'os-launcher-reclaim';
+
+export type LauncherReclaim = 'keep' | 'pause' | 'mute';
+
+/**
+ * The launcher chip is an explicit ask for the song.
+ * An audible post yields. A mute chip goes silent and keeps playing.
+ * A play button pauses. The dock, a create-drop preview, and muted pictures stay.
+ */
+export function launcherReclaimFor(opts: {
+  dockHost: boolean;
+  dockBorrow: boolean;
+  audible: boolean;
+  soundChip: boolean;
+}): LauncherReclaim {
+  if (opts.dockHost || opts.dockBorrow || !opts.audible) return 'keep';
+  if (opts.soundChip) return 'mute';
+  return 'pause';
+}
+
+export function mediaElementIsAudible(node: HTMLMediaElement): boolean {
+  return !node.muted && node.volume > 0 && !node.paused && !node.ended;
+}
+
+/** Set while a post is about to play, so the launcher does not resume underneath it. */
+export const SPEAKER_CLAIM_ATTR = 'data-os-speaker-claim';
+
+/**
+ * Set only around a src reload of an element that is already playing.
+ * That pause is not the post ending, so the launcher must not come back yet.
+ */
+export const SPEAKER_RELOADING_ATTR = 'data-os-speaker-reloading';
+
+export function speakerIsReloading(node: HTMLMediaElement): boolean {
+  return node.hasAttribute(SPEAKER_RELOADING_ATTR);
+}
+
+/**
+ * The face is covered by a reply, not finished. Pause it without handing
+ * the speakers back, and leave the playhead where it is.
+ */
+export function pauseCoveredMedia(node: HTMLMediaElement): void {
+  if (node.paused || node.ended) return;
+  node.setAttribute(SPEAKER_RELOADING_ATTR, '');
+  node.pause();
+}
+
+/**
+ * Another audible player yields when a post explicitly starts.
+ * The launcher and a create-drop preview are left for their own holds.
+ */
+export function shouldYieldToIncoming(opts: {
+  incoming: boolean;
+  dockHost: boolean;
+  dockBorrow: boolean;
+  audible: boolean;
+}): boolean {
+  if (opts.incoming || opts.dockHost || opts.dockBorrow) return false;
+  return opts.audible;
+}
+
+export function speakerClaimPending(root: ParentNode): boolean {
+  return root.querySelector(`[${SPEAKER_CLAIM_ATTR}]`) != null;
+}
+
+/** Pause every other audible post before this one plays. */
+export function yieldSpeakersTo(incoming: HTMLMediaElement): void {
+  const root = incoming.ownerDocument;
+  if (!root) return;
+  root.querySelectorAll('video, audio').forEach((node) => {
+    if (!(node instanceof HTMLMediaElement)) return;
+    if (
+      !shouldYieldToIncoming({
+        incoming: node === incoming,
+        dockHost: mediaElementIsDockHost(node),
+        dockBorrow: node.dataset.osDockBorrow != null,
+        audible: mediaElementIsAudible(node),
+      })
+    ) {
+      return;
+    }
+    node.pause();
+  });
+}
+
+/** Stop every other audible player before the launcher song starts. */
+export function reclaimSpeakersForLauncher(root: ParentNode): void {
+  root.querySelectorAll('video, audio').forEach((node) => {
+    if (!(node instanceof HTMLMediaElement)) return;
+    const action = launcherReclaimFor({
+      dockHost: mediaElementIsDockHost(node),
+      dockBorrow: node.dataset.osDockBorrow != null,
+      audible: mediaElementIsAudible(node),
+      soundChip: node.dataset.osSoundChip != null,
+    });
+    if (action === 'pause') {
+      node.pause();
+      return;
+    }
+    if (action !== 'mute') return;
+    node.muted = true;
+    delete node.dataset.osListSound;
+    node.dispatchEvent(new Event(LAUNCHER_RECLAIM_EVENT));
+  });
+}
+
 export type SingleMediaOwnerView = {
   sameElement: boolean;
   sameKey: boolean;
@@ -181,6 +355,9 @@ function mediaElementIsStage(node: HTMLMediaElement): boolean {
 
 /** Covered by a parked trail sheet, a kept feed, or a drawer above this node. */
 export function mediaElementIsQuiet(node: HTMLMediaElement): boolean {
+  // The launcher has no box. A 0-size element counts as covered by every
+  // open sheet, which would reject the resume while the post is still up.
+  if (mediaElementIsDockHost(node)) return false;
   const doc = node.ownerDocument;
   const covers: MediaCoverFact[] = [];
   if (doc && node.isConnected) {
@@ -279,7 +456,11 @@ function applyDecision(
     }
   }
   if (
-    decision.pauseOwner &&
+    shouldPauseForeignOwner({
+      pauseOwner: decision.pauseOwner,
+      incomingIsDockHost: mediaElementIsDockHost(node),
+      ownerIsDockHost: owner ? mediaElementIsDockHost(owner.node) : false,
+    }) &&
     owner &&
     owner.node !== node &&
     !owner.node.paused
@@ -309,11 +490,44 @@ export function startJoinedMedia(
   node: HTMLMediaElement,
   intent: SingleMediaIntent = 'passive'
 ): Promise<void> {
+  const borrow = shouldBorrowSpeakers({
+    intent,
+    dockHost: mediaElementIsDockHost(node),
+    muted: node.muted,
+    volume: node.volume,
+  });
+  if (borrow) node.setAttribute(SPEAKER_CLAIM_ATTR, '');
   if (!prepareMediaPlayback(node, intent)) {
+    if (borrow) node.removeAttribute(SPEAKER_CLAIM_ATTR);
     if (!node.paused) node.pause();
     return Promise.resolve();
   }
-  return node.play();
+  if (borrow) {
+    // Record the hold before play(), so the song pauses even when the
+    // play event arrives late, and it still resumes when this post stops.
+    notifyDockBorrow(node, 'start');
+    yieldSpeakersTo(node);
+  }
+  let pending: Promise<void>;
+  try {
+    pending = node.play();
+  } catch (error) {
+    if (borrow) {
+      node.removeAttribute(SPEAKER_CLAIM_ATTR);
+      notifyDockBorrow(node, 'stop');
+    }
+    return Promise.reject(error);
+  }
+  return pending.then(
+    () => {
+      node.removeAttribute(SPEAKER_CLAIM_ATTR);
+    },
+    (error: unknown) => {
+      node.removeAttribute(SPEAKER_CLAIM_ATTR);
+      notifyDockBorrow(node, 'stop');
+      throw error;
+    }
+  );
 }
 
 export function installSingleMediaPlayback(): () => void {

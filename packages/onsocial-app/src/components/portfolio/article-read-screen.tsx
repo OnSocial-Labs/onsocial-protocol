@@ -19,6 +19,7 @@ import {
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { onCloseMediaFaces } from '@/lib/media-face-session';
 import { ArticleReadProgress } from '@/components/portfolio/article-read-progress';
 import { PortfolioWritingArticleCommerce } from '@/components/portfolio/portfolio-writing-article-commerce';
 import {
@@ -28,7 +29,9 @@ import {
 } from '@/components/portfolio/portfolio-writing-article-panel';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
 import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
+import { PostCardMenu } from '@/features/home/post-card-menu';
 import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
+import { postThreadPath } from '@/lib/post-routes';
 import { postLayerOverlayZ } from '@/lib/sheet-z';
 import { useArticleReadChrome } from '@/hooks/use-article-read-chrome';
 import { useEssayReturnSearch } from '@/hooks/use-essay-return-search';
@@ -52,6 +55,37 @@ import type { PostRow } from '@onsocial/sdk';
 import type { WritingArticleCoverHint } from '@/lib/hydrate-writing-article-covers';
 
 export const ARTICLE_READ_CLASS = 'article-read-screen feed-article-slide';
+
+/** Frosted header disc. Stand and the name stay on the page. */
+function ArticleReaderMenu({
+  post,
+  authorName,
+  avatarUrl,
+  zIndex,
+  onOpenPost,
+}: {
+  post: PostRow;
+  authorName: string;
+  avatarUrl?: string | null;
+  zIndex: number;
+  onOpenPost?: () => void;
+}) {
+  return (
+    <PostCardMenu
+      href={postThreadPath(post)}
+      openPostHref={postThreadPath(post)}
+      accountId={post.accountId}
+      authorProfile={{
+        accountId: post.accountId,
+        displayName: authorName,
+        avatarUrl: avatarUrl ?? null,
+      }}
+      besideStand
+      onOpenPost={onOpenPost}
+      zIndex={zIndex}
+    />
+  );
+}
 
 /**
  * Articles opened from More by stay in this reader. Back walks the trail.
@@ -239,7 +273,8 @@ export function ArticleReadOverlay({
     threadOpen?: boolean;
     onDismissThread?: () => void;
   }) {
-  const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
+  const overlayZ = postLayerOverlayZ(usePostLayerOwnerZ());
+  const faceZ = overlayZ.face;
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const { current, openArticle, backArticle } = useArticleReader(
     panel.post,
@@ -254,6 +289,14 @@ export function ArticleReadOverlay({
   const { chromeQuiet, progress, wakeFooter, onChromeTap } =
     useArticleReadChrome(scrollRootRef, open, writePinned);
   const quiet = chromeQuiet && !writePinned;
+  const leaveArticle = useCallback(() => {
+    onDismissThread?.();
+    onOpenChange(false);
+  }, [onDismissThread, onOpenChange]);
+  useEffect(() => {
+    if (!open) return;
+    return onCloseMediaFaces(leaveArticle);
+  }, [leaveArticle, open]);
   const readingRoot = postKey(current) === postKey(panel.post);
   const resolvedFooter = readingRoot ? (
     footer !== undefined ? (
@@ -280,6 +323,21 @@ export function ArticleReadOverlay({
       immersiveHeader
       closeAriaLabel="Back from article"
       closeIcon={<ChevronLeftIcon className="glass-sheet-close-icon" />}
+      actions={
+        <ArticleReaderMenu
+          post={current}
+          authorName={
+            current.accountId === panel.accountId
+              ? panel.titleLabel
+              : current.accountId
+          }
+          avatarUrl={
+            current.accountId === panel.accountId ? panel.avatarUrl : null
+          }
+          zIndex={overlayZ.sheet}
+          onOpenPost={() => onOpenChange(false)}
+        />
+      }
       zIndex={faceZ}
       keepDock={writePinned || threadOpen}
       scrollRootRef={scrollRootRef}
@@ -331,6 +389,7 @@ export function ArticleReadPage(panel: PortfolioWritingArticlePanelProps) {
   );
   const articleTitle =
     parseArticleSnapshot(current.value)?.title?.trim() || 'Writing';
+  const overlayZ = postLayerOverlayZ(usePostLayerOwnerZ());
   const { chromeQuiet, progress, wakeFooter } = useArticleReadChrome(
     scrollRootRef,
     true
@@ -382,6 +441,20 @@ export function ArticleReadPage(panel: PortfolioWritingArticlePanelProps) {
             <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
           </Link>
         </OsIconAction>
+      }
+      actions={
+        <ArticleReaderMenu
+          post={current}
+          authorName={
+            current.accountId === panel.accountId
+              ? panel.titleLabel
+              : current.accountId
+          }
+          avatarUrl={
+            current.accountId === panel.accountId ? panel.avatarUrl : null
+          }
+          zIndex={overlayZ.sheet}
+        />
       }
       footer={<ArticleReadFooter post={current} />}
     >

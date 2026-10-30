@@ -23,6 +23,7 @@ import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import { SCARCE_HERO_WIDTHS, SQUARE_ART_SIZES } from '@/lib/hero-img-variants';
 import { FeedMediaThreadSheet } from '@/features/home/feed-media-thread-sheet';
 import { useFeedThreadBand } from '@/features/home/use-feed-thread-band';
+import { ClipProgressTrack } from '@/features/home/feed-media-progress';
 import { ScarceClipShareButton } from '@/features/scarces/scarce-clip-share-button';
 import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
 import { postLayerOverlayZ } from '@/lib/sheet-z';
@@ -44,7 +45,6 @@ export function ScarceClipListenSheet({
   canNext,
   playDisabled,
   scrubbing,
-  knobPeek,
   duration,
   elapsedRef,
   railRef,
@@ -62,13 +62,9 @@ export function ScarceClipListenSheet({
   onTogglePlay,
   onSkip,
   onLyricsOpenChange,
-  onScrubPointerDown,
-  onScrubPointerMove,
-  onScrubPointerUp,
-  onScrubPointerCancel,
-  onScrubChange,
-  onProgressPointerEnter,
-  onProgressPointerLeave,
+  onScrubStart,
+  onPreview,
+  onCommit,
   footer = null,
   keepDock = false,
   threadOpen = false,
@@ -90,7 +86,6 @@ export function ScarceClipListenSheet({
   canNext: boolean;
   playDisabled: boolean;
   scrubbing: boolean;
-  knobPeek: boolean;
   duration: number;
   elapsedRef: RefObject<HTMLSpanElement | null>;
   railRef: RefObject<HTMLDivElement | null>;
@@ -109,13 +104,9 @@ export function ScarceClipListenSheet({
   onTogglePlay: () => void;
   onSkip: (delta: -1 | 1) => void;
   onLyricsOpenChange: (open: boolean) => void;
-  onScrubPointerDown: (clientX: number, rail: HTMLDivElement | null) => void;
-  onScrubPointerMove: (clientX: number) => void;
-  onScrubPointerUp: (clientX: number) => void;
-  onScrubPointerCancel: (clientX: number) => void;
-  onScrubChange: (value: number) => void;
-  onProgressPointerEnter: () => void;
-  onProgressPointerLeave: () => void;
+  onScrubStart: () => void;
+  onPreview: (time: number) => void;
+  onCommit: (time: number) => void;
   /** Optional post chrome under love/share (Mint/Buy + engagement). */
   footer?: ReactNode;
   /** True only while Reply has the compose dock up. */
@@ -158,6 +149,10 @@ export function ScarceClipListenSheet({
     <OsMediaFaceShell
       open={open}
       onClose={requestClose}
+      onLeave={() => {
+        onDismissThread?.();
+        onClose();
+      }}
       title={screenTitle}
       closeAriaLabel="Back from listen"
       zIndex={faceZ}
@@ -224,57 +219,16 @@ export function ScarceClipListenSheet({
                 </span>
               </span>
             </div>
-            <div
-              className={`scarce-clip-progress-track${
-                scrubbing ? ' is-scrubbing' : ''
-              }${knobPeek ? ' is-knob-peek' : ''}${
-                duration <= 0 ? ' is-disabled' : ''
-              }`}
-              onPointerEnter={onProgressPointerEnter}
-              onPointerLeave={onProgressPointerLeave}
-            >
-              <div
-                ref={railRef}
-                className="scarce-clip-progress-rail"
-                aria-hidden
-              >
-                <div className="scarce-clip-progress-fill" />
-                <span className="scarce-clip-progress-knob" />
-              </div>
-              <input
-                ref={scrubInputRef}
-                type="range"
-                className="scarce-clip-progress-scrub"
-                min={0}
-                max={duration > 0 ? duration : 1}
-                step={0.01}
-                defaultValue={0}
-                disabled={duration <= 0}
-                aria-label="Seek"
-                onPointerDown={(event) => {
-                  if (duration <= 0) return;
-                  event.preventDefault();
-                  event.currentTarget.focus();
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                  onScrubPointerDown(event.clientX, railRef.current);
-                }}
-                onPointerMove={(event) => {
-                  onScrubPointerMove(event.clientX);
-                }}
-                onPointerUp={(event) => {
-                  onScrubPointerUp(event.clientX);
-                  if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                    event.currentTarget.releasePointerCapture(event.pointerId);
-                  }
-                }}
-                onPointerCancel={(event) => {
-                  onScrubPointerCancel(event.clientX);
-                }}
-                onChange={(event) => {
-                  onScrubChange(Number(event.currentTarget.value));
-                }}
-              />
-            </div>
+            <ClipProgressTrack
+              railRef={railRef}
+              scrubRef={scrubInputRef}
+              duration={duration}
+              disabled={playDisabled}
+              scrubbing={scrubbing}
+              onScrubStart={onScrubStart}
+              onPreview={onPreview}
+              onCommit={onCommit}
+            />
           </div>
 
           <div className="scarce-clip-transport scarce-clip-listen-transport">

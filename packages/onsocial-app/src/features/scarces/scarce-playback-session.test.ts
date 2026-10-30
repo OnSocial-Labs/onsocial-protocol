@@ -6,6 +6,7 @@ import {
 import {
   scarcePlaybackSessionId,
   shouldAdoptPlaybackSession,
+  dockSrcMatchesTrack,
   shouldBindPlaybackSession,
   shouldTakeOverPlayback,
 } from '@/features/scarces/scarce-playback-session';
@@ -71,6 +72,23 @@ describe('shouldTakeOverPlayback', () => {
         surfaceId: 'drop-2',
         isAudio: false,
       })
+    ).toBe(false);
+  });
+});
+
+describe('dockSrcMatchesTrack', () => {
+  it('matches the resolved file or its cid', () => {
+    expect(
+      dockSrcMatchesTrack(
+        { currentSrc: 'https://ipfs.io/ipfs/bafy-track', src: '' },
+        { url: 'https://gateway.example/bafy-track', cid: 'bafy-track' }
+      )
+    ).toBe(true);
+    expect(
+      dockSrcMatchesTrack(
+        { currentSrc: 'https://cdn.example/other', src: '' },
+        { url: 'https://cdn.example/song', cid: 'bafy-track' }
+      )
     ).toBe(false);
   });
 });
@@ -153,6 +171,16 @@ describe('nextDockHoldForForeignMedia', () => {
       nextDockHoldForForeignMedia({
         dockPaused: false,
         holdingDock: false,
+        activeForeign: 1,
+      })
+    ).toEqual({ holdingDock: true, pauseDock: true, resumeDock: false });
+  });
+
+  it('pauses a playing dock even when a hold was already recorded', () => {
+    expect(
+      nextDockHoldForForeignMedia({
+        dockPaused: false,
+        holdingDock: true,
         activeForeign: 1,
       })
     ).toEqual({ holdingDock: true, pauseDock: true, resumeDock: false });

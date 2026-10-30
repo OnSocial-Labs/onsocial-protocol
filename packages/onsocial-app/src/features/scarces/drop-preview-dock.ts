@@ -26,8 +26,8 @@ export function nextDockHoldForPreview(opts: {
 
 /**
  * Any audible video or message outside the dock.
- * The first one pauses the dock. The dock resumes when the last one stops,
- * and only if the dock is still paused.
+ * A playing dock always pauses, even if a hold was already recorded.
+ * The dock resumes when the last one stops, and only if it is still paused.
  */
 export function nextDockHoldForForeignMedia(opts: {
   dockPaused: boolean;
@@ -35,7 +35,7 @@ export function nextDockHoldForForeignMedia(opts: {
   activeForeign: number;
 }): { holdingDock: boolean; pauseDock: boolean; resumeDock: boolean } {
   if (opts.activeForeign > 0) {
-    if (!opts.holdingDock && !opts.dockPaused) {
+    if (!opts.dockPaused) {
       return { holdingDock: true, pauseDock: true, resumeDock: false };
     }
     return {

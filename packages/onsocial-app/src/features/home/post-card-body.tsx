@@ -12,7 +12,6 @@ import {
   postFeedPreviewLimit,
   postKindBadge,
   postPreviewNeedsExpand,
-  truncatePostPreview,
 } from '@/lib/post-display';
 import {
   formatPostRelationTarget,
@@ -77,8 +76,8 @@ export function PostCardBody({
   text,
   hideText = false,
   hasMedia = false,
-  /** Thread focus / detail — show full copy, no Show more. */
-  expandDisabled = false,
+  /** Thread focus / detail — open unfolded, with Show less to fold it back. */
+  startExpanded = false,
   articleTitle = null,
   articleHref = null,
   onReadArticle = null,
@@ -92,7 +91,7 @@ export function PostCardBody({
   /** When the poll card already shows the question, skip duplicate body text. */
   hideText?: boolean;
   hasMedia?: boolean;
-  expandDisabled?: boolean;
+  startExpanded?: boolean;
   articleTitle?: string | null;
   articleHref?: string | null;
   /** Feed overlay reader — preferred over hard-nav when set. */
@@ -100,19 +99,18 @@ export function PostCardBody({
   onArticleHrefClick?: ((event: MouseEvent<HTMLAnchorElement>) => void) | null;
   onArticleHrefNavigate?: ((event: { preventDefault(): void }) => void) | null;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const isArticle = Boolean(articleTitle && articleHref);
+  const articleSource = isArticle ? articleTeaseSource(text) : '';
+  const [expanded, setExpanded] = useState(startExpanded);
   const [bodyOverflows, setBodyOverflows] = useState(() =>
     postFeedBodyOverflows(text, hasMedia)
   );
   const previewLimit = postFeedPreviewLimit(hasMedia);
-  const isArticle = Boolean(articleTitle && articleHref);
   /** Photo posts peek shorter. The full text stays mounted; the clip folds it. */
   const closedLines = hasMedia ? 3 : 6;
   const foldBody =
-    !isArticle && !expandDisabled && !hideText && text.trim().length > 0;
-  const tease = isArticle
-    ? truncatePostPreview(articleTeaseSource(text), previewLimit)
-    : text;
+    !isArticle && !hideText && text.trim().length > 0;
+  const tease = isArticle ? articleSource : text;
   const showArticleRead =
     isArticle &&
     (Boolean(articleHref) || Boolean(onReadArticle)) &&
@@ -122,21 +120,21 @@ export function PostCardBody({
     showArticleRead && onReadArticle ? (
       <button
         type="button"
-        className="post-card-show-more post-card-show-more--dots"
-        aria-label="Read article"
+        className="post-card-show-more post-card-read-more post-card-show-more--slot"
+        aria-label="Read more"
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
           onReadArticle();
         }}
       >
-        …
+        Read more
       </button>
     ) : showArticleRead && articleHref ? (
       <Link
         href={articleHref}
-        className="post-card-show-more post-card-show-more--dots"
-        aria-label="Read article"
+        className="post-card-show-more post-card-read-more post-card-show-more--slot"
+        aria-label="Read more"
         scroll={false}
         onClick={(event) => {
           event.stopPropagation();
@@ -144,12 +142,10 @@ export function PostCardBody({
         }}
         onNavigate={onArticleHrefNavigate ?? undefined}
       >
-        …
+        Read more
       </Link>
     ) : null;
-  // The tease's static trailing ellipsis is replaced by the ellipsis
-  // affordance itself, so the dots sit exactly at the truncation point.
-  const teaseDisplay = readControl ? tease.replace(/…$/u, '') : tease;
+  const foldClosed = foldBody && bodyOverflows && !expanded;
 
   return (
     <>
@@ -170,7 +166,27 @@ export function PostCardBody({
         <p className="post-card-article-title">{articleTitle}</p>
       ) : null}
       {!hideText && tease.trim() ? (
-        <div className="post-card-body-block">
+        <div
+          className={`post-card-body-block${foldClosed ? ' is-fold-closed' : ''}`}
+          onClick={
+            foldClosed
+              ? (event) => {
+                  const target = event.target;
+                  if (
+                    target instanceof Element &&
+                    target.closest(
+                      'a, button, .os-hashtag, .os-mention, .os-ticker, .os-link'
+                    )
+                  ) {
+                    return;
+                  }
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setExpanded(true);
+                }
+              : undefined
+          }
+        >
           {foldBody ? (
             <OsTextFold
               open={expanded}
@@ -181,32 +197,49 @@ export function PostCardBody({
               }}
             >
               <p className="post-card-body">
+                {foldClosed ? (
+                  <button
+                    type="button"
+                    className="post-card-show-more post-card-show-more--slot"
+                    aria-expanded={false}
+                    aria-label="Show more"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setExpanded(true);
+                    }}
+                  >
+                    Show more
+                  </button>
+                ) : null}
                 <PostRichText text={text} />
               </p>
             </OsTextFold>
+          ) : isArticle ? (
+            <div className="post-card-article-clamp">
+              <p className="post-card-body">
+                {readControl}
+                <PostRichText text={tease} inlineMarks />
+              </p>
+            </div>
           ) : (
             <p className="post-card-body">
-              <PostRichText text={teaseDisplay} inlineMarks={isArticle} />
-              {readControl}
+              <PostRichText text={tease} />
             </p>
           )}
-          {foldBody && bodyOverflows ? (
+          {foldBody && bodyOverflows && expanded ? (
             <button
               type="button"
-              className={`post-card-show-more${
-                expanded
-                  ? ''
-                  : ' post-card-show-more--fold post-card-show-more--dots'
-              }`}
-              aria-expanded={expanded}
-              aria-label={expanded ? 'Show less' : 'Show more'}
+              className="post-card-show-more"
+              aria-expanded
+              aria-label="Show less"
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                setExpanded((current) => !current);
+                setExpanded(false);
               }}
             >
-              {expanded ? 'Show less' : '…'}
+              Show less
             </button>
           ) : null}
         </div>

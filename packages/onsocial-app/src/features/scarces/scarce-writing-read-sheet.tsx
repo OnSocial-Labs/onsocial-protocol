@@ -308,13 +308,11 @@ export function WritingReadDocument({
             onChromeTap={onChromeTap}
             workTitle={null}
           />
-        ) : (
+        ) : hydrateSettled ? (
           <p className="scarce-feed-medium-empty">
-            {!hydrateSettled
-              ? 'Loading writing…'
-              : 'Writing unavailable for this Drop.'}
+            Writing unavailable for this Drop.
           </p>
-        )}
+        ) : null}
       </article>
       {(rasterCover || inlineSvg) && coverOpen ? (
         <DropArtOverlay

@@ -1089,6 +1089,14 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   --os-screen-footer-band: 3.35rem;
 }
 
+.feed-article-slide[data-screen-footer='true']:has(.post-card-scarce-cta),
+.portfolio-writing-article-screen[data-screen-footer='true']:has(
+    .post-card-scarce-cta
+  ) {
+  /* Same icon row, plus the drop row above it. */
+  --os-screen-footer-band: 5.1rem;
+}
+
 .feed-article-slide .portfolio-writing.portfolio-writing-article,
 .portfolio-writing-article-screen .portfolio-writing.portfolio-writing-article {
   /* Shelf list pad is for a dock. The wake footer owns this edge. */
@@ -1114,9 +1122,14 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 .article-read-screen .collection-writing-markdown,
 .article-read-screen
   .collection-writing-markdown
-  :is(p, li, blockquote, h1, h2, h3, h4),
-.article-read-screen .collection-writing-chapter-title {
+  :is(p, li, blockquote, h1, h2, h3, h4) {
   font-family: var(--font-newsreader), Georgia, 'Times New Roman', serif;
+}
+
+/* The name of the piece. The essay under it stays Newsreader. */
+.portfolio-writing-article-title,
+.collection-writing-chapter-title {
+  font-family: var(--app-font-sans);
 }
 
 .feed-article-slide .portfolio-writing-essay .portfolio-about-bio,
@@ -1265,19 +1278,9 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   gap: 0;
 }
 
-.feed-photo-slide .os-media-face-close.glass-sheet-icon-action,
 .feed-photo-slide .os-media-face-trailing .glass-sheet-icon-action,
-.feed-photo-slide .os-media-face-trailing .post-card-menu-trigger,
-.scarce-thought-slide .os-media-face-close.glass-sheet-icon-action,
 .scarce-thought-slide .os-media-face-trailing .glass-sheet-icon-action,
-.scarce-thought-slide .os-media-face-trailing .post-card-menu-trigger,
-.feed-article-slide .os-media-face-close.glass-sheet-icon-action,
-.feed-article-slide .os-media-face-trailing .glass-sheet-icon-action,
-.scarce-read-slide:has(.scarce-writing-read)
-  .os-media-face-close.glass-sheet-icon-action,
-.scarce-read-slide:has(.scarce-writing-read)
-  .os-media-face-trailing
-  .post-card-menu-trigger {
+.feed-article-slide .os-media-face-trailing .glass-sheet-icon-action {
   box-sizing: border-box;
   width: var(--os-app-screen-nav-row-height);
   height: var(--os-app-screen-nav-row-height);
@@ -1458,6 +1461,261 @@ button.market-listing-title-link {
   width: 1.25rem;
   height: 1.25rem;
   color: var(--app-on-media-ink);
+}
+
+/*
+ * Post header Back is the full 2.35rem nav slot with no disc. Photo, video,
+ * audio, and the reader keep the frost circle centered in that same slot.
+ * The listen player does not — its header is the Post header.
+ */
+.feed-photo-slide .os-media-face-close.glass-sheet-icon-action,
+.scarce-thought-slide .os-media-face-close.glass-sheet-icon-action,
+.scarce-read-slide:has(.scarce-writing-read)
+  .os-media-face-close.glass-sheet-icon-action,
+.ticket-pass-slide .os-app-screen-nav-row > .glass-sheet-icon-action,
+.feed-article-slide[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action {
+  position: relative;
+  box-sizing: border-box;
+  width: var(--os-app-screen-nav-row-height, 2.35rem);
+  height: var(--os-app-screen-nav-row-height, 2.35rem);
+  min-width: var(--os-app-screen-nav-row-height, 2.35rem);
+  min-height: var(--os-app-screen-nav-row-height, 2.35rem);
+  max-width: var(--os-app-screen-nav-row-height, 2.35rem);
+  max-height: var(--os-app-screen-nav-row-height, 2.35rem);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--app-on-media-ink);
+  filter: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.feed-photo-slide .os-media-face-close.glass-sheet-icon-action::before,
+.scarce-thought-slide .os-media-face-close.glass-sheet-icon-action::before,
+.scarce-read-slide:has(.scarce-writing-read)
+  .os-media-face-close.glass-sheet-icon-action::before,
+.ticket-pass-slide .os-app-screen-nav-row > .glass-sheet-icon-action::before,
+.feed-article-slide[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 9999px;
+  background: var(--app-scrim-media);
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+
+.feed-photo-slide .os-media-face-close.glass-sheet-icon-action > *,
+.scarce-thought-slide .os-media-face-close.glass-sheet-icon-action > *,
+.scarce-read-slide:has(.scarce-writing-read)
+  .os-media-face-close.glass-sheet-icon-action
+  > *,
+.ticket-pass-slide .os-app-screen-nav-row > .glass-sheet-icon-action > *,
+.feed-article-slide[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action
+  > * {
+  position: relative;
+  z-index: 1;
+}
+
+.feed-photo-slide .os-media-face-close .glass-sheet-close-icon,
+.scarce-thought-slide .os-media-face-close .glass-sheet-close-icon,
+.scarce-read-slide:has(.scarce-writing-read)
+  .os-media-face-close
+  .glass-sheet-close-icon,
+.ticket-pass-slide
+  .os-app-screen-nav-row
+  > .glass-sheet-icon-action
+  .glass-sheet-close-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--app-on-media-ink);
+}
+
+.feed-photo-slide .os-media-face-close.glass-sheet-icon-action:hover,
+.feed-photo-slide .os-media-face-close.glass-sheet-icon-action:focus-visible,
+.scarce-thought-slide .os-media-face-close.glass-sheet-icon-action:hover,
+.scarce-thought-slide .os-media-face-close.glass-sheet-icon-action:focus-visible,
+.scarce-read-slide:has(.scarce-writing-read)
+  .os-media-face-close.glass-sheet-icon-action:hover,
+.scarce-read-slide:has(.scarce-writing-read)
+  .os-media-face-close.glass-sheet-icon-action:focus-visible,
+.ticket-pass-slide .os-app-screen-nav-row > .glass-sheet-icon-action:hover,
+.ticket-pass-slide
+  .os-app-screen-nav-row
+  > .glass-sheet-icon-action:focus-visible,
+.feed-article-slide[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action:hover,
+.feed-article-slide[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action:focus-visible {
+  background: transparent;
+  color: rgb(255 255 255 / 1);
+}
+
+.feed-photo-slide .os-media-face-close.glass-sheet-icon-action:hover::before,
+.feed-photo-slide
+  .os-media-face-close.glass-sheet-icon-action:focus-visible::before,
+.scarce-thought-slide .os-media-face-close.glass-sheet-icon-action:hover::before,
+.scarce-thought-slide
+  .os-media-face-close.glass-sheet-icon-action:focus-visible::before,
+.scarce-read-slide:has(.scarce-writing-read)
+  .os-media-face-close.glass-sheet-icon-action:hover::before,
+.scarce-read-slide:has(.scarce-writing-read)
+  .os-media-face-close.glass-sheet-icon-action:focus-visible::before,
+.ticket-pass-slide
+  .os-app-screen-nav-row
+  > .glass-sheet-icon-action:hover::before,
+.ticket-pass-slide
+  .os-app-screen-nav-row
+  > .glass-sheet-icon-action:focus-visible::before,
+.feed-article-slide[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action:hover::before,
+.feed-article-slide[data-immersive-header='true']
+  > .os-app-screen-column
+  > .os-app-screen-header
+  .glass-sheet-icon-action:focus-visible::before {
+  background: var(--app-scrim-media-hover);
+}
+
+/*
+ * Same disc opposite the chevron, in the same 2.35rem slot so the dots
+ * mirror the back chevron. The listen player uses the Post header.
+ */
+.feed-photo-slide .os-media-face-trailing .post-card-menu-trigger,
+.scarce-thought-slide .os-media-face-trailing .post-card-menu-trigger,
+.feed-article-slide .os-app-screen-actions .post-card-menu-trigger {
+  position: relative;
+  box-sizing: border-box;
+  width: var(--os-app-screen-nav-row-height, 2.35rem);
+  height: var(--os-app-screen-nav-row-height, 2.35rem);
+  min-width: var(--os-app-screen-nav-row-height, 2.35rem);
+  min-height: var(--os-app-screen-nav-row-height, 2.35rem);
+  max-width: var(--os-app-screen-nav-row-height, 2.35rem);
+  max-height: var(--os-app-screen-nav-row-height, 2.35rem);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--app-on-media-ink);
+  filter: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  pointer-events: auto;
+}
+
+.feed-photo-slide .os-media-face-trailing .post-card-menu-trigger::before,
+.scarce-thought-slide .os-media-face-trailing .post-card-menu-trigger::before,
+.feed-article-slide .os-app-screen-actions .post-card-menu-trigger::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 9999px;
+  background: var(--app-scrim-media);
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+
+.feed-photo-slide .os-media-face-trailing .post-card-menu-trigger > *,
+.scarce-thought-slide .os-media-face-trailing .post-card-menu-trigger > *,
+.feed-article-slide .os-app-screen-actions .post-card-menu-trigger > * {
+  position: relative;
+  z-index: 1;
+}
+
+.feed-article-slide .os-app-screen-actions,
+.feed-article-slide .os-app-screen-actions .post-card-menu {
+  pointer-events: auto;
+}
+
+/* The menu wrapper is a line box. Match the back slot so the disc centers. */
+.feed-photo-slide .os-media-face-trailing .post-card-menu,
+.scarce-thought-slide .os-media-face-trailing .post-card-menu,
+.feed-article-slide .os-app-screen-actions .post-card-menu {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--os-app-screen-nav-row-height, 2.35rem);
+  height: var(--os-app-screen-nav-row-height, 2.35rem);
+  line-height: 0;
+}
+
+.feed-photo-slide .os-media-face-trailing .post-card-menu-icon,
+.scarce-thought-slide .os-media-face-trailing .post-card-menu-icon,
+.feed-article-slide .os-app-screen-actions .post-card-menu-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--app-on-media-ink);
+}
+
+.feed-photo-slide .os-media-face-trailing .post-card-menu-trigger:hover,
+.feed-photo-slide .os-media-face-trailing .post-card-menu-trigger:focus-visible,
+.feed-photo-slide .os-media-face-trailing .post-card-menu-trigger.is-open,
+.scarce-thought-slide .os-media-face-trailing .post-card-menu-trigger:hover,
+.scarce-thought-slide
+  .os-media-face-trailing
+  .post-card-menu-trigger:focus-visible,
+.scarce-thought-slide .os-media-face-trailing .post-card-menu-trigger.is-open,
+.feed-article-slide .os-app-screen-actions .post-card-menu-trigger:hover,
+.feed-article-slide .os-app-screen-actions .post-card-menu-trigger:focus-visible,
+.feed-article-slide .os-app-screen-actions .post-card-menu-trigger.is-open {
+  background: transparent;
+  color: rgb(255 255 255 / 1);
+}
+
+.feed-photo-slide .os-media-face-trailing .post-card-menu-trigger:hover::before,
+.feed-photo-slide
+  .os-media-face-trailing
+  .post-card-menu-trigger:focus-visible::before,
+.feed-photo-slide
+  .os-media-face-trailing
+  .post-card-menu-trigger.is-open::before,
+.scarce-thought-slide
+  .os-media-face-trailing
+  .post-card-menu-trigger:hover::before,
+.scarce-thought-slide
+  .os-media-face-trailing
+  .post-card-menu-trigger:focus-visible::before,
+.scarce-thought-slide
+  .os-media-face-trailing
+  .post-card-menu-trigger.is-open::before,
+.feed-article-slide
+  .os-app-screen-actions
+  .post-card-menu-trigger:hover::before,
+.feed-article-slide
+  .os-app-screen-actions
+  .post-card-menu-trigger:focus-visible::before,
+.feed-article-slide
+  .os-app-screen-actions
+  .post-card-menu-trigger.is-open::before {
+  background: var(--app-scrim-media-hover);
 }
 
 /*
@@ -3415,7 +3673,8 @@ a.os-surface-row,
 }
 
 /*
- * Mood commerce — Mint / Buy / Bid + List/Sell hover follow reputation.
+ * Mood commerce — Mint / Buy / Bid follow reputation.
+ * List / Sell stay gray and brighten on hover, with Read / Listen.
  * Source / provenance greens (View original post, Drop page) too.
  * Like / boost stay hard protocol; love / player stay protocol green.
  * Fact-sheet identity links (creator / hub / explorer) stay inherited fg.
@@ -3431,9 +3690,6 @@ a.os-surface-row,
     .post-card-scarce-buy-main,
     .post-card-scarce-buy:hover:not(:disabled) .post-card-scarce-buy-main,
     .post-card-scarce-buy:focus-visible .post-card-scarce-buy-main,
-    .post-card-scarce-buy--secondary:hover:not(:disabled)
-      .post-card-scarce-buy-main,
-    .post-card-scarce-buy--secondary:focus-visible .post-card-scarce-buy-main,
     .post-card-scarce-link:hover,
     .post-card-scarce-link:focus-visible,
     .scarce-provenance-original-link,
@@ -3446,7 +3702,7 @@ a.os-surface-row,
   color: var(--signal-reputation, var(--protocol-green, #00ec97));
 }
 
-/* Mint / Buy / Bid on a mood surface — brighten the tint, no underline. */
+/* Mint / Buy / Bid, List / Sell, and Read / Listen — brighten, no underline. */
 :is(
     .os-app-screen.os-app-screen--mood,
     .os-page-sheet-panel[data-mood],
@@ -3458,6 +3714,15 @@ a.os-surface-row,
     :hover,
     :focus-visible
   ):not(:disabled)
+  .post-card-scarce-buy-main,
+:is(
+    .os-app-screen.os-app-screen--mood,
+    .os-page-sheet-panel[data-mood],
+    .glass-sheet-panel[data-mood],
+    .portfolio-os-layer[data-mood],
+    .portfolio-frame[data-mood]
+  )
+  .post-card-scarce-buy--secondary:is(:hover, :focus-visible):not(:disabled)
   .post-card-scarce-buy-main,
 :is(
     .os-app-screen.os-app-screen--mood,
@@ -3479,9 +3744,26 @@ a.os-surface-row,
   color: rgb(var(--fg-rgb) / 0.4);
 }
 
+/* Mood screens paint every buy label green. List / Sell stay gray until hover. */
+:is(
+    .os-app-screen.os-app-screen--mood,
+    .os-page-sheet-panel[data-mood],
+    .glass-sheet-panel[data-mood],
+    .portfolio-os-layer[data-mood],
+    .portfolio-frame[data-mood]
+  )
+  .post-card-scarce-buy--secondary:not(:hover):not(:focus-visible):not(:disabled)
+  .post-card-scarce-buy-main {
+  color: rgb(var(--fg-rgb) / 0.4);
+}
+
+/* List / Sell brighten like Show more. Drop / Hub stop on the resting green. */
 .post-card-scarce-buy--secondary:hover:not(:disabled)
   .post-card-scarce-buy-main,
-.post-card-scarce-buy--secondary:focus-visible .post-card-scarce-buy-main,
+.post-card-scarce-buy--secondary:focus-visible .post-card-scarce-buy-main {
+  color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
+}
+
 .post-card-scarce-link:hover,
 .post-card-scarce-link:focus-visible {
   color: var(--protocol-green, #00ec97);
@@ -4150,9 +4432,8 @@ a.os-surface-row,
 
   .portfolio-owner-profile-edit:hover,
   .portfolio-owner-profile-edit:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.88);
-    text-decoration: underline;
-    text-underline-offset: 0.16em;
+    color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
+    text-decoration: none;
   }
 
   .portfolio-frame {
@@ -8039,7 +8320,6 @@ a.os-surface-row,
   .collection-writing-chapter-chip:hover,
   .collection-writing-chapter-chip:focus-visible,
   .feed-photo-video-control:focus-visible,
-  .feed-photo-video-progress-scrub:focus-visible,
   .guild-structure-space-title-input:focus,
   .network-orbit-node:focus-visible,
   .network-orbit-center:focus-visible {
@@ -8802,8 +9082,8 @@ a.os-surface-row,
   a.portfolio-org-meta-industry:hover,
   a.portfolio-org-meta-industry:focus-visible {
     opacity: 1;
-    text-decoration: underline;
-    text-underline-offset: 0.16em;
+    color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
+    text-decoration: none;
   }
 
   .account-editor-topics {
@@ -9780,9 +10060,8 @@ a.os-surface-row,
 
   .portfolio-about-link:hover,
   .portfolio-about-link:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.88);
-    text-decoration: underline;
-    text-underline-offset: 0.16em;
+    color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
+    text-decoration: none;
   }
 
   .portfolio-about-link:focus-visible {
@@ -10532,19 +10811,14 @@ a.os-surface-row,
   }
 
   /*
-   * Article title — About name face. Beside the print it uses the type
-   * column's cqi, same as the About name next to the first photo.
+   * Article, book, and drop title. DM Sans, same as the app.
+   * Size stays on the type column beside the cover.
    */
   .portfolio-writing-article-title {
     width: 100%;
     min-width: 0;
     margin: 0;
-    font-family: var(
-      --mood-font-display,
-      var(--font-space-grotesk),
-      system-ui,
-      sans-serif
-    );
+    font-family: var(--app-font-sans);
     font-size: clamp(0.82rem, 11.5cqi, 1.85rem);
     font-weight: var(--mood-display-weight, 600);
     letter-spacing: var(--mood-display-tracking, -0.035em);
@@ -10566,8 +10840,8 @@ a.os-surface-row,
 
   .portfolio-writing-byline a:hover,
   .portfolio-writing-byline a:focus-visible {
-    text-decoration: underline;
-    text-underline-offset: 0.16em;
+    color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
+    text-decoration: none;
   }
 
   .portfolio-writing-empty {
@@ -12080,7 +12354,7 @@ a.os-surface-row,
 
   .leaderboard-facts-profile-link a:hover,
   .leaderboard-facts-profile-link a:focus-visible {
-    text-decoration: underline;
+    text-decoration: none;
   }
 
   .leaderboard-route-underlay {
@@ -14748,7 +15022,7 @@ a.os-surface-row,
    * Overlays portal into the card; tuck the face dock while other sheets are up.
    * The page drawer keeps the dock via keepDock (data-keep-dock) — any sheet
    * without it tucks the dock, including sheets opened above the drawer.
-   * Slide-overs with data-keep-dock (feed video enlarge) keep the dock too.
+   * A media face keeps the dock only after Reply opens (data-keep-dock).
    * An article left open on the hidden Home feed is not a sheet on this page.
    */
 
@@ -22312,8 +22586,37 @@ a.os-surface-row,
     text-decoration: none;
   }
 
-  .post-card-repost-line:hover {
-    text-decoration: underline;
+  .post-card-repost-line:hover,
+  .post-card-repost-line:focus-visible {
+    color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
+    text-decoration: none;
+  }
+
+  /*
+   * Quiet page words — About, Writing, See work, Edit profile, topics,
+   * and the reposted line. Gray at rest. Off a mood they brighten like
+   * Show more. On a mood they use that room's reputation, lightened.
+   */
+  :is(
+      .os-app-screen.os-app-screen--mood,
+      .os-page-sheet-panel[data-mood],
+      .glass-sheet-panel[data-mood],
+      .portfolio-os-layer[data-mood],
+      .portfolio-frame[data-mood]
+    )
+    :is(
+      .portfolio-owner-profile-edit,
+      .portfolio-topics-link,
+      a.portfolio-org-meta-industry,
+      .portfolio-about-link,
+      .portfolio-writing-byline a,
+      .post-card-repost-line
+    ):is(:hover, :focus-visible) {
+    color: color-mix(
+      in srgb,
+      var(--signal-reputation, var(--protocol-green, #00ec97)) 72%,
+      white
+    );
   }
 
   .post-card-repost-line-icon {
@@ -22337,6 +22640,12 @@ a.os-surface-row,
     border-radius: inherit;
     color: inherit;
     text-decoration: none;
+    appearance: none;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
   }
 
   .post-card--openable .post-card-copy,
@@ -22369,6 +22678,7 @@ a.os-surface-row,
   .post-card--openable .post-card-menu-panel,
   .post-card--openable .post-card-menu-panel *,
   .post-card--openable .post-card-show-more,
+  .post-card--openable .post-card-body-block.is-fold-closed,
   .post-card--openable .os-hashtag,
   .post-card--openable .os-mention,
   .post-card--openable .os-ticker,
@@ -22554,11 +22864,10 @@ a.os-surface-row,
     flex-direction: column;
     gap: 0.2rem;
     /*
-     * One compositor layer for the post column (not also on body-block —
-     * nested translateZ stacks blur glyphs so green 300 reads thicker).
+     * Text stays in the scroll layer. A column translateZ re-rounds glyphs
+     * when hover changes their ink, so labels jump with the scroll fraction.
+     * Photos keep their own layer on `.post-media-strip`.
      */
-    transform: translateZ(0);
-    isolation: isolate;
   }
 
   /* Name @handle · 50m ··· — handle truncates before the display name. */
@@ -23019,6 +23328,10 @@ a.os-surface-row,
     text-transform: capitalize;
   }
 
+  .post-card--openable .post-card-body-block.is-fold-closed {
+    cursor: pointer;
+  }
+
   .post-card-body-block {
     position: relative;
     display: flex;
@@ -23038,6 +23351,28 @@ a.os-surface-row,
     line-height: inherit;
     white-space: pre-wrap;
     word-break: break-word;
+  }
+
+  /*
+   * Article tease — same last-line label as Show more. The clip is CSS,
+   * so the row is not measured while the feed scrolls.
+   */
+  .post-card-article-clamp {
+    align-self: stretch;
+    width: 100%;
+    --os-fold-lines: 4;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+    overflow: hidden;
+  }
+
+  .post-card-article-clamp .post-card-body::before {
+    content: '';
+    float: right;
+    width: 0;
+    height: calc((var(--os-fold-lines, 4) - 1) * 1lh);
   }
 
   .post-card-article-title {
@@ -23086,29 +23421,30 @@ a.os-surface-row,
     outline-offset: 2px;
   }
 
-  /*
-   * Closed fold — the ellipsis rides on the last body line, fading the text
-   * into the surface, so its late appearance never pushes the card taller.
-   * Expanded it steps back into the flow under the full body. The fg layer
-   * keeps the fade exact when a card hover lifts the surface.
-   */
-  .post-card .post-card-body-block .post-card-show-more--fold {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    padding-left: 1.5rem;
-    background:
-      linear-gradient(
-        to right,
-        rgb(var(--fg-rgb) / var(--post-fold-scrim-lift, 0)),
-        rgb(var(--fg-rgb) / var(--post-fold-scrim-lift, 0)) 55%
-      ),
-      linear-gradient(to right, rgb(var(--bg-rgb) / 0), rgb(var(--bg-rgb)) 55%);
+  .post-card-read-more {
+    white-space: nowrap;
   }
 
-  .post-card--openable:hover .post-card-show-more--fold,
-  .post-card--openable:focus-within .post-card-show-more--fold {
-    --post-fold-scrim-lift: 0.03;
+  /*
+   * Closed peek — a zero-width float holds the lines above at full width.
+   * The label clears that float onto the last line. Line clamp fills that
+   * line and ends it with an ellipsis, so the words sit against the label.
+   * Opening drops the float; the lines already on screen stay put.
+   */
+  .post-card-body-block.is-fold-closed .post-card-body::before {
+    content: '';
+    float: right;
+    width: 0;
+    height: calc((var(--os-fold-lines, 6) - 1) * 1lh);
+  }
+
+  .post-card-show-more--slot {
+    float: right;
+    clear: right;
+    height: 1lh;
+    margin-left: 0.65rem;
+    white-space: nowrap;
+    line-height: 1lh;
   }
 
   /*
@@ -23443,18 +23779,20 @@ a.os-surface-row,
     cursor: pointer;
   }
 
-  .post-media-mute {
+  .post-media-tile .post-media-mute {
     position: absolute;
     right: 0.65rem;
     bottom: 0.65rem;
     z-index: 2;
     color: rgb(255 255 255 / 0.94);
-    filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.55));
+    background: rgb(0 0 0 / 0.45);
+    filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.45));
   }
 
-  .post-media-mute:hover,
-  .post-media-mute:focus-visible {
-    background: rgb(255 255 255 / 0.12);
+  .post-media-tile .post-media-mute:hover,
+  .post-media-tile .post-media-mute:focus-visible {
+    color: rgb(255 255 255 / 0.94);
+    background: rgb(0 0 0 / 0.62);
   }
 
   .post-media-unmute-gate {
@@ -24132,7 +24470,6 @@ a.os-surface-row,
     padding: 0.35rem 0.2rem;
     margin: -0.35rem -0.2rem;
     cursor: pointer;
-    transition: color 160ms ease;
   }
 
   /* Standard save/copy green — same neon as dark in light. */
@@ -24408,7 +24745,6 @@ a.os-surface-row,
     padding: 0.35rem 0.2rem;
     margin: -0.35rem -0.2rem;
     cursor: pointer;
-    transition: color 160ms ease;
   }
 
   .post-card-stat-button:disabled,
@@ -24644,7 +24980,7 @@ a.os-surface-row,
     font-weight: 500;
   }
 
-  /* Desktop: Mint / Buy / Bid brighten. List / Sell stay a color change only. */
+  /* Desktop: Mint / Buy / Bid and List / Sell brighten. No underline. */
   @media (hover: hover) and (pointer: fine) {
     .post-card-scarce-buy:not(.post-card-scarce-buy--secondary):hover:not(
         :disabled
@@ -24654,8 +24990,6 @@ a.os-surface-row,
       .post-card-scarce-buy-main {
       text-decoration: none;
     }
-
-    /* List / Sell — match Drop · Hub · Market (green on hover only). */
   }
 
   /* Keyboard focus brightens (unlayered) and keeps a thin ring. */
@@ -24677,7 +25011,7 @@ a.os-surface-row,
   }
 
   /*
-   * List / Sell — same chrome as Drop · Hub · Market (muted, reputation on hover).
+   * List / Sell rest muted, like Drop · Hub. Hover brightens with Show more.
    * Money verbs (Mint / Buy / Bid) follow --signal-reputation on mood surfaces.
    */
   .post-card-scarce-buy--secondary .post-card-scarce-buy-main {
@@ -24697,7 +25031,6 @@ a.os-surface-row,
     font-size: 0.72rem;
     font-weight: 600;
     text-decoration: none;
-    transition: color 160ms ease;
   }
 
   /*
@@ -24705,6 +25038,7 @@ a.os-surface-row,
    * (180px = ÷10, 300px = ÷6) so browser downscale stays sharp.
    */
   .scarce-post-preview {
+    position: relative;
     display: block;
     margin: 0 auto 0.7rem;
     width: min(100%, 180px);
@@ -24744,6 +25078,25 @@ a.os-surface-row,
     margin: 0.45rem 0 0;
     width: min(100%, 300px);
     cursor: pointer;
+  }
+
+  .scarce-post-preview-play {
+    position: absolute;
+    left: 0.45rem;
+    bottom: 0.45rem;
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 0.55);
+    color: #fff;
+    pointer-events: none;
+  }
+
+  .scarce-post-preview-play svg {
+    width: 0.85rem;
+    height: 0.85rem;
   }
 
   .scarce-post-preview:focus-visible {
@@ -29201,7 +29554,7 @@ a.os-surface-row,
     margin: 0 0 0.35rem;
     width: 100%;
     max-width: none;
-    font-family: var(--font-newsreader), Georgia, 'Times New Roman', serif;
+    font-family: var(--app-font-sans);
     font-size: 1.35rem;
     font-weight: 600;
     letter-spacing: -0.01em;
@@ -29301,8 +29654,11 @@ a.os-surface-row,
 
   @media (min-width: 640px) {
     .os-media-face-hero {
+      /* Body pad is 1.25rem here. Pull flush, then use the Post header inset.
+         The chevron is centered in the 2.35rem slot, same as Post Back. */
       margin-inline: -1.25rem;
-      padding-inline: 1.25rem;
+      padding-left: max(1rem, env(safe-area-inset-left, 0px));
+      padding-right: max(1rem, env(safe-area-inset-right, 0px));
     }
   }
 
@@ -29330,25 +29686,25 @@ a.os-surface-row,
   }
 
   /*
-   * Same 1.85rem header icon box as post / drop page sheets so the
-   * chevron sits on the same inset as Back on the source post.
+   * Same 2.35rem slot as the Post header Back button. The frost circle is
+   * centered inside that slot (unlayered), so the glyph matches Post.
    */
   .os-media-face-close.glass-sheet-icon-action,
   .os-media-face-trailing .glass-sheet-icon-action,
   .os-media-face-trailing .post-card-menu-trigger {
     box-sizing: border-box;
-    width: 1.85rem;
-    height: 1.85rem;
-    min-width: 1.85rem;
-    min-height: 1.85rem;
-    max-width: 1.85rem;
-    max-height: 1.85rem;
+    width: var(--os-app-screen-nav-row-height, 2.35rem);
+    height: var(--os-app-screen-nav-row-height, 2.35rem);
+    min-width: var(--os-app-screen-nav-row-height, 2.35rem);
+    min-height: var(--os-app-screen-nav-row-height, 2.35rem);
+    max-width: var(--os-app-screen-nav-row-height, 2.35rem);
+    max-height: var(--os-app-screen-nav-row-height, 2.35rem);
     padding: 0;
   }
 
   .os-media-face-trailing .post-card-menu-trigger {
-    width: 1.85rem;
-    height: 1.85rem;
+    width: var(--os-app-screen-nav-row-height, 2.35rem);
+    height: var(--os-app-screen-nav-row-height, 2.35rem);
     color: rgb(var(--fg-rgb) / 0.72);
   }
 
@@ -30199,6 +30555,7 @@ a.os-surface-row,
 
   .collection-writing-chapter-title {
     margin: 0;
+    font-family: var(--app-font-sans);
     font-size: 1.05rem;
     font-weight: 700;
     line-height: 1.3;
@@ -31618,6 +31975,23 @@ a.os-surface-row,
     --os-screen-footer-band: 1.15rem;
   }
 
+  /*
+   * Drop row (Mint, remaining, Drop, Hub) sits in the frost above the
+   * action icons. Reserve that row so the caption hint and date stay on
+   * the film. A plain photo or video has no row, so its band stays put.
+   */
+  .os-slide-over.scarce-read-slide.has-face-transport[data-os-slide-over='true'][data-screen-footer='true']:has(
+      .os-media-face-footer .post-card-scarce-cta
+    ) {
+    --os-screen-footer-band: 2.9rem;
+  }
+
+  .os-slide-over.feed-photo-slide[data-os-slide-over='true'][data-screen-footer='true']:not(
+      .has-face-transport
+    ):has(.os-media-face-footer .post-card-scarce-cta) {
+    --os-screen-footer-band: 5.5rem;
+  }
+
   .os-slide-over.scarce-read-slide.has-face-transport[data-os-slide-over='true'][data-screen-footer='true']
     .os-app-screen-body,
   .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
@@ -32285,21 +32659,15 @@ a.os-surface-row,
     color: inherit;
   }
 
-  .feed-photo-stage
-    > .feed-photo-video-dock--slot
-    .feed-photo-video-progress-rail,
+  .feed-photo-stage > .feed-photo-video-dock--slot .scarce-clip-progress-rail,
   .feed-photo-video-wrap
     > .feed-photo-video-dock--slot
-    .feed-photo-video-progress-rail {
+    .scarce-clip-progress-rail {
     background: rgb(255 255 255 / 0.28);
   }
 
-  /* Compact film (drawer up) — drop the scrub; mini strip hides the dock. */
-  .feed-photo-video-dock.is-film-compact .feed-photo-video-progress {
-    display: none;
-  }
-
-  .feed-photo-video-dock.is-film-mini {
+  /* Drawer open — the scrub yields. The button row stays for the whole slide. */
+  .feed-photo-video-dock.is-film-compact .scarce-clip-progress-track {
     display: none;
   }
 
@@ -32324,42 +32692,10 @@ a.os-surface-row,
     box-sizing: border-box;
   }
 
-  .feed-photo-video-dock .feed-photo-video-progress {
-    position: relative;
-    height: 1.05rem;
-    margin: 0;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    pointer-events: auto;
-    touch-action: none;
-    cursor: pointer;
-  }
-
-  .feed-photo-video-dock .feed-photo-video-progress-rail {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 50%;
-    height: 0.1rem;
-    border-radius: 999px;
-    background: rgb(var(--fg-rgb) / 0.18);
-    opacity: 1;
-    transform: translateY(-50%);
-  }
-
-  .feed-photo-video-dock .feed-photo-video-progress-fill {
-    opacity: 1;
-    background: color-mix(in srgb, var(--protocol-green) 78%, white 8%);
-  }
-
-  .feed-photo-video-dock .feed-photo-video-progress-knob {
-    opacity: 1;
-  }
-
   /*
    * Video stays a ghost row (no chips). Only the clock borrows
    * listen's mono 5ch grid so digits don't shift.
+   * The rail is ClipProgressTrack — the same scrubber as audio.
    */
   .feed-photo-video-controls {
     display: flex;
@@ -32390,6 +32726,11 @@ a.os-surface-row,
   .feed-photo-video-control:hover,
   .feed-photo-video-control:focus-visible {
     background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .feed-photo-video-control:disabled {
+    opacity: 0.38;
+    cursor: default;
   }
 
   .feed-photo-video-control-icon {
@@ -32424,121 +32765,6 @@ a.os-surface-row,
     align-items: center;
     gap: 0.3rem;
     margin-left: auto;
-  }
-
-  .feed-photo-video-progress-rail {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 50%;
-    z-index: 1;
-    height: 0.08rem;
-    border-radius: 999px;
-    background: rgb(255 255 255 / 0.18);
-    opacity: 0.42;
-    pointer-events: none;
-    transform: translateY(-50%);
-    transition:
-      height 140ms ease,
-      opacity 140ms ease,
-      background 140ms ease;
-  }
-
-  .feed-photo-video-progress:hover .feed-photo-video-progress-rail,
-  .feed-photo-video-progress.is-scrubbing .feed-photo-video-progress-rail,
-  .feed-photo-video-progress.is-chrome-visible .feed-photo-video-progress-rail,
-  .feed-photo-video-progress:has(.feed-photo-video-progress-scrub:focus-visible)
-    .feed-photo-video-progress-rail {
-    height: 0.14rem;
-    opacity: 1;
-    background: rgb(255 255 255 / 0.28);
-  }
-
-  .feed-photo-video-progress-fill {
-    width: 100%;
-    height: 100%;
-    border-radius: inherit;
-    background: color-mix(in srgb, var(--protocol-green) 78%, white 8%);
-    transform: scaleX(var(--feed-video-p, 0));
-    transform-origin: left center;
-    will-change: transform;
-    pointer-events: none;
-    opacity: 0.72;
-  }
-
-  .feed-photo-video-progress:hover .feed-photo-video-progress-fill,
-  .feed-photo-video-progress.is-scrubbing .feed-photo-video-progress-fill,
-  .feed-photo-video-progress.is-chrome-visible .feed-photo-video-progress-fill {
-    opacity: 1;
-  }
-
-  .feed-photo-video-progress-knob {
-    position: absolute;
-    top: 50%;
-    left: calc(var(--feed-video-p, 0) * 100%);
-    width: 0.72rem;
-    height: 0.72rem;
-    border: 0;
-    border-radius: 9999px;
-    background: color-mix(in srgb, var(--protocol-green) 88%, white 12%);
-    box-shadow: none;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-    opacity: 0;
-    transition:
-      opacity 140ms ease,
-      transform 120ms ease;
-  }
-
-  .feed-photo-video-progress:hover .feed-photo-video-progress-knob,
-  .feed-photo-video-progress.is-scrubbing .feed-photo-video-progress-knob,
-  .feed-photo-video-progress.is-chrome-visible .feed-photo-video-progress-knob,
-  .feed-photo-video-progress:has(.feed-photo-video-progress-scrub:focus-visible)
-    .feed-photo-video-progress-knob {
-    opacity: 1;
-  }
-
-  .feed-photo-video-progress.is-scrubbing .feed-photo-video-progress-knob {
-    transform: translate(-50%, -50%) scale(1.28);
-  }
-
-  .feed-photo-video-progress-scrub {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    opacity: 0;
-    cursor: pointer;
-    appearance: none;
-    background: transparent;
-  }
-
-  .feed-photo-video-progress-scrub:disabled {
-    cursor: default;
-  }
-
-  .feed-photo-video-progress-scrub::-webkit-slider-runnable-track,
-  .feed-photo-video-progress-scrub::-moz-range-track {
-    height: 100%;
-    background: transparent;
-  }
-
-  .feed-photo-video-progress-scrub::-webkit-slider-thumb {
-    appearance: none;
-    width: 1px;
-    height: 1px;
-    background: transparent;
-    border: 0;
-  }
-
-  .feed-photo-video-progress-scrub::-moz-range-thumb {
-    width: 1px;
-    height: 1px;
-    background: transparent;
-    border: 0;
   }
 
   .feed-photo-image--empty {
@@ -32587,6 +32813,27 @@ a.os-surface-row,
     transition: opacity 220ms ease;
   }
 
+  /*
+   * The stage is inset by the screen body pad plus the listen pad. The name,
+   * caption, and date use the same 1rem side inset as the rows under them.
+   */
+  .feed-photo-slide {
+    --os-media-caption-outset: calc(1rem + var(--os-screen-body-pad-x, 1rem));
+  }
+
+  .feed-photo-slide--cinema {
+    --os-media-caption-outset: var(--os-screen-body-pad-x, 1rem);
+  }
+
+  .feed-photo-slide .feed-photo-listen {
+    overflow: visible;
+  }
+
+  .feed-photo-slide .feed-photo-caption {
+    left: calc(-1 * var(--os-media-caption-outset, 0px));
+    right: calc(-1 * var(--os-media-caption-outset, 0px));
+  }
+
   /* Git wash (0 → 0.55) — just a bit taller so it starts above the avatar. */
   .feed-photo-caption::before {
     content: '';
@@ -32633,8 +32880,6 @@ a.os-surface-row,
     font-size: 0.92rem;
     -webkit-tap-highlight-color: transparent;
     pointer-events: auto;
-    transform: translateZ(0);
-    backface-visibility: hidden;
     position: relative;
   }
 
@@ -32652,10 +32897,9 @@ a.os-surface-row,
   }
 
   /*
-   * Dots overlay the body's bottom pad — pure opacity, never layout.
-   * The pad is constant while has-more is on, so nothing shifts.
+   * Dots sit under a long peek — opacity only, so the lines do not move.
+   * The pad is constant while has-more is on.
    */
-
   .feed-photo-caption.has-more .feed-photo-caption-body {
     padding-bottom: 1.45rem;
   }
@@ -32689,6 +32933,12 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.52);
   }
 
+  /* No caption — same body pad and date type as the expanded caption. */
+  .feed-photo-caption-body.feed-photo-caption-date-only {
+    cursor: default;
+    pointer-events: none;
+  }
+
   .feed-photo-caption-body:focus-visible {
     outline: 2px solid rgb(var(--fg-rgb) / 0.28);
     outline-offset: 2px;
@@ -32699,8 +32949,6 @@ a.os-surface-row,
     contain: layout;
     pointer-events: auto;
     padding: 0.45rem var(--os-screen-body-pad-x, 1rem) 0.15rem;
-    transform: translateZ(0);
-    backface-visibility: hidden;
   }
 
   .feed-photo-caption-identity-row {
@@ -32750,11 +32998,24 @@ a.os-surface-row,
     line-height: 1.45;
   }
 
+  .feed-photo-caption-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    margin-left: auto;
+    flex-shrink: 0;
+    pointer-events: auto;
+  }
+
   .feed-photo-caption-stand {
     flex-shrink: 0;
     margin-left: auto;
     background: rgb(var(--bg-rgb) / 0.78);
     color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .feed-photo-caption-actions .feed-photo-caption-stand {
+    margin-left: 0;
   }
 
   .feed-photo-caption-stand.is-standing {
@@ -33191,6 +33452,14 @@ a.os-surface-row,
   }
 
   @media (min-width: 640px) {
+    .feed-photo-slide {
+      --os-media-caption-outset: calc(1rem + 1.25rem);
+    }
+
+    .feed-photo-slide--cinema {
+      --os-media-caption-outset: 1.25rem;
+    }
+
     .scarce-read-slide .scarce-writing-read,
     .scarce-read-slide .os-media-face-body {
       width: min(100%, 42rem);
@@ -41028,11 +41297,22 @@ a.os-surface-row,
 }
 
 /*
- * Media-face thread — unlayered so dock + film transport stay above the pane.
+ * Media-face thread — the reply composer lives on this surface.
+ * A glass sheet without data-keep-dock tucks the dock off screen
+ * (opacity 0 + translateY). z-index cannot undo that tuck, so this
+ * rule restores the resting transform. Unlayered so it beats the tuck.
  */
 body:has(.feed-photo-slide--thread) .portfolio-summon-dock,
 body:has(.feed-face-thread) .portfolio-summon-dock {
   z-index: 95;
+  opacity: 1;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+/* Band thread already clears the dock in its body. Root pad would shrink it. */
+.feed-photo-thread-sheet.glass-sheet-root[data-keep-dock='true'] {
+  padding-bottom: 0;
 }
 
 /*
@@ -41040,8 +41320,8 @@ body:has(.feed-face-thread) .portfolio-summon-dock {
  * (overShell 90 + the glass media-face lift), past every constant dock band,
  * so the reply dock ended up under the sheet and reply taps only scrolled.
  * The layer host publishes --os-thread-dock-z above that sheet and above a
- * cover opened from it; 95 matches the face-thread band until it does.
- * Unlayered like the band above — a @layer rule always loses to it.
+ * cover opened from it. The same unlayered restore undoes the dock tuck
+ * (opacity 0), which z-index alone left in place.
  */
 body:has(
     .glass-sheet-root[data-keep-dock='true']:not(.post-thread-sheet-parked)
@@ -41049,6 +41329,9 @@ body:has(
   ):has([data-os-slide-over='true'][data-keep-dock='true'])
   .portfolio-summon-dock {
   z-index: var(--os-thread-dock-z, 95);
+  opacity: 1;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 body:has(.feed-photo-slide--thread) .portfolio-summon-dock .portfolio-summon,

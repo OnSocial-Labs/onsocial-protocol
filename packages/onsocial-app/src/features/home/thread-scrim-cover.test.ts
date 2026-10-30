@@ -36,6 +36,7 @@ describe('threadScrimCover', () => {
 describe('reply drawer blur stack', () => {
   it('uses the band sheet instead of a private scrim and frost', () => {
     expect(sheetSource).toContain('sizing="band"');
+    expect(sheetSource).toContain('keepDock');
     expect(sheetSource).toContain('SheetHeader');
     expect(sheetSource).not.toContain('feed-photo-thread-scrim');
     expect(sheetSource).not.toContain('feed-photo-thread-chrome');

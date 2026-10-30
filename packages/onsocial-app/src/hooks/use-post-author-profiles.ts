@@ -245,6 +245,18 @@ async function fetchPostAuthorProfilesBatch(
   return mergeProfileRecords(fromCache, fetched);
 }
 
+/** Warm the author cache before a reader opens. Joins the feed's batch. */
+export function prefetchPostAuthorProfiles(
+  accountIds: string[]
+): Promise<void> {
+  const missing = accountIds.filter((id) => id && !profileCache.has(id));
+  if (missing.length === 0) return Promise.resolve();
+  const version = profileCacheVersion;
+  return fetchPostAuthorProfilesBatch(accountIds).then(() => {
+    if (profileCacheVersion !== version) notifyProfileCacheListeners();
+  });
+}
+
 export function usePostAuthorProfiles(
   accountIds: string[]
 ): Record<string, PostAuthorProfile> {

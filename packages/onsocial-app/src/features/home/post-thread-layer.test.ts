@@ -8,9 +8,11 @@ import {
 import { isPortfolioFaceHref } from './post-thread-layer';
 import {
   appendTrailEntry,
+  replyOpenedOverMediaFace,
   collapseTrailToTop,
   isReaderLayerKind,
   isSameReaderTarget,
+  revealTrailReader,
   PLACE_LAYER_KINDS,
   replaceStackWith,
   retabTopQuotes,
@@ -72,6 +74,16 @@ describe('thread trail stack', () => {
     ).toHaveLength(3);
   });
 
+  it('lifts a reply opened from a media face above that face', () => {
+    expect(
+      replyOpenedOverMediaFace({ trailZ: 90, mediaFaceZ: null, lift: 80 })
+    ).toEqual({ zIndex: 90, openedAboveMediaFace: false });
+    // Face painted at 170. Pre-lift floor 91 renders at 171, in front of it.
+    expect(
+      replyOpenedOverMediaFace({ trailZ: 90, mediaFaceZ: 170, lift: 80 })
+    ).toEqual({ zIndex: 91, openedAboveMediaFace: true });
+  });
+
   it('steps the header back one layer at a time: reply, quotes, post', () => {
     const post = postEntry('alice.testnet', '1');
     const reply = postEntry('bob.testnet', '9');
@@ -101,6 +113,55 @@ describe('thread trail stack', () => {
 
     const drop = dropEntry('writers-chest');
     expect(replaceStackWith(drop)).toEqual([drop]);
+  });
+
+  it('returns to a post already on the trail instead of stacking another copy', () => {
+    const audio = postEntry('alice.testnet', 'audio');
+    const reply = postEntry('bob.testnet', 'reply');
+    const nested = postEntry('cara.testnet', 'nested');
+    const trail = [audio, reply, nested];
+
+    expect(
+      revealTrailReader(trail, {
+        kind: 'post',
+        accountId: 'alice.testnet',
+        postId: 'audio',
+        groupId: null,
+      })
+    ).toEqual({ stack: [audio], at: 'back' });
+    expect(
+      revealTrailReader(trail, {
+        kind: 'post',
+        accountId: 'bob.testnet',
+        postId: 'reply',
+        groupId: null,
+      })
+    ).toEqual({ stack: [audio, reply], at: 'back' });
+    expect(
+      revealTrailReader(trail, {
+        kind: 'post',
+        accountId: 'cara.testnet',
+        postId: 'nested',
+        groupId: null,
+      })?.at
+    ).toBe('top');
+    expect(
+      revealTrailReader(trail, {
+        kind: 'post',
+        accountId: 'dana.testnet',
+        postId: 'new',
+        groupId: null,
+      })
+    ).toBeNull();
+    // Quotes is a different surface over the same post — not a return.
+    expect(
+      revealTrailReader([audio, quotesEntry('alice.testnet', 'audio')], {
+        kind: 'post',
+        accountId: 'alice.testnet',
+        postId: 'audio',
+        groupId: null,
+      })
+    ).toEqual({ stack: [audio], at: 'back' });
   });
 
   it('treats re-opening the reader already on top as a no-op', () => {

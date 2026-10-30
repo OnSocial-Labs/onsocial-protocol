@@ -73,6 +73,7 @@ export function FeedMediaThreadSheet({
       onClose={onClose}
       sizing="band"
       dragDismiss={false}
+      keepDock
       ariaLabelledBy={titleId}
       backdropLabel="Close post"
       rootClassName="feed-photo-thread-sheet"

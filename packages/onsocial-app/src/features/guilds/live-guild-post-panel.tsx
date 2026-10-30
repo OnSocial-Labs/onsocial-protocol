@@ -952,6 +952,7 @@ export function LiveGuildPostPanel({
           <PostCard
             post={row.post}
             authorProfile={postAuthorProfiles[row.post.accountId]}
+            videoSoundControl
             sheetContext={sheetContext}
             actionHref={guildPostPath(
               groupId,
@@ -1022,12 +1023,14 @@ export function LiveGuildPostPanel({
                   <PostCard
                     post={ancestor}
                     authorProfile={postAuthorProfiles[ancestor.accountId]}
+                    videoSoundControl
                     sheetContext={sheetContext}
                     actionHref={guildPostPath(
                       groupId,
                       ancestor.accountId,
                       ancestor.postId
                     )}
+                    returnToPost
                     // Top of chain keeps its context line if truncated.
                     showRelationBadge={index === 0}
                     authorProfiles={postAuthorProfiles}
@@ -1082,6 +1085,7 @@ export function LiveGuildPostPanel({
                     postAuthorProfiles[conversation.root.accountId]
                   }
                   mediaFocused
+                  videoSoundControl
                   mediaUnmuted={mediaUnmuted}
                   mediaResumeIndex={mediaResumeIndex}
                   detailLayout

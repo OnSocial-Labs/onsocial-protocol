@@ -15,8 +15,12 @@ import {
   VolumeUpIcon,
   ipfsImgSrcSet,
 } from '@onsocial/ui';
-import { startJoinedMedia } from '@/lib/single-media-playback';
 import {
+  LAUNCHER_RECLAIM_EVENT,
+  startJoinedMedia,
+} from '@/lib/single-media-playback';
+import {
+  setListVideoSound,
   usePostVideoPlayback,
   type PostVideoPlaybackMode,
 } from '@/hooks/use-post-list-video';
@@ -84,6 +88,11 @@ interface PostMediaBlockProps {
   size?: PostMediaSize;
   /** Thread / detail surface — inline play, mute only. */
   focused?: boolean;
+  /**
+   * Muted list video in a thread. Same speaker as a detail video, so the
+   * viewer can turn sound on without opening the full page.
+   */
+  soundControl?: boolean;
   focusedVideoMuted?: boolean;
   initialVideoTime?: number;
   resumeFocusedVideo?: boolean;
@@ -309,6 +318,7 @@ function PostVisualMediaBlock({
   index = 0,
   size = 'compact',
   focused = false,
+  soundControl = false,
   focusedVideoMuted = true,
   initialVideoTime = 0,
   resumeFocusedVideo = false,
@@ -342,9 +352,10 @@ function PostVisualMediaBlock({
   const isListVideo = playbackMode === 'list';
   const isDetailVideo =
     playbackMode === 'detail-muted' || playbackMode === 'detail-unmuted';
+  const showSoundControl = isDetailVideo || (isListVideo && soundControl);
   const isActivatable = Boolean(onActivate) && !onRemove;
   const activateAsControl =
-    isActivatable && Boolean(activateLabel) && !isDetailVideo;
+    isActivatable && Boolean(activateLabel) && !showSoundControl;
   const [soundOff, setSoundOff] = useState(focusedVideoMuted);
   const { resolved, markResolved, bind } = useFeedMediaResolved(item.url);
   const imgSrcSet = isVideo
@@ -389,9 +400,22 @@ function PostVisualMediaBlock({
     .filter(Boolean)
     .join(' ');
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
+  useEffect(() => {
+    const video = videoElementRef.current;
+    if (!video || !showSoundControl) return;
+    const onReclaim = () => {
+      setListVideoSound(video, false);
+      setSoundOff(true);
+    };
+    video.addEventListener(LAUNCHER_RECLAIM_EVENT, onReclaim);
+    return () => video.removeEventListener(LAUNCHER_RECLAIM_EVENT, onReclaim);
+  }, [showSoundControl, videoMounted]);
   const bindVideo = (node: HTMLVideoElement | null) => {
     bind(node);
     videoElementRef.current = node;
+    if (node && isListVideo && soundControl && !soundOff) {
+      setListVideoSound(node, true);
+    }
     if (playbackMode) bindVideoEl(node);
   };
   const media = (
@@ -411,11 +435,14 @@ function PostVisualMediaBlock({
             src={item.url}
             playsInline
             muted={
-              isListVideo || playbackDisabled || (isDetailVideo && soundOff)
+              playbackDisabled ||
+              (isListVideo && (!soundControl || soundOff)) ||
+              (isDetailVideo && soundOff)
             }
             loop={isListVideo || isDetailVideo}
             preload={videoPreload}
             data-post-focus-video={isDetailVideo ? String(index) : undefined}
+            {...(showSoundControl ? { 'data-os-sound-chip': '' } : {})}
             className={mediaClassName}
             onLoadedMetadata={(event) => {
               const video = event.currentTarget;
@@ -443,7 +470,7 @@ function PostVisualMediaBlock({
           onError={markResolved}
         />
       )}
-      {isDetailVideo ? (
+      {showSoundControl ? (
         <button
           type="button"
           className={`feed-photo-video-control post-media-mute${
@@ -459,6 +486,7 @@ function PostVisualMediaBlock({
             if (video) {
               video.muted = next;
               video.loop = true;
+              if (isListVideo) setListVideoSound(video, !next);
               if (!next)
                 void startJoinedMedia(video, 'explicit').catch(() => {});
             }
@@ -525,6 +553,8 @@ interface PostMediaStripProps {
   items: PostMediaItem[];
   size?: PostMediaSize;
   focused?: boolean;
+  /** Thread list video — speaker chip, stays muted until the viewer taps it. */
+  soundControl?: boolean;
   focusedVideoMuted?: boolean;
   resumeFocusedVideo?: boolean;
   /** Which collage/carousel tile to resume unmuted (from `?mi=`). */
@@ -542,6 +572,7 @@ export function PostMediaStrip({
   items,
   size = 'compact',
   focused = false,
+  soundControl = false,
   focusedVideoMuted = true,
   resumeFocusedVideo = false,
   resumeMediaIndex = 0,
@@ -609,6 +640,7 @@ export function PostMediaStrip({
               index={slot.index}
               size={size}
               focused={focused}
+              soundControl={soundControl}
               playbackDisabled={playbackDisabled}
               focusedVideoMuted={
                 resumeFocusedVideo && slot.index !== resumeMediaIndex

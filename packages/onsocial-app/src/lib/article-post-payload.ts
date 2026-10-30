@@ -409,8 +409,8 @@ function articleHashtags(value: string): string[] {
 }
 
 /**
- * Feed / discover card hit. Titled articles open the piece; the thread
- * page (`detailLayout`) stays on the conversation.
+ * Card hit opens the post. Read more opens the reader. The thread page
+ * (`detailLayout`) stays on the conversation.
  */
 export function resolvePostCardOpenHref(opts: {
   articleHref: string | null;
@@ -420,8 +420,8 @@ export function resolvePostCardOpenHref(opts: {
   preferActionHref?: boolean;
 }): string | null {
   if (opts.preferActionHref) return opts.actionHref ?? opts.articleHref;
-  if (opts.articleHref && !opts.detailLayout) return opts.articleHref;
-  return opts.actionHref ?? null;
+  if (opts.detailLayout) return opts.actionHref ?? null;
+  return opts.actionHref ?? opts.articleHref;
 }
 
 /** Empty Writing shelf copy + whether the owner compose CTA can show. */

@@ -60,6 +60,11 @@ export type PostCardMenuProps = PostCardMenuPostProps & {
   /** Thread page — enlarge ⋯ “Open post”. */
   openPostHref?: string;
   onOpenPost?: () => void;
+  /**
+   * The face already shows Stand and the name. The menu keeps the actions
+   * that are not already on the page.
+   */
+  besideStand?: boolean;
   onDownload?: () => void | Promise<void>;
   onMenuOpen?: () => void;
   zIndex?: number;
@@ -69,6 +74,7 @@ export const PostCardMenu = memo(function PostCardMenu({
   href,
   openPostHref,
   onOpenPost,
+  besideStand = false,
   onDownload,
   accountId,
   authorProfile,
@@ -271,17 +277,19 @@ export const PostCardMenu = memo(function PostCardMenu({
       });
     }
     if (showGestures) {
-      items.push({
-        id: 'stand',
-        label: standLabel,
-        disabled: pending || isLoading || isBlockEitherWay(accountId),
-        leading: viewerStanding ? (
-          <UserMinusIcon className="os-action-drawer-icon" aria-hidden />
-        ) : (
-          <UserPlusIcon className="os-action-drawer-icon" aria-hidden />
-        ),
-        onSelect: () => void handleStandToggle(),
-      });
+      if (!besideStand) {
+        items.push({
+          id: 'stand',
+          label: standLabel,
+          disabled: pending || isLoading || isBlockEitherWay(accountId),
+          leading: viewerStanding ? (
+            <UserMinusIcon className="os-action-drawer-icon" aria-hidden />
+          ) : (
+            <UserPlusIcon className="os-action-drawer-icon" aria-hidden />
+          ),
+          onSelect: () => void handleStandToggle(),
+        });
+      }
       items.push({
         id: 'support',
         label: 'Support',
@@ -374,13 +382,15 @@ export const PostCardMenu = memo(function PostCardMenu({
         },
       });
     }
-    items.push({
-      id: 'view-profile',
-      label: 'View profile',
-      href: profileHref,
-      leading: <UserIcon className="os-action-drawer-icon" aria-hidden />,
-      onSelect: () => requestClose(),
-    });
+    if (!besideStand) {
+      items.push({
+        id: 'view-profile',
+        label: 'View profile',
+        href: profileHref,
+        leading: <UserIcon className="os-action-drawer-icon" aria-hidden />,
+        onSelect: () => requestClose(),
+      });
+    }
     if (href) {
       items.push({
         id: 'copy-link',
@@ -417,6 +427,7 @@ export const PostCardMenu = memo(function PostCardMenu({
     cancelScarcePending,
     href,
     profileHref,
+    besideStand,
     openPostHref,
     onDownload,
     downloading,
@@ -441,12 +452,7 @@ export const PostCardMenu = memo(function PostCardMenu({
           aria-expanded={isOpen}
           aria-label="More"
         >
-          <DotsVerticalIcon
-            className={
-              openPostHref ? 'glass-sheet-close-icon' : 'post-card-menu-icon'
-            }
-            aria-hidden
-          />
+          <DotsVerticalIcon className="post-card-menu-icon" aria-hidden />
         </button>
 
         {open ? (

@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -22,13 +23,24 @@ import { MediaDownloadControl } from '@/components/ui/media-download-control';
 import { SCARCE_HERO_WIDTHS, SQUARE_ART_SIZES } from '@/lib/hero-img-variants';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
-import { startJoinedMedia } from '@/lib/single-media-playback';
+import { useMediaFacesHeld } from '@/lib/media-face-session';
 import {
+  mediaElementIsDockHost,
+  notifyDockBorrow,
+  pauseCoveredMedia,
+  reclaimSpeakersForLauncher,
+  SPEAKER_RELOADING_ATTR,
+  startJoinedMedia,
+} from '@/lib/single-media-playback';
+import {
+  dockSrcMatchesTrack,
   shouldBindPlaybackSession,
   shouldTakeOverPlayback,
 } from '@/features/scarces/scarce-playback-session';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
+import { FeedAudioEnlarge } from '@/features/home/feed-audio-enlarge';
+import { ClipProgressTrack } from '@/features/home/feed-media-progress';
 import { ScarceClipListenSheet } from '@/features/scarces/scarce-clip-listen-sheet';
 import { ScarceClipShareButton } from '@/features/scarces/scarce-clip-share-button';
 import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
@@ -112,6 +124,16 @@ interface ScarceClipPlayerProps {
    * (post-origin enlarge). Closing listen calls `onListenClose`.
    */
   immersiveListen?: boolean;
+  /**
+   * Feed post: cover enlarge first (same face as video). The listen sheet
+   * opens from that face. Back from the player returns to the cover.
+   */
+  feedEnlarge?: boolean;
+  peekIdentity?: ReactNode;
+  caption?: string | null;
+  captionDate?: string | null;
+  /** Jacket ⋯ on the feed cover face. */
+  enlargeTrailing?: ReactNode;
   /** Mint/Buy + post engagement under love/share in listen mode. */
   listenFooter?: ReactNode;
   /**
@@ -178,6 +200,11 @@ export function ScarceClipPlayer({
   showShare = true,
   showDownloads = true,
   immersiveListen = false,
+  feedEnlarge = false,
+  peekIdentity = null,
+  caption = null,
+  captionDate = null,
+  enlargeTrailing = null,
   listenFooter = null,
   listenKeepDock = false,
   onListenClose,
@@ -199,12 +226,15 @@ export function ScarceClipPlayer({
   const playlist = (() => {
     const local =
       tracks && tracks.length > 0 ? tracks : ([clip] as ScarcePlayableMedia[]);
+    // A feed post plays its own tracks. It does not follow the launcher album.
+    if (feedEnlarge) return local;
     if (hostSession && hostSession.tracks.length > local.length) {
       return hostSession.tracks;
     }
     return local;
   })();
   const [activeIndex, setActiveIndex] = useState(() => {
+    if (feedEnlarge) return 0;
     // Join an in-flight album session on the same collection — don't flash track 1.
     if (hostSession) return nowPlaying!.activeIndex;
     return 0;
@@ -213,15 +243,16 @@ export function ScarceClipPlayer({
   const isAudio = isRenderablePostAudioMime(active.mime);
   const sessionId = nowPlaying?.session?.collectionId ?? null;
   const persistId = persist?.collectionId?.trim() || null;
-  // Bind when this audio release is the dock, or the dock is empty. A different
-  // release stays on its own paused face until Play takes the dock. Video
-  // never binds — it borrows the speakers while it is audible.
-  const persistMode = shouldBindPlaybackSession({
-    hasNowPlaying: Boolean(nowPlaying),
-    persistId,
-    sessionId,
-    isAudio,
-  });
+  // A collection, drop, or profile player may claim the launcher.
+  // A feed cover, reply, or video never does. It pauses the song and plays alone.
+  const persistMode = feedEnlarge
+    ? false
+    : shouldBindPlaybackSession({
+        hasNowPlaying: Boolean(nowPlaying),
+        persistId,
+        sessionId,
+        isAudio,
+      });
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const durationByUrlRef = useRef<Map<string, number>>(new Map());
   const scrubbingRef = useRef(false);
@@ -235,14 +266,18 @@ export function ScarceClipPlayer({
   const listenRailRef = useRef<HTMLDivElement | null>(null);
   const listenElapsedRef = useRef<HTMLSpanElement | null>(null);
   const listenScrubInputRef = useRef<HTMLInputElement | null>(null);
-  const activeScrubRailRef = useRef<HTMLDivElement | null>(null);
-  const knobPeekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const faceRailRef = useRef<HTMLDivElement | null>(null);
+  const faceElapsedRef = useRef<HTMLSpanElement | null>(null);
+  const faceScrubInputRef = useRef<HTMLInputElement | null>(null);
   const [playing, setPlaying] = useState(false);
+  const facesHeld = useMediaFacesHeld();
+  const audioHoldLatchRef = useRef(false);
+  const audioHoldPlayingRef = useRef(false);
   const [started, setStarted] = useState(false);
   /** Bump to autoplay after a track change (tap or natural advance). */
   const [autoplayNonce, setAutoplayNonce] = useState(0);
   const [lyricsOpen, setLyricsOpen] = useState(false);
-  const [listenOpen, setListenOpen] = useState(immersiveListen);
+  const [listenOpen, setListenOpen] = useState(immersiveListen && !feedEnlarge);
   const [chromeVisible, setChromeVisible] = useState(true);
   const chromeHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [downloadLock, setDownloadLock] = useState<string | null>(null);
@@ -250,7 +285,6 @@ export function ScarceClipPlayer({
   const [localSrc, setLocalSrc] = useState(active.url);
   const [duration, setDuration] = useState(0);
   const [scrubbing, setScrubbing] = useState(false);
-  const [knobPeek, setKnobPeek] = useState(false);
   const [fansOpen, setFansOpen] = useState(false);
   const tracksOnly = layout === 'tracks' && isAudio;
   const coverChrome = isAudio && !tracksOnly;
@@ -320,8 +354,71 @@ export function ScarceClipPlayer({
   }, [listenOpen]);
 
   useEffect(() => {
+    if (feedEnlarge) return;
     if (immersiveListen) setListenOpen(true);
-  }, [immersiveListen]);
+  }, [feedEnlarge, immersiveListen]);
+
+  // Same open as video. This post plays on its own element and pauses the
+  // launcher, even when the post is the same album. Closing stops only this post.
+  useLayoutEffect(() => {
+    if (!feedEnlarge) return;
+    const track = playlist[activeIndex] ?? clip;
+    if (!track?.url) return;
+    const audio = mediaRef.current;
+    if (!audio || mediaElementIsDockHost(audio)) return;
+    if (!dockSrcMatchesTrack(audio, track)) {
+      audio.src = track.url;
+      audio.load();
+    }
+    audio.muted = false;
+    audio.volume = 1;
+    let cancelled = false;
+    // restart: this post starts on its own, it does not take the launcher clock.
+    void startJoinedMedia(audio, 'restart')
+      .then(() => {
+        if (!cancelled) setPlaying(true);
+      })
+      .catch(() => {
+        if (!cancelled) setPlaying(false);
+      });
+    return () => {
+      cancelled = true;
+      notifyDockBorrow(audio, 'stop');
+      audio.pause();
+    };
+    // Open once. Track changes go through selectTrack.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- feed open only
+  }, [feedEnlarge]);
+
+  // A reply covers this face. Keep the playhead. A pause stays paused.
+  useLayoutEffect(() => {
+    if (!feedEnlarge) return;
+    const audio = mediaRef.current;
+    if (!audio || mediaElementIsDockHost(audio)) return;
+    if (facesHeld) {
+      if (!audioHoldLatchRef.current) {
+        audioHoldLatchRef.current = true;
+        audioHoldPlayingRef.current = !audio.paused && !audio.ended;
+      }
+      if (!audio.paused) pauseCoveredMedia(audio);
+      return;
+    }
+    if (!audioHoldLatchRef.current) return;
+    audioHoldLatchRef.current = false;
+    const resume = audioHoldPlayingRef.current;
+    audioHoldPlayingRef.current = false;
+    if (!resume || !audio.isConnected) return;
+    if (
+      audio
+        .closest('[data-os-slide-over="true"]')
+        ?.classList.contains('is-closing')
+    ) {
+      return;
+    }
+    void startJoinedMedia(audio, 'explicit')
+      .then(() => setPlaying(true))
+      .catch(() => setPlaying(false));
+  }, [facesHeld, feedEnlarge]);
 
   const playlistKey = playlist.map((t) => t.url).join('\0');
   const loves = useScarceTrackLoves({
@@ -357,7 +454,7 @@ export function ScarceClipPlayer({
 
   // Register album with the global audio host (survives View drop).
   useEffect(() => {
-    if (!persistMode || !persist || !ensureSession) return;
+    if (feedEnlarge || !persistMode || !persist || !ensureSession) return;
     ensureSession({
       collectionId: persist.collectionId,
       title: persist.title,
@@ -367,6 +464,7 @@ export function ScarceClipPlayer({
     // playlist identity is tracked via playlistKey
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    feedEnlarge,
     persistMode,
     persist?.collectionId,
     persist?.title,
@@ -393,7 +491,7 @@ export function ScarceClipPlayer({
   }, [playlistKey]);
 
   useEffect(() => {
-    if (persistMode) return;
+    if (persistMode || feedEnlarge) return;
     let cancelled = false;
     const network = active.url;
     setLocalSrc(network);
@@ -414,6 +512,7 @@ export function ScarceClipPlayer({
       cancelled = true;
     };
   }, [
+    feedEnlarge,
     persistMode,
     active.url,
     active.cid,
@@ -507,44 +606,29 @@ export function ScarceClipPlayer({
     currentTimeRef.current = time;
     const stamped = p.toFixed(4);
     const label = formatClipTime(time);
-    for (const rail of [railRef.current, listenRailRef.current]) {
+    for (const rail of [
+      railRef.current,
+      listenRailRef.current,
+      faceRailRef.current,
+    ]) {
       rail?.style.setProperty('--scarce-clip-p', stamped);
     }
-    for (const elapsed of [elapsedRef.current, listenElapsedRef.current]) {
+    for (const elapsed of [
+      elapsedRef.current,
+      listenElapsedRef.current,
+      faceElapsedRef.current,
+    ]) {
       if (elapsed) elapsed.textContent = label;
     }
-    for (const input of [scrubInputRef.current, listenScrubInputRef.current]) {
+    for (const input of [
+      scrubInputRef.current,
+      listenScrubInputRef.current,
+      faceScrubInputRef.current,
+    ]) {
       if (!input) continue;
       input.value = String(time);
       input.setAttribute('aria-valuetext', label);
     }
-  }
-
-  /** Map click/drag X to time using the visual rail — not native range thumb inset. */
-  function timeFromClientX(clientX: number): number {
-    const rail = activeScrubRailRef.current ?? railRef.current;
-    const total = durationRef.current;
-    if (!rail || total <= 0) return 0;
-    const rect = rail.getBoundingClientRect();
-    if (rect.width <= 0) return 0;
-    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-    return ratio * total;
-  }
-
-  function clearKnobPeekTimer() {
-    if (knobPeekTimerRef.current != null) {
-      clearTimeout(knobPeekTimerRef.current);
-      knobPeekTimerRef.current = null;
-    }
-  }
-
-  function showKnobPeek(holdMs = 1400) {
-    clearKnobPeekTimer();
-    setKnobPeek(true);
-    knobPeekTimerRef.current = setTimeout(() => {
-      setKnobPeek(false);
-      knobPeekTimerRef.current = null;
-    }, holdMs);
   }
 
   /** Preview only — never touch media.currentTime while dragging (avoids rewind audio). */
@@ -556,8 +640,6 @@ export function ScarceClipPlayer({
     if (scrubbingRef.current) return;
     scrubbingRef.current = true;
     setScrubbing(true);
-    clearKnobPeekTimer();
-    setKnobPeek(true);
     const media = mediaRef.current;
     const wasPlaying = Boolean(media && !media.paused);
     resumeAfterScrubRef.current = wasPlaying;
@@ -579,8 +661,7 @@ export function ScarceClipPlayer({
     // Drop pointer focus so the knob can hide (keyboard still uses :focus-visible).
     scrubInputRef.current?.blur();
     listenScrubInputRef.current?.blur();
-    activeScrubRailRef.current = null;
-    showKnobPeek(1400);
+    faceScrubInputRef.current?.blur();
     if (resumeAfterScrubRef.current && media) {
       resumeAfterScrubRef.current = false;
       void startJoinedMedia(media, 'explicit')
@@ -591,6 +672,18 @@ export function ScarceClipPlayer({
     }
   }
 
+  /** Release commits. Keyboard seeks immediately — there is no drag to preview. */
+  function commitScrub(time: number) {
+    if (scrubbingRef.current) {
+      endScrub(time);
+      return;
+    }
+    const media = mediaRef.current;
+    const capped = clampTime(time);
+    if (media) media.currentTime = capped;
+    paintProgress(capped);
+  }
+
   useEffect(() => {
     if (autoplayNonce === 0) return;
     if (persistMode && setHostTrack) {
@@ -598,21 +691,39 @@ export function ScarceClipPlayer({
       return;
     }
     const media = mediaRef.current;
-    if (!media) return;
+    if (!media || mediaElementIsDockHost(media)) return;
+    if (!active.url) return;
+    const track = { url: active.url, cid: active.cid };
     let cancelled = false;
+    if (!media.paused) media.setAttribute(SPEAKER_RELOADING_ATTR, '');
+    if (!dockSrcMatchesTrack(media, track)) {
+      media.src = track.url;
+    }
+    media.muted = false;
+    media.volume = 1;
     // Same <audio> node across tracks — force load so src swaps don't stall.
     media.load();
-    void startJoinedMedia(media, 'explicit')
+    void startJoinedMedia(media, feedEnlarge ? 'restart' : 'explicit')
       .then(() => {
+        media.removeAttribute(SPEAKER_RELOADING_ATTR);
         if (!cancelled) setPlaying(true);
       })
       .catch(() => {
+        media.removeAttribute(SPEAKER_RELOADING_ATTR);
         if (!cancelled) setPlaying(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [active.url, autoplayNonce, persistMode, setHostTrack, activeIndex]);
+  }, [
+    active.cid,
+    active.url,
+    activeIndex,
+    autoplayNonce,
+    feedEnlarge,
+    persistMode,
+    setHostTrack,
+  ]);
 
   // Smooth playhead — DOM paint only, no setState (avoids tick from re-render).
   useEffect(() => {
@@ -637,7 +748,6 @@ export function ScarceClipPlayer({
 
   useEffect(() => {
     return () => {
-      clearKnobPeekTimer();
       const media = mediaRef.current;
       if (media instanceof HTMLVideoElement) media.pause();
     };
@@ -664,6 +774,9 @@ export function ScarceClipPlayer({
   }
 
   function takeOverPlayback(index: number): boolean {
+    // Opening a post borrows the speakers. Play on that face must not
+    // replace the song already in the launcher.
+    if (feedEnlarge) return false;
     if (!persist || !nowPlaying) return false;
     if (
       !shouldTakeOverPlayback({
@@ -690,7 +803,9 @@ export function ScarceClipPlayer({
       if (!cid || !cachedCids.has(cid)) return;
     }
     if (takeOverPlayback(activeIndex)) return;
-    const media = mediaRef.current;
+    const media =
+      mediaRef.current ??
+      (persistMode && nowPlaying ? nowPlaying.getAudio() : null);
     if (!media) return;
     if (playing) {
       media.pause();
@@ -701,6 +816,9 @@ export function ScarceClipPlayer({
     try {
       media.muted = false;
       media.volume = 1;
+      if (mediaElementIsDockHost(media) && media.ownerDocument) {
+        reclaimSpeakersForLauncher(media.ownerDocument);
+      }
       await startJoinedMedia(media, 'explicit');
       setPlaying(true);
     } catch {
@@ -727,6 +845,15 @@ export function ScarceClipPlayer({
     if (takeOverPlayback(index)) return;
     const next = playlist[index];
     const cached = next ? durationByUrlRef.current.get(next.url) : undefined;
+    // Point the post's own element at the next file before React commits,
+    // so the swap pause is not treated as the post ending.
+    if (!persistMode && next?.url) {
+      const media = mediaRef.current;
+      if (media && !mediaElementIsDockHost(media) && !media.paused) {
+        media.setAttribute(SPEAKER_RELOADING_ATTR, '');
+      }
+      setLocalSrc(next.url);
+    }
     setActiveIndex(index);
     setStarted(true);
     setPlaying(true);
@@ -856,547 +983,311 @@ export function ScarceClipPlayer({
     onDurationChange: onLoadedMetadata,
   };
 
+  const coverFace = feedEnlarge ? (
+    <FeedAudioEnlarge
+      open
+      onBeforeClose={() => {
+        // Pause in the click. The face animates out afterwards, and that
+        // later unmount is too late for the launcher to start again.
+        const audio = mediaRef.current;
+        if (audio && !mediaElementIsDockHost(audio) && !audio.paused) {
+          notifyDockBorrow(audio, 'stop');
+          audio.pause();
+        }
+        return true;
+      }}
+      onClose={() => onListenClose?.()}
+      onOpenPlayer={() => setListenOpen(true)}
+      title={persist?.title?.trim() || 'Drop'}
+      cover={cover}
+      playing={playing}
+      onTogglePlay={() => {
+        void togglePlayback();
+      }}
+      canPrev={!playDisabled}
+      canNext={!playDisabled && canSelectIndex(activeIndex + 1)}
+      playDisabled={playDisabled}
+      duration={duration}
+      scrubbing={scrubbing}
+      onSkip={(delta) => {
+        if (delta < 0) skipPrevious();
+        else skipNext();
+      }}
+      progressKey={active.url}
+      onScrubStart={() => beginScrub()}
+      onPreview={(time) => previewScrub(time)}
+      onCommit={(time) => commitScrub(time)}
+      faceRailRef={faceRailRef}
+      faceElapsedRef={faceElapsedRef}
+      faceScrubInputRef={faceScrubInputRef}
+      peekIdentity={peekIdentity}
+      caption={caption}
+      captionDate={captionDate}
+      footer={listenFooter}
+      trailing={enlargeTrailing}
+      threadOpen={Boolean(threadOpen) && !listenOpen}
+      onDismissThread={onDismissThread}
+      threadAuthor={threadAuthor}
+      threadPostId={threadPostId}
+      threadRoot={threadRoot}
+    />
+  ) : null;
+
   return (
-    <div
-      className={`scarce-clip-player-shell${
-        tracksOnly ? ' scarce-clip-player-shell--tracks' : ''
-      }${isAudio ? ' scarce-clip-player-shell--audio' : ''}${
-        commerce ? ' scarce-clip-player-shell--commerce' : ''
-      }${immersiveListen ? ' scarce-clip-player-shell--immersive' : ''}`}
-    >
-      {tracksOnly ? (
-        persistMode ? null : (
-          <audio
-            ref={(node) => {
-              mediaRef.current = node;
-            }}
-            src={localSrc}
-            {...audioMediaProps}
-          />
-        )
-      ) : (
-        <div
-          className={[
-            'scarce-clip-player',
-            isAudio ? 'scarce-clip-player--audio' : 'scarce-clip-player--video',
-            playing ? 'is-playing' : '',
-            coverChrome && chromeVisible ? ' is-chrome' : '',
-            coverChrome && !chromeVisible ? ' is-chrome-hidden' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-        >
-          {isAudio ? (
-            <>
-              <button
-                type="button"
-                className="scarce-clip-player-cover-hit"
-                aria-label={
-                  !playing
-                    ? 'Player controls'
-                    : chromeVisible
-                      ? 'Hide player controls'
-                      : 'Show player controls'
-                }
-                onClick={() => {
-                  // Paused / idle — chrome stays up; cover tap does not hide it.
-                  if (!playingRef.current) {
-                    setChromeVisible(true);
-                    return;
+    <>
+      {coverFace}
+      <div
+        className={`scarce-clip-player-shell${
+          tracksOnly ? ' scarce-clip-player-shell--tracks' : ''
+        }${isAudio ? ' scarce-clip-player-shell--audio' : ''}${
+          commerce ? ' scarce-clip-player-shell--commerce' : ''
+        }${
+          immersiveListen || feedEnlarge
+            ? ' scarce-clip-player-shell--immersive'
+            : ''
+        }`}
+      >
+        {tracksOnly ? (
+          persistMode ? null : (
+            <audio
+              ref={(node) => {
+                mediaRef.current = node;
+              }}
+              src={localSrc}
+              {...audioMediaProps}
+            />
+          )
+        ) : (
+          <div
+            className={[
+              'scarce-clip-player',
+              isAudio
+                ? 'scarce-clip-player--audio'
+                : 'scarce-clip-player--video',
+              playing ? 'is-playing' : '',
+              coverChrome && chromeVisible ? ' is-chrome' : '',
+              coverChrome && !chromeVisible ? ' is-chrome-hidden' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            {isAudio ? (
+              <>
+                <button
+                  type="button"
+                  className="scarce-clip-player-cover-hit"
+                  aria-label={
+                    !playing
+                      ? 'Player controls'
+                      : chromeVisible
+                        ? 'Hide player controls'
+                        : 'Show player controls'
                   }
-                  if (chromeVisible) {
-                    clearChromeHideTimer();
-                    setChromeVisible(false);
-                  } else {
-                    pokeChrome();
-                  }
-                }}
-              >
-                {cover ? (
-                  <img
-                    className="scarce-clip-player-cover"
-                    src={cover}
-                    srcSet={coverSrcSet}
-                    sizes={coverSrcSet ? SQUARE_ART_SIZES : undefined}
-                    alt=""
-                    decoding="async"
-                  />
-                ) : (
-                  <div className="scarce-clip-player-cover scarce-clip-player-cover--empty" />
-                )}
-              </button>
-              {persistMode ? null : (
-                <audio
-                  ref={(node) => {
-                    mediaRef.current = node;
-                  }}
-                  src={localSrc}
-                  {...audioMediaProps}
-                />
-              )}
-              <div
-                className={`scarce-clip-cover-chrome${
-                  chromeVisible ? ' is-visible' : ''
-                }`}
-              >
-                <div className="scarce-clip-cover-transport">
-                  <button
-                    type="button"
-                    className="scarce-clip-player-play scarce-clip-player-play--skip"
-                    aria-label="Previous track"
-                    disabled={playDisabled}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      pokeChrome();
-                      skipPrevious();
-                    }}
-                  >
-                    <PreviousFillIcon
-                      className="scarce-clip-player-play-glyph"
-                      aria-hidden
-                    />
-                  </button>
-                  <button
-                    type="button"
-                    className="scarce-clip-player-play"
-                    aria-label={
-                      playDisabled
-                        ? 'Unavailable offline'
-                        : playing
-                          ? 'Pause'
-                          : 'Play'
+                  onClick={() => {
+                    // Paused / idle — chrome stays up; cover tap does not hide it.
+                    if (!playingRef.current) {
+                      setChromeVisible(true);
+                      return;
                     }
-                    disabled={playDisabled}
-                    onClick={(event) => {
-                      event.stopPropagation();
+                    if (chromeVisible) {
+                      clearChromeHideTimer();
+                      setChromeVisible(false);
+                    } else {
                       pokeChrome();
-                      void togglePlayback();
-                    }}
-                  >
-                    <span className="scarce-clip-player-play-icon" aria-hidden>
-                      {playing ? (
-                        <PauseFillIcon className="scarce-clip-player-play-glyph scarce-clip-player-play-glyph--pause" />
-                      ) : (
-                        <PlayFillIcon className="scarce-clip-player-play-glyph scarce-clip-player-play-glyph--play" />
-                      )}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="scarce-clip-player-play scarce-clip-player-play--skip"
-                    aria-label="Next track"
-                    disabled={playDisabled || !canSelectIndex(activeIndex + 1)}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      pokeChrome();
-                      skipNext();
-                    }}
-                  >
-                    <NextFillIcon
-                      className="scarce-clip-player-play-glyph"
-                      aria-hidden
+                    }
+                  }}
+                >
+                  {cover ? (
+                    <img
+                      className="scarce-clip-player-cover"
+                      src={cover}
+                      srcSet={coverSrcSet}
+                      sizes={coverSrcSet ? SQUARE_ART_SIZES : undefined}
+                      alt=""
+                      decoding="async"
                     />
-                  </button>
-                </div>
-                <div className="scarce-clip-cover-progress">
-                  <div className="scarce-clip-cover-progress-meta">
-                    <span className="scarce-clip-cover-time-pill">
-                      <span
-                        ref={elapsedRef}
-                        className="scarce-clip-time-elapsed"
-                        suppressHydrationWarning
-                      >
-                        0:00
-                      </span>
-                      <span className="scarce-clip-time-sep" aria-hidden>
-                        /
-                      </span>
-                      <span className="scarce-clip-time-total">
-                        {formatClipTime(duration)}
-                      </span>
-                    </span>
+                  ) : (
+                    <div className="scarce-clip-player-cover scarce-clip-player-cover--empty" />
+                  )}
+                </button>
+                {persistMode ? null : (
+                  <audio
+                    ref={(node) => {
+                      mediaRef.current = node;
+                    }}
+                    src={localSrc}
+                    {...audioMediaProps}
+                  />
+                )}
+                <div
+                  className={`scarce-clip-cover-chrome${
+                    chromeVisible ? ' is-visible' : ''
+                  }`}
+                >
+                  <div className="scarce-clip-cover-transport">
                     <button
                       type="button"
-                      className="scarce-clip-cover-expand"
-                      aria-label="Open listen mode"
+                      className="scarce-clip-player-play scarce-clip-player-play--skip"
+                      aria-label="Previous track"
+                      disabled={playDisabled}
                       onClick={(event) => {
                         event.stopPropagation();
                         pokeChrome();
-                        setListenOpen(true);
+                        skipPrevious();
                       }}
                     >
-                      <ScaleUpIcon
-                        className="scarce-clip-cover-expand-icon"
+                      <PreviousFillIcon
+                        className="scarce-clip-player-play-glyph"
+                        aria-hidden
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      className="scarce-clip-player-play"
+                      aria-label={
+                        playDisabled
+                          ? 'Unavailable offline'
+                          : playing
+                            ? 'Pause'
+                            : 'Play'
+                      }
+                      disabled={playDisabled}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        pokeChrome();
+                        void togglePlayback();
+                      }}
+                    >
+                      <span
+                        className="scarce-clip-player-play-icon"
+                        aria-hidden
+                      >
+                        {playing ? (
+                          <PauseFillIcon className="scarce-clip-player-play-glyph scarce-clip-player-play-glyph--pause" />
+                        ) : (
+                          <PlayFillIcon className="scarce-clip-player-play-glyph scarce-clip-player-play-glyph--play" />
+                        )}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="scarce-clip-player-play scarce-clip-player-play--skip"
+                      aria-label="Next track"
+                      disabled={
+                        playDisabled || !canSelectIndex(activeIndex + 1)
+                      }
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        pokeChrome();
+                        skipNext();
+                      }}
+                    >
+                      <NextFillIcon
+                        className="scarce-clip-player-play-glyph"
                         aria-hidden
                       />
                     </button>
                   </div>
-                  <div
-                    className={`scarce-clip-progress-track${
-                      scrubbing ? ' is-scrubbing' : ''
-                    }${knobPeek ? ' is-knob-peek' : ''}${
-                      duration <= 0 ? ' is-disabled' : ''
-                    }`}
-                    onPointerEnter={() => {
-                      clearKnobPeekTimer();
-                      setKnobPeek(true);
-                    }}
-                    onPointerLeave={() => {
-                      if (!scrubbingRef.current) showKnobPeek(1100);
-                    }}
-                  >
-                    <div
-                      ref={railRef}
-                      className="scarce-clip-progress-rail"
-                      aria-hidden
-                    >
-                      <div className="scarce-clip-progress-fill" />
-                      <span className="scarce-clip-progress-knob" />
+                  <div className="scarce-clip-cover-progress">
+                    <div className="scarce-clip-cover-progress-meta">
+                      <span className="scarce-clip-cover-time-pill">
+                        <span
+                          ref={elapsedRef}
+                          className="scarce-clip-time-elapsed"
+                          suppressHydrationWarning
+                        >
+                          0:00
+                        </span>
+                        <span className="scarce-clip-time-sep" aria-hidden>
+                          /
+                        </span>
+                        <span className="scarce-clip-time-total">
+                          {formatClipTime(duration)}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        className="scarce-clip-cover-expand"
+                        aria-label="Open listen mode"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          pokeChrome();
+                          setListenOpen(true);
+                        }}
+                      >
+                        <ScaleUpIcon
+                          className="scarce-clip-cover-expand-icon"
+                          aria-hidden
+                        />
+                      </button>
                     </div>
-                    <input
-                      key={active.url}
-                      ref={scrubInputRef}
-                      type="range"
-                      className="scarce-clip-progress-scrub"
-                      min={0}
-                      max={duration > 0 ? duration : 1}
-                      step={0.01}
-                      defaultValue={0}
-                      disabled={duration <= 0}
-                      aria-label="Seek"
-                      onPointerDown={(event) => {
-                        if (durationRef.current <= 0) return;
-                        event.preventDefault();
-                        event.stopPropagation();
-                        event.currentTarget.focus();
-                        event.currentTarget.setPointerCapture(event.pointerId);
-                        activeScrubRailRef.current = railRef.current;
+                    <ClipProgressTrack
+                      railRef={railRef}
+                      scrubRef={scrubInputRef}
+                      duration={duration}
+                      scrubbing={scrubbing}
+                      progressKey={active.url}
+                      onScrubStart={() => {
                         pokeChrome();
                         beginScrub();
-                        previewScrub(timeFromClientX(event.clientX));
                       }}
-                      onPointerMove={(event) => {
-                        if (!scrubbingRef.current) return;
-                        previewScrub(timeFromClientX(event.clientX));
-                      }}
-                      onPointerUp={(event) => {
-                        endScrub(timeFromClientX(event.clientX));
+                      onPreview={(time) => previewScrub(time)}
+                      onCommit={(time) => {
                         pokeChrome();
-                        if (
-                          event.currentTarget.hasPointerCapture(event.pointerId)
-                        ) {
-                          event.currentTarget.releasePointerCapture(
-                            event.pointerId
-                          );
-                        }
-                      }}
-                      onPointerCancel={(event) => {
-                        endScrub(timeFromClientX(event.clientX));
-                        pokeChrome();
-                      }}
-                      onChange={(event) => {
-                        if (scrubbingRef.current) return;
-                        const media = mediaRef.current;
-                        const capped = clampTime(
-                          Number(event.currentTarget.value)
-                        );
-                        if (media) media.currentTime = capped;
-                        paintProgress(capped);
-                        showKnobPeek(1100);
-                        pokeChrome();
+                        commitScrub(time);
                       }}
                     />
                   </div>
                 </div>
-              </div>
-              {coverBadge ? (
-                <div className="scarce-clip-cover-badge">{coverBadge}</div>
-              ) : null}
-            </>
-          ) : (
-            <video
-              key={active.url}
-              ref={(node) => {
-                mediaRef.current = node;
-              }}
-              className="scarce-clip-player-video"
-              src={active.url}
-              {...(cover ? { poster: cover } : {})}
-              playsInline
-              preload="metadata"
-              controls={started}
-              onEnded={() => setPlaying(false)}
-              onPause={() => setPlaying(false)}
-              onPlay={() => {
-                setStarted(true);
-                setPlaying(true);
-              }}
-            />
-          )}
-
-          {!isAudio && !started ? (
-            <button
-              type="button"
-              className="scarce-clip-player-play"
-              aria-label={playing ? 'Pause' : 'Play'}
-              onClick={(event) => {
-                event.stopPropagation();
-                void togglePlayback();
-              }}
-            >
-              <span className="scarce-clip-player-play-icon" aria-hidden>
-                {playing ? (
-                  <PauseFillIcon className="scarce-clip-player-play-glyph scarce-clip-player-play-glyph--pause" />
-                ) : (
-                  <PlayFillIcon className="scarce-clip-player-play-glyph scarce-clip-player-play-glyph--play" />
-                )}
-              </span>
-            </button>
-          ) : null}
-        </div>
-      )}
-
-      {tracksOnly && (playlist.length > 1 || showFansFacepile) ? (
-        <div className="scarce-clip-tracks-head">
-          <div className="scarce-clip-download-bar">
-            {fansFacepile}
-            {playlist.length > 1 && showDownloads ? (
-              <>
-                <MediaDownloadControl
-                  className="scarce-clip-download-control"
-                  glyph="save"
-                  ariaLabel="Save album to Files"
-                  disabled={
-                    downloadLock != null && downloadLock !== 'save-album'
-                  }
-                  onBusyChange={(busy) =>
-                    setDownloadLock(busy ? 'save-album' : null)
-                  }
-                  onDownload={async (onProgress) => {
-                    try {
-                      await exportIpfsAlbumTracks(downloadItems, onProgress);
-                    } catch (cause) {
-                      reportOfflineError(
-                        cause,
-                        txToastError.offlineCacheFailed
-                      );
-                      throw cause;
-                    }
-                  }}
-                />
-                {offlineAllowed || offlineUnknown ? (
-                  <MediaDownloadControl
-                    className="scarce-clip-download-control"
-                    ariaLabel="Download album"
-                    cached={offlineAllowed && albumCached}
-                    disabled={
-                      offlineUnknown ||
-                      (downloadLock != null && downloadLock !== 'album')
-                    }
-                    onBusyChange={(busy) =>
-                      setDownloadLock(busy ? 'album' : null)
-                    }
-                    onRemove={
-                      offlineAllowed
-                        ? async () => {
-                            try {
-                              await removeAlbumTracks(albumCids);
-                              setCachedCids(new Set());
-                            } catch (cause) {
-                              reportOfflineError(
-                                cause,
-                                txToastError.offlineRemoveFailed
-                              );
-                            }
-                          }
-                        : undefined
-                    }
-                    onDownload={async (onProgress) => {
-                      try {
-                        await downloadIpfsAlbumZip(
-                          downloadItems,
-                          persist?.title,
-                          onProgress,
-                          persist?.collectionId
-                            ? {
-                                cacheOffline: true,
-                                exportFile: false,
-                                skipCids: cachedCids,
-                                onOfflineCache: async ({ cid, mime, blob }) => {
-                                  const track =
-                                    playlist.find(
-                                      (entry) =>
-                                        trackCidFromPlayable(entry) === cid
-                                    ) ?? playlist[0]!;
-                                  await cacheOfflineBytes({
-                                    cid,
-                                    mime,
-                                    blob,
-                                    track,
-                                  });
-                                },
-                              }
-                            : undefined
-                        );
-                      } catch (cause) {
-                        reportOfflineError(
-                          cause,
-                          txToastError.offlineCacheFailed
-                        );
-                        throw cause;
-                      }
-                    }}
-                  />
+                {coverBadge ? (
+                  <div className="scarce-clip-cover-badge">{coverBadge}</div>
                 ) : null}
               </>
-            ) : null}
-            {playlist.length > 1 && showShare && persist?.collectionId ? (
-              <ScarceClipShareButton
-                className="scarce-clip-download-control"
-                title={persist.title}
-                collectionId={persist.collectionId}
-                mediaUrl={poster}
-                mediumKind="audio"
-                showFeedPost={showFeedPost}
-              />
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      {showTracksTransport ? (
-        <div className="scarce-clip-transport">
-          <button
-            type="button"
-            className="scarce-clip-transport-btn os-disabled-ink"
-            aria-label="Previous track"
-            disabled={playDisabled}
-            onClick={() => skipPrevious()}
-          >
-            <PreviousFillIcon
-              className="scarce-clip-transport-icon"
-              aria-hidden
-            />
-          </button>
-          <button
-            type="button"
-            className="scarce-clip-transport-btn os-disabled-ink scarce-clip-transport-btn--play"
-            aria-label={
-              playDisabled ? 'Unavailable offline' : playing ? 'Pause' : 'Play'
-            }
-            disabled={playDisabled}
-            onClick={() => {
-              void togglePlayback();
-            }}
-          >
-            {playing ? (
-              <PauseFillIcon
-                className="scarce-clip-transport-icon scarce-clip-transport-icon--pause"
-                aria-hidden
-              />
             ) : (
-              <PlayFillIcon
-                className="scarce-clip-transport-icon scarce-clip-transport-icon--play"
-                aria-hidden
+              <video
+                key={active.url}
+                ref={(node) => {
+                  mediaRef.current = node;
+                }}
+                className="scarce-clip-player-video"
+                src={active.url}
+                {...(cover ? { poster: cover } : {})}
+                playsInline
+                preload="metadata"
+                controls={started}
+                onEnded={() => setPlaying(false)}
+                onPause={() => setPlaying(false)}
+                onPlay={() => {
+                  setStarted(true);
+                  setPlaying(true);
+                }}
               />
             )}
-          </button>
-          <button
-            type="button"
-            className="scarce-clip-transport-btn os-disabled-ink"
-            aria-label="Next track"
-            disabled={playDisabled || !canSelectIndex(activeIndex + 1)}
-            onClick={() => skipNext()}
-          >
-            <NextFillIcon className="scarce-clip-transport-icon" aria-hidden />
-          </button>
-        </div>
-      ) : null}
 
-      {showTracksTransport ? (
-        <div className="scarce-clip-progress">
-          <span
-            ref={elapsedRef}
-            className="scarce-clip-progress-time"
-            suppressHydrationWarning
-          >
-            0:00
-          </span>
-          <div
-            className={`scarce-clip-progress-track${
-              scrubbing ? ' is-scrubbing' : ''
-            }${knobPeek ? ' is-knob-peek' : ''}${
-              duration <= 0 ? ' is-disabled' : ''
-            }`}
-            onPointerEnter={() => {
-              clearKnobPeekTimer();
-              setKnobPeek(true);
-            }}
-            onPointerLeave={() => {
-              if (!scrubbingRef.current) showKnobPeek(1100);
-            }}
-          >
-            <div
-              ref={railRef}
-              className="scarce-clip-progress-rail"
-              aria-hidden
-            >
-              <div className="scarce-clip-progress-fill" />
-              <span className="scarce-clip-progress-knob" />
-            </div>
-            <input
-              key={active.url}
-              ref={scrubInputRef}
-              type="range"
-              className="scarce-clip-progress-scrub"
-              min={0}
-              max={duration > 0 ? duration : 1}
-              step={0.01}
-              defaultValue={0}
-              disabled={duration <= 0}
-              aria-label="Seek"
-              onPointerDown={(event) => {
-                if (durationRef.current <= 0) return;
-                event.preventDefault();
-                event.currentTarget.focus();
-                event.currentTarget.setPointerCapture(event.pointerId);
-                activeScrubRailRef.current = railRef.current;
-                beginScrub();
-                previewScrub(timeFromClientX(event.clientX));
-              }}
-              onPointerMove={(event) => {
-                if (!scrubbingRef.current) return;
-                previewScrub(timeFromClientX(event.clientX));
-              }}
-              onPointerUp={(event) => {
-                endScrub(timeFromClientX(event.clientX));
-                if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                  event.currentTarget.releasePointerCapture(event.pointerId);
-                }
-              }}
-              onPointerCancel={(event) => {
-                endScrub(timeFromClientX(event.clientX));
-              }}
-              onChange={(event) => {
-                // Pointer scrub uses rail math; this path is keyboard / a11y.
-                if (scrubbingRef.current) return;
-                const media = mediaRef.current;
-                const capped = clampTime(Number(event.currentTarget.value));
-                if (media) media.currentTime = capped;
-                paintProgress(capped);
-                showKnobPeek(1100);
-              }}
-            />
+            {!isAudio && !started ? (
+              <button
+                type="button"
+                className="scarce-clip-player-play"
+                aria-label={playing ? 'Pause' : 'Play'}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void togglePlayback();
+                }}
+              >
+                <span className="scarce-clip-player-play-icon" aria-hidden>
+                  {playing ? (
+                    <PauseFillIcon className="scarce-clip-player-play-glyph scarce-clip-player-play-glyph--pause" />
+                  ) : (
+                    <PlayFillIcon className="scarce-clip-player-play-glyph scarce-clip-player-play-glyph--play" />
+                  )}
+                </span>
+              </button>
+            ) : null}
           </div>
-          <span className="scarce-clip-progress-time">
-            {formatClipTime(duration)}
-          </span>
-        </div>
-      ) : null}
+        )}
 
-      {showTrackList ? (
-        <>
-          {!tracksOnly && (playlist.length > 1 || showFansFacepile) ? (
+        {tracksOnly && (playlist.length > 1 || showFansFacepile) ? (
+          <div className="scarce-clip-tracks-head">
             <div className="scarce-clip-download-bar">
               {fansFacepile}
               {playlist.length > 1 && showDownloads ? (
@@ -1504,294 +1395,435 @@ export function ScarceClipPlayer({
                 />
               ) : null}
             </div>
-          ) : null}
-          <ol className="scarce-clip-track-list" aria-label="Tracks">
-            {playlist.map((track, index) => {
-              const label = track.title?.trim() || `Track ${index + 1}`;
-              const isActive = index === activeIndex;
-              const isPlaying = isActive && playing;
-              const cid = trackCidFromPlayable(track);
-              const trackCached = Boolean(cid && cachedCids.has(cid));
-              const loved = loves.viewerLoves(track);
-              const loveCount = loves.loveCountFor(track);
-              const lovePending = loves.isLovePending(track);
-              return (
-                <li
-                  key={`${track.url}-${index}`}
-                  className={`scarce-clip-track${isActive ? ' is-active' : ''}${
-                    isPlaying ? ' is-playing' : ''
-                  }`}
-                >
-                  <button
-                    type="button"
-                    className={`scarce-clip-track-play${
-                      isPlaying ? ' is-playing' : ''
-                    }`}
-                    aria-label={
-                      restrictToCached && !trackCached
-                        ? `${label} unavailable offline`
-                        : isPlaying
-                          ? `Pause ${label}`
-                          : `Play ${label}`
-                    }
-                    disabled={restrictToCached && !trackCached}
-                    onClick={() => {
-                      selectTrack(index);
-                    }}
-                  >
-                    {isPlaying ? (
-                      <PauseFillIcon className="scarce-clip-track-play-icon scarce-clip-track-play-icon--pause" />
-                    ) : (
-                      <PlayFillIcon className="scarce-clip-track-play-icon scarce-clip-track-play-icon--play" />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    className="scarce-clip-track-title"
-                    aria-current={isActive ? 'true' : undefined}
-                    onClick={() => {
-                      selectTrack(index);
-                    }}
-                  >
-                    {index + 1}. {label}
-                  </button>
-                  {persist?.collectionId && creatorId && cid ? (
-                    <button
-                      type="button"
-                      className={`scarce-clip-track-love os-confirm-icon${
-                        loved ? ' is-loved' : ''
-                      }${lovePending ? ' is-pending' : ''}`}
-                      aria-label={
-                        lovePending
-                          ? `Confirming love for ${label}`
-                          : loved
-                            ? `Unlove ${label}`
-                            : `Love ${label}`
-                      }
-                      aria-pressed={loved}
-                      aria-busy={lovePending}
-                      disabled={lovePending}
-                      onClick={() => {
-                        void loves.toggleLove(track);
-                      }}
-                    >
-                      {loved ? (
-                        <HeartFillIcon
-                          className="scarce-clip-track-love-icon"
-                          aria-hidden
-                        />
-                      ) : (
-                        <HeartIcon
-                          className="scarce-clip-track-love-icon"
-                          aria-hidden
-                        />
-                      )}
-                      <span
-                        className="scarce-clip-track-love-count"
-                        aria-hidden={loveCount <= 0}
-                      >
-                        {loveCount > 0 ? loveCount : ''}
-                      </span>
-                    </button>
-                  ) : null}
-                  {showDownloads ? (
-                    <ScarceTrackOptionsMenu
-                      label={label}
-                      index={index}
-                      cached={offlineAllowed && trackCached}
-                      canKeepOffline={offlineAllowed}
-                      offlineUnknown={offlineUnknown}
-                      downloadLock={downloadLock}
-                      onLockChange={(busy) =>
-                        setDownloadLock(busy ? `menu-${index}` : null)
-                      }
-                      onSave={async (onProgress) => {
-                        try {
-                          await downloadIpfsMedia({
-                            cid: track.cid,
-                            url: track.url,
-                            mime: track.mime,
-                            title: track.title,
-                            fallbackName: `track-${index + 1}`,
-                            onProgress,
-                            exportFile: true,
-                          });
-                        } catch (cause) {
-                          reportOfflineError(
-                            cause,
-                            txToastError.offlineCacheFailed
-                          );
-                          throw cause;
-                        }
-                      }}
-                      onDownload={async (onProgress) => {
-                        try {
-                          await downloadIpfsMedia({
-                            cid: track.cid,
-                            url: track.url,
-                            mime: track.mime,
-                            title: track.title,
-                            fallbackName: `track-${index + 1}`,
-                            onProgress,
-                            cacheOffline: Boolean(persist?.collectionId),
-                            exportFile: false,
-                            onOfflineCache: async ({
-                              cid: cachedCid,
-                              mime,
-                              blob,
-                            }) => {
-                              await cacheOfflineBytes({
-                                cid: cachedCid,
-                                mime,
-                                blob,
-                                track,
-                              });
-                            },
-                          });
-                        } catch (cause) {
-                          reportOfflineError(
-                            cause,
-                            txToastError.offlineCacheFailed
-                          );
-                          throw cause;
-                        }
-                      }}
-                      onRemove={
-                        offlineAllowed && cid
-                          ? async () => {
-                              try {
-                                await removeTrack(cid);
-                                setCachedCids((current) => {
-                                  const next = new Set(current);
-                                  next.delete(cid);
-                                  return next;
-                                });
-                              } catch (cause) {
-                                reportOfflineError(
-                                  cause,
-                                  txToastError.offlineRemoveFailed
-                                );
-                              }
-                            }
-                          : undefined
-                      }
-                    />
-                  ) : null}
-                </li>
-              );
-            })}
-          </ol>
-        </>
-      ) : null}
+          </div>
+        ) : null}
 
-      {/* Single-track cover downloads — skip when drop defers list under meta. */}
-      {canDownloadAudio && !showTrackList && showTracks !== false ? (
-        <div className="scarce-clip-download-bar">
-          {fansFacepile}
-          {persist?.collectionId && creatorId ? (
+        {showTracksTransport ? (
+          <div className="scarce-clip-transport">
             <button
               type="button"
-              className={`scarce-clip-track-love os-confirm-icon${
-                loves.viewerLoves(active) ? ' is-loved' : ''
-              }${loves.isLovePending(active) ? ' is-pending' : ''}`}
+              className="scarce-clip-transport-btn os-disabled-ink"
+              aria-label="Previous track"
+              disabled={playDisabled}
+              onClick={() => skipPrevious()}
+            >
+              <PreviousFillIcon
+                className="scarce-clip-transport-icon"
+                aria-hidden
+              />
+            </button>
+            <button
+              type="button"
+              className="scarce-clip-transport-btn os-disabled-ink scarce-clip-transport-btn--play"
               aria-label={
-                loves.isLovePending(active)
-                  ? `Confirming love for ${active.title?.trim() || 'track'}`
-                  : loves.viewerLoves(active)
-                    ? `Unlove ${active.title?.trim() || 'track'}`
-                    : `Love ${active.title?.trim() || 'track'}`
+                playDisabled
+                  ? 'Unavailable offline'
+                  : playing
+                    ? 'Pause'
+                    : 'Play'
               }
-              aria-pressed={loves.viewerLoves(active)}
-              aria-busy={loves.isLovePending(active)}
-              disabled={loves.isLovePending(active)}
+              disabled={playDisabled}
               onClick={() => {
-                void loves.toggleLove(active);
+                void togglePlayback();
               }}
             >
-              {loves.viewerLoves(active) ? (
-                <HeartFillIcon
-                  className="scarce-clip-track-love-icon"
+              {playing ? (
+                <PauseFillIcon
+                  className="scarce-clip-transport-icon scarce-clip-transport-icon--pause"
                   aria-hidden
                 />
               ) : (
-                <HeartIcon
-                  className="scarce-clip-track-love-icon"
+                <PlayFillIcon
+                  className="scarce-clip-transport-icon scarce-clip-transport-icon--play"
                   aria-hidden
                 />
               )}
-              <span
-                className="scarce-clip-track-love-count"
-                aria-hidden={loves.loveCountFor(active) <= 0}
-              >
-                {loves.loveCountFor(active) > 0
-                  ? loves.loveCountFor(active)
-                  : ''}
-              </span>
             </button>
-          ) : null}
-          <MediaDownloadControl
-            className="scarce-clip-download-control"
-            glyph="save"
-            ariaLabel="Save track to Files"
-            disabled={downloadLock != null && downloadLock !== 'save-single'}
-            onBusyChange={(busy) =>
-              setDownloadLock(busy ? 'save-single' : null)
-            }
-            onDownload={async (onProgress) => {
-              const track = playlist[activeIndex] ?? playlist[0];
-              if (!track) return;
-              try {
-                await downloadIpfsMedia({
-                  cid: track.cid,
-                  url: track.url,
-                  mime: track.mime,
-                  title: track.title,
-                  fallbackName: `track-${activeIndex + 1}`,
-                  onProgress,
-                  exportFile: true,
-                });
-              } catch (cause) {
-                reportOfflineError(cause, txToastError.offlineCacheFailed);
-                throw cause;
-              }
-            }}
-          />
-          {offlineAllowed || offlineUnknown ? (
+            <button
+              type="button"
+              className="scarce-clip-transport-btn os-disabled-ink"
+              aria-label="Next track"
+              disabled={playDisabled || !canSelectIndex(activeIndex + 1)}
+              onClick={() => skipNext()}
+            >
+              <NextFillIcon
+                className="scarce-clip-transport-icon"
+                aria-hidden
+              />
+            </button>
+          </div>
+        ) : null}
+
+        {showTracksTransport ? (
+          <div className="scarce-clip-progress">
+            <span
+              ref={elapsedRef}
+              className="scarce-clip-progress-time"
+              suppressHydrationWarning
+            >
+              0:00
+            </span>
+            <ClipProgressTrack
+              railRef={railRef}
+              scrubRef={scrubInputRef}
+              duration={duration}
+              scrubbing={scrubbing}
+              progressKey={active.url}
+              onScrubStart={() => beginScrub()}
+              onPreview={(time) => previewScrub(time)}
+              onCommit={(time) => commitScrub(time)}
+            />
+            <span className="scarce-clip-progress-time">
+              {formatClipTime(duration)}
+            </span>
+          </div>
+        ) : null}
+
+        {showTrackList ? (
+          <>
+            {!tracksOnly && (playlist.length > 1 || showFansFacepile) ? (
+              <div className="scarce-clip-download-bar">
+                {fansFacepile}
+                {playlist.length > 1 && showDownloads ? (
+                  <>
+                    <MediaDownloadControl
+                      className="scarce-clip-download-control"
+                      glyph="save"
+                      ariaLabel="Save album to Files"
+                      disabled={
+                        downloadLock != null && downloadLock !== 'save-album'
+                      }
+                      onBusyChange={(busy) =>
+                        setDownloadLock(busy ? 'save-album' : null)
+                      }
+                      onDownload={async (onProgress) => {
+                        try {
+                          await exportIpfsAlbumTracks(
+                            downloadItems,
+                            onProgress
+                          );
+                        } catch (cause) {
+                          reportOfflineError(
+                            cause,
+                            txToastError.offlineCacheFailed
+                          );
+                          throw cause;
+                        }
+                      }}
+                    />
+                    {offlineAllowed || offlineUnknown ? (
+                      <MediaDownloadControl
+                        className="scarce-clip-download-control"
+                        ariaLabel="Download album"
+                        cached={offlineAllowed && albumCached}
+                        disabled={
+                          offlineUnknown ||
+                          (downloadLock != null && downloadLock !== 'album')
+                        }
+                        onBusyChange={(busy) =>
+                          setDownloadLock(busy ? 'album' : null)
+                        }
+                        onRemove={
+                          offlineAllowed
+                            ? async () => {
+                                try {
+                                  await removeAlbumTracks(albumCids);
+                                  setCachedCids(new Set());
+                                } catch (cause) {
+                                  reportOfflineError(
+                                    cause,
+                                    txToastError.offlineRemoveFailed
+                                  );
+                                }
+                              }
+                            : undefined
+                        }
+                        onDownload={async (onProgress) => {
+                          try {
+                            await downloadIpfsAlbumZip(
+                              downloadItems,
+                              persist?.title,
+                              onProgress,
+                              persist?.collectionId
+                                ? {
+                                    cacheOffline: true,
+                                    exportFile: false,
+                                    skipCids: cachedCids,
+                                    onOfflineCache: async ({
+                                      cid,
+                                      mime,
+                                      blob,
+                                    }) => {
+                                      const track =
+                                        playlist.find(
+                                          (entry) =>
+                                            trackCidFromPlayable(entry) === cid
+                                        ) ?? playlist[0]!;
+                                      await cacheOfflineBytes({
+                                        cid,
+                                        mime,
+                                        blob,
+                                        track,
+                                      });
+                                    },
+                                  }
+                                : undefined
+                            );
+                          } catch (cause) {
+                            reportOfflineError(
+                              cause,
+                              txToastError.offlineCacheFailed
+                            );
+                            throw cause;
+                          }
+                        }}
+                      />
+                    ) : null}
+                  </>
+                ) : null}
+                {playlist.length > 1 && showShare && persist?.collectionId ? (
+                  <ScarceClipShareButton
+                    className="scarce-clip-download-control"
+                    title={persist.title}
+                    collectionId={persist.collectionId}
+                    mediaUrl={poster}
+                    mediumKind="audio"
+                    showFeedPost={showFeedPost}
+                  />
+                ) : null}
+              </div>
+            ) : null}
+            <ol className="scarce-clip-track-list" aria-label="Tracks">
+              {playlist.map((track, index) => {
+                const label = track.title?.trim() || `Track ${index + 1}`;
+                const isActive = index === activeIndex;
+                const isPlaying = isActive && playing;
+                const cid = trackCidFromPlayable(track);
+                const trackCached = Boolean(cid && cachedCids.has(cid));
+                const loved = loves.viewerLoves(track);
+                const loveCount = loves.loveCountFor(track);
+                const lovePending = loves.isLovePending(track);
+                return (
+                  <li
+                    key={`${track.url}-${index}`}
+                    className={`scarce-clip-track${isActive ? ' is-active' : ''}${
+                      isPlaying ? ' is-playing' : ''
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      className={`scarce-clip-track-play${
+                        isPlaying ? ' is-playing' : ''
+                      }`}
+                      aria-label={
+                        restrictToCached && !trackCached
+                          ? `${label} unavailable offline`
+                          : isPlaying
+                            ? `Pause ${label}`
+                            : `Play ${label}`
+                      }
+                      disabled={restrictToCached && !trackCached}
+                      onClick={() => {
+                        selectTrack(index);
+                      }}
+                    >
+                      {isPlaying ? (
+                        <PauseFillIcon className="scarce-clip-track-play-icon scarce-clip-track-play-icon--pause" />
+                      ) : (
+                        <PlayFillIcon className="scarce-clip-track-play-icon scarce-clip-track-play-icon--play" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="scarce-clip-track-title"
+                      aria-current={isActive ? 'true' : undefined}
+                      onClick={() => {
+                        selectTrack(index);
+                      }}
+                    >
+                      {index + 1}. {label}
+                    </button>
+                    {persist?.collectionId && creatorId && cid ? (
+                      <button
+                        type="button"
+                        className={`scarce-clip-track-love os-confirm-icon${
+                          loved ? ' is-loved' : ''
+                        }${lovePending ? ' is-pending' : ''}`}
+                        aria-label={
+                          lovePending
+                            ? `Confirming love for ${label}`
+                            : loved
+                              ? `Unlove ${label}`
+                              : `Love ${label}`
+                        }
+                        aria-pressed={loved}
+                        aria-busy={lovePending}
+                        disabled={lovePending}
+                        onClick={() => {
+                          void loves.toggleLove(track);
+                        }}
+                      >
+                        {loved ? (
+                          <HeartFillIcon
+                            className="scarce-clip-track-love-icon"
+                            aria-hidden
+                          />
+                        ) : (
+                          <HeartIcon
+                            className="scarce-clip-track-love-icon"
+                            aria-hidden
+                          />
+                        )}
+                        <span
+                          className="scarce-clip-track-love-count"
+                          aria-hidden={loveCount <= 0}
+                        >
+                          {loveCount > 0 ? loveCount : ''}
+                        </span>
+                      </button>
+                    ) : null}
+                    {showDownloads ? (
+                      <ScarceTrackOptionsMenu
+                        label={label}
+                        index={index}
+                        cached={offlineAllowed && trackCached}
+                        canKeepOffline={offlineAllowed}
+                        offlineUnknown={offlineUnknown}
+                        downloadLock={downloadLock}
+                        onLockChange={(busy) =>
+                          setDownloadLock(busy ? `menu-${index}` : null)
+                        }
+                        onSave={async (onProgress) => {
+                          try {
+                            await downloadIpfsMedia({
+                              cid: track.cid,
+                              url: track.url,
+                              mime: track.mime,
+                              title: track.title,
+                              fallbackName: `track-${index + 1}`,
+                              onProgress,
+                              exportFile: true,
+                            });
+                          } catch (cause) {
+                            reportOfflineError(
+                              cause,
+                              txToastError.offlineCacheFailed
+                            );
+                            throw cause;
+                          }
+                        }}
+                        onDownload={async (onProgress) => {
+                          try {
+                            await downloadIpfsMedia({
+                              cid: track.cid,
+                              url: track.url,
+                              mime: track.mime,
+                              title: track.title,
+                              fallbackName: `track-${index + 1}`,
+                              onProgress,
+                              cacheOffline: Boolean(persist?.collectionId),
+                              exportFile: false,
+                              onOfflineCache: async ({
+                                cid: cachedCid,
+                                mime,
+                                blob,
+                              }) => {
+                                await cacheOfflineBytes({
+                                  cid: cachedCid,
+                                  mime,
+                                  blob,
+                                  track,
+                                });
+                              },
+                            });
+                          } catch (cause) {
+                            reportOfflineError(
+                              cause,
+                              txToastError.offlineCacheFailed
+                            );
+                            throw cause;
+                          }
+                        }}
+                        onRemove={
+                          offlineAllowed && cid
+                            ? async () => {
+                                try {
+                                  await removeTrack(cid);
+                                  setCachedCids((current) => {
+                                    const next = new Set(current);
+                                    next.delete(cid);
+                                    return next;
+                                  });
+                                } catch (cause) {
+                                  reportOfflineError(
+                                    cause,
+                                    txToastError.offlineRemoveFailed
+                                  );
+                                }
+                              }
+                            : undefined
+                        }
+                      />
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ol>
+          </>
+        ) : null}
+
+        {/* Single-track cover downloads — skip when drop defers list under meta. */}
+        {canDownloadAudio && !showTrackList && showTracks !== false ? (
+          <div className="scarce-clip-download-bar">
+            {fansFacepile}
+            {persist?.collectionId && creatorId ? (
+              <button
+                type="button"
+                className={`scarce-clip-track-love os-confirm-icon${
+                  loves.viewerLoves(active) ? ' is-loved' : ''
+                }${loves.isLovePending(active) ? ' is-pending' : ''}`}
+                aria-label={
+                  loves.isLovePending(active)
+                    ? `Confirming love for ${active.title?.trim() || 'track'}`
+                    : loves.viewerLoves(active)
+                      ? `Unlove ${active.title?.trim() || 'track'}`
+                      : `Love ${active.title?.trim() || 'track'}`
+                }
+                aria-pressed={loves.viewerLoves(active)}
+                aria-busy={loves.isLovePending(active)}
+                disabled={loves.isLovePending(active)}
+                onClick={() => {
+                  void loves.toggleLove(active);
+                }}
+              >
+                {loves.viewerLoves(active) ? (
+                  <HeartFillIcon
+                    className="scarce-clip-track-love-icon"
+                    aria-hidden
+                  />
+                ) : (
+                  <HeartIcon
+                    className="scarce-clip-track-love-icon"
+                    aria-hidden
+                  />
+                )}
+                <span
+                  className="scarce-clip-track-love-count"
+                  aria-hidden={loves.loveCountFor(active) <= 0}
+                >
+                  {loves.loveCountFor(active) > 0
+                    ? loves.loveCountFor(active)
+                    : ''}
+                </span>
+              </button>
+            ) : null}
             <MediaDownloadControl
               className="scarce-clip-download-control"
-              ariaLabel="Download track"
-              cached={
-                offlineAllowed &&
-                Boolean(
-                  trackCidFromPlayable(active) &&
-                    cachedCids.has(trackCidFromPlayable(active)!)
-                )
-              }
-              disabled={
-                offlineUnknown ||
-                (downloadLock != null && downloadLock !== 'single')
-              }
-              onBusyChange={(busy) => setDownloadLock(busy ? 'single' : null)}
-              onRemove={
-                offlineAllowed
-                  ? async () => {
-                      const cid = trackCidFromPlayable(active);
-                      if (!cid) return;
-                      try {
-                        await removeTrack(cid);
-                        setCachedCids((current) => {
-                          const next = new Set(current);
-                          next.delete(cid);
-                          return next;
-                        });
-                      } catch (cause) {
-                        reportOfflineError(
-                          cause,
-                          txToastError.offlineRemoveFailed
-                        );
-                      }
-                    }
-                  : undefined
+              glyph="save"
+              ariaLabel="Save track to Files"
+              disabled={downloadLock != null && downloadLock !== 'save-single'}
+              onBusyChange={(busy) =>
+                setDownloadLock(busy ? 'save-single' : null)
               }
               onDownload={async (onProgress) => {
                 const track = playlist[activeIndex] ?? playlist[0];
@@ -1804,11 +1836,7 @@ export function ScarceClipPlayer({
                     title: track.title,
                     fallbackName: `track-${activeIndex + 1}`,
                     onProgress,
-                    cacheOffline: Boolean(persist?.collectionId),
-                    exportFile: false,
-                    onOfflineCache: async ({ cid, mime, blob }) => {
-                      await cacheOfflineBytes({ cid, mime, blob, track });
-                    },
+                    exportFile: true,
                   });
                 } catch (cause) {
                   reportOfflineError(cause, txToastError.offlineCacheFailed);
@@ -1816,150 +1844,184 @@ export function ScarceClipPlayer({
                 }
               }}
             />
-          ) : null}
-          {showShare && persist?.collectionId ? (
-            <ScarceClipShareButton
-              className="scarce-clip-download-control"
-              title={persist.title}
-              collectionId={persist.collectionId}
-              mediaUrl={poster}
-              mediumKind="audio"
-              showFeedPost={showFeedPost}
-            />
-          ) : null}
-        </div>
-      ) : null}
+            {offlineAllowed || offlineUnknown ? (
+              <MediaDownloadControl
+                className="scarce-clip-download-control"
+                ariaLabel="Download track"
+                cached={
+                  offlineAllowed &&
+                  Boolean(
+                    trackCidFromPlayable(active) &&
+                      cachedCids.has(trackCidFromPlayable(active)!)
+                  )
+                }
+                disabled={
+                  offlineUnknown ||
+                  (downloadLock != null && downloadLock !== 'single')
+                }
+                onBusyChange={(busy) => setDownloadLock(busy ? 'single' : null)}
+                onRemove={
+                  offlineAllowed
+                    ? async () => {
+                        const cid = trackCidFromPlayable(active);
+                        if (!cid) return;
+                        try {
+                          await removeTrack(cid);
+                          setCachedCids((current) => {
+                            const next = new Set(current);
+                            next.delete(cid);
+                            return next;
+                          });
+                        } catch (cause) {
+                          reportOfflineError(
+                            cause,
+                            txToastError.offlineRemoveFailed
+                          );
+                        }
+                      }
+                    : undefined
+                }
+                onDownload={async (onProgress) => {
+                  const track = playlist[activeIndex] ?? playlist[0];
+                  if (!track) return;
+                  try {
+                    await downloadIpfsMedia({
+                      cid: track.cid,
+                      url: track.url,
+                      mime: track.mime,
+                      title: track.title,
+                      fallbackName: `track-${activeIndex + 1}`,
+                      onProgress,
+                      cacheOffline: Boolean(persist?.collectionId),
+                      exportFile: false,
+                      onOfflineCache: async ({ cid, mime, blob }) => {
+                        await cacheOfflineBytes({ cid, mime, blob, track });
+                      },
+                    });
+                  } catch (cause) {
+                    reportOfflineError(cause, txToastError.offlineCacheFailed);
+                    throw cause;
+                  }
+                }}
+              />
+            ) : null}
+            {showShare && persist?.collectionId ? (
+              <ScarceClipShareButton
+                className="scarce-clip-download-control"
+                title={persist.title}
+                collectionId={persist.collectionId}
+                mediaUrl={poster}
+                mediumKind="audio"
+                showFeedPost={showFeedPost}
+              />
+            ) : null}
+          </div>
+        ) : null}
 
-      {hasLyrics && !listenOpen && !commerce ? (
-        <div className="scarce-clip-lyrics">
-          <button
-            type="button"
-            className={`scarce-clip-lyrics-toggle${lyricsOpen ? ' is-open' : ''}`}
-            aria-expanded={lyricsOpen}
-            aria-controls="scarce-clip-lyrics-panel"
-            onClick={() => setLyricsOpen((open) => !open)}
-          >
-            {lyricsOpen ? 'Hide lyrics' : 'Lyrics'}
-          </button>
-          {lyricsOpen ? (
-            <pre
-              id="scarce-clip-lyrics-panel"
-              className="scarce-clip-lyrics-body"
+        {hasLyrics && !listenOpen && !commerce ? (
+          <div className="scarce-clip-lyrics">
+            <button
+              type="button"
+              className={`scarce-clip-lyrics-toggle${lyricsOpen ? ' is-open' : ''}`}
+              aria-expanded={lyricsOpen}
+              aria-controls="scarce-clip-lyrics-panel"
+              onClick={() => setLyricsOpen((open) => !open)}
             >
-              {activeLyrics}
-            </pre>
-          ) : null}
-        </div>
-      ) : null}
+              {lyricsOpen ? 'Hide lyrics' : 'Lyrics'}
+            </button>
+            {lyricsOpen ? (
+              <pre
+                id="scarce-clip-lyrics-panel"
+                className="scarce-clip-lyrics-body"
+              >
+                {activeLyrics}
+              </pre>
+            ) : null}
+          </div>
+        ) : null}
 
-      {!tracksOnly && isAudio ? (
-        <ScarceClipListenSheet
-          open={listenOpen}
-          onClose={() => {
-            setListenOpen(false);
-            onListenClose?.();
-          }}
-          cover={cover}
-          albumTitle={persist?.title?.trim() || 'Drop'}
-          trackTitle={active.title?.trim() || persist?.title?.trim() || 'Track'}
-          playing={playing}
-          hasLyrics={hasLyrics}
-          lyricsOpen={lyricsOpen}
-          lyrics={activeLyrics}
-          canPrev={!playDisabled}
-          canNext={!playDisabled && canSelectIndex(activeIndex + 1)}
-          playDisabled={playDisabled}
-          scrubbing={scrubbing}
-          knobPeek={knobPeek}
-          duration={duration}
-          elapsedRef={listenElapsedRef}
-          railRef={listenRailRef}
-          scrubInputRef={listenScrubInputRef}
-          shareTitle={persist?.collectionId ? persist.title : null}
-          shareCollectionId={persist?.collectionId ?? null}
-          shareMediaUrl={cover}
-          loved={loves.viewerLoves(active)}
-          loveCount={loves.loveCountFor(active)}
-          lovePending={loves.isLovePending(active)}
-          onToggleLove={
-            persist?.collectionId && creatorId
-              ? () => {
-                  void loves.toggleLove(active);
-                }
-              : null
-          }
-          saved={
-            persist?.collectionId
-              ? collectionSaves.viewerSaved(persist.collectionId)
-              : false
-          }
-          savePending={
-            persist?.collectionId
-              ? collectionSaves.isSavePending(persist.collectionId)
-              : false
-          }
-          onToggleSave={
-            persist?.collectionId
-              ? () => {
-                  void collectionSaves.toggleSave(persist.collectionId!);
-                }
-              : null
-          }
-          onTogglePlay={() => {
-            void togglePlayback();
-          }}
-          onSkip={(delta) => {
-            if (delta < 0) skipPrevious();
-            else skipNext();
-          }}
-          onLyricsOpenChange={setLyricsOpen}
-          onScrubPointerDown={(clientX, rail) => {
-            if (durationRef.current <= 0) return;
-            activeScrubRailRef.current = rail;
-            beginScrub();
-            previewScrub(timeFromClientX(clientX));
-          }}
-          onScrubPointerMove={(clientX) => {
-            if (!scrubbingRef.current) return;
-            previewScrub(timeFromClientX(clientX));
-          }}
-          onScrubPointerUp={(clientX) => {
-            endScrub(timeFromClientX(clientX));
-          }}
-          onScrubPointerCancel={(clientX) => {
-            endScrub(timeFromClientX(clientX));
-          }}
-          onScrubChange={(value) => {
-            if (scrubbingRef.current) return;
-            const media = mediaRef.current;
-            const capped = clampTime(value);
-            if (media) media.currentTime = capped;
-            paintProgress(capped);
-            showKnobPeek(1100);
-          }}
-          onProgressPointerEnter={() => {
-            clearKnobPeekTimer();
-            setKnobPeek(true);
-          }}
-          onProgressPointerLeave={() => {
-            if (!scrubbingRef.current) showKnobPeek(1100);
-          }}
-          footer={listenFooter}
-          keepDock={listenKeepDock}
-          threadOpen={threadOpen}
-          onDismissThread={onDismissThread}
-          threadAuthor={threadAuthor}
-          threadPostId={threadPostId}
-          threadRoot={threadRoot}
+        {!tracksOnly && isAudio ? (
+          <ScarceClipListenSheet
+            open={listenOpen}
+            onClose={() => {
+              setListenOpen(false);
+              if (!feedEnlarge) onListenClose?.();
+            }}
+            cover={cover}
+            albumTitle={persist?.title?.trim() || 'Drop'}
+            trackTitle={
+              active.title?.trim() || persist?.title?.trim() || 'Track'
+            }
+            playing={playing}
+            hasLyrics={hasLyrics}
+            lyricsOpen={lyricsOpen}
+            lyrics={activeLyrics}
+            canPrev={!playDisabled}
+            canNext={!playDisabled && canSelectIndex(activeIndex + 1)}
+            playDisabled={playDisabled}
+            scrubbing={scrubbing}
+            duration={duration}
+            elapsedRef={listenElapsedRef}
+            railRef={listenRailRef}
+            scrubInputRef={listenScrubInputRef}
+            shareTitle={persist?.collectionId ? persist.title : null}
+            shareCollectionId={persist?.collectionId ?? null}
+            shareMediaUrl={cover}
+            loved={loves.viewerLoves(active)}
+            loveCount={loves.loveCountFor(active)}
+            lovePending={loves.isLovePending(active)}
+            onToggleLove={
+              persist?.collectionId && creatorId
+                ? () => {
+                    void loves.toggleLove(active);
+                  }
+                : null
+            }
+            saved={
+              persist?.collectionId
+                ? collectionSaves.viewerSaved(persist.collectionId)
+                : false
+            }
+            savePending={
+              persist?.collectionId
+                ? collectionSaves.isSavePending(persist.collectionId)
+                : false
+            }
+            onToggleSave={
+              persist?.collectionId
+                ? () => {
+                    void collectionSaves.toggleSave(persist.collectionId!);
+                  }
+                : null
+            }
+            onTogglePlay={() => {
+              void togglePlayback();
+            }}
+            onSkip={(delta) => {
+              if (delta < 0) skipPrevious();
+              else skipNext();
+            }}
+            onLyricsOpenChange={setLyricsOpen}
+            onScrubStart={() => beginScrub()}
+            onPreview={(time) => previewScrub(time)}
+            onCommit={(time) => commitScrub(time)}
+            footer={listenFooter}
+            keepDock={listenKeepDock}
+            threadOpen={Boolean(threadOpen) && (!feedEnlarge || listenOpen)}
+            onDismissThread={onDismissThread}
+            threadAuthor={threadAuthor}
+            threadPostId={threadPostId}
+            threadRoot={threadRoot}
+          />
+        ) : null}
+        <ScarceFansSheet
+          open={fansOpen}
+          onClose={() => setFansOpen(false)}
+          fanIds={loves.fanIds}
+          fanCount={loves.fanCount}
+          dropTitle={persist?.title}
         />
-      ) : null}
-      <ScarceFansSheet
-        open={fansOpen}
-        onClose={() => setFansOpen(false)}
-        fanIds={loves.fanIds}
-        fanCount={loves.fanCount}
-        dropTitle={persist?.title}
-      />
-    </div>
+      </div>
+    </>
   );
 }

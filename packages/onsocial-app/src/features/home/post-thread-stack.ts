@@ -54,6 +54,25 @@ export function isReaderLayerKind(
   return kind === 'post' || kind === 'quotes';
 }
 
+/**
+ * A post already on the trail is shown again by dropping whatever was opened
+ * after it. The top entry stays put. A post that is not on the trail is a
+ * new step.
+ */
+export function revealTrailReader<T extends PlaceStackEntry>(
+  stack: readonly T[],
+  target: ReaderStackTarget
+): { stack: T[]; at: 'top' | 'back' } | null {
+  let index = -1;
+  for (let i = 0; i < stack.length; i += 1) {
+    const entry = stack[i];
+    if (entry && isSameReaderTarget(entry, target)) index = i;
+  }
+  if (index < 0) return null;
+  if (index === stack.length - 1) return { stack: stack.slice(), at: 'top' };
+  return { stack: stack.slice(0, index + 1), at: 'back' };
+}
+
 /** The same reader already on top — opening it again is a no-op. */
 export function isSameReaderTarget(
   entry: PlaceStackEntry,
@@ -66,6 +85,25 @@ export function isSameReaderTarget(
     accountIdsEqual(entry.accountId, target.accountId) &&
     entry.postId === target.postId
   );
+}
+
+/**
+ * A reply opened while a media face is up has to paint above that face.
+ * `zIndex` is the pre-lift floor; the sheet adds `lift` when
+ * `openedAboveMediaFace` is set. With no face, the trail keeps its floor.
+ */
+export function replyOpenedOverMediaFace(input: {
+  trailZ: number;
+  mediaFaceZ: number | null;
+  lift: number;
+}): { zIndex: number; openedAboveMediaFace: boolean } {
+  if (input.mediaFaceZ == null) {
+    return { zIndex: input.trailZ, openedAboveMediaFace: false };
+  }
+  return {
+    zIndex: Math.max(input.trailZ, input.mediaFaceZ - input.lift + 1),
+    openedAboveMediaFace: true,
+  };
 }
 
 /**

@@ -79,6 +79,10 @@ export function ScarceFeedMediumSheet({
   threadPostId = null,
   threadRoot = null,
   trailing = null,
+  feedEnlarge = false,
+  peekIdentity = null,
+  caption = null,
+  captionDate = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -107,6 +111,14 @@ export function ScarceFeedMediumSheet({
   threadRoot?: PostRow | null;
   /** Jacket ⋯ — same post options as video enlarge. */
   trailing?: ReactNode;
+  /**
+   * Feed post audio: cover face first, same as video. The full player
+   * opens from that face. Drop pages leave this off.
+   */
+  feedEnlarge?: boolean;
+  peekIdentity?: ReactNode;
+  caption?: string | null;
+  captionDate?: string | null;
 }) {
   const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
   const [wasOpen, setWasOpen] = useState(open);
@@ -258,10 +270,7 @@ export function ScarceFeedMediumSheet({
   }, [threadOpen, onDismissThread]);
 
   const name = title.trim() || 'Drop';
-  const hasWriting = readables.length > 0 || bookPdf != null;
   const canReadWriting = true;
-  const writingLockedHint =
-    !hydrateSettled && !hasWriting ? 'Loading writing…' : '';
   const inlineSvg = coverSvg?.trim() ? inlineSvgMarkup(coverSvg.trim()) : null;
   const rasterCover = cover?.trim() || null;
   const rasterCoverSrcSet = ipfsImgSrcSet(rasterCover, SCARCE_HERO_WIDTHS);
@@ -310,6 +319,11 @@ export function ScarceFeedMediumSheet({
         showTransport
         showTracks={false}
         immersiveListen
+        feedEnlarge={feedEnlarge}
+        peekIdentity={peekIdentity}
+        caption={caption}
+        captionDate={captionDate}
+        enlargeTrailing={trailing}
         listenFooter={postChrome}
         listenKeepDock={writePinned || threadOpen}
         threadOpen={threadOpen}
@@ -343,9 +357,7 @@ export function ScarceFeedMediumSheet({
         textAlign={hydratedTextAlign}
         canRead={canReadWriting}
         lockedHint={
-          !collectionId?.trim()
-            ? 'Open the Drop to read this release.'
-            : writingLockedHint
+          !collectionId?.trim() ? 'Open the Drop to read this release.' : ''
         }
         footer={postChrome}
         threadOpen={threadOpen}
@@ -384,7 +396,7 @@ export function ScarceFeedMediumSheet({
         zIndex={faceZ}
         footer={threadActive ? null : postChrome}
         stageLayout="fixed"
-        keepDock
+        keepDock={writePinned || threadActive}
         className={slideClass}
         contentClassName="scarce-thought-slide-body"
         bodyStyle={

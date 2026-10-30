@@ -15,6 +15,10 @@
  *
  * Composer textarea + backdrop stay 300 in globals so the caret aligns.
  * Thread fold uses the same 300 / AA as Show more; compact label size.
+ *
+ * Text that changes color stays in the scroll layer. A graphics layer is
+ * for a picture, a video, or something that moves (`.post-media-strip`).
+ * Hover on a feed label or a count changes the ink in one paint.
  */
 :is(
   .os-hashtag,
@@ -89,13 +93,6 @@ button.post-thread-more:not(.post-thread-more--coil-tail) {
   font-size: 0.72rem;
   line-height: 1.25;
   letter-spacing: normal;
-  transform: translateZ(0);
-  isolation: isolate;
-}
-
-.post-thread-more--coil-tail {
-  transform: translateZ(0);
-  isolation: isolate;
 }
 
 /*

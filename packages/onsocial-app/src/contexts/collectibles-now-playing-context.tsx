@@ -27,6 +27,14 @@ import {
 } from '@/lib/playback-load';
 import { isRenderablePostAudioMime } from '@/lib/post-media';
 import { nextDockHoldForForeignMedia } from '@/features/scarces/drop-preview-dock';
+import {
+  reclaimSpeakersForLauncher,
+  setDockBorrowListener,
+  SPEAKER_RELOADING_ATTR,
+  speakerClaimPending,
+  speakerIsReloading,
+  startJoinedMedia,
+} from '@/lib/single-media-playback';
 import { shouldAdoptPlaybackSession } from '@/features/scarces/scarce-playback-session';
 
 export interface CollectiblesNowPlayingSession {
@@ -142,6 +150,7 @@ export function CollectiblesNowPlayingProvider({
     const active = new Set<HTMLMediaElement>();
     let holding = false;
     let resumeTimer = 0;
+    let resumeGeneration = 0;
 
     const foreign = (target: EventTarget | null): HTMLMediaElement | null => {
       if (!(target instanceof HTMLMediaElement)) return null;
@@ -160,12 +169,20 @@ export function CollectiblesNowPlayingProvider({
         holdingDock: holding,
         activeForeign: active.size,
       });
+      // Keep the hold until the song actually starts. Clearing it while a
+      // post is still claiming the speakers would forget to resume.
+      if (next.resumeDock && speakerClaimPending(document)) {
+        window.clearTimeout(resumeTimer);
+        resumeTimer = window.setTimeout(apply, 50);
+        return;
+      }
       holding = next.holdingDock;
       if (next.pauseDock) audio?.pause();
       if (next.resumeDock && audio) {
         armAudible(audio);
-        void audio
-          .play()
+        // Explicit so a still-open media face does not treat this as a
+        // covered passive copy and stop it. The face stays on screen, muted.
+        void startJoinedMedia(audio, 'explicit')
           .then(() => {
             if (active.size > 0 && !audio.paused) {
               holding = true;
@@ -177,6 +194,7 @@ export function CollectiblesNowPlayingProvider({
     };
 
     const cancelResume = () => {
+      resumeGeneration += 1;
       if (!resumeTimer) return;
       window.clearTimeout(resumeTimer);
       resumeTimer = 0;
@@ -189,10 +207,13 @@ export function CollectiblesNowPlayingProvider({
         apply();
         return;
       }
-      resumeTimer = window.setTimeout(() => {
-        resumeTimer = 0;
+      // Same turn as the close click, so the song is allowed to play again.
+      const generation = resumeGeneration;
+      queueMicrotask(() => {
+        if (generation !== resumeGeneration) return;
+        if (active.size > 0) return;
         apply();
-      }, 50);
+      });
     };
 
     const onPlay = (event: Event) => {
@@ -206,6 +227,11 @@ export function CollectiblesNowPlayingProvider({
     const onStop = (event: Event) => {
       const media = foreign(event.target);
       if (!media) return;
+      // Swapping src pauses the element. That is not the post ending.
+      if (speakerIsReloading(media)) {
+        media.removeAttribute(SPEAKER_RELOADING_ATTR);
+        return;
+      }
       release(media);
     };
 
@@ -221,12 +247,32 @@ export function CollectiblesNowPlayingProvider({
       release(media);
     };
 
+    setDockBorrowListener((media, phase) => {
+      if (media === audioRef.current || media.dataset.osDockBorrow) return;
+      if (phase === 'start') {
+        cancelResume();
+        active.add(media);
+        apply();
+        return;
+      }
+      release(media);
+    });
+
+    const dock = audioRef.current;
+    const onDockPlay = () => {
+      // The chip started the song itself. The next post has to be able to pause it.
+      if (active.size === 0) holding = false;
+    };
+    dock?.addEventListener('play', onDockPlay);
+
     document.addEventListener('play', onPlay, true);
     document.addEventListener('pause', onStop, true);
     document.addEventListener('ended', onStop, true);
     document.addEventListener('volumechange', onVolume, true);
     return () => {
       cancelResume();
+      setDockBorrowListener(null);
+      dock?.removeEventListener('play', onDockPlay);
       document.removeEventListener('play', onPlay, true);
       document.removeEventListener('pause', onStop, true);
       document.removeEventListener('ended', onStop, true);
@@ -363,6 +409,8 @@ export function CollectiblesNowPlayingProvider({
         const issued = issueLoad();
         void resolveSrc(first).then((src) => {
           if (!loadIsCurrent(issued) || sessionRef.current !== live) return;
+          // A Listen tap may already be playing this URL. Reloading would cut it.
+          if (audio.currentSrc === src || audio.src === src) return;
           audio.src = src;
           audio.load();
         });
@@ -466,6 +514,9 @@ export function CollectiblesNowPlayingProvider({
     try {
       setEngaged(true);
       armAudible(audio);
+      // The chip is an ask for this song. Pause or silence whatever else
+      // is audible first, so the two never play together.
+      reclaimSpeakersForLauncher(document);
       await audio.play();
     } catch {
       setPlaying(false);

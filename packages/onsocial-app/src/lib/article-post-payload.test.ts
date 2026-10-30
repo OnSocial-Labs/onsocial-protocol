@@ -339,13 +339,13 @@ describe('shouldShowWritingLink', () => {
 });
 
 describe('resolvePostCardOpenHref', () => {
-  it('opens the article from the feed, not the thread', () => {
+  it('opens the post from the feed; Read more opens the reader', () => {
     expect(
       resolvePostCardOpenHref({
         articleHref: '/@alice/writing/p1',
         actionHref: '/@alice/post/p1',
       })
-    ).toBe('/@alice/writing/p1');
+    ).toBe('/@alice/post/p1');
   });
 
   it('keeps the thread URL on the detail page', () => {

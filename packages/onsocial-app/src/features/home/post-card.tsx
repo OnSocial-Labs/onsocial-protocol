@@ -35,7 +35,10 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { isArticlePost } from '@/lib/article-post-payload';
 import { type WriteDockSubmit } from '@/contexts/compose-launcher-context';
 import { fetchPersonalPost } from '@/lib/fetch-personal-post';
-import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import {
+  arePostAuthorProfilesResolved,
+  usePostAuthorProfiles,
+} from '@/hooks/use-post-author-profiles';
 import { guildPath } from '@/features/guilds/guilds-data';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import {
@@ -65,7 +68,11 @@ import {
   isWritingFolioFormat,
   resolveDropReadTarget,
 } from '@/features/scarces/drop-writing';
-import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
+import {
+  peekDropRead,
+  prefetchDropRead,
+  type DropReadAhead,
+} from '@/features/scarces/drop-read-ahead';
 import {
   fetchOwnedScarceByTokenId,
   fetchOwnedScarceForCollection,
@@ -182,6 +189,11 @@ export interface PostCardPollProps {
 export interface PostCardMediaProps {
   /** Thread root — page-sized focused media playback. */
   mediaFocused?: boolean;
+  /**
+   * Ancestor or reply in a thread. The video plays muted and keeps a
+   * speaker, so sound can come on without opening the full page.
+   */
+  videoSoundControl?: boolean;
   /** Hide photo / video / cover — used when the film already sits above. */
   hideMedia?: boolean;
   /** Detail opened with `?media=unmute` — resume video with sound. */
@@ -245,6 +257,11 @@ interface PostCardProps
    * must not intercept onto Writing over this same conversation.
    */
   preferActionHref?: boolean;
+  /**
+   * This card is a post already above the one on screen. Opening it, or its
+   * video / audio, returns to that post. It does not stack another sheet.
+   */
+  returnToPost?: boolean;
 }
 
 export {
@@ -301,12 +318,14 @@ function PostCardImpl({
   pollVotePending,
   onPollVote,
   mediaFocused = false,
+  videoSoundControl = false,
   hideMedia = false,
   menuZIndex,
   mediaUnmuted = false,
   mediaResumeIndex = 0,
   detailLayout = false,
   preferActionHref = false,
+  returnToPost = false,
   sheetContext = null,
 }: PostCardProps) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
@@ -329,9 +348,10 @@ function PostCardImpl({
         root: post,
         context: sheetContext,
         rootEngagement: engagement,
+        returnToPost,
       });
     },
-    [detailLayout, engagement, openPostThread, post, sheetContext]
+    [detailLayout, engagement, openPostThread, post, returnToPost, sheetContext]
   );
   const interceptOpenNavigate = useCallback(
     (event: { preventDefault(): void }, href: string) => {
@@ -343,9 +363,10 @@ function PostCardImpl({
         root: post,
         context: sheetContext,
         rootEngagement: engagement,
+        returnToPost,
       });
     },
-    [detailLayout, engagement, openPostThread, post, sheetContext]
+    [detailLayout, engagement, openPostThread, post, returnToPost, sheetContext]
   );
   const { safeMode } = useViewerSafeMode();
   const [amplifyOpen, setAmplifyOpen] = useState(false);
@@ -366,6 +387,10 @@ function PostCardImpl({
   );
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const facePhotoIndexRef = useRef(0);
+  const handleFacePhotoIndex = useCallback((next: number) => {
+    facePhotoIndexRef.current = next;
+  }, []);
   /** Tapped thumbnail the enlarge face zooms out of (still photos only). */
   const [photoZoomOrigin, setPhotoZoomOrigin] =
     useState<FeedPhotoZoomOrigin | null>(null);
@@ -385,10 +410,16 @@ function PostCardImpl({
   const [feedReadEssay, setFeedReadEssay] = useState<PostRow | null>(null);
   const [feedBookRead, setFeedBookRead] = useState(false);
   const [feedBookCoverSvg, setFeedBookCoverSvg] = useState<string | null>(null);
+  /** Reader is up; the drop's writing record has not chosen essay vs book yet. */
+  const [feedReadPending, setFeedReadPending] = useState(false);
+  /** Chapters for a resale book, loaded with the card. */
+  const [dropReadPack, setDropReadPack] = useState<DropReadAhead | null>(null);
   const feedReadAuthors = usePostAuthorProfiles(
     feedReadEssay ? [feedReadEssay.accountId] : []
   );
   const dropReadTicket = useRef(0);
+  /** Collection card already asked for writing. The open reader waits for that. */
+  const dropReadAwaitingMeta = useRef(false);
   /** Article cover still when it isn’t already in post media. */
   const [enlargeOverride, setEnlargeOverride] = useState<
     PostMediaItem[] | null
@@ -416,6 +447,7 @@ function PostCardImpl({
     writingFormat: collectionWritingFormat,
     sourcePostPath: collectionSourcePostPath,
     writingMetaSettled: collectionWritingSettled,
+    status: collectionEmbedStatus,
     bookPdf: collectionBookPdf,
     dropTitle: collectionDropTitle,
     retry: retryCollectionEmbed,
@@ -704,6 +736,13 @@ function PostCardImpl({
     Boolean(collectionBookPdf) ||
     (postDropIsReadable(scarceEmbed) &&
       Boolean(scarceEmbed?.collectionId?.trim()));
+  const dropReadables =
+    collectionReadables.length > 0
+      ? collectionReadables
+      : (dropReadPack?.readables ?? []);
+  const dropBookPdf = collectionBookPdf ?? dropReadPack?.bookPdf ?? null;
+  const dropWritingFormat =
+    collectionWritingFormat ?? dropReadPack?.writingFormat ?? null;
   const dropListenTitle =
     tokenDropTitle?.trim() ||
     collectionDropTitle?.trim() ||
@@ -742,50 +781,93 @@ function PostCardImpl({
     book?: boolean;
     coverSvg?: string | null;
   }) => {
+    dropReadAwaitingMeta.current = false;
+    setFeedReadPending(false);
     setFeedReadEssay(next?.essay ?? null);
     setFeedBookRead(Boolean(next?.book));
     setFeedBookCoverSvg(next?.coverSvg ?? null);
     setArticleOpen(true);
   };
+  const applyDropReadRef = useRef<
+    (
+      writingFormat: typeof collectionWritingFormat,
+      sourcePostPath: string | null,
+      coverSvg: string | null,
+      ticket: number
+    ) => void
+  >(() => {});
+  applyDropReadRef.current = (
+    writingFormat,
+    sourcePostPath,
+    coverSvg,
+    ticket
+  ) => {
+    if (ticket !== dropReadTicket.current) return;
+    const target = resolveDropReadTarget({
+      articleOnPost: Boolean(article),
+      writingFormat,
+      sourcePostPath,
+    });
+    if (target.kind === 'self') {
+      openFeedPostReader();
+      return;
+    }
+    if (target.kind === 'folio') {
+      openFeedPostReader({ book: true, coverSvg });
+      return;
+    }
+    setFeedReadPending(true);
+    setFeedBookRead(false);
+    setFeedReadEssay(null);
+    setArticleOpen(true);
+    void (async () => {
+      try {
+        const essay = await fetchPersonalPost({
+          author: target.author,
+          postId: target.postId,
+        });
+        if (ticket !== dropReadTicket.current) return;
+        if (essay && isArticlePost(essay)) {
+          openFeedPostReader({ essay, coverSvg });
+          return;
+        }
+      } catch {
+        /* book pages below */
+      }
+      if (ticket !== dropReadTicket.current) return;
+      openFeedPostReader({ book: true, coverSvg });
+    })();
+  };
+  const finishDropReadRef = useRef<
+    (ahead: DropReadAhead | null, coverSvg: string | null, ticket: number) => void
+  >(() => {});
+  finishDropReadRef.current = (ahead, coverSvg, ticket) => {
+    if (ticket !== dropReadTicket.current) return;
+    if (ahead?.essay) {
+      setDropReadPack(null);
+      openFeedPostReader({ essay: ahead.essay, coverSvg });
+      return;
+    }
+    if (ahead && (ahead.readables.length > 0 || ahead.bookPdf)) {
+      setDropReadPack(ahead);
+    }
+    applyDropReadRef.current(
+      ahead?.writingFormat ?? collectionWritingFormat,
+      ahead?.sourcePostPath ??
+        (collectionWritingSettled ? collectionSourcePostPath : null) ??
+        dropPaint?.sourcePostPath ??
+        null,
+      coverSvg,
+      ticket
+    );
+  };
+  /**
+   * Cover and Read share this. If the card already loaded the essay,
+   * the page opens with it. Otherwise the shell is up and that same
+   * load paints the page once.
+   */
   const openDropWriting = (coverSvg: string | null = null) => {
     const ticket = ++dropReadTicket.current;
-    const paintSource = dropPaint?.sourcePostPath ?? null;
-    const openResolved = (
-      writingFormat: typeof collectionWritingFormat,
-      sourcePostPath: string | null
-    ) => {
-      if (ticket !== dropReadTicket.current) return;
-      const target = resolveDropReadTarget({
-        articleOnPost: Boolean(article),
-        writingFormat,
-        sourcePostPath,
-      });
-      if (target.kind === 'self') {
-        openFeedPostReader();
-        return;
-      }
-      if (target.kind === 'folio') {
-        openFeedPostReader({ book: true, coverSvg });
-        return;
-      }
-      void (async () => {
-        try {
-          const essay = await fetchPersonalPost({
-            author: target.author,
-            postId: target.postId,
-          });
-          if (ticket !== dropReadTicket.current) return;
-          if (essay && isArticlePost(essay)) {
-            openFeedPostReader({ essay });
-            return;
-          }
-        } catch {
-          /* book pages below */
-        }
-        if (ticket !== dropReadTicket.current) return;
-        openFeedPostReader({ book: true, coverSvg });
-      })();
-    };
 
     if (article && !isWritingFolioFormat(collectionWritingFormat)) {
       openFeedPostReader();
@@ -793,27 +875,118 @@ function PostCardImpl({
     }
 
     const collectionId = scarceEmbed?.collectionId?.trim() || '';
-    if (collectionWritingSettled || !collectionId) {
-      openResolved(
-        collectionWritingFormat,
-        collectionWritingSettled
-          ? (collectionSourcePostPath ?? paintSource)
-          : paintSource
-      );
+    const ahead = collectionId ? peekDropRead(collectionId) : null;
+    if (ahead) {
+      finishDropReadRef.current(ahead, coverSvg, ticket);
       return;
     }
 
-    void fetchCollectionPreferIndexer(collectionId)
-      .then((view) => {
-        openResolved(
-          view?.writingFormat ?? null,
-          view?.sourcePostPath ?? paintSource
-        );
+    setFeedBookCoverSvg(coverSvg);
+    setFeedReadEssay(null);
+    setFeedBookRead(false);
+    setFeedReadPending(true);
+    setArticleOpen(true);
+
+    if (!collectionId) {
+      finishDropReadRef.current(null, coverSvg, ticket);
+      return;
+    }
+
+    if (
+      hasCollectionEmbed &&
+      !collectionWritingSettled &&
+      collectionEmbedStatus !== 'error'
+    ) {
+      dropReadAwaitingMeta.current = true;
+      return;
+    }
+
+    const meta = collectionWritingSettled
+      ? {
+          writingFormat: collectionWritingFormat,
+          sourcePostPath:
+            collectionSourcePostPath ?? dropPaint?.sourcePostPath ?? null,
+        }
+      : null;
+    void prefetchDropRead({ collectionId, meta })
+      .then((next) => {
+        finishDropReadRef.current(next, coverSvg, ticket);
       })
       .catch(() => {
-        openResolved(collectionWritingFormat, paintSource);
+        finishDropReadRef.current(null, coverSvg, ticket);
       });
   };
+  useEffect(() => {
+    if (!articleOpen || !dropReadAwaitingMeta.current) return;
+    if (!collectionWritingSettled && collectionEmbedStatus !== 'error') return;
+    const ticket = dropReadTicket.current;
+    const coverSvg = feedBookCoverSvg;
+    const collectionId = scarceEmbed?.collectionId?.trim() || '';
+    dropReadAwaitingMeta.current = false;
+    if (!collectionId) {
+      finishDropReadRef.current(null, coverSvg, ticket);
+      return;
+    }
+    void prefetchDropRead({
+      collectionId,
+      meta: collectionWritingSettled
+        ? {
+            writingFormat: collectionWritingFormat,
+            sourcePostPath:
+              collectionSourcePostPath ?? dropPaint?.sourcePostPath ?? null,
+          }
+        : null,
+    })
+      .then((ahead) => {
+        finishDropReadRef.current(ahead, coverSvg, ticket);
+      })
+      .catch(() => {
+        finishDropReadRef.current(null, coverSvg, ticket);
+      });
+  }, [
+    articleOpen,
+    collectionEmbedStatus,
+    collectionSourcePostPath,
+    collectionWritingFormat,
+    collectionWritingSettled,
+    dropPaint?.sourcePostPath,
+    feedBookCoverSvg,
+    scarceEmbed?.collectionId,
+  ]);
+  useEffect(() => {
+    const collectionId = scarceEmbed?.collectionId?.trim() || '';
+    if (!collectionId) return;
+    if (article && !isWritingFolioFormat(collectionWritingFormat)) return;
+    if (hasCollectionEmbed) {
+      if (!collectionWritingSettled) return;
+      const target = resolveDropReadTarget({
+        articleOnPost: Boolean(article),
+        writingFormat: collectionWritingFormat,
+        sourcePostPath:
+          collectionSourcePostPath ?? dropPaint?.sourcePostPath ?? null,
+      });
+      if (target.kind !== 'source') return;
+      void prefetchDropRead({
+        collectionId,
+        meta: {
+          writingFormat: collectionWritingFormat,
+          sourcePostPath:
+            collectionSourcePostPath ?? dropPaint?.sourcePostPath ?? null,
+        },
+      }).catch(() => {});
+      return;
+    }
+    if (!postDropIsReadable(scarceEmbed)) return;
+    void prefetchDropRead({ collectionId, meta: null }).catch(() => {});
+  }, [
+    article,
+    collectionSourcePostPath,
+    collectionWritingFormat,
+    collectionWritingSettled,
+    dropPaint?.sourcePostPath,
+    hasCollectionEmbed,
+    scarceEmbed,
+  ]);
   const activateArticleCover = () => {
     if (articleUsesDocumentReader) {
       openFeedPostReader();
@@ -919,6 +1092,10 @@ function PostCardImpl({
   );
   const articleQuote = useCallback(
     (target: PostRow) => {
+      dropReadTicket.current += 1;
+      dropReadAwaitingMeta.current = false;
+      setFeedReadPending(false);
+      setDropReadPack(null);
       setArticleOpen(false);
       onQuote?.(target);
     },
@@ -926,6 +1103,10 @@ function PostCardImpl({
   );
   const articleRepost = useCallback(
     (target: PostRow) => {
+      dropReadTicket.current += 1;
+      dropReadAwaitingMeta.current = false;
+      setFeedReadPending(false);
+      setDropReadPack(null);
       setArticleOpen(false);
       onRepost?.(target);
     },
@@ -933,6 +1114,10 @@ function PostCardImpl({
   );
   const articleUndoRepost = useCallback(
     (target: PostRow) => {
+      dropReadTicket.current += 1;
+      dropReadAwaitingMeta.current = false;
+      setFeedReadPending(false);
+      setDropReadPack(null);
       setArticleOpen(false);
       onUndoRepost?.(target);
     },
@@ -959,10 +1144,6 @@ function PostCardImpl({
     },
     [onUndoRepost]
   );
-  const mediumAmplify = useCallback(() => {
-    setFeedMediumOpen(false);
-    setAmplifyOpen(true);
-  }, []);
 
   const engagementActions = useMemo<
     Omit<PostEngagementRowBaseProps, 'engagement'>
@@ -1045,6 +1226,58 @@ function PostCardImpl({
     ]
   );
 
+  const mediaPeekIdentity = (
+    <div className="feed-photo-caption-identity-row">
+      <Link
+        href={profileHref}
+        className="os-media-face-identity"
+        scroll={false}
+        aria-label={`View ${name}'s profile`}
+        onClick={() => {
+          setPhotoOpen(false);
+          setFeedMediumOpen(false);
+          setPhotoThreadOpen(false);
+        }}
+      >
+        <AccountAvatar
+          accountId={post.accountId}
+          kind={authorProfile?.kind}
+          src={authorProfile?.avatarUrl ?? null}
+          fallbackInitial={name}
+          size="lg"
+          className="post-card-avatar"
+        />
+        <span className="os-media-face-identity-copy">
+          <span className="os-media-face-identity-name-row">
+            <span className="os-media-face-identity-name">{name}</span>
+            <span className="post-identity-name-marks">
+              <ProtocolNameTrailing accountId={post.accountId} />
+            </span>
+          </span>
+          <span className="os-media-face-identity-handle">
+            @{post.accountId}
+          </span>
+        </span>
+      </Link>
+      {!isSelf &&
+      (photoOpen || (feedMediumOpen && feedMediumMode === 'audio')) ? (
+        <PostPeekStandButton
+          accountId={post.accountId}
+          name={name}
+          authorProfile={authorProfile}
+        />
+      ) : null}
+    </div>
+  );
+
+  const dropEssayAuthorReady =
+    !feedReadEssay ||
+    arePostAuthorProfilesResolved([feedReadEssay.accountId]);
+  const showDropEssay = Boolean(feedReadEssay) && dropEssayAuthorReady;
+  /** Shell is up. The essay page waits until its author face is known. */
+  const dropReaderHolding =
+    feedReadPending || (Boolean(feedReadEssay) && !dropEssayAuthorReady);
+
   return (
     <article className={cardClassName} ref={scarceEmbedMergedRef}>
       {openHref ? (
@@ -1054,11 +1287,7 @@ function PostCardImpl({
           scroll={false}
           onClick={(event) => interceptOpenHref(event, openHref)}
           onNavigate={(event) => interceptOpenNavigate(event, openHref)}
-          aria-label={
-            articleHref && !detailLayout && !preferActionHref
-              ? 'Read article'
-              : 'Open post'
-          }
+          aria-label="Open post"
         />
       ) : null}
       {repostedBy && repostedByLabel ? (
@@ -1148,7 +1377,7 @@ function PostCardImpl({
             badges={badges}
             text={text}
             hasMedia={hasMedia}
-            expandDisabled={mediaFocused}
+            startExpanded={mediaFocused}
             hideText={
               (Boolean(poll) && text === poll?.question) ||
               (mediaItems.length > 0 && !text.trim() && !article) ||
@@ -1244,6 +1473,7 @@ function PostCardImpl({
               items={mediaItems}
               size={mediaFocused ? 'page' : 'compact'}
               focused={mediaFocused && mediaItems.length <= 1}
+              soundControl={videoSoundControl}
               focusedVideoMuted={!mediaUnmuted}
               resumeFocusedVideo={mediaUnmuted}
               resumeMediaIndex={mediaResumeIndex}
@@ -1272,6 +1502,7 @@ function PostCardImpl({
               variant="feed"
               mediaUrl={scarceCoverUrl}
               disableLiveSvg
+              audio={showDropListen}
               cardBg={scarceEmbed.cardBg}
               creatorDisplayName={authorProfile?.displayName}
               onActivate={({ coverSvg }) => {
@@ -1448,61 +1679,8 @@ function PostCardImpl({
             }
           }}
           title={enlargeTitle}
-          trailing={({ downloadCurrent }) => (
-            <PostCardMenu
-              {...menuPostProps}
-              openPostHref={postThreadPath(post)}
-              onOpenPost={() => {
-                setPhotoOpen(false);
-                setPhotoThreadOpen(false);
-              }}
-              onDownload={
-                enlargePhotos.length > 0 ? () => downloadCurrent() : undefined
-              }
-              zIndex={actionZ}
-            />
-          )}
-          peekIdentity={
-            <div className="feed-photo-caption-identity-row">
-              <Link
-                href={profileHref}
-                className="os-media-face-identity"
-                scroll={false}
-                aria-label={`View ${name}'s profile`}
-                onClick={() => {
-                  setPhotoOpen(false);
-                  setPhotoThreadOpen(false);
-                }}
-              >
-                <AccountAvatar
-                  accountId={post.accountId}
-                  kind={authorProfile?.kind}
-                  src={authorProfile?.avatarUrl ?? null}
-                  fallbackInitial={name}
-                  size="lg"
-                  className="post-card-avatar"
-                />
-                <span className="os-media-face-identity-copy">
-                  <span className="os-media-face-identity-name-row">
-                    <span className="os-media-face-identity-name">{name}</span>
-                    <span className="post-identity-name-marks">
-                      <ProtocolNameTrailing accountId={post.accountId} />
-                    </span>
-                  </span>
-                  <span className="os-media-face-identity-handle">
-                    @{post.accountId}
-                  </span>
-                </span>
-              </Link>
-              {photoOpen && !isSelf ? (
-                <PostPeekStandButton
-                  accountId={post.accountId}
-                  name={name}
-                  authorProfile={authorProfile}
-                />
-              ) : null}
-            </div>
-          }
+          onActiveIndexChange={handleFacePhotoIndex}
+          peekIdentity={mediaPeekIdentity}
           caption={photoCaption}
           captionDate={
             post.blockTimestamp
@@ -1512,6 +1690,36 @@ function PostCardImpl({
           photos={enlargePhotos}
           initialIndex={photoIndex}
           zoomOrigin={photoZoomOrigin}
+          trailing={
+            <PostCardMenu
+              {...menuPostProps}
+              besideStand
+              openPostHref={postThreadPath(post)}
+              onOpenPost={() => {
+                setPhotoOpen(false);
+                setPhotoThreadOpen(false);
+              }}
+              onDownload={
+                enlargePhotos.length > 0
+                  ? async () => {
+                      const item = enlargePhotos[facePhotoIndexRef.current];
+                      if (!item?.url) {
+                        throw new Error('Could not download this file.');
+                      }
+                      await downloadIpfsMedia({
+                        cid: item.cid,
+                        url: item.url,
+                        mime: item.mime || 'application/octet-stream',
+                        title: enlargeTitle,
+                        fallbackName: 'post',
+                        exportFile: true,
+                      });
+                    }
+                  : undefined
+              }
+              zIndex={actionZ}
+            />
+          }
           threadOpen={photoThreadOpen}
           onDismissThread={dismissPhotoThread}
           threadAuthor={post.accountId}
@@ -1541,19 +1749,25 @@ function PostCardImpl({
           onOpenChange={(next) => {
             setArticleOpen(next);
             if (!next) {
+              dropReadTicket.current += 1;
+              dropReadAwaitingMeta.current = false;
+              setFeedReadPending(false);
               setFeedReadEssay(null);
               setFeedBookRead(false);
               setFeedBookCoverSvg(null);
+              setDropReadPack(null);
               setPhotoThreadOpen(false);
             }
           }}
-          post={feedReadEssay ?? post}
+          post={showDropEssay ? feedReadEssay! : post}
           authorProfile={
-            feedReadEssay
-              ? feedReadAuthors[feedReadEssay.accountId]
+            showDropEssay
+              ? feedReadAuthors[feedReadEssay!.accountId]
               : authorProfile
           }
-          documentTitle={feedBookRead ? dropListenTitle : undefined}
+          documentTitle={
+            feedBookRead || dropReaderHolding ? dropListenTitle : undefined
+          }
           threadOpen={photoThreadOpen}
           onDismissThread={dismissPhotoThread}
           threadAuthor={post.accountId}
@@ -1570,15 +1784,18 @@ function PostCardImpl({
                     collectionId={scarceEmbed?.collectionId?.trim() || ''}
                     accountId={viewerAccountId}
                     creatorId={scarceEmbed?.creatorId ?? post.accountId}
-                    readables={collectionReadables}
-                    bookPdf={collectionBookPdf}
-                    writingFormat={collectionWritingFormat}
+                    readables={dropReadables}
+                    bookPdf={dropBookPdf}
+                    writingFormat={dropWritingFormat}
+                    hydrateSettled
                     canRead
                     lockedHint=""
                     onChromeTap={onChromeTap}
                   />
                 )
-              : undefined
+              : dropReaderHolding
+                ? () => null
+                : undefined
           }
           commerce={
             !isRepostShell && (scarceEmbed || canListScarce) ? (
@@ -1616,9 +1833,19 @@ function PostCardImpl({
           threadAuthor={post.accountId}
           threadPostId={post.postId}
           threadRoot={post}
+          feedEnlarge={feedMediumMode === 'audio'}
+          peekIdentity={mediaPeekIdentity}
+          caption={photoCaption}
+          captionDate={
+            post.blockTimestamp
+              ? formatPostTimestamp(post.blockTimestamp)
+              : null
+          }
           trailing={
+            /* Header disc. Stand stays on the caption for audio. */
             <PostCardMenu
               {...menuPostProps}
+              besideStand={feedMediumMode === 'audio'}
               openPostHref={postThreadPath(post)}
               onOpenPost={() => {
                 setFeedMediumOpen(false);
@@ -1687,7 +1914,7 @@ function PostCardImpl({
                 onQuote={onQuote ? mediumQuote : undefined}
                 onRepost={onRepost ? mediumRepost : undefined}
                 onUndoRepost={onUndoRepost ? mediumUndoRepost : undefined}
-                onAmplify={mediumAmplify}
+                onAmplify={openAmplify}
                 shareDrawerZIndex={actionZ}
               />
             ) : null

@@ -27,7 +27,13 @@ import {
   VolumeMuteIcon,
   VolumeUpIcon,
 } from '@onsocial/ui';
-import { startJoinedMedia } from '@/lib/single-media-playback';
+import { useMediaFacesHeld } from '@/lib/media-face-session';
+import {
+  notifyDockBorrow,
+  pauseCoveredMedia,
+  SPEAKER_RELOADING_ATTR,
+  startJoinedMedia,
+} from '@/lib/single-media-playback';
 import type { PostRow } from '@onsocial/sdk';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
 import { useOsPortalHost } from '@/contexts/os-portal-host-context';
@@ -38,9 +44,13 @@ import {
 } from '@/lib/os-card-host';
 import { downloadIpfsMedia } from '@/lib/media-download';
 import { useRegisterImmersiveChromeQuiet } from '@/contexts/dock-chrome-context';
+import { useWriteDockPinned } from '@/contexts/compose-launcher-context';
+import {
+  ClipProgressTrack,
+  paintClipProgress,
+} from '@/features/home/feed-media-progress';
 import { FeedMediaThreadSheet } from '@/features/home/feed-media-thread-sheet';
 import {
-  FEED_THREAD_FULL,
   threadJacketT,
   useFeedThreadBand,
 } from '@/features/home/use-feed-thread-band';
@@ -72,11 +82,6 @@ function prefersReducedMotion(): boolean {
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches
   );
-}
-
-function clampRatio(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Math.min(1, Math.max(0, value));
 }
 
 /** The img the enlarge stage paints for `index` (null for video / unloaded). */
@@ -118,8 +123,6 @@ function formatVideoTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-const VIDEO_PROGRESS_STEPS = 1000;
-
 /**
  * Feed media enlarge — photos + video in the shared media-face shell.
  * Caption is a 2-line peek on the film. Tap opens the rest in place —
@@ -150,6 +153,7 @@ export function FeedPhotoEnlargeScreen({
   peekIdentity = null,
   trailing = null,
   zoomOrigin = null,
+  onActiveIndexChange = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -191,8 +195,11 @@ export function FeedPhotoEnlargeScreen({
    * open and back on close (reduced motion and videos keep the plain pop).
    */
   zoomOrigin?: FeedPhotoZoomOrigin | null;
+  /** Current film index, including swipes. Download uses this. */
+  onActiveIndexChange?: ((index: number) => void) | null;
 }) {
   const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
+  const writePinned = useWriteDockPinned();
   const [paintedFaceZ, setPaintedFaceZ] = useState(faceZ);
   if (faceZ > paintedFaceZ) setPaintedFaceZ(faceZ);
   const onFacePaintedZ = useCallback((z: number) => {
@@ -202,6 +209,9 @@ export function FeedPhotoEnlargeScreen({
   const last = photos.length - 1;
   const [wasOpen, setWasOpen] = useState(open);
   const [index, setIndex] = useState(() => clampIndex(initialIndex, last));
+  useEffect(() => {
+    onActiveIndexChange?.(index);
+  }, [index, onActiveIndexChange]);
   const captionText = caption?.trim() || '';
   const captionDateText = captionDate?.trim() || '';
   const hasCaption = Boolean(captionText) && !quiet;
@@ -238,13 +248,17 @@ export function FeedPhotoEnlargeScreen({
   const zoomExitedRef = useRef(false);
   /** True when this film was playing before Home was covered. */
   const wasPlayingBeforeCoverRef = useRef(false);
+  /** Reply sheet over this film. Playhead and pause stay as they were. */
+  const faceHoldLatchRef = useRef(false);
+  const faceHoldPlayingRef = useRef(false);
+  const facesHeld = useMediaFacesHeld();
   const skipSnapRef = useRef(false);
   const prevOpenRef = useRef(open);
   const indexRef = useRef(index);
   const scrubbingRef = useRef(false);
+  const resumeAfterScrubRef = useRef(false);
   const progressRailRef = useRef<HTMLDivElement>(null);
   /* Progress targets — written directly, never via React state. */
-  const transportRef = useRef<HTMLDivElement>(null);
   const scrubInputRef = useRef<HTMLInputElement>(null);
   const timeCurrentRef = useRef<HTMLSpanElement>(null);
   const [videoDuration, setVideoDuration] = useState(0);
@@ -270,19 +284,24 @@ export function FeedPhotoEnlargeScreen({
     const rem =
       parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
     const maxOpenPx = Math.min(rem * 12, window.innerHeight * 0.36);
-    measureReveal({ closedLines: 2, maxOpenPx });
     const clip = captionClipRef.current;
     const text = captionTextRef.current;
-    if (!clip || !text) return;
-    // Closed height is the measured 2-line peek, not the live (animated) box.
-    const cs = getComputedStyle(clip);
-    let lineHeight = parseFloat(cs.lineHeight);
-    if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
-      lineHeight = parseFloat(cs.fontSize) * 1.5;
+    let closedPx: number | undefined;
+    let overflows = false;
+    if (clip && text) {
+      const cs = getComputedStyle(clip);
+      let lineHeight = parseFloat(cs.lineHeight);
+      if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
+        lineHeight = parseFloat(cs.fontSize) * 1.5;
+      }
+      const twoLines = Math.ceil(lineHeight * 2);
+      const textH = Math.ceil(text.getBoundingClientRect().height);
+      overflows = textH > twoLines + 1;
+      /* Caption only. The date stays clipped until the text is tapped. */
+      closedPx = Math.max(Math.ceil(lineHeight), Math.min(textH, twoLines));
     }
-    const peekPx = Math.ceil(lineHeight * 2);
-    const next = text.scrollHeight > peekPx + 1;
-    setCaptionHasMore((prev) => (prev === next ? prev : next));
+    measureReveal({ closedPx, maxOpenPx });
+    setCaptionHasMore((prev) => (prev === overflows ? prev : overflows));
   }, [measureReveal, captionClipRef]);
   const expandCaption = useCallback(() => {
     measureCaption();
@@ -443,6 +462,11 @@ export function FeedPhotoEnlargeScreen({
   }, [open, startZoomExit]);
 
   const handleBeforeShellClose = useCallback(() => {
+    // Pause while the film is still in the document. Unmount does not emit
+    // a pause the launcher can hear, so the song would stay held.
+    videoRefs.current.forEach((video) => {
+      if (!video.paused) video.pause();
+    });
     startZoomExit();
     return true;
   }, [startZoomExit]);
@@ -611,43 +635,69 @@ export function FeedPhotoEnlargeScreen({
   }, [threadOpen, onDismissThread, toggleChrome]);
 
   /* Paint progress to the DOM — rail fill, scrub value, a11y, time label. */
-  const paintProgress = useCallback((ratio: number, duration: number) => {
-    const p = clampRatio(ratio);
-    transportRef.current?.style.setProperty('--feed-video-p', String(p));
-    const scrub = scrubInputRef.current;
-    if (scrub) {
-      scrub.value = String(Math.round(p * VIDEO_PROGRESS_STEPS));
-      scrub.setAttribute('aria-valuenow', String(Math.round(p * 100)));
-      scrub.setAttribute(
-        'aria-valuetext',
-        `${formatVideoTime(p * duration)} of ${formatVideoTime(duration)}`
-      );
-    }
-    const label = timeCurrentRef.current;
-    if (label) label.textContent = formatVideoTime(p * duration);
+  const paintProgress = useCallback((time: number, duration: number) => {
+    const total = Number.isFinite(duration) && duration > 0 ? duration : 0;
+    const next = total > 0 ? Math.min(total, Math.max(0, time)) : 0;
+    paintClipProgress(
+      progressRailRef.current,
+      scrubInputRef.current,
+      timeCurrentRef.current,
+      next,
+      total,
+      formatVideoTime(next),
+      `${formatVideoTime(next)} of ${formatVideoTime(total)}`
+    );
   }, []);
 
-  const seekVideo = useCallback(
-    (ratio: number) => {
+  const startVideoScrub = useCallback(() => {
+    const video = videoRefs.current.get(indexRef.current);
+    if (!video) return;
+    const duration = video.duration;
+    if (!Number.isFinite(duration) || duration <= 0) return;
+    scrubbingRef.current = true;
+    setScrubbing(true);
+    revealChrome();
+    resumeAfterScrubRef.current = !video.paused && !video.ended;
+    if (!video.paused) video.pause();
+  }, [revealChrome]);
+
+  const previewVideo = useCallback(
+    (time: number) => {
       const video = videoRefs.current.get(indexRef.current);
-      if (!video) return;
-      const duration = video.duration;
+      const duration = video?.duration ?? 0;
       if (!Number.isFinite(duration) || duration <= 0) return;
-      const next = clampRatio(ratio);
-      video.currentTime = next * duration;
-      paintProgress(next, duration);
-      setVideoDuration(duration);
+      paintProgress(time, duration);
     },
     [paintProgress]
   );
 
-  const ratioFromClientX = useCallback((clientX: number) => {
-    const rail = progressRailRef.current;
-    if (!rail) return 0;
-    const rect = rail.getBoundingClientRect();
-    if (rect.width <= 0) return 0;
-    return clampRatio((clientX - rect.left) / rect.width);
-  }, []);
+  const commitVideo = useCallback(
+    (time: number) => {
+      const video = videoRefs.current.get(indexRef.current);
+      const duration = video?.duration ?? 0;
+      const wasGesture = scrubbingRef.current;
+      if (video && Number.isFinite(duration) && duration > 0) {
+        const next = Math.min(duration, Math.max(0, time));
+        video.currentTime = next;
+        paintProgress(next, duration);
+        setVideoDuration(duration);
+        setVideoEnded(false);
+      }
+      if (!wasGesture) return;
+      scrubbingRef.current = false;
+      setScrubbing(false);
+      revealChrome();
+      if (resumeAfterScrubRef.current && video) {
+        resumeAfterScrubRef.current = false;
+        void startJoinedMedia(video, 'explicit').catch(() => {
+          setVideoPaused(true);
+        });
+      } else {
+        resumeAfterScrubRef.current = false;
+      }
+    },
+    [paintProgress, revealChrome]
+  );
 
   const seekBySeconds = useCallback(
     (delta: number) => {
@@ -657,7 +707,7 @@ export function FeedPhotoEnlargeScreen({
       if (!Number.isFinite(duration) || duration <= 0) return;
       const next = Math.min(duration, Math.max(0, video.currentTime + delta));
       video.currentTime = next;
-      paintProgress(next / duration, duration);
+      paintProgress(next, duration);
       setVideoDuration(duration);
       setVideoEnded(false);
       revealChrome();
@@ -689,7 +739,12 @@ export function FeedPhotoEnlargeScreen({
     const video = videoRefs.current.get(indexRef.current);
     setVideoMuted((prev) => {
       const next = !prev;
-      if (video) video.muted = next;
+      if (video) {
+        video.muted = next;
+        video.volume = 1;
+        if (next) notifyDockBorrow(video, 'stop');
+        else if (!video.paused) notifyDockBorrow(video, 'start');
+      }
       return next;
     });
     revealChrome();
@@ -921,6 +976,19 @@ export function FeedPhotoEnlargeScreen({
    * Home covered: stay quiet. Back onto this drawer: continue if it was playing.
    * Closing the drawer leaves it stopped. */
   useLayoutEffect(() => {
+    if (facesHeld) {
+      if (!faceHoldLatchRef.current) {
+        faceHoldLatchRef.current = true;
+        const active = videoRefs.current.get(index);
+        faceHoldPlayingRef.current = Boolean(
+          active && !active.paused && !active.ended
+        );
+      }
+      videoRefs.current.forEach((video) => {
+        if (!video.paused) pauseCoveredMedia(video);
+      });
+      return;
+    }
     const parked = [...videoRefs.current.values()].some((video) => {
       const session = video.closest('[data-feed-session]');
       return (
@@ -933,9 +1001,42 @@ export function FeedPhotoEnlargeScreen({
     videoRefs.current.forEach((video) => {
       video.pause();
     });
-  }, [index, open, pathname]);
+  }, [facesHeld, index, open, pathname]);
 
   useEffect(() => {
+    if (facesHeld) {
+      if (!faceHoldLatchRef.current) {
+        faceHoldLatchRef.current = true;
+        const active = videoRefs.current.get(index);
+        faceHoldPlayingRef.current = Boolean(
+          active && !active.paused && !active.ended
+        );
+      }
+      videoRefs.current.forEach((video) => {
+        if (!video.paused) pauseCoveredMedia(video);
+      });
+      return;
+    }
+    if (faceHoldLatchRef.current) {
+      faceHoldLatchRef.current = false;
+      const resume = faceHoldPlayingRef.current;
+      faceHoldPlayingRef.current = false;
+      if (!open || !resume) return;
+      const active = videoRefs.current.get(index);
+      if (!active?.isConnected) return;
+      if (
+        active
+          .closest('[data-os-slide-over="true"]')
+          ?.classList.contains('is-closing')
+      ) {
+        return;
+      }
+      active.loop = true;
+      void startJoinedMedia(active, 'explicit').catch(() => {
+        setVideoPaused(true);
+      });
+      return;
+    }
     const parked = [...videoRefs.current.values()].some((video) => {
       const session = video.closest('[data-feed-session]');
       return (
@@ -960,6 +1061,7 @@ export function FeedPhotoEnlargeScreen({
       if (active) {
         active.loop = true;
         active.muted = videoMuted;
+        active.volume = 1;
         void startJoinedMedia(active, 'explicit').catch(() => {
           setVideoPaused(true);
         });
@@ -970,6 +1072,7 @@ export function FeedPhotoEnlargeScreen({
       if (videoIndex === index) {
         video.loop = true;
         video.muted = videoMuted;
+        video.volume = 1;
         void startJoinedMedia(video, 'explicit').catch(() => {
           if (!videoMuted) {
             video.muted = true;
@@ -986,7 +1089,21 @@ export function FeedPhotoEnlargeScreen({
       video.pause();
       video.muted = true;
     });
-  }, [open, index, pathname, videoMuted]);
+  }, [facesHeld, open, index, pathname, videoMuted]);
+
+  // Closing removes the film without a pause event. Pause here so the
+  // launcher song, held while this picture had sound, can come back.
+  // A reply that only covered the film paused it without releasing that hold.
+  useEffect(() => {
+    const videos = videoRefs;
+    return () => {
+      videos.current.forEach((video) => {
+        video.removeAttribute(SPEAKER_RELOADING_ATTR);
+        notifyDockBorrow(video, 'stop');
+        if (!video.paused) video.pause();
+      });
+    };
+  }, []);
 
   /* Sync paused / buffering / ended; progress while idle. */
   useEffect(() => {
@@ -1002,7 +1119,7 @@ export function FeedPhotoEnlargeScreen({
       if (Number.isFinite(duration) && duration > 0) {
         setVideoDuration(duration);
         if (!scrubbingRef.current) {
-          paintProgress(video.currentTime / duration, duration);
+          paintProgress(video.currentTime, duration);
         }
       }
       setVideoPaused(video.paused);
@@ -1050,7 +1167,7 @@ export function FeedPhotoEnlargeScreen({
       if (video && !scrubbingRef.current) {
         const duration = video.duration;
         if (Number.isFinite(duration) && duration > 0) {
-          paintProgress(video.currentTime / duration, duration);
+          paintProgress(video.currentTime, duration);
         }
       }
       raf = window.requestAnimationFrame(tick);
@@ -1113,7 +1230,7 @@ export function FeedPhotoEnlargeScreen({
     if (!video) return;
     const duration = video.duration;
     if (Number.isFinite(duration) && duration > 0) {
-      paintProgress(video.currentTime / duration, duration);
+      paintProgress(video.currentTime, duration);
     }
   }, [transportMounted, cinema, threadOpen, paintProgress]);
 
@@ -1121,70 +1238,26 @@ export function FeedPhotoEnlargeScreen({
     if (!transportMounted) return null;
     return (
       <div
-        ref={transportRef}
-        className={`feed-photo-video-dock feed-photo-video-dock--slot${scrubbing ? ' is-scrubbing' : ''}${transportVisible ? '' : ' is-chrome-quiet'}${threadOpen ? ' is-film-compact' : ''}${threadOpen && !videoEnded && threadBand >= FEED_THREAD_FULL - 0.02 ? ' is-film-mini' : ''}`}
-        style={{ '--feed-video-p': '0' } as CSSProperties}
+        className={`feed-photo-video-dock feed-photo-video-dock--slot${transportVisible ? '' : ' is-chrome-quiet'}${threadOpen ? ' is-film-compact' : ''}`}
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <div className="feed-photo-video-progress">
-          <div
-            ref={progressRailRef}
-            className="feed-photo-video-progress-rail"
-            aria-hidden
-          >
-            <div className="feed-photo-video-progress-fill" />
-            <span className="feed-photo-video-progress-knob" />
-          </div>
-          <input
-            ref={scrubInputRef}
-            type="range"
-            className="feed-photo-video-progress-scrub"
-            min={0}
-            max={VIDEO_PROGRESS_STEPS}
-            step={1}
-            defaultValue={0}
-            aria-label="Video progress"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            disabled={videoDuration <= 0}
-            onPointerDown={(event) => {
-              if (videoDuration <= 0) return;
-              event.preventDefault();
-              event.stopPropagation();
-              event.currentTarget.focus();
-              event.currentTarget.setPointerCapture(event.pointerId);
-              scrubbingRef.current = true;
-              setScrubbing(true);
-              revealChrome();
-              seekVideo(ratioFromClientX(event.clientX));
-            }}
-            onPointerMove={(event) => {
-              if (!scrubbingRef.current || videoDuration <= 0) return;
-              seekVideo(ratioFromClientX(event.clientX));
-            }}
-            onPointerUp={(event) => {
-              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                event.currentTarget.releasePointerCapture(event.pointerId);
-              }
-              scrubbingRef.current = false;
-              setScrubbing(false);
-              revealChrome();
-            }}
-            onPointerCancel={() => {
-              scrubbingRef.current = false;
-              setScrubbing(false);
-              revealChrome();
-            }}
-            onChange={(event) => {
-              seekVideo(Number(event.target.value) / VIDEO_PROGRESS_STEPS);
-            }}
-          />
-        </div>
+        <ClipProgressTrack
+          railRef={progressRailRef}
+          scrubRef={scrubInputRef}
+          duration={videoDuration}
+          disabled={videoDuration <= 0}
+          scrubbing={scrubbing}
+          progressKey={photos[index]?.url ?? String(index)}
+          ariaLabel="Video progress"
+          onScrubStart={startVideoScrub}
+          onPreview={previewVideo}
+          onCommit={commitVideo}
+        />
         <div className="feed-photo-video-controls">
           <button
             type="button"
-            className="feed-photo-video-control"
+            className="feed-photo-video-control is-play"
             aria-label={videoEnded ? 'Replay' : playing ? 'Pause' : 'Play'}
             onClick={(event) => {
               event.stopPropagation();
@@ -1221,7 +1294,7 @@ export function FeedPhotoEnlargeScreen({
           <div className="feed-photo-video-controls-end">
             <button
               type="button"
-              className={`feed-photo-video-control${
+              className={`feed-photo-video-control is-sound${
                 videoMuted ? ' is-muted' : ''
               }`}
               aria-label={videoMuted ? 'Unmute' : 'Mute'}
@@ -1276,23 +1349,26 @@ export function FeedPhotoEnlargeScreen({
     videoDuration,
     videoEnded,
     threadOpen,
-    threadBand,
     playing,
     videoMuted,
     cinema,
-    seekVideo,
-    ratioFromClientX,
-    revealChrome,
+    index,
+    photos,
+    startVideoScrub,
+    previewVideo,
+    commitVideo,
     toggleActiveVideo,
     toggleMute,
     toggleCinema,
   ]);
 
-  /* Tuck idle summon while the face is up; thread write dock wins via keepDock. */
+  /* The film hides the reply launcher. Reply opens the drawer, which shows it. */
   useRegisterImmersiveChromeQuiet(open && !threadOpen);
 
   const showCaptionPeek =
-    !cinema && !threadOpen && (hasCaption || Boolean(peekIdentity));
+    !cinema &&
+    !threadOpen &&
+    (hasCaption || Boolean(peekIdentity) || (!quiet && Boolean(captionDateText)));
   const captionNode = showCaptionPeek ? (
     <>
       {hasCaption ? (
@@ -1359,6 +1435,10 @@ export function FeedPhotoEnlargeScreen({
               ...
             </span>
           </button>
+        ) : !quiet && captionDateText && !captionText ? (
+          <div className="feed-photo-caption-body feed-photo-caption-date-only">
+            <span className="feed-photo-caption-date">{captionDateText}</span>
+          </div>
         ) : null}
       </div>
     </>
@@ -1433,7 +1513,7 @@ export function FeedPhotoEnlargeScreen({
         transport={onFilm ? null : videoTransport}
         stageLayout="fixed"
         chromeQuiet={chromeQuiet}
-        keepDock={threadOpen || !cinema}
+        keepDock={threadOpen || writePinned}
         className={slideClass}
         contentClassName="feed-photo-slide-body"
         bodyStyle={

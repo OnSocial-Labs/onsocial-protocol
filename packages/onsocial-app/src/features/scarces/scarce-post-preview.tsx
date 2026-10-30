@@ -14,7 +14,7 @@ import {
   previewTextCard,
 } from '@onsocial/text-card';
 import type { PostRow } from '@onsocial/sdk';
-import { ipfsImgSrcSet } from '@onsocial/ui';
+import { PlayFillIcon, ipfsImgSrcSet } from '@onsocial/ui';
 import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import { SCARCE_HERO_WIDTHS } from '@/lib/hero-img-variants';
 import { parsePostText } from '@/lib/post-display';
@@ -62,6 +62,8 @@ interface ScarcePostPreviewProps {
   disableLiveSvg?: boolean;
   /** Sheet picker vs in-feed media slot. */
   variant?: 'sheet' | 'feed';
+  /** Cover is a song. Show a play mark so it is not read as a picture. */
+  audio?: boolean;
   /**
    * When set (feed medium shell), tap calls this instead of the zoom
    * overlay. Sheet / list pickers keep tap-to-zoom.
@@ -124,6 +126,7 @@ export function ScarcePostPreview({
   mediaUrl = null,
   disableLiveSvg = false,
   variant = 'sheet',
+  audio = false,
   onActivate,
 }: ScarcePostPreviewProps) {
   const [heldListingCover, setHeldListingCover] = useState<string | null>(null);
@@ -214,7 +217,13 @@ export function ScarcePostPreview({
         ]
           .filter(Boolean)
           .join(' ')}
-        aria-label={useMediumActivate ? 'Open Drop preview' : 'Preview card'}
+        aria-label={
+          audio
+            ? 'Play audio'
+            : useMediumActivate
+              ? 'Open Drop preview'
+              : 'Preview card'
+        }
         aria-haspopup={useMediumActivate ? undefined : 'dialog'}
         aria-expanded={useMediumActivate ? undefined : zoomOpen}
         onClick={(event) => {
@@ -247,6 +256,11 @@ export function ScarcePostPreview({
             decoding="async"
           />
         )}
+        {audio ? (
+          <span className="scarce-post-preview-play" aria-hidden>
+            <PlayFillIcon />
+          </span>
+        ) : null}
       </button>
 
       {useMediumActivate ? null : (

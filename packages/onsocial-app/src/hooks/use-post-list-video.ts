@@ -20,6 +20,29 @@ function tryPlayMuted(video: HTMLVideoElement) {
   void startJoinedMedia(video, 'passive').catch(() => {});
 }
 
+/** Viewer turned sound on for this list video. Survives scroll-away pauses. */
+export function listVideoSoundOn(video: HTMLVideoElement): boolean {
+  return video.dataset.osListSound === 'on';
+}
+
+export function setListVideoSound(
+  video: HTMLVideoElement,
+  soundOn: boolean
+): void {
+  if (soundOn) video.dataset.osListSound = 'on';
+  else delete video.dataset.osListSound;
+}
+
+function playVisibleListVideo(video: HTMLVideoElement) {
+  if (!listVideoSoundOn(video)) {
+    tryPlayMuted(video);
+    return;
+  }
+  video.muted = false;
+  if (!video.paused) return;
+  void startJoinedMedia(video, 'explicit').catch(() => {});
+}
+
 function applyInitialTime(video: HTMLVideoElement, initialTime: number) {
   if (initialTime <= 0) return;
   try {
@@ -142,7 +165,7 @@ export function usePostVideoPlayback(
         const visibleEnough =
           Boolean(entry?.isIntersecting) && entry.intersectionRatio >= 0.5;
         if (visibleEnough) {
-          tryPlayMuted(video);
+          playVisibleListVideo(video);
         } else {
           video.pause();
         }

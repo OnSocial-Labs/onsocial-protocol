@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  launcherReclaimFor,
+  shouldBorrowSpeakers,
+  shouldYieldToIncoming,
   mediaIsQuietUnderCovers,
   resolveSingleMediaPlayback,
+  shouldPauseForeignOwner,
 } from './single-media-playback';
 
 const playing = {
@@ -229,6 +233,85 @@ describe('mediaIsQuietUnderCovers', () => {
     ).toBe(false);
   });
 
+  it('leaves the launcher playing so the dock hold can resume it', () => {
+    expect(
+      shouldPauseForeignOwner({
+        pauseOwner: true,
+        incomingIsDockHost: false,
+        ownerIsDockHost: true,
+      })
+    ).toBe(false);
+  });
+
+  it('does not stop a muted picture when the launcher comes back', () => {
+    expect(
+      shouldPauseForeignOwner({
+        pauseOwner: true,
+        incomingIsDockHost: true,
+        ownerIsDockHost: false,
+      })
+    ).toBe(false);
+  });
+
+  it('still swaps two ordinary players', () => {
+    expect(
+      shouldPauseForeignOwner({
+        pauseOwner: true,
+        incomingIsDockHost: false,
+        ownerIsDockHost: false,
+      })
+    ).toBe(true);
+  });
+
+  it('pauses an opened post when the launcher is asked to play', () => {
+    expect(
+      launcherReclaimFor({
+        dockHost: false,
+        dockBorrow: false,
+        audible: true,
+        soundChip: false,
+      })
+    ).toBe('pause');
+  });
+
+  it('silences a feed picture that only has a mute chip', () => {
+    expect(
+      launcherReclaimFor({
+        dockHost: false,
+        dockBorrow: false,
+        audible: true,
+        soundChip: true,
+      })
+    ).toBe('mute');
+  });
+
+  it('leaves a muted picture and the launcher itself alone', () => {
+    expect(
+      launcherReclaimFor({
+        dockHost: false,
+        dockBorrow: false,
+        audible: false,
+        soundChip: true,
+      })
+    ).toBe('keep');
+    expect(
+      launcherReclaimFor({
+        dockHost: true,
+        dockBorrow: false,
+        audible: true,
+        soundChip: false,
+      })
+    ).toBe('keep');
+    expect(
+      launcherReclaimFor({
+        dockHost: false,
+        dockBorrow: true,
+        audible: true,
+        soundChip: false,
+      })
+    ).toBe('keep');
+  });
+
   it('stays quiet under a parked trail sheet', () => {
     expect(
       mediaIsQuietUnderCovers({
@@ -237,5 +320,98 @@ describe('mediaIsQuietUnderCovers', () => {
         covers: [],
       })
     ).toBe(true);
+  });
+});
+
+describe('shouldYieldToIncoming', () => {
+  it('stops another audible post and leaves the launcher and previews', () => {
+    expect(
+      shouldYieldToIncoming({
+        incoming: false,
+        dockHost: false,
+        dockBorrow: false,
+        audible: true,
+      })
+    ).toBe(true);
+    expect(
+      shouldYieldToIncoming({
+        incoming: true,
+        dockHost: false,
+        dockBorrow: false,
+        audible: true,
+      })
+    ).toBe(false);
+    expect(
+      shouldYieldToIncoming({
+        incoming: false,
+        dockHost: true,
+        dockBorrow: false,
+        audible: true,
+      })
+    ).toBe(false);
+    expect(
+      shouldYieldToIncoming({
+        incoming: false,
+        dockHost: false,
+        dockBorrow: true,
+        audible: true,
+      })
+    ).toBe(false);
+    expect(
+      shouldYieldToIncoming({
+        incoming: false,
+        dockHost: false,
+        dockBorrow: false,
+        audible: false,
+      })
+    ).toBe(false);
+  });
+});
+
+describe('shouldBorrowSpeakers', () => {
+  it('pauses the launcher for a post that starts with sound', () => {
+    expect(
+      shouldBorrowSpeakers({
+        intent: 'explicit',
+        dockHost: false,
+        muted: false,
+        volume: 1,
+      })
+    ).toBe(true);
+    expect(
+      shouldBorrowSpeakers({
+        intent: 'restart',
+        dockHost: false,
+        muted: false,
+        volume: 1,
+      })
+    ).toBe(true);
+  });
+
+  it('leaves the launcher for a muted picture and for the song itself', () => {
+    expect(
+      shouldBorrowSpeakers({
+        intent: 'explicit',
+        dockHost: false,
+        muted: true,
+        volume: 1,
+      })
+    ).toBe(false);
+    expect(
+      shouldBorrowSpeakers({
+        intent: 'passive',
+        dockHost: false,
+        muted: false,
+        volume: 1,
+      })
+    ).toBe(false);
+    expect(
+      shouldBorrowSpeakers({
+        intent: 'explicit',
+        dockHost: true,
+        muted: false,
+        volume: 1,
+      })
+    ).toBe(false);
   });
 });

@@ -364,12 +364,8 @@ test.describe('thread reply dock', () => {
 });
 
 /**
- * Media-face trail — photo enlarge → reply drawer → tap a reply. The post
- * layer opened above the keep-dock face resolves to z 170 (overShell 90 +
- * the glass media-face lift), past the dock's constant face bands (90/95):
- * the reply dock ended up under the sheet and reply taps only scrolled.
- * The layer host publishes --os-thread-dock-z above that sheet and above a
- * cover opened from it.
+ * Media reply drawer — tapping a reply opens that reply's thread and
+ * leaves the film. The viewer does not stay mounted over the new thread.
  */
 test.describe('thread reply dock over the media face', () => {
   const CDN = 'https://cdn.testnet.onsocial.id';
@@ -483,7 +479,7 @@ test.describe('thread reply dock over the media face', () => {
     });
   }
 
-  test('post layer over the media face keeps the reply dock on top', async ({
+  test('a reply in the media drawer opens that thread and leaves the film', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -510,47 +506,27 @@ test.describe('thread reply dock over the media face', () => {
     await expect(drawer).toBeVisible({ timeout: 10_000 });
     await expect(drawer).toContainText(FACE_REPLY.text, { timeout: 15_000 });
 
-    // Tap Bob's reply in the drawer — the post layer opens above the face.
+    // Reply inside the drawer. The composer is this surface's field — a
+    // tucked dock (opacity 0) is not a reply, whatever its z-index is.
+    await drawer
+      .getByRole('button', { name: 'Reply to this post' })
+      .first()
+      .click();
+    const drawerDock = page.locator('.portfolio-summon-dock');
+    await expect(drawerDock.locator('.os-write-dock')).toBeVisible({
+      timeout: 10_000,
+    });
+    const drawerDockBox = await drawerDock.boundingBox();
+    expect(drawerDockBox).not.toBeNull();
+    expect(drawerDockBox!.y).toBeLessThan(844);
+
+    // Tap Bob's reply. His thread opens. The film does not stay on top of it.
     await drawer.getByRole('link', { name: 'Open post' }).first().click();
     const layer = page.locator('.post-thread-sheet-panel');
     await expect(layer).toBeVisible({ timeout: 10_000 });
-    await expect(layer).toContainText(NESTED_REPLY.text, { timeout: 15_000 });
-
-    // The dock rides above the face-lifted sheet, not under it.
-    const z = await page.evaluate(() => {
-      const dock = document.querySelector('.portfolio-summon-dock');
-      const sheet = document.querySelector(
-        '.glass-sheet-root:has(.post-thread-sheet-panel)'
-      );
-      if (!dock || !sheet) return null;
-      return {
-        dock: Number(getComputedStyle(dock).zIndex),
-        sheet: Number(getComputedStyle(sheet).zIndex),
-      };
-    });
-    expect(z).not.toBeNull();
-    expect(z!.dock).toBeGreaterThan(z!.sheet);
-
-    // Reply on Cara's nested reply — chip names her and the field types.
-    await layer
-      .getByRole('button', { name: 'Reply to this post' })
-      .nth(1)
-      .click();
-    const chip = page.locator('.os-write-dock-reply');
-    await expect(chip).toBeVisible({ timeout: 10_000 });
-    await expect(chip).toContainText('Cara');
-    const field = page.getByRole('textbox', { name: 'Add a reply…' });
-    await field.fill('Reply from the trail layer');
-    await expect(field).toHaveValue('Reply from the trail layer');
-
-    // Closing the layer hands the dock back to the face drawer band.
-    await layer.getByRole('button', { name: 'Back' }).first().click();
-    await expect(layer).toHaveCount(0, { timeout: 8_000 });
-    await expect(drawer).toBeVisible();
-    const restored = await page.evaluate(() => {
-      const dock = document.querySelector('.portfolio-summon-dock');
-      return dock ? Number(getComputedStyle(dock).zIndex) : null;
-    });
-    expect(restored).toBeLessThan(170);
+    await expect(layer).toContainText(FACE_REPLY.text);
+    await expect(
+      page.locator('[data-os-slide-over="true"]:not(.is-closing)')
+    ).toHaveCount(0, { timeout: 8_000 });
   });
 });

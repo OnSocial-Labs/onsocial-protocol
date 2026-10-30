@@ -876,6 +876,7 @@ export function LivePersonalPostPanel({
           <PostCard
             post={row.post}
             authorProfile={postAuthorProfiles[row.post.accountId]}
+            videoSoundControl
             actionHref={postThreadPath(row.post)}
             menuZIndex={nestMenuZ}
             showRelationBadge={false}
@@ -938,7 +939,9 @@ export function LivePersonalPostPanel({
                 <PostCard
                   post={ancestor}
                   authorProfile={postAuthorProfiles[ancestor.accountId]}
+                  videoSoundControl
                   actionHref={postThreadPath(ancestor)}
+                  returnToPost
                   menuZIndex={nestMenuZ}
                   showRelationBadge={index === 0}
                   authorProfiles={postAuthorProfiles}
@@ -987,6 +990,7 @@ export function LivePersonalPostPanel({
                 post={conversation.root}
                 authorProfile={postAuthorProfiles[conversation.root.accountId]}
                 mediaFocused
+                videoSoundControl
                 hideMedia={hideRootMedia}
                 menuZIndex={nestMenuZ}
                 mediaUnmuted={mediaUnmuted}

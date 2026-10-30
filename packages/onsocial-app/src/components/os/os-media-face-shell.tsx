@@ -1,7 +1,8 @@
 'use client';
 
-import type { CSSProperties, ReactNode } from 'react';
+import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import { ChevronLeftIcon, OsIconAction } from '@onsocial/ui';
+import { onCloseMediaFaces } from '@/lib/media-face-session';
 import {
   OsSlideOverScreen,
   useOsSlideOverClose,
@@ -24,6 +25,12 @@ function MediaFaceClose({ ariaLabel }: { ariaLabel: string }) {
 export type OsMediaFaceShellProps = {
   open: boolean;
   onClose: () => void;
+  /**
+   * Leave the face entirely when a reply thread takes the screen.
+   * Defaults to `onClose`. Pass this when `onClose` only dismisses a
+   * nested thread and would leave the film up.
+   */
+  onLeave?: () => void;
   /**
    * Called when the shell's own close controls (× / Escape) start the exit
    * slide — a last chance to measure the stage before it unmounts (e.g.
@@ -95,6 +102,7 @@ export type OsMediaFaceShellProps = {
 export function OsMediaFaceShell({
   open,
   onClose,
+  onLeave,
   onBeforeClose,
   title,
   faceTitle = null,
@@ -162,6 +170,12 @@ export function OsMediaFaceShell({
   ]
     .filter(Boolean)
     .join(' ');
+  const leaveFace = onLeave ?? onClose;
+  useEffect(() => {
+    if (!open) return;
+    return onCloseMediaFaces(leaveFace);
+  }, [leaveFace, open]);
+
   const faceBodyClass = [
     'os-media-face-body',
     chromeQuiet ? 'is-chrome-quiet' : '',

@@ -42,7 +42,27 @@ export function shouldTakeOverPlayback(opts: {
   return Boolean(surfaceId && sessionId && sessionId !== surfaceId);
 }
 
-/** Bind a face to the shared audio element. Video never binds. */
+/** The launcher element is already this file (resolved URL or cid). */
+export function dockSrcMatchesTrack(
+  sources: { src?: string | null; currentSrc?: string | null },
+  track: { url?: string | null; cid?: string | null }
+): boolean {
+  const urls = [sources.currentSrc, sources.src]
+    .map((value) => value?.trim() || '')
+    .filter(Boolean);
+  const url = track.url?.trim() || '';
+  const cid = track.cid?.trim() || '';
+  if (urls.length === 0) return false;
+  return urls.some((src) => {
+    if (url && src === url) return true;
+    return Boolean(cid && src.includes(cid));
+  });
+}
+
+/**
+ * Drop and profile players bind to the shared element.
+ * An empty launcher may claim this release. Video never binds.
+ */
 export function shouldBindPlaybackSession(opts: {
   hasNowPlaying: boolean;
   persistId: string | null;

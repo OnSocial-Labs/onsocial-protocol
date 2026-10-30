@@ -1,0 +1,25 @@
+---
+description: A tap opens its surface in that turn — sheets do not wait on a fetch the screen already started
+globs: packages/onsocial-app/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# A tap opens its surface
+
+A click or key that opens a reader, sheet, or player opens that surface in the same turn. The document fills in inside it.
+
+## Do
+
+- Mount the shell on the gesture. The document paints once, when it is known. Do not mount a stand-in page and replace it.
+- Load the record while the card is on screen. When that load has finished, the tap only opens.
+- Use the fetch the screen already started. The gesture does not start a second copy and hold the shell until it returns.
+- Cover and the named action (Read, Listen) share one open path.
+- Closing cancels the fill-in. A late result does not reopen or swap a closed surface.
+- Back from a reply opened on a media face returns to that face and its reply drawer. The picture or track continues from the same moment. A pause stays a pause.
+
+## Do not
+
+- Await a collection, post, or manifest fetch before `setOpen(true)` when that record is already loading for the card.
+- Add a one-off loader on the feed row for a surface that already has a room.
+
+Feed drop cover and Read are the model: while the card is on screen, load the essay and its author (`prefetchDropRead`). The tap opens that page. If the tap wins the race, the shell is already up and the page paints once when the essay lands. A collection card still uses `usePostCollectionEmbed` for the writing record. Do not start a second copy of that fetch.
