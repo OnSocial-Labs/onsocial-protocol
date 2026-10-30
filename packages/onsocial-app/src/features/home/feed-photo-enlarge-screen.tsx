@@ -50,6 +50,7 @@ import {
   paintClipProgress,
 } from '@/features/home/feed-media-progress';
 import { FeedMediaThreadSheet } from '@/features/home/feed-media-thread-sheet';
+import { mediaFaceChromeQuiet } from '@/features/home/feed-photo-chrome';
 import {
   threadJacketT,
   useFeedThreadBand,
@@ -323,13 +324,13 @@ export function FeedPhotoEnlargeScreen({
     captionMode,
     measureCaption,
   ]);
-  const chromeQuiet =
-    open &&
-    activeIsVideo &&
-    !chromeVisible &&
-    !scrubbing &&
-    !captionExpanded &&
-    !threadOpen;
+  const chromeQuiet = mediaFaceChromeQuiet({
+    open,
+    chromeVisible,
+    scrubbing,
+    captionExpanded,
+    threadOpen,
+  });
   const onFilm = cinema || threadOpen;
   const dismissThread = useCallback(() => {
     onDismissThread?.();
@@ -902,7 +903,7 @@ export function FeedPhotoEnlargeScreen({
           exitCinema();
           return;
         }
-        if (activeIsVideo && !chromeVisible) {
+        if (!chromeVisible) {
           event.preventDefault();
           revealChrome();
           return;
@@ -1368,7 +1369,9 @@ export function FeedPhotoEnlargeScreen({
   const showCaptionPeek =
     !cinema &&
     !threadOpen &&
-    (hasCaption || Boolean(peekIdentity) || (!quiet && Boolean(captionDateText)));
+    (hasCaption ||
+      Boolean(peekIdentity) ||
+      (!quiet && Boolean(captionDateText)));
   const captionNode = showCaptionPeek ? (
     <>
       {hasCaption ? (
