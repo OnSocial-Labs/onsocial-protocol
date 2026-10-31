@@ -258,6 +258,45 @@ test.describe('thread reply dock', () => {
     await expect(crossfading).toHaveCount(0, { timeout: 5_000 });
   });
 
+  test('one-line reply keeps the avatar on the reply field', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await seedE2eMockSigner(page, 'dave.near', { succeed: true });
+    await stubThreadGraph(page);
+    await gotoApp(page, '/home');
+    await dismissNextDevOverlay(page);
+    const globalTab = page.getByRole('tab', { name: 'Global' });
+    if ((await globalTab.count()) > 0) {
+      await globalTab.click();
+    }
+    const feed = page.locator('.home-feed-list');
+    await expect(feed).toContainText('Root post');
+    await feed
+      .getByRole('button', { name: 'Reply to this post' })
+      .first()
+      .click();
+
+    const chip = page.locator('.os-write-dock-reply');
+    await expect(chip).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.os-dock-pill-swap-out')).toHaveCount(0, {
+      timeout: 5_000,
+    });
+    const avatar = page.locator(
+      '.os-dock-pill.is-writing > .portfolio-summon-account .profile-avatar'
+    );
+    const field = page.locator('.os-write-dock-input');
+    await expect(avatar).toBeVisible();
+    await expect(field).toBeVisible();
+    const avatarBox = await avatar.boundingBox();
+    const fieldBox = await field.boundingBox();
+    expect(avatarBox).toBeTruthy();
+    expect(fieldBox).toBeTruthy();
+    const avatarMid = avatarBox!.y + avatarBox!.height / 2;
+    const fieldMid = fieldBox!.y + fieldBox!.height / 2;
+    expect(Math.abs(avatarMid - fieldMid)).toBeLessThan(2);
+  });
+
   test('drawer opens with replies, reply Reply focuses dock with chip', async ({
     page,
   }) => {
