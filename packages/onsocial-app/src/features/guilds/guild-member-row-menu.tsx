@@ -8,13 +8,11 @@ import {
   DotsVerticalIcon,
   KeyIcon,
   OsActionDrawerConfirm,
-  OsIconAction,
   ShieldCheckIcon,
   UserCheckIcon,
   UserCrossIcon,
   UserIcon,
   UserMinusIcon,
-  osIconActionGlyphClassName,
 } from '@onsocial/ui';
 import {
   ActionDrawer,
@@ -314,22 +312,22 @@ export function GuildMemberRowMenu({
     : null;
 
   return (
-    <div className="guild-member-row-menu">
-      <OsIconAction
-        className={`guild-member-row-menu-trigger${
-          sheetOpen ? ' is-open' : ''
-        }`}
+    <div
+      className={`drops-discovery-row-menu post-card-menu guild-member-row-menu${
+        sheetOpen ? ' is-open' : ''
+      }`}
+    >
+      <button
+        type="button"
+        className={`post-card-menu-trigger${sheetOpen ? ' is-open' : ''}`}
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={sheetOpen}
-        ariaLabel={menuLabel}
+        aria-label={menuLabel}
         disabled={pending}
       >
-        <DotsVerticalIcon
-          className={`${osIconActionGlyphClassName} guild-member-row-menu-icon`}
-          aria-hidden
-        />
-      </OsIconAction>
+        <DotsVerticalIcon className="post-card-menu-icon" aria-hidden />
+      </button>
 
       <ActionDrawer
         open={sheetOpen}

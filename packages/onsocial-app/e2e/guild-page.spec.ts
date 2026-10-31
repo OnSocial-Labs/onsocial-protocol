@@ -254,9 +254,9 @@ test.describe('guild page', () => {
     await page.getByRole('button', { name: /View roster/ }).click();
     const members = page.getByRole('dialog', { name: 'Members' });
     await expect(members).toBeVisible();
-    await expect(members.getByRole('button', { name: 'Add member' })).toHaveCount(
-      0
-    );
+    await expect(
+      members.getByRole('button', { name: 'Add member' })
+    ).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Add room' })).toHaveCount(0);
   });
 
@@ -331,6 +331,44 @@ test.describe('guild page', () => {
     await page.getByRole('button', { name: /View roster/ }).click();
     const members = page.getByRole('dialog', { name: 'Members' });
     await expect(members).toBeVisible();
+    const trail = members
+      .locator('.guild-member-row .drops-discovery-head-trail')
+      .first();
+    await expect(trail.locator('.market-listing-meta-right')).toBeVisible();
+    await expect(trail.locator('.post-card-menu-trigger')).toBeVisible();
+    const aligned = await trail.evaluate((el) => {
+      const time = el.querySelector('time');
+      const button = el.querySelector('.post-card-menu-trigger');
+      const icon = el.querySelector('.post-card-menu-icon');
+      const name = el
+        .closest('.guild-member-row')
+        ?.querySelector('.standing-row-name');
+      if (!time || !button || !icon || !name) return null;
+      const timeBox = time.getBoundingClientRect();
+      const menuBox = button.getBoundingClientRect();
+      const nameBox = name.getBoundingClientRect();
+      const mid = (box: DOMRect) => box.top + box.height / 2;
+      const buttonCs = getComputedStyle(button);
+      const iconCs = getComputedStyle(icon);
+      return {
+        stampMenu: Math.abs(mid(timeBox) - mid(menuBox)),
+        nameMenu: Math.abs(mid(nameBox) - mid(menuBox)),
+        menuAfterStamp: menuBox.left > timeBox.right - 1,
+        menuWidth: Number.parseFloat(buttonCs.width),
+        menuHeight: Number.parseFloat(buttonCs.height),
+        iconWidth: Number.parseFloat(iconCs.width),
+      };
+    });
+    expect(aligned).toBeTruthy();
+    expect(aligned!.stampMenu).toBeLessThan(1);
+    expect(aligned!.nameMenu).toBeLessThan(2);
+    expect(aligned!.menuAfterStamp).toBe(true);
+    expect(aligned!.menuWidth).toBeGreaterThan(17);
+    expect(aligned!.menuWidth).toBeLessThan(18);
+    expect(aligned!.menuHeight).toBeGreaterThan(17);
+    expect(aligned!.menuHeight).toBeLessThan(18);
+    expect(aligned!.iconWidth).toBeGreaterThan(14);
+    expect(aligned!.iconWidth).toBeLessThan(15);
     await members.getByRole('button', { name: 'Add member' }).click();
     const addMember = page.getByRole('dialog', { name: 'Add member' });
     await expect(addMember).toBeVisible();

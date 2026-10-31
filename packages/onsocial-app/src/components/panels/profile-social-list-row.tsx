@@ -227,9 +227,9 @@ export function ProfileSocialListSkeletonRow({
             </span>
           </div>
         </div>
-        <div className="standing-row-aside guild-member-row-aside">
+        <div className="drops-discovery-head-trail">
           <div className="standing-row-shimmer standing-row-shimmer-time" />
-          <div className="standing-row-shimmer standing-row-shimmer-pill guild-member-row-menu-shimmer" />
+          <div className="standing-row-shimmer guild-member-row-menu-shimmer" />
         </div>
       </div>
     );
