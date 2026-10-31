@@ -25,6 +25,16 @@ describe('guildMembershipConfirmKind', () => {
       guildMembershipConfirmKind({ ...snapshot, accessGated: true })
     ).toBe('request');
     expect(
+      guildMembershipConfirmKind({ ...snapshot, memberDriven: true })
+    ).toBe('propose');
+    expect(
+      guildMembershipConfirmKind({
+        ...snapshot,
+        accessGated: true,
+        memberDriven: true,
+      })
+    ).toBe('propose');
+    expect(
       guildMembershipConfirmKind({
         ...snapshot,
         joinPending: true,
@@ -56,7 +66,20 @@ describe('guildMembershipConfirmCopy', () => {
       variant: 'primary',
     });
     expect(guildMembershipConfirmCopy('leave').variant).toBe('danger');
+    expect(guildMembershipConfirmCopy('request')).toEqual({
+      label: 'Ask to join',
+      confirmLabel: 'Ask to join',
+      pendingLabel: 'Asking…',
+      variant: 'primary',
+    });
+    expect(guildMembershipConfirmCopy('propose')).toEqual({
+      label: 'Propose to join',
+      confirmLabel: 'Propose to join',
+      pendingLabel: 'Proposing…',
+      variant: 'primary',
+    });
     expect(guildMembershipConfirmCopy('request')).not.toHaveProperty('body');
+    expect(guildMembershipConfirmCopy('propose')).not.toHaveProperty('body');
   });
 });
 

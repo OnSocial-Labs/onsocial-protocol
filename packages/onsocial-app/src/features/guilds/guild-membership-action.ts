@@ -65,7 +65,12 @@ export async function requestGuildMembershipChange(
 }
 
 /** Wallet membership actions that confirm in the action drawer first. */
-export type GuildMembershipConfirmKind = 'join' | 'request' | 'cancel' | 'leave';
+export type GuildMembershipConfirmKind =
+  | 'join'
+  | 'request'
+  | 'propose'
+  | 'cancel'
+  | 'leave';
 
 export function guildMembershipConfirmKind(
   snapshot: GuildMembershipActionSnapshot
@@ -75,6 +80,7 @@ export function guildMembershipConfirmKind(
   if (snapshot.isMember && snapshot.isOwner) return 'owner';
   if (snapshot.isMember) return 'leave';
   if (snapshot.joinPending) return 'cancel';
+  if (snapshot.memberDriven) return 'propose';
   return snapshot.accessGated ? 'request' : 'join';
 }
 
@@ -101,9 +107,16 @@ export function guildMembershipConfirmCopy(kind: GuildMembershipConfirmKind): {
       };
     case 'request':
       return {
-        label: 'Request',
-        confirmLabel: 'Request',
-        pendingLabel: 'Requesting…',
+        label: 'Ask to join',
+        confirmLabel: 'Ask to join',
+        pendingLabel: 'Asking…',
+        variant: 'primary',
+      };
+    case 'propose':
+      return {
+        label: 'Propose to join',
+        confirmLabel: 'Propose to join',
+        pendingLabel: 'Proposing…',
         variant: 'primary',
       };
     case 'join':

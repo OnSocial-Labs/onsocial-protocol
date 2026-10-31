@@ -81,6 +81,10 @@ test.describe('guild page', () => {
     await expect(
       page.getByRole('button', { name: 'Guild settings' })
     ).toHaveCount(0);
+    await joinIcon.click();
+    const confirm = page.getByRole('dialog', { name: 'Join' });
+    await expect(confirm).toBeVisible();
+    await expect(confirm.getByRole('button', { name: 'Join' })).toBeVisible();
   });
 
   test('a gated guild still joins from the plus, with no Request label', async ({
@@ -96,6 +100,12 @@ test.describe('guild page', () => {
     });
     await expect(page.getByRole('button', { name: 'Request' })).toHaveCount(0);
     await expect(page.locator('.guild-hero-membership')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Join guild' }).click();
+    const confirm = page.getByRole('dialog', { name: 'Ask to join' });
+    await expect(confirm).toBeVisible();
+    await expect(
+      confirm.getByRole('button', { name: 'Ask to join' })
+    ).toBeVisible();
   });
 
   test('SSR catalog hit paints Audit Guild without the skeleton', async ({
