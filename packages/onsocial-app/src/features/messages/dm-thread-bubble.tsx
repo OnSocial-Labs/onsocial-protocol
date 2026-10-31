@@ -55,8 +55,6 @@ export function DmThreadBubble({
     dragged: false,
   });
   const suppressClick = useRef(false);
-  const onReplyRef = useRef(onReply);
-  onReplyRef.current = onReply;
 
   const resetGesture = () => {
     gesture.current.pointerId = -1;
@@ -124,7 +122,7 @@ export function DmThreadBubble({
     );
     if (g.dragged) suppressClick.current = true;
     resetGesture();
-    if (allowCommit && frame.commit) onReplyRef.current();
+    if (allowCommit && frame.commit) onReply();
   };
 
   const rowClass = [
@@ -186,7 +184,7 @@ export function DmThreadBubble({
             type="button"
             className="messages-bubble-reply"
             aria-label={replyLabel}
-            onClick={() => onReplyRef.current()}
+            onClick={onReply}
           >
             Reply
           </button>
