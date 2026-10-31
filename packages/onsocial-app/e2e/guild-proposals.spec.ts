@@ -230,11 +230,14 @@ test.describe('guild proposals sheet', () => {
       new RegExp(`${GUILD_E2E_PATH}\\?sheet=proposals`)
     );
 
-    // Browser Back pops the sheet's entry — the drawer closes onto the
-    // guild page instead of leaving the app.
+    // Browser Back closes the sheet and stays on this guild. Settings may
+    // still be the entry underneath when it owned the previous URL.
     await page.goBack();
     await expect(sheet).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`${GUILD_E2E_PATH}$`));
+    await expect(page).toHaveURL(
+      new RegExp(`${GUILD_E2E_PATH}(?:\\?sheet=settings)?$`)
+    );
+    await expect(page).not.toHaveURL(/sheet=proposals/);
   });
 
   test('cold proposal deep link closes onto the guild page', async ({
