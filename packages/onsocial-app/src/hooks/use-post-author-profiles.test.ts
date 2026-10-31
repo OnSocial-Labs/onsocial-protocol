@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   seedPostAuthorProfile,
   seedPostAuthorProfilesFromFeed,
+  selectPostAuthorProfiles,
   subscribePostAuthorProfiles,
 } from './use-post-author-profiles';
 
@@ -63,5 +64,22 @@ describe('post author profile seeding', () => {
     expect(listener).toHaveBeenCalledTimes(2);
 
     unsubscribe();
+  });
+
+  it('keeps a warm process cache off the server snapshot', () => {
+    seedPostAuthorProfile({
+      accountId: 'warm-author.testnet',
+      displayName: 'Warm Author',
+      avatarUrl: 'https://cdn.example/warm.png',
+    });
+
+    expect(
+      selectPostAuthorProfiles(['warm-author.testnet'], 0)
+    ).toEqual({});
+    expect(
+      selectPostAuthorProfiles(['warm-author.testnet'], 1)[
+        'warm-author.testnet'
+      ]?.displayName
+    ).toBe('Warm Author');
   });
 });

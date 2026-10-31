@@ -75,6 +75,24 @@ export function arePostAuthorProfilesResolved(accountIds: string[]): boolean {
   return accountIds.every((accountId) => profileCache.has(accountId));
 }
 
+/**
+ * Profiles for this render.
+ *
+ * Generation 0 is the server and hydration snapshot. The cache lives in the
+ * JS realm that rendered the page, so a warm server process must not paint a
+ * name or avatar the browser does not have yet. An empty client cache is
+ * also generation 0, and skipping the read is the same as an empty map.
+ */
+export function selectPostAuthorProfiles(
+  accountIds: string[],
+  cacheGeneration: number,
+  fetched: Record<string, PostAuthorProfile> = EMPTY_PROFILE_RECORD
+): Record<string, PostAuthorProfile> {
+  if (accountIds.length === 0) return EMPTY_PROFILE_RECORD;
+  if (cacheGeneration === 0) return fetched;
+  return mergeProfileRecords(readCachedProfiles(accountIds), fetched);
+}
+
 function mergeProfileRecords(
   base: Record<string, PostAuthorProfile>,
   overlay: Record<string, PostAuthorProfile>
@@ -263,7 +281,6 @@ export function usePostAuthorProfiles(
   const accountIdsKey = Array.from(new Set(accountIds.filter(Boolean)))
     .sort()
     .join('\n');
-  const uniqueAccountIds = accountIdsKey ? accountIdsKey.split('\n') : [];
   const [fetched, setFetched] =
     useState<Record<string, PostAuthorProfile>>(EMPTY_PROFILE_RECORD);
   const [fetchedKey, setFetchedKey] = useState('');
@@ -287,22 +304,20 @@ export function usePostAuthorProfiles(
   }, [accountIdsKey]);
 
   /*
-   * Subscribe to the cache version: same-render seeds bump it before this
-   * snapshot reads (fresh names paint immediately), effect seeds notify and
-   * re-render subscribed cards before paint, and an untouched cache returns
-   * the previous record (stable identity for memoized consumers).
+   * Client snapshot is the cache generation, so a same-render seed is visible
+   * immediately and an effect seed re-renders subscribed cards. The server
+   * snapshot stays 0: that generation is not in the HTML. See
+   * selectPostAuthorProfiles.
    */
   const version = useSyncExternalStore(
     subscribePostAuthorProfiles,
     () => profileCacheVersion,
-    () => profileCacheVersion
+    () => 0
   );
   return useMemo(() => {
-    if (!accountIdsKey) return EMPTY_PROFILE_RECORD;
-    const fromCache = readCachedProfiles(uniqueAccountIds);
+    const ids = accountIdsKey ? accountIdsKey.split('\n') : [];
     const activeFetched =
       fetchedKey === accountIdsKey ? fetched : EMPTY_PROFILE_RECORD;
-    return mergeProfileRecords(fromCache, activeFetched);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return selectPostAuthorProfiles(ids, version, activeFetched);
   }, [accountIdsKey, version, fetched, fetchedKey]);
 }
