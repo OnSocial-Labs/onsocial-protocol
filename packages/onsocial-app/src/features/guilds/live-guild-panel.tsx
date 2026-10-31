@@ -3,12 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { postContentPath, type PostRow } from '@onsocial/sdk';
-import {
-  Divider,
-  OsIconAction,
-  SettingsIcon,
-  SheetHandoffProvider,
-} from '@onsocial/ui';
+import { Divider, SheetHandoffProvider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useOsInAppPop } from '@/components/providers/os-face-leave-provider';
@@ -77,27 +72,25 @@ import {
 } from '@/features/guilds/guild-page-hero';
 import { GuildAddMemberSheet } from '@/features/guilds/guild-add-member-sheet';
 import { GuildAddSpaceSheet } from '@/features/guilds/guild-add-space-sheet';
-import {
-  GuildManageMenu,
-  type GuildManageSheetId,
-} from '@/features/guilds/guild-manage-menu';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import {
   buildGuildFacepileIds,
   GuildFacepile,
 } from '@/features/guilds/guild-facepile';
-import {
-  GuildMembershipConfirmDrawer,
-  GuildMembershipJoinButton,
-  guildMembershipJoinLabel,
-  guildMembershipJoinPendingLabel,
-} from '@/features/guilds/guild-membership-join-button';
+import { GuildMembershipConfirmDrawer } from '@/features/guilds/guild-membership-join-button';
 import { GuildMemberRequestsSheet } from '@/features/guilds/guild-member-requests-sheet';
 import { GuildMembersSheet } from '@/features/guilds/guild-members-sheet';
 import { GuildEditSheet } from '@/features/guilds/guild-edit-sheet';
 import { GuildFactsSheet } from '@/features/guilds/guild-facts-sheet';
 import { GuildRoomsSheet } from '@/features/guilds/guild-rooms-sheet';
-import { canConfigureGuild } from '@/features/guilds/guild-settings-actions';
+import {
+  GuildHeroActions,
+  guildHeroActionVisibility,
+} from '@/features/guilds/guild-hero-actions';
+import {
+  canConfigureGuild,
+  canOpenGuildSettings,
+} from '@/features/guilds/guild-settings-actions';
 import { GuildSettingsSheet } from '@/features/guilds/guild-settings-sheet';
 import { GuildGroupStorageSheet } from '@/features/guilds/guild-group-storage-sheet';
 import { GuildProposalsSheet } from '@/features/guilds/guild-proposals-sheet';
@@ -107,6 +100,7 @@ import {
   guildPath,
   guildSheetPath,
   manageSheetFromShare,
+  type GuildManageSheetId,
   type GuildShareSheetId,
 } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -326,19 +320,24 @@ export function LiveGuildPanel({
     viewer?.isOwner || viewer?.isAdmin || viewer?.canModerate
   );
   const canConfigure = canConfigureGuild(viewer);
+  const canReviewRequests = Boolean(config?.accessGated && canManageGuild);
+  const settingsViewer = viewer ? { ...viewer, canReviewRequests } : null;
+  const canOpenSettings = canOpenGuildSettings(settingsViewer);
   const canAddMember = canConfigure;
 
   useEffect(() => {
     setManageSheet(manageSheetFromShare(initialSheet));
     const settingsRequested = initialSheet === 'settings';
     const settingsAllowed =
-      settingsRequested && (!viewerAccessResolved || canConfigure);
+      settingsRequested && (!viewerAccessResolved || canOpenSettings);
     setSettingsSheetOpen(settingsAllowed);
-    if (settingsRequested && viewerAccessResolved && !canConfigure) {
+    if (settingsRequested && viewerAccessResolved && !canOpenSettings) {
       router.replace(guildPath(groupId), { scroll: false });
     }
-  }, [canConfigure, groupId, initialSheet, router, viewerAccessResolved]);
-  const showManageMenu = Boolean(viewer?.isMember);
+  }, [canOpenSettings, groupId, initialSheet, router, viewerAccessResolved]);
+  const pendingRequestCount = canReviewRequests
+    ? (state.moderation?.pendingMemberRequestCount ?? 0)
+    : 0;
   const resolvedDisplayName = config
     ? guildDisplayName(config.name, groupId)
     : shellPreview
@@ -648,16 +647,6 @@ export function LiveGuildPanel({
   const effectiveIsBlacklisted = viewerAccessResolved
     ? Boolean(viewer?.isBlacklisted)
     : false;
-  // Mutations require ACL; hint is label-only until viewerAccessResolved.
-  const membershipActionReady = !viewerAccessResolved
-    ? !isConnected
-    : effectiveIsMember
-      ? true
-      : effectiveIsBlacklisted
-        ? false
-        : effectiveJoinPending
-          ? joinCancelReady
-          : Boolean(config) && !effectiveIsMember;
 
   const membershipSnapshot = useMemo(
     () => ({
@@ -684,17 +673,14 @@ export function LiveGuildPanel({
 
   const handleMembershipConfirmed = useCallback(
     async (outcome: GuildMembershipOutcome) => {
-      if (
-        outcome === 'requested' ||
-        (outcome === 'joined' && config?.memberDriven)
-      ) {
+      if (outcome === 'requested' || outcome === 'proposed') {
         setOptimisticJoinPending(true);
       } else if (outcome === 'canceled') {
         setOptimisticJoinPending(false);
       }
       await refresh();
     },
-    [config?.memberDriven, refresh, setOptimisticJoinPending]
+    [refresh, setOptimisticJoinPending]
   );
 
   const handleOwnerManage = useCallback(() => {
@@ -723,33 +709,25 @@ export function LiveGuildPanel({
       viewerAccessResolved,
     });
 
-  const actionLabel = useMemo(
-    () =>
-      guildMembershipJoinLabel({
-        isConnected,
-        accessGated: Boolean(config?.accessGated),
-        joinPending: effectiveJoinPending,
-        joinCancelReady,
-        isMember: effectiveIsMember,
-        isBlacklisted: effectiveIsBlacklisted,
-        needsStorage: needsCollaborativeStorage,
-        loadGuild: !config,
-        hintMember: !viewerAccessResolved && Boolean(membershipHint?.isMember),
-        hintJoinPending:
-          !viewerAccessResolved && Boolean(membershipHint?.joinPending),
-      }),
-    [
-      config,
-      effectiveIsBlacklisted,
-      effectiveIsMember,
-      effectiveJoinPending,
-      isConnected,
-      joinCancelReady,
-      membershipHint,
-      needsCollaborativeStorage,
-      viewerAccessResolved,
-    ]
-  );
+  const openSettings = () => {
+    setSettingsSheetOpen(true);
+    router.replace(guildSheetPath(groupId, 'settings'), { scroll: false });
+  };
+
+  const openAddMember = () => {
+    setSheetHandoff(true);
+    manageSheetPushedRef.current = false;
+    setManageSheet('add-member');
+    router.replace(guildPath(groupId), { scroll: false });
+  };
+
+  const heroActions = guildHeroActionVisibility({
+    isMember: effectiveIsMember,
+    isOwner: effectiveIsOwner,
+    isAdmin: Boolean(viewer?.isAdmin),
+    hintMember: !viewerAccessResolved && Boolean(membershipHint?.isMember),
+    canOpenSettings,
+  });
 
   const openComposerModal = (mode: ComposerMode) => (target: PostRow) => {
     setModalError(null);
@@ -1101,44 +1079,6 @@ export function LiveGuildPanel({
       // Loading stays title-only — no marketing subtitle / raw groupId flash.
       dockBack
       backFallbackHref="/groups"
-      actions={
-        loadState === 'ready' &&
-        config &&
-        (showManageMenu || canManageGuild) ? (
-          <>
-            {showManageMenu ? (
-              <GuildManageMenu
-                pendingRequestCount={
-                  state.moderation?.pendingMemberRequestCount ?? 0
-                }
-                memberCount={memberCount}
-                activeProposalCount={state.moderation?.activeProposalCount ?? 0}
-                accessGated={config.accessGated}
-                memberDriven={config.memberDriven}
-                canAddMember={canAddMember}
-                canReviewRequests={canManageGuild}
-                onOpenSheet={(sheet) => {
-                  setSheetHandoff(true);
-                  openManageSheet(sheet);
-                }}
-              />
-            ) : null}
-            {canConfigure ? (
-              <OsIconAction
-                ariaLabel="Guild settings"
-                onClick={() => {
-                  setSettingsSheetOpen(true);
-                  router.replace(guildSheetPath(groupId, 'settings'), {
-                    scroll: false,
-                  });
-                }}
-              >
-                <SettingsIcon className="glass-sheet-close-icon" aria-hidden />
-              </OsIconAction>
-            ) : null}
-          </>
-        ) : undefined
-      }
       immersiveHeader={loadState === 'loading' || loadState === 'ready'}
       scrollRootRef={scrollRootRef}
     >
@@ -1220,7 +1160,7 @@ export function LiveGuildPanel({
                   disabled={!shellExtrasResolved}
                 />
               }
-              membership={
+              actions={
                 membershipChromePending ? (
                   <span aria-busy="true" aria-label="Loading membership">
                     <span
@@ -1229,43 +1169,34 @@ export function LiveGuildPanel({
                     />
                   </span>
                 ) : (
-                  <>
-                    <GuildMembershipJoinButton
-                      className="guild-hero-membership"
-                      label={actionLabel}
-                      active={effectiveIsMember}
-                      ready={
-                        membershipActionReady && !needsCollaborativeStorage
-                      }
-                      pending={actionPending}
-                      pendingLabel={guildMembershipJoinPendingLabel({
-                        accessGated: Boolean(config?.accessGated),
-                        canceling: effectiveJoinPending,
-                        leaving: effectiveIsMember,
-                      })}
-                      disabled={
-                        effectiveIsBlacklisted ||
-                        (effectiveJoinPending && !joinCancelReady) ||
-                        (isConnected &&
-                          !viewerAccessResolved &&
-                          !effectiveIsMember)
-                      }
-                      onClick={handleMembershipClick}
-                    />
-                    <GuildMembershipConfirmDrawer
-                      kind={confirmKind}
-                      guildName={
-                        config
-                          ? guildDisplayName(config.name, groupId)
-                          : undefined
-                      }
-                      pending={actionPending}
-                      onConfirm={confirmMembership}
-                      onCancel={dismissConfirm}
-                    />
-                  </>
+                  <GuildHeroActions
+                    showJoin={heroActions.showJoin}
+                    showLeave={heroActions.showLeave}
+                    showSettings={heroActions.showSettings}
+                    joinDisabled={
+                      effectiveIsBlacklisted ||
+                      (effectiveJoinPending && !joinCancelReady) ||
+                      (isConnected &&
+                        !viewerAccessResolved &&
+                        !effectiveIsMember)
+                    }
+                    pending={actionPending}
+                    requestCount={pendingRequestCount}
+                    onJoin={handleMembershipClick}
+                    onLeave={handleMembershipClick}
+                    onOpenSettings={openSettings}
+                  />
                 )
               }
+            />
+            <GuildMembershipConfirmDrawer
+              kind={confirmKind}
+              guildName={
+                config ? guildDisplayName(config.name, groupId) : undefined
+              }
+              pending={actionPending}
+              onConfirm={confirmMembership}
+              onCancel={dismissConfirm}
             />
 
             <section className="guild-section guild-feed-section">
@@ -1503,6 +1434,7 @@ export function LiveGuildPanel({
               openManageSheet(null);
             }}
             onMembersChanged={() => void refresh()}
+            onAddMember={canAddMember ? openAddMember : undefined}
             onAddStorage={(memberId) => {
               setGroupStorageRecipient(memberId);
               setGroupStorageSheetOpen(true);
@@ -1573,13 +1505,15 @@ export function LiveGuildPanel({
             }}
           />
         ) : null}
-        {canConfigure && settingsSheetOpen ? (
+        {canOpenSettings && settingsSheetOpen ? (
           <GuildSettingsSheet
             open
             guildName={
               config ? guildDisplayName(config.name, groupId) : undefined
             }
-            viewer={viewer}
+            viewer={settingsViewer}
+            activeProposalCount={state.moderation?.activeProposalCount ?? 0}
+            pendingRequestCount={pendingRequestCount}
             onClose={() => {
               setSettingsSheetOpen(false);
               router.replace(guildPath(groupId), { scroll: false });
@@ -1587,6 +1521,10 @@ export function LiveGuildPanel({
             onHandoff={(id) => {
               setSheetHandoff(true);
               setSettingsSheetOpen(false);
+              if (id === 'requests' || id === 'proposals') {
+                openManageSheet(id);
+                return;
+              }
               if (id === 'edit') setEditSheetOpen(true);
               if (id === 'rooms') setRoomsSheetOpen(true);
               if (id === 'storage') setGroupStorageSheetOpen(true);
@@ -1595,6 +1533,8 @@ export function LiveGuildPanel({
             onEditGuild={() => setEditSheetOpen(true)}
             onOpenRooms={() => setRoomsSheetOpen(true)}
             onOpenGroupStorage={() => setGroupStorageSheetOpen(true)}
+            onOpenProposals={() => openManageSheet('proposals')}
+            onOpenRequests={() => openManageSheet('requests')}
           />
         ) : null}
         {canConfigure ? (

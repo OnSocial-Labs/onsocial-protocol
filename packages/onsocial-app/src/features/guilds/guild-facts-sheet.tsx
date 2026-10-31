@@ -54,8 +54,11 @@ function viewerStatusLabel(input: {
   isAdmin: boolean;
   canModerate: boolean;
   joinPending: boolean;
+  memberDriven: boolean;
 }): string {
-  if (input.joinPending) return 'Request pending';
+  if (input.joinPending) {
+    return input.memberDriven ? 'Proposal pending' : 'Request pending';
+  }
   if (!input.isMember) return 'Not a member';
   if (input.isOwner) return 'Owner';
   if (input.isAdmin) return 'Admin';
@@ -133,6 +136,7 @@ export function GuildFactsSheet({
     isAdmin,
     canModerate,
     joinPending,
+    memberDriven,
   });
   const joinedMeta =
     isMember && memberJoinedAt

@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { GroupMemberRow } from '@onsocial/sdk';
-import { GlassSheet, SheetHeader } from '@onsocial/ui';
+import {
+  GlassSheet,
+  OsIconAction,
+  SheetHeader,
+  UserPlusFillIcon,
+} from '@onsocial/ui';
 import type { GuildMemberRoleFilter } from '@/features/guilds/guild-member-filter';
 import {
   canViewerManageGuildMembers,
@@ -25,6 +30,8 @@ interface GuildMembersSheetProps {
   onClose: () => void;
   onMembersChanged?: () => void;
   onAddStorage?: (memberId: string) => void;
+  /** Owners and admins. Opens the add-member sheet. */
+  onAddMember?: () => void;
 }
 
 export function GuildMembersSheet({
@@ -35,6 +42,7 @@ export function GuildMembersSheet({
   onClose,
   onMembersChanged,
   onAddStorage,
+  onAddMember,
 }: GuildMembersSheetProps) {
   const {
     members,
@@ -47,7 +55,9 @@ export function GuildMembersSheet({
     bootstrap,
     reload,
     applyMemberActionPatch,
-  } = useGuildMembersData(groupId, { memberDriven: manageContext.memberDriven });
+  } = useGuildMembersData(groupId, {
+    memberDriven: manageContext.memberDriven,
+  });
   const [roleFilter, setRoleFilter] = useState<GuildMemberRoleFilter>('all');
   const [query, setQuery] = useState('');
   const seedMembersRef = useRef(seedMembers);
@@ -110,6 +120,20 @@ export function GuildMembersSheet({
             subtitle={memberCountLabel}
             onClose={onClose}
             closeAriaLabel="Close members"
+            titleAccessory={
+              onAddMember ? (
+                <OsIconAction
+                  className="guild-members-add"
+                  ariaLabel="Add member"
+                  onClick={onAddMember}
+                >
+                  <UserPlusFillIcon
+                    className="glass-sheet-icon-action-glyph glass-sheet-icon-action-glyph--discover"
+                    aria-hidden
+                  />
+                </OsIconAction>
+              ) : null
+            }
           />
           <div className="standing-sheet-header guild-members-sheet-chrome">
             {manageContext.memberDriven ? (

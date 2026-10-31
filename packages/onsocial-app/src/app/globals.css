@@ -1886,6 +1886,72 @@ button.market-listing-title-link {
   flex: 0 0 auto;
 }
 
+/* Icon row on the hero. Glyph matches the banner header icons (1.25rem). */
+.guild-hero-meta-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  /* Same gap as the room chip rail, including the space before Join. */
+  gap: 0.28rem;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.guild-hero-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  flex: 0 0 auto;
+}
+
+.guild-hero-action-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.72);
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.guild-hero-action-icon:hover:not(:disabled) {
+  background: rgb(var(--fg-rgb) / 0.06);
+  color: rgb(var(--fg-rgb) / 0.45);
+  cursor: pointer;
+}
+
+.guild-hero-action-icon:focus-visible:not(:disabled) {
+  background: rgb(var(--fg-rgb) / 0.06);
+  color: rgb(var(--fg-rgb) / 0.45);
+  cursor: pointer;
+  outline: none;
+  box-shadow: var(--os-focus-ring, 0 0 0 1px rgb(var(--fg-rgb) / 0.08));
+}
+
+.guild-hero-action-icon:disabled {
+  cursor: default;
+  color: rgb(var(--fg-rgb) / 0.32);
+}
+
+.guild-hero-action-icon.is-pending,
+.guild-hero-action-icon.is-pending:disabled,
+.guild-hero-action-icon.is-pending:hover {
+  cursor: progress;
+}
+
+.guild-hero-actions .glass-sheet-close-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
 /* Hub publish Request — purple role-pill ink on the shared sm Join chrome. */
 .app-page-hero
   .hub-hero-publish-request.os-sheet-actions--row-compact
@@ -36046,8 +36112,10 @@ a.os-surface-row,
     align-items: flex-end;
   }
 
-  /* Post-sized ⋮ after time — not the larger guild row control. */
+  /* Post-sized ⋮ after the clock. Flex so the button box is the trail item. */
   .drops-discovery-row-menu.post-card-menu {
+    display: flex;
+    align-items: center;
     flex-shrink: 0;
     margin: 0;
   }
@@ -37132,6 +37200,18 @@ a.os-surface-row,
     padding-top: 0;
   }
 
+  .guild-members-sheet-panel
+    .glass-sheet-header-title-row
+    > .glass-sheet-icon-action {
+    margin-inline-start: 0;
+  }
+
+  .guild-members-sheet-panel
+    .glass-sheet-header-title-row
+    > .guild-members-add {
+    margin-inline-start: auto;
+  }
+
   .guild-members-sheet-body {
     padding: 0;
   }
@@ -37148,8 +37228,22 @@ a.os-surface-row,
     flex-shrink: 0;
   }
 
-  .guild-member-row-aside {
-    min-width: 5.75rem;
+  /* Same line box as the name, so the clock and ⋮ center on it. */
+  .guild-member-row > .drops-discovery-head-trail {
+    align-self: flex-start;
+    height: calc(var(--os-identity-name-size, 0.875rem) * 1.5);
+  }
+
+  .guild-member-row > .drops-discovery-head-trail.is-empty {
+    display: none;
+  }
+
+  .guild-member-row--skeleton .guild-member-row-name-row {
+    min-height: calc(var(--os-identity-name-size, 0.875rem) * 1.5);
+  }
+
+  .guild-member-row .standing-row-shimmer-time {
+    margin-left: 0;
   }
 
   .guild-member-role-badge {
@@ -37519,28 +37613,8 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.56);
   }
 
-  .guild-member-row-menu {
-    position: relative;
-    flex-shrink: 0;
-    z-index: 2;
-  }
-
-  .guild-member-row-menu-trigger {
-    min-width: 1.65rem;
-    min-height: 1.65rem;
-    border-radius: 0.45rem;
-    color: rgb(var(--fg-rgb) / 0.52);
-  }
-
-  .guild-member-row-menu-icon {
-    width: 1.28rem;
-    height: 1.28rem;
-  }
-
-  .guild-member-row-menu-trigger:hover,
-  .guild-member-row-menu-trigger:focus-visible,
-  .guild-member-row-menu-trigger.is-open {
-    color: rgb(var(--fg-rgb) / 0.82);
+  .guild-member-row .post-card-menu-trigger:disabled {
+    cursor: progress;
   }
 
   .os-floating-panel-item.is-destructive {
@@ -37558,6 +37632,9 @@ a.os-surface-row,
   }
 
   .guild-member-row-menu-error {
+    position: absolute;
+    top: 100%;
+    right: 0;
     margin: 0.2rem 0 0;
     max-width: 6rem;
     font-size: 0.62rem;

@@ -66,6 +66,7 @@ export function GuildMembershipJoinButton({
 export function guildMembershipJoinLabel(args: {
   isConnected: boolean;
   accessGated: boolean;
+  memberDriven?: boolean;
   joinPending: boolean;
   joinCancelReady?: boolean;
   isMember?: boolean;
@@ -83,19 +84,24 @@ export function guildMembershipJoinLabel(args: {
   if (args.hintJoinPending || (args.joinPending && !args.joinCancelReady)) {
     return 'Pending';
   }
-  if (args.joinPending && args.joinCancelReady) return 'Cancel';
+  if (args.joinPending && args.joinCancelReady) {
+    return args.memberDriven ? 'Cancel proposal' : 'Cancel request';
+  }
   if (args.needsStorage) return 'Storage';
-  return args.accessGated ? 'Request' : 'Join';
+  if (args.memberDriven) return 'Propose to join';
+  return args.accessGated ? 'Ask to join' : 'Join';
 }
 
 export function guildMembershipJoinPendingLabel(args: {
   accessGated: boolean;
+  memberDriven?: boolean;
   canceling?: boolean;
   leaving?: boolean;
 }): string {
   if (args.leaving) return 'Leaving…';
-  if (args.canceling) return 'Cancel…';
-  return args.accessGated ? 'Request…' : 'Joining…';
+  if (args.canceling) return 'Canceling…';
+  if (args.memberDriven) return 'Proposing…';
+  return args.accessGated ? 'Asking…' : 'Joining…';
 }
 
 /** Join, request, cancel, and leave confirm — same drawer as Delist. */

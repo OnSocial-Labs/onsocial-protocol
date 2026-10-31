@@ -853,6 +853,7 @@ export function LiveGuildPostPanel({
   const membershipActionLabel = guildMembershipJoinLabel({
     isConnected,
     accessGated,
+    memberDriven,
     joinPending: effectiveJoinPending,
     joinCancelReady,
     isMember: effectiveIsMember,
@@ -875,6 +876,7 @@ export function LiveGuildPostPanel({
       pending={joinActionPending}
       pendingLabel={guildMembershipJoinPendingLabel({
         accessGated,
+        memberDriven,
         canceling: effectiveJoinPending,
         leaving: effectiveIsMember,
       })}

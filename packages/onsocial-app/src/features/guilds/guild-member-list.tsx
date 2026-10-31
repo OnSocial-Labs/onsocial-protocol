@@ -21,6 +21,7 @@ import { guildMemberTimeMeta } from '@/features/guilds/guild-member-time-meta';
 import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { socialTimeProps } from '@/lib/post-display';
 
 interface GuildMemberListProps {
   groupId: string;
@@ -105,17 +106,18 @@ export function GuildMemberList({
               </Link>
 
               <div
-                className={`standing-row-aside guild-member-row-aside${
+                className={`drops-discovery-head-trail${
                   asideEmpty ? ' is-empty' : ''
                 }`}
               >
                 {timeMeta ? (
-                  <span
-                    className="standing-row-time"
+                  <time
+                    className="market-listing-meta-right"
                     aria-label={timeMeta.description}
+                    {...socialTimeProps(member.blockTimestamp)}
                   >
                     {timeMeta.label}
-                  </span>
+                  </time>
                 ) : null}
                 {showRowMenu && manageContext ? (
                   <GuildMemberRowMenu

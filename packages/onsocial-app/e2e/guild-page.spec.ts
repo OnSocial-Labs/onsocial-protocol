@@ -46,17 +46,66 @@ test.describe('guild page', () => {
     ).toHaveCount(0);
 
     await expect(page.getByText('Connect wallet')).toHaveCount(0);
-    await expect(
-      page
-        .locator('.guild-hero-membership')
-        .getByRole('button', { name: 'Connect' })
-    ).toBeVisible();
+    await expect(page.locator('.guild-hero-membership')).toHaveCount(0);
+    const joinIcon = page.getByRole('button', { name: 'Join guild' });
+    await expect(joinIcon).toBeEnabled();
+    await expect(joinIcon).toHaveCSS('cursor', 'pointer');
+    await joinIcon.hover();
+    await expect(joinIcon).toHaveCSS('cursor', 'pointer');
     await expect(
       page.getByRole('button', { name: 'Guild settings' })
     ).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Guild menu' })).toHaveCount(
       0
     );
+    await expect(page.getByRole('button', { name: 'Leave guild' })).toHaveCount(
+      0
+    );
+  });
+
+  test('connected viewer joins from the plus icon, with no Join label', async ({
+    page,
+  }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphGuild(page, 'empty');
+    await stubGuildPage(page);
+    await gotoApp(page, GUILD_E2E_PATH);
+
+    await expect(page.locator('.guild-hero-membership')).toHaveCount(0);
+    const joinIcon = page.getByRole('button', { name: 'Join guild' });
+    await expect(joinIcon).toBeEnabled({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(joinIcon).toHaveCSS('cursor', 'pointer');
+    await expect(
+      page.getByRole('button', { name: 'Join', exact: true })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Guild settings' })
+    ).toHaveCount(0);
+    await joinIcon.click();
+    const confirm = page.getByRole('dialog', { name: 'Join' });
+    await expect(confirm).toBeVisible();
+    await expect(confirm.getByRole('button', { name: 'Join' })).toBeVisible();
+  });
+
+  test('a gated guild still joins from the plus, with no Request label', async ({
+    page,
+  }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphGuild(page, 'empty');
+    await stubGuildPage(page, { accessGated: true });
+    await gotoApp(page, GUILD_E2E_PATH);
+
+    await expect(page.getByRole('button', { name: 'Join guild' })).toBeVisible({
+      timeout: E2E_CHROME_TIMEOUT_MS,
+    });
+    await expect(page.getByRole('button', { name: 'Request' })).toHaveCount(0);
+    await expect(page.locator('.guild-hero-membership')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Join guild' }).click();
+    const confirm = page.getByRole('dialog', { name: 'Ask to join' });
+    await expect(confirm).toBeVisible();
+    await expect(
+      confirm.getByRole('button', { name: 'Ask to join' })
+    ).toBeVisible();
   });
 
   test('SSR catalog hit paints Audit Guild without the skeleton', async ({
@@ -129,7 +178,7 @@ test.describe('guild page', () => {
     await expect(page.getByText(GUILD_E2E_FEED_TEXT)).toBeVisible();
   });
 
-  test('member sees Joined and the guild menu, not settings', async ({
+  test('member sees Joined, leave, and proposals inside settings', async ({
     page,
   }) => {
     await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
@@ -140,16 +189,73 @@ test.describe('guild page', () => {
     await expect(
       page.getByRole('heading', { name: GUILD_E2E_TITLE }).first()
     ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(page.locator('.guild-hero-membership')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Guild menu' })).toHaveCount(
+      0
+    );
+    const leaveIcon = page.getByRole('button', { name: 'Leave guild' });
+    await expect(leaveIcon).toBeEnabled();
+    await expect(leaveIcon).toHaveCSS('cursor', 'pointer');
+    const chipGap = await page
+      .locator('.guild-feed-filter-list')
+      .evaluate((node) => getComputedStyle(node).gap);
+    await expect(page.locator('.guild-hero-meta-end')).toHaveCSS(
+      'gap',
+      chipGap
+    );
+    await expect(page.locator('.guild-hero-actions')).toHaveCSS('gap', chipGap);
+    const restColor = await leaveIcon.evaluate(
+      (node) => getComputedStyle(node).color
+    );
+    await leaveIcon.hover();
+    const hoverColor = await leaveIcon.evaluate(
+      (node) => getComputedStyle(node).color
+    );
+    const hoverFill = await leaveIcon.evaluate(
+      (node) => getComputedStyle(node).backgroundColor
+    );
+    const alpha = (value: string) =>
+      Number(value.match(/[\d.]+(?=\))/)?.[0] ?? 0);
+    expect(alpha(hoverColor)).toBeLessThan(alpha(restColor));
+    expect(alpha(hoverFill)).toBeGreaterThan(0);
+    await expect(leaveIcon).toHaveCSS('cursor', 'pointer');
+    await leaveIcon.evaluate((node) => node.classList.add('is-pending'));
+    await expect(leaveIcon).toHaveCSS('cursor', 'progress');
+    await leaveIcon.evaluate((node) => node.classList.remove('is-pending'));
+    const leaveGlyph = leaveIcon.locator('.glass-sheet-close-icon');
+    await expect(leaveGlyph).toHaveCSS('width', '20px');
+    await expect(leaveGlyph).toHaveCSS('height', '20px');
+    await expect(page.getByRole('button', { name: 'Join guild' })).toHaveCount(
+      0
+    );
+    await expect(page.locator('.guild-nav-settings')).toHaveCount(0);
+    const settingsButton = page.getByRole('button', { name: 'Guild settings' });
+    await expect(settingsButton).toBeVisible();
+    await settingsButton.click();
+    const settings = page.getByRole('dialog', { name: 'Settings' });
+    await expect(settings).toBeVisible();
     await expect(
-      page
-        .locator('.guild-hero-membership')
-        .getByRole('button', { name: 'Joined' })
+      settings.getByRole('button', { name: /Proposals/ })
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Guild menu' })
-    ).toBeVisible();
+      settings.getByRole('button', { name: /Edit guild/ })
+    ).toHaveCount(0);
+    await expect(settings.getByRole('button', { name: /^Rooms/ })).toHaveCount(
+      0
+    );
     await expect(
-      page.getByRole('button', { name: 'Guild settings' })
+      settings.getByRole('button', { name: /Guild storage/ })
+    ).toHaveCount(0);
+    await expect(
+      settings.getByRole('button', { name: /Member requests/ })
+    ).toHaveCount(0);
+    await settings.getByRole('button', { name: 'Close' }).click();
+    await expect(settings).toHaveCount(0);
+    await page.getByRole('button', { name: /View roster/ }).click();
+    const members = page.getByRole('dialog', { name: 'Members' });
+    await expect(members).toBeVisible();
+    await expect(
+      members.getByRole('button', { name: 'Add member' })
     ).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Add room' })).toHaveCount(0);
   });
@@ -178,13 +284,11 @@ test.describe('guild page', () => {
     await expect(
       page.getByRole('heading', { name: GUILD_E2E_TITLE }).first()
     ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
-    const membership = page.locator('.guild-hero-membership');
-    await expect(
-      membership.getByRole('button', { name: 'Banned' })
-    ).toBeDisabled();
-    await expect(membership.getByRole('button', { name: 'Join' })).toHaveCount(
-      0
-    );
+    await expect(page.locator('.guild-hero-membership')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Banned' })).toHaveCount(0);
+    const joinIcon = page.getByRole('button', { name: 'Join guild' });
+    await expect(joinIcon).toBeDisabled();
+    await expect(joinIcon).toHaveCSS('cursor', 'default');
     await expect(page.getByText(GUILD_E2E_BANNED_HINT)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Guild menu' })).toHaveCount(
       0
@@ -192,6 +296,9 @@ test.describe('guild page', () => {
     await expect(
       page.getByRole('button', { name: 'Guild settings' })
     ).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Leave guild' })).toHaveCount(
+      0
+    );
   });
 
   test('owner keeps settings and add-room chrome', async ({ page }) => {
@@ -203,16 +310,74 @@ test.describe('guild page', () => {
     await expect(
       page.getByRole('heading', { name: GUILD_E2E_TITLE }).first()
     ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
-    await expect(
-      page
-        .locator('.guild-hero-membership')
-        .getByRole('button', { name: 'Joined' })
-    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(page.locator('.guild-hero-membership')).toHaveCount(0);
     const settingsButton = page.getByRole('button', { name: 'Guild settings' });
-    await expect(settingsButton).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Guild menu' })
-    ).toBeVisible();
+    await expect(settingsButton).toBeVisible({
+      timeout: E2E_CHROME_TIMEOUT_MS,
+    });
+    await expect(page.locator('.guild-nav-settings')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Guild menu' })).toHaveCount(
+      0
+    );
+    await expect(page.getByRole('button', { name: 'Leave guild' })).toHaveCount(
+      0
+    );
+    await expect(page.getByRole('button', { name: 'Join guild' })).toHaveCount(
+      0
+    );
+    const gear = settingsButton.locator('.glass-sheet-close-icon');
+    await expect(gear).toHaveCSS('width', '20px');
+    await expect(gear).toHaveCSS('height', '20px');
+    await page.getByRole('button', { name: /View roster/ }).click();
+    const members = page.getByRole('dialog', { name: 'Members' });
+    await expect(members).toBeVisible();
+    const trail = members
+      .locator('.guild-member-row .drops-discovery-head-trail')
+      .first();
+    await expect(trail.locator('.market-listing-meta-right')).toBeVisible();
+    await expect(trail.locator('.post-card-menu-trigger')).toBeVisible();
+    const aligned = await trail.evaluate((el) => {
+      const time = el.querySelector('time');
+      const button = el.querySelector('.post-card-menu-trigger');
+      const icon = el.querySelector('.post-card-menu-icon');
+      const name = el
+        .closest('.guild-member-row')
+        ?.querySelector('.standing-row-name');
+      if (!time || !button || !icon || !name) return null;
+      const timeBox = time.getBoundingClientRect();
+      const menuBox = button.getBoundingClientRect();
+      const nameBox = name.getBoundingClientRect();
+      const mid = (box: DOMRect) => box.top + box.height / 2;
+      const buttonCs = getComputedStyle(button);
+      const iconCs = getComputedStyle(icon);
+      return {
+        stampMenu: Math.abs(mid(timeBox) - mid(menuBox)),
+        nameMenu: Math.abs(mid(nameBox) - mid(menuBox)),
+        menuAfterStamp: menuBox.left > timeBox.right - 1,
+        menuWidth: Number.parseFloat(buttonCs.width),
+        menuHeight: Number.parseFloat(buttonCs.height),
+        iconWidth: Number.parseFloat(iconCs.width),
+      };
+    });
+    expect(aligned).toBeTruthy();
+    expect(aligned!.stampMenu).toBeLessThan(1);
+    expect(aligned!.nameMenu).toBeLessThan(2);
+    expect(aligned!.menuAfterStamp).toBe(true);
+    expect(aligned!.menuWidth).toBeGreaterThan(17);
+    expect(aligned!.menuWidth).toBeLessThan(18);
+    expect(aligned!.menuHeight).toBeGreaterThan(17);
+    expect(aligned!.menuHeight).toBeLessThan(18);
+    expect(aligned!.iconWidth).toBeGreaterThan(14);
+    expect(aligned!.iconWidth).toBeLessThan(15);
+    const addMemberButton = members.getByRole('button', { name: 'Add member' });
+    const addMemberGlyph = addMemberButton.locator('svg');
+    await expect(addMemberGlyph).toHaveCSS('width', '20px');
+    await expect(addMemberGlyph).toHaveCSS('height', '20px');
+    await addMemberButton.click();
+    const addMember = page.getByRole('dialog', { name: 'Add member' });
+    await expect(addMember).toBeVisible();
+    await addMember.getByRole('button', { name: 'Close add member' }).click();
+    await expect(addMember).toHaveCount(0);
     const rooms = page.getByRole('tablist', { name: 'Guild rooms' });
     await expect(rooms.getByRole('button', { name: 'Add room' })).toBeVisible();
     await expect(rooms.getByRole('tab', { name: 'Add room' })).toHaveCount(0);
@@ -223,6 +388,12 @@ test.describe('guild page', () => {
       .waitFor({ state: 'hidden', timeout: 2_000 })
       .then(() => true)
       .catch(() => false);
+    await expect(
+      settings.getByRole('button', { name: /Member requests/ })
+    ).toHaveCount(0);
+    await expect(
+      settings.getByRole('button', { name: /Proposals/ })
+    ).toBeVisible();
     await expect(
       settings.getByRole('button', { name: /Edit guild/ })
     ).toBeVisible();
@@ -381,6 +552,9 @@ test.describe('guild page', () => {
     );
     const settings = page.getByRole('dialog', { name: 'Settings' });
     await expect(settings).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(
+      settings.getByRole('button', { name: /Proposals/ })
+    ).toBeVisible();
     await expect(
       settings.getByRole('button', { name: /Edit guild/ })
     ).toBeVisible();

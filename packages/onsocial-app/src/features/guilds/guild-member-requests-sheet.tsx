@@ -288,10 +288,15 @@ export function GuildMemberRequestsSheet({
           : await client.groups.cancelJoin(groupId);
 
       const txHashes = collectRelayTxHashes(response);
+      const cancelingProposal = entry.kind === 'proposal';
       const confirmed = await trackTransaction({
         txHashes,
-        submittedMessage: txToastConfirming.cancelingGuildRequest,
-        successMessage: txToastSuccess.guildRequestCanceled,
+        submittedMessage: cancelingProposal
+          ? txToastConfirming.cancelingGuildProposal
+          : txToastConfirming.cancelingGuildRequest,
+        successMessage: cancelingProposal
+          ? txToastSuccess.guildProposalCanceled
+          : txToastSuccess.guildRequestCanceled,
         failureMessage: txToastError.guildMembershipFailed,
       });
 
@@ -318,7 +323,7 @@ export function GuildMemberRequestsSheet({
 
   const subtitle = memberDriven
     ? viewingOwnPending
-      ? 'Your join request is waiting for member votes.'
+      ? 'Your join proposal is waiting for member votes.'
       : 'Collaborative guilds vote on join proposals.'
     : isMember
       ? 'Approve or deny access requests.'
@@ -365,13 +370,19 @@ export function GuildMemberRequestsSheet({
           <div className="guild-manage-sheet-empty">
             <p className="guild-manage-sheet-empty-primary">
               {viewingOwnPending || isMember
-                ? 'No pending requests'
+                ? memberDriven
+                  ? 'No pending proposals'
+                  : 'No pending requests'
                 : 'Nothing to review yet'}
             </p>
             <p className="guild-manage-sheet-empty-secondary">
               {isMember
-                ? 'New access requests will show up here.'
-                : 'Join this guild to vote on access requests.'}
+                ? memberDriven
+                  ? 'New join proposals will show up here.'
+                  : 'New access requests will show up here.'
+                : memberDriven
+                  ? 'Join this guild to vote on join proposals.'
+                  : 'Join this guild to vote on access requests.'}
             </p>
           </div>
         ) : null}
@@ -395,6 +406,7 @@ export function GuildMemberRequestsSheet({
                   canVote={canVote}
                   pendingAction={pendingActions.get(entry.proposal.id) ?? null}
                   isOwnRequest={ownRequest}
+                  ownPendingNoun={memberDriven ? 'proposal' : 'request'}
                   suppressProposer={
                     ownRequest || requesterId === entry.proposal.proposer
                   }

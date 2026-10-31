@@ -88,6 +88,7 @@ export function nextGuildThreadMembership(
         pendingJoinProposalId: null,
       };
     case 'requested':
+    case 'proposed':
       return { joinPending: true, joinCancelReady: false };
     case 'joined':
       return { isMember: true, joinPending: false };

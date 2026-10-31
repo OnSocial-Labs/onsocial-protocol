@@ -59,9 +59,9 @@ test.describe('guild proposals sheet', () => {
     await expect(
       roomCard.getByText('You supported · 2/7 · need 2 more')
     ).toBeVisible();
-    await expect(
-      roomCard.getByRole('button', { name: 'Support' })
-    ).toHaveCount(0);
+    await expect(roomCard.getByRole('button', { name: 'Support' })).toHaveCount(
+      0
+    );
 
     // Expired card: closed cue, final count, no failing vote actions —
     // a signed-in member gets the permissionless Resolve finalize instead.
@@ -108,13 +108,9 @@ test.describe('guild proposals sheet', () => {
       sheet.getByText('Join this guild to vote on proposals.')
     ).toBeVisible();
     await expect(sheet.getByText('Bob Builder')).toBeVisible();
-    await expect(
-      sheet.getByRole('button', { name: 'Support' })
-    ).toHaveCount(0);
+    await expect(sheet.getByRole('button', { name: 'Support' })).toHaveCount(0);
     // Resolve needs a wallet — guests only get the read-only roster.
-    await expect(
-      sheet.getByRole('button', { name: 'Resolve' })
-    ).toHaveCount(0);
+    await expect(sheet.getByRole('button', { name: 'Resolve' })).toHaveCount(0);
   });
 
   test('proposal deep link opens the sheet with the card focused', async ({
@@ -193,9 +189,7 @@ test.describe('guild proposals sheet', () => {
       hasText: 'Bob Builder',
     });
     // Inline roster toggle rides on the progress label line.
-    await expect(
-      roleCard.getByText('3–1 · ready · Votes')
-    ).toBeVisible();
+    await expect(roleCard.getByText('3–1 · ready · Votes')).toBeVisible();
     await roleCard.getByRole('button', { name: 'Votes', exact: true }).click();
 
     const voters = page.getByRole('dialog', {
@@ -226,19 +220,24 @@ test.describe('guild proposals sheet', () => {
     await stubGuildProposals(page);
     await gotoApp(page, GUILD_E2E_PATH);
 
-    await page.getByRole('button', { name: 'Guild menu' }).click();
-    await page.getByRole('menuitem', { name: /Proposals/ }).click();
+    await page.getByRole('button', { name: 'Guild settings' }).click();
+    const settings = page.getByRole('dialog', { name: 'Settings' });
+    await expect(settings).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await settings.getByRole('button', { name: /Proposals/ }).click();
     const sheet = page.getByRole('dialog', { name: 'Proposals' });
     await expect(sheet).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await expect(page).toHaveURL(
       new RegExp(`${GUILD_E2E_PATH}\\?sheet=proposals`)
     );
 
-    // Browser Back pops the sheet's entry — the drawer closes onto the
-    // guild page instead of leaving the app.
+    // Browser Back closes the sheet and stays on this guild. Settings may
+    // still be the entry underneath when it owned the previous URL.
     await page.goBack();
     await expect(sheet).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`${GUILD_E2E_PATH}$`));
+    await expect(page).toHaveURL(
+      new RegExp(`${GUILD_E2E_PATH}(?:\\?sheet=settings)?$`)
+    );
+    await expect(page).not.toHaveURL(/sheet=proposals/);
   });
 
   test('cold proposal deep link closes onto the guild page', async ({

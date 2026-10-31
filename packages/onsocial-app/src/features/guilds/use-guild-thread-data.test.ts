@@ -105,6 +105,10 @@ describe('nextGuildThreadMembership', () => {
       joinPending: true,
       joinCancelReady: false,
     });
+    expect(nextGuildThreadMembership('proposed')).toEqual({
+      joinPending: true,
+      joinCancelReady: false,
+    });
     expect(nextGuildThreadMembership('joined')).toEqual({
       isMember: true,
       joinPending: false,
