@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { GroupMemberRow } from '@onsocial/sdk';
-import { GlassSheet, OsIconAction, PlusIcon, SheetHeader } from '@onsocial/ui';
+import {
+  GlassSheet,
+  OsIconAction,
+  SheetHeader,
+  UserPlusFillIcon,
+} from '@onsocial/ui';
 import type { GuildMemberRoleFilter } from '@/features/guilds/guild-member-filter';
 import {
   canViewerManageGuildMembers,
@@ -50,7 +55,9 @@ export function GuildMembersSheet({
     bootstrap,
     reload,
     applyMemberActionPatch,
-  } = useGuildMembersData(groupId, { memberDriven: manageContext.memberDriven });
+  } = useGuildMembersData(groupId, {
+    memberDriven: manageContext.memberDriven,
+  });
   const [roleFilter, setRoleFilter] = useState<GuildMemberRoleFilter>('all');
   const [query, setQuery] = useState('');
   const seedMembersRef = useRef(seedMembers);
@@ -120,7 +127,10 @@ export function GuildMembersSheet({
                   ariaLabel="Add member"
                   onClick={onAddMember}
                 >
-                  <PlusIcon className="glass-sheet-close-icon" aria-hidden />
+                  <UserPlusFillIcon
+                    className="glass-sheet-icon-action-glyph glass-sheet-icon-action-glyph--discover"
+                    aria-hidden
+                  />
                 </OsIconAction>
               ) : null
             }

@@ -369,7 +369,11 @@ test.describe('guild page', () => {
     expect(aligned!.menuHeight).toBeLessThan(18);
     expect(aligned!.iconWidth).toBeGreaterThan(14);
     expect(aligned!.iconWidth).toBeLessThan(15);
-    await members.getByRole('button', { name: 'Add member' }).click();
+    const addMemberButton = members.getByRole('button', { name: 'Add member' });
+    const addMemberGlyph = addMemberButton.locator('svg');
+    await expect(addMemberGlyph).toHaveCSS('width', '20px');
+    await expect(addMemberGlyph).toHaveCSS('height', '20px');
+    await addMemberButton.click();
     const addMember = page.getByRole('dialog', { name: 'Add member' });
     await expect(addMember).toBeVisible();
     await addMember.getByRole('button', { name: 'Close add member' }).click();
