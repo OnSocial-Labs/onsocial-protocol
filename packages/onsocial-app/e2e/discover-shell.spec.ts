@@ -72,12 +72,10 @@ test.describe('discover shell', () => {
     await expectTabSelected(page, 'Discover', 'Hubs');
 
     const list = page.locator('#discover-panel-hubs .apps-directory-list a');
-    await expect(list).toHaveCount(2);
+    await expect(list).toHaveCount(3);
     await expect(list.nth(0)).toHaveAttribute('aria-label', 'New Market');
     await expect(list.nth(1)).toHaveAttribute('aria-label', 'Old Market');
-    await expect(page.getByRole('link', { name: 'Quiet Market' })).toHaveCount(
-      0
-    );
+    await expect(list.nth(2)).toHaveAttribute('aria-label', 'Quiet Market');
 
     await dismissNextDevOverlay(page);
     const field = searchField(page, 'Search Hubs');
@@ -85,6 +83,17 @@ test.describe('discover shell', () => {
     await field.fill('quiet');
     await expect(page.getByRole('link', { name: 'Quiet Market' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'New Market' })).toHaveCount(0);
+  });
+
+  test('lists every hub when nothing has moved', async ({ page }) => {
+    await stubHubDirectory(page, 'still');
+    await gotoApp(page, '/discover?tab=hubs');
+    await expectTabSelected(page, 'Discover', 'Hubs');
+
+    const list = page.locator('#discover-panel-hubs .apps-directory-list a');
+    await expect(list).toHaveCount(2);
+    await expect(page.getByRole('link', { name: 'Quiet Market' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'New Market' })).toBeVisible();
   });
 
   test('keeps a plain search on Moving and shows grouped results', async ({
@@ -130,7 +139,10 @@ const OLD_HUB = hubDirectoryRow('old-hub', 'Old Market');
 const QUIET_HUB = hubDirectoryRow('quiet-hub', 'Quiet Market');
 
 /** Activity browse is stubbed; other graph reads stay on the live indexer. */
-async function stubHubDirectory(page: Page): Promise<void> {
+async function stubHubDirectory(
+  page: Page,
+  mode: 'moved' | 'still' = 'moved'
+): Promise<void> {
   await page.route('**/api/onapi/graph/query', async (route: Route) => {
     let body: {
       query?: string;
@@ -148,11 +160,14 @@ async function stubHubDirectory(page: Page): Promise<void> {
         contentType: 'application/json',
         body: JSON.stringify({
           data: {
-            scarcesAppStats: [
-              { appId: 'old-hub', lastActivityTimestamp: 10 },
-              { appId: 'new-hub', lastActivityTimestamp: 90 },
-              { appId: 'idle-hub', lastActivityTimestamp: 0 },
-            ],
+            scarcesAppStats:
+              mode === 'still'
+                ? []
+                : [
+                    { appId: 'new-hub', lastActivityTimestamp: 90 },
+                    { appId: 'old-hub', lastActivityTimestamp: 10 },
+                    { appId: 'idle-hub', lastActivityTimestamp: 0 },
+                  ],
           },
         }),
       });
@@ -182,7 +197,9 @@ async function stubHubDirectory(page: Page): Promise<void> {
           data: {
             scarcesApps: like.includes('quiet')
               ? [QUIET_HUB]
-              : [NEW_HUB, OLD_HUB, QUIET_HUB],
+              : mode === 'still'
+                ? [QUIET_HUB, NEW_HUB]
+                : [NEW_HUB, OLD_HUB, QUIET_HUB],
           },
         }),
       });

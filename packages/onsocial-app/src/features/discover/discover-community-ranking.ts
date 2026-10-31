@@ -223,7 +223,8 @@ async function queryHubsByLastMove(
 
 /**
  * Hubs that just moved — last drop, mint, or sale on `scarces_app_stats`.
- * Same clock as Discover → Hubs. Not 30d volume (`scarces_app_stats_hot`).
+ * Same clock as the head of Discover → Hubs. Quiet hubs follow on that tab.
+ * Not 30d volume (`scarces_app_stats_hot`).
  */
 export async function rankHubPeeks(
   client: OnSocial,
