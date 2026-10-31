@@ -1554,7 +1554,8 @@ button.market-listing-title-link {
 .feed-photo-slide .os-media-face-close.glass-sheet-icon-action:hover,
 .feed-photo-slide .os-media-face-close.glass-sheet-icon-action:focus-visible,
 .scarce-thought-slide .os-media-face-close.glass-sheet-icon-action:hover,
-.scarce-thought-slide .os-media-face-close.glass-sheet-icon-action:focus-visible,
+.scarce-thought-slide
+  .os-media-face-close.glass-sheet-icon-action:focus-visible,
 .scarce-read-slide:has(.scarce-writing-read)
   .os-media-face-close.glass-sheet-icon-action:hover,
 .scarce-read-slide:has(.scarce-writing-read)
@@ -1578,7 +1579,8 @@ button.market-listing-title-link {
 .feed-photo-slide .os-media-face-close.glass-sheet-icon-action:hover::before,
 .feed-photo-slide
   .os-media-face-close.glass-sheet-icon-action:focus-visible::before,
-.scarce-thought-slide .os-media-face-close.glass-sheet-icon-action:hover::before,
+.scarce-thought-slide
+  .os-media-face-close.glass-sheet-icon-action:hover::before,
 .scarce-thought-slide
   .os-media-face-close.glass-sheet-icon-action:focus-visible::before,
 .scarce-read-slide:has(.scarce-writing-read)
@@ -1687,7 +1689,9 @@ button.market-listing-title-link {
   .post-card-menu-trigger:focus-visible,
 .scarce-thought-slide .os-media-face-trailing .post-card-menu-trigger.is-open,
 .feed-article-slide .os-app-screen-actions .post-card-menu-trigger:hover,
-.feed-article-slide .os-app-screen-actions .post-card-menu-trigger:focus-visible,
+.feed-article-slide
+  .os-app-screen-actions
+  .post-card-menu-trigger:focus-visible,
 .feed-article-slide .os-app-screen-actions .post-card-menu-trigger.is-open {
   background: transparent;
   color: rgb(255 255 255 / 1);
@@ -3749,7 +3753,9 @@ a.os-surface-row,
     .portfolio-os-layer[data-mood],
     .portfolio-frame[data-mood]
   )
-  .post-card-scarce-buy--secondary:not(:hover):not(:focus-visible):not(:disabled)
+  .post-card-scarce-buy--secondary:not(:hover):not(:focus-visible):not(
+    :disabled
+  )
   .post-card-scarce-buy-main {
   color: rgb(var(--fg-rgb) / 0.4);
 }
@@ -44590,7 +44596,37 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   width: min(72%, 7rem);
 }
 
+.messages-bubble-row {
+  position: relative;
+  display: flex;
+  max-width: 78%;
+  min-width: 0;
+  touch-action: pan-y;
+}
+
+.messages-bubble-row.is-mine {
+  align-self: flex-end;
+  width: fit-content;
+}
+
+.messages-bubble-row > .messages-bubble {
+  width: 100%;
+  max-width: none;
+  align-self: stretch;
+  transition: transform 160ms ease;
+}
+
+.messages-bubble-row.is-mine > .messages-bubble {
+  width: auto;
+  max-width: 100%;
+}
+
+.messages-bubble-row.is-reply-swiping > .messages-bubble {
+  transition: none;
+}
+
 .messages-bubble {
+  position: relative;
   max-width: 78%;
   padding: 0.48rem 0.7rem;
   border-radius: 1.05rem;
@@ -44655,6 +44691,24 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   background: rgb(var(--fg-rgb) / 0.05);
 }
 
+button.messages-bubble-quote {
+  display: block;
+  width: 100%;
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+button.messages-bubble-quote:hover,
+button.messages-bubble-quote:focus-visible {
+  background: rgb(var(--fg-rgb) / 0.09);
+  outline: none;
+}
+
 .messages-bubble-quote span {
   display: block;
   font-size: 0.62rem;
@@ -44681,7 +44735,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   justify-content: flex-end;
 }
 
-.messages-bubble-reply,
 .messages-bubble-retry {
   border: 0;
   background: transparent;
@@ -44693,12 +44746,134 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   cursor: pointer;
 }
 
-.messages-bubble-reply:hover,
-.messages-bubble-reply:focus-visible,
 .messages-bubble-retry:hover,
 .messages-bubble-retry:focus-visible {
   color: rgb(var(--fg-rgb) / 0.82);
   outline: none;
+}
+
+/*
+ * Reply sits beside the bubble (toward the thread center) so the bubble
+ * itself does not reflow. Hidden until hover or focus on a pointer; on
+ * touch the same control stays in the tab order and the swipe is the
+ * visible gesture.
+ */
+.messages-bubble-reply {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  transform: translateY(-50%);
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 0.7rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--mood-bg, var(--bg));
+  box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / 0.14);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: rgb(var(--fg-rgb) / 0.82);
+  cursor: pointer;
+}
+
+.messages-bubble:not(.is-mine) .messages-bubble-reply {
+  left: 100%;
+}
+
+.messages-bubble.is-mine .messages-bubble-reply {
+  right: 100%;
+}
+
+.messages-bubble-reply:focus-visible {
+  outline: 2px solid rgb(var(--fg-rgb) / 0.45);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .messages-bubble-reply {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .messages-bubble-row:hover .messages-bubble-reply,
+  .messages-bubble-row:focus-within .messages-bubble-reply {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .messages-bubble-reply {
+    width: 1px;
+    height: 1px;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .messages-bubble-reply:focus-visible {
+    width: auto;
+    height: auto;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    margin: 0;
+    padding: 0 0.7rem;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+    pointer-events: auto;
+  }
+}
+
+.messages-bubble-swipe-hint {
+  position: absolute;
+  top: 50%;
+  left: 0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  transform: translateY(-50%);
+  color: rgb(var(--fg-rgb) / 0.55);
+  pointer-events: none;
+}
+
+.messages-bubble-swipe-hint svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.messages-bubble.is-quote-flash {
+  animation: messages-quote-flash 1100ms ease;
+}
+
+@keyframes messages-quote-flash {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+
+  35% {
+    box-shadow: inset 0 0 0 2px rgb(var(--fg-rgb) / 0.45);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .messages-bubble-row > .messages-bubble {
+    transition: none;
+  }
+
+  .messages-bubble.is-quote-flash {
+    animation: none;
+    box-shadow: inset 0 0 0 2px rgb(var(--fg-rgb) / 0.45);
+  }
 }
 
 .messages-bubble.is-pending {

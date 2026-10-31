@@ -100,6 +100,11 @@ import {
   dmThreadRowKey,
   formatDmReplyPreview,
 } from '@/features/messages/dm-thread-rows';
+import { DmThreadBubble } from '@/features/messages/dm-thread-bubble';
+import {
+  dmQuoteJumpLabel,
+  dmReplyActionLabel,
+} from '@/features/messages/dm-reply-gesture';
 import { useFeedWindow } from '@/features/home/use-feed-window';
 import { DM_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import { DmThreadComposer } from '@/features/messages/dm-thread-composer';
@@ -163,6 +168,7 @@ export function MessagesPanel() {
     messageId: string;
     preview: string;
   } | null>(null);
+  const [quoteFlashId, setQuoteFlashId] = useState<string | null>(null);
   const [peerMessagingReady, setPeerMessagingReady] = useState<
     'unknown' | 'ready' | 'absent' | 'unavailable'
   >('unknown');
@@ -468,12 +474,51 @@ export function MessagesPanel() {
     topSpacer: threadTopSpacer,
     bottomSpacer: threadBottomSpacer,
     registerRow: registerThreadRow,
+    revealRow: revealThreadRow,
   } = useFeedWindow({
     keys: threadRowKeys,
     hostRef: bubbleListRef,
     anchorQuery: DM_ANCHOR_QUERY,
     estimate: 64,
   });
+
+  const beginReply = useCallback(
+    (messageId: string, preview: string) => {
+      setReplyDraft({ messageId, preview });
+      // Dock is already mounted — focus in this tap so the mobile keyboard opens.
+      focusWriteDock();
+    },
+    [focusWriteDock]
+  );
+
+  const jumpToQuotedMessage = useCallback(
+    (messageId: string) => {
+      // Leave the latest-message pin so the spacer correction does not
+      // yank the reader back to the bottom after the jump. The scroll
+      // listener may re-pin while reveal moves; clear it again after.
+      pinThreadToLatestRef.current = false;
+      revealThreadRow(messageId);
+      pinThreadToLatestRef.current = false;
+      setQuoteFlashId(messageId);
+    },
+    [revealThreadRow]
+  );
+
+  useEffect(() => {
+    if (!quoteFlashId) return undefined;
+    const timer = window.setTimeout(() => setQuoteFlashId(null), 1100);
+    return () => window.clearTimeout(timer);
+  }, [quoteFlashId]);
+
+  useLayoutEffect(() => {
+    if (!quoteFlashId || !bubbleListRef.current) return;
+    const row = bubbleListRef.current.querySelector(
+      DM_ANCHOR_QUERY.rowSelectorForKey(quoteFlashId)
+    );
+    const bubble = row?.querySelector('.messages-bubble');
+    if (!(bubble instanceof HTMLElement)) return;
+    bubble.focus({ preventScroll: true });
+  }, [quoteFlashId, threadWindowStart, threadWindowEnd]);
 
   const withAuth = useCallback(async () => {
     const { client, session, wallet, accountId: id } = await getClient();
@@ -2003,34 +2048,69 @@ export function MessagesPanel() {
                           text != null &&
                           !isDmDecryptFailureText(text) &&
                           !isLocalDmMessageId(replyMessageId);
-                        const bubbleClass = [
-                          'messages-bubble',
-                          mine ? 'is-mine' : '',
-                          draft?.status === 'pending' ? 'is-pending' : '',
-                          draft?.status === 'failed' ? 'is-failed' : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' ');
+                        const replyPreview = canReply
+                          ? formatDmReplyPreview(
+                              text,
+                              Boolean(msg.media?.length || draft?.mediaFile)
+                            )
+                          : '';
+                        const parentInThread =
+                          parentId != null &&
+                          displayMessages.some((item) => item.id === parentId);
+                        const quotePreview =
+                          parentText != null &&
+                          !isDmDecryptFailureText(parentText)
+                            ? formatDmReplyPreview(parentText)
+                            : 'Earlier message';
+                        const quote = parentId ? (
+                          <>
+                            <span>
+                              {parentText != null
+                                ? parentMine
+                                  ? 'You'
+                                  : peerName || 'Them'
+                                : 'Earlier message'}
+                            </span>
+                            {parentText != null &&
+                            !isDmDecryptFailureText(parentText) ? (
+                              <p>{quotePreview}</p>
+                            ) : null}
+                          </>
+                        ) : null;
                         return (
-                          <li
+                          <DmThreadBubble
                             key={msg.id}
-                            ref={registerThreadRow(msg.id)}
-                            data-dm-row-key={msg.id}
-                            className={bubbleClass}
+                            rowKey={msg.id}
+                            registerRow={registerThreadRow(msg.id)}
+                            mine={mine}
+                            pending={draft?.status === 'pending'}
+                            failed={draft?.status === 'failed'}
+                            flash={quoteFlashId === msg.id}
+                            canReply={canReply}
+                            replyLabel={dmReplyActionLabel(replyPreview)}
+                            onReply={() =>
+                              beginReply(replyMessageId, replyPreview)
+                            }
                           >
                             {parentId ? (
-                              <blockquote className="messages-bubble-quote">
-                                <span>
-                                  {parentText != null
-                                    ? parentMine
-                                      ? 'You'
-                                      : peerName || 'Them'
-                                    : 'Earlier message'}
-                                </span>
-                                {parentText != null ? (
-                                  <p>{formatDmReplyPreview(parentText)}</p>
-                                ) : null}
-                              </blockquote>
+                              parentInThread ? (
+                                <button
+                                  type="button"
+                                  className="messages-bubble-quote"
+                                  aria-label={dmQuoteJumpLabel({
+                                    mine: parentMine,
+                                    peerName: peerName || 'Them',
+                                    preview: quotePreview,
+                                  })}
+                                  onClick={() => jumpToQuotedMessage(parentId)}
+                                >
+                                  {quote}
+                                </button>
+                              ) : (
+                                <blockquote className="messages-bubble-quote">
+                                  {quote}
+                                </blockquote>
+                              )
                             ) : null}
                             {text != null ? (
                               text ? (
@@ -2094,30 +2174,8 @@ export function MessagesPanel() {
                                   {bubbleTime}
                                 </time>
                               ) : null}
-                              {canReply ? (
-                                <button
-                                  type="button"
-                                  className="messages-bubble-reply"
-                                  onClick={() => {
-                                    setReplyDraft({
-                                      messageId: replyMessageId,
-                                      preview: formatDmReplyPreview(
-                                        text,
-                                        Boolean(
-                                          msg.media?.length || draft?.mediaFile
-                                        )
-                                      ),
-                                    });
-                                    // Dock is already mounted — focus in this
-                                    // tap so the mobile keyboard opens.
-                                    focusWriteDock();
-                                  }}
-                                >
-                                  Reply
-                                </button>
-                              ) : null}
                             </div>
-                          </li>
+                          </DmThreadBubble>
                         );
                       })}
                     {threadWindowed && threadBottomSpacer > 0 ? (

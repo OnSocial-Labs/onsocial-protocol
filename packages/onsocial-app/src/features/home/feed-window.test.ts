@@ -5,6 +5,7 @@ import {
   feedWindowKeysEqual,
   feedWindowRangeForScroll,
   feedWindowRangeWithPinned,
+  feedWindowScrollTopForRow,
   translateFeedWindowRange,
 } from './feed-window';
 
@@ -217,5 +218,37 @@ describe('feedWindowRangeWithPinned', () => {
       start: 4,
       end: 8,
     });
+  });
+});
+
+describe('feedWindowScrollTopForRow', () => {
+  it('centers a row and clamps to the scroll range', () => {
+    expect(
+      feedWindowScrollTopForRow({
+        hostTop: 100,
+        rowOffset: 800,
+        rowSize: 64,
+        viewportHeight: 400,
+        maxScroll: 2000,
+      })
+    ).toBe(100 + 800 - (400 - 64) / 2);
+    expect(
+      feedWindowScrollTopForRow({
+        hostTop: 0,
+        rowOffset: 0,
+        rowSize: 64,
+        viewportHeight: 400,
+        maxScroll: 2000,
+      })
+    ).toBe(0);
+    expect(
+      feedWindowScrollTopForRow({
+        hostTop: 0,
+        rowOffset: 5000,
+        rowSize: 64,
+        viewportHeight: 400,
+        maxScroll: 2000,
+      })
+    ).toBe(2000);
   });
 });

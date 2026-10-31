@@ -169,3 +169,27 @@ export function feedWindowRangeWithPinned(
     end: Math.max(range.end, pinnedIndex + 1),
   };
 }
+
+/**
+ * Scroll offset that centers a list row in the viewport. `hostTop` is the
+ * list's offset inside the scroll root (same translation `useFeedWindow`
+ * uses). Clamped so a short list and a row at either end stay in range.
+ */
+export function feedWindowScrollTopForRow(opts: {
+  hostTop: number;
+  rowOffset: number;
+  rowSize: number;
+  viewportHeight: number;
+  maxScroll: number;
+}): number {
+  const rowSize =
+    Number.isFinite(opts.rowSize) && opts.rowSize > 0 ? opts.rowSize : 0;
+  const viewport = Number.isFinite(opts.viewportHeight)
+    ? opts.viewportHeight
+    : 0;
+  const centered = opts.hostTop + opts.rowOffset - (viewport - rowSize) / 2;
+  const max =
+    Number.isFinite(opts.maxScroll) && opts.maxScroll > 0 ? opts.maxScroll : 0;
+  if (!Number.isFinite(centered)) return 0;
+  return Math.min(max, Math.max(0, centered));
+}
