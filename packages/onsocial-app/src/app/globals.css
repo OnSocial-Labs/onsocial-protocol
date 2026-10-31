@@ -1886,6 +1886,71 @@ button.market-listing-title-link {
   flex: 0 0 auto;
 }
 
+/* Icon row on the hero. Glyph matches the banner header icons (1.25rem). */
+.guild-hero-meta-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  /* Same gap as the room chip rail, including the space before Join. */
+  gap: 0.28rem;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.guild-hero-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  flex: 0 0 auto;
+}
+
+.guild-hero-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.72);
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.guild-hero-action-icon:hover:not(:disabled) {
+  background: rgb(var(--fg-rgb) / 0.06);
+  color: rgb(var(--fg-rgb) / 0.45);
+  cursor: pointer;
+}
+
+.guild-hero-action-icon:focus-visible:not(:disabled) {
+  background: rgb(var(--fg-rgb) / 0.06);
+  color: rgb(var(--fg-rgb) / 0.45);
+  cursor: pointer;
+  outline: none;
+  box-shadow: var(--os-focus-ring, 0 0 0 1px rgb(var(--fg-rgb) / 0.08));
+}
+
+.guild-hero-action-icon:disabled {
+  cursor: default;
+  color: rgb(var(--fg-rgb) / 0.32);
+}
+
+.guild-hero-action-icon.is-pending,
+.guild-hero-action-icon.is-pending:disabled,
+.guild-hero-action-icon.is-pending:hover {
+  cursor: progress;
+}
+
+.guild-hero-actions .glass-sheet-close-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
 /* Hub publish Request — purple role-pill ink on the shared sm Join chrome. */
 .app-page-hero
   .hub-hero-publish-request.os-sheet-actions--row-compact

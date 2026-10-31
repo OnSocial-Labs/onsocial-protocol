@@ -67,6 +67,7 @@ export function GuildPageHero({
   showFacts = false,
   onOpenFacts,
   membership = null,
+  actions = null,
   statusHint = null,
 }: {
   groupId: string;
@@ -76,6 +77,8 @@ export function GuildPageHero({
   showFacts?: boolean;
   onOpenFacts?: () => void;
   membership?: ReactNode;
+  /** Icon row beside the membership control. */
+  actions?: ReactNode;
   statusHint?: string | null;
 }) {
   const bannerSrcSet = ipfsImgSrcSet(look.bannerUrl, [1080, 1920]);
@@ -132,8 +135,13 @@ export function GuildPageHero({
             ) : null}
           </span>
         </div>
-        {membership ? (
-          <div className="guild-hero-membership-slot">{membership}</div>
+        {membership || actions ? (
+          <div className="guild-hero-meta-end">
+            {actions}
+            {membership ? (
+              <div className="guild-hero-membership-slot">{membership}</div>
+            ) : null}
+          </div>
         ) : null}
       </div>
 

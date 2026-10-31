@@ -19,7 +19,6 @@ export type GuildManageSheetId =
 interface GuildManageMenuProps {
   pendingRequestCount: number;
   memberCount: number;
-  activeProposalCount: number;
   accessGated: boolean;
   memberDriven: boolean;
   canAddMember: boolean;
@@ -28,7 +27,7 @@ interface GuildManageMenuProps {
   onOpenSheet: (sheet: GuildManageSheetId) => void;
 }
 
-function CountBadge({
+export function GuildCountBadge({
   count,
   tone = 'standing',
 }: {
@@ -53,7 +52,6 @@ function CountBadge({
 export function GuildManageMenu({
   pendingRequestCount,
   memberCount,
-  activeProposalCount,
   accessGated,
   memberDriven: _memberDriven,
   canAddMember,
@@ -82,7 +80,7 @@ export function GuildManageMenu({
             id: 'requests',
             label: 'Member requests',
             leading: (
-              <CountBadge count={pendingRequestCount} tone="solidarity" />
+              <GuildCountBadge count={pendingRequestCount} tone="solidarity" />
             ),
             onSelect: () => {
               onOpenSheet('requests');
@@ -95,19 +93,9 @@ export function GuildManageMenu({
     {
       id: 'members',
       label: 'Members',
-      leading: <CountBadge count={memberCount} />,
+      leading: <GuildCountBadge count={memberCount} />,
       onSelect: () => {
         onOpenSheet('members');
-        setClosing(false);
-        setOpen(false);
-      },
-    },
-    {
-      id: 'proposals',
-      label: 'Proposals',
-      leading: <CountBadge count={activeProposalCount} />,
-      onSelect: () => {
-        onOpenSheet('proposals');
         setClosing(false);
         setOpen(false);
       },
