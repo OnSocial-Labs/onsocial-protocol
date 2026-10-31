@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 import { gotoApp } from './helpers';
 
 const TOTAL = 120;
@@ -115,4 +115,124 @@ test.describe('discover directory windowing', () => {
     const renderedAtTop = await slotRows(page).count();
     expect(renderedAtTop).toBeLessThan(TOTAL);
   });
+
+  test('windows the hub directory once scrolling loads a long page', async ({
+    page,
+  }) => {
+    await stubHubDirectoryPages(page);
+    await gotoApp(page, '/discover?tab=hubs');
+
+    const list = page.locator('#discover-panel-hubs .apps-directory-list');
+    const row = (index: number) =>
+      list.locator(`[data-secondary-key="hub-${String(index).padStart(3, '0')}"]`);
+    await expect(row(0)).toBeVisible({ timeout: 30_000 });
+    await expect(list.locator('[data-secondary-key]')).toHaveCount(24);
+    await expect(list.locator('[data-feed-window-spacer]')).toHaveCount(0);
+
+    const scroller = page.locator('.os-app-screen-body');
+    for (let i = 0; i < 6; i += 1) {
+      await scroller.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+      if ((await row(HUB_WINDOW_TOTAL - 1).count()) > 0) break;
+      await page.waitForTimeout(400);
+    }
+
+    await expect(row(HUB_WINDOW_TOTAL - 1)).toBeVisible();
+    await expect(list.locator('[data-feed-window-spacer="top"]')).toBeAttached();
+    await expect(row(0)).toHaveCount(0);
+    expect(await list.locator('[data-secondary-key]').count()).toBeLessThan(
+      HUB_WINDOW_TOTAL
+    );
+
+    await scroller.evaluate((el) => el.scrollTo({ top: 0 }));
+    await expect(row(0)).toBeVisible();
+    await expect(row(HUB_WINDOW_TOTAL - 1)).toHaveCount(0);
+  });
 });
+
+const HUB_WINDOW_TOTAL = 48;
+
+function hubWindowId(index: number): string {
+  return `hub-${String(index).padStart(3, '0')}`;
+}
+
+function hubWindowRow(index: number) {
+  const appId = hubWindowId(index);
+  return {
+    appId,
+    ownerId: 'alice.near',
+    primarySaleBps: 200,
+    creatorAccess: 'open',
+    metadata: JSON.stringify({ name: `Hub ${appId}`, categories: ['music'] }),
+    createdBlockTimestamp: 1_700_000_000_000_000_000,
+    updatedBlockTimestamp: 1_700_000_000_000_000_000 - index,
+  };
+}
+
+/** Two activity pages of hubs, then the directory is finished. */
+async function stubHubDirectoryPages(page: Page): Promise<void> {
+  await page.route('**/api/onapi/graph/query', async (route: Route) => {
+    let body: {
+      query?: string;
+      variables?: { offset?: number; limit?: number; ids?: string[]; excludeIds?: string[] };
+    } = {};
+    try {
+      body = JSON.parse(route.request().postData() ?? '{}') as typeof body;
+    } catch {
+      body = {};
+    }
+    const query = body.query ?? '';
+    if (query.includes('ActiveHubStats')) {
+      const offset = body.variables?.offset ?? 0;
+      const limit = body.variables?.limit ?? HUB_WINDOW_TOTAL;
+      const rows = [];
+      for (
+        let index = offset;
+        index < Math.min(HUB_WINDOW_TOTAL, offset + limit);
+        index += 1
+      ) {
+        rows.push({
+          appId: hubWindowId(index),
+          lastActivityTimestamp: HUB_WINDOW_TOTAL - index,
+        });
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { scarcesAppStats: rows } }),
+      });
+      return;
+    }
+    if (query.includes('ActiveHubApps')) {
+      const ids = new Set(body.variables?.ids ?? []);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            scarcesApps: Array.from({ length: HUB_WINDOW_TOTAL }, (_, index) =>
+              hubWindowRow(index)
+            ).filter((row) => ids.has(row.appId)),
+          },
+        }),
+      });
+      return;
+    }
+    if (query.includes('ScarcesAppsDirectory')) {
+      const exclude = body.variables?.excludeIds ?? [];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            scarcesApps:
+              exclude.length > 0
+                ? []
+                : Array.from({ length: 24 }, (_, index) => hubWindowRow(index)),
+          },
+        }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+}

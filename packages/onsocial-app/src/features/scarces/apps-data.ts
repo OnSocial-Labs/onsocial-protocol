@@ -95,6 +95,8 @@ export interface FetchAppsOptions {
   sort?: AppsDirectorySort;
   /** Drop CI / SDK integration spam. Default true. */
   hideTest?: boolean;
+  /** Hubs already shown — directory pages skip them. */
+  excludeIds?: string[];
 }
 
 export interface AppsDirectoryPage {
@@ -417,6 +419,7 @@ function buildDirectoryWhere(opts: {
   query?: string;
   access?: AppsAccessFilter;
   hideTest?: boolean;
+  excludeIds?: string[];
 }): {
   params: string[];
   whereClause: string;
@@ -439,6 +442,17 @@ function buildDirectoryWhere(opts: {
     clauses.push(
       '{_or: [{appId: {_ilike: $queryLike}}, {ownerId: {_ilike: $queryLike}}, {metadata: {_ilike: $queryLike}}]}'
     );
+  }
+
+  const excludeIds = [
+    ...new Set(
+      (opts.excludeIds ?? []).map((id) => id.trim()).filter((id) => id.length > 0)
+    ),
+  ];
+  if (excludeIds.length > 0) {
+    params.push('$excludeIds: [String!]!');
+    variables.excludeIds = excludeIds;
+    clauses.push('{appId: {_nin: $excludeIds}}');
   }
 
   if (opts.hideTest !== false) {
@@ -484,6 +498,7 @@ export async function fetchAppsDirectory(
       query: opts.query,
       access: opts.access,
       hideTest,
+      excludeIds: opts.excludeIds,
     });
     const params = ['$limit: Int!', '$offset: Int!', ...built.params];
     const res = await client.query.graphql<{
@@ -528,6 +543,10 @@ export async function fetchAppsDirectory(
       if (category !== 'all') {
         apps = apps.filter((app) => app.category === category);
       }
+      if (opts.excludeIds?.length) {
+        const exclude = new Set(opts.excludeIds);
+        apps = apps.filter((app) => !exclude.has(app.appId));
+      }
       if (sort === 'name' || sort === 'recent') {
         apps = sortApps(apps, sort);
       }
@@ -558,6 +577,10 @@ export async function fetchAppsDirectory(
   if (category !== 'all') {
     apps = apps.filter((app) => app.category === category);
   }
+  if (opts.excludeIds?.length) {
+    const exclude = new Set(opts.excludeIds);
+    apps = apps.filter((app) => !exclude.has(app.appId));
+  }
   const q = opts.query?.trim().toLowerCase();
   if (q) {
     apps = apps.filter(
@@ -573,6 +596,180 @@ export async function fetchAppsDirectory(
     apps: apps.slice(0, limit),
     hasMore: ids.length >= fetchLimit || apps.length > limit,
     nextOffset: fromIndex + ids.length,
+  };
+}
+
+/** One activity page while filling Discover → Hubs. */
+const HUB_BROWSE_STATS_PAGE = 48;
+/** Stats rows one scroll tick will walk before it returns what it has. */
+const HUB_BROWSE_STATS_CAP = 240;
+
+export type HubsBrowseCursor = {
+  /** `activity` walks last drop/mint/sale. `directory` is every other hub. */
+  phase: 'activity' | 'directory';
+  offset: number;
+};
+
+export type HubsBrowsePage = {
+  apps: AppView[];
+  hasMore: boolean;
+  cursor: HubsBrowseCursor;
+};
+
+/**
+ * One page of Discover → Hubs.
+ * Movers come first (last drop, mint, or sale). Hubs that have not moved
+ * follow, including when nothing has moved yet. The next cursor feeds
+ * infinite scroll until both phases are done.
+ */
+export async function fetchHubsBrowsePage(
+  opts: {
+    limit?: number;
+    category?: HubCategoryFilter;
+    hideTest?: boolean;
+    cursor?: HubsBrowseCursor;
+    excludeIds?: string[];
+  } = {}
+): Promise<HubsBrowsePage> {
+  const limit = opts.limit ?? APPS_PAGE_SIZE;
+  const category = opts.category ?? 'all';
+  const hideTest = opts.hideTest !== false;
+  const cursor = opts.cursor ?? { phase: 'activity', offset: 0 };
+  const seen = new Set(
+    (opts.excludeIds ?? []).map((id) => id.trim()).filter((id) => id.length > 0)
+  );
+  const picked: AppView[] = [];
+  let phase = cursor.phase;
+  let activityOffset = phase === 'activity' ? cursor.offset : 0;
+  let directoryOffset = phase === 'directory' ? cursor.offset : 0;
+
+  if (phase === 'activity') {
+    const { createReadOnlyOnSocialClient } = await import(
+      '@/lib/create-readonly-onsocial-client'
+    );
+    const client = createReadOnlyOnSocialClient();
+    let scanned = 0;
+    while (
+      picked.length < limit &&
+      scanned < HUB_BROWSE_STATS_CAP
+    ) {
+      const pageSize = Math.min(
+        HUB_BROWSE_STATS_PAGE,
+        HUB_BROWSE_STATS_CAP - scanned
+      );
+      const statsRes = await client.query.graphql<{
+        scarcesAppStats?: Array<{
+          appId: string | null;
+          lastActivityTimestamp: number | string | null;
+        }>;
+      }>({
+        query: `query ActiveHubStats($limit: Int!, $offset: Int!) {
+          scarcesAppStats(
+            limit: $limit
+            offset: $offset
+            orderBy: [{ lastActivityTimestamp: DESC_NULLS_LAST }]
+          ) {
+            appId
+            lastActivityTimestamp
+          }
+        }`,
+        variables: { limit: pageSize, offset: activityOffset },
+      });
+      const stats = statsRes.data?.scarcesAppStats ?? [];
+      if (stats.length === 0) {
+        phase = 'directory';
+        directoryOffset = 0;
+        break;
+      }
+
+      const ids = [
+        ...new Set(
+          stats
+            .map((row) => row.appId?.trim() ?? '')
+            .filter((id) => id.length > 0 && !seen.has(id))
+        ),
+      ];
+      const byId = new Map<string, AppView>();
+      if (ids.length > 0) {
+        const appsRes = await client.query.graphql<{
+          scarcesApps?: IndexerAppRow[];
+        }>({
+          query: `query ActiveHubApps($ids: [String!]!, $limit: Int!) {
+            scarcesApps(where: { appId: { _in: $ids } }, limit: $limit) {
+              appId
+              ownerId
+              primarySaleBps
+              creatorAccess
+              metadata
+              createdBlockTimestamp
+              updatedBlockTimestamp
+            }
+          }`,
+          variables: { ids, limit: ids.length },
+        });
+        for (const row of appsRes.data?.scarcesApps ?? []) {
+          const app = toAppViewFromIndexer(row);
+          if (hideTest && isLikelyTestStore(app)) continue;
+          if (category !== 'all' && app.category !== category) continue;
+          byId.set(app.appId, app);
+        }
+      }
+
+      let consumed = 0;
+      for (let index = 0; index < stats.length; index += 1) {
+        consumed = index + 1;
+        const id = stats[index]?.appId?.trim() ?? '';
+        const app = id ? byId.get(id) : undefined;
+        if (!app || seen.has(app.appId)) continue;
+        seen.add(app.appId);
+        picked.push(app);
+        if (picked.length >= limit) break;
+      }
+      activityOffset += consumed;
+      scanned += consumed;
+      if (picked.length >= limit) break;
+      if (stats.length < pageSize) {
+        phase = 'directory';
+        directoryOffset = 0;
+        break;
+      }
+    }
+
+    if (phase === 'activity') {
+      return {
+        apps: picked.slice(0, limit),
+        hasMore: true,
+        cursor: { phase: 'activity', offset: activityOffset },
+      };
+    }
+  }
+
+  if (picked.length >= limit) {
+    return {
+      apps: picked.slice(0, limit),
+      hasMore: true,
+      cursor: { phase: 'directory', offset: directoryOffset },
+    };
+  }
+
+  const page = await fetchAppsDirectory({
+    limit: limit - picked.length,
+    fromIndex: directoryOffset,
+    category,
+    hideTest,
+    sort: 'recent',
+    excludeIds: [...seen],
+  });
+  for (const app of page.apps) {
+    if (seen.has(app.appId)) continue;
+    seen.add(app.appId);
+    picked.push(app);
+    if (picked.length >= limit) break;
+  }
+  return {
+    apps: picked.slice(0, limit),
+    hasMore: page.hasMore,
+    cursor: { phase: 'directory', offset: page.nextOffset },
   };
 }
 

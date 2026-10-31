@@ -160,6 +160,46 @@ export function orderHubsByLastMove<
     .slice(0, limit);
 }
 
+/**
+ * Discover → Hubs browse order. Apps follow the stats clock (last drop, mint,
+ * or sale). Idle clocks and ids with no app row are left out.
+ */
+export function hubsInActivityOrder<T extends { appId: string }>(
+  stats: ReadonlyArray<{
+    appId?: string | null;
+    lastActivityTimestamp?: number | string | null;
+  }>,
+  apps: ReadonlyArray<T>,
+  limit?: number
+): T[] {
+  const byId = new Map<string, T>();
+  for (const app of apps) {
+    const id = app.appId.trim();
+    if (id && !byId.has(id)) byId.set(id, app);
+  }
+
+  const ranked = stats
+    .map((row) => {
+      const id = row.appId?.trim() ?? '';
+      const ts = hubActivityTimestamp(row.lastActivityTimestamp);
+      return id && ts != null ? { id, ts } : null;
+    })
+    .filter((row): row is { id: string; ts: number } => row != null)
+    .sort((a, b) => b.ts - a.ts);
+
+  const out: T[] = [];
+  const seen = new Set<string>();
+  for (const row of ranked) {
+    if (seen.has(row.id)) continue;
+    const app = byId.get(row.id);
+    if (!app) continue;
+    seen.add(row.id);
+    out.push(app);
+    if (limit != null && out.length >= limit) break;
+  }
+  return out;
+}
+
 async function queryHubsByLastMove(
   client: OnSocial,
   limit: number
@@ -183,7 +223,8 @@ async function queryHubsByLastMove(
 
 /**
  * Hubs that just moved — last drop, mint, or sale on `scarces_app_stats`.
- * Not 30d volume (`scarces_app_stats_hot`). That stays on the Hubs tab.
+ * Same clock as the head of Discover → Hubs. Quiet hubs follow on that tab.
+ * Not 30d volume (`scarces_app_stats_hot`).
  */
 export async function rankHubPeeks(
   client: OnSocial,

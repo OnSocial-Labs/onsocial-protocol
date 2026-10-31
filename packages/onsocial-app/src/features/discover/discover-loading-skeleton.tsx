@@ -45,21 +45,6 @@ export function DiscoverTrendingProfilesSectionSkeleton() {
   );
 }
 
-export function DiscoverTrendingGuildsSectionSkeleton() {
-  return (
-    <section
-      className="discover-trending-section discover-trending-section--focus-skeleton"
-      aria-hidden
-    >
-      <div className="discover-trending-section-head">
-        <span className="standing-row-shimmer standing-row-shimmer-line discover-trending-shimmer-heading" />
-        <span className="standing-row-shimmer standing-row-shimmer-line discover-trending-shimmer-see-all" />
-      </div>
-      <DiscoverFocusListSkeleton rows={4} />
-    </section>
-  );
-}
-
 /** DAO / guild / hub directory placeholders — same row language as the cards. */
 export function DiscoverCommunityListSkeleton({
   label,

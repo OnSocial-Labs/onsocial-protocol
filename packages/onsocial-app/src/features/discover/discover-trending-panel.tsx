@@ -60,7 +60,8 @@ const SECTION_LIMIT = 6;
 
 /**
  * Default Discover landing: what's moving — heat, talk, last sale, mention, people.
- * Lifetime Topics / Tickers / Most traded live on those tabs. This page is a peek.
+ * Lifetime Topics and Tickers live on those tabs. Drop ranks live on Drops.
+ * This page is a peek.
  * See all stays in Discover (Profiles, Hubs). No door to Home, Market, or Protocol.
  * First paint is one board — skeletons until every strip is ready.
  * While the tab stays open the board replaces as one room, clocks tick,
@@ -302,11 +303,7 @@ export function DiscoverTrendingPanel({
         why="talk"
         rows={visibleTalkedAbout}
       />
-      <MovingCoverPeekSection
-        heading="Just sold"
-        kind="sold"
-        rows={visibleJustSold}
-      />
+      <MovingCoverPeekSection heading="Just sold" rows={visibleJustSold} />
 
       <MovingChipPeekSection heading="Mentioned" rows={visibleMentions} />
 
