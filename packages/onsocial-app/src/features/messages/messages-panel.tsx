@@ -26,6 +26,7 @@ import {
 } from '@/components/chrome/os-chrome-whisper';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useFocusWriteDock } from '@/contexts/compose-launcher-context';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { useListScrollRestore } from '@/hooks/use-list-scroll-restore';
@@ -138,6 +139,7 @@ export function MessagesPanel() {
   const peerParam = searchParams.get('peer')?.trim().toLowerCase() ?? '';
   const threadParam = searchParams.get('thread')?.trim() ?? '';
   const { accountId, isConnected, hasSocialSession } = useAppWallet();
+  const focusWriteDock = useFocusWriteDock();
   const { getClient } = useAppOnSocialClient();
   const restoredSessionRef = useRef(
     accountId ? readMessagesInboxSession(accountId) : peekMessagesInboxSession()
@@ -2096,7 +2098,7 @@ export function MessagesPanel() {
                                 <button
                                   type="button"
                                   className="messages-bubble-reply"
-                                  onClick={() =>
+                                  onClick={() => {
                                     setReplyDraft({
                                       messageId: replyMessageId,
                                       preview: formatDmReplyPreview(
@@ -2105,8 +2107,11 @@ export function MessagesPanel() {
                                           msg.media?.length || draft?.mediaFile
                                         )
                                       ),
-                                    })
-                                  }
+                                    });
+                                    // Dock is already mounted — focus in this
+                                    // tap so the mobile keyboard opens.
+                                    focusWriteDock();
+                                  }}
                                 >
                                   Reply
                                 </button>
