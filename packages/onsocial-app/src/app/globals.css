@@ -41201,6 +41201,35 @@ a.os-surface-row,
   border-radius: 0;
 }
 
+/*
+ * One-line reply — the chip sits above the field, so a top-pinned avatar
+ * reads higher than “Reply to …”. Park the avatar (and a leading back
+ * control) on the field row until a draft or the keyboard grows the dock.
+ */
+.os-dock-pill.portfolio-summon.is-writing.is-compose-tools:not(
+    .is-compose-expanded
+  ):not(:has(.os-write-dock-footer-shell.is-open))
+  .portfolio-summon-account,
+.os-dock-pill.portfolio-summon.is-writing.is-compose-tools:not(
+    .is-compose-expanded
+  ):not(:has(.os-write-dock-footer-shell.is-open))
+  .portfolio-summon-back {
+  align-self: flex-end;
+  height: 2.75rem;
+  min-height: 2.75rem;
+}
+
+.os-dock-pill.portfolio-summon.is-writing.is-compose-tools:not(
+    .is-compose-expanded
+  ):not(:has(.os-write-dock-footer-shell.is-open))
+  .portfolio-summon-account,
+.os-dock-pill.portfolio-summon.is-writing.is-compose-tools:not(
+    .is-compose-expanded
+  ):not(:has(.os-write-dock-footer-shell.is-open))
+  .portfolio-summon-back {
+  border-radius: 0 0 0 var(--os-write-dock-radius, 1.375rem);
+}
+
 .os-dock-pill.portfolio-summon.is-writing.has-dock-back-stacked
   .os-write-dock.is-compose-open:not(.is-expanded)
   .os-write-dock-field,

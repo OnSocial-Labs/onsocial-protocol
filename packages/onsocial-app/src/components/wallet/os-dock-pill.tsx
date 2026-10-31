@@ -48,7 +48,8 @@ interface OsDockPillProps {
 /**
  * Unified OS dock — [activity] | [account] | grip | optional now-playing |
  * | [compose]. Write mode drops activity + grip:
- * [back | avatar | type] at rest; [avatar over back] | [type + footer] on first focus.
+ * [back | avatar | type] on one line, including a reply chip above the field.
+ * [avatar over back] | [type + footer] once the draft or the keyboard grows it.
  *
  * Rest ↔ write swaps crossfade inside the persistent shell: the outgoing face
  * lingers as a fading overlay while the incoming face rises in, so the pen
@@ -65,9 +66,14 @@ export function OsDockPill({
 }: OsDockPillProps) {
   const writeDockHasDraft = useWriteDockHasDraft();
   const writing = Boolean(write);
-  const composeOpen = writeMorph !== 'idle' || writeDockHasDraft;
-  const backLeading = Boolean(navBack) && writing && !composeOpen;
-  const backStacked = Boolean(navBack) && writing && composeOpen;
+  /* Keep back beside the avatar on the one-line reply row. Stacking under
+     the avatar starts when a draft or the keyboard makes the dock taller
+     than that row — otherwise the avatar sits on the reply chip. */
+  const backStacked =
+    Boolean(navBack) &&
+    writing &&
+    (writeMorph === 'expanded' || writeDockHasDraft);
+  const backLeading = Boolean(navBack) && writing && !backStacked;
 
   const content = writing ? (
     <>
