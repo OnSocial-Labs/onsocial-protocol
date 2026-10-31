@@ -27,7 +27,6 @@ import type { DiscoverTrendingHub } from '@/lib/discover-trending-server';
 import {
   movingChipCountLabel,
   movingProposalMeta,
-  movingScarceSignalLabel,
   talkedAboutThreadHref,
   type MovingActivePeek,
 } from '@/lib/discover-moving';
@@ -280,17 +279,14 @@ export function MovingCoverPeekSection({
   heading,
   seeAllHref,
   seeAll,
-  kind,
   rows,
 }: {
   heading: string;
   seeAllHref?: string;
   seeAll?: { href?: string; onClick?: () => void } | null;
-  kind: 'traded' | 'loved' | 'sold';
   rows: DiscoverScarcePeek[] | null;
 }) {
   const { openDrop } = usePostThreadLayer();
-  const overlayDrops = kind === 'sold';
   const resolvedSeeAll = seeAll ?? (seeAllHref ? { href: seeAllHref } : null);
   if (rows === null) {
     return (
@@ -304,12 +300,9 @@ export function MovingCoverPeekSection({
       <ul className="discover-cover-peeks">
         {rows.map((scarce) => {
           const title = scarce.title?.trim() || scarce.collectionId;
-          const signal =
-            kind === 'sold'
-              ? scarce.lastSaleTimestamp
-                ? formatRelativePostTimestamp(scarce.lastSaleTimestamp)
-                : null
-              : movingScarceSignalLabel(kind, scarce.signalCount);
+          const signal = scarce.lastSaleTimestamp
+            ? formatRelativePostTimestamp(scarce.lastSaleTimestamp)
+            : null;
           const meta = signal || scarce.appId?.trim() || null;
           const href = collectionPath(scarce.collectionId);
           return (
@@ -318,14 +311,13 @@ export function MovingCoverPeekSection({
                 href={href}
                 className="discover-cover-peek"
                 onClick={(event: MouseEvent<HTMLAnchorElement>) => {
-                  if (!overlayDrops || !isUnmodifiedPrimaryClick(event)) return;
+                  if (!isUnmodifiedPrimaryClick(event)) return;
                   if (openDrop({ href })) {
                     event.preventDefault();
                     event.stopPropagation();
                   }
                 }}
                 onNavigate={(event) => {
-                  if (!overlayDrops) return;
                   if (openDrop({ href })) event.preventDefault();
                 }}
               >

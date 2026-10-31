@@ -5,17 +5,8 @@ import { CommunityDiscoverRow } from '@/components/community-cards';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsChipRail } from '@/components/os/os-chip-rail';
-import {
-  DiscoverCommunityListSkeleton,
-  DiscoverTrendingGuildsSectionSkeleton,
-} from '@/features/discover/discover-loading-skeleton';
-import { MovingCoverPeekSection } from '@/features/discover/discover-moving-peeks';
+import { DiscoverCommunityListSkeleton } from '@/features/discover/discover-loading-skeleton';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
-import {
-  fetchMostLovedScarcePeeks,
-  fetchMostTradedScarcePeeks,
-  type DiscoverScarcePeek,
-} from '@/features/discover/discover-scarce-peeks';
 import { discoverPeopleSearchQuery } from '@/features/discover/discover-omni-search';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { discoverHubsLead } from '@/lib/discover-tab-lead';
@@ -32,17 +23,9 @@ import {
   HUB_CATEGORY_CENSUS_LIMIT,
   type HubCategoryFilter,
 } from '@/features/scarces/hub-categories';
-import {
-  APP_APP_CREATE_PATH,
-  APP_APPS_PATH,
-  appPath,
-  dropsPath,
-} from '@/lib/app-routes';
-import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { APP_APP_CREATE_PATH, APP_APPS_PATH, appPath } from '@/lib/app-routes';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { fallbackLabel } from '@/lib/profile-display';
-
-const SCARCE_PEEK_LIMIT = 6;
 
 function hubPrimaryCategory(app: AppView): string | null {
   if (app.categories.length > 0) {
@@ -53,8 +36,8 @@ function hubPrimaryCategory(app: AppView): string | null {
 }
 
 /**
- * Discover → Hubs — network find. My hubs / create live in the Hubs app.
- * Browse chips: used categories (curated + custom), omit empty.
+ * Discover → Hubs — the hub directory. Category chips filter hubs.
+ * Drop rankings (Loved, Traded) live on Drops. My hubs / create live in the Hubs app.
  */
 export function DiscoverHubsPanel() {
   const { query } = useDiscoverPanel();
@@ -65,10 +48,6 @@ export function DiscoverHubsPanel() {
   const [categoryCounts, setCategoryCounts] = useState<Map<string, number>>(
     () => new Map()
   );
-  const [mostTraded, setMostTraded] = useState<DiscoverScarcePeek[] | null>(
-    null
-  );
-  const [mostLoved, setMostLoved] = useState<DiscoverScarcePeek[] | null>(null);
   const [pending, setPending] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -87,7 +66,6 @@ export function DiscoverHubsPanel() {
     }
     return categoryFilter;
   }, [browseOptions, categoryFilter]);
-  const showScarcePeeks = !searchQuery && activeCategoryFilter === 'all';
 
   useEffect(() => {
     let cancelled = false;
@@ -148,21 +126,6 @@ export function DiscoverHubsPanel() {
     };
   }, [activeCategoryFilter, reloadNonce, searchQuery]);
 
-  useEffect(() => {
-    if (!showScarcePeeks) return;
-    let cancelled = false;
-    const client = createReadOnlyOnSocialClient();
-    void fetchMostTradedScarcePeeks(client, SCARCE_PEEK_LIMIT).then((rows) => {
-      if (!cancelled) setMostTraded(rows);
-    });
-    void fetchMostLovedScarcePeeks(client, SCARCE_PEEK_LIMIT).then((rows) => {
-      if (!cancelled) setMostLoved(rows);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadNonce, showScarcePeeks]);
-
   const retry = useCallback(() => {
     setReloadNonce((n) => n + 1);
   }, []);
@@ -218,27 +181,6 @@ export function DiscoverHubsPanel() {
         )
       ) : null}
 
-      {showScarcePeeks ? (
-        mostTraded === null || mostLoved === null ? (
-          <DiscoverTrendingGuildsSectionSkeleton />
-        ) : (
-          <>
-            <MovingCoverPeekSection
-              heading="Most traded"
-              seeAllHref={dropsPath({ sort: 'traded' })}
-              kind="traded"
-              rows={mostTraded}
-            />
-            <MovingCoverPeekSection
-              heading="Most loved"
-              seeAllHref={dropsPath({ sort: 'loved' })}
-              kind="loved"
-              rows={mostLoved}
-            />
-          </>
-        )
-      ) : null}
-
       {showSkeleton ? (
         <DiscoverCommunityListSkeleton label="Loading hubs…" />
       ) : null}
@@ -281,56 +223,47 @@ export function DiscoverHubsPanel() {
       ) : null}
 
       {!showSkeleton && apps != null && apps.length > 0 ? (
-        <>
-          {showScarcePeeks ? (
-            <h2 className="discover-trending-heading launcher-home-heading">
-              Hubs
-            </h2>
-          ) : null}
-          <div className="community-summary-card-grid apps-directory-list">
-            {apps.map((app) => {
-              const description = app.description?.trim() || null;
-              const category = hubPrimaryCategory(app);
-              return (
-                <CommunityDiscoverRow
-                  key={app.appId}
-                  href={appPath(app.appId)}
-                  seedId={app.appId}
-                  bannerUrl={app.bannerUrl}
-                  markUrl={app.mediaUrl}
-                  markVariant="logo"
-                  title={app.title}
-                  description={description}
-                  meta={
-                    <>
-                      <span className="community-summary-stat">
-                        <span className="community-summary-stat-count">
-                          {app.commissionPct}%
-                        </span>
-                        <span className="community-summary-stat-label">
-                          fee
-                        </span>
+        <div className="community-summary-card-grid apps-directory-list">
+          {apps.map((app) => {
+            const description = app.description?.trim() || null;
+            const category = hubPrimaryCategory(app);
+            return (
+              <CommunityDiscoverRow
+                key={app.appId}
+                href={appPath(app.appId)}
+                seedId={app.appId}
+                bannerUrl={app.bannerUrl}
+                markUrl={app.mediaUrl}
+                markVariant="logo"
+                title={app.title}
+                description={description}
+                meta={
+                  <>
+                    <span className="community-summary-stat">
+                      <span className="community-summary-stat-count">
+                        {app.commissionPct}%
                       </span>
-                      <span className="community-summary-stat">
-                        <span className="community-summary-stat-label">
-                          @{fallbackLabel(app.ownerId)}
-                        </span>
+                      <span className="community-summary-stat-label">fee</span>
+                    </span>
+                    <span className="community-summary-stat">
+                      <span className="community-summary-stat-label">
+                        @{fallbackLabel(app.ownerId)}
                       </span>
-                      {category ? (
-                        <span className="guild-card-pill guild-card-pill--topic">
-                          {category}
-                        </span>
-                      ) : null}
-                      <span className="guild-card-pill">
-                        {creatorAccessShort(app.creatorAccess)}
+                    </span>
+                    {category ? (
+                      <span className="guild-card-pill guild-card-pill--topic">
+                        {category}
                       </span>
-                    </>
-                  }
-                />
-              );
-            })}
-          </div>
-        </>
+                    ) : null}
+                    <span className="guild-card-pill">
+                      {creatorAccessShort(app.creatorAccess)}
+                    </span>
+                  </>
+                }
+              />
+            );
+          })}
+        </div>
       ) : null}
     </div>
   );

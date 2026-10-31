@@ -70,10 +70,7 @@ export function countRecentPosters(
 }
 
 /** Active density — last-window posters, `+` when the scan is full. */
-export function movingPostedCountLabel(
-  count: number,
-  capped: boolean
-): string {
+export function movingPostedCountLabel(count: number, capped: boolean): string {
   if (count <= 0) return '';
   if (count === 1 && !capped) return '1 just posted';
   return capped ? `${count}+ just posted` : `${count} just posted`;
@@ -471,18 +468,6 @@ function rowToRef(row: PostRow): MovingPostRef {
 /** Compact count on Moving chips and drop signals. */
 export function movingChipCountLabel(count: number): string {
   return formatDiscoverTabCount(count);
-}
-
-/** Drop peek meta — sold vs fans, omitted when the rank has no number. */
-export function movingScarceSignalLabel(
-  kind: 'traded' | 'loved',
-  count: number | null | undefined
-): string | null {
-  const n = Number(count);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  const compact = formatDiscoverTabCount(n);
-  if (kind === 'loved') return n === 1 ? '1 fan' : `${compact} fans`;
-  return n === 1 ? '1 sold' : `${compact} sold`;
 }
 
 /** Quiet proposal status — no chain jargon. */

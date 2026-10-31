@@ -14,7 +14,6 @@ import {
   preferStandingPosters,
   movingProposalMeta,
   movingProposalStatusLabel,
-  movingScarceSignalLabel,
   movingSectionFromSeed,
   orderRowsByAccountIds,
   parentPostRefFromReply,
@@ -376,14 +375,6 @@ describe('moving peek labels', () => {
   it('compacts chip counts', () => {
     expect(movingChipCountLabel(12)).toBe('12');
     expect(movingChipCountLabel(12500)).toBe('12.5K');
-  });
-
-  it('names drop signals as sold or fans', () => {
-    expect(movingScarceSignalLabel('traded', 1)).toBe('1 sold');
-    expect(movingScarceSignalLabel('traded', 12)).toBe('12 sold');
-    expect(movingScarceSignalLabel('loved', 1)).toBe('1 fan');
-    expect(movingScarceSignalLabel('loved', 8)).toBe('8 fans');
-    expect(movingScarceSignalLabel('loved', 0)).toBeNull();
   });
 
   it('keeps proposal status human', () => {

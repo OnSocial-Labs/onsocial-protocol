@@ -39,14 +39,27 @@ test.describe('discover shell', () => {
     await expectTabVisible(page, 'Filter profiles', 'Orgs');
     await expectTabVisible(page, 'Filter profiles', 'Offers');
     await expectTabVisible(page, 'Filter profiles', 'Hiring');
-    await expect(
-      page.getByText('Connect to stand with profiles.')
-    ).toHaveCount(0);
+    await expect(page.getByText('Connect to stand with profiles.')).toHaveCount(
+      0
+    );
   });
 
   test('deep-links Topics from ?tab=topics', async ({ page }) => {
     await gotoApp(page, '/discover?tab=topics');
     await expectTabSelected(page, 'Discover', 'Topics');
+  });
+
+  test('Hubs is the hub directory', async ({ page }) => {
+    await gotoApp(page, '/discover?tab=hubs');
+    await expectTabSelected(page, 'Discover', 'Hubs');
+    await expect(page.getByText('Creator hubs')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Most traded' })
+    ).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Most loved' })).toHaveCount(
+      0
+    );
+    await expect(page.locator('#discover-panel-hubs')).toBeVisible();
   });
 
   test('keeps a plain search on Moving and shows grouped results', async ({

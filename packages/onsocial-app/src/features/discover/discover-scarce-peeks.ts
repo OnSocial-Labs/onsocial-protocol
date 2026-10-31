@@ -5,7 +5,7 @@ import {
   justSoldCollectionRefs,
 } from '@/lib/discover-moving';
 
-/** Network scarce peek row — lifetime rank or last sale. */
+/** Network scarce peek row — last sale on Moving. */
 export type DiscoverScarcePeek = {
   collectionId: string;
   title: string | null;
@@ -62,63 +62,6 @@ async function hydrateScarcePeeks(
   return out;
 }
 
-/** Most-traded drops across all hubs (sales_volume desc). */
-export async function fetchMostTradedScarcePeeks(
-  client: OnSocial,
-  limit = DEFAULT_LIMIT
-): Promise<DiscoverScarcePeek[]> {
-  try {
-    const ranks = await client.query.scarces.collectionTradeStats({
-      limit,
-      offset: 0,
-    });
-    const ids = ranks.map((row) => row.collectionId.trim()).filter(Boolean);
-    const appById = new Map(
-      ranks.map((row) => [row.collectionId.trim(), row.appId] as const)
-    );
-    const signalById = new Map(
-      ranks.map((row) => [
-        row.collectionId.trim(),
-        Number(row.salesCount) || 0,
-      ] as const)
-    );
-    return await hydrateScarcePeeks(client, ids, appById, signalById);
-  } catch {
-    return [];
-  }
-}
-
-/** Most-loved drops across all hubs (fan_count desc). */
-export async function fetchMostLovedScarcePeeks(
-  client: OnSocial,
-  limit = DEFAULT_LIMIT
-): Promise<DiscoverScarcePeek[]> {
-  try {
-    let ranks: Array<{ collectionId: string; fanCount?: number }> = [];
-    try {
-      ranks = await client.query.scarces.collectionLoveFans({
-        limit,
-        offset: 0,
-      });
-    } catch {
-      ranks = await client.query.scarces.albumLoveFans({
-        limit,
-        offset: 0,
-      });
-    }
-    const ids = ranks.map((row) => row.collectionId.trim()).filter(Boolean);
-    const signalById = new Map(
-      ranks.map((row) => [
-        row.collectionId.trim(),
-        Number(row.fanCount) || 0,
-      ] as const)
-    );
-    return await hydrateScarcePeeks(client, ids, new Map(), signalById);
-  } catch {
-    return [];
-  }
-}
-
 const JUST_SOLD_POOL = 24;
 
 async function resolveSaleCollectionIds(
@@ -141,10 +84,7 @@ async function resolveSaleCollectionIds(
       const collectionId = row.collectionId?.trim() ?? '';
       if (!tokenId || !collectionId) return [];
       return [
-        [
-          tokenId,
-          { collectionId, appId: row.appId?.trim() || null },
-        ] as const,
+        [tokenId, { collectionId, appId: row.appId?.trim() || null }] as const,
       ];
     })
   );
