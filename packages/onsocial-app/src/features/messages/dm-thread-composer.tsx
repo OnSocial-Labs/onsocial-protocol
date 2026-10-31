@@ -194,6 +194,7 @@ export function DmThreadComposer({
     above,
     revision: `${replyTo?.messageId ?? ''}:${peerUnavailable ? '1' : '0'}:${error ?? ''}`,
     draftKey: writeDockDraftKey('dm', peerAccountId),
+    onClearReply: replyTo && onCancelReply ? onCancelReply : undefined,
     onSubmit: handleSubmit,
   });
 

@@ -243,7 +243,7 @@ test.describe('thread reply dock', () => {
     await expect(chip).toBeVisible({ timeout: 10_000 });
     await expect(chip).toContainText('Alice');
 
-    // Cancel — the rest face fades back in without an outgoing overlay.
+    // Empty reply — blurring the field (keyboard dismiss) drops the chip.
     const crossfading = page.locator('.os-dock-pill.is-crossfading');
     const refaded = crossfading
       .waitFor({ state: 'visible', timeout: 15_000 })
@@ -251,7 +251,7 @@ test.describe('thread reply dock', () => {
         () => true,
         () => false
       );
-    await page.getByRole('button', { name: 'Cancel reply' }).click();
+    await page.locator('.os-write-dock-input').blur();
     expect(await refaded).toBe(true);
     await expect(overlay).toHaveCount(0);
     await expect(chip).toHaveCount(0);
@@ -283,8 +283,8 @@ test.describe('thread reply dock', () => {
       page.locator('[data-thread-opened-post="root-post"]')
     ).toBeVisible();
 
-    // Cancelling the chip returns the dock to the root target.
-    await page.getByRole('button', { name: 'Cancel reply' }).click();
+    // Empty reply — blurring the field returns the dock to the root target.
+    await page.locator('.os-write-dock-input').blur();
     await expect(page.locator('.os-write-dock-reply')).toHaveCount(0);
   });
 

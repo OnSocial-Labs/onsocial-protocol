@@ -28,6 +28,7 @@ export function useReplyWriteDock({
   revision,
   draftKey,
   onExpand,
+  onClearReply,
   onConfirmed,
 }: {
   target: PostRow | null;
@@ -38,6 +39,7 @@ export function useReplyWriteDock({
   revision?: string;
   draftKey?: string;
   onExpand?: (payload: WriteDockSubmit) => void;
+  onClearReply?: () => void;
   onConfirmed?: (reply: PostRow, target: PostRow) => void;
 }) {
   const { isConnected, connect, accountId } = useAppWallet();
@@ -112,6 +114,7 @@ export function useReplyWriteDock({
       revision,
       draftKey: draftKey ?? writeDockDraftKey('post', postKey(target)),
       onExpand,
+      onClearReply,
       onSubmit: submit,
     };
   }, [
@@ -120,6 +123,7 @@ export function useReplyWriteDock({
     draftKey,
     enabled,
     error,
+    onClearReply,
     onExpand,
     pending,
     placeholder,

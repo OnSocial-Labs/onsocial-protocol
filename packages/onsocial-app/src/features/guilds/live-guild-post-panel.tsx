@@ -753,6 +753,7 @@ export function LiveGuildPostPanel({
     disabled: Boolean(modalTarget),
     placeholder: WRITE_DOCK_ADD_REPLY_PLACEHOLDER,
     above: writeAbove,
+    onClearReply: nestedDockReply ? () => setDockTarget(null) : undefined,
     revision: writeTarget ? postKey(writeTarget) : '',
     draftKey: threadDraftKey,
     onExpand: writeTarget

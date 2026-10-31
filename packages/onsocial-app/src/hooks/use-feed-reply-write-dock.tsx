@@ -88,6 +88,7 @@ export function useFeedReplyWriteDock({
     revision: target ? postKey(target) : '',
     draftKey: target ? writeDockDraftKey('post', postKey(target)) : undefined,
     onExpand: target ? handleExpand : undefined,
+    onClearReply: clearReply,
     onConfirmed: (reply, confirmedTarget) => {
       onConfirmed?.(reply, confirmedTarget);
       setTarget(null);

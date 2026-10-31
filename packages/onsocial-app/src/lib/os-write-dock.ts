@@ -128,3 +128,19 @@ export function writeDockIsThoughtEnlarge(
 export function writeDockDraftKey(kind: 'post' | 'dm', id: string): string {
   return `${kind}:${id}`;
 }
+
+/**
+ * Empty reply — keyboard dismiss or a tap outside the field drops the chip.
+ * A draft (text or media), a send in flight, or an error keeps the target.
+ * Focus moving to another control in the dock is not a dismiss.
+ */
+export function writeDockShouldClearReplyOnDismiss(input: {
+  text: string;
+  fileCount: number;
+  pending?: boolean;
+  hasError?: boolean;
+  focusInsideDock?: boolean;
+}): boolean {
+  if (input.pending || input.hasError || input.focusInsideDock) return false;
+  return input.text.trim().length === 0 && input.fileCount === 0;
+}
