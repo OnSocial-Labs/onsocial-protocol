@@ -16018,6 +16018,12 @@ a.os-surface-row,
     height: 1.05rem;
   }
 
+  /* Empty reply clears on keyboard dismiss or an outside tap. The X stays
+     only once there is a draft to keep. */
+  .os-write-dock:not(.is-compose-open) .os-write-dock-reply-cancel {
+    display: none;
+  }
+
   .os-write-dock-preview-remove:hover,
   .os-write-dock-preview-remove:focus-visible,
   .os-write-dock-reply-cancel:hover,

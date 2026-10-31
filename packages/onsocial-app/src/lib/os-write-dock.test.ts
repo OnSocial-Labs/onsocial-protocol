@@ -10,6 +10,7 @@ import {
   writeDockReplyPlaceholder,
   writeDockReplyPreview,
   writeDockReplySpokenName,
+  writeDockShouldClearReplyOnDismiss,
   writeDockShouldSendOnEnter,
   writeDockShowCompactBarTools,
   writeDockShowExpand,
@@ -50,6 +51,42 @@ describe('os write dock helpers', () => {
 
   it('does not send on Enter during SSR', () => {
     expect(writeDockShouldSendOnEnter()).toBe(false);
+  });
+
+  it('clears an empty reply on dismiss, and keeps a draft', () => {
+    expect(
+      writeDockShouldClearReplyOnDismiss({ text: '', fileCount: 0 })
+    ).toBe(true);
+    expect(
+      writeDockShouldClearReplyOnDismiss({ text: '   ', fileCount: 0 })
+    ).toBe(true);
+    expect(
+      writeDockShouldClearReplyOnDismiss({ text: 'hi', fileCount: 0 })
+    ).toBe(false);
+    expect(
+      writeDockShouldClearReplyOnDismiss({ text: '', fileCount: 1 })
+    ).toBe(false);
+    expect(
+      writeDockShouldClearReplyOnDismiss({
+        text: '',
+        fileCount: 0,
+        pending: true,
+      })
+    ).toBe(false);
+    expect(
+      writeDockShouldClearReplyOnDismiss({
+        text: '',
+        fileCount: 0,
+        hasError: true,
+      })
+    ).toBe(false);
+    expect(
+      writeDockShouldClearReplyOnDismiss({
+        text: '',
+        fileCount: 0,
+        focusInsideDock: true,
+      })
+    ).toBe(false);
   });
 
   it('names a nested reply or falls back', () => {

@@ -34,6 +34,7 @@ import {
   writeDockShowExpand,
   writeDockShowMedia,
   writeDockShowSend,
+  writeDockShouldClearReplyOnDismiss,
   writeDockShowTextCount,
   writeDockTextRemaining,
   writeDockShouldSendOnEnter,
@@ -128,6 +129,8 @@ export interface OsWriteDockProps {
   accept?: string;
   draftKey?: string;
   onExpand?: (payload: WriteDockSubmit) => void;
+  /** Empty dismiss — keyboard down or a tap outside drops the reply chip. */
+  onClearReply?: () => void;
   onSubmit: (payload: WriteDockSubmit) => boolean | void | Promise<boolean | void>;
 }
 
@@ -141,6 +144,7 @@ export function OsWriteDock({
   accept = WRITE_DOCK_MEDIA_ACCEPT,
   draftKey,
   onExpand,
+  onClearReply,
   onSubmit,
 }: OsWriteDockProps) {
   const fieldId = useId();
@@ -167,6 +171,14 @@ export function OsWriteDock({
     Boolean(initialDraft.text.trim() || initialDraft.files.length)
   );
   const submitLockRef = useRef(false);
+  const onClearReplyRef = useRef(onClearReply);
+  onClearReplyRef.current = onClearReply;
+  const pendingRef = useRef(pending);
+  pendingRef.current = pending;
+  const dismissErrorRef = useRef(false);
+  const replyDismissRef = useRef<(focusInsideDock: boolean) => boolean>(
+    () => false
+  );
   const viewport = useVisualViewportSheetMetrics(trackKeyboard);
   const hasContent = Boolean(text.trim() || mediaFiles.length);
   const hasReplyChrome = Boolean(above);
@@ -235,6 +247,25 @@ export function OsWriteDock({
       setTrackKeyboard(false);
     }
   }, [fieldFocused, viewport.lift]);
+
+  /* Empty reply — a tap outside the field drops the chip. The keyboard
+     dismiss path is the field blur below. A draft keeps the chip. */
+  const clearReplyOnDismiss = Boolean(onClearReply);
+  useEffect(() => {
+    if (!clearReplyOnDismiss) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const field = textRef.current;
+      const dock = field?.closest('.os-write-dock');
+      if (!field || !dock) return;
+      const target = event.target;
+      if (target instanceof Node && dock.contains(target)) return;
+      if (!replyDismissRef.current(false)) return;
+      field.blur();
+      onClearReplyRef.current?.();
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [clearReplyOnDismiss]);
 
   useEffect(() => {
     setWritePinned?.(toolsOpen || isTall || fieldFocused);
@@ -365,6 +396,17 @@ export function OsWriteDock({
 
   const mediaAtMax = mediaFiles.length >= POST_MEDIA_MAX_FILES;
   const chromeError = error ?? mediaError;
+  dismissErrorRef.current = Boolean(chromeError);
+
+  const replyDismissWouldClear = (focusInsideDock: boolean) =>
+    writeDockShouldClearReplyOnDismiss({
+      text: textRef.current?.value ?? '',
+      fileCount: mediaFilesRef.current.length,
+      pending: pendingRef.current,
+      hasError: dismissErrorRef.current,
+      focusInsideDock,
+    });
+  replyDismissRef.current = replyDismissWouldClear;
 
   const mediaButton = (
     <button
@@ -526,11 +568,19 @@ export function OsWriteDock({
               scrollFieldIntoView(event);
             }}
             onBlur={() => {
+              const field = textRef.current;
               window.setTimeout(() => {
-                if (textRef.current !== document.activeElement) {
-                  setFieldFocused(false);
-                  collapseComposeSessionIfEmpty();
-                }
+                if (!field?.isConnected) return;
+                if (field === document.activeElement) return;
+                setFieldFocused(false);
+                collapseComposeSessionIfEmpty();
+                const dock = field.closest('.os-write-dock');
+                const active = document.activeElement;
+                const focusInsideDock = Boolean(
+                  active instanceof Node && dock?.contains(active)
+                );
+                if (!replyDismissWouldClear(focusInsideDock)) return;
+                onClearReplyRef.current?.();
               }, 0);
             }}
             onKeyDown={(event) => {

@@ -53,6 +53,11 @@ export interface WriteDockRegistration {
   draftKey?: string;
   /** Open the full composer with the current dock draft. Omit on DMs. */
   onExpand?: (payload: WriteDockSubmit) => void;
+  /**
+   * Drop the reply target when an empty composer is dismissed.
+   * Omit when this dock is not answering a specific post or message.
+   */
+  onClearReply?: () => void;
   onSubmit: (
     payload: WriteDockSubmit
   ) => boolean | void | Promise<boolean | void>;
@@ -255,6 +260,7 @@ export function useRegisterWriteDock(entry: WriteDockRegistration | null) {
         entry.draftKey ?? '',
         Boolean(entry.above) ? '1' : '0',
         Boolean(entry.onExpand) ? '1' : '0',
+        Boolean(entry.onClearReply) ? '1' : '0',
       ].join('\0')
     : '';
 
@@ -275,6 +281,11 @@ export function useRegisterWriteDock(entry: WriteDockRegistration | null) {
         onSubmit: (payload) => entryRef.current?.onSubmit(payload),
         onExpand: entryRef.current.onExpand
           ? (payload) => entryRef.current?.onExpand?.(payload)
+          : undefined,
+        onClearReply: current.onClearReply
+          ? () => {
+              entryRef.current?.onClearReply?.();
+            }
           : undefined,
       },
     });

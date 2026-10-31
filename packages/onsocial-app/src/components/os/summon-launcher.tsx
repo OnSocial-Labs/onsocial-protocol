@@ -564,6 +564,7 @@ export function SummonLauncher({
                   accept={write.accept}
                   draftKey={write.draftKey}
                   onExpand={write.onExpand}
+                  onClearReply={write.onClearReply}
                   onSubmit={write.onSubmit}
                 />
               ) : undefined
