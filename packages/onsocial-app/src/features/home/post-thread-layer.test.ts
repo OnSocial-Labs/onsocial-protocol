@@ -82,6 +82,10 @@ describe('thread trail stack', () => {
     expect(
       replyOpenedOverMediaFace({ trailZ: 90, mediaFaceZ: 170, lift: 80 })
     ).toEqual({ zIndex: 91, openedAboveMediaFace: true });
+    // A cover opened above that reply paints higher. The next reply still clears it.
+    expect(
+      replyOpenedOverMediaFace({ trailZ: 90, mediaFaceZ: 173, lift: 80 })
+    ).toEqual({ zIndex: 94, openedAboveMediaFace: true });
   });
 
   it('steps the header back one layer at a time: reply, quotes, post', () => {

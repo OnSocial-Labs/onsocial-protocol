@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  feedCoverOpenIntent,
+  postContinuePlayhead,
+  shouldPlaceSiblingPlayhead,
   launcherReclaimFor,
+  playFailureKeepsDockBorrow,
+  mediaFaceCoveredBySheet,
   shouldBorrowSpeakers,
   shouldYieldToIncoming,
   mediaIsQuietUnderCovers,
@@ -365,6 +370,85 @@ describe('shouldYieldToIncoming', () => {
         audible: false,
       })
     ).toBe(false);
+  });
+});
+
+describe('mediaFaceCoveredBySheet', () => {
+  it('pauses a film that sits under the reply', () => {
+    expect(
+      mediaFaceCoveredBySheet({ held: true, faceZ: 80, sheetZ: 170 })
+    ).toBe(true);
+  });
+
+  it('plays a cover opened above that reply', () => {
+    expect(
+      mediaFaceCoveredBySheet({ held: true, faceZ: 171, sheetZ: 170 })
+    ).toBe(false);
+  });
+
+  it('stays quiet until stacking is known', () => {
+    expect(
+      mediaFaceCoveredBySheet({ held: true, faceZ: null, sheetZ: 170 })
+    ).toBe(true);
+  });
+
+  it('does not hold a film when no reply sheet is up', () => {
+    expect(
+      mediaFaceCoveredBySheet({ held: false, faceZ: 80, sheetZ: 170 })
+    ).toBe(false);
+  });
+
+  it('pauses the film that stepped aside for the reply already on screen', () => {
+    expect(
+      mediaFaceCoveredBySheet({
+        held: true,
+        faceZ: 173,
+        sheetZ: 170,
+        yielded: true,
+      })
+    ).toBe(true);
+  });
+});
+
+describe('playFailureKeepsDockBorrow', () => {
+  it('keeps the launcher hold when a cover pause aborts play', () => {
+    expect(playFailureKeepsDockBorrow({ name: 'AbortError' })).toBe(true);
+    expect(playFailureKeepsDockBorrow({ name: 'NotAllowedError' })).toBe(false);
+    expect(playFailureKeepsDockBorrow(null)).toBe(false);
+  });
+});
+
+describe('postContinuePlayhead', () => {
+  it('starts a fresh open at 0 when no other post has the file', () => {
+    expect(postContinuePlayhead(0, 25, true)).toBe(0);
+  });
+
+  it('keeps a manual rewind ahead of a copy that is still further on', () => {
+    expect(postContinuePlayhead(40, 25, true)).toBe(25);
+  });
+
+  it('keeps the live copy when the earlier time was not a rewind', () => {
+    expect(postContinuePlayhead(40, 25, false)).toBe(40);
+    expect(postContinuePlayhead(40, 40, true)).toBe(40);
+    expect(postContinuePlayhead(40, 0, true)).toBe(40);
+  });
+});
+
+describe('shouldPlaceSiblingPlayhead', () => {
+  it('places the clock only while this copy is still at the start', () => {
+    expect(shouldPlaceSiblingPlayhead(0, 25)).toBe(true);
+    expect(shouldPlaceSiblingPlayhead(25, 40)).toBe(false);
+    expect(shouldPlaceSiblingPlayhead(0, 0)).toBe(false);
+  });
+});
+
+describe('feedCoverOpenIntent', () => {
+  it('starts a fresh album at the beginning', () => {
+    expect(feedCoverOpenIntent(0)).toBe('restart');
+  });
+
+  it('continues the album the reply covered', () => {
+    expect(feedCoverOpenIntent(12.4)).toBe('explicit');
   });
 });
 

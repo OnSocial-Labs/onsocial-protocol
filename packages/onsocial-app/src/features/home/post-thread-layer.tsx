@@ -32,10 +32,12 @@ import type { PersonalPostPageData } from '@/lib/load-personal-post-page';
 import type { GuildPostPageData } from '@/lib/load-guild-post-page';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
 import {
+  bumpMediaFaceCover,
+  onDismissReplyDrawers,
   requestCloseMediaFaces,
   setMediaFacesHeld,
+  setMediaFacesYielded,
 } from '@/lib/media-face-session';
-import { startJoinedMedia } from '@/lib/single-media-playback';
 import { postKey } from '@/lib/post-display';
 import {
   guildThreadCardContext,
@@ -273,12 +275,17 @@ function isOverlayPlacePathname(pathname: string): boolean {
 
 function topOpenMediaFaceZ(): number | null {
   if (typeof document === 'undefined') return null;
-  const node = document.querySelector<HTMLElement>(
-    '[data-os-slide-over="true"]:not(.is-closing)'
-  );
-  if (!node) return null;
-  const z = Number(getComputedStyle(node).zIndex);
-  return Number.isFinite(z) ? z : null;
+  let top: number | null = null;
+  document
+    .querySelectorAll<HTMLElement>(
+      '[data-os-slide-over="true"]:not(.is-closing)'
+    )
+    .forEach((node) => {
+      const z = Number(getComputedStyle(node).zIndex);
+      if (!Number.isFinite(z)) return;
+      top = top == null ? z : Math.max(top, z);
+    });
+  return top;
 }
 
 function nextStackedLayerZ(stack: PlaceLayerTarget[]): number {
@@ -418,7 +425,6 @@ function PostThreadSheet({
 }) {
   const titleId = useId();
   const bodyRef = useRef<HTMLDivElement>(null);
-  const resumeMediaRef = useRef<HTMLMediaElement[]>([]);
   const quotes = layer.kind === 'quotes';
   const [quotesTrackHost, setQuotesTrackHost] = useState<HTMLDivElement | null>(
     null
@@ -445,12 +451,15 @@ function PostThreadSheet({
     ensurePostThreadParkedStyle();
     let hushed = false;
     let sheetRoot: HTMLElement | null = null;
+    const hush = (node: HTMLMediaElement) => {
+      if (node.paused || node.ended) return;
+      node.pause();
+    };
     const quiet = (event: Event) => {
       const target = event.target;
       if (!(target instanceof HTMLMediaElement)) return;
-      if (!target.paused) resumeMediaRef.current.push(target);
-      target.pause();
-      window.setTimeout(() => target.pause(), 0);
+      hush(target);
+      window.setTimeout(() => hush(target), 0);
     };
     const allowScroll = (event: Event) => {
       const target = event.target;
@@ -472,14 +481,11 @@ function PostThreadSheet({
       }
       if (hushed) return;
       hushed = true;
-      const playing: HTMLMediaElement[] = [];
       root.querySelectorAll('video, audio').forEach((node) => {
-        if (!(node instanceof HTMLMediaElement) || node.paused) return;
-        playing.push(node);
-        node.pause();
-        window.setTimeout(() => node.pause(), 0);
+        if (!(node instanceof HTMLMediaElement)) return;
+        hush(node);
+        window.setTimeout(() => hush(node), 0);
       });
-      resumeMediaRef.current = playing;
       root.addEventListener('play', quiet, true);
     };
     apply();
@@ -502,11 +508,6 @@ function PostThreadSheet({
         root.removeAttribute('aria-hidden');
         root.inert = false;
       }
-      for (const node of resumeMediaRef.current) {
-        if (node.isConnected)
-          void startJoinedMedia(node, 'explicit').catch(() => undefined);
-      }
-      resumeMediaRef.current = [];
     };
   }, [parked]);
 
@@ -745,6 +746,41 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
     };
   }, [mediaFaceCovered]);
 
+  // A later reply can cover a film that was already held. Re-check heights.
+  useLayoutEffect(() => {
+    if (!mediaFaceCovered) return;
+    bumpMediaFaceCover();
+  }, [mediaFaceCovered, stack]);
+
+  // Leaving the post ends the aside. The film is no longer waiting.
+  useEffect(() => {
+    if (stack.length > 0) return;
+    setMediaFacesYielded(false);
+  }, [stack.length]);
+
+  // A cover tap chose the film. The reply trail closes. Back does not.
+  useEffect(() => {
+    return onDismissReplyDrawers(() => {
+      const underlay = underlayPathRef.current ?? '/home';
+      const saved = underlayScrollRef.current;
+      setMediaFacesHeld(false);
+      if (stackRef.current.length === 0) return;
+      closingIdRef.current = null;
+      setClosingId(null);
+      stackRef.current = [];
+      setStack([]);
+      underlayPathRef.current = null;
+      setUnderlayPath(null);
+      underlayScrollRef.current = null;
+      if (saved?.el.isConnected) saved.el.scrollTop = saved.top;
+      if (typeof window === 'undefined') return;
+      getPostLayerPopGuard().depth = 0;
+      if (historyHasPostLayer()) {
+        nativeHistoryReplaceState(withoutPostLayerHistoryState(), underlay);
+      }
+    });
+  }, []);
+
   const beginCloseTop = useCallback(() => {
     const top = stackRef.current[stackRef.current.length - 1];
     if (!top || closingIdRef.current) return false;
@@ -789,6 +825,8 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
 
   const closePostThread = useCallback(() => {
     const current = stackRef.current;
+    // The film comes back with this step, including the last sheet.
+    setMediaFacesYielded(false);
     // The sheet stays up until the last step.
     const walked = walkBackOneStep(current);
     if (walked) {
@@ -873,8 +911,12 @@ export function PostThreadLayerProvider({ children }: { children: ReactNode }) {
         ...parsed,
       });
       if (revealed?.at === 'top') {
-        // Already the open post. Drop a film covering it so this is the post.
-        requestCloseMediaFaces();
+        if (topOpenMediaFaceZ() != null) {
+          // Already this post. Step the film aside. Its pause starts the launcher.
+          setMediaFacesYielded(true);
+        } else {
+          requestCloseMediaFaces();
+        }
         return true;
       }
       if (revealed?.at === 'back') {

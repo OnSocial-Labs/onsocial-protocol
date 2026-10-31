@@ -30,6 +30,7 @@ import {
 } from '@/features/home/use-feed-thread-band';
 import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
 import { postLayerOverlayZ } from '@/lib/sheet-z';
+import { mediaFacePostKey } from '@/lib/media-face-session';
 import { SCARCE_HERO_WIDTHS, SQUARE_ART_SIZES } from '@/lib/hero-img-variants';
 
 function formatFaceTime(seconds: number): string {
@@ -78,6 +79,9 @@ export function FeedAudioEnlarge({
   threadPostId = null,
   threadRoot = null,
   onBeforeClose,
+  onPaintedZ,
+  yielded = false,
+  faceOwnerId = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -110,6 +114,11 @@ export function FeedAudioEnlarge({
   threadAuthor?: string | null;
   threadPostId?: string | null;
   threadRoot?: PostRow | null;
+  onPaintedZ?: (z: number) => void;
+  /** The reply already on screen is this post. Keep the element, hide the film. */
+  yielded?: boolean;
+  /** Matches the card player. The sound element is not inside the film. */
+  faceOwnerId?: string | null;
 }) {
   const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
   const writePinned = useWriteDockPinned();
@@ -349,6 +358,14 @@ export function FeedAudioEnlarge({
       trailing={trailing}
       closeAriaLabel="Back"
       zIndex={faceZ}
+      onPaintedZ={onPaintedZ}
+      yielded={yielded}
+      faceOwnerId={faceOwnerId}
+      mediaPostKey={
+        threadAuthor && threadPostId
+          ? mediaFacePostKey(threadAuthor, threadPostId)
+          : null
+      }
       footer={threadActive ? null : footer}
       transport={threadActive ? null : transportNode}
       stageLayout="fixed"

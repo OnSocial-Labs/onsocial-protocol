@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -23,14 +24,27 @@ import { MediaDownloadControl } from '@/components/ui/media-download-control';
 import { SCARCE_HERO_WIDTHS, SQUARE_ART_SIZES } from '@/lib/hero-img-variants';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
-import { useMediaFacesHeld } from '@/lib/media-face-session';
 import {
+  mediaFacesYieldedNow,
+  onResumeMediaFace,
+  useMediaFaceCoverEpoch,
+  useMediaFacesHeld,
+  useMediaFacesYielded,
+} from '@/lib/media-face-session';
+import {
+  feedCoverOpenIntent,
+  heldSiblingPlayhead,
+  mediaDisplayedPlayhead,
   mediaElementIsDockHost,
+  mediaFaceCoveredBySheet,
+  mediaFaceIsForeground,
+  noteMediaPlayhead,
   notifyDockBorrow,
-  pauseCoveredMedia,
+  shouldPlaceSiblingPlayhead,
   reclaimSpeakersForLauncher,
   SPEAKER_RELOADING_ATTR,
   startJoinedMedia,
+  topReplySheetZ,
 } from '@/lib/single-media-playback';
 import {
   dockSrcMatchesTrack,
@@ -40,6 +54,8 @@ import {
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import { FeedAudioEnlarge } from '@/features/home/feed-audio-enlarge';
+import { usePostLayerOwnerZ } from '@/features/home/post-layer-owner-z';
+import { postLayerOverlayZ } from '@/lib/sheet-z';
 import { ClipProgressTrack } from '@/features/home/feed-media-progress';
 import { ScarceClipListenSheet } from '@/features/scarces/scarce-clip-listen-sheet';
 import { ScarceClipShareButton } from '@/features/scarces/scarce-clip-share-button';
@@ -64,6 +80,18 @@ import {
 } from '@/lib/media-download';
 import { isRenderablePostAudioMime } from '@/lib/post-media';
 import { txToastError } from '@/lib/transaction-toast-copy';
+
+/** Painted z of this film. A yielded face reports 0, so the last real z wins. */
+function paintedSlideZ(
+  node: HTMLMediaElement | null,
+  fallback: number
+): number {
+  const slide = node?.closest('[data-os-slide-over="true"]');
+  if (!(slide instanceof HTMLElement)) return fallback;
+  const z = Number(getComputedStyle(slide).zIndex);
+  if (!Number.isFinite(z) || z <= 0) return fallback;
+  return Math.max(fallback, z);
+}
 
 interface ScarceClipPlayerProps {
   clip: ScarcePlayableMedia;
@@ -147,6 +175,11 @@ interface ScarceClipPlayerProps {
   threadAuthor?: string | null;
   threadPostId?: string | null;
   threadRoot?: PostRow | null;
+  /**
+   * The cover was tapped while this face was already open.
+   * Play on from the paused place and take the speakers back.
+   */
+  coverPlayNonce?: number;
 }
 
 function useBrowserOnline(): boolean {
@@ -213,6 +246,7 @@ export function ScarceClipPlayer({
   threadAuthor = null,
   threadPostId = null,
   threadRoot = null,
+  coverPlayNonce = 0,
 }: ScarceClipPlayerProps) {
   const nowPlaying = useCollectiblesNowPlayingOptional();
   const { setTxResult } = useAppTransactionFeedback();
@@ -271,8 +305,33 @@ export function ScarceClipPlayer({
   const faceScrubInputRef = useRef<HTMLInputElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const facesHeld = useMediaFacesHeld();
-  const audioHoldLatchRef = useRef(false);
-  const audioHoldPlayingRef = useRef(false);
+  const facesYielded = useMediaFacesYielded();
+  const coverEpoch = useMediaFaceCoverEpoch();
+  const faceOwnerId = useId();
+  const requestedFaceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
+  const [paintedFaceZ, setPaintedFaceZ] = useState(requestedFaceZ);
+  if (requestedFaceZ > paintedFaceZ) setPaintedFaceZ(requestedFaceZ);
+  // The slide-over reports its painted z from a child layout effect, which
+  // runs before this player's hold. The ref is current in that same commit.
+  const paintedFaceZRef = useRef(requestedFaceZ);
+  if (requestedFaceZ > paintedFaceZRef.current) {
+    paintedFaceZRef.current = requestedFaceZ;
+  }
+  /** This reply pause was ours. Back onto the post continues from here. */
+  const resumeAfterReplyRef = useRef(false);
+  const replySheetZ =
+    typeof document === 'undefined' ? null : topReplySheetZ(document);
+  const liveFaceZ = paintedSlideZ(
+    mediaRef.current,
+    Math.max(paintedFaceZ, paintedFaceZRef.current)
+  );
+  const faceSteppedAside =
+    facesYielded &&
+    !mediaFaceCoveredBySheet({
+      held: true,
+      faceZ: liveFaceZ,
+      sheetZ: replySheetZ,
+    });
   const [started, setStarted] = useState(false);
   /** Bump to autoplay after a track change (tap or natural advance). */
   const [autoplayNonce, setAutoplayNonce] = useState(0);
@@ -349,8 +408,6 @@ export function ScarceClipPlayer({
   useEffect(() => {
     if (!listenOpen) return;
     paintProgress(currentTimeRef.current, durationRef.current);
-    // Sync listen scrubber once the sheet mounts.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- open only
   }, [listenOpen]);
 
   useEffect(() => {
@@ -373,8 +430,25 @@ export function ScarceClipPlayer({
     audio.muted = false;
     audio.volume = 1;
     let cancelled = false;
-    // restart: this post starts on its own, it does not take the launcher clock.
-    void startJoinedMedia(audio, 'restart')
+    // A fresh post starts at 0. A sibling a reply already paused continues.
+    const held = heldSiblingPlayhead(audio);
+    const intent = feedCoverOpenIntent(held);
+    const place = () => {
+      if (cancelled || intent !== 'explicit') return;
+      const next = heldSiblingPlayhead(audio);
+      // Metadata can land after a rewind. Only a copy still at 0 takes the clock.
+      if (!shouldPlaceSiblingPlayhead(audio.currentTime, next)) return;
+      try {
+        audio.currentTime = next;
+      } catch {
+        // Metadata can land after this.
+      }
+    };
+    place();
+    if (intent === 'explicit') {
+      audio.addEventListener('loadedmetadata', place);
+    }
+    void startJoinedMedia(audio, intent)
       .then(() => {
         if (!cancelled) setPlaying(true);
       })
@@ -383,6 +457,7 @@ export function ScarceClipPlayer({
       });
     return () => {
       cancelled = true;
+      audio.removeEventListener('loadedmetadata', place);
       notifyDockBorrow(audio, 'stop');
       audio.pause();
     };
@@ -390,35 +465,104 @@ export function ScarceClipPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- feed open only
   }, [feedEnlarge]);
 
-  // A reply covers this face. Keep the playhead. A pause stays paused.
+  // A reply is a normal pause, so the launcher starts.
+  // Back onto this post plays on from the same place. The reply drawer can stay open.
   useLayoutEffect(() => {
     if (!feedEnlarge) return;
     const audio = mediaRef.current;
     if (!audio || mediaElementIsDockHost(audio)) return;
-    if (facesHeld) {
-      if (!audioHoldLatchRef.current) {
-        audioHoldLatchRef.current = true;
-        audioHoldPlayingRef.current = !audio.paused && !audio.ended;
+    // The sound stays in the card, so a hidden film is not "behind" this
+    // element. While this film has stepped aside, keep it paused. A play
+    // that was already in flight must not start it again under the reply.
+    if (faceSteppedAside) {
+      const stop = () => {
+        // A cover tap already cleared the hide. That play is the film coming back.
+        if (!mediaFacesYieldedNow()) return;
+        if (audio.paused || audio.ended) return;
+        resumeAfterReplyRef.current = true;
+        audio.pause();
+      };
+      stop();
+      audio.addEventListener('play', stop);
+      return () => audio.removeEventListener('play', stop);
+    }
+    const sheetZ =
+      typeof document === 'undefined' ? null : topReplySheetZ(document);
+    const faceZ = paintedSlideZ(
+      audio,
+      Math.max(paintedFaceZ, paintedFaceZRef.current)
+    );
+    const steppedAside =
+      facesYielded &&
+      !mediaFaceCoveredBySheet({ held: true, faceZ, sheetZ });
+    const covered = mediaFaceCoveredBySheet({
+      held: facesHeld,
+      faceZ,
+      sheetZ,
+      // Hidden until back shows this film, even if the sheet z is not known yet.
+      yielded: facesYielded || steppedAside,
+    });
+    const foreground = mediaFaceIsForeground(audio);
+    if (!foreground || covered) {
+      if (!audio.paused && !audio.ended) {
+        resumeAfterReplyRef.current = true;
+        audio.pause();
       }
-      if (!audio.paused) pauseCoveredMedia(audio);
       return;
     }
-    if (!audioHoldLatchRef.current) return;
-    audioHoldLatchRef.current = false;
-    const resume = audioHoldPlayingRef.current;
-    audioHoldPlayingRef.current = false;
-    if (!resume || !audio.isConnected) return;
+    if (!resumeAfterReplyRef.current || audio.ended || !audio.isConnected) {
+      return;
+    }
     if (
       audio
         .closest('[data-os-slide-over="true"]')
         ?.classList.contains('is-closing')
     ) {
+      resumeAfterReplyRef.current = false;
       return;
     }
+    if (!audio.paused) {
+      resumeAfterReplyRef.current = false;
+      return;
+    }
+    resumeAfterReplyRef.current = false;
     void startJoinedMedia(audio, 'explicit')
       .then(() => setPlaying(true))
       .catch(() => setPlaying(false));
-  }, [facesHeld, feedEnlarge]);
+    // coverEpoch: a later reply moved over this face without facesHeld flipping.
+    void coverEpoch;
+  }, [
+    coverEpoch,
+    faceSteppedAside,
+    facesHeld,
+    facesYielded,
+    feedEnlarge,
+    paintedFaceZ,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!coverPlayNonce || !feedEnlarge) return;
+    const audio = mediaRef.current;
+    if (!audio || mediaElementIsDockHost(audio)) return;
+    void startJoinedMedia(audio, 'explicit')
+      .then(() => setPlaying(true))
+      .catch(() => setPlaying(false));
+  }, [coverPlayNonce, feedEnlarge]);
+
+  // A cover on another copy of this post shows this film and plays it.
+  // The sound element stays in the card, so match the film we rendered.
+  useEffect(() => {
+    return onResumeMediaFace((face) => {
+      if (face.getAttribute('data-os-face-owner') !== faceOwnerId) return;
+      const audio = mediaRef.current;
+      if (!audio || mediaElementIsDockHost(audio)) return;
+      audio.muted = false;
+      audio.volume = 1;
+      void startJoinedMedia(audio, 'explicit')
+        .then(() => setPlaying(true))
+        .catch(() => setPlaying(false));
+    });
+  }, [faceOwnerId]);
 
   const playlistKey = playlist.map((t) => t.url).join('\0');
   const loves = useScarceTrackLoves({
@@ -654,6 +798,7 @@ export function ScarceClipPlayer({
     const target = clampTime(next ?? currentTimeRef.current);
     if (media) {
       media.currentTime = target;
+      noteMediaPlayhead(media, target);
     }
     paintProgress(target);
     scrubbingRef.current = false;
@@ -680,7 +825,10 @@ export function ScarceClipPlayer({
     }
     const media = mediaRef.current;
     const capped = clampTime(time);
-    if (media) media.currentTime = capped;
+    if (media) {
+      media.currentTime = capped;
+      noteMediaPlayhead(media, capped);
+    }
     paintProgress(capped);
   }
 
@@ -734,7 +882,7 @@ export function ScarceClipPlayer({
       if (media && !scrubbingRef.current) {
         const total = media.duration;
         paintProgress(
-          media.currentTime,
+          mediaDisplayedPlayhead(media),
           Number.isFinite(total) && total > 0 ? total : durationRef.current
         );
       }
@@ -762,14 +910,14 @@ export function ScarceClipPlayer({
 
   function onTimeUpdate(event: SyntheticEvent<HTMLMediaElement>) {
     if (scrubbingRef.current || playingRef.current) return;
-    paintProgress(event.currentTarget.currentTime);
+    paintProgress(mediaDisplayedPlayhead(event.currentTarget));
   }
 
   function onLoadedMetadata(event: SyntheticEvent<HTMLMediaElement>) {
     const media = event.currentTarget;
     rememberDuration(active.url, media.duration);
     if (!scrubbingRef.current) {
-      paintProgress(media.currentTime, media.duration);
+      paintProgress(mediaDisplayedPlayhead(media), media.duration);
     }
   }
 
@@ -1020,6 +1168,11 @@ export function ScarceClipPlayer({
       faceRailRef={faceRailRef}
       faceElapsedRef={faceElapsedRef}
       faceScrubInputRef={faceScrubInputRef}
+      yielded={faceSteppedAside}
+      onPaintedZ={(z) => {
+        paintedFaceZRef.current = z;
+        setPaintedFaceZ((current) => (current === z ? current : z));
+      }}
       peekIdentity={peekIdentity}
       caption={caption}
       captionDate={captionDate}
@@ -1030,6 +1183,7 @@ export function ScarceClipPlayer({
       threadAuthor={threadAuthor}
       threadPostId={threadPostId}
       threadRoot={threadRoot}
+      faceOwnerId={faceOwnerId}
     />
   ) : null;
 
@@ -1037,6 +1191,7 @@ export function ScarceClipPlayer({
     <>
       {coverFace}
       <div
+        data-os-player-owner={faceOwnerId}
         className={`scarce-clip-player-shell${
           tracksOnly ? ' scarce-clip-player-shell--tracks' : ''
         }${isAudio ? ' scarce-clip-player-shell--audio' : ''}${

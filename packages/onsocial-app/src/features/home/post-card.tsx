@@ -30,6 +30,12 @@ import {
   type PostCardMenuPostProps,
 } from '@/features/home/post-card-menu';
 import { PostCardBody, postBadges } from '@/features/home/post-card-body';
+import {
+  hasReachableMediaFace,
+  onDismissReplyDrawers,
+  revealOpenMediaFace,
+  setMediaFacesYielded,
+} from '@/lib/media-face-session';
 import { displayName } from '@/lib/profile-display';
 import { downloadIpfsMedia } from '@/lib/media-download';
 import { PostAmplifySheet } from '@/features/home/post-amplify-sheet';
@@ -385,6 +391,8 @@ function PostCardImpl({
     item: OwnedScarceItem | null;
   } | null>(null);
   const [feedMediumOpen, setFeedMediumOpen] = useState(false);
+  const [coverPlayNonce, setCoverPlayNonce] = useState(0);
+  const [mediumEpoch, setMediumEpoch] = useState(0);
   const [feedMediumMode, setFeedMediumMode] =
     useState<ScarceFeedMediumMode>('viewer');
   const [feedMediumCoverSvg, setFeedMediumCoverSvg] = useState<string | null>(
@@ -438,6 +446,7 @@ function PostCardImpl({
   const dismissPhotoThread = useCallback(() => {
     setPhotoThreadOpen(false);
   }, []);
+  useEffect(() => onDismissReplyDrawers(dismissPhotoThread), [dismissPhotoThread]);
   const [menuForceEmbed, setMenuForceEmbed] = useState(false);
   const [cancelScarcePending, setCancelScarcePending] = useState(false);
   const isSelf =
@@ -758,9 +767,22 @@ function PostCardImpl({
     mode: ScarceFeedMediumMode,
     coverSvg: string | null = null
   ) => {
+    if (revealOpenMediaFace(post.accountId, post.postId)) return;
+    const stuck =
+      feedMediumOpen &&
+      feedMediumMode === mode &&
+      !hasReachableMediaFace(post.accountId, post.postId);
+    const already = feedMediumOpen && feedMediumMode === mode && !stuck;
+    setMediaFacesYielded(false);
     setFeedMediumMode(mode);
     setFeedMediumCoverSvg(coverSvg);
     setFeedMediumOpen(true);
+    if (stuck) {
+      setMediumEpoch((epoch) => epoch + 1);
+      return;
+    }
+    if (!already) return;
+    setCoverPlayNonce((n) => n + 1);
   };
   /** Listed writing Drop face — cover stays card-sized. */
   const articleHasScarceFace =
@@ -1494,6 +1516,10 @@ function PostCardImpl({
                         index
                       );
                       if (action.kind === 'enlarge') {
+                        if (revealOpenMediaFace(post.accountId, post.postId)) {
+                          return;
+                        }
+                        setMediaFacesYielded(false);
                         setEnlargeOverride(null);
                         setPhotoZoomOrigin(
                           zoomOriginFromTile(tile, action.mediaIndex)
@@ -1831,6 +1857,7 @@ function PostCardImpl({
       ) : null}
       {feedMediumSheetMounted ? (
         <ScarceFeedMediumSheet
+          key={mediumEpoch}
           open={feedMediumOpen}
           onOpenChange={(next) => {
             setFeedMediumOpen(next);
@@ -1843,6 +1870,7 @@ function PostCardImpl({
           threadPostId={post.postId}
           threadRoot={post}
           feedEnlarge={feedMediumMode === 'audio'}
+          coverPlayNonce={coverPlayNonce}
           peekIdentity={mediaPeekIdentity}
           caption={photoCaption}
           captionDate={

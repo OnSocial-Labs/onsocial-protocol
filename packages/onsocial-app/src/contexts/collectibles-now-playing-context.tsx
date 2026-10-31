@@ -216,12 +216,23 @@ export function CollectiblesNowPlayingProvider({
       });
     };
 
+    const takeSpeakers = (media: HTMLMediaElement) => {
+      cancelResume();
+      // One post holds the speakers. A film already paused under a reply
+      // is not still holding them, so a later pause can bring the song back.
+      for (const node of [...active]) {
+        if (node === media) continue;
+        active.delete(node);
+        if (!node.paused && !node.ended) node.pause();
+      }
+      active.add(media);
+      apply();
+    };
+
     const onPlay = (event: Event) => {
       const media = foreign(event.target);
       if (!media || !audible(media)) return;
-      cancelResume();
-      active.add(media);
-      apply();
+      takeSpeakers(media);
     };
 
     const onStop = (event: Event) => {
@@ -239,9 +250,7 @@ export function CollectiblesNowPlayingProvider({
       const media = foreign(event.target);
       if (!media) return;
       if (audible(media)) {
-        cancelResume();
-        active.add(media);
-        apply();
+        takeSpeakers(media);
         return;
       }
       release(media);
@@ -250,9 +259,7 @@ export function CollectiblesNowPlayingProvider({
     setDockBorrowListener((media, phase) => {
       if (media === audioRef.current || media.dataset.osDockBorrow) return;
       if (phase === 'start') {
-        cancelResume();
-        active.add(media);
-        apply();
+        takeSpeakers(media);
         return;
       }
       release(media);

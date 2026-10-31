@@ -31661,7 +31661,7 @@ a.os-surface-row,
     transition: opacity var(--os-motion-sheet, 280ms)
       var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
     /* Above create-drop drawers; below art overlay zoom. */
-    pointer-events: auto;
+    pointer-events: none;
   }
 
   .app-surface > .os-slide-over {
@@ -31736,11 +31736,24 @@ a.os-surface-row,
      */
     transform: none;
     opacity: 1;
+    pointer-events: auto;
   }
 
   .os-slide-over.is-closing {
     transform: none;
     opacity: 0;
+    pointer-events: none;
+  }
+
+  .os-slide-over.is-yielded,
+  .os-slide-over.is-covered {
+    pointer-events: none;
+  }
+
+  .os-app-screen.os-slide-over.is-open:not(.is-yielded):not(.is-covered):not(
+      .is-closing
+    ) {
+    pointer-events: auto;
   }
 
   /*

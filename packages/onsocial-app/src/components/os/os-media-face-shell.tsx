@@ -92,6 +92,15 @@ export type OsMediaFaceShellProps = {
   bodyStyle?: CSSProperties;
   /** Painted stack z of this face, after the overlay stack lifts it. */
   onPaintedZ?: (z: number) => void;
+  /**
+   * The reply already on screen is this post. Leave the overlay and hide
+   * the film. The element stays mounted so the playhead does too.
+   */
+  yielded?: boolean;
+  /** Stable id so a later cover tap finds this film instead of opening another. */
+  mediaPostKey?: string | null;
+  /** The player that owns this film. The sound element stays in the card. */
+  faceOwnerId?: string | null;
   children: ReactNode;
 };
 
@@ -127,6 +136,9 @@ export function OsMediaFaceShell({
   bodyClassName,
   bodyStyle,
   onPaintedZ,
+  yielded = false,
+  mediaPostKey = null,
+  faceOwnerId = null,
   children,
 }: OsMediaFaceShellProps) {
   const frostStyle = osChromeFrostStyle();
@@ -202,6 +214,9 @@ export function OsMediaFaceShell({
       }
       zIndex={zIndex}
       onPaintedZ={onPaintedZ}
+      yielded={yielded}
+      mediaPostKey={mediaPostKey}
+      faceOwnerId={faceOwnerId}
       className={slideClass}
       contentClassName={contentClassName}
       footer={screenFooter}

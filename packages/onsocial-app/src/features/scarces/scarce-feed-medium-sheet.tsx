@@ -83,6 +83,7 @@ export function ScarceFeedMediumSheet({
   peekIdentity = null,
   caption = null,
   captionDate = null,
+  coverPlayNonce = 0,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -119,6 +120,8 @@ export function ScarceFeedMediumSheet({
   peekIdentity?: ReactNode;
   caption?: string | null;
   captionDate?: string | null;
+  /** Cover tapped again. The player continues and takes the speakers. */
+  coverPlayNonce?: number;
 }) {
   const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
   const [wasOpen, setWasOpen] = useState(open);
@@ -332,6 +335,7 @@ export function ScarceFeedMediumSheet({
         threadPostId={threadPostId}
         threadRoot={threadRoot}
         onListenClose={() => onOpenChange(false)}
+        coverPlayNonce={coverPlayNonce}
         {...(playbackSessionId
           ? { persist: { collectionId: playbackSessionId, title: name } }
           : {})}

@@ -34,6 +34,7 @@ import {
 } from '@onsocial/ui';
 import { useOsPortalHost } from '@/contexts/os-portal-host-context';
 import { probeOsCardHost, resolveOsOverlayPortal } from '@/lib/os-card-host';
+import { onCloseThisMediaFace } from '@/lib/media-face-session';
 import { useOsScreenChromeHeightSync } from '@/hooks/use-os-screen-chrome-height-sync';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 
@@ -131,6 +132,15 @@ export interface OsSlideOverScreenProps {
    * Sets `data-keep-dock` so global tuck rules skip this layer.
    */
   keepDock?: boolean;
+  /**
+   * Leave the overlay and hide this layer. The node stays mounted so a
+   * playing film can keep its playhead under the reply already on screen.
+   */
+  yielded?: boolean;
+  /** Stable id so a later cover tap can find this film instead of opening another. */
+  mediaPostKey?: string | null;
+  /** The player that owns this film. The sound element stays in the card. */
+  faceOwnerId?: string | null;
 }
 
 /**
@@ -167,6 +177,9 @@ export function OsSlideOverScreen({
   scrollRootRef,
   keepDock = false,
   onPaintedZ,
+  yielded = false,
+  mediaPostKey = null,
+  faceOwnerId = null,
 }: OsSlideOverScreenProps) {
   const titleId = useId();
   const headerRef = useRef<HTMLElement | null>(null);
@@ -227,27 +240,27 @@ export function OsSlideOverScreen({
     nextPortalHost?.closest('[data-feed-session="covered"]')
   );
   const overlay = useOverlayStackZ(
-    mounted && renderOpen && !parked,
+    mounted && renderOpen && !parked && !yielded,
     zIndex,
     keepDock
   );
-  const overlayActive = mounted && renderOpen && !parked;
+  const overlayActive = mounted && renderOpen && !parked && !yielded;
   useLayoutEffect(() => {
     if (!overlayActive) return;
     onPaintedZ?.(overlay.z);
   }, [onPaintedZ, overlay.z, overlayActive]);
-  useScrollLock(renderOpen && !parked);
+  useScrollLock(renderOpen && !parked && !yielded);
 
   useLayoutEffect(() => {
     const root = slideRootRef.current;
     if (!root || !mounted || !renderOpen || parked) return;
-    if (!overlay.top) {
+    if (yielded || !overlay.top) {
       root.inert = true;
       return;
     }
     if (root.style.visibility === 'hidden') return;
     root.inert = false;
-  }, [mounted, overlay.top, parked, renderOpen]);
+  }, [mounted, overlay.top, parked, renderOpen, yielded]);
 
   const finishExit = useCallback(() => {
     setClosing(false);
@@ -264,6 +277,12 @@ export function OsSlideOverScreen({
   }, [closeDisabled, closing, onBeforeClose]);
 
   useEffect(() => {
+    const root = slideRootRef.current;
+    if (!root) return;
+    return onCloseThisMediaFace(root, requestClose);
+  }, [mounted, requestClose, renderOpen]);
+
+  useEffect(() => {
     if (!closing) return;
     const timer = window.setTimeout(finishExit, SLIDE_MS);
     return () => window.clearTimeout(timer);
@@ -276,7 +295,7 @@ export function OsSlideOverScreen({
   }, [layerOpen]);
 
   useEffect(() => {
-    if (!layerOpen || parked) return;
+    if (!layerOpen || parked || yielded) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       if (event.defaultPrevented) return;
@@ -285,7 +304,7 @@ export function OsSlideOverScreen({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [layerOpen, parked, requestClose]);
+  }, [layerOpen, parked, requestClose, yielded]);
 
   useOsScreenChromeHeightSync({ enabled: renderOpen, headerRef });
 
@@ -329,7 +348,9 @@ export function OsSlideOverScreen({
   const rootStyle: CSSProperties = {
     ...resolvedMoodStyle,
     ...style,
-    zIndex: overlay.z,
+    zIndex: yielded ? 0 : overlay.z,
+    visibility: yielded ? 'hidden' : style?.visibility,
+    pointerEvents: yielded ? 'none' : style?.pointerEvents,
   };
 
   return createPortal(
@@ -337,7 +358,9 @@ export function OsSlideOverScreen({
       <div
         className={`os-app-screen app-surface os-slide-over${
           entered && !closing ? ' is-open' : ''
-        }${closing ? ' is-closing' : ''}${hasMood ? ' os-app-screen--mood os-slide-over--mood' : ''}${
+        }${closing ? ' is-closing' : ''}${yielded ? ' is-yielded' : ''}${
+          !yielded && !overlay.top ? ' is-covered' : ''
+        }${hasMood ? ' os-app-screen--mood os-slide-over--mood' : ''}${
           className ? ` ${className}` : ''
         }`}
         data-tone="os"
@@ -347,12 +370,15 @@ export function OsSlideOverScreen({
         data-screen-footer={hasFooter ? 'true' : undefined}
         ref={slideRootRef}
         data-os-slide-over="true"
+        data-os-media-post={mediaPostKey || undefined}
+        data-os-face-owner={faceOwnerId || undefined}
         data-keep-dock={keepDock ? 'true' : undefined}
         data-hide-nav={hideNav ? 'true' : undefined}
         data-viewport={viewport ? 'true' : undefined}
         data-mood={hasMood ? resolvedMoodId! : undefined}
         role="dialog"
-        aria-modal="true"
+        aria-modal={yielded ? undefined : true}
+        aria-hidden={yielded ? true : undefined}
         aria-labelledby={titleId}
         style={rootStyle}
       >

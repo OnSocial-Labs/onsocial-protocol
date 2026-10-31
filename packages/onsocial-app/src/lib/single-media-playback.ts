@@ -121,13 +121,105 @@ export function speakerIsReloading(node: HTMLMediaElement): boolean {
 }
 
 /**
- * The face is covered by a reply, not finished. Pause it without handing
- * the speakers back, and leave the playhead where it is.
+ * A reply sheet pauses the film under it.
+ * A cover opened from that reply paints above the sheet and should play.
+ * Unknown stacking stays paused until both heights are known.
  */
-export function pauseCoveredMedia(node: HTMLMediaElement): void {
-  if (node.paused || node.ended) return;
-  node.setAttribute(SPEAKER_RELOADING_ATTR, '');
-  node.pause();
+export function mediaFaceCoveredBySheet(input: {
+  held: boolean;
+  faceZ: number | null;
+  sheetZ: number | null;
+  /** This film stepped aside for the reply already on screen. */
+  yielded?: boolean;
+}): boolean {
+  if (!input.held) return false;
+  if (input.yielded) return true;
+  if (input.faceZ == null || input.sheetZ == null) return true;
+  return input.faceZ <= input.sheetZ;
+}
+
+/** Continue an album the reply just covered. A fresh feed open starts at 0. */
+export function feedCoverOpenIntent(
+  heldSiblingTime: number
+): SingleMediaIntent {
+  return heldSiblingTime > HANDOFF_FLOOR_SEC ? 'explicit' : 'restart';
+}
+
+const TOP_REPLY_SHEET =
+  '.glass-sheet-root.is-visible:not(.post-thread-sheet-parked):not(.glass-sheet-root--band):not(.is-closing)';
+
+/**
+ * Highest reply sheet. The band on a film is not a cover of that film.
+ * A face opened above the sheet marks that sheet inert. It is still the
+ * sheet, and its z is what says the face cleared it.
+ */
+export function topReplySheetZ(
+  doc: Document | null | undefined
+): number | null {
+  if (!doc) return null;
+  let top: number | null = null;
+  doc.querySelectorAll(TOP_REPLY_SHEET).forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+    if (node.getAttribute('aria-hidden') === 'true') return;
+    if (node.style.visibility === 'hidden') return;
+    const z = Number(getComputedStyle(node).zIndex);
+    if (!Number.isFinite(z)) return;
+    top = top == null ? z : Math.max(top, z);
+  });
+  return top;
+}
+
+/**
+ * Where a new copy of this file should start.
+ * No live post means a fresh open at 0, even if a listen was saved.
+ * A saved time behind the latest copy is a manual rewind and wins.
+ */
+export function postContinuePlayhead(
+  siblingTime: number,
+  savedTime: number,
+  rewound: boolean
+): number {
+  if (siblingTime <= HANDOFF_FLOOR_SEC) return 0;
+  if (
+    rewound &&
+    savedTime > HANDOFF_FLOOR_SEC &&
+    savedTime + 0.5 < siblingTime
+  ) {
+    return savedTime;
+  }
+  return siblingTime;
+}
+
+/** A copy still at the start may take the sibling clock. A rewind stays. */
+export function shouldPlaceSiblingPlayhead(
+  currentTime: number,
+  held: number
+): boolean {
+  if (!(held > HANDOFF_FLOOR_SEC)) return false;
+  return !Number.isFinite(currentTime) || currentTime <= HANDOFF_FLOOR_SEC;
+}
+
+/**
+ * Playhead of another post with this file, so a face opened over a reply
+ * can continue. The launcher keeps its own clock and is not that sibling.
+ */
+export function heldSiblingPlayhead(node: HTMLMediaElement): number {
+  const key = mediaElementKey(node);
+  if (!key) return 0;
+  const doc = node.ownerDocument;
+  let best = 0;
+  doc?.querySelectorAll('audio, video').forEach((other) => {
+    if (!(other instanceof HTMLMediaElement) || other === node) return;
+    if (mediaElementIsDockHost(other)) return;
+    if (mediaElementKey(other) !== key) return;
+    if (other.currentTime > best) best = other.currentTime;
+  });
+  const rewound = rewoundTo.has(key);
+  return postContinuePlayhead(
+    best,
+    rewound ? (rewoundTo.get(key) ?? 0) : (progress.get(key) ?? 0),
+    rewound
+  );
 }
 
 /**
@@ -284,10 +376,13 @@ type Owner = {
 
 let owner: Owner | null = null;
 const progress = new Map<string, number>();
+/** File whose playhead was set by a scrub. A later copy must not jump past it. */
+const rewoundTo = new Map<string, number>();
 
 export function resetSingleMediaPlaybackForTests(): void {
   owner = null;
   progress.clear();
+  rewoundTo.clear();
 }
 
 export function mediaElementKey(node: HTMLMediaElement): string {
@@ -389,11 +484,87 @@ export function mediaElementIsQuiet(node: HTMLMediaElement): boolean {
 }
 
 function remember(node: HTMLMediaElement) {
+  // The launcher clock is not the post's. A seek still in flight would
+  // store the time from before the rewind.
+  if (mediaElementIsDockHost(node) || node.seeking) return;
+  const pending = playheadFix.get(node);
+  if (pending != null && Math.abs(node.currentTime - pending) > 0.5) return;
   const key = mediaElementKey(node);
   if (!key || !Number.isFinite(node.currentTime)) return;
   const prev = progress.get(key) ?? 0;
   if (node.currentTime < HANDOFF_FLOOR_SEC && prev > HANDOFF_FLOOR_SEC) return;
   progress.set(key, node.currentTime);
+  const pinned = rewoundTo.get(key);
+  // Follow the scrub forward. A later copy must not pull it back.
+  if (pinned != null && node.currentTime > pinned) {
+    rewoundTo.set(key, node.currentTime);
+  }
+}
+
+const playheadFix = new WeakMap<HTMLMediaElement, number>();
+
+/** A scrub committed this time. Later continues use it, not the pre-scrub clock. */
+export function noteMediaPlayhead(node: HTMLMediaElement, time: number): void {
+  if (mediaElementIsDockHost(node)) return;
+  const key = mediaElementKey(node);
+  if (!key || !Number.isFinite(time) || time <= HANDOFF_FLOOR_SEC) return;
+  progress.set(key, time);
+  rewoundTo.set(key, time);
+  playheadFix.set(node, time);
+  const land = () => {
+    if (playheadFix.get(node) !== time) return;
+    if (Math.abs(node.currentTime - time) <= 0.5) return;
+    try {
+      node.currentTime = time;
+    } catch {
+      /* The element can go away before the seek lands. */
+    }
+  };
+  if (node.seeking) {
+    node.addEventListener('seeked', land, { once: true });
+    return;
+  }
+  land();
+}
+
+/** Bar and continue use the scrub until the element has actually landed there. */
+export function mediaDisplayedPlayhead(node: HTMLMediaElement): number {
+  const pending = playheadFix.get(node);
+  const live = Number.isFinite(node.currentTime) ? node.currentTime : 0;
+  if (pending == null) return live;
+  if (Math.abs(live - pending) <= 0.5) {
+    playheadFix.delete(node);
+    return live;
+  }
+  return pending;
+}
+
+/** The film the viewer is looking at. A face under another face stays quiet. */
+export function mediaFaceIsForeground(node: HTMLElement): boolean {
+  const face = node.closest('[data-os-slide-over="true"]');
+  if (!(face instanceof HTMLElement)) return true;
+  if (
+    face.classList.contains('is-yielded') ||
+    face.classList.contains('is-closing')
+  ) {
+    return false;
+  }
+  const faces = face.ownerDocument.querySelectorAll(
+    '[data-os-slide-over="true"]:not(.is-closing):not(.is-yielded)'
+  );
+  let best: HTMLElement = face;
+  let bestZ = Number(getComputedStyle(face).zIndex);
+  if (!Number.isFinite(bestZ)) bestZ = 0;
+  faces.forEach((other) => {
+    if (!(other instanceof HTMLElement)) return;
+    const z = Number(getComputedStyle(other).zIndex);
+    if (!Number.isFinite(z)) return;
+    if (z >= bestZ) {
+      best = other;
+      bestZ = z;
+    }
+  });
+  return best === face;
 }
 
 function ownerView(
@@ -420,13 +591,19 @@ function ownerView(
   }
   const quiet = mediaElementIsQuiet(owner.node);
   const active = !owner.node.paused && !quiet;
+  // The launcher clock is not the album's. A covered post keeps its own.
+  const ownerIsDock = mediaElementIsDockHost(owner.node);
   return {
     sameElement: false,
-    sameKey: Boolean(key) && owner.key === key,
+    sameKey: Boolean(key) && owner.key === key && !ownerIsDock,
     active,
     audible: active && !owner.node.muted && owner.node.volume > 0,
-    playing: !owner.node.paused,
-    time: Number.isFinite(owner.node.currentTime) ? owner.node.currentTime : 0,
+    playing: !owner.node.paused && !ownerIsDock,
+    time: ownerIsDock
+      ? 0
+      : Number.isFinite(owner.node.currentTime)
+        ? owner.node.currentTime
+        : 0,
     stage: mediaElementIsStage(owner.node) && !quiet,
   };
 }
@@ -453,6 +630,19 @@ function applyDecision(
       node.currentTime = decision.seekTo;
     } catch {
       /* seek before metadata */
+    }
+  } else if (intent === 'explicit') {
+    const pending = playheadFix.get(node);
+    if (
+      pending != null &&
+      Number.isFinite(node.currentTime) &&
+      node.currentTime > pending + 0.5
+    ) {
+      try {
+        node.currentTime = pending;
+      } catch {
+        /* seek before metadata */
+      }
     }
   }
   if (
@@ -524,9 +714,21 @@ export function startJoinedMedia(
     },
     (error: unknown) => {
       node.removeAttribute(SPEAKER_CLAIM_ATTR);
-      notifyDockBorrow(node, 'stop');
+      // pause() rejects play() with AbortError. That pause already decided
+      // whether the launcher comes back. Releasing here wakes it under a cover.
+      if (!playFailureKeepsDockBorrow(error)) notifyDockBorrow(node, 'stop');
       throw error;
     }
+  );
+}
+
+/** A cover pause aborts play(). The pause handler owns the launcher hold. */
+export function playFailureKeepsDockBorrow(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    (error as { name?: unknown }).name === 'AbortError'
   );
 }
 

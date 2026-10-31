@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -27,12 +28,22 @@ import {
   VolumeMuteIcon,
   VolumeUpIcon,
 } from '@onsocial/ui';
-import { useMediaFacesHeld } from '@/lib/media-face-session';
 import {
+  mediaFacePostKey,
+  onResumeMediaFace,
+  useMediaFaceCoverEpoch,
+  useMediaFacesHeld,
+  useMediaFacesYielded,
+} from '@/lib/media-face-session';
+import {
+  mediaDisplayedPlayhead,
+  mediaFaceCoveredBySheet,
+  mediaFaceIsForeground,
+  noteMediaPlayhead,
   notifyDockBorrow,
-  pauseCoveredMedia,
   SPEAKER_RELOADING_ATTR,
   startJoinedMedia,
+  topReplySheetZ,
 } from '@/lib/single-media-playback';
 import type { PostRow } from '@onsocial/sdk';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
@@ -199,6 +210,7 @@ export function FeedPhotoEnlargeScreen({
   /** Current film index, including swipes. Download uses this. */
   onActiveIndexChange?: ((index: number) => void) | null;
 }) {
+  const faceOwnerId = useId();
   const faceZ = postLayerOverlayZ(usePostLayerOwnerZ()).face;
   const writePinned = useWriteDockPinned();
   const [paintedFaceZ, setPaintedFaceZ] = useState(faceZ);
@@ -253,6 +265,24 @@ export function FeedPhotoEnlargeScreen({
   const faceHoldLatchRef = useRef(false);
   const faceHoldPlayingRef = useRef(false);
   const facesHeld = useMediaFacesHeld();
+  const facesYielded = useMediaFacesYielded();
+  const coverEpoch = useMediaFaceCoverEpoch();
+  const replySheetZ =
+    typeof document === 'undefined' ? null : topReplySheetZ(document);
+  const videoSteppedAside =
+    facesYielded &&
+    !mediaFaceCoveredBySheet({
+      held: true,
+      faceZ: paintedFaceZ,
+      sheetZ: replySheetZ,
+    });
+  const replyCovered = mediaFaceCoveredBySheet({
+    held: facesHeld,
+    faceZ: paintedFaceZ,
+    sheetZ: replySheetZ,
+    // Hidden until back shows this film, even if the sheet z is not known yet.
+    yielded: facesYielded || videoSteppedAside,
+  });
   const skipSnapRef = useRef(false);
   const prevOpenRef = useRef(open);
   const indexRef = useRef(index);
@@ -680,6 +710,7 @@ export function FeedPhotoEnlargeScreen({
       if (video && Number.isFinite(duration) && duration > 0) {
         const next = Math.min(duration, Math.max(0, time));
         video.currentTime = next;
+        noteMediaPlayhead(video, next);
         paintProgress(next, duration);
         setVideoDuration(duration);
         setVideoEnded(false);
@@ -708,6 +739,7 @@ export function FeedPhotoEnlargeScreen({
       if (!Number.isFinite(duration) || duration <= 0) return;
       const next = Math.min(duration, Math.max(0, video.currentTime + delta));
       video.currentTime = next;
+      noteMediaPlayhead(video, next);
       paintProgress(next, duration);
       setVideoDuration(duration);
       setVideoEnded(false);
@@ -974,10 +1006,10 @@ export function FeedPhotoEnlargeScreen({
   ]);
 
   /* Play the active video; honor mute. Silent fallback if sound autoplay blocked.
-   * Home covered: stay quiet. Back onto this drawer: continue if it was playing.
-   * Closing the drawer leaves it stopped. */
+   * A reply pauses it and the launcher starts. Play on the face continues it.
+   * Closing the face leaves it stopped. */
   useLayoutEffect(() => {
-    if (facesHeld) {
+    if (replyCovered) {
       if (!faceHoldLatchRef.current) {
         faceHoldLatchRef.current = true;
         const active = videoRefs.current.get(index);
@@ -986,7 +1018,7 @@ export function FeedPhotoEnlargeScreen({
         );
       }
       videoRefs.current.forEach((video) => {
-        if (!video.paused) pauseCoveredMedia(video);
+        if (!video.paused) video.pause();
       });
       return;
     }
@@ -1002,10 +1034,20 @@ export function FeedPhotoEnlargeScreen({
     videoRefs.current.forEach((video) => {
       video.pause();
     });
-  }, [facesHeld, index, open, pathname]);
+    void coverEpoch;
+  }, [coverEpoch, index, open, pathname, replyCovered]);
 
   useEffect(() => {
-    if (facesHeld) {
+    const activeFace = videoRefs.current.get(index);
+    if (activeFace && !mediaFaceIsForeground(activeFace)) {
+      if (!activeFace.paused && !activeFace.ended) {
+        faceHoldLatchRef.current = true;
+        faceHoldPlayingRef.current = true;
+        activeFace.pause();
+      }
+      return;
+    }
+    if (replyCovered) {
       if (!faceHoldLatchRef.current) {
         faceHoldLatchRef.current = true;
         const active = videoRefs.current.get(index);
@@ -1014,7 +1056,7 @@ export function FeedPhotoEnlargeScreen({
         );
       }
       videoRefs.current.forEach((video) => {
-        if (!video.paused) pauseCoveredMedia(video);
+        if (!video.paused) video.pause();
       });
       return;
     }
@@ -1024,7 +1066,7 @@ export function FeedPhotoEnlargeScreen({
       faceHoldPlayingRef.current = false;
       if (!open || !resume) return;
       const active = videoRefs.current.get(index);
-      if (!active?.isConnected) return;
+      if (!active?.isConnected || active.ended) return;
       if (
         active
           .closest('[data-os-slide-over="true"]')
@@ -1090,11 +1132,29 @@ export function FeedPhotoEnlargeScreen({
       video.pause();
       video.muted = true;
     });
-  }, [facesHeld, open, index, pathname, videoMuted]);
+    void coverEpoch;
+  }, [coverEpoch, open, index, pathname, replyCovered, videoMuted]);
+
+  // A cover on another copy of this post shows this film and plays it.
+  useEffect(() => {
+    return onResumeMediaFace((face) => {
+      const active = videoRefs.current.get(index);
+      if (!active || active.closest('[data-os-slide-over="true"]') !== face) {
+        return;
+      }
+      active.loop = true;
+      active.muted = false;
+      active.volume = 1;
+      setVideoMuted(false);
+      setVideoPaused(false);
+      void startJoinedMedia(active, 'explicit').catch(() => {
+        setVideoPaused(true);
+      });
+    });
+  }, [index]);
 
   // Closing removes the film without a pause event. Pause here so the
-  // launcher song, held while this picture had sound, can come back.
-  // A reply that only covered the film paused it without releasing that hold.
+  // launcher can come back if this picture still had the speakers.
   useEffect(() => {
     const videos = videoRefs;
     return () => {
@@ -1168,7 +1228,7 @@ export function FeedPhotoEnlargeScreen({
       if (video && !scrubbingRef.current) {
         const duration = video.duration;
         if (Number.isFinite(duration) && duration > 0) {
-          paintProgress(video.currentTime, duration);
+          paintProgress(mediaDisplayedPlayhead(video), duration);
         }
       }
       raf = window.requestAnimationFrame(tick);
@@ -1500,9 +1560,11 @@ export function FeedPhotoEnlargeScreen({
 
   return (
     <>
+      <span hidden data-os-player-owner={faceOwnerId} />
       {zoomLayer}
       <OsMediaFaceShell
         open={open}
+        faceOwnerId={faceOwnerId}
         onClose={handleClose}
         onBeforeClose={handleBeforeShellClose}
         title={title}
@@ -1512,6 +1574,11 @@ export function FeedPhotoEnlargeScreen({
         closeAriaLabel={quietClose}
         zIndex={faceZ}
         onPaintedZ={onFacePaintedZ}
+        mediaPostKey={
+          threadAuthor && threadPostId
+            ? mediaFacePostKey(threadAuthor, threadPostId)
+            : null
+        }
         footer={onFilm ? null : engagement}
         transport={onFilm ? null : videoTransport}
         stageLayout="fixed"
