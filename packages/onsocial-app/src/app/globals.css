@@ -41236,6 +41236,18 @@ a.os-surface-row,
   border-radius: 0 0 0 var(--os-write-dock-radius, 1.375rem);
 }
 
+/*
+ * The disc and the field share a 1.35rem line. DM Sans draws the word
+ * below that line, and the disc is taller than the letters, so a
+ * line-centered face reads above “Message” / “Reply”. 0.16rem puts the
+ * face on the word without dropping it under the baseline.
+ */
+.os-dock-pill.portfolio-summon.is-writing
+  .portfolio-summon-account
+  .profile-avatar {
+  transform: translateY(0.16rem);
+}
+
 .os-dock-pill.portfolio-summon.is-writing.has-dock-back-stacked
   .os-write-dock.is-compose-open:not(.is-expanded)
   .os-write-dock-field,

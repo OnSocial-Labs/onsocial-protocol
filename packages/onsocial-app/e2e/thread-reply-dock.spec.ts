@@ -294,7 +294,44 @@ test.describe('thread reply dock', () => {
     expect(fieldBox).toBeTruthy();
     const avatarMid = avatarBox!.y + avatarBox!.height / 2;
     const fieldMid = fieldBox!.y + fieldBox!.height / 2;
-    expect(Math.abs(avatarMid - fieldMid)).toBeLessThan(2);
+    // Same row as the field — a chip-pinned avatar misses by a whole line.
+    // The face sits a little below the line box, on the word.
+    expect(Math.abs(avatarMid - fieldMid)).toBeLessThan(4);
+    // The face sits on the word: above the ink fails, under the baseline fails.
+    const inkOffset = await page.evaluate(() => {
+      const face = document.querySelector(
+        '.os-dock-pill.is-writing > .portfolio-summon-account .profile-avatar'
+      );
+      const input = document.querySelector('.os-write-dock-input');
+      if (
+        !(face instanceof HTMLElement) ||
+        !(input instanceof HTMLTextAreaElement)
+      ) {
+        return null;
+      }
+      const style = getComputedStyle(input);
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (!context) return null;
+      context.font = style.font;
+      const sample = input.value || input.placeholder || 'Reply';
+      const metrics = context.measureText(sample);
+      const line = parseFloat(style.lineHeight);
+      const fontBox =
+        metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
+      const baseline = (line - fontBox) / 2 + metrics.fontBoundingBoxAscent;
+      const top = input.getBoundingClientRect().top;
+      const inkMid =
+        top +
+        baseline -
+        metrics.actualBoundingBoxAscent / 2 +
+        metrics.actualBoundingBoxDescent / 2;
+      const faceRect = face.getBoundingClientRect();
+      return faceRect.top + faceRect.height / 2 - inkMid;
+    });
+    expect(inkOffset).not.toBeNull();
+    expect(inkOffset ?? 0).toBeGreaterThan(-0.4);
+    expect(inkOffset ?? 0).toBeLessThan(2);
   });
 
   test('drawer opens with replies, reply Reply focuses dock with chip', async ({
