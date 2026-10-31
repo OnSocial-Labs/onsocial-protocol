@@ -1,6 +1,10 @@
 import type { OnSocial } from '@onsocial/sdk';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { viewNearContract } from '@/lib/app-near-rpc';
+import {
+  hubActivityTimestamp,
+  hubsInActivityOrder,
+} from '@/features/discover/discover-community-ranking';
 import { resolveScarceMediaUrl } from '@/features/market/market-listings';
 import {
   APPS_PAGE_SIZE,
@@ -574,6 +578,110 @@ export async function fetchAppsDirectory(
     hasMore: ids.length >= fetchLimit || apps.length > limit,
     nextOffset: fromIndex + ids.length,
   };
+}
+
+/** One activity page while filling Discover → Hubs. */
+const ACTIVE_HUB_STATS_PAGE = 48;
+/** Stop walking activity so a rare category cannot scan the whole table. */
+const ACTIVE_HUB_SCAN_CAP = 240;
+
+/**
+ * Discover → Hubs browse — hubs that have moved, newest activity first.
+ * Search stays on `fetchAppsDirectory` so a quiet hub is still findable.
+ */
+export async function fetchActiveHubsDirectory(
+  opts: {
+    limit?: number;
+    category?: HubCategoryFilter;
+    hideTest?: boolean;
+  } = {}
+): Promise<AppView[]> {
+  const limit = opts.limit ?? APPS_PAGE_SIZE;
+  const category = opts.category ?? 'all';
+  const hideTest = opts.hideTest !== false;
+  const scanCap = Math.max(limit * 10, ACTIVE_HUB_SCAN_CAP);
+
+  const { createReadOnlyOnSocialClient } = await import(
+    '@/lib/create-readonly-onsocial-client'
+  );
+  const client = createReadOnlyOnSocialClient();
+  const picked: AppView[] = [];
+  const seen = new Set<string>();
+  let offset = 0;
+
+  while (picked.length < limit && offset < scanCap) {
+    const pageSize = Math.min(ACTIVE_HUB_STATS_PAGE, scanCap - offset);
+    const statsRes = await client.query.graphql<{
+      scarcesAppStats?: Array<{
+        appId: string | null;
+        lastActivityTimestamp: number | string | null;
+      }>;
+    }>({
+      query: `query ActiveHubStats($limit: Int!, $offset: Int!) {
+        scarcesAppStats(
+          limit: $limit
+          offset: $offset
+          orderBy: [{ lastActivityTimestamp: DESC_NULLS_LAST }]
+        ) {
+          appId
+          lastActivityTimestamp
+        }
+      }`,
+      variables: { limit: pageSize, offset },
+    });
+    const stats = statsRes.data?.scarcesAppStats ?? [];
+    if (stats.length === 0) break;
+
+    const active = stats.filter(
+      (row) =>
+        Boolean(row.appId?.trim()) &&
+        hubActivityTimestamp(row.lastActivityTimestamp) != null
+    );
+    const ids = [
+      ...new Set(
+        active
+          .map((row) => row.appId?.trim() ?? '')
+          .filter((id) => id.length > 0 && !seen.has(id))
+      ),
+    ];
+    if (ids.length > 0) {
+      const appsRes = await client.query.graphql<{
+        scarcesApps?: IndexerAppRow[];
+      }>({
+        query: `query ActiveHubApps($ids: [String!]!, $limit: Int!) {
+          scarcesApps(where: { appId: { _in: $ids } }, limit: $limit) {
+            appId
+            ownerId
+            primarySaleBps
+            creatorAccess
+            metadata
+            createdBlockTimestamp
+            updatedBlockTimestamp
+          }
+        }`,
+        variables: { ids, limit: ids.length },
+      });
+      let apps = (appsRes.data?.scarcesApps ?? []).map((row) =>
+        toAppViewFromIndexer(row)
+      );
+      if (hideTest) apps = apps.filter((app) => !isLikelyTestStore(app));
+      if (category !== 'all') {
+        apps = apps.filter((app) => app.category === category);
+      }
+      for (const app of hubsInActivityOrder(active, apps)) {
+        if (seen.has(app.appId)) continue;
+        seen.add(app.appId);
+        picked.push(app);
+        if (picked.length >= limit) break;
+      }
+    }
+
+    offset += stats.length;
+    if (active.length < stats.length) break;
+    if (stats.length < pageSize) break;
+  }
+
+  return picked.slice(0, limit);
 }
 
 /** Directory listing — indexer only (no N× RPC). Detail pages use fetchApp. */

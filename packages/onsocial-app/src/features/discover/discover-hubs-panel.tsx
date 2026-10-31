@@ -12,6 +12,7 @@ import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { discoverHubsLead } from '@/lib/discover-tab-lead';
 import {
   creatorAccessShort,
+  fetchActiveHubsDirectory,
   fetchAppsDirectory,
   type AppView,
 } from '@/features/scarces/apps-data';
@@ -36,7 +37,9 @@ function hubPrimaryCategory(app: AppView): string | null {
 }
 
 /**
- * Discover → Hubs — the hub directory. Category chips filter hubs.
+ * Discover → Hubs — the hub directory.
+ * Browse lists hubs that have moved (last drop, mint, or sale).
+ * Search still covers every hub. Category chips narrow both.
  * Drop rankings (Loved, Traded) live on Drops. My hubs / create live in the Hubs app.
  */
 export function DiscoverHubsPanel() {
@@ -95,16 +98,23 @@ export function DiscoverHubsPanel() {
 
     const timer = window.setTimeout(
       () => {
-        void fetchAppsDirectory({
-          limit: APPS_PAGE_SIZE,
-          query: searchQuery || undefined,
-          category: activeCategoryFilter,
-          hideTest: true,
-          sort: 'recent',
-        })
-          .then((page) => {
+        const load = searchQuery
+          ? fetchAppsDirectory({
+              limit: APPS_PAGE_SIZE,
+              query: searchQuery,
+              category: activeCategoryFilter,
+              hideTest: true,
+              sort: 'recent',
+            }).then((page) => page.apps)
+          : fetchActiveHubsDirectory({
+              limit: APPS_PAGE_SIZE,
+              category: activeCategoryFilter,
+              hideTest: true,
+            });
+        void load
+          .then((rows) => {
             if (cancelled || requestId !== requestIdRef.current) return;
-            setApps(page.apps);
+            setApps(rows);
             setPending(false);
             setError(null);
           })

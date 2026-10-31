@@ -3,6 +3,7 @@ import {
   daoCatalogRankTier,
   hubActivityTimestamp,
   hubPeekFromMetadata,
+  hubsInActivityOrder,
   orderHubsByLastMove,
   isOnSocialDaoAccount,
   rankDaoCatalogEntries,
@@ -31,6 +32,23 @@ describe('hubPeekFromMetadata', () => {
     expect(hubActivityTimestamp(1_700_000_000)).toBe(1_700_000_000);
     expect(hubActivityTimestamp('0')).toBeNull();
     expect(hubActivityTimestamp(null)).toBeNull();
+  });
+
+  it('lines directory hubs up by last move and skips idle or missing rows', () => {
+    expect(
+      hubsInActivityOrder(
+        [
+          { appId: 'whale', lastActivityTimestamp: 10 },
+          { appId: 'missing', lastActivityTimestamp: 50 },
+          { appId: 'fresh', lastActivityTimestamp: '90' },
+          { appId: 'quiet', lastActivityTimestamp: 0 },
+          { appId: 'fresh', lastActivityTimestamp: 90 },
+          { appId: 'empty', lastActivityTimestamp: null },
+        ],
+        [{ appId: 'whale' }, { appId: 'fresh' }, { appId: 'quiet' }],
+        6
+      ).map((row) => row.appId)
+    ).toEqual(['fresh', 'whale']);
   });
 
   it('orders hubs by last move, not volume, and drops idle rows', () => {
