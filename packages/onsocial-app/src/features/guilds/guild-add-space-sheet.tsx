@@ -1,11 +1,8 @@
 'use client';
 
-import { useCallback, useId, useState, type FormEvent } from 'react';
+import { useCallback, useState, type FormEvent } from 'react';
 import { OsHugSheet, osFieldSoftClassName } from '@onsocial/ui';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@onsocial/ui';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
   GUILD_POST_POLICY_OPTIONS,
@@ -59,7 +56,6 @@ export function GuildAddSpaceSheet({
   onClose,
   onSaved,
 }: GuildAddSpaceSheetProps) {
-  const shareLabelId = useId();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const scrollFieldIntoView = useMobileFieldFocusScroll();
@@ -179,31 +175,32 @@ export function GuildAddSpaceSheet({
         </label>
 
         <div className="guild-add-space-field">
-          <span className="guild-add-space-label" id={shareLabelId}>
-            Who can share
-          </span>
+          <span className="guild-add-space-label">Who can share</span>
           <div
-            className="guild-add-space-segments"
-            role="radiogroup"
-            aria-labelledby={shareLabelId}
+            className="guild-feed-filter-list os-scrollbar-none"
+            role="listbox"
+            aria-label="Who can share"
           >
-            {GUILD_POST_POLICY_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                role="radio"
-                aria-checked={postPolicy === option.value}
-                className={
-                  postPolicy === option.value
-                    ? 'guild-add-space-segment is-active'
-                    : 'guild-add-space-segment'
-                }
-                disabled={pending}
-                onClick={() => setPostPolicy(option.value)}
-              >
-                {POLICY_CHIP_LABEL[option.value]}
-              </button>
-            ))}
+            {GUILD_POST_POLICY_OPTIONS.map((option) => {
+              const selected = postPolicy === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  className={
+                    selected
+                      ? 'guild-feed-filter-button is-active'
+                      : 'guild-feed-filter-button'
+                  }
+                  disabled={pending}
+                  onClick={() => setPostPolicy(option.value)}
+                >
+                  {POLICY_CHIP_LABEL[option.value]}
+                </button>
+              );
+            })}
           </div>
           <p className="guild-add-space-hint" aria-live="polite">
             {POLICY_HINT[postPolicy]}
