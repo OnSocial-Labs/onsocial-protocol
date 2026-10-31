@@ -1,6 +1,7 @@
 'use client';
 
 import { SettingsIcon, UserMinusIcon, UserPlusIcon } from '@onsocial/ui';
+import { formatProfileCount } from '@/lib/profile-social-standings';
 
 export interface GuildHeroActionVisibility {
   showJoin: boolean;
@@ -10,20 +11,20 @@ export interface GuildHeroActionVisibility {
 
 /**
  * Hero icon row. Plus is join, minus is leave, gear is settings.
- * No text. Owners do not get leave.
+ * No text. Owners do not get leave. The gear follows who can open settings.
  */
 export function guildHeroActionVisibility(args: {
   isMember?: boolean;
   isOwner?: boolean;
   isAdmin?: boolean;
   hintMember?: boolean;
+  canOpenSettings?: boolean;
 }): GuildHeroActionVisibility {
   const joined = Boolean(args.isMember || args.hintMember);
-  const canConfigure = Boolean(args.isOwner || args.isAdmin);
   return {
     showJoin: !joined,
     showLeave: joined && !args.isOwner,
-    showSettings: canConfigure,
+    showSettings: Boolean(args.canOpenSettings),
   };
 }
 
@@ -34,6 +35,7 @@ export function GuildHeroActions({
   showSettings,
   joinDisabled = false,
   pending = false,
+  requestCount = 0,
   onJoin,
   onLeave,
   onOpenSettings,
@@ -41,6 +43,8 @@ export function GuildHeroActions({
   joinDisabled?: boolean;
   /** Joining or leaving — progress cursor, click held. */
   pending?: boolean;
+  /** Pending join requests. Candy badge on the gear when this is above zero. */
+  requestCount?: number;
   onJoin: () => void;
   onLeave: () => void;
   onOpenSettings: () => void;
@@ -76,11 +80,22 @@ export function GuildHeroActions({
       {showSettings ? (
         <button
           type="button"
-          className="guild-hero-action-icon"
-          aria-label="Guild settings"
+          className={`guild-hero-action-icon${
+            requestCount > 0 ? ' has-badge' : ''
+          }`}
+          aria-label={
+            requestCount > 0
+              ? `Guild settings, ${requestCount} pending requests`
+              : 'Guild settings'
+          }
           onClick={onOpenSettings}
         >
           <SettingsIcon className="glass-sheet-close-icon" aria-hidden />
+          {requestCount > 0 ? (
+            <span className="guild-manage-menu-badge" aria-hidden>
+              {formatProfileCount(requestCount)}
+            </span>
+          ) : null}
         </button>
       ) : null}
     </div>

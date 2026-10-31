@@ -220,7 +220,7 @@ test.describe('guild proposals sheet', () => {
     await stubGuildProposals(page);
     await gotoApp(page, GUILD_E2E_PATH);
 
-    await page.locator('.guild-nav-settings').click();
+    await page.getByRole('button', { name: 'Guild settings' }).click();
     const settings = page.getByRole('dialog', { name: 'Settings' });
     await expect(settings).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await settings.getByRole('button', { name: /Proposals/ }).click();

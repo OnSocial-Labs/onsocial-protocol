@@ -14,6 +14,13 @@ describe('guildSettingsActions', () => {
     ).toEqual(['proposals', 'edit', 'rooms', 'storage']);
     expect(
       guildSettingsActions({
+        isOwner: true,
+        isAdmin: false,
+        canReviewRequests: true,
+      }).map((row) => row.id)
+    ).toEqual(['requests', 'proposals', 'edit', 'rooms', 'storage']);
+    expect(
+      guildSettingsActions({
         isOwner: false,
         isAdmin: true,
         isMember: true,
@@ -37,6 +44,24 @@ describe('guildSettingsActions', () => {
       })
     ).toBe(true);
     expect(canConfigureGuild({ isOwner: false, isAdmin: false })).toBe(false);
+  });
+
+  it('lets a reviewer open requests without the rest of settings', () => {
+    expect(
+      guildSettingsActions({
+        isOwner: false,
+        isAdmin: false,
+        isMember: false,
+        canReviewRequests: true,
+      }).map((row) => row.id)
+    ).toEqual(['requests']);
+    expect(
+      canOpenGuildSettings({
+        isOwner: false,
+        isAdmin: false,
+        canReviewRequests: true,
+      })
+    ).toBe(true);
   });
 
   it('hides the drawer from guests', () => {

@@ -10,14 +10,20 @@ describe('guildHeroActionVisibility', () => {
     });
   });
 
-  it('shows minus for a member and hides it for the owner', () => {
-    expect(guildHeroActionVisibility({ isMember: true })).toEqual({
+  it('shows minus and the gear for a member, and hides leave for the owner', () => {
+    expect(
+      guildHeroActionVisibility({ isMember: true, canOpenSettings: true })
+    ).toEqual({
       showJoin: false,
       showLeave: true,
-      showSettings: false,
+      showSettings: true,
     });
     expect(
-      guildHeroActionVisibility({ isMember: true, isOwner: true })
+      guildHeroActionVisibility({
+        isMember: true,
+        isOwner: true,
+        canOpenSettings: true,
+      })
     ).toEqual({
       showJoin: false,
       showLeave: false,
@@ -25,18 +31,18 @@ describe('guildHeroActionVisibility', () => {
     });
   });
 
-  it('shows the gear for owners and admins', () => {
-    expect(guildHeroActionVisibility({ isAdmin: true })).toEqual({
+  it('shows the gear whenever settings can open', () => {
+    expect(
+      guildHeroActionVisibility({ isAdmin: true, canOpenSettings: true })
+    ).toEqual({
       showJoin: true,
       showLeave: false,
       showSettings: true,
     });
-    expect(
-      guildHeroActionVisibility({ isMember: true, isAdmin: true })
-    ).toEqual({
-      showJoin: false,
-      showLeave: true,
-      showSettings: true,
+    expect(guildHeroActionVisibility({ isAdmin: true })).toEqual({
+      showJoin: true,
+      showLeave: false,
+      showSettings: false,
     });
   });
 });

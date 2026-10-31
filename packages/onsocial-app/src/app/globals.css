@@ -1905,6 +1905,7 @@ button.market-listing-title-link {
 }
 
 .guild-hero-action-icon {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -37195,6 +37196,18 @@ a.os-surface-row,
   /* SheetHeader owns the members title row — no second top inset when hosted. */
   .glass-sheet-root--hosted .standing-sheet-header.guild-members-sheet-chrome {
     padding-top: 0;
+  }
+
+  .guild-members-sheet-panel
+    .glass-sheet-header-title-row
+    > .glass-sheet-icon-action {
+    margin-inline-start: 0;
+  }
+
+  .guild-members-sheet-panel
+    .glass-sheet-header-title-row
+    > .guild-members-add {
+    margin-inline-start: auto;
   }
 
   .guild-members-sheet-body {

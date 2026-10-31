@@ -95,6 +95,9 @@ export type GuildShareSheetId =
 
 export type GuildManageShareSheetId = Exclude<GuildShareSheetId, 'settings'>;
 
+/** In-page guild sheets. Add member is not a shareable URL. */
+export type GuildManageSheetId = GuildManageShareSheetId | 'add-member';
+
 export function parseGuildSheetParam(
   raw: string | null | undefined
 ): GuildShareSheetId | null {

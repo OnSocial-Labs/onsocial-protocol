@@ -1,9 +1,16 @@
-export type GuildSettingsActionId = 'proposals' | 'edit' | 'rooms' | 'storage';
+export type GuildSettingsActionId =
+  | 'requests'
+  | 'proposals'
+  | 'edit'
+  | 'rooms'
+  | 'storage';
 
 export interface GuildSettingsViewer {
   isOwner: boolean;
   isAdmin: boolean;
   isMember?: boolean;
+  /** Gated guild, and this viewer can review join requests. */
+  canReviewRequests?: boolean;
 }
 
 export interface GuildSettingsAction {
@@ -32,7 +39,8 @@ const CONFIGURE_ACTIONS: GuildSettingsAction[] = [
 
 /**
  * Settings rows this viewer can open.
- * Proposals lead, for any member and for owners or admins.
+ * Member requests lead on a gated guild for reviewers.
+ * Proposals follow, for any member and for owners or admins.
  * Edit, rooms, and storage stay owner and admin only.
  */
 export function guildSettingsActions(
@@ -41,6 +49,13 @@ export function guildSettingsActions(
   const canConfigure = Boolean(viewer?.isOwner || viewer?.isAdmin);
   const canSeeProposals = Boolean(viewer?.isMember) || canConfigure;
   const rows: GuildSettingsAction[] = [];
+  if (viewer?.canReviewRequests) {
+    rows.push({
+      id: 'requests',
+      label: 'Member requests',
+      description: 'People waiting to join',
+    });
+  }
   if (canSeeProposals) {
     rows.push({
       id: 'proposals',

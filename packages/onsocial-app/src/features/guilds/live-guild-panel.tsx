@@ -3,12 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { postContentPath, type PostRow } from '@onsocial/sdk';
-import {
-  Divider,
-  OsIconAction,
-  SettingsIcon,
-  SheetHandoffProvider,
-} from '@onsocial/ui';
+import { Divider, SheetHandoffProvider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useOsInAppPop } from '@/components/providers/os-face-leave-provider';
@@ -77,10 +72,6 @@ import {
 } from '@/features/guilds/guild-page-hero';
 import { GuildAddMemberSheet } from '@/features/guilds/guild-add-member-sheet';
 import { GuildAddSpaceSheet } from '@/features/guilds/guild-add-space-sheet';
-import {
-  GuildManageMenu,
-  type GuildManageSheetId,
-} from '@/features/guilds/guild-manage-menu';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import {
   buildGuildFacepileIds,
@@ -109,6 +100,7 @@ import {
   guildPath,
   guildSheetPath,
   manageSheetFromShare,
+  type GuildManageSheetId,
   type GuildShareSheetId,
 } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -328,7 +320,9 @@ export function LiveGuildPanel({
     viewer?.isOwner || viewer?.isAdmin || viewer?.canModerate
   );
   const canConfigure = canConfigureGuild(viewer);
-  const canOpenSettings = canOpenGuildSettings(viewer);
+  const canReviewRequests = Boolean(config?.accessGated && canManageGuild);
+  const settingsViewer = viewer ? { ...viewer, canReviewRequests } : null;
+  const canOpenSettings = canOpenGuildSettings(settingsViewer);
   const canAddMember = canConfigure;
 
   useEffect(() => {
@@ -341,7 +335,9 @@ export function LiveGuildPanel({
       router.replace(guildPath(groupId), { scroll: false });
     }
   }, [canOpenSettings, groupId, initialSheet, router, viewerAccessResolved]);
-  const showManageMenu = Boolean(viewer?.isMember);
+  const pendingRequestCount = canReviewRequests
+    ? (state.moderation?.pendingMemberRequestCount ?? 0)
+    : 0;
   const resolvedDisplayName = config
     ? guildDisplayName(config.name, groupId)
     : shellPreview
@@ -721,11 +717,19 @@ export function LiveGuildPanel({
     router.replace(guildSheetPath(groupId, 'settings'), { scroll: false });
   };
 
+  const openAddMember = () => {
+    setSheetHandoff(true);
+    manageSheetPushedRef.current = false;
+    setManageSheet('add-member');
+    router.replace(guildPath(groupId), { scroll: false });
+  };
+
   const heroActions = guildHeroActionVisibility({
     isMember: effectiveIsMember,
     isOwner: effectiveIsOwner,
     isAdmin: Boolean(viewer?.isAdmin),
     hintMember: !viewerAccessResolved && Boolean(membershipHint?.isMember),
+    canOpenSettings,
   });
 
   const openComposerModal = (mode: ComposerMode) => (target: PostRow) => {
@@ -1078,39 +1082,6 @@ export function LiveGuildPanel({
       // Loading stays title-only — no marketing subtitle / raw groupId flash.
       dockBack
       backFallbackHref="/groups"
-      actions={
-        loadState === 'ready' &&
-        config &&
-        (showManageMenu || canManageGuild) ? (
-          <>
-            {showManageMenu ? (
-              <GuildManageMenu
-                pendingRequestCount={
-                  state.moderation?.pendingMemberRequestCount ?? 0
-                }
-                memberCount={memberCount}
-                accessGated={config.accessGated}
-                memberDriven={config.memberDriven}
-                canAddMember={canAddMember}
-                canReviewRequests={canManageGuild}
-                onOpenSheet={(sheet) => {
-                  setSheetHandoff(true);
-                  openManageSheet(sheet);
-                }}
-              />
-            ) : null}
-            {canOpenSettings && !canConfigure ? (
-              <OsIconAction
-                className="guild-nav-settings"
-                ariaLabel="Guild settings"
-                onClick={openSettings}
-              >
-                <SettingsIcon className="glass-sheet-close-icon" aria-hidden />
-              </OsIconAction>
-            ) : null}
-          </>
-        ) : undefined
-      }
       immersiveHeader={loadState === 'loading' || loadState === 'ready'}
       scrollRootRef={scrollRootRef}
     >
@@ -1213,6 +1184,7 @@ export function LiveGuildPanel({
                         !effectiveIsMember)
                     }
                     pending={actionPending}
+                    requestCount={pendingRequestCount}
                     onJoin={handleMembershipClick}
                     onLeave={handleMembershipClick}
                     onOpenSettings={openSettings}
@@ -1465,6 +1437,7 @@ export function LiveGuildPanel({
               openManageSheet(null);
             }}
             onMembersChanged={() => void refresh()}
+            onAddMember={canAddMember ? openAddMember : undefined}
             onAddStorage={(memberId) => {
               setGroupStorageRecipient(memberId);
               setGroupStorageSheetOpen(true);
@@ -1541,8 +1514,9 @@ export function LiveGuildPanel({
             guildName={
               config ? guildDisplayName(config.name, groupId) : undefined
             }
-            viewer={viewer}
+            viewer={settingsViewer}
             activeProposalCount={state.moderation?.activeProposalCount ?? 0}
+            pendingRequestCount={pendingRequestCount}
             onClose={() => {
               setSettingsSheetOpen(false);
               router.replace(guildPath(groupId), { scroll: false });
@@ -1550,8 +1524,8 @@ export function LiveGuildPanel({
             onHandoff={(id) => {
               setSheetHandoff(true);
               setSettingsSheetOpen(false);
-              if (id === 'proposals') {
-                openManageSheet('proposals');
+              if (id === 'requests' || id === 'proposals') {
+                openManageSheet(id);
                 return;
               }
               if (id === 'edit') setEditSheetOpen(true);
@@ -1563,6 +1537,7 @@ export function LiveGuildPanel({
             onOpenRooms={() => setRoomsSheetOpen(true)}
             onOpenGroupStorage={() => setGroupStorageSheetOpen(true)}
             onOpenProposals={() => openManageSheet('proposals')}
+            onOpenRequests={() => openManageSheet('requests')}
           />
         ) : null}
         {canConfigure ? (

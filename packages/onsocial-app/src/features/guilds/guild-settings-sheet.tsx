@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { OsHugSheet, OsSurfaceRow, OsSurfaceRowList } from '@onsocial/ui';
-import { GuildCountBadge } from '@/features/guilds/guild-manage-menu';
+import { GuildCountBadge } from '@/features/guilds/guild-count-badge';
 import {
   guildSettingsActions,
   type GuildSettingsActionId,
@@ -16,6 +16,8 @@ interface GuildSettingsSheetProps {
   viewer: GuildSettingsViewer | null;
   /** Active governance count, shown on the proposals row. */
   activeProposalCount?: number;
+  /** People waiting to join. Shown on the requests row. */
+  pendingRequestCount?: number;
   onClose: () => void;
   /** Replace this sheet with the next one. Skips the close slide. */
   onHandoff?: (id: GuildSettingsActionId) => void;
@@ -23,23 +25,26 @@ interface GuildSettingsSheetProps {
   onOpenRooms: () => void;
   onOpenGroupStorage: () => void;
   onOpenProposals?: () => void;
+  onOpenRequests?: () => void;
 }
 
 /**
- * Settings hub. Proposals lead for members; rooms and storage stay
- * with owners and admins. The toolbar gear opens this sheet.
+ * Settings hub. Requests lead for reviewers, then proposals.
+ * Rooms and storage stay with owners and admins. The hero gear opens this.
  */
 export function GuildSettingsSheet({
   open,
   guildName,
   viewer,
   activeProposalCount = 0,
+  pendingRequestCount = 0,
   onClose,
   onHandoff,
   onEditGuild,
   onOpenRooms,
   onOpenGroupStorage,
   onOpenProposals,
+  onOpenRequests,
 }: GuildSettingsSheetProps) {
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
@@ -61,6 +66,7 @@ export function GuildSettingsSheet({
         onHandoff(id);
         return;
       }
+      if (id === 'requests') onOpenRequests?.();
       if (id === 'proposals') onOpenProposals?.();
       if (id === 'edit') onEditGuild();
       if (id === 'rooms') onOpenRooms();
@@ -72,6 +78,7 @@ export function GuildSettingsSheet({
       onHandoff,
       onOpenGroupStorage,
       onOpenProposals,
+      onOpenRequests,
       onOpenRooms,
       requestClose,
     ]
@@ -102,6 +109,11 @@ export function GuildSettingsSheet({
             leading={
               action.id === 'proposals' ? (
                 <GuildCountBadge count={activeProposalCount} />
+              ) : action.id === 'requests' ? (
+                <GuildCountBadge
+                  count={pendingRequestCount}
+                  tone="solidarity"
+                />
               ) : undefined
             }
             onClick={() => select(action.id)}

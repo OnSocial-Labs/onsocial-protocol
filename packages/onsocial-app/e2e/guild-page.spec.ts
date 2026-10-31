@@ -180,9 +180,9 @@ test.describe('guild page', () => {
       page.getByRole('heading', { name: GUILD_E2E_TITLE }).first()
     ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await expect(page.locator('.guild-hero-membership')).toHaveCount(0);
-    await expect(
-      page.getByRole('button', { name: 'Guild menu' })
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Guild menu' })).toHaveCount(
+      0
+    );
     const leaveIcon = page.getByRole('button', { name: 'Leave guild' });
     await expect(leaveIcon).toBeEnabled();
     await expect(leaveIcon).toHaveCSS('cursor', 'pointer');
@@ -212,21 +212,14 @@ test.describe('guild page', () => {
     await leaveIcon.evaluate((node) => node.classList.add('is-pending'));
     await expect(leaveIcon).toHaveCSS('cursor', 'progress');
     await leaveIcon.evaluate((node) => node.classList.remove('is-pending'));
-    const menuIconWidth = await page
-      .locator('.guild-manage-menu-icon')
-      .evaluate((node) => getComputedStyle(node).width);
     const leaveGlyph = leaveIcon.locator('.glass-sheet-close-icon');
-    await expect(leaveGlyph).toHaveCSS('width', menuIconWidth);
-    await expect(leaveGlyph).toHaveCSS('height', menuIconWidth);
+    await expect(leaveGlyph).toHaveCSS('width', '20px');
+    await expect(leaveGlyph).toHaveCSS('height', '20px');
     await expect(page.getByRole('button', { name: 'Join guild' })).toHaveCount(
       0
     );
-    await expect(
-      page.locator('.guild-hero-actions').getByRole('button', {
-        name: 'Guild settings',
-      })
-    ).toHaveCount(0);
-    const settingsButton = page.locator('.guild-nav-settings');
+    await expect(page.locator('.guild-nav-settings')).toHaveCount(0);
+    const settingsButton = page.getByRole('button', { name: 'Guild settings' });
     await expect(settingsButton).toBeVisible();
     await settingsButton.click();
     const settings = page.getByRole('dialog', { name: 'Settings' });
@@ -243,13 +236,17 @@ test.describe('guild page', () => {
     await expect(
       settings.getByRole('button', { name: /Guild storage/ })
     ).toHaveCount(0);
+    await expect(
+      settings.getByRole('button', { name: /Member requests/ })
+    ).toHaveCount(0);
     await settings.getByRole('button', { name: 'Close' }).click();
     await expect(settings).toHaveCount(0);
-    await page.getByRole('button', { name: 'Guild menu' }).click();
-    await expect(page.getByRole('menuitem', { name: /Proposals/ })).toHaveCount(
+    await page.getByRole('button', { name: /View roster/ }).click();
+    const members = page.getByRole('dialog', { name: 'Members' });
+    await expect(members).toBeVisible();
+    await expect(members.getByRole('button', { name: 'Add member' })).toHaveCount(
       0
     );
-    await expect(page.getByRole('menuitem', { name: 'Members' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Add room' })).toHaveCount(0);
   });
 
@@ -309,6 +306,9 @@ test.describe('guild page', () => {
       timeout: E2E_CHROME_TIMEOUT_MS,
     });
     await expect(page.locator('.guild-nav-settings')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Guild menu' })).toHaveCount(
+      0
+    );
     await expect(page.getByRole('button', { name: 'Leave guild' })).toHaveCount(
       0
     );
@@ -316,14 +316,16 @@ test.describe('guild page', () => {
       0
     );
     const gear = settingsButton.locator('.glass-sheet-close-icon');
-    const menuIconWidth = await page
-      .locator('.guild-manage-menu-icon')
-      .evaluate((node) => getComputedStyle(node).width);
-    await expect(gear).toHaveCSS('width', menuIconWidth);
-    await expect(gear).toHaveCSS('height', menuIconWidth);
-    await expect(
-      page.getByRole('button', { name: 'Guild menu' })
-    ).toBeVisible();
+    await expect(gear).toHaveCSS('width', '20px');
+    await expect(gear).toHaveCSS('height', '20px');
+    await page.getByRole('button', { name: /View roster/ }).click();
+    const members = page.getByRole('dialog', { name: 'Members' });
+    await expect(members).toBeVisible();
+    await members.getByRole('button', { name: 'Add member' }).click();
+    const addMember = page.getByRole('dialog', { name: 'Add member' });
+    await expect(addMember).toBeVisible();
+    await addMember.getByRole('button', { name: 'Close add member' }).click();
+    await expect(addMember).toHaveCount(0);
     const rooms = page.getByRole('tablist', { name: 'Guild rooms' });
     await expect(rooms.getByRole('button', { name: 'Add room' })).toBeVisible();
     await expect(rooms.getByRole('tab', { name: 'Add room' })).toHaveCount(0);
@@ -334,6 +336,9 @@ test.describe('guild page', () => {
       .waitFor({ state: 'hidden', timeout: 2_000 })
       .then(() => true)
       .catch(() => false);
+    await expect(
+      settings.getByRole('button', { name: /Member requests/ })
+    ).toHaveCount(0);
     await expect(
       settings.getByRole('button', { name: /Proposals/ })
     ).toBeVisible();
