@@ -1,6 +1,7 @@
 import nacl from 'tweetnacl';
 import { encodeBase64 } from 'tweetnacl-util';
 import type { Page } from '@playwright/test';
+import { sealDmText } from '../../src/lib/dm/crypto';
 import {
   NOTIFICATIONS_E2E_ACCOUNT,
   seedAuthenticatedNotifications,
@@ -12,6 +13,36 @@ export const MESSAGES_E2E_THREAD = `${NOTIFICATIONS_E2E_ACCOUNT}::${MESSAGES_E2E
 const DM_STORAGE_PREFIX = 'onsocial.app.dm.';
 const E2E_DM_KEY_PAIR = nacl.box.keyPair();
 export const MESSAGES_E2E_PUBLIC_KEY = encodeBase64(E2E_DM_KEY_PAIR.publicKey);
+
+/** Seal a body the seeded viewer key can open (sender copy). */
+export function sealE2eDmBody(
+  text: string,
+  replyToMessageId?: string
+): {
+  ciphertext: string;
+  nonce: string;
+  senderCiphertext: string;
+  senderNonce: string;
+  senderPubkey: string;
+  ephemeralPubkey: string;
+  authTag: string;
+} {
+  const sealed = sealDmText({
+    text,
+    recipientPublicKey: E2E_DM_KEY_PAIR.publicKey,
+    senderKeyPair: E2E_DM_KEY_PAIR,
+    replyToMessageId,
+  });
+  return {
+    ciphertext: sealed.ciphertext,
+    nonce: sealed.nonce,
+    senderCiphertext: sealed.senderCiphertext,
+    senderNonce: sealed.senderNonce,
+    senderPubkey: sealed.senderPubkey,
+    ephemeralPubkey: sealed.ephemeralPubkey,
+    authTag: sealed.authTag,
+  };
+}
 
 /**
  * Seeds the normal authenticated session plus an already-unlocked local DM

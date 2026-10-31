@@ -18,6 +18,7 @@ import {
   feedWindowKeysEqual,
   feedWindowRangeForScroll,
   feedWindowRangeWithPinned,
+  feedWindowScrollTopForRow,
   translateFeedWindowRange,
   type FeedWindowRange,
 } from '@/features/home/feed-window';
@@ -71,6 +72,12 @@ export type UseFeedWindowResult = {
   bottomSpacer: number;
   /** Stable per-key callback ref registering a row for measurement. */
   registerRow: (key: string) => (el: HTMLElement | null) => void;
+  /**
+   * Scroll the window so `key` is centered, then resync the range. The row
+   * mounts on the following render when it was outside the window. Returns
+   * false when the key or scroll root is missing.
+   */
+  revealRow: (key: string) => boolean;
 };
 
 /**
@@ -260,6 +267,32 @@ export function useFeedWindow({
     syncRange();
   }, [keys, syncRange]);
 
+  const revealRow = useCallback(
+    (key: string) => {
+      const index = keysRef.current.indexOf(key);
+      const node = rootRef.current;
+      const host = hostRef.current;
+      if (index < 0 || !node || !host) return false;
+      const rowOffset = offsetsRef.current.offsets[index] ?? 0;
+      const rowEnd = offsetsRef.current.offsets[index + 1] ?? rowOffset;
+      const hostTop =
+        host.getBoundingClientRect().top -
+        node.getBoundingClientRect().top +
+        node.scrollTop;
+      const top = feedWindowScrollTopForRow({
+        hostTop,
+        rowOffset,
+        rowSize: rowEnd - rowOffset,
+        viewportHeight: node.clientHeight,
+        maxScroll: Math.max(0, node.scrollHeight - node.clientHeight),
+      });
+      if (node.scrollTop !== top) node.scrollTop = top;
+      syncRange();
+      return true;
+    },
+    [hostRef, syncRange]
+  );
+
   const registerRow = useCallback((key: string) => {
     let callback = rowCallbacks.current.get(key);
     if (!callback) {
@@ -308,5 +341,6 @@ export function useFeedWindow({
     topSpacer: windowed ? offsets.offsets[slice.start]! : 0,
     bottomSpacer: windowed ? offsets.total - offsets.offsets[slice.end]! : 0,
     registerRow,
+    revealRow,
   };
 }
