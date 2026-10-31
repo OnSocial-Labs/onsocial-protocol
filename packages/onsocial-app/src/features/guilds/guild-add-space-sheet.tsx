@@ -3,7 +3,6 @@
 import { useCallback, useState, type FormEvent } from 'react';
 import { OsHugSheet, osFieldSoftClassName } from '@onsocial/ui';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
-import { OsChipRail } from '@/components/os/os-chip-rail';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
   GUILD_POST_POLICY_OPTIONS,
@@ -177,18 +176,32 @@ export function GuildAddSpaceSheet({
 
         <div className="guild-add-space-field">
           <span className="guild-add-space-label">Who can share</span>
-          <OsChipRail
-            className="discover-tab-bar--header"
-            ariaLabel="Who can share"
-            selection="option"
-            disabled={pending}
-            items={GUILD_POST_POLICY_OPTIONS.map((option) => ({
-              id: option.value,
-              label: POLICY_CHIP_LABEL[option.value],
-            }))}
-            value={postPolicy}
-            onValueChange={setPostPolicy}
-          />
+          <div
+            className="guild-feed-filter-list os-scrollbar-none"
+            role="listbox"
+            aria-label="Who can share"
+          >
+            {GUILD_POST_POLICY_OPTIONS.map((option) => {
+              const selected = postPolicy === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  className={
+                    selected
+                      ? 'guild-feed-filter-button is-active'
+                      : 'guild-feed-filter-button'
+                  }
+                  disabled={pending}
+                  onClick={() => setPostPolicy(option.value)}
+                >
+                  {POLICY_CHIP_LABEL[option.value]}
+                </button>
+              );
+            })}
+          </div>
           <p className="guild-add-space-hint" aria-live="polite">
             {POLICY_HINT[postPolicy]}
           </p>

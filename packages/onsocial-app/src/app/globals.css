@@ -37381,9 +37381,11 @@ a.os-surface-row,
     min-width: 0;
   }
 
-  .guild-add-space-field .discover-tab-bar {
+  /* The feed rail's negative margin is for the pinned room row. */
+  .guild-add-space-field .guild-feed-filter-list {
     min-width: 0;
-    margin: 0;
+    margin-inline: 0;
+    padding: 0;
   }
 
   .guild-add-space-label {

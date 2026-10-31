@@ -266,10 +266,24 @@ test.describe('guild page', () => {
     await expect(selected).toHaveAttribute('aria-selected', 'false');
     await expect(sheet.getByText('Any member can share.')).toBeVisible();
 
-    const scroller = share.locator('.discover-tab-bar-scroller');
-    await expect(scroller).toHaveCSS('display', 'flex');
-    await expect(scroller).toHaveCSS('flex-wrap', 'nowrap');
-    await expect(scroller).toHaveCSS('overflow-x', 'auto');
+    await expect(share).toHaveCSS('display', 'flex');
+    await expect(share).toHaveCSS('flex-wrap', 'nowrap');
+    await expect(share).toHaveCSS('overflow-x', 'auto');
+    await expect(share).toHaveCSS(
+      'gap',
+      await rooms.evaluate((node) => getComputedStyle(node).gap)
+    );
+    expect(await chipPaint(team)).toEqual(
+      await chipPaint(rooms.getByRole('tab', { name: 'General' }))
+    );
+    const selectedRoom = await chipPaint(
+      rooms.getByRole('tab', { name: 'All' })
+    );
+    const selectedShare = await chipPaint(everyone);
+    expect(selectedShare.backgroundColor).toBe(selectedRoom.backgroundColor);
+    expect(selectedShare.color).toBe(selectedRoom.color);
+    expect(selectedShare.fontSize).toBe(selectedRoom.fontSize);
+    expect(selectedShare.padding).toBe(selectedRoom.padding);
     await expectShareChipsInOneRow(share);
 
     await leaders.click();
@@ -281,7 +295,7 @@ test.describe('guild page', () => {
     await expectShareChipsInOneRow(share);
     await expect
       .poll(async () =>
-        scroller.evaluate((node) => node.scrollWidth - node.clientWidth)
+        share.evaluate((node) => node.scrollWidth - node.clientWidth)
       )
       .toBeGreaterThan(8);
     await selected.scrollIntoViewIfNeeded();
@@ -384,6 +398,22 @@ test.describe('guild page', () => {
     });
   });
 });
+
+async function chipPaint(chip: Locator) {
+  return chip.evaluate((node) => {
+    const style = getComputedStyle(node);
+    return {
+      backgroundColor: style.backgroundColor,
+      color: style.color,
+      fontSize: style.fontSize,
+      fontWeight: style.fontWeight,
+      letterSpacing: style.letterSpacing,
+      lineHeight: style.lineHeight,
+      padding: style.padding,
+      borderRadius: style.borderRadius,
+    };
+  });
+}
 
 async function expectShareChipsInOneRow(share: Locator) {
   const names = ['Everyone', 'Team', 'Leaders', 'Selected'] as const;
