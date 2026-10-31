@@ -673,17 +673,14 @@ export function LiveGuildPanel({
 
   const handleMembershipConfirmed = useCallback(
     async (outcome: GuildMembershipOutcome) => {
-      if (
-        outcome === 'requested' ||
-        (outcome === 'joined' && config?.memberDriven)
-      ) {
+      if (outcome === 'requested' || outcome === 'proposed') {
         setOptimisticJoinPending(true);
       } else if (outcome === 'canceled') {
         setOptimisticJoinPending(false);
       }
       await refresh();
     },
-    [config?.memberDriven, refresh, setOptimisticJoinPending]
+    [refresh, setOptimisticJoinPending]
   );
 
   const handleOwnerManage = useCallback(() => {

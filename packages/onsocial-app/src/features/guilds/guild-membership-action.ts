@@ -4,6 +4,7 @@ export type GuildMembershipOutcome =
   | 'left'
   | 'canceled'
   | 'requested'
+  | 'proposed'
   | 'joined';
 
 export type GuildMembershipActionSnapshot = {
@@ -21,9 +22,11 @@ export function guildMembershipOutcome(input: {
   wasMember: boolean;
   wasJoinPending: boolean;
   accessGated: boolean;
+  memberDriven: boolean;
 }): GuildMembershipOutcome {
   if (input.wasMember) return 'left';
   if (input.wasJoinPending) return 'canceled';
+  if (input.memberDriven) return 'proposed';
   return input.accessGated ? 'requested' : 'joined';
 }
 
@@ -31,9 +34,13 @@ export function nextGuildMembershipCache(input: {
   wasMember: boolean;
   wasJoinPending: boolean;
   accessGated: boolean;
+  memberDriven: boolean;
 }): { isMember: boolean; joinPending: boolean } {
   if (input.wasMember || input.wasJoinPending) {
     return { isMember: false, joinPending: false };
+  }
+  if (input.memberDriven) {
+    return { isMember: false, joinPending: true };
   }
   return {
     isMember: !input.accessGated,
@@ -70,6 +77,7 @@ export type GuildMembershipConfirmKind =
   | 'request'
   | 'propose'
   | 'cancel'
+  | 'cancel-proposal'
   | 'leave';
 
 export function guildMembershipConfirmKind(
@@ -79,7 +87,9 @@ export function guildMembershipConfirmKind(
   if (snapshot.joinPending && !snapshot.joinCancelReady) return null;
   if (snapshot.isMember && snapshot.isOwner) return 'owner';
   if (snapshot.isMember) return 'leave';
-  if (snapshot.joinPending) return 'cancel';
+  if (snapshot.joinPending) {
+    return snapshot.memberDriven ? 'cancel-proposal' : 'cancel';
+  }
   if (snapshot.memberDriven) return 'propose';
   return snapshot.accessGated ? 'request' : 'join';
 }
@@ -102,6 +112,13 @@ export function guildMembershipConfirmCopy(kind: GuildMembershipConfirmKind): {
       return {
         label: 'Cancel request',
         confirmLabel: 'Cancel request',
+        pendingLabel: 'Canceling…',
+        variant: 'danger',
+      };
+    case 'cancel-proposal':
+      return {
+        label: 'Cancel proposal',
+        confirmLabel: 'Cancel proposal',
         pendingLabel: 'Canceling…',
         variant: 'danger',
       };

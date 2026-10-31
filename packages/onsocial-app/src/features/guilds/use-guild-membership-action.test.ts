@@ -21,9 +21,9 @@ const snapshot = {
 describe('guildMembershipConfirmKind', () => {
   it('opens join, request, cancel, or leave before a wallet step', () => {
     expect(guildMembershipConfirmKind(snapshot)).toBe('join');
-    expect(
-      guildMembershipConfirmKind({ ...snapshot, accessGated: true })
-    ).toBe('request');
+    expect(guildMembershipConfirmKind({ ...snapshot, accessGated: true })).toBe(
+      'request'
+    );
     expect(
       guildMembershipConfirmKind({ ...snapshot, memberDriven: true })
     ).toBe('propose');
@@ -41,6 +41,14 @@ describe('guildMembershipConfirmKind', () => {
         joinCancelReady: true,
       })
     ).toBe('cancel');
+    expect(
+      guildMembershipConfirmKind({
+        ...snapshot,
+        memberDriven: true,
+        joinPending: true,
+        joinCancelReady: true,
+      })
+    ).toBe('cancel-proposal');
     expect(guildMembershipConfirmKind({ ...snapshot, isMember: true })).toBe(
       'leave'
     );
@@ -78,6 +86,15 @@ describe('guildMembershipConfirmCopy', () => {
       pendingLabel: 'Proposing…',
       variant: 'primary',
     });
+    expect(guildMembershipConfirmCopy('cancel')).toMatchObject({
+      label: 'Cancel request',
+      confirmLabel: 'Cancel request',
+    });
+    expect(guildMembershipConfirmCopy('cancel-proposal')).toMatchObject({
+      label: 'Cancel proposal',
+      confirmLabel: 'Cancel proposal',
+      variant: 'danger',
+    });
     expect(guildMembershipConfirmCopy('request')).not.toHaveProperty('body');
     expect(guildMembershipConfirmCopy('propose')).not.toHaveProperty('body');
   });
@@ -90,6 +107,7 @@ describe('guildMembershipOutcome', () => {
         wasMember: true,
         wasJoinPending: false,
         accessGated: false,
+        memberDriven: false,
       })
     ).toBe('left');
     expect(
@@ -97,6 +115,7 @@ describe('guildMembershipOutcome', () => {
         wasMember: false,
         wasJoinPending: true,
         accessGated: true,
+        memberDriven: false,
       })
     ).toBe('canceled');
     expect(
@@ -104,6 +123,7 @@ describe('guildMembershipOutcome', () => {
         wasMember: false,
         wasJoinPending: false,
         accessGated: true,
+        memberDriven: false,
       })
     ).toBe('requested');
     expect(
@@ -111,8 +131,25 @@ describe('guildMembershipOutcome', () => {
         wasMember: false,
         wasJoinPending: false,
         accessGated: false,
+        memberDriven: false,
       })
     ).toBe('joined');
+    expect(
+      guildMembershipOutcome({
+        wasMember: false,
+        wasJoinPending: false,
+        accessGated: false,
+        memberDriven: true,
+      })
+    ).toBe('proposed');
+    expect(
+      guildMembershipOutcome({
+        wasMember: false,
+        wasJoinPending: false,
+        accessGated: true,
+        memberDriven: true,
+      })
+    ).toBe('proposed');
   });
 });
 
@@ -123,6 +160,7 @@ describe('nextGuildMembershipCache', () => {
         wasMember: true,
         wasJoinPending: false,
         accessGated: false,
+        memberDriven: false,
       })
     ).toEqual({ isMember: false, joinPending: false });
     expect(
@@ -130,16 +168,18 @@ describe('nextGuildMembershipCache', () => {
         wasMember: false,
         wasJoinPending: true,
         accessGated: true,
+        memberDriven: false,
       })
     ).toEqual({ isMember: false, joinPending: false });
   });
 
-  it('writes joined or requested after a successful join', () => {
+  it('writes joined, requested, or proposed after a successful join', () => {
     expect(
       nextGuildMembershipCache({
         wasMember: false,
         wasJoinPending: false,
         accessGated: false,
+        memberDriven: false,
       })
     ).toEqual({ isMember: true, joinPending: false });
     expect(
@@ -147,6 +187,15 @@ describe('nextGuildMembershipCache', () => {
         wasMember: false,
         wasJoinPending: false,
         accessGated: true,
+        memberDriven: false,
+      })
+    ).toEqual({ isMember: false, joinPending: true });
+    expect(
+      nextGuildMembershipCache({
+        wasMember: false,
+        wasJoinPending: false,
+        accessGated: false,
+        memberDriven: true,
       })
     ).toEqual({ isMember: false, joinPending: true });
   });

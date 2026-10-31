@@ -45,6 +45,8 @@ export interface GuildProposalCardProps {
   canVote?: boolean;
   pendingAction?: 'support' | 'oppose' | 'cancel' | 'expire' | null;
   isOwnRequest?: boolean;
+  /** Own pending row. Member-led guilds cancel a proposal, not an access request. */
+  ownPendingNoun?: 'request' | 'proposal';
   suppressProposer?: boolean;
   showSequence?: boolean;
   supportLabel?: string;
@@ -75,6 +77,7 @@ export function GuildProposalCard({
   canVote = false,
   pendingAction = null,
   isOwnRequest = false,
+  ownPendingNoun = 'request',
   suppressProposer = false,
   showSequence = true,
   supportLabel = 'Support',
@@ -398,7 +401,9 @@ export function GuildProposalCard({
           ) : isOwnRequest && onCancel ? (
             <>
               <p className={osSheetFloatingPanelCopyClassName}>
-                Request pending
+                {ownPendingNoun === 'proposal'
+                  ? 'Proposal pending'
+                  : 'Request pending'}
                 <span className={osSheetFloatingPanelMetaClassName}>
                   {' '}
                   · waiting for members to vote
@@ -420,7 +425,9 @@ export function GuildProposalCard({
                   disabled={pendingAction === 'cancel'}
                   onClick={onCancel}
                 >
-                  Cancel request
+                  {ownPendingNoun === 'proposal'
+                    ? 'Cancel proposal'
+                    : 'Cancel request'}
                 </OsSheetAction>
               </OsSheetActions>
             </>

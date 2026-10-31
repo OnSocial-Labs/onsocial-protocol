@@ -41,7 +41,7 @@ export type { GuildMembershipConfirmKind } from '@/features/guilds/guild-members
 
 function membershipToastCopy(input: {
   outcome: GuildMembershipOutcome;
-  accessGated: boolean;
+  memberDriven: boolean;
 }): {
   submittedMessage: string;
   successMessage: string;
@@ -53,14 +53,24 @@ function membershipToastCopy(input: {
         successMessage: txToastSuccess.guildLeft,
       };
     case 'canceled':
-      return {
-        submittedMessage: txToastConfirming.cancelingGuildRequest,
-        successMessage: txToastSuccess.guildRequestCanceled,
-      };
+      return input.memberDriven
+        ? {
+            submittedMessage: txToastConfirming.cancelingGuildProposal,
+            successMessage: txToastSuccess.guildProposalCanceled,
+          }
+        : {
+            submittedMessage: txToastConfirming.cancelingGuildRequest,
+            successMessage: txToastSuccess.guildRequestCanceled,
+          };
     case 'requested':
       return {
         submittedMessage: txToastConfirming.requestingGuildAccess,
         successMessage: txToastSuccess.guildAccessRequested,
+      };
+    case 'proposed':
+      return {
+        submittedMessage: txToastConfirming.proposingGuildJoin,
+        successMessage: txToastSuccess.guildJoinProposed,
       };
     case 'joined':
       return {
@@ -136,6 +146,7 @@ export function useGuildMembershipAction({
       wasMember: current.isMember,
       wasJoinPending: current.joinPending,
       accessGated: current.accessGated,
+      memberDriven: current.memberDriven,
     });
     try {
       const { client } = await getClient();
@@ -148,7 +159,7 @@ export function useGuildMembershipAction({
       });
       const toast = membershipToastCopy({
         outcome,
-        accessGated: current.accessGated,
+        memberDriven: current.memberDriven,
       });
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
@@ -167,6 +178,7 @@ export function useGuildMembershipAction({
               wasMember: current.isMember,
               wasJoinPending: current.joinPending,
               accessGated: current.accessGated,
+              memberDriven: current.memberDriven,
             })
           );
         }
