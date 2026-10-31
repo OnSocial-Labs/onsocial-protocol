@@ -1,11 +1,9 @@
 'use client';
 
-import { useCallback, useId, useState, type FormEvent } from 'react';
+import { useCallback, useState, type FormEvent } from 'react';
 import { OsHugSheet, osFieldSoftClassName } from '@onsocial/ui';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@onsocial/ui';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { OsChipRail } from '@/components/os/os-chip-rail';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
   GUILD_POST_POLICY_OPTIONS,
@@ -59,7 +57,6 @@ export function GuildAddSpaceSheet({
   onClose,
   onSaved,
 }: GuildAddSpaceSheetProps) {
-  const shareLabelId = useId();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const scrollFieldIntoView = useMobileFieldFocusScroll();
@@ -179,32 +176,19 @@ export function GuildAddSpaceSheet({
         </label>
 
         <div className="guild-add-space-field">
-          <span className="guild-add-space-label" id={shareLabelId}>
-            Who can share
-          </span>
-          <div
-            className="guild-add-space-segments"
-            role="radiogroup"
-            aria-labelledby={shareLabelId}
-          >
-            {GUILD_POST_POLICY_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                role="radio"
-                aria-checked={postPolicy === option.value}
-                className={
-                  postPolicy === option.value
-                    ? 'guild-add-space-segment is-active'
-                    : 'guild-add-space-segment'
-                }
-                disabled={pending}
-                onClick={() => setPostPolicy(option.value)}
-              >
-                {POLICY_CHIP_LABEL[option.value]}
-              </button>
-            ))}
-          </div>
+          <span className="guild-add-space-label">Who can share</span>
+          <OsChipRail
+            className="discover-tab-bar--header"
+            ariaLabel="Who can share"
+            selection="option"
+            disabled={pending}
+            items={GUILD_POST_POLICY_OPTIONS.map((option) => ({
+              id: option.value,
+              label: POLICY_CHIP_LABEL[option.value],
+            }))}
+            value={postPolicy}
+            onValueChange={setPostPolicy}
+          />
           <p className="guild-add-space-hint" aria-live="polite">
             {POLICY_HINT[postPolicy]}
           </p>
