@@ -386,10 +386,16 @@ nested"
         exit 1
       fi
 
-      heat_state="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
-        SELECT to_regclass('"'"'public.post_amplify_heat_state'"'"') IS NOT NULL;
+      heat_served="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT EXISTS (
+          SELECT 1
+          FROM pg_views
+          WHERE schemaname = '"'"'public'"'"'
+            AND viewname = '"'"'post_amplify_heat'"'"'
+            AND definition LIKE '"'"'%post_amplify_heat_state%'"'"'
+        );
       ")"
-      if [ "$heat_state" = "t" ]; then
+      if [ "$heat_served" = "t" ]; then
         apply_sql "$db" /work/tests/fixtures/feed_pulse_hot_rank_check.sql
         hot_ids="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atf /work/tests/fixtures/feed_pulse_hot_rank_assert.sql)"
         apply_sql "$db" /work/tests/fixtures/feed_pulse_hot_rank_cleanup.sql
