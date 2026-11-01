@@ -20,6 +20,7 @@ on:
       - 'scripts/pull-secrets.sh'
       - 'scripts/sync-production-env.sh'
       - 'scripts/validate-gsm-secrets.sh'
+      - 'indexers/chain-index/**'
       - '.github/workflows/deploy-testnet.yml'
   workflow_dispatch:
 
@@ -435,6 +436,16 @@ jobs:
 
       - name: Sync Hasura permissions and finish deploy
         run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            root@${{ env.DEPLOY_HOST }} 'mkdir -p /opt/onsocial/indexer-views'
+          scp -i ~/.ssh/deploy_key \
+            indexers/chain-index/core_schema_views.sql \
+            indexers/chain-index/leaderboard_schema_views.sql \
+            indexers/chain-index/scarces_schema_views.sql \
+            indexers/chain-index/social_spend_schema_views.sql \
+            "root@${{ env.DEPLOY_HOST }}:/opt/onsocial/indexer-views/"
           scp -i ~/.ssh/deploy_key /tmp/deploy_gsm.env \
             "root@${{ env.DEPLOY_HOST }}:/opt/onsocial/deploy_gsm.env"
           ssh -i ~/.ssh/deploy_key \
@@ -554,6 +565,46 @@ jobs:
               print_service_logs "hasura"
               exit 1
             fi
+
+            # Core views install the empty heat stub. Spend views must follow
+            # in this step so Hot still reads post_amplify_heat_state, and
+            # feed_pulse ranks by that heat. Hasura retrack is next.
+            echo "Applying indexer views..."
+            apply_indexer_view() {
+              local file="$1"
+              echo "  $(basename "$file")"
+              dc exec -T postgres \
+                psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
+                < "$file"
+            }
+            VIEW_DIR=/opt/onsocial/indexer-views
+            for view in core_schema_views.sql leaderboard_schema_views.sql scarces_schema_views.sql; do
+              apply_indexer_view "$VIEW_DIR/$view"
+            done
+            has_spend="$(dc exec -T postgres \
+              psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -Atc \
+              "SELECT to_regclass('public.social_spend_events') IS NOT NULL;" \
+              | tr -d '[:space:]')"
+            if [ "$has_spend" = "t" ]; then
+              apply_indexer_view "$VIEW_DIR/social_spend_schema_views.sql"
+            fi
+            heat_served="$(dc exec -T postgres \
+              psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -Atc \
+              "SELECT EXISTS (
+                 SELECT 1 FROM pg_views
+                 WHERE schemaname = 'public'
+                   AND viewname = 'post_amplify_heat'
+                   AND definition LIKE '%post_amplify_heat_state%'
+               );" | tr -d '[:space:]')"
+            pulse_hot="$(dc exec -T postgres \
+              psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -Atc \
+              "SELECT pg_get_functiondef('public.feed_pulse(text[],integer,integer,text)'::regprocedure)
+                 LIKE '%event_heat%';" | tr -d '[:space:]')"
+            if [ "$heat_served" != "t" ] || [ "$pulse_hot" != "t" ]; then
+              echo "❌ indexer views did not install boost ranking (heat=${heat_served:-missing} pulse=${pulse_hot:-missing})"
+              exit 1
+            fi
+            echo "✅ indexer views applied"
 
             echo "Syncing Hasura permissions..."
             mkdir -p /opt/onsocial/backups
