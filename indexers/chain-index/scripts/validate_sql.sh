@@ -580,6 +580,14 @@ SELECT
 WHERE false;
 SQLEOF
       apply_sql "$db" /work/core_schema_views.sql
+      # Core views install the empty heat stub. A full apply puts the
+      # serving view back when social-spend is present.
+      has_spend="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT to_regclass('"'"'public.social_spend_events'"'"') IS NOT NULL;
+      ")"
+      if [ "$has_spend" = "t" ] && [ -f /work/social_spend_schema_views.sql ]; then
+        apply_sql "$db" /work/social_spend_schema_views.sql
+      fi
       validate_expected_objects "$db"
     }
 
