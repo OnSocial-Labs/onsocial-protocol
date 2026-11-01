@@ -618,6 +618,11 @@ jobs:
               printf '%s\n' '  ) = 0 THEN'
               printf '%s\n' '    RAISE EXCEPTION '"'"'feed_pulse is not ranking by event_heat'"'"';'
               printf '%s\n' '  END IF;'
+              printf '%s\n' '  IF to_regclass('"'"'public.leaderboard_influence_rank'"'"') IS NULL'
+              printf '%s\n' '     OR to_regclass('"'"'public.leaderboard_rewards_current'"'"') IS NULL'
+              printf '%s\n' '     OR to_regclass('"'"'public.reputation_scores_current'"'"') IS NULL THEN'
+              printf '%s\n' '    RAISE EXCEPTION '"'"'leaderboard rank store tables missing after view apply'"'"';'
+              printf '%s\n' '  END IF;'
               printf '%s\n' 'END $$;'
             } > "$VIEW_DIR/apply_indexer_views.sql"
             dc cp "$VIEW_DIR/apply_indexer_views.sql" postgres:/tmp/indexer-views/apply_indexer_views.sql </dev/null
