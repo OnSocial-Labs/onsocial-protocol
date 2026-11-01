@@ -233,7 +233,7 @@ export function ChartVerticalFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `fire-a` — Hot sort and Boost when active. */
+/** Mage bulk `fire-a` — Boost when active. */
 export function FireFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>
@@ -245,7 +245,7 @@ export function FireFillIcon(props: MageFillIconProps) {
   );
 }
 
-/** Mage bulk `rocket` — amplify when the viewer has amplified. */
+/** Mage bulk `rocket` — amplify and Hot sort when active. */
 export function RocketFillIcon(props: MageFillIconProps) {
   return (
     <MageFillSvg {...props}>

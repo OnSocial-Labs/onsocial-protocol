@@ -856,7 +856,7 @@ export function BookmarkIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `fire-a` — Hot sort and Boost. Pair with FireFillIcon when active. */
+/** Mage `fire-a` — Boost. Pair with FireFillIcon when active. */
 export function FireIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -880,7 +880,7 @@ export function FireIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `rocket` — amplify a post. Pair with RocketFillIcon once amplified. */
+/** Mage `rocket` — amplify a post, and the Hot feed sort. Pair with RocketFillIcon when active. */
 export function RocketIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
