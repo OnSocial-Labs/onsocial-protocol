@@ -387,7 +387,7 @@ nested"
       fi
 
       heat_state="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
-        SELECT to_regclass('public.post_amplify_heat_state') IS NOT NULL;
+        SELECT to_regclass('"'"'public.post_amplify_heat_state'"'"') IS NOT NULL;
       ")"
       if [ "$heat_state" = "t" ]; then
         apply_sql "$db" /work/tests/fixtures/feed_pulse_hot_rank_check.sql
