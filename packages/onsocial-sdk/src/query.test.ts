@@ -1280,9 +1280,9 @@ describe('QueryModule', () => {
       const queries = fetch.mock.calls.map(
         (call) => JSON.parse(call[1].body).query as string
       );
-      expect(queries.filter((query) => query.includes('feedPulse'))).toHaveLength(
-        1
-      );
+      expect(
+        queries.filter((query) => query.includes('feedPulse'))
+      ).toHaveLength(1);
       expect(queries.some((query) => query.includes('postsFeed'))).toBe(false);
     });
   });
