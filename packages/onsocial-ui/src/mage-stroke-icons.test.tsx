@@ -24,8 +24,8 @@ import {
   EditIcon,
   EditPenIcon,
   ExternalLinkIcon,
-  FireBIcon,
   FireIcon,
+  RocketIcon,
   GiftIcon,
   GlobeIcon,
   HomeIcon,
@@ -99,8 +99,8 @@ describe('mage stroke icons', () => {
     expect(typeof EditIcon).toBe('function');
     expect(typeof EditPenIcon).toBe('function');
     expect(typeof ExternalLinkIcon).toBe('function');
-    expect(typeof FireBIcon).toBe('function');
     expect(typeof FireIcon).toBe('function');
+    expect(typeof RocketIcon).toBe('function');
     expect(typeof HeartIcon).toBe('function');
     expect(typeof BookmarkIcon).toBe('function');
     expect(typeof Box3dIcon).toBe('function');

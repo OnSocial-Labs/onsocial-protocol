@@ -1,9 +1,9 @@
 'use client';
 
 import {
-  FireBFillIcon,
-  FireBIcon,
   OsIconAction,
+  RocketFillIcon,
+  RocketIcon,
   TimeFillIcon,
   TimeIcon,
 } from '@onsocial/ui';
@@ -21,11 +21,7 @@ export function HomeFeedSortToggle({
   onSortChange: (sort: HomeFeedSort) => void;
 }) {
   return (
-    <div
-      className="home-feed-sort-toggle"
-      role="group"
-      aria-label="Feed sort"
-    >
+    <div className="home-feed-sort-toggle" role="group" aria-label="Feed sort">
       {HOME_FEED_SORTS.map((option) => {
         const selected = option === sort;
         const label = homeFeedSortLabel(option);
@@ -40,12 +36,12 @@ export function HomeFeedSortToggle({
           >
             {option === 'hot' ? (
               selected ? (
-                <FireBFillIcon
+                <RocketFillIcon
                   aria-hidden
                   className="home-feed-sort-btn-icon"
                 />
               ) : (
-                <FireBIcon aria-hidden className="home-feed-sort-btn-icon" />
+                <RocketIcon aria-hidden className="home-feed-sort-btn-icon" />
               )
             ) : selected ? (
               <TimeFillIcon aria-hidden className="home-feed-sort-btn-icon" />

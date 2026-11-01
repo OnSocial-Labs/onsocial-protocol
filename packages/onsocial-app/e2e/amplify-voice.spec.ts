@@ -10,14 +10,13 @@ test.describe('amplify voice', () => {
   test('Amplify sheet asks Connect, not Connect wallet', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await stubAmplifyPostGraph(page);
-    await gotoApp(
-      page,
-      `/@${AMPLIFY_E2E_AUTHOR}/posts/${AMPLIFY_E2E_POST_ID}`
-    );
+    await gotoApp(page, `/@${AMPLIFY_E2E_AUTHOR}/posts/${AMPLIFY_E2E_POST_ID}`);
     await dismissNextDevOverlay(page);
 
     const amplify = page.getByRole('button', { name: 'Amplify this post' });
     await expect(amplify).toBeVisible({ timeout: 30_000 });
+    // Idle amplify is the Mage rocket, five strokes. A flame is two.
+    await expect(amplify.locator('svg path')).toHaveCount(5);
     await amplify.click();
 
     const sheet = page.getByRole('dialog').filter({ hasText: 'Amplify' });

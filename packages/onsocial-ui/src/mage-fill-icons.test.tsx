@@ -21,8 +21,8 @@ import {
   DashboardFillIcon,
   CalendarFillIcon,
   MapMarkerFillIcon,
-  FireBFillIcon,
   FireFillIcon,
+  RocketFillIcon,
   TimeFillIcon,
   ShopFillIcon,
   StarMovingFillIcon,
@@ -64,8 +64,8 @@ describe('mage fill icons', () => {
     expect(typeof DashboardFillIcon).toBe('function');
     expect(typeof CalendarFillIcon).toBe('function');
     expect(typeof MapMarkerFillIcon).toBe('function');
-    expect(typeof FireBFillIcon).toBe('function');
     expect(typeof FireFillIcon).toBe('function');
+    expect(typeof RocketFillIcon).toBe('function');
     expect(typeof TimeFillIcon).toBe('function');
     expect(typeof ShopFillIcon).toBe('function');
     expect(typeof StarMovingFillIcon).toBe('function');
