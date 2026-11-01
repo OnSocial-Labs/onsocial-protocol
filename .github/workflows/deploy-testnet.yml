@@ -454,7 +454,7 @@ jobs:
             -o UserKnownHostsFile=~/.ssh/known_hosts \
             -o ServerAliveInterval=30 \
             -o ServerAliveCountMax=120 \
-            root@${{ env.DEPLOY_HOST }} 'bash -seu' <<'REMOTE_SCRIPT'
+            root@${{ env.DEPLOY_HOST }} 'bash -seu' <<'REMOTE_SCRIPT' | tee /tmp/deploy-finish.log
             set -euo pipefail
             cd /opt/onsocial
 
@@ -585,13 +585,13 @@ jobs:
               social_spend_schema_views.sql
             do
               echo "  $view"
-              dc cp "$VIEW_DIR/$view" "postgres:/tmp/indexer-views/$view"
+              dc cp "$VIEW_DIR/$view" "postgres:/tmp/indexer-views/$view" </dev/null
             done
             dc exec -T postgres test -s /tmp/indexer-views/leaderboard_rank_store.sql </dev/null
             has_spend="$(dc exec -T postgres \
               psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -Atc \
               "SELECT to_regclass('public.social_spend_events') IS NOT NULL;" \
-              | tr -d '[:space:]')"
+              </dev/null | tr -d '[:space:]')"
             if [ "$has_spend" != "t" ]; then
               echo "❌ social_spend_events is missing; refusing to publish the empty heat view"
               exit 1
@@ -620,11 +620,11 @@ jobs:
               printf '%s\n' '  END IF;'
               printf '%s\n' 'END $$;'
             } > "$VIEW_DIR/apply_indexer_views.sql"
-            dc cp "$VIEW_DIR/apply_indexer_views.sql" postgres:/tmp/indexer-views/apply_indexer_views.sql
+            dc cp "$VIEW_DIR/apply_indexer_views.sql" postgres:/tmp/indexer-views/apply_indexer_views.sql </dev/null
             dc exec -T postgres \
               psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
               --single-transaction \
-              -f /tmp/indexer-views/apply_indexer_views.sql
+              -f /tmp/indexer-views/apply_indexer_views.sql </dev/null
             echo "✅ indexer views applied"
 
             echo "Syncing Hasura permissions..."
@@ -709,5 +709,7 @@ jobs:
             dc ps --format "table {{.Name}}\t{{.Status}}" </dev/null
             echo ""
             rm -f deploy_gsm.env
+            echo "DEPLOY_REMOTE_DONE"
           REMOTE_SCRIPT
+          grep -q DEPLOY_REMOTE_DONE /tmp/deploy-finish.log
             echo "✅ Testnet deploy complete — ${{ steps.sha.outputs.short }} (prev: $PREV_TAG)"
