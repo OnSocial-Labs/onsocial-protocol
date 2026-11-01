@@ -443,6 +443,7 @@ jobs:
           scp -i ~/.ssh/deploy_key \
             indexers/chain-index/core_schema_views.sql \
             indexers/chain-index/leaderboard_schema_views.sql \
+            indexers/chain-index/leaderboard_rank_store.sql \
             indexers/chain-index/scarces_schema_views.sql \
             indexers/chain-index/social_spend_schema_views.sql \
             "root@${{ env.DEPLOY_HOST }}:/opt/onsocial/indexer-views/"
@@ -566,44 +567,64 @@ jobs:
               exit 1
             fi
 
-            # Core views install the empty heat stub. Spend views must follow
-            # in this step so Hot still reads post_amplify_heat_state, and
-            # feed_pulse ranks by that heat. Hasura retrack is next.
+            # One transaction. Core views publish an empty heat stub, and
+            # leaderboard_schema_views.sql drops profile_discover before its
+            # \ir recreates the rank store. Stdin cannot see that \ir. The
+            # files are applied with psql -f from one directory, and nothing
+            # commits unless Pulse ranks by heat and the heat view reads the
+            # state table. Hasura retrack is next.
             echo "Applying indexer views..."
-            apply_indexer_view() {
-              local file="$1"
-              echo "  $(basename "$file")"
-              dc exec -T postgres \
-                psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
-                < "$file"
-            }
             VIEW_DIR=/opt/onsocial/indexer-views
-            for view in core_schema_views.sql leaderboard_schema_views.sql scarces_schema_views.sql; do
-              apply_indexer_view "$VIEW_DIR/$view"
+            chmod 644 "$VIEW_DIR"/*.sql
+            dc exec -T postgres mkdir -p /tmp/indexer-views </dev/null
+            for view in \
+              core_schema_views.sql \
+              leaderboard_schema_views.sql \
+              leaderboard_rank_store.sql \
+              scarces_schema_views.sql \
+              social_spend_schema_views.sql
+            do
+              echo "  $view"
+              dc cp "$VIEW_DIR/$view" "postgres:/tmp/indexer-views/$view"
             done
+            dc exec -T postgres test -s /tmp/indexer-views/leaderboard_rank_store.sql </dev/null
             has_spend="$(dc exec -T postgres \
               psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -Atc \
               "SELECT to_regclass('public.social_spend_events') IS NOT NULL;" \
               | tr -d '[:space:]')"
-            if [ "$has_spend" = "t" ]; then
-              apply_indexer_view "$VIEW_DIR/social_spend_schema_views.sql"
-            fi
-            heat_served="$(dc exec -T postgres \
-              psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -Atc \
-              "SELECT EXISTS (
-                 SELECT 1 FROM pg_views
-                 WHERE schemaname = 'public'
-                   AND viewname = 'post_amplify_heat'
-                   AND definition LIKE '%post_amplify_heat_state%'
-               );" | tr -d '[:space:]')"
-            pulse_hot="$(dc exec -T postgres \
-              psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -Atc \
-              "SELECT pg_get_functiondef('public.feed_pulse(text[],integer,integer,text)'::regprocedure)
-                 LIKE '%event_heat%';" | tr -d '[:space:]')"
-            if [ "$heat_served" != "t" ] || [ "$pulse_hot" != "t" ]; then
-              echo "❌ indexer views did not install boost ranking (heat=${heat_served:-missing} pulse=${pulse_hot:-missing})"
+            if [ "$has_spend" != "t" ]; then
+              echo "❌ social_spend_events is missing; refusing to publish the empty heat view"
               exit 1
             fi
+            {
+              printf '%s\n' '\ir core_schema_views.sql'
+              printf '%s\n' '\ir leaderboard_schema_views.sql'
+              printf '%s\n' '\ir scarces_schema_views.sql'
+              printf '%s\n' '\ir social_spend_schema_views.sql'
+              printf '%s\n' 'DO $$'
+              printf '%s\n' 'BEGIN'
+              printf '%s\n' '  IF NOT EXISTS ('
+              printf '%s\n' '    SELECT 1 FROM pg_views'
+              printf '%s\n' '    WHERE schemaname = '"'"'public'"'"
+              printf '%s\n' '      AND viewname = '"'"'post_amplify_heat'"'"
+              printf '%s\n' '      AND definition LIKE '"'"'%post_amplify_heat_state%'"'"
+              printf '%s\n' '  ) THEN'
+              printf '%s\n' '    RAISE EXCEPTION '"'"'post_amplify_heat is not the serving state view'"'"';'
+              printf '%s\n' '  END IF;'
+              printf '%s\n' '  IF position('
+              printf '%s\n' '    '"'"'event_heat'"'"' IN pg_get_functiondef('
+              printf '%s\n' '      '"'"'public.feed_pulse(text[],integer,integer,text)'"'"'::regprocedure'
+              printf '%s\n' '    )'
+              printf '%s\n' '  ) = 0 THEN'
+              printf '%s\n' '    RAISE EXCEPTION '"'"'feed_pulse is not ranking by event_heat'"'"';'
+              printf '%s\n' '  END IF;'
+              printf '%s\n' 'END $$;'
+            } > "$VIEW_DIR/apply_indexer_views.sql"
+            dc cp "$VIEW_DIR/apply_indexer_views.sql" postgres:/tmp/indexer-views/apply_indexer_views.sql
+            dc exec -T postgres \
+              psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
+              --single-transaction \
+              -f /tmp/indexer-views/apply_indexer_views.sql
             echo "✅ indexer views applied"
 
             echo "Syncing Hasura permissions..."
