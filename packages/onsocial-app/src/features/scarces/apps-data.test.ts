@@ -28,6 +28,8 @@ describe('hub creator access voice', () => {
       appId: 'house',
       ownerId: 'owner.testnet',
       title: 'House',
+      mediaUrl: null,
+      bannerUrl: null,
       categories: [],
       category: null,
       primarySaleBps: 0,
