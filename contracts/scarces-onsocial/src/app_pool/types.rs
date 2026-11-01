@@ -1,12 +1,12 @@
 use near_sdk::AccountId;
-use near_sdk::json_types::U128;
+use near_sdk::json_types::{U64, U128};
 use near_sdk::near;
 
 /// Who may create collections under an app.
 ///
 /// - `open` — any account (default; legacy `curated = false`)
 /// - `approval` — owner, moderators, or `approved_creators`
-/// - `invite_only` — owner or moderators only (legacy `curated = true`)
+/// - `invite_only` — owner, moderators, or creators the house adds. No requests.
 #[near(serializers = [borsh, json])]
 #[serde(rename_all = "snake_case")]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
@@ -68,15 +68,17 @@ impl AppPool {
         self.approved_creators.contains(account_id)
     }
 
-    /// Owner, moderator, or approved creator (approval mode roster).
+    /// Owner, moderator, anyone on an open hub, or an approved creator on
+    /// approval and house hubs.
     pub fn can_create_collection(&self, creator_id: &AccountId) -> bool {
         if creator_id == &self.owner_id || self.moderators.contains(creator_id) {
             return true;
         }
         match self.effective_creator_access() {
             CreatorAccess::Open => true,
-            CreatorAccess::Approval => self.is_approved_creator(creator_id),
-            CreatorAccess::InviteOnly => false,
+            CreatorAccess::Approval | CreatorAccess::InviteOnly => {
+                self.is_approved_creator(creator_id)
+            }
         }
     }
 }
@@ -91,4 +93,45 @@ pub struct AppConfig {
     pub curated: Option<bool>,
     pub metadata: Option<String>,
     pub creator_access: Option<CreatorAccess>,
+}
+
+/// One publish-access row per hub and account.
+#[near(serializers = [borsh, json])]
+#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PublishRequestStatus {
+    Pending,
+    Declined,
+    Blocked,
+}
+
+impl PublishRequestStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Declined => "declined",
+            Self::Blocked => "blocked",
+        }
+    }
+}
+
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PublishRequest {
+    pub status: PublishRequestStatus,
+    pub message: Option<String>,
+    pub requested_at: u64,
+    pub decided_by: Option<AccountId>,
+}
+
+#[near(serializers = [json])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PublishRequestView {
+    pub account_id: AccountId,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    pub requested_at: U64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decided_by: Option<AccountId>,
 }

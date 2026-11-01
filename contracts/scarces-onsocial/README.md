@@ -272,7 +272,7 @@ All events use NEP-297 with `onsocial` standard prefix:
 - **Offer**: `made`, `accepted`, `cancelled` (token + collection variants)
 - **Lazy listing**: `created`, `purchased`, `cancelled`
 - **Storage**: `deposit`, `withdraw`, `credit_unused`, `refund`, `prepaid_drawn`, `prepaid_restored`, `spending_cap_set`
-- **App pool**: `register`, `fund`, `withdraw`, `config_update`, `owner_transferred`, `moderator_added`, `moderator_removed`
+- **App pool**: `register`, `fund`, `withdraw`, `config_update`, `owner_transferred`, `moderator_added`, `moderator_removed`, `approved_creator_added`, `approved_creator_removed`, `publish_requested`, `publish_request_declined`, `publish_requester_blocked`, `publish_request_removed`
 - **Contract**: `upgraded`, `owner_transferred`, `fee_recipient_changed`, `fee_recipient_secondary_changed`, `fee_config_updated`, `wnear_account_set`, `approved_nft_contract_added/removed`, `platform_storage_funded`, `contract_metadata_updated`
 
 ## License

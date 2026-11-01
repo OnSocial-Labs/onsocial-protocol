@@ -3,6 +3,7 @@ pub mod test_utils;
 pub mod unit {
     pub mod admin_test;
     pub mod app_pool_test;
+    pub mod publish_request_test;
     pub mod approval_test;
     pub mod auction_settle_test;
     pub mod collection_manage_test;

@@ -92,6 +92,7 @@ impl Contract {
         pool.approved_creators.push(account_id.clone());
         self.app_pools.insert(app_id.to_string(), pool);
         events::emit_approved_creator_added(actor_id, app_id, &account_id);
+        self.clear_publish_request(actor_id, app_id, &account_id);
         Ok(())
     }
 
@@ -151,6 +152,7 @@ impl Contract {
         self.app_pools.insert(app_id.to_string(), pool);
         for id in &unique {
             events::emit_approved_creator_added(actor_id, app_id, id);
+            self.clear_publish_request(actor_id, app_id, id);
         }
         Ok(())
     }

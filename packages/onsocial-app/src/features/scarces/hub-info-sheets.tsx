@@ -13,6 +13,7 @@ import {
   appVolumeNearLabel,
   creatorAccessLabel,
   creatorAccessShort,
+  hubUsesCreatorRoster,
   type AppStatsView,
   type AppView,
 } from '@/features/scarces/apps-data';
@@ -84,7 +85,7 @@ export function HubFactsSheet({
   const creatorCount =
     1 +
     app.moderators.length +
-    (app.creatorAccess === 'approval' ? app.approvedCreators.length : 0);
+    (hubUsesCreatorRoster(app.creatorAccess) ? app.approvedCreators.length : 0);
 
   return (
     <OsHugSheet
@@ -245,7 +246,7 @@ function buildHubPeople(app: AppView): HubPerson[] {
   };
   push(app.ownerId, 'Owner');
   for (const id of app.moderators) push(id, 'Moderator');
-  if (app.creatorAccess === 'approval') {
+  if (hubUsesCreatorRoster(app.creatorAccess)) {
     for (const id of app.approvedCreators) push(id, 'Creator');
   }
   return people;

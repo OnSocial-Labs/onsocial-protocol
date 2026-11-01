@@ -178,20 +178,25 @@ export function creatorAccessLabel(access: CreatorAccess): string {
     case 'open':
       return 'Anyone can drop';
     case 'approval':
-      return 'Approved creators only';
+      return 'Creators publish after approval';
     case 'invite_only':
-      return 'Only the house can publish';
+      return 'The house chooses who can publish';
   }
+}
+
+/** Approval and Invite both publish from the approved-creator roster. */
+export function hubUsesCreatorRoster(access: CreatorAccess): boolean {
+  return access === 'approval' || access === 'invite_only';
 }
 
 export function creatorAccessShort(access: CreatorAccess): string {
   switch (access) {
     case 'open':
-      return 'Anyone';
+      return 'Open';
     case 'approval':
-      return 'Approved';
+      return 'Approval';
     case 'invite_only':
-      return 'House';
+      return 'Invite';
   }
 }
 
@@ -208,7 +213,9 @@ export async function fetchAppIndexerRow(
   try {
     const os =
       client ??
-      (await import('@/lib/create-readonly-onsocial-client')).createReadOnlyOnSocialClient();
+      (
+        await import('@/lib/create-readonly-onsocial-client')
+      ).createReadOnlyOnSocialClient();
     const res = await os.query.graphql<{
       scarcesApps: Array<{
         appId: string;
@@ -269,7 +276,9 @@ export async function fetchAppStats(
   try {
     const os =
       client ??
-      (await import('@/lib/create-readonly-onsocial-client')).createReadOnlyOnSocialClient();
+      (
+        await import('@/lib/create-readonly-onsocial-client')
+      ).createReadOnlyOnSocialClient();
     const res = await os.query.graphql<{
       scarcesAppStats: Array<{
         appId: string;
@@ -369,10 +378,7 @@ type IndexerAppRow = {
 /** Map an indexer / thin record into AppView without a live roster. */
 function toAppViewFromIndexer(row: IndexerAppRow): AppView {
   const meta = parseMetadata(row.metadata);
-  const bps = Math.max(
-    0,
-    Math.min(5000, Math.floor(row.primarySaleBps ?? 0))
-  );
+  const bps = Math.max(0, Math.min(5000, Math.floor(row.primarySaleBps ?? 0)));
   const image = meta.image ?? meta.media ?? null;
   const banner = meta.banner ?? null;
   const updatedAtMs = nsToMs(row.updatedBlockTimestamp);
@@ -446,7 +452,9 @@ function buildDirectoryWhere(opts: {
 
   const excludeIds = [
     ...new Set(
-      (opts.excludeIds ?? []).map((id) => id.trim()).filter((id) => id.length > 0)
+      (opts.excludeIds ?? [])
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0)
     ),
   ];
   if (excludeIds.length > 0) {
@@ -566,9 +574,9 @@ export async function fetchAppsDirectory(
     fromIndex,
     limit: fetchLimit,
   });
-  const views = (
-    await Promise.all(ids.map((id) => fetchApp(id)))
-  ).filter((view): view is AppView => view != null);
+  const views = (await Promise.all(ids.map((id) => fetchApp(id)))).filter(
+    (view): view is AppView => view != null
+  );
   let apps = views;
   if (hideTest) apps = apps.filter((app) => !isLikelyTestStore(app));
   if (opts.access && opts.access !== 'all') {
@@ -649,10 +657,7 @@ export async function fetchHubsBrowsePage(
     );
     const client = createReadOnlyOnSocialClient();
     let scanned = 0;
-    while (
-      picked.length < limit &&
-      scanned < HUB_BROWSE_STATS_CAP
-    ) {
+    while (picked.length < limit && scanned < HUB_BROWSE_STATS_CAP) {
       const pageSize = Math.min(
         HUB_BROWSE_STATS_PAGE,
         HUB_BROWSE_STATS_CAP - scanned
@@ -957,9 +962,8 @@ export function canCreateInApp(
     case 'open':
       return true;
     case 'approval':
-      return matches(app.approvedCreators);
     case 'invite_only':
-      return false;
+      return matches(app.approvedCreators);
   }
 }
 

@@ -635,10 +635,33 @@ fn creator_access_invite_only_blocks_non_staff() {
         }))
         .unwrap();
 
-    let pool = contract.app_pools.get(&app_id()).unwrap();
-    assert!(pool.can_create_collection(&owner()));
-    assert!(pool.can_create_collection(&moderator()));
-    assert!(!pool.can_create_collection(&creator()));
+    {
+        let pool = contract.app_pools.get(&app_id()).unwrap();
+        assert!(pool.can_create_collection(&owner()));
+        assert!(pool.can_create_collection(&moderator()));
+        assert!(!pool.can_create_collection(&creator()));
+    }
+
+    contract
+        .execute(make_request(Action::AddApprovedCreator {
+            app_id: app_id(),
+            account_id: creator(),
+        }))
+        .unwrap();
+    {
+        let pool = contract.app_pools.get(&app_id()).unwrap();
+        assert!(pool.can_create_collection(&creator()));
+        assert!(!pool.can_create_collection(&buyer()));
+    }
+
+    testing_env!(context_with_deposit(buyer(), 1).build());
+    let err = contract
+        .execute(make_request(Action::RequestPublish {
+            app_id: app_id(),
+            message: None,
+        }))
+        .unwrap_err();
+    assert!(err.to_string().contains("approval hubs"));
 }
 
 #[test]

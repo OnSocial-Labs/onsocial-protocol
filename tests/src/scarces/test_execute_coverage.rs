@@ -77,6 +77,11 @@ const ALL_EXECUTE_TYPES: &[&str] = &[
     "add_approved_creator",
     "add_approved_creators",
     "remove_approved_creator",
+    "request_publish",
+    "cancel_publish_request",
+    "decline_publish_request",
+    "block_publish_requester",
+    "unblock_publish_requester",
     "ban_collection",
     "unban_collection",
 ];
@@ -1060,6 +1065,95 @@ async fn test_every_execute_action_on_chain() -> Result<()> {
             "app_id": APP,
             "account_id": extra.id().to_string(),
         }),
+        ONE_YOCTO,
+    )
+    .await?;
+    execute_action(
+        &contract,
+        &creator,
+        json!({
+            "type": "set_app_config",
+            "app_id": APP,
+            "creator_access": "approval",
+        }),
+        ONE_YOCTO,
+    )
+    .await?
+    .into_result()?;
+    hit(
+        &mut seen,
+        &contract,
+        &extra,
+        "request_publish",
+        json!({
+            "type": "request_publish",
+            "app_id": APP,
+            "message": "coverage",
+        }),
+        ONE_YOCTO,
+    )
+    .await?;
+    hit(
+        &mut seen,
+        &contract,
+        &creator,
+        "decline_publish_request",
+        json!({
+            "type": "decline_publish_request",
+            "app_id": APP,
+            "account_id": extra.id().to_string(),
+        }),
+        ONE_YOCTO,
+    )
+    .await?;
+    execute_action(
+        &contract,
+        &extra,
+        json!({ "type": "request_publish", "app_id": APP }),
+        ONE_YOCTO,
+    )
+    .await?
+    .into_result()?;
+    hit(
+        &mut seen,
+        &contract,
+        &creator,
+        "block_publish_requester",
+        json!({
+            "type": "block_publish_requester",
+            "app_id": APP,
+            "account_id": extra.id().to_string(),
+        }),
+        ONE_YOCTO,
+    )
+    .await?;
+    hit(
+        &mut seen,
+        &contract,
+        &creator,
+        "unblock_publish_requester",
+        json!({
+            "type": "unblock_publish_requester",
+            "app_id": APP,
+            "account_id": extra.id().to_string(),
+        }),
+        ONE_YOCTO,
+    )
+    .await?;
+    execute_action(
+        &contract,
+        &extra,
+        json!({ "type": "request_publish", "app_id": APP }),
+        ONE_YOCTO,
+    )
+    .await?
+    .into_result()?;
+    hit(
+        &mut seen,
+        &contract,
+        &extra,
+        "cancel_publish_request",
+        json!({ "type": "cancel_publish_request", "app_id": APP }),
         ONE_YOCTO,
     )
     .await?;

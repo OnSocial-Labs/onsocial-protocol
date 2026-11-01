@@ -124,8 +124,9 @@ export type CoreAction =
 /**
  * Who may create collections under an app.
  * - `open` — any account (default)
- * - `approval` — owner, moderators, or explicitly approved creators
- * - `invite_only` — owner or moderators only
+ * - `approval` — owner, moderators, or explicitly approved creators.
+ *   Others request publish access; staff approve, decline, or block.
+ * - `invite_only` — owner, moderators, or creators the house adds. No requests.
  */
 export type CreatorAccess = 'open' | 'approval' | 'invite_only';
 
@@ -367,6 +368,11 @@ export type ScarcesAction =
   | { type: 'add_approved_creator'; app_id: string; account_id: string }
   | { type: 'add_approved_creators'; app_id: string; account_ids: string[] }
   | { type: 'remove_approved_creator'; app_id: string; account_id: string }
+  | { type: 'request_publish'; app_id: string; message?: string }
+  | { type: 'cancel_publish_request'; app_id: string }
+  | { type: 'decline_publish_request'; app_id: string; account_id: string }
+  | { type: 'block_publish_requester'; app_id: string; account_id: string }
+  | { type: 'unblock_publish_requester'; app_id: string; account_id: string }
   | {
       type: 'ban_collection';
       app_id: string;

@@ -739,6 +739,62 @@ fn app_creator_key(app_id: &str, role: &str, account_id: &str) -> String {
     format!("{app_id}:{role}:{account_id}")
 }
 
+fn publish_request_key(app_id: &str, account_id: &str) -> String {
+    format!("{app_id}/{account_id}")
+}
+
+fn json_text(data: &Value, key: &str) -> Option<String> {
+    match data.get(key)? {
+        Value::String(value) if !value.is_empty() => Some(value.clone()),
+        Value::Number(value) => Some(value.to_string()),
+        _ => None,
+    }
+}
+
+fn upsert_publish_request(
+    tables: &mut Tables,
+    app_id: &str,
+    e: &ScarcesEvent,
+    fallback_status: &str,
+) {
+    let Some(account_id) = non_empty(&e.account_id) else {
+        return;
+    };
+    let data: Value = serde_json::from_str(&e.extra_data).unwrap_or(Value::Null);
+    let key = publish_request_key(app_id, account_id);
+    let row = tables.upsert_row("scarces_publish_requests", &key);
+    row.set("id", &key);
+    row.set("app_id", app_id);
+    row.set("account_id", account_id);
+    row.set(
+        "status",
+        json_text(&data, "status").unwrap_or_else(|| fallback_status.to_string()),
+    );
+    // Status events are the whole row. An omitted note or decision clears the
+    // previous one, so a new request does not keep a decline.
+    row.set("message", json_text(&data, "message").unwrap_or_default());
+    row.set(
+        "requested_at",
+        json_text(&data, "requested_at").unwrap_or_else(|| e.block_timestamp.to_string()),
+    );
+    row.set(
+        "decided_by",
+        json_text(&data, "decided_by").unwrap_or_default(),
+    );
+    row.set("updated_block_height", e.block_height);
+    row.set("updated_block_timestamp", e.block_timestamp);
+}
+
+fn delete_publish_request(tables: &mut Tables, app_id: &str, e: &ScarcesEvent) {
+    let Some(account_id) = non_empty(&e.account_id) else {
+        return;
+    };
+    tables.delete_row(
+        "scarces_publish_requests",
+        publish_request_key(app_id, account_id),
+    );
+}
+
 /// Profile columns shared by `register` and `config_update`.
 fn set_app_profile(tables: &mut Tables, app_id: &str, e: &ScarcesEvent) {
     let row = tables.upsert_row("scarces_apps", app_id);
@@ -1119,8 +1175,15 @@ pub(crate) fn apply_app_pool(tables: &mut Tables, e: &ScarcesEvent) {
         }
         "moderator_added" => upsert_app_creator(tables, app_id, ROLE_MODERATOR, e),
         "moderator_removed" => delete_app_creator(tables, app_id, ROLE_MODERATOR, e),
-        "approved_creator_added" => upsert_app_creator(tables, app_id, ROLE_APPROVED_CREATOR, e),
+        "approved_creator_added" => {
+            upsert_app_creator(tables, app_id, ROLE_APPROVED_CREATOR, e);
+            delete_publish_request(tables, app_id, e);
+        }
         "approved_creator_removed" => delete_app_creator(tables, app_id, ROLE_APPROVED_CREATOR, e),
+        "publish_requested" => upsert_publish_request(tables, app_id, e, "pending"),
+        "publish_request_declined" => upsert_publish_request(tables, app_id, e, "declined"),
+        "publish_requester_blocked" => upsert_publish_request(tables, app_id, e, "blocked"),
+        "publish_request_removed" => delete_publish_request(tables, app_id, e),
         _ => {}
     }
 }

@@ -299,6 +299,26 @@ pub enum Action {
         app_id: String,
         account_id: AccountId,
     },
+    RequestPublish {
+        app_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        message: Option<String>,
+    },
+    CancelPublishRequest {
+        app_id: String,
+    },
+    DeclinePublishRequest {
+        app_id: String,
+        account_id: AccountId,
+    },
+    BlockPublishRequester {
+        app_id: String,
+        account_id: AccountId,
+    },
+    UnblockPublishRequester {
+        app_id: String,
+        account_id: AccountId,
+    },
     BanCollection {
         app_id: String,
         collection_id: String,

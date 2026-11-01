@@ -62,6 +62,8 @@ impl Contract {
             approved_nft_contracts: IterableSet::new(StorageKey::ApprovedNftContracts),
             wnear_account_id: None,
             fee_recipient_secondary: None,
+            publish_requests: LookupMap::new(StorageKey::PublishRequests),
+            publish_request_accounts: LookupMap::new(StorageKey::PublishRequestAccounts),
             pending_attached_balance: 0,
             dollar_unit_override: None,
         }

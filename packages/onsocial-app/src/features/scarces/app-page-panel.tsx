@@ -34,6 +34,7 @@ import {
   appVolumeNearLabel,
   canCreateInApp,
   creatorAccessShort,
+  hubUsesCreatorRoster,
   fetchApp,
   fetchAppIndexerRow,
   fetchAppStats,
@@ -87,13 +88,9 @@ import { SeriesShopGroupList } from '@/features/scarces/series-page-panel';
 import { useFeedWindow } from '@/features/home/use-feed-window';
 import { CATALOG_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
 import {
-  fetchMyStorePublishDecision,
-  fetchMyStorePublishRequest,
-  fetchStorePublishDecisions,
-  fetchStorePublishRequests,
-  filterActionablePublishRequests,
-  isStorePublishRequestRejected,
-} from '@/features/scarces/store-publish-requests';
+  fetchPublishRequest,
+  fetchPublishRequests,
+} from '@/features/scarces/hub-publish-access';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
   APP_APPS_PATH,
@@ -170,7 +167,9 @@ export function AppPagePanel({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [publishAccessOpen, setPublishAccessOpen] = useState(false);
   const [publishAccessRefreshKey, setPublishAccessRefreshKey] = useState(0);
-  const [myPublishPending, setMyPublishPending] = useState(false);
+  const [myPublishStatus, setMyPublishStatus] = useState<
+    'pending' | 'blocked' | null
+  >(null);
   const [factsOpen, setFactsOpen] = useState(false);
   const [editionPick, setEditionPick] = useState<{
     title: string;
@@ -316,7 +315,7 @@ export function AppPagePanel({
     for (const id of [
       app.ownerId,
       ...app.moderators,
-      ...(app.creatorAccess === 'approval' ? app.approvedCreators : []),
+      ...(hubUsesCreatorRoster(app.creatorAccess) ? app.approvedCreators : []),
     ]) {
       const trimmed = id.trim();
       if (!trimmed || seen.has(trimmed.toLowerCase())) continue;
@@ -333,15 +332,6 @@ export function AppPagePanel({
     authority && app?.creatorAccess === 'approval'
   );
   const reviewAppId = canReviewRequests && app ? app.appId : null;
-  const approvedCreatorsKey = useMemo(
-    () =>
-      (app?.approvedCreators ?? [])
-        .map((id) => id.trim().toLowerCase())
-        .filter(Boolean)
-        .sort()
-        .join('|'),
-    [app?.approvedCreators]
-  );
   const pendingPublishCount =
     reviewAppId && pendingPublishSnapshot?.appId === reviewAppId
       ? pendingPublishSnapshot.count
@@ -351,22 +341,23 @@ export function AppPagePanel({
   useEffect(() => {
     if (!reviewAppId) return;
     let cancelled = false;
-    const approved = approvedCreatorsKey ? approvedCreatorsKey.split('|') : [];
-    void Promise.all([
-      fetchStorePublishRequests(reviewAppId),
-      fetchStorePublishDecisions(reviewAppId),
-    ]).then(([rows, decisions]) => {
-      if (cancelled) return;
-      setPendingPublishSnapshot({
-        appId: reviewAppId,
-        count: filterActionablePublishRequests(rows, approved, decisions)
-          .length,
+    void fetchPublishRequests(reviewAppId, 'pending')
+      .then((rows) => {
+        if (cancelled) return;
+        setPendingPublishSnapshot({
+          appId: reviewAppId,
+          count: rows.length,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPendingPublishSnapshot({ appId: reviewAppId, count: 0 });
+        }
       });
-    });
     return () => {
       cancelled = true;
     };
-  }, [reviewAppId, approvedCreatorsKey, refreshKey]);
+  }, [reviewAppId, refreshKey]);
 
   // Dock stars only when the viewer can create drops. Request-to-publish
   // lives opposite the hero meta (guild Join / Request pattern).
@@ -388,18 +379,18 @@ export function AppPagePanel({
   useEffect(() => {
     if (!canRequestPublish || !viewerAccountId || !app) return;
     let cancelled = false;
-    void Promise.all([
-      fetchMyStorePublishRequest(app.appId, viewerAccountId),
-      fetchMyStorePublishDecision(app.appId, viewerAccountId),
-    ]).then(([row, decision]) => {
-      if (cancelled) return;
-      const declined =
-        row != null &&
-        row.status === 'pending' &&
-        decision != null &&
-        isStorePublishRequestRejected(row, [decision]);
-      setMyPublishPending(row?.status === 'pending' && !declined);
-    });
+    void fetchPublishRequest(app.appId, viewerAccountId)
+      .then((row) => {
+        if (cancelled) return;
+        setMyPublishStatus(
+          row?.status === 'pending' || row?.status === 'blocked'
+            ? row.status
+            : null
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setMyPublishStatus(null);
+      });
     return () => {
       cancelled = true;
     };
@@ -471,7 +462,8 @@ export function AppPagePanel({
   });
 
   const showSettingsGear =
-    authority && (owner || app?.creatorAccess === 'approval');
+    authority &&
+    (owner || (app != null && hubUsesCreatorRoster(app.creatorAccess)));
 
   const loadMoreDrops = useCallback(() => {
     if (!dropsHasMore || dropsLoadingMore) return;
@@ -708,7 +700,11 @@ export function AppPagePanel({
                     ready
                     onClick={openPublishAccess}
                   >
-                    {myPublishPending ? 'Pending' : 'Request'}
+                    {myPublishStatus === 'pending'
+                      ? 'Pending'
+                      : myPublishStatus === 'blocked'
+                        ? 'Blocked'
+                        : 'Request'}
                   </OsSheetAction>
                 </OsSheetActions>
               </div>
@@ -918,7 +914,9 @@ export function AppPagePanel({
           open
           hubName={app.title}
           showOwnerTools={owner}
-          showPeople={authority && (owner || app.creatorAccess === 'approval')}
+          showPeople={
+            authority && (owner || hubUsesCreatorRoster(app.creatorAccess))
+          }
           showPublishRequests={canReviewRequests}
           publishRequestCount={pendingPublishCount}
           onClose={() => setSettingsOpen(false)}
@@ -949,7 +947,7 @@ export function AppPagePanel({
         />
       ) : null}
 
-      {authority && (owner || app.creatorAccess === 'approval') ? (
+      {authority && (owner || hubUsesCreatorRoster(app.creatorAccess)) ? (
         <HubPeopleSheet
           open={manageSheet === 'people'}
           app={app}
@@ -965,7 +963,6 @@ export function AppPagePanel({
           <HubPublishRequestsSheet
             open={manageSheet === 'publish-requests'}
             appId={app.appId}
-            approvedCreatorIds={app.approvedCreators}
             onClose={() => {
               setSheetHandoff(false);
               setManageSheet(null);

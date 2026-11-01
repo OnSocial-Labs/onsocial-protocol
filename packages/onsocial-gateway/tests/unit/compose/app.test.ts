@@ -16,6 +16,11 @@ import {
   buildAddApprovedCreatorAction,
   buildAddApprovedCreatorsAction,
   buildRemoveApprovedCreatorAction,
+  buildRequestPublishAction,
+  buildCancelPublishRequestAction,
+  buildDeclinePublishRequestAction,
+  buildBlockPublishRequesterAction,
+  buildUnblockPublishRequesterAction,
   buildBanCollectionAction,
   buildUnbanCollectionAction,
   buildStorageDepositAction,
@@ -231,6 +236,73 @@ describe('buildAddApprovedCreatorsAction', () => {
     expect(() =>
       buildAddApprovedCreatorsAction({ appId: 'tickets.near', accountIds: [] })
     ).toThrow(ComposeError);
+  });
+});
+
+describe('publish request actions', () => {
+  it('trims a request note and drops a blank one', () => {
+    expect(
+      buildRequestPublishAction({ appId: 'tickets.near', message: '  prints  ' })
+        .action
+    ).toEqual({
+      type: 'request_publish',
+      app_id: 'tickets.near',
+      message: 'prints',
+    });
+    expect(
+      buildRequestPublishAction({ appId: 'tickets.near', message: '   ' }).action
+    ).toEqual({
+      type: 'request_publish',
+      app_id: 'tickets.near',
+    });
+  });
+
+  it('rejects a note over 280 characters', () => {
+    expect(() =>
+      buildRequestPublishAction({
+        appId: 'tickets.near',
+        message: 'x'.repeat(281),
+      })
+    ).toThrow(ComposeError);
+  });
+
+  it('builds staff review actions', () => {
+    expect(
+      buildDeclinePublishRequestAction({
+        appId: 'tickets.near',
+        accountId: 'creator.near',
+      }).action
+    ).toEqual({
+      type: 'decline_publish_request',
+      app_id: 'tickets.near',
+      account_id: 'creator.near',
+    });
+    expect(
+      buildBlockPublishRequesterAction({
+        appId: 'tickets.near',
+        accountId: 'creator.near',
+      }).action
+    ).toEqual({
+      type: 'block_publish_requester',
+      app_id: 'tickets.near',
+      account_id: 'creator.near',
+    });
+    expect(
+      buildUnblockPublishRequesterAction({
+        appId: 'tickets.near',
+        accountId: 'creator.near',
+      }).action
+    ).toEqual({
+      type: 'unblock_publish_requester',
+      app_id: 'tickets.near',
+      account_id: 'creator.near',
+    });
+    expect(buildCancelPublishRequestAction({ appId: 'tickets.near' }).action).toEqual(
+      {
+        type: 'cancel_publish_request',
+        app_id: 'tickets.near',
+      }
+    );
   });
 });
 

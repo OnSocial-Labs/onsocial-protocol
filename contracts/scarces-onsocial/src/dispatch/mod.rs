@@ -92,6 +92,11 @@ impl Contract {
             | Action::AddApprovedCreator { .. }
             | Action::AddApprovedCreators { .. }
             | Action::RemoveApprovedCreator { .. }
+            | Action::RequestPublish { .. }
+            | Action::CancelPublishRequest { .. }
+            | Action::DeclinePublishRequest { .. }
+            | Action::BlockPublishRequester { .. }
+            | Action::UnblockPublishRequester { .. }
             | Action::BanCollection { .. }
             | Action::UnbanCollection { .. } => self.dispatch_admin(action, actor_id),
         }

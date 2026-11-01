@@ -212,28 +212,72 @@ fn get_contract_info_empty_defaults() {
     assert!(info.fee_recipient_secondary.is_none());
 }
 
+fn lookup_map_bytes(key: StorageKey) -> Vec<u8> {
+    use near_sdk::IntoStorageKey;
+    let prefix = key.into_storage_key();
+    let mut out = (prefix.len() as u32).to_le_bytes().to_vec();
+    out.extend(prefix);
+    out
+}
+
+fn strip_suffix(bytes: &mut Vec<u8>, suffix: &[u8]) {
+    assert!(
+        bytes.ends_with(suffix),
+        "serialized state did not end with the expected map prefix"
+    );
+    bytes.truncate(bytes.len() - suffix.len());
+}
+
 #[test]
 fn migrate_defaults_missing_fee_recipient_secondary() {
     use near_sdk::borsh::BorshDeserialize;
 
     let contract = new_contract();
     let mut bytes = near_sdk::borsh::to_vec(&contract).unwrap();
-    // Drop trailing Option::None tag for fee_recipient_secondary (pre-upgrade layout).
+    // Fresh state ends with the publish-request maps. Drop them to recover the
+    // pre-inbox layout, then drop the secondary-recipient None tag.
+    strip_suffix(
+        &mut bytes,
+        &lookup_map_bytes(StorageKey::PublishRequestAccounts),
+    );
+    strip_suffix(&mut bytes, &lookup_map_bytes(StorageKey::PublishRequests));
     assert_eq!(
         bytes.last().copied(),
         Some(0),
-        "fresh contract serializes secondary as None"
+        "pre-inbox state serializes secondary as None"
     );
-    bytes.truncate(bytes.len() - 1);
 
     let loaded = Contract::try_from_slice(&bytes).unwrap();
     assert!(loaded.fee_recipient_secondary.is_none());
-    assert_eq!(loaded.fee_recipient, owner());
-    assert_eq!(loaded.owner_id, owner());
+    assert!(
+        loaded
+            .get_publish_request(app_id_for_migrate(), creator())
+            .is_none()
+    );
 
-    near_sdk::env::state_write(&loaded);
+    bytes.truncate(bytes.len() - 1);
+    let older = Contract::try_from_slice(&bytes).unwrap();
+    assert!(older.fee_recipient_secondary.is_none());
+    assert_eq!(older.fee_recipient, owner());
+    assert_eq!(older.owner_id, owner());
+    assert!(
+        older
+            .get_publish_requests(app_id_for_migrate(), None, None, None)
+            .is_empty()
+    );
+
+    near_sdk::env::state_write(&older);
     let migrated = Contract::migrate();
     assert!(migrated.fee_recipient_secondary.is_none());
+    assert!(
+        migrated
+            .get_publish_request(app_id_for_migrate(), creator())
+            .is_none()
+    );
+}
+
+fn app_id_for_migrate() -> String {
+    "myapp".to_string()
 }
 
 #[test]

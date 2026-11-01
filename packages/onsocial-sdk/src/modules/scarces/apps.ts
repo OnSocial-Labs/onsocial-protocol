@@ -17,7 +17,7 @@ import { scarcesRelayOptions } from './_relay.js';
  * Who may create collections under an app.
  * - `open` — any account (default)
  * - `approval` — owner, moderators, or explicitly approved creators
- * - `invite_only` — owner or moderators only
+ * - `invite_only` — owner, moderators, or creators the house adds. No requests.
  */
 export type CreatorAccess = 'open' | 'approval' | 'invite_only';
 
@@ -216,6 +216,81 @@ export class ScarcesAppsApi {
         accountId,
       },
       'scarces.removeApprovedCreator',
+      this._relayOpts({ confirmation: true })
+    );
+  }
+
+  /** Ask to publish in an approval hub. */
+  async requestPublish(
+    appId: string,
+    message?: string
+  ): Promise<RelayResponse> {
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.REQUEST_PUBLISH,
+      {
+        appId,
+        ...(message ? { message } : {}),
+      },
+      'scarces.requestPublish',
+      this._relayOpts({ confirmation: true })
+    );
+  }
+
+  /** Withdraw your pending publish request. */
+  async cancelPublishRequest(appId: string): Promise<RelayResponse> {
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.CANCEL_PUBLISH_REQUEST,
+      { appId },
+      'scarces.cancelPublishRequest',
+      this._relayOpts({ confirmation: true })
+    );
+  }
+
+  /** Decline a pending publish request. Hub owner or moderator. */
+  async declinePublishRequest(
+    appId: string,
+    accountId: string
+  ): Promise<RelayResponse> {
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.DECLINE_PUBLISH_REQUEST,
+      { appId, accountId },
+      'scarces.declinePublishRequest',
+      this._relayOpts({ confirmation: true })
+    );
+  }
+
+  /** Block a pending or declined requester from asking again. */
+  async blockPublishRequester(
+    appId: string,
+    accountId: string
+  ): Promise<RelayResponse> {
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.BLOCK_PUBLISH_REQUESTER,
+      { appId, accountId },
+      'scarces.blockPublishRequester',
+      this._relayOpts({ confirmation: true })
+    );
+  }
+
+  /** Remove a block. Does not approve the account. */
+  async unblockPublishRequester(
+    appId: string,
+    accountId: string
+  ): Promise<RelayResponse> {
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.UNBLOCK_PUBLISH_REQUESTER,
+      { appId, accountId },
+      'scarces.unblockPublishRequester',
       this._relayOpts({ confirmation: true })
     );
   }

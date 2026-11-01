@@ -824,6 +824,49 @@
     ]
   },
   {
+    "name": "scarces_publish_request_pending",
+    "contract": "scarces",
+    "receiver_id": "scarces.onsocial.testnet",
+    "block_height": 245000024,
+    "block_timestamp": 1776000007,
+    "receipt_seed": [118, 119],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "APP_POOL_UPDATE",
+        "data": [
+          {
+            "operation": "publish_requested",
+            "author": "artist.onsocial.testnet",
+            "app_id": "test_app_01",
+            "account_id": "artist.onsocial.testnet",
+            "status": "pending",
+            "message": "prints",
+            "requested_at": "1776000007"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": {
+      "scarces_events": 1,
+      "scarces_publish_requests": 1
+    },
+    "expected_rows": [
+      {
+        "table": "scarces_publish_requests",
+        "fields": {
+          "id": "test_app_01/artist.onsocial.testnet",
+          "app_id": "test_app_01",
+          "account_id": "artist.onsocial.testnet",
+          "status": "pending",
+          "message": "prints",
+          "requested_at": "1776000007"
+        }
+      }
+    ]
+  },
+  {
     "name": "social_spend_join_rally",
     "contract": "social-spend",
     "receiver_id": "social-spend.onsocial.testnet",

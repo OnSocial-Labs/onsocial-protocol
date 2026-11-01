@@ -291,10 +291,7 @@ fn find_field_for_pk<'a>(
     changes
         .table_changes
         .iter()
-        .find(|tc| {
-            tc.table == table
-                && format!("{:?}", tc.primary_key).contains(pk_contains)
-        })
+        .find(|tc| tc.table == table && format!("{:?}", tc.primary_key).contains(pk_contains))
         .and_then(|tc| tc.fields.iter().find(|f| f.name == field_name))
         .map(|f| f.new_value.as_str())
 }
@@ -325,7 +322,12 @@ fn active_listing_lazy_create_upserts_catalog() {
         Some("lazy")
     );
     assert_eq!(
-        find_field_for_pk(&changes, "scarces_active_listings", "lazy:ll:1", "remaining"),
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "lazy:ll:1",
+            "remaining"
+        ),
         Some("3")
     );
     assert_eq!(
@@ -438,12 +440,7 @@ fn active_listing_purchase_without_prior_create_sets_identity() {
     let changes = tables.to_database_changes();
 
     assert_eq!(
-        find_field_for_pk(
-            &changes,
-            "scarces_active_listings",
-            "lazy:ll:324",
-            "kind"
-        ),
+        find_field_for_pk(&changes, "scarces_active_listings", "lazy:ll:324", "kind"),
         Some("lazy")
     );
     assert_eq!(
@@ -480,7 +477,9 @@ fn active_listing_auction_bid_updates_high() {
         owner_id: "seller.near".into(),
         token_id: "s:7".into(),
         reserve_price: "100".into(),
-        extra_data: r#"{"token_id":"s:7","owner_id":"seller.near","reserve_price":"100","title":"Bid me"}"#.into(),
+        extra_data:
+            r#"{"token_id":"s:7","owner_id":"seller.near","reserve_price":"100","title":"Bid me"}"#
+                .into(),
         ..Default::default()
     };
     let bid = ScarcesEvent {
@@ -585,13 +584,19 @@ fn active_listing_stores_a_dollar_sticker_and_clears_it() {
         owner_id: "seller.near".into(),
         token_id: "s:1".into(),
         price: "1".into(),
-        extra_data: r#"{"token_id":"s:1","owner_id":"seller.near","price":"1","usd_e6":"50000000"}"#.into(),
+        extra_data:
+            r#"{"token_id":"s:1","owner_id":"seller.near","price":"1","usd_e6":"50000000"}"#.into(),
         ..Default::default()
     };
     apply_active_listing(&mut tables, &listed);
     let listed_changes = tables.to_database_changes();
     assert_eq!(
-        find_field_for_pk(&listed_changes, "scarces_active_listings", "native:s:1", "usd_e6"),
+        find_field_for_pk(
+            &listed_changes,
+            "scarces_active_listings",
+            "native:s:1",
+            "usd_e6"
+        ),
         Some("50000000")
     );
 
@@ -613,7 +618,12 @@ fn active_listing_stores_a_dollar_sticker_and_clears_it() {
     apply_active_listing(&mut tables, &relisted);
     let relisted_changes = tables.to_database_changes();
     assert_eq!(
-        find_field_for_pk(&relisted_changes, "scarces_active_listings", "native:s:1", "usd_e6"),
+        find_field_for_pk(
+            &relisted_changes,
+            "scarces_active_listings",
+            "native:s:1",
+            "usd_e6"
+        ),
         Some("")
     );
 }
@@ -712,8 +722,9 @@ fn active_offer_made_upserts_catalog() {
         token_id: "s:9".into(),
         amount: "2500000000000000000000000".into(),
         expires_at: 999,
-        extra_data: r#"{"token_id":"s:9","buyer_id":"buyer.near","amount":"2500000000000000000000000"}"#
-            .into(),
+        extra_data:
+            r#"{"token_id":"s:9","buyer_id":"buyer.near","amount":"2500000000000000000000000"}"#
+                .into(),
         ..Default::default()
     };
     apply_active_offer(&mut tables, &event);
@@ -1258,11 +1269,21 @@ fn collections_current_create_upserts_shell() {
         Some("audio")
     );
     assert_eq!(
-        find_field_for_pk(&changes, "scarces_collections_current", "drop-1", "remaining"),
+        find_field_for_pk(
+            &changes,
+            "scarces_collections_current",
+            "drop-1",
+            "remaining"
+        ),
         Some("10")
     );
     assert_eq!(
-        find_field_for_pk(&changes, "scarces_collections_current", "drop-1", "mint_mode"),
+        find_field_for_pk(
+            &changes,
+            "scarces_collections_current",
+            "drop-1",
+            "mint_mode"
+        ),
         Some("open")
     );
 }
@@ -1335,7 +1356,8 @@ fn collections_current_purchase_updates_minted() {
         operation: "purchase".into(),
         author: "buyer.near".into(),
         collection_id: "drop-2".into(),
-        extra_data: r#"{"collection_id":"drop-2","minted_count":2,"remaining":3,"quantity":2}"#.into(),
+        extra_data: r#"{"collection_id":"drop-2","minted_count":2,"remaining":3,"quantity":2}"#
+            .into(),
         ..Default::default()
     };
     apply_collections_current(&mut tables, &create);
@@ -1343,11 +1365,21 @@ fn collections_current_purchase_updates_minted() {
     let changes = tables.to_database_changes();
 
     assert_eq!(
-        find_field_for_pk(&changes, "scarces_collections_current", "drop-2", "minted_count"),
+        find_field_for_pk(
+            &changes,
+            "scarces_collections_current",
+            "drop-2",
+            "minted_count"
+        ),
         Some("2")
     );
     assert_eq!(
-        find_field_for_pk(&changes, "scarces_collections_current", "drop-2", "remaining"),
+        find_field_for_pk(
+            &changes,
+            "scarces_collections_current",
+            "drop-2",
+            "remaining"
+        ),
         Some("3")
     );
 }
@@ -1411,4 +1443,107 @@ fn collections_current_ban_and_delete() {
             && matches!(tc.operation(), Operation::Delete)
     });
     assert!(deleted, "expected delete for drop-3");
+}
+
+#[test]
+fn publish_request_upserts_then_removed_deletes() {
+    let mut tables = Tables::new();
+    let mut requested = app_pool_event("publish_requested");
+    requested.account_id = "creator.near".into();
+    requested.author = "creator.near".into();
+    requested.extra_data = r#"{"app_id":"my_app","account_id":"creator.near","status":"pending","message":"prints","requested_at":"123"}"#.into();
+    apply_app_pool(&mut tables, &requested);
+
+    let mut blocked = app_pool_event("publish_requester_blocked");
+    blocked.account_id = "creator.near".into();
+    blocked.extra_data =
+        r#"{"status":"blocked","requested_at":"123","decided_by":"owner.near","message":"prints"}"#
+            .into();
+    apply_app_pool(&mut tables, &blocked);
+
+    let changes = tables.to_database_changes();
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_publish_requests",
+            "my_app/creator.near",
+            "status"
+        ),
+        Some("blocked")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_publish_requests",
+            "my_app/creator.near",
+            "decided_by"
+        ),
+        Some("owner.near")
+    );
+
+    let mut removed_tables = Tables::new();
+    apply_app_pool(&mut removed_tables, &requested);
+    let mut removed = app_pool_event("publish_request_removed");
+    removed.account_id = "creator.near".into();
+    apply_app_pool(&mut removed_tables, &removed);
+    let changes = removed_tables.to_database_changes();
+    let deleted = changes.table_changes.iter().any(|tc| {
+        tc.table == "scarces_publish_requests"
+            && format!("{:?}", tc.primary_key).contains("my_app/creator.near")
+            && matches!(tc.operation(), Operation::Delete)
+    });
+    assert!(deleted, "expected publish request delete");
+}
+
+#[test]
+fn publish_request_again_clears_decline() {
+    let mut tables = Tables::new();
+    let mut declined = app_pool_event("publish_request_declined");
+    declined.account_id = "creator.near".into();
+    declined.extra_data = r#"{"app_id":"my_app","account_id":"creator.near","status":"declined","requested_at":"123","decided_by":"owner.near","message":"prints"}"#.into();
+    apply_app_pool(&mut tables, &declined);
+
+    let mut again = app_pool_event("publish_requested");
+    again.account_id = "creator.near".into();
+    again.author = "creator.near".into();
+    again.extra_data = r#"{"app_id":"my_app","account_id":"creator.near","status":"pending","requested_at":"456"}"#.into();
+    apply_app_pool(&mut tables, &again);
+
+    let changes = tables.to_database_changes();
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_publish_requests",
+            "my_app/creator.near",
+            "status"
+        ),
+        Some("pending")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_publish_requests",
+            "my_app/creator.near",
+            "message"
+        ),
+        Some("")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_publish_requests",
+            "my_app/creator.near",
+            "decided_by"
+        ),
+        Some("")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_publish_requests",
+            "my_app/creator.near",
+            "requested_at"
+        ),
+        Some("456")
+    );
 }

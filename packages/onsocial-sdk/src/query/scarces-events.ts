@@ -116,6 +116,10 @@ export const APP_POOL_OPERATIONS = [
   'moderator_removed',
   'approved_creator_added',
   'approved_creator_removed',
+  'publish_requested',
+  'publish_request_declined',
+  'publish_requester_blocked',
+  'publish_request_removed',
 ] as const;
 
 /** STORAGE_UPDATE family operations. */

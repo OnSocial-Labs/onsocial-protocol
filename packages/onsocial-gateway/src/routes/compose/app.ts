@@ -16,6 +16,11 @@ import {
   buildAddApprovedCreatorAction,
   buildAddApprovedCreatorsAction,
   buildRemoveApprovedCreatorAction,
+  buildRequestPublishAction,
+  buildCancelPublishRequestAction,
+  buildDeclinePublishRequestAction,
+  buildBlockPublishRequesterAction,
+  buildUnblockPublishRequesterAction,
   buildBanCollectionAction,
   buildUnbanCollectionAction,
   buildStorageDepositAction,
@@ -160,6 +165,73 @@ const removeCreator = actionHandlers(
   'remove-approved-creator'
 );
 appRouter.post('/prepare/remove-approved-creator', removeCreator.prepare);
+
+// ── Publish requests ────────────────────────────────────────────────────────
+const requestPublish = actionHandlers(
+  (b) =>
+    buildRequestPublishAction({
+      appId: String(b.appId || ''),
+      message: b.message ? String(b.message) : undefined,
+      targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
+    }),
+  'request-publish'
+);
+appRouter.post('/prepare/request-publish', requestPublish.prepare);
+
+const cancelPublishRequest = actionHandlers(
+  (b) =>
+    buildCancelPublishRequestAction({
+      appId: String(b.appId || ''),
+      targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
+    }),
+  'cancel-publish-request'
+);
+appRouter.post(
+  '/prepare/cancel-publish-request',
+  cancelPublishRequest.prepare
+);
+
+const declinePublishRequest = actionHandlers(
+  (b) =>
+    buildDeclinePublishRequestAction({
+      appId: String(b.appId || ''),
+      accountId: String(b.accountId || ''),
+      targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
+    }),
+  'decline-publish-request'
+);
+appRouter.post(
+  '/prepare/decline-publish-request',
+  declinePublishRequest.prepare
+);
+
+const blockPublishRequester = actionHandlers(
+  (b) =>
+    buildBlockPublishRequesterAction({
+      appId: String(b.appId || ''),
+      accountId: String(b.accountId || ''),
+      targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
+    }),
+  'block-publish-requester'
+);
+appRouter.post(
+  '/prepare/block-publish-requester',
+  blockPublishRequester.prepare
+);
+
+const unblockPublishRequester = actionHandlers(
+  (b) =>
+    buildUnblockPublishRequesterAction({
+      appId: String(b.appId || ''),
+      accountId: String(b.accountId || ''),
+      targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
+    }),
+  'unblock-publish-requester'
+);
+appRouter.post(
+  '/prepare/unblock-publish-requester',
+  unblockPublishRequester.prepare
+);
 
 // ── Ban Collection ──────────────────────────────────────────────────────────
 const ban = actionHandlers(

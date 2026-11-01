@@ -23,6 +23,7 @@ import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   creatorAccessLabel,
   creatorAccessShort,
+  hubUsesCreatorRoster,
   type AppView,
   type CreatorAccess,
 } from '@/features/scarces/apps-data';
@@ -588,7 +589,8 @@ export function HubPeopleSheet({
     setNote(null);
   }, [open, app.appId]);
 
-  const showCreators = canManageCreators && app.creatorAccess === 'approval';
+  const showCreators =
+    canManageCreators && hubUsesCreatorRoster(app.creatorAccess);
 
   const mutateRoster = async (
     kind: RosterKind,
@@ -719,7 +721,7 @@ export function HubPeopleSheet({
           </div>
         ) : canManageCreators ? (
           <p className="hub-manage-hint">
-            Switch access to Approved to manage an approved-creators roster.
+            Switch access to Approval or Invite to choose who can publish.
           </p>
         ) : null}
 

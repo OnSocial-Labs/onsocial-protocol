@@ -39,6 +39,26 @@ impl Contract {
                 self.remove_approved_creator(actor_id, &app_id, &account_id)?;
                 Ok(Value::Null)
             }
+            Action::RequestPublish { app_id, message } => {
+                self.request_publish(actor_id, &app_id, message)?;
+                Ok(Value::Null)
+            }
+            Action::CancelPublishRequest { app_id } => {
+                self.cancel_publish_request(actor_id, &app_id)?;
+                Ok(Value::Null)
+            }
+            Action::DeclinePublishRequest { app_id, account_id } => {
+                self.decline_publish_request(actor_id, &app_id, &account_id)?;
+                Ok(Value::Null)
+            }
+            Action::BlockPublishRequester { app_id, account_id } => {
+                self.block_publish_requester(actor_id, &app_id, &account_id)?;
+                Ok(Value::Null)
+            }
+            Action::UnblockPublishRequester { app_id, account_id } => {
+                self.unblock_publish_requester(actor_id, &app_id, &account_id)?;
+                Ok(Value::Null)
+            }
             Action::BanCollection {
                 app_id,
                 collection_id,

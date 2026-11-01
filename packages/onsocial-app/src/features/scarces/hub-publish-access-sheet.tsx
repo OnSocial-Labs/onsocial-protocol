@@ -2,23 +2,15 @@
 
 import { useCallback, useEffect, useId, useState } from 'react';
 import { OsHugSheet, osFieldBorderedClassName } from '@onsocial/ui';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@onsocial/ui';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
-  buildStorePublishRequestPayload,
-  fetchMyStorePublishDecision,
-  fetchMyStorePublishRequest,
-  isStorePublishRequestRejected,
-  storeRequestPath,
-  type StorePublishDecision,
-  type StorePublishRequest,
-} from '@/features/scarces/store-publish-requests';
-import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+  fetchPublishRequest,
+  type PublishAccessRequest,
+} from '@/features/scarces/hub-publish-access';
+import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { SHEET_Z } from '@/lib/sheet-z';
 import {
   txToastConfirming,
@@ -36,8 +28,7 @@ interface HubPublishAccessSheetProps {
 }
 
 /**
- * Requester publish-access drawer — opened from dock stars on approval hubs
- * when the viewer is not an approved creator yet.
+ * Requester publish-access drawer for approval hubs.
  */
 export function HubPublishAccessSheet({
   open,
@@ -46,12 +37,10 @@ export function HubPublishAccessSheet({
   onChanged,
 }: HubPublishAccessSheetProps) {
   const messageId = useId();
-  const { accountId } = useAppWallet();
-  const { getClient } = useAppOnSocialClient();
+  const { accountId, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
-  const [mine, setMine] = useState<StorePublishRequest | null>(null);
-  const [decision, setDecision] = useState<StorePublishDecision | null>(null);
+  const [mine, setMine] = useState<PublishAccessRequest | null>(null);
   const [message, setMessage] = useState('');
   const [pending, setPending] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -69,19 +58,20 @@ export function HubPublishAccessSheet({
     let cancelled = false;
     if (!open || !accountId) {
       setMine(null);
-      setDecision(null);
       return;
     }
     setLoaded(false);
-    void Promise.all([
-      fetchMyStorePublishRequest(appId, accountId),
-      fetchMyStorePublishDecision(appId, accountId),
-    ]).then(([row, dec]) => {
-      if (cancelled) return;
-      setMine(row);
-      setDecision(dec);
-      setLoaded(true);
-    });
+    void fetchPublishRequest(appId, accountId)
+      .then((row) => {
+        if (cancelled) return;
+        setMine(row);
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setMine(null);
+        setLoaded(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -96,24 +86,15 @@ export function HubPublishAccessSheet({
     onClose();
   }, [onClose]);
 
-  const declined =
-    mine != null &&
-    mine.status === 'pending' &&
-    decision != null &&
-    isStorePublishRequestRejected(mine, [decision]);
-
   const submitRequest = useCallback(async () => {
     if (!accountId || pending) return;
     setPending(true);
     try {
-      const { client } = await getClient();
-      const response = await client.social.set(
-        storeRequestPath(appId),
-        buildStorePublishRequestPayload({
-          appId,
-          message,
-          status: 'pending',
-        })
+      const { accountId: signer, wallet } = await getSigningWallet();
+      const client = createAppScarcesWalletClient(signer, wallet);
+      const response = await client.scarces.apps.requestPublish(
+        appId,
+        message.trim() || undefined
       );
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
@@ -140,7 +121,7 @@ export function HubPublishAccessSheet({
   }, [
     accountId,
     pending,
-    getClient,
+    getSigningWallet,
     appId,
     message,
     trackTransaction,
@@ -152,8 +133,9 @@ export function HubPublishAccessSheet({
     if (!accountId || pending) return;
     setPending(true);
     try {
-      const { client } = await getClient();
-      const response = await client.social.set(storeRequestPath(appId), null);
+      const { accountId: signer, wallet } = await getSigningWallet();
+      const client = createAppScarcesWalletClient(signer, wallet);
+      const response = await client.scarces.apps.cancelPublishRequest(appId);
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
         submittedMessage: txToastConfirming.withdrawingStoreAccess,
@@ -178,20 +160,26 @@ export function HubPublishAccessSheet({
   }, [
     accountId,
     pending,
-    getClient,
+    getSigningWallet,
     appId,
     trackTransaction,
     setTxResult,
     onChanged,
   ]);
 
+  const blocked = mine?.status === 'blocked';
+  const declined = mine?.status === 'declined';
+  const waiting = mine?.status === 'pending';
+
   const subtitle = !loaded
     ? 'Loading…'
-    : declined
-      ? 'Last request declined — send a new one'
-      : mine?.status === 'pending'
-        ? 'Waiting for hub staff'
-        : 'Ask to publish drops in this hub';
+    : blocked
+      ? 'You cannot request access to this hub'
+      : declined
+        ? 'Last request declined — send a new one'
+        : waiting
+          ? 'Waiting for hub staff'
+          : 'Ask to publish drops in this hub';
 
   const noteField = (
     <label className="guild-field" htmlFor={messageId}>
@@ -230,22 +218,11 @@ export function HubPublishAccessSheet({
     >
       {!loaded ? (
         <p className="hub-manage-hint">Loading…</p>
-      ) : declined ? (
-        <div className="hub-manage-form">
-          {noteField}
-          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetAction
-              type="button"
-              variant="primary"
-              ready={!pending}
-              disabled={pending}
-              onClick={() => void submitRequest()}
-            >
-              {pending ? 'Requesting…' : 'Request again'}
-            </OsSheetAction>
-          </OsSheetActions>
-        </div>
-      ) : mine?.status === 'pending' ? (
+      ) : blocked ? (
+        <p className="hub-manage-hint">
+          You cannot request access to this hub.
+        </p>
+      ) : waiting ? (
         <div className="hub-manage-form">
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
             <OsSheetAction
@@ -270,7 +247,11 @@ export function HubPublishAccessSheet({
               disabled={pending}
               onClick={() => void submitRequest()}
             >
-              {pending ? 'Requesting…' : 'Request access'}
+              {pending
+                ? 'Requesting…'
+                : declined
+                  ? 'Request again'
+                  : 'Request access'}
             </OsSheetAction>
           </OsSheetActions>
         </div>

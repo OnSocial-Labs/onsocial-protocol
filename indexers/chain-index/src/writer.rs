@@ -142,7 +142,11 @@ fn single_pk_column(table: &str) -> Result<&'static str> {
         "scarces_collections_current" => "collection_id",
         "data_updates" | "storage_updates" | "group_updates" | "contract_updates"
         | "permission_updates" | "boost_events" | "boost_credit_purchases" | "rewards_events"
-        | "token_events" | "scarces_events" | "scarces_app_creators" | "social_spend_events" => {
+        | "token_events"
+        | "scarces_events"
+        | "scarces_app_creators"
+        | "scarces_publish_requests"
+        | "social_spend_events" => {
             "id"
         }
         other => bail!("no single-pk mapping for table {other}"),

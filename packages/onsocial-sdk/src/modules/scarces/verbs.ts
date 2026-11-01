@@ -85,6 +85,11 @@ export const SCARCES_VERBS = {
   ADD_APPROVED_CREATOR: 'add-approved-creator',
   ADD_APPROVED_CREATORS: 'add-approved-creators',
   REMOVE_APPROVED_CREATOR: 'remove-approved-creator',
+  REQUEST_PUBLISH: 'request-publish',
+  CANCEL_PUBLISH_REQUEST: 'cancel-publish-request',
+  DECLINE_PUBLISH_REQUEST: 'decline-publish-request',
+  BLOCK_PUBLISH_REQUESTER: 'block-publish-requester',
+  UNBLOCK_PUBLISH_REQUESTER: 'unblock-publish-requester',
   BAN_COLLECTION: 'ban-collection',
   UNBAN_COLLECTION: 'unban-collection',
 

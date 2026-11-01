@@ -44,6 +44,9 @@ pub enum StorageKey {
     TokenOfferCounts,
     DollarPrices,
     DollarOracle,
+    PublishRequests,
+    PublishRequestAccounts,
+    PublishRequestAccountsInner { app_id_hash: Vec<u8> },
 }
 
 #[near(serializers = [borsh, json])]

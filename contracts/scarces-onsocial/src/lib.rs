@@ -64,6 +64,7 @@ pub use validation::{
     deserialize_trailing_account_vec_before_map_index, deserialize_trailing_bool,
     deserialize_trailing_commission_bps, deserialize_trailing_creator_access,
     deserialize_trailing_option_account_id, deserialize_trailing_option_u64,
+    deserialize_trailing_publish_request_accounts, deserialize_trailing_publish_requests,
     deserialize_trailing_u16_or, deserialize_trailing_u32_or,
 };
 
@@ -134,6 +135,14 @@ pub struct Contract {
     /// Append-compatible: absent in pre-upgrade state → None (safe `migrate`).
     #[borsh(deserialize_with = "crate::deserialize_trailing_option_account_id")]
     pub fee_recipient_secondary: Option<AccountId>,
+
+    /// Hub publish inbox. Key `{app_id}/{account_id}`. Absent on pre-upgrade state.
+    #[borsh(deserialize_with = "crate::deserialize_trailing_publish_requests")]
+    pub(crate) publish_requests: LookupMap<String, crate::app_pool::PublishRequest>,
+
+    /// Accounts with a publish-request row, per app, so the inbox can be listed.
+    #[borsh(deserialize_with = "crate::deserialize_trailing_publish_request_accounts")]
+    pub(crate) publish_request_accounts: LookupMap<String, IterableSet<AccountId>>,
 
     // Persistence invariant: transient execution balance is non-persistent and excluded from serialization.
     #[borsh(skip)]

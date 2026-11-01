@@ -109,6 +109,11 @@ export const ALL_SCARCES_ACTION_TYPES = [
   'add_approved_creator',
   'add_approved_creators',
   'remove_approved_creator',
+  'request_publish',
+  'cancel_publish_request',
+  'decline_publish_request',
+  'block_publish_requester',
+  'unblock_publish_requester',
   'ban_collection',
   'unban_collection',
 ] as const;
@@ -1061,6 +1066,69 @@ export function getScarcesParityCases(
       },
       expectedAction: {
         type: 'remove_approved_creator',
+        app_id: 'my-app',
+        account_id: 'creator.near',
+      },
+    },
+    {
+      name: 'request publish',
+      action: {
+        type: 'request_publish',
+        app_id: 'my-app',
+        message: 'prints',
+      },
+      expectedAction: {
+        type: 'request_publish',
+        app_id: 'my-app',
+        message: 'prints',
+      },
+    },
+    {
+      name: 'cancel publish request',
+      action: {
+        type: 'cancel_publish_request',
+        app_id: 'my-app',
+      },
+      expectedAction: {
+        type: 'cancel_publish_request',
+        app_id: 'my-app',
+      },
+    },
+    {
+      name: 'decline publish request',
+      action: {
+        type: 'decline_publish_request',
+        app_id: 'my-app',
+        account_id: 'creator.near',
+      },
+      expectedAction: {
+        type: 'decline_publish_request',
+        app_id: 'my-app',
+        account_id: 'creator.near',
+      },
+    },
+    {
+      name: 'block publish requester',
+      action: {
+        type: 'block_publish_requester',
+        app_id: 'my-app',
+        account_id: 'creator.near',
+      },
+      expectedAction: {
+        type: 'block_publish_requester',
+        app_id: 'my-app',
+        account_id: 'creator.near',
+      },
+    },
+    {
+      name: 'unblock publish requester',
+      action: {
+        type: 'unblock_publish_requester',
+        app_id: 'my-app',
+        account_id: 'creator.near',
+      },
+      expectedAction: {
+        type: 'unblock_publish_requester',
         app_id: 'my-app',
         account_id: 'creator.near',
       },

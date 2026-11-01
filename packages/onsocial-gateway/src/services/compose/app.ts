@@ -206,6 +206,97 @@ export function buildRemoveModeratorAction(params: {
   };
 }
 
+const NOTE_MAX_CHARS = 280;
+
+function optionalNote(message: string | undefined): string | undefined {
+  if (message == null) return undefined;
+  const trimmed = message.trim();
+  if (!trimmed) return undefined;
+  if ([...trimmed].length > NOTE_MAX_CHARS) {
+    throw new ComposeError(400, 'Note is too long');
+  }
+  return trimmed;
+}
+
+/** Build a RequestPublish action. */
+export function buildRequestPublishAction(params: {
+  appId: string;
+  message?: string;
+  targetAccount?: string;
+}): SimpleActionResult {
+  if (!params.appId) throw new ComposeError(400, 'Missing appId');
+  const message = optionalNote(params.message);
+  return {
+    action: {
+      type: 'request_publish',
+      app_id: params.appId,
+      ...(message ? { message } : {}),
+    },
+    targetAccount: resolveScarcesTarget(params.targetAccount),
+  };
+}
+
+/** Build a CancelPublishRequest action. */
+export function buildCancelPublishRequestAction(params: {
+  appId: string;
+  targetAccount?: string;
+}): SimpleActionResult {
+  if (!params.appId) throw new ComposeError(400, 'Missing appId');
+  return {
+    action: {
+      type: 'cancel_publish_request',
+      app_id: params.appId,
+    },
+    targetAccount: resolveScarcesTarget(params.targetAccount),
+  };
+}
+
+function buildPublishStaffAction(
+  type:
+    | 'decline_publish_request'
+    | 'block_publish_requester'
+    | 'unblock_publish_requester',
+  params: { appId: string; accountId: string; targetAccount?: string }
+): SimpleActionResult {
+  if (!params.appId) throw new ComposeError(400, 'Missing appId');
+  if (!params.accountId) throw new ComposeError(400, 'Missing accountId');
+  return {
+    action: {
+      type,
+      app_id: params.appId,
+      account_id: params.accountId,
+    },
+    targetAccount: resolveScarcesTarget(params.targetAccount),
+  };
+}
+
+/** Decline a pending publish request. */
+export function buildDeclinePublishRequestAction(params: {
+  appId: string;
+  accountId: string;
+  targetAccount?: string;
+}): SimpleActionResult {
+  return buildPublishStaffAction('decline_publish_request', params);
+}
+
+/** Block a requester from asking again. */
+export function buildBlockPublishRequesterAction(params: {
+  appId: string;
+  accountId: string;
+  targetAccount?: string;
+}): SimpleActionResult {
+  return buildPublishStaffAction('block_publish_requester', params);
+}
+
+/** Remove a publish block without approving the account. */
+export function buildUnblockPublishRequesterAction(params: {
+  appId: string;
+  accountId: string;
+  targetAccount?: string;
+}): SimpleActionResult {
+  return buildPublishStaffAction('unblock_publish_requester', params);
+}
+
 /** Build an AddApprovedCreator action — owner approves a creator (approval mode). */
 export function buildAddApprovedCreatorAction(params: {
   appId: string;

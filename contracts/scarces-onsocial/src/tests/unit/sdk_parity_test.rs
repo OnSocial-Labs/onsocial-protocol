@@ -72,6 +72,11 @@ const ALL_ACTION_TYPES: &[&str] = &[
     "add_approved_creator",
     "add_approved_creators",
     "remove_approved_creator",
+    "request_publish",
+    "cancel_publish_request",
+    "decline_publish_request",
+    "block_publish_requester",
+    "unblock_publish_requester",
     "ban_collection",
     "unban_collection",
 ];

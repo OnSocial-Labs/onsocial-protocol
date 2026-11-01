@@ -399,6 +399,69 @@ pub fn deserialize_trailing_account_vec_before_map_index<R: near_sdk::borsh::io:
     deserialize_trailing_account_vec(reader)
 }
 
+/// Append-compatible Borsh read for a trailing `LookupMap` (EOF → empty map).
+fn read_trailing_lookup_prefix<R: near_sdk::borsh::io::Read>(
+    reader: &mut R,
+) -> Result<Option<Vec<u8>>, near_sdk::borsh::io::Error> {
+    let mut len_buf = [0u8; 4];
+    match near_sdk::borsh::io::Read::read(reader, &mut len_buf)? {
+        0 => Ok(None),
+        4 => {
+            let len = u32::from_le_bytes(len_buf) as usize;
+            if len > 128 {
+                return Err(near_sdk::borsh::io::Error::new(
+                    near_sdk::borsh::io::ErrorKind::InvalidData,
+                    format!("trailing LookupMap prefix too long ({len})"),
+                ));
+            }
+            let mut prefix = vec![0u8; len];
+            let mut filled = 0;
+            while filled < prefix.len() {
+                match near_sdk::borsh::io::Read::read(reader, &mut prefix[filled..])? {
+                    0 => {
+                        return Err(near_sdk::borsh::io::Error::new(
+                            near_sdk::borsh::io::ErrorKind::UnexpectedEof,
+                            "truncated LookupMap prefix",
+                        ));
+                    }
+                    n => filled += n,
+                }
+            }
+            Ok(Some(prefix))
+        }
+        n => Err(near_sdk::borsh::io::Error::new(
+            near_sdk::borsh::io::ErrorKind::InvalidData,
+            format!("unexpected trailing LookupMap length prefix {n}"),
+        )),
+    }
+}
+
+pub fn deserialize_trailing_publish_requests<R: near_sdk::borsh::io::Read>(
+    reader: &mut R,
+) -> Result<
+    near_sdk::store::LookupMap<String, crate::app_pool::PublishRequest>,
+    near_sdk::borsh::io::Error,
+> {
+    Ok(match read_trailing_lookup_prefix(reader)? {
+        None => {
+            near_sdk::store::LookupMap::new(crate::StorageKey::PublishRequests)
+        }
+        Some(prefix) => near_sdk::store::LookupMap::new(prefix),
+    })
+}
+
+pub fn deserialize_trailing_publish_request_accounts<R: near_sdk::borsh::io::Read>(
+    reader: &mut R,
+) -> Result<
+    near_sdk::store::LookupMap<String, near_sdk::store::IterableSet<near_sdk::AccountId>>,
+    near_sdk::borsh::io::Error,
+> {
+    Ok(match read_trailing_lookup_prefix(reader)? {
+        None => near_sdk::store::LookupMap::new(crate::StorageKey::PublishRequestAccounts),
+        Some(prefix) => near_sdk::store::LookupMap::new(prefix),
+    })
+}
+
 /// App IDs are unique lowercase slugs (not NEAR accounts).
 pub fn validate_app_id(app_id: &str) -> Result<(), MarketplaceError> {
     if app_id.is_empty() {

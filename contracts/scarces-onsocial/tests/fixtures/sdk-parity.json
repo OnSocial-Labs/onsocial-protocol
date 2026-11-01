@@ -1020,6 +1020,65 @@
       }
     },
     {
+      "name": "request publish",
+      "expected_action_type": "request_publish",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "request_publish",
+          "app_id": "my-app",
+          "message": "prints"
+        }
+      }
+    },
+    {
+      "name": "cancel publish request",
+      "expected_action_type": "cancel_publish_request",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "cancel_publish_request",
+          "app_id": "my-app"
+        }
+      }
+    },
+    {
+      "name": "decline publish request",
+      "expected_action_type": "decline_publish_request",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "decline_publish_request",
+          "app_id": "my-app",
+          "account_id": "creator.near"
+        }
+      }
+    },
+    {
+      "name": "block publish requester",
+      "expected_action_type": "block_publish_requester",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "block_publish_requester",
+          "app_id": "my-app",
+          "account_id": "creator.near"
+        }
+      }
+    },
+    {
+      "name": "unblock publish requester",
+      "expected_action_type": "unblock_publish_requester",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "unblock_publish_requester",
+          "app_id": "my-app",
+          "account_id": "creator.near"
+        }
+      }
+    },
+    {
       "name": "ban collection",
       "expected_action_type": "ban_collection",
       "request": {

@@ -97,3 +97,58 @@ pub fn emit_approved_creator_removed(owner_id: &AccountId, app_id: &str, account
         .field("account_id", account_id)
         .emit();
 }
+
+pub fn emit_publish_requested(
+    actor_id: &AccountId,
+    app_id: &str,
+    account_id: &AccountId,
+    message: Option<&str>,
+    requested_at: u64,
+) {
+    EventBuilder::new(APP_POOL, "publish_requested", actor_id)
+        .field("app_id", app_id)
+        .field("account_id", account_id)
+        .field("status", "pending")
+        .field("requested_at", requested_at)
+        .field_opt("message", message)
+        .emit();
+}
+
+pub fn emit_publish_request_declined(
+    actor_id: &AccountId,
+    app_id: &str,
+    account_id: &AccountId,
+    row: &crate::app_pool::PublishRequest,
+) {
+    EventBuilder::new(APP_POOL, "publish_request_declined", actor_id)
+        .field("app_id", app_id)
+        .field("account_id", account_id)
+        .field("status", "declined")
+        .field("requested_at", row.requested_at)
+        .field("decided_by", actor_id)
+        .field_opt("message", row.message.as_deref())
+        .emit();
+}
+
+pub fn emit_publish_requester_blocked(
+    actor_id: &AccountId,
+    app_id: &str,
+    account_id: &AccountId,
+    row: &crate::app_pool::PublishRequest,
+) {
+    EventBuilder::new(APP_POOL, "publish_requester_blocked", actor_id)
+        .field("app_id", app_id)
+        .field("account_id", account_id)
+        .field("status", "blocked")
+        .field("requested_at", row.requested_at)
+        .field("decided_by", actor_id)
+        .field_opt("message", row.message.as_deref())
+        .emit();
+}
+
+pub fn emit_publish_request_removed(actor_id: &AccountId, app_id: &str, account_id: &AccountId) {
+    EventBuilder::new(APP_POOL, "publish_request_removed", actor_id)
+        .field("app_id", app_id)
+        .field("account_id", account_id)
+        .emit();
+}
