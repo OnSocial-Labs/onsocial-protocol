@@ -16,12 +16,13 @@
 -- Social input via paid_support_inbound_events.
 --
 -- Serving layout (Hot must not recompute the 14d window per query):
---   post_amplify_heat_live — the formula, computed on read (refresh source)
---   post_amplify_heat_mat  — materialized snapshot + indexes
---   post_amplify_heat      — serving view over the snapshot (posts_feed joins)
--- Refresh: gateway notification worker every ~5 min (36h half-life ⇒ ≤0.2%
--- decay drift per cycle). Manual / pg_cron:
---   REFRESH MATERIALIZED VIEW CONCURRENTLY post_amplify_heat_mat;
+--   post_amplify_heat_live  — the formula, computed on read (refresh source)
+--   post_amplify_heat_state — serving table. An AFTER INSERT trigger adds the
+--     new boost's undecayed heat so the next feed load already has it.
+--     Writer replay is an upsert (UPDATE), so the trigger does not double-add.
+--   post_amplify_heat       — serving view over the table (posts_feed joins)
+-- Refresh: gateway notification worker every ~5 min replaces the table from
+-- the live formula (decay). Manual: SELECT refresh_post_amplify_heat();
 
 CREATE OR REPLACE VIEW post_amplify_heat_live AS
 WITH events AS (
@@ -92,23 +93,139 @@ SELECT
   END AS heat
 FROM aggregated;
 
--- Snapshot the live formula. The matview query never changes — future formula
--- edits go into post_amplify_heat_live and land on the next refresh.
-CREATE MATERIALIZED VIEW IF NOT EXISTS post_amplify_heat_mat AS
-SELECT post_path, heat
-FROM post_amplify_heat_live;
+-- Serving rows. Fresh installs start empty; refresh_post_amplify_heat()
+-- seeds them from the live formula once the trigger is in place.
+CREATE TABLE IF NOT EXISTS post_amplify_heat_state (
+  post_path TEXT PRIMARY KEY,
+  heat DOUBLE PRECISION NOT NULL
+);
 
--- Unique path index (required by REFRESH ... CONCURRENTLY) + Hot ordering.
-CREATE UNIQUE INDEX IF NOT EXISTS idx_post_amplify_heat_mat_path
-  ON post_amplify_heat_mat (post_path);
-CREATE INDEX IF NOT EXISTS idx_post_amplify_heat_mat_heat
-  ON post_amplify_heat_mat (heat DESC);
+CREATE INDEX IF NOT EXISTS idx_post_amplify_heat_state_heat
+  ON post_amplify_heat_state (heat DESC);
 
--- Replace the core stub: posts_feed keeps joining post_amplify_heat, now
--- backed by the indexed snapshot instead of the per-query window scan.
+-- Repeat lookup for the trigger (first amplify in the 14d window vs later).
+CREATE INDEX IF NOT EXISTS idx_social_spend_events_boost_post
+  ON social_spend_events (
+    target_id,
+    lower(trim(spender_id)),
+    block_timestamp,
+    id
+  )
+  WHERE success = true
+    AND event_type = 'SOCIAL_SPENT'
+    AND action = 'boost_post'
+    AND target_type = 'post';
+
+-- Absolute rebuild from the live formula. EXCLUSIVE blocks the trigger's
+-- heat write until this commits, and still allows feed reads. A boost that
+-- commits before the lock is inside the live select (no double count). A
+-- boost that waits adds its delta after (not lost).
+CREATE OR REPLACE FUNCTION refresh_post_amplify_heat()
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  LOCK TABLE post_amplify_heat_state IN EXCLUSIVE MODE;
+  INSERT INTO post_amplify_heat_state (post_path, heat)
+  SELECT post_path, heat
+  FROM post_amplify_heat_live
+  ON CONFLICT (post_path) DO UPDATE
+    SET heat = EXCLUDED.heat;
+  DELETE FROM post_amplify_heat_state AS state
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM post_amplify_heat_live AS live
+    WHERE live.post_path = state.post_path
+  );
+END;
+$$;
+
+-- Undecayed delta for one new boost. Age is ~0 at insert; the 5-minute
+-- rebuild applies decay. u matches the live window: 1.0 when this spender
+-- has no earlier boost on the post inside 14 days, else 0.25.
+CREATE OR REPLACE FUNCTION apply_post_amplify_heat_delta()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  social numeric;
+  is_repeat boolean;
+  unique_factor double precision;
+  self_factor double precision;
+  delta double precision;
+BEGIN
+  IF NEW.success IS NOT TRUE
+     OR NEW.event_type IS DISTINCT FROM 'SOCIAL_SPENT'
+     OR NEW.action IS DISTINCT FROM 'boost_post'
+     OR NEW.target_type IS DISTINCT FROM 'post'
+     OR NEW.target_id IS NULL
+     OR btrim(NEW.target_id) = ''
+     OR NEW.spender_id IS NULL
+     OR btrim(NEW.spender_id) = ''
+     OR NEW.amount IS NULL
+     OR NEW.amount !~ '^[0-9]+$'
+  THEN
+    RETURN NEW;
+  END IF;
+
+  social := NEW.amount::numeric / 1000000000000000000::numeric;
+  IF social <= 0 THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1
+    FROM social_spend_events AS prior
+    WHERE prior.success = true
+      AND prior.event_type = 'SOCIAL_SPENT'
+      AND prior.action = 'boost_post'
+      AND prior.target_type = 'post'
+      AND prior.target_id = NEW.target_id
+      AND lower(trim(prior.spender_id)) = lower(trim(NEW.spender_id))
+      AND prior.block_timestamp > (
+        (EXTRACT(EPOCH FROM NOW()) * 1000000000)::bigint
+        - (14::bigint * 24 * 3600 * 1000000000)
+      )
+      AND (prior.block_timestamp, prior.id)
+        < (NEW.block_timestamp, NEW.id)
+  ) INTO is_repeat;
+
+  unique_factor := CASE WHEN is_repeat THEN 0.25 ELSE 1.0 END;
+  self_factor := CASE
+    WHEN NEW.recipient_id IS NOT NULL
+     AND lower(trim(NEW.spender_id)) = lower(trim(NEW.recipient_id))
+      THEN 0.25
+    ELSE 1.0
+  END;
+  delta := (LN(1 + social) / LN(2))::double precision
+    * unique_factor
+    * self_factor;
+  IF delta <= 0 THEN
+    RETURN NEW;
+  END IF;
+
+  INSERT INTO post_amplify_heat_state (post_path, heat)
+  VALUES (NEW.target_id, delta)
+  ON CONFLICT (post_path) DO UPDATE
+    SET heat = post_amplify_heat_state.heat + EXCLUDED.heat;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_post_amplify_heat_delta ON social_spend_events;
+CREATE TRIGGER trg_post_amplify_heat_delta
+  AFTER INSERT ON social_spend_events
+  FOR EACH ROW
+  EXECUTE FUNCTION apply_post_amplify_heat_delta();
+
+-- Seed (and re-apply) from the live formula under the same lock as the job,
+-- then point the serving view at the filled table.
+SELECT refresh_post_amplify_heat();
+
 CREATE OR REPLACE VIEW post_amplify_heat AS
 SELECT post_path, heat
-FROM post_amplify_heat_mat;
+FROM post_amplify_heat_state;
 
 -- Paid inbound social for reputation Social factor (replaces empty stub).
 -- Per-event rows; reputation_scores caps per spender and applies issuer weight.

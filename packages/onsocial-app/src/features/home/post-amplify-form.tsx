@@ -17,24 +17,20 @@ import {
   AMPLIFY_CONNECT_CTA,
   AMPLIFY_CONNECT_HINT,
 } from '@/features/home/amplify-voice';
-import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
 import { accountIdsEqual } from '@/lib/account-match';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import {
+  amplifyRoutingPhrases,
   BOOST_POST_MIN_YOCTO,
   BOOST_POST_PRESET_SOCIAL,
   clampSocialSpendAmountInput,
   fetchBoostPostRouting,
   formatSpendAmountHint,
-  formatSupportProfileRecipientSharePercent,
-  formatSupportProfileTreasurySharePercent,
-  formatSupportSplitSocialLabel,
   parseSupportAmountYocto,
   SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS,
-  splitSupportAmountYocto,
   supportPresetsAtOrAboveMin,
   type SupportProfileRoutingDisclosure,
 } from '@/lib/social-spend-profile';
@@ -88,13 +84,11 @@ export interface PostAmplifySuccessDetail {
 
 interface PostAmplifyFormProps {
   post: PostRow;
-  authorName?: string | null;
   onSuccess?: (detail: PostAmplifySuccessDetail) => void;
 }
 
 export function PostAmplifyForm({
   post,
-  authorName = null,
   onSuccess,
 }: PostAmplifyFormProps) {
   const { accountId, isConnected, connect } = useAppWallet();
@@ -114,7 +108,6 @@ export function PostAmplifyForm({
 
   const isSelf =
     Boolean(accountId) && accountIdsEqual(accountId!, post.accountId);
-  const name = collectionCreatorNameLine(post.accountId, authorName);
   const minYocto = routing?.minAmountYocto ?? BOOST_POST_MIN_YOCTO;
   const amountHint = formatSpendAmountHint(minYocto);
   const presets = useMemo(
@@ -201,14 +194,14 @@ export function PostAmplifyForm({
     }
   }
 
-  const outcomeSplit =
-    routingActive && parsedYocto != null && !amountError
-      ? splitSupportAmountYocto(
-          parsedYocto,
-          routing.targetBps,
-          routing.treasuryBps
+  const routingPhrases =
+    routingActive && routing
+      ? amplifyRoutingPhrases(
+          routing,
+          isSelf ? 'you' : 'author',
+          parsedYocto != null && !amountError ? parsedYocto : null
         )
-      : null;
+      : [];
 
   const canSubmit =
     isConnected &&
@@ -308,8 +301,6 @@ export function PostAmplifyForm({
     }
   }
 
-  const recipientLabel = isSelf ? 'you' : 'author';
-
   return (
     <form
       className="profile-support-form"
@@ -344,23 +335,23 @@ export function PostAmplifyForm({
       />
 
       <div className="profile-support-outcome">
-        {routingActive && outcomeSplit ? (
+        {routingPhrases.length > 0 ? (
           <p className="profile-support-routing">
-            {formatSupportSplitSocialLabel(outcomeSplit.recipientYocto)} to{' '}
-            {recipientLabel}
-            <span aria-hidden> · </span>
-            {formatSupportSplitSocialLabel(outcomeSplit.treasuryYocto)} protocol
-          </p>
-        ) : routingActive && routing ? (
-          <p className="profile-support-routing">
-            {formatSupportProfileRecipientSharePercent(routing.targetBps)}% to{' '}
-            {isSelf ? 'you' : name}
-            <span aria-hidden> · </span>
-            {formatSupportProfileTreasurySharePercent(routing.treasuryBps)}%
-            protocol
+            {routingPhrases.map((phrase, index) => (
+              <span key={phrase}>
+                {index > 0 ? <span aria-hidden> · </span> : null}
+                {phrase}
+              </span>
+            ))}
           </p>
         ) : routingStatus === 'loading' ? (
-          <p className="profile-support-routing is-loading">Loading split…</p>
+          <p className="profile-support-routing is-loading" aria-busy="true">
+            <span className="sr-only">Loading split</span>
+            <span
+              className="standing-row-shimmer profile-support-routing-skel"
+              aria-hidden
+            />
+          </p>
         ) : routingStatus === 'error' ? (
           <div className="profile-support-routing-recover">
             <p className="profile-support-routing is-error">

@@ -15,7 +15,6 @@ import {
   type PostScarceEmbed,
 } from '@onsocial/sdk';
 import { FeedThreadBlock } from '@/features/guilds/feed-thread-block';
-import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { postKey } from '@/features/home/post-card';
 import type { PersonalPostSubmitResult } from '@/features/home/submit-personal-post';
 import type { WriteDockSubmit } from '@/contexts/compose-launcher-context';
@@ -35,7 +34,6 @@ import {
 } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useQuotedPosts } from '@/hooks/use-quoted-posts';
-import type { AmplifySuccessDetail } from '@/lib/amplify-heat';
 import { coalesceFeedThreads } from '@/lib/feed-threads';
 import {
   withRepostOriginals,
@@ -54,8 +52,6 @@ interface PersonalFeedListProps {
     post: PostRow,
     viewerRepost: { postId: string; groupId?: string | null }
   ) => void | Promise<PersonalPostSubmitResult | void>;
-  /** After amplify tx confirms — parent may optimistic Hot re-rank. */
-  onAmplified?: (post: PostRow, detail: AmplifySuccessDetail) => void;
   onEngagementError?: (message: string) => void;
   className?: string;
   /** Hashtag results include replies to other people. */
@@ -82,7 +78,6 @@ export function PersonalFeedList({
   onQuote,
   onRepost,
   onUndoRepost,
-  onAmplified,
   onEngagementError,
   className,
   includeForeignReplies = false,
@@ -205,15 +200,10 @@ export function PersonalFeedList({
   }, [engagement]);
 
   const handleAmplifyConfirmed = useCallback(
-    (post: PostRow, detail: PostAmplifySuccessDetail) => {
-      const previous = engagementRef.current[postKey(post)];
+    (post: PostRow) => {
       confirmAmplify(post);
-      onAmplified?.(post, {
-        ...detail,
-        isRepeatFromViewer: Boolean(previous?.viewerAmplified),
-      });
     },
-    [confirmAmplify, onAmplified]
+    [confirmAmplify]
   );
 
   const handlePollVote = useCallback(

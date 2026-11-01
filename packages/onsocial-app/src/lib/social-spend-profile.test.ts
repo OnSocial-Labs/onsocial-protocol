@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  amplifyRoutingPhrases,
   formatSupportProfileRecipientSharePercent,
   formatSupportProfileTreasurySharePercent,
   formatSupportSplitSocialLabel,
   parseSupportProfileActionConfig,
+  splitAmplifyAmountYocto,
   splitSupportAmountYocto,
   SUPPORT_PROFILE_TARGET_BPS,
   SUPPORT_PROFILE_TREASURY_BPS,
@@ -28,6 +30,8 @@ describe('parseSupportProfileActionConfig', () => {
       minAmountYocto: 10_000_000_000_000_000n,
       treasuryBps: 250,
       targetBps: 9750,
+      burnBps: 0,
+      seasonPoolBps: 0,
       active: true,
     });
   });
@@ -74,5 +78,45 @@ describe('splitSupportAmountYocto', () => {
       recipientYocto: 0n,
       treasuryYocto: 0n,
     });
+  });
+});
+
+describe('amplify routing from get_action_config', () => {
+  const oneSocial = 10n ** 18n;
+
+  it('names author, protocol, and burn from the live bps', () => {
+    const parsed = parseSupportProfileActionConfig({
+      active: true,
+      min_amount: '10000000000000000',
+      treasury_bps: 2_500,
+      season_pool_bps: 0,
+      target_bps: 7_000,
+      burn_bps: 500,
+    });
+    expect(parsed?.burnBps).toBe(500);
+    const split = splitAmplifyAmountYocto(oneSocial, parsed!);
+    expect(split.recipientYocto + split.treasuryYocto + split.burnYocto).toBe(
+      oneSocial
+    );
+    expect(
+      amplifyRoutingPhrases(parsed!, 'author', oneSocial)
+    ).toEqual(['0.70 to author', '0.25 protocol', '0.05 burned']);
+  });
+
+  it('drops a zero burn and a zero season', () => {
+    const routing = {
+      targetBps: 9_900,
+      treasuryBps: 100,
+      burnBps: 0,
+      seasonPoolBps: 0,
+    };
+    expect(amplifyRoutingPhrases(routing, 'author', oneSocial)).toEqual([
+      '0.99 to author',
+      '0.01 protocol',
+    ]);
+    expect(amplifyRoutingPhrases(routing, 'author', null)).toEqual([
+      '99% to author',
+      '1% protocol',
+    ]);
   });
 });

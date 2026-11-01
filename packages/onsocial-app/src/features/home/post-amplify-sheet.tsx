@@ -21,7 +21,6 @@ import { SHEET_Z } from '@/lib/sheet-z';
 interface PostAmplifySheetProps {
   open: boolean;
   post: PostRow | null;
-  authorName?: string | null;
   /** Hydrated drop / book title when the post body has no work name. */
   workTitle?: string | null;
   onOpenChange: (open: boolean) => void;
@@ -33,7 +32,6 @@ interface PostAmplifySheetProps {
 export function PostAmplifySheet({
   open,
   post,
-  authorName = null,
   workTitle = null,
   onOpenChange,
   onAmplified,
@@ -91,7 +89,6 @@ export function PostAmplifySheet({
         <PostAmplifyForm
           key={`${formKey}:${post.accountId}:${post.postId}`}
           post={post}
-          authorName={authorName}
           onSuccess={(detail) => {
             onAmplified?.(post, detail);
             requestClose();

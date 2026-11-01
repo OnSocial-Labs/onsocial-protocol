@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Client } from 'pg';
 import {
-  AMPLIFY_HEAT_MATVIEW,
+  AMPLIFY_HEAT_REFRESH_FN,
   AMPLIFY_HEAT_REFRESH_INTERVAL_MS,
   maybeRefreshAmplifyHeat,
   resetAmplifyHeatRefreshState,
 } from '../../src/services/notifications/amplify-heat-refresh.js';
 
-function fakeClient(matviewExists: boolean) {
+function fakeClient(fnExists: boolean) {
   const query = vi.fn(async (sql: string) => {
-    if (sql.includes('to_regclass')) {
+    if (sql.includes('to_regprocedure')) {
       return {
-        rows: [{ regclass: matviewExists ? AMPLIFY_HEAT_MATVIEW : null }],
+        rows: [{ proc: fnExists ? AMPLIFY_HEAT_REFRESH_FN : null }],
       };
     }
     return { rows: [] };
@@ -24,13 +24,11 @@ describe('maybeRefreshAmplifyHeat', () => {
     resetAmplifyHeatRefreshState();
   });
 
-  it('refreshes concurrently when the matview exists', async () => {
+  it('rebuilds the heat table when the function exists', async () => {
     const { client, query } = fakeClient(true);
     const result = await maybeRefreshAmplifyHeat(client);
     expect(result).toEqual({ skipped: false, refreshed: true });
-    expect(query).toHaveBeenCalledWith(
-      `REFRESH MATERIALIZED VIEW CONCURRENTLY ${AMPLIFY_HEAT_MATVIEW}`
-    );
+    expect(query).toHaveBeenCalledWith(`SELECT ${AMPLIFY_HEAT_REFRESH_FN}()`);
   });
 
   it('skips quietly when social-spend views are not deployed', async () => {
@@ -62,7 +60,7 @@ describe('maybeRefreshAmplifyHeat', () => {
     expect(forced).toEqual({ skipped: false, refreshed: true });
 
     const refreshCalls = query.mock.calls.filter(([sql]) =>
-      String(sql).startsWith('REFRESH')
+      String(sql).startsWith('SELECT refresh_post_amplify_heat')
     );
     expect(refreshCalls).toHaveLength(3);
   });

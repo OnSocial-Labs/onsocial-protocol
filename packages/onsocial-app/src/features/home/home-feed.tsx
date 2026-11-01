@@ -108,14 +108,7 @@ import {
 } from '@/features/scarces/drop-compose-host';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useListScrollRestore } from '@/hooks/use-list-scroll-restore';
-import {
-  applyOptimisticAmplifyHeat,
-  mergeAmplifyHeatFloors,
-  optimisticAmplifyHeatDelta,
-  sortPostsByHot,
-  type AmplifyHeatFloor,
-  type AmplifySuccessDetail,
-} from '@/lib/amplify-heat';
+import { sortPostsByHot } from '@/lib/amplify-heat';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   fetchIndexedPostsByRefs,
@@ -297,8 +290,8 @@ async function loadFocusedFeedPage(
           });
   // Server orders topic indexes by heat under Hot (chrono while the heat
   // column rolls out). The local epsilon re-sort is idempotent on server
-  // order and keeps optimistic floors coherent; append paths re-rank the
-  // full accumulated list so cross-page order holds.
+  // order; append paths re-rank the full accumulated list so cross-page
+  // order holds.
   if (sort !== 'hot') return page;
   return { ...page, items: sortPostsByHot(page.items) };
 }
@@ -459,8 +452,6 @@ export function HomePagePanel({
   const postsRef = useRef<PostRow[]>(
     restoredSession?.posts ?? initialPage?.items ?? []
   );
-  const amplifyReconcileTimerRef = useRef<number | null>(null);
-  const amplifyHeatFloorsRef = useRef<Map<string, AmplifyHeatFloor>>(new Map());
   const seenPostKeysRef = useRef<Set<string>>(
     feedPostKeySet(restoredSession?.posts ?? initialPage?.items ?? [])
   );
@@ -736,50 +727,6 @@ export function HomePagePanel({
     writeHomeFeedSort(next);
   }, []);
 
-  const clearAmplifyReconcileTimer = useCallback(() => {
-    if (amplifyReconcileTimerRef.current != null) {
-      window.clearTimeout(amplifyReconcileTimerRef.current);
-      amplifyReconcileTimerRef.current = null;
-    }
-  }, []);
-
-  useEffect(
-    () => () => clearAmplifyReconcileTimer(),
-    [clearAmplifyReconcileTimer]
-  );
-
-  /**
-   * Hot: optimistic heat bump + in-memory re-sort for instant lift, then one
-   * soft reconcile refetch so indexer heat can replace the estimate.
-   * Focus feeds re-rank client-side, so the lift applies there too.
-   */
-  const handleAmplified = useCallback(
-    (post: PostRow, detail: AmplifySuccessDetail) => {
-      if (sort !== 'hot') return;
-
-      const key = postKey(post);
-      const delta = optimisticAmplifyHeatDelta(detail);
-      setPosts((current) => {
-        const row = current.find((item) => postKey(item) === key);
-        const nextHeat = (row?.amplifyHeat ?? post.amplifyHeat ?? 0) + delta;
-        if (delta > 0) {
-          amplifyHeatFloorsRef.current.set(key, {
-            heat: nextHeat,
-            untilMs: Date.now() + 15_000,
-          });
-        }
-        return applyOptimisticAmplifyHeat(current, post, detail);
-      });
-
-      clearAmplifyReconcileTimer();
-      amplifyReconcileTimerRef.current = window.setTimeout(() => {
-        amplifyReconcileTimerRef.current = null;
-        setReloadNonce((value) => value + 1);
-      }, 2_500);
-    },
-    [clearAmplifyReconcileTimer, sort]
-  );
-
   useEffect(() => {
     const focus = parseHomeFeedFocus({
       tag: tagParam,
@@ -966,25 +913,16 @@ export function HomePagePanel({
         standingSourcesRef.current = result.standingSources;
         setStandingNetworkIds(result.standingSources);
         const items = result.page.items;
-        // Drop expired optimistic floors so the map does not grow unbounded.
-        const nowMs = Date.now();
-        for (const [key, floor] of amplifyHeatFloorsRef.current) {
-          if (floor.untilMs <= nowMs) amplifyHeatFloorsRef.current.delete(key);
-        }
         let insertedCount = 0;
         setPosts((current) => {
-          const ranked =
-            sort === 'hot'
-              ? mergeAmplifyHeatFloors(items, amplifyHeatFloorsRef.current)
-              : items;
           if (mergeHead && current.length > 0) {
-            const merged = mergeHomeFeedHead(current, ranked);
+            const merged = mergeHomeFeedHead(current, items);
             insertedCount = merged.insertedCount;
             revokeDroppedOptimisticMedia(current, merged.posts);
             return merged.posts;
           }
-          revokeDroppedOptimisticMedia(current, ranked);
-          return ranked;
+          revokeDroppedOptimisticMedia(current, items);
+          return items;
         });
         feedSessionKeyRef.current = sessionKey;
         if (mergeHead) {
@@ -1565,7 +1503,6 @@ export function HomePagePanel({
                 onQuote={quoteHandler}
                 onRepost={repostHandler}
                 onUndoRepost={undoRepostHandler}
-                onAmplified={handleAmplified}
                 onEngagementError={(message) => setEngagementError(message)}
               />
               <HomeFeedLoadMoreFooter

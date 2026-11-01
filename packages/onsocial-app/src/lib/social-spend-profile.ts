@@ -28,7 +28,12 @@ const SOCIAL_DECIMALS = 18;
 export interface SupportProfileRoutingDisclosure {
   minAmountYocto: bigint;
   treasuryBps: number;
+  /** Author / recipient share. */
   targetBps: number;
+  /** Destroyed. Zero hides the burned piece on Amplify. */
+  burnBps: number;
+  /** Season pool. Zero hides that piece. */
+  seasonPoolBps: number;
   active: boolean;
 }
 
@@ -48,6 +53,14 @@ export function formatSupportProfileTreasurySharePercent(
   return `${treasuryBps / 100}`;
 }
 
+function shareBps(bps: number): number {
+  return Math.max(0, Math.min(10_000, Math.trunc(bps)));
+}
+
+function floorBpsShare(amountYocto: bigint, bps: number): bigint {
+  return (amountYocto * BigInt(shareBps(bps))) / 10_000n;
+}
+
 /**
  * Split a support amount by live bps. Recipient gets floor(amount × targetBps / 10_000);
  * remainder goes to protocol boost so the parts always sum to the input.
@@ -60,12 +73,92 @@ export function splitSupportAmountYocto(
   if (amountYocto <= 0n) {
     return { recipientYocto: 0n, treasuryYocto: 0n };
   }
-  const bps = Math.max(0, Math.min(10_000, Math.trunc(targetBps)));
-  const recipientYocto = (amountYocto * BigInt(bps)) / 10_000n;
+  const recipientYocto = floorBpsShare(amountYocto, targetBps);
   return {
     recipientYocto,
     treasuryYocto: amountYocto - recipientYocto,
   };
+}
+
+export interface AmplifyAmountSplit {
+  recipientYocto: bigint;
+  treasuryYocto: bigint;
+  burnYocto: bigint;
+  seasonYocto: bigint;
+}
+
+/**
+ * Amplify split matching social-spend: floor author, season, and burn,
+ * then the remainder is the protocol (boost-credit) share.
+ */
+export function splitAmplifyAmountYocto(
+  amountYocto: bigint,
+  routing: Pick<
+    SupportProfileRoutingDisclosure,
+    'targetBps' | 'seasonPoolBps' | 'burnBps'
+  >
+): AmplifyAmountSplit {
+  if (amountYocto <= 0n) {
+    return {
+      recipientYocto: 0n,
+      treasuryYocto: 0n,
+      burnYocto: 0n,
+      seasonYocto: 0n,
+    };
+  }
+  const recipientYocto = floorBpsShare(amountYocto, routing.targetBps);
+  const seasonYocto = floorBpsShare(amountYocto, routing.seasonPoolBps);
+  const burnYocto = floorBpsShare(amountYocto, routing.burnBps);
+  const assigned = recipientYocto + seasonYocto + burnYocto;
+  return {
+    recipientYocto,
+    treasuryYocto: assigned >= amountYocto ? 0n : amountYocto - assigned,
+    burnYocto,
+    seasonYocto,
+  };
+}
+
+/** Live Amplify phrases. Zero shares are omitted so a 0 burn drops off. */
+export function amplifyRoutingPhrases(
+  routing: Pick<
+    SupportProfileRoutingDisclosure,
+    'targetBps' | 'treasuryBps' | 'burnBps' | 'seasonPoolBps'
+  >,
+  recipientLabel: string,
+  amountYocto: bigint | null
+): string[] {
+  if (amountYocto != null && amountYocto > 0n) {
+    const split = splitAmplifyAmountYocto(amountYocto, routing);
+    return [
+      split.recipientYocto > 0n
+        ? `${formatSupportSplitSocialLabel(split.recipientYocto)} to ${recipientLabel}`
+        : null,
+      split.treasuryYocto > 0n
+        ? `${formatSupportSplitSocialLabel(split.treasuryYocto)} protocol`
+        : null,
+      split.seasonYocto > 0n
+        ? `${formatSupportSplitSocialLabel(split.seasonYocto)} season`
+        : null,
+      split.burnYocto > 0n
+        ? `${formatSupportSplitSocialLabel(split.burnYocto)} burned`
+        : null,
+    ].filter((phrase): phrase is string => phrase != null);
+  }
+
+  return [
+    routing.targetBps > 0
+      ? `${formatSupportProfileRecipientSharePercent(routing.targetBps)}% to ${recipientLabel}`
+      : null,
+    routing.treasuryBps > 0
+      ? `${formatSupportProfileTreasurySharePercent(routing.treasuryBps)}% protocol`
+      : null,
+    routing.seasonPoolBps > 0
+      ? `${formatSupportProfileTreasurySharePercent(routing.seasonPoolBps)}% season`
+      : null,
+    routing.burnBps > 0
+      ? `${formatSupportProfileTreasurySharePercent(routing.burnBps)}% burned`
+      : null,
+  ].filter((phrase): phrase is string => phrase != null);
 }
 
 /** Compact SOCIAL label for outcome line (same voice as balance). */
@@ -174,6 +267,8 @@ export function parseSupportProfileActionConfig(
   if (treasuryBps == null || targetBps == null) {
     return null;
   }
+  const burnBps = readBps(record, 'burn_bps') ?? 0;
+  const seasonPoolBps = readBps(record, 'season_pool_bps') ?? 0;
 
   let minAmountYocto = SUPPORT_PROFILE_MIN_YOCTO;
   try {
@@ -186,6 +281,8 @@ export function parseSupportProfileActionConfig(
     minAmountYocto,
     treasuryBps,
     targetBps,
+    burnBps,
+    seasonPoolBps,
     active: record.active === true,
   };
 }

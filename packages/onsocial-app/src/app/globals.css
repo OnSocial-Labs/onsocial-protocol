@@ -41026,7 +41026,17 @@ a.os-surface-row,
   }
 
   .profile-support-routing.is-loading {
+    display: flex;
+    align-items: center;
+    min-height: calc(0.68rem * 1.35);
     color: rgb(var(--fg-rgb) / 0.38);
+  }
+
+  .profile-support-routing-skel {
+    display: block;
+    width: min(100%, 16rem);
+    height: 0.72rem;
+    border-radius: 0.25rem;
   }
 
   .profile-support-routing.is-error {

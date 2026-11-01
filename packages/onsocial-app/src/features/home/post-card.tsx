@@ -1625,7 +1625,6 @@ function PostCardImpl({
         <PostAmplifySheet
           open={amplifyOpen}
           post={amplifyOpen ? post : null}
-          authorName={authorProfile?.displayName}
           workTitle={
             collectionDropTitle?.trim() ||
             tokenDropTitle?.trim() ||
