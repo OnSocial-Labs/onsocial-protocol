@@ -12,6 +12,7 @@ import {
   HOME_FEED_SSR_SESSION_KEY,
   homeFeedSessionKey,
   homeFeedSessionProbeDelayMs,
+  shouldKeepRestoredHomeFeed,
   noteHomeFeedSessionScroll,
   peekHomeFeedSession,
   readHomeFeedSession,
@@ -375,6 +376,73 @@ describe('home feed session storage mirror', () => {
     };
     expect(parsed.snapshot.posts).toHaveLength(60);
     expect(parsed.snapshot.posts.at(-1)?.postId).toBe('59');
+  });
+});
+
+describe('shouldKeepRestoredHomeFeed', () => {
+  const globalHot = HOME_FEED_SSR_SESSION_KEY;
+  const pulseHot = homeFeedSessionKey({
+    lens: 'pulse',
+    sort: 'hot',
+    focusKey: null,
+    accountId: 'alice.near',
+  });
+
+  it('keeps a restored hot list only while those rows are on screen', () => {
+    expect(
+      shouldKeepRestoredHomeFeed({
+        restoredKey: globalHot,
+        sessionKey: globalHot,
+        paintedKey: globalHot,
+        restoredCount: 4,
+        paintedCount: 4,
+        reloadNonce: 0,
+        restoreReloadNonce: 0,
+        standStale: false,
+      })
+    ).toBe(true);
+  });
+
+  it('loads Global Hot again after Pulse replaced the rows', () => {
+    expect(
+      shouldKeepRestoredHomeFeed({
+        restoredKey: globalHot,
+        sessionKey: globalHot,
+        paintedKey: pulseHot,
+        restoredCount: 4,
+        paintedCount: 4,
+        reloadNonce: 0,
+        restoreReloadNonce: 0,
+        standStale: false,
+      })
+    ).toBe(false);
+  });
+
+  it('reloads when the reader asks, or a stand made the snapshot stale', () => {
+    expect(
+      shouldKeepRestoredHomeFeed({
+        restoredKey: pulseHot,
+        sessionKey: pulseHot,
+        paintedKey: pulseHot,
+        restoredCount: 2,
+        paintedCount: 2,
+        reloadNonce: 1,
+        restoreReloadNonce: 0,
+        standStale: false,
+      })
+    ).toBe(false);
+    expect(
+      shouldKeepRestoredHomeFeed({
+        restoredKey: pulseHot,
+        sessionKey: pulseHot,
+        paintedKey: pulseHot,
+        restoredCount: 2,
+        paintedCount: 2,
+        reloadNonce: 0,
+        restoreReloadNonce: 0,
+        standStale: true,
+      })
+    ).toBe(false);
   });
 });
 

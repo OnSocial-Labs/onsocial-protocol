@@ -1206,8 +1206,9 @@ AS $$
     SELECT
       p.*,
       posts_current_own_path(p.account_id, p.post_id, p.group_id) AS event_key,
-      COALESCE(s.reply_heat, p.amplify_heat, 0) AS event_heat,
-      COALESCE(s.reply_height, p.block_height, 0) AS event_height,
+      -- Hot: a cold reply must not hide a boost on the post.
+      GREATEST(COALESCE(p.amplify_heat, 0), COALESCE(s.reply_heat, 0)) AS event_heat,
+      GREATEST(COALESCE(p.block_height, 0), COALESCE(s.reply_height, 0)) AS event_height,
       0 AS event_kind,
       s.account_id AS peek_account_id,
       s.post_id AS peek_post_id

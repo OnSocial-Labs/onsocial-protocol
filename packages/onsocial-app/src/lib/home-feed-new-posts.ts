@@ -192,6 +192,64 @@ export function mergeHomeFeedHead(
 }
 
 /**
+ * Fold a Hot page-0 into the loaded list.
+ *
+ * Incoming order is the amplify-heat ranking (Global, Circle, Pulse cards,
+ * topic Hot). Posts from later pages stay after that page, so a boost moves
+ * a post into the head instead of leaving it where an older paint put it.
+ */
+export function mergeHotFeedHead(
+  current: readonly PostRow[],
+  incoming: readonly PostRow[]
+): MergeHomeFeedHeadResult {
+  if (incoming.length === 0) {
+    return { posts: [...current], insertedCount: 0 };
+  }
+
+  const incomingKeys = new Set<string>();
+  const head: PostRow[] = [];
+  for (const row of incoming) {
+    const key = postKey(row);
+    if (incomingKeys.has(key)) continue;
+    incomingKeys.add(key);
+    head.push(row);
+  }
+
+  if (current.length === 0) {
+    return { posts: head, insertedCount: countNewHeadCards(head, new Set()) };
+  }
+
+  const currentKeys = new Set(current.map(postKey));
+  const tail = current.filter((row) => !incomingKeys.has(postKey(row)));
+  return {
+    posts: [...head, ...tail],
+    insertedCount: countNewHeadCards(head, currentKeys),
+  };
+}
+
+/** New head cards. A new reply whose parent is also new is one card. */
+function countNewHeadCards(
+  head: readonly PostRow[],
+  currentKeys: ReadonlySet<string>
+): number {
+  const newKeys = new Set<string>();
+  for (const row of head) {
+    const key = postKey(row);
+    if (currentKeys.has(key)) continue;
+    newKeys.add(key);
+  }
+  let insertedCount = 0;
+  for (const row of head) {
+    const key = postKey(row);
+    if (!newKeys.has(key)) continue;
+    const parentKey = parentPostKey(row);
+    if (parentKey && newKeys.has(parentKey)) continue;
+    insertedCount += 1;
+  }
+  return insertedCount;
+}
+
+/**
  * Compact chip count — `1` / `2` / `3` / `3+`.
  * Probe saturation still drives the unseen count; display caps at three-plus.
  */

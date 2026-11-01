@@ -122,6 +122,7 @@ import {
   HOME_FEED_NEW_PROBE_SIZE,
   homeFeedNewPostsCountLabel,
   mergeHomeFeedHead,
+  mergeHotFeedHead,
   pendingFeedOffsetShift,
   summarizeUnseenFeedPosts,
   unseenFeedSummariesEqual,
@@ -131,6 +132,7 @@ import {
   HOME_FEED_SSR_SESSION_KEY,
   homeFeedSessionKey,
   homeFeedSessionProbeDelayMs,
+  shouldKeepRestoredHomeFeed,
   noteHomeFeedSessionScroll,
   peekHomeFeedSession,
   writeHomeFeedSession,
@@ -750,10 +752,16 @@ export function HomePagePanel({
       (restored?.standEpoch ?? 0) !== getViewerStandEpoch();
     if (
       restored &&
-      restored.posts.length > 0 &&
-      restored.sessionKey === sessionKey &&
-      reloadNonce === sessionRestoreReloadNonceRef.current &&
-      !restoredStandStale
+      shouldKeepRestoredHomeFeed({
+        restoredKey: restored.sessionKey,
+        sessionKey,
+        paintedKey: feedSessionKeyRef.current,
+        restoredCount: restored.posts.length,
+        paintedCount: postsLengthRef.current,
+        reloadNonce,
+        restoreReloadNonce: sessionRestoreReloadNonceRef.current,
+        standStale: restoredStandStale,
+      })
     ) {
       standingSourcesRef.current = restored.standingNetworkIds
         ? [...restored.standingNetworkIds]
@@ -916,7 +924,10 @@ export function HomePagePanel({
         let insertedCount = 0;
         setPosts((current) => {
           if (mergeHead && current.length > 0) {
-            const merged = mergeHomeFeedHead(current, items);
+            const merged =
+              sort === 'hot'
+                ? mergeHotFeedHead(current, items)
+                : mergeHomeFeedHead(current, items);
             insertedCount = merged.insertedCount;
             revokeDroppedOptimisticMedia(current, merged.posts);
             return merged.posts;

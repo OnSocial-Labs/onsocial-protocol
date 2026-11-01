@@ -127,6 +127,38 @@ describe('assemblePulsePage', () => {
     expect(page.nextOffset).toBeUndefined();
   });
 
+  it('ranks a boosted root above a cold reply on that same post', () => {
+    const boosted = row('alice.near', 'boosted', {
+      blockHeight: 10,
+      amplifyHeat: 20,
+    });
+    const coldReply = row('alice.near', 'note', {
+      parentPath: 'alice.near/post/boosted',
+      parentAuthor: 'alice.near',
+      blockHeight: 11,
+      amplifyHeat: 0,
+    });
+    const fresh = row('carol.near', 'fresh', {
+      blockHeight: 100,
+      amplifyHeat: 1,
+    });
+    const page = assemblePulsePage({
+      native: [coldReply, boosted, fresh],
+      bridges: [],
+      parents: [],
+      accounts,
+      sort: 'hot',
+      offset: 0,
+      limit: 20,
+      take: 20,
+    });
+    expect(page.items.map((item) => item.postId)).toEqual([
+      'boosted',
+      'note',
+      'fresh',
+    ]);
+  });
+
   it('ranks a bridge by the reply, not the old parent', () => {
     const coldParent = row('bob.near', 'old', {
       blockHeight: 1,

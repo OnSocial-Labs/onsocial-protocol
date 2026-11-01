@@ -386,6 +386,24 @@ nested"
         exit 1
       fi
 
+      heat_state="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT to_regclass('public.post_amplify_heat_state') IS NOT NULL;
+      ")"
+      if [ "$heat_state" = "t" ]; then
+        apply_sql "$db" /work/tests/fixtures/feed_pulse_hot_rank_check.sql
+        hot_ids="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atf /work/tests/fixtures/feed_pulse_hot_rank_assert.sql)"
+        apply_sql "$db" /work/tests/fixtures/feed_pulse_hot_rank_cleanup.sql
+        expected_hot="boosted
+note
+fresh"
+        if [ "$hot_ids" != "$expected_hot" ]; then
+          echo "error: unexpected feed_pulse hot rank in $db" >&2
+          echo "  expected: $expected_hot" >&2
+          echo "  actual:   ${hot_ids:-missing}" >&2
+          exit 1
+        fi
+      fi
+
       visible_fn="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
         SELECT COUNT(*) FROM pg_proc WHERE proname = '"'"'thread_visible_replies'"'"';
       ")"

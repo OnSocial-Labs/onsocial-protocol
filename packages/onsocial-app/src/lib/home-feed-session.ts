@@ -81,6 +81,32 @@ export const HOME_FEED_SSR_SESSION_KEY = homeFeedSessionKey({
   accountId: null,
 });
 
+/**
+ * A saved list may skip a fetch only while those rows are the ones on screen.
+ * Pulse, then Global, must load Global Hot again — the saved key alone would
+ * leave the Pulse rows up and drop the amplified post.
+ */
+export function shouldKeepRestoredHomeFeed(input: {
+  restoredKey: string | null;
+  sessionKey: string;
+  paintedKey: string | null;
+  restoredCount: number;
+  paintedCount: number;
+  reloadNonce: number;
+  restoreReloadNonce: number;
+  standStale: boolean;
+}): boolean {
+  return (
+    input.restoredKey != null &&
+    input.restoredCount > 0 &&
+    input.paintedCount > 0 &&
+    input.restoredKey === input.sessionKey &&
+    input.paintedKey === input.sessionKey &&
+    input.reloadNonce === input.restoreReloadNonce &&
+    !input.standStale
+  );
+}
+
 let snapshot: HomeFeedSessionSnapshot | null = null;
 /** True once a storage read was attempted this page load. */
 let storageRead = false;

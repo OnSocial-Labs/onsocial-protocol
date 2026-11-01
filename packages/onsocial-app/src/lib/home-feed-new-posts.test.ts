@@ -7,6 +7,7 @@ import {
   homeFeedNewPostsCountLabel,
   homeFeedNewPostsLabel,
   mergeHomeFeedHead,
+  mergeHotFeedHead,
   pendingFeedOffsetShift,
   summarizeUnseenFeedPosts,
   unseenFeedSummariesEqual,
@@ -309,6 +310,50 @@ describe('mergeHomeFeedHead', () => {
       'note',
       'newer',
       'july',
+      'older',
+    ]);
+  });
+});
+
+describe('mergeHotFeedHead', () => {
+  it('puts the hot page first, including a post that was already loaded lower', () => {
+    const loaded = [
+      row('a.near', 'cold'),
+      { ...row('b.near', 'boosted'), amplifyHeat: 1 },
+      row('c.near', 'older'),
+    ];
+    const page0 = [
+      { ...row('b.near', 'boosted'), amplifyHeat: 9 },
+      row('d.near', 'fresh'),
+      row('a.near', 'cold'),
+    ];
+    const merged = mergeHotFeedHead(loaded, page0);
+    expect(merged.insertedCount).toBe(1);
+    expect(merged.posts.map((post) => post.postId)).toEqual([
+      'boosted',
+      'fresh',
+      'cold',
+      'older',
+    ]);
+    expect(merged.posts[0]?.amplifyHeat).toBe(9);
+  });
+
+  it('counts a new root plus its reply as one card', () => {
+    const parent = row('bob.near', 'july');
+    const reply: PostRow = {
+      accountId: 'bob.near',
+      postId: 'note',
+      value: '{"text":"reply"}',
+      blockHeight: 2,
+      blockTimestamp: 2,
+      parentPath: parentPathFor('bob.near', 'july'),
+      parentAuthor: 'bob.near',
+    };
+    const merged = mergeHotFeedHead([row('a.near', 'older')], [parent, reply]);
+    expect(merged.insertedCount).toBe(1);
+    expect(merged.posts.map((post) => post.postId)).toEqual([
+      'july',
+      'note',
       'older',
     ]);
   });

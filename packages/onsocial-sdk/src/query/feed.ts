@@ -516,8 +516,9 @@ export class FeedQuery {
 
   /**
    * Pulse feed — Circle posts plus stranger threads a circle member replied
-   * into. Rank a card by the circle reply. Each card flattens to
-   * `[threadRoot, newestCircleReply]` so the app can peek without a second fetch.
+   * into. Hot ranks a circle card by the hotter of the post and its reply,
+   * and a stranger thread by the circle reply. Each card flattens to
+   * `[threadRoot, newestCircleReply]`.
    *
    * SQL `feed_pulse` only. `limit` / `offset` page cards, not raw rows.
    *

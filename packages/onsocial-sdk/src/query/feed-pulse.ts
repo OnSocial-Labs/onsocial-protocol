@@ -68,6 +68,17 @@ function rankHeat(row: PostRow): number {
   return row.amplifyHeat ?? 0;
 }
 
+/** Hottest amplify on the card, then the newest row. A cold reply must not hide a boost on the root. */
+function rankOf(rows: readonly PostRow[]): { heat: number; height: number } {
+  let heat = 0;
+  let height = 0;
+  for (const row of rows) {
+    heat = Math.max(heat, rankHeat(row));
+    height = Math.max(height, rankHeight(row));
+  }
+  return { heat, height };
+}
+
 function rankHeight(row: PostRow): number {
   return row.blockHeight ?? 0;
 }
@@ -153,10 +164,10 @@ export function assemblePulsePage(input: {
     const peek = peekByRootKey.get(postKey(root));
     if (peek) attachedReplies.add(postKey(peek));
     emittedRoots.add(postKey(root));
+    const rows = peek ? [root, peek] : [root];
     nativeEvents.push({
-      heat: peek ? rankHeat(peek) : rankHeat(root),
-      height: peek ? rankHeight(peek) : rankHeight(root),
-      rows: peek ? [root, peek] : [root],
+      ...rankOf(rows),
+      rows,
     });
   }
   for (const parent of input.parents) {
@@ -166,10 +177,10 @@ export function assemblePulsePage(input: {
     if (!peek) continue;
     attachedReplies.add(postKey(peek));
     emittedRoots.add(key);
+    const rows = [parent, peek];
     nativeEvents.push({
-      heat: rankHeat(peek),
-      height: rankHeight(peek),
-      rows: [parent, peek],
+      ...rankOf(rows),
+      rows,
     });
   }
   for (const reply of nativeReplies) {

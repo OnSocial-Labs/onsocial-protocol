@@ -1262,6 +1262,29 @@ describe('QueryModule', () => {
         false
       );
     });
+
+    it('loads hot pulse from feedPulse only', async () => {
+      const { os, fetch } = makeOsWithGraph((body) => {
+        const query = String(body.query);
+        if (query.includes('feedPulse')) {
+          return { data: { feedPulse: [] } };
+        }
+        return { data: {} };
+      });
+      const page = await os.query.feed.pulse({
+        accounts: ['alice.near'],
+        limit: 10,
+        sort: 'hot',
+      });
+      expect(page.items).toEqual([]);
+      const queries = fetch.mock.calls.map(
+        (call) => JSON.parse(call[1].body).query as string
+      );
+      expect(queries.filter((query) => query.includes('feedPulse'))).toHaveLength(
+        1
+      );
+      expect(queries.some((query) => query.includes('postsFeed'))).toBe(false);
+    });
   });
 
   describe('getFilteredFeed()', () => {
