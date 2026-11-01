@@ -242,15 +242,18 @@ describe('buildAddApprovedCreatorsAction', () => {
 describe('publish request actions', () => {
   it('trims a request note and drops a blank one', () => {
     expect(
-      buildRequestPublishAction({ appId: 'tickets.near', message: '  prints  ' })
-        .action
+      buildRequestPublishAction({
+        appId: 'tickets.near',
+        message: '  prints  ',
+      }).action
     ).toEqual({
       type: 'request_publish',
       app_id: 'tickets.near',
       message: 'prints',
     });
     expect(
-      buildRequestPublishAction({ appId: 'tickets.near', message: '   ' }).action
+      buildRequestPublishAction({ appId: 'tickets.near', message: '   ' })
+        .action
     ).toEqual({
       type: 'request_publish',
       app_id: 'tickets.near',
@@ -297,12 +300,12 @@ describe('publish request actions', () => {
       app_id: 'tickets.near',
       account_id: 'creator.near',
     });
-    expect(buildCancelPublishRequestAction({ appId: 'tickets.near' }).action).toEqual(
-      {
-        type: 'cancel_publish_request',
-        app_id: 'tickets.near',
-      }
-    );
+    expect(
+      buildCancelPublishRequestAction({ appId: 'tickets.near' }).action
+    ).toEqual({
+      type: 'cancel_publish_request',
+      app_id: 'tickets.near',
+    });
   });
 });
 

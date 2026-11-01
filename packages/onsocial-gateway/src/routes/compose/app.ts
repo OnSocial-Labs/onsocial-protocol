@@ -186,10 +186,7 @@ const cancelPublishRequest = actionHandlers(
     }),
   'cancel-publish-request'
 );
-appRouter.post(
-  '/prepare/cancel-publish-request',
-  cancelPublishRequest.prepare
-);
+appRouter.post('/prepare/cancel-publish-request', cancelPublishRequest.prepare);
 
 const declinePublishRequest = actionHandlers(
   (b) =>
