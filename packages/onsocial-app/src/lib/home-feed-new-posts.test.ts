@@ -4,6 +4,7 @@ import {
   countUnseenFeedPosts,
   EMPTY_UNSEEN_FEED_SUMMARY,
   feedPostKeySet,
+  homeFeedElevatedLabel,
   homeFeedNewPostsCountLabel,
   homeFeedNewPostsLabel,
   hotFeedHeadOrderChanged,
@@ -218,6 +219,15 @@ describe('homeFeedNewPostsLabel', () => {
     expect(homeFeedNewPostsLabel(3)).toBe('3 posted');
     expect(homeFeedNewPostsLabel(8)).toBe('8+ posted');
     expect(homeFeedNewPostsLabel(0)).toBe('');
+  });
+});
+
+describe('homeFeedElevatedLabel', () => {
+  it('names posts in aria so the count is not read as boosters', () => {
+    expect(homeFeedElevatedLabel(0)).toBe('Posts elevated. Jump to top.');
+    expect(homeFeedElevatedLabel(1)).toBe('1 post elevated. Jump to top.');
+    expect(homeFeedElevatedLabel(3)).toBe('3 posts elevated. Jump to top.');
+    expect(homeFeedElevatedLabel(4)).toBe('3+ posts elevated. Jump to top.');
   });
 });
 

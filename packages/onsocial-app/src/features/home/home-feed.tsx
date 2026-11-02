@@ -1266,8 +1266,10 @@ export function HomePagePanel({
   }, [clearHotUpdated, clearUnseenPosts]);
 
   const jumpToHotUpdated = useCallback(() => {
-    clearHotUpdated();
-    scrollFeedToNewest(scrollRootRef.current);
+    // Keep the chip mounted through the ease — unmounting first flickers.
+    scrollFeedToNewest(scrollRootRef.current, {
+      onComplete: clearHotUpdated,
+    });
   }, [clearHotUpdated]);
 
   const probeNewPosts = useCallback(async () => {

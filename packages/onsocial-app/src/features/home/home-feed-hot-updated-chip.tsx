@@ -3,13 +3,17 @@
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { HomeFeedCatchUpPortal } from '@/features/home/home-feed-catch-up-portal';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { HOME_FEED_NEW_AVATAR_SLOTS } from '@/lib/home-feed-new-posts';
+import {
+  HOME_FEED_NEW_AVATAR_SLOTS,
+  homeFeedElevatedLabel,
+  homeFeedNewPostsCountLabel,
+} from '@/lib/home-feed-new-posts';
 import { fallbackLabel } from '@/lib/profile-display';
 import { ChevronUpIcon, osDockPillClassName } from '@onsocial/ui';
 
 /**
  * Opt-in jump when Hot re-ranked under a scrolled reader.
- * Same `.os-dock-pill` material as the home launcher (fill + ::before frost).
+ * Same shape as the new-posts chip: ↑ · faces · N · elevated.
  */
 export function HomeFeedHotUpdatedChip({
   authorIds = [],
@@ -20,6 +24,8 @@ export function HomeFeedHotUpdatedChip({
 }) {
   const faces = authorIds.slice(0, HOME_FEED_NEW_AVATAR_SLOTS);
   const profiles = usePostAuthorProfiles(faces);
+  const countLabel = homeFeedNewPostsCountLabel(authorIds.length);
+  const ariaLabel = homeFeedElevatedLabel(authorIds.length);
 
   return (
     <HomeFeedCatchUpPortal>
@@ -27,7 +33,7 @@ export function HomeFeedHotUpdatedChip({
         <button
           type="button"
           className={`${osDockPillClassName} home-feed-new-posts-pill`}
-          aria-label="Hot updated. Jump to top."
+          aria-label={ariaLabel}
           onClick={onClick}
         >
           <ChevronUpIcon
@@ -54,7 +60,10 @@ export function HomeFeedHotUpdatedChip({
             </span>
           ) : null}
           <span className="home-feed-new-posts-copy" aria-hidden>
-            <span className="home-feed-new-posts-word">Hot updated</span>
+            {countLabel ? (
+              <span className="home-feed-new-posts-count">{countLabel}</span>
+            ) : null}
+            <span className="home-feed-new-posts-word">elevated</span>
           </span>
         </button>
       </div>

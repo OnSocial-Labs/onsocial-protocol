@@ -319,6 +319,18 @@ export function homeFeedNewPostsLabel(
 }
 
 /**
+ * Hot catch-up aria — rising posts in the head (same `1` / `3+` cap as posted).
+ * Visible chip still shows count + `elevated`; aria names posts so `N` is not
+ * read as boosters.
+ */
+export function homeFeedElevatedLabel(risingAuthorCount: number): string {
+  const countLabel = homeFeedNewPostsCountLabel(risingAuthorCount);
+  if (!countLabel) return 'Posts elevated. Jump to top.';
+  if (countLabel === '1') return '1 post elevated. Jump to top.';
+  return `${countLabel} posts elevated. Jump to top.`;
+}
+
+/**
  * Offset compensation for load-more on chrono-paged feeds.
  *
  * When N new posts land at the head between pages, the row previously at

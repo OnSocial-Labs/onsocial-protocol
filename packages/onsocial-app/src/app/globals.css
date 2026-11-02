@@ -2882,8 +2882,8 @@ a.os-surface-row,
 
 /* OS dock pill — mood-tinted header frost; depth shadow only (no accent halo).
  * Include mooded summon on OS screens so home isn’t a near-opaque --bg slab.
- * Catch-up chip composes `.os-dock-pill` but is not under the dock — mirror
- * the same fill when the launcher dock is mooded (`:has`).
+ * Catch-up chip mirrors dock mood fill via unlayered `body:has(...)` rules
+ * next to the shared `::before` frost (chip is not under the dock tree).
  * Glass finish keeps its own `.portfolio-summon-dock[data-mood=glass]` tokens. */
 .portfolio-os-layer .os-dock-pill,
 .portfolio-summon-dock[data-mood]:not([data-mood='glass']) .os-dock-pill {
@@ -22090,6 +22090,14 @@ a.os-surface-row,
     contain-intrinsic-size: none;
   }
 
+  /*
+   * Catch-up scroll briefly holds CV open so a short ease to top does not
+   * thrash placeholder ↔ real sizes (reads as flicker).
+   */
+  .os-app-screen-body.is-feed-catch-up-scrolling .home-feed-block {
+    content-visibility: visible;
+  }
+
   .home-feed-list.is-refreshing {
     opacity: 0.72;
     transition: opacity 160ms ease;
@@ -22146,9 +22154,14 @@ a.os-surface-row,
 
   .home-feed-new-posts-chevron {
     display: block;
-    width: 0.75rem;
-    height: 0.75rem;
-    color: rgb(var(--fg-rgb) / 0.5);
+    width: 1rem;
+    height: 1rem;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  /* 24 viewBox @ 1rem → stroke 3 reads as ~2px. */
+  .home-feed-new-posts-chevron path {
+    stroke-width: 3;
   }
 
   .home-feed-new-posts-faces {
@@ -22185,11 +22198,11 @@ a.os-surface-row,
   }
 
   .home-feed-new-posts-word {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     font-weight: 500;
     letter-spacing: -0.01em;
     line-height: 1;
-    color: rgb(var(--fg-rgb) / 0.48);
+    color: rgb(var(--fg-rgb) / 0.55);
   }
 
   /* Never `filter` on the pill — it kills ::before backdrop-filter frost. */
@@ -41198,12 +41211,45 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
 
 /*
  * Unlayered frost — beats layered imports / Lightning -webkit- stripping.
- * Catch-up composes `.os-dock-pill`; share the launcher ::before recipe exactly
- * (fill comes from `.os-app-screen:not(.os-app-screen--mood) .os-dock-pill`).
+ * Catch-up composes `.os-dock-pill`; share the launcher ::before recipe exactly.
+ * Mood fill: dock tokens live under `.portfolio-summon-dock` — mirror with `:has`.
  */
 .os-dock-pill.home-feed-new-posts-pill {
   align-items: center;
   justify-content: center;
+}
+
+body:has(.portfolio-summon-dock[data-mood]:not([data-mood='glass']))
+  .os-dock-pill.home-feed-new-posts-pill {
+  --os-dock-fill: color-mix(
+    in srgb,
+    rgb(var(--bg-rgb) / 0.72) 78%,
+    color-mix(
+      in srgb,
+      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.55)))
+        14%,
+      transparent
+    )
+  );
+  --os-dock-shadow: var(--os-chrome-elev-shadow);
+  --os-dock-lip: inset 0 1px 0
+    color-mix(
+      in srgb,
+      var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.55)))
+        14%,
+      rgb(var(--fg-rgb) / 0.12)
+    );
+}
+
+body:has(.portfolio-summon-dock[data-mood='glass'])
+  .os-dock-pill.home-feed-new-posts-pill {
+  --os-dock-fill: color-mix(
+    in srgb,
+    rgb(var(--bg-rgb) / 0.72) 62%,
+    var(--glass-summon-bg, rgb(var(--bg-rgb) / 0.72))
+  );
+  --os-dock-shadow: var(--os-chrome-elev-shadow);
+  --os-dock-lip: var(--glass-summon-lip, inset 0 1px 0 rgb(var(--fg-rgb) / 0.1));
 }
 
 .os-dock-pill.portfolio-summon::before,
