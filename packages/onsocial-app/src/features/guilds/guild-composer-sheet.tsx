@@ -26,8 +26,6 @@ import {
   MapMarkerFillIcon,
   MapMarkerIcon,
   ChevronLeftIcon,
-  NoteTextFillIcon,
-  NoteTextIcon,
   OsHugSheet,
   OsIconAction,
   OsPageSheet,
@@ -555,7 +553,8 @@ export function ComposerSheet({
   const canUseMedia = composerToolbarToolShown('media', toolbarState);
   const canUseDrop = composerToolbarToolShown('drop', toolbarState);
   const canUsePlace = composerToolbarToolShown('place', toolbarState);
-  const canAddThread = canComposeThread && canAddComposerThreadBeat(threadBeats);
+  const canAddThread =
+    canComposeThread && canAddComposerThreadBeat(threadBeats);
 
   const patchBeat = (index: number, partial: Partial<SheetBeat>) => {
     setBeats((current) => {
@@ -725,7 +724,10 @@ export function ComposerSheet({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (pending) return;
-    const publishBeats = publishableComposerBeats(threadBeats, canComposeThread);
+    const publishBeats = publishableComposerBeats(
+      threadBeats,
+      canComposeThread
+    );
     if (publishBeats.length === 0) return;
     if (publishBeats.some((row) => row.text.length > POST_TEXT_MAX_LENGTH)) {
       setMediaError(
@@ -1261,6 +1263,7 @@ export function ComposerSheet({
   const articleHasCoverPhoto = Boolean(articleCoverPhotoPreview);
 
   const showModeRail = mode !== 'post' && Boolean(onModeChange);
+  const showArticleRail = mode === 'post' && canUseArticle;
 
   const modeChipRail = showModeRail ? (
     <OsChipRail
@@ -1275,6 +1278,25 @@ export function ComposerSheet({
       onValueChange={(next) => {
         if (pending) return;
         onModeChange?.(next);
+      }}
+    />
+  ) : null;
+
+  const articleChipRail = showArticleRail ? (
+    <OsChipRail
+      className="discover-tab-bar--header guild-composer-mode-rail"
+      ariaLabel="Post or article"
+      selection="option"
+      items={[
+        { id: 'post', label: 'Post' },
+        { id: 'article', label: 'Article' },
+      ]}
+      value={articleMode ? 'article' : 'post'}
+      disabled={pending}
+      onValueChange={(next) => {
+        if (pending) return;
+        if (next === 'article' && !articleMode) toggleArticle();
+        if (next === 'post' && articleMode) toggleArticle();
       }}
     />
   ) : null;
@@ -1335,35 +1357,6 @@ export function ComposerSheet({
                 <ImageFillIcon className="guild-composer-tool-icon" />
               ) : (
                 <ImageIcon className="guild-composer-tool-icon" />
-              )}
-            </button>
-          </ComposerToolSlot>
-          <ComposerToolSlot open={canUseArticle}>
-            <button
-              type="button"
-              className={`guild-composer-tool${articleMode ? ' is-active' : ''}`}
-              disabled={!canUseArticle || pending}
-              title={
-                canUseArticle
-                  ? articleMode
-                    ? 'Switch to a regular post'
-                    : 'Write an article'
-                  : 'Articles are for new posts'
-              }
-              aria-label={
-                canUseArticle
-                  ? articleMode
-                    ? 'Switch to a regular post'
-                    : 'Write an article'
-                  : 'Articles are for new posts'
-              }
-              aria-pressed={articleMode}
-              onClick={toggleArticle}
-            >
-              {articleMode ? (
-                <NoteTextFillIcon className="guild-composer-tool-icon" />
-              ) : (
-                <NoteTextIcon className="guild-composer-tool-icon" />
               )}
             </button>
           </ComposerToolSlot>
@@ -1547,7 +1540,11 @@ export function ComposerSheet({
         footer={composerFooter}
       >
         <OsAppScreen
-          title={composerSheetTitle(mode, articleMode, beats.some((beat) => beat.drop))}
+          title={composerSheetTitle(
+            mode,
+            articleMode,
+            beats.some((beat) => beat.drop)
+          )}
           glassChrome
           compactChrome
           embedded
@@ -1560,7 +1557,13 @@ export function ComposerSheet({
               <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
             </OsIconAction>
           }
-          heading={showModeRail ? modeChipRail : undefined}
+          heading={
+            showModeRail
+              ? modeChipRail
+              : showArticleRail
+                ? articleChipRail
+                : undefined
+          }
           toolbar={
             articleMode && articleWriting ? (
               <div
@@ -1834,7 +1837,9 @@ export function ComposerSheet({
             onFocus={scrollFieldIntoView}
           />
         </label>
-        <label className={`guild-composer-nsfw-switch os-disabled-ink${nsfw ? ' is-on' : ''}`}>
+        <label
+          className={`guild-composer-nsfw-switch os-disabled-ink${nsfw ? ' is-on' : ''}`}
+        >
           <input
             type="checkbox"
             role="switch"

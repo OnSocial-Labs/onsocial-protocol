@@ -26,8 +26,9 @@ export type ComposerToolbarState = {
  * Tools that cannot apply fold out of the composer row.
  * The tool that is on stays, so it can be turned off.
  * A follow-up is a post: text, photo, poll, Drop, place, and labels.
- * The title belongs to an article, and an article is the opening post alone,
- * so the article tool folds on a continuation and once a thread exists.
+ * Post and Article are header chips, not a footer icon. The article choice
+ * still folds on a continuation, once a thread exists, and while a poll or
+ * Drop is on. It stays while an article is on so it can be turned off.
  * The thread plus folds while that article is on.
  */
 export function composerToolbarToolShown(

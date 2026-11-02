@@ -53,6 +53,67 @@ test.describe('compose thread', () => {
     await expect(composerBeatFields(page).nth(1)).toHaveValue(E2E_THREAD_EXTRA);
   });
 
+  test('header switches between Post and Article', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await clearComposerThreadDrafts(page);
+    await seedE2eMockSigner(page);
+    await openHomePostComposer(page);
+    await dismissNextDevOverlay(page);
+
+    const postDialog = page.getByRole('dialog', { name: 'New post' });
+    const mode = postDialog.getByRole('listbox', { name: 'Post or article' });
+    await expect(mode.getByRole('option', { name: 'Post' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    await expect(
+      postDialog.getByRole('button', { name: 'Write an article' })
+    ).toHaveCount(0);
+    await expect(
+      postDialog.getByRole('button', { name: 'Switch to a regular post' })
+    ).toHaveCount(0);
+
+    await mode.getByRole('option', { name: 'Article' }).click();
+    const articleDialog = page.getByRole('dialog', { name: 'New article' });
+    await expect(
+      articleDialog.getByRole('textbox', { name: 'Article title' })
+    ).toBeVisible();
+    await expect(
+      articleDialog.getByRole('option', { name: 'Article' })
+    ).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      articleDialog.getByRole('button', { name: 'Add cover photo' })
+    ).toBeVisible();
+    await expect(
+      articleDialog.getByRole('button', { name: 'Add poll' })
+    ).toHaveCount(0);
+    await expect(
+      articleDialog.getByRole('button', { name: 'Write an article' })
+    ).toHaveCount(0);
+
+    if (process.env.E2E_WALKTHROUGH_DIR) {
+      await page.screenshot({
+        path: `${process.env.E2E_WALKTHROUGH_DIR}/compose-article-chip.png`,
+      });
+    }
+
+    await articleDialog.getByRole('option', { name: 'Post' }).click();
+    const restored = page.getByRole('dialog', { name: 'New post' });
+    await expect(restored).toBeVisible();
+    await expect(
+      page.getByRole('textbox', { name: 'Article title' })
+    ).toHaveCount(0);
+    await expect(
+      restored.getByRole('option', { name: 'Post' })
+    ).toHaveAttribute('aria-selected', 'true');
+
+    if (process.env.E2E_WALKTHROUGH_DIR) {
+      await page.screenshot({
+        path: `${process.env.E2E_WALKTHROUGH_DIR}/compose-post-chip.png`,
+      });
+    }
+  });
+
   test('plus stays disabled until the last beat has text', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await clearComposerThreadDrafts(page);
