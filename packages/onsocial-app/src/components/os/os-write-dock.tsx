@@ -45,7 +45,10 @@ import {
   postMediaLocalPreviewUrl,
   postMediaRevokeLocalPreviewUrl,
 } from '@/lib/post-media';
-import { POST_TEXT_MAX_LENGTH, POST_TEXT_WARN_REMAINING } from '@/lib/post-display';
+import {
+  POST_TEXT_MAX_LENGTH,
+  POST_TEXT_WARN_REMAINING,
+} from '@/lib/post-display';
 import {
   clearWriteDockDraft,
   emptyWriteDockDraft,
@@ -131,7 +134,9 @@ export interface OsWriteDockProps {
   onExpand?: (payload: WriteDockSubmit) => void;
   /** Empty dismiss — keyboard down or a tap outside drops the reply chip. */
   onClearReply?: () => void;
-  onSubmit: (payload: WriteDockSubmit) => boolean | void | Promise<boolean | void>;
+  onSubmit: (
+    payload: WriteDockSubmit
+  ) => boolean | void | Promise<boolean | void>;
 }
 
 export function OsWriteDock({
@@ -151,8 +156,12 @@ export function OsWriteDock({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const scrollFieldIntoView = useMobileFieldFocusScroll<HTMLTextAreaElement>();
-  const { registerWriteFocus, setWritePinned, setWriteDockMorph, setWriteDockHasDraft } =
-    useWriteDockChrome();
+  const {
+    registerWriteFocus,
+    setWritePinned,
+    setWriteDockMorph,
+    setWriteDockHasDraft,
+  } = useWriteDockChrome();
   const { isConnected, connect } = useAppWallet();
   const initialDraft = draftKey
     ? readWriteDockDraft(draftKey)
@@ -160,7 +169,9 @@ export function OsWriteDock({
   const [text, setText] = useState(() =>
     initialDraft.text.slice(0, POST_TEXT_MAX_LENGTH)
   );
-  const [mediaFiles, setMediaFiles] = useState<File[]>(() => [...initialDraft.files]);
+  const [mediaFiles, setMediaFiles] = useState<File[]>(() => [
+    ...initialDraft.files,
+  ]);
   const mediaFilesRef = useRef(mediaFiles);
   mediaFilesRef.current = mediaFiles;
   const [mediaError, setMediaError] = useState<string | null>(null);
@@ -183,15 +194,12 @@ export function OsWriteDock({
   const hasContent = Boolean(text.trim() || mediaFiles.length);
   const hasReplyChrome = Boolean(above);
   const hasErrorChrome = Boolean(error);
-  const keyboardOpen =
-    fieldFocused && viewport.isMobile && viewport.lift > 0;
+  const keyboardOpen = fieldFocused && viewport.isMobile && viewport.lift > 0;
   /** Press → tuck immediately; stay tucked until focus ends and keys are down. */
   const keysChromeOpen =
     fieldFocused || (viewport.isMobile && viewport.lift > 0);
-  const footerOpen =
-    composeExpanded || hasContent || hasErrorChrome || pending;
-  const toolsOpen =
-    footerOpen || hasReplyChrome || keyboardOpen;
+  const footerOpen = composeExpanded || hasContent || hasErrorChrome || pending;
+  const toolsOpen = footerOpen || hasReplyChrome || keyboardOpen;
   const [isTall, setIsTall] = useState(hasErrorChrome || keyboardOpen);
   const nextMorph: WriteDockMorph = isTall
     ? 'expanded'
@@ -228,7 +236,9 @@ export function OsWriteDock({
     setMediaError(result.error);
     const unchanged =
       result.files.length === mediaFilesRef.current.length &&
-      result.files.every((file, index) => file === mediaFilesRef.current[index]);
+      result.files.every(
+        (file, index) => file === mediaFilesRef.current[index]
+      );
     if (unchanged) {
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
@@ -423,7 +433,10 @@ export function OsWriteDock({
 
   const mediaPreviews =
     mediaFiles.length > 0 ? (
-      <div className="os-write-dock-preview-strip os-scrollbar-none" role="list">
+      <div
+        className="os-write-dock-preview-strip os-scrollbar-none"
+        role="list"
+      >
         {mediaFiles.map((file, index) => {
           const previewUrl = postMediaLocalPreviewUrl(file);
           return (
@@ -454,7 +467,7 @@ export function OsWriteDock({
                 aria-label="Remove"
                 onClick={() => removeMediaAt(index)}
               >
-                ×
+                <MultiplyIcon className="glass-sheet-close-icon" aria-hidden />
               </button>
             </div>
           );
@@ -654,8 +667,7 @@ export function OsWriteDock({
                 className={[
                   'os-write-dock-char-count',
                   showTextCount ? '' : 'is-idle',
-                  showTextCount &&
-                  textRemaining <= POST_TEXT_WARN_REMAINING
+                  showTextCount && textRemaining <= POST_TEXT_WARN_REMAINING
                     ? 'is-warn'
                     : '',
                 ]
@@ -673,14 +685,14 @@ export function OsWriteDock({
               </span>
               {showExpand ? expandButton : null}
               {showExpand && expandButton && sendButton ? (
-                  <Divider
-                    orientation="vertical"
-                    variant="detail"
-                    className="portfolio-summon-divider os-write-dock-divider"
-                  />
-                ) : null}
-                {sendButton}
-              </div>
+                <Divider
+                  orientation="vertical"
+                  variant="detail"
+                  className="portfolio-summon-divider os-write-dock-divider"
+                />
+              ) : null}
+              {sendButton}
+            </div>
           </div>
         </div>
       </div>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GroupMemberRow } from '@onsocial/sdk';
 import {
+  GLASS_SHEET_PEEK_RATIO,
   GlassSheet,
   OsIconAction,
   SheetHeader,
@@ -105,12 +106,13 @@ export function GuildMembersSheet({
       open={open}
       onClose={onClose}
       tone="os"
-      sizing="hug"
-      initialDetent="full"
+      sizing="full"
+      initialDetent="peek"
+      peekRatio={GLASS_SHEET_PEEK_RATIO}
       zIndex={SHEET_Z.facts}
       ariaLabelledBy="guild-members-title"
       backdropLabel="Close members"
-      panelClassName="guild-members-sheet-panel os-sheet-cap-standard"
+      panelClassName="guild-members-sheet-panel"
       bodyClassName="guild-members-sheet-body"
       header={
         <>

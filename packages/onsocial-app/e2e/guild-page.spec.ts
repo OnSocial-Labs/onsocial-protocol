@@ -207,17 +207,18 @@ test.describe('guild page', () => {
     const restColor = await leaveIcon.evaluate(
       (node) => getComputedStyle(node).color
     );
+    const alpha = (value: string) =>
+      Number(value.match(/[\d.]+(?=\))/)?.[0] ?? 0);
     await leaveIcon.hover();
-    const hoverColor = await leaveIcon.evaluate(
-      (node) => getComputedStyle(node).color
-    );
+    await expect
+      .poll(async () =>
+        alpha(await leaveIcon.evaluate((node) => getComputedStyle(node).color))
+      )
+      .toBeGreaterThan(alpha(restColor));
     const hoverFill = await leaveIcon.evaluate(
       (node) => getComputedStyle(node).backgroundColor
     );
-    const alpha = (value: string) =>
-      Number(value.match(/[\d.]+(?=\))/)?.[0] ?? 0);
-    expect(alpha(hoverColor)).toBeLessThan(alpha(restColor));
-    expect(alpha(hoverFill)).toBeGreaterThan(0);
+    expect(alpha(hoverFill)).toBe(0);
     await expect(leaveIcon).toHaveCSS('cursor', 'pointer');
     await leaveIcon.evaluate((node) => node.classList.add('is-pending'));
     await expect(leaveIcon).toHaveCSS('cursor', 'progress');

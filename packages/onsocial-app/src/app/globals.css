@@ -1916,18 +1916,16 @@ button.market-listing-title-link {
   appearance: none;
   cursor: pointer;
   line-height: 0;
+  transition: color 160ms ease;
 }
 
-.guild-hero-action-icon:hover:not(:disabled) {
-  background: rgb(var(--fg-rgb) / 0.06);
-  color: rgb(var(--fg-rgb) / 0.45);
-  cursor: pointer;
+.guild-hero-action-icon:hover:not(:disabled),
+.guild-hero-action-icon:focus-visible:not(:disabled) {
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.92);
 }
 
 .guild-hero-action-icon:focus-visible:not(:disabled) {
-  background: rgb(var(--fg-rgb) / 0.06);
-  color: rgb(var(--fg-rgb) / 0.45);
-  cursor: pointer;
   outline: none;
   box-shadow: var(--os-focus-ring, 0 0 0 1px rgb(var(--fg-rgb) / 0.08));
 }
@@ -15980,10 +15978,9 @@ a.os-surface-row,
   }
 
   .os-write-dock-preview-remove {
-    font: inherit;
-    font-size: 1.05rem;
-    font-weight: 500;
-    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: rgb(var(--fg-rgb) / 0.5);
     width: 1.25rem;
     height: 1.25rem;
@@ -16001,12 +15998,7 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.5);
   }
 
-  .os-write-dock-reply-cancel .glass-sheet-close-icon {
-    width: 1.05rem;
-    height: 1.05rem;
-  }
-
-  /* Empty reply clears on keyboard dismiss or an outside tap. The X stays
+  /* Empty reply clears on keyboard dismiss or an outside tap. The close stays
      only once there is a draft to keep. */
   .os-write-dock:not(.is-compose-open) .os-write-dock-reply-cancel {
     display: none;
@@ -37144,8 +37136,6 @@ a.os-surface-row,
 
   .glass-sheet-panel.guild-members-sheet-panel {
     --glass-sheet-body-opacity: 0.72;
-    /* Hug floor — keeps the toolbar steady while search/filter shrinks rows. */
-    min-height: min(20rem, 55dvh);
   }
 
   /* SheetHeader owns the members title row — no second top inset when hosted. */
@@ -39246,34 +39236,18 @@ a.os-surface-row,
     min-width: 0;
     width: 100%;
     margin: 0;
-    /* Match .post-identity-name line box next to the avatar. */
-    min-height: calc(0.875rem * 1.25);
+    /* Same 2rem menu chip as .os-floating-panel-trigger. */
+    min-height: 2rem;
   }
 
   .guild-composer-dest-menu {
     display: inline-flex;
     align-items: center;
+    min-width: 0;
   }
 
   .guild-composer-dest-menu .os-floating-panel-trigger {
     max-width: min(9.5rem, 42vw);
-    min-height: 0;
-    height: auto;
-    gap: 0.2rem;
-    padding: 0.05rem 0.4rem 0.05rem 0.45rem;
-    font-size: 0.72rem;
-    line-height: 1.25;
-    font-weight: 600;
-  }
-
-  .guild-composer-dest-menu .os-floating-panel-trigger-label {
-    font-size: inherit;
-    line-height: inherit;
-  }
-
-  .guild-composer-dest-menu .os-floating-panel-trigger-chevron {
-    width: 0.75rem;
-    height: 0.75rem;
   }
 
   /* Guild sheet names the guild. The room chip stays the menu. */
