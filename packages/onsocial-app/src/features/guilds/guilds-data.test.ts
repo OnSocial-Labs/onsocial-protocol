@@ -3,6 +3,7 @@ import {
   guildPath,
   guildSheetPath,
   manageSheetFromShare,
+  nextManageSheetFromRoute,
   parseGuildProposalParam,
   parseGuildSheetParam,
 } from '@/features/guilds/guilds-data';
@@ -31,15 +32,15 @@ describe('guild share sheet paths', () => {
   });
 
   it('appends a proposal deep-link param when given one', () => {
-    expect(
-      guildSheetPath('rebels.near', 'proposals', { proposal: 12 })
-    ).toBe('/groups/rebels.near?sheet=proposals&proposal=12');
+    expect(guildSheetPath('rebels.near', 'proposals', { proposal: 12 })).toBe(
+      '/groups/rebels.near?sheet=proposals&proposal=12'
+    );
     expect(
       guildSheetPath('rebels.near', 'proposals', { proposal: ' prop-1 ' })
     ).toBe('/groups/rebels.near?sheet=proposals&proposal=prop-1');
-    expect(
-      guildSheetPath('rebels.near', 'proposals', { proposal: null })
-    ).toBe('/groups/rebels.near?sheet=proposals');
+    expect(guildSheetPath('rebels.near', 'proposals', { proposal: null })).toBe(
+      '/groups/rebels.near?sheet=proposals'
+    );
     expect(guildSheetPath('rebels.near', 'proposals', { proposal: '' })).toBe(
       '/groups/rebels.near?sheet=proposals'
     );
@@ -63,5 +64,21 @@ describe('guild share sheet paths', () => {
     expect(manageSheetFromShare('requests')).toBe('requests');
     expect(manageSheetFromShare('settings')).toBeNull();
     expect(manageSheetFromShare(null)).toBeNull();
+  });
+
+  it('keeps add member while the members route is still open', () => {
+    expect(nextManageSheetFromRoute('add-member', 'members')).toBe(
+      'add-member'
+    );
+    expect(nextManageSheetFromRoute('add-member', 'proposals')).toBe(
+      'proposals'
+    );
+    expect(nextManageSheetFromRoute('add-member', 'requests')).toBe('requests');
+    expect(nextManageSheetFromRoute('add-member', 'settings')).toBeNull();
+    expect(nextManageSheetFromRoute('add-member', null)).toBeNull();
+    expect(nextManageSheetFromRoute('members', 'members')).toBe('members');
+    expect(nextManageSheetFromRoute('members', null)).toBeNull();
+    expect(nextManageSheetFromRoute(null, 'members')).toBe('members');
+    expect(nextManageSheetFromRoute(null, null)).toBeNull();
   });
 });

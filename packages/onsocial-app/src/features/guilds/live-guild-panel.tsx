@@ -101,6 +101,7 @@ import {
   guildPath,
   guildSheetPath,
   manageSheetFromShare,
+  nextManageSheetFromRoute,
   type GuildManageSheetId,
   type GuildShareSheetId,
 } from '@/features/guilds/guilds-data';
@@ -327,7 +328,9 @@ export function LiveGuildPanel({
   const canAddMember = canConfigure;
 
   useEffect(() => {
-    setManageSheet(manageSheetFromShare(initialSheet));
+    setManageSheet((current) =>
+      nextManageSheetFromRoute(current, initialSheet)
+    );
     const settingsRequested = initialSheet === 'settings';
     const settingsAllowed =
       settingsRequested && (!viewerAccessResolved || canOpenSettings);
@@ -734,9 +737,7 @@ export function LiveGuildPanel({
 
   const openAddMember = () => {
     setSheetHandoff(true);
-    manageSheetPushedRef.current = false;
     setManageSheet('add-member');
-    router.replace(guildPath(groupId), { scroll: false });
   };
 
   const heroActions = guildHeroIconsForViewer({
@@ -1490,8 +1491,8 @@ export function LiveGuildPanel({
             groupId={groupId}
             memberIds={state.members.map((member) => member.memberId)}
             onClose={() => {
-              setSheetHandoff(false);
-              openManageSheet(null);
+              setSheetHandoff(true);
+              openManageSheet('members');
             }}
             onAdded={() => void refresh()}
           />

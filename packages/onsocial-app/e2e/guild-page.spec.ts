@@ -393,8 +393,25 @@ test.describe('guild page', () => {
     await addMemberButton.click();
     const addMember = page.getByRole('dialog', { name: 'Add member' });
     await expect(addMember).toBeVisible();
+    await expect(page).toHaveURL(
+      new RegExp(`${GUILD_E2E_PATH}\\?sheet=members`)
+    );
+    await expect(
+      addMember.getByText('Search profiles to invite.')
+    ).toBeVisible();
+    await expect(members).toHaveCount(0);
+    await expect(addMember).toBeVisible();
+    if (process.env.E2E_WALKTHROUGH_DIR) {
+      await expect(addMember).not.toHaveClass(/glass-sheet-panel--enter/);
+      await addMember.screenshot({
+        path: `${process.env.E2E_WALKTHROUGH_DIR}/guild-add-member-sheet.png`,
+      });
+    }
     await addMember.getByRole('button', { name: 'Close add member' }).click();
     await expect(addMember).toHaveCount(0);
+    await expect(members).toBeVisible();
+    await members.getByRole('button', { name: 'Close members' }).click();
+    await expect(members).toHaveCount(0);
     const rooms = page.getByRole('tablist', { name: 'Guild rooms' });
     await expect(rooms.getByRole('button', { name: 'Add room' })).toBeVisible();
     await expect(rooms.getByRole('tab', { name: 'Add room' })).toHaveCount(0);

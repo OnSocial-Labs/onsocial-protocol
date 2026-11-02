@@ -122,6 +122,24 @@ export function manageSheetFromShare(
   return null;
 }
 
+/**
+ * Route sync for the manage stack. Add member is not a URL, so a members
+ * deep link must not replace it. Any other sheet follows the route, and a
+ * bare guild path closes the stack (Back or an explicit dismiss).
+ */
+export function nextManageSheetFromRoute(
+  current: GuildManageSheetId | null,
+  initialSheet: GuildShareSheetId | null | undefined
+): GuildManageSheetId | null {
+  if (
+    current === 'add-member' &&
+    manageSheetFromShare(initialSheet) === 'members'
+  ) {
+    return current;
+  }
+  return manageSheetFromShare(initialSheet);
+}
+
 export function guildSheetPath(
   groupId: string,
   sheet: GuildShareSheetId,
