@@ -126,7 +126,7 @@ async function stubDiscoverGuildsWithMedia(page: Page): Promise<void> {
 }
 
 test.describe('image variants on discover + banner surfaces (phase 3)', () => {
-  test('discover community rows pick the 128 rung for banner and mark', async ({
+  test('discover community rows pick the 384 rung for a cover-cropped banner', async ({
     page,
   }) => {
     await stubDiscoverGuildsWithMedia(page);
@@ -144,18 +144,22 @@ test.describe('image variants on discover + banner surfaces (phase 3)', () => {
     await expect(banner).toHaveAttribute('src', `${CDN}/ipfs/${CID_BANNER}`);
     await expect(banner).toHaveAttribute(
       'srcset',
-      new RegExp(`/img/128/ipfs/${CID_BANNER} 128w`)
+      new RegExp(`/img/384/ipfs/${CID_BANNER} 384w`)
     );
     await expect(banner).toHaveAttribute(
       'srcset',
-      new RegExp(`/img/384/ipfs/${CID_BANNER} 384w`)
+      new RegExp(`/img/1080/ipfs/${CID_BANNER} 1080w`)
     );
-    await expect(banner).toHaveAttribute('sizes', '78px');
+    await expect(banner).not.toHaveAttribute(
+      'srcset',
+      new RegExp(`/img/128/ipfs/${CID_BANNER}`)
+    );
+    await expect(banner).toHaveAttribute('sizes', '13.5rem');
 
-    // 78px slot at DPR 1 — the browser picks the 128 rung.
+    // Cover-crop width at DPR 1 — 384, not the 128 width rung.
     await expect
       .poll(() => banner.evaluate((el: HTMLImageElement) => el.currentSrc))
-      .toBe(`${CDN}/img/128/ipfs/${CID_BANNER}`);
+      .toBe(`${CDN}/img/384/ipfs/${CID_BANNER}`);
 
     // Square mark rides the fixed 128 variant directly.
     const mark = row.locator('.community-summary-mark img');
@@ -164,6 +168,9 @@ test.describe('image variants on discover + banner surfaces (phase 3)', () => {
       `${CDN}/img/128/ipfs/${CID_BADGE}`
     );
 
+    await expect
+      .poll(() => hits.variantByWidth.get('384') ?? 0)
+      .toBeGreaterThan(0);
     await expect
       .poll(() => hits.variantByWidth.get('128') ?? 0)
       .toBeGreaterThan(0);
