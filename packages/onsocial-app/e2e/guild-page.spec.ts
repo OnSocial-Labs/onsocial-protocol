@@ -272,7 +272,24 @@ test.describe('guild page', () => {
     const cue = page.getByRole('button', { name: 'Share the first post' });
     await expect(cue).toBeVisible();
     await cue.click();
-    await expect(page.getByRole('dialog', { name: 'New post' })).toBeVisible();
+    const composer = page.getByRole('dialog', { name: 'New post' });
+    await expect(composer).toBeVisible();
+    await expect(
+      composer.getByText(GUILD_E2E_TITLE, { exact: true })
+    ).toBeVisible();
+    await expect(
+      composer.getByRole('button', { name: 'Room General' })
+    ).toBeVisible();
+    if (process.env.E2E_WALKTHROUGH_DIR) {
+      await page.screenshot({
+        path: `${process.env.E2E_WALKTHROUGH_DIR}/guild-compose-destination.png`,
+      });
+    }
+    await composer.getByRole('button', { name: 'Room General' }).click();
+    const rooms = page.getByRole('dialog', { name: 'Room' });
+    await expect(
+      rooms.getByRole('option', { name: 'General' })
+    ).toHaveAttribute('aria-selected', 'true');
   });
 
   test('banned viewer sees Banned and why, not Join', async ({ page }) => {
@@ -444,7 +461,9 @@ test.describe('guild page', () => {
     await expect(leaders).toHaveAttribute('aria-selected', 'false');
     await expect(selected).toHaveAttribute('aria-selected', 'false');
     await expect(
-      page.getByRole('dialog', { name: 'Who can share' }).getByText('Any member can share.')
+      page
+        .getByRole('dialog', { name: 'Who can share' })
+        .getByText('Any member can share.')
     ).toBeVisible();
 
     await leaders.click();

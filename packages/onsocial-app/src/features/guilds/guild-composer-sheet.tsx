@@ -261,6 +261,7 @@ function composerSheetTitle(
 export type ComposerDestination =
   | {
       kind: 'guild';
+      /** Shown beside the avatar when this sheet is opened from the guild. */
       name: string;
       channels: { id: string; title: string }[];
       selectedChannelId: string;
@@ -1029,10 +1030,15 @@ export function ComposerSheet({
     );
   const publishingArticle = mode === 'post' && articleMode;
 
+  const guildPlace =
+    mode === 'post' && destination?.kind === 'guild' && !postingAsDao
+      ? destination
+      : null;
   const showDestinationMenus =
     mode === 'post' &&
     (Boolean(feedTargets && feedTargets.options.length > 0) ||
-      Boolean(authorTargets));
+      Boolean(authorTargets) ||
+      Boolean(guildPlace));
   const roomOptions: ChoiceOption<string>[] | null =
     mode === 'post' && destination?.kind === 'guild' && !postingAsDao
       ? destination.loading && destination.channels.length === 0
@@ -1122,7 +1128,7 @@ export function ComposerSheet({
     ) : null;
 
   const destinationMenus =
-    showDestinationMenus && (feedTargets || authorTargets) ? (
+    showDestinationMenus && (feedTargets || authorTargets || guildPlace) ? (
       <div
         className="guild-composer-destination-menus"
         role="group"
@@ -1163,6 +1169,18 @@ export function ComposerSheet({
             className="standing-view-menu guild-composer-dest-menu"
             zIndex={COMPOSER_NEST_Z}
           />
+        ) : null}
+        {guildPlace && !feedTargets ? (
+          <span className="guild-composer-dest-menu guild-composer-guild-name">
+            <span
+              className="os-floating-panel-trigger is-fixed"
+              title={guildPlace.name}
+            >
+              <span className="os-floating-panel-trigger-label">
+                {guildPlace.name}
+              </span>
+            </span>
+          </span>
         ) : null}
         {destination?.kind === 'guild' && roomOptions && !postingAsDao ? (
           <ChoiceDrawerMenu

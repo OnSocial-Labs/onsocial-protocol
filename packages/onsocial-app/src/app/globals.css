@@ -15441,7 +15441,8 @@ a.os-surface-row,
     }
 
     .portfolio-summon-account.is-connect:hover .app-wallet-connect-glyph,
-    .portfolio-summon-account.is-connect:focus-visible .app-wallet-connect-glyph,
+    .portfolio-summon-account.is-connect:focus-visible
+      .app-wallet-connect-glyph,
     .home-feed-me-avatar.is-connect:hover .app-wallet-connect-glyph,
     .home-feed-me-avatar.is-connect:focus-visible .app-wallet-connect-glyph {
       opacity: 1;
@@ -39356,6 +39357,16 @@ a.os-surface-row,
   .guild-composer-dest-menu .os-floating-panel-trigger-chevron {
     width: 0.75rem;
     height: 0.75rem;
+  }
+
+  /* Guild sheet names the guild. The room chip stays the menu. */
+  .guild-composer-dest-menu .os-floating-panel-trigger.is-fixed {
+    cursor: default;
+  }
+
+  .guild-composer-dest-menu .os-floating-panel-trigger.is-fixed:hover {
+    background: var(--os-fp-trigger-bg);
+    color: var(--os-fp-muted);
   }
 
   .guild-composer-drop-fallback-tile {
