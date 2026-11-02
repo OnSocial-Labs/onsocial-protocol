@@ -11,6 +11,7 @@ import {
 import { usePathname, useSearchParams } from 'next/navigation';
 import { PageShell } from '@/components/layout/page-shell';
 import { useWallet } from '@/contexts/wallet-context';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import {
   GovernanceCardSkeletonList,
   GovernancePageLoadingShell,
@@ -31,7 +32,7 @@ import {
 } from '@/features/governance/governance-proposal-events-client';
 import {
   appendGovernanceDaoBoardParam,
-  GOVERNANCE_DAO_BOARD_OPTIONS,
+  governanceDaoBoardOptions,
   GOVERNANCE_DAO_BOARD_PARAM,
   getLaneOptionsForBoard,
   normalizeLaneForBoard,
@@ -65,10 +66,11 @@ function GovernancePageContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { accountId } = useWallet();
+  const { network } = usePortalNetwork();
   const [activeBoard, setActiveBoard] = useState<GovernanceDaoBoard>(() =>
     parseGovernanceDaoBoard(searchParams.get(GOVERNANCE_DAO_BOARD_PARAM))
   );
-  const daoAccountId = resolveGovernanceDaoAccountId(activeBoard);
+  const daoAccountId = resolveGovernanceDaoAccountId(activeBoard, network);
   const laneOptions = getLaneOptionsForBoard(activeBoard);
   const [apps, setApps] = useState<Application[]>([]);
   const [daoPolicy, setDaoPolicy] = useState<GovernanceDaoPolicy | null>(null);
@@ -352,7 +354,7 @@ function GovernancePageContent() {
         <>
           <GovernanceRail
             activeBoard={activeBoard}
-            boardOptions={GOVERNANCE_DAO_BOARD_OPTIONS}
+            boardOptions={governanceDaoBoardOptions(network)}
             daoAccountId={daoAccountId}
             viewerAccountId={accountId}
             activeLane={activeLane}

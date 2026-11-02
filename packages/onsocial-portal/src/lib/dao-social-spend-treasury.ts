@@ -2,9 +2,13 @@ import 'server-only';
 
 import {
   getSocialWalletBalanceYocto,
-  SOCIAL_SPEND_CONTRACT,
-  viewContractAt,
+  viewContractAtOnNetwork,
 } from '@/lib/near-rpc';
+import {
+  portalNetworkProfile,
+  type PortalNearNetwork,
+} from '@/lib/portal-network';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
 import {
   resolveSocialSpendTreasuryCapabilities,
   type SocialSpendTreasuryCapabilities,
@@ -46,12 +50,17 @@ function normalizeAccountId(value: unknown): string | null {
   return ACCOUNT_ID_PATTERN.test(normalized) ? normalized : null;
 }
 
-async function loadLiveSeasonIds(seasonIds: string[]): Promise<string[]> {
+async function loadLiveSeasonIds(
+  seasonIds: string[],
+  network: PortalNearNetwork,
+  contractId: string
+): Promise<string[]> {
   const liveSeasonIds = await Promise.all(
     seasonIds.map(async (seasonId) => {
       try {
-        const config = await viewContractAt<SeasonConfigView>(
-          SOCIAL_SPEND_CONTRACT,
+        const config = await viewContractAtOnNetwork<SeasonConfigView>(
+          network,
+          contractId,
           'get_season_config',
           { season_id: seasonId }
         );
@@ -78,8 +87,11 @@ export async function loadDaoSocialSpendTreasuryContext(
     throw new Error('Invalid daoAccountId');
   }
 
-  const info = await viewContractAt<SocialSpendContractInfo>(
-    SOCIAL_SPEND_CONTRACT,
+  const network = await getRequestPortalNetwork();
+  const contractId = portalNetworkProfile(network).contracts.socialSpend;
+  const info = await viewContractAtOnNetwork<SocialSpendContractInfo>(
+    network,
+    contractId,
     'get_contract_info',
     {}
   );
@@ -106,8 +118,9 @@ export async function loadDaoSocialSpendTreasuryContext(
   let allSeasonIds = seasonIdsFromInfo;
   if (allSeasonIds.length === 0) {
     try {
-      const onChainSeasonIds = await viewContractAt<string[]>(
-        SOCIAL_SPEND_CONTRACT,
+      const onChainSeasonIds = await viewContractAtOnNetwork<string[]>(
+        network,
+        contractId,
         'get_season_ids',
         {}
       );
@@ -124,13 +137,17 @@ export async function loadDaoSocialSpendTreasuryContext(
     }
   }
 
-  const fundableSeasonIds = await loadLiveSeasonIds(allSeasonIds);
+  const fundableSeasonIds = await loadLiveSeasonIds(
+    allSeasonIds,
+    network,
+    contractId
+  );
   const daoSocialBalanceYocto = (
-    await getSocialWalletBalanceYocto(normalizedDaoAccountId)
+    await getSocialWalletBalanceYocto(normalizedDaoAccountId, network)
   ).toString();
 
   return {
-    contractId: SOCIAL_SPEND_CONTRACT,
+    contractId,
     daoSocialBalanceYocto,
     canFundSeasonPool,
     fundableSeasonIds,

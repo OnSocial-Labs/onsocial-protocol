@@ -1,5 +1,6 @@
 import type { MaterialisedProfile, ProfileKind } from '@onsocial/sdk';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import { createRequestOnSocialClient } from '@/lib/portal-request-client';
 import {
   isProfileSearchQuery,
   searchMatchingAccountIds,
@@ -35,7 +36,7 @@ export async function loadPortalEndorsementSupporters(
     throw new Error('A valid endorsementId query parameter is required');
   }
 
-  const os = createPortalServerOnSocialClient();
+  const os = await createRequestOnSocialClient();
   let aggregates = await os.query.socialSpend.endorsementSupporters(normalized);
 
   if (isProfileSearchQuery(searchQuery)) {

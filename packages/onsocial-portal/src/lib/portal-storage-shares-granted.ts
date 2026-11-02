@@ -1,4 +1,4 @@
-import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import { createRequestOnSocialClient } from '@/lib/portal-request-client';
 import {
   pickActiveShareGrantsForPool,
   uniqueShareGrantTargetIds,
@@ -13,7 +13,7 @@ export async function loadPortalStorageSharesGranted(
   poolOwnerId: string,
   opts: { includeTargetIds?: string[] } = {}
 ): Promise<PortalStorageSharesGrantedResponse> {
-  const os = createPortalServerOnSocialClient();
+  const os = await createRequestOnSocialClient();
 
   const events = await os.query.storage.sharesGranted(poolOwnerId, {
     limit: 100,

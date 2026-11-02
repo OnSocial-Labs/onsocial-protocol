@@ -1,4 +1,8 @@
-import { portalNetworkProfile, readPortalNetwork } from '@/lib/portal-network';
+import {
+  portalDaoAccounts,
+  portalNetworkProfile,
+  readPortalNetwork,
+} from '@/lib/portal-network';
 
 export type PortalNearNetwork = 'testnet' | 'mainnet';
 
@@ -152,6 +156,30 @@ export const PORTAL_RUNTIME_WARNINGS = [
     ? `NEXT_PUBLIC_API_URL points to ${apiEnvironment} while NEXT_PUBLIC_BACKEND_URL points to ${backendEnvironment}.`
     : null,
 ].filter((warning): warning is string => Boolean(warning));
+
+export function governanceDaoAccount(
+  network: PortalNearNetwork = readPortalNetwork()
+): string {
+  return portalDaoAccounts(network).governance;
+}
+
+export function treasuryDaoAccount(
+  network: PortalNearNetwork = readPortalNetwork()
+): string {
+  return portalDaoAccounts(network).treasury;
+}
+
+export function stakingGovernanceDaoAccount(
+  network: PortalNearNetwork = readPortalNetwork()
+): string {
+  return portalDaoAccounts(network).stakingGovernance;
+}
+
+export function stakingTreasuryDaoAccount(
+  network: PortalNearNetwork = readPortalNetwork()
+): string {
+  return portalDaoAccounts(network).stakingTreasury;
+}
 
 export function isGovernanceWallet(wallet: string | null | undefined): boolean {
   return !!wallet && GOVERNANCE_WALLETS.includes(wallet.toLowerCase());

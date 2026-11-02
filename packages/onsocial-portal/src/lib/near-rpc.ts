@@ -9,7 +9,11 @@ import {
   type Network,
 } from '@onsocial/rpc';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
-import { readPortalNetwork } from '@/lib/portal-network';
+import {
+  portalNetworkProfile,
+  readPortalNetwork,
+  type PortalNetworkContracts,
+} from '@/lib/portal-network';
 import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
 
 // ---------------------------------------------------------------------------
@@ -42,6 +46,11 @@ export const VESTING_CONTRACT =
   NETWORK === 'mainnet'
     ? 'founder-vesting.onsocial.near'
     : 'founder-vesting.onsocial.testnet';
+
+/** Contract id for the network selected at call time. */
+export function activeContract(name: keyof PortalNetworkContracts): string {
+  return portalNetworkProfile(readPortalNetwork()).contracts[name];
+}
 
 const DEFAULT_GOVERNANCE_PROPOSER_THRESHOLD = '100000000000000000000';
 const NEAR_STORAGE_BYTE_COST = 10_000_000_000_000_000_000n;
@@ -736,14 +745,20 @@ export function normalizeFtBalanceYocto(value: unknown): bigint {
 
 /** On-chain SOCIAL (NEP-141) wallet balance for an account. */
 export async function getSocialWalletBalanceYocto(
-  accountId: string
+  accountId: string,
+  network: Network = readPortalNetwork()
 ): Promise<bigint> {
-  const balance = await tryViewContractAt<unknown>(
-    TOKEN_CONTRACT,
-    'ft_balance_of',
-    { account_id: accountId }
-  );
-  return normalizeFtBalanceYocto(balance);
+  try {
+    const balance = await viewContractAtOnNetwork<unknown>(
+      network,
+      portalNetworkProfile(network).contracts.token,
+      'ft_balance_of',
+      { account_id: accountId }
+    );
+    return normalizeFtBalanceYocto(balance);
+  } catch {
+    return 0n;
+  }
 }
 
 /** Convert yocto-SOCIAL (18 decimals) to human-readable string. */

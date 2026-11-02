@@ -97,7 +97,7 @@ import {
   txToastBillingPending,
   txToastBillingSuccess,
 } from '@/lib/transaction-toast-copy';
-import { ACTIVE_API_URL } from '@/lib/portal-config';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 
 function maskKey(prefix: string): string {
   return `${prefix}${'•'.repeat(20)}`;
@@ -435,6 +435,7 @@ export default function OnApiKeysPage() {
   const { setNavBack } = useMobilePageContext();
   const searchParams = useSearchParams();
   const reduceMotion = useReducedMotion();
+  const { apiUrl } = usePortalNetwork();
 
   useEffect(() => {
     setNavBack({ label: 'Back' });
@@ -795,7 +796,7 @@ export default function OnApiKeysPage() {
       (isUpgrade || isDowngrade || effectiveTier === 'free')
   );
   const showDevBillingBypass =
-    ACTIVE_API_URL.includes('localhost') && subscription?.status === 'pending';
+    apiUrl.includes('localhost') && subscription?.status === 'pending';
   const quickStartExpanded = !hasKeys || quickStartOpen;
   const emailValid = EMAIL_RE.test(billingEmail.trim());
   const needsRegion = countryNeedsRegion(billingCountry);

@@ -1,6 +1,8 @@
-import { ACTIVE_API_URL } from '@/lib/portal-config';
+import { portalNetworkProfile, readPortalNetwork } from '@/lib/portal-network';
 
-const GATEWAY_BASE = ACTIVE_API_URL.replace(/\/$/, '');
+function gatewayBase(): string {
+  return portalNetworkProfile(readPortalNetwork()).apiUrl.replace(/\/$/, '');
+}
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -63,7 +65,7 @@ async function gw<T>(
   jwt: string,
   init?: RequestInit
 ): Promise<T> {
-  const res = await fetch(`${GATEWAY_BASE}${path}`, {
+  const res = await fetch(`${gatewayBase()}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
@@ -86,7 +88,7 @@ async function gw<T>(
 
 /** Fetch available subscription plans (public, no auth required) */
 export async function fetchPlansPublic(): Promise<PlanInfo[]> {
-  const res = await fetch(`${GATEWAY_BASE}/developer/plans`, {
+  const res = await fetch(`${gatewayBase()}/developer/plans`, {
     headers: { 'Content-Type': 'application/json' },
   });
   if (!res.ok) return []; // Fallback plans will be used
@@ -164,7 +166,7 @@ export async function fetchTaxPreview(
   };
   if (jwt) headers.Authorization = `Bearer ${jwt}`;
 
-  const res = await fetch(`${GATEWAY_BASE}/developer/tax-preview`, {
+  const res = await fetch(`${gatewayBase()}/developer/tax-preview`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -254,7 +256,7 @@ export async function downloadInvoicePdf(
   filenameHint?: string
 ): Promise<void> {
   const res = await fetch(
-    `${GATEWAY_BASE}/developer/invoices/${encodeURIComponent(invoiceId)}/pdf`,
+    `${gatewayBase()}/developer/invoices/${encodeURIComponent(invoiceId)}/pdf`,
     {
       headers: { Authorization: `Bearer ${jwt}` },
     }

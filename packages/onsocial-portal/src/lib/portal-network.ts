@@ -156,6 +156,104 @@ export function isPortalSwapEnabled(network: PortalNearNetwork): boolean {
 }
 
 /**
+ * What a visitor can actually do on the selected network.
+ * Mainnet inventory matches Resources/mainnet-golive.md: token, rewards,
+ * and treasury are live. Social, boost, spend, vesting, and governance are not.
+ * Swap stays mainnet-only because the Rhea pool is mainnet-only.
+ */
+export type PortalCapability =
+  | 'core'
+  | 'boost'
+  | 'scarces'
+  | 'socialSpend'
+  | 'vesting'
+  | 'governance'
+  | 'token'
+  | 'rewards'
+  | 'treasury'
+  | 'swap';
+
+const MAINNET_LIVE_CAPABILITIES = new Set<PortalCapability>([
+  'token',
+  'rewards',
+  'treasury',
+  'swap',
+]);
+
+export function isPortalCapabilityLive(
+  network: PortalNearNetwork,
+  capability: PortalCapability
+): boolean {
+  if (capability === 'swap') return network === 'mainnet';
+  if (network !== 'mainnet') return true;
+  return MAINNET_LIVE_CAPABILITIES.has(capability);
+}
+
+export function portalCapabilityMap(network: PortalNearNetwork) {
+  return {
+    core: isPortalCapabilityLive(network, 'core'),
+    boost: isPortalCapabilityLive(network, 'boost'),
+    scarces: isPortalCapabilityLive(network, 'scarces'),
+    socialSpend: isPortalCapabilityLive(network, 'socialSpend'),
+    vesting: isPortalCapabilityLive(network, 'vesting'),
+    governance: isPortalCapabilityLive(network, 'governance'),
+    token: isPortalCapabilityLive(network, 'token'),
+    rewards: isPortalCapabilityLive(network, 'rewards'),
+    treasury: isPortalCapabilityLive(network, 'treasury'),
+    swap: isPortalCapabilityLive(network, 'swap'),
+  };
+}
+
+/** Refuse a signature whose contract is not on the selected network. */
+export function requirePortalCapability(
+  capability: PortalCapability
+): PortalNearNetwork {
+  const network = readPortalNetwork();
+  if (!isPortalCapabilityLive(network, capability)) {
+    throw new Error('Not live yet');
+  }
+  return network;
+}
+
+export interface PortalDaoAccounts {
+  governance: string;
+  treasury: string;
+  stakingGovernance: string;
+  stakingTreasury: string;
+  owner: string;
+  relayer: string;
+}
+
+/** DAO and signer accounts for the selected network. Build env applies only there. */
+export function portalDaoAccounts(
+  network: PortalNearNetwork
+): PortalDaoAccounts {
+  const suffix = network === 'mainnet' ? 'near' : 'testnet';
+  const named = (name: string) => `${name}.onsocial.${suffix}`;
+  const useBuildEnv = network === portalNetworkFromEnv();
+  const fromEnv = (key: string, fallback: string) =>
+    (useBuildEnv ? trimmedEnv(key) : null) ?? fallback;
+
+  return {
+    governance: fromEnv(
+      'NEXT_PUBLIC_GOVERNANCE_DAO_ACCOUNT',
+      named('governance')
+    ),
+    treasury: fromEnv('NEXT_PUBLIC_TREASURY_DAO_ACCOUNT', named('treasury')),
+    stakingGovernance: fromEnv(
+      'NEXT_PUBLIC_STAKING_GOVERNANCE_DAO_ACCOUNT',
+      named('staking-governance')
+    ),
+    stakingTreasury: fromEnv(
+      'NEXT_PUBLIC_STAKING_TREASURY_DAO_ACCOUNT',
+      named('staking-treasury')
+    ),
+    owner: network === 'mainnet' ? 'onsocial.near' : 'onsocial.testnet',
+    relayer: named('relayer'),
+  };
+}
+
+/**
  * Portal social paths that open the app. Unknown paths return null so portal
  * routes such as /season/admin stay put.
  */

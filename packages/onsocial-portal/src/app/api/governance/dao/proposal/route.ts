@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
+import { resolveRequestDaoAccount } from '@/lib/portal-network-request';
 import { loadDaoProposalFromBackend } from '@/lib/governance-proposal-backend';
 import {
   createPortalRequestCache,
@@ -14,18 +14,6 @@ const PROPOSAL_CACHE_TTL_MS = 15_000;
 const proposalCache = createPortalRequestCache<GovernanceDaoProposal | null>(
   PROPOSAL_CACHE_TTL_MS
 );
-
-const DAO_ACCOUNT_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
-
-function readDaoAccountId(request: NextRequest): string {
-  const daoAccountId =
-    request.nextUrl.searchParams.get('daoAccountId')?.trim() ||
-    GOVERNANCE_DAO_ACCOUNT;
-  if (!DAO_ACCOUNT_PATTERN.test(daoAccountId)) {
-    throw new Error('Invalid daoAccountId');
-  }
-  return daoAccountId;
-}
 
 function readLiveFlag(request: NextRequest): boolean {
   const raw = request.nextUrl.searchParams.get('live')?.trim().toLowerCase();
@@ -49,7 +37,9 @@ function getErrorMessage(error: unknown): string {
 
 export async function GET(request: NextRequest) {
   try {
-    const daoAccountId = readDaoAccountId(request);
+    const daoAccountId = await resolveRequestDaoAccount(
+      request.nextUrl.searchParams.get('daoAccountId')
+    );
     const proposalId = readProposalId(request);
     const cacheKey = `${daoAccountId}:${proposalId}`;
     const live = readLiveFlag(request);
@@ -65,7 +55,7 @@ export async function GET(request: NextRequest) {
       { proposal },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30',
+          'Cache-Control': 'private, no-store',
         },
       }
     );

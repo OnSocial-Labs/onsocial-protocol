@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import { createRequestOnSocialClient } from '@/lib/portal-request-client';
 import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
 import {
   STANDING_MAX_OFFSET,
@@ -92,7 +93,7 @@ export async function GET(request: NextRequest) {
   const q = normalizeProfileSearchQuery(request.nextUrl.searchParams.get('q'));
 
   try {
-    const os = createPortalServerOnSocialClient();
+    const os = await createRequestOnSocialClient();
     const page = await listStandingAccountsPage(
       os,
       accountId,

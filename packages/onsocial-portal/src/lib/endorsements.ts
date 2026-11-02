@@ -20,7 +20,7 @@ import {
   parseEndorsementMediaRef,
   resolveEndorsementDisplayMediaUrl,
 } from '@/lib/endorsement-media';
-import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
+import { readPortalNetwork } from '@/lib/portal-network';
 
 /** Portal write payload — `previousTopic` enables move-on-edit. */
 export type EndorsementSubmitInput = EndorsementBuildInput & {
@@ -149,7 +149,7 @@ export function buildEndorsementOptimisticMedia(
       media: parsedInput,
       mediaUrl: resolveEndorsementDisplayMediaUrl(
         { media: parsedInput },
-        ACTIVE_NEAR_NETWORK
+        readPortalNetwork()
       ),
     };
   }
@@ -161,7 +161,7 @@ export function buildEndorsementOptimisticMedia(
   const parsedEditing = parseEndorsementMediaRef(editing?.media);
   const mediaUrl = resolveEndorsementDisplayMediaUrl(
     { media: editing?.media, mediaUrl: editing?.mediaUrl },
-    ACTIVE_NEAR_NETWORK
+    readPortalNetwork()
   );
   if (parsedEditing || mediaUrl) {
     return {
@@ -199,7 +199,7 @@ export function buildEndorsementListItemFromChain(
     blockTimestamp: Date.now(),
     mediaUrl: resolveEndorsementDisplayMediaUrl(
       { media: record.media },
-      ACTIVE_NEAR_NETWORK
+      readPortalNetwork()
     ),
     ...extras,
   };

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isPortalCapabilityLive,
   isPortalSwapEnabled,
   isUnreleasedMainnetContract,
   parsePortalNetwork,
+  portalDaoAccounts,
   portalNetworkProfile,
   resolvePortalNetwork,
   socialHandoffDestination,
@@ -43,6 +45,38 @@ describe('portal network choice', () => {
     expect(isUnreleasedMainnetContract('mainnet', 'Scarces')).toBe(true);
     expect(isUnreleasedMainnetContract('mainnet', 'Token')).toBe(false);
     expect(isUnreleasedMainnetContract('testnet', 'Core')).toBe(false);
+  });
+
+  it('keeps mainnet actions on the contracts that are actually deployed', () => {
+    expect(isPortalCapabilityLive('mainnet', 'token')).toBe(true);
+    expect(isPortalCapabilityLive('mainnet', 'rewards')).toBe(true);
+    expect(isPortalCapabilityLive('mainnet', 'treasury')).toBe(true);
+    expect(isPortalCapabilityLive('mainnet', 'swap')).toBe(true);
+    expect(isPortalCapabilityLive('mainnet', 'core')).toBe(false);
+    expect(isPortalCapabilityLive('mainnet', 'socialSpend')).toBe(false);
+    expect(isPortalCapabilityLive('mainnet', 'governance')).toBe(false);
+    expect(isPortalCapabilityLive('testnet', 'core')).toBe(true);
+    expect(isPortalCapabilityLive('testnet', 'swap')).toBe(false);
+  });
+
+  it('uses mainnet DAO ids even when the build env names a testnet DAO', () => {
+    const previousNetwork = process.env.NEXT_PUBLIC_NEAR_NETWORK;
+    const previousDao = process.env.NEXT_PUBLIC_GOVERNANCE_DAO_ACCOUNT;
+    process.env.NEXT_PUBLIC_NEAR_NETWORK = 'testnet';
+    process.env.NEXT_PUBLIC_GOVERNANCE_DAO_ACCOUNT =
+      'governance.onsocial.testnet';
+    expect(portalDaoAccounts('mainnet').governance).toBe(
+      'governance.onsocial.near'
+    );
+    expect(portalDaoAccounts('testnet').governance).toBe(
+      'governance.onsocial.testnet'
+    );
+    process.env.NEXT_PUBLIC_NEAR_NETWORK = previousNetwork;
+    if (previousDao == null) {
+      delete process.env.NEXT_PUBLIC_GOVERNANCE_DAO_ACCOUNT;
+    } else {
+      process.env.NEXT_PUBLIC_GOVERNANCE_DAO_ACCOUNT = previousDao;
+    }
   });
 });
 

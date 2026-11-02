@@ -1,5 +1,9 @@
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import {
+  portalNetworkFromEnv,
+  type PortalNearNetwork,
+} from '@/lib/portal-network';
 import { profileSearchRowToMaterialised } from '@/lib/profile-social-server';
 import { withRateLimitRetry } from '@/lib/portal-request-cache';
 
@@ -18,12 +22,13 @@ export function isValidPortalAccountId(accountId: string): boolean {
 }
 
 export async function loadPortalProfileShell(
-  accountId: string
+  accountId: string,
+  network: PortalNearNetwork = portalNetworkFromEnv()
 ): Promise<PortalProfileShell | null> {
   if (!isValidPortalAccountId(accountId)) return null;
 
   try {
-    const os = createPortalServerOnSocialClient();
+    const os = createPortalServerOnSocialClient({ network });
     const profile = await os.profiles.get(accountId);
     return {
       accountId,
@@ -37,7 +42,8 @@ export async function loadPortalProfileShell(
 }
 
 export async function loadPortalProfileShells(
-  accountIds: string[]
+  accountIds: string[],
+  network: PortalNearNetwork = portalNetworkFromEnv()
 ): Promise<Map<string, PortalProfileShell>> {
   const uniqueIds = [
     ...new Set(
@@ -50,7 +56,7 @@ export async function loadPortalProfileShells(
 
   try {
     return await withRateLimitRetry(async () => {
-      const os = createPortalServerOnSocialClient();
+      const os = createPortalServerOnSocialClient({ network });
       const enrichment = await os.standings.enrichPeers(null, uniqueIds);
       const shells = new Map<string, PortalProfileShell>();
 

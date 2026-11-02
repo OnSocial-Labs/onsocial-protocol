@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
+import { createRequestOnSocialClient } from '@/lib/portal-request-client';
 import { loadPortalProfileCore } from '@/lib/portal-profile-core';
 import { loadPortalProfileSocial } from '@/lib/portal-profile-social';
 import type { PortalProfileCorePayload } from '@/lib/portal-profile-core';
@@ -82,12 +83,13 @@ async function loadProfileBundle(
   parts: ProfileBundleParts,
   options?: { skipCache?: boolean }
 ) {
-  const cacheKey = `${accountId}|${viewerAccountId ?? ''}|${parts.social ? 's' : ''}${parts.signals ? 'g' : ''}`;
+  const network = await getRequestPortalNetwork();
+  const cacheKey = `${network}|${accountId}|${viewerAccountId ?? ''}|${parts.social ? 's' : ''}${parts.signals ? 'g' : ''}`;
 
   return profileBundleCache.getOrLoad(
     cacheKey,
     async () => {
-      const os = createPortalServerOnSocialClient();
+      const os = await createRequestOnSocialClient();
       const core = await profileCoreCache.getOrLoad(accountId, () =>
         loadPortalProfileCore(os, accountId)
       );

@@ -5,11 +5,23 @@ import type {
   GovernanceDaoPolicy,
   GovernanceDaoProposal,
 } from '@/features/governance/types';
+import {
+  portalNetworkFromEnv,
+  portalNetworkProfile,
+} from '@/lib/portal-network';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
 
-const BACKEND_URL = process.env.BACKEND_URL ?? ACTIVE_BACKEND_URL;
+export async function governanceBackendBase(): Promise<string> {
+  const network = await getRequestPortalNetwork();
+  if (network === portalNetworkFromEnv()) {
+    return (process.env.BACKEND_URL ?? ACTIVE_BACKEND_URL).replace(/\/$/, '');
+  }
+  return portalNetworkProfile(network).backendUrl;
+}
 
-function buildGovernanceBackendUrl(path: string): URL {
-  return new URL(`${BACKEND_URL.replace(/\/$/, '')}/v1/governance/${path}`);
+async function buildGovernanceBackendUrl(path: string): Promise<URL> {
+  const base = await governanceBackendBase();
+  return new URL(`${base}/v1/governance/${path}`);
 }
 
 export async function loadDaoProposalFromBackend(
@@ -21,7 +33,7 @@ export async function loadDaoProposalFromBackend(
     return null;
   }
 
-  const url = buildGovernanceBackendUrl('proposal');
+  const url = await buildGovernanceBackendUrl('proposal');
   url.searchParams.set('proposalId', String(proposalId));
   url.searchParams.set('daoAccountId', daoAccountId);
   if (opts.live) {
@@ -64,7 +76,7 @@ export async function loadDaoRecentFromBackend(
   proposals: GovernanceDaoProposal[];
   daoPolicy: GovernanceDaoPolicy | null;
 } | null> {
-  const url = buildGovernanceBackendUrl('recent');
+  const url = await buildGovernanceBackendUrl('recent');
   url.searchParams.set('daoAccountId', daoAccountId);
   url.searchParams.set('limit', String(limit));
 
@@ -104,7 +116,7 @@ export async function loadDaoRecentFromBackend(
 export async function loadDaoPolicyFromBackend(
   daoAccountId: string
 ): Promise<GovernanceDaoPolicy | null> {
-  const url = buildGovernanceBackendUrl('policy');
+  const url = await buildGovernanceBackendUrl('policy');
   url.searchParams.set('daoAccountId', daoAccountId);
 
   try {

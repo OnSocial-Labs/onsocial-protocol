@@ -1,12 +1,10 @@
 import { viewAccount } from '@/lib/near-rpc';
-import {
-  ACTIVE_NEAR_EXPLORER_URL,
-  ACTIVE_NEAR_NETWORK,
-} from '@/lib/portal-config';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
+import type { PortalNearNetwork } from '@/lib/portal-network';
 
 export interface PortalProfileNearFacts {
   accountId: string;
-  network: typeof ACTIVE_NEAR_NETWORK;
+  network: PortalNearNetwork;
   nearAccount: {
     codeHash: string;
     storageUsage: number;
@@ -19,10 +17,16 @@ export interface PortalProfileNearFacts {
   } | null;
 }
 
-function nearBlocksApiBase(): string {
-  return ACTIVE_NEAR_NETWORK === 'mainnet'
+function nearBlocksApiBase(network: PortalNearNetwork): string {
+  return network === 'mainnet'
     ? 'https://api.nearblocks.io'
     : 'https://api-testnet.nearblocks.io';
+}
+
+function explorerOrigin(network: PortalNearNetwork): string {
+  return network === 'mainnet'
+    ? 'https://nearblocks.io'
+    : 'https://testnet.nearblocks.io';
 }
 
 function normalizeNearBlocksTimestamp(
@@ -45,13 +49,16 @@ function normalizeNearBlocksTimestamp(
   }
 }
 
-async function fetchNearBlocksAccountCreation(accountId: string): Promise<{
+async function fetchNearBlocksAccountCreation(
+  accountId: string,
+  network: PortalNearNetwork
+): Promise<{
   blockTimestamp: number;
   transactionHash: string | null;
   explorerUrl: string | null;
 } | null> {
   const response = await fetch(
-    `${nearBlocksApiBase()}/v1/account/${encodeURIComponent(accountId)}`,
+    `${nearBlocksApiBase(network)}/v1/account/${encodeURIComponent(accountId)}`,
     {
       next: { revalidate: 300 },
       signal: AbortSignal.timeout(4_000),
@@ -79,7 +86,7 @@ async function fetchNearBlocksAccountCreation(accountId: string): Promise<{
     blockTimestamp,
     transactionHash,
     explorerUrl: transactionHash
-      ? `${ACTIVE_NEAR_EXPLORER_URL}/txns/${transactionHash}`
+      ? `${explorerOrigin(network)}/txns/${transactionHash}`
       : null,
   };
 }
@@ -87,21 +94,22 @@ async function fetchNearBlocksAccountCreation(accountId: string): Promise<{
 export async function loadPortalProfileNearFacts(
   accountId: string
 ): Promise<PortalProfileNearFacts> {
+  const network = await getRequestPortalNetwork();
   const [nearAccount, nearAccountCreation] = await Promise.all([
-    viewAccount(accountId).catch(() => null),
-    fetchNearBlocksAccountCreation(accountId).catch(() => null),
+    viewAccount(accountId, network).catch(() => null),
+    fetchNearBlocksAccountCreation(accountId, network).catch(() => null),
   ]);
 
   return {
     accountId,
-    network: ACTIVE_NEAR_NETWORK,
+    network,
     nearAccount: nearAccount
       ? {
           codeHash: nearAccount.code_hash,
           storageUsage: nearAccount.storage_usage,
         }
       : null,
-    nearAccountExplorerUrl: `${ACTIVE_NEAR_EXPLORER_URL}/address/${accountId}`,
+    nearAccountExplorerUrl: `${explorerOrigin(network)}/address/${accountId}`,
     nearAccountCreation,
   };
 }

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
 import { loadPortalRewardActionProgress } from '@/lib/portal-reward-progress-server';
 
 export const runtime = 'nodejs';
@@ -31,7 +30,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    createPortalServerOnSocialClient();
     const actions = await loadPortalRewardActionProgress(accountId);
     if (!actions) {
       return NextResponse.json(

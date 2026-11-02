@@ -6,8 +6,13 @@ import {
   SCARCES_CONTRACT,
   SOCIAL_SPEND_CONTRACT,
   TOKEN_CONTRACT,
-  viewContractAt,
+  viewContractAtOnNetwork,
 } from '@/lib/near-rpc';
+import {
+  portalNetworkProfile,
+  type PortalNearNetwork,
+} from '@/lib/portal-network';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
 
 export interface DaoManagedContract {
   contractId: string;
@@ -97,10 +102,12 @@ function normalizeAccountId(value: unknown): string | null {
 }
 
 async function readContractOwner(
-  definition: DaoManagedContractDefinition
+  definition: DaoManagedContractDefinition,
+  network: PortalNearNetwork
 ): Promise<string | null> {
   try {
-    const result = await viewContractAt<unknown>(
+    const result = await viewContractAtOnNetwork<unknown>(
+      network,
       definition.contractId,
       definition.ownerViewMethod,
       definition.ownerViewArgs ?? {}
@@ -143,9 +150,23 @@ export async function loadDaoManagedContracts(
     throw new Error('Invalid daoAccountId');
   }
 
+  const network = await getRequestPortalNetwork();
+  const contracts = portalNetworkProfile(network).contracts;
+  const contractIdByLabel: Record<string, string> = {
+    Rewards: contracts.rewards,
+    Boost: contracts.boost,
+    Scarces: contracts.scarces,
+    Token: contracts.token,
+    'Social spend': contracts.socialSpend,
+  };
+  const definitions = DAO_MANAGED_CONTRACT_DEFINITIONS.map((definition) => ({
+    ...definition,
+    contractId: contractIdByLabel[definition.label] ?? definition.contractId,
+  }));
+
   const matches = await Promise.all(
-    DAO_MANAGED_CONTRACT_DEFINITIONS.map(async (definition) => {
-      const ownerId = await readContractOwner(definition);
+    definitions.map(async (definition) => {
+      const ownerId = await readContractOwner(definition, network);
       if (ownerId !== normalizedDaoAccountId) {
         return null;
       }

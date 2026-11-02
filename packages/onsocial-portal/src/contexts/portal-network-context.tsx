@@ -10,6 +10,7 @@ import {
 } from 'react';
 
 import {
+  portalCapabilityMap,
   portalNetworkCookie,
   portalNetworkFromEnv,
   portalNetworkProfile,
@@ -22,6 +23,7 @@ interface PortalNetworkContextValue {
   profile: PortalNetworkProfile;
   appUrl: string;
   apiUrl: string;
+  live: ReturnType<typeof portalCapabilityMap>;
   switching: boolean;
   chooseNetwork: (network: PortalNearNetwork) => void;
 }
@@ -38,6 +40,7 @@ function fallbackNetwork(): PortalNetworkContextValue {
     profile,
     appUrl: profile.appUrl,
     apiUrl: profile.apiUrl,
+    live: portalCapabilityMap(network),
     switching: false,
     chooseNetwork: () => {},
   };
@@ -69,6 +72,7 @@ export function PortalNetworkProvider({
       profile,
       appUrl: profile.appUrl,
       apiUrl: profile.apiUrl,
+      live: portalCapabilityMap(network),
       switching,
       chooseNetwork,
     }),

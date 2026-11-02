@@ -1,9 +1,9 @@
 import type { MetadataRoute } from 'next';
 import { ONSOCIAL_BRAND_TAGLINE } from '@onsocial/ui';
-import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
 
-export default function manifest(): MetadataRoute.Manifest {
-  const isMainnet = ACTIVE_NEAR_NETWORK === 'mainnet';
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const isMainnet = (await getRequestPortalNetwork()) === 'mainnet';
   const name = isMainnet ? 'OnSocial Portal' : 'OnSocial Portal Testnet';
 
   return {
@@ -49,5 +49,5 @@ export default function manifest(): MetadataRoute.Manifest {
         icons: [{ src: '/onsocial_icon_192.png', sizes: '192x192' }],
       },
     ],
-  } as ReturnType<typeof manifest>;
+  } as MetadataRoute.Manifest;
 }

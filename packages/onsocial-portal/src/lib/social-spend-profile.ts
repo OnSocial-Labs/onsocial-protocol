@@ -1,5 +1,5 @@
 import { finalizeAmountInput } from '@/lib/amount-input';
-import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
+import { requirePortalCapability } from '@/lib/portal-network';
 import {
   extractNearTransactionHashes,
   SOCIAL_SPEND_CONTRACT,
@@ -11,7 +11,15 @@ import { parseSocialSpendActionConfigView } from '@/lib/dao-contract-config-oper
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import type { SigningWallet } from '@/lib/portal-social-session';
 
-const os = createPortalOnSocialClient();
+function portalOs() {
+  return createPortalOnSocialClient();
+}
+
+const os = {
+  get socialSpend() {
+    return portalOs().socialSpend;
+  },
+};
 
 export type PortalSocialSpendTransaction = ReturnType<
   typeof os.socialSpend.buildSpendTransaction
@@ -235,9 +243,10 @@ export async function sendPortalWalletTransaction(
   getSigningWallet: () => Promise<SigningWallet>,
   payload: PortalSocialSpendTransaction | PortalSocialSpendClaimTransaction
 ): Promise<string[]> {
+  const network = requirePortalCapability('socialSpend');
   const { wallet, accountId: signerId } = await getSigningWallet();
   const result = await wallet.signAndSendTransaction({
-    network: ACTIVE_NEAR_NETWORK,
+    network,
     signerId,
     receiverId: payload.receiverId,
     actions: payload.actions.map((action) => ({

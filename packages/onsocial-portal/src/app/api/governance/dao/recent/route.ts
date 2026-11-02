@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
+import { resolveRequestDaoAccount } from '@/lib/portal-network-request';
 import { loadDaoRecentFromBackend } from '@/lib/governance-proposal-backend';
 import {
   createPortalRequestCache,
@@ -19,18 +19,6 @@ const recentCache = createPortalRequestCache<{
   daoPolicy: GovernanceDaoPolicy | null;
 } | null>(RECENT_CACHE_TTL_MS);
 
-const DAO_ACCOUNT_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
-
-function readDaoAccountId(request: NextRequest): string {
-  const daoAccountId =
-    request.nextUrl.searchParams.get('daoAccountId')?.trim() ||
-    GOVERNANCE_DAO_ACCOUNT;
-  if (!DAO_ACCOUNT_PATTERN.test(daoAccountId)) {
-    throw new Error('Invalid daoAccountId');
-  }
-  return daoAccountId;
-}
-
 function readLimit(request: NextRequest): number {
   const raw = request.nextUrl.searchParams.get('limit')?.trim();
   const parsed = Number.parseInt(raw ?? '20', 10);
@@ -48,7 +36,9 @@ function getErrorMessage(error: unknown): string {
 
 export async function GET(request: NextRequest) {
   try {
-    const daoAccountId = readDaoAccountId(request);
+    const daoAccountId = await resolveRequestDaoAccount(
+      request.nextUrl.searchParams.get('daoAccountId')
+    );
     const limit = readLimit(request);
     const cacheKey = `${daoAccountId}:${limit}`;
     const payload = await recentCache.getOrLoad(cacheKey, () =>
@@ -62,7 +52,7 @@ export async function GET(request: NextRequest) {
       },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30',
+          'Cache-Control': 'private, no-store',
         },
       }
     );

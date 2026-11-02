@@ -98,7 +98,7 @@ export function GovernanceAccountChip({
     // On-chain voters/proposers are already valid NEAR accounts.
     trustedAccount: true,
   });
-  const canLookup = isNearNamedAccountComplete(accountId);
+  const canLookup = isNearNamedAccountComplete(accountId, network);
   if (canLookup && lookup.checking) {
     return (
       <GovernanceAccountChipSkeleton

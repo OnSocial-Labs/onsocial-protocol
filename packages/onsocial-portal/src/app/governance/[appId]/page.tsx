@@ -6,6 +6,7 @@ import { PageShell } from '@/components/layout/page-shell';
 import { RouteLoadingShell } from '@/components/layout/route-loading-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { useMobilePageContext } from '@/components/providers/mobile-page-context';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import {
   fetchGovernanceFeed,
@@ -34,8 +35,10 @@ function GovernanceProposalPageContent() {
   const searchParams = useSearchParams();
   const appId = decodeURIComponent(params.appId);
   const proposalId = parseGovernanceProposalId(searchParams.get('proposal'));
+  const { network } = usePortalNetwork();
   const daoAccountIdFromUrl = resolveGovernanceDaoAccountId(
-    parseGovernanceDaoBoard(searchParams.get(GOVERNANCE_DAO_BOARD_PARAM))
+    parseGovernanceDaoBoard(searchParams.get(GOVERNANCE_DAO_BOARD_PARAM)),
+    network
   );
   const [app, setApp] = useState<Application | null>(null);
   const [daoPolicy, setDaoPolicy] = useState<GovernanceDaoPolicy | null>(null);

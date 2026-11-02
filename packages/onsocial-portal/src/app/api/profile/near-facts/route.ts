@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
 import {
   loadPortalProfileNearFacts,
   type PortalProfileNearFacts,
@@ -41,8 +42,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const response = await nearFactsCache.getOrLoad(accountId, () =>
-      loadPortalProfileNearFacts(accountId)
+    const network = await getRequestPortalNetwork();
+    const response = await nearFactsCache.getOrLoad(
+      `${network}|${accountId}`,
+      () => loadPortalProfileNearFacts(accountId)
     );
 
     return NextResponse.json(response, {

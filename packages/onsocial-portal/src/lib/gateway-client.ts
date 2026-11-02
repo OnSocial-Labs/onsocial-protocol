@@ -1,4 +1,4 @@
-import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import { createRequestOnSocialClient } from '@/lib/portal-request-client';
 
 /**
  * Execute a GraphQL query via the gateway's /graph/query endpoint,
@@ -10,7 +10,7 @@ export async function gatewayQuery<T = Record<string, unknown>>(
   query: string,
   variables?: Record<string, unknown>
 ): Promise<T> {
-  const os = createPortalServerOnSocialClient();
+  const os = await createRequestOnSocialClient();
   const body = await os.query.graphql<T>({ query, variables });
 
   if (body.errors) {

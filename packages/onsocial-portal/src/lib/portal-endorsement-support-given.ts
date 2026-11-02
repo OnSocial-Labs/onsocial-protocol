@@ -1,10 +1,12 @@
 import type { EndorsementRecord, MaterialisedProfile } from '@onsocial/sdk';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import { createRequestOnSocialClient } from '@/lib/portal-request-client';
 import {
   parseEndorsementMediaRef,
   resolveEndorsementDisplayMediaUrl,
 } from '@/lib/endorsement-media';
-import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
+import type { PortalNearNetwork } from '@/lib/portal-network';
 import { profileSearchRowToMaterialised } from '@/lib/profile-social-server';
 
 export interface PortalEndorsementSupportGivenRow {
@@ -37,7 +39,10 @@ function endorsementLookupKey(input: {
   return `${input.target}|${input.issuer}|${input.topic ?? ''}`;
 }
 
-function endorsementContentFromRecord(record: EndorsementRecord | null): {
+function endorsementContentFromRecord(
+  record: EndorsementRecord | null,
+  network: PortalNearNetwork
+): {
   note: string | null;
   mediaUrl: string | null;
   mediaMime: string | null;
@@ -51,7 +56,7 @@ function endorsementContentFromRecord(record: EndorsementRecord | null): {
     note: record.note?.trim() || null,
     mediaUrl: resolveEndorsementDisplayMediaUrl(
       { media: record.media },
-      ACTIVE_NEAR_NETWORK
+      network
     ),
     mediaMime: media?.mime ?? null,
   };
@@ -66,6 +71,7 @@ async function loadEndorsementContents(
     { note: string | null; mediaUrl: string | null; mediaMime: string | null }
   >
 > {
+  const network = await getRequestPortalNetwork();
   const unique = new Map<
     string,
     { target: string; issuer: string; topic: string | null }
@@ -85,7 +91,7 @@ async function loadEndorsementContents(
           topic: lookup.topic ?? undefined,
         })
         .catch(() => null);
-      return [key, endorsementContentFromRecord(record)] as const;
+      return [key, endorsementContentFromRecord(record, network)] as const;
     })
   );
 
@@ -112,7 +118,7 @@ export async function loadPortalEndorsementSupportGiven(
     throw new Error('A valid accountId query parameter is required');
   }
 
-  const os = createPortalServerOnSocialClient();
+  const os = await createRequestOnSocialClient();
   const rows = await os.query.socialSpend.endorsementSupportGiven(
     spenderAccountId,
     {

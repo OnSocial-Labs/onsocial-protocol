@@ -87,6 +87,7 @@ function CollectActionZone({
   reduceMotion,
   isButtonVisible,
   isButtonLoading,
+  claimAvailable = true,
   onCollect,
 }: {
   amountLabel: string;
@@ -95,6 +96,7 @@ function CollectActionZone({
   reduceMotion: boolean | null;
   isButtonVisible: boolean;
   isButtonLoading: boolean;
+  claimAvailable?: boolean;
   onCollect: () => void;
 }) {
   return (
@@ -141,6 +143,7 @@ function CollectActionZone({
         <CollectActionRow
           visible={isButtonVisible}
           loading={isButtonLoading}
+          available={claimAvailable}
           onCollect={onCollect}
           compact
         />
@@ -152,11 +155,13 @@ function CollectActionZone({
 function CollectActionRow({
   visible,
   loading,
+  available = true,
   onCollect,
   compact = false,
 }: {
   visible: boolean;
   loading: boolean;
+  available?: boolean;
   onCollect: () => void;
   compact?: boolean;
 }) {
@@ -176,11 +181,13 @@ function CollectActionRow({
         variant="accent"
         className="min-w-[8rem] justify-center gap-1.5"
         loading={loading}
-        disabled={!visible}
+        disabled={!visible || !available}
         onClick={onCollect}
       >
-        <Gift className="h-3.5 w-3.5 shrink-0" aria-hidden />
-        Collect
+        {available ? (
+          <Gift className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        ) : null}
+        {available ? 'Collect' : 'Not live yet'}
       </Button>
     </div>
   );
@@ -213,6 +220,7 @@ export function RallyCollectSection({
 
   const {
     handleClaim,
+    claimAvailable,
     phase: collectPhase,
     isButtonVisible,
     isButtonLoading,
@@ -393,6 +401,7 @@ export function RallyCollectSection({
           reduceMotion={reduceMotion}
           isButtonVisible={isButtonVisible}
           isButtonLoading={isButtonLoading}
+          claimAvailable={claimAvailable}
           onCollect={() => void handleClaim()}
         />
       );

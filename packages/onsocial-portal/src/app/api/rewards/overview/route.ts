@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import { createRequestOnSocialClient } from '@/lib/portal-request-client';
 import {
   loadPortalRewardsState,
   type PortalRewardsState,
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const os = createPortalServerOnSocialClient();
+    const os = await createRequestOnSocialClient();
     const state = wantsFresh(request)
       ? await loadPortalRewardsState(os, accountId)
       : await rewardsStateCache.getOrLoad(accountId, () =>

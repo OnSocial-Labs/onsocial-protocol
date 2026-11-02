@@ -1,5 +1,5 @@
-import { CORE_CONTRACT, extractNearTransactionHashes } from '@/lib/near-rpc';
-import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
+import { activeContract, extractNearTransactionHashes } from '@/lib/near-rpc';
+import { requirePortalCapability } from '@/lib/portal-network';
 import type { SigningWallet } from '@/lib/portal-social-session';
 
 const STORAGE_ADMIN_GAS = '300000000000000';
@@ -33,9 +33,9 @@ export async function sendStorageDepositTransaction(
 ): Promise<string[]> {
   const { wallet, accountId: signerId } = await getSigningWallet();
   const result = await wallet.signAndSendTransaction({
-    network: ACTIVE_NEAR_NETWORK,
+    network: requirePortalCapability('core'),
     signerId,
-    receiverId: CORE_CONTRACT,
+    receiverId: activeContract('core'),
     actions: [
       {
         type: 'FunctionCall',
@@ -73,9 +73,9 @@ export async function sendStorageWithdrawTransaction(
   const action = buildExecuteAdminAction('storage/withdraw', withdrawData);
   const { wallet, accountId: signerId } = await getSigningWallet();
   const result = await wallet.signAndSendTransaction({
-    network: ACTIVE_NEAR_NETWORK,
+    network: requirePortalCapability('core'),
     signerId,
-    receiverId: CORE_CONTRACT,
+    receiverId: activeContract('core'),
     actions: [
       {
         type: 'FunctionCall',
@@ -99,9 +99,9 @@ export async function sendStorageSharedPoolDepositTransaction(
 ): Promise<string[]> {
   const { wallet, accountId: signerId } = await getSigningWallet();
   const result = await wallet.signAndSendTransaction({
-    network: ACTIVE_NEAR_NETWORK,
+    network: requirePortalCapability('core'),
     signerId,
-    receiverId: CORE_CONTRACT,
+    receiverId: activeContract('core'),
     actions: [
       {
         type: 'FunctionCall',
@@ -141,9 +141,9 @@ export async function sendStorageShareTransaction(
   });
   const { wallet, accountId: signerId } = await getSigningWallet();
   const result = await wallet.signAndSendTransaction({
-    network: ACTIVE_NEAR_NETWORK,
+    network: requirePortalCapability('core'),
     signerId,
-    receiverId: CORE_CONTRACT,
+    receiverId: activeContract('core'),
     actions: [
       {
         type: 'FunctionCall',
@@ -178,9 +178,9 @@ export async function sendStorageShareBatchTransaction(
     const chunk = recipients.slice(index, index + STORAGE_SHARE_BATCH_MAX);
     const { wallet, accountId: signerId } = await getSigningWallet();
     const result = await wallet.signAndSendTransaction({
-      network: ACTIVE_NEAR_NETWORK,
+      network: requirePortalCapability('core'),
       signerId,
-      receiverId: CORE_CONTRACT,
+      receiverId: activeContract('core'),
       actions: chunk.map(({ targetAccountId, maxBytes }) => ({
         type: 'FunctionCall',
         params: {

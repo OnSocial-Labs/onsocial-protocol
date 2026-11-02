@@ -50,7 +50,8 @@ import {
 import { resolveRallyHeroTimingMeta } from '@/lib/rally-hero-timing';
 import { readTimestampNs } from '@/lib/relative-duration';
 import { usePortalNetwork } from '@/contexts/portal-network-context';
-import { ACTIVE_NEAR_NETWORK, getPublicAppRallyUrl } from '@/lib/portal-config';
+import { getPublicAppRallyUrl } from '@/lib/portal-config';
+import { requirePortalCapability } from '@/lib/portal-network';
 import {
   txToastError,
   txToastPending,
@@ -106,7 +107,9 @@ import { isSeasonSettlementPublished } from '@/features/season/season-zero-types
 import { useSeasonZeroLifecyclePhase } from '@/features/season/use-season-zero-lifecycle-phase';
 import { cn } from '@/lib/utils';
 
-const os = createPortalOnSocialClient();
+function portalOs() {
+  return createPortalOnSocialClient();
+}
 
 function rallyStatusPlaceholder() {
   return (
@@ -248,7 +251,7 @@ export function GenesisRallyStrip({
     isConnected,
     isLoading: walletLoading,
   } = useWallet();
-  const { network } = usePortalNetwork();
+  const { network, live } = usePortalNetwork();
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
   const {
@@ -554,8 +557,9 @@ export function GenesisRallyStrip({
 
     beginSeasonJoin(seasonId);
     try {
+      const networkForJoin = requirePortalCapability('socialSpend');
       const { wallet, accountId: signerId } = await getSigningWallet();
-      const payload = os.socialSpend.buildSpendTransaction({
+      const payload = portalOs().socialSpend.buildSpendTransaction({
         amount: joinMinAmountYocto.toString(),
         appId: 'portal',
         action: 'join_rally',
@@ -565,7 +569,7 @@ export function GenesisRallyStrip({
       });
 
       const result = await wallet.signAndSendTransaction({
-        network: ACTIVE_NEAR_NETWORK,
+        network: networkForJoin,
         signerId,
         receiverId: payload.receiverId,
         actions: payload.actions.map((action) => ({
@@ -723,6 +727,7 @@ export function GenesisRallyStrip({
 
   const joinDisabled = useMemo(
     () =>
+      !live.socialSpend ||
       joinPending ||
       joined ||
       seasonIsUpcoming ||
@@ -737,15 +742,17 @@ export function GenesisRallyStrip({
       joinPending,
       joinRoutingLoading,
       joined,
+      live.socialSpend,
       seasonIsUpcoming,
     ]
   );
 
   const joinButtonLabel = useMemo(() => {
+    if (!live.socialSpend) return 'Not live yet';
     if (seasonIsUpcoming) return 'Opens soon';
     if (!joinConfigReady || !joinMinAmountLabel) return 'Entry unavailable';
     return `Join · ${joinMinAmountLabel} SOCIAL`;
-  }, [joinConfigReady, joinMinAmountLabel, seasonIsUpcoming]);
+  }, [joinConfigReady, joinMinAmountLabel, live.socialSpend, seasonIsUpcoming]);
 
   const joinButtonContentReady = useMemo(() => {
     if (walletLoading) return false;

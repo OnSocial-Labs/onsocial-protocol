@@ -1,9 +1,12 @@
 import type { NearWalletBase } from '@hot-labs/near-connect';
 import {
-  ACTIVE_NEAR_NETWORK,
-  GOVERNANCE_DAO_ACCOUNT,
   GOVERNANCE_PROPOSAL_BOND,
+  governanceDaoAccount,
 } from '@/lib/portal-config';
+import {
+  readPortalNetwork,
+  requirePortalCapability,
+} from '@/lib/portal-network';
 import { resolveGovernanceDaoAccountId } from '@/features/governance/governance-dao-board';
 import type { DaoProposalPayload } from '@/features/governance/governance-proposal-builders';
 import { extractNearTransactionHashes } from '@/lib/near-rpc';
@@ -43,7 +46,7 @@ async function getVerifiedSignerId(
   wallet: NearWalletBase,
   accountId: string
 ): Promise<string> {
-  const accounts = await wallet.getAccounts({ network: ACTIVE_NEAR_NETWORK });
+  const accounts = await wallet.getAccounts({ network: readPortalNetwork() });
   const accountIds = accounts.map((account) => account.accountId);
 
   if (!accountIds.includes(accountId)) {
@@ -91,7 +94,7 @@ export async function fetchGovernanceFeed(options?: {
 }
 
 export async function fetchDaoPolicy(
-  daoAccountId = GOVERNANCE_DAO_ACCOUNT
+  daoAccountId = governanceDaoAccount()
 ): Promise<GovernanceDaoPolicy | null> {
   try {
     const search = new URLSearchParams({ daoAccountId });
@@ -112,7 +115,7 @@ export async function fetchDaoPolicy(
 export async function fetchGovernanceProposalBootstrap(
   appId: string,
   proposalId: number,
-  daoAccountId = GOVERNANCE_DAO_ACCOUNT
+  daoAccountId = governanceDaoAccount()
 ): Promise<{
   app: Application;
   daoPolicy: GovernanceDaoPolicy;
@@ -139,7 +142,7 @@ export async function fetchGovernanceProposalBootstrap(
 
 export async function fetchDaoProposal(
   proposalId: number,
-  daoAccountId = GOVERNANCE_DAO_ACCOUNT,
+  daoAccountId = governanceDaoAccount(),
   opts: { live?: boolean } = {}
 ): Promise<GovernanceDaoProposal | null> {
   try {
@@ -187,7 +190,7 @@ export async function submitDaoProposal(
   wallet: NearWalletBase,
   accountId: string,
   payload: DaoProposalPayload,
-  daoAccountId = GOVERNANCE_DAO_ACCOUNT
+  daoAccountId = governanceDaoAccount()
 ): Promise<{ proposalId: number | null; txHash: string | null }> {
   const proposalBond =
     (await getGovernanceProposalBond(daoAccountId).catch(() => null)) ??
@@ -195,7 +198,7 @@ export async function submitDaoProposal(
   const signerId = await getVerifiedSignerId(wallet, accountId);
 
   const result = await wallet.signAndSendTransaction({
-    network: ACTIVE_NEAR_NETWORK,
+    network: requirePortalCapability('governance'),
     signerId,
     receiverId: daoAccountId,
     actions: [
@@ -223,11 +226,11 @@ export async function actOnGovernanceProposal(
   proposalId: number,
   action: GovernanceDaoAction,
   proposalKind: Record<string, unknown>,
-  daoAccountId = GOVERNANCE_DAO_ACCOUNT
+  daoAccountId = governanceDaoAccount()
 ): Promise<string | null> {
   const signerId = await getVerifiedSignerId(wallet, accountId);
   const result = await wallet.signAndSendTransaction({
-    network: ACTIVE_NEAR_NETWORK,
+    network: requirePortalCapability('governance'),
     signerId,
     receiverId: daoAccountId,
     actions: [
