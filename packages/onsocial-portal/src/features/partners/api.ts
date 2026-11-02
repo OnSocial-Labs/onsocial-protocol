@@ -1,14 +1,17 @@
 import type { NearWalletBase } from '@hot-labs/near-connect';
 import {
-  ACTIVE_NEAR_NETWORK,
-  GOVERNANCE_DAO_ACCOUNT,
   GOVERNANCE_PROPOSAL_BOND,
+  governanceDaoAccount,
 } from '@/lib/portal-config';
+import {
+  readPortalNetwork,
+  requirePortalCapability,
+} from '@/lib/portal-network';
 import { PARTNERS_API_BASE } from '@/features/partners/constants';
 import {
   extractNearTransactionHashes,
   getGovernanceProposalBond,
-  TOKEN_CONTRACT,
+  activeContract,
   type GovernanceEligibilitySnapshot,
 } from '@/lib/near-rpc';
 import type {
@@ -33,7 +36,7 @@ async function getVerifiedSignerId(
   wallet: NearWalletBase,
   accountId: string
 ): Promise<string> {
-  const accounts = await wallet.getAccounts({ network: ACTIVE_NEAR_NETWORK });
+  const accounts = await wallet.getAccounts({ network: readPortalNetwork() });
   const accountIds = accounts.map((account) => account.accountId);
 
   if (!accountIds.includes(accountId)) {
@@ -106,7 +109,7 @@ export async function claimApiKey(
   }
 
   const signed = await wallet.signMessage({
-    network: ACTIVE_NEAR_NETWORK,
+    network: requirePortalCapability('governance'),
     signerId: walletId,
     message: challengeData.challenge.message,
     recipient: challengeData.challenge.recipient,
@@ -199,14 +202,14 @@ export async function submitDirectGovernanceProposal(
     throw new Error('Governance proposal draft is missing');
   }
 
-  const daoAccountId = proposal.dao_account || GOVERNANCE_DAO_ACCOUNT;
+  const daoAccountId = proposal.dao_account || governanceDaoAccount();
   const proposalBond =
     (await getGovernanceProposalBond(daoAccountId).catch(() => null)) ??
     GOVERNANCE_PROPOSAL_BOND;
   const signerId = await getVerifiedSignerId(wallet, accountId);
 
   const result = await wallet.signAndSendTransaction({
-    network: ACTIVE_NEAR_NETWORK,
+    network: requirePortalCapability('governance'),
     signerId,
     receiverId: daoAccountId,
     actions: [
@@ -236,7 +239,7 @@ export async function registerGovernanceAccount(
 ): Promise<string | null> {
   const signerId = await getVerifiedSignerId(wallet, accountId);
   const result = await wallet.signAndSendTransaction({
-    network: ACTIVE_NEAR_NETWORK,
+    network: requirePortalCapability('governance'),
     signerId,
     receiverId: stakingContractId,
     actions: [
@@ -266,9 +269,9 @@ export async function depositGovernanceTokens(
 ): Promise<string | null> {
   const signerId = await getVerifiedSignerId(wallet, accountId);
   const result = await wallet.signAndSendTransaction({
-    network: ACTIVE_NEAR_NETWORK,
+    network: requirePortalCapability('governance'),
     signerId,
-    receiverId: TOKEN_CONTRACT,
+    receiverId: activeContract('token'),
     actions: [
       {
         type: 'FunctionCall',
@@ -339,7 +342,7 @@ export async function prepareGovernanceDelegation(
 
   if (BigInt(depositAmount) > 0n) {
     transactions.push({
-      receiverId: TOKEN_CONTRACT,
+      receiverId: activeContract('token'),
       actions: [
         {
           type: 'FunctionCall',
@@ -385,7 +388,7 @@ export async function prepareGovernanceDelegation(
   if (transactions.length === 1) {
     const [transaction] = transactions;
     const result = await wallet.signAndSendTransaction({
-      network: ACTIVE_NEAR_NETWORK,
+      network: requirePortalCapability('governance'),
       signerId,
       receiverId: transaction.receiverId,
       actions: transaction.actions,
@@ -395,7 +398,7 @@ export async function prepareGovernanceDelegation(
   }
 
   const result = await wallet.signAndSendTransactions({
-    network: ACTIVE_NEAR_NETWORK,
+    network: requirePortalCapability('governance'),
     signerId,
     transactions,
   });
@@ -469,7 +472,7 @@ export async function selfDelegateGovernanceTokens(
 ): Promise<string | null> {
   const signerId = await getVerifiedSignerId(wallet, accountId);
   const result = await wallet.signAndSendTransaction({
-    network: ACTIVE_NEAR_NETWORK,
+    network: requirePortalCapability('governance'),
     signerId,
     receiverId: stakingContractId,
     actions: [
@@ -499,7 +502,7 @@ export async function undelegateGovernanceTokens(
 ): Promise<string | null> {
   const signerId = await getVerifiedSignerId(wallet, accountId);
   const result = await wallet.signAndSendTransaction({
-    network: ACTIVE_NEAR_NETWORK,
+    network: requirePortalCapability('governance'),
     signerId,
     receiverId: stakingContractId,
     actions: [
@@ -537,7 +540,7 @@ export async function undelegateGovernanceEntries(
 
   const signerId = await getVerifiedSignerId(wallet, accountId);
   const result = await wallet.signAndSendTransaction({
-    network: ACTIVE_NEAR_NETWORK,
+    network: requirePortalCapability('governance'),
     signerId,
     receiverId: stakingContractId,
     actions: normalizedAmounts.map((amount) => ({
@@ -565,7 +568,7 @@ export async function withdrawGovernanceTokens(
 ): Promise<string | null> {
   const signerId = await getVerifiedSignerId(wallet, accountId);
   const result = await wallet.signAndSendTransaction({
-    network: ACTIVE_NEAR_NETWORK,
+    network: requirePortalCapability('governance'),
     signerId,
     receiverId: stakingContractId,
     actions: [

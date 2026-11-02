@@ -1,5 +1,9 @@
 import { OnSocial, type OnSocialConfig } from '@onsocial/sdk';
-import { ACTIVE_API_URL, ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
+import {
+  portalNetworkProfile,
+  readPortalNetwork,
+  type PortalNearNetwork,
+} from '@/lib/portal-network';
 
 export type PortalOnSocialConfig = Omit<
   OnSocialConfig,
@@ -10,11 +14,9 @@ export type PortalOnSocialConfig = Omit<
 export function createPortalOnSocialClient(
   config: PortalOnSocialConfig = {}
 ): OnSocial {
-  const {
-    network = ACTIVE_NEAR_NETWORK,
-    gatewayUrl = ACTIVE_API_URL,
-    ...rest
-  } = config;
+  const network = (config.network ?? readPortalNetwork()) as PortalNearNetwork;
+  const profile = portalNetworkProfile(network);
+  const { network: _network, gatewayUrl = profile.apiUrl, ...rest } = config;
 
   return new OnSocial({
     network,

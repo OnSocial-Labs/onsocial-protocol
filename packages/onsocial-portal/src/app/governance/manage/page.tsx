@@ -6,6 +6,7 @@ import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import GovernanceManageLoading from './loading';
 import { useMobilePageContext } from '@/components/providers/mobile-page-context';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { GovernancePositionPanel } from '@/features/governance/governance-position-panel';
 import {
   GOVERNANCE_DAO_BOARD_PARAM,
@@ -16,8 +17,10 @@ import {
 function GovernanceManagePageContent() {
   const searchParams = useSearchParams();
   const { setNavBack } = useMobilePageContext();
+  const { network } = usePortalNetwork();
   const daoAccountId = resolveGovernanceDaoAccountId(
-    parseGovernanceDaoBoard(searchParams.get(GOVERNANCE_DAO_BOARD_PARAM))
+    parseGovernanceDaoBoard(searchParams.get(GOVERNANCE_DAO_BOARD_PARAM)),
+    network
   );
 
   useEffect(() => {

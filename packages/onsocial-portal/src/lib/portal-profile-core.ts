@@ -3,7 +3,8 @@ import {
   type MaterialisedProfile,
 } from '@onsocial/sdk';
 import type { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
-import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
+import type { PortalNearNetwork } from '@/lib/portal-network';
 
 type PortalOnSocial = ReturnType<typeof createPortalServerOnSocialClient>;
 
@@ -23,7 +24,7 @@ export interface PortalProfileCorePayload {
   bannerUrl: string | null;
   firstProfileTimestamp: number | null;
   latestProfileUpdateFields: string[];
-  network: typeof ACTIVE_NEAR_NETWORK;
+  network: PortalNearNetwork;
 }
 
 const PROFILE_FIELDS_TO_DISPLAY = new Set([
@@ -193,6 +194,6 @@ export async function loadPortalProfileCore(
       profileFieldRows
     ),
     latestProfileUpdateFields: latestProfileUpdateFields(profileFieldRows),
-    network: ACTIVE_NEAR_NETWORK,
+    network: await getRequestPortalNetwork(),
   };
 }

@@ -21,6 +21,18 @@ export interface ProtocolPulseSnapshot {
   };
 }
 
+/** Zero snapshot when the chosen network has no social graph yet. */
+export function emptyProtocolPulse(
+  generatedAt = new Date().toISOString()
+): ProtocolPulseSnapshot {
+  return {
+    generatedAt,
+    windowHours: 24,
+    totals: { profiles: 0, discoverableProfiles: 0, groups: 0 },
+    recent24h: { posts: 0, reactions: 0 },
+  };
+}
+
 export type ProtocolPulseMetricId =
   | 'indexedProfiles'
   | 'discoverableProfiles'

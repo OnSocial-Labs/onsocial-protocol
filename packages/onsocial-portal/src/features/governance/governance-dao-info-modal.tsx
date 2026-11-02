@@ -62,6 +62,7 @@ import {
   yoctoToNear,
   yoctoToSocial,
 } from '@/lib/near-rpc';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import {
   ACTIVE_NEAR_EXPLORER_URL,
   getPublicAppPageUrl,
@@ -349,11 +350,12 @@ function RoleMemberAvatar({
   accountId: string;
   stackIndex?: number;
 }) {
+  const { network } = usePortalNetwork();
   const lookup = useMemberAccountLookup(accountId);
 
   return (
     <Link
-      href={getPublicAppPageUrl(accountId)}
+      href={getPublicAppPageUrl(accountId, network)}
       prefetch
       className={cn(
         'relative block h-5 w-5 shrink-0 overflow-hidden rounded-full border border-background bg-muted/30 transition-opacity hover:opacity-90',

@@ -28,10 +28,11 @@ import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-t
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import { usePortalSwap } from '@/hooks/use-portal-swap';
 import { useSwapTokenIcons } from '@/hooks/use-swap-token-icons';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { useWallet } from '@/contexts/wallet-context';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import {
-  PORTAL_SWAP_ENABLED,
+  isPortalSwapEnabled,
   portalSwapAmountMaxDecimals,
   SOCIAL_RHEA_POOLS,
   type PortalSwapInputKind,
@@ -108,8 +109,9 @@ export function SocialSwapPanel({
   } = useWallet();
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
+  const swapEnabled = isPortalSwapEnabled(usePortalNetwork().network);
   const swap = usePortalSwap(accountId);
-  const tokenIcons = useSwapTokenIcons(PORTAL_SWAP_ENABLED);
+  const tokenIcons = useSwapTokenIcons(swapEnabled);
   const tokenMenu = useDropdown();
   const paySymbol = swap.tokenIn === 'near' ? 'NEAR' : 'USDC';
   const amountMaxDecimals = portalSwapAmountMaxDecimals(swap.tokenIn);
@@ -183,7 +185,7 @@ export function SocialSwapPanel({
   );
 
   const handleSwap = useCallback(async () => {
-    if (!PORTAL_SWAP_ENABLED) return;
+    if (!swapEnabled) return;
     if (!isConnected) {
       await connect();
       return;
@@ -223,6 +225,7 @@ export function SocialSwapPanel({
     onSuccess,
     setTxResult,
     swap,
+    swapEnabled,
     trackTransaction,
   ]);
 
@@ -230,7 +233,7 @@ export function SocialSwapPanel({
     <>
       <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
       <div className={cn('space-y-3', className)}>
-        {!PORTAL_SWAP_ENABLED ? (
+        {!swapEnabled ? (
           <div className="space-y-4">
             <ModalFactSection title="On testnet" dense>
               <ModalFactRow
@@ -548,7 +551,7 @@ export function SocialSwapPanel({
           </>
         )}
 
-        {PORTAL_SWAP_ENABLED ? (
+        {swapEnabled ? (
           <nav
             aria-label="Swap related links"
             className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-fade-section pt-2.5 portal-type-caption"

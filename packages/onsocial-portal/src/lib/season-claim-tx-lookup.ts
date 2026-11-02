@@ -1,5 +1,8 @@
-import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
-import { SOCIAL_SPEND_CONTRACT } from '@/lib/near-rpc';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
+import {
+  portalNetworkProfile,
+  type PortalNearNetwork,
+} from '@/lib/portal-network';
 
 interface NearblocksTxnAction {
   action?: string;
@@ -12,8 +15,8 @@ interface NearblocksTxnRow {
   actions?: NearblocksTxnAction[];
 }
 
-function nearblocksApiBase(): string {
-  return ACTIVE_NEAR_NETWORK === 'mainnet'
+function nearblocksApiBase(network: PortalNearNetwork): string {
+  return network === 'mainnet'
     ? 'https://api.nearblocks.io/v1'
     : 'https://api-testnet.nearblocks.io/v1';
 }
@@ -58,10 +61,11 @@ export async function lookupSeasonClaimTxHash(
   accountId: string,
   seasonId: string
 ): Promise<string | null> {
-  const contract = SOCIAL_SPEND_CONTRACT.trim();
+  const network = await getRequestPortalNetwork();
+  const contract = portalNetworkProfile(network).contracts.socialSpend.trim();
   if (!accountId || !seasonId || !contract) return null;
 
-  const url = `${nearblocksApiBase()}/account/${encodeURIComponent(accountId)}/txns?receiver=${encodeURIComponent(contract)}&per_page=40&order=desc`;
+  const url = `${nearblocksApiBase(network)}/account/${encodeURIComponent(accountId)}/txns?receiver=${encodeURIComponent(contract)}&per_page=40&order=desc`;
 
   try {
     const response = await fetch(url, {

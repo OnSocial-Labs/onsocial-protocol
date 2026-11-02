@@ -4,9 +4,11 @@ import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SocialSwapPanel } from '@/components/social-swap-panel';
 import { SurfacePanel } from '@/components/ui/surface-panel';
-import { PORTAL_SWAP_ENABLED } from '@/lib/portal-swap-config';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
+import { isPortalSwapEnabled } from '@/lib/portal-swap-config';
 
 export default function SocialSwapPage() {
+  const swapEnabled = isPortalSwapEnabled(usePortalNetwork().network);
   return (
     <PageShell size="section">
       <SecondaryPageHeader
@@ -20,7 +22,7 @@ export default function SocialSwapPage() {
           </>
         }
         description={
-          PORTAL_SWAP_ENABLED
+          swapEnabled
             ? 'Bring NEAR or USDC — leave with SOCIAL on Rhea.'
             : 'Stock up on testnet via your faucet, or pick up SOCIAL on mainnet through Rhea.'
         }

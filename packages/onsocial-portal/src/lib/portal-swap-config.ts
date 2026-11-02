@@ -1,5 +1,7 @@
-import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
-import { TOKEN_CONTRACT } from '@/lib/near-rpc';
+import {
+  isPortalSwapEnabled as swapEnabledForNetwork,
+  portalNetworkFromEnv,
+} from '@/lib/portal-network';
 
 /** Rhea / Ref Finance v2 contract (mainnet). */
 export const RHEA_REF_CONTRACT = 'v2.ref-finance.near';
@@ -40,9 +42,17 @@ export const PORTAL_SWAP_QUOTE_REFRESH_MS = 10_000;
 export const PORTAL_SWAP_BALANCE_REFRESH_MS = 30_000;
 
 /** In-portal Rhea swap is mainnet-only (liquidity pools live on mainnet). */
-export const PORTAL_SWAP_ENABLED = ACTIVE_NEAR_NETWORK === 'mainnet';
+export function isPortalSwapEnabled(
+  network: Parameters<typeof swapEnabledForNetwork>[0] = portalNetworkFromEnv()
+): boolean {
+  return swapEnabledForNetwork(network);
+}
 
-export const PORTAL_SWAP_SOCIAL_TOKEN_ID = TOKEN_CONTRACT;
+/** Build default. The toggle uses {@link isPortalSwapEnabled} with the stored network. */
+export const PORTAL_SWAP_ENABLED = isPortalSwapEnabled();
+
+/** Rhea SOCIAL token. The pool is mainnet-only, so this id does not follow testnet. */
+export const PORTAL_SWAP_SOCIAL_TOKEN_ID = 'token.onsocial.near';
 
 export type PortalSwapInputKind = 'near' | 'usdc';
 

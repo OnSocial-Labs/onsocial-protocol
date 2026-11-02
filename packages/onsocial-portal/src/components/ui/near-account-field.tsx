@@ -12,6 +12,7 @@ import { useDropdown } from '@onsocial/ui';
 import { AnimatePresence, motion } from 'framer-motion';
 import { InsetDividerItem } from '@/components/ui/inset-divider-group';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { useMemberAccountLookup } from '@/hooks/use-member-account-lookup';
 import {
   getNearAccountInputError,
@@ -56,13 +57,14 @@ export function NearAccountField({
   density?: 'default' | 'compact';
 }) {
   const [showFeedback, setShowFeedback] = useState(false);
+  const { network } = usePortalNetwork();
   const isEditable = variant === 'editable';
   const resolvedAccountId = isEditable
     ? normalizeNearAccountId(value)
     : accountId;
   const lookup = useMemberAccountLookup(resolvedAccountId, { trustedAccount });
-  const inputError = getNearAccountInputError(value);
-  const formatReady = isNearAccountInputReady(value);
+  const inputError = getNearAccountInputError(value, network);
+  const formatReady = isNearAccountInputReady(value, network);
   const ready = requirePortalProfile ? lookup.exists : formatReady;
   const feedbackVisible = isEditable && showFeedback && value.trim().length > 0;
   const showInvalid = feedbackVisible && !formatReady;
@@ -109,7 +111,7 @@ export function NearAccountField({
               setShowFeedback(false);
             }}
             onBlur={() => setShowFeedback(true)}
-            placeholder={nearAccountPlaceholder()}
+            placeholder={nearAccountPlaceholder(network)}
             aria-invalid={showInvalid || undefined}
             aria-describedby={
               feedbackVisible && inputError

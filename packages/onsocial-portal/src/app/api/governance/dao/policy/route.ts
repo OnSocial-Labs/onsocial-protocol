@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
+import { resolveRequestDaoAccount } from '@/lib/portal-network-request';
 import { loadDaoPolicyFromBackend } from '@/lib/governance-proposal-backend';
 import {
   createPortalRequestCache,
@@ -15,18 +15,6 @@ const policyCache = createPortalRequestCache<GovernanceDaoPolicy | null>(
   POLICY_CACHE_TTL_MS
 );
 
-const DAO_ACCOUNT_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
-
-function readDaoAccountId(request: NextRequest): string {
-  const daoAccountId =
-    request.nextUrl.searchParams.get('daoAccountId')?.trim() ||
-    GOVERNANCE_DAO_ACCOUNT;
-  if (!DAO_ACCOUNT_PATTERN.test(daoAccountId)) {
-    throw new Error('Invalid daoAccountId');
-  }
-  return daoAccountId;
-}
-
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
@@ -35,7 +23,9 @@ function getErrorMessage(error: unknown): string {
 
 export async function GET(request: NextRequest) {
   try {
-    const daoAccountId = readDaoAccountId(request);
+    const daoAccountId = await resolveRequestDaoAccount(
+      request.nextUrl.searchParams.get('daoAccountId')
+    );
     const policy = await policyCache.getOrLoad(daoAccountId, () =>
       loadDaoPolicyFromBackend(daoAccountId)
     );
@@ -44,7 +34,7 @@ export async function GET(request: NextRequest) {
       { policy },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+          'Cache-Control': 'private, no-store',
         },
       }
     );

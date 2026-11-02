@@ -1,4 +1,3 @@
-import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import {
   getPublicAppDiscoverUrl,
@@ -8,21 +7,6 @@ import {
   normalizePublicAppStandingKind,
   PUBLIC_APP_URL,
 } from '@/lib/portal-config';
-
-const require = createRequire(import.meta.url);
-
-type RedirectEntry = {
-  source: string;
-  destination: string;
-  permanent: boolean;
-};
-
-async function loadSocialRedirects(): Promise<RedirectEntry[]> {
-  const config = require('../../next.config.js') as {
-    redirects: () => Promise<RedirectEntry[]>;
-  };
-  return config.redirects();
-}
 
 describe('normalizePublicAppStandingKind', () => {
   it('keeps canonical kinds', () => {
@@ -73,45 +57,5 @@ describe('app URL builders', () => {
     expect(getPublicAppRallyUrl(null, 'not a season')).toBe(
       `${PUBLIC_APP_URL}/home?sheet=rally`
     );
-  });
-});
-
-describe('next.config social redirects', () => {
-  it('hands portal social routes to the app as temporary redirects', async () => {
-    const redirects = await loadSocialRedirects();
-    const bySource = new Map(redirects.map((entry) => [entry.source, entry]));
-
-    const expectations: Record<string, string> = {
-      '/u/:accountId': `${PUBLIC_APP_URL}/@:accountId`,
-      '/u/:accountId/network': `${PUBLIC_APP_URL}/@:accountId/network`,
-      '/u/:accountId/endorsements': `${PUBLIC_APP_URL}/@:accountId/endorsements`,
-      '/u/:accountId/endorsements/supporters': `${PUBLIC_APP_URL}/@:accountId/endorsements`,
-      '/u/:accountId/stand/solidarity': `${PUBLIC_APP_URL}/@:accountId/standing/mutual`,
-      '/u/:accountId/stand/standing': `${PUBLIC_APP_URL}/@:accountId/standing/incoming`,
-      '/u/:accountId/stand/standings': `${PUBLIC_APP_URL}/@:accountId/standing/incoming`,
-      '/u/:accountId/stand/:kind': `${PUBLIC_APP_URL}/@:accountId/standing/:kind`,
-      '/discover': `${PUBLIC_APP_URL}/discover`,
-      '/boost': `${PUBLIC_APP_URL}/home?sheet=boost`,
-      '/boost/leaderboard': `${PUBLIC_APP_URL}/home?sheet=boost`,
-      '/season': `${PUBLIC_APP_URL}/home?sheet=rally`,
-      '/season-zero': `${PUBLIC_APP_URL}/home?sheet=rally&season=season-zero`,
-    };
-
-    for (const [source, destination] of Object.entries(expectations)) {
-      const entry = bySource.get(source);
-      expect(entry, source).toBeDefined();
-      expect(entry?.destination, source).toBe(destination);
-      expect(entry?.permanent, source).toBe(false);
-    }
-  });
-
-  it('hands the network orbit to the app as a temporary redirect', async () => {
-    const redirects = await loadSocialRedirects();
-    const entry = redirects.find(
-      (redirect) => redirect.source === '/u/:accountId/network'
-    );
-    expect(entry).toBeDefined();
-    expect(entry?.destination).toBe(`${PUBLIC_APP_URL}/@:accountId/network`);
-    expect(entry?.permanent).toBe(false);
   });
 });

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import { portalNetworkProfile } from '@/lib/portal-network';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
 import {
   loadLiveCtaPayload,
   loadPersonalBoost,
@@ -47,22 +49,28 @@ function getErrorMessage(error: unknown): string {
 
 export async function GET(request: NextRequest) {
   const accountId = readAccountId(request);
+  const portalNetwork = await getRequestPortalNetwork();
+  const profile = portalNetworkProfile(portalNetwork);
 
   try {
-    const os = createPortalServerOnSocialClient();
-    const network = await networkCache.getOrLoad('network', async () => {
-      const payload = await loadLiveCtaPayload(os, null);
+    const os = createPortalServerOnSocialClient({
+      network: portalNetwork,
+      gatewayUrl: profile.apiUrl,
+    });
+    const network = await networkCache.getOrLoad(portalNetwork, async () => {
+      const payload = await loadLiveCtaPayload(os, null, portalNetwork);
       return { boost: payload.boost, rewards: payload.rewards };
     });
 
     const personal = accountId
-      ? await personalCache.getOrLoad(accountId, () =>
-          loadPersonalRewards(os, accountId)
+      ? await personalCache.getOrLoad(`${portalNetwork}:${accountId}`, () =>
+          loadPersonalRewards(os, accountId, portalNetwork)
         )
       : null;
     const personalBoost = accountId
-      ? await personalBoostCache.getOrLoad(accountId, () =>
-          loadPersonalBoost(os, accountId)
+      ? await personalBoostCache.getOrLoad(
+          `${portalNetwork}:${accountId}`,
+          () => loadPersonalBoost(os, accountId)
         )
       : null;
 
@@ -75,9 +83,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response, {
       headers: {
-        'Cache-Control': accountId
-          ? 'private, max-age=30, stale-while-revalidate=60'
-          : 'public, s-maxage=60, stale-while-revalidate=120',
+        'Cache-Control': 'private, no-store',
       },
     });
   } catch (error) {

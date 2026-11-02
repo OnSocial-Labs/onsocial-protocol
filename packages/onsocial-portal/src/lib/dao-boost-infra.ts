@@ -1,7 +1,9 @@
 import 'server-only';
 
-import { BOOST_CONTRACT, viewContractAt } from '@/lib/near-rpc';
-import { TREASURY_DAO_ACCOUNT } from '@/lib/portal-config';
+import { viewContractAtOnNetwork } from '@/lib/near-rpc';
+import { treasuryDaoAccount } from '@/lib/portal-config';
+import { portalNetworkProfile } from '@/lib/portal-network';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
 import { resolveBoostInfraCapabilities } from '@/lib/dao-boost-infra-capabilities';
 import type { DaoBoostInfraContext } from '@/lib/dao-boost-infra-types';
 
@@ -32,8 +34,11 @@ export async function loadDaoBoostInfraContext(
     throw new Error('Invalid daoAccountId');
   }
 
-  const stats = await viewContractAt<BoostStatsView>(
-    BOOST_CONTRACT,
+  const network = await getRequestPortalNetwork();
+  const boostContract = portalNetworkProfile(network).contracts.boost;
+  const stats = await viewContractAtOnNetwork<BoostStatsView>(
+    network,
+    boostContract,
     'get_stats',
     {}
   );
@@ -44,7 +49,7 @@ export async function loadDaoBoostInfraContext(
   );
   const infraPoolYocto =
     typeof stats?.infra_pool === 'string' ? stats.infra_pool : '0';
-  const treasuryDaoAccountId = TREASURY_DAO_ACCOUNT.trim().toLowerCase();
+  const treasuryDaoAccountId = treasuryDaoAccount(network).trim().toLowerCase();
 
   const { canWithdrawBoostInfra, canSetBoostInfraAuthority } =
     resolveBoostInfraCapabilities({
@@ -60,7 +65,7 @@ export async function loadDaoBoostInfraContext(
   }
 
   return {
-    contractId: BOOST_CONTRACT,
+    contractId: boostContract,
     infraPoolYocto,
     ownerId,
     infraWithdrawAuthority,

@@ -2,19 +2,20 @@
 
 import { useCallback, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
-import { ACTIVE_NEAR_NETWORK, PUBLIC_APP_URL } from '@/lib/portal-config';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import {
   communityDappContinueUrl,
   communityDappSnippet,
 } from '@/features/onapi/community-dapp-snippet';
 
 export function CommunityDappShipSnippet({ appId }: { appId: string }) {
+  const { network, appUrl } = usePortalNetwork();
   const snippet = communityDappSnippet({
     appId,
-    osOrigin: PUBLIC_APP_URL,
-    network: ACTIVE_NEAR_NETWORK,
+    osOrigin: appUrl,
+    network,
   });
-  const continueUrl = communityDappContinueUrl(PUBLIC_APP_URL, appId);
+  const continueUrl = communityDappContinueUrl(appUrl, appId);
   const [copied, setCopied] = useState<'snippet' | 'url' | null>(null);
 
   const copy = useCallback(async (text: string, kind: 'snippet' | 'url') => {

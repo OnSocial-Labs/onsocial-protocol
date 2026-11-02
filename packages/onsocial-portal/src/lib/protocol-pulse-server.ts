@@ -1,13 +1,28 @@
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
-import type { ProtocolPulseSnapshot } from '@/lib/protocol-pulse-metrics';
+import {
+  portalNetworkProfile,
+  type PortalNearNetwork,
+} from '@/lib/portal-network';
+import {
+  emptyProtocolPulse,
+  type ProtocolPulseSnapshot,
+} from '@/lib/protocol-pulse-metrics';
 
 /** Server-side protocol pulse (gateway analytics cache ~60s). */
-export async function loadProtocolPulse(): Promise<ProtocolPulseSnapshot | null> {
+export async function loadProtocolPulse(
+  network: PortalNearNetwork
+): Promise<ProtocolPulseSnapshot | null> {
+  const profile = portalNetworkProfile(network);
   try {
-    const os = createPortalServerOnSocialClient();
-    return await os.query.stats.protocolPulse();
+    const os = createPortalServerOnSocialClient({
+      network,
+      gatewayUrl: profile.apiUrl,
+    });
+    const pulse = await os.query.stats.protocolPulse();
+    if (pulse) return pulse;
+    return network === 'mainnet' ? emptyProtocolPulse() : null;
   } catch {
-    return null;
+    return network === 'mainnet' ? emptyProtocolPulse() : null;
   }
 }
 

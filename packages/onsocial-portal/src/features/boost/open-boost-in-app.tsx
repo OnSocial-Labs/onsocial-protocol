@@ -1,6 +1,7 @@
 'use client';
 
 import { forwardRef, type AnchorHTMLAttributes, type ReactNode } from 'react';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { useWallet } from '@/contexts/wallet-context';
 import { getPublicAppBoostUrl } from '@/lib/portal-config';
 
@@ -16,12 +17,13 @@ export const OpenBoostInAppLink = forwardRef<
   OpenBoostInAppLinkProps
 >(function OpenBoostInAppLink({ className, children, ...props }, ref) {
   const { accountId } = useWallet();
+  const { network } = usePortalNetwork();
   return (
     <a
       ref={ref}
       className={className}
       {...props}
-      href={getPublicAppBoostUrl(accountId)}
+      href={getPublicAppBoostUrl(accountId, network)}
     >
       {children}
     </a>

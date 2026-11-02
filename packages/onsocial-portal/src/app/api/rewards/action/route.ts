@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { ACTIVE_BACKEND_URL } from '@/lib/portal-config';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import { createRequestOnSocialClient } from '@/lib/portal-request-client';
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import { normalizeEndorsementTopic } from '@onsocial/sdk';
 
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const os = createPortalServerOnSocialClient();
+    const os = await createRequestOnSocialClient();
     const eligible = await verifyWithRetry(async () => {
       if (action === 'daily_active') {
         return hasOnChainProof(body.proof);

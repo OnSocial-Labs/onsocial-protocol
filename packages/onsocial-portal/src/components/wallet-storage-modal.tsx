@@ -25,6 +25,7 @@ import { useSharedStoragePool } from '@/hooks/use-shared-storage-pool';
 import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
 import { useWallet } from '@/contexts/wallet-context';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import { formatNearCompact } from '@/lib/leaderboard';
 import { yoctoToNear } from '@/lib/near-rpc';
@@ -260,6 +261,7 @@ export function WalletStorageModal({
 }: WalletStorageModalProps) {
   const titleId = useId();
   const { getSigningWallet } = useWallet();
+  const { live } = usePortalNetwork();
   const { txResult, clearTxResult, setTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
   const platformStorage = usePlatformStorageSummary(accountId, open);
@@ -406,7 +408,8 @@ export function WalletStorageModal({
       : mode === 'withdraw'
         ? USER_STORAGE_WITHDRAW_HINT
         : null;
-  const submitDisabled = pending || !accountId || !canSubmitAmount;
+  const submitDisabled =
+    !live.core || pending || !accountId || !canSubmitAmount;
   const showUserStorageShareStrip =
     mode === 'share' &&
     summary != null &&
@@ -649,7 +652,11 @@ export function WalletStorageModal({
                   void handleSubmit();
                 }}
               >
-                {mode === 'deposit' ? 'Add NEAR' : 'Withdraw NEAR'}
+                {!live.core
+                  ? 'Not live yet'
+                  : mode === 'deposit'
+                    ? 'Add NEAR'
+                    : 'Withdraw NEAR'}
               </Button>
 
               {actionHint ? (

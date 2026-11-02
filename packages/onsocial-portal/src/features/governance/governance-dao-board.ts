@@ -1,9 +1,8 @@
 'use client';
 
-import {
-  GOVERNANCE_DAO_ACCOUNT,
-  TREASURY_DAO_ACCOUNT,
-} from '@/lib/portal-config';
+import { governanceDaoAccount, treasuryDaoAccount } from '@/lib/portal-config';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
+import type { PortalNearNetwork } from '@/lib/portal-network';
 import type { GovernanceLane } from '@/features/governance/page-utils';
 import { LANE_OPTIONS } from '@/features/governance/page-utils';
 import { useSearchParams } from 'next/navigation';
@@ -12,22 +11,24 @@ export type GovernanceDaoBoard = 'governance' | 'treasury';
 
 export const GOVERNANCE_DAO_BOARD_PARAM = 'dao';
 
-export const GOVERNANCE_DAO_BOARD_OPTIONS: Array<{
+export function governanceDaoBoardOptions(network: PortalNearNetwork): Array<{
   value: GovernanceDaoBoard;
   label: string;
   accountId: string;
-}> = [
-  {
-    value: 'governance',
-    label: 'Governance',
-    accountId: GOVERNANCE_DAO_ACCOUNT,
-  },
-  {
-    value: 'treasury',
-    label: 'Treasury',
-    accountId: TREASURY_DAO_ACCOUNT,
-  },
-];
+}> {
+  return [
+    {
+      value: 'governance',
+      label: 'Governance',
+      accountId: governanceDaoAccount(network),
+    },
+    {
+      value: 'treasury',
+      label: 'Treasury',
+      accountId: treasuryDaoAccount(network),
+    },
+  ];
+}
 
 const TREASURY_LANE_OPTIONS: Array<{ value: GovernanceLane; label: string }> = [
   { value: 'all', label: 'All' },
@@ -41,15 +42,19 @@ export function parseGovernanceDaoBoard(
 }
 
 export function resolveGovernanceDaoAccountId(
-  board: GovernanceDaoBoard = 'governance'
+  board: GovernanceDaoBoard = 'governance',
+  network?: PortalNearNetwork
 ): string {
-  return board === 'treasury' ? TREASURY_DAO_ACCOUNT : GOVERNANCE_DAO_ACCOUNT;
+  return board === 'treasury'
+    ? treasuryDaoAccount(network)
+    : governanceDaoAccount(network);
 }
 
 export function resolveGovernanceDaoBoard(
-  daoAccountId: string | null | undefined
+  daoAccountId: string | null | undefined,
+  network?: PortalNearNetwork
 ): GovernanceDaoBoard {
-  if (daoAccountId === TREASURY_DAO_ACCOUNT) {
+  if (daoAccountId === treasuryDaoAccount(network)) {
     return 'treasury';
   }
 
@@ -108,15 +113,18 @@ export function useGovernanceDaoBoardFromUrl(): {
   board: GovernanceDaoBoard;
   daoAccountId: string;
   laneOptions: Array<{ value: GovernanceLane; label: string }>;
+  governanceLive: boolean;
 } {
   const searchParams = useSearchParams();
+  const { network, live } = usePortalNetwork();
   const board = parseGovernanceDaoBoard(
     searchParams.get(GOVERNANCE_DAO_BOARD_PARAM)
   );
 
   return {
     board,
-    daoAccountId: resolveGovernanceDaoAccountId(board),
+    daoAccountId: resolveGovernanceDaoAccountId(board, network),
     laneOptions: getLaneOptionsForBoard(board),
+    governanceLive: live.governance,
   };
 }

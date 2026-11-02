@@ -1,5 +1,6 @@
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import { createRequestOnSocialClient } from '@/lib/portal-request-client';
 import { profileSearchRowToMaterialised } from '@/lib/profile-social-server';
 import { isEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
 
@@ -34,7 +35,7 @@ export async function loadPortalEndorsementSupportTotal(
     throw new Error('A valid endorsementId query parameter is required');
   }
 
-  const os = createPortalServerOnSocialClient();
+  const os = await createRequestOnSocialClient();
   const summary = await os.query.socialSpend.endorsementSupportSummary(
     normalized,
     {

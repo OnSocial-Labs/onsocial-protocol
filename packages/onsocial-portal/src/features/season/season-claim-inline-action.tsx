@@ -39,6 +39,7 @@ export function SeasonClaimInlineAction({
 }) {
   const {
     handleClaim,
+    claimAvailable,
     phase,
     isButtonVisible,
     isButtonLoading,
@@ -87,13 +88,15 @@ export function SeasonClaimInlineAction({
   const button =
     variant === 'profile' ? (
       <ProfileSocialCollectPill
-        amountLabel={amountLabel}
+        amountLabel={claimAvailable ? amountLabel : 'Not live yet'}
         kind="season"
         pending={isButtonLoading}
         celebration={seasonCollectCelebration}
         celebrationDurationSeconds={seasonCollectCelebrationDurationSeconds}
-        ariaLabel={ariaLabel}
-        onClick={() => void handleClaim()}
+        ariaLabel={claimAvailable ? ariaLabel : 'Not live yet'}
+        onClick={() => {
+          if (claimAvailable) void handleClaim();
+        }}
         className={className}
       />
     ) : (
@@ -103,12 +106,16 @@ export function SeasonClaimInlineAction({
         variant="endorsement"
         className={cn('shrink-0 gap-1.5', className)}
         loading={isButtonLoading}
-        aria-label={ariaLabel}
+        disabled={!claimAvailable}
+        aria-label={claimAvailable ? ariaLabel : 'Not live yet'}
         onClick={() => void handleClaim()}
       >
-        <Gift className="h-3.5 w-3.5 shrink-0" aria-hidden />
-        <span className="sm:hidden">Collect {amountLabel}</span>
-        <span className="hidden sm:inline">Collect {amountLabel} SOCIAL</span>
+        {claimAvailable ? (
+          <Gift className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        ) : null}
+        <span>
+          {claimAvailable ? `Collect ${amountLabel} SOCIAL` : 'Not live yet'}
+        </span>
       </Button>
     );
 

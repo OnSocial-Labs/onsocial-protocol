@@ -10,7 +10,9 @@ import {
 import { parseSocialSpendActionConfigView } from '@/lib/dao-contract-config-operations';
 import { SOCIAL_SPEND_CONTRACT, viewContractAt } from '@/lib/near-rpc';
 
-const os = createPortalOnSocialClient();
+function portalOs() {
+  return createPortalOnSocialClient();
+}
 
 const ENDORSEMENT_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -139,7 +141,7 @@ export function buildSupportEndorsementTransaction(input: {
   if (issuer) metadata.issuer = issuer;
   if (topic) metadata.topic = topic;
 
-  return os.socialSpend.buildSpendTransaction({
+  return portalOs().socialSpend.buildSpendTransaction({
     amount:
       typeof input.amountYocto === 'bigint'
         ? input.amountYocto.toString()

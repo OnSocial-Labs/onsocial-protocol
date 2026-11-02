@@ -1,4 +1,4 @@
-export type SystemStatusWord = 'up' | 'degraded' | 'down';
+export type SystemStatusWord = 'up' | 'degraded' | 'down' | 'not-live';
 
 export type SystemHeadline = 'Checking' | 'All Operational' | 'Degraded';
 
@@ -8,7 +8,12 @@ export function systemStatusLabel(
   if (status === 'up') return 'Up';
   if (status === 'degraded') return 'Degraded';
   if (status === 'down') return 'Down';
+  if (status === 'not-live') return 'Not live yet';
   return '—';
+}
+
+function rowIsQuiet(status: SystemStatusWord | null): boolean {
+  return status === 'up' || status === 'not-live';
 }
 
 export interface PortalLiveHealth {
@@ -104,7 +109,7 @@ export function deriveSystemHeadline(input: {
     input.services.every((service) => service.status === 'up');
   const contractsUp =
     input.contracts.length > 0 &&
-    input.contracts.every((contract) => contract.status === 'up');
+    input.contracts.every((contract) => rowIsQuiet(contract.status));
   const liveUp =
     input.live == null ||
     (input.live.length > 0 && input.live.every((row) => row.status === 'up'));

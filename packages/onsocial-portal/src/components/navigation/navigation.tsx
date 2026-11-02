@@ -20,7 +20,9 @@ import {
 import { BrandLogo } from '@/components/brand-logo';
 import { PwaInstallButton } from '@/components/pwa-install-button';
 import { useMobilePageContext } from '@/components/providers/mobile-page-context';
+import { PortalNetworkToggle } from '@/components/portal-network-toggle';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { BackButton } from '@/components/ui/back-button';
 import { PortalBadge } from '@/components/ui/portal-badge';
 import type { PortalAccent } from '@/lib/portal-colors';
@@ -245,13 +247,19 @@ export function Navigation() {
   const effectiveNavBack = navBack ?? resolveRouteNavBack(pathname);
   const router = useRouter();
   const showInternalOps = isGovernanceWallet(accountId) || Boolean(jwt);
+  const { network, appUrl } = usePortalNetwork();
   const navGroups = useMemo(
     () => [
-      baseNavGroups[0],
+      {
+        ...baseNavGroups[0],
+        items: baseNavGroups[0].items.filter(
+          (item) => item.href !== '/swap' || network === 'mainnet'
+        ),
+      },
       baseNavGroups[1],
       ...(showInternalOps ? [internalOpsGroup] : []),
     ],
-    [showInternalOps]
+    [network, showInternalOps]
   );
   const isOpen = openPathname === pathname;
   const isActiveItem = useCallback(
@@ -916,6 +924,7 @@ export function Navigation() {
                 ) : null}
               </div>
             ) : null}
+            <PortalNetworkToggle />
             <PwaInstallButton compact={compactDesktopInstallButton} />
             <ThemeToggle />
             <WalletButton compact />
@@ -1131,7 +1140,7 @@ export function Navigation() {
                       className="mt-3"
                     >
                       <Link
-                        href="https://onsocial.id"
+                        href={appUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={closeMenu}
@@ -1157,8 +1166,9 @@ export function Navigation() {
                     >
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                          Theme
+                          Network
                         </span>
+                        <PortalNetworkToggle />
                         <ThemeToggle />
                         <PwaInstallButton className="ml-auto text-xs" />
                       </div>

@@ -9,6 +9,11 @@ import {
   type Network,
 } from '@onsocial/rpc';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
+import {
+  portalNetworkProfile,
+  readPortalNetwork,
+  type PortalNetworkContracts,
+} from '@/lib/portal-network';
 import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
 
 // ---------------------------------------------------------------------------
@@ -42,6 +47,11 @@ export const VESTING_CONTRACT =
     ? 'founder-vesting.onsocial.near'
     : 'founder-vesting.onsocial.testnet';
 
+/** Contract id for the network selected at call time. */
+export function activeContract(name: keyof PortalNetworkContracts): string {
+  return portalNetworkProfile(readPortalNetwork()).contracts[name];
+}
+
 const DEFAULT_GOVERNANCE_PROPOSER_THRESHOLD = '100000000000000000000';
 const NEAR_STORAGE_BYTE_COST = 10_000_000_000_000_000_000n;
 const GOVERNANCE_DELEGATION_STORAGE_BYTES_OVERHEAD = 16n;
@@ -50,7 +60,6 @@ const GOVERNANCE_DELEGATION_STORAGE_BYTES_OVERHEAD = 16n;
 // Singleton — circuit breaker state persists across renders
 // ---------------------------------------------------------------------------
 
-let _rpc: NearRpc | null = null;
 const _rpcsByNetwork: Partial<Record<Network, NearRpc>> = {};
 
 function createPortalNearRpc(network: Network): NearRpc {
@@ -68,27 +77,19 @@ function createPortalNearRpc(network: Network): NearRpc {
   });
 }
 
-function getRpc(): NearRpc {
-  if (!_rpc) {
-    _rpc = createPortalNearRpc(NETWORK);
-  }
-  return _rpc;
-}
-
 function getRpcForNetwork(network: Network): NearRpc {
-  if (network === NETWORK) {
-    return getRpc();
-  }
-
   const existing = _rpcsByNetwork[network];
   if (existing) {
     return existing;
   }
 
   const rpc = createPortalNearRpc(network);
-
   _rpcsByNetwork[network] = rpc;
   return rpc;
+}
+
+function getRpc(): NearRpc {
+  return getRpcForNetwork(readPortalNetwork());
 }
 
 // ---------------------------------------------------------------------------
@@ -194,9 +195,10 @@ export function getSpendableNearBalance(
 }
 
 export async function viewAccount(
-  accountId: string
+  accountId: string,
+  network: Network = readPortalNetwork()
 ): Promise<NearAccountView | null> {
-  const rpc = getRpc();
+  const rpc = getRpcForNetwork(network);
   const res = await rpc.call<NearAccountView>('query', {
     request_type: 'view_account',
     finality: 'final',
@@ -743,14 +745,20 @@ export function normalizeFtBalanceYocto(value: unknown): bigint {
 
 /** On-chain SOCIAL (NEP-141) wallet balance for an account. */
 export async function getSocialWalletBalanceYocto(
-  accountId: string
+  accountId: string,
+  network: Network = readPortalNetwork()
 ): Promise<bigint> {
-  const balance = await tryViewContractAt<unknown>(
-    TOKEN_CONTRACT,
-    'ft_balance_of',
-    { account_id: accountId }
-  );
-  return normalizeFtBalanceYocto(balance);
+  try {
+    const balance = await viewContractAtOnNetwork<unknown>(
+      network,
+      portalNetworkProfile(network).contracts.token,
+      'ft_balance_of',
+      { account_id: accountId }
+    );
+    return normalizeFtBalanceYocto(balance);
+  } catch {
+    return 0n;
+  }
 }
 
 /** Convert yocto-SOCIAL (18 decimals) to human-readable string. */

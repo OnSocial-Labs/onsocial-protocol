@@ -14,6 +14,7 @@ import {
   useMemberAccountLookup,
 } from '@/hooks/use-member-account-lookup';
 import { isNearNamedAccountComplete } from '@/lib/portal-near-account';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { getPublicAppPageUrl } from '@/lib/portal-config';
 import { cn } from '@/lib/utils';
 
@@ -89,6 +90,7 @@ export function GovernanceAccountChip({
   className?: string;
   subjectKind?: GovernanceAccountSubjectKind;
 }) {
+  const { network } = usePortalNetwork();
   const resolvedAvatarClass =
     avatarClassName ?? (dense ? 'h-6 w-6' : compact ? 'h-5 w-5' : 'h-7 w-7');
   const lookup = useMemberAccountLookup(accountId, {
@@ -96,7 +98,7 @@ export function GovernanceAccountChip({
     // On-chain voters/proposers are already valid NEAR accounts.
     trustedAccount: true,
   });
-  const canLookup = isNearNamedAccountComplete(accountId);
+  const canLookup = isNearNamedAccountComplete(accountId, network);
   if (canLookup && lookup.checking) {
     return (
       <GovernanceAccountChipSkeleton
@@ -114,7 +116,7 @@ export function GovernanceAccountChip({
   const profileHref =
     subjectKind === 'infrastructure' && !socialProfile
       ? null
-      : getPublicAppPageUrl(accountId);
+      : getPublicAppPageUrl(accountId, network);
   const FallbackIcon = subjectKind === 'infrastructure' ? Box3dIcon : UserIcon;
 
   let avatar: ReactNode;

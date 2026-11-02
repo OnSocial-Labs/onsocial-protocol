@@ -1,7 +1,9 @@
 import type { NearWalletBase } from '@hot-labs/near-connect';
-import { ACTIVE_API_URL, ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
+import { portalNetworkProfile, readPortalNetwork } from '@/lib/portal-network';
 
-const GATEWAY_BASE = ACTIVE_API_URL.replace(/\/$/, '');
+function gatewayBase(): string {
+  return portalNetworkProfile(readPortalNetwork()).apiUrl.replace(/\/$/, '');
+}
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -208,7 +210,7 @@ export async function gatewayLogin(
   }
 
   // Step 1: Request challenge from gateway
-  const challengeRes = await fetch(`${GATEWAY_BASE}/auth/challenge`, {
+  const challengeRes = await fetch(`${gatewayBase()}/auth/challenge`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ accountId }),
@@ -227,7 +229,7 @@ export async function gatewayLogin(
 
   // Step 2: Sign the challenge with wallet (NEP-413)
   const signed = await wallet.signMessage({
-    network: ACTIVE_NEAR_NETWORK,
+    network: readPortalNetwork(),
     signerId: accountId,
     message: challenge.message,
     recipient: challenge.recipient,
@@ -235,7 +237,7 @@ export async function gatewayLogin(
   });
 
   // Step 3: Send signed message to gateway for verification
-  const res = await fetch(`${GATEWAY_BASE}/auth/login`, {
+  const res = await fetch(`${gatewayBase()}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -268,7 +270,7 @@ export async function gatewayLogin(
  */
 export async function gatewayRefresh(): Promise<{ token: string } | null> {
   try {
-    const res = await fetch(`${GATEWAY_BASE}/auth/refresh`, {
+    const res = await fetch(`${gatewayBase()}/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
     });
@@ -285,7 +287,7 @@ export async function createApiKey(
   jwt: string,
   label: string
 ): Promise<CreateKeyResult> {
-  const res = await fetch(`${GATEWAY_BASE}/developer/keys`, {
+  const res = await fetch(`${gatewayBase()}/developer/keys`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -306,7 +308,7 @@ export async function createApiKey(
 }
 
 export async function listApiKeys(jwt: string): Promise<ApiKeyInfo[]> {
-  const res = await fetch(`${GATEWAY_BASE}/developer/keys`, {
+  const res = await fetch(`${gatewayBase()}/developer/keys`, {
     headers: { Authorization: `Bearer ${jwt}` },
   });
 
@@ -323,7 +325,7 @@ export async function listApiKeys(jwt: string): Promise<ApiKeyInfo[]> {
 
 export async function revokeApiKey(jwt: string, prefix: string): Promise<void> {
   const res = await fetch(
-    `${GATEWAY_BASE}/developer/keys/${encodeURIComponent(prefix)}`,
+    `${gatewayBase()}/developer/keys/${encodeURIComponent(prefix)}`,
     {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${jwt}` },
@@ -339,7 +341,7 @@ export async function revokeApiKey(jwt: string, prefix: string): Promise<void> {
 }
 
 export async function getUsage(jwt: string): Promise<UsageSummary> {
-  const res = await fetch(`${GATEWAY_BASE}/developer/usage`, {
+  const res = await fetch(`${gatewayBase()}/developer/usage`, {
     headers: { Authorization: `Bearer ${jwt}` },
   });
 
@@ -358,7 +360,7 @@ export async function getUsageTimeline(
   const query = search.toString();
 
   const res = await fetch(
-    `${GATEWAY_BASE}/developer/usage/timeline${query ? `?${query}` : ''}`,
+    `${gatewayBase()}/developer/usage/timeline${query ? `?${query}` : ''}`,
     {
       headers: { Authorization: `Bearer ${jwt}` },
     }
@@ -380,7 +382,7 @@ export async function rotateApiKey(
   prefix: string
 ): Promise<CreateKeyResult> {
   const res = await fetch(
-    `${GATEWAY_BASE}/developer/keys/${encodeURIComponent(prefix)}/rotate`,
+    `${gatewayBase()}/developer/keys/${encodeURIComponent(prefix)}/rotate`,
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${jwt}` },
@@ -420,7 +422,7 @@ export async function updateDeveloperAppListing(
   }
 ): Promise<DeveloperAppInfo> {
   const res = await fetch(
-    `${GATEWAY_BASE}/developer/apps/${encodeURIComponent(appId)}`,
+    `${gatewayBase()}/developer/apps/${encodeURIComponent(appId)}`,
     {
       method: 'PATCH',
       headers: {
@@ -445,7 +447,7 @@ export async function updateDeveloperAppListing(
 export async function listDeveloperApps(
   jwt: string
 ): Promise<DeveloperAppInfo[]> {
-  const res = await fetch(`${GATEWAY_BASE}/developer/apps`, {
+  const res = await fetch(`${gatewayBase()}/developer/apps`, {
     headers: { Authorization: `Bearer ${jwt}` },
   });
 
@@ -464,7 +466,7 @@ export async function registerDeveloperApp(
   jwt: string,
   appId: string
 ): Promise<DeveloperAppInfo> {
-  const res = await fetch(`${GATEWAY_BASE}/developer/apps`, {
+  const res = await fetch(`${gatewayBase()}/developer/apps`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -489,7 +491,7 @@ export async function deleteDeveloperApp(
   appId: string
 ): Promise<void> {
   const res = await fetch(
-    `${GATEWAY_BASE}/developer/apps/${encodeURIComponent(appId)}`,
+    `${gatewayBase()}/developer/apps/${encodeURIComponent(appId)}`,
     {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${jwt}` },

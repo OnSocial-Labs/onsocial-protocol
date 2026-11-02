@@ -1,9 +1,11 @@
 'use client';
 
 import { SectionHeader } from '@/components/layout/section-header';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { usePageNavBadge } from '@/hooks/use-page-nav-badge';
 
 export function GovernancePageIntro() {
+  const { live } = usePortalNetwork();
   usePageNavBadge('Governance', 'blue');
 
   return (
@@ -13,7 +15,11 @@ export function GovernancePageIntro() {
       <SectionHeader
         title="Governance"
         titleAs="h1"
-        description="Public proposals and on-chain decisions."
+        description={
+          live.governance
+            ? 'Public proposals and on-chain decisions.'
+            : 'Not live on this network yet.'
+        }
         size="compact"
         badgeAccent="blue"
         className="mb-4"

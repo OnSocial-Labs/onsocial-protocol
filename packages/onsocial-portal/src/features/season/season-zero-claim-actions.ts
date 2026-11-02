@@ -1,20 +1,23 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { useWallet } from '@/contexts/wallet-context';
 import { useSeasonParticipation } from '@/contexts/season-participation-context';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import type { SeasonZeroClaimRecord } from '@/features/season/season-zero-types';
 import { extractNearTransactionHashes } from '@/lib/near-rpc';
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
-import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
+import { requirePortalCapability } from '@/lib/portal-network';
 import {
   txToastError,
   txToastPending,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 
-const os = createPortalOnSocialClient();
+function portalOs() {
+  return createPortalOnSocialClient();
+}
 
 /** Button loading only while signing; toast owns chain confirmation; hide on success. */
 export type SeasonCollectPhase =
@@ -31,6 +34,8 @@ export function useSeasonZeroClaimActions({
   onClaimed?: () => void;
 }) {
   const { accountId, connect, getSigningWallet, isConnected } = useWallet();
+  const { live } = usePortalNetwork();
+  const claimAvailable = live.socialSpend;
   const {
     beginSeasonClaim,
     confirmSeasonClaim,
@@ -46,6 +51,7 @@ export function useSeasonZeroClaimActions({
   }, [claim?.accountId, claim?.seasonId]);
 
   const handleClaim = useCallback(async () => {
+    if (!claimAvailable) return;
     if (
       !claim ||
       claim.claimed ||
@@ -64,15 +70,16 @@ export function useSeasonZeroClaimActions({
     setPhase('signing');
     beginSeasonClaim(claim.seasonId);
     try {
+      const network = requirePortalCapability('socialSpend');
       const { wallet, accountId: signerId } = await getSigningWallet();
-      const payload = os.socialSpend.buildClaimSeasonRewardTransaction({
+      const payload = portalOs().socialSpend.buildClaimSeasonRewardTransaction({
         seasonId: claim.seasonId,
         amount: claim.amountYocto,
         proof: claim.proof,
       });
 
       const result = await wallet.signAndSendTransaction({
-        network: ACTIVE_NEAR_NETWORK,
+        network,
         signerId,
         receiverId: payload.receiverId,
         actions: payload.actions.map((action) => ({
@@ -123,6 +130,7 @@ export function useSeasonZeroClaimActions({
     endSeasonClaim,
     getSigningWallet,
     isConnected,
+    claimAvailable,
     onClaimed,
     phase,
     setTxResult,
@@ -146,6 +154,7 @@ export function useSeasonZeroClaimActions({
 
   return {
     handleClaim,
+    claimAvailable,
     phase,
     isButtonVisible,
     isButtonLoading,

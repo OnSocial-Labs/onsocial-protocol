@@ -46,6 +46,18 @@ describe('deriveSystemHeadline', () => {
     ).toBe('Degraded');
   });
 
+  it('does not treat an unreleased contract as a failure', () => {
+    expect(
+      deriveSystemHeadline({
+        servicesLoading: false,
+        contractsLoading: false,
+        services: [up],
+        contracts: [up, { status: 'not-live' }],
+        contractsUnavailable: false,
+      })
+    ).toBe('All Operational');
+  });
+
   it('says Degraded when a contract or service is not up', () => {
     expect(
       deriveSystemHeadline({

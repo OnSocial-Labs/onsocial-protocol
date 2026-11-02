@@ -8,64 +8,72 @@ import { NavVisibilityProvider } from '@/components/providers/nav-visibility-con
 import { PwaProvider } from '@/components/providers/pwa-provider';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SmoothScrollProvider } from '@/components/providers/smooth-scroll-provider';
+import { cookies } from 'next/headers';
 import { WalletProvider } from '@/contexts/wallet-context';
+import { PortalNetworkProvider } from '@/contexts/portal-network-context';
 import { GatewayAuthProvider } from '@/contexts/gateway-auth-context';
 import { ProfileProvider } from '@/contexts/profile-context';
 import { SeasonParticipationProvider } from '@/contexts/season-participation-context';
 import { PortalRewardsProvider } from '@/contexts/portal-rewards-context';
 import { Navigation } from '@/components/navigation/navigation';
 import { Footer } from '@/components/footer';
-import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
+import {
+  PORTAL_NETWORK_COOKIE,
+  resolvePortalNetwork,
+} from '@/lib/portal-network';
 import { PORTAL_ORIGIN } from '@/lib/portal-origin';
 import { ONSOCIAL_BRAND_TAGLINE } from '@onsocial/ui';
 
-const isMainnet = ACTIVE_NEAR_NETWORK === 'mainnet';
-const applicationName = isMainnet
-  ? 'OnSocial Portal'
-  : 'OnSocial Portal Testnet';
 const description = ONSOCIAL_BRAND_TAGLINE;
 
-export const metadata: Metadata = {
-  metadataBase: new URL(PORTAL_ORIGIN),
-  title: 'OnSocial Protocol - Decentralized Social Infrastructure',
-  description,
-  applicationName,
-  manifest: '/manifest.webmanifest',
-  keywords: [
-    'blockchain',
-    'social',
-    'decentralized',
-    'NEAR',
-    'web3',
-    'protocol',
-  ],
-  authors: [{ name: 'OnSocial Labs' }],
-  icons: {
-    icon: [
-      { url: '/onsocial_icon_192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/onsocial_icon_512.png', sizes: '512x512', type: 'image/png' },
+export async function generateMetadata(): Promise<Metadata> {
+  const isMainnet = (await getRequestPortalNetwork()) === 'mainnet';
+  const applicationName = isMainnet
+    ? 'OnSocial Portal'
+    : 'OnSocial Portal Testnet';
+  return {
+    metadataBase: new URL(PORTAL_ORIGIN),
+    title: 'OnSocial Protocol - Decentralized Social Infrastructure',
+    description,
+    applicationName,
+    manifest: '/manifest.webmanifest',
+    keywords: [
+      'blockchain',
+      'social',
+      'decentralized',
+      'NEAR',
+      'web3',
+      'protocol',
     ],
-    shortcut: '/onsocial_icon_192.png',
-    apple: '/apple-touch-icon.png',
-  },
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'black-translucent',
-    title: applicationName,
-  },
-  openGraph: {
-    title: 'OnSocial Protocol',
-    description,
-    type: 'website',
-    siteName: applicationName,
-    url: '/',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'OnSocial Protocol',
-    description,
-  },
-};
+    authors: [{ name: 'OnSocial Labs' }],
+    icons: {
+      icon: [
+        { url: '/onsocial_icon_192.png', sizes: '192x192', type: 'image/png' },
+        { url: '/onsocial_icon_512.png', sizes: '512x512', type: 'image/png' },
+      ],
+      shortcut: '/onsocial_icon_192.png',
+      apple: '/apple-touch-icon.png',
+    },
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'black-translucent',
+      title: applicationName,
+    },
+    openGraph: {
+      title: 'OnSocial Protocol',
+      description,
+      type: 'website',
+      siteName: applicationName,
+      url: '/',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: 'OnSocial Protocol',
+      description,
+    },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: '#07111f',
@@ -76,11 +84,16 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const jar = await cookies();
+  const portalNetwork = resolvePortalNetwork(
+    jar.get(PORTAL_NETWORK_COOKIE)?.value
+  );
+
   return (
     <html
       lang="en"
@@ -155,29 +168,31 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <RuntimeConfigWarnings />
-            <WalletProvider network={ACTIVE_NEAR_NETWORK}>
-              <ProfileProvider>
-                <SeasonParticipationProvider>
-                  <PortalRewardsProvider>
-                    <GatewayAuthProvider>
-                      <MobilePageProvider>
-                        <NavVisibilityProvider>
-                          <SmoothScrollProvider>
-                            <div className="flex min-h-[100dvh] flex-col">
-                              <Navigation />
-                              <main className="safe-x flex flex-1 flex-col">
-                                {children}
-                              </main>
-                              <Footer />
-                            </div>
-                          </SmoothScrollProvider>
-                        </NavVisibilityProvider>
-                      </MobilePageProvider>
-                    </GatewayAuthProvider>
-                  </PortalRewardsProvider>
-                </SeasonParticipationProvider>
-              </ProfileProvider>
-            </WalletProvider>
+            <PortalNetworkProvider network={portalNetwork}>
+              <WalletProvider network={portalNetwork}>
+                <ProfileProvider>
+                  <SeasonParticipationProvider>
+                    <PortalRewardsProvider>
+                      <GatewayAuthProvider>
+                        <MobilePageProvider>
+                          <NavVisibilityProvider>
+                            <SmoothScrollProvider>
+                              <div className="flex min-h-[100dvh] flex-col">
+                                <Navigation />
+                                <main className="safe-x flex flex-1 flex-col">
+                                  {children}
+                                </main>
+                                <Footer />
+                              </div>
+                            </SmoothScrollProvider>
+                          </NavVisibilityProvider>
+                        </MobilePageProvider>
+                      </GatewayAuthProvider>
+                    </PortalRewardsProvider>
+                  </SeasonParticipationProvider>
+                </ProfileProvider>
+              </WalletProvider>
+            </PortalNetworkProvider>
           </ThemeProvider>
         </PwaProvider>
       </body>

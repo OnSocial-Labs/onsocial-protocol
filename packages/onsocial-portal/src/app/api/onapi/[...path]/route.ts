@@ -3,6 +3,11 @@ import {
   getServerOnApiKey,
   resolveServerDataGatewayUrl,
 } from '@/lib/onsocial-server-client';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
+import {
+  portalNetworkFromEnv,
+  portalNetworkProfile,
+} from '@/lib/portal-network';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,12 +44,19 @@ function findAllowedRoute(
   );
 }
 
-function buildTargetUrl(pathSegments: string[], search: string): string {
-  // Social/data proxy uses the indexed network gateway (testnet/mainnet), not
-  // a local Revolut sandbox gateway which has no service key / profile graph.
-  const base = resolveServerDataGatewayUrl();
+async function buildTargetUrl(
+  pathSegments: string[],
+  search: string
+): Promise<string> {
+  const network = await getRequestPortalNetwork();
+  // The deployment network keeps the local-sandbox override. The other
+  // network uses its public gateway.
+  const base =
+    network === portalNetworkFromEnv()
+      ? resolveServerDataGatewayUrl()
+      : portalNetworkProfile(network).apiUrl;
   const path = pathSegments.map(encodeURIComponent).join('/');
-  return `${base}/${path}${search}`;
+  return `${base.replace(/\/$/, '')}/${path}${search}`;
 }
 
 function isSameOriginRequest(request: NextRequest): boolean {
@@ -104,7 +116,7 @@ async function proxyOnApiRequest(
     );
   }
 
-  const targetUrl = buildTargetUrl(pathSegments, request.nextUrl.search);
+  const targetUrl = await buildTargetUrl(pathSegments, request.nextUrl.search);
   const init: RequestInit = {
     method: request.method,
     headers,

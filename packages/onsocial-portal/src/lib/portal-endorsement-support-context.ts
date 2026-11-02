@@ -1,6 +1,7 @@
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import { parseLegacyEndorsementSpendTargetId } from '@onsocial/sdk';
 import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import { createRequestOnSocialClient } from '@/lib/portal-request-client';
 import { profileSearchRowToMaterialised } from '@/lib/profile-social-server';
 import { normalizeEndorsementSupportId } from '@/lib/portal-endorsement-support-total';
 
@@ -103,7 +104,7 @@ export async function loadPortalEndorsementSupportContext(input: {
     topic: input.topic,
   });
 
-  const os = createPortalServerOnSocialClient();
+  const os = await createRequestOnSocialClient();
   const summary = await os.query.socialSpend.endorsementSupportSummary(
     normalized,
     { previewLimit: 3 }

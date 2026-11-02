@@ -1,16 +1,9 @@
+import { activeContract } from '@/lib/near-rpc';
 import {
-  BOOST_CONTRACT,
-  CORE_CONTRACT,
-  REWARDS_CONTRACT,
-  SCARCES_CONTRACT,
-  SOCIAL_SPEND_CONTRACT,
-  TOKEN_CONTRACT,
-} from '@/lib/near-rpc';
-import {
-  GOVERNANCE_DAO_ACCOUNT,
-  STAKING_GOVERNANCE_DAO_ACCOUNT,
-  STAKING_TREASURY_DAO_ACCOUNT,
-  TREASURY_DAO_ACCOUNT,
+  governanceDaoAccount,
+  stakingGovernanceDaoAccount,
+  stakingTreasuryDaoAccount,
+  treasuryDaoAccount,
 } from '@/lib/portal-config';
 import { buildGovernanceApplicationFromDaoProposal } from '@/features/governance/page-utils';
 import {
@@ -24,24 +17,28 @@ import type {
   ProtocolGovernanceKind,
 } from '@/features/governance/types';
 
-const SPUTNIK_DAO_STAKING_ACCOUNTS = new Set([
-  STAKING_GOVERNANCE_DAO_ACCOUNT,
-  STAKING_TREASURY_DAO_ACCOUNT,
-  'staking-governance.onsocial.near',
-  'staking-governance.onsocial.testnet',
-  'staking-treasury.onsocial.near',
-  'staking-treasury.onsocial.testnet',
-]);
+function sputnikDaoStakingAccounts(): Set<string> {
+  return new Set([
+    stakingGovernanceDaoAccount(),
+    stakingTreasuryDaoAccount(),
+    'staking-governance.onsocial.near',
+    'staking-governance.onsocial.testnet',
+    'staking-treasury.onsocial.near',
+    'staking-treasury.onsocial.testnet',
+  ]);
+}
 
-const ALLOWED_PROTOCOL_RECEIVERS = new Set([
-  REWARDS_CONTRACT,
-  BOOST_CONTRACT,
-  CORE_CONTRACT,
-  SCARCES_CONTRACT,
-  TOKEN_CONTRACT,
-  SOCIAL_SPEND_CONTRACT,
-  GOVERNANCE_DAO_ACCOUNT,
-]);
+function allowedProtocolReceivers(): Set<string> {
+  return new Set([
+    activeContract('rewards'),
+    activeContract('boost'),
+    activeContract('core'),
+    activeContract('scarces'),
+    activeContract('token'),
+    activeContract('socialSpend'),
+    governanceDaoAccount(),
+  ]);
+}
 
 function getProposalKindName(kind: unknown): string {
   return getDaoProposalKindName(kind) ?? '';
@@ -105,7 +102,7 @@ function isStakingProposal(
   const kindName = getProposalKindName(proposal.kind);
   return (
     kindName === 'SetStakingContract' ||
-    SPUTNIK_DAO_STAKING_ACCOUNTS.has(receiverId ?? '') ||
+    sputnikDaoStakingAccounts().has(receiverId ?? '') ||
     containsStakingKeyword(methodName) ||
     containsStakingKeyword(proposal.description)
   );
@@ -117,7 +114,10 @@ export function getPartnerProposalDetails(proposal: GovernanceDaoProposal): {
 } | null {
   const { receiverId, methodName, args } = getFunctionCallShape(proposal.kind);
 
-  if (receiverId !== REWARDS_CONTRACT || methodName !== 'register_app') {
+  if (
+    receiverId !== activeContract('rewards') ||
+    methodName !== 'register_app'
+  ) {
     return null;
   }
 
@@ -187,7 +187,7 @@ function classifyProtocolProposal(
       targetAccount: stakingId,
       targetMethod: 'set_staking_contract',
       subject:
-        daoAccountId === TREASURY_DAO_ACCOUNT
+        daoAccountId === treasuryDaoAccount()
           ? 'Treasury staking'
           : 'Staking governance',
     };
@@ -212,7 +212,7 @@ function classifyProtocolProposal(
       };
     }
 
-    if (!receiverId || !ALLOWED_PROTOCOL_RECEIVERS.has(receiverId)) {
+    if (!receiverId || !allowedProtocolReceivers().has(receiverId)) {
       return {
         protocolKind: 'config',
         targetAccount: receiverId,
@@ -238,7 +238,7 @@ function classifyProtocolProposal(
       methodName === 'withdraw_infra' ||
       methodName === 'fund_season_pool_from_treasury' ||
       (methodName === 'ft_transfer_call' &&
-        receiverId === TOKEN_CONTRACT &&
+        receiverId === activeContract('token') &&
         /fund_season_pool/i.test(proposal.description))
     ) {
       protocolKind = 'treasury';
@@ -258,7 +258,7 @@ function classifyProtocolProposal(
       targetAccount: daoAccountId,
       targetMethod: 'transfer',
       subject:
-        daoAccountId === TREASURY_DAO_ACCOUNT
+        daoAccountId === treasuryDaoAccount()
           ? 'Treasury custody'
           : 'Protocol treasury',
     };
@@ -275,7 +275,7 @@ function classifyProtocolProposal(
       targetAccount: daoAccountId,
       targetMethod: kindName,
       subject:
-        daoAccountId === TREASURY_DAO_ACCOUNT
+        daoAccountId === treasuryDaoAccount()
           ? 'Treasury DAO'
           : 'Governance DAO',
     };
@@ -287,7 +287,7 @@ function classifyProtocolProposal(
       targetAccount: daoAccountId,
       targetMethod: kindName,
       subject:
-        daoAccountId === TREASURY_DAO_ACCOUNT
+        daoAccountId === treasuryDaoAccount()
           ? 'Treasury DAO'
           : 'Governance DAO',
     };
@@ -307,7 +307,7 @@ function classifyProtocolProposal(
 
 export function buildMissingGovernanceApplicationFromProposalId(
   proposalId: number,
-  daoAccountId: string = GOVERNANCE_DAO_ACCOUNT
+  daoAccountId: string = governanceDaoAccount()
 ): Application {
   const appId = `protocol-proposal-${proposalId}`;
   const description =
@@ -340,7 +340,7 @@ export function buildMissingGovernanceApplicationFromProposalId(
 
 export function shouldIncludeInGovernanceBootstrap(
   proposal: GovernanceDaoProposal,
-  daoAccountId: string = GOVERNANCE_DAO_ACCOUNT
+  daoAccountId: string = governanceDaoAccount()
 ): boolean {
   return (
     getPartnerProposalDetails(proposal) !== null ||
@@ -351,7 +351,7 @@ export function shouldIncludeInGovernanceBootstrap(
 export function resolveGovernanceBootstrapAppId(
   proposal: GovernanceDaoProposal,
   proposalId: number,
-  daoAccountId: string = GOVERNANCE_DAO_ACCOUNT
+  daoAccountId: string = governanceDaoAccount()
 ): string {
   const partnerDetails = getPartnerProposalDetails(proposal);
   if (partnerDetails?.appId) {
@@ -382,7 +382,7 @@ function resolveBootstrapScope(
 
 export function buildGovernanceApplicationsFromDaoProposals(
   proposals: GovernanceDaoProposal[],
-  daoAccountId: string = GOVERNANCE_DAO_ACCOUNT,
+  daoAccountId: string = governanceDaoAccount(),
   options?: { lastProposalId?: number | null }
 ): Application[] {
   const apps: Application[] = [];

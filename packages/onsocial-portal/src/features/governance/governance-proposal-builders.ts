@@ -18,17 +18,10 @@ import {
   type SocialSpendActionRoutingDraft,
   type SocialSpendSeasonConfigDraft,
 } from '@/lib/dao-contract-config-operations';
+import { governanceDaoAccount, treasuryDaoAccount } from '@/lib/portal-config';
 import {
-  GOVERNANCE_DAO_ACCOUNT,
-  TREASURY_DAO_ACCOUNT,
-} from '@/lib/portal-config';
-import {
-  BOOST_CONTRACT,
+  activeContract,
   isProposerThresholdWithinBounds,
-  REWARDS_CONTRACT,
-  SCARCES_CONTRACT,
-  SOCIAL_SPEND_CONTRACT,
-  TOKEN_CONTRACT,
   yoctoToNear,
   yoctoToSocial,
 } from '@/lib/near-rpc';
@@ -227,18 +220,20 @@ export const CONTRACT_UPGRADE_FUNCTION_CALL_GAS = 250_000_000_000_000;
 
 const NEAR_PUBLISHED_CODE_HASH_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/;
 
-const DAO_HASH_UPGRADABLE_CONTRACT_IDS = new Set(
-  [
-    REWARDS_CONTRACT,
-    BOOST_CONTRACT,
-    SCARCES_CONTRACT,
-    SOCIAL_SPEND_CONTRACT,
-  ].map((contractId) => contractId.toLowerCase())
-);
+function daoHashUpgradableContractIds(): Set<string> {
+  return new Set(
+    [
+      activeContract('rewards'),
+      activeContract('boost'),
+      activeContract('scarces'),
+      activeContract('socialSpend'),
+    ].map((contractId) => contractId.toLowerCase())
+  );
+}
 
 export function isDaoHashUpgradableContractId(contractId: string): boolean {
   const normalized = contractId.trim().toLowerCase();
-  return DAO_HASH_UPGRADABLE_CONTRACT_IDS.has(normalized);
+  return daoHashUpgradableContractIds().has(normalized);
 }
 
 export function normalizePublishedCodeHash(input: string): string | null {
@@ -3290,7 +3285,7 @@ export function buildDaoWithdrawBoostInfraPayload({
 
 export function buildDaoSetBoostInfraAuthorityPayload({
   contractId,
-  authorityId = TREASURY_DAO_ACCOUNT,
+  authorityId = treasuryDaoAccount(),
   description,
 }: {
   contractId: string;
@@ -3330,7 +3325,7 @@ export function buildDaoSetBoostInfraAuthorityPayload({
 }
 
 export function buildDaoFundSeasonPoolPayload({
-  tokenContractId = TOKEN_CONTRACT,
+  tokenContractId = activeContract('token'),
   contractId,
   seasonId,
   amountYocto,
@@ -3441,5 +3436,5 @@ export function buildProtocolProposalAppId(proposalId: number): string {
 }
 
 export function getDefaultDaoAccountId(): string {
-  return GOVERNANCE_DAO_ACCOUNT;
+  return governanceDaoAccount();
 }

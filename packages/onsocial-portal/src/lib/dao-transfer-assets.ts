@@ -4,9 +4,10 @@ import {
   getSpendableNearBalance,
   normalizeFtBalanceYocto,
   viewAccount,
-  viewContractAt,
+  viewContractAtOnNetwork,
 } from '@/lib/near-rpc';
-import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
+import type { PortalNearNetwork } from '@/lib/portal-network';
 import {
   NEAR_TOKEN_DISPLAY,
   resolveFtTokenIcon,
@@ -38,14 +39,14 @@ interface OnChainFtMetadata {
 
 const ACCOUNT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 
-function nearBlocksApiBase(): string {
-  return ACTIVE_NEAR_NETWORK === 'mainnet'
+function nearBlocksApiBase(network: PortalNearNetwork): string {
+  return network === 'mainnet'
     ? 'https://api.nearblocks.io'
     : 'https://api-testnet.nearblocks.io';
 }
 
-function fastNearApiBase(): string {
-  return ACTIVE_NEAR_NETWORK === 'mainnet'
+function fastNearApiBase(network: PortalNearNetwork): string {
+  return network === 'mainnet'
     ? 'https://api.fastnear.com'
     : 'https://test.api.fastnear.com';
 }
@@ -64,10 +65,11 @@ function parsePositiveBalance(value: string | undefined | null): bigint {
 }
 
 async function fetchNearBlocksInventory(
-  accountId: string
+  accountId: string,
+  network: PortalNearNetwork
 ): Promise<IndexedFtRow[]> {
   const response = await fetch(
-    `${nearBlocksApiBase()}/v1/account/${encodeURIComponent(accountId)}/inventory`,
+    `${nearBlocksApiBase(network)}/v1/account/${encodeURIComponent(accountId)}/inventory`,
     {
       next: { revalidate: 30 },
       signal: AbortSignal.timeout(6_000),
@@ -116,9 +118,12 @@ async function fetchNearBlocksInventory(
   });
 }
 
-async function fetchFastNearFtRows(accountId: string): Promise<IndexedFtRow[]> {
+async function fetchFastNearFtRows(
+  accountId: string,
+  network: PortalNearNetwork
+): Promise<IndexedFtRow[]> {
   const response = await fetch(
-    `${fastNearApiBase()}/v1/account/${encodeURIComponent(accountId)}/ft`,
+    `${fastNearApiBase(network)}/v1/account/${encodeURIComponent(accountId)}/ft`,
     {
       next: { revalidate: 30 },
       signal: AbortSignal.timeout(6_000),
@@ -152,28 +157,39 @@ async function fetchFastNearFtRows(accountId: string): Promise<IndexedFtRow[]> {
   });
 }
 
-async function fetchIndexedFtRows(accountId: string): Promise<IndexedFtRow[]> {
+async function fetchIndexedFtRows(
+  accountId: string,
+  network: PortalNearNetwork
+): Promise<IndexedFtRow[]> {
   try {
-    return await fetchNearBlocksInventory(accountId);
+    return await fetchNearBlocksInventory(accountId, network);
   } catch {
-    return fetchFastNearFtRows(accountId);
+    return fetchFastNearFtRows(accountId, network);
   }
 }
 
 async function readOnChainFtBalance(
   contractId: string,
-  accountId: string
+  accountId: string,
+  network: PortalNearNetwork
 ): Promise<bigint> {
-  const balance = await viewContractAt<unknown>(contractId, 'ft_balance_of', {
-    account_id: accountId,
-  }).catch(() => null);
+  const balance = await viewContractAtOnNetwork<unknown>(
+    network,
+    contractId,
+    'ft_balance_of',
+    {
+      account_id: accountId,
+    }
+  ).catch(() => null);
   return normalizeFtBalanceYocto(balance);
 }
 
 async function readOnChainFtMetadata(
-  contractId: string
+  contractId: string,
+  network: PortalNearNetwork
 ): Promise<FtTokenMetadata> {
-  const metadata = await viewContractAt<OnChainFtMetadata>(
+  const metadata = await viewContractAtOnNetwork<OnChainFtMetadata>(
+    network,
     contractId,
     'ft_metadata',
     {}
@@ -196,9 +212,14 @@ async function readOnChainFtMetadata(
 
 async function resolveIndexedFtAsset(
   row: IndexedFtRow,
-  accountId: string
+  accountId: string,
+  network: PortalNearNetwork
 ): Promise<DaoTransferAsset | null> {
-  const onChainBalance = await readOnChainFtBalance(row.contractId, accountId);
+  const onChainBalance = await readOnChainFtBalance(
+    row.contractId,
+    accountId,
+    network
+  );
   if (onChainBalance <= 0n) {
     return null;
   }
@@ -211,7 +232,7 @@ async function resolveIndexedFtAsset(
           icon: resolveFtTokenIcon(row.contractId, row.metadata.icon ?? null),
           decimals: row.metadata.decimals,
         }
-      : await readOnChainFtMetadata(row.contractId).catch(() => ({
+      : await readOnChainFtMetadata(row.contractId, network).catch(() => ({
           symbol: row.contractId.split('.')[0]?.toUpperCase() || 'FT',
           name: row.contractId,
           icon: null,
@@ -229,9 +250,10 @@ async function resolveIndexedFtAsset(
 }
 
 async function loadNearTransferAsset(
-  accountId: string
+  accountId: string,
+  network: PortalNearNetwork
 ): Promise<DaoTransferAsset> {
-  const nearAccount = await viewAccount(accountId);
+  const nearAccount = await viewAccount(accountId, network);
   const balanceSmallest = getSpendableNearBalance(nearAccount);
 
   return {
@@ -260,9 +282,12 @@ export async function loadDaoTransferAssets(
     throw new Error('Invalid accountId');
   }
 
+  const network = await getRequestPortalNetwork();
   const [nearAsset, indexedRows] = await Promise.all([
-    loadNearTransferAsset(normalizedAccountId),
-    fetchIndexedFtRows(normalizedAccountId).catch(() => [] as IndexedFtRow[]),
+    loadNearTransferAsset(normalizedAccountId, network),
+    fetchIndexedFtRows(normalizedAccountId, network).catch(
+      () => [] as IndexedFtRow[]
+    ),
   ]);
 
   const uniqueRows = new Map<string, IndexedFtRow>();
@@ -276,7 +301,7 @@ export async function loadDaoTransferAssets(
   const ftAssets = (
     await Promise.all(
       [...uniqueRows.values()].map((row) =>
-        resolveIndexedFtAsset(row, normalizedAccountId)
+        resolveIndexedFtAsset(row, normalizedAccountId, network)
       )
     )
   ).filter((asset): asset is DaoTransferAsset => asset != null);

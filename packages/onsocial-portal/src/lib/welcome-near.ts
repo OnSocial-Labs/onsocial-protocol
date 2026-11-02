@@ -1,9 +1,9 @@
 import type { NearWalletBase } from '@hot-labs/near-connect';
 import {
-  ACTIVE_NEAR_NETWORK,
   WELCOME_NEAR_ENABLED,
   WELCOME_NEAR_THRESHOLD_YOCTO,
 } from '@/lib/portal-config';
+import { readPortalNetwork } from '@/lib/portal-network';
 import { viewAccount } from '@/lib/near-rpc';
 
 const BALANCE_POLL_DELAYS_MS = [500, 1_000, 2_000, 3_000, 5_000] as const;
@@ -70,7 +70,7 @@ export async function assertWalletAccount(
   wallet: NearWalletBase,
   accountId: string
 ): Promise<void> {
-  const accounts = await wallet.getAccounts({ network: ACTIVE_NEAR_NETWORK });
+  const accounts = await wallet.getAccounts({ network: readPortalNetwork() });
   const accountIds = accounts.map((account) => account.accountId);
 
   if (!accountIds.includes(accountId)) {

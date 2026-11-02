@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
 import {
   loadPortalSystemStatus,
   type PortalSystemStatusPayload,
@@ -27,16 +28,17 @@ function getErrorMessage(error: unknown): string {
 }
 
 export async function GET(request: NextRequest) {
+  const network = await getRequestPortalNetwork();
   try {
     const payload = wantsFresh(request)
-      ? await loadPortalSystemStatus()
-      : await statusCache.getOrLoad('contracts', () =>
-          loadPortalSystemStatus()
+      ? await loadPortalSystemStatus(network)
+      : await statusCache.getOrLoad(network, () =>
+          loadPortalSystemStatus(network)
         );
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        'Cache-Control': 'private, no-store',
       },
     });
   } catch (error) {

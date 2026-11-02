@@ -7,7 +7,7 @@ import {
 } from '@onsocial/rpc';
 
 import { isPortalNearRpcRequestAuthorized } from '@/lib/portal-near-rpc-auth';
-import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
 import { getServerNearRpc } from '@/server/near-rpc-bff';
 
 export const runtime = 'nodejs';
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 
     const result = await handleNearJsonRpcPost(body, {
       allowedMethods: READ_ONLY_NEAR_RPC_METHOD_SET,
-      defaultNetwork: ACTIVE_NEAR_NETWORK,
+      defaultNetwork: await getRequestPortalNetwork(),
       getRpc: getServerNearRpc,
     });
 

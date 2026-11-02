@@ -1,6 +1,8 @@
-import { ACTIVE_API_URL } from '@/lib/portal-config';
+import { portalNetworkProfile, readPortalNetwork } from '@/lib/portal-network';
 
-const GATEWAY_BASE = ACTIVE_API_URL.replace(/\/$/, '');
+function gatewayBase(): string {
+  return portalNetworkProfile(readPortalNetwork()).apiUrl.replace(/\/$/, '');
+}
 
 export interface AnalyticsOverview {
   generatedAt: string;
@@ -114,7 +116,7 @@ export interface AnalyticsDrilldown {
 export async function fetchAnalyticsOverview(
   jwt: string
 ): Promise<AnalyticsOverview> {
-  const res = await fetch(`${GATEWAY_BASE}/developer/analytics/overview`, {
+  const res = await fetch(`${gatewayBase()}/developer/analytics/overview`, {
     headers: {
       Authorization: `Bearer ${jwt}`,
     },
@@ -147,7 +149,7 @@ export async function fetchAnalyticsDrilldown(
   params.set('limit', String(limit));
 
   const res = await fetch(
-    `${GATEWAY_BASE}/developer/analytics/drilldown?${params.toString()}`,
+    `${gatewayBase()}/developer/analytics/drilldown?${params.toString()}`,
     {
       headers: {
         Authorization: `Bearer ${jwt}`,

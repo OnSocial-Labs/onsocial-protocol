@@ -26,6 +26,7 @@ import {
 } from '@/features/governance/governance-proposal-builders';
 import type { GovernanceDaoRole } from '@/features/governance/types';
 import { useMemberAccountLookup } from '@/hooks/use-member-account-lookup';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { getPublicAppPageUrl } from '@/lib/portal-config';
 import { yoctoToSocial } from '@/lib/near-rpc';
 import {
@@ -88,11 +89,12 @@ function CouncilMemberAvatar({
   sizeClassName?: string;
   stackIndex?: number;
 }) {
+  const { network } = usePortalNetwork();
   const lookup = useMemberAccountLookup(accountId);
 
   return (
     <Link
-      href={getPublicAppPageUrl(accountId)}
+      href={getPublicAppPageUrl(accountId, network)}
       prefetch
       className={cn(
         'relative block shrink-0 overflow-hidden rounded-full border-2 border-background bg-muted/30 shadow-none transition-opacity hover:opacity-90',

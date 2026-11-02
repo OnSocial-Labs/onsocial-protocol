@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import { createRequestOnSocialClient } from '@/lib/portal-request-client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     request.nextUrl.searchParams.get('includeClosed') === 'true';
 
   try {
-    const os = createPortalServerOnSocialClient();
+    const os = await createRequestOnSocialClient();
     const jobs = await os.query.jobs.forAccount(accountId, { includeClosed });
     return NextResponse.json(
       { jobs },

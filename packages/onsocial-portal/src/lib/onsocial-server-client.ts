@@ -1,6 +1,11 @@
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
 import type { PortalOnSocialConfig } from '@/lib/onsocial-client';
 import { ACTIVE_API_URL, ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
+import {
+  portalNetworkFromEnv,
+  portalNetworkProfile,
+  type PortalNearNetwork,
+} from '@/lib/portal-network';
 
 /** Canonical server env (from GSM `ONSOCIAL_SERVICE_ONAPI_KEY`). */
 const SERVER_ONAPI_ENV = 'ONSOCIAL_API_KEY';
@@ -81,9 +86,19 @@ export function createPortalServerOnSocialClient(
     );
   }
 
+  const network = (config.network ??
+    portalNetworkFromEnv()) as PortalNearNetwork;
+  const profile = portalNetworkProfile(network);
+  const gatewayUrl =
+    config.gatewayUrl ??
+    (network === ACTIVE_NEAR_NETWORK
+      ? resolveServerDataGatewayUrl()
+      : profile.apiUrl);
+
   return createPortalOnSocialClient({
     ...config,
-    gatewayUrl: config.gatewayUrl ?? resolveServerDataGatewayUrl(),
+    network,
+    gatewayUrl,
     apiKey,
     fetch: config.fetch ?? noStoreFetch,
   });

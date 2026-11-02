@@ -1,19 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { viewContractAtOnNetwork } from '@/lib/near-rpc';
 import { resolveFtTokenIcon } from '@/lib/token-metadata';
 import type { PortalAccent } from '@/lib/portal-colors';
 import {
-  LIVE_ALLOCATION_ACCOUNTS,
   MARKET_LIQUIDITY_POOLS,
   RHEA_CONTRACT,
   RHEA_SOCIAL_TOKEN,
-  TRANSPARENCY_API_URL,
-  TRANSPARENCY_BOOST_CONTRACT,
-  TRANSPARENCY_NETWORK,
-  TRANSPARENCY_REWARDS_CONTRACT,
-  TRANSPARENCY_TOKEN_CONTRACT,
 } from '@/features/transparency/transparency-constants';
 import {
   formatPercent,
@@ -66,6 +61,37 @@ export interface TransparencyLiquidityPool {
 }
 
 export function useTransparencyData() {
+  const { profile } = usePortalNetwork();
+  const network = profile.network;
+  const tokenContract = profile.contracts.token;
+  const rewardsContract = profile.contracts.rewards;
+  const boostContract = profile.contracts.boost;
+  const apiUrl = profile.apiUrl;
+  const allocationAccounts = useMemo(
+    () => [
+      {
+        label: 'Reward Pool',
+        account: profile.contracts.rewards,
+        accent: 'purple' as const,
+      },
+      {
+        label: 'Treasury',
+        account: profile.contracts.treasury,
+        accent: 'blue' as const,
+      },
+      {
+        label: 'Influence Pool',
+        account: profile.contracts.boost,
+        accent: 'green' as const,
+      },
+      {
+        label: 'Founder Vesting',
+        account: profile.contracts.vesting,
+        accent: 'gold' as const,
+      },
+    ],
+    [profile]
+  );
   const [tokenIconSrc, setTokenIconSrc] = useState<string | null>(null);
   const [tokenSymbol, setTokenSymbol] = useState('SOCIAL');
   const [holderCount, setHolderCount] = useState<number | null>(null);
@@ -92,15 +118,15 @@ export function useTransparencyData() {
     TransparencyLiquidityPool[]
   >([]);
   const [marketLiquidityLoaded, setMarketLiquidityLoaded] = useState(
-    TRANSPARENCY_NETWORK !== 'mainnet'
+    network !== 'mainnet'
   );
   const [totalLockedYocto, setTotalLockedYocto] = useState('0');
   const [boostStatsLoaded, setBoostStatsLoaded] = useState(false);
 
   useEffect(() => {
     viewContractAtOnNetwork<TokenMetadataView>(
-      TRANSPARENCY_NETWORK,
-      TRANSPARENCY_TOKEN_CONTRACT,
+      network,
+      tokenContract,
       'ft_metadata',
       {}
     )
@@ -115,8 +141,8 @@ export function useTransparencyData() {
       .catch(() => {});
 
     viewContractAtOnNetwork<string>(
-      TRANSPARENCY_NETWORK,
-      TRANSPARENCY_TOKEN_CONTRACT,
+      network,
+      tokenContract,
       'ft_total_supply',
       {}
     )
@@ -134,7 +160,7 @@ export function useTransparencyData() {
       .catch(() => {})
       .finally(() => setSupplyLoaded(true));
 
-    fetch(`${TRANSPARENCY_API_URL}/graph/token-stats`, {
+    fetch(`${apiUrl}/graph/token-stats`, {
       signal: AbortSignal.timeout(5000),
     })
       .then(async (response) => {
@@ -152,14 +178,14 @@ export function useTransparencyData() {
       .finally(() => setHolderCountLoaded(true));
 
     Promise.all(
-      LIVE_ALLOCATION_ACCOUNTS.map(async ({ account }) => {
-        if (account === TRANSPARENCY_REWARDS_CONTRACT) {
+      allocationAccounts.map(async ({ account }) => {
+        if (account === rewardsContract) {
           return [account, null] as const;
         }
 
         const balance = await viewContractAtOnNetwork<string>(
-          TRANSPARENCY_NETWORK,
-          TRANSPARENCY_TOKEN_CONTRACT,
+          network,
+          tokenContract,
           'ft_balance_of',
           { account_id: account }
         ).catch(() => null);
@@ -174,8 +200,8 @@ export function useTransparencyData() {
       .finally(() => setLiveAccountBalancesLoaded(true));
 
     viewContractAtOnNetwork<RewardsContractInfoView>(
-      TRANSPARENCY_NETWORK,
-      TRANSPARENCY_REWARDS_CONTRACT,
+      network,
+      rewardsContract,
       'get_contract_info',
       {}
     )
@@ -188,8 +214,8 @@ export function useTransparencyData() {
       .finally(() => setRewardsPoolBalanceLoaded(true));
 
     viewContractAtOnNetwork<BoostStatsView>(
-      TRANSPARENCY_NETWORK,
-      TRANSPARENCY_BOOST_CONTRACT,
+      network,
+      boostContract,
       'get_stats',
       {}
     )
@@ -201,7 +227,7 @@ export function useTransparencyData() {
       .catch(() => {})
       .finally(() => setBoostStatsLoaded(true));
 
-    if (TRANSPARENCY_NETWORK === 'mainnet') {
+    if (network === 'mainnet') {
       Promise.all(
         MARKET_LIQUIDITY_POOLS.map(async ({ href, poolId, label }) => {
           const pool = await viewContractAtOnNetwork<RefPoolView>(
@@ -270,15 +296,22 @@ export function useTransparencyData() {
         .catch(() => {})
         .finally(() => setMarketLiquidityLoaded(true));
     }
-  }, []);
+  }, [
+    allocationAccounts,
+    apiUrl,
+    boostContract,
+    network,
+    rewardsContract,
+    tokenContract,
+  ]);
 
   const getTrackedBalance = (account: string): bigint | null =>
-    account === TRANSPARENCY_REWARDS_CONTRACT
+    account === rewardsContract
       ? rewardsPoolBalance
       : (liveAccountBalances[account] ?? null);
 
   const liveDistribution = useMemo((): TransparencyDistributionEntry[] => {
-    return LIVE_ALLOCATION_ACCOUNTS.map((item) => {
+    return allocationAccounts.map((item) => {
       const balance = getTrackedBalance(item.account);
       const pctOfSupply =
         balance !== null &&
@@ -301,15 +334,26 @@ export function useTransparencyData() {
         pctOfSupply,
       };
     });
-  }, [currentSupplyYocto, liveAccountBalances, rewardsPoolBalance]);
+  }, [
+    allocationAccounts,
+    currentSupplyYocto,
+    liveAccountBalances,
+    rewardsContract,
+    rewardsPoolBalance,
+  ]);
 
   const liveTrackedTotal = useMemo(
     () =>
-      LIVE_ALLOCATION_ACCOUNTS.reduce((total, item) => {
+      allocationAccounts.reduce((total, item) => {
         const balance = getTrackedBalance(item.account);
         return total + (balance ?? 0n);
       }, 0n),
-    [liveAccountBalances, rewardsPoolBalance]
+    [
+      allocationAccounts,
+      liveAccountBalances,
+      rewardsContract,
+      rewardsPoolBalance,
+    ]
   );
 
   const untrackedBalance =

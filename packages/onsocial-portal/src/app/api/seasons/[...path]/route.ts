@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ACTIVE_BACKEND_URL } from '@/lib/portal-config';
+import {
+  getRequestBackendUrl,
+  getRequestPortalNetwork,
+} from '@/lib/portal-network-request';
 import { loadPortalProfileShells } from '@/lib/portal-profile-server';
 import { lookupSeasonClaimTxHash } from '@/lib/season-claim-tx-lookup';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const SEASONS_BACKEND_URL = process.env.BACKEND_URL ?? ACTIVE_BACKEND_URL;
 const FORWARDED_RESPONSE_HEADERS = ['content-type', 'cache-control'] as const;
 
 interface SeasonStandingRecord {
@@ -22,8 +24,11 @@ interface SeasonStandingsPayload {
   [key: string]: unknown;
 }
 
-function buildTargetUrl(pathSegments: string[], search: string): string {
-  const trimmedBase = SEASONS_BACKEND_URL.replace(/\/$/, '');
+async function buildTargetUrl(
+  pathSegments: string[],
+  search: string
+): Promise<string> {
+  const trimmedBase = await getRequestBackendUrl();
   const encodedPath = pathSegments.map(encodeURIComponent).join('/');
   return `${trimmedBase}/v1/seasons/${encodedPath}${search}`;
 }
@@ -78,7 +83,8 @@ async function enrichStandingsPayload(
   if (standings.length === 0) return data;
 
   const shells = await loadPortalProfileShells(
-    standings.map((standing) => standing.accountId)
+    standings.map((standing) => standing.accountId),
+    await getRequestPortalNetwork()
   );
 
   return {
@@ -100,7 +106,7 @@ export async function GET(
   context: { params: Promise<{ path: string[] }> }
 ) {
   const { path } = await context.params;
-  const targetUrl = buildTargetUrl(path, request.nextUrl.search);
+  const targetUrl = await buildTargetUrl(path, request.nextUrl.search);
 
   try {
     const res = await fetch(targetUrl, { cache: 'no-store' });
