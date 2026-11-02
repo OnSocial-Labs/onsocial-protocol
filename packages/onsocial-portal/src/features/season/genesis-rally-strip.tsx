@@ -49,6 +49,7 @@ import {
 } from '@/lib/rally-join-copy';
 import { resolveRallyHeroTimingMeta } from '@/lib/rally-hero-timing';
 import { readTimestampNs } from '@/lib/relative-duration';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { ACTIVE_NEAR_NETWORK, getPublicAppRallyUrl } from '@/lib/portal-config';
 import {
   txToastError,
@@ -247,6 +248,7 @@ export function GenesisRallyStrip({
     isConnected,
     isLoading: walletLoading,
   } = useWallet();
+  const { network } = usePortalNetwork();
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
   const {
@@ -344,7 +346,7 @@ export function GenesisRallyStrip({
   );
   const promoHref =
     variant === 'promo'
-      ? getPublicAppRallyUrl(accountId, seasonId)
+      ? getPublicAppRallyUrl(accountId, seasonId, network)
       : seasonPresentation.rallyPath;
 
   const refresh = useCallback(async () => {

@@ -1,7 +1,6 @@
-import {
-  TRANSPARENCY_EXPLORER_URL,
-  TRANSPARENCY_PROTOCOL_CONTRACTS,
-} from '@/features/transparency/transparency-constants';
+'use client';
+
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { cn } from '@/lib/utils';
 
 export function TransparencyProtocolContracts({
@@ -9,13 +8,19 @@ export function TransparencyProtocolContracts({
 }: {
   className?: string;
 }) {
+  const { profile } = usePortalNetwork();
+  const contracts = [
+    { label: 'Boost', contract: profile.contracts.boost },
+    { label: 'Rewards', contract: profile.contracts.rewards },
+    { label: 'Social spend', contract: profile.contracts.socialSpend },
+  ];
   return (
     <div className={cn('px-1 text-center', className)}>
       <p className="portal-type-micro text-muted-foreground/60">
         Protocol contracts
       </p>
       <div className="mt-1.5 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1">
-        {TRANSPARENCY_PROTOCOL_CONTRACTS.map((item, index) => (
+        {contracts.map((item, index) => (
           <span
             key={item.contract}
             className="inline-flex items-center gap-1.5"
@@ -26,7 +31,7 @@ export function TransparencyProtocolContracts({
               </span>
             ) : null}
             <a
-              href={`${TRANSPARENCY_EXPLORER_URL}/address/${item.contract}`}
+              href={`${profile.explorerUrl}/address/${item.contract}`}
               target="_blank"
               rel="noopener noreferrer"
               className="portal-type-micro portal-link text-muted-foreground/80 transition-colors hover:text-foreground"

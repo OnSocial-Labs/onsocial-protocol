@@ -5,6 +5,7 @@ import {
   GovernanceAccountChip,
   GovernanceAccountChipSkeleton,
 } from '@/features/governance/governance-account-chip';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { getPublicAppPageUrl } from '@/lib/portal-config';
 import {
   resolveProposalTargetEyebrowLabel,
@@ -45,6 +46,7 @@ function GovernanceProposalTargetLine({
   targetAccountId: string | null;
   footer?: React.ReactNode;
 }) {
+  const { network } = usePortalNetwork();
   const isRoutingTarget = targetKind === 'routing';
   const routingDisplay = isRoutingTarget
     ? splitRoutingTargetDisplay(targetValue)
@@ -123,7 +125,7 @@ function GovernanceProposalTargetLine({
         {routingValue}
         {showContractAccountId && targetAccountId ? (
           <Link
-            href={getPublicAppPageUrl(targetAccountId)}
+            href={getPublicAppPageUrl(targetAccountId, network)}
             className="max-w-full truncate font-mono portal-type-caption leading-none text-muted-foreground/65 transition-opacity hover:opacity-90"
           >
             {targetAccountId}

@@ -24,6 +24,7 @@ import {
   clearPortalSocialSession,
   completePortalSessionAfterConnect,
   finishPortalSessionLogin,
+  PORTAL_WALLET_ACCOUNT_STORAGE_KEY,
   portalSessionConnectOptions,
   restorePortalSocialSession,
   resolvePortalSessionPlan,
@@ -37,8 +38,6 @@ import {
   accountNeedsWelcomeNearFunding,
   requestWelcomeNearIfNeeded,
 } from '@/lib/welcome-near';
-
-const PORTAL_WALLET_ACCOUNT_KEY = 'onsocial.portal.wallet.accountId';
 
 // ---------------------------------------------------------------------------
 // Context types
@@ -94,7 +93,7 @@ function toTransactionFeedback(
 
 function readStoredWalletAccountId(): string | null {
   try {
-    return window.localStorage.getItem(PORTAL_WALLET_ACCOUNT_KEY);
+    return window.localStorage.getItem(PORTAL_WALLET_ACCOUNT_STORAGE_KEY);
   } catch {
     return null;
   }
@@ -103,9 +102,9 @@ function readStoredWalletAccountId(): string | null {
 function writeStoredWalletAccountId(accountId: string | null): void {
   try {
     if (accountId) {
-      window.localStorage.setItem(PORTAL_WALLET_ACCOUNT_KEY, accountId);
+      window.localStorage.setItem(PORTAL_WALLET_ACCOUNT_STORAGE_KEY, accountId);
     } else {
-      window.localStorage.removeItem(PORTAL_WALLET_ACCOUNT_KEY);
+      window.localStorage.removeItem(PORTAL_WALLET_ACCOUNT_STORAGE_KEY);
     }
   } catch {
     // Keep wallet state working even when storage is unavailable.

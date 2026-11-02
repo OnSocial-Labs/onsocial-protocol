@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
-import { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
-import { PROTOCOL_PULSE_REVALIDATE_SECONDS } from '@/lib/protocol-pulse-server';
+import { NextRequest, NextResponse } from 'next/server';
+import { parsePortalNetwork } from '@/lib/portal-network';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
+import { loadProtocolPulse } from '@/lib/protocol-pulse-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,14 +12,22 @@ function getErrorMessage(error: unknown): string {
   return 'Unknown error';
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const network =
+    parsePortalNetwork(request.nextUrl.searchParams.get('network')) ??
+    (await getRequestPortalNetwork());
   try {
-    const os = createPortalServerOnSocialClient();
-    const pulse = await os.query.stats.protocolPulse();
+    const pulse = await loadProtocolPulse(network);
+    if (!pulse) {
+      return NextResponse.json(
+        { error: 'Failed to fetch protocol pulse' },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json(pulse, {
       headers: {
-        'Cache-Control': `public, s-maxage=${PROTOCOL_PULSE_REVALIDATE_SECONDS}, stale-while-revalidate=${PROTOCOL_PULSE_REVALIDATE_SECONDS * 2}`,
+        'Cache-Control': 'private, no-store',
       },
     });
   } catch (error) {

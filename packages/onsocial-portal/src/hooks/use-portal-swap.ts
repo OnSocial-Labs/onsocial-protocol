@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { executeRefSwapTransactions } from '@/lib/execute-ref-swap';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import {
   PORTAL_SWAP_BALANCE_REFRESH_MS,
-  PORTAL_SWAP_ENABLED,
   PORTAL_SWAP_QUOTE_REFRESH_MS,
+  isPortalSwapEnabled,
   portalSwapAmountMaxDecimals,
   type PortalSwapInputKind,
 } from '@/lib/portal-swap-config';
@@ -24,6 +25,7 @@ type RunEstimateOptions = {
 };
 
 export function usePortalSwap(accountId: string | null) {
+  const swapEnabled = isPortalSwapEnabled(usePortalNetwork().network);
   const [tokenIn, setTokenIn] = useState<PortalSwapInputKind>('near');
   const [amountIn, setAmountIn] = useState('');
   const [amountOut, setAmountOut] = useState('');
@@ -78,7 +80,7 @@ export function usePortalSwap(accountId: string | null) {
   }, [applyInputBalanceForToken, nearBalance, tokenIn, usdcBalance]);
 
   const refreshBalances = useCallback(async () => {
-    if (!accountId || !PORTAL_SWAP_ENABLED) {
+    if (!accountId || !swapEnabled) {
       setInputBalance(null);
       setNearBalance(null);
       setUsdcBalance(null);
@@ -125,24 +127,24 @@ export function usePortalSwap(accountId: string | null) {
       setSocialBalance(null);
       setNeedsWnearStorage(false);
     }
-  }, [accountId, applyInputBalanceForToken]);
+  }, [accountId, applyInputBalanceForToken, swapEnabled]);
 
   useEffect(() => {
-    if (!PORTAL_SWAP_ENABLED) {
+    if (!swapEnabled) {
       setLoadingPools(false);
       return;
     }
     setLoadingPools(true);
     setError(null);
     setLoadingPools(false);
-  }, [tokenIn]);
+  }, [swapEnabled, tokenIn]);
 
   useEffect(() => {
     void refreshBalances();
   }, [refreshBalances]);
 
   useEffect(() => {
-    if (!accountId || !PORTAL_SWAP_ENABLED) return;
+    if (!accountId || !swapEnabled) return;
 
     const interval = window.setInterval(() => {
       if (!document.hidden) {
@@ -161,96 +163,99 @@ export function usePortalSwap(accountId: string | null) {
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [accountId, refreshBalances]);
+  }, [accountId, refreshBalances, swapEnabled]);
 
   const runEstimateRef = useRef<
     (options?: RunEstimateOptions) => Promise<void>
   >(async () => {});
 
-  const runEstimate = useCallback(async (options?: RunEstimateOptions) => {
-    const silent = options?.silent ?? false;
-    const requestId = ++estimateRequestRef.current;
-    let userEstimateId: number | null = null;
+  const runEstimate = useCallback(
+    async (options?: RunEstimateOptions) => {
+      const silent = options?.silent ?? false;
+      const requestId = ++estimateRequestRef.current;
+      let userEstimateId: number | null = null;
 
-    if (!PORTAL_SWAP_ENABLED) {
-      setAmountOut('');
-      setQuote(null);
-      return;
-    }
-
-    const trimmed = amountInRef.current.trim();
-    if (!trimmed || Number(trimmed) <= 0) {
-      setAmountOut('');
-      setQuote(null);
-      return;
-    }
-
-    if (silent) {
-      setRefreshingQuote(true);
-    } else {
-      userEstimateId = ++userEstimateIdRef.current;
-      setEstimating(true);
-      setError(null);
-    }
-
-    try {
-      const response = await fetch('/api/swap/estimate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
-        body: JSON.stringify({
-          kind: tokenInRef.current,
-          amountIn: trimmed,
-        }),
-      });
-      const data = (await response.json()) as {
-        success?: boolean;
-        amountOut?: string;
-        quote?: PortalSwapQuoteDetails;
-        error?: string;
-      };
-      if (requestId !== estimateRequestRef.current) return;
-      if (!response.ok || !data.success) {
-        throw new Error(data.error ?? 'Could not estimate swap.');
-      }
-      setAmountOut(data.amountOut ?? '');
-      setQuote(data.quote ?? null);
-      if (!silent) {
-        setError(null);
-      }
-      setQuoteSeq((value) => value + 1);
-    } catch (err) {
-      if (requestId !== estimateRequestRef.current) return;
-      if (!silent) {
+      if (!swapEnabled) {
         setAmountOut('');
         setQuote(null);
-        setError(
-          humanizeSwapTransactionError(
-            err instanceof Error ? err.message : 'Could not estimate swap.'
-          )
-        );
-      } else {
-        // Keep the chain alive even when a background refresh fails.
-        setQuoteSeq((value) => value + 1);
+        return;
       }
-    } finally {
+
+      const trimmed = amountInRef.current.trim();
+      if (!trimmed || Number(trimmed) <= 0) {
+        setAmountOut('');
+        setQuote(null);
+        return;
+      }
+
       if (silent) {
-        if (requestId === estimateRequestRef.current) {
-          setRefreshingQuote(false);
-        }
-      } else if (
-        userEstimateId !== null &&
-        userEstimateId === userEstimateIdRef.current
-      ) {
-        setEstimating(false);
+        setRefreshingQuote(true);
+      } else {
+        userEstimateId = ++userEstimateIdRef.current;
+        setEstimating(true);
+        setError(null);
       }
-    }
-  }, []);
+
+      try {
+        const response = await fetch('/api/swap/estimate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({
+            kind: tokenInRef.current,
+            amountIn: trimmed,
+          }),
+        });
+        const data = (await response.json()) as {
+          success?: boolean;
+          amountOut?: string;
+          quote?: PortalSwapQuoteDetails;
+          error?: string;
+        };
+        if (requestId !== estimateRequestRef.current) return;
+        if (!response.ok || !data.success) {
+          throw new Error(data.error ?? 'Could not estimate swap.');
+        }
+        setAmountOut(data.amountOut ?? '');
+        setQuote(data.quote ?? null);
+        if (!silent) {
+          setError(null);
+        }
+        setQuoteSeq((value) => value + 1);
+      } catch (err) {
+        if (requestId !== estimateRequestRef.current) return;
+        if (!silent) {
+          setAmountOut('');
+          setQuote(null);
+          setError(
+            humanizeSwapTransactionError(
+              err instanceof Error ? err.message : 'Could not estimate swap.'
+            )
+          );
+        } else {
+          // Keep the chain alive even when a background refresh fails.
+          setQuoteSeq((value) => value + 1);
+        }
+      } finally {
+        if (silent) {
+          if (requestId === estimateRequestRef.current) {
+            setRefreshingQuote(false);
+          }
+        } else if (
+          userEstimateId !== null &&
+          userEstimateId === userEstimateIdRef.current
+        ) {
+          setEstimating(false);
+        }
+      }
+    },
+    [swapEnabled]
+  );
 
   runEstimateRef.current = runEstimate;
 
   useEffect(() => {
-    if (!PORTAL_SWAP_ENABLED) {
+    if (!swapEnabled) {
       setQuoteSeq(0);
       setAmountOut('');
       setQuote(null);
@@ -283,13 +288,13 @@ export function usePortalSwap(accountId: string | null) {
     }, 400);
 
     return () => window.clearTimeout(timer);
-  }, [amountIn, tokenIn]);
+  }, [amountIn, swapEnabled, tokenIn]);
 
   useEffect(() => {
     if (quoteSeq === 0 || swapping) return;
 
     const trimmed = amountIn.trim();
-    if (!PORTAL_SWAP_ENABLED || !trimmed || Number(trimmed) <= 0) {
+    if (!swapEnabled || !trimmed || Number(trimmed) <= 0) {
       return;
     }
 
@@ -303,7 +308,7 @@ export function usePortalSwap(accountId: string | null) {
     }, PORTAL_SWAP_QUOTE_REFRESH_MS);
 
     return () => window.clearTimeout(timer);
-  }, [quoteSeq, amountIn, tokenIn, swapping]);
+  }, [quoteSeq, amountIn, swapEnabled, tokenIn, swapping]);
 
   const refreshQuote = useCallback(() => {
     setQuoteSeq(0);
@@ -336,7 +341,7 @@ export function usePortalSwap(accountId: string | null) {
     if (!accountId) {
       throw new Error('Connect wallet to continue.');
     }
-    if (!PORTAL_SWAP_ENABLED) {
+    if (!swapEnabled) {
       throw new Error('Swap is only available on mainnet.');
     }
 
@@ -370,7 +375,7 @@ export function usePortalSwap(accountId: string | null) {
       setError(message);
       throw new Error(message);
     }
-  }, [accountId, amountIn, tokenIn]);
+  }, [accountId, amountIn, swapEnabled, tokenIn]);
 
   const signPreparedSwap = useCallback(
     async (
@@ -405,7 +410,7 @@ export function usePortalSwap(accountId: string | null) {
     refreshingQuote,
     swapping,
     accountId,
-    enabled: PORTAL_SWAP_ENABLED && !loadingPools,
+    enabled: swapEnabled && !loadingPools,
   });
 
   const setMaxAmount = useCallback(() => {

@@ -2,7 +2,7 @@ import type { NearWalletBase } from '@hot-labs/near-connect';
 
 import { extractNearTransactionHashes } from '@/lib/near-rpc';
 import type { RefSwapTransaction } from '@/lib/ref-swap-types';
-import { ACTIVE_NEAR_NETWORK } from '@/lib/portal-config';
+import { readPortalNetwork } from '@/lib/portal-network';
 
 const NEAR_YOCTO = 10n ** 24n;
 
@@ -44,7 +44,7 @@ export async function executeRefSwapTransactions(
   if (mapped.length === 1) {
     const [transaction] = mapped;
     const result = await wallet.signAndSendTransaction({
-      network: ACTIVE_NEAR_NETWORK,
+      network: readPortalNetwork(),
       signerId,
       receiverId: transaction.receiverId,
       actions: transaction.actions,
@@ -53,7 +53,7 @@ export async function executeRefSwapTransactions(
   }
 
   const result = await wallet.signAndSendTransactions({
-    network: ACTIVE_NEAR_NETWORK,
+    network: readPortalNetwork(),
     signerId,
     transactions: mapped,
   });

@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Check, Copy, ExternalLink } from 'lucide-react';
 import { PortalBadge } from '@/components/ui/portal-badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { useWallet } from '@/contexts/wallet-context';
 import { formatSocialCompact } from '@/lib/leaderboard';
 import { getPublicAppBoostUrl } from '@/lib/portal-config';
@@ -15,12 +16,7 @@ import {
   TRANSPARENCY_PULSE_SUPPLY_VALUE_ROW_CLASS,
   TRANSPARENCY_PULSE_VALUE_ROW_CLASS,
 } from '@/features/transparency/transparency-page-column';
-import {
-  TRANSPARENCY_TOKEN_CONTRACT,
-  TRANSPARENCY_TOKEN_EXPLORER_URL,
-  TRANSPARENCY_TOKEN_HOLDERS_URL,
-  TRANSPARENCY_TOKEN_SPECS,
-} from '@/features/transparency/transparency-constants';
+import { TRANSPARENCY_TOKEN_SPECS } from '@/features/transparency/transparency-constants';
 import { cn } from '@/lib/utils';
 
 function PulseItem({
@@ -112,10 +108,13 @@ function TokenIdentityHeader({
   tokenSymbol: string;
   onTokenIconError?: () => void;
 }) {
+  const { profile } = usePortalNetwork();
+  const tokenContract = profile.contracts.token;
+  const tokenExplorerUrl = `${profile.explorerUrl}/token/${tokenContract}`;
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(TRANSPARENCY_TOKEN_CONTRACT);
+    await navigator.clipboard.writeText(tokenContract);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -161,7 +160,7 @@ function TokenIdentityHeader({
                 )}
               </TokenActionButton>
               <a
-                href={TRANSPARENCY_TOKEN_EXPLORER_URL}
+                href={tokenExplorerUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex h-7 w-7 items-center justify-center rounded-full border border-border/50 bg-background/50 text-muted-foreground transition-colors hover:border-border hover:bg-muted/40 hover:text-foreground"
@@ -175,10 +174,10 @@ function TokenIdentityHeader({
           <button
             type="button"
             onClick={handleCopy}
-            title={TRANSPARENCY_TOKEN_CONTRACT}
+            title={tokenContract}
             className="mt-1 w-full truncate text-left font-mono text-[11px] leading-snug text-muted-foreground transition-colors hover:text-foreground sm:text-xs sm:whitespace-normal sm:break-all"
           >
-            {TRANSPARENCY_TOKEN_CONTRACT}
+            {tokenContract}
           </button>
         </div>
       </div>
@@ -216,6 +215,9 @@ export function TransparencySupplyPulse({
   className?: string;
 }) {
   const { accountId } = useWallet();
+  const { network, profile } = usePortalNetwork();
+  const tokenExplorerUrl = `${profile.explorerUrl}/token/${profile.contracts.token}`;
+  const holdersUrl = `${tokenExplorerUrl}?tab=holders`;
   const supply = supplyDisplay ?? '—';
   const burned = burnedDisplay ?? '—';
   const holders =
@@ -240,7 +242,7 @@ export function TransparencySupplyPulse({
       <div className={TRANSPARENCY_PULSE_STATS_CLASS}>
         <PulseItem
           label="Supply"
-          href={TRANSPARENCY_TOKEN_EXPLORER_URL}
+          href={tokenExplorerUrl}
           value={supply}
           loading={supplyLoading}
           featured
@@ -249,20 +251,20 @@ export function TransparencySupplyPulse({
         <div className="mt-2 grid grid-cols-3 gap-1.5 sm:gap-2">
           <PulseItem
             label="Burned"
-            href={TRANSPARENCY_TOKEN_EXPLORER_URL}
+            href={tokenExplorerUrl}
             value={burned}
             loading={supplyLoading}
           />
           <PulseItem
             label="Locked"
-            href={getPublicAppBoostUrl(accountId)}
+            href={getPublicAppBoostUrl(accountId, network)}
             value={locked}
             loading={lockedLoading}
             external={false}
           />
           <PulseItem
             label="Holders"
-            href={TRANSPARENCY_TOKEN_HOLDERS_URL}
+            href={holdersUrl}
             value={holders}
             loading={holdersLoading}
           />

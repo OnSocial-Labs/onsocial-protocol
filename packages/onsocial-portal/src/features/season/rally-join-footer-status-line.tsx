@@ -1,3 +1,5 @@
+'use client';
+
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -20,8 +22,9 @@ import {
   type JoinSpendSplitPart,
 } from '@/lib/join-rally-routing';
 import { RALLY_JOIN_SPLIT_EYEBROW } from '@/lib/rally-join-copy';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import { getPublicAppDiscoverUrl } from '@/lib/portal-config';
-import { PORTAL_SWAP_ENABLED } from '@/lib/portal-swap-config';
+import { isPortalSwapEnabled } from '@/lib/portal-swap-config';
 import { cn } from '@/lib/utils';
 
 const JOIN_SHORTFALL_PULSE_CLASS = 'h-[1em] w-36 max-w-full';
@@ -173,7 +176,10 @@ function RallyMicroActionLink({
 }
 
 export function RallyGetSocialLink({ className }: { className?: string }) {
-  const label = PORTAL_SWAP_ENABLED ? 'Get SOCIAL' : 'How to get SOCIAL';
+  const { network } = usePortalNetwork();
+  const label = isPortalSwapEnabled(network)
+    ? 'Get SOCIAL'
+    : 'How to get SOCIAL';
 
   return (
     <RallyMicroActionLink href="/swap" label={label} className={className} />
@@ -185,6 +191,7 @@ export function RallyDiscoverProfilesLink({
 }: {
   className?: string;
 }) {
+  const { network } = usePortalNetwork();
   return (
     <Button
       asChild
@@ -193,7 +200,7 @@ export function RallyDiscoverProfilesLink({
       className={cn('min-w-[10rem] justify-center', className)}
     >
       <Link
-        href={getPublicAppDiscoverUrl()}
+        href={getPublicAppDiscoverUrl(network)}
         className="inline-flex items-center gap-1.5"
       >
         Discover profiles

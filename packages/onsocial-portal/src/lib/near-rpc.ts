@@ -9,6 +9,7 @@ import {
   type Network,
 } from '@onsocial/rpc';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
+import { readPortalNetwork } from '@/lib/portal-network';
 import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
 
 // ---------------------------------------------------------------------------
@@ -50,7 +51,6 @@ const GOVERNANCE_DELEGATION_STORAGE_BYTES_OVERHEAD = 16n;
 // Singleton — circuit breaker state persists across renders
 // ---------------------------------------------------------------------------
 
-let _rpc: NearRpc | null = null;
 const _rpcsByNetwork: Partial<Record<Network, NearRpc>> = {};
 
 function createPortalNearRpc(network: Network): NearRpc {
@@ -68,27 +68,19 @@ function createPortalNearRpc(network: Network): NearRpc {
   });
 }
 
-function getRpc(): NearRpc {
-  if (!_rpc) {
-    _rpc = createPortalNearRpc(NETWORK);
-  }
-  return _rpc;
-}
-
 function getRpcForNetwork(network: Network): NearRpc {
-  if (network === NETWORK) {
-    return getRpc();
-  }
-
   const existing = _rpcsByNetwork[network];
   if (existing) {
     return existing;
   }
 
   const rpc = createPortalNearRpc(network);
-
   _rpcsByNetwork[network] = rpc;
   return rpc;
+}
+
+function getRpc(): NearRpc {
+  return getRpcForNetwork(readPortalNetwork());
 }
 
 // ---------------------------------------------------------------------------
@@ -194,9 +186,10 @@ export function getSpendableNearBalance(
 }
 
 export async function viewAccount(
-  accountId: string
+  accountId: string,
+  network: Network = readPortalNetwork()
 ): Promise<NearAccountView | null> {
-  const rpc = getRpc();
+  const rpc = getRpcForNetwork(network);
   const res = await rpc.call<NearAccountView>('query', {
     request_type: 'view_account',
     finality: 'final',

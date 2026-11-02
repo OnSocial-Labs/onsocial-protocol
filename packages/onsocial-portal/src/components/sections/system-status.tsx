@@ -5,23 +5,21 @@ import { Globe, FileCode2 } from 'lucide-react';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { section } from '@/lib/section-styles';
-import type { PortalContractHealth } from '@/lib/portal-system-status-server';
-import { ACTIVE_API_URL } from '@/lib/portal-config';
+import type {
+  PortalContractHealth,
+  PortalServiceHealth,
+  PortalSystemStatusPayload,
+} from '@/lib/portal-system-status-server';
 import {
   deriveSystemHeadline,
   indexerLiveLabel,
-  parseLiveHealthPayload,
   rpcLiveLabel,
   systemStatusLabel,
   type PortalLiveHealth,
   type SystemStatusWord,
 } from '@/lib/system-status-headline';
 
-interface ServiceHealth {
-  name: string;
-  status: 'up' | 'down' | null;
-}
-
+type ServiceHealth = PortalServiceHealth;
 type ContractHealth = PortalContractHealth;
 
 const SERVICE_NAMES = ['Gateway', 'Graph', 'Storage', 'Relay'] as const;
@@ -112,7 +110,7 @@ function StatusRow({
 
 export function SystemStatus() {
   const [services, setServices] = useState<ServiceHealth[]>(
-    SERVICE_NAMES.map((name) => ({ name, status: null }))
+    SERVICE_NAMES.map((name) => ({ name, status: 'down' }))
   );
   const [servicesLoading, setServicesLoading] = useState(true);
   const [contracts, setContracts] = useState<ContractHealth[]>([]);
@@ -124,50 +122,14 @@ export function SystemStatus() {
     'loading' | 'ready' | 'unsupported'
   >('loading');
   const contractsRef = useRef<ContractHealth[]>([]);
-  const liveRef = useRef<PortalLiveHealth | null>(null);
-  const liveSupportedRef = useRef(true);
 
-  const checkServices = useCallback(async () => {
-    const apiUrl = ACTIVE_API_URL;
-    const paths = [
-      '/health',
-      '/graph/health',
-      '/storage/health',
-      '/relay/health',
-    ];
-
-    const results = await Promise.all(
-      paths.map(async (path, index) => {
-        try {
-          const res = await fetch(`${apiUrl}${path}`, {
-            signal: AbortSignal.timeout(5000),
-          });
-          return {
-            name: SERVICE_NAMES[index],
-            status: (res.ok ? 'up' : 'down') as 'up' | 'down',
-          };
-        } catch {
-          return {
-            name: SERVICE_NAMES[index],
-            status: 'down' as const,
-          };
-        }
-      })
-    );
-
-    setServices(results);
-    setServicesLoading(false);
-  }, []);
-
-  const checkContracts = useCallback(async () => {
+  const checkStatus = useCallback(async () => {
     try {
       const response = await fetch('/api/system/status', { cache: 'no-store' });
-      const body = (await response.json().catch(() => null)) as {
-        contracts?: ContractHealth[];
-      } | null;
-      const next = response.ok ? body?.contracts : undefined;
-
-      if (!next?.length) {
+      const body = (await response
+        .json()
+        .catch(() => null)) as PortalSystemStatusPayload | null;
+      if (!response.ok || !body?.contracts?.length) {
         if (contractsRef.current.length > 0) {
           setContractsStale(true);
         } else {
@@ -176,10 +138,20 @@ export function SystemStatus() {
         return;
       }
 
-      contractsRef.current = next;
-      setContracts(next);
+      contractsRef.current = body.contracts;
+      setContracts(body.contracts);
       setContractsStale(false);
       setContractsUnavailable(false);
+      if (body.services?.length) {
+        setServices(body.services);
+      }
+      if (!body.liveSupported) {
+        setLive(null);
+        setLivePhase('unsupported');
+      } else {
+        setLive(body.live);
+        setLivePhase('ready');
+      }
     } catch {
       if (contractsRef.current.length > 0) {
         setContractsStale(true);
@@ -187,6 +159,7 @@ export function SystemStatus() {
         setContractsUnavailable(true);
       }
     } finally {
+      setServicesLoading(false);
       setContractsLoading(false);
     }
   }, []);
@@ -194,7 +167,7 @@ export function SystemStatus() {
   useEffect(() => {
     const run = () => {
       if (document.visibilityState === 'hidden') return;
-      void checkServices();
+      void checkStatus();
     };
     const initial = window.setTimeout(run, 0);
     const interval = window.setInterval(run, 30_000);
@@ -204,89 +177,7 @@ export function SystemStatus() {
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', run);
     };
-  }, [checkServices]);
-
-  useEffect(() => {
-    const run = () => {
-      if (document.visibilityState === 'hidden') return;
-      void checkContracts();
-    };
-    const initial = window.setTimeout(run, 0);
-    const interval = window.setInterval(run, 60_000);
-    document.addEventListener('visibilitychange', run);
-    return () => {
-      window.clearTimeout(initial);
-      window.clearInterval(interval);
-      document.removeEventListener('visibilitychange', run);
-    };
-  }, [checkContracts]);
-
-  const checkLive = useCallback(async () => {
-    if (!liveSupportedRef.current) return;
-    try {
-      const response = await fetch(`${ACTIVE_API_URL}/health/live`, {
-        signal: AbortSignal.timeout(5000),
-      });
-      if (response.status === 404) {
-        liveSupportedRef.current = false;
-        liveRef.current = null;
-        setLive(null);
-        setLivePhase('unsupported');
-        return;
-      }
-      const parsed = parseLiveHealthPayload(
-        await response.json().catch(() => null)
-      );
-      if (!response.ok || !parsed) {
-        if (liveRef.current) return;
-        const failed: PortalLiveHealth = {
-          rpc: { status: 'down', ms: null },
-          indexer: {
-            status: 'down',
-            lagBlocks: null,
-            height: null,
-            updateNeeded: false,
-          },
-        };
-        liveRef.current = failed;
-        setLive(failed);
-        setLivePhase('ready');
-        return;
-      }
-      liveRef.current = parsed;
-      setLive(parsed);
-      setLivePhase('ready');
-    } catch {
-      if (!liveSupportedRef.current || liveRef.current) return;
-      const failed: PortalLiveHealth = {
-        rpc: { status: 'down', ms: null },
-        indexer: {
-          status: 'down',
-          lagBlocks: null,
-          height: null,
-          updateNeeded: false,
-        },
-      };
-      liveRef.current = failed;
-      setLive(failed);
-      setLivePhase('ready');
-    }
-  }, []);
-
-  useEffect(() => {
-    const run = () => {
-      if (document.visibilityState === 'hidden') return;
-      void checkLive();
-    };
-    const initial = window.setTimeout(run, 0);
-    const interval = window.setInterval(run, 15_000);
-    document.addEventListener('visibilitychange', run);
-    return () => {
-      window.clearTimeout(initial);
-      window.clearInterval(interval);
-      document.removeEventListener('visibilitychange', run);
-    };
-  }, [checkLive]);
+  }, [checkStatus]);
 
   const headline = deriveSystemHeadline({
     servicesLoading,

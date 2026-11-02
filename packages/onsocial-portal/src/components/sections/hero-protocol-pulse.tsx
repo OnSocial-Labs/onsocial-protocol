@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
 import Link from 'next/link';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { HeroProtocolPulseSkeleton } from '@/components/sections/hero-protocol-pulse-skeleton';
@@ -52,6 +53,7 @@ export function HeroProtocolPulse({
 }: {
   initialPulse?: ProtocolPulseSnapshot | null;
 }) {
+  const { network } = usePortalNetwork();
   const [pulse, setPulse] = useState<ProtocolPulseSnapshot | null>(
     initialPulse
   );
@@ -62,7 +64,10 @@ export function HeroProtocolPulse({
 
     async function loadPulse() {
       try {
-        const res = await fetch('/api/graph/protocol-pulse');
+        const res = await fetch(
+          `/api/graph/protocol-pulse?network=${network}`,
+          { cache: 'no-store' }
+        );
         if (!res.ok) {
           throw new Error('Failed to load protocol pulse');
         }
@@ -88,7 +93,7 @@ export function HeroProtocolPulse({
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [network]);
 
   if (!pulse) {
     return isRefreshing ? <HeroProtocolPulseSkeleton /> : null;

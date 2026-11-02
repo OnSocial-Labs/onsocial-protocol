@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { PORTAL_SWAP_ENABLED } from '@/lib/portal-swap-config';
+import { getRequestPortalNetwork } from '@/lib/portal-network-request';
+import { isPortalSwapEnabled } from '@/lib/portal-swap-config';
 import type { PortalSwapInputKind } from '@/lib/portal-swap-config';
 import { preparePortalSwapTransactions } from '@/server/ref-swap';
 
@@ -11,7 +12,7 @@ function parseKind(value: unknown): PortalSwapInputKind | null {
 }
 
 export async function POST(request: Request) {
-  if (!PORTAL_SWAP_ENABLED) {
+  if (!isPortalSwapEnabled(await getRequestPortalNetwork())) {
     return NextResponse.json(
       { success: false, error: 'Swap is only available on mainnet.' },
       { status: 403 }

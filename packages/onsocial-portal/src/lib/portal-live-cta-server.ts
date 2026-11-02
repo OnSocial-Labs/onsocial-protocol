@@ -1,11 +1,10 @@
 import { BOOST_EVENT_TYPES } from '@onsocial/sdk';
 import type { createPortalServerOnSocialClient } from '@/lib/onsocial-server-client';
+import { viewContractAtOnNetwork, type BoostStats } from '@/lib/near-rpc';
 import {
-  BOOST_CONTRACT,
-  REWARDS_CONTRACT,
-  viewContractAt,
-  type BoostStats,
-} from '@/lib/near-rpc';
+  portalNetworkProfile,
+  type PortalNearNetwork,
+} from '@/lib/portal-network';
 
 type PortalOnSocial = ReturnType<typeof createPortalServerOnSocialClient>;
 
@@ -112,9 +111,12 @@ async function loadBoostNetworkFromIndexer(
   };
 }
 
-async function loadBoostNetworkFromRpc(): Promise<LiveCtaBoostNetwork | null> {
-  const stats = await viewContractAt<BoostStats>(
-    BOOST_CONTRACT,
+async function loadBoostNetworkFromRpc(
+  network: PortalNearNetwork
+): Promise<LiveCtaBoostNetwork | null> {
+  const stats = await viewContractAtOnNetwork<BoostStats>(
+    network,
+    portalNetworkProfile(network).contracts.boost,
     'get_stats',
     {}
   );
@@ -128,7 +130,8 @@ async function loadBoostNetworkFromRpc(): Promise<LiveCtaBoostNetwork | null> {
 }
 
 async function loadBoostNetwork(
-  os: PortalOnSocial
+  os: PortalOnSocial,
+  network: PortalNearNetwork
 ): Promise<LiveCtaBoostNetwork | null> {
   try {
     const indexed = await loadBoostNetworkFromIndexer(os);
@@ -138,7 +141,7 @@ async function loadBoostNetwork(
   }
 
   try {
-    return await loadBoostNetworkFromRpc();
+    return await loadBoostNetworkFromRpc(network);
   } catch {
     return null;
   }
@@ -182,15 +185,17 @@ async function loadRewardsNetworkFromIndexer(
 }
 
 async function loadRewardsNetwork(
-  os: PortalOnSocial
+  os: PortalOnSocial,
+  network: PortalNearNetwork
 ): Promise<LiveCtaRewardsNetwork | null> {
+  const rewardsContract = portalNetworkProfile(network).contracts.rewards;
   const [indexed, contractInfo] = await Promise.all([
     loadRewardsNetworkFromIndexer(os).catch(() => null),
-    viewContractAt<{
+    viewContractAtOnNetwork<{
       pool_balance?: string;
       total_credited?: string;
       app_ids?: string[];
-    }>(REWARDS_CONTRACT, 'get_contract_info', {}).catch(() => null),
+    }>(network, rewardsContract, 'get_contract_info', {}).catch(() => null),
   ]);
 
   if (!indexed && !contractInfo) return null;
@@ -238,10 +243,14 @@ function aggregateTopRewardApp(
   return winner;
 }
 
-async function resolveAppLabel(appId: string): Promise<string> {
+async function resolveAppLabel(
+  appId: string,
+  network: PortalNearNetwork
+): Promise<string> {
   try {
-    const config = await viewContractAt<{ label?: string }>(
-      REWARDS_CONTRACT,
+    const config = await viewContractAtOnNetwork<{ label?: string }>(
+      network,
+      portalNetworkProfile(network).contracts.rewards,
       'get_app_config',
       { app_id: appId }
     );
@@ -253,17 +262,23 @@ async function resolveAppLabel(appId: string): Promise<string> {
 
 export async function loadPersonalRewards(
   os: PortalOnSocial,
-  accountId: string
+  accountId: string,
+  network: PortalNearNetwork
 ): Promise<LiveCtaPersonalRewards | null> {
   const [userState, overview, credits] = await Promise.all([
     os.query.rewards.userState(accountId).catch(() => null),
-    viewContractAt<{
+    viewContractAtOnNetwork<{
       claimable?: string;
       total_earned?: string;
       total_claimed?: string;
-    }>(REWARDS_CONTRACT, 'get_user_rewards_overview', {
-      account_id: accountId,
-    }).catch(() => null),
+    }>(
+      network,
+      portalNetworkProfile(network).contracts.rewards,
+      'get_user_rewards_overview',
+      {
+        account_id: accountId,
+      }
+    ).catch(() => null),
     os.query.rewards
       .creditsTo(accountId, { limit: 300 })
       .catch(
@@ -276,7 +291,7 @@ export async function loadPersonalRewards(
   const top = aggregateTopRewardApp(credits);
   const topRewardApp = top
     ? {
-        label: await resolveAppLabel(top.appId),
+        label: await resolveAppLabel(top.appId, network),
         totalEarned: top.totalEarned.toString(),
       }
     : null;
@@ -314,12 +329,15 @@ export async function loadPersonalBoost(
 
 export async function loadLiveCtaPayload(
   os: PortalOnSocial,
-  accountId: string | null
+  accountId: string | null,
+  network: PortalNearNetwork
 ): Promise<LiveCtaPayload> {
   const [boost, rewards, personal, personalBoost] = await Promise.all([
-    loadBoostNetwork(os),
-    loadRewardsNetwork(os),
-    accountId ? loadPersonalRewards(os, accountId) : Promise.resolve(null),
+    loadBoostNetwork(os, network),
+    loadRewardsNetwork(os, network),
+    accountId
+      ? loadPersonalRewards(os, accountId, network)
+      : Promise.resolve(null),
     accountId ? loadPersonalBoost(os, accountId) : Promise.resolve(null),
   ]);
 

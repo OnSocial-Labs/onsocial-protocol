@@ -20,7 +20,8 @@ import {
 } from '@/components/ui/floating-panel';
 import { RewardsClaimMetricRow } from '@/components/rewards-claim-metric-row';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PORTAL_SWAP_ENABLED } from '@/lib/portal-swap-config';
+import { usePortalNetwork } from '@/contexts/portal-network-context';
+import { isPortalSwapEnabled } from '@/lib/portal-swap-config';
 import { cn } from '@/lib/utils';
 
 export {
@@ -86,6 +87,7 @@ export function WalletRewardsSection({
   onOpenRules,
   onOpenAssets,
 }: WalletRewardsSectionProps) {
+  const swapEnabled = isPortalSwapEnabled(usePortalNetwork().network);
   const walletLabel = walletBalanceError
     ? '—'
     : formatSocialCompact(walletBalanceYocto.toString());
@@ -168,7 +170,7 @@ export function WalletRewardsSection({
       </div>
 
       <div className="flex shrink-0 items-center gap-0.5">
-        {PORTAL_SWAP_ENABLED ? (
+        {swapEnabled ? (
           <Link
             href="/swap"
             className={walletDropdownAccessoryButtonClass}

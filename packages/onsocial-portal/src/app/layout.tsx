@@ -8,7 +8,9 @@ import { NavVisibilityProvider } from '@/components/providers/nav-visibility-con
 import { PwaProvider } from '@/components/providers/pwa-provider';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SmoothScrollProvider } from '@/components/providers/smooth-scroll-provider';
+import { cookies } from 'next/headers';
 import { WalletProvider } from '@/contexts/wallet-context';
+import { PortalNetworkProvider } from '@/contexts/portal-network-context';
 import { GatewayAuthProvider } from '@/contexts/gateway-auth-context';
 import { ProfileProvider } from '@/contexts/profile-context';
 import { SeasonParticipationProvider } from '@/contexts/season-participation-context';
@@ -16,6 +18,10 @@ import { PortalRewardsProvider } from '@/contexts/portal-rewards-context';
 import { Navigation } from '@/components/navigation/navigation';
 import { Footer } from '@/components/footer';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
+import {
+  PORTAL_NETWORK_COOKIE,
+  resolvePortalNetwork,
+} from '@/lib/portal-network';
 import { PORTAL_ORIGIN } from '@/lib/portal-origin';
 import { ONSOCIAL_BRAND_TAGLINE } from '@onsocial/ui';
 
@@ -76,11 +82,16 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const jar = await cookies();
+  const portalNetwork = resolvePortalNetwork(
+    jar.get(PORTAL_NETWORK_COOKIE)?.value
+  );
+
   return (
     <html
       lang="en"
@@ -155,29 +166,31 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <RuntimeConfigWarnings />
-            <WalletProvider network={ACTIVE_NEAR_NETWORK}>
-              <ProfileProvider>
-                <SeasonParticipationProvider>
-                  <PortalRewardsProvider>
-                    <GatewayAuthProvider>
-                      <MobilePageProvider>
-                        <NavVisibilityProvider>
-                          <SmoothScrollProvider>
-                            <div className="flex min-h-[100dvh] flex-col">
-                              <Navigation />
-                              <main className="safe-x flex flex-1 flex-col">
-                                {children}
-                              </main>
-                              <Footer />
-                            </div>
-                          </SmoothScrollProvider>
-                        </NavVisibilityProvider>
-                      </MobilePageProvider>
-                    </GatewayAuthProvider>
-                  </PortalRewardsProvider>
-                </SeasonParticipationProvider>
-              </ProfileProvider>
-            </WalletProvider>
+            <PortalNetworkProvider network={portalNetwork}>
+              <WalletProvider network={portalNetwork}>
+                <ProfileProvider>
+                  <SeasonParticipationProvider>
+                    <PortalRewardsProvider>
+                      <GatewayAuthProvider>
+                        <MobilePageProvider>
+                          <NavVisibilityProvider>
+                            <SmoothScrollProvider>
+                              <div className="flex min-h-[100dvh] flex-col">
+                                <Navigation />
+                                <main className="safe-x flex flex-1 flex-col">
+                                  {children}
+                                </main>
+                                <Footer />
+                              </div>
+                            </SmoothScrollProvider>
+                          </NavVisibilityProvider>
+                        </MobilePageProvider>
+                      </GatewayAuthProvider>
+                    </PortalRewardsProvider>
+                  </SeasonParticipationProvider>
+                </ProfileProvider>
+              </WalletProvider>
+            </PortalNetworkProvider>
           </ThemeProvider>
         </PwaProvider>
       </body>

@@ -13,10 +13,8 @@ import {
   type GeneratedSessionKey,
   type Session,
 } from '@onsocial/sdk/advanced';
-import {
-  ACTIVE_NEAR_NETWORK,
-  NEAR_FUNCTION_CALL_KEY_DEFAULT_ALLOWANCE_YOCTO,
-} from '@/lib/portal-config';
+import { NEAR_FUNCTION_CALL_KEY_DEFAULT_ALLOWANCE_YOCTO } from '@/lib/portal-config';
+import { readPortalNetwork } from '@/lib/portal-network';
 import { viewFunctionCallAccessKey } from '@/lib/near-rpc';
 import { requestWelcomeNearIfNeeded } from '@/lib/welcome-near';
 
@@ -40,8 +38,29 @@ export function getPortalSocialSessionPath(accountId: string): string {
   return `${accountId}/`;
 }
 
+export const PORTAL_SOCIAL_SESSION_PREFIX = 'onsocial.portal.session.';
+export const PORTAL_WALLET_ACCOUNT_STORAGE_KEY =
+  'onsocial.portal.wallet.accountId';
+
 export function getPortalSocialSessionStore() {
-  return localStorageKeyStore('onsocial.portal.session.');
+  return localStorageKeyStore(PORTAL_SOCIAL_SESSION_PREFIX);
+}
+
+/** Drop the previous network's session so the next connect mints a new key. */
+export function clearStoredPortalSessions(): void {
+  if (typeof localStorage === 'undefined') return;
+  const drop: string[] = [];
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (!key) continue;
+    if (
+      key.startsWith(PORTAL_SOCIAL_SESSION_PREFIX) ||
+      key === PORTAL_WALLET_ACCOUNT_STORAGE_KEY
+    ) {
+      drop.push(key);
+    }
+  }
+  for (const key of drop) localStorage.removeItem(key);
 }
 
 function portalSessionStorageId(accountId: string): string {
@@ -63,7 +82,7 @@ function portalSessionBootstrapInput(
 ) {
   return {
     accountId,
-    network: ACTIVE_NEAR_NETWORK,
+    network: readPortalNetwork(),
     contract: 'core' as const,
     path: getPortalSocialSessionPath(accountId),
     ttlMs: PORTAL_SOCIAL_SESSION_TTL_MS,
@@ -86,7 +105,7 @@ function portalConnectAddFunctionCallKey(
 }
 
 function coreContractIdForNetwork(): string | undefined {
-  return resolveContractId(ACTIVE_NEAR_NETWORK, 'core');
+  return resolveContractId(readPortalNetwork(), 'core');
 }
 
 /** Wallet connect options that add the pending session key in the same sheet. */

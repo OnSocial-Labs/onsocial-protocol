@@ -1,3 +1,5 @@
+import { portalNetworkProfile, readPortalNetwork } from '@/lib/portal-network';
+
 export type PortalNearNetwork = 'testnet' | 'mainnet';
 
 const DEFAULT_GOVERNANCE_WALLETS =
@@ -165,15 +167,26 @@ export const PUBLIC_APP_URL =
     ? 'https://onsocial.id'
     : 'https://testnet.onsocial.id');
 
-export function getPublicAppPageUrl(accountId: string): string {
-  return `${PUBLIC_APP_URL}/@${encodeURIComponent(accountId)}`;
+function publicAppOrigin(network?: PortalNearNetwork): string {
+  return network ? portalNetworkProfile(network).appUrl : PUBLIC_APP_URL;
+}
+
+export function getPublicAppPageUrl(
+  accountId: string,
+  network?: PortalNearNetwork
+): string {
+  return `${publicAppOrigin(network)}/@${encodeURIComponent(accountId)}`;
 }
 
 /** Owner Boost sheet in the app. No account → Home with the sheet intent. */
-export function getPublicAppBoostUrl(accountId?: string | null): string {
+export function getPublicAppBoostUrl(
+  accountId?: string | null,
+  network?: PortalNearNetwork
+): string {
   const trimmed = accountId?.trim();
-  if (!trimmed) return `${PUBLIC_APP_URL}/home?sheet=boost`;
-  return `${getPublicAppPageUrl(trimmed)}?sheet=boost`;
+  const origin = publicAppOrigin(network);
+  if (!trimmed) return `${origin}/home?sheet=boost`;
+  return `${getPublicAppPageUrl(trimmed, network)}?sheet=boost`;
 }
 
 const RALLY_SEASON_ID = /^[a-z0-9][a-z0-9-]*$/i;
@@ -181,7 +194,8 @@ const RALLY_SEASON_ID = /^[a-z0-9][a-z0-9-]*$/i;
 /** Rally sheet in the app. No account → Home with the sheet intent. */
 export function getPublicAppRallyUrl(
   accountId?: string | null,
-  seasonId?: string | null
+  seasonId?: string | null,
+  network?: PortalNearNetwork
 ): string {
   const season = seasonId?.trim() ?? '';
   const seasonQuery =
@@ -189,9 +203,10 @@ export function getPublicAppRallyUrl(
       ? `&season=${encodeURIComponent(season)}`
       : '';
   const trimmed = accountId?.trim();
+  const origin = publicAppOrigin(network);
   const base = trimmed
-    ? `${getPublicAppPageUrl(trimmed)}?sheet=rally`
-    : `${PUBLIC_APP_URL}/home?sheet=rally`;
+    ? `${getPublicAppPageUrl(trimmed, network)}?sheet=rally`
+    : `${origin}/home?sheet=rally`;
   return `${base}${seasonQuery}`;
 }
 
@@ -208,13 +223,14 @@ export function normalizePublicAppStandingKind(
 
 export function getPublicAppStandingUrl(
   accountId: string,
-  kind: string
+  kind: string,
+  network?: PortalNearNetwork
 ): string {
-  return `${getPublicAppPageUrl(accountId)}/standing/${normalizePublicAppStandingKind(kind)}`;
+  return `${getPublicAppPageUrl(accountId, network)}/standing/${normalizePublicAppStandingKind(kind)}`;
 }
 
-export function getPublicAppDiscoverUrl(): string {
-  return `${PUBLIC_APP_URL}/discover`;
+export function getPublicAppDiscoverUrl(network?: PortalNearNetwork): string {
+  return `${publicAppOrigin(network)}/discover`;
 }
 
 export type PortalNetworkFilter = 'all' | 'mutual' | 'incoming' | 'outgoing';
@@ -249,5 +265,5 @@ export function syncPortalNetworkUrl(
 
 export function openPublicAppProfile(accountId: string): void {
   if (typeof window === 'undefined') return;
-  window.location.assign(getPublicAppPageUrl(accountId));
+  window.location.assign(getPublicAppPageUrl(accountId, readPortalNetwork()));
 }
