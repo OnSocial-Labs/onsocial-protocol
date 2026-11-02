@@ -260,7 +260,7 @@ test.describe('hub page', () => {
     const request = page.getByRole('button', { name: 'Request to publish' });
     await expect(request).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
     await request.click();
-    const sheet = page.getByRole('dialog', { name: 'Publish access' });
+    const sheet = page.getByRole('dialog', { name: 'Request to publish' });
     await expect(sheet).toBeVisible();
     await expect(sheet).not.toHaveClass(/glass-sheet-panel--enter/);
     await expect(
@@ -275,7 +275,7 @@ test.describe('hub page', () => {
         path: `${walkthrough}/hub-publish-access-sheet.png`,
       });
     }
-    await sheet.getByRole('button', { name: 'Close publish access' }).click();
+    await sheet.getByRole('button', { name: 'Close request to publish' }).click();
     await expect(sheet).toBeHidden();
     await expect(request).toBeVisible();
   });

@@ -208,10 +208,10 @@ export function HubPublishAccessSheet({
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      label="Publish access"
+      label="Request to publish"
       copy={subtitle}
-      closeAriaLabel="Close publish access"
-      backdropLabel="Close publish access"
+      closeAriaLabel="Close request to publish"
+      backdropLabel="Close request to publish"
       zIndex={SHEET_Z.list}
       panelClassName="hub-manage-sheet-panel hub-manage-sheet-panel--hug hub-publish-access-sheet-panel os-sheet-cap-short"
       bodyClassName="hub-manage-sheet-body"
