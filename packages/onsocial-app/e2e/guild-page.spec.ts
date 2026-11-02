@@ -443,7 +443,9 @@ test.describe('guild page', () => {
     await expect(team).toHaveAttribute('aria-selected', 'false');
     await expect(leaders).toHaveAttribute('aria-selected', 'false');
     await expect(selected).toHaveAttribute('aria-selected', 'false');
-    await expect(page.getByText('Any member can share.')).toBeVisible();
+    await expect(
+      page.getByRole('dialog', { name: 'Who can share' }).getByText('Any member can share.')
+    ).toBeVisible();
 
     await leaders.click();
     await expect(
