@@ -12,6 +12,7 @@ import {
   UserFillIcon,
   UserMinusFillIcon,
   UserPlusFillIcon,
+  ExclamationTriangleFillIcon,
   InformationCircleFillIcon,
   QuestionMarkCircleFillIcon,
   DotsCircleFillIcon,
@@ -55,6 +56,7 @@ describe('mage fill icons', () => {
     expect(typeof UserFillIcon).toBe('function');
     expect(typeof UserMinusFillIcon).toBe('function');
     expect(typeof UserPlusFillIcon).toBe('function');
+    expect(typeof ExclamationTriangleFillIcon).toBe('function');
     expect(typeof InformationCircleFillIcon).toBe('function');
     expect(typeof QuestionMarkCircleFillIcon).toBe('function');
     expect(typeof DotsCircleFillIcon).toBe('function');

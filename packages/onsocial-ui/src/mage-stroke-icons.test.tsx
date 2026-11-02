@@ -23,6 +23,7 @@ import {
   DotsVerticalIcon,
   EditIcon,
   EditPenIcon,
+  ExclamationTriangleIcon,
   ExternalLinkIcon,
   FireIcon,
   FireBIcon,
@@ -99,6 +100,7 @@ describe('mage stroke icons', () => {
     expect(typeof CopyIcon).toBe('function');
     expect(typeof EditIcon).toBe('function');
     expect(typeof EditPenIcon).toBe('function');
+    expect(typeof ExclamationTriangleIcon).toBe('function');
     expect(typeof ExternalLinkIcon).toBe('function');
     expect(typeof FireIcon).toBe('function');
     expect(typeof FireBIcon).toBe('function');

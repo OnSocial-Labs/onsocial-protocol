@@ -38820,13 +38820,6 @@ a.os-surface-row,
     height: 1.2rem;
   }
 
-  .guild-composer-tool-cw {
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    line-height: 1;
-  }
-
   .guild-composer-toolbar-end {
     display: inline-flex;
     flex: 0 0 auto;

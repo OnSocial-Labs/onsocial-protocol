@@ -26,6 +26,8 @@ import {
   MapMarkerFillIcon,
   MapMarkerIcon,
   ChevronLeftIcon,
+  ExclamationTriangleFillIcon,
+  ExclamationTriangleIcon,
   OsHugSheet,
   OsIconAction,
   OsPageSheet,
@@ -1486,7 +1488,7 @@ export function ComposerSheet({
           <ComposerToolSlot open>
             <button
               type="button"
-              className={`guild-composer-tool guild-composer-tool--cw${
+              className={`guild-composer-tool${
                 contentWarning.trim() || nsfw ? ' is-active' : ''
               }`}
               disabled={pending}
@@ -1503,9 +1505,11 @@ export function ComposerSheet({
               aria-pressed={Boolean(contentWarning.trim() || nsfw)}
               onClick={() => setLabelsOpen(true)}
             >
-              <span className="guild-composer-tool-cw" aria-hidden>
-                CW
-              </span>
+              {contentWarning.trim() || nsfw ? (
+                <ExclamationTriangleFillIcon className="guild-composer-tool-icon" />
+              ) : (
+                <ExclamationTriangleIcon className="guild-composer-tool-icon" />
+              )}
             </button>
           </ComposerToolSlot>
         </div>

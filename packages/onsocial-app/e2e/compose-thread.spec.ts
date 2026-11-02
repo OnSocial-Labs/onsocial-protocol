@@ -72,6 +72,15 @@ test.describe('compose thread', () => {
     await expect(
       postDialog.getByRole('button', { name: 'Switch to a regular post' })
     ).toHaveCount(0);
+    await expect(
+      postDialog.getByRole('button', { name: 'Add content warning' })
+    ).toBeVisible();
+
+    if (process.env.E2E_WALKTHROUGH_DIR) {
+      await page.screenshot({
+        path: `${process.env.E2E_WALKTHROUGH_DIR}/compose-post-chip.png`,
+      });
+    }
 
     await mode.getByRole('option', { name: 'Article' }).click();
     const articleDialog = page.getByRole('dialog', { name: 'New article' });
@@ -115,12 +124,6 @@ test.describe('compose thread', () => {
     await expect(
       restored.getByRole('option', { name: 'Post' })
     ).toHaveAttribute('aria-selected', 'true');
-
-    if (process.env.E2E_WALKTHROUGH_DIR) {
-      await page.screenshot({
-        path: `${process.env.E2E_WALKTHROUGH_DIR}/compose-post-chip.png`,
-      });
-    }
   });
 
   test('plus stays disabled until the last beat has text', async ({ page }) => {
