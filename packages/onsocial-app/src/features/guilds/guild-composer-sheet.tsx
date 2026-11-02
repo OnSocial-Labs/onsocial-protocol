@@ -1027,8 +1027,7 @@ export function ComposerSheet({
         row.text.length <= POST_TEXT_MAX_LENGTH &&
         (!row.articleMode || Boolean(row.articleTitle.trim()))
     );
-  const publishingArticle =
-    mode === 'post' && publishBeats.some((row) => row.articleMode);
+  const publishingArticle = mode === 'post' && articleMode;
 
   const showDestinationMenus =
     mode === 'post' &&
@@ -1775,7 +1774,7 @@ export function ComposerSheet({
       />
       <DiscardConfirmSheet
         open={articleExitConfirmOpen && open}
-        title="Switch to a regular post?"
+        title="Switch to Post?"
         body="The title will be cleared."
         discardLabel="Switch"
         keepEditingLabel="Keep article"

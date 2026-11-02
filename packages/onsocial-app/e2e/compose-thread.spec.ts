@@ -90,6 +90,9 @@ test.describe('compose thread', () => {
     await expect(
       articleDialog.getByRole('button', { name: 'Write an article' })
     ).toHaveCount(0);
+    await expect(
+      articleDialog.getByRole('button', { name: 'Publish', exact: true })
+    ).toBeDisabled();
 
     if (process.env.E2E_WALKTHROUGH_DIR) {
       await page.screenshot({
@@ -97,7 +100,13 @@ test.describe('compose thread', () => {
       });
     }
 
+    await articleDialog
+      .getByRole('textbox', { name: 'Article title' })
+      .fill('Night drive');
     await articleDialog.getByRole('option', { name: 'Post' }).click();
+    const confirm = page.getByRole('dialog', { name: 'Switch to Post?' });
+    await expect(confirm.getByText('The title will be cleared.')).toBeVisible();
+    await confirm.getByRole('button', { name: 'Switch', exact: true }).click();
     const restored = page.getByRole('dialog', { name: 'New post' });
     await expect(restored).toBeVisible();
     await expect(
