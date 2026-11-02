@@ -186,6 +186,9 @@ export function GuildAddSpaceSheet({
             zIndex={SHEET_Z.nested}
             onChange={setPostPolicy}
           />
+          <p className="guild-add-space-hint">
+            {GUILD_POST_POLICY_FORM_HINT[postPolicy]}
+          </p>
         </div>
 
         {error ? (

@@ -1913,7 +1913,7 @@ button.market-listing-title-link {
   height: 1.65rem;
   padding: 0;
   border: 0;
-  border-radius: 0;
+  border-radius: 9999px;
   background: transparent;
   color: rgb(var(--fg-rgb) / 0.72);
   -webkit-appearance: none;
@@ -1923,14 +1923,14 @@ button.market-listing-title-link {
 }
 
 .guild-hero-action-icon:hover:not(:disabled) {
-  background: transparent;
-  color: rgb(var(--fg-rgb) / 0.92);
+  background: rgb(var(--fg-rgb) / 0.06);
+  color: rgb(var(--fg-rgb) / 0.45);
   cursor: pointer;
 }
 
 .guild-hero-action-icon:focus-visible:not(:disabled) {
-  background: transparent;
-  color: rgb(var(--fg-rgb) / 0.92);
+  background: rgb(var(--fg-rgb) / 0.06);
+  color: rgb(var(--fg-rgb) / 0.45);
   cursor: pointer;
   outline: none;
   box-shadow: var(--os-focus-ring, 0 0 0 1px rgb(var(--fg-rgb) / 0.08));

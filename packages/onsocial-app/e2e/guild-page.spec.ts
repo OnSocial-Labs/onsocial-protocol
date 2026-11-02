@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
 import { seedE2eWallet } from './helpers/collection-page';
 import { COLLECTIBLES_VAULT_OWNER } from './helpers/collectibles-vault';
@@ -409,7 +409,9 @@ test.describe('guild page', () => {
     await expect(settings).toBeVisible();
   });
 
-  test('owner add-room sheet uses one share chip row', async ({ page }) => {
+  test('owner add-room sheet picks share policy from a choice drawer', async ({
+    page,
+  }) => {
     await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
     await setE2eGraphGuild(page, 'owner');
     await stubGuildPage(page, { ownerId: COLLECTIBLES_VAULT_OWNER });
@@ -426,52 +428,39 @@ test.describe('guild page', () => {
     await expect(sheet.getByText('New feed tab in this guild.')).toBeVisible();
     await expect(page.locator('.guild-add-space-segment')).toHaveCount(0);
 
-    const share = sheet.getByRole('listbox', { name: 'Who can share' });
-    const everyone = share.getByRole('option', { name: 'Everyone' });
-    const team = share.getByRole('option', { name: 'Team' });
-    const leaders = share.getByRole('option', { name: 'Leaders' });
-    const selected = share.getByRole('option', { name: 'Selected' });
+    const shareChip = sheet.getByRole('button', {
+      name: 'Who can share: Everyone here',
+    });
+    await expect(shareChip).toBeVisible();
+    await shareChip.click();
+
+    const share = page.getByRole('listbox', { name: 'Who can share' });
+    const everyone = share.getByRole('option', { name: /Everyone here/ });
+    const team = share.getByRole('option', { name: /From the team/ });
+    const leaders = share.getByRole('option', { name: /Leaders only/ });
+    const selected = share.getByRole('option', { name: /Selected members/ });
     await expect(everyone).toHaveAttribute('aria-selected', 'true');
     await expect(team).toHaveAttribute('aria-selected', 'false');
     await expect(leaders).toHaveAttribute('aria-selected', 'false');
     await expect(selected).toHaveAttribute('aria-selected', 'false');
-    await expect(sheet.getByText('Any member can share.')).toBeVisible();
-
-    await expect(share).toHaveCSS('display', 'flex');
-    await expect(share).toHaveCSS('flex-wrap', 'nowrap');
-    await expect(share).toHaveCSS('overflow-x', 'auto');
-    await expect(share).toHaveCSS(
-      'gap',
-      await rooms.evaluate((node) => getComputedStyle(node).gap)
-    );
-    expect(await chipPaint(team)).toEqual(
-      await chipPaint(rooms.getByRole('tab', { name: 'General' }))
-    );
-    const selectedRoom = await chipPaint(
-      rooms.getByRole('tab', { name: 'All' })
-    );
-    const selectedShare = await chipPaint(everyone);
-    expect(selectedShare.backgroundColor).toBe(selectedRoom.backgroundColor);
-    expect(selectedShare.color).toBe(selectedRoom.color);
-    expect(selectedShare.fontSize).toBe(selectedRoom.fontSize);
-    expect(selectedShare.padding).toBe(selectedRoom.padding);
-    await expectShareChipsInOneRow(share);
+    await expect(page.getByText('Any member can share.')).toBeVisible();
 
     await leaders.click();
-    await expect(leaders).toHaveAttribute('aria-selected', 'true');
-    await expect(everyone).toHaveAttribute('aria-selected', 'false');
+    await expect(
+      sheet.getByRole('button', { name: 'Who can share: Leaders only' })
+    ).toBeVisible();
     await expect(sheet.getByText('Admins and owner only.')).toBeVisible();
 
-    await page.setViewportSize({ width: 280, height: 700 });
-    await expectShareChipsInOneRow(share);
-    await expect
-      .poll(async () =>
-        share.evaluate((node) => node.scrollWidth - node.clientWidth)
-      )
-      .toBeGreaterThan(8);
-    await selected.scrollIntoViewIfNeeded();
-    await selected.click();
-    await expect(selected).toHaveAttribute('aria-selected', 'true');
+    await sheet
+      .getByRole('button', { name: 'Who can share: Leaders only' })
+      .click();
+    await page
+      .getByRole('listbox', { name: 'Who can share' })
+      .getByRole('option', { name: /Selected members/ })
+      .click();
+    await expect(
+      sheet.getByRole('button', { name: 'Who can share: Selected members' })
+    ).toBeVisible();
     await expect(
       sheet.getByText('Choose members next. Leaders can always share.')
     ).toBeVisible();
@@ -572,36 +561,3 @@ test.describe('guild page', () => {
     });
   });
 });
-
-async function chipPaint(chip: Locator) {
-  return chip.evaluate((node) => {
-    const style = getComputedStyle(node);
-    return {
-      backgroundColor: style.backgroundColor,
-      color: style.color,
-      fontSize: style.fontSize,
-      fontWeight: style.fontWeight,
-      letterSpacing: style.letterSpacing,
-      lineHeight: style.lineHeight,
-      padding: style.padding,
-      borderRadius: style.borderRadius,
-    };
-  });
-}
-
-async function expectShareChipsInOneRow(share: Locator) {
-  const names = ['Everyone', 'Team', 'Leaders', 'Selected'] as const;
-  const boxes = [];
-  for (const name of names) {
-    const box = await share.getByRole('option', { name }).boundingBox();
-    expect(box, name).not.toBeNull();
-    boxes.push(box!);
-  }
-  const top = boxes[0]!.y;
-  for (const box of boxes) {
-    expect(Math.abs(box!.y - top)).toBeLessThan(2);
-  }
-  for (let index = 1; index < boxes.length; index += 1) {
-    expect(boxes[index]!.x).toBeGreaterThan(boxes[index - 1]!.x);
-  }
-}
