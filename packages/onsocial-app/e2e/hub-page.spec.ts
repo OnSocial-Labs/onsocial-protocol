@@ -38,6 +38,12 @@ test.describe('hub page', () => {
     await expect(
       page.locator('.series-shop-row').filter({ hasText: 'Quiet Print' })
     ).toContainText('Bob');
+    await expect(
+      page.getByRole('button', { name: 'Request to publish' })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Hub settings' })
+    ).toHaveCount(0);
     await expect(page.locator('.app-drop-card')).toHaveCount(0);
     await expect(page.getByRole('tab', { name: /Resale/ })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Open Market' })).toHaveCount(
@@ -160,11 +166,118 @@ test.describe('hub page', () => {
       page.getByRole('link', { name: 'Collect Night Drive' })
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Hub settings' })
+      page
+        .locator('.app-page-hero')
+        .getByRole('button', { name: 'Hub settings' })
     ).toBeVisible();
+    await expect(
+      page
+        .locator('.os-app-screen-header')
+        .getByRole('button', { name: 'Hub settings' })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Request to publish' })
+    ).toHaveCount(0);
     await expect(
       page.getByText('Only hub staff can publish here.')
     ).toHaveCount(0);
+    const walkthrough = process.env.E2E_WALKTHROUGH_DIR;
+    if (walkthrough) {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expect(
+        page
+          .locator('.app-page-hero')
+          .getByRole('button', { name: 'Hub settings' })
+      ).toBeVisible();
+      await page.screenshot({
+        path: `${walkthrough}/hub-hero-staff-gear.png`,
+      });
+    }
+    await page
+      .locator('.app-page-hero')
+      .getByRole('button', { name: 'Hub settings' })
+      .click();
+    await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+  });
+
+  test('approval hub asks to publish from the hero plus', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await setE2eGraphHub(page, 'approval');
+    await stubHubPage(page, { rows: 'catalog', access: 'approval' });
+    await gotoApp(page, HUB_E2E_PATH);
+
+    const request = page.getByRole('button', { name: 'Request to publish' });
+    await expect(request).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(page.getByText('Approval', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Hub settings' })
+    ).toHaveCount(0);
+    await expect(
+      page
+        .locator('.os-app-screen-header')
+        .getByRole('button', { name: 'Request to publish' })
+    ).toHaveCount(0);
+
+    const walkthrough = process.env.E2E_WALKTHROUGH_DIR;
+    if (walkthrough) {
+      await page.screenshot({ path: `${walkthrough}/hub-hero-approval.png` });
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await expect(request).toBeVisible();
+      await page.screenshot({
+        path: `${walkthrough}/hub-hero-approval-desktop.png`,
+      });
+    }
+  });
+
+  test('signed-in visitor opens publish access from the hero plus', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await seedE2eWallet(page, 'cara.near');
+    await page.route('**/api/near/rpc', async (route) => {
+      const body = route.request().postDataJSON() as {
+        params?: { method_name?: string };
+      };
+      if (body.params?.method_name === 'get_publish_request') {
+        const bytes = Array.from(Buffer.from('null', 'utf8'));
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 'onsocial-bff',
+            result: { result: bytes },
+          }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+    await setE2eGraphHub(page, 'approval');
+    await stubHubPage(page, { rows: 'catalog', access: 'approval' });
+    await gotoApp(page, HUB_E2E_PATH);
+
+    const request = page.getByRole('button', { name: 'Request to publish' });
+    await expect(request).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await request.click();
+    const sheet = page.getByRole('dialog', { name: 'Publish access' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet).not.toHaveClass(/glass-sheet-panel--enter/);
+    await expect(
+      sheet.getByRole('button', { name: 'Request access' })
+    ).toBeVisible();
+    await expect(
+      sheet.getByPlaceholder('What would you publish here?')
+    ).toBeVisible();
+    const walkthrough = process.env.E2E_WALKTHROUGH_DIR;
+    if (walkthrough) {
+      await sheet.locator('.hub-manage-form').screenshot({
+        path: `${walkthrough}/hub-publish-access-sheet.png`,
+      });
+    }
+    await sheet.getByRole('button', { name: 'Close publish access' }).click();
+    await expect(sheet).toBeHidden();
+    await expect(request).toBeVisible();
   });
 
   test('empty hub does not offer a Market shop door', async ({ page }) => {

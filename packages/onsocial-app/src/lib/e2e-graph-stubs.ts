@@ -29,7 +29,7 @@ export const E2E_PROFILE_BANNER_CID =
 
 export type E2eGraphCatalog = 'night-roads' | 'empty';
 export type E2eGraphVault = 'default' | 'many-creators' | 'empty';
-export type E2eGraphHub = 'catalog' | 'empty' | 'held' | 'staff';
+export type E2eGraphHub = 'catalog' | 'empty' | 'held' | 'staff' | 'approval';
 export type E2eGraphGuild = 'empty' | 'missing' | 'member' | 'banned' | 'owner';
 export type E2eGraphMarket = 'shop' | 'shop-empty' | 'live-first' | 'window';
 export type E2eGraphDrop = 'default' | 'held' | 'missing';
@@ -97,7 +97,8 @@ export function parseE2eGraphCookie(
     hub === 'catalog' ||
     hub === 'empty' ||
     hub === 'held' ||
-    hub === 'staff'
+    hub === 'staff' ||
+    hub === 'approval'
   ) {
     parsed.hub = hub;
   }
@@ -545,7 +546,7 @@ export function e2eHubAppRow(hub: E2eGraphHub) {
     appId: E2E_HUB_ID,
     ownerId: hub === 'staff' ? E2E_VAULT_OWNER : E2E_HUB_OWNER,
     primarySaleBps: 250,
-    creatorAccess: 'open',
+    creatorAccess: hub === 'approval' ? 'approval' : 'open',
     metadata: JSON.stringify({
       name: E2E_HUB_TITLE,
       description: 'A stub hub for e2e.',

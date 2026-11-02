@@ -22,7 +22,9 @@ function hubFixture(opts?: {
   rows?: 'catalog' | 'empty';
   held?: boolean;
   ownerId?: string;
+  access?: 'approval';
 }): E2eGraphHub {
+  if (opts?.access === 'approval') return 'approval';
   if (opts?.held) return 'held';
   if (opts?.ownerId) return 'staff';
   return opts?.rows === 'catalog' ? 'catalog' : 'empty';
@@ -38,6 +40,8 @@ export async function stubHubPage(
     held?: boolean;
     /** Indexer owner — staff chrome when this is the seeded wallet. */
     ownerId?: string;
+    /** Approval hub — hero plus, no open-publish dock. */
+    access?: 'approval';
   }
 ): Promise<void> {
   const catalogDelayMs = opts?.catalogDelayMs ?? 0;

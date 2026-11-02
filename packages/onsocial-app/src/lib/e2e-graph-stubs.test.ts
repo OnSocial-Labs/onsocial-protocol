@@ -76,6 +76,7 @@ describe('parseE2eGraphCookie', () => {
   it('reads hub=catalog and hub=held', () => {
     expect(parseE2eGraphCookie('hub=catalog')).toEqual({ hub: 'catalog' });
     expect(parseE2eGraphCookie('hub=held')).toEqual({ hub: 'held' });
+    expect(parseE2eGraphCookie('hub=approval')).toEqual({ hub: 'approval' });
   });
 
   it('reads drop=default and drop=held', () => {

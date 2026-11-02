@@ -27,8 +27,7 @@ interface HubSettingsSheetProps {
 
 /**
  * Settings hub for hub owners / staff — look / access / people /
- * publish requests / transfer. Toolbar gear opens this instead of an
- * inline manage dump.
+ * publish requests / transfer. The hero gear opens this.
  */
 export function HubSettingsSheet({
   open,

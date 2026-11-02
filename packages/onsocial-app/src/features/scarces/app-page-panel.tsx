@@ -13,10 +13,6 @@ import { useRouter } from 'next/navigation';
 import {
   Divider,
   InformationCircleIcon,
-  OsIconAction,
-  OsSheetAction,
-  OsSheetActions,
-  SettingsIcon,
   SheetHandoffProvider,
   ipfsImgSrcSet,
 } from '@onsocial/ui';
@@ -74,6 +70,10 @@ import {
   ownedItemsInHub,
   peekHeldHubItems,
 } from '@/features/scarces/hub-page-view';
+import {
+  HubHeroActions,
+  hubHeroActionVisibility,
+} from '@/features/scarces/hub-hero-actions';
 import { HubPublishAccessSheet } from '@/features/scarces/hub-publish-access-sheet';
 import { HubPublishRequestsSheet } from '@/features/scarces/hub-publish-requests-sheet';
 import { HubSettingsSheet } from '@/features/scarces/hub-settings-sheet';
@@ -87,10 +87,7 @@ import { heldCollectionIdSet } from '@/features/scarces/series-page-view';
 import { SeriesShopGroupList } from '@/features/scarces/series-page-panel';
 import { useFeedWindow } from '@/features/home/use-feed-window';
 import { CATALOG_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
-import {
-  fetchPublishRequest,
-  fetchPublishRequests,
-} from '@/features/scarces/hub-publish-access';
+import { fetchPublishRequests } from '@/features/scarces/hub-publish-access';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
   APP_APPS_PATH,
@@ -108,7 +105,6 @@ import {
   toPortfolioHoldingPeek,
 } from '@/lib/portfolio-holdings';
 import { displayName } from '@/lib/profile-display';
-import { formatProfileCount } from '@/lib/profile-social-standings';
 
 const clientMountedSubscribe = () => () => {};
 const getClientMountedSnapshot = () => true;
@@ -137,7 +133,7 @@ export function AppPagePanel({
   initialDropsFetched?: number;
 }) {
   const router = useRouter();
-  const { accountId: viewerAccountId, isConnected } = useAppWallet();
+  const { accountId: viewerAccountId, isConnected, connect } = useAppWallet();
   const clientMounted = useSyncExternalStore(
     clientMountedSubscribe,
     getClientMountedSnapshot,
@@ -166,10 +162,6 @@ export function AppPagePanel({
   } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [publishAccessOpen, setPublishAccessOpen] = useState(false);
-  const [publishAccessRefreshKey, setPublishAccessRefreshKey] = useState(0);
-  const [myPublishStatus, setMyPublishStatus] = useState<
-    'pending' | 'blocked' | null
-  >(null);
   const [factsOpen, setFactsOpen] = useState(false);
   const [editionPick, setEditionPick] = useState<{
     title: string;
@@ -359,42 +351,26 @@ export function AppPagePanel({
     };
   }, [reviewAppId, refreshKey]);
 
-  // Dock stars only when the viewer can create drops. Request-to-publish
-  // lives opposite the hero meta (guild Join / Request pattern).
-  const canRequestPublish = Boolean(
-    app && isConnected && !canCreate && app.creatorAccess === 'approval'
-  );
+  // Dock stars only when the viewer can create drops. Approval visitors
+  // ask from the hero plus. Staff open settings from the hero gear.
+  const heroActions = hubHeroActionVisibility({
+    creatorAccess: app?.creatorAccess ?? 'open',
+    canCreate,
+    isAuthority: authority,
+    isOwner: owner,
+  });
   const createHref = `${APP_DROP_CREATE_PATH}?${MARKET_APP_PARAM}=${encodeURIComponent(appId)}`;
   const openDropCreate = useCallback(() => {
     router.push(createHref);
   }, [createHref, router]);
   const openPublishAccess = useCallback(() => {
+    if (!isConnected) {
+      void connect().catch(() => undefined);
+      return;
+    }
     setPublishAccessOpen(true);
-  }, []);
+  }, [connect, isConnected]);
   useRegisterComposeAction(canCreate ? openDropCreate : null, 'drop');
-
-  // No reset needed when ineligible — the pending pill only renders inside
-  // the `canRequestPublish` branch, and the fetch below refreshes the flag
-  // whenever eligibility returns.
-  useEffect(() => {
-    if (!canRequestPublish || !viewerAccountId || !app) return;
-    let cancelled = false;
-    void fetchPublishRequest(app.appId, viewerAccountId)
-      .then((row) => {
-        if (cancelled) return;
-        setMyPublishStatus(
-          row?.status === 'pending' || row?.status === 'blocked'
-            ? row.status
-            : null
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setMyPublishStatus(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [canRequestPublish, viewerAccountId, app, publishAccessRefreshKey]);
 
   useEffect(() => {
     if (!viewerAccountId) return;
@@ -460,10 +436,6 @@ export function AppPagePanel({
     ssrMiss,
     clientSettled: catalogSettled,
   });
-
-  const showSettingsGear =
-    authority &&
-    (owner || (app != null && hubUsesCreatorRoster(app.creatorAccess)));
 
   const loadMoreDrops = useCallback(() => {
     if (!dropsHasMore || dropsLoadingMore) return;
@@ -569,31 +541,6 @@ export function AppPagePanel({
       title={app.title}
       dockBack
       backFallbackHref={hubBackHref}
-      actions={
-        showSettingsGear ? (
-          <OsIconAction
-            className={`guild-manage-menu-trigger${
-              canReviewRequests && pendingPublishCount > 0 ? ' has-badge' : ''
-            }`}
-            ariaLabel={
-              canReviewRequests && pendingPublishCount > 0
-                ? `Hub settings, ${pendingPublishCount} publish requests`
-                : 'Hub settings'
-            }
-            onClick={() => setSettingsOpen(true)}
-          >
-            <SettingsIcon
-              className="glass-sheet-close-icon guild-manage-menu-icon"
-              aria-hidden
-            />
-            {canReviewRequests && pendingPublishCount > 0 ? (
-              <span className="guild-manage-menu-badge" aria-hidden>
-                {formatProfileCount(pendingPublishCount)}
-              </span>
-            ) : null}
-          </OsIconAction>
-        ) : undefined
-      }
       immersiveHeader
       scrollRootRef={scrollRootRef}
     >
@@ -656,8 +603,6 @@ export function AppPagePanel({
             </div>
           </header>
 
-          {/* Same anatomy as guild-hero-meta: facepile + mode, Request
-              opposite (guild Join / Request). Categories on tags row. */}
           <div className="guild-hero-meta">
             <div className="guild-hero-meta-main">
               <GuildFacepile
@@ -684,29 +629,15 @@ export function AppPagePanel({
                 </button>
               </span>
             </div>
-            {canRequestPublish ? (
-              <div className="guild-hero-membership-slot">
-                <OsSheetActions
-                  layout="row-compact"
-                  tone="frosted-primary"
-                  size="sm"
-                  borderless
-                  className="guild-hero-membership hub-hero-publish-request"
-                >
-                  <OsSheetAction
-                    type="button"
-                    className="guild-hero-action"
-                    variant="primary"
-                    ready
-                    onClick={openPublishAccess}
-                  >
-                    {myPublishStatus === 'pending'
-                      ? 'Pending'
-                      : myPublishStatus === 'blocked'
-                        ? 'Blocked'
-                        : 'Request'}
-                  </OsSheetAction>
-                </OsSheetActions>
+            {heroActions.showPublishRequest || heroActions.showSettings ? (
+              <div className="guild-hero-meta-end">
+                <HubHeroActions
+                  showPublishRequest={heroActions.showPublishRequest}
+                  showSettings={heroActions.showSettings}
+                  requestCount={canReviewRequests ? pendingPublishCount : 0}
+                  onRequestPublish={openPublishAccess}
+                  onOpenSettings={() => setSettingsOpen(true)}
+                />
               </div>
             ) : null}
           </div>
@@ -872,12 +803,11 @@ export function AppPagePanel({
         ) : null}
       </div>
 
-      {canRequestPublish ? (
+      {heroActions.showPublishRequest ? (
         <HubPublishAccessSheet
           open={publishAccessOpen}
           appId={app.appId}
           onClose={() => setPublishAccessOpen(false)}
-          onChanged={() => setPublishAccessRefreshKey((k) => k + 1)}
         />
       ) : null}
 
@@ -909,7 +839,7 @@ export function AppPagePanel({
         ) : null}
       </SheetHandoffProvider>
 
-      {showSettingsGear && settingsOpen ? (
+      {heroActions.showSettings && settingsOpen ? (
         <HubSettingsSheet
           open
           hubName={app.title}

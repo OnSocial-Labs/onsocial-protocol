@@ -8,11 +8,10 @@ const appSrc = join(dirname(fileURLToPath(import.meta.url)), '..');
 const sellHubSites = [
   'features/collectibles/collectibles-holding-row-menu.tsx',
   'features/scarces/hub-publish-requests-sheet.tsx',
-  'features/scarces/app-page-panel.tsx',
 ] as const;
 
 describe('sell / hub publish polish', () => {
-  it('uses size="sm" on Manage, Approve, and hero Request', () => {
+  it('uses size="sm" on Manage and Approve', () => {
     for (const file of sellHubSites) {
       const source = readFileSync(join(appSrc, file), 'utf8');
       expect(source).toContain('size="sm"');
@@ -30,15 +29,21 @@ describe('sell / hub publish polish', () => {
     );
   });
 
-  it('migrates hub hero Request onto OsSheetAction', () => {
-    const source = readFileSync(
+  it('asks to publish from the hero plus, beside the gear', () => {
+    const actions = readFileSync(
+      join(appSrc, 'features/scarces/hub-hero-actions.tsx'),
+      'utf8'
+    );
+    expect(actions).toContain('Request to publish');
+    expect(actions).toContain('UserPlusIcon');
+    expect(actions).toContain('guild-hero-action-icon');
+    const panel = readFileSync(
       join(appSrc, 'features/scarces/app-page-panel.tsx'),
       'utf8'
     );
-    expect(source).toContain('hub-hero-publish-request');
-    expect(source).toContain('OsSheetAction');
-    expect(source).not.toMatch(
-      /<button[\s\S]*className="hub-hero-publish-request"/
-    );
+    expect(panel).toContain('HubHeroActions');
+    expect(panel).toContain('guild-hero-meta-end');
+    expect(panel).not.toContain('hub-hero-publish-request');
+    expect(panel).not.toContain('guild-manage-menu-trigger');
   });
 });
