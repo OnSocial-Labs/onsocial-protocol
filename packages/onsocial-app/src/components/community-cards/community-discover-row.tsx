@@ -9,8 +9,13 @@ import {
 } from '@/components/community-cards/community-cover';
 import { communityMonogram } from '@/components/community-cards/community-monogram';
 
-/** Banner strip is 4.85rem wide; 128 covers 1x, 384 covers retina. */
-const DISCOVER_BANNER_SIZES = '78px';
+/**
+ * Cover crop, not the CSS width. The thumb is 4.85rem × 3.85rem and
+ * object-fit: cover fills the height of a ~3.5:1 banner, so the decode
+ * width is 3.85rem × 3.5. 384 covers 1x; 1080 covers retina.
+ */
+const DISCOVER_BANNER_WIDTHS = [384, 1080] as const;
+const DISCOVER_BANNER_SIZES = '13.5rem';
 
 export type CommunityMarkVariant = 'badge' | 'crest' | 'logo';
 
@@ -42,7 +47,7 @@ export function CommunityDiscoverRow({
 }) {
   const descriptionLine = description?.trim() || null;
   const mono = communityMonogram(title);
-  const bannerSrcSet = ipfsImgSrcSet(bannerUrl, [128, 384]);
+  const bannerSrcSet = ipfsImgSrcSet(bannerUrl, DISCOVER_BANNER_WIDTHS);
   const markSrc = markUrl ? (ipfsImgVariantUrl(markUrl, 128) ?? markUrl) : null;
 
   return (
