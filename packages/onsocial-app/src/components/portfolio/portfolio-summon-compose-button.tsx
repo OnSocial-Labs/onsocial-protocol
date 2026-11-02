@@ -1,6 +1,6 @@
 'use client';
 
-import { PenFillIcon, StarsCFillIcon } from '@onsocial/ui';
+import { FeatherFillIcon, StarsCFillIcon } from '@onsocial/ui';
 import type {
   ComposeKind,
   ComposeLauncherEntry,
@@ -49,7 +49,7 @@ export function PortfolioSummonComposeButton({
       {kind === 'drop' || kind === 'mint' ? (
         <StarsCFillIcon className="portfolio-summon-compose-icon" aria-hidden />
       ) : (
-        <PenFillIcon className="portfolio-summon-compose-icon" aria-hidden />
+        <FeatherFillIcon className="portfolio-summon-compose-icon" aria-hidden />
       )}
     </button>
   );

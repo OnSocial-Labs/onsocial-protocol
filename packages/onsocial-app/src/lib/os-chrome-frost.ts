@@ -18,3 +18,17 @@ export function osChromeFrostStyle(
     ...extras,
   };
 }
+
+/**
+ * Blur only — when fill comes from CSS (`--os-dock-fill` / mood dock tokens).
+ * Same Lightning bypass as `osChromeFrostStyle`.
+ */
+export function osBackdropFrostStyle(
+  extras?: CSSProperties
+): CSSProperties {
+  return {
+    backdropFilter: OS_CHROME_FROST_FILTER,
+    WebkitBackdropFilter: OS_CHROME_FROST_FILTER,
+    ...extras,
+  };
+}

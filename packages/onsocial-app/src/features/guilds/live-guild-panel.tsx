@@ -85,7 +85,8 @@ import { GuildFactsSheet } from '@/features/guilds/guild-facts-sheet';
 import { GuildRoomsSheet } from '@/features/guilds/guild-rooms-sheet';
 import {
   GuildHeroActions,
-  guildHeroActionVisibility,
+  guildHeroIconsForViewer,
+  guildViewerOwnsShell,
 } from '@/features/guilds/guild-hero-actions';
 import {
   canConfigureGuild,
@@ -629,21 +630,34 @@ export function LiveGuildPanel({
   const membershipHint = accountId
     ? (readGuildMembershipCache(accountId, groupId) ?? null)
     : null;
+  // Leave uses the same owner the members list badges. Hold the slot until
+  // that owner and the role view are both in, so the minus cannot paint
+  // and then be replaced by the gear.
+  const viewerIsShellOwner = guildViewerOwnsShell(accountId, config?.ownerId);
+  const shellOwnerKnown = Boolean(config?.ownerId?.trim() && accountId);
+  const rosterViewer = accountId
+    ? state.members.find((member) =>
+        guildViewerOwnsShell(accountId, member.memberId)
+      )
+    : undefined;
+  const knownMember =
+    viewerIsShellOwner ||
+    Boolean(rosterViewer) ||
+    Boolean(membershipHint?.isMember) ||
+    (viewerAccessResolved && Boolean(viewer?.isMember));
   const membershipChromePending =
     walletLoading ||
     (isConnected &&
       Boolean(accountId) &&
-      !viewerAccessResolved &&
-      membershipHint == null);
-  const effectiveIsMember = viewerAccessResolved
-    ? Boolean(viewer?.isMember)
-    : Boolean(membershipHint?.isMember);
+      knownMember &&
+      (!shellOwnerKnown || !viewerAccessResolved));
+  const effectiveIsMember = knownMember;
   const effectiveJoinPending = viewerAccessResolved
     ? joinPending
     : Boolean(membershipHint?.joinPending);
-  const effectiveIsOwner = viewerAccessResolved
-    ? Boolean(viewer?.isOwner)
-    : false;
+  const effectiveIsOwner = shellOwnerKnown
+    ? viewerIsShellOwner
+    : viewerAccessResolved && Boolean(viewer?.isOwner);
   const effectiveIsBlacklisted = viewerAccessResolved
     ? Boolean(viewer?.isBlacklisted)
     : false;
@@ -683,6 +697,10 @@ export function LiveGuildPanel({
     [refresh, setOptimisticJoinPending]
   );
 
+  const membershipReady =
+    viewerAccessResolved ||
+    (shellOwnerKnown && knownMember && !viewerIsShellOwner);
+
   const handleOwnerManage = useCallback(() => {
     openManageSheet('members');
   }, [openManageSheet]);
@@ -696,7 +714,7 @@ export function LiveGuildPanel({
   } = useGuildMembershipAction({
     groupId,
     snapshot: membershipSnapshot,
-    canMutate: Boolean(config) && viewerAccessResolved,
+    canMutate: Boolean(config) && membershipReady,
     onOwnerManage: handleOwnerManage,
     onConfirmed: handleMembershipConfirmed,
   });
@@ -706,7 +724,7 @@ export function LiveGuildPanel({
       needsStorage: needsCollaborativeStorage,
       onNeedsStorage: () => setStorageSheetOpen(true),
       requireResolvedAccess: true,
-      viewerAccessResolved,
+      viewerAccessResolved: membershipReady,
     });
 
   const openSettings = () => {
@@ -721,11 +739,12 @@ export function LiveGuildPanel({
     router.replace(guildPath(groupId), { scroll: false });
   };
 
-  const heroActions = guildHeroActionVisibility({
-    isMember: effectiveIsMember,
-    isOwner: effectiveIsOwner,
-    isAdmin: Boolean(viewer?.isAdmin),
-    hintMember: !viewerAccessResolved && Boolean(membershipHint?.isMember),
+  const heroActions = guildHeroIconsForViewer({
+    accountId,
+    ownerId: config?.ownerId,
+    isMember: knownMember,
+    chainIsOwner: Boolean(viewer?.isOwner),
+    accessResolved: viewerAccessResolved,
     canOpenSettings,
   });
 
@@ -1552,10 +1571,11 @@ export function LiveGuildPanel({
             }}
           />
         ) : null}
-        {canConfigure ? (
+        {canConfigure && config ? (
           <GuildEditSheet
             open={editSheetOpen}
             groupId={groupId}
+            initial={config}
             onClose={() => {
               setSheetHandoff(false);
               setEditSheetOpen(false);
@@ -1563,10 +1583,12 @@ export function LiveGuildPanel({
             onSaved={() => void refresh()}
           />
         ) : null}
-        {canConfigure ? (
+        {canConfigure && config ? (
           <GuildRoomsSheet
             open={roomsSheetOpen}
             groupId={groupId}
+            structure={config.structure}
+            memberDriven={config.memberDriven}
             onClose={() => {
               setSheetHandoff(false);
               setRoomsSheetOpen(false);

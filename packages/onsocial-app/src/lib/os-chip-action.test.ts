@@ -31,6 +31,8 @@ describe('os chip action', () => {
     );
     expect(source).toContain('OsSheetAction');
     expect(source).toContain('Add room');
+    expect(source).toContain('ChoiceDrawerField');
+    expect(source).toContain('osFieldBorderedClassName');
     expect(source).not.toContain('guild-primary-button');
     const css = readFileSync(join(appSrc, 'app/globals.css'), 'utf8');
     expect(css).not.toContain('.guild-primary-button');

@@ -7,6 +7,7 @@ import {
   allowlistWriterCandidates,
   guildMemberRolesFromPermissionLevel,
   patchGuildMemberRosterAction,
+  keepGuildRosterOwner,
   readGuildOwnerId,
   reconcileGuildMemberRoster,
 } from '@/features/guilds/guild-member-roster';
@@ -36,6 +37,19 @@ describe('guild member roster reconciliation', () => {
     expect(readGuildOwnerId({ owner: 'owner.testnet' })).toBe('owner.testnet');
     expect(readGuildOwnerId({ owner: '  ' })).toBeNull();
     expect(readGuildOwnerId(null)).toBeNull();
+  });
+
+  it('keeps the members-list owner when a later config read disagrees', () => {
+    expect(
+      keepGuildRosterOwner(
+        'greenghost.onsocial.testnet',
+        'test03.onsocial.testnet'
+      )
+    ).toBe('greenghost.onsocial.testnet');
+    expect(keepGuildRosterOwner(null, 'greenghost.onsocial.testnet')).toBe(
+      'greenghost.onsocial.testnet'
+    );
+    expect(keepGuildRosterOwner('  ', null)).toBeNull();
   });
 
   it('marks chain owner and clears stale owner flags', () => {

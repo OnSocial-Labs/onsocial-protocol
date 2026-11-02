@@ -149,6 +149,29 @@ describe('home feed session snapshot', () => {
     expect(peekHomeFeedSession()?.standEpoch).toBeUndefined();
   });
 
+  it('round-trips the amplify epoch when present, absent otherwise', () => {
+    writeHomeFeedSession({
+      sessionKey: HOME_FEED_SSR_SESSION_KEY,
+      posts: [row('a.near', '1')],
+      nextOffset: 24,
+      standingNetworkIds: null,
+      offsetShiftApplied: 0,
+      scrollTop: 0,
+      amplifyEpoch: 5,
+    });
+    expect(peekHomeFeedSession()?.amplifyEpoch).toBe(5);
+
+    writeHomeFeedSession({
+      sessionKey: HOME_FEED_SSR_SESSION_KEY,
+      posts: [row('a.near', '1')],
+      nextOffset: 24,
+      standingNetworkIds: null,
+      offsetShiftApplied: 0,
+      scrollTop: 0,
+    });
+    expect(peekHomeFeedSession()?.amplifyEpoch).toBeUndefined();
+  });
+
   it('round-trips block heights and drops junk entries', () => {
     writeHomeFeedSession({
       sessionKey: HOME_FEED_SSR_SESSION_KEY,
@@ -444,6 +467,22 @@ describe('shouldKeepRestoredHomeFeed', () => {
       })
     ).toBe(false);
   });
+
+  it('reloads Hot when an amplify made the snapshot stale', () => {
+    expect(
+      shouldKeepRestoredHomeFeed({
+        restoredKey: pulseHot,
+        sessionKey: pulseHot,
+        paintedKey: pulseHot,
+        restoredCount: 2,
+        paintedCount: 2,
+        reloadNonce: 0,
+        restoreReloadNonce: 0,
+        standStale: false,
+        amplifyStale: true,
+      })
+    ).toBe(false);
+  });
 });
 
 describe('home feed session wiring', () => {
@@ -499,5 +538,24 @@ describe('home feed session wiring', () => {
     expect(pageSrc).toContain('subscribeViewerStandConfirmed');
     // The single stand funnel emits the event on confirm.
     expect(standingSrc).toContain('recordViewerStandConfirmed()');
+  });
+
+  it('invalidates Hot when an amplify confirms after the snapshot', () => {
+    const libDir = dirname(fileURLToPath(import.meta.url));
+    const pageSrc = readFileSync(
+      join(libDir, '../features/home/home-feed.tsx'),
+      'utf8'
+    );
+    const engagementSrc = readFileSync(
+      join(libDir, '../hooks/use-post-engagement.ts'),
+      'utf8'
+    );
+
+    expect(pageSrc).toContain('amplifyEpoch: getViewerAmplifyEpoch()');
+    expect(pageSrc).toContain('restoredAmplifyStale');
+    expect(pageSrc).toContain('subscribeViewerAmplifyConfirmed');
+    expect(engagementSrc).toContain(
+      'recordViewerAmplifyConfirmed(post.accountId)'
+    );
   });
 });

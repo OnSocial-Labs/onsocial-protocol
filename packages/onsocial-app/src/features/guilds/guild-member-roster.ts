@@ -9,6 +9,20 @@ export function readGuildOwnerId(
   return owner || null;
 }
 
+/**
+ * Members-list owner wins. A later chain config read must not replace it,
+ * or the hero leave icon swaps to the gear.
+ */
+export function keepGuildRosterOwner(
+  rosterOwnerId: string | null | undefined,
+  incomingOwnerId: string | null | undefined
+): string | null {
+  const roster = rosterOwnerId?.trim() ?? '';
+  if (roster) return roster;
+  const incoming = incomingOwnerId?.trim() ?? '';
+  return incoming || null;
+}
+
 export function guildMemberRolesFromPermissionLevel(level: number): {
   level: number;
   isAdmin: boolean;

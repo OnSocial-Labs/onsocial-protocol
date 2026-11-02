@@ -1,23 +1,32 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { osFieldBorderedClassName, OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { useCallback, useMemo, useState } from 'react';
 import {
+  ChoiceDrawerField,
+  OsHugSheet,
+  OsSheetAction,
+  OsSheetActions,
+  OsSurfaceRow,
+  OsSurfaceRowList,
+  osFieldBorderedClassName,
+  type ActionDrawerItem,
+  type ChoiceOption,
+} from '@onsocial/ui';
+import { ActionDrawer } from '@/components/ui/action-drawer';
+import {
+  GUILD_POST_POLICY_FORM_HINT,
   GUILD_POST_POLICY_OPTIONS,
-  GUILD_SPACE_KIND_OPTIONS,
   GUILD_STRUCTURE_TEMPLATES,
   cloneGuildStructure,
   librarySpacesNotInStructure,
   mergeStructureSpaces,
   normalizeCustomSpaceInput,
-  postPolicyHint,
   postPolicyLabel,
   reorderGuildSpace,
   toggleGuildSpaceEnabled,
+  updateGuildSpacePostPolicy,
   updateGuildSpaceTitle,
   type GuildSpace,
-  type GuildSpaceAudience,
-  type GuildSpaceKind,
   type GuildSpacePostPolicy,
   type GuildStructureDocument,
 } from '@/features/guilds/guild-structure';
@@ -28,6 +37,7 @@ import {
   type DiscoveredChannelUsage,
 } from '@/features/guilds/guild-structure-discovery';
 import { OsChipAction } from '@/lib/os-chip-action';
+import { SHEET_Z } from '@/lib/sheet-z';
 
 interface GuildStructureSettingsSectionProps {
   structure: GuildStructureDocument;
@@ -36,12 +46,34 @@ interface GuildStructureSettingsSectionProps {
   discoveredChannels?: DiscoveredChannelUsage[];
 }
 
-function spaceKindLabel(kind: GuildSpaceKind): string {
-  return (
-    GUILD_SPACE_KIND_OPTIONS.find((option) => option.value === kind)?.label ??
-    kind
-  );
+const FEED_TAB_OPTIONS: ChoiceOption<'on' | 'off'>[] = [
+  {
+    value: 'on',
+    label: 'In feed',
+    description: 'Shows as a room tab',
+  },
+  {
+    value: 'off',
+    label: 'Hidden',
+    description: 'Kept in settings only',
+  },
+];
+
+const SHARE_OPTIONS: ChoiceOption<GuildSpacePostPolicy>[] =
+  GUILD_POST_POLICY_OPTIONS.map((option) => ({
+    value: option.value,
+    label: option.label,
+    description: option.hint,
+  }));
+
+function roomFeedBadge(space: GuildSpace): string {
+  return space.enabled ? 'In feed' : 'Hidden';
 }
+
+type RoomMenu =
+  | { kind: 'arrange'; spaceId: string; title: string }
+  | { kind: 'templates' }
+  | null;
 
 export function GuildStructureSettingsSection({
   structure,
@@ -50,12 +82,12 @@ export function GuildStructureSettingsSection({
   discoveredChannels = [],
 }: GuildStructureSettingsSectionProps) {
   const [customTitle, setCustomTitle] = useState('');
-  const [customKind, setCustomKind] = useState<GuildSpaceKind>('discussion');
   const [customPolicy, setCustomPolicy] =
     useState<GuildSpacePostPolicy>('members');
-  const [customAudience, setCustomAudience] =
-    useState<GuildSpaceAudience>('members');
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editClosing, setEditClosing] = useState(false);
+  const [menu, setMenu] = useState<RoomMenu>(null);
+  const [menuClosing, setMenuClosing] = useState(false);
 
   const sortedSpaces = useMemo(
     () => [...structure.spaces].sort((a, b) => a.order - b.order),
@@ -69,6 +101,10 @@ export function GuildStructureSettingsSection({
     () => structureChannelSuggestions(structure, discoveredChannels),
     [discoveredChannels, structure]
   );
+  const editingSpace = useMemo(
+    () => sortedSpaces.find((space) => space.id === editingId) ?? null,
+    [editingId, sortedSpaces]
+  );
 
   const addLibrarySpace = (template: GuildSpace) => {
     onChange(mergeStructureSpaces(structure, { ...template, enabled: true }));
@@ -77,37 +113,88 @@ export function GuildStructureSettingsSection({
   const addCustomSpace = () => {
     const space = normalizeCustomSpaceInput({
       title: customTitle,
-      kind: customKind,
+      kind: 'discussion',
       postPolicy: customPolicy,
-      audience: customAudience,
+      audience: 'members',
     });
     if (!space) return;
     if (structure.spaces.some((entry) => entry.id === space.id)) return;
     onChange(mergeStructureSpaces(structure, space));
     setCustomTitle('');
+    setEditingId(space.id);
   };
 
   const applyTemplate = (templateId: string) => {
     const template = GUILD_STRUCTURE_TEMPLATES[templateId];
     if (!template) return;
     onChange(cloneGuildStructure(template.structure));
+    setEditingId(null);
   };
 
   const enableSuggestion = (channelId: string) => {
     onChange(enableOrAddGuildSpace(structure, channelId));
   };
 
+  const closeMenu = useCallback(() => {
+    if (menuClosing) return;
+    setMenuClosing(true);
+  }, [menuClosing]);
+
+  const requestCloseEdit = useCallback(() => {
+    if (editClosing) return;
+    setEditClosing(true);
+  }, [editClosing]);
+
+  const arrangeItems = useMemo<ActionDrawerItem[]>(() => {
+    if (!menu || menu.kind !== 'arrange') return [];
+    const index = sortedSpaces.findIndex((space) => space.id === menu.spaceId);
+    return [
+      {
+        id: 'earlier',
+        label: 'Move earlier',
+        description: 'Higher in the room tabs',
+        disabled: disabled || index <= 0,
+        onSelect: () => {
+          onChange(reorderGuildSpace(structure, menu.spaceId, 'up'));
+          closeMenu();
+        },
+      },
+      {
+        id: 'later',
+        label: 'Move later',
+        description: 'Lower in the room tabs',
+        disabled: disabled || index < 0 || index >= sortedSpaces.length - 1,
+        onSelect: () => {
+          onChange(reorderGuildSpace(structure, menu.spaceId, 'down'));
+          closeMenu();
+        },
+      },
+    ];
+  }, [closeMenu, disabled, menu, onChange, sortedSpaces, structure]);
+
+  const templateItems = useMemo<ActionDrawerItem[]>(
+    () =>
+      Object.entries(GUILD_STRUCTURE_TEMPLATES).map(([id, template]) => ({
+        id,
+        label: template.label,
+        disabled,
+        onSelect: () => {
+          applyTemplate(id);
+          closeMenu();
+        },
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- template catalog is static
+    [closeMenu, disabled, onChange, structure]
+  );
+
+  const menuOpen = Boolean(menu) && !menuClosing;
+  const editOpen = Boolean(editingSpace) && !editClosing;
+  const lockedOn = Boolean(
+    editingSpace?.enabled && editingSpace.id === 'general'
+  );
+
   return (
     <section className="guild-section guild-structure-settings">
-      <div className="guild-section-head">
-        <p className="guild-eyebrow">Rooms</p>
-        <h2>Guild rooms</h2>
-        <p>
-          Name the places people share in. Each room becomes a feed tab and a
-          spot in the composer.
-        </p>
-      </div>
-
       {suggestions.length > 0 ? (
         <div className="guild-structure-discovery">
           <p className="guild-structure-subhead">Existing posts found</p>
@@ -139,164 +226,67 @@ export function GuildStructureSettingsSection({
         </div>
       ) : null}
 
-      <div className="guild-structure-add-custom guild-structure-add-primary">
-        <p className="guild-structure-subhead">Add room</p>
-        <div className="guild-structure-custom-grid">
-          <label className="guild-field">
-            <span>Name</span>
-            <input
-              value={customTitle}
-              onChange={(event) => setCustomTitle(event.target.value)}
-              placeholder="Ship room"
-              disabled={disabled}
-              maxLength={40}
-              className={osFieldBorderedClassName}
-            />
-          </label>
-          <label className="guild-field">
-            <span>Type</span>
-            <select
-              value={customKind}
-              disabled={disabled}
-              onChange={(event) =>
-                setCustomKind(event.target.value as GuildSpaceKind)
-              }
-              className={osFieldBorderedClassName}
-            >
-              {GUILD_SPACE_KIND_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="guild-field">
-            <span>Who can share here</span>
-            <select
-              value={customPolicy}
-              disabled={disabled}
-              onChange={(event) =>
-                setCustomPolicy(event.target.value as GuildSpacePostPolicy)
-              }
-              className={osFieldBorderedClassName}
-            >
-              {GUILD_POST_POLICY_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <small className="guild-structure-policy-hint">
-              {postPolicyHint(customPolicy)}
-            </small>
-          </label>
-          <label className="guild-field">
-            <span>Who sees this</span>
-            <select
-              value={customAudience}
-              disabled={disabled}
-              onChange={(event) =>
-                setCustomAudience(event.target.value as GuildSpaceAudience)
-              }
-              className={osFieldBorderedClassName}
-            >
-              <option value="members">Members</option>
-              <option value="public">Public</option>
-            </select>
-          </label>
+      <OsSurfaceRowList
+        as="div"
+        className="guild-structure-room-list"
+        aria-label="Guild rooms"
+      >
+        {sortedSpaces.map((space) => (
+          <OsSurfaceRow
+            key={space.id}
+            label={space.title}
+            description={postPolicyLabel(space.postPolicy)}
+            badge={roomFeedBadge(space)}
+            disabled={disabled}
+            onClick={() => {
+              setEditClosing(false);
+              setEditingId(space.id);
+            }}
+          />
+        ))}
+      </OsSurfaceRowList>
+
+      <div className="guild-structure-add">
+        <label className="guild-field">
+          <span>Name</span>
+          <input
+            value={customTitle}
+            onChange={(event) => setCustomTitle(event.target.value)}
+            placeholder="Shipping Room"
+            disabled={disabled}
+            maxLength={40}
+            autoComplete="off"
+            className={osFieldBorderedClassName}
+          />
+        </label>
+        <div className="guild-field">
+          <ChoiceDrawerField
+            label="Who can share"
+            value={customPolicy}
+            options={SHARE_OPTIONS}
+            disabled={disabled}
+            persistSelected
+            copy="Who may post in the new room"
+            hint={GUILD_POST_POLICY_FORM_HINT[customPolicy]}
+            zIndex={SHEET_Z.nested}
+            onChange={setCustomPolicy}
+          />
         </div>
         <OsSheetActions
           layout="row-compact"
-          tone="frosted-primary"
           size="sm"
           borderless
           className="guild-structure-add-button"
         >
           <OsSheetAction
             type="button"
-            variant="primary"
-            ready={!disabled && Boolean(customTitle.trim())}
-            disabled={disabled}
+            variant="ghost"
+            disabled={disabled || !customTitle.trim()}
             onClick={addCustomSpace}
           >
             Add room
           </OsSheetAction>
         </OsSheetActions>
-      </div>
-
-      <div className="guild-structure-space-list">
-        {sortedSpaces.map((space) => (
-          <article key={space.id} className="guild-structure-space-row">
-            <div className="guild-structure-space-copy">
-              <label className="guild-structure-space-title-field">
-                <span className="sr-only">Room name</span>
-                <input
-                  className={`${osFieldBorderedClassName} guild-structure-space-title-input`}
-                  value={space.title}
-                  disabled={disabled}
-                  maxLength={40}
-                  onChange={(event) =>
-                    onChange(
-                      updateGuildSpaceTitle(
-                        structure,
-                        space.id,
-                        event.target.value
-                      )
-                    )
-                  }
-                />
-              </label>
-              <span>
-                {postPolicyLabel(space.postPolicy)} ·{' '}
-                {spaceKindLabel(space.kind)}
-              </span>
-              <span className="guild-structure-space-hint">
-                {postPolicyHint(space.postPolicy)}
-              </span>
-            </div>
-            <div className="guild-structure-space-actions">
-              <OsChipAction
-                className="guild-structure-icon-button"
-                disabled={disabled}
-                aria-label={`Move ${space.title} up`}
-                onClick={() =>
-                  onChange(reorderGuildSpace(structure, space.id, 'up'))
-                }
-              >
-                ↑
-              </OsChipAction>
-              <OsChipAction
-                className="guild-structure-icon-button"
-                disabled={disabled}
-                aria-label={`Move ${space.title} down`}
-                onClick={() =>
-                  onChange(reorderGuildSpace(structure, space.id, 'down'))
-                }
-              >
-                ↓
-              </OsChipAction>
-              <label className="guild-structure-toggle">
-                <input
-                  type="checkbox"
-                  checked={space.enabled}
-                  disabled={
-                    disabled || (space.enabled && space.id === 'general')
-                  }
-                  onChange={(event) =>
-                    onChange(
-                      toggleGuildSpaceEnabled(
-                        structure,
-                        space.id,
-                        event.target.checked
-                      )
-                    )
-                  }
-                />
-                <span>{space.enabled ? 'On' : 'Off'}</span>
-              </label>
-            </div>
-          </article>
-        ))}
       </div>
 
       {libraryAdds.length > 0 ? (
@@ -316,41 +306,136 @@ export function GuildStructureSettingsSection({
         </div>
       ) : null}
 
-      <div className="guild-structure-advanced">
-        <OsChipAction
-          className="guild-structure-advanced-toggle"
-          disabled={disabled}
-          onClick={() => setShowAdvanced((value) => !value)}
-        >
-          {showAdvanced ? 'Hide templates' : 'Start from template'}
-        </OsChipAction>
-        {showAdvanced ? (
-          <label className="guild-field" htmlFor="guild-structure-template">
-            <span>Template</span>
-            <select
-              id="guild-structure-template"
-              defaultValue=""
-              disabled={disabled}
-              onChange={(event) => {
-                const value = event.target.value;
-                if (!value) return;
-                applyTemplate(value);
-                event.target.value = '';
-              }}
-              className={osFieldBorderedClassName}
-            >
-              <option value="">Choose template…</option>
-              {Object.entries(GUILD_STRUCTURE_TEMPLATES).map(
-                ([id, template]) => (
-                  <option key={id} value={id}>
-                    {template.label}
-                  </option>
-                )
-              )}
-            </select>
-          </label>
+      <OsChipAction
+        className="guild-structure-advanced-toggle"
+        disabled={disabled}
+        onClick={() => setMenu({ kind: 'templates' })}
+      >
+        Start from template
+      </OsChipAction>
+
+      <OsHugSheet
+        open={editOpen}
+        onClose={requestCloseEdit}
+        onClosed={() => {
+          setEditClosing(false);
+          setEditingId(null);
+        }}
+        label="Room"
+        copy={editingSpace?.title || 'Edit room'}
+        closeAriaLabel="Close room"
+        backdropLabel="Close room"
+        zIndex={SHEET_Z.nested}
+        headerClassName="guild-settings-sheet-header"
+        panelClassName="guild-settings-sheet-panel os-sheet-cap-short"
+      >
+        {editingSpace ? (
+          <div className="guild-structure-room-edit">
+            <label className="guild-field">
+              <span>Name</span>
+              <input
+                value={editingSpace.title}
+                disabled={disabled}
+                maxLength={40}
+                autoComplete="off"
+                className={osFieldBorderedClassName}
+                onChange={(event) =>
+                  onChange(
+                    updateGuildSpaceTitle(
+                      structure,
+                      editingSpace.id,
+                      event.target.value
+                    )
+                  )
+                }
+              />
+            </label>
+            <div className="guild-field">
+              <ChoiceDrawerField
+                label="Who can share"
+                value={editingSpace.postPolicy}
+                options={SHARE_OPTIONS}
+                disabled={disabled}
+                persistSelected
+                copy="Who may post in this room"
+                zIndex={SHEET_Z.nestedConfirm}
+                onChange={(next) =>
+                  onChange(
+                    updateGuildSpacePostPolicy(
+                      structure,
+                      editingSpace.id,
+                      next
+                    )
+                  )
+                }
+              />
+            </div>
+            <div className="guild-field">
+              <ChoiceDrawerField
+                label="Feed tab"
+                value={editingSpace.enabled ? 'on' : 'off'}
+                options={FEED_TAB_OPTIONS.map((option) =>
+                  option.value === 'off' && lockedOn
+                    ? { ...option, disabled: true }
+                    : option
+                )}
+                disabled={disabled || lockedOn}
+                persistSelected
+                copy="Whether this room shows in the feed"
+                zIndex={SHEET_Z.nestedConfirm}
+                onChange={(next) =>
+                  onChange(
+                    toggleGuildSpaceEnabled(
+                      structure,
+                      editingSpace.id,
+                      next === 'on'
+                    )
+                  )
+                }
+              />
+            </div>
+            {sortedSpaces.length > 1 ? (
+              <OsChipAction
+                disabled={disabled}
+                onClick={() =>
+                  setMenu({
+                    kind: 'arrange',
+                    spaceId: editingSpace.id,
+                    title: editingSpace.title,
+                  })
+                }
+              >
+                Arrange
+              </OsChipAction>
+            ) : null}
+          </div>
         ) : null}
-      </div>
+      </OsHugSheet>
+
+      <ActionDrawer
+        open={menuOpen}
+        onClose={closeMenu}
+        onClosed={() => {
+          setMenuClosing(false);
+          setMenu(null);
+        }}
+        label={
+          menu?.kind === 'arrange'
+            ? menu.title
+            : menu?.kind === 'templates'
+              ? 'Start from template'
+              : 'Rooms'
+        }
+        copy={
+          menu?.kind === 'arrange'
+            ? 'Room tab order'
+            : menu?.kind === 'templates'
+              ? 'Replace the current rooms'
+              : undefined
+        }
+        items={menu?.kind === 'arrange' ? arrangeItems : templateItems}
+        zIndex={SHEET_Z.nestedConfirm}
+      />
     </section>
   );
 }

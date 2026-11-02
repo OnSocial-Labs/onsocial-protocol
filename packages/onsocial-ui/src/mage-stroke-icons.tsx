@@ -880,12 +880,12 @@ export function FireIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `rocket` — amplify a post, and the Hot feed sort. Pair with RocketFillIcon when active. */
-export function RocketIcon(props: MageStrokeIconProps) {
+/** Mage `fire-b` — post amplify, and the Hot feed sort. Pair with FireBFillIcon when active. */
+export function FireBIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
       <path
-        d="M21.2497 4.52692C21.2498 4.29084 21.2028 4.05711 21.1114 3.8394C21.0201 3.62169 20.8863 3.42437 20.7179 3.25896C20.5494 3.09355 20.3497 2.96337 20.1303 2.87604C19.911 2.7887 19.6765 2.74596 19.4404 2.7503C18.445 2.74435 17.4599 2.95251 16.552 3.36067C16.0152 3.59357 15.5186 3.90993 15.0806 4.29803L7.38553 12.004C6.77319 12.6171 6.42924 13.4482 6.42924 14.3147C6.42924 15.1812 6.77319 16.0123 7.38553 16.6254C7.99863 17.2377 8.82971 17.5817 9.69623 17.5817C10.5627 17.5817 11.3938 17.2377 12.0069 16.6254L19.7129 8.91943C20.1039 8.47152 20.4204 7.96367 20.6503 7.4153C21.055 6.50667 21.2594 5.52157 21.2497 4.52692Z"
+        d="M20.17 13.344c0-4.368-3.953-4.23-3.953-10.594C9.763 4.341 9.23 7.365 9.23 12.988c-1.463.149-2.797-2.273-3.637-3.597c-3.874 5.07-1.235 11.859 6.67 11.859a7.906 7.906 0 0 0 7.907-7.906"
         stroke="currentColor"
         strokeWidth={MAGE_STROKE}
         strokeLinecap="round"
@@ -893,31 +893,7 @@ export function RocketIcon(props: MageStrokeIconProps) {
         fill="none"
       />
       <path
-        d="M14.7754 4.60321C16.0211 6.42741 17.6046 7.99614 19.4404 9.22461"
-        stroke="currentColor"
-        strokeWidth={MAGE_STROKE}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <path
-        d="M9.69623 9.69329L7.26564 9.20281C6.82484 9.11824 6.37007 9.14253 5.9408 9.2736C5.51152 9.40466 5.12073 9.63852 4.80234 9.95488L2.91673 11.8405C2.8383 11.9161 2.78432 12.0134 2.76176 12.12C2.7392 12.2266 2.74908 12.3374 2.79014 12.4383C2.8312 12.5392 2.90155 12.6255 2.99211 12.686C3.08267 12.7465 3.18929 12.7785 3.29821 12.7779H6.56807"
-        stroke="currentColor"
-        strokeWidth={MAGE_STROKE}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <path
-        d="M14.3176 14.3147L14.7972 16.7344C14.887 17.1743 14.8664 17.6295 14.737 18.0594C14.6077 18.4893 14.3737 18.8804 14.056 19.1977L12.1595 21.0942C12.0827 21.1695 11.9853 21.2204 11.8796 21.2405C11.7739 21.2605 11.6646 21.2488 11.5655 21.2068C11.4664 21.1649 11.382 21.0945 11.3228 21.0047C11.2637 20.9148 11.2324 20.8094 11.2331 20.7018V17.432"
-        stroke="currentColor"
-        strokeWidth={MAGE_STROKE}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <path
-        d="M5.06393 18.9361L12.0069 12.004"
+        d="M16.938 12.988a5.11 5.11 0 0 1-5.93 4.942"
         stroke="currentColor"
         strokeWidth={MAGE_STROKE}
         strokeLinecap="round"
@@ -1735,18 +1711,49 @@ export function HomeIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Outline pair for NotificationBellFillIcon. */
-export function NotificationBellIcon(props: MageStrokeIconProps) {
+/** Mage `fingerprint-minimal` — logged-out Connect. Apache 2.0. */
+export function FingerprintIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
       <path
-        d="M21.161 16.656a2.26 2.26 0 0 1-.41 1.088a2.27 2.27 0 0 1-1.89 1h-2.94a4.4 4.4 0 0 1-.23.788a4 4 0 0 1-2.18 2.178c-.495.2-1.026.298-1.56.29h-.08a3.9 3.9 0 0 1-1.44-.29a3.75 3.75 0 0 1-1.32-.87a3.85 3.85 0 0 1-.87-1.308a4.4 4.4 0 0 1-.23-.789h-2.82a2.24 2.24 0 0 1-1.94-.849a2.78 2.78 0 0 1-.26-2.367a6.7 6.7 0 0 1 .88-1.618a3.83 3.83 0 0 0 .82-1.768c0-2.886 0-3.865 1.58-5.743a5.7 5.7 0 0 1 1.9-1.478l.78-.38a.4.4 0 0 0 .1-.09a.3.3 0 0 0 .06-.13a3 3 0 0 1 1.905-2.142a3 3 0 0 1 2.835.434a2.72 2.72 0 0 1 1 1.758v.1a.35.35 0 0 0 .11.1l.72.35c.73.35 1.378.85 1.9 1.468c1.58 1.888 1.58 2.867 1.58 5.753c.134.69.44 1.336.89 1.878c.36.481.652 1.009.87 1.568c.164.332.247.698.24 1.069"
+        d="M12.036 12.158s-.986 4.736 4.492 6.993"
         stroke="currentColor"
-        strokeWidth={1.6}
+        strokeWidth={1.5}
+        strokeLinecap="round"
         strokeLinejoin="round"
-        fill="none"
+      />
+      <path
+        d="M13.752 20.952c-2.871-1.621-5.086-4.726-4.725-8.127a4.05 4.05 0 0 1 1.737-3.306a2.935 2.935 0 0 1 3.9 1.261c.942 1.388.275 3.179.964 4.641c1.06 1.801 3.75 1.346 4.767-.297c1.526-2.352.715-5.943-.843-8.105c-2.447-3.337-6.043-5.107-11.14-3.338c-4.789 1.632-7.162 8.381-4.64 12.863"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7.982 19.002a9 9 0 0 1-1.864-3.484a8.9 8.9 0 0 1-.183-3.933a6.4 6.4 0 0 1 .91-2.45A6.6 6.6 0 0 1 8.662 7.23a6.3 6.3 0 0 1 3.578-.869c.811.025 1.61.208 2.349.537s1.406.798 1.96 1.38a8.28 8.28 0 0 1 1.692 5.51"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </MageStrokeSvg>
+  );
+}
+
+/** Font Awesome Free regular `bell` — quiet Activity tile. Icons: CC BY 4.0. */
+export function NotificationBellIcon(props: MageStrokeIconProps) {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 448 512"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      className={props.className}
+      aria-hidden={props['aria-hidden']}
+    >
+      <path d="M224 0c-17.7 0-32 14.3-32 32l0 19.2C119 66 64 130.6 64 208l0 25.4c0 45.4-15.5 89.5-43.8 124.9L5.3 377c-5.8 7.2-6.9 17.1-2.9 25.4S14.8 416 24 416l400 0c9.2 0 17.6-5.3 21.6-13.6s2.9-18.2-2.9-25.4l-14.9-18.6C399.5 322.9 384 278.8 384 233.4l0-25.4c0-77.4-55-142-128-156.8L256 32c0-17.7-14.3-32-32-32zm0 96c61.9 0 112 50.1 112 112l0 25.4c0 47.9 13.9 94.6 39.7 134.6L72.3 368C98.1 328 112 281.3 112 233.4l0-25.4c0-61.9 50.1-112 112-112zm64 352l-64 0-64 0c0 17 6.7 33.3 18.7 45.3s28.3 18.7 45.3 18.7s33.3-6.7 45.3-18.7s18.7-28.3 18.7-45.3z" />
+    </svg>
   );
 }
 

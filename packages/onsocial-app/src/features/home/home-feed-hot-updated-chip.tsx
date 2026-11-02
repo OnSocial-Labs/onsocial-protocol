@@ -1,0 +1,63 @@
+'use client';
+
+import { AccountAvatar } from '@/components/profile/account-avatar';
+import { HomeFeedCatchUpPortal } from '@/features/home/home-feed-catch-up-portal';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import { HOME_FEED_NEW_AVATAR_SLOTS } from '@/lib/home-feed-new-posts';
+import { fallbackLabel } from '@/lib/profile-display';
+import { ChevronUpIcon, osDockPillClassName } from '@onsocial/ui';
+
+/**
+ * Opt-in jump when Hot re-ranked under a scrolled reader.
+ * Same `.os-dock-pill` material as the home launcher (fill + ::before frost).
+ */
+export function HomeFeedHotUpdatedChip({
+  authorIds = [],
+  onClick,
+}: {
+  authorIds?: readonly string[];
+  onClick: () => void;
+}) {
+  const faces = authorIds.slice(0, HOME_FEED_NEW_AVATAR_SLOTS);
+  const profiles = usePostAuthorProfiles(faces);
+
+  return (
+    <HomeFeedCatchUpPortal>
+      <div className="home-feed-new-posts-anchor" role="status">
+        <button
+          type="button"
+          className={`${osDockPillClassName} home-feed-new-posts-pill`}
+          aria-label="Hot updated. Jump to top."
+          onClick={onClick}
+        >
+          <ChevronUpIcon
+            className="home-feed-new-posts-chevron"
+            aria-hidden
+          />
+          {faces.length > 0 ? (
+            <span className="home-feed-new-posts-faces" aria-hidden>
+              {faces.map((accountId) => {
+                const profile = profiles[accountId];
+                const name =
+                  profile?.displayName?.trim() || fallbackLabel(accountId);
+                return (
+                  <AccountAvatar
+                    key={accountId}
+                    accountId={accountId}
+                    src={profile?.avatarUrl}
+                    size="sm"
+                    fallbackInitial={name.slice(0, 1)}
+                    className="home-feed-new-posts-face"
+                  />
+                );
+              })}
+            </span>
+          ) : null}
+          <span className="home-feed-new-posts-copy" aria-hidden>
+            <span className="home-feed-new-posts-word">Hot updated</span>
+          </span>
+        </button>
+      </div>
+    </HomeFeedCatchUpPortal>
+  );
+}

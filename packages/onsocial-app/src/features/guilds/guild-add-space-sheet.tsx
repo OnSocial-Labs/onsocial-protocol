@@ -1,10 +1,17 @@
 'use client';
 
 import { useCallback, useState, type FormEvent } from 'react';
-import { OsHugSheet, osFieldSoftClassName } from '@onsocial/ui';
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import {
+  ChoiceDrawerField,
+  OsHugSheet,
+  OsSheetAction,
+  OsSheetActions,
+  osFieldBorderedClassName,
+  type ChoiceOption,
+} from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
+  GUILD_POST_POLICY_FORM_HINT,
   GUILD_POST_POLICY_OPTIONS,
   cloneGuildStructure,
   mergeStructureSpaces,
@@ -18,20 +25,6 @@ import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll
 import { SHEET_Z } from '@/lib/sheet-z';
 import { txToastError } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
-
-const POLICY_CHIP_LABEL: Record<GuildSpacePostPolicy, string> = {
-  members: 'Everyone',
-  moderators: 'Team',
-  admins: 'Leaders',
-  allowlist: 'Selected',
-};
-
-const POLICY_HINT: Record<GuildSpacePostPolicy, string> = {
-  members: 'Any member can share.',
-  moderators: 'Mods, admins, and owner.',
-  admins: 'Admins and owner only.',
-  allowlist: 'Choose members next. Leaders can always share.',
-};
 
 export interface GuildAddedSpaceResult {
   id: string;
@@ -47,6 +40,13 @@ interface GuildAddSpaceSheetProps {
   onClose: () => void;
   onSaved?: (space?: GuildAddedSpaceResult) => void;
 }
+
+const SHARE_OPTIONS: ChoiceOption<GuildSpacePostPolicy>[] =
+  GUILD_POST_POLICY_OPTIONS.map((option) => ({
+    value: option.value,
+    label: option.label,
+    description: option.hint,
+  }));
 
 export function GuildAddSpaceSheet({
   open,
@@ -151,18 +151,18 @@ export function GuildAddSpaceSheet({
       closeAriaLabel="Close"
       backdropLabel="Close add room"
       zIndex={SHEET_Z.facts}
-      headerClassName="guild-add-space-sheet-header"
-      panelClassName="guild-add-space-sheet-panel"
+      headerClassName="guild-settings-sheet-header"
+      panelClassName="guild-settings-sheet-panel os-sheet-cap-short"
       bodyClassName="guild-add-space-sheet-body"
     >
       <form
         className="guild-add-space-sheet-form"
         onSubmit={(event) => void handleSubmit(event)}
       >
-        <label className="guild-add-space-field">
-          <span className="guild-add-space-label">Name</span>
+        <label className="guild-field">
+          <span>Name</span>
           <input
-            className={`${osFieldSoftClassName} guild-add-space-input`}
+            className={osFieldBorderedClassName}
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Shipping Room"
@@ -174,37 +174,18 @@ export function GuildAddSpaceSheet({
           />
         </label>
 
-        <div className="guild-add-space-field">
-          <span className="guild-add-space-label">Who can share</span>
-          <div
-            className="guild-feed-filter-list os-scrollbar-none"
-            role="listbox"
-            aria-label="Who can share"
-          >
-            {GUILD_POST_POLICY_OPTIONS.map((option) => {
-              const selected = postPolicy === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  role="option"
-                  aria-selected={selected}
-                  className={
-                    selected
-                      ? 'guild-feed-filter-button is-active'
-                      : 'guild-feed-filter-button'
-                  }
-                  disabled={pending}
-                  onClick={() => setPostPolicy(option.value)}
-                >
-                  {POLICY_CHIP_LABEL[option.value]}
-                </button>
-              );
-            })}
-          </div>
-          <p className="guild-add-space-hint" aria-live="polite">
-            {POLICY_HINT[postPolicy]}
-          </p>
+        <div className="guild-field">
+          <ChoiceDrawerField
+            label="Who can share"
+            value={postPolicy}
+            options={SHARE_OPTIONS}
+            disabled={pending}
+            persistSelected
+            copy="Who may post in this room"
+            hint={GUILD_POST_POLICY_FORM_HINT[postPolicy]}
+            zIndex={SHEET_Z.nested}
+            onChange={setPostPolicy}
+          />
         </div>
 
         {error ? (

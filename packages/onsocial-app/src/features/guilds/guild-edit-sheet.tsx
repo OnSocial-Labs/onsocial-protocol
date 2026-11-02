@@ -11,14 +11,17 @@ import {
   type FormEvent,
 } from 'react';
 import {
+  ChoiceDrawerField,
   DiscardConfirmSheet,
   ipfsImgSrcSet,
   OsFieldRemove,
+  OsSheetAction,
+  OsSheetActions,
   ProfileEditorMediaToolbar,
   useDiscardConfirm,
+  type ChoiceOption,
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { SUPPORT_GUILD_CONNECT_CTA } from '@/features/guilds/support-guild-voice';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -29,6 +32,7 @@ import {
   normalizeGuildConfig,
   type GuildConfigSnapshot,
 } from '@/features/guilds/guild-config';
+import { guildAccessLabel } from '@/features/guilds/guild-facts';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   guildEditorTagsEqual,
@@ -73,11 +77,55 @@ function useObjectUrl(file: File | null): string | null {
   return url;
 }
 
+type GuildAccessChoice = 'open' | 'invite';
+
+const GUILD_ACCESS_OPTIONS: ChoiceOption<GuildAccessChoice>[] = [
+  {
+    value: 'open',
+    label: 'Open',
+    description: 'Anyone can join and post',
+  },
+  {
+    value: 'invite',
+    label: 'Invite only',
+    description: 'Anyone can view · join and post need approval',
+  },
+];
+
 interface GuildEditSheetProps {
   open: boolean;
   groupId: string;
+  /** Guild already on the page — first paint uses this. */
+  initial: GuildConfigSnapshot;
   onClose: () => void;
   onSaved?: () => void;
+}
+
+function applySnapshot(
+  normalized: GuildConfigSnapshot,
+  setters: {
+    setSnapshot: (value: GuildConfigSnapshot) => void;
+    setName: (value: string) => void;
+    setDescription: (value: string) => void;
+    setTags: (value: string[]) => void;
+    setAccessGated: (value: boolean) => void;
+    setMemberDriven: (value: boolean) => void;
+    setBannerFile: (value: File | null) => void;
+    setBannerRemoved: (value: boolean) => void;
+    setBadgeFile: (value: File | null) => void;
+    setBadgeRemoved: (value: boolean) => void;
+  }
+) {
+  setters.setSnapshot(normalized);
+  setters.setName(normalized.name);
+  setters.setDescription(normalized.description);
+  setters.setTags(normalizeGuildEditorTags(normalized.topics));
+  setters.setAccessGated(normalized.accessGated);
+  setters.setMemberDriven(normalized.memberDriven);
+  setters.setBannerFile(null);
+  setters.setBannerRemoved(false);
+  setters.setBadgeFile(null);
+  setters.setBadgeRemoved(false);
 }
 
 /**
@@ -87,6 +135,7 @@ interface GuildEditSheetProps {
 export function GuildEditSheet({
   open,
   groupId,
+  initial,
   onClose,
   onSaved,
 }: GuildEditSheetProps) {
@@ -102,20 +151,26 @@ export function GuildEditSheet({
   const scrollFieldIntoView = useMobileFieldFocusScroll();
 
   const [loadState, setLoadState] = useState<
-    'idle' | 'loading' | 'ready' | 'missing' | 'error' | 'forbidden'
-  >('idle');
-  const [snapshot, setSnapshot] = useState<GuildConfigSnapshot | null>(null);
-  const [memberDriven, setMemberDriven] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
-  const [accessGated, setAccessGated] = useState(false);
+    'ready' | 'missing' | 'error' | 'forbidden'
+  >('ready');
+  const [snapshot, setSnapshot] = useState<GuildConfigSnapshot>(initial);
+  const [memberDriven, setMemberDriven] = useState(initial.memberDriven);
+  const [name, setName] = useState(initial.name);
+  const [description, setDescription] = useState(initial.description);
+  const [tags, setTags] = useState(() =>
+    normalizeGuildEditorTags(initial.topics)
+  );
+  const [accessGated, setAccessGated] = useState(initial.accessGated);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerRemoved, setBannerRemoved] = useState(false);
   const [badgeFile, setBadgeFile] = useState<File | null>(null);
   const [badgeRemoved, setBadgeRemoved] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [descriptionFocused, setDescriptionFocused] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
+  const dirtyRef = useRef(false);
+  const accessModeLabel = guildAccessLabel(accessGated, memberDriven);
 
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const badgeInputRef = useRef<HTMLInputElement>(null);
@@ -124,8 +179,30 @@ export function GuildEditSheet({
   const bannerPreview = useObjectUrl(bannerFile);
   const badgePreview = useObjectUrl(badgeFile);
 
-  const load = useCallback(async () => {
-    setLoadState('loading');
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      applySnapshot(initial, {
+        setSnapshot,
+        setName,
+        setDescription,
+        setTags,
+        setAccessGated,
+        setMemberDriven,
+        setBannerFile,
+        setBannerRemoved,
+        setBadgeFile,
+        setBadgeRemoved,
+      });
+      setPending(false);
+      setError(null);
+      setDescriptionFocused(false);
+      setLoadState('ready');
+      dirtyRef.current = false;
+    }
+  }
+
+  const refresh = useCallback(async () => {
     setError(null);
     try {
       const client = createReadOnlyOnSocialClient();
@@ -136,16 +213,23 @@ export function GuildEditSheet({
       }
 
       const normalized = normalizeGuildConfig(groupId, rawConfig);
-      setSnapshot(normalized);
-      setName(normalized.name);
-      setDescription(normalized.description);
-      setTags(normalizeGuildEditorTags(normalized.topics));
-      setAccessGated(normalized.accessGated);
-      setMemberDriven(normalized.memberDriven);
-      setBannerFile(null);
-      setBannerRemoved(false);
-      setBadgeFile(null);
-      setBadgeRemoved(false);
+      if (!dirtyRef.current) {
+        applySnapshot(normalized, {
+          setSnapshot,
+          setName,
+          setDescription,
+          setTags,
+          setAccessGated,
+          setMemberDriven,
+          setBannerFile,
+          setBannerRemoved,
+          setBadgeFile,
+          setBadgeRemoved,
+        });
+      } else {
+        setSnapshot(normalized);
+        setMemberDriven(normalized.memberDriven);
+      }
 
       if (!accountId) {
         setLoadState('forbidden');
@@ -169,15 +253,8 @@ export function GuildEditSheet({
 
   useEffect(() => {
     if (!open || walletLoading) return;
-    void load();
-  }, [load, open, walletLoading]);
-
-  useEffect(() => {
-    if (!open) {
-      setLoadState('idle');
-      setError(null);
-    }
-  }, [open]);
+    void refresh();
+  }, [open, refresh, walletLoading]);
 
   useLayoutEffect(() => {
     const el = descriptionRef.current;
@@ -199,8 +276,7 @@ export function GuildEditSheet({
   const normalizedTags = useMemo(() => normalizeGuildEditorTags(tags), [tags]);
 
   const isDirty = useMemo(() => {
-    if (!snapshot) return false;
-    return (
+    const dirty =
       name.trim() !== snapshot.name ||
       description.trim() !== snapshot.description ||
       accessGated !== snapshot.accessGated ||
@@ -208,8 +284,9 @@ export function GuildEditSheet({
       bannerFile !== null ||
       bannerRemoved ||
       badgeFile !== null ||
-      badgeRemoved
-    );
+      badgeRemoved;
+    dirtyRef.current = dirty;
+    return dirty;
   }, [
     accessGated,
     badgeFile,
@@ -394,7 +471,7 @@ export function GuildEditSheet({
   };
 
   const footer =
-    loadState === 'ready' && snapshot ? (
+    loadState === 'ready' ? (
       <div className="guild-edit-sheet-footer">
         <OsSheetActions layout="stack" tone="frosted-primary" borderless>
           {!isConnected && !walletLoading ? (
@@ -410,6 +487,7 @@ export function GuildEditSheet({
             <OsSheetAction
               type="submit"
               form={formId}
+              variant="primary"
               ready={isDirty && isConnected}
               pending={pending}
               pendingLabel={memberDriven ? 'Proposing…' : 'Saving…'}
@@ -438,10 +516,6 @@ export function GuildEditSheet({
         immersiveHeader
         footer={footer}
       >
-        {loadState === 'loading' || loadState === 'idle' ? (
-          <div className="guild-state-card">Loading guild…</div>
-        ) : null}
-
         {loadState === 'missing' ? (
           <div className="guild-state-card">
             <p>We could not find this guild yet.</p>
@@ -451,7 +525,7 @@ export function GuildEditSheet({
         {loadState === 'error' ? (
           <div className="guild-state-card is-error">
             <p>{error ?? 'Could not load guild settings.'}</p>
-            <OsEmptyAction onClick={() => void load()}>Retry</OsEmptyAction>
+            <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
           </div>
         ) : null}
 
@@ -462,7 +536,7 @@ export function GuildEditSheet({
           </div>
         ) : null}
 
-        {loadState === 'ready' && snapshot ? (
+        {loadState === 'ready' ? (
           <form
             id={formId}
             className="guild-edit-form account-editor-form"
@@ -596,9 +670,7 @@ export function GuildEditSheet({
                   </div>
 
                   <div className="guild-hero-meta guild-edit-meta">
-                    <span className="guild-edit-id" title={groupId}>
-                      {groupId}
-                    </span>
+                    <span className="guild-hero-mode">{accessModeLabel}</span>
                   </div>
 
                   <label
@@ -616,21 +688,33 @@ export function GuildEditSheet({
                     disabled={pending}
                     rows={2}
                     placeholder="What is this guild about?"
-                    aria-describedby={fieldId(formId, 'description-count')}
+                    aria-describedby={
+                      descriptionFocused ||
+                      description.length > GUILD_MAX_DESCRIPTION_LENGTH * 0.8
+                        ? fieldId(formId, 'description-count')
+                        : undefined
+                    }
                     onChange={(event) => setDescription(event.target.value)}
-                    onFocus={scrollFieldIntoView}
+                    onFocus={(event) => {
+                      setDescriptionFocused(true);
+                      scrollFieldIntoView(event);
+                    }}
                     onBlur={() => {
+                      setDescriptionFocused(false);
                       const trimmed = description.trim();
                       if (trimmed !== description) setDescription(trimmed);
                     }}
                   />
-                  <p
-                    id={fieldId(formId, 'description-count')}
-                    className="guild-edit-limits"
-                    aria-live="polite"
-                  >
-                    {description.length}/{GUILD_MAX_DESCRIPTION_LENGTH}
-                  </p>
+                  {descriptionFocused ||
+                  description.length > GUILD_MAX_DESCRIPTION_LENGTH * 0.8 ? (
+                    <p
+                      id={fieldId(formId, 'description-count')}
+                      className="guild-edit-limits"
+                      aria-live="polite"
+                    >
+                      {description.length}/{GUILD_MAX_DESCRIPTION_LENGTH}
+                    </p>
+                  ) : null}
                   <div className="guild-field guild-edit-tags">
                     <span>Topic</span>
                     <GuildTagsEditor
@@ -641,60 +725,20 @@ export function GuildEditSheet({
                     />
                   </div>
 
-                  <div className="guild-field guild-edit-access">
-                    <span>Access</span>
-                    <div
-                      className="app-storage-presets"
-                      role="radiogroup"
-                      aria-label="Guild access"
-                    >
-                      {memberDriven ? (
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked
-                          className="os-surface-chip is-selected"
-                          disabled
-                        >
-                          Collaborative
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            role="radio"
-                            aria-checked={!accessGated}
-                            className={`os-surface-chip${
-                              !accessGated ? ' is-selected' : ''
-                            }`}
-                            disabled={pending}
-                            onClick={() => setAccessGated(false)}
-                          >
-                            Open
-                          </button>
-                          <button
-                            type="button"
-                            role="radio"
-                            aria-checked={accessGated}
-                            className={`os-surface-chip${
-                              accessGated ? ' is-selected' : ''
-                            }`}
-                            disabled={pending}
-                            onClick={() => setAccessGated(true)}
-                          >
-                            Invite only
-                          </button>
-                        </>
-                      )}
+                  {!memberDriven ? (
+                    <div className="guild-field guild-edit-access">
+                      <ChoiceDrawerField
+                        label="Access"
+                        value={accessGated ? 'invite' : 'open'}
+                        options={GUILD_ACCESS_OPTIONS}
+                        disabled={pending}
+                        persistSelected
+                        copy="Who can join and post"
+                        zIndex={SHEET_Z.nested}
+                        onChange={(next) => setAccessGated(next === 'invite')}
+                      />
                     </div>
-                    <small>
-                      {memberDriven
-                        ? 'Invite only · role changes go through proposals.'
-                        : accessGated
-                          ? 'Anyone can view · join and post need approval.'
-                          : 'Open · anyone can join and post.'}
-                    </small>
-                  </div>
+                  ) : null}
 
                   {error ? <p className="guild-form-error">{error}</p> : null}
                 </div>

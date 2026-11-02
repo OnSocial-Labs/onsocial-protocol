@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { OsHugSheet } from '@onsocial/ui';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  OsHugSheet,
   OsSheetAction,
   OsSheetActions,
+  OsSheetFooter,
 } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -39,14 +40,36 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 interface GuildRoomsSheetProps {
   open: boolean;
   groupId: string;
+  /** Rooms already on the guild page — first paint uses these. */
+  structure: GuildStructureDocument;
+  memberDriven: boolean;
   onClose: () => void;
   onSaved?: () => void;
+}
+
+function seedSnapshot(
+  structure: GuildStructureDocument,
+  memberDriven: boolean
+): GuildConfigSnapshot {
+  return {
+    name: '',
+    description: '',
+    bannerUrl: null,
+    badgeUrl: null,
+    ownerId: null,
+    accessGated: false,
+    memberDriven,
+    topics: [],
+    structure: cloneGuildStructure(structure),
+  };
 }
 
 /** Rooms / spaces admin — split out of identity edit into its own sheet. */
 export function GuildRoomsSheet({
   open,
   groupId,
+  structure: initialStructure,
+  memberDriven: initialMemberDriven,
   onClose,
   onSaved,
 }: GuildRoomsSheetProps) {
@@ -60,23 +83,45 @@ export function GuildRoomsSheet({
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
 
   const [closing, setClosing] = useState(false);
-  const [loadState, setLoadState] = useState<
-    'idle' | 'loading' | 'ready' | 'error' | 'forbidden'
-  >('idle');
-  const [snapshot, setSnapshot] = useState<GuildConfigSnapshot | null>(null);
-  const [memberDriven, setMemberDriven] = useState(false);
-  const [structure, setStructure] = useState<GuildStructureDocument | null>(
-    null
+  const [loadState, setLoadState] = useState<'ready' | 'error' | 'forbidden'>(
+    'ready'
+  );
+  const [snapshot, setSnapshot] = useState<GuildConfigSnapshot>(() =>
+    seedSnapshot(initialStructure, initialMemberDriven)
+  );
+  const [memberDriven, setMemberDriven] = useState(initialMemberDriven);
+  const [structure, setStructure] = useState(() =>
+    cloneGuildStructure(initialStructure)
   );
   const [discoveredChannels, setDiscoveredChannels] = useState<
     DiscoveredChannelUsage[]
   >([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [wasOpen, setWasOpen] = useState(open);
+  const structureRef = useRef(structure);
+  const snapshotRef = useRef(snapshot);
+  structureRef.current = structure;
+  snapshotRef.current = snapshot;
 
   const sheetOpen = open && !closing;
-  const load = useCallback(async () => {
-    setLoadState('loading');
+
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      const next = seedSnapshot(initialStructure, initialMemberDriven);
+      setClosing(false);
+      setPending(false);
+      setError(null);
+      setLoadState('ready');
+      setMemberDriven(initialMemberDriven);
+      setStructure(next.structure);
+      setSnapshot(next);
+      setDiscoveredChannels([]);
+    }
+  }
+
+  const refresh = useCallback(async () => {
     setError(null);
     try {
       const client = createReadOnlyOnSocialClient();
@@ -87,9 +132,15 @@ export function GuildRoomsSheet({
         return;
       }
       const normalized = normalizeGuildConfig(groupId, rawConfig);
+      const keepEdits = !guildStructuresEqual(
+        structureRef.current,
+        snapshotRef.current.structure
+      );
       setSnapshot(normalized);
       setMemberDriven(normalized.memberDriven);
-      setStructure(cloneGuildStructure(normalized.structure));
+      if (!keepEdits) {
+        setStructure(cloneGuildStructure(normalized.structure));
+      }
 
       if (!accountId) {
         setLoadState('forbidden');
@@ -110,19 +161,11 @@ export function GuildRoomsSheet({
 
   useEffect(() => {
     if (!open || walletLoading) return;
-    void load();
-  }, [load, open, walletLoading]);
+    void refresh();
+  }, [open, refresh, walletLoading]);
 
   useEffect(() => {
-    if (!open) {
-      setClosing(false);
-      setLoadState('idle');
-      setError(null);
-    }
-  }, [open]);
-
-  useEffect(() => {
-    if (loadState !== 'ready') return;
+    if (!open || loadState !== 'ready') return;
     let cancelled = false;
     void (async () => {
       try {
@@ -142,7 +185,7 @@ export function GuildRoomsSheet({
     return () => {
       cancelled = true;
     };
-  }, [groupId, loadState]);
+  }, [groupId, loadState, open]);
 
   const isDirty = useMemo(() => {
     if (!snapshot || !structure) return false;
@@ -210,54 +253,56 @@ export function GuildRoomsSheet({
     }
   };
 
+  const showEditor = loadState === 'ready' && structure;
+
   return (
     <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
       label="Rooms"
-      copy="Rooms and feed tabs for this guild"
+      copy="Feed tabs for this guild"
       closeAriaLabel="Close"
       backdropLabel="Close guild rooms"
-      zIndex={SHEET_Z.list}
-      sizing="full"
-      panelClassName="guild-rooms-sheet-panel"
+      zIndex={SHEET_Z.facts}
+      headerClassName="guild-settings-sheet-header"
+      panelClassName="guild-settings-sheet-panel os-sheet-cap-tall"
       bodyClassName="guild-rooms-sheet-body"
       footer={
-        loadState === 'ready' && structure ? (
-          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            {!isConnected && !walletLoading ? (
-              <OsSheetAction
-                type="button"
-                variant="primary"
-                ready
-                onClick={() => void connect()}
-              >
-                {SUPPORT_GUILD_CONNECT_CTA}
-              </OsSheetAction>
-            ) : (
-              <OsSheetAction
-                type="button"
-                ready={isDirty && isConnected}
-                pending={pending}
-                pendingLabel={memberDriven ? 'Proposing…' : 'Saving…'}
-                disabled={!isDirty || pending || !isConnected}
-                onClick={() => void handleSave()}
-              >
-                {memberDriven ? 'Propose rooms' : 'Save rooms'}
-              </OsSheetAction>
-            )}
-          </OsSheetActions>
+        showEditor ? (
+          <OsSheetFooter>
+            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+              {!isConnected && !walletLoading ? (
+                <OsSheetAction
+                  type="button"
+                  variant="primary"
+                  ready
+                  onClick={() => void connect()}
+                >
+                  {SUPPORT_GUILD_CONNECT_CTA}
+                </OsSheetAction>
+              ) : (
+                <OsSheetAction
+                  type="button"
+                  variant="primary"
+                  ready={isDirty && isConnected}
+                  pending={pending}
+                  pendingLabel={memberDriven ? 'Proposing…' : 'Saving…'}
+                  disabled={!isDirty || pending || !isConnected}
+                  onClick={() => void handleSave()}
+                >
+                  {memberDriven ? 'Propose rooms' : 'Save rooms'}
+                </OsSheetAction>
+              )}
+            </OsSheetActions>
+          </OsSheetFooter>
         ) : undefined
       }
     >
-      {loadState === 'loading' || loadState === 'idle' ? (
-        <div className="guild-state-card">Loading rooms…</div>
-      ) : null}
       {loadState === 'error' ? (
         <div className="guild-state-card is-error">
           <p>{error ?? 'Could not load rooms.'}</p>
-          <OsEmptyAction onClick={() => void load()}>Retry</OsEmptyAction>
+          <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
         </div>
       ) : null}
       {loadState === 'forbidden' ? (
@@ -265,15 +310,13 @@ export function GuildRoomsSheet({
           <p>Only owners and admins can manage rooms.</p>
         </div>
       ) : null}
-      {loadState === 'ready' && structure ? (
-        <>
-          <GuildStructureSettingsSection
-            structure={structure}
-            onChange={setStructure}
-            disabled={pending}
-            discoveredChannels={discoveredChannels}
-          />
-        </>
+      {showEditor ? (
+        <GuildStructureSettingsSection
+          structure={structure}
+          onChange={setStructure}
+          disabled={pending}
+          discoveredChannels={discoveredChannels}
+        />
       ) : null}
     </OsHugSheet>
   );

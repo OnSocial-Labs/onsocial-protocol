@@ -6,8 +6,8 @@ import {
   BookmarkFillIcon,
   BookmarkIcon,
   CheckIcon,
-  RocketFillIcon,
-  RocketIcon,
+  FireBFillIcon,
+  FireBIcon,
   HeartFillIcon,
   HeartIcon,
   MessageRoundIcon,
@@ -114,7 +114,7 @@ function ReactIcon({ filled }: { filled: boolean }) {
 }
 
 function AmplifyIcon({ filled }: { filled: boolean }) {
-  return filled ? <RocketFillIcon aria-hidden /> : <RocketIcon aria-hidden />;
+  return filled ? <FireBFillIcon aria-hidden /> : <FireBIcon aria-hidden />;
 }
 
 function BookmarkGlyph({ filled }: { filled: boolean }) {

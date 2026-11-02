@@ -191,6 +191,54 @@ export function mergeHomeFeedHead(
   return { posts: [...newHead, ...rest], insertedCount };
 }
 
+/** Scroll past this before offering the Hot-updated jump chip. */
+export const HOME_FEED_HOT_UPDATED_SCROLL_PX = 72;
+
+/**
+ * True when the Hot head keys changed — boost re-rank or new hot cards.
+ * Depth matches the new-posts probe window.
+ */
+export function hotFeedHeadOrderChanged(
+  before: readonly PostRow[],
+  after: readonly PostRow[],
+  depth: number = HOME_FEED_NEW_PROBE_SIZE
+): boolean {
+  const n = Math.max(0, depth);
+  if (n === 0) return false;
+  const beforeKeys = before.slice(0, n).map(postKey);
+  const afterKeys = after.slice(0, n).map(postKey);
+  if (beforeKeys.length !== afterKeys.length) return true;
+  return beforeKeys.some((key, index) => key !== afterKeys[index]);
+}
+
+/**
+ * Authors of posts that rose into the Hot head — facepile for the catch-up chip.
+ */
+export function hotFeedRisingAuthorIds(
+  before: readonly PostRow[],
+  after: readonly PostRow[],
+  maxAuthors: number = HOME_FEED_NEW_AVATAR_SLOTS,
+  depth: number = HOME_FEED_NEW_PROBE_SIZE
+): string[] {
+  const beforeIndex = new Map(
+    before.map((post, index) => [postKey(post), index] as const)
+  );
+  const authorIds: string[] = [];
+  const seen = new Set<string>();
+  const limit = Math.min(after.length, Math.max(0, depth));
+  for (let index = 0; index < limit; index += 1) {
+    const post = after[index];
+    if (!post) continue;
+    const previous = beforeIndex.get(postKey(post));
+    if (previous !== undefined && previous <= index) continue;
+    if (seen.has(post.accountId)) continue;
+    seen.add(post.accountId);
+    authorIds.push(post.accountId);
+    if (authorIds.length >= maxAuthors) break;
+  }
+  return authorIds;
+}
+
 /**
  * Fold a Hot page-0 into the loaded list.
  *

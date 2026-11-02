@@ -28,6 +28,7 @@ import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { HomeFeedChipBar } from '@/features/home/home-feed-chip-bar';
+import { HomeFeedHotUpdatedChip } from '@/features/home/home-feed-hot-updated-chip';
 import { HomeFeedNewPostsChip } from '@/features/home/home-feed-new-posts-chip';
 import { HomeFeedPullIndicator } from '@/features/home/home-feed-pull-indicator';
 import { useHomeFeedPullRefresh } from '@/features/home/use-home-feed-pull-refresh';
@@ -118,9 +119,13 @@ import { parseSaveContentPath } from '@/lib/save-content-path';
 import {
   EMPTY_UNSEEN_FEED_SUMMARY,
   feedPostKeySet,
+  HOME_FEED_HOT_UPDATED_SCROLL_PX,
+  HOME_FEED_NEW_AVATAR_SLOTS,
   HOME_FEED_NEW_POLL_MS,
   HOME_FEED_NEW_PROBE_SIZE,
   homeFeedNewPostsCountLabel,
+  hotFeedHeadOrderChanged,
+  hotFeedRisingAuthorIds,
   mergeHomeFeedHead,
   mergeHotFeedHead,
   pendingFeedOffsetShift,
@@ -128,6 +133,11 @@ import {
   unseenFeedSummariesEqual,
   type UnseenFeedSummary,
 } from '@/lib/home-feed-new-posts';
+import {
+  getLastAmplifyAuthorId,
+  getViewerAmplifyEpoch,
+  subscribeViewerAmplifyConfirmed,
+} from '@/lib/home-feed-amplify-epoch';
 import {
   HOME_FEED_SSR_SESSION_KEY,
   homeFeedSessionKey,
@@ -397,6 +407,8 @@ export function HomePagePanel({
   const [hiddenWalkGaveUp, setHiddenWalkGaveUp] = useState(false);
   const hiddenWalksRef = useRef(0);
   const [reloadNonce, setReloadNonce] = useState(0);
+  const [hotUpdated, setHotUpdated] = useState(false);
+  const [hotUpdatedAuthors, setHotUpdatedAuthors] = useState<string[]>([]);
   const [unseenPosts, setUnseenPosts] = useState<UnseenFeedSummary>(
     EMPTY_UNSEEN_FEED_SUMMARY
   );
@@ -494,6 +506,7 @@ export function HomePagePanel({
       offsetShiftApplied: offsetShiftAppliedRef.current,
       scrollTop: scrollTopToPersist(memory, line),
       standEpoch: getViewerStandEpoch(),
+      amplifyEpoch: getViewerAmplifyEpoch(),
       blockHeights: feedWindowCacheRef.current?.toJSON(),
       storage: options?.storage !== false,
     });
@@ -651,8 +664,38 @@ export function HomePagePanel({
     unseenPostsRef.current = unseenPosts;
   }, [unseenPosts]);
 
+  const clearHotUpdated = useCallback(() => {
+    setHotUpdated(false);
+    setHotUpdatedAuthors([]);
+  }, []);
+
+  const armHotUpdated = useCallback((authorIds: readonly string[] = []) => {
+    setHotUpdated(true);
+    const fromArg = authorIds.map((id) => id.trim()).filter(Boolean);
+    const last = getLastAmplifyAuthorId();
+    const seeded = fromArg.length > 0 ? fromArg : last ? [last] : [];
+    if (seeded.length === 0) return;
+    setHotUpdatedAuthors((current) => {
+      const next: string[] = [];
+      for (const id of [...seeded, ...current]) {
+        if (!id || next.includes(id)) continue;
+        next.push(id);
+        if (next.length >= HOME_FEED_NEW_AVATAR_SLOTS) break;
+      }
+      return next;
+    });
+  }, []);
+
   const clearUnseenPosts = useCallback(() => {
     setUnseenPosts(EMPTY_UNSEEN_FEED_SUMMARY);
+    // Do not clear hotUpdated — amplify soft-refresh calls this at load start.
+  }, []);
+
+  const feedScrollTop = useCallback(() => {
+    const root = scrollRootRef.current;
+    if (!root) return 0;
+    const lenisTop = getAppLenis(root)?.scroll ?? 0;
+    return Math.max(root.scrollTop, lenisTop);
   }, []);
 
   const growFeedWindow = useCallback((insertedCount: number) => {
@@ -723,11 +766,15 @@ export function HomePagePanel({
     [includeForeignReplies, stoodWithAccountIds, visiblePosts]
   );
 
-  const handleSortChange = useCallback((next: HomeFeedSort) => {
-    sortUserChangedRef.current = true;
-    setSort(next);
-    writeHomeFeedSort(next);
-  }, []);
+  const handleSortChange = useCallback(
+    (next: HomeFeedSort) => {
+      sortUserChangedRef.current = true;
+      setSort(next);
+      writeHomeFeedSort(next);
+      if (next !== 'hot') clearHotUpdated();
+    },
+    [clearHotUpdated]
+  );
 
   useEffect(() => {
     const focus = parseHomeFeedFocus({
@@ -750,6 +797,11 @@ export function HomePagePanel({
     const restoredStandStale =
       isHomeFeedSocialLens(activeLens) &&
       (restored?.standEpoch ?? 0) !== getViewerStandEpoch();
+    // A boost after the snapshot was written makes Hot order stale — soft
+    // refetch merges the new head while scroll stays put.
+    const restoredAmplifyStale =
+      sort === 'hot' &&
+      (restored?.amplifyEpoch ?? 0) !== getViewerAmplifyEpoch();
     if (
       restored &&
       shouldKeepRestoredHomeFeed({
@@ -761,6 +813,7 @@ export function HomePagePanel({
         reloadNonce,
         restoreReloadNonce: sessionRestoreReloadNonceRef.current,
         standStale: restoredStandStale,
+        amplifyStale: restoredAmplifyStale,
       })
     ) {
       standingSourcesRef.current = restored.standingNetworkIds
@@ -922,6 +975,12 @@ export function HomePagePanel({
         setStandingNetworkIds(result.standingSources);
         const items = result.page.items;
         let insertedCount = 0;
+        let hotHeadChanged = false;
+        if (mergeHead && sort === 'hot' && postsLengthRef.current > 0) {
+          // Keep the visible card glued while Hot reorders above/below.
+          setReRankAnchor(captureVisibleFeedAnchor(scrollRootRef.current));
+        }
+        let risingAuthors: string[] = [];
         setPosts((current) => {
           if (mergeHead && current.length > 0) {
             const merged =
@@ -929,6 +988,12 @@ export function HomePagePanel({
                 ? mergeHotFeedHead(current, items)
                 : mergeHomeFeedHead(current, items);
             insertedCount = merged.insertedCount;
+            if (sort === 'hot') {
+              hotHeadChanged = hotFeedHeadOrderChanged(current, merged.posts);
+              if (hotHeadChanged) {
+                risingAuthors = hotFeedRisingAuthorIds(current, merged.posts);
+              }
+            }
             revokeDroppedOptimisticMedia(current, merged.posts);
             return merged.posts;
           }
@@ -938,9 +1003,16 @@ export function HomePagePanel({
         feedSessionKeyRef.current = sessionKey;
         if (mergeHead) {
           growFeedWindow(insertedCount);
+          if (
+            hotHeadChanged &&
+            feedScrollTop() > HOME_FEED_HOT_UPDATED_SCROLL_PX
+          ) {
+            armHotUpdated(risingAuthors);
+          }
         } else {
           setNextOffset(result.page.nextOffset);
           nextOffsetRef.current = result.page.nextOffset;
+          clearHotUpdated();
         }
         setSsrBootstrapDone(true);
         ssrBootstrapDoneRef.current = true;
@@ -977,7 +1049,10 @@ export function HomePagePanel({
     accountId,
     activeFocusKey,
     activeLens,
+    armHotUpdated,
+    clearHotUpdated,
     clearUnseenPosts,
+    feedScrollTop,
     initialPage,
     lensReady,
     reloadNonce,
@@ -1185,9 +1260,15 @@ export function HomePagePanel({
 
   const applyNewPosts = useCallback(() => {
     clearUnseenPosts();
+    clearHotUpdated();
     scrollFeedToNewest(scrollRootRef.current);
     setReloadNonce((value) => value + 1);
-  }, [clearUnseenPosts]);
+  }, [clearHotUpdated, clearUnseenPosts]);
+
+  const jumpToHotUpdated = useCallback(() => {
+    clearHotUpdated();
+    scrollFeedToNewest(scrollRootRef.current);
+  }, [clearHotUpdated]);
 
   const probeNewPosts = useCallback(async () => {
     const focus = parseHomeFeedFocus({
@@ -1378,6 +1459,17 @@ export function HomePagePanel({
     });
   }, [activeLens]);
 
+  // Boost confirmed — offer Hot catch-up when mid-feed, then soft-refresh.
+  useEffect(() => {
+    return subscribeViewerAmplifyConfirmed(({ authorId }) => {
+      if (sort !== 'hot') return;
+      if (feedScrollTop() > HOME_FEED_HOT_UPDATED_SCROLL_PX) {
+        armHotUpdated(authorId ? [authorId] : []);
+      }
+      setReloadNonce((value) => value + 1);
+    });
+  }, [armHotUpdated, feedScrollTop, sort]);
+
   const pathname = usePathname();
   const {
     openReply,
@@ -1437,6 +1529,9 @@ export function HomePagePanel({
   const newPostsCountLabel = homeFeedNewPostsCountLabel(unseenPosts.count);
   const showNewPostsPill =
     Boolean(newPostsCountLabel) && showFeed && !isRefreshing && !isLoading;
+  // Keep visible through soft-refresh — boost sets the flag before reload.
+  const showHotUpdatedPill =
+    hotUpdated && !showNewPostsPill && showFeed && !isLoading;
   const toolbarHidden = useDockAutoHide(false, scrollRootRef);
   return (
     <HomeActiveFocusProvider focus={activeFocus}>
@@ -1532,8 +1627,13 @@ export function HomePagePanel({
         {showNewPostsPill ? (
           <HomeFeedNewPostsChip
             summary={unseenPosts}
-            hidden={toolbarHidden}
             onClick={applyNewPosts}
+          />
+        ) : null}
+        {showHotUpdatedPill ? (
+          <HomeFeedHotUpdatedChip
+            authorIds={hotUpdatedAuthors}
+            onClick={jumpToHotUpdated}
           />
         ) : null}
       </OsAppScreen>

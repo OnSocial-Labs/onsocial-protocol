@@ -1,6 +1,7 @@
 'use client';
 
 import { AccountAvatar } from '@/components/profile/account-avatar';
+import { HomeFeedCatchUpPortal } from '@/features/home/home-feed-catch-up-portal';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
   HOME_FEED_NEW_AVATAR_SLOTS,
@@ -9,20 +10,17 @@ import {
   type UnseenFeedSummary,
 } from '@/lib/home-feed-new-posts';
 import { fallbackLabel } from '@/lib/profile-display';
-import { ChevronUpIcon } from '@onsocial/ui';
+import { ChevronUpIcon, osDockPillClassName } from '@onsocial/ui';
 
 /**
- * Catch-up chip under home header — dock frost tokens, ↑ + faces + count posted.
- * Parent owns scroll-hide (same tuck as home chrome). Mounted inside
- * `OsAppScreen` so `--os-dock-*` inherits from the shared dock frost rules.
+ * Catch-up chip under home header — ↑ + faces + count posted.
+ * Same `.os-dock-pill` material as the home launcher (fill + ::before frost).
  */
 export function HomeFeedNewPostsChip({
   summary,
-  hidden = false,
   onClick,
 }: {
   summary: UnseenFeedSummary;
-  hidden?: boolean;
   onClick: () => void;
 }) {
   const countLabel = homeFeedNewPostsCountLabel(summary.count);
@@ -33,44 +31,43 @@ export function HomeFeedNewPostsChip({
   if (!countLabel) return null;
 
   return (
-    <div
-      className={`home-feed-new-posts-anchor${hidden ? ' is-scroll-hidden' : ''}`}
-      role="status"
-    >
-      <button
-        type="button"
-        className="home-feed-new-posts-pill"
-        aria-label={ariaLabel}
-        onClick={onClick}
-      >
-        <ChevronUpIcon
-          className="home-feed-new-posts-chevron"
-          aria-hidden
-        />
-        {faces.length > 0 ? (
-          <span className="home-feed-new-posts-faces" aria-hidden>
-            {faces.map((accountId) => {
-              const profile = profiles[accountId];
-              const name =
-                profile?.displayName?.trim() || fallbackLabel(accountId);
-              return (
-                <AccountAvatar
-                  key={accountId}
-                  accountId={accountId}
-                  src={profile?.avatarUrl}
-                  size="sm"
-                  fallbackInitial={name.slice(0, 1)}
-                  className="home-feed-new-posts-face"
-                />
-              );
-            })}
+    <HomeFeedCatchUpPortal>
+      <div className="home-feed-new-posts-anchor" role="status">
+        <button
+          type="button"
+          className={`${osDockPillClassName} home-feed-new-posts-pill`}
+          aria-label={ariaLabel}
+          onClick={onClick}
+        >
+          <ChevronUpIcon
+            className="home-feed-new-posts-chevron"
+            aria-hidden
+          />
+          {faces.length > 0 ? (
+            <span className="home-feed-new-posts-faces" aria-hidden>
+              {faces.map((accountId) => {
+                const profile = profiles[accountId];
+                const name =
+                  profile?.displayName?.trim() || fallbackLabel(accountId);
+                return (
+                  <AccountAvatar
+                    key={accountId}
+                    accountId={accountId}
+                    src={profile?.avatarUrl}
+                    size="sm"
+                    fallbackInitial={name.slice(0, 1)}
+                    className="home-feed-new-posts-face"
+                  />
+                );
+              })}
+            </span>
+          ) : null}
+          <span className="home-feed-new-posts-copy" aria-hidden>
+            <span className="home-feed-new-posts-count">{countLabel}</span>
+            <span className="home-feed-new-posts-word">posted</span>
           </span>
-        ) : null}
-        <span className="home-feed-new-posts-copy" aria-hidden>
-          <span className="home-feed-new-posts-count">{countLabel}</span>
-          <span className="home-feed-new-posts-word">posted</span>
-        </span>
-      </button>
-    </div>
+        </button>
+      </div>
+    </HomeFeedCatchUpPortal>
   );
 }

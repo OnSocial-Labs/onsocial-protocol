@@ -22,7 +22,7 @@ import {
   CalendarFillIcon,
   MapMarkerFillIcon,
   FireFillIcon,
-  RocketFillIcon,
+  FireBFillIcon,
   TimeFillIcon,
   ShopFillIcon,
   StarMovingFillIcon,
@@ -34,7 +34,7 @@ import {
   GiftFillIcon,
   HeartFillIcon,
   BookmarkFillIcon,
-  PenFillIcon,
+  FeatherFillIcon,
   MessageFillIcon,
   BookTextFillIcon,
   NoteTextFillIcon,
@@ -65,7 +65,7 @@ describe('mage fill icons', () => {
     expect(typeof CalendarFillIcon).toBe('function');
     expect(typeof MapMarkerFillIcon).toBe('function');
     expect(typeof FireFillIcon).toBe('function');
-    expect(typeof RocketFillIcon).toBe('function');
+    expect(typeof FireBFillIcon).toBe('function');
     expect(typeof TimeFillIcon).toBe('function');
     expect(typeof ShopFillIcon).toBe('function');
     expect(typeof StarMovingFillIcon).toBe('function');
@@ -77,7 +77,7 @@ describe('mage fill icons', () => {
     expect(typeof GiftFillIcon).toBe('function');
     expect(typeof HeartFillIcon).toBe('function');
     expect(typeof BookmarkFillIcon).toBe('function');
-    expect(typeof PenFillIcon).toBe('function');
+    expect(typeof FeatherFillIcon).toBe('function');
     expect(typeof MessageFillIcon).toBe('function');
     expect(typeof BookTextFillIcon).toBe('function');
     expect(typeof NoteTextFillIcon).toBe('function');

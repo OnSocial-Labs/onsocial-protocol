@@ -2,8 +2,8 @@
 
 import {
   OsIconAction,
-  RocketFillIcon,
-  RocketIcon,
+  FireBFillIcon,
+  FireBIcon,
   TimeFillIcon,
   TimeIcon,
 } from '@onsocial/ui';
@@ -36,12 +36,12 @@ export function HomeFeedSortToggle({
           >
             {option === 'hot' ? (
               selected ? (
-                <RocketFillIcon
+                <FireBFillIcon
                   aria-hidden
                   className="home-feed-sort-btn-icon"
                 />
               ) : (
-                <RocketIcon aria-hidden className="home-feed-sort-btn-icon" />
+                <FireBIcon aria-hidden className="home-feed-sort-btn-icon" />
               )
             ) : selected ? (
               <TimeFillIcon aria-hidden className="home-feed-sort-btn-icon" />

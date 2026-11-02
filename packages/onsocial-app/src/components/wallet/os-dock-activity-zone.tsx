@@ -15,7 +15,7 @@ import {
 
 /**
  * Dock Activity — same section cell + icon box as compose (centered).
- * Idle: Mage bell-fill. Unread: Mage pending-fill with green corner dot.
+ * Idle: solid bell. Unread: the same bell with a mood-colored corner dot.
  */
 export function OsDockActivityZone() {
   const { accountId, isConnected } = useAppWallet();
@@ -46,7 +46,7 @@ export function OsDockActivityZone() {
         {hasUnread ? (
           <NotificationBellPendingFillIcon
             className={iconClass}
-            badgeFill="var(--protocol-green)"
+            badgeFill="var(--mood-accent-chrome, var(--mood-preset-accent, var(--protocol-blue)))"
             aria-hidden
           />
         ) : (

@@ -7,6 +7,7 @@ import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { pollIndexConfirm } from '@/lib/index-confirm-poll';
 import { subscribePersonalQuoteConfirmed } from '@/features/scarces/drop-compose-host';
+import { recordViewerAmplifyConfirmed } from '@/lib/home-feed-amplify-epoch';
 import { postKey } from '@/lib/post-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
@@ -554,6 +555,9 @@ export function usePostEngagement(
         },
       };
     });
+    // Invalidate Hot session snapshots — leave/return soft-refetches rank
+    // without scrolling the reader to the boosted card.
+    recordViewerAmplifyConfirmed(post.accountId);
   }, []);
 
   const confirmRepost = useCallback(

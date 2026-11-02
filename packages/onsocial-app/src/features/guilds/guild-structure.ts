@@ -9,6 +9,28 @@ export type GuildSpaceAudience = 'public' | 'members';
 
 export type GuildSpacePostPolicy = 'members' | 'moderators' | 'admins' | 'allowlist';
 
+/** Short labels on the share chips. Room facts keep {@link postPolicyLabel}. */
+export const GUILD_POST_POLICY_CHIP_LABEL: Record<
+  GuildSpacePostPolicy,
+  string
+> = {
+  members: 'Everyone',
+  moderators: 'Team',
+  admins: 'Leaders',
+  allowlist: 'Selected',
+};
+
+/** One line under the share chips when adding a room. */
+export const GUILD_POST_POLICY_FORM_HINT: Record<
+  GuildSpacePostPolicy,
+  string
+> = {
+  members: 'Any member can share.',
+  moderators: 'Mods, admins, and owner.',
+  admins: 'Admins and owner only.',
+  allowlist: 'Choose members next. Leaders can always share.',
+};
+
 export const GUILD_POST_POLICY_OPTIONS: {
   value: GuildSpacePostPolicy;
   label: string;
@@ -532,6 +554,19 @@ export function updateGuildSpaceTitle(
     ...structure,
     spaces: structure.spaces.map((space) =>
       space.id === spaceId ? { ...space, title } : space
+    ),
+  };
+}
+
+export function updateGuildSpacePostPolicy(
+  structure: GuildStructureDocument,
+  spaceId: string,
+  postPolicy: GuildSpacePostPolicy
+): GuildStructureDocument {
+  return {
+    ...structure,
+    spaces: structure.spaces.map((space) =>
+      space.id === spaceId ? { ...space, postPolicy } : space
     ),
   };
 }

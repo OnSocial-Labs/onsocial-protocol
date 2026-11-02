@@ -54,6 +54,12 @@ export type HomeFeedSessionSnapshot = {
    */
   standEpoch?: number;
   /**
+   * Viewer amplify epoch at write time. A boost confirmed after the snapshot
+   * was written makes Hot order stale — soft-refetch on restore; optional so
+   * older copies stay readable.
+   */
+  amplifyEpoch?: number;
+  /**
    * Measured feed block heights (px) keyed by block head post key. Lets a
    * restored session land the windowed feed on the same content instead of
    * estimate placeholders. Optional — older copies stay readable.
@@ -84,7 +90,8 @@ export const HOME_FEED_SSR_SESSION_KEY = homeFeedSessionKey({
 /**
  * A saved list may skip a fetch only while those rows are the ones on screen.
  * Pulse, then Global, must load Global Hot again — the saved key alone would
- * leave the Pulse rows up and drop the amplified post.
+ * leave the Pulse rows up and drop the amplified post. A boost after the
+ * snapshot was written also forces a Hot soft-refetch (amplifyStale).
  */
 export function shouldKeepRestoredHomeFeed(input: {
   restoredKey: string | null;
@@ -95,6 +102,7 @@ export function shouldKeepRestoredHomeFeed(input: {
   reloadNonce: number;
   restoreReloadNonce: number;
   standStale: boolean;
+  amplifyStale?: boolean;
 }): boolean {
   return (
     input.restoredKey != null &&
@@ -103,7 +111,8 @@ export function shouldKeepRestoredHomeFeed(input: {
     input.restoredKey === input.sessionKey &&
     input.paintedKey === input.sessionKey &&
     input.reloadNonce === input.restoreReloadNonce &&
-    !input.standStale
+    !input.standStale &&
+    !input.amplifyStale
   );
 }
 
@@ -209,6 +218,7 @@ export function writeHomeFeedSession(input: {
   offsetShiftApplied: number;
   scrollTop: number;
   standEpoch?: number;
+  amplifyEpoch?: number;
   blockHeights?: Record<string, number>;
   now?: number;
   /** False keeps the in-memory copy only. Tab storage stays on leave and pagehide. */
@@ -227,6 +237,7 @@ export function writeHomeFeedSession(input: {
     scrollTop: Math.max(0, input.scrollTop),
     savedAt: input.now ?? Date.now(),
     standEpoch: input.standEpoch,
+    amplifyEpoch: input.amplifyEpoch,
     blockHeights: sanitizeBlockHeights(input.blockHeights),
   };
   if (input.storage !== false) writeStorage(snapshot);

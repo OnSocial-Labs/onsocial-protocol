@@ -1913,7 +1913,7 @@ button.market-listing-title-link {
   height: 1.65rem;
   padding: 0;
   border: 0;
-  border-radius: 9999px;
+  border-radius: 0;
   background: transparent;
   color: rgb(var(--fg-rgb) / 0.72);
   -webkit-appearance: none;
@@ -1923,14 +1923,14 @@ button.market-listing-title-link {
 }
 
 .guild-hero-action-icon:hover:not(:disabled) {
-  background: rgb(var(--fg-rgb) / 0.06);
-  color: rgb(var(--fg-rgb) / 0.45);
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.92);
   cursor: pointer;
 }
 
 .guild-hero-action-icon:focus-visible:not(:disabled) {
-  background: rgb(var(--fg-rgb) / 0.06);
-  color: rgb(var(--fg-rgb) / 0.45);
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.92);
   cursor: pointer;
   outline: none;
   box-shadow: var(--os-focus-ring, 0 0 0 1px rgb(var(--fg-rgb) / 0.08));
@@ -2939,12 +2939,10 @@ a.os-surface-row,
 
 /* OS dock pill — mood-tinted header frost; depth shadow only (no accent halo).
  * Include mooded summon on OS screens so home isn’t a near-opaque --bg slab.
- * Catch-up chip shares the same --os-dock-* tokens (home is not under
- * `.portfolio-os-layer`, so also key off `.os-app-screen--mood`).
+ * Catch-up chip composes `.os-dock-pill` but is not under the dock — mirror
+ * the same fill when the launcher dock is mooded (`:has`).
  * Glass finish keeps its own `.portfolio-summon-dock[data-mood=glass]` tokens. */
 .portfolio-os-layer .os-dock-pill,
-.portfolio-os-layer .home-feed-new-posts-pill,
-.os-app-screen.os-app-screen--mood .home-feed-new-posts-pill,
 .portfolio-summon-dock[data-mood]:not([data-mood='glass']) .os-dock-pill {
   --os-dock-fill: color-mix(
     in srgb,
@@ -2982,8 +2980,6 @@ a.os-surface-row,
 
 @media (prefers-reduced-transparency: reduce) {
   .portfolio-os-layer .os-dock-pill,
-  .portfolio-os-layer .home-feed-new-posts-pill,
-  .os-app-screen.os-app-screen--mood .home-feed-new-posts-pill,
   .portfolio-summon-dock[data-mood]:not([data-mood='glass']) .os-dock-pill {
     --os-dock-fill: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.96));
     --os-dock-shadow: var(--os-chrome-elev-shadow);
@@ -8330,7 +8326,7 @@ a.os-surface-row,
   .collection-writing-chapter-chip:hover,
   .collection-writing-chapter-chip:focus-visible,
   .feed-photo-video-control:focus-visible,
-  .guild-structure-space-title-input:focus,
+  .guild-structure-settings .guild-field > input:focus,
   .network-orbit-node:focus-visible,
   .network-orbit-center:focus-visible {
     outline: none;
@@ -14130,19 +14126,15 @@ a.os-surface-row,
 
   /*
    * Launcher dock on non-mood OS screens — same frost as elevated header chrome.
-   * Catch-up chip shares these tokens when mounted inside the screen.
    */
-  .os-app-screen:not(.os-app-screen--mood) .os-dock-pill,
-  .os-app-screen:not(.os-app-screen--mood) .home-feed-new-posts-pill {
+  .os-app-screen:not(.os-app-screen--mood) .os-dock-pill {
     --os-dock-fill: rgb(var(--bg-rgb) / 0.72);
     --os-dock-shadow: var(--os-chrome-elev-shadow);
     --os-dock-lip: inset 0 1px 0 rgb(var(--fg-rgb) / 0.1);
   }
 
   @media (prefers-reduced-transparency: reduce) {
-    .os-app-screen:not(.os-app-screen--mood) .os-dock-pill,
-    .os-app-screen:not(.os-app-screen--mood) .home-feed-new-posts-pill,
-    .home-feed-new-posts-pill {
+    .os-app-screen:not(.os-app-screen--mood) .os-dock-pill {
       --os-dock-fill: rgb(var(--bg-rgb) / 0.94);
     }
   }
@@ -14944,9 +14936,17 @@ a.os-surface-row,
     display: block;
     width: 1.1rem;
     height: 1.1rem;
-    border: 1.5px solid currentColor;
-    border-radius: 9999px;
-    opacity: 0.72;
+    opacity: 0.45;
+    animation: os-connect-prompt 2.6s ease-in-out infinite alternate;
+  }
+
+  @keyframes os-connect-prompt {
+    from {
+      opacity: 0.45;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
   /* ── Summon launcher ───────────────────────────────────
@@ -15388,7 +15388,9 @@ a.os-surface-row,
     cursor: pointer;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
-    transition: background 180ms ease;
+    transition:
+      background 180ms ease,
+      color 180ms ease;
   }
 
   .portfolio-summon-account:hover,
@@ -15409,13 +15411,41 @@ a.os-surface-row,
 
   .portfolio-summon-account.is-connect {
     padding: 0 0.65rem;
-    color: rgb(var(--fg-rgb) / 0.62);
+    color: rgb(var(--fg-rgb) / 0.96);
+  }
+
+  .portfolio-summon-account.is-connect:hover,
+  .portfolio-summon-account.is-connect:focus-visible,
+  .home-feed-me-avatar.is-connect:hover,
+  .home-feed-me-avatar.is-connect:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.96);
+  }
+
+  .portfolio-summon-account.is-connect:hover .app-wallet-connect-glyph,
+  .portfolio-summon-account.is-connect:focus-visible .app-wallet-connect-glyph,
+  .home-feed-me-avatar.is-connect:hover .app-wallet-connect-glyph,
+  .home-feed-me-avatar.is-connect:focus-visible .app-wallet-connect-glyph {
+    animation: none;
+    opacity: 1;
   }
 
   .portfolio-summon-account.is-connect .app-wallet-connect-glyph {
     width: 1.2rem;
     height: 1.2rem;
-    opacity: 0.88;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .app-wallet-connect-glyph {
+      animation: none;
+      opacity: 0.72;
+    }
+
+    .portfolio-summon-account.is-connect:hover .app-wallet-connect-glyph,
+    .portfolio-summon-account.is-connect:focus-visible .app-wallet-connect-glyph,
+    .home-feed-me-avatar.is-connect:hover .app-wallet-connect-glyph,
+    .home-feed-me-avatar.is-connect:focus-visible .app-wallet-connect-glyph {
+      opacity: 1;
+    }
   }
 
   .portfolio-summon-account.is-loading {
@@ -15604,7 +15634,7 @@ a.os-surface-row,
     color: var(--protocol-green);
   }
 
-  /* DAO propose — same pen as post; aria says Propose. */
+  /* DAO propose — same feather as post; aria says Propose. */
   .portfolio-summon-compose.is-propose {
     color: rgb(var(--fg-rgb) / 0.88);
   }
@@ -21709,6 +21739,15 @@ a.os-surface-row,
   .home-feed-me-avatar.is-connect {
     border: 1px solid rgb(var(--fg-rgb) / 0.14);
     background: rgb(var(--fg-rgb) / 0.04);
+    color: rgb(var(--fg-rgb) / 0.96);
+    transition:
+      background 180ms ease,
+      border-color 180ms ease;
+  }
+
+  .home-feed-me-avatar.is-connect:hover,
+  .home-feed-me-avatar.is-connect:focus-visible {
+    border-color: rgb(var(--fg-rgb) / 0.28);
   }
 
   .home-feed-me-avatar:focus-visible {
@@ -22093,11 +22132,14 @@ a.os-surface-row,
    * Skip layout/paint for offscreen feed blocks. Cards are heavy subtrees
    * (media, observers, overlay sheets) and the list is unbounded; `auto`
    * remembers each block's rendered height so the scrollbar stays stable.
-   * Overlays are portaled sheets, so paint containment clips nothing.
+   * Paint containment clips anything past this box. The 0.35rem pad is the
+   * same bleed standing rows use, so the post hover reaches that width.
    */
   .home-feed-block {
     content-visibility: auto;
     contain-intrinsic-size: auto 20rem;
+    margin-inline: -0.35rem;
+    padding-inline: 0.35rem;
   }
 
   /*
@@ -22115,13 +22157,16 @@ a.os-surface-row,
     transition: opacity 160ms ease;
   }
 
-  /* Catch-up chip under measured header chrome, floating above posts. */
+  /*
+   * Catch-up chip — portaled onto `.os-app-screen-column`. Composes
+   * `.os-dock-pill` so fill/::before match the launcher; layout only here.
+   * Unlayered frost restore lives next to `.os-dock-pill.portfolio-summon::before`.
+   */
   .home-feed-new-posts-anchor {
-    position: fixed;
+    position: absolute;
     z-index: 55;
-    left: calc(
-      var(--os-column-inset-inline, 0px) + var(--os-column-width, 100%) / 2
-    );
+    left: 0;
+    right: 0;
     top: calc(
       var(
           --os-screen-chrome-height,
@@ -22130,52 +22175,42 @@ a.os-surface-row,
         0.45rem
     );
     bottom: auto;
-    width: max-content;
-    max-width: min(calc(var(--os-column-width, 100%) - 1.5rem), 16rem);
-    transform: translateX(-50%);
+    width: auto;
+    display: flex;
+    justify-content: center;
+    padding-inline: 0.75rem;
+    box-sizing: border-box;
     pointer-events: none;
-    transition:
-      top var(--os-motion-dock, 260ms) ease,
-      transform var(--os-motion-dock, 260ms) ease,
-      opacity 200ms ease;
+    transition: top var(--os-motion-dock, 260ms) ease;
   }
 
   .home-feed-new-posts-anchor.is-scroll-hidden {
-    transform: translateX(-50%) translateY(calc(-100% - 0.75rem));
     opacity: 0;
     pointer-events: none;
   }
 
-  .home-feed-new-posts-pill {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.38rem;
-    width: 100%;
-    min-height: 2.35rem;
+  .home-feed-new-posts-pill.os-dock-pill {
+    gap: 0.4rem;
+    width: max-content;
+    max-width: min(100%, 16rem);
+    height: 2.75rem;
+    min-height: 2.75rem;
     margin: 0;
-    padding: 0.32rem 0.7rem 0.32rem 0.48rem;
-    border: 0;
-    border-radius: 1.15rem;
-    overflow: hidden;
-    /* Frost + lip + shadow on unlayered ::before — same as `.os-dock-pill`. */
-    background: transparent;
-    box-shadow: none;
+    padding: 0 0.9rem 0 0.65rem;
     color: rgb(var(--fg-rgb) / 0.78);
     font-size: 0.8125rem;
     font-weight: 550;
     letter-spacing: -0.01em;
+    line-height: 1;
     cursor: pointer;
     pointer-events: auto;
-    animation: home-feed-new-posts-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   .home-feed-new-posts-chevron {
-    flex-shrink: 0;
-    width: 0.72rem;
-    height: 0.72rem;
-    color: rgb(var(--fg-rgb) / 0.42);
+    display: block;
+    width: 0.75rem;
+    height: 0.75rem;
+    color: rgb(var(--fg-rgb) / 0.5);
   }
 
   .home-feed-new-posts-faces {
@@ -22197,9 +22232,10 @@ a.os-surface-row,
 
   .home-feed-new-posts-copy {
     display: inline-flex;
-    align-items: baseline;
+    align-items: center;
     gap: 0.22rem;
     min-width: 0;
+    line-height: 1;
   }
 
   .home-feed-new-posts-count {
@@ -22214,10 +22250,11 @@ a.os-surface-row,
     font-size: 0.75rem;
     font-weight: 500;
     letter-spacing: -0.01em;
+    line-height: 1;
     color: rgb(var(--fg-rgb) / 0.48);
   }
 
-  .home-feed-new-posts-pill:hover,
+  /* Never `filter` on the pill — it kills ::before backdrop-filter frost. */
   :root[data-theme='light']
     .feed-photo-slide:not(.feed-photo-slide--cinema)
     .feed-photo-image,
@@ -22232,24 +22269,9 @@ a.os-surface-row,
     outline-offset: 2px;
   }
 
-  @keyframes home-feed-new-posts-in {
-    from {
-      opacity: 0;
-      transform: translateY(-6px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .home-feed-new-posts-anchor {
       transition: none;
-    }
-
-    .home-feed-new-posts-pill {
-      animation: none;
     }
 
     .home-feed-pull.is-armed .home-feed-pull-chevron {
@@ -24493,7 +24515,7 @@ a.os-surface-row,
     padding: 0.35rem 0.2rem;
     border: 0;
     background: transparent;
-    color: inherit;
+    color: color-mix(in srgb, rgb(var(--fg-rgb)) 50%, var(--bg));
     cursor: pointer;
   }
 
@@ -24511,7 +24533,8 @@ a.os-surface-row,
     padding: 0.35rem 0.2rem 0.35rem 0.16rem;
     border: 0;
     background: transparent;
-    color: inherit;
+    /* Same solid gray as the heart. Hover only recolors the pair. */
+    color: color-mix(in srgb, rgb(var(--fg-rgb)) 50%, var(--bg));
     font-family: inherit;
     font-size: inherit;
     font-weight: inherit;
@@ -24520,9 +24543,17 @@ a.os-surface-row,
     cursor: pointer;
   }
 
+  .post-card-react:hover .post-card-react-heart,
+  .post-card-react:focus-visible .post-card-react-heart,
+  .post-card-react.is-active .post-card-react-heart,
+  .post-card-react-heart:hover,
+  .post-card-react-heart:focus-visible,
+  .post-card-react:hover .post-card-like-count,
+  .post-card-react:focus-visible .post-card-like-count,
+  .post-card-react.is-active .post-card-like-count,
   .post-card-like-count:hover,
   .post-card-like-count:focus-visible {
-    color: inherit;
+    color: var(--protocol-red);
     outline: none;
   }
 
@@ -31188,7 +31219,6 @@ a.os-surface-row,
   .guild-create-form .guild-field,
   .guild-edit-form .guild-field,
   .hub-manage-form .guild-field,
-  .guild-structure-add-custom .guild-field,
   .guild-structure-advanced .guild-field,
   .token-create-form .guild-field,
   /* Offer and role sheets share this plain stack. */
@@ -31213,8 +31243,6 @@ a.os-surface-row,
   .drop-create-form .guild-field > input,
   .guild-create-form .guild-field > input,
   .hub-manage-form .guild-field > input,
-  .guild-structure-add-custom .guild-field > input,
-  .guild-structure-add-custom .guild-field > select,
   .guild-structure-advanced .guild-field > select,
   .token-create-form .guild-field > input {
     width: 100%;
@@ -37284,18 +37312,21 @@ a.os-surface-row,
     background: transparent;
   }
 
-  /* Banner matches profile editor; fields sit below with sheet pad. */
+  /* Banner bleeds; identity pad matches live guild hero + screen body. */
   .guild-edit-fields {
     display: flex;
     flex-direction: column;
-    gap: 0;
-    padding: 0.15rem 0.85rem 1rem;
+    gap: 0.35rem;
+    padding: 0.15rem
+      max(var(--os-screen-body-pad-x, 1rem), env(safe-area-inset-right, 0px))
+      1rem
+      max(var(--os-screen-body-pad-x, 1rem), env(safe-area-inset-left, 0px));
   }
 
   .guild-edit-title-row {
     display: flex;
     align-items: center;
-    gap: 0.65rem;
+    gap: 0.55rem;
     min-width: 0;
     margin-top: 0.55rem;
   }
@@ -37345,20 +37376,24 @@ a.os-surface-row,
   }
 
   .guild-edit-fields > .guild-edit-meta {
-    margin-top: 0.2rem;
+    margin: 0;
   }
 
   .guild-edit-fields > .guild-edit-description {
-    margin-top: 0.35rem;
+    margin: 0;
   }
 
   .guild-edit-fields > .guild-edit-limits {
-    margin-top: 0.15rem;
+    margin: -0.15rem 0 0;
   }
 
-  .guild-edit-fields > .guild-edit-tags,
+  /* Topic / Access sit below identity — one section break. */
+  .guild-edit-fields > .guild-edit-tags {
+    margin-top: 0.6rem;
+  }
+
   .guild-edit-fields > .guild-edit-access {
-    margin-top: 0.95rem;
+    margin-top: 0.25rem;
   }
 
   .guild-edit-hero
@@ -37403,17 +37438,6 @@ a.os-surface-row,
     gap: 0.45rem 0.65rem;
   }
 
-  .guild-edit-id {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: rgb(var(--fg-rgb) / 0.34);
-    font-size: 0.68rem;
-    font-weight: 500;
-    letter-spacing: -0.01em;
-  }
-
   .guild-edit-description {
     width: 100%;
     margin: 0;
@@ -37423,10 +37447,10 @@ a.os-surface-row,
     resize: none;
     overflow: hidden;
     font-family: inherit;
-    font-size: 0.78rem;
+    font-size: 0.84rem;
     font-weight: 500;
-    line-height: 1.4;
-    color: rgb(var(--fg-rgb) / 0.58);
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.62);
     outline: none;
   }
 
@@ -37454,44 +37478,43 @@ a.os-surface-row,
     text-align: left;
   }
 
-  .guild-edit-access .app-storage-presets {
-    justify-content: flex-start;
+  .guild-edit-access .os-choice-chip {
+    justify-self: start;
   }
 
   .guild-add-space-sheet-header {
     padding-bottom: 0.45rem;
   }
 
-  .guild-add-space-sheet-form {
+  .guild-add-space-sheet-form,
+  .guild-structure-settings,
+  .guild-structure-add,
+  .guild-structure-room-edit {
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
   }
 
-  .guild-add-space-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    min-width: 0;
-  }
-
-  /* The feed rail's negative margin is for the pinned room row. */
-  .guild-add-space-field .guild-feed-filter-list {
-    min-width: 0;
-    margin-inline: 0;
+  .guild-add-space-sheet-form .guild-field,
+  .guild-structure-settings .guild-field,
+  .guild-structure-room-edit .guild-field {
     padding: 0;
+    gap: 0.4rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
 
-  .guild-add-space-label {
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.48);
-  }
-
-  .guild-add-space-input {
+  .guild-add-space-sheet-form .guild-field > input,
+  .guild-structure-settings .guild-field > input,
+  .guild-structure-room-edit .guild-field > input {
     width: 100%;
+  }
+
+  .guild-add-space-sheet-form .guild-field .os-choice-chip,
+  .guild-structure-settings .guild-field .os-choice-chip,
+  .guild-structure-room-edit .guild-field .os-choice-chip {
+    align-self: flex-start;
   }
 
   .guild-add-space-hint {
@@ -40158,78 +40181,6 @@ a.os-surface-row,
     height: 0.85rem;
   }
 
-  .guild-structure-settings {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .guild-structure-space-list {
-    display: grid;
-    gap: 0.55rem;
-  }
-
-  .guild-structure-space-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.75rem;
-    align-items: center;
-    padding: 0.85rem 0.95rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 1rem;
-    background: rgb(var(--fg-rgb) / 0.03);
-  }
-
-  .guild-structure-space-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    min-width: 0;
-  }
-
-  .guild-structure-space-copy strong {
-    font-size: 0.9rem;
-    font-weight: 650;
-    letter-spacing: -0.01em;
-  }
-
-  .guild-structure-space-copy span {
-    font-size: 0.74rem;
-    color: rgb(var(--fg-rgb) / 0.52);
-  }
-
-  .guild-structure-space-hint,
-  .guild-structure-policy-hint {
-    font-size: 0.72rem;
-    line-height: 1.4;
-    color: rgb(var(--fg-rgb) / 0.46);
-  }
-
-  .guild-structure-space-hint {
-    display: block;
-  }
-
-  .guild-structure-space-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    flex-shrink: 0;
-  }
-
-  .guild-structure-icon-button.os-chip-action .os-sheet-action {
-    min-width: 2rem;
-    padding-inline: 0.55rem;
-  }
-
-  .guild-structure-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.74rem;
-    color: rgb(var(--fg-rgb) / 0.62);
-    white-space: nowrap;
-  }
-
   .guild-structure-subhead {
     margin: 0 0 0.45rem;
     font-size: 0.76rem;
@@ -40241,29 +40192,6 @@ a.os-surface-row,
     display: flex;
     flex-wrap: wrap;
     gap: 0.45rem;
-  }
-
-  .guild-structure-custom-grid {
-    display: grid;
-    gap: 0.55rem;
-    margin-bottom: 0.65rem;
-  }
-
-  @media (min-width: 640px) {
-    .guild-structure-custom-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  .guild-structure-add-primary {
-    padding: 0.95rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 1rem;
-    background: rgb(var(--fg-rgb) / 0.04);
-  }
-
-  .guild-structure-add-primary .guild-field {
-    padding: 0;
   }
 
   .guild-structure-add-button {
@@ -40289,43 +40217,11 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.62);
   }
 
-  .guild-structure-space-title-field {
-    display: block;
-    width: 100%;
-  }
-
-  .guild-structure-space-title-input {
-    width: 100%;
-    border: 0;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.92);
-    font-size: 0.9rem;
-    font-weight: 650;
-    letter-spacing: -0.01em;
-    padding: 0;
-  }
-
-  .guild-structure-space-title-input:disabled {
-    opacity: 1;
-    color: rgb(var(--fg-rgb) / 0.26);
-  }
-
-  .guild-structure-advanced {
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-  }
-
   .guild-structure-advanced-toggle {
     width: fit-content;
   }
 
-  .guild-structure-advanced .guild-field {
-    padding: 0;
-  }
-
-  .guild-structure-add-library,
-  .guild-structure-add-custom {
+  .guild-structure-add-library {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
@@ -40455,7 +40351,11 @@ a.os-surface-row,
   }
 
   .guild-tags-editor-list.portfolio-tags {
+    /* Chip + draft share one row height so the meta line doesn’t jump. */
+    --guild-tag-chip-height: 1.35rem;
+    align-items: center;
     margin: 0;
+    min-height: var(--guild-tag-chip-height);
     cursor: text;
     justify-content: center;
     gap: 0.35rem;
@@ -40482,8 +40382,8 @@ a.os-surface-row,
     font-weight: 600;
     letter-spacing: 0.02em;
     line-height: 1;
-    min-height: 1.35rem;
-    height: 1.35rem;
+    min-height: var(--guild-tag-chip-height);
+    height: var(--guild-tag-chip-height);
     padding: 0 0.28rem 0 0.55rem;
     gap: 0.28rem;
   }
@@ -40523,19 +40423,19 @@ a.os-surface-row,
     text-transform: none;
   }
 
-  /* Draft add field — mini name-field shell, chip-height (visible fill). */
+  /* Draft add field — same height as topic chips (no meta-line jump). */
   .guild-tags-editor-draft {
     display: inline-flex;
     align-items: center;
     box-sizing: border-box;
     min-width: 0;
-    min-height: 1.55rem;
-    height: 1.55rem;
+    min-height: var(--guild-tag-chip-height, 1.35rem);
+    height: var(--guild-tag-chip-height, 1.35rem);
     list-style: none;
     margin: 0;
-    padding: 0 0.65rem;
+    padding: 0 0.55rem;
     border: 0;
-    border-radius: 0.65rem;
+    border-radius: 9999px;
     background: var(--os-surface-fill-strong);
     box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
   }
@@ -41394,27 +41294,31 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
-/* Unlayered frost — beats layered imports; samples feed like header ::before. */
-.os-dock-pill.portfolio-summon::before {
+/*
+ * Unlayered frost — beats layered imports / Lightning -webkit- stripping.
+ * Catch-up composes `.os-dock-pill`; share the launcher ::before recipe exactly
+ * (fill comes from `.os-app-screen:not(.os-app-screen--mood) .os-dock-pill`).
+ */
+.os-dock-pill.home-feed-new-posts-pill {
+  align-items: center;
+  justify-content: center;
+}
+
+.os-dock-pill.portfolio-summon::before,
+.os-dock-pill.home-feed-new-posts-pill::before {
   background: var(--os-dock-fill);
+  /* Standard only — a -webkit- pair makes Lightning drop the blur. */
   backdrop-filter: blur(20px) saturate(1.3);
 }
 
-/*
- * Catch-up chip frost — same recipe as `.os-dock-pill:before`.
- * Keep the selector distinct from layered `.home-feed-new-posts-pill` so
- * Turbopack does not collapse `::before` into the base rule.
- */
-.home-feed-new-posts-anchor > .home-feed-new-posts-pill::before,
+/* Pull indicator frost. */
 .home-feed-pull > .home-feed-pull-pill::before {
   content: '';
   z-index: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: var(--os-dock-fill, rgb(var(--bg-rgb) / 0.72));
-  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  background: var(--os-dock-fill, rgb(var(--bg-rgb) / 0.78));
   backdrop-filter: blur(20px) saturate(1.3);
-  /* Lip + elev shadow on the frost layer — matches `.os-dock-pill::before`. */
   box-shadow:
     var(
       --os-dock-shadow,
@@ -41425,21 +41329,19 @@ body:has(.feed-face-thread) .portfolio-summon-dock .portfolio-summon {
   inset: 0;
 }
 
-.home-feed-new-posts-anchor > .home-feed-new-posts-pill > *,
 .home-feed-pull > .home-feed-pull-pill > * {
   z-index: 1;
   position: relative;
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .os-dock-pill.portfolio-summon::before {
+  .os-dock-pill.portfolio-summon::before,
+  .os-dock-pill.home-feed-new-posts-pill::before {
     backdrop-filter: none;
     background: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.94));
   }
 
-  .home-feed-new-posts-anchor > .home-feed-new-posts-pill::before,
   .home-feed-pull > .home-feed-pull-pill::before {
-    -webkit-backdrop-filter: none;
     backdrop-filter: none;
     background: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.94));
   }

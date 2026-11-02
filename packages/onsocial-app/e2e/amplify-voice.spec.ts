@@ -15,8 +15,8 @@ test.describe('amplify voice', () => {
 
     const amplify = page.getByRole('button', { name: 'Amplify this post' });
     await expect(amplify).toBeVisible({ timeout: 30_000 });
-    // Idle amplify is the Mage rocket, five strokes. A flame is two.
-    await expect(amplify.locator('svg path')).toHaveCount(5);
+    // Idle amplify is Mage fire-b, two paths.
+    await expect(amplify.locator('svg path')).toHaveCount(2);
     await amplify.click();
 
     const sheet = page.getByRole('dialog').filter({ hasText: 'Amplify' });

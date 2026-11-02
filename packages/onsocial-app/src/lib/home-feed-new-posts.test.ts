@@ -6,6 +6,8 @@ import {
   feedPostKeySet,
   homeFeedNewPostsCountLabel,
   homeFeedNewPostsLabel,
+  hotFeedHeadOrderChanged,
+  hotFeedRisingAuthorIds,
   mergeHomeFeedHead,
   mergeHotFeedHead,
   pendingFeedOffsetShift,
@@ -311,6 +313,40 @@ describe('mergeHomeFeedHead', () => {
       'newer',
       'july',
       'older',
+    ]);
+  });
+});
+
+describe('hotFeedHeadOrderChanged', () => {
+  it('detects a boost that reorders the head without a new card', () => {
+    const before = [
+      row('a.near', 'cold'),
+      { ...row('b.near', 'boosted'), amplifyHeat: 1 },
+    ];
+    const after = [
+      { ...row('b.near', 'boosted'), amplifyHeat: 9 },
+      row('a.near', 'cold'),
+    ];
+    expect(hotFeedHeadOrderChanged(before, after)).toBe(true);
+    expect(hotFeedHeadOrderChanged(before, before)).toBe(false);
+  });
+});
+
+describe('hotFeedRisingAuthorIds', () => {
+  it('returns authors of posts that rose into the Hot head', () => {
+    const before = [
+      row('a.near', 'cold'),
+      row('b.near', 'boosted'),
+      row('c.near', 'other'),
+    ];
+    const after = [
+      row('b.near', 'boosted'),
+      row('c.near', 'other'),
+      row('a.near', 'cold'),
+    ];
+    expect(hotFeedRisingAuthorIds(before, after)).toEqual([
+      'b.near',
+      'c.near',
     ]);
   });
 });

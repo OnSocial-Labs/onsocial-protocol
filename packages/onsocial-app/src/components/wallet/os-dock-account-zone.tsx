@@ -1,5 +1,6 @@
 'use client';
 
+import { FingerprintIcon } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { DOCK_CONNECT_CTA } from '@/components/wallet/dock-connect-voice';
 import { useAppAccountSheet } from '@/contexts/app-account-sheet-context';
@@ -38,7 +39,7 @@ export function OsDockAccountZone({ pageAccountId }: OsDockAccountZoneProps) {
           void connect();
         }}
       >
-        <span className="app-wallet-connect-glyph" aria-hidden />
+        <FingerprintIcon className="app-wallet-connect-glyph" aria-hidden />
       </button>
     );
   }

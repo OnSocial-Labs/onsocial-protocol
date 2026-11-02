@@ -16,7 +16,7 @@ import {
 } from '@/features/guilds/guild-config';
 import { guildConfigFromIndexedRow } from '@/features/guilds/guild-facts';
 import {
-  readGuildOwnerId,
+  keepGuildRosterOwner,
   reconcileGuildMemberRoster,
 } from '@/features/guilds/guild-member-roster';
 import { resolveViewerAllowlistSpaceIds } from '@/features/guilds/guild-space-write';
@@ -395,10 +395,16 @@ export function useGuildPageData({
 
     if (!structureHydratedRef.current) {
       try {
-        const rawConfig = await client.groups.getConfig(groupId);
+        const [rawConfig, indexedRows] = await Promise.all([
+          client.groups.getConfig(groupId),
+          client.query.groups.byIds([groupId]).catch(() => []),
+        ]);
         if (groupIdRef.current !== groupId) return;
         if (rawConfig) {
           const fromRpc = normalizeGuildConfig(groupId, rawConfig);
+          const rosterOwnerId =
+            indexedRows[0]?.ownerId?.trim() ||
+            (currentConfig.ownerId?.trim() ?? '');
           structureHydratedRef.current = true;
           clearStructureRetryTimers();
           setState((current) => ({
@@ -417,8 +423,10 @@ export function useGuildPageData({
                   : (current.config ?? currentConfig).topics,
               accessGated: fromRpc.accessGated,
               memberDriven: fromRpc.memberDriven,
-              ownerId:
-                fromRpc.ownerId ?? (current.config ?? currentConfig).ownerId,
+              ownerId: keepGuildRosterOwner(
+                rosterOwnerId || (current.config ?? currentConfig).ownerId,
+                fromRpc.ownerId
+              ),
               // Prefer RPC media even when null (removal must clear painted shell).
               bannerUrl: fromRpc.bannerUrl,
               badgeUrl: fromRpc.badgeUrl,
@@ -514,6 +522,10 @@ export function useGuildPageData({
         config: current.config
           ? {
               ...fromIndexer,
+              ownerId: keepGuildRosterOwner(
+                fromIndexer.ownerId,
+                current.config.ownerId
+              ),
               structure: structureHydratedRef.current
                 ? current.config.structure
                 : fromIndexer.structure,
@@ -542,7 +554,14 @@ export function useGuildPageData({
         return false;
       }
       if (rawConfig) {
-        normalizedConfig = normalizeGuildConfig(groupId, rawConfig);
+        const fromRpc = normalizeGuildConfig(groupId, rawConfig);
+        normalizedConfig = {
+          ...fromRpc,
+          ownerId: keepGuildRosterOwner(
+            normalizedConfig?.ownerId ?? configRef.current?.ownerId,
+            fromRpc.ownerId
+          ),
+        };
         structureHydratedRef.current = true;
         clearStructureRetryTimers();
         const shellEntry: GuildShellCacheEntry = {
@@ -570,7 +589,7 @@ export function useGuildPageData({
           config: normalizedConfig!,
           members: reconcileGuildMemberRoster(
             current.members,
-            readGuildOwnerId(rawConfig)
+            normalizedConfig!.ownerId
           ),
         }));
         setLoadState('ready');
