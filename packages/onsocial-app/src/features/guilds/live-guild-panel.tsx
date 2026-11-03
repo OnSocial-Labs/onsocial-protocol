@@ -1486,6 +1486,7 @@ export function LiveGuildPanel({
                 : undefined
             }
             onResolved={() => void refresh()}
+            onPresented={settleSheetHandoff}
           />
         ) : null}
         {config && manageSheet === 'add-member' ? (
@@ -1573,6 +1574,7 @@ export function LiveGuildPanel({
               setGroupStorageSheetOpen(false);
               setGroupStorageRecipient(null);
             }}
+            onPresented={settleSheetHandoff}
           />
         ) : null}
         {canConfigure && config ? (

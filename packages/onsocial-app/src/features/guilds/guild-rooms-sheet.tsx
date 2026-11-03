@@ -8,7 +8,6 @@ import {
   OsSheetActions,
   OsSheetFooter,
   useDiscardConfirm,
-  useSheetHandoff,
 } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -22,8 +21,8 @@ import {
   type DiscoveredChannelUsage,
 } from '@/features/guilds/guild-structure-discovery';
 import { SUPPORT_GUILD_CONNECT_CTA } from '@/features/guilds/support-guild-voice';
-import { latchOpenedSwap } from '@/features/guilds/guild-sheet-handoff';
 import { GuildStructureSettingsSection } from '@/features/guilds/guild-structure-settings-section';
+import { useGuildSettingsDrawerHandoff } from '@/features/guilds/use-guild-settings-drawer-handoff';
 import {
   cloneGuildStructure,
   guildStructureForMetadata,
@@ -113,21 +112,7 @@ export function GuildRoomsSheet({
   snapshotRef.current = snapshot;
 
   const sheetOpen = open && !closing;
-  const handoff = useSheetHandoff();
-  const [latchedSwap, setLatchedSwap] = useState(false);
-  const nextLatch = latchOpenedSwap(sheetOpen, handoff, latchedSwap);
-  if (nextLatch !== latchedSwap) setLatchedSwap(nextLatch);
-  const presentedRef = useRef(false);
-
-  useEffect(() => {
-    if (!sheetOpen) {
-      presentedRef.current = false;
-      return;
-    }
-    if (!latchedSwap || presentedRef.current) return;
-    presentedRef.current = true;
-    onPresented?.();
-  }, [sheetOpen, latchedSwap, onPresented]);
+  const presentation = useGuildSettingsDrawerHandoff(sheetOpen, onPresented);
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -304,7 +289,7 @@ export function GuildRoomsSheet({
         closeAriaLabel="Close"
         backdropLabel="Close guild rooms"
         zIndex={SHEET_Z.facts}
-        presentation={latchedSwap ? 'swap' : 'enter'}
+        presentation={presentation}
         headerClassName="guild-settings-sheet-header"
         panelClassName="guild-settings-sheet-panel os-sheet-cap-tall"
         bodyClassName="guild-rooms-sheet-body"

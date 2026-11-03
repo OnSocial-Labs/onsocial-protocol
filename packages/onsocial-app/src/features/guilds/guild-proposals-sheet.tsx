@@ -18,6 +18,7 @@ import {
 } from '@/features/guilds/guild-proposal-display';
 import { GuildProposalCard } from '@/features/guilds/guild-proposal-card';
 import { GuildProposalVotersSheet } from '@/features/guilds/guild-proposal-voters-sheet';
+import { useGuildSettingsDrawerHandoff } from '@/features/guilds/use-guild-settings-drawer-handoff';
 import {
   collectRelayTxHashes,
   guildSheetPath,
@@ -51,6 +52,8 @@ interface GuildProposalsSheetProps {
   onClose: () => void;
   onOpenRequests?: () => void;
   onResolved?: () => void;
+  /** Settings crossfade has painted — parent can drop the handoff flag. */
+  onPresented?: () => void;
 }
 
 function bumpTallyForVote(
@@ -78,7 +81,9 @@ export function GuildProposalsSheet({
   onClose,
   onOpenRequests,
   onResolved,
+  onPresented,
 }: GuildProposalsSheetProps) {
+  const presentation = useGuildSettingsDrawerHandoff(open, onPresented);
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -416,11 +421,12 @@ export function GuildProposalsSheet({
         onClose={onClose}
         label="Proposals"
         copy={subtitle}
-      closeAriaLabel="Close"
-      backdropLabel="Close proposals"
-      zIndex={SHEET_Z.facts}
-      sizing="full"
-      initialDetent={focusProposal ? 'full' : 'peek'}
+        closeAriaLabel="Close"
+        backdropLabel="Close proposals"
+        zIndex={SHEET_Z.facts}
+        sizing="full"
+        presentation={presentation}
+        initialDetent={focusProposal ? 'full' : 'peek'}
       peekRatio={GLASS_SHEET_PEEK_RATIO}
       titleId="guild-proposals-title"
       headerClassName="guild-manage-sheet-header"

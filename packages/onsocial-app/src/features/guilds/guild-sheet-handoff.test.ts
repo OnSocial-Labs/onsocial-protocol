@@ -14,9 +14,21 @@ describe('latchOpenedSwap', () => {
     expect(latchOpenedSwap(true, false, false)).toBe(false);
   });
 
-  it('settles the settings handoff once rooms has presented', () => {
+  it('settles the settings handoff once drawer sheets have presented', () => {
+    const hook = readFileSync(
+      join(guildsDir, 'use-guild-settings-drawer-handoff.ts'),
+      'utf8'
+    );
     const rooms = readFileSync(
       join(guildsDir, 'guild-rooms-sheet.tsx'),
+      'utf8'
+    );
+    const proposals = readFileSync(
+      join(guildsDir, 'guild-proposals-sheet.tsx'),
+      'utf8'
+    );
+    const storage = readFileSync(
+      join(guildsDir, 'guild-group-storage-sheet.tsx'),
       'utf8'
     );
     const panel = readFileSync(join(guildsDir, 'live-guild-panel.tsx'), 'utf8');
@@ -24,9 +36,16 @@ describe('latchOpenedSwap', () => {
       join(guildsDir, 'guild-room-editor.tsx'),
       'utf8'
     );
-    expect(rooms).toContain('latchOpenedSwap');
-    expect(rooms).toContain("presentation={latchedSwap ? 'swap' : 'enter'}");
-    expect(panel).toContain('onPresented={settleSheetHandoff}');
+
+    expect(hook).toContain('latchOpenedSwap');
+    for (const sheet of [rooms, proposals, storage]) {
+      expect(sheet).toContain('useGuildSettingsDrawerHandoff');
+      expect(sheet).toContain('presentation={presentation}');
+    }
+    const settleCount = (
+      panel.match(/onPresented=\{settleSheetHandoff\}/g) ?? []
+    ).length;
+    expect(settleCount).toBe(3);
     expect(editor).toContain('presentation="appear"');
   });
 });
