@@ -53,6 +53,7 @@ import {
   DAO_EDIT_PUBLISH_HINT,
 } from '@/features/protocol/dao-create-voice';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { useDaoPageCapability } from '@/hooks/use-dao-page-capability';
 import { bumpDaoWorkspacePrefetch } from '@/lib/dao-workspace-prefetch';
 import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
@@ -119,6 +120,7 @@ export function DaoEditSheet({
   const { getSigningWallet } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const scrollFieldIntoView = useMobileFieldFocusScroll();
   const { eligibility, isLoading: eligibilityLoading } = useDaoPageCapability(
     daoAccountId,
     true
@@ -442,8 +444,7 @@ export function DaoEditSheet({
         photos: nextPhotos.length > 0 ? nextPhotos : null,
         avatar,
         banner,
-        links:
-          Object.keys(normalizedLinks).length > 0 ? normalizedLinks : null,
+        links: Object.keys(normalizedLinks).length > 0 ? normalizedLinks : null,
       };
 
       if (isSocial) {
@@ -576,6 +577,7 @@ export function DaoEditSheet({
           maxLength={FACE_BIO_WRAP_CHARS}
           disabled={pending}
           placeholder="Short line on the OnSocial page…"
+          onFocus={scrollFieldIntoView}
           onChange={(event) =>
             setFace(clampFaceEditorInput(event.target.value))
           }
@@ -663,6 +665,7 @@ export function DaoEditSheet({
               value={name}
               maxLength={MAX_NAME}
               disabled={pending}
+              onFocus={scrollFieldIntoView}
               onChange={(event) => setName(event.target.value)}
               className={osFieldBorderedClassName}
             />
@@ -685,6 +688,7 @@ export function DaoEditSheet({
                 maxLength={PROFILE_BIO_MAX}
                 disabled={pending}
                 placeholder="What this DAO stewards…"
+                onFocus={scrollFieldIntoView}
                 onChange={(event) =>
                   setPurpose(event.target.value.slice(0, PROFILE_BIO_MAX))
                 }

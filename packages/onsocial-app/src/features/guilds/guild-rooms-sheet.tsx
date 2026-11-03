@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  DiscardConfirmSheet,
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
   OsSheetFooter,
+  useDiscardConfirm,
 } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -192,15 +194,28 @@ export function GuildRoomsSheet({
     return !guildStructuresEqual(structure, snapshot.structure);
   }, [snapshot, structure]);
 
+  const {
+    discardConfirmOpen,
+    requestCloseOrConfirm,
+    clearDiscardConfirm,
+    keepEditing,
+    discard,
+  } = useDiscardConfirm({
+    open: sheetOpen,
+    dirty: isDirty,
+    pending,
+    onClose: () => setClosing(true),
+  });
+
   const requestClose = useCallback(() => {
-    if (pending) return;
-    setClosing(true);
-  }, [pending]);
+    if (requestCloseOrConfirm()) setClosing(true);
+  }, [requestCloseOrConfirm]);
 
   const handleClosed = useCallback(() => {
     setClosing(false);
+    clearDiscardConfirm();
     onClose();
-  }, [onClose]);
+  }, [clearDiscardConfirm, onClose]);
 
   const handleSave = async () => {
     if (!snapshot || !structure || pending || !isDirty) return;
@@ -256,68 +271,75 @@ export function GuildRoomsSheet({
   const showEditor = loadState === 'ready' && structure;
 
   return (
-    <OsHugSheet
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleClosed}
-      label="Rooms"
-      copy="Feed tabs for this guild"
-      closeAriaLabel="Close"
-      backdropLabel="Close guild rooms"
-      zIndex={SHEET_Z.facts}
-      headerClassName="guild-settings-sheet-header"
-      panelClassName="guild-settings-sheet-panel os-sheet-cap-tall"
-      bodyClassName="guild-rooms-sheet-body"
-      footer={
-        showEditor ? (
-          <OsSheetFooter>
-            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-              {!isConnected && !walletLoading ? (
-                <OsSheetAction
-                  type="button"
-                  variant="primary"
-                  ready
-                  onClick={() => void connect()}
-                >
-                  {SUPPORT_GUILD_CONNECT_CTA}
-                </OsSheetAction>
-              ) : (
-                <OsSheetAction
-                  type="button"
-                  variant="primary"
-                  ready={isDirty && isConnected}
-                  pending={pending}
-                  pendingLabel={memberDriven ? 'Proposing…' : 'Saving…'}
-                  disabled={!isDirty || pending || !isConnected}
-                  onClick={() => void handleSave()}
-                >
-                  {memberDriven ? 'Propose rooms' : 'Save rooms'}
-                </OsSheetAction>
-              )}
-            </OsSheetActions>
-          </OsSheetFooter>
-        ) : undefined
-      }
-    >
-      {loadState === 'error' ? (
-        <div className="guild-state-card is-error">
-          <p>{error ?? 'Could not load rooms.'}</p>
-          <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
-        </div>
-      ) : null}
-      {loadState === 'forbidden' ? (
-        <div className="guild-state-card">
-          <p>Only owners and admins can manage rooms.</p>
-        </div>
-      ) : null}
-      {showEditor ? (
-        <GuildStructureSettingsSection
-          structure={structure}
-          onChange={setStructure}
-          disabled={pending}
-          discoveredChannels={discoveredChannels}
-        />
-      ) : null}
-    </OsHugSheet>
+    <>
+      <OsHugSheet
+        open={sheetOpen}
+        onClose={requestClose}
+        onClosed={handleClosed}
+        label="Rooms"
+        copy="Feed tabs for this guild"
+        closeAriaLabel="Close"
+        backdropLabel="Close guild rooms"
+        zIndex={SHEET_Z.facts}
+        headerClassName="guild-settings-sheet-header"
+        panelClassName="guild-settings-sheet-panel os-sheet-cap-tall"
+        bodyClassName="guild-rooms-sheet-body"
+        footer={
+          showEditor ? (
+            <OsSheetFooter>
+              <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+                {!isConnected && !walletLoading ? (
+                  <OsSheetAction
+                    type="button"
+                    variant="primary"
+                    ready
+                    onClick={() => void connect()}
+                  >
+                    {SUPPORT_GUILD_CONNECT_CTA}
+                  </OsSheetAction>
+                ) : (
+                  <OsSheetAction
+                    type="button"
+                    variant="primary"
+                    ready={isDirty && isConnected}
+                    pending={pending}
+                    pendingLabel={memberDriven ? 'Proposing…' : 'Saving…'}
+                    disabled={!isDirty || pending || !isConnected}
+                    onClick={() => void handleSave()}
+                  >
+                    {memberDriven ? 'Propose rooms' : 'Save rooms'}
+                  </OsSheetAction>
+                )}
+              </OsSheetActions>
+            </OsSheetFooter>
+          ) : undefined
+        }
+      >
+        {loadState === 'error' ? (
+          <div className="guild-state-card is-error">
+            <p>{error ?? 'Could not load rooms.'}</p>
+            <OsEmptyAction onClick={() => void refresh()}>Retry</OsEmptyAction>
+          </div>
+        ) : null}
+        {loadState === 'forbidden' ? (
+          <div className="guild-state-card">
+            <p>Only owners and admins can manage rooms.</p>
+          </div>
+        ) : null}
+        {showEditor ? (
+          <GuildStructureSettingsSection
+            structure={structure}
+            onChange={setStructure}
+            disabled={pending}
+            discoveredChannels={discoveredChannels}
+          />
+        ) : null}
+      </OsHugSheet>
+      <DiscardConfirmSheet
+        open={discardConfirmOpen}
+        onDiscard={discard}
+        onKeepEditing={keepEditing}
+      />
+    </>
   );
 }

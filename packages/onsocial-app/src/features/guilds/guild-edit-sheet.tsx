@@ -452,6 +452,41 @@ export function GuildEditSheet({
   const openBannerPicker = () => bannerInputRef.current?.click();
   const openBadgePicker = () => badgeInputRef.current?.click();
 
+  const handleBannerFile = async (file: File | null) => {
+    if (!file) return;
+    if (file.size > GUILD_BADGE_MAX_BYTES) {
+      setError('Banner must be 5 MB or smaller.');
+      return;
+    }
+    const allowed = new Set(
+      GUILD_IMAGE_ACCEPT.split(',').map((type) => type.trim())
+    );
+    if (!allowed.has(file.type.toLowerCase())) {
+      setError('Use a PNG, JPG, WebP, or GIF for the banner.');
+      return;
+    }
+    const readable = await new Promise<boolean>((resolve) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(true);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(false);
+      };
+      img.src = url;
+    });
+    if (!readable) {
+      setError('Could not prepare banner.');
+      return;
+    }
+    setBannerFile(file);
+    setBannerRemoved(false);
+    setError(null);
+  };
+
   const handleBadgeFile = async (file: File | null) => {
     if (!file) return;
     if (file.size > GUILD_BADGE_MAX_BYTES) {
@@ -752,8 +787,7 @@ export function GuildEditSheet({
               hidden
               onChange={(event) => {
                 const file = event.target.files?.[0] ?? null;
-                setBannerFile(file);
-                if (file) setBannerRemoved(false);
+                void handleBannerFile(file);
                 event.target.value = '';
               }}
             />
