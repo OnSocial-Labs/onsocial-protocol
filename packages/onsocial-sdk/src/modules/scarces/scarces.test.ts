@@ -916,4 +916,26 @@ describe('ScarcesModule.apps', () => {
       collectionId: 'col1',
     });
   });
+
+  it('requestPublish wallet calls attach 100 TGas, not the 300 ceiling', async () => {
+    const http = makeHttp();
+    const { getter } = makeSessionGetter();
+    const signer = vi.fn(async () => ({ txHash: 'pub-req' }));
+    const mod = new ScarcesModule(asHttp(http), getter, undefined, undefined, () => ({
+      kind: 'wallet',
+      signer,
+    }));
+    await mod.apps.requestPublish('app1', 'hi');
+    expect(prepareBodyFor(http.post, 'request-publish')).toEqual({
+      appId: 'app1',
+      message: 'hi',
+    });
+    expect(signer).toHaveBeenCalledTimes(1);
+    const tx = signer.mock.calls[0]![0] as {
+      actions: Array<{ gas: string; deposit: string; methodName: string }>;
+    };
+    expect(tx.actions[0]?.methodName).toBe('execute');
+    expect(tx.actions[0]?.deposit).toBe('1');
+    expect(tx.actions[0]?.gas).toBe('100000000000000');
+  });
 });

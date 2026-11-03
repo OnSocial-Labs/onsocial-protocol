@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Divider } from '@onsocial/ui';
-import { StandingIdentity } from '@/components/profile/standing-identity';
+import {
+  ProfileAccountSearchPicks,
+  profileAccountSearchActive,
+} from '@/components/profile/profile-account-search-picks';
 import { NearAccountField } from '@/components/ui/near-account-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -38,14 +40,6 @@ import {
   nearAccountPlaceholder,
   normalizeNearAccountId,
 } from '@/lib/app-near-account';
-import {
-  fetchDiscoverProfiles,
-  type DiscoverProfileSummary,
-} from '@/lib/discover-profiles';
-import {
-  PROFILE_SEARCH_MIN_QUERY_LENGTH,
-  normalizeProfileSearchQuery,
-} from '@/lib/profile-account-search';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import {
   txToastConfirming,
@@ -53,9 +47,6 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
-
-const SEARCH_DEBOUNCE_MS = 220;
-const SEARCH_RESULT_LIMIT = 8;
 
 export interface ScarceTransferSuccessDetail {
   tokenId: string;
@@ -82,11 +73,6 @@ export function ScarceTransferForm({
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [receiverId, setReceiverId] = useState('');
   const [pending, setPending] = useState(false);
-  const [searchProfiles, setSearchProfiles] = useState<
-    DiscoverProfileSummary[]
-  >([]);
-  const [searchPending, setSearchPending] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
   const [hydratedPlayable, setHydratedPlayable] =
     useState<ScarcePlayableMedia | null>(null);
   const [hydratedPlayables, setHydratedPlayables] = useState<
@@ -112,38 +98,10 @@ export function ScarceTransferForm({
       ownerId,
     });
   const listed = item.listingKind != null;
-  const normalizedQuery = normalizeProfileSearchQuery(receiverId);
-  const searchActive =
-    !pending &&
-    accountStatus !== 'found' &&
-    normalizedQuery.length >= PROFILE_SEARCH_MIN_QUERY_LENGTH;
-
-  useEffect(() => {
-    if (!searchActive) return;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      setSearchPending(true);
-      setSearchError(null);
-      void fetchDiscoverProfiles(normalizedQuery, ownerId, 0, controller.signal)
-        .then((response) => {
-          if (controller.signal.aborted) return;
-          setSearchProfiles(response.profiles);
-          setSearchPending(false);
-        })
-        .catch((cause) => {
-          if (controller.signal.aborted) return;
-          setSearchProfiles([]);
-          setSearchPending(false);
-          setSearchError(
-            cause instanceof Error ? cause.message : 'Search failed.'
-          );
-        });
-    }, SEARCH_DEBOUNCE_MS);
-    return () => {
-      controller.abort();
-      window.clearTimeout(timer);
-    };
-  }, [normalizedQuery, ownerId, searchActive]);
+  const searchActive = profileAccountSearchActive(
+    receiverId,
+    accountStatus === 'found'
+  );
 
   useEffect(() => {
     if (item.playable && item.playables?.length) return;
@@ -164,16 +122,6 @@ export function ScarceTransferForm({
       cancelled = true;
     };
   }, [item.playable, item.playables, item.tokenId]);
-
-  const visibleProfiles = useMemo(
-    () =>
-      searchProfiles
-        .filter(
-          (profile) => !ownerId || !accountIdsEqual(profile.accountId, ownerId)
-        )
-        .slice(0, SEARCH_RESULT_LIMIT),
-    [ownerId, searchProfiles]
-  );
 
   const footerState = useMemo<CommerceSheetFooterState>(
     () => ({
@@ -298,47 +246,17 @@ export function ScarceTransferForm({
         />
       </label>
 
-      {searchActive ? (
-        <div className="collection-allowlist-section">
-          {searchPending && visibleProfiles.length === 0 ? (
-            <p className="guild-add-member-hint">Searching…</p>
-          ) : null}
-          {searchError ? (
-            <p className="guild-form-error" role="alert">
-              {searchError}
-            </p>
-          ) : null}
-          {!searchPending && visibleProfiles.length === 0 && !searchError ? (
-            <p className="guild-add-member-hint">No profiles found.</p>
-          ) : null}
-          {visibleProfiles.length > 0 ? (
-            <div
-              className="standing-list guild-add-member-results"
-              role="listbox"
-              aria-label="OnSocial profiles"
-            >
-              {visibleProfiles.map((profile, index) => (
-                <div key={profile.accountId}>
-                  {index > 0 ? <Divider variant="item" /> : null}
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={false}
-                    className="guild-add-member-result os-disabled-ink"
-                    onClick={() => setReceiverId(profile.accountId)}
-                  >
-                    <StandingIdentity
-                      accountId={profile.accountId}
-                      profileName={profile.name}
-                      avatarUrl={profile.avatarUrl}
-                    />
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      ) : listed || isSelf || accountStatus === 'missing' ? (
+      <ProfileAccountSearchPicks
+        query={receiverId}
+        enabled={searchActive && !pending}
+        disabled={pending}
+        excludeAccountIds={ownerId ? [ownerId] : []}
+        viewerAccountId={ownerId}
+        onPick={setReceiverId}
+      />
+
+      {!searchActive &&
+      (listed || isSelf || accountStatus === 'missing') ? (
         <p className="profile-support-hint">
           {listed ? 'This comes off sale.' : ''}
           {isSelf ? ' Choose another account.' : ''}

@@ -194,6 +194,28 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
     path: 'compose/prepare/remove-approved-creator',
     body: 'json',
   },
+  // Hubs — ask / withdraw / staff decide publish access.
+  { method: 'POST', path: 'compose/prepare/request-publish', body: 'json' },
+  {
+    method: 'POST',
+    path: 'compose/prepare/cancel-publish-request',
+    body: 'json',
+  },
+  {
+    method: 'POST',
+    path: 'compose/prepare/decline-publish-request',
+    body: 'json',
+  },
+  {
+    method: 'POST',
+    path: 'compose/prepare/block-publish-requester',
+    body: 'json',
+  },
+  {
+    method: 'POST',
+    path: 'compose/prepare/unblock-publish-requester',
+    body: 'json',
+  },
 
   // Gateway wallet auth (NEP-413) — used to obtain a viewer JWT for mutes.
   { method: 'POST', path: 'auth/challenge', body: 'json' },

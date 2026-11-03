@@ -54,6 +54,17 @@
     --os-action-solid: rgb(var(--fg-rgb) / 0.92);
     --os-action-solid-hover: rgb(var(--fg-rgb));
     --os-action-solid-ink: rgb(var(--bg-rgb, 0 0 0));
+    /*
+     * Armed danger — same solid chrome as primary, protocol-red fill.
+     * Ink stays light on the red slab (theme-independent).
+     */
+    --os-action-danger-solid: var(--protocol-red, #f25c5c);
+    --os-action-danger-solid-hover: color-mix(
+      in srgb,
+      var(--protocol-red, #f25c5c) 88%,
+      white
+    );
+    --os-action-danger-solid-ink: #fff;
     --os-action-lift: rgb(0 0 0 / 0.3);
     --os-action-lift-hover: rgb(0 0 0 / 0.36);
   }
@@ -327,7 +338,8 @@
 }
 
 /*
- * Danger stays muted until `.is-ready` (host sets ready= {canTransfer}).
+ * Danger — same arming chrome as primary (muted → solid), red fill.
+ * Stays muted until `.is-ready` (host sets ready={canTransfer}).
  * Do not arm on :not(:disabled) alone — that raced frosted footer styles.
  */
 .os-sheet-action--danger {
@@ -340,17 +352,12 @@
 .os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded):not(
     .is-pending
   ) {
-  border-color: color-mix(
-    in srgb,
-    var(--protocol-red) 24%,
-    var(--os-action-border)
-  );
-  background: color-mix(in srgb, var(--protocol-red) 5%, transparent);
-  color: color-mix(
-    in srgb,
-    var(--protocol-red-ink, var(--protocol-red)) 78%,
-    rgb(var(--fg-rgb) / 0.52)
-  );
+  animation: os-action-ready-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  border-color: transparent;
+  background: var(--os-action-danger-solid);
+  color: var(--os-action-danger-solid-ink);
+  box-shadow: 0 8px 24px -8px
+    color-mix(in srgb, var(--protocol-red, #f25c5c) 45%, transparent);
   cursor: pointer;
 }
 
@@ -358,13 +365,10 @@
   .os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded):not(
       .is-pending
     ):hover {
-    border-color: color-mix(in srgb, var(--protocol-red) 42%, transparent);
-    background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
-    color: var(--protocol-red-ink, var(--protocol-red));
-    backdrop-filter: blur(10px) saturate(140%);
-    -webkit-backdrop-filter: blur(10px) saturate(140%);
-    box-shadow: 0 3px 8px -2px
-      color-mix(in srgb, var(--protocol-red) 10%, transparent);
+    background: var(--os-action-danger-solid-hover);
+    color: var(--os-action-danger-solid-ink);
+    box-shadow: 0 10px 28px -8px
+      color-mix(in srgb, var(--protocol-red, #f25c5c) 52%, transparent);
   }
 }
 
@@ -391,20 +395,14 @@
   cursor: default;
 }
 
-/* Pending danger — quiet red wash, not the armed ready face. */
+/* Pending danger — quiet dormant surface + dots (same as primary pending). */
 .os-sheet-action--danger.is-pending:disabled:not(.is-succeeded) {
-  border-color: color-mix(
-    in srgb,
-    var(--protocol-red) 14%,
-    var(--os-action-border)
-  );
-  background: color-mix(in srgb, var(--protocol-red) 3%, transparent);
-  color: color-mix(
-    in srgb,
-    var(--protocol-red-ink, var(--protocol-red)) 62%,
-    rgb(var(--fg-rgb) / 0.48)
-  );
+  border-color: rgb(var(--fg-rgb) / 0.12);
+  background: var(--os-action-fill-dormant);
+  color: var(--os-action-ink-chrome);
   box-shadow: none;
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
   cursor: progress;
   opacity: 1;
 }
@@ -639,17 +637,13 @@
 }
 
 /*
- * Frosted-primary tone — the base ladder owns the primary look (solid
- * armed, surface-fill dormant). Only danger keeps a tone-level blur.
+ * Frosted-primary tone — primary + danger arm as solid fills; pending
+ * danger keeps a quiet blur on the dormant surface (same as primary).
  */
 .os-sheet-actions--frosted-primary
-  .os-sheet-action--danger.is-ready:not(:disabled),
-.os-sheet-actions--frosted-primary
-  .os-sheet-action--danger.is-ready:not(:disabled):hover,
-.os-sheet-actions--frosted-primary
   .os-sheet-action--danger.is-pending:disabled:not(.is-succeeded) {
-  backdrop-filter: blur(10px) saturate(140%);
-  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
 }
 
 /* Borderless frosted actions — faint fill, stronger hover, no pill chrome. */
@@ -705,6 +699,10 @@
   color: var(--os-action-ink-disabled);
 }
 
+/*
+ * Borderless danger — armed keeps the solid red fill (borderless strip
+ * removes the frame + lift); pending wears quiet dormant like primary.
+ */
 .os-sheet-actions.os-sheet-actions--borderless
   .os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded):not(
     .is-pending
@@ -713,26 +711,26 @@
   .os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded):not(
     .is-pending
   ) {
-  background: color-mix(in srgb, var(--protocol-red) 5%, transparent);
-  color: color-mix(in srgb, var(--protocol-red) 78%, rgb(var(--fg-rgb) / 0.52));
+  background: var(--os-action-danger-solid);
+  color: var(--os-action-danger-solid-ink);
 }
 
 .os-sheet-actions.os-sheet-actions--borderless
   .os-sheet-action--danger.is-pending:disabled:not(.is-succeeded),
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
   .os-sheet-action--danger.is-pending:disabled:not(.is-succeeded) {
-  background: color-mix(in srgb, var(--protocol-red) 3%, transparent);
-  color: color-mix(in srgb, var(--protocol-red) 62%, rgb(var(--fg-rgb) / 0.48));
+  background: var(--os-action-fill-dormant);
+  color: var(--os-action-ink-chrome);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
 }
 
 .os-sheet-actions.os-sheet-actions--borderless
   .os-sheet-action--danger.is-ready:not(:disabled):focus-visible,
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
   .os-sheet-action--danger.is-ready:not(:disabled):focus-visible {
-  background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
-  color: var(--protocol-red);
-  backdrop-filter: blur(10px) saturate(140%);
-  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  background: var(--os-action-danger-solid);
+  color: var(--os-action-danger-solid-ink);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -740,10 +738,8 @@
     .os-sheet-action--danger.is-ready:not(:disabled):hover,
   .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
     .os-sheet-action--danger.is-ready:not(:disabled):hover {
-    background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
-    color: var(--protocol-red);
-    backdrop-filter: blur(10px) saturate(140%);
-    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    background: var(--os-action-danger-solid-hover);
+    color: var(--os-action-danger-solid-ink);
   }
 }
 

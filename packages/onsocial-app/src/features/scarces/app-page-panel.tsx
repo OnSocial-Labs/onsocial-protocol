@@ -852,7 +852,9 @@ export function AppPagePanel({
           onClose={() => setSettingsOpen(false)}
           onOpenSheet={() => undefined}
           onHandoff={(sheet) => {
-            setSheetHandoff(sheet === 'publish-requests');
+            setSheetHandoff(
+              sheet === 'publish-requests' || sheet === 'transfer'
+            );
             setSettingsOpen(false);
             setManageSheet(sheet);
           }}
@@ -903,12 +905,17 @@ export function AppPagePanel({
       ) : null}
 
       {owner ? (
-        <HubTransferSheet
-          open={manageSheet === 'transfer'}
-          app={app}
-          onClose={() => setManageSheet(null)}
-          onChanged={onManaged}
-        />
+        <SheetHandoffProvider active={sheetHandoff}>
+          <HubTransferSheet
+            open={manageSheet === 'transfer'}
+            app={app}
+            onClose={() => {
+              setSheetHandoff(false);
+              setManageSheet(null);
+            }}
+            onChanged={onManaged}
+          />
+        </SheetHandoffProvider>
       ) : null}
       <HeldEditionFollow
         open={editionPick != null}

@@ -1,0 +1,37 @@
+---
+description: Hub / hug drawer CTAs live in the body form — never invent footer padding.
+globs: packages/onsocial-app/**/*sheet*.tsx,packages/onsocial-app/**/hub-*.tsx
+alwaysApply: false
+---
+
+# Hug drawer actions
+
+When adding or changing an `OsHugSheet` (hub settings children, publish access, transfer, short forms):
+
+**Compose the settled pattern.** Copy `hub-publish-access-sheet.tsx` (or the nearest sibling hug drawer), not commerce `OsGestureSheet` + `footer`.
+
+## Do
+
+- Panel: `hub-manage-sheet-panel hub-manage-sheet-panel--hug` (+ `os-sheet-cap-short` for short forms)
+- Body: `hub-manage-sheet-body`
+- Fields + CTA inside `.hub-manage-form`
+- CTA: `<OsSheetActions layout="stack" tone="frosted-primary" borderless>` wrapping `OsSheetAction` **in the body**, after the fields
+
+```tsx
+<OsHugSheet … panelClassName="… hub-manage-sheet-panel--hug …" bodyClassName="hub-manage-sheet-body">
+  <div className="hub-manage-form">
+    {/* fields */}
+    <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+      <OsSheetAction …>Save</OsSheetAction>
+    </OsSheetActions>
+  </div>
+</OsHugSheet>
+```
+
+## Do not
+
+- Pass the primary CTA through `OsHugSheet` `footer={…}` — that uses a different pad band and reads misaligned vs publish / settings siblings
+- Invent per-drawer footer padding / margin to “fix” a footer CTA
+- Use full-screen `OsSlideOverScreen` / `HubManageSheetChrome` for a single short action that siblings already do as a hug drawer
+
+Commerce buy/sell/transfer-scarce keep `OsGestureSheet` + `CommerceSheetFooter`. Hub manage hugs do not.

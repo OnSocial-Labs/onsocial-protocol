@@ -10,13 +10,19 @@ import {
 import Link from 'next/link';
 import {
   DiscardConfirmSheet,
+  OsHugSheet,
+  OsSheetAction,
+  OsSheetActions,
+  SuffixField,
   osFieldBorderedClassName,
   useDiscardConfirm,
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import {
+  ProfileAccountSearchPicks,
+  profileAccountSearchActive,
+} from '@/components/profile/profile-account-search-picks';
 import { NearAccountField } from '@/components/ui/near-account-field';
-import { SuffixField } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -763,15 +769,30 @@ export function HubTransferSheet({
 }) {
   const withWallet = useHubManageWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const [closing, setClosing] = useState(false);
   const [transferTo, setTransferTo] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sheetOpen = open && !closing;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setClosing(false);
+      return;
+    }
     setTransferTo('');
     setError(null);
   }, [open, app.appId]);
+
+  const requestClose = useCallback(() => {
+    if (pending || closing) return;
+    setClosing(true);
+  }, [closing, pending]);
+
+  const handleClosed = useCallback(() => {
+    setClosing(false);
+    onClose();
+  }, [onClose]);
 
   const normalizedTo = normalizeNearAccountId(transferTo);
   const isSelf = accountIdsEqual(normalizedTo, app.ownerId);
@@ -787,6 +808,10 @@ export function HubTransferSheet({
     : nearAccountStatusClass(accountStatus);
   const dirty = transferTo.trim().length > 0;
   const canTransfer = dirty && !pending && !isSelf && accountStatus === 'found';
+  const searchActive = profileAccountSearchActive(
+    transferTo,
+    accountStatus === 'found'
+  );
 
   const transfer = async () => {
     const nextOwner = normalizedTo;
@@ -807,7 +832,7 @@ export function HubTransferSheet({
       });
       if (!confirmed) return;
       onChanged();
-      onClose();
+      setClosing(true);
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
       setTxResult({
@@ -823,36 +848,20 @@ export function HubTransferSheet({
   };
 
   return (
-    <HubManageSheetChrome
-      open={open}
-      title="Transfer hub"
-      subtitle="Hand ownership to another account"
-      onClose={onClose}
-      pending={pending}
-      footer={
-        <OsSheetActions layout="stack" borderless>
-          <OsSheetAction
-            type="button"
-            variant="danger"
-            ready={canTransfer}
-            pending={pending}
-            pendingLabel="Transferring…"
-            disabled={!canTransfer}
-            onClick={() => void transfer()}
-          >
-            {canTransfer ? `Transfer to ${recipientLabel}` : 'Transfer hub'}
-          </OsSheetAction>
-        </OsSheetActions>
-      }
+    <OsHugSheet
+      open={sheetOpen}
+      onClose={requestClose}
+      onClosed={handleClosed}
+      label="Transfer hub"
+      copy="Hand ownership to another account"
+      closeAriaLabel="Close transfer hub"
+      backdropLabel="Close transfer hub"
+      showClose={!pending}
+      zIndex={SHEET_Z.list}
+      panelClassName="hub-manage-sheet-panel hub-manage-sheet-panel--hug hub-transfer-sheet-panel os-sheet-cap-short"
+      bodyClassName="hub-manage-sheet-body"
     >
-      <form
-        className="hub-manage-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!canTransfer) return;
-          void transfer();
-        }}
-      >
+      <div className="hub-manage-form">
         <label className="guild-field" htmlFor="hub-transfer-owner">
           <span>New owner</span>
           <NearAccountField
@@ -860,7 +869,7 @@ export function HubTransferSheet({
             value={transferTo}
             disabled={pending}
             placeholder={nearAccountPlaceholder()}
-            status={accountStatus}
+            status={isSelf ? 'found' : accountStatus}
             statusClass={statusClass}
             aria-invalid={
               accountStatus === 'missing' ||
@@ -876,9 +885,41 @@ export function HubTransferSheet({
             Permanent — you lose owner controls immediately.
           </small>
         </label>
+        <ProfileAccountSearchPicks
+          query={transferTo}
+          enabled={searchActive && !pending}
+          disabled={pending}
+          excludeAccountIds={[app.ownerId]}
+          viewerAccountId={app.ownerId}
+          onPick={(accountId) => {
+            setError(null);
+            setTransferTo(accountId);
+          }}
+        />
+        {!searchActive && isSelf ? (
+          <p className="hub-manage-hint">Choose another account.</p>
+        ) : null}
+        {!searchActive && accountStatus === 'missing' ? (
+          <p className="hub-manage-hint">
+            No NEAR account found for {fallbackLabel(normalizedTo)}.
+          </p>
+        ) : null}
         {error ? <p className="guild-form-error">{error}</p> : null}
-      </form>
-    </HubManageSheetChrome>
+        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+          <OsSheetAction
+            type="button"
+            variant="danger"
+            ready={canTransfer}
+            pending={pending}
+            pendingLabel="Transferring…"
+            disabled={!canTransfer}
+            onClick={() => void transfer()}
+          >
+            {canTransfer ? `Transfer to ${recipientLabel}` : 'Transfer hub'}
+          </OsSheetAction>
+        </OsSheetActions>
+      </div>
+    </OsHugSheet>
   );
 }
 

@@ -11,7 +11,7 @@ import {
   type BroadcastGetter,
 } from '../../internal/session-bridge.js';
 import { SCARCES_VERBS } from './verbs.js';
-import { scarcesRelayOptions } from './_relay.js';
+import { SCARCES_APPS_WALLET_GAS, scarcesRelayOptions } from './_relay.js';
 
 /**
  * Who may create collections under an app.
@@ -40,7 +40,10 @@ export class ScarcesAppsApi {
   ) {}
 
   private _relayOpts(opts?: { confirmation?: boolean }) {
-    return scarcesRelayOptions(this._getBroadcast, opts);
+    return scarcesRelayOptions(this._getBroadcast, {
+      ...opts,
+      gas: SCARCES_APPS_WALLET_GAS,
+    });
   }
 
   /** Register a new app. Caller becomes the initial owner. */
