@@ -638,6 +638,28 @@ test.describe('guild page', () => {
     await expect(rooms).toHaveAttribute('data-presentation', 'swap');
     await expect(rooms.locator('.guild-structure-add')).toHaveCount(0);
     await expect(rooms.getByRole('textbox')).toHaveCount(0);
+    await rooms.getByRole('button', { name: '+ Announcements' }).click();
+    const fromLibrary = page.getByRole('dialog', { name: 'Add room' });
+    await expect(fromLibrary).toBeVisible();
+    await expect(
+      rooms.locator('.guild-structure-room-list').getByRole('button', {
+        name: /Announcements/,
+      })
+    ).toHaveCount(0);
+    await expect(
+      rooms.getByRole('button', { name: '+ Announcements' })
+    ).toBeVisible();
+    await fromLibrary.getByRole('button', { name: 'Add room', exact: true }).click();
+    await expect(fromLibrary).toHaveCount(0);
+    await expect(
+      rooms.locator('.guild-structure-room-list').getByRole('button', {
+        name: /Announcements/,
+      })
+    ).toBeVisible();
+    await expect(
+      rooms.getByRole('button', { name: '+ Announcements' })
+    ).toHaveCount(0);
+
     await rooms.getByRole('button', { name: 'Add room', exact: true }).click();
 
     const editor = page.getByRole('dialog', { name: 'Add room' });
