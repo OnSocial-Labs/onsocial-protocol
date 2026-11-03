@@ -245,6 +245,9 @@ export function LiveGuildPanel({
   const [roomsSheetOpen, setRoomsSheetOpen] = useState(false);
   const [factsSheetOpen, setFactsSheetOpen] = useState(false);
   const [sheetHandoff, setSheetHandoff] = useState(false);
+  const settleSheetHandoff = useCallback(() => {
+    setSheetHandoff(false);
+  }, []);
   const [addSpaceOpen, setAddSpaceOpen] = useState(false);
   const [writersTarget, setWritersTarget] = useState<{
     spaceId: string;
@@ -1594,6 +1597,7 @@ export function LiveGuildPanel({
               setSheetHandoff(false);
               setRoomsSheetOpen(false);
             }}
+            onPresented={settleSheetHandoff}
             onSaved={() => void refresh()}
           />
         ) : null}
