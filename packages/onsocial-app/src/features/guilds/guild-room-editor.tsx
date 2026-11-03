@@ -3,10 +3,12 @@
 import { useCallback, useState } from 'react';
 import {
   ChoiceDrawerField,
+  DiscardConfirmSheet,
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
   osFieldBorderedClassName,
+  useDiscardConfirm,
   type ChoiceOption,
 } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -51,13 +53,18 @@ export interface GuildRoomEditorFieldsProps {
   pending?: boolean;
   error?: string | null;
   autoFocus?: boolean;
+  /** Feed plus always creates a visible tab. Settings can hide a room. */
+  showFeedTab?: boolean;
   feedTabLocked?: boolean;
   choiceZIndex: number;
   onTitleChange: (title: string) => void;
   onPolicyChange: (next: GuildSpacePostPolicy) => void;
-  onEnabledChange: (enabled: boolean) => void;
-  /** Present while creating. Editing a room writes through the field callbacks. */
+  onEnabledChange?: (enabled: boolean) => void;
+  /** Commits the local draft. Absent while the fields are display-only. */
   onSubmit?: () => void;
+  submitLabel?: string;
+  /** Arms the commit button. Defaults to a non-empty name. */
+  submitReady?: boolean;
 }
 
 /** Name, share rule, and feed-tab fields shared by settings and the feed plus. */
@@ -69,15 +76,19 @@ export function GuildRoomEditorFields({
   pending = false,
   error = null,
   autoFocus = false,
+  showFeedTab = true,
   feedTabLocked = false,
   choiceZIndex,
   onTitleChange,
   onPolicyChange,
   onEnabledChange,
   onSubmit,
+  submitLabel = 'Add room',
+  submitReady,
 }: GuildRoomEditorFieldsProps) {
   const scrollFieldIntoView = useMobileFieldFocusScroll<HTMLInputElement>();
   const busy = disabled || pending;
+  const armed = submitReady ?? (Boolean(title.trim()) && !busy);
 
   return (
     <>
@@ -112,34 +123,36 @@ export function GuildRoomEditorFields({
           onChange={onPolicyChange}
         />
       </div>
-      <div className="guild-field">
-        <ChoiceDrawerField
-          label="Feed tab"
-          value={enabled ? 'on' : 'off'}
-          options={FEED_TAB_OPTIONS.map((option) =>
-            option.value === 'off' && feedTabLocked
-              ? { ...option, disabled: true }
-              : option
-          )}
-          disabled={busy || feedTabLocked}
-          persistSelected
-          copy="Whether this room shows in the feed"
-          zIndex={choiceZIndex}
-          onChange={(next) => onEnabledChange(next === 'on')}
-        />
-      </div>
+      {showFeedTab ? (
+        <div className="guild-field">
+          <ChoiceDrawerField
+            label="Feed tab"
+            value={enabled ? 'on' : 'off'}
+            options={FEED_TAB_OPTIONS.map((option) =>
+              option.value === 'off' && feedTabLocked
+                ? { ...option, disabled: true }
+                : option
+            )}
+            disabled={busy || feedTabLocked}
+            persistSelected
+            copy="Whether this room shows in the feed"
+            zIndex={choiceZIndex}
+            onChange={(next) => onEnabledChange?.(next === 'on')}
+          />
+        </div>
+      ) : null}
       {onSubmit ? (
         <OsSheetActions layout="stack" tone="frosted-primary" borderless>
           <OsSheetAction
             type="button"
             variant="primary"
-            ready={Boolean(title.trim()) && !busy}
+            ready={armed && !busy}
             pending={pending}
             pendingLabel="Adding…"
-            disabled={busy || !title.trim()}
+            disabled={!armed || busy}
             onClick={onSubmit}
           >
-            Add room
+            {submitLabel}
           </OsSheetAction>
         </OsSheetActions>
       ) : null}
@@ -177,19 +190,30 @@ export function GuildFeedAddRoomSheet({
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [title, setTitle] = useState('');
   const [postPolicy, setPostPolicy] = useState<GuildSpacePostPolicy>('members');
-  const [enabled, setEnabled] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const sheetOpen = open && !closing;
+  const namedDraft = Boolean(title.trim());
+  const {
+    discardConfirmOpen,
+    requestCloseOrConfirm,
+    clearDiscardConfirm,
+    keepEditing,
+    discard,
+  } = useDiscardConfirm({
+    open: sheetOpen,
+    dirty: namedDraft,
+    pending,
+    onClose: () => setClosing(true),
+  });
 
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
       setTitle('');
       setPostPolicy('members');
-      setEnabled(true);
       setError(null);
       setPending(false);
       setClosing(false);
@@ -197,20 +221,20 @@ export function GuildFeedAddRoomSheet({
   }
 
   const requestClose = useCallback(() => {
-    if (pending) return;
-    setClosing(true);
-  }, [pending]);
+    if (requestCloseOrConfirm()) setClosing(true);
+  }, [requestCloseOrConfirm]);
 
   const handleSheetClosed = useCallback(() => {
     setClosing(false);
+    clearDiscardConfirm();
     onClose();
-  }, [onClose]);
+  }, [clearDiscardConfirm, onClose]);
 
   const handleSubmit = async () => {
     const result = appendCustomGuildSpace(structure, {
       title,
       postPolicy,
-      enabled,
+      enabled: true,
     });
     if (!result.ok) {
       setError(result.error);
@@ -256,36 +280,43 @@ export function GuildFeedAddRoomSheet({
   };
 
   return (
-    <OsHugSheet
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleSheetClosed}
-      label="Add room"
-      copy="New feed tab"
-      closeAriaLabel="Close add room"
-      backdropLabel="Close add room"
-      zIndex={SHEET_Z.facts}
-      headerClassName="guild-settings-sheet-header"
-      panelClassName="guild-settings-sheet-panel os-sheet-cap-short"
-    >
-      <div className="guild-structure-room-edit">
-        <GuildRoomEditorFields
-          title={title}
-          postPolicy={postPolicy}
-          enabled={enabled}
-          pending={pending}
-          error={error}
-          autoFocus
-          choiceZIndex={SHEET_Z.nested}
-          onTitleChange={(next) => {
-            setTitle(next);
-            setError(null);
-          }}
-          onPolicyChange={setPostPolicy}
-          onEnabledChange={setEnabled}
-          onSubmit={() => void handleSubmit()}
-        />
-      </div>
-    </OsHugSheet>
+    <>
+      <OsHugSheet
+        open={sheetOpen}
+        onClose={requestClose}
+        onClosed={handleSheetClosed}
+        label="Add room"
+        copy="New feed tab"
+        closeAriaLabel="Close add room"
+        backdropLabel="Close add room"
+        zIndex={SHEET_Z.facts}
+        headerClassName="guild-settings-sheet-header"
+        panelClassName="guild-settings-sheet-panel os-sheet-cap-short"
+      >
+        <div className="guild-structure-room-edit">
+          <GuildRoomEditorFields
+            title={title}
+            postPolicy={postPolicy}
+            enabled
+            pending={pending}
+            error={error}
+            autoFocus
+            showFeedTab={false}
+            choiceZIndex={SHEET_Z.nested}
+            onTitleChange={(next) => {
+              setTitle(next);
+              setError(null);
+            }}
+            onPolicyChange={setPostPolicy}
+            onSubmit={() => void handleSubmit()}
+          />
+        </div>
+      </OsHugSheet>
+      <DiscardConfirmSheet
+        open={discardConfirmOpen}
+        onDiscard={discard}
+        onKeepEditing={keepEditing}
+      />
+    </>
   );
 }
