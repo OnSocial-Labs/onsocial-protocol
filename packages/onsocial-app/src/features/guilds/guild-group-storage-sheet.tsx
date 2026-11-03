@@ -53,6 +53,7 @@ import {
   STORAGE_SHARE_POOL_DEPOSIT_PRESETS_NEAR,
   type ActiveStorageShareGrant,
 } from '@/lib/user-storage-display';
+import { useGuildSettingsDrawerHandoff } from '@/features/guilds/use-guild-settings-drawer-handoff';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
   txToastConfirming,
@@ -437,15 +438,19 @@ export function GuildGroupStorageSheet({
   guildName,
   initialRecipient = null,
   onClose,
+  onPresented,
 }: {
   open: boolean;
   groupId: string;
   guildName?: string;
   initialRecipient?: string | null;
   onClose: () => void;
+  /** Settings crossfade has painted — parent can drop the handoff flag. */
+  onPresented?: () => void;
 }) {
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
+  const presentation = useGuildSettingsDrawerHandoff(sheetOpen, onPresented);
   const { accountId, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [refreshKey, setRefreshKey] = useState(0);
@@ -818,6 +823,7 @@ export function GuildGroupStorageSheet({
       closeAriaLabel="Close"
       backdropLabel="Close group storage"
       zIndex={SHEET_Z.list}
+      presentation={presentation}
       initialDetent="peek"
       peekRatio={GLASS_SHEET_PEEK_RATIO}
       headerClassName="account-storage-header"
