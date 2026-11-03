@@ -15,11 +15,9 @@ import { ActionDrawer } from '@/components/ui/action-drawer';
 import { GuildRoomEditorFields } from '@/features/guilds/guild-room-editor';
 import {
   GUILD_STRUCTURE_TEMPLATES,
-  appendCustomGuildSpace,
   cloneGuildStructure,
   commitGuildSpaceEdits,
   librarySpacesNotInStructure,
-  mergeStructureSpaces,
   postPolicyLabel,
   reorderGuildSpace,
   type GuildSpace,
@@ -27,10 +25,12 @@ import {
   type GuildStructureDocument,
 } from '@/features/guilds/guild-structure';
 import {
+  commitGuildRoomCreate,
   enableAllSuggestedSpaces,
-  enableOrAddGuildSpace,
   structureChannelSuggestions,
   type DiscoveredChannelUsage,
+  type GuildRoomCreatePreset,
+  type StructureChannelSuggestion,
 } from '@/features/guilds/guild-structure-discovery';
 import { OsChipAction } from '@/lib/os-chip-action';
 import { SHEET_Z } from '@/lib/sheet-z';
@@ -67,6 +67,9 @@ export function GuildStructureSettingsSection({
   const [editClosing, setEditClosing] = useState(false);
   const [menu, setMenu] = useState<RoomMenu>(null);
   const [menuClosing, setMenuClosing] = useState(false);
+  const [createPreset, setCreatePreset] = useState<GuildRoomCreatePreset>({
+    kind: 'blank',
+  });
 
   const sortedSpaces = useMemo(
     () => [...structure.spaces].sort((a, b) => a.order - b.order),
@@ -85,18 +88,50 @@ export function GuildStructureSettingsSection({
     [editingId, sortedSpaces]
   );
 
-  const addLibrarySpace = (template: GuildSpace) => {
-    onChange(mergeStructureSpaces(structure, { ...template, enabled: true }));
-  };
-
-  const openCreate = () => {
-    setDraftTitle('');
-    setDraftPolicy('members');
-    setDraftEnabled(true);
+  const openCreateEditor = (seed: {
+    title: string;
+    postPolicy: GuildSpacePostPolicy;
+    enabled: boolean;
+    preset: GuildRoomCreatePreset;
+  }) => {
+    setDraftTitle(seed.title);
+    setDraftPolicy(seed.postPolicy);
+    setDraftEnabled(seed.enabled);
     setDraftError(null);
     setEditingId(null);
     setEditClosing(false);
+    setCreatePreset(seed.preset);
     setCreating(true);
+  };
+
+  const openCreate = () => {
+    openCreateEditor({
+      title: '',
+      postPolicy: 'members',
+      enabled: true,
+      preset: { kind: 'blank' },
+    });
+  };
+
+  const openLibraryCreate = (space: GuildSpace) => {
+    openCreateEditor({
+      title: space.title,
+      postPolicy: space.postPolicy,
+      enabled: true,
+      preset: { kind: 'library', libraryId: space.id },
+    });
+  };
+
+  const openSuggestionCreate = (suggestion: StructureChannelSuggestion) => {
+    const existing = structure.spaces.find(
+      (space) => space.id === suggestion.channelId
+    );
+    openCreateEditor({
+      title: suggestion.title,
+      postPolicy: existing?.postPolicy ?? 'members',
+      enabled: true,
+      preset: { kind: 'suggestion', channelId: suggestion.channelId },
+    });
   };
 
   const applyTemplate = (templateId: string) => {
@@ -105,10 +140,6 @@ export function GuildStructureSettingsSection({
     onChange(cloneGuildStructure(template.structure));
     setEditingId(null);
     setCreating(false);
-  };
-
-  const enableSuggestion = (channelId: string) => {
-    onChange(enableOrAddGuildSpace(structure, channelId));
   };
 
   const closeMenu = useCallback(() => {
@@ -121,11 +152,15 @@ export function GuildStructureSettingsSection({
   }, []);
 
   const commitCreate = () => {
-    const result = appendCustomGuildSpace(structure, {
-      title: draftTitle,
-      postPolicy: draftPolicy,
-      enabled: draftEnabled,
-    });
+    const result = commitGuildRoomCreate(
+      structure,
+      {
+        title: draftTitle,
+        postPolicy: draftPolicy,
+        enabled: draftEnabled,
+      },
+      createPreset
+    );
     if (!result.ok) {
       setDraftError(result.error);
       return;
@@ -234,7 +269,7 @@ export function GuildStructureSettingsSection({
               <OsChipAction
                 key={suggestion.channelId}
                 disabled={disabled}
-                onClick={() => enableSuggestion(suggestion.channelId)}
+                onClick={() => openSuggestionCreate(suggestion)}
               >
                 + {suggestion.title} ({suggestion.postCount})
               </OsChipAction>
@@ -302,7 +337,7 @@ export function GuildStructureSettingsSection({
               <OsChipAction
                 key={space.id}
                 disabled={disabled}
-                onClick={() => addLibrarySpace(space)}
+                onClick={() => openLibraryCreate(space)}
               >
                 + {space.title}
               </OsChipAction>
@@ -326,6 +361,7 @@ export function GuildStructureSettingsSection({
           setEditClosing(false);
           setEditingId(null);
           setCreating(false);
+          setCreatePreset({ kind: 'blank' });
           setDraftError(null);
           clearDiscardConfirm();
         }}
