@@ -2,11 +2,13 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import {
+  DiscardConfirmSheet,
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
   OsSurfaceRow,
   OsSurfaceRowList,
+  useDiscardConfirm,
   type ActionDrawerItem,
 } from '@onsocial/ui';
 import { ActionDrawer } from '@/components/ui/action-drawer';
@@ -15,13 +17,11 @@ import {
   GUILD_STRUCTURE_TEMPLATES,
   appendCustomGuildSpace,
   cloneGuildStructure,
+  commitGuildSpaceEdits,
   librarySpacesNotInStructure,
   mergeStructureSpaces,
   postPolicyLabel,
   reorderGuildSpace,
-  toggleGuildSpaceEnabled,
-  updateGuildSpacePostPolicy,
-  updateGuildSpaceTitle,
   type GuildSpace,
   type GuildSpacePostPolicy,
   type GuildStructureDocument,
@@ -116,10 +116,9 @@ export function GuildStructureSettingsSection({
     setMenuClosing(true);
   }, [menuClosing]);
 
-  const requestCloseEdit = useCallback(() => {
-    if (editClosing) return;
+  const finishEdit = useCallback(() => {
     setEditClosing(true);
-  }, [editClosing]);
+  }, []);
 
   const commitCreate = () => {
     const result = appendCustomGuildSpace(structure, {
@@ -132,7 +131,22 @@ export function GuildStructureSettingsSection({
       return;
     }
     onChange(result.structure);
-    requestCloseEdit();
+    finishEdit();
+  };
+
+  const commitEdit = () => {
+    if (!editingSpace) return;
+    const result = commitGuildSpaceEdits(structure, editingSpace.id, {
+      title: draftTitle,
+      postPolicy: draftPolicy,
+      enabled: draftEnabled,
+    });
+    if (!result.ok) {
+      setDraftError(result.error);
+      return;
+    }
+    onChange(result.structure);
+    finishEdit();
   };
 
   const arrangeItems = useMemo<ActionDrawerItem[]>(() => {
@@ -182,13 +196,29 @@ export function GuildStructureSettingsSection({
   const lockedOn = Boolean(
     editingSpace?.enabled && editingSpace.id === 'general'
   );
-  const editorTitle = creating ? draftTitle : (editingSpace?.title ?? '');
-  const editorPolicy = creating
-    ? draftPolicy
-    : (editingSpace?.postPolicy ?? 'members');
-  const editorEnabled = creating
-    ? draftEnabled
-    : Boolean(editingSpace?.enabled);
+  const editDirty = Boolean(
+    editingSpace &&
+      (draftTitle.trim() !== editingSpace.title.trim() ||
+        draftPolicy !== editingSpace.postPolicy ||
+        draftEnabled !== editingSpace.enabled)
+  );
+  const editorDirty = creating ? Boolean(draftTitle.trim()) : editDirty;
+  const {
+    discardConfirmOpen,
+    requestCloseOrConfirm,
+    clearDiscardConfirm,
+    keepEditing,
+    discard,
+  } = useDiscardConfirm({
+    open: editOpen,
+    dirty: editorDirty,
+    onClose: finishEdit,
+  });
+
+  const requestCloseEdit = useCallback(() => {
+    if (editClosing) return;
+    if (requestCloseOrConfirm()) finishEdit();
+  }, [editClosing, finishEdit, requestCloseOrConfirm]);
 
   return (
     <section className="guild-section guild-structure-settings">
@@ -238,6 +268,10 @@ export function GuildStructureSettingsSection({
             onClick={() => {
               setCreating(false);
               setEditClosing(false);
+              setDraftTitle(space.title);
+              setDraftPolicy(space.postPolicy);
+              setDraftEnabled(space.enabled);
+              setDraftError(null);
               setEditingId(space.id);
             }}
           />
@@ -293,6 +327,7 @@ export function GuildStructureSettingsSection({
           setEditingId(null);
           setCreating(false);
           setDraftError(null);
+          clearDiscardConfirm();
         }}
         label={creating ? 'Add room' : 'Room'}
         copy={creating ? 'New feed tab' : editingSpace?.title || 'Edit room'}
@@ -305,46 +340,33 @@ export function GuildStructureSettingsSection({
         {creating || editingSpace ? (
           <div className="guild-structure-room-edit">
             <GuildRoomEditorFields
-              title={editorTitle}
-              postPolicy={editorPolicy}
-              enabled={editorEnabled}
+              title={draftTitle}
+              postPolicy={draftPolicy}
+              enabled={draftEnabled}
               disabled={disabled}
-              error={creating ? draftError : null}
+              error={draftError}
               autoFocus={creating}
               feedTabLocked={lockedOn}
               choiceZIndex={SHEET_Z.nestedConfirm}
+              submitLabel={creating ? 'Add room' : 'Save'}
+              submitReady={
+                Boolean(draftTitle.trim()) &&
+                !disabled &&
+                (creating || editDirty)
+              }
               onTitleChange={(title) => {
-                if (creating) {
-                  setDraftTitle(title);
-                  setDraftError(null);
-                  return;
-                }
-                if (!editingSpace) return;
-                onChange(
-                  updateGuildSpaceTitle(structure, editingSpace.id, title)
-                );
+                setDraftTitle(title);
+                setDraftError(null);
               }}
               onPolicyChange={(next) => {
-                if (creating) {
-                  setDraftPolicy(next);
-                  return;
-                }
-                if (!editingSpace) return;
-                onChange(
-                  updateGuildSpacePostPolicy(structure, editingSpace.id, next)
-                );
+                setDraftPolicy(next);
+                setDraftError(null);
               }}
               onEnabledChange={(next) => {
-                if (creating) {
-                  setDraftEnabled(next);
-                  return;
-                }
-                if (!editingSpace) return;
-                onChange(
-                  toggleGuildSpaceEnabled(structure, editingSpace.id, next)
-                );
+                setDraftEnabled(next);
+                setDraftError(null);
               }}
-              onSubmit={creating ? commitCreate : undefined}
+              onSubmit={creating ? commitCreate : commitEdit}
             />
             {editingSpace && sortedSpaces.length > 1 ? (
               <OsChipAction
@@ -387,6 +409,11 @@ export function GuildStructureSettingsSection({
         }
         items={menu?.kind === 'arrange' ? arrangeItems : templateItems}
         zIndex={SHEET_Z.nestedConfirm}
+      />
+      <DiscardConfirmSheet
+        open={discardConfirmOpen}
+        onDiscard={discard}
+        onKeepEditing={keepEditing}
       />
     </section>
   );

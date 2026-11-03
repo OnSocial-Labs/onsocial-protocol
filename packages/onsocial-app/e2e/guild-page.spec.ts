@@ -461,9 +461,9 @@ test.describe('guild page', () => {
     const sheet = page.getByRole('dialog', { name: 'Add room' });
     await expect(sheet).toBeVisible();
     await expect(sheet.getByText('New feed tab')).toBeVisible();
-    await expect(
-      sheet.getByRole('button', { name: 'Feed tab: In feed' })
-    ).toBeVisible();
+    await expect(sheet.getByRole('button', { name: /Feed tab/ })).toHaveCount(
+      0
+    );
     await expect(page.locator('.guild-add-space-segment')).toHaveCount(0);
     const name = sheet.getByRole('textbox', { name: 'Name' });
     await name.fill('Shipping Room');
@@ -509,21 +509,18 @@ test.describe('guild page', () => {
     await expect(
       sheet.getByRole('button', { name: 'Who can share: Selected members' })
     ).toBeVisible();
-    await sheet.getByRole('button', { name: 'Feed tab: In feed' }).click();
-    await page
-      .getByRole('listbox', { name: 'Feed tab' })
-      .getByRole('option', { name: /Hidden/ })
-      .click();
-    await expect(
-      sheet.getByRole('button', { name: 'Feed tab: Hidden' })
-    ).toBeVisible();
-    await expect(page.getByRole('listbox', { name: 'Feed tab' })).toHaveCount(
-      0
-    );
     await expect(name).toHaveValue('Shipping Room');
     await expect(
       sheet.getByRole('button', { name: 'Add room', exact: true })
     ).toBeEnabled();
+    await sheet.getByRole('button', { name: 'Close add room' }).click();
+    const discard = page.getByRole('dialog', { name: 'Discard changes?' });
+    await expect(discard).toBeVisible();
+    await discard
+      .locator('button.os-sheet-action', { hasText: 'Keep editing' })
+      .click();
+    await expect(discard).toHaveCount(0);
+    await expect(name).toHaveValue('Shipping Room');
     if (process.env.E2E_WALKTHROUGH_DIR) {
       await expect(sheet).not.toHaveClass(/glass-sheet-panel--enter/);
       await sheet.screenshot({
@@ -648,6 +645,14 @@ test.describe('guild page', () => {
       editor.getByRole('button', { name: 'Feed tab: In feed' })
     ).toBeVisible();
     await editor.getByRole('textbox').fill('Shipping Room');
+    await editor.getByRole('button', { name: 'Close add room' }).click();
+    const abandon = page.getByRole('dialog', { name: 'Discard changes?' });
+    await expect(abandon).toBeVisible();
+    await abandon
+      .locator('button.os-sheet-action', { hasText: 'Keep editing' })
+      .click();
+    await expect(abandon).toHaveCount(0);
+    await expect(editor.getByRole('textbox')).toHaveValue('Shipping Room');
     if (process.env.E2E_WALKTHROUGH_DIR) {
       await expect(editor).not.toHaveClass(/glass-sheet-panel--enter/);
       await editor.screenshot({
@@ -661,6 +666,38 @@ test.describe('guild page', () => {
       rooms.getByRole('button', { name: /Shipping Room/ })
     ).toBeVisible();
 
+    await rooms.getByRole('button', { name: /Shipping Room/ }).click();
+    const room = page.getByRole('dialog', { name: 'Room', exact: true });
+    await expect(room).toBeVisible();
+    await expect(room.getByRole('textbox')).toHaveValue('Shipping Room');
+    await room.getByRole('textbox').fill('Dock');
+    await expect(
+      rooms.getByRole('button', { name: /Shipping Room/ })
+    ).toBeVisible();
+    await expect(rooms.getByRole('button', { name: /Dock/ })).toHaveCount(0);
+    await expect(
+      room.getByRole('button', { name: 'Save', exact: true })
+    ).toBeEnabled();
+    await room.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(room).toHaveCount(0);
+    await expect(rooms.getByRole('button', { name: /Dock/ })).toBeVisible();
+    await expect(
+      rooms.getByRole('button', { name: /Shipping Room/ })
+    ).toHaveCount(0);
+
+    await rooms.getByRole('button', { name: /Dock/ }).click();
+    const again = page.getByRole('dialog', { name: 'Room', exact: true });
+    await again.getByRole('textbox').fill('Pier');
+    await again.getByRole('button', { name: 'Close room' }).click();
+    const roomDiscard = page.getByRole('dialog', { name: 'Discard changes?' });
+    await expect(roomDiscard).toBeVisible();
+    await roomDiscard
+      .locator('button.os-sheet-action', { hasText: 'Discard' })
+      .click();
+    await expect(again).toHaveCount(0);
+    await expect(rooms.getByRole('button', { name: /Dock/ })).toBeVisible();
+    await expect(rooms.getByRole('button', { name: /Pier/ })).toHaveCount(0);
+
     await rooms.getByRole('button', { name: 'Close', exact: true }).click();
     const discard = page.getByRole('dialog', { name: 'Discard changes?' });
     await expect(discard).toBeVisible();
@@ -669,9 +706,7 @@ test.describe('guild page', () => {
       .click();
     await expect(discard).toHaveCount(0);
     await expect(rooms).toBeVisible();
-    await expect(
-      rooms.getByRole('button', { name: /Shipping Room/ })
-    ).toBeVisible();
+    await expect(rooms.getByRole('button', { name: /Dock/ })).toBeVisible();
   });
 
   test('document title includes Guilds · OnSocial', async ({ page }) => {

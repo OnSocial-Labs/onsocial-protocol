@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_GUILD_STRUCTURE,
   appendCustomGuildSpace,
+  commitGuildSpaceEdits,
   canPostToGuildSpace,
   canViewerPostInChannel,
   enabledGuildSpaces,
@@ -116,7 +117,9 @@ describe('guild-structure', () => {
     expect(canViewerPostInChannel(structure, 'announcements', moderator)).toBe(
       true
     );
-    expect(canViewerPostInChannel(structure, 'announcements', admin)).toBe(true);
+    expect(canViewerPostInChannel(structure, 'announcements', admin)).toBe(
+      true
+    );
     expect(
       canPostToGuildSpace(structure.spaces[0]!, { ...member, isOwner: true })
     ).toBe(true);
@@ -160,7 +163,9 @@ describe('guild-structure', () => {
     expect(canViewerPostInChannel(structure, 'shipping-room', moderator)).toBe(
       false
     );
-    expect(canViewerPostInChannel(structure, 'shipping-room', admin)).toBe(true);
+    expect(canViewerPostInChannel(structure, 'shipping-room', admin)).toBe(
+      true
+    );
     expect(
       canViewerPostInChannel(structure, 'shipping-room', {
         ...member,
@@ -220,5 +225,38 @@ describe('guild-structure', () => {
         enabled: true,
       })
     ).toEqual({ ok: false, error: 'Enter a room name.' });
+  });
+
+  it('commits room edits in one step and keeps General in the feed', () => {
+    const structure = DEFAULT_GUILD_STRUCTURE;
+    const renamed = commitGuildSpaceEdits(structure, 'general', {
+      title: '  Lobby  ',
+      postPolicy: 'admins',
+      enabled: false,
+    });
+    expect(renamed.ok).toBe(true);
+    if (!renamed.ok) return;
+    expect(
+      renamed.structure.spaces.find((space) => space.id === 'general')
+    ).toMatchObject({
+      title: 'Lobby',
+      postPolicy: 'admins',
+      enabled: true,
+    });
+
+    expect(
+      commitGuildSpaceEdits(renamed.structure, 'general', {
+        title: '   ',
+        postPolicy: 'members',
+        enabled: true,
+      })
+    ).toEqual({ ok: false, error: 'Enter a room name.' });
+    expect(
+      commitGuildSpaceEdits(structure, 'missing', {
+        title: 'Lobby',
+        postPolicy: 'members',
+        enabled: true,
+      })
+    ).toEqual({ ok: false, error: 'That room is no longer here.' });
   });
 });

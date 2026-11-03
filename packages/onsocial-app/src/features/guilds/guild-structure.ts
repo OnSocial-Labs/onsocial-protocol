@@ -527,6 +527,35 @@ export function mergeStructureSpaces(
   };
 }
 
+export function commitGuildSpaceEdits(
+  structure: GuildStructureDocument,
+  spaceId: string,
+  input: {
+    title: string;
+    postPolicy: GuildSpacePostPolicy;
+    enabled: boolean;
+  }
+):
+  | { ok: true; structure: GuildStructureDocument }
+  | { ok: false; error: string } {
+  const title = input.title.trim();
+  if (!title) return { ok: false, error: 'Enter a room name.' };
+  const current = structure.spaces.find((space) => space.id === spaceId);
+  if (!current) return { ok: false, error: 'That room is no longer here.' };
+  const enabled =
+    current.id === 'general' && current.enabled ? true : input.enabled;
+  const titled = updateGuildSpaceTitle(structure, spaceId, title);
+  const policied = updateGuildSpacePostPolicy(
+    titled,
+    spaceId,
+    input.postPolicy
+  );
+  return {
+    ok: true,
+    structure: toggleGuildSpaceEnabled(policied, spaceId, enabled),
+  };
+}
+
 export function toggleGuildSpaceEnabled(
   structure: GuildStructureDocument,
   spaceId: string,
