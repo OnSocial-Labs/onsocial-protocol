@@ -102,11 +102,11 @@ export function SeriesEditSheet({
     [logoPreview]
   );
 
-  const baselineTitle = branding?.title ?? fallbackTitle;
-  const baselineDescription = branding?.description ?? '';
+  const baselineTitle = (branding?.title ?? fallbackTitle).trim();
+  const baselineDescription = (branding?.description ?? '').trim();
   const isDirty =
-    title !== baselineTitle ||
-    description !== baselineDescription ||
+    title.trim() !== baselineTitle ||
+    description.trim() !== baselineDescription ||
     logoFile != null ||
     logoRemoved;
 
@@ -166,7 +166,7 @@ export function SeriesEditSheet({
     logoPreview ?? (logoRemoved ? null : (branding?.logoUrl ?? null));
 
   const save = useCallback(async () => {
-    if (!canSave) return;
+    if (pending || !isDirty || title.trim().length < 2) return;
     setPending(true);
     setError(null);
     try {
@@ -219,7 +219,8 @@ export function SeriesEditSheet({
       setPending(false);
     }
   }, [
-    canSave,
+    isDirty,
+    pending,
     getClient,
     branding,
     logoFile,

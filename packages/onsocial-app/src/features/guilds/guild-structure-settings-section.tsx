@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DiscardConfirmSheet,
   OsHugSheet,
@@ -40,6 +40,8 @@ interface GuildStructureSettingsSectionProps {
   onChange: (structure: GuildStructureDocument) => void;
   disabled?: boolean;
   discoveredChannels?: DiscoveredChannelUsage[];
+  /** Open room hug has unsaved name / share / tab edits. */
+  onRoomEditorDirtyChange?: (dirty: boolean) => void;
 }
 
 function roomFeedBadge(space: GuildSpace): string {
@@ -56,6 +58,7 @@ export function GuildStructureSettingsSection({
   onChange,
   disabled = false,
   discoveredChannels = [],
+  onRoomEditorDirtyChange,
 }: GuildStructureSettingsSectionProps) {
   const [creating, setCreating] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
@@ -238,6 +241,11 @@ export function GuildStructureSettingsSection({
         draftEnabled !== editingSpace.enabled)
   );
   const editorDirty = creating ? Boolean(draftTitle.trim()) : editDirty;
+
+  useEffect(() => {
+    onRoomEditorDirtyChange?.(editOpen ? editorDirty : false);
+  }, [editOpen, editorDirty, onRoomEditorDirtyChange]);
+
   const {
     discardConfirmOpen,
     requestCloseOrConfirm,

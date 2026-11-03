@@ -105,6 +105,7 @@ export function GuildRoomsSheet({
   >([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [roomEditorDirty, setRoomEditorDirty] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const structureRef = useRef(structure);
   const snapshotRef = useRef(snapshot);
@@ -140,6 +141,7 @@ export function GuildRoomsSheet({
       setStructure(next.structure);
       setSnapshot(next);
       setDiscoveredChannels([]);
+      setRoomEditorDirty(false);
     }
   }
 
@@ -222,7 +224,7 @@ export function GuildRoomsSheet({
     discard,
   } = useDiscardConfirm({
     open: sheetOpen,
-    dirty: isDirty,
+    dirty: isDirty || roomEditorDirty,
     pending,
     onClose: () => setClosing(true),
   });
@@ -234,6 +236,7 @@ export function GuildRoomsSheet({
   const handleClosed = useCallback(() => {
     setClosing(false);
     clearDiscardConfirm();
+    setRoomEditorDirty(false);
     onClose();
   }, [clearDiscardConfirm, onClose]);
 
@@ -353,6 +356,7 @@ export function GuildRoomsSheet({
             onChange={setStructure}
             disabled={pending}
             discoveredChannels={discoveredChannels}
+            onRoomEditorDirtyChange={setRoomEditorDirty}
           />
         ) : null}
       </OsHugSheet>
