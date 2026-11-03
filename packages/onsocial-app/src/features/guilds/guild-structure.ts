@@ -20,17 +20,6 @@ export const GUILD_POST_POLICY_CHIP_LABEL: Record<
   allowlist: 'Selected',
 };
 
-/** One line under the share chips when adding a room. */
-export const GUILD_POST_POLICY_FORM_HINT: Record<
-  GuildSpacePostPolicy,
-  string
-> = {
-  members: 'Any member can share.',
-  moderators: 'Mods, admins, and owner.',
-  admins: 'Admins and owner only.',
-  allowlist: 'Choose members next. Leaders can always share.',
-};
-
 export const GUILD_POST_POLICY_OPTIONS: {
   value: GuildSpacePostPolicy;
   label: string;

@@ -37410,11 +37410,6 @@ a.os-surface-row,
     justify-self: start;
   }
 
-  .guild-add-space-sheet-header {
-    padding-bottom: 0.45rem;
-  }
-
-  .guild-add-space-sheet-form,
   .guild-structure-settings,
   .guild-structure-room-edit {
     display: flex;
@@ -37422,7 +37417,6 @@ a.os-surface-row,
     gap: 0.85rem;
   }
 
-  .guild-add-space-sheet-form .guild-field,
   .guild-structure-settings .guild-field,
   .guild-structure-room-edit .guild-field {
     padding: 0;
@@ -37432,23 +37426,14 @@ a.os-surface-row,
     background: transparent;
   }
 
-  .guild-add-space-sheet-form .guild-field > input,
   .guild-structure-settings .guild-field > input,
   .guild-structure-room-edit .guild-field > input {
     width: 100%;
   }
 
-  .guild-add-space-sheet-form .guild-field .os-choice-chip,
   .guild-structure-settings .guild-field .os-choice-chip,
   .guild-structure-room-edit .guild-field .os-choice-chip {
     align-self: flex-start;
-  }
-
-  .guild-add-space-hint {
-    margin: 0;
-    font-size: 0.74rem;
-    line-height: 1.4;
-    color: rgb(var(--fg-rgb) / 0.48);
   }
 
   .guild-space-writers-body {

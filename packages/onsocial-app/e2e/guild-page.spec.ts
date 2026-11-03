@@ -460,8 +460,17 @@ test.describe('guild page', () => {
 
     const sheet = page.getByRole('dialog', { name: 'Add room' });
     await expect(sheet).toBeVisible();
-    await expect(sheet.getByText('New feed tab in this guild.')).toBeVisible();
+    await expect(sheet.getByText('New feed tab')).toBeVisible();
+    await expect(
+      sheet.getByRole('button', { name: 'Feed tab: In feed' })
+    ).toBeVisible();
     await expect(page.locator('.guild-add-space-segment')).toHaveCount(0);
+    const name = sheet.getByRole('textbox', { name: 'Name' });
+    await name.fill('Shipping Room');
+    await expect(name).toHaveValue('Shipping Room');
+    await expect(
+      sheet.getByRole('button', { name: 'Add room', exact: true })
+    ).toBeEnabled();
 
     const shareChip = sheet.getByRole('button', {
       name: 'Who can share: Everyone here',
@@ -481,14 +490,14 @@ test.describe('guild page', () => {
     await expect(
       page
         .getByRole('dialog', { name: 'Who can share' })
-        .getByText('Any member can share.')
+        .getByText('Who may post in this room')
     ).toBeVisible();
+    await expect(everyone.getByText('Any member can share')).toBeVisible();
 
     await leaders.click();
     await expect(
       sheet.getByRole('button', { name: 'Who can share: Leaders only' })
     ).toBeVisible();
-    await expect(sheet.getByText('Admins and owner only.')).toBeVisible();
 
     await sheet
       .getByRole('button', { name: 'Who can share: Leaders only' })
@@ -500,10 +509,27 @@ test.describe('guild page', () => {
     await expect(
       sheet.getByRole('button', { name: 'Who can share: Selected members' })
     ).toBeVisible();
+    await sheet.getByRole('button', { name: 'Feed tab: In feed' }).click();
+    await page
+      .getByRole('listbox', { name: 'Feed tab' })
+      .getByRole('option', { name: /Hidden/ })
+      .click();
     await expect(
-      sheet.getByText('Choose members next. Leaders can always share.')
+      sheet.getByRole('button', { name: 'Feed tab: Hidden' })
     ).toBeVisible();
-    await expect(sheet.getByRole('button', { name: 'Add room' })).toBeVisible();
+    await expect(page.getByRole('listbox', { name: 'Feed tab' })).toHaveCount(
+      0
+    );
+    await expect(name).toHaveValue('Shipping Room');
+    await expect(
+      sheet.getByRole('button', { name: 'Add room', exact: true })
+    ).toBeEnabled();
+    if (process.env.E2E_WALKTHROUGH_DIR) {
+      await expect(sheet).not.toHaveClass(/glass-sheet-panel--enter/);
+      await sheet.screenshot({
+        path: `${process.env.E2E_WALKTHROUGH_DIR}/feed-add-room-editor.png`,
+      });
+    }
   });
 
   test('facts sheet opens from the hero info control', async ({ page }) => {
@@ -622,6 +648,12 @@ test.describe('guild page', () => {
       editor.getByRole('button', { name: 'Feed tab: In feed' })
     ).toBeVisible();
     await editor.getByRole('textbox').fill('Shipping Room');
+    if (process.env.E2E_WALKTHROUGH_DIR) {
+      await expect(editor).not.toHaveClass(/glass-sheet-panel--enter/);
+      await editor.screenshot({
+        path: `${process.env.E2E_WALKTHROUGH_DIR}/settings-add-room-editor.png`,
+      });
+    }
     await editor.getByRole('button', { name: 'Add room', exact: true }).click();
 
     await expect(editor).toHaveCount(0);
