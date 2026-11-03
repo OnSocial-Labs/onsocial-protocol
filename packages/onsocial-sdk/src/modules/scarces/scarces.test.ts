@@ -921,10 +921,16 @@ describe('ScarcesModule.apps', () => {
     const http = makeHttp();
     const { getter } = makeSessionGetter();
     const signer = vi.fn(async () => ({ txHash: 'pub-req' }));
-    const mod = new ScarcesModule(asHttp(http), getter, undefined, undefined, () => ({
-      kind: 'wallet',
-      signer,
-    }));
+    const mod = new ScarcesModule(
+      asHttp(http),
+      getter,
+      undefined,
+      undefined,
+      () => ({
+        kind: 'wallet',
+        signer,
+      })
+    );
     await mod.apps.requestPublish('app1', 'hi');
     expect(prepareBodyFor(http.post, 'request-publish')).toEqual({
       appId: 'app1',

@@ -56,12 +56,7 @@ export function ProfileAccountSearchPicks({
     normalizedQuery.length >= PROFILE_SEARCH_MIN_QUERY_LENGTH;
 
   useEffect(() => {
-    if (!searchActive) {
-      setProfiles([]);
-      setPending(false);
-      setError(null);
-      return;
-    }
+    if (!searchActive) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       setPending(true);
@@ -91,6 +86,7 @@ export function ProfileAccountSearchPicks({
   }, [normalizedQuery, searchActive, viewerAccountId]);
 
   const visibleProfiles = useMemo(() => {
+    if (!searchActive) return [];
     return profiles
       .filter(
         (profile) =>
@@ -99,7 +95,7 @@ export function ProfileAccountSearchPicks({
           )
       )
       .slice(0, SEARCH_RESULT_LIMIT);
-  }, [excludeAccountIds, profiles]);
+  }, [excludeAccountIds, profiles, searchActive]);
 
   if (!searchActive) return null;
 
