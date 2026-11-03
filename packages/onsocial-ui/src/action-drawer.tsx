@@ -7,6 +7,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
+import type { GlassSheetPresentation } from './glass-sheet.js';
 import { OsHugSheet } from './os-hug-sheet.js';
 
 export const osActionDrawerIconClassName = 'os-action-drawer-icon';
@@ -118,6 +119,11 @@ export interface ActionDrawerProps {
   keepDock?: boolean;
   /** `null` → document.body so the list can sit above an OS slide-over. */
   portalContainer?: HTMLElement | null;
+  /**
+   * `appear` fades over the sheet that opened this list.
+   * Default `enter` slides. A settings handoff rewrites `enter` into a swap.
+   */
+  presentation?: GlassSheetPresentation;
 }
 
 /**
@@ -147,6 +153,7 @@ export function ActionDrawer({
   linkComponent: LinkComponent = DefaultActionDrawerLink,
   keepDock = false,
   portalContainer,
+  presentation,
 }: ActionDrawerProps) {
   const sections = useMemo(() => groupItems(items ?? []), [items]);
 
@@ -231,6 +238,7 @@ export function ActionDrawer({
       backdropLabel={backdropLabel}
       keepDock={keepDock}
       {...(portalContainer !== undefined ? { portalContainer } : {})}
+      {...(presentation ? { presentation } : {})}
     >
       {children}
       {items && items.length > 0 ? (

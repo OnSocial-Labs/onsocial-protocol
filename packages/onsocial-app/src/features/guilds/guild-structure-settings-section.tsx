@@ -409,11 +409,13 @@ export function GuildStructureSettingsSection({
         }
         items={menu?.kind === 'arrange' ? arrangeItems : templateItems}
         zIndex={SHEET_Z.nestedConfirm}
+        presentation="appear"
       />
       <DiscardConfirmSheet
         open={discardConfirmOpen}
         onDiscard={discard}
         onKeepEditing={keepEditing}
+        presentation="appear"
       />
     </section>
   );

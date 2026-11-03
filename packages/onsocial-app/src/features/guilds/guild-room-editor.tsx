@@ -120,6 +120,7 @@ export function GuildRoomEditorFields({
           persistSelected
           copy="Who may post in this room"
           zIndex={choiceZIndex}
+          presentation="appear"
           onChange={onPolicyChange}
         />
       </div>
@@ -137,6 +138,7 @@ export function GuildRoomEditorFields({
             persistSelected
             copy="Whether this room shows in the feed"
             zIndex={choiceZIndex}
+            presentation="appear"
             onChange={(next) => onEnabledChange?.(next === 'on')}
           />
         </div>
@@ -316,6 +318,7 @@ export function GuildFeedAddRoomSheet({
         open={discardConfirmOpen}
         onDiscard={discard}
         onKeepEditing={keepEditing}
+        presentation="appear"
       />
     </>
   );
