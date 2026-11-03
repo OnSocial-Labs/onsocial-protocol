@@ -57,7 +57,7 @@ export function DaoLookPreview({
       >
         <button
           type="button"
-          className="profile-editor-media-backdrop dao-look-preview-cover-hit"
+          className="profile-editor-media-backdrop account-editor-banner-backdrop dao-look-preview-cover-hit"
           aria-label={coverUrl ? DAO_CREATE_CHANGE_COVER : DAO_CREATE_ADD_COVER}
           disabled={disabled}
           onClick={() => coverInputRef.current?.click()}
@@ -68,19 +68,31 @@ export function DaoLookPreview({
               srcSet={coverSrcSet}
               sizes={coverSrcSet ? APP_COLUMN_HERO_SIZES : undefined}
               alt=""
-              className="dao-look-preview-cover-image"
+              className="account-editor-banner-image dao-look-preview-cover-image"
             />
           ) : (
-            <span className="dao-look-preview-cover-empty">
-              {DAO_CREATE_ADD_COVER}
-            </span>
+            <span className="account-editor-banner-empty" aria-hidden />
           )}
+          <span
+            className={`account-editor-banner-overlay${
+              coverUrl ? ' has-media' : ''
+            }`}
+            aria-hidden
+          />
         </button>
         <ProfileEditorMediaToolbar
           layout="banner"
           removeLabel={coverUrl ? DAO_CREATE_REMOVE_COVER : undefined}
           onRemove={coverUrl ? onRemoveCover : undefined}
         />
+        {coverUrl ? null : (
+          <p
+            className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
+            aria-hidden
+          >
+            Photo or video
+          </p>
+        )}
       </div>
       <div className="dao-look-preview-face">
         <div

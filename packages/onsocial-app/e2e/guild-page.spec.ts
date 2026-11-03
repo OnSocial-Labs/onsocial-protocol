@@ -2,6 +2,10 @@ import { expect, test } from '@playwright/test';
 import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
 import { seedE2eWallet } from './helpers/collection-page';
 import { COLLECTIBLES_VAULT_OWNER } from './helpers/collectibles-vault';
+import {
+  seedE2eMockSigner,
+  stubNearRpcTxFinal,
+} from './helpers/e2e-mock-signer';
 import { setE2eGraphGuild } from './helpers/e2e-graph';
 import {
   GUILD_E2E_BANNED_HINT,
@@ -533,6 +537,78 @@ test.describe('guild page', () => {
     }
   });
 
+  test('feed add room confirms discard when only share policy changed', async ({
+    page,
+  }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphGuild(page, 'owner');
+    await stubGuildPage(page, { ownerId: COLLECTIBLES_VAULT_OWNER });
+    await gotoApp(page, GUILD_E2E_PATH);
+
+    await expect(
+      page.getByRole('heading', { name: GUILD_E2E_TITLE }).first()
+    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    const rooms = page.getByRole('tablist', { name: 'Guild rooms' });
+    await rooms.getByRole('button', { name: 'Add room' }).click();
+
+    const sheet = page.getByRole('dialog', { name: 'Add room' });
+    await expect(sheet).toBeVisible();
+    await sheet
+      .getByRole('button', { name: 'Who can share: Everyone here' })
+      .click();
+    await page
+      .getByRole('listbox', { name: 'Who can share' })
+      .getByRole('option', { name: /Leaders only/ })
+      .click();
+    await expect(
+      sheet.getByRole('button', { name: 'Who can share: Leaders only' })
+    ).toBeVisible();
+    await expect(sheet.getByRole('textbox', { name: 'Name' })).toHaveValue('');
+
+    await sheet.getByRole('button', { name: 'Close add room' }).click();
+    const discard = page.getByRole('dialog', { name: 'Discard changes?' });
+    await expect(discard).toBeVisible();
+    await discard
+      .locator('button.os-sheet-action', { hasText: 'Discard' })
+      .click();
+    await expect(sheet).toHaveCount(0);
+  });
+
+  test('feed add room saves on chain and paints a new feed tab', async ({
+    page,
+  }) => {
+    await seedE2eMockSigner(page, COLLECTIBLES_VAULT_OWNER, { succeed: true });
+    await stubNearRpcTxFinal(page);
+    await setE2eGraphGuild(page, 'owner');
+    await stubGuildPage(page, {
+      ownerId: COLLECTIBLES_VAULT_OWNER,
+      persistFeedRoomOnRelay: true,
+    });
+    await gotoApp(page, GUILD_E2E_PATH);
+
+    await expect(
+      page.getByRole('heading', { name: GUILD_E2E_TITLE }).first()
+    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    const rooms = page.getByRole('tablist', { name: 'Guild rooms' });
+    await rooms.getByRole('button', { name: 'Add room' }).click();
+
+    const sheet = page.getByRole('dialog', { name: 'Add room' });
+    await sheet.getByRole('textbox', { name: 'Name' }).fill('Shipping Room');
+    await sheet
+      .getByRole('button', { name: 'Who can share: Everyone here' })
+      .click();
+    await page
+      .getByRole('listbox', { name: 'Who can share' })
+      .getByRole('option', { name: /Leaders only/ })
+      .click();
+    await sheet.getByRole('button', { name: 'Add room', exact: true }).click();
+
+    await expect(sheet).toHaveCount(0, { timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(rooms.getByRole('tab', { name: 'Shipping Room' })).toBeVisible({
+      timeout: E2E_CHROME_TIMEOUT_MS,
+    });
+  });
+
   test('facts sheet opens from the hero info control', async ({ page }) => {
     await setE2eGraphGuild(page, 'empty');
     await stubGuildPage(page);
@@ -616,6 +692,35 @@ test.describe('guild page', () => {
     await expect(
       settings.getByRole('button', { name: /Rooms and feed tabs/ })
     ).toBeVisible();
+  });
+
+  test('settings handoff opens proposals and guild storage as swap drawers', async ({
+    page,
+  }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphGuild(page, 'owner');
+    await stubGuildPage(page, { ownerId: COLLECTIBLES_VAULT_OWNER });
+    await gotoApp(page, GUILD_E2E_PATH);
+
+    await expect(
+      page.getByRole('heading', { name: GUILD_E2E_TITLE }).first()
+    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await page.getByRole('button', { name: 'Guild settings' }).click();
+    const settings = page.getByRole('dialog', { name: 'Settings' });
+
+    await settings.getByRole('button', { name: /Proposals/ }).click();
+    const proposals = page.getByRole('dialog', { name: 'Proposals' });
+    await expect(proposals).toBeVisible();
+    await expect(proposals).toHaveAttribute('data-presentation', 'swap');
+    await proposals.getByRole('button', { name: 'Close' }).click();
+    await expect(proposals).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Guild settings' }).click();
+    await expect(settings).toBeVisible();
+    await settings.getByRole('button', { name: /Guild storage/ }).click();
+    const storage = page.getByRole('dialog', { name: 'Guild storage' });
+    await expect(storage).toBeVisible();
+    await expect(storage).toHaveAttribute('data-presentation', 'swap');
   });
 
   test('rooms editor adds a draft room and confirms before discard', async ({
