@@ -71,7 +71,7 @@ import {
   guildPageHeroLook,
 } from '@/features/guilds/guild-page-hero';
 import { GuildAddMemberSheet } from '@/features/guilds/guild-add-member-sheet';
-import { GuildAddSpaceSheet } from '@/features/guilds/guild-add-space-sheet';
+import { GuildFeedAddRoomSheet } from '@/features/guilds/guild-room-editor';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import {
   buildGuildFacepileIds,
@@ -245,6 +245,9 @@ export function LiveGuildPanel({
   const [roomsSheetOpen, setRoomsSheetOpen] = useState(false);
   const [factsSheetOpen, setFactsSheetOpen] = useState(false);
   const [sheetHandoff, setSheetHandoff] = useState(false);
+  const settleSheetHandoff = useCallback(() => {
+    setSheetHandoff(false);
+  }, []);
   const [addSpaceOpen, setAddSpaceOpen] = useState(false);
   const [writersTarget, setWritersTarget] = useState<{
     spaceId: string;
@@ -1483,6 +1486,7 @@ export function LiveGuildPanel({
                 : undefined
             }
             onResolved={() => void refresh()}
+            onPresented={settleSheetHandoff}
           />
         ) : null}
         {config && manageSheet === 'add-member' ? (
@@ -1570,6 +1574,7 @@ export function LiveGuildPanel({
               setGroupStorageSheetOpen(false);
               setGroupStorageRecipient(null);
             }}
+            onPresented={settleSheetHandoff}
           />
         ) : null}
         {canConfigure && config ? (
@@ -1594,12 +1599,13 @@ export function LiveGuildPanel({
               setSheetHandoff(false);
               setRoomsSheetOpen(false);
             }}
+            onPresented={settleSheetHandoff}
             onSaved={() => void refresh()}
           />
         ) : null}
       </SheetHandoffProvider>
       {config && addSpaceOpen ? (
-        <GuildAddSpaceSheet
+        <GuildFeedAddRoomSheet
           open
           groupId={groupId}
           memberDriven={config.memberDriven}

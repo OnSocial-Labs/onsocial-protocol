@@ -2,6 +2,10 @@ import { expect, test } from '@playwright/test';
 import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
 import { seedE2eWallet } from './helpers/collection-page';
 import { COLLECTIBLES_VAULT_OWNER } from './helpers/collectibles-vault';
+import {
+  seedE2eMockSigner,
+  stubNearRpcTxFinal,
+} from './helpers/e2e-mock-signer';
 import { setE2eGraphGuild } from './helpers/e2e-graph';
 import {
   GUILD_E2E_BANNED_HINT,
@@ -460,8 +464,17 @@ test.describe('guild page', () => {
 
     const sheet = page.getByRole('dialog', { name: 'Add room' });
     await expect(sheet).toBeVisible();
-    await expect(sheet.getByText('New feed tab in this guild.')).toBeVisible();
+    await expect(sheet.getByText('Adds a visible feed tab')).toBeVisible();
+    await expect(sheet.getByRole('button', { name: /Feed tab/ })).toHaveCount(
+      0
+    );
     await expect(page.locator('.guild-add-space-segment')).toHaveCount(0);
+    const name = sheet.getByRole('textbox', { name: 'Name' });
+    await name.fill('Shipping Room');
+    await expect(name).toHaveValue('Shipping Room');
+    await expect(
+      sheet.getByRole('button', { name: 'Add room', exact: true })
+    ).toBeEnabled();
 
     const shareChip = sheet.getByRole('button', {
       name: 'Who can share: Everyone here',
@@ -469,6 +482,9 @@ test.describe('guild page', () => {
     await expect(shareChip).toBeVisible();
     await shareChip.click();
 
+    const shareDialog = page.getByRole('dialog', { name: 'Who can share' });
+    await expect(shareDialog).toHaveAttribute('data-presentation', 'appear');
+    await expect(sheet).toHaveAttribute('data-presentation', 'enter');
     const share = page.getByRole('listbox', { name: 'Who can share' });
     const everyone = share.getByRole('option', { name: /Everyone here/ });
     const team = share.getByRole('option', { name: /From the team/ });
@@ -481,14 +497,14 @@ test.describe('guild page', () => {
     await expect(
       page
         .getByRole('dialog', { name: 'Who can share' })
-        .getByText('Any member can share.')
+        .getByText('Who may post in this room')
     ).toBeVisible();
+    await expect(everyone.getByText('Any member can share')).toBeVisible();
 
     await leaders.click();
     await expect(
       sheet.getByRole('button', { name: 'Who can share: Leaders only' })
     ).toBeVisible();
-    await expect(sheet.getByText('Admins and owner only.')).toBeVisible();
 
     await sheet
       .getByRole('button', { name: 'Who can share: Leaders only' })
@@ -500,10 +516,97 @@ test.describe('guild page', () => {
     await expect(
       sheet.getByRole('button', { name: 'Who can share: Selected members' })
     ).toBeVisible();
+    await expect(name).toHaveValue('Shipping Room');
     await expect(
-      sheet.getByText('Choose members next. Leaders can always share.')
+      sheet.getByRole('button', { name: 'Add room', exact: true })
+    ).toBeEnabled();
+    await sheet.getByRole('button', { name: 'Close add room' }).click();
+    const discard = page.getByRole('dialog', { name: 'Discard changes?' });
+    await expect(discard).toBeVisible();
+    await expect(discard).toHaveAttribute('data-presentation', 'appear');
+    await discard
+      .locator('button.os-sheet-action', { hasText: 'Keep editing' })
+      .click();
+    await expect(discard).toHaveCount(0);
+    await expect(name).toHaveValue('Shipping Room');
+    if (process.env.E2E_WALKTHROUGH_DIR) {
+      await expect(sheet).not.toHaveClass(/glass-sheet-panel--enter/);
+      await sheet.screenshot({
+        path: `${process.env.E2E_WALKTHROUGH_DIR}/feed-add-room-editor.png`,
+      });
+    }
+  });
+
+  test('feed add room confirms discard when only share policy changed', async ({
+    page,
+  }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphGuild(page, 'owner');
+    await stubGuildPage(page, { ownerId: COLLECTIBLES_VAULT_OWNER });
+    await gotoApp(page, GUILD_E2E_PATH);
+
+    await expect(
+      page.getByRole('heading', { name: GUILD_E2E_TITLE }).first()
+    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    const rooms = page.getByRole('tablist', { name: 'Guild rooms' });
+    await rooms.getByRole('button', { name: 'Add room' }).click();
+
+    const sheet = page.getByRole('dialog', { name: 'Add room' });
+    await expect(sheet).toBeVisible();
+    await sheet
+      .getByRole('button', { name: 'Who can share: Everyone here' })
+      .click();
+    await page
+      .getByRole('listbox', { name: 'Who can share' })
+      .getByRole('option', { name: /Leaders only/ })
+      .click();
+    await expect(
+      sheet.getByRole('button', { name: 'Who can share: Leaders only' })
     ).toBeVisible();
-    await expect(sheet.getByRole('button', { name: 'Add room' })).toBeVisible();
+    await expect(sheet.getByRole('textbox', { name: 'Name' })).toHaveValue('');
+
+    await sheet.getByRole('button', { name: 'Close add room' }).click();
+    const discard = page.getByRole('dialog', { name: 'Discard changes?' });
+    await expect(discard).toBeVisible();
+    await discard
+      .locator('button.os-sheet-action', { hasText: 'Discard' })
+      .click();
+    await expect(sheet).toHaveCount(0);
+  });
+
+  test('feed add room saves on chain and paints a new feed tab', async ({
+    page,
+  }) => {
+    await seedE2eMockSigner(page, COLLECTIBLES_VAULT_OWNER, { succeed: true });
+    await stubNearRpcTxFinal(page);
+    await setE2eGraphGuild(page, 'owner');
+    await stubGuildPage(page, {
+      ownerId: COLLECTIBLES_VAULT_OWNER,
+      persistFeedRoomOnRelay: true,
+    });
+    await gotoApp(page, GUILD_E2E_PATH);
+
+    await expect(
+      page.getByRole('heading', { name: GUILD_E2E_TITLE }).first()
+    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    const rooms = page.getByRole('tablist', { name: 'Guild rooms' });
+    await rooms.getByRole('button', { name: 'Add room' }).click();
+
+    const sheet = page.getByRole('dialog', { name: 'Add room' });
+    await sheet.getByRole('textbox', { name: 'Name' }).fill('Shipping Room');
+    await sheet
+      .getByRole('button', { name: 'Who can share: Everyone here' })
+      .click();
+    await page
+      .getByRole('listbox', { name: 'Who can share' })
+      .getByRole('option', { name: /Leaders only/ })
+      .click();
+    await sheet.getByRole('button', { name: 'Add room', exact: true }).click();
+
+    await expect(sheet).toHaveCount(0, { timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(rooms.getByRole('tab', { name: 'Shipping Room' })).toBeVisible({
+      timeout: E2E_CHROME_TIMEOUT_MS,
+    });
   });
 
   test('facts sheet opens from the hero info control', async ({ page }) => {
@@ -591,6 +694,35 @@ test.describe('guild page', () => {
     ).toBeVisible();
   });
 
+  test('settings handoff opens proposals and guild storage as swap drawers', async ({
+    page,
+  }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphGuild(page, 'owner');
+    await stubGuildPage(page, { ownerId: COLLECTIBLES_VAULT_OWNER });
+    await gotoApp(page, GUILD_E2E_PATH);
+
+    await expect(
+      page.getByRole('heading', { name: GUILD_E2E_TITLE }).first()
+    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await page.getByRole('button', { name: 'Guild settings' }).click();
+    const settings = page.getByRole('dialog', { name: 'Settings' });
+
+    await settings.getByRole('button', { name: /Proposals/ }).click();
+    const proposals = page.getByRole('dialog', { name: 'Proposals' });
+    await expect(proposals).toBeVisible();
+    await expect(proposals).toHaveAttribute('data-presentation', 'swap');
+    await proposals.getByRole('button', { name: 'Close' }).click();
+    await expect(proposals).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Guild settings' }).click();
+    await expect(settings).toBeVisible();
+    await settings.getByRole('button', { name: /Guild storage/ }).click();
+    const storage = page.getByRole('dialog', { name: 'Guild storage' });
+    await expect(storage).toBeVisible();
+    await expect(storage).toHaveAttribute('data-presentation', 'swap');
+  });
+
   test('rooms editor adds a draft room and confirms before discard', async ({
     page,
   }) => {
@@ -608,12 +740,36 @@ test.describe('guild page', () => {
 
     const rooms = page.getByRole('dialog', { name: 'Rooms' });
     await expect(rooms).toBeVisible();
+    await expect(rooms).toHaveAttribute('data-presentation', 'swap');
     await expect(rooms.locator('.guild-structure-add')).toHaveCount(0);
     await expect(rooms.getByRole('textbox')).toHaveCount(0);
+    await rooms.getByRole('button', { name: '+ Announcements' }).click();
+    const fromLibrary = page.getByRole('dialog', { name: 'Add room' });
+    await expect(fromLibrary).toBeVisible();
+    await expect(
+      rooms.locator('.guild-structure-room-list').getByRole('button', {
+        name: /Announcements/,
+      })
+    ).toHaveCount(0);
+    await expect(
+      rooms.getByRole('button', { name: '+ Announcements' })
+    ).toBeVisible();
+    await fromLibrary.getByRole('button', { name: 'Add room', exact: true }).click();
+    await expect(fromLibrary).toHaveCount(0);
+    await expect(
+      rooms.locator('.guild-structure-room-list').getByRole('button', {
+        name: /Announcements/,
+      })
+    ).toBeVisible();
+    await expect(
+      rooms.getByRole('button', { name: '+ Announcements' })
+    ).toHaveCount(0);
+
     await rooms.getByRole('button', { name: 'Add room', exact: true }).click();
 
     const editor = page.getByRole('dialog', { name: 'Add room' });
     await expect(editor).toBeVisible();
+    await expect(editor).toHaveAttribute('data-presentation', 'enter');
     await expect(editor.getByText('New feed tab')).toBeVisible();
     await expect(
       editor.getByRole('button', { name: 'Who can share: Everyone here' })
@@ -622,6 +778,27 @@ test.describe('guild page', () => {
       editor.getByRole('button', { name: 'Feed tab: In feed' })
     ).toBeVisible();
     await editor.getByRole('textbox').fill('Shipping Room');
+    await editor.getByRole('button', { name: 'Feed tab: In feed' }).click();
+    const feedTab = page.getByRole('dialog', { name: 'Feed tab' });
+    await expect(feedTab).toHaveAttribute('data-presentation', 'appear');
+    await feedTab.getByRole('option', { name: /In feed/ }).click();
+    await expect(feedTab).toHaveCount(0);
+    await expect(editor.getByRole('textbox')).toHaveValue('Shipping Room');
+    await editor.getByRole('button', { name: 'Close add room' }).click();
+    const abandon = page.getByRole('dialog', { name: 'Discard changes?' });
+    await expect(abandon).toBeVisible();
+    await expect(abandon).toHaveAttribute('data-presentation', 'appear');
+    await abandon
+      .locator('button.os-sheet-action', { hasText: 'Keep editing' })
+      .click();
+    await expect(abandon).toHaveCount(0);
+    await expect(editor.getByRole('textbox')).toHaveValue('Shipping Room');
+    if (process.env.E2E_WALKTHROUGH_DIR) {
+      await expect(editor).not.toHaveClass(/glass-sheet-panel--enter/);
+      await editor.screenshot({
+        path: `${process.env.E2E_WALKTHROUGH_DIR}/settings-add-room-editor.png`,
+      });
+    }
     await editor.getByRole('button', { name: 'Add room', exact: true }).click();
 
     await expect(editor).toHaveCount(0);
@@ -629,17 +806,55 @@ test.describe('guild page', () => {
       rooms.getByRole('button', { name: /Shipping Room/ })
     ).toBeVisible();
 
+    await rooms.getByRole('button', { name: /Shipping Room/ }).click();
+    const room = page.getByRole('dialog', { name: 'Room', exact: true });
+    await expect(room).toBeVisible();
+    await expect(room.getByRole('textbox')).toHaveValue('Shipping Room');
+    await room.getByRole('textbox').fill('Dock');
+    await expect(
+      rooms.getByRole('button', { name: /Shipping Room/ })
+    ).toBeVisible();
+    await expect(rooms.getByRole('button', { name: /Dock/ })).toHaveCount(0);
+    await expect(
+      room.getByRole('button', { name: 'Save', exact: true })
+    ).toBeEnabled();
+    await room.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(room).toHaveCount(0);
+    await expect(rooms.getByRole('button', { name: /Dock/ })).toBeVisible();
+    await expect(
+      rooms.getByRole('button', { name: /Shipping Room/ })
+    ).toHaveCount(0);
+
+    await rooms.getByRole('button', { name: /Dock/ }).click();
+    const again = page.getByRole('dialog', { name: 'Room', exact: true });
+    await expect(again).toHaveAttribute('data-presentation', 'enter');
+    await again.getByRole('button', { name: 'Arrange' }).click();
+    const arrange = page.getByRole('dialog', { name: 'Dock' });
+    await expect(arrange).toHaveAttribute('data-presentation', 'appear');
+    await arrange.getByRole('button', { name: 'Close dock' }).click();
+    await expect(arrange).toHaveCount(0);
+    await again.getByRole('textbox').fill('Pier');
+    await again.getByRole('button', { name: 'Close room' }).click();
+    const roomDiscard = page.getByRole('dialog', { name: 'Discard changes?' });
+    await expect(roomDiscard).toBeVisible();
+    await roomDiscard
+      .locator('button.os-sheet-action', { hasText: 'Discard' })
+      .click();
+    await expect(again).toHaveCount(0);
+    await expect(rooms.getByRole('button', { name: /Dock/ })).toBeVisible();
+    await expect(rooms.getByRole('button', { name: /Pier/ })).toHaveCount(0);
+
     await rooms.getByRole('button', { name: 'Close', exact: true }).click();
     const discard = page.getByRole('dialog', { name: 'Discard changes?' });
     await expect(discard).toBeVisible();
+    await expect(discard).toHaveAttribute('data-presentation', 'appear');
     await discard
       .locator('button.os-sheet-action', { hasText: 'Keep editing' })
       .click();
     await expect(discard).toHaveCount(0);
     await expect(rooms).toBeVisible();
-    await expect(
-      rooms.getByRole('button', { name: /Shipping Room/ })
-    ).toBeVisible();
+    await expect(rooms).toHaveAttribute('data-presentation', 'swap');
+    await expect(rooms.getByRole('button', { name: /Dock/ })).toBeVisible();
   });
 
   test('document title includes Guilds · OnSocial', async ({ page }) => {

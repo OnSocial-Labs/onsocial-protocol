@@ -22,6 +22,7 @@ import {
 } from '@/features/guilds/guild-structure-discovery';
 import { SUPPORT_GUILD_CONNECT_CTA } from '@/features/guilds/support-guild-voice';
 import { GuildStructureSettingsSection } from '@/features/guilds/guild-structure-settings-section';
+import { useGuildSettingsDrawerHandoff } from '@/features/guilds/use-guild-settings-drawer-handoff';
 import {
   cloneGuildStructure,
   guildStructureForMetadata,
@@ -47,6 +48,8 @@ interface GuildRoomsSheetProps {
   memberDriven: boolean;
   onClose: () => void;
   onSaved?: () => void;
+  /** Settings crossfade has painted — parent can drop the handoff flag. */
+  onPresented?: () => void;
 }
 
 function seedSnapshot(
@@ -74,6 +77,7 @@ export function GuildRoomsSheet({
   memberDriven: initialMemberDriven,
   onClose,
   onSaved,
+  onPresented,
 }: GuildRoomsSheetProps) {
   const {
     accountId,
@@ -100,6 +104,7 @@ export function GuildRoomsSheet({
   >([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [roomEditorDirty, setRoomEditorDirty] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const structureRef = useRef(structure);
   const snapshotRef = useRef(snapshot);
@@ -107,6 +112,7 @@ export function GuildRoomsSheet({
   snapshotRef.current = snapshot;
 
   const sheetOpen = open && !closing;
+  const presentation = useGuildSettingsDrawerHandoff(sheetOpen, onPresented);
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -120,6 +126,7 @@ export function GuildRoomsSheet({
       setStructure(next.structure);
       setSnapshot(next);
       setDiscoveredChannels([]);
+      setRoomEditorDirty(false);
     }
   }
 
@@ -202,7 +209,7 @@ export function GuildRoomsSheet({
     discard,
   } = useDiscardConfirm({
     open: sheetOpen,
-    dirty: isDirty,
+    dirty: isDirty || roomEditorDirty,
     pending,
     onClose: () => setClosing(true),
   });
@@ -214,6 +221,7 @@ export function GuildRoomsSheet({
   const handleClosed = useCallback(() => {
     setClosing(false);
     clearDiscardConfirm();
+    setRoomEditorDirty(false);
     onClose();
   }, [clearDiscardConfirm, onClose]);
 
@@ -281,6 +289,7 @@ export function GuildRoomsSheet({
         closeAriaLabel="Close"
         backdropLabel="Close guild rooms"
         zIndex={SHEET_Z.facts}
+        presentation={presentation}
         headerClassName="guild-settings-sheet-header"
         panelClassName="guild-settings-sheet-panel os-sheet-cap-tall"
         bodyClassName="guild-rooms-sheet-body"
@@ -332,6 +341,7 @@ export function GuildRoomsSheet({
             onChange={setStructure}
             disabled={pending}
             discoveredChannels={discoveredChannels}
+            onRoomEditorDirtyChange={setRoomEditorDirty}
           />
         ) : null}
       </OsHugSheet>
@@ -339,6 +349,7 @@ export function GuildRoomsSheet({
         open={discardConfirmOpen}
         onDiscard={discard}
         onKeepEditing={keepEditing}
+        presentation="appear"
       />
     </>
   );

@@ -3,6 +3,7 @@ import { DEFAULT_GUILD_STRUCTURE } from '@/features/guilds/guild-structure';
 import {
   aggregateChannelsFromPosts,
   channelIdFromPostChannel,
+  commitGuildRoomCreate,
   enableOrAddGuildSpace,
   structureChannelSuggestions,
 } from '@/features/guilds/guild-structure-discovery';
@@ -85,5 +86,50 @@ describe('guild-structure-discovery', () => {
     expect(
       withCustom.spaces.find((space) => space.id === 'ship-room')?.title
     ).toBe('Ship Room');
+  });
+
+  it('commits library and disabled discovery chips through the editor draft', () => {
+    const library = commitGuildRoomCreate(
+      DEFAULT_GUILD_STRUCTURE,
+      {
+        title: 'Announcements',
+        postPolicy: 'moderators',
+        enabled: true,
+      },
+      { kind: 'library', libraryId: 'announcements' }
+    );
+    expect(library.ok).toBe(true);
+    if (!library.ok) return;
+    expect(
+      library.structure.spaces.find((space) => space.id === 'announcements')
+        ?.enabled
+    ).toBe(true);
+
+    const disabled = {
+      ...DEFAULT_GUILD_STRUCTURE,
+      spaces: [
+        ...DEFAULT_GUILD_STRUCTURE.spaces,
+        {
+          id: 'resources',
+          title: 'Resources',
+          kind: 'resource' as const,
+          enabled: false,
+          order: 1,
+          audience: 'members' as const,
+          postPolicy: 'members' as const,
+        },
+      ],
+    };
+    const revived = commitGuildRoomCreate(
+      disabled,
+      { title: 'Resources', postPolicy: 'members', enabled: true },
+      { kind: 'suggestion', channelId: 'resources' }
+    );
+    expect(revived.ok).toBe(true);
+    if (!revived.ok) return;
+    expect(
+      revived.structure.spaces.find((space) => space.id === 'resources')
+        ?.enabled
+    ).toBe(true);
   });
 });

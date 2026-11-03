@@ -50,12 +50,37 @@ function guildFixture(opts?: {
   return 'empty';
 }
 
-function groupConfig(opts?: {
-  ownerId?: string;
-  accessGated?: boolean;
-  bannerCid?: string;
-  badgeCid?: string;
-}) {
+type GuildE2eStructureSpace = {
+  id: string;
+  title: string;
+  kind: string;
+  enabled: boolean;
+  order: number;
+  audience: string;
+  postPolicy: string;
+};
+
+const GUILD_E2E_DEFAULT_SPACES: GuildE2eStructureSpace[] = [
+  {
+    id: 'general',
+    title: 'General',
+    kind: 'discussion',
+    enabled: true,
+    order: 0,
+    audience: 'members',
+    postPolicy: 'members',
+  },
+];
+
+function groupConfig(
+  opts?: {
+    ownerId?: string;
+    accessGated?: boolean;
+    bannerCid?: string;
+    badgeCid?: string;
+  },
+  spaces: readonly GuildE2eStructureSpace[] = GUILD_E2E_DEFAULT_SPACES
+) {
   const ownerId = opts?.ownerId ?? GUILD_E2E_OWNER;
   return {
     name: GUILD_E2E_STORED_NAME,
@@ -73,17 +98,7 @@ function groupConfig(opts?: {
         structure: {
           v: 1,
           defaultSpaceId: 'general',
-          spaces: [
-            {
-              id: 'general',
-              title: 'General',
-              kind: 'discussion',
-              enabled: true,
-              order: 0,
-              audience: 'members',
-              postPolicy: 'members',
-            },
-          ],
+          spaces: [...spaces],
         },
       },
     },
@@ -96,6 +111,21 @@ function json(data: unknown) {
     contentType: 'application/json',
     body: JSON.stringify(data),
   };
+}
+
+async function e2eMockSignerWroteGuildStructure(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const calls = window.__onsocialE2eSignerCalls ?? [];
+    return calls.some((call) => {
+      try {
+        return JSON.stringify(call.args ?? null).includes(
+          'update_group_metadata'
+        );
+      } catch {
+        return false;
+      }
+    });
+  });
 }
 
 /**
@@ -123,6 +153,8 @@ export async function stubGuildPage(
     /** Banner / badge CIDs on the indexed group row (hero + cover art). */
     bannerCid?: string;
     badgeCid?: string;
+    /** After a metadata relay, return an extra feed tab (feed add-room chain save). */
+    persistFeedRoomOnRelay?: boolean;
   }
 ): Promise<void> {
   const rows = opts?.rows ?? 'empty';
@@ -136,6 +168,7 @@ export async function stubGuildPage(
   const bannedId = opts?.bannedId?.trim() || null;
   const missing = rows === 'missing';
   const guild = guildFixture(opts);
+  let structureSpaces: GuildE2eStructureSpace[] = [...GUILD_E2E_DEFAULT_SPACES];
 
   await page.route('**/api/onapi/graph/query', async (route) => {
     const raw = route.request().postData() ?? '';
@@ -264,16 +297,38 @@ export async function stubGuildPage(
       (userId === ownerId || (memberId != null && userId === memberId));
 
     if (path.endsWith('/data/group-config')) {
+      if (
+        opts?.persistFeedRoomOnRelay &&
+        !structureSpaces.some((space) => space.id === 'shipping-room')
+      ) {
+        if (await e2eMockSignerWroteGuildStructure(page)) {
+          structureSpaces = [
+            ...structureSpaces,
+            {
+              id: 'shipping-room',
+              title: 'Shipping Room',
+              kind: 'discussion',
+              enabled: true,
+              order: structureSpaces.length,
+              audience: 'members',
+              postPolicy: 'moderators',
+            },
+          ];
+        }
+      }
       await route.fulfill(
         json(
           missing
             ? null
-            : groupConfig({
-                ownerId,
-                accessGated: opts?.accessGated,
-                bannerCid: opts?.bannerCid,
-                badgeCid: opts?.badgeCid,
-              })
+            : groupConfig(
+                {
+                  ownerId,
+                  accessGated: opts?.accessGated,
+                  bannerCid: opts?.bannerCid,
+                  badgeCid: opts?.badgeCid,
+                },
+                structureSpaces
+              )
         )
       );
       return;

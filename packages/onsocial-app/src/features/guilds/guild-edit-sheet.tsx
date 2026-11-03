@@ -14,7 +14,6 @@ import {
   ChoiceDrawerField,
   DiscardConfirmSheet,
   ipfsImgSrcSet,
-  OsFieldRemove,
   OsSheetAction,
   OsSheetActions,
   ProfileEditorMediaToolbar,
@@ -451,6 +450,16 @@ export function GuildEditSheet({
 
   const openBannerPicker = () => bannerInputRef.current?.click();
   const openBadgePicker = () => badgeInputRef.current?.click();
+  const handleRemoveBanner = useCallback(() => {
+    setBannerFile(null);
+    setBannerRemoved(true);
+    if (bannerInputRef.current) bannerInputRef.current.value = '';
+  }, []);
+  const clearBadge = useCallback(() => {
+    if (pending) return;
+    setBadgeFile(null);
+    setBadgeRemoved(true);
+  }, [pending]);
 
   const handleBannerFile = async (file: File | null) => {
     if (!file) return;
@@ -631,14 +640,17 @@ export function GuildEditSheet({
                           displayBannerUrl ? 'Remove banner' : undefined
                         }
                         onRemove={
-                          displayBannerUrl
-                            ? () => {
-                                setBannerFile(null);
-                                setBannerRemoved(true);
-                              }
-                            : undefined
+                          displayBannerUrl ? handleRemoveBanner : undefined
                         }
                       />
+                      {displayBannerUrl ? null : (
+                        <p
+                          className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
+                          aria-hidden
+                        >
+                          Photo or video
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -646,40 +658,54 @@ export function GuildEditSheet({
                 <div className="guild-edit-fields">
                   <div className="guild-edit-title-row">
                     <div className="guild-edit-badge-slot">
-                      <button
-                        type="button"
-                        className={`guild-edit-badge-picker profile-editor-media-host profile-editor-media-host--squircle${
+                      <div
+                        className={`guild-edit-badge-picker profile-editor-media-host${
                           displayBadgeUrl ? ' has-media' : ''
                         }`}
-                        onClick={openBadgePicker}
-                        aria-label={
-                          displayBadgeUrl ? 'Change badge' : 'Add badge'
-                        }
-                        disabled={pending}
                       >
-                        {displayBadgeUrl ? (
-                          <img
-                            src={displayBadgeUrl}
-                            srcSet={badgeSrcSet}
-                            sizes={badgeSrcSet ? EDITOR_MARK_SIZES : undefined}
-                            alt=""
-                          />
-                        ) : (
-                          <span className="guild-edit-badge-empty" aria-hidden>
-                            +
-                          </span>
-                        )}
-                      </button>
-                      {displayBadgeUrl ? (
-                        <OsFieldRemove
-                          aria-label="Remove badge"
+                        <button
+                          type="button"
+                          className="profile-editor-media-backdrop guild-edit-badge-backdrop"
+                          onClick={openBadgePicker}
+                          aria-label={
+                            displayBadgeUrl ? 'Change badge' : 'Add badge'
+                          }
                           disabled={pending}
-                          onClick={() => {
-                            setBadgeFile(null);
-                            setBadgeRemoved(true);
-                          }}
+                        >
+                          {displayBadgeUrl ? (
+                            <img
+                              src={displayBadgeUrl}
+                              srcSet={badgeSrcSet}
+                              sizes={
+                                badgeSrcSet ? EDITOR_MARK_SIZES : undefined
+                              }
+                              alt=""
+                            />
+                          ) : (
+                            <span
+                              className="guild-edit-badge-empty"
+                              aria-hidden
+                            >
+                              +
+                            </span>
+                          )}
+                          <span
+                            className={`profile-editor-media-overlay guild-edit-badge-overlay${
+                              displayBadgeUrl ? ' has-media' : ''
+                            }`}
+                            aria-hidden
+                          />
+                        </button>
+                        <ProfileEditorMediaToolbar
+                          layout="avatar"
+                          removeLabel={
+                            displayBadgeUrl ? 'Remove badge' : undefined
+                          }
+                          onRemove={
+                            displayBadgeUrl ? clearBadge : undefined
+                          }
                         />
-                      ) : null}
+                      </div>
                     </div>
                     <label
                       className="sr-only"

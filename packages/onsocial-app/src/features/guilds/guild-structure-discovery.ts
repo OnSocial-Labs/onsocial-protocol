@@ -1,10 +1,13 @@
 import type { PostRow } from '@onsocial/sdk';
 import {
+  appendCustomGuildSpace,
+  commitGuildSpaceEdits,
   GUILD_SPACE_LIBRARY,
   LEGACY_DECISIONS_CHANNEL,
   mergeStructureSpaces,
   toggleGuildSpaceEnabled,
   type GuildSpace,
+  type GuildSpacePostPolicy,
   type GuildStructureDocument,
 } from '@/features/guilds/guild-structure';
 
@@ -121,4 +124,75 @@ export function enableAllSuggestedSpaces(
     (next, suggestion) => enableOrAddGuildSpace(next, suggestion.channelId),
     structure
   );
+}
+
+export type GuildRoomCreatePreset =
+  | { kind: 'blank' }
+  | { kind: 'library'; libraryId: string }
+  | { kind: 'suggestion'; channelId: string };
+
+/** Commit a new room from the shared editor — blank, library chip, or discovery chip. */
+export function commitGuildRoomCreate(
+  structure: GuildStructureDocument,
+  input: {
+    title: string;
+    postPolicy: GuildSpacePostPolicy;
+    enabled: boolean;
+  },
+  preset: GuildRoomCreatePreset = { kind: 'blank' }
+):
+  | { ok: true; structure: GuildStructureDocument }
+  | { ok: false; error: string } {
+  if (preset.kind === 'blank') {
+    return appendCustomGuildSpace(structure, input);
+  }
+
+  const title = input.title.trim();
+  if (!title) return { ok: false, error: 'Enter a room name.' };
+
+  if (preset.kind === 'library') {
+    const library = GUILD_SPACE_LIBRARY.find(
+      (space) => space.id === preset.libraryId
+    );
+    if (!library) return { ok: false, error: 'That room is no longer here.' };
+    if (structure.spaces.some((space) => space.id === library.id)) {
+      return { ok: false, error: 'A room with this name already exists.' };
+    }
+    const merged = mergeStructureSpaces(structure, {
+      ...library,
+      title,
+      postPolicy: input.postPolicy,
+      enabled: true,
+    });
+    return {
+      ok: true,
+      structure: input.enabled
+        ? merged
+        : toggleGuildSpaceEnabled(merged, library.id, false),
+    };
+  }
+
+  const existing = structure.spaces.find(
+    (space) => space.id === preset.channelId
+  );
+  if (existing) {
+    return commitGuildSpaceEdits(structure, preset.channelId, input);
+  }
+
+  const base = guildSpaceForChannelId(preset.channelId);
+  if (structure.spaces.some((space) => space.id === base.id)) {
+    return { ok: false, error: 'A room with this name already exists.' };
+  }
+  const merged = mergeStructureSpaces(structure, {
+    ...base,
+    title,
+    postPolicy: input.postPolicy,
+    enabled: true,
+  });
+  return {
+    ok: true,
+    structure: input.enabled
+      ? merged
+      : toggleGuildSpaceEnabled(merged, base.id, false),
+  };
 }

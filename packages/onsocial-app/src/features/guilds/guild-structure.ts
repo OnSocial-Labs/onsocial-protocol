@@ -20,17 +20,6 @@ export const GUILD_POST_POLICY_CHIP_LABEL: Record<
   allowlist: 'Selected',
 };
 
-/** One line under the share chips when adding a room. */
-export const GUILD_POST_POLICY_FORM_HINT: Record<
-  GuildSpacePostPolicy,
-  string
-> = {
-  members: 'Any member can share.',
-  moderators: 'Mods, admins, and owner.',
-  admins: 'Admins and owner only.',
-  allowlist: 'Choose members next. Leaders can always share.',
-};
-
 export const GUILD_POST_POLICY_OPTIONS: {
   value: GuildSpacePostPolicy;
   label: string;
@@ -535,6 +524,35 @@ export function mergeStructureSpaces(
       ...structure.spaces,
       { ...incoming, order: nextOrder, enabled: true },
     ],
+  };
+}
+
+export function commitGuildSpaceEdits(
+  structure: GuildStructureDocument,
+  spaceId: string,
+  input: {
+    title: string;
+    postPolicy: GuildSpacePostPolicy;
+    enabled: boolean;
+  }
+):
+  | { ok: true; structure: GuildStructureDocument }
+  | { ok: false; error: string } {
+  const title = input.title.trim();
+  if (!title) return { ok: false, error: 'Enter a room name.' };
+  const current = structure.spaces.find((space) => space.id === spaceId);
+  if (!current) return { ok: false, error: 'That room is no longer here.' };
+  const enabled =
+    current.id === 'general' && current.enabled ? true : input.enabled;
+  const titled = updateGuildSpaceTitle(structure, spaceId, title);
+  const policied = updateGuildSpacePostPolicy(
+    titled,
+    spaceId,
+    input.postPolicy
+  );
+  return {
+    ok: true,
+    structure: toggleGuildSpaceEnabled(policied, spaceId, enabled),
   };
 }
 
