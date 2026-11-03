@@ -491,6 +491,35 @@ export function normalizeCustomSpaceInput(input: {
   };
 }
 
+export function appendCustomGuildSpace(
+  structure: GuildStructureDocument,
+  input: {
+    title: string;
+    postPolicy: GuildSpacePostPolicy;
+    enabled: boolean;
+  }
+):
+  | { ok: true; structure: GuildStructureDocument }
+  | { ok: false; error: string } {
+  const space = normalizeCustomSpaceInput({
+    title: input.title,
+    kind: 'discussion',
+    postPolicy: input.postPolicy,
+    audience: 'members',
+  });
+  if (!space) return { ok: false, error: 'Enter a room name.' };
+  if (structure.spaces.some((entry) => entry.id === space.id)) {
+    return { ok: false, error: 'A room with this name already exists.' };
+  }
+  const merged = mergeStructureSpaces(structure, space);
+  return {
+    ok: true,
+    structure: input.enabled
+      ? merged
+      : toggleGuildSpaceEnabled(merged, space.id, false),
+  };
+}
+
 export function mergeStructureSpaces(
   structure: GuildStructureDocument,
   incoming: GuildSpace

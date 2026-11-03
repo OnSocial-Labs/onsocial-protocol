@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_GUILD_STRUCTURE,
+  appendCustomGuildSpace,
   canPostToGuildSpace,
   canViewerPostInChannel,
   enabledGuildSpaces,
@@ -169,5 +170,55 @@ describe('guild-structure', () => {
     expect(
       canPostToGuildSpace(structure.spaces[0]!, { ...member, isOwner: true })
     ).toBe(true);
+  });
+
+  it('appends a custom room onto the draft', () => {
+    const structure = DEFAULT_GUILD_STRUCTURE;
+    const added = appendCustomGuildSpace(structure, {
+      title: 'Shipping Room',
+      postPolicy: 'admins',
+      enabled: true,
+    });
+    expect(added.ok).toBe(true);
+    if (!added.ok) return;
+    const room = added.structure.spaces.find(
+      (space) => space.id === 'shipping-room'
+    );
+    expect(room).toMatchObject({
+      title: 'Shipping Room',
+      postPolicy: 'admins',
+      enabled: true,
+      kind: 'discussion',
+      order: structure.spaces.length,
+    });
+
+    const hidden = appendCustomGuildSpace(added.structure, {
+      title: 'Notes',
+      postPolicy: 'members',
+      enabled: false,
+    });
+    expect(hidden.ok).toBe(true);
+    if (!hidden.ok) return;
+    expect(
+      hidden.structure.spaces.find((space) => space.id === 'notes')?.enabled
+    ).toBe(false);
+
+    expect(
+      appendCustomGuildSpace(hidden.structure, {
+        title: 'Shipping Room',
+        postPolicy: 'members',
+        enabled: true,
+      })
+    ).toEqual({
+      ok: false,
+      error: 'A room with this name already exists.',
+    });
+    expect(
+      appendCustomGuildSpace(structure, {
+        title: '   ',
+        postPolicy: 'members',
+        enabled: true,
+      })
+    ).toEqual({ ok: false, error: 'Enter a room name.' });
   });
 });

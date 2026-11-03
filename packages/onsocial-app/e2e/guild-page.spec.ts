@@ -591,6 +591,57 @@ test.describe('guild page', () => {
     ).toBeVisible();
   });
 
+  test('rooms editor adds a draft room and confirms before discard', async ({
+    page,
+  }) => {
+    await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
+    await setE2eGraphGuild(page, 'owner');
+    await stubGuildPage(page, { ownerId: COLLECTIBLES_VAULT_OWNER });
+    await gotoApp(page, GUILD_E2E_PATH);
+
+    await expect(
+      page.getByRole('heading', { name: GUILD_E2E_TITLE }).first()
+    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await page.getByRole('button', { name: 'Guild settings' }).click();
+    const settings = page.getByRole('dialog', { name: 'Settings' });
+    await settings.getByRole('button', { name: /Rooms and feed tabs/ }).click();
+
+    const rooms = page.getByRole('dialog', { name: 'Rooms' });
+    await expect(rooms).toBeVisible();
+    await expect(rooms.locator('.guild-structure-add')).toHaveCount(0);
+    await expect(rooms.getByRole('textbox')).toHaveCount(0);
+    await rooms.getByRole('button', { name: 'Add room', exact: true }).click();
+
+    const editor = page.getByRole('dialog', { name: 'Add room' });
+    await expect(editor).toBeVisible();
+    await expect(editor.getByText('New feed tab')).toBeVisible();
+    await expect(
+      editor.getByRole('button', { name: 'Who can share: Everyone here' })
+    ).toBeVisible();
+    await expect(
+      editor.getByRole('button', { name: 'Feed tab: In feed' })
+    ).toBeVisible();
+    await editor.getByRole('textbox').fill('Shipping Room');
+    await editor.getByRole('button', { name: 'Add room', exact: true }).click();
+
+    await expect(editor).toHaveCount(0);
+    await expect(
+      rooms.getByRole('button', { name: /Shipping Room/ })
+    ).toBeVisible();
+
+    await rooms.getByRole('button', { name: 'Close', exact: true }).click();
+    const discard = page.getByRole('dialog', { name: 'Discard changes?' });
+    await expect(discard).toBeVisible();
+    await discard
+      .locator('button.os-sheet-action', { hasText: 'Keep editing' })
+      .click();
+    await expect(discard).toHaveCount(0);
+    await expect(rooms).toBeVisible();
+    await expect(
+      rooms.getByRole('button', { name: /Shipping Room/ })
+    ).toBeVisible();
+  });
+
   test('document title includes Guilds · OnSocial', async ({ page }) => {
     await setE2eGraphGuild(page, 'empty');
     await stubGuildPage(page);

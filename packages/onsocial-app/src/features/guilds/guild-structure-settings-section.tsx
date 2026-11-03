@@ -14,13 +14,12 @@ import {
 } from '@onsocial/ui';
 import { ActionDrawer } from '@/components/ui/action-drawer';
 import {
-  GUILD_POST_POLICY_FORM_HINT,
   GUILD_POST_POLICY_OPTIONS,
   GUILD_STRUCTURE_TEMPLATES,
+  appendCustomGuildSpace,
   cloneGuildStructure,
   librarySpacesNotInStructure,
   mergeStructureSpaces,
-  normalizeCustomSpaceInput,
   postPolicyLabel,
   reorderGuildSpace,
   toggleGuildSpaceEnabled,
@@ -36,6 +35,7 @@ import {
   structureChannelSuggestions,
   type DiscoveredChannelUsage,
 } from '@/features/guilds/guild-structure-discovery';
+import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { OsChipAction } from '@/lib/os-chip-action';
 import { SHEET_Z } from '@/lib/sheet-z';
 
@@ -81,11 +81,15 @@ export function GuildStructureSettingsSection({
   disabled = false,
   discoveredChannels = [],
 }: GuildStructureSettingsSectionProps) {
-  const [customTitle, setCustomTitle] = useState('');
-  const [customPolicy, setCustomPolicy] =
+  const [creating, setCreating] = useState(false);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [draftPolicy, setDraftPolicy] =
     useState<GuildSpacePostPolicy>('members');
+  const [draftEnabled, setDraftEnabled] = useState(true);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editClosing, setEditClosing] = useState(false);
+  const scrollFieldIntoView = useMobileFieldFocusScroll<HTMLInputElement>();
   const [menu, setMenu] = useState<RoomMenu>(null);
   const [menuClosing, setMenuClosing] = useState(false);
 
@@ -110,18 +114,14 @@ export function GuildStructureSettingsSection({
     onChange(mergeStructureSpaces(structure, { ...template, enabled: true }));
   };
 
-  const addCustomSpace = () => {
-    const space = normalizeCustomSpaceInput({
-      title: customTitle,
-      kind: 'discussion',
-      postPolicy: customPolicy,
-      audience: 'members',
-    });
-    if (!space) return;
-    if (structure.spaces.some((entry) => entry.id === space.id)) return;
-    onChange(mergeStructureSpaces(structure, space));
-    setCustomTitle('');
-    setEditingId(space.id);
+  const openCreate = () => {
+    setDraftTitle('');
+    setDraftPolicy('members');
+    setDraftEnabled(true);
+    setDraftError(null);
+    setEditingId(null);
+    setEditClosing(false);
+    setCreating(true);
   };
 
   const applyTemplate = (templateId: string) => {
@@ -129,6 +129,7 @@ export function GuildStructureSettingsSection({
     if (!template) return;
     onChange(cloneGuildStructure(template.structure));
     setEditingId(null);
+    setCreating(false);
   };
 
   const enableSuggestion = (channelId: string) => {
@@ -144,6 +145,20 @@ export function GuildStructureSettingsSection({
     if (editClosing) return;
     setEditClosing(true);
   }, [editClosing]);
+
+  const commitCreate = () => {
+    const result = appendCustomGuildSpace(structure, {
+      title: draftTitle,
+      postPolicy: draftPolicy,
+      enabled: draftEnabled,
+    });
+    if (!result.ok) {
+      setDraftError(result.error);
+      return;
+    }
+    onChange(result.structure);
+    requestCloseEdit();
+  };
 
   const arrangeItems = useMemo<ActionDrawerItem[]>(() => {
     if (!menu || menu.kind !== 'arrange') return [];
@@ -188,10 +203,17 @@ export function GuildStructureSettingsSection({
   );
 
   const menuOpen = Boolean(menu) && !menuClosing;
-  const editOpen = Boolean(editingSpace) && !editClosing;
+  const editOpen = (creating || Boolean(editingSpace)) && !editClosing;
   const lockedOn = Boolean(
     editingSpace?.enabled && editingSpace.id === 'general'
   );
+  const editorTitle = creating ? draftTitle : (editingSpace?.title ?? '');
+  const editorPolicy = creating
+    ? draftPolicy
+    : (editingSpace?.postPolicy ?? 'members');
+  const editorEnabled = creating
+    ? draftEnabled
+    : Boolean(editingSpace?.enabled);
 
   return (
     <section className="guild-section guild-structure-settings">
@@ -239,6 +261,7 @@ export function GuildStructureSettingsSection({
             badge={roomFeedBadge(space)}
             disabled={disabled}
             onClick={() => {
+              setCreating(false);
               setEditClosing(false);
               setEditingId(space.id);
             }}
@@ -246,48 +269,21 @@ export function GuildStructureSettingsSection({
         ))}
       </OsSurfaceRowList>
 
-      <div className="guild-structure-add">
-        <label className="guild-field">
-          <span>Name</span>
-          <input
-            value={customTitle}
-            onChange={(event) => setCustomTitle(event.target.value)}
-            placeholder="Shipping Room"
-            disabled={disabled}
-            maxLength={40}
-            autoComplete="off"
-            className={osFieldBorderedClassName}
-          />
-        </label>
-        <div className="guild-field">
-          <ChoiceDrawerField
-            label="Who can share"
-            value={customPolicy}
-            options={SHARE_OPTIONS}
-            disabled={disabled}
-            persistSelected
-            copy="Who may post in the new room"
-            hint={GUILD_POST_POLICY_FORM_HINT[customPolicy]}
-            zIndex={SHEET_Z.nested}
-            onChange={setCustomPolicy}
-          />
-        </div>
-        <OsSheetActions
-          layout="row-compact"
-          size="sm"
-          borderless
-          className="guild-structure-add-button"
+      <OsSheetActions
+        layout="row-compact"
+        size="sm"
+        borderless
+        className="guild-structure-add-button"
+      >
+        <OsSheetAction
+          type="button"
+          variant="ghost"
+          disabled={disabled}
+          onClick={openCreate}
         >
-          <OsSheetAction
-            type="button"
-            variant="ghost"
-            disabled={disabled || !customTitle.trim()}
-            onClick={addCustomSpace}
-          >
-            Add room
-          </OsSheetAction>
-        </OsSheetActions>
-      </div>
+          Add room
+        </OsSheetAction>
+      </OsSheetActions>
 
       {libraryAdds.length > 0 ? (
         <div className="guild-structure-add-library">
@@ -320,60 +316,74 @@ export function GuildStructureSettingsSection({
         onClosed={() => {
           setEditClosing(false);
           setEditingId(null);
+          setCreating(false);
+          setDraftError(null);
         }}
-        label="Room"
-        copy={editingSpace?.title || 'Edit room'}
-        closeAriaLabel="Close room"
-        backdropLabel="Close room"
+        label={creating ? 'Add room' : 'Room'}
+        copy={creating ? 'New feed tab' : editingSpace?.title || 'Edit room'}
+        closeAriaLabel={creating ? 'Close add room' : 'Close room'}
+        backdropLabel={creating ? 'Close add room' : 'Close room'}
         zIndex={SHEET_Z.nested}
         headerClassName="guild-settings-sheet-header"
         panelClassName="guild-settings-sheet-panel os-sheet-cap-short"
       >
-        {editingSpace ? (
+        {creating || editingSpace ? (
           <div className="guild-structure-room-edit">
             <label className="guild-field">
               <span>Name</span>
               <input
-                value={editingSpace.title}
+                value={editorTitle}
                 disabled={disabled}
                 maxLength={40}
                 autoComplete="off"
+                autoFocus={creating}
+                placeholder="Shipping Room"
                 className={osFieldBorderedClassName}
-                onChange={(event) =>
+                onFocus={scrollFieldIntoView}
+                onChange={(event) => {
+                  const title = event.target.value;
+                  if (creating) {
+                    setDraftTitle(title);
+                    setDraftError(null);
+                    return;
+                  }
+                  if (!editingSpace) return;
                   onChange(
-                    updateGuildSpaceTitle(
-                      structure,
-                      editingSpace.id,
-                      event.target.value
-                    )
-                  )
-                }
+                    updateGuildSpaceTitle(structure, editingSpace.id, title)
+                  );
+                }}
               />
             </label>
+            {creating && draftError ? (
+              <p className="guild-form-error" role="alert">
+                {draftError}
+              </p>
+            ) : null}
             <div className="guild-field">
               <ChoiceDrawerField
                 label="Who can share"
-                value={editingSpace.postPolicy}
+                value={editorPolicy}
                 options={SHARE_OPTIONS}
                 disabled={disabled}
                 persistSelected
                 copy="Who may post in this room"
                 zIndex={SHEET_Z.nestedConfirm}
-                onChange={(next) =>
+                onChange={(next) => {
+                  if (creating) {
+                    setDraftPolicy(next);
+                    return;
+                  }
+                  if (!editingSpace) return;
                   onChange(
-                    updateGuildSpacePostPolicy(
-                      structure,
-                      editingSpace.id,
-                      next
-                    )
-                  )
-                }
+                    updateGuildSpacePostPolicy(structure, editingSpace.id, next)
+                  );
+                }}
               />
             </div>
             <div className="guild-field">
               <ChoiceDrawerField
                 label="Feed tab"
-                value={editingSpace.enabled ? 'on' : 'off'}
+                value={editorEnabled ? 'on' : 'off'}
                 options={FEED_TAB_OPTIONS.map((option) =>
                   option.value === 'off' && lockedOn
                     ? { ...option, disabled: true }
@@ -383,18 +393,36 @@ export function GuildStructureSettingsSection({
                 persistSelected
                 copy="Whether this room shows in the feed"
                 zIndex={SHEET_Z.nestedConfirm}
-                onChange={(next) =>
+                onChange={(next) => {
+                  if (creating) {
+                    setDraftEnabled(next === 'on');
+                    return;
+                  }
+                  if (!editingSpace) return;
                   onChange(
                     toggleGuildSpaceEnabled(
                       structure,
                       editingSpace.id,
                       next === 'on'
                     )
-                  )
-                }
+                  );
+                }}
               />
             </div>
-            {sortedSpaces.length > 1 ? (
+            {creating ? (
+              <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+                <OsSheetAction
+                  type="button"
+                  variant="primary"
+                  ready={Boolean(draftTitle.trim()) && !disabled}
+                  disabled={disabled || !draftTitle.trim()}
+                  onClick={commitCreate}
+                >
+                  Add room
+                </OsSheetAction>
+              </OsSheetActions>
+            ) : null}
+            {editingSpace && sortedSpaces.length > 1 ? (
               <OsChipAction
                 disabled={disabled}
                 onClick={() =>
