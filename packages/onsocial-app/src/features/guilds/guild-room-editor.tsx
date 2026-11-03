@@ -289,7 +289,7 @@ export function GuildFeedAddRoomSheet({
         onClose={requestClose}
         onClosed={handleSheetClosed}
         label="Add room"
-        copy="New feed tab"
+        copy="Adds a visible feed tab"
         closeAriaLabel="Close add room"
         backdropLabel="Close add room"
         zIndex={SHEET_Z.facts}

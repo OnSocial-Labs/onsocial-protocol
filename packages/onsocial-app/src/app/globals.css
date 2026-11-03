@@ -35794,12 +35794,17 @@ a.os-surface-row,
     letter-spacing: -0.02em;
   }
 
+  .drop-create-extra-row .drop-create-extra-row-label {
+    font-size: inherit;
+    line-height: inherit;
+  }
+
   .drop-create-extra-event {
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: 0.4rem;
-    padding: 0.55rem 0;
+    padding: 0.5rem 0;
   }
 
   .drop-create-extra-row-value {

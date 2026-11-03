@@ -464,7 +464,7 @@ test.describe('guild page', () => {
 
     const sheet = page.getByRole('dialog', { name: 'Add room' });
     await expect(sheet).toBeVisible();
-    await expect(sheet.getByText('New feed tab')).toBeVisible();
+    await expect(sheet.getByText('Adds a visible feed tab')).toBeVisible();
     await expect(sheet.getByRole('button', { name: /Feed tab/ })).toHaveCount(
       0
     );

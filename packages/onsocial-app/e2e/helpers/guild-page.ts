@@ -113,6 +113,21 @@ function json(data: unknown) {
   };
 }
 
+async function e2eMockSignerWroteGuildStructure(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const calls = window.__onsocialE2eSignerCalls ?? [];
+    return calls.some((call) => {
+      try {
+        return JSON.stringify(call.args ?? null).includes(
+          'update_group_metadata'
+        );
+      } catch {
+        return false;
+      }
+    });
+  });
+}
+
 /**
  * Browser GraphQL + group data views for guild page settle.
  * Pair with `setE2eGraphGuild` for SSR. Omit the cookie for the SSR-miss
@@ -286,10 +301,7 @@ export async function stubGuildPage(
         opts?.persistFeedRoomOnRelay &&
         !structureSpaces.some((space) => space.id === 'shipping-room')
       ) {
-        const mockWrites = await page.evaluate(
-          () => window.__onsocialE2eSignerCalls?.length ?? 0
-        );
-        if (mockWrites > 0) {
+        if (await e2eMockSignerWroteGuildStructure(page)) {
           structureSpaces = [
             ...structureSpaces,
             {
