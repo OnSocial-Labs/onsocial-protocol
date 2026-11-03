@@ -71,7 +71,7 @@ import {
   guildPageHeroLook,
 } from '@/features/guilds/guild-page-hero';
 import { GuildAddMemberSheet } from '@/features/guilds/guild-add-member-sheet';
-import { GuildAddSpaceSheet } from '@/features/guilds/guild-add-space-sheet';
+import { GuildFeedAddRoomSheet } from '@/features/guilds/guild-room-editor';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import {
   buildGuildFacepileIds,
@@ -1599,7 +1599,7 @@ export function LiveGuildPanel({
         ) : null}
       </SheetHandoffProvider>
       {config && addSpaceOpen ? (
-        <GuildAddSpaceSheet
+        <GuildFeedAddRoomSheet
           open
           groupId={groupId}
           memberDriven={config.memberDriven}

@@ -29,10 +29,18 @@ describe('os chip action', () => {
       join(appSrc, 'features/guilds/guild-structure-settings-section.tsx'),
       'utf8'
     );
+    const editor = readFileSync(
+      join(appSrc, 'features/guilds/guild-room-editor.tsx'),
+      'utf8'
+    );
     expect(source).toContain('OsSheetAction');
     expect(source).toContain('Add room');
-    expect(source).toContain('ChoiceDrawerField');
-    expect(source).toContain('osFieldBorderedClassName');
+    expect(source).toContain('GuildRoomEditorFields');
+    expect(editor).toContain('GuildRoomEditorFields');
+    expect(editor).toContain('GuildFeedAddRoomSheet');
+    expect(editor).toContain('ChoiceDrawerField');
+    expect(editor).toContain('osFieldBorderedClassName');
+    expect(editor).toContain('appendCustomGuildSpace');
     expect(source).not.toContain('guild-primary-button');
     const css = readFileSync(join(appSrc, 'app/globals.css'), 'utf8');
     expect(css).not.toContain('.guild-primary-button');
