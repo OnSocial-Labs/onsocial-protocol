@@ -9,11 +9,13 @@ import {
   type ChangeEvent,
 } from 'react';
 import {
+  DiscardConfirmSheet,
   OsField,
   OsFieldRemove,
   OsSheetAction,
   OsSheetActions,
   osFieldBorderedClassName,
+  useDiscardConfirm,
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -65,8 +67,6 @@ export function SeriesEditSheet({
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [sheetOpen, setSheetOpen] = useState(open);
-  if (open && !sheetOpen) setSheetOpen(true);
-
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -75,6 +75,14 @@ export function SeriesEditSheet({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  if (open && !sheetOpen) {
+    setSheetOpen(true);
+    setTitle(branding?.title ?? fallbackTitle);
+    setDescription(branding?.description ?? '');
+    setLogoFile(null);
+    setLogoRemoved(false);
+    setError(null);
+  }
 
   // Seed the form from current branding each time the sheet opens.
   useEffect(() => {
@@ -94,10 +102,30 @@ export function SeriesEditSheet({
     [logoPreview]
   );
 
+  const baselineTitle = branding?.title ?? fallbackTitle;
+  const baselineDescription = branding?.description ?? '';
+  const isDirty =
+    title !== baselineTitle ||
+    description !== baselineDescription ||
+    logoFile != null ||
+    logoRemoved;
+
+  const {
+    discardConfirmOpen,
+    requestCloseOrConfirm,
+    clearDiscardConfirm,
+    keepEditing,
+    discard,
+  } = useDiscardConfirm({
+    open: sheetOpen,
+    dirty: isDirty,
+    pending,
+    onClose: () => setSheetOpen(false),
+  });
+
   const requestClose = useCallback(() => {
-    if (pending) return;
     setSheetOpen(false);
-  }, [pending]);
+  }, []);
 
   const handleClosed = useCallback(() => {
     onClose();
@@ -133,7 +161,7 @@ export function SeriesEditSheet({
     });
   }, []);
 
-  const canSave = title.trim().length >= 2 && !pending;
+  const canSave = isDirty && title.trim().length >= 2 && !pending;
   const logoSrc =
     logoPreview ?? (logoRemoved ? null : (branding?.logoUrl ?? null));
 
@@ -206,104 +234,115 @@ export function SeriesEditSheet({
   ]);
 
   return (
-    <OsSlideOverScreen
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleClosed}
-      title="Edit series"
-      subtitle="Brand the series — drops keep their own art."
-      closeAriaLabel="Back from edit series"
-      closeDisabled={pending}
-      zIndex={SHEET_Z.overShell}
-      className="hub-manage-slide"
-      contentClassName="hub-manage-slide-body"
-      footer={
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="button"
-            variant="primary"
-            ready={canSave}
-            disabled={!canSave}
-            onClick={() => void save()}
-          >
-            {pending ? 'Saving…' : 'Save series'}
-          </OsSheetAction>
-        </OsSheetActions>
-      }
-    >
-      <div className="hub-manage-form">
-        <OsField
-          label="Logo"
-          hint="Square works best · JPG, PNG, or WebP · up to 5 MB"
-        >
-          <div className="series-logo-row">
-            <button
+    <>
+      <OsSlideOverScreen
+        open={sheetOpen}
+        onClose={requestClose}
+        onClosed={() => {
+          clearDiscardConfirm();
+          handleClosed();
+        }}
+        onBeforeClose={requestCloseOrConfirm}
+        title="Edit series"
+        subtitle="Brand the series — drops keep their own art."
+        closeAriaLabel="Back from edit series"
+        closeDisabled={pending}
+        zIndex={SHEET_Z.overShell}
+        className="hub-manage-slide"
+        contentClassName="hub-manage-slide-body"
+        footer={
+          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+            <OsSheetAction
               type="button"
-              className={`series-logo-picker${logoSrc ? ' has-media' : ''}`}
-              disabled={pending}
-              onClick={() => logoInputRef.current?.click()}
-              aria-label={logoSrc ? 'Change series logo' : 'Add series logo'}
+              variant="primary"
+              ready={canSave}
+              disabled={!canSave}
+              onClick={() => void save()}
             >
-              {logoSrc ? (
-                <img src={logoSrc} alt="" />
-              ) : (
-                <span aria-hidden>+</span>
-              )}
-            </button>
-            {logoSrc ? (
-              <OsFieldRemove
-                aria-label="Remove series logo"
+              {pending ? 'Saving…' : 'Save series'}
+            </OsSheetAction>
+          </OsSheetActions>
+        }
+      >
+        <div className="hub-manage-form">
+          <OsField
+            label="Logo"
+            hint="Square works best · JPG, PNG, or WebP · up to 5 MB"
+          >
+            <div className="series-logo-row">
+              <button
+                type="button"
+                className={`series-logo-picker${logoSrc ? ' has-media' : ''}`}
                 disabled={pending}
-                onClick={clearLogo}
-              />
-            ) : null}
-          </div>
-          <input
-            ref={logoInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="scarce-cover-file-input"
-            tabIndex={-1}
-            aria-hidden
-            disabled={pending}
-            onChange={onLogoChange}
-          />
-        </OsField>
+                onClick={() => logoInputRef.current?.click()}
+                aria-label={logoSrc ? 'Change series logo' : 'Add series logo'}
+              >
+                {logoSrc ? (
+                  <img src={logoSrc} alt="" />
+                ) : (
+                  <span aria-hidden>+</span>
+                )}
+              </button>
+              {logoSrc ? (
+                <OsFieldRemove
+                  aria-label="Remove series logo"
+                  disabled={pending}
+                  onClick={clearLogo}
+                />
+              ) : null}
+            </div>
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="scarce-cover-file-input"
+              tabIndex={-1}
+              aria-hidden
+              disabled={pending}
+              onChange={onLogoChange}
+            />
+          </OsField>
 
-        <OsField
-          label="Title"
-          htmlFor={`${fieldIdBase}-title`}
-          hint={`${title.length}/${MAX_TITLE}`}
-        >
-          <input
-            id={`${fieldIdBase}-title`}
-            value={title}
-            maxLength={MAX_TITLE}
-            disabled={pending}
-            onChange={(event) => setTitle(event.target.value)}
-            className={osFieldBorderedClassName}
-          />
-        </OsField>
+          <OsField
+            label="Title"
+            htmlFor={`${fieldIdBase}-title`}
+            hint={`${title.length}/${MAX_TITLE}`}
+          >
+            <input
+              id={`${fieldIdBase}-title`}
+              value={title}
+              maxLength={MAX_TITLE}
+              disabled={pending}
+              onChange={(event) => setTitle(event.target.value)}
+              className={osFieldBorderedClassName}
+            />
+          </OsField>
 
-        <OsField
-          label="Description (optional)"
-          htmlFor={`${fieldIdBase}-description`}
-          hint={`${description.length}/${MAX_DESCRIPTION}`}
-        >
-          <textarea
-            id={`${fieldIdBase}-description`}
-            rows={3}
-            value={description}
-            maxLength={MAX_DESCRIPTION}
-            disabled={pending}
-            placeholder="What ties these drops together?"
-            onChange={(event) => setDescription(event.target.value)}
-            className={osFieldBorderedClassName}
-          />
-        </OsField>
+          <OsField
+            label="Description (optional)"
+            htmlFor={`${fieldIdBase}-description`}
+            hint={`${description.length}/${MAX_DESCRIPTION}`}
+          >
+            <textarea
+              id={`${fieldIdBase}-description`}
+              rows={3}
+              value={description}
+              maxLength={MAX_DESCRIPTION}
+              disabled={pending}
+              placeholder="What ties these drops together?"
+              onChange={(event) => setDescription(event.target.value)}
+              className={osFieldBorderedClassName}
+            />
+          </OsField>
 
-        {error ? <p className="guild-form-error">{error}</p> : null}
-      </div>
-    </OsSlideOverScreen>
+          {error ? <p className="guild-form-error">{error}</p> : null}
+        </div>
+      </OsSlideOverScreen>
+      <DiscardConfirmSheet
+        open={discardConfirmOpen}
+        onDiscard={discard}
+        onKeepEditing={keepEditing}
+      />
+    </>
   );
 }

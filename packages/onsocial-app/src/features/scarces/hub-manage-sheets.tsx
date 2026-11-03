@@ -45,6 +45,7 @@ import {
   nearAccountStatusClass,
   useNearAccountStatus,
 } from '@/hooks/use-near-account-status';
+import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
@@ -53,6 +54,7 @@ import {
 } from '@/lib/app-near-account';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
+import { POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { topicsEqual } from '@/lib/topic-slug';
 import {
@@ -76,6 +78,22 @@ const COMMISSION_PRESETS = [0, 2.5, 5, 10] as const;
 const MAX_COMMISSION_PCT = 50;
 const MAX_DESCRIPTION = 500;
 const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp,image/gif';
+const HUB_IMAGE_TYPES = new Set(
+  IMAGE_ACCEPT.split(',').map((type) => type.trim())
+);
+
+function hubLookImageError(
+  file: File,
+  label: 'Logo' | 'Banner'
+): string | null {
+  if (!HUB_IMAGE_TYPES.has(file.type.toLowerCase())) {
+    return `Use a JPG, PNG, WebP, or GIF for the ${label.toLowerCase()}.`;
+  }
+  if (file.size > POST_IMAGE_MAX_BYTES) {
+    return `${label} must be 5 MB or smaller.`;
+  }
+  return null;
+}
 
 type RosterKind = 'creator' | 'moderator';
 
@@ -168,6 +186,7 @@ export function HubLookSheet({
 }) {
   const withWallet = useHubManageWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const scrollFieldIntoView = useMobileFieldFocusScroll();
   const [name, setName] = useState(app.title);
   const [description, setDescription] = useState(app.description ?? '');
   const [categories, setCategories] = useState(app.categories);
@@ -320,15 +339,29 @@ export function HubLookSheet({
           accept={IMAGE_ACCEPT}
           onBannerChange={(event) => {
             const file = event.target.files?.[0] ?? null;
-            setBannerFile(file);
-            if (file) setBannerRemoved(false);
             event.target.value = '';
+            if (!file) return;
+            const problem = hubLookImageError(file, 'Banner');
+            if (problem) {
+              setError(problem);
+              return;
+            }
+            setError(null);
+            setBannerFile(file);
+            setBannerRemoved(false);
           }}
           onLogoChange={(event) => {
             const file = event.target.files?.[0] ?? null;
-            setLogoFile(file);
-            if (file) setLogoRemoved(false);
             event.target.value = '';
+            if (!file) return;
+            const problem = hubLookImageError(file, 'Logo');
+            if (problem) {
+              setError(problem);
+              return;
+            }
+            setError(null);
+            setLogoFile(file);
+            setLogoRemoved(false);
           }}
           onRemoveBanner={() => {
             setBannerFile(null);
@@ -349,6 +382,7 @@ export function HubLookSheet({
             maxLength={60}
             disabled={pending}
             onChange={(event) => setName(event.target.value)}
+            onFocus={scrollFieldIntoView}
             onBlur={() => {
               const trimmed = name.trim().replace(/\s+/g, ' ');
               if (trimmed !== name) setName(trimmed);
@@ -366,6 +400,7 @@ export function HubLookSheet({
             disabled={pending}
             aria-describedby="hub-look-about-count"
             onChange={(event) => setDescription(event.target.value)}
+            onFocus={scrollFieldIntoView}
             onBlur={() => {
               const trimmed = description.trim();
               if (trimmed !== description) setDescription(trimmed);
