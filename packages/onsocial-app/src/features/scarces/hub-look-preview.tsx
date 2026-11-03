@@ -62,7 +62,7 @@ export function HubLookPreview({
       >
         <button
           type="button"
-          className="profile-editor-media-backdrop hub-look-preview-banner-hit"
+          className="profile-editor-media-backdrop account-editor-banner-backdrop hub-look-preview-banner-hit"
           aria-label={
             bannerUrl ? HUB_CREATE_CHANGE_BANNER : HUB_CREATE_ADD_BANNER
           }
@@ -75,19 +75,31 @@ export function HubLookPreview({
               srcSet={bannerSrcSet}
               sizes={bannerSrcSet ? APP_COLUMN_HERO_SIZES : undefined}
               alt=""
-              className="hub-look-preview-banner-image"
+              className="account-editor-banner-image hub-look-preview-banner-image"
             />
           ) : (
-            <span className="hub-look-preview-banner-empty">
-              {HUB_CREATE_ADD_BANNER}
-            </span>
+            <span className="account-editor-banner-empty" aria-hidden />
           )}
+          <span
+            className={`account-editor-banner-overlay${
+              bannerUrl ? ' has-media' : ''
+            }`}
+            aria-hidden
+          />
         </button>
         <ProfileEditorMediaToolbar
           layout="banner"
           removeLabel={bannerUrl ? HUB_CREATE_REMOVE_BANNER : undefined}
           onRemove={bannerUrl ? onRemoveBanner : undefined}
         />
+        {bannerUrl ? null : (
+          <p
+            className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
+            aria-hidden
+          >
+            Photo or video
+          </p>
+        )}
       </div>
       <div className="hub-look-preview-head">
         <div

@@ -198,6 +198,7 @@ export function GuildFeedAddRoomSheet({
   const [wasOpen, setWasOpen] = useState(open);
   const sheetOpen = open && !closing;
   const namedDraft = Boolean(title.trim());
+  const policyDraft = postPolicy !== 'members';
   const {
     discardConfirmOpen,
     requestCloseOrConfirm,
@@ -206,7 +207,7 @@ export function GuildFeedAddRoomSheet({
     discard,
   } = useDiscardConfirm({
     open: sheetOpen,
-    dirty: namedDraft,
+    dirty: namedDraft || policyDraft,
     pending,
     onClose: () => setClosing(true),
   });

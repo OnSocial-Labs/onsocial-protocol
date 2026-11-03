@@ -111,6 +111,25 @@ export function extractPreparedAction(
   return request?.action ?? null;
 }
 
+/** Chain-confirmation poll answers FINAL so toasts and refresh can settle. */
+export async function stubNearRpcTxFinal(page: Page): Promise<void> {
+  await page.route('**/api/near/rpc', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'e2e',
+        result: {
+          final_execution_status: 'FINAL',
+          status: { SuccessValue: '' },
+          receipts_outcome: [],
+        },
+      }),
+    });
+  });
+}
+
 export async function expectE2eSignerWrite(
   page: Page,
   assert: (calls: E2eMockSignerCall[]) => void

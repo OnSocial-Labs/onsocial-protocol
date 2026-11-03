@@ -46,7 +46,7 @@ export function GuildLookPreview({
       >
         <button
           type="button"
-          className="profile-editor-media-backdrop guild-look-preview-banner-hit"
+          className="profile-editor-media-backdrop account-editor-banner-backdrop guild-look-preview-banner-hit"
           aria-label={
             bannerUrl ? GUILD_CREATE_CHANGE_BANNER : GUILD_CREATE_ADD_BANNER
           }
@@ -59,19 +59,31 @@ export function GuildLookPreview({
               srcSet={bannerSrcSet}
               sizes={bannerSrcSet ? APP_COLUMN_HERO_SIZES : undefined}
               alt=""
-              className="guild-look-preview-banner-image"
+              className="account-editor-banner-image guild-look-preview-banner-image"
             />
           ) : (
-            <span className="guild-look-preview-banner-empty">
-              {GUILD_CREATE_ADD_BANNER}
-            </span>
+            <span className="account-editor-banner-empty" aria-hidden />
           )}
+          <span
+            className={`account-editor-banner-overlay${
+              bannerUrl ? ' has-media' : ''
+            }`}
+            aria-hidden
+          />
         </button>
         <ProfileEditorMediaToolbar
           layout="banner"
           removeLabel={bannerUrl ? GUILD_CREATE_REMOVE_BANNER : undefined}
           onRemove={bannerUrl ? onRemoveBanner : undefined}
         />
+        {bannerUrl ? null : (
+          <p
+            className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
+            aria-hidden
+          >
+            Photo or video
+          </p>
+        )}
       </div>
       <input
         ref={bannerInputRef}

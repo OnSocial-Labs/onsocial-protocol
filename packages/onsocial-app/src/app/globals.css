@@ -2251,7 +2251,10 @@ button.post-media-tile {
   padding-bottom: 0;
 }
 
-.account-editor-banner-button .profile-editor-media-size-hint--dock {
+.account-editor-banner-button .profile-editor-media-size-hint--dock,
+.guild-look-preview-banner .profile-editor-media-size-hint--dock,
+.hub-look-preview-banner .profile-editor-media-size-hint--dock,
+.dao-look-preview-cover .profile-editor-media-size-hint--dock {
   z-index: 4;
 }
 
@@ -19613,7 +19616,10 @@ a.os-surface-row,
   }
 
   .account-editor-banner-wrap .profile-editor-media-size-hint--dock,
-  .account-editor-banner-button .profile-editor-media-size-hint--dock {
+  .account-editor-banner-button .profile-editor-media-size-hint--dock,
+  .guild-look-preview-banner .profile-editor-media-size-hint--dock,
+  .hub-look-preview-banner .profile-editor-media-size-hint--dock,
+  .dao-look-preview-cover .profile-editor-media-size-hint--dock {
     color: rgb(var(--fg-rgb) / 0.42);
   }
 
@@ -37265,15 +37271,18 @@ a.os-surface-row,
   }
 
   .guild-edit-badge-picker {
-    display: block;
+    position: relative;
+    flex-shrink: 0;
     width: 2.75rem;
     height: 2.75rem;
-    padding: 0;
     overflow: hidden;
-    border: 0;
     border-radius: 0.72rem;
     background: rgb(var(--fg-rgb) / 0.06);
-    cursor: pointer;
+  }
+
+  .guild-edit-badge-backdrop {
+    overflow: hidden;
+    border-radius: inherit;
   }
 
   .guild-edit-badge-picker img {
@@ -37291,12 +37300,6 @@ a.os-surface-row,
     font-size: 1.15rem;
     font-weight: 600;
     line-height: 1;
-  }
-
-  .guild-edit-badge-slot .os-field-remove {
-    position: absolute;
-    top: -0.35rem;
-    right: -0.35rem;
   }
 
   .guild-edit-title-row .guild-edit-name {
@@ -43875,6 +43878,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 }
 
 .dao-look-preview-cover {
+  position: relative;
   height: 5.25rem;
   border-radius: 0.9rem;
   overflow: hidden;
@@ -43890,16 +43894,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.dao-look-preview-cover-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  font-size: 0.82rem;
-  font-weight: 650;
-  color: rgb(var(--fg-rgb) / 0.42);
 }
 
 .dao-look-preview-face {
@@ -43954,6 +43948,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 }
 
 .hub-look-preview-banner {
+  position: relative;
   height: 5.25rem;
   border-radius: 0.9rem;
   overflow: hidden;
@@ -43969,16 +43964,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.hub-look-preview-banner-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  font-size: 0.82rem;
-  font-weight: 650;
-  color: rgb(var(--fg-rgb) / 0.42);
 }
 
 .hub-look-preview-head {
@@ -44023,6 +44008,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
 }
 
 .guild-look-preview-banner {
+  position: relative;
   height: 5.25rem;
   border-radius: 0.9rem;
   overflow: hidden;
@@ -44038,16 +44024,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-handle {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.guild-look-preview-banner-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  font-size: 0.82rem;
-  font-weight: 650;
-  color: rgb(var(--fg-rgb) / 0.42);
 }
 
 .guild-create-name-row {
