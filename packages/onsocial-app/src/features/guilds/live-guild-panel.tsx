@@ -1544,7 +1544,14 @@ export function LiveGuildPanel({
             pendingRequestCount={pendingRequestCount}
             onClose={() => {
               setSettingsSheetOpen(false);
-              router.replace(guildPath(groupId), { scroll: false });
+              // Handoff closes Settings while a successor already owns the
+              // URL (`?sheet=proposals`). Do not wipe that entry.
+              if (
+                new URLSearchParams(window.location.search).get('sheet') ===
+                'settings'
+              ) {
+                router.replace(guildPath(groupId), { scroll: false });
+              }
             }}
             onHandoff={(id) => {
               setSheetHandoff(guildSettingsHandoffIsReplace(id));

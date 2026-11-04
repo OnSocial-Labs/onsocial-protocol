@@ -404,10 +404,10 @@ test.describe('guild page', () => {
     await expect(
       addMember.getByText('Search profiles to invite.')
     ).toBeVisible();
-    await expect(members).toHaveCount(0);
+    // Add member nests on Members (enter) — Members stays mounted underneath.
+    await expect(members).toBeVisible();
     await expect(addMember).toBeVisible();
     if (process.env.E2E_WALKTHROUGH_DIR) {
-      await expect(addMember).not.toHaveClass(/glass-sheet-panel--enter/);
       await addMember.screenshot({
         path: `${process.env.E2E_WALKTHROUGH_DIR}/guild-add-member-sheet.png`,
       });
@@ -713,9 +713,16 @@ test.describe('guild page', () => {
     await proposals.getByRole('button', { name: 'Close' }).click();
     await expect(proposals).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Guild settings' }).click();
-    await expect(settings).toBeVisible();
-    await settings.getByRole('button', { name: /Guild storage/ }).click();
+    // Closing proposals pops back to Settings when it owned the prior URL.
+    // Prefer the hero control (`exact`) — backdrop is "Close guild settings".
+    const settingsAgain = page.getByRole('dialog', { name: 'Settings' });
+    if (!(await settingsAgain.isVisible())) {
+      await page
+        .getByRole('button', { name: 'Guild settings', exact: true })
+        .click();
+    }
+    await expect(settingsAgain).toBeVisible();
+    await settingsAgain.getByRole('button', { name: /Guild storage/ }).click();
     const storage = page.getByRole('dialog', { name: 'Guild storage' });
     await expect(storage).toBeVisible();
     await expect(storage).toHaveAttribute('data-presentation', 'swap');
@@ -744,21 +751,16 @@ test.describe('guild page', () => {
     await rooms.getByRole('button', { name: '+ Announcements' }).click();
     const fromLibrary = page.getByRole('dialog', { name: 'Add room' });
     await expect(fromLibrary).toBeVisible();
-    await expect(
-      rooms.locator('.guild-structure-room-list').getByRole('button', {
-        name: /Announcements/,
-      })
-    ).toHaveCount(0);
+    const announcementsRow = rooms
+      .locator('.guild-structure-room-list')
+      .locator('button.os-surface-row', { hasText: 'Announcements' });
+    await expect(announcementsRow).toHaveCount(0);
     await expect(
       rooms.getByRole('button', { name: '+ Announcements' })
     ).toBeVisible();
     await fromLibrary.getByRole('button', { name: 'Add room', exact: true }).click();
     await expect(fromLibrary).toHaveCount(0);
-    await expect(
-      rooms.locator('.guild-structure-room-list').getByRole('button', {
-        name: /Announcements/,
-      })
-    ).toBeVisible();
+    await expect(announcementsRow).toBeVisible();
     await expect(
       rooms.getByRole('button', { name: '+ Announcements' })
     ).toHaveCount(0);
