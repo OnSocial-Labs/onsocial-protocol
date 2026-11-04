@@ -273,13 +273,21 @@ impl Contract {
 
         let recipient_was_mod = pool.moderators.iter().any(|m| m == &new_owner);
         let recipient_was_creator = pool.approved_creators.iter().any(|a| a == &new_owner);
+        let old_was_creator = pool.approved_creators.iter().any(|a| a == &old_owner);
+        let old_was_mod = pool.moderators.iter().any(|m| m == &old_owner);
         pool.moderators.retain(|m| m != &new_owner);
         pool.approved_creators.retain(|a| a != &new_owner);
+        // One stay role — drop the other roster seat for the previous owner.
         if stay_mod {
-            pool.moderators.push(old_owner.clone());
-        }
-        if stay_creator {
-            pool.approved_creators.push(old_owner.clone());
+            pool.approved_creators.retain(|a| a != &old_owner);
+            if !pool.moderators.contains(&old_owner) {
+                pool.moderators.push(old_owner.clone());
+            }
+        } else if stay_creator {
+            pool.moderators.retain(|m| m != &old_owner);
+            if !pool.approved_creators.contains(&old_owner) {
+                pool.approved_creators.push(old_owner.clone());
+            }
         }
         pool.owner_id = new_owner.clone();
         self.app_pools.insert(app_id.to_string(), pool);
@@ -289,6 +297,12 @@ impl Contract {
         }
         if recipient_was_creator {
             events::emit_approved_creator_removed(&old_owner, app_id, &new_owner);
+        }
+        if stay_mod && old_was_creator {
+            events::emit_approved_creator_removed(&old_owner, app_id, &old_owner);
+        }
+        if stay_creator && old_was_mod {
+            events::emit_moderator_removed(&old_owner, app_id, &old_owner);
         }
         if stay_mod {
             events::emit_moderator_added(&old_owner, app_id, &old_owner);

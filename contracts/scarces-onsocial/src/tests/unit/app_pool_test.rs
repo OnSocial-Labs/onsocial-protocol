@@ -172,6 +172,12 @@ fn transfer_app_ownership_happy() {
 fn transfer_app_ownership_stay_as_moderator() {
     let mut contract = setup_with_app();
     testing_env!(context_with_deposit(owner(), 1).build());
+    contract
+        .execute(make_request(Action::AddApprovedCreator {
+            app_id: app_id(),
+            account_id: owner(),
+        }))
+        .unwrap();
 
     contract
         .execute(make_request(Action::TransferAppOwnership {
