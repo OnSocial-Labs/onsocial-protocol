@@ -16,9 +16,7 @@ describe('OsPageSheet', () => {
   it('forwards appear so editors over Account do not slide as a push', () => {
     const source = readFileSync(join(here, 'os-page-sheet.tsx'), 'utf8');
     expect(source).toContain('presentation={presentation}');
-    expect(source).not.toContain(
-      "presentation === 'swap' ? { presentation }"
-    );
+    expect(source).not.toContain("presentation === 'swap' ? { presentation }");
   });
 
   it('paints page surface as solid --bg, never inherited --mood-bg', () => {

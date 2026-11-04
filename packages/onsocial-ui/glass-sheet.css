@@ -165,6 +165,7 @@
 .glass-sheet-backdrop {
   position: absolute;
   inset: 0;
+  z-index: 0;
   border: 0;
   background: var(--glass-scrim, rgb(var(--bg-rgb) / 0.28));
   /* Dim + blur — clipped by hosted root so desktop gutters stay sharp. */
@@ -225,6 +226,7 @@
   /* Compact top landing — standing/full sheets were min(12.5rem) and felt heavy. */
   --glass-header-scrim-height: min(5.5rem, 24%);
   position: relative;
+  z-index: 1;
   display: flex;
   width: 100%;
   /* Match OS column (host sets --os-column-width; fallback 36rem). */

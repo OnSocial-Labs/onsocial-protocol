@@ -1440,8 +1440,7 @@ export function GlassSheet({
         reduceTransparency,
       });
   const backdropEnter = resolveBackdropEnterStyle({
-    holdScrim:
-      visible && !panelIsOpen && !replaceEnterCover && !keepsColumnDim,
+    holdScrim: visible && !panelIsOpen && !replaceEnterCover && !keepsColumnDim,
     handoffScrim: replaceEnterCover || pageTransitionScrim,
     suppressScrim: leavingReplaceHandoff,
     showEnterAnimation:
@@ -1574,6 +1573,7 @@ export function GlassSheet({
       data-stack-covered={stackCovered ? 'true' : undefined}
       data-sizing={sizing}
       data-sheet-leaving={!open && mounted ? 'true' : undefined}
+      inert={!open && mounted ? true : undefined}
       ref={rootRef}
       data-keep-dock={keepDock ? 'true' : undefined}
       style={{
@@ -1582,7 +1582,17 @@ export function GlassSheet({
       }}
       role="presentation"
     >
-      {opaquePage && !pageTransitionScrim ? null : band ? (
+      {opaquePage && !pageTransitionScrim ? null : pageTransitionScrim ? (
+        <div
+          className="glass-sheet-backdrop"
+          aria-hidden
+          style={glassSheetBackdropFilterStyle(backdropEnter.filter, {
+            opacity: backdropEnter.opacity,
+            transition: backdropEnter.transition,
+            pointerEvents: 'none',
+          })}
+        />
+      ) : band ? (
         <div
           className="glass-sheet-backdrop glass-sheet-band-scrim"
           aria-hidden

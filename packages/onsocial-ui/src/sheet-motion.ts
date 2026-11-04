@@ -343,7 +343,9 @@ export function resolveSheetMotion(input: {
   const kind = input.kind ?? 'sheet';
   // Drawers never fade — appear is pages and covers only.
   const requested =
-    kind === 'sheet' && input.requested === 'appear' ? 'enter' : input.requested;
+    kind === 'sheet' && input.requested === 'appear'
+      ? 'enter'
+      : input.requested;
 
   if (input.band) {
     return { presentation: 'swap', op: 'present' };

@@ -177,9 +177,7 @@ export function OsHugSheet({
       {...(portalContainer !== undefined ? { portalContainer } : {})}
       {...(moodId ? { moodId } : {})}
       // Drawers slide. Appear is pages/covers — never forward it on a hug.
-      {...(stack === 'overlay' ||
-      !presentation ||
-      presentation === 'appear'
+      {...(stack === 'overlay' || !presentation || presentation === 'appear'
         ? {}
         : { presentation })}
       panelClassName={cn(

@@ -159,7 +159,7 @@ test.describe('editor img variants (g10)', () => {
       })
       .toBe(`${CDN}/img/128/ipfs/${CID_AVATAR}`);
 
-    await editor.getByRole('button', { name: 'Close' }).click();
+    await editor.getByRole('button', { name: 'Back' }).click();
     const accountAfterEdit = page.getByRole('dialog', { name: 'Account' });
     await expect(accountAfterEdit).toBeVisible({ timeout: 15_000 });
     await expect(accountAfterEdit).not.toHaveAttribute(
