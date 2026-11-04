@@ -95,8 +95,8 @@ export type GuildShareSheetId =
 
 export type GuildManageShareSheetId = Exclude<GuildShareSheetId, 'settings'>;
 
-/** In-page guild sheets. Add member is not a shareable URL. */
-export type GuildManageSheetId = GuildManageShareSheetId | 'add-member';
+/** In-page guild manage sheets (URL-backed). Add member nests on Members. */
+export type GuildManageSheetId = GuildManageShareSheetId;
 
 export function parseGuildSheetParam(
   raw: string | null | undefined
@@ -123,20 +123,15 @@ export function manageSheetFromShare(
 }
 
 /**
- * Route sync for the manage stack. Add member is not a URL, so a members
- * deep link must not replace it. Any other sheet follows the route, and a
- * bare guild path closes the stack (Back or an explicit dismiss).
+ * Route sync for the manage stack. Any shareable sheet follows the route;
+ * a bare guild path closes the stack (Back or an explicit dismiss).
+ * Add member is not a URL — it nests on Members with `appear`.
  */
 export function nextManageSheetFromRoute(
   current: GuildManageSheetId | null,
   initialSheet: GuildShareSheetId | null | undefined
 ): GuildManageSheetId | null {
-  if (
-    current === 'add-member' &&
-    manageSheetFromShare(initialSheet) === 'members'
-  ) {
-    return current;
-  }
+  void current;
   return manageSheetFromShare(initialSheet);
 }
 

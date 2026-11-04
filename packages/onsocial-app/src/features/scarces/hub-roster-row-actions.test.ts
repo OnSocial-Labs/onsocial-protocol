@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildHubRosterManageContext,
+  hubRosterActionConfirmCopy,
   hubRosterRowActions,
   type HubRosterManageContext,
 } from '@/features/scarces/hub-roster-row-actions';
@@ -91,5 +92,19 @@ describe('hub roster row actions', () => {
       'remove-creator',
       'copy-handle',
     ]);
+  });
+
+  it('confirm copy differs for open vs approval remove-moderator', () => {
+    const action = {
+      id: 'remove-moderator' as const,
+      label: 'Remove moderator',
+      destructive: true,
+    };
+    expect(
+      hubRosterActionConfirmCopy(action, { showCreatorRoster: false }).subtitle
+    ).toBe('Loses hub management.');
+    expect(
+      hubRosterActionConfirmCopy(action, { showCreatorRoster: true }).subtitle
+    ).toBe('Loses management and publish access.');
   });
 });

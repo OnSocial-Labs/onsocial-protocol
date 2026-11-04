@@ -6,17 +6,19 @@ import {
   AmountFieldMetaRow,
   ChevronLeftIcon,
   ChevronRightIcon,
-  OsFieldRemove,
   OsSheetAction,
   OsSheetActions,
   PlusIcon,
 } from '@onsocial/ui';
-import { NearAccountField } from '@/components/ui/near-account-field';
+import {
+  StorageShareGrantsReadout,
+  StorageSharePoolReadout,
+  StorageShareRecipientRow,
+  StorageShareSplitVisual,
+} from '@/components/wallet/app-storage-share-ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useStorageSharesGranted } from '@/hooks/use-storage-shares-granted';
 import { useStorageShareRecipientsValidation } from '@/hooks/use-storage-share-recipients';
-import type { ShareRecipientRowStatus } from '@/hooks/use-storage-share-recipients';
-import type { NearAccountStatus } from '@/hooks/use-near-account-status';
 import type { SharedStoragePoolSummary } from '@/hooks/use-shared-storage-pool';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import {
@@ -24,7 +26,6 @@ import {
   sendStorageSharedPoolDepositTransaction,
   type SigningWallet,
 } from '@/lib/app-storage-transactions';
-import { nearAccountPlaceholder } from '@/lib/app-near-account';
 import { formatNearCompact } from '@/lib/format-near-balance';
 import { formatCompactBytes } from '@/lib/platform-storage-display';
 import {
@@ -33,11 +34,8 @@ import {
   isValidShareBytesPerRecipient,
   isValidStorageAmountInput,
   MAX_STORAGE_SHARE_RECIPIENTS,
-  MIN_SHARED_STORAGE_BYTES,
   parseStorageAmountYocto,
   resolveSharePoolBudgetBytes,
-  shareGrantRemainingBytes,
-  shareGrantUsedPercent,
   splitShareBytesPerRecipient,
   storageCapacityBytesFromNearInput,
   STORAGE_NEAR_INPUT_DECIMALS,
@@ -46,7 +44,6 @@ import {
   STORAGE_SHARE_PERCENT_PRESETS,
   USER_STORAGE_SHARE_POOL_DEPOSIT_HINT,
   USER_STORAGE_SHARE_HINT,
-  type ActiveStorageShareGrant,
 } from '@/lib/user-storage-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
@@ -56,373 +53,6 @@ import {
 } from '@/lib/transaction-toast-copy';
 
 const SHARE_POOL_LABEL = 'Share pool';
-
-function shareRowIssueMessage(status: ShareRecipientRowStatus): string | null {
-  switch (status) {
-    case 'invalid':
-      return 'Use a complete NEAR account.';
-    case 'self':
-      return 'You cannot share with yourself.';
-    case 'duplicate':
-      return 'Already in the list.';
-    case 'already_sponsored':
-      return 'Already has shared storage.';
-    default:
-      return null;
-  }
-}
-
-function shareRowNearField(status: ShareRecipientRowStatus): {
-  status: NearAccountStatus;
-  statusClass?: string;
-} {
-  switch (status) {
-    case 'empty':
-      return { status: 'idle' };
-    case 'checking':
-      return { status: 'checking' };
-    case 'ready':
-      return { status: 'found', statusClass: 'is-available' };
-    case 'invalid':
-      return { status: 'invalid', statusClass: 'is-taken' };
-    case 'self':
-    case 'duplicate':
-    case 'already_sponsored':
-      return { status: 'found', statusClass: 'is-taken' };
-  }
-}
-
-function CompactByteAmount({
-  bytes,
-  muted = false,
-}: {
-  bytes: number;
-  muted?: boolean;
-}) {
-  const formatted = formatCompactBytes(bytes);
-  const parts = formatted.match(/^([\d.]+)\s+(.+)$/);
-
-  if (!parts) {
-    return (
-      <span className={`app-storage-byte${muted ? ' is-muted' : ''}`}>
-        {formatted}
-      </span>
-    );
-  }
-
-  return (
-    <span className={`app-storage-byte${muted ? ' is-muted' : ''}`}>
-      <span>{parts[1]}</span>
-      <span className="app-storage-byte-unit"> {parts[2]}</span>
-    </span>
-  );
-}
-
-function SharePoolReadout({
-  summary,
-  loading,
-  error,
-  canAddCapacity,
-  showAddCapacity,
-  onToggleAddCapacity,
-}: {
-  summary: SharedStoragePoolSummary | null;
-  loading: boolean;
-  error: string | null;
-  canAddCapacity: boolean;
-  showAddCapacity: boolean;
-  onToggleAddCapacity: () => void;
-}) {
-  if (loading) {
-    return (
-      <div className="app-storage-share-card" aria-busy="true">
-        <div className="app-storage-share-card-head">
-          <span className="account-card-wallet-label">{SHARE_POOL_LABEL}</span>
-        </div>
-        <p className="app-storage-meta">
-          <span className="app-storage-pending-ghost">0 KB shared of 0 KB</span>
-        </p>
-        <div className="account-wallet-progress-track" aria-hidden>
-          <span
-            className="account-wallet-progress-fill"
-            style={{ width: '0%' }}
-          />
-        </div>
-        <p className="app-storage-meta">
-          Pool capacity for accounts you sponsor.
-        </p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="app-storage-share-card">
-        <span className="account-card-wallet-label">{SHARE_POOL_LABEL}</span>
-        <p className="app-storage-meta">Share pool unavailable right now.</p>
-      </div>
-    );
-  }
-
-  const totalCapacityBytes = summary?.totalCapacityBytes ?? 0;
-  const sharedBytes = summary?.sharedBytes ?? 0;
-  const availableBytes = summary?.availableBytes ?? 0;
-  const shareBudgetBytes = resolveSharePoolBudgetBytes({
-    availableBytes,
-    sharedBytes,
-    totalCapacityBytes,
-  });
-  const allocatedPercent =
-    totalCapacityBytes > 0
-      ? Math.min(100, Math.round((sharedBytes / totalCapacityBytes) * 100))
-      : 0;
-  const barFill =
-    sharedBytes > 0 ? Math.max(allocatedPercent, 4) : allocatedPercent;
-
-  return (
-    <div className="app-storage-share-card">
-      <div className="app-storage-share-card-head">
-        <span className="account-card-wallet-label">{SHARE_POOL_LABEL}</span>
-        {canAddCapacity ? (
-          <button
-            type="button"
-            className="app-storage-share-link os-disabled-ink"
-            onClick={onToggleAddCapacity}
-          >
-            {showAddCapacity ? 'Hide add' : 'Add more'}
-          </button>
-        ) : null}
-      </div>
-
-      {totalCapacityBytes > 0 ? (
-        <>
-          <div className="app-storage-share-hero">
-            <p className="app-storage-share-available">
-              <CompactByteAmount bytes={shareBudgetBytes} />
-              <span>available</span>
-            </p>
-            <p className="app-storage-meta">
-              {formatCompactBytes(sharedBytes)} shared of{' '}
-              {formatCompactBytes(totalCapacityBytes)}
-            </p>
-          </div>
-          <div
-            className="account-wallet-progress-track"
-            role="progressbar"
-            aria-valuenow={sharedBytes}
-            aria-valuemin={0}
-            aria-valuemax={totalCapacityBytes}
-            aria-label={`${formatCompactBytes(sharedBytes)} shared · ${formatCompactBytes(shareBudgetBytes)} available of ${formatCompactBytes(totalCapacityBytes)} capacity`}
-          >
-            <span
-              className="account-wallet-progress-fill"
-              style={{ width: `${barFill}%` }}
-            />
-          </div>
-          <p className="app-storage-meta">
-            Pool capacity for accounts you sponsor.
-          </p>
-        </>
-      ) : (
-        <p className="app-storage-meta">Not funded yet.</p>
-      )}
-    </div>
-  );
-}
-
-function ShareRecipientRow({
-  rowId,
-  value,
-  status,
-  allocationBytes,
-  canRemove,
-  onValueChange,
-  onRemove,
-}: {
-  rowId: string;
-  value: string;
-  status: ShareRecipientRowStatus;
-  allocationBytes?: number | null;
-  canRemove: boolean;
-  onValueChange: (value: string) => void;
-  onRemove: () => void;
-}) {
-  const issue = shareRowIssueMessage(status);
-  const nearField = shareRowNearField(status);
-
-  return (
-    <div className="app-storage-recipient-row">
-      <label className="sr-only" htmlFor={`storage-share-recipient-${rowId}`}>
-        Recipient account
-      </label>
-      <NearAccountField
-        id={`storage-share-recipient-${rowId}`}
-        value={value}
-        onValueChange={onValueChange}
-        placeholder={nearAccountPlaceholder()}
-        status={nearField.status}
-        statusClass={nearField.statusClass}
-        aria-invalid={Boolean(issue)}
-      />
-      {allocationBytes != null && allocationBytes > 0 ? (
-        <CompactByteAmount bytes={allocationBytes} />
-      ) : status === 'checking' ? (
-        <span className="app-storage-recipient-status">Checking</span>
-      ) : null}
-      {canRemove ? (
-        <OsFieldRemove aria-label="Remove recipient" onClick={onRemove} />
-      ) : null}
-      {issue ? <p className="app-storage-recipient-error">{issue}</p> : null}
-    </div>
-  );
-}
-
-function ShareSplitVisual({
-  sharePercent,
-  readyCount,
-  bytesPerRecipient,
-  totalShareBytes,
-  needsFunding,
-}: {
-  sharePercent: number;
-  readyCount: number;
-  bytesPerRecipient: number;
-  totalShareBytes: number;
-  needsFunding: boolean;
-}) {
-  const belowMin =
-    readyCount > 0 &&
-    !needsFunding &&
-    !isValidShareBytesPerRecipient(bytesPerRecipient);
-  const showBytes = readyCount > 0 && !needsFunding && bytesPerRecipient > 0;
-
-  return (
-    <div className="app-storage-share-split">
-      <div
-        className="app-storage-share-split-track"
-        role="img"
-        aria-label={
-          showBytes
-            ? `${sharePercent === 100 ? 'Max' : `${sharePercent}%`} split · ${formatCompactBytes(totalShareBytes)} across ${readyCount} recipients`
-            : `${sharePercent === 100 ? 'Max' : `${sharePercent}%`} pool split`
-        }
-      >
-        <span
-          className={`app-storage-share-split-fill${belowMin ? ' is-low' : ''}`}
-          style={{ width: `${sharePercent}%` }}
-        >
-          {readyCount > 0
-            ? Array.from({ length: readyCount }, (_, index) => (
-                <span key={index} aria-hidden />
-              ))
-            : null}
-        </span>
-      </div>
-      <p className={`app-storage-meta${belowMin ? ' is-low' : ''}`}>
-        {belowMin
-          ? `Minimum is ${formatCompactBytes(MIN_SHARED_STORAGE_BYTES)} per recipient.`
-          : showBytes
-            ? `≈ ${formatCompactBytes(bytesPerRecipient)} each · ${formatCompactBytes(totalShareBytes)} total`
-            : 'Choose recipients to preview the split.'}
-      </p>
-    </div>
-  );
-}
-
-function ShareGrantRow({ grant }: { grant: ActiveStorageShareGrant }) {
-  const remaining = shareGrantRemainingBytes(grant);
-  const usedPercent = shareGrantUsedPercent(grant);
-  const fillWidth = grant.usedBytes > 0 ? Math.max(usedPercent, 8) : 0;
-  const showUsage = grant.usedBytes > 0;
-
-  return (
-    <li className="app-storage-grant-row">
-      <span className="app-storage-grant-account" title={`@${grant.accountId}`}>
-        @{grant.accountId}
-      </span>
-      {showUsage ? (
-        <span
-          className="app-storage-grant-usage"
-          role="progressbar"
-          aria-valuenow={usedPercent}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label={`${grant.accountId} shared storage usage`}
-        >
-          <span style={{ width: `${fillWidth}%` }} />
-        </span>
-      ) : null}
-      <span className="app-storage-grant-bytes">
-        {showUsage ? (
-          <>
-            <CompactByteAmount bytes={grant.usedBytes} muted />
-            <span className="app-storage-share-muted"> / </span>
-            <CompactByteAmount bytes={grant.maxBytes} />
-          </>
-        ) : (
-          <CompactByteAmount bytes={remaining} />
-        )}
-      </span>
-    </li>
-  );
-}
-
-function StorageSharesGrantedReadout({
-  grants,
-  loading,
-  error,
-}: {
-  grants: ActiveStorageShareGrant[];
-  loading: boolean;
-  error: string | null;
-}) {
-  if (loading) {
-    return (
-      <div className="app-storage-grants" aria-busy="true">
-        <div className="app-storage-grants-head">
-          <span className="account-card-wallet-label">Shared with</span>
-        </div>
-        <p className="app-storage-meta">
-          <span className="app-storage-pending-ghost">0 KB</span>
-        </p>
-      </div>
-    );
-  }
-
-  if (!error && grants.length === 0) {
-    return null;
-  }
-
-  const allocatedBytes = grants.reduce(
-    (total, grant) => total + grant.maxBytes,
-    0
-  );
-  const usedBytes = grants.reduce((total, grant) => total + grant.usedBytes, 0);
-
-  return (
-    <div className="app-storage-grants">
-      <div className="app-storage-grants-head">
-        <span className="account-card-wallet-label">Shared with</span>
-        {!error && grants.length > 0 ? (
-          <span className="app-storage-grants-summary">
-            {grants.length} · {formatCompactBytes(allocatedBytes)}
-            {usedBytes > 0 ? ` · ${formatCompactBytes(usedBytes)} used` : ''}
-          </span>
-        ) : null}
-      </div>
-
-      {error ? (
-        <p className="app-storage-meta">Active shares unavailable right now.</p>
-      ) : (
-        <ul className="app-storage-grants-list">
-          {grants.map((grant) => (
-            <ShareGrantRow key={grant.accountId} grant={grant} />
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error
@@ -663,15 +293,18 @@ export function AppStorageSharePanel({
   return (
     <div className="app-storage-share-panel">
       {composerOpen ? null : (
-        <SharePoolReadout
+        <StorageSharePoolReadout
+          label={SHARE_POOL_LABEL}
           summary={sharedPool}
           loading={sharedPoolLoading}
           error={sharedPoolError}
+          errorMessage="Share pool unavailable right now."
           canAddCapacity={!needsFunding && !sharedPoolLoading}
           showAddCapacity={showAddCapacity}
           onToggleAddCapacity={() => {
             setShowAddCapacity((open) => !open);
           }}
+          capacityHint="Pool capacity for accounts you sponsor."
         />
       )}
 
@@ -702,8 +335,7 @@ export function AppStorageSharePanel({
                 ) : null}
                 {walletNearYocto != null ? (
                   <>
-                    Balance {formatNearCompact(walletNearYocto.toString())}{' '}
-                    ·{' '}
+                    Balance {formatNearCompact(walletNearYocto.toString())} ·{' '}
                   </>
                 ) : null}
                 Min {amountHint}
@@ -781,7 +413,7 @@ export function AppStorageSharePanel({
             {rows.map((row, index) => {
               const status = recipientValidation.statuses[index] ?? 'empty';
               return (
-                <ShareRecipientRow
+                <StorageShareRecipientRow
                   key={`${baseId}-${index}`}
                   rowId={`${index}`}
                   value={row}
@@ -816,7 +448,7 @@ export function AppStorageSharePanel({
                 </button>
               ))}
             </div>
-            <ShareSplitVisual
+            <StorageShareSplitVisual
               sharePercent={sharePercent}
               readyCount={readyRecipients.length}
               bytesPerRecipient={bytesPerRecipient}
@@ -850,10 +482,12 @@ export function AppStorageSharePanel({
       ) : null}
 
       {composerOpen ? null : (
-        <StorageSharesGrantedReadout
+        <StorageShareGrantsReadout
+          label="Shared with"
           grants={activeShares.grants}
           loading={activeShares.loading}
           error={activeShares.error}
+          errorMessage="Active shares unavailable right now."
         />
       )}
     </div>

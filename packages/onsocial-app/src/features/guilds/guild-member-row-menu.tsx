@@ -355,28 +355,48 @@ export function GuildMemberRowMenu({
             onCancel={resetConfirm}
           >
             {confirmAction.id === 'transfer-ownership' ? (
-              <label className="os-notice-card-toggle">
-                <input
-                  type="checkbox"
-                  checked={keepOwnerAsMember}
-                  disabled={pending}
-                  onChange={(event) =>
-                    setKeepOwnerAsMember(event.target.checked)
-                  }
+              <button
+                type="button"
+                className="account-action-toggle os-disabled-ink"
+                role="switch"
+                aria-checked={keepOwnerAsMember}
+                disabled={pending}
+                onClick={() => setKeepOwnerAsMember((value) => !value)}
+              >
+                <span className="account-action-toggle-copy">
+                  <span className="account-action-toggle-label">
+                    Keep me in the guild as a regular member
+                  </span>
+                </span>
+                <span
+                  className={`account-safe-mode-switch${
+                    keepOwnerAsMember ? ' is-on' : ''
+                  }`}
+                  aria-hidden
                 />
-                <span>Keep me in the guild as a regular member</span>
-              </label>
+              </button>
             ) : null}
             {confirmAction.propose ? (
-              <label className="os-notice-card-toggle">
-                <input
-                  type="checkbox"
-                  checked={supportOnSubmit}
-                  disabled={pending}
-                  onChange={(event) => setSupportOnSubmit(event.target.checked)}
+              <button
+                type="button"
+                className="account-action-toggle os-disabled-ink"
+                role="switch"
+                aria-checked={supportOnSubmit}
+                disabled={pending}
+                onClick={() => setSupportOnSubmit((value) => !value)}
+              >
+                <span className="account-action-toggle-copy">
+                  <span className="account-action-toggle-label">
+                    Support when submitted
+                  </span>
+                </span>
+                <span
+                  className={`account-safe-mode-switch${
+                    supportOnSubmit ? ' is-on' : ''
+                  }`}
+                  aria-hidden
                 />
-                <span>Support when submitted</span>
-              </label>
+              </button>
             ) : null}
           </OsActionDrawerConfirm>
         ) : undefined}

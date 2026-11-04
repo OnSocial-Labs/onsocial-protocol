@@ -265,23 +265,35 @@
   margin-top: 0.15rem;
 }
 
+/*
+ * Same footprint as OsSheetAction (full width + 2.75rem). Own class —
+ * no fill/border so solid primary/danger stay the only pill in the stack.
+ * Ink = armed ladder step so Cancel never reads disabled.
+ */
 .os-action-drawer-confirm-cancel {
-  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  width: 100%;
   margin: 0;
-  padding: 0.35rem 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.7rem 1rem;
   border: 0;
   border-radius: 9999px;
-  background: transparent;
-  color: rgb(var(--fg-rgb) / 0.62);
+  background: var(--os-surface-fill-quiet, rgb(var(--fg-rgb) / 0.035));
+  color: var(--os-action-ink-armed, rgb(var(--fg-rgb) / 0.94));
   font: inherit;
-  font-size: 0.8rem;
-  font-weight: 500;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   cursor: pointer;
 }
 
 .os-action-drawer-confirm-cancel:hover,
 .os-action-drawer-confirm-cancel:focus-visible {
-  color: rgb(var(--fg-rgb) / 0.88);
+  color: rgb(var(--fg-rgb));
+  background: var(--os-action-bg, rgb(var(--fg-rgb) / 0.07));
   outline: none;
 }
 

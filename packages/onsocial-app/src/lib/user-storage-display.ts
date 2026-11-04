@@ -18,6 +18,16 @@ export const USER_STORAGE_WITHDRAW_HINT =
 
 export const USER_STORAGE_SHARE_HINT = 'Recipients write from your share pool.';
 
+export const GUILD_STORAGE_LABEL = 'Guild storage';
+
+export const GUILD_STORAGE_POOL_DEPOSIT_HINT = 'Guild pools start at 0.1 NEAR.';
+
+export const GUILD_STORAGE_GRANT_HINT =
+  'Members write guild content from this pool.';
+
+export const GUILD_STORAGE_DEFAULT_HINT =
+  'Applies to members without a personal grant.';
+
 export const STORAGE_DEPOSIT_PRESETS_NEAR = ['0.05', '0.1', '0.25'] as const;
 
 export const STORAGE_SHARE_POOL_DEPOSIT_PRESETS_NEAR = [

@@ -372,6 +372,106 @@ fn add_moderator_non_owner_fails() {
 }
 
 #[test]
+fn add_moderator_drops_approved_creator_seat() {
+    let mut contract = setup_with_app();
+    testing_env!(context_with_deposit(owner(), 1).build());
+    contract
+        .execute(make_request(Action::AddApprovedCreator {
+            app_id: app_id(),
+            account_id: creator(),
+        }))
+        .unwrap();
+
+    contract
+        .execute(make_request(Action::AddModerator {
+            app_id: app_id(),
+            account_id: creator(),
+        }))
+        .unwrap();
+
+    let pool = contract.app_pools.get(&app_id()).unwrap();
+    assert!(pool.moderators.contains(&creator()));
+    assert!(!pool.approved_creators.contains(&creator()));
+}
+
+#[test]
+fn add_approved_creator_owner_drops_moderator_seat() {
+    let mut contract = setup_with_app();
+    testing_env!(context_with_deposit(owner(), 1).build());
+    contract
+        .execute(make_request(Action::AddModerator {
+            app_id: app_id(),
+            account_id: moderator(),
+        }))
+        .unwrap();
+
+    contract
+        .execute(make_request(Action::AddApprovedCreator {
+            app_id: app_id(),
+            account_id: moderator(),
+        }))
+        .unwrap();
+
+    let pool = contract.app_pools.get(&app_id()).unwrap();
+    assert!(pool.approved_creators.contains(&moderator()));
+    assert!(!pool.moderators.contains(&moderator()));
+}
+
+#[test]
+fn moderator_cannot_demote_fellow_moderator_to_creator() {
+    let mut contract = setup_with_app();
+    testing_env!(context_with_deposit(owner(), 1).build());
+    contract
+        .execute(make_request(Action::AddModerator {
+            app_id: app_id(),
+            account_id: moderator(),
+        }))
+        .unwrap();
+    contract
+        .execute(make_request(Action::AddModerator {
+            app_id: app_id(),
+            account_id: buyer(),
+        }))
+        .unwrap();
+
+    testing_env!(context_with_deposit(moderator(), 1).build());
+    let err = contract
+        .execute(make_request(Action::AddApprovedCreator {
+            app_id: app_id(),
+            account_id: buyer(),
+        }))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::Unauthorized(_)));
+    let pool = contract.app_pools.get(&app_id()).unwrap();
+    assert!(pool.moderators.contains(&buyer()));
+    assert!(!pool.approved_creators.contains(&buyer()));
+}
+
+#[test]
+fn add_approved_creators_batch_owner_drops_moderator_seats() {
+    let mut contract = setup_with_app();
+    testing_env!(context_with_deposit(owner(), 1).build());
+    contract
+        .execute(make_request(Action::AddModerator {
+            app_id: app_id(),
+            account_id: moderator(),
+        }))
+        .unwrap();
+
+    contract
+        .execute(make_request(Action::AddApprovedCreators {
+            app_id: app_id(),
+            account_ids: vec![moderator(), creator()],
+        }))
+        .unwrap();
+
+    let pool = contract.app_pools.get(&app_id()).unwrap();
+    assert!(!pool.moderators.contains(&moderator()));
+    assert!(pool.approved_creators.contains(&moderator()));
+    assert!(pool.approved_creators.contains(&creator()));
+}
+
+#[test]
 fn remove_moderator_happy() {
     let mut contract = setup_with_app();
     testing_env!(context_with_deposit(owner(), 1).build());

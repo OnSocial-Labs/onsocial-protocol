@@ -801,36 +801,36 @@ test.describe('guild page', () => {
 
     await expect(editor).toHaveCount(0);
     await expect(
-      rooms.getByRole('button', { name: /Shipping Room/ })
+      rooms.getByRole('button', { name: /^Shipping Room/ })
     ).toBeVisible();
 
-    await rooms.getByRole('button', { name: /Shipping Room/ }).click();
+    await rooms.getByRole('button', { name: /^Shipping Room/ }).click();
     const room = page.getByRole('dialog', { name: 'Room', exact: true });
     await expect(room).toBeVisible();
     await expect(room.getByRole('textbox')).toHaveValue('Shipping Room');
     await room.getByRole('textbox').fill('Dock');
     await expect(
-      rooms.getByRole('button', { name: /Shipping Room/ })
+      rooms.getByRole('button', { name: /^Shipping Room/ })
     ).toBeVisible();
-    await expect(rooms.getByRole('button', { name: /Dock/ })).toHaveCount(0);
+    await expect(rooms.getByRole('button', { name: /^Dock/ })).toHaveCount(0);
     await expect(
       room.getByRole('button', { name: 'Save', exact: true })
     ).toBeEnabled();
     await room.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(room).toHaveCount(0);
-    await expect(rooms.getByRole('button', { name: /Dock/ })).toBeVisible();
+    await expect(rooms.getByRole('button', { name: /^Dock/ })).toBeVisible();
     await expect(
-      rooms.getByRole('button', { name: /Shipping Room/ })
+      rooms.getByRole('button', { name: /^Shipping Room/ })
     ).toHaveCount(0);
 
-    await rooms.getByRole('button', { name: /Dock/ }).click();
+    await rooms.getByRole('button', { name: 'Move Dock earlier' }).click();
+    await expect(rooms.getByRole('button', { name: /^Dock/ })).toBeVisible();
+    await rooms.getByRole('button', { name: 'Move Dock later' }).click();
+
+    await rooms.getByRole('button', { name: /^Dock/ }).click();
     const again = page.getByRole('dialog', { name: 'Room', exact: true });
     await expect(again).toHaveAttribute('data-presentation', 'enter');
-    await again.getByRole('button', { name: 'Arrange' }).click();
-    const arrange = page.getByRole('dialog', { name: 'Dock' });
-    await expect(arrange).toHaveAttribute('data-presentation', 'appear');
-    await arrange.getByRole('button', { name: 'Close dock' }).click();
-    await expect(arrange).toHaveCount(0);
+    await expect(again.getByRole('button', { name: 'Arrange' })).toHaveCount(0);
     await again.getByRole('textbox').fill('Pier');
     await again.getByRole('button', { name: 'Close room' }).click();
     const roomDiscard = page.getByRole('dialog', { name: 'Discard changes?' });
@@ -839,8 +839,8 @@ test.describe('guild page', () => {
       .locator('button.os-sheet-action', { hasText: 'Discard' })
       .click();
     await expect(again).toHaveCount(0);
-    await expect(rooms.getByRole('button', { name: /Dock/ })).toBeVisible();
-    await expect(rooms.getByRole('button', { name: /Pier/ })).toHaveCount(0);
+    await expect(rooms.getByRole('button', { name: /^Dock/ })).toBeVisible();
+    await expect(rooms.getByRole('button', { name: /^Pier/ })).toHaveCount(0);
 
     await rooms.getByRole('button', { name: 'Close', exact: true }).click();
     const discard = page.getByRole('dialog', { name: 'Discard changes?' });
@@ -852,7 +852,7 @@ test.describe('guild page', () => {
     await expect(discard).toHaveCount(0);
     await expect(rooms).toBeVisible();
     await expect(rooms).toHaveAttribute('data-presentation', 'swap');
-    await expect(rooms.getByRole('button', { name: /Dock/ })).toBeVisible();
+    await expect(rooms.getByRole('button', { name: /^Dock/ })).toBeVisible();
   });
 
   test('document title includes Guilds · OnSocial', async ({ page }) => {

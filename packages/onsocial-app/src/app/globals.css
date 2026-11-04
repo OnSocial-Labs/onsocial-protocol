@@ -19318,6 +19318,14 @@ a.os-surface-row,
     padding-top: 0.15rem;
   }
 
+  /* Field row + optional search picks stacked (invite / transfer pattern). */
+  .app-storage-recipient {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
   .app-storage-recipient-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto;
@@ -19335,11 +19343,14 @@ a.os-surface-row,
   }
 
   .app-storage-recipient-error {
-    grid-column: 1 / -1;
-    margin: -0.1rem 0 0;
+    margin: 0;
     color: color-mix(in srgb, var(--protocol-amber) 86%, transparent);
     font-size: 0.62rem;
     line-height: 1.25;
+  }
+
+  .app-storage-recipient-below {
+    min-width: 0;
   }
 
   .app-storage-share-split {
@@ -31176,7 +31187,7 @@ a.os-surface-row,
   .guild-create-form .guild-field,
   .guild-edit-form .guild-field,
   .hub-manage-form .guild-field,
-  .guild-structure-advanced .guild-field,
+  .guild-add-member-sheet .guild-field,
   .token-create-form .guild-field,
   /* Offer and role sheets share this plain stack. */
   .account-editor-sheet-form .guild-field,
@@ -31200,7 +31211,6 @@ a.os-surface-row,
   .drop-create-form .guild-field > input,
   .guild-create-form .guild-field > input,
   .hub-manage-form .guild-field > input,
-  .guild-structure-advanced .guild-field > select,
   .token-create-form .guild-field > input {
     width: 100%;
   }
@@ -35310,6 +35320,34 @@ a.os-surface-row,
 
   .hub-manage-hint.is-danger {
     color: color-mix(in srgb, var(--protocol-red) 72%, rgb(var(--fg-rgb)));
+  }
+
+  /* Guild transfer confirm — same track switch as account settings. */
+  .os-action-drawer-confirm .account-action-toggle {
+    width: 100%;
+    text-align: left;
+  }
+
+  .os-action-drawer-confirm .account-action-toggle-label {
+    white-space: normal;
+  }
+
+  /* Transfer hug — settle first paint; cap search so typing does not grow forever. */
+  .hub-transfer-search {
+    max-height: min(40dvh, 12rem);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .hub-transfer-stay-hint,
+  .hub-transfer-status {
+    min-height: 1.4em;
+  }
+
+  .hub-transfer-stay-hint:empty,
+  .hub-transfer-status:empty {
+    display: none;
   }
 
   /* ── App manage roster (people sheet) ─── */
@@ -40134,10 +40172,6 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.62);
   }
 
-  .guild-structure-advanced-toggle {
-    width: fit-content;
-  }
-
   .guild-structure-add-library {
     display: flex;
     flex-direction: column;
@@ -41551,13 +41585,6 @@ body:has(.portfolio-summon-dock[data-mood='glass'])
   height: auto;
   padding: 0.55rem 0.65rem 0.55rem 0.85rem;
   border-radius: 0.9rem;
-}
-
-/* Selected profile's avatar inside the "Add {name}" action button. */
-.guild-add-member-action-avatar {
-  width: 1.35rem;
-  height: 1.35rem;
-  flex-shrink: 0;
 }
 
 /*

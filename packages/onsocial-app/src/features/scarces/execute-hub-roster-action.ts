@@ -2,12 +2,6 @@ import type { OnSocial } from '@onsocial/sdk';
 import type { HubRosterRowActionId } from '@/features/scarces/hub-roster-row-actions';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 
-function mergeRelayResponses(...responses: unknown[]): string[] {
-  return [
-    ...new Set(responses.flatMap((response) => collectRelayTxHashes(response))),
-  ];
-}
-
 export async function executeHubRosterAction(
   client: OnSocial,
   input: {
@@ -29,14 +23,12 @@ export async function executeHubRosterAction(
       return { txHashes: collectRelayTxHashes(response) };
     }
     case 'make-moderator': {
-      const removed = await apps.removeApprovedCreator(appId, accountId);
-      const added = await apps.addModerator(appId, accountId);
-      return { txHashes: mergeRelayResponses(removed, added) };
+      const response = await apps.makeModerator(appId, accountId);
+      return { txHashes: collectRelayTxHashes(response) };
     }
     case 'make-creator': {
-      const removed = await apps.removeModerator(appId, accountId);
-      const added = await apps.addApprovedCreator(appId, accountId);
-      return { txHashes: mergeRelayResponses(removed, added) };
+      const response = await apps.makeApprovedCreator(appId, accountId);
+      return { txHashes: collectRelayTxHashes(response) };
     }
     default:
       throw new Error(`Unsupported hub roster action: ${actionId}`);

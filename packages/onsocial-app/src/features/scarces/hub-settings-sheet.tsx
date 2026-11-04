@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   OsHugSheet,
   OsSurfaceRow,
@@ -16,7 +16,6 @@ interface HubSettingsSheetProps {
   hubName?: string;
   /** Owner-only: look / access / transfer. */
   showOwnerTools: boolean;
-  showPeople: boolean;
   showPublishRequests: boolean;
   publishRequestCount?: number;
   onClose: () => void;
@@ -26,14 +25,13 @@ interface HubSettingsSheetProps {
 }
 
 /**
- * Settings hub for hub owners / staff — look / access / people /
- * publish requests / transfer. The hero gear opens this.
+ * Settings hub for hub owners / staff — look / access /
+ * publish requests / transfer. Roster edits live on Creators (+).
  */
 export function HubSettingsSheet({
   open,
   hubName,
   showOwnerTools,
-  showPeople,
   showPublishRequests,
   publishRequestCount = 0,
   onClose,
@@ -42,6 +40,10 @@ export function HubSettingsSheet({
 }: HubSettingsSheetProps) {
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
+
+  useEffect(() => {
+    if (open) setClosing(false);
+  }, [open]);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -92,14 +94,6 @@ export function HubSettingsSheet({
             label="Access & sales"
             description="Commission and who can create drops"
             onClick={() => openSheet('access')}
-          />
-        ) : null}
-
-        {showPeople ? (
-          <OsSurfaceRow
-            label="People"
-            description="Moderators and approved creators"
-            onClick={() => openSheet('people')}
           />
         ) : null}
 

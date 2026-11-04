@@ -4,18 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DiscardConfirmSheet,
   OsHugSheet,
+  OsOrderControls,
   OsSheetAction,
   OsSheetActions,
   OsSurfaceRow,
+  OsSurfaceRowItem,
   OsSurfaceRowList,
   useDiscardConfirm,
-  type ActionDrawerItem,
 } from '@onsocial/ui';
-import { ActionDrawer } from '@/components/ui/action-drawer';
 import { GuildRoomEditorFields } from '@/features/guilds/guild-room-editor';
 import {
-  GUILD_STRUCTURE_TEMPLATES,
-  cloneGuildStructure,
   commitGuildSpaceEdits,
   librarySpacesNotInStructure,
   postPolicyLabel,
@@ -48,11 +46,6 @@ function roomFeedBadge(space: GuildSpace): string {
   return space.enabled ? 'In feed' : 'Hidden';
 }
 
-type RoomMenu =
-  | { kind: 'arrange'; spaceId: string; title: string }
-  | { kind: 'templates' }
-  | null;
-
 export function GuildStructureSettingsSection({
   structure,
   onChange,
@@ -68,8 +61,6 @@ export function GuildStructureSettingsSection({
   const [draftError, setDraftError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editClosing, setEditClosing] = useState(false);
-  const [menu, setMenu] = useState<RoomMenu>(null);
-  const [menuClosing, setMenuClosing] = useState(false);
   const [createPreset, setCreatePreset] = useState<GuildRoomCreatePreset>({
     kind: 'blank',
   });
@@ -137,19 +128,6 @@ export function GuildStructureSettingsSection({
     });
   };
 
-  const applyTemplate = (templateId: string) => {
-    const template = GUILD_STRUCTURE_TEMPLATES[templateId];
-    if (!template) return;
-    onChange(cloneGuildStructure(template.structure));
-    setEditingId(null);
-    setCreating(false);
-  };
-
-  const closeMenu = useCallback(() => {
-    if (menuClosing) return;
-    setMenuClosing(true);
-  }, [menuClosing]);
-
   const finishEdit = useCallback(() => {
     setEditClosing(true);
   }, []);
@@ -187,49 +165,6 @@ export function GuildStructureSettingsSection({
     finishEdit();
   };
 
-  const arrangeItems = useMemo<ActionDrawerItem[]>(() => {
-    if (!menu || menu.kind !== 'arrange') return [];
-    const index = sortedSpaces.findIndex((space) => space.id === menu.spaceId);
-    return [
-      {
-        id: 'earlier',
-        label: 'Move earlier',
-        description: 'Higher in the room tabs',
-        disabled: disabled || index <= 0,
-        onSelect: () => {
-          onChange(reorderGuildSpace(structure, menu.spaceId, 'up'));
-          closeMenu();
-        },
-      },
-      {
-        id: 'later',
-        label: 'Move later',
-        description: 'Lower in the room tabs',
-        disabled: disabled || index < 0 || index >= sortedSpaces.length - 1,
-        onSelect: () => {
-          onChange(reorderGuildSpace(structure, menu.spaceId, 'down'));
-          closeMenu();
-        },
-      },
-    ];
-  }, [closeMenu, disabled, menu, onChange, sortedSpaces, structure]);
-
-  const templateItems = useMemo<ActionDrawerItem[]>(
-    () =>
-      Object.entries(GUILD_STRUCTURE_TEMPLATES).map(([id, template]) => ({
-        id,
-        label: template.label,
-        disabled,
-        onSelect: () => {
-          applyTemplate(id);
-          closeMenu();
-        },
-      })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- template catalog is static
-    [closeMenu, disabled, onChange, structure]
-  );
-
-  const menuOpen = Boolean(menu) && !menuClosing;
   const editOpen = (creating || Boolean(editingSpace)) && !editClosing;
   const lockedOn = Boolean(
     editingSpace?.enabled && editingSpace.id === 'general'
@@ -301,23 +236,39 @@ export function GuildStructureSettingsSection({
         className="guild-structure-room-list"
         aria-label="Guild rooms"
       >
-        {sortedSpaces.map((space) => (
-          <OsSurfaceRow
-            key={space.id}
-            label={space.title}
-            description={postPolicyLabel(space.postPolicy)}
-            badge={roomFeedBadge(space)}
-            disabled={disabled}
-            onClick={() => {
-              setCreating(false);
-              setEditClosing(false);
-              setDraftTitle(space.title);
-              setDraftPolicy(space.postPolicy);
-              setDraftEnabled(space.enabled);
-              setDraftError(null);
-              setEditingId(space.id);
-            }}
-          />
+        {sortedSpaces.map((space, index) => (
+          <OsSurfaceRowItem key={space.id}>
+            <OsSurfaceRow
+              label={space.title}
+              description={postPolicyLabel(space.postPolicy)}
+              badge={roomFeedBadge(space)}
+              disabled={disabled}
+              onClick={() => {
+                setCreating(false);
+                setEditClosing(false);
+                setDraftTitle(space.title);
+                setDraftPolicy(space.postPolicy);
+                setDraftEnabled(space.enabled);
+                setDraftError(null);
+                setEditingId(space.id);
+              }}
+            />
+            <OsOrderControls
+              aria-label={`Reorder ${space.title}`}
+              earlierLabel={`Move ${space.title} earlier`}
+              laterLabel={`Move ${space.title} later`}
+              earlierDisabled={disabled || index === 0}
+              laterDisabled={
+                disabled || index >= sortedSpaces.length - 1
+              }
+              onEarlier={() =>
+                onChange(reorderGuildSpace(structure, space.id, 'up'))
+              }
+              onLater={() =>
+                onChange(reorderGuildSpace(structure, space.id, 'down'))
+              }
+            />
+          </OsSurfaceRowItem>
         ))}
       </OsSurfaceRowList>
 
@@ -354,14 +305,6 @@ export function GuildStructureSettingsSection({
         </div>
       ) : null}
 
-      <OsChipAction
-        className="guild-structure-advanced-toggle"
-        disabled={disabled}
-        onClick={() => setMenu({ kind: 'templates' })}
-      >
-        Start from template
-      </OsChipAction>
-
       <OsHugSheet
         open={editOpen}
         onClose={requestCloseEdit}
@@ -389,7 +332,6 @@ export function GuildStructureSettingsSection({
               enabled={draftEnabled}
               disabled={disabled}
               error={draftError}
-              autoFocus={creating}
               feedTabLocked={lockedOn}
               choiceZIndex={SHEET_Z.nestedConfirm}
               submitLabel={creating ? 'Add room' : 'Save'}
@@ -412,49 +354,10 @@ export function GuildStructureSettingsSection({
               }}
               onSubmit={creating ? commitCreate : commitEdit}
             />
-            {editingSpace && sortedSpaces.length > 1 ? (
-              <OsChipAction
-                disabled={disabled}
-                onClick={() =>
-                  setMenu({
-                    kind: 'arrange',
-                    spaceId: editingSpace.id,
-                    title: editingSpace.title,
-                  })
-                }
-              >
-                Arrange
-              </OsChipAction>
-            ) : null}
           </div>
         ) : null}
       </OsHugSheet>
 
-      <ActionDrawer
-        open={menuOpen}
-        onClose={closeMenu}
-        onClosed={() => {
-          setMenuClosing(false);
-          setMenu(null);
-        }}
-        label={
-          menu?.kind === 'arrange'
-            ? menu.title
-            : menu?.kind === 'templates'
-              ? 'Start from template'
-              : 'Rooms'
-        }
-        copy={
-          menu?.kind === 'arrange'
-            ? 'Room tab order'
-            : menu?.kind === 'templates'
-              ? 'Replace the current rooms'
-              : undefined
-        }
-        items={menu?.kind === 'arrange' ? arrangeItems : templateItems}
-        zIndex={SHEET_Z.nestedConfirm}
-        presentation="appear"
-      />
       <DiscardConfirmSheet
         open={discardConfirmOpen}
         onDiscard={discard}

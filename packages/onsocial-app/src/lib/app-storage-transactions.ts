@@ -4,7 +4,11 @@ import { extractNearTransactionHashes } from '@/lib/app-near-rpc';
 import type { NearWalletBase } from '@hot-labs/near-connect';
 
 const STORAGE_ADMIN_GAS = '300000000000000';
-/** Matches integration tests — share_storage is lighter than pool deposit. */
+/**
+ * Local storage admin (share / group pool / sponsor quota) — same band as
+ * scarces hub wallet gas. No nested receipts; 100 TGas clears the wallet
+ * “High Gas Usage” banner without risking OOG.
+ */
 const STORAGE_SHARE_GAS = '100000000000000';
 /** Stay under the ~300 TGas NEAR tx cap when batching multiple share actions. */
 const STORAGE_SHARE_BATCH_MAX = 2;
@@ -215,7 +219,7 @@ export async function sendGroupPoolDepositTransaction(
               },
             },
           },
-          gas: STORAGE_ADMIN_GAS,
+          gas: STORAGE_SHARE_GAS,
           deposit: amountYocto,
         },
       },

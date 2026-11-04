@@ -27,8 +27,16 @@ impl Contract {
                 "Maximum 20 moderators per app".to_string(),
             ));
         }
+        // Exclusive seat with approved creators — drop the creator roster first.
+        let was_creator = pool.approved_creators.iter().any(|a| a == &account_id);
+        if was_creator {
+            pool.approved_creators.retain(|a| a != &account_id);
+        }
         pool.moderators.push(account_id.clone());
         self.app_pools.insert(app_id.to_string(), pool);
+        if was_creator {
+            events::emit_approved_creator_removed(actor_id, app_id, &account_id);
+        }
         events::emit_moderator_added(actor_id, app_id, &account_id);
         Ok(())
     }
@@ -83,14 +91,28 @@ impl Contract {
                 "Account is already an approved creator".to_string(),
             ));
         }
+        // Exclusive seat with moderators — only the owner may demote a mod.
+        let was_moderator = pool.moderators.iter().any(|m| m == &account_id);
+        if was_moderator && actor_id != &pool.owner_id {
+            self.app_pools.insert(app_id.to_string(), pool);
+            return Err(MarketplaceError::Unauthorized(
+                "Only the app owner can move a moderator to the creator roster".to_string(),
+            ));
+        }
         if pool.approved_creators.len() >= 200 {
             self.app_pools.insert(app_id.to_string(), pool);
             return Err(MarketplaceError::InvalidInput(
                 "Maximum 200 approved creators per app".to_string(),
             ));
         }
+        if was_moderator {
+            pool.moderators.retain(|m| m != &account_id);
+        }
         pool.approved_creators.push(account_id.clone());
         self.app_pools.insert(app_id.to_string(), pool);
+        if was_moderator {
+            events::emit_moderator_removed(actor_id, app_id, &account_id);
+        }
         events::emit_approved_creator_added(actor_id, app_id, &account_id);
         self.clear_publish_request(actor_id, app_id, &account_id);
         Ok(())
@@ -139,6 +161,18 @@ impl Contract {
                 "No new creators to approve".to_string(),
             ));
         }
+        // Exclusive seat with moderators — only the owner may demote mods in-batch.
+        let demoted_mods: Vec<AccountId> = unique
+            .iter()
+            .filter(|id| pool.moderators.contains(id))
+            .cloned()
+            .collect();
+        if !demoted_mods.is_empty() && actor_id != &pool.owner_id {
+            self.app_pools.insert(app_id.to_string(), pool);
+            return Err(MarketplaceError::Unauthorized(
+                "Only the app owner can move a moderator to the creator roster".to_string(),
+            ));
+        }
         if pool.approved_creators.len() + unique.len() > 200 {
             self.app_pools.insert(app_id.to_string(), pool);
             return Err(MarketplaceError::InvalidInput(
@@ -146,10 +180,16 @@ impl Contract {
             ));
         }
 
+        for id in &demoted_mods {
+            pool.moderators.retain(|m| m != id);
+        }
         for id in &unique {
             pool.approved_creators.push(id.clone());
         }
         self.app_pools.insert(app_id.to_string(), pool);
+        for id in &demoted_mods {
+            events::emit_moderator_removed(actor_id, app_id, id);
+        }
         for id in &unique {
             events::emit_approved_creator_added(actor_id, app_id, id);
             self.clear_publish_request(actor_id, app_id, id);

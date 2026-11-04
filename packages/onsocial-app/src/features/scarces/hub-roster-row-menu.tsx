@@ -15,6 +15,7 @@ import {
   type ActionDrawerItem,
 } from '@/components/ui/action-drawer';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
+import { useAppWallet } from '@/contexts/app-wallet-context';
 import { executeHubRosterAction } from '@/features/scarces/execute-hub-roster-action';
 import {
   hubRosterActionConfirmCopy,
@@ -24,7 +25,7 @@ import {
   type HubRosterRowActionId,
 } from '@/features/scarces/hub-roster-row-actions';
 import type { HubRosterRow } from '@/features/scarces/hub-roster';
-import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { hubRosterTransactionToastForAction } from '@/features/scarces/hub-roster-transaction-toast';
@@ -57,7 +58,7 @@ export function HubRosterRowMenu({
   onActionComplete,
   onRequestTransfer,
 }: HubRosterRowMenuProps) {
-  const { getClient } = useAppOnSocialClient();
+  const { getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -118,7 +119,10 @@ export function HubRosterRowMenu({
 
     setPending(true);
     try {
-      const { client } = await getClient();
+      // Scarces hub roster needs wallet broadcast + 1 yocto — not the core
+      // FunctionCall session (receiver is core.onsocial.*, cannot attach NEAR).
+      const { accountId, wallet } = await getSigningWallet();
+      const client = createAppScarcesWalletClient(accountId, wallet);
       const { txHashes } = await executeHubRosterAction(client, {
         appId,
         accountId: row.accountId,
@@ -143,7 +147,10 @@ export function HubRosterRowMenu({
       if (isWalletUserCancellation(cause)) return;
       setTxResult({
         type: 'error',
-        msg: hubRosterTransactionToastForAction(confirmAction.id).failure,
+        msg:
+          cause instanceof Error && cause.message.trim()
+            ? cause.message
+            : hubRosterTransactionToastForAction(confirmAction.id).failure,
       });
     } finally {
       setPending(false);
@@ -151,7 +158,7 @@ export function HubRosterRowMenu({
   }, [
     appId,
     confirmAction,
-    getClient,
+    getSigningWallet,
     onActionComplete,
     pending,
     row.accountId,
@@ -174,7 +181,7 @@ export function HubRosterRowMenu({
   if (actions.length === 0) return null;
 
   const confirmCopy = confirmAction
-    ? hubRosterActionConfirmCopy(confirmAction)
+    ? hubRosterActionConfirmCopy(confirmAction, manageContext)
     : null;
 
   return (

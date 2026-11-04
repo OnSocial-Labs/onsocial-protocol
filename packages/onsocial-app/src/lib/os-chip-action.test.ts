@@ -21,7 +21,10 @@ describe('os chip action', () => {
       'utf8'
     );
     expect(source).toContain('OsChipAction');
+    expect(source).toContain('OsOrderControls');
+    expect(source).toContain('OsSurfaceRowItem');
     expect(source).not.toContain('guild-secondary-button');
+    expect(source).not.toContain('guild-structure-room-order');
   });
 
   it('uses OsSheetAction for Add room and drops legacy guild button CSS', () => {

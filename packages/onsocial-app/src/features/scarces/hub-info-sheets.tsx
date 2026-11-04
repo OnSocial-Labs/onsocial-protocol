@@ -1,14 +1,24 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useState } from 'react';
-import { Divider, OsHugSheet, ProtocolMotionArrow } from '@onsocial/ui';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Divider,
+  OsHugSheet,
+  OsIconAction,
+  ProtocolMotionArrow,
+  UserPlusFillIcon,
+} from '@onsocial/ui';
 import {
   SheetFactCopy,
   SheetFactCount,
   SheetFactRow,
   SheetFactSection,
 } from '@onsocial/ui';
+import {
+  ActionDrawer,
+  type ActionDrawerItem,
+} from '@/components/ui/action-drawer';
 import {
   appVolumeNearLabel,
   creatorAccessLabel,
@@ -18,10 +28,17 @@ import {
   type AppView,
 } from '@/features/scarces/apps-data';
 import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
-import { HubRosterList } from '@/features/scarces/hub-roster-list';
-import { useHubRoster } from '@/features/scarces/hub-roster';
-import type { HubRosterManageContext } from '@/features/scarces/hub-roster-row-actions';
+import {
+  HubAddRosterSheet,
+  type HubAddRosterKind,
+} from '@/features/scarces/hub-add-roster-sheet';
 import { hubCategoryLabel } from '@/features/scarces/hub-categories';
+import { HubRosterList } from '@/features/scarces/hub-roster-list';
+import {
+  hubRosterIsOwnerOnly,
+  useHubRoster,
+} from '@/features/scarces/hub-roster';
+import type { HubRosterManageContext } from '@/features/scarces/hub-roster-row-actions';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
   formatCompactCount,
@@ -59,6 +76,10 @@ export function HubFactsSheet({
     app.ownerId,
     ownerProfile?.displayName
   );
+
+  useEffect(() => {
+    if (open) setClosing(false);
+  }, [open]);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -247,11 +268,40 @@ export function HubCreatorsSheet({
   onRequestTransfer?: (accountId: string) => void;
 }) {
   const [closing, setClosing] = useState(false);
+  const [addKind, setAddKind] = useState<HubAddRosterKind | null>(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [addMenuClosing, setAddMenuClosing] = useState(false);
   const sheetOpen = open && !closing;
   const roster = useHubRoster(app, open);
   const profiles = usePostAuthorProfiles(
     open ? roster.map((row) => row.accountId) : []
   );
+
+  const canAddModerator = Boolean(manageContext?.canManageModerators);
+  const canAddCreator = Boolean(
+    manageContext?.canManageCreators && manageContext.showCreatorRoster
+  );
+  const canAdd = canAddModerator || canAddCreator;
+  const showOpenAccessHint = Boolean(
+    manageContext?.canManageCreators && !manageContext.showCreatorRoster
+  );
+  const showRosterHint =
+    hubRosterIsOwnerOnly(roster) && (canAddModerator || canAddCreator);
+
+  const occupiedIds = useMemo(
+    () =>
+      roster.filter((row) => row.role !== 'owner').map((row) => row.accountId),
+    [roster]
+  );
+
+  useEffect(() => {
+    if (open) setClosing(false);
+    else {
+      setAddKind(null);
+      setAddMenuOpen(false);
+      setAddMenuClosing(false);
+    }
+  }, [open]);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -263,29 +313,117 @@ export function HubCreatorsSheet({
     onClose();
   }, [onClose]);
 
+  const openAdd = useCallback((kind: HubAddRosterKind) => {
+    setAddMenuClosing(true);
+    setAddKind(kind);
+  }, []);
+
+  const requestAdd = useCallback(() => {
+    if (canAddCreator && canAddModerator) {
+      setAddMenuClosing(false);
+      setAddMenuOpen(true);
+      return;
+    }
+    if (canAddCreator) setAddKind('creator');
+    else if (canAddModerator) setAddKind('moderator');
+  }, [canAddCreator, canAddModerator]);
+
+  const addMenuItems = useMemo<ActionDrawerItem[]>(() => {
+    const items: ActionDrawerItem[] = [];
+    if (canAddCreator) {
+      items.push({
+        id: 'creator',
+        label: 'Add creator',
+        description: 'Can publish drops here',
+        onSelect: () => openAdd('creator'),
+      });
+    }
+    if (canAddModerator) {
+      items.push({
+        id: 'moderator',
+        label: 'Add moderator',
+        description: 'Hub management and publish',
+        onSelect: () => openAdd('moderator'),
+      });
+    }
+    return items;
+  }, [canAddCreator, canAddModerator, openAdd]);
+
   return (
-    <OsHugSheet
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleClosed}
-      chrome="facts"
-      label="Creators"
-      copy={app.title}
-      closeAriaLabel="Close creators"
-      backdropLabel="Close creators"
-      zIndex={SHEET_Z.facts}
-      panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
-      bodyClassName="guild-facts-sheet-body"
-    >
-      <HubRosterList
-        appId={app.appId}
-        rows={roster}
-        profiles={profiles}
-        manageContext={manageContext}
-        onRosterChanged={onRosterChanged}
-        onRequestTransfer={onRequestTransfer}
-        onRowNavigate={requestClose}
+    <>
+      <OsHugSheet
+        open={sheetOpen}
+        onClose={requestClose}
+        onClosed={handleClosed}
+        chrome="facts"
+        label="Creators"
+        copy={app.title}
+        closeAriaLabel="Close creators"
+        backdropLabel="Close creators"
+        zIndex={SHEET_Z.facts}
+        panelClassName="guild-facts-sheet-panel guild-members-sheet-panel os-sheet-cap-standard"
+        bodyClassName="guild-facts-sheet-body"
+        titleAccessory={
+          canAdd ? (
+            <OsIconAction
+              className="guild-members-add"
+              ariaLabel="Add to roster"
+              onClick={requestAdd}
+            >
+              <UserPlusFillIcon
+                className="glass-sheet-icon-action-glyph glass-sheet-icon-action-glyph--discover"
+                aria-hidden
+              />
+            </OsIconAction>
+          ) : null
+        }
+      >
+        {showOpenAccessHint ? (
+          <p className="hub-manage-hint">
+            Switch access to Approval or Invite to choose who can publish.
+          </p>
+        ) : null}
+        <HubRosterList
+          appId={app.appId}
+          rows={roster}
+          profiles={profiles}
+          manageContext={manageContext}
+          onRosterChanged={onRosterChanged}
+          onRequestTransfer={onRequestTransfer}
+          onRowNavigate={requestClose}
+        />
+        {showRosterHint ? (
+          <p className="hub-manage-hint">
+            Add moderators or approved creators with +.
+          </p>
+        ) : null}
+      </OsHugSheet>
+
+      <ActionDrawer
+        open={addMenuOpen && !addMenuClosing}
+        onClose={() => {
+          if (addMenuClosing) return;
+          setAddMenuClosing(true);
+        }}
+        onClosed={() => {
+          setAddMenuClosing(false);
+          setAddMenuOpen(false);
+        }}
+        label="Add to roster"
+        copy={app.title}
+        items={addMenuItems}
+        zIndex={SHEET_Z.nestedConfirm}
       />
-    </OsHugSheet>
+
+      <HubAddRosterSheet
+        open={addKind !== null}
+        kind={addKind ?? 'moderator'}
+        appId={app.appId}
+        ownerId={app.ownerId}
+        occupiedIds={occupiedIds}
+        onClose={() => setAddKind(null)}
+        onAdded={onRosterChanged}
+      />
+    </>
   );
 }

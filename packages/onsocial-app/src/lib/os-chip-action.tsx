@@ -6,9 +6,10 @@ import { cn, OsSheetAction, OsSheetActions } from '@onsocial/ui';
 export const osChipActionClassName = 'os-chip-action';
 
 /**
- * Quiet additive / settings chip (+ room, Enable all, ↑↓, disclosure).
+ * Quiet additive / settings chip (+ room, Enable all, disclosure).
  * Same `OsSheetAction` primitive — `ghost` intent, `sm` placement.
  * Prefer this over hand-rolled `guild-secondary-button` chips.
+ * List reorder uses `OsOrderControls`, not this chip.
  * Pagination “Show more” stays on `OsLoadMore`.
  */
 export function OsChipAction({

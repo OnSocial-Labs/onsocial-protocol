@@ -179,6 +179,8 @@ interface GuildFeedAddRoomSheetProps {
 
 /**
  * Feed-rail add room. Same editor as settings; confirming here is the save.
+ * Stay mounted with `open={…}` like Settings — remounting mid-hug enter jumps.
+ * No autofocus: keyboard/scroll during slide fights hug arming (same as menus).
  */
 export function GuildFeedAddRoomSheet({
   open,
@@ -303,7 +305,6 @@ export function GuildFeedAddRoomSheet({
             enabled
             pending={pending}
             error={error}
-            autoFocus
             showFeedTab={false}
             choiceZIndex={SHEET_Z.nested}
             onTitleChange={(next) => {

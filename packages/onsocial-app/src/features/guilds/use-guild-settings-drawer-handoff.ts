@@ -5,11 +5,16 @@ import {
   useSheetHandoff,
   type GlassSheetPresentation,
 } from '@onsocial/ui';
-import { latchOpenedSwap } from '@/features/guilds/guild-sheet-handoff';
+import {
+  GUILD_SETTINGS_HANDOFF_CROSSFADE_MS,
+  guildSettingsDrawerPresentation,
+  latchOpenedSwap,
+} from '@/features/guilds/guild-sheet-handoff';
 
 /**
- * Settings → drawer: crossfade once (`swap`), then slide nested sheets as
- * drawers. Clears the handoff flag after the drawer has presented.
+ * Settings → drawer: crossfade once (`swap`), then nested sheets use their
+ * own presentation (`appear` / `enter`). Clears the handoff flag after the
+ * replace fade finishes — not on the first paint (that killed the fade).
  */
 export function useGuildSettingsDrawerHandoff(
   open: boolean,
@@ -29,8 +34,13 @@ export function useGuildSettingsDrawerHandoff(
     }
     if (!latchedSwap || presentedRef.current) return;
     presentedRef.current = true;
-    onPresented?.();
+    if (!onPresented) return;
+    const timer = window.setTimeout(
+      onPresented,
+      GUILD_SETTINGS_HANDOFF_CROSSFADE_MS
+    );
+    return () => window.clearTimeout(timer);
   }, [open, latchedSwap, onPresented]);
 
-  return latchedSwap ? 'swap' : 'enter';
+  return guildSettingsDrawerPresentation(open, handoff, latchedSwap);
 }

@@ -21,11 +21,29 @@ interface ShareRecipientsValidation {
   readyNormalizedIds: string[];
 }
 
+export interface StorageShareRecipientsOptions {
+  /** Accounts that already hold a grant / share — treated as already_sponsored. */
+  knownSponsoredIds?: readonly string[];
+  /**
+   * Skip personal `sponsorshipReceived` RPC. Use for guild grants where
+   * `knownSponsoredIds` is the source of truth.
+   */
+  localSponsoredOnly?: boolean;
+}
+
 export function useStorageShareRecipientsValidation(
   rows: string[],
   viewerAccountId: string,
-  enabled: boolean
+  enabled: boolean,
+  options?: StorageShareRecipientsOptions
 ): ShareRecipientsValidation {
+  const localSponsoredOnly = Boolean(options?.localSponsoredOnly);
+  const knownSponsoredKey = (options?.knownSponsoredIds ?? []).join('|');
+  const knownSponsored = useMemo(
+    () => new Set(knownSponsoredKey ? knownSponsoredKey.split('|') : []),
+    [knownSponsoredKey]
+  );
+
   const normalizedRows = useMemo(
     () => rows.map((row) => normalizeNearAccountId(row)),
     [rows]
@@ -41,9 +59,19 @@ export function useStorageShareRecipientsValidation(
         if (normalizedRows.filter((id) => id === normalized).length > 1) {
           return 'duplicate' as const;
         }
+        if (knownSponsored.has(normalized)) {
+          return 'already_sponsored' as const;
+        }
+        if (localSponsoredOnly) return 'ready' as const;
         return 'checking' as const;
       }),
-    [normalizedRows, rows, viewerAccountId]
+    [
+      knownSponsored,
+      localSponsoredOnly,
+      normalizedRows,
+      rows,
+      viewerAccountId,
+    ]
   );
 
   const [sponsoredIds, setSponsoredIds] = useState<Set<string>>(new Set());
@@ -51,12 +79,14 @@ export function useStorageShareRecipientsValidation(
 
   const idsToCheck = useMemo(
     () =>
-      staticStatuses
-        .map((status, index) =>
-          status === 'checking' ? normalizedRows[index]! : null
-        )
-        .filter((id): id is string => Boolean(id)),
-    [normalizedRows, staticStatuses]
+      localSponsoredOnly
+        ? []
+        : staticStatuses
+            .map((status, index) =>
+              status === 'checking' ? normalizedRows[index]! : null
+            )
+            .filter((id): id is string => Boolean(id)),
+    [localSponsoredOnly, normalizedRows, staticStatuses]
   );
   const idsToCheckKey = idsToCheck.join('|');
 
@@ -100,10 +130,12 @@ export function useStorageShareRecipientsValidation(
         if (status !== 'checking') return status;
         const normalized = normalizedRows[index]!;
         if (!checkedIds.has(normalized)) return 'checking';
-        if (sponsoredIds.has(normalized)) return 'already_sponsored';
+        if (sponsoredIds.has(normalized) || knownSponsored.has(normalized)) {
+          return 'already_sponsored';
+        }
         return 'ready';
       }),
-    [checkedIds, normalizedRows, sponsoredIds, staticStatuses]
+    [checkedIds, knownSponsored, normalizedRows, sponsoredIds, staticStatuses]
   );
 
   const readyNormalizedIds = useMemo(

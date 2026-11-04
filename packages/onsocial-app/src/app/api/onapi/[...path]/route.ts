@@ -73,6 +73,10 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'GET', path: 'data/storage-balance', body: 'none' },
   { method: 'GET', path: 'data/platform-allowance', body: 'none' },
   { method: 'GET', path: 'data/shared-pool', body: 'none' },
+  // Guild storage pool + sponsor grants (Members ⋮ / Settings → Storage).
+  { method: 'GET', path: 'data/group-pool', body: 'none' },
+  { method: 'GET', path: 'data/group-sponsor-quota', body: 'none' },
+  { method: 'GET', path: 'data/group-sponsor-default', body: 'none' },
   // Indexed reads after profile save (`os.profiles.get`) and other SDK queries.
   { method: 'POST', path: 'graph/query', body: 'json' },
 
@@ -179,6 +183,8 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
     path: 'compose/prepare/transfer-app-ownership',
     body: 'json',
   },
+  { method: 'POST', path: 'compose/prepare/add-moderator', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/remove-moderator', body: 'json' },
   {
     method: 'POST',
     path: 'compose/prepare/add-approved-creator',

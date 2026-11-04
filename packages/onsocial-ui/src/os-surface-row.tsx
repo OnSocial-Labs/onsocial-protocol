@@ -6,6 +6,7 @@ import { ExternalLinkIcon } from './mage-stroke-icons.js';
 import { ProtocolMotionArrow } from './protocol-motion-arrow.js';
 
 export const osSurfaceRowListClassName = 'os-surface-row-list';
+export const osSurfaceRowItemClassName = 'os-surface-row-item';
 export const osSurfaceRowClassName = 'os-surface-row';
 export const osSurfaceRowNavigateClassName = 'os-surface-row--navigate';
 export const osSurfaceRowCopyClassName = 'os-surface-row-copy';
@@ -69,6 +70,24 @@ export function OsSurfaceRowList({
     >
       {children}
     </Comp>
+  );
+}
+
+export interface OsSurfaceRowItemProps {
+  children: ReactNode;
+  className?: string;
+}
+
+/**
+ * List child that pairs a row button with sibling controls
+ * (e.g. {@link OsOrderControls}) without nesting buttons.
+ */
+export function OsSurfaceRowItem({
+  children,
+  className,
+}: OsSurfaceRowItemProps) {
+  return (
+    <div className={cn(osSurfaceRowItemClassName, className)}>{children}</div>
   );
 }
 

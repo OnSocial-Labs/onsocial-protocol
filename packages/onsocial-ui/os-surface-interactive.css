@@ -194,6 +194,47 @@
   min-width: 0;
 }
 
+/* Row + sibling controls (reorder) — keeps actions outside the row button. */
+.os-surface-row-item {
+  display: flex;
+  align-items: stretch;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.os-surface-row-item > .os-surface-row {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Compact Mage ↑↓ — rail-sized OsIconAction, not sheet-header 2.75rem. */
+.os-order-controls {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.os-order-controls .glass-sheet-icon-action {
+  box-sizing: border-box;
+  width: 1.85rem;
+  height: 1.85rem;
+  min-width: 1.85rem;
+  min-height: 1.85rem;
+  max-width: 1.85rem;
+  max-height: 1.85rem;
+}
+
+.os-order-controls .glass-sheet-icon-action-glyph {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.os-order-controls .glass-sheet-icon-action:disabled {
+  color: rgb(var(--fg-rgb) / 0.28);
+  cursor: default;
+}
+
 .os-surface-row-leading {
   flex-shrink: 0;
 }

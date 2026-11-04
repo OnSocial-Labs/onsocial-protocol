@@ -104,9 +104,11 @@
   box-shadow: var(--os-field-bordered-lip);
 }
 
+/* Status lips (`is-available` / `is-taken` / `is-warn`) own the inset —
+ * don't swap them for the default grey hover lip. */
 .os-field-bordered:hover:not(:disabled):not(:focus):not(:focus-within):not(
     :has(:disabled)
-  ) {
+  ):not(.is-available):not(.is-taken):not(.is-warn) {
   border-color: var(--os-field-bordered-border-hover);
   box-shadow: var(--os-field-bordered-lip-hover);
 }

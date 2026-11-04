@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -35,10 +36,6 @@ import {
   type CreatorAccess,
   type TransferStayAs,
 } from '@/features/scarces/apps-data';
-import {
-  MAX_CREATOR_BATCH,
-  parseRosterAccountIds,
-} from '@/features/scarces/app-roster-parse';
 import { hubCategoriesMetadataFields } from '@/features/scarces/hub-categories';
 import { HubCategoriesEditor } from '@/features/scarces/hub-categories-editor';
 import { HubLookPreview } from '@/features/scarces/hub-look-preview';
@@ -54,18 +51,10 @@ import {
   nearAccountPlaceholder,
   normalizeNearAccountId,
 } from '@/lib/app-near-account';
-import { HubRosterList } from '@/features/scarces/hub-roster-list';
-import { useHubRoster } from '@/features/scarces/hub-roster';
-import {
-  buildHubRosterManageContext,
-  type HubRosterManageContext,
-} from '@/features/scarces/hub-roster-row-actions';
 import { POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import { fallbackLabel } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { topicsEqual } from '@/lib/topic-slug';
-import { hubRosterTransactionToast } from '@/features/scarces/hub-roster-transaction-toast';
-import { hubRosterIsOwnerOnly } from '@/features/scarces/hub-roster';
 import {
   txToastConfirming,
   txToastError,
@@ -78,7 +67,6 @@ const HUB_MANAGE_Z = SHEET_Z.list;
 export type HubManageSheetId =
   | 'look'
   | 'access'
-  | 'people'
   | 'publish-requests'
   | 'transfer';
 
@@ -104,8 +92,6 @@ function hubLookImageError(
   return null;
 }
 
-type RosterKind = 'creator' | 'moderator';
-
 function useObjectUrl(file: File | null): string | null {
   const url = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   useEffect(() => {
@@ -129,6 +115,7 @@ function HubManageSheetChrome({
   title,
   subtitle,
   onClose,
+  onClosed,
   children,
   footer,
   pending = false,
@@ -138,6 +125,7 @@ function HubManageSheetChrome({
   title: string;
   subtitle?: string;
   onClose: () => void;
+  onClosed?: () => void;
   children: ReactNode;
   footer?: ReactNode;
   pending?: boolean;
@@ -156,7 +144,10 @@ function HubManageSheetChrome({
       <OsSlideOverScreen
         open={open}
         onClose={onClose}
-        onClosed={clearDiscardConfirm}
+        onClosed={() => {
+          clearDiscardConfirm();
+          onClosed?.();
+        }}
         onBeforeClose={requestCloseOrConfirm}
         title={title}
         subtitle={subtitle}
@@ -610,222 +601,6 @@ export function HubAccessSheet({
   );
 }
 
-export function HubPeopleSheet({
-  open,
-  app,
-  onClose,
-  onChanged,
-  canManageCreators,
-  canManageModerators,
-  onRequestTransfer,
-}: {
-  open: boolean;
-  app: AppView;
-  onClose: () => void;
-  onChanged: () => void;
-  canManageCreators: boolean;
-  canManageModerators: boolean;
-  onRequestTransfer?: (accountId: string) => void;
-}) {
-  const withWallet = useHubManageWallet();
-  const { accountId: viewerAccountId } = useAppWallet();
-  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
-  const [creatorInput, setCreatorInput] = useState('');
-  const [moderatorInput, setModeratorInput] = useState('');
-  const [pending, setPending] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
-  const roster = useHubRoster(app, open);
-  const profiles = usePostAuthorProfiles(
-    open ? roster.map((row) => row.accountId) : []
-  );
-
-  const manageContext = useMemo(
-    (): HubRosterManageContext | null =>
-      buildHubRosterManageContext(
-        viewerAccountId,
-        canManageModerators,
-        canManageCreators,
-        hubUsesCreatorRoster(app.creatorAccess)
-      ),
-    [app.creatorAccess, canManageCreators, canManageModerators, viewerAccountId]
-  );
-
-  useEffect(() => {
-    if (!open) return;
-    setCreatorInput('');
-    setModeratorInput('');
-    setNote(null);
-  }, [open, app.appId]);
-
-  const showCreators =
-    canManageCreators && hubUsesCreatorRoster(app.creatorAccess);
-
-  const mutateRoster = async (
-    kind: RosterKind,
-    accountId: string,
-    resetInput?: () => void
-  ) => {
-    if (pending) return;
-    const toast = hubRosterTransactionToast(
-      kind === 'moderator' ? 'moderator' : 'creator'
-    );
-
-    if (kind === 'creator') {
-      const ids = parseRosterAccountIds(accountId).filter(
-        (id) => !accountIdsEqual(id, app.ownerId)
-      );
-      if (ids.length === 0) {
-        setNote(
-          accountId.trim()
-            ? 'You already own this hub — add other accounts.'
-            : 'Add one or more account IDs.'
-        );
-        return;
-      }
-      if (ids.length > MAX_CREATOR_BATCH) {
-        setNote(`Add at most ${MAX_CREATOR_BATCH} creators at a time.`);
-        return;
-      }
-      setPending(true);
-      setNote(null);
-      try {
-        const client = await withWallet();
-        const response = await client.scarces.apps.addApprovedCreators(
-          app.appId,
-          ids
-        );
-        const confirmed = await trackTransaction({
-          txHashes: collectRelayTxHashes(response),
-          submittedMessage: toast.confirming,
-          successMessage: toast.success,
-          failureMessage: toast.failure,
-        });
-        if (!confirmed) return;
-        resetInput?.();
-        onChanged();
-      } catch (cause) {
-        if (isWalletUserCancellation(cause)) return;
-        setTxResult({
-          type: 'error',
-          msg:
-            cause instanceof Error ? cause.message : toast.failure,
-        });
-      } finally {
-        setPending(false);
-      }
-      return;
-    }
-
-    const id = accountId.trim().toLowerCase();
-    if (!id) return;
-    if (accountIdsEqual(id, app.ownerId)) {
-      setNote('You already own this hub.');
-      return;
-    }
-    setPending(true);
-    setNote(null);
-    try {
-      const client = await withWallet();
-      const response = await client.scarces.apps.addModerator(app.appId, id);
-      const confirmed = await trackTransaction({
-        txHashes: collectRelayTxHashes(response),
-        submittedMessage: toast.confirming,
-        successMessage: toast.success,
-        failureMessage: toast.failure,
-      });
-      if (!confirmed) return;
-      resetInput?.();
-      onChanged();
-    } catch (cause) {
-      if (isWalletUserCancellation(cause)) return;
-      setTxResult({
-        type: 'error',
-        msg:
-          cause instanceof Error ? cause.message : toast.failure,
-      });
-    } finally {
-      setPending(false);
-    }
-  };
-
-  const showRosterHint =
-    hubRosterIsOwnerOnly(roster) && (canManageModerators || showCreators);
-
-  return (
-    <HubManageSheetChrome
-      open={open}
-      title="People"
-      subtitle="Owner, moderators, and creators"
-      onClose={onClose}
-      pending={pending}
-    >
-      <div className="hub-manage-form">
-        {showCreators ? (
-          <div className="app-manage-roster">
-            <h3 className="app-manage-roster-title">Approved creators</h3>
-            <RosterAddField
-              placeholder="creator.near, artist.near"
-              multiline
-              value={creatorInput}
-              onChange={setCreatorInput}
-              disabled={pending}
-              onAdd={() =>
-                void mutateRoster('creator', creatorInput, () =>
-                  setCreatorInput('')
-                )
-              }
-            />
-            <small className="hub-manage-hint">
-              One or many accounts · comma or newline · up to{' '}
-              {MAX_CREATOR_BATCH} per add.
-            </small>
-          </div>
-        ) : canManageCreators ? (
-          <p className="hub-manage-hint">
-            Switch access to Approval or Invite to choose who can publish.
-          </p>
-        ) : null}
-
-        {canManageModerators ? (
-          <div className="app-manage-roster">
-            <h3 className="app-manage-roster-title">Moderators</h3>
-            <RosterAddField
-              placeholder="mod.near"
-              value={moderatorInput}
-              onChange={setModeratorInput}
-              disabled={pending}
-              onAdd={() =>
-                void mutateRoster('moderator', moderatorInput, () =>
-                  setModeratorInput('')
-                )
-              }
-            />
-          </div>
-        ) : null}
-
-        <div className="app-manage-roster">
-          <h3 className="app-manage-roster-title">Roster</h3>
-            <HubRosterList
-              appId={app.appId}
-              rows={roster}
-              profiles={profiles}
-              manageContext={manageContext}
-              onRosterChanged={() => onChanged()}
-              onRequestTransfer={onRequestTransfer}
-            />
-          {showRosterHint ? (
-            <p className="hub-manage-hint">
-              Add moderators or approved creators above.
-            </p>
-          ) : null}
-        </div>
-
-        {note ? <p className="hub-manage-hint">{note}</p> : null}
-      </div>
-    </HubManageSheetChrome>
-  );
-}
-
 export function HubTransferSheet({
   open,
   app,
@@ -849,6 +624,12 @@ export function HubTransferSheet({
   const sheetOpen = open && !closing;
 
   const normalizedTo = normalizeNearAccountId(transferTo);
+  const prefillNormalized = normalizeNearAccountId(initialRecipient.trim());
+  // Roster ⋮ prefill — known account. Settle found on first paint (no probe /
+  // search expansion) so the hug sheet opens at final height.
+  const isPrefillRecipient =
+    prefillNormalized.length > 0 &&
+    accountIdsEqual(normalizedTo, prefillNormalized);
   const isSelf = accountIdsEqual(normalizedTo, app.ownerId);
   const recipientIsModerator = app.moderators.some((id) =>
     accountIdsEqual(id, normalizedTo)
@@ -870,7 +651,8 @@ export function HubTransferSheet({
         ? 'approved_creator'
         : 'none';
 
-  useEffect(() => {
+  // Before paint — roster prefill must land in the field on the first frame.
+  useLayoutEffect(() => {
     if (!open) {
       setClosing(false);
       return;
@@ -890,7 +672,10 @@ export function HubTransferSheet({
     onClose();
   }, [onClose]);
 
-  const accountStatus = useNearAccountStatus(transferTo);
+  const probedStatus = useNearAccountStatus(
+    isPrefillRecipient ? '' : transferTo
+  );
+  const accountStatus = isPrefillRecipient ? 'found' : probedStatus;
   const recipientProfiles = usePostAuthorProfiles(
     accountStatus === 'found' && !isSelf ? [normalizedTo] : []
   );
@@ -902,10 +687,9 @@ export function HubTransferSheet({
     : nearAccountStatusClass(accountStatus);
   const dirty = transferTo.trim().length > 0;
   const canTransfer = dirty && !pending && !isSelf && accountStatus === 'found';
-  const searchActive = profileAccountSearchActive(
-    transferTo,
-    accountStatus === 'found'
-  );
+  const searchActive =
+    !isPrefillRecipient &&
+    profileAccountSearchActive(transferTo, accountStatus === 'found');
 
   const transfer = async () => {
     const nextOwner = normalizedTo;
@@ -980,17 +764,21 @@ export function HubTransferSheet({
             Permanent — you lose owner controls immediately.
           </small>
         </label>
-        <ProfileAccountSearchPicks
-          query={transferTo}
-          enabled={searchActive && !pending}
-          disabled={pending}
-          excludeAccountIds={[app.ownerId]}
-          viewerAccountId={app.ownerId}
-          onPick={(accountId) => {
-            setError(null);
-            setTransferTo(accountId);
-          }}
-        />
+        {searchActive ? (
+          <div className="hub-transfer-search">
+            <ProfileAccountSearchPicks
+              query={transferTo}
+              enabled={!pending}
+              disabled={pending}
+              excludeAccountIds={[app.ownerId]}
+              viewerAccountId={app.ownerId}
+              onPick={(accountId) => {
+                setError(null);
+                setTransferTo(accountId);
+              }}
+            />
+          </div>
+        ) : null}
         <div className="guild-field">
           <span>After transfer</span>
           <div
@@ -1037,28 +825,32 @@ export function HubTransferSheet({
               </button>
             ) : null}
           </div>
-          {!canStayAsModerator ? (
-            <small className="hub-manage-hint">
-              Moderator seats are full ({HUB_MAX_MODERATORS}/
-              {HUB_MAX_MODERATORS}).
-            </small>
-          ) : null}
-          {creatorRosterUsed && !canStayAsCreator ? (
-            <small className="hub-manage-hint">
-              Creator seats are full ({HUB_MAX_APPROVED_CREATORS}/
-              {HUB_MAX_APPROVED_CREATORS}).
-            </small>
-          ) : null}
+          <div className="hub-transfer-stay-hint">
+            {!canStayAsModerator ? (
+              <small className="hub-manage-hint">
+                Moderator seats are full ({HUB_MAX_MODERATORS}/
+                {HUB_MAX_MODERATORS}).
+              </small>
+            ) : null}
+            {creatorRosterUsed && !canStayAsCreator ? (
+              <small className="hub-manage-hint">
+                Creator seats are full ({HUB_MAX_APPROVED_CREATORS}/
+                {HUB_MAX_APPROVED_CREATORS}).
+              </small>
+            ) : null}
+          </div>
         </div>
-        {!searchActive && isSelf ? (
-          <p className="hub-manage-hint">Choose another account.</p>
-        ) : null}
-        {!searchActive && accountStatus === 'missing' ? (
-          <p className="hub-manage-hint">
-            No NEAR account found for {fallbackLabel(normalizedTo)}.
-          </p>
-        ) : null}
-        {error ? <p className="guild-form-error">{error}</p> : null}
+        <div className="hub-transfer-status" aria-live="polite">
+          {!searchActive && isSelf ? (
+            <p className="hub-manage-hint">Choose another account.</p>
+          ) : null}
+          {!searchActive && accountStatus === 'missing' ? (
+            <p className="hub-manage-hint">
+              No NEAR account found for {fallbackLabel(normalizedTo)}.
+            </p>
+          ) : null}
+          {error ? <p className="guild-form-error">{error}</p> : null}
+        </div>
         <OsSheetActions layout="stack" tone="frosted-primary" borderless>
           <OsSheetAction
             type="button"
@@ -1074,59 +866,5 @@ export function HubTransferSheet({
         </OsSheetActions>
       </div>
     </OsHugSheet>
-  );
-}
-
-function RosterAddField({
-  placeholder,
-  value,
-  onChange,
-  disabled,
-  onAdd,
-  multiline = false,
-}: {
-  placeholder: string;
-  value: string;
-  onChange: (value: string) => void;
-  disabled: boolean;
-  onAdd: () => void;
-  multiline?: boolean;
-}) {
-  return (
-    <div className="app-roster-editor">
-      <div className="app-roster-add">
-        {multiline ? (
-          <textarea
-            autoComplete="off"
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            placeholder={placeholder}
-            disabled={disabled}
-            aria-label="Accounts to add"
-            rows={3}
-            className={osFieldBorderedClassName}
-          />
-        ) : (
-          <input
-            type="text"
-            autoComplete="off"
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            placeholder={placeholder}
-            disabled={disabled}
-            aria-label="Account to add"
-            className={osFieldBorderedClassName}
-          />
-        )}
-        <button
-          type="button"
-          className="os-surface-chip"
-          disabled={disabled || value.trim().length === 0}
-          onClick={onAdd}
-        >
-          Add
-        </button>
-      </div>
-    </div>
   );
 }

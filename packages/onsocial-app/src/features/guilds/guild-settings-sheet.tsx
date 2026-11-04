@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { OsHugSheet, OsSurfaceRow, OsSurfaceRowList } from '@onsocial/ui';
 import { GuildCountBadge } from '@/features/guilds/guild-count-badge';
 import {
@@ -31,6 +31,7 @@ interface GuildSettingsSheetProps {
 /**
  * Settings hub. Requests lead for reviewers, then proposals.
  * Rooms and storage stay with owners and admins. The hero gear opens this.
+ * Stay mounted with `open={…}` so a handoff can fade this sheet out.
  */
 export function GuildSettingsSheet({
   open,
@@ -49,6 +50,10 @@ export function GuildSettingsSheet({
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
   const actions = guildSettingsActions(viewer);
+
+  useEffect(() => {
+    if (open) setClosing(false);
+  }, [open]);
 
   const requestClose = useCallback(() => {
     if (closing) return;

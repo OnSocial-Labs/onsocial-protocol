@@ -33,18 +33,28 @@ export function profileAccountSearchActive(
 export function ProfileAccountSearchPicks({
   query,
   excludeAccountIds = [],
+  includeAccountIds,
   enabled,
   disabled = false,
   onPick,
   viewerAccountId = null,
+  emptyHint = 'No profiles found.',
+  listAriaLabel = 'OnSocial profiles',
 }: {
   query: string;
   excludeAccountIds?: readonly string[];
+  /**
+   * When set, only these accounts may appear (e.g. guild roster). Same
+   * discover fetch + row chrome as unrestricted search.
+   */
+  includeAccountIds?: readonly string[];
   /** When false, hide the list (e.g. account already resolved). */
   enabled: boolean;
   disabled?: boolean;
   onPick: (accountId: string) => void;
   viewerAccountId?: string | null;
+  emptyHint?: string;
+  listAriaLabel?: string;
 }) {
   const [profiles, setProfiles] = useState<DiscoverProfileSummary[]>([]);
   const [pending, setPending] = useState(false);
@@ -88,14 +98,26 @@ export function ProfileAccountSearchPicks({
   const visibleProfiles = useMemo(() => {
     if (!searchActive) return [];
     return profiles
-      .filter(
-        (profile) =>
-          !excludeAccountIds.some((id) =>
+      .filter((profile) => {
+        if (
+          excludeAccountIds.some((id) =>
             accountIdsEqual(profile.accountId, id)
           )
-      )
+        ) {
+          return false;
+        }
+        if (
+          includeAccountIds &&
+          !includeAccountIds.some((id) =>
+            accountIdsEqual(profile.accountId, id)
+          )
+        ) {
+          return false;
+        }
+        return true;
+      })
       .slice(0, SEARCH_RESULT_LIMIT);
-  }, [excludeAccountIds, profiles, searchActive]);
+  }, [excludeAccountIds, includeAccountIds, profiles, searchActive]);
 
   if (!searchActive) return null;
 
@@ -110,13 +132,13 @@ export function ProfileAccountSearchPicks({
         </p>
       ) : null}
       {!pending && visibleProfiles.length === 0 && !error ? (
-        <p className="guild-add-member-hint">No profiles found.</p>
+        <p className="guild-add-member-hint">{emptyHint}</p>
       ) : null}
       {visibleProfiles.length > 0 ? (
         <div
           className="standing-list guild-add-member-results"
           role="listbox"
-          aria-label="OnSocial profiles"
+          aria-label={listAriaLabel}
         >
           {visibleProfiles.map((profile, index) => (
             <div key={profile.accountId}>

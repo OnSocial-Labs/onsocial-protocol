@@ -132,7 +132,10 @@ export class ScarcesAppsApi {
     );
   }
 
-  /** Add a moderator to the app. */
+  /**
+   * Add a moderator to the app (owner only).
+   * If they are an approved creator, the contract drops that seat first.
+   */
   async addModerator(appId: string, accountId: string): Promise<RelayResponse> {
     return composeAndSign(
       this._http,
@@ -168,6 +171,8 @@ export class ScarcesAppsApi {
   /**
    * Approve a creator to make collections under this app.
    * Only takes effect when the app's `creatorAccess` is `approval`.
+   * If they are a moderator, only the owner may call this — the contract
+   * drops the moderator seat first.
    */
   async addApprovedCreator(
     appId: string,
@@ -223,6 +228,25 @@ export class ScarcesAppsApi {
       'scarces.removeApprovedCreator',
       this._relayOpts({ confirmation: true })
     );
+  }
+
+  /**
+   * Move an approved creator onto the moderator team.
+   * Contract drops the creator seat automatically (owner-only).
+   */
+  async makeModerator(appId: string, accountId: string): Promise<RelayResponse> {
+    return this.addModerator(appId, accountId);
+  }
+
+  /**
+   * Move a moderator onto the approved-creator roster.
+   * Contract drops the moderator seat automatically (owner-only demotion).
+   */
+  async makeApprovedCreator(
+    appId: string,
+    accountId: string
+  ): Promise<RelayResponse> {
+    return this.addApprovedCreator(appId, accountId);
   }
 
   /** Ask to publish in an approval hub. */

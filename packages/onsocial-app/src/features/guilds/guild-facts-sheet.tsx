@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Divider,
   OsHugSheet,
@@ -117,6 +117,10 @@ export function GuildFactsSheet({
     ? (ownerProfile?.displayName ?? displayName(ownerId))
     : null;
   const ownerHandle = ownerId ? fallbackLabel(ownerId) : null;
+
+  useEffect(() => {
+    if (open) setClosing(false);
+  }, [open]);
 
   const requestClose = useCallback(() => {
     if (closing) return;

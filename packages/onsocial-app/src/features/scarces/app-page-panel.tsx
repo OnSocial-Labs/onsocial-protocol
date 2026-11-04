@@ -57,7 +57,6 @@ import {
 import {
   HubAccessSheet,
   HubLookSheet,
-  HubPeopleSheet,
   HubTransferSheet,
   type HubManageSheetId,
 } from '@/features/scarces/hub-manage-sheets';
@@ -77,6 +76,7 @@ import {
 } from '@/features/scarces/hub-hero-actions';
 import { HubPublishAccessSheet } from '@/features/scarces/hub-publish-access-sheet';
 import { HubPublishRequestsSheet } from '@/features/scarces/hub-publish-requests-sheet';
+import { hubSettingsHandoffIsReplace } from '@/features/scarces/hub-sheet-handoff';
 import { HubSettingsSheet } from '@/features/scarces/hub-settings-sheet';
 import {
   fetchCollectionsByAppPage,
@@ -174,6 +174,9 @@ export function AppPagePanel({
     count: number;
   } | null>(null);
   const [manageSheet, setManageSheet] = useState<HubManageSheetId | null>(null);
+  /** Slide-over successor — opens after Settings finishes its replace fade. */
+  const [pendingManageSheet, setPendingManageSheet] =
+    useState<HubManageSheetId | null>(null);
   const [sheetHandoff, setSheetHandoff] = useState(false);
   const [transferPrefill, setTransferPrefill] = useState('');
   const scrollRootRef = useRef<HTMLElement | null>(null);
@@ -334,6 +337,7 @@ export function AppPagePanel({
 
   const onManaged = useCallback(() => setRefreshKey((k) => k + 1), []);
 
+  /** Same-tick SheetHandoff swap — never close the source sheet before Transfer mounts. */
   const openHubTransferTo = useCallback((accountId: string) => {
     setTransferPrefill(accountId.trim());
     setSheetHandoff(true);
@@ -834,9 +838,9 @@ export function AppPagePanel({
         />
       ) : null}
 
-      {factsOpen ? (
+      <SheetHandoffProvider active={sheetHandoff}>
         <HubFactsSheet
-          open
+          open={factsOpen}
           onClose={() => setFactsOpen(false)}
           app={app}
           stats={stats}
@@ -847,45 +851,88 @@ export function AppPagePanel({
             setCreatorsOpen(true);
           }}
         />
-      ) : null}
 
-      <SheetHandoffProvider active={sheetHandoff}>
-        {creatorsOpen ? (
-          <HubCreatorsSheet
-            open
+        <HubCreatorsSheet
+          open={creatorsOpen}
+          onClose={() => {
+            setCreatorsOpen(false);
+            // Keep handoff alive while Transfer (or publish inbox) is the successor.
+            if (
+              manageSheet !== 'transfer' &&
+              manageSheet !== 'publish-requests'
+            ) {
+              setSheetHandoff(false);
+            }
+          }}
+          app={app}
+          manageContext={rosterManageContext}
+          onRosterChanged={onManaged}
+          onRequestTransfer={owner ? openHubTransferTo : undefined}
+        />
+
+        {heroActions.showSettings ? (
+          <HubSettingsSheet
+            open={settingsOpen}
+            hubName={app.title}
+            showOwnerTools={owner}
+            showPublishRequests={canReviewRequests}
+            publishRequestCount={pendingPublishCount}
+            onClose={() => {
+              setSettingsOpen(false);
+              if (pendingManageSheet) {
+                setManageSheet(pendingManageSheet);
+                setPendingManageSheet(null);
+                setSheetHandoff(false);
+                return;
+              }
+              if (
+                manageSheet !== 'transfer' &&
+                manageSheet !== 'publish-requests'
+              ) {
+                setSheetHandoff(false);
+              }
+            }}
+            onOpenSheet={() => undefined}
+            onHandoff={(sheet) => {
+              // Always handoff so Settings crossfades out (no slide-down jump).
+              setSheetHandoff(true);
+              setSettingsOpen(false);
+              if (hubSettingsHandoffIsReplace(sheet)) {
+                setManageSheet(sheet);
+                return;
+              }
+              // Slide-overs open after Settings has finished closing.
+              setPendingManageSheet(sheet);
+            }}
+          />
+        ) : null}
+
+        {canReviewRequests ? (
+          <HubPublishRequestsSheet
+            open={manageSheet === 'publish-requests'}
+            appId={app.appId}
             onClose={() => {
               setSheetHandoff(false);
-              setCreatorsOpen(false);
+              setManageSheet(null);
             }}
+            onChanged={onManaged}
+          />
+        ) : null}
+
+        {owner ? (
+          <HubTransferSheet
+            open={manageSheet === 'transfer'}
             app={app}
-            manageContext={rosterManageContext}
-            onRosterChanged={onManaged}
-            onRequestTransfer={owner ? openHubTransferTo : undefined}
+            initialRecipient={transferPrefill}
+            onClose={() => {
+              setSheetHandoff(false);
+              setManageSheet(null);
+              setTransferPrefill('');
+            }}
+            onChanged={onManaged}
           />
         ) : null}
       </SheetHandoffProvider>
-
-      {heroActions.showSettings && settingsOpen ? (
-        <HubSettingsSheet
-          open
-          hubName={app.title}
-          showOwnerTools={owner}
-          showPeople={
-            authority && (owner || hubUsesCreatorRoster(app.creatorAccess))
-          }
-          showPublishRequests={canReviewRequests}
-          publishRequestCount={pendingPublishCount}
-          onClose={() => setSettingsOpen(false)}
-          onOpenSheet={() => undefined}
-          onHandoff={(sheet) => {
-            setSheetHandoff(
-              sheet === 'publish-requests' || sheet === 'transfer'
-            );
-            setSettingsOpen(false);
-            setManageSheet(sheet);
-          }}
-        />
-      ) : null}
 
       {owner ? (
         <HubLookSheet
@@ -905,47 +952,6 @@ export function AppPagePanel({
         />
       ) : null}
 
-      {authority && (owner || hubUsesCreatorRoster(app.creatorAccess)) ? (
-        <HubPeopleSheet
-          open={manageSheet === 'people'}
-          app={app}
-          onClose={() => setManageSheet(null)}
-          onChanged={onManaged}
-          canManageCreators={authority}
-          canManageModerators={owner}
-          onRequestTransfer={owner ? openHubTransferTo : undefined}
-        />
-      ) : null}
-
-      {canReviewRequests ? (
-        <SheetHandoffProvider active={sheetHandoff}>
-          <HubPublishRequestsSheet
-            open={manageSheet === 'publish-requests'}
-            appId={app.appId}
-            onClose={() => {
-              setSheetHandoff(false);
-              setManageSheet(null);
-            }}
-            onChanged={onManaged}
-          />
-        </SheetHandoffProvider>
-      ) : null}
-
-      {owner ? (
-        <SheetHandoffProvider active={sheetHandoff}>
-          <HubTransferSheet
-            open={manageSheet === 'transfer'}
-            app={app}
-            initialRecipient={transferPrefill}
-            onClose={() => {
-              setSheetHandoff(false);
-              setManageSheet(null);
-              setTransferPrefill('');
-            }}
-            onChanged={onManaged}
-          />
-        </SheetHandoffProvider>
-      ) : null}
       <HeldEditionFollow
         open={editionPick != null}
         title={editionPick?.title ?? ''}

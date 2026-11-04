@@ -150,53 +150,6 @@ export const DEFAULT_GUILD_STRUCTURE: GuildStructureDocument = {
   ],
 };
 
-export const GUILD_STRUCTURE_TEMPLATES: Record<
-  string,
-  { label: string; structure: GuildStructureDocument }
-> = {
-  minimal: {
-    label: 'Minimal',
-    structure: DEFAULT_GUILD_STRUCTURE,
-  },
-  creator: {
-    label: 'Creator',
-    structure: {
-      v: 1,
-      defaultSpaceId: 'general',
-      spaces: [
-        { ...GUILD_SPACE_LIBRARY[0], enabled: true, order: 0 },
-        { ...GUILD_SPACE_LIBRARY[1], enabled: true, order: 1 },
-        { ...GUILD_SPACE_LIBRARY[2], enabled: true, order: 2 },
-      ],
-    },
-  },
-  builder: {
-    label: 'Builder room',
-    structure: {
-      v: 1,
-      defaultSpaceId: 'general',
-      spaces: [
-        { ...GUILD_SPACE_LIBRARY[0], enabled: true, order: 0 },
-        { ...GUILD_SPACE_LIBRARY[1], enabled: true, order: 1 },
-        { ...GUILD_SPACE_LIBRARY[2], enabled: true, order: 2 },
-        { ...GUILD_SPACE_LIBRARY[3], enabled: true, order: 3 },
-      ],
-    },
-  },
-  review: {
-    label: 'Review circle',
-    structure: {
-      v: 1,
-      defaultSpaceId: 'general',
-      spaces: [
-        { ...GUILD_SPACE_LIBRARY[0], enabled: true, order: 0 },
-        { ...GUILD_SPACE_LIBRARY[4], enabled: true, order: 1 },
-        { ...GUILD_SPACE_LIBRARY[1], enabled: true, order: 2 },
-      ],
-    },
-  },
-};
-
 function readString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }

@@ -513,7 +513,13 @@ export {
   type OsSurfaceHaloTone,
 } from './os-surface-halo.js';
 export {
+  OsOrderControls,
+  osOrderControlsClassName,
+  type OsOrderControlsProps,
+} from './os-order-controls.js';
+export {
   OsSurfaceRow,
+  OsSurfaceRowItem,
   OsSurfaceRowList,
   osSurfaceRowArrowClassName,
   osSurfaceRowBadgeClassName,
@@ -521,9 +527,11 @@ export {
   osSurfaceRowCopyClassName,
   osSurfaceRowDescriptionClassName,
   osSurfaceRowExternalClassName,
+  osSurfaceRowItemClassName,
   osSurfaceRowLabelClassName,
   osSurfaceRowListClassName,
   osSurfaceRowNavigateClassName,
+  type OsSurfaceRowItemProps,
   type OsSurfaceRowLinkProps,
   type OsSurfaceRowListProps,
   type OsSurfaceRowProps,

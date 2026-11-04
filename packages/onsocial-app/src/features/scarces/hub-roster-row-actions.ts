@@ -61,7 +61,7 @@ export function hubRosterRowActions(
   if (row.role === 'approved_creator' && context.canManageModerators) {
     actions.push({
       id: 'make-moderator',
-      label: 'Make moderator',
+      label: 'Move to moderators',
     });
   }
   if (
@@ -71,7 +71,7 @@ export function hubRosterRowActions(
   ) {
     actions.push({
       id: 'make-creator',
-      label: 'Make creator',
+      label: 'Move to creators',
     });
   }
 
@@ -96,7 +96,10 @@ export function hubRosterRowActions(
   return actions;
 }
 
-export function hubRosterActionConfirmCopy(action: HubRosterRowAction): {
+export function hubRosterActionConfirmCopy(
+  action: HubRosterRowAction,
+  context: Pick<HubRosterManageContext, 'showCreatorRoster'>
+): {
   title: string;
   subtitle: string;
   confirmLabel: string;
@@ -104,27 +107,30 @@ export function hubRosterActionConfirmCopy(action: HubRosterRowAction): {
   if (action.id === 'remove-moderator') {
     return {
       title: 'Remove moderator',
-      subtitle: 'They lose hub management access.',
+      // Open: anyone can still publish. Approval/invite: mod seat was their publish path.
+      subtitle: context.showCreatorRoster
+        ? 'Loses management and publish access.'
+        : 'Loses hub management.',
       confirmLabel: 'Remove moderator',
     };
   }
   if (action.id === 'make-moderator') {
     return {
-      title: 'Make moderator',
-      subtitle: 'They join the mod team and leave the creator roster.',
-      confirmLabel: 'Make moderator',
+      title: 'Move to moderators',
+      subtitle: 'Hub management and publish. Leaves creators.',
+      confirmLabel: 'Move to moderators',
     };
   }
   if (action.id === 'make-creator') {
     return {
-      title: 'Make creator',
-      subtitle: 'They can publish here and leave the mod team.',
-      confirmLabel: 'Make creator',
+      title: 'Move to creators',
+      subtitle: 'Keeps publish. Leaves moderators.',
+      confirmLabel: 'Move to creators',
     };
   }
   return {
     title: 'Remove creator',
-    subtitle: 'They cannot publish here unless approved again.',
+    subtitle: 'Loses publish access.',
     confirmLabel: 'Remove creator',
   };
 }

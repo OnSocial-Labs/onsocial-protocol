@@ -167,7 +167,8 @@ automatically restricted to wallet-signed transactions).
 |--------|-------------|
 | `SetAppConfig` | Update app configuration |
 | `TransferAppOwnership` | Transfer app to new owner (`stay_as`: `moderator` \| `approved_creator`) |
-| `AddModerator` / `RemoveModerator` | Manage app moderators |
+| `AddModerator` / `RemoveModerator` | Manage app moderators (`AddModerator` drops an approved-creator seat if present) |
+| `AddApprovedCreator(s)` / `RemoveApprovedCreator` | Manage publish roster (`Add*` drops a moderator seat; only the owner may demote a mod) |
 | `BanCollection` / `UnbanCollection` | Moderate collections |
 
 ### View Methods — Tokens

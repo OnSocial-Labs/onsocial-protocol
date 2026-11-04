@@ -106,13 +106,15 @@ export function GuildMembersSheet({
       open={open}
       onClose={onClose}
       tone="os"
-      sizing="full"
-      initialDetent="peek"
+      /* Hug the roster (rounded top + content height). Full hosted sheets
+       * force square corners and open tall regardless of member count. */
+      sizing="hug"
+      initialDetent="full"
       peekRatio={GLASS_SHEET_PEEK_RATIO}
       zIndex={SHEET_Z.facts}
       ariaLabelledBy="guild-members-title"
       backdropLabel="Close members"
-      panelClassName="guild-members-sheet-panel"
+      panelClassName="guild-members-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-members-sheet-body"
       header={
         <>

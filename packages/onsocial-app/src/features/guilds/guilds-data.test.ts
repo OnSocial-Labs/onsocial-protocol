@@ -66,17 +66,9 @@ describe('guild share sheet paths', () => {
     expect(manageSheetFromShare(null)).toBeNull();
   });
 
-  it('keeps add member while the members route is still open', () => {
-    expect(nextManageSheetFromRoute('add-member', 'members')).toBe(
-      'add-member'
-    );
-    expect(nextManageSheetFromRoute('add-member', 'proposals')).toBe(
-      'proposals'
-    );
-    expect(nextManageSheetFromRoute('add-member', 'requests')).toBe('requests');
-    expect(nextManageSheetFromRoute('add-member', 'settings')).toBeNull();
-    expect(nextManageSheetFromRoute('add-member', null)).toBeNull();
+  it('follows the shareable manage route (add member nests off-route)', () => {
     expect(nextManageSheetFromRoute('members', 'members')).toBe('members');
+    expect(nextManageSheetFromRoute('members', 'proposals')).toBe('proposals');
     expect(nextManageSheetFromRoute('members', null)).toBeNull();
     expect(nextManageSheetFromRoute(null, 'members')).toBe('members');
     expect(nextManageSheetFromRoute(null, null)).toBeNull();

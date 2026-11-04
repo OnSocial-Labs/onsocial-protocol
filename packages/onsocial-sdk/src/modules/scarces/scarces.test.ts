@@ -901,6 +901,28 @@ describe('ScarcesModule.apps', () => {
     });
   });
 
+  it('makeModerator is addModerator (contract drops creator seat)', async () => {
+    const http = makeHttp();
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
+    await mod.apps.makeModerator('app1', 'creator.near');
+    expect(prepareBodyFor(http.post, 'add-moderator')).toEqual({
+      appId: 'app1',
+      accountId: 'creator.near',
+    });
+  });
+
+  it('makeApprovedCreator is addApprovedCreator (contract drops mod seat)', async () => {
+    const http = makeHttp();
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
+    await mod.apps.makeApprovedCreator('app1', 'mod.near');
+    expect(prepareBodyFor(http.post, 'add-approved-creator')).toEqual({
+      appId: 'app1',
+      accountId: 'mod.near',
+    });
+  });
+
   it('removeModerator', async () => {
     const http = makeHttp();
     const { getter } = makeSessionGetter();
