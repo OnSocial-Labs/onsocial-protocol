@@ -35,6 +35,7 @@ describe('settings drawer handoff wiring', () => {
       expect(sheet).not.toContain('useGuildSettingsDrawerHandoff');
       expect(sheet).not.toContain('presentation={presentation}');
     }
-    expect(settings).toContain('if (open) setClosing(false)');
+    expect(settings).toContain('setOpenEpoch(openEpoch + 1)');
+    expect(settings).toContain('setClosing(false)');
   });
 });
