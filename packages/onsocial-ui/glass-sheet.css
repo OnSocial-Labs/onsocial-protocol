@@ -86,6 +86,18 @@
     max(0px, env(safe-area-inset-left, 0px));
 }
 
+/* Off-screen while enter arms, or leaving on a handoff — must not block taps. */
+.glass-sheet-root:not(.is-visible),
+.glass-sheet-root[data-sheet-leaving='true'] {
+  pointer-events: none;
+}
+
+/* Replace handoff: drop the old panel. Its scrim is cleared in JS so only the arriving sheet blurs the page. */
+.glass-sheet-root[data-sheet-leaving='true'] .glass-sheet-panel {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /*
  * Shared resting CTA footer inset — choice (Info / Create) and commerce
  * (Support / Buy) match when the keyboard is closed. Commerce only trims
@@ -192,6 +204,12 @@
 .glass-sheet-root.is-visible.glass-sheet-root--enter .glass-sheet-backdrop {
   animation: glass-sheet-backdrop-enter var(--os-motion-overlay, 320ms)
     var(--os-motion-ease-out, cubic-bezier(0.2, 0.9, 0.24, 1));
+}
+
+/* Replace: the column is already dim. Do not fade the scrim in from clear. */
+.glass-sheet-root[data-stack-op='replace'] .glass-sheet-backdrop,
+.glass-sheet-root[data-sheet-leaving='true'] .glass-sheet-backdrop {
+  animation: none;
 }
 
 .glass-sheet-panel {
@@ -384,21 +402,6 @@
 
 .glass-sheet-panel.is-open {
   transform: translateY(var(--sheet-y, 0px));
-}
-
-/* Menu/settings replace — fade in place. Does not slide. */
-.glass-sheet-panel[data-crossfade='true'].is-open {
-  animation: glass-sheet-crossfade 180ms ease-out;
-}
-
-@keyframes glass-sheet-crossfade {
-  from {
-    opacity: 0.72;
-  }
-
-  to {
-    opacity: 1;
-  }
 }
 
 .glass-sheet-panel.is-open.glass-sheet-panel--enter {
@@ -924,8 +927,7 @@ html:has(
     opacity: 1;
   }
 
-  .glass-sheet-panel.is-open.glass-sheet-panel--enter,
-  .glass-sheet-panel[data-crossfade='true'].is-open {
+  .glass-sheet-panel.is-open.glass-sheet-panel--enter {
     animation: none;
   }
 

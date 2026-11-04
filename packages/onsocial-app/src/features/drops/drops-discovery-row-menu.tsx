@@ -10,6 +10,7 @@ import {
   InformationCircleIcon,
   PauseFillIcon,
   PlayFillIcon,
+  replaceSheet,
   ShareIcon,
   TrashIcon,
   UserMinusIcon,
@@ -77,9 +78,7 @@ function discoveryMenuCopy(voice: 'drop' | 'event') {
       ? 'Stop ticket sales for now'
       : 'Stop minting for now',
     resume: `Resume ${noun}`,
-    resumeDescription: event
-      ? 'Open ticket sales again'
-      : 'Open minting again',
+    resumeDescription: event ? 'Open ticket sales again' : 'Open minting again',
     delete: `Delete ${noun}`,
     deleteDescription: event
       ? 'Only if no tickets were minted — confirms first'
@@ -119,9 +118,7 @@ export function DropsDiscoveryRowMenu({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [ownerPending, setOwnerPending] = useState(false);
   const [factsOpen, setFactsOpen] = useState(false);
-  const [factsView, setFactsView] = useState<CollectionView | null>(
-    item.view
-  );
+  const [factsView, setFactsView] = useState<CollectionView | null>(item.view);
   const [factsPending, setFactsPending] = useState(false);
 
   const isSelf = Boolean(accountId) && accountIdsEqual(accountId!, creatorId);
@@ -144,34 +141,33 @@ export function DropsDiscoveryRowMenu({
   }, []);
 
   const openFacts = useCallback(async () => {
-    close();
-    const cached = factsView ?? item.view;
-    if (cached) {
-      setFactsView(cached);
-      setFactsOpen(true);
-      return;
-    }
-    if (factsPending) return;
-    setFactsPending(true);
-    try {
-      const view = await fetchCollectionPreferIndexer(item.collectionId);
-      if (!view) {
+    let view = factsView ?? item.view ?? null;
+    if (!view) {
+      if (factsPending) return;
+      setFactsPending(true);
+      try {
+        view = await fetchCollectionPreferIndexer(item.collectionId);
+      } catch (error) {
         setTxResult({
           type: 'error',
-          msg: copy.factsError,
+          msg: error instanceof Error ? error.message : copy.factsError,
         });
         return;
+      } finally {
+        setFactsPending(false);
       }
-      setFactsView(view);
-      setFactsOpen(true);
-    } catch (error) {
+    }
+    if (!view) {
       setTxResult({
         type: 'error',
-        msg: error instanceof Error ? error.message : copy.factsError,
+        msg: copy.factsError,
       });
-    } finally {
-      setFactsPending(false);
+      return;
     }
+    setFactsView(view);
+    replaceSheet();
+    setFactsOpen(true);
+    close();
   }, [
     close,
     factsPending,
@@ -410,7 +406,10 @@ export function DropsDiscoveryRowMenu({
         description: copy.factsDescription,
         disabled: factsPending,
         leading: (
-          <InformationCircleIcon className="os-action-drawer-icon" aria-hidden />
+          <InformationCircleIcon
+            className="os-action-drawer-icon"
+            aria-hidden
+          />
         ),
         onSelect: () => {
           void openFacts();
@@ -425,7 +424,9 @@ export function DropsDiscoveryRowMenu({
         label: ownerPending ? 'Pausing…' : copy.pause,
         description: copy.pauseDescription,
         disabled: ownerPending,
-        leading: <PauseFillIcon className="os-action-drawer-icon" aria-hidden />,
+        leading: (
+          <PauseFillIcon className="os-action-drawer-icon" aria-hidden />
+        ),
         onSelect: () => {
           void runOwnerAction('paused');
         },
@@ -492,6 +493,7 @@ export function DropsDiscoveryRowMenu({
             void connect();
             return;
           }
+          replaceSheet();
           setSupportOpen(true);
           close();
         },
@@ -556,16 +558,22 @@ export function DropsDiscoveryRowMenu({
 
       <ActionDrawer
         open={open}
-        onClose={confirmDelete ? () => setConfirmDelete(false) : close}
-        label={confirmDelete ? deleteConfirm.title : dropTitle}
-        copy={confirmDelete ? undefined : `@${fallbackLabel(creatorId)}`}
-        listAriaLabel={
-          confirmDelete
-            ? `Confirm delete ${dropTitle}`
-            : `Actions for ${dropTitle}`
-        }
-        closeAriaLabel={confirmDelete ? copy.back : 'Close'}
-        items={confirmDelete ? undefined : items}
+        onClose={() => setOpen(false)}
+        label={dropTitle}
+        copy={`@${fallbackLabel(creatorId)}`}
+        listAriaLabel={`Actions for ${dropTitle}`}
+        closeAriaLabel="Close"
+        items={items}
+      />
+      <ActionDrawer
+        open={confirmDelete}
+        stack="auto"
+        onClose={() => {
+          if (!ownerPending) setConfirmDelete(false);
+        }}
+        label={deleteConfirm.title}
+        listAriaLabel={`Confirm delete ${dropTitle}`}
+        closeAriaLabel="Close"
       >
         {confirmDelete ? (
           <DropDeleteConfirmPanel

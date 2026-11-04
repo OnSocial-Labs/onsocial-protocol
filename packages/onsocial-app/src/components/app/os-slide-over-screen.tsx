@@ -3,6 +3,7 @@
 /**
  * Full-screen page layer — same glass surface as `OsAppScreen` (feed / create).
  * Opens with the compose `appear` pop (opacity), not a side slide.
+ * Registered on the sheet stack so a drawer on top of it pushes or covers.
  * Close with × (same as sheets). Leave a place is the dock chevron.
  *
  * Portals into the registered `OsPortalHost` (OS / portfolio card with
@@ -31,6 +32,7 @@ import {
   OsIconAction,
   useOverlayStackZ,
   useScrollLock,
+  useSheetStackEntry,
 } from '@onsocial/ui';
 import { useOsPortalHost } from '@/contexts/os-portal-host-context';
 import { probeOsCardHost, resolveOsOverlayPortal } from '@/lib/os-card-host';
@@ -182,6 +184,7 @@ export function OsSlideOverScreen({
   faceOwnerId = null,
 }: OsSlideOverScreenProps) {
   const titleId = useId();
+  useSheetStackEntry(open, 'page');
   const headerRef = useRef<HTMLElement | null>(null);
   const bodyRef = useRef<HTMLElement | null>(null);
   const slideRootRef = useRef<HTMLDivElement>(null);

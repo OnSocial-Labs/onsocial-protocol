@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Edit profile — full slide-over workspace (same chrome family as guild edit).
+ * Edit profile — compose-style page sheet (same open as guild edit / compose).
  * Hero media + inline identity/links; screen footer for save.
  */
 
@@ -24,14 +24,17 @@ import {
   type ProfileKind,
 } from '@onsocial/sdk';
 import {
+  ChevronLeftIcon,
   DiscardConfirmSheet,
   ipfsImgSrcSet,
+  OsIconAction,
+  OsPageSheet,
   OsSheetAction,
   OsSheetActions,
   ProfileEditorMediaToolbar,
   useDiscardConfirm,
 } from '@onsocial/ui';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { OsAppScreen } from '@/components/app/os-app-screen';
 import { PortfolioLocationMark } from '@/components/portfolio/portfolio-location-mark';
 import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-error';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
@@ -199,7 +202,7 @@ interface AppProfileEditorSheetProps {
   onSaved: (result: ProfileEditorSaveResult) => void;
 }
 
-/** Nested slide-over — edit profile without leaving the OS account drawer stack. */
+/** Nested page sheet — edit profile without leaving the OS account drawer stack. */
 export function AppProfileEditorSheet({
   open,
   sessionKey,
@@ -210,6 +213,7 @@ export function AppProfileEditorSheet({
   onSaved,
 }: AppProfileEditorSheetProps) {
   const formId = useId();
+  const titleId = useId();
   const { setTxResult } = useAppTransactionFeedback();
   const scrollFieldIntoView = useMobileFieldFocusScroll();
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -445,17 +449,24 @@ export function AppProfileEditorSheet({
     onClose: handleLeave,
   });
 
-  const handleBeforeClose = useCallback(() => {
+  const requestClose = useCallback(() => {
     if (aboutOpen) {
       setAboutOpen(false);
-      return false;
+      return;
     }
     if (discardConfirmOpen) {
       keepEditing();
-      return false;
+      return;
     }
-    return requestCloseOrConfirm();
-  }, [aboutOpen, discardConfirmOpen, keepEditing, requestCloseOrConfirm]);
+    if (!requestCloseOrConfirm()) return;
+    handleLeave();
+  }, [
+    aboutOpen,
+    discardConfirmOpen,
+    handleLeave,
+    keepEditing,
+    requestCloseOrConfirm,
+  ]);
 
   const handleClosed = useCallback(() => {
     clearDiscardConfirm();
@@ -678,22 +689,41 @@ export function AppProfileEditorSheet({
 
   return (
     <>
-      <OsSlideOverScreen
+      <OsPageSheet
         open={open}
-        onClose={handleLeave}
+        onClose={requestClose}
         onClosed={handleClosed}
-        onBeforeClose={handleBeforeClose}
-        title="Edit profile"
-        closeAriaLabel="Close"
-        closeDisabled={saving}
+        surface="page"
+        presentation="appear"
         zIndex={SHEET_Z.overShell}
+        ariaLabelledBy={titleId}
+        backdropLabel="Close"
         moodId={viewerMoodId ?? undefined}
         moodStyle={viewerMoodStyle}
-        className="profile-edit-slide"
-        contentClassName="profile-edit-slide-body"
-        immersiveHeader
+        panelClassName="profile-edit-sheet-panel"
+        bodyClassName="profile-edit-sheet-body"
+        header={null}
         footer={footer}
       >
+        <OsAppScreen
+          title="Edit profile"
+          glassChrome
+          compactChrome
+          embedded
+          leading={
+            <OsIconAction
+              ariaLabel="Back"
+              disabled={saving}
+              onClick={requestClose}
+            >
+              <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+            </OsIconAction>
+          }
+          className="profile-edit-slide"
+        >
+        <span id={titleId} className="sr-only">
+          Edit profile
+        </span>
         {formReady ? (
           <form
             id={formId}
@@ -1092,7 +1122,8 @@ export function AppProfileEditorSheet({
             onRetry={() => void loadProfile()}
           />
         )}
-      </OsSlideOverScreen>
+        </OsAppScreen>
+      </OsPageSheet>
       <DiscardConfirmSheet
         open={discardConfirmOpen}
         onDiscard={discard}

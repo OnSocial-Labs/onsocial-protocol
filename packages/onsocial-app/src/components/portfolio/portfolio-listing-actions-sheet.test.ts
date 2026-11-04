@@ -15,18 +15,15 @@ const marks = readFileSync(
 
 describe('listing actions handoff', () => {
   it('replaces the list when Buy, Bid, or Offers opens', () => {
-    expect(sheet).toContain('SheetHandoffProvider');
+    expect(sheet).toContain('replaceSheet()');
+    expect(sheet).not.toContain('setSheetHandoff');
     expect(sheet).toContain('beginHandoff()');
     expect(sheet).toContain('{handedOff ? null : (');
     expect(sheet).toContain('if (!next) finishHandoff()');
     expect(sheet).toContain('onOpenChange(false)');
-    const providerAt = sheet.indexOf('<SheetHandoffProvider');
-    const providerEnd = sheet.indexOf('</SheetHandoffProvider>');
-    const commerce = sheet.slice(providerAt, providerEnd);
-    expect(commerce).toContain('<ScarceBuySheet');
-    expect(commerce).toContain('<ScarceBidSheet');
-    expect(commerce).toContain('<ScarceOffersSheet');
-    expect(commerce).not.toContain('chrome="choice"');
+    expect(sheet).toContain('<ScarceBuySheet');
+    expect(sheet).toContain('<ScarceBidSheet');
+    expect(sheet).toContain('<ScarceOffersSheet');
   });
 
   it('keeps the host mounted until the replacement sheet closes', () => {

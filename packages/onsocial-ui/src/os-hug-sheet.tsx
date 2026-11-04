@@ -8,6 +8,7 @@ import {
   type GlassSheetPresentation,
   type GlassSheetSizing,
 } from './glass-sheet.js';
+import type { SheetStackRole } from './sheet-motion.js';
 import {
   osChoiceSheetBodyClassName,
   osChoiceSheetPanelClassName,
@@ -85,11 +86,21 @@ export interface OsHugSheetProps {
   moodId?: string;
   /** Defaults to `hug`. */
   sizing?: GlassSheetSizing;
+  /**
+   * Hold the slide until the list that sizes the sheet is ready.
+   * One row then opens short. A long list opens at the cap.
+   */
+  deferEnter?: boolean;
   /** Defaults to `full` (natural height rest for hug sheets). */
   initialDetent?: GlassSheetDetent;
   /** Defaults to `1` when hug + full detent. */
   peekRatio?: number;
   presentation?: GlassSheetPresentation;
+  /**
+   * `overlay` fades while another sheet is open. Choice chrome does this
+   * on its own. `auto` always slides — replace holds the slot and slides in.
+   */
+  stack?: SheetStackRole;
   /** Optional fixed title id when the host also references it. */
   titleId?: string;
   /** Sit the hug panel above the summon / write dock. */
@@ -131,9 +142,11 @@ export function OsHugSheet({
   backdropLabel,
   moodId,
   sizing = 'hug',
+  deferEnter = false,
   initialDetent = 'full',
   peekRatio = 1,
   presentation,
+  stack: stackProp,
   titleId: titleIdProp,
   keepDock = false,
   portalContainer,
@@ -142,6 +155,7 @@ export function OsHugSheet({
   const titleId = titleIdProp ?? generatedTitleId;
   const closeLabel = closeAriaLabel ?? `Close ${label.toLowerCase()}`;
   const heading = resolveHugSheetHeader({ chrome, label, title, copy });
+  const stack = stackProp ?? (chrome === 'choice' ? 'overlay' : 'auto');
 
   useScrollLock(open);
 
@@ -157,10 +171,17 @@ export function OsHugSheet({
       ariaLabelledBy={titleId}
       backdropLabel={backdropLabel ?? closeLabel}
       sizing={sizing}
+      deferEnter={deferEnter}
       keepDock={keepDock}
+      stack={stack}
       {...(portalContainer !== undefined ? { portalContainer } : {})}
       {...(moodId ? { moodId } : {})}
-      {...(presentation ? { presentation } : {})}
+      // Drawers slide. Appear is pages/covers — never forward it on a hug.
+      {...(stack === 'overlay' ||
+      !presentation ||
+      presentation === 'appear'
+        ? {}
+        : { presentation })}
       panelClassName={cn(
         chrome === 'choice' && osChoiceSheetPanelClassName,
         panelClassName

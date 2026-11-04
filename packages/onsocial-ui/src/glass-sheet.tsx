@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -23,11 +24,31 @@ import {
   decideSheetFocusCapture,
   decideSheetFocusRelease,
   readHandoffRestoreTarget,
-  resolveHandoffPresentation,
   sheetHandoffFocusActive,
   stashHandoffRestoreTarget,
-  useSheetHandoff,
 } from './sheet-handoff.js';
+import {
+  armCoverExitSuppression,
+  baseOpeningBesides,
+  claimAutoReplace,
+  claimSheetPush,
+  claimSheetReplace,
+  clearCoverExitSuppression,
+  handoffExitArmed,
+  markSheetGone,
+  reportSheetPresence,
+  otherBaseSheetCount,
+  SHEET_HANDOFF_COVER_MS,
+  otherOpenSheetCount,
+  registerOpenSheet,
+  resolveSheetMotion,
+  sheetIsCovered,
+  subscribeOpenSheets,
+  unregisterOpenSheet,
+  type SheetOp,
+  type SheetStackKind,
+  type SheetStackRole,
+} from './sheet-motion.js';
 import { OsIconAction, osIconActionClassName } from './os-icon-action.js';
 import { OsStableScrollHost } from './os-stable-scroll-host.js';
 
@@ -266,11 +287,12 @@ export function resolvePanelPresentation(
 
 export function glassSheetBackdropFilterStyle(
   filter: string,
-  options?: { opacity?: number; transition?: string }
+  options?: { opacity?: number; transition?: string; pointerEvents?: 'none' }
 ): CSSProperties {
   return {
     opacity: options?.opacity,
     transition: options?.transition,
+    pointerEvents: options?.pointerEvents,
     backdropFilter: filter,
     WebkitBackdropFilter: filter,
   };
@@ -286,14 +308,30 @@ export type BackdropEnterStyle = {
  * Scrim for one open.
  * A hug drawer stays off-screen until its height settles. The page stays
  * clear for that wait, then the enter animation fades the scrim once.
- * After the animation, inline opacity follows drag and close.
+ * Drawer replace keeps one dim (`handoffScrim`) on the sheet that is arriving.
+ * The sheet that is leaving drops its copy (`suppressScrim`) in that same
+ * paint, so two blurs never stack and the page does not pulse.
  */
 export function resolveBackdropEnterStyle(input: {
   holdScrim: boolean;
+  /** Replace handoff — inherit resting dim/blur, do not clear the column. */
+  handoffScrim?: boolean;
+  /** Leaving drawer. The successor already owns the column scrim. */
+  suppressScrim?: boolean;
   showEnterAnimation: boolean;
   presented: { opacity: number; filter: string };
   transition: string;
 }): BackdropEnterStyle {
+  if (input.suppressScrim) {
+    return { opacity: 0, filter: 'blur(0px)', transition: 'none' };
+  }
+  if (input.handoffScrim) {
+    return {
+      opacity: input.presented.opacity,
+      filter: input.presented.filter,
+      transition: 'none',
+    };
+  }
   if (input.holdScrim) {
     return { opacity: 0, filter: 'blur(0px)', transition: 'none' };
   }
@@ -305,6 +343,36 @@ export function resolveBackdropEnterStyle(input: {
     filter: input.presented.filter,
     transition: input.transition,
   };
+}
+
+/**
+ * Opaque page sheets skip the scrim at rest. While `appear` is running the
+ * panel is still transparent — keep drawer-grade dim/blur underneath.
+ */
+export function pageTransitionScrimActive(input: {
+  opaquePage: boolean;
+  presentation: GlassSheetPresentation;
+  visible: boolean;
+  enterAnimationDone: boolean;
+}): boolean {
+  return (
+    input.opaquePage &&
+    input.presentation === 'appear' &&
+    input.visible &&
+    !input.enterAnimationDone
+  );
+}
+
+/** Drawer replace must stay dim before enter paints visible (two rAFs). */
+export function sheetBackdropCoverProgress(input: {
+  visible: boolean;
+  coverProgressWhenVisible: number;
+  keepsColumnDim: boolean;
+}): number {
+  if (!input.visible) {
+    return input.keepsColumnDim ? 0 : 1;
+  }
+  return input.coverProgressWhenVisible;
 }
 
 /** Photo / listen face band. Sheets opened while a face is already up rise by this. */
@@ -393,10 +461,19 @@ export interface GlassSheetProps {
   /** Mobile resting detent when the sheet opens. Desktop always opens full height. */
   initialDetent?: GlassSheetDetent;
   /**
-   * `enter` slides the sheet up; `appear` fades in place (page-like);
-   * `swap` keeps the shell mounted for in-place panel changes.
+   * Held only for an in-place page (`swap`) or an explicit fade (`appear`).
+   * The stack otherwise decides: present, push, replace, or cover.
    */
   presentation?: GlassSheetPresentation;
+  /**
+   * `overlay` is a cover. `auto` is a sheet the stack places.
+   */
+  stack?: SheetStackRole;
+  /**
+   * `page` fades onto an empty column and slides when it pushes.
+   * `sheet` slides onto an empty column.
+   */
+  sheetSurface?: 'sheet' | 'page';
   zIndex?: number;
   ariaLabelledBy: string;
   backdropLabel?: string;
@@ -419,6 +496,12 @@ export interface GlassSheetProps {
    * `full` (default) uses the near-viewport sheet height.
    */
   sizing?: GlassSheetSizing;
+  /**
+   * Hold a hug sheet off-screen until the host has the list that sizes it.
+   * The first slide uses that height. A loading stand-in must not open the
+   * frame and then grow when the rows arrive.
+   */
+  deferEnter?: boolean;
   /**
    * When false, hide the grip and disable drag-to-dismiss (page-like overlays).
    * Close still works via header control, backdrop, and Escape. Default true.
@@ -782,34 +865,95 @@ export function sheetPresenceCloseShouldFinish(input: {
   return input.mounted && !input.open && !input.visible;
 }
 
+/**
+ * Swap and appear must be on screen for this paint. Waiting for an effect
+ * leaves a frame where the previous drawer is gone and the page shows —
+ * the jump from guild settings into edit.
+ */
+export function sheetPresenceNeedsSwapReveal(input: {
+  open: boolean;
+  presentation: GlassSheetPresentation;
+  visible: boolean;
+}): boolean {
+  return (
+    input.open &&
+    !input.visible &&
+    (input.presentation === 'swap' || input.presentation === 'appear')
+  );
+}
+
+/** True when open should paint this frame (fade or cut), not wait two rAFs. */
+export function sheetPresenceOpensVisible(
+  presentation: GlassSheetPresentation
+): boolean {
+  return presentation === 'swap' || presentation === 'appear';
+}
+
+/** Post-card ⋯ mounts `<ActionDrawer open />` — no closed→open transition on first paint. */
+export function sheetPresenceInitialState(input: {
+  open: boolean;
+  presentation: GlassSheetPresentation;
+}): { mounted: boolean; visible: boolean } {
+  return {
+    mounted: input.open,
+    visible: input.open && sheetPresenceOpensVisible(input.presentation),
+  };
+}
+
 function useSheetPresence(
   open: boolean,
   onClosed?: () => void,
   presentation: GlassSheetPresentation = 'enter'
 ) {
-  const [mounted, setMounted] = useState(() => open && presentation === 'swap');
-  const [visible, setVisible] = useState(() => open && presentation === 'swap');
+  const [mounted, setMounted] = useState(
+    () => sheetPresenceInitialState({ open, presentation }).mounted
+  );
+  const [visible, setVisible] = useState(
+    () => sheetPresenceInitialState({ open, presentation }).visible
+  );
+  const [trackedOpen, setTrackedOpen] = useState(open);
+  const [holdingExit, setHoldingExit] = useState(false);
   const closeFinishedRef = useRef(false);
+  const holdExitRef = useRef(false);
   const presentationRef = useRef(presentation);
   const openRef = useRef(open);
   presentationRef.current = presentation;
   openRef.current = open;
 
-  useEffect(() => {
+  // Appear and swap paint this frame. Enter still waits two rAFs so the slide
+  // can start from off-screen.
+  if (open !== trackedOpen) {
+    setTrackedOpen(open);
     if (open) {
       closeFinishedRef.current = false;
+      holdExitRef.current = false;
+      setHoldingExit(false);
       setMounted(true);
-      if (presentationRef.current === 'swap') {
-        setVisible(true);
-        return;
-      }
-      const id = requestAnimationFrame(() => {
-        requestAnimationFrame(() => setVisible(true));
-      });
-      return () => cancelAnimationFrame(id);
+      setVisible(sheetPresenceOpensVisible(presentation));
     }
+  } else if (sheetPresenceNeedsSwapReveal({ open, presentation, visible })) {
+    setMounted(true);
+    setVisible(true);
+  } else if (open && !mounted) {
+    // Parent mounted us already open (`open ? <ActionDrawer open />`).
+    setMounted(true);
+    if (sheetPresenceOpensVisible(presentation)) setVisible(true);
+  }
 
-    setVisible(false);
+  const holdExit = useCallback(() => {
+    holdExitRef.current = true;
+    setHoldingExit(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open || sheetPresenceOpensVisible(presentationRef.current)) return;
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!openRef.current) return;
+        setVisible(true);
+      });
+    });
+    return () => cancelAnimationFrame(id);
   }, [open]);
 
   const finishClose = useCallback(() => {
@@ -817,9 +961,22 @@ function useSheetPresence(
       return;
     }
     closeFinishedRef.current = true;
+    holdExitRef.current = false;
+    setHoldingExit(false);
     setMounted(false);
     onClosed?.();
   }, [onClosed]);
+
+  useEffect(() => {
+    if (open) return;
+    if (holdExitRef.current) {
+      const timer = window.setTimeout(finishClose, SHEET_HANDOFF_COVER_MS);
+      return () => window.clearTimeout(timer);
+    }
+    holdExitRef.current = false;
+    setHoldingExit(false);
+    setVisible(false);
+  }, [finishClose, open]);
 
   useEffect(() => {
     if (!sheetPresenceCloseShouldFinish({ open, mounted, visible })) {
@@ -848,8 +1005,138 @@ function useSheetPresence(
   return {
     mounted,
     visible,
+    holdingExit,
+    finishClose,
+    holdExit,
     handlePanelTransitionEnd,
   };
+}
+
+function useClaimedStackOp(
+  open: boolean,
+  stack: SheetStackRole,
+  menuOpen: boolean,
+  id: symbol
+): { replace: boolean; push: boolean } {
+  const replaceRef = useRef(false);
+  const pushRef = useRef(false);
+  const menuHandoffRef = useRef(false);
+  const wasOpenRef = useRef(false);
+  const [, setLatchEpoch] = useState(0);
+  if (stack !== 'overlay' && open && !wasOpenRef.current) {
+    // Latch once. A menu unregisters on the next layout, and a sibling
+    // drawer may not have reported its close until this render finishes.
+    const claimed = claimSheetReplace();
+    const leaving = claimAutoReplace(id);
+    if (menuOpen || leaving || claimed) {
+      armCoverExitSuppression();
+      menuHandoffRef.current = true;
+    }
+    replaceRef.current = claimed || menuOpen || leaving;
+    pushRef.current = replaceRef.current ? false : claimSheetPush();
+  } else if (!open) {
+    replaceRef.current = false;
+    pushRef.current = false;
+    menuHandoffRef.current = false;
+  }
+  wasOpenRef.current = open;
+  useLayoutEffect(() => {
+    if (!open || stack === 'overlay' || replaceRef.current) return;
+    if (!claimAutoReplace(id)) return;
+    replaceRef.current = true;
+    pushRef.current = false;
+    armCoverExitSuppression();
+    menuHandoffRef.current = true;
+    setLatchEpoch((epoch) => epoch + 1);
+  }, [id, open, stack]);
+  useLayoutEffect(() => {
+    if (!open || !menuHandoffRef.current) return;
+    const timer = window.setTimeout(
+      clearCoverExitSuppression,
+      SHEET_HANDOFF_COVER_MS
+    );
+    return () => window.clearTimeout(timer);
+  }, [open]);
+  return {
+    replace: open && replaceRef.current,
+    push: open && pushRef.current,
+  };
+}
+
+function stackKindFor(
+  stack: SheetStackRole,
+  sheetSurface: 'sheet' | 'page'
+): SheetStackKind {
+  if (stack === 'overlay') return 'cover';
+  return sheetSurface === 'page' ? 'page' : 'sheet';
+}
+
+function useResolvedSheetMotion(
+  open: boolean,
+  band: boolean,
+  requested: GlassSheetPresentation,
+  stack: SheetStackRole,
+  sheetSurface: 'sheet' | 'page'
+): {
+  presentation: GlassSheetPresentation;
+  op: SheetOp;
+  covered: boolean;
+  shouldHoldExit: () => boolean;
+} {
+  const id = useRef(Symbol('glass-sheet')).current;
+  const otherSheetsOpen = useSyncExternalStore(
+    subscribeOpenSheets,
+    () => otherOpenSheetCount(id),
+    () => 0
+  );
+  const otherBaseSheets = useSyncExternalStore(
+    subscribeOpenSheets,
+    () => otherBaseSheetCount(id),
+    () => 0
+  );
+  const covered = useSyncExternalStore(
+    subscribeOpenSheets,
+    () => open && sheetIsCovered(id),
+    () => false
+  );
+  const kind = stackKindFor(stack, sheetSurface);
+  const hadOpenRef = useRef(false);
+  if (!band && (open || hadOpenRef.current)) {
+    reportSheetPresence(id, kind, open);
+    if (open) hadOpenRef.current = true;
+    else hadOpenRef.current = false;
+  }
+  const claimed = useClaimedStackOp(
+    open,
+    stack,
+    otherSheetsOpen > otherBaseSheets,
+    id
+  );
+  const shouldHoldExit = useCallback(
+    () => handoffExitArmed() || baseOpeningBesides(id),
+    [id]
+  );
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    registerOpenSheet(id, kind);
+    return () => {
+      unregisterOpenSheet(id);
+      markSheetGone(id);
+    };
+  }, [id, kind, open]);
+
+  const motion = resolveSheetMotion({
+    band,
+    requested,
+    stack,
+    kind: sheetSurface,
+    claimedReplace: claimed.replace,
+    claimedPush: claimed.push,
+    otherSheetsOpen,
+    otherBaseSheets,
+  });
+  return { ...motion, covered, shouldHoldExit };
 }
 
 /** Frosted sheet — peek/drag dismiss, or page-like with dragDismiss={false}. */
@@ -863,6 +1150,8 @@ export function GlassSheet({
   peekRatio = GLASS_SHEET_PEEK_RATIO,
   initialDetent = 'peek',
   presentation = 'enter',
+  stack = 'auto',
+  sheetSurface = 'sheet',
   zIndex = 50,
   ariaLabelledBy,
   backdropLabel = 'Close',
@@ -874,6 +1163,7 @@ export function GlassSheet({
   panelClassName,
   rootClassName,
   sizing = 'full',
+  deferEnter = false,
   dragDismiss = true,
   portalContainer,
   surface = 'glass',
@@ -883,13 +1173,17 @@ export function GlassSheet({
 }: GlassSheetProps) {
   const opaquePage = surface === 'page';
   const band = sizing === 'band';
-  const handoff = useSheetHandoff();
-  const effectivePresentation = band
-    ? 'swap'
-    : resolveHandoffPresentation(presentation, handoff);
-  // Fade only the sheets whose enter slide was replaced. Explicit appear
-  // and swap stay as they are, including inside a handoff provider.
-  const crossfade = handoff && !band && presentation === 'enter';
+  const motion = useResolvedSheetMotion(
+    open,
+    band,
+    presentation,
+    stack,
+    sheetSurface
+  );
+  const effectivePresentation = motion.presentation;
+  const stackOp = motion.op;
+  const stackCovered = motion.covered;
+  const shouldHoldExit = motion.shouldHoldExit;
   const inheritedMood = useMoodTheme();
   const resolvedMood = resolveSheetMood(
     { moodId, style: moodStyle },
@@ -918,11 +1212,19 @@ export function GlassSheet({
   // Presence follows the caller's `open`, not portal readiness. A one-frame
   // host gap must not run the close timer — that calls `onClosed` and a
   // choice menu stays shut after the option unmounts.
-  const { mounted, visible, handlePanelTransitionEnd } = useSheetPresence(
-    open,
-    onClosed,
-    effectivePresentation
-  );
+  const { mounted, visible, holdingExit, holdExit, handlePanelTransitionEnd } =
+    useSheetPresence(open, onClosed, effectivePresentation);
+
+  const wasSheetOpenRef = useRef(open);
+  useLayoutEffect(() => {
+    const wasOpen = wasSheetOpenRef.current;
+    wasSheetOpenRef.current = open;
+    // Hold the drawer that is leaving. Sliding it off uncovers the page
+    // before the next one has covered the slot.
+    if (wasOpen && !open && shouldHoldExit()) {
+      holdExit();
+    }
+  }, [holdExit, open, shouldHoldExit]);
   const {
     detent,
     dragging,
@@ -940,9 +1242,26 @@ export function GlassSheet({
     panelHeightPx
   );
 
+  // Post-card and guild feed ⋯ menus are overlay hugs — skip height settle.
+  const skipHugEnterSettle =
+    stack === 'overlay' &&
+    sizing === 'hug' &&
+    (effectivePresentation === 'enter' || effectivePresentation === 'appear');
   const hugEnterPending =
-    hugEnterNeedsArming(sizing, effectivePresentation) && !enterAnimationDone;
-  const panelIsOpen = visible && (!hugEnterPending || hugEnterArmed);
+    !skipHugEnterSettle &&
+    hugEnterNeedsArming(sizing, effectivePresentation) &&
+    !enterAnimationDone;
+  const panelIsOpen =
+    visible &&
+    !deferEnter &&
+    (skipHugEnterSettle || !hugEnterPending || hugEnterArmed);
+  const replaceEnterCover =
+    !opaquePage &&
+    !band &&
+    open &&
+    stackOp === 'replace' &&
+    effectivePresentation === 'enter' &&
+    (!enterAnimationDone || !visible || !panelIsOpen);
   const showEnterAnimation =
     !band &&
     (effectivePresentation === 'enter' || effectivePresentation === 'appear') &&
@@ -992,7 +1311,13 @@ export function GlassSheet({
   }, [mounted, open]);
 
   useLayoutEffect(() => {
-    if (!mounted || !visible || !hugEnterPending || hugEnterArmed) {
+    if (
+      !mounted ||
+      !visible ||
+      deferEnter ||
+      !hugEnterPending ||
+      hugEnterArmed
+    ) {
       return;
     }
 
@@ -1046,7 +1371,14 @@ export function GlassSheet({
       window.cancelAnimationFrame(raf);
       if (fontsTimer) window.clearTimeout(fontsTimer);
     };
-  }, [mounted, visible, hugEnterPending, hugEnterArmed, portalTarget]);
+  }, [
+    deferEnter,
+    mounted,
+    visible,
+    hugEnterPending,
+    hugEnterArmed,
+    portalTarget,
+  ]);
 
   useEffect(() => {
     const mq = window.matchMedia(`(min-width: ${MOBILE_MAX_WIDTH_PX + 1}px)`);
@@ -1056,11 +1388,16 @@ export function GlassSheet({
     return () => mq.removeEventListener('change', syncDesktop);
   }, []);
 
-  const coverProgress = useMemo(() => {
-    if (!visible) {
-      return 1;
-    }
+  const leavingReplaceHandoff =
+    !opaquePage &&
+    !band &&
+    !open &&
+    mounted &&
+    visible &&
+    (holdingExit || handoffExitArmed());
+  const keepsColumnDim = replaceEnterCover || leavingReplaceHandoff;
 
+  const coverProgress = useMemo(() => {
     const offsetPx = resolveSheetOffsetPx(
       dragPx,
       detent,
@@ -1068,22 +1405,47 @@ export function GlassSheet({
       peekRatio,
       isDesktopSheet
     );
-
-    return resolveSheetCoverProgress(offsetPx, panelHeightPx);
-  }, [detent, dragPx, isDesktopSheet, panelHeightPx, peekRatio, visible]);
+    const whenVisible = resolveSheetCoverProgress(offsetPx, panelHeightPx);
+    return sheetBackdropCoverProgress({
+      visible,
+      coverProgressWhenVisible: whenVisible,
+      keepsColumnDim,
+    });
+  }, [
+    detent,
+    dragPx,
+    isDesktopSheet,
+    keepsColumnDim,
+    panelHeightPx,
+    peekRatio,
+    visible,
+  ]);
 
   const presentationTransition = dragging
     ? 'none'
     : `opacity ${SHEET_TRANSITION_MS}ms ${SHEET_PRESENTATION_EASE}, backdrop-filter ${SHEET_TRANSITION_MS}ms ${SHEET_PRESENTATION_EASE}`;
 
+  const pageTransitionScrim = pageTransitionScrimActive({
+    opaquePage,
+    presentation: effectivePresentation,
+    visible,
+    enterAnimationDone,
+  });
+  const restingPageScrim = { opacity: 0, filter: 'blur(0px)' };
   const backdropPresentation = opaquePage
-    ? { opacity: 0, filter: 'blur(0px)' }
+    ? pageTransitionScrim
+      ? resolveBackdropPresentation(0, { reduceTransparency })
+      : restingPageScrim
     : resolveBackdropPresentation(coverProgress, {
         reduceTransparency,
       });
   const backdropEnter = resolveBackdropEnterStyle({
-    holdScrim: visible && !panelIsOpen,
-    showEnterAnimation,
+    holdScrim:
+      visible && !panelIsOpen && !replaceEnterCover && !keepsColumnDim,
+    handoffScrim: replaceEnterCover || pageTransitionScrim,
+    suppressScrim: leavingReplaceHandoff,
+    showEnterAnimation:
+      showEnterAnimation && !pageTransitionScrim && !keepsColumnDim,
     presented: backdropPresentation,
     transition: presentationTransition,
   });
@@ -1095,10 +1457,12 @@ export function GlassSheet({
   const moodAttr = resolvedMood.moodId;
 
   useEffect(() => {
-    if (!open) {
-      setEnterAnimationDone(false);
-      setHugEnterArmed(false);
-    }
+    if (open) return;
+    // Do not tear down hug enter state while the panel is held for a replace —
+    // that flickers panelIsOpen and jumps the column.
+    if (handoffExitArmed()) return;
+    setEnterAnimationDone(false);
+    setHugEnterArmed(false);
   }, [open]);
 
   useLayoutEffect(() => {
@@ -1145,24 +1509,27 @@ export function GlassSheet({
   }, [finishEnterAnimation, showEnterAnimation]);
 
   const overlayFloor = resolveGlassSheetZIndex(zIndex, openedAboveMediaFace);
-  const overlayActive = mounted && !band && portalTarget != null;
+  const overlayActive =
+    (open || leavingReplaceHandoff) &&
+    mounted &&
+    (panelIsOpen || replaceEnterCover || leavingReplaceHandoff) &&
+    !band &&
+    portalTarget != null;
   const overlay = useOverlayStackZ(overlayActive, overlayFloor, keepDock);
+  const overlayTop = overlayActive && overlay.top;
 
-  useSheetFocusTrap(
-    visible && portalTarget != null && !band && overlay.top,
-    panelRef
-  );
+  useSheetFocusTrap(overlayTop && portalTarget != null && !band, panelRef);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
-    if (!root || !overlayActive) return;
-    if (!overlay.top) {
+    if (!root || band) return;
+    if (!overlayActive || !overlayTop) {
       root.inert = true;
       return;
     }
     if (root.style.visibility === 'hidden') return;
     root.inert = false;
-  }, [overlay.top, overlayActive]);
+  }, [band, overlayActive, overlayTop]);
 
   useLayoutEffect(() => {
     if (!mounted) {
@@ -1191,8 +1558,10 @@ export function GlassSheet({
     <div
       className={cn(
         'glass-sheet-root',
-        visible && 'is-visible',
-        showEnterAnimation && 'glass-sheet-root--enter',
+        panelIsOpen && 'is-visible',
+        showEnterAnimation &&
+          stackOp !== 'replace' &&
+          'glass-sheet-root--enter',
         hostedInClipHost && !band && 'glass-sheet-root--hosted',
         band && 'glass-sheet-root--band',
         rootClassName
@@ -1201,8 +1570,10 @@ export function GlassSheet({
       data-mood={moodAttr}
       data-surface={surface}
       data-presentation={effectivePresentation}
+      data-stack-op={stackOp}
+      data-stack-covered={stackCovered ? 'true' : undefined}
       data-sizing={sizing}
-      data-crossfade={crossfade ? 'true' : undefined}
+      data-sheet-leaving={!open && mounted ? 'true' : undefined}
       ref={rootRef}
       data-keep-dock={keepDock ? 'true' : undefined}
       style={{
@@ -1211,7 +1582,7 @@ export function GlassSheet({
       }}
       role="presentation"
     >
-      {opaquePage ? null : band ? (
+      {opaquePage && !pageTransitionScrim ? null : band ? (
         <div
           className="glass-sheet-backdrop glass-sheet-band-scrim"
           aria-hidden
@@ -1231,6 +1602,7 @@ export function GlassSheet({
           style={glassSheetBackdropFilterStyle(backdropEnter.filter, {
             opacity: backdropEnter.opacity,
             transition: backdropEnter.transition,
+            pointerEvents: panelIsOpen ? undefined : 'none',
           })}
         />
       )}
@@ -1251,7 +1623,8 @@ export function GlassSheet({
         data-mood={moodAttr}
         data-surface={surface}
         data-presentation={effectivePresentation}
-        data-crossfade={crossfade ? 'true' : undefined}
+        data-stack-op={stackOp}
+        data-stack-covered={stackCovered ? 'true' : undefined}
         data-sizing={sizing}
         style={
           {

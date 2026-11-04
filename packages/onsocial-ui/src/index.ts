@@ -55,6 +55,18 @@ export {
   useSheetHandoff,
 } from './sheet-handoff.js';
 export {
+  beginSheetReplace,
+  pushSheet,
+  replaceSheet,
+  resolveSheetMotion,
+  SHEET_REPLACE_FOCUS_MS,
+  type SheetMotion,
+  type SheetOp,
+  type SheetStackKind,
+  type SheetStackRole,
+} from './sheet-motion.js';
+export { useSheetStack, useSheetStackEntry } from './use-sheet-stack.js';
+export {
   OsPageSheet,
   osPageSheetPanelClassName,
   type OsPageSheetProps,

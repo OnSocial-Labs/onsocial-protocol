@@ -12,7 +12,6 @@ import {
   OsSheetAction,
   OsSheetActions,
   PlusIcon,
-  type GlassSheetPresentation,
 } from '@onsocial/ui';
 import {
   StorageShareGrantsReadout,
@@ -65,7 +64,6 @@ import {
   STORAGE_SHARE_POOL_DEPOSIT_MIN_YOCTO,
   STORAGE_SHARE_POOL_DEPOSIT_PRESETS_NEAR,
 } from '@/lib/user-storage-display';
-import { useGuildSettingsDrawerHandoff } from '@/features/guilds/use-guild-settings-drawer-handoff';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
   txToastConfirming,
@@ -90,9 +88,6 @@ export function GuildGroupStorageSheet({
   guildName,
   initialRecipient = null,
   onClose,
-  onPresented,
-  /** Nest over Members (⋮ Add storage) — skips Settings handoff. */
-  presentation: presentationOverride,
   zIndex = SHEET_Z.list,
 }: {
   open: boolean;
@@ -100,18 +95,10 @@ export function GuildGroupStorageSheet({
   guildName?: string;
   initialRecipient?: string | null;
   onClose: () => void;
-  /** Settings crossfade has painted — parent can drop the handoff flag. */
-  onPresented?: () => void;
-  presentation?: GlassSheetPresentation;
   zIndex?: number;
 }) {
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
-  const handoffPresentation = useGuildSettingsDrawerHandoff(
-    presentationOverride ? false : sheetOpen,
-    presentationOverride ? undefined : onPresented
-  );
-  const presentation = presentationOverride ?? handoffPresentation;
   const { accountId, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const baseId = useId();
@@ -228,7 +215,9 @@ export function GuildGroupStorageSheet({
   const summary = pool.summary;
   const poolUnavailable = Boolean(pool.error);
   const needsFunding =
-    !pool.loading && !poolUnavailable && (summary?.totalCapacityBytes ?? 0) <= 0;
+    !pool.loading &&
+    !poolUnavailable &&
+    (summary?.totalCapacityBytes ?? 0) <= 0;
   const showFundPanel = (needsFunding || showAddCapacity) && !composerOpen;
   const showHome =
     Boolean(accountId) &&
@@ -535,7 +524,6 @@ export function GuildGroupStorageSheet({
       closeAriaLabel="Close"
       backdropLabel="Close guild storage"
       zIndex={zIndex}
-      presentation={presentation}
       initialDetent="peek"
       peekRatio={GLASS_SHEET_PEEK_RATIO}
       headerClassName="account-storage-header"

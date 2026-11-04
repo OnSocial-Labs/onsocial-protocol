@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { postContentPath, type PostRow } from '@onsocial/sdk';
-import { Divider, SheetHandoffProvider } from '@onsocial/ui';
+import { Divider, replaceSheet } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { useOsInAppPop } from '@/components/providers/os-face-leave-provider';
@@ -93,7 +93,6 @@ import {
   canConfigureGuild,
   canOpenGuildSettings,
 } from '@/features/guilds/guild-settings-actions';
-import { guildSettingsHandoffIsReplace } from '@/features/guilds/guild-sheet-handoff';
 import { GuildSettingsSheet } from '@/features/guilds/guild-settings-sheet';
 import { GuildGroupStorageSheet } from '@/features/guilds/guild-group-storage-sheet';
 import { GuildProposalsSheet } from '@/features/guilds/guild-proposals-sheet';
@@ -250,10 +249,6 @@ export function LiveGuildPanel({
   const [factsSheetOpen, setFactsSheetOpen] = useState(false);
   /** Nests on Members — not a manageSheet replace. */
   const [addMemberOpen, setAddMemberOpen] = useState(false);
-  const [sheetHandoff, setSheetHandoff] = useState(false);
-  const settleSheetHandoff = useCallback(() => {
-    setSheetHandoff(false);
-  }, []);
   const [addSpaceOpen, setAddSpaceOpen] = useState(false);
   const [writersTarget, setWritersTarget] = useState<{
     spaceId: string;
@@ -1431,7 +1426,7 @@ export function LiveGuildPanel({
           }
         />
       ) : null}
-      <SheetHandoffProvider active={sheetHandoff}>
+      <>
         {config && manageSheet === 'requests' ? (
           <GuildMemberRequestsSheet
             open
@@ -1440,7 +1435,6 @@ export function LiveGuildPanel({
             isMember={viewer?.isMember ?? false}
             memberDriven={config.memberDriven}
             onClose={() => {
-              setSheetHandoff(false);
               openManageSheet(null);
             }}
             onResolved={() => void refresh()}
@@ -1460,7 +1454,6 @@ export function LiveGuildPanel({
               }}
               onClose={() => {
                 setAddMemberOpen(false);
-                setSheetHandoff(false);
                 openManageSheet(null);
               }}
               onMembersChanged={() => void refresh()}
@@ -1490,19 +1483,17 @@ export function LiveGuildPanel({
             accessGated={config.accessGated}
             focusProposal={initialProposal}
             onClose={() => {
-              setSheetHandoff(false);
               openManageSheet(null);
             }}
             onOpenRequests={
               viewer?.isMember
                 ? () => {
-                    setSheetHandoff(true);
+                    replaceSheet();
                     openManageSheet('requests');
                   }
                 : undefined
             }
             onResolved={() => void refresh()}
-            onPresented={settleSheetHandoff}
           />
         ) : null}
         {config ? (
@@ -1527,7 +1518,7 @@ export function LiveGuildPanel({
             onClose={() => setFactsSheetOpen(false)}
             onOpenMembers={() => openManageSheet('members')}
             onHandoffMembers={() => {
-              setSheetHandoff(true);
+              replaceSheet();
               setFactsSheetOpen(false);
               openManageSheet('members');
             }}
@@ -1554,7 +1545,7 @@ export function LiveGuildPanel({
               }
             }}
             onHandoff={(id) => {
-              setSheetHandoff(guildSettingsHandoffIsReplace(id));
+              replaceSheet();
               setSettingsSheetOpen(false);
               if (id === 'requests' || id === 'proposals') {
                 openManageSheet(id);
@@ -1567,7 +1558,11 @@ export function LiveGuildPanel({
                 setGroupStorageRecipient(null);
                 setGroupStorageSheetOpen(true);
               }
-              router.replace(guildPath(groupId), { scroll: false });
+              // Let the successor sheet paint its cover before the URL swap
+              // re-renders the guild shell underneath.
+              queueMicrotask(() => {
+                router.replace(guildPath(groupId), { scroll: false });
+              });
             }}
             onEditGuild={() => setEditSheetOpen(true)}
             onOpenRooms={() => setRoomsSheetOpen(true)}
@@ -1590,12 +1585,10 @@ export function LiveGuildPanel({
             initialRecipient={groupStorageRecipient}
             zIndex={groupStorageNested ? SHEET_Z.nested : undefined}
             onClose={() => {
-              setSheetHandoff(false);
               setGroupStorageSheetOpen(false);
               setGroupStorageRecipient(null);
               setGroupStorageNested(false);
             }}
-            onPresented={settleSheetHandoff}
           />
         ) : null}
         {canConfigure && config ? (
@@ -1604,7 +1597,6 @@ export function LiveGuildPanel({
             groupId={groupId}
             initial={config}
             onClose={() => {
-              setSheetHandoff(false);
               setEditSheetOpen(false);
             }}
             onSaved={() => void refresh()}
@@ -1617,14 +1609,12 @@ export function LiveGuildPanel({
             structure={config.structure}
             memberDriven={config.memberDriven}
             onClose={() => {
-              setSheetHandoff(false);
               setRoomsSheetOpen(false);
             }}
-            onPresented={settleSheetHandoff}
             onSaved={() => void refresh()}
           />
         ) : null}
-      </SheetHandoffProvider>
+      </>
       {config ? (
         <GuildFeedAddRoomSheet
           open={addSpaceOpen}

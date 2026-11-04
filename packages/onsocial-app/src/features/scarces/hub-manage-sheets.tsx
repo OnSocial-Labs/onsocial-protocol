@@ -3,21 +3,25 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
 import {
+  ChevronLeftIcon,
   DiscardConfirmSheet,
   OsHugSheet,
+  OsIconAction,
+  OsPageSheet,
   OsSheetAction,
   OsSheetActions,
   SuffixField,
   osFieldBorderedClassName,
   useDiscardConfirm,
 } from '@onsocial/ui';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { OsAppScreen } from '@/components/app/os-app-screen';
 import {
   ProfileAccountSearchPicks,
   profileAccountSearchActive,
@@ -131,6 +135,7 @@ function HubManageSheetChrome({
   pending?: boolean;
   dirty?: boolean;
 }) {
+  const titleId = useId();
   const {
     discardConfirmOpen,
     requestCloseOrConfirm,
@@ -139,31 +144,57 @@ function HubManageSheetChrome({
     discard,
   } = useDiscardConfirm({ open, dirty, pending, onClose });
 
+  const requestClose = useCallback(() => {
+    if (!requestCloseOrConfirm()) return;
+    onClose();
+  }, [onClose, requestCloseOrConfirm]);
+
   return (
     <>
-      <OsSlideOverScreen
+      <OsPageSheet
         open={open}
-        onClose={onClose}
+        onClose={requestClose}
         onClosed={() => {
           clearDiscardConfirm();
           onClosed?.();
         }}
-        onBeforeClose={requestCloseOrConfirm}
-        title={title}
-        subtitle={subtitle}
-        closeAriaLabel="Close"
-        closeDisabled={pending}
+        surface="page"
+        presentation="appear"
         zIndex={HUB_MANAGE_Z}
-        className="hub-manage-slide"
-        contentClassName="hub-manage-slide-body"
+        ariaLabelledBy={titleId}
+        backdropLabel="Close"
+        panelClassName="hub-manage-sheet-panel"
+        bodyClassName="hub-manage-sheet-body"
+        header={null}
         footer={
           footer ? (
             <div className="hub-manage-sheet-footer">{footer}</div>
           ) : null
         }
       >
-        <div className="hub-manage-sheet-main">{children}</div>
-      </OsSlideOverScreen>
+        <OsAppScreen
+          title={title}
+          subtitle={subtitle}
+          glassChrome
+          compactChrome
+          embedded
+          leading={
+            <OsIconAction
+              ariaLabel="Back"
+              disabled={pending}
+              onClick={requestClose}
+            >
+              <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+            </OsIconAction>
+          }
+          className="hub-manage-slide"
+        >
+          <span id={titleId} className="sr-only">
+            {title}
+          </span>
+          <div className="hub-manage-sheet-main">{children}</div>
+        </OsAppScreen>
+      </OsPageSheet>
       <DiscardConfirmSheet
         open={discardConfirmOpen}
         onDiscard={discard}

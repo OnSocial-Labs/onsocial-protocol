@@ -16,19 +16,21 @@ import {
   UserPlusIcon,
   VolumeMuteIcon,
   VolumeUpIcon,
-  SheetHandoffProvider,
+  replaceSheet,
 } from '@onsocial/ui';
 import {
   ActionDrawer,
   type ActionDrawerItem,
 } from '@/components/ui/action-drawer';
 import { BlockConfirmPanel } from '@/components/wallet/block-confirm-panel';
+import { MuteConfirmPanel } from '@/components/wallet/mute-confirm-panel';
 import { EndorseComposeSheet } from '@/components/panels/endorse-compose-sheet';
 import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
 import {
   BLOCK_ACTION_DESCRIPTION,
   MUTE_ACTION_DESCRIPTION,
   blockConfirmCopy,
+  muteConfirmCopy,
 } from '@/lib/block-confirm-copy';
 import { displayName } from '@/lib/profile-display';
 import { isDownloadAbort } from '@/lib/media-download';
@@ -103,9 +105,9 @@ export const PostCardMenu = memo(function PostCardMenu({
   const [supportOpen, setSupportOpen] = useState(false);
   const [endorseOpen, setEndorseOpen] = useState(false);
   const [confirmBlock, setConfirmBlock] = useState(false);
+  const [confirmMute, setConfirmMute] = useState(false);
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
-  const [handoff, setHandoff] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const isOpen = open && !closing;
   const requestClose = useCallback(() => {
@@ -114,7 +116,6 @@ export const PostCardMenu = memo(function PostCardMenu({
   const handleClosed = useCallback(() => {
     setClosing(false);
     setOpen(false);
-    setConfirmBlock(false);
   }, []);
   const close = requestClose;
   const authorLabel = displayName(accountId, authorProfile?.displayName);
@@ -191,14 +192,15 @@ export const PostCardMenu = memo(function PostCardMenu({
     }
   }
 
-  async function handleMuteToggle() {
+  async function handleMute(shouldMute: boolean) {
     if (isMutePendingForTarget(accountId)) return;
-    const next = !isMuting(accountId);
     try {
-      await updateMute(accountId, next);
+      await updateMute(accountId, shouldMute);
       setTxResult({
         type: 'success',
-        msg: next ? txToastSuccess.accountMuted : txToastSuccess.accountUnmuted,
+        msg: shouldMute
+          ? txToastSuccess.accountMuted
+          : txToastSuccess.accountUnmuted,
       });
     } catch (error) {
       if (isWalletUserCancellation(error)) return;
@@ -207,12 +209,18 @@ export const PostCardMenu = memo(function PostCardMenu({
         msg:
           error instanceof Error
             ? error.message
-            : next
+            : shouldMute
               ? txToastError.muteAccountFailed
               : txToastError.unmuteAccountFailed,
       });
     } finally {
-      close();
+      setConfirmMute(false);
+      if (shouldMute) {
+        setClosing(false);
+        setOpen(false);
+      } else {
+        close();
+      }
     }
   }
 
@@ -233,7 +241,12 @@ export const PostCardMenu = memo(function PostCardMenu({
       });
     } finally {
       setConfirmBlock(false);
-      close();
+      if (shouldBlock) {
+        setClosing(false);
+        setOpen(false);
+      } else {
+        close();
+      }
     }
   }
 
@@ -295,7 +308,7 @@ export const PostCardMenu = memo(function PostCardMenu({
         label: 'Support',
         leading: <GiftIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
-          setHandoff(true);
+          replaceSheet();
           setSupportOpen(true);
           setClosing(false);
           setOpen(false);
@@ -319,7 +332,7 @@ export const PostCardMenu = memo(function PostCardMenu({
             requestClose();
             return;
           }
-          setHandoff(true);
+          replaceSheet();
           setEndorseOpen(true);
           setClosing(false);
           setOpen(false);
@@ -341,7 +354,13 @@ export const PostCardMenu = memo(function PostCardMenu({
         ) : (
           <VolumeMuteIcon className="os-action-drawer-icon" aria-hidden />
         ),
-        onSelect: () => void handleMuteToggle(),
+        onSelect: () => {
+          if (muted) {
+            void handleMute(false);
+            return;
+          }
+          setConfirmMute(true);
+        },
       });
       items.push({
         id: 'block',
@@ -458,59 +477,85 @@ export const PostCardMenu = memo(function PostCardMenu({
         {open ? (
           <ActionDrawer
             open={isOpen}
-            onClose={confirmBlock ? () => setConfirmBlock(false) : requestClose}
+            onClose={requestClose}
             onClosed={handleClosed}
-            label={
-              confirmBlock
-                ? blockConfirmCopy({
-                    accountId,
-                    profileName: authorProfile?.displayName,
-                  }).title
-                : authorLabel
-            }
-            copy={confirmBlock ? authorLabel : undefined}
+            label={authorLabel}
             listAriaLabel={authorLabel}
-            closeAriaLabel={confirmBlock ? 'Back' : 'Close'}
-            items={confirmBlock ? undefined : menuItems}
+            closeAriaLabel="Close"
+            items={menuItems}
             {...(zIndex != null ? { zIndex } : {})}
-          >
-            {confirmBlock ? (
-              <BlockConfirmPanel
-                accountId={accountId}
-                profileName={authorProfile?.displayName}
-                pending={blockPending}
-                onConfirm={() => void handleBlockToggle(true)}
-                onCancel={() => setConfirmBlock(false)}
-              />
-            ) : null}
-          </ActionDrawer>
+          />
         ) : null}
+        <ActionDrawer
+          open={confirmBlock}
+          stack="auto"
+          onClose={() => {
+            if (!blockPending) setConfirmBlock(false);
+          }}
+          label={
+            blockConfirmCopy({
+              accountId,
+              profileName: authorProfile?.displayName,
+            }).title
+          }
+          copy={authorLabel}
+          closeAriaLabel="Close"
+          {...(zIndex != null ? { zIndex } : {})}
+        >
+          {confirmBlock ? (
+            <BlockConfirmPanel
+              accountId={accountId}
+              profileName={authorProfile?.displayName}
+              pending={blockPending}
+              onConfirm={() => void handleBlockToggle(true)}
+              onCancel={() => setConfirmBlock(false)}
+            />
+          ) : null}
+        </ActionDrawer>
+        <ActionDrawer
+          open={confirmMute}
+          stack="auto"
+          onClose={() => {
+            if (!mutePending) setConfirmMute(false);
+          }}
+          label={
+            muteConfirmCopy({
+              accountId,
+              profileName: authorProfile?.displayName,
+            }).title
+          }
+          copy={authorLabel}
+          closeAriaLabel="Close"
+          {...(zIndex != null ? { zIndex } : {})}
+        >
+          {confirmMute ? (
+            <MuteConfirmPanel
+              accountId={accountId}
+              profileName={authorProfile?.displayName}
+              pending={mutePending}
+              onConfirm={() => void handleMute(true)}
+              onCancel={() => setConfirmMute(false)}
+            />
+          ) : null}
+        </ActionDrawer>
       </div>
-      <SheetHandoffProvider active={handoff}>
-        <EndorseComposeSheet
-          open={endorseOpen}
-          pageAccountId={accountId}
-          profileName={authorProfile?.displayName}
-          avatarUrl={authorProfile?.avatarUrl}
-          intent={viewerEndorsed ? 'auto' : 'create'}
-          onOpenChange={(next) => {
-            setEndorseOpen(next);
-            if (!next) setHandoff(false);
-          }}
-          {...(zIndex != null ? { zIndex } : {})}
-        />
-        <ProfileSupportSheet
-          open={supportOpen}
-          pageAccountId={accountId}
-          profileName={authorProfile?.displayName}
-          avatarUrl={authorProfile?.avatarUrl}
-          onOpenChange={(next) => {
-            setSupportOpen(next);
-            if (!next) setHandoff(false);
-          }}
-          {...(zIndex != null ? { zIndex } : {})}
-        />
-      </SheetHandoffProvider>
+      <EndorseComposeSheet
+        open={endorseOpen}
+        pageAccountId={accountId}
+        profileName={authorProfile?.displayName}
+        avatarUrl={authorProfile?.avatarUrl}
+        intent={viewerEndorsed ? 'auto' : 'create'}
+        onOpenChange={setEndorseOpen}
+        {...(zIndex != null ? { zIndex } : {})}
+      />
+      <ProfileSupportSheet
+        open={supportOpen}
+        pageAccountId={accountId}
+        profileName={authorProfile?.displayName}
+        avatarUrl={authorProfile?.avatarUrl}
+        onOpenChange={setSupportOpen}
+        {...(zIndex != null ? { zIndex } : {})}
+      />
     </>
   );
 });

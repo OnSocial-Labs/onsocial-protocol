@@ -53,6 +53,8 @@ describe('DAO org hug drawers', () => {
   });
 
   it('leaves Proposals on the keep-dock OsAppScreen page', () => {
+    expect(proposals).toContain('replaceSheet()');
+    expect(proposals).not.toContain('setSheetHandoff');
     expect(proposals).toContain('OsAppScreen');
     expect(proposals).toContain('keepDock');
     expect(proposals).toContain('dockBack');
@@ -87,7 +89,9 @@ describe('DAO org hug drawers', () => {
   it('batches OnSocial publish on config Edit with a wallet slider', () => {
     expect(edit).toContain('resolveDaoEditBaseline');
     expect(edit).toContain('submitProtocolProposals');
-    expect(edit).toContain('account-action-toggle os-disabled-ink dao-edit-publish');
+    expect(edit).toContain(
+      'account-action-toggle os-disabled-ink dao-edit-publish'
+    );
     expect(edit).toContain('account-safe-mode-switch');
     expect(edit).toContain('DAO_CREATE_PUBLISH');
     expect(edit).toContain('DAO_EDIT_PUBLISH_HINT');

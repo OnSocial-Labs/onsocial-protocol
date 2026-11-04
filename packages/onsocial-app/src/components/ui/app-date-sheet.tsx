@@ -310,7 +310,7 @@ export function AppDateSheet({
       closeAriaLabel={`Close ${label.toLowerCase()} picker`}
       backdropLabel={`Close ${label.toLowerCase()} picker`}
       zIndex={zIndex}
-      presentation="enter"
+      stack="overlay"
       titleId={titleId}
       panelClassName="drop-schedule-sheet-panel os-sheet-cap-tall"
       bodyClassName="drop-schedule-sheet-body"

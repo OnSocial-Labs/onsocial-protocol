@@ -231,6 +231,10 @@ test.describe('DAO manage shell', () => {
       'data-presentation',
       'enter'
     );
+    await expect(page.locator('.glass-sheet-root.is-visible')).toHaveAttribute(
+      'data-stack-op',
+      'present'
+    );
     const membersDialog = page.getByRole('dialog', { name: 'Members' });
     await expect(membersDialog).toBeVisible();
     // Backdrop + header share this aria-label; only the header lives in the dialog.

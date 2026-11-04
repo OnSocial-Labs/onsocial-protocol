@@ -5,7 +5,7 @@
   "scripts": {
     "build:deps": "pnpm --filter @onsocial/app^... run build",
     "predev": "pnpm run build:deps",
-    "dev": "next dev --port 3060",
+    "dev": "next dev --port 3060 --hostname 0.0.0.0",
     "prebuild": "pnpm run build:deps",
     "pretype-check": "pnpm run build:deps",
     "build": "next build",

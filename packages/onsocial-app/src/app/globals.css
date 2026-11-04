@@ -458,6 +458,13 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
  */
 .glass-sheet-panel.guild-composer-sheet-panel
   > .glass-sheet-body.guild-composer-sheet-body,
+.glass-sheet-panel.guild-edit-sheet-panel
+  > .glass-sheet-body.guild-edit-sheet-body,
+.glass-sheet-panel.profile-edit-sheet-panel
+  > .glass-sheet-body.profile-edit-sheet-body,
+/* Page editors only. Hug drawers (Add member, transfer) keep `.os-hug-sheet-body`. */
+.glass-sheet-panel.hub-manage-sheet-panel:not([data-sizing='hug'])
+  > .glass-sheet-body.hub-manage-sheet-body,
 .glass-sheet-panel.leaderboard-page-sheet
   > .glass-sheet-body.leaderboard-page-body,
 .glass-sheet-panel.post-thread-sheet-panel
@@ -479,6 +486,9 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 }
 
 .glass-sheet-panel.guild-composer-sheet-panel .os-app-screen--embedded,
+.glass-sheet-panel.guild-edit-sheet-panel .os-app-screen--embedded,
+.glass-sheet-panel.profile-edit-sheet-panel .os-app-screen--embedded,
+.glass-sheet-panel.hub-manage-sheet-panel .os-app-screen--embedded,
 .glass-sheet-panel.post-thread-sheet-panel .os-app-screen--embedded,
 .glass-sheet-panel.drop-sheet-panel .os-app-screen--embedded {
   flex: 1 1 auto;
@@ -32197,7 +32207,10 @@ a.os-surface-row,
    * Hub manage / series edit workspaces — form inset matches former
    * GlassSheet body; footer owns its own pad (see .hub-manage-sheet-footer).
    */
-  .hub-manage-slide .os-slide-over-content.hub-manage-slide-body {
+  .hub-manage-slide .os-app-screen-body,
+  .glass-sheet-panel.hub-manage-sheet-panel
+    .hub-manage-slide
+    .os-app-screen-body {
     padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.35rem;
   }
 
@@ -33499,7 +33512,8 @@ a.os-surface-row,
     height: auto;
   }
 
-  .hub-manage-slide .os-slide-over-footer-inner {
+  .hub-manage-slide .os-slide-over-footer-inner,
+  .glass-sheet-panel.hub-manage-sheet-panel > .glass-sheet-footer {
     max-width: none;
     width: 100%;
     padding: 0;
@@ -33539,11 +33553,15 @@ a.os-surface-row,
    * Guild edit workspace — full-bleed banner; fields pad themselves.
    * Footer pad stays on .guild-edit-sheet-footer.
    */
-  .guild-edit-slide .os-slide-over-content.guild-edit-slide-body {
+  .guild-edit-slide .os-app-screen-body,
+  .glass-sheet-panel.guild-edit-sheet-panel
+    .guild-edit-slide
+    .os-app-screen-body {
     padding: 0;
   }
 
-  .guild-edit-slide .os-slide-over-footer-inner {
+  .guild-edit-slide .os-slide-over-footer-inner,
+  .glass-sheet-panel.guild-edit-sheet-panel > .glass-sheet-footer {
     max-width: none;
     width: 100%;
     padding: 0;
@@ -33567,7 +33585,11 @@ a.os-surface-row,
   .portfolio-frame
     > .os-app-screen.os-slide-over.profile-edit-slide[data-mood='carbon'],
   .portfolio-frame
-    > .os-app-screen.os-slide-over.profile-edit-slide[data-mood='glass'] {
+    > .os-app-screen.os-slide-over.profile-edit-slide[data-mood='glass'],
+  .glass-sheet-panel.profile-edit-sheet-panel
+    .profile-edit-slide[data-mood='carbon'],
+  .glass-sheet-panel.profile-edit-sheet-panel
+    .profile-edit-slide[data-mood='glass'] {
     background-color: transparent;
   }
 
@@ -33579,11 +33601,15 @@ a.os-surface-row,
     padding-bottom: 0.38rem;
   }
 
-  .profile-edit-slide .os-slide-over-content.profile-edit-slide-body {
+  .profile-edit-slide .os-app-screen-body,
+  .glass-sheet-panel.profile-edit-sheet-panel
+    .profile-edit-slide
+    .os-app-screen-body {
     padding: 0;
   }
 
-  .profile-edit-slide .os-slide-over-footer-inner {
+  .profile-edit-slide .os-slide-over-footer-inner,
+  .glass-sheet-panel.profile-edit-sheet-panel > .glass-sheet-footer {
     max-width: none;
     width: 100%;
     padding: 0;
@@ -34181,7 +34207,7 @@ a.os-surface-row,
 
   /* Schedule picker — tall tier cap; height via sizing="hug". */
   .drop-schedule-sheet-body {
-    padding: 0.1rem 1.05rem 0.55rem;
+    padding: 0.1rem var(--os-sheet-pad-inline, 1rem) 0.55rem;
   }
 
   .drop-schedule-sheet {
@@ -34191,7 +34217,8 @@ a.os-surface-row,
   }
 
   .drop-schedule-sheet-footer {
-    padding: 0.4rem 1.05rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.4rem var(--os-sheet-pad-inline, 1rem)
+      calc(0.55rem + env(safe-area-inset-bottom, 0px));
   }
 
   .drop-cal {
@@ -37228,7 +37255,8 @@ a.os-surface-row,
   }
 
   .guild-members-sheet-body {
-    padding: 0;
+    padding: 0.2rem var(--os-sheet-pad-inline, 1rem)
+      var(--os-sheet-footer-pad-bottom);
   }
 
   .guild-members-toolbar {

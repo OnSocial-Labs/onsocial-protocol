@@ -931,7 +931,7 @@ function DropSaleWindowDraftBody({
         closeAriaLabel="Close"
         backdropLabel={`Close ${title.toLowerCase()} picker`}
         zIndex={zIndex}
-        presentation="enter"
+        stack="overlay"
         titleId={titleId}
         panelClassName="drop-schedule-sheet-panel os-sheet-cap-tall"
         bodyClassName="drop-schedule-sheet-body"

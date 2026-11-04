@@ -15,7 +15,6 @@ import {
   osActionDrawerConfirmClassName,
 } from './action-drawer.js';
 import { OsSheetFooter } from './os-sheet-footer.js';
-import type { GlassSheetPresentation } from './glass-sheet.js';
 import { OsHugSheet } from './os-hug-sheet.js';
 
 /**
@@ -131,11 +130,6 @@ export interface DiscardConfirmSheetProps {
   /** Override when stacking over a higher host. Default 96. */
   zIndex?: number;
   titleId?: string;
-  /**
-   * `appear` fades over the sheet being closed.
-   * Default `enter` slides. A settings handoff rewrites `enter` into a swap.
-   */
-  presentation?: GlassSheetPresentation;
 }
 
 /**
@@ -154,7 +148,6 @@ export function DiscardConfirmSheet({
   pendingLabel = 'Removing…',
   zIndex = DISCARD_CONFIRM_Z,
   titleId,
-  presentation,
 }: DiscardConfirmSheetProps) {
   return (
     <OsHugSheet
@@ -163,7 +156,6 @@ export function DiscardConfirmSheet({
         if (!pending) onKeepEditing();
       }}
       chrome="choice"
-      {...(presentation ? { presentation } : {})}
       label={title}
       {...(titleId ? { titleId } : {})}
       closeAriaLabel={keepEditingLabel}

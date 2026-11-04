@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blockConfirmCopy } from '@/lib/block-confirm-copy';
+import { blockConfirmCopy, muteConfirmCopy } from '@/lib/block-confirm-copy';
 
 describe('blockConfirmCopy', () => {
   it('prefers display name in the title', () => {
@@ -15,6 +15,25 @@ describe('blockConfirmCopy', () => {
   it('falls back to the spoken local part', () => {
     expect(blockConfirmCopy({ accountId: 'bob.testnet' }).title).toBe(
       'Block Bob?'
+    );
+  });
+});
+
+describe('muteConfirmCopy', () => {
+  it('prefers display name in the title', () => {
+    const copy = muteConfirmCopy({
+      accountId: 'bob.testnet',
+      profileName: 'Bob',
+    });
+    expect(copy.title).toBe('Mute Bob?');
+    expect(copy.confirmLabel).toBe('Mute');
+    expect(copy.body).toContain('Bob');
+    expect(copy.body).toContain('unmute anytime');
+  });
+
+  it('falls back to the spoken local part', () => {
+    expect(muteConfirmCopy({ accountId: 'bob.testnet' }).title).toBe(
+      'Mute Bob?'
     );
   });
 });

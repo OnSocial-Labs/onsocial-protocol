@@ -17,7 +17,24 @@ export function blockConfirmCopy(input: {
   };
 }
 
-export const MUTE_ACTION_DESCRIPTION = 'Hide their posts in your feeds';
+export function muteConfirmCopy(input: {
+  accountId: string;
+  profileName?: string | null;
+}): {
+  title: string;
+  body: string;
+  confirmLabel: string;
+} {
+  const label = displayName(input.accountId, input.profileName ?? undefined);
+  return {
+    title: `Mute ${label}?`,
+    body: `You won’t see ${label}’s posts in your feeds. You can unmute anytime.`,
+    confirmLabel: 'Mute',
+  };
+}
+
+export const MUTE_ACTION_DESCRIPTION =
+  'Hide their posts in your feeds — confirms before it goes through';
 export const BLOCK_ACTION_DESCRIPTION =
   'Stop seeing each other — confirms before it goes through';
 export const MUTE_LIST_HINT = 'Muted accounts stay off-chain. Unmute anytime.';

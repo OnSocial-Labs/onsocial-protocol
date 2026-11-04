@@ -482,7 +482,9 @@ test.describe('guild page', () => {
 
     const shareDialog = page.getByRole('dialog', { name: 'Who can share' });
     await expect(shareDialog).toHaveAttribute('data-presentation', 'appear');
+    await expect(shareDialog).toHaveAttribute('data-stack-op', 'cover');
     await expect(sheet).toHaveAttribute('data-presentation', 'enter');
+    await expect(sheet).toHaveAttribute('data-stack-op', 'present');
     const share = page.getByRole('listbox', { name: 'Who can share' });
     const everyone = share.getByRole('option', { name: /Everyone here/ });
     const team = share.getByRole('option', { name: /From the team/ });
@@ -522,6 +524,7 @@ test.describe('guild page', () => {
     const discard = page.getByRole('dialog', { name: 'Discard changes?' });
     await expect(discard).toBeVisible();
     await expect(discard).toHaveAttribute('data-presentation', 'appear');
+    await expect(discard).toHaveAttribute('data-stack-op', 'cover');
     await discard
       .locator('button.os-sheet-action', { hasText: 'Keep editing' })
       .click();
@@ -692,7 +695,7 @@ test.describe('guild page', () => {
     ).toBeVisible();
   });
 
-  test('settings handoff opens proposals and guild storage as swap drawers', async ({
+  test('settings handoff opens proposals and guild storage as slide drawers', async ({
     page,
   }) => {
     await seedE2eWallet(page, COLLECTIBLES_VAULT_OWNER);
@@ -709,7 +712,8 @@ test.describe('guild page', () => {
     await settings.getByRole('button', { name: /Proposals/ }).click();
     const proposals = page.getByRole('dialog', { name: 'Proposals' });
     await expect(proposals).toBeVisible();
-    await expect(proposals).toHaveAttribute('data-presentation', 'swap');
+    await expect(proposals).toHaveAttribute('data-presentation', 'enter');
+    await expect(proposals).toHaveAttribute('data-stack-op', 'replace');
     await proposals.getByRole('button', { name: 'Close' }).click();
     await expect(proposals).toHaveCount(0);
 
@@ -725,7 +729,8 @@ test.describe('guild page', () => {
     await settingsAgain.getByRole('button', { name: /Guild storage/ }).click();
     const storage = page.getByRole('dialog', { name: 'Guild storage' });
     await expect(storage).toBeVisible();
-    await expect(storage).toHaveAttribute('data-presentation', 'swap');
+    await expect(storage).toHaveAttribute('data-presentation', 'enter');
+    await expect(storage).toHaveAttribute('data-stack-op', 'replace');
   });
 
   test('rooms editor adds a draft room and confirms before discard', async ({
@@ -745,7 +750,8 @@ test.describe('guild page', () => {
 
     const rooms = page.getByRole('dialog', { name: 'Rooms' });
     await expect(rooms).toBeVisible();
-    await expect(rooms).toHaveAttribute('data-presentation', 'swap');
+    await expect(rooms).toHaveAttribute('data-presentation', 'enter');
+    await expect(rooms).toHaveAttribute('data-stack-op', 'replace');
     await expect(rooms.locator('.guild-structure-add')).toHaveCount(0);
     await expect(rooms.getByRole('textbox')).toHaveCount(0);
     await rooms.getByRole('button', { name: '+ Announcements' }).click();
@@ -770,6 +776,7 @@ test.describe('guild page', () => {
     const editor = page.getByRole('dialog', { name: 'Add room' });
     await expect(editor).toBeVisible();
     await expect(editor).toHaveAttribute('data-presentation', 'enter');
+    await expect(editor).toHaveAttribute('data-stack-op', 'push');
     await expect(editor.getByText('New feed tab')).toBeVisible();
     await expect(
       editor.getByRole('button', { name: 'Who can share: Everyone here' })
@@ -781,6 +788,7 @@ test.describe('guild page', () => {
     await editor.getByRole('button', { name: 'Feed tab: In feed' }).click();
     const feedTab = page.getByRole('dialog', { name: 'Feed tab' });
     await expect(feedTab).toHaveAttribute('data-presentation', 'appear');
+    await expect(feedTab).toHaveAttribute('data-stack-op', 'cover');
     await feedTab.getByRole('option', { name: /In feed/ }).click();
     await expect(feedTab).toHaveCount(0);
     await expect(editor.getByRole('textbox')).toHaveValue('Shipping Room');
@@ -788,6 +796,7 @@ test.describe('guild page', () => {
     const abandon = page.getByRole('dialog', { name: 'Discard changes?' });
     await expect(abandon).toBeVisible();
     await expect(abandon).toHaveAttribute('data-presentation', 'appear');
+    await expect(abandon).toHaveAttribute('data-stack-op', 'cover');
     await abandon
       .locator('button.os-sheet-action', { hasText: 'Keep editing' })
       .click();
@@ -832,6 +841,7 @@ test.describe('guild page', () => {
     await rooms.getByRole('button', { name: /^Dock/ }).click();
     const again = page.getByRole('dialog', { name: 'Room', exact: true });
     await expect(again).toHaveAttribute('data-presentation', 'enter');
+    await expect(again).toHaveAttribute('data-stack-op', 'push');
     await expect(again.getByRole('button', { name: 'Arrange' })).toHaveCount(0);
     await again.getByRole('textbox').fill('Pier');
     await again.getByRole('button', { name: 'Close room' }).click();
@@ -848,12 +858,14 @@ test.describe('guild page', () => {
     const discard = page.getByRole('dialog', { name: 'Discard changes?' });
     await expect(discard).toBeVisible();
     await expect(discard).toHaveAttribute('data-presentation', 'appear');
+    await expect(discard).toHaveAttribute('data-stack-op', 'cover');
     await discard
       .locator('button.os-sheet-action', { hasText: 'Keep editing' })
       .click();
     await expect(discard).toHaveCount(0);
     await expect(rooms).toBeVisible();
-    await expect(rooms).toHaveAttribute('data-presentation', 'swap');
+    await expect(rooms).toHaveAttribute('data-presentation', 'enter');
+    await expect(rooms).toHaveAttribute('data-stack-op', 'replace');
     await expect(rooms.getByRole('button', { name: /^Dock/ })).toBeVisible();
   });
 

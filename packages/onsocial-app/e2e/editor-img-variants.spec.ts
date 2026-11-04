@@ -104,8 +104,22 @@ test.describe('editor img variants (g10)', () => {
     await expect(editRow).toBeVisible();
     await editRow.click();
 
+    const editor = page.getByRole('dialog', { name: 'Edit profile' });
+    await expect(editor).toBeVisible({ timeout: 15_000 });
     const banner = page.locator('.account-editor-banner-image');
     await expect(banner).toBeVisible({ timeout: 15_000 });
+    await expect
+      .poll(() =>
+        banner.evaluate((el) => {
+          const rect = el.getBoundingClientRect();
+          const hit = document.elementFromPoint(
+            rect.left + rect.width / 2,
+            rect.top + Math.min(rect.height / 2, 24)
+          );
+          return Boolean(hit?.closest('.profile-edit-slide'));
+        })
+      )
+      .toBe(true);
     await expect(banner).toHaveAttribute('src', `${CDN}/ipfs/${CID_BANNER}`);
     await expect(banner).toHaveAttribute(
       'srcset',
@@ -144,6 +158,15 @@ test.describe('editor img variants (g10)', () => {
         timeout: 15_000,
       })
       .toBe(`${CDN}/img/128/ipfs/${CID_AVATAR}`);
+
+    await editor.getByRole('button', { name: 'Close' }).click();
+    const accountAfterEdit = page.getByRole('dialog', { name: 'Account' });
+    await expect(accountAfterEdit).toBeVisible({ timeout: 15_000 });
+    await expect(accountAfterEdit).not.toHaveAttribute(
+      'data-stack-covered',
+      'true'
+    );
+    await expect(editor).toBeHidden();
 
     // Payload drop: the byte-original was never requested anywhere.
     expect(hits.originalBytes).toBe(0);

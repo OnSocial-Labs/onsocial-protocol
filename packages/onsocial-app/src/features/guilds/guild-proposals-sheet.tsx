@@ -18,7 +18,6 @@ import {
 } from '@/features/guilds/guild-proposal-display';
 import { GuildProposalCard } from '@/features/guilds/guild-proposal-card';
 import { GuildProposalVotersSheet } from '@/features/guilds/guild-proposal-voters-sheet';
-import { useGuildSettingsDrawerHandoff } from '@/features/guilds/use-guild-settings-drawer-handoff';
 import {
   collectRelayTxHashes,
   guildSheetPath,
@@ -52,8 +51,6 @@ interface GuildProposalsSheetProps {
   onClose: () => void;
   onOpenRequests?: () => void;
   onResolved?: () => void;
-  /** Settings crossfade has painted — parent can drop the handoff flag. */
-  onPresented?: () => void;
 }
 
 function bumpTallyForVote(
@@ -81,9 +78,7 @@ export function GuildProposalsSheet({
   onClose,
   onOpenRequests,
   onResolved,
-  onPresented,
 }: GuildProposalsSheetProps) {
-  const presentation = useGuildSettingsDrawerHandoff(open, onPresented);
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -345,9 +340,7 @@ export function GuildProposalsSheet({
   };
 
   const runExpire = async (proposal: Proposal) => {
-    setPendingActions((current) =>
-      new Map(current).set(proposal.id, 'expire')
-    );
+    setPendingActions((current) => new Map(current).set(proposal.id, 'expire'));
     try {
       const { client } = await getClient();
       const response = await client.groups.expireProposal(groupId, proposal.id);
@@ -425,108 +418,108 @@ export function GuildProposalsSheet({
         backdropLabel="Close proposals"
         zIndex={SHEET_Z.facts}
         sizing="full"
-        presentation={presentation}
         initialDetent={focusProposal ? 'full' : 'peek'}
-      peekRatio={GLASS_SHEET_PEEK_RATIO}
-      titleId="guild-proposals-title"
-      headerClassName="guild-manage-sheet-header"
-      panelClassName="guild-manage-sheet-panel"
-      bodyClassName="guild-manage-sheet-body"
-    >
-      <div className="guild-proposals-sheet">
-        {onOpenRequests && joinRequestCount > 0 ? (
-          <OsRowAction onClick={onOpenRequests}>
-            {joinRequestCount} join{' '}
-            {joinRequestCount === 1 ? 'request' : 'requests'} in Member requests
-          </OsRowAction>
-        ) : null}
+        peekRatio={GLASS_SHEET_PEEK_RATIO}
+        titleId="guild-proposals-title"
+        headerClassName="guild-manage-sheet-header"
+        panelClassName="guild-manage-sheet-panel"
+        bodyClassName="guild-manage-sheet-body"
+      >
+        <div className="guild-proposals-sheet">
+          {onOpenRequests && joinRequestCount > 0 ? (
+            <OsRowAction onClick={onOpenRequests}>
+              {joinRequestCount} join{' '}
+              {joinRequestCount === 1 ? 'request' : 'requests'} in Member
+              requests
+            </OsRowAction>
+          ) : null}
 
-        {loadState === 'loading' ? (
-          <div className="guild-manage-sheet-state">
-            <PulsingDots size="sm" />
-          </div>
-        ) : null}
+          {loadState === 'loading' ? (
+            <div className="guild-manage-sheet-state">
+              <PulsingDots size="sm" />
+            </div>
+          ) : null}
 
-        {loadState === 'error' ? (
-          <div className="guild-manage-sheet-state">
-            <p>{loadError ?? 'Could not load proposals.'}</p>
-            <OsEmptyAction onClick={() => void loadProposals()}>
-              Try again
-            </OsEmptyAction>
-          </div>
-        ) : null}
+          {loadState === 'error' ? (
+            <div className="guild-manage-sheet-state">
+              <p>{loadError ?? 'Could not load proposals.'}</p>
+              <OsEmptyAction onClick={() => void loadProposals()}>
+                Try again
+              </OsEmptyAction>
+            </div>
+          ) : null}
 
-        {loadState === 'ready' &&
-        proposals.length === 0 &&
-        resolvedProposals.length === 0 ? (
-          <div className="guild-manage-sheet-empty">
-            <p className="guild-manage-sheet-empty-primary">
-              No active proposals
-            </p>
-            <p className="guild-manage-sheet-empty-secondary">
-              Permission changes and other governance items will appear here.
-            </p>
-          </div>
-        ) : null}
+          {loadState === 'ready' &&
+          proposals.length === 0 &&
+          resolvedProposals.length === 0 ? (
+            <div className="guild-manage-sheet-empty">
+              <p className="guild-manage-sheet-empty-primary">
+                No active proposals
+              </p>
+              <p className="guild-manage-sheet-empty-secondary">
+                Permission changes and other governance items will appear here.
+              </p>
+            </div>
+          ) : null}
 
-        {loadState === 'ready' &&
-        proposals.length === 0 &&
-        resolvedProposals.length > 0 ? (
-          <p className="guild-proposals-section-note">No active proposals</p>
-        ) : null}
+          {loadState === 'ready' &&
+          proposals.length === 0 &&
+          resolvedProposals.length > 0 ? (
+            <p className="guild-proposals-section-note">No active proposals</p>
+          ) : null}
 
-        {loadState === 'ready' && proposals.length > 0 ? (
-          <OsProposalCardList className="guild-proposal-list">
-            {proposals.map((proposal) => (
-              <GuildProposalCard
-                key={proposal.id}
-                proposal={proposal}
-                tally={tallies.get(proposal.id) ?? null}
-                viewerVote={viewerVotes.get(proposal.id)}
-                canVote={canVote}
-                pendingAction={pendingActions.get(proposal.id) ?? null}
-                profiles={profiles}
-                shareHref={shareHrefFor(proposal)}
-                focused={focusedId === proposal.id}
-                onSupport={() => void runVote(proposal, true)}
-                onOppose={() => void runVote(proposal, false)}
-                onExpire={
-                  accountId ? () => void runExpire(proposal) : undefined
-                }
-                onShowVoters={() => openVoters(proposal)}
-                votersOpen={votersFor?.proposal.id === proposal.id}
-              />
-            ))}
-          </OsProposalCardList>
-        ) : null}
-
-        {loadState === 'ready' && resolvedProposals.length > 0 ? (
-          <>
-            <Divider
-              variant="detail"
-              className="guild-proposals-section-divider"
-            />
-            <p className="guild-proposals-section-label">Recently resolved</p>
-            <OsProposalCardList className="guild-proposal-list guild-proposal-list--resolved">
-              {resolvedProposals.map((proposal) => (
+          {loadState === 'ready' && proposals.length > 0 ? (
+            <OsProposalCardList className="guild-proposal-list">
+              {proposals.map((proposal) => (
                 <GuildProposalCard
                   key={proposal.id}
                   proposal={proposal}
                   tally={tallies.get(proposal.id) ?? null}
                   viewerVote={viewerVotes.get(proposal.id)}
-                  canVote={false}
-                  pendingAction={null}
+                  canVote={canVote}
+                  pendingAction={pendingActions.get(proposal.id) ?? null}
                   profiles={profiles}
                   shareHref={shareHrefFor(proposal)}
                   focused={focusedId === proposal.id}
+                  onSupport={() => void runVote(proposal, true)}
+                  onOppose={() => void runVote(proposal, false)}
+                  onExpire={
+                    accountId ? () => void runExpire(proposal) : undefined
+                  }
                   onShowVoters={() => openVoters(proposal)}
                   votersOpen={votersFor?.proposal.id === proposal.id}
                 />
               ))}
             </OsProposalCardList>
-          </>
-        ) : null}
-      </div>
+          ) : null}
+
+          {loadState === 'ready' && resolvedProposals.length > 0 ? (
+            <>
+              <Divider
+                variant="detail"
+                className="guild-proposals-section-divider"
+              />
+              <p className="guild-proposals-section-label">Recently resolved</p>
+              <OsProposalCardList className="guild-proposal-list guild-proposal-list--resolved">
+                {resolvedProposals.map((proposal) => (
+                  <GuildProposalCard
+                    key={proposal.id}
+                    proposal={proposal}
+                    tally={tallies.get(proposal.id) ?? null}
+                    viewerVote={viewerVotes.get(proposal.id)}
+                    canVote={false}
+                    pendingAction={null}
+                    profiles={profiles}
+                    shareHref={shareHrefFor(proposal)}
+                    focused={focusedId === proposal.id}
+                    onShowVoters={() => openVoters(proposal)}
+                    votersOpen={votersFor?.proposal.id === proposal.id}
+                  />
+                ))}
+              </OsProposalCardList>
+            </>
+          ) : null}
+        </div>
       </OsHugSheet>
       <GuildProposalVotersSheet
         open={votersFor !== null}

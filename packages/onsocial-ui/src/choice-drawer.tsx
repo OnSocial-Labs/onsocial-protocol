@@ -16,7 +16,6 @@ import {
   osFloatingPanelTriggerMetaClassName,
 } from './floating-panel.js';
 import { OsHugSheet } from './os-hug-sheet.js';
-import type { GlassSheetPresentation } from './glass-sheet.js';
 import { osChoiceChipClassName } from './os-choice-tokens.js';
 
 export {
@@ -97,11 +96,6 @@ export interface ChoiceDrawerProps<T extends string> {
   hint?: string;
   closeOnSelect?: boolean;
   zIndex?: number;
-  /**
-   * `appear` fades over the sheet that opened this picker.
-   * Default `enter` slides. A settings handoff rewrites `enter` into a swap.
-   */
-  presentation?: GlassSheetPresentation;
   /** Profile mood id — forwarded so a portaled sheet keeps signal hues. */
   moodId?: string;
   /** Signal CSS vars for the portaled sheet (standing / solidarity). */
@@ -124,7 +118,6 @@ export function ChoiceDrawer<T extends string>({
   hint,
   closeOnSelect = true,
   zIndex = 60,
-  presentation,
   moodId,
   panelStyle,
 }: ChoiceDrawerProps<T>) {
@@ -139,7 +132,6 @@ export function ChoiceDrawer<T extends string>({
       copy={copy}
       zIndex={zIndex}
       chrome="choice"
-      {...(presentation ? { presentation } : {})}
       {...(moodId ? { moodId } : {})}
       {...(panelStyle ? { panelStyle } : {})}
     >
@@ -236,11 +228,6 @@ export interface ChoiceDrawerFieldProps<T extends string> {
   closeOnSelect?: boolean;
   /** Stack above a parent commerce sheet (e.g. list at 90 → nest at 110). */
   zIndex?: number;
-  /**
-   * `appear` fades over the sheet that opened this picker.
-   * Default `enter` slides. A settings handoff rewrites `enter` into a swap.
-   */
-  presentation?: GlassSheetPresentation;
 }
 
 /**
@@ -260,7 +247,6 @@ export function ChoiceDrawerField<T extends string>({
   persistSelected = false,
   closeOnSelect = true,
   zIndex = 60,
-  presentation,
 }: ChoiceDrawerFieldProps<T>) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -316,7 +302,6 @@ export function ChoiceDrawerField<T extends string>({
         hint={hint}
         closeOnSelect={closeOnSelect}
         zIndex={zIndex}
-        {...(presentation ? { presentation } : {})}
       />
     </>
   );

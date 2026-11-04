@@ -10,6 +10,7 @@ import {
   PlayFillIcon,
   TimeIcon,
   TrashIcon,
+  replaceSheet,
   UserPlusIcon,
 } from '@onsocial/ui';
 import {
@@ -398,6 +399,7 @@ export function CollectionOwnerManageMenu({
           />
         ),
         onSelect: () => {
+          replaceSheet();
           close();
           onOpenFacts();
         },
@@ -428,6 +430,7 @@ export function CollectionOwnerManageMenu({
         disabled: ownerPending,
         leading: <UserPlusIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
+          replaceSheet();
           close();
           setStaffOpen(true);
         },

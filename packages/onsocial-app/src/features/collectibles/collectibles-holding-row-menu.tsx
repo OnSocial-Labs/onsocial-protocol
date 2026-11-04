@@ -11,6 +11,7 @@ import {
   OsActionDrawerConfirm,
   OsSheetAction,
   OsSheetActions,
+  replaceSheet,
   ShopIcon,
   TimeIcon,
   TrashIcon,
@@ -231,6 +232,10 @@ export function CollectiblesHoldingRowMenu({
     trackTransaction,
   ]);
 
+  const openConfirm = useCallback((next: 'burn' | 'delist' | 'price') => {
+    setConfirm(next);
+  }, []);
+
   const openPriceConfirm = useCallback(() => {
     const seed = scarcePriceChangeSeed({
       listedPriceNear: item.listedPriceNear,
@@ -239,8 +244,8 @@ export function CollectiblesHoldingRowMenu({
     setPriceUnit(seed.unit);
     setPriceInput(seed.amount);
     setPriceDirty(false);
-    setConfirm('price');
-  }, [item.listedPriceNear, item.listedUsdE6]);
+    openConfirm('price');
+  }, [item.listedPriceNear, item.listedUsdE6, openConfirm]);
 
   const handleChangePrice = useCallback(async () => {
     if (pending || !priceReady) return;
@@ -357,6 +362,7 @@ export function CollectiblesHoldingRowMenu({
         description: `This ${noun}'s life`,
         leading: <TimeIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
+          replaceSheet();
           setOpen(false);
           setHistoryOpen(true);
         },
@@ -375,6 +381,7 @@ export function CollectiblesHoldingRowMenu({
             : 'Send this scarce to another account',
         leading: <GiftIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
+          replaceSheet();
           close();
           runListedCopyTransfer({
             openPicker: openHeldEditions,
@@ -403,6 +410,7 @@ export function CollectiblesHoldingRowMenu({
         description: 'Secondary listing on Market',
         leading: <ShopIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
+          replaceSheet();
           close();
           onList();
         },
@@ -418,7 +426,7 @@ export function CollectiblesHoldingRowMenu({
         destructive: true,
         disabled: pending,
         leading: <TrashIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => setConfirm('delist'),
+        onSelect: () => openConfirm('delist'),
       });
     }
 
@@ -433,7 +441,7 @@ export function CollectiblesHoldingRowMenu({
         destructive: true,
         disabled: pending,
         leading: <FireIcon className="os-action-drawer-icon" aria-hidden />,
-        onSelect: () => setConfirm('burn'),
+        onSelect: () => openConfirm('burn'),
       });
     }
 
@@ -456,6 +464,7 @@ export function CollectiblesHoldingRowMenu({
     auction,
     auctionHasBids,
     fixedListing,
+    openConfirm,
     openPriceConfirm,
     canBurn,
     close,
@@ -512,7 +521,19 @@ export function CollectiblesHoldingRowMenu({
 
       <ActionDrawer
         open={open}
-        onClose={confirm ? () => setConfirm(null) : close}
+        onClose={() => setOpen(false)}
+        label={title}
+        copy="Your holding"
+        listAriaLabel={`Manage ${title}`}
+        closeAriaLabel="Close"
+        items={items}
+      />
+      <ActionDrawer
+        open={confirm != null}
+        stack="auto"
+        onClose={() => {
+          if (!pending) setConfirm(null);
+        }}
         label={
           confirm === 'burn'
             ? 'Burn'
@@ -520,14 +541,10 @@ export function CollectiblesHoldingRowMenu({
               ? auction
                 ? 'Cancel auction'
                 : 'Delist'
-              : confirm === 'price'
-                ? 'Change price'
-                : title
+              : 'Change price'
         }
-        copy={confirm ? title : 'Your holding'}
-        listAriaLabel={`Manage ${title}`}
-        closeAriaLabel={confirm ? 'Back' : 'Close'}
-        items={confirm ? undefined : items}
+        copy={title}
+        closeAriaLabel="Close"
       >
         {confirm === 'burn' ? (
           <OsActionDrawerConfirm

@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   DotsVerticalIcon,
   EditPenIcon,
+  replaceSheet,
   ShareIcon,
   TimeIcon,
 } from '@onsocial/ui';
@@ -144,6 +145,7 @@ export function MarketListingRowMenu({
         description: `This ${heldEditionNoun(item.mediumKind).toLowerCase()}'s life`,
         leading: <TimeIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
+          replaceSheet();
           setOpen(false);
           setHistoryOpen(true);
         },

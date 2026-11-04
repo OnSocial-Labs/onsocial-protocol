@@ -112,12 +112,8 @@ test.describe('collectibles shell', () => {
       .getByRole('button', { name: 'Choose an edition of Night Drive' })
       .click();
     const editions = page.getByRole('dialog', { name: 'Editions' });
-    await expect(
-      editions.getByText('#1', { exact: true })
-    ).toBeVisible();
-    await expect(
-      editions.getByText('#3', { exact: true })
-    ).toBeVisible();
+    await expect(editions.getByText('#1', { exact: true })).toBeVisible();
+    await expect(editions.getByText('#3', { exact: true })).toBeVisible();
     const covers = editions.locator('img.held-edition-cover');
     await expect(covers).toHaveCount(2);
     await expect(covers.nth(0)).toHaveAttribute('src', /111/);
@@ -197,6 +193,8 @@ test.describe('collectibles shell', () => {
     const facts = page
       .getByRole('dialog', { name: 'Edition #1' })
       .filter({ hasText: 'night-drive:1' });
+    await expect(facts).toHaveAttribute('data-presentation', 'enter');
+    await expect(facts).toHaveAttribute('data-stack-op', 'replace');
     await expect(facts.getByText('night-drive:1')).toBeVisible();
     await expect(facts.getByText('Minted')).toBeVisible();
     await expect(facts.getByText('Listed')).toHaveCount(0);

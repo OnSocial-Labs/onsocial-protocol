@@ -13,8 +13,8 @@ import { useRouter } from 'next/navigation';
 import {
   Divider,
   InformationCircleIcon,
-  SheetHandoffProvider,
   ipfsImgSrcSet,
+  replaceSheet,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import {
@@ -76,7 +76,6 @@ import {
 } from '@/features/scarces/hub-hero-actions';
 import { HubPublishAccessSheet } from '@/features/scarces/hub-publish-access-sheet';
 import { HubPublishRequestsSheet } from '@/features/scarces/hub-publish-requests-sheet';
-import { hubSettingsHandoffIsReplace } from '@/features/scarces/hub-sheet-handoff';
 import { HubSettingsSheet } from '@/features/scarces/hub-settings-sheet';
 import {
   fetchCollectionsByAppPage,
@@ -174,10 +173,6 @@ export function AppPagePanel({
     count: number;
   } | null>(null);
   const [manageSheet, setManageSheet] = useState<HubManageSheetId | null>(null);
-  /** Slide-over successor — opens after Settings finishes its replace fade. */
-  const [pendingManageSheet, setPendingManageSheet] =
-    useState<HubManageSheetId | null>(null);
-  const [sheetHandoff, setSheetHandoff] = useState(false);
   const [transferPrefill, setTransferPrefill] = useState('');
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
@@ -337,10 +332,9 @@ export function AppPagePanel({
 
   const onManaged = useCallback(() => setRefreshKey((k) => k + 1), []);
 
-  /** Same-tick SheetHandoff swap — never close the source sheet before Transfer mounts. */
   const openHubTransferTo = useCallback((accountId: string) => {
     setTransferPrefill(accountId.trim());
-    setSheetHandoff(true);
+    replaceSheet();
     setCreatorsOpen(false);
     setFactsOpen(false);
     setSettingsOpen(false);
@@ -838,7 +832,7 @@ export function AppPagePanel({
         />
       ) : null}
 
-      <SheetHandoffProvider active={sheetHandoff}>
+      <>
         <HubFactsSheet
           open={factsOpen}
           onClose={() => setFactsOpen(false)}
@@ -846,7 +840,7 @@ export function AppPagePanel({
           stats={stats}
           onOpenCreators={() => setCreatorsOpen(true)}
           onHandoffCreators={() => {
-            setSheetHandoff(true);
+            replaceSheet();
             setFactsOpen(false);
             setCreatorsOpen(true);
           }}
@@ -854,16 +848,7 @@ export function AppPagePanel({
 
         <HubCreatorsSheet
           open={creatorsOpen}
-          onClose={() => {
-            setCreatorsOpen(false);
-            // Keep handoff alive while Transfer (or publish inbox) is the successor.
-            if (
-              manageSheet !== 'transfer' &&
-              manageSheet !== 'publish-requests'
-            ) {
-              setSheetHandoff(false);
-            }
-          }}
+          onClose={() => setCreatorsOpen(false)}
           app={app}
           manageContext={rosterManageContext}
           onRosterChanged={onManaged}
@@ -879,30 +864,12 @@ export function AppPagePanel({
             publishRequestCount={pendingPublishCount}
             onClose={() => {
               setSettingsOpen(false);
-              if (pendingManageSheet) {
-                setManageSheet(pendingManageSheet);
-                setPendingManageSheet(null);
-                setSheetHandoff(false);
-                return;
-              }
-              if (
-                manageSheet !== 'transfer' &&
-                manageSheet !== 'publish-requests'
-              ) {
-                setSheetHandoff(false);
-              }
             }}
             onOpenSheet={() => undefined}
             onHandoff={(sheet) => {
-              // Always handoff so Settings crossfades out (no slide-down jump).
-              setSheetHandoff(true);
+              replaceSheet();
               setSettingsOpen(false);
-              if (hubSettingsHandoffIsReplace(sheet)) {
-                setManageSheet(sheet);
-                return;
-              }
-              // Slide-overs open after Settings has finished closing.
-              setPendingManageSheet(sheet);
+              setManageSheet(sheet);
             }}
           />
         ) : null}
@@ -911,10 +878,7 @@ export function AppPagePanel({
           <HubPublishRequestsSheet
             open={manageSheet === 'publish-requests'}
             appId={app.appId}
-            onClose={() => {
-              setSheetHandoff(false);
-              setManageSheet(null);
-            }}
+            onClose={() => setManageSheet(null)}
             onChanged={onManaged}
           />
         ) : null}
@@ -925,14 +889,13 @@ export function AppPagePanel({
             app={app}
             initialRecipient={transferPrefill}
             onClose={() => {
-              setSheetHandoff(false);
               setManageSheet(null);
               setTransferPrefill('');
             }}
             onChanged={onManaged}
           />
         ) : null}
-      </SheetHandoffProvider>
+      </>
 
       {owner ? (
         <HubLookSheet

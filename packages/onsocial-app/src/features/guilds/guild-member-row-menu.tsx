@@ -193,9 +193,6 @@ export function GuildMemberRowMenu({
   const handleClosed = useCallback(() => {
     setClosing(false);
     setOpen(false);
-    setConfirmAction(null);
-    setKeepOwnerAsMember(false);
-    setSupportOnSubmit(true);
   }, []);
 
   const resetConfirm = useCallback(() => {
@@ -266,7 +263,8 @@ export function GuildMemberRowMenu({
           propose: Boolean(confirmAction.propose),
         });
         setConfirmAction(null);
-        setClosing(true);
+        setClosing(false);
+        setOpen(false);
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
@@ -331,13 +329,21 @@ export function GuildMemberRowMenu({
 
       <ActionDrawer
         open={sheetOpen}
-        onClose={confirmAction ? resetConfirm : requestClose}
+        onClose={requestClose}
         onClosed={handleClosed}
-        label={confirmAction && confirmCopy ? confirmCopy.title : menuLabel}
+        label={menuLabel}
         copy={whoLabel}
         listAriaLabel={menuLabel}
-        closeAriaLabel={confirmAction ? 'Back to member actions' : 'Close menu'}
-        items={confirmAction ? undefined : menuItems}
+        closeAriaLabel="Close menu"
+        items={menuItems}
+      />
+      <ActionDrawer
+        open={confirmAction != null && confirmCopy != null}
+        stack="auto"
+        onClose={resetConfirm}
+        label={confirmCopy?.title ?? menuLabel}
+        copy={whoLabel}
+        closeAriaLabel="Close"
       >
         {confirmAction && confirmCopy ? (
           <OsActionDrawerConfirm

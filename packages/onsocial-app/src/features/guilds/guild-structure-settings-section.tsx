@@ -258,9 +258,7 @@ export function GuildStructureSettingsSection({
               earlierLabel={`Move ${space.title} earlier`}
               laterLabel={`Move ${space.title} later`}
               earlierDisabled={disabled || index === 0}
-              laterDisabled={
-                disabled || index >= sortedSpaces.length - 1
-              }
+              laterDisabled={disabled || index >= sortedSpaces.length - 1}
               onEarlier={() =>
                 onChange(reorderGuildSpace(structure, space.id, 'up'))
               }
@@ -362,7 +360,6 @@ export function GuildStructureSettingsSection({
         open={discardConfirmOpen}
         onDiscard={discard}
         onKeepEditing={keepEditing}
-        presentation="appear"
       />
     </section>
   );

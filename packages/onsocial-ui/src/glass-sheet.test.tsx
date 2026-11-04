@@ -4,6 +4,8 @@ import {
   GlassSheet,
   SheetHeader,
   sheetPresenceCloseShouldFinish,
+  sheetPresenceInitialState,
+  sheetPresenceNeedsSwapReveal,
   hugEnterNeedsArming,
   hugEnterShouldArm,
   nextHugEnterStableSample,
@@ -15,6 +17,8 @@ import {
   resolveSheetCoverProgress,
   resolveSheetOffsetPx,
   resolveSheetPeekOffsetPx,
+  pageTransitionScrimActive,
+  sheetBackdropCoverProgress,
 } from './glass-sheet.js';
 
 describe('GlassSheet', () => {
@@ -26,6 +30,21 @@ describe('GlassSheet', () => {
 });
 
 describe('sheet presence close', () => {
+  it('mounts already open for post-card menus', () => {
+    expect(
+      sheetPresenceInitialState({ open: true, presentation: 'enter' })
+    ).toEqual({ mounted: true, visible: false });
+    expect(
+      sheetPresenceInitialState({ open: true, presentation: 'swap' })
+    ).toEqual({ mounted: true, visible: true });
+    expect(
+      sheetPresenceInitialState({ open: true, presentation: 'appear' })
+    ).toEqual({ mounted: true, visible: true });
+    expect(
+      sheetPresenceInitialState({ open: false, presentation: 'enter' })
+    ).toEqual({ mounted: false, visible: false });
+  });
+
   it('does not finish while the sheet is opening', () => {
     expect(
       sheetPresenceCloseShouldFinish({
@@ -49,6 +68,37 @@ describe('sheet presence close', () => {
         open: false,
         mounted: false,
         visible: false,
+      })
+    ).toBe(false);
+  });
+
+  it('reveals a swap or appear that was claimed after the open render', () => {
+    expect(
+      sheetPresenceNeedsSwapReveal({
+        open: true,
+        presentation: 'swap',
+        visible: false,
+      })
+    ).toBe(true);
+    expect(
+      sheetPresenceNeedsSwapReveal({
+        open: true,
+        presentation: 'appear',
+        visible: false,
+      })
+    ).toBe(true);
+    expect(
+      sheetPresenceNeedsSwapReveal({
+        open: true,
+        presentation: 'enter',
+        visible: false,
+      })
+    ).toBe(false);
+    expect(
+      sheetPresenceNeedsSwapReveal({
+        open: true,
+        presentation: 'swap',
+        visible: true,
       })
     ).toBe(false);
   });
@@ -162,6 +212,63 @@ describe('resolveSheetOffsetPx', () => {
   });
 });
 
+describe('sheetBackdropCoverProgress', () => {
+  it('stays presented while an incoming replace waits on enter frames', () => {
+    expect(
+      sheetBackdropCoverProgress({
+        visible: false,
+        coverProgressWhenVisible: 0,
+        keepsColumnDim: true,
+      })
+    ).toBe(0);
+  });
+
+  it('clears the scrim when invisible and not in a replace handoff', () => {
+    expect(
+      sheetBackdropCoverProgress({
+        visible: false,
+        coverProgressWhenVisible: 0,
+        keepsColumnDim: false,
+      })
+    ).toBe(1);
+  });
+});
+
+describe('pageTransitionScrimActive', () => {
+  it('dims under opaque pages while appear is running', () => {
+    expect(
+      pageTransitionScrimActive({
+        opaquePage: true,
+        presentation: 'appear',
+        visible: true,
+        enterAnimationDone: false,
+      })
+    ).toBe(true);
+  });
+
+  it('drops the scrim once the page has finished appearing', () => {
+    expect(
+      pageTransitionScrimActive({
+        opaquePage: true,
+        presentation: 'appear',
+        visible: true,
+        enterAnimationDone: true,
+      })
+    ).toBe(false);
+  });
+
+  it('does not scrim glass portfolio pages', () => {
+    expect(
+      pageTransitionScrimActive({
+        opaquePage: false,
+        presentation: 'appear',
+        visible: true,
+        enterAnimationDone: false,
+      })
+    ).toBe(false);
+  });
+});
+
 describe('resolveBackdropEnterStyle', () => {
   const presented = { opacity: 1, filter: 'blur(16px) saturate(1.12)' };
   const transition = 'opacity 320ms linear';
@@ -175,6 +282,35 @@ describe('resolveBackdropEnterStyle', () => {
         transition,
       })
     ).toEqual({ opacity: 0, filter: 'blur(0px)', transition: 'none' });
+  });
+
+  it('drops the leaving drawer scrim so a second blur does not stack', () => {
+    expect(
+      resolveBackdropEnterStyle({
+        holdScrim: false,
+        handoffScrim: true,
+        suppressScrim: true,
+        showEnterAnimation: false,
+        presented,
+        transition,
+      })
+    ).toEqual({ opacity: 0, filter: 'blur(0px)', transition: 'none' });
+  });
+
+  it('keeps the dim during a drawer replace handoff', () => {
+    expect(
+      resolveBackdropEnterStyle({
+        holdScrim: true,
+        handoffScrim: true,
+        showEnterAnimation: false,
+        presented,
+        transition,
+      })
+    ).toEqual({
+      opacity: presented.opacity,
+      filter: presented.filter,
+      transition: 'none',
+    });
   });
 
   it('lets the enter animation fade the scrim once', () => {

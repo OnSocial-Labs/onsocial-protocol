@@ -197,7 +197,14 @@ test.describe('hub page', () => {
       .locator('.app-page-hero')
       .getByRole('button', { name: 'Hub settings' })
       .click();
-    await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+    const settings = page.getByRole('dialog', { name: 'Settings' });
+    await expect(settings).toBeVisible();
+    await expect(settings).toHaveAttribute('data-stack-op', 'present');
+    await settings.getByRole('button', { name: 'Transfer hub' }).click();
+    const transfer = page.getByRole('dialog', { name: 'Transfer hub' });
+    await expect(transfer).toBeVisible();
+    await expect(transfer).toHaveAttribute('data-presentation', 'enter');
+    await expect(transfer).toHaveAttribute('data-stack-op', 'replace');
   });
 
   test('approval hub asks to publish from the hero plus', async ({ page }) => {

@@ -132,6 +132,7 @@ export function ScarceTokenHistorySheet({
       backdropLabel="Close history"
       zIndex={SHEET_Z.overShell}
       panelClassName="collection-activity-sheet-panel os-sheet-cap-standard"
+      deferEnter={phase === 'loading'}
       bodyClassName="collection-activity-sheet-body"
     >
       {phase === 'loading' ? (

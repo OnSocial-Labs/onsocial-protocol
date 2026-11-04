@@ -100,7 +100,7 @@ export function AppAccountSheet({
     editorOpenRef.current = editorOpen;
   }, [editorOpen]);
 
-  const sheetOpen = open && !closing && !editorOpen;
+  const sheetOpen = open && !closing;
 
   // Re-attempt session restore when the drawer opens (same as page-load bootstrap).
   useEffect(() => {
@@ -130,10 +130,9 @@ export function AppAccountSheet({
     if (!accountId) autoResumeAttemptedRef.current = null;
   }, [accountId]);
   /*
-   * Edit profile is an OS page (portaled into the phone card). The wallet is a
-   * GlassSheet on document.body — keeping both open stacks the drawer on top
-   * of the page. Hide the drawer while editing; keep editorOpen independent so
-   * dismissing the wallet does not unmount the page.
+   * Edit profile pushes over the wallet and the Account menu. Both stay
+   * mounted, so closing the editor returns to Account instead of presenting
+   * the wallet again.
    */
   const editorSheetOpen = editorOpen;
   const storageSheetOpen = storageOpen && open;

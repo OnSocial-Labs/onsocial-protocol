@@ -80,8 +80,8 @@ export function decideSheetFocusCapture(
 
 /**
  * True while a menu or settings sheet is being replaced by the next one.
- * Glass sheets that would have slid in (`enter`) mount with `swap` and a
- * short fade instead. Explicit `appear` and `swap` are left alone.
+ * Keeps focus stashed on the opener. Motion is owned by `resolveSheetMotion`
+ * (drawers slide; pages appear) — this provider does not restyle the panel.
  */
 export function SheetHandoffProvider({
   active,
@@ -108,9 +108,10 @@ export function useSheetHandoff(): boolean {
   return useContext(SheetHandoffContext);
 }
 
+/** @deprecated Stack motion owns handoff. Pass-through for older callers. */
 export function resolveHandoffPresentation(
   presentation: GlassSheetPresentation,
-  handoff: boolean
+  _handoff: boolean
 ): GlassSheetPresentation {
-  return handoff && presentation === 'enter' ? 'swap' : presentation;
+  return presentation;
 }

@@ -11,16 +11,19 @@ import {
   type FormEvent,
 } from 'react';
 import {
+  ChevronLeftIcon,
   ChoiceDrawerField,
   DiscardConfirmSheet,
   ipfsImgSrcSet,
+  OsIconAction,
+  OsPageSheet,
   OsSheetAction,
   OsSheetActions,
   ProfileEditorMediaToolbar,
   useDiscardConfirm,
   type ChoiceOption,
 } from '@onsocial/ui';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { OsAppScreen } from '@/components/app/os-app-screen';
 import { SUPPORT_GUILD_CONNECT_CTA } from '@/features/guilds/support-guild-voice';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -128,7 +131,7 @@ function applySnapshot(
 }
 
 /**
- * Identity editor for a guild — side slide workspace (banner hero + fields).
+ * Identity editor for a guild — compose-style page sheet (banner hero + fields).
  * Rooms / structure live in a separate sheet from the settings hub.
  */
 export function GuildEditSheet({
@@ -298,6 +301,7 @@ export function GuildEditSheet({
     snapshot,
   ]);
 
+  const titleId = useId();
   const {
     discardConfirmOpen,
     requestCloseOrConfirm,
@@ -310,6 +314,11 @@ export function GuildEditSheet({
     pending,
     onClose,
   });
+
+  const requestClose = useCallback(() => {
+    if (!requestCloseOrConfirm()) return;
+    onClose();
+  }, [onClose, requestCloseOrConfirm]);
 
   const buildMetadataChanges = async (): Promise<Record<string, unknown>> => {
     if (!snapshot) return {};
@@ -546,20 +555,39 @@ export function GuildEditSheet({
 
   return (
     <>
-      <OsSlideOverScreen
+      <OsPageSheet
         open={open}
-        onClose={onClose}
+        onClose={requestClose}
         onClosed={clearDiscardConfirm}
-        onBeforeClose={requestCloseOrConfirm}
-        title="Edit guild"
-        closeAriaLabel="Close"
-        closeDisabled={pending}
+        surface="page"
+        presentation="appear"
         zIndex={GUILD_EDIT_Z}
-        className="guild-edit-slide"
-        contentClassName="guild-edit-slide-body"
-        immersiveHeader
+        ariaLabelledBy={titleId}
+        backdropLabel="Close"
+        panelClassName="guild-edit-sheet-panel"
+        bodyClassName="guild-edit-sheet-body"
+        header={null}
         footer={footer}
       >
+        <OsAppScreen
+          title="Edit guild"
+          glassChrome
+          compactChrome
+          embedded
+          leading={
+            <OsIconAction
+              ariaLabel="Back"
+              disabled={pending}
+              onClick={requestClose}
+            >
+              <ChevronLeftIcon className="glass-sheet-close-icon" aria-hidden />
+            </OsIconAction>
+          }
+          className="guild-edit-slide"
+        >
+        <span id={titleId} className="sr-only">
+          Edit guild
+        </span>
         {loadState === 'missing' ? (
           <div className="guild-state-card">
             <p>We could not find this guild yet.</p>
@@ -830,7 +858,8 @@ export function GuildEditSheet({
             />
           </form>
         ) : null}
-      </OsSlideOverScreen>
+        </OsAppScreen>
+      </OsPageSheet>
       <DiscardConfirmSheet
         open={discardConfirmOpen}
         onDiscard={discard}

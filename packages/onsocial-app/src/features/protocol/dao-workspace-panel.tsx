@@ -14,7 +14,7 @@ import {
   OsIconAction,
   OsPageSheet,
   OsProposalCardList,
-  SheetHandoffProvider,
+  replaceSheet,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { SECONDARY_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor';
@@ -287,14 +287,12 @@ export function DaoWorkspacePanel({
   const savedListScrollRef = useRef<number | null>(null);
   const useHeaderChrome = sheet != null && !toolsHostOnly;
 
-  const [sheetHandoff, setSheetHandoff] = useState(false);
   // Set in the replace click, read on that render, cleared after paint so
   // the next dismiss keeps the sheet mounted and plays the close slide.
   const skipExitRef = useRef(false);
   const manageToolsOpenRef = useRef(false);
 
   const closeAllSheets = useCallback(() => {
-    setSheetHandoff(false);
     setProposeKindOpen(false);
     setCreateOpen(false);
     setStakeOpen(false);
@@ -317,7 +315,7 @@ export function DaoWorkspacePanel({
       const replacing = manageToolsOpen;
       skipExitRef.current = replacing;
       closeAllSheets();
-      setSheetHandoff(replacing);
+      if (replacing) replaceSheet();
       openNext();
     },
     [closeAllSheets, manageToolsOpen]
@@ -1353,7 +1351,6 @@ export function DaoWorkspacePanel({
           successMessage: txToastGovSuccess.actionConfirmed('delegation'),
           failureMessage: txToastGovError.actionFailed('delegation'),
         });
-        setSheetHandoff(false);
         setStakeOpen(false);
         void face?.refresh({ fresh: true });
       } catch (error) {
@@ -1406,7 +1403,6 @@ export function DaoWorkspacePanel({
           successMessage: txToastGovSuccess.actionConfirmed('undelegation'),
           failureMessage: txToastGovError.actionFailed('undelegation'),
         });
-        setSheetHandoff(false);
         setStakeOpen(false);
         void face?.refresh({ fresh: true });
       } catch (error) {
@@ -1460,7 +1456,6 @@ export function DaoWorkspacePanel({
           successMessage: txToastGovSuccess.actionConfirmed('stake withdrawal'),
           failureMessage: txToastGovError.actionFailed('stake withdrawal'),
         });
-        setSheetHandoff(false);
         setStakeOpen(false);
         void face?.refresh({ fresh: true });
       } catch (error) {
@@ -1493,7 +1488,7 @@ export function DaoWorkspacePanel({
     const replacing = manageToolsOpenRef.current;
     skipExitRef.current = replacing;
     closeAllSheets();
-    setSheetHandoff(replacing);
+    if (replacing) replaceSheet();
     if (toolRequest === 'propose') setProposeKindOpen(true);
     else if (toolRequest === 'stake') setStakeOpen(true);
     else if (toolRequest === 'settings') setSettingsActionOpen(true);
@@ -1626,12 +1621,11 @@ export function DaoWorkspacePanel({
         }}
       />
 
-      <SheetHandoffProvider active={sheetHandoff}>
+      <>
         {showTool(proposeKindOpen) ? (
           <ProtocolProposeKindSheet
             open={proposeKindOpen}
             onClose={() => {
-              setSheetHandoff(false);
               setProposeKindOpen(false);
             }}
             daoAccountId={daoAccountId}
@@ -1654,7 +1648,6 @@ export function DaoWorkspacePanel({
           <ProtocolCreateSheet
             open={createOpen}
             onClose={() => {
-              setSheetHandoff(false);
               setCreateOpen(false);
             }}
             daoAccountId={daoAccountId}
@@ -1679,7 +1672,6 @@ export function DaoWorkspacePanel({
           <ProtocolStakeSheet
             open={stakeOpen}
             onClose={() => {
-              setSheetHandoff(false);
               setStakeOpen(false);
             }}
             daoAccountId={daoAccountId}
@@ -1701,7 +1693,6 @@ export function DaoWorkspacePanel({
           <ProtocolSettingsActionSheet
             open={settingsActionOpen}
             onClose={() => {
-              setSheetHandoff(false);
               setSettingsActionOpen(false);
             }}
             daoAccountId={daoAccountId}
@@ -1724,7 +1715,6 @@ export function DaoWorkspacePanel({
           <ProtocolSettingsSheet
             open={settingsOpen}
             onClose={() => {
-              setSheetHandoff(false);
               setSettingsOpen(false);
               setSettingsActionOpen(false);
             }}
@@ -1750,7 +1740,6 @@ export function DaoWorkspacePanel({
           <ProtocolDaoInfoSheet
             open={infoOpen}
             onClose={() => {
-              setSheetHandoff(false);
               setInfoOpen(false);
             }}
             daoAccountId={daoAccountId}
@@ -1765,7 +1754,7 @@ export function DaoWorkspacePanel({
             }}
           />
         ) : null}
-      </SheetHandoffProvider>
+      </>
     </>
   );
 

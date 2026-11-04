@@ -22,7 +22,6 @@ import {
 } from '@/features/guilds/guild-structure-discovery';
 import { SUPPORT_GUILD_CONNECT_CTA } from '@/features/guilds/support-guild-voice';
 import { GuildStructureSettingsSection } from '@/features/guilds/guild-structure-settings-section';
-import { useGuildSettingsDrawerHandoff } from '@/features/guilds/use-guild-settings-drawer-handoff';
 import {
   cloneGuildStructure,
   guildStructureForMetadata,
@@ -48,8 +47,6 @@ interface GuildRoomsSheetProps {
   memberDriven: boolean;
   onClose: () => void;
   onSaved?: () => void;
-  /** Settings crossfade has painted — parent can drop the handoff flag. */
-  onPresented?: () => void;
 }
 
 function seedSnapshot(
@@ -77,7 +74,6 @@ export function GuildRoomsSheet({
   memberDriven: initialMemberDriven,
   onClose,
   onSaved,
-  onPresented,
 }: GuildRoomsSheetProps) {
   const {
     accountId,
@@ -112,7 +108,6 @@ export function GuildRoomsSheet({
   snapshotRef.current = snapshot;
 
   const sheetOpen = open && !closing;
-  const presentation = useGuildSettingsDrawerHandoff(sheetOpen, onPresented);
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -289,7 +284,6 @@ export function GuildRoomsSheet({
         closeAriaLabel="Close"
         backdropLabel="Close guild rooms"
         zIndex={SHEET_Z.facts}
-        presentation={presentation}
         headerClassName="guild-settings-sheet-header"
         panelClassName="guild-settings-sheet-panel os-sheet-cap-tall"
         bodyClassName="guild-rooms-sheet-body"
@@ -349,7 +343,6 @@ export function GuildRoomsSheet({
         open={discardConfirmOpen}
         onDiscard={discard}
         onKeepEditing={keepEditing}
-        presentation="appear"
       />
     </>
   );

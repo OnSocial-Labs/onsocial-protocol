@@ -5,6 +5,7 @@ import {
   Divider,
   DotsVerticalIcon,
   OsHugSheet,
+  replaceSheet,
   SheetFactRow,
 } from '@onsocial/ui';
 import { ActionDrawer } from '@/components/ui/action-drawer';
@@ -79,6 +80,13 @@ function HeldEditionMenu({
     setOpen(false);
     action?.();
   }, []);
+  const handoff = useCallback(
+    (action?: () => void) => {
+      replaceSheet();
+      choose(action);
+    },
+    [choose]
+  );
   const items = useMemo(() => {
     const list: {
       id: string;
@@ -89,14 +97,14 @@ function HeldEditionMenu({
       list.push({
         id: 'transfer',
         label: 'Transfer',
-        onSelect: () => choose(onTransfer),
+        onSelect: () => handoff(onTransfer),
       });
     }
     if (onSell) {
       list.push({
         id: 'sell',
         label: 'Sell',
-        onSelect: () => choose(onSell),
+        onSelect: () => handoff(onSell),
       });
     }
     if (onShare) {
@@ -110,18 +118,18 @@ function HeldEditionMenu({
       list.push({
         id: 'history',
         label: 'History',
-        onSelect: () => choose(onHistory),
+        onSelect: () => handoff(onHistory),
       });
     }
     if (onFacts) {
       list.push({
         id: 'facts',
         label: 'Facts',
-        onSelect: () => choose(onFacts),
+        onSelect: () => handoff(onFacts),
       });
     }
     return list;
-  }, [choose, onFacts, onHistory, onSell, onShare, onTransfer]);
+  }, [choose, handoff, onFacts, onHistory, onSell, onShare, onTransfer]);
 
   if (items.length === 0) return null;
 

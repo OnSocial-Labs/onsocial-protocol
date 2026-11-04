@@ -24,6 +24,11 @@ export interface OsPageSheetProps {
    * set). No frost. Never a transparent fill.
    */
   surface?: OsPageSheetSurface;
+  /**
+   * Default `appear` — fade in place like compose, even over another sheet.
+   * `swap` holds a page already covering the column (portfolio route changes).
+   * Do not drop `appear` or an editor over Account / Settings slides as a push.
+   */
   presentation?: GlassSheetPresentation;
   header?: ReactNode;
   footer?: ReactNode;
@@ -94,6 +99,7 @@ export function OsPageSheet({
       onClosed={onClosed}
       tone="os"
       surface={surface}
+      sheetSurface="page"
       presentation={presentation}
       initialDetent="full"
       dragDismiss={dragDismiss}

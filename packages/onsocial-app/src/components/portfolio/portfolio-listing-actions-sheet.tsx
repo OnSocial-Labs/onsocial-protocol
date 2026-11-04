@@ -16,8 +16,8 @@ import {
   OsSheetActions,
   OsSheetFooter,
   SheetCloseButton,
-  SheetHandoffProvider,
   ShopFillIcon,
+  replaceSheet,
   TimeFillIcon,
   osActionDrawerConfirmBodyClassName,
   osActionDrawerConfirmClassName,
@@ -359,7 +359,6 @@ export function PortfolioListingActionsSheet({
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
   const [handedOff, setHandedOff] = useState(false);
-  const [sheetHandoff, setSheetHandoff] = useState(false);
   const handedOffRef = useRef(false);
   const [items, setItems] = useState<ListingActionItem[] | null>(null);
   const cacheRef = useRef<{
@@ -449,7 +448,6 @@ export function PortfolioListingActionsSheet({
     if (open) return;
     handedOffRef.current = false;
     setHandedOff(false);
-    setSheetHandoff(false);
   }, [open]);
 
   const requestClose = useCallback(() => {
@@ -460,7 +458,7 @@ export function PortfolioListingActionsSheet({
   const beginHandoff = useCallback(() => {
     handedOffRef.current = true;
     setHandedOff(true);
-    setSheetHandoff(true);
+    replaceSheet();
     setClosing(false);
     setConfirmItem(null);
   }, []);
@@ -470,7 +468,6 @@ export function PortfolioListingActionsSheet({
     setBidListing(null);
     setOffersItem(null);
     setFocusActionId(null);
-    setSheetHandoff(false);
     onOpenChange(false);
   }, [onOpenChange]);
 
@@ -682,7 +679,7 @@ export function PortfolioListingActionsSheet({
         </OsHugSheet>
       )}
 
-      <SheetHandoffProvider active={sheetHandoff}>
+      <>
         <ScarceBidSheet
           open={bidListing != null}
           listing={bidListing}
@@ -713,11 +710,12 @@ export function PortfolioListingActionsSheet({
           }}
           onAccepted={handleOfferAccepted}
         />
-      </SheetHandoffProvider>
+      </>
 
       <OsHugSheet
         open={confirmItem != null && confirmCopy != null}
         onClose={closeConfirm}
+        stack="auto"
         chrome="choice"
         label={confirmCopy?.title ?? 'Confirm'}
         closeAriaLabel={confirmCopy?.discardLabel ?? 'Discard'}

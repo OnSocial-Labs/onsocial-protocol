@@ -7,8 +7,8 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import type { GlassSheetPresentation } from './glass-sheet.js';
 import { OsHugSheet } from './os-hug-sheet.js';
+import type { SheetStackRole } from './sheet-motion.js';
 
 export const osActionDrawerIconClassName = 'os-action-drawer-icon';
 export const osActionDrawerConfirmClassName = 'os-action-drawer-confirm';
@@ -120,10 +120,10 @@ export interface ActionDrawerProps {
   /** `null` → document.body so the list can sit above an OS slide-over. */
   portalContainer?: HTMLElement | null;
   /**
-   * `appear` fades over the sheet that opened this list.
-   * Default `enter` slides. A settings handoff rewrites `enter` into a swap.
+   * Choice lists are covers. A confirm that opens over one passes `auto`
+   * so it slides up while that drawer stays open.
    */
-  presentation?: GlassSheetPresentation;
+  stack?: SheetStackRole;
 }
 
 /**
@@ -153,7 +153,7 @@ export function ActionDrawer({
   linkComponent: LinkComponent = DefaultActionDrawerLink,
   keepDock = false,
   portalContainer,
-  presentation,
+  stack,
 }: ActionDrawerProps) {
   const sections = useMemo(() => groupItems(items ?? []), [items]);
 
@@ -237,8 +237,8 @@ export function ActionDrawer({
       footer={footer}
       backdropLabel={backdropLabel}
       keepDock={keepDock}
+      {...(stack ? { stack } : {})}
       {...(portalContainer !== undefined ? { portalContainer } : {})}
-      {...(presentation ? { presentation } : {})}
     >
       {children}
       {items && items.length > 0 ? (
