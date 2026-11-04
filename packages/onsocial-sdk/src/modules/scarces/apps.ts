@@ -115,7 +115,8 @@ export class ScarcesAppsApi {
   /** Transfer app ownership to another account. */
   async transferOwnership(
     appId: string,
-    newOwner: string
+    newOwner: string,
+    opts?: { stayAs?: 'moderator' | 'approved_creator' }
   ): Promise<RelayResponse> {
     return composeAndSign(
       this._http,
@@ -124,6 +125,7 @@ export class ScarcesAppsApi {
       {
         appId,
         newOwner,
+        ...(opts?.stayAs ? { stayAs: opts.stayAs } : {}),
       },
       'scarces.transferAppOwnership',
       this._relayOpts({ confirmation: true })

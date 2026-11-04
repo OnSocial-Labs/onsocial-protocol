@@ -36,7 +36,7 @@ mod upgrade;
 mod tests;
 
 pub use admin::ContractInfo;
-pub use app_pool::{AppConfig, AppPool, CreatorAccess};
+pub use app_pool::{AppConfig, AppPool, CreatorAccess, TransferStayAs};
 pub use collections::{
     AllowlistEntry, CollectionConfig, CollectionProgress, CollectionStats, LazyCollection,
     MintMode, RevocationMode,

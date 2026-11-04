@@ -1006,6 +1006,36 @@ export function getScarcesParityCases(
       },
     },
     {
+      name: 'transfer app ownership stay as moderator',
+      action: {
+        type: 'transfer_app_ownership',
+        app_id: 'my-app',
+        new_owner: 'newowner.near',
+        stay_as: 'moderator',
+      },
+      expectedAction: {
+        type: 'transfer_app_ownership',
+        app_id: 'my-app',
+        new_owner: 'newowner.near',
+        stay_as: 'moderator',
+      },
+    },
+    {
+      name: 'transfer app ownership stay as approved creator',
+      action: {
+        type: 'transfer_app_ownership',
+        app_id: 'my-app',
+        new_owner: 'newowner.near',
+        stay_as: 'approved_creator',
+      },
+      expectedAction: {
+        type: 'transfer_app_ownership',
+        app_id: 'my-app',
+        new_owner: 'newowner.near',
+        stay_as: 'approved_creator',
+      },
+    },
+    {
       name: 'add moderator',
       action: {
         type: 'add_moderator',

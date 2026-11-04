@@ -443,9 +443,7 @@ pub fn deserialize_trailing_publish_requests<R: near_sdk::borsh::io::Read>(
     near_sdk::borsh::io::Error,
 > {
     Ok(match read_trailing_lookup_prefix(reader)? {
-        None => {
-            near_sdk::store::LookupMap::new(crate::StorageKey::PublishRequests)
-        }
+        None => near_sdk::store::LookupMap::new(crate::StorageKey::PublishRequests),
         Some(prefix) => near_sdk::store::LookupMap::new(prefix),
     })
 }

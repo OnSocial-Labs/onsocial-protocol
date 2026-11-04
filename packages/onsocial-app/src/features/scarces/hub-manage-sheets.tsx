@@ -27,11 +27,14 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
+  HUB_MAX_APPROVED_CREATORS,
+  HUB_MAX_MODERATORS,
   creatorAccessLabel,
   creatorAccessShort,
   hubUsesCreatorRoster,
   type AppView,
   type CreatorAccess,
+  type TransferStayAs,
 } from '@/features/scarces/apps-data';
 import {
   MAX_CREATOR_BATCH,
@@ -806,9 +809,32 @@ export function HubTransferSheet({
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
   const [transferTo, setTransferTo] = useState('');
+  const [stayAs, setStayAs] = useState<TransferStayAs | 'none'>('moderator');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sheetOpen = open && !closing;
+
+  const normalizedTo = normalizeNearAccountId(transferTo);
+  const isSelf = accountIdsEqual(normalizedTo, app.ownerId);
+  const recipientIsModerator = app.moderators.some((id) =>
+    accountIdsEqual(id, normalizedTo)
+  );
+  const recipientIsCreator = app.approvedCreators.some((id) =>
+    accountIdsEqual(id, normalizedTo)
+  );
+  const canStayAsModerator =
+    app.moderators.length - (recipientIsModerator ? 1 : 0) < HUB_MAX_MODERATORS;
+  const creatorRosterUsed = hubUsesCreatorRoster(app.creatorAccess);
+  const canStayAsCreator =
+    creatorRosterUsed &&
+    app.approvedCreators.length - (recipientIsCreator ? 1 : 0) <
+      HUB_MAX_APPROVED_CREATORS;
+  const selectedStay: TransferStayAs | 'none' =
+    stayAs === 'moderator' && canStayAsModerator
+      ? 'moderator'
+      : stayAs === 'approved_creator' && canStayAsCreator
+        ? 'approved_creator'
+        : 'none';
 
   useEffect(() => {
     if (!open) {
@@ -816,6 +842,7 @@ export function HubTransferSheet({
       return;
     }
     setTransferTo('');
+    setStayAs('moderator');
     setError(null);
   }, [open, app.appId]);
 
@@ -829,8 +856,6 @@ export function HubTransferSheet({
     onClose();
   }, [onClose]);
 
-  const normalizedTo = normalizeNearAccountId(transferTo);
-  const isSelf = accountIdsEqual(normalizedTo, app.ownerId);
   const accountStatus = useNearAccountStatus(transferTo);
   const recipientProfiles = usePostAuthorProfiles(
     accountStatus === 'found' && !isSelf ? [normalizedTo] : []
@@ -857,7 +882,8 @@ export function HubTransferSheet({
       const client = await withWallet();
       const response = await client.scarces.apps.transferOwnership(
         app.appId,
-        nextOwner
+        nextOwner,
+        selectedStay === 'none' ? undefined : { stayAs: selectedStay }
       );
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
@@ -931,6 +957,65 @@ export function HubTransferSheet({
             setTransferTo(accountId);
           }}
         />
+        <div className="guild-field">
+          <span>After transfer</span>
+          <div
+            className="app-storage-presets"
+            role="radiogroup"
+            aria-label="After transfer"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={selectedStay === 'none'}
+              className={`os-surface-chip${
+                selectedStay === 'none' ? ' is-selected' : ''
+              }`}
+              disabled={pending}
+              onClick={() => setStayAs('none')}
+            >
+              Leave
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={selectedStay === 'moderator'}
+              className={`os-surface-chip${
+                selectedStay === 'moderator' ? ' is-selected' : ''
+              }`}
+              disabled={pending || !canStayAsModerator}
+              onClick={() => setStayAs('moderator')}
+            >
+              Stay as moderator
+            </button>
+            {creatorRosterUsed ? (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={selectedStay === 'approved_creator'}
+                className={`os-surface-chip${
+                  selectedStay === 'approved_creator' ? ' is-selected' : ''
+                }`}
+                disabled={pending || !canStayAsCreator}
+                onClick={() => setStayAs('approved_creator')}
+              >
+                Stay as creator
+              </button>
+            ) : null}
+          </div>
+          {!canStayAsModerator ? (
+            <small className="hub-manage-hint">
+              Moderator seats are full ({HUB_MAX_MODERATORS}/
+              {HUB_MAX_MODERATORS}).
+            </small>
+          ) : null}
+          {creatorRosterUsed && !canStayAsCreator ? (
+            <small className="hub-manage-hint">
+              Creator seats are full ({HUB_MAX_APPROVED_CREATORS}/
+              {HUB_MAX_APPROVED_CREATORS}).
+            </small>
+          ) : null}
+        </div>
         {!searchActive && isSelf ? (
           <p className="hub-manage-hint">Choose another account.</p>
         ) : null}

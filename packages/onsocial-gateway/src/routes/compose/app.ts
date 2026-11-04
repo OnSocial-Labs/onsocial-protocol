@@ -98,6 +98,10 @@ const transferOwn = actionHandlers(
     buildTransferAppOwnershipAction({
       appId: String(b.appId || ''),
       newOwner: String(b.newOwner || ''),
+      stayAs:
+        b.stayAs === 'moderator' || b.stayAs === 'approved_creator'
+          ? b.stayAs
+          : undefined,
       targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
     }),
   'transfer-app-ownership'

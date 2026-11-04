@@ -166,7 +166,7 @@ automatically restricted to wallet-signed transactions).
 | Action | Description |
 |--------|-------------|
 | `SetAppConfig` | Update app configuration |
-| `TransferAppOwnership` | Transfer app to new owner |
+| `TransferAppOwnership` | Transfer app to new owner (`stay_as`: `moderator` \| `approved_creator`) |
 | `AddModerator` / `RemoveModerator` | Manage app moderators |
 | `BanCollection` / `UnbanCollection` | Moderate collections |
 

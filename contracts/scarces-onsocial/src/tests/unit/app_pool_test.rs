@@ -159,11 +159,145 @@ fn transfer_app_ownership_happy() {
         .execute(make_request(Action::TransferAppOwnership {
             app_id: app_id(),
             new_owner: buyer(),
+            stay_as: None,
         }))
         .unwrap();
 
     let pool = contract.app_pools.get(&app_id()).unwrap();
     assert_eq!(pool.owner_id, buyer());
+    assert!(!pool.moderators.contains(&owner()));
+}
+
+#[test]
+fn transfer_app_ownership_stay_as_moderator() {
+    let mut contract = setup_with_app();
+    testing_env!(context_with_deposit(owner(), 1).build());
+
+    contract
+        .execute(make_request(Action::TransferAppOwnership {
+            app_id: app_id(),
+            new_owner: buyer(),
+            stay_as: Some(TransferStayAs::Moderator),
+        }))
+        .unwrap();
+
+    let pool = contract.app_pools.get(&app_id()).unwrap();
+    assert_eq!(pool.owner_id, buyer());
+    assert!(pool.moderators.contains(&owner()));
+    assert!(!pool.approved_creators.contains(&owner()));
+}
+
+#[test]
+fn transfer_app_ownership_stay_as_approved_creator() {
+    let mut contract = setup_with_app();
+    testing_env!(context_with_deposit(owner(), 1).build());
+
+    contract
+        .execute(make_request(Action::TransferAppOwnership {
+            app_id: app_id(),
+            new_owner: buyer(),
+            stay_as: Some(TransferStayAs::ApprovedCreator),
+        }))
+        .unwrap();
+
+    let pool = contract.app_pools.get(&app_id()).unwrap();
+    assert_eq!(pool.owner_id, buyer());
+    assert!(!pool.moderators.contains(&owner()));
+    assert!(pool.approved_creators.contains(&owner()));
+}
+
+#[test]
+fn transfer_app_ownership_stay_full_mods_fails() {
+    let mut contract = setup_with_app();
+    testing_env!(context_with_deposit(owner(), 1).build());
+    for i in 0..20 {
+        let mod_id: AccountId = format!("mod{i}.testnet").parse().unwrap();
+        contract
+            .execute(make_request(Action::AddModerator {
+                app_id: app_id(),
+                account_id: mod_id,
+            }))
+            .unwrap();
+    }
+
+    let err = contract
+        .execute(make_request(Action::TransferAppOwnership {
+            app_id: app_id(),
+            new_owner: buyer(),
+            stay_as: Some(TransferStayAs::Moderator),
+        }))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidInput(_)));
+    let pool = contract.app_pools.get(&app_id()).unwrap();
+    assert_eq!(pool.owner_id, owner());
+}
+
+#[test]
+fn transfer_app_ownership_frees_recipient_mod_seat() {
+    let mut contract = setup_with_app();
+    testing_env!(context_with_deposit(owner(), 1).build());
+    contract
+        .execute(make_request(Action::AddModerator {
+            app_id: app_id(),
+            account_id: buyer(),
+        }))
+        .unwrap();
+    for i in 0..19 {
+        let mod_id: AccountId = format!("mod{i}.testnet").parse().unwrap();
+        contract
+            .execute(make_request(Action::AddModerator {
+                app_id: app_id(),
+                account_id: mod_id,
+            }))
+            .unwrap();
+    }
+
+    contract
+        .execute(make_request(Action::TransferAppOwnership {
+            app_id: app_id(),
+            new_owner: buyer(),
+            stay_as: Some(TransferStayAs::Moderator),
+        }))
+        .unwrap();
+
+    let pool = contract.app_pools.get(&app_id()).unwrap();
+    assert_eq!(pool.owner_id, buyer());
+    assert!(!pool.moderators.contains(&buyer()));
+    assert!(pool.moderators.contains(&owner()));
+    assert_eq!(pool.moderators.len(), 20);
+}
+
+#[test]
+fn transfer_app_ownership_demotes_recipient_rosters_without_stay() {
+    let mut contract = setup_with_app();
+    testing_env!(context_with_deposit(owner(), 1).build());
+    contract
+        .execute(make_request(Action::AddModerator {
+            app_id: app_id(),
+            account_id: buyer(),
+        }))
+        .unwrap();
+    contract
+        .execute(make_request(Action::AddApprovedCreator {
+            app_id: app_id(),
+            account_id: buyer(),
+        }))
+        .unwrap();
+
+    contract
+        .execute(make_request(Action::TransferAppOwnership {
+            app_id: app_id(),
+            new_owner: buyer(),
+            stay_as: None,
+        }))
+        .unwrap();
+
+    let pool = contract.app_pools.get(&app_id()).unwrap();
+    assert_eq!(pool.owner_id, buyer());
+    assert!(!pool.moderators.contains(&buyer()));
+    assert!(!pool.approved_creators.contains(&buyer()));
+    assert!(!pool.moderators.contains(&owner()));
+    assert!(!pool.approved_creators.contains(&owner()));
 }
 
 #[test]
@@ -175,6 +309,7 @@ fn transfer_app_ownership_non_owner_fails() {
         .execute(make_request(Action::TransferAppOwnership {
             app_id: app_id(),
             new_owner: creator(),
+            stay_as: None,
         }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));

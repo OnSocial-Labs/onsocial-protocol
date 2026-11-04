@@ -957,6 +957,32 @@
       }
     },
     {
+      "name": "transfer app ownership stay as moderator",
+      "expected_action_type": "transfer_app_ownership",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "transfer_app_ownership",
+          "app_id": "my-app",
+          "new_owner": "newowner.near",
+          "stay_as": "moderator"
+        }
+      }
+    },
+    {
+      "name": "transfer app ownership stay as approved creator",
+      "expected_action_type": "transfer_app_ownership",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "transfer_app_ownership",
+          "app_id": "my-app",
+          "new_owner": "newowner.near",
+          "stay_as": "approved_creator"
+        }
+      }
+    },
+    {
       "name": "add moderator",
       "expected_action_type": "add_moderator",
       "request": {

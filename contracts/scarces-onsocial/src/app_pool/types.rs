@@ -28,6 +28,15 @@ impl CreatorAccess {
     }
 }
 
+/// Optional post-transfer role for the previous owner.
+#[near(serializers = [json])]
+#[serde(rename_all = "snake_case")]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum TransferStayAs {
+    Moderator,
+    ApprovedCreator,
+}
+
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
 pub struct AppPool {

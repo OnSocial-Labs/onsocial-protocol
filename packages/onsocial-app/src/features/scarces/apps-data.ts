@@ -32,6 +32,11 @@ const SCARCES_CONTRACT =
 
 export type CreatorAccess = 'open' | 'approval' | 'invite_only';
 
+export const HUB_MAX_MODERATORS = 20;
+export const HUB_MAX_APPROVED_CREATORS = 200;
+
+export type TransferStayAs = 'moderator' | 'approved_creator';
+
 /** Raw on-chain `AppPool` fields this app reads. */
 interface AppPoolRecord {
   owner_id?: string;

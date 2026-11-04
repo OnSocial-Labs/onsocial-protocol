@@ -144,7 +144,9 @@ fn cancel_removes_pending_request() {
     request(&mut contract, creator(), None);
     testing_env!(context_with_deposit(creator(), 1).build());
     contract
-        .execute(make_request(Action::CancelPublishRequest { app_id: app_id() }))
+        .execute(make_request(Action::CancelPublishRequest {
+            app_id: app_id(),
+        }))
         .unwrap();
     assert!(contract.get_publish_request(app_id(), creator()).is_none());
     assert!(
@@ -211,7 +213,9 @@ fn block_stops_a_new_request_until_unblock() {
         .unwrap_err();
     assert!(err.to_string().contains("cannot request"));
     let err = contract
-        .execute(make_request(Action::CancelPublishRequest { app_id: app_id() }))
+        .execute(make_request(Action::CancelPublishRequest {
+            app_id: app_id(),
+        }))
         .unwrap_err();
     assert!(err.to_string().contains("No pending"));
 
@@ -226,7 +230,10 @@ fn block_stops_a_new_request_until_unblock() {
 
     request(&mut contract, creator(), None);
     assert_eq!(
-        contract.get_publish_request(app_id(), creator()).unwrap().status,
+        contract
+            .get_publish_request(app_id(), creator())
+            .unwrap()
+            .status,
         "pending"
     );
 }

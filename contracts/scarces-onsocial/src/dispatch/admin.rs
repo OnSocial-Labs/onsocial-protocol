@@ -12,8 +12,12 @@ impl Contract {
                 self.set_app_config(actor_id, &app_id, params)?;
                 Ok(Value::Null)
             }
-            Action::TransferAppOwnership { app_id, new_owner } => {
-                self.transfer_app_ownership(actor_id, &app_id, new_owner)?;
+            Action::TransferAppOwnership {
+                app_id,
+                new_owner,
+                stay_as,
+            } => {
+                self.transfer_app_ownership(actor_id, &app_id, new_owner, stay_as)?;
                 Ok(Value::Null)
             }
             Action::AddModerator { app_id, account_id } => {

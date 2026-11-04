@@ -152,19 +152,26 @@ export function buildWithdrawAppPoolAction(params: {
 // Ownership & Moderation
 // ---------------------------------------------------------------------------
 
+const TRANSFER_STAY_AS = new Set(['moderator', 'approved_creator']);
+
 /** Build a TransferAppOwnership action. */
 export function buildTransferAppOwnershipAction(params: {
   appId: string;
   newOwner: string;
+  stayAs?: 'moderator' | 'approved_creator';
   targetAccount?: string;
 }): SimpleActionResult {
   if (!params.appId) throw new ComposeError(400, 'Missing appId');
   if (!params.newOwner) throw new ComposeError(400, 'Missing newOwner');
+  if (params.stayAs != null && !TRANSFER_STAY_AS.has(params.stayAs)) {
+    throw new ComposeError(400, 'Invalid stayAs');
+  }
   return {
     action: {
       type: 'transfer_app_ownership',
       app_id: params.appId,
       new_owner: params.newOwner,
+      ...(params.stayAs ? { stay_as: params.stayAs } : {}),
     },
     targetAccount: resolveScarcesTarget(params.targetAccount),
   };

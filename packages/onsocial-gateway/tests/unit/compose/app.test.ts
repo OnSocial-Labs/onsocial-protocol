@@ -161,6 +161,33 @@ describe('buildTransferAppOwnershipAction', () => {
     });
   });
 
+  it('includes stay_as when requested', () => {
+    expect(
+      buildTransferAppOwnershipAction({
+        appId: 'tickets.near',
+        newOwner: 'newadmin.near',
+        stayAs: 'moderator',
+      }).action
+    ).toEqual({
+      type: 'transfer_app_ownership',
+      app_id: 'tickets.near',
+      new_owner: 'newadmin.near',
+      stay_as: 'moderator',
+    });
+    expect(
+      buildTransferAppOwnershipAction({
+        appId: 'tickets.near',
+        newOwner: 'newadmin.near',
+        stayAs: 'approved_creator',
+      }).action
+    ).toEqual({
+      type: 'transfer_app_ownership',
+      app_id: 'tickets.near',
+      new_owner: 'newadmin.near',
+      stay_as: 'approved_creator',
+    });
+  });
+
   it('throws on missing newOwner', () => {
     expect(() =>
       buildTransferAppOwnershipAction({

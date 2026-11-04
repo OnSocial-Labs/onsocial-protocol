@@ -278,6 +278,8 @@ pub enum Action {
     TransferAppOwnership {
         app_id: String,
         new_owner: AccountId,
+        #[serde(default)]
+        stay_as: Option<crate::TransferStayAs>,
     },
     AddModerator {
         app_id: String,

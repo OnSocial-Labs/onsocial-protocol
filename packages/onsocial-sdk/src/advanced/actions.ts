@@ -362,7 +362,12 @@ export type ScarcesAction =
       creator_access?: CreatorAccess;
       metadata?: string;
     }
-  | { type: 'transfer_app_ownership'; app_id: string; new_owner: string }
+  | {
+      type: 'transfer_app_ownership';
+      app_id: string;
+      new_owner: string;
+      stay_as?: 'moderator' | 'approved_creator';
+    }
   | { type: 'add_moderator'; app_id: string; account_id: string }
   | { type: 'remove_moderator'; app_id: string; account_id: string }
   | { type: 'add_approved_creator'; app_id: string; account_id: string }

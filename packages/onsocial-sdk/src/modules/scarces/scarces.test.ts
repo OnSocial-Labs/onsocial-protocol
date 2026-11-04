@@ -129,7 +129,9 @@ function prepareBodyFor(
   const calls = post.mock.calls as unknown as Array<
     [string, Record<string, unknown>]
   >;
-  const call = calls.find(([p]) => p === `/compose/prepare/${verb}`);
+  const call = [...calls]
+    .reverse()
+    .find(([p]) => p === `/compose/prepare/${verb}`);
   if (!call) throw new Error(`no /compose/prepare/${verb} call`);
   return call[1];
 }
@@ -868,6 +870,22 @@ describe('ScarcesModule.apps', () => {
     expect(prepareBodyFor(http.post, 'transfer-app-ownership')).toEqual({
       appId: 'app1',
       newOwner: 'new.near',
+    });
+    await mod.apps.transferOwnership('app1', 'new.near', {
+      stayAs: 'moderator',
+    });
+    expect(prepareBodyFor(http.post, 'transfer-app-ownership')).toEqual({
+      appId: 'app1',
+      newOwner: 'new.near',
+      stayAs: 'moderator',
+    });
+    await mod.apps.transferOwnership('app1', 'new.near', {
+      stayAs: 'approved_creator',
+    });
+    expect(prepareBodyFor(http.post, 'transfer-app-ownership')).toEqual({
+      appId: 'app1',
+      newOwner: 'new.near',
+      stayAs: 'approved_creator',
     });
   });
 

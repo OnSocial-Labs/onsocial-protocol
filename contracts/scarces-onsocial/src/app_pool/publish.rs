@@ -41,9 +41,10 @@ fn to_view(account_id: &AccountId, row: &PublishRequest) -> PublishRequestView {
 #[near]
 impl Contract {
     fn load_pool(&self, app_id: &str) -> Result<AppPool, MarketplaceError> {
-        self.app_pools.get(app_id).cloned().ok_or_else(|| {
-            MarketplaceError::NotFound(format!("App pool not found: {app_id}"))
-        })
+        self.app_pools
+            .get(app_id)
+            .cloned()
+            .ok_or_else(|| MarketplaceError::NotFound(format!("App pool not found: {app_id}")))
     }
 
     fn require_staff(&self, app_id: &str, actor_id: &AccountId) -> Result<(), MarketplaceError> {

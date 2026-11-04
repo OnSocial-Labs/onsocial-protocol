@@ -223,12 +223,14 @@ impl Contract {
         actor_id == &pool.owner_id || pool.moderators.contains(actor_id)
     }
 
-    // State transition guarantee: ownership transfer is immediate and single-step.
+    // Ownership transfer is immediate. Optional stay keeps the previous owner
+    // as moderator (cap 20) or approved creator (cap 200) when a seat is free.
     pub(crate) fn transfer_app_ownership(
         &mut self,
         actor_id: &AccountId,
         app_id: &str,
         new_owner: AccountId,
+        stay_as: Option<TransferStayAs>,
     ) -> Result<(), MarketplaceError> {
         let mut pool = self
             .app_pools
@@ -238,9 +240,62 @@ impl Contract {
             self.app_pools.insert(app_id.to_string(), pool);
             return Err(MarketplaceError::only_owner("pool owner"));
         }
+        if new_owner == pool.owner_id {
+            self.app_pools.insert(app_id.to_string(), pool);
+            return Err(MarketplaceError::InvalidInput(
+                "New owner must be a different account".into(),
+            ));
+        }
+
         let old_owner = pool.owner_id.clone();
+        let stay_mod = matches!(stay_as, Some(TransferStayAs::Moderator))
+            && !pool.moderators.contains(&old_owner);
+        let stay_creator = matches!(stay_as, Some(TransferStayAs::ApprovedCreator))
+            && !pool.approved_creators.contains(&old_owner);
+        let mod_seats = pool.moderators.iter().filter(|m| *m != &new_owner).count();
+        let creator_seats = pool
+            .approved_creators
+            .iter()
+            .filter(|a| *a != &new_owner)
+            .count();
+        if stay_mod && mod_seats >= 20 {
+            self.app_pools.insert(app_id.to_string(), pool);
+            return Err(MarketplaceError::InvalidInput(
+                "Maximum 20 moderators per app".into(),
+            ));
+        }
+        if stay_creator && creator_seats >= 200 {
+            self.app_pools.insert(app_id.to_string(), pool);
+            return Err(MarketplaceError::InvalidInput(
+                "Maximum 200 approved creators per app".into(),
+            ));
+        }
+
+        let recipient_was_mod = pool.moderators.iter().any(|m| m == &new_owner);
+        let recipient_was_creator = pool.approved_creators.iter().any(|a| a == &new_owner);
+        pool.moderators.retain(|m| m != &new_owner);
+        pool.approved_creators.retain(|a| a != &new_owner);
+        if stay_mod {
+            pool.moderators.push(old_owner.clone());
+        }
+        if stay_creator {
+            pool.approved_creators.push(old_owner.clone());
+        }
         pool.owner_id = new_owner.clone();
         self.app_pools.insert(app_id.to_string(), pool);
+
+        if recipient_was_mod {
+            events::emit_moderator_removed(&old_owner, app_id, &new_owner);
+        }
+        if recipient_was_creator {
+            events::emit_approved_creator_removed(&old_owner, app_id, &new_owner);
+        }
+        if stay_mod {
+            events::emit_moderator_added(&old_owner, app_id, &old_owner);
+        }
+        if stay_creator {
+            events::emit_approved_creator_added(&old_owner, app_id, &old_owner);
+        }
         events::emit_app_owner_transferred(&old_owner, &new_owner, app_id);
         Ok(())
     }
