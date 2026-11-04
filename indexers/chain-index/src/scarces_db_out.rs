@@ -732,6 +732,7 @@ pub(crate) fn apply_active_offer(tables: &mut Tables, e: &ScarcesEvent) {
     }
 }
 
+const ROLE_OWNER: &str = "owner";
 const ROLE_MODERATOR: &str = "moderator";
 const ROLE_APPROVED_CREATOR: &str = "approved_creator";
 
@@ -815,10 +816,13 @@ fn set_app_updated(tables: &mut Tables, app_id: &str, e: &ScarcesEvent) {
     row.set("updated_block_timestamp", e.block_timestamp);
 }
 
-fn upsert_app_creator(tables: &mut Tables, app_id: &str, role: &str, e: &ScarcesEvent) {
-    let Some(account_id) = non_empty(&e.account_id) else {
-        return;
-    };
+fn upsert_app_roster_row(
+    tables: &mut Tables,
+    app_id: &str,
+    role: &str,
+    account_id: &str,
+    e: &ScarcesEvent,
+) {
     let key = app_creator_key(app_id, role, account_id);
     let row = tables.upsert_row("scarces_app_creators", &key);
     row.set("id", &key);
@@ -829,14 +833,25 @@ fn upsert_app_creator(tables: &mut Tables, app_id: &str, role: &str, e: &Scarces
     row.set("added_block_timestamp", e.block_timestamp);
 }
 
-fn delete_app_creator(tables: &mut Tables, app_id: &str, role: &str, e: &ScarcesEvent) {
-    let Some(account_id) = non_empty(&e.account_id) else {
-        return;
-    };
+fn delete_app_roster_row(tables: &mut Tables, app_id: &str, role: &str, account_id: &str) {
     tables.delete_row(
         "scarces_app_creators",
         app_creator_key(app_id, role, account_id),
     );
+}
+
+fn upsert_app_creator(tables: &mut Tables, app_id: &str, role: &str, e: &ScarcesEvent) {
+    let Some(account_id) = non_empty(&e.account_id) else {
+        return;
+    };
+    upsert_app_roster_row(tables, app_id, role, account_id, e);
+}
+
+fn delete_app_creator(tables: &mut Tables, app_id: &str, role: &str, e: &ScarcesEvent) {
+    let Some(account_id) = non_empty(&e.account_id) else {
+        return;
+    };
+    delete_app_roster_row(tables, app_id, role, account_id);
 }
 
 fn set_collection_identity(tables: &mut Tables, collection_id: &str, e: &ScarcesEvent) {
@@ -1151,12 +1166,16 @@ pub(crate) fn apply_app_pool(tables: &mut Tables, e: &ScarcesEvent) {
         "register" => {
             set_app_updated(tables, app_id, e);
             set_app_profile(tables, app_id, e);
+            let owner = non_empty(&e.owner_id).or_else(|| non_empty(&e.author));
             let row = tables.upsert_row("scarces_apps", app_id);
-            if let Some(owner) = non_empty(&e.owner_id).or_else(|| non_empty(&e.author)) {
+            if let Some(owner) = owner {
                 row.set("owner_id", owner);
             }
             row.set("created_block_height", e.block_height);
             row.set("created_block_timestamp", e.block_timestamp);
+            if let Some(owner) = owner {
+                upsert_app_roster_row(tables, app_id, ROLE_OWNER, owner, e);
+            }
         }
         "config_update" => {
             set_app_updated(tables, app_id, e);
@@ -1168,9 +1187,16 @@ pub(crate) fn apply_app_pool(tables: &mut Tables, e: &ScarcesEvent) {
         }
         "owner_transferred" => {
             set_app_updated(tables, app_id, e);
-            if let Some(owner) = non_empty(&e.new_owner) {
+            if let Some(old_owner) = non_empty(&e.old_owner) {
+                delete_app_roster_row(tables, app_id, ROLE_OWNER, old_owner);
+            }
+            let new_owner = non_empty(&e.new_owner);
+            if let Some(owner) = new_owner {
                 let row = tables.upsert_row("scarces_apps", app_id);
                 row.set("owner_id", owner);
+            }
+            if let Some(owner) = new_owner {
+                upsert_app_roster_row(tables, app_id, ROLE_OWNER, owner, e);
             }
         }
         "moderator_added" => upsert_app_creator(tables, app_id, ROLE_MODERATOR, e),

@@ -7,7 +7,6 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import Link from 'next/link';
 import {
   DiscardConfirmSheet,
   OsHugSheet,
@@ -55,11 +54,15 @@ import {
   nearAccountPlaceholder,
   normalizeNearAccountId,
 } from '@/lib/app-near-account';
-import { portfolioPath } from '@/lib/overlay-routes';
-import { fallbackLabel } from '@/lib/profile-display';
+import { HubRosterList } from '@/features/scarces/hub-roster-list';
+import { useHubRoster } from '@/features/scarces/hub-roster';
+import type { HubRosterManageContext } from '@/features/scarces/hub-roster-row-actions';
 import { POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
+import { fallbackLabel } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { topicsEqual } from '@/lib/topic-slug';
+import { hubRosterTransactionToast } from '@/features/scarces/hub-roster-transaction-toast';
+import { hubRosterIsOwnerOnly } from '@/features/scarces/hub-roster';
 import {
   txToastConfirming,
   txToastError,
@@ -620,11 +623,27 @@ export function HubPeopleSheet({
   canManageModerators: boolean;
 }) {
   const withWallet = useHubManageWallet();
+  const { accountId: viewerAccountId } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [creatorInput, setCreatorInput] = useState('');
   const [moderatorInput, setModeratorInput] = useState('');
   const [pending, setPending] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const roster = useHubRoster(app, open);
+  const profiles = usePostAuthorProfiles(
+    open ? roster.map((row) => row.accountId) : []
+  );
+
+  const manageContext = useMemo((): HubRosterManageContext | null => {
+    if (!viewerAccountId || (!canManageModerators && !canManageCreators)) {
+      return null;
+    }
+    return {
+      viewerAccountId,
+      canManageModerators,
+      canManageCreators,
+    };
+  }, [canManageCreators, canManageModerators, viewerAccountId]);
 
   useEffect(() => {
     if (!open) return;
@@ -639,12 +658,14 @@ export function HubPeopleSheet({
   const mutateRoster = async (
     kind: RosterKind,
     accountId: string,
-    action: 'add' | 'remove',
     resetInput?: () => void
   ) => {
     if (pending) return;
+    const toast = hubRosterTransactionToast(
+      kind === 'moderator' ? 'moderator' : 'creator'
+    );
 
-    if (kind === 'creator' && action === 'add') {
+    if (kind === 'creator') {
       const ids = parseRosterAccountIds(accountId).filter(
         (id) => !accountIdsEqual(id, app.ownerId)
       );
@@ -670,9 +691,9 @@ export function HubPeopleSheet({
         );
         const confirmed = await trackTransaction({
           txHashes: collectRelayTxHashes(response),
-          submittedMessage: txToastConfirming.updatingAppCreators,
-          successMessage: txToastSuccess.appCreatorsUpdated,
-          failureMessage: txToastError.updateAppCreatorsFailed,
+          submittedMessage: toast.confirming,
+          successMessage: toast.success,
+          failureMessage: toast.failure,
         });
         if (!confirmed) return;
         resetInput?.();
@@ -682,9 +703,7 @@ export function HubPeopleSheet({
         setTxResult({
           type: 'error',
           msg:
-            cause instanceof Error
-              ? cause.message
-              : txToastError.updateAppCreatorsFailed,
+            cause instanceof Error ? cause.message : toast.failure,
         });
       } finally {
         setPending(false);
@@ -694,7 +713,7 @@ export function HubPeopleSheet({
 
     const id = accountId.trim().toLowerCase();
     if (!id) return;
-    if (action === 'add' && accountIdsEqual(id, app.ownerId)) {
+    if (accountIdsEqual(id, app.ownerId)) {
       setNote('You already own this hub.');
       return;
     }
@@ -702,18 +721,12 @@ export function HubPeopleSheet({
     setNote(null);
     try {
       const client = await withWallet();
-      const apps = client.scarces.apps;
-      const response =
-        kind === 'creator'
-          ? await apps.removeApprovedCreator(app.appId, id)
-          : action === 'add'
-            ? await apps.addModerator(app.appId, id)
-            : await apps.removeModerator(app.appId, id);
+      const response = await client.scarces.apps.addModerator(app.appId, id);
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
-        submittedMessage: txToastConfirming.updatingAppCreators,
-        successMessage: txToastSuccess.appCreatorsUpdated,
-        failureMessage: txToastError.updateAppCreatorsFailed,
+        submittedMessage: toast.confirming,
+        successMessage: toast.success,
+        failureMessage: toast.failure,
       });
       if (!confirmed) return;
       resetInput?.();
@@ -723,20 +736,21 @@ export function HubPeopleSheet({
       setTxResult({
         type: 'error',
         msg:
-          cause instanceof Error
-            ? cause.message
-            : txToastError.updateAppCreatorsFailed,
+          cause instanceof Error ? cause.message : toast.failure,
       });
     } finally {
       setPending(false);
     }
   };
 
+  const showRosterHint =
+    hubRosterIsOwnerOnly(roster) && (canManageModerators || showCreators);
+
   return (
     <HubManageSheetChrome
       open={open}
       title="People"
-      subtitle="Moderators and approved creators"
+      subtitle="Owner, moderators, and creators"
       onClose={onClose}
       pending={pending}
     >
@@ -744,19 +758,17 @@ export function HubPeopleSheet({
         {showCreators ? (
           <div className="app-manage-roster">
             <h3 className="app-manage-roster-title">Approved creators</h3>
-            <RosterEditor
+            <RosterAddField
               placeholder="creator.near, artist.near"
               multiline
               value={creatorInput}
               onChange={setCreatorInput}
               disabled={pending}
               onAdd={() =>
-                void mutateRoster('creator', creatorInput, 'add', () =>
+                void mutateRoster('creator', creatorInput, () =>
                   setCreatorInput('')
                 )
               }
-              members={app.approvedCreators}
-              onRemove={(id) => void mutateRoster('creator', id, 'remove')}
             />
             <small className="hub-manage-hint">
               One or many accounts · comma or newline · up to{' '}
@@ -772,21 +784,35 @@ export function HubPeopleSheet({
         {canManageModerators ? (
           <div className="app-manage-roster">
             <h3 className="app-manage-roster-title">Moderators</h3>
-            <RosterEditor
+            <RosterAddField
               placeholder="mod.near"
               value={moderatorInput}
               onChange={setModeratorInput}
               disabled={pending}
               onAdd={() =>
-                void mutateRoster('moderator', moderatorInput, 'add', () =>
+                void mutateRoster('moderator', moderatorInput, () =>
                   setModeratorInput('')
                 )
               }
-              members={app.moderators}
-              onRemove={(id) => void mutateRoster('moderator', id, 'remove')}
             />
           </div>
         ) : null}
+
+        <div className="app-manage-roster">
+          <h3 className="app-manage-roster-title">Roster</h3>
+          <HubRosterList
+            appId={app.appId}
+            rows={roster}
+            profiles={profiles}
+            manageContext={manageContext}
+            onRosterChanged={() => onChanged()}
+          />
+          {showRosterHint ? (
+            <p className="hub-manage-hint">
+              Add moderators or approved creators above.
+            </p>
+          ) : null}
+        </div>
 
         {note ? <p className="hub-manage-hint">{note}</p> : null}
       </div>
@@ -1043,14 +1069,12 @@ export function HubTransferSheet({
   );
 }
 
-function RosterEditor({
+function RosterAddField({
   placeholder,
   value,
   onChange,
   disabled,
   onAdd,
-  members,
-  onRemove,
   multiline = false,
 }: {
   placeholder: string;
@@ -1058,8 +1082,6 @@ function RosterEditor({
   onChange: (value: string) => void;
   disabled: boolean;
   onAdd: () => void;
-  members: string[];
-  onRemove: (id: string) => void;
   multiline?: boolean;
 }) {
   return (
@@ -1097,32 +1119,6 @@ function RosterEditor({
           Add
         </button>
       </div>
-      {members.length > 0 ? (
-        <ul className="app-roster-members">
-          {members.map((id) => (
-            <li key={id} className="app-roster-member">
-              <Link
-                href={portfolioPath(id)}
-                scroll={false}
-                className="app-roster-member-handle"
-              >
-                @{fallbackLabel(id)}
-              </Link>
-              <button
-                type="button"
-                className="app-roster-member-remove"
-                disabled={disabled}
-                onClick={() => onRemove(id)}
-                aria-label={`Remove ${id}`}
-              >
-                Remove
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="hub-manage-hint">No one added yet.</p>
-      )}
     </div>
   );
 }

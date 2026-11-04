@@ -672,7 +672,8 @@
     ],
     "expected_table_counts": {
       "scarces_events": 1,
-      "scarces_apps": 1
+      "scarces_apps": 1,
+      "scarces_app_creators": 1
     },
     "expected_rows": [
       {
@@ -697,6 +698,17 @@
           "created_block_height": "245000020",
           "created_block_timestamp": "1776000003",
           "updated_block_height": "245000020"
+        }
+      },
+      {
+        "table": "scarces_app_creators",
+        "fields": {
+          "id": "test_app_01:owner:owner.onsocial.testnet",
+          "app_id": "test_app_01",
+          "account_id": "owner.onsocial.testnet",
+          "role": "owner",
+          "added_block_height": "245000020",
+          "added_block_timestamp": "1776000003"
         }
       }
     ]

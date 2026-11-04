@@ -1,0 +1,215 @@
+'use client';
+
+import { useCallback, useMemo, useState } from 'react';
+import {
+  CopyIcon,
+  DotsVerticalIcon,
+  OsActionDrawerConfirm,
+  UserMinusIcon,
+} from '@onsocial/ui';
+import {
+  ActionDrawer,
+  type ActionDrawerItem,
+} from '@/components/ui/action-drawer';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
+import { executeHubRosterAction } from '@/features/scarces/execute-hub-roster-action';
+import {
+  hubRosterActionConfirmCopy,
+  hubRosterRowActions,
+  type HubRosterManageContext,
+  type HubRosterRowAction,
+  type HubRosterRowActionId,
+} from '@/features/scarces/hub-roster-row-actions';
+import type { HubRosterRow } from '@/features/scarces/hub-roster';
+import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
+import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { hubRosterTransactionToastForAction } from '@/features/scarces/hub-roster-transaction-toast';
+
+function actionIcon(id: HubRosterRowActionId) {
+  if (id === 'copy-handle') return <CopyIcon aria-hidden />;
+  return <UserMinusIcon aria-hidden />;
+}
+
+interface HubRosterRowMenuProps {
+  appId: string;
+  row: HubRosterRow;
+  manageContext: HubRosterManageContext;
+  memberLabel?: string | null;
+  onActionComplete?: (input: {
+    accountId: string;
+    actionId: HubRosterRowActionId;
+  }) => void;
+}
+
+export function HubRosterRowMenu({
+  appId,
+  row,
+  manageContext,
+  memberLabel,
+  onActionComplete,
+}: HubRosterRowMenuProps) {
+  const { getClient } = useAppOnSocialClient();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<HubRosterRowAction | null>(
+    null
+  );
+  const [pending, setPending] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+
+  const sheetOpen = open && !closing;
+  const actions = hubRosterRowActions(row, manageContext);
+  const handle = fallbackLabel(row.accountId);
+  const spoken = displayName(row.accountId, memberLabel);
+  const menuLabel = `Manage ${spoken}`;
+  const whoLabel = `${spoken} · @${handle}`;
+
+  const requestClose = useCallback(() => {
+    if (pending) return;
+    setClosing(true);
+  }, [pending]);
+
+  const handleClosed = useCallback(() => {
+    setClosing(false);
+    setOpen(false);
+    setConfirmAction(null);
+  }, []);
+
+  const resetConfirm = useCallback(() => {
+    if (pending) return;
+    setConfirmAction(null);
+  }, [pending]);
+
+  const handleMenuAction = useCallback(
+    async (action: HubRosterRowAction) => {
+      if (action.id === 'copy-handle') {
+        try {
+          await navigator.clipboard.writeText(`@${row.accountId}`);
+          setCopyError(null);
+        } catch {
+          setCopyError('Could not copy handle.');
+        }
+        requestClose();
+        return;
+      }
+      setCopyError(null);
+      setConfirmAction(action);
+    },
+    [requestClose, row.accountId]
+  );
+
+  const handleConfirm = useCallback(async () => {
+    if (!confirmAction || pending) return;
+
+    setPending(true);
+    try {
+      const { client } = await getClient();
+      const response = await executeHubRosterAction(client, {
+        appId,
+        accountId: row.accountId,
+        actionId: confirmAction.id,
+      });
+      const toast = hubRosterTransactionToastForAction(confirmAction.id);
+      const confirmed = await trackTransaction({
+        txHashes: collectRelayTxHashes(response),
+        submittedMessage: toast.confirming,
+        successMessage: toast.success,
+        failureMessage: toast.failure,
+      });
+      if (confirmed) {
+        onActionComplete?.({
+          accountId: row.accountId,
+          actionId: confirmAction.id,
+        });
+        setConfirmAction(null);
+        setClosing(true);
+      }
+    } catch (cause) {
+      if (isWalletUserCancellation(cause)) return;
+      setTxResult({
+        type: 'error',
+        msg: hubRosterTransactionToastForAction(confirmAction.id).failure,
+      });
+    } finally {
+      setPending(false);
+    }
+  }, [
+    appId,
+    confirmAction,
+    getClient,
+    onActionComplete,
+    pending,
+    row.accountId,
+    setTxResult,
+    trackTransaction,
+  ]);
+
+  const menuItems = useMemo<ActionDrawerItem[]>(
+    () =>
+      actions.map((action) => ({
+        id: action.id,
+        label: action.label,
+        destructive: action.destructive,
+        leading: actionIcon(action.id),
+        onSelect: () => void handleMenuAction(action),
+      })),
+    [actions, handleMenuAction]
+  );
+
+  if (actions.length === 0) return null;
+
+  const confirmCopy = confirmAction
+    ? hubRosterActionConfirmCopy(confirmAction)
+    : null;
+
+  return (
+    <div
+      className={`drops-discovery-row-menu post-card-menu guild-member-row-menu${
+        sheetOpen ? ' is-open' : ''
+      }`}
+    >
+      <button
+        type="button"
+        className={`post-card-menu-trigger${sheetOpen ? ' is-open' : ''}`}
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={sheetOpen}
+        aria-label={menuLabel}
+        disabled={pending}
+      >
+        <DotsVerticalIcon className="post-card-menu-icon" aria-hidden />
+      </button>
+
+      <ActionDrawer
+        open={sheetOpen}
+        onClose={confirmAction ? resetConfirm : requestClose}
+        onClosed={handleClosed}
+        label={confirmAction && confirmCopy ? confirmCopy.title : menuLabel}
+        copy={whoLabel}
+        listAriaLabel={menuLabel}
+        closeAriaLabel={confirmAction ? 'Back to member actions' : 'Close menu'}
+        items={confirmAction ? undefined : menuItems}
+      >
+        {confirmAction && confirmCopy ? (
+          <OsActionDrawerConfirm
+            body={confirmCopy.subtitle}
+            confirmLabel={confirmCopy.confirmLabel}
+            pending={pending}
+            pendingLabel="Updating…"
+            onConfirm={() => void handleConfirm()}
+            onCancel={resetConfirm}
+          />
+        ) : undefined}
+      </ActionDrawer>
+
+      {copyError ? (
+        <p className="guild-member-row-menu-error" role="alert">
+          {copyError}
+        </p>
+      ) : null}
+    </div>
+  );
+}

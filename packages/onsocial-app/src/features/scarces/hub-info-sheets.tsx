@@ -17,17 +17,16 @@ import {
   type AppStatsView,
   type AppView,
 } from '@/features/scarces/apps-data';
-import { StandingIdentity } from '@/components/profile/standing-identity';
 import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
-import { RosterRoleBadge } from '@/features/guilds/roster-role-badge';
+import { HubRosterList } from '@/features/scarces/hub-roster-list';
+import { useHubRoster } from '@/features/scarces/hub-roster';
 import { hubCategoryLabel } from '@/features/scarces/hub-categories';
-import { ProtocolNameTrailing } from '@/features/protocol/protocol-name-trailing';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { portfolioPath } from '@/lib/overlay-routes';
 import {
   formatCompactCount,
   formatPageDrawerJoinedFullLabel,
 } from '@/lib/page-drawer-meta';
+import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
 
@@ -230,28 +229,6 @@ export function HubFactsSheet({
   );
 }
 
-interface HubPerson {
-  accountId: string;
-  role: string;
-}
-
-function buildHubPeople(app: AppView): HubPerson[] {
-  const seen = new Set<string>();
-  const people: HubPerson[] = [];
-  const push = (accountId: string, role: string) => {
-    const id = accountId.trim();
-    if (!id || seen.has(id.toLowerCase())) return;
-    seen.add(id.toLowerCase());
-    people.push({ accountId: id, role });
-  };
-  push(app.ownerId, 'Owner');
-  for (const id of app.moderators) push(id, 'Moderator');
-  if (hubUsesCreatorRoster(app.creatorAccess)) {
-    for (const id of app.approvedCreators) push(id, 'Creator');
-  }
-  return people;
-}
-
 /** Who publishes here — owner, moderators, approved creators. */
 export function HubCreatorsSheet({
   open,
@@ -264,9 +241,9 @@ export function HubCreatorsSheet({
 }) {
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
-  const people = buildHubPeople(app);
+  const roster = useHubRoster(app, open);
   const profiles = usePostAuthorProfiles(
-    open ? people.map((person) => person.accountId) : []
+    open ? roster.map((row) => row.accountId) : []
   );
 
   const requestClose = useCallback(() => {
@@ -293,38 +270,12 @@ export function HubCreatorsSheet({
       panelClassName="guild-facts-sheet-panel os-sheet-cap-standard"
       bodyClassName="guild-facts-sheet-body"
     >
-      <div className="standing-list">
-        {people.map((person, index) => {
-          const profile = profiles[person.accountId];
-          return (
-            <div key={person.accountId}>
-              {index > 0 ? <Divider variant="item" /> : null}
-              <div className="standing-row">
-                <Link
-                  href={portfolioPath(person.accountId)}
-                  className="standing-row-main"
-                  scroll={false}
-                  onClick={requestClose}
-                >
-                  <StandingIdentity
-                    accountId={person.accountId}
-                    profileName={profile?.displayName}
-                    avatarUrl={profile?.avatarUrl}
-                    kind={profile?.kind}
-                    nameRowClassName="guild-member-row-name-row"
-                    nameTrailing={
-                      <ProtocolNameTrailing
-                        accountId={person.accountId}
-                        extra={<RosterRoleBadge label={person.role} />}
-                      />
-                    }
-                  />
-                </Link>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <HubRosterList
+        appId={app.appId}
+        rows={roster}
+        profiles={profiles}
+        onRowNavigate={requestClose}
+      />
     </OsHugSheet>
   );
 }

@@ -903,6 +903,28 @@ fn app_pool_config_update_keeps_created_block() {
 }
 
 #[test]
+fn app_pool_register_upserts_owner_roster() {
+    let mut tables = Tables::new();
+    let mut event = app_pool_event("register");
+    event.owner_id = "owner.near".into();
+    event.author = "owner.near".into();
+
+    apply_app_pool(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(count_table_rows(&changes, "scarces_app_creators"), 1);
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_app_creators",
+            "my_app:owner:owner.near",
+            "role"
+        ),
+        Some("owner")
+    );
+}
+
+#[test]
 fn app_pool_owner_transferred_updates_owner() {
     let mut tables = Tables::new();
     let mut event = app_pool_event("owner_transferred");
@@ -919,6 +941,25 @@ fn app_pool_owner_transferred_updates_owner() {
     assert_eq!(
         find_field(&changes, "scarces_apps", "created_block_height"),
         None
+    );
+    assert_eq!(count_table_rows(&changes, "scarces_app_creators"), 2);
+    let rows = changes
+        .table_changes
+        .iter()
+        .filter(|tc| tc.table == "scarces_app_creators")
+        .collect::<Vec<_>>();
+    assert!(rows.iter().any(|row| {
+        matches!(row.operation(), Operation::Delete)
+            && format!("{:?}", row.primary_key).contains("my_app:owner:owner.near")
+    }));
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_app_creators",
+            "my_app:owner:next.near",
+            "role"
+        ),
+        Some("owner")
     );
 }
 
