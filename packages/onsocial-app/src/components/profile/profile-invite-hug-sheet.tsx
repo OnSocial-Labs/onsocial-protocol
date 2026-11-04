@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   OsHugSheet,
   OsSheetAction,
@@ -123,24 +123,26 @@ export function ProfileInviteHugSheet({
     recipientProfile?.kind,
   ]);
 
-  useEffect(() => {
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setClosing(false);
-      return;
+    } else {
+      setTransferTo('');
+      setPicked(null);
     }
-    setTransferTo('');
-    setPicked(null);
-  }, [open]);
+  }
 
-  const requestClose = useCallback(() => {
+  const requestClose = () => {
     if (pending) return;
     setClosing(true);
-  }, [pending]);
+  };
 
-  const handleClosed = useCallback(() => {
+  const handleClosed = () => {
     setClosing(false);
     onClose();
-  }, [onClose]);
+  };
 
   const handleConfirm = async () => {
     if (!selected || pending) return;

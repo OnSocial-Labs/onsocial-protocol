@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Divider,
   OsHugSheet,
@@ -69,6 +69,7 @@ export function HubFactsSheet({
   onHandoffCreators?: () => void;
 }) {
   const [closing, setClosing] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
   const sheetOpen = open && !closing;
   const ownerProfiles = usePostAuthorProfiles(open ? [app.ownerId] : []);
   const ownerProfile = ownerProfiles[app.ownerId];
@@ -77,9 +78,10 @@ export function HubFactsSheet({
     ownerProfile?.displayName
   );
 
-  useEffect(() => {
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) setClosing(false);
-  }, [open]);
+  }
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -268,6 +270,7 @@ export function HubCreatorsSheet({
   onRequestTransfer?: (accountId: string) => void;
 }) {
   const [closing, setClosing] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
   const [addKind, setAddKind] = useState<HubAddRosterKind | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [addMenuClosing, setAddMenuClosing] = useState(false);
@@ -294,14 +297,16 @@ export function HubCreatorsSheet({
     [roster]
   );
 
-  useEffect(() => {
-    if (open) setClosing(false);
-    else {
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setClosing(false);
+    } else {
       setAddKind(null);
       setAddMenuOpen(false);
       setAddMenuClosing(false);
     }
-  }, [open]);
+  }
 
   const requestClose = useCallback(() => {
     if (closing) return;
