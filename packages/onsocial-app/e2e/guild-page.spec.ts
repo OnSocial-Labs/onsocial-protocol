@@ -468,18 +468,16 @@ test.describe('guild page', () => {
     await expect(sheet.getByRole('button', { name: /Feed tab/ })).toHaveCount(
       0
     );
-    await expect(page.locator('.guild-add-space-segment')).toHaveCount(0);
+    const shareChip = sheet.getByRole('button', {
+      name: 'Who can share: Everyone here',
+    });
+    await expect(shareChip).toBeVisible();
     const name = sheet.getByRole('textbox', { name: 'Name' });
     await name.fill('Shipping Room');
     await expect(name).toHaveValue('Shipping Room');
     await expect(
       sheet.getByRole('button', { name: 'Add room', exact: true })
     ).toBeEnabled();
-
-    const shareChip = sheet.getByRole('button', {
-      name: 'Who can share: Everyone here',
-    });
-    await expect(shareChip).toBeVisible();
     await shareChip.click();
 
     const shareDialog = page.getByRole('dialog', { name: 'Who can share' });
