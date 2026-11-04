@@ -234,7 +234,10 @@ export class ScarcesAppsApi {
    * Move an approved creator onto the moderator team.
    * Contract drops the creator seat automatically (owner-only).
    */
-  async makeModerator(appId: string, accountId: string): Promise<RelayResponse> {
+  async makeModerator(
+    appId: string,
+    accountId: string
+  ): Promise<RelayResponse> {
     return this.addModerator(appId, accountId);
   }
 
