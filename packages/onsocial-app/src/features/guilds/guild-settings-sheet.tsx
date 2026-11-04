@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { OsHugSheet, OsSurfaceRow, OsSurfaceRowList } from '@onsocial/ui';
 import { GuildCountBadge } from '@/features/guilds/guild-count-badge';
 import {
@@ -49,21 +49,29 @@ export function GuildSettingsSheet({
 }: GuildSettingsSheetProps) {
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
+  const openEpoch = useRef(0);
+  const closeEpoch = useRef(0);
   const sheetOpen = open && !closing;
   const actions = guildSettingsActions(viewer);
 
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setClosing(false);
+    if (open) {
+      openEpoch.current += 1;
+      setClosing(false);
+    }
   }
 
   const requestClose = useCallback(() => {
     if (closing) return;
+    closeEpoch.current = openEpoch.current;
     setClosing(true);
   }, [closing]);
 
   const handleClosed = useCallback(() => {
+    const started = closeEpoch.current;
     setClosing(false);
+    if (started !== openEpoch.current) return;
     onClose();
   }, [onClose]);
 

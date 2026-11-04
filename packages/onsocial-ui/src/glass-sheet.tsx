@@ -1508,27 +1508,29 @@ export function GlassSheet({
   }, [finishEnterAnimation, showEnterAnimation]);
 
   const overlayFloor = resolveGlassSheetZIndex(zIndex, openedAboveMediaFace);
-  const overlayActive =
-    (open || leavingReplaceHandoff) &&
-    mounted &&
-    (panelIsOpen || replaceEnterCover || leavingReplaceHandoff) &&
-    !band &&
-    portalTarget != null;
+  // Stack as soon as the sheet is mounted. Waiting for the panel to arm
+  // left the drawer at its floor, under the page or the sheet it covers.
+  const overlayActive = mounted && !band && portalTarget != null;
   const overlay = useOverlayStackZ(overlayActive, overlayFloor, keepDock);
   const overlayTop = overlayActive && overlay.top;
 
-  useSheetFocusTrap(overlayTop && portalTarget != null && !band, panelRef);
+  useSheetFocusTrap(
+    overlayTop && panelIsOpen && portalTarget != null && !band,
+    panelRef
+  );
 
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root || band) return;
-    if (!overlayActive || !overlayTop) {
+    // A close stays out of the tree even when it is still the top overlay.
+    // Clearing inert here put the dying controls back under the pointer.
+    if (!open || !overlayTop) {
       root.inert = true;
       return;
     }
     if (root.style.visibility === 'hidden') return;
     root.inert = false;
-  }, [band, overlayActive, overlayTop]);
+  }, [band, open, overlayTop]);
 
   useLayoutEffect(() => {
     if (!mounted) {
@@ -1573,6 +1575,7 @@ export function GlassSheet({
       data-stack-covered={stackCovered ? 'true' : undefined}
       data-sizing={sizing}
       data-sheet-leaving={!open && mounted ? 'true' : undefined}
+      data-sheet-top={open && overlayTop ? 'true' : undefined}
       inert={!open && mounted ? true : undefined}
       ref={rootRef}
       data-keep-dock={keepDock ? 'true' : undefined}

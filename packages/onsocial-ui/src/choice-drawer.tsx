@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
@@ -250,6 +251,8 @@ export function ChoiceDrawerField<T extends string>({
 }: ChoiceDrawerFieldProps<T>) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
+  const openEpoch = useRef(0);
+  const closeEpoch = useRef(0);
   const active = options.find((option) => option.value === value);
   const activeLabel = active?.label ?? value;
   const sheetOpen = open && !closing;
@@ -258,12 +261,21 @@ export function ChoiceDrawerField<T extends string>({
     closing ||
     (persistSelected && choiceDrawerHasPersistedSelection(value, options));
 
+  const requestOpen = useCallback(() => {
+    openEpoch.current += 1;
+    setClosing(false);
+    setOpen(true);
+  }, []);
+
   const requestClose = useCallback(() => {
+    closeEpoch.current = openEpoch.current;
     setClosing(true);
   }, []);
 
   const handleClosed = useCallback(() => {
+    const started = closeEpoch.current;
     setClosing(false);
+    if (started !== openEpoch.current) return;
     setOpen(false);
   }, []);
 
@@ -280,7 +292,7 @@ export function ChoiceDrawerField<T extends string>({
         aria-label={`${label}: ${activeLabel}`}
         onClick={() => {
           if (disabled) return;
-          setOpen(true);
+          requestOpen();
         }}
       >
         {chipLeading ? (
@@ -351,6 +363,8 @@ export function ChoiceDrawerMenu<T extends string>({
 }: ChoiceDrawerMenuProps<T>) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
+  const openEpoch = useRef(0);
+  const closeEpoch = useRef(0);
   const sheetOpen = open && !closing;
   const activeLabel =
     options.find((option) => option.value === value)?.label ?? value;
@@ -360,12 +374,21 @@ export function ChoiceDrawerMenu<T extends string>({
     return () => onOpenChange?.(false);
   }, [onOpenChange, sheetOpen]);
 
+  const requestOpen = useCallback(() => {
+    openEpoch.current += 1;
+    setClosing(false);
+    setOpen(true);
+  }, []);
+
   const requestClose = useCallback(() => {
+    closeEpoch.current = openEpoch.current;
     setClosing(true);
   }, []);
 
   const handleClosed = useCallback(() => {
+    const started = closeEpoch.current;
     setClosing(false);
+    if (started !== openEpoch.current) return;
     setOpen(false);
   }, []);
 
@@ -381,7 +404,7 @@ export function ChoiceDrawerMenu<T extends string>({
         }${triggerClassName ? ` ${triggerClassName}` : ''}`}
         onClick={() => {
           if (disabled) return;
-          setOpen(true);
+          requestOpen();
         }}
         disabled={disabled}
         aria-haspopup="dialog"

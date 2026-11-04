@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ChevronDownIcon,
   osFloatingPanelTriggerChevronClassName,
@@ -10,10 +10,7 @@ import {
 } from '@onsocial/ui';
 import { ActionDrawer } from '@/components/ui/action-drawer';
 import { OsChipRail } from '@/components/os/os-chip-rail';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@onsocial/ui';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import type { MarketAudioFormatFilter } from '@/features/market/market-audio-format';
 import {
   MARKET_MEDIUM_FILTERS,
@@ -143,6 +140,8 @@ export function MarketFilterMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
+  const openEpoch = useRef(0);
+  const closeEpoch = useRef(0);
   const sheetOpen = open && !closing;
   const creatorLabel =
     selectedCreator &&
@@ -170,7 +169,8 @@ export function MarketFilterMenu({
     Boolean(onSortChange && sort === 'name');
   const showSort = Boolean(onSortChange);
   const showJump = jumpCreators.length > 0;
-  const showVaultCreators = vaultCreators.length >= 2 && Boolean(onCreatorChange);
+  const showVaultCreators =
+    vaultCreators.length >= 2 && Boolean(onCreatorChange);
   const showVaultSeries = vaultSeries.length > 0 && Boolean(onSeriesChange);
   const suggestions = facetMedium
     ? dropFacetSuggestionsForMedium(facetMedium)
@@ -182,12 +182,21 @@ export function MarketFilterMenu({
     return () => onOpenChange?.(false);
   }, [onOpenChange, sheetOpen]);
 
+  const requestOpen = useCallback(() => {
+    openEpoch.current += 1;
+    setClosing(false);
+    setOpen(true);
+  }, []);
+
   const requestClose = useCallback(() => {
+    closeEpoch.current = openEpoch.current;
     setClosing(true);
   }, []);
 
   const handleClosed = useCallback(() => {
+    const started = closeEpoch.current;
     setClosing(false);
+    if (started !== openEpoch.current) return;
     setOpen(false);
   }, []);
 
@@ -208,7 +217,7 @@ export function MarketFilterMenu({
         }`}
         onClick={() => {
           if (disabled) return;
-          setOpen(true);
+          requestOpen();
         }}
         disabled={disabled}
         aria-haspopup="dialog"

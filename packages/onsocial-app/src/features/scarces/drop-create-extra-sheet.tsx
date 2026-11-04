@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import {
   OsHugSheet,
   OsSheetAction,
@@ -24,19 +24,27 @@ export function DropCreateExtraSheet({
 }) {
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
+  const openEpoch = useRef(0);
+  const closeEpoch = useRef(0);
   const sheetOpen = open && !closing;
 
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setClosing(false);
+    if (open) {
+      openEpoch.current += 1;
+      setClosing(false);
+    }
   }
 
   const requestClose = useCallback(() => {
+    closeEpoch.current = openEpoch.current;
     setClosing(true);
   }, []);
 
   const handleClosed = useCallback(() => {
+    const started = closeEpoch.current;
     setClosing(false);
+    if (started !== openEpoch.current) return;
     onDone();
   }, [onDone]);
 

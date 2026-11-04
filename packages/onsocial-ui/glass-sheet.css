@@ -86,8 +86,9 @@
     max(0px, env(safe-area-inset-left, 0px));
 }
 
-/* Off-screen while enter arms, or leaving on a handoff — must not block taps. */
-.glass-sheet-root:not(.is-visible),
+/* Off-screen while enter arms, or leaving on a handoff — must not block taps.
+   The top open sheet stays clickable so a hit does not fall through to the page. */
+.glass-sheet-root:not(.is-visible):not([data-sheet-top='true']),
 .glass-sheet-root[data-sheet-leaving='true'] {
   pointer-events: none;
 }
@@ -96,6 +97,7 @@
 .glass-sheet-root[data-sheet-leaving='true'] .glass-sheet-panel {
   opacity: 0;
   pointer-events: none;
+  animation: none;
 }
 
 /*
@@ -444,6 +446,16 @@
   animation: none;
   opacity: 1;
   transform: translateY(var(--sheet-y, 0px));
+  transition: none;
+}
+
+/* Later than the appear rest rule, which would otherwise keep a closing cover painted. */
+.glass-sheet-root[data-sheet-leaving='true'] .glass-sheet-panel.is-open,
+.glass-sheet-root[data-sheet-leaving='true']
+  .glass-sheet-panel[data-presentation='appear'].is-open {
+  opacity: 0;
+  pointer-events: none;
+  animation: none;
   transition: none;
 }
 
