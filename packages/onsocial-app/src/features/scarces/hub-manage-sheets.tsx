@@ -56,7 +56,10 @@ import {
 } from '@/lib/app-near-account';
 import { HubRosterList } from '@/features/scarces/hub-roster-list';
 import { useHubRoster } from '@/features/scarces/hub-roster';
-import type { HubRosterManageContext } from '@/features/scarces/hub-roster-row-actions';
+import {
+  buildHubRosterManageContext,
+  type HubRosterManageContext,
+} from '@/features/scarces/hub-roster-row-actions';
 import { POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import { fallbackLabel } from '@/lib/profile-display';
 import { SHEET_Z } from '@/lib/sheet-z';
@@ -614,6 +617,7 @@ export function HubPeopleSheet({
   onChanged,
   canManageCreators,
   canManageModerators,
+  onRequestTransfer,
 }: {
   open: boolean;
   app: AppView;
@@ -621,6 +625,7 @@ export function HubPeopleSheet({
   onChanged: () => void;
   canManageCreators: boolean;
   canManageModerators: boolean;
+  onRequestTransfer?: (accountId: string) => void;
 }) {
   const withWallet = useHubManageWallet();
   const { accountId: viewerAccountId } = useAppWallet();
@@ -634,16 +639,16 @@ export function HubPeopleSheet({
     open ? roster.map((row) => row.accountId) : []
   );
 
-  const manageContext = useMemo((): HubRosterManageContext | null => {
-    if (!viewerAccountId || (!canManageModerators && !canManageCreators)) {
-      return null;
-    }
-    return {
-      viewerAccountId,
-      canManageModerators,
-      canManageCreators,
-    };
-  }, [canManageCreators, canManageModerators, viewerAccountId]);
+  const manageContext = useMemo(
+    (): HubRosterManageContext | null =>
+      buildHubRosterManageContext(
+        viewerAccountId,
+        canManageModerators,
+        canManageCreators,
+        hubUsesCreatorRoster(app.creatorAccess)
+      ),
+    [app.creatorAccess, canManageCreators, canManageModerators, viewerAccountId]
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -800,13 +805,14 @@ export function HubPeopleSheet({
 
         <div className="app-manage-roster">
           <h3 className="app-manage-roster-title">Roster</h3>
-          <HubRosterList
-            appId={app.appId}
-            rows={roster}
-            profiles={profiles}
-            manageContext={manageContext}
-            onRosterChanged={() => onChanged()}
-          />
+            <HubRosterList
+              appId={app.appId}
+              rows={roster}
+              profiles={profiles}
+              manageContext={manageContext}
+              onRosterChanged={() => onChanged()}
+              onRequestTransfer={onRequestTransfer}
+            />
           {showRosterHint ? (
             <p className="hub-manage-hint">
               Add moderators or approved creators above.
@@ -825,11 +831,13 @@ export function HubTransferSheet({
   app,
   onClose,
   onChanged,
+  initialRecipient = '',
 }: {
   open: boolean;
   app: AppView;
   onClose: () => void;
   onChanged: () => void;
+  initialRecipient?: string;
 }) {
   const withWallet = useHubManageWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
@@ -867,10 +875,10 @@ export function HubTransferSheet({
       setClosing(false);
       return;
     }
-    setTransferTo('');
+    setTransferTo(initialRecipient.trim());
     setStayAs('moderator');
     setError(null);
-  }, [open, app.appId]);
+  }, [open, app.appId, initialRecipient]);
 
   const requestClose = useCallback(() => {
     if (pending || closing) return;

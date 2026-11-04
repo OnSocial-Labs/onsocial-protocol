@@ -33,7 +33,8 @@ export function hubRosterTransactionToastForAction(
   success: string;
   failure: string;
 } {
-  return hubRosterTransactionToast(
-    actionId === 'remove-moderator' ? 'moderator' : 'creator'
-  );
+  if (actionId === 'remove-moderator' || actionId === 'make-moderator') {
+    return hubRosterTransactionToast('moderator');
+  }
+  return hubRosterTransactionToast('creator');
 }

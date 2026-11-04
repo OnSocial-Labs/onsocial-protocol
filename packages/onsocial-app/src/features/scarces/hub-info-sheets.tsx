@@ -20,6 +20,7 @@ import {
 import { collectionCreatorNameLine } from '@/features/scarces/collection-creator-face';
 import { HubRosterList } from '@/features/scarces/hub-roster-list';
 import { useHubRoster } from '@/features/scarces/hub-roster';
+import type { HubRosterManageContext } from '@/features/scarces/hub-roster-row-actions';
 import { hubCategoryLabel } from '@/features/scarces/hub-categories';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
@@ -234,10 +235,16 @@ export function HubCreatorsSheet({
   open,
   onClose,
   app,
+  manageContext = null,
+  onRosterChanged,
+  onRequestTransfer,
 }: {
   open: boolean;
   onClose: () => void;
   app: AppView;
+  manageContext?: HubRosterManageContext | null;
+  onRosterChanged?: () => void;
+  onRequestTransfer?: (accountId: string) => void;
 }) {
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
@@ -274,6 +281,9 @@ export function HubCreatorsSheet({
         appId={app.appId}
         rows={roster}
         profiles={profiles}
+        manageContext={manageContext}
+        onRosterChanged={onRosterChanged}
+        onRequestTransfer={onRequestTransfer}
         onRowNavigate={requestClose}
       />
     </OsHugSheet>

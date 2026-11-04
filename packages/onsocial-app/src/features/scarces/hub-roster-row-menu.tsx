@@ -4,8 +4,11 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   CopyIcon,
   DotsVerticalIcon,
+  KeyIcon,
   OsActionDrawerConfirm,
+  ShieldCheckIcon,
   UserMinusIcon,
+  UserPlusIcon,
 } from '@onsocial/ui';
 import {
   ActionDrawer,
@@ -21,7 +24,6 @@ import {
   type HubRosterRowActionId,
 } from '@/features/scarces/hub-roster-row-actions';
 import type { HubRosterRow } from '@/features/scarces/hub-roster';
-import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
@@ -29,6 +31,9 @@ import { hubRosterTransactionToastForAction } from '@/features/scarces/hub-roste
 
 function actionIcon(id: HubRosterRowActionId) {
   if (id === 'copy-handle') return <CopyIcon aria-hidden />;
+  if (id === 'transfer-ownership') return <KeyIcon aria-hidden />;
+  if (id === 'make-moderator') return <ShieldCheckIcon aria-hidden />;
+  if (id === 'make-creator') return <UserPlusIcon aria-hidden />;
   return <UserMinusIcon aria-hidden />;
 }
 
@@ -41,6 +46,7 @@ interface HubRosterRowMenuProps {
     accountId: string;
     actionId: HubRosterRowActionId;
   }) => void;
+  onRequestTransfer?: (accountId: string) => void;
 }
 
 export function HubRosterRowMenu({
@@ -49,6 +55,7 @@ export function HubRosterRowMenu({
   manageContext,
   memberLabel,
   onActionComplete,
+  onRequestTransfer,
 }: HubRosterRowMenuProps) {
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
@@ -95,10 +102,15 @@ export function HubRosterRowMenu({
         requestClose();
         return;
       }
+      if (action.id === 'transfer-ownership') {
+        onRequestTransfer?.(row.accountId);
+        requestClose();
+        return;
+      }
       setCopyError(null);
       setConfirmAction(action);
     },
-    [requestClose, row.accountId]
+    [onRequestTransfer, requestClose, row.accountId]
   );
 
   const handleConfirm = useCallback(async () => {
@@ -107,14 +119,14 @@ export function HubRosterRowMenu({
     setPending(true);
     try {
       const { client } = await getClient();
-      const response = await executeHubRosterAction(client, {
+      const { txHashes } = await executeHubRosterAction(client, {
         appId,
         accountId: row.accountId,
         actionId: confirmAction.id,
       });
       const toast = hubRosterTransactionToastForAction(confirmAction.id);
       const confirmed = await trackTransaction({
-        txHashes: collectRelayTxHashes(response),
+        txHashes,
         submittedMessage: toast.confirming,
         successMessage: toast.success,
         failureMessage: toast.failure,

@@ -27,6 +27,7 @@ interface HubRosterListProps {
     accountId: string;
     actionId: HubRosterRowActionId;
   }) => void;
+  onRequestTransfer?: (accountId: string) => void;
   onRowNavigate?: () => void;
 }
 
@@ -36,6 +37,7 @@ export function HubRosterList({
   profiles,
   manageContext,
   onRosterChanged,
+  onRequestTransfer,
   onRowNavigate,
 }: HubRosterListProps) {
   return (
@@ -103,6 +105,7 @@ export function HubRosterList({
                     manageContext={manageContext}
                     memberLabel={label}
                     onActionComplete={onRosterChanged}
+                    onRequestTransfer={onRequestTransfer}
                   />
                 ) : null}
               </div>

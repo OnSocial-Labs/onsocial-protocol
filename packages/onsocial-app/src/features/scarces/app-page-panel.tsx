@@ -39,6 +39,7 @@ import {
   type AppStatsView,
   type AppView,
 } from '@/features/scarces/apps-data';
+import { buildHubRosterManageContext } from '@/features/scarces/hub-roster-row-actions';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
 import { HeldEditionFollow } from '@/features/collectibles/held-edition-follow';
 import { GuildDescriptionClamp } from '@/features/guilds/guild-description-clamp';
@@ -174,6 +175,7 @@ export function AppPagePanel({
   } | null>(null);
   const [manageSheet, setManageSheet] = useState<HubManageSheetId | null>(null);
   const [sheetHandoff, setSheetHandoff] = useState(false);
+  const [transferPrefill, setTransferPrefill] = useState('');
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
   const dropsKey = `${appId}:${refreshKey}`;
@@ -295,6 +297,18 @@ export function AppPagePanel({
     () => (app ? isAppAuthority(app, viewerAccountId ?? null) : false),
     [app, viewerAccountId]
   );
+  const rosterManageContext = useMemo(
+    () =>
+      app
+        ? buildHubRosterManageContext(
+            viewerAccountId ?? null,
+            owner,
+            authority,
+            hubUsesCreatorRoster(app.creatorAccess)
+          )
+        : null,
+    [app, authority, owner, viewerAccountId]
+  );
   const canCreate = useMemo(
     () => (app ? canCreateInApp(app, viewerAccountId ?? null) : false),
     [app, viewerAccountId]
@@ -319,6 +333,15 @@ export function AppPagePanel({
   const rosterProfiles = usePostAuthorProfiles(rosterIds.slice(0, 4));
 
   const onManaged = useCallback(() => setRefreshKey((k) => k + 1), []);
+
+  const openHubTransferTo = useCallback((accountId: string) => {
+    setTransferPrefill(accountId.trim());
+    setSheetHandoff(true);
+    setCreatorsOpen(false);
+    setFactsOpen(false);
+    setSettingsOpen(false);
+    setManageSheet('transfer');
+  }, []);
 
   const canReviewRequests = Boolean(
     authority && app?.creatorAccess === 'approval'
@@ -835,6 +858,9 @@ export function AppPagePanel({
               setCreatorsOpen(false);
             }}
             app={app}
+            manageContext={rosterManageContext}
+            onRosterChanged={onManaged}
+            onRequestTransfer={owner ? openHubTransferTo : undefined}
           />
         ) : null}
       </SheetHandoffProvider>
@@ -887,6 +913,7 @@ export function AppPagePanel({
           onChanged={onManaged}
           canManageCreators={authority}
           canManageModerators={owner}
+          onRequestTransfer={owner ? openHubTransferTo : undefined}
         />
       ) : null}
 
@@ -909,9 +936,11 @@ export function AppPagePanel({
           <HubTransferSheet
             open={manageSheet === 'transfer'}
             app={app}
+            initialRecipient={transferPrefill}
             onClose={() => {
               setSheetHandoff(false);
               setManageSheet(null);
+              setTransferPrefill('');
             }}
             onChanged={onManaged}
           />
