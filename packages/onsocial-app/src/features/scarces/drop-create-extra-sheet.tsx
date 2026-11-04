@@ -24,29 +24,29 @@ export function DropCreateExtraSheet({
 }) {
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
-  const openEpoch = useRef(0);
+  const [openEpoch, setOpenEpoch] = useState(0);
   const closeEpoch = useRef(0);
   const sheetOpen = open && !closing;
 
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
-      openEpoch.current += 1;
+      setOpenEpoch(openEpoch + 1);
       setClosing(false);
     }
   }
 
   const requestClose = useCallback(() => {
-    closeEpoch.current = openEpoch.current;
+    closeEpoch.current = openEpoch;
     setClosing(true);
-  }, []);
+  }, [openEpoch]);
 
   const handleClosed = useCallback(() => {
     const started = closeEpoch.current;
     setClosing(false);
-    if (started !== openEpoch.current) return;
+    if (started !== openEpoch) return;
     onDone();
-  }, [onDone]);
+  }, [onDone, openEpoch]);
 
   return (
     <OsHugSheet
