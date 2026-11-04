@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
+import { type ProfileKind } from '@onsocial/sdk';
 import {
   OsHugSheet,
   OsSheetAction,
@@ -29,7 +30,7 @@ export type ProfileInviteAccount = {
   accountId: string;
   name?: string | null;
   avatarUrl?: string | null;
-  kind?: 'human' | 'dao' | null;
+  kind?: ProfileKind | null;
 };
 
 export interface ProfileInviteHugSheetProps {
