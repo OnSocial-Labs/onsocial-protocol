@@ -45,7 +45,7 @@ interface AllowedProxyRoute {
   optionalApiKey?: boolean;
 }
 
-const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
+export const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'POST', path: 'storage/upload', body: 'form' },
   { method: 'POST', path: 'compose/prepare/set', body: 'json' },
   { method: 'GET', path: 'relay/latest-block', body: 'none' },
