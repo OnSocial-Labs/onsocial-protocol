@@ -148,6 +148,7 @@ export function useProtocolPickerEligibility({
 export function ProtocolPickerSheet({
   open,
   onClose,
+  onClosed,
   label,
   copy,
   closeAriaLabel,
@@ -157,6 +158,7 @@ export function ProtocolPickerSheet({
 }: {
   open: boolean;
   onClose: () => void;
+  onClosed?: () => void;
   label: string;
   copy: string;
   closeAriaLabel: string;
@@ -168,6 +170,7 @@ export function ProtocolPickerSheet({
     <ActionDrawer
       open={open}
       onClose={onClose}
+      onClosed={onClosed}
       label={label}
       copy={copy}
       closeAriaLabel={closeAriaLabel}

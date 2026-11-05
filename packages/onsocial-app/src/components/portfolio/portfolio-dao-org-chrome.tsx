@@ -7,6 +7,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { replaceSheet } from '@onsocial/ui';
 import { rememberCommunityDao } from '@/features/protocol/dao-accounts';
 import type { DaoBranding } from '@/features/protocol/dao-branding';
 import { DaoEditSheet } from '@/features/protocol/dao-edit-sheet';
@@ -276,6 +277,7 @@ function PortfolioDaoOrgChromeInner({
 
   const handleManageAction = useCallback(
     (action: DaoManageAction) => {
+      replaceSheet();
       if (action === 'edit') {
         setOverlay('edit');
         return;

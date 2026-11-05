@@ -30,6 +30,7 @@ import type { ProtocolDaoPolicy } from '@/features/protocol/types';
 export function ProtocolSettingsActionSheet({
   open,
   onClose,
+  onClosed,
   daoAccountId,
   accountId,
   daoPolicy,
@@ -40,6 +41,7 @@ export function ProtocolSettingsActionSheet({
 }: {
   open: boolean;
   onClose: () => void;
+  onClosed?: () => void;
   daoAccountId: string | null;
   accountId: string | null;
   daoPolicy: ProtocolDaoPolicy | null;
@@ -126,6 +128,7 @@ export function ProtocolSettingsActionSheet({
     <ProtocolPickerSheet
       open={open}
       onClose={onClose}
+      onClosed={onClosed}
       label="Settings"
       copy="Choose a DAO policy change."
       closeAriaLabel="Close settings"

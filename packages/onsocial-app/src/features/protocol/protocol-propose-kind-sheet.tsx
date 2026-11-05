@@ -32,6 +32,7 @@ import type { ProtocolDaoPolicy } from '@/features/protocol/types';
 export function ProtocolProposeKindSheet({
   open,
   onClose,
+  onClosed,
   daoAccountId,
   accountId,
   daoPolicy,
@@ -42,6 +43,7 @@ export function ProtocolProposeKindSheet({
 }: {
   open: boolean;
   onClose: () => void;
+  onClosed?: () => void;
   daoAccountId: string | null;
   accountId: string | null;
   daoPolicy: ProtocolDaoPolicy | null;
@@ -148,6 +150,7 @@ export function ProtocolProposeKindSheet({
     <ProtocolPickerSheet
       open={open}
       onClose={onClose}
+      onClosed={onClosed}
       label="Propose"
       copy="Choose what to put on-chain."
       closeAriaLabel="Close propose"

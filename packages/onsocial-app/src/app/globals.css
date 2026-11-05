@@ -841,12 +841,6 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   scroll-snap-stop: always;
 }
 
-/*
- * Pill is a sibling of the pager; sheets portal into `.portfolio-frame`
- * inside the pager. Any pill z-index above the pager buries drawers and
- * overlay pages. Keep the pill above identity chrome only; lift the pager
- * when a hosted sheet or slide-over is open.
- */
 .protocol-face-pair-pill {
   position: absolute;
   z-index: 1;
@@ -855,9 +849,15 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   visibility: hidden;
 }
 
-.protocol-face-pair:has(.glass-sheet-root.is-visible) .protocol-face-pager,
-.protocol-face-pair:has([data-os-slide-over='true']:not(.is-closing))
-  .protocol-face-pager {
+/*
+ * Pill is a sibling of the pager; sheets portal into `.portfolio-frame`
+ * inside the pager. Any pill z-index above the pager buries drawers and
+ * overlay pages. Keep the pill above identity chrome only; lift the pager
+ * for the whole mount of a hosted sheet or slide-over, including enter,
+ * hug settle, and exit. `.is-visible` is absent for those paints.
+ */
+.protocol-face-pair:has(.glass-sheet-root) .protocol-face-pager,
+.protocol-face-pair:has([data-os-slide-over='true']) .protocol-face-pager {
   z-index: 2;
 }
 
