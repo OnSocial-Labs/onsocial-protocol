@@ -23760,6 +23760,7 @@ a.os-surface-row,
 
   .post-media-tile {
     position: relative;
+    z-index: 0;
     overflow: hidden;
     background: rgb(var(--fg-rgb) / 0.03);
     line-height: 0;
@@ -24338,6 +24339,7 @@ a.os-surface-row,
 
   .post-card-quote-thumb-cell {
     position: relative;
+    z-index: 0;
     display: block;
     min-width: 0;
     min-height: 0;
