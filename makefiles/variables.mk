@@ -50,7 +50,7 @@ VALID_CONTRACTS := $(shell jq -r '.[].name' configs/contracts.json 2>/dev/null |
 ifeq ($(strip $(VALID_CONTRACTS)),)
   VALID_CONTRACTS := boost-onsocial core-onsocial intents-onsocial scarces-onsocial vesting-onsocial
 endif
-JS_PACKAGES     := onsocial-client onsocial-backend
+JS_PACKAGES     := onsocial-backend
 RS_PACKAGES     := relayer
 
 # Cache and performance settings

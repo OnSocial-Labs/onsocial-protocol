@@ -110,7 +110,6 @@ Resources/
 # JavaScript build artifacts
 packages/onsocial-app/dist/
 packages/onsocial-backend/dist/
-packages/onsocial-client/dist/
 packages/onsocial-relayer/dist/
 packages/onsocial-relayer/examples/
 packages/onsocial-relayer/account_keys/
