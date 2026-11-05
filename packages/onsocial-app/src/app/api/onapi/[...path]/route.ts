@@ -80,6 +80,9 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   // Indexed reads after profile save (`os.profiles.get`) and other SDK queries.
   { method: 'POST', path: 'graph/query', body: 'json' },
 
+  // Scarces — NEP-171 token read for feed embed matching (`nft_token`).
+  { method: 'GET', path: 'data/scarces-token', body: 'none' },
+
   // Scarces — list / buy / cancel (lazy + fixed-price + native resale).
   { method: 'POST', path: 'compose/prepare/lazy-list', body: 'form' },
   { method: 'POST', path: 'compose/preview/text-card', body: 'json' },
