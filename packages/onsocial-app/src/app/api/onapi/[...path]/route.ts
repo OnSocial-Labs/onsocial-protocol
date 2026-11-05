@@ -59,6 +59,8 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'GET', path: 'data/group-stats', body: 'none' },
   { method: 'GET', path: 'data/group-is-member', body: 'none' },
   { method: 'GET', path: 'data/group-is-owner', body: 'none' },
+  // Banned viewers (`os.groups.isBlacklisted`) on guild pages and threads.
+  { method: 'GET', path: 'data/group-is-blacklisted', body: 'none' },
   { method: 'GET', path: 'data/group-join-request', body: 'none' },
   { method: 'GET', path: 'data/proposals', body: 'none' },
   { method: 'GET', path: 'data/proposal', body: 'none' },
