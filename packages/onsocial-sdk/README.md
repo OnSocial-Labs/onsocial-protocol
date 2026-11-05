@@ -516,6 +516,7 @@ The chain index writes every `Action::Set` into the raw `data_updates` table key
 
 ## Notes
 
+- `os.scarces.tokens.get(tokenId)` still returns `Promise<ScarceTokenView | null>` from `GET /data/scarces-token`. It no longer retries a public chain RPC from the caller on 404, 502, 503, or 504. A missing token is `null` from the gateway. A failed read throws `OnSocialError` (or the transport error from `fetch`). Server deployments may answer that same route from their own chain read; callers cannot tell which path produced a successful body.
 - Indexed reads come from gateway-backed GraphQL views, not direct contract state reads.
 - Group content is read through indexed post/thread/quote surfaces, including group feeds and conversations.
 - For server-side OnAPI writes, set `apiKey`, `actorId`, and attach a session before calling write methods.

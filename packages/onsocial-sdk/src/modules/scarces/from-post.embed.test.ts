@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { OnSocialError } from '../../internal/http.js';
 import { ScarcesFromPostApi } from './from-post.js';
 import type { ScarcesTokensApi } from './tokens.js';
 import type { ScarcesLazyApi } from './lazy.js';
@@ -323,6 +324,41 @@ describe('ScarcesFromPostApi.embed', () => {
     );
 
     expect((await api.embed(POST)).status).toBe('none');
+  });
+
+  it('returns an empty embed when the token read is down and does not log', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const eventsFn = vi.fn(async () => [
+      row({ operation: 'quick_mint', tokenId: 's:1', extraData: null }),
+    ]);
+    const query = {
+      scarces: { events: eventsFn },
+    } as unknown as QueryModule;
+    const tokenGetFn = vi.fn(async () => {
+      throw new OnSocialError(502, {
+        error: 'OnSocial gateway unreachable',
+        details: 'chain read failed',
+      });
+    });
+    const api = new ScarcesFromPostApi(
+      { get: tokenGetFn } as unknown as ScarcesTokensApi,
+      {} as ScarcesLazyApi,
+      undefined,
+      query
+    );
+
+    const embed = await api.embed(POST);
+
+    expect(tokenGetFn).toHaveBeenCalledWith('s:1');
+    expect(embed).toEqual({ status: 'none', events: [] });
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(logSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+    warnSpy.mockRestore();
+    logSpy.mockRestore();
   });
 
   it('throws when no QueryModule is wired', async () => {

@@ -18,11 +18,11 @@ pnpm --filter @onsocial/app dev   # http://localhost:3060
 
 Browser values in `src/lib/app-config.ts`. Defaults follow `NEXT_PUBLIC_NEAR_NETWORK`:
 
-| Variable | Testnet default | Mainnet default |
-|---|---|---|
-| `NEXT_PUBLIC_NEAR_NETWORK` | `testnet` | `mainnet` |
-| `NEXT_PUBLIC_API_URL` | `https://testnet.onsocial.id` | `https://api.onsocial.id` |
-| `NEXT_PUBLIC_BACKEND_URL` | `https://testnet.onsocial.id` | `https://api.onsocial.id` |
+| Variable                   | Testnet default               | Mainnet default           |
+| -------------------------- | ----------------------------- | ------------------------- |
+| `NEXT_PUBLIC_NEAR_NETWORK` | `testnet`                     | `mainnet`                 |
+| `NEXT_PUBLIC_API_URL`      | `https://testnet.onsocial.id` | `https://api.onsocial.id` |
+| `NEXT_PUBLIC_BACKEND_URL`  | `https://testnet.onsocial.id` | `https://api.onsocial.id` |
 
 Local gateway:
 
@@ -42,6 +42,17 @@ NEAR_NETWORK=testnet ./scripts/sync-app-env-from-gsm.sh
 
 Server-side chain reads go through `/api/near/rpc` → `@onsocial/rpc`.
 `FASTNEAR_API_KEY` and `LAVA_API_KEY` stay on the server. Do not point the browser at public RPC nodes directly.
+
+`GET /api/onapi/data/scarces-token` calls the gateway with `ONSOCIAL_API_KEY` first.
+On a gateway timeout, 5xx, or network error, the server reads that one token
+(`nft_token`) through `@onsocial/rpc`. `NEAR_RPC_URL`, `FASTNEAR_API_KEY`, and
+`LAVA_API_KEY` — the same server variables as `/api/near/rpc` — select a keyed
+endpoint when one of them is set. With none set, the server uses public RPC and
+logs `SCARCES_TOKEN_GATEWAY_FALLBACK` with `unkeyedPublicRpc: true`. A
+token-not-found body and any request 4xx are forwarded and do not fall back.
+After repeated gateway failures the route skips the gateway for 30 seconds
+(the same window as the RPC circuit breaker) and reads the chain directly.
+Successful bodies match the gateway JSON either way. The keys never leave the server.
 
 ## Scripts
 
