@@ -50,6 +50,7 @@ vi.mock('../../src/config/index.js', () => ({
 import { storageRouter } from '../../src/services/storage/index.js';
 import {
   IMAGE_VARIANT_WARM_CONCURRENCY,
+  IMAGE_VARIANT_WARM_TIMEOUT_MS,
   imageVariantWarmUrls,
   resetImageVariantWarmupForTests,
   scheduleImageVariantWarmup,
@@ -118,7 +119,71 @@ describe('scheduleImageVariantWarmup', () => {
     await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(3));
     const called = fetchImpl.mock.calls.map((call) => call[0]);
     expect(called).toEqual(urlsFor(CID_A));
+    for (const call of fetchImpl.mock.calls) {
+      const init = call[1] as RequestInit | undefined;
+      expect(init?.headers).toBeUndefined();
+    }
     expect(loggerMock.warn).not.toHaveBeenCalled();
+  });
+
+  it('finishes a warm-up that returns after 8s and aborts at 25s', async () => {
+    expect(IMAGE_VARIANT_WARM_TIMEOUT_MS).toBe(25_000);
+    expect(IMAGE_VARIANT_WARM_TIMEOUT_MS).toBeGreaterThan(20_000);
+
+    vi.useFakeTimers();
+    try {
+      const slow = vi.fn((_url: string, init?: RequestInit) => {
+        return new Promise<Response>((resolve, reject) => {
+          const timer = setTimeout(() => resolve(new Response('ok')), 9_000);
+          init?.signal?.addEventListener('abort', () => {
+            clearTimeout(timer);
+            reject(new DOMException('The operation was aborted', 'AbortError'));
+          });
+        });
+      });
+
+      scheduleImageVariantWarmup({
+        cid: CID_A,
+        mime: 'image/jpeg',
+        gatewayBase: GATEWAY_BASE,
+        fetchImpl: slow,
+      });
+
+      await vi.advanceTimersByTimeAsync(8_000);
+      expect(loggerMock.warn).not.toHaveBeenCalled();
+      expect(slow.mock.calls[0]?.[1]?.signal?.aborted).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(loggerMock.warn).not.toHaveBeenCalled();
+
+      resetImageVariantWarmupForTests();
+      loggerMock.warn.mockClear();
+      const hung = vi.fn((_url: string, init?: RequestInit) => {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(new DOMException('The operation was aborted', 'AbortError'));
+          });
+        });
+      });
+      scheduleImageVariantWarmup({
+        cid: CID_B,
+        mime: 'image/png',
+        gatewayBase: GATEWAY_BASE,
+        fetchImpl: hung,
+      });
+
+      await vi.advanceTimersByTimeAsync(IMAGE_VARIANT_WARM_TIMEOUT_MS - 1);
+      expect(hung.mock.calls[0]?.[1]?.signal?.aborted).toBe(false);
+      expect(loggerMock.warn).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(hung.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+      expect(loggerMock.warn).toHaveBeenCalled();
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+      resetImageVariantWarmupForTests();
+    }
   });
 
   it('caps in-flight warm-up requests', async () => {

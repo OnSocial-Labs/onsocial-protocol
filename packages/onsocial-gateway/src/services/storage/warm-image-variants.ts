@@ -6,7 +6,11 @@ export const IMAGE_VARIANT_WARM_WIDTHS = [128, 384, 1080] as const;
 /** How many warm-up fetches may run at once. */
 export const IMAGE_VARIANT_WARM_CONCURRENCY = 3;
 
-const WARM_TIMEOUT_MS = 8_000;
+/**
+ * Above the 20s resize read limit. A shorter abort drops the connection
+ * before a cold resize finishes, so the edge never stores the response.
+ */
+export const IMAGE_VARIANT_WARM_TIMEOUT_MS = 25_000;
 
 /**
  * Raster types the resize route actually shrinks. Gif and svg pass
@@ -73,7 +77,7 @@ async function warmOne(url: string, fetchImpl: typeof fetch): Promise<void> {
   try {
     const response = await fetchImpl(url, {
       method: 'GET',
-      signal: warmTimeoutSignal(WARM_TIMEOUT_MS),
+      signal: warmTimeoutSignal(IMAGE_VARIANT_WARM_TIMEOUT_MS),
     });
     await response.arrayBuffer().catch(() => undefined);
     if (!response.ok) {
