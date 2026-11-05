@@ -65,14 +65,20 @@ export function OsPortalHostProvider({ children }: { children: ReactNode }) {
   void hostEpoch;
   // A profile card always wins over the kept feed. While the feed is briefly
   // live again, sheets must stay on the profile — moving them into the feed
-  // hides them the moment the feed is covered.
+  // hides them the moment the feed is covered. Once the next screen exists,
+  // the feed is not a host even if it is still marked live.
+  const frontCard =
+    typeof document !== 'undefined' &&
+    document.querySelector(
+      '.feed-session-front .os-app-screen, .feed-session-front .portfolio-frame'
+    ) != null;
   let host: HTMLElement | null = null;
   let feedHost: HTMLElement | null = null;
   for (let index = hosts.length - 1; index >= 0; index -= 1) {
     const node = hosts[index]!.node;
     if (!node.isConnected) continue;
     if (insideFeedSession(node)) {
-      if (!feedHost && !coveredFeedHost(node)) feedHost = node;
+      if (!feedHost && !coveredFeedHost(node) && !frontCard) feedHost = node;
       continue;
     }
     host = node;

@@ -9,6 +9,7 @@ import {
   hugEnterNeedsArming,
   hugEnterShouldArm,
   nextHugEnterStableSample,
+  resolveGlassPortalNode,
   GLASS_SHEET_MEDIA_FACE_LIFT,
   resolveBackdropEnterStyle,
   resolveBackdropPresentation,
@@ -366,6 +367,46 @@ describe('resolveBackdropPresentation', () => {
     });
     expect(presented.opacity).toBe(1);
     expect(presented.filter).toBe('blur(0px)');
+  });
+});
+
+describe('resolveGlassPortalNode', () => {
+  const registered = {} as HTMLElement;
+  const probed = {} as HTMLElement;
+  const body = {} as HTMLElement;
+
+  it('keeps a live registered card', () => {
+    expect(
+      resolveGlassPortalNode({
+        registered,
+        probed,
+        body,
+        yieldRegistered: false,
+      })
+    ).toBe(registered);
+  });
+
+  it('leaves a feed card that sits under the front screen', () => {
+    expect(
+      resolveGlassPortalNode({
+        registered,
+        probed,
+        body,
+        yieldRegistered: true,
+      })
+    ).toBe(probed);
+  });
+
+  it('uses the document when a caller asks for no card', () => {
+    expect(
+      resolveGlassPortalNode({
+        explicit: null,
+        registered,
+        probed,
+        body,
+        yieldRegistered: false,
+      })
+    ).toBe(body);
   });
 });
 

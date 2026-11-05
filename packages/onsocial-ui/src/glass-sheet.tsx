@@ -843,20 +843,44 @@ function useGlassSheetPortalTarget(
     setBody(document.body);
   }, []);
 
-  if (portalContainer !== undefined) {
-    return portalContainer ?? body;
-  }
-
-  // A host parked under a covered feed still receives pointer-events: none.
-  // Clicks then land on the live page. Probe the front card instead.
-  if (portal.container && !portalHostIsCovered(portal.container)) {
-    return portal.container;
-  }
-  return portal.resolveHost?.() ?? body;
+  const probed = portal.resolveHost?.() ?? null;
+  return resolveGlassPortalNode({
+    explicit: portalContainer,
+    registered: portal.container,
+    probed,
+    body,
+    yieldRegistered: portal.container
+      ? portalHostShouldYield(portal.container)
+      : false,
+  });
 }
 
-function portalHostIsCovered(node: HTMLElement): boolean {
-  return Boolean(node.closest('[data-feed-session="covered"]'));
+/**
+ * A feed card kept under the next screen is not a portal host. `covered`
+ * is the steady state; `live` still steals clicks until that attribute
+ * flips, because the front card’s page is what elementFromPoint hits.
+ */
+export function portalHostShouldYield(node: HTMLElement): boolean {
+  if (node.closest('[data-feed-session="covered"]')) return true;
+  if (!node.closest('[data-feed-session]')) return false;
+  return Boolean(
+    document.querySelector(
+      '.feed-session-front .os-app-screen, .feed-session-front .portfolio-frame'
+    )
+  );
+}
+
+export function resolveGlassPortalNode(input: {
+  /** `undefined` means "use the context host". `null` means document body. */
+  explicit?: HTMLElement | null;
+  registered: HTMLElement | null;
+  probed: HTMLElement | null;
+  body: HTMLElement | null;
+  yieldRegistered: boolean;
+}): HTMLElement | null {
+  if (input.explicit !== undefined) return input.explicit ?? input.body;
+  if (input.registered && !input.yieldRegistered) return input.registered;
+  return input.probed ?? input.body;
 }
 
 /**
@@ -964,6 +988,13 @@ function useSheetPresence(
     return () => cancelAnimationFrame(id);
   }, [open]);
 
+  const onClosedRef = useRef(onClosed);
+  useEffect(() => {
+    onClosedRef.current = onClosed;
+  }, [onClosed]);
+  // Identity must stay stable. A parent that passes a fresh `onClosed`
+  // every render was clearing the close timer before the sheet could leave,
+  // so a dying drawer stayed under the pointer for the whole test.
   const finishClose = useCallback(() => {
     if (closeFinishedRef.current || openRef.current) {
       return;
@@ -972,8 +1003,8 @@ function useSheetPresence(
     holdExitRef.current = false;
     setHoldingExit(false);
     setMounted(false);
-    onClosed?.();
-  }, [onClosed]);
+    onClosedRef.current?.();
+  }, []);
 
   useEffect(() => {
     if (open) return;
@@ -1532,13 +1563,16 @@ export function GlassSheet({
     if (!root || band) return;
     // A close stays out of the tree even when it is still the top overlay.
     // Clearing inert here put the dying controls back under the pointer.
-    if (!open || !overlayTop || !panelIsOpen) {
+    // Only a closed or covered sheet leaves the tree. Waiting for the hug
+    // slide made the name field inert while Playwright typed, then the
+    // controlled value was wiped.
+    if (!open || !overlayTop) {
       root.inert = true;
       return;
     }
     if (root.style.visibility === 'hidden') return;
     root.inert = false;
-  }, [band, open, overlayTop, panelIsOpen]);
+  }, [band, open, overlayTop]);
 
   useLayoutEffect(() => {
     if (!mounted) {
