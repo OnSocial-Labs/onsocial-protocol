@@ -11,12 +11,15 @@ import { SHEET_Z } from '@/lib/sheet-z';
 
 export function DropCreateExtraSheet({
   open,
+  sheetId = '',
   title,
   hint,
   children,
   onDone,
 }: {
   open: boolean;
+  /** Changes when the parent swaps Sale for Per wallet without a close. */
+  sheetId?: string;
   title: string;
   hint?: string;
   children: ReactNode;
@@ -24,9 +27,18 @@ export function DropCreateExtraSheet({
 }) {
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
+  const [seenSheetId, setSeenSheetId] = useState(sheetId);
   const [openEpoch, setOpenEpoch] = useState(0);
   const closeEpoch = useRef(0);
   const sheetOpen = open && !closing;
+
+  if (sheetId !== seenSheetId) {
+    setSeenSheetId(sheetId);
+    if (open) {
+      setOpenEpoch(openEpoch + 1);
+      setClosing(false);
+    }
+  }
 
   if (open !== wasOpen) {
     setWasOpen(open);

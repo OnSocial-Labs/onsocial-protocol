@@ -4084,6 +4084,7 @@ export function CreateDropPanel() {
 
       <DropCreateExtraSheet
         open={extraSheet != null}
+        sheetId={extraSheet ?? ''}
         title={
           extraSheet
             ? dropCreateExtraRowLabel(extraSheet, {

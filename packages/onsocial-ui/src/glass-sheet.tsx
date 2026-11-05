@@ -847,8 +847,16 @@ function useGlassSheetPortalTarget(
     return portalContainer ?? body;
   }
 
-  if (portal.container) return portal.container;
+  // A host parked under a covered feed still receives pointer-events: none.
+  // Clicks then land on the live page. Probe the front card instead.
+  if (portal.container && !portalHostIsCovered(portal.container)) {
+    return portal.container;
+  }
   return portal.resolveHost?.() ?? body;
+}
+
+function portalHostIsCovered(node: HTMLElement): boolean {
+  return Boolean(node.closest('[data-feed-session="covered"]'));
 }
 
 /**
@@ -1524,13 +1532,13 @@ export function GlassSheet({
     if (!root || band) return;
     // A close stays out of the tree even when it is still the top overlay.
     // Clearing inert here put the dying controls back under the pointer.
-    if (!open || !overlayTop) {
+    if (!open || !overlayTop || !panelIsOpen) {
       root.inert = true;
       return;
     }
     if (root.style.visibility === 'hidden') return;
     root.inert = false;
-  }, [band, open, overlayTop]);
+  }, [band, open, overlayTop, panelIsOpen]);
 
   useLayoutEffect(() => {
     if (!mounted) {
