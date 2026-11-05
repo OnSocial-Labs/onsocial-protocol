@@ -10,6 +10,7 @@ import {
   VideoEncodeError,
 } from './encode-post-video.js';
 import { uploadNamedBufferToLighthouse } from './lighthouse-upload.js';
+import { scheduleImageVariantWarmup } from './warm-image-variants.js';
 
 const router = Router();
 
@@ -69,6 +70,11 @@ router.post(
         filename,
         mime,
         storageType: STORAGE_TYPE,
+      });
+      scheduleImageVariantWarmup({
+        cid: result.Hash,
+        mime,
+        gatewayBase: config.lighthouseGatewayBase,
       });
       res.json({
         cid: result.Hash,

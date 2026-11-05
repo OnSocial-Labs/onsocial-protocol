@@ -13,6 +13,7 @@ import {
   PlayFillIcon,
   VolumeMuteIcon,
   VolumeUpIcon,
+  IpfsBlurPreview,
   IpfsImg,
   ipfsImgSrcSet,
 } from '@onsocial/ui';
@@ -427,6 +428,7 @@ function PostVisualMediaBlock({
           aria-hidden
         />
       )}
+      {isVideo ? null : <IpfsBlurPreview src={item.url} mime={item.mime} />}
       {isVideo ? (
         // Far-off list videos unmount — the ratio-held box stays, the
         // decoder and buffers go. Remounts warm up a viewport before paint.
