@@ -902,6 +902,7 @@ export class ScarcesFromPostApi {
             sourcePostMatches(tokenSourcePost(token), author, postId, wantPath),
           ] as const;
         } catch {
+          // A failed token read is a miss. This path does not call a public chain RPC.
           return [tokenId, false] as const;
         }
       })

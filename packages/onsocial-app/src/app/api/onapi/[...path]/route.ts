@@ -8,6 +8,17 @@ import {
   resolveE2eGraphStub,
 } from '@/lib/e2e-graph-stubs';
 import { isOnApiSameOriginRequest } from '@/lib/onapi-proxy-origin';
+import {
+  SCARCES_TOKEN_GATEWAY_TIMEOUT_MS,
+  isScarcesTokenGatewayTimeout,
+  isScarcesTokenRead,
+  noteScarcesTokenGatewayFailure,
+  noteScarcesTokenGatewaySuccess,
+  readScarcesTokenFallback,
+  scarcesTokenGatewayCoolingOff,
+  shouldFallbackScarcesTokenGateway,
+  type ScarcesTokenFallbackResult,
+} from '@/server/scarces-token-fallback';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -379,6 +390,42 @@ function getErrorMessage(error: unknown): string {
   return 'Unknown upstream error';
 }
 
+function upstreamResponse(
+  status: number,
+  body: string,
+  upstreamHeaders: { get(name: string): string | null }
+): NextResponse {
+  const responseHeaders = new Headers({ 'Cache-Control': 'no-store' });
+  for (const headerName of FORWARDED_RESPONSE_HEADERS) {
+    const value = upstreamHeaders.get(headerName);
+    if (value) responseHeaders.set(headerName, value);
+  }
+  return new NextResponse(body, {
+    status,
+    headers: responseHeaders,
+  });
+}
+
+function scarcesTokenFallbackResponse(
+  result: ScarcesTokenFallbackResult,
+  upstreamHeaders?: Headers
+): NextResponse {
+  if (result.kind === 'upstream') {
+    const headers = upstreamHeaders ?? new Headers();
+    if (!headers.get('content-type') && result.contentType) {
+      headers.set('content-type', result.contentType);
+    }
+    return upstreamResponse(result.status, result.body, headers);
+  }
+  return new NextResponse(result.body, {
+    status: result.status,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+    },
+  });
+}
+
 async function getForwardedBody(
   request: NextRequest,
   bodyKind: ProxyBodyKind
@@ -462,11 +509,28 @@ async function proxyOnApiRequest(
   }
 
   const targetUrl = buildTargetUrl(pathSegments, request.nextUrl.search);
+  const scarcesTokenRead = isScarcesTokenRead(request.method, pathSegments);
+  const scarcesTokenId = scarcesTokenRead
+    ? (request.nextUrl.searchParams.get('tokenId')?.trim() ?? '')
+    : '';
+  const scarcesTokenFallback = scarcesTokenRead && scarcesTokenId.length > 0;
+
+  if (scarcesTokenFallback && scarcesTokenGatewayCoolingOff()) {
+    const result = await readScarcesTokenFallback({
+      tokenId: scarcesTokenId,
+      reason: 'cool_off',
+    });
+    return scarcesTokenFallbackResponse(result);
+  }
+
   const init: RequestInit = {
     method: request.method,
     headers,
     cache: 'no-store',
   };
+  if (scarcesTokenRead) {
+    init.signal = AbortSignal.timeout(SCARCES_TOKEN_GATEWAY_TIMEOUT_MS);
+  }
 
   const body = await getForwardedBody(request, route.body);
   if (body) init.body = body;
@@ -474,18 +538,35 @@ async function proxyOnApiRequest(
   try {
     const response = await fetch(targetUrl, init);
     const responseBody = await response.text();
-    const responseHeaders = new Headers({ 'Cache-Control': 'no-store' });
-
-    for (const headerName of FORWARDED_RESPONSE_HEADERS) {
-      const value = response.headers.get(headerName);
-      if (value) responseHeaders.set(headerName, value);
+    if (
+      scarcesTokenFallback &&
+      shouldFallbackScarcesTokenGateway(response.status, responseBody)
+    ) {
+      noteScarcesTokenGatewayFailure();
+      const result = await readScarcesTokenFallback({
+        tokenId: scarcesTokenId,
+        reason: 'http',
+        upstream: {
+          status: response.status,
+          body: responseBody,
+          contentType: response.headers.get('content-type'),
+        },
+      });
+      return scarcesTokenFallbackResponse(result, response.headers);
     }
-
-    return new NextResponse(responseBody, {
-      status: response.status,
-      headers: responseHeaders,
-    });
+    if (scarcesTokenRead && response.ok) {
+      noteScarcesTokenGatewaySuccess();
+    }
+    return upstreamResponse(response.status, responseBody, response.headers);
   } catch (error) {
+    if (scarcesTokenFallback) {
+      noteScarcesTokenGatewayFailure();
+      const result = await readScarcesTokenFallback({
+        tokenId: scarcesTokenId,
+        reason: isScarcesTokenGatewayTimeout(error) ? 'timeout' : 'network',
+      });
+      return scarcesTokenFallbackResponse(result);
+    }
     return NextResponse.json(
       {
         error: 'OnSocial gateway unreachable',
