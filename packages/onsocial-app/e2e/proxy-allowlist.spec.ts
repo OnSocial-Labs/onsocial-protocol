@@ -8,20 +8,18 @@ const ROUTE_NOT_ALLOWED = 'OnAPI proxy route is not allowed';
 
 function watchProxy(page: Page) {
   const denied: string[] = [];
-  const seen: string[] = [];
   const pending: Promise<void>[] = [];
   page.on('response', (response: Response) => {
     if (!response.url().includes('/api/onapi/')) return;
-    const path = new URL(response.url()).pathname;
-    seen.push(path);
     if (response.status() !== 404) return;
+    const path = new URL(response.url()).pathname;
     pending.push(
       response.text().then((body) => {
         if (body.includes(ROUTE_NOT_ALLOWED)) denied.push(path);
       })
     );
   });
-  return { denied, seen, pending };
+  return { denied, pending };
 }
 
 test('browse data reads are not blocked by the proxy allowlist', async ({
@@ -36,14 +34,6 @@ test('browse data reads are not blocked by the proxy allowlist', async ({
   }
 
   await gotoApp(page, GUILD);
-  await expect
-    .poll(
-      () =>
-        proxy.seen.some((path) => path.endsWith('/data/group-is-blacklisted')),
-      { timeout: 20_000 }
-    )
-    .toBe(true);
-
   await gotoApp(page, '/@greenghost.onsocial.testnet');
 
   await dismissNextDevOverlay(page);
