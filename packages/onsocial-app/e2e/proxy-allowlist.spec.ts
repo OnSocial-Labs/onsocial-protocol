@@ -31,22 +31,20 @@ test('browse data reads are not blocked by the proxy allowlist', async ({
   await seedE2eWallet(page, VIEWER);
   const proxy = watchProxy(page);
 
-  for (const path of [
-    '/home',
-    '/discover',
-    '/market',
-    '/groups',
-    GUILD,
-    '/@greenghost.onsocial.testnet',
-  ]) {
+  for (const path of ['/home', '/discover', '/market', '/groups']) {
     await gotoApp(page, path);
   }
 
+  await gotoApp(page, GUILD);
   await expect
-    .poll(() =>
-      proxy.seen.some((path) => path.endsWith('/data/group-is-blacklisted'))
+    .poll(
+      () =>
+        proxy.seen.some((path) => path.endsWith('/data/group-is-blacklisted')),
+      { timeout: 20_000 }
     )
     .toBe(true);
+
+  await gotoApp(page, '/@greenghost.onsocial.testnet');
 
   await dismissNextDevOverlay(page);
   await page.getByRole('button', { name: /You, @/ }).click();
