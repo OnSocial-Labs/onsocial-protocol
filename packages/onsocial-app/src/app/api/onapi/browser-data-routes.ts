@@ -998,17 +998,18 @@ function collectApp(
         return;
       }
       if (ts.isVariableDeclaration(node) && node.initializer) {
-        if (ts.isIdentifier(node.name)) {
+        const declaredName = node.name;
+        if (ts.isIdentifier(declaredName)) {
           const fn = unwrapFunction(node.initializer);
           if (fn) {
             const id =
               [...state.fns.values()].find(
                 (info) =>
                   info.file === file.file &&
-                  info.name === node.name.text &&
+                  info.name === declaredName.text &&
                   info.id.endsWith(`:${lineOf(file.sf, node)}`)
               )?.id ?? null;
-            if (id) scope.map.set(node.name.text, { kind: 'fn', id });
+            if (id) scope.map.set(declaredName.text, { kind: 'fn', id });
             const next: Scope = { map: new Map(), parent: scope };
             if (id && (ts.isFunctionExpression(fn) || ts.isArrowFunction(fn))) {
               bindParams(fn, id, next, file);
@@ -1310,7 +1311,14 @@ function dynamicImportFactories(
   const out = new Map<string, 'browser' | 'server'>();
   for (const el of name.elements) {
     if (!ts.isIdentifier(el.name)) continue;
-    const imported = (el.propertyName ?? el.name).text;
+    const propertyName = el.propertyName;
+    const imported =
+      propertyName == null
+        ? el.name.text
+        : ts.isIdentifier(propertyName)
+          ? propertyName.text
+          : null;
+    if (!imported) continue;
     const lane = factoryLane(imported, arg.text);
     if (lane) out.set(el.name.text, lane);
   }
