@@ -8138,11 +8138,10 @@ a.os-surface-row,
     align-items: center;
     justify-content: space-between;
     gap: 0.45rem;
-    margin: 0.35rem -0.2rem 0;
+    margin: 0 -0.2rem;
     padding-block: 0.48rem;
     padding-inline: 0.2rem;
     border: 0;
-    border-top: 1px solid rgb(var(--fg-rgb) / 0.08);
     background: transparent;
     color: rgb(var(--fg-rgb) / 0.62);
     font: inherit;
@@ -8150,6 +8149,10 @@ a.os-surface-row,
     letter-spacing: -0.015em;
     text-align: left;
     cursor: pointer;
+  }
+
+  .portfolio-rally-view > .divider-item {
+    margin-top: 0.35rem;
   }
 
   .rally-past-entry-label {

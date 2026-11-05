@@ -122,6 +122,22 @@
     var(--os-motion-ease-standard, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
+/* Drawer replace — panel stays, scrim belongs to the sheet that is arriving. */
+.os-launcher-root.is-handoff,
+.os-launcher-root.is-handoff * {
+  pointer-events: none;
+}
+
+.os-launcher-root.is-handoff .os-launcher-backdrop {
+  opacity: 0;
+  animation: none;
+  transition: none;
+  pointer-events: none;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 /* Bottom sheet — same glass panel as standing GlassSheet. */
 .os-launcher-sheet {
   position: relative;

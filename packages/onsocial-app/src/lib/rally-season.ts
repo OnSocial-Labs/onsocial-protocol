@@ -4,6 +4,7 @@ import {
   formatSocialCompact,
   yoctoToSocial,
 } from '@/lib/format-social-balance';
+import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
 export type RallySeasonPhase = 'live' | 'upcoming' | 'claim' | 'archived';
 
@@ -474,12 +475,13 @@ function standingToBoardRow(
   if (!accountId || !Number.isFinite(row.rank) || row.rank <= 0) return null;
   const breakdown = row.breakdown ?? null;
   const merit = rallyMeritScore(breakdown);
+  const avatarUrl = resolveProfileMediaUrl(row.avatarUrl);
   return {
     rank: row.rank,
     score: merit ?? (Number.isFinite(row.score) ? row.score : 0),
     accountId,
     ...(row.displayName?.trim() ? { displayName: row.displayName.trim() } : {}),
-    ...(row.avatarUrl?.trim() ? { avatarUrl: row.avatarUrl.trim() } : {}),
+    ...(avatarUrl ? { avatarUrl } : {}),
     ...(breakdown ? { breakdown } : {}),
   };
 }

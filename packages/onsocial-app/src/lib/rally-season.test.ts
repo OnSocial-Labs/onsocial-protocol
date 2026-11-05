@@ -124,6 +124,22 @@ describe('rally-season', () => {
     expect(formatRallyPrizeLine({ participantCount: 3 })).toBe('3 in');
   });
 
+  it('turns standing ipfs avatars into a loadable face', () => {
+    expect(
+      resolveRallyStandingStrip({
+        rows: [
+          {
+            rank: 1,
+            score: 10,
+            accountId: 'a.near',
+            avatarUrl: 'ipfs://bafyAvatar',
+          },
+        ],
+        viewerAccountId: null,
+      })[0]?.avatarUrl
+    ).toBe('https://cdn.testnet.onsocial.id/ipfs/bafyAvatar');
+  });
+
   it('windows the standing strip around the viewer', () => {
     const rows = [
       { rank: 1, score: 90, accountId: 'a.near' },

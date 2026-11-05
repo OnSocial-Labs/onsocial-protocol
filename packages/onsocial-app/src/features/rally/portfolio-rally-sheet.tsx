@@ -3,6 +3,7 @@
 import { useCallback, useId, useState } from 'react';
 import {
   ChevronLeftIcon,
+  Divider,
   GlassSheet,
   OsIconAction,
   osGestureSheetBodyClassName,
@@ -435,19 +436,22 @@ export function PortfolioRallySheet({
             <RallySheetSport rows={player.standingStrip} />
 
             {!player.isPast && pastSeasons.length > 0 ? (
-              <button
-                type="button"
-                className="rally-past-entry"
-                onClick={() => setPastOpen(true)}
-              >
-                <span className="rally-past-entry-label">Past rallies</span>
-                {pastHints.hasCollect ? (
-                  <span
-                    className="rally-past-entry-dot"
-                    aria-label="SOCIAL ready to collect from a past rally"
-                  />
-                ) : null}
-              </button>
+              <>
+                <Divider variant="item" />
+                <button
+                  type="button"
+                  className="rally-past-entry"
+                  onClick={() => setPastOpen(true)}
+                >
+                  <span className="rally-past-entry-label">Past rallies</span>
+                  {pastHints.hasCollect ? (
+                    <span
+                      className="rally-past-entry-dot"
+                      aria-label="SOCIAL ready to collect from a past rally"
+                    />
+                  ) : null}
+                </button>
+              </>
             ) : null}
           </div>
         )}

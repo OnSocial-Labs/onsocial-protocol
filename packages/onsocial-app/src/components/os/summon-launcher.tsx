@@ -35,11 +35,13 @@ import {
   osLauncherCommunityEmptyClassName,
   osLauncherDotsClassName,
   osLauncherDotClassName,
+  replaceSheet,
   resolveBackdropPresentation,
   resolvePanelPresentation,
   useOverlayStackZ,
   usePrefersReducedTransparency,
   useScrollLock,
+  useSheetStackEntry,
 } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -96,6 +98,8 @@ import {
 } from '@/lib/community-app-handoff';
 
 const LAUNCHER_DISMISS_PX = 96;
+/** Same window as SHEET_HANDOFF_COVER_MS. The launcher panel stays while Rally slides up. */
+const LAUNCHER_SHEET_HOLD_MS = 480;
 const LAUNCHER_PRESENTATION_MS = 320;
 const LAUNCHER_PRESENTATION_EASE = 'cubic-bezier(0.22, 0.61, 0.36, 1)';
 const LAUNCHER_DRAG_ACTIVATION_PX = 6;
@@ -300,10 +304,12 @@ export function SummonLauncher({
     portalTarget != null &&
     typeof document !== 'undefined' &&
     portalTarget !== document.body;
+  const [rallyHandoff, setRallyHandoff] = useState(false);
   const overlay = useOverlayStackZ(
-    Boolean(open && portalTarget),
+    Boolean(open && portalTarget && !rallyHandoff),
     SHEET_Z.launcher
   );
+  useSheetStackEntry(open, 'sheet');
   const summonDockRef = useRef<HTMLDivElement>(null);
   useSummonDockOccupiedHeight(
     summonDockRef,
@@ -342,11 +348,21 @@ export function SummonLauncher({
 
   const closeLauncher = useCallback(() => {
     resetDrag();
+    setRallyHandoff(false);
     setOpen(false);
   }, [resetDrag, setOpen]);
   const reduceTransparency = usePrefersReducedTransparency();
 
   useScrollLock(open);
+
+  useEffect(() => {
+    if (!rallyHandoff) return;
+    const timer = window.setTimeout(() => {
+      setRallyHandoff(false);
+      closeLauncher();
+    }, LAUNCHER_SHEET_HOLD_MS);
+    return () => window.clearTimeout(timer);
+  }, [closeLauncher, rallyHandoff]);
 
   useEffect(() => {
     if (!open) {
@@ -371,7 +387,7 @@ export function SummonLauncher({
   }, [open]);
 
   useEffect(() => {
-    if (!open) {
+    if (!open || rallyHandoff) {
       return;
     }
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -381,7 +397,7 @@ export function SummonLauncher({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [closeLauncher, open]);
+  }, [closeLauncher, open, rallyHandoff]);
 
   function handleNavigate(app: OsAppLink) {
     if (navigate(app)) {
@@ -489,7 +505,7 @@ export function SummonLauncher({
     [coverProgress, reduceTransparency]
   );
 
-  const showEnterAnimation = open && !enterAnimationDone;
+  const showEnterAnimation = open && !enterAnimationDone && !rallyHandoff;
 
   const frostStyle = glassSheetBackdropFilterStyle(panelFilter, {
     transition: presentationTransition,
@@ -500,13 +516,16 @@ export function SummonLauncher({
     ...(dragging ? { transform: `translateY(${dragY}px)` } : null),
   } as CSSProperties;
 
-  const backdropStyle = glassSheetBackdropFilterStyle(
-    backdropPresentation.filter,
-    {
-      opacity: showEnterAnimation ? undefined : backdropPresentation.opacity,
-      transition: showEnterAnimation ? undefined : presentationTransition,
-    }
-  );
+  const backdropStyle = rallyHandoff
+    ? glassSheetBackdropFilterStyle('blur(0px)', {
+        opacity: 0,
+        transition: 'none',
+        pointerEvents: 'none',
+      })
+    : glassSheetBackdropFilterStyle(backdropPresentation.filter, {
+        opacity: showEnterAnimation ? undefined : backdropPresentation.opacity,
+        transition: showEnterAnimation ? undefined : presentationTransition,
+      });
 
   return (
     <>
@@ -596,9 +615,12 @@ export function SummonLauncher({
             <div
               className={`${osLauncherRootClassName}${
                 launcherHosted ? ` ${osLauncherRootHostedClassName}` : ''
-              }${showEnterAnimation ? ' is-enter' : ''}`}
+              }${showEnterAnimation ? ' is-enter' : ''}${
+                rallyHandoff ? ' is-handoff' : ''
+              }`}
               role="presentation"
-              inert={!overlay.top}
+              aria-hidden={rallyHandoff || undefined}
+              inert={rallyHandoff || !overlay.top}
               style={{ zIndex: overlay.z }}
             >
               <button
@@ -610,8 +632,8 @@ export function SummonLauncher({
               />
               <section
                 ref={sheetRef}
-                role="dialog"
-                aria-modal="true"
+                role={rallyHandoff ? 'presentation' : 'dialog'}
+                aria-modal={rallyHandoff ? undefined : true}
                 aria-label="OnSocial launcher"
                 className={`${osLauncherSheetClassName}${
                   showEnterAnimation ? ' is-enter' : ''
@@ -650,7 +672,8 @@ export function SummonLauncher({
                         nudge={rally.mark.nudge}
                         ariaLabel={rally.mark.ariaLabel}
                         onClick={() => {
-                          closeLauncher();
+                          replaceSheet();
+                          setRallyHandoff(true);
                           rally.openRallySheet();
                         }}
                       />
