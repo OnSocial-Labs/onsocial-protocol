@@ -80,6 +80,7 @@ export function formatDaoInfoRoleList(
 export function ProtocolDaoInfoSheet({
   open,
   onClose,
+  onClosed,
   daoAccountId,
   accountId,
   daoPolicy,
@@ -89,6 +90,7 @@ export function ProtocolDaoInfoSheet({
 }: {
   open: boolean;
   onClose: () => void;
+  onClosed?: () => void;
   daoAccountId: string | null;
   accountId: string | null;
   daoPolicy: ProtocolDaoPolicy | null;
@@ -239,6 +241,7 @@ export function ProtocolDaoInfoSheet({
     <DaoOrgHugSheet
       open={open}
       onClose={onClose}
+      onClosed={onClosed}
       daoAccountId={daoAccountId}
       title="Info"
       subtitle={configName || daoAccountId}

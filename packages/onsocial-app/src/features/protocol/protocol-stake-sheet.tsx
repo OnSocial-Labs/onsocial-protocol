@@ -40,6 +40,7 @@ type StakeMode = ProtocolStakeMode;
 export function ProtocolStakeSheet({
   open,
   onClose,
+  onClosed,
   daoAccountId,
   accountId,
   pending,
@@ -49,6 +50,7 @@ export function ProtocolStakeSheet({
 }: {
   open: boolean;
   onClose: () => void;
+  onClosed?: () => void;
   daoAccountId: string | null;
   accountId: string | null;
   pending: boolean;
@@ -286,6 +288,7 @@ export function ProtocolStakeSheet({
     <ProtocolTaskSheet
       open={open}
       onClose={onClose}
+      onClosed={onClosed}
       verb={verb}
       whisper={stakeWhisper}
       closeAriaLabel={`Close ${verb.toLowerCase()}`}

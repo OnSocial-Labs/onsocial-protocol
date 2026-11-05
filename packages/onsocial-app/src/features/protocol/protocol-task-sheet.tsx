@@ -22,6 +22,7 @@ import { PROTOCOL_TASK_SHEET_Z } from '@/features/protocol/protocol-sheet-z';
 export function ProtocolTaskSheet({
   open,
   onClose,
+  onClosed,
   verb,
   whisper,
   handle,
@@ -35,6 +36,7 @@ export function ProtocolTaskSheet({
 }: {
   open: boolean;
   onClose: () => void;
+  onClosed?: () => void;
   verb: string;
   whisper?: ReactNode;
   handle?: string;
@@ -59,7 +61,8 @@ export function ProtocolTaskSheet({
   const handleSheetClosed = useCallback(() => {
     setClosing(false);
     onClose();
-  }, [onClose]);
+    onClosed?.();
+  }, [onClose, onClosed]);
 
   return (
     <OsGestureSheet

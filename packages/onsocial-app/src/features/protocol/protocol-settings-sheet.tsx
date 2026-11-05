@@ -90,6 +90,7 @@ function tryPeriodNs(value: string): string | null {
 export function ProtocolSettingsSheet({
   open,
   onClose,
+  onClosed,
   daoAccountId,
   accountId,
   daoPolicy,
@@ -102,6 +103,7 @@ export function ProtocolSettingsSheet({
 }: {
   open: boolean;
   onClose: () => void;
+  onClosed?: () => void;
   daoAccountId: string | null;
   accountId: string | null;
   daoPolicy: ProtocolDaoPolicy | null;
@@ -520,6 +522,7 @@ export function ProtocolSettingsSheet({
       <ProtocolTaskSheet
         open={open}
         onClose={onClose}
+        onClosed={onClosed}
         verb={protocolPolicyActionLabel(actionId)}
         handle={daoAccountId ?? undefined}
         whisper="Fill the fields, then confirm bond and submit."

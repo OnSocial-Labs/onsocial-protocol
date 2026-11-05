@@ -104,6 +104,7 @@ function isGreaterThanBalance(amountSmallest: string, balanceSmallest: string) {
 export function ProtocolCreateSheet({
   open,
   onClose,
+  onClosed,
   daoAccountId,
   accountId,
   daoPolicy,
@@ -116,6 +117,7 @@ export function ProtocolCreateSheet({
 }: {
   open: boolean;
   onClose: () => void;
+  onClosed?: () => void;
   daoAccountId: string | null;
   accountId: string | null;
   daoPolicy: ProtocolDaoPolicy | null;
@@ -677,6 +679,7 @@ export function ProtocolCreateSheet({
       <ProtocolTaskSheet
         open={open}
         onClose={onClose}
+        onClosed={onClosed}
         verb={protocolCreateKindLabel(kind)}
         handle={daoAccountId ?? undefined}
         whisper={composeWhisper}

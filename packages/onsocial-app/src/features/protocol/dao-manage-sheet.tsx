@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { replaceSheet } from '@onsocial/ui';
 import {
   ActionDrawer,
   type ActionDrawerItem,
@@ -111,6 +112,7 @@ export function DaoManageSheet({
   }, [onClose]);
 
   const run = (action: DaoManageAction) => {
+    replaceSheet();
     onAction(action);
     requestClose();
   };

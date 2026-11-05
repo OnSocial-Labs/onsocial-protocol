@@ -172,6 +172,7 @@ export function DaoWorkspacePanel({
   toolRequest = null,
   onToolRequestHandled,
   onToolsHostClose,
+  onToolsHostClosed,
   sheet = null,
 }: {
   daoAccountId: string;
@@ -189,6 +190,8 @@ export function DaoWorkspacePanel({
   onToolRequestHandled?: () => void;
   /** Fired when a tools-host session ends (all tool sheets closed). */
   onToolsHostClose?: () => void;
+  /** Fired when the closing tool sheet has finished its exit animation. */
+  onToolsHostClosed?: () => void;
   /** Portfolio proposals mood page — search + filter rails live in the header. */
   sheet?: {
     open: boolean;
@@ -275,6 +278,7 @@ export function DaoWorkspacePanel({
   );
   const [infoOpen, setInfoOpen] = useState(false);
   const [toolsHostSession, setToolsHostSession] = useState(false);
+  const [toolSheetExitEpoch, setToolSheetExitEpoch] = useState(0);
   const [createPending, setCreatePending] = useState(false);
   const [stakePending, setStakePending] = useState(false);
   const [settingsPending, setSettingsPending] = useState(false);
@@ -1505,6 +1509,24 @@ export function DaoWorkspacePanel({
     onToolsHostClose?.();
   }, [toolsHostOnly, toolsHostSession, manageToolsOpen, onToolsHostClose]);
 
+  const noteToolSheetClosed = useCallback(() => {
+    setToolSheetExitEpoch((epoch) => epoch + 1);
+  }, []);
+
+  // Session `open` drops as soon as the tool flag does. The host stays
+  // mounted until this sheet's exit `onClosed`, or the drawer vanishes.
+  useEffect(() => {
+    if (!toolsHostOnly || !toolsHostSession || manageToolsOpen) return;
+    if (toolSheetExitEpoch === 0) return;
+    onToolsHostClosed?.();
+  }, [
+    toolsHostOnly,
+    toolsHostSession,
+    manageToolsOpen,
+    toolSheetExitEpoch,
+    onToolsHostClosed,
+  ]);
+
   const renderProposalCard = useCallback(
     (
       application: ProtocolApplication,
@@ -1628,6 +1650,7 @@ export function DaoWorkspacePanel({
             onClose={() => {
               setProposeKindOpen(false);
             }}
+            onClosed={toolsHostOnly ? noteToolSheetClosed : undefined}
             daoAccountId={daoAccountId}
             accountId={accountId}
             daoPolicy={daoPolicy}
@@ -1650,6 +1673,7 @@ export function DaoWorkspacePanel({
             onClose={() => {
               setCreateOpen(false);
             }}
+            onClosed={toolsHostOnly ? noteToolSheetClosed : undefined}
             daoAccountId={daoAccountId}
             accountId={accountId}
             daoPolicy={daoPolicy}
@@ -1674,6 +1698,7 @@ export function DaoWorkspacePanel({
             onClose={() => {
               setStakeOpen(false);
             }}
+            onClosed={toolsHostOnly ? noteToolSheetClosed : undefined}
             daoAccountId={daoAccountId}
             accountId={accountId}
             pending={stakePending}
@@ -1695,6 +1720,7 @@ export function DaoWorkspacePanel({
             onClose={() => {
               setSettingsActionOpen(false);
             }}
+            onClosed={toolsHostOnly ? noteToolSheetClosed : undefined}
             daoAccountId={daoAccountId}
             accountId={accountId}
             daoPolicy={daoPolicy}
@@ -1718,6 +1744,7 @@ export function DaoWorkspacePanel({
               setSettingsOpen(false);
               setSettingsActionOpen(false);
             }}
+            onClosed={toolsHostOnly ? noteToolSheetClosed : undefined}
             daoAccountId={daoAccountId}
             accountId={accountId}
             daoPolicy={daoPolicy}
@@ -1742,6 +1769,7 @@ export function DaoWorkspacePanel({
             onClose={() => {
               setInfoOpen(false);
             }}
+            onClosed={toolsHostOnly ? noteToolSheetClosed : undefined}
             daoAccountId={daoAccountId}
             accountId={accountId}
             daoPolicy={daoPolicy}
