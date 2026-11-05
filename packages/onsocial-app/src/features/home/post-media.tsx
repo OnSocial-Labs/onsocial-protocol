@@ -13,6 +13,7 @@ import {
   PlayFillIcon,
   VolumeMuteIcon,
   VolumeUpIcon,
+  IpfsImg,
   ipfsImgSrcSet,
 } from '@onsocial/ui';
 import {
@@ -453,7 +454,7 @@ function PostVisualMediaBlock({
           />
         ) : null
       ) : (
-        <img
+        <IpfsImg
           ref={bind}
           src={item.url}
           srcSet={imgSrcSet}

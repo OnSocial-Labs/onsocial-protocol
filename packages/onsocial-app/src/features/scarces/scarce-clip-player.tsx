@@ -18,6 +18,7 @@ import {
   PlayFillIcon,
   PreviousFillIcon,
   ScaleUpIcon,
+  IpfsImg,
   ipfsImgSrcSet,
 } from '@onsocial/ui';
 import { MediaDownloadControl } from '@/components/ui/media-download-control';
@@ -1253,7 +1254,7 @@ export function ScarceClipPlayer({
                   }}
                 >
                   {cover ? (
-                    <img
+                    <IpfsImg
                       className="scarce-clip-player-cover"
                       src={cover}
                       srcSet={coverSrcSet}

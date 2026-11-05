@@ -278,6 +278,9 @@ services:
       IMGPROXY_MAX_SRC_RESOLUTION: "50"        # megapixels
       IMGPROXY_MAX_SRC_FILE_SIZE: "20971520"   # 20 MB
       IMGPROXY_SKIP_PROCESSING_FORMATS: "gif,svg"
+      # Cold source reads exceed the 5s download default and return 504.
+      IMGPROXY_DOWNLOAD_TIMEOUT: "15"
+      IMGPROXY_TIMEOUT: "20"
       IMGPROXY_LOG_LEVEL: "info"
     mem_limit: 512m
     cpus: 1.0

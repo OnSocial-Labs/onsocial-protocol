@@ -17,6 +17,7 @@ import {
   OsSheetActions,
   OsSheetFooter,
   ShareIcon,
+  IpfsImg,
   ipfsImgSrcSet,
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
@@ -226,7 +227,7 @@ export function WritingReadDocument({
               onClick={onOpenCover}
             >
               {rasterCover ? (
-                <img
+                <IpfsImg
                   src={rasterCover}
                   srcSet={rasterCoverSrcSet}
                   sizes={rasterCoverSrcSet ? APP_COLUMN_HERO_SIZES : undefined}

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { MouseEvent } from 'react';
 import type { PostRow } from '@onsocial/sdk';
-import { ipfsImgSrcSet } from '@onsocial/ui';
+import { IpfsImg, ipfsImgSrcSet } from '@onsocial/ui';
 import {
   LauncherSocialPeekList,
   LauncherSocialPeekRow,
@@ -87,7 +87,7 @@ function MovingCoverThumb({
     const srcSet = ipfsImgSrcSet(art, [128, 384]);
     return (
       <span className="discover-cover-peek-thumb market-listing-thumb has-media">
-        <img
+        <IpfsImg
           src={art}
           srcSet={srcSet}
           sizes={srcSet ? '56px' : undefined}

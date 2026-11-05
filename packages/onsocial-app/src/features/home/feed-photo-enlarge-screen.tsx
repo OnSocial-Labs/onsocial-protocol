@@ -17,6 +17,7 @@ import { usePathname } from 'next/navigation';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
+  IpfsImg,
   ipfsImgSrcSet,
   ipfsImgVariantUrl,
   OsIconAction,
@@ -1788,7 +1789,7 @@ function FeedPhotoMediaStage({
    * Downloads keep the byte-original via item.cid/item.url (D4). */
   const stillSrcSet = ipfsImgSrcSet(item.url, [1080, 1920], item.mime);
   return (
-    <img
+    <IpfsImg
       src={ipfsImgVariantUrl(item.url, 1920, item.mime) ?? item.url}
       srcSet={stillSrcSet}
       sizes={stillSrcSet ? '100vw' : undefined}

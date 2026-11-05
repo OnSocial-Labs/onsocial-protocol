@@ -1,7 +1,11 @@
 'use client';
 
 import { useRef, type ChangeEvent } from 'react';
-import { ipfsImgSrcSet, ProfileEditorMediaToolbar } from '@onsocial/ui';
+import {
+  IpfsImg,
+  ipfsImgSrcSet,
+  ProfileEditorMediaToolbar,
+} from '@onsocial/ui';
 import {
   GUILD_CREATE_ADD_BADGE,
   GUILD_CREATE_ADD_BANNER,
@@ -54,7 +58,7 @@ export function GuildLookPreview({
           onClick={() => bannerInputRef.current?.click()}
         >
           {bannerUrl ? (
-            <img
+            <IpfsImg
               src={bannerUrl}
               srcSet={bannerSrcSet}
               sizes={bannerSrcSet ? APP_COLUMN_HERO_SIZES : undefined}
@@ -133,7 +137,7 @@ export function GuildBadgeWell({
         onClick={() => badgeInputRef.current?.click()}
       >
         {badgeUrl ? (
-          <img
+          <IpfsImg
             src={badgeUrl}
             srcSet={badgeSrcSet}
             sizes={badgeSrcSet ? EDITOR_MARK_SIZES : undefined}

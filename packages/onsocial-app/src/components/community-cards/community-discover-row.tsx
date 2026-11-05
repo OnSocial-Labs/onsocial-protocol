@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ipfsImgSrcSet, ipfsImgVariantUrl } from '@onsocial/ui';
+import { IpfsImg, ipfsImgSrcSet, ipfsImgVariantUrl } from '@onsocial/ui';
 import {
   communityCoverClassName,
   communityCoverStyle,
@@ -63,7 +63,7 @@ export function CommunityDiscoverRow({
           style={communityCoverStyle(bannerUrl, seedId)}
         >
           {bannerUrl ? (
-            <img
+            <IpfsImg
               src={bannerUrl}
               srcSet={bannerSrcSet}
               sizes={bannerSrcSet ? DISCOVER_BANNER_SIZES : undefined}
@@ -84,7 +84,7 @@ export function CommunityDiscoverRow({
             aria-hidden
           >
             {markSrc ? (
-              <img src={markSrc} alt="" loading="lazy" decoding="async" />
+              <IpfsImg src={markSrc} alt="" loading="lazy" decoding="async" />
             ) : (
               <span className="community-mark-mono">{mono}</span>
             )}

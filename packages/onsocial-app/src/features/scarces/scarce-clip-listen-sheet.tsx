@@ -17,6 +17,7 @@ import {
   PauseFillIcon,
   PlayFillIcon,
   PreviousFillIcon,
+  IpfsImg,
   ipfsImgSrcSet,
 } from '@onsocial/ui';
 import { OsMediaFaceShell } from '@/components/os/os-media-face-shell';
@@ -175,7 +176,7 @@ export function ScarceClipListenSheet({
       <div className={`scarce-clip-listen${lyricsOpen ? ' is-lyrics' : ''}`}>
         <div className="scarce-clip-listen-art">
           {cover ? (
-            <img
+            <IpfsImg
               src={cover}
               srcSet={coverSrcSet}
               sizes={coverSrcSet ? SQUARE_ART_SIZES : undefined}

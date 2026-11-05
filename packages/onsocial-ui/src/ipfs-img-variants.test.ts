@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  IPFS_IMG_RETRY_DELAY_MS,
   IPFS_IMG_VARIANT_WIDTHS,
+  ipfsImgLoadState,
+  ipfsImgOriginalUrl,
   ipfsImgSrcSet,
   ipfsImgVariantUrl,
   isCdnIpfsImgUrl,
+  nextIpfsImgLoadOnError,
+  type IpfsImgLoadState,
 } from './ipfs-img-variants.js';
 
 const MAINNET_CID =
@@ -152,6 +157,137 @@ describe('ipfsImgSrcSet', () => {
     expect(ipfsImgSrcSet(MAINNET_URL, undefined, 'image/jpeg')).toContain(
       '1080w'
     );
+  });
+});
+
+const VARIANT_384 = `https://cdn.onsocial.id/img/384/ipfs/${MAINNET_CID}`;
+const SEAT_VARIANT = `https://cdn.testnet.onsocial.id/img/128/ipfs/${MAINNET_CID}/3.png`;
+const SEAT_ORIGINAL = `https://cdn.testnet.onsocial.id/ipfs/${MAINNET_CID}/3.png`;
+
+function settle(state: IpfsImgLoadState): IpfsImgLoadState {
+  return { ...state, waitMs: 0 };
+}
+
+describe('ipfs image retry and fallback', () => {
+  it('uses a short positive retry delay', () => {
+    expect(IPFS_IMG_RETRY_DELAY_MS).toBeGreaterThan(0);
+    expect(IPFS_IMG_RETRY_DELAY_MS).toBeLessThan(1000);
+  });
+
+  it('maps a variant URL back to the original, including seat art', () => {
+    expect(ipfsImgOriginalUrl(VARIANT_384)).toBe(MAINNET_URL);
+    expect(ipfsImgOriginalUrl(SEAT_VARIANT)).toBe(SEAT_ORIGINAL);
+    expect(ipfsImgOriginalUrl(`  ${MAINNET_URL}  `)).toBe(MAINNET_URL);
+    expect(ipfsImgOriginalUrl('https://example.com/a.png')).toBeNull();
+    expect(ipfsImgOriginalUrl(null)).toBeNull();
+  });
+
+  it('retries the failed variant once, then falls back to the original', () => {
+    const srcSet = ipfsImgSrcSet(MAINNET_URL, [384, 1080]);
+    let state = ipfsImgLoadState(MAINNET_URL, srcSet);
+
+    state = nextIpfsImgLoadOnError(state, VARIANT_384, MAINNET_URL);
+    expect(state.phase).toBe('retry');
+    expect(state.src).toBe(VARIANT_384);
+    expect(state.srcSet).toBeUndefined();
+    expect(state.waitMs).toBe(IPFS_IMG_RETRY_DELAY_MS);
+
+    state = nextIpfsImgLoadOnError(settle(state), VARIANT_384, MAINNET_URL);
+    expect(state.phase).toBe('fallback');
+    expect(state.src).toBe(MAINNET_URL);
+    expect(state.srcSet).toBeUndefined();
+    expect(state.waitMs).toBe(0);
+
+    state = nextIpfsImgLoadOnError(state, MAINNET_URL, MAINNET_URL);
+    expect(state.phase).toBe('exhausted');
+    expect(state.src).toBe(MAINNET_URL);
+    expect(state.srcSet).toBeUndefined();
+
+    const again = nextIpfsImgLoadOnError(state, VARIANT_384, MAINNET_URL);
+    expect(again).toBe(state);
+    expect(again.src).toBe(MAINNET_URL);
+  });
+
+  it('keeps the seat suffix when falling back', () => {
+    let state = ipfsImgLoadState(
+      SEAT_ORIGINAL,
+      ipfsImgSrcSet(SEAT_ORIGINAL, [128, 384])
+    );
+    state = nextIpfsImgLoadOnError(state, SEAT_VARIANT, SEAT_ORIGINAL);
+    state = nextIpfsImgLoadOnError(settle(state), SEAT_VARIANT, SEAT_ORIGINAL);
+    expect(state).toMatchObject({
+      phase: 'fallback',
+      src: SEAT_ORIGINAL,
+      srcSet: undefined,
+    });
+  });
+
+  it('retries a variant used as src, then falls back to /ipfs', () => {
+    let state = ipfsImgLoadState(VARIANT_384);
+    state = nextIpfsImgLoadOnError(state, VARIANT_384, VARIANT_384);
+    expect(state.phase).toBe('retry');
+    expect(state.src).toBe(VARIANT_384);
+    expect(state.waitMs).toBe(IPFS_IMG_RETRY_DELAY_MS);
+
+    state = nextIpfsImgLoadOnError(settle(state), VARIANT_384, VARIANT_384);
+    expect(state).toMatchObject({
+      phase: 'fallback',
+      src: MAINNET_URL,
+      srcSet: undefined,
+      waitMs: 0,
+    });
+  });
+
+  it('retries once when the element does not report the variant URL', () => {
+    const srcSet = ipfsImgSrcSet(MAINNET_URL, [1080, 1920]);
+    let state = ipfsImgLoadState(MAINNET_URL, srcSet);
+
+    state = nextIpfsImgLoadOnError(state, '', MAINNET_URL);
+    expect(state.phase).toBe('retry');
+    expect(state.src).toBe(MAINNET_URL);
+    expect(state.srcSet).toBe(srcSet);
+    expect(state.waitMs).toBe(IPFS_IMG_RETRY_DELAY_MS);
+
+    state = nextIpfsImgLoadOnError(settle(state), MAINNET_URL, MAINNET_URL);
+    expect(state).toMatchObject({
+      phase: 'fallback',
+      src: MAINNET_URL,
+      srcSet: undefined,
+    });
+
+    const stopped = nextIpfsImgLoadOnError(state, MAINNET_URL, MAINNET_URL);
+    expect(stopped.phase).toBe('exhausted');
+    expect(nextIpfsImgLoadOnError(stopped, MAINNET_URL, MAINNET_URL)).toBe(
+      stopped
+    );
+  });
+
+  it('ignores errors while the retry delay is pending', () => {
+    const state = nextIpfsImgLoadOnError(
+      ipfsImgLoadState(MAINNET_URL, ipfsImgSrcSet(MAINNET_URL)),
+      VARIANT_384,
+      MAINNET_URL
+    );
+    expect(nextIpfsImgLoadOnError(state, VARIANT_384, MAINNET_URL)).toBe(state);
+    expect(nextIpfsImgLoadOnError(state, '', MAINNET_URL)).toBe(state);
+  });
+
+  it('does not retry a non-variant image', () => {
+    const src = 'https://example.com/photo.jpg';
+    const state = ipfsImgLoadState(src);
+    const next = nextIpfsImgLoadOnError(state, src, src);
+    expect(next.phase).toBe('exhausted');
+    expect(next.src).toBe(src);
+    expect(next.waitMs).toBe(0);
+    expect(nextIpfsImgLoadOnError(next, src, src)).toBe(next);
+  });
+
+  it('stops on the original when no variant was requested', () => {
+    const state = ipfsImgLoadState(MAINNET_URL);
+    const next = nextIpfsImgLoadOnError(state, MAINNET_URL, MAINNET_URL);
+    expect(next.phase).toBe('exhausted');
+    expect(next.src).toBe(MAINNET_URL);
+    expect(next.waitMs).toBe(0);
   });
 });
 

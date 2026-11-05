@@ -1,7 +1,11 @@
 'use client';
 
 import { useRef, type ChangeEvent } from 'react';
-import { ipfsImgSrcSet, ProfileEditorMediaToolbar } from '@onsocial/ui';
+import {
+  IpfsImg,
+  ipfsImgSrcSet,
+  ProfileEditorMediaToolbar,
+} from '@onsocial/ui';
 import { communityMonogram } from '@/components/community-cards/community-monogram';
 import {
   HUB_CREATE_ADD_BANNER,
@@ -70,7 +74,7 @@ export function HubLookPreview({
           onClick={() => bannerInputRef.current?.click()}
         >
           {bannerUrl ? (
-            <img
+            <IpfsImg
               src={bannerUrl}
               srcSet={bannerSrcSet}
               sizes={bannerSrcSet ? APP_COLUMN_HERO_SIZES : undefined}
@@ -115,7 +119,7 @@ export function HubLookPreview({
             onClick={() => logoInputRef.current?.click()}
           >
             {logoUrl ? (
-              <img
+              <IpfsImg
                 src={logoUrl}
                 srcSet={logoSrcSet}
                 sizes={logoSrcSet ? EDITOR_MARK_SIZES : undefined}

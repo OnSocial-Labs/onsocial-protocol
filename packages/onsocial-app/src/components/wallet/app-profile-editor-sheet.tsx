@@ -26,6 +26,7 @@ import {
 import {
   ChevronLeftIcon,
   DiscardConfirmSheet,
+  IpfsImg,
   ipfsImgSrcSet,
   OsIconAction,
   OsPageSheet,
@@ -766,7 +767,7 @@ export function AppProfileEditorSheet({
                             aria-hidden
                           />
                         ) : displayBannerMedia ? (
-                          <img
+                          <IpfsImg
                             src={displayBannerMedia.url}
                             srcSet={bannerSrcSet}
                             sizes={
@@ -830,7 +831,7 @@ export function AppProfileEditorSheet({
                             }
                           >
                             {displayAvatarUrl ? (
-                              <img
+                              <IpfsImg
                                 src={displayAvatarUrl}
                                 srcSet={avatarSrcSet}
                                 sizes={

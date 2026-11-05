@@ -20,6 +20,7 @@ import {
   OsSheetAction,
   OsSheetActions,
   SheetCloseButton,
+  IpfsImg,
   ipfsImgSrcSet,
 } from '@onsocial/ui';
 import {
@@ -152,7 +153,7 @@ export function DropArtOverlay({
                   dangerouslySetInnerHTML={{ __html: inlineSvg }}
                 />
               ) : rasterSrc ? (
-                <img
+                <IpfsImg
                   key={rasterSrc}
                   className="drop-art-overlay-asset"
                   src={rasterSrc}

@@ -1,7 +1,11 @@
 'use client';
 
 import { useRef, type ChangeEvent } from 'react';
-import { ipfsImgSrcSet, ProfileEditorMediaToolbar } from '@onsocial/ui';
+import {
+  IpfsImg,
+  ipfsImgSrcSet,
+  ProfileEditorMediaToolbar,
+} from '@onsocial/ui';
 import {
   DAO_CREATE_ADD_COVER,
   DAO_CREATE_ADD_CREST,
@@ -63,7 +67,7 @@ export function DaoLookPreview({
           onClick={() => coverInputRef.current?.click()}
         >
           {coverUrl ? (
-            <img
+            <IpfsImg
               src={coverUrl}
               srcSet={coverSrcSet}
               sizes={coverSrcSet ? APP_COLUMN_HERO_SIZES : undefined}
@@ -110,7 +114,7 @@ export function DaoLookPreview({
             onClick={() => crestInputRef.current?.click()}
           >
             {crestUrl ? (
-              <img
+              <IpfsImg
                 src={crestUrl}
                 srcSet={crestSrcSet}
                 sizes={crestSrcSet ? EDITOR_MARK_SIZES : undefined}

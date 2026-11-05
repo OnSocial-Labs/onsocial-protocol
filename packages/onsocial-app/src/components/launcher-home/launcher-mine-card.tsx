@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ipfsImgSrcSet, ipfsImgVariantUrl } from '@onsocial/ui';
+import { IpfsImg, ipfsImgSrcSet, ipfsImgVariantUrl } from '@onsocial/ui';
 import {
   communityCoverClassName,
   communityCoverStyle,
@@ -86,7 +86,7 @@ export function LauncherMineCard({
             style={communityCoverStyle(cover, seedId)}
           >
             {cover ? (
-              <img
+              <IpfsImg
                 src={cover}
                 srcSet={bannerSrcSet}
                 sizes={bannerSrcSet ? MINE_BANNER_SIZES : undefined}
@@ -106,7 +106,7 @@ export function LauncherMineCard({
             aria-hidden
           >
             {markSrc ? (
-              <img src={markSrc} alt="" loading="lazy" decoding="async" />
+              <IpfsImg src={markSrc} alt="" loading="lazy" decoding="async" />
             ) : (
               <span className="community-mark-mono">{mono}</span>
             )}
