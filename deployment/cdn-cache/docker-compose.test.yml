@@ -1,0 +1,51 @@
+# Proof stack: rendered CDN site, the shared disk cache, and a stub upstream.
+# Not used by the deploy. The cache config and entrypoint are the production ones.
+
+services:
+  caddy:
+    image: onsocial-caddy:cdn-cache-test
+    volumes:
+      - ./work/Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "18080:8080"
+    depends_on:
+      cdn-cache:
+        condition: service_healthy
+
+  cdn-cache:
+    image: nginx:1.28-alpine
+    entrypoint: ["/bin/sh", "/etc/cdn-cache/entrypoint.sh"]
+    environment:
+      CDN_CACHE_MAX_SIZE: 64m
+    shm_size: 128mb
+    volumes:
+      - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./entrypoint.sh:/etc/cdn-cache/entrypoint.sh:ro
+      - ./work/certs/stub.crt:/etc/ssl/certs/ca-certificates.crt:ro
+      - cache:/var/cache/cdn
+    depends_on:
+      origin:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  origin:
+    image: python:3.12-alpine
+    command: ["python", "-u", "/stub.py"]
+    volumes:
+      - ./stub.py:/stub.py:ro
+      - ./work/certs:/certs:ro
+    ports:
+      - "18081:8080"
+    networks:
+      default:
+        aliases:
+          - gateway
+          - imgproxy
+
+volumes:
+  cache:

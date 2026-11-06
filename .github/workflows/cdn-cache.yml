@@ -1,0 +1,25 @@
+name: CDN cache
+
+on:
+  pull_request:
+    paths:
+      - "deployment/Caddyfile"
+      - "deployment/cdn-cache/**"
+      - "deployment/docker-compose.yml"
+      - "deployment/docker-compose.app.yml"
+      - "deployment/deploy-production.sh"
+      - "deployment/deploy-app-production.sh"
+      - ".github/workflows/cdn-cache.yml"
+      - ".github/workflows/deploy-testnet.yml"
+  workflow_dispatch:
+
+jobs:
+  cache:
+    name: CDN disk cache
+    runs-on: ubuntu-26.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Validate both networks and prove the disk cache
+        run: bash deployment/cdn-cache/test.sh

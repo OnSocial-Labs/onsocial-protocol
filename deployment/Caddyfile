@@ -87,9 +87,11 @@ __SERVER_NAMES__ {
 #   gateway.lighthouse.storage                      # shared public gateway
 # Override: LIGHTHOUSE_CDN_UPSTREAM=<host>
 #
-# Caddy automatically caches responses at the OS-page-cache layer; for a
-# proper HTTP cache (disk-backed, becomes a de-facto second pin) build the
-# image with the cache-handler plugin (see docker/Dockerfile.caddy).
+# /ipfs and /img are filled by the shared disk cache (cdn-cache). The key
+# is the public host plus the path: Accept is ignored because the format is
+# already in the path, and these URLs do not use a query string. Only 2xx
+# responses are stored. The directory is a persistent volume with a size cap,
+# and the least recently used files are evicted past that cap.
 __CDN_DOMAIN__ {
 	encode zstd gzip
 
@@ -113,8 +115,12 @@ __CDN_DOMAIN__ {
 			}
 		}
 
-		reverse_proxy https://__CDN_UPSTREAM__ {
-			header_up Host __CDN_UPSTREAM__
+		# The cache stores the upstream response. TLS to the gateway happens
+		# on that hop; this one only reuses connections to the cache.
+		reverse_proxy cdn-cache:8080 {
+			header_up Host {http.request.host}
+			header_up X-Cache-Key "{http.request.host}{http.request.orig_uri.path}"
+			header_up X-Cdn-Upstream "__CDN_UPSTREAM__"
 			# The upstream gateway sets its own CORS headers, which Caddy
 			# appends to the ones above — the browser then sees
 			# Access-Control-Allow-Origin twice and rejects the response,
@@ -125,7 +131,6 @@ __CDN_DOMAIN__ {
 			header_down -Access-Control-Allow-Origin
 			header_down -Access-Control-Allow-Methods
 			transport http {
-				tls
 				keepalive 60s
 			}
 		}
@@ -162,7 +167,9 @@ __CDN_DOMAIN__ {
 		}
 
 		rewrite * /insecure/resize:fit:{http.regexp.img.1}:0/{img_format_prefix}plain/https://__CDN_UPSTREAM__/ipfs/{http.regexp.img.3}{http.regexp.img.4}
-		reverse_proxy imgproxy:8080 {
+		reverse_proxy cdn-cache:8080 {
+			header_up Host {http.request.host}
+			header_up X-Cache-Key "{http.request.host}{http.request.orig_uri.path}"
 			# reverse_proxy appends upstream header values, so drop
 			# the resize service's copies of anything set above (and its
 			# Server banner) — otherwise clients see duplicate Cache-Control /
@@ -196,6 +203,7 @@ __CDN_DOMAIN__ {
 	}
 
 	handle {
+		header X-Cache "MISS"
 		respond 404
 	}
 

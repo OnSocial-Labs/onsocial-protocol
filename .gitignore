@@ -157,6 +157,7 @@ packages/**/*.md
 # Production secrets (generated — never commit)
 deployment/.env.production
 deployment/.Caddyfile.generated
+deployment/cdn-cache/work/
 .env.secrets
 deployment/cloud-init-mainnet-private-runner.rendered.yaml
 .vercel

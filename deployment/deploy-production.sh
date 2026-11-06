@@ -156,6 +156,11 @@ rsync -avz --progress \
   "$SCRIPT_DIR/init-extra-dbs.sh" \
   "$ROOT_DIR/scripts/pull-secrets.sh" \
   "root@$SERVER_IP:$REMOTE_DIR/"
+ssh "root@$SERVER_IP" "mkdir -p $REMOTE_DIR/cdn-cache"
+rsync -avz --progress \
+  "$SCRIPT_DIR/cdn-cache/nginx.conf.template" \
+  "$SCRIPT_DIR/cdn-cache/entrypoint.sh" \
+  "root@$SERVER_IP:$REMOTE_DIR/cdn-cache/"
 
 # Rename Caddyfile and set permissions
 ssh "root@$SERVER_IP" "cd $REMOTE_DIR && mv -f .Caddyfile.generated Caddyfile && chmod +x pull-secrets.sh init-extra-dbs.sh"
@@ -259,7 +264,7 @@ ssh "root@$SERVER_IP" bash -s "$IMAGE_TAG" << 'REMOTE_SCRIPT'
   # Pull new images
   echo "Pulling images (tag: $IMAGE_TAG)..."
   set -a && source .env.production && source .env.image && set +a
-  docker compose pull caddy gateway notification-worker relayer-0 relayer-1 backend
+  docker compose pull caddy gateway notification-worker relayer-0 relayer-1 backend cdn-cache
 
   # Health check helper
   check_health() {
@@ -344,6 +349,25 @@ ssh "root@$SERVER_IP" bash -s "$IMAGE_TAG" << 'REMOTE_SCRIPT'
     docker compose up -d --no-deps gateway relayer-0 relayer-1
     exit 1
   }
+
+  echo "Starting CDN cache..."
+  docker compose up -d cdn-cache
+  cache_ready=0
+  for i in $(seq 1 30); do
+    cache_status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' cdn-cache 2>/dev/null || echo missing)"
+    if [[ "$cache_status" = "healthy" ]]; then
+      echo "  ✅ cdn-cache healthy (attempt $i/30)"
+      cache_ready=1
+      break
+    fi
+    echo "  ⏳ cdn-cache not ready ($i/30; ${cache_status})..."
+    sleep 2
+  done
+  if [[ "$cache_ready" != "1" ]]; then
+    echo "❌ CDN cache failed to become healthy"
+    docker compose logs --tail=100 cdn-cache || true
+    exit 1
+  fi
 
   echo "Reloading caddy..."
   docker compose up -d --no-deps caddy

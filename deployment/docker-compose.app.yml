@@ -29,6 +29,9 @@ services:
         condition: service_healthy
       imgproxy:
         condition: service_started
+      # Started, not healthy: a cache fault must not keep the API down.
+      cdn-cache:
+        condition: service_started
 
   gateway-blue:
     image: ghcr.io/onsocial-labs/onsocial-protocol/gateway:${IMAGE_TAG:-latest}
@@ -286,6 +289,33 @@ services:
     mem_limit: 512m
     cpus: 1.0
 
+  # Shared disk cache for CDN /ipfs and /img. Bodies stay on the volume
+  # across redeploys. Past CDN_CACHE_MAX_SIZE the least recently used files
+  # are evicted. Not published: only the edge reaches it.
+  cdn-cache:
+    image: nginx:1.28-alpine
+    container_name: cdn-cache
+    entrypoint: ["/bin/sh", "/etc/cdn-cache/entrypoint.sh"]
+    environment:
+      CDN_CACHE_MAX_SIZE: ${CDN_CACHE_MAX_SIZE:-10g}
+    shm_size: 128mb
+    mem_limit: 384m
+    cpus: 0.5
+    expose:
+      - "8080"
+    volumes:
+      - ./cdn-cache/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./cdn-cache/entrypoint.sh:/etc/cdn-cache/entrypoint.sh:ro
+      - cdn_cache:/var/cache/cdn
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
+
 volumes:
   caddy_data:
   caddy_config:
+  cdn_cache:
