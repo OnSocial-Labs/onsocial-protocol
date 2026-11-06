@@ -3647,10 +3647,6 @@ a.os-surface-row,
     width: 2.25rem;
     height: 2.25rem;
   }
-
-  .portfolio-summon {
-    --portfolio-summon-avatar-size: var(--os-avatar-nav);
-  }
 }
 
 /* Unlayered so it beats the `a { color: inherit }` reset above (@layer loses). */
