@@ -1,13 +1,55 @@
 import { describe, expect, it } from 'vitest';
 import {
+  FEED_WINDOW_ESTIMATE_PX,
+  FEED_WINDOW_POLL_ESTIMATE_PX,
   FeedWindowSizeCache,
   buildFeedWindowOffsets,
+  feedWindowEstimateAt,
   feedWindowKeysEqual,
   feedWindowRangeForScroll,
   feedWindowRangeWithPinned,
+  feedWindowRowEstimatePx,
   feedWindowScrollTopForRow,
   translateFeedWindowRange,
 } from './feed-window';
+
+describe('feed window row estimates', () => {
+  it('uses the midpoint of measured poll blocks', () => {
+    const measuredMin = 214;
+    const measuredMax = 245;
+    expect(FEED_WINDOW_POLL_ESTIMATE_PX).toBe(
+      Math.round((measuredMin + measuredMax) / 2)
+    );
+    expect(FEED_WINDOW_POLL_ESTIMATE_PX).toBeGreaterThanOrEqual(220);
+    expect(FEED_WINDOW_POLL_ESTIMATE_PX).toBeLessThanOrEqual(250);
+    expect(FEED_WINDOW_POLL_ESTIMATE_PX).toBeLessThan(FEED_WINDOW_ESTIMATE_PX);
+  });
+
+  it('keeps the first poll correction smaller than the generic estimate', () => {
+    for (const measured of [214, 245]) {
+      const generic = Math.abs(FEED_WINDOW_ESTIMATE_PX - measured);
+      const poll = Math.abs(FEED_WINDOW_POLL_ESTIMATE_PX - measured);
+      expect(poll).toBeLessThan(generic);
+    }
+    expect(feedWindowRowEstimatePx(true)).toBe(FEED_WINDOW_POLL_ESTIMATE_PX);
+    expect(feedWindowRowEstimatePx(false)).toBe(FEED_WINDOW_ESTIMATE_PX);
+  });
+
+  it('resolves a per-row estimate on the same path as the default', () => {
+    expect(feedWindowEstimateAt(FEED_WINDOW_ESTIMATE_PX, 0)).toBe(
+      FEED_WINDOW_ESTIMATE_PX
+    );
+    const estimates = [FEED_WINDOW_ESTIMATE_PX, feedWindowRowEstimatePx(true)];
+    expect(feedWindowEstimateAt(estimates, 1)).toBe(
+      FEED_WINDOW_POLL_ESTIMATE_PX
+    );
+    expect(feedWindowEstimateAt(estimates, 4)).toBe(FEED_WINDOW_ESTIMATE_PX);
+    const { offsets } = buildFeedWindowOffsets(2, (index) =>
+      feedWindowEstimateAt(estimates, index)
+    );
+    expect(offsets[2]! - offsets[1]!).toBe(FEED_WINDOW_POLL_ESTIMATE_PX);
+  });
+});
 
 describe('feedWindowKeysEqual', () => {
   it('matches same content across fresh array identities', () => {

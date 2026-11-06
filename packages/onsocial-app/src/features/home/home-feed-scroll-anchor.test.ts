@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   captureVisibleFeedAnchor,
   DM_ANCHOR_QUERY,
@@ -7,6 +7,7 @@ import {
   restoreFeedAnchor,
   THREAD_ANCHOR_QUERY,
 } from './home-feed-scroll-anchor';
+import * as smoothScroll from '@/lib/app-lenis-registry';
 
 type FakeBlock = {
   top: number;
@@ -41,6 +42,10 @@ function fakeRoot(rootTop: number, blocks: ReturnType<typeof fakeBlock>[]) {
 beforeEach(() => {
   // Node has no CSS global; keys in these tests need no escaping.
   vi.stubGlobal('CSS', { escape: (value: string) => value });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('captureVisibleFeedAnchor', () => {
@@ -101,6 +106,83 @@ describe('restoreFeedAnchor', () => {
     expect(root.querySelector).toHaveBeenCalledWith(
       '.home-feed-block[data-feed-key="a/2"]'
     );
+  });
+
+  it('tells the smooth-scroll layer the corrected position', () => {
+    const root = fakeRoot(100, [
+      fakeBlock({ top: 300, height: 200, key: 'a/2' }),
+    ]);
+    const order: string[] = [];
+    const scrollTo = vi.fn(() => {
+      order.push('scroll');
+      expect(root.scrollTop).toBe(340);
+    });
+    vi.spyOn(smoothScroll, 'getAppLenis').mockReturnValue({
+      limit: 5000,
+      scroll: 0,
+      resize: () => {
+        order.push('resize');
+      },
+      scrollTo,
+    });
+    restoreFeedAnchor(root, { key: 'a/2', top: -140 });
+    expect(order).toEqual(['resize', 'scroll']);
+    expect(scrollTo).toHaveBeenCalledWith(340, {
+      immediate: true,
+      force: true,
+    });
+  });
+
+  it('cancels an in-flight smooth scroll that already matches the correction', () => {
+    const root = fakeRoot(100, [
+      fakeBlock({ top: 300, height: 200, key: 'a/2' }),
+    ]);
+    const scrollTo = vi.fn();
+    vi.spyOn(smoothScroll, 'getAppLenis').mockReturnValue({
+      limit: 5000,
+      get scroll() {
+        return root.scrollTop;
+      },
+      resize() {},
+      scrollTo,
+    });
+    restoreFeedAnchor(root, { key: 'a/2', top: -140 });
+    expect(scrollTo).toHaveBeenNthCalledWith(1, 339, {
+      immediate: true,
+      force: true,
+    });
+    expect(scrollTo).toHaveBeenNthCalledWith(2, 340, {
+      immediate: true,
+      force: true,
+    });
+  });
+
+  it('leaves the smooth-scroll layer untouched when it is off', () => {
+    const root = fakeRoot(100, [
+      fakeBlock({ top: 300, height: 200, key: 'a/2' }),
+    ]);
+    const scrollTo = vi.fn();
+    vi.spyOn(smoothScroll, 'getAppLenis').mockReturnValue(null);
+    restoreFeedAnchor(root, { key: 'a/2', top: -140 });
+    expect(root.scrollTop).toBe(340);
+    expect(scrollTo).not.toHaveBeenCalled();
+    expect(smoothScroll.getAppLenis).toHaveBeenCalledWith(root);
+  });
+
+  it('does not sync the smooth-scroll layer for sub-pixel drift', () => {
+    const steady = fakeRoot(100, [
+      fakeBlock({ top: -39.5, height: 200, key: 'a/2' }),
+    ]);
+    const scrollTo = vi.fn();
+    vi.spyOn(smoothScroll, 'getAppLenis').mockReturnValue({
+      limit: 5000,
+      scroll: 0,
+      resize: vi.fn(),
+      scrollTo,
+    });
+    restoreFeedAnchor(steady, { key: 'a/2', top: -140 });
+    expect(steady.scrollTop).toBe(0);
+    expect(scrollTo).not.toHaveBeenCalled();
   });
 });
 

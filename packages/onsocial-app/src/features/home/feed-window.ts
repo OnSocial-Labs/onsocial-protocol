@@ -6,6 +6,34 @@
 
 /** Matches the `.home-feed-block` contain-intrinsic-size fallback (20rem). */
 export const FEED_WINDOW_ESTIMATE_PX = 320;
+/**
+ * Poll feed blocks measure 214–245px. The generic estimate overshoots that
+ * range, so the first height correction is large. Midpoint of the measured
+ * range — the only poll estimate, shared by every windowed feed.
+ */
+export const FEED_WINDOW_POLL_ESTIMATE_PX = Math.round((214 + 245) / 2);
+
+/** Fallback height for one row. Poll rows use the tighter measured estimate. */
+export function feedWindowRowEstimatePx(isPollRow: boolean): number {
+  return isPollRow ? FEED_WINDOW_POLL_ESTIMATE_PX : FEED_WINDOW_ESTIMATE_PX;
+}
+
+/**
+ * Resolve the `estimate` option. A number applies to every unmeasured row.
+ * A list is index-aligned with the window keys so a poll row can opt into
+ * {@link feedWindowRowEstimatePx} without a second code path.
+ */
+export function feedWindowEstimateAt(
+  estimate: number | readonly number[],
+  index: number
+): number {
+  if (typeof estimate === 'number') return estimate;
+  const value = estimate[index];
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+  return FEED_WINDOW_ESTIMATE_PX;
+}
 /** Rendered slack each side of the viewport — about two mobile screens. */
 export const FEED_WINDOW_OVERSCAN_PX = 1600;
 /** Below this many blocks, rendering everything is cheaper than windowing. */

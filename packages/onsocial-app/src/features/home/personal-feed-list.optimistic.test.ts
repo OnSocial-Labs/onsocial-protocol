@@ -3,8 +3,13 @@ import type { PostRow } from '@onsocial/sdk';
 import { postContentPath } from '@onsocial/sdk';
 import {
   insertOptimisticFeedPost,
+  personalFeedBlockIsPollRow,
   shouldPrependOptimisticFeedPost,
 } from './personal-feed-list';
+import {
+  FEED_WINDOW_POLL_ESTIMATE_PX,
+  feedWindowRowEstimatePx,
+} from './feed-window';
 
 function row(accountId: string, postId: string, parentPath?: string): PostRow {
   return {
@@ -124,5 +129,69 @@ describe('insertOptimisticFeedPost', () => {
     const next = insertOptimisticFeedPost(posts, reply);
 
     expect(next.map((post) => post.postId)).toEqual(['reply', 'root', 'newer']);
+  });
+});
+
+function pollValue(question: string): string {
+  return JSON.stringify({
+    text: question,
+    embeds: [{ kind: 'poll', question, options: ['Red', 'Blue'] }],
+  });
+}
+
+describe('personalFeedBlockIsPollRow', () => {
+  it('estimates a single poll card, including a bare repost of one', () => {
+    const poll: PostRow = {
+      ...row('alice.near', 'poll'),
+      kind: 'poll',
+      value: pollValue('Favorite color?'),
+    };
+    expect(personalFeedBlockIsPollRow({ posts: [poll] }, {})).toBe(true);
+    expect(feedWindowRowEstimatePx(true)).toBe(FEED_WINDOW_POLL_ESTIMATE_PX);
+
+    const shell: PostRow = {
+      ...row('bob.near', 'share'),
+      refType: 'repost',
+      refPath: 'alice.near/post/poll',
+      value: '',
+    };
+    expect(
+      personalFeedBlockIsPollRow(
+        { posts: [shell] },
+        {
+          'alice.near/post/poll': poll,
+        }
+      )
+    ).toBe(true);
+    expect(personalFeedBlockIsPollRow({ posts: [shell] }, {})).toBe(false);
+  });
+
+  it('keeps threads and media rows on the generic estimate', () => {
+    const poll: PostRow = {
+      ...row('alice.near', 'poll'),
+      value: pollValue('Favorite color?'),
+    };
+    const reply = row('alice.near', 'reply');
+    expect(personalFeedBlockIsPollRow({ posts: [poll, reply] }, {})).toBe(
+      false
+    );
+    const withPhoto: PostRow = {
+      ...poll,
+      value: JSON.stringify({
+        text: 'Favorite color?',
+        media: ['https://example.test/a.jpg'],
+        embeds: [
+          {
+            kind: 'poll',
+            question: 'Favorite color?',
+            options: ['Red', 'Blue'],
+          },
+        ],
+      }),
+    };
+    expect(personalFeedBlockIsPollRow({ posts: [withPhoto] }, {})).toBe(false);
+    expect(
+      personalFeedBlockIsPollRow({ posts: [poll], standingPeek: reply }, {})
+    ).toBe(false);
   });
 });
