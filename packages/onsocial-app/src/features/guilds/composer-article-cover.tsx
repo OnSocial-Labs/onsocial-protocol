@@ -11,9 +11,13 @@ import {
   type MoodKey,
 } from '@onsocial/text-card';
 import {
+  IpfsBlurPreview,
+  IpfsImg,
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
+  ipfsImgSrcSet,
+  type IpfsImgVariantWidth,
 } from '@onsocial/ui';
 import { ScarceChoiceField } from '@/features/scarces/scarce-choice-field';
 import {
@@ -50,6 +54,34 @@ const ARTICLE_COVER_FACE_OPTIONS = [
 
 function inlineSvgMarkup(svg: string): string {
   return svg.replace(/^<\?xml[^>]*>\s*/i, '');
+}
+
+/**
+ * Cover photo in the composer. A local file passes through. A stored
+ * photo uses the same resized picture as a published cover.
+ */
+function ComposerCoverPhoto({
+  src,
+  widths,
+  sizes,
+}: {
+  src: string;
+  widths: readonly IpfsImgVariantWidth[];
+  sizes: string;
+}) {
+  const srcSet = ipfsImgSrcSet(src, widths);
+  return (
+    <>
+      <IpfsBlurPreview src={src} />
+      <IpfsImg
+        alt=""
+        src={src}
+        srcSet={srcSet}
+        sizes={srcSet ? sizes : undefined}
+        decoding="async"
+      />
+    </>
+  );
 }
 
 /** Live text-card preview — no provenance line before the piece exists. */
@@ -143,7 +175,11 @@ export function ComposerArticleCoverRow({
     >
       <span className="guild-composer-cover-thumb" aria-hidden>
         {photoPreviewUrl ? (
-          <img alt="" src={photoPreviewUrl} />
+          <ComposerCoverPhoto
+            src={photoPreviewUrl}
+            widths={[128, 384] as const}
+            sizes="2.6rem"
+          />
         ) : accountId ? (
           <ComposerArticleCoverPreview
             title={title}
@@ -228,7 +264,11 @@ export function ComposerArticleCoverSheet({
     >
       <div className="guild-composer-cover-preview" aria-hidden>
         {photoPreviewUrl ? (
-          <img alt="" src={photoPreviewUrl} />
+          <ComposerCoverPhoto
+            src={photoPreviewUrl}
+            widths={[384, 1080] as const}
+            sizes="17rem"
+          />
         ) : (
           <ComposerArticleCoverPreview
             title={title}
