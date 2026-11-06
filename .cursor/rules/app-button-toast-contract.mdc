@@ -175,4 +175,4 @@ Means **user intent** only (second tap, ready to commit). Never means chain conf
 
 ## Sizing
 
-`OsSheetAction` is full-width in stacks; `row-compact` for preview bars. Base min-height ~2.75rem; slightly taller from `sm`; slightly tighter under 380px. Do not invent per-screen button heights for sheet CTAs.
+`OsSheetAction` is full-width in stacks; `row-compact` for preview bars. Height is `--os-control-primary` (2.75rem, 3rem below 640px). `sm` stays a compact pill with its own hit slop. Do not invent per-screen button heights for sheet CTAs. Icon hits use `--os-icon-hit` (2.75rem). Do not grow the glyph to the hit box.

@@ -25,7 +25,7 @@ export function OsDockAccountZone({ pageAccountId }: OsDockAccountZoneProps) {
     if (isLoading) {
       return (
         <span className="portfolio-summon-account" aria-hidden>
-          <AccountAvatar size="sm" shellLoading />
+          <AccountAvatar className="os-nav-face" size="sm" shellLoading />
         </span>
       );
     }
@@ -65,6 +65,7 @@ export function OsDockAccountZone({ pageAccountId }: OsDockAccountZoneProps) {
         fallbackInitial={label}
         shellLoading={shellLoading}
         size="sm"
+        className="os-nav-face"
       />
     </button>
   );

@@ -22,7 +22,7 @@
   --os-app-chrome-rail-height: 1.85rem;
   --os-app-chrome-chip-gap: 0.28rem;
   --os-app-chrome-pad-y: 0.3rem;
-  --os-app-chrome-nav-height: 2.35rem;
+  --os-app-chrome-nav-height: var(--os-nav-band, 2.35rem);
   --os-app-chrome-compact-height: calc(
     env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y) +
       var(--os-app-chrome-nav-height) + var(--os-app-chrome-pad-y)

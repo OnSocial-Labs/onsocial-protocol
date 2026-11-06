@@ -574,11 +574,11 @@
 .glass-sheet-grip {
   display: block;
   flex: 0 0 auto;
-  width: 2.25rem;
-  height: 0.1875rem;
+  width: var(--os-grip-width, 2.25rem);
+  height: var(--os-grip-thickness, 0.1875rem);
   border-radius: 9999px;
   background: var(--glass-sheet-accent, rgb(var(--fg-rgb) / 0.28));
-  opacity: 0.55;
+  opacity: var(--os-grip-opacity, 0.55);
   transition:
     opacity 160ms ease,
     transform 160ms ease,
@@ -675,8 +675,8 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  min-width: 2.75rem;
-  min-height: 2.75rem;
+  min-width: var(--os-icon-hit, 2.75rem);
+  min-height: var(--os-icon-hit, 2.75rem);
   padding: 0;
   border: 0;
   border-radius: 0.5rem;
