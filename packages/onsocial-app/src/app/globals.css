@@ -4141,16 +4141,17 @@ a.os-surface-row,
 
   .gate-connect-button {
     pointer-events: auto;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    border: 0;
     border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.04);
-    backdrop-filter: blur(12px);
-    color: rgb(var(--fg-rgb) / 0.72);
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.88);
     font: inherit;
-    font-size: 0.78rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    padding: 0.65rem 1rem;
+    font-size: var(--os-identity-name-size);
+    font-weight: var(--os-identity-name-weight);
+    letter-spacing: normal;
+    text-transform: none;
+    padding: 0 1rem;
+    min-height: 2.75rem;
     cursor: pointer;
     text-decoration: none;
     transition:
@@ -4160,8 +4161,27 @@ a.os-surface-row,
       transform 120ms ease;
   }
 
+  /* Install stays the quiet secondary chip. The connect control is the dock pill. */
+  .gate-connect-button.gate-connect-install {
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    background: rgb(var(--fg-rgb) / 0.04);
+    backdrop-filter: blur(12px);
+    color: rgb(var(--fg-rgb) / 0.72);
+    font-size: 0.78rem;
+    font-weight: inherit;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.65rem 1rem;
+    min-height: 0;
+  }
+
+  .gate-connect-button.os-dock-pill {
+    --os-dock-fill: var(--os-surface-fill-strong);
+    height: 2.75rem;
+  }
+
   @media (hover: hover) and (pointer: fine) {
-    .gate-connect-button:hover {
+    .gate-connect-button.gate-connect-install:hover {
       border-color: rgb(var(--fg-rgb) / 0.2);
       background: rgb(var(--fg-rgb) / 0.07);
       color: rgb(var(--fg-rgb) / 0.92);
@@ -4169,6 +4189,11 @@ a.os-surface-row,
   }
 
   .gate-connect-button:focus-visible {
+    outline: 2px solid var(--protocol-blue-ink);
+    outline-offset: 2px;
+  }
+
+  .gate-connect-button.gate-connect-install:focus-visible {
     outline: none;
     border-color: rgb(var(--fg-rgb) / 0.2);
     color: rgb(var(--fg-rgb) / 0.92);
