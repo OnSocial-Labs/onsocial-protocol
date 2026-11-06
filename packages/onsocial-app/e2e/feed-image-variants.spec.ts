@@ -344,14 +344,14 @@ test.describe('feed image variants (phase 2)', () => {
       '(max-width: 640px) 100vw, 608px'
     );
 
-    // Browser resolves the 1080 rung for the ~553px slot; thumb + original
-    // are never requested.
+    // The sharp cover resolves the 1080 rung. The only 128 request is the
+    // decorative preview under it. The byte-original file stays unused.
     await expect
       .poll(() => cover.evaluate((el: HTMLImageElement) => el.currentSrc), {
         timeout: 15_000,
       })
       .toContain(`/img/1080/avif/ipfs/${CID_JPEG}`);
-    expect(hits.variantByWidth.get('128') ?? 0).toBe(0);
+    expect(hits.variantByWidth.get('128') ?? 0).toBeGreaterThan(0);
     expect(hits.originalByCid.get(CID_JPEG) ?? 0).toBe(0);
   });
 
