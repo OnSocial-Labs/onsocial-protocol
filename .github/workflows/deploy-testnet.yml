@@ -161,6 +161,11 @@ jobs:
             scripts/sync-production-env.sh \
             /tmp/deploy_gsm.env \
             "root@${{ env.DEPLOY_HOST }}:/opt/onsocial/"
+          ssh -i ~/.ssh/deploy_key "root@${{ env.DEPLOY_HOST }}" "mkdir -p /opt/onsocial/cdn-cache"
+          scp -i ~/.ssh/deploy_key \
+            deployment/cdn-cache/nginx.conf.template \
+            deployment/cdn-cache/entrypoint.sh \
+            "root@${{ env.DEPLOY_HOST }}:/opt/onsocial/cdn-cache/"
           scp -i ~/.ssh/deploy_key \
             deployment/Caddyfile \
             "root@${{ env.DEPLOY_HOST }}:/opt/onsocial/Caddyfile.template"
@@ -370,7 +375,7 @@ jobs:
                 attempt=$((attempt + 1))
               done
             }
-            for service in caddy gateway notification-worker relayer-1 relayer-0 backend pages; do
+            for service in caddy gateway notification-worker relayer-1 relayer-0 backend pages cdn-cache; do
               pull_service_image "$service"
             done
 
@@ -678,6 +683,29 @@ jobs:
               print_service_logs "imgproxy" || true
             fi
 
+            echo "Starting CDN cache..."
+            if ! dc up -d cdn-cache </dev/null; then
+              echo "❌ CDN cache failed to start"
+              print_service_logs "cdn-cache" || true
+              exit 1
+            fi
+            cache_ready=0
+            for i in $(seq 1 30); do
+              cache_status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' cdn-cache </dev/null 2>/dev/null || echo missing)"
+              if [ "$cache_status" = "healthy" ]; then
+                echo "  ✅ cdn-cache healthy (attempt $i/30)"
+                cache_ready=1
+                break
+              fi
+              echo "  ⏳ cdn-cache not ready ($i/30; ${cache_status})..."
+              sleep 2
+            done
+            if [ "$cache_ready" != "1" ]; then
+              echo "❌ CDN cache failed to become healthy"
+              print_service_logs "cdn-cache" || true
+              exit 1
+            fi
+
             echo "Reloading caddy..."
             dc up -d --no-deps caddy </dev/null
             if ! check_health "caddy (public)" "https://testnet.onsocial.id/health" 10 5; then
@@ -707,7 +735,7 @@ jobs:
             fi
 
             # ── Bring up any remaining services ──────────────────────
-            FINAL_SERVICES="postgres hasura relayer-lb relayer-0 relayer-1 gateway notification-worker caddy backend pages imgproxy"
+            FINAL_SERVICES="postgres hasura relayer-lb relayer-0 relayer-1 gateway notification-worker caddy backend pages imgproxy cdn-cache"
             dc up -d --no-deps $FINAL_SERVICES </dev/null
 
             echo ""

@@ -219,6 +219,11 @@ rsync -avz --progress -e "$RSYNC_RSH" \
   "$SCRIPT_DIR/Caddyfile.relayer.remote" \
   "$ROOT_DIR/scripts/pull-secrets.sh" \
   "root@$SERVER_IP:$REMOTE_DIR/"
+ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" "mkdir -p $REMOTE_DIR/cdn-cache"
+rsync -avz --progress -e "$RSYNC_RSH" \
+  "$SCRIPT_DIR/cdn-cache/nginx.conf.template" \
+  "$SCRIPT_DIR/cdn-cache/entrypoint.sh" \
+  "root@$SERVER_IP:$REMOTE_DIR/cdn-cache/"
 
 scp "${SCP_OPTIONS[@]}" "$SCRIPT_DIR/Caddyfile" "root@$SERVER_IP:$REMOTE_DIR/Caddyfile.template"
 
@@ -658,8 +663,27 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s "$IMAGE_TAG" "$DEPLOY_TARGET" 
     cp -f "$CADDY_ACTIVE_FILE" "$CADDY_BACKUP_FILE"
   fi
 
-  docker compose -f docker-compose.app.yml pull relayer-lb caddy
+  docker compose -f docker-compose.app.yml pull relayer-lb caddy cdn-cache
   docker compose -f docker-compose.app.yml up -d relayer-lb
+
+  echo "Starting CDN cache..."
+  docker compose -f docker-compose.app.yml up -d cdn-cache
+  cache_ready=0
+  for i in $(seq 1 30); do
+    cache_status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' cdn-cache 2>/dev/null || echo missing)"
+    if [[ "$cache_status" = "healthy" ]]; then
+      echo "  ✅ cdn-cache healthy (attempt $i/30)"
+      cache_ready=1
+      break
+    fi
+    echo "  ⏳ cdn-cache not ready ($i/30; ${cache_status})..."
+    sleep 2
+  done
+  if [[ "$cache_ready" != "1" ]]; then
+    echo "❌ CDN cache failed to become healthy"
+    docker compose -f docker-compose.app.yml logs --tail=100 cdn-cache || true
+    exit 1
+  fi
 
   if [[ "$DEPLOY_TARGET" = "backend" ]]; then
     pending_backend_slot="$next_backend_slot"
