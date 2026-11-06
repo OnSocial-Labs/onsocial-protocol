@@ -10916,6 +10916,26 @@ a.os-surface-row,
     object-position: center;
   }
 
+  /* Same stack as a feed photo: blur sits under the sharp file. */
+  .portfolio-writing-cover-photo {
+    z-index: 1;
+  }
+
+  .portfolio-writing-cover-photo.is-pending {
+    opacity: 0;
+    transition: opacity var(--os-motion-chip, 160ms) ease;
+  }
+
+  .portfolio-writing-cover-photo.is-pending.is-resolved {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .portfolio-writing-cover-photo.is-pending {
+      transition: none;
+    }
+  }
+
   .portfolio-writing-cover-card svg {
     display: block;
     width: 100%;

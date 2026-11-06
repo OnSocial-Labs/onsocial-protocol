@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   canonicalizeMoodKey,
   DEFAULT_CARD_FORMAT,
@@ -14,7 +14,12 @@ import {
   type MarkShape,
   type MoodKey,
 } from '@onsocial/text-card';
-import { IpfsImg, ipfsImgSrcSet } from '@onsocial/ui';
+import {
+  IpfsBlurPreview,
+  IpfsImg,
+  ipfsImgSrcSet,
+  ipfsImgVariantUrl,
+} from '@onsocial/ui';
 import { displayName as accountDisplayName } from '@/lib/profile-display';
 
 function inlineSvgMarkup(svg: string): string {
@@ -122,10 +127,29 @@ export function PortfolioWritingCover({
   markShape = null,
   markColor = null,
   variant = 'article',
+  alt = '',
 }: WritingCoverPreviewInput & {
   coverUrl?: string | null;
   variant?: PortfolioWritingCoverVariant;
+  /**
+   * Name for the photo when it is the content. Leave empty when a parent
+   * control already names the piece, or when the thumb is decorative.
+   */
+  alt?: string;
 }) {
+  const [photoReady, setPhotoReady] = useState(false);
+  const [trackedCover, setTrackedCover] = useState(coverUrl ?? null);
+  if ((coverUrl ?? null) !== trackedCover) {
+    setTrackedCover(coverUrl ?? null);
+    setPhotoReady(false);
+  }
+  const markPhotoReady = useCallback(() => {
+    setPhotoReady(true);
+  }, []);
+  const bindPhoto = useCallback((node: HTMLImageElement | null) => {
+    if (node?.complete && node.naturalWidth > 0) setPhotoReady(true);
+  }, []);
+
   const svg = useMemo(() => {
     if (coverUrl) return null;
     return previewWritingCoverSvg({
@@ -159,21 +183,34 @@ export function PortfolioWritingCover({
       coverUrl,
       WRITING_COVER_VARIANT_WIDTHS[variant]
     );
+    const blur = Boolean(ipfsImgVariantUrl(coverUrl, 128));
+    const photoClass =
+      variant === 'face'
+        ? 'feed-photo-image'
+        : [
+            'portfolio-writing-cover-photo',
+            blur ? 'is-pending' : '',
+            photoReady ? 'is-resolved' : '',
+          ]
+            .filter(Boolean)
+            .join(' ');
     return (
-      <IpfsImg
-        alt=""
-        className={
-          variant === 'face'
-            ? 'feed-photo-image'
-            : 'portfolio-writing-cover-photo'
-        }
-        src={coverUrl}
-        srcSet={srcSet}
-        sizes={srcSet ? WRITING_COVER_IMG_SIZES[variant] : undefined}
-        draggable={variant === 'face' ? false : undefined}
-        loading={variant === 'face' ? undefined : 'lazy'}
-        decoding="async"
-      />
+      <>
+        {blur ? <IpfsBlurPreview src={coverUrl} /> : null}
+        <IpfsImg
+          ref={bindPhoto}
+          alt={alt}
+          className={photoClass}
+          src={coverUrl}
+          srcSet={srcSet}
+          sizes={srcSet ? WRITING_COVER_IMG_SIZES[variant] : undefined}
+          draggable={variant === 'face' ? false : undefined}
+          loading={variant === 'face' ? undefined : 'lazy'}
+          decoding="async"
+          onLoad={markPhotoReady}
+          onError={markPhotoReady}
+        />
+      </>
     );
   }
 
