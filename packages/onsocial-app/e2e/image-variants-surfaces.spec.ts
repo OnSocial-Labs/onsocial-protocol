@@ -44,7 +44,7 @@ async function stubCdn(page: Page): Promise<CdnHits> {
   const bump = <K>(map: Map<K, number>, key: K) =>
     map.set(key, (map.get(key) ?? 0) + 1);
 
-  await page.route(`${CDN}/img/*/ipfs/*`, async (route) => {
+  await page.route(`${CDN}/img/**`, async (route) => {
     const width = new URL(route.request().url()).pathname.split('/')[2]!;
     bump(hits.variantByWidth, width);
     await route.fulfill({
@@ -159,7 +159,7 @@ test.describe('image variants on discover + banner surfaces (phase 3)', () => {
     // Cover-crop width at DPR 1 — 384, not the 128 width rung.
     await expect
       .poll(() => banner.evaluate((el: HTMLImageElement) => el.currentSrc))
-      .toBe(`${CDN}/img/384/ipfs/${CID_BANNER}`);
+      .toBe(`${CDN}/img/384/avif/ipfs/${CID_BANNER}`);
 
     // Square mark rides the fixed 128 variant directly.
     const mark = row.locator('.community-summary-mark img');
@@ -206,7 +206,7 @@ test.describe('image variants on discover + banner surfaces (phase 3)', () => {
       .poll(() => banner.evaluate((el: HTMLImageElement) => el.currentSrc), {
         timeout: 15_000,
       })
-      .toBe(`${CDN}/img/1080/ipfs/${CID_BANNER}`);
+      .toBe(`${CDN}/img/1080/avif/ipfs/${CID_BANNER}`);
 
     const badge = page.locator('.guild-hero-badge img');
     await expect(badge).toHaveAttribute(
@@ -242,7 +242,7 @@ test.describe('image variants on discover + banner surfaces (phase 3)', () => {
       .poll(() => banner.evaluate((el: HTMLImageElement) => el.currentSrc), {
         timeout: 15_000,
       })
-      .toBe(`${CDN}/img/1080/ipfs/${CID_BANNER}`);
+      .toBe(`${CDN}/img/1080/avif/ipfs/${CID_BANNER}`);
 
     // Payload drop: the byte-original was never requested anywhere.
     expect(hits.originalBytes).toBe(0);

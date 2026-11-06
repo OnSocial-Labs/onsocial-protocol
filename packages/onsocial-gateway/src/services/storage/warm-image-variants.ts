@@ -3,6 +3,9 @@ import { logger } from '../../logger.js';
 /** Resize rungs the feed and avatars actually request. */
 export const IMAGE_VARIANT_WARM_WIDTHS = [128, 384, 1080] as const;
 
+/** Preferred format first. Originals are not warmed — nothing to encode. */
+const IMAGE_VARIANT_WARM_FORMATS = ['avif', 'webp'] as const;
+
 /** How many warm-up fetches may run at once. */
 export const IMAGE_VARIANT_WARM_CONCURRENCY = 3;
 
@@ -47,8 +50,10 @@ export function imageVariantWarmUrls(
     .replace(/\/+$/, '')
     .replace(/\/ipfs$/i, '');
   if (!root || !CID_PATTERN.test(cid)) return [];
-  return IMAGE_VARIANT_WARM_WIDTHS.map(
-    (width) => `${root}/img/${width}/ipfs/${cid}`
+  return IMAGE_VARIANT_WARM_FORMATS.flatMap((format) =>
+    IMAGE_VARIANT_WARM_WIDTHS.map(
+      (width) => `${root}/img/${width}/${format}/ipfs/${cid}`
+    )
   );
 }
 

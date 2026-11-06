@@ -460,6 +460,7 @@ function PostVisualMediaBlock({
           ref={bind}
           src={item.url}
           srcSet={imgSrcSet}
+          mime={item.mime}
           sizes={imgSrcSet ? imgSizes : undefined}
           alt={item.alt?.trim() || ''}
           className={mediaClassName}

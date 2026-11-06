@@ -1,13 +1,21 @@
 /**
- * IPFS image variants served by the CDN imgproxy route (image-variants
- * phase 1 infra): `https://cdn[.testnet].onsocial.id/img/<width>/ipfs/<cid>`.
+ * IPFS image variants served by the CDN resize route:
+ * `https://cdn[.testnet].onsocial.id/img/<width>/ipfs/<cid>` is always the
+ * original format. `…/img/<width>/<avif|webp>/ipfs/<cid>` is that one
+ * format and nothing else — the edge cache keys on the URL and ignores
+ * Accept, so a URL must not change type between visitors.
  *
- * Widths are locked server-side — the Caddy route only matches these four,
- * and imgproxy passes gif/svg through byte-identical, so a variant URL is
- * safe for any image format. The original `/ipfs/<cid>` URL stays the
- * canonical (on-chain) reference; variants are derived render-time only.
+ * Widths are locked server-side — the route only matches these four,
+ * and gif/svg pass through byte-identical, so a variant URL is safe for
+ * any image format. The original `/ipfs/<cid>` URL stays the canonical
+ * (on-chain) reference; variants are derived render-time only.
  */
 export const IPFS_IMG_VARIANT_WIDTHS = [128, 384, 1080, 1920] as const;
+
+/** Resized formats a URL can name. Order is the picture cascade. */
+export const IPFS_IMG_OUTPUT_FORMATS = ['avif', 'webp'] as const;
+
+export type IpfsImgOutputFormat = (typeof IPFS_IMG_OUTPUT_FORMATS)[number];
 
 export type IpfsImgVariantWidth = (typeof IPFS_IMG_VARIANT_WIDTHS)[number];
 
@@ -49,14 +57,19 @@ export function isCdnIpfsImgUrl(url: string | null | undefined): boolean {
  * MIME is pass-through (gif/svg, D3) — callers fall back to the original
  * `src` with no `srcSet`.
  */
+function formatSegment(format?: IpfsImgOutputFormat | null): string {
+  return format === 'avif' || format === 'webp' ? `/${format}` : '';
+}
+
 export function ipfsImgVariantUrl(
   url: string | null | undefined,
   width: IpfsImgVariantWidth,
-  mime?: string | null
+  mime?: string | null,
+  format?: IpfsImgOutputFormat | null
 ): string | null {
   const parts = splitCdnIpfsUrl(url);
   if (!parts || isPassthroughMime(mime)) return null;
-  return `https://${parts.host}/img/${width}/ipfs/${parts.cid}${parts.seatPath}`;
+  return `https://${parts.host}/img/${width}${formatSegment(format)}/ipfs/${parts.cid}${parts.seatPath}`;
 }
 
 /**
@@ -67,11 +80,12 @@ export function ipfsImgVariantUrl(
 export function ipfsImgSrcSet(
   url: string | null | undefined,
   widths: readonly IpfsImgVariantWidth[] = IPFS_IMG_VARIANT_WIDTHS,
-  mime?: string | null
+  mime?: string | null,
+  format?: IpfsImgOutputFormat | null
 ): string | undefined {
   if (!splitCdnIpfsUrl(url) || isPassthroughMime(mime)) return undefined;
   return widths
-    .map((width) => `${ipfsImgVariantUrl(url, width)} ${width}w`)
+    .map((width) => `${ipfsImgVariantUrl(url, width, mime, format)} ${width}w`)
     .join(', ');
 }
 
@@ -81,16 +95,23 @@ export function ipfsImgSrcSet(
  */
 export const IPFS_IMG_RETRY_DELAY_MS = 300;
 
-/** `/img/<width>/ipfs/<cid>` and optional variation seat, same hosts as originals. */
+/**
+ * `/img/<width>/ipfs/<cid>` and `/img/<width>/<avif|webp>/ipfs/<cid>`,
+ * plus an optional variation seat. Same hosts as originals.
+ */
 const CDN_IMG_VARIANT_URL =
-  /^https:\/\/(cdn(?:\.testnet)?\.onsocial\.id)\/img\/(128|384|1080|1920)\/ipfs\/([A-Za-z0-9]+)(\/[0-9]+\.(?:png|jpe?g|webp|gif|svg))?$/i;
+  /^https:\/\/(cdn(?:\.testnet)?\.onsocial\.id)\/img\/(128|384|1080|1920)(?:\/(?:avif|webp))?\/ipfs\/([A-Za-z0-9]+)(\/[0-9]+\.(?:png|jpe?g|webp|gif|svg))?$/i;
 
 export type IpfsImgLoadPhase = 'primary' | 'retry' | 'fallback' | 'exhausted';
 
 export interface IpfsImgLoadState {
   phase: IpfsImgLoadPhase;
   src: string;
+  /** Original-format resized candidates. Omitted once a format URL is retried. */
   srcSet?: string;
+  /** Present only on the first attempt, ahead of webp and the original. */
+  avifSrcSet?: string;
+  webpSrcSet?: string;
   /**
    * When non-zero, a retry is scheduled and `src` must not be painted yet
    * so the element drops the failed URL before requesting it again.
@@ -98,14 +119,51 @@ export interface IpfsImgLoadState {
   waitMs: number;
 }
 
+function widthsForRequest(src: string, srcSet?: string): IpfsImgVariantWidth[] {
+  const haystack = srcSet ? srcSet : src;
+  const widths: IpfsImgVariantWidth[] = [];
+  const pattern = /\/img\/(128|384|1080|1920)(?:\/(?:avif|webp))?\/ipfs\//g;
+  for (const match of haystack.matchAll(pattern)) {
+    const width = Number(match[1]) as IpfsImgVariantWidth;
+    if (!widths.includes(width)) widths.push(width);
+  }
+  return widths;
+}
+
+function pictureSources(
+  src: string,
+  srcSet?: string
+): Pick<IpfsImgLoadState, 'avifSrcSet' | 'webpSrcSet'> {
+  const widths = widthsForRequest(src, srcSet);
+  if (widths.length === 0) return {};
+  const root = ipfsImgOriginalUrl(src);
+  if (!root) return {};
+  return {
+    avifSrcSet: ipfsImgSrcSet(root, widths, undefined, 'avif'),
+    webpSrcSet: ipfsImgSrcSet(root, widths, undefined, 'webp'),
+  };
+}
+
 export function ipfsImgLoadState(
   src: string | null | undefined,
-  srcSet?: string
+  srcSet?: string,
+  mime?: string | null
 ): IpfsImgLoadState {
+  const trimmed = src?.trim() ?? '';
+  if (isPassthroughMime(mime)) {
+    return {
+      phase: 'primary',
+      src: trimmed,
+      srcSet: undefined,
+      waitMs: 0,
+    };
+  }
+  const normalizedSrcSet = srcSet || undefined;
   return {
     phase: 'primary',
-    src: src?.trim() ?? '',
-    srcSet: srcSet || undefined,
+    src: trimmed,
+    srcSet: normalizedSrcSet,
+    ...pictureSources(trimmed, normalizedSrcSet),
     waitMs: 0,
   };
 }
@@ -137,6 +195,8 @@ function exhaustedIpfsImgLoad(state: IpfsImgLoadState): IpfsImgLoadState {
   if (
     state.phase === 'exhausted' &&
     state.srcSet === undefined &&
+    state.avifSrcSet === undefined &&
+    state.webpSrcSet === undefined &&
     state.waitMs === 0
   ) {
     return state;
@@ -145,6 +205,8 @@ function exhaustedIpfsImgLoad(state: IpfsImgLoadState): IpfsImgLoadState {
     phase: 'exhausted',
     src: state.src,
     srcSet: undefined,
+    avifSrcSet: undefined,
+    webpSrcSet: undefined,
     waitMs: 0,
   };
 }
@@ -174,7 +236,11 @@ export function nextIpfsImgLoadOnError(
     ipfsImgOriginalUrl(state.src);
   const failedIsVariant = Boolean(failed) && isIpfsImgVariantUrl(failed);
   const variantAttempt =
-    Boolean(state.srcSet) || failedIsVariant || isIpfsImgVariantUrl(state.src);
+    Boolean(state.srcSet) ||
+    Boolean(state.avifSrcSet) ||
+    Boolean(state.webpSrcSet) ||
+    failedIsVariant ||
+    isIpfsImgVariantUrl(state.src);
 
   if (state.phase === 'primary') {
     if (!variantAttempt) {
@@ -186,6 +252,8 @@ export function nextIpfsImgLoadOnError(
         phase: 'retry',
         src: failed,
         srcSet: undefined,
+        avifSrcSet: undefined,
+        webpSrcSet: undefined,
         waitMs: IPFS_IMG_RETRY_DELAY_MS,
       };
     }
@@ -193,16 +261,26 @@ export function nextIpfsImgLoadOnError(
       phase: 'retry',
       src: state.src,
       srcSet: state.srcSet,
+      avifSrcSet: state.avifSrcSet,
+      webpSrcSet: state.webpSrcSet,
       waitMs: IPFS_IMG_RETRY_DELAY_MS,
     };
   }
 
   if (state.phase === 'retry') {
-    if (original && (state.src !== original || state.srcSet)) {
+    if (
+      original &&
+      (state.src !== original ||
+        state.srcSet ||
+        state.avifSrcSet ||
+        state.webpSrcSet)
+    ) {
       return {
         phase: 'fallback',
         src: original,
         srcSet: undefined,
+        avifSrcSet: undefined,
+        webpSrcSet: undefined,
         waitMs: 0,
       };
     }

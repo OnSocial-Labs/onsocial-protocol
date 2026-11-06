@@ -32,6 +32,10 @@ describe('blurred image preview', () => {
     );
 
     expect(html).toContain(`src="${PREVIEW}"`);
+    expect(html).toContain(`${CDN}/img/128/avif/ipfs/${CID}`);
+    expect(html).toContain(`${CDN}/img/128/webp/ipfs/${CID}`);
+    expect(html).toContain('type="image/avif"');
+    expect(html).toContain('type="image/webp"');
     expect(html).toContain('ipfs-blur-preview');
     expect(html).toContain('aria-hidden="true"');
     expect(html).toContain(`src="${PHOTO}"`);
@@ -62,6 +66,7 @@ describe('blurred image preview', () => {
     );
 
     expect(html).toContain(`src="${PREVIEW}"`);
+    expect(html).toContain(`${CDN}/img/128/avif/ipfs/${CID}`);
     expect(html).toContain('ipfs-blur-preview');
     expect(html).toContain('profile-avatar__img');
     expect(html).toContain(`src="${PHOTO}"`);
@@ -81,10 +86,10 @@ describe('blurred image preview', () => {
       /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.post-media-element[^}]*transition:\s*none;/
     );
     expect(globalsCss).toMatch(
-      /\.portfolio-avatar\.has-blur-preview > \.portfolio-avatar-img \{[^}]*opacity:\s*0;[^}]*transition:\s*opacity 180ms ease;/
+      /\.portfolio-avatar\.has-blur-preview \.portfolio-avatar-img \{[^}]*opacity:\s*0;[^}]*transition:\s*opacity 180ms ease;/
     );
     expect(globalsCss).toMatch(
-      /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.portfolio-avatar\.has-blur-preview > \.portfolio-avatar-img \{[^}]*transition:\s*none;/
+      /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.portfolio-avatar\.has-blur-preview \.portfolio-avatar-img \{[^}]*transition:\s*none;/
     );
     expect(avatarCss).toMatch(
       /\.ipfs-blur-preview \{[^}]*filter:\s*blur\(8px\);/

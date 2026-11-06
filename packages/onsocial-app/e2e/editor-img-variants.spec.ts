@@ -34,7 +34,7 @@ async function stubCdn(page: Page): Promise<CdnHits> {
   const bump = (key: string) =>
     hits.variantByWidth.set(key, (hits.variantByWidth.get(key) ?? 0) + 1);
 
-  await page.route(`${CDN}/img/*/ipfs/*`, async (route) => {
+  await page.route(`${CDN}/img/**`, async (route) => {
     bump(new URL(route.request().url()).pathname.split('/')[2]!);
     await route.fulfill({
       status: 200,
@@ -138,7 +138,7 @@ test.describe('editor img variants (g10)', () => {
       .poll(() => banner.evaluate((el: HTMLImageElement) => el.currentSrc), {
         timeout: 15_000,
       })
-      .toBe(`${CDN}/img/1080/ipfs/${CID_BANNER}`);
+      .toBe(`${CDN}/img/1080/avif/ipfs/${CID_BANNER}`);
 
     const avatar = page.locator('.account-editor-avatar-image');
     await expect(avatar).toBeVisible();
@@ -157,7 +157,7 @@ test.describe('editor img variants (g10)', () => {
       .poll(() => avatar.evaluate((el: HTMLImageElement) => el.currentSrc), {
         timeout: 15_000,
       })
-      .toBe(`${CDN}/img/128/ipfs/${CID_AVATAR}`);
+      .toBe(`${CDN}/img/128/avif/ipfs/${CID_AVATAR}`);
 
     await editor.getByRole('button', { name: 'Back' }).click();
     const accountAfterEdit = page.getByRole('dialog', { name: 'Account' });

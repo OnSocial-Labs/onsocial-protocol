@@ -115,6 +115,11 @@
   }
 }
 
+/* No box of its own — absolute fill, aspect ratio, and the fade stay on the img. */
+.ipfs-img {
+  display: contents;
+}
+
 .ipfs-blur-preview {
   position: absolute;
   inset: 0;

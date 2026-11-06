@@ -211,7 +211,7 @@ test.describe('wide hero variants (collection cover + overlay)', () => {
     // ~608px app-column slot at DPR 1 — the browser picks the 1080 rung.
     await expect
       .poll(() => hero.evaluate((el: HTMLImageElement) => el.currentSrc))
-      .toBe(`${CDN}/img/1080/ipfs/${CID_HERO}`);
+      .toBe(`${CDN}/img/1080/avif/ipfs/${CID_HERO}`);
 
     // The full-cover overlay climbs to the 1080/1920 ladder.
     await collectionPageRoot(page)
@@ -230,7 +230,7 @@ test.describe('wide hero variants (collection cover + overlay)', () => {
     await expect(overlay).toHaveAttribute('sizes', '100vmin');
     await expect
       .poll(() => overlay.evaluate((el: HTMLImageElement) => el.currentSrc))
-      .toMatch(new RegExp(`^${CDN}/img/(1080|1920)/ipfs/${CID_HERO}$`));
+      .toMatch(new RegExp(`^${CDN}/img/(1080|1920)/avif/ipfs/${CID_HERO}$`));
 
     await expect
       .poll(() => hits.variantByWidth.get('1080') ?? 0)
@@ -275,7 +275,7 @@ test.describe('variation seat art (g9)', () => {
     );
     await expect
       .poll(() => hero.evaluate((el: HTMLImageElement) => el.currentSrc))
-      .toBe(`${CDN}/img/1080/ipfs/${CID_SET}/1.png`);
+      .toBe(`${CDN}/img/1080/avif/ipfs/${CID_SET}/1.png`);
 
     // Peek tiles: every sample seat carries its own subpath through both
     // rungs. Seats come from `variationSampleSeats` — assert the shape per
@@ -305,7 +305,9 @@ test.describe('variation seat art (g9)', () => {
       .poll(() =>
         tiles.first().evaluate((el: HTMLImageElement) => el.currentSrc)
       )
-      .toMatch(new RegExp(`^${CDN}/img/384/ipfs/${CID_SET}/[0-9]+\\.png$`));
+      .toMatch(
+        new RegExp(`^${CDN}/img/384/avif/ipfs/${CID_SET}/[0-9]+\\.png$`)
+      );
     // currentSrc only names the picked candidate — naturalWidth proves the
     // stubbed variant actually arrived and decoded.
     await expect

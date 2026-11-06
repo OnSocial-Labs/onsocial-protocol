@@ -61,8 +61,11 @@ const CID_B = 'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG';
 const GATEWAY_BASE = 'https://cdn.testnet.onsocial.id/ipfs';
 
 function urlsFor(cid: string): string[] {
-  return [128, 384, 1080].map(
-    (width) => `https://cdn.testnet.onsocial.id/img/${width}/ipfs/${cid}`
+  return ['avif', 'webp'].flatMap((format) =>
+    [128, 384, 1080].map(
+      (width) =>
+        `https://cdn.testnet.onsocial.id/img/${width}/${format}/ipfs/${cid}`
+    )
   );
 }
 
@@ -94,7 +97,7 @@ beforeEach(() => {
 });
 
 describe('scheduleImageVariantWarmup', () => {
-  it('requests the 128, 384, and 1080 variants and ignores other files', async () => {
+  it('requests avif then webp at 128, 384, and 1080 and ignores other files', async () => {
     const fetchImpl = vi.fn(async () => new Response('ok'));
 
     scheduleImageVariantWarmup({
@@ -116,7 +119,7 @@ describe('scheduleImageVariantWarmup', () => {
       fetchImpl,
     });
 
-    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(3));
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(6));
     const called = fetchImpl.mock.calls.map((call) => call[0]);
     expect(called).toEqual(urlsFor(CID_A));
     for (const call of fetchImpl.mock.calls) {
@@ -209,11 +212,24 @@ describe('scheduleImageVariantWarmup', () => {
     });
 
     expect(fetchImpl).toHaveBeenCalledTimes(IMAGE_VARIANT_WARM_CONCURRENCY);
+    expect(pending).toHaveLength(IMAGE_VARIANT_WARM_CONCURRENCY);
 
-    pending
-      .splice(0)
-      .forEach((resolve) => resolve(new Response('ok', { status: 200 })));
-    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(6));
+    while (fetchImpl.mock.calls.length < 12) {
+      const before = fetchImpl.mock.calls.length;
+      expect(pending.length).toBeLessThanOrEqual(
+        IMAGE_VARIANT_WARM_CONCURRENCY
+      );
+      pending
+        .splice(0)
+        .forEach((resolve) => resolve(new Response('ok', { status: 200 })));
+      await vi.waitFor(() =>
+        expect(fetchImpl.mock.calls.length).toBeGreaterThan(before)
+      );
+      expect(fetchImpl.mock.calls.length - before).toBeLessThanOrEqual(
+        IMAGE_VARIANT_WARM_CONCURRENCY
+      );
+    }
+    expect(fetchImpl).toHaveBeenCalledTimes(12);
   });
 
   it('logs a failed warm-up and does not throw', async () => {
@@ -252,7 +268,7 @@ describe('POST /storage/upload warm-up', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.cid).toBe(CID_A);
-    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(6));
     expect(loggerMock.warn).toHaveBeenCalled();
   });
 
