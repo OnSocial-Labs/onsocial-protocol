@@ -448,8 +448,14 @@
 }
 
 .os-launcher-item:focus-visible {
-  outline: 1px solid var(--os-surface-ring, rgb(var(--fg-rgb) / 0.45));
-  outline-offset: 3px;
+  outline: none;
+}
+
+@media (max-width: 639px) {
+  .os-launcher-item:focus-visible {
+    outline: 2px solid var(--protocol-blue-ink);
+    outline-offset: 2px;
+  }
 }
 
 .os-launcher-item:hover .os-launcher-item-label,
