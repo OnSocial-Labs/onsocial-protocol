@@ -15,6 +15,7 @@ import {
   FEED_WINDOW_OVERSCAN_PX,
   FeedWindowSizeCache,
   buildFeedWindowOffsets,
+  feedWindowEstimateAt,
   feedWindowKeysEqual,
   feedWindowRangeForScroll,
   feedWindowRangeWithPinned,
@@ -58,7 +59,11 @@ export type UseFeedWindowOptions = {
   /** Row lookup for height-change anchoring — defaults to feed blocks. */
   anchorQuery?: FeedAnchorQuery;
   enabled?: boolean;
-  estimate?: number;
+  /**
+   * Unmeasured-row height. A number is every row; a list is index-aligned
+   * with `keys` (poll rows pass the tighter estimate).
+   */
+  estimate?: number | readonly number[];
   overscan?: number;
   minCount?: number;
 };
@@ -120,7 +125,8 @@ export function useFeedWindow({
     () =>
       buildFeedWindowOffsets(
         keys.length,
-        (index) => cache.get(keys[index]!) ?? estimate
+        (index) =>
+          cache.get(keys[index]!) ?? feedWindowEstimateAt(estimate, index)
       ),
     // offsetsVersion invalidates after a measurement lands in the cache
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -217,6 +223,19 @@ export function useFeedWindow({
   );
   const rowObserverRef = useRef<ResizeObserver | null>(null);
   const pendingMeasureAnchorRef = useRef<FeedScrollAnchor | null>(null);
+  // Estimate changes (a repost resolving into a poll) resize spacers before
+  // paint. Remember the visible row while the DOM still has the old spacers.
+  const estimateAnchorRef = useRef<FeedScrollAnchor | null>(null);
+  const estimateSnapshotRef = useRef(estimate);
+  if (estimateSnapshotRef.current !== estimate) {
+    if (!pendingMeasureAnchorRef.current) {
+      estimateAnchorRef.current = captureVisibleFeedAnchor(
+        rootRef.current,
+        anchorQueryRef.current
+      );
+    }
+    estimateSnapshotRef.current = estimate;
+  }
 
   // Row measurement. Observes from first render (pre-windowing) so the cache
   // is warm by the time the window engages.
@@ -260,6 +279,13 @@ export function useFeedWindow({
       restoreFeedAnchor(rootRef.current, pending, anchorQueryRef.current);
     syncRange();
   }, [offsetsVersion, syncRange]);
+
+  useLayoutEffect(() => {
+    const pending = estimateAnchorRef.current;
+    estimateAnchorRef.current = null;
+    if (!pending) return;
+    restoreFeedAnchor(rootRef.current, pending, anchorQueryRef.current);
+  }, [offsets]);
 
   // List mutations (append / prepend / re-rank / filter) shift offsets —
   // re-derive the range before paint from the untouched scroll position.

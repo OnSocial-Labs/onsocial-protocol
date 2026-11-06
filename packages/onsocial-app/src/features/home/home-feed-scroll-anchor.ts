@@ -1,3 +1,5 @@
+import { getAppLenis } from '@/lib/app-lenis-registry';
+
 /**
  * Scroll anchoring for in-place list re-ranks (Focus Hot append merges) and
  * for windowed-list height corrections. Capture the first painted row before
@@ -133,5 +135,26 @@ export function restoreFeedAnchor(
     block.getBoundingClientRect().top -
     root.getBoundingClientRect().top -
     anchor.top;
-  if (Math.abs(delta) > 1) root.scrollTop += delta;
+  if (Math.abs(delta) <= 1) return;
+  root.scrollTop += delta;
+  // The smooth-scroll layer animates this same element from its own target.
+  // A scrollTop write is invisible to it, so the next frame puts the old
+  // target back and the row slips. Adopt the corrected position immediately.
+  // No-op when the layer is off (touch, reduced motion).
+  const smooth = getAppLenis(root);
+  if (!smooth) return;
+  smooth.resize();
+  const top = root.scrollTop;
+  // resize() copies the corrected scroll into the layer's target but leaves
+  // an in-flight animation running. A scrollTo of that same target returns
+  // without stopping the animation, and the next frame overwrites the
+  // correction. Step off the target so the immediate jump cancels it, then
+  // land on the corrected position. Both writes happen before paint.
+  if (smooth.scroll === top) {
+    smooth.scrollTo(top > 0 ? top - 1 : top + 1, {
+      immediate: true,
+      force: true,
+    });
+  }
+  smooth.scrollTo(top, { immediate: true, force: true });
 }

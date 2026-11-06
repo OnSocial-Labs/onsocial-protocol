@@ -38,9 +38,15 @@ import { coalesceFeedThreads } from '@/lib/feed-threads';
 import {
   withRepostOriginals,
   collectRelationTargetAccountIds,
+  isRepostRefType,
 } from '@/lib/post-relation';
+import { parsePostPollEmbed, parsePostText } from '@/lib/post-display';
+import { parsePostMedia } from '@/lib/post-media';
 import { useFeedWindow } from '@/features/home/use-feed-window';
-import type { FeedWindowSizeCache } from '@/features/home/feed-window';
+import {
+  feedWindowRowEstimatePx,
+  type FeedWindowSizeCache,
+} from '@/features/home/feed-window';
 
 interface PersonalFeedListProps {
   posts: PostRow[];
@@ -68,6 +74,26 @@ interface PersonalFeedListProps {
   windowSizeCache?: FeedWindowSizeCache;
   /** Row that must stay mounted this pass (re-rank scroll anchor). */
   pinnedFeedKey?: string | null;
+}
+
+/**
+ * A single poll card (including a bare repost of one) is shorter than the
+ * generic row estimate. Threads, peeks, and media rows stay on that estimate.
+ */
+export function personalFeedBlockIsPollRow(
+  block: { posts: PostRow[]; standingPeek?: PostRow },
+  quotedPosts: Record<string, PostRow>
+): boolean {
+  if (block.posts.length !== 1 || block.standingPeek) return false;
+  const post = block.posts[0]!;
+  const quoted = post.refPath ? quotedPosts[post.refPath] : undefined;
+  const repostOriginal =
+    isRepostRefType(post.refType) && !parsePostText(post.value).trim()
+      ? quoted
+      : undefined;
+  const card = repostOriginal ?? post;
+  if (parsePostMedia(card.value).length > 0) return false;
+  return parsePostPollEmbed(card.value) != null;
 }
 
 /** Shared home/profile feed rendering — thread blocks + quote insets + polls. */
@@ -252,12 +278,20 @@ export function PersonalFeedList({
     () => feedBlocks.map((block) => postKey(block.posts[0]!)),
     [feedBlocks]
   );
+  const rowEstimates = useMemo(
+    () =>
+      feedBlocks.map((block) =>
+        feedWindowRowEstimatePx(personalFeedBlockIsPollRow(block, quotedPosts))
+      ),
+    [feedBlocks, quotedPosts]
+  );
   const hostRef = useRef<HTMLDivElement | null>(null);
   const feedWindow = useFeedWindow({
     keys: blockKeys,
     hostRef,
     sizeCache: windowSizeCache,
     pinnedKey: pinnedFeedKey,
+    estimate: rowEstimates,
   });
 
   if (feedBlocks.length === 0) return null;
