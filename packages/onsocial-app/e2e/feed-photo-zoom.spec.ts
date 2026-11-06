@@ -79,7 +79,7 @@ async function stubFeedGraph(page: Page): Promise<void> {
 }
 
 async function stubCdn(page: Page): Promise<void> {
-  await page.route(`${CDN}/img/*/ipfs/*`, async (route) => {
+  await page.route(`${CDN}/img/**`, async (route) => {
     const width = new URL(route.request().url()).pathname.split('/')[2]!;
     if (width === '1920') {
       await new Promise((resolve) =>
@@ -137,7 +137,9 @@ test.describe('feed photo enlarge zoom', () => {
     await expect(thumb).toBeVisible();
     await expect
       .poll(() =>
-        thumb.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0)
+        thumb.evaluate(
+          (el: HTMLImageElement) => el.complete && el.naturalWidth > 0
+        )
       )
       .toBe(true);
     const thumbBox = await thumb.boundingBox();
@@ -152,16 +154,14 @@ test.describe('feed photo enlarge zoom', () => {
     await expect
       .poll(() => thumb.evaluate((el) => getComputedStyle(el).visibility))
       .toBe('hidden');
-    const stageImg = page.locator('.feed-photo-stage > .feed-photo-image');
+    const stageImg = page.locator('.feed-photo-stage .feed-photo-image');
     await expect(stageImg).toHaveCSS('opacity', '0');
 
     // The clone lands on the contain-fit rect (square SVG → centered square).
     const clone = page.locator('.feed-photo-zoom-clone');
     await page.waitForTimeout(450);
     const cloneBox = await clone.boundingBox();
-    const stageBox = await page
-      .locator('.feed-photo-stage')
-      .boundingBox();
+    const stageBox = await page.locator('.feed-photo-stage').boundingBox();
     expect(cloneBox).not.toBeNull();
     expect(stageBox).not.toBeNull();
     const side = Math.min(stageBox!.width, stageBox!.height);

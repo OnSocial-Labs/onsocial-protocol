@@ -567,10 +567,12 @@ export {
   type ProfileAvatarShape,
 } from './profile-avatar.js';
 export {
+  IPFS_IMG_OUTPUT_FORMATS,
   IPFS_IMG_VARIANT_WIDTHS,
   ipfsImgSrcSet,
   ipfsImgVariantUrl,
   isCdnIpfsImgUrl,
+  type IpfsImgOutputFormat,
   type IpfsImgVariantWidth,
 } from './ipfs-img-variants.js';
 export { IpfsImg } from './ipfs-img.js';

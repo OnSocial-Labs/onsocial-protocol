@@ -7,6 +7,7 @@ import {
   ipfsImgSrcSet,
   ipfsImgVariantUrl,
   isCdnIpfsImgUrl,
+  isIpfsImgVariantUrl,
   nextIpfsImgLoadOnError,
   type IpfsImgLoadState,
 } from './ipfs-img-variants.js';
@@ -158,6 +159,29 @@ describe('ipfsImgSrcSet', () => {
       '1080w'
     );
   });
+
+  it('names avif and webp in the path and leaves the legacy URL original', () => {
+    expect(ipfsImgVariantUrl(TESTNET_URL, 384, null, 'avif')).toBe(
+      `https://cdn.testnet.onsocial.id/img/384/avif/ipfs/${MAINNET_CID}`
+    );
+    expect(ipfsImgVariantUrl(TESTNET_URL, 128, 'image/png', 'webp')).toBe(
+      `https://cdn.testnet.onsocial.id/img/128/webp/ipfs/${MAINNET_CID}`
+    );
+    expect(ipfsImgVariantUrl(`${TESTNET_URL}/3.png`, 384, null, 'avif')).toBe(
+      `https://cdn.testnet.onsocial.id/img/384/avif/ipfs/${MAINNET_CID}/3.png`
+    );
+    expect(ipfsImgSrcSet(MAINNET_URL, [128, 384], null, 'webp')).toBe(
+      [
+        `https://cdn.onsocial.id/img/128/webp/ipfs/${MAINNET_CID} 128w`,
+        `https://cdn.onsocial.id/img/384/webp/ipfs/${MAINNET_CID} 384w`,
+      ].join(', ')
+    );
+    expect(ipfsImgVariantUrl(MAINNET_URL, 384)).not.toContain('/avif/');
+    expect(ipfsImgVariantUrl(MAINNET_URL, 384)).not.toContain('/webp/');
+    expect(
+      ipfsImgSrcSet(MAINNET_URL, [384], 'image/gif', 'avif')
+    ).toBeUndefined();
+  });
 });
 
 const VARIANT_384 = `https://cdn.onsocial.id/img/384/ipfs/${MAINNET_CID}`;
@@ -174,8 +198,23 @@ describe('ipfs image retry and fallback', () => {
     expect(IPFS_IMG_RETRY_DELAY_MS).toBeLessThan(1000);
   });
 
-  it('maps a variant URL back to the original, including seat art', () => {
+  it('maps a variant URL back to the original, including seat art and formats', () => {
     expect(ipfsImgOriginalUrl(VARIANT_384)).toBe(MAINNET_URL);
+    expect(
+      ipfsImgOriginalUrl(
+        `https://cdn.onsocial.id/img/384/avif/ipfs/${MAINNET_CID}`
+      )
+    ).toBe(MAINNET_URL);
+    expect(
+      ipfsImgOriginalUrl(
+        `https://cdn.testnet.onsocial.id/img/128/webp/ipfs/${MAINNET_CID}/3.png`
+      )
+    ).toBe(SEAT_ORIGINAL);
+    expect(
+      isIpfsImgVariantUrl(
+        `https://cdn.onsocial.id/img/1080/avif/ipfs/${MAINNET_CID}`
+      )
+    ).toBe(true);
     expect(ipfsImgOriginalUrl(SEAT_VARIANT)).toBe(SEAT_ORIGINAL);
     expect(ipfsImgOriginalUrl(`  ${MAINNET_URL}  `)).toBe(MAINNET_URL);
     expect(ipfsImgOriginalUrl('https://example.com/a.png')).toBeNull();
@@ -219,6 +258,41 @@ describe('ipfs image retry and fallback', () => {
       phase: 'fallback',
       src: SEAT_ORIGINAL,
       srcSet: undefined,
+    });
+  });
+
+  it('drops format sources when the chosen format URL fails, then uses /ipfs', () => {
+    const avif = `https://cdn.onsocial.id/img/384/avif/ipfs/${MAINNET_CID}`;
+    let state = ipfsImgLoadState(
+      MAINNET_URL,
+      ipfsImgSrcSet(MAINNET_URL, [384, 1080])
+    );
+    expect(state.avifSrcSet).toContain(
+      `/img/384/avif/ipfs/${MAINNET_CID} 384w`
+    );
+    expect(state.webpSrcSet).toContain(
+      `/img/384/webp/ipfs/${MAINNET_CID} 384w`
+    );
+    expect(state.srcSet).toContain(`/img/384/ipfs/${MAINNET_CID} 384w`);
+    expect(state.srcSet).not.toContain('/avif/');
+
+    state = nextIpfsImgLoadOnError(state, avif, MAINNET_URL);
+    expect(state).toMatchObject({
+      phase: 'retry',
+      src: avif,
+      srcSet: undefined,
+      avifSrcSet: undefined,
+      webpSrcSet: undefined,
+      waitMs: IPFS_IMG_RETRY_DELAY_MS,
+    });
+
+    state = nextIpfsImgLoadOnError(settle(state), avif, MAINNET_URL);
+    expect(state).toMatchObject({
+      phase: 'fallback',
+      src: MAINNET_URL,
+      srcSet: undefined,
+      avifSrcSet: undefined,
+      webpSrcSet: undefined,
     });
   });
 

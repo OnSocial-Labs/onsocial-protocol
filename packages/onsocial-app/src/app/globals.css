@@ -8643,17 +8643,17 @@ a.os-surface-row,
     border-radius: inherit;
   }
 
-  .portfolio-avatar.has-blur-preview > .portfolio-avatar-img {
+  .portfolio-avatar.has-blur-preview .portfolio-avatar-img {
     opacity: 0;
     transition: opacity 180ms ease;
   }
 
-  .portfolio-avatar.has-blur-preview > .portfolio-avatar-img.is-resolved {
+  .portfolio-avatar.has-blur-preview .portfolio-avatar-img.is-resolved {
     opacity: 1;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .portfolio-avatar.has-blur-preview > .portfolio-avatar-img {
+    .portfolio-avatar.has-blur-preview .portfolio-avatar-img {
       transition: none;
     }
   }
@@ -32502,7 +32502,8 @@ a.os-surface-row,
     height: 100%;
   }
 
-  .feed-photo-stage > .feed-photo-image {
+  .feed-photo-stage > .feed-photo-image,
+  .feed-photo-stage > .ipfs-img > .feed-photo-image {
     max-height: 100%;
   }
 

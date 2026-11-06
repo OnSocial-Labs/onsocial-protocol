@@ -97,7 +97,7 @@ async function stubFeedGraph(page: Page): Promise<void> {
 }
 
 async function stubCdn(page: Page, holdFull: Promise<void>): Promise<void> {
-  await page.route(`${CDN}/img/*/ipfs/*`, async (route) => {
+  await page.route(`${CDN}/img/**`, async (route) => {
     const width = new URL(route.request().url()).pathname.split('/')[2] ?? '';
     if (width !== '128') await holdFull;
     await route.fulfill({
@@ -156,6 +156,21 @@ test.describe('blurred preview while images load', () => {
     await expect(preview).toHaveAttribute(
       'src',
       `${CDN}/img/128/ipfs/${CID_JPEG}`
+    );
+    const previewPicture = photo.locator('picture.ipfs-img', {
+      has: page.locator('.ipfs-blur-preview'),
+    });
+    await expect(previewPicture.locator('source').nth(0)).toHaveAttribute(
+      'type',
+      'image/avif'
+    );
+    await expect(previewPicture.locator('source').nth(0)).toHaveAttribute(
+      'srcset',
+      `${CDN}/img/128/avif/ipfs/${CID_JPEG} 128w`
+    );
+    await expect(previewPicture.locator('source').nth(1)).toHaveAttribute(
+      'type',
+      'image/webp'
     );
     await expect(preview).toHaveAttribute('aria-hidden', 'true');
     await expect(full).not.toHaveClass(/is-resolved/);

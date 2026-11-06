@@ -131,21 +131,24 @@ __CDN_DOMAIN__ {
 		}
 	}
 
-	# ---------- Image variants (/img/<w>/ipfs/<cid>[/<seat>.<ext>]) ----------
-	# Derived resizes via the imgproxy service (docker-compose.yml).
-	# Widths are locked to the agreed variant set — 128 avatars, 384 quote
-	# thumbs/collage cells, 1080 feed tiles, 1920 enlarge overlay — and the
-	# regex below is the allowlist: any other width 404s, so nobody can mint
-	# arbitrary variants to waste CPU or cache. The optional third group is
-	# variation seat art (`/ipfs/<cid>/3.png`) — strictly numeric stems with
-	# an image extension, so no traversal or arbitrary subpaths. imgproxy
-	# re-fetches the source from the same upstream; animated GIF/SVG pass
-	# through untouched (IMGPROXY_SKIP_PROCESSING_FORMATS). Each variant URL
-	# is a distinct cache key at the Cloudflare edge, so variants are
-	# generated once per cache fill. Canonical /ipfs URLs always serve the
-	# byte-original.
-	@imgVariant path_regexp img ^/img/(128|384|1080|1920)/ipfs/([A-Za-z0-9]+)(/[0-9]+\.(?i:png|jpe?g|webp|gif|svg))?$
+	# ---------- Image variants ----------
+	# /img/<w>/<avif|webp>/ipfs/<cid>[/<seat>.<ext>] is exactly that format.
+	# /img/<w>/ipfs/<cid>[/<seat>.<ext>] is always the original format.
+	# The edge cache keys on the URL and ignores Accept, so a URL must not
+	# negotiate. Widths are locked — 128 avatars, 384 quote thumbs, 1080
+	# feed tiles, 1920 enlarge — and the regex is the allowlist: any other
+	# width or format 404s. The optional seat group is variation art
+	# (`/ipfs/<cid>/3.png`): numeric stems and an image extension only.
+	# Gif and svg pass through byte-identical. Each URL is one cache fill.
+	# Canonical /ipfs URLs always serve the byte-original.
+	@imgVariant path_regexp img ^/img/(128|384|1080|1920)(?:/(avif|webp))?/ipfs/([A-Za-z0-9]+)(/[0-9]+\.(?i:png|jpe?g|webp|gif|svg))?$
 	handle @imgVariant {
+		# Empty format stays on the original bytes. avif and webp are explicit.
+		map {http.regexp.img.2} {img_format_prefix} {
+			avif format:avif/
+			webp format:webp/
+			default ""
+		}
 		header Access-Control-Allow-Origin "*"
 		header Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
 		header -Server
@@ -158,7 +161,7 @@ __CDN_DOMAIN__ {
 			}
 		}
 
-		rewrite * /insecure/resize:fit:{http.regexp.img.1}:0/plain/https://__CDN_UPSTREAM__/ipfs/{http.regexp.img.2}{http.regexp.img.3}
+		rewrite * /insecure/resize:fit:{http.regexp.img.1}:0/{img_format_prefix}plain/https://__CDN_UPSTREAM__/ipfs/{http.regexp.img.3}{http.regexp.img.4}
 		reverse_proxy imgproxy:8080 {
 			# reverse_proxy appends upstream header values, so drop
 			# the resize service's copies of anything set above (and its

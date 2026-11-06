@@ -39,7 +39,7 @@ async function stubCdn(page: Page): Promise<CdnHits> {
   const bump = <K>(map: Map<K, number>, key: K) =>
     map.set(key, (map.get(key) ?? 0) + 1);
 
-  await page.route(`${CDN}/img/*/ipfs/*`, async (route) => {
+  await page.route(`${CDN}/img/**`, async (route) => {
     const width = new URL(route.request().url()).pathname.split('/')[2]!;
     bump(hits.variantByWidth, width);
     await route.fulfill({
@@ -186,15 +186,12 @@ test.describe('catalog thumb variants (market rows)', () => {
     await expect(thumb).toHaveAttribute('loading', 'lazy');
 
     const secondThumb = liveRows.nth(1).locator('.market-listing-thumb img');
-    await expect(secondThumb).toHaveAttribute(
-      'src',
-      `${CDN}/ipfs/${CID_BETA}`
-    );
+    await expect(secondThumb).toHaveAttribute('src', `${CDN}/ipfs/${CID_BETA}`);
 
     // 88px slot at DPR 1 — the browser picks the 128 rung.
     await expect
       .poll(() => thumb.evaluate((el: HTMLImageElement) => el.currentSrc))
-      .toBe(`${CDN}/img/128/ipfs/${CID_ALPHA}`);
+      .toBe(`${CDN}/img/128/avif/ipfs/${CID_ALPHA}`);
 
     await expect
       .poll(() => hits.variantByWidth.get('128') ?? 0)

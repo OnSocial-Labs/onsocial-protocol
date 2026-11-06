@@ -161,7 +161,7 @@ async function stubCdn(page: Page): Promise<CdnHits> {
   const bump = <K>(map: Map<K, number>, key: K) =>
     map.set(key, (map.get(key) ?? 0) + 1);
 
-  await page.route(`${CDN}/img/*/ipfs/*`, async (route) => {
+  await page.route(`${CDN}/img/**`, async (route) => {
     const width = new URL(route.request().url()).pathname.split('/')[2]!;
     bump(hits.variantByWidth, width);
     hits.variantBytes += VARIANT_SVG.length;
@@ -235,6 +235,15 @@ test.describe('feed image variants (phase 2)', () => {
       'sizes',
       '(min-width: 640px) 553px, 100vw'
     );
+    const photoPicture = photoTile.locator('xpath=..');
+    await expect(photoPicture.locator('source').nth(0)).toHaveAttribute(
+      'type',
+      'image/avif'
+    );
+    await expect(photoPicture.locator('source').nth(1)).toHaveAttribute(
+      'type',
+      'image/webp'
+    );
 
     // The browser picks the 1080 rung for the 553px slot at DPR 1 — and the
     // original is never requested.
@@ -243,7 +252,7 @@ test.describe('feed image variants (phase 2)', () => {
       .toBeGreaterThan(0);
     await expect
       .poll(() => photoTile.evaluate((el: HTMLImageElement) => el.currentSrc))
-      .toContain(`/img/1080/ipfs/${CID_JPEG}`);
+      .toContain(`/img/1080/avif/ipfs/${CID_JPEG}`);
     expect(hits.originalByCid.get(CID_JPEG) ?? 0).toBe(0);
 
     // Avatar rides the 128 rung (32px slot at DPR 1).
@@ -284,7 +293,7 @@ test.describe('feed image variants (phase 2)', () => {
         () => enlargeImg.evaluate((el: HTMLImageElement) => el.currentSrc),
         { timeout: 15_000 }
       )
-      .toContain(`/img/1920/ipfs/${CID_JPEG}`);
+      .toContain(`/img/1920/avif/ipfs/${CID_JPEG}`);
 
     // Payload drop: only tiny variant bodies moved for the JPEG + avatar.
     expect(hits.originalBytes).toBeLessThan(1_000); // GIF passthrough only
@@ -341,8 +350,97 @@ test.describe('feed image variants (phase 2)', () => {
       .poll(() => cover.evaluate((el: HTMLImageElement) => el.currentSrc), {
         timeout: 15_000,
       })
-      .toContain(`/img/1080/ipfs/${CID_JPEG}`);
+      .toContain(`/img/1080/avif/ipfs/${CID_JPEG}`);
     expect(hits.variantByWidth.get('128') ?? 0).toBe(0);
     expect(hits.originalByCid.get(CID_JPEG) ?? 0).toBe(0);
+  });
+
+  test('webp-only and original-only pictures skip formats they cannot use', async ({
+    page,
+  }) => {
+    await stubFeedGraph(page, [PHOTO_POST]);
+    await stubCdn(page);
+    await gotoApp(page, '/home');
+    await dismissNextDevOverlay(page);
+    const globalTab = page.getByRole('tab', { name: 'Global' });
+    if ((await globalTab.count()) > 0) await globalTab.click();
+    const photo = page.locator('.post-media-element').first();
+    await expect
+      .poll(() => photo.evaluate((el: HTMLImageElement) => el.currentSrc), {
+        timeout: 15_000,
+      })
+      .toContain(`/img/1080/avif/ipfs/${CID_JPEG}`);
+
+    async function dropSources(types: string[]) {
+      await photo.evaluate((img, drop) => {
+        const picture = img.parentElement;
+        if (!(picture instanceof HTMLPictureElement)) return;
+        for (const type of drop) {
+          picture.querySelector(`source[type="${type}"]`)?.remove();
+        }
+        const src = img.getAttribute('src');
+        const srcset = img.getAttribute('srcset');
+        const sizes = img.getAttribute('sizes');
+        img.removeAttribute('src');
+        img.removeAttribute('srcset');
+        const clone = picture.cloneNode(true) as HTMLPictureElement;
+        picture.replaceWith(clone);
+        const next = clone.querySelector('img');
+        if (!next) return;
+        if (sizes) next.setAttribute('sizes', sizes);
+        if (srcset) next.setAttribute('srcset', srcset);
+        if (src) next.setAttribute('src', src);
+      }, types);
+    }
+
+    await dropSources(['image/avif']);
+    const webp = page.locator('.post-media-element').first();
+    await expect
+      .poll(() => webp.evaluate((el: HTMLImageElement) => el.currentSrc), {
+        timeout: 15_000,
+      })
+      .toContain(`/img/1080/webp/ipfs/${CID_JPEG}`);
+
+    await dropSources(['image/avif', 'image/webp']);
+    const original = page.locator('.post-media-element').first();
+    await expect
+      .poll(() => original.evaluate((el: HTMLImageElement) => el.currentSrc), {
+        timeout: 15_000,
+      })
+      .toContain(`/img/1080/ipfs/${CID_JPEG}`);
+  });
+
+  test('retries a failed format once, then uses the original file', async ({
+    page,
+  }) => {
+    let variantHits = 0;
+    await stubFeedGraph(page, [PHOTO_POST]);
+    await page.route(`${CDN}/img/**`, async (route) => {
+      variantHits += 1;
+      await route.fulfill({
+        status: 502,
+        contentType: 'text/plain',
+        body: 'no',
+      });
+    });
+    await page.route(`${CDN}/ipfs/*`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/gif',
+        body: GIF_BYTES,
+      });
+    });
+    await gotoApp(page, '/home');
+    await dismissNextDevOverlay(page);
+    const globalTab = page.getByRole('tab', { name: 'Global' });
+    if ((await globalTab.count()) > 0) await globalTab.click();
+    const photo = page.locator('.post-media-element').first();
+    await expect
+      .poll(() => photo.getAttribute('src'), { timeout: 15_000 })
+      .toBe(`${CDN}/ipfs/${CID_JPEG}`);
+    await expect
+      .poll(() => photo.evaluate((el) => el.parentElement?.tagName))
+      .not.toBe('PICTURE');
+    expect(variantHits).toBeGreaterThanOrEqual(2);
   });
 });

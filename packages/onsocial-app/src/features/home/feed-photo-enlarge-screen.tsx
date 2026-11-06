@@ -108,7 +108,9 @@ function activeStageImage(
     const img = page?.querySelector('.feed-photo-image');
     return img instanceof HTMLImageElement ? img : null;
   }
-  const img = stage.querySelector(':scope > .feed-photo-image');
+  const img = stage.querySelector(
+    ':scope > .feed-photo-image, :scope > .ipfs-img > .feed-photo-image'
+  );
   return img instanceof HTMLImageElement ? img : null;
 }
 
@@ -1792,6 +1794,7 @@ function FeedPhotoMediaStage({
     <IpfsImg
       src={ipfsImgVariantUrl(item.url, 1920, item.mime) ?? item.url}
       srcSet={stillSrcSet}
+      mime={item.mime}
       sizes={stillSrcSet ? '100vw' : undefined}
       alt={item.alt?.trim() || ''}
       className="feed-photo-image"

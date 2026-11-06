@@ -272,8 +272,9 @@ services:
     environment:
       IMGPROXY_BIND: ":8080"
       IMGPROXY_ALLOWED_SOURCES: https://${LIGHTHOUSE_CDN_UPSTREAM:-statistical-barnacle-3ny44.lighthouseweb3.xyz}/ipfs/*
-      IMGPROXY_AUTO_WEBP: "true"
-      IMGPROXY_AUTO_AVIF: "true"
+      # Off: each URL is one format. Accept must not change the body.
+      IMGPROXY_AUTO_WEBP: "false"
+      IMGPROXY_AUTO_AVIF: "false"
       IMGPROXY_QUALITY: "80"
       IMGPROXY_MAX_SRC_RESOLUTION: "50"        # megapixels
       IMGPROXY_MAX_SRC_FILE_SIZE: "20971520"   # 20 MB

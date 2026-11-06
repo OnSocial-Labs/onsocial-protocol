@@ -306,6 +306,7 @@ function QuoteThumbTile({
         <IpfsImg
           ref={bind}
           src={ipfsImgVariantUrl(item.url, 384, item.mime) ?? item.url}
+          mime={item.mime}
           alt=""
           className={mediaClassName}
           loading="lazy"

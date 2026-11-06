@@ -1,11 +1,16 @@
+'use client';
+
+import { IpfsImg } from './ipfs-img.js';
 import { ipfsImgVariantUrl } from './ipfs-img-variants.js';
 
 export const ipfsBlurPreviewClassName = 'ipfs-blur-preview';
 
 /**
  * 128px stand-in painted under a feed or avatar image while the full
- * file arrives. Decorative — the real image keeps the accessible name.
- * Returns null for URLs that cannot be resized (gif, svg, off-host).
+ * file arrives. Same format order as every other resized photo: avif,
+ * then webp, then the original format. Decorative — the real image keeps
+ * the accessible name. Returns null for URLs that cannot be resized
+ * (gif, svg, off-host).
  */
 export function IpfsBlurPreview({
   src,
@@ -17,8 +22,9 @@ export function IpfsBlurPreview({
   const preview = ipfsImgVariantUrl(src, 128, mime);
   if (!preview) return null;
   return (
-    <img
+    <IpfsImg
       src={preview}
+      mime={mime}
       alt=""
       aria-hidden="true"
       className={ipfsBlurPreviewClassName}
