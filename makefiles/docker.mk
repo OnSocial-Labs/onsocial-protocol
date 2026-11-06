@@ -123,8 +123,12 @@ endef
 # Usage: $(call docker_run_js_package,onsocial-js,lint)
 define docker_run_js_package
 	docker run --rm $(DOCKER_TTY) \
+		--user $(shell id -u):$(shell id -g) \
 		-v $(CODE_DIR):/app \
 		-w /app \
+		-e HOME=/tmp \
+		-e COREPACK_HOME=/tmp/corepack \
+		-e XDG_CACHE_HOME=/tmp/cache \
 		-e PATH="/app/node_modules/.bin:$$PATH" \
 		-e FORCE_COLOR=1 \
 		-e TERM=xterm-256color \
