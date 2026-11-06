@@ -14,6 +14,7 @@ import {
   ChevronLeftIcon,
   ChoiceDrawerField,
   DiscardConfirmSheet,
+  IpfsImg,
   ipfsImgSrcSet,
   OsIconAction,
   OsPageSheet,
@@ -640,7 +641,7 @@ export function GuildEditSheet({
                         }
                       >
                         {displayBannerUrl ? (
-                          <img
+                          <IpfsImg
                             src={displayBannerUrl}
                             srcSet={bannerSrcSet}
                             sizes={
@@ -701,7 +702,7 @@ export function GuildEditSheet({
                           disabled={pending}
                         >
                           {displayBadgeUrl ? (
-                            <img
+                            <IpfsImg
                               src={displayBadgeUrl}
                               srcSet={badgeSrcSet}
                               sizes={

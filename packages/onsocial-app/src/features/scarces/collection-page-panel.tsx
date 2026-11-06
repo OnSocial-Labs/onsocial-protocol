@@ -23,6 +23,7 @@ import {
   ShareIcon,
   OsIconAction,
   ShopFillIcon,
+  IpfsImg,
   ipfsImgSrcSet,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -1198,7 +1199,7 @@ export function CollectionPagePanel({
               : {})}
           >
             {coverSrc ? (
-              <img
+              <IpfsImg
                 src={coverSrc}
                 srcSet={coverSrcSet}
                 sizes={coverSrcSet ? APP_COLUMN_HERO_SIZES : undefined}

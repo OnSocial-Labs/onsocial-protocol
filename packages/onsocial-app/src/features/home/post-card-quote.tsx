@@ -7,6 +7,7 @@ import type { PostRow } from '@onsocial/sdk';
 import {
   Divider,
   PlayFillIcon,
+  IpfsImg,
   ipfsImgVariantUrl,
   MessageRoundIcon,
 } from '@onsocial/ui';
@@ -300,7 +301,7 @@ function QuoteThumbTile({
           />
         ) : null
       ) : (
-        <img
+        <IpfsImg
           ref={bind}
           src={ipfsImgVariantUrl(item.url, 384, item.mime) ?? item.url}
           alt=""

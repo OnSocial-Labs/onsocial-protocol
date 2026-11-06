@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
-import { ipfsImgSrcSet } from '@onsocial/ui';
+import { IpfsImg, ipfsImgSrcSet } from '@onsocial/ui';
 import { AccountAvatar } from '@/components/profile/account-avatar';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
@@ -71,7 +71,7 @@ function CatalogCover({ src }: { src: string | null }) {
       }`}
     >
       {src ? (
-        <img
+        <IpfsImg
           src={src}
           srcSet={srcSet}
           sizes={srcSet ? '88px' : undefined}

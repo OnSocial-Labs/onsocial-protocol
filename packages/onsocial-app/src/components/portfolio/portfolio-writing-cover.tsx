@@ -14,7 +14,7 @@ import {
   type MarkShape,
   type MoodKey,
 } from '@onsocial/text-card';
-import { ipfsImgSrcSet } from '@onsocial/ui';
+import { IpfsImg, ipfsImgSrcSet } from '@onsocial/ui';
 import { displayName as accountDisplayName } from '@/lib/profile-display';
 
 function inlineSvgMarkup(svg: string): string {
@@ -160,7 +160,7 @@ export function PortfolioWritingCover({
       WRITING_COVER_VARIANT_WIDTHS[variant]
     );
     return (
-      <img
+      <IpfsImg
         alt=""
         className={
           variant === 'face'

@@ -14,7 +14,7 @@ import {
   previewTextCard,
 } from '@onsocial/text-card';
 import type { PostRow } from '@onsocial/sdk';
-import { PlayFillIcon, ipfsImgSrcSet } from '@onsocial/ui';
+import { PlayFillIcon, IpfsImg, ipfsImgSrcSet } from '@onsocial/ui';
 import { DropArtOverlay } from '@/features/scarces/drop-artwork-preview';
 import { SCARCE_HERO_WIDTHS } from '@/lib/hero-img-variants';
 import { parsePostText } from '@/lib/post-display';
@@ -245,7 +245,7 @@ export function ScarcePostPreview({
             dangerouslySetInnerHTML={{ __html: inlineSvg }}
           />
         ) : (
-          <img
+          <IpfsImg
             key={rasterSrc!}
             className="scarce-post-preview-asset"
             src={rasterSrc!}

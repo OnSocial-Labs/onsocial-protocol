@@ -46,7 +46,7 @@ import {
 import { QuantityCount } from '@/features/scarces/quantity-count';
 import { visibleQuantity } from '@/features/scarces/quantity-count-format';
 import { resolveScarceMediaUrl } from '@/features/market/market-listings';
-import { ipfsImgSrcSet } from '@onsocial/ui';
+import { IpfsImg, ipfsImgSrcSet } from '@onsocial/ui';
 import { EDITOR_MARK_WIDTHS, TICKET_MARK_SIZES } from '@/lib/hero-img-variants';
 import { accountIdsEqual } from '@/lib/account-match';
 import { restoreAppSocialSession } from '@/lib/app-social-session';
@@ -487,7 +487,7 @@ export function TicketShowPassSheet({
               onClick={() => setArtEnlargeOpen(true)}
               aria-label={`View artwork for ${name}`}
             >
-              <img
+              <IpfsImg
                 src={media}
                 srcSet={mediaSrcSet}
                 sizes={mediaSrcSet ? TICKET_MARK_SIZES : undefined}

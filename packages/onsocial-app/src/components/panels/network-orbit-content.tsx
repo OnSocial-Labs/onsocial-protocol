@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { CSSProperties, MouseEvent } from 'react';
-import { ipfsImgSrcSet, UserIcon } from '@onsocial/ui';
+import { IpfsImg, ipfsImgSrcSet, UserIcon } from '@onsocial/ui';
 import { useNetworkOrbit } from '@/components/panels/network-orbit-context';
 import { useOpenNetworkStandingList } from '@/components/panels/network-orbit-sheet-header';
 import { displayName as resolveDisplayName } from '@/lib/profile-display';
@@ -326,7 +326,7 @@ function OrbitCenter({ stageSize }: { stageSize: number }) {
       />
       <span className="network-orbit-center-avatar">
         {avatarUrl ? (
-          <img
+          <IpfsImg
             src={avatarUrl}
             srcSet={avatarSrcSet}
             sizes={avatarSrcSet ? cssPx(Math.round(size)) : undefined}

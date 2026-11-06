@@ -1,6 +1,6 @@
 'use client';
 
-import { ipfsImgSrcSet } from '@onsocial/ui';
+import { IpfsImg, ipfsImgSrcSet } from '@onsocial/ui';
 
 /**
  * Catalog cover slot (`--os-catalog-cover`): 4.85rem (77.6px), 5.5rem
@@ -31,7 +31,7 @@ export function CatalogThumbImage({
 }) {
   const srcSet = ipfsImgSrcSet(src, CATALOG_THUMB_WIDTHS);
   return (
-    <img
+    <IpfsImg
       src={src}
       srcSet={srcSet}
       sizes={srcSet ? CATALOG_THUMB_SIZES : undefined}
@@ -47,7 +47,7 @@ export function CatalogThumbImage({
 export function CatalogCoverImage({ src }: { src: string }) {
   const srcSet = ipfsImgSrcSet(src, CATALOG_COVER_WIDTHS);
   return (
-    <img
+    <IpfsImg
       src={src}
       srcSet={srcSet}
       sizes={srcSet ? CATALOG_COVER_SIZES : undefined}

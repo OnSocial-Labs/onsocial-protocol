@@ -17,6 +17,7 @@ import {
   PlayFillIcon,
   PreviousFillIcon,
   ScaleUpIcon,
+  IpfsImg,
   ipfsImgSrcSet,
   useOsReveal,
 } from '@onsocial/ui';
@@ -385,7 +386,7 @@ export function FeedAudioEnlarge({
       <div className="feed-photo-listen" onClick={handleStageTap}>
         <div className="feed-photo-stage">
           {cover ? (
-            <img
+            <IpfsImg
               src={cover}
               srcSet={coverSrcSet}
               sizes={coverSrcSet ? SQUARE_ART_SIZES : undefined}

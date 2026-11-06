@@ -3,6 +3,7 @@
 import type { ReactNode, Ref } from 'react';
 import {
   InformationCircleIcon,
+  IpfsImg,
   ipfsImgSrcSet,
   ipfsImgVariantUrl,
 } from '@onsocial/ui';
@@ -94,7 +95,7 @@ export function GuildPageHero({
         aria-hidden
       >
         {look.bannerUrl ? (
-          <img
+          <IpfsImg
             src={look.bannerUrl}
             srcSet={bannerSrcSet}
             sizes={bannerSrcSet ? GUILD_HERO_SIZES : undefined}
@@ -107,7 +108,7 @@ export function GuildPageHero({
       <div className="guild-hero-title-row">
         {badgeSrc ? (
           <span className="guild-hero-badge has-media" aria-hidden>
-            <img src={badgeSrc} alt="" decoding="async" />
+            <IpfsImg src={badgeSrc} alt="" decoding="async" />
           </span>
         ) : null}
         <h2 ref={titleRef}>{guildDisplayName(look.name, groupId)}</h2>

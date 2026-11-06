@@ -146,8 +146,6 @@ __CDN_DOMAIN__ {
 	# byte-original.
 	@imgVariant path_regexp img ^/img/(128|384|1080|1920)/ipfs/([A-Za-z0-9]+)(/[0-9]+\.(?i:png|jpe?g|webp|gif|svg))?$
 	handle @imgVariant {
-		# Variants of immutable content are immutable too.
-		header Cache-Control "public, max-age=31536000, immutable"
 		header Access-Control-Allow-Origin "*"
 		header Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
 		header -Server
@@ -163,14 +161,34 @@ __CDN_DOMAIN__ {
 		rewrite * /insecure/resize:fit:{http.regexp.img.1}:0/plain/https://__CDN_UPSTREAM__/ipfs/{http.regexp.img.2}{http.regexp.img.3}
 		reverse_proxy imgproxy:8080 {
 			# reverse_proxy appends upstream header values, so drop
-			# imgproxy's copies of anything set above (and its Server
-			# banner) — otherwise clients see duplicate Cache-Control /
-			# CORS headers. imgproxy also sends its own year-long
-			# Cache-Control by default.
+			# the resize service's copies of anything set above (and its
+			# Server banner) — otherwise clients see duplicate Cache-Control /
+			# CORS headers. It also sends its own year-long Cache-Control
+			# by default, including on failures.
 			header_down -Access-Control-Allow-Origin
 			header_down -Access-Control-Allow-Methods
 			header_down -Cache-Control
 			header_down -Server
+			# Stay above the 20s resize deadline so a slow source can
+			# finish or fail as an HTTP error instead of a cut connection.
+			transport http {
+				response_header_timeout 30s
+				read_timeout 30s
+				write_timeout 30s
+			}
+			# Successful variants of immutable content stay immutable.
+			# Error statuses must not: a long max-age would pin a 504 at
+			# the edge. No immutable directive on this branch.
+			@imgOk status 2xx
+			handle_response @imgOk {
+				header Cache-Control "public, max-age=31536000, immutable"
+				copy_response
+			}
+			@imgFail status 4xx 5xx
+			handle_response @imgFail {
+				header Cache-Control "no-store"
+				copy_response
+			}
 		}
 	}
 

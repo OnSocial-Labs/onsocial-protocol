@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ipfsImgSrcSet } from '@onsocial/ui';
+import { IpfsImg, ipfsImgSrcSet } from '@onsocial/ui';
 import { CommunityDiscoverRow } from '@/components/community-cards';
 import {
   formatGuildMemberCountParts,
@@ -136,7 +136,7 @@ export function GuildSummaryCard({
           style={guildCoverStyle(coverUrl, guild.groupId)}
         >
           {coverUrl ? (
-            <img
+            <IpfsImg
               src={coverUrl}
               srcSet={coverSrcSet}
               sizes={coverSrcSet ? '78px' : undefined}

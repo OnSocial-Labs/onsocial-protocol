@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import {
   Divider,
   InformationCircleIcon,
+  IpfsImg,
   ipfsImgSrcSet,
   replaceSheet,
 } from '@onsocial/ui';
@@ -583,7 +584,7 @@ export function AppPagePanel({
             aria-hidden
           >
             {app.bannerUrl ? (
-              <img
+              <IpfsImg
                 src={app.bannerUrl}
                 srcSet={bannerSrcSet}
                 sizes={bannerSrcSet ? APP_COLUMN_HERO_SIZES : undefined}
@@ -599,7 +600,7 @@ export function AppPagePanel({
               aria-hidden
             >
               {app.mediaUrl ? (
-                <img
+                <IpfsImg
                   src={app.mediaUrl}
                   srcSet={logoSrcSet}
                   sizes={logoSrcSet ? '80px' : undefined}

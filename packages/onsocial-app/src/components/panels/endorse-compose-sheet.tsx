@@ -17,6 +17,7 @@ import {
 import {
   DiscardConfirmSheet,
   ImageIcon,
+  IpfsImg,
   ipfsImgSrcSet,
   OsGestureSheet,
   OsSheetAction,
@@ -665,7 +666,7 @@ export function EndorseComposeSheet({
                     preload="metadata"
                   />
                 ) : (
-                  <img
+                  <IpfsImg
                     src={previewMediaUrl}
                     srcSet={previewImgSrcSet}
                     sizes={previewImgSrcSet ? ENDORSE_MEDIA_SIZES : undefined}

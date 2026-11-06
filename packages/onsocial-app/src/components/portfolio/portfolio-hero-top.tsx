@@ -1,4 +1,4 @@
-import { ipfsImgSrcSet, ipfsImgVariantUrl } from '@onsocial/ui';
+import { IpfsImg, ipfsImgSrcSet, ipfsImgVariantUrl } from '@onsocial/ui';
 import type { ResolvedPageHero } from '@/lib/page-data';
 
 interface PortfolioHeroTopProps {
@@ -36,7 +36,7 @@ export function PortfolioHeroTop({ hero, layout }: PortfolioHeroTopProps) {
    * passes them through byte-identical (IMGPROXY_SKIP_PROCESSING_FORMATS). */
   const srcSet = ipfsImgSrcSet(hero.url, [1080, 1920]);
   return (
-    <img
+    <IpfsImg
       className={className}
       src={hero.url}
       srcSet={srcSet}

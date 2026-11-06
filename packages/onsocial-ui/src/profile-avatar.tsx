@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from 'react';
 import { cn } from './cn.js';
+import { IpfsImg } from './ipfs-img.js';
 import { ipfsImgSrcSet } from './ipfs-img-variants.js';
 
 export type ProfileAvatarSize = 'sm' | 'md' | 'lg';
@@ -110,7 +111,7 @@ export function ProfileAvatar({
     >
       {showShimmer ? <span className="profile-avatar__shimmer" /> : null}
       {hasSrc ? (
-        <img
+        <IpfsImg
           ref={imgRef}
           src={src ?? undefined}
           srcSet={srcSet}

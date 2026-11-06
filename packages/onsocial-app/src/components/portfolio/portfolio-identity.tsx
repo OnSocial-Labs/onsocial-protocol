@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { ipfsImgSrcSet } from '@onsocial/ui';
+import { IpfsImg, ipfsImgSrcSet } from '@onsocial/ui';
 import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kind-switch';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { PortfolioDepthLinks } from '@/components/portfolio/portfolio-depth-links';
@@ -106,7 +106,7 @@ export function PortfolioIdentity({
       data-profile-kind={displayKind}
     >
       {avatarUrl ? (
-        <img
+        <IpfsImg
           alt={titleLabel}
           className="portfolio-avatar"
           src={avatarUrl}

@@ -573,6 +573,7 @@ export {
   isCdnIpfsImgUrl,
   type IpfsImgVariantWidth,
 } from './ipfs-img-variants.js';
+export { IpfsImg } from './ipfs-img.js';
 export {
   TokenIcon,
   osTokenIconClassName,

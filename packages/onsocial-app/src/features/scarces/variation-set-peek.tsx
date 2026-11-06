@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ipfsImgSrcSet } from '@onsocial/ui';
+import { IpfsImg, ipfsImgSrcSet } from '@onsocial/ui';
 import { variationSampleSeats } from '@/features/scarces/collections-data';
 import { formatGenerativeRarityLines } from '@/features/scarces/generative-set';
 import {
@@ -114,7 +114,7 @@ export function VariationSetPeek({
             // (foreign gateway templates) falls back to the plain original.
             const srcSet = ipfsImgSrcSet(src, EDITOR_MARK_WIDTHS);
             return (
-              <img
+              <IpfsImg
                 key={`${src}-${index}`}
                 src={src}
                 srcSet={srcSet}
