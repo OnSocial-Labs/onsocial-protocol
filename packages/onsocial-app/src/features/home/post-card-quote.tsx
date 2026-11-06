@@ -7,6 +7,7 @@ import type { PostRow } from '@onsocial/sdk';
 import {
   Divider,
   PlayFillIcon,
+  IpfsBlurPreview,
   IpfsImg,
   ipfsImgVariantUrl,
   MessageRoundIcon,
@@ -281,6 +282,7 @@ function QuoteThumbTile({
           aria-hidden
         />
       )}
+      {isVideo ? null : <IpfsBlurPreview src={item.url} mime={item.mime} />}
       {isVideo ? (
         // Poster gate: far-off quote thumbs unmount; the grid cell holds
         // the row height. Remounts warm a viewport before paint.

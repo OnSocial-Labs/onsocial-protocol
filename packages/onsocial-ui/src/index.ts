@@ -575,6 +575,10 @@ export {
 } from './ipfs-img-variants.js';
 export { IpfsImg } from './ipfs-img.js';
 export {
+  IpfsBlurPreview,
+  ipfsBlurPreviewClassName,
+} from './ipfs-blur-preview.js';
+export {
   TokenIcon,
   osTokenIconClassName,
   type TokenIconProps,

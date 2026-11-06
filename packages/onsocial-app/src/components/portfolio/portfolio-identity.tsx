@@ -1,7 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
-import { IpfsImg, ipfsImgSrcSet } from '@onsocial/ui';
+import { useEffect, useState } from 'react';
+import {
+  IpfsBlurPreview,
+  IpfsImg,
+  ipfsImgSrcSet,
+  ipfsImgVariantUrl,
+} from '@onsocial/ui';
 import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kind-switch';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { PortfolioDepthLinks } from '@/components/portfolio/portfolio-depth-links';
@@ -94,6 +99,13 @@ export function PortfolioIdentity({
   });
   const handleLabel = portfolioHandleForMood(accountId, mood.id);
   const avatarSrcSet = ipfsImgSrcSet(avatarUrl, [128, 384]);
+  const avatarBlurPreview = Boolean(ipfsImgVariantUrl(avatarUrl, 128));
+  const [avatarReady, setAvatarReady] = useState(false);
+  const [trackedAvatar, setTrackedAvatar] = useState(avatarUrl);
+  if (trackedAvatar !== avatarUrl) {
+    setTrackedAvatar(avatarUrl);
+    setAvatarReady(false);
+  }
 
   useEffect(() => {
     if (!isDao) return;
@@ -106,13 +118,32 @@ export function PortfolioIdentity({
       data-profile-kind={displayKind}
     >
       {avatarUrl ? (
-        <IpfsImg
-          alt={titleLabel}
-          className="portfolio-avatar"
-          src={avatarUrl}
-          srcSet={avatarSrcSet}
-          sizes={avatarSrcSet ? '104px' : undefined}
-        />
+        <span
+          className={
+            avatarBlurPreview
+              ? 'portfolio-avatar has-blur-preview'
+              : 'portfolio-avatar'
+          }
+        >
+          {avatarBlurPreview ? <IpfsBlurPreview src={avatarUrl} /> : null}
+          <IpfsImg
+            ref={(node) => {
+              if (node?.complete && node.naturalWidth > 0) setAvatarReady(true);
+            }}
+            alt={titleLabel}
+            className={
+              avatarReady
+                ? 'portfolio-avatar-img is-resolved'
+                : 'portfolio-avatar-img'
+            }
+            src={avatarUrl}
+            srcSet={avatarSrcSet}
+            sizes={avatarSrcSet ? '104px' : undefined}
+            decoding="async"
+            onLoad={() => setAvatarReady(true)}
+            onError={() => setAvatarReady(true)}
+          />
+        </span>
       ) : (
         <div className="portfolio-avatar portfolio-avatar-fallback">
           {initials(titleLabel)}

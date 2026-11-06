@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from 'react';
 import { cn } from './cn.js';
+import { IpfsBlurPreview } from './ipfs-blur-preview.js';
 import { IpfsImg } from './ipfs-img.js';
 import { ipfsImgSrcSet } from './ipfs-img-variants.js';
 
@@ -110,6 +111,7 @@ export function ProfileAvatar({
       aria-hidden
     >
       {showShimmer ? <span className="profile-avatar__shimmer" /> : null}
+      {hasSrc ? <IpfsBlurPreview src={src} /> : null}
       {hasSrc ? (
         <IpfsImg
           ref={imgRef}
