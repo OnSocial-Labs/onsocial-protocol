@@ -29,20 +29,28 @@ test.describe('page drawer feed inset', () => {
       }
       const bodyStyle = getComputedStyle(body);
       const headerStyle = getComputedStyle(header);
+      const rootFont = parseFloat(
+        getComputedStyle(document.documentElement).fontSize
+      );
       return {
         bodyPadX: bodyStyle.paddingLeft,
         headerPadX: headerStyle.paddingLeft,
+        expectedPadX: `${rootFont}px`,
+        gutter: getComputedStyle(body).getPropertyValue('--os-gutter').trim(),
         hasPanelBody: Boolean(body.querySelector('.panel-body')),
         hasPlaceholder: Boolean(document.querySelector('.panel-placeholder')),
-        hasScrollEnd: Boolean(document.querySelector('.page-drawer-scroll-end')),
+        hasScrollEnd: Boolean(
+          document.querySelector('.page-drawer-scroll-end')
+        ),
         hasHomeState: Boolean(document.querySelector('.home-feed-state')),
         hasFeedList: Boolean(document.querySelector('.home-feed-list')),
       };
     });
 
     expect(metrics).not.toBeNull();
-    expect(metrics?.bodyPadX).toBe('16px');
-    expect(metrics?.headerPadX).toBe('16px');
+    expect(metrics?.gutter).toBe('1rem');
+    expect(metrics?.bodyPadX).toBe(metrics?.expectedPadX);
+    expect(metrics?.headerPadX).toBe(metrics?.expectedPadX);
     expect(metrics?.hasPanelBody).toBe(false);
     expect(metrics?.hasPlaceholder).toBe(false);
     expect(metrics?.hasScrollEnd).toBe(true);

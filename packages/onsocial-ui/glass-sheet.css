@@ -107,9 +107,9 @@
  */
 :root {
   --os-sheet-footer-pad-top: 0.45rem;
-  /* Same column as the page (--os-screen-body-pad-x). A wider sheet inset
+  /* Same column as the page gutter. A wider sheet inset
      lands every line to the right of the page it covers. */
-  --os-sheet-pad-inline: var(--os-screen-body-pad-x, 1rem);
+  --os-sheet-pad-inline: var(--os-gutter, 1rem);
   --os-sheet-footer-pad-inline: var(--os-sheet-pad-inline);
   --os-sheet-footer-pad-bottom: calc(
     0.55rem + env(safe-area-inset-bottom, 0px)

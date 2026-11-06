@@ -16,9 +16,20 @@ const collection = readFileSync(
 );
 
 describe('page drawer feed inset', () => {
+  it('shares the gutter and derives dock clearance from the control box', () => {
+    expect(globalsCss).toMatch(/--os-gutter:\s*1rem;/);
+    expect(globalsCss).toMatch(/--os-dock-height:\s*2\.75rem;/);
+    expect(globalsCss).toMatch(
+      /--portfolio-dock-clearance:\s*calc\(\s*var\(--os-dock-height\) \+ var\(--os-dock-bottom-offset\) \+\s*var\(--os-dock-clearance-gap\) \+ env\(safe-area-inset-bottom, 0px\)/
+    );
+    expect(globalsCss).toMatch(/--os-dock-clearance-gap:\s*1\.1rem;/);
+    expect(globalsCss).toMatch(/--os-dock-clearance-gap:\s*1\.6rem;/);
+    expect(globalsCss).toMatch(/--os-dock-clearance-gap:\s*0\.85rem;/);
+  });
+
   it('uses the app column token, not a 1.15rem sheet pad', () => {
     expect(globalsCss).toMatch(
-      /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[\s\S]*?height: 100%;[\s\S]*?max-height: none;[\s\S]*?--os-screen-body-pad-x: 1rem;/
+      /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[\s\S]*?height: 100%;[\s\S]*?max-height: none;[\s\S]*?--os-screen-body-pad-x: var\(--os-gutter\);/
     );
     expect(globalsCss).not.toMatch(
       /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[^}]*54rem/

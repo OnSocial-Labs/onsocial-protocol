@@ -135,8 +135,8 @@
 /* Same side inset as the slide header. The shared slide body pads the sides to 0. */
 .collection-door-log-slide .os-slide-over-content.collection-door-log,
 .event-guests-slide .os-slide-over-content.event-guests {
-  padding: 0.45rem max(1rem, env(safe-area-inset-right, 0px)) 1.5rem
-    max(1rem, env(safe-area-inset-left, 0px));
+  padding: 0.45rem max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px)) 1.5rem
+    max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   gap: 0.7rem;
 }
 
@@ -443,8 +443,8 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   height: 100%;
   max-height: none;
   --glass-header-scrim-height: min(6.5rem, 24%);
-  /* Same 1rem column as Home / Market — sheet is not inside .os-app-screen. */
-  --os-screen-body-pad-x: 1rem;
+  /* Same column as Home / Market — sheet is not inside .os-app-screen. */
+  --os-screen-body-pad-x: var(--os-gutter);
 }
 
 /* Single scroller = sheet body. Content scrolls under the floating pill. */
@@ -3113,9 +3113,19 @@ a.os-surface-row,
     /* Pull tier-2 meta (caption · tags) into one band below signal numbers. */
     --portfolio-shelf-pull: 0.44rem;
     --portfolio-shelf-meta-gap: 0.22rem;
-    /* Summon dock — button + dock pad + hint allowance + safe area. */
+    /* One horizontal text gutter. html stays font-size: 100%. */
+    --os-gutter: 1rem;
+    /* Dock control box. 2.75rem is the current pill, back, compose, and marks. */
+    --os-dock-height: 2.75rem;
+    /* Offset under the control. The dock padding uses this same length.
+       Safe area is added once, here in clearance and in that padding, not both. */
+    --os-dock-bottom-offset: 0.9rem;
+    /* Air above the control. 1.1rem keeps phone clearance at 4.75rem.
+       Wider and short desktop viewports override the gap only. */
+    --os-dock-clearance-gap: 1.1rem;
     --portfolio-dock-clearance: calc(
-      4.75rem + env(safe-area-inset-bottom, 0px)
+      var(--os-dock-height) + var(--os-dock-bottom-offset) +
+        var(--os-dock-clearance-gap) + env(safe-area-inset-bottom, 0px)
     );
 
     /* Short viewports — tighter hero rhythm and dock room. */
@@ -3965,16 +3975,12 @@ a.os-surface-row,
     :root {
       --portfolio-content-width: min(100%, 24rem);
       --portfolio-hero-gap: 0.85rem;
-      --portfolio-dock-clearance: calc(
-        5.25rem + env(safe-area-inset-bottom, 0px)
-      );
+      --os-dock-clearance-gap: 1.6rem;
     }
 
     @media (max-height: 42rem) {
       :root {
-        --portfolio-dock-clearance: calc(
-          4.5rem + env(safe-area-inset-bottom, 0px)
-        );
+        --os-dock-clearance-gap: 0.85rem;
         --portfolio-hero-gap: 0.72rem;
       }
     }
@@ -7083,8 +7089,8 @@ a.os-surface-row,
     justify-content: flex-start;
     gap: var(--portfolio-hero-gap);
     padding: var(--portfolio-content-start)
-      max(1rem, env(safe-area-inset-right, 0px)) var(--portfolio-dock-clearance)
-      max(1rem, env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px)) var(--portfolio-dock-clearance)
+      max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
     text-align: center;
     transition: padding-top var(--mood-transition-duration)
       var(--mood-transition-ease);
@@ -7112,9 +7118,9 @@ a.os-surface-row,
     z-index: 1;
     width: 100%;
     padding: calc(env(safe-area-inset-top, 0px) + 3.25rem)
-      max(1rem, env(safe-area-inset-right, 0px))
+      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
       calc(env(safe-area-inset-bottom, 0px) + 2rem)
-      max(1rem, env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   }
 
   .portfolio-identity {
@@ -10065,7 +10071,7 @@ a.os-surface-row,
   }
 
   .portfolio-about {
-    /* Match OS screen body pad (--os-screen-body-pad-x: 1rem). */
+    /* Match OS screen body pad (--os-screen-body-pad-x, from --os-gutter). */
     --portfolio-about-inset: max(
       var(--os-screen-body-pad-x, 1rem),
       env(safe-area-inset-left, 0px)
@@ -13386,11 +13392,11 @@ a.os-surface-row,
     --os-chrome-rail-block: 2.16rem;
     --guild-feed-filter-sticky-block: var(--os-chrome-rail-block);
     /*
-     * One body inset for every list / create screen — same 1rem as the
-     * header. Page roots consume --os-screen-body-inset; don't pad the
+     * One body inset for every list / create screen — the shared gutter.
+     * Page roots consume --os-screen-body-inset; don't pad the
      * scroller itself (immersive heroes need to bleed).
      */
-    --os-screen-body-pad-x: 1rem;
+    --os-screen-body-pad-x: var(--os-gutter);
     --os-screen-body-pad-top: 0.15rem;
     --os-screen-body-pad-bottom: 1.5rem;
     --os-screen-body-inset: var(--os-screen-body-pad-top)
@@ -13535,9 +13541,9 @@ a.os-surface-row,
     padding: calc(
         env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y, 0.3rem)
       )
-      max(1rem, env(safe-area-inset-right, 0px))
+      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
       var(--os-app-chrome-pad-y, 0.3rem)
-      max(1rem, env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   }
 
   /* Immersive screens place the bar over top media, then harden on scroll. */
@@ -13709,8 +13715,8 @@ a.os-surface-row,
     > .os-app-screen-column
     > .os-app-screen-header {
     padding: calc(env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y))
-      max(1rem, env(safe-area-inset-right, 0px)) var(--os-app-chrome-pad-y)
-      max(1rem, env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px)) var(--os-app-chrome-pad-y)
+      max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   }
 
   /*
@@ -14970,7 +14976,10 @@ a.os-surface-row,
     align-items: center;
     justify-content: flex-end;
     width: min(100%, var(--os-column-width));
-    padding: 0 1rem calc(0.9rem + env(safe-area-inset-bottom));
+    padding: 0
+      max(var(--os-gutter), env(safe-area-inset-right, 0px))
+      calc(var(--os-dock-bottom-offset) + env(safe-area-inset-bottom))
+      max(var(--os-gutter), env(safe-area-inset-left, 0px));
     pointer-events: none;
     transform: translateX(-50%);
     transition:
@@ -15128,9 +15137,9 @@ a.os-surface-row,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.75rem;
-    min-width: 2.75rem;
-    height: 2.75rem;
+    width: var(--os-dock-height, 2.75rem);
+    min-width: var(--os-dock-height, 2.75rem);
+    height: var(--os-dock-height, 2.75rem);
     padding: 0;
     color: rgb(var(--fg-rgb) / 0.88);
     cursor: pointer;
@@ -15190,9 +15199,9 @@ a.os-surface-row,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.75rem;
-    min-width: 2.75rem;
-    min-height: 2.75rem;
+    width: var(--os-dock-height, 2.75rem);
+    min-width: var(--os-dock-height, 2.75rem);
+    min-height: var(--os-dock-height, 2.75rem);
     align-self: stretch;
     padding: 0;
     margin: 0;
@@ -15235,10 +15244,10 @@ a.os-surface-row,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.75rem;
-    min-width: 2.75rem;
-    height: 2.75rem;
-    min-height: 2.75rem;
+    width: var(--os-dock-height, 2.75rem);
+    min-width: var(--os-dock-height, 2.75rem);
+    height: var(--os-dock-height, 2.75rem);
+    min-height: var(--os-dock-height, 2.75rem);
     padding: 0;
     align-self: end;
     color: rgb(var(--fg-rgb) / 0.78);
@@ -15251,14 +15260,14 @@ a.os-surface-row,
     flex-direction: column;
     align-items: stretch;
     align-self: stretch;
-    width: 2.75rem;
-    min-width: 2.75rem;
+    width: var(--os-dock-height, 2.75rem);
+    min-width: var(--os-dock-height, 2.75rem);
   }
 
   .portfolio-summon.is-writing.has-dock-back-stacked
     .portfolio-summon-account-column {
     display: grid;
-    grid-template-rows: minmax(2.75rem, 1fr) 2.75rem;
+    grid-template-rows: minmax(var(--os-dock-height, 2.75rem), 1fr) var(--os-dock-height, 2.75rem);
     align-items: start;
   }
 
@@ -15281,10 +15290,10 @@ a.os-surface-row,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.75rem;
-    min-width: 2.75rem;
-    height: 2.75rem;
-    min-height: 2.75rem;
+    width: var(--os-dock-height, 2.75rem);
+    min-width: var(--os-dock-height, 2.75rem);
+    height: var(--os-dock-height, 2.75rem);
+    min-height: var(--os-dock-height, 2.75rem);
     padding: 0;
     border-radius: var(--os-write-dock-radius, 1.375rem) 0 0 0;
   }
@@ -15292,9 +15301,9 @@ a.os-surface-row,
   .portfolio-summon.is-writing.has-dock-back:not(.has-dock-back-stacked)
     .portfolio-summon-account {
     align-self: stretch;
-    width: 2.75rem;
-    min-width: 2.75rem;
-    min-height: 2.75rem;
+    width: var(--os-dock-height, 2.75rem);
+    min-width: var(--os-dock-height, 2.75rem);
+    min-height: var(--os-dock-height, 2.75rem);
     padding: 0;
     border-radius: 0;
   }
@@ -15344,7 +15353,7 @@ a.os-surface-row,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 2.75rem;
+    min-width: var(--os-dock-height, 2.75rem);
     padding: 0 0.7rem;
     border: 0;
     background: transparent;
@@ -15385,7 +15394,7 @@ a.os-surface-row,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 2.75rem;
+    min-width: var(--os-dock-height, 2.75rem);
     padding: 0 0.7rem;
     border: 0;
     background: transparent;
@@ -15464,7 +15473,7 @@ a.os-surface-row,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 2.75rem;
+    min-width: var(--os-dock-height, 2.75rem);
     max-width: 4.75rem;
     padding: 0 0.65rem;
     border: 0;
@@ -15473,8 +15482,8 @@ a.os-surface-row,
 
   .portfolio-summon.has-dock-back .portfolio-summon-grip-zone {
     flex: 0 0 auto;
-    min-width: 2.75rem;
-    max-width: 2.75rem;
+    min-width: var(--os-dock-height, 2.75rem);
+    max-width: var(--os-dock-height, 2.75rem);
     padding: 0;
   }
 
@@ -15509,7 +15518,7 @@ a.os-surface-row,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 2.75rem;
+    min-width: var(--os-dock-height, 2.75rem);
     padding: 0 0.7rem;
     border: 0;
     background: transparent;
@@ -15532,7 +15541,7 @@ a.os-surface-row,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.75rem;
+    width: var(--os-dock-height, 2.75rem);
     padding: 0;
     border: 0;
     background: transparent;
@@ -15740,7 +15749,7 @@ a.os-surface-row,
     align-items: stretch;
     gap: 0;
     min-width: 0;
-    min-height: 2.75rem;
+    min-height: var(--os-dock-height, 2.75rem);
     padding: 0;
     transition: min-height 220ms ease;
   }
@@ -15759,9 +15768,9 @@ a.os-surface-row,
   .os-write-dock-bar-actions .os-write-dock-tool {
     flex-shrink: 0;
     align-self: center;
-    width: 2.75rem;
-    height: 2.75rem;
-    min-width: 2.75rem;
+    width: var(--os-dock-height, 2.75rem);
+    height: var(--os-dock-height, 2.75rem);
+    min-width: var(--os-dock-height, 2.75rem);
   }
 
   .os-write-dock-bar-actions .os-write-dock-bar-actions-divider {
@@ -15782,11 +15791,11 @@ a.os-surface-row,
     display: flex;
     align-items: flex-start;
     min-width: 0;
-    min-height: 2.75rem;
+    min-height: var(--os-dock-height, 2.75rem);
     padding: 0 0.45rem 0 0.4rem;
     /* Lock first line to avatar center forever — never re-center as rows add. */
     padding-top: calc(
-      (2.75rem - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
+      (var(--os-dock-height, 2.75rem) - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
     );
   }
 
@@ -15794,7 +15803,7 @@ a.os-surface-row,
     align-items: flex-start;
     padding: 0 0.55rem 0.4rem 0.45rem;
     padding-top: calc(
-      (2.75rem - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
+      (var(--os-dock-height, 2.75rem) - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
     );
   }
 
@@ -15883,8 +15892,8 @@ a.os-surface-row,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.75rem;
-    min-width: 2.75rem;
+    width: var(--os-dock-height, 2.75rem);
+    min-width: var(--os-dock-height, 2.75rem);
     height: auto;
     margin: 0;
     padding: 0;
@@ -15934,9 +15943,9 @@ a.os-surface-row,
     align-items: center;
     justify-content: center;
     align-self: center;
-    width: 2.75rem;
-    height: 2.75rem;
-    min-width: 2.75rem;
+    width: var(--os-dock-height, 2.75rem);
+    height: var(--os-dock-height, 2.75rem);
+    min-width: var(--os-dock-height, 2.75rem);
     padding: 0;
     margin: 0;
     border: 0;
@@ -16055,7 +16064,7 @@ a.os-surface-row,
     align-self: center;
     width: 2rem;
     min-width: 2rem;
-    min-height: 2.75rem;
+    min-height: var(--os-dock-height, 2.75rem);
     margin: -0.35rem 0;
     color: rgb(var(--fg-rgb) / 0.5);
   }
@@ -16139,7 +16148,7 @@ a.os-surface-row,
   }
 
   .os-write-dock.is-compose-open .os-write-dock-bar {
-    min-height: 2.75rem;
+    min-height: var(--os-dock-height, 2.75rem);
   }
 
   /* Same first-line pad as idle — don’t change padding when rows wrap. */
@@ -16147,14 +16156,14 @@ a.os-surface-row,
     align-items: flex-start;
     padding: 0 0.55rem 0.3rem 0.45rem;
     padding-top: calc(
-      (2.75rem - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
+      (var(--os-dock-height, 2.75rem) - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
     );
   }
 
   .os-write-dock.is-compose-open.is-expanded .os-write-dock-field {
     padding: 0 0.55rem 0.38rem 0.45rem;
     padding-top: calc(
-      (2.75rem - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
+      (var(--os-dock-height, 2.75rem) - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
     );
   }
 
@@ -16180,7 +16189,7 @@ a.os-surface-row,
     align-items: center;
     gap: 0;
     min-width: 0;
-    min-height: 2.75rem;
+    min-height: var(--os-dock-height, 2.75rem);
     padding: 0;
   }
 
@@ -16190,14 +16199,14 @@ a.os-surface-row,
     align-items: center;
     gap: 0;
     min-width: 0;
-    min-height: 2.75rem;
+    min-height: var(--os-dock-height, 2.75rem);
   }
 
   .os-write-dock-footer-tools .os-write-dock-tool {
     flex-shrink: 0;
     align-self: center;
-    width: 2.75rem;
-    height: 2.75rem;
+    width: var(--os-dock-height, 2.75rem);
+    height: var(--os-dock-height, 2.75rem);
     min-height: 0;
   }
 
@@ -16235,16 +16244,16 @@ a.os-surface-row,
     align-self: center;
     gap: 0;
     margin-left: auto;
-    min-height: 2.75rem;
+    min-height: var(--os-dock-height, 2.75rem);
   }
 
   .os-write-dock-footer-actions .os-write-dock-tool,
   .os-write-dock-footer-actions .os-write-dock-send {
     flex-shrink: 0;
     align-self: center;
-    width: 2.75rem;
-    height: 2.75rem;
-    min-width: 2.75rem;
+    width: var(--os-dock-height, 2.75rem);
+    height: var(--os-dock-height, 2.75rem);
+    min-width: var(--os-dock-height, 2.75rem);
     min-height: 0;
     padding: 0;
     margin: 0;
@@ -16264,7 +16273,7 @@ a.os-surface-row,
     align-items: center;
     justify-content: flex-end;
     min-width: 2.25rem;
-    height: 2.75rem;
+    height: var(--os-dock-height, 2.75rem);
     padding: 0 0.15rem;
     font-size: 0.7rem;
     font-weight: 600;
@@ -19630,9 +19639,9 @@ a.os-surface-row,
     flex: 1 1 auto;
     align-items: center;
     justify-content: center;
-    padding: 1.25rem max(1rem, env(safe-area-inset-right, 0px))
+    padding: 1.25rem max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
       calc(1rem + env(safe-area-inset-bottom, 0px))
-      max(1rem, env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   }
 
   .account-editor-load-error-card {
@@ -19650,8 +19659,8 @@ a.os-surface-row,
     display: flex;
     flex-direction: column;
     gap: 0.48rem;
-    padding: 0.05rem max(1rem, env(safe-area-inset-right, 0px)) 0.35rem
-      max(1rem, env(safe-area-inset-left, 0px));
+    padding: 0.05rem max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px)) 0.35rem
+      max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   }
 
   @media (min-width: 768px) {
@@ -19948,8 +19957,8 @@ a.os-surface-row,
             var(--account-editor-card-identity-lift, 0rem)
         )
     );
-    padding-inline: max(1rem, env(safe-area-inset-left, 0px))
-      max(1rem, env(safe-area-inset-right, 0px));
+    padding-inline: max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px))
+      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px));
     pointer-events: none;
   }
 
@@ -29688,8 +29697,8 @@ a.os-surface-row,
       /* Body pad is 1.25rem here. Pull flush, then use the Post header inset.
          The chevron is centered in the 2.35rem slot, same as Post Back. */
       margin-inline: -1.25rem;
-      padding-left: max(1rem, env(safe-area-inset-left, 0px));
-      padding-right: max(1rem, env(safe-area-inset-right, 0px));
+      padding-left: max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
+      padding-right: max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px));
     }
   }
 
@@ -33578,7 +33587,7 @@ a.os-surface-row,
    * Members / Treasury / Info hug drawers use `.os-hug-sheet-body` + `.dao-org-hug-content`.
    */
   .dao-proposals-page.os-page-sheet-panel {
-    --os-screen-body-pad-x: 1rem;
+    --os-screen-body-pad-x: var(--os-gutter);
   }
 
   .dao-org-hug-content {
@@ -33703,9 +33712,9 @@ a.os-surface-row,
   }
 
   .profile-edit-sheet-footer {
-    padding: 0.5rem max(1rem, env(safe-area-inset-right, 0px))
+    padding: 0.5rem max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
       calc(0.35rem + env(safe-area-inset-bottom, 0px))
-      max(1rem, env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   }
 
   .drop-variation-set-slide-grid {
@@ -35387,9 +35396,9 @@ a.os-surface-row,
   }
 
   .hub-manage-sheet-footer {
-    padding: 0.5rem max(1rem, env(safe-area-inset-right, 0px))
+    padding: 0.5rem max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
       calc(0.35rem + env(safe-area-inset-bottom, 0px))
-      max(1rem, env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   }
 
   .hub-manage-hint {
@@ -35627,9 +35636,9 @@ a.os-surface-row,
   }
 
   .market-filter-sheet-footer {
-    padding: 0.5rem max(1rem, env(safe-area-inset-right, 0px))
+    padding: 0.5rem max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
       calc(0.35rem + env(safe-area-inset-bottom, 0px))
-      max(1rem, env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   }
 
   /* Drop template pills under the create-drop header. */
@@ -37372,9 +37381,9 @@ a.os-surface-row,
   }
 
   .guild-edit-sheet-footer {
-    padding: 0.5rem max(1rem, env(safe-area-inset-right, 0px))
+    padding: 0.5rem max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
       calc(0.35rem + env(safe-area-inset-bottom, 0px))
-      max(1rem, env(safe-area-inset-left, 0px));
+      max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   }
 
   .guild-edit-form-main {
@@ -41058,10 +41067,10 @@ a.os-surface-row,
 /*
  * Write dock radius — unlayered so it beats imported os-launcher.css
  * `.os-dock-pill { border-radius: 9999px }` (layered rules lose to unlayered).
- * Fixed arc = launcher end-cap at 2.75rem; taller compose grows straight sides.
+ * Fixed arc = half the dock control height; taller compose grows straight sides.
  */
 .os-dock-pill.portfolio-summon.is-writing {
-  --os-write-dock-radius: 1.375rem;
+  --os-write-dock-radius: calc(var(--os-dock-height, 2.75rem) / 2);
   border-radius: var(--os-write-dock-radius) !important;
 }
 
@@ -41134,10 +41143,10 @@ a.os-surface-row,
 .os-dock-pill.portfolio-summon.is-writing:not(.has-dock-back)
   .portfolio-summon-account {
   align-self: flex-start;
-  width: 2.75rem;
-  min-width: 2.75rem;
-  height: 2.75rem;
-  min-height: 2.75rem;
+  width: var(--os-dock-height, 2.75rem);
+  min-width: var(--os-dock-height, 2.75rem);
+  height: var(--os-dock-height, 2.75rem);
+  min-height: var(--os-dock-height, 2.75rem);
   padding: 0;
   border-radius: var(--os-write-dock-radius, 1.375rem) 0 0 0;
 }
@@ -41145,20 +41154,20 @@ a.os-surface-row,
 .os-dock-pill.portfolio-summon.is-writing.has-dock-back-stacked
   .portfolio-summon-account-column
   .portfolio-summon-account {
-  width: 2.75rem;
-  min-width: 2.75rem;
-  height: 2.75rem;
-  min-height: 2.75rem;
+  width: var(--os-dock-height, 2.75rem);
+  min-width: var(--os-dock-height, 2.75rem);
+  height: var(--os-dock-height, 2.75rem);
+  min-height: var(--os-dock-height, 2.75rem);
   padding: 0;
   border-radius: var(--os-write-dock-radius) 0 0 0;
 }
 
 .os-dock-pill.portfolio-summon.is-writing.has-dock-back-stacked
   .portfolio-summon-back--stacked {
-  width: 2.75rem;
-  min-width: 2.75rem;
-  height: 2.75rem;
-  min-height: 2.75rem;
+  width: var(--os-dock-height, 2.75rem);
+  min-width: var(--os-dock-height, 2.75rem);
+  height: var(--os-dock-height, 2.75rem);
+  min-height: var(--os-dock-height, 2.75rem);
   border-radius: 0 0 0 var(--os-write-dock-radius);
 }
 
@@ -41173,10 +41182,10 @@ a.os-surface-row,
     .has-dock-back-stacked
   )
   .portfolio-summon-account {
-  width: 2.75rem;
-  min-width: 2.75rem;
-  height: 2.75rem;
-  min-height: 2.75rem;
+  width: var(--os-dock-height, 2.75rem);
+  min-width: var(--os-dock-height, 2.75rem);
+  height: var(--os-dock-height, 2.75rem);
+  min-height: var(--os-dock-height, 2.75rem);
   padding: 0;
   border-radius: 0;
 }
@@ -41195,8 +41204,8 @@ a.os-surface-row,
   ):not(:has(.os-write-dock-footer-shell.is-open))
   .portfolio-summon-back {
   align-self: flex-end;
-  height: 2.75rem;
-  min-height: 2.75rem;
+  height: var(--os-dock-height, 2.75rem);
+  min-height: var(--os-dock-height, 2.75rem);
 }
 
 .os-dock-pill.portfolio-summon.is-writing.is-compose-tools:not(
@@ -41217,7 +41226,7 @@ a.os-surface-row,
   .os-write-dock.is-compose-open.is-expanded
   .os-write-dock-field {
   padding-top: calc(
-    (2.75rem - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
+    (var(--os-dock-height, 2.75rem) - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
   );
 }
 
@@ -41235,9 +41244,9 @@ a.os-surface-row,
 .os-write-dock-footer-tools .os-write-dock-tool,
 .os-write-dock-footer-actions .os-write-dock-tool,
 .os-write-dock-footer-actions .os-write-dock-send {
-  width: 2.75rem;
-  height: 2.75rem;
-  min-width: 2.75rem;
+  width: var(--os-dock-height, 2.75rem);
+  height: var(--os-dock-height, 2.75rem);
+  min-width: var(--os-dock-height, 2.75rem);
   min-height: 0;
   padding: 0;
   margin: 0;
