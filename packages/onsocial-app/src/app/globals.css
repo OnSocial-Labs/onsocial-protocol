@@ -135,8 +135,8 @@
 /* Same side inset as the slide header. The shared slide body pads the sides to 0. */
 .collection-door-log-slide .os-slide-over-content.collection-door-log,
 .event-guests-slide .os-slide-over-content.event-guests {
-  padding: 0.45rem max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
-    1.5rem max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
+  padding: 0.45rem max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px)) 1.5rem
+    max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   gap: 0.7rem;
 }
 
@@ -4203,7 +4203,7 @@ a.os-surface-row,
     align-items: center;
     justify-content: center;
     gap: 0.65rem;
-    padding: 0 1.5rem 1.5rem;
+    padding: 0 1.5rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
     pointer-events: none;
   }
 
@@ -4222,16 +4222,17 @@ a.os-surface-row,
 
   .gate-connect-button {
     pointer-events: auto;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    border: 0;
     border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.04);
-    backdrop-filter: blur(12px);
-    color: rgb(var(--fg-rgb) / 0.72);
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.88);
     font: inherit;
-    font-size: 0.78rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    padding: 0.65rem 1rem;
+    font-size: var(--os-identity-name-size);
+    font-weight: var(--os-identity-name-weight);
+    letter-spacing: normal;
+    text-transform: none;
+    padding: 0 1rem;
+    min-height: 2.75rem;
     cursor: pointer;
     text-decoration: none;
     transition:
@@ -4241,8 +4242,27 @@ a.os-surface-row,
       transform 120ms ease;
   }
 
+  /* Install stays the quiet secondary chip. The connect control is the dock pill. */
+  .gate-connect-button.gate-connect-install {
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    background: rgb(var(--fg-rgb) / 0.04);
+    backdrop-filter: blur(12px);
+    color: rgb(var(--fg-rgb) / 0.72);
+    font-size: 0.78rem;
+    font-weight: inherit;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.65rem 1rem;
+    min-height: 0;
+  }
+
+  .gate-connect-button.os-dock-pill {
+    --os-dock-fill: var(--os-surface-fill-strong);
+    height: 2.75rem;
+  }
+
   @media (hover: hover) and (pointer: fine) {
-    .gate-connect-button:hover {
+    .gate-connect-button.gate-connect-install:hover {
       border-color: rgb(var(--fg-rgb) / 0.2);
       background: rgb(var(--fg-rgb) / 0.07);
       color: rgb(var(--fg-rgb) / 0.92);
@@ -4250,6 +4270,11 @@ a.os-surface-row,
   }
 
   .gate-connect-button:focus-visible {
+    outline: 2px solid var(--protocol-blue-ink);
+    outline-offset: 2px;
+  }
+
+  .gate-connect-button.gate-connect-install:focus-visible {
     outline: none;
     border-color: rgb(var(--fg-rgb) / 0.2);
     color: rgb(var(--fg-rgb) / 0.92);
@@ -7164,8 +7189,7 @@ a.os-surface-row,
     justify-content: flex-start;
     gap: var(--portfolio-hero-gap);
     padding: var(--portfolio-content-start)
-      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
-      var(--portfolio-dock-clearance)
+      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px)) var(--portfolio-dock-clearance)
       max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
     text-align: center;
     transition: padding-top var(--mood-transition-duration)
@@ -13791,8 +13815,7 @@ a.os-surface-row,
     > .os-app-screen-column
     > .os-app-screen-header {
     padding: calc(env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y))
-      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
-      var(--os-app-chrome-pad-y)
+      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px)) var(--os-app-chrome-pad-y)
       max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   }
 
@@ -15053,7 +15076,8 @@ a.os-surface-row,
     align-items: center;
     justify-content: flex-end;
     width: min(100%, var(--os-column-width));
-    padding: 0 max(var(--os-gutter), env(safe-area-inset-right, 0px))
+    padding: 0
+      max(var(--os-gutter), env(safe-area-inset-right, 0px))
       calc(var(--os-dock-bottom-offset) + env(safe-area-inset-bottom))
       max(var(--os-gutter), env(safe-area-inset-left, 0px));
     pointer-events: none;
@@ -19734,8 +19758,7 @@ a.os-surface-row,
     flex: 1 1 auto;
     align-items: center;
     justify-content: center;
-    padding: 1.25rem
-      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
+    padding: 1.25rem max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
       calc(1rem + env(safe-area-inset-bottom, 0px))
       max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   }
@@ -19755,8 +19778,7 @@ a.os-surface-row,
     display: flex;
     flex-direction: column;
     gap: 0.48rem;
-    padding: 0.05rem
-      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px)) 0.35rem
+    padding: 0.05rem max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px)) 0.35rem
       max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   }
 
@@ -41500,8 +41522,44 @@ body:has(.portfolio-summon-dock[data-mood='glass'])
   );
 }
 
+/*
+ * Gate connect composes `.os-dock-pill`. Frost, shadow, and the top lip stay
+ * on that shared rule. The gate field is flat `--bg`, so `--glass-surface`
+ * and `--glass-surface-solid` do not separate from it; the strongest surface
+ * fill does, in both themes.
+ */
+.os-dock-pill.gate-connect-button {
+  --os-dock-fill: var(--os-surface-fill-strong);
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  margin: 0;
+  padding: 0 1rem;
+  font-size: var(--os-identity-name-size);
+  font-weight: var(--os-identity-name-weight);
+  letter-spacing: normal;
+  text-transform: none;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.os-dock-pill.gate-connect-button:focus-visible {
+  outline: 2px solid var(--protocol-blue-ink);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .os-dock-pill.gate-connect-button:hover {
+    color: var(--os-identity-name);
+  }
+}
+
 .os-dock-pill.portfolio-summon::before,
-.os-dock-pill.home-feed-new-posts-pill::before {
+.os-dock-pill.home-feed-new-posts-pill::before,
+.os-dock-pill.gate-connect-button::before {
   background: var(--os-dock-fill);
   /* Standard only — a -webkit- pair makes Lightning drop the blur. */
   backdrop-filter: blur(20px) saturate(1.3);
@@ -41535,6 +41593,11 @@ body:has(.portfolio-summon-dock[data-mood='glass'])
   .os-dock-pill.home-feed-new-posts-pill::before {
     backdrop-filter: none;
     background: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.94));
+  }
+
+  .os-dock-pill.gate-connect-button::before {
+    backdrop-filter: none;
+    background: var(--os-dock-fill);
   }
 
   .home-feed-pull > .home-feed-pull-pill::before {

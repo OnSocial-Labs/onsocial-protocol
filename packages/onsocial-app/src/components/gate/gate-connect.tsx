@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { osDockPillClassName } from '@onsocial/ui';
 import { GatePwaInstall } from '@/components/gate/gate-pwa-install';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { gateContinuePath } from '@/lib/overlay-routes';
@@ -12,9 +13,7 @@ export function GateConnect() {
 
   useEffect(() => {
     if (!isLoading && isConnected && accountId) {
-      router.replace(
-        gateContinuePath(accountId, window.location.search)
-      );
+      router.replace(gateContinuePath(accountId, window.location.search));
     }
   }, [accountId, isConnected, isLoading, router]);
 
@@ -32,8 +31,12 @@ export function GateConnect() {
 
   return (
     <div className="gate-connect">
-      <button className="gate-connect-button" type="button" onClick={connect}>
-        Let’s connect
+      <button
+        className={`${osDockPillClassName} gate-connect-button`}
+        type="button"
+        onClick={connect}
+      >
+        <span className="gate-connect-label">Let’s connect</span>
       </button>
       <GatePwaInstall />
     </div>
