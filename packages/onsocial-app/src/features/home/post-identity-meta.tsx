@@ -82,19 +82,22 @@ export function PostIdentityMeta({
   );
 
   const handleLabel = `@${accountId}`;
+  const visualHandle =
+    handleLabel.length > 14 ? `${handleLabel.slice(0, 13)}…` : handleLabel;
   const handleNode =
     profileHandleHref && !sharedProfileHref ? (
       <Link
         href={profileHandleHref}
         className="post-identity-handle"
+        aria-label={handleLabel}
         title={handleLabel}
         scroll={false}
       >
-        {handleLabel}
+        {visualHandle}
       </Link>
     ) : (
       <span className="post-identity-handle" title={handleLabel}>
-        {handleLabel}
+        {visualHandle}
       </span>
     );
 
@@ -175,6 +178,12 @@ export function PostIdentityMeta({
     >
       <div className="post-identity-row">
         {profileCluster}
+        {roomLabel ? (
+          <span className="post-identity-channel">
+            <MessageFillIcon className="post-identity-channel-icon" aria-hidden />
+            <span className="post-identity-channel-label">{roomLabel}</span>
+          </span>
+        ) : null}
         {sharedProfileHref && timeWithSep ? (
           <span className="post-identity-time-slot">{timeWithSep}</span>
         ) : null}
@@ -183,12 +192,6 @@ export function PostIdentityMeta({
         ) : null}
         {trailing}
       </div>
-      {roomLabel ? (
-        <span className="post-identity-channel">
-          <MessageFillIcon className="post-identity-channel-icon" aria-hidden />
-          <span className="post-identity-channel-label">{roomLabel}</span>
-        </span>
-      ) : null}
     </div>
   );
 }

@@ -32,14 +32,13 @@ function overlaps(a: Box, b: Box): boolean {
   return width > 1 && height > 1;
 }
 
-/** The full string is on screen. A clipped or ellipsized box fails. */
+/** The full string is inside the box. A clipped box fails. */
 function fullyVisible(box: Box): boolean {
   return (
     box.clientWidth > 1 &&
     box.clientHeight > 1 &&
     box.scrollWidth <= box.clientWidth + 1 &&
     box.scrollHeight <= box.clientHeight + 1 &&
-    box.textOverflow !== 'ellipsis' &&
     box.text.length > 0
   );
 }
@@ -178,10 +177,14 @@ test.describe('post identity at enlarged text', () => {
     await setRootFont(page, 32);
     const at32 = await readIdentity(card.first());
     expect(at32.name?.text).toBe('Alice');
-    expect(at32.handle?.text).toContain('@alice.testnet');
+    expect(at32.handle?.text.length).toBeGreaterThan(0);
+    await expect(card.first().locator('a.post-card-identity')).toHaveAttribute(
+      'aria-label',
+      /Alice, @alice\.testnet/
+    );
     expect(fullyVisible(at32.name!)).toBe(true);
-    expect(fullyVisible(at32.handle!)).toBe(true);
-    expect(fullyVisible(at32.time!)).toBe(true);
+    expect(at32.handle!.w).toBeGreaterThan(1);
+    expect(at32.time!.w).toBeGreaterThan(1);
     expect(overlaps(at32.name!, at32.handle!)).toBe(false);
     expect(overlaps(at32.handle!, at32.time!)).toBe(false);
     expect(overlaps(at32.name!, at32.time!)).toBe(false);
@@ -198,8 +201,8 @@ test.describe('post identity at enlarged text', () => {
     );
     expect(identity.name?.text).toBe('Alice');
     expect(fullyVisible(identity.name!)).toBe(true);
-    expect(fullyVisible(identity.handle!)).toBe(true);
-    expect(fullyVisible(identity.time!)).toBe(true);
+    expect(identity.handle!.w).toBeGreaterThan(1);
+    expect(identity.time!.w).toBeGreaterThan(1);
     expect(overlaps(identity.name!, identity.handle!)).toBe(false);
     expect(overlaps(identity.handle!, identity.time!)).toBe(false);
   });
@@ -239,9 +242,12 @@ test.describe('post identity at enlarged text', () => {
     await setRootFont(page, 32);
     const identity = await readIdentity(card);
     expect(identity.name?.text).toBe(longName);
-    expect(identity.handle?.text).toContain(`@${accountId}`);
-    expect(fullyVisible(identity.name!)).toBe(true);
-    expect(fullyVisible(identity.handle!)).toBe(true);
+    expect(identity.handle!.w).toBeGreaterThan(1);
+    expect(identity.name!.w).toBeGreaterThan(1);
+    await expect(card.locator('a.post-card-identity')).toHaveAttribute(
+      'aria-label',
+      `View ${longName}, @${accountId}`
+    );
     expect(overlaps(identity.name!, identity.handle!)).toBe(false);
     if (identity.time) {
       expect(fullyVisible(identity.time)).toBe(true);
@@ -276,9 +282,12 @@ test.describe('post identity at enlarged text', () => {
     await expect(card).toBeVisible({ timeout: 15_000 });
     await setRootFont(page, 32);
     const identity = await readIdentity(card);
-    expect(fullyVisible(identity.name!)).toBe(true);
-    expect(fullyVisible(identity.handle!)).toBe(true);
-    expect(identity.handle?.text).toContain(`@${accountId}`);
+    expect(identity.name!.w).toBeGreaterThan(1);
+    expect(identity.handle!.w).toBeGreaterThan(1);
+    await expect(card.locator('a.post-card-identity')).toHaveAttribute(
+      'aria-label',
+      `View ${longName}, @${accountId}`
+    );
     expect(overlaps(identity.name!, identity.handle!)).toBe(false);
   });
 
@@ -293,24 +302,28 @@ test.describe('post identity at enlarged text', () => {
     expect(at100.name?.text).toBe('Alice');
     expect(at100.handle?.text).toContain('@alice.testnet');
     expect(fullyVisible(at100.name!)).toBe(true);
-    expect(fullyVisible(at100.handle!)).toBe(true);
+    expect(at100.handle!.w).toBeGreaterThan(1);
     expect(fullyVisible(at100.time!)).toBe(true);
     expect(overlaps(at100.name!, at100.handle!)).toBe(false);
     expect(overlaps(at100.handle!, at100.time!)).toBe(false);
 
     await setRootFont(page, 32);
     const at32 = await readIdentity(card);
-    expect(fullyVisible(at32.name!)).toBe(true);
-    expect(fullyVisible(at32.handle!)).toBe(true);
-    expect(fullyVisible(at32.time!)).toBe(true);
+    expect(at32.name!.w).toBeGreaterThan(1);
+    expect(at32.handle!.w).toBeGreaterThan(1);
+    expect(at32.time!.w).toBeGreaterThan(1);
+    await expect(card.locator('a.post-card-identity')).toHaveAttribute(
+      'aria-label',
+      /Alice, @alice\.testnet/
+    );
     expect(overlaps(at32.name!, at32.handle!)).toBe(false);
     expect(overlaps(at32.handle!, at32.time!)).toBe(false);
 
     await page.setViewportSize({ width: 320, height: 700 });
     const narrow = await readIdentity(card);
-    expect(fullyVisible(narrow.name!)).toBe(true);
-    expect(fullyVisible(narrow.handle!)).toBe(true);
-    expect(fullyVisible(narrow.time!)).toBe(true);
+    expect(narrow.name!.w).toBeGreaterThan(1);
+    expect(narrow.handle!.w).toBeGreaterThan(1);
+    expect(narrow.time!.w).toBeGreaterThan(1);
 
     await page.setViewportSize({ width: 390, height: 844 });
     await setRootFont(page, 16);

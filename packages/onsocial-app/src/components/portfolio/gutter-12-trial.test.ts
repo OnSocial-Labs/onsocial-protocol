@@ -110,18 +110,21 @@ describe('12px gutter trial', () => {
     );
   });
 
-  it('lets the post header shrink the name and wrap the action row', () => {
+  it('keeps a normal feed header on one line and separates wrapped action hit boxes', () => {
     expect(globalsCss).toMatch(
-      /\.post-identity-inline-cluster \.post-identity-handle \{[\s\S]*?min-width:\s*min\(100%, 3\.5ch\);[\s\S]*?white-space:\s*normal;/
-    );
-    expect(globalsCss).not.toMatch(
-      /\.post-identity-inline-cluster \.post-identity-handle \{[^}]*text-overflow:\s*ellipsis;/
+      /\.post-identity-inline-cluster \.post-identity-name,[\s\S]*?min-width:\s*4ch;[\s\S]*?text-overflow:\s*ellipsis;/
     );
     expect(globalsCss).toMatch(
-      /@media \(max-width: 639px\) \{\s*\.post-card-menu-trigger \{\s*width:\s*var\(--os-icon-hit\);\s*height:\s*var\(--os-icon-hit\);/
+      /\.post-identity-inline-cluster \.post-identity-handle \{[^}]*min-width:\s*3\.5ch;[^}]*text-overflow:\s*ellipsis;/
     );
     expect(globalsCss).toMatch(
-      /\.post-card-engagement-actions \{[\s\S]*?flex-wrap:\s*wrap;/
+      /\.post-identity-time-slot \{[^}]*flex:\s*0 0 auto;/
+    );
+    expect(globalsCss).toMatch(
+      /\.post-card-engagement-actions \{[^}]*row-gap:\s*1\.05rem;/
+    );
+    expect(globalsCss).toMatch(
+      /\.post-card-engagement-actions > \.post-card-stat,[\s\S]*?flex:\s*1 1 0;[\s\S]*?min-width:\s*min-content;/
     );
   });
 });

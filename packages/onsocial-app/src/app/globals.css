@@ -22954,10 +22954,11 @@ a.os-surface-row,
    */
   .post-card-identity {
     display: flex;
-    align-items: flex-start;
-    /* Stay as wide as the name, and take the whole line when that no longer fits. */
-    min-width: min(100%, max-content);
-    flex: 1 1 auto;
+    align-items: center;
+    /* Leave room for the date and More. The name and id shrink inside.
+       The floor makes an enlarged row wrap those controls instead of covering them. */
+    min-width: min(100%, 6.5rem);
+    flex: 1 1 0;
     max-width: 100%;
     color: inherit;
     text-decoration: none;
@@ -22983,9 +22984,9 @@ a.os-surface-row,
 
   .post-identity-time-slot {
     display: inline-flex;
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     align-items: center;
-    min-width: 0;
+    min-width: max-content;
     max-width: 100%;
     overflow: visible;
     font-size: 0.875rem;
@@ -22995,7 +22996,7 @@ a.os-surface-row,
   }
 
   .post-identity-spacer {
-    flex: 1 1 auto;
+    flex: 0 0 0.35rem;
     min-width: 0.35rem;
   }
 
@@ -23151,11 +23152,11 @@ a.os-surface-row,
     line-height: 1.5;
   }
 
-  /* Feed: Name marks @handle · time. Wrap when the line cannot hold them. */
+  /* Feed: name, marks, and a shortened id stay on one line at normal size. */
   .post-identity-inline-cluster {
     display: inline-flex;
     flex: 1 1 auto;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 0.28em;
     min-width: 0;
@@ -23168,9 +23169,12 @@ a.os-surface-row,
 
   .post-identity-inline-cluster .post-identity-name,
   .post-identity-name-cluster .post-identity-name {
-    flex: 0 0 auto;
-    min-width: 0;
+    flex: 1 1 0;
+    min-width: 4ch;
     max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: 1em;
     font-weight: inherit;
     letter-spacing: inherit;
@@ -23178,12 +23182,12 @@ a.os-surface-row,
   }
 
   .post-identity-inline-cluster .post-identity-handle {
-    flex: 1 1 auto;
-    min-width: min(100%, 3.5ch);
-    max-width: 100%;
-    overflow: visible;
-    overflow-wrap: anywhere;
-    white-space: normal;
+    flex: 1 1 3.5ch;
+    min-width: 3.5ch;
+    max-width: 12ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: var(--os-identity-meta-size, 0.82em);
     font-weight: var(--os-identity-handle-weight, 400);
     line-height: inherit;
@@ -23216,10 +23220,9 @@ a.os-surface-row,
 
   .post-identity-inline-cluster .post-identity-time,
   .post-identity-time-slot .post-identity-time {
-    flex: 1 1 auto;
-    overflow: visible;
-    overflow-wrap: anywhere;
-    white-space: normal;
+    flex: 0 0 auto;
+    overflow: hidden;
+    white-space: nowrap;
     max-width: 100%;
     font-size: var(--os-identity-meta-size, 0.82em);
     font-weight: 400;
@@ -23334,6 +23337,12 @@ a.os-surface-row,
   a.post-identity-time:focus-visible {
     outline: 1px solid var(--os-surface-ring);
     outline-offset: 2px;
+  }
+
+  .post-identity-row > .post-identity-channel {
+    flex: 0 1 auto;
+    max-width: 6.5rem;
+    margin: 0;
   }
 
   .post-identity-channel {
@@ -24653,8 +24662,10 @@ a.os-surface-row,
     flex: 1 1 auto;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.35rem 0.55rem;
-    width: auto;
+    column-gap: 0.55rem;
+    /* Clears the -0.35rem block margins on both sides of a wrapped control. */
+    row-gap: 1.05rem;
+    width: 100%;
     min-width: 0;
   }
 
@@ -24663,22 +24674,10 @@ a.os-surface-row,
   .post-card-engagement-actions > .post-card-react-cluster,
   .post-card-engagement-actions > .post-card-amplify {
     justify-content: flex-start;
+    flex: 1 1 0;
     width: auto;
-    flex: 0 0 auto;
-    min-width: 0;
+    min-width: min-content;
     white-space: nowrap;
-  }
-
-  /* The shared hit padding uses a negative margin. On a wrapped row that
-     margin pulls the next control's box into the one above it. Keep the
-     inline margin so a single line stays put, and let the row gap separate
-     the hit boxes. */
-  .post-card-engagement .post-card-stat-button,
-  .post-card-engagement .post-card-react,
-  .post-card-engagement .post-card-amplify,
-  .post-card-engagement .post-card-share,
-  .post-card-engagement .post-card-save {
-    margin-block: 0;
   }
 
   .post-card-engagement-trailing {
