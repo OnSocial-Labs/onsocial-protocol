@@ -5,6 +5,10 @@ const host = process.env.E2E_HOST ?? 'localhost';
 const baseURL = process.env.E2E_BASE_URL ?? `http://${host}:${port}`;
 const useNextStart =
   process.env.CI === 'true' || process.env.E2E_NEXT_START === '1';
+// CI still builds and starts the app before any spec. The e2e Turbopack
+// build on eb88c258 exited 1 resolving next/font Newsreader
+// ("queries have exactly one entry") and ran no tests. The same SHA's
+// Build & Check Turbopack compile succeeded, so the e2e server uses webpack.
 
 export default defineConfig({
   testDir: './e2e',
@@ -29,7 +33,7 @@ export default defineConfig({
     ? undefined
     : {
         command: useNextStart
-          ? `pnpm run build:deps && pnpm exec next build && pnpm exec next start --port ${port}`
+          ? `pnpm run build:deps && pnpm exec next build --webpack && pnpm exec next start --port ${port}`
           : `pnpm run build:deps && pnpm exec next dev --port ${port}`,
         url: baseURL,
         reuseExistingServer: !process.env.CI,
