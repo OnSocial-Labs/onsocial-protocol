@@ -57,13 +57,22 @@ export function PostIdentityMeta({
     authorHref && profileHandleHref === authorHref ? authorHref : null;
 
   const nameNode = sharedProfileHref ? (
-    <span className="post-identity-name">{name}</span>
+    <span className="post-identity-name" title={name}>
+      {name}
+    </span>
   ) : authorHref ? (
-    <Link href={authorHref} className="post-identity-name" scroll={false}>
+    <Link
+      href={authorHref}
+      className="post-identity-name"
+      title={name}
+      scroll={false}
+    >
       {name}
     </Link>
   ) : (
-    <span className="post-identity-name">{name}</span>
+    <span className="post-identity-name" title={name}>
+      {name}
+    </span>
   );
 
   const marksNode = (
