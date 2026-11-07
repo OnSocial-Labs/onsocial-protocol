@@ -16,6 +16,28 @@ const collection = readFileSync(
 );
 
 describe('page drawer feed inset', () => {
+  it('raises the phone scale without moving the dock or the gutter', () => {
+    expect(globalsCss).toMatch(
+      /html \{\s*scrollbar-gutter: stable;\s*font-size: 100%;/
+    );
+    expect(globalsCss).toMatch(/--os-dock-bottom-offset:\s*0\.9rem;/);
+    expect(globalsCss).toMatch(
+      /@media \(max-width: 639px\) \{\s*:root \{\s*--os-dock-height:\s*3rem;/
+    );
+    expect(globalsCss).toMatch(/--os-grip-width:\s*2\.5rem;/);
+    expect(globalsCss).toMatch(/--os-grip-thickness:\s*0\.25rem;/);
+    expect(globalsCss).toMatch(/--os-post-body-size:\s*1rem;/);
+    expect(globalsCss).toMatch(/--os-identity-name-size:\s*0\.9375rem;/);
+    expect(globalsCss).toMatch(/--os-identity-meta-size:\s*0\.875rem;/);
+    expect(globalsCss).toMatch(/--os-meta-size:\s*0\.875rem;/);
+    expect(globalsCss).toMatch(/--os-article-title-size:\s*1\.125rem;/);
+    expect(globalsCss).toMatch(/--os-avatar-feed:\s*2\.5rem;/);
+    expect(globalsCss).toMatch(/--os-avatar-nav:\s*2\.25rem;/);
+    expect(globalsCss).toMatch(/--os-control-primary:\s*3rem;/);
+    expect(globalsCss).toMatch(/--os-nav-band:\s*var\(--os-icon-hit\);/);
+    expect(globalsCss).not.toMatch(/font-size:\s*0\.82em;/);
+  });
+
   it('shares the gutter and derives dock clearance from the control box', () => {
     expect(globalsCss).toMatch(/--os-gutter:\s*1rem;/);
     expect(globalsCss).toMatch(/--os-dock-height:\s*2\.75rem;/);

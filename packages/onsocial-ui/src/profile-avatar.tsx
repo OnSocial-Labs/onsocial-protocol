@@ -25,12 +25,35 @@ export function profileAvatarShapeClassName(
 /** Two rungs cover every avatar slot: ≤36px base sizes and ~96px heroes at 3x. */
 const AVATAR_VARIANT_WIDTHS = [128, 384] as const;
 
-/** Rendered width per base size — profile-avatar--sm/md/lg at 16px root. */
+/** Rendered width per base size — profile-avatar--sm/md/lg at a 16px root. */
 const AVATAR_IMG_SIZES: Record<ProfileAvatarSize, string> = {
   sm: '22px',
   md: '32px',
   lg: '36px',
 };
+
+/**
+ * CSS enlarges some faces below 640px. The sizes hint has to follow that box
+ * so the image request matches the face, not the untouched size class.
+ */
+function avatarImgSizes(
+  size: ProfileAvatarSize,
+  className: string | undefined,
+  imgSizes: string | undefined
+): string {
+  if (imgSizes) return imgSizes;
+  if (className?.includes('post-card-avatar')) {
+    return '(max-width: 639px) 40px, 36px';
+  }
+  if (
+    className?.includes('os-nav-face') ||
+    className?.includes('account-drawer-avatar') ||
+    className?.includes('os-chrome-subject__avatar')
+  ) {
+    return `(max-width: 639px) 36px, ${AVATAR_IMG_SIZES[size]}`;
+  }
+  return AVATAR_IMG_SIZES[size];
+}
 
 export interface ProfileAvatarProps {
   src?: string | null;
@@ -117,7 +140,7 @@ export function ProfileAvatar({
           ref={imgRef}
           src={src ?? undefined}
           srcSet={srcSet}
-          sizes={srcSet ? (imgSizes ?? AVATAR_IMG_SIZES[size]) : undefined}
+          sizes={srcSet ? avatarImgSizes(size, className, imgSizes) : undefined}
           alt=""
           className="profile-avatar__img"
           loading="lazy"

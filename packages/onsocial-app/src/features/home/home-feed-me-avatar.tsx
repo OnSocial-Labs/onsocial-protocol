@@ -21,7 +21,7 @@ export function HomeFeedMeAvatar() {
     if (isLoading) {
       return (
         <span className="home-feed-me-avatar" aria-hidden>
-          <AccountAvatar size="sm" shellLoading />
+          <AccountAvatar className="os-nav-face" size="sm" shellLoading />
         </span>
       );
     }
@@ -57,6 +57,7 @@ export function HomeFeedMeAvatar() {
         fallbackInitial={label}
         shellLoading={shellLoading}
         size="sm"
+        className="os-nav-face"
       />
     </button>
   );

@@ -426,7 +426,7 @@
   width: 100%;
   max-width: 4.5rem;
   font-weight: 500;
-  font-size: 0.62rem;
+  font-size: var(--os-launcher-label-size, 0.62rem);
   letter-spacing: -0.01em;
   line-height: 1.15;
   text-align: center;
@@ -449,6 +449,13 @@
 
 .os-launcher-item:focus-visible {
   outline: none;
+}
+
+@media (max-width: 639px) {
+  .os-launcher-item:focus-visible {
+    outline: 2px solid var(--protocol-blue-ink);
+    outline-offset: 2px;
+  }
 }
 
 .os-launcher-item:hover .os-launcher-item-label,
@@ -495,7 +502,7 @@
   right: -0.2rem;
   padding: 0.1rem 0.28rem;
   border-radius: 9999px;
-  font-size: 0.48rem;
+  font-size: var(--os-launcher-soon-size, 0.48rem);
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;

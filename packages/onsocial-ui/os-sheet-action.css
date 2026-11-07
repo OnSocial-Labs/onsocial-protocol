@@ -120,7 +120,7 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 2.75rem;
+  min-height: var(--os-control-primary, 2.75rem);
   padding: 0.7rem 1rem;
   border: 1px solid var(--os-action-border);
   border-radius: 9999px;
@@ -506,13 +506,13 @@
 
 @media (max-width: 380px) {
   .os-sheet-action {
-    min-height: 2.625rem;
+    min-height: var(--os-control-primary, 2.625rem);
     padding: 0.62rem 0.9rem;
     font-size: 0.8125rem;
   }
 
   .os-sheet-actions--row-compact .os-sheet-action {
-    min-height: 2.5rem;
+    min-height: var(--os-control-primary, 2.5rem);
     padding: 0.55rem 0.65rem;
     font-size: 0.75rem;
   }
@@ -585,7 +585,7 @@
 }
 
 .os-sheet-actions--row-compact .os-sheet-action {
-  min-height: 2.75rem;
+  min-height: var(--os-control-primary, 2.75rem);
   padding: 0.65rem 0.75rem;
   font-size: 0.8125rem;
 }

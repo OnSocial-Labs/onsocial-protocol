@@ -1039,7 +1039,7 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
 .scarce-thought-slide,
 .feed-article-slide,
 .scarce-read-slide:has(.scarce-writing-read) {
-  --os-app-screen-nav-row-height: 2.35rem;
+  --os-app-screen-nav-row-height: var(--os-nav-band, 2.35rem);
   --os-app-chrome-pad-y: 0.3rem;
 }
 
@@ -3115,8 +3115,18 @@ a.os-surface-row,
     --portfolio-shelf-meta-gap: 0.22rem;
     /* One horizontal text gutter. html stays font-size: 100%. */
     --os-gutter: 1rem;
-    /* Dock control box. 2.75rem is the current pill, back, compose, and marks. */
+    /* Dock control box. 2.75rem is the current pill, back, compose, and marks.
+       Below 640px the phone block raises this to 3rem. Do not change the offset. */
     --os-dock-height: 2.75rem;
+    /* Shared grip bar. Mood finishes that draw their own bar override these. */
+    --os-grip-width: 2.25rem;
+    --os-grip-thickness: 0.1875rem;
+    /* Compact nav band. Phone raises it to the icon hit so chrome is not shrunk. */
+    --os-nav-band: 2.35rem;
+    /* Icon hit box. Glyphs stay on their own size. */
+    --os-icon-hit: 2.75rem;
+    /* Primary commit control. Phone raises this to 3rem. */
+    --os-control-primary: 2.75rem;
     /* Offset under the control. The dock padding uses this same length.
        Safe area is added once, here in clearance and in that padding, not both. */
     --os-dock-bottom-offset: 0.9rem;
@@ -3571,6 +3581,71 @@ a.os-surface-row,
   a {
     color: inherit;
     text-decoration: none;
+  }
+}
+
+/*
+ * Phone scale. Root font stays 100%, so 1rem is still the gutter.
+ * Wider viewports keep the base tokens. The dock offset is not in this block:
+ * a taller control grows upward and clearance follows --os-dock-height.
+ */
+@media (max-width: 639px) {
+  :root {
+    --os-dock-height: 3rem;
+    --os-grip-width: 2.5rem;
+    --os-grip-thickness: 0.25rem;
+    --os-grip-opacity: 0.72;
+    --os-nav-band: var(--os-icon-hit);
+    --os-control-primary: 3rem;
+    --os-identity-name-size: 0.9375rem;
+    --os-identity-meta-size: 0.875rem;
+    --os-meta-size: 0.875rem;
+    --os-post-body-size: 1rem;
+    --os-post-body-leading: 1.5;
+    --os-article-title-size: 1.125rem;
+    --os-avatar-feed: 2.5rem;
+    --os-avatar-nav: 2.25rem;
+    --os-launcher-label-size: 0.75rem;
+    --os-launcher-soon-size: 0.75rem;
+  }
+
+  .home-feed-me-avatar {
+    width: var(--os-icon-hit);
+    height: var(--os-icon-hit);
+  }
+
+  .home-feed-me-avatar .profile-avatar,
+  .portfolio-summon-account .profile-avatar,
+  .account-drawer-avatar.profile-avatar,
+  .os-app-screen-heading .profile-avatar,
+  .portfolio-writing-chrome-subject .profile-avatar {
+    width: var(--os-avatar-nav);
+    height: var(--os-avatar-nav);
+  }
+
+  /* Sm initial is sized for a 1.35rem face. These faces use the nav box. */
+  .home-feed-me-avatar .profile-avatar__initial,
+  .portfolio-summon-account .profile-avatar__initial,
+  .account-drawer-avatar .profile-avatar__initial,
+  .os-app-screen-heading .profile-avatar__initial,
+  .portfolio-writing-chrome-subject .profile-avatar__initial {
+    font-size: 0.72rem;
+  }
+
+  .account-drawer-identity {
+    grid-template-columns: var(--os-avatar-nav) minmax(0, 1fr);
+  }
+
+  .post-card-avatar.profile-avatar {
+    width: var(--os-avatar-feed);
+    height: var(--os-avatar-feed);
+  }
+
+  /* Bylines match a standing row, not the feed face. */
+  .portfolio-writing-article-author .profile-avatar,
+  .collection-writing-byline .profile-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
   }
 }
 
@@ -11197,7 +11272,7 @@ a.os-surface-row,
 
   .portfolio-writing-article-author .os-media-face-identity-name-row {
     gap: 0.3em;
-    font-size: 0.875rem;
+    font-size: var(--os-identity-name-size, 0.875rem);
     font-weight: 600;
     letter-spacing: -0.01em;
     line-height: 1.5;
@@ -11209,7 +11284,7 @@ a.os-surface-row,
   }
 
   .portfolio-writing-article-author .os-media-face-identity-handle {
-    font-size: 0.72rem;
+    font-size: var(--os-identity-meta-size, 0.72rem);
     line-height: 1.45;
   }
 
@@ -13396,7 +13471,7 @@ a.os-surface-row,
   .os-app-screen {
     --glass-header-scrim-height: var(--glass-screen-header-scrim-height);
     /* One nav scale — Market / Post / immersive drop share this seat. */
-    --os-app-screen-nav-row-height: 2.35rem;
+    --os-app-screen-nav-row-height: var(--os-nav-band, 2.35rem);
     --os-app-chrome-pad-y: 0.3rem;
     --os-app-screen-chrome-height: calc(
       var(--os-app-chrome-pad-y) + var(--os-app-screen-nav-row-height) +
@@ -13655,7 +13730,7 @@ a.os-surface-row,
   }
 
   .os-app-screen[data-compact-chrome='true'] {
-    --os-app-screen-nav-row-height: 2.35rem;
+    --os-app-screen-nav-row-height: var(--os-nav-band, 2.35rem);
     /* Equal pad above search and below chips — avoids “more top / less bottom”. */
     --os-app-chrome-pad-y: 0.3rem;
     --os-app-screen-chrome-height: calc(
@@ -15292,7 +15367,10 @@ a.os-surface-row,
   .portfolio-summon.is-writing.has-dock-back-stacked
     .portfolio-summon-account-column {
     display: grid;
-    grid-template-rows: minmax(var(--os-dock-height, 2.75rem), 1fr) var(--os-dock-height, 2.75rem);
+    grid-template-rows: minmax(var(--os-dock-height, 2.75rem), 1fr) var(
+        --os-dock-height,
+        2.75rem
+      );
     align-items: start;
   }
 
@@ -15527,14 +15605,14 @@ a.os-surface-row,
   }
 
   .portfolio-summon-grip {
-    width: 2.25rem;
-    height: 0.1875rem;
+    width: var(--os-grip-width, 2.25rem);
+    height: var(--os-grip-thickness, 0.1875rem);
     border-radius: 9999px;
     background: var(
       --mood-accent-chrome,
       var(--mood-accent, rgb(var(--fg-rgb) / 0.55))
     );
-    opacity: 0.45;
+    opacity: var(--os-grip-opacity, 0.45);
   }
 
   /* Dock pen — context-aware compose segment; only mounted on composable surfaces. */
@@ -15820,7 +15898,11 @@ a.os-surface-row,
     padding: 0 0.45rem 0 0.4rem;
     /* Lock first line to avatar center forever — never re-center as rows add. */
     padding-top: calc(
-      (var(--os-dock-height, 2.75rem) - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
+      (
+          var(--os-dock-height, 2.75rem) -
+            var(--portfolio-summon-avatar-size, 1.35rem)
+        ) /
+        2
     );
   }
 
@@ -15828,7 +15910,11 @@ a.os-surface-row,
     align-items: flex-start;
     padding: 0 0.55rem 0.4rem 0.45rem;
     padding-top: calc(
-      (var(--os-dock-height, 2.75rem) - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
+      (
+          var(--os-dock-height, 2.75rem) -
+            var(--portfolio-summon-avatar-size, 1.35rem)
+        ) /
+        2
     );
   }
 
@@ -16181,14 +16267,22 @@ a.os-surface-row,
     align-items: flex-start;
     padding: 0 0.55rem 0.3rem 0.45rem;
     padding-top: calc(
-      (var(--os-dock-height, 2.75rem) - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
+      (
+          var(--os-dock-height, 2.75rem) -
+            var(--portfolio-summon-avatar-size, 1.35rem)
+        ) /
+        2
     );
   }
 
   .os-write-dock.is-compose-open.is-expanded .os-write-dock-field {
     padding: 0 0.55rem 0.38rem 0.45rem;
     padding-top: calc(
-      (var(--os-dock-height, 2.75rem) - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
+      (
+          var(--os-dock-height, 2.75rem) -
+            var(--portfolio-summon-avatar-size, 1.35rem)
+        ) /
+        2
     );
   }
 
@@ -22249,8 +22343,8 @@ a.os-surface-row,
     gap: 0.4rem;
     width: max-content;
     max-width: min(100%, 16rem);
-    height: 2.75rem;
-    min-height: 2.75rem;
+    height: var(--os-dock-height, 2.75rem);
+    min-height: var(--os-dock-height, 2.75rem);
     margin: 0;
     padding: 0 0.9rem 0 0.65rem;
     color: rgb(var(--fg-rgb) / 0.78);
@@ -22433,8 +22527,8 @@ a.os-surface-row,
   }
 
   .post-row-skeleton-avatar {
-    width: 2.25rem;
-    height: 2.25rem;
+    width: var(--os-avatar-feed, 2.25rem);
+    height: var(--os-avatar-feed, 2.25rem);
     border-radius: 9999px;
   }
 
@@ -22821,8 +22915,9 @@ a.os-surface-row,
   .post-card-identity {
     display: flex;
     align-items: flex-start;
-    min-width: 0;
-    flex: 0 1 auto;
+    /* Stay as wide as the name, and take the whole line when that no longer fits. */
+    min-width: min(100%, max-content);
+    flex: 1 1 auto;
     max-width: 100%;
     color: inherit;
     text-decoration: none;
@@ -22848,9 +22943,11 @@ a.os-surface-row,
 
   .post-identity-time-slot {
     display: inline-flex;
-    flex: 0 0 auto;
+    flex: 1 1 auto;
     align-items: center;
     min-width: 0;
+    max-width: 100%;
+    overflow: visible;
     font-size: 0.875rem;
     font-weight: 600;
     letter-spacing: -0.01em;
@@ -22865,7 +22962,7 @@ a.os-surface-row,
   /* Avatar gutter. Padding keeps width:100% rows inside the card. */
   .post-card:not(.post-card--skeleton) > .post-card-copy {
     position: relative;
-    padding-left: calc(2.25rem + 0.75rem);
+    padding-left: calc(var(--os-avatar-feed, 2.25rem) + 0.75rem);
   }
 
   .post-card-link {
@@ -22874,7 +22971,7 @@ a.os-surface-row,
 
   .post-row-divider {
     width: auto;
-    margin-left: calc(0.35rem + 2.25rem + 0.75rem);
+    margin-left: calc(0.35rem + var(--os-avatar-feed, 2.25rem) + 0.75rem);
     margin-right: 0.35rem;
   }
 
@@ -22922,7 +23019,7 @@ a.os-surface-row,
      */
   }
 
-  /* Name @handle · 50m ··· — handle truncates before the display name. */
+  /* Name, handle, and time stay fully visible. A long handle breaks instead of clipping. */
   .post-identity {
     display: flex;
     min-width: 0;
@@ -22934,7 +23031,7 @@ a.os-surface-row,
   .post-identity-row {
     display: flex;
     flex-direction: row;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.35rem;
     width: 100%;
@@ -22951,12 +23048,12 @@ a.os-surface-row,
   .post-identity-main {
     display: flex;
     flex-direction: row;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.3em;
     min-width: 0;
     flex: 1 1 auto;
-    overflow: hidden;
+    overflow: visible;
   }
 
   /* Open post root: name on its own line, @account under it. */
@@ -22976,7 +23073,7 @@ a.os-surface-row,
   .post-identity--stacked .post-identity-handle {
     flex: 0 1 auto;
     max-width: 100%;
-    font-size: 0.72rem;
+    font-size: var(--os-identity-meta-size, 0.72rem);
     font-weight: var(--os-identity-handle-weight, 400);
     line-height: 1.45;
     color: var(--os-identity-handle);
@@ -22986,8 +23083,10 @@ a.os-surface-row,
 
   .post-card-detail-time {
     display: block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
     margin: 0.5rem 0 0.1rem;
-    font-size: 0.68rem;
+    font-size: var(--os-identity-meta-size, 0.68rem);
     font-weight: 400;
     font-variant-numeric: tabular-nums;
     line-height: 1.3;
@@ -23001,7 +23100,7 @@ a.os-surface-row,
   .post-identity-name-cluster {
     display: inline-flex;
     flex: 0 1 auto;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.3em;
     min-width: 0;
@@ -23012,11 +23111,11 @@ a.os-surface-row,
     line-height: 1.5;
   }
 
-  /* Feed: Name marks @handle · time — one hugging row. */
+  /* Feed: Name marks @handle · time. Wrap when the line cannot hold them. */
   .post-identity-inline-cluster {
     display: inline-flex;
-    flex: 0 1 auto;
-    flex-wrap: nowrap;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.28em;
     min-width: 0;
@@ -23029,8 +23128,9 @@ a.os-surface-row,
 
   .post-identity-inline-cluster .post-identity-name,
   .post-identity-name-cluster .post-identity-name {
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     min-width: 0;
+    max-width: 100%;
     font-size: 1em;
     font-weight: inherit;
     letter-spacing: inherit;
@@ -23038,9 +23138,13 @@ a.os-surface-row,
   }
 
   .post-identity-inline-cluster .post-identity-handle {
-    flex: 0 999 auto;
-    min-width: 3.5ch;
-    font-size: 0.82em;
+    flex: 1 1 auto;
+    min-width: min(100%, 3.5ch);
+    max-width: 100%;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    font-size: var(--os-identity-meta-size, 0.82em);
     font-weight: var(--os-identity-handle-weight, 400);
     line-height: inherit;
     color: var(--os-identity-handle);
@@ -23063,7 +23167,7 @@ a.os-surface-row,
     flex: 0 0 auto;
     overflow: visible;
     padding-inline: 0.12em;
-    font-size: 0.82em;
+    font-size: var(--os-identity-meta-size, 0.82em);
     font-weight: 400;
     line-height: inherit;
     color: rgb(var(--fg-rgb) / 0.28);
@@ -23072,9 +23176,12 @@ a.os-surface-row,
 
   .post-identity-inline-cluster .post-identity-time,
   .post-identity-time-slot .post-identity-time {
-    flex: 0 0 auto;
+    flex: 1 1 auto;
     overflow: visible;
-    font-size: 0.82em;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    max-width: 100%;
+    font-size: var(--os-identity-meta-size, 0.82em);
     font-weight: 400;
     font-variant-numeric: tabular-nums;
     line-height: inherit;
@@ -23108,9 +23215,10 @@ a.os-surface-row,
   .post-identity-name {
     flex: 0 1 auto;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
     font-size: var(--os-identity-name-size, 0.875rem);
     font-weight: var(--os-identity-name-weight, 600);
     letter-spacing: -0.01em;
@@ -23122,10 +23230,14 @@ a.os-surface-row,
 
   .post-identity-handle,
   .post-identity-time {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: var(--os-identity-handle-size, 0.72rem);
+    overflow: visible;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
+    font-size: var(
+      --os-identity-meta-size,
+      var(--os-identity-handle-size, 0.72rem)
+    );
     line-height: 1.5;
   }
 
@@ -23161,7 +23273,7 @@ a.os-surface-row,
   .post-identity--stacked .post-identity-name-cluster {
     display: inline-flex;
     flex-direction: row;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     max-width: 100%;
   }
@@ -23208,7 +23320,7 @@ a.os-surface-row,
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.68rem;
+    font-size: var(--os-meta-size, 0.68rem);
     font-weight: 550;
     line-height: 1.35;
   }
@@ -23290,7 +23402,7 @@ a.os-surface-row,
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.68rem;
+    font-size: var(--os-meta-size, 0.68rem);
     font-weight: 550;
     line-height: 1.2;
   }
@@ -23392,8 +23504,8 @@ a.os-surface-row,
     gap: 0.2rem;
     min-width: 0;
     /* Shared type size for body + Show more (buttons inherit this). */
-    font-size: 0.92rem;
-    line-height: 1.5;
+    font-size: var(--os-post-body-size, 0.92rem);
+    line-height: var(--os-post-body-leading, 1.5);
   }
 
   .post-card-body {
@@ -23429,7 +23541,7 @@ a.os-surface-row,
 
   .post-card-article-title {
     margin: 0 0 0.28rem;
-    font-size: 1.02rem;
+    font-size: var(--os-article-title-size, 1.02rem);
     font-weight: 650;
     letter-spacing: -0.015em;
     line-height: 1.3;
@@ -24471,8 +24583,8 @@ a.os-surface-row,
     flex: 1;
     min-width: 0;
     margin: 0;
-    font-size: 0.82rem;
-    line-height: 1.45;
+    font-size: var(--os-post-body-size, 0.82rem);
+    line-height: var(--os-post-body-leading, 1.45);
     color: rgb(var(--fg-rgb) / 0.68);
     white-space: pre-wrap;
     word-break: break-word;
@@ -24547,7 +24659,7 @@ a.os-surface-row,
   .post-card-save {
     color: rgb(var(--fg-rgb) / 0.5);
     font-family: inherit;
-    font-size: 0.72rem;
+    font-size: var(--os-meta-size, 0.72rem);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     line-height: 1;
@@ -29540,7 +29652,7 @@ a.os-surface-row,
 
   .collection-writing-byline .os-media-face-identity-name-row {
     gap: 0.3em;
-    font-size: 0.875rem;
+    font-size: var(--os-identity-name-size, 0.875rem);
     font-weight: 600;
     letter-spacing: -0.01em;
     line-height: 1.5;
@@ -29552,7 +29664,7 @@ a.os-surface-row,
   }
 
   .collection-writing-byline .os-media-face-identity-handle {
-    font-size: 0.72rem;
+    font-size: var(--os-identity-meta-size, 0.72rem);
     line-height: 1.45;
   }
 
@@ -29723,7 +29835,10 @@ a.os-surface-row,
          The chevron is centered in the 2.35rem slot, same as Post Back. */
       margin-inline: -1.25rem;
       padding-left: max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
-      padding-right: max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px));
+      padding-right: max(
+        var(--os-gutter, 1rem),
+        env(safe-area-inset-right, 0px)
+      );
     }
   }
 
@@ -29970,7 +30085,10 @@ a.os-surface-row,
   .os-media-face-identity-handle {
     margin: 0;
     min-width: 0;
-    font-size: var(--os-identity-handle-size, 0.72rem);
+    font-size: var(
+      --os-identity-meta-size,
+      var(--os-identity-handle-size, 0.72rem)
+    );
     font-weight: var(--os-identity-handle-weight, 400);
     line-height: 1.5;
     color: var(--os-identity-handle);
@@ -32955,7 +33073,7 @@ a.os-surface-row,
     color: rgb(var(--fg-rgb) / 0.92);
     cursor: pointer;
     appearance: none;
-    font-size: 0.92rem;
+    font-size: var(--os-post-body-size, 0.92rem);
     -webkit-tap-highlight-color: transparent;
     pointer-events: auto;
     position: relative;
@@ -32966,8 +33084,8 @@ a.os-surface-row,
    * (measured px, soft ease) so lines 1–2 never reflow. Typography only here.
    */
   .feed-photo-caption-clip {
-    font-size: 0.92rem;
-    line-height: 1.5;
+    font-size: var(--os-post-body-size, 0.92rem);
+    line-height: var(--os-post-body-leading, 1.5);
   }
 
   .feed-photo-caption.is-expanded .feed-photo-caption-clip-inner {
@@ -32987,7 +33105,7 @@ a.os-surface-row,
     left: var(--os-screen-body-pad-x, 1rem);
     bottom: 0.5rem;
     margin: 0;
-    font-size: 0.92rem;
+    font-size: var(--os-post-body-size, 0.92rem);
     font-weight: 700;
     line-height: 1;
     letter-spacing: 0.06em;
@@ -33059,7 +33177,7 @@ a.os-surface-row,
 
   .feed-photo-caption-identity .os-media-face-identity-name-row {
     gap: 0.3em;
-    font-size: 0.875rem;
+    font-size: var(--os-identity-name-size, 0.875rem);
     font-weight: 600;
     letter-spacing: -0.01em;
     line-height: 1.5;
@@ -33072,7 +33190,7 @@ a.os-surface-row,
 
   .feed-photo-caption-identity .os-media-face-identity-handle {
     max-width: 100%;
-    font-size: 0.72rem;
+    font-size: var(--os-identity-meta-size, 0.72rem);
     line-height: 1.45;
   }
 
@@ -38578,7 +38696,8 @@ a.os-surface-row,
   /* Just below the avatar → row bottom (1px = card border-top). */
   .post-thread-item--down::after {
     top: calc(
-      var(--thread-pad-top) + 0.05rem + 2.25rem + 1px + var(--thread-rail-gap)
+      var(--thread-pad-top) + 0.05rem + var(--os-avatar-feed, 2.25rem) + 1px +
+        var(--thread-rail-gap)
     );
     bottom: 0;
   }
@@ -41251,7 +41370,11 @@ a.os-surface-row,
   .os-write-dock.is-compose-open.is-expanded
   .os-write-dock-field {
   padding-top: calc(
-    (var(--os-dock-height, 2.75rem) - var(--portfolio-summon-avatar-size, 1.35rem)) / 2
+    (
+        var(--os-dock-height, 2.75rem) -
+          var(--portfolio-summon-avatar-size, 1.35rem)
+      ) /
+      2
   );
 }
 
@@ -41401,7 +41524,10 @@ body:has(.portfolio-summon-dock[data-mood='glass'])
     var(--glass-summon-bg, rgb(var(--bg-rgb) / 0.72))
   );
   --os-dock-shadow: var(--os-chrome-elev-shadow);
-  --os-dock-lip: var(--glass-summon-lip, inset 0 1px 0 rgb(var(--fg-rgb) / 0.1));
+  --os-dock-lip: var(
+    --glass-summon-lip,
+    inset 0 1px 0 rgb(var(--fg-rgb) / 0.1)
+  );
 }
 
 /*
@@ -45376,7 +45502,7 @@ button.messages-bubble-quote:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.82em;
+  font-size: var(--os-identity-meta-size, 0.82em);
   font-weight: var(--os-identity-handle-weight, 400);
   line-height: inherit;
   color: var(--os-identity-handle);
