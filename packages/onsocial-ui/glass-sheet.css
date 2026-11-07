@@ -619,9 +619,7 @@
   min-width: 0;
   width: 100%;
   /* Kind line (0.72rem × 1.2) plus the heading gap. Close sits on the name. */
-  --os-sheet-kind-offset: calc(
-    var(--os-stamp-size, 0.75rem) * 1.2 + 0.12rem
-  );
+  --os-sheet-kind-offset: calc(var(--os-stamp-size, 0.75rem) * 1.2 + 0.12rem);
 }
 
 .glass-sheet-header-heading {

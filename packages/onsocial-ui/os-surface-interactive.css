@@ -299,7 +299,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--os-identity-bio-size, var(--os-identity-meta-size, 0.875rem));
+  font-size: var(
+    --os-identity-bio-size,
+    var(--os-identity-meta-size, 0.875rem)
+  );
   line-height: 1.45;
   color: rgb(var(--fg-rgb) / 0.45);
 }

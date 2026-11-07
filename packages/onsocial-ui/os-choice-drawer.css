@@ -289,7 +289,10 @@
   background: var(--os-surface-fill-quiet, rgb(var(--fg-rgb) / 0.035));
   color: var(--os-action-ink-armed, rgb(var(--fg-rgb) / 0.94));
   font: inherit;
-  font-size: var(--os-control-label-size, var(--os-identity-meta-size, 0.875rem));
+  font-size: var(
+    --os-control-label-size,
+    var(--os-identity-meta-size, 0.875rem)
+  );
   font-weight: 600;
   letter-spacing: -0.01em;
   cursor: pointer;
