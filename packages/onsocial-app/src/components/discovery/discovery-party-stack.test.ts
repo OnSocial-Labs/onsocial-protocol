@@ -27,7 +27,9 @@ describe('DiscoveryPartyStack lead', () => {
     expect(css).not.toContain(
       '.drops-discovery-party:hover .drops-discovery-lead'
     );
-    expect(css).toMatch(/\.drops-discovery-lead \{[^}]*font-size: 0\.72rem;/s);
+    expect(css).toMatch(
+      /\.drops-discovery-lead \{[^}]*font-size: var\(--os-stamp-size, 0\.75rem\);/s
+    );
     const row = readFileSync(
       join(here, '../../features/market/market-listing-row.tsx'),
       'utf8'
