@@ -23522,6 +23522,12 @@ a.os-surface-row,
     .post-card-menu-trigger {
       width: var(--os-icon-hit);
       height: var(--os-icon-hit);
+      /* The hit box stays 44px and top-aligned. The dots sit on the name
+         line instead of in the centre of that taller box. */
+      align-items: flex-start;
+      /* Centres the dots on the name line, then the 1.44px the pre-704
+         glyph sat above that centre. The 44px box does not move. */
+      padding-top: calc((var(--os-identity-name-size, 0.9375rem) * 1.5 - 0.9rem) / 2 - 1.44px);
     }
   }
 
