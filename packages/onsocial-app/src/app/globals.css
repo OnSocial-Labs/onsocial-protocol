@@ -24665,7 +24665,7 @@ a.os-surface-row,
     column-gap: 0.55rem;
     /* Clears the -0.35rem block margins on both sides of a wrapped control. */
     row-gap: 1.05rem;
-    width: 100%;
+    width: auto;
     min-width: 0;
   }
 

@@ -121,7 +121,7 @@ describe('12px gutter trial', () => {
       /\.post-identity-time-slot \{[^}]*flex:\s*0 0 auto;/
     );
     expect(globalsCss).toMatch(
-      /\.post-card-engagement-actions \{[^}]*row-gap:\s*1\.05rem;/
+      /\.post-card-engagement-actions \{[^}]*row-gap:\s*1\.05rem;[^}]*width:\s*auto;/
     );
     expect(globalsCss).toMatch(
       /\.post-card-engagement-actions > \.post-card-stat,[\s\S]*?flex:\s*1 1 0;[\s\S]*?min-width:\s*min-content;/
