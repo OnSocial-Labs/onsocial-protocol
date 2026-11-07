@@ -112,10 +112,10 @@ describe('12px gutter trial', () => {
 
   it('lets the post header shrink the name and wrap the action row', () => {
     expect(globalsCss).toMatch(
-      /\.post-identity-inline-cluster \.post-identity-name[\s\S]*?min-width:\s*2ch;/
+      /\.post-identity-inline-cluster \.post-identity-handle \{[\s\S]*?min-width:\s*min\(100%, 3\.5ch\);[\s\S]*?white-space:\s*normal;/
     );
-    expect(globalsCss).toMatch(
-      /\.post-identity-inline-cluster \.post-identity-handle \{[\s\S]*?flex-basis:\s*3\.5ch;[\s\S]*?min-width:\s*3\.5ch;/
+    expect(globalsCss).not.toMatch(
+      /\.post-identity-inline-cluster \.post-identity-handle \{[^}]*text-overflow:\s*ellipsis;/
     );
     expect(globalsCss).toMatch(
       /@media \(max-width: 639px\) \{\s*\.post-card-menu-trigger \{\s*width:\s*var\(--os-icon-hit\);\s*height:\s*var\(--os-icon-hit\);/

@@ -22954,23 +22954,13 @@ a.os-surface-row,
    */
   .post-card-identity {
     display: flex;
-    align-items: center;
-    /* Shrink with the row. A floor keeps the name and handle visible when
-       type is enlarged and the date wraps onto the next line. */
-    min-width: min(100%, 8rem);
-    /* Basis 0 keeps the date and More on this line. A high grow factor
-       takes free space up to the text, then the spacer pushes More out. */
-    flex: 1000 1 0;
-    max-width: max-content;
+    align-items: flex-start;
+    /* Stay as wide as the name, and take the whole line when that no longer fits. */
+    min-width: min(100%, max-content);
+    flex: 1 1 auto;
+    max-width: 100%;
     color: inherit;
     text-decoration: none;
-  }
-
-  /* Open post stacks the handle under the name and keeps the full row width. */
-  .post-identity--stacked .post-card-identity {
-    flex: 1 1 auto;
-    min-width: 0;
-    max-width: 100%;
   }
 
   .post-card-identity:focus-visible {
@@ -22993,9 +22983,9 @@ a.os-surface-row,
 
   .post-identity-time-slot {
     display: inline-flex;
-    flex: 0 0 auto;
+    flex: 1 1 auto;
     align-items: center;
-    min-width: max-content;
+    min-width: 0;
     max-width: 100%;
     overflow: visible;
     font-size: 0.875rem;
@@ -23005,7 +22995,7 @@ a.os-surface-row,
   }
 
   .post-identity-spacer {
-    flex: 1 1 0;
+    flex: 1 1 auto;
     min-width: 0.35rem;
   }
 
@@ -23098,12 +23088,12 @@ a.os-surface-row,
   .post-identity-main {
     display: flex;
     flex-direction: row;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.3em;
     min-width: 0;
     flex: 1 1 auto;
-    overflow: hidden;
+    overflow: visible;
   }
 
   /* Open post root: name on its own line, @account under it. */
@@ -23161,7 +23151,7 @@ a.os-surface-row,
     line-height: 1.5;
   }
 
-  /* Feed: Name marks @handle · time. Wrap only when the floors do not fit. */
+  /* Feed: Name marks @handle · time. Wrap when the line cannot hold them. */
   .post-identity-inline-cluster {
     display: inline-flex;
     flex: 1 1 auto;
@@ -23178,14 +23168,9 @@ a.os-surface-row,
 
   .post-identity-inline-cluster .post-identity-name,
   .post-identity-name-cluster .post-identity-name {
-    flex-grow: 1;
-    flex-shrink: 1;
-    flex-basis: 0%;
-    min-width: 2ch;
-    max-width: max-content;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    flex: 0 0 auto;
+    min-width: 0;
+    max-width: 100%;
     font-size: 1em;
     font-weight: inherit;
     letter-spacing: inherit;
@@ -23193,28 +23178,18 @@ a.os-surface-row,
   }
 
   .post-identity-inline-cluster .post-identity-handle {
-    /* Floor at 3.5ch so a long name keeps the line. Desktop can show more. */
-    flex-grow: 0;
-    flex-shrink: 1;
-    flex-basis: 3.5ch;
-    min-width: 3.5ch;
-    max-width: 12ch;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    flex: 1 1 auto;
+    min-width: min(100%, 3.5ch);
+    max-width: 100%;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    white-space: normal;
     font-size: var(--os-identity-meta-size, 0.82em);
     font-weight: var(--os-identity-handle-weight, 400);
     line-height: inherit;
     color: var(--os-identity-handle);
     text-decoration: none;
     transition: color 160ms ease;
-  }
-
-  @media (min-width: 640px) {
-    .post-identity-inline-cluster .post-identity-handle {
-      flex-basis: 12ch;
-      width: 12ch;
-    }
   }
 
   .post-card-identity:hover .post-identity-name,
@@ -23241,9 +23216,10 @@ a.os-surface-row,
 
   .post-identity-inline-cluster .post-identity-time,
   .post-identity-time-slot .post-identity-time {
-    flex: 0 0 auto;
-    overflow: hidden;
-    white-space: nowrap;
+    flex: 1 1 auto;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    white-space: normal;
     max-width: 100%;
     font-size: var(--os-identity-meta-size, 0.82em);
     font-weight: 400;
@@ -23255,8 +23231,7 @@ a.os-surface-row,
 
   .post-identity-name-marks {
     display: inline-flex;
-    flex: 0 1 auto;
-    min-width: 0;
+    flex: 0 0 auto;
     flex-wrap: nowrap;
     align-items: center;
     gap: 0.18em;
