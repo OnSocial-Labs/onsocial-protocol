@@ -24669,6 +24669,18 @@ a.os-surface-row,
     white-space: nowrap;
   }
 
+  /* The shared hit padding uses a negative margin. On a wrapped row that
+     margin pulls the next control's box into the one above it. Keep the
+     inline margin so a single line stays put, and let the row gap separate
+     the hit boxes. */
+  .post-card-engagement .post-card-stat-button,
+  .post-card-engagement .post-card-react,
+  .post-card-engagement .post-card-amplify,
+  .post-card-engagement .post-card-share,
+  .post-card-engagement .post-card-save {
+    margin-block: 0;
+  }
+
   .post-card-engagement-trailing {
     display: flex;
     align-items: center;
