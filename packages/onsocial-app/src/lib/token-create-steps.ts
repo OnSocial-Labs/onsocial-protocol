@@ -9,8 +9,11 @@ export type TokenCreatePhase =
   | 'idle'
   | 'signing'
   | 'confirming'
+  | 'locking'
+  | 'lockError'
   | 'success'
-  | 'error';
+  | 'error'
+  | 'finishError';
 
 export type TokenCreateStepState = 'idle' | 'spinning' | 'done' | 'failed';
 
@@ -33,25 +36,46 @@ export function tokenCreateSteps(includeLock: boolean): TokenCreateStep[] {
 }
 
 /**
- * Honest batch progress: one in-flight circle while the single tx is
- * pending. NEAR does not report live per-action pulses — and on error the
- * whole batch reverted, so no step is marked failed individually.
+ * Signing is the wallet account create. Confirming is the factory install.
+ * A wallet failure leaves every step idle. A factory failure keeps the
+ * funded account and marks the contract step failed.
  */
 export function resolveTokenCreateStepStates(
   phase: TokenCreatePhase,
   includeLock: boolean
 ): Array<TokenCreateStep & { state: TokenCreateStepState }> {
   const steps = tokenCreateSteps(includeLock);
-  return steps.map((step, index) => {
+  return steps.map((step) => {
     if (phase === 'success') {
       return { ...step, state: 'done' };
     }
     if (phase === 'error') {
-      // Atomic batch: nothing committed — no per-step blame.
       return { ...step, state: 'idle' };
     }
-    if ((phase === 'signing' || phase === 'confirming') && index === 0) {
-      return { ...step, state: 'spinning' };
+    if (phase === 'finishError') {
+      if (step.id === 'account' || step.id === 'fund') {
+        return { ...step, state: 'done' };
+      }
+      if (step.id === 'contract') return { ...step, state: 'failed' };
+      return { ...step, state: 'idle' };
+    }
+    if (phase === 'signing') {
+      return { ...step, state: step.id === 'account' ? 'spinning' : 'idle' };
+    }
+    if (phase === 'confirming') {
+      if (step.id === 'account' || step.id === 'fund') {
+        return { ...step, state: 'done' };
+      }
+      if (step.id === 'contract') return { ...step, state: 'spinning' };
+      return { ...step, state: 'idle' };
+    }
+    if (phase === 'locking') {
+      if (step.id === 'lock') return { ...step, state: 'spinning' };
+      return { ...step, state: 'done' };
+    }
+    if (phase === 'lockError') {
+      if (step.id === 'lock') return { ...step, state: 'failed' };
+      return { ...step, state: 'done' };
     }
     return { ...step, state: 'idle' };
   });

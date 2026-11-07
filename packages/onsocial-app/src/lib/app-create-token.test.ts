@@ -77,7 +77,9 @@ describe('app-create-token', () => {
     expect(normalizeFtName('Cool\x07Token')).toBe('CoolToken');
     expect(normalizeFtSupplyInput('1000000')).toBe('1000000');
     expect(normalizeFtSupplyInput('abc12x3')).toBe('123');
-    expect(normalizeFtSupplyInput('10000000000000000')).toBe('1000000000000000');
+    expect(normalizeFtSupplyInput('10000000000000000')).toBe(
+      '1000000000000000'
+    );
   });
 
   it('caps supply below the u128 overflow line with specific copy', () => {
@@ -126,29 +128,51 @@ describe('app-create-token', () => {
 });
 
 describe('token create step thread', () => {
-  it('spins only the first circle while the batch is in flight', () => {
+  it('spins the account while the wallet is signing', () => {
+    expect(
+      resolveTokenCreateStepStates('signing', false).map((step) => step.state)
+    ).toEqual(['spinning', 'idle', 'idle', 'idle']);
+  });
+
+  it('marks the funded account done and spins the contract while the factory installs', () => {
     const confirming = resolveTokenCreateStepStates('confirming', true);
     expect(confirming.map((step) => step.state)).toEqual([
+      'done',
+      'done',
       'spinning',
-      'idle',
-      'idle',
       'idle',
       'idle',
     ]);
   });
 
-  it('fills every step on success and blames none on error (atomic batch)', () => {
+  it('fills every step on success and blames none on a wallet error', () => {
     expect(
       resolveTokenCreateStepStates('success', false).every(
         (step) => step.state === 'done'
       )
     ).toBe(true);
-    // Atomic revert — no per-step failure marker.
     expect(
       resolveTokenCreateStepStates('error', false).every(
         (step) => step.state === 'idle'
       )
     ).toBe(true);
+  });
+
+  it('spins lock only after the token is installed', () => {
+    expect(
+      resolveTokenCreateStepStates('locking', true).map((step) => step.state)
+    ).toEqual(['done', 'done', 'done', 'done', 'spinning']);
+    expect(
+      resolveTokenCreateStepStates('lockError', true).map((step) => step.state)
+    ).toEqual(['done', 'done', 'done', 'done', 'failed']);
+  });
+
+  it('keeps the funded account when the factory install fails', () => {
+    expect(
+      resolveTokenCreateStepStates('finishError', true).map(
+        (step) => step.state
+      )
+    ).toEqual(['done', 'done', 'failed', 'idle', 'idle']);
   });
 
   it('omits lock unless the creator chose it', () => {

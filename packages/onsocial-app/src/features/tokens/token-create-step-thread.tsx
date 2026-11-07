@@ -16,10 +16,7 @@ function StepCircle({ state }: { state: TokenCreateStepState }) {
     );
   }
   return (
-    <span
-      className={`token-create-step-circle is-${state}`}
-      aria-hidden
-    />
+    <span className={`token-create-step-circle is-${state}`} aria-hidden />
   );
 }
 
@@ -36,11 +33,17 @@ export function TokenCreateStepThread({
       ? 'Sign in your wallet'
       : phase === 'confirming'
         ? 'Confirming…'
-        : phase === 'success'
-          ? 'Token is live'
-          : phase === 'error'
-            ? 'Couldn’t create'
-            : 'One signature';
+        : phase === 'locking'
+          ? 'Lock admin in your wallet'
+          : phase === 'lockError'
+            ? 'Admin is still open'
+            : phase === 'success'
+              ? 'Token is live'
+              : phase === 'finishError'
+                ? 'Account is funded'
+                : phase === 'error'
+                  ? 'Couldn’t create'
+                  : 'One signature';
 
   return (
     <ol className="token-create-step-thread" aria-label={label}>

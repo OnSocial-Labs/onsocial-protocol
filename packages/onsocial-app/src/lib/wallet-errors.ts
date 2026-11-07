@@ -30,8 +30,8 @@ export function formatStandingActionError(error: unknown): string {
 }
 
 /**
- * Create-token uses UseGlobalContract. Some wallet executors still reject
- * that action type before the tx hits the chain.
+ * Older create-token builds asked the wallet to sign UseGlobalContract.
+ * Some executors still reject that action before the tx hits the chain.
  */
 export function formatCreateTokenWalletError(
   error: unknown,

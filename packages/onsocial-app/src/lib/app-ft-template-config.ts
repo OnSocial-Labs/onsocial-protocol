@@ -1,7 +1,8 @@
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 
 /**
- * Creator FT template — deploy via UseGlobalContract (not inline WASM).
+ * Creator FT template — the factory key installs it with UseGlobalContract
+ * (not inline WASM, and not a wallet signature).
  *
  * Env overrides (any network):
  * - NEXT_PUBLIC_FT_TEMPLATE_CODE_HASH (preferred — immutable CodeHash mode)
