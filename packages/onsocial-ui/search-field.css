@@ -89,7 +89,7 @@
     background: transparent;
     color: var(--os-surface-emphasis, rgb(var(--fg-rgb) / 0.88));
     font: inherit;
-    font-size: 0.78rem;
+    font-size: var(--os-stamp-size, 0.75rem);
     outline: none;
   }
 
@@ -234,7 +234,7 @@
 .search-field.sheet-control:not(.os-app-screen-search) .search-field-input,
 .search-field.os-floating-panel-search .search-field-input {
   color: var(--os-surface-emphasis);
-  font-size: 0.78rem;
+  font-size: var(--os-stamp-size, 0.75rem);
 }
 
 /* 16px — iOS zooms the page when a focused field is under 16px. */

@@ -98,7 +98,7 @@ button.post-thread-more:not(.post-thread-more--coil-tail) {
 /*
  * Portfolio bio — mood owns face / weight / size; tokens only pick the
  * reputation signal color (and brighten on hover). Do not force feed 300 /
- * DM Sans here.
+ * or the app chrome sans here.
  */
 .portfolio-bio :is(.os-hashtag, .os-mention, .os-ticker, .os-link) {
   color: var(--signal-reputation);

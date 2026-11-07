@@ -38,15 +38,24 @@ export function HomeFeedSortToggle({
               selected ? (
                 <FireBFillIcon
                   aria-hidden
-                  className="home-feed-sort-btn-icon"
+                  className="glass-sheet-icon-action-glyph home-feed-sort-btn-icon"
                 />
               ) : (
-                <FireBIcon aria-hidden className="home-feed-sort-btn-icon" />
+                <FireBIcon
+                  aria-hidden
+                  className="glass-sheet-icon-action-glyph home-feed-sort-btn-icon"
+                />
               )
             ) : selected ? (
-              <TimeFillIcon aria-hidden className="home-feed-sort-btn-icon" />
+              <TimeFillIcon
+                aria-hidden
+                className="glass-sheet-icon-action-glyph home-feed-sort-btn-icon"
+              />
             ) : (
-              <TimeIcon aria-hidden className="home-feed-sort-btn-icon" />
+              <TimeIcon
+                aria-hidden
+                className="glass-sheet-icon-action-glyph home-feed-sort-btn-icon"
+              />
             )}
           </OsIconAction>
         );

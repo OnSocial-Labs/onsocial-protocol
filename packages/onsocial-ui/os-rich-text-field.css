@@ -33,7 +33,7 @@
   border-radius: 0.35rem;
   background: transparent;
   color: rgb(var(--fg-rgb) / 0.42);
-  font-size: 0.78rem;
+  font-size: var(--os-stamp-size, 0.75rem);
   font-weight: 750;
   letter-spacing: 0.02em;
   line-height: 1;
@@ -52,7 +52,7 @@
 }
 
 .account-editor-bio-list {
-  font-size: 0.95rem;
+  font-size: var(--os-identity-name-size, 0.9375rem);
   font-weight: 650;
 }
 
@@ -148,7 +148,7 @@
   background: rgb(var(--fg-rgb) / 0.05);
   color: rgb(var(--fg-rgb) / 0.78);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.84rem;
+  font-size: var(--os-identity-meta-size, 0.875rem);
   line-height: 1.45;
   white-space: pre;
   overflow-wrap: normal;

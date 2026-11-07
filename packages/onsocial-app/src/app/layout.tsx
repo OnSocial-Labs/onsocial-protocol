@@ -2,10 +2,10 @@ import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import {
   Caveat,
-  DM_Sans,
   IBM_Plex_Sans,
   JetBrains_Mono,
   Newsreader,
+  Public_Sans,
   Space_Grotesk,
 } from 'next/font/google';
 import { ONSOCIAL_BRAND_TAGLINE } from '@onsocial/ui';
@@ -17,14 +17,13 @@ import './globals.css';
 // --font-* variable still carries one metric-adjusted stand-in. `optional`
 // never replaces a line that has already painted: the file is used when it is
 // ready for first paint (preload + cache), otherwise the stand-in stays for
-// that view. `swap` and `block` paint the stand-in and then swap — weight 300
-// has no Arial, and 550 is not a static weight — so glyphs change shape and
-// the line reflows. Variable wght on DM Sans: discrete weights deduped to one
-// woff2 and 300 painted as 400.
-const dmSans = DM_Sans({
+// Other faces stay `optional` (no late reflow). Public Sans is the OS chrome
+// face — `swap` so engagement digits / chrome don't stick on the metric
+// fallback forever when the optional window is missed.
+const publicSans = Public_Sans({
   subsets: ['latin'],
-  variable: '--font-dm-sans',
-  display: 'optional',
+  variable: '--font-public-sans',
+  display: 'swap',
   adjustFontFallback: true,
   weight: 'variable',
 });
@@ -130,7 +129,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${dmSans.variable} ${ibmPlexSans.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${newsreader.variable} ${caveat.variable} ${ericaType.variable}`}
+      className={`${publicSans.variable} ${ibmPlexSans.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${newsreader.variable} ${caveat.variable} ${ericaType.variable}`}
       data-theme="dark"
       suppressHydrationWarning
     >

@@ -146,19 +146,32 @@ function postponeWasRange(startMs: number, endMs: number): string {
   return `${formatEventMonthDay(startMs)} – ${formatEventMonthDay(endMs)}`;
 }
 
-/** What changed. The range above already shows the window in use. */
-export function postponeNotice(input: {
+export type EventSchedulePrevious = {
   previousEndsAtMs?: number | null;
   previousStartsAtMs?: number | null;
-}): string | null {
+};
+
+/** Face chip when the live window replaced an earlier one. */
+export const EVENT_SCHEDULE_UPDATED_LABEL = 'Updated';
+
+/** True when a previous start and/or end is on the record. */
+export function eventScheduleMoved(input: EventSchedulePrevious): boolean {
+  return (
+    postponeInstant(input.previousEndsAtMs) != null ||
+    postponeInstant(input.previousStartsAtMs) != null
+  );
+}
+
+/**
+ * Facts-only previous window (SheetFactRow label `Previous`).
+ * Face shows the live clock + `Updated`; history stays here.
+ */
+export function postponeWasValue(input: EventSchedulePrevious): string | null {
   const end = postponeInstant(input.previousEndsAtMs);
   const start = postponeInstant(input.previousStartsAtMs);
-  if (start != null && end != null) {
-    return `Postponed. Was ${postponeWasRange(start, end)}.`;
-  }
-  if (end != null) return `Postponed. Was closing ${formatEventMonthDay(end)}.`;
-  if (start != null)
-    return `Postponed. Was opening ${formatEventMonthDay(start)}.`;
+  if (start != null && end != null) return postponeWasRange(start, end);
+  if (end != null) return formatEventMonthDay(end);
+  if (start != null) return formatEventMonthDay(start);
   return null;
 }
 

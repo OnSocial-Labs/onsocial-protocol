@@ -72,7 +72,7 @@ export const MOOD_FONT_STACKS = {
   mono: "var(--font-jetbrains-mono), ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace",
   editorial:
     "var(--font-newsreader), 'Source Serif 4', Georgia, 'Times New Roman', serif",
-  /** Handwritten display — Signature mood name only; body stays DM Sans. */
+  /** Handwritten display — Signature mood name only; body stays app sans. */
   signatureDisplay:
     "var(--font-caveat), 'Segoe Print', 'Bradley Hand', cursive",
   /** Mechanical typewriter — Broadsheet mood display + body (Journal keeps editorial). */

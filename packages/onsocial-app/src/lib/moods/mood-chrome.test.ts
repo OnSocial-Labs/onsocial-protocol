@@ -107,6 +107,10 @@ describe('mood chrome map', () => {
     expect(globalsCss).toMatch(
       /\.discover-tab-bar--browse button \{\s*[\s\S]*?color: var\(\s*--signal-reputation/
     );
+    expect(globalsCss).toContain('--os-dock-handle-ink:');
+    expect(globalsCss).toMatch(
+      /\.os-write-dock-send:not\(:disabled\),\s*\.os-write-dock-send\.is-pending:disabled \{\s*color: var\(\s*--os-dock-handle-ink/
+    );
   });
 
   it('remaps leftover source / provenance greens on mood, not identity facts', () => {

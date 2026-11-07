@@ -22,7 +22,7 @@ export interface ActionDrawerItem {
   label: string;
   /** Quiet secondary line under the label. */
   description?: string;
-  /** Leading visual — prefer a Mage icon sized via `os-action-drawer-icon`. */
+  /** Leading visual — Mage icon with `os-action-drawer-icon` (chrome glyph size). */
   leading?: ReactNode;
   /** Quiet meta after the label (e.g. count / status). */
   trailing?: ReactNode;

@@ -1,6 +1,6 @@
 /**
  * One cell per glyph, each `1ch` wide (the width of “0”).
- * DM Sans has no working tabular figures, so “1” is narrower than “2”
+ * Public Sans has no working tabular figures, so “1” is narrower than “2”
  * and a proportional count shoves the rest of the row.
  * A new character (9 → 10, or 1.4k) still grows the row by one cell.
  */

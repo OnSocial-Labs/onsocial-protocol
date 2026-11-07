@@ -14,7 +14,7 @@ import {
 } from '@/features/scarces/scarce-royalty';
 import {
   eventHintLive,
-  postponeNotice,
+  postponeWasValue,
   ticketEventScheduleFacts,
 } from '@/features/scarces/ticket-event-facts';
 import {
@@ -205,7 +205,7 @@ export function ScarceListingFactsSheet({
       facts.tokenId?.trim() ||
       facts.listingId?.trim()
   );
-  const movedNotice = postponeNotice({
+  const wasSchedule = postponeWasValue({
     previousEndsAtMs: facts.eventEndsAtPreviousMs,
     previousStartsAtMs: facts.eventStartsAtPreviousMs,
   });
@@ -270,8 +270,8 @@ export function ScarceListingFactsSheet({
                   {event.ends ? (
                     <SheetFactRow label={event.endsLabel} value={event.ends} />
                   ) : null}
-                  {movedNotice ? (
-                    <SheetFactCopy>{movedNotice}</SheetFactCopy>
+                  {wasSchedule ? (
+                    <SheetFactRow label="Previous" value={wasSchedule} />
                   ) : null}
                   {event.next ? (
                     <SheetFactCopy>

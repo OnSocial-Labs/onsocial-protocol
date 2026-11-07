@@ -24,8 +24,8 @@ export function PostRichText({
   /** Bio only — posts and DMs stay hashtag / mention / url. */
   inlineMarks = false,
   /**
-   * Activity / list quotes: paint tokens in DM Sans, keep the row as the
-   * only hit. Feed / bio stay tappable.
+   * Activity / list quotes: paint tokens in the app chrome sans, keep the
+   * row as the only hit. Feed / bio stay tappable.
    */
   interactive = true,
 }: {

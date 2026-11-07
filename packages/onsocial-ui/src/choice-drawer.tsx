@@ -105,7 +105,7 @@ export interface ChoiceDrawerProps<T extends string> {
 
 /**
  * Content-hugging pick-one sheet. Use with a chip (`ChoiceDrawerField`) or
- * pill trigger (`ChoiceDrawerMenu`). Pair with `os-choice-drawer.css`.
+ * naked menu trigger (`ChoiceDrawerMenu`). Pair with `os-choice-drawer.css`.
  */
 export function ChoiceDrawer<T extends string>({
   open,
@@ -341,8 +341,8 @@ export interface ChoiceDrawerMenuProps<T extends string> {
 }
 
 /**
- * Toolbar pill that opens the shared choice drawer — standing view switcher,
- * market sort, and other pick-one menus.
+ * Naked label + chevron that opens the shared choice drawer — standing view
+ * switcher, market sort, and other pick-one menus.
  */
 export function ChoiceDrawerMenu<T extends string>({
   label,

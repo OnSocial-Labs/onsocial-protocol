@@ -107,9 +107,12 @@
  */
 :root {
   --os-sheet-footer-pad-top: 0.45rem;
-  /* Same column as the page gutter. A wider sheet inset
-     lands every line to the right of the page it covers. */
-  --os-sheet-pad-inline: var(--os-gutter, 1rem);
+  /*
+   * Sheet / drawer chrome — one rem past the page gutter (0.75). Sheets
+   * carry a 1.25rem top radius; locking pad to the page gutter put glyphs
+   * and tiles into the curve. Pages stay on `--os-gutter`.
+   */
+  --os-sheet-pad-inline: 1rem;
   --os-sheet-footer-pad-inline: var(--os-sheet-pad-inline);
   --os-sheet-footer-pad-bottom: calc(
     0.55rem + env(safe-area-inset-bottom, 0px)
@@ -616,7 +619,9 @@
   min-width: 0;
   width: 100%;
   /* Kind line (0.72rem × 1.2) plus the heading gap. Close sits on the name. */
-  --os-sheet-kind-offset: calc(0.72rem * 1.2 + 0.12rem);
+  --os-sheet-kind-offset: calc(
+    var(--os-stamp-size, 0.75rem) * 1.2 + 0.12rem
+  );
 }
 
 .glass-sheet-header-heading {
@@ -629,7 +634,7 @@
 
 .glass-sheet-header-eyebrow {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: var(--os-stamp-size, 0.75rem);
   font-weight: 600;
   letter-spacing: 0.02em;
   line-height: 1.2;
@@ -639,12 +644,15 @@
 .glass-sheet-header-title {
   margin: 0;
   min-width: 0;
-  font-size: 1.05rem;
+  font-size: var(--os-title-size, 1.05rem);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.2;
-  /* First line mid aligns with ✕ mid inside the 2.75rem hit target. */
-  padding-top: calc((2.75rem - 1.2em) / 2);
+  /* First line mid aligns with ✕ mid inside the nav-band hit. */
+  padding-top: calc(
+    (var(--os-app-screen-nav-row-height, var(--os-nav-band, 2.35rem)) - 1.2em) /
+      2
+  );
 }
 
 .glass-sheet-header-title-row > .glass-sheet-icon-action {
@@ -659,7 +667,7 @@
 
 .glass-sheet-header-subtitle {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: var(--os-stamp-size, 0.75rem);
   font-weight: 400;
   letter-spacing: 0.02em;
   line-height: 1.25;
@@ -675,8 +683,8 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  min-width: var(--os-icon-hit, 2.75rem);
-  min-height: var(--os-icon-hit, 2.75rem);
+  min-width: var(--os-icon-hit, 3.25rem);
+  min-height: var(--os-icon-hit, 3.25rem);
   padding: 0;
   border: 0;
   border-radius: 0.5rem;
@@ -703,21 +711,20 @@
   box-shadow: var(--os-focus-ring, 0 0 0 1px rgb(var(--fg-rgb) / 0.08));
 }
 
-.glass-sheet-icon-action-glyph {
+/* Header / nav action glyphs — same weight as × (--os-chrome-glyph-size). */
+.glass-sheet-icon-action-glyph,
+.glass-sheet-icon-action-glyph--discover {
   display: block;
   flex-shrink: 0;
-}
-
-.glass-sheet-icon-action-glyph--discover {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: var(--os-chrome-glyph-size, 1.5rem);
+  height: var(--os-chrome-glyph-size, 1.5rem);
 }
 
 .glass-sheet-close-icon {
   display: block;
   flex-shrink: 0;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: var(--os-chrome-glyph-size, 1.5rem);
+  height: var(--os-chrome-glyph-size, 1.5rem);
 }
 
 .glass-sheet-close-icon path {

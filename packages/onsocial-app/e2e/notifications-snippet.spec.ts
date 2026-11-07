@@ -121,8 +121,9 @@ async function stubSnippetNotifications(page: Page): Promise<void> {
   });
 }
 
-function fontStackHasDmSans(fontFamily: string): boolean {
-  return /dm sans/i.test(fontFamily);
+function fontStackHasAppSans(fontFamily: string): boolean {
+  // next/font resolves to `__Public_Sans_…` / `Public Sans`.
+  return /public.?sans/i.test(fontFamily);
 }
 
 test.describe('activity post snippets', () => {
@@ -130,7 +131,7 @@ test.describe('activity post snippets', () => {
     await seedAuthenticatedNotifications(page);
   });
 
-  test('shows like and mention quotes in DM Sans without nested links', async ({
+  test('shows like and mention quotes in Public Sans without nested links', async ({
     page,
   }) => {
     await stubSnippetNotifications(page);
@@ -238,9 +239,9 @@ test.describe('activity post snippets', () => {
         mentionTag: mentionNode?.tagName ?? '',
       };
     });
-    expect(fontStackHasDmSans(snippetStyles.snippetFont)).toBe(true);
-    expect(fontStackHasDmSans(snippetStyles.mentionFont)).toBe(true);
-    expect(fontStackHasDmSans(snippetStyles.hashtagFont)).toBe(true);
+    expect(fontStackHasAppSans(snippetStyles.snippetFont)).toBe(true);
+    expect(fontStackHasAppSans(snippetStyles.mentionFont)).toBe(true);
+    expect(fontStackHasAppSans(snippetStyles.hashtagFont)).toBe(true);
     expect(snippetStyles.mentionWeight).toBe('300');
     expect(snippetStyles.mentionTag).toBe('SPAN');
 
@@ -252,10 +253,10 @@ test.describe('activity post snippets', () => {
       );
       const list = page.locator('.notifications-activity-list');
       await list.screenshot({
-        path: `${artifactDir}/activity_post_snippets_dm_sans.png`,
+        path: `${artifactDir}/activity_post_snippets_public_sans.png`,
       });
       await page.screenshot({
-        path: `${artifactDir}/activity_page_dm_sans.png`,
+        path: `${artifactDir}/activity_page_public_sans.png`,
         fullPage: true,
       });
       await page.emulateMedia({ colorScheme: 'dark' });

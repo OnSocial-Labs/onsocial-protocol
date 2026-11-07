@@ -16,7 +16,7 @@ import {
 } from '@/features/scarces/access-ends-facts';
 import {
   eventHintLive,
-  postponeNotice,
+  postponeWasValue,
   ticketEventScheduleFacts,
 } from '@/features/scarces/ticket-event-facts';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
@@ -68,7 +68,7 @@ export function ScarceAboutSheet({
     },
     nowMs
   );
-  const movedNotice = postponeNotice({
+  const wasSchedule = postponeWasValue({
     previousEndsAtMs: event?.eventEndsAtPreviousMs,
     previousStartsAtMs: event?.eventStartsAtPreviousMs,
   });
@@ -133,8 +133,8 @@ export function ScarceAboutSheet({
                   value={schedule.ends}
                 />
               ) : null}
-              {movedNotice ? (
-                <SheetFactCopy>{movedNotice}</SheetFactCopy>
+              {wasSchedule ? (
+                <SheetFactRow label="Previous" value={wasSchedule} />
               ) : null}
               {schedule.next ? (
                 <SheetFactCopy>

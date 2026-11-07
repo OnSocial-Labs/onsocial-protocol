@@ -249,7 +249,7 @@
 
 .profile-editor-media-size-hint {
   margin: 0;
-  font-size: 0.62rem;
+  font-size: var(--os-stamp-size, 0.75rem);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.03em;
   line-height: 1.2;
@@ -286,7 +286,7 @@
 
 @media (max-width: 360px) {
   .profile-editor-media-size-hint--dock {
-    font-size: 0.58rem;
+    font-size: var(--os-stamp-size, 0.75rem);
     letter-spacing: 0.02em;
     max-width: min(11.5rem, calc(100% - 3.25rem));
   }
@@ -360,7 +360,7 @@
 
 .profile-editor-media-compact-label {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--os-identity-meta-size, 0.875rem);
   font-weight: 600;
   line-height: 1.3;
   color: rgb(var(--fg-rgb) / 0.88);
@@ -368,7 +368,7 @@
 
 .profile-editor-media-compact-hint {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: var(--os-stamp-size, 0.75rem);
   line-height: 1.45;
   color: rgb(var(--fg-rgb) / 0.55);
 }

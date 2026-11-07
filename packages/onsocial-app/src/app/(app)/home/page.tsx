@@ -63,10 +63,11 @@ function HomeFeedFallback() {
           <Link
             href={APP_DISCOVER_PATH}
             className="home-feed-discover-link"
+            aria-label="Discover"
+            title="Discover"
             scroll={false}
           >
             <OnSocialMark className="home-feed-discover-mark" aria-hidden />
-            Discover
           </Link>
         </OsAppChromeToolbarRail>
       }

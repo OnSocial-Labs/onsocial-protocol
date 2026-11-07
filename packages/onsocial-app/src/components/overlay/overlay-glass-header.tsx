@@ -73,14 +73,14 @@ function OverlayHeaderFallback({
     const toolbarFallback = panelKey.startsWith('standing:') ? (
       <StandingHeaderFallback onClose={onClose} />
     ) : panelKey === 'discover' ? (
-      <div className="standing-sheet-header discover-sheet-header overlay-header-fallback">
+      <div className="standing-sheet-header standing-sheet-header--compact discover-sheet-header overlay-header-fallback">
         <div className="discover-sheet-nav-row" aria-hidden>
           <div className="discover-omni-search" />
           {closeControl}
         </div>
       </div>
     ) : panelKey === 'feed' ? (
-      <div className="standing-sheet-header profile-feed-sheet-header overlay-header-fallback">
+      <div className="standing-sheet-header standing-sheet-header--compact profile-feed-sheet-header overlay-header-fallback">
         <div className="discover-sheet-title-row" aria-hidden>
           <div className="discover-tab-bar discover-tab-bar--header profile-feed-tab-bar">
             <div className="discover-tab-bar-scroller os-scrollbar-none">
@@ -94,7 +94,7 @@ function OverlayHeaderFallback({
         </div>
       </div>
     ) : (
-      <div className="standing-sheet-header overlay-header-fallback">
+      <div className="standing-sheet-header standing-sheet-header--compact overlay-header-fallback">
         <div className="standing-sheet-subject-row" aria-hidden>
           <div className="standing-sheet-subject" />
           <div className="standing-sheet-actions">{closeControl}</div>

@@ -24,7 +24,7 @@
 
 .os-sheet-facts-section-title {
   margin: 0 0 0.2rem;
-  font-size: 0.64rem;
+  font-size: var(--os-stamp-size, 0.75rem);
   font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -45,7 +45,7 @@
 }
 
 .os-sheet-facts-label {
-  font-size: 0.7rem;
+  font-size: var(--os-stamp-size, 0.75rem);
   font-weight: 500;
   letter-spacing: 0.04em;
   color: rgb(var(--fg-rgb) / 0.4);
@@ -53,7 +53,7 @@
 
 .os-sheet-facts-value {
   min-width: 0;
-  font-size: 0.84rem;
+  font-size: var(--os-identity-meta-size, 0.875rem);
   font-weight: 550;
   letter-spacing: -0.01em;
   line-height: 1.35;
@@ -64,7 +64,7 @@
 .os-sheet-facts-copy {
   margin: 0;
   padding-left: calc(5.5rem + 0.75rem);
-  font-size: 0.78rem;
+  font-size: var(--os-stamp-size, 0.75rem);
   line-height: 1.45;
   color: rgb(var(--fg-rgb) / 0.48);
 }
@@ -133,21 +133,21 @@
 }
 
 .os-sheet-facts-count {
-  font-size: 0.92rem;
+  font-size: var(--os-identity-name-size, 0.9375rem);
   font-weight: 650;
   letter-spacing: -0.02em;
   color: rgb(var(--fg-rgb) / 0.92);
 }
 
 .os-sheet-facts-unit {
-  font-size: 0.8rem;
+  font-size: var(--os-stamp-size, 0.75rem);
   font-weight: 500;
   color: rgb(var(--fg-rgb) / 0.48);
 }
 
 .os-sheet-facts-id,
 .guild-facts-id {
-  font-size: 0.78rem;
+  font-size: var(--os-stamp-size, 0.75rem);
   font-weight: 500;
   letter-spacing: -0.01em;
   color: rgb(var(--fg-rgb) / 0.48);

@@ -55,7 +55,9 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 0.35rem;
-  min-width: 5.75rem;
+  /* Hug Stand / time — don’t reserve a wide empty column from bio + metrics. */
+  min-width: 0;
+  width: max-content;
 }
 
 .standing-row-aside.is-empty {
@@ -126,7 +128,7 @@
   gap: 0.3em;
   min-width: 0;
   max-width: 100%;
-  font-size: var(--os-identity-name-size, 0.875rem);
+  font-size: var(--os-identity-name-size, 0.9375rem);
   font-weight: var(--os-identity-name-weight, 600);
   letter-spacing: -0.01em;
   line-height: 1.5;
@@ -161,7 +163,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--os-identity-handle-size, 0.72rem);
+  font-size: var(
+    --os-identity-meta-size,
+    var(--os-identity-handle-size, 0.875rem)
+  );
   font-weight: var(--os-identity-handle-weight, 400);
   line-height: 1.45;
   color: var(--os-identity-handle);

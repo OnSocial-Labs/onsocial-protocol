@@ -8,8 +8,10 @@ import {
   eventListWhenLabel,
   eventScheduleHint,
   eventScheduleLine,
-  postponeNotice,
+  eventScheduleMoved,
+  postponeWasValue,
   ticketEventScheduleFacts,
+  EVENT_SCHEDULE_UPDATED_LABEL,
 } from './ticket-event-facts';
 import { canExtendTicketEntry } from './drop-owner-actions';
 
@@ -30,17 +32,18 @@ describe('ticket event metadata', () => {
     });
   });
 
-  it('names the previous close, and the previous window when the start moved', () => {
-    expect(postponeNotice({})).toBeNull();
-    expect(postponeNotice({ previousEndsAtMs: null })).toBeNull();
+  it('facts Previous value is the previous close or window; face chip stays Updated', () => {
+    expect(EVENT_SCHEDULE_UPDATED_LABEL).toBe('Updated');
+    expect(eventScheduleMoved({})).toBe(false);
+    expect(postponeWasValue({})).toBeNull();
+    expect(postponeWasValue({ previousEndsAtMs: null })).toBeNull();
     const end = new Date(2026, 9, 24, 21, 10).getTime();
     const start = new Date(2026, 9, 24, 20, 10).getTime();
-    expect(postponeNotice({ previousEndsAtMs: end })).toMatch(
-      /^Postponed\. Was closing .+9:10 PM\.$/
-    );
+    expect(eventScheduleMoved({ previousEndsAtMs: end })).toBe(true);
+    expect(postponeWasValue({ previousEndsAtMs: end })).toMatch(/9:10 PM/);
     expect(
-      postponeNotice({ previousStartsAtMs: start, previousEndsAtMs: end })
-    ).toMatch(/^Postponed\. Was .+8:10 PM – 9:10 PM\.$/);
+      postponeWasValue({ previousStartsAtMs: start, previousEndsAtMs: end })
+    ).toMatch(/8:10 PM – 9:10 PM/);
   });
 
   it('prefers collection metadata rain-day override', () => {

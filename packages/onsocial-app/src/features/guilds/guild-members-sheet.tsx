@@ -139,7 +139,7 @@ export function GuildMembersSheet({
               ) : null
             }
           />
-          <div className="standing-sheet-header guild-members-sheet-chrome">
+          <div className="standing-sheet-header standing-sheet-header--compact guild-members-sheet-chrome">
             {manageContext.memberDriven ? (
               <p className="discover-sheet-subtitle guild-members-sheet-note">
                 Role changes require a member vote before they take effect.

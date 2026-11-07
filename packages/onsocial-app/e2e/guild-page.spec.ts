@@ -385,12 +385,13 @@ test.describe('guild page', () => {
     expect(aligned!.stampMenu).toBeLessThan(1);
     expect(aligned!.nameMenu).toBeLessThan(2);
     expect(aligned!.menuAfterStamp).toBe(true);
-    expect(aligned!.menuWidth).toBeGreaterThan(17);
-    expect(aligned!.menuWidth).toBeLessThan(18);
-    expect(aligned!.menuHeight).toBeGreaterThan(17);
-    expect(aligned!.menuHeight).toBeLessThan(18);
-    expect(aligned!.iconWidth).toBeGreaterThan(14);
-    expect(aligned!.iconWidth).toBeLessThan(15);
+    /* Inline ⋮ — --os-menu-hit-size 1.35rem / --os-menu-glyph-size 1.125rem. */
+    expect(aligned!.menuWidth).toBeGreaterThan(21);
+    expect(aligned!.menuWidth).toBeLessThan(22.5);
+    expect(aligned!.menuHeight).toBeGreaterThan(21);
+    expect(aligned!.menuHeight).toBeLessThan(22.5);
+    expect(aligned!.iconWidth).toBeGreaterThan(17.5);
+    expect(aligned!.iconWidth).toBeLessThan(18.5);
     const addMemberButton = members.getByRole('button', { name: 'Add member' });
     const addMemberGlyph = addMemberButton.locator('svg');
     await expect(addMemberGlyph).toHaveCSS('width', '20px');

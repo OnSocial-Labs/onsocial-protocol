@@ -120,7 +120,7 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: var(--os-control-primary, 2.75rem);
+  min-height: var(--os-control-primary, 3.25rem);
   padding: 0.7rem 1rem;
   border: 1px solid var(--os-action-border);
   border-radius: 9999px;
@@ -129,7 +129,7 @@
   -webkit-appearance: none;
   appearance: none;
   font: inherit;
-  font-size: 0.875rem;
+  font-size: var(--os-control-label-size, 0.875rem);
   font-weight: 600;
   letter-spacing: -0.01em;
   cursor: pointer;
@@ -500,7 +500,10 @@
   .os-sheet-action {
     min-height: 2.875rem;
     padding: 0.72rem 1.1rem;
-    font-size: 0.9rem;
+    font-size: var(
+      --os-identity-name-size,
+      var(--os-control-label-size, 0.9375rem)
+    );
   }
 }
 
@@ -508,13 +511,13 @@
   .os-sheet-action {
     min-height: var(--os-control-primary, 2.625rem);
     padding: 0.62rem 0.9rem;
-    font-size: 0.8125rem;
+    font-size: var(--os-control-label-compact-size, 0.8125rem);
   }
 
   .os-sheet-actions--row-compact .os-sheet-action {
     min-height: var(--os-control-primary, 2.5rem);
     padding: 0.55rem 0.65rem;
-    font-size: 0.75rem;
+    font-size: var(--os-control-label-sm-size, 0.75rem);
   }
 }
 
@@ -585,9 +588,9 @@
 }
 
 .os-sheet-actions--row-compact .os-sheet-action {
-  min-height: var(--os-control-primary, 2.75rem);
+  min-height: var(--os-control-primary, 3.25rem);
   padding: 0.65rem 0.75rem;
-  font-size: 0.8125rem;
+  font-size: var(--os-control-label-compact-size, 0.8125rem);
 }
 
 .os-sheet-actions--row-compact .os-sheet-action__shell {
@@ -611,7 +614,7 @@
 .os-sheet-actions--sm .os-sheet-action {
   min-height: 1.65rem;
   padding: 0.28rem 0.72rem;
-  font-size: 0.72rem;
+  font-size: var(--os-control-label-sm-size, 0.75rem);
   line-height: 1.2;
 }
 

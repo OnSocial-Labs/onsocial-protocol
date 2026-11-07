@@ -104,8 +104,8 @@ a.gesture-sheet-person:focus-visible {
 .gesture-sheet-subject {
   display: block;
   margin: 0.12rem 0 0;
-  font-size: 0.86rem;
-  font-weight: 600;
+  font-size: var(--os-identity-name-size, 0.9375rem);
+  font-weight: var(--os-identity-name-weight, 600);
   line-height: 1.3;
   letter-spacing: -0.01em;
   color: rgb(var(--fg-rgb) / 0.68);
@@ -117,7 +117,10 @@ a.gesture-sheet-person:focus-visible {
 .gesture-sheet-handle {
   display: block;
   margin: 0;
-  font-size: var(--os-identity-handle-size, 0.72rem);
+  font-size: var(
+    --os-identity-meta-size,
+    var(--os-identity-handle-size, 0.875rem)
+  );
   font-weight: var(--os-identity-handle-weight, 400);
   letter-spacing: 0.02em;
   color: var(--os-identity-handle);
@@ -129,7 +132,7 @@ a.gesture-sheet-person:focus-visible {
 .gesture-sheet-whisper {
   display: block;
   margin: 0.2rem 0 0;
-  font-size: 0.72rem;
+  font-size: var(--os-stamp-size, 0.75rem);
   line-height: 1.35;
   color: rgb(var(--fg-rgb) / 0.48);
 }

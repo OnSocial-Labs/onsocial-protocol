@@ -74,7 +74,7 @@ export function AccountDrawerChrome({
   return (
     <SheetChromeHeader
       className="account-drawer-header"
-      rowClassName="standing-sheet-subject-row account-drawer-subject-row"
+      rowClassName="account-drawer-subject-row"
       actionsClassName="account-drawer-actions"
       onClose={onClose}
       closeAriaLabel="Close"

@@ -19,7 +19,7 @@ import { CollectionDoorLogSheet } from '@/features/scarces/collection-door-log-s
 import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import {
   eventHintLive,
-  postponeNotice,
+  postponeWasValue,
   ticketEventScheduleFacts,
 } from '@/features/scarces/ticket-event-facts';
 import {
@@ -106,7 +106,7 @@ export function TicketDoorEventSheet({
   const [nowMs] = useState(() => Date.now());
   const sale = saleScheduleLines(view, nowMs);
   const event = ticketEventScheduleFacts(view, nowMs);
-  const movedNotice = postponeNotice({
+  const wasSchedule = postponeWasValue({
     previousEndsAtMs: view.eventEndsAtPreviousMs,
     previousStartsAtMs: view.eventStartsAtPreviousMs,
   });
@@ -208,8 +208,8 @@ export function TicketDoorEventSheet({
               {event.ends ? (
                 <SheetFactRow label={event.endsLabel} value={event.ends} />
               ) : null}
-              {movedNotice ? (
-                <SheetFactCopy>{movedNotice}</SheetFactCopy>
+              {wasSchedule ? (
+                <SheetFactRow label="Previous" value={wasSchedule} />
               ) : null}
               {event.next ? (
                 <SheetFactCopy>

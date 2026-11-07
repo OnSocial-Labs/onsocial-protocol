@@ -18,7 +18,7 @@ import { dropRightsFacts } from '@/features/scarces/drop-create-layout';
 import {
   collectionHasTicketEvent,
   eventHintLive,
-  postponeNotice,
+  postponeWasValue,
   ticketEventScheduleFacts,
 } from '@/features/scarces/ticket-event-facts';
 import {
@@ -134,7 +134,7 @@ export function CollectionFactsSheet({
   const status = deriveCollectionStatus(view, nowMs);
   const schedule = scheduleFacts(view, nowMs);
   const event = ticketEventScheduleFacts(view, nowMs);
-  const movedNotice = postponeNotice({
+  const wasSchedule = postponeWasValue({
     previousEndsAtMs: view.eventEndsAtPreviousMs,
     previousStartsAtMs: view.eventStartsAtPreviousMs,
   });
@@ -205,8 +205,8 @@ export function CollectionFactsSheet({
               {event.ends ? (
                 <SheetFactRow label={event.endsLabel} value={event.ends} />
               ) : null}
-              {movedNotice ? (
-                <SheetFactCopy>{movedNotice}</SheetFactCopy>
+              {wasSchedule ? (
+                <SheetFactRow label="Previous" value={wasSchedule} />
               ) : null}
               {event.next ? (
                 <SheetFactCopy>

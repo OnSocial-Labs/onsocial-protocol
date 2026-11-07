@@ -11,7 +11,7 @@ import {
 } from '@/features/scarces/access-ends-facts';
 import {
   eventHintLive,
-  postponeNotice,
+  postponeWasValue,
   ticketEventScheduleFacts,
 } from '@/features/scarces/ticket-event-facts';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
@@ -116,7 +116,7 @@ export function CollectionAboutSheet({
     view.createdAtMs > 0 ? formatMarketRelativeTime(view.createdAtMs) : null;
   const [nowMs] = useState(() => Date.now());
   const event = ticketEventScheduleFacts(view, nowMs);
-  const movedNotice = postponeNotice({
+  const wasSchedule = postponeWasValue({
     previousEndsAtMs: view.eventEndsAtPreviousMs,
     previousStartsAtMs: view.eventStartsAtPreviousMs,
   });
@@ -158,8 +158,8 @@ export function CollectionAboutSheet({
               {event.ends ? (
                 <SheetFactRow label={event.endsLabel} value={event.ends} />
               ) : null}
-              {movedNotice ? (
-                <SheetFactCopy>{movedNotice}</SheetFactCopy>
+              {wasSchedule ? (
+                <SheetFactRow label="Previous" value={wasSchedule} />
               ) : null}
               {event.next ? (
                 <SheetFactCopy>

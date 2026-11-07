@@ -17,7 +17,7 @@
     --os-field-radius: 0.85rem;
     --os-field-pad-y: 0.65rem;
     --os-field-pad-x: 0.75rem;
-    --os-field-font-size: 0.9rem;
+    --os-field-font-size: var(--os-identity-name-size, 0.9375rem);
     --os-field-line-height: 1.35;
     --os-field-placeholder: rgb(var(--fg-rgb) / 0.38);
 
@@ -57,14 +57,14 @@
 }
 
 .os-field-label {
-  font-size: 0.78rem;
+  font-size: var(--os-control-label-compact-size, 0.8125rem);
   font-weight: 600;
   letter-spacing: 0.01em;
   color: rgb(var(--fg-rgb) / 0.72);
 }
 
 .os-field-hint {
-  font-size: 0.72rem;
+  font-size: var(--os-stamp-size, 0.75rem);
   color: var(--os-surface-muted, rgb(var(--fg-rgb) / 0.55));
 }
 
@@ -152,7 +152,7 @@
   min-width: 1.65rem;
   min-height: 1.65rem;
   padding: 0;
-  font-size: 0.72rem;
+  font-size: var(--os-control-label-sm-size, var(--os-stamp-size, 0.75rem));
   line-height: 1.2;
   border-radius: 9999px;
   box-shadow: none;

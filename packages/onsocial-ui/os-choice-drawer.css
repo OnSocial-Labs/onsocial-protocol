@@ -19,7 +19,7 @@
   gap: 0.28rem;
   max-width: 100%;
   /* Beat .guild-field span { 0.76rem } so chips match mint-from-post. */
-  font-size: 0.62rem;
+  font-size: var(--os-control-label-sm-size, var(--os-stamp-size, 0.75rem));
 }
 
 .guild-field .os-choice-chip > span,
@@ -86,7 +86,7 @@
 
 .os-choice-sheet-section-title {
   margin: 0 0 0.15rem;
-  font-size: 0.64rem;
+  font-size: var(--os-stamp-size, 0.75rem);
   font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -100,7 +100,7 @@
   width: 100%;
   /* 2.75rem touch target — matches .glass-sheet-icon-action. Rows with no
      swatch or count badge would otherwise land near 37px. */
-  min-height: 2.75rem;
+  min-height: var(--os-icon-hit, 3.25rem);
   margin: 0;
   padding: 0.5rem 0.65rem;
   border: 0;
@@ -145,12 +145,17 @@
   justify-content: center;
 }
 
-/* Mage icon inside an action-drawer leading slot. */
+/*
+ * Mage icon in an action-drawer leading slot — same visible weight as
+ * header × / Hot / Recent. Padding used to live on this box and shrank
+ * the glyph to ~1.15rem; glyph owns the chrome size now.
+ */
 .os-choice-sheet-leading .os-action-drawer-icon {
-  width: 1.85rem;
-  height: 1.85rem;
-  padding: 0.35rem;
-  border-radius: 0.6rem;
+  display: block;
+  flex-shrink: 0;
+  width: var(--os-chrome-glyph-size, 1.5rem);
+  height: var(--os-chrome-glyph-size, 1.5rem);
+  padding: 0;
   color: rgb(var(--fg-rgb) / 0.72);
   box-sizing: border-box;
 }
@@ -183,7 +188,7 @@
 }
 
 .os-choice-sheet-option-label {
-  font-size: 0.84rem;
+  font-size: var(--os-identity-meta-size, 0.875rem);
   /* Match floating-panel items — medium, not semi-bold. */
   font-weight: 500;
   line-height: 1.25;
@@ -197,11 +202,11 @@
   min-width: 1.85rem;
   height: 1.85rem;
   padding: 0;
-  font-size: 0.72rem;
+  font-size: var(--os-stamp-size, 0.75rem);
 }
 
 .os-choice-sheet-option-desc {
-  font-size: 0.72rem;
+  font-size: var(--os-stamp-size, 0.75rem);
   line-height: 1.35;
   color: rgb(var(--fg-rgb) / 0.45);
 }
@@ -227,7 +232,7 @@
 
 .os-choice-sheet-hint {
   margin: 0.35rem 0 0;
-  font-size: 0.72rem;
+  font-size: var(--os-stamp-size, 0.75rem);
   line-height: 1.35;
   color: rgb(var(--fg-rgb) / 0.45);
 }
@@ -255,7 +260,7 @@
 
 .os-action-drawer-confirm-body {
   margin: 0;
-  font-size: 0.84rem;
+  font-size: var(--os-identity-meta-size, 0.875rem);
   line-height: 1.45;
   letter-spacing: -0.01em;
   color: rgb(var(--fg-rgb) / 0.72);
@@ -277,14 +282,14 @@
   align-self: stretch;
   width: 100%;
   margin: 0;
-  min-height: 2.75rem;
+  min-height: var(--os-icon-hit, 3.25rem);
   padding: 0.7rem 1rem;
   border: 0;
   border-radius: 9999px;
   background: var(--os-surface-fill-quiet, rgb(var(--fg-rgb) / 0.035));
   color: var(--os-action-ink-armed, rgb(var(--fg-rgb) / 0.94));
   font: inherit;
-  font-size: 0.875rem;
+  font-size: var(--os-control-label-size, var(--os-identity-meta-size, 0.875rem));
   font-weight: 600;
   letter-spacing: -0.01em;
   cursor: pointer;
@@ -319,7 +324,7 @@
 .os-info-drawer-summary,
 .os-info-drawer-detail {
   margin: 0;
-  font-size: 0.84rem;
+  font-size: var(--os-identity-meta-size, 0.875rem);
   line-height: 1.45;
   letter-spacing: -0.01em;
 }

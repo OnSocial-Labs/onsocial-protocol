@@ -1,5 +1,5 @@
 /**
- * @onsocial/ui — OsAppScreen compact glass chrome (2.35rem nav band).
+ * @onsocial/ui — OsAppScreen compact glass chrome (nav band = --os-nav-band).
  *
  * Horizontal spacing MUST use the shared gutter (--os-gutter, via
  * --os-screen-body-pad-x / --os-screen-body-inset). Do not invent a
@@ -18,10 +18,11 @@
  */
 
 :root {
-  /* Chip band under search — shorter than the 2.35rem nav/search row. */
+  /* Chip band under search — shorter than the nav/search row. */
   --os-app-chrome-rail-height: 1.85rem;
   --os-app-chrome-chip-gap: 0.28rem;
   --os-app-chrome-pad-y: 0.3rem;
+  /* Compact heading / search — not dock hits (--os-icon-hit 3.25). */
   --os-app-chrome-nav-height: var(--os-nav-band, 2.35rem);
   --os-app-chrome-compact-height: calc(
     env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y) +
@@ -317,7 +318,7 @@
   background: transparent;
   color: var(--os-surface-emphasis, rgb(var(--fg-rgb) / 0.88));
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: var(--os-identity-name-size, 0.9375rem);
   font-weight: 400;
   font-style: normal;
   line-height: 1.25;
@@ -402,8 +403,8 @@
 .os-app-chrome-nav-search .glass-sheet-icon-action > svg {
   display: block;
   flex-shrink: 0;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: var(--os-chrome-glyph-size, 1.5rem);
+  height: var(--os-chrome-glyph-size, 1.5rem);
 }
 
 .os-app-chrome-nav-search-trailing .glass-sheet-icon-action {

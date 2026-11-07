@@ -22,8 +22,9 @@ interface SheetChromeHeaderProps {
 
 /**
  * One chrome recipe for sheet headers — leading content, trailing actions /
- * close, optional toolbar row. Replaces hand-rolled `.standing-sheet-header`
- * markup. Title-centric sheets use `SheetHeader` from @onsocial/ui instead.
+ * close, optional toolbar row. Always ships `standing-sheet-header--compact`
+ * (nav-band × / subject row) so drawers match screen chrome. Title-centric
+ * sheets use `SheetHeader` from @onsocial/ui instead.
  */
 export function SheetChromeHeader({
   children,
@@ -40,7 +41,9 @@ export function SheetChromeHeader({
 
   return (
     <header
-      className={`standing-sheet-header${className ? ` ${className}` : ''}`}
+      className={`standing-sheet-header standing-sheet-header--compact${
+        className ? ` ${className}` : ''
+      }`}
     >
       {showRow ? (
         <div className={rowClassName ?? 'standing-sheet-subject-row'}>

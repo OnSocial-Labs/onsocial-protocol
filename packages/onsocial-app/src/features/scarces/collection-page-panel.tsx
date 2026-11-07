@@ -87,8 +87,9 @@ import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet'
 import { dollarStickerLabel } from '@/features/scarces/dollar-price';
 import { VariationSetPeek } from '@/features/scarces/variation-set-peek';
 import {
+  EVENT_SCHEDULE_UPDATED_LABEL,
   eventHintLive,
-  postponeNotice,
+  eventScheduleMoved,
   ticketEventScheduleFacts,
 } from '@/features/scarces/ticket-event-facts';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
@@ -1106,7 +1107,7 @@ export function CollectionPagePanel({
   };
   const description = view.description?.trim() ?? '';
   const aboutEvent = ticketEventScheduleFacts(view, nowMs);
-  const movedNotice = postponeNotice({
+  const scheduleMoved = eventScheduleMoved({
     previousEndsAtMs: view.eventEndsAtPreviousMs,
     previousStartsAtMs: view.eventStartsAtPreviousMs,
   });
@@ -1511,13 +1512,28 @@ export function CollectionPagePanel({
             (aboutEvent.when ||
               aboutEvent.place ||
               aboutEvent.next ||
-              movedNotice) ? (
+              scheduleMoved) ? (
               <div className="collection-event-lines">
-                {aboutEvent.when ? (
-                  <p className="collection-product-line">{aboutEvent.when}</p>
-                ) : null}
-                {movedNotice ? (
-                  <p className="collection-product-line">{movedNotice}</p>
+                {aboutEvent.when || scheduleMoved ? (
+                  <p className="collection-product-line">
+                    {aboutEvent.when ? <span>{aboutEvent.when}</span> : null}
+                    {scheduleMoved ? (
+                      <>
+                        {aboutEvent.when ? (
+                          <span className="collection-meta-sep" aria-hidden>
+                            ·
+                          </span>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="collection-product-status is-idle collection-event-updated"
+                          onClick={() => setFactsOpen(true)}
+                        >
+                          {EVENT_SCHEDULE_UPDATED_LABEL}
+                        </button>
+                      </>
+                    ) : null}
+                  </p>
                 ) : null}
                 {aboutEvent.place ? (
                   <p className="collection-product-line">{aboutEvent.place}</p>

@@ -258,7 +258,7 @@ test.describe('thread reply dock', () => {
     await expect(crossfading).toHaveCount(0, { timeout: 5_000 });
   });
 
-  test('one-line reply keeps the avatar on the reply field', async ({
+  test('one-line reply keeps the avatar centered on the typing field', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
