@@ -18,8 +18,10 @@ export async function expectChromePageInset(root: Locator): Promise<void> {
           .trim();
         const style = getComputedStyle(el);
         const expected = `${rootFont * 0.75}px`;
+        // Browsers may serialize 0.75rem as `.75rem`.
+        const gutterOk = gutter === '0.75rem' || gutter === '.75rem';
         const ok =
-          gutter === '0.75rem' &&
+          gutterOk &&
           style.paddingLeft === expected &&
           style.paddingRight === expected;
         return ok

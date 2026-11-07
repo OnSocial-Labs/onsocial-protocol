@@ -228,8 +228,9 @@ test.describe('guild page', () => {
     await expect(leaveIcon).toHaveCSS('cursor', 'progress');
     await leaveIcon.evaluate((node) => node.classList.remove('is-pending'));
     const leaveGlyph = leaveIcon.locator('.glass-sheet-close-icon');
-    await expect(leaveGlyph).toHaveCSS('width', '20px');
-    await expect(leaveGlyph).toHaveCSS('height', '20px');
+    /* --os-chrome-glyph-size 1.5rem */
+    await expect(leaveGlyph).toHaveCSS('width', '24px');
+    await expect(leaveGlyph).toHaveCSS('height', '24px');
     await expect(page.getByRole('button', { name: 'Join guild' })).toHaveCount(
       0
     );
@@ -348,8 +349,9 @@ test.describe('guild page', () => {
       0
     );
     const gear = settingsButton.locator('.glass-sheet-close-icon');
-    await expect(gear).toHaveCSS('width', '20px');
-    await expect(gear).toHaveCSS('height', '20px');
+    /* --os-chrome-glyph-size 1.5rem */
+    await expect(gear).toHaveCSS('width', '24px');
+    await expect(gear).toHaveCSS('height', '24px');
     await page.getByRole('button', { name: /View roster/ }).click();
     const members = page.getByRole('dialog', { name: 'Members' });
     await expect(members).toBeVisible();
@@ -394,8 +396,9 @@ test.describe('guild page', () => {
     expect(aligned!.iconWidth).toBeLessThan(18.5);
     const addMemberButton = members.getByRole('button', { name: 'Add member' });
     const addMemberGlyph = addMemberButton.locator('svg');
-    await expect(addMemberGlyph).toHaveCSS('width', '20px');
-    await expect(addMemberGlyph).toHaveCSS('height', '20px');
+    /* --os-chrome-glyph-size 1.5rem */
+    await expect(addMemberGlyph).toHaveCSS('width', '24px');
+    await expect(addMemberGlyph).toHaveCSS('height', '24px');
     await addMemberButton.click();
     const addMember = page.getByRole('dialog', { name: 'Add member' });
     await expect(addMember).toBeVisible();
