@@ -22966,6 +22966,13 @@ a.os-surface-row,
     text-decoration: none;
   }
 
+  /* Open post stacks the handle under the name and keeps the full row width. */
+  .post-identity--stacked .post-card-identity {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .post-card-identity:focus-visible {
     outline: 1px solid var(--os-surface-ring);
     outline-offset: 3px;
