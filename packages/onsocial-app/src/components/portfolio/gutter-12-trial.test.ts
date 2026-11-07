@@ -97,4 +97,31 @@ describe('12px gutter trial', () => {
       /\.post-media-strip \{\s*margin-top: 0\.35rem;\s*min-width: 0;/
     );
   });
+
+  it('keeps the feed rail on the avatar centre and the composer rail put', () => {
+    expect(globalsCss).toMatch(
+      /\.post-thread-item,\s*\.post-thread-more \{[\s\S]*?--thread-rail-x:\s*calc\(var\(--os-avatar-feed, 2\.25rem\) \/ 2\);/
+    );
+    expect(globalsCss).toMatch(
+      /\.guild-composer-thread-item \{[\s\S]*?--thread-rail-x:\s*1\.125rem;/
+    );
+    expect(globalsCss).toMatch(
+      /\.guild-composer-reply-target \{[\s\S]*?--thread-rail-x:\s*1\.125rem;/
+    );
+  });
+
+  it('lets the post header shrink the name and wrap the action row', () => {
+    expect(globalsCss).toMatch(
+      /\.post-identity-inline-cluster \.post-identity-name[\s\S]*?min-width:\s*2ch;/
+    );
+    expect(globalsCss).toMatch(
+      /\.post-identity-inline-cluster \.post-identity-handle \{[\s\S]*?flex-basis:\s*3\.5ch;[\s\S]*?min-width:\s*3\.5ch;/
+    );
+    expect(globalsCss).toMatch(
+      /@media \(max-width: 639px\) \{\s*\.post-card-menu-trigger \{\s*width:\s*var\(--os-icon-hit\);\s*height:\s*var\(--os-icon-hit\);/
+    );
+    expect(globalsCss).toMatch(
+      /\.post-card-engagement-actions \{[\s\S]*?flex-wrap:\s*wrap;/
+    );
+  });
 });
