@@ -15894,7 +15894,7 @@ a.os-surface-row,
     /* Top-stack — growing lines must not shove the first line (flex-end did). */
     justify-content: flex-start;
     align-self: stretch;
-    --os-write-dock-line-height: var(--portfolio-summon-avatar-size, 1.6rem);
+    --os-write-dock-line-height: var(--portfolio-summon-avatar-size, 1.85rem);
     --os-write-dock-compose-max-lines: 4;
     --os-write-dock-reply-max-lines: 3;
   }
@@ -16011,7 +16011,7 @@ a.os-surface-row,
     padding-top: calc(
       (
           var(--os-dock-height, 3.25rem) -
-            var(--portfolio-summon-avatar-size, 1.6rem)
+            var(--portfolio-summon-avatar-size, 1.85rem)
         ) /
         2
     );
@@ -16023,7 +16023,7 @@ a.os-surface-row,
     padding-top: calc(
       (
           var(--os-dock-height, 3.25rem) -
-            var(--portfolio-summon-avatar-size, 1.6rem)
+            var(--portfolio-summon-avatar-size, 1.85rem)
         ) /
         2
     );
@@ -16035,9 +16035,9 @@ a.os-surface-row,
     min-width: 0;
     resize: none;
     min-height: 0;
-    max-height: var(--portfolio-summon-avatar-size, 1.6rem);
+    max-height: var(--portfolio-summon-avatar-size, 1.85rem);
     overflow-y: hidden;
-    line-height: var(--portfolio-summon-avatar-size, 1.6rem);
+    line-height: var(--portfolio-summon-avatar-size, 1.85rem);
     padding: 0;
     border: 0;
     background: transparent;
@@ -16366,7 +16366,7 @@ a.os-surface-row,
     padding-top: calc(
       (
           var(--os-dock-height, 3.25rem) -
-            var(--portfolio-summon-avatar-size, 1.6rem)
+            var(--portfolio-summon-avatar-size, 1.85rem)
         ) /
         2
     );
@@ -16377,7 +16377,7 @@ a.os-surface-row,
     padding-top: calc(
       (
           var(--os-dock-height, 3.25rem) -
-            var(--portfolio-summon-avatar-size, 1.6rem)
+            var(--portfolio-summon-avatar-size, 1.85rem)
         ) /
         2
     );
@@ -22973,7 +22973,9 @@ a.os-surface-row,
     display: flex;
     align-items: flex-start;
     min-width: 0;
-    flex: 0 1 auto;
+    /* Share free space with the trailing spacer so the cluster is bounded
+       before the time seat — enlarged text ellipsizes inside this box. */
+    flex: 1 1 0;
     max-width: 100%;
     overflow: hidden;
     color: inherit;
@@ -23185,7 +23187,8 @@ a.os-surface-row,
   .post-identity-inline-cluster .post-identity-name,
   .post-identity-name-cluster .post-identity-name {
     flex: 0 1 auto;
-    min-width: 0;
+    /* Keep a readable stub when the root font is enlarged — never crush to 0. */
+    min-width: 3ch;
     font-size: 1em;
     font-weight: inherit;
     letter-spacing: inherit;
@@ -23193,8 +23196,10 @@ a.os-surface-row,
   }
 
   .post-identity-inline-cluster .post-identity-handle {
-    flex: 0 999 auto;
-    min-width: 3.5ch;
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: var(--os-identity-meta-size, 0.875rem);
     font-weight: var(--os-identity-handle-weight, 400);
     line-height: inherit;
@@ -41485,7 +41490,7 @@ a.os-surface-row,
   padding-top: calc(
     (
         var(--os-dock-height, 3.25rem) -
-          var(--portfolio-summon-avatar-size, 1.6rem)
+          var(--portfolio-summon-avatar-size, 1.85rem)
       ) /
       2
   );

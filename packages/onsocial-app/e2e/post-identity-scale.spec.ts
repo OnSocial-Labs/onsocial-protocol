@@ -61,6 +61,10 @@ async function readIdentity(scope: Locator) {
       time: pick('.post-identity-time, .post-card-detail-time'),
       menu: pick('.post-identity-trailing, .post-card-menu'),
       row: pick('.post-identity-row'),
+      // Allocated flex box — overflowing ellipsized glyphs can paint-clip past
+      // their content boxes, so child rects alone are a false collision signal.
+      identity: pick('.post-card-identity'),
+      timeSlot: pick('.post-identity-time-slot'),
     };
   });
 }
@@ -122,18 +126,23 @@ async function setRootFont(page: Page, px: number) {
 
 function expectFeedByline(identity: Awaited<ReturnType<typeof readIdentity>>) {
   expect(identity.name?.text.length).toBeGreaterThan(0);
+  expect(identity.name!.w).toBeGreaterThan(1);
   expect(identity.handle?.text).toMatch(/^@/);
   expect(identity.time?.text.length).toBeGreaterThan(0);
   expect(identity.menu).not.toBeNull();
-  expect(overlaps(identity.name!, identity.handle!)).toBe(false);
-  expect(overlaps(identity.handle!, identity.time!)).toBe(false);
-  expect(overlaps(identity.name!, identity.time!)).toBe(false);
+  expect(identity.identity).not.toBeNull();
+  expect(identity.timeSlot).not.toBeNull();
   expect(sameBaseline(identity.name!, identity.handle!)).toBe(true);
   expect(sameBaseline(identity.handle!, identity.time!)).toBe(true);
   expect(sameBaseline(identity.time!, identity.menu!)).toBe(true);
+  // Name before handle inside the cluster; time seat after the profile link;
+  // menu after time. Compare allocated flex boxes — ellipsized glyph ink can
+  // extend past a clipped child box under overflow:hidden.
   expect(identity.name!.left).toBeLessThan(identity.handle!.left);
-  expect(identity.handle!.left).toBeLessThan(identity.time!.left);
-  expect(identity.time!.right).toBeLessThanOrEqual(identity.menu!.left + 1);
+  expect(identity.identity!.right).toBeLessThanOrEqual(
+    identity.timeSlot!.left + 1
+  );
+  expect(identity.timeSlot!.right).toBeLessThanOrEqual(identity.menu!.left + 1);
   expect(identity.name!.whiteSpace).toMatch(/nowrap/);
   expect(identity.handle!.whiteSpace).toMatch(/nowrap/);
 }

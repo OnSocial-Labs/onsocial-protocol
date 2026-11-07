@@ -63,8 +63,8 @@ export function writeDockShouldSendOnEnter(
 
 export const WRITE_DOCK_ADD_REPLY_PLACEHOLDER = 'Add a reply…';
 
-/** Matches `--portfolio-summon-avatar-size` / `.os-write-dock-input` line-height. */
-export const WRITE_DOCK_INPUT_LINE_REM = 1.35;
+/** Matches `--portfolio-summon-avatar-size` / `--os-avatar-nav` / input line-height. */
+export const WRITE_DOCK_INPUT_LINE_REM = 1.85;
 
 /** Full compose — four full rows before in-field scroll. */
 export const WRITE_DOCK_COMPOSE_MAX_LINES = 4;
