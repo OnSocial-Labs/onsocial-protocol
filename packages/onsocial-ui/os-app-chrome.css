@@ -1,8 +1,9 @@
 /**
  * @onsocial/ui — OsAppScreen compact glass chrome (2.35rem nav band).
  *
- * Horizontal spacing MUST use app tokens (--os-screen-body-pad-x /
- * --os-screen-body-inset) — do not introduce page-specific padding.
+ * Horizontal spacing MUST use the shared gutter (--os-gutter, via
+ * --os-screen-body-pad-x / --os-screen-body-inset). Do not invent a
+ * page-specific padding.
  *
  * Pair with app `OsAppScreen` (`compactChrome`, `glassChrome`, optional
  * `nestedScrollChrome` for split panes only — default is body scroll like Home).
