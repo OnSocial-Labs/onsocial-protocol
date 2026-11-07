@@ -39,7 +39,10 @@ describe('page drawer feed inset', () => {
   });
 
   it('shares the gutter and derives dock clearance from the control box', () => {
-    expect(globalsCss).toMatch(/--os-gutter:\s*1rem;/);
+    expect(globalsCss).toMatch(/--os-gutter:\s*0\.75rem;/);
+    expect(globalsCss).toMatch(
+      /\.account-drawer-panel,\s*\.account-storage-panel \{\s*--os-gutter:\s*1rem;\s*--os-screen-body-pad-x:\s*1rem;\s*--os-sheet-pad-inline:\s*1rem;\s*--os-sheet-footer-pad-inline:\s*1rem;/
+    );
     expect(globalsCss).toMatch(/--os-dock-height:\s*2\.75rem;/);
     expect(globalsCss).toMatch(
       /--portfolio-dock-clearance:\s*calc\(\s*var\(--os-dock-height\) \+ var\(--os-dock-bottom-offset\) \+\s*var\(--os-dock-clearance-gap\) \+ env\(safe-area-inset-bottom, 0px\)/

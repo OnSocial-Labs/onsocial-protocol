@@ -9,7 +9,7 @@ const accountId = e2ePortfolioAccountId();
 const portfolioPath = `/@${accountId}`;
 
 test.describe('page drawer feed inset', () => {
-  test('drawer column uses the 1rem app pad and Home empty chrome', async ({
+  test('drawer column uses the 12px app pad and Home empty chrome', async ({
     page,
   }) => {
     await gotoApp(page, `${portfolioPath}?tab=posts`);
@@ -33,9 +33,11 @@ test.describe('page drawer feed inset', () => {
         getComputedStyle(document.documentElement).fontSize
       );
       return {
-        bodyPadX: bodyStyle.paddingLeft,
-        headerPadX: headerStyle.paddingLeft,
-        expectedPadX: `${rootFont}px`,
+        expectedPadX: rootFont * 0.75,
+        bodyPadLeft: parseFloat(bodyStyle.paddingLeft),
+        bodyPadRight: parseFloat(bodyStyle.paddingRight),
+        headerPadLeft: parseFloat(headerStyle.paddingLeft),
+        headerPadRight: parseFloat(headerStyle.paddingRight),
         gutter: getComputedStyle(body).getPropertyValue('--os-gutter').trim(),
         hasPanelBody: Boolean(body.querySelector('.panel-body')),
         hasPlaceholder: Boolean(document.querySelector('.panel-placeholder')),
@@ -48,9 +50,11 @@ test.describe('page drawer feed inset', () => {
     });
 
     expect(metrics).not.toBeNull();
-    expect(metrics?.gutter).toBe('1rem');
-    expect(metrics?.bodyPadX).toBe(metrics?.expectedPadX);
-    expect(metrics?.headerPadX).toBe(metrics?.expectedPadX);
+    expect(parseFloat(metrics?.gutter ?? '')).toBeCloseTo(0.75, 2);
+    expect(metrics?.bodyPadLeft).toBeCloseTo(metrics?.expectedPadX ?? 0, 1);
+    expect(metrics?.bodyPadRight).toBeCloseTo(metrics?.expectedPadX ?? 0, 1);
+    expect(metrics?.headerPadLeft).toBeCloseTo(metrics?.expectedPadX ?? 0, 1);
+    expect(metrics?.headerPadRight).toBeCloseTo(metrics?.expectedPadX ?? 0, 1);
     expect(metrics?.hasPanelBody).toBe(false);
     expect(metrics?.hasPlaceholder).toBe(false);
     expect(metrics?.hasScrollEnd).toBe(true);

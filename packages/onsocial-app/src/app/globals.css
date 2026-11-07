@@ -135,8 +135,8 @@
 /* Same side inset as the slide header. The shared slide body pads the sides to 0. */
 .collection-door-log-slide .os-slide-over-content.collection-door-log,
 .event-guests-slide .os-slide-over-content.event-guests {
-  padding: 0.45rem max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px)) 1.5rem
-    max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
+  padding: 0.45rem max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
+    1.5rem max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   gap: 0.7rem;
 }
 
@@ -3113,8 +3113,9 @@ a.os-surface-row,
     /* Pull tier-2 meta (caption · tags) into one band below signal numbers. */
     --portfolio-shelf-pull: 0.44rem;
     --portfolio-shelf-meta-gap: 0.22rem;
-    /* One horizontal text gutter. html stays font-size: 100%. */
-    --os-gutter: 1rem;
+    /* One horizontal text gutter. html stays font-size: 100%, so this is 12px.
+       Wallet and storage sheets re-pin 1rem on their panels. */
+    --os-gutter: 0.75rem;
     /* Dock control box. 2.75rem is the current pill, back, compose, and marks.
        Below 640px the phone block raises this to 3rem. Do not change the offset. */
     --os-dock-height: 2.75rem;
@@ -7189,7 +7190,8 @@ a.os-surface-row,
     justify-content: flex-start;
     gap: var(--portfolio-hero-gap);
     padding: var(--portfolio-content-start)
-      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px)) var(--portfolio-dock-clearance)
+      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
+      var(--portfolio-dock-clearance)
       max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
     text-align: center;
     transition: padding-top var(--mood-transition-duration)
@@ -13815,7 +13817,8 @@ a.os-surface-row,
     > .os-app-screen-column
     > .os-app-screen-header {
     padding: calc(env(safe-area-inset-top, 0px) + var(--os-app-chrome-pad-y))
-      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px)) var(--os-app-chrome-pad-y)
+      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
+      var(--os-app-chrome-pad-y)
       max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   }
 
@@ -15076,8 +15079,7 @@ a.os-surface-row,
     align-items: center;
     justify-content: flex-end;
     width: min(100%, var(--os-column-width));
-    padding: 0
-      max(var(--os-gutter), env(safe-area-inset-right, 0px))
+    padding: 0 max(var(--os-gutter), env(safe-area-inset-right, 0px))
       calc(var(--os-dock-bottom-offset) + env(safe-area-inset-bottom))
       max(var(--os-gutter), env(safe-area-inset-left, 0px));
     pointer-events: none;
@@ -18246,6 +18248,21 @@ a.os-surface-row,
 
   /* ── Account drawer — OS glass sheet (not Portal dropdown) ─ */
 
+  /*
+   * Previous 16px column. Root --os-gutter is 0.75rem.
+   * Wallet home is .account-drawer-panel. The account menu shares that
+   * panel, so it keeps the same inset. Storage, swap, and the other
+   * sheets that already use .account-storage-panel share this pin.
+   * Header, hug body, and footer read these four tokens.
+   */
+  .account-drawer-panel,
+  .account-storage-panel {
+    --os-gutter: 1rem;
+    --os-screen-body-pad-x: 1rem;
+    --os-sheet-pad-inline: 1rem;
+    --os-sheet-footer-pad-inline: 1rem;
+  }
+
   .account-drawer-panel .glass-sheet-body {
     flex: 1 1 auto;
     min-height: 0;
@@ -19758,7 +19775,8 @@ a.os-surface-row,
     flex: 1 1 auto;
     align-items: center;
     justify-content: center;
-    padding: 1.25rem max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
+    padding: 1.25rem
+      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px))
       calc(1rem + env(safe-area-inset-bottom, 0px))
       max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   }
@@ -19778,7 +19796,8 @@ a.os-surface-row,
     display: flex;
     flex-direction: column;
     gap: 0.48rem;
-    padding: 0.05rem max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px)) 0.35rem
+    padding: 0.05rem
+      max(var(--os-gutter, 1rem), env(safe-area-inset-right, 0px)) 0.35rem
       max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
   }
 
@@ -33649,7 +33668,10 @@ a.os-surface-row,
 
   @media (min-width: 640px) {
     .feed-photo-slide {
-      --os-media-caption-outset: calc(1rem + 1.25rem);
+      /* Body pad stays 1.25rem. The listen pad follows the gutter. */
+      --os-media-caption-outset: calc(
+        1.25rem + var(--os-screen-body-pad-x, 1rem)
+      );
     }
 
     .feed-photo-slide--cinema {
@@ -37132,7 +37154,7 @@ a.os-surface-row,
   }
 
   .guild-loading-hero {
-    --guild-loading-bleed: 1.1rem;
+    --guild-loading-bleed: calc(var(--os-screen-body-pad-x, 1rem) + 0.1rem);
     display: flex;
     flex-direction: column;
     gap: 0.55rem;

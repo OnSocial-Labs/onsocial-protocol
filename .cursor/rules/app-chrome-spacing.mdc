@@ -19,7 +19,7 @@ Three families — do not merge their geometry:
 - Measure permanent chrome (`--os-screen-chrome-height`); tuck is visual-only (freeze inset).
 - Under-chrome overlays: `.os-chrome-whisper-anchor` — never reserve flow when hidden.
 - Messages sealed-thread hint: `OsChromeWhisper` (do not in-flow shove bubbles). Passkey hint stays overlay and hides on the thread pane.
-- Body inset: `OsAppChromePage` / `--os-screen-body-inset` — no feature-level padding inventing numbers. The horizontal length is `--os-gutter` (1rem). `--os-screen-body-pad-x` derives from it. Safe-area gutters use `max(var(--os-gutter), env(safe-area-inset-*))`.
+- Body inset: `OsAppChromePage` / `--os-screen-body-inset` — no feature-level padding inventing numbers. The horizontal length is `--os-gutter` (0.75rem, 12px at the 100% root). `--os-screen-body-pad-x` derives from it. Safe-area gutters use `max(var(--os-gutter), env(safe-area-inset-*))` and may exceed 12px. Wallet home (`.account-drawer-panel`) and storage-panel sheets re-pin those tokens to 1rem. The account chooser overlay does not use the gutter.
 - Dock control box: `--os-dock-height` (2.75rem, 3rem below 640px). Bottom offset stays `0.9rem`. `--portfolio-dock-clearance` derives from that height, `--os-dock-bottom-offset`, `--os-dock-clearance-gap`, and the bottom safe area once. Do not bump the root font size. Phone type, faces, and hit targets live in the same `:root` block.
 
 ## Live vs cold
