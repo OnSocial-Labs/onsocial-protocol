@@ -23073,8 +23073,11 @@ a.os-surface-row,
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
-    /* Top of the name lines up with the avatar, not the menu's centre. */
     align-items: flex-start;
+    /* The 44px menu is taller than the line. Top alignment keeps the name
+       on the avatar. 1.5px is the measured gap so the name starts 0.7px
+       under the avatar, matching the pre-704 render. */
+    padding-top: 1.5px; /* pre-704 name start */
     gap: 0.35rem;
     width: 100%;
     min-width: 0;
