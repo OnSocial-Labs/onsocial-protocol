@@ -156,7 +156,7 @@ export function PostIdentityMeta({
       href={sharedProfileHref}
       className="post-card-identity"
       scroll={false}
-      aria-label={`View ${name}'s profile`}
+      aria-label={`View ${name}, ${handleLabel}`}
     >
       {avatar}
       {names}

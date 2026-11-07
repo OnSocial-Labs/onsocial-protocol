@@ -22943,11 +22943,11 @@ a.os-surface-row,
 
   .post-identity-time-slot {
     display: inline-flex;
-    flex: 0 1 auto;
+    flex: 1 1 auto;
     align-items: center;
     min-width: 0;
     max-width: 100%;
-    overflow: hidden;
+    overflow: visible;
     font-size: 0.875rem;
     font-weight: 600;
     letter-spacing: -0.01em;
@@ -23019,7 +23019,7 @@ a.os-surface-row,
      */
   }
 
-  /* Name stays whole. Handle and time wrap, or truncate with the full value on the control. */
+  /* Name, handle, and time stay fully visible. A long handle breaks instead of clipping. */
   .post-identity {
     display: flex;
     min-width: 0;
@@ -23048,12 +23048,12 @@ a.os-surface-row,
   .post-identity-main {
     display: flex;
     flex-direction: row;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.3em;
     min-width: 0;
     flex: 1 1 auto;
-    overflow: hidden;
+    overflow: visible;
   }
 
   /* Open post root: name on its own line, @account under it. */
@@ -23083,6 +23083,8 @@ a.os-surface-row,
 
   .post-card-detail-time {
     display: block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
     margin: 0.5rem 0 0.1rem;
     font-size: var(--os-identity-meta-size, 0.68rem);
     font-weight: 400;
@@ -23098,7 +23100,7 @@ a.os-surface-row,
   .post-identity-name-cluster {
     display: inline-flex;
     flex: 0 1 auto;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.3em;
     min-width: 0;
@@ -23136,10 +23138,12 @@ a.os-surface-row,
   }
 
   .post-identity-inline-cluster .post-identity-handle {
-    flex: 0 1 auto;
+    flex: 1 1 auto;
     min-width: min(100%, 3.5ch);
     max-width: 100%;
-    overflow: hidden;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    white-space: normal;
     font-size: var(--os-identity-meta-size, 0.82em);
     font-weight: var(--os-identity-handle-weight, 400);
     line-height: inherit;
@@ -23172,8 +23176,10 @@ a.os-surface-row,
 
   .post-identity-inline-cluster .post-identity-time,
   .post-identity-time-slot .post-identity-time {
-    flex: 0 1 auto;
-    overflow: hidden;
+    flex: 1 1 auto;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    white-space: normal;
     max-width: 100%;
     font-size: var(--os-identity-meta-size, 0.82em);
     font-weight: 400;
@@ -23209,9 +23215,10 @@ a.os-surface-row,
   .post-identity-name {
     flex: 0 1 auto;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
     font-size: var(--os-identity-name-size, 0.875rem);
     font-weight: var(--os-identity-name-weight, 600);
     letter-spacing: -0.01em;
@@ -23223,9 +23230,10 @@ a.os-surface-row,
 
   .post-identity-handle,
   .post-identity-time {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
     font-size: var(
       --os-identity-meta-size,
       var(--os-identity-handle-size, 0.72rem)
@@ -23265,7 +23273,7 @@ a.os-surface-row,
   .post-identity--stacked .post-identity-name-cluster {
     display: inline-flex;
     flex-direction: row;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     max-width: 100%;
   }
