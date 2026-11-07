@@ -18250,13 +18250,34 @@ a.os-surface-row,
 
   /*
    * Previous 16px column. Root --os-gutter is 0.75rem.
-   * Wallet home is .account-drawer-panel. The account menu shares that
-   * panel, so it keeps the same inset. Storage, swap, and the other
-   * sheets that already use .account-storage-panel share this pin.
-   * Header, hug body, and footer read these four tokens.
+   * These panels re-pin the tokens their header, body, and footer already
+   * read. Shared panels keep every screen that uses them at 16px.
+   * Wallet home and the account menu: .account-drawer-panel.
+   * Storage, swap, thank, and the other .account-storage-panel sheets.
+   * Support, buy, sell, bid, offer, list, transfer, endorse, amplify,
+   * boost, rally, and message compose: .os-gesture-sheet-panel.
+   * Collect and the listings sheet that shares its panel.
+   * Vote actions, drop confirm, propose confirm, hub transfer and publish,
+   * guild proposals, allowlists, and the commerce staff sheet.
+   * Series edit, DAO boost, and DAO edit: .hub-manage-slide.
+   * Treasury, members, and info: .dao-org-hug.
    */
   .account-drawer-panel,
-  .account-storage-panel {
+  .account-storage-panel,
+  .glass-sheet-panel.os-gesture-sheet-panel,
+  .portfolio-support-collect-info-panel,
+  .glass-sheet-panel:has(.protocol-action-sheet-body),
+  .glass-sheet-panel:has(.drop-start-confirm-body),
+  .glass-sheet-panel:has(.os-action-drawer-confirm),
+  .hub-transfer-sheet-panel,
+  .hub-publish-access-sheet-panel,
+  .hub-publish-requests-sheet-panel,
+  .guild-manage-sheet-panel,
+  .collection-allowlist-sheet-panel,
+  .collection-allowlist-edit-sheet-panel,
+  .scarce-commerce-sheet-panel,
+  .hub-manage-slide,
+  .dao-org-hug {
     --os-gutter: 1rem;
     --os-screen-body-pad-x: 1rem;
     --os-sheet-pad-inline: 1rem;
@@ -29827,8 +29848,8 @@ a.os-surface-row,
     height: var(--os-app-screen-nav-row-height, 2.35rem);
     min-height: var(--os-app-screen-nav-row-height, 2.35rem);
     max-height: var(--os-app-screen-nav-row-height, 2.35rem);
-    margin: 0 -1rem;
-    padding: 0 1rem;
+    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
+    padding-inline: var(--os-screen-body-pad-x, 0.75rem);
     /* Fill/blur from osChromeFrostStyle() — match .os-chrome-glass / elevated headers. */
     background: transparent;
     transition:
@@ -29850,9 +29871,9 @@ a.os-surface-row,
 
   @media (min-width: 640px) {
     .os-media-face-hero {
-      /* Body pad is 1.25rem here. Pull flush, then use the Post header inset.
+      /* Pull flush with the reader body, then use the page gutter.
          The chevron is centered in the 2.35rem slot, same as Post Back. */
-      margin-inline: -1.25rem;
+      margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
       padding-left: max(var(--os-gutter, 1rem), env(safe-area-inset-left, 0px));
       padding-right: max(
         var(--os-gutter, 1rem),
@@ -33029,11 +33050,11 @@ a.os-surface-row,
   }
 
   /*
-   * The stage is inset by the screen body pad plus the listen pad. The name,
-   * caption, and date use the same 1rem side inset as the rows under them.
+   * The stage is inset by the reader body pad plus the listen pad. Both
+   * follow the page gutter, so the wash meets the card edge.
    */
   .feed-photo-slide {
-    --os-media-caption-outset: calc(1rem + var(--os-screen-body-pad-x, 1rem));
+    --os-media-caption-outset: calc(2 * var(--os-screen-body-pad-x, 0.75rem));
   }
 
   .feed-photo-slide--cinema {
@@ -33398,7 +33419,7 @@ a.os-surface-row,
     max-width: none;
     height: var(--feed-thread-band, 58%);
     max-height: var(--feed-thread-band, 58%);
-    margin-inline: -1rem;
+    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
     margin-bottom: -0.55rem;
     z-index: 8;
     overflow: hidden;
@@ -33484,7 +33505,7 @@ a.os-surface-row,
 
   @media (min-width: 640px) {
     .feed-photo-thread-host {
-      margin-inline: -1.25rem;
+      margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
       margin-bottom: -0.75rem;
     }
   }
@@ -33620,7 +33641,7 @@ a.os-surface-row,
     min-height: 100%;
     margin: 0 auto;
     /* No top pad — progress + jacket own the rim (kills the scroll-top gap). */
-    padding: 0 1rem 0.55rem;
+    padding: 0 var(--os-screen-body-pad-x, 0.75rem) 0.55rem;
     box-sizing: border-box;
   }
 
@@ -33668,20 +33689,18 @@ a.os-surface-row,
 
   @media (min-width: 640px) {
     .feed-photo-slide {
-      /* Body pad stays 1.25rem. The listen pad follows the gutter. */
-      --os-media-caption-outset: calc(
-        1.25rem + var(--os-screen-body-pad-x, 1rem)
-      );
+      /* Reader body and listen pad both follow the page gutter. */
+      --os-media-caption-outset: calc(2 * var(--os-screen-body-pad-x, 0.75rem));
     }
 
     .feed-photo-slide--cinema {
-      --os-media-caption-outset: 1.25rem;
+      --os-media-caption-outset: var(--os-screen-body-pad-x, 0.75rem);
     }
 
     .scarce-read-slide .scarce-writing-read,
     .scarce-read-slide .os-media-face-body {
       width: min(100%, 42rem);
-      padding: 0 1.25rem 0.75rem;
+      padding: 0 var(--os-screen-body-pad-x, 0.75rem) 0.75rem;
     }
 
     .ticket-pass-slide .os-media-face-body {
@@ -40203,8 +40222,8 @@ a.os-surface-row,
 
   .guild-feed-filter-pin-inner {
     position: relative;
-    margin-inline: -1rem;
-    padding-inline: 1rem;
+    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 0.75rem));
+    padding-inline: var(--os-screen-body-pad-x, 0.75rem);
     background: transparent;
     box-shadow: none;
     opacity: 1;

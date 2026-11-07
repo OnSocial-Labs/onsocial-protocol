@@ -29,8 +29,14 @@ describe('12px gutter trial', () => {
 
   it('pins wallet and storage sheets to the previous 16px column', () => {
     expect(globalsCss).toMatch(
-      /\.account-drawer-panel,\s*\.account-storage-panel \{\s*--os-gutter:\s*1rem;\s*--os-screen-body-pad-x:\s*1rem;\s*--os-sheet-pad-inline:\s*1rem;\s*--os-sheet-footer-pad-inline:\s*1rem;/
+      /\.account-drawer-panel,\s*\.account-storage-panel,\s*\.glass-sheet-panel\.os-gesture-sheet-panel,[\s\S]*?--os-gutter:\s*1rem;\s*--os-screen-body-pad-x:\s*1rem;\s*--os-sheet-pad-inline:\s*1rem;\s*--os-sheet-footer-pad-inline:\s*1rem;/
     );
+    expect(globalsCss).toMatch(/\.portfolio-support-collect-info-panel,/);
+    expect(globalsCss).toMatch(
+      /\.glass-sheet-panel:has\(\.protocol-action-sheet-body\),/
+    );
+    expect(globalsCss).toMatch(/\.hub-manage-slide,/);
+    expect(globalsCss).toMatch(/\.dao-org-hug \{/);
   });
 
   it('keeps safe-area as a minimum on header, dock, and launcher', () => {
@@ -82,7 +88,10 @@ describe('12px gutter trial', () => {
 
   it('tracks the desktop caption wash to the gutter without widening under the avatar', () => {
     expect(globalsCss).toMatch(
-      /--os-media-caption-outset:\s*calc\(\s*1\.25rem \+ var\(--os-screen-body-pad-x, 1rem\)\s*\);/
+      /padding: 0 var\(--os-screen-body-pad-x, 0\.75rem\) 0\.55rem;/
+    );
+    expect(globalsCss).toMatch(
+      /--os-media-caption-outset:\s*calc\(2 \* var\(--os-screen-body-pad-x, 0\.75rem\)\);/
     );
     expect(globalsCss).toMatch(
       /\.post-media-strip \{\s*margin-top: 0\.35rem;\s*min-width: 0;/

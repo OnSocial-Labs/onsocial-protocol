@@ -78,62 +78,85 @@ test.describe('12px gutter trial', () => {
       await page.setViewportSize(viewport);
       await gotoApp(page, '/home');
       await dismissNextDevOverlay(page);
-      const card = page.locator('.post-card:not(.post-card--skeleton)').first();
-      await expect(card).toBeVisible({ timeout: 20_000 });
-      await expect(page.locator('.post-media-strip').first()).toBeVisible();
+      let feed: {
+        missing?: string[];
+        gutter?: string;
+        rootFont?: number;
+        padLeft?: number;
+        padRight?: number;
+        dockLeft?: number;
+        dockRight?: number;
+        contentLeft?: number;
+        contentRight?: number;
+        avatarLeft?: number;
+        avatarRight?: number;
+        textLeft?: number;
+        textRight?: number;
+        mediaLeft?: number;
+        mediaRight?: number;
+      } = {};
+      await expect
+        .poll(async () => {
+          feed = await page.evaluate(() => {
+            const pageEl = document.querySelector(
+              '.home-feed.os-app-chrome-page'
+            );
+            const cardEl = document.querySelector(
+              '.post-card:not(.post-card--skeleton):has(.post-media-strip)'
+            );
+            const avatar = cardEl?.querySelector('.post-card-avatar') ?? null;
+            const text = cardEl?.querySelector('.post-card-body') ?? null;
+            const media = cardEl?.querySelector('.post-media-strip') ?? null;
+            const dock = document.querySelector('.portfolio-summon-dock');
+            const missing = [
+              pageEl ? '' : 'page',
+              avatar ? '' : 'avatar',
+              text ? '' : 'text',
+              media ? '' : 'media',
+              dock ? '' : 'dock',
+            ].filter(Boolean);
+            if (
+              !(pageEl instanceof HTMLElement) ||
+              !(avatar instanceof HTMLElement) ||
+              !(text instanceof HTMLElement) ||
+              !(media instanceof HTMLElement) ||
+              !(dock instanceof HTMLElement)
+            ) {
+              return { missing };
+            }
+            const rootFont = parseFloat(
+              getComputedStyle(document.documentElement).fontSize
+            );
+            const pageStyle = getComputedStyle(pageEl);
+            const dockStyle = getComputedStyle(dock);
+            const avatarBox = avatar.getBoundingClientRect();
+            const textBox = text.getBoundingClientRect();
+            const mediaBox = media.getBoundingClientRect();
+            const pageBox = pageEl.getBoundingClientRect();
+            return {
+              gutter: getComputedStyle(pageEl)
+                .getPropertyValue('--os-gutter')
+                .trim(),
+              rootFont,
+              padLeft: parseFloat(pageStyle.paddingLeft),
+              padRight: parseFloat(pageStyle.paddingRight),
+              dockLeft: parseFloat(dockStyle.paddingLeft),
+              dockRight: parseFloat(dockStyle.paddingRight),
+              contentLeft: pageBox.left + parseFloat(pageStyle.paddingLeft),
+              contentRight: pageBox.right - parseFloat(pageStyle.paddingRight),
+              avatarLeft: avatarBox.left,
+              avatarRight: avatarBox.right,
+              textLeft: textBox.left,
+              textRight: textBox.right,
+              mediaLeft: mediaBox.left,
+              mediaRight: mediaBox.right,
+            };
+          });
+          return feed.missing?.length ? feed.missing.join(',') : 'ok';
+        })
+        .toBe('ok');
 
-      const feed = await page.evaluate(() => {
-        const pageEl = document.querySelector('.home-feed.os-app-chrome-page');
-        const avatar = document.querySelector('.post-card-avatar');
-        const text = document.querySelector('.post-card-body');
-        const media = document.querySelector('.post-media-strip');
-        const dock = document.querySelector('.portfolio-summon-dock');
-        const missing = [
-          pageEl ? '' : 'page',
-          avatar ? '' : 'avatar',
-          text ? '' : 'text',
-          media ? '' : 'media',
-          dock ? '' : 'dock',
-        ].filter(Boolean);
-        if (
-          !(pageEl instanceof HTMLElement) ||
-          !(avatar instanceof HTMLElement) ||
-          !(text instanceof HTMLElement) ||
-          !(media instanceof HTMLElement) ||
-          !(dock instanceof HTMLElement)
-        ) {
-          return { missing };
-        }
-        const rootFont = parseFloat(
-          getComputedStyle(document.documentElement).fontSize
-        );
-        const pageStyle = getComputedStyle(pageEl);
-        const dockStyle = getComputedStyle(dock);
-        const avatarBox = avatar.getBoundingClientRect();
-        const textBox = text.getBoundingClientRect();
-        const mediaBox = media.getBoundingClientRect();
-        const pageBox = pageEl.getBoundingClientRect();
-        return {
-          gutter: getComputedStyle(pageEl)
-            .getPropertyValue('--os-gutter')
-            .trim(),
-          rootFont,
-          padLeft: parseFloat(pageStyle.paddingLeft),
-          padRight: parseFloat(pageStyle.paddingRight),
-          dockLeft: parseFloat(dockStyle.paddingLeft),
-          dockRight: parseFloat(dockStyle.paddingRight),
-          contentLeft: pageBox.left + parseFloat(pageStyle.paddingLeft),
-          contentRight: pageBox.right - parseFloat(pageStyle.paddingRight),
-          avatarLeft: avatarBox.left,
-          avatarRight: avatarBox.right,
-          textLeft: textBox.left,
-          textRight: textBox.right,
-          mediaLeft: mediaBox.left,
-          mediaRight: mediaBox.right,
-        };
-      });
-
-      expect(feed?.missing ?? []).toEqual([]);
+      expect(feed.missing ?? []).toEqual([]);
       const expected = (feed?.rootFont ?? 16) * 0.75;
       expect(parseFloat(feed?.gutter ?? '')).toBeCloseTo(0.75, 2);
       expect(feed?.padLeft).toBeCloseTo(expected, 1);
@@ -283,4 +306,130 @@ test.describe('12px gutter trial', () => {
     expect(storagePad.left).toBeCloseTo(kept, 1);
     expect(storagePad.right).toBeCloseTo(kept, 1);
   });
+
+  test('phone icon hit stays 44 and the primary control stays 48', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await seedE2eWallet(page, 'alice.near');
+    await gotoApp(page, '/home?sheet=wallet');
+    await dismissNextDevOverlay(page);
+    const wallet = page.locator('.account-drawer-panel');
+    await expect(wallet).toBeVisible({ timeout: 20_000 });
+
+    const hits = await page.evaluate(() => {
+      const icon = document.querySelector(
+        '.account-drawer-panel .glass-sheet-icon-action'
+      );
+      const primary = document.querySelector('.account-wallet-action');
+      const probe = document.createElement('div');
+      probe.style.paddingLeft = 'env(safe-area-inset-left, 0px)';
+      probe.style.paddingRight = 'env(safe-area-inset-right, 0px)';
+      document.body.appendChild(probe);
+      const probeStyle = getComputedStyle(probe);
+      const safeLeft = parseFloat(probeStyle.paddingLeft);
+      const safeRight = parseFloat(probeStyle.paddingRight);
+      probe.remove();
+      const iconBox =
+        icon instanceof HTMLElement ? icon.getBoundingClientRect() : null;
+      const primaryBox =
+        primary instanceof HTMLElement ? primary.getBoundingClientRect() : null;
+      const primaryStyle =
+        primary instanceof HTMLElement ? getComputedStyle(primary) : null;
+      return {
+        iconW: iconBox?.width ?? null,
+        iconH: iconBox?.height ?? null,
+        primaryH: primaryBox?.height ?? null,
+        primaryMin: primaryStyle ? parseFloat(primaryStyle.minHeight) : null,
+        safeLeft,
+        safeRight,
+      };
+    });
+
+    expect(hits.iconW).toBeGreaterThanOrEqual(44);
+    expect(hits.iconH).toBeGreaterThanOrEqual(44);
+    expect(hits.primaryH).toBeGreaterThanOrEqual(48);
+    expect(hits.primaryMin).toBeGreaterThanOrEqual(48);
+    expect(hits.safeLeft).toBe(0);
+    expect(hits.safeRight).toBe(0);
+
+    const close = wallet.getByRole('button', { name: /close/i }).first();
+    await close.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    const focus = await close.evaluate((el) => {
+      el.focus();
+      const style = getComputedStyle(el);
+      const box = el.getBoundingClientRect();
+      return {
+        outline: style.outlineStyle,
+        shadow: style.boxShadow,
+        visible: el.matches(':focus-visible'),
+        width: parseFloat(style.outlineWidth),
+        top: box.top,
+        bottom: box.bottom,
+        left: box.left,
+        right: box.right,
+        height: window.innerHeight,
+        widthPx: window.innerWidth,
+      };
+    });
+    expect(focus.visible || focus.shadow !== 'none').toBe(true);
+    expect(focus.shadow).not.toBe('none');
+    expect(focus.top).toBeGreaterThanOrEqual(0);
+    expect(focus.bottom).toBeLessThanOrEqual(focus.height);
+    expect(focus.left).toBeGreaterThanOrEqual(0);
+    expect(focus.right).toBeLessThanOrEqual(focus.widthPx);
+  });
+
+  for (const viewport of [
+    { width: 320, height: 700 },
+    { width: 390, height: 844 },
+    { width: 1440, height: 900 },
+  ]) {
+    test(`support sheet is 16px left and right at ${viewport.width}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await seedE2eWallet(page, 'alice.near');
+      await gotoApp(page, '/@greenghost.onsocial.testnet');
+      await dismissNextDevOverlay(page);
+      const support = page.getByRole('button', { name: /^Support/ }).first();
+      await expect(support).toBeVisible({ timeout: 20_000 });
+      await support.click();
+      const sheet = page.locator('.os-gesture-sheet-panel');
+      await expect(sheet).toBeVisible({ timeout: 20_000 });
+      const pad = await sheet.evaluate((panel) => {
+        const read = (el: Element | null) => {
+          if (!(el instanceof HTMLElement)) return null;
+          const style = getComputedStyle(el);
+          return {
+            left: parseFloat(style.paddingLeft),
+            right: parseFloat(style.paddingRight),
+          };
+        };
+        const style = getComputedStyle(panel);
+        return {
+          gutter: style.getPropertyValue('--os-gutter').trim(),
+          padX: style.getPropertyValue('--os-screen-body-pad-x').trim(),
+          sheetPad: style.getPropertyValue('--os-sheet-pad-inline').trim(),
+          footerPad: style
+            .getPropertyValue('--os-sheet-footer-pad-inline')
+            .trim(),
+          header: read(panel.querySelector('.glass-sheet-header')),
+          body: read(panel.querySelector('.os-gesture-sheet-body')),
+          footer: read(panel.querySelector('.os-sheet-footer')),
+        };
+      });
+      expect(parseFloat(pad.gutter)).toBeCloseTo(1, 2);
+      expect(parseFloat(pad.padX)).toBeCloseTo(1, 2);
+      expect(parseFloat(pad.sheetPad)).toBeCloseTo(1, 2);
+      expect(parseFloat(pad.footerPad)).toBeCloseTo(1, 2);
+      for (const edge of [pad.header, pad.body, pad.footer]) {
+        expect(edge).not.toBeNull();
+        expect(edge?.left).toBeCloseTo(16, 1);
+        expect(edge?.right).toBeCloseTo(16, 1);
+      }
+    });
+  }
 });
