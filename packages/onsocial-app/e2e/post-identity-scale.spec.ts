@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { dismissNextDevOverlay, gotoApp } from './helpers';
 import { setE2eGraphWriting } from './helpers/e2e-graph';
 
@@ -64,7 +64,7 @@ async function readIdentity(scope: Locator) {
 }
 
 async function setRootFont(page: Page, px: number) {
-  await page.evaluate((size) => {
+  await page.evaluate((size: number) => {
     document.documentElement.style.setProperty('font-size', `${size}px`, 'important');
   }, px);
 }
