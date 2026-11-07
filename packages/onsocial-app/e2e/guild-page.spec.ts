@@ -717,16 +717,22 @@ test.describe('guild page', () => {
     await proposals.getByRole('button', { name: 'Close' }).click();
     await expect(proposals).toHaveCount(0);
 
-    // Closing proposals pops back to Settings when it owned the prior URL.
-    // Prefer the hero control (`exact`) — backdrop is "Close guild settings".
-    const settingsAgain = page.getByRole('dialog', { name: 'Settings' });
-    if (!(await settingsAgain.isVisible())) {
+    // A handoff leave keeps the old Settings button painted while
+    // pointer-events are off, so a visibility check still matches it.
+    // Click storage only on the sheet that is actually on top.
+    const openStorage = page
+      .locator(
+        '.glass-sheet-root.is-visible[data-sheet-top="true"]:not([data-sheet-leaving="true"])'
+      )
+      .getByRole('button', { name: /Guild storage/ });
+    try {
+      await openStorage.waitFor({ state: 'visible', timeout: 2_000 });
+    } catch {
       await page
         .getByRole('button', { name: 'Guild settings', exact: true })
         .click();
     }
-    await expect(settingsAgain).toBeVisible();
-    await settingsAgain.getByRole('button', { name: /Guild storage/ }).click();
+    await openStorage.click();
     const storage = page.getByRole('dialog', { name: 'Guild storage' });
     await expect(storage).toBeVisible();
     await expect(storage).toHaveAttribute('data-presentation', 'enter');

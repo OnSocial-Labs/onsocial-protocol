@@ -22954,7 +22954,7 @@ a.os-surface-row,
    */
   .post-card-identity {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     /* Leave room for the date and More. The name and id shrink inside.
        The floor makes an enlarged row wrap those controls instead of covering them. */
     min-width: min(100%, 6.5rem);
@@ -23073,7 +23073,8 @@ a.os-surface-row,
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
-    align-items: center;
+    /* Top of the name lines up with the avatar, not the menu's centre. */
+    align-items: flex-start;
     gap: 0.35rem;
     width: 100%;
     min-width: 0;
@@ -23169,8 +23170,8 @@ a.os-surface-row,
 
   .post-identity-inline-cluster .post-identity-name,
   .post-identity-name-cluster .post-identity-name {
-    flex: 1 1 0;
-    min-width: 4ch;
+    flex: 0 1 auto;
+    min-width: 0;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -23182,9 +23183,9 @@ a.os-surface-row,
   }
 
   .post-identity-inline-cluster .post-identity-handle {
-    flex: 1 1 3.5ch;
-    min-width: 3.5ch;
-    max-width: 12ch;
+    flex: 0 0 auto;
+    min-width: 0;
+    max-width: max-content;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -23327,6 +23328,9 @@ a.os-surface-row,
     min-width: 0;
     width: auto;
     max-width: 100%;
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
   }
 
   a.post-identity-time:hover,

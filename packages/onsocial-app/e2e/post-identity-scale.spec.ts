@@ -164,8 +164,12 @@ test.describe('post identity at enlarged text', () => {
 
     const at100 = await readIdentity(card.first());
     expect(at100.name?.text).toBe('Alice');
-    expect(at100.handle?.text).toContain('@alice.testnet');
+    expect(at100.handle?.text).toBe('@ali…');
     expect(at100.time?.text.length).toBeGreaterThan(0);
+    await expect(card.first().locator('a.post-card-identity')).toHaveAttribute(
+      'aria-label',
+      /Alice, @alice\.testnet/
+    );
     expect(fullyVisible(at100.name!)).toBe(true);
     expect(fullyVisible(at100.handle!)).toBe(true);
     expect(fullyVisible(at100.time!)).toBe(true);
@@ -300,7 +304,11 @@ test.describe('post identity at enlarged text', () => {
     await applyTextSpacing(page);
     const at100 = await readIdentity(card);
     expect(at100.name?.text).toBe('Alice');
-    expect(at100.handle?.text).toContain('@alice.testnet');
+    expect(at100.handle?.text).toBe('@ali…');
+    await expect(card.locator('a.post-card-identity')).toHaveAttribute(
+      'aria-label',
+      /Alice, @alice\.testnet/
+    );
     expect(fullyVisible(at100.name!)).toBe(true);
     expect(at100.handle!.w).toBeGreaterThan(1);
     expect(fullyVisible(at100.time!)).toBe(true);

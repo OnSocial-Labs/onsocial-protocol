@@ -82,9 +82,9 @@ export function PostIdentityMeta({
   );
 
   const handleLabel = `@${accountId}`;
-  const visualHandle =
-    handleLabel.length > 14 ? `${handleLabel.slice(0, 13)}…` : handleLabel;
-  const handleNode =
+  const feedVisualHandle =
+    accountId.length > 3 ? `@${accountId.slice(0, 3)}…` : handleLabel;
+  const handleNode = (visible: string) =>
     profileHandleHref && !sharedProfileHref ? (
       <Link
         href={profileHandleHref}
@@ -93,11 +93,11 @@ export function PostIdentityMeta({
         title={handleLabel}
         scroll={false}
       >
-        {visualHandle}
+        {visible}
       </Link>
     ) : (
       <span className="post-identity-handle" title={handleLabel}>
-        {visualHandle}
+        {visible}
       </span>
     );
 
@@ -138,7 +138,7 @@ export function PostIdentityMeta({
     <span className="post-identity-inline-cluster">
       {nameNode}
       {marksNode}
-      {handleNode}
+      {handleNode(feedVisualHandle)}
       {sharedProfileHref ? null : timeWithSep}
     </span>
   );
@@ -149,7 +149,7 @@ export function PostIdentityMeta({
         {nameNode}
         {marksNode}
       </span>
-      {handleNode}
+      {handleNode(handleLabel)}
     </span>
   );
 

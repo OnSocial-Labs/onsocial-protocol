@@ -112,10 +112,13 @@ describe('12px gutter trial', () => {
 
   it('keeps a normal feed header on one line and separates wrapped action hit boxes', () => {
     expect(globalsCss).toMatch(
-      /\.post-identity-inline-cluster \.post-identity-name,[\s\S]*?min-width:\s*4ch;[\s\S]*?text-overflow:\s*ellipsis;/
+      /\.post-card-identity \{[^}]*align-items:\s*flex-start;/
     );
     expect(globalsCss).toMatch(
-      /\.post-identity-inline-cluster \.post-identity-handle \{[^}]*min-width:\s*3\.5ch;[^}]*text-overflow:\s*ellipsis;/
+      /\.post-identity-inline-cluster \.post-identity-name,[\s\S]*?flex:\s*0 1 auto;[\s\S]*?text-overflow:\s*ellipsis;/
+    );
+    expect(globalsCss).toMatch(
+      /\.post-identity-inline-cluster \.post-identity-handle \{[^}]*flex:\s*0 0 auto;/
     );
     expect(globalsCss).toMatch(
       /\.post-identity-time-slot \{[^}]*flex:\s*0 0 auto;/
