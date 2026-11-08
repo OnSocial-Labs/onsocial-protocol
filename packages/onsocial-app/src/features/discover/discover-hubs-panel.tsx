@@ -12,9 +12,9 @@ import { SECONDARY_ANCHOR_QUERY } from '@/features/home/home-feed-scroll-anchor'
 import { useFeedWindow } from '@/features/home/use-feed-window';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
-import { discoverHubsLead } from '@/lib/discover-tab-lead';
+import { useDiscoverChipLabel, useShellHomeMessage } from '@/lib/use-shell';
+import { useTranslations } from 'next-intl';
 import {
-  creatorAccessShort,
   fetchAppsDirectory,
   fetchHubsBrowsePage,
   type AppView,
@@ -32,12 +32,11 @@ import { APP_APP_CREATE_PATH, APP_APPS_PATH, appPath } from '@/lib/app-routes';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { fallbackLabel } from '@/lib/profile-display';
 
-function hubPrimaryCategory(app: AppView): string | null {
-  if (app.categories.length > 0) {
-    const raw = app.categories[0]!;
-    return hubCategoryLabel(raw) ?? raw;
-  }
-  return hubCategoryLabel(app.category);
+function hubPrimaryCategoryId(app: AppView): string | null {
+  const fromList = app.categories[0]?.trim();
+  if (fromList) return fromList;
+  const single = app.category?.trim();
+  return single || null;
 }
 
 /**
@@ -50,6 +49,8 @@ function hubPrimaryCategory(app: AppView): string | null {
  */
 export function DiscoverHubsPanel() {
   const { query, scrollRootRef } = useDiscoverPanel();
+  const t = useTranslations('shell');
+  const chipLabel = useDiscoverChipLabel();
   const searchQuery = discoverPeopleSearchQuery(query);
   const [apps, setApps] = useState<AppView[] | null>(null);
   const [categoryFilter, setCategoryFilter] =
@@ -254,14 +255,19 @@ export function DiscoverHubsPanel() {
     !hasMore &&
     apps != null &&
     apps.length === 0;
-  const categoryLabel =
+  const categoryLabel = chipLabel(
+    activeCategoryFilter,
     browseOptions.find((entry) => entry.id === activeCategoryFilter)?.label ??
-    hubCategoryLabel(activeCategoryFilter) ??
-    activeCategoryFilter;
-  const hubKeys = useMemo(
-    () => (apps ?? []).map((app) => app.appId),
-    [apps]
+      hubCategoryLabel(activeCategoryFilter) ??
+      activeCategoryFilter
   );
+  const filterChips = browseOptions.map((entry) => ({
+    id: entry.id,
+    label: chipLabel(entry.id, entry.label),
+  }));
+  const shownError = useShellHomeMessage(error ?? '');
+  const shownLoadMoreError = useShellHomeMessage(loadMoreError ?? '');
+  const hubKeys = useMemo(() => (apps ?? []).map((app) => app.appId), [apps]);
   const { windowed, start, end, topSpacer, bottomSpacer, registerRow } =
     useFeedWindow({
       keys: hubKeys,
@@ -279,21 +285,20 @@ export function DiscoverHubsPanel() {
     >
       <DiscoverTabLead
         links={[
-          { href: APP_APPS_PATH, label: 'My Hubs' },
-          { href: APP_APP_CREATE_PATH, label: 'Create' },
+          { href: APP_APPS_PATH, label: t('discover.myHubs') },
+          { href: APP_APP_CREATE_PATH, label: t('discover.create') },
         ]}
       >
-        {discoverHubsLead(
-          searchQuery,
-          activeCategoryFilter !== 'all' ? categoryLabel : null
-        )}
+        {activeCategoryFilter !== 'all'
+          ? t('discover.hubsIn', { topic: categoryLabel })
+          : t('discover.creatorHubs')}
       </DiscoverTabLead>
 
-      {browseOptions.length > 1 ? (
+      {filterChips.length > 1 ? (
         <OsChipRail
           variant="browse"
-          ariaLabel="Browse hubs by category"
-          items={browseOptions}
+          ariaLabel={t('discover.browseHubs')}
+          items={filterChips}
           value={activeCategoryFilter}
           onValueChange={(next) => setCategoryFilter(next as HubCategoryFilter)}
         />
@@ -301,14 +306,14 @@ export function DiscoverHubsPanel() {
 
       {error ? (
         apps != null && apps.length > 0 ? (
-          <OsChromeListAlert message={error} onRetry={retry} />
+          <OsChromeListAlert message={shownError} onRetry={retry} />
         ) : (
-          <ListLoadError message={error} onRetry={retry} />
+          <ListLoadError message={shownError} onRetry={retry} />
         )
       ) : null}
 
       {showSkeleton ? (
-        <DiscoverCommunityListSkeleton label="Loading hubs…" />
+        <DiscoverCommunityListSkeleton label={t('discover.loadingHubs')} />
       ) : null}
 
       {!showSkeleton &&
@@ -321,16 +326,16 @@ export function DiscoverHubsPanel() {
           <div className="standing-panel-empty-state">
             <p className="standing-panel-empty-primary">
               {isSearchEmpty
-                ? 'No matches.'
+                ? t('discover.noMatches')
                 : isCategoryEmpty
-                  ? 'No hubs in this category yet.'
-                  : 'No hubs listed yet.'}
+                  ? t('discover.noHubsCategory')
+                  : t('discover.noHubs')}
             </p>
             {isSearchEmpty ? null : (
               <p className="standing-panel-empty-secondary">
                 {isCategoryEmpty
-                  ? 'Pick All or another category.'
-                  : 'Open a hub in the Hubs app.'}
+                  ? t('discover.pickCategory')
+                  : t('discover.openHubInApp')}
               </p>
             )}
           </div>
@@ -338,11 +343,11 @@ export function DiscoverHubsPanel() {
             <div className="standing-panel-empty-actions">
               {isCategoryEmpty ? (
                 <OsEmptyAction onClick={() => setCategoryFilter('all')}>
-                  Show all hubs
+                  {t('discover.showAllHubs')}
                 </OsEmptyAction>
               ) : (
                 <OsEmptyAction href={APP_APP_CREATE_PATH}>
-                  Open a hub
+                  {t('homeChrome.openHub')}
                 </OsEmptyAction>
               )}
             </div>
@@ -364,7 +369,19 @@ export function DiscoverHubsPanel() {
           ) : null}
           {apps.slice(start, end).map((app) => {
             const description = app.description?.trim() || null;
-            const category = hubPrimaryCategory(app);
+            const categoryId = hubPrimaryCategoryId(app);
+            const category = categoryId
+              ? chipLabel(
+                  categoryId,
+                  hubCategoryLabel(categoryId) ?? categoryId
+                )
+              : null;
+            const access =
+              app.creatorAccess === 'open'
+                ? t('create.open')
+                : app.creatorAccess === 'approval'
+                  ? t('create.approval')
+                  : t('create.invite');
             return (
               <div
                 key={app.appId}
@@ -385,7 +402,9 @@ export function DiscoverHubsPanel() {
                         <span className="community-summary-stat-count">
                           {app.commissionPct}%
                         </span>
-                        <span className="community-summary-stat-label">fee</span>
+                        <span className="community-summary-stat-label">
+                          {t('discover.fee')}
+                        </span>
                       </span>
                       <span className="community-summary-stat">
                         <span className="community-summary-stat-label">
@@ -397,9 +416,7 @@ export function DiscoverHubsPanel() {
                           {category}
                         </span>
                       ) : null}
-                      <span className="guild-card-pill">
-                        {creatorAccessShort(app.creatorAccess)}
-                      </span>
+                      <span className="guild-card-pill">{access}</span>
                     </>
                   }
                 />
@@ -418,7 +435,7 @@ export function DiscoverHubsPanel() {
 
       {loadMoreError ? (
         <OsChromeListAlert
-          message={loadMoreError}
+          message={shownLoadMoreError}
           onRetry={() => void loadMore()}
         />
       ) : hasMore || moreLoading ? (
@@ -430,7 +447,7 @@ export function DiscoverHubsPanel() {
           />
           {moreLoading ? (
             <DiscoverCommunityListSkeleton
-              label="Loading more hubs…"
+              label={t('discover.loadingMoreHubs')}
               count={2}
             />
           ) : null}

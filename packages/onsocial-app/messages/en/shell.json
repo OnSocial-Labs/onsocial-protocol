@@ -211,7 +211,8 @@
     "business": "Business",
     "culture": "Culture",
     "food": "Food",
-    "animals": "Animals"
+    "animals": "Animals",
+    "all": "All"
   },
   "topicEditor": {
     "typeYourOwn": "Or type your own…",
@@ -270,6 +271,37 @@
     "supplyRequired": "Enter a total supply greater than zero.",
     "tokenNameLength": "Name must be {max} characters or fewer.",
     "tokenSymbolLength": "Symbol must be {max} characters or fewer."
+  },
+  "discover": {
+    "publicGuilds": "Public guilds",
+    "guildsIn": "Guilds · {topic}",
+    "creatorHubs": "Creator hubs",
+    "hubsIn": "Hubs · {topic}",
+    "browseGuilds": "Browse guilds by topic",
+    "browseHubs": "Browse hubs by category",
+    "openGuilds": "Open Guilds",
+    "create": "Create",
+    "myHubs": "My Hubs",
+    "loadingGuilds": "Loading guilds…",
+    "loadingHubs": "Loading hubs…",
+    "loadingMoreGuilds": "Loading more guilds…",
+    "loadingMoreHubs": "Loading more hubs…",
+    "noMatches": "No matches.",
+    "noGuildsTopic": "No guilds in this topic yet.",
+    "noPublicGuilds": "No public guilds yet.",
+    "pickTopic": "Pick All or another topic.",
+    "createInGuilds": "Create one in Guilds, or join by URL.",
+    "showAllGuilds": "Show all guilds",
+    "createAGuild": "Create a guild",
+    "noHubsCategory": "No hubs in this category yet.",
+    "noHubs": "No hubs listed yet.",
+    "pickCategory": "Pick All or another category.",
+    "openHubInApp": "Open a hub in the Hubs app.",
+    "showAllHubs": "Show all hubs",
+    "loadMoreGuilds": "Could not load more guilds.",
+    "searchGuilds": "Could not search guilds.",
+    "loadMoreHubs": "Could not load more hubs.",
+    "fee": "fee"
   },
   "peekOverflow": "{count, plural, other {# more in {place}}}"
 }

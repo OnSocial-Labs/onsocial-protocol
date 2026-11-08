@@ -12,7 +12,8 @@ import { DiscoverCommunityListSkeleton } from '@/features/discover/discover-load
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { discoverPeopleSearchQuery } from '@/features/discover/discover-omni-search';
-import { discoverGuildsLead } from '@/lib/discover-tab-lead';
+import { useDiscoverChipLabel, useShellHomeMessage } from '@/lib/use-shell';
+import { useTranslations } from 'next-intl';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import { GUILD_TOPIC_SUGGESTIONS } from '@/features/guilds/guild-config';
 import {
@@ -82,6 +83,8 @@ function mergeGuildCards(
 export function DiscoverGuildsPanel() {
   const { query, initialGuilds, scrollRootRef } = useDiscoverPanel();
   const { accountId } = useAppWallet();
+  const t = useTranslations('shell');
+  const chipLabel = useDiscoverChipLabel();
   const searchQuery = discoverPeopleSearchQuery(query);
 
   const [browseGuilds, setBrowseGuilds] = useState<
@@ -362,10 +365,19 @@ export function DiscoverGuildsPanel() {
     !searchPending &&
     visibleGuilds.length === 0 &&
     browseGuilds != null;
-  const topicFilterLabel =
+  const topicFilterLabel = chipLabel(
+    activeTopicFilter,
     browseOptions.find((entry) => entry.id === activeTopicFilter)?.label ??
-    topicLabel(activeTopicFilter, GUILD_TOPIC_SUGGESTIONS) ??
-    activeTopicFilter;
+      topicLabel(activeTopicFilter, GUILD_TOPIC_SUGGESTIONS) ??
+      activeTopicFilter
+  );
+  const filterChips = browseOptions.map((entry) => ({
+    id: entry.id,
+    label: chipLabel(entry.id, entry.label),
+  }));
+  const shownError = useShellHomeMessage(error ?? '');
+  const shownSearchError = useShellHomeMessage(searchError ?? '');
+  const shownLoadMoreError = useShellHomeMessage(loadMoreError ?? '');
 
   return (
     <div
@@ -376,21 +388,20 @@ export function DiscoverGuildsPanel() {
     >
       <DiscoverTabLead
         links={[
-          { href: APP_GROUPS_PATH, label: 'Open Guilds' },
-          { href: `${APP_GROUPS_PATH}/create`, label: 'Create' },
+          { href: APP_GROUPS_PATH, label: t('discover.openGuilds') },
+          { href: `${APP_GROUPS_PATH}/create`, label: t('discover.create') },
         ]}
       >
-        {discoverGuildsLead(
-          searchQuery,
-          activeTopicFilter !== 'all' ? topicFilterLabel : null
-        )}
+        {activeTopicFilter !== 'all'
+          ? t('discover.guildsIn', { topic: topicFilterLabel })
+          : t('discover.publicGuilds')}
       </DiscoverTabLead>
 
-      {browseOptions.length > 1 ? (
+      {filterChips.length > 1 ? (
         <OsChipRail
           variant="browse"
-          ariaLabel="Browse guilds by topic"
-          items={browseOptions}
+          ariaLabel={t('discover.browseGuilds')}
+          items={filterChips}
           value={activeTopicFilter}
           onValueChange={(next) => setTopicFilter(next as DiscoverTopicFilter)}
         />
@@ -398,21 +409,21 @@ export function DiscoverGuildsPanel() {
 
       {error ? (
         visibleGuilds.length > 0 ? (
-          <OsChromeListAlert message={error} onRetry={retry} />
+          <OsChromeListAlert message={shownError} onRetry={retry} />
         ) : (
-          <ListLoadError message={error} onRetry={retry} />
+          <ListLoadError message={shownError} onRetry={retry} />
         )
       ) : null}
       {searchError ? (
         visibleGuilds.length > 0 ? (
-          <OsChromeListAlert message={searchError} onRetry={retrySearch} />
+          <OsChromeListAlert message={shownSearchError} onRetry={retrySearch} />
         ) : (
-          <ListLoadError message={searchError} onRetry={retrySearch} />
+          <ListLoadError message={shownSearchError} onRetry={retrySearch} />
         )
       ) : null}
 
       {showSkeleton ? (
-        <DiscoverCommunityListSkeleton label="Loading guilds…" />
+        <DiscoverCommunityListSkeleton label={t('discover.loadingGuilds')} />
       ) : null}
 
       {!error &&
@@ -423,16 +434,16 @@ export function DiscoverGuildsPanel() {
           <div className="standing-panel-empty-state">
             <p className="standing-panel-empty-primary">
               {isSearchEmpty
-                ? 'No matches.'
+                ? t('discover.noMatches')
                 : isTopicEmpty
-                  ? 'No guilds in this topic yet.'
-                  : 'No public guilds yet.'}
+                  ? t('discover.noGuildsTopic')
+                  : t('discover.noPublicGuilds')}
             </p>
             {isSearchEmpty ? null : (
               <p className="standing-panel-empty-secondary">
                 {isTopicEmpty
-                  ? 'Pick All or another topic.'
-                  : 'Create one in Guilds, or join by URL.'}
+                  ? t('discover.pickTopic')
+                  : t('discover.createInGuilds')}
               </p>
             )}
           </div>
@@ -440,15 +451,15 @@ export function DiscoverGuildsPanel() {
             <div className="standing-panel-empty-actions">
               {isTopicEmpty ? (
                 <OsEmptyAction onClick={() => setTopicFilter('all')}>
-                  Show all guilds
+                  {t('discover.showAllGuilds')}
                 </OsEmptyAction>
               ) : (
                 <>
                   <OsEmptyAction href={`${APP_GROUPS_PATH}/create`}>
-                    Create a guild
+                    {t('discover.createAGuild')}
                   </OsEmptyAction>
                   <OsEmptyAction href={APP_GROUPS_PATH}>
-                    Open Guilds
+                    {t('discover.openGuilds')}
                   </OsEmptyAction>
                 </>
               )}
@@ -487,7 +498,7 @@ export function DiscoverGuildsPanel() {
 
       {loadMoreError ? (
         <OsChromeListAlert
-          message={loadMoreError}
+          message={shownLoadMoreError}
           onRetry={() => void loadMore()}
         />
       ) : paging || moreLoading ? (
@@ -499,7 +510,7 @@ export function DiscoverGuildsPanel() {
           />
           {moreLoading ? (
             <DiscoverCommunityListSkeleton
-              label="Loading more guilds…"
+              label={t('discover.loadingMoreGuilds')}
               count={2}
             />
           ) : null}

@@ -24,6 +24,9 @@ export const SHELL_HOME_FALLBACKS: Record<string, string> = {
   'Could not load guilds.': 'homeEmpty.loadGuilds',
   'Could not load hubs.': 'homeEmpty.loadHubs',
   'Couldn’t load your DAOs.': 'homeEmpty.loadDaos',
+  'Could not load more guilds.': 'discover.loadMoreGuilds',
+  'Could not search guilds.': 'discover.searchGuilds',
+  'Could not load more hubs.': 'discover.loadMoreHubs',
 };
 
 export function shellHomeFallbackKey(message: string): string | undefined {

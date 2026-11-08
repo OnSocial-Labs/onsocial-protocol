@@ -211,7 +211,8 @@
     "business": "Biznes",
     "culture": "Kultura",
     "food": "Jedzenie",
-    "animals": "Zwierzęta"
+    "animals": "Zwierzęta",
+    "all": "Wszystkie"
   },
   "topicEditor": {
     "typeYourOwn": "Albo wpisz własny…",
@@ -270,6 +271,37 @@
     "supplyRequired": "Podaj całkowitą podaż większą od zera.",
     "tokenNameLength": "Nazwa może mieć najwyżej {max} znaków.",
     "tokenSymbolLength": "Symbol może mieć najwyżej {max} znaków."
+  },
+  "discover": {
+    "publicGuilds": "Publiczne gildie",
+    "guildsIn": "Gildie · {topic}",
+    "creatorHubs": "Huby twórców",
+    "hubsIn": "Huby · {topic}",
+    "browseGuilds": "Przeglądaj gildie według tematu",
+    "browseHubs": "Przeglądaj huby według kategorii",
+    "openGuilds": "Otwórz gildie",
+    "create": "Utwórz",
+    "myHubs": "Moje huby",
+    "loadingGuilds": "Wczytywanie gildii…",
+    "loadingHubs": "Wczytywanie hubów…",
+    "loadingMoreGuilds": "Wczytywanie kolejnych gildii…",
+    "loadingMoreHubs": "Wczytywanie kolejnych hubów…",
+    "noMatches": "Brak wyników.",
+    "noGuildsTopic": "W tym temacie nie ma jeszcze gildii.",
+    "noPublicGuilds": "Nie ma jeszcze publicznych gildii.",
+    "pickTopic": "Wybierz Wszystkie albo inny temat.",
+    "createInGuilds": "Utwórz gildię w Gildiach albo dołącz przez adres.",
+    "showAllGuilds": "Pokaż wszystkie gildie",
+    "createAGuild": "Utwórz gildię",
+    "noHubsCategory": "W tej kategorii nie ma jeszcze hubów.",
+    "noHubs": "Nie ma jeszcze hubów na liście.",
+    "pickCategory": "Wybierz Wszystkie albo inną kategorię.",
+    "openHubInApp": "Otwórz hub w aplikacji Huby.",
+    "showAllHubs": "Pokaż wszystkie huby",
+    "loadMoreGuilds": "Nie udało się wczytać kolejnych gildii.",
+    "searchGuilds": "Nie udało się wyszukać gildii.",
+    "loadMoreHubs": "Nie udało się wczytać kolejnych hubów.",
+    "fee": "prowizja"
   },
   "peekOverflow": "{count, plural, one {# więcej w aplikacji {place}} few {# więcej w aplikacji {place}} many {# więcej w aplikacji {place}} other {# więcej w aplikacji {place}}}"
 }

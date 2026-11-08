@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { LAUNCHER_PEEK_DISPLAY_LIMIT } from '@/components/launcher-home/launcher-home-copy';
 import type { EntityIdAvailability } from '@/hooks/use-entity-id-availability';
@@ -35,8 +36,31 @@ export function useShellHomeMessage(message: string): string {
 /** Known suggestion ids use the catalog. Typed topics stay as written. */
 export function useCommunityTopicLabel(): (id: string) => string {
   const t = useTranslations('shell');
-  return (id: string) =>
-    COMMUNITY_TOPIC_IDS.has(id) ? t(`topics.${id as CommunityTopicId}`) : id;
+  return useCallback(
+    (id: string) =>
+      COMMUNITY_TOPIC_IDS.has(id) ? t(`topics.${id as CommunityTopicId}`) : id,
+    [t]
+  );
+}
+
+/**
+ * Discover filter chips. Known topics and All use the catalog.
+ * A typed topic keeps the sentence-case label it already has.
+ */
+export function useDiscoverChipLabel(): (
+  id: string,
+  fallback: string
+) => string {
+  const t = useTranslations('shell');
+  const topicName = useCommunityTopicLabel();
+  return useCallback(
+    (id: string, fallback: string) => {
+      if (id === 'all') return t('topics.all');
+      const named = topicName(id);
+      return named === id ? fallback : named;
+    },
+    [t, topicName]
+  );
 }
 
 /** Translate a known create-form error. Other messages stay as stored. */

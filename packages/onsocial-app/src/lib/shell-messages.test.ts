@@ -77,6 +77,10 @@ describe('shell catalogs', () => {
     expect(en.look.addBanner).toBe('Add banner');
     expect(en.look.photoOrVideo).toBe('Photo or video');
     expect(en.topics.music).toBe('Music');
+    expect(en.topics.all).toBe('All');
+    expect(en.discover.creatorHubs).toBe('Creator hubs');
+    expect(en.discover.publicGuilds).toBe('Public guilds');
+    expect(en.discover.guildsIn).toBe('Guilds · {topic}');
     expect(en.topicEditor.typeYourOwn).toBe('Or type your own…');
     expect(en.topicEditor.primary).toBe('Primary');
     expect(en.help.guildTitle).toBe('Your guild');

@@ -15,6 +15,7 @@ import {
 } from '@/features/guilds/guild-visual';
 import { guildPath } from '@/features/guilds/guilds-data';
 import { topicLabel } from '@/lib/topic-slug';
+import { useCommunityTopicLabel } from '@/lib/use-shell';
 
 export interface GuildSummaryCardModel {
   groupId: string;
@@ -84,8 +85,13 @@ export function GuildSummaryCard({
   variant?: 'rail' | 'grid';
 }) {
   const displayName = guildDisplayName(guild.name, guild.groupId);
-  const primaryTopic = guild.topics?.[0]
-    ? (topicLabel(guild.topics[0]) ?? guild.topics[0])
+  const topicName = useCommunityTopicLabel();
+  const rawTopic = guild.topics?.[0];
+  const namedTopic = rawTopic ? topicName(rawTopic) : null;
+  const primaryTopic = rawTopic
+    ? namedTopic && namedTopic !== rawTopic
+      ? namedTopic
+      : (topicLabel(rawTopic) ?? rawTopic)
     : null;
   const description = guild.description?.trim() || null;
 
