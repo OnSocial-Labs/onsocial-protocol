@@ -96,6 +96,19 @@ describe('shell catalogs', () => {
     expect(en.discover.hotPosts).toBe('Hot posts');
     expect(en.discover.seeAll).toBe('See all');
     expect(en.discover.nothingMoving).toBe('Nothing moving yet.');
+    expect(en.discover.search).toBe('Search');
+    expect(en.discover.clearSearch).toBe('Clear search');
+    expect(en.discover.searchAriaMoving).toBe(
+      'Search people, articles, books, music, and events'
+    );
+    expect(en.discover.searchHintMoving).toBe(
+      'People, articles, books, music, events'
+    );
+    expect(en.discover.searchHintRest).toBe('People, #topics, $tickers');
+    expect(en.discover.noProfilesYet).toBe('No profiles found yet.');
+    expect(en.discover.pressEnter).toBe(
+      'Press Enter or pick a suggestion to open this in Home.'
+    );
     expect(en.apps.groups).toBe('Guilds');
     expect(en.apps.hubs).toBe('Hubs');
     expect(en.apps.daos).toBe('DAOs');
