@@ -1,19 +1,12 @@
 'use client';
 
 import { useRef, type ChangeEvent } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   IpfsImg,
   ipfsImgSrcSet,
   ProfileEditorMediaToolbar,
 } from '@onsocial/ui';
-import {
-  GUILD_CREATE_ADD_BADGE,
-  GUILD_CREATE_ADD_BANNER,
-  GUILD_CREATE_CHANGE_BADGE,
-  GUILD_CREATE_CHANGE_BANNER,
-  GUILD_CREATE_REMOVE_BADGE,
-  GUILD_CREATE_REMOVE_BANNER,
-} from '@/features/guilds/guild-create-voice';
 import {
   APP_COLUMN_HERO_SIZES,
   EDITOR_MARK_SIZES,
@@ -36,13 +29,14 @@ export function GuildLookPreview({
   onBannerChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onRemoveBanner?: () => void;
 }) {
+  const t = useTranslations('shell');
   const bannerInputRef = useRef<HTMLInputElement>(null);
   // Fresh picks are blob URLs — the helper bypasses them and only the
   // existing CDN art variants.
   const bannerSrcSet = ipfsImgSrcSet(bannerUrl, SCARCE_HERO_WIDTHS);
 
   return (
-    <section className="guild-look-preview" aria-label="Guild look">
+    <section className="guild-look-preview" aria-label={t('look.guild')}>
       <div
         className={`guild-look-preview-banner profile-editor-media-host${
           bannerUrl ? ' has-media' : ''
@@ -51,9 +45,7 @@ export function GuildLookPreview({
         <button
           type="button"
           className="profile-editor-media-backdrop account-editor-banner-backdrop guild-look-preview-banner-hit"
-          aria-label={
-            bannerUrl ? GUILD_CREATE_CHANGE_BANNER : GUILD_CREATE_ADD_BANNER
-          }
+          aria-label={bannerUrl ? t('look.changeBanner') : t('look.addBanner')}
           disabled={disabled}
           onClick={() => bannerInputRef.current?.click()}
         >
@@ -77,7 +69,7 @@ export function GuildLookPreview({
         </button>
         <ProfileEditorMediaToolbar
           layout="banner"
-          removeLabel={bannerUrl ? GUILD_CREATE_REMOVE_BANNER : undefined}
+          removeLabel={bannerUrl ? t('look.removeBanner') : undefined}
           onRemove={bannerUrl ? onRemoveBanner : undefined}
         />
         {bannerUrl ? null : (
@@ -85,7 +77,7 @@ export function GuildLookPreview({
             className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
             aria-hidden
           >
-            Photo or video
+            {t('look.photoOrVideo')}
           </p>
         )}
       </div>
@@ -118,6 +110,7 @@ export function GuildBadgeWell({
   onBadgeChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onRemoveBadge?: () => void;
 }) {
+  const t = useTranslations('shell');
   const badgeInputRef = useRef<HTMLInputElement>(null);
   const badgeSrcSet = ipfsImgSrcSet(badgeUrl, EDITOR_MARK_WIDTHS);
 
@@ -130,9 +123,7 @@ export function GuildBadgeWell({
       <button
         type="button"
         className="profile-editor-media-backdrop guild-look-preview-badge-hit"
-        aria-label={
-          badgeUrl ? GUILD_CREATE_CHANGE_BADGE : GUILD_CREATE_ADD_BADGE
-        }
+        aria-label={badgeUrl ? t('look.changeBadge') : t('look.addBadge')}
         disabled={disabled}
         onClick={() => badgeInputRef.current?.click()}
       >
@@ -152,7 +143,7 @@ export function GuildBadgeWell({
       </button>
       <ProfileEditorMediaToolbar
         layout="avatar"
-        removeLabel={badgeUrl ? GUILD_CREATE_REMOVE_BADGE : undefined}
+        removeLabel={badgeUrl ? t('look.removeBadge') : undefined}
         onRemove={badgeUrl ? onRemoveBadge : undefined}
       />
       <input

@@ -240,12 +240,12 @@ export function DaosIndexPanel() {
 
   const headerActions = (
     <>
-      <OsIconAction asChild ariaLabel="Discover DAOs">
+      <OsIconAction asChild ariaLabel={t('homeChrome.discoverDaos')}>
         <Link href={discoverDaosHref} scroll={false}>
           <SearchIcon aria-hidden className="glass-sheet-close-icon" />
         </Link>
       </OsIconAction>
-      <OsIconAction asChild ariaLabel="Create DAO">
+      <OsIconAction asChild ariaLabel={t('homeChrome.createDao')}>
         <Link href={daosCreateHref()} scroll={false}>
           <PlusIcon aria-hidden className="glass-sheet-close-icon" />
         </Link>
@@ -255,7 +255,7 @@ export function DaosIndexPanel() {
 
   return (
     <OsAppScreen
-      title="DAOs"
+      title={t('apps.daos')}
       dockBack
       backFallbackHref={OS_INDEX_LEAVE_HREF}
       glassChrome
@@ -267,17 +267,17 @@ export function DaosIndexPanel() {
             href={daoPath(GOVERNANCE_DAO_ACCOUNT)}
             className="launcher-home-chip"
           >
-            Governance
+            {t('homeChrome.governance')}
           </Link>
           <Link
             href={daoPath(TREASURY_DAO_ACCOUNT)}
             className="launcher-home-chip"
           >
-            Treasury
+            {t('homeChrome.treasury')}
           </Link>
         </div>
 
-        <LauncherHomeSection aria-label="My DAOs">
+        <LauncherHomeSection aria-label={t('homeChrome.myDaos')}>
           <LauncherHomeMineStatus
             connected={Boolean(accountId)}
             loading={!myDaosReady}
@@ -313,7 +313,7 @@ export function DaosIndexPanel() {
         {showProposals ? (
           <>
             <Divider className="launcher-home-divider" />
-            <LauncherHomeSection title="Latest">
+            <LauncherHomeSection title={t('homeChrome.latest')}>
               <DaosExplorePanel accountId={accountId} myDaos={myDaos} />
             </LauncherHomeSection>
           </>

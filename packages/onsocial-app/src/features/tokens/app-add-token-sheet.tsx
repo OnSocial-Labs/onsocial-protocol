@@ -164,10 +164,10 @@ export function AppAddTokenSheet({
       onClose={requestClose}
       onClosed={handleClosed}
       chrome="choice"
-      label="Add"
-      copy="Token you already have"
-      closeAriaLabel="Close"
-      backdropLabel="Close add token"
+      label={t('create.tokenAdd')}
+      copy={t('create.tokenAddCopy')}
+      closeAriaLabel={t('create.close')}
+      backdropLabel={t('create.closeAddToken')}
       zIndex={SHEET_Z.nested}
       panelClassName="account-storage-panel os-sheet-cap-standard"
       {...(panelStyle ? { panelStyle } : {})}
@@ -179,10 +179,10 @@ export function AppAddTokenSheet({
               form={formId}
               ready={canSubmit}
               pending={pending}
-              pendingLabel="Checking…"
+              pendingLabel={t('create.checking')}
               disabled={!canSubmit}
             >
-              Add
+              {t('create.tokenAdd')}
             </OsSheetAction>
           </OsSheetActions>
         </OsSheetFooter>
@@ -194,7 +194,7 @@ export function AppAddTokenSheet({
         onSubmit={(event) => void handleSubmit(event)}
       >
         <label className="guild-field" htmlFor={fieldId('id')}>
-          <span>Account</span>
+          <span>{t('create.account')}</span>
           <div
             className={
               accountFieldClass

@@ -1,9 +1,23 @@
-import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { readFileSync, realpathSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { APP_LOCALES } from './locale';
 import { SHELL_HOME_FALLBACKS } from './shell-label';
+
+const require = createRequire(
+  realpathSync(
+    new URL('../../node_modules/next-intl/package.json', import.meta.url)
+  )
+);
+const { createTranslator } = require('use-intl') as {
+  createTranslator: (config: {
+    locale: string;
+    messages: Record<string, unknown>;
+    namespace: string;
+  }) => (key: string, values?: Record<string, string | number>) => string;
+};
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../../messages');
 const en = JSON.parse(readFileSync(join(root, 'en/shell.json'), 'utf8'));
@@ -43,6 +57,37 @@ describe('shell catalogs', () => {
     expect(en.homeEmpty.nothingNew).toBe('Nothing new right now.');
     expect(en.homeEmpty.guildsNone).toBe(
       'You haven’t joined a guild yet. Tap Search to explore, or + to start one.'
+    );
+    expect(en.homeChrome.latest).toBe('Latest');
+    expect(en.homeChrome.createGuild).toBe('Create guild');
+    expect(en.homeChrome.openHub).toBe('Open a hub');
+    expect(en.homeChrome.createDao).toBe('Create DAO');
+    expect(en.face.message).toBe('Message');
+    expect(en.face.messageNamed).toBe('Message {name}');
+    expect(en.create.name).toBe('Name');
+    expect(en.create.hubSubmit).toBe('Open hub');
+    expect(en.create.tokenCreate).toBe('Create');
+    expect(en.create.discardLookBody).toBe(
+      'Name, ID, look, and about won’t be saved.'
+    );
+    expect(en.look.addBanner).toBe('Add banner');
+    expect(en.look.photoOrVideo).toBe('Photo or video');
+  });
+
+  it('renders escaped apostrophes as the field placeholder', () => {
+    const t = createTranslator({
+      locale: 'en',
+      messages: en,
+      namespace: 'create',
+    });
+    expect(t('guildAboutPlaceholder')).toBe(
+      "What this guild does and who it's for."
+    );
+    expect(t('hubAboutPlaceholder')).toBe(
+      "What this hub publishes and who it's for."
+    );
+    expect(t('daoWhisper', { near: '0.1' })).toBe(
+      'You start as council · ~0.1 NEAR'
     );
   });
 

@@ -10,6 +10,7 @@ import {
   type FormEvent,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   DiscardConfirmSheet,
   OsIconAction,
@@ -34,12 +35,8 @@ import {
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
 import {
-  GUILD_CREATE_CONNECT,
   GUILD_CREATE_FORM_ID,
   GUILD_CREATE_HELP_TITLE,
-  GUILD_CREATE_SUBMIT,
-  GUILD_CREATE_TITLE,
-  guildCreateAboutToggle,
 } from '@/features/guilds/guild-create-voice';
 import { APP_GROUPS_PATH } from '@/lib/app-routes';
 import { GUILD_CREATE_FORM_CLASS } from '@/lib/os-create-page';
@@ -250,6 +247,7 @@ export function GuildCreatePanel() {
   );
   const idAvailabilityClass = entityIdAvailabilityClass(idAvailability);
   const idLead = useEntityIdLead(idAvailability);
+  const t = useTranslations('shell');
   const canSubmit =
     groupId.length >= GUILD_MIN_ID &&
     name.trim().length >= 2 &&
@@ -262,8 +260,8 @@ export function GuildCreatePanel() {
     if (!isConnected) {
       return {
         visible: true,
-        primaryLabel: GUILD_CREATE_CONNECT,
-        primaryPendingLabel: 'Creating…',
+        primaryLabel: t('dock.connect'),
+        primaryPendingLabel: t('create.creating'),
         canSubmit: true,
         pending: false,
         primaryType: 'button',
@@ -274,14 +272,14 @@ export function GuildCreatePanel() {
     }
     return {
       visible: true,
-      primaryLabel: GUILD_CREATE_SUBMIT,
-      primaryPendingLabel: 'Creating…',
+      primaryLabel: t('homeChrome.createGuild'),
+      primaryPendingLabel: t('create.creating'),
       canSubmit,
       pending,
       disabled: !canSubmit,
       primaryType: 'submit',
     };
-  }, [isConnected, connect, canSubmit, pending]);
+  }, [isConnected, connect, canSubmit, pending, t]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -386,7 +384,7 @@ export function GuildCreatePanel() {
 
   return (
     <OsAppScreen
-      title={GUILD_CREATE_TITLE}
+      title={t('homeChrome.createGuild')}
       dockBack
       headerOwnsConnect
       backFallbackHref={APP_GROUPS_PATH}
@@ -432,7 +430,7 @@ export function GuildCreatePanel() {
 
         <div className="guild-field">
           <label htmlFor={fieldId('name')}>
-            <span>Name</span>
+            <span>{t('create.name')}</span>
           </label>
           <div className="guild-create-name-row">
             <GuildBadgeWell
@@ -461,7 +459,7 @@ export function GuildCreatePanel() {
         </div>
 
         <label className="guild-field" htmlFor={fieldId('id')}>
-          <span>Guild ID</span>
+          <span>{t('create.guildId')}</span>
           <div
             className={
               idAvailabilityClass
@@ -487,7 +485,7 @@ export function GuildCreatePanel() {
             />
           </div>
           <small className={idAvailabilityClass}>
-            {idLead} · public link /groups/
+            {idLead} · {t('create.publicLink')} /groups/
             {groupId || 'builder-room'}
           </small>
         </label>
@@ -499,20 +497,21 @@ export function GuildCreatePanel() {
           disabled={pending}
           onClick={() => setAboutOpen((open) => !open)}
         >
-          {guildCreateAboutToggle({
-            open: aboutOpen,
-            hasText: description.trim().length > 0,
-          })}
+          {aboutOpen
+            ? t('create.hideAbout')
+            : description.trim()
+              ? t('create.editAbout')
+              : t('create.addAbout')}
         </button>
         {aboutOpen ? (
           <label className="guild-field" htmlFor={fieldId('description')}>
-            <span>About</span>
+            <span>{t('create.about')}</span>
             <textarea
               id={fieldId('description')}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               onFocus={scrollFieldIntoView}
-              placeholder="What this guild does and who it's for."
+              placeholder={t('create.guildAboutPlaceholder')}
               maxLength={GUILD_MAX_DESCRIPTION_LENGTH}
               disabled={pending}
               aria-describedby={fieldId('description-count')}
@@ -525,7 +524,7 @@ export function GuildCreatePanel() {
         ) : null}
 
         <div className="guild-field">
-          <span>Topic</span>
+          <span>{t('create.topic')}</span>
           <GuildTagsEditor
             tags={tags}
             onChange={setTags}
@@ -535,11 +534,11 @@ export function GuildCreatePanel() {
         </div>
 
         <div className="guild-field">
-          <span>Access</span>
+          <span>{t('create.access')}</span>
           <div
             className="app-storage-presets"
             role="radiogroup"
-            aria-label="Guild access"
+            aria-label={t('create.guildAccess')}
           >
             <button
               type="button"
@@ -554,7 +553,7 @@ export function GuildCreatePanel() {
                 setMemberDriven(false);
               }}
             >
-              Open
+              {t('create.open')}
             </button>
             <button
               type="button"
@@ -569,7 +568,7 @@ export function GuildCreatePanel() {
                 setMemberDriven(false);
               }}
             >
-              Invite only
+              {t('create.inviteOnly')}
             </button>
             <button
               type="button"
@@ -582,15 +581,15 @@ export function GuildCreatePanel() {
                 setAccessGated(true);
               }}
             >
-              Collaborative
+              {t('create.collaborative')}
             </button>
           </div>
           <small>
             {memberDriven
-              ? 'Invite only · role changes go through proposals.'
+              ? t('create.accessCollaborativeDetail')
               : accessGated
-                ? 'Anyone can view · join and post need approval.'
-                : 'Open · anyone can join and post.'}
+                ? t('create.accessInviteDetail')
+                : t('create.accessOpenDetail')}
           </small>
         </div>
 
@@ -600,8 +599,8 @@ export function GuildCreatePanel() {
         open={discardConfirmOpen}
         onDiscard={discard}
         onKeepEditing={keepEditing}
-        title="Discard guild?"
-        body="Name, ID, look, and about won’t be saved."
+        title={t('create.discardGuild')}
+        body={t('create.discardLookBody')}
       />
       <InfoDrawer
         open={helpOpen}

@@ -1,20 +1,13 @@
 'use client';
 
 import { useRef, type ChangeEvent } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   IpfsImg,
   ipfsImgSrcSet,
   ProfileEditorMediaToolbar,
 } from '@onsocial/ui';
 import { communityMonogram } from '@/components/community-cards/community-monogram';
-import {
-  HUB_CREATE_ADD_BANNER,
-  HUB_CREATE_ADD_LOGO,
-  HUB_CREATE_CHANGE_BANNER,
-  HUB_CREATE_CHANGE_LOGO,
-  HUB_CREATE_REMOVE_BANNER,
-  HUB_CREATE_REMOVE_LOGO,
-} from '@/features/scarces/hub-create-voice';
 import {
   APP_COLUMN_HERO_SIZES,
   EDITOR_MARK_SIZES,
@@ -49,16 +42,19 @@ export function HubLookPreview({
   onRemoveBanner?: () => void;
   onRemoveLogo?: () => void;
 }) {
+  const t = useTranslations('shell');
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const trimmedName = name.trim();
-  const logoFallback = trimmedName ? communityMonogram(trimmedName) : 'Logo';
+  const logoFallback = trimmedName
+    ? communityMonogram(trimmedName)
+    : t('look.logo');
   // Blob picks bypass; only the existing CDN banner/logo variant.
   const bannerSrcSet = ipfsImgSrcSet(bannerUrl, SCARCE_HERO_WIDTHS);
   const logoSrcSet = ipfsImgSrcSet(logoUrl, EDITOR_MARK_WIDTHS);
 
   return (
-    <section className="hub-look-preview" aria-label="Hub look">
+    <section className="hub-look-preview" aria-label={t('look.hub')}>
       <div
         className={`hub-look-preview-banner profile-editor-media-host${
           bannerUrl ? ' has-media' : ''
@@ -67,9 +63,7 @@ export function HubLookPreview({
         <button
           type="button"
           className="profile-editor-media-backdrop account-editor-banner-backdrop hub-look-preview-banner-hit"
-          aria-label={
-            bannerUrl ? HUB_CREATE_CHANGE_BANNER : HUB_CREATE_ADD_BANNER
-          }
+          aria-label={bannerUrl ? t('look.changeBanner') : t('look.addBanner')}
           disabled={disabled}
           onClick={() => bannerInputRef.current?.click()}
         >
@@ -93,7 +87,7 @@ export function HubLookPreview({
         </button>
         <ProfileEditorMediaToolbar
           layout="banner"
-          removeLabel={bannerUrl ? HUB_CREATE_REMOVE_BANNER : undefined}
+          removeLabel={bannerUrl ? t('look.removeBanner') : undefined}
           onRemove={bannerUrl ? onRemoveBanner : undefined}
         />
         {bannerUrl ? null : (
@@ -101,7 +95,7 @@ export function HubLookPreview({
             className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
             aria-hidden
           >
-            Photo or video
+            {t('look.photoOrVideo')}
           </p>
         )}
       </div>
@@ -114,7 +108,7 @@ export function HubLookPreview({
           <button
             type="button"
             className="profile-editor-media-backdrop hub-look-preview-logo-hit"
-            aria-label={logoUrl ? HUB_CREATE_CHANGE_LOGO : HUB_CREATE_ADD_LOGO}
+            aria-label={logoUrl ? t('look.changeLogo') : t('look.addLogo')}
             disabled={disabled}
             onClick={() => logoInputRef.current?.click()}
           >
@@ -134,7 +128,7 @@ export function HubLookPreview({
           </button>
           <ProfileEditorMediaToolbar
             layout="avatar"
-            removeLabel={logoUrl ? HUB_CREATE_REMOVE_LOGO : undefined}
+            removeLabel={logoUrl ? t('look.removeLogo') : undefined}
             onRemove={logoUrl ? onRemoveLogo : undefined}
           />
         </div>

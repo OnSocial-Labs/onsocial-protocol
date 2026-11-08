@@ -104,12 +104,12 @@ export function HubsIndexPanel() {
 
   const headerActions = (
     <>
-      <OsIconAction asChild ariaLabel="Discover Hubs">
+      <OsIconAction asChild ariaLabel={t('homeChrome.discoverHubs')}>
         <Link href={discoverHubsHref} scroll={false}>
           <SearchIcon aria-hidden className="glass-sheet-close-icon" />
         </Link>
       </OsIconAction>
-      <OsIconAction asChild ariaLabel="Open a hub">
+      <OsIconAction asChild ariaLabel={t('homeChrome.openHub')}>
         <Link href={APP_APP_CREATE_PATH} scroll={false}>
           <PlusIcon aria-hidden className="glass-sheet-close-icon" />
         </Link>
@@ -119,14 +119,14 @@ export function HubsIndexPanel() {
 
   return (
     <OsAppScreen
-      title="Hubs"
+      title={t('apps.hubs')}
       dockBack
       backFallbackHref={OS_INDEX_LEAVE_HREF}
       glassChrome
       actions={headerActions}
     >
       <div className={LAUNCHER_HOME_PAGE_CLASS}>
-        <LauncherHomeSection aria-label="My hubs">
+        <LauncherHomeSection aria-label={t('homeChrome.myHubs')}>
           <LauncherHomeMineStatus
             connected={Boolean(accountId)}
             loading={!myHubsReady}
@@ -157,7 +157,7 @@ export function HubsIndexPanel() {
         {showDrops ? (
           <>
             <Divider className="launcher-home-divider" />
-            <LauncherHomeSection title="Latest">
+            <LauncherHomeSection title={t('homeChrome.latest')}>
               <HubsLatestDropsPanel accountId={accountId} myHubs={myHubs} />
             </LauncherHomeSection>
           </>

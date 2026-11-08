@@ -114,12 +114,12 @@ export function LiveGuildsIndexPanel() {
 
   const headerActions = (
     <>
-      <OsIconAction asChild ariaLabel="Discover Guilds">
+      <OsIconAction asChild ariaLabel={t('homeChrome.discoverGuilds')}>
         <Link href={discoverGuildsHref} scroll={false}>
           <SearchIcon aria-hidden className="glass-sheet-close-icon" />
         </Link>
       </OsIconAction>
-      <OsIconAction asChild ariaLabel="Create guild">
+      <OsIconAction asChild ariaLabel={t('homeChrome.createGuild')}>
         <Link href="/groups/create" scroll={false}>
           <PlusIcon aria-hidden className="glass-sheet-close-icon" />
         </Link>
@@ -129,14 +129,14 @@ export function LiveGuildsIndexPanel() {
 
   return (
     <OsAppScreen
-      title="Guilds"
+      title={t('apps.groups')}
       dockBack
       backFallbackHref={OS_INDEX_LEAVE_HREF}
       glassChrome
       actions={headerActions}
     >
       <div className={LAUNCHER_HOME_PAGE_CLASS}>
-        <LauncherHomeSection aria-label="My guilds">
+        <LauncherHomeSection aria-label={t('homeChrome.myGuilds')}>
           <LauncherHomeMineStatus
             connected={Boolean(accountId)}
             loading={!myGuildsReady}
@@ -170,7 +170,7 @@ export function LiveGuildsIndexPanel() {
         {showPosts ? (
           <>
             <Divider className="launcher-home-divider" />
-            <LauncherHomeSection title="Latest">
+            <LauncherHomeSection title={t('homeChrome.latest')}>
               <GuildsLatestPostsPanel
                 accountId={accountId}
                 myGuilds={myGuilds}

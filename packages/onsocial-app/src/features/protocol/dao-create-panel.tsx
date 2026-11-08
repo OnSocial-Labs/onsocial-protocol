@@ -12,6 +12,7 @@ import {
   type FormEvent,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   DiscardConfirmSheet,
   osFieldBorderedClassName,
@@ -23,18 +24,7 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { rememberCommunityDao } from '@/features/protocol/dao-accounts';
 import { buildDaoBrandingMetadata } from '@/features/protocol/dao-branding';
-import {
-  DAO_CREATE_ADVANCED,
-  DAO_CREATE_ADVANCED_HIDE,
-  DAO_CREATE_CONNECT_CTA,
-  DAO_CREATE_CONNECT_HINT,
-  DAO_CREATE_FORM_ID,
-  DAO_CREATE_PUBLISH,
-  DAO_CREATE_TITLE,
-  daoCreateNearShortHint,
-  daoCreatePurposeToggle,
-  daoCreateWhisper,
-} from '@/features/protocol/dao-create-voice';
+import { DAO_CREATE_FORM_ID } from '@/features/protocol/dao-create-voice';
 import {
   buildDaoFactoryAccountId,
   DAO_FACTORY_NAME_MAX,
@@ -272,6 +262,7 @@ export function DaoCreatePanel() {
   );
   const idAvailabilityClass = entityIdAvailabilityClass(idAvailability);
   const idLead = useEntityIdLead(idAvailability);
+  const t = useTranslations('shell');
 
   const formReady =
     isValidDaoFactorySlug(resolvedSlug) &&
@@ -286,8 +277,8 @@ export function DaoCreatePanel() {
     if (!isConnected) {
       return {
         visible: true,
-        primaryLabel: DAO_CREATE_CONNECT_CTA,
-        primaryPendingLabel: 'Connecting…',
+        primaryLabel: t('dock.connect'),
+        primaryPendingLabel: t('create.connecting'),
         canSubmit: true,
         pending: false,
         primaryType: 'button',
@@ -298,14 +289,14 @@ export function DaoCreatePanel() {
     }
     return {
       visible: true,
-      primaryLabel: DAO_CREATE_TITLE,
-      primaryPendingLabel: 'Confirm in wallet…',
+      primaryLabel: t('homeChrome.createDao'),
+      primaryPendingLabel: t('create.confirmWallet'),
       canSubmit,
       pending,
       disabled: pending || !canSubmit,
       primaryType: 'submit',
     };
-  }, [isConnected, connect, canSubmit, pending]);
+  }, [isConnected, connect, canSubmit, pending, t]);
 
   const onAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -494,8 +485,8 @@ export function DaoCreatePanel() {
 
   return (
     <OsAppScreen
-      title={DAO_CREATE_TITLE}
-      subtitle={daoCreateWhisper(dealNearLabel)}
+      title={t('homeChrome.createDao')}
+      subtitle={t('create.daoWhisper', { near: dealNearLabel })}
       dockBack
       headerOwnsConnect
       backFallbackHref={APP_DAOS_PATH}
@@ -534,7 +525,7 @@ export function DaoCreatePanel() {
         />
 
         <label className="guild-field" htmlFor={fieldId('name')}>
-          <span>Name</span>
+          <span>{t('create.name')}</span>
           <input
             id={fieldId('name')}
             value={name}
@@ -553,7 +544,7 @@ export function DaoCreatePanel() {
         </label>
 
         <label className="guild-field" htmlFor={fieldId('slug')}>
-          <span>Account id</span>
+          <span>{t('create.accountId')}</span>
           <div
             className={
               idAvailabilityClass
@@ -595,14 +586,15 @@ export function DaoCreatePanel() {
           disabled={pending || discardConfirmOpen}
           onClick={() => setPurposeOpen((open) => !open)}
         >
-          {daoCreatePurposeToggle({
-            open: purposeOpen,
-            hasText: purpose.trim().length > 0,
-          })}
+          {purposeOpen
+            ? t('create.hidePurpose')
+            : purpose.trim()
+              ? t('create.editPurpose')
+              : t('create.addPurpose')}
         </button>
         {purposeOpen ? (
           <label className="guild-field" htmlFor={fieldId('purpose')}>
-            <span>Purpose</span>
+            <span>{t('create.purpose')}</span>
             <textarea
               id={fieldId('purpose')}
               value={purpose}
@@ -610,7 +602,7 @@ export function DaoCreatePanel() {
                 setPurpose(event.target.value);
                 setError(null);
               }}
-              placeholder="Optional — what this DAO is for"
+              placeholder={t('create.purposePlaceholder')}
               maxLength={DAO_FACTORY_PURPOSE_MAX}
               rows={3}
               disabled={pending || discardConfirmOpen}
@@ -628,7 +620,7 @@ export function DaoCreatePanel() {
           disabled={pending || discardConfirmOpen}
           onClick={() => setPublishSocial((on) => !on)}
         >
-          <span>{DAO_CREATE_PUBLISH}</span>
+          <span>{t('create.publishProfile')}</span>
           <span
             className={`account-safe-mode-switch${publishSocial ? ' is-on' : ''}`}
             aria-hidden
@@ -642,13 +634,16 @@ export function DaoCreatePanel() {
           disabled={pending || discardConfirmOpen}
           onClick={() => setShowAdvanced((open) => !open)}
         >
-          {showAdvanced ? DAO_CREATE_ADVANCED_HIDE : DAO_CREATE_ADVANCED}
+          {showAdvanced ? t('create.hideAdvanced') : t('create.advanced')}
         </button>
 
         {showAdvanced ? (
           <>
-            <div className="dao-create-facts" aria-label="What you get">
-              <p className="dao-create-facts-title">You get</p>
+            <div
+              className="dao-create-facts"
+              aria-label={t('create.whatYouGet')}
+            >
+              <p className="dao-create-facts-title">{t('create.youGet')}</p>
               <ul className="dao-create-facts-list">
                 <li>{policyFacts.publicPropose}</li>
                 <li>{policyFacts.vote}</li>
@@ -664,7 +659,7 @@ export function DaoCreatePanel() {
                 disabled={pending || discardConfirmOpen}
                 onClick={() => setLinksOpen((open) => !open)}
               >
-                {linksOpen ? 'Hide links' : 'Add links'}
+                {linksOpen ? t('create.hideLinks') : t('create.addLinks')}
               </button>
               {linksOpen ? (
                 <ProfileLinksEditor
@@ -709,10 +704,12 @@ export function DaoCreatePanel() {
             {error}
           </p>
         ) : !isConnected ? (
-          <p className="profile-support-hint">{DAO_CREATE_CONNECT_HINT}</p>
+          <p className="profile-support-hint">{t('create.daoConnectHint')}</p>
         ) : nearShortfall != null ? (
           <p className="profile-support-hint">
-            {daoCreateNearShortHint(yoctoToNear(String(nearShortfall)))}
+            {t('create.daoShort', {
+              near: yoctoToNear(String(nearShortfall)),
+            })}
           </p>
         ) : null}
       </form>
@@ -720,8 +717,8 @@ export function DaoCreatePanel() {
         open={discardConfirmOpen}
         onDiscard={discard}
         onKeepEditing={keepEditing}
-        title="Discard DAO?"
-        body="Name, account id, media, and purpose won’t be saved."
+        title={t('create.discardDao')}
+        body={t('create.discardDaoBody')}
       />
     </OsAppScreen>
   );
