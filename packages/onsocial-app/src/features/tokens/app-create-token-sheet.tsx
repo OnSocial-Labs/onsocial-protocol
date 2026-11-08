@@ -11,6 +11,7 @@ import {
   type CSSProperties,
   type FormEvent,
 } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   AmountField,
   InfoDrawer,
@@ -83,6 +84,7 @@ export function AppCreateTokenSheet({
   const { isConnected, connect, getSigningWallet, accountId } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const formId = useId();
+  const t = useTranslations('shell');
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const [name, setName] = useState('');
@@ -139,14 +141,14 @@ export function AppCreateTokenSheet({
         ? 'is-checking'
         : undefined;
   const accountLead = accountTaken
-    ? 'Taken'
+    ? t('account.taken')
     : accountAvailable
-      ? 'Available'
+      ? t('account.available')
       : accountError && !parentError
         ? accountError
         : accountChecking
-          ? 'Checking'
-          : 'Under your wallet';
+          ? t('account.checking')
+          : t('account.underWallet');
 
   const formReady =
     isConnected &&

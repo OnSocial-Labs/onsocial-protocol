@@ -8,9 +8,9 @@ import {
   LauncherSocialPeekList,
   LauncherSocialPeekRow,
   LauncherSocialPeekSkeleton,
-  launcherPeekOverflowLabel,
   LAUNCHER_PEEK_DISPLAY_LIMIT,
 } from '@/components/launcher-home';
+import { usePeekOverflowLabel } from '@/lib/use-shell';
 import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import {
   fetchProtocolProposalPeeks,
@@ -210,11 +210,7 @@ export function DaosExplorePanel({
   );
   const proposerProfiles = usePostAuthorProfiles(proposerIds);
   const discoverDaosHref = appDiscoverTabHref('daos');
-  const overflowLabel = launcherPeekOverflowLabel(
-    peeks?.length ?? 0,
-    'discover',
-    LAUNCHER_PEEK_DISPLAY_LIMIT
-  );
+  const overflowLabel = usePeekOverflowLabel(peeks?.length ?? 0, 'discover');
 
   if (!accountId) {
     return null;

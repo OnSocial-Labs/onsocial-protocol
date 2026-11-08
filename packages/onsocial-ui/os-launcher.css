@@ -522,7 +522,9 @@
 .os-launcher-footer {
   width: 100%;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
+  gap: 0.5rem;
   padding: 1rem
     max(var(--os-sheet-pad-inline, 0.5rem), env(safe-area-inset-right, 0px)) 0
     max(var(--os-sheet-pad-inline, 0.5rem), env(safe-area-inset-left, 0px));

@@ -62,9 +62,9 @@ import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet
 import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
 import {
   entityIdAvailabilityClass,
-  entityIdAvailabilityLead,
   type EntityIdAvailability,
 } from '@/hooks/use-entity-id-availability';
+import { useEntityIdLead } from '@/lib/use-shell';
 import { SPUTNIK_DAO_FACTORY } from '@/lib/app-config';
 import { yoctoToNear } from '@/lib/app-near-rpc';
 import { APP_DAOS_PATH, daoPath } from '@/lib/app-routes';
@@ -95,11 +95,6 @@ function isFormFieldTarget(target: EventTarget | null): boolean {
     target instanceof HTMLTextAreaElement ||
     target instanceof HTMLSelectElement
   );
-}
-
-function daoAccountIdLead(status: EntityIdAvailability): string {
-  if (status === 'idle') return 'Permanent';
-  return entityIdAvailabilityLead(status);
 }
 
 function useDaoFactorySlugAvailability(
@@ -276,6 +271,7 @@ export function DaoCreatePanel() {
     DAO_FACTORY_SLUG_MIN
   );
   const idAvailabilityClass = entityIdAvailabilityClass(idAvailability);
+  const idLead = useEntityIdLead(idAvailability);
 
   const formReady =
     isValidDaoFactorySlug(resolvedSlug) &&
@@ -585,7 +581,7 @@ export function DaoCreatePanel() {
             />
           </div>
           <small className={idAvailabilityClass}>
-            {daoAccountIdLead(idAvailability)} ·{' '}
+            {idLead} ·{' '}
             <span className="dao-create-mono">
               {daoAccountId || `name.${SPUTNIK_DAO_FACTORY}`}
             </span>

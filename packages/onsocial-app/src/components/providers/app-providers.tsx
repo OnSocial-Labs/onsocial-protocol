@@ -43,6 +43,7 @@ import { PwaProvider } from '@/components/providers/pwa-provider';
 import { markAppHydrated } from '@/lib/e2e-portfolio-ready';
 import { WebPushProvider } from '@/components/providers/web-push-provider';
 import { GlassSheetPortalProvider } from '@onsocial/ui';
+import { LocaleProvider } from '@/components/locale-provider';
 import { SingleMediaPlaybackHost } from '@/components/providers/single-media-playback-host';
 
 /** Remount the join/claim ledger when the wallet account changes. */
@@ -75,66 +76,68 @@ function OsGlassSheetPortalBridge({ children }: { children: React.ReactNode }) {
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
-    <PwaProvider>
-      <AppHydratedMarker />
-      <SingleMediaPlaybackHost />
-      <AppSmoothScrollProvider>
-        <AppWalletProvider>
-          <AppTransactionFeedbackProvider>
-            <SeasonParticipationGate>
-              <AppSocialBalanceProvider>
-                <ViewerProfileShellProvider>
-                  <ViewerWalletMoodProvider>
-                    <AppAccountSheetProvider>
-                      <AppRewardsProvider>
-                        <PortfolioCustomizeProvider>
-                          <ComposeLauncherProvider>
-                            <DockChromeProvider>
-                              <OsFaceLeaveProvider>
-                                <OsPortalHostProvider>
-                                  <OsGlassSheetPortalBridge>
-                                    <BoostSheetProvider>
-                                      <RallySheetProvider>
-                                        <PostThreadLayerProvider>
-                                          <CollectiblesNowPlayingProvider>
-                                            <DmUnreadHost>
-                                              <NotificationsHost>
-                                                <WebPushProvider>
-                                                  <FeedSessionHost
-                                                    page={children}
-                                                  >
-                                                    <NetworkStandingHandoffHost />
-                                                  </FeedSessionHost>
-                                                  <ViewerMuteBlockHost />
-                                                  <DropComposeHost />
-                                                  <Suspense fallback={null}>
-                                                    <WalletSheetDeepLink />
-                                                    <BoostSheetDeepLink />
-                                                    <RallySheetDeepLink />
-                                                  </Suspense>
-                                                  <AppAccountSheetHost />
-                                                </WebPushProvider>
-                                              </NotificationsHost>
-                                            </DmUnreadHost>
-                                          </CollectiblesNowPlayingProvider>
-                                        </PostThreadLayerProvider>
-                                      </RallySheetProvider>
-                                    </BoostSheetProvider>
-                                  </OsGlassSheetPortalBridge>
-                                </OsPortalHostProvider>
-                              </OsFaceLeaveProvider>
-                            </DockChromeProvider>
-                          </ComposeLauncherProvider>
-                        </PortfolioCustomizeProvider>
-                      </AppRewardsProvider>
-                    </AppAccountSheetProvider>
-                  </ViewerWalletMoodProvider>
-                </ViewerProfileShellProvider>
-              </AppSocialBalanceProvider>
-            </SeasonParticipationGate>
-          </AppTransactionFeedbackProvider>
-        </AppWalletProvider>
-      </AppSmoothScrollProvider>
-    </PwaProvider>
+    <LocaleProvider>
+      <PwaProvider>
+        <AppHydratedMarker />
+        <SingleMediaPlaybackHost />
+        <AppSmoothScrollProvider>
+          <AppWalletProvider>
+            <AppTransactionFeedbackProvider>
+              <SeasonParticipationGate>
+                <AppSocialBalanceProvider>
+                  <ViewerProfileShellProvider>
+                    <ViewerWalletMoodProvider>
+                      <AppAccountSheetProvider>
+                        <AppRewardsProvider>
+                          <PortfolioCustomizeProvider>
+                            <ComposeLauncherProvider>
+                              <DockChromeProvider>
+                                <OsFaceLeaveProvider>
+                                  <OsPortalHostProvider>
+                                    <OsGlassSheetPortalBridge>
+                                      <BoostSheetProvider>
+                                        <RallySheetProvider>
+                                          <PostThreadLayerProvider>
+                                            <CollectiblesNowPlayingProvider>
+                                              <DmUnreadHost>
+                                                <NotificationsHost>
+                                                  <WebPushProvider>
+                                                    <FeedSessionHost
+                                                      page={children}
+                                                    >
+                                                      <NetworkStandingHandoffHost />
+                                                    </FeedSessionHost>
+                                                    <ViewerMuteBlockHost />
+                                                    <DropComposeHost />
+                                                    <Suspense fallback={null}>
+                                                      <WalletSheetDeepLink />
+                                                      <BoostSheetDeepLink />
+                                                      <RallySheetDeepLink />
+                                                    </Suspense>
+                                                    <AppAccountSheetHost />
+                                                  </WebPushProvider>
+                                                </NotificationsHost>
+                                              </DmUnreadHost>
+                                            </CollectiblesNowPlayingProvider>
+                                          </PostThreadLayerProvider>
+                                        </RallySheetProvider>
+                                      </BoostSheetProvider>
+                                    </OsGlassSheetPortalBridge>
+                                  </OsPortalHostProvider>
+                                </OsFaceLeaveProvider>
+                              </DockChromeProvider>
+                            </ComposeLauncherProvider>
+                          </PortfolioCustomizeProvider>
+                        </AppRewardsProvider>
+                      </AppAccountSheetProvider>
+                    </ViewerWalletMoodProvider>
+                  </ViewerProfileShellProvider>
+                </AppSocialBalanceProvider>
+              </SeasonParticipationGate>
+            </AppTransactionFeedbackProvider>
+          </AppWalletProvider>
+        </AppSmoothScrollProvider>
+      </PwaProvider>
+    </LocaleProvider>
   );
 }

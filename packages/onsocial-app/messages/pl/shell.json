@@ -1,0 +1,54 @@
+{
+  "apps": {
+    "home": "Główna",
+    "activity": "Aktywność",
+    "messages": "Wiadomości",
+    "discover": "Odkrywaj",
+    "market": "Rynek",
+    "drops": "Dropy",
+    "events": "Wydarzenia",
+    "collectibles": "Kolekcje",
+    "groups": "Gildie",
+    "hubs": "Huby",
+    "daos": "DAO",
+    "page": "Strona"
+  },
+  "launcher": {
+    "open": "Otwórz launcher",
+    "close": "Zamknij launcher",
+    "dialog": "Launcher OnSocial",
+    "dragClose": "Przeciągnij w dół, aby zamknąć",
+    "pages": "Strony launchera",
+    "apps": "Aplikacje OnSocial",
+    "community": "Aplikacje społeczności",
+    "communityEmpty": "Nie ma jeszcze aplikacji społeczności.",
+    "listYours": "Dodaj na Portalu"
+  },
+  "theme": {
+    "label": "Motyw",
+    "light": "Jasny",
+    "dark": "Ciemny"
+  },
+  "language": {
+    "label": "Język",
+    "en": "English",
+    "pl": "Polski"
+  },
+  "dock": {
+    "connect": "Połącz",
+    "back": "Wstecz"
+  },
+  "account": {
+    "found": "Znaleziono",
+    "taken": "Zajęte",
+    "available": "Dostępne",
+    "missing": "Nie znaleziono",
+    "checking": "Sprawdzanie",
+    "permanent": "Na stałe",
+    "opening": "Otwieranie…",
+    "tokenAccount": "Konto tokena",
+    "underWallet": "Pod twoim portfelem",
+    "retry": "Ponów"
+  },
+  "peekOverflow": "{count, plural, one {# więcej w aplikacji {place}} few {# więcej w aplikacji {place}} many {# więcej w aplikacji {place}} other {# więcej w aplikacji {place}}}"
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useSyncExternalStore } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   osLauncherThemeToggleClassName,
   osLauncherThemeToggleOptionClassName,
@@ -36,6 +37,7 @@ function subscribe(onChange: () => void): () => void {
 }
 
 export function ThemeToggle() {
+  const t = useTranslations('shell');
   const theme = useSyncExternalStore<ThemeChoice>(
     subscribe,
     readTheme,
@@ -56,7 +58,7 @@ export function ThemeToggle() {
     <div
       className={osLauncherThemeToggleClassName}
       role="group"
-      aria-label="Theme"
+      aria-label={t('theme.label')}
     >
       <button
         type="button"
@@ -64,7 +66,7 @@ export function ThemeToggle() {
         aria-pressed={theme === 'light'}
         onClick={() => apply('light')}
       >
-        Light
+        {t('theme.light')}
       </button>
       <button
         type="button"
@@ -72,7 +74,7 @@ export function ThemeToggle() {
         aria-pressed={theme === 'dark'}
         onClick={() => apply('dark')}
       >
-        Dark
+        {t('theme.dark')}
       </button>
     </div>
   );

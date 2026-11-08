@@ -8,9 +8,9 @@ import {
   LauncherSocialPeekList,
   LauncherSocialPeekRow,
   LauncherSocialPeekSkeleton,
-  launcherPeekOverflowLabel,
   LAUNCHER_PEEK_DISPLAY_LIMIT,
 } from '@/components/launcher-home';
+import { usePeekOverflowLabel } from '@/lib/use-shell';
 import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -237,11 +237,7 @@ export function GuildsLatestPostsPanel({
   }, [resolvedPosts, visiblePeeks]);
 
   const authorProfiles = usePostAuthorProfiles(authorIds);
-  const overflowLabel = launcherPeekOverflowLabel(
-    peeks?.length ?? 0,
-    'home',
-    LAUNCHER_PEEK_DISPLAY_LIMIT
-  );
+  const overflowLabel = usePeekOverflowLabel(peeks?.length ?? 0, 'home');
 
   if (!accountId) {
     return null;

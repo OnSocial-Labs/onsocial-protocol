@@ -8,9 +8,9 @@ import {
   LauncherSocialPeekList,
   LauncherSocialPeekRow,
   LauncherSocialPeekSkeleton,
-  launcherPeekOverflowLabel,
   LAUNCHER_PEEK_DISPLAY_LIMIT,
 } from '@/components/launcher-home';
+import { usePeekOverflowLabel } from '@/lib/use-shell';
 import type { AppView } from '@/features/scarces/apps-data';
 import { collectionCurrentRowToView } from '@/features/scarces/collections-data';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
@@ -194,11 +194,7 @@ export function HubsLatestDropsPanel({
   );
   const creatorProfiles = usePostAuthorProfiles(creatorIds);
   const discoverHubsHref = appDiscoverTabHref('hubs');
-  const overflowLabel = launcherPeekOverflowLabel(
-    peeks?.length ?? 0,
-    'discover',
-    LAUNCHER_PEEK_DISPLAY_LIMIT
-  );
+  const overflowLabel = usePeekOverflowLabel(peeks?.length ?? 0, 'discover');
 
   if (!accountId) {
     return null;

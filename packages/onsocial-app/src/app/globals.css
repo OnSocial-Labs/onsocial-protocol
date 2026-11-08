@@ -46690,3 +46690,16 @@ button.messages-bubble-quote:focus-visible {
     cursor: default;
   }
 }
+
+/* Polish letters load only while the device language is Polish. */
+html.locale-pl {
+  --font-public-sans: var(--font-public-sans-pl);
+  --font-ibm-plex-sans: var(--font-ibm-plex-sans-pl);
+  --font-space-grotesk: var(--font-space-grotesk-pl);
+  --app-font-sans:
+    var(--font-public-sans-pl), ui-sans-serif, system-ui, sans-serif;
+}
+
+html.locale-pl body {
+  font-family: var(--font-public-sans-pl), ui-sans-serif, system-ui, sans-serif;
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { ChevronLeftIcon } from '@onsocial/ui';
 import { resolveOsLeave } from '@/lib/os-leave';
 
@@ -19,7 +20,9 @@ export function OsDockBackZone({
   onBack,
   variant = 'segment',
 }: OsDockBackZoneProps) {
+  const t = useTranslations('shell');
   const router = useRouter();
+  const label = ariaLabel === 'Back' ? t('dock.back') : ariaLabel;
 
   return (
     <button
@@ -27,7 +30,7 @@ export function OsDockBackZone({
       className={`portfolio-summon-back${
         variant === 'stacked' ? ' portfolio-summon-back--stacked' : ''
       }`}
-      aria-label={ariaLabel}
+      aria-label={label}
       onClick={() => {
         const leave = resolveOsLeave({ onBack, fallbackHref });
         if (leave.kind === 'callback') {

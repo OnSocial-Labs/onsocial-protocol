@@ -1,0 +1,54 @@
+{
+  "apps": {
+    "home": "Home",
+    "activity": "Activity",
+    "messages": "Messages",
+    "discover": "Discover",
+    "market": "Market",
+    "drops": "Drops",
+    "events": "Events",
+    "collectibles": "Collectibles",
+    "groups": "Guilds",
+    "hubs": "Hubs",
+    "daos": "DAOs",
+    "page": "Page"
+  },
+  "launcher": {
+    "open": "Open launcher",
+    "close": "Close launcher",
+    "dialog": "OnSocial launcher",
+    "dragClose": "Drag down to close",
+    "pages": "Launcher pages",
+    "apps": "OnSocial apps",
+    "community": "Community dapps",
+    "communityEmpty": "No community dapps yet.",
+    "listYours": "List yours on Portal"
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "pl": "Polski"
+  },
+  "dock": {
+    "connect": "Connect",
+    "back": "Back"
+  },
+  "account": {
+    "found": "Found",
+    "taken": "Taken",
+    "available": "Available",
+    "missing": "Not found",
+    "checking": "Checking",
+    "permanent": "Permanent",
+    "opening": "Opening…",
+    "tokenAccount": "Token account",
+    "underWallet": "Under your wallet",
+    "retry": "Retry"
+  },
+  "peekOverflow": "{count, plural, other {# more in {place}}}"
+}

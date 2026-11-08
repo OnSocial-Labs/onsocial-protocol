@@ -25,9 +25,9 @@ import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import {
   entityIdAvailabilityClass,
-  entityIdAvailabilityLead,
   useEntityIdAvailability,
 } from '@/hooks/use-entity-id-availability';
+import { useEntityIdLead } from '@/lib/use-shell';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import type { CreatorAccess } from '@/features/scarces/apps-data';
@@ -253,6 +253,7 @@ export function CreateAppPanel() {
   );
   const idAvailability = useEntityIdAvailability('hub', derivedSlug, MIN_SLUG);
   const idAvailabilityClass = entityIdAvailabilityClass(idAvailability);
+  const idLead = useEntityIdLead(idAvailability);
   const commission = Number.parseFloat(commissionInput);
   const commissionValid =
     Number.isFinite(commission) &&
@@ -484,8 +485,7 @@ export function CreateAppPanel() {
             />
           </div>
           <small className={idAvailabilityClass}>
-            {entityIdAvailabilityLead(idAvailability)} ·{' '}
-            {appPath(derivedSlug || 'your-hub')}
+            {idLead} · {appPath(derivedSlug || 'your-hub')}
           </small>
         </label>
 

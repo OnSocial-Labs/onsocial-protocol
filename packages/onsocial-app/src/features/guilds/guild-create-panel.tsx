@@ -26,9 +26,9 @@ import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import {
   entityIdAvailabilityClass,
-  entityIdAvailabilityLead,
   useEntityIdAvailability,
 } from '@/hooks/use-entity-id-availability';
+import { useEntityIdLead } from '@/lib/use-shell';
 import {
   CommerceSheetFooter,
   type CommerceSheetFooterState,
@@ -249,6 +249,7 @@ export function GuildCreatePanel() {
     GUILD_MIN_ID
   );
   const idAvailabilityClass = entityIdAvailabilityClass(idAvailability);
+  const idLead = useEntityIdLead(idAvailability);
   const canSubmit =
     groupId.length >= GUILD_MIN_ID &&
     name.trim().length >= 2 &&
@@ -486,7 +487,7 @@ export function GuildCreatePanel() {
             />
           </div>
           <small className={idAvailabilityClass}>
-            {entityIdAvailabilityLead(idAvailability)} · public link /groups/
+            {idLead} · public link /groups/
             {groupId || 'builder-room'}
           </small>
         </label>

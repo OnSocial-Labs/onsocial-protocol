@@ -7,6 +7,7 @@ import {
   type CSSProperties,
   type FormEvent,
 } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   OsSheetFooter,
   OsHugSheet,
@@ -57,6 +58,7 @@ export function AppAddTokenSheet({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const formId = useId();
+  const t = useTranslations('shell');
 
   const sheetOpen = open && !closing;
   if (open !== wasOpen) {
@@ -82,12 +84,12 @@ export function AppAddTokenSheet({
         ? 'is-taken'
         : undefined;
   const accountLead = accountFound
-    ? 'Found'
+    ? t('account.found')
     : accountChecking
-      ? 'Checking'
+      ? t('account.checking')
       : accountStatus === 'missing'
-        ? 'Not found'
-        : accountError || 'Token account';
+        ? t('account.missing')
+        : accountError || t('account.tokenAccount');
 
   const canSubmit =
     isAddTokenAccountReady(contractId) &&
