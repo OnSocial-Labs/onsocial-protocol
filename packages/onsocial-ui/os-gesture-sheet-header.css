@@ -37,7 +37,7 @@
  * Gesture form body — same inset as `.os-hug-sheet-body` (bottom = footer pad).
  */
 .os-gesture-sheet-body {
-  padding: 0.2rem var(--os-sheet-pad-inline, 0.75rem)
+  padding: 0.2rem var(--os-sheet-pad-inline, 0.5rem)
     var(--os-sheet-footer-pad-bottom);
 }
 

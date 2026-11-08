@@ -107,11 +107,8 @@
  */
 :root {
   --os-sheet-footer-pad-top: 0.45rem;
-  /*
-   * Sheet / drawer chrome — same inset as the page gutter so a drawer
-   * lines up with the screen behind it.
-   */
-  --os-sheet-pad-inline: var(--os-gutter, 0.75rem);
+  /* Sheets and drawers use the same horizontal inset as the page. */
+  --os-sheet-pad-inline: var(--os-gutter, 0.5rem);
   --os-sheet-footer-pad-inline: var(--os-sheet-pad-inline);
   --os-sheet-footer-pad-bottom: calc(
     0.55rem + env(safe-area-inset-bottom, 0px)
@@ -291,7 +288,7 @@
  * bottom matches `.os-sheet-footer` resting clearance.
  */
 .os-hug-sheet-body {
-  padding: 0.2rem var(--os-sheet-pad-inline, 0.75rem)
+  padding: 0.2rem var(--os-sheet-pad-inline, 0.5rem)
     var(--os-sheet-footer-pad-bottom);
 }
 
@@ -603,7 +600,7 @@
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-  padding: 0 var(--os-sheet-pad-inline, 0.75rem) 0.75rem;
+  padding: 0 var(--os-sheet-pad-inline, 0.5rem) 0.75rem;
 }
 
 .glass-sheet-header-copy {
