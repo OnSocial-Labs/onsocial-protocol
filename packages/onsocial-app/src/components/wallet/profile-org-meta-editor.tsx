@@ -145,7 +145,7 @@ export function ProfileOrgMetaEditor({
   const industryLabel = storedIndustry
     ? industryName(storedIndustry)
     : emptyLabel;
-  const locationLabel = location.trim() || 'Location';
+  const locationLabel = location.trim() || t('taxonomy.location');
   const hiringLabel = hiringLineLabel(jobCount);
   const offerLabel = offerLineLabel(offerCount);
 
@@ -186,7 +186,7 @@ export function ProfileOrgMetaEditor({
           disabled={disabled}
           aria-haspopup="dialog"
           aria-expanded={industryOpen || industryWriteOpen}
-          aria-label={`Industry, ${industryLabel}`}
+          aria-label={t('taxonomy.industryNamed', { name: industryLabel })}
           onClick={() => setIndustryOpen(true)}
         >
           {showHiring ? <PortfolioOrgKindMark /> : null}
@@ -209,7 +209,7 @@ export function ProfileOrgMetaEditor({
           disabled={disabled}
           aria-haspopup="dialog"
           aria-expanded={locationOpen}
-          aria-label={`Location, ${locationLabel}`}
+          aria-label={t('taxonomy.locationNamed', { name: locationLabel })}
           onClick={openLocation}
         >
           <PortfolioLocationMark />
@@ -277,9 +277,9 @@ export function ProfileOrgMetaEditor({
       <OsHugSheet
         open={industryWriteOpen}
         onClose={() => setIndustryWriteOpen(false)}
-        label="Industry"
-        closeAriaLabel="Close industry"
-        backdropLabel="Close industry"
+        label={t('discover.industry')}
+        closeAriaLabel={t('taxonomy.closeIndustry')}
+        backdropLabel={t('taxonomy.closeIndustry')}
         zIndex={SHEET_Z.confirm}
         footer={
           <OsSheetFooter>
@@ -291,7 +291,7 @@ export function ProfileOrgMetaEditor({
                 disabled={disabled || industryDraft.trim().length === 0}
                 onClick={commitIndustryWriteIn}
               >
-                Done
+                {t('taxonomy.done')}
               </OsSheetAction>
             </OsSheetActions>
           </OsSheetFooter>
@@ -299,7 +299,7 @@ export function ProfileOrgMetaEditor({
       >
         <div className="account-editor-org-meta-field">
           <label className="guild-field" htmlFor={`${industryFormId}-input`}>
-            <span>Industry</span>
+            <span>{t('discover.industry')}</span>
             <input
               ref={industryInputRef}
               id={`${industryFormId}-input`}
@@ -307,7 +307,7 @@ export function ProfileOrgMetaEditor({
               value={industryDraft}
               maxLength={PROFILE_INDUSTRY_MAX}
               autoComplete="organization-title"
-              placeholder="Industry"
+              placeholder={t('discover.industry')}
               disabled={disabled}
               onFocus={scrollFieldIntoView}
               onChange={(event) =>
@@ -328,9 +328,9 @@ export function ProfileOrgMetaEditor({
       <OsHugSheet
         open={locationOpen}
         onClose={() => setLocationOpen(false)}
-        label="Location"
-        closeAriaLabel="Close location"
-        backdropLabel="Close location"
+        label={t('taxonomy.location')}
+        closeAriaLabel={t('taxonomy.closeLocation')}
+        backdropLabel={t('taxonomy.closeLocation')}
         zIndex={SHEET_Z.confirm}
         footer={
           <OsSheetFooter>
@@ -342,7 +342,7 @@ export function ProfileOrgMetaEditor({
                 disabled={disabled}
                 onClick={commitLocation}
               >
-                Done
+                {t('taxonomy.done')}
               </OsSheetAction>
             </OsSheetActions>
           </OsSheetFooter>
@@ -350,7 +350,7 @@ export function ProfileOrgMetaEditor({
       >
         <div className="account-editor-org-meta-field">
           <label className="guild-field" htmlFor={`${locationFormId}-input`}>
-            <span>Based in</span>
+            <span>{t('taxonomy.basedIn')}</span>
             <input
               ref={locationInputRef}
               id={`${locationFormId}-input`}
@@ -358,7 +358,7 @@ export function ProfileOrgMetaEditor({
               value={locationDraft}
               maxLength={PROFILE_LOCATION_MAX}
               autoComplete="address-level2"
-              placeholder="Based in"
+              placeholder={t('taxonomy.basedIn')}
               disabled={disabled}
               onFocus={scrollFieldIntoView}
               onChange={(event) =>
