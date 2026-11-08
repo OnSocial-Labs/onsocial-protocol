@@ -17,7 +17,7 @@ describe('look preview banner parity', () => {
       expect(src).toContain('account-editor-banner-empty');
       expect(src).toContain('account-editor-banner-overlay');
       expect(src).toContain('profile-editor-media-size-hint--dock');
-      expect(src).toContain('Photo or video');
+      expect(src).toContain("t('look.photoOrVideo')");
       expect(src).not.toMatch(/look-preview-banner-empty|cover-empty/);
     }
   });
