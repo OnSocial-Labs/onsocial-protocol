@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { APP_LOCALES } from './locale';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../../messages');
 const en = JSON.parse(readFileSync(join(root, 'en/shell.json'), 'utf8'));
@@ -36,5 +37,13 @@ describe('shell catalogs', () => {
     expect(en.theme.light).toBe('Light');
     expect(en.theme.dark).toBe('Dark');
     expect(en.peekOverflow).toBe('{count, plural, other {# more in {place}}}');
+  });
+
+  it('lists every locale under its own name in every catalog', () => {
+    expect(en.language.en).toBe('English');
+    expect(en.language.pl).toBe('Polski');
+    for (const code of APP_LOCALES) {
+      expect(pl.language[code]).toBe(en.language[code]);
+    }
   });
 });

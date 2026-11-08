@@ -1,43 +1,82 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
+  ChoiceDrawer,
   osLauncherThemeToggleClassName,
   osLauncherThemeToggleOptionClassName,
 } from '@onsocial/ui';
-import { applyLocale, type AppLocale } from '@/lib/locale';
+import { SHEET_Z } from '@/lib/sheet-z';
+import { applyLocale, APP_LOCALES, type AppLocale } from '@/lib/locale';
 import { useAppLocale } from '@/lib/use-app-locale';
 
-export function LocaleToggle() {
+/**
+ * One control for every device language. English is the default. A new
+ * language is another row here once its shell file matches the catalog.
+ */
+export function LocaleToggle({
+  onOpenChange,
+}: {
+  onOpenChange?: (open: boolean) => void;
+}) {
   const t = useTranslations('shell');
   const locale = useAppLocale();
-  const choose = useCallback((next: AppLocale) => {
-    applyLocale(next);
+  const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const openEpoch = useRef(0);
+  const closeEpoch = useRef(0);
+  const sheetOpen = open && !closing;
+  const activeLabel = t(`language.${locale}`);
+  const label = t('language.label');
+
+  const requestOpen = useCallback(() => {
+    openEpoch.current += 1;
+    setClosing(false);
+    setOpen(true);
+    onOpenChange?.(true);
+  }, [onOpenChange]);
+
+  const requestClose = useCallback(() => {
+    closeEpoch.current = openEpoch.current;
+    setClosing(true);
+    onOpenChange?.(false);
+  }, [onOpenChange]);
+
+  const handleClosed = useCallback(() => {
+    const started = closeEpoch.current;
+    setClosing(false);
+    if (started !== openEpoch.current) return;
+    setOpen(false);
   }, []);
 
   return (
-    <div
-      className={osLauncherThemeToggleClassName}
-      role="group"
-      aria-label={t('language.label')}
-    >
+    <>
       <button
         type="button"
-        className={`${osLauncherThemeToggleOptionClassName}${locale === 'en' ? ' is-active' : ''}`}
-        aria-pressed={locale === 'en'}
-        onClick={() => choose('en')}
+        className={osLauncherThemeToggleClassName}
+        aria-haspopup="dialog"
+        aria-expanded={sheetOpen}
+        aria-label={`${label}, ${activeLabel}`}
+        onClick={requestOpen}
       >
-        {t('language.en')}
+        <span className={`${osLauncherThemeToggleOptionClassName} is-active`}>
+          {activeLabel}
+        </span>
       </button>
-      <button
-        type="button"
-        className={`${osLauncherThemeToggleOptionClassName}${locale === 'pl' ? ' is-active' : ''}`}
-        aria-pressed={locale === 'pl'}
-        onClick={() => choose('pl')}
-      >
-        {t('language.pl')}
-      </button>
-    </div>
+      <ChoiceDrawer
+        open={sheetOpen}
+        onClose={requestClose}
+        onClosed={handleClosed}
+        label={label}
+        value={locale}
+        options={APP_LOCALES.map((code) => ({
+          value: code,
+          label: t(`language.${code}`),
+        }))}
+        onChange={(next: AppLocale) => applyLocale(next)}
+        zIndex={SHEET_Z.nested}
+      />
+    </>
   );
 }

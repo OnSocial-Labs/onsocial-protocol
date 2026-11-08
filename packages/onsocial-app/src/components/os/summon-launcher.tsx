@@ -251,6 +251,7 @@ export function SummonLauncher({
     [communityListings]
   );
   const [launcherPage, setLauncherPage] = useState(0);
+  const [languageOpen, setLanguageOpen] = useState(false);
   const pagesRef = useRef<HTMLDivElement>(null);
 
   const setOpen = useCallback(
@@ -384,7 +385,7 @@ export function SummonLauncher({
   }, [open]);
 
   useEffect(() => {
-    if (!open || rallyHandoff) {
+    if (!open || rallyHandoff || languageOpen) {
       return;
     }
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -394,7 +395,7 @@ export function SummonLauncher({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [closeLauncher, open, rallyHandoff]);
+  }, [closeLauncher, languageOpen, open, rallyHandoff]);
 
   function handleNavigate(app: OsAppLink) {
     if (navigate(app)) {
@@ -810,7 +811,7 @@ export function SummonLauncher({
                 </div>
 
                 <div className={osLauncherFooterClassName}>
-                  <LocaleToggle />
+                  <LocaleToggle onOpenChange={setLanguageOpen} />
                   <ThemeToggle />
                 </div>
               </section>
