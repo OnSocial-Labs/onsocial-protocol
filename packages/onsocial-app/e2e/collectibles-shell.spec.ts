@@ -126,7 +126,8 @@ test.describe('collectibles shell', () => {
         name: 'Open drop for #3, listed at 2 NEAR',
       })
     ).toBeVisible();
-    await expect(editions.locator('time')).toHaveCount(0);
+    // Vault multi-copy shares listing stamp clocks (Minted …).
+    await expect(editions.locator('time')).toHaveCount(2);
     await expect(editions.getByText(/night-drive:/)).toHaveCount(0);
     const editionThree = editions.getByRole('button', {
       name: 'Open drop for #3, listed at 2 NEAR',
