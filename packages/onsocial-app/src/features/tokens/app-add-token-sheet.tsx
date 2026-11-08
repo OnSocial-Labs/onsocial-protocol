@@ -193,22 +193,27 @@ export function AppAddTokenSheet({
       >
         <label className="guild-field" htmlFor={fieldId('id')}>
           <span>Account</span>
-          <input
-            id={fieldId('id')}
-            value={contractId}
-            onChange={(event) =>
-              setContractId(sanitizeNearAccountInput(event.target.value))
+          <div
+            className={
+              accountFieldClass
+                ? `${osFieldBorderedClassName} ${accountFieldClass}`
+                : osFieldBorderedClassName
             }
-            placeholder={nearAccountPlaceholder()}
-            disabled={pending}
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            autoComplete="off"
-            className={`${osFieldBorderedClassName}${
-              accountFieldClass ? ` ${accountFieldClass}` : ''
-            }`}
-          />
+          >
+            <input
+              id={fieldId('id')}
+              value={contractId}
+              onChange={(event) =>
+                setContractId(sanitizeNearAccountInput(event.target.value))
+              }
+              placeholder={nearAccountPlaceholder()}
+              disabled={pending}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </div>
           <small className={accountFieldClass}>{accountLead}</small>
         </label>
 

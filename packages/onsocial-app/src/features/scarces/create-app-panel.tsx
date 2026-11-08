@@ -139,17 +139,13 @@ export function CreateAppPanel() {
     creatorAccess !== 'open' ||
     commissionInput !== '2.5';
 
-  const {
-    discardConfirmOpen,
-    requestCloseOrConfirm,
-    keepEditing,
-    discard,
-  } = useDiscardConfirm({
-    open: true,
-    dirty,
-    pending,
-    onClose: leaveToHubs,
-  });
+  const { discardConfirmOpen, requestCloseOrConfirm, keepEditing, discard } =
+    useDiscardConfirm({
+      open: true,
+      dirty,
+      pending,
+      onClose: leaveToHubs,
+    });
 
   const handleDockBack = useCallback(() => {
     if (requestCloseOrConfirm()) {
@@ -463,23 +459,30 @@ export function CreateAppPanel() {
 
         <label className="guild-field" htmlFor={fieldId('id')}>
           <span>Hub ID</span>
-          <input
-            id={fieldId('id')}
-            value={slugTouched ? slug : derivedSlug}
-            onChange={(event) => {
-              setSlugTouched(true);
-              setSlug(event.target.value);
-            }}
-            onFocus={scrollFieldIntoView}
-            placeholder="midnight-records"
-            maxLength={MAX_SLUG}
-            disabled={pending}
-            spellCheck={false}
-            autoCapitalize="none"
-            autoCorrect="off"
-            aria-invalid={idAvailability === 'taken'}
-            className={`${osFieldBorderedClassName} ${idAvailabilityClass}`}
-          />
+          <div
+            className={
+              idAvailabilityClass
+                ? `${osFieldBorderedClassName} ${idAvailabilityClass}`
+                : osFieldBorderedClassName
+            }
+          >
+            <input
+              id={fieldId('id')}
+              value={slugTouched ? slug : derivedSlug}
+              onChange={(event) => {
+                setSlugTouched(true);
+                setSlug(event.target.value);
+              }}
+              onFocus={scrollFieldIntoView}
+              placeholder="midnight-records"
+              maxLength={MAX_SLUG}
+              disabled={pending}
+              spellCheck={false}
+              autoCapitalize="none"
+              autoCorrect="off"
+              aria-invalid={idAvailability === 'taken'}
+            />
+          </div>
           <small className={idAvailabilityClass}>
             {entityIdAvailabilityLead(idAvailability)} ·{' '}
             {appPath(derivedSlug || 'your-hub')}

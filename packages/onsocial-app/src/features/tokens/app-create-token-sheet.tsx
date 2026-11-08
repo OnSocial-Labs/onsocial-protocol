@@ -420,138 +420,136 @@ export function AppCreateTokenSheet({
           </OsSheetFooter>
         }
       >
-      <form
-        id={formId}
-        className="app-storage-sheet token-create-form"
-        onSubmit={(event) => void handleSubmit(event)}
-      >
-        {templateReady === false ? (
-          <p className="token-create-note is-warn" role="status">
-            {templateDetail}
-          </p>
-        ) : null}
-        {parentError ? (
-          <p className="token-create-note is-warn" role="status">
-            {parentError}
-          </p>
-        ) : null}
+        <form
+          id={formId}
+          className="app-storage-sheet token-create-form"
+          onSubmit={(event) => void handleSubmit(event)}
+        >
+          {templateReady === false ? (
+            <p className="token-create-note is-warn" role="status">
+              {templateDetail}
+            </p>
+          ) : null}
+          {parentError ? (
+            <p className="token-create-note is-warn" role="status">
+              {parentError}
+            </p>
+          ) : null}
 
-        <div className="token-create-name-row">
-          <button
-            type="button"
-            className="token-create-icon-pick"
-            disabled={pending}
-            aria-label="Choose icon"
-            onClick={() => iconInputRef.current?.click()}
-          >
-            <TokenIcon src={icon} label={symbol || name || 'FT'} size="md" />
-          </button>
-          <input
-            ref={iconInputRef}
-            type="file"
-            accept={FT_ICON_ACCEPT}
-            className="token-create-icon-input"
-            tabIndex={-1}
-            aria-hidden
-            disabled={pending}
-            onChange={(event) => void handleIconChange(event)}
-          />
-          <label className="guild-field" htmlFor={fieldId('name')}>
-            <span>Name</span>
-            <input
-              id={fieldId('name')}
-              value={name}
-              onChange={(event) =>
-                setName(normalizeFtName(event.target.value))
-              }
-              placeholder="Cool Token"
-              maxLength={FT_NAME_MAX}
+          <div className="token-create-name-row">
+            <button
+              type="button"
+              className="token-create-icon-pick"
               disabled={pending}
+              aria-label="Choose icon"
+              onClick={() => iconInputRef.current?.click()}
+            >
+              <TokenIcon src={icon} label={symbol || name || 'FT'} size="md" />
+            </button>
+            <input
+              ref={iconInputRef}
+              type="file"
+              accept={FT_ICON_ACCEPT}
+              className="token-create-icon-input"
+              tabIndex={-1}
+              aria-hidden
+              disabled={pending}
+              onChange={(event) => void handleIconChange(event)}
+            />
+            <label className="guild-field" htmlFor={fieldId('name')}>
+              <span>Name</span>
+              <input
+                id={fieldId('name')}
+                value={name}
+                onChange={(event) =>
+                  setName(normalizeFtName(event.target.value))
+                }
+                placeholder="Cool Token"
+                maxLength={FT_NAME_MAX}
+                disabled={pending}
+                autoComplete="off"
+                className={osFieldBorderedClassName}
+              />
+            </label>
+          </div>
+
+          <label className="guild-field" htmlFor={fieldId('symbol')}>
+            <span>Symbol</span>
+            <input
+              id={fieldId('symbol')}
+              value={symbol}
+              onChange={(event) =>
+                setSymbol(normalizeFtSymbol(event.target.value))
+              }
+              placeholder="COOL"
+              maxLength={FT_SYMBOL_MAX}
+              disabled={pending}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
               autoComplete="off"
               className={osFieldBorderedClassName}
             />
           </label>
-        </div>
 
-        <label className="guild-field" htmlFor={fieldId('symbol')}>
-          <span>Symbol</span>
-          <input
-            id={fieldId('symbol')}
-            value={symbol}
-            onChange={(event) =>
-              setSymbol(normalizeFtSymbol(event.target.value))
-            }
-            placeholder="COOL"
-            maxLength={FT_SYMBOL_MAX}
-            disabled={pending}
-            autoCapitalize="characters"
-            autoCorrect="off"
-            spellCheck={false}
-            autoComplete="off"
-            className={osFieldBorderedClassName}
-          />
-        </label>
+          <div className="guild-field">
+            <span id={fieldId('supply-label')}>Supply</span>
+            <AmountField
+              id={fieldId('supply')}
+              aria-label="Total supply"
+              value={supply}
+              onValueChange={(raw) => setSupply(normalizeFtSupplyInput(raw))}
+              maxDecimals={0}
+              unit={symbol.trim() || 'tokens'}
+              placeholder="1000000"
+              disabled={pending}
+              invalid={Boolean(supply.trim() && supplyError)}
+            />
+            <small>
+              {supplyError
+                ? supplyError
+                : supply.trim()
+                  ? 'Minted to you'
+                  : 'Enter total supply'}
+            </small>
+          </div>
 
-        <div className="guild-field">
-          <span id={fieldId('supply-label')}>Supply</span>
-          <AmountField
-            id={fieldId('supply')}
-            aria-label="Total supply"
-            value={supply}
-            onValueChange={(raw) => setSupply(normalizeFtSupplyInput(raw))}
-            maxDecimals={0}
-            unit={symbol.trim() || 'tokens'}
-            placeholder="1000000"
-            disabled={pending}
-            invalid={Boolean(supply.trim() && supplyError)}
-          />
-          <small>
-            {supplyError
-              ? supplyError
-              : supply.trim()
-                ? 'Minted to you'
-                : 'Enter total supply'}
-          </small>
-        </div>
+          <div className="guild-field" role="status">
+            <span>Contract</span>
+            <p
+              className={`token-create-contract-id dao-create-mono os-field-status-lip${
+                accountFieldClass ? ` ${accountFieldClass}` : ''
+              }`}
+            >
+              {contractId ||
+                (accountId ? `${derivedSubaccount || '…'}.${accountId}` : '…')}
+            </p>
+            <small className={accountFieldClass}>{accountLead}</small>
+          </div>
 
-        <div className="guild-field" role="status">
-          <span>Contract</span>
-          <p
-            className={`token-create-contract-id dao-create-mono${
-              accountFieldClass ? ` ${accountFieldClass}` : ''
-            }`}
-          >
-            {contractId ||
-              (accountId
-                ? `${derivedSubaccount || '…'}.${accountId}`
-                : '…')}
-          </p>
-          <small className={accountFieldClass}>{accountLead}</small>
-        </div>
+          <label className="dao-create-toggle">
+            <input
+              type="checkbox"
+              checked={renounceOwner}
+              onChange={(event) => setRenounceOwner(event.target.checked)}
+              disabled={pending}
+            />
+            <span>
+              Lock admin
+              <small>Freeze icon, ownership, and reference.</small>
+            </span>
+          </label>
 
-        <label className="dao-create-toggle">
-          <input
-            type="checkbox"
-            checked={renounceOwner}
-            onChange={(event) => setRenounceOwner(event.target.checked)}
-            disabled={pending}
-          />
-          <span>
-            Lock admin
-            <small>Freeze icon, ownership, and reference.</small>
-          </span>
-        </label>
+          {phase !== 'idle' ? (
+            <TokenCreateStepThread phase={phase} includeLock={renounceOwner} />
+          ) : null}
 
-        {phase !== 'idle' ? (
-          <TokenCreateStepThread phase={phase} includeLock={renounceOwner} />
-        ) : null}
-
-        {error ? (
-          <p className="token-create-note is-warn" role="alert">
-            {error}
-          </p>
-        ) : null}
-      </form>
+          {error ? (
+            <p className="token-create-note is-warn" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </form>
       </OsHugSheet>
       <InfoDrawer
         open={infoOpen}

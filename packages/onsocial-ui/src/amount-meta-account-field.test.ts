@@ -9,6 +9,10 @@ const accountFieldCss = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), '../os-account-field.css'),
   'utf8'
 );
+const fieldCss = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), '../os-field.css'),
+  'utf8'
+);
 
 describe('AmountFieldMetaRow', () => {
   it('exports the meta row', () => {
@@ -22,15 +26,19 @@ describe('OsAccountField', () => {
     expect(osAccountFieldClassName).toBe('os-account-field');
   });
 
-  it('paints status as a top lip, not the whole border', () => {
-    const bordered = accountFieldCss.split('Soft chrome has no border')[0];
-    expect(bordered).toMatch(
-      /\.os-account-field\.is-available:focus-within[\s\S]*?border-top-color:\s*var\(--protocol-green\);[\s\S]*?box-shadow:\s*inset 0 1px 0 var\(--protocol-green\);/
+  it('paints status as one radius-clipped top lip', () => {
+    expect(fieldCss).toMatch(/--os-field-lip:\s*var\(--protocol-green\);/);
+    expect(fieldCss).toMatch(/--os-field-lip:\s*var\(--protocol-red\);/);
+    expect(fieldCss).toMatch(
+      /--os-field-lip:\s*var\(--protocol-amber,\s*#d97706\);/
     );
-    expect(bordered).toMatch(/border-top-color:\s*var\(--protocol-red\);/);
-    expect(bordered).toMatch(
-      /border-top-color:\s*var\(--protocol-amber,\s*#d97706\);/
+    expect(fieldCss).toMatch(/inset:\s*-1px;/);
+    expect(fieldCss).toMatch(/padding:\s*2px 0 0;/);
+    expect(fieldCss).toMatch(/mask-composite:\s*exclude;/);
+    expect(fieldCss).toMatch(
+      /\.os-field-soft:is\(\.is-available, \.is-taken, \.is-warn\)::after \{[^}]*inset:\s*0;/
     );
-    expect(bordered).not.toMatch(/border-color:\s*var\(--protocol-/);
+    expect(accountFieldCss).not.toMatch(/border-top-color:/);
+    expect(accountFieldCss).not.toMatch(/border-color:\s*var\(--protocol-/);
   });
 });
