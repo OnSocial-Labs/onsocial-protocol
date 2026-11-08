@@ -43,6 +43,7 @@ export function StandingPanelContent() {
   const { endorsementLedger } = useViewerEndorsement(accountId);
 
   const isSearchEmpty = Boolean(query.trim());
+  const searchStillPending = isSearchEmpty && !searchSettled;
   const listAccounts = useMemo(
     () =>
       overlayViewerEndorsedOnAccounts(
@@ -63,46 +64,49 @@ export function StandingPanelContent() {
         )
       ) : null}
 
-      {actionError ? (
-        <OsChromeListAlert message={actionError} />
-      ) : null}
+      {actionError ? <OsChromeListAlert message={actionError} /> : null}
 
       <div
         className={`standing-panel-body${
-          isListRefreshing && !showListSkeleton ? ' is-refreshing' : ''
+          (isListRefreshing || (searchStillPending && listHasRows)) &&
+          !showListSkeleton
+            ? ' is-refreshing'
+            : ''
         }`}
       >
         {showListSkeleton ? (
           <ProfileSocialListSkeleton />
         ) : listAccounts.length === 0 ? (
-          !query.trim() || searchSettled ? (
-          <div
-            className={`standing-panel-empty-block${
-              isSearchEmpty ? ' is-search' : ''
-            }`}
-          >
-            <div className="standing-panel-empty-state">
-              <p className="standing-panel-empty-primary">{emptyState.primary}</p>
-              {emptyState.secondary ? (
-                <p className="standing-panel-empty-secondary">
-                  {emptyState.secondary}
+          searchStillPending ? null : (
+            <div
+              className={`standing-panel-empty-block${
+                isSearchEmpty ? ' is-search' : ''
+              }`}
+            >
+              <div className="standing-panel-empty-state">
+                <p className="standing-panel-empty-primary">
+                  {emptyState.primary}
                 </p>
-              ) : null}
-              {emptyState.showClearSearch || emptyState.showDiscover ? (
-                <div className="standing-panel-empty-actions">
-                  {emptyState.showClearSearch ? (
-                    <OsEmptyAction onClick={clearSearch}>
-                      Clear search
-                    </OsEmptyAction>
-                  ) : null}
-                  {emptyState.showDiscover ? (
-                    <StandingDiscoverLink closeOverlay />
-                  ) : null}
-                </div>
-              ) : null}
+                {emptyState.secondary ? (
+                  <p className="standing-panel-empty-secondary">
+                    {emptyState.secondary}
+                  </p>
+                ) : null}
+                {emptyState.showClearSearch || emptyState.showDiscover ? (
+                  <div className="standing-panel-empty-actions">
+                    {emptyState.showClearSearch ? (
+                      <OsEmptyAction onClick={clearSearch}>
+                        Clear search
+                      </OsEmptyAction>
+                    ) : null}
+                    {emptyState.showDiscover ? (
+                      <StandingDiscoverLink closeOverlay />
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </div>
-          </div>
-          ) : null
+          )
         ) : (
           <ProfileSocialList
             accounts={listAccounts}

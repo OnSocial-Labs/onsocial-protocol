@@ -263,7 +263,6 @@ export function StandingPanelProvider({
     }, 220);
     return () => window.clearTimeout(id);
   }, [trimmedSearch]);
-  const searchSettled = !trimmedSearch || settledSearch === trimmedSearch;
   const [activeKind, setActiveKind] = useState(
     isDaoSubject ? 'incoming' : kind
   );
@@ -277,9 +276,15 @@ export function StandingPanelProvider({
   const [accounts, setAccounts] = useState<StandingAccountSummary[]>(
     () => initialList?.accounts ?? []
   );
+  const paintedAccountsRef = useRef(accounts);
+  paintedAccountsRef.current = accounts;
   const [listTotal, setListTotal] = useState(() => initialList?.total ?? 0);
   const [hasMore, setHasMore] = useState(() => initialList?.hasMore ?? false);
   const [isLoading, setIsLoading] = useState(() => initialList == null);
+  // Debounce and the in-flight read are both pending. "No matches" waits
+  // until this is true, so the empty line cannot land ahead of the results.
+  const searchSettled =
+    !trimmedSearch || (settledSearch === trimmedSearch && !isLoading);
   const [isListRefreshing, setIsListRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -584,6 +589,11 @@ export function StandingPanelProvider({
       setIsListRefreshing(dimExisting);
       setLoadError(null);
       setRelationshipSynced(loadPlan === 'signed-out-ready');
+    } else if (paintedAccountsRef.current.length > 0) {
+      // Keep the last people on screen, dimmed, until this read settles.
+      setIsLoading(true);
+      setIsListRefreshing(true);
+      setLoadError(null);
     } else {
       setAccounts([]);
       setListTotal(0);
