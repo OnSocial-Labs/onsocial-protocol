@@ -85,6 +85,17 @@ describe('shell catalogs', () => {
     expect(en.discover.profiles).toBe('Profiles');
     expect(en.discover.topics).toBe('Topics');
     expect(en.discover.tickers).toBe('Tickers');
+    expect(en.discover.filterProfiles).toBe('Filter profiles');
+    expect(en.discover.people).toBe('People');
+    expect(en.discover.orgs).toBe('Orgs');
+    expect(en.discover.offers).toBe('Offers');
+    expect(en.discover.hiring).toBe('Hiring');
+    expect(en.discover.nearDaos).toBe('NEAR DAOs');
+    expect(en.discover.trendingTopics).toBe('Trending topics');
+    expect(en.discover.trendingTickers).toBe('Trending tickers');
+    expect(en.discover.hotPosts).toBe('Hot posts');
+    expect(en.discover.seeAll).toBe('See all');
+    expect(en.discover.nothingMoving).toBe('Nothing moving yet.');
     expect(en.apps.groups).toBe('Guilds');
     expect(en.apps.hubs).toBe('Hubs');
     expect(en.apps.daos).toBe('DAOs');
@@ -127,6 +138,17 @@ describe('shell catalogs', () => {
     expect(cardPl('members', { count: 1 })).toBe('członek');
     expect(cardPl('members', { count: 4 })).toBe('członków');
     expect(cardPl('members', { count: 12 })).toBe('członków');
+    const discover = createTranslator({
+      locale: 'en',
+      messages: en,
+      namespace: 'discover',
+    });
+    expect(discover('loadingMoving')).toBe("Loading what's moving…");
+    expect(discover('topicsIn', { tag: 'music' })).toBe('Topics · #music');
+    expect(discover('tickersIn', { ticker: 'NEAR' })).toBe('Tickers · $NEAR');
+    expect(discover('profileCount', { count: '12.5K' })).toBe('12.5K profiles');
+    expect(discover('profileCountOne')).toBe('1 profiles');
+    expect(discover('daoCount', { count: '5,310' })).toBe('5,310 NEAR DAOs');
   });
 
   it('maps each create-form error onto its English sentence', () => {

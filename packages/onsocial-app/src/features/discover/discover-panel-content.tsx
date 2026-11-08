@@ -19,7 +19,7 @@ import { DiscoverTrendingPanel } from '@/features/discover/discover-trending-pan
 import { DiscoverFaceFilterRail } from '@/features/discover/discover-face-filter-rail';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
 import { excludeRecommendedFromList } from '@/lib/discover-recommended';
-import { discoverProfilesLead } from '@/lib/discover-tab-lead';
+import { useDiscoverProfilesLead } from '@/features/discover/use-discover-leads';
 import { fetchOfferCounts } from '@/lib/profile-offers';
 import { OsEmptyAction } from '@/lib/os-empty-action';
 import { resolveAppLoadingPresentation } from '@/lib/app-loading-contract';
@@ -68,6 +68,12 @@ export function DiscoverPanelContent() {
     handleUpdateStanding,
     initialTrending,
   } = useDiscoverPanel();
+  const profilesLead = useDiscoverProfilesLead(
+    discoverableTotal,
+    face,
+    industry,
+    craft
+  );
   const [visitedTabs, setVisitedTabs] = useState(
     () => new Set<DiscoverTab>([tab])
   );
@@ -136,15 +142,7 @@ export function DiscoverPanelContent() {
 
       {visitedTabs.has('profiles') ? (
         <div hidden={tab !== 'profiles'}>
-          <DiscoverTabLead>
-            {discoverProfilesLead(
-              discoverableTotal,
-              query,
-              face,
-              industry,
-              craft
-            )}
-          </DiscoverTabLead>
+          <DiscoverTabLead>{profilesLead}</DiscoverTabLead>
           <DiscoverFaceFilterRail />
 
           {loadError ? (

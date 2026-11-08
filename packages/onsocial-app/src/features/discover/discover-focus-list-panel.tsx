@@ -6,9 +6,10 @@ import type { HashtagCount, TickerCount } from '@onsocial/sdk';
 import { DiscoverFocusListSkeleton } from '@/features/discover/discover-loading-skeleton';
 import { DiscoverTabLead } from '@/features/discover/discover-tab-lead';
 import {
-  discoverTopicsLead,
-  discoverTickersLead,
-} from '@/lib/discover-tab-lead';
+  useDiscoverTickersLead,
+  useDiscoverTopicsLead,
+} from '@/features/discover/use-discover-leads';
+import { useTranslations } from 'next-intl';
 import { homeHashtagPath } from '@/features/home/home-hashtag-search';
 import {
   formatTickerDisplay,
@@ -36,6 +37,9 @@ export function DiscoverFocusListPanel({
   /** SSR trending seed when the filter is empty. */
   initialRows?: Array<HashtagCount | TickerCount> | null;
 }) {
+  const t = useTranslations('shell');
+  const topicsLead = useDiscoverTopicsLead(filterPrefix);
+  const tickersLead = useDiscoverTickersLead(filterPrefix);
   const [rows, setRows] = useState<Array<HashtagCount | TickerCount>>(() =>
     !filterPrefix && initialRows ? initialRows : []
   );
@@ -104,29 +108,31 @@ export function DiscoverFocusListPanel({
   const isRefreshing = loading && rows.length > 0;
 
   const emptyPrimary = filterPrefix
-    ? 'No matches.'
+    ? t('discover.noMatches')
     : kind === 'ticker'
-      ? 'No trending tickers yet.'
-      : 'No trending topics yet.';
+      ? t('discover.noTrendingTickers')
+      : t('discover.noTrendingTopics');
 
   return (
     <div
       id={tabId}
       className="discover-focus-list"
       role="tabpanel"
-      aria-label={kind === 'ticker' ? 'Tickers' : 'Topics'}
+      aria-label={
+        kind === 'ticker' ? t('discover.tickers') : t('discover.topics')
+      }
       aria-busy={loading || undefined}
     >
       <DiscoverTabLead>
-        {kind === 'ticker'
-          ? discoverTickersLead(filterPrefix)
-          : discoverTopicsLead(filterPrefix)}
+        {kind === 'ticker' ? tickersLead : topicsLead}
       </DiscoverTabLead>
 
       {showColdSkeleton ? (
         <>
           <p className="sr-only">
-            Loading {kind === 'ticker' ? 'tickers' : 'topics'}…
+            {kind === 'ticker'
+              ? t('discover.loadingTickers')
+              : t('discover.loadingTopics')}
           </p>
           <DiscoverFocusListSkeleton />
         </>
@@ -141,7 +147,7 @@ export function DiscoverFocusListPanel({
           <p className="standing-panel-empty-primary">{emptyPrimary}</p>
           {filterPrefix ? null : (
             <p className="standing-panel-empty-secondary">
-              Open one to see matching posts in Home.
+              {t('discover.openInHome')}
             </p>
           )}
         </div>

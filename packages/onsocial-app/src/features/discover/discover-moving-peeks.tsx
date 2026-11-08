@@ -37,6 +37,7 @@ import {
 } from '@/lib/post-display';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 import { postThreadPath } from '@/lib/post-routes';
+import { useTranslations } from 'next-intl';
 
 const SECTION_LIMIT = 6;
 
@@ -49,6 +50,7 @@ export function MovingSectionHead({
   meta?: string | null;
   seeAll?: { href?: string; onClick?: () => void } | null;
 }) {
+  const t = useTranslations('shell');
   return (
     <div className="discover-trending-section-head">
       <div className="discover-trending-heading-row">
@@ -57,7 +59,7 @@ export function MovingSectionHead({
       </div>
       {seeAll?.href ? (
         <Link href={seeAll.href} className="discover-trending-see-all">
-          See all
+          {t('discover.seeAll')}
         </Link>
       ) : seeAll?.onClick ? (
         <button
@@ -65,7 +67,7 @@ export function MovingSectionHead({
           className="discover-trending-see-all"
           onClick={seeAll.onClick}
         >
-          See all
+          {t('discover.seeAll')}
         </button>
       ) : null}
     </div>
