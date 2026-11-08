@@ -104,8 +104,8 @@
   box-shadow: var(--os-field-bordered-lip);
 }
 
-/* Status lips (`is-available` / `is-taken` / `is-warn`) own the inset —
- * don't swap them for the default grey hover lip. */
+/* Status (`is-available` / `is-taken` / `is-warn`) owns the border color.
+   Hover and focus still move the inset lip, but do not paint over that stroke. */
 .os-field-bordered:hover:not(:disabled):not(:focus):not(:focus-within):not(
     :has(:disabled)
   ):not(.is-available):not(.is-taken):not(.is-warn) {
@@ -115,8 +115,14 @@
 
 .os-field-bordered:focus,
 .os-field-bordered:focus-within {
-  border-color: var(--os-field-bordered-border-focus);
   box-shadow: var(--os-field-bordered-lip-focus);
+}
+
+.os-field-bordered:focus:not(.is-available):not(.is-taken):not(.is-warn),
+.os-field-bordered:focus-within:not(.is-available):not(.is-taken):not(
+    .is-warn
+  ) {
+  border-color: var(--os-field-bordered-border-focus);
 }
 
 /* Soft — quiet wash, no border. */

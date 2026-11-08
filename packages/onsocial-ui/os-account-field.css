@@ -3,7 +3,8 @@
  *
  * Canonical: `.os-account-field`
  * Legacy alias: `.near-account-field`
- * Status lip tint only — never wash the fill (mood/glass shows through).
+ * Status tints the field border — the same stroke as the resting edge.
+ * Never a second inset line (that sits 1px under the border), and never wash the fill.
  * Pair with {@link OsAccountField}.
  */
 
@@ -45,7 +46,7 @@
 .os-account-field.is-available:focus-within,
 .near-account-field.is-available:focus-within {
   background: transparent;
-  box-shadow: inset 0 1px 0 var(--protocol-green);
+  border-color: var(--protocol-green);
 }
 
 .os-account-field.is-taken,
@@ -55,7 +56,7 @@
 .os-account-field.is-taken:focus-within,
 .near-account-field.is-taken:focus-within {
   background: transparent;
-  box-shadow: inset 0 1px 0 var(--protocol-red);
+  border-color: var(--protocol-red);
 }
 
 .os-account-field.is-warn,
@@ -65,6 +66,37 @@
 .os-account-field.is-warn:focus-within,
 .near-account-field.is-warn:focus-within {
   background: transparent;
+  border-color: var(--protocol-amber, #d97706);
+}
+
+/* Soft chrome has no border. Its lip is the inset, so status colors that stroke. */
+.os-account-field.is-available.os-field-soft,
+.near-account-field.is-available.os-field-soft,
+.os-account-field.is-available.os-field-soft:hover,
+.near-account-field.is-available.os-field-soft:hover,
+.os-account-field.is-available.os-field-soft:focus-within,
+.near-account-field.is-available.os-field-soft:focus-within {
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 var(--protocol-green);
+}
+
+.os-account-field.is-taken.os-field-soft,
+.near-account-field.is-taken.os-field-soft,
+.os-account-field.is-taken.os-field-soft:hover,
+.near-account-field.is-taken.os-field-soft:hover,
+.os-account-field.is-taken.os-field-soft:focus-within,
+.near-account-field.is-taken.os-field-soft:focus-within {
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 var(--protocol-red);
+}
+
+.os-account-field.is-warn.os-field-soft,
+.near-account-field.is-warn.os-field-soft,
+.os-account-field.is-warn.os-field-soft:hover,
+.near-account-field.is-warn.os-field-soft:hover,
+.os-account-field.is-warn.os-field-soft:focus-within,
+.near-account-field.is-warn.os-field-soft:focus-within {
+  border-color: transparent;
   box-shadow: inset 0 1px 0 var(--protocol-amber, #d97706);
 }
 
