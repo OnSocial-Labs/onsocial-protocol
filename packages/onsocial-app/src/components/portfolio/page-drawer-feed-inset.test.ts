@@ -166,7 +166,7 @@ describe('page drawer feed inset', () => {
   });
 
   it('shares the gutter and derives dock clearance from the control box', () => {
-    expect(globalsCss).toMatch(/--os-gutter:\s*0\.75rem;/);
+    expect(globalsCss).toMatch(/--os-gutter:\s*0\.5rem;/);
     expect(globalsCss).toMatch(/--os-dock-height:\s*3\.25rem;/);
     expect(globalsCss).toMatch(
       /--portfolio-dock-clearance:\s*calc\(\s*var\(--os-dock-height\) \+ var\(--os-dock-bottom-offset\) \+\s*var\(--os-dock-clearance-gap\) \+ env\(safe-area-inset-bottom, 0px\)/
@@ -176,9 +176,9 @@ describe('page drawer feed inset', () => {
     expect(globalsCss).toMatch(/--os-dock-clearance-gap:\s*0\.85rem;/);
   });
 
-  it('uses the page gutter on the page drawer', () => {
+  it('uses the 1rem sheet pad on the page drawer, not the page gutter', () => {
     expect(globalsCss).toMatch(
-      /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[\s\S]*?height: 100%;[\s\S]*?max-height: none;[\s\S]*?--os-screen-body-pad-x: var\(--os-sheet-pad-inline, 0\.75rem\);/
+      /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[\s\S]*?height: 100%;[\s\S]*?max-height: none;[\s\S]*?--os-screen-body-pad-x: var\(--os-sheet-pad-inline, 1rem\);/
     );
     expect(globalsCss).not.toMatch(
       /\.glass-sheet-root \.glass-sheet-panel\.page-drawer-panel \{[^}]*54rem/

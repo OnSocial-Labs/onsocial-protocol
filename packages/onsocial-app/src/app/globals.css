@@ -638,8 +638,8 @@ html:not([data-shelf-hop]) [data-feed-session='covered'] * {
   height: 100%;
   max-height: none;
   --glass-header-scrim-height: min(6.5rem, 24%);
-  /* Drawer chrome uses the same sheet pad as the page gutter. */
-  --os-screen-body-pad-x: var(--os-sheet-pad-inline, 0.75rem);
+  /* Drawer chrome uses the 1rem sheet pad, not the page gutter. */
+  --os-screen-body-pad-x: var(--os-sheet-pad-inline, 1rem);
 }
 
 /* Single scroller = sheet body. Content scrolls under the floating pill. */
@@ -3300,7 +3300,7 @@ a.os-surface-row,
     --portfolio-shelf-pull: 0.44rem;
     --portfolio-shelf-meta-gap: 0.22rem;
     /* One horizontal text gutter. html stays font-size: 100%. */
-    --os-gutter: 0.75rem;
+    --os-gutter: 0.5rem;
     /* Large face — same as .profile-avatar--lg, phone and desktop.
        Shared type / glyph ladder lives in @onsocial/ui os-surface-interactive. */
     --os-avatar-feed: 2.5rem;
@@ -3783,7 +3783,7 @@ a.os-surface-row,
 
 /*
  * Phone chrome. Feed type lives on the shared :root block above.
- * Root font stays 100%; gutter is `--os-gutter` (0.75rem). A taller dock
+ * Root font stays 100%; gutter is `--os-gutter` (0.5rem). A taller dock
  * grows upward; clearance follows --os-dock-height.
  */
 @media (max-width: 639px) {

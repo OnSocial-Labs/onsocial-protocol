@@ -2,7 +2,7 @@ import { expect, type Locator } from '@playwright/test';
 
 /**
  * Page roots share `.os-app-chrome-page`. Horizontal padding is `--os-gutter`
- * (0.75rem), read from the computed root font size.
+ * (0.5rem), read from the computed root font size.
  */
 export async function expectChromePageInset(root: Locator): Promise<void> {
   await expect(root).toBeVisible();
@@ -17,9 +17,9 @@ export async function expectChromePageInset(root: Locator): Promise<void> {
           .getPropertyValue('--os-gutter')
           .trim();
         const style = getComputedStyle(el);
-        const expected = `${rootFont * 0.75}px`;
-        // Browsers may serialize 0.75rem as `.75rem`.
-        const gutterOk = gutter === '0.75rem' || gutter === '.75rem';
+        const expected = `${rootFont * 0.5}px`;
+        // Browsers may serialize 0.5rem as `.5rem`.
+        const gutterOk = gutter === '0.5rem' || gutter === '.5rem';
         const ok =
           gutterOk &&
           style.paddingLeft === expected &&
