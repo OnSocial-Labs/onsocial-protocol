@@ -10,7 +10,8 @@ import {
   LauncherSocialPeekSkeleton,
   LAUNCHER_PEEK_DISPLAY_LIMIT,
 } from '@/components/launcher-home';
-import { usePeekOverflowLabel } from '@/lib/use-shell';
+import { usePeekOverflowLabel, useShellHomeMessage } from '@/lib/use-shell';
+import { useTranslations } from 'next-intl';
 import type { AppView } from '@/features/scarces/apps-data';
 import { collectionCurrentRowToView } from '@/features/scarces/collections-data';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
@@ -194,7 +195,9 @@ export function HubsLatestDropsPanel({
   );
   const creatorProfiles = usePostAuthorProfiles(creatorIds);
   const discoverHubsHref = appDiscoverTabHref('hubs');
+  const t = useTranslations('shell');
   const overflowLabel = usePeekOverflowLabel(peeks?.length ?? 0, 'discover');
+  const shownError = useShellHomeMessage(error ?? '');
 
   if (!accountId) {
     return null;
@@ -203,7 +206,7 @@ export function HubsLatestDropsPanel({
   if (error && peeks == null) {
     return (
       <LauncherHomeError
-        message={error}
+        message={shownError}
         onRetry={() => setRetryKey((value) => value + 1)}
       />
     );
@@ -218,7 +221,7 @@ export function HubsLatestDropsPanel({
   }
 
   if (!peeks || peeks.length === 0) {
-    return <LauncherHomeEmpty>Nothing new right now.</LauncherHomeEmpty>;
+    return <LauncherHomeEmpty>{t('homeEmpty.nothingNew')}</LauncherHomeEmpty>;
   }
 
   return (

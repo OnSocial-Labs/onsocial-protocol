@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { APP_LOCALES } from './locale';
+import { SHELL_HOME_FALLBACKS } from './shell-label';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../../messages');
 const en = JSON.parse(readFileSync(join(root, 'en/shell.json'), 'utf8'));
@@ -37,6 +38,19 @@ describe('shell catalogs', () => {
     expect(en.theme.light).toBe('Light');
     expect(en.theme.dark).toBe('Dark');
     expect(en.peekOverflow).toBe('{count, plural, other {# more in {place}}}');
+    expect(en.dock.swipeHint).toBe('Swipe up · hold for apps');
+    expect(en.dock.swipeHold).toBe('Swipe up for page content. Hold for apps.');
+    expect(en.homeEmpty.nothingNew).toBe('Nothing new right now.');
+    expect(en.homeEmpty.guildsNone).toBe(
+      'You haven’t joined a guild yet. Tap Search to explore, or + to start one.'
+    );
+  });
+
+  it('maps each launcher error fallback onto its English sentence', () => {
+    for (const [sentence, key] of Object.entries(SHELL_HOME_FALLBACKS)) {
+      const [group, name] = key.split('.');
+      expect(en[group][name]).toBe(sentence);
+    }
   });
 
   it('lists every locale under its own name in every catalog', () => {

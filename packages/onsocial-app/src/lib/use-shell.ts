@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { LAUNCHER_PEEK_DISPLAY_LIMIT } from '@/components/launcher-home/launcher-home-copy';
 import type { EntityIdAvailability } from '@/hooks/use-entity-id-availability';
+import { shellHomeFallbackKey } from '@/lib/shell-label';
 
 export function usePeekOverflowLabel(
   total: number,
@@ -14,6 +15,13 @@ export function usePeekOverflowLabel(
   if (remaining <= 0) return null;
   const place = destination === 'home' ? t('apps.home') : t('apps.discover');
   return t('peekOverflow', { count: remaining, place });
+}
+
+/** Translate a known launcher fallback. Other messages stay as stored. */
+export function useShellHomeMessage(message: string): string {
+  const t = useTranslations('shell');
+  const key = shellHomeFallbackKey(message);
+  return key ? t(key) : message;
 }
 
 export function useEntityIdLead(status: EntityIdAvailability): string {

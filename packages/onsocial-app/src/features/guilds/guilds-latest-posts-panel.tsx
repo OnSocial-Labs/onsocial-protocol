@@ -10,7 +10,8 @@ import {
   LauncherSocialPeekSkeleton,
   LAUNCHER_PEEK_DISPLAY_LIMIT,
 } from '@/components/launcher-home';
-import { usePeekOverflowLabel } from '@/lib/use-shell';
+import { usePeekOverflowLabel, useShellHomeMessage } from '@/lib/use-shell';
+import { useTranslations } from 'next-intl';
 import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -237,7 +238,9 @@ export function GuildsLatestPostsPanel({
   }, [resolvedPosts, visiblePeeks]);
 
   const authorProfiles = usePostAuthorProfiles(authorIds);
+  const t = useTranslations('shell');
   const overflowLabel = usePeekOverflowLabel(peeks?.length ?? 0, 'home');
+  const shownError = useShellHomeMessage(error ?? '');
 
   if (!accountId) {
     return null;
@@ -246,7 +249,7 @@ export function GuildsLatestPostsPanel({
   if (error && peeks == null) {
     return (
       <LauncherHomeError
-        message={error}
+        message={shownError}
         onRetry={() => setRetryKey((value) => value + 1)}
       />
     );
@@ -261,7 +264,7 @@ export function GuildsLatestPostsPanel({
   }
 
   if (!peeks || peeks.length === 0) {
-    return <LauncherHomeEmpty>Nothing new right now.</LauncherHomeEmpty>;
+    return <LauncherHomeEmpty>{t('homeEmpty.nothingNew')}</LauncherHomeEmpty>;
   }
 
   return (

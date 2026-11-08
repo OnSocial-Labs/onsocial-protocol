@@ -2,9 +2,11 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { LAUNCHER_HOME_PAGE_CLASS } from '@/lib/os-chrome-page';
+import { useShellHomeMessage } from '@/lib/use-shell';
 import { OS_INDEX_LEAVE_HREF } from '@/lib/os-leave';
 import {
   LauncherHomeMineStatus,
@@ -79,12 +81,14 @@ function seedMyDaos(accountId: string | null): MyDaoMembership[] | null {
  */
 export function DaosIndexPanel() {
   const { accountId } = useAppWallet();
+  const t = useTranslations('shell');
   const searchParams = useSearchParams();
   const router = useRouter();
   const [myDaos, setMyDaos] = useState<MyDaoMembership[] | null>(() =>
     seedMyDaos(accountId)
   );
   const [loadError, setLoadError] = useState<string | null>(null);
+  const shownError = useShellHomeMessage(loadError ?? '');
   const [retryKey, setRetryKey] = useState(0);
   const accountIdRef = useRef(accountId);
   const myDaosRef = useRef(myDaos);
@@ -277,11 +281,11 @@ export function DaosIndexPanel() {
           <LauncherHomeMineStatus
             connected={Boolean(accountId)}
             loading={!myDaosReady}
-            error={loadError}
+            error={loadError ? shownError : null}
             onRetry={() => setRetryKey((value) => value + 1)}
-            emptyLoggedOut="Connect to see DAOs you’ve joined — or tap search to explore."
-            emptyNone="You haven’t joined a DAO yet. Tap Search to explore, or + to start one."
-            loadingLabel="Loading your DAOs…"
+            emptyLoggedOut={t('homeEmpty.daosLoggedOut')}
+            emptyNone={t('homeEmpty.daosNone')}
+            loadingLabel={t('homeEmpty.daosLoading')}
             loadingSkeleton={<LauncherMineRailSkeleton count={4} />}
             hasItems={myEntries.length > 0}
           >

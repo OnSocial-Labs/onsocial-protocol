@@ -36,7 +36,28 @@
   },
   "dock": {
     "connect": "Connect",
-    "back": "Back"
+    "back": "Back",
+    "swipeHint": "Swipe up · hold for apps",
+    "swipeHold": "Swipe up for page content. Hold for apps."
+  },
+  "homeEmpty": {
+    "nothingNew": "Nothing new right now.",
+    "nothingOpen": "Nothing open right now.",
+    "guildsLoggedOut": "Connect to see guilds you’ve joined — or tap search to explore.",
+    "guildsNone": "You haven’t joined a guild yet. Tap Search to explore, or + to start one.",
+    "guildsLoading": "Loading your guilds…",
+    "hubsLoggedOut": "Connect to see hubs you’ve joined — or tap search to explore.",
+    "hubsNone": "You haven’t joined a hub yet. Tap Search to explore, or + to start one.",
+    "hubsLoading": "Loading your hubs…",
+    "daosLoggedOut": "Connect to see DAOs you’ve joined — or tap search to explore.",
+    "daosNone": "You haven’t joined a DAO yet. Tap Search to explore, or + to start one.",
+    "daosLoading": "Loading your DAOs…",
+    "loadPosts": "Could not load posts.",
+    "loadDrops": "Could not load drops.",
+    "loadProposals": "Couldn’t load proposals.",
+    "loadGuilds": "Could not load guilds.",
+    "loadHubs": "Could not load hubs.",
+    "loadDaos": "Couldn’t load your DAOs."
   },
   "account": {
     "found": "Found",

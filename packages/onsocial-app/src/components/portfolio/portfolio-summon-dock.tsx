@@ -260,7 +260,7 @@ export function PortfolioSummonDock({
       >
         {showHint && !pageDrawerOpen && !write ? (
           <p className="portfolio-summon-hint" aria-hidden="true">
-            Swipe up · hold for apps
+            {t('dock.swipeHint')}
           </p>
         ) : null}
         <div className="portfolio-summon-line">
@@ -283,9 +283,7 @@ export function PortfolioSummonDock({
                 aria-haspopup="dialog"
                 aria-expanded={osOpen}
                 aria-label={
-                  pageDrawerOpen
-                    ? t('launcher.open')
-                    : 'Swipe up for page content. Hold for apps.'
+                  pageDrawerOpen ? t('launcher.open') : t('dock.swipeHold')
                 }
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}

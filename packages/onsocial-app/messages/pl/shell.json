@@ -36,7 +36,28 @@
   },
   "dock": {
     "connect": "Połącz",
-    "back": "Wstecz"
+    "back": "Wstecz",
+    "swipeHint": "Przesuń w górę · przytrzymaj, aby zobaczyć aplikacje",
+    "swipeHold": "Przesuń w górę, aby zobaczyć treść strony. Przytrzymaj, aby zobaczyć aplikacje."
+  },
+  "homeEmpty": {
+    "nothingNew": "Nic nowego.",
+    "nothingOpen": "Nic otwartego.",
+    "guildsLoggedOut": "Połącz się, aby zobaczyć gildie, do których należysz — albo stuknij wyszukiwanie.",
+    "guildsNone": "Nie należysz jeszcze do gildii. Stuknij wyszukiwanie, aby przeglądać, albo +, aby założyć.",
+    "guildsLoading": "Wczytywanie gildii…",
+    "hubsLoggedOut": "Połącz się, aby zobaczyć huby, do których należysz — albo stuknij wyszukiwanie.",
+    "hubsNone": "Nie należysz jeszcze do huba. Stuknij wyszukiwanie, aby przeglądać, albo +, aby założyć.",
+    "hubsLoading": "Wczytywanie hubów…",
+    "daosLoggedOut": "Połącz się, aby zobaczyć DAO, do których należysz — albo stuknij wyszukiwanie.",
+    "daosNone": "Nie należysz jeszcze do DAO. Stuknij wyszukiwanie, aby przeglądać, albo +, aby założyć.",
+    "daosLoading": "Wczytywanie DAO…",
+    "loadPosts": "Nie udało się wczytać wpisów.",
+    "loadDrops": "Nie udało się wczytać dropów.",
+    "loadProposals": "Nie udało się wczytać propozycji.",
+    "loadGuilds": "Nie udało się wczytać gildii.",
+    "loadHubs": "Nie udało się wczytać hubów.",
+    "loadDaos": "Nie udało się wczytać DAO."
   },
   "account": {
     "found": "Znaleziono",
