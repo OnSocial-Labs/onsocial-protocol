@@ -21,7 +21,8 @@ import {
   PROFILE_CRAFT_WRITE_IN,
   profileCraftDrawerValue,
 } from '@/lib/profile-craft-suggestions';
-import { profileIdentityTopicLabel } from '@/lib/profile-identity-topics';
+import { useTranslations } from 'next-intl';
+import { useCraftLabel, useTaxonomyChoices } from '@/lib/use-profile-taxonomy';
 import {
   PROFILE_EDITOR_MAX_TAG_LENGTH,
   PROFILE_EDITOR_MAX_TAGS,
@@ -46,6 +47,8 @@ export function ProfileTopicsEditor({
   disabled = false,
   variant = 'default',
 }: ProfileTopicsEditorProps) {
+  const t = useTranslations('shell');
+  const craftName = useCraftLabel();
   const writeFormId = useId();
   const writeInputRef = useRef<HTMLInputElement>(null);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
@@ -54,9 +57,8 @@ export function ProfileTopicsEditor({
   const [writeDraft, setWriteDraft] = useState('');
   const [hint, setHint] = useState<ProfileEditorTagCommitHint | null>(null);
   const atMax = tags.length >= PROFILE_EDITOR_MAX_TAGS;
-  const options = useMemo(
-    () => buildProfileCraftEditorOptions(tags),
-    [tags]
+  const options = useTaxonomyChoices(
+    useMemo(() => buildProfileCraftEditorOptions(tags), [tags])
   );
   const masthead = variant === 'masthead';
 
@@ -103,9 +105,7 @@ export function ProfileTopicsEditor({
   };
 
   const triggerLabel =
-    tags.length === 0
-      ? 'Choose crafts'
-      : tags.map(profileIdentityTopicLabel).join(' · ');
+    tags.length === 0 ? 'Choose crafts' : tags.map(craftName).join(' · ');
 
   return (
     <div
@@ -129,7 +129,7 @@ export function ProfileTopicsEditor({
             onClick={openPicker}
           >
             {tags.length === 0 ? (
-              'Writer, designer…'
+              t('taxonomy.craftExamples')
             ) : (
               <span className="portfolio-topics account-editor-topics-list">
                 {tags.map((slug, index) => (
@@ -140,7 +140,7 @@ export function ProfileTopicsEditor({
                       </span>
                     ) : null}
                     <span className="portfolio-topics-label">
-                      {profileIdentityTopicLabel(slug)}
+                      {craftName(slug)}
                     </span>
                   </span>
                 ))}
@@ -159,12 +159,12 @@ export function ProfileTopicsEditor({
                       </span>
                     ) : null}
                     <span className="portfolio-topics-label">
-                      {profileIdentityTopicLabel(slug)}
+                      {craftName(slug)}
                     </span>
                     <button
                       type="button"
                       className="account-editor-topic-remove"
-                      aria-label={`Remove ${profileIdentityTopicLabel(slug)}`}
+                      aria-label={`Remove ${craftName(slug)}`}
                       disabled={disabled}
                       onClick={() => {
                         onChange(removeProfileEditorTag(tags, slug));
@@ -195,7 +195,11 @@ export function ProfileTopicsEditor({
               }
               onClick={openPicker}
             >
-              {tags.length === 0 ? 'Writer, designer…' : atMax ? 'Change' : 'Add'}
+              {tags.length === 0
+                ? t('taxonomy.craftExamples')
+                : atMax
+                  ? 'Change'
+                  : 'Add'}
             </button>
           </>
         )}
@@ -209,7 +213,7 @@ export function ProfileTopicsEditor({
       <ChoiceDrawer
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        label="Crafts"
+        label={t('taxonomy.sectionCrafts')}
         copy="Up to 3. Tap again to remove."
         value={profileCraftDrawerValue(tags)}
         options={options}

@@ -6,7 +6,8 @@ import type { DiscoverFaceFilter } from '@onsocial/sdk';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
 import { discoverEmptyLine } from '@/lib/discover-empty-state';
 import { formatDiscoverTabCount } from '@/lib/discover-tab-lead';
-import { profileIdentityTopicLabel } from '@/lib/profile-identity-topics';
+import { embeddedTaxonomyKey } from '@/lib/profile-taxonomy-label';
+import { useCraftLabel, useIndustryLabel } from '@/lib/use-profile-taxonomy';
 
 export function useDiscoverFaceLabel(): (id: DiscoverFaceFilter) => string {
   const t = useTranslations('shell');
@@ -31,7 +32,7 @@ export function useDiscoverFaceLabel(): (id: DiscoverFaceFilter) => string {
   );
 }
 
-/** Same sentences as `discoverProfilesLead`. Craft and industry names stay as stored. */
+/** Same sentences as `discoverProfilesLead`. Known industry and craft names translate. */
 export function useDiscoverProfilesLead(
   discoverableTotal: number | null | undefined,
   face: DiscoverFaceFilter = 'all',
@@ -39,10 +40,10 @@ export function useDiscoverProfilesLead(
   craft = ''
 ): string {
   const t = useTranslations('shell');
-  const sector = industry.trim();
-  const craftLabel = craft.trim()
-    ? profileIdentityTopicLabel(craft.trim())
-    : '';
+  const industryName = useIndustryLabel();
+  const craftName = useCraftLabel();
+  const sector = industry.trim() ? industryName(industry.trim()) : '';
+  const craftLabel = craft.trim() ? craftName(craft.trim()) : '';
   if (craftLabel) return t('discover.peopleIn', { name: craftLabel });
   if (face === 'offers') return t('discover.offers');
   if (face === 'hiring') {
@@ -89,7 +90,10 @@ export function useDiscoverEmptyLine(message: string | undefined): string {
   if (!message) return '';
   const mapped = discoverEmptyLine(message);
   if (!mapped) return message;
-  return mapped.values ? t(mapped.key, mapped.values) : t(mapped.key);
+  if (!mapped.values?.name) return t(mapped.key);
+  const nameKey = embeddedTaxonomyKey(mapped.key, mapped.values.name);
+  const name = nameKey ? t(nameKey) : mapped.values.name;
+  return t(mapped.key, { name });
 }
 
 /** Idle placeholder stays Search. Focus names the tab. Stored queries stay as typed. */

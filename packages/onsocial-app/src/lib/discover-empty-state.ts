@@ -137,7 +137,7 @@ const DISCOVER_EMPTY_PATTERNS: Array<{
   { re: /^No profiles in (.+) yet\.$/, key: 'discover.profilesInIndustry' },
 ];
 
-/** Known empty lines. Industry and craft names stay inside {name}. */
+/** Known empty lines. The captured name stays stored; display translates known ones. */
 export function discoverEmptyLine(message: string): {
   key: string;
   values?: { name: string };

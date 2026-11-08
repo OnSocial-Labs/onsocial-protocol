@@ -39,6 +39,13 @@ import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll
 import { JOBS_CHANGED_EVENT, fetchOpenJobs } from '@/lib/profile-jobs';
 import { OFFERS_CHANGED_EVENT, fetchAccountOffers } from '@/lib/profile-offers';
 import { SHEET_Z } from '@/lib/sheet-z';
+import { useTranslations } from 'next-intl';
+import {
+  useIndustryFallbackLabel,
+  useIndustryHint,
+  useIndustryLabel,
+  useTaxonomyChoices,
+} from '@/lib/use-profile-taxonomy';
 
 const PROFILE_INDUSTRY_CHOICES: ChoiceOption<string>[] =
   profileIndustryChoiceOptions();
@@ -64,6 +71,11 @@ export function ProfileOrgMetaEditor({
   emptyIndustryLabel?: string;
   industryHint?: string;
 }) {
+  const t = useTranslations('shell');
+  const industryName = useIndustryLabel();
+  const emptyLabel = useIndustryFallbackLabel(emptyIndustryLabel);
+  const industryHintCopy = useIndustryHint(industryHint);
+  const industryChoices = useTaxonomyChoices(PROFILE_INDUSTRY_CHOICES);
   const locationFormId = useId();
   const industryFormId = useId();
   const industryInputRef = useRef<HTMLInputElement>(null);
@@ -129,7 +141,10 @@ export function ProfileOrgMetaEditor({
     window.setTimeout(() => industryInputRef.current?.focus(), 0);
   }, [industryWriteOpen]);
 
-  const industryLabel = industry.trim() || emptyIndustryLabel;
+  const storedIndustry = industry.trim();
+  const industryLabel = storedIndustry
+    ? industryName(storedIndustry)
+    : emptyLabel;
   const locationLabel = location.trim() || 'Location';
   const hiringLabel = hiringLineLabel(jobCount);
   const offerLabel = offerLineLabel(offerCount);
@@ -251,10 +266,10 @@ export function ProfileOrgMetaEditor({
       <ChoiceDrawer
         open={industryOpen}
         onClose={() => setIndustryOpen(false)}
-        label="Industry"
-        copy={industryHint}
+        label={t('discover.industry')}
+        copy={industryHintCopy}
         value={profileIndustryDrawerValue(industry)}
-        options={PROFILE_INDUSTRY_CHOICES}
+        options={industryChoices}
         onChange={handleIndustryChoice}
         zIndex={SHEET_Z.confirm}
       />

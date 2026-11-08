@@ -115,6 +115,16 @@ describe('shell catalogs', () => {
     expect(en.discover.more).toBe('More');
     expect(en.discover.moreArticles).toBe('More articles');
     expect(en.discover.nothingMatches).toBe('Nothing matches.');
+    expect(en.taxonomy.anyIndustry).toBe('Any industry');
+    expect(en.taxonomy.anyCraft).toBe('Any craft');
+    expect(en.taxonomy.organization).toBe('Organization');
+    expect(en.taxonomy.writeYourOwn).toBe('Write your own');
+    expect(en.taxonomy.sectionWeb3).toBe('Web3 & digital');
+    expect(en.taxonomy.craftExamples).toBe('Writer, designer…');
+    expect(en.industries.healthcare).toBe('Healthcare');
+    expect(en.industries.realEstate).toBe('Real Estate');
+    expect(en.crafts.writer).toBe('Writer');
+    expect(en.crafts.designer).toBe('Designer');
     expect(en.apps.groups).toBe('Guilds');
     expect(en.apps.hubs).toBe('Hubs');
     expect(en.apps.daos).toBe('DAOs');
@@ -171,6 +181,21 @@ describe('shell catalogs', () => {
     expect(discover('profileCount', { count: '12.5K' })).toBe('12.5K profiles');
     expect(discover('profileCountOne')).toBe('1 profiles');
     expect(discover('daoCount', { count: '5,310' })).toBe('5,310 NEAR DAOs');
+    const taxonomy = createTranslator({
+      locale: 'en',
+      messages: en,
+      namespace: 'taxonomy',
+    });
+    expect(taxonomy('people', { count: 1 })).toBe('1 person');
+    expect(taxonomy('people', { count: 12 })).toBe('12 people');
+    const taxonomyPl = createTranslator({
+      locale: 'pl',
+      messages: pl,
+      namespace: 'taxonomy',
+    });
+    expect(taxonomyPl('people', { count: 1 })).toBe('1 osoba');
+    expect(taxonomyPl('people', { count: 4 })).toBe('4 osoby');
+    expect(taxonomyPl('people', { count: 12 })).toBe('12 osób');
   });
 
   it('maps each create-form error onto its English sentence', () => {

@@ -12,10 +12,14 @@ import {
   buildDiscoverCraftChoiceOptions,
   type DiscoverCraftCount,
 } from '@/lib/profile-craft-suggestions';
-import { profileIdentityTopicLabel } from '@/lib/profile-identity-topics';
 import { SHEET_Z } from '@/lib/sheet-z';
 import { useTranslations } from 'next-intl';
 import { useDiscoverFaceLabel } from '@/features/discover/use-discover-leads';
+import {
+  useCraftLabel,
+  useIndustryLabel,
+  useTaxonomyChoices,
+} from '@/lib/use-profile-taxonomy';
 
 const FACE_ITEMS: Array<{
   id: DiscoverFaceFilter;
@@ -36,6 +40,9 @@ export function DiscoverFaceFilterRail() {
   const { face, setFace, industry, setIndustry, craft, setCraft } =
     useDiscoverPanel();
   const t = useTranslations('shell');
+  const industryName = useIndustryLabel();
+  const craftName = useCraftLabel();
+  const industryChoices = useTaxonomyChoices(INDUSTRY_CHOICES);
   const faceLabel = useDiscoverFaceLabel();
   const faceItems = FACE_ITEMS.map((item) => ({
     id: item.id,
@@ -46,20 +53,22 @@ export function DiscoverFaceFilterRail() {
   const [popularCrafts, setPopularCrafts] = useState<DiscoverCraftCount[]>([]);
   const showIndustry = face !== 'people' && face !== 'offers';
   const showCraft = face === 'people';
-  const craftLabel = craft ? profileIdentityTopicLabel(craft) : '';
-  const craftChoices = useMemo(() => {
-    const base = buildDiscoverCraftChoiceOptions(popularCrafts);
-    if (!craft || base.some((option) => option.value === craft)) return base;
-    // Deep-linked / rare custom still selected even before it hits Popular.
-    return [
-      ...base,
-      {
-        value: craft,
-        label: profileIdentityTopicLabel(craft),
-        section: 'Popular',
-      },
-    ];
-  }, [craft, popularCrafts]);
+  const craftLabel = craft ? craftName(craft) : '';
+  const craftChoices = useTaxonomyChoices(
+    useMemo(() => {
+      const base = buildDiscoverCraftChoiceOptions(popularCrafts);
+      if (!craft || base.some((option) => option.value === craft)) return base;
+      // Deep-linked / rare custom still selected even before it hits Popular.
+      return [
+        ...base,
+        {
+          value: craft,
+          label: craftName(craft),
+          section: 'Popular',
+        },
+      ];
+    }, [craft, craftName, popularCrafts])
+  );
 
   useEffect(() => {
     if (!showCraft) return;
@@ -134,7 +143,7 @@ export function DiscoverFaceFilterRail() {
                 aria-expanded={industryOpen}
                 onClick={() => setIndustryOpen(true)}
               >
-                {industry || t('discover.industry')}
+                {industry ? industryName(industry) : t('discover.industry')}
               </button>
             </div>
           </div>
@@ -157,7 +166,7 @@ export function DiscoverFaceFilterRail() {
           onClose={() => setIndustryOpen(false)}
           label={t('discover.industry')}
           value={industry}
-          options={INDUSTRY_CHOICES}
+          options={industryChoices}
           onChange={setIndustry}
           zIndex={SHEET_Z.confirm}
         />
