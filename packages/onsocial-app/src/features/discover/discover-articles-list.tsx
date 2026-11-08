@@ -9,6 +9,7 @@ import {
   type MouseEvent,
 } from 'react';
 import { ChevronLeftIcon, NoteTextFillIcon } from '@onsocial/ui';
+import { useTranslations } from 'next-intl';
 import { OsAppChromeNavSearch } from '@/components/app/os-app-chrome-nav-search';
 import { OsChromeListAlert } from '@/components/chrome/os-chrome-whisper';
 import { DiscoverArticleRow } from '@/features/discover/discover-article-row';
@@ -51,6 +52,7 @@ export function DiscoverArticlesList({
   onClose: () => void;
   onOpenArticle: (article: DiscoverCatalogArticle) => void;
 }) {
+  const t = useTranslations('shell');
   const [draft, setDraft] = useState(query);
   const [trackedQuery, setTrackedQuery] = useState(query);
   if (query !== trackedQuery) {
@@ -174,30 +176,30 @@ export function DiscoverArticlesList({
     <OsSlideOverScreen
       open={open}
       onClose={onClose}
-      title="Articles"
+      title={t('discover.articles')}
       compactChrome
       heading={
         <OsAppChromeNavSearch
           value={draft}
           onValueChange={setDraft}
-          placeholder="Search articles"
+          placeholder={t('discover.searchArticles')}
           maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
-          clearAriaLabel="Clear search"
-          ariaLabel="Search articles"
+          clearAriaLabel={t('discover.clearSearch')}
+          ariaLabel={t('discover.searchArticles')}
           idleClassName="discover-nav-search-field"
           leadingIcon={
             <NoteTextFillIcon className="search-field-icon" aria-hidden />
           }
         />
       }
-      closeAriaLabel="Back"
+      closeAriaLabel={t('dock.back')}
       closeIcon={<ChevronLeftIcon className="glass-sheet-close-icon" />}
       zIndex={SHEET_Z.discover}
       contentClassName="os-app-chrome-page discover-articles-list"
     >
       {loading ? <MarketListSkeleton rows={4} /> : null}
       {!loading && isDiscoverCatalogQuery(trimmed) && rows.length === 0 ? (
-        <p className="market-section-title">Nothing matches.</p>
+        <p className="market-section-title">{t('discover.nothingMatches')}</p>
       ) : null}
       <div ref={listRef} role="list">
         {windowed && topSpacer > 0 ? (
@@ -244,8 +246,8 @@ export function DiscoverArticlesList({
       {loadingMore ? <MarketListSkeleton rows={2} /> : null}
       {loadMoreFailed ? (
         <OsChromeListAlert
-          message="Couldn’t load more."
-          retryLabel="Retry"
+          message={t('discover.loadMoreArticles')}
+          retryLabel={t('account.retry')}
           onRetry={retryLoadMore}
         />
       ) : null}

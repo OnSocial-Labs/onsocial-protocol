@@ -374,7 +374,20 @@
     "hiringInIndustry": "No orgs hiring in {name} yet.",
     "orgsInIndustry": "No organizations in {name} yet.",
     "daosInIndustry": "No DAOs in {name} yet.",
-    "profilesInIndustry": "No profiles in {name} yet."
+    "profilesInIndustry": "No profiles in {name} yet.",
+    "articles": "Articles",
+    "searchResults": "Search results",
+    "searchFailed": "Couldn’t search.",
+    "resultsPartial": "Some results didn’t load.",
+    "nothingMatches": "Nothing matches.",
+    "searchArticles": "Search articles",
+    "more": "More",
+    "moreArticles": "More articles",
+    "morePeople": "More people",
+    "moreBooks": "More books",
+    "moreMusic": "More music",
+    "moreEvents": "More events",
+    "loadMoreArticles": "Couldn’t load more."
   },
   "guildCard": {
     "members": "{count, plural, one {member} other {members}}",

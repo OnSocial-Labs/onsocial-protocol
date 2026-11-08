@@ -109,6 +109,12 @@ describe('shell catalogs', () => {
     expect(en.discover.pressEnter).toBe(
       'Press Enter or pick a suggestion to open this in Home.'
     );
+    expect(en.discover.articles).toBe('Articles');
+    expect(en.discover.searchResults).toBe('Search results');
+    expect(en.discover.searchArticles).toBe('Search articles');
+    expect(en.discover.more).toBe('More');
+    expect(en.discover.moreArticles).toBe('More articles');
+    expect(en.discover.nothingMatches).toBe('Nothing matches.');
     expect(en.apps.groups).toBe('Guilds');
     expect(en.apps.hubs).toBe('Hubs');
     expect(en.apps.daos).toBe('DAOs');
@@ -157,6 +163,9 @@ describe('shell catalogs', () => {
       namespace: 'discover',
     });
     expect(discover('loadingMoving')).toBe("Loading what's moving…");
+    expect(discover('searchFailed')).toBe('Couldn’t search.');
+    expect(discover('resultsPartial')).toBe('Some results didn’t load.');
+    expect(discover('loadMoreArticles')).toBe('Couldn’t load more.');
     expect(discover('topicsIn', { tag: 'music' })).toBe('Topics · #music');
     expect(discover('tickersIn', { ticker: 'NEAR' })).toBe('Tickers · $NEAR');
     expect(discover('profileCount', { count: '12.5K' })).toBe('12.5K profiles');

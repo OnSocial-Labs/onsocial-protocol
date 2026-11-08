@@ -29,14 +29,7 @@ import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { fetchPersonalPost } from '@/lib/fetch-personal-post';
 import { portfolioPath } from '@/lib/overlay-routes';
 import type { PostRow } from '@onsocial/sdk';
-
-const SECTION_LABEL: Record<DiscoverCatalogSectionId, string> = {
-  people: 'People',
-  articles: 'Articles',
-  books: 'Books',
-  music: 'Music',
-  events: 'Events',
-};
+import { useTranslations } from 'next-intl';
 
 function faceInitial(label: string): string {
   const trimmed = label.trim();
@@ -143,6 +136,7 @@ function withSearch(href: string, q: string): string {
 }
 
 function MoreLink({ href, label }: { href: string; label: string }) {
+  const t = useTranslations('shell');
   return (
     <Link
       href={href}
@@ -150,13 +144,28 @@ function MoreLink({ href, label }: { href: string; label: string }) {
       className="os-surface-chip"
       aria-label={label}
     >
-      More
+      {t('discover.more')}
     </Link>
   );
 }
 
 export function DiscoverCatalogResults({ query }: { query: string }) {
   const { setTab } = useDiscoverPanel();
+  const t = useTranslations('shell');
+  const sectionLabel = (id: DiscoverCatalogSectionId) => {
+    switch (id) {
+      case 'people':
+        return t('discover.people');
+      case 'articles':
+        return t('discover.articles');
+      case 'books':
+        return t('topics.books');
+      case 'music':
+        return t('topics.music');
+      case 'events':
+        return t('topics.events');
+    }
+  };
   const [results, setResults] = useState<DiscoverCatalogResults | null>(null);
   const [loading, setLoading] = useState(true);
   const [articlesOpen, setArticlesOpen] = useState(false);
@@ -229,16 +238,20 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
   const empty = !loading && results != null && sections.length === 0;
 
   return (
-    <div role="region" aria-label="Search results" className="discover-catalog">
+    <div
+      role="region"
+      aria-label={t('discover.searchResults')}
+      className="discover-catalog"
+    >
       {loading && results == null ? <MarketListSkeleton rows={4} /> : null}
       {results?.failed && sections.length === 0 ? (
-        <p className="market-section-title">Couldn’t search.</p>
+        <p className="market-section-title">{t('discover.searchFailed')}</p>
       ) : null}
       {results?.partial ? (
-        <p className="market-section-title">Some results didn’t load.</p>
+        <p className="market-section-title">{t('discover.resultsPartial')}</p>
       ) : null}
       {empty && !results?.failed ? (
-        <p className="market-section-title">Nothing matches.</p>
+        <p className="market-section-title">{t('discover.nothingMatches')}</p>
       ) : null}
       {results
         ? sections.map((id) => (
@@ -251,7 +264,7 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
                 id={`discover-catalog-${id}`}
                 className="market-section-title"
               >
-                {SECTION_LABEL[id]}
+                {sectionLabel(id)}
               </h2>
               <div role="list">
                 {id === 'people'
@@ -339,38 +352,38 @@ export function DiscoverCatalogResults({ query }: { query: string }) {
                 <button
                   type="button"
                   className="os-surface-chip"
-                  aria-label="More articles"
+                  aria-label={t('discover.moreArticles')}
                   onClick={() => setArticlesOpen(true)}
                 >
-                  More
+                  {t('discover.more')}
                 </button>
               ) : null}
               {id === 'people' && results.peopleHasMore ? (
                 <button
                   type="button"
                   className="os-surface-chip"
-                  aria-label="More people"
+                  aria-label={t('discover.morePeople')}
                   onClick={() => setTab('profiles')}
                 >
-                  More
+                  {t('discover.more')}
                 </button>
               ) : null}
               {id === 'books' && results.booksHasMore ? (
                 <MoreLink
                   href={withSearch(dropsPath({ kind: 'writing' }), query)}
-                  label="More books"
+                  label={t('discover.moreBooks')}
                 />
               ) : null}
               {id === 'music' && results.musicHasMore ? (
                 <MoreLink
                   href={withSearch(dropsPath({ kind: 'audio' }), query)}
-                  label="More music"
+                  label={t('discover.moreMusic')}
                 />
               ) : null}
               {id === 'events' && results.eventsHasMore ? (
                 <MoreLink
                   href={withSearch(APP_EVENTS_PATH, query)}
-                  label="More events"
+                  label={t('discover.moreEvents')}
                 />
               ) : null}
             </section>

@@ -374,7 +374,20 @@
     "hiringInIndustry": "Żadna organizacja w {name} jeszcze nie rekrutuje.",
     "orgsInIndustry": "Nie ma jeszcze organizacji w {name}.",
     "daosInIndustry": "Nie ma jeszcze DAO w {name}.",
-    "profilesInIndustry": "Nie ma jeszcze profili w {name}."
+    "profilesInIndustry": "Nie ma jeszcze profili w {name}.",
+    "articles": "Artykuły",
+    "searchResults": "Wyniki wyszukiwania",
+    "searchFailed": "Nie udało się wyszukać.",
+    "resultsPartial": "Część wyników się nie wczytała.",
+    "nothingMatches": "Nic nie pasuje.",
+    "searchArticles": "Szukaj artykułów",
+    "more": "Więcej",
+    "moreArticles": "Więcej artykułów",
+    "morePeople": "Więcej ludzi",
+    "moreBooks": "Więcej książek",
+    "moreMusic": "Więcej muzyki",
+    "moreEvents": "Więcej wydarzeń",
+    "loadMoreArticles": "Nie udało się wczytać więcej."
   },
   "guildCard": {
     "members": "{count, plural, one {członek} few {członków} many {członków} other {członków}}",
